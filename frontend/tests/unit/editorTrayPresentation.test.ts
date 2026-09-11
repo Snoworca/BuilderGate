@@ -1,45 +1,30 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  countMinimizedEditorTrayWindows,
   listEditorTrayEntries,
   type EditorTrayWindow,
 } from '../../src/components/editor/editorTrayModel.ts';
 
-// How the tray presents itself once several windows are open on files that are
-// nearly all named CLAUDE.md: the badge that says how many are folded away, and
-// the label that tells one CLAUDE.md from another.
+// How the tray presents itself once several documents are open on files that
+// are nearly all named CLAUDE.md: the label that tells one CLAUDE.md from
+// another.
 
 const ACTIVE = 'ws-active';
-const OTHER = 'ws-other';
 
 function windowOf(overrides: Partial<EditorTrayWindow> = {}): EditorTrayWindow {
   return {
     filePath: 'C:\\Work\\proj\\CLAUDE.md',
     tabId: 'tab-1',
     workspaceId: ACTIVE,
-    minimized: false,
     dirty: false,
     ...overrides,
   };
 }
 
-test('the badge counts the minimized windows of the current workspace only', () => {
-  const windows = [
-    windowOf({ filePath: 'C:\\a\\CLAUDE.md', minimized: true }),
-    windowOf({ filePath: 'C:\\b\\CLAUDE.md', minimized: true }),
-    windowOf({ filePath: 'C:\\c\\CLAUDE.md', minimized: false }),
-    windowOf({ filePath: 'D:\\x\\CLAUDE.md', minimized: true, workspaceId: OTHER }),
-  ];
-
-  assert.equal(countMinimizedEditorTrayWindows(windows, ACTIVE), 2);
-});
-
-test('the badge is zero with nothing minimized and with no workspace at all', () => {
-  assert.equal(countMinimizedEditorTrayWindows([windowOf()], ACTIVE), 0);
-  assert.equal(countMinimizedEditorTrayWindows([windowOf({ minimized: true })], null), 0);
-  assert.equal(countMinimizedEditorTrayWindows([], ACTIVE), 0);
-});
+// The two badge cases that stood here counted minimized windows. There is one
+// window per workspace now, so that count is 0 or 1 and says nothing the icon
+// does not already say by being there. What the badge should count instead is
+// open for the user to decide (O-5), and no rule is asserted until they do.
 
 test('two windows on files of the same name get labels that differ', () => {
   const a = windowOf({ filePath: 'C:\\Work\\alpha\\CLAUDE.md', tabId: 'tab-1' });

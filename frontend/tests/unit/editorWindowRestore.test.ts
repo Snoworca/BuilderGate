@@ -6,16 +6,11 @@ import {
   readDialogGeometry,
   writeDialogGeometry,
 } from '../../src/components/dialog/dialogGeometry.ts';
-import {
-  getDialogStackEntries,
-  registerDialogStackEntry,
-} from '../../src/components/dialog/dialogStack.ts';
 import { createWindowDialogBehaviorModel } from '../../src/components/dialog/windowDialogModel.ts';
 import type { DialogRect } from '../../src/components/dialog/types.ts';
 import type { EditorWindowRecord } from '../../src/components/editor/editorWindowRecord.ts';
 import {
   getWindowStateStorageKey,
-  restoreEditorWindowStackOrder,
   restoreWindowStateForWorkspace,
   saveWindowStateForWorkspace,
 } from '../../src/hooks/windowStateStorage.ts';
@@ -81,88 +76,15 @@ function record(overrides: Partial<EditorWindowRecord> = {}): EditorWindowRecord
     placementBeforeStage: null,
     minimized: false,
     floatingRect: null,
-    stackOrder: 0,
     ...overrides,
   };
 }
 
-function modelessDialogIds(): string[] {
-  return getDialogStackEntries('modeless').map(entry => entry.dialogId);
-}
-
-test('FR-MDE-009 stack order is restored relatively within the workspace', () => {
-  // Workspace B's windows are already in the stack, and workspace A's are
-  // interleaved with them in the order they happened to mount. Restoration has
-  // to put A's three into their stored order without moving B's two relative to
-  // each other -- the stack is global while the store is per workspace, so the
-  // stored order can only ever be honoured relatively.
-  const disposers: (() => void)[] = [];
-  // The records arrive in neither the stored order nor the mounted one, and
-  // their `stackOrder` values are not consecutive. An implementation that
-  // walked the array as given, or that counted positions instead of reading the
-  // field, produces a different stack than the one asserted below.
-  const records = [
-    record({ filePath: 'A/w3.md', stackOrder: 7 }),
-    record({ filePath: 'A/w1.md', stackOrder: 2 }),
-    record({ filePath: 'A/w2.md', stackOrder: 5 }),
-  ];
-  const mapped: string[] = [];
-  const toDialogId = (filePath: string): string => {
-    mapped.push(filePath);
-    return `editor-window::${filePath}`;
-  };
-
-  try {
-    [
-      ['token-x', 'editor-window::B/x.md'],
-      ['token-w3', 'editor-window::A/w3.md'],
-      ['token-y', 'editor-window::B/y.md'],
-      ['token-w1', 'editor-window::A/w1.md'],
-      ['token-w2', 'editor-window::A/w2.md'],
-    ].forEach(([token, dialogId]) => {
-      disposers.push(registerDialogStackEntry({ token, dialogId, mode: 'modeless' }));
-    });
-
-    assert.deepEqual(modelessDialogIds(), [
-      'editor-window::B/x.md',
-      'editor-window::A/w3.md',
-      'editor-window::B/y.md',
-      'editor-window::A/w1.md',
-      'editor-window::A/w2.md',
-    ], '사전 조건이 성립하지 않는다');
-
-    restoreEditorWindowStackOrder(records, toDialogId);
-
-    const after = modelessDialogIds();
-    assert.deepEqual(after, [
-      'editor-window::B/x.md',
-      'editor-window::B/y.md',
-      'editor-window::A/w1.md',
-      'editor-window::A/w2.md',
-      'editor-window::A/w3.md',
-    ], '복원된 창들이 저장된 스택 순서로 서지 않았다');
-
-    // Stated separately from the deep comparison above, because this is the
-    // half of AC-5 that is about the windows restoration did not touch.
-    assert.equal(
-      after.indexOf('editor-window::B/x.md') < after.indexOf('editor-window::B/y.md'),
-      true,
-      '다른 워크스페이스 창들의 상대 순서가 바뀌었다',
-    );
-
-    // The dialog id is derived from the file path, which is what identifies a
-    // window. Deriving it from the tab id would collide the several windows one
-    // tab legitimately has open, and every one of them would answer to the same
-    // raise.
-    assert.deepEqual(
-      mapped.slice().sort(),
-      ['A/w1.md', 'A/w2.md', 'A/w3.md'],
-      'dialog id 가 파일 경로에서 만들어지지 않았다',
-    );
-  } finally {
-    disposers.forEach(dispose => dispose());
-  }
-});
+// The stack-order case that stood here restored several windows into the
+// front-to-back order they had been left in. There is one editor window per
+// workspace now, so nothing of its own is in front of or behind it -- what the
+// modeless stack still separates is the window from the modals above it, and
+// `markdown-editor-placement.spec.ts` is where that is judged.
 
 test('FR-MDE-009 a dragged floating rect is written only to the per-workspace store', () => {
   const workspaceId = 'ws-single-source';
@@ -195,7 +117,6 @@ test('FR-MDE-009 a dragged floating rect is written only to the per-workspace st
       filePath: 'C:/work/notes/dragged.md',
       placement: 'floating',
       floatingRect: DRAGGED_RECT,
-      stackOrder: 0,
     });
     saveWindowStateForWorkspace(workspaceId, [dragged], storage);
 

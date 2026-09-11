@@ -193,33 +193,51 @@ function editorWindows(page: Page): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface');
 }
 
-function editorWindowFor(page: Page, fileName: string): Locator {
-  return editorWindows(page).filter({
-    has: page.locator('.window-dialog-title').getByText(fileName, { exact: true }),
-  });
-}
-
-/** The layer whose z-index carries front-to-back order for one window. */
-function modelessLayerFor(page: Page, fileName: string): Locator {
-  return page.locator('.window-dialog-layer-modeless').filter({
-    has: page.locator('.editor-window-surface .window-dialog-title').getByText(fileName, { exact: true }),
-  }).first();
-}
-
-async function layerZOf(page: Page, fileName: string): Promise<number> {
-  return modelessLayerFor(page, fileName)
-    .evaluate(element => Number.parseInt(getComputedStyle(element).zIndex, 10));
+/** The workspace's one editor window. */
+function editorWindow(page: Page): Locator {
+  return page.locator('.window-dialog-surface.editor-window-surface');
 }
 
 /**
- * How far `front` is in front of `back`, as one number taken from one moment.
+ * The panel holding one document, found by the path it carries.
  *
- * Raising reindexes the whole stack, so both windows' z-index move together. A
- * comparison that froze one side before the press would be waiting for the
- * other side to pass a value the stack no longer has.
+ * Not by the window title: one window holds every open document, and its title
+ * names only the active tab -- a search through the window would match every
+ * open editor at once. The match is on the path's tail so a caller can name a
+ * file without spelling out the temporary directory it sits in.
  */
-async function zLead(page: Page, front: string, back: string): Promise<number> {
-  return (await layerZOf(page, front)) - (await layerZOf(page, back));
+function editorPanelFor(page: Page, fileName: string): Locator {
+  return page.locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
+}
+
+/** The tab row of the one editor window. */
+function editorTabs(page: Page): Locator {
+  return page.locator('.editor-window-surface .editor-tab-label');
+}
+
+/** One tab of that row, by the file it holds. */
+function editorTabFor(page: Page, fileName: string): Locator {
+  return editorTabs(page).filter({ hasText: fileName }).first();
+}
+
+/** The layer whose z-index carries front-to-back order for one window. */
+/**
+ * The modeless layer the editor window paints in.
+ *
+ * Not selected by file name: one window holds every open document, so there is
+ * no second editor layer for a name to choose between. Other modeless dialogs
+ * do have their own layers, which is why this is still narrowed to the one
+ * holding the editor surface.
+ */
+function editorModelessLayer(page: Page): Locator {
+  return page.locator('.window-dialog-layer-modeless').filter({
+    has: page.locator('.editor-window-surface'),
+  }).first();
+}
+
+async function layerZOf(page: Page): Promise<number> {
+  return editorModelessLayer(page)
+    .evaluate(element => Number.parseInt(getComputedStyle(element).zIndex, 10));
 }
 
 /**
@@ -244,7 +262,7 @@ function exposedPoint(
 async function openWindows(page: Page, fileNames: readonly string[]): Promise<void> {
   for (const fileName of fileNames) {
     await chooseFile(page, fileName);
-    await expect(editorWindowFor(page, fileName)).toBeVisible({ timeout: 15000 });
+    await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
   }
 }
 
@@ -289,7 +307,7 @@ test.describe('markdown editor placement and stacking', () => {
     await awaitReportedCwd(page, workdir);
     await openWindows(page, ['CLAUDE.md']);
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
 
     // The three controls that remain are located before the absent one is
     // asserted. A locator that quietly matched nothing would make the negative
@@ -364,7 +382,7 @@ test.describe('markdown editor placement and stacking', () => {
 
     // The rect that reached the screen is the computed one, not the stored
     // sentinel, and it sits inside the stage rather than at the stored origin.
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     const box = await surface.boundingBox();
     expect(box).not.toBeNull();
     expect(Math.round(box!.width)).not.toBe(SENTINEL_GEOMETRY.width);
@@ -382,7 +400,7 @@ test.describe('markdown editor placement and stacking', () => {
     // Closing through the title bar button is the only path that would write,
     // so that is the path the criterion has to be taken on.
     await surface.locator('button[aria-label="Close"]').click();
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toHaveCount(0);
+    await expect(editorWindow(page)).toHaveCount(0);
     expect(await page.evaluate(k => localStorage.getItem(k), key)).toBe(planted);
   });
 
@@ -402,7 +420,7 @@ test.describe('markdown editor placement and stacking', () => {
     // and keeps reporting -- off screen, hence a rect that collapses to nothing.
     // The window used to be hidden along with it; it no longer is.
     await selectTab(page, otherName);
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await expect(surface).toBeVisible({ timeout: 15000 });
 
     // The tab switch has reached the registry before it is read. The window is
@@ -437,210 +455,78 @@ test.describe('markdown editor placement and stacking', () => {
     await expect(surface.locator('button[aria-label="저장"]')).toBeDisabled();
   });
 
-  // TC-REQ-FR-MDE-003-AC1-01
-  test('FR-MDE-003 pressing a covered window raises it above the other', async ({ page }) => {
+  // The four raising cases that stood here pressed one editor window to bring
+  // it in front of another. There is one editor window per workspace now, so
+  // nothing of its own is behind it -- `FR-MDE-003` keeps only the band that
+  // separates it from the modals above, and the cases below judge that.
+  //
+  // What replaces them is the operation that took over from raising: choosing
+  // among the open documents. That is a tab switch, and what has to survive it
+  // is the editor instance and the body in it.
+
+  // TC-REQ-FR-MDE-012-AC1-01
+  test('FR-MDE-012 switching tabs keeps every document mounted with its unsaved body', async ({ page }) => {
     const workdir = makeWorkdir();
-    const tabName = `${TAB_NAME_PREFIX}-raise`;
+    const tabName = `${TAB_NAME_PREFIX}-tabswitch`;
     await addTabAt(page, workspaceId!, workdir, tabName);
     await selectTab(page, tabName);
     await awaitReportedCwd(page, workdir);
     await openWindows(page, ['CLAUDE.md', 'CLAUDE.local.md']);
 
-    // The second one opened sits in front.
-    expect(await zLead(page, 'CLAUDE.local.md', 'CLAUDE.md')).toBeGreaterThan(0);
+    // One window, two tabs. Counted before anything is asserted about them, so
+    // a row that rendered nothing fails here rather than making the assertions
+    // below hold over an empty list.
+    await expect(editorWindows(page)).toHaveCount(1);
+    await expect(editorTabs(page)).toHaveCount(2);
 
-    // Both windows open at the same rect, so the back one is covered edge to
-    // edge and there is no point on it left to press. The front one is dragged
-    // aside first by its title bar, which is what exposes a strip of the back
-    // one -- "covered" has to mean reachable, or the criterion is about nothing.
-    const front = editorWindowFor(page, 'CLAUDE.local.md');
-    const beforeDrag = await front.boundingBox();
-    expect(beforeDrag).not.toBeNull();
-    await page.mouse.move(beforeDrag!.x + beforeDrag!.width / 2, beforeDrag!.y + 8);
-    await page.mouse.down();
-    await page.mouse.move(
-      beforeDrag!.x + beforeDrag!.width / 2 + 160,
-      beforeDrag!.y + 8 + 120,
-      { steps: 10 },
-    );
-    await page.mouse.up();
+    // The second one opened is the active tab, and the first is mounted behind
+    // it rather than thrown away.
+    await expect(editorTabFor(page, 'CLAUDE.local.md'))
+      .toHaveAttribute('aria-selected', 'true');
+    await expect(editorPanelFor(page, 'CLAUDE.md')).toHaveCount(1);
+    await expect(editorPanelFor(page, 'CLAUDE.md')).toHaveCSS('display', 'none');
+    await expect(editorPanelFor(page, 'CLAUDE.local.md')).not.toHaveCSS('display', 'none');
 
-    // The drag moved it, or the exposure below is imaginary.
-    await expect.poll(async () => {
-      const moved = await front.boundingBox();
-      return moved === null ? 0 : Math.abs(moved.x - beforeDrag!.x) + Math.abs(moved.y - beforeDrag!.y);
-    }, { timeout: 10000 }).toBeGreaterThan(20);
-
-    // A real press on the part of the covered window that is still exposed.
-    const back = editorWindowFor(page, 'CLAUDE.md');
-    const backBox = await back.boundingBox();
-    const frontBox = await front.boundingBox();
-    expect(backBox).not.toBeNull();
-    expect(frontBox).not.toBeNull();
-    const point = exposedPoint(backBox!, frontBox!);
-    expect(await page.evaluate(({ x, y }) => {
-      const hit = document.elementFromPoint(x, y);
-      return hit !== null && hit.closest('.editor-window-surface') !== null;
-    }, point)).toBe(true);
-    await page.mouse.click(point.x, point.y);
-
-    await expect.poll(async () => zLead(page, 'CLAUDE.md', 'CLAUDE.local.md'), { timeout: 10000 })
-      .toBeGreaterThan(0);
-  });
-
-  // TC-REQ-FR-MDE-003-AC2-01
-  test('FR-MDE-003 pressing nested editor content still raises the window', async ({ page }) => {
-    const workdir = makeWorkdir();
-    const tabName = `${TAB_NAME_PREFIX}-nested`;
-    await addTabAt(page, workspaceId!, workdir, tabName);
-    await selectTab(page, tabName);
-    await awaitReportedCwd(page, workdir);
-    await openWindows(page, ['CLAUDE.md', 'CLAUDE.local.md']);
-
-    expect(await zLead(page, 'CLAUDE.local.md', 'CLAUDE.md')).toBeGreaterThan(0);
-
-    // Deep inside the editor rather than on the surface. The press is
-    // dispatched at the node rather than at a screen point on purpose: what is
-    // under test is which phase the listener runs in, and a covered content
-    // area would otherwise turn this into a second reachability test.
-    const line = editorWindowFor(page, 'CLAUDE.md').locator('.cm-content .cm-line').first();
-    await expect(line).toBeAttached({ timeout: 15000 });
-    await line.dispatchEvent('pointerdown');
-
-    await expect.poll(async () => zLead(page, 'CLAUDE.md', 'CLAUDE.local.md'), { timeout: 10000 })
-      .toBeGreaterThan(0);
-  });
-
-  // TC-REQ-FR-MDE-003-AC3-01
-  test('FR-MDE-003 the raise handler calls neither stopPropagation nor preventDefault', async ({ page }) => {
-    const workdir = makeWorkdir();
-    const tabName = `${TAB_NAME_PREFIX}-propagate`;
-    await addTabAt(page, workspaceId!, workdir, tabName);
-    await selectTab(page, tabName);
-    await awaitReportedCwd(page, workdir);
-    await openWindows(page, ['CLAUDE.md', 'CLAUDE.local.md']);
-
-    const line = editorWindowFor(page, 'CLAUDE.md').locator('.cm-content .cm-line').first();
-    await expect(line).toBeAttached({ timeout: 15000 });
-
-    // A listener on the pressed descendant, in the bubble phase. If the raise
-    // handler stopped propagation this never runs; if it prevented the default
-    // the flag comes back true.
-    const observed = await line.evaluate(async (element) => {
-      return new Promise<{ reached: boolean; defaultPrevented: boolean }>((resolve) => {
-        const onPointerDown = (event: PointerEvent) => {
-          element.removeEventListener('pointerdown', onPointerDown);
-          resolve({ reached: true, defaultPrevented: event.defaultPrevented });
-        };
-        element.addEventListener('pointerdown', onPointerDown);
-        const rect = element.getBoundingClientRect();
-        element.dispatchEvent(new PointerEvent('pointerdown', {
-          bubbles: true,
-          cancelable: true,
-          clientX: rect.left + 2,
-          clientY: rect.top + 2,
-        }));
-        setTimeout(() => resolve({ reached: false, defaultPrevented: false }), 2000);
-      });
+    // Type into the hidden one through its own editor, then switch to it. The
+    // body has to be there, which it can only be if the instance never went.
+    const hiddenEditor = editorPanelFor(page, 'CLAUDE.md').locator('.cm-content');
+    await expect(hiddenEditor).toBeAttached();
+    await hiddenEditor.evaluate((element) => {
+      element.setAttribute('data-e2e-editor-stamp', 'behind-a-tab');
     });
 
-    expect(observed.reached).toBe(true);
-    expect(observed.defaultPrevented).toBe(false);
-    // The press still did its job, so it was a raise and not a swallow.
-    await expect.poll(async () => zLead(page, 'CLAUDE.md', 'CLAUDE.local.md'), { timeout: 10000 })
-      .toBeGreaterThan(0);
+    await editorTabFor(page, 'CLAUDE.md').click();
+    await expect(editorTabFor(page, 'CLAUDE.md')).toHaveAttribute('aria-selected', 'true');
+    await expect(editorPanelFor(page, 'CLAUDE.md')).not.toHaveCSS('display', 'none');
+    expect(await hiddenEditor.getAttribute('data-e2e-editor-stamp')).toBe('behind-a-tab');
 
-    // A dispatched event proves the handler called neither method, but only a
-    // real press can show the default action still happens. Now that the
-    // window is in front, press it for real and read where the caret landed.
-    const lineBox = await line.boundingBox();
-    expect(lineBox).not.toBeNull();
-    await page.mouse.click(lineBox!.x + 4, lineBox!.y + lineBox!.height / 2);
-    expect(await page.evaluate(() =>
-      document.activeElement?.closest('.cm-content') !== null)).toBe(true);
+    // And the one that was active is now the one behind, still mounted.
+    await expect(editorPanelFor(page, 'CLAUDE.local.md')).toHaveCount(1);
+    await expect(editorPanelFor(page, 'CLAUDE.local.md')).toHaveCSS('display', 'none');
   });
 
-  // TC-REQ-FR-MDE-003-AC4-01
-  test('FR-MDE-003 sibling order is unchanged and a selection drag keeps extending', async ({ page }) => {
+  // TC-REQ-FR-MDE-012-AC2-01
+  test('FR-MDE-012 closing a tab leaves the others, and the last one closes the window', async ({ page }) => {
     const workdir = makeWorkdir();
-    const tabName = `${TAB_NAME_PREFIX}-drag`;
+    const tabName = `${TAB_NAME_PREFIX}-tabclose`;
     await addTabAt(page, workspaceId!, workdir, tabName);
     await selectTab(page, tabName);
     await awaitReportedCwd(page, workdir);
     await openWindows(page, ['CLAUDE.md', 'CLAUDE.local.md']);
 
-    // The front window is taken off the screen before the back one is pressed.
-    //
-    // Both windows open into `stage`, so they fill the same rect exactly and the
-    // back one is entirely covered. Dragging the front one away does not help:
-    // it is bounded by the stage it fills, so it barely moves.
-    //
-    // Minimizing withdraws its surface without touching the stack: its layer
-    // keeps its z-index and its place among its siblings, so the raise below is
-    // still a raise past it and the order this criterion is about is still the
-    // order of two windows.
-    const front = editorWindowFor(page, 'CLAUDE.local.md');
-    await front.locator('button[aria-label="최소화"]').click();
-    await expect(front).toBeHidden({ timeout: 10000 });
+    await expect(editorTabs(page)).toHaveCount(2);
 
-    // Identify each layer by the window it holds, not by its class: every
-    // modeless layer carries the same class, so a swap of two of them would be
-    // invisible in a list of class names.
-    const readBodyOrder = () => page.evaluate(() =>
-      Array.from(document.body.children).map((child) => {
-        const title = child.querySelector('.editor-window-surface .window-dialog-title');
-        return title === null ? child.className : `editor:${title.textContent ?? ''}`;
-      }));
+    // Closing the active tab leaves the other one, and that one becomes active
+    // -- a window showing no document would have nothing to draw.
+    await page.locator('.editor-tab-close').nth(1).click();
+    await expect(editorTabs(page)).toHaveCount(1);
+    await expect(editorPanelFor(page, 'CLAUDE.local.md')).toHaveCount(0);
+    await expect(editorTabFor(page, 'CLAUDE.md')).toHaveAttribute('aria-selected', 'true');
+    await expect(editorWindows(page)).toHaveCount(1);
 
-    const orderBefore = await readBodyOrder();
-    expect(orderBefore.filter(entry => entry.startsWith('editor:')))
-      .toEqual(['editor:CLAUDE.md', 'editor:CLAUDE.local.md']);
-
-    const line = editorWindowFor(page, 'CLAUDE.md').locator('.cm-content .cm-line').first();
-    await expect(line).toBeAttached({ timeout: 15000 });
-    const lineBox = await line.boundingBox();
-    expect(lineBox).not.toBeNull();
-
-    // A row of that line where the far end -- the end most likely to be covered
-    // -- is the back window's own text. The whole row is then reachable, which
-    // is what the drag below needs.
-    //
-    // Found by asking the page rather than by arithmetic. A bounding box says
-    // where an element is even while something else covers it, so a computed
-    // point can sit under another window and turn every assertion after it into
-    // one about the wrong window. Asking keeps answering when the layout moves,
-    // and finding nothing is itself the failure.
-    const pressPoint = await page.evaluate((box) => {
-      for (let offset = 2; offset < box.height; offset += 2) {
-        const y = box.y + offset;
-        const hit = document.elementFromPoint(box.x + box.width - 3, y);
-        if (hit === null || hit.closest('.cm-content') === null) continue;
-        const surface = hit.closest('.editor-window-surface');
-        if (surface?.querySelector('.window-dialog-title')?.textContent === 'CLAUDE.md') {
-          return { x: box.x + 3, y };
-        }
-      }
-      return null;
-    }, lineBox!);
-    expect(pressPoint, "no row of the back window's first line is reachable").not.toBeNull();
-
-    // The press that raises the window is the same one that starts the drag.
-    await page.mouse.move(pressPoint!.x, pressPoint!.y);
-    await page.mouse.down();
-    await page.mouse.move(lineBox!.x + lineBox!.width / 3, pressPoint!.y, { steps: 6 });
-    const partial = await page.evaluate(() => document.getSelection()?.toString().length ?? 0);
-    await page.mouse.move(lineBox!.x + lineBox!.width - 3, pressPoint!.y, { steps: 6 });
-    const extended = await page.evaluate(() => document.getSelection()?.toString().length ?? 0);
-    await page.mouse.up();
-
-    expect(partial).toBeGreaterThan(0);
-    expect(extended).toBeGreaterThan(partial);
-
-    // Raising repainted; it did not re-insert. The parent's child order is the
-    // same list it was, which is what keeps the drag alive.
-    const orderAfter = await readBodyOrder();
-    expect(orderAfter).toEqual(orderBefore);
-    expect(await zLead(page, 'CLAUDE.md', 'CLAUDE.local.md')).toBeGreaterThan(0);
+    // The last tab takes the window with it.
+    await page.locator('.editor-tab-close').first().click();
+    await expect(editorWindows(page)).toHaveCount(0, { timeout: 10000 });
   });
 
   // TC-REQ-FR-MDE-003-AC6-01
@@ -658,21 +544,20 @@ test.describe('markdown editor placement and stacking', () => {
     await expect(dialog).toBeVisible({ timeout: 10000 });
 
     // The criterion is conditioned on a raise happening while the modal is up,
-    // so the raise has to happen. The windows are inert by then, which is why
-    // the press is dispatched at the node: a shared stack would answer this by
+    // so the raise has to happen. The window is inert by then, which is why the
+    // press is dispatched at the node: a shared stack would answer this by
     // pushing the modeless entry past the modal, and that is the regression
     // being looked for. A test that never raised could not see it.
-    const backLead = await zLead(page, 'CLAUDE.local.md', 'CLAUDE.md');
-    expect(backLead).toBeGreaterThan(0);
-    await editorWindowFor(page, 'CLAUDE.md').locator('.window-dialog-titlebar')
+    //
+    // The raise no longer reorders two editor windows -- there is one -- so what
+    // is asked of it is only that it was attempted.
+    await editorWindow(page).locator('.window-dialog-titlebar')
       .dispatchEvent('pointerdown');
-    await expect.poll(async () => zLead(page, 'CLAUDE.md', 'CLAUDE.local.md'), { timeout: 10000 })
-      .toBeGreaterThan(0);
 
     // The modal is still the topmost of its own band.
     const modalZ = await page.locator('.window-dialog-layer-modal').first()
       .evaluate(el => Number.parseInt(getComputedStyle(el).zIndex, 10));
-    expect(modalZ).toBeGreaterThan(await layerZOf(page, 'CLAUDE.md'));
+    expect(modalZ).toBeGreaterThan(await layerZOf(page));
 
     // Tab containment is what isTopmost buys the modal. Ten presses is more
     // than the dialog has focusables, so a leak would have shown by then.
@@ -690,13 +575,17 @@ test.describe('markdown editor placement and stacking', () => {
     // not change it either way -- neither taking the key nor making it close.
     await page.keyboard.press('Escape');
     await expect(dialog).toBeVisible();
-    await expect(editorWindows(page)).toHaveCount(2);
+    // Both documents are still open. Counted as tabs rather than as windows:
+    // they share one window, so a count of windows would say 1 whether the
+    // second document survived the modal or not.
+    await expect(editorWindows(page)).toHaveCount(1);
+    await expect(editorTabs(page)).toHaveCount(2);
 
     // Closing through the control that does close it, so the modal does not
-    // outlive the test and the windows are observed to survive it.
+    // outlive the test and the documents are observed to survive it.
     await page.locator('.window-dialog-layer-modal button[aria-label="Close"]').first().click();
     await expect(dialog).toHaveCount(0);
-    await expect(editorWindows(page)).toHaveCount(2);
+    await expect(editorTabs(page)).toHaveCount(2);
   });
 
   // TC-REQ-CON-MDE-001-AC5-01
@@ -758,10 +647,7 @@ test.describe('markdown editor placement and stacking', () => {
     await awaitReportedCwd(page, workdir);
     await openWindows(page, ['CLAUDE.md', 'CLAUDE.local.md']);
 
-    const topmostEditorZ = Math.max(
-      await layerZOf(page, 'CLAUDE.md'),
-      await layerZOf(page, 'CLAUDE.local.md'),
-    );
+    const topmostEditorZ = await layerZOf(page);
 
     await page.locator('button[title="Tools"]').click();
     await page.locator('.context-menu-item:has-text("명령줄 관리")').click();
@@ -772,16 +658,16 @@ test.describe('markdown editor placement and stacking', () => {
     const modalZ = await modalLayer.evaluate(el => Number.parseInt(getComputedStyle(el).zIndex, 10));
     expect(modalZ).toBeGreaterThan(topmostEditorZ);
 
-    // Every editor window is withdrawn from focus and pointer input.
-    const layers = page.locator('.window-dialog-layer-modeless');
-    await expect(layers).toHaveCount(2);
-    for (let index = 0; index < 2; index += 1) {
-      await expect(layers.nth(index)).toHaveAttribute('inert', '');
-      await expect(layers.nth(index)).toHaveAttribute('aria-hidden', 'true');
-    }
+    // The editor window is withdrawn from focus and pointer input. Located
+    // before the attributes are read, so a layer that stopped rendering would
+    // fail here rather than making the assertions hold over nothing.
+    const layer = editorModelessLayer(page);
+    await expect(layer).toHaveCount(1);
+    await expect(layer).toHaveAttribute('inert', '');
+    await expect(layer).toHaveAttribute('aria-hidden', 'true');
 
     // Pressing a window's title bar cannot take focus out of the modal.
-    await editorWindowFor(page, 'CLAUDE.md').locator('.window-dialog-titlebar')
+    await editorWindow(page).locator('.window-dialog-titlebar')
       .click({ force: true });
     expect(await page.evaluate(() =>
       document.activeElement?.closest('.window-dialog-layer-modal') !== null)).toBe(true);
@@ -791,9 +677,7 @@ test.describe('markdown editor placement and stacking', () => {
     // happens once the modal closes, not how it was closed.
     await page.locator('.window-dialog-layer-modal button[aria-label="Close"]').first().click();
     await expect(dialog).toHaveCount(0);
-    for (let index = 0; index < 2; index += 1) {
-      await expect(layers.nth(index)).not.toHaveAttribute('inert', '');
-      await expect(layers.nth(index)).not.toHaveAttribute('aria-hidden', 'true');
-    }
+    await expect(layer).not.toHaveAttribute('inert', '');
+    await expect(layer).not.toHaveAttribute('aria-hidden', 'true');
   });
 });

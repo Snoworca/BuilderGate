@@ -212,20 +212,49 @@ async function chooseFile(page: Page, fileName: string): Promise<void> {
  * the window the moment anything is typed into it. The marker is optional here
  * rather than ignored: the name still has to be the whole rest of the title.
  */
-function editorWindowFor(page: Page, fileName: string): Locator {
-  return page.locator('.window-dialog-surface.editor-window-surface').filter({
-    has: page.locator('.window-dialog-title')
-      .filter({ hasText: new RegExp(`^${escapeRegExp(fileName)}\\*?$`) }),
-  });
+/** The workspace's one editor window. */
+function editorWindow(page: Page): Locator {
+  return page.locator('.window-dialog-surface.editor-window-surface');
+}
+/**
+ * The panel holding one document, found by the path it carries.
+ *
+ * Not by the window title: one window holds every open document, and its title
+ * names only the active tab -- a search through the window would match every
+ * open editor at once. The match is on the path's tail so a caller can name a
+ * file without spelling out the temporary directory it sits in.
+ */
+function editorPanelFor(page: Page, fileName: string): Locator {
+  return page.locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
 }
 
+/** The tab row of the one editor window. */
+function editorTabs(page: Page): Locator {
+  return page.locator('.editor-window-surface .editor-tab-label');
+}
+
+/** One tab of that row, by the file it holds. */
+function editorTabFor(page: Page, fileName: string): Locator {
+  return editorTabs(page).filter({ hasText: fileName }).first();
+}
+
+
+/**
+ * The editor of one document, found by the panel that holds it.
+ *
+ * Not by the window title: one window holds every open document now, and its
+ * title names only the active tab. A search through the window would match
+ * every open editor at once.
+ */
 function contentOf(page: Page, fileName: string): Locator {
-  return editorWindowFor(page, fileName).locator('.cm-content');
+  return editorPanelFor(page, fileName).locator('.cm-content');
 }
 
 async function openWindow(page: Page, fileName: string): Promise<void> {
   await chooseFile(page, fileName);
-  await expect(editorWindowFor(page, fileName)).toBeVisible({ timeout: 15000 });
+  // The window, then the document's own panel inside it. The window is shared
+  // by every open document, so its appearance does not say this one arrived.
+  await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
   await expect(contentOf(page, fileName)).toBeAttached({ timeout: 15000 });
 }
 
@@ -321,7 +350,7 @@ test.describe('markdown editor lifecycle and mount contracts', () => {
     const diverged = await bodyOf(page, 'CLAUDE.md');
     expect(diverged).not.toBe(SHARED_BODY);
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await surface.locator('button[aria-label="최소화"]').click();
     await expect(surface).toBeHidden({ timeout: 10000 });
 
@@ -358,7 +387,7 @@ test.describe('markdown editor lifecycle and mount contracts', () => {
     await openWindow(page, 'CLAUDE.md');
     await stampEditor(page, 'CLAUDE.md', 'ac2');
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await surface.locator('button[aria-label="최소화"]').click();
 
     // Hidden by style, not by being taken out of the tree.
@@ -488,7 +517,7 @@ test.describe('markdown editor lifecycle and mount contracts', () => {
     const filePath = resolveAgainst(cwd, 'CLAUDE.md');
     await openWindow(page, 'CLAUDE.md');
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await expect(surface).not.toHaveAttribute('data-dirty', 'true');
 
     await typeInto(page, 'CLAUDE.md', 'CALLBACK-T');
@@ -524,7 +553,7 @@ test.describe('markdown editor lifecycle and mount contracts', () => {
     expect(firstRender).not.toBeNull();
 
     // Minimizing and restoring re-renders the window with its inputs unchanged.
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await surface.locator('button[aria-label="최소화"]').click();
     await expect(surface).toBeHidden({ timeout: 10000 });
     await page.locator('button[aria-label="편집기 창"]').click();

@@ -64,3 +64,80 @@
 .editor-window-surface .cm-scroller::-webkit-scrollbar-corner {
   background: #eeeeee;
 }
+
+/* The document tab row.
+ *
+ * The scrollbar is always visible rather than fading out: the browser default
+ * hides it, and with it the only sign that there are more tabs than fit. 4px
+ * is the thickness the requirement names, which `scrollbar-width` cannot
+ * express -- it offers `auto`, `thin` and `none` and no way to keep the bar on
+ * screen -- so the ::-webkit-scrollbar family is what states it.
+ */
+.editor-window-surface .editor-tab-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #f3f3f3;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+.editor-window-surface .editor-tab-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.editor-window-surface .editor-tab-bar::-webkit-scrollbar-track {
+  background: #eeeeee;
+}
+
+.editor-window-surface .editor-tab-bar::-webkit-scrollbar-thumb {
+  background: #0078d4;
+  border-radius: 2px;
+}
+
+.editor-window-surface .editor-tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  max-width: 220px;
+  border: 1px solid #d0d0d0;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: #e4e4e4;
+}
+
+.editor-window-surface .editor-tab.is-active {
+  background: #ffffff;
+}
+
+.editor-window-surface .editor-tab-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 4px 2px 4px 8px;
+  border: none;
+  background: none;
+  color: #000000;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.editor-window-surface .editor-tab-close {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: #555555;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.editor-window-surface .editor-tab-close:hover {
+  color: #000000;
+}

@@ -27,7 +27,6 @@ export interface EditorWindowRecord {
   placementBeforeStage: EditorWindowPlacement | null;
   minimized: boolean;
   floatingRect: EditorWindowRect | null;
-  stackOrder: number;
 }
 
 // Keyed by the placement union, so a value added to it has to be given an
@@ -74,7 +73,6 @@ export function toEditorWindowRecord(window: EditorWindowRecord): EditorWindowRe
     placementBeforeStage: window.placementBeforeStage,
     minimized: window.minimized,
     floatingRect: window.floatingRect === null ? null : { ...window.floatingRect },
-    stackOrder: window.stackOrder,
   };
 }
 
@@ -93,7 +91,7 @@ export function isEditorWindowRecord(value: unknown): value is EditorWindowRecor
     && (candidate.placementBeforeStage === null || isPlacement(candidate.placementBeforeStage))
     && typeof candidate.minimized === 'boolean'
     && (candidate.floatingRect === null || isRect(candidate.floatingRect))
-    && isFiniteNumber(candidate.stackOrder);
+;
 }
 
 /**

@@ -32,23 +32,24 @@ import {
   toggleMaximize,
   type EditorWindowPlacement,
 } from '../components/editor/editorWindowPlacement.ts';
+import {
+  closeEditorTab,
+  selectEditorTab,
+} from '../components/editor/editorWindowTabs.ts';
 import { raiseDialogById } from '../components/dialog/dialogStack.ts';
 import {
-  EDITOR_WINDOW_MIN_SIZE,
   editorWindowDialogId,
+  EDITOR_WINDOW_MIN_SIZE,
 } from '../components/editor/EditorWindow.tsx';
 import { computeInitialEditorWindowRect } from '../components/editor/editorWindowInitialRect.ts';
 import { EDITOR_WINDOW_BOUNDS_SELECTOR } from '../components/editor/editorWindowBounds.ts';
 import {
   minimizeEditorWindow,
   type EditorWindowScreen,
-  type EditorWindowViewMode,
 } from '../components/editor/editorWindowVisibility.ts';
 import {
-  countMinimizedEditorTrayWindows,
   hasEditorTrayWindows,
   listEditorTrayEntries,
-  reviveEditorTrayWindow,
   type EditorTrayWindow,
 } from '../components/editor/editorTrayModel.ts';
 import {
@@ -60,24 +61,42 @@ import {
 import { fileApi } from '../services/api';
 
 /**
- * An open editor window. The tray reads every field of `EditorTrayWindow`, the
- * window layer additionally reads the placement and the rect, and the window
- * itself reads the body -- so one record serves all three rather than three
- * lists that could drift apart.
+ * One open document: a tab of its workspace's editor window.
+ *
+ * The placement fields that used to sit here have moved up to the window, which
+ * there is now one of per workspace. What stays is what differs between
+ * documents -- where it came from, where it saves to, and whether it is
+ * unsaved.
  * @req FR-MDE-007
  * @req FR-MDE-008
  */
-export type EditorWindowState = EditorTrayWindow & {
+export type EditorDocumentState = EditorTrayWindow & {
+  /** The content read from disk when the document opened. Never fed back. */
+  bodyAtOpen: string;
+};
+
+/**
+ * A workspace's editor window, which exists exactly while that workspace has
+ * an open document.
+ *
+ * Kept per workspace rather than globally: the visibility rule scopes a window
+ * to its workspace, so one global window would show workspace A's tabs while
+ * the user is in B. Only the geometry is shared, and that lives in the dialog
+ * store rather than here.
+ * @req FR-MDE-001
+ */
+export interface EditorWindowShell {
+  /** The workspace this window belongs to, which is what scopes its visibility. */
+  workspaceId: string;
   placement: EditorWindowPlacement;
   /** The placement recorded on entry to `stage`, or null when none was. */
   placementBeforeStage: EditorWindowPlacement | null;
   /** Where a `floating` window floats. Null until it has been dragged. */
   floatingRect: DialogRect | null;
-  /** The content read from disk when the window opened. Never fed back. */
-  bodyAtOpen: string;
-  /** Creation order, which is also the order the layer mounts them in. */
-  stackOrder: number;
-};
+  minimized: boolean;
+  /** Which tab is on screen. Null only between the last close and the unmount. */
+  activeFilePath: string | null;
+}
 
 /** Where the path context menu was opened, and which tab's path it was. */
 export interface EditorPathMenuAnchor {
@@ -97,15 +116,15 @@ export interface EditorCreatePrompt {
  * for, so this hook holds no opinion about where a screen or a tab comes from.
  */
 export interface UseEditorWindowsInput {
-  screen: EditorWindowScreen;
+  /**
+   * Returned to when a document is chosen from the tray while the settings
+   * screen is up. The screen itself is not read: a window is hidden by the
+   * visibility rule, which the layer applies, rather than by this hook.
+   */
   setScreen: (screen: EditorWindowScreen) => void;
-  /** The mode the workspace is rendered in, not necessarily the stored one. */
-  viewMode: EditorWindowViewMode;
   activeWorkspaceId: string | null;
-  activeTabId: string | null;
   /** Only the id and the displayed cwd are read, so the workspace type stays out. */
   tabs: readonly { id: string; cwd: string }[];
-  onSelectTab: (tabId: string) => void;
   /**
    * The session a tab is running at the moment of the call. Resolved per call
    * rather than stored, because a restart replaces the session and keeps the
@@ -132,8 +151,20 @@ export interface UseEditorWindowsInput {
 }
 
 export interface UseEditorWindowsResult {
-  /** In creation order, which is the order the window layer mounts them in. */
-  windows: EditorWindowState[];
+  /** Every open document, of every workspace, in the order they were opened. */
+  documents: EditorDocumentState[];
+  /**
+   * One window per workspace that has an open document.
+   *
+   * Every workspace's, not only the active one's: the layer mounts them all and
+   * hides the ones that are not on screen, because unmounting a window would
+   * take the editors inside it and the bodies nobody has saved.
+   */
+  editorWindows: EditorWindowShell[];
+  /** The documents of one window, in tab order. */
+  tabsOf: (workspaceId: string) => EditorDocumentState[];
+  selectDocument: (filePath: string) => void;
+  closeDocument: (filePath: string) => void;
   /** Whether the tray icon renders. Scoped exactly as the list is. */
   hasWindows: boolean;
   /** How many of them are minimized, which the tray icon carries as a badge. */
@@ -150,25 +181,14 @@ export interface UseEditorWindowsResult {
   /** A read failure that is not a 404, or null when none is being reported. */
   openError: string | null;
   dismissOpenError: () => void;
-  updateWindowRect: (filePath: string, rect: DialogRect) => void;
-  /** The window's document started, or stopped, differing from the file. */
+  updateWindowRect: (rect: DialogRect) => void;
+  /** A document started, or stopped, differing from the file. */
   setWindowDirty: (filePath: string, dirty: boolean) => void;
-  /** The bound tab has gone; the window becomes floating at `rect`. */
-  orphanWindow: (filePath: string, rect: DialogRect) => void;
-  closeWindow: (filePath: string) => void;
-  minimizeWindow: (filePath: string) => void;
-  toggleMaximizeWindow: (filePath: string) => void;
+  /** Closes the whole window, which closes every document in it. */
+  closeWindow: () => void;
+  minimizeWindow: () => void;
+  toggleMaximizeWindow: () => void;
   writeFile: (sessionId: string, path: string, content: string) => Promise<{ success: boolean }>;
-  /**
-   * The windows a restore just created, or null when none is waiting. They have
-   * to be raised into their stored order once they have mounted, and only the
-   * layer knows when that has happened -- a window that has not registered yet
-   * is not in the modeless stack and cannot be raised.
-   * @req FR-MDE-009
-   */
-  pendingStackRestore: readonly EditorWindowRecord[] | null;
-  /** The layer has finished raising them. */
-  clearPendingStackRestore: () => void;
 }
 
 /**
@@ -177,13 +197,9 @@ export interface UseEditorWindowsResult {
  */
 export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindowsResult {
   const {
-    screen,
     setScreen,
-    viewMode,
     activeWorkspaceId,
-    activeTabId,
     tabs,
-    onSelectTab,
     resolveTabSession,
     activeWorkspaceTabIds,
     windowState,
@@ -192,14 +208,14 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
 
   // FR-MDE-007's path menu is one of the two things that creates a window; the
   // other is FR-MDE-009's restore, below.
-  const [windows, setWindows] = useState<EditorWindowState[]>([]);
+  const [documents, setDocuments] = useState<EditorDocumentState[]>([]);
+  // One shell per workspace, created with that workspace's first document and
+  // dropped with its last. Keyed rather than singular because the visibility
+  // rule scopes a window to its workspace.
+  const [shells, setShells] = useState<Record<string, EditorWindowShell>>({});
   const [pathMenu, setPathMenu] = useState<EditorPathMenuAnchor | null>(null);
   const [createPrompt, setCreatePrompt] = useState<EditorCreatePrompt | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
-  // Monotonic, so a window that closes does not hand its number to the next
-  // one. Creation order is what the layer mounts in, and two windows sharing a
-  // number would make that order depend on which of them React saw first.
-  const nextStackOrder = useRef(0);
   // Which workspaces this page load has already read the store for. The read
   // happens once per workspace and never again: leaving a workspace does not
   // unmount its windows, so coming back finds the unsaved bodies still in
@@ -214,15 +230,14 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   // interval does not erase them.
   // @req FR-MDE-009
   const pendingRestoreRef = useRef(new Map<string, EditorWindowRecord[]>());
-  const [pendingStackRestore, setPendingStackRestore] = useState<EditorWindowRecord[] | null>(null);
   // The session lookup as it is right now. The restore reads it per file rather
   // than closing over it, for the reason this hook resolves sessions per call
   // everywhere else: a restart replaces the session and keeps the tab.
   const resolveTabSessionRef = useRef(resolveTabSession);
-  // The committed window list, for the restore to compare against once its
+  // The committed document list, for the restore to compare against once its
   // reads have finished. The list it captured when the effect ran was the one
   // before any of them landed.
-  const windowsRef = useRef(windows);
+  const documentsRef = useRef(documents);
   // Assigned after the commit rather than during the render. A render body runs
   // for renders React then throws away, so a ref written there can hold a value
   // that was never committed -- and the restore reads these from an async
@@ -230,7 +245,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   // Declared above the effects that read them so it runs first in each commit.
   useEffect(() => {
     resolveTabSessionRef.current = resolveTabSession;
-    windowsRef.current = windows;
+    documentsRef.current = documents;
   });
 
   /**
@@ -254,44 +269,52 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     });
   }, []);
 
-  // One revival, shared. FR-MDE-007 uses it when the file it was asked for is
-  // already open, and FR-MDE-008 uses it when a tray entry is chosen. Clearing
-  // `minimized` alone would leave the window behind the settings screen or an
-  // inactive tab, with nothing happening on screen.
-  const revive = useCallback((target: EditorWindowState) => {
-    const revival = reviveEditorTrayWindow({
-      target,
-      windows,
-      screen,
-      viewMode,
-      activeTabId,
+  /**
+   * Applies one change to the active workspace's shell, creating nothing. A
+   * workspace with no window has nothing for these controls to act on.
+   * @req FR-MDE-001
+   */
+  const updateShell = useCallback((
+    change: (shell: EditorWindowShell) => EditorWindowShell,
+  ) => {
+    const workspaceId = activeWorkspaceId;
+    if (workspaceId === null) return;
+
+    setShells((current) => {
+      const shell = current[workspaceId];
+      if (shell === undefined) return current;
+
+      const next = change(shell);
+      return next === shell ? current : { ...current, [workspaceId]: next };
     });
+  }, [activeWorkspaceId]);
 
-    setScreen(revival.screen);
-    setWindows(revival.windows);
-    // A tab that still exists, or none. The tray lists a window whose tab has
-    // closed -- that is the point of it -- and the revival names that window's
-    // tab as the one to switch to. Selecting it would leave the workspace
-    // pointing at nothing: the terminal area goes blank and every other window
-    // in that workspace fails the tab term and disappears, carrying bodies
-    // nobody has saved off the screen. The orphan itself needs no switch; it is
-    // exempt from that term already.
-    // @req CON-MDE-002
-    if (revival.activeTabId !== null
-      && revival.activeTabId !== activeTabId
-      && resolveTabSession(revival.activeTabId) !== undefined) {
-      onSelectTab(revival.activeTabId);
-    }
-    // The revived window comes to the front. Front-to-back order lives in the
-    // modeless stack rather than in these records, so that is where the raise
-    // lands.
-    raiseDialogById(editorWindowDialogId(revival.raise), 'modeless');
-  }, [activeTabId, onSelectTab, resolveTabSession, screen, setScreen, viewMode, windows]);
-
+  /**
+   * Brings a document to the screen: un-hides its window, returns to the
+   * workspace screen if the settings screen is up, and selects its tab.
+   *
+   * The terminal tab is deliberately not touched. A window holds documents
+   * opened from several terminals, so there is no one terminal to switch to,
+   * and switching would move the user's terminal out from under them.
+   * @req FR-MDE-007
+   * @req FR-MDE-008
+   */
   const reviveByPath = useCallback((filePath: string) => {
-    const target = windows.find(editorWindow => editorWindow.filePath === filePath);
-    if (target) revive(target);
-  }, [revive, windows]);
+    const workspaceId = activeWorkspaceId;
+    if (workspaceId === null) return;
+
+    setScreen('workspace');
+    setShells((current) => {
+      const shell = current[workspaceId];
+      if (shell === undefined) return current;
+
+      return {
+        ...current,
+        [workspaceId]: { ...shell, minimized: false, activeFilePath: filePath },
+      };
+    });
+    raiseDialogById(editorWindowDialogId(workspaceId), 'modeless');
+  }, [activeWorkspaceId, setScreen]);
 
   const openPathMenu = useCallback((x: number, y: number, tabId: string) => {
     setPathMenu({ x, y, tabId });
@@ -308,19 +331,36 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
    * @req FR-MDE-007
    */
   const addWindow = useCallback((filePath: string, tabId: string, bodyAtOpen: string) => {
-    if (activeWorkspaceId === null) return;
+    const workspaceId = activeWorkspaceId;
+    if (workspaceId === null) return;
 
-    // This path is a window now, so the store no longer needs the restore to
-    // carry its stored record: closing this window must remove it.
+    // This path is open now, so the store no longer needs the restore to carry
+    // its stored record: closing this document must remove it.
     // @req FR-MDE-009
     forgetPendingRestore(filePath);
 
-    setWindows((current) => {
-      if (current.some(editorWindow => editorWindow.filePath === filePath)) {
+    setDocuments((current) => {
+      if (current.some(document => document.filePath === filePath)) {
         return current;
       }
-      const stackOrder = nextStackOrder.current;
-      nextStackOrder.current += 1;
+
+      return [...current, {
+        filePath,
+        tabId,
+        workspaceId,
+        // A document opens on the body it just read, so it starts clean. The
+        // panel reports every change to this through `setWindowDirty`.
+        dirty: false,
+        bodyAtOpen,
+      }];
+    });
+
+    setShells((current) => {
+      const shell = current[workspaceId];
+      if (shell !== undefined) {
+        // The window is already open; the document becomes its active tab.
+        return { ...current, [workspaceId]: { ...shell, minimized: false, activeFilePath: filePath } };
+      }
 
       // A window opens floating at seven tenths of the viewport rather than
       // filling the stage. Filling it would put the window over the terminal's
@@ -353,27 +393,23 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
         EDITOR_WINDOW_MIN_SIZE,
       );
 
-      return [...current, {
-        ...enterFloating(createEditorWindowPlacementState(), initialRect),
-        filePath,
-        tabId,
-        workspaceId: activeWorkspaceId,
-        minimized: false,
-        // A window opens on the body it just read, so it starts clean. The
-        // window reports every change to this through `setWindowDirty`.
-        dirty: false,
-        bodyAtOpen,
-        stackOrder,
-      }];
+      return {
+        ...current,
+        [workspaceId]: {
+          ...enterFloating(createEditorWindowPlacementState(), initialRect),
+          workspaceId,
+          minimized: false,
+          activeFilePath: filePath,
+        },
+      };
     });
 
-    // Reopening a file that is already open raises the window that is there
-    // instead of adding a second one, which is what the guard above leaves to
-    // be done. A window being created for the first time has not registered
-    // yet, so this finds nothing and says so -- which is right: it enters the
-    // stack last and is already in front.
+    // Reopening a file that is already open selects its tab instead of adding
+    // a second one, which is what the guard above leaves to be done. A window
+    // being created for the first time has not registered yet, so this finds
+    // nothing and says so -- which is right: it is the only window there is.
     // @req FR-MDE-007
-    raiseDialogById(editorWindowDialogId(filePath), 'modeless');
+    raiseDialogById(editorWindowDialogId(workspaceId), 'modeless');
   }, [activeWorkspaceId, forgetPendingRestore]);
 
   /**
@@ -454,13 +490,13 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     return buildEditorFileMenuItems({
       cwd: targetTab.cwd,
       tabId: targetTab.id,
-      openWindows: windows,
+      openWindows: documents,
       onSelect: handleSelect,
     });
-  }, [handleSelect, pathMenu, tabs, windows]);
+  }, [documents, handleSelect, pathMenu, tabs]);
 
   const trayItems = useMemo<ContextMenuItem[]>(
-    () => listEditorTrayEntries(windows, activeWorkspaceId).map(entry => ({
+    () => listEditorTrayEntries(documents, activeWorkspaceId).map(entry => ({
       label: entry.label,
       // The rows carry absolute paths, which are long. The class is what lets
       // the menu set a smaller type for them without shrinking every other
@@ -468,27 +504,27 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       className: 'editor-tray-item',
       onClick: () => reviveByPath(entry.filePath),
     })),
-    [activeWorkspaceId, reviveByPath, windows],
+    [activeWorkspaceId, documents, reviveByPath],
   );
 
   /**
-   * Applies one change to the window holding `filePath` and leaves the rest
-   * alone. Every window operation below goes through it, so the identity rule
-   * -- the resolved absolute path -- is stated once.
+   * Applies one change to the document holding `filePath` and leaves the rest
+   * alone, so the identity rule -- the resolved absolute path -- is stated
+   * once.
    * @req FR-MDE-001
    */
-  const updateWindow = useCallback((
+  const updateDocument = useCallback((
     filePath: string,
-    change: (editorWindow: EditorWindowState) => EditorWindowState,
+    change: (document: EditorDocumentState) => EditorDocumentState,
   ) => {
-    setWindows((current) => {
-      const next = current.map(editorWindow => (
-        editorWindow.filePath === filePath ? change(editorWindow) : editorWindow
+    setDocuments((current) => {
+      const next = current.map(document => (
+        document.filePath === filePath ? change(document) : document
       ));
 
       // The same list when nothing moved, so a change that decides to keep the
       // record it was given does not cost a render.
-      return next.every((editorWindow, index) => editorWindow === current[index])
+      return next.every((document, index) => document === current[index])
         ? current
         : next;
     });
@@ -502,9 +538,9 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
    * control, which is why no button sets it.
    * @req FR-MDE-001
    */
-  const updateWindowRect = useCallback((filePath: string, rect: DialogRect) => {
-    updateWindow(filePath, editorWindow => ({ ...editorWindow, ...enterFloating(editorWindow, rect) }));
-  }, [updateWindow]);
+  const updateWindowRect = useCallback((rect: DialogRect) => {
+    updateShell(shell => ({ ...shell, ...enterFloating(shell, rect) }));
+  }, [updateShell]);
 
   /**
    * The window's document has diverged from the file, or has stopped diverging.
@@ -520,44 +556,82 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
    * @req FR-MDE-008
    */
   const setWindowDirty = useCallback((filePath: string, dirty: boolean) => {
-    updateWindow(filePath, editorWindow => (
-      editorWindow.dirty === dirty ? editorWindow : { ...editorWindow, dirty }
+    updateDocument(filePath, document => (
+      document.dirty === dirty ? document : { ...document, dirty }
     ));
-  }, [updateWindow]);
+  }, [updateDocument]);
 
   /**
-   * The bound tab has gone, so the window becomes floating at the rectangle it
-   * was occupying. This is a state transition rather than a way of drawing it:
-   * the record is what `App` reads to decide which boundary the window drags
-   * against, so a window drawn as floating while its record said otherwise
-   * would answer two different ways about itself.
-   *
-   * It goes through `enterFloating` like every other route into that state, so
-   * there is one place that knows what entering it means.
-   * @req CON-MDE-002
+   * Closes one document. The window goes with its last tab: an empty window
+   * shows nothing and carries no title.
+   * @req FR-MDE-012
    */
-  const orphanWindow = useCallback((filePath: string, rect: DialogRect) => {
-    updateWindow(filePath, editorWindow => (
-      editorWindow.placement === 'floating'
-        ? editorWindow
-        : { ...editorWindow, ...enterFloating(editorWindow, rect) }
-    ));
-  }, [updateWindow]);
+  const closeDocument = useCallback((filePath: string) => {
+    const workspaceId = activeWorkspaceId;
 
-  const closeWindow = useCallback((filePath: string) => {
-    setWindows(current => current.filter(editorWindow => editorWindow.filePath !== filePath));
-  }, []);
+    setDocuments(current => current.filter(document => document.filePath !== filePath));
 
-  const minimizeWindow = useCallback((filePath: string) => {
-    updateWindow(filePath, editorWindow => ({
-      ...editorWindow,
-      ...minimizeEditorWindow(editorWindow),
-    }));
-  }, [updateWindow]);
+    if (workspaceId === null) return;
+    setShells((current) => {
+      const shell = current[workspaceId];
+      if (shell === undefined) return current;
 
-  const toggleMaximizeWindow = useCallback((filePath: string) => {
-    updateWindow(filePath, editorWindow => ({ ...editorWindow, ...toggleMaximize(editorWindow) }));
-  }, [updateWindow]);
+      const own = documentsRef.current.filter(document => document.workspaceId === workspaceId);
+      const closed = closeEditorTab(
+        { tabs: own, activeFilePath: shell.activeFilePath },
+        filePath,
+      );
+
+      if (closed.tabs.length === 0) {
+        const { [workspaceId]: _removed, ...rest } = current;
+        return rest;
+      }
+
+      return { ...current, [workspaceId]: { ...shell, activeFilePath: closed.activeFilePath } };
+    });
+  }, [activeWorkspaceId]);
+
+  /** Selects an already-open document's tab. */
+  const selectDocument = useCallback((filePath: string) => {
+    const workspaceId = activeWorkspaceId;
+    if (workspaceId === null) return;
+
+    setShells((current) => {
+      const shell = current[workspaceId];
+      if (shell === undefined) return current;
+
+      const own = documentsRef.current.filter(document => document.workspaceId === workspaceId);
+      const selected = selectEditorTab({ tabs: own, activeFilePath: shell.activeFilePath }, filePath);
+      if (selected.activeFilePath === shell.activeFilePath) return current;
+
+      return { ...current, [workspaceId]: { ...shell, activeFilePath: selected.activeFilePath } };
+    });
+  }, [activeWorkspaceId]);
+
+  /**
+   * Closes the window and every document in it. The title bar's close control
+   * asks each panel first, so by the time this runs nothing is unsaved.
+   * @req FR-MDE-012
+   */
+  const closeWindow = useCallback(() => {
+    const workspaceId = activeWorkspaceId;
+    if (workspaceId === null) return;
+
+    setDocuments(current => current.filter(document => document.workspaceId !== workspaceId));
+    setShells((current) => {
+      if (current[workspaceId] === undefined) return current;
+      const { [workspaceId]: _removed, ...rest } = current;
+      return rest;
+    });
+  }, [activeWorkspaceId]);
+
+  const minimizeWindow = useCallback(() => {
+    updateShell(shell => ({ ...shell, ...minimizeEditorWindow(shell) }));
+  }, [updateShell]);
+
+  const toggleMaximizeWindow = useCallback(() => {
+    updateShell(shell => ({ ...shell, ...toggleMaximize(shell) }));
+  }, [updateShell]);
 
   /**
    * Rebuilds a workspace's windows from the store, once per page load.
@@ -598,12 +672,6 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     // still running carries them and nothing is lost. They leave this list one
     // at a time as their windows appear.
     pendingRestoreRef.current.set(workspaceId, records);
-    // Moved past every stored number now rather than after the reads: the user
-    // can open a window while they are in flight, and a counter still at zero
-    // would hand it a number a restored window already holds.
-    records.forEach((record) => {
-      nextStackOrder.current = Math.max(nextStackOrder.current, record.stackOrder + 1);
-    });
     if (records.length === 0) return;
 
     // Deliberately not cancelled when this effect re-runs. `activeWorkspaceTabIds`
@@ -613,7 +681,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     // also the right answer on a workspace switch: these windows belong to the
     // workspace they were read for, and the list holds every workspace's at once.
     void (async () => {
-      const restored: EditorWindowState[] = [];
+      const restored: EditorDocumentState[] = [];
       for (const record of records) {
         // Resolved through the ref rather than the captured lookup: a tab
         // restart keeps the tab id and replaces the session, and a lookup
@@ -624,7 +692,8 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
         try {
           const file = await fileApi.readFile(sessionId, record.filePath);
           restored.push({
-            ...record,
+            filePath: record.filePath,
+            tabId: record.tabId,
             workspaceId,
             dirty: false,
             bodyAtOpen: file.content,
@@ -635,29 +704,45 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
         }
       }
 
-      // A window the user opened by hand while the reads were in flight wins:
-      // it is the same file and it already holds the body they are looking at.
+      // A document the user opened by hand while the reads were in flight
+      // wins: it is the same file and it already holds the body they are
+      // looking at.
       //
       // The comparison reads the committed list through a ref rather than from
-      // inside the `setWindows` updater. React does not promise to run an
-      // updater at the moment it is dispatched -- with another update already
-      // pending on this component it is deferred to the render phase -- so a
-      // value computed in there and read afterwards would still be empty, and
-      // the stack restore below would be skipped without anything failing.
-      const alreadyOpen = new Set(windowsRef.current.map(editorWindow => editorWindow.filePath));
-      const added = restored.filter(editorWindow => !alreadyOpen.has(editorWindow.filePath));
+      // inside the updater. React does not promise to run an updater at the
+      // moment it is dispatched -- with another update already pending on this
+      // component it is deferred to the render phase -- so a value computed in
+      // there and read afterwards would still be empty.
+      const alreadyOpen = new Set(documentsRef.current.map(document => document.filePath));
+      const added = restored.filter(document => !alreadyOpen.has(document.filePath));
 
-      if (added.length > 0) {
-        // The updater still checks for itself. `added` was decided against the
-        // last committed list, and a window opened between that commit and this
-        // dispatch would otherwise be added a second time under the same path.
-        setWindows((current) => {
-          const open = new Set(current.map(editorWindow => editorWindow.filePath));
-          return [...current, ...added.filter(editorWindow => !open.has(editorWindow.filePath))];
-        });
-        added.forEach(editorWindow => forgetPendingRestore(editorWindow.filePath));
-        setPendingStackRestore(added.map(editorWindow => toEditorWindowRecord(editorWindow)));
-      }
+      if (added.length === 0) return;
+
+      // The updater still checks for itself. `added` was decided against the
+      // last committed list, and a document opened between that commit and
+      // this dispatch would otherwise be added a second time under the path.
+      setDocuments((current) => {
+        const open = new Set(current.map(document => document.filePath));
+        return [...current, ...added.filter(document => !open.has(document.filePath))];
+      });
+      added.forEach(document => forgetPendingRestore(document.filePath));
+
+      // The restored documents need a window to be tabs of. The first of them
+      // becomes the active tab, which is the same rule a hand-opened document
+      // follows.
+      setShells((current) => {
+        if (current[workspaceId] !== undefined) return current;
+
+        return {
+          ...current,
+          [workspaceId]: {
+            ...createEditorWindowPlacementState(),
+            workspaceId,
+            minimized: false,
+            activeFilePath: added[0].filePath,
+          },
+        };
+      });
     })();
     // `activeWorkspaceTabIds` is a fresh array on every render, so the identity
     // of the tab set is what this depends on rather than the array itself --
@@ -687,22 +772,48 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     const workspaceId = activeWorkspaceId;
     if (workspaceId === null || !restoreStartedRef.current.has(workspaceId)) return;
 
-    const own = windows.filter(editorWindow => editorWindow.workspaceId === workspaceId);
-    const openPaths = new Set(own.map(editorWindow => editorWindow.filePath));
+    const shell = shells[workspaceId];
+    const own = documents.filter(document => document.workspaceId === workspaceId);
+    const openPaths = new Set(own.map(document => document.filePath));
     const stillPending = (pendingRestoreRef.current.get(workspaceId) ?? [])
       .filter(record => !openPaths.has(record.filePath));
 
-    saveWindows([...own, ...stillPending]);
-  }, [activeWorkspaceId, saveWindows, windows]);
+    saveWindows([
+      ...own.map(document => toEditorWindowRecord({
+        tabId: document.tabId,
+        filePath: document.filePath,
+        placement: shell?.placement ?? 'stage',
+        placementBeforeStage: shell?.placementBeforeStage ?? null,
+        minimized: shell?.minimized ?? false,
+        floatingRect: shell?.floatingRect ?? null,
+      })),
+      ...stillPending,
+    ]);
+  }, [activeWorkspaceId, documents, saveWindows, shells]);
 
-  const clearPendingStackRestore = useCallback(() => {
-    setPendingStackRestore(null);
-  }, []);
+  const activeShell = activeWorkspaceId === null ? null : shells[activeWorkspaceId] ?? null;
+
+  // In a stable order, so a workspace whose window mounted earlier keeps its
+  // position in the tree. React keys them by workspace, but an order that
+  // shuffled would still reorder the DOM nodes for no reason.
+  const editorWindows = useMemo(
+    () => Object.keys(shells).sort().map(id => shells[id]),
+    [shells],
+  );
+
+  const tabsOf = useCallback(
+    (workspaceId: string) => documents.filter(document => document.workspaceId === workspaceId),
+    [documents],
+  );
 
   return {
-    windows,
-    hasWindows: hasEditorTrayWindows(windows, activeWorkspaceId),
-    minimizedCount: countMinimizedEditorTrayWindows(windows, activeWorkspaceId),
+    documents,
+    editorWindows,
+    tabsOf,
+    selectDocument,
+    closeDocument,
+    hasWindows: hasEditorTrayWindows(documents, activeWorkspaceId),
+    minimizedCount: activeShell?.minimized === true ? 1 : 0,
     trayItems,
     pathMenu,
     pathMenuItems,
@@ -715,12 +826,9 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     dismissOpenError,
     updateWindowRect,
     setWindowDirty,
-    orphanWindow,
     closeWindow,
     minimizeWindow,
     toggleMaximizeWindow,
     writeFile: fileApi.writeFile,
-    pendingStackRestore,
-    clearPendingStackRestore,
   };
 }

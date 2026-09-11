@@ -587,13 +587,9 @@ function AppContent() {
   );
 
   const editor = useEditorWindows({
-    screen,
     setScreen,
-    viewMode: renderedViewMode,
     activeWorkspaceId: wm.activeWorkspaceId,
-    activeTabId: wm.activeWorkspace?.activeTabId ?? null,
     tabs: wm.tabs,
-    onSelectTab: handleSelectTab,
     resolveTabSession,
     activeWorkspaceTabIds,
     windowState,
@@ -765,11 +761,11 @@ function AppContent() {
                       <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
                     )}
                   </TerminalWorkspaceStage>
-                  {/* Inside the provider because term 5 reads its host registry, and
-                      outside the stage's children so no-tabs does not unmount a window.
-                      The list and the window surface arrive with the entry point. */}
+                  {/* Inside the provider because the debug view reads its host
+                      registry, and outside the stage's children so no-tabs does
+                      not unmount the window. */}
                   <EditorWindowLayer
-                    windows={editor.windows}
+                    editorWindows={editor.editorWindows}
                     screen={screen}
                     activeWorkspaceId={wm.activeWorkspaceId}
                     activeTabId={wm.activeWorkspace.activeTabId}
@@ -780,26 +776,24 @@ function AppContent() {
                     onCancelCreate={editor.cancelCreate}
                     openError={editor.openError}
                     onDismissOpenError={editor.dismissOpenError}
-                    onOrphan={editor.orphanWindow}
-                    pendingStackRestore={editor.pendingStackRestore}
-                    onStackRestored={editor.clearPendingStackRestore}
                     renderWindow={(editorWindow, context) => (
                       <EditorWindow
-                        filePath={editorWindow.filePath}
-                        tabId={editorWindow.tabId}
-                        bodyAtOpen={editorWindow.bodyAtOpen}
+                        workspaceId={editorWindow.workspaceId}
+                        tabs={editor.tabsOf(editorWindow.workspaceId)}
+                        activeFilePath={editorWindow.activeFilePath}
+                        onSelectTab={editor.selectDocument}
+                        onCloseTab={editor.closeDocument}
                         rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}
-                        onRectChange={(rect) => editor.updateWindowRect(editorWindow.filePath, rect)}
+                        onRectChange={editor.updateWindowRect}
                         boundsElement={EDITOR_WINDOW_BOUNDS_SELECTOR}
                         hidden={context.hidden}
-                        stackOrder={editorWindow.stackOrder}
                         resolveTabSession={context.resolveTabSession}
                         writeFile={editor.writeFile}
                         maximized={editorWindow.placement === 'stage'}
-                        onToggleMaximize={() => editor.toggleMaximizeWindow(editorWindow.filePath)}
-                        onMinimize={() => editor.minimizeWindow(editorWindow.filePath)}
-                        onClose={() => editor.closeWindow(editorWindow.filePath)}
-                        onDirtyChange={(dirty) => editor.setWindowDirty(editorWindow.filePath, dirty)}
+                        onToggleMaximize={editor.toggleMaximizeWindow}
+                        onMinimize={editor.minimizeWindow}
+                        onDirtyChange={editor.setWindowDirty}
+                        onCloseWindow={editor.closeWindow}
                       />
                     )}
                   />

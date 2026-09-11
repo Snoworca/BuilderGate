@@ -8,14 +8,17 @@ import { createEditorWindowSaveController } from '../../src/components/editor/ed
 
 // FR-MDE-006 AC-2 / AC-3 — which window a Ctrl+S writes.
 //
-// DOM focus decides, not the modeless stack. The two disagree exactly in the
-// case the tray creates: a window restored from the tray is frontmost while the
-// keyboard still belongs elsewhere, and writing on stack order would overwrite
-// a file the user believed they were not touching.
+// DOM focus decides, and nothing else does. There is one editor window per
+// workspace now, so the press is not being routed between windows: it is being
+// kept away from everything that is not the editor. A press that lands while
+// the terminal holds the keyboard belongs to the terminal.
+//
+// The list this reads is still a list. The window puts exactly one entry in it
+// -- the active tab -- but the rule is written against a collection so that the
+// selection is a decision rather than an accident of there being one candidate.
 
 interface WindowFixture {
   documentId: string;
-  stackOrder: number;
   focused: boolean;
   controller: ReturnType<typeof createEditorWindowSaveController>;
   writes: string[];
@@ -24,7 +27,6 @@ interface WindowFixture {
 function windowFixture(
   documentId: string,
   sessionId: string,
-  stackOrder: number,
 ): WindowFixture {
   const writes: string[] = [];
   const controller = createEditorWindowSaveController({
@@ -39,7 +41,7 @@ function windowFixture(
     },
   });
   controller.handleEditorChange('unsaved work\n');
-  return { documentId, stackOrder, focused: false, controller, writes };
+  return { documentId, focused: false, controller, writes };
 }
 
 function ctrlS() {
@@ -63,7 +65,6 @@ function handlerOver(fixtures: WindowFixture[]) {
     listWindows: () => fixtures.map((fixture) => ({
       documentId: fixture.documentId,
       focused: fixture.focused,
-      stackOrder: fixture.stackOrder,
     })),
     save: (documentId: string) => {
       const target = fixtures.find((fixture) => fixture.documentId === documentId);
@@ -75,23 +76,19 @@ function handlerOver(fixtures: WindowFixture[]) {
 }
 
 test('FR-MDE-006 the shortcut writes the focused window, not the front-most one', async () => {
-  const windowA = windowFixture('/repo/a/CLAUDE.md', 'S-A', 1);
-  const windowB = windowFixture('/repo/b/AGENTS.md', 'S-B', 9);
+  const windowA = windowFixture('/repo/a/CLAUDE.md', 'S-A');
+  const windowB = windowFixture('/repo/b/AGENTS.md', 'S-B');
 
   // A 가 포커스를 갖고, B 가 dirty 이면서 모달리스 스택의 맨 앞이다.
   windowA.focused = true;
   windowB.focused = false;
-  assert.ok(
-    windowB.stackOrder > windowA.stackOrder,
-    'FR-MDE-006 AC-2: B 가 맨 앞이어야 이 시나리오가 성립한다',
-  );
   assert.equal(windowB.controller.isDirty(), true);
 
   const decision = decideEditorWindowSaveShortcut({
     event: { key: 's', ctrlKey: true, metaKey: false },
     windows: [
-      { documentId: windowA.documentId, focused: true, stackOrder: 1 },
-      { documentId: windowB.documentId, focused: false, stackOrder: 9 },
+      { documentId: windowA.documentId, focused: true },
+      { documentId: windowB.documentId, focused: false },
     ],
   });
   assert.deepEqual(
@@ -123,13 +120,13 @@ test('FR-MDE-006 the shortcut writes the focused window, not the front-most one'
 });
 
 test('FR-MDE-006 the shortcut issues no write while focus is outside every editor window', async () => {
-  const windowA = windowFixture('/repo/a/CLAUDE.md', 'S-A', 1);
+  const windowA = windowFixture('/repo/a/CLAUDE.md', 'S-A');
   // 포커스가 터미널 등 어떤 편집기 창 밖에 있다.
   windowA.focused = false;
 
   const outside = decideEditorWindowSaveShortcut({
     event: { key: 's', ctrlKey: true, metaKey: false },
-    windows: [{ documentId: windowA.documentId, focused: false, stackOrder: 1 }],
+    windows: [{ documentId: windowA.documentId, focused: false }],
   });
   assert.deepEqual(
     outside,
@@ -169,7 +166,7 @@ test('FR-MDE-006 the shortcut issues no write while focus is outside every edito
   // 눌러 둔 키의 반복은 저장을 거듭 내지 않는다. 한 번 누른 것이 한 번의 저장이다.
   const held = decideEditorWindowSaveShortcut({
     event: { key: 's', ctrlKey: true, metaKey: false, repeat: true },
-    windows: [{ documentId: windowA.documentId, focused: true, stackOrder: 1 }],
+    windows: [{ documentId: windowA.documentId, focused: true }],
   });
   assert.deepEqual(
     held,
@@ -181,7 +178,7 @@ test('FR-MDE-006 the shortcut issues no write while focus is outside every edito
   // 사용자가 편집기에 넣으려던 글자를 preventDefault 로 삼켜 버린다.
   const altGr = decideEditorWindowSaveShortcut({
     event: { key: 's', ctrlKey: true, metaKey: false, altKey: true },
-    windows: [{ documentId: windowA.documentId, focused: true, stackOrder: 1 }],
+    windows: [{ documentId: windowA.documentId, focused: true }],
   });
   assert.deepEqual(
     altGr,
@@ -192,7 +189,7 @@ test('FR-MDE-006 the shortcut issues no write while focus is outside every edito
   // Ctrl 이 없는 s 는 편집기의 입력이다. 가로채면 안 된다.
   const plainS = decideEditorWindowSaveShortcut({
     event: { key: 's', ctrlKey: false, metaKey: false },
-    windows: [{ documentId: windowA.documentId, focused: true, stackOrder: 1 }],
+    windows: [{ documentId: windowA.documentId, focused: true }],
   });
   assert.deepEqual(
     plainS,

@@ -190,6 +190,10 @@ const LAYER_SOURCE = readFileSync(
   new URL('../../src/components/editor/EditorWindowLayer.tsx', import.meta.url),
   'utf8',
 );
+const WINDOW_SOURCE = readFileSync(
+  new URL('../../src/components/editor/EditorWindow.tsx', import.meta.url),
+  'utf8',
+);
 
 test('FR-MDE-002 the window layer is mounted inside the provider and outside the stage', () => {
   // The opening tag is matched without its closing bracket, so adding a prop to the
@@ -237,9 +241,16 @@ test('FR-MDE-002 the layer is fed the real window list and a renderer that draws
 
   const mount = APP_SOURCE.slice(mountStart, mountEnd);
 
-  // The list comes from the hook that holds it, not from a literal.
-  assert.match(mount, /windows=\{[A-Za-z_$][\w$]*\.windows\}/);
-  assert.doesNotMatch(mount, /windows=\{\s*\[\s*\]\s*\}/);
+  // The windows come from the hook that holds them, not from a literal. A layer
+  // fed an empty list would render nothing and leave every assertion about
+  // visibility below it true of an empty screen.
+  assert.match(mount, /editorWindows=\{[^}]*\.editorWindows\b/);
+  assert.doesNotMatch(mount, /editorWindows=\{\s*\[\s*\]\s*\}/);
+
+  // Every workspace's window is handed over, not only the active one's. A layer
+  // given a single window would unmount the others on a workspace switch, and
+  // unmounting an editor throws away whatever is unsaved in it.
+  assert.doesNotMatch(mount, /editorWindows=\{[^}]*activeWorkspace/);
 
   // And the renderer builds a window rather than answering with nothing.
   const rendererStart = mount.indexOf('renderWindow=');
@@ -255,14 +266,18 @@ test('FR-MDE-002 the layer hands hiding to the window instead of dropping it', (
   // ancestor in the React tree lands on no DOM ancestor of the window.
   assert.match(LAYER_SOURCE, /hidden:\s*!\w+/);
 
-  // renderWindow is called on every window in the list. Rather than enumerating the
-  // shapes a guard could take, this reads the element the layer returns per window:
-  // its only child is the call itself, so there is nowhere for a guard to sit. Every
-  // conditional form -- `visible &&`, a ternary, an early return -- moves the call out
-  // of that position.
+  // `renderWindow` is called for every window in the list, with nothing in
+  // front of it. A guard on visibility there would be an unmount: each window
+  // holds the open documents of its workspace, and the bodies nobody has saved
+  // go with them.
+  //
+  // The element the layer returns per window is read rather than the shapes a
+  // guard could take being enumerated: its only child is the call itself, so
+  // there is nowhere for a guard to sit. Every conditional form -- `visible &&`,
+  // a ternary, an early return -- moves the call out of that position.
   const fragmentOpen = LAYER_SOURCE.indexOf('<Fragment');
   const fragmentClose = LAYER_SOURCE.indexOf('</Fragment>');
-  assert.notEqual(fragmentOpen, -1);
+  assert.notEqual(fragmentOpen, -1, 'the layer still wraps each window');
   assert.notEqual(fragmentClose, -1);
 
   const onlyChild = LAYER_SOURCE
@@ -271,7 +286,17 @@ test('FR-MDE-002 the layer hands hiding to the window instead of dropping it', (
   assert.ok(onlyChild.startsWith('{renderWindow('), `unguarded call expected, got ${onlyChild}`);
   assert.ok(onlyChild.endsWith(')}'), `unguarded call expected, got ${onlyChild}`);
 
-  // Windows are keyed by the file they hold, not by the tab they are bound to -- one
-  // tab legitimately has several windows open over it.
-  assert.match(LAYER_SOURCE, /key=\{\w+\.filePath\}/);
+  // And the list it maps over is the whole list. A filter here would drop the
+  // windows of the other workspaces, which is the unmount this guards against.
+  const mapCall = LAYER_SOURCE.indexOf('editorWindows.map(');
+  assert.notEqual(mapCall, -1, 'the layer maps the windows it was given');
+  assert.equal(
+    LAYER_SOURCE.slice(0, mapCall).includes('editorWindows.filter('),
+    false,
+    'every window is rendered; the hidden ones are hidden, not dropped',
+  );
+
+  // Each open document is keyed by the file it holds, which is what lets a tab
+  // keep its editor instance while its neighbours come and go.
+  assert.match(WINDOW_SOURCE, /key=\{\w+\.filePath\}/);
 });

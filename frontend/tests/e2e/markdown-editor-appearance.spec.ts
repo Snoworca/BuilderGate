@@ -297,7 +297,7 @@ test.describe('markdown editor appearance', () => {
     expect(Number.parseFloat(painted.width)).toBeGreaterThan(0);
   });
 
-  test('the editor host takes 95% of the window body height', async ({ page }) => {
+  test('the editor host takes 95% of its document panel height', async ({ page }) => {
     const workdir = makeWorkdir();
     await addTabAt(page, workspaceId!, workdir, `${TAB_NAME_PREFIX}-height`);
     await selectTab(page, `${TAB_NAME_PREFIX}-height`);
@@ -307,12 +307,20 @@ test.describe('markdown editor appearance', () => {
     const surface = editorWindow(page);
     await expect(surface).toBeVisible({ timeout: 15000 });
 
-    const body = surface.locator('.window-dialog-body');
+    // Measured against the document panel rather than the window body. The body
+    // also holds the tab row, and the 95% the requirement names is the reading
+    // area inside one document -- a ratio taken against the body would shrink
+    // every time a tab row grew.
+    const body = surface.locator('.editor-document-panel');
     const host = surface.locator('.editor-window-host');
     await expect(host).toBeVisible({ timeout: 15000 });
 
     const bodyBox = await boxOf(body);
     const hostBox = await boxOf(host);
+
+    // The tab row really is between them, so the change of basis above is not a
+    // way of ignoring a regression in the body.
+    await expect(surface.locator('.editor-tab-bar')).toBeVisible();
 
     expect(hostBox.height / bodyBox.height).toBeGreaterThan(HOST_HEIGHT_RATIO - RATIO_TOLERANCE);
     expect(hostBox.height / bodyBox.height).toBeLessThan(HOST_HEIGHT_RATIO + RATIO_TOLERANCE);

@@ -14,7 +14,6 @@
 //
 // @req FR-MDE-009
 
-import { raiseDialogById } from '../components/dialog/dialogStack.ts';
 import {
   isEditorWindowRecord,
   restoreEditorWindowRecords,
@@ -160,41 +159,5 @@ export function restoreWindowStateForWorkspace(
     return [];
   }
 
-  return restoreEditorWindowRecords(stored.windows, existingTabIds).sort(byStackOrder);
-}
-
-/**
- * Puts the restored windows back into the modeless stack in their stored order.
- *
- * Called after they have mounted, because a window that has not registered yet
- * is not in the stack and cannot be raised. Each raise moves one entry to the
- * front, so walking the records from the bottom of the stored order upwards
- * leaves the last one nearest the user -- and leaves every window that is not
- * in this list where it was relative to the others. That is what makes the
- * restoration relative: the stack is global while the store is per workspace,
- * so another workspace's windows must keep their own order through this.
- *
- * The dialog id is not derived here. This module would have to import it from
- * the window component to do that, which would pull React into the storage
- * layer; the caller already holds that function and passes it in.
- * @req FR-MDE-009
- */
-export function restoreEditorWindowStackOrder(
-  records: readonly EditorWindowRecord[],
-  toDialogId: (filePath: string) => string,
-): void {
-  [...records].sort(byStackOrder).forEach((editorWindow) => {
-    raiseDialogById(toDialogId(editorWindow.filePath), 'modeless');
-  });
-}
-
-/**
- * The stored order, which restoration honours in two places: the order the
- * windows are created in, which decides the cascade steps, and the order they
- * are raised in, which decides what stands in front. One comparator, so the two
- * cannot disagree about what "stored order" means.
- * @req FR-MDE-009
- */
-function byStackOrder(left: EditorWindowRecord, right: EditorWindowRecord): number {
-  return left.stackOrder - right.stackOrder;
+  return restoreEditorWindowRecords(stored.windows, existingTabIds);
 }

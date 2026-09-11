@@ -16,7 +16,6 @@ const RECORD_FIELDS = [
   'minimized',
   'placement',
   'placementBeforeStage',
-  'stackOrder',
   'tabId',
 ];
 
@@ -34,7 +33,6 @@ function liveWindow(overrides: Record<string, unknown> = {}) {
     placementBeforeStage: null,
     minimized: false,
     floatingRect: null,
-    stackOrder: 2,
     sessionId: 'sess-before-restart',
     currentSessionId: 'sess-before-restart',
     cascadeStep: 3,
@@ -95,11 +93,10 @@ test('CON-MDE-002 the persisted window record carries a tab ID and no session ID
 });
 
 test('CON-MDE-002 restoration drops a record naming a tab that no longer exists', () => {
-  const alive = toEditorWindowRecord(liveWindow({ tabId: 'tab-alive', stackOrder: 0 }));
+  const alive = toEditorWindowRecord(liveWindow({ tabId: 'tab-alive' }));
   const gone = toEditorWindowRecord(liveWindow({
     tabId: 'tab-gone',
     filePath: 'C:/work/notes/orphan.md',
-    stackOrder: 1,
   }));
 
   const restored = restoreEditorWindowRecords([alive, gone], ['tab-alive', 'tab-third']);
@@ -109,7 +106,7 @@ test('CON-MDE-002 restoration drops a record naming a tab that no longer exists'
 
   // The filter keeps the surviving records in their stored order rather than
   // reordering them around the dropped one.
-  const third = toEditorWindowRecord(liveWindow({ tabId: 'tab-third', stackOrder: 2 }));
+  const third = toEditorWindowRecord(liveWindow({ tabId: 'tab-third' }));
   assert.deepEqual(
     restoreEditorWindowRecords([alive, gone, third], ['tab-third', 'tab-alive'])
       .map(entry => entry.tabId),

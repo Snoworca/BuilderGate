@@ -266,26 +266,60 @@ async function chooseFile(page: Page, fileName: string): Promise<void> {
  * would silently resolve to the wrong window the first time one file name
  * contained another.
  */
-function editorWindowFor(page: Page, fileName: string): Locator {
-  return page.locator('.window-dialog-surface.editor-window-surface').filter({
-    has: page.locator('.window-dialog-title')
-      .filter({ hasText: new RegExp(`^${escapeRegExp(fileName)}\\*?$`) }),
-  });
+/** The workspace's one editor window. */
+function editorWindow(page: Page): Locator {
+  return page.locator('.window-dialog-surface.editor-window-surface');
+}
+
+/**
+ * The panel holding one document, found by the path it carries.
+ *
+ * Not by the window title: one window holds every open document, and its title
+ * names only the active tab -- a search through the window would match every
+ * open editor at once. The match is on the path's tail so a caller can name a
+ * file without spelling out the temporary directory it sits in.
+ */
+function editorPanelFor(page: Page, fileName: string): Locator {
+  return page.locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
+}
+
+/** The tab row of the one editor window. */
+function editorTabs(page: Page): Locator {
+  return page.locator('.editor-window-surface .editor-tab-label');
+}
+
+/** One tab of that row, by the file it holds. */
+function editorTabFor(page: Page, fileName: string): Locator {
+  return editorTabs(page).filter({ hasText: fileName }).first();
 }
 
 function contentOf(page: Page, fileName: string): Locator {
-  return editorWindowFor(page, fileName).locator('.cm-content');
+  return editorPanelFor(page, fileName).locator('.cm-content');
 }
 
 async function openWindow(page: Page, fileName: string): Promise<void> {
   await chooseFile(page, fileName);
-  await expect(editorWindowFor(page, fileName)).toBeVisible({ timeout: 15000 });
+  await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
   await expect(contentOf(page, fileName)).toBeAttached({ timeout: 15000 });
 }
 
-/** The title text as rendered, including whatever dirty marker it carries. */
-async function titleOf(page: Page, fileName: string): Promise<string> {
-  return editorWindowFor(page, fileName).locator('.window-dialog-title').first().innerText();
+/**
+ * Waits for the window title to settle on `expected`.
+ *
+ * Polled rather than read once. The dirty marker arrives after a round trip --
+ * the panel reports its flag, the hook updates the document, and the window
+ * reads it back -- so a single read lands before the title has changed and
+ * reports the value from the near side of that trip.
+ */
+async function expectTitle(page: Page, fileName: string, expected: string): Promise<void> {
+  // The window title names the active tab, so the document has to be that tab
+  // for this to be about it. Reading the tab row instead would answer for a
+  // document that is merely open.
+  await expect(editorTabFor(page, fileName)).toHaveAttribute('aria-selected', 'true');
+  await expect
+    .poll(async () => editorWindow(page).locator('.window-dialog-title').first().innerText(),
+      { timeout: 10000 })
+    .toBe(expected);
 }
 
 /**
@@ -301,6 +335,11 @@ async function focusEditorWithoutPressing(page: Page, fileName: string): Promise
 }
 
 async function typeInto(page: Page, fileName: string, text: string): Promise<void> {
+  // The document has to be the tab on screen before it can be typed into: a
+  // panel behind another tab carries `display: none`, and a click on it would
+  // wait for a target that never becomes visible.
+  await editorTabFor(page, fileName).click();
+  await expect(editorTabFor(page, fileName)).toHaveAttribute('aria-selected', 'true');
   await contentOf(page, fileName).click();
   await page.keyboard.press('Control+End');
   await page.keyboard.type(text);
@@ -340,7 +379,7 @@ test.describe('markdown editor save flow and tab binding', () => {
   });
 
   // TC-REQ-FR-MDE-006-AC2-03
-  test('FR-MDE-006 the shortcut writes the focused window while another is front-most', async ({ page }) => {
+  test('FR-MDE-006 the shortcut writes the active tab and leaves the others alone', async ({ page }) => {
     const workdir = makeWorkdir();
     const tabName = `${TAB_NAME_PREFIX}-focus`;
     await addTabAt(page, workspaceId!, workdir, tabName);
@@ -349,56 +388,37 @@ test.describe('markdown editor save flow and tab binding', () => {
     await openWindow(page, 'CLAUDE.md');
     await openWindow(page, 'CLAUDE.local.md');
 
-    // Each window is typed into while it is the one on screen.
+    // The press used to choose between windows by focus. There is one window
+    // now, so what it chooses between is the documents inside it -- and the
+    // rule is the active tab, because that is the one the user is looking at.
     //
-    // Both open into `stage`, so they fill the same rect exactly and the first
-    // window's text is entirely under the second one's surface. Typing into it
-    // would wait for a click that can never land.
-    //
-    // So the front one is typed into first, then minimized, then the back one,
-    // then restored through the tray -- which also brings it back to the front
-    // of the stack, which is the arrangement this criterion needs: the write
-    // must follow focus rather than front-to-back order.
-    await typeInto(page, 'CLAUDE.local.md', 'FRONTMOST');
+    // Both documents are made dirty, so a press that picked the wrong one would
+    // still write something and the assertion would have to name which.
+    await typeInto(page, 'CLAUDE.local.md', 'INACTIVE-TAB');
+    await editorTabFor(page, 'CLAUDE.md').click();
+    await expect(editorTabFor(page, 'CLAUDE.md')).toHaveAttribute('aria-selected', 'true');
+    await typeInto(page, 'CLAUDE.md', 'ACTIVE-TAB');
 
-    const front = editorWindowFor(page, 'CLAUDE.local.md');
-    await front.locator('button[aria-label="최소화"]').click();
-    await expect(front).toBeHidden({ timeout: 10000 });
-
-    // The back window's text is reachable now that nothing is over it. Asked of
-    // the point rather than computed from the layout: a bounding box answers
-    // where an element is even while something else covers it, so a covered
-    // point would make every assertion below hold on the wrong window.
-    const backLine = await contentOf(page, 'CLAUDE.md').locator('.cm-line').first().boundingBox();
-    expect(backLine).not.toBeNull();
-    expect(await page.evaluate((box) => {
-      const hit = document.elementFromPoint(box.x + 3, box.y + box.height / 2);
-      const surface = hit === null ? null : hit.closest('.editor-window-surface');
-      return {
-        inContent: hit !== null && hit.closest('.cm-content') !== null,
-        title: surface?.querySelector('.window-dialog-title')?.textContent ?? null,
-      };
-    }, backLine!)).toEqual({ inContent: true, title: 'CLAUDE.md' });
-
-    // Both dirty, so a shortcut that picked the wrong one would still write.
-    await typeInto(page, 'CLAUDE.md', 'FOCUSED');
-
-    // The front window comes back, and the tray revival puts it at the front of
-    // the modeless stack again.
-    await page.locator('.header-editor-tray-button').click();
-    await page.locator('.context-menu-item').filter({ hasText: 'CLAUDE.local.md' }).first().click();
-    await expect(front).toBeVisible({ timeout: 10000 });
-
-    // Focus goes to the covered window without a press, which would have raised
-    // it. The front-most window stays the other one.
     await focusEditorWithoutPressing(page, 'CLAUDE.md');
     await page.keyboard.press('Control+s');
 
-    const focused = resolveAgainst(cwd, 'CLAUDE.md');
-    const frontmost = resolveAgainst(cwd, 'CLAUDE.local.md');
-    await expect.poll(async () => writesFor(writes, focused).length, { timeout: 10000 }).toBe(1);
-    expect(writesFor(writes, frontmost)).toHaveLength(0);
+    const active = resolveAgainst(cwd, 'CLAUDE.md');
+    const inactive = resolveAgainst(cwd, 'CLAUDE.local.md');
+    await expect.poll(async () => writesFor(writes, active).length, { timeout: 10000 }).toBe(1);
+    expect(writesFor(writes, inactive)).toHaveLength(0);
     expect(writes).toHaveLength(1);
+
+    // And the choice follows the tab rather than being fixed: switching makes
+    // the other document the one that is written. Without this half the case
+    // above would pass against an implementation that always wrote the first
+    // document it found.
+    await editorTabFor(page, 'CLAUDE.local.md').click();
+    await expect(editorTabFor(page, 'CLAUDE.local.md')).toHaveAttribute('aria-selected', 'true');
+    await focusEditorWithoutPressing(page, 'CLAUDE.local.md');
+    await page.keyboard.press('Control+s');
+
+    await expect.poll(async () => writesFor(writes, inactive).length, { timeout: 10000 }).toBe(1);
+    expect(writesFor(writes, active)).toHaveLength(1);
   });
 
   // TC-REQ-FR-MDE-006-AC3-03
@@ -484,14 +504,14 @@ test.describe('markdown editor save flow and tab binding', () => {
     );
 
     await typeInto(page, 'CLAUDE.md', 'WILL-FAIL');
-    expect(await titleOf(page, 'CLAUDE.md')).toContain('*');
+    await expectTitle(page, 'CLAUDE.md', 'CLAUDE.md*');
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await surface.locator('button[aria-label="저장"]').click();
 
     // The failure is reported inside the window and the document stays dirty.
     await expect(surface.locator('.editor-window-error')).toBeVisible({ timeout: 10000 });
-    expect(await titleOf(page, 'CLAUDE.md')).toContain('*');
+    await expectTitle(page, 'CLAUDE.md', 'CLAUDE.md*');
     await expect(page.locator('.message-box-dialog')).toHaveCount(0);
   });
 
@@ -518,13 +538,13 @@ test.describe('markdown editor save flow and tab binding', () => {
     });
 
     // Same window, same editor, same unsaved body.
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible();
+    await expect(editorWindow(page)).toBeVisible();
     expect(await contentOf(page, 'CLAUDE.md').first().getAttribute('data-e2e-editor-stamp'))
       .toBe('restart');
     await expect(contentOf(page, 'CLAUDE.md')).toContainText('ACROSS-RESTART');
 
     // And the next save goes out on the session that replaced the old one.
-    await editorWindowFor(page, 'CLAUDE.md').locator('button[aria-label="저장"]').click();
+    await editorWindow(page).locator('button[aria-label="저장"]').click();
     await expect.poll(async () => writesFor(writes, filePath).length, { timeout: 15000 }).toBe(1);
     expect(writesFor(writes, filePath)[0].sessionId).toBe(newSession);
   });
@@ -539,7 +559,7 @@ test.describe('markdown editor save flow and tab binding', () => {
     await openWindow(page, 'CLAUDE.md');
     await typeInto(page, 'CLAUDE.md', 'DEAD-SESSION');
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     const before = await surface.boundingBox();
     expect(before).not.toBeNull();
 
@@ -557,7 +577,7 @@ test.describe('markdown editor save flow and tab binding', () => {
     await saveButton.click();
     await expect.poll(async () => writes.length, { timeout: 15000 }).toBeGreaterThan(0);
     await expect(surface.locator('.editor-window-error')).toBeVisible({ timeout: 15000 });
-    expect(await titleOf(page, 'CLAUDE.md')).toContain('*');
+    await expectTitle(page, 'CLAUDE.md', 'CLAUDE.md*');
 
     // The placement did not drop. Containment inside the stage could not say
     // that on its own -- a window wrongly dropped to floating is clamped and
@@ -571,83 +591,52 @@ test.describe('markdown editor save flow and tab binding', () => {
     expect(Math.round(after!.height)).toBe(Math.round(before!.height));
   });
 
+  // The two AC-4 cases that stood here watched a window drop from `docked` to
+  // `floating` when the terminal tab it covered went away. A window is not
+  // placed over a terminal any more, so there is no placement for the loss of a
+  // terminal to change -- what the criterion is really about, and what the two
+  // cases below judge, is that the document survives it and says why it cannot
+  // be saved.
+
   // TC-REQ-CON-MDE-002-AC4-01
-  test('CON-MDE-002 closing the tab drops the window to floating with the clamp winning over the inherited rect', async ({ page }) => {
-    // The bound tab has to be the only one, so this runs in a workspace of its
-    // own rather than emptying the shared one.
-    const ownWorkspaceName = `${TAB_NAME_PREFIX}-ws`;
-    const ownWorkspaceId = await createOwnWorkspace(page, ownWorkspaceName);
-    await selectWorkspace(page, ownWorkspaceName);
-    for (const stray of await listTabIds(page, ownWorkspaceId)) {
-      await deleteTab(page, ownWorkspaceId, stray);
-    }
-
+  test('CON-MDE-002 deleting the bound terminal tab keeps the document and its unsaved body', async ({ page }) => {
     const workdir = makeWorkdir();
-    const tabName = `${TAB_NAME_PREFIX}-lasttab`;
-    const tabId = await addTabAt(page, ownWorkspaceId, workdir, tabName);
-    await selectTab(page, tabName);
+    const boundName = `${TAB_NAME_PREFIX}-apiclose-bound`;
+    const siblingName = `${TAB_NAME_PREFIX}-apiclose-peer`;
+    const boundTabId = await addTabAt(page, workspaceId!, workdir, boundName);
+    await addTabAt(page, workspaceId!, makeWorkdir(), siblingName);
+    await selectTab(page, boundName);
     await awaitReportedCwd(page, workdir);
+
     await openWindow(page, 'CLAUDE.md');
-    await typeInto(page, 'CLAUDE.md', 'ORPHANED');
+    await typeInto(page, 'CLAUDE.md', 'API-CLOSED');
+    const body = await contentOf(page, 'CLAUDE.md').first().innerText();
+    expect(body).toContain('API-CLOSED');
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
-    const inherited = await surface.boundingBox();
-    expect(inherited).not.toBeNull();
+    await deleteTab(page, workspaceId!, boundTabId);
 
-    const writesBefore = writes.length;
-    await deleteTab(page, ownWorkspaceId, tabId);
+    // The window is still there and still holds what was typed into it. The
+    // body is compared against what it was rather than merely being non-empty:
+    // a panel that remounted would come back with the file as it is on disk,
+    // which is also non-empty.
+    await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
+    await expect(editorPanelFor(page, 'CLAUDE.md')).toHaveCount(1);
+    expect(await contentOf(page, 'CLAUDE.md').first().innerText()).toBe(body);
 
-    // The window survives the tab and says why it cannot be saved.
-    await expect(surface).toBeVisible({ timeout: 15000 });
-    await expect(surface.locator('span', { hasText: '저장 불가' })).toBeVisible({ timeout: 15000 });
-    await expect(surface.locator('button[aria-label="저장"]')).toBeDisabled();
-
-    // The shortcut is disabled with the button.
-    await focusEditorWithoutPressing(page, 'CLAUDE.md');
-    await page.keyboard.press('Control+s');
-    await page.waitForTimeout(700);
-    expect(writes).toHaveLength(writesBefore);
-
-    // The rect is the one it occupied, with the floating clamp applied to it.
-    // The criterion splits here, so the assertion splits with it: an inherited
-    // rect that already lies inside the post-close bounds must come through
-    // untouched, and one that does not must be moved and end up contained.
-    // Reporting which branch ran keeps a conditional assertion from quietly
-    // becoming no assertion.
-    const stage = await page.locator('.terminal-workspace-stage').first().boundingBox();
-    const settled = await surface.boundingBox();
-    expect(stage).not.toBeNull();
-    expect(settled).not.toBeNull();
-
-    const fits = inherited!.x >= stage!.x - 1
-      && inherited!.y >= stage!.y - 1
-      && inherited!.x + inherited!.width <= stage!.x + stage!.width + 1
-      && inherited!.y + inherited!.height <= stage!.y + stage!.height + 1;
-    console.warn(`[markdown-editor-save] AC-4 branch: inherited ${fits ? 'fits' : 'does not fit'} the post-close stage`);
-
-    if (fits) {
-      expect(Math.round(settled!.x)).toBe(Math.round(inherited!.x));
-      expect(Math.round(settled!.y)).toBe(Math.round(inherited!.y));
-      expect(Math.round(settled!.width)).toBe(Math.round(inherited!.width));
-      expect(Math.round(settled!.height)).toBe(Math.round(inherited!.height));
-    } else {
-      expect({ x: Math.round(settled!.x), y: Math.round(settled!.y) })
-        .not.toEqual({ x: Math.round(inherited!.x), y: Math.round(inherited!.y) });
-      expect(settled!.x).toBeGreaterThanOrEqual(stage!.x - 1);
-      expect(settled!.y).toBeGreaterThanOrEqual(stage!.y - 1);
-      expect(settled!.x + settled!.width).toBeLessThanOrEqual(stage!.x + stage!.width + 1);
-      expect(settled!.y + settled!.height).toBeLessThanOrEqual(stage!.y + stage!.height + 1);
-    }
+    // And it says it cannot be saved, rather than offering a control that would
+    // fail silently.
+    await expect(editorWindow(page).locator('span', { hasText: '저장 불가' }))
+      .toBeVisible({ timeout: 15000 });
+    await expect(editorWindow(page).locator('button[aria-label="저장"]')).toBeDisabled();
   });
 
   // TC-REQ-CON-MDE-002-AC4-02
-  test('CON-MDE-002 closing the bound tab from the tab bar keeps the orphaned window on screen', async ({ page }) => {
-    // The sibling case above closes the tab through the API, which leaves the
-    // workspace still pointing at the tab it deleted. Closing from the tab bar
-    // does not: `closeTab` moves the active tab to a sibling, and a window
-    // scoped to its own tab disappears at that moment -- taking a body nobody
-    // has saved with it. That is the path a user actually takes, so it is taken
-    // here, and it needs a sibling to move to.
+  test('CON-MDE-002 closing the bound tab from the tab bar keeps every open document', async ({ page }) => {
+    // The case above closes the tab through the API, which leaves the workspace
+    // still pointing at the tab it deleted. Closing from the tab bar does not:
+    // `closeTab` moves the active tab to a sibling. A window scoped to its own
+    // terminal tab disappeared at that moment, taking a body nobody had saved;
+    // this is the path a user actually takes, so it is taken here.
     const workdir = makeWorkdir();
     // Neither name contains the other: the tab locator matches on contained
     // text, so a sibling named after the bound tab would be found by a search
@@ -659,83 +648,38 @@ test.describe('markdown editor save flow and tab binding', () => {
     await addTabAt(page, workspaceId!, makeWorkdir(), siblingName);
     await selectTab(page, boundName);
     await awaitReportedCwd(page, workdir);
-    // Two windows on the bound tab, and the second one is what is measured.
-    //
-    // AC-4 names `floating`, not `stage`. Both placements fill the stage, so the
-    // rect cannot tell them apart; the 최대화 toggle can, because it renders
-    // `aria-pressed` from the placement itself. The second window is the one
-    // measured so that the count assertion below distinguishes "both survived"
-    // from "one did".
+
+    // Two documents, so the count below tells "both survived" from "one did".
     await openWindow(page, 'CLAUDE.md');
     await openWindow(page, 'CLAUDE.local.md');
     await typeInto(page, 'CLAUDE.local.md', 'UI-CLOSED');
-
-    const surface = editorWindowFor(page, 'CLAUDE.local.md');
     const body = await contentOf(page, 'CLAUDE.local.md').first().innerText();
     expect(body).toContain('UI-CLOSED');
 
-    // The window is put into `stage` first, so that the drop to `floating`
-    // afterwards is a change rather than the state it was already in -- a
-    // window that opened floating and stayed there would satisfy every
-    // assertion below without the orphan rule ever running.
-    await surface.locator('button[aria-label="최대화"]').click();
-    await expect(surface.locator('button[aria-label="최대화"]'))
-      .toHaveAttribute('aria-pressed', 'true');
-
-    // The rectangle it occupies immediately before the close.
-    const inherited = await surface.boundingBox();
-    expect(inherited).not.toBeNull();
-
-    // The tab bar's own close control, on the tab the window is bound to.
+    // The tab bar's own close control, on the terminal tab the documents were
+    // opened from.
     const boundTab = page.locator('.workspace-tabbar [role="tab"]', { hasText: boundName }).first();
     await expect(boundTab).toBeVisible({ timeout: 10000 });
     await boundTab.locator('button').last().click();
 
     // The tab bar asks before it ends a session, and answering that is part of
-    // the path a user takes. The API case skips this dialog entirely, which is
-    // the whole reason it also skips the active-tab move underneath it.
+    // the path a user takes.
     const confirmClose = page.locator('.modal-content .btn-submit');
     await expect(confirmClose).toBeVisible({ timeout: 10000 });
     await confirmClose.click();
 
-    // The active tab really did move, or this test would be the API case again
-    // under another name.
+    // The active terminal tab really did move, or this would be the API case
+    // again under another name.
     await expect(page.locator('.workspace-tabbar [role="tab"]', { hasText: boundName }))
       .toHaveCount(0, { timeout: 15000 });
 
-    // Both windows are still on screen, and the measured one still holds the
-    // body it was given.
-    await expect(page.locator('.window-dialog-surface.editor-window-surface')).toHaveCount(2);
-    await expect(surface).toBeVisible({ timeout: 15000 });
+    // Both documents are still open, and the measured one still holds its body.
+    await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
+    await expect(editorTabs(page)).toHaveCount(2);
     expect(await contentOf(page, 'CLAUDE.local.md').first().innerText()).toBe(body);
-    await expect(surface.locator('span', { hasText: '저장 불가' })).toBeVisible({ timeout: 15000 });
-    await expect(surface.locator('button[aria-label="저장"]')).toBeDisabled();
-
-    // The rect it settled on is the one it occupied, exactly. AC-4: closing a
-    // tab never shrinks the stage, so the inherited rectangle is still inside
-    // the post-close stage and the clamp does not participate.
-    const settled = await surface.boundingBox();
-    expect(settled).not.toBeNull();
-    expect({
-      x: Math.round(settled!.x), y: Math.round(settled!.y),
-      width: Math.round(settled!.width), height: Math.round(settled!.height),
-    }).toEqual({
-      x: Math.round(inherited!.x), y: Math.round(inherited!.y),
-      width: Math.round(inherited!.width), height: Math.round(inherited!.height),
-    });
-
-    // And it really is `floating` now rather than the `stage` it opened in. The
-    // rect cannot say so -- the orphan inherits a rect that fills the stage and
-    // the floating clamp holds it there -- but the 최대화 toggle renders the
-    // placement directly, so it can.
-    const maximize = surface.locator('button[aria-label="최대화"]');
-    await expect(maximize).toHaveAttribute('aria-pressed', 'false', { timeout: 10000 });
-
-    // And the record still moves. A window held in `floating` by something that
-    // re-applied the drop on every commit would refuse this press, or answer it
-    // and come straight back.
-    await maximize.click();
-    await expect(maximize).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
+    await expect(editorWindow(page).locator('span', { hasText: '저장 불가' }))
+      .toBeVisible({ timeout: 15000 });
+    await expect(editorWindow(page).locator('button[aria-label="저장"]')).toBeDisabled();
   });
 
   // TC-REQ-CON-MDE-002-AC5-01
@@ -749,7 +693,7 @@ test.describe('markdown editor save flow and tab binding', () => {
     await typeInto(page, 'CLAUDE.md', 'DISCARD-ME');
 
     await deleteTab(page, workspaceId!, tabId);
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await expect(surface.locator('span', { hasText: '저장 불가' })).toBeVisible({ timeout: 15000 });
 
     const writesBefore = writes.length;
@@ -765,7 +709,10 @@ test.describe('markdown editor save flow and tab binding', () => {
     await expect(prompt.locator('.confirm-message')).toContainText('저장할 수 없습니다');
 
     await prompt.locator('.btn-submit').click();
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toHaveCount(0);
+    // The only document goes, and the window goes with it: an empty window
+    // shows nothing and carries no title.
+    await expect(editorPanelFor(page, 'CLAUDE.md')).toHaveCount(0);
+    await expect(editorWindow(page)).toHaveCount(0);
     await page.waitForTimeout(700);
     expect(writes).toHaveLength(writesBefore);
   });
@@ -847,14 +794,13 @@ test.describe('markdown editor save flow and tab binding', () => {
     // answer -- and the title bar is checked alongside, because the two draw
     // from the same value and disagreeing would mean one of them invented it.
     const writesBefore = writesFor(writes, resolveAgainst(cwd, 'CLAUDE.md')).length;
-    await editorWindowFor(page, 'CLAUDE.md').locator('button[aria-label="저장"]').click();
+    await editorWindow(page).locator('button[aria-label="저장"]').click();
     await expect.poll(
       async () => writesFor(writes, resolveAgainst(cwd, 'CLAUDE.md')).length,
       { timeout: 10000 },
     ).toBe(writesBefore + 1);
 
-    await expect.poll(async () => titleOf(page, 'CLAUDE.md'), { timeout: 10000 })
-      .toBe('CLAUDE.md');
+    await expectTitle(page, 'CLAUDE.md', 'CLAUDE.md');
     expect(await trayLabel()).toMatch(/[\\/]CLAUDE\.md$/);
   });
 
@@ -901,7 +847,7 @@ test.describe('markdown editor save flow and tab binding', () => {
     await awaitReportedCwd(page, workdir);
     await openWindow(page, 'CLAUDE.md');
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await surface.locator('button[aria-label="최소화"]').click();
     await expect(surface).toBeHidden({ timeout: 10000 });
 

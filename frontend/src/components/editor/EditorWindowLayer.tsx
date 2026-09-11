@@ -1,68 +1,53 @@
-// Mounts the open editor windows, decides which of them are on screen, and
-// works out where each one goes.
+// Mounts the workspace's editor window, decides whether it is on screen, and
+// works out where it goes.
 //
-// The layer never unmounts a window. A window that fails the visibility predicate is
-// told to hide and keeps its subtree, because the editor reads its document once at
-// mount and owns it from then on -- unmounting is how the unsaved body gets thrown
-// away.
+// The layer never unmounts the window. A window that fails the visibility
+// predicate is told to hide and keeps its subtree, because each document's
+// editor reads its body once at mount and owns it from then on -- unmounting is
+// how unsaved work gets thrown away.
 //
-// Hiding is handed to the window rather than applied around it. WindowDialog puts its
-// surface through createPortal into document.body, so the surface is not a DOM
-// descendant of whatever this layer renders and a style set here would not reach it.
-// The predicate's answer therefore travels as `hidden` and the surface applies it.
+// Hiding is handed to the window rather than applied around it. WindowDialog
+// puts its surface through createPortal into document.body, so the surface is
+// not a DOM descendant of whatever this layer renders and a style set here
+// would not reach it. The predicate's answer therefore travels as `hidden` and
+// the surface applies it.
 //
-// Placement is computed here rather than per window because its input is
-// collection-wide: every window is placed against the same measured overlay, and
-// that measurement is a context value only this layer reads. A per-window
-// computation would need the registry duplicated into every window.
+// Placement is computed here because its input is the measured stage, and that
+// measurement comes from a context value only this layer reads.
 //
-// The layer must render inside TerminalRuntimeProvider: the host registry it hands
-// to each window is that provider's context value. The consequence is that the
-// windows and their unsaved bodies are destroyed on any commit where AppContent has
-// no active workspace -- deleting the last one is the obvious way there, but so is a stored
-// workspace id that names a workspace the reloaded list does not contain. That is
-// left as a known constraint.
+// The layer must render inside TerminalRuntimeProvider: the host registry it
+// exposes for debugging is that provider's context value. The consequence is
+// that the window and its unsaved documents are destroyed on any commit where
+// AppContent has no active workspace -- deleting the last one is the obvious
+// way there, but so is a stored workspace id that names a workspace the
+// reloaded list does not contain. That is left as a known constraint.
 // @req FR-MDE-002
 // @req FR-MDE-001
 // @req FR-MDE-007
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { useTerminalRuntimeContext } from '../Terminal/TerminalRuntimeContext';
 import { ConfirmModal } from '../Modal/ConfirmModal';
 import { MessageBox } from '../dialog/MessageBox';
 import type { DialogRect } from '../dialog/types';
 // The floor a window is not shrunk below, taken from the window that hands the
-// same numbers to `Rnd`. One definition, so the size the layer places a window at
-// and the size the window agrees to render at cannot drift.
-import {
-  EDITOR_WINDOW_MIN_SIZE,
-  editorWindowDialogId,
-  readEditorProbe,
-  setEditorReadOnly,
-} from './EditorWindow.tsx';
-import type { EditorWindowRecord } from './editorWindowRecord.ts';
-import { restoreEditorWindowStackOrder } from '../../hooks/windowStateStorage.ts';
+// same numbers to `Rnd`. One definition, so the size the layer places a window
+// at and the size the window agrees to render at cannot drift.
+import { EDITOR_WINDOW_MIN_SIZE } from './EditorWindow.tsx';
+import { readEditorProbe, setEditorReadOnly } from './EditorDocumentPanel.tsx';
 import type { EditorWindowPlacement } from './editorWindowPlacement.ts';
 import { clampToStage, toStageRect } from './editorWindowRect.ts';
 import {
   isEditorWindowVisible,
   type EditorWindowScreen,
-  type EditorWindowTerminalHost,
-  type EditorWindowViewMode,
 } from './editorWindowVisibility.ts';
 // The editor's only stylesheet entry point, which pulls in the inline-preview and
 // KaTeX sheets behind it. Without it the maths renders twice over itself, because
 // KaTeX folds its MathML copy away in CSS and nothing else does.
-//
-// It is imported here rather than in EditorWindow because the styles are global:
-// one editor stylesheet serves every window, and a per-window import would
-// declare the same thing once per window. FR-MDE-005 AC-1 also requires every
-// symbol EditorWindow imports from the editor tree to come through the barrel,
-// and a stylesheet cannot be re-exported from one.
 import '../../editor/styles/editor.css';
 
 /**
- * The rect a window holds while its target has no area to be placed in.
+ * The rect the window holds while the stage has no area to place it in.
  *
  * `EditorWindow` requires a rect, and the window is hidden throughout this
  * state, so the value never reaches the screen. It is exported rather than
@@ -78,18 +63,20 @@ export const EDITOR_WINDOW_WAITING_RECT: DialogRect = {
   height: EDITOR_WINDOW_MIN_SIZE.height,
 };
 
-/** Resolves a bound tab to the session it is running at the moment of the call. */
+/** Resolves a terminal tab to the session it is running at the moment of the call. */
 export type EditorWindowTabSessionLookup = (tabId: string) => string | undefined;
 
 /**
- * What the layer needs of a window, derived from the persisted record so the shape of
- * a window is declared in one place. `workspaceId` is the one field the record does
- * not carry: it belongs to the bound tab, which the record names but does not copy.
+ * What the layer reads off the window. The caller keeps whatever else it holds
+ * on the same object and gets it back in `renderWindow`.
  * @req FR-MDE-002
  */
-export type EditorWindowLayerWindow =
-  Pick<EditorWindowRecord, 'tabId' | 'filePath' | 'placement' | 'minimized' | 'floatingRect'>
-  & { workspaceId: string };
+export interface EditorWindowLayerWindow {
+  workspaceId: string;
+  placement: EditorWindowPlacement;
+  minimized: boolean;
+  floatingRect: DialogRect | null;
+}
 
 declare global {
   interface Window {
@@ -103,21 +90,21 @@ declare global {
         isVisible: boolean;
         rect: { left: number; top: number; width: number; height: number };
       } | undefined;
-      /** What the window open on a path is passing to the editor. */
+      /** What the panel holding a path is passing to the editor. */
       readEditorProbe(filePath: string): {
         documentId: string;
         markdownSource: string;
         /** One number per `extensions` array object. Equal means identical. */
         extensionsToken: number;
       } | undefined;
-      /** Drives the editor handle that window holds. False if it reached none. */
+      /** Drives the editor handle that panel holds. False if it reached none. */
       setEditorReadOnly(filePath: string, readOnly: boolean): boolean;
     };
   }
 }
 
 /**
- * What a window is told about itself when it renders.
+ * What the window is told about itself when it renders.
  * @req FR-MDE-002
  */
 export interface EditorWindowRenderContext {
@@ -125,13 +112,7 @@ export interface EditorWindowRenderContext {
   hidden: boolean;
   resolveTabSession: EditorWindowTabSessionLookup;
   /**
-   * The registry entry for the bound tab, or undefined when that tab has none.
-   * Carried so a window can be told why it has no rect without reaching for the
-   * registry itself.
-   */
-  host: EditorWindowTerminalHost | undefined;
-  /**
-   * Where the window goes, or null while its target has no area to go into.
+   * Where the window goes, or null while the stage has no area to go into.
    * A window with no rect is not placed at a zero-size one -- it waits.
    */
   rect: DialogRect | null;
@@ -143,24 +124,30 @@ export interface EditorWindowRenderContext {
  * only to carry this one function past a component that already holds it.
  *
  * `renderWindow` is the seam that keeps the editor's dependencies out of this layer.
- * The layer decides placement and visibility; what a window draws is the caller's.
+ * The layer decides placement and visibility; what the window draws is the caller's.
  * @req FR-MDE-002
  */
 export interface EditorWindowLayerProps<TWindow extends EditorWindowLayerWindow> {
-  /** In creation order. The layer does not sort -- raising reorders paint, not DOM. */
-  windows: readonly TWindow[];
+  /**
+   * One window per workspace that has an open document, not only the active
+   * workspace's.
+   *
+   * Every one of them is mounted and all but one is hidden. A workspace switch
+   * that unmounted the others would destroy the editors inside them, and with
+   * those the bodies nobody has saved -- the same reason a hidden window is
+   * hidden rather than dropped.
+   */
+  editorWindows: readonly TWindow[];
   screen: EditorWindowScreen;
   activeWorkspaceId: string | null;
-  activeTabId: string | null;
-  viewMode: EditorWindowViewMode;
-  resolveTabSession: EditorWindowTabSessionLookup;
   /**
-   * The window comes back out with whatever else the caller keeps on it. The
-   * layer reads only the fields above; widening its own type instead would
-   * make it declare fields it has no rule about, and narrowing the caller's
-   * would make the caller look its own windows up again by path to get them
-   * back.
+   * Read only to re-measure the stage: switching terminal tabs can change the
+   * area the window is confined to. It is deliberately not a visibility term --
+   * the window holds documents from several terminals.
    */
+  activeTabId: string | null;
+  viewMode: 'tab' | 'grid';
+  resolveTabSession: EditorWindowTabSessionLookup;
   renderWindow: (
     editorWindow: TWindow,
     context: EditorWindowRenderContext,
@@ -172,30 +159,6 @@ export interface EditorWindowLayerProps<TWindow extends EditorWindowLayerWindow>
   /** A read failure other than a missing file, or null when none. */
   openError: string | null;
   onDismissOpenError: () => void;
-  /**
-   * A window's bound tab has gone, and this is the rectangle it was occupying.
-   *
-   * Reported rather than applied here: the placement is a fact about the window
-   * that `App` also reads, so it belongs in the record. What only this layer
-   * knows is the rect, because it is computed from a measurement only this
-   * layer takes.
-   * @req CON-MDE-002
-   */
-  onOrphan: (filePath: string, rect: DialogRect) => void;
-  /**
-   * Windows a restore has just created, waiting to be put back into their
-   * stored front-to-back order, or null when none is waiting.
-   *
-   * The raise happens here rather than where the windows were created because
-   * it can only happen after they have mounted: a window registers itself with
-   * the modeless stack from its own layout effect, and one that has not
-   * registered yet cannot be raised. A child's layout effect runs before this
-   * component's effects, so by the time this fires they are all in the stack.
-   * @req FR-MDE-009
-   */
-  pendingStackRestore: readonly EditorWindowRecord[] | null;
-  /** Reported back once they have been raised, so the batch is not repeated. */
-  onStackRestored: () => void;
 }
 
 function fileNameOf(filePath: string): string {
@@ -204,14 +167,10 @@ function fileNameOf(filePath: string): string {
 }
 
 /**
- * Keyed by the resolved absolute path, which is what identifies a window here: two
- * tabs can share a `cwd`, and save conflicts are deliberately not detected, so two
- * windows onto one file would overwrite each other silently. Keying by the bound tab
- * would instead collide the several windows one tab legitimately has open.
  * @req FR-MDE-002
  */
 export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
-  windows,
+  editorWindows,
   screen,
   activeWorkspaceId,
   activeTabId,
@@ -223,27 +182,12 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
   onCancelCreate,
   openError,
   onDismissOpenError,
-  onOrphan,
-  pendingStackRestore,
-  onStackRestored,
 }: EditorWindowLayerProps<TWindow>) {
   const { hosts, rootRef, layoutVersion } = useTerminalRuntimeContext();
   const [overlayRect, setOverlayRect] = useState<DOMRect | null>(null);
 
-  // The restored windows take their stored order in the stack. This runs after
-  // they have mounted and registered themselves, which is what makes the raise
-  // find them; the batch is reported back so it is not applied a second time.
-  // @req FR-MDE-009
-  useEffect(() => {
-    if (pendingStackRestore === null) return;
-
-    restoreEditorWindowStackOrder(pendingStackRestore, editorWindowDialogId);
-    onStackRestored();
-  }, [onStackRestored, pendingStackRestore]);
-
-  // The runtime overlay is what the registry measures against, and it fills the
-  // stage, so one measurement answers both questions: where the registry's
-  // origin is, and how big the stage a floating window is confined to is.
+  // The runtime overlay fills the stage, so measuring it answers the only
+  // placement question left: how big the box the window is confined to is.
   const measureOverlay = useCallback(() => {
     const element = rootRef.current;
     if (element === null) return;
@@ -277,9 +221,8 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
   // first was absent would publish an object missing half its methods.
   //
   // The terminal host entry is handed back as it is stored: an absent tab
-  // answers `undefined` rather than a zero rect, which is the distinction the
-  // deferral rule turns on. The editor probe answers the same way for a path no
-  // window is open on.
+  // answers `undefined` rather than a zero rect. The editor probe answers the
+  // same way for a path no document is open on.
   // @req FR-MDE-001
   // @req FR-MDE-005
   useEffect(() => {
@@ -307,109 +250,19 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
     };
   }, [hosts]);
 
-  // Where each window was last drawn, so a window whose tab closes can inherit
-  // the place it was already sitting in.
-  // @req CON-MDE-002
-  const lastRectRef = useRef(new Map<string, DialogRect>());
-
-  // The windows already reported as orphaned.
-  //
-  // The report has to be once per window, not once per commit while its tab is
-  // gone. `tabClosed` stays true forever, so a guard that only asked whether
-  // the window is floating would fire again the moment it left that state --
-  // and 최대화 is the control whose whole job is to leave it. It would appear
-  // to do nothing: the window would be pushed straight back to floating at the
-  // rect it already had.
-  // @req CON-MDE-002
-  const reportedOrphansRef = useRef(new Set<string>());
-
-  // One pass over the collection, in creation order. Both placements are placed
-  // against the same measured stage, so no window's rect depends on a sibling's.
-  const placed: {
-    editorWindow: TWindow;
-    rect: DialogRect | null;
-    placement: EditorWindowPlacement;
-    tabClosed: boolean;
-  }[] = [];
-
-  for (const editorWindow of windows) {
-    const stageBounds = overlayRect === null ? null : toStageRect(overlayRect);
-    const tabClosed = resolveTabSession(editorWindow.tabId) === undefined;
-    const placement = editorWindow.placement;
-    const rect: DialogRect | null = placement === 'stage'
-      ? stageBounds
-      : (stageBounds !== null && editorWindow.floatingRect !== null
-        ? clampToStage(editorWindow.floatingRect, stageBounds)
-        : stageBounds);
-
-    placed.push({ editorWindow, rect, placement, tabClosed });
-  }
-
-  // A window whose tab has gone is handed the rect it was last drawn at, once.
-  // The record then moves it to `floating` carrying that rect, and from there
-  // it is an ordinary floating window: 최대화 moves it as it moves any other,
-  // because this reports the orphaning rather than enforcing it.
-  //
-  // After the commit, not during the pass: this changes the state the pass
-  // reads. `lastRectRef` still holds what the previous render drew, which is
-  // the rectangle the window occupied immediately before the close -- this
-  // pass has already computed `null` for it, the registry entry being gone.
-  // @req CON-MDE-002
-  useLayoutEffect(() => {
-    const reported = reportedOrphansRef.current;
-
-    for (const { editorWindow, tabClosed } of placed) {
-      if (!tabClosed || reported.has(editorWindow.filePath)) {
-        continue;
-      }
-
-      // The stage stands in for a window that was never drawn -- opened while
-      // its tab was already going, so there is no rectangle it occupied. That
-      // is a placement rather than an inheritance, and it is the only way such
-      // a window reaches the screen at all: with no rect it would stay hidden
-      // holding a body nobody can save. It is not recorded as reported, so the
-      // next commit -- which has a measurement -- can still place it.
-      const occupied = lastRectRef.current.get(editorWindow.filePath)
-        ?? (overlayRect === null ? null : toStageRect(overlayRect));
-      if (occupied === null) {
-        continue;
-      }
-
-      reported.add(editorWindow.filePath);
-      onOrphan(editorWindow.filePath, occupied);
-    }
-  });
-
-  // Written after the commit rather than during the pass, so the map holds what
-  // the previous render drew while this one is deciding. Entries for windows
-  // that have closed are dropped in the same sweep.
-  // @req CON-MDE-002
-  useLayoutEffect(() => {
-    const remembered = lastRectRef.current;
-    const open = new Set(placed.map(entry => entry.editorWindow.filePath));
-
-    for (const filePath of Array.from(remembered.keys())) {
-      if (!open.has(filePath)) {
-        remembered.delete(filePath);
-      }
-    }
-    for (const filePath of Array.from(reportedOrphansRef.current)) {
-      if (!open.has(filePath)) {
-        reportedOrphansRef.current.delete(filePath);
-      }
-    }
-
-    for (const { editorWindow, rect } of placed) {
-      if (rect !== null) {
-        remembered.set(editorWindow.filePath, rect);
-      }
-    }
-  });
+  const stageBounds = overlayRect === null ? null : toStageRect(overlayRect);
 
   return (
     <>
-      {placed.map(({ editorWindow, rect }) => {
-        const host = hosts.get(editorWindow.tabId);
+      {editorWindows.map((editorWindow) => {
+        const rect = stageBounds === null
+          ? null
+          : (editorWindow.placement === 'stage'
+            ? stageBounds
+            : (editorWindow.floatingRect === null
+              ? stageBounds
+              : clampToStage(editorWindow.floatingRect, stageBounds)));
+
         const visible = isEditorWindowVisible({
           minimized: editorWindow.minimized,
           screen,
@@ -418,14 +271,13 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
         });
 
         return (
-          <Fragment key={editorWindow.filePath}>
+          <Fragment key={editorWindow.workspaceId}>
             {renderWindow(editorWindow, {
               // A window with nowhere to go stays hidden even when the three
               // terms say otherwise: placing it at no rect would put a
               // zero-size window on screen.
               hidden: !visible || rect === null,
               resolveTabSession,
-              host,
               rect,
             })}
           </Fragment>
@@ -433,8 +285,9 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
       })}
 
       {/* The two answers a read can give that are not a window. They render
-          here rather than beside the layer because they belong to the flow that
-          opens a window, and this is that flow's own subtree. */}
+          here rather than beside the window because neither belongs to one:
+          the question is asked before any window exists, and the failure
+          leaves none behind. */}
       {createPrompt !== null && (
         <ConfirmModal
           title="파일 만들기"

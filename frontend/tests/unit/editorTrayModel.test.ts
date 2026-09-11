@@ -4,7 +4,6 @@ import { test } from 'node:test';
 import {
   hasEditorTrayWindows,
   listEditorTrayEntries,
-  reviveEditorTrayWindow,
   type EditorTrayWindow,
 } from '../../src/components/editor/editorTrayModel.ts';
 
@@ -24,7 +23,6 @@ function windowOf(overrides: Partial<EditorTrayWindow> = {}): EditorTrayWindow {
     filePath: 'C:\\Work\\proj\\CLAUDE.md',
     tabId: 'tab-1',
     workspaceId: ACTIVE,
-    minimized: false,
     dirty: false,
     ...overrides,
   };
@@ -36,7 +34,7 @@ test('FR-MDE-008 the tray icon renders only while the current workspace holds a 
 
   // A minimized window still counts: the tray is how it is reached, so an icon
   // that vanished once the last window was minimized would strand it.
-  assert.equal(hasEditorTrayWindows([windowOf({ minimized: true })], ACTIVE), true);
+  assert.equal(hasEditorTrayWindows([windowOf({})], ACTIVE), true);
 
   // No workspace selected at all is not "every window matches".
   assert.equal(hasEditorTrayWindows([windowOf()], null), false);
@@ -57,13 +55,11 @@ test('FR-MDE-008 the list is workspace scoped and marks dirty documents', () => 
     filePath: 'C:\\Work\\proj\\CLAUDE.md',
     tabId: 'tab-1',
     dirty: true,
-    minimized: true,
   });
   const w2 = windowOf({
     filePath: 'C:\\Work\\proj\\AGENTS.md',
     tabId: 'tab-2',
     dirty: false,
-    minimized: false,
   });
   const w3 = windowOf({
     filePath: 'D:\\other\\CLAUDE.md',
@@ -77,81 +73,15 @@ test('FR-MDE-008 the list is workspace scoped and marks dirty documents', () => 
   ]);
 });
 
-test('FR-MDE-008 revival clears minimized and switches to the bound tab', () => {
-  const target = windowOf({ tabId: 'tab-2', minimized: true });
-  const other = windowOf({ filePath: 'C:\\Work\\proj\\AGENTS.md', tabId: 'tab-1' });
-
-  const revival = reviveEditorTrayWindow({
-    target,
-    windows: [other, target],
-    screen: 'workspace',
-    viewMode: 'tab',
-    activeTabId: 'tab-1',
-  });
-
-  assert.equal(revival.activeTabId, 'tab-2');
-  assert.equal(revival.raise, target.filePath);
-  assert.equal(
-    revival.windows.find(w => w.filePath === target.filePath)?.minimized,
-    false,
-  );
-
-  // Grid mode puts every tab on screen at once, so there is nothing to switch to
-  // and the user's active tab is left where it was.
-  const inGrid = reviveEditorTrayWindow({
-    target,
-    windows: [other, target],
-    screen: 'workspace',
-    viewMode: 'grid',
-    activeTabId: 'tab-1',
-  });
-  assert.equal(inGrid.activeTabId, 'tab-1');
-  assert.equal(
-    inGrid.windows.find(w => w.filePath === target.filePath)?.minimized,
-    false,
-  );
-});
-
-test('FR-MDE-008 revival returns from the settings screen to the workspace screen', () => {
-  const target = windowOf({ minimized: true });
-
-  const revival = reviveEditorTrayWindow({
-    target,
-    windows: [target],
-    screen: 'settings',
-    viewMode: 'tab',
-    activeTabId: 'tab-1',
-  });
-
-  // Clearing `minimized` alone leaves the window behind the settings screen and
-  // nothing changes on screen, which reads as a dead menu item.
-  assert.equal(revival.screen, 'workspace');
-  assert.equal(revival.windows[0]?.minimized, false);
-});
-
-test('FR-MDE-008 revival is not exclusive and leaves other windows visible', () => {
-  const visibleA = windowOf({ filePath: 'C:\\Work\\proj\\CLAUDE.md', tabId: 'tab-1' });
-  const visibleB = windowOf({ filePath: 'C:\\Work\\proj\\AGENTS.md', tabId: 'tab-1' });
-  const target = windowOf({
-    filePath: 'C:\\Work\\proj\\CLAUDE.local.md',
-    tabId: 'tab-1',
-    minimized: true,
-  });
-
-  const revival = reviveEditorTrayWindow({
-    target,
-    windows: [visibleA, visibleB, target],
-    screen: 'workspace',
-    viewMode: 'tab',
-    activeTabId: 'tab-1',
-  });
-
-  // "선택하여 이것만 출력 가능합니다" is read as reviving the chosen one, not as
-  // hiding the rest -- the next sentence of the requirement says several editor
-  // windows may be up at once.
-  assert.deepEqual(revival.windows, [visibleA, visibleB, { ...target, minimized: false }]);
-  assert.equal(revival.windows.filter(w => w.minimized).length, 0);
-});
+// The three revival cases that stood here are gone with `reviveEditorTrayWindow`.
+// Choosing a tray entry no longer rewrites a window list: there is one window
+// per workspace, and the choice selects a tab inside it. The terminal tab is
+// deliberately not switched any more either -- a window holds documents opened
+// from several terminals, so there is no one terminal the choice implies.
+//
+// What replaces them is an end-to-end case: the tray entry is chosen and the
+// named document becomes the tab on screen. That is a statement about wiring
+// rather than about a value, so it belongs to the Playwright suite.
 
 const HEADER_SOURCE = readFileSync(
   new URL('../../src/components/Header/Header.tsx', import.meta.url),

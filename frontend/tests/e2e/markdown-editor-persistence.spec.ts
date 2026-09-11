@@ -222,18 +222,37 @@ function editorWindows(page: Page): Locator {
  * would pass while measuring nothing. Anchored at both ends, so the name of one
  * file never matches the window of another.
  */
-function editorWindowFor(page: Page, fileName: string): Locator {
-  const titled = new RegExp(`^${escapeRegExp(fileName)}\\*?$`);
+/** The workspace's one editor window. */
+function editorWindow(page: Page): Locator {
+  return page.locator('.window-dialog-surface.editor-window-surface');
+}
 
-  return editorWindows(page).filter({
-    has: page.locator('.window-dialog-title').getByText(titled),
-  });
+/**
+ * The panel holding one document, found by the path it carries.
+ *
+ * Not by the window title: one window holds every open document, and its title
+ * names only the active tab -- a search through the window would match every
+ * open editor at once. The match is on the path's tail so a caller can name a
+ * file without spelling out the temporary directory it sits in.
+ */
+function editorPanelFor(page: Page, fileName: string): Locator {
+  return page.locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
+}
+
+/** The tab row of the one editor window. */
+function editorTabs(page: Page): Locator {
+  return page.locator('.editor-window-surface .editor-tab-label');
+}
+
+/** One tab of that row, by the file it holds. */
+function editorTabFor(page: Page, fileName: string): Locator {
+  return editorTabs(page).filter({ hasText: fileName }).first();
 }
 
 async function openWindows(page: Page, fileNames: readonly string[]): Promise<void> {
   for (const fileName of fileNames) {
     await chooseFile(page, fileName);
-    await expect(editorWindowFor(page, fileName)).toBeVisible({ timeout: 15000 });
+    await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
   }
 }
 
@@ -309,7 +328,7 @@ async function readEditorProbe(page: Page, filePath: string): Promise<
 async function editorFrameSize(page: Page, fileName: string): Promise<
   { width: number; height: number } | null
 > {
-  return editorWindowFor(page, fileName).first().evaluate((surface) => {
+  return editorWindow(page).first().evaluate((surface) => {
     const frame = surface.closest<HTMLElement>('.window-dialog');
     if (frame === null) return null;
 
@@ -335,13 +354,13 @@ async function editorFrameSize(page: Page, fileName: string): Promise<
  * is on screen, and `innerText` answers for the layout rather than the text.
  */
 async function editorBodyText(page: Page, fileName: string): Promise<string> {
-  const content = editorWindowFor(page, fileName).locator('.cm-content').first();
+  const content = editorPanelFor(page, fileName).locator('.cm-content').first();
   return (await content.textContent()) ?? '';
 }
 
 /** Types into the window open on `fileName`, leaving the document unsaved. */
 async function typeIntoEditor(page: Page, fileName: string, text: string): Promise<void> {
-  const surface = editorWindowFor(page, fileName).first();
+  const surface = editorWindow(page).first();
   await surface.locator('.cm-content').first().click();
   await page.keyboard.type(text);
 }
@@ -407,7 +426,7 @@ test.describe('markdown editor persistence', () => {
     // Counted before it is judged visible: `toBeVisible` on a locator that
     // matches nothing fails, but reading the count first names which of the two
     // went wrong.
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await expect(surface).toHaveCount(1, { timeout: 20000 });
     await expect(surface).toBeVisible({ timeout: 15000 });
 
@@ -470,9 +489,14 @@ test.describe('markdown editor persistence', () => {
     // else on the page.
     await armStorageReadRecorder(page);
     await selectWorkspace(page, otherWorkspace);
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeHidden({ timeout: 15000 });
+    // The window is off the screen but still in the tree, and so is the editor
+    // inside it. Unmounting it to hide it would throw away the unsaved text the
+    // probe below reads back.
+    await expect(editorWindow(page)).toBeHidden({ timeout: 15000 });
+    await expect(editorWindow(page)).toHaveCount(1);
+    await expect(editorPanelFor(page, 'CLAUDE.md')).toHaveCount(1);
     await selectWorkspace(page, homeWorkspaceName);
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 20000 });
+    await expect(editorWindow(page)).toBeVisible({ timeout: 20000 });
 
     const reads = await recordedReads(page);
     expect(reads).not.toContain(windowStateKey(workspaceId!));
@@ -494,7 +518,7 @@ test.describe('markdown editor persistence', () => {
     await ensureTabMode(page);
     await selectTab(page, tabName);
     await awaitReportedCwd(page, workdir);
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 25000 });
+    await expect(editorWindow(page)).toBeVisible({ timeout: 25000 });
     await expect.poll(
       async () => editorBodyText(page, 'CLAUDE.md'),
       { timeout: 15000, message: 'the restored window never reported a body' },
@@ -525,12 +549,13 @@ test.describe('markdown editor persistence', () => {
 
     // The surviving window is counted directly. Asserting only that no error
     // appeared would also pass an implementation that restored nothing at all.
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 25000 });
+    await expect(editorWindow(page)).toBeVisible({ timeout: 25000 });
     await expect.poll(
       async () => editorWindows(page).count(),
       { timeout: 20000, message: 'the restore did not settle on one window' },
     ).toBe(1);
-    await expect(editorWindowFor(page, 'CLAUDE.local.md')).toHaveCount(0);
+    await expect(editorPanelFor(page, 'CLAUDE.local.md')).toHaveCount(0);
+    await expect(editorTabFor(page, 'CLAUDE.local.md')).toHaveCount(0);
 
     // And nothing was surfaced about the file that is gone.
     await expect(page.locator('.editor-window-error')).toHaveCount(0);

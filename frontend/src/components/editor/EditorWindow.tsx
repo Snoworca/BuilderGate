@@ -1,54 +1,38 @@
-// One modeless editor window: a WindowDialog with the ported editor inside it.
+// The one editor window of a workspace: a WindowDialog holding a row of tabs
+// and the document panels behind them.
 //
-// Two mount-time contracts of the editor decide most of what happens here.
-// `markdownSource` is read once and the editor owns the document from then on,
-// so the body is never fed back on a keystroke or after a save. `documentId` is
-// the normalized absolute file path rather than the session id, because a tab
-// restart replaces the session while keeping the file -- an id derived from the
-// session would destroy and recreate the EditorView and take the unsaved body
-// with it. `extensions` is captured at mount too, so its reference is pinned.
+// The window owns the frame, the title bar and which tab is active. It owns no
+// document: each panel holds its own editor instance, its own save controller
+// and the body the user has typed, and the title bar reaches the active one
+// through a handle that panel registers. A window that held copies of those
+// would have to answer for whichever copy was written last.
 //
-// @req FR-MDE-005
+// Every open document stays mounted, including the ones behind inactive tabs.
+// The editor reads `markdownSource` once at mount and owns the document from
+// then on, so unmounting a panel to hide it throws away whatever is unsaved in
+// it. Hiding is `display: none` and nothing else.
+//
+// @req FR-MDE-001
+// @req FR-MDE-002
 // @req FR-MDE-006
-// @req CON-MDE-002
+// @req FR-MDE-012
 
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
   type CSSProperties,
 } from 'react';
-import { AtomicCodeMirrorEditor, doculightExtensions } from '../../editor';
-import type { AtomicCodeMirrorEditorHandle } from '../../editor';
 import { IconButton, IconToggleButton } from '../common';
 import { WindowDialog } from '../dialog/WindowDialog';
 import type { DialogRect, DialogSize } from '../dialog/types';
-import { ConfirmModal } from '../Modal/ConfirmModal';
-import '../Modal/ConfirmModal.css';
-// The three-choice prompt below is drawn here rather than by ConfirmModal, and
-// its rules are split across the two sheets: the overlay, panel, title and the
-// two plain buttons come from RenameModal.css, while the message and the
-// destructive button come from ConfirmModal.css above. Both are imported here so
-// the prompt's appearance does not rest on some other component still importing
-// one of them somewhere else in the graph.
-import '../Modal/RenameModal.css';
 // The window's own light surface. Imported here because the rules it sets are
 // scoped to `.editor-window-surface`, which is this component's class.
 import './EditorWindow.css';
-import {
-  createEditorWindowSaveController,
-  type EditorWindowSaveController,
-} from './editorWindowSave.ts';
-import {
-  decideEditorWindowClosePrompt,
-  resolveEditorWindowCloseChoice,
-  resolveEditorWindowSaveOnClose,
-  type EditorWindowCloseChoice,
-  type EditorWindowClosePrompt,
-} from './editorWindowClose.ts';
+import { EditorDocumentPanel, type EditorDocumentHandle } from './EditorDocumentPanel.tsx';
+import { EditorTabBar } from './EditorTabBar.tsx';
 import { createEditorWindowSaveShortcutHandler } from './editorWindowSaveShortcut.ts';
 
 /**
@@ -58,54 +42,26 @@ import { createEditorWindowSaveShortcutHandler } from './editorWindowSaveShortcu
  * callback dependencies, and a fresh object per render would rebuild them all.
  *
  * Exported because `EditorWindowLayer` needs the same numbers for the floor the
- * cascade will not shrink a window below, and two copies of a floor drift apart
- * silently -- the layer would place a window at a size the window then refuses
- * to render at, and nothing would say which of the two was wrong.
- * @req FR-MDE-004
+ * placement is not shrunk below, and two copies of a floor drift apart.
+ * @req FR-MDE-001
  */
 export const EDITOR_WINDOW_MIN_SIZE: DialogSize = { width: 320, height: 240 };
 
 // WindowDialog reads this into its uncontrolled rect on every mount, whatever
 // `persistGeometry` says, and the controlled `rect` below then supersedes it.
-// It therefore never reaches the screen, but it is read.
 const SUPERSEDED_DEFAULT_RECT: DialogRect = { x: 0, y: 0, width: 720, height: 520 };
 
 const BODY_STYLE: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
+  minHeight: 0,
   height: '100%',
-  minHeight: 0,
-};
-
-// The document sits as a page inside the window rather than filling it: 95% of
-// the body's height, with the remaining 5% falling to the auto margins as an
-// even gap above and below.
-//
-// The height is expressed as a flex basis rather than as `height: 95%` because
-// a percentage height would resolve against the body while the banner above it
-// also takes room, and the two together would overflow. As a basis it shrinks
-// when the banner appears, which is the behaviour the banner needs.
-const EDITOR_HOST_STYLE: CSSProperties = {
-  flex: '0 1 95%',
-  minHeight: 0,
-  marginBlock: 'auto',
-  overflow: 'auto',
-};
-
-const BANNER_STYLE: CSSProperties = {
-  flex: '0 0 auto',
-  padding: '6px 10px',
-  background: '#5a1d1d',
-  color: '#ffd7d7',
-  fontSize: '12px',
-  wordBreak: 'break-word',
 };
 
 const ACTIONS_STYLE: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '4px',
-  marginLeft: 'auto',
 };
 
 const BADGE_STYLE: CSSProperties = {
@@ -118,133 +74,53 @@ const BADGE_STYLE: CSSProperties = {
 };
 
 /**
- * What a mounted window is handing the editor, kept so a caller outside React
- * can read it. `extensions` is held as the array object rather than its
- * contents, because what has to be observable is whether the reference changed.
- * @req FR-MDE-005
- */
-interface EditorWindowProbe {
-  documentId: string;
-  markdownSource: string;
-  extensions: object;
-  setReadOnly: (readOnly: boolean) => boolean;
-}
-
-/**
- * Keyed by file path, which is what identifies a window here. Several windows
- * are open at once, so a single set of values would answer for whichever of
- * them mounted last rather than for the one being asked about.
- * @req FR-MDE-005
- */
-const editorWindowProbes = new Map<string, EditorWindowProbe>();
-
-/**
- * One number per `extensions` array object, so equal numbers mean the same
- * array. A WeakMap rather than a field written onto the array: the numbering
- * must not keep a closed window's extensions alive, and must not write to a
- * value the editor owns.
- * @req FR-MDE-005
- */
-const extensionsTokens = new WeakMap<object, number>();
-let nextExtensionsToken = 1;
-
-// @req FR-MDE-005
-function extensionsTokenOf(extensions: object): number {
-  const existing = extensionsTokens.get(extensions);
-  if (existing !== undefined) {
-    return existing;
-  }
-
-  const token = nextExtensionsToken;
-  nextExtensionsToken += 1;
-  extensionsTokens.set(extensions, token);
-
-  return token;
-}
-
-/**
- * What the window open on `filePath` is passing to the editor, or undefined
- * when no window is open on it. An absent window answers `undefined` rather
- * than empty values, so "no window" and "a window passing nothing" stay apart.
+ * The dialog id the editor window of  registers under.
  *
- * Gated to localhost even though it only reads: `markdownSource` is the whole
- * file as it was read from disk, which is more than the retained-state reads
- * `terminalDebugCapture` already gates.
- * @req FR-MDE-005
- */
-export function readEditorProbe(filePath: string): {
-  documentId: string;
-  markdownSource: string;
-  extensionsToken: number;
-} | undefined {
-  if (!isLocalhostOrigin()) {
-    return undefined;
-  }
-
-  const probe = editorWindowProbes.get(filePath);
-  if (probe === undefined) {
-    return undefined;
-  }
-
-  return {
-    documentId: probe.documentId,
-    markdownSource: probe.markdownSource,
-    extensionsToken: extensionsTokenOf(probe.extensions),
-  };
-}
-
-/**
- * Drives the editor handle the window open on `filePath` holds, answering
- * whether it reached one. The window draws no control for read-only, so this is
- * the only mechanism the application has for it.
+ * Keyed by workspace rather than by document: one window holds every document
+ * of a workspace, so an id that moved with the active tab would re-register the
+ * same window under a new id on every tab switch. Keyed at all rather than
+ * constant because every workspace's window is mounted at once -- only one is
+ * on screen, but they all live in the modeless stack, and two sharing an id
+ * would make a raise ambiguous.
  *
- * Confined to localhost, like the read above and like every call
- * `terminalDebugCapture` gates -- that module gates its reads as well as its
- * writes, and this pair follows it on both.
- * @req FR-MDE-005
+ * Exported because raising the window from outside it -- opening a file, or
+ * choosing one from the tray -- names it by this id, and an id spelled out at
+ * both ends would drift.
+ * @req FR-MDE-003
+ * @req FR-MDE-009
  */
-export function setEditorReadOnly(filePath: string, readOnly: boolean): boolean {
-  if (!isLocalhostOrigin()) {
-    return false;
-  }
-
-  const probe = editorWindowProbes.get(filePath);
-
-  return probe === undefined ? false : probe.setReadOnly(readOnly);
+export function editorWindowDialogId(workspaceId: string): string {
+  return `editor-window:${workspaceId}`;
 }
 
-// @req FR-MDE-005
-function isLocalhostOrigin(): boolean {
-  // Answers false rather than throwing where there is no DOM at all, so a
-  // caller outside a browser is refused instead of crashed.
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-}
-
-/**
- * `filePath` and `tabId` are the window's identity and are fixed for the life of
- * a mounted instance: the save controller binds to them once, because rebuilding
- * it would drop the body it is holding. The render site keys windows by the
- * resolved absolute path, so a different file is a different instance.
- */
-export interface EditorWindowProps {
-  /** The normalized absolute file path. Identity of the window and the document. */
+/** One open document, as the window needs to know it. */
+export interface EditorWindowTab {
+  /** The normalized absolute file path. Identity of the tab. */
   filePath: string;
-  /** The tab the window is bound to. Never a session -- that is resolved per call. */
+  /** The terminal tab this document saves to. */
   tabId: string;
-  /** The content read from disk when the window opened. Read once, at mount. */
+  /** The content read from disk when the document opened. */
   bodyAtOpen: string;
+  /** The document differs from the file, as the panel last reported it. */
+  dirty: boolean;
+}
+
+export interface EditorWindowProps {
+  /** In the order they were opened, which is the order the row draws them. */
+  tabs: readonly EditorWindowTab[];
+  /** Which tab is on screen. Null only while the window is closing. */
+  activeFilePath: string | null;
+  onSelectTab: (filePath: string) => void;
+  /** The tab's close control was used. The panel may prompt before it goes. */
+  onCloseTab: (filePath: string) => void;
   rect: DialogRect;
   onRectChange: (rect: DialogRect) => void;
   /** Drag boundary. The stage, whatever the placement. */
   boundsElement?: string | Element;
+  /** The workspace this window belongs to. Its dialog id is derived from it. */
+  workspaceId: string;
   /** The visibility predicate said no. The surface hides; nothing unmounts. */
   hidden: boolean;
-  /** The window's place in the modeless stack. Carried so the shortcut can be seen to ignore it. */
-  stackOrder: number;
   resolveTabSession: (tabId: string) => string | undefined;
   writeFile: (sessionId: string, path: string, content: string) => Promise<{ success: boolean }>;
   /**
@@ -258,27 +134,12 @@ export interface EditorWindowProps {
   onToggleMaximize: () => void;
   onMinimize: () => void;
   /**
-   * The document started, or stopped, differing from the file it was read from.
-   *
-   * Reported rather than derived by the caller: the save controller inside this
-   * window holds the body, and a caller could only answer the same question by
-   * keeping a second copy of it.
+   * A document started, or stopped, differing from the file it was read from.
    * @req FR-MDE-008
    */
-  onDirtyChange: (dirty: boolean) => void;
-  onClose: () => void;
-}
-
-/**
- * The dialog id a window on `filePath` registers under.
- *
- * Exported because raising a window from outside it -- reopening a file that is
- * already open, or reviving one from the tray -- names it by this id, and an id
- * spelled out at both ends would drift.
- * @req FR-MDE-003
- */
-export function editorWindowDialogId(filePath: string): string {
-  return `editor-window:${filePath}`;
+  onDirtyChange: (filePath: string, dirty: boolean) => void;
+  /** The title bar's close control was used, which closes the whole window. */
+  onCloseWindow: () => void;
 }
 
 function fileNameOf(filePath: string): string {
@@ -287,85 +148,47 @@ function fileNameOf(filePath: string): string {
 }
 
 /**
- * @req FR-MDE-005
+ * @req FR-MDE-001
  * @req FR-MDE-006
  */
 export function EditorWindow({
-  filePath,
-  tabId,
-  bodyAtOpen,
+  workspaceId,
+  tabs,
+  activeFilePath,
+  onSelectTab,
+  onCloseTab,
   rect,
   onRectChange,
   boundsElement,
   hidden,
-  stackOrder,
   resolveTabSession,
   writeFile,
   maximized,
   onToggleMaximize,
   onMinimize,
-  onClose,
   onDirtyChange,
+  onCloseWindow,
 }: EditorWindowProps) {
-  const bodyRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
   const shownFrameDisplayRef = useRef<string | null>(null);
   const shownSurfaceDisplayRef = useRef<string | null>(null);
-  const editorHandleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
 
-  // The host callbacks reach the controller through refs so that the controller
-  // itself is built once. Rebuilding it would drop the body it is holding.
-  const resolveTabSessionRef = useRef(resolveTabSession);
-  resolveTabSessionRef.current = resolveTabSession;
-  const writeFileRef = useRef(writeFile);
-  writeFileRef.current = writeFile;
+  // What each mounted panel handed over. A plain ref rather than state: the
+  // window reads it inside callbacks, never during a render, so a registration
+  // arriving between renders does not need one of its own.
+  const handlesRef = useRef(new Map<string, EditorDocumentHandle>());
 
-  const [saveState, setSaveState] = useState<{ dirty: boolean; error: string | null }>({
-    dirty: false,
-    error: null,
-  });
-  const [closePrompt, setClosePrompt] = useState<EditorWindowClosePrompt>({ kind: 'none' });
+  const registerHandle = useCallback((filePath: string, handle: EditorDocumentHandle | null) => {
+    if (handle === null) {
+      handlesRef.current.delete(filePath);
+      return;
+    }
+    handlesRef.current.set(filePath, handle);
+  }, []);
 
-  const controllerRef = useRef<EditorWindowSaveController | null>(null);
-  if (controllerRef.current === null) {
-    controllerRef.current = createEditorWindowSaveController({
-      binding: { tabId, filePath },
-      bodyAtOpen,
-      deps: {
-        resolveTabSession: (id) => resolveTabSessionRef.current(id),
-        writeFile: (sessionId, path, content) => writeFileRef.current(sessionId, path, content),
-      },
-      onStateChange: () => {
-        const controller = controllerRef.current;
-        if (controller === null) return;
-        setSaveState({ dirty: controller.isDirty(), error: controller.getError() });
-      },
-    });
-  }
-  const controller = controllerRef.current;
-
-  // Captured at mount by the editor, so the reference is pinned. The five
-  // callbacks of doculightExtensions are left unpassed: attachment upload and
-  // wiki links stay inert, which is the intended state for this scope.
-  const extensions = useMemo(() => doculightExtensions(), []);
-
-  // The three mount-time props in one object, so the editor and the probe read
-  // the same value rather than each restating the same three expressions.
-  //
-  // This does not make the probe an independent witness of the handoff -- a
-  // prop written after the spread would still override what the probe reports.
-  // Answering that needs a readback from the editor itself, which this window
-  // does not have for `documentId`.
-  // @req FR-MDE-005
-  const editorMountProps = useMemo(() => ({
-    documentId: filePath,
-    markdownSource: bodyAtOpen,
-    extensions,
-  }), [bodyAtOpen, extensions, filePath]);
-
-  const tabClosed = resolveTabSession(tabId) === undefined;
-  const dialogId = editorWindowDialogId(filePath);
+  const activeTab = tabs.find(tab => tab.filePath === activeFilePath) ?? null;
+  const activeTabClosed = activeTab !== null && resolveTabSession(activeTab.tabId) === undefined;
 
   // WindowDialog portals into document.body and forwards no ref, so both nodes
   // are reached from one this component owns. They are different nodes and are
@@ -417,71 +240,30 @@ export function EditorWindow({
     surface.style.display = hidden ? 'none' : shownSurfaceDisplayRef.current;
   }, [frame, hidden]);
 
-  // Publishes what this window is handing the editor, for a caller outside
-  // React that has to read it. The three values are the ones the render below
-  // passes, taken from the same expressions, so the two cannot say different
-  // things about the same window.
-  //
-  // The disposer checks identity before deleting: a window that remounts
-  // registers before the previous instance's cleanup runs, and an unconditional
-  // delete would take the new registration away with it.
-  // @req FR-MDE-005
-  useEffect(() => {
-    const probe: EditorWindowProbe = {
-      ...editorMountProps,
-      setReadOnly: (readOnly) => {
-        const handle = editorHandleRef.current;
-        if (handle === null) {
-          return false;
-        }
+  const saveActive = useCallback(() => {
+    if (activeFilePath === null) return;
+    handlesRef.current.get(activeFilePath)?.save();
+  }, [activeFilePath]);
 
-        handle.setReadOnly(readOnly);
-
-        return true;
-      },
-    };
-
-    editorWindowProbes.set(filePath, probe);
-
-    return () => {
-      if (editorWindowProbes.get(filePath) === probe) {
-        editorWindowProbes.delete(filePath);
-      }
-    };
-  }, [editorMountProps, filePath]);
-
-  // The flag travels out on every change of its value and on no other render.
-  //
-  // The callback is reached through a ref rather than depended on: the render
-  // site builds it inline, so depending on it would fire this on every render
-  // of the window -- and each report is a state change upstream, which is the
-  // next render.
-  // @req FR-MDE-008
-  const onDirtyChangeRef = useRef(onDirtyChange);
-  onDirtyChangeRef.current = onDirtyChange;
-
-  useEffect(() => {
-    onDirtyChangeRef.current(saveState.dirty);
-  }, [saveState.dirty]);
-
-  const save = useCallback(() => {
-    void controller.save();
-  }, [controller]);
-
-  // Focus decides, not stack order. The handler is per window and reads its own
-  // focus state, so the window that holds the keyboard is the one that writes.
+  // Focus decides which window writes, and the active tab decides which
+  // document it writes. There is one window per workspace, so the first half no
+  // longer separates windows from each other -- what it still separates is the
+  // editor from the rest of the page, which is what the criterion asks for.
   //
   // The whole surface counts, not just the editor: the title bar, the drag
   // handle and the close button are inside the window the user is looking at,
   // and pressing the close button then cancelling must not leave the shortcut
-  // dead. The refs this component owns are the fallback for the render before
-  // the surface has been resolved.
+  // dead.
+  // @req FR-MDE-006
   useEffect(() => {
+    if (activeTab === null) return undefined;
+    const { filePath, tabId } = activeTab;
+
     const handle = createEditorWindowSaveShortcutHandler({
       listWindows: () => {
-        // A window whose tab has closed has no save path at all, so its press
-        // is not taken from the browser either.
-        if (resolveTabSessionRef.current(tabId) === undefined) {
+        // A document whose terminal tab has closed has no save path at all, so
+        // its press is not taken from the browser either.
+        if (resolveTabSession(tabId) === undefined) {
           return [];
         }
 
@@ -491,89 +273,43 @@ export function EditorWindow({
         }
 
         const surface = surfaceRef.current;
-        const focused = surface !== null
-          ? surface.contains(active)
-          : bodyRef.current?.contains(active) === true
-            || actionsRef.current?.contains(active) === true;
+        const focused = surface !== null && surface.contains(active);
 
-        return [{ documentId: filePath, focused, stackOrder }];
+        return [{ documentId: filePath, focused }];
       },
-      save: () => save(),
+      save: () => saveActive(),
     });
 
     const onKeyDown = (event: KeyboardEvent) => handle(event);
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [filePath, save, stackOrder, tabId]);
+  }, [activeTab, resolveTabSession, saveActive]);
 
-  // A window that just opened holds no focus -- the editor does not take it on
-  // mount -- so the save shortcut would be dead until the user clicked into it.
-  // A window that opens hidden is left alone: focusing it would pull the
-  // keyboard away from whatever the user is actually looking at.
-  useEffect(() => {
-    if (hidden) return;
-    editorHandleRef.current?.focus();
-    // Runs once: this is the opening focus, not a re-focus on every change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const requestClose = useCallback(() => {
-    const prompt = decideEditorWindowClosePrompt({
-      dirty: controller.isDirty(),
-      tabClosed: resolveTabSessionRef.current(tabId) === undefined,
-    });
-    if (prompt.kind === 'none') {
-      onClose();
+  /**
+   * The title bar's close control closes the window, which means closing every
+   * tab in it.
+   *
+   * Asked one at a time, oldest first, and each panel decides for itself
+   * whether to prompt. A panel that prompts stops the sweep where it is: the
+   * user is answering about that document, and closing the ones behind it
+   * while the question is on screen would take documents they have not been
+   * asked about. The remaining tabs are closed by the next press.
+   * @req FR-MDE-012
+   */
+  const requestCloseWindow = useCallback(() => {
+    const dirtyTab = tabs.find(tab => handlesRef.current.get(tab.filePath)?.isDirty() === true);
+    if (dirtyTab !== undefined) {
+      onSelectTab(dirtyTab.filePath);
+      handlesRef.current.get(dirtyTab.filePath)?.requestClose();
       return;
     }
-    setClosePrompt(prompt);
-  }, [controller, onClose, tabId]);
 
-  const answerClose = useCallback((choice: EditorWindowCloseChoice) => {
-    const action = resolveEditorWindowCloseChoice(closePrompt, choice);
-    setClosePrompt({ kind: 'none' });
-
-    if (action.kind === 'close') {
-      onClose();
-      return;
-    }
-    if (action.kind === 'save-then-close') {
-      void controller.save().then((outcome) => {
-        if (resolveEditorWindowSaveOnClose(outcome).kind === 'close') {
-          onClose();
-        }
-      });
-    }
-  }, [closePrompt, controller, onClose]);
-
-  // The prompts render in this component's own position while the window
-  // surface is portalled into document.body, so hiding the surface does not
-  // reach them -- a hidden window would leave a full-screen overlay asking
-  // about a document that is no longer on screen. Cancel is the safe answer.
-  useEffect(() => {
-    if (hidden && closePrompt.kind !== 'none') {
-      setClosePrompt({ kind: 'none' });
-    }
-  }, [closePrompt.kind, hidden]);
-
-  // ConfirmModal answers Escape with a cancel. The three-choice prompt below is
-  // drawn here rather than by ConfirmModal, so the same key is answered here
-  // and the two prompts do not disagree about what Escape means.
-  useEffect(() => {
-    if (closePrompt.kind !== 'unsaved-changes') return undefined;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        answerClose('cancel');
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [answerClose, closePrompt.kind]);
+    onCloseWindow();
+  }, [onCloseWindow, onSelectTab, tabs]);
 
   const titlebarActions = (
     <div ref={actionsRef} style={ACTIONS_STYLE} className="editor-window-actions">
-      {tabClosed && (
+      {activeTabClosed && (
         <span style={BADGE_STYLE} title="결속된 탭이 닫혀 저장할 수 없습니다">
           저장 불가
         </span>
@@ -581,8 +317,8 @@ export function EditorWindow({
       <IconButton
         icon="save"
         label="저장"
-        disabled={tabClosed}
-        onClick={save}
+        disabled={activeTabClosed || activeTab === null}
+        onClick={saveActive}
       />
       {/* One control for an axis with two ends, so the drawing says which end
           the window is at. Two separate buttons would have left that to the
@@ -602,91 +338,45 @@ export function EditorWindow({
   );
 
   return (
-    <>
-      <WindowDialog
-        dialogId={dialogId}
-        title={fileNameOf(filePath)}
-        mode="modeless"
-        defaultRect={SUPERSEDED_DEFAULT_RECT}
-        minSize={EDITOR_WINDOW_MIN_SIZE}
-        onClose={requestClose}
-        showCloseButton
-        resizable
-        persistGeometry={false}
-        surfaceClassName="editor-window-surface"
-        rect={rect}
-        onRectChange={onRectChange}
-        boundsElement={boundsElement}
-        titlebarActions={titlebarActions}
-        dirty={saveState.dirty}
-      >
-        <div ref={bodyRef} style={BODY_STYLE}>
-          {saveState.error !== null && (
-            <div style={BANNER_STYLE} role="alert" className="editor-window-error">
-              {saveState.error}
-            </div>
-          )}
-          {/* The vendor editor ships a light palette behind this opt-in
-              (`vendor/atomic-editor/styles/inline-preview.css:767`). Setting it
-              here rather than restating the palette in our own sheet keeps one
-              copy of those colours. */}
-          <div className="editor-window-host" style={EDITOR_HOST_STYLE} data-theme="light">
-            <AtomicCodeMirrorEditor
-              {...editorMountProps}
-              editorHandleRef={editorHandleRef}
-              onMarkdownChange={controller.handleEditorChange}
-            />
-          </div>
-        </div>
-      </WindowDialog>
-
-      {closePrompt.kind === 'cannot-save' && (
-        <ConfirmModal
-          title={closePrompt.title}
-          message={closePrompt.message}
-          confirmLabel={closePrompt.labels.discard}
-          cancelLabel={closePrompt.labels.cancel}
-          destructive
-          onConfirm={() => answerClose('discard')}
-          onCancel={() => answerClose('cancel')}
+    <WindowDialog
+      dialogId={editorWindowDialogId(workspaceId)}
+      title={activeTab === null ? '편집기' : fileNameOf(activeTab.filePath)}
+      mode="modeless"
+      defaultRect={SUPERSEDED_DEFAULT_RECT}
+      minSize={EDITOR_WINDOW_MIN_SIZE}
+      onClose={requestCloseWindow}
+      showCloseButton
+      resizable
+      persistGeometry={false}
+      surfaceClassName="editor-window-surface"
+      rect={rect}
+      onRectChange={onRectChange}
+      boundsElement={boundsElement}
+      titlebarActions={titlebarActions}
+      dirty={activeTab?.dirty === true}
+    >
+      <div style={BODY_STYLE}>
+        <EditorTabBar
+          tabs={tabs}
+          activeFilePath={activeFilePath}
+          onSelect={onSelectTab}
+          onClose={onCloseTab}
         />
-      )}
-
-      {/* ConfirmModal renders two buttons, and this branch asks three questions:
-          save, don't save, cancel. Building it by disabling a choice in the
-          two-button component is exactly what the requirement rules out, so the
-          three-choice prompt is drawn here over the same stylesheet. */}
-      {closePrompt.kind === 'unsaved-changes' && (
-        <div className="modal-overlay" onClick={() => answerClose('cancel')}>
-          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
-            <h2 className="modal-title">{closePrompt.title}</h2>
-            <p className="confirm-message">{closePrompt.message}</p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-cancel"
-                onClick={() => answerClose('cancel')}
-              >
-                {closePrompt.labels.cancel}
-              </button>
-              <button
-                type="button"
-                className="btn-cancel btn-destructive"
-                onClick={() => answerClose('discard')}
-              >
-                {closePrompt.labels.discard}
-              </button>
-              <button
-                type="button"
-                className="btn-submit"
-                onClick={() => answerClose('save')}
-              >
-                {closePrompt.labels.save}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+        {tabs.map(tab => (
+          <EditorDocumentPanel
+            key={tab.filePath}
+            filePath={tab.filePath}
+            tabId={tab.tabId}
+            bodyAtOpen={tab.bodyAtOpen}
+            hidden={tab.filePath !== activeFilePath}
+            resolveTabSession={resolveTabSession}
+            writeFile={writeFile}
+            onDirtyChange={(dirty) => onDirtyChange(tab.filePath, dirty)}
+            onClose={() => onCloseTab(tab.filePath)}
+            onRegisterHandle={registerHandle}
+          />
+        ))}
+      </div>
+    </WindowDialog>
   );
 }

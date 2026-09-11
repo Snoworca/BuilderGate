@@ -1,24 +1,25 @@
-// Which window a Ctrl+S writes.
+// Which document a Ctrl+S writes.
 //
-// DOM focus decides, and being topmost in the modeless stack deliberately does
-// not. The two disagree exactly in the case the tray creates: a window restored
-// from the tray is frontmost while the keyboard still belongs elsewhere, so
-// gating on stack order would write a file the user was not looking at, and the
-// bug only appears after a tray restore, which is late and hard to attribute.
+// DOM focus decides. There is one editor window per workspace, so this is not
+// choosing between windows any more -- it is keeping the press away from
+// everything that is not the editor. A press that lands while the terminal
+// holds the keyboard belongs to the terminal.
+//
+// The input is still a collection. The window puts exactly one entry in it, the
+// active tab, so that the selection stays a decision the rule makes rather than
+// something that falls out of there being a single candidate.
 //
 // The editor's CodeMirror keymap registers no `Mod-s`, so nothing is taken away
 // from it. Nothing is taken from the terminal either: a press that does not
 // resolve to a focused window is left entirely alone, `preventDefault` included.
 // @req FR-MDE-006
 
-/** What the handler needs to know about one open window. */
+/** What the handler needs to know about one candidate document. */
 export interface EditorWindowSaveShortcutWindow {
-  /** The window's identity: the normalized absolute file path. */
+  /** The document's identity: the normalized absolute file path. */
   documentId: string;
-  /** Whether DOM focus is inside this window's surface right now. */
+  /** Whether DOM focus is inside the editor window's surface right now. */
   focused: boolean;
-  /** Paint order in the modeless stack. Carried so it can be seen not to matter. */
-  stackOrder: number;
 }
 
 /** The parts of a keyboard event the decision reads. `KeyboardEvent` satisfies it. */

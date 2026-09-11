@@ -230,10 +230,31 @@ function editorWindows(page: Page): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface');
 }
 
-function editorWindowFor(page: Page, fileName: string): Locator {
-  return editorWindows(page).filter({
-    has: page.locator('.window-dialog-title').getByText(fileName, { exact: true }),
-  });
+/** The workspace's one editor window. */
+function editorWindow(page: Page): Locator {
+  return page.locator('.window-dialog-surface.editor-window-surface');
+}
+
+/**
+ * The panel holding one document, found by the path it carries.
+ *
+ * Not by the window title: one window holds every open document, and its title
+ * names only the active tab -- a search through the window would match every
+ * open editor at once. The match is on the path's tail so a caller can name a
+ * file without spelling out the temporary directory it sits in.
+ */
+function editorPanelFor(page: Page, fileName: string): Locator {
+  return page.locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
+}
+
+/** The tab row of the one editor window. */
+function editorTabs(page: Page): Locator {
+  return page.locator('.editor-window-surface .editor-tab-label');
+}
+
+/** One tab of that row, by the file it holds. */
+function editorTabFor(page: Page, fileName: string): Locator {
+  return editorTabs(page).filter({ hasText: fileName }).first();
 }
 
 /**
@@ -361,7 +382,7 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
 
     await chooseFile(page, 'CLAUDE.md');
 
-    const surface = editorWindowFor(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
     await expect(surface).toBeVisible({ timeout: 15000 });
 
     // The read goes out on the bound tab's current session, for the path
@@ -425,7 +446,7 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
     await expect(confirm).toBeVisible({ timeout: 15000 });
     await confirm.locator('.btn-submit').click();
 
-    await expect(editorWindowFor(page, 'AGENTS.md')).toBeVisible({ timeout: 15000 });
+    await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
     const writes = writesFor(traffic, expectedPath);
     expect(writes).toHaveLength(1);
     expect(JSON.parse(writes[0].body)).toEqual({ path: expectedPath, content: '' });
@@ -460,7 +481,7 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
   });
 
   // TC-REQ-FR-MDE-007-AC6-03
-  test('FR-MDE-007 reopening the same file keeps exactly one window and raises it', async ({ page }) => {
+  test('FR-MDE-007 reopening the same file selects its tab and re-reads nothing', async ({ page }) => {
     const workdir = makeWorkdir();
     const tabName = `${TAB_NAME_PREFIX}-ac6`;
     await addTabAt(page, workspaceId!, workdir, tabName);
@@ -468,50 +489,62 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
     const cwd = await awaitReportedCwd(page, workdir);
     const reopened = resolveAgainst(cwd, 'CLAUDE.md');
 
-    // Two windows, so that "raised to the front" has a front to be raised to.
-    // The second one opened is on top until the first is chosen again.
+    // Two documents in one window, so that "the tab is selected" has another
+    // tab to be selected away from. The second one opened is the active one.
     await chooseFile(page, 'CLAUDE.md');
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 15000 });
+    await expect(editorWindows(page)).toHaveCount(1, { timeout: 15000 });
     await chooseFile(page, 'CLAUDE.local.md');
-    await expect(editorWindowFor(page, 'CLAUDE.local.md')).toBeVisible({ timeout: 15000 });
-    expect(await zLead(page, 'CLAUDE.local.md', 'CLAUDE.md')).toBeGreaterThan(0);
+    await expect(editorTabFor(page, 'CLAUDE.local.md')).toHaveAttribute('aria-selected', 'true', {
+      timeout: 15000,
+    });
 
     const readsBefore = readsFor(traffic, reopened).length;
     const writesBefore = writesFor(traffic, reopened).length;
 
     await chooseFile(page, 'CLAUDE.md');
 
-    // Still two windows in total and one for this path; the reopened one is now
-    // in front; and the revival issued no I/O for it.
-    await expect(editorWindows(page)).toHaveCount(2);
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toHaveCount(1);
-    await expect.poll(async () => zLead(page, 'CLAUDE.md', 'CLAUDE.local.md'), { timeout: 10000 })
-      .toBeGreaterThan(0);
+    // One window with two tabs, the reopened one is the active tab, and no
+    // second tab appeared for a path that already had one.
+    await expect(editorWindows(page)).toHaveCount(1);
+    await expect(editorTabs(page)).toHaveCount(2);
+    await expect(editorTabFor(page, 'CLAUDE.md')).toHaveAttribute('aria-selected', 'true', {
+      timeout: 10000,
+    });
+    await expect(editorTabFor(page, 'CLAUDE.local.md')).toHaveAttribute('aria-selected', 'false');
+
+    // And selecting a tab re-reads nothing: the body it is holding is the one
+    // the user has been typing into.
     await page.waitForTimeout(NO_REQUEST_SETTLE_MS);
     expect(readsFor(traffic, reopened)).toHaveLength(readsBefore);
     expect(writesFor(traffic, reopened)).toHaveLength(writesBefore);
   });
 
   // TC-REQ-FR-MDE-007-AC7-03
-  test('FR-MDE-007 two tabs sharing a cwd keep one window bound to the first tab', async ({ page }) => {
+  test('FR-MDE-007 two terminals sharing a cwd get one tab, and the terminal stays put', async ({ page }) => {
     const workdir = makeWorkdir();
     const firstName = `${TAB_NAME_PREFIX}-ac7-a`;
     const secondName = `${TAB_NAME_PREFIX}-ac7-b`;
-    const firstTabId = await addTabAt(page, workspaceId!, workdir, firstName);
-    await addTabAt(page, workspaceId!, workdir, secondName);
+    await addTabAt(page, workspaceId!, workdir, firstName);
+    const secondTabId = await addTabAt(page, workspaceId!, workdir, secondName);
 
     await selectTab(page, firstName);
     await awaitReportedCwd(page, workdir);
     await chooseFile(page, 'CLAUDE.md');
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 15000 });
+    await expect(editorWindows(page)).toHaveCount(1, { timeout: 15000 });
 
     await selectTab(page, secondName);
     await awaitReportedCwd(page, workdir);
     await chooseFile(page, 'CLAUDE.md');
 
-    // One window for the path, and it stayed with the tab that opened it: the
-    // revival brings that tab forward rather than rebinding the window.
-    await expect(editorWindowFor(page, 'CLAUDE.md')).toHaveCount(1);
-    await expect.poll(async () => readActiveTabId(page), { timeout: 15000 }).toBe(firstTabId);
+    // One tab for the path: the two terminals resolve the same absolute path,
+    // and a tab is identified by that path.
+    await expect(editorTabs(page)).toHaveCount(1);
+    await expect(editorTabFor(page, 'CLAUDE.md')).toHaveAttribute('aria-selected', 'true');
+
+    // And the user's terminal is where they left it. Selecting a document used
+    // to switch the terminal tab to the one the document was opened from; a
+    // window holding documents from several terminals cannot do that, and
+    // moving the terminal out from under the user was never asked for.
+    await expect.poll(async () => readActiveTabId(page), { timeout: 15000 }).toBe(secondTabId);
   });
 });

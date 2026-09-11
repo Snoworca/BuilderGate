@@ -52,7 +52,6 @@ const ENTRY_FIELDS = [
   'minimized',
   'placement',
   'placementBeforeStage',
-  'stackOrder',
   'tabId',
 ];
 
@@ -94,7 +93,6 @@ function liveWindow(overrides: Record<string, unknown> = {}) {
     placementBeforeStage: null,
     minimized: false,
     floatingRect: null,
-    stackOrder: 0,
     sessionId: 'sess-1',
     cascadeStep: 2,
     body: U1,
@@ -137,14 +135,13 @@ test('FR-MDE-009 the serialized value carries placement only and never an unsave
   const storage = new MemoryStorage();
   const workspaceId = 'ws-bodies';
   const windows = [
-    liveWindow({ filePath: 'C:/work/notes/one.md', stackOrder: 0, body: U1 }),
+    liveWindow({ filePath: 'C:/work/notes/one.md', body: U1 }),
     liveWindow({
       tabId: 'tab-2',
       filePath: 'C:/work/notes/two.md',
       placement: 'floating' as const,
       minimized: true,
       floatingRect: { x: 12, y: 34, width: 560, height: 400 },
-      stackOrder: 1,
       sessionId: 'sess-2',
       body: U2,
     }),
@@ -173,36 +170,29 @@ test('FR-MDE-009 the serialized value carries placement only and never an unsave
   assert.equal(entries[0].filePath, 'C:/work/notes/one.md');
   assert.equal(entries[0].placement, 'stage');
   assert.equal(entries[0].minimized, false);
-  assert.equal(entries[0].stackOrder, 0);
 
   assert.equal(entries[1].tabId, 'tab-2');
   assert.equal(entries[1].filePath, 'C:/work/notes/two.md');
   assert.equal(entries[1].placement, 'floating');
   assert.equal(entries[1].minimized, true);
-  assert.equal(entries[1].stackOrder, 1);
 });
 
 test('FR-MDE-009 the serialized value has no session ID and no cascade step', () => {
   const storage = new MemoryStorage();
   const workspaceId = 'ws-derivable';
-  // Stored out of stack order on purpose. Restoration has to put them back in
-  // it, and the cascade the layer then walks reads whichever window comes
-  // first -- so a restore that kept the array order would place `second` at
-  // step 0 and the two rects below would swap.
+  // Two documents, stored in the order they were opened.
   const first = liveWindow({
     filePath: 'C:/work/notes/first.md',
-    stackOrder: 3,
     cascadeStep: 0,
   });
   const second = liveWindow({
     filePath: 'C:/work/notes/second.md',
-    stackOrder: 7,
     cascadeStep: 1,
   });
 
   saveWindowStateForWorkspace(
     workspaceId,
-    [second, first],
+    [first, second],
     storage,
   );
 
@@ -230,29 +220,26 @@ test('FR-MDE-009 the serialized value has no session ID and no cascade step', ()
     );
   });
 
+  // Restoration hands them back in the order they were stored, which is the
+  // order they become tabs. Nothing re-sorts them: the stored array is the
+  // record of the row the user arranged.
   const restored = restoreWindowStateForWorkspace(workspaceId, ['tab-1'], storage);
   assert.deepEqual(
     restored.map(record => record.filePath),
     ['C:/work/notes/first.md', 'C:/work/notes/second.md'],
-    '복원이 스택 순서를 따르지 않았다',
+    '복원이 저장된 순서를 따르지 않았다',
   );
 
-  // The order matters beyond the list above: restoration hands the windows back
-  // in the order they are raised into the modeless stack, so a restored window
-  // that came back out of order would sit in front of one the user had put in
-  // front of it.
-  assert.deepEqual(
-    restored.map(record => record.stackOrder),
-    [3, 7],
-    '복원이 저장된 스택 순서 값을 잃었다',
-  );
+  // The stored order is the order they come back in, which is the order the
+  // window opens them as tabs. A record that came back out of order would put
+  // the tabs in a row the user never arranged.
 });
 
 test('FR-MDE-009 a record naming a missing tab is not restored', () => {
   const storage = new MemoryStorage();
   const workspaceId = 'ws-missing-tab';
-  const onT1 = liveWindow({ tabId: 'T1', filePath: 'C:/work/notes/t1.md', stackOrder: 0 });
-  const onT2 = liveWindow({ tabId: 'T2', filePath: 'C:/work/notes/t2.md', stackOrder: 1 });
+  const onT1 = liveWindow({ tabId: 'T1', filePath: 'C:/work/notes/t1.md' });
+  const onT2 = liveWindow({ tabId: 'T2', filePath: 'C:/work/notes/t2.md' });
 
   saveWindowStateForWorkspace(
     workspaceId,
@@ -279,13 +266,11 @@ test('FR-MDE-009 only a floating entry carries a stored rect', () => {
       filePath: 'C:/work/notes/stage.md',
       placement: 'stage' as const,
       placementBeforeStage: 'floating' as const,
-      stackOrder: 1,
     }),
     liveWindow({
       filePath: 'C:/work/notes/floating.md',
       placement: 'floating' as const,
       floatingRect: draggedRect,
-      stackOrder: 2,
     }),
   ];
 
@@ -342,7 +327,6 @@ test('FR-MDE-009 a rect the user dragged survives a later stage placement', () =
       placement: 'stage' as const,
       placementBeforeStage: 'floating' as const,
       floatingRect: draggedRect,
-      stackOrder: 1,
     }),
   ];
 
@@ -425,7 +409,7 @@ test('FR-MDE-009 a stored value written by another schema version is not restore
   // leave the version check untested.
   storage.setItem(getWindowStateStorageKey(workspaceId), JSON.stringify({
     schemaVersion: 2,
-    windows: [liveWindow({ filePath: 'C:/work/notes/future.md', stackOrder: 0 })],
+    windows: [liveWindow({ filePath: 'C:/work/notes/future.md' })],
     savedAt: '2026-09-03T00:00:00.000Z',
   }));
 
