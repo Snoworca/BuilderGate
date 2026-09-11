@@ -325,4 +325,49 @@ test.describe('markdown editor appearance', () => {
     expect(hostBox.height / bodyBox.height).toBeGreaterThan(HOST_HEIGHT_RATIO - RATIO_TOLERANCE);
     expect(hostBox.height / bodyBox.height).toBeLessThan(HOST_HEIGHT_RATIO + RATIO_TOLERANCE);
   });
+
+  test('the title bar controls sit against its right edge', async ({ page }) => {
+    const workdir = makeWorkdir();
+    await addTabAt(page, workspaceId!, workdir, `${TAB_NAME_PREFIX}-actions`);
+    await selectTab(page, `${TAB_NAME_PREFIX}-actions`);
+    await awaitReportedCwd(page, workdir);
+    await chooseFile(page, 'CLAUDE.md');
+
+    const surface = editorWindow(page);
+    await expect(surface).toBeVisible({ timeout: 15000 });
+
+    const titlebar = surface.locator('.window-dialog-titlebar');
+    const actions = surface.locator('.editor-window-actions');
+    const close = surface.locator('.window-dialog-titlebar button[aria-label="Close"]');
+    await expect(actions).toBeVisible();
+    await expect(close).toBeVisible();
+
+    // Coordinates, not just extents: `boxOf` answers with width and height
+    // alone, and this case is about where things sit.
+    const rectOf = async (locator: Locator) => {
+      const box = await locator.boundingBox();
+      if (box === null) throw new Error('the element has no box');
+      return box;
+    };
+    const barBox = await rectOf(titlebar);
+    const actionsBox = await rectOf(actions);
+    const closeBox = await rectOf(close);
+
+    // The close button is the rightmost thing in the bar, and the action group
+    // ends where it begins. The gap allowed between them is the bar's own
+    // padding plus the flex gap -- anything larger means something is being
+    // stretched apart rather than packed.
+    expect(closeBox.x + closeBox.width).toBeLessThanOrEqual(barBox.x + barBox.width + 1);
+    expect(closeBox.x - (actionsBox.x + actionsBox.width)).toBeLessThanOrEqual(12);
+
+    // And the group is in the right half rather than floating in the middle,
+    // which is where `space-between` put it when the bar held three children.
+    expect(actionsBox.x).toBeGreaterThan(barBox.x + barBox.width / 2);
+
+    // The title keeps the left edge. Without this the assertions above would
+    // also pass on a bar that pushed everything, title included, to the right.
+    const titleBox = await rectOf(surface.locator('.window-dialog-title'));
+    expect(Math.round(titleBox.x)).toBeLessThan(Math.round(actionsBox.x));
+  });
+
 });
