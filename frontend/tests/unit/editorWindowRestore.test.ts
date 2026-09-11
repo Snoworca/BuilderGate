@@ -10,17 +10,26 @@ import { createWindowDialogBehaviorModel } from '../../src/components/dialog/win
 import type { DialogRect } from '../../src/components/dialog/types.ts';
 import type { EditorWindowRecord } from '../../src/components/editor/editorWindowRecord.ts';
 import {
+  EDITOR_WINDOW_GEOMETRY_KEY,
+  readEditorWindowGeometry,
+  writeEditorWindowGeometry,
+} from '../../src/components/editor/editorWindowGeometryCache.ts';
+import {
   getWindowStateStorageKey,
   restoreWindowStateForWorkspace,
   saveWindowStateForWorkspace,
 } from '../../src/hooks/windowStateStorage.ts';
 
-// FR-MDE-009 — what restoration does to the stack, and where a floating rect
-// is allowed to live.
+// FR-MDE-009 — where the window's rect is allowed to live.
 //
-// Both criteria are judged against real state rather than a description of it:
-// the stack assertions read `dialogStack`'s own array, and the rect assertions
-// read the storage `dialogGeometry` actually writes through.
+// There are three stores in reach and the rect belongs in exactly one of them.
+// It goes to the editor's own global key; it must not go to the dialog store,
+// whose read path clamps in a way that can restore a window too small to show
+// its title bar; and it must not go to the per-workspace document store, which
+// names documents and would be a second answer to a question with one answer.
+//
+// Judged against real state rather than a description of it: the assertions
+// read the storage these modules actually write through.
 
 class MemoryStorage implements Storage {
   readonly writtenKeys: string[] = [];
@@ -72,10 +81,6 @@ function record(overrides: Partial<EditorWindowRecord> = {}): EditorWindowRecord
   return {
     tabId: 'tab-1',
     filePath: 'C:/work/notes/one.md',
-    placement: 'stage',
-    placementBeforeStage: null,
-    minimized: false,
-    floatingRect: null,
     ...overrides,
   };
 }
@@ -86,9 +91,9 @@ function record(overrides: Partial<EditorWindowRecord> = {}): EditorWindowRecord
 // modeless stack still separates is the window from the modals above it, and
 // `markdown-editor-placement.spec.ts` is where that is judged.
 
-test('FR-MDE-009 a dragged floating rect is written only to the per-workspace store', () => {
+test('FR-MDE-009 a dragged rect is written to the global geometry key and to nowhere else', () => {
   const workspaceId = 'ws-single-source';
-  const dialogId = 'editor-window::C:/work/notes/dragged.md';
+  const dialogId = 'editor-window:ws-single-source';
   const geometryKey = getDialogGeometryKey(dialogId);
   const storage = new MemoryStorage();
   const originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -111,36 +116,47 @@ test('FR-MDE-009 a dragged floating rect is written only to the per-workspace st
       '남아 있는 geometry 값이 살아 있지 않아 이 대조가 공허하다',
     );
 
-    // The drag. What reaches the store is a floating placement carrying the
-    // rect the user dropped the window at.
-    const dragged = record({
-      filePath: 'C:/work/notes/dragged.md',
-      placement: 'floating',
-      floatingRect: DRAGGED_RECT,
-    });
-    saveWindowStateForWorkspace(workspaceId, [dragged], storage);
+    // The drag. The rect goes to the editor's own key, which is global: one
+    // remembered placement for every workspace.
+    writeEditorWindowGeometry(DRAGGED_RECT, storage);
+    assert.deepEqual(
+      readEditorWindowGeometry(VIEWPORT, MIN_SIZE, storage),
+      DRAGGED_RECT,
+      '끌어 놓은 rect 가 전역 geometry 키에서 돌아오지 않는다',
+    );
+    assert.equal(
+      storage.writtenKeys.includes(EDITOR_WINDOW_GEOMETRY_KEY),
+      true,
+      '전역 geometry 키에 쓰이지 않았다',
+    );
+    // The key is global rather than named after a workspace, which is the whole
+    // reason the rect is not in the per-workspace store.
+    assert.equal(EDITOR_WINDOW_GEOMETRY_KEY.includes(workspaceId), false);
+
+    // The document store, written over the same drag, names documents and
+    // carries no coordinate at all.
+    saveWindowStateForWorkspace(workspaceId, [record({ filePath: 'C:/work/notes/dragged.md' })], storage);
 
     const stored = storage.getItem(getWindowStateStorageKey(workspaceId));
-    assert.notEqual(stored, null, '끌어 놓은 rect 가 워크스페이스 저장소에 없다');
+    assert.notEqual(stored, null, '워크스페이스 저장소에 값이 없다');
     const storedEntries = (JSON.parse(stored as string) as { windows: EditorWindowRecord[] }).windows;
-    assert.equal(storedEntries.length, 1);
-    assert.deepEqual(
-      storedEntries[0].floatingRect,
-      DRAGGED_RECT,
-      '저장값이 끌어 놓은 rect 를 담고 있지 않다',
+    // The records are searched rather than the whole stored value: that value
+    // also carries `savedAt`, whose milliseconds are three digits that can
+    // equal one of the coordinates below and fail this for a reason that has
+    // nothing to do with what is stored.
+    assert.doesNotMatch(
+      JSON.stringify(storedEntries),
+      /210|130|640|420|rect/i,
+      '워크스페이스 저장소가 좌표를 담았다',
     );
+    assert.deepEqual(storedEntries, [{ tabId: 'tab-1', filePath: 'C:/work/notes/dragged.md' }]);
 
-    // The rect comes back from this store rather than from the leftover above.
-    const [restored] = restoreWindowStateForWorkspace(workspaceId, ['tab-1'], storage);
-    assert.notEqual(restored, undefined, '복원된 창이 없다');
-    assert.deepEqual(
-      restored.floatingRect,
-      DRAGGED_RECT,
-      '복원된 floating 창이 저장소가 아닌 곳의 rect 를 받았다',
-    );
+    // Reopening hands back the document and nothing about where the window was.
+    const [reopened] = restoreWindowStateForWorkspace(workspaceId, ['tab-1'], storage);
+    assert.deepEqual(reopened, { tabId: 'tab-1', filePath: 'C:/work/notes/dragged.md' });
 
-    // Closing the window: the workspace store is rewritten without it, and the
-    // dialog geometry key stays untouched. AC-7 names the close explicitly
+    // Closing the window: the document store is rewritten without it, and the
+    // dialog geometry key stays untouched. AC-5 names the close explicitly
     // because that is where `WindowDialog` would write its own copy.
     saveWindowStateForWorkspace(workspaceId, [], storage);
 
@@ -176,7 +192,7 @@ test('FR-MDE-009 a dragged floating rect is written only to the per-workspace st
 test('FR-MDE-009 an editor window turns off the dialog geometry write path', () => {
   // `WindowDialog` writes its own geometry copy on close, and only this flag
   // stops it. Nothing else in the suite pins that an editor window passes it,
-  // so the close half of AC-7 rests on the two assertions here.
+  // so the close half of AC-5 rests on the two assertions here.
   assert.equal(
     createWindowDialogBehaviorModel({
       persistGeometry: false,

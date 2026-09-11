@@ -1,15 +1,15 @@
-// The React face of the per-workspace window store.
+// The React face of the per-workspace document store.
 //
-// It holds no state of its own. The windows themselves live in
+// It holds no state of its own. The documents themselves live in
 // `useEditorWindows`, and duplicating them here would give the app two lists
 // that only ever disagree; what this hook adds is the workspace binding, so no
 // caller has to carry the workspace id to every read and write.
 //
 // There is no debounce, unlike `useMosaicLayout`, because there is nothing to
-// debounce: `WindowDialog` emits a rect from `handleDragStop` and
-// `handleResizeStop` rather than from the pointer move, so one drag produces
-// one write. A timer here would only delay that single write past the reload
-// it exists to survive.
+// debounce: what is written changes when a document opens or closes, not while
+// a window is being dragged -- the rect goes to the global geometry key and
+// never reaches here. A timer would only delay that single write past the
+// reload it exists to survive.
 //
 // @req FR-MDE-009
 

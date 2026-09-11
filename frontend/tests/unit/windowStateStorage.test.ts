@@ -44,14 +44,15 @@ class MemoryStorage implements Storage {
 }
 
 // The exact key set one persisted entry is allowed to carry. Written out, so an
-// implementation that adds `sessionId`, `cascadeStep`, `body` or a measured
-// `dockedRect` is caught by the comparison rather than by a reader noticing.
+// implementation that adds `sessionId`, `body`, a rect of any kind, or any of
+// the placement fields this store used to hold is caught by the comparison
+// rather than by a reader noticing.
+//
+// An entry names a document and nothing more. Where the window sits is
+// remembered once under a global key, and which placement it is in is not
+// remembered at all -- a reload opens the window in its default placement.
 const ENTRY_FIELDS = [
   'filePath',
-  'floatingRect',
-  'minimized',
-  'placement',
-  'placementBeforeStage',
   'tabId',
 ];
 
@@ -67,6 +68,11 @@ const FORBIDDEN_KEYS_ANYWHERE = [
   'bodyAtOpen',
   'cascadeStep',
   'dockedRect',
+  'floatingRect',
+  'minimized',
+  'placement',
+  'placementBeforeStage',
+  'rect',
   'sessionId',
   'stageRect',
   'step',
@@ -78,12 +84,12 @@ const U1 = '# 미저장 제목 U1-SENTINEL-a7f3';
 const U2 = 'const answer = 42; // U2-SENTINEL-b1c9';
 
 /**
- * A window as it lives in the app: the record's fields plus the three the
- * record must drop -- the session it is talking to now, the cascade step it was
- * drawn at, and the body nobody has saved. The return type is inferred on
- * purpose; annotating it as the record would make TypeScript reject those three
- * at compile time, and what this file is watching is what the serializer does
- * with them at run time.
+ * A window as it lives in the app: the two fields the record keeps plus
+ * everything it must drop -- the session it is talking to now, the cascade step
+ * it was drawn at, the body nobody has saved, and the whole of its placement.
+ * The return type is inferred on purpose; annotating it as the record would
+ * make TypeScript reject the extra fields at compile time, and what this file
+ * is watching is what the serializer does with them at run time.
  */
 function liveWindow(overrides: Record<string, unknown> = {}) {
   return {
@@ -131,7 +137,7 @@ function readEntries(storage: Storage, workspaceId: string): Record<string, unkn
   return entries as Record<string, unknown>[];
 }
 
-test('FR-MDE-009 the serialized value carries placement only and never an unsaved body', () => {
+test('FR-MDE-009 the serialized value names documents only and never an unsaved body', () => {
   const storage = new MemoryStorage();
   const workspaceId = 'ws-bodies';
   const windows = [
@@ -166,15 +172,14 @@ test('FR-MDE-009 the serialized value carries placement only and never an unsave
   const entries = readEntries(storage, workspaceId);
   assert.equal(entries.length, 2, '창 두 개의 항목이 있어야 한다');
 
+  // The two documents come back identified and in the order they were written,
+  // so an implementation that stored an empty record for each would fail here
+  // rather than pass on the absences alone.
   assert.equal(entries[0].tabId, 'tab-1');
   assert.equal(entries[0].filePath, 'C:/work/notes/one.md');
-  assert.equal(entries[0].placement, 'stage');
-  assert.equal(entries[0].minimized, false);
 
   assert.equal(entries[1].tabId, 'tab-2');
   assert.equal(entries[1].filePath, 'C:/work/notes/two.md');
-  assert.equal(entries[1].placement, 'floating');
-  assert.equal(entries[1].minimized, true);
 });
 
 test('FR-MDE-009 the serialized value has no session ID and no cascade step', () => {
@@ -257,102 +262,119 @@ test('FR-MDE-009 a record naming a missing tab is not restored', () => {
   );
 });
 
-test('FR-MDE-009 only a floating entry carries a stored rect', () => {
+test('FR-MDE-009 no rect of any kind reaches this store, however the window was placed', () => {
   const storage = new MemoryStorage();
   const workspaceId = 'ws-rects';
   const draggedRect = { x: 40, y: 60, width: 480, height: 360 };
+  // Three windows that differ only in placement: one at rest, one the user
+  // dragged, and one dragged and then maximized so it holds a rect to return
+  // to. If any placement could put coordinates in this store, one of these
+  // would.
+  // The file names carry no word the assertions below search for, so a match
+  // can only come from a stored placement and never from a path.
   const windows = [
     liveWindow({
-      filePath: 'C:/work/notes/stage.md',
+      filePath: 'C:/work/notes/one.md',
       placement: 'stage' as const,
-      placementBeforeStage: 'floating' as const,
+      placementBeforeStage: null,
     }),
     liveWindow({
-      filePath: 'C:/work/notes/floating.md',
+      filePath: 'C:/work/notes/two.md',
       placement: 'floating' as const,
       floatingRect: draggedRect,
+    }),
+    liveWindow({
+      filePath: 'C:/work/notes/three.md',
+      placement: 'stage' as const,
+      placementBeforeStage: 'floating' as const,
+      floatingRect: draggedRect,
+      minimized: true,
     }),
   ];
 
   saveWindowStateForWorkspace(workspaceId, windows, storage);
 
   const entries = readEntries(storage, workspaceId);
-  const byPath = new Map(entries.map(entry => [entry.filePath as string, entry]));
+  assert.equal(entries.length, 3);
 
-  const stage = byPath.get('C:/work/notes/stage.md');
-  const floating = byPath.get('C:/work/notes/floating.md');
-  assert.notEqual(stage, undefined);
-  assert.notEqual(floating, undefined);
+  entries.forEach((entry) => {
+    assert.deepEqual(
+      Object.keys(entry).sort(),
+      ENTRY_FIELDS,
+      `${String(entry.filePath)} 항목이 허용되지 않은 필드를 담았다`,
+    );
 
-  assert.equal((stage as Record<string, unknown>).placement, 'stage');
-  assert.equal((floating as Record<string, unknown>).placement, 'floating');
-
-  assert.equal(
-    (stage as Record<string, unknown>).floatingRect,
-    null,
-    'stage 항목이 rect 를 담았다',
-  );
-  assert.deepEqual(
-    (floating as Record<string, unknown>).floatingRect,
-    draggedRect,
-    'floating 항목이 rect 를 담지 않았다',
-  );
-
-  // The stage entry may not smuggle its measured rect in
-  // under another name. The key set is compared rather than one named field.
-  [stage].forEach((entry) => {
+    // Not just the named fields: no coordinate under any name, at any depth.
     const keys = collectKeysDeep(entry);
-    ['x', 'y', 'width', 'height', 'left', 'top', 'rect', 'dockedRect', 'stageRect']
+    ['x', 'y', 'width', 'height', 'left', 'top', 'rect', 'floatingRect', 'dockedRect', 'stageRect']
       .forEach((forbidden) => {
         assert.equal(
           keys.includes(forbidden),
           false,
-          `측정 rect 필드 ${forbidden} 가 저장되었다`,
+          `rect 필드 ${forbidden} 가 저장되었다`,
         );
       });
   });
-});
 
-test('FR-MDE-009 a rect the user dragged survives a later stage placement', () => {
-  const storage = new MemoryStorage();
-  const workspaceId = 'ws-returned-rect';
-  const draggedRect = { x: 88, y: 120, width: 500, height: 380 };
-  // The window was dragged and then maximized: 최대화 took it to `stage`, and
-  // that transition leaves `floatingRect` alone on purpose because it is where
-  // the window returns to. What AC-8 forbids is a *measured* rect, and this one
-  // was placed by hand.
-  const windows = [
-    liveWindow({
-      filePath: 'C:/work/notes/maximized.md',
-      placement: 'stage' as const,
-      placementBeforeStage: 'floating' as const,
-      floatingRect: draggedRect,
-    }),
-  ];
+  // The input really did carry a rect and a placement, so the absences above
+  // are not vacuous. The records are searched rather than the whole stored
+  // value: that value also carries `savedAt`, whose milliseconds are three
+  // digits that can equal one of the numbers below and fail this for a reason
+  // that has nothing to do with what is stored.
+  assert.doesNotMatch(JSON.stringify(entries), /480|floating|minimized/);
 
-  saveWindowStateForWorkspace(workspaceId, windows, storage);
-
-  const entries = readEntries(storage, workspaceId);
-  entries.forEach((entry) => {
-    assert.deepEqual(
-      entry.floatingRect,
-      draggedRect,
-      `${String(entry.placement)} 항목이 사용자가 끌어 놓은 rect 를 잃었다`,
-    );
-    // Still no measured rect. The two rules hold at once: the placed rect is
-    // carried, the measured one is not.
-    const keys = collectKeysDeep({ ...entry, floatingRect: null });
-    ['dockedRect', 'stageRect', 'rect', 'left', 'top'].forEach((forbidden) => {
-      assert.equal(keys.includes(forbidden), false, `측정 rect 필드 ${forbidden} 가 저장되었다`);
-    });
-  });
-
+  // What comes back names the three documents and says nothing about where
+  // their window was.
   const restored = restoreWindowStateForWorkspace(workspaceId, ['tab-1'], storage);
   assert.deepEqual(
-    restored.map(record => record.floatingRect),
-    [draggedRect],
-    '복원이 사용자가 끌어 놓은 rect 를 잃었다',
+    restored.map(record => record.filePath),
+    ['C:/work/notes/one.md', 'C:/work/notes/two.md', 'C:/work/notes/three.md'],
   );
+  restored.forEach((record) => {
+    assert.deepEqual(Object.keys(record).sort(), ENTRY_FIELDS);
+  });
+});
+
+test('FR-MDE-009 a value written by the placement-storing schema still reopens its documents', () => {
+  const storage = new MemoryStorage();
+  const workspaceId = 'ws-legacy';
+
+  // Exactly what the previous build wrote, schema version included. Anyone who
+  // reloads once after the upgrade meets this value, and the reopen has to read
+  // it rather than treat four unknown fields as corruption.
+  storage.setItem(getWindowStateStorageKey(workspaceId), JSON.stringify({
+    schemaVersion: 1,
+    windows: [
+      {
+        tabId: 'tab-1',
+        filePath: 'C:/work/notes/kept.md',
+        placement: 'floating',
+        placementBeforeStage: 'stage',
+        minimized: true,
+        floatingRect: { x: 10, y: 20, width: 400, height: 300 },
+      },
+      {
+        tabId: 'tab-gone',
+        filePath: 'C:/work/notes/dropped.md',
+        placement: 'stage',
+        placementBeforeStage: null,
+        minimized: false,
+        floatingRect: null,
+      },
+    ],
+    savedAt: '2026-09-10T00:00:00.000Z',
+  }));
+
+  const restored = restoreWindowStateForWorkspace(workspaceId, ['tab-1'], storage);
+
+  assert.deepEqual(restored, [{
+    tabId: 'tab-1',
+    filePath: 'C:/work/notes/kept.md',
+  }]);
+
+  // The tab filter still runs over a legacy value, so the second record is
+  // dropped for its missing tab rather than kept because the value was old.
+  assert.equal(restored.length, 1);
 });
 
 test('FR-MDE-009 a missing or malformed stored value restores nothing and surfaces no error', () => {

@@ -1,4 +1,4 @@
-// The persisted shape of a modeless editor window, plus the lookup that turns
+// The persisted shape of an open editor document, plus the lookup that turns
 // its tab binding back into a session id at the moment an API call is made.
 //
 // restartTab keeps tab.id and replaces tab.sessionId, so a stored session id
@@ -6,98 +6,65 @@
 // therefore carries the tab id and the session is resolved again per call.
 // @req CON-MDE-002
 
-import type { EditorWindowPlacement } from './editorWindowPlacement.ts';
-
-export interface EditorWindowRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 /**
- * What survives a reload. It holds no session id and no body text.
+ * What survives a reload: which file, opened from which tab. Nothing else.
+ *
+ * No session id and no body text, for the reasons above and because a stored
+ * body would make every reload a question against whatever is on disk now.
+ *
+ * No placement either. The window's position and size are remembered once,
+ * globally, by `editorWindowGeometryCache`; a copy here would be a per-workspace
+ * answer to a question that has one answer, and the two could disagree. Which
+ * placement state the window was in, and whether it was minimized, are not
+ * remembered at all -- a reload opens the window in its default placement,
+ * which is what `FR-MDE-009` AC-11 states.
  * @req CON-MDE-002
+ * @req FR-MDE-009
  */
 export interface EditorWindowRecord {
   tabId: string;
   filePath: string;
-  placement: EditorWindowPlacement;
-  /** The placement recorded on entry to `stage`, or null when none was. */
-  placementBeforeStage: EditorWindowPlacement | null;
-  minimized: boolean;
-  floatingRect: EditorWindowRect | null;
-}
-
-// Keyed by the placement union, so a value added to it has to be given an
-// entry here before this compiles. A plain array of the two strings would
-// stay assignable while silently rejecting the new one at runtime.
-const PLACEMENT_VALUES: Record<EditorWindowPlacement, true> = {
-  stage: true,
-  floating: true,
-};
-
-function isPlacement(value: unknown): value is EditorWindowPlacement {
-  return typeof value === 'string' && Object.hasOwn(PLACEMENT_VALUES, value);
 }
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
 }
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isRect(value: unknown): value is EditorWindowRect {
-  if (value === null || typeof value !== 'object') return false;
-
-  const candidate = value as Record<string, unknown>;
-  return isFiniteNumber(candidate.x)
-    && isFiniteNumber(candidate.y)
-    && isFiniteNumber(candidate.width)
-    && isFiniteNumber(candidate.height);
-}
-
 /**
- * Projects a live window onto the persisted record, field by field. A spread
- * would carry the session id, the cascade step and the unsaved body into
+ * Projects a live document onto the persisted record, field by field. A spread
+ * would carry the session id, the unsaved body and the window's placement into
  * storage, which is the failure this projection exists to prevent.
  * @req CON-MDE-002
  */
-export function toEditorWindowRecord(window: EditorWindowRecord): EditorWindowRecord {
+export function toEditorWindowRecord(document: EditorWindowRecord): EditorWindowRecord {
   return {
-    tabId: window.tabId,
-    filePath: window.filePath,
-    placement: window.placement,
-    placementBeforeStage: window.placementBeforeStage,
-    minimized: window.minimized,
-    floatingRect: window.floatingRect === null ? null : { ...window.floatingRect },
+    tabId: document.tabId,
+    filePath: document.filePath,
   };
 }
 
 /**
  * True when a value read back from storage is a usable record. Persisted state
  * is untrusted text, so the shape is checked before the tab filter runs.
+ *
+ * Only the two fields the record carries are checked. A value written by the
+ * build that also stored placement passes, and `toEditorWindowRecord` drops the
+ * four extra fields; refusing it instead would empty the tab row of everyone
+ * who reloads once after that change, which is a worse answer than ignoring
+ * fields nobody reads.
  * @req CON-MDE-002
  */
 export function isEditorWindowRecord(value: unknown): value is EditorWindowRecord {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
 
   const candidate = value as Record<string, unknown>;
-  return isNonEmptyString(candidate.tabId)
-    && isNonEmptyString(candidate.filePath)
-    && isPlacement(candidate.placement)
-    && (candidate.placementBeforeStage === null || isPlacement(candidate.placementBeforeStage))
-    && typeof candidate.minimized === 'boolean'
-    && (candidate.floatingRect === null || isRect(candidate.floatingRect))
-;
+  return isNonEmptyString(candidate.tabId) && isNonEmptyString(candidate.filePath);
 }
 
 /**
  * Keeps the stored records whose tab still exists, in their stored order, and
- * drops the rest. A window naming a tab that is gone has no terminal rect to
- * dock to and no session to save through, so it is not restored at all.
+ * drops the rest. A record naming a tab that is gone has no session to save
+ * through, so it is not reopened at all.
  * @req CON-MDE-002
  */
 export function restoreEditorWindowRecords(

@@ -106,6 +106,82 @@ export interface EditorWindowShell {
   activeFilePath: string | null;
 }
 
+/**
+ * Builds the window a workspace's first document goes into.
+ *
+ * Both paths that can create one call this: opening a file by hand, and
+ * reopening the documents a reload found stored. They used to build it
+ * separately, and the reopen path built it without consulting the geometry
+ * cache -- so a drag wrote a rect that a reload then ignored, and the window
+ * came back covering the stage. One builder is what keeps the two answers from
+ * drifting apart again.
+ *
+ * The measuring happens here rather than inside the placement rules, so those
+ * rules stay decidable without a browser. The `typeof` guards are not defensive
+ * padding: the unit suite runs this module with no DOM installed, where a bare
+ * `window` is a ReferenceError rather than an absent value.
+ *
+ * @req FR-MDE-001
+ * @req FR-MDE-009
+ */
+function createEditorWindowShell(
+  workspaceId: string,
+  activeFilePath: string,
+  isMobile: boolean,
+): EditorWindowShell {
+  const mode = resolveEditorWindowPlacementMode({ isMobile });
+
+  // On mobile the window fills the stage, and the placement state is left at
+  // its `stage` default with no rect of its own.
+  if (!mode.usesGeometryCache) {
+    return {
+      ...createEditorWindowPlacementState(),
+      workspaceId,
+      minimized: false,
+      activeFilePath,
+    };
+  }
+
+  const viewport = typeof window === 'undefined'
+    ? { width: 0, height: 0 }
+    : { width: window.innerWidth, height: window.innerHeight };
+  const stage = typeof document === 'undefined'
+    ? null
+    : document.querySelector(EDITOR_WINDOW_BOUNDS_SELECTOR);
+  const bounds = stage === null
+    ? { left: 0, top: 0, ...viewport }
+    : stage.getBoundingClientRect();
+
+  // Where the user last left a window wins over the opening placement. The
+  // cache is global, so a window opened in any workspace comes up where the
+  // last one was dragged to -- which is what "one cached position" means.
+  const cached = typeof localStorage === 'undefined'
+    ? null
+    : readEditorWindowGeometry(viewport, EDITOR_WINDOW_MIN_SIZE, localStorage);
+
+  // A window opens floating at seven tenths of the viewport rather than filling
+  // the stage. Filling it would put the window over the terminal's own path
+  // bar, which is the only way to open another file while one is up.
+  //
+  // Two boxes are measured, not one. The size comes from the viewport; the
+  // position is centred inside the stage, because the stage is what the window
+  // layer confines a floating window to. Centring against the viewport alone
+  // put the window against the stage's left edge, the sidebar's width away
+  // from where it belonged.
+  const initialRect = cached ?? computeInitialEditorWindowRect(
+    viewport,
+    bounds,
+    EDITOR_WINDOW_MIN_SIZE,
+  );
+
+  return {
+    ...enterFloating(createEditorWindowPlacementState(), initialRect),
+    workspaceId,
+    minimized: false,
+    activeFilePath,
+  };
+}
+
 /** Where the path context menu was opened, and which tab's path it was. */
 export interface EditorPathMenuAnchor {
   x: number;
@@ -407,67 +483,9 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
         return { ...current, [workspaceId]: { ...shell, minimized: false, activeFilePath: filePath } };
       }
 
-      // A window opens floating at seven tenths of the viewport rather than
-      // filling the stage. Filling it would put the window over the terminal's
-      // own path bar and over every window already open, which is exactly what
-      // one window per document used to avoid by covering only its own
-      // terminal.
-      //
-      // Two boxes are measured, not one. The size comes from the viewport; the
-      // position is centred inside the stage, because the stage is what the
-      // window layer confines a floating window to. Centring against the
-      // viewport alone put the window against the stage's left edge, the
-      // sidebar's width away from where it belonged.
-      //
-      // Measured here rather than inside the rule, so the rule stays decidable
-      // without a browser. The guard is not defensive padding: suites run this
-      // module with no DOM installed, where a bare `window` is a ReferenceError
-      // rather than an absent value.
-      const viewport = typeof window === 'undefined'
-        ? { width: 0, height: 0 }
-        : { width: window.innerWidth, height: window.innerHeight };
-      const stage = typeof document === 'undefined'
-        ? null
-        : document.querySelector(EDITOR_WINDOW_BOUNDS_SELECTOR);
-      const bounds = stage === null
-        ? { left: 0, top: 0, ...viewport }
-        : stage.getBoundingClientRect();
-      const mode = resolveEditorWindowPlacementMode({ isMobile });
-
-      // On mobile the window fills the stage, and the placement state is left
-      // at its `stage` default with no rect of its own.
-      if (!mode.usesGeometryCache) {
-        return {
-          ...current,
-          [workspaceId]: {
-            ...createEditorWindowPlacementState(),
-            workspaceId,
-            minimized: false,
-            activeFilePath: filePath,
-          },
-        };
-      }
-
-      // Where the user last left a window wins over the opening placement. The
-      // cache is global, so a window opened in any workspace comes up where the
-      // last one was dragged to -- which is what "one cached position" means.
-      const cached = typeof localStorage === 'undefined'
-        ? null
-        : readEditorWindowGeometry(viewport, EDITOR_WINDOW_MIN_SIZE, localStorage);
-      const initialRect = cached ?? computeInitialEditorWindowRect(
-        viewport,
-        bounds,
-        EDITOR_WINDOW_MIN_SIZE,
-      );
-
       return {
         ...current,
-        [workspaceId]: {
-          ...enterFloating(createEditorWindowPlacementState(), initialRect),
-          workspaceId,
-          minimized: false,
-          activeFilePath: filePath,
-        },
+        [workspaceId]: createEditorWindowShell(workspaceId, filePath, isMobile),
       };
     });
 
@@ -831,20 +849,17 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       });
       added.forEach(document => forgetPendingRestore(document.filePath));
 
-      // The restored documents need a window to be tabs of. The first of them
-      // becomes the active tab, which is the same rule a hand-opened document
-      // follows.
+      // The reopened documents need a window to be tabs of. The first of them
+      // becomes the active tab, and the window is built by the same function a
+      // hand-opened document builds it with -- so a reload puts it back where
+      // the user dragged it, exactly as opening a file does. Two builders here
+      // is how the cache came to be written on every drag and read on none.
       setShells((current) => {
         if (current[workspaceId] !== undefined) return current;
 
         return {
           ...current,
-          [workspaceId]: {
-            ...createEditorWindowPlacementState(),
-            workspaceId,
-            minimized: false,
-            activeFilePath: added[0].filePath,
-          },
+          [workspaceId]: createEditorWindowShell(workspaceId, added[0].filePath, isMobile),
         };
       });
     })();
@@ -855,28 +870,31 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   }, [activeWorkspaceId, tabIdsKey]);
 
   /**
-   * Writes the active workspace's windows after every change to them. One write
-   * per change rather than a debounced one, because a rect arrives from
-   * `WindowDialog` when a drag ends rather than while it moves.
+   * Writes the active workspace's open documents after every change to the set.
+   * One write per change rather than a debounced one: the set changes when a
+   * document opens or closes, which is rare enough not to need batching.
+   *
+   * Where the window sits is not written here. `editorWindowGeometryCache` owns
+   * that under a global key, so this effect does not depend on the shell and a
+   * drag does not reach it.
    *
    * Records still waiting to be restored are written alongside the live
-   * windows, so a write that lands mid-restore preserves what has not been
-   * rebuilt yet. A window whose tab has closed is still a window and is still
+   * documents, so a write that lands mid-restore preserves what has not been
+   * reopened yet. A document whose tab has closed is still open and is still
    * written -- the tray lists it and the user may yet save it elsewhere -- so
-   * its entry names a tab that is gone; the next page load's restore is what
+   * its record names a tab that is gone; the next page load's reopen is what
    * drops it, because the tab filter refuses it and the first save afterwards
    * writes without it.
    *
-   * Windows of other workspaces are filtered out rather than written under this
-   * key: the store is per workspace, and an entry naming a tab from elsewhere
-   * would name nothing in the workspace it was restored into.
+   * Documents of other workspaces are filtered out rather than written under
+   * this key: the store is per workspace, and a record naming a tab from
+   * elsewhere would name nothing in the workspace it was reopened into.
    * @req FR-MDE-009
    */
   useEffect(() => {
     const workspaceId = activeWorkspaceId;
     if (workspaceId === null || !restoreStartedRef.current.has(workspaceId)) return;
 
-    const shell = shells[workspaceId];
     const own = documents.filter(document => document.workspaceId === workspaceId);
     const openPaths = new Set(own.map(document => document.filePath));
     const stillPending = (pendingRestoreRef.current.get(workspaceId) ?? [])
@@ -886,14 +904,10 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       ...own.map(document => toEditorWindowRecord({
         tabId: document.tabId,
         filePath: document.filePath,
-        placement: shell?.placement ?? 'stage',
-        placementBeforeStage: shell?.placementBeforeStage ?? null,
-        minimized: shell?.minimized ?? false,
-        floatingRect: shell?.floatingRect ?? null,
       })),
       ...stillPending,
     ]);
-  }, [activeWorkspaceId, documents, saveWindows, shells]);
+  }, [activeWorkspaceId, documents, saveWindows]);
 
   // In a stable order, so a workspace whose window mounted earlier keeps its
   // position in the tree. React keys them by workspace, but an order that

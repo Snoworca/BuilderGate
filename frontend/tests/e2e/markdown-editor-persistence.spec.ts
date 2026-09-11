@@ -76,6 +76,10 @@ function windowStateKey(workspaceId: string): string {
   return `window_state_${workspaceId}`;
 }
 
+// The one key the window's position and size live under, spelled out rather
+// than imported so a module that renamed it is caught rather than followed.
+const GEOMETRY_CACHE_KEY = 'buildergate.editor-window.geometry';
+
 async function ensureTabMode(page: Page): Promise<void> {
   const toTabs = page.locator('button[title="Switch to Tabs"]');
   if (await toTabs.count()) await toTabs.click();
@@ -256,9 +260,9 @@ async function openWindows(page: Page, fileNames: readonly string[]): Promise<vo
   }
 }
 
-/** The stored entries for a workspace, or null when nothing is stored. */
+/** The stored records for a workspace, or null when nothing is stored. */
 async function readStoredWindows(page: Page, workspaceId: string): Promise<
-  { filePath: string; tabId: string; placement: string; stackOrder: number }[] | null
+  { filePath: string; tabId: string }[] | null
 > {
   return page.evaluate((key) => {
     const raw = localStorage.getItem(key);
@@ -510,7 +514,7 @@ test.describe('markdown editor persistence', () => {
     expect(after!.extensionsToken).toBe(before!.extensionsToken);
     expect(await editorBodyText(page, 'CLAUDE.md')).toContain(unsaved);
 
-    // A reload is the other half: placement returns and the body comes from
+    // A reload is the other half: the document reopens and its body comes from
     // disk, so the unsaved text is gone by design. The disk body is asserted
     // as well, because an editor holding nothing at all would satisfy the
     // absence of the sentinel on its own.
@@ -560,5 +564,74 @@ test.describe('markdown editor persistence', () => {
     // And nothing was surfaced about the file that is gone.
     await expect(page.locator('.editor-window-error')).toHaveCount(0);
     await expect(page.locator('[role="alertdialog"]')).toHaveCount(0);
+  });
+
+  // TC-REQ-FR-MDE-009-AC11-01
+  test('FR-MDE-009 a reload brings the window back where the user dragged it', async ({ page }) => {
+    // The placement state is not stored -- a reload opens the window in its
+    // default placement -- but where the window sits is, under one global key.
+    // The two facts are easy to conflate, and conflating them produces a window
+    // that comes back covering the stage after every reload while the cache
+    // that was supposed to remember its position sits unread.
+    const workdir = makeWorkdir();
+    const tabName = `${TAB_NAME_PREFIX}-ac11`;
+    await addTabAt(page, workspaceId!, workdir, tabName);
+    await selectTab(page, tabName);
+    await awaitReportedCwd(page, workdir);
+
+    // Nothing cached to begin with, so the rect below is this drag's and not
+    // one an earlier test left behind.
+    await page.evaluate(k => localStorage.removeItem(k), GEOMETRY_CACHE_KEY);
+    await openWindows(page, ['CLAUDE.md']);
+    await awaitStoredWindows(page, workspaceId!, ['CLAUDE.md']);
+
+    const surface = editorWindow(page);
+    const opened = await surface.boundingBox();
+    expect(opened).not.toBeNull();
+
+    await page.mouse.move(opened!.x + opened!.width / 2, opened!.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(opened!.x + opened!.width / 2 - 130, opened!.y + 8 + 70, { steps: 10 });
+    await page.mouse.up();
+
+    const dragged = await surface.boundingBox();
+    expect(dragged).not.toBeNull();
+    // The drag really moved it, so the comparison after the reload is between
+    // two different boxes rather than one box with itself.
+    expect(Math.abs(dragged!.x - opened!.x)).toBeGreaterThan(20);
+
+    // The cache took the drag. Asserted before the reload so a failure below
+    // names which half broke: the write, or the read the reopen path does.
+    await expect.poll(
+      async () => page.evaluate(k => localStorage.getItem(k), GEOMETRY_CACHE_KEY),
+      { timeout: 10000, message: 'the drag never reached the geometry cache' },
+    ).not.toBeNull();
+
+    await page.reload();
+    await ensureTabMode(page);
+    await selectTab(page, tabName);
+    await awaitReportedCwd(page, workdir);
+    await expect(editorWindow(page)).toHaveCount(1, { timeout: 20000 });
+    await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
+
+    // Reopened at the dragged rect. Polled rather than read once: the reopen
+    // runs on an effect, and the first paint can precede the placement.
+    await expect.poll(
+      async () => {
+        const box = await editorWindow(page).boundingBox();
+        return box === null ? null : {
+          x: Math.round(box.x),
+          y: Math.round(box.y),
+          width: Math.round(box.width),
+          height: Math.round(box.height),
+        };
+      },
+      { timeout: 15000, message: 'the reopened window never reached the cached rect' },
+    ).toEqual({
+      x: Math.round(dragged!.x),
+      y: Math.round(dragged!.y),
+      width: Math.round(dragged!.width),
+      height: Math.round(dragged!.height),
+    });
   });
 });

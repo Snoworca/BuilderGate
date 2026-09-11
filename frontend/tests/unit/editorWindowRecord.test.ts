@@ -12,19 +12,19 @@ import {
 // persists the session id.
 const RECORD_FIELDS = [
   'filePath',
-  'floatingRect',
-  'minimized',
-  'placement',
-  'placementBeforeStage',
   'tabId',
 ];
 
-// A live window carries more than the record does: the session it is talking
-// to right now, the cascade step it was placed at, and the unsaved body. The
-// record must drop all three. The return type is left to inference on purpose
-// -- annotating it as the record input would make excess-property checking
-// reject those three fields at compile time, and the point of the test is to
-// watch what the function does with them at runtime.
+// A live window carries far more than the record does: the session it is
+// talking to right now, the unsaved body, and its whole placement -- which of
+// the two states it is in, which it came from, whether it is minimized, and
+// where the user dragged it. The record must drop every one of them. Where the
+// window sits is remembered once, globally, by the geometry cache; a second
+// copy here would be a per-workspace answer to a question that has one answer.
+// The return type is left to inference on purpose -- annotating it as the
+// record input would make excess-property checking reject those fields at
+// compile time, and the point of the test is to watch what the function does
+// with them at runtime.
 function liveWindow(overrides: Record<string, unknown> = {}) {
   return {
     tabId: 'tab-alive',
@@ -68,6 +68,21 @@ test('CON-MDE-002 the persisted window record carries a tab ID and no session ID
   assert.equal(source.sessionId, 'sess-before-restart');
   assert.equal(source.cascadeStep, 3);
   assert.equal(source.body, '# unsaved heading');
+  assert.equal(source.placement, 'stage');
+  assert.equal(source.minimized, false);
+
+  // A placement the projection has to drop rather than merely leave at its
+  // default. Passing a window that is floating, minimized and carries a dragged
+  // rect is what separates "the field is absent" from "the field happened to be
+  // null", which the window above would not have shown.
+  const placed = toEditorWindowRecord(liveWindow({
+    placement: 'floating' as const,
+    placementBeforeStage: 'stage' as const,
+    minimized: true,
+    floatingRect: { x: 40, y: 60, width: 480, height: 360 },
+  }));
+  assert.deepEqual(Object.keys(placed).sort(), RECORD_FIELDS);
+  assert.doesNotMatch(JSON.stringify(placed), /floating|minimized|480/);
 
   // The record survives storage as JSON, and nothing that names a session
   // reaches the stored text at any depth.
@@ -123,9 +138,28 @@ test('CON-MDE-002 restoration drops a record naming a tab that no longer exists'
   const malformed = [
     { ...alive, tabId: '' },
     { ...alive, tabId: null },
-    { ...alive, placement: 'iconified' },
+    { ...alive, filePath: 42 },
+    { ...alive, filePath: '' },
     null,
     'tab-alive',
   ];
   assert.deepEqual(restoreEditorWindowRecords(malformed, ['tab-alive', '']), []);
+
+  // A value written by the build that still stored placement reads back as a
+  // usable record, with the four fields this schema dropped ignored rather than
+  // treated as corruption. Refusing it would empty the tab row of everyone who
+  // reloads once after the upgrade, which is a worse answer than ignoring four
+  // fields nobody reads.
+  const legacy = {
+    tabId: 'tab-alive',
+    filePath: 'C:/work/notes/legacy.md',
+    placement: 'floating',
+    placementBeforeStage: 'stage',
+    minimized: true,
+    floatingRect: { x: 10, y: 20, width: 400, height: 300 },
+  };
+  assert.deepEqual(restoreEditorWindowRecords([legacy], ['tab-alive']), [{
+    tabId: 'tab-alive',
+    filePath: 'C:/work/notes/legacy.md',
+  }]);
 });

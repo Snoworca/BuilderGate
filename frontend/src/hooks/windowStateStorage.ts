@@ -1,16 +1,19 @@
-// Where an editor window's placement is kept between page loads, and the only
-// thing that knows the key it is kept under.
+// Which documents a workspace had open between page loads, and the only thing
+// that knows the key they are kept under.
 //
 // The split is the one `mosaicLayoutStorage` already uses: this module owns the
-// key and the serialization, and `useWindowState` wraps it for React. A window
-// belongs to the workspace whose tabs it is docked to, so the store is scoped
-// per workspace exactly as the mosaic layout is -- a global one would carry
-// entries whose tab ids mean nothing in the workspace being restored.
+// key and the serialization, and `useWindowState` wraps it for React. A record
+// names a tab, and a tab id means nothing in a workspace that does not hold it,
+// so the store is scoped per workspace exactly as the mosaic layout is.
+//
+// Where the window sits is not here. That is one remembered placement for the
+// whole app, so it lives under the global key `editorWindowGeometryCache` owns;
+// a per-workspace copy would give one question two answers.
 //
 // What is written is `toEditorWindowRecord`'s projection and nothing else. That
-// projection is what drops the unsaved body, the session id and the cascade
-// step; naming it here rather than serializing the live window is what keeps
-// those three out of a value the user can read in their browser.
+// projection is what drops the unsaved body, the session id and the placement;
+// naming it here rather than serializing the live document is what keeps them
+// out of a value the user can read in their browser.
 //
 // @req FR-MDE-009
 
@@ -43,13 +46,13 @@ export function getWindowStateStorageKey(workspaceId: string): string {
 }
 
 /**
- * Writes the placement of every window in a workspace.
+ * Writes the open documents of a workspace.
  *
- * Each window goes through `toEditorWindowRecord`, which projects field by
- * field. Spreading the live window instead would carry the body, the session
- * id and the cascade step into a store that is readable in the browser, and
- * the body in particular would turn every reload into a three-way question
- * between what is stored, what is on disk and what the user remembers.
+ * Each one goes through `toEditorWindowRecord`, which projects field by field.
+ * Spreading the live document instead would carry the body, the session id and
+ * the window's placement into a store that is readable in the browser, and the
+ * body in particular would turn every reload into a three-way question between
+ * what is stored, what is on disk and what the user remembers.
  *
  * Answers whether the write happened, so a caller can tell a full quota from a
  * successful save. Returning nothing would make the two look alike.
@@ -135,18 +138,15 @@ export function readPersistedWindowState(
 }
 
 /**
- * The windows to recreate for a workspace, in the order they are to be created.
+ * The documents to reopen for a workspace, in the order they become tabs.
  *
- * The order is the stored stack order rather than the order the records happen
- * to sit in, and it is load-bearing: a restored window is raised into the
- * modeless stack in the order it comes back, so creating
- * them in a different order hands the steps out differently and the restored
- * layout stops matching the saved one. The step itself is deliberately not
- * stored -- it is recomputed from this order, which is why there is no second
- * copy of it to disagree with the rule.
+ * The order is the stored one and it is load-bearing: it is the row the user
+ * arranged, and a reopen that sorted the records would hand back a different
+ * row from the one that was saved. The first of them becomes the active tab,
+ * which is the same rule a hand-opened document follows.
  *
- * A window whose tab is gone is not restored at all: it has no terminal to dock
- * to and no session to save through.
+ * A record whose tab is gone is not reopened at all: it has no session to save
+ * through.
  * @req FR-MDE-009
  */
 export function restoreWindowStateForWorkspace(
