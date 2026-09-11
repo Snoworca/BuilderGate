@@ -44,6 +44,13 @@ import {
 import { computeInitialEditorWindowRect } from '../components/editor/editorWindowInitialRect.ts';
 import { EDITOR_WINDOW_BOUNDS_SELECTOR } from '../components/editor/editorWindowBounds.ts';
 import {
+  readEditorWindowGeometry,
+  writeEditorWindowGeometry,
+} from '../components/editor/editorWindowGeometryCache.ts';
+import {
+  resolveEditorWindowPlacementMode,
+} from '../components/editor/editorWindowPlacementMode.ts';
+import {
   minimizeEditorWindow,
   type EditorWindowScreen,
 } from '../components/editor/editorWindowVisibility.ts';
@@ -123,6 +130,13 @@ export interface UseEditorWindowsInput {
    */
   setScreen: (screen: EditorWindowScreen) => void;
   activeWorkspaceId: string | null;
+  /**
+   * The mobile layout is being rendered. A window fills the stage there and
+   * leaves the shared position cache alone, so a phone-sized rect is not
+   * inherited by the next desktop window.
+   * @req FR-MDE-001
+   */
+  isMobile: boolean;
   /** Only the id and the displayed cwd are read, so the workspace type stays out. */
   tabs: readonly { id: string; cwd: string }[];
   /**
@@ -199,6 +213,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   const {
     setScreen,
     activeWorkspaceId,
+    isMobile,
     tabs,
     resolveTabSession,
     activeWorkspaceTabIds,
@@ -387,7 +402,29 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       const bounds = stage === null
         ? { left: 0, top: 0, ...viewport }
         : stage.getBoundingClientRect();
-      const initialRect = computeInitialEditorWindowRect(
+      const mode = resolveEditorWindowPlacementMode({ isMobile });
+
+      // On mobile the window fills the stage, and the placement state is left
+      // at its `stage` default with no rect of its own.
+      if (!mode.usesGeometryCache) {
+        return {
+          ...current,
+          [workspaceId]: {
+            ...createEditorWindowPlacementState(),
+            workspaceId,
+            minimized: false,
+            activeFilePath: filePath,
+          },
+        };
+      }
+
+      // Where the user last left a window wins over the opening placement. The
+      // cache is global, so a window opened in any workspace comes up where the
+      // last one was dragged to -- which is what "one cached position" means.
+      const cached = typeof localStorage === 'undefined'
+        ? null
+        : readEditorWindowGeometry(viewport, EDITOR_WINDOW_MIN_SIZE, localStorage);
+      const initialRect = cached ?? computeInitialEditorWindowRect(
         viewport,
         bounds,
         EDITOR_WINDOW_MIN_SIZE,
@@ -539,8 +576,16 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
    * @req FR-MDE-001
    */
   const updateWindowRect = useCallback((rect: DialogRect) => {
+    // `WindowDialog` emits this from its drag and resize handlers only, so an
+    // arrival here means the user placed the window by hand. That is both what
+    // turns the placement `floating` and what the cache is meant to remember --
+    // a rect the application computed would teach it nothing.
+    if (resolveEditorWindowPlacementMode({ isMobile }).usesGeometryCache
+      && typeof localStorage !== 'undefined') {
+      writeEditorWindowGeometry(rect, localStorage);
+    }
     updateShell(shell => ({ ...shell, ...enterFloating(shell, rect) }));
-  }, [updateShell]);
+  }, [isMobile, updateShell]);
 
   /**
    * The window's document has diverged from the file, or has stopped diverging.

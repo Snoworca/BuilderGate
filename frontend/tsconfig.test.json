@@ -45,6 +45,8 @@
     "tests/unit/editorTrayModel.test.ts",
     "tests/unit/editorTrayPresentation.test.ts",
     "tests/unit/iconGlyphs.test.ts",
+    "tests/unit/editorWindowGeometryCache.test.ts",
+    "tests/unit/editorWindowMobilePlacement.test.ts",
     "tests/unit/editorWindowInitialRect.test.ts",
     "tests/unit/editorWindowPlacement.test.ts",
     "tests/unit/editorWindowRecord.test.ts",

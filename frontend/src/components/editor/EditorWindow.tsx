@@ -117,6 +117,16 @@ export interface EditorWindowProps {
   onRectChange: (rect: DialogRect) => void;
   /** Drag boundary. The stage, whatever the placement. */
   boundsElement?: string | Element;
+  /**
+   * The window can be moved and resized by hand.
+   *
+   * False on a mobile layout, where the window fills the stage: there is
+   * nowhere to move it to, and a drag would emit a rect the host would cache --
+   * a cache shared with the desktop layout, which would then open its windows
+   * at a phone's size.
+   * @req FR-MDE-001
+   */
+  placeable: boolean;
   /** The workspace this window belongs to. Its dialog id is derived from it. */
   workspaceId: string;
   /** The visibility predicate said no. The surface hides; nothing unmounts. */
@@ -160,6 +170,7 @@ export function EditorWindow({
   rect,
   onRectChange,
   boundsElement,
+  placeable,
   hidden,
   resolveTabSession,
   writeFile,
@@ -346,7 +357,8 @@ export function EditorWindow({
       minSize={EDITOR_WINDOW_MIN_SIZE}
       onClose={requestCloseWindow}
       showCloseButton
-      resizable
+      resizable={placeable}
+      movable={placeable}
       persistGeometry={false}
       surfaceClassName="editor-window-surface"
       rect={rect}

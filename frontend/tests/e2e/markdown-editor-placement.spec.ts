@@ -51,8 +51,13 @@ const TAB_NAME_PREFIX = 'e2e-mde-place';
 /** Labels this spec gives the command presets it creates, so cleanup finds them. */
 const PRESET_LABEL_PREFIX = 'e2e-mde-toast';
 
-/** A rect no computed placement can produce, so a match is unambiguous. */
-const SENTINEL_GEOMETRY = { schemaVersion: 1, x: 3, y: 3, width: 641, height: 401 };
+/**
+ * The single key the window's cached position lives under.
+ *
+ * Spelled out rather than imported: a module that renamed it would then be
+ * caught here rather than followed into a test that still passes.
+ */
+const GEOMETRY_CACHE_KEY = 'buildergate.editor-window.geometry';
 
 const createdDirs: string[] = [];
 
@@ -366,42 +371,59 @@ test.describe('markdown editor placement and stacking', () => {
     }, { timeout: 10000 }).toBeLessThanOrEqual(2);
   });
 
-  // TC-REQ-FR-MDE-001-AC8-03
-  test('FR-MDE-001 a stored geometry never reaches the screen and closing writes none', async ({ page }) => {
+  // TC-REQ-FR-MDE-009-AC7-01
+  test('FR-MDE-009 a dragged window reopens where it was left, from one global key', async ({ page }) => {
+    // The window used to open at a computed placement every time and write
+    // nothing. It caches what the user arranged now, under a single key that
+    // names no workspace and no document.
     const workdir = makeWorkdir();
     const tabName = `${TAB_NAME_PREFIX}-ac8`;
     await addTabAt(page, workspaceId!, workdir, tabName);
     await selectTab(page, tabName);
-    const cwd = await awaitReportedCwd(page, workdir);
-    const filePath = resolveAgainst(cwd, 'CLAUDE.md');
-    const key = geometryKeyFor(filePath);
-    const planted = JSON.stringify(SENTINEL_GEOMETRY);
+    await awaitReportedCwd(page, workdir);
 
-    await page.evaluate(([k, v]) => localStorage.setItem(k, v), [key, planted]);
+    // Nothing cached to begin with, so the rect below is the one this drag
+    // produced rather than one left by an earlier test.
+    await page.evaluate(k => localStorage.removeItem(k), GEOMETRY_CACHE_KEY);
     await openWindows(page, ['CLAUDE.md']);
 
-    // The rect that reached the screen is the computed one, not the stored
-    // sentinel, and it sits inside the stage rather than at the stored origin.
     const surface = editorWindow(page);
-    const box = await surface.boundingBox();
-    expect(box).not.toBeNull();
-    expect(Math.round(box!.width)).not.toBe(SENTINEL_GEOMETRY.width);
-    expect(Math.round(box!.height)).not.toBe(SENTINEL_GEOMETRY.height);
-    // The origin too: a rect that kept the stored x and y while recomputing its
-    // size would still be the stored rect reaching the screen.
-    expect(Math.round(box!.x)).not.toBe(SENTINEL_GEOMETRY.x);
-    expect(Math.round(box!.y)).not.toBe(SENTINEL_GEOMETRY.y);
-    // It is where the placement put it: inside the terminal area of its tab.
-    const slot = await page.locator('.terminal-workspace-stage').first().boundingBox();
-    expect(slot).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(slot!.x - 1);
-    expect(box!.y).toBeGreaterThanOrEqual(slot!.y - 1);
+    const opened = await surface.boundingBox();
+    expect(opened).not.toBeNull();
 
-    // Closing through the title bar button is the only path that would write,
-    // so that is the path the criterion has to be taken on.
+    // Drag it by the title bar, far enough that the move cannot be rounding.
+    await page.mouse.move(opened!.x + opened!.width / 2, opened!.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(opened!.x + opened!.width / 2 - 120, opened!.y + 8 + 90, { steps: 10 });
+    await page.mouse.up();
+
+    const dragged = await surface.boundingBox();
+    expect(dragged).not.toBeNull();
+    expect(Math.abs(dragged!.x - opened!.x)).toBeGreaterThan(20);
+
+    // The cache took it, under the one key.
+    const cached = await page.evaluate(k => localStorage.getItem(k), GEOMETRY_CACHE_KEY);
+    expect(cached).not.toBeNull();
+    expect(JSON.parse(cached!)).toEqual({
+      x: Math.round(dragged!.x),
+      y: Math.round(dragged!.y),
+      width: Math.round(dragged!.width),
+      height: Math.round(dragged!.height),
+    });
+
+    // Close every document, which closes the window, and open one again. The
+    // window comes back where it was dragged to rather than at its opening
+    // placement -- which the first box above is, so the two are distinguishable.
     await surface.locator('button[aria-label="Close"]').click();
-    await expect(editorWindow(page)).toHaveCount(0);
-    expect(await page.evaluate(k => localStorage.getItem(k), key)).toBe(planted);
+    await expect(editorWindow(page)).toHaveCount(0, { timeout: 10000 });
+
+    await openWindows(page, ['CLAUDE.md']);
+    const reopened = await editorWindow(page).boundingBox();
+    expect(reopened).not.toBeNull();
+    expect(Math.round(reopened!.x)).toBe(Math.round(dragged!.x));
+    expect(Math.round(reopened!.y)).toBe(Math.round(dragged!.y));
+    expect(Math.round(reopened!.width)).toBe(Math.round(dragged!.width));
+    expect(Math.round(reopened!.height)).toBe(Math.round(dragged!.height));
   });
 
   // TC-REQ-FR-MDE-001-AC9-01

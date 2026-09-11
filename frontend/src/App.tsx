@@ -589,6 +589,7 @@ function AppContent() {
   const editor = useEditorWindows({
     setScreen,
     activeWorkspaceId: wm.activeWorkspaceId,
+    isMobile,
     tabs: wm.tabs,
     resolveTabSession,
     activeWorkspaceTabIds,
@@ -786,6 +787,7 @@ function AppContent() {
                         rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}
                         onRectChange={editor.updateWindowRect}
                         boundsElement={EDITOR_WINDOW_BOUNDS_SELECTOR}
+                        placeable={!isMobile}
                         hidden={context.hidden}
                         resolveTabSession={context.resolveTabSession}
                         writeFile={editor.writeFile}

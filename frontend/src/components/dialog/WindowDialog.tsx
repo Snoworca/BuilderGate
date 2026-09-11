@@ -34,6 +34,14 @@ export interface WindowDialogHostProps extends WindowDialogProps {
    */
   rect?: DialogRect;
   onRectChange?: (rect: DialogRect) => void;
+  /**
+   * The window can be moved by its title bar. Defaults to true.
+   *
+   * Turned off for a window that fills the screen it is in: there is nowhere to
+   * move it to, and a drag would still emit a rect, which a host that caches
+   * rects would then store.
+   */
+  movable?: boolean;
   /** Drag boundary for Rnd. Defaults to the viewport, as before. */
   boundsElement?: string | Element;
   /** Rendered in the title bar, to the left of the close button. */
@@ -59,6 +67,7 @@ export function WindowDialog({
   keyboardCapture,
   rect: controlledRect,
   onRectChange,
+  movable = true,
   boundsElement,
   titlebarActions,
   dirty,
@@ -323,6 +332,7 @@ export function WindowDialog({
         className="window-dialog"
         style={{ zIndex: behavior.dialogZ }}
         bounds={boundsElement ?? 'window'}
+        disableDragging={!movable}
         dragHandleClassName="window-dialog-titlebar"
         size={{ width: rect.width, height: rect.height }}
         position={{ x: rect.x, y: rect.y }}
