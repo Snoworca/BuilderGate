@@ -1123,15 +1123,38 @@ function resolveRemainingDescendantBreakdown(
 }
 
 /**
- * The namespace a coding agent exports its own session identity under.
+ * The names a coding agent exports its own session identity under.
  *
- * Filtered by prefix rather than by a list of known names: a list is a second
- * place that has to learn every variable the tool adds, and the entry nobody
- * remembers to add is the one that leaks. The prefix is the vendor's own
- * namespace, so anything added to it is covered the day it appears.
+ * A prefix rather than a list of known names: a list is a second place that has
+ * to learn every variable the tool adds, and the entry nobody remembers to add
+ * is the one that leaks. The prefix is the vendor's own namespace, so anything
+ * added to it is covered the day it appears.
+ *
+ * `CLAUDE` and not `CLAUDE_CODE_`. Measured on a real host on 2026-09-11, the
+ * session exports `CLAUDECODE` with no underscore at all, plus `CLAUDE_PID`,
+ * `CLAUDE_EFFORT` and `CLAUDE_PLUGIN_DATA` -- none of which carry the longer
+ * prefix. A rule written against `CLAUDE_CODE_` alone leaves the host's
+ * presence marker and its process id in every terminal, which is most of what
+ * this is for.
+ *
+ * The cost is that a user's own `CLAUDE`-named variable goes too. That is the
+ * right way round: a terminal that lost a setting shows it immediately, and
+ * `envPatch` puts it back by name, while a terminal that kept the host's
+ * identity shows nothing at all until someone goes looking for a transcript
+ * that was never written.
  * @req SEC-MCP-003
  */
-const HOST_AGENT_ENV_PREFIX = 'CLAUDE_CODE_';
+const HOST_AGENT_ENV_PREFIX = 'CLAUDE';
+
+/**
+ * Host-agent names that carry no shared prefix.
+ *
+ * `AI_AGENT` names the host agent's build (`claude-code_2-1-267_agent` when
+ * measured). It is a list because it has to be -- there is no namespace to
+ * match -- and the prefix above is what keeps that list from having to grow.
+ * @req SEC-MCP-003
+ */
+const HOST_AGENT_ENV_NAMES: readonly string[] = ['AI_AGENT'];
 
 /**
  * Copies an environment, leaving behind the host process's coding-agent
@@ -1144,8 +1167,9 @@ const HOST_AGENT_ENV_PREFIX = 'CLAUDE_CODE_';
  * is handed the host's messaging socket and token. A session BuilderGate
  * creates is not a continuation of whatever session created BuilderGate.
  *
- * Only the prefix is removed. Everything else -- `PATH`, `HOME`, the shell
- * integration's own variables -- is carried through untouched, and a caller's
+ * Only the host agent's names are removed. Everything else -- `PATH`, `HOME`,
+ * the shell integration's own variables, and the `ANTHROPIC_` keys a user needs
+ * to run an agent of their own -- is carried through untouched, and a caller's
  * `envPatch` is merged over the result afterwards, so a value asked for by name
  * survives this.
  * @req SEC-MCP-003
@@ -1156,6 +1180,7 @@ export function stripHostAgentIdentity(source: NodeJS.ProcessEnv): Record<string
   for (const [key, value] of Object.entries(source)) {
     if (value === undefined) continue;
     if (key.startsWith(HOST_AGENT_ENV_PREFIX)) continue;
+    if (HOST_AGENT_ENV_NAMES.includes(key)) continue;
     result[key] = value;
   }
 

@@ -9,11 +9,16 @@ import { login } from './helpers';
  * terminal, run an agent in it, and the agent either keeps a transcript or does
  * not.
  *
- * A bare "no CLAUDE_CODE_ variable is present" would pass on a terminal that
- * inherited nothing at all, and on one whose shell never answered. So the same
- * command reports three things and all three are judged: a control variable the
- * terminal must have inherited, the count of variables in the filtered
- * namespace, and an end sentinel that says the shell finished.
+ * A bare "no agent variable is present" would pass on a terminal that inherited
+ * nothing at all, and on one whose shell never answered. So the same command
+ * reports three things and all three are judged: a control variable the terminal
+ * must have inherited, the count of variables the rule covers, and an end
+ * sentinel that says the shell finished.
+ *
+ * The count is taken over `CLAUDE*` plus `AI_AGENT` rather than over
+ * `CLAUDE_CODE_*`. Five of the host's twelve carry no `CLAUDE_CODE_` prefix, and
+ * a count that missed them would go green while the host's presence marker and
+ * process id were still in the terminal.
  *
  * The tab is created by this spec rather than assumed. A freshly started
  * instance has workspaces with no tabs at all, and a spec that waits for a
@@ -97,7 +102,7 @@ test.describe('session environment isolation', () => {
         page,
         `echo ${START}; `
         + `echo "PATHLEN=$($env:PATH.Length)"; `
-        + `echo "AGENTVARS=$((Get-ChildItem Env: | Where-Object { $_.Name -like 'CLAUDE_CODE_*' }).Count)"; `
+        + `echo "AGENTVARS=$((Get-ChildItem Env: | Where-Object { $_.Name -like 'CLAUDE*' -or $_.Name -eq 'AI_AGENT' }).Count)"; `
         + `echo ${END}`,
       );
 
