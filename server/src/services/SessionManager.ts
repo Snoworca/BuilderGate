@@ -1122,6 +1122,46 @@ function resolveRemainingDescendantBreakdown(
   };
 }
 
+/**
+ * The namespace a coding agent exports its own session identity under.
+ *
+ * Filtered by prefix rather than by a list of known names: a list is a second
+ * place that has to learn every variable the tool adds, and the entry nobody
+ * remembers to add is the one that leaks. The prefix is the vendor's own
+ * namespace, so anything added to it is covered the day it appears.
+ * @req SEC-MCP-003
+ */
+const HOST_AGENT_ENV_PREFIX = 'CLAUDE_CODE_';
+
+/**
+ * Copies an environment, leaving behind the host process's coding-agent
+ * identity.
+ *
+ * The server is routinely started from a shell that is itself a Claude Code
+ * session, and `process.env` then carries that session's markers. Passing them
+ * through makes every terminal BuilderGate creates look like a child of the
+ * host session: the agent running there keeps no transcript of its own, and it
+ * is handed the host's messaging socket and token. A session BuilderGate
+ * creates is not a continuation of whatever session created BuilderGate.
+ *
+ * Only the prefix is removed. Everything else -- `PATH`, `HOME`, the shell
+ * integration's own variables -- is carried through untouched, and a caller's
+ * `envPatch` is merged over the result afterwards, so a value asked for by name
+ * survives this.
+ * @req SEC-MCP-003
+ */
+export function stripHostAgentIdentity(source: NodeJS.ProcessEnv): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue;
+    if (key.startsWith(HOST_AGENT_ENV_PREFIX)) continue;
+    result[key] = value;
+  }
+
+  return result;
+}
+
 export class SessionManager {
   private sessions: Map<string, SessionData> = new Map();
   private sessionCounter: number = 0;
@@ -4014,7 +4054,7 @@ export class SessionManager {
    * - powershell: OSC 133 미지원, 기본 env 반환
    */
   private buildShellEnv(shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd'): Record<string, string> {
-    const baseEnv = { ...process.env } as Record<string, string>;
+    const baseEnv = stripHostAgentIdentity(process.env);
 
     if (shellType === 'bash') {
       // bash: BASH_ENV로 스크립트 자동 로드
