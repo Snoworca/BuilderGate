@@ -333,15 +333,11 @@ test.describe('markdown editor placement and stacking', () => {
     // it reports which end the window is at. A window opens floating, so the
     // toggle starts unpressed and pressing it fills the stage.
     //
-    // Only the outward leg is asserted. Pressing 최대화 a second time does not
-    // return the window to `floating`: the press does not reach the toggle at
-    // all, observed by instrumenting the handler. The same happens on the
-    // commit before `docked` was removed, measured there directly, so it is not
-    // this change -- it is issue #45, and no test had ever pressed this control
-    // twice in a row for it to show up in.
-    //
-    // Restore the return leg here when #45 closes. There is no other case in
-    // this repository that presses `stage` -> `floating` through the UI.
+    // Both legs. The return leg was broken until the window dialog learned to
+    // drop a drag report that moved nothing: `Rnd` raises one for a press on
+    // its handle, the title bar is that handle, and the rect it carried read as
+    // the user placing the window -- which sent the placement back to
+    // `floating` the moment 최대화 had put it in `stage`.
     const maximize = surface.locator('button[aria-label="최대화"]');
     await expect(maximize).toHaveAttribute('aria-pressed', 'false');
 
@@ -369,6 +365,22 @@ test.describe('markdown editor placement and stacking', () => {
       const filled = await surface.boundingBox();
       return filled === null ? -1 : Math.abs(filled.width - stage!.width);
     }, { timeout: 10000 }).toBeLessThanOrEqual(2);
+
+    // Back again, to the rect it had before. Asserted on the box as well as the
+    // attribute: the attribute alone was true throughout the defect this
+    // guards, because the placement flipped to `stage` and back within one
+    // commit and the button never reported the return.
+    await maximize.click();
+    await expect(maximize).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(async () => {
+      const restored = await surface.boundingBox();
+      return restored === null ? -1 : Math.round(restored.width);
+    }, { timeout: 10000 }).toBe(Math.round(floated!.width));
+
+    // And it toggles again, so the window is not left in a state that only
+    // happens to look right once.
+    await maximize.click();
+    await expect(maximize).toHaveAttribute('aria-pressed', 'true');
   });
 
   // TC-REQ-FR-MDE-009-AC7-01

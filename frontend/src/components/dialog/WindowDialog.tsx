@@ -9,6 +9,7 @@ import {
 } from './dialogGeometry';
 import { useDialogStack } from './dialogStack';
 import { createWindowDialogBehaviorModel, windowDialogTitleText } from './windowDialogModel';
+import { isDialogRectMoved } from './dialogDragCommit';
 import type { DialogRect, DialogSize, WindowDialogProps } from './types';
 import './WindowDialog.css';
 
@@ -107,8 +108,23 @@ export function WindowDialog({
   // The single place the clamp is chosen. A controlled rect is already bounded
   // by whatever the host measured, and clamping it again against the viewport
   // would undo that.
+  //
+  // A report that changes nothing is dropped here rather than at each handler.
+  // `Rnd` raises a drag stop for a press on its handle even when nothing moved,
+  // and for a window whose title bar carries buttons that is every press of
+  // them. The host reads an arriving rect as "the user placed this window",
+  // which turns the placement `floating` -- so 최대화 went to `stage` and came
+  // straight back, and from the second press onwards the button appeared dead.
   const applyRect = useCallback((nextRect: DialogRect) => {
-    commitRect(isControlled ? nextRect : clampDialogRect(nextRect, getViewportSize(), minSize));
+    const bounded = isControlled
+      ? nextRect
+      : clampDialogRect(nextRect, getViewportSize(), minSize);
+
+    if (!isDialogRectMoved(rectRef.current, bounded)) {
+      return;
+    }
+
+    commitRect(bounded);
   }, [commitRect, isControlled, minSize]);
 
   useEffect(() => {
