@@ -703,3 +703,121 @@ test.describe('markdown editor placement and stacking', () => {
     await expect(layer).not.toHaveAttribute('aria-hidden', 'true');
   });
 });
+
+// The mobile layout, which the suite above skips.
+//
+// In its own describe because the setup differs in two ways that would each
+// break a shared one: there is no grid/tab toggle to wait for, and the path
+// context menu opens from a dispatched event rather than a right click -- the
+// same way the terminal's own mobile menu tests open theirs.
+test.describe('markdown editor placement on a mobile layout', () => {
+  let workspaceId: string | null = null;
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'Mobile Safari', 'Mobile-only placement coverage');
+    await login(page);
+    // The workspace has to be on screen before tabs are created against it:
+    // a tab added while the page is still loading the workspace is not in the
+    // list that load then installs.
+    await expect(page.locator('.workspace-tabbar [role="tab"]').first())
+      .toBeVisible({ timeout: 20000 });
+    workspaceId = await activeWorkspaceId(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (workspaceId !== null) await removeOwnTabs(page, workspaceId);
+  });
+
+  /** Opens the path menu the way a touch device does, and chooses one file. */
+  async function chooseFileOnMobile(page: Page, fileName: string): Promise<void> {
+    await page.locator('.metadata-cwd-path:visible').first()
+      .dispatchEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 });
+
+    // The sheet, not the desktop menu. Located before anything is clicked, so a
+    // menu that failed to open fails here rather than as a click timeout.
+    const sheet = page.locator('.context-menu-dialog');
+    await expect(sheet).toBeVisible({ timeout: 10000 });
+    // The sheet gives its rows their own class rather than reusing the desktop
+    // menu's, so the desktop selector matches nothing here.
+    await sheet.locator('.context-menu-dialog-item')
+      .filter({ has: page.getByText(fileName, { exact: true }) })
+      .first()
+      .click();
+  }
+
+  // TC-REQ-FR-MDE-001-AC10-01
+  test('FR-MDE-001 a mobile window fills the stage and writes no cached position', async ({ page }) => {
+    const workdir = makeWorkdir();
+    const tabName = `${TAB_NAME_PREFIX}-mobile`;
+    await addTabAt(page, workspaceId!, workdir, tabName);
+    // The tab is created through the API and reaches the tab bar on the next
+    // workspace refresh. Waiting for it to appear keeps the click below from
+    // timing out on an element the page has not been told about yet.
+    await expect(page.locator('.workspace-tabbar [role="tab"]', { hasText: tabName }))
+      .toBeVisible({ timeout: 20000 });
+    await selectTab(page, tabName);
+    await awaitReportedCwd(page, workdir);
+
+    // A cached rect is planted first, so the assertions below distinguish
+    // "ignored the cache" from "there was nothing to ignore". It is small
+    // enough that a window opening at it could not be mistaken for one filling
+    // the stage.
+    const planted = JSON.stringify({ x: 7, y: 9, width: 321, height: 241 });
+    await page.evaluate(([k, v]) => localStorage.setItem(k, v), [GEOMETRY_CACHE_KEY, planted]);
+
+    await chooseFileOnMobile(page, 'CLAUDE.md');
+    const surface = editorWindow(page);
+    await expect(surface).toBeVisible({ timeout: 15000 });
+
+    // It fills the stage rather than opening at the planted rect.
+    const stage = await page.locator('.terminal-workspace-stage').first().boundingBox();
+    const box = await surface.boundingBox();
+    expect(stage).not.toBeNull();
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.width - stage!.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(box!.height - stage!.height)).toBeLessThanOrEqual(2);
+    expect(Math.round(box!.width)).not.toBe(321);
+
+    // A drag on the title bar moves nothing, and the cache is left as planted.
+    // The cache matters more than the movement: it is shared with the desktop
+    // layout, so a write here would open the next desktop window at phone size.
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width / 2 - 80, box!.y + 60, { steps: 8 });
+    await page.mouse.up();
+
+    const afterDrag = await surface.boundingBox();
+    expect(afterDrag).not.toBeNull();
+    expect(Math.round(afterDrag!.x)).toBe(Math.round(box!.x));
+    expect(Math.round(afterDrag!.y)).toBe(Math.round(box!.y));
+    expect(await page.evaluate(k => localStorage.getItem(k), GEOMETRY_CACHE_KEY)).toBe(planted);
+  });
+
+  // TC-REQ-FR-MDE-012-AC3-01
+  test('FR-MDE-012 a mobile window still carries its tab row', async ({ page }) => {
+    // The tab row is what makes several documents reachable at all. A layout
+    // that filled the screen and dropped the row would leave every document but
+    // one unreachable, which the placement assertions above would not notice.
+    const workdir = makeWorkdir();
+    const tabName = `${TAB_NAME_PREFIX}-mobile-tabs`;
+    await addTabAt(page, workspaceId!, workdir, tabName);
+    await expect(page.locator('.workspace-tabbar [role="tab"]', { hasText: tabName }))
+      .toBeVisible({ timeout: 20000 });
+    await selectTab(page, tabName);
+    await awaitReportedCwd(page, workdir);
+
+    await chooseFileOnMobile(page, 'CLAUDE.md');
+    await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
+    await chooseFileOnMobile(page, 'CLAUDE.local.md');
+
+    await expect(editorTabs(page)).toHaveCount(2, { timeout: 15000 });
+    await expect(editorTabFor(page, 'CLAUDE.local.md'))
+      .toHaveAttribute('aria-selected', 'true');
+
+    // And the row selects. Tapping the other tab brings its document forward.
+    await editorTabFor(page, 'CLAUDE.md').click();
+    await expect(editorTabFor(page, 'CLAUDE.md')).toHaveAttribute('aria-selected', 'true');
+    await expect(editorPanelFor(page, 'CLAUDE.md')).not.toHaveCSS('display', 'none');
+    await expect(editorPanelFor(page, 'CLAUDE.local.md')).toHaveCSS('display', 'none');
+  });
+});
