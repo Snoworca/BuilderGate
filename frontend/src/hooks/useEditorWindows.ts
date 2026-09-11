@@ -55,6 +55,7 @@ import {
   type EditorWindowScreen,
 } from '../components/editor/editorWindowVisibility.ts';
 import {
+  countEditorTrayWindows,
   hasEditorTrayWindows,
   listEditorTrayEntries,
   type EditorTrayWindow,
@@ -131,14 +132,32 @@ export interface UseEditorWindowsInput {
   setScreen: (screen: EditorWindowScreen) => void;
   activeWorkspaceId: string | null;
   /**
+   * Moves the app to another workspace.
+   *
+   * Needed because the document list spans every workspace: choosing a row for
+   * a document that lives elsewhere is how the user asks to go there.
+   * @req FR-MDE-008
+   */
+  setActiveWorkspaceId: (workspaceId: string) => void;
+  /**
+   * The workspaces, by id and display name. Only the name is read, and it is
+   * read for the tray rows -- this hook holds no opinion about what else a
+   * workspace is.
+   */
+  workspaces: readonly { id: string; name: string }[];
+  /**
    * The mobile layout is being rendered. A window fills the stage there and
    * leaves the shared position cache alone, so a phone-sized rect is not
    * inherited by the next desktop window.
    * @req FR-MDE-001
    */
   isMobile: boolean;
-  /** Only the id and the displayed cwd are read, so the workspace type stays out. */
-  tabs: readonly { id: string; cwd: string }[];
+  /**
+   * Only the id, the displayed cwd and the name are read, so the workspace type
+   * stays out. The name is what a tray row shows for the terminal a document
+   * saves to.
+   */
+  tabs: readonly { id: string; cwd: string; name: string }[];
   /**
    * The session a tab is running at the moment of the call. Resolved per call
    * rather than stored, because a restart replaces the session and keeps the
@@ -181,8 +200,8 @@ export interface UseEditorWindowsResult {
   closeDocument: (filePath: string) => void;
   /** Whether the tray icon renders. Scoped exactly as the list is. */
   hasWindows: boolean;
-  /** How many of them are minimized, which the tray icon carries as a badge. */
-  minimizedCount: number;
+  /** How many documents are open, which the tray icon carries as a badge. */
+  openCount: number;
   trayItems: ContextMenuItem[];
   pathMenu: EditorPathMenuAnchor | null;
   pathMenuItems: ContextMenuItem[];
@@ -213,6 +232,8 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   const {
     setScreen,
     activeWorkspaceId,
+    setActiveWorkspaceId,
+    workspaces,
     isMobile,
     tabs,
     resolveTabSession,
@@ -314,11 +335,20 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
    * @req FR-MDE-007
    * @req FR-MDE-008
    */
-  const reviveByPath = useCallback((filePath: string) => {
-    const workspaceId = activeWorkspaceId;
+  const reviveByPath = useCallback((filePath: string, targetWorkspaceId?: string) => {
+    const workspaceId = targetWorkspaceId ?? activeWorkspaceId;
     if (workspaceId === null) return;
 
     setScreen('workspace');
+
+    // The document may live in another workspace, and the list spans them all.
+    // Moving there is the whole of what makes the row work; the window itself
+    // is already mounted, so nothing is read from disk and no unsaved body is
+    // rebuilt.
+    if (workspaceId !== activeWorkspaceId) {
+      setActiveWorkspaceId(workspaceId);
+    }
+
     setShells((current) => {
       const shell = current[workspaceId];
       if (shell === undefined) return current;
@@ -329,7 +359,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       };
     });
     raiseDialogById(editorWindowDialogId(workspaceId), 'modeless');
-  }, [activeWorkspaceId, setScreen]);
+  }, [activeWorkspaceId, setActiveWorkspaceId, setScreen]);
 
   const openPathMenu = useCallback((x: number, y: number, tabId: string) => {
     setPathMenu({ x, y, tabId });
@@ -532,16 +562,45 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     });
   }, [documents, handleSelect, pathMenu, tabs]);
 
+  // The names the rows read, attached here rather than looked up inside the
+  // tray model: that model turns documents into rows and has no business
+  // knowing what a workspace list is. A name that is gone comes through as
+  // undefined, and the row says so rather than going blank.
+  //
+  // Keyed on the names rather than on the arrays holding them. `tabs` and
+  // `workspaces` are rebuilt on every render, so depending on them rebuilds
+  // this list every render, and every rebuild is a new `trayItems` -- which is
+  // a new prop for the header, which re-renders it. A component that re-renders
+  // on every commit keeps replacing its own DOM nodes, and anything measuring
+  // that DOM sees a list that never settles. The same reason the restore effect
+  // below keys on a joined id list.
+  const trayNameKey = [
+    workspaces.map(workspace => `${workspace.id}\u0000${workspace.name}`).join('\u0001'),
+    tabs.map(tab => `${tab.id}\u0000${tab.name}`).join('\u0001'),
+  ].join('\u0002');
+
   const trayItems = useMemo<ContextMenuItem[]>(
-    () => listEditorTrayEntries(documents, activeWorkspaceId).map(entry => ({
-      label: entry.label,
-      // The rows carry absolute paths, which are long. The class is what lets
-      // the menu set a smaller type for them without shrinking every other
-      // context menu in the application.
-      className: 'editor-tray-item',
-      onClick: () => reviveByPath(entry.filePath),
-    })),
-    [activeWorkspaceId, documents, reviveByPath],
+    () => {
+      const named: EditorTrayWindow[] = documents.map(document => ({
+        ...document,
+        workspaceName: workspaces.find(workspace => workspace.id === document.workspaceId)?.name,
+        tabName: tabs.find(tab => tab.id === document.tabId)?.name,
+      }));
+
+      return listEditorTrayEntries(named).map(entry => ({
+        label: entry.label,
+        // The rows carry absolute paths, which are long. The class is what lets
+        // the menu set a smaller type for them without shrinking every other
+        // context menu in the application.
+        className: 'editor-tray-item',
+        onClick: () => reviveByPath(entry.filePath, entry.workspaceId),
+      }));
+    },
+    // `tabs` and `workspaces` are read inside but are deliberately not depended
+    // on: their identities change every render while their names do not, and
+    // `trayNameKey` carries exactly the part that matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [documents, reviveByPath, trayNameKey],
   );
 
   /**
@@ -836,8 +895,6 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     ]);
   }, [activeWorkspaceId, documents, saveWindows, shells]);
 
-  const activeShell = activeWorkspaceId === null ? null : shells[activeWorkspaceId] ?? null;
-
   // In a stable order, so a workspace whose window mounted earlier keeps its
   // position in the tree. React keys them by workspace, but an order that
   // shuffled would still reorder the DOM nodes for no reason.
@@ -857,8 +914,8 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     tabsOf,
     selectDocument,
     closeDocument,
-    hasWindows: hasEditorTrayWindows(documents, activeWorkspaceId),
-    minimizedCount: activeShell?.minimized === true ? 1 : 0,
+    hasWindows: hasEditorTrayWindows(documents),
+    openCount: countEditorTrayWindows(documents),
     trayItems,
     pathMenu,
     pathMenuItems,

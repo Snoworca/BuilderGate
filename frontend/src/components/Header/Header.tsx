@@ -37,7 +37,8 @@ interface HeaderProps {
    * and the user has to open the list to learn how much.
    * @req FR-MDE-008
    */
-  editorTrayMinimizedCount?: number;
+  /** How many documents are open, across every workspace. */
+  editorTrayOpenCount?: number;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -62,7 +63,7 @@ export function Header({
   onOpenMcpControlManager,
   hasEditorWindows,
   editorTrayItems,
-  editorTrayMinimizedCount = 0,
+  editorTrayOpenCount = 0,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [editorTrayPosition, setEditorTrayPosition] = useState<{ x: number; y: number } | null>(null);
@@ -145,13 +146,13 @@ export function Header({
               title="편집기 창"
             >
               <Icon name="document" size={18} className="header-editor-tray-icon" />
-              {editorTrayMinimizedCount > 0 && (
+              {editorTrayOpenCount > 0 && (
                 <span
                   className="header-editor-tray-badge"
                   role="status"
-                  aria-label={`최소화 ${editorTrayMinimizedCount}개`}
+                  aria-label={`열린 문서 ${editorTrayOpenCount}개`}
                 >
-                  {editorTrayMinimizedCount}
+                  {editorTrayOpenCount}
                 </span>
               )}
             </button>

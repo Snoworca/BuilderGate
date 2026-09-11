@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
+  countEditorTrayWindows,
   hasEditorTrayWindows,
   listEditorTrayEntries,
   type EditorTrayWindow,
@@ -22,54 +23,82 @@ function windowOf(overrides: Partial<EditorTrayWindow> = {}): EditorTrayWindow {
   return {
     filePath: 'C:\\Work\\proj\\CLAUDE.md',
     tabId: 'tab-1',
+    tabName: 'Terminal-1',
     workspaceId: ACTIVE,
+    workspaceName: 'Workspace-1',
     dirty: false,
     ...overrides,
   };
 }
 
-test('FR-MDE-008 the tray icon renders only while the current workspace holds a window', () => {
-  assert.equal(hasEditorTrayWindows([], ACTIVE), false);
-  assert.equal(hasEditorTrayWindows([windowOf()], ACTIVE), true);
+test('FR-MDE-008 the tray icon renders while any workspace holds a document', () => {
+  assert.equal(hasEditorTrayWindows([]), false);
+  assert.equal(hasEditorTrayWindows([windowOf()]), true);
 
-  // A minimized window still counts: the tray is how it is reached, so an icon
-  // that vanished once the last window was minimized would strand it.
-  assert.equal(hasEditorTrayWindows([windowOf({})], ACTIVE), true);
-
-  // No workspace selected at all is not "every window matches".
-  assert.equal(hasEditorTrayWindows([windowOf()], null), false);
+  // A document in another workspace counts. The list spans every workspace now,
+  // so an icon scoped to the active one would sometimes stand above a list it
+  // claimed was empty -- or hide a list that was not.
+  assert.equal(hasEditorTrayWindows([windowOf({ workspaceId: OTHER })]), true);
 });
 
-test('FR-MDE-008 windows in another workspace do not render the icon', () => {
-  assert.equal(hasEditorTrayWindows([windowOf({ workspaceId: OTHER })], ACTIVE), false);
+test('FR-MDE-008 the badge counts every open document', () => {
+  assert.equal(countEditorTrayWindows([]), 0);
+  assert.equal(countEditorTrayWindows([windowOf()]), 1);
 
-  // The icon's condition and the list's scope are the same one, so the icon can
-  // never stand above an empty list.
-  const foreign = [windowOf({ workspaceId: OTHER })];
-  assert.equal(hasEditorTrayWindows(foreign, ACTIVE), false);
-  assert.deepEqual(listEditorTrayEntries(foreign, ACTIVE), []);
+  // Across workspaces, which is what makes the count answer "how many are open"
+  // rather than "how many are open here".
+  assert.equal(countEditorTrayWindows([
+    windowOf({ filePath: 'C:\\a\\CLAUDE.md' }),
+    windowOf({ filePath: 'C:\\b\\CLAUDE.md', workspaceId: OTHER }),
+  ]), 2);
+
+  // The icon's condition and the count agree about emptiness, so a badge can
+  // never stand on an icon that is not there.
+  assert.equal(hasEditorTrayWindows([]), countEditorTrayWindows([]) > 0);
 });
 
-test('FR-MDE-008 the list is workspace scoped and marks dirty documents', () => {
+test('FR-MDE-008 the list spans workspaces and marks dirty documents', () => {
   const w1 = windowOf({
     filePath: 'C:\\Work\\proj\\CLAUDE.md',
     tabId: 'tab-1',
+    tabName: 'Terminal-1',
+    workspaceName: 'Workspace-1',
     dirty: true,
   });
   const w2 = windowOf({
     filePath: 'C:\\Work\\proj\\AGENTS.md',
     tabId: 'tab-2',
+    tabName: 'Terminal-2',
+    workspaceName: 'Workspace-1',
     dirty: false,
   });
   const w3 = windowOf({
     filePath: 'D:\\other\\CLAUDE.md',
     tabId: 'tab-9',
+    tabName: 'Terminal-1',
     workspaceId: OTHER,
+    workspaceName: 'Workspace-2',
   });
 
-  assert.deepEqual(listEditorTrayEntries([w1, w2, w3], ACTIVE), [
-    { filePath: w1.filePath, tabId: 'tab-1', label: 'C:\\Work\\proj\\CLAUDE.md*' },
-    { filePath: w2.filePath, tabId: 'tab-2', label: 'C:\\Work\\proj\\AGENTS.md' },
+  assert.deepEqual(listEditorTrayEntries([w1, w2, w3]), [
+    {
+      filePath: w1.filePath,
+      tabId: 'tab-1',
+      workspaceId: ACTIVE,
+      label: 'Workspace-1 / Terminal-1 | C:\\Work\\proj\\CLAUDE.md*',
+    },
+    {
+      filePath: w2.filePath,
+      tabId: 'tab-2',
+      workspaceId: ACTIVE,
+      label: 'Workspace-1 / Terminal-2 | C:\\Work\\proj\\AGENTS.md',
+    },
+    {
+      filePath: w3.filePath,
+      tabId: 'tab-9',
+      workspaceId: OTHER,
+      label: 'Workspace-2 / Terminal-1 | D:\\other\\CLAUDE.md',
+    },
   ]);
 });
 
@@ -111,6 +140,47 @@ test('FR-MDE-008 the icon carries its own condition rather than the header callb
   assert.ok(gate > headerRight, 'the icon is gated on the workspace-scoped condition');
 });
 
+const HOOK_SOURCE = readFileSync(
+  new URL('../../src/hooks/useEditorWindows.ts', import.meta.url),
+  'utf8',
+);
+
+test('FR-MDE-008 the tray rows are not rebuilt on every render', () => {
+  // `tabs` and `workspaces` are rebuilt by their owner on every render, so a
+  // memo depending on them is no memo at all: every commit makes a new
+  // `trayItems`, that is a new prop for the header, and a header re-rendering on
+  // every commit keeps replacing its own DOM nodes. Anything measuring that DOM
+  // -- a focus trap walking the focusable elements, say -- then sees a list that
+  // never settles. That is how this was found: two modal focus-wrap cases began
+  // failing with no change to any modal.
+  //
+  // The names are what the rows read, and those do not change every render, so
+  // the memo keys on them instead.
+  const memoStart = HOOK_SOURCE.indexOf('const trayItems = useMemo');
+  assert.notEqual(memoStart, -1, 'the tray rows are still memoized');
+
+  const depsStart = HOOK_SOURCE.indexOf('[documents', memoStart);
+  assert.notEqual(depsStart, -1, 'the memo still declares a dependency list');
+  const depsEnd = HOOK_SOURCE.indexOf(']', depsStart);
+  assert.notEqual(depsEnd, -1);
+
+  const deps = HOOK_SOURCE.slice(depsStart, depsEnd);
+  assert.ok(deps.includes('trayNameKey'), `the memo keys on the names, got ${deps}`);
+  assert.equal(/\btabs\b/.test(deps), false, `the memo must not depend on tabs, got ${deps}`);
+  assert.equal(
+    /\bworkspaces\b/.test(deps),
+    false,
+    `the memo must not depend on workspaces, got ${deps}`,
+  );
+
+  // And the key is built from the names rather than from the array identities,
+  // which is the part that makes it stable across renders.
+  const keyStart = HOOK_SOURCE.indexOf('const trayNameKey');
+  assert.notEqual(keyStart, -1, 'the name key is still built');
+  const key = HOOK_SOURCE.slice(keyStart, HOOK_SOURCE.indexOf(';', keyStart));
+  assert.ok(key.includes('.name'), 'the key is built from the names');
+});
+
 const APP_SOURCE = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
 
 test('FR-MDE-008 App.tsx supplies the three props the tray icon is drawn from', () => {
@@ -129,9 +199,9 @@ test('FR-MDE-008 App.tsx supplies the three props the tray icon is drawn from', 
   assert.ok(mount.includes('hasEditorWindows='), 'App.tsx passes hasEditorWindows');
   assert.ok(mount.includes('editorTrayItems='), 'App.tsx passes editorTrayItems');
   // The badge count defaults to 0 on Header, so a forgotten prop is a tray icon
-  // that permanently claims nothing is minimized rather than a compile error.
+  // that permanently claims nothing is open rather than a compile error.
   assert.ok(
-    mount.includes('editorTrayMinimizedCount='),
-    'App.tsx passes editorTrayMinimizedCount',
+    mount.includes('editorTrayOpenCount='),
+    'App.tsx passes editorTrayOpenCount',
   );
 });

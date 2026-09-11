@@ -589,6 +589,8 @@ function AppContent() {
   const editor = useEditorWindows({
     setScreen,
     activeWorkspaceId: wm.activeWorkspaceId,
+    setActiveWorkspaceId: wm.setActiveWorkspaceId,
+    workspaces: wm.workspaces,
     isMobile,
     tabs: wm.tabs,
     resolveTabSession,
@@ -631,7 +633,7 @@ function AppContent() {
         onOpenMcpControlManager={() => setShowMcpControlDialog(true)}
         hasEditorWindows={editor.hasWindows}
         editorTrayItems={editor.trayItems}
-        editorTrayMinimizedCount={editor.minimizedCount}
+        editorTrayOpenCount={editor.openCount}
       />
       <div className="main">
         {/* Desktop sidebar */}

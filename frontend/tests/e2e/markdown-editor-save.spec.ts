@@ -172,6 +172,53 @@ async function createOwnWorkspace(page: Page, name: string): Promise<string> {
   }, name);
 }
 
+/**
+ * Creates a workspace and answers with its id.
+ *
+ * Owned by this spec: only ids that came back from a successful create are
+ * deleted afterwards, so a workspace the user made is never touched.
+ */
+async function createWorkspace(page: Page, name: string): Promise<string> {
+  return page.evaluate(async (name) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const res = await fetch('/api/workspaces', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error(`workspace create failed: ${res.status}`);
+    const workspace = await res.json();
+    return workspace.id as string;
+  }, name);
+}
+
+async function deleteWorkspace(page: Page, workspaceId: string): Promise<void> {
+  await page.evaluate(async (workspaceId) => {
+    const token = localStorage.getItem('cws_auth_token');
+    await fetch(`/api/workspaces/${workspaceId}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  }, workspaceId);
+}
+
+async function workspaceNameOf(page: Page, workspaceId: string): Promise<string> {
+  return page.evaluate(async (workspaceId) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const res = await fetch('/api/workspaces', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`workspace fetch failed: ${res.status}`);
+    const state = await res.json();
+    const found = state.workspaces.find((item: { id: string }) => item.id === workspaceId);
+    if (!found) throw new Error(`workspace ${workspaceId} is not listed`);
+    return found.name as string;
+  }, workspaceId);
+}
+
 async function selectWorkspace(page: Page, name: string): Promise<void> {
   await page.locator('.sidebar [role="option"]', { hasText: name }).first().click();
   await expect(page.locator('.sidebar [role="option"][aria-selected="true"]', { hasText: name }))
@@ -280,12 +327,18 @@ function editorWindow(page: Page): Locator {
  * file without spelling out the temporary directory it sits in.
  */
 function editorPanelFor(page: Page, fileName: string): Locator {
-  return page.locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
+  // Scoped to the window that is on screen. Every workspace holding a document
+  // has its own window, all of them mounted, and two workspaces can hold files
+  // of the same name -- which nearly all of them are.
+  return page.locator('.editor-window-surface:visible')
+    .locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
 }
 
 /** The tab row of the one editor window. */
 function editorTabs(page: Page): Locator {
-  return page.locator('.editor-window-surface .editor-tab-label');
+  // Scoped to the window on screen, for the same reason the panel locator is:
+  // every workspace with an open document has its own mounted window.
+  return page.locator('.editor-window-surface:visible .editor-tab-label');
 }
 
 /** One tab of that row, by the file it holds. */
@@ -299,7 +352,12 @@ function contentOf(page: Page, fileName: string): Locator {
 
 async function openWindow(page: Page, fileName: string): Promise<void> {
   await chooseFile(page, fileName);
-  await expect(editorWindow(page)).toBeVisible({ timeout: 15000 });
+  // The visible one. Every workspace with an open document has a window and all
+  // of them are mounted, so a locator over the class alone matches more than
+  // one as soon as a second workspace is in play.
+  await expect(page.locator('.editor-window-surface:visible')).toHaveCount(1, {
+    timeout: 15000,
+  });
   await expect(contentOf(page, fileName)).toBeAttached({ timeout: 15000 });
 }
 
@@ -348,6 +406,9 @@ async function typeInto(page: Page, fileName: string, text: string): Promise<voi
 
 test.describe('markdown editor save flow and tab binding', () => {
   let workspaceId: string | null = null;
+  // Workspaces this spec created. Only ids that came back from a successful
+  // create go in, so nothing the user owns is ever deleted.
+  let ownedWorkspaceIds: string[] = [];
   let writes: WriteRecord[];
 
   test.beforeEach(async ({ page }, testInfo) => {
@@ -363,6 +424,10 @@ test.describe('markdown editor save flow and tab binding', () => {
     try {
       await page.unrouteAll({ behavior: 'ignoreErrors' });
       await removeOwnTabs(page, workspaceId);
+      for (const owned of ownedWorkspaceIds) {
+        await deleteWorkspace(page, owned);
+      }
+      ownedWorkspaceIds = [];
     } catch (error) {
       console.warn(`[markdown-editor-save] teardown did not complete: ${String(error)}`);
     }
@@ -867,4 +932,62 @@ test.describe('markdown editor save flow and tab binding', () => {
     expect(box!.width).toBeGreaterThan(0);
     expect(box!.height).toBeGreaterThan(0);
   });
+
+  // TC-REQ-FR-MDE-008-AC9-01
+  test('FR-MDE-008 the tray lists every workspace and choosing a row moves to it', async ({ page }) => {
+    const homeName = await workspaceNameOf(page, workspaceId!);
+    const homeDir = makeWorkdir();
+    const homeTab = `${TAB_NAME_PREFIX}-tray-home`;
+    await addTabAt(page, workspaceId!, homeDir, homeTab);
+    await selectTab(page, homeTab);
+    await awaitReportedCwd(page, homeDir);
+    await openWindow(page, 'CLAUDE.md');
+
+    // A document in a second workspace, which is what the list has to reach.
+    const awayName = `${TAB_NAME_PREFIX}-tray-ws`;
+    const awayWorkspaceId = await createWorkspace(page, awayName);
+    // Owned by this case, so it is removed whatever the assertions do. A
+    // workspace left behind would give the next run two rows of the same name
+    // and a `.first()` that picks whichever came back first.
+    ownedWorkspaceIds.push(awayWorkspaceId);
+    const awayDir = makeWorkdir();
+    const awayTab = `${TAB_NAME_PREFIX}-tray-away`;
+    await addTabAt(page, awayWorkspaceId, awayDir, awayTab);
+    await selectWorkspace(page, awayName);
+    await selectTab(page, awayTab);
+    await awaitReportedCwd(page, awayDir);
+    await openWindow(page, 'CLAUDE.md');
+
+    // Typed into, so the assertion after the move is about this instance rather
+    // than about a document rebuilt from disk.
+    await typeInto(page, 'CLAUDE.md', 'AWAY-UNSAVED');
+    const awayBody = await contentOf(page, 'CLAUDE.md').first().innerText();
+    expect(awayBody).toContain('AWAY-UNSAVED');
+
+    // Back home. Each workspace has its own window and both are mounted, so the
+    // visible one is what says which workspace is on screen.
+    await selectWorkspace(page, homeName);
+    await expect(page.locator('.editor-window-surface:visible')).toHaveCount(1, {
+      timeout: 15000,
+    });
+
+    // The list carries both, each row naming its workspace and its tab.
+    await page.locator('.header-editor-tray-button').click();
+    const rows = page.locator('.context-menu-item');
+    await expect(rows.filter({ hasText: homeTab })).toHaveCount(1);
+    const awayRow = rows.filter({ hasText: awayTab });
+    await expect(awayRow).toHaveCount(1);
+    await expect(awayRow).toContainText(awayName);
+    await expect(awayRow).toContainText('|');
+
+    // Choosing the away row moves the app to that workspace and puts its
+    // document on screen -- with the text that was typed into it, which is what
+    // says the instance was never torn down and never re-read from disk.
+    await awayRow.click();
+    await expect(page.locator('.sidebar [role="option"][aria-selected="true"]', { hasText: awayName }))
+      .toBeVisible({ timeout: 15000 });
+    await expect(editorPanelFor(page, 'CLAUDE.md')).toBeVisible({ timeout: 15000 });
+    expect(await contentOf(page, 'CLAUDE.md').first().innerText()).toBe(awayBody);
+  });
+
 });
