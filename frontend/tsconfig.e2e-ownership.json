@@ -7,6 +7,10 @@
     "lib": ["ES2022", "ES2023.Array", "DOM", "DOM.Iterable"],
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e-ownership.tsbuildinfo"
   },
+  // src/editor 는 tsconfig.editor.json 이 검사한다. references 는 extends 로
+  // 상속되지 않으므로 tsconfig.test.json 과 마찬가지로 여기에 다시 적는다 —
+  // 없으면 벤더링된 편집기 소스가 이 프로그램으로 끌려와 TS1294 가 난다.
+  "references": [{ "path": "./tsconfig.editor.json" }],
   "files": [
     "playwright.ownership-validation.config.ts",
     "tests/e2e/busy-agent-workspace-bounce.spec.ts",
