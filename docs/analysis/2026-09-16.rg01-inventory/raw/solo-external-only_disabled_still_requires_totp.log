@@ -1,0 +1,7 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Auth] AuthService initialized
+[Auth] TOTP login initiated
+PASS authRoutes twoFactor.externalOnly=false: external-only disabled still requires TOTP
+
+1 test(s) passed
