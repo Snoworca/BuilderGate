@@ -53,27 +53,6 @@ export const SECURITY_HEADERS = {
 } as const;
 
 // ============================================================================
-// Rate Limiting Constants (Phase 5)
-// ============================================================================
-
-export const RATE_LIMIT_DEFAULTS = {
-  /** Default rate limit window in ms (1 minute) */
-  WINDOW_MS: 60000,
-  /** Default max requests per window */
-  MAX_REQUESTS: 100,
-  /** Default lockout duration in ms (15 minutes) */
-  LOCKOUT_DURATION_MS: 900000,
-  /** Default max login attempts before lockout */
-  MAX_ATTEMPTS: 5,
-  /** Progressive delay base in ms */
-  PROGRESSIVE_DELAY_BASE_MS: 200,
-  /** Progressive delay max in ms */
-  PROGRESSIVE_DELAY_MAX_MS: 10000,
-  /** Auto-blacklist threshold */
-  AUTO_BLACKLIST_THRESHOLD: 10
-} as const;
-
-// ============================================================================
 // Authentication Constants (Phase 2)
 // ============================================================================
 
@@ -101,21 +80,6 @@ export const TWO_FACTOR_DEFAULTS = {
   MAX_OTP_ATTEMPTS: 3,
   /** SMTP retry delays in ms */
   SMTP_RETRY_DELAYS: [1000, 2000, 4000] as const
-} as const;
-
-// ============================================================================
-// Logging Constants (Phase 6)
-// ============================================================================
-
-export const LOGGING_DEFAULTS = {
-  /** Default log level */
-  LOG_LEVEL: 'info' as const,
-  /** Default log directory */
-  LOG_DIRECTORY: 'logs',
-  /** Default max log file size */
-  MAX_LOG_SIZE: '10m',
-  /** Default max log files */
-  MAX_LOG_FILES: 14
 } as const;
 
 // ============================================================================
