@@ -18,8 +18,11 @@ const trackers = new WeakMap<BrowserContext, WorkspaceOwnershipTracker>();
 
 // Chromium reports an IPv6 peer through CDP as the bracketed literal '[::1]', while
 // isLoopbackIp() is written for Node's socket.remoteAddress form, which is bare '::1'.
-// Strip one complete bracket pair and nothing else: a truncated or empty bracket, a
-// non-loopback address and a doubly bracketed value all stay unacceptable.
+// Strip one complete bracket pair and nothing else, so the accepted set grows by exactly
+// the bracketed spellings of the loopback literals isLoopbackIp already accepts. A
+// truncated bracket is left untouched and a doubly bracketed value keeps an inner pair,
+// so both still fail; an empty bracket is rejected by isLoopbackIp either way, with or
+// without the length guard below.
 function peerAddress(ip: string | undefined): string | undefined {
   return ip !== undefined && ip.length > 2 && ip.startsWith('[') && ip.endsWith(']') ? ip.slice(1, -1) : ip;
 }

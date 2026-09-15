@@ -57,12 +57,15 @@ test('REL-BGSTAB-001 AC-3: the promotion spec declares no never-read DA1/snapsho
   const source = readFileSync(PROMOTION_SPEC, 'utf8');
   for (const symbol of ['REPLY_DA1_CONPTY', 'waitForSnapshot']) {
     const occurrences = source.split(new RegExp(`\\b${symbol}\\b`)).length - 1;
-    assert.equal(
+    // Exactly one occurrence is a declaration nothing reads, which is the TS6133 state
+    // this pins. Zero (deleted) and two-or-more (reintroduced and actually used, as the
+    // sibling fairness spec does with its own waitForSnapshot) are both acceptable, so
+    // this must not forbid the identifier outright.
+    assert.notEqual(
       occurrences,
-      0,
-      `${symbol} must be absent from the promotion spec: it has never been read since c25d761 `
-        + `introduced it, and a lone declaration fails noUnusedLocals (TS6133). Observed `
-        + `${occurrences} occurrence(s); 1 means the declaration is still there and still unread.`,
+      1,
+      `${symbol} occurs exactly once in the promotion spec, i.e. it is declared and never `
+        + `read, which fails noUnusedLocals (TS6133). Either delete it or use it.`,
     );
   }
 });
@@ -70,6 +73,8 @@ test('REL-BGSTAB-001 AC-3: the promotion spec declares no never-read DA1/snapsho
 test('REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors', () => {
   // The referenced editor project emits declaration-only output under the gitignored
   // node_modules/.tmp; build it first or the reference resolves to TS6305.
+  // Note: these are the same artifacts `npm run build` and `npm run typecheck` consume,
+  // so this test shares a tsbuildinfo with them and must not run concurrently with a build.
   const built = spawnSync(process.execPath, [TSC, '-b', 'tsconfig.editor.json'], {
     cwd: FRONTEND_ROOT,
     encoding: 'utf8',

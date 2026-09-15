@@ -132,16 +132,32 @@ for (const ipAddress of ['[::1]', '::1', '::ffff:127.0.0.1', '127.0.0.1'] as con
   });
 }
 
-// Bracket stripping must not widen the accepted set beyond loopback.
-for (const ipAddress of ['[2001:db8::1]', '[::ffff:192.0.2.1]', '[]', '[::1', '::1]'] as const) {
+// Bracket stripping must not widen the accepted set beyond loopback. '[[::1]]' and
+// '[::1%eth0]' are pinned here because they are exactly what would start passing if the
+// single-pair strip were ever "improved" into a loop or a regex.
+// drain()/cleanup() wrap the cause in an AggregateError, so match on its members.
+const unproven = (error: unknown): true => {
+  const members = error instanceof AggregateError ? error.errors : [error];
+  assert.ok(members.length > 0, 'rejection carried no member error');
+  for (const member of members) {
+    assert.match(member instanceof Error ? member.message : String(member), /not proven live loopback traffic/);
+  }
+  return true;
+};
+for (const ipAddress of [
+  '[2001:db8::1]', '[::ffff:192.0.2.1]', '[]', '[::1', '::1]', '[[::1]]', '[::1%eth0]', '[::2]',
+] as const) {
   test(`REL001 bracketed non-loopback peer ${ipAddress} never owns`, async () => {
     const { api } = load();
     await setup(async (o, state) => {
       const context = new EventEmitter(); const tracker = api.attachWorkspaceOwnership(context, o, 'owner');
       emit(context, exchange('x', { serverAddr: async () => ({ ipAddress, port: 2222 }) }));
-      await assert.rejects(tracker.drain()); await assert.rejects(tracker.cleanup());
+      // Match the message: any rejection would otherwise satisfy this for the wrong reason.
+      await assert.rejects(tracker.drain(), unproven);
+      await assert.rejects(tracker.cleanup(), unproven);
       assert.deepEqual(state.deletes, []); assert.deepEqual(await readdir(join(o.registryPath, 'records')), []);
       await tracker.dispose().catch(() => undefined);
+      for (const event of ['request', 'response', 'requestfinished', 'requestfailed']) assert.equal(context.listenerCount(event), 0);
     });
   });
 }
