@@ -1,0 +1,27 @@
+{
+  "node": "v24.21.0",
+  "platform": "linux",
+  "payloadBytes": {
+    "A": 200,
+    "B": 340
+  },
+  "rounds": 300,
+  "A": {
+    "tag": "A",
+    "ok": 149,
+    "errors": {
+      "ENOENT": 151
+    },
+    "publishedOther": 141
+  },
+  "B": {
+    "tag": "B",
+    "ok": 158,
+    "errors": {
+      "ENOENT": 142
+    },
+    "publishedOther": 125
+  },
+  "finalDestParse": "ok",
+  "finalBakParse": "ok"
+}

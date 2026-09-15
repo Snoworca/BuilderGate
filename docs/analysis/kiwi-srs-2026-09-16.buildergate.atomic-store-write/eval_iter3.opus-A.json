@@ -1,0 +1,121 @@
+{
+  "evaluator": "opus-A",
+  "iter": 3,
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "HIGH",
+      "axis": "scope-coverage",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/McpControlConfigStore.ts:68-74, server/src/services/WebhookInvocationService.ts:430-436",
+      "description": "The normative sentence is \"Every JSON store the server publishes under `server/data/` shall be publishable concurrently by more than one process ... without any publish failing because of another publish.\" The statement then declares two of the seven JSON stores \"already safe\" on the sole ground that they \"name their temp file per instance\". But the statement's own retry section establishes that a private temp name is necessary and not sufficient: \"two instances still rename onto the *same destination*, and on Windows that rename is refused with `EPERM` while another process holds the destination open. The publish shall therefore retry...\". McpControlConfigStore (`:74 await fs.rename(tempPath, dataFilePath)`) and WebhookInvocationService (`:436 await fs.rename(tempPath, dataFilePath)`) have no retry at all — `grep -n 'retry|EPERM|EBUSY|EACCES'` over both files returns nothing — so by the requirement's own reasoning they can still fail on Windows because of another publish, i.e. they violate the shall-sentence and AC-1/AC-5. AC-8 nevertheless enumerates exactly five stores and does not evaluate these two, so nothing in the AC set ever reaches them. Either the word \"safe\" is wrong, or AC-8's enumeration is wrong; as written the shall-sentence, the retry rationale, and AC-8 cannot all be true.",
+      "suggested_action": "Pick one and make it explicit: (a) narrow the shall-sentence to the five stores and restate \"two are already safe\" as \"two already avoid the shared-temp-path defect, but are equally exposed to the destination-contention EPERM this requirement's retry clause addresses; that exposure is deferred\"; or (b) keep the shall-sentence and extend AC-8 to seven stores so AC-1 and AC-5 reach McpControlConfigStore and WebhookInvocationService.",
+      "vague_terms": [
+        "already safe"
+      ],
+      "linked_oq": []
+    },
+    {
+      "id": "F2",
+      "severity": "MEDIUM",
+      "axis": "testability",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md AC-7; docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/run.mjs",
+      "description": "AC-7 is the only substantive criterion with no deterministic driver. The Verification Method gives explicit deterministic recipes for AC-2/AC-3 (interposing a peer write between write and rename, precisely because \"a statistical fixture cannot distinguish...\") and for AC-4/AC-5/AC-6 (errno injection), but AC-7 is left as a pure race: \"when two instances publish concurrently, then the backup file parses as a complete document\". Empirically that race does not expose the defect: run.mjs, which performs the full CommandPresetService sequence including `copyFile(dest,bak)` from two real processes, reported `finalBakParse: \"ok\"` in the retained 2026-09-16 output and again in both of my re-runs today (A 154 ok/146 ENOENT, B 151 ok/149 ENOENT; and A 154/146, B 152/148 — bak ok both times). An automated test written exactly as AC-7 specifies would therefore pass against today's shared-`.bak` implementation, which is the implementation AC-7 is meant to reject. The criterion is decidable but not sound.",
+      "suggested_action": "Give AC-7 a deterministic driver in the Verification Method, in the same shape as AC-2/AC-3 — e.g. interpose a peer truncate/short-write on the shared `.bak` path between the publish's backup write and its rename, and assert the published backup parses and holds the backing-up instance's document — or state explicitly that AC-7 is verified structurally (the backup is itself published through a private temp plus rename) rather than by racing.",
+      "vague_terms": [
+        "publish concurrently"
+      ],
+      "linked_oq": []
+    },
+    {
+      "id": "F3",
+      "severity": "MEDIUM",
+      "axis": "factual-accuracy",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md — \"On Windows the losing rename raises `EPERM` rather than `ENOENT`\"",
+      "description": "Stated categorically, this is over-general, and it is the one claim in the statement with no measurement behind it (the statement itself concedes \"every measurement above was taken on Linux/WSL2\"). The 48.8% failure the statement measures is source-side: the peer's rename already consumed the shared temp file, so `rename(tmp,dest)` finds no source. That interleaving yields ENOENT on Windows too — a missing source is ENOENT on every platform. The EPERM the issue reports is a different contention (a rename onto a destination another process holds open, which is what the later retry paragraph correctly describes). So it is not that the same failure reports a different code on Windows; it is that Windows adds a second failure mode on top of the one measured. The sentence as written asserts a substitution that does not hold.",
+      "suggested_action": "Restate as: \"On Windows the same source-side collision still surfaces as `ENOENT`, and a second failure mode is added — a rename onto a destination another process holds open is refused with `EPERM`, which is what issue #24 reports. Neither has been measured on Windows.\"",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F4",
+      "severity": "MEDIUM",
+      "axis": "evidence-support",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/tear2.mjs",
+      "description": "The tearing mechanism is presented as exclusive (\"Not because a single `fs.writeFile` splits into several `write` calls ... but because each writer opens the shared temp path with `O_TRUNC` and writes from offset zero\"). I instrumented the probe to classify every torn publish against the stated overlay (`A + B.slice(A.length)`, i.e. truncate-by-A -> full write by B -> offset-zero overwrite by A). 464 of 467 torn publishes matched that overlay byte-for-byte, which strongly confirms the stated mechanism. The remaining 3 did not: they were 4096, 8192 and 28672 bytes long, page-aligned, and all-B content from byte 11 onward — a concurrent observer seeing the longer writer's single `write()` at page granularity, which is a partial-write visibility effect, not the O_TRUNC overlay. The stated mechanism therefore explains ~99.4% of the sample, not all of it, and the published exemplar the statement quotes (60,023 bytes, `{\"writer\":\"A\",\"pad\":\"AAAA...` ... `...BBBB\"}`) is squarely in the explained majority. The claim is correct but presented as exhaustive. Note the supporting sub-claim about Node's chunking is exactly right: `kWriteFileMaxChunkSize = 512 * 1024` verified in this v24.21.0 runtime (internal/fs/utils).",
+      "suggested_action": "Soften \"but because\" to \"principally because\", or add one clause: \"a small residue of torn publishes is instead a page-granular view of the longer writer's in-flight `write()`; both are closed by a private temp path.\"",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F5",
+      "severity": "LOW",
+      "axis": "precision",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/run.mjs:15, raw/worker.mjs:9, raw/tear2.mjs:18",
+      "description": "Three payload sizes in the statement are the probes' pad repeat counts, not document byte counts. \"payloads of 200 and 340 bytes\" (the 293/600 run) come from run.mjs's own mislabeled `payloadBytes` field; worker.mjs builds `{\"writer\":tag,\"round\":i,\"pad\":\"…\"}` so the documents are ~233 and ~373 bytes. Likewise \"one writing a 400-byte document\" is 423 bytes (the statement's own 60,023-byte figure for the other side is exact, and 60,023 = 60,000 pad + 23 envelope confirms the offset). Immaterial to every conclusion — the point is only that the lengths differ — but the numbers as printed are not the byte counts they are labelled as.",
+      "suggested_action": "Write \"~233 and ~373 bytes\" and \"a 423-byte document\", or label them as pad sizes.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F6",
+      "severity": "LOW",
+      "axis": "trace-precision",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/WorkspaceService.ts:214-219",
+      "description": "The iteration-2 correction is substantively right — `:214-218` is the comment plus `if (this.state.workspaces.length === 0) { this.state = this.createDefaultState(); await this.save(); } else if (tabMetadataChanged) {` — but the range stops one line short of `await this.save(true);` at `:219`, which is the write the sentence is actually about for the tab-metadata branch. `tabMetadataChanged` is set at `:207` (`ensureMcpTabBinding`) and `:209` (`ensureUniqueMcpSessionKeys`), and ensureMcpTabBinding does return true for any tab missing `sessionKey`/`currentSessionId`/`previousSessionIds`, so \"for any store written by an older build\" is accurate.",
+      "suggested_action": "Cite `WorkspaceService.ts:214-219`.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F7",
+      "severity": "LOW",
+      "axis": "precision",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/RecoveryOptionService.ts:421",
+      "description": "\"Four publish with one identical shape — write `dest + '.tmp'`, copy `dest` to `dest + '.bak'`, rename\" is exact for CommandPresetService, WorkspaceService and TerminalShortcutService, but RecoveryOptionService guards the copy with `if (!options.preserveExistingBackup)` at `:421`. The statement only surfaces that exception much later, inside AC-7. Not a contradiction (the default path is identical, and AC-7 handles the exception correctly), but \"identical\" is stronger than the code.",
+      "suggested_action": "\"Four publish with the same shape (RecoveryOptionService additionally skips the backup copy on its recovery paths — see AC-7)\".",
+      "vague_terms": [
+        "identical shape"
+      ],
+      "linked_oq": []
+    },
+    {
+      "id": "F8",
+      "severity": "LOW",
+      "axis": "evidence-retention",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/",
+      "description": "Each measurement is claimed twice (\"Reproduced twice with the same total\"; \"539 ... in the first run and 598 ... in the second\") but only one raw output per probe is retained: shared-tmp-race...json (293 total) and cross-process-torn-publish...json (598). The Verification Method only promises the scripts, and the scripts are present and un-ignored (`git check-ignore` returns nothing; the directory's .gitignore is `!raw/*.log`), so this is a retention gap rather than an unsupported claim. I re-ran both today and both land in band: tear2.mjs gave 554/4000 (vs 539 and 598); run.mjs gave 295/600 and 294/600 ENOENT (vs 293/600). The claim of an *identical* total across two runs is the one part not reproduced — my two runs differed by one.",
+      "suggested_action": "Retain the second run's output alongside the first, or drop \"with the same total\" and state the band (\"~49% across runs\").",
+      "vague_terms": [],
+      "linked_oq": []
+    }
+  ],
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 3,
+    "LOW": 4
+  },
+  "iteration_2_corrections_verified": {
+    "1_bootstrap_write_claim": "HOLDS. WorkspaceService.ts:214-218 and RecoveryOptionService.ts:52-57 read as described; ensureMcpTabBinding (:207) returns true for any store written by an older build; RecoveryOptionService flushes on a successful load only when diagnostics grew (:52-56). Off-by-one on the cited range only (F6).",
+    "2_tearing_claim": "HOLDS AND IS SUPPORTED. tear2.mjs measures what the statement says it measures: the publisher is the sole writer of dest, so every readback reflects its own rename; the peer only writes the shared temp. Re-run today: 554/4000 unparseable, identical 60,023-byte sample. 464/467 torn publishes match the stated O_TRUNC/offset-zero overlay byte-for-byte. Node's 512 KiB chunk threshold verified in-runtime. Only caveat is exhaustiveness (F4).",
+    "3_confounded_statistic_removed": "CONFIRMED. No occurrence of publishedOther or of the 141/125 figures anywhere in the block; the deterministic Q2 reproduction is retained and matches raw/tear-and-lost-update...json exactly.",
+    "4_totp_out_of_scope_reason": "HONEST. createAndSaveSecret() (:103-123, write at :113) is called from exactly one site, initialize() :86, guarded by !fs.existsSync(secretFilePath). No other writeFileSync/unlink of the secret exists in TOTPService, twoFactorRuntime or daemonTotpPreflight. 'written once at first setup rather than on every flush' is literally true, and the divergent-credentials framing is the correct failure mode.",
+    "5_ac5_decidable": "YES. Five attempts, waits 10/20/40/80 ms, codes EPERM/EACCES/EBUSY, plus the exhausted-budget boundary (destination unchanged and still parses). Verification Method states attempts and waits are counted rather than wall-clock tolerated. An automated test can decide it.",
+    "6_ac7_ac8_contradiction": "MOSTLY. AC-7's backup-skip carve-out matches RecoveryOptionService.ts:421 exactly, and correctly exempts the two no-backup stores; AC-8 now states the agent-profile store must acquire the backup, which is consistent with AC-7 rather than contradicting it. Residual problems are AC-7's missing deterministic driver (F2) and AC-8's five-store enumeration against the shall-sentence's 'every JSON store' (F1)."
+  },
+  "independent_checks": {
+    "writer_count": "CONFIRMED 8. CommandPresetService:18, TerminalShortcutService:28, RecoveryOptionService:24, WorkspaceService:115 (+config.schema:252), AgentLifecycleService:76, McpControlConfigStore:19, WebhookInvocationService:40, TOTPService:29. No ninth writer under ./data/ found by exhaustive grep; matches CLAUDE.md's independent 'CommandPresetService.ts:18 외 7곳'. Two-of-eight safe and five-in-scope arithmetic is internally consistent (5 unsafe + 2 per-instance-temp + 1 non-JSON TOTP = 8), subject to F1 on the word 'safe'.",
+    "trace_links": "ALL 17 VERIFIED. CommandPresetService 270-289 (exact: 270 tmpPath .. 289 close), 137-152 (exact), WorkspaceService 1726-1753 (exact), 178-195 (exact), 43-47 (exact: no dataPath field), TerminalShortcutService 528-552 (exact), 182-200 (exact), RecoveryOptionService 410-437 (exact), 192-203 (exact), McpControlConfigStore:68 (exact tempPath line), WebhookInvocationService:430 (exact tempPath line), AgentLifecycleService 106-113 (exact: flush() writeFile straight onto dest), index.ts 1028-1042 (exact: the four initialize() awaits), index.ts 1654-1657 (exact: the catch, and startServer's try opens at :964 so the awaits at 1028-1042 are inside it), TOTPService 104-118 (write at :113), WorkspaceServiceFlushConcurrency.test.ts:1-141 (file is exactly 141 lines, is REL-BGSTAB-020's fixture, and its header comments the large-store technique), REL-BGSTAB-020 (exists at line 5637 and does serialize flushToDisk behind a promise chain as described). Every note matches its target.",
+    "other_factual_claims": "config.schema.ts:252 = dataPath default './data/workspaces.json' (exact). WorkspaceService.ts:115 = the reading site (exact). CommandPresetService.ts:14 / TerminalShortcutService.ts:20 / RecoveryOptionService.ts:21 / AgentLifecycleService.ts:79 all carry a dataPath option (exact). index.ts:1028-1042 passes no dataPath override (confirmed: new CommandPresetService(), new TerminalShortcutService(), new RecoveryOptionService(), new WorkspaceService(sessionManager,{recoveryOptionService})). CommandPresetService.initialize() and TerminalShortcutService.initialize() do flush on all three paths with no guard (verified). All four backup readers verified. Ports 2380/2402 and date 2026-08-12 match GitHub issue #24. node v24.21.0 / Linux matches the raw outputs.",
+    "ac_decidability": "AC-1,2,3,4,5,6,8,9 decidable as written. AC-9 is mildly under-specified as to which store(s) it binds (AC-8 covers only AC-1..AC-7), but all five in-scope stores do carry an in-process chain (CommandPresetService:25, TerminalShortcutService:41, RecoveryOptionService:39, WorkspaceService:1671, AgentLifecycleService:83) so it is satisfiable everywhere and not worth a finding. AC-7 is the only one an automated test cannot soundly decide (F2).",
+    "promised_behaviour_without_ac": "None found. Private temp path -> AC-2/3/4 (outcome-shaped, deliberately implementation-agnostic); selective retry -> AC-5/AC-6; atomic backup -> AC-7; agent-profile store upgrade -> AC-8; REL-BGSTAB-020 preservation -> AC-9; last-writer-wins is explicitly declared a non-goal and correctly has no AC."
+  }
+}

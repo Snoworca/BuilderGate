@@ -1,0 +1,15 @@
+{
+  "implementability": "high",
+  "product_fit": "core",
+  "rationale": "The change is local to the write path of four services plus one new shared helper. The repo already contains a working precedent for the central technique (per-instance unique temp name) in two other services, so the design is not speculative. The existing node:test suite WorkspaceServiceFlushConcurrency.test.ts already demonstrates the fixture technique needed to make the race deterministic.",
+  "code_evidence": [
+    "server/src/services/McpControlConfigStore.ts:68",
+    "server/src/services/WebhookInvocationService.ts:430",
+    "server/src/services/WorkspaceServiceFlushConcurrency.test.ts:1-141"
+  ],
+  "blockers": [],
+  "conditions": [
+    "The Windows EPERM branch cannot be exercised natively on this Linux/WSL2 host; it is covered by fault injection at the fs boundary, which is weaker evidence than a native reproduction and is declared as such in the requirement text."
+  ],
+  "external_module_required": false
+}

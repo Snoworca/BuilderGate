@@ -1,0 +1,4 @@
+{ "target": "0.5.5-buildergate-stability", "scope_filter": "BGSTAB",
+  "evaluation_set": ["REL-BGSTAB-022"],
+  "evaluation_set_reason": "Scoped to GitHub issue #24 by explicit instruction. A target-wide sweep of 0.5.5-buildergate-stability is outside the issue's scope and was not performed; no other requirement's stability was read, judged or changed by this run.",
+  "empty_reason": null }

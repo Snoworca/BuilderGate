@@ -1,0 +1,172 @@
+{
+  "evaluator": "opus-A",
+  "iter": 2,
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "CRITICAL",
+      "axis": "factual-accuracy",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/WorkspaceService.ts:197-219",
+      "description": "The statement asserts unconditionally: \"WorkspaceService.initialize() does not write on a successful load, and RecoveryOptionService.initialize() writes on that path only when loading produced new diagnostics, so those two open a narrower window.\" The WorkspaceService half is false. After the try/catch that loads the store (:165-196), initialize() continues unconditionally into a sanitize/migrate block and then :214-218: `if (this.state.workspaces.length === 0) { this.state = this.createDefaultState(); await this.save(); } else if (tabMetadataChanged) { await this.save(true); }`. `save(true)` calls `flushToDisk()` directly (WorkspaceService.ts:~1660 `async save(immediate = false)` -> `await this.flushToDisk()`), and `save()` with the debounce disabled/isImmediateFlush also reaches it. `tabMetadataChanged` is set true by `ensureMcpTabBinding(tab)` (:~1120) whenever a loaded tab lacks `sessionKey`, lacks `currentSessionId`, or has a `previousSessionIds` array that normalizes differently — i.e. on any store written by an older build — and by `ensureUniqueMcpSessionKeys()`. A successfully loaded workspaces.json therefore routinely flushes during bootstrap, which is precisely the unguarded-flush hazard the paragraph claims WorkspaceService avoids. The iteration-1 correction that narrowed the claim to CommandPresetService and TerminalShortcutService introduced this false exculpation of WorkspaceService.",
+      "suggested_action": "Either delete the parenthetical exculpation, or restate it accurately: WorkspaceService.initialize() does not write when the loaded store already has at least one workspace and needs no tab-metadata normalization, but it does write via save()/save(true) at WorkspaceService.ts:215-218 when the store is empty of workspaces or when ensureMcpTabBinding/ensureUniqueMcpSessionKeys mutate a loaded tab.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F2",
+      "severity": "CRITICAL",
+      "axis": "measurement-validity",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/tearprobe.mjs:12-22",
+      "description": "The statement refutes the tearing hazard with a measurement that cannot support the refutation, and the refutation is in fact wrong on this platform. The statement says: \"A claim that was checked and does not hold: that the two writers can interleave *within* the temp file and leave bytes from both. On this platform they do not. 400 rounds of two concurrent fs.writeFile calls on one path ... produced zero torn files; every observation was one payload or the other, whole.\" Two design defects: (a) tearprobe.mjs Q1 is IN-PROCESS -- its own header comment says \"Q1: in-process concurrent writeFile\" and the body is `await Promise.all([fs.writeFile(p, a), fs.writeFile(p, b)])` inside one node process, so both writes are dispatched through one libuv threadpool. The entire requirement is about two INDEPENDENT PROCESSES sharing a checkout; an in-process probe establishes nothing about the cross-process case. The raw output corroborates that no real race occurred: `\"outcomes\":[\"B\"]` -- in all 400 rounds the result was the same payload, meaning the two writes were effectively serialized every time. (b) The probe samples only the SETTLED file after both writes have completed (`await Promise.all(...)` then read). The actual hazard in this requirement is a rename that lands while a peer is MID-WRITE to the shared temp path, which the probe never observes. Re-measured cross-process on the same host (two child processes each looping fs.writeFile of a 50KB and a 900KB payload onto one path, an observer sampling the file): 794 of 21012 observations were NEITHER payload whole. Torn states on one path across two processes do exist on this platform. The requirement therefore removes a real hazard from scope on the strength of a probe that did not test it, and no AC constrains the content of the temp file a rename publishes.",
+      "suggested_action": "Withdraw the 'On this platform they do not' refutation, or re-scope it honestly: state that a same-process Promise.all probe showed no torn SETTLED file in 400 rounds, and that this says nothing about two processes or about a rename issued while a peer write is in flight. Rewrite tearprobe Q1 to spawn two child processes and to sample concurrently, then rewrite the paragraph against what it actually shows.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F3",
+      "severity": "HIGH",
+      "axis": "measurement-validity",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/worker.mjs:16-19",
+      "description": "The statement says \"Of the publishes that did resolve, most put a payload on disk that the resolving call had not written\" and then \"The second number is the one that decides the design.\" That number is worker.mjs's `publishedOther`, computed as `await fs.rename(tmp, dest); out.ok++; const got = await fs.readFile(dest, 'utf-8'); if (got !== payload) out.publishedOther++;`. The read is a separate, later, non-atomic syscall, and the peer process is renaming onto `dest` continuously. `got !== payload` therefore fires for two distinct causes that the script cannot separate: (i) this call's rename genuinely moved the peer's bytes into place (the lost update the requirement is about), and (ii) this call published its own bytes correctly and the peer published over them before the read. Cause (ii) is expected and harmless under the last-writer-wins semantics the requirement itself endorses. With both workers renaming ~150 times each over the same seconds, (ii) alone would produce a large count. The 266/307 figure (141+125 of 149+158) is thus not evidence of the lost-update rate. The deterministic Q2 reproduction in tearprobe.mjs is sound and does establish that the mechanism exists, but the statement leans the design decision on the statistical number, not on Q2.",
+      "suggested_action": "Either drop the sentence and rest the argument entirely on the deterministic Q2 reproduction, or fix worker.mjs to read back the temp file immediately before the rename (or open the temp file and rename by fd) so a lost update can be attributed, then re-measure and re-cite.",
+      "vague_terms": ["most"],
+      "linked_oq": []
+    },
+    {
+      "id": "F4",
+      "severity": "HIGH",
+      "axis": "scope-completeness",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/TOTPService.ts:29,103-118",
+      "description": "A sixth store under server/data/ writes directly onto its destination with no temp file, no rename and no backup, and is absent from the requirement, while the statement asserts \"Five services persist a store under `server/data/`\" and \"applied to two of seven writers\". TOTPService: `const DEFAULT_SECRET_FILE_PATH = path.join(process.cwd(), 'data', 'totp.secret');` (:29) and `createAndSaveSecret()` does `fs.writeFileSync(this.secretFilePath, encrypted, 'utf-8')` (:113) after mkdir, then chmod 0o600 (:117). That is exactly the AgentLifecycleService pattern the requirement deliberately pulled into scope at AC-7 ('written directly onto its destination'). Two processes bootstrapping one checkout with no secret file present both generate a secret and both write it; the loser holds an in-memory secret that does not match the file -- a lost update reported as success, AC-2's own failure mode, against the 2FA credential. The only thing excluding it is the scope sentence's 'JSON store' qualifier (totp.secret is ciphertext, not JSON), and that exclusion is nowhere stated as deliberate. Either the counts 'five services' and 'seven writers' are wrong, or the exclusion must be declared.",
+      "suggested_action": "Either bring TOTPService into scope (making it six stores / eight writers and extending AC-7's list), or add an explicit exclusion sentence stating that data/totp.secret is written once at first run only, is not a JSON store, and is deferred -- and correct nothing else. Do not leave the counts unqualified.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F5",
+      "severity": "HIGH",
+      "axis": "ac-decidability",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md AC-4",
+      "description": "AC-4 is not decidable by an automated test as written. It says 'when the retry budget still allows, then the publish retries and resolves; when the budget is exhausted, the call rejects'. No retry budget is specified anywhere in the requirement -- not a maximum attempt count, not a total time bound, not a backoff. A test cannot construct the 'budget exhausted' case without knowing the bound, and two conforming implementations (1 retry vs 50 retries) would both pass and both fail each other's tests. The statement says only 'It must be bounded and it must be selective', which is a property, not a value. This document already has the machinery for an undecided value -- Section 6 Open Questions with {{OQ-N}} placeholders, used by REL-BGSTAB-005 AC-8 and AC-9 for exactly this situation -- and it is not used here.",
+      "suggested_action": "Either fix the budget in the requirement text (e.g. 'at most N attempts over at most M ms') and restate AC-4 against those values, or add an OQ-3 for the retry bound, reference it as {{OQ-3}} inside AC-4, and register it in Section 6 the way OQ-1 and OQ-2 are.",
+      "vague_terms": ["retry budget", "still allows", "exhausted"],
+      "linked_oq": []
+    },
+    {
+      "id": "F6",
+      "severity": "HIGH",
+      "axis": "ac-consistency",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md AC-6, AC-7",
+      "description": "AC-7 requires 'AC-1 through AC-6' to hold for each of the five stores including agent command profiles. AC-6 requires that after two concurrent publishes 'the backup file parses as a complete document'. AgentLifecycleService has no backup file at all -- flush() (:106-113) writes the destination and nothing else -- and the statement's only demand on it is that it 'must no longer be written directly onto its destination'. Nowhere does the statement promise a .bak for agent-command-profiles.json. So AC-7 x AC-6 either (a) silently imposes an unpromised backup mechanism on that store, or (b) is vacuous for it, and the requirement does not say which. The same ambiguity hits RecoveryOptionService: its flushToDisk takes `preserveExistingBackup` (:410, :421) and SKIPS the copyFile on both recovery paths (:197, :202), so a store that has only ever gone through recovery has no .bak for AC-6 to evaluate; and a first-ever publish of any of the four never creates one either, because the copyFile is wrapped in a swallowing try/catch.",
+      "suggested_action": "State in AC-6 what happens when no backup file exists ('holds vacuously when the store has never published a backup'), and say explicitly in AC-7 or in the statement whether the agent-command-profile store must gain a .bak or whether AC-6 is out of scope for it.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F7",
+      "severity": "MEDIUM",
+      "axis": "traceability",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/TerminalShortcutService.ts:182-200",
+      "description": "Iteration 1's correction 'backup readers had no traces -> added' was applied to three of the four backup readers the statement names. The statement lists `CommandPresetService.recoverFromBackup()` (:137-152), `TerminalShortcutService` (:182-200), `RecoveryOptionService.recoverFromBackupOrDefaults()` (:192-203) and `WorkspaceService.initialize()` (:178-195). The Trace Links table has rows for CommandPresetService.ts:137-152, RecoveryOptionService.ts:192-203 and WorkspaceService.ts:178-195, but no row for TerminalShortcutService.ts:182-200. The cited range itself is correct -- :182 is `private async recoverFromBackup()` and :200 is its final `await this.flushToDisk()`.",
+      "suggested_action": "Add a Trace Links row: Code | server/src/services/TerminalShortcutService.ts:182-200 | verifies | trace_intent=verifies; recoverFromBackup reads the .bak this requirement requires to be published atomically.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F8",
+      "severity": "MEDIUM",
+      "axis": "factual-accuracy",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/RecoveryOptionService.ts:410-428",
+      "description": "The statement says the four temp-file services 'publish it with one identical shape -- write dest + \".tmp\", copy dest to dest + \".bak\", rename dest + \".tmp\" onto dest'. RecoveryOptionService's shape is not identical: `flushToDisk(options: { preserveExistingBackup?: boolean } = {})` guards the copy with `if (!options.preserveExistingBackup)` (:421), and both recovery entry points call it with `{ preserveExistingBackup: true }` (:197, :202), so on those paths no backup copy happens at all. The difference is load-bearing for AC-6, which asserts a property of the backup file.",
+      "suggested_action": "Qualify the sentence: three publish with one identical shape and RecoveryOptionService adds a preserveExistingBackup guard on the copy step (:421), skipping the backup on its two recovery paths.",
+      "vague_terms": ["one identical shape"],
+      "linked_oq": []
+    },
+    {
+      "id": "F9",
+      "severity": "MEDIUM",
+      "axis": "factual-accuracy",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/index.ts:1049",
+      "description": "The per-instance-destination paragraph concludes 'In any case `index.ts:1028-1042` passes no override, so every process in a checkout resolves the same absolute path' -- but that paragraph is about all five services, and AgentLifecycleService is not constructed inside 1028-1042. It is constructed at index.ts:1049: `const agentProfileService = createAgentCommandProfileService();`, seven lines below the cited range. The conclusion happens to be true for it (no override is passed there either), but the citation does not support it for the fifth store.",
+      "suggested_action": "Cite index.ts:1028-1042 and index.ts:1049, or widen the range to 1028-1049.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F10",
+      "severity": "MEDIUM",
+      "axis": "ac-decidability",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md AC-8",
+      "description": "AC-8 mixes two incompatible observation points: 'Given two overlapping publishes issued through one single instance, when both have settled, then each caller's own change is readable from disk after its call resolves'. The 'when' clause places the observation after both have settled; the 'then' clause places it at each call's own resolution. Under the last-writer-wins semantics this requirement explicitly adopts, the first caller's change is NOT readable once the second has settled, so a test written against the 'when' clause fails a correct implementation. REL-BGSTAB-020 AC-2, which AC-8 is meant to preserve, states the same property without the confounding 'when both have settled' clause.",
+      "suggested_action": "Drop 'when both have settled' and phrase AC-8 on the per-call observation point, as REL-BGSTAB-020 AC-2 does: 'when each publish resolves, then the state its caller changed is already present on disk'.",
+      "vague_terms": ["when both have settled"],
+      "linked_oq": []
+    },
+    {
+      "id": "F11",
+      "severity": "MEDIUM",
+      "axis": "completeness",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/20.ai-tui-recovery.srs.md:546",
+      "description": "The requirement prescribes a per-instance temp name (pid + timestamp, following McpControlConfigStore.ts:68 / WebhookInvocationService.ts:430) but says nothing about the orphaned temp files that name produces. A fixed `dest + '.tmp'` is self-limiting -- the next publish reuses it -- whereas a unique name leaves one file per crashed or killed publish permanently under server/data/. The issue's own scenario is dev instances being killed by watcher restarts, i.e. exactly the case that generates them. No AC covers cleanup, and no statement sentence promises any. This also touches REL-AITUI-001 AC-4 (docs/spec/20.ai-tui-recovery.srs.md:546), which already treats a stale temporary file as something the service must handle on initialize.",
+      "suggested_action": "Either add a sentence declaring orphaned per-instance temp files out of scope and why, or state the cleanup obligation (e.g. sweep dest + '.*.tmp' on initialize) and add an AC for it; cross-reference REL-AITUI-001 AC-4 either way.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F12",
+      "severity": "LOW",
+      "axis": "measurement-reporting",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/worker.mjs:10",
+      "description": "The statement says the workers write 'payloads of different lengths (200 and 340 bytes)'. 200 and 340 are the pad repeat counts, not payload sizes: worker.mjs builds `JSON.stringify({ writer: tag, round: i, pad: tag.repeat(Number(len)) })`, so the actual payloads are roughly 233 and 373 bytes. run.mjs reports the same misleading label as `payloadBytes`. The 293/600 (48.8%) headline number reproduces exactly on re-run (147 + 146 ENOENT of 600, node v24.21.0, Linux), so only the byte figures are off.",
+      "suggested_action": "Say 'pad lengths of 200 and 340 characters (payloads of roughly 233 and 373 bytes)', and rename the `payloadBytes` key in run.mjs.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F13",
+      "severity": "LOW",
+      "axis": "traceability",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/WorkspaceService.ts:1726-1754",
+      "description": "The trace row and the statement both cite WorkspaceService.ts:1726-1753 for writeStateToDisk. :1726 is the method signature and the publish sequence is inside the range, but :1753 is `throw err;` -- the method's closing brace is :1754. The three sibling citations (CommandPresetService.ts:270-289, TerminalShortcutService.ts:528-552, RecoveryOptionService.ts:410-437) all end on the closing brace.",
+      "suggested_action": "Change to WorkspaceService.ts:1726-1754 in both the statement and the Trace Links row.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F14",
+      "severity": "LOW",
+      "axis": "factual-accuracy",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "dev.js:74",
+      "description": "The Out-of-scope paragraph says 'The issue also names the `tsx` watchers in `dev.js`'. dev.js (107 lines) contains no reference to tsx or to watching -- it spawns `npm run dev` (dev.js:74) and `npx vite --host` (:93). The tsx watcher lives one level down, in server/package.json:7 (`\"dev\": \"tsx watch src/index.ts\"`). The substance is right but the file attribution is not.",
+      "suggested_action": "Say 'the tsx watcher that dev.js:74 starts via server/package.json:7'.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F15",
+      "severity": "LOW",
+      "axis": "ac-consistency",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md AC-4",
+      "description": "AC-4 fixes the transient set as 'EPERM, EACCES or EBUSY'. The statement justifies only EPERM ('on Windows that rename is refused with EPERM while another process holds the destination open') and refers elsewhere to 'the transient codes' without enumerating them. EACCES and EBUSY appear for the first time in AC-4 and in the Verification Method, with no supporting sentence explaining why they are classified transient rather than permanent -- which matters because AC-5 turns that classification into a pass/fail boundary against ENOSPC.",
+      "suggested_action": "Add one sentence to the 'Why retry is still needed' paragraph naming EPERM, EACCES and EBUSY and stating the basis for treating each as transient on Windows.",
+      "vague_terms": [],
+      "linked_oq": []
+    }
+  ],
+  "summary": { "CRITICAL": 2, "HIGH": 4, "MEDIUM": 5, "LOW": 4 }
+}

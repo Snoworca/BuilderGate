@@ -1,0 +1,119 @@
+{
+  "relevant_files": [
+    {
+      "path": "server/src/services/WorkspaceService.ts",
+      "line_range": "1712-1755",
+      "signature": "private async writeStateToDisk(): Promise<void>",
+      "relevance": "Q1: temp+rename publish. tmpPath = this.dataFilePath + '.tmp' (FIXED, not per-instance/per-pid), bakPath = this.dataFilePath + '.bak'. Sequence: writeFile(tmpPath) -> copyFile(dataFilePath, bakPath) best-effort -> rename(tmpPath, dataFilePath). On failure: logs '[WorkspaceService] Flush failed:', unlinks tmpPath best-effort, then re-throws (line 1749-1753). The doc comment at lines 1710-1715 explicitly names the shared-tmp-path race ('Two flushes running at once share one `.tmp` path, so the first rename moves it away and the second finds no source') but the stated mitigation (flushChain, lines 1712-1721/1730-1735) only serializes writes queued through the SAME WorkspaceService instance (same process) — it is an in-memory promise chain, not a filesystem lock, so it does not protect two separate process instances sharing the checkout."
+    },
+    {
+      "path": "server/src/services/CommandPresetService.ts",
+      "line_range": "261-286",
+      "signature": "private async flushToDisk(): Promise<void>",
+      "relevance": "Q1: identical fixed-tmp-path pattern: tmpPath = this.dataFilePath + '.tmp', bakPath = this.dataFilePath + '.bak'. Same write->backup->rename sequence, same unlink-then-rethrow failure handling (lines 279-285). No per-process/per-instance uniqueness in the tmp name."
+    },
+    {
+      "path": "server/src/services/RecoveryOptionService.ts",
+      "line_range": "408-434",
+      "signature": "private async flushToDisk(options): Promise<void>",
+      "relevance": "Q1: identical fixed-tmp-path pattern: tmpPath = `${this.dataFilePath}.tmp`, bakPath = `${this.dataFilePath}.bak`. Same sequence and failure handling (throws AppError CONFIG_PERSIST_FAILED after unlink attempt, lines 429-433)."
+    },
+    {
+      "path": "server/src/services/TerminalShortcutService.ts",
+      "line_range": "526-551",
+      "signature": "private async flushToDisk(): Promise<void>",
+      "relevance": "Q1: identical fixed-tmp-path pattern: tmpPath = this.dataFilePath + '.tmp', bakPath = this.dataFilePath + '.bak'. Same sequence and failure handling (throws AppError CONFIG_PERSIST_FAILED, lines 544-550)."
+    },
+    {
+      "path": "server/src/services/McpControlConfigStore.ts",
+      "line_range": "56-77",
+      "signature": "saveConfig: (config: unknown) => Promise<StringRecord>",
+      "relevance": "Q1 contrast case: tempPath = `${dataFilePath}.${process.pid}.${Date.now()}.tmp` (line 68) — PER-PROCESS/PER-CALL unique, not fixed. No .bak copy is made. On failure the write() or rename() simply rejects; there is no unlink/cleanup of tempPath in a catch block here (unlike the four fixed-path stores above). This shows the codebase already has a race-free precedent pattern used inconsistently."
+    },
+    {
+      "path": "server/src/services/WebhookInvocationService.ts",
+      "line_range": "424-436",
+      "signature": "saveRecords: async (records: unknown) => Promise<StringRecord>",
+      "relevance": "Q1 contrast case: identical per-pid/per-timestamp tempPath pattern to McpControlConfigStore (line 430). No .bak copy. No explicit tempPath cleanup on failure."
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "1025-1041",
+      "signature": "commandPresetService.initialize() / terminalShortcutService.initialize() / recoveryOptionService.initialize() / workspaceService.initialize() inside startServer()",
+      "relevance": "Q2: bootstrap call sites. All four stores' initialize() are awaited sequentially during server startup, unguarded by any additional try/catch at these call sites — any thrown error propagates directly up through startServer()."
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "1654-1658",
+      "signature": "end of async function startServer(): Promise<void> — } catch (error) { console.error('[Fatal] Failed to start server:', error); process.exit(1); }",
+      "relevance": "Q2: process-level fate of a bootstrap flush error. startServer()'s own try/catch (opened at line 964) is what actually catches an EPERM/rename error thrown from CommandPresetService.initialize()->flushToDisk() (or the other three stores' initialize paths) — NOT the process 'uncaughtException'/'unhandledRejection' handlers at lines 175-190 (setupFatalErrorLogging), since the throw happens on the awaited startServer() call chain, not asynchronously outside it. The catch logs '[Fatal] Failed to start server:' and calls process.exit(1), which is the observed 'kills the dev server' symptom. startServer() is invoked at line 1694: `startServer().then(() => setupGracefulShutdown());` — a rejection here (if it ever escaped the internal catch) would otherwise surface as an unhandled rejection, but as written it does not escape because of the internal catch/process.exit(1)."
+    },
+    {
+      "path": "server/src/services/CommandPresetService.ts",
+      "line_range": "31-51",
+      "signature": "async initialize(): Promise<void>",
+      "relevance": "Q2 (supporting): initialize() calls flushToDisk() on EVERY bootstrap outcome — successful load (line 38), first-run ENOENT (line 45), and after backup recovery (recoverFromBackup, line 50) — meaning the shared-tmp-path flush executes unconditionally at every server start, not only on error paths. This raises the collision probability specifically for the 'two processes booting from one checkout' scenario in the intent."
+    },
+    {
+      "path": "server/src/services/WorkspaceService.ts",
+      "line_range": "161-220",
+      "signature": "async initialize(): Promise<void>",
+      "relevance": "Q2 (supporting): same unconditional-flush-during-bootstrap shape — flushToDisk() is invoked on the default-state path (ENOENT, line 175), backup-recovery path (line 197), and again conditionally after tab-metadata sanitation/migration (line 216 `await this.save()`, line 218 `await this.save(true)`)."
+    },
+    {
+      "path": "server/src/services/WorkspaceServiceFlushConcurrency.test.ts",
+      "line_range": "1-141",
+      "signature": "node:test suite 'REL-BGSTAB-020 — Workspace store flush serializes across immediate, debounced and shutdown paths'",
+      "relevance": "Q3: the only existing automated test that drives concurrent writes at one of these stores. It creates a SINGLE WorkspaceService instance pointed at a temp dataFile (helper makeService(), lines 34-51) and issues concurrent calls (Promise.allSettled of 8x service.save(true), line 63; interleaved save()/save(true) calls in later tests) against that one instance. Determinism/race technique: uses a large tab list (line 30-33 comment: 'A store large enough that a single write does not finish inside one thread-pool tick... an empty store lets two concurrent writes complete before either rename and hides the defect') to force overlap of the writeFile()/rename() I/O windows, and a debounce-timing trick (`await new Promise(resolve => setTimeout(resolve, 0))`, lines 87/101/109) to land an immediate save inside an in-flight debounced flush. This test suite ONLY exercises the in-process flushChain serialization guard; it does NOT construct two separate service instances (i.e. does not simulate two OS processes) pointed at the same dataFilePath, so it does not cover the cross-process race described in the intent."
+    },
+    {
+      "path": "server/src/services/CommandPresetService.ts",
+      "line_range": "27-29",
+      "signature": "constructor(options: CommandPresetServiceOptions = {}) { this.dataFilePath = path.resolve(options.dataPath ?? DEFAULT_DATA_PATH); }",
+      "relevance": "Q4: dataPath is configurable per-instance via constructor options.dataPath, defaulting to DEFAULT_DATA_PATH = './data/command-presets.json' (line 18) — a path relative to process.cwd()."
+    },
+    {
+      "path": "server/src/services/RecoveryOptionService.ts",
+      "line_range": "42-44",
+      "signature": "constructor(options: RecoveryOptionServiceOptions = {}) { this.dataFilePath = path.resolve(options.dataPath ?? DEFAULT_DATA_PATH); }",
+      "relevance": "Q4: same pattern; DEFAULT_DATA_PATH = './data/recovery-options.json' (line 24)."
+    },
+    {
+      "path": "server/src/services/TerminalShortcutService.ts",
+      "line_range": "43-45",
+      "signature": "constructor(options: TerminalShortcutServiceOptions = {}) { this.dataFilePath = path.resolve(options.dataPath ?? DEFAULT_DATA_PATH); }",
+      "relevance": "Q4: same pattern; DEFAULT_DATA_PATH = './data/terminal-shortcuts.json' (line 28)."
+    },
+    {
+      "path": "server/src/services/WorkspaceService.ts",
+      "line_range": "110-123",
+      "signature": "constructor(sessionManager, options: WorkspaceServiceOptions = {}) { ... this.dataFilePath = path.resolve(this.config.dataPath); }",
+      "relevance": "Q4: dataPath comes from config.dataPath, defaulting to './data/workspaces.json' (line 115: `dataPath: wsConfig?.dataPath ?? './data/workspaces.json'`), also process.cwd()-relative and instance-configurable."
+    },
+    {
+      "path": "server/src/index.ts",
+      "line_range": "1028-1041",
+      "signature": "commandPresetService = new CommandPresetService(); terminalShortcutService = new TerminalShortcutService(); recoveryOptionService = new RecoveryOptionService(); workspaceService = new WorkspaceService(sessionManager, { recoveryOptionService });",
+      "relevance": "Q4 (decisive): at the actual bootstrap call sites, NONE of the four constructors receive a dataPath override — all four fall through to their DEFAULT_DATA_PATH, which resolves relative to process.cwd(). Because BuilderGate is normally started from the checkout root, two processes started from the same checkout (or two checkouts sharing the same server/data/ via a symlink/mount) resolve to the identical absolute dataFilePath, which is the structural precondition for the race in the intent. No env var (e.g. no BUILDERGATE_DATA_* found) overrides these four paths; only BUILDERGATE_SERVER_ROOT affects SSLService's cert path (server/src/services/SSLService.ts:20), not these JSON stores."
+    }
+  ],
+  "related_modules": [
+    {
+      "path": "server/src/services/ConfigFileRepository.ts",
+      "line_range": "157",
+      "note": "Different mechanism entirely: writes server/config.json5 with writeFileSync(this.configPath, ...) directly, no temp+rename, no .bak. Not a server/data/*.json store and not subject to the same race pattern, listed only to show it is out of scope for this intent."
+    },
+    {
+      "path": "server/src/services/AgentLifecycleService.ts",
+      "line_range": "108-112",
+      "note": "Uses a direct fs.writeFile(dataFilePath, ...) with no temp file and no rename (line 108) for one of its persistence paths, plus a separate os.tmpdir()-based per-request temp file at line 642-645 for MCP request payloads (unrelated store, unrelated race)."
+    }
+  ],
+  "missing_evidence": [
+    "No automated test anywhere in server/src or tools/ constructs two separate service instances (or two child processes) pointed at the same on-disk dataFilePath to deterministically reproduce the cross-process EPERM/rename collision described in the intent; WorkspaceServiceFlushConcurrency.test.ts (server/src/services/WorkspaceServiceFlushConcurrency.test.ts:1-141) only covers concurrency within one process/one service instance.",
+    "No retry-on-rename, no lock-file (e.g. proper-lockfile, flock, advisory lock, PID lock file), and no cross-process mutex of any kind was found anywhere under server/src or tools/ via grep for 'lock', 'flock', 'retry' near rename/EPERM handling — the only concurrency guard found (flushChain / mutationChain / saveQueue promise chains) is in-process only.",
+    "Whether Windows EPERM (vs POSIX EEXIST/ENOENT-style races) is the actually observed failure mode was not verified by test or by any Windows-specific comment beyond the WorkspaceService.ts:1713 doc comment describing the shared-tmp-path failure mechanism in general (rename source disappearing) — no direct citation of an EPERM error code was found in server/src for this specific path family (grep for 'EPERM' returned no matches in server/src or tools/).",
+    "Not determined whether any deployment/process-management layer (outside this worktree, e.g. start.bat / tools/start-runtime.js) already prevents two BuilderGate processes from sharing one checkout's server/data/ directory at the same time; this worktree analysis is limited to server/src as instructed and does not include tools/start-runtime.js or start.bat behavior."
+  ],
+  "external_paths_detected": []
+}

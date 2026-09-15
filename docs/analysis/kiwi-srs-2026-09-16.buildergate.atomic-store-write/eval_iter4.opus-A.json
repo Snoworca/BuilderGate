@@ -1,0 +1,63 @@
+{
+  "evaluator": "opus-A",
+  "iter": 4,
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "MEDIUM",
+      "axis": "internal-consistency",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md (statement, \"Platform honesty\" paragraph vs the rewritten Windows paragraph)",
+      "description": "The Windows paragraph was correctly rewritten to say EPERM is an ADDITIONAL Windows mode alongside ENOENT, \"not a substitution\", and is \"the one that survives giving each writer a private temp name\". The later \"Platform honesty\" paragraph still reads: \"The `EPERM` this issue reports is a Windows rename semantic, and every measurement above was taken on Linux/WSL2, where the same collision surfaces as `ENOENT`.\" The antecedent of \"the same collision\" is ambiguous. Read as the EPERM destination-hold collision — the nearest noun — the sentence asserts exactly the substitution framing the rewrite removed, and is false: on Linux a rename onto an open destination succeeds, so that collision does not surface at all, as ENOENT or otherwise. Read as the shared-temp-path source collision it is true. Both paragraphs cannot carry the reader to the same conclusion as written.",
+      "suggested_action": "Disambiguate the antecedent, e.g. \"...and every measurement above was taken on Linux/WSL2, where the shared-temp-path collision surfaces as `ENOENT` and the destination-hold `EPERM` does not arise at all.\"",
+      "vague_terms": ["the same collision"],
+      "linked_oq": []
+    },
+    {
+      "id": "F2",
+      "severity": "MEDIUM",
+      "axis": "ac-decidability",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md AC-7; compare AC-3",
+      "description": "AC-7 is now decidable in shape — the interposition is required to be deterministic, the observation (\"the backup file the publish leaves behind parses as a complete document\") is checkable, and the preserveExistingBackup exemption is real (RecoveryOptionService.ts:197, :202, :410, :421). But unlike AC-3, which pins the peer write to \"a shorter document\", AC-7 says only \"a peer's write is interposed on the backup path\". A conforming fixture that interposes a peer write of the same length as the publish's backup leaves a shared-path `copyFile` sequence holding one whole document, which parses, so the defective implementation passes. The criterion's own failure clause (\"a backup published by a non-atomic copy onto a shared path fails this criterion\") is therefore only true for a length-mismatched interposition, which the criterion does not require.",
+      "suggested_action": "Pin the discriminator as AC-3 does: require the interposed peer write to be a document of materially different length from the one the publish is backing up.",
+      "vague_terms": ["a peer's write"],
+      "linked_oq": []
+    },
+    {
+      "id": "F3",
+      "severity": "MEDIUM",
+      "axis": "evidence-provenance",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/tear2.mjs; raw/cross-process-torn-publish.2026-09-15T21-34-53Z.json; Verification Method field",
+      "description": "The new mechanism sentence (\"464 of 467 torn publishes in one run were byte-for-byte the short document followed by the tail of the long one ... the remaining handful were page-aligned partial views of the longer write\") is substantively supported — it originates in eval_iter3.opus-A.json F4, which records the classification and the 4096/8192/28672-byte page-aligned remainder — but it has no artifact in raw/. tear2.mjs does not classify torn publishes at all (it records only a count and two head/tail samples), and the single retained output records publishedUnparseable=598 with no run of 467. The Verification Method field asserts \"The characterisation scripts that produced the measurements in the statement are preserved under docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/\", which is now inaccurate for this measurement (and, separately, for the 539/4000 first run, whose output is also not retained). The numbers are not disputed; their stated preservation location is.",
+      "suggested_action": "Either commit the instrumented variant of tear2.mjs and its output under raw/, or qualify the Verification Method sentence to say which measurements are reproduced by the preserved scripts and cite eval_iter3.opus-A.json as the record for the classification run.",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "F4",
+      "severity": "LOW",
+      "axis": "internal-consistency",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md AC-4 and AC-8 vs statement (\"They need the retry and nothing else\"); server/src/services/McpControlConfigStore.ts:57-79, server/src/services/WebhookInvocationService.ts:425-438",
+      "description": "AC-8 requires AC-1 through AC-7 to hold for all seven stores, and the statement says the two per-instance-temp-name stores \"need the retry and nothing else\". Neither store has any failure cleanup: a rejecting writeFile/rename leaves its temp file on disk unremoved. Under AC-4 (\"only that call's own temp file has been removed and a concurrent publish's in-flight temp file is still present\") the vacuous reading — nothing removed satisfies \"only its own removed\" — makes \"nothing else\" true, and that matches AC-4's stated purpose (it guards against unlinking a shared path). A reader taking AC-4 as mandating cleanup would conclude those two stores also need an unlink, contradicting \"nothing else\".",
+      "suggested_action": "Add four words to AC-4 making the vacuous case explicit, e.g. \"...then no temp file other than that call's own has been removed...\".",
+      "vague_terms": ["only that call's own temp file has been removed"],
+      "linked_oq": []
+    }
+  ],
+  "summary": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 3, "LOW": 1 },
+  "iteration_3_corrections_verified": {
+    "1_seven_stores_and_two_not_compliant": "HOLDS. McpControlConfigStore.ts:68 and WebhookInvocationService.ts:430 build `${dataFilePath}.${process.pid}.${Date.now()}.tmp`; the renames at :74 and :436 are bare `await fs.rename(tempPath, dataFilePath)` with no retry, no catch and no errno inspection (grep for retry|EPERM|EBUSY|EACCES over both files returns nothing). The shall-sentence clause 'without any publish failing because of another publish' now reaches them through the statement's own destination-contention reasoning, and AC-8 enumerates them. Arithmetic is sound and nothing is double-counted: 8 writers = 7 JSON stores in scope (2 per-instance-temp + 4 fixed-temp + 1 no-temp AgentLifecycleService) + 1 out-of-scope TOTPService; AC-8's list of seven matches the statement's partition one-for-one; 'two of eight writers' in the convention sentence is a statement about writers, not about the seven, and is correct.",
+    "2_windows_epherm_additional_mode": "HOLDS as rewritten, but see F1 for the residual antecedent ambiguity in the later 'Platform honesty' paragraph. The rewritten paragraph is consistent with the 'Why retry is still needed' rationale: source-side collision -> ENOENT on both platforms; destination held open -> EPERM on Windows only; the latter survives a private temp name and is what the retry budget addresses.",
+    "3_tearing_mechanism_non_exclusive": "HOLDS. The statement no longer claims exclusivity; 464/467 plus 'page-aligned partial views' plus 'dominant mechanism rather than the only one' matches eval_iter3.opus-A.json F4 exactly. Consistent with tear2.mjs, which writes the 400-byte A payload and the 60 KB B payload to one shared temp path with the publisher as the sole renamer, and with the retained output (published 4000, renameErr 0, publishedUnparseable 598, sample len 60023 head {\"writer\":\"A\",\"pad\":\"AAAA tail BBBB\"}). Provenance caveat only: F3.",
+    "4_ac3_statistic_removed": "HOLDS. AC-3 now states the mechanism ('an implementation sharing one temp path across writers publishes the shorter document followed by the longer one's tail') and carries no percentage or count.",
+    "5_ac7_deterministic": "HOLDS in form; decidable as written but under-discriminating — see F2.",
+    "6_trace_fixes": "HOLD. WorkspaceService.ts:1726-1755 is exactly `private async writeStateToDisk()` at 1726 through its closing brace at 1755, covering tmp write (:1738), copyFile backup (:1742), rename (:1748) and the catch/unlink (:1749-1753). index.ts:1049 is `const agentProfileService = createAgentCommandProfileService();`, outside the 1028-1042 range (1028 CommandPresetService ... 1042 await workspaceService.initialize()), with no dataPath override, exactly as the new row and the statement's 'index.ts:1028-1042 for the four temp-file stores and index.ts:1049 for the agent-profile store' claim. AgentLifecycleService.ts:106-113 is the bare-writeFile flush() as described."
+  },
+  "independent_checks": {
+    "all_nine_acs_together": "No AC contradicts another and none contradicts the statement. AC-1/AC-5 (both resolve vs a rejection after an exhausted budget) are not in tension: AC-1 is the no-injection concurrent case, AC-5 the injected-failure case. AC-2 (whole peer overwrite) and AC-3 (shorter peer overwrite) partition the interposition cases without overlap. AC-4's failure-cleanup scope and AC-1's success requirement are complementary, as AC-4's own note says. AC-6 bounds AC-5's selectivity. AC-7's preserveExistingBackup carve-out matches RecoveryOptionService.ts:197/:202. AC-9 restates REL-BGSTAB-020's invariant and does not weaken any other AC. Decidability: all nine are decidable by an automated test given the two fixture techniques the Verification Method names (two independent instances on one file; deterministic interposition / errno injection at the filesystem boundary). AC-5's budget is fully enumerated (5 attempts, 10/20/40/80 ms) and assertable by attempt count and recorded waits. AC-7 is decidable but its fixture's discriminating power is not pinned (F2).",
+    "statement_end_to_end": "Counts are internally consistent after four rounds: eight writers, seven JSON stores in scope, two with per-instance temp names needing the retry only, five needing both halves, of which four share one shape and the fifth (AgentLifecycleService) has no temp file, and one eighth writer (TOTPService) out of scope. Every paragraph that repeats a count repeats it compatibly. The rejected-alternatives section remains consistent with the fix: 'retry only' is rejected as a substitute and required as a complement, which is what the retry paragraph and AC-5/AC-6 encode; 'per-instance destination' is rejected while the statement still cites index.ts:1028-1042 and :1049 as the reason no override exists, which matches the code. The only end-to-end friction is the 'Platform honesty' sentence (F1)."
+  }
+}

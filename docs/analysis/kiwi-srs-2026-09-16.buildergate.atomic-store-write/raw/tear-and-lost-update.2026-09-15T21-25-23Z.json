@@ -1,0 +1,3 @@
+{"Q1_concurrent_writeFile_mismatched_lengths":{"rounds":400,"tornCount":0,"outcomes":["B"]}}
+{"Q2_shared_tmp_lost_update":{"A_publish_resolved":true,"A_wrote":"A-change","on_disk_after_A_publish":"B-change","A_change_lost_but_reported_success":true}}
+{"Q2b_peer_rename_after":{"code":"ENOENT"}}

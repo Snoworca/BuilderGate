@@ -1,0 +1,97 @@
+{
+  "judgements": [
+    {
+      "req_id": "REL-BGSTAB-022",
+      "feasibility": "high",
+      "score": 87,
+      "axes": {
+        "implementability": {
+          "score": 26,
+          "rationale": "There is an obvious and natural place for one shared helper. Four of the seven writers publish through a byte-identical sequence -- writeFile(dest+'.tmp') / copyFile(dest -> dest+'.bak') / rename(tmp -> dest) / on-error unlink(tmp) -- at CommandPresetService.ts:270-289, WorkspaceService.ts:1726-1754, TerminalShortcutService.ts:528-552 and RecoveryOptionService.ts:410-437. The only variance among them is RecoveryOptionService's preserveExistingBackup guard (:420) and the error object thrown (AppError vs raw rethrow at WorkspaceService.ts:1752), both of which an options bag absorbs cleanly. The two already-private-temp writers need only the retry (McpControlConfigStore.ts:68/:74, WebhookInvocationService.ts:430/:436) and both are plain async closures, so the same helper drops in. The naming convention the fix needs already exists in this codebase (`${dataFilePath}.${process.pid}.${Date.now()}.tmp`), so the design is copying a local precedent rather than inventing one. Retry-with-backoff is realistic: every one of the seven publish paths is already fully async and already inside a per-instance promise chain (mutationChain at CommandPresetService.ts:25, TerminalShortcutService.ts:41, RecoveryOptionService.ts:39, AgentLifecycleService.ts:78; flushChain at WorkspaceService.ts:1671), so a ~150 ms worst-case wait is absorbed by an existing serialized queue and cannot interleave with itself. Deductions: (a) AgentLifecycleService.ts:106-113 is not a refactor but a behaviour addition -- it gains a temp file, a rename and a .bak it has never written, and its ensureLoaded path (:88-99) has never had to tolerate a sibling .bak; (b) WorkspaceServiceOptions (:43-47) has no dataPath field, so that one store cannot be pointed at a temp dir by construction and every fixture must poke the private (the precedent exists at WorkspaceServiceFlushConcurrency.test.ts:38); (c) seven call sites x nine acceptance criteria is genuine breadth even when the helper is one function.",
+          "evidence": [
+            "server/src/services/CommandPresetService.ts:270",
+            "server/src/services/WorkspaceService.ts:1726",
+            "server/src/services/TerminalShortcutService.ts:528",
+            "server/src/services/RecoveryOptionService.ts:410",
+            "server/src/services/McpControlConfigStore.ts:68",
+            "server/src/services/WebhookInvocationService.ts:430",
+            "server/src/services/AgentLifecycleService.ts:106",
+            "server/src/services/WorkspaceService.ts:43"
+          ]
+        },
+        "evidence_strength": {
+          "score": 19,
+          "rationale": "Eleven of the eighteen trace rows were opened with sed -n and every one exists and says what its note says. CommandPresetService.ts:270-289 is exactly the fixed dest+'.tmp' publish described. WorkspaceService.ts:1726 onward is the same shape with a raw rethrow. TerminalShortcutService.ts:528-552 matches byte for byte. RecoveryOptionService.ts:410-437 matches and carries the preserveExistingBackup guard the statement and AC-7 both call out. McpControlConfigStore.ts:68 is the per-pid temp name and :74 is the bare rename with no retry, exactly as the note claims. WebhookInvocationService.ts:430/:436 likewise. AgentLifecycleService.ts:106-113 is a bare writeFile straight onto the destination with no temp file, no rename and no backup -- the worse form the statement describes. index.ts:1028-1042 does await initialize() on the four temp-file stores, and index.ts:1654-1657 is the catch that logs '[Fatal] Failed to start server:' and calls process.exit(1), so the claimed crash path is real. WorkspaceService.ts:43-47 confirms the no-dataPath claim. TOTPService.ts:104-118 confirms the out-of-scope bare writeFileSync of the encrypted secret. The characterisation raw/ directory named in the Verification Method exists and holds the probes and JSON results (run.mjs, worker.mjs, tear2/tear3/tearprobe.mjs, torn-publish-mechanism run1-run4). Only nit: the trace row spells WorkspaceService.ts:1726-1755 while the statement spells 1726-1753; the method body ends at 1754. Immaterial.",
+          "evidence": [
+            "server/src/services/McpControlConfigStore.ts:74",
+            "server/src/services/WebhookInvocationService.ts:436",
+            "server/src/services/AgentLifecycleService.ts:113",
+            "server/src/index.ts:1028",
+            "server/src/index.ts:1655",
+            "server/src/services/TOTPService.ts:113",
+            "server/src/services/RecoveryOptionService.ts:420",
+            "docs/analysis/kiwi-srs-2026-09-16.buildergate.atomic-store-write/raw/tear3.mjs"
+          ]
+        },
+        "dependency_health": {
+          "score": 14,
+          "rationale": "REL-BGSTAB-020 is Status=implemented, Stability=evolving, and its mechanism is a per-instance promise chain: WorkspaceService.ts:1671 declares flushChain, :1718 chains the run onto it, :1722 reassigns it with both handlers so a rejection cannot wedge the chain. That mechanism is orthogonal to temp-path naming -- it serializes WHEN a publish runs, this requirement changes WHERE it writes and whether it retries -- so it supports rather than conflicts, and the statement's claim that it must not be weakened is correct and cheap to honour since the helper sits strictly inside flushToDisk, below the chain. The same pattern is already present in three sibling services (CommandPresetService.ts:25, TerminalShortcutService.ts:41, RecoveryOptionService.ts:39) and in AgentLifecycleService.ts:78, so AC-9 has a uniform substrate. No dependency cycle: 022 extends 020 and 020 links nothing back. Deduction: 020 is evolving rather than stable, so its contract could still shift under 022; and AC-9 is asserted against a chain that four of the seven stores have but which was never separately specified for them.",
+          "evidence": [
+            "server/src/services/WorkspaceService.ts:1671",
+            "server/src/services/WorkspaceService.ts:1718",
+            "server/src/services/WorkspaceService.ts:1722",
+            "server/src/services/CommandPresetService.ts:25",
+            "server/src/services/RecoveryOptionService.ts:364",
+            "server/src/services/WorkspaceServiceFlushConcurrency.test.ts:38"
+          ]
+        },
+        "ac_verifiability": {
+          "score": 11,
+          "rationale": "AC-1, AC-2, AC-3, AC-4, AC-7, AC-8 and AC-9 are each decidable by a node:test assertion on file contents or on a settled promise, and the cross-instance fixture the Verification Method describes is constructible today: six of the seven stores take a dataPath (TerminalShortcutService.ts:20/:44, RecoveryOptionService.ts:21/:43, CommandPresetService.ts:13, AgentLifecycleService.ts:79-80, McpControlConfigStore.ts:11/:24, WebhookInvocationService.ts:408-409) and the seventh has an established private-poke precedent at WorkspaceServiceFlushConcurrency.test.ts:38. The deterministic-interposition technique is implementable WITHOUT restructuring production code, but only by one specific trick: every one of the seven services reaches the filesystem through the default export object of the fs/promises builtin (CommandPresetService.ts:2 and AgentLifecycleService.ts:1 spell it 'fs/promises', McpControlConfigStore.ts:1 and WebhookInvocationService.ts:2 spell it 'node:fs/promises'; Node resolves both to the same builtin object), and every call is a property lookup at call time -- fs.writeFile / fs.copyFile / fs.rename -- so a fixture can swap those properties and run a peer write from inside the patched writeFile, which is exactly the between-write-and-rename interposition AC-2, AC-3 and AC-7 demand, and exactly the errno injection AC-5 and AC-6 demand. That is a global mutation of a shared builtin, so it needs per-file process isolation and restore-in-finally, but node:test gives that. The real deduction is AC-5's timing half: 'the waits are 10 ms, 20 ms, 40 ms and 80 ms' cannot be decided exactly without an injectable clock or timer, which no current code provides. A test can assert attempt count exactly and elapsed >= 150 ms as a lower bound, but asserting the individual wait values as specified requires the implementation to expose a sleep seam. That is a seam the implementation should add deliberately rather than something a fixture can recover from the code as it stands.",
+          "evidence": [
+            "server/src/services/CommandPresetService.ts:2",
+            "server/src/services/McpControlConfigStore.ts:1",
+            "server/src/services/TerminalShortcutService.ts:44",
+            "server/src/services/RecoveryOptionService.ts:43",
+            "server/src/services/AgentLifecycleService.ts:79",
+            "server/src/services/WorkspaceServiceFlushConcurrency.test.ts:38"
+          ]
+        },
+        "scope_fit": {
+          "score": 8,
+          "rationale": "Section 2 In Scope enumerates runtime caps, browser input backpressure, visible output scheduling, snapshot localStorage budget, hidden-runtime LRU, split WebSocket, the binary wire format and non-2002 validation; store publication atomicity under server/data/ is not one of the listed bullets. Nothing in Out of Scope excludes it either -- the exclusions are socket topology default, xterm replacement, TUI idle semantics, port 2002 and node.exe mass-kill, none of which this touches. Section 3 Assumptions and Constraints likewise raises no conflict: the constraints concern transport mode, wire format independence, rollback safety, validation ports and not logging raw terminal input, and this requirement's tests write only to os.tmpdir(). The decisive fit argument is precedent, not enumeration: REL-BGSTAB-020, which is the same subject (workspace store flush integrity) at the single-process boundary, already lives in this scope as implemented, and 022 is its declared extension. Marked down because the fit rests on that precedent rather than on an explicit In Scope bullet, and a scope bullet should be added when this leaves draft.",
+          "evidence": [
+            "docs/spec/30.buildergate-stability.srs.md:17",
+            "docs/spec/30.buildergate-stability.srs.md:27",
+            "docs/spec/30.buildergate-stability.srs.md:36"
+          ]
+        },
+        "product_fit": {
+          "score": 9,
+          "rationale": "Core. CLAUDE.md states the product's purpose as operating N coding agents in parallel from one browser, and the Quick Start advertises 'code changes reload automatically' -- which is the tsx watcher arrangement that puts two processes on one checkout in the first place. The failure this requirement closes is not cosmetic: index.ts:1028-1042 awaits initialize() on four of these stores and index.ts:1655 turns any rejection into process.exit(1), so losing a publish race kills the instance during bootstrap, and the statement traces exactly that to E2E specs misread as unrelated product defects (GitHub issue #24). The corruption half is worse -- a torn workspaces.json is the user's whole session layout. Not a 10 only because it is a reliability repair of existing behaviour rather than a capability the product is missing; nothing user-visible is added.",
+          "evidence": [
+            "server/src/index.ts:1029",
+            "server/src/index.ts:1041",
+            "server/src/index.ts:1655",
+            "server/src/services/WorkspaceService.ts:1748"
+          ]
+        }
+      },
+      "blockers": [
+        "Governance, not technical: the heading carries '[DRAFT — pending decision]' and Stability=draft. The repository CLAUDE.md SpecKiwi rules say an agent MUST stop before implementing a non-discarded requirement at Stability=draft unless the user explicitly overrides. Implementation cannot start until the user promotes it or overrides. (Note: §6 Open Questions holds only OQ-1 and OQ-2, both bound to REL-BGSTAB-005, so no unanswered open question is attached to this requirement — the draft flag is the whole of it.)"
+      ],
+      "conditions": [
+        "The 5-attempt / 10-20-40-80 ms retry budget is fixed in the statement but is explicitly 'a starting value open to revision against a Windows measurement, which does not yet exist'. AC-5 hard-codes those numbers, so a later Windows measurement that contradicts them forces an SRS edit, not just a code edit. Accept the numbers as normative before implementing, or the tests will need rewriting.",
+        "The EPERM branch that AC-5 exists for is a Windows rename semantic and cannot be reproduced natively on the Linux/WSL2 host. The suite will verify it by injected errno only; that is weaker evidence and should be recorded as such in the Verification Evidence notes rather than presented as a platform reproduction.",
+        "AgentLifecycleService acquires a .bak it has never written. Its ensureLoaded path (AgentLifecycleService.ts:88-99) and anything that enumerates server/data/ must tolerate the new sibling file.",
+        "AC-5's per-wait assertion needs the implementation to expose an injectable delay. Decide that seam up front; retrofitting it after the helper is written will invalidate the RED-first claim for AC-5.",
+        "The fixtures monkeypatch the shared fs/promises builtin object. Each suite must restore in a finally block and must not be run in-process alongside another suite that relies on real fs timing."
+      ],
+      "has_verification": false,
+      "current_stability": "draft",
+      "current_status": "planned",
+      "external_module_impact": null,
+      "fixture_seam_risk": "Low for seven of the nine criteria, and I want to be precise about why rather than reassuring. AC-1, AC-2, AC-3, AC-4, AC-7, AC-8 and AC-9 can be written RED-first against the code exactly as it stands today, because all seven writers reach the filesystem through the default export object of the fs/promises builtin and call fs.writeFile / fs.copyFile / fs.rename as property lookups at call time (CommandPresetService.ts:2 and AgentLifecycleService.ts:1 import 'fs/promises'; McpControlConfigStore.ts:1 and WebhookInvocationService.ts:2 import 'node:fs/promises'; Node resolves both specifiers to the same object). A fixture swaps those properties, and the peer write it needs to interpose between a publish's write and its rename runs from inside the patched writeFile. That is the deterministic interposition the Verification Method describes, and it needs no production seam. Binding a store to a temp file is likewise already solved: six of seven take a dataPath, and WorkspaceService's missing one has a poke precedent at WorkspaceServiceFlushConcurrency.test.ts:38 that shipped with REL-BGSTAB-020. So the common fear here — that the tests could only be written after the helper exists, making them GREEN-first — does not apply to those seven. The honest exception is AC-5, and it is not a small one. AC-5 has two halves. The attempt-count half and the destination-survives-exhaustion half are RED-first today: current code renames once with no retry, so a fixture injecting EPERM sees one attempt and a rejection, and asserting five attempts fails. The wait-schedule half is not. Nothing in the current code sleeps, so there is no clock, timer or delay function a fixture can intercept, and the criterion names four exact values — 10, 20, 40, 80 ms. A test written before implementation can only assert a cumulative elapsed lower bound, which is a weaker statement than the criterion makes and which a wrong schedule (say 40/40/40/40) would still satisfy. To assert AC-5 as written, the implementation must first introduce an injectable delay in the shared helper. That means AC-5's wait-schedule assertion is honestly implementation-first: the test that pins those four values cannot be RED before the seam it depends on is built. I would not paper over that by loosening AC-5 to 'bounded' — the statement itself explains why the budget was fixed rather than left open — so plan for one deliberate seam in the helper and record that AC-5's timing assertion was authored against it rather than against the pre-change code. A second, lesser risk: patching a shared builtin is global. node:test's per-file process isolation contains it, but a suite that forgets to restore in a finally will corrupt sibling tests in the same file, and the CLAUDE.md note that these suites spawn one another raises the cost of getting that wrong."
+    }
+  ]
+}

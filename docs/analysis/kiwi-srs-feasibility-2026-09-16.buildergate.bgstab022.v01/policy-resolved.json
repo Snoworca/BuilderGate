@@ -1,0 +1,5 @@
+{ "policy_source": "default", "reason": "neither .kiwi/feasibility-policy.yaml nor ~/.kiwi/feasibility-policy.yaml exists; kiwi-srs-feasibility §0.G6 default mapping applies",
+  "relevant_rules": [ { "if": "feasibility=high AND has_verification=true", "then": "stable", "user_confirm": "always" },
+                      { "if": "feasibility=high (default)", "then": "evolving", "user_confirm": "none" },
+                      { "if": "feasibility=medium", "then": "keep", "user_confirm": "none" },
+                      { "if": "feasibility=low", "then": "draft", "user_confirm": "on demotion" } ] }

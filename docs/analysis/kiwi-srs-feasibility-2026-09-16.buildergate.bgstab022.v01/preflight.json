@@ -1,0 +1,3 @@
+{ "mcp": true, "cli": true, "halted": false,
+  "tools_detected": { "update_stability": true, "get_active_target": true, "list_requirements": true, "get_requirement": true, "validate_spec": true, "summarize_target": true, "tag_mutation": false },
+  "mutation_channel": "speckiwi CLI with --root at this worktree (MCP mutation writes to the origin checkout)" }

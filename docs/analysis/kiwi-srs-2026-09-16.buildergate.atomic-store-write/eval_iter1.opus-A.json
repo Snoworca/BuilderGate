@@ -1,0 +1,172 @@
+{
+  "evaluator": "opus-A",
+  "iter": 1,
+  "findings": [
+    {
+      "id": "factual-1-001",
+      "severity": "CRITICAL",
+      "axis": "factual",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/WorkspaceService.ts:161-220",
+      "description": "The statement asserts: 'every bootstrap path inside initialize() — the file loaded, the file absent, the backup recovered — calls flushToDisk() unguarded.' This is false for two of the four services it names. (a) WorkspaceService.initialize(): the successful-load path (WorkspaceService.ts:166-171) only assigns this.state and performs NO write; the only writes afterwards are conditional — WorkspaceService.ts:215-219 flushes only when state.workspaces.length === 0 (and then via the DEBOUNCED save(), not an immediate flush) or when tabMetadataChanged is true. A normal start with a valid store and unchanged metadata writes nothing at all. (b) RecoveryOptionService.initialize(): RecoveryOptionService.ts:52-57 flushes on the loaded path only inside 'if (this.diagnostics.length !== diagnosticsBefore)', i.e. only when the load recorded a diagnostic — an explicit guard. Only CommandPresetService.ts:33-51 and TerminalShortcutService.ts:47-71 flush unconditionally on all three paths. The derived claim 'The race window is therefore opened by every start, not only by an error path' survives only because of those two services, not because of the four the sentence covers.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "factual-1-002",
+      "severity": "CRITICAL",
+      "axis": "factual",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:6030",
+      "description": "The statement's third failure mode asserts: 'fs.writeFile opens with O_TRUNC and issues several write calls for a payload of this size, so two writers on one path can leave that file holding bytes from both.' The O_TRUNC half is correct (flag 'w'). The 'several write calls ... for a payload of this size' half is refuted for the payloads actually at issue. Measured payload sizes in this checkout's server/data/: command-presets.json 80 B, terminal-shortcuts.json 228 B, workspaces.json 451 B, recovery-options.json 808 B. Node's fsPromises.writeFile chunks a write only above kWriteFileMaxChunkSize (512 KiB); a sub-kilobyte buffer is one write() to a regular file, so no second writer can interleave inside it. Empirical check on this host (node v24.21.0, Linux/WSL2): two independent processes each looping 40 concurrent writeFile calls of distinct single-character payloads onto one path, 6 rounds, at 100 KiB and at 700 KiB — mixedRounds 0 in every case, observed file length always exactly the payload length, never a mixture of both characters. I could not produce the described byte-interleaving even at 700 KiB (above the chunk threshold). REL-BGSTAB-020's own measurement agrees: it attributes 100% of observed failures to 'ENOENT: rename' ordering and never to mixed content, and explicitly explains a small payload as 'both writes finish inside one thread-pool tick'. This claim is load-bearing: it is the sole justification for AC-2 and the stated reason retry-only is rejected as 'leaving the interleaved temp file intact as a corruption path'. A torn READ (a reader opening the destination between another process's O_TRUNC and its write) remains a genuine hazard and would justify the same fix — but that is a different mechanism from the one asserted.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": ["a payload of this size", "several"],
+      "linked_oq": []
+    },
+    {
+      "id": "factual-1-003",
+      "severity": "CRITICAL",
+      "axis": "factual",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/WorkspaceService.ts:43-47",
+      "description": "In the 'Rejected alternative — a per-instance destination path' paragraph the statement asserts 'The four services do accept a dataPath option, but index.ts:1028-1041 passes none.' False for WorkspaceService: WorkspaceServiceOptions (WorkspaceService.ts:43-47) declares only terminalTitleDebounceMs, recoveryOptionService and restoreInputDelayMs — there is no dataPath option. Its path comes from the config module at WorkspaceService.ts:113-115 ('const wsConfig = (config as any).workspace; dataPath: wsConfig?.dataPath ?? ./data/workspaces.json'), i.e. from config.json5, which is exactly the workspace.dataPath the same paragraph cites. The other three do accept the option (CommandPresetService.ts:14/27-28, TerminalShortcutService.ts:20/43-44, RecoveryOptionService.ts:21/42-43). This also undercuts the Verification Method's 'constructing two independent service instances bound to one data file in a temp directory': for WorkspaceService that binding is not reachable through the constructor and the existing fixture reaches it by poking the private field (WorkspaceServiceFlushConcurrency.test.ts:39 '(service as any).dataFilePath = dataFile').",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "ac-1-004",
+      "severity": "HIGH",
+      "axis": "ac",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/AgentLifecycleService.ts:105-113",
+      "description": "The normative shall is universally quantified — 'Every JSON store the server publishes under server/data/ shall be publishable concurrently ... without any reader ever observing a partially written document' — but AC-7 narrows verification to four named stores, and the statement's census ('Four services publish a store with one identical shape'; 'applied to two of six writers') is incomplete. server/data/agent-command-profiles.json (present in this checkout, 477 B) is published by AgentCommandProfileService inside AgentLifecycleService.ts:105-113 with a bare 'await fs.writeFile(dataFilePath, JSON.stringify(...))' straight onto the destination — no temp file, no rename, no backup. That is the one store in the tree where a reader genuinely can observe a truncated document, and it is bootstrapped at index.ts:1049 ('createAgentCommandProfileService()'). It is named nowhere in the statement, carries no trace link, and satisfies no AC. As written, the requirement is either unverifiable against its own shall or its shall is wrong.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "internal_coherence-1-005",
+      "severity": "HIGH",
+      "axis": "internal_coherence",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:6040",
+      "description": "Statement/metadata contradiction (9b). The 'Platform honesty' paragraph says in the past tense that 'the implementation and verification of this requirement were carried out on Linux/WSL2' and that 'The retry branch is therefore exercised by injecting the transient error codes at the filesystem boundary'; the Verification Method likewise describes the suites in the present indicative as if they run. But Status=planned, Stability=draft, the heading carries [DRAFT — pending decision], all eight ACs are unchecked, and the Verification Evidence table is empty (header row only). Either the work happened and the block is missing its evidence and status, or it did not and the statement asserts a verification that never occurred. Compare REL-BGSTAB-020, which states its measurements with a date and carries VE-1/VE-2.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "trace-1-006",
+      "severity": "HIGH",
+      "axis": "trace",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/CommandPresetService.ts:137-152",
+      "description": "Missing traces where the code evidence exists and the statement leans on it. The statement makes the backup a first-class defect ('the backup is precisely what recoverFromBackup() reads when the primary is unreadable — a torn backup removes the recovery of a recovery') and AC-6 turns it into a criterion, yet not one trace link points at a backup reader. The four implementations are CommandPresetService.ts:137-152, TerminalShortcutService.ts:182-200, RecoveryOptionService.ts:192-203 (named recoverFromBackupOrDefaults, not recoverFromBackup as the statement says) and WorkspaceService.ts:178-195 (inline in initialize, no such method exists there at all). Likewise AgentLifecycleService.ts:105-113 (see ac-1-004) has no trace. A reviewer cannot check AC-6 or the backup argument from the Trace Links table as it stands.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "trace-1-007",
+      "severity": "MEDIUM",
+      "axis": "trace",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/index.ts:1028-1042",
+      "description": "The trace 'server/src/index.ts:1028-1041' is cited twice (Trace Links and inside the statement) with the note 'bootstrap awaits initialize() on all four stores'. The cited range ends one line short: 1028-1036 hold the three awaits for CommandPresetService, TerminalShortcutService and RecoveryOptionService, 1041 is only the WorkspaceService constructor, and the fourth await — 'await workspaceService.initialize();' — is at line 1042. The range as written supports three of the four the note claims.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "scope-1-008",
+      "severity": "MEDIUM",
+      "axis": "scope",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/20.ai-tui-recovery.srs.md:518-547",
+      "description": "AC-7 obliges the change in RecoveryOptionService, whose persistence semantics are normatively owned by another scope and another target: REL-AITUI-001 (target 0.5.4-ai-tui-recovery, Status=implemented, Stability=evolving) requires the service to protect data 'by using the repository's established temporary file and backup recovery pattern', its AC-1 requires 'no stale temporary file is used as the source of truth' and AC-4 governs 'a stale temporary recovery option file [that] remains after an interrupted write'. REL-BGSTAB-022 changes exactly that temp-file pattern for that store and carries no trace link, conflicts_with row or cross-scope dependency to REL-AITUI-001 or FR-AITUI-002. Not a direct contradiction — per-instance temp names never override anything — but the per-instance scheme leaves unbounded uniquely-named orphan temp files after a killed dev instance, which is the failure REL-AITUI-001 AC-4 is about, and nothing in REL-BGSTAB-022 addresses cleanup.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "scope-1-009",
+      "severity": "MEDIUM",
+      "axis": "scope",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:14-32",
+      "description": "The BGSTAB '## 2. Scope Boundaries / In Scope' list enumerates eight items — runtime caps, browser send-buffer backpressure, visible output scheduling, snapshot localStorage budget, hidden terminal LRU residency, split WebSocket handshake, the negotiated binary wire format, and non-2002 validation — none of which is store persistence or atomic file publication, and '## 1. Scope Overview' matches. REL-BGSTAB-020 and -021 set a de facto precedent, but the boundary section was never extended to cover it, so REL-BGSTAB-022 is admitted to this scope on precedent rather than on the document's own stated boundary. Either extend In Scope or record why persistence belongs here.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "ac-1-010",
+      "severity": "MEDIUM",
+      "axis": "ac",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:6050",
+      "description": "AC-3 is only conditionally decidable by an automated test: 'when the call rejects, then only that call's own temp file has been removed and a concurrent publish's in-flight temp file is still present'. Observing a second publish's temp file while it is still in flight, at the instant the first rejects, is a timing-dependent observation; the criterion names no synchronization hook, no injection point and no deterministic way to hold the second publish open. Without one it is either flaky or vacuous (the assertion runs after both settle and finds no temp file either way). Restate it as a property of the temp path — e.g. the temp path used by a publish is unique per process and per call, asserted by capturing the path at the fs boundary — which is decidable without a race.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": ["in-flight"],
+      "linked_oq": []
+    },
+    {
+      "id": "ac-1-011",
+      "severity": "MEDIUM",
+      "axis": "ac",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:6051",
+      "description": "AC-4 classifies EACCES as transient and retryable alongside EPERM and EBUSY, while AC-5 cites ENOSPC as the non-transient control. EACCES is normally a permanent condition (a denied ACL, a read-only mount); retrying it burns the whole budget before surfacing a failure the operator must fix, and does so on the bootstrap path that AC-4's own premise says ends in process.exit(1). The issue's reported code is EPERM only; EBUSY is defensible on Windows. Justify EACCES or drop it from the transient set.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": ["transient"],
+      "linked_oq": []
+    },
+    {
+      "id": "mcp_srsmd-1-012",
+      "severity": "MEDIUM",
+      "axis": "mcp_srsmd",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:6044",
+      "description": "Structural conformance is otherwise clean — heading matches the §10.2 regex including the §30.2 [DRAFT — pending decision] marker slot, REL maps to Type=reliability per §11.3, and all §12.2 required fields plus the recommended ones are present — but the section content is misplaced. '#### Rationale' is a bare '-' and '#### Research / Analysis' is '- -', while roughly ten paragraphs of code survey, three 'Rejected alternative' essays, a delta argument against REL-BGSTAB-020 and a 'Platform honesty' note all sit inside '#### Requirement'. The normative shall is one sentence; everything after it is rationale and analysis. Compare REL-BGSTAB-020, which has the same problem, so this is a house pattern rather than an isolated slip — but the empty Rationale under this volume of argument is still a defect.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "factual-1-013",
+      "severity": "MEDIUM",
+      "axis": "factual",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/RecoveryOptionService.ts:410-428",
+      "description": "'Four services publish a store with one identical shape: write dest + .tmp, copy dest to dest + .bak, rename dest + .tmp onto dest.' The shape is not identical in two respects. RecoveryOptionService.flushToDisk takes an options argument and skips the backup copy entirely when preserveExistingBackup is set (RecoveryOptionService.ts:410, 421-426) — which is precisely the path taken during backup recovery (:197, :202), so the 'copy dest to .bak' step is conditional there. WorkspaceService does not expose flushToDisk as the writer at all: flushToDisk (1717-1724) is the REL-BGSTAB-020 promise chain and the shape lives in writeStateToDisk (1726-1755). Both traces name the right lines, so this is a wording overstatement rather than a bad pointer, but 'one identical shape' is what the requirement's single generalisation rests on.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": ["one identical shape"],
+      "linked_oq": []
+    },
+    {
+      "id": "delta-1-014",
+      "severity": "LOW",
+      "axis": "delta",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "docs/spec/30.buildergate-stability.srs.md:6056",
+      "description": "AC-8 ('each caller's own change is readable from disk after its call resolves') restates REL-BGSTAB-020's AC-2 almost verbatim and verifies that requirement rather than this one. Keeping it as a non-regression guard is reasonable and the 'extends' relation and terminology are otherwise stated accurately and consistently, but it should be labelled as a regression guard on REL-BGSTAB-020 rather than as an acceptance criterion of REL-BGSTAB-022.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    },
+    {
+      "id": "feasibility-1-015",
+      "severity": "LOW",
+      "axis": "feasibility",
+      "req_id": "REL-BGSTAB-022",
+      "evidence_path": "server/src/services/McpControlConfigStore.ts:68",
+      "description": "implementability=high is adequately supported: the in-repo precedent (McpControlConfigStore.ts:68 and WebhookInvocationService.ts:430, both verified to read exactly '${dataFilePath}.${process.pid}.${Date.now()}.tmp') is a two-line change per site, the four flush bodies are 20-30 lines each and self-contained, and the existing fixture WorkspaceServiceFlushConcurrency.test.ts demonstrates the two-instance/temp-dir technique the Verification Method names. Two caveats keep this from being unqualified: the four services take no injectable fs, so AC-4/AC-5 need module-level mocking that has no precedent in these suites; and the AC-6 backup fix needs copy-to-unique-temp-then-rename, which the statement never prescribes.",
+      "suggested_action": "fix_via_mcp",
+      "vague_terms": [],
+      "linked_oq": []
+    }
+  ],
+  "summary": { "CRITICAL": 3, "HIGH": 3, "MEDIUM": 7, "LOW": 2 }
+}

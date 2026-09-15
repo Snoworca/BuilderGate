@@ -1,0 +1,1325 @@
+{
+  "schema_version": "1.1.0",
+  "plan_contract": "1.2.0",
+  "run_id": "2026-09-16.projectmaster.bgstab022",
+  "target": "0.5.5-buildergate-stability",
+  "plan_version": "0.2.0",
+  "generated_at": "2026-09-15T22:09:33Z",
+  "tool_versions": {
+    "speckiwi": "3.0.0",
+    "kiwi_planner": "0.6.0",
+    "validator": "0.6.0"
+  },
+  "tdd_policy": "relaxed",
+  "md_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md",
+  "md_sha256": "b5873b779328d07d43705dcd57c6852042c79482d446378cda56826fbf0ce45a",
+  "phases": [
+    {
+      "id": "PH-001",
+      "title": "Shared atomic publish helper",
+      "goal": "One helper publishes a store through a private temp file and an atomic rename, proven by tests that fail against today's shared-temp-path code.",
+      "depends_on": [],
+      "task_ids": [
+        "T-PH001-01",
+        "T-PH001-02"
+      ]
+    },
+    {
+      "id": "PH-002",
+      "title": "Selective bounded rename retry",
+      "goal": "A bounded, selective rename retry with an injectable delay, its attempt count and its exact wait schedule pinned.",
+      "depends_on": [
+        "PH-001"
+      ],
+      "task_ids": [
+        "T-PH002-01",
+        "T-PH002-02"
+      ]
+    },
+    {
+      "id": "PH-003",
+      "title": "Adoption across the seven JSON stores",
+      "goal": "Every in-scope store publishes through the helper, each keeps its own error mapping, and REL-BGSTAB-020's in-process contract still holds.",
+      "depends_on": [
+        "PH-002"
+      ],
+      "task_ids": [
+        "T-PH003-01",
+        "T-PH003-02"
+      ]
+    },
+    {
+      "id": "PH-004",
+      "title": "Regression, evidence and close-out",
+      "goal": "Compare the post-change failing set against a recorded baseline, capture raw evidence, and record the worklog and report.",
+      "depends_on": [
+        "PH-003"
+      ],
+      "task_ids": [
+        "T-PH004-01",
+        "T-PH004-02"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "title": "RED: cross-instance collision, lost update, torn publish, private cleanup and backup atomicity",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-022"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "261-290"
+        },
+        {
+          "path": "server/src/services/StorePublishCrossInstance.test.ts"
+        }
+      ],
+      "test_files": [
+        {
+          "path": "server/src/services/StorePublishCrossInstance.test.ts"
+        }
+      ],
+      "action": "Write a node:test suite binding two independently constructed CommandPresetService instances to one data file in a mkdtemp directory, driving the real flushToDisk. Interpose the peer deterministically rather than racing. The peer write must model what two processes actually do, which is not a second fs.writeFile call. fs.writeFile opens with O_TRUNC, so a shorter peer document written that way replaces the longer one entirely and the result parses whole. The measured corruption comes from the truncate and the write being separated in time: one writer truncates and the other writes 60 KB, then the first writes 423 bytes from offset zero into the now-longer file, leaving a foreign tail. The fixture reproduces that by writing the peer document normally and then overlaying the caller's shorter document at offset 0 through a handle opened 'r+' (no truncation). Patching fs.writeFile is only the hook that decides when to interpose. Assert AC-1 (both publishes resolve), AC-2 (a resolved publish holds its own document under a full peer overwrite), AC-3 (a shorter peer overlay leaves no foreign tail), AC-4 (failure cleanup removes only the caller's own temp file) and AC-7 (the backup parses whole under an interposed peer overlay of a different length). Every assertion must fail against HEAD, and the task records which signature each one produced.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+          "expected_exit": 1,
+          "stdout_regex": "fail 5"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+        "windows": "cd server && npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+        "cwd": "server"
+      },
+      "dod": [
+        "The suite exists and runs.",
+        "All five assertions fail against unmodified HEAD, and the run reports exactly 5 failures, not merely a non-zero exit.",
+        "Each failure's captured message is saved as red evidence.",
+        "No production file is modified by this task.",
+        "Every patched fs property is restored in a finally block and a closing assertion checks the original function identities are back."
+      ],
+      "rollback": "Delete the test file. No production code is touched.",
+      "trace_links": [
+        {
+          "link_id": "TL-001",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-022"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-7"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC1-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "two instances publishing concurrently both resolve",
+            "kind": "unit",
+            "expected_failure_signature": "ENOENT"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC2-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "a resolved publish holds the document it wrote",
+            "kind": "unit",
+            "expected_failure_signature": "B-change"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC3-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "a shorter peer overlay leaves no foreign tail",
+            "kind": "unit",
+            "expected_failure_signature": "Unexpected (token|non-whitespace)"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC4-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "failure cleanup removes only the caller's own temp file",
+            "kind": "unit",
+            "expected_failure_signature": "ENOENT"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC7-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "the backup parses whole under an interposed peer overlay",
+            "kind": "unit",
+            "expected_failure_signature": "Unexpected (token|non-whitespace)"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "title": "GREEN: shared atomic store publish helper routed into CommandPresetService",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-022"
+      ],
+      "files": [
+        {
+          "path": "server/src/utils/atomicStoreWrite.ts"
+        },
+        {
+          "path": "server/src/services/CommandPresetService.ts",
+          "line_range": "261-290"
+        }
+      ],
+      "test_files": [
+        {
+          "path": "server/src/services/StorePublishCrossInstance.test.ts"
+        }
+      ],
+      "action": "Add publishJsonStoreAtomically(destPath, contents, options) in server/src/utils/atomicStoreWrite.ts. It names its temp file per instance as `${dest}.${process.pid}.${randomUUID()}.tmp`, publishes the backup through its own private temp file and rename rather than copyFile onto the shared .bak path, renames the payload temp file onto the destination, and on failure unlinks only the temp files it created. Options carry `writeBackup` (default true) and a `delay` seam reserved for PH-002. Route CommandPresetService.flushToDisk through it, preserving its AppError(CONFIG_PERSIST_FAILED) mapping.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+        "windows": "cd server && npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+        "cwd": "server"
+      },
+      "dod": [
+        "All five assertions from T-PH001-01 pass.",
+        "The temp file name contains the pid and a random component.",
+        "The backup is published by rename, not by copyFile onto a shared path.",
+        "Failure cleanup unlinks only paths this call created.",
+        "CommandPresetService still rejects with AppError(CONFIG_PERSIST_FAILED) on a genuine write failure, asserted rather than assumed."
+      ],
+      "rollback": "Revert CommandPresetService.flushToDisk and delete the helper. The store format is unchanged, so no migration is involved.",
+      "trace_links": [
+        {
+          "link_id": "TL-002",
+          "source": {
+            "type": "Task",
+            "id": "T-PH001-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-022"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [
+        "T-PH001-01"
+      ],
+      "covers_ac": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-4",
+        "AC-7"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC1-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-1"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "two instances publishing concurrently both resolve",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC2-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-2"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "a resolved publish holds the document it wrote",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC3-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-3"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "a shorter peer overlay leaves no foreign tail",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC4-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-4"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "failure cleanup removes only the caller's own temp file",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC7-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-7"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "the backup parses whole under an interposed peer overlay",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "title": "RED: rename retry attempt count, exact wait schedule, exhaustion and error selectivity",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-022"
+      ],
+      "files": [
+        {
+          "path": "server/src/utils/atomicStoreWrite.ts"
+        },
+        {
+          "path": "server/src/utils/atomicStoreWrite.test.ts"
+        }
+      ],
+      "test_files": [
+        {
+          "path": "server/src/utils/atomicStoreWrite.test.ts"
+        }
+      ],
+      "action": "Write a node:test suite injecting rename failures at the fs boundary and passing a recording delay function through the helper's options. Every assertion counts attempts, so none of them can pass against a helper that renames once. AC-5a: injected EPERM that clears on the fifth attempt resolves, attempts === 5, and the recorded waits equal exactly [10,20,40,80]. Against the post-PH-001 helper the recorder is never called and the array is empty, which fails — this is an ordinary RED against a not-yet-existing option, not an implementation-first test. AC-5b: EPERM on all five attempts rejects, attempts === 5, and the pre-existing destination is unchanged and still parses. AC-6: ENOSPC rejects with attempts === 1 and zero recorded waits. EACCES and EBUSY get the same treatment as EPERM.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/utils/atomicStoreWrite.test.ts",
+          "expected_exit": 1,
+          "stdout_regex": "fail 4"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx --test src/utils/atomicStoreWrite.test.ts",
+        "windows": "cd server && npx tsx --test src/utils/atomicStoreWrite.test.ts",
+        "cwd": "server"
+      },
+      "dod": [
+        "All four assertions fail before T-PH002-02, and the run reports exactly 4 failures.",
+        "Each assertion checks an attempt count, so none can pass vacuously against a single-rename helper.",
+        "The captured failure output is saved as red evidence.",
+        "Every patched fs property is restored in a finally block."
+      ],
+      "rollback": "Delete the test file.",
+      "trace_links": [
+        {
+          "link_id": "TL-003",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-022"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [
+        "T-PH001-02"
+      ],
+      "covers_ac": [
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC5-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/utils/atomicStoreWrite.test.ts",
+            "test_symbol": "a transient rename error is retried to five attempts",
+            "kind": "unit",
+            "expected_failure_signature": "expected 5 to equal 1"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC5-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/utils/atomicStoreWrite.test.ts",
+            "test_symbol": "the recorded waits are exactly 10, 20, 40 and 80 ms",
+            "kind": "unit",
+            "expected_failure_signature": "expected \\[\\] to deeply equal \\[ 10, 20, 40, 80 \\]"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC5-03",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/utils/atomicStoreWrite.test.ts",
+            "test_symbol": "an exhausted budget rejects after five attempts and leaves the destination intact",
+            "kind": "unit",
+            "expected_failure_signature": "expected 5 to equal 1"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC6-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/utils/atomicStoreWrite.test.ts",
+            "test_symbol": "ENOSPC rejects on the first attempt with zero recorded waits",
+            "kind": "unit",
+            "expected_failure_signature": "expected 1 to equal 5"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "title": "GREEN: bounded selective retry with an injectable delay",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-022"
+      ],
+      "files": [
+        {
+          "path": "server/src/utils/atomicStoreWrite.ts"
+        }
+      ],
+      "test_files": [
+        {
+          "path": "server/src/utils/atomicStoreWrite.test.ts"
+        }
+      ],
+      "action": "Add the retry to the helper's rename step: one initial attempt plus four retries, only for EPERM, EACCES and EBUSY, waiting 10, 20, 40 and 80 ms through the injectable delay that defaults to a real timer. Any other errno rejects on the first attempt. An exhausted budget rejects with the last error and leaves the destination untouched.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/utils/atomicStoreWrite.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx --test src/utils/atomicStoreWrite.test.ts",
+        "windows": "cd server && npx tsx --test src/utils/atomicStoreWrite.test.ts",
+        "cwd": "server"
+      },
+      "dod": [
+        "All four assertions from T-PH002-01 pass.",
+        "The retry fires only for EPERM, EACCES and EBUSY.",
+        "The delay is injectable and defaults to a real timer.",
+        "The waits are exactly 10, 20, 40 and 80 ms."
+      ],
+      "rollback": "Remove the retry wrapper, leaving the single rename from PH-001.",
+      "trace_links": [
+        {
+          "link_id": "TL-004",
+          "source": {
+            "type": "Task",
+            "id": "T-PH002-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-022"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": [
+        "T-PH002-01"
+      ],
+      "covers_ac": [
+        "AC-5",
+        "AC-6"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC5-04",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/utils/atomicStoreWrite.test.ts",
+            "test_symbol": "a transient rename error is retried to five attempts",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC5-05",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/utils/atomicStoreWrite.test.ts",
+            "test_symbol": "the recorded waits are exactly 10, 20, 40 and 80 ms",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC5-06",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-5"
+            ],
+            "test_file": "server/src/utils/atomicStoreWrite.test.ts",
+            "test_symbol": "an exhausted budget rejects after five attempts and leaves the destination intact",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC6-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-6"
+            ],
+            "test_file": "server/src/utils/atomicStoreWrite.test.ts",
+            "test_symbol": "ENOSPC rejects on the first attempt with zero recorded waits",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "title": "RED: every in-scope store publishes safely, error mapping preserved, REL-BGSTAB-020 intact",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-022"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "1726-1755"
+        },
+        {
+          "path": "server/src/services/TerminalShortcutService.ts",
+          "line_range": "528-552"
+        },
+        {
+          "path": "server/src/services/RecoveryOptionService.ts",
+          "line_range": "410-437"
+        },
+        {
+          "path": "server/src/services/AgentLifecycleService.ts",
+          "line_range": "106-113"
+        },
+        {
+          "path": "server/src/services/McpControlConfigStore.ts",
+          "line_range": "57-79"
+        },
+        {
+          "path": "server/src/services/WebhookInvocationService.ts",
+          "line_range": "425-438"
+        },
+        {
+          "path": "server/src/services/StorePublishCrossInstance.test.ts"
+        }
+      ],
+      "test_files": [
+        {
+          "path": "server/src/services/StorePublishCrossInstance.test.ts"
+        }
+      ],
+      "action": "Extend the cross-instance suite with a table covering all seven JSON stores, satisfying AC-8. AC-7 is conditional on a publish that writes a backup, so McpControlConfigStore and WebhookInvocationService, which write none today and are not given one, are marked backup-exempt in the table with that clause as the justification — their row asserts the absence rather than skipping silently. Add the error-mapping case: each converted store still rejects with the error type it rejected with before, which routing through one helper would otherwise homogenise (WorkspaceService rethrows raw; the other three wrap in AppError). Add the AC-9 control: two overlapping publishes through one single instance, each caller's own change readable from disk after its call resolves, which is REL-BGSTAB-020's contract and must pass both before and after conversion.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+          "expected_exit": 1,
+          "stdout_regex": "fail [1-9]"
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+        "windows": "cd server && npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+        "cwd": "server"
+      },
+      "dod": [
+        "All seven stores appear in the table, with the two backup-exempt rows justified by AC-7's own conditional clause.",
+        "The six stores not yet converted fail.",
+        "The error-mapping case fails for any store whose rejection type would change.",
+        "The AC-9 single-instance control passes both before and after conversion, and is run before conversion to prove it."
+      ],
+      "rollback": "Remove the table-driven cases from the suite.",
+      "trace_links": [
+        {
+          "link_id": "TL-005",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-022"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [
+        "T-PH002-02"
+      ],
+      "covers_ac": [
+        "AC-8",
+        "AC-9"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "red",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC8-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "each of the seven stores satisfies AC-1 through AC-7",
+            "kind": "unit",
+            "expected_failure_signature": "ENOENT|Unexpected"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC8-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-8",
+              "AC-7"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "the agent-profile store publishes through a temp file, a backup and a rename",
+            "kind": "unit",
+            "expected_failure_signature": "ENOENT|no such file"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC8-03",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "each converted store preserves the error type it rejected with before",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC9-01",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "overlapping publishes through one instance each reach disk",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "title": "GREEN: route all seven stores through the helper",
+      "type": "code",
+      "req_ids": [
+        "REL-BGSTAB-022"
+      ],
+      "files": [
+        {
+          "path": "server/src/services/WorkspaceService.ts",
+          "line_range": "1726-1755"
+        },
+        {
+          "path": "server/src/services/TerminalShortcutService.ts",
+          "line_range": "528-552"
+        },
+        {
+          "path": "server/src/services/RecoveryOptionService.ts",
+          "line_range": "410-437"
+        },
+        {
+          "path": "server/src/services/AgentLifecycleService.ts",
+          "line_range": "106-113"
+        },
+        {
+          "path": "server/src/services/McpControlConfigStore.ts",
+          "line_range": "57-79"
+        },
+        {
+          "path": "server/src/services/WebhookInvocationService.ts",
+          "line_range": "425-438"
+        }
+      ],
+      "test_files": [
+        {
+          "path": "server/src/services/StorePublishCrossInstance.test.ts"
+        }
+      ],
+      "action": "Replace each store's publish body with a helper call. WorkspaceService, TerminalShortcutService and RecoveryOptionService keep their existing error mapping exactly, and RecoveryOptionService keeps its preserveExistingBackup carve-out by passing writeBackup:false on its recovery paths. AgentLifecycleService gains the full sequence including a backup. McpControlConfigStore and WebhookInvocationService pass writeBackup:false, keeping today's behaviour, and gain the retry. No store's in-process mutation chain or flush chain is touched.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+          "expected_exit": 0
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+        "windows": "cd server && npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+        "cwd": "server"
+      },
+      "dod": [
+        "All seven stores pass the table.",
+        "No store's in-process mutation or flush chain was changed.",
+        "RecoveryOptionService still skips the backup on its recovery paths.",
+        "AgentLifecycleService now writes a temp file, a backup and a rename.",
+        "Each store rejects with the same error type as before, asserted by the error-mapping case."
+      ],
+      "rollback": "Revert each store's publish body. The on-disk format is unchanged for six of seven; the agent-profile store gains a .bak file that older code ignores.",
+      "trace_links": [
+        {
+          "link_id": "TL-006",
+          "source": {
+            "type": "Task",
+            "id": "T-PH003-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-022"
+          },
+          "relation": "depends_on",
+          "trace_intent": "addition_site"
+        }
+      ],
+      "estimated_effort": "L",
+      "depends_on_task": [
+        "T-PH003-01"
+      ],
+      "covers_ac": [
+        "AC-8",
+        "AC-9"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC8-04",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "each of the seven stores satisfies AC-1 through AC-7",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC8-05",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-8",
+              "AC-7"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "the agent-profile store publishes through a temp file, a backup and a rename",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC8-06",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-8"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "each converted store preserves the error type it rejected with before",
+            "kind": "unit"
+          },
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC9-02",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "overlapping publishes through one instance each reach disk",
+            "kind": "unit"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "title": "Baseline-differenced regression run and raw evidence capture",
+      "type": "infra",
+      "req_ids": [
+        "REL-BGSTAB-022"
+      ],
+      "files": [
+        {
+          "path": "server/src/test-runner.ts"
+        }
+      ],
+      "test_files": [],
+      "action": "Before PH-001 begins, record the set of failing test names at HEAD for the monolithic runner and for every node:test file touching these services, and save it as the baseline. After PH-003, run the same set and compare failing-name sets. Acceptance is set equality against the baseline, not an exit code: a run that fails only for the recorded Linux/WSL2 baseline reasons and a run that additionally fails because a store broke both exit non-zero, so an exit code cannot tell them apart. Save every run under its own timestamped filename without overwriting, and write SHA256SUMS.txt last.",
+      "acceptance_tests": [
+        {
+          "kind": "shell",
+          "cmd": "node tools/issue24-regression-diff.mjs --baseline docs/analysis/2026-09-16.issue24-store-publish/raw/baseline.json --after docs/analysis/2026-09-16.issue24-store-publish/raw/after.json",
+          "expected_exit": 0,
+          "stdout_regex": "no new failures"
+        },
+        {
+          "kind": "file_state",
+          "path": "docs/analysis/2026-09-16.issue24-store-publish/SHA256SUMS.txt",
+          "exists": true
+        }
+      ],
+      "verification_cmd": {
+        "posix": "cd server && npx tsx src/test-runner.ts",
+        "windows": "cd server && npx tsx src/test-runner.ts",
+        "cwd": "server"
+      },
+      "dod": [
+        "A baseline failing-name set was captured at HEAD before any production change.",
+        "The post-change failing-name set is compared to it by name, and the comparison reports no new failures.",
+        "Every run is saved under its own timestamped filename; none is overwritten.",
+        "SHA256SUMS.txt is recalculated last and matches the hashes quoted in the report.",
+        "A nested .gitignore admits raw/*.log past the root *.log rule."
+      ],
+      "rollback": "Delete the evidence directory and the diff script. Neither is production code.",
+      "trace_links": [
+        {
+          "link_id": "TL-007",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-01"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-022"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "M",
+      "depends_on_task": [
+        "T-PH003-02"
+      ],
+      "covers_ac": [
+        "AC-9"
+      ],
+      "tdd": {
+        "applicable": true,
+        "phase": "green",
+        "test_cases": [
+          {
+            "id": "TC-REQ-REL-BGSTAB-022-AC9-03",
+            "req_id": "REL-BGSTAB-022",
+            "ac_refs": [
+              "AC-9"
+            ],
+            "test_file": "server/src/services/StorePublishCrossInstance.test.ts",
+            "test_symbol": "the post-change failing set equals the recorded baseline failing set",
+            "kind": "integration"
+          }
+        ],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    },
+    {
+      "id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "title": "Worklog entry and completion report",
+      "type": "doc",
+      "req_ids": [
+        "REL-BGSTAB-022"
+      ],
+      "files": [
+        {
+          "path": "docs/worklog/2026-09-16.jsonl"
+        }
+      ],
+      "test_files": [],
+      "action": "Append the worklog entry with tools/worklog.mjs and write the completion report at docs/report/2026-09-16.issue24-store-publish-race.md covering the issue, the decision and every rejected alternative with its reason, the RED evidence and the exact failure each assertion produced, the commands with cwd and env, the raw evidence paths with their SHA256, and the platform limitation on the Windows EPERM branch.",
+      "acceptance_tests": [
+        {
+          "kind": "file_state",
+          "path": "docs/report/2026-09-16.issue24-store-publish-race.md",
+          "exists": true
+        },
+        {
+          "kind": "checklist",
+          "items": [
+            "The report has a section naming the decision and one naming each rejected alternative with its reason.",
+            "The report states which assertion covers which acceptance criterion by number.",
+            "The report states plainly that the Windows EPERM path is injected, not natively reproduced.",
+            "Every SHA256 quoted in the report matches the corresponding line in SHA256SUMS.txt.",
+            "No password, token or key appears in the report or the worklog line."
+          ]
+        }
+      ],
+      "verification_cmd": null,
+      "dod": [
+        "The worklog line parses as JSON.",
+        "The report exists and every checklist item above is satisfiable by reading it.",
+        "The quoted hashes match SHA256SUMS.txt byte for byte."
+      ],
+      "rollback": "Remove the report file and the appended worklog line.",
+      "trace_links": [
+        {
+          "link_id": "TL-008",
+          "source": {
+            "type": "Task",
+            "id": "T-PH004-02"
+          },
+          "target": {
+            "type": "Requirement",
+            "reference": "REL-BGSTAB-022"
+          },
+          "relation": "depends_on",
+          "trace_intent": "verifies"
+        }
+      ],
+      "estimated_effort": "S",
+      "depends_on_task": [
+        "T-PH004-01"
+      ],
+      "covers_ac": [],
+      "tdd": {
+        "applicable": false,
+        "phase": "n/a",
+        "exempt_reason": "Documentation task. The worklog line and the report are prose artifacts with no runtime behaviour; their acceptance is a file-state check and an item-by-item checklist, not an automated test.",
+        "test_cases": [],
+        "red_evidence": null,
+        "green_evidence": null
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "req_id": "REL-BGSTAB-022",
+      "stability": "evolving",
+      "ac_total": 9,
+      "ac_covered": 9,
+      "missing_ac_ids": [],
+      "covered_tasks": [
+        "T-PH001-01",
+        "T-PH001-02",
+        "T-PH002-01",
+        "T-PH002-02",
+        "T-PH003-01",
+        "T-PH003-02",
+        "T-PH004-01",
+        "T-PH004-02"
+      ],
+      "ac_test_map": [
+        {
+          "ac_id": "AC-1",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC1-01",
+            "TC-REQ-REL-BGSTAB-022-AC1-02"
+          ]
+        },
+        {
+          "ac_id": "AC-2",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC2-01",
+            "TC-REQ-REL-BGSTAB-022-AC2-02"
+          ]
+        },
+        {
+          "ac_id": "AC-3",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC3-01",
+            "TC-REQ-REL-BGSTAB-022-AC3-02"
+          ]
+        },
+        {
+          "ac_id": "AC-4",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC4-01",
+            "TC-REQ-REL-BGSTAB-022-AC4-02"
+          ]
+        },
+        {
+          "ac_id": "AC-5",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC5-01",
+            "TC-REQ-REL-BGSTAB-022-AC5-02",
+            "TC-REQ-REL-BGSTAB-022-AC5-03",
+            "TC-REQ-REL-BGSTAB-022-AC5-04",
+            "TC-REQ-REL-BGSTAB-022-AC5-05",
+            "TC-REQ-REL-BGSTAB-022-AC5-06"
+          ]
+        },
+        {
+          "ac_id": "AC-6",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC6-01",
+            "TC-REQ-REL-BGSTAB-022-AC6-02"
+          ]
+        },
+        {
+          "ac_id": "AC-7",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC7-01",
+            "TC-REQ-REL-BGSTAB-022-AC7-02",
+            "TC-REQ-REL-BGSTAB-022-AC8-02",
+            "TC-REQ-REL-BGSTAB-022-AC8-05"
+          ]
+        },
+        {
+          "ac_id": "AC-8",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC8-01",
+            "TC-REQ-REL-BGSTAB-022-AC8-02",
+            "TC-REQ-REL-BGSTAB-022-AC8-03",
+            "TC-REQ-REL-BGSTAB-022-AC8-04",
+            "TC-REQ-REL-BGSTAB-022-AC8-05",
+            "TC-REQ-REL-BGSTAB-022-AC8-06"
+          ]
+        },
+        {
+          "ac_id": "AC-9",
+          "test_case_ids": [
+            "TC-REQ-REL-BGSTAB-022-AC9-01",
+            "TC-REQ-REL-BGSTAB-022-AC9-02",
+            "TC-REQ-REL-BGSTAB-022-AC9-03"
+          ]
+        }
+      ]
+    }
+  ],
+  "orphans": [],
+  "unreferenced_reqs": [],
+  "excluded_reqs": [],
+  "deferred_ac": [],
+  "risks": [
+    {
+      "id": "RISK-01",
+      "severity": "med",
+      "description": "The suites patch properties on the shared fs/promises module object. A test that fails to restore them corrupts sibling tests in the same file, and CLAUDE.md records that these suites spawn one another.",
+      "mitigation": "Every patch is installed and removed inside try/finally, and each file ends with an assertion that the original function identities are back in place.",
+      "affected_task_ids": [
+        "T-PH001-01",
+        "T-PH002-01",
+        "T-PH003-01"
+      ]
+    },
+    {
+      "id": "RISK-02",
+      "severity": "low",
+      "description": "AC-5 and AC-6 concern EPERM, EACCES and EBUSY, which are Windows rename semantics. This host is Linux/WSL2 and cannot produce them natively, so they are injected at the fs boundary. That is weaker evidence than a native reproduction and a Windows run remains the stronger check.",
+      "mitigation": "Injection is declared in the requirement's Verification Method and repeated in the completion report. The tests still pin the exact attempt count and wait schedule, so they constrain the implementation tightly; what they cannot do is prove the real Windows error arrives. An earlier draft of this plan also claimed the wait schedule could not be tested RED-first; that was wrong — a recording delay passed through the helper's options is never called by the pre-retry helper, so the assertion fails, and the plan now uses that.",
+      "affected_task_ids": [
+        "T-PH002-01",
+        "T-PH002-02"
+      ]
+    },
+    {
+      "id": "RISK-03",
+      "severity": "low",
+      "description": "The agent-profile store gains a .bak file it never had.",
+      "mitigation": "server/data/ already holds .bak files for three other stores, so the directory shape is unchanged in kind. Noted in the report rather than gated.",
+      "affected_task_ids": [
+        "T-PH003-02"
+      ]
+    },
+    {
+      "id": "RISK-04",
+      "severity": "low",
+      "description": "WorkspaceService takes no dataPath constructor option, so its fixture must set the private field.",
+      "mitigation": "Follow WorkspaceServiceFlushConcurrency.test.ts:38, including its assertion that the override took effect so the test cannot pass vacuously.",
+      "affected_task_ids": [
+        "T-PH003-01"
+      ]
+    },
+    {
+      "id": "RISK-05",
+      "severity": "med",
+      "description": "Routing five call sites through one helper can silently homogenise their error types. WorkspaceService rethrows the raw error while CommandPresetService, TerminalShortcutService and RecoveryOptionService wrap it in AppError(CONFIG_PERSIST_FAILED); a caller that discriminates on type would break without any test noticing.",
+      "mitigation": "T-PH003-01 adds an error-mapping case asserting each store still rejects with the type it rejected with before, and T-PH003-02's dod requires it to pass.",
+      "affected_task_ids": [
+        "T-PH003-01",
+        "T-PH003-02"
+      ]
+    }
+  ],
+  "open_questions": [],
+  "external_module_impact": [],
+  "tdd_decisions": [
+    {
+      "task_id": "T-PH004-02",
+      "decision": "accept-as-exempt",
+      "reason": "Documentation task. The worklog line and the report are prose artifacts with no runtime behaviour; their acceptance is a file-state check and an item-by-item checklist, not an automated test.",
+      "user_decision_id": "auto-delegated-2026-09-16",
+      "decided_at": "2026-09-15T22:09:33Z"
+    }
+  ],
+  "coder_handoff_readiness": [
+    {
+      "phase_id": "PH-001",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-002",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-003",
+      "ready": true,
+      "blockers": []
+    },
+    {
+      "phase_id": "PH-004",
+      "ready": true,
+      "blockers": []
+    }
+  ],
+  "mcp_call_log": [
+    {
+      "seq": 1,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-022"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "56bd35da723980724866c7d052b4a1fd7d967217",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    },
+    {
+      "seq": 2,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH001-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-022"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "776a33832de16a6357d6c4e5c129550b08ce2be3",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    },
+    {
+      "seq": 3,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-022"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "c4e65cd94f528d8420b988e666c95d17d32402a0",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    },
+    {
+      "seq": 4,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH002-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-022"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "af399318c1b81eff97ee8c616f17d18e365afc38",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    },
+    {
+      "seq": 5,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-022"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "3df83be0e14639dfcdfa480142b653e0c5aca788",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    },
+    {
+      "seq": 6,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH003-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-022"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "83788e4cda964bec9ddf9435f49d6c6e699ff6f6",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    },
+    {
+      "seq": 7,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-01"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-022"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "db2e900ce4167623115dee4847478e7e8d10626b",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    },
+    {
+      "seq": 8,
+      "call": "add_trace_link",
+      "args": {
+        "source": {
+          "type": "Task",
+          "id": "T-PH004-02"
+        },
+        "target": {
+          "type": "Requirement",
+          "reference": "REL-BGSTAB-022"
+        },
+        "relation": "depends_on"
+      },
+      "args_hash": "5d6f748611f8ed99e17db784dc18ae5d82fe3c26",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    },
+    {
+      "seq": 9,
+      "call": "add_verification_evidence",
+      "args": {
+        "id": "REL-BGSTAB-022",
+        "type": "plan",
+        "reference": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md#T-PH001-02"
+      },
+      "args_hash": "0f7d288e9a1744a129e8d95e8f59281c80f0f5d8",
+      "response_hash": null,
+      "timestamp": "2026-09-15T22:09:33Z",
+      "ok": null
+    }
+  ]
+}

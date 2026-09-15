@@ -1,0 +1,16 @@
+{
+  "node": "v24.21.0",
+  "platform": "linux",
+  "shortBytes": 423,
+  "longBytes": 60023,
+  "publisher": {
+    "published": 4000,
+    "torn": 669,
+    "overlayMatch": 667,
+    "other": 2,
+    "otherLens": [
+      4096,
+      0
+    ]
+  }
+}
