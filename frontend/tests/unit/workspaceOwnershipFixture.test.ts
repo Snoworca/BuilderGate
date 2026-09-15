@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import ts from 'typescript';
@@ -108,6 +108,40 @@ for (const kind of ['failed', 'malformed', 'service-worker', 'route-fulfilled', 
       assert.deepEqual(state.deletes, []); assert.deepEqual(await readdir(join(o.registryPath, 'records')), []);
       await tracker.dispose().catch(() => undefined);
       for (const event of ['request', 'response', 'requestfinished', 'requestfailed']) assert.equal(context.listenerCount(event), 0);
+    });
+  });
+}
+
+// REL-BGSTAB-001 AC-4: Chromium reports an IPv6 peer through CDP as the bracketed
+// literal '[::1]', while isLoopbackIp() is written for Node's socket.remoteAddress,
+// which is bare '::1'. The live 2222 runtime binds dual-stack and the browser reaches
+// it over ::1, so without normalising the bracket form the fixture rejects genuine
+// loopback traffic as unproven and no UI creation is ever owned.
+for (const ipAddress of ['[::1]', '::1', '::ffff:127.0.0.1', '127.0.0.1'] as const) {
+  test(`REL001 bracketed and bare loopback peer ${ipAddress} proves live traffic`, async () => {
+    const { api } = load();
+    await setup(async (o, state) => {
+      const context = new EventEmitter(); const tracker = api.attachWorkspaceOwnership(context, o, 'owner');
+      emit(context, exchange('x', { serverAddr: async () => ({ ipAddress, port: 2222 }) }));
+      await tracker.drain();
+      assert.deepEqual(await readdir(join(o.registryPath, 'records')), [createHash('sha256').update('x').digest('hex') + '.json']);
+      assert.deepEqual((await tracker.cleanup()).deleted, ['x']);
+      assert.deepEqual(state.deletes, ['x']);
+      await tracker.dispose();
+    });
+  });
+}
+
+// Bracket stripping must not widen the accepted set beyond loopback.
+for (const ipAddress of ['[2001:db8::1]', '[::ffff:192.0.2.1]', '[]', '[::1', '::1]'] as const) {
+  test(`REL001 bracketed non-loopback peer ${ipAddress} never owns`, async () => {
+    const { api } = load();
+    await setup(async (o, state) => {
+      const context = new EventEmitter(); const tracker = api.attachWorkspaceOwnership(context, o, 'owner');
+      emit(context, exchange('x', { serverAddr: async () => ({ ipAddress, port: 2222 }) }));
+      await assert.rejects(tracker.drain()); await assert.rejects(tracker.cleanup());
+      assert.deepEqual(state.deletes, []); assert.deepEqual(await readdir(join(o.registryPath, 'records')), []);
+      await tracker.dispose().catch(() => undefined);
     });
   });
 }
