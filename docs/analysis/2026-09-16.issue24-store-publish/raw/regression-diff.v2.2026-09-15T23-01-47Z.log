@@ -1,0 +1,8 @@
+files added since the baseline (2, not a problem): src/services/StorePublishCrossInstance.test.ts, src/utils/atomicStoreWrite.test.ts
+baseline files:   31
+after files:      33
+baseline failing: 17
+after failing:    16
+no longer failing (1):
+  src/services/TerminalResourcePolicy.test.ts :: OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers
+no new failures

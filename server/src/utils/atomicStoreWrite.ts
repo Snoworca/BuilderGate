@@ -111,6 +111,18 @@ async function renameWithRetry(
 }
 
 /**
+ * Removes `temp` from the owned list by value. Position is not assumed: a stale
+ * entry left here would make a later failure unlink a path this call no longer
+ * owns, which is the same class of bug as the shared temp path itself.
+ */
+function releaseOwnedTemp(ownedTemps: string[], temp: string): void {
+  const index = ownedTemps.indexOf(temp);
+  if (index !== -1) {
+    ownedTemps.splice(index, 1);
+  }
+}
+
+/**
  * Publishes `contents` at `destination`.
  *
  * The document is written to a temp path only this call knows, the previous
@@ -119,6 +131,10 @@ async function renameWithRetry(
  * failure only the temp files this call created are removed — never a path a
  * peer could also be using — and the original error is rethrown for the caller
  * to map.
+ *
+ * The backup is best-effort by design: if it cannot be written or published the
+ * failure is logged at warn level and the primary rename still runs, because
+ * that is the contract every store had before this helper existed.
  */
 export async function publishStoreAtomically(
   destination: string,
@@ -152,9 +168,39 @@ export async function publishStoreAtomically(
       if (previous !== null) {
         const backupTemp = privateTempPath(`${destination}.bak`);
         ownedTemps.push(backupTemp);
-        await fs.writeFile(backupTemp, previous, { encoding: 'utf-8', mode });
-        await renameWithRetry(backupTemp, `${destination}.bak`, delay);
-        ownedTemps.pop();
+        // The backup is optional; the publish is not. Every store used to do
+        // `try { await fs.copyFile(dest, bak); } catch {}`, so a backup failure
+        // could never stop the primary write, and that contract has to hold
+        // here too: on Windows a peer holding the `.bak` open in its own
+        // recoverFromBackup() fails this write or this rename while the primary
+        // rename would have succeeded, and losing the caller's change to that
+        // is strictly worse than losing the backup.
+        //
+        // What the old code's silence covered was "there is no file to back
+        // up", which is the `previous === null` branch above. A backup that was
+        // attempted and failed is a different event and is reported.
+        try {
+          await fs.writeFile(backupTemp, previous, { encoding: 'utf-8', mode });
+          await renameWithRetry(backupTemp, `${destination}.bak`, delay);
+          // Published: the temp path no longer names a file this call owns, so
+          // a later failure must not unlink whatever now sits there.
+          releaseOwnedTemp(ownedTemps, backupTemp);
+        } catch (backupError) {
+          // Same reasoning in the other direction — drop it from the list and
+          // clean it up here, so the primary publish's own failure path cannot
+          // unlink a path this call has already dealt with.
+          releaseOwnedTemp(ownedTemps, backupTemp);
+          try {
+            await fs.unlink(backupTemp);
+          } catch {
+            // Never created, or already gone.
+          }
+          console.warn(
+            `[atomicStoreWrite] Backup of ${destination} failed (${errnoOf(backupError) ?? 'no errno'}: ` +
+            `${backupError instanceof Error ? backupError.message : String(backupError)}); ` +
+            `publishing anyway. The previous document at ${destination}.bak may now be stale.`,
+          );
+        }
       }
     }
 

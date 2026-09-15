@@ -1,0 +1,224 @@
+{
+  "iteration": 3,
+  "worktree": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916",
+  "head_at_start": "99fb015",
+  "committed": false,
+  "scope": "issue #24 regression gate (tools/issue24-regression-diff.mjs, tools/issue24-capture-failing.mjs, tools/issue24-regression-diff.test.mjs) and server/src/services/StorePublishCrossInstance.test.ts",
+  "findings": [
+    {
+      "id": "FND-201",
+      "severity": "HIGH",
+      "title": "A gate test could not tell a refusal from a crash",
+      "verdict": "confirmed and fixed",
+      "analysis": "runDiff collapsed every non-zero outcome into {status, output}, so a crash inside the diff tool was indistinguishable from a deliberate refusal. Thirteen of the fourteen gate cases compensated by also asserting on the output; the missing-fileList case at :108-113 asserted only notEqual(status, 0) and stayed green when the whole diff tool was replaced with an immediate throw. Fixed as a class, not an instance: the helper itself now knows the complete set of banners the gate can refuse under and fails inside the helper when a non-zero exit carries none of them, so no future case can be written that mistakes a crash for a gate decision.",
+      "files_changed": [
+        {
+          "file": "tools/issue24-regression-diff.test.mjs",
+          "line_range": "50-81",
+          "change": "REFUSAL_BANNERS = ['GATE UNUSABLE', 'TEST COUNT DROPPED', 'NEW FAILURES']; runDiff asserts a non-zero exit announces one of them, otherwise assert.fail with the full output"
+        },
+        {
+          "file": "tools/issue24-regression-diff.test.mjs",
+          "line_range": "138-146",
+          "change": "missing-fileList case additionally asserts /GATE UNUSABLE/, /baseline: recorded no fileList/, and doesNotMatch /no new failures/"
+        }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_evidence": "crash injection rather than a source regression: the defect was the absence of a discrimination, so the measurement is the mutation it failed to catch (see crash_injection below)"
+      },
+      "crash_injection": {
+        "mutation": "tools/issue24-regression-diff.mjs replaced in full with `#!/usr/bin/env node\\nthrow new Error(\"injected crash\");`",
+        "before_fix": "13 of 14 gate cases red, the missing-fileList case green (reported in the round-3 review)",
+        "after_fix": "tests 26 | pass 8 | fail 18",
+        "survivors": [
+          "issue #24 capture: a child killed by the timeout is recorded as errored even with partial output",
+          "issue #24 capture: an ordinary failing run is not recorded as a harness error",
+          "issue #24 capture: a child that produced no output at all is recorded as errored",
+          "issue #24 capture: the per-file summary counts are parsed out of node:test output",
+          "issue #24 capture: output with no summary at all parses as unknown, not as zero",
+          "issue #24 capture: a partial summary is unknown rather than a count of zero",
+          "issue #24 capture: a truncated later summary does not borrow counts from an earlier one",
+          "issue #24 capture: output whose only summary block is truncated parses as unknown"
+        ],
+        "survivor_count": 8,
+        "survivors_explained": "all eight are pure-function cases over describeChildFailure/parseFileSummary that never spawn the diff tool, so they are correctly unaffected by it. Every one of the 18 cases that does invoke the diff tool now fails under the injection; none survives.",
+        "tool_restored": true
+      }
+    },
+    {
+      "id": "FND-203",
+      "severity": "MEDIUM",
+      "title": "parseFileSummary composed a record out of two different runs",
+      "verdict": "confirmed and fixed",
+      "analysis": "The three labels were read independently, each taking its own last occurrence. When the output carried two summary blocks and the later one was truncated, the returned triple belonged to no single run: `tests 5 / pass 5 / fail 3` followed by `tests 9 / pass 8` yielded {tests: 9, pass: 8, fail: 3}, whose pass+fail does not even reach its own tests count. The diff compares baseline against after on `tests`, so a fabricated count either hides a real drop or invents one.",
+      "files_changed": [
+        {
+          "file": "tools/issue24-capture-failing.mjs",
+          "line_range": "60-100",
+          "change": "contiguous runs of `ℹ <label> <number>` lines are grouped into blocks; the last block carrying all three of tests/pass/fail is returned as a unit, and null when no complete block exists. Last-wins now applies only within one block, where a repeated label is the same run restating itself."
+        },
+        {
+          "file": "tools/issue24-regression-diff.test.mjs",
+          "line_range": "255-285",
+          "change": "two new cases: a complete block followed by a truncated one must return the complete one; output whose only block is truncated must parse as null"
+        }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_messages": [
+          "✖ issue #24 capture: a truncated later summary does not borrow counts from an earlier one — AssertionError: actual { tests: 9, pass: 8, fail: 3 }, expected { tests: 5, pass: 5, fail: 3 }"
+        ]
+      }
+    },
+    {
+      "id": "FND-204",
+      "severity": "MEDIUM",
+      "title": "The count-drop message stated a conclusion the tool cannot reach",
+      "verdict": "confirmed and fixed",
+      "analysis": "A file split in two, or a parameterised set deliberately reduced, trips the count-drop rule legitimately. Failing closed is correct, but the message asserted the suite 'stopped registering tests' — which the tool cannot know from two numbers — offered no next step, and shared the GATE UNUSABLE banner with structurally broken captures, so an operator could not tell a broken capture from a deliberate change to their own tests.",
+      "files_changed": [
+        {
+          "file": "tools/issue24-regression-diff.mjs",
+          "line_range": "31-38",
+          "change": "countDrops kept separate from problems, with a comment stating why the two are not the same kind of refusal"
+        },
+        {
+          "file": "tools/issue24-regression-diff.mjs",
+          "line_range": "107-118",
+          "change": "drop entries reworded to the observation only: '<file> ran N test(s) at baseline and M now'"
+        },
+        {
+          "file": "tools/issue24-regression-diff.mjs",
+          "line_range": "160-172",
+          "change": "new TEST COUNT DROPPED banner, distinct from GATE UNUSABLE, stating why it blocks the comparison (the diff can only see cases that ran) and what to do if the drop is intentional (re-take the baseline against a tree containing the change); exit condition now includes countDrops"
+        },
+        {
+          "file": "tools/issue24-regression-diff.test.mjs",
+          "line_range": "318-336",
+          "change": "count-drop case strengthened, not weakened: was GATE UNUSABLE + filename; now asserts TEST COUNT DROPPED, doesNotMatch GATE UNUSABLE, the exact observed counts '4 test(s) at baseline and 0 now', the why-it-blocks clause, the operator next step, doesNotMatch /stopped registering tests/, and doesNotMatch /no new failures/"
+        }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_messages": [
+          "✖ issue #24 gate: a file whose test count dropped fails the gate — AssertionError: The input did not match the regular expression /TEST COUNT DROPPED/. Input: '…GATE UNUSABLE (1):\\n  1 file(s) registered fewer tests than the baseline, so cases that used to run no longer do:\\n    src/utils/B.test.ts: 4 -> 0 test(s)\\n'"
+        ]
+      }
+    },
+    {
+      "id": "FND-205",
+      "severity": "LOW",
+      "title": "Nothing asserted UNVERIFIED DIMENSION is absent when both captures carry counts",
+      "verdict": "confirmed and fixed",
+      "analysis": "The legacy-capture case asserted the banner is present; no case asserted it is absent, so a change that emitted it unconditionally would have been invisible and the banner would have stopped meaning anything.",
+      "files_changed": [
+        {
+          "file": "tools/issue24-regression-diff.test.mjs",
+          "line_range": "355-364",
+          "change": "the count-rise case (both sides carry perFileCounts) additionally asserts doesNotMatch /UNVERIFIED DIMENSION/"
+        }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": false,
+        "red_evidence": "green on first run, as expected for a missing-negative-assertion finding: the production behaviour was already correct and the gap was in coverage. Non-vacuity rests on the sibling case at the end of the file, which asserts the same banner is present for legacy captures, so the two cases pin both directions."
+      }
+    },
+    {
+      "id": "FND-206",
+      "severity": "LOW",
+      "title": "The destination-survival assertion reduced to null === null on every row",
+      "verdict": "confirmed and fixed",
+      "decision": "made it assert something rather than removing it",
+      "analysis": "AC-8 published into a freshly created empty directory, so `before` was null for all seven stores and the closing assert.equal(after, before) compared null to null. It was not redundant — no other case in the file asserts that a failed publish leaves an existing document intact — it was merely vacuous, so the fix is to give it a real previous document rather than to delete the intent. The destination is now seeded through the store's own publish path (the same technique the AC already uses at :468 for its backup fixture, so the fixture cannot invent a shape the store would reject on load), and an explicit notEqual(before, null) keeps the row from silently going vacuous again.",
+      "files_changed": [
+        {
+          "file": "server/src/services/StorePublishCrossInstance.test.ts",
+          "line_range": "571-584",
+          "change": "seeding publish with marker 'previous' before the failing publish, plus assert.notEqual(before, null) guarding the closing comparison against vacuity"
+        }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_evidence": "non-vacuity measured by mutation: with the patched rename additionally doing `await fs.rm(dataFile, { force: true })` before throwing, the suite goes red — 'tests 8 | pass 7 | fail 1', AssertionError 'command-presets: a publish that could not complete must leave the destination as it was'. Under the old null === null form that same mutation left every row green. Mutation reverted."
+      }
+    },
+    {
+      "id": "FND-207",
+      "severity": "LOW",
+      "title": "The gate suite never removed its temp directory",
+      "verdict": "confirmed and fixed",
+      "files_changed": [
+        {
+          "file": "tools/issue24-regression-diff.test.mjs",
+          "line_range": "46-48",
+          "change": "node:test `after` hook rms the mkdtemp directory recursively"
+        }
+      ],
+      "tdd": {
+        "test_written_first": false,
+        "red_observed": false,
+        "red_evidence": "housekeeping, not behaviour. Verified by measurement instead: /tmp/issue24-diff-* count before a full run = 17, after = 17, so the suite now leaves nothing behind. The 17 are residue from rounds 1-2, left in place because they are outside this worktree and may belong to other agents."
+      }
+    }
+  ],
+  "verification": {
+    "gate_unit": {
+      "command": "node --test tools/issue24-regression-diff.test.mjs",
+      "cwd": "repo root",
+      "before_fix": "tests 26 | pass 24 | fail 2",
+      "after_fix": "tests 26 | suites 0 | pass 26 | fail 0 | cancelled 0 | skipped 0 | todo 0",
+      "result": "PASS"
+    },
+    "atomic_store_write": {
+      "command": "npx tsx --test src/utils/atomicStoreWrite.test.ts",
+      "cwd": "server",
+      "after_fix": "tests 10 | suites 0 | pass 10 | fail 0 | cancelled 0 | skipped 0 | todo 0",
+      "result": "PASS"
+    },
+    "store_publish_cross_instance": {
+      "command": "npx tsx --test src/services/StorePublishCrossInstance.test.ts",
+      "cwd": "server",
+      "after_fix": "tests 8 | suites 0 | pass 8 | fail 0 | cancelled 0 | skipped 0 | todo 0",
+      "result": "PASS"
+    },
+    "typecheck": {
+      "command": "npx tsc --noEmit -p tsconfig.json",
+      "cwd": "server",
+      "exit_code": 0,
+      "output": "",
+      "result": "PASS"
+    },
+    "recorded_captures": {
+      "command": "node tools/issue24-regression-diff.mjs --baseline docs/analysis/2026-09-16.issue24-store-publish/raw/baseline.v3.json --after docs/analysis/2026-09-16.issue24-store-publish/raw/after.v3.json",
+      "cwd": "repo root",
+      "exit_code": 0,
+      "output": [
+        "files added since the baseline (2, not a problem): src/services/StorePublishCrossInstance.test.ts, src/utils/atomicStoreWrite.test.ts",
+        "baseline files:   31",
+        "after files:      33",
+        "baseline failing: 17",
+        "after failing:    16",
+        "no longer failing (1):",
+        "  src/services/TerminalResourcePolicy.test.ts :: OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers",
+        "no new failures"
+      ],
+      "note": "the v3 captures carry perFileCounts on both sides, so no UNVERIFIED DIMENSION line is printed and no count dropped"
+    },
+    "real_capture_invoked": false,
+    "servers_started": false,
+    "ports_touched": []
+  },
+  "constraints_honoured": {
+    "no_existing_assertion_weakened": true,
+    "no_real_capture_run_in_tests": true,
+    "no_commit": true,
+    "no_ai_signature": true,
+    "worktree_only": true
+  }
+}

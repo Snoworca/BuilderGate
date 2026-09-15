@@ -1,0 +1,152 @@
+{
+  "findings": [
+    {
+      "id": "FND-001",
+      "axis": "P2",
+      "severity": "CRITICAL",
+      "title": "A failed backup now aborts the primary publish; the old code swallowed every backup failure",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "140-161" },
+      "description": "Old bodies at CommandPresetService, WorkspaceService, TerminalShortcutService and RecoveryOptionService wrapped the backup in `try { await fs.copyFile(dataFilePath, bakPath); } catch { /* No existing file to backup. */ }` — the backup was best-effort by construction and ANY error was swallowed, after which `fs.rename(tmp, dest)` still ran and the primary store was updated. In the helper only the `fs.readFile(destination)` is inside a catch. `await fs.writeFile(backupTemp, ...)` (line 155) and `await renameWithRetry(backupTemp, `${destination}.bak`, delay)` (line 156) both propagate, so an error touching the OPTIONAL backup now aborts the REQUIRED primary write: control jumps to the catch at 162, the payload temp is unlinked, the destination is never updated, and the caller receives CONFIG_PERSIST_FAILED (or the raw error). The user's change is silently dropped even though the payload temp had been written successfully and the destination itself was free. This is worst on the exact platform and scenario the requirement targets: on Windows, a peer instance in the same checkout that has `command-presets.json.bak` open in `recoverFromBackup()` (CommandPresetService.ts:139-142, WorkspaceService.ts:180-188, TerminalShortcutService.ts:184, RecoveryOptionService.ts:194) causes `renameWithRetry` onto `.bak` to take EPERM, burn all five attempts, and throw. On POSIX a read-only or foreign-owned `.bak`, or ENOSPC while writing the backup copy, has the same effect. No test covers it: AC-4 and the AC-8 error-type table patch `rename` only when `String(to) === dataFile`, so every backup rename in the suite goes through the real one and always succeeds.",
+      "suggested_fix": "Wrap the whole backup block in its own try/catch that logs and continues (preserving the pre-change best-effort contract), removing the backup temp from `ownedTemps` on the way out; or make the abort-vs-continue choice an explicit option and default it to continue. Add a test that injects a failure on the `.bak` rename and asserts the primary publish still resolves and the destination holds the new document.",
+      "is_behavioral": true,
+      "tags": ["bug", "regression", "data-loss"]
+    },
+    {
+      "id": "FND-002",
+      "axis": "P7",
+      "severity": "CRITICAL",
+      "title": "The regression gate is falsely green when a capture run crashes or times out",
+      "location": { "file": "tools/issue24-regression-diff.mjs", "line_range": "19-32" },
+      "description": "issue24-capture-failing.mjs records a per-file harness failure into `harnessErrors` (capture:30) and still exits 0. issue24-regression-diff.mjs reads only `.failing` (line 19) and never looks at `harnessErrors`, `files`, or `capturedAt`. Consequence: a test file that hangs contributes ZERO failing names. Verified empirically — `execFileSync(..., {timeout})` on a hanging node:test child returns with `e.stdout` and `e.stderr` both EMPTY, so the file yields no `✖ <name>` lines at all; the same is true, without even the `harnessErrors` record, when a run is killed with partial buffered output (`if (!out.trim())` at capture:30 is false, so nothing is recorded anywhere). A store change that makes `WorkspaceService.test.ts` deadlock therefore produces `added.length === 0` and the tool prints 'no new failures' and exits 0. Additionally the tool never checks that baseline and after enumerated the same file set, so pointing the capture at the wrong `SERVER` path, or running it before the new test files exist, also yields a smaller `failing` set and a green verdict.",
+      "suggested_fix": "In the diff tool: read `harnessErrors` from both sides and exit non-zero if the after-run has any that the baseline did not; assert `after.files === before.files` (or report the delta) and exit non-zero on a shrink. In the capture tool: always record a harness error on a non-zero/killed child regardless of whether output was produced, and record the exit signal.",
+      "is_behavioral": true,
+      "tags": ["bug", "test-gate", "false-green"]
+    },
+    {
+      "id": "FND-003",
+      "axis": "P4",
+      "severity": "HIGH",
+      "title": "AC-8 error-type test never asserts the rejection is the injected error, so it passes on any failure",
+      "location": { "file": "server/src/services/StorePublishCrossInstance.test.ts", "line_range": "534-540" },
+      "description": "The test injects an EIO on `rename` onto `dataFile`, then only checks `rejection !== null` and the constructor name. For the four `rejectsWith: 'raw'` rows the assertion is `assert.notEqual(name, 'AppError')`, which is satisfied by literally any non-AppError throw — a TypeError from the fixture, an ENOENT because a directory was not created, a validation rejection from `saveConfig`, a bug in `loadStores()`. A store that never reached the rename at all still passes its row. The `AppError` rows are also weak: nothing asserts `ErrorCode.CONFIG_PERSIST_FAILED`, and nothing asserts the original EIO is preserved as a `cause` or logged. The test's own title claims it 'preserves the error type it rejected with before', which is stronger than what it checks.",
+      "suggested_fix": "Assert positively: for 'raw' rows `assert.equal((rejection as NodeJS.ErrnoException).code, 'EIO')`; for 'AppError' rows assert both the constructor name and `code === ErrorCode.CONFIG_PERSIST_FAILED`. Also assert the destination was not modified.",
+      "is_behavioral": false,
+      "tags": ["test-quality", "weak-assertion"]
+    },
+    {
+      "id": "FND-004",
+      "axis": "P2",
+      "severity": "HIGH",
+      "title": "AgentLifecycleService silently gains a .bak file, and the AC-8 table explicitly declines to assert it",
+      "location": { "file": "server/src/services/AgentLifecycleService.ts", "line_range": "107-115" },
+      "description": "The old flush was a bare `fs.writeFile(dataFilePath, ...)` with no backup. The new call passes only `{ ensureDirectory: true }`, so `writeBackup` takes its default of `true` and every flush now reads the whole store back and publishes a second copy at `server/data/agent-command-profiles.json.bak` — a file that did not previously exist on disk (confirmed: `server/data/` currently holds `.bak` for command-presets, terminal-shortcuts and workspaces but not for agent-command-profiles). Nothing in the change or the requirement asks for this store to acquire a backup; the commit message only says it gains 'temp, rename and backup', without anyone asserting the new artifact. It also means a second at-rest copy of the agent command profiles (the module that mints MCP capability tokens) and a read+write of the full document on every mutation where there was one write. The AC-8 table marks this row `writesBackup: true` but then discards the observation — `void backupExists;` at test line 501 — so NO row in the suite asserts that a backup is written for any store; only the two backup-less stores are checked, and only for absence. FND-001 compounds this: with `writeBackup: true` this store's publish can now also fail for a backup-only reason where before it could not.",
+      "suggested_fix": "Decide explicitly. If the backup is wanted, pass `writeBackup: true` at the call site so it is visible, and make the AC-8 row assert the `.bak` exists and parses after a second publish. If it is not wanted, pass `writeBackup: false` to keep the store's on-disk footprint unchanged.",
+      "is_behavioral": true,
+      "tags": ["regression", "unasserted-behaviour"]
+    },
+    {
+      "id": "FND-005",
+      "axis": "P3",
+      "severity": "MEDIUM",
+      "title": "Orphaned per-write temp files accumulate without bound and nothing sweeps them",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "80-82" },
+      "description": "The old fixed name `${dest}.tmp` was self-limiting: a crash between write and rename left exactly one stale file, which the next publish truncated and reused. `${dest}.${pid}.${uuid}.tmp` leaves a NEW orphan for every crash, SIGKILL, or hard power loss, and nothing in the diff or elsewhere in the repo sweeps `server/data/*.tmp`. Because `.gitignore:89` matches `*.tmp` globally these never appear in `git status`, so accumulation is invisible until someone lists the directory. The only cleanup is the in-process catch at lines 162-169, which by definition cannot run for an abnormal exit. The AC-5 'leaves no temp file behind' test only exercises the in-process path.",
+      "suggested_fix": "Sweep `${dirname}/${basename}.*.tmp` older than a few minutes on store initialize (each store already has an `initialize()`), or at least document the accumulation. A sweep is safe only against age, never against name, since a peer's in-flight temp must not be removed.",
+      "is_behavioral": true,
+      "tags": ["resource-leak"]
+    },
+    {
+      "id": "FND-006",
+      "axis": "P2",
+      "severity": "MEDIUM",
+      "title": "The backup is no longer a byte-exact copy: copyFile replaced by a utf-8 readFile/writeFile round trip",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "146-155" },
+      "description": "`fs.copyFile(dest, bak)` copied bytes and could use the kernel's copy path. The helper does `readFile(destination, 'utf-8')` then `writeFile(backupTemp, previous, 'utf-8')`. Any byte sequence in the destination that is not valid UTF-8 — the exact situation the backup exists to survive, since `recoverFromBackup` is only reached when the primary will not parse — is silently replaced with U+FFFD, so the backup is a lossy transcription of the file a maintainer would want to inspect. It also loads the whole document into a JS string and writes it again on every flush, roughly doubling memory and I/O for the backup relative to `copyFile`, on stores such as `workspaces.json` that are flushed on every tab change.",
+      "suggested_fix": "Read and write the backup as a Buffer (omit the encoding), or copy the destination to the private backup temp with `fs.copyFile` and then rename that temp into the `.bak` slot — that keeps the atomic publication the requirement wants and the byte-exactness the old code had.",
+      "is_behavioral": true,
+      "tags": ["regression", "fidelity"]
+    },
+    {
+      "id": "FND-007",
+      "axis": "P3",
+      "severity": "MEDIUM",
+      "title": "The backup read is racy: the .bak can end up holding a peer's document, not the one being replaced",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "146-158" },
+      "description": "`readFile(destination)` and the later `rename(payloadTemp, destination)` are not one operation. With two instances in one checkout, A can read the destination, B can publish, and A then publishes a `.bak` holding B's document while the destination gets A's — so the backup is not the previous generation of the file it sits next to. The helper's header comment says what it 'deliberately does not do' is make concurrent publishes agree, which covers last-writer-wins on the primary, but it does not mention that the primary/backup pair can be inconsistent with each other. Nothing in the suite covers this ordering; AC-7 interposes on the write, not between the read and the destination rename.",
+      "suggested_fix": "Document the primary/backup skew in the helper header alongside the last-writer-wins note, or derive the backup from the destination through a link/rename rather than a separate read.",
+      "is_behavioral": true,
+      "tags": ["concurrency"]
+    },
+    {
+      "id": "FND-008",
+      "axis": "P1",
+      "severity": "MEDIUM",
+      "title": "No fsync anywhere, while the header claims a publish 'either puts its own bytes in place or reports failure'",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "17-21" },
+      "description": "The helper never fsyncs the payload temp before renaming and never fsyncs the containing directory after. `rename` is atomic with respect to other processes' visibility but not with respect to a crash or power loss: on several filesystems the rename can be durable while the data blocks of the temp file are not, which publishes a zero-length or partial store. The pre-change code had the same gap, so this is not a regression, but the new header comment (lines 17-21) and the requirement's framing state a durability guarantee the code does not provide, and this helper is now the single place where it could be provided for all seven stores.",
+      "suggested_fix": "Either fsync the temp handle before rename and the directory after (one `fs.open`/`fsync` pair each), or soften the header comment to say the guarantee is against concurrent readers and not against crash durability.",
+      "is_behavioral": false,
+      "tags": ["durability", "documentation"]
+    },
+    {
+      "id": "FND-009",
+      "axis": "P6",
+      "severity": "MEDIUM",
+      "title": "writeBackup defaults to true, which is the wrong default given who actually relies on it",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "47-67" },
+      "description": "Six of seven call sites state their backup intent explicitly (four pass nothing but were already backup-writing, two pass `writeBackup: false`). The one caller for whom the default silently changed behaviour — AgentLifecycleService — is the one that had no backup at all, and it got one by omission (FND-004). `ensureDirectory` was given the opposite treatment and defaults to false precisely because a silent default there destroyed the REL-BGSTAB-020/021 boundary evidence; the same reasoning applies to a default that silently creates a new on-disk file. The asymmetry is not argued in the option docs: the `ensureDirectory` comment explains why silence is dangerous, the `writeBackup` comment does not address it.",
+      "suggested_fix": "Make `writeBackup` required, or default it to false and pass true at the four sites that genuinely back up, so that acquiring or losing a backup is always a visible edit at the call site.",
+      "is_behavioral": false,
+      "tags": ["api-design"]
+    },
+    {
+      "id": "FND-010",
+      "axis": "P7",
+      "severity": "MEDIUM",
+      "title": "The capture tool covers 33 of the 71 node:test files and none of the monolithic runner",
+      "location": { "file": "tools/issue24-capture-failing.mjs", "line_range": "11-20" },
+      "description": "The file list is hard-coded to `src/services/*.test.ts` plus `src/utils/*.test.ts` — 33 files. The server has 71 `*.test.ts` files (27 services, 24 ws, 9 benchmarks, 6 utils, 2 types, plus testing/schemas/routes), and CLAUDE.md additionally documents a self-contained monolithic runner at `server/src/test-runner.ts` that discovers none of them. `src/ws/terminalWireFormatBoot.test.ts` boots the real server and therefore exercises WorkspaceService and the other stores, and `src/routes/*.test.ts` sits outside the glob too. The tool's own header claims it captures 'the suites that touch the stores under server/data/', which is broader than what it enumerates, so a reader is invited to treat a green diff as wider evidence than it is.",
+      "suggested_fix": "Walk `src/**/*.test.ts` rather than two fixed directories, or narrow the header comment to name the two directories it actually covers and record the enumerated file list in the JSON so a reviewer can see the scope.",
+      "is_behavioral": false,
+      "tags": ["test-gate", "scope"]
+    },
+    {
+      "id": "FND-011",
+      "axis": "P2",
+      "severity": "LOW",
+      "title": "AgentLifecycleService's store mode tightens from 0644 to 0600 and the file changes inode on every flush",
+      "location": { "file": "server/src/services/AgentLifecycleService.ts", "line_range": "107-115" },
+      "description": "The old `fs.writeFile(dataFilePath, ..., 'utf-8')` wrote in place with no mode argument, so a pre-existing `agent-command-profiles.json` kept whatever mode it had (typically 0644 on first creation under a default umask). The helper publishes a fresh inode at mode 0o600. For a deployed install where the store was readable by another account, or where something holds the file by descriptor, this is a visible change. It is almost certainly an improvement and matches the other six stores, but it is unasserted and unmentioned in the commit message.",
+      "suggested_fix": "Note the mode change in the requirement's change notes, or assert the published mode in the AC-8 table row.",
+      "is_behavioral": true,
+      "tags": ["regression", "permissions"]
+    },
+    {
+      "id": "FND-012",
+      "axis": "P1",
+      "severity": "LOW",
+      "title": "ownedTemps.pop() is positionally coupled to there being exactly one backup temp",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "154-157" },
+      "description": "`ownedTemps.push(backupTemp)` / `ownedTemps.pop()` is correct today — the pop always removes the element pushed three lines earlier, and every failure path in between leaves it in place so the catch unlinks it. But it depends on nothing else being pushed between the two, which is invisible to a future edit. A third temp (for example a durability fsync staging file, or a second backup generation) would make `pop()` remove the wrong entry and leak the backup temp while unlinking something still needed.",
+      "suggested_fix": "Remove by identity (`ownedTemps.splice(ownedTemps.indexOf(backupTemp), 1)`) or hold the backup temp in its own nullable local that the catch clears.",
+      "is_behavioral": false,
+      "tags": ["maintainability"]
+    },
+    {
+      "id": "FND-013",
+      "axis": "P4",
+      "severity": "LOW",
+      "title": "AC-7 binds realCopyFile and never uses it, and leaves a stray shared-path artifact on disk",
+      "location": { "file": "server/src/services/StorePublishCrossInstance.test.ts", "line_range": "277" },
+      "description": "`const realCopyFile = fs.copyFile.bind(fs);` at line 277 is dead — the `copyFile` patch overwrites rather than delegates, and the post-change helper never calls `copyFile` at all, so the whole `copyFile` branch (lines 311-316) is dead against the current implementation and exists only to keep the fixture red against the pre-change code. That is a legitimate intent but is not stated. Separately, AC-3 and the AC-8 table write a peer document to `sharedTempOf(dataFile)` and never assert what becomes of it; against the fixed code that file is simply left behind in the temp directory, unexamined.",
+      "suggested_fix": "Drop the unused binding; add a one-line comment saying the copyFile branch is retained as the pre-change arm of the fixture; optionally assert the shared-path artifact was neither renamed into place nor deleted.",
+      "is_behavioral": false,
+      "tags": ["dead-code", "test-quality"]
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "by_severity": { "CRITICAL": 2, "HIGH": 2, "MEDIUM": 6, "LOW": 3 },
+    "by_axis": { "P1": 2, "P2": 4, "P3": 2, "P4": 2, "P6": 1, "P7": 2 }
+  }
+}

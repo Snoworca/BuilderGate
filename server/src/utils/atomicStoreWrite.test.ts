@@ -160,3 +160,130 @@ test('REL-BGSTAB-022 AC-5: a failed publish leaves no temp file behind', async (
   const leftovers = (await fs.readdir(dir)).filter(name => name.endsWith('.tmp'));
   assert.deepEqual(leftovers, [], 'the failing publish left its own temp file on disk');
 });
+
+// ---------------------------------------------------------------------------
+// REL-BGSTAB-022 AC-7 boundary — the backup is optional, the publish is not.
+//
+// Before this helper existed every store did `try { await fs.copyFile(dest,
+// bak); } catch {}`: a backup failure could not stop the primary write. The
+// helper must keep that contract. On Windows a peer holding the `.bak` open in
+// its own recoverFromBackup() is exactly how a backup write or rename fails
+// while the primary rename would have succeeded, and losing the caller's change
+// to that is strictly worse than losing the backup.
+// ---------------------------------------------------------------------------
+
+async function withPatchedFsFns<T>(
+  patches: Partial<Record<'writeFile' | 'rename', unknown>>,
+  body: () => Promise<T>,
+): Promise<T> {
+  const target = fs as unknown as Record<string, unknown>;
+  const original: Record<string, unknown> = {};
+  for (const key of Object.keys(patches)) {
+    original[key] = target[key];
+    target[key] = patches[key as keyof typeof patches];
+  }
+  try {
+    return await body();
+  } finally {
+    for (const key of Object.keys(original)) {
+      target[key] = original[key];
+    }
+  }
+}
+
+test('REL-BGSTAB-022 AC-7: a backup whose write fails does not abort the primary publish', async () => {
+  const { dir, dest } = await makeDir('backup-write-fails');
+  await fs.writeFile(dest, JSON.stringify({ version: 1, generation: 'previous' }), 'utf-8');
+
+  const realWriteFile = fs.writeFile.bind(fs);
+  let backupAttempted = false;
+
+  await withPatchedFsFns({
+    writeFile: async (file: unknown, data: unknown, options: unknown) => {
+      if (String(file).includes('.bak')) {
+        backupAttempted = true;
+        throw Object.assign(new Error('injected backup write failure'), { code: 'EPERM' });
+      }
+      return realWriteFile(file as string, data as string, options as never);
+    },
+  }, async () => {
+    await publishStoreAtomically(dest, JSON.stringify({ version: 1, generation: 'next' }));
+  });
+
+  assert.ok(backupAttempted, 'the fixture never reached the backup write, so this test proves nothing');
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(dest, 'utf-8')),
+    { version: 1, generation: 'next' },
+    'a failed backup aborted the primary publish and the caller\'s change was lost',
+  );
+  assert.deepEqual(
+    (await fs.readdir(dir)).filter(name => name.endsWith('.tmp')),
+    [],
+    'the failed backup left its temp file on disk',
+  );
+});
+
+test('REL-BGSTAB-022 AC-7: a backup whose rename fails does not abort the primary publish', async () => {
+  const { dir, dest } = await makeDir('backup-rename-fails');
+  await fs.writeFile(dest, JSON.stringify({ version: 1, generation: 'previous' }), 'utf-8');
+
+  const realRename = fs.rename.bind(fs);
+  let backupAttempted = false;
+
+  await withPatchedFsFns({
+    rename: async (from: unknown, to: unknown) => {
+      if (String(to) === `${dest}.bak`) {
+        backupAttempted = true;
+        // EIO is permanent, so this consumes no retry budget and fails outright.
+        throw Object.assign(new Error('injected backup rename failure'), { code: 'EIO' });
+      }
+      return realRename(from as string, to as string);
+    },
+  }, async () => {
+    await publishStoreAtomically(dest, JSON.stringify({ version: 1, generation: 'next' }));
+  });
+
+  assert.ok(backupAttempted, 'the fixture never reached the backup rename, so this test proves nothing');
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(dest, 'utf-8')),
+    { version: 1, generation: 'next' },
+    'a failed backup aborted the primary publish and the caller\'s change was lost',
+  );
+  assert.deepEqual(
+    (await fs.readdir(dir)).filter(name => name.endsWith('.tmp')),
+    [],
+    'the failed backup left its temp file on disk',
+  );
+});
+
+test('REL-BGSTAB-022 AC-7: a successful backup is still what a later primary failure leaves behind', async () => {
+  const { dir, dest } = await makeDir('backup-survives-primary-failure');
+  const previous = JSON.stringify({ version: 1, generation: 'previous' });
+  await fs.writeFile(dest, previous, 'utf-8');
+
+  const realRename = fs.rename.bind(fs);
+  await withPatchedFsFns({
+    rename: async (from: unknown, to: unknown) => {
+      if (String(to) === dest) {
+        throw Object.assign(new Error('injected primary rename failure'), { code: 'EIO' });
+      }
+      return realRename(from as string, to as string);
+    },
+  }, async () => {
+    await assert.rejects(
+      publishStoreAtomically(dest, JSON.stringify({ version: 1, generation: 'next' })),
+      (error: NodeJS.ErrnoException) => error.code === 'EIO',
+    );
+  });
+
+  assert.equal(
+    await fs.readFile(`${dest}.bak`, 'utf-8'),
+    previous,
+    'the published backup must not be removed by the primary publish\'s failure cleanup',
+  );
+  assert.deepEqual(
+    (await fs.readdir(dir)).filter(name => name.endsWith('.tmp')),
+    [],
+    'the failing publish left a temp file on disk',
+  );
+});

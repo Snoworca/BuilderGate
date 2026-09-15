@@ -1,0 +1,148 @@
+{
+  "resolved_findings": ["FND-201", "FND-203", "FND-204", "FND-205", "FND-206", "FND-207"],
+  "unresolved": ["FND-202", "FND-103"],
+  "verification_runs": [
+    { "command": "node --test tools/issue24-regression-diff.test.mjs", "cwd": "repo root", "result": "tests 26 / suites 0 / pass 26 / fail 0 / cancelled 0 / skipped 0 / todo 0, exit 0, duration_ms 642.5" },
+    { "command": "npx tsx --test src/utils/atomicStoreWrite.test.ts", "cwd": "server", "result": "tests 10 / pass 10 / fail 0 / todo 0, exit 0, duration_ms 700.1. Two expected [atomicStoreWrite] warn lines on stdout from the two backup-failure rows." },
+    { "command": "npx tsx --test src/services/StorePublishCrossInstance.test.ts", "cwd": "server", "result": "tests 8 / pass 8 / fail 0 / todo 0, exit 0, duration_ms 1833.0" },
+    { "command": "npx tsc --noEmit -p tsconfig.json", "cwd": "server", "result": "exit 0, no diagnostics" },
+    { "command": "node tools/issue24-regression-diff.mjs --baseline docs/analysis/2026-09-16.issue24-store-publish/raw/baseline.v3.json --after docs/analysis/2026-09-16.issue24-store-publish/raw/after.v3.json", "cwd": "repo root", "result": "EXIT=0. 'files added since the baseline (2, not a problem): src/services/StorePublishCrossInstance.test.ts, src/utils/atomicStoreWrite.test.ts'; baseline files 31 / after files 33 / baseline failing 17 / after failing 16 / 'no longer failing (1): src/services/TerminalResourcePolicy.test.ts :: OBS-BGSTAB-005 second review regression ...' / 'no new failures'. No UNVERIFIED DIMENSION banner and no GATE UNUSABLE / TEST COUNT DROPPED banner, so both captures carried per-file counts and the strict count-carrying path ran." },
+    { "command": "crash injection: tools/ copied to scratch, issue24-regression-diff.mjs replaced with `throw new Error(\"injected crash\")`, node --test issue24-regression-diff.test.mjs", "cwd": "scratchpad copy (worktree untouched)", "result": "tests 26 / pass 8 / fail 18. The 8 survivors are exactly the pure-function cases: 3 describeChildFailure rows and 5 parseFileSummary rows. All 18 cases that spawn the diff tool fail inside runDiff with 'the diff tool exited 1 without announcing any refusal (GATE UNUSABLE / TEST COUNT DROPPED / NEW FAILURES), so this is a crash and not a gate decision'. Worktree md5 of issue24-regression-diff.mjs / .test.mjs / issue24-capture-failing.mjs identical before and after (ee92c9e7..., d9a3df5a..., d76cdd9f...); scratch copy deleted." },
+    { "command": "temp-dir leak check: count /tmp/issue24-diff-* before and after a clean `node --test tools/issue24-regression-diff.test.mjs`", "cwd": "repo root", "result": "before=17, after=17. The suite's after() hook removes its own mkdtemp directory. The 17 present are residue from runs predating the FND-207 fix (mtimes 08:13-08:26), not produced by the fixed suite." }
+  ],
+  "verdicts": [
+    {
+      "id": "FND-201",
+      "severity_was": "HIGH",
+      "verdict": "resolved",
+      "judged_from": [
+        "tools/issue24-regression-diff.test.mjs:53 — REFUSAL_BANNERS enumerates the complete set of banners the gate can refuse under: GATE UNUSABLE, TEST COUNT DROPPED, NEW FAILURES",
+        "tools/issue24-regression-diff.test.mjs:65-81 — runDiff itself assert.fail()s on a non-zero exit whose combined stdout+stderr carries none of them, so the guard is in the helper and not in each case; no future case can be written that mistakes a crash for a gate decision",
+        "tools/issue24-regression-diff.mjs:157-178 — read independently: the single process.exit(1) site is reachable only when problems.length || countDrops.length || added.length, and each of those three arrays prints its own banner at :158, :164 and :174 immediately before. There is no gate refusal path that exits non-zero without a banner, so the guard cannot mask a real refusal. The only other non-zero exit is the usage error at :22-25 (exit 2), which is not a gate decision and is correctly classified as a crash.",
+        "measured crash injection: 18 of 18 diff-spawning cases fail, 8 survivors are all pure-function"
+      ],
+      "note": "The prior instance (missing-fileList) is closed and so is the class. Residual, not a defect: a crash that occurred AFTER a banner had already been printed would still be read as a refusal — but there is no such path in the current tool, since every banner print is immediately followed by the exit."
+    },
+    {
+      "id": "FND-203",
+      "severity_was": "MEDIUM",
+      "verdict": "resolved",
+      "judged_from": [
+        "tools/issue24-capture-failing.mjs:69-94 — parseFileSummary now groups contiguous runs of `ℹ <label> <number>` lines into blocks (any non-matching line closes the current block at :75-78) and returns the LAST block carrying all three of tests/pass/fail as integers, else null",
+        "tools/issue24-capture-failing.mjs:83-85 — last-wins is scoped to within one block and the reason is documented",
+        "tools/issue24-regression-diff.test.mjs:289-316 — two cases pin it: a complete block followed by a truncated one returns the complete one's {5,5,3}, and output whose only block is truncated returns null",
+        "measured behaviour of the shipped function: blank line inside a block -> null (the block is split, neither half is complete, so it fails closed rather than composing); labels in an unexpected order -> parsed correctly, order is irrelevant because the block is keyed by label; a repeated label inside one block -> last-wins ({tests:5, tests:7, pass:5, fail:0} -> tests 7), which is the documented intent since a repeat inside one uninterrupted block is the same run restating itself; a real node:test summary including `ℹ duration_ms 660.12` -> {10,9,1}, the float is absorbed into the block harmlessly; `ℹ tests 5.5` -> null, Number.isInteger rejects it"
+      ],
+      "note": "One residual shape survives and is not reachable from node:test: two summary blocks that are byte-contiguous with no intervening non-count line (`tests 5 / pass 5 / fail 3 / tests 9 / pass 8`) still merge into one block and compose {9,8,3}. node:test cannot produce that — every summary is preceded by at least one `▶`/`✔`/`✖` line and terminated by `duration_ms`, and the capture runs one file per child so only one summary occurs. Not raised as a finding."
+    },
+    {
+      "id": "FND-204",
+      "severity_was": "MEDIUM",
+      "verdict": "resolved",
+      "judged_from": [
+        "tools/issue24-regression-diff.mjs:31-38 — countDrops is a separate array from problems, with the reason recorded: a broken capture and a deliberately shrunk test set must not share a banner",
+        "tools/issue24-regression-diff.mjs:160-172 — the message is now TEST COUNT DROPPED, states the observation ('ran N test(s) at baseline and M now'), states why it blocks ('the diff can only see cases that ran'), and names the operator's next step ('If the drop is intentional ... re-take the baseline'). It no longer asserts 'stopped registering tests'.",
+        "tools/issue24-regression-diff.test.mjs:318-335 — the case asserts the new banner IS present, that GATE UNUSABLE is NOT, that the exact observation string appears, that the why-and-next-step sentences appear, and that the old conclusion 'stopped registering tests' does NOT appear"
+      ],
+      "note": "The negative assertions are what make this hold up: doesNotMatch(/stopped registering tests/) and doesNotMatch(/GATE UNUSABLE/) both pin the fix rather than merely the presence of new text."
+    },
+    {
+      "id": "FND-205",
+      "severity_was": "LOW",
+      "verdict": "resolved",
+      "judged_from": [
+        "tools/issue24-regression-diff.test.mjs:356-373 — the count-rise case now asserts doesNotMatch(/UNVERIFIED DIMENSION/) with both captures carrying perFileCounts",
+        "tools/issue24-regression-diff.test.mjs:392-403 — the complementary case asserts the banner IS present for two legacy captures, and also that it names 'per-file test counts'",
+        "tools/issue24-regression-diff.mjs:75-76,100-105 — the legacy path is entered only on `capture.perFileCounts === undefined`, so the two cases are genuinely on opposite sides of one branch",
+        "the real v3 gate run produced no UNVERIFIED DIMENSION line, confirming the strict path is the one the shipped evidence takes"
+      ],
+      "note": "Both directions of the branch are now asserted, so the banner can neither go missing when it is needed nor appear when it is not."
+    },
+    {
+      "id": "FND-206",
+      "severity_was": "LOW",
+      "verdict": "resolved",
+      "judged_from": [
+        "server/src/services/StorePublishCrossInstance.test.ts:571-581 — `await store.publish(dataFile, 'previous')` seeds a real previous document through the store's own publish path, then `before` is read, then `assert.notEqual(before, null, ...)` guards it. This is a REAL guard, not decoration: the seeding publish is a genuine call, and if it left no file the row fails loudly instead of degrading to null === null.",
+        "server/src/services/StorePublishCrossInstance.test.ts:637-641 — the trailing `assert.equal(after, before)` therefore compares a real document string against itself, and would now catch an implementation that wrote a corrupt document and deleted it again (the exact case the old null === null tolerated)",
+        "server/src/services/StorePublishCrossInstance.test.ts:463-473 — the same treatment in the AC-8 table test: the backup-writing stores are seeded first with the same vacuity guard, so the backup assertions below are non-vacuous",
+        "server/src/services/StorePublishCrossInstance.test.ts:487-499,527-551 — beforeEachRename records the destination immediately before each rename ONTO dataFile (the `.bak` rename is filtered out by `String(to) === dataFile`), and the backup is asserted to equal the LAST such entry. The reasoning is right: within one publish the helper reads the destination before writing the backup and nothing writes the destination in between, and stores that publish more than once inside one call are handled by recording rather than assuming.",
+        "the fix also strengthened the error-type rows well beyond what was asked: AppError by `instanceof` plus ErrorCode.CONFIG_PERSIST_FAILED, and the raw-error rows by code === 'EIO' plus the exact message plus `instanceof AppError === false`"
+      ],
+      "note": "Judged independently, not from the claim. The guard is real and the comparison that follows is meaningful."
+    },
+    {
+      "id": "FND-207",
+      "severity_was": "LOW",
+      "verdict": "resolved",
+      "judged_from": [
+        "tools/issue24-regression-diff.test.mjs:38-48 — a single lazily-created mkdtemp directory plus an `after()` hook that rmSync's it recursively",
+        "measured: 17 /tmp/issue24-diff-* directories before a clean run, 17 after — the fixed suite leaks none. The 17 present date from 08:13-08:26 and predate the fix."
+      ],
+      "note": "The second half of the original finding (parsing pass/fail that nothing consumes) is also addressed in substance: parseFileSummary's pass/fail are now load-bearing for the block-completeness test at :89, which is what distinguishes a complete summary from a truncated one."
+    }
+  ],
+  "findings": [
+    {
+      "id": "FND-202",
+      "axis": "correctness",
+      "severity": "LOW",
+      "severity_was": "MEDIUM",
+      "title": "The capture still does not filter NODE_TEST_* from its children, but the falsely-green path it opened is now closed downstream",
+      "location": { "file": "tools/issue24-capture-failing.mjs", "line_range": "119-120" },
+      "description": "Carried from iteration 2 and not addressed by the iteration-3 fixes. `execFileSync('npx', ['tsx','--test',file], {cwd, encoding, stdio, timeout})` passes no `env`, so if the capture is ever run from inside a `node --test` process its children inherit NODE_TEST_CONTEXT, node's recursion guard prints only `skipping running files` and exits 0 having run nothing. CLAUDE.md records this exact trap in this repository and records `admission-gate.test.mjs:62` fixing it with an env filter. Downgraded from MEDIUM to LOW because FND-102's fix now catches the consequence: such a child produces no summary, parseFileSummary returns null, perFileCounts records null, and the diff refuses with GATE UNUSABLE ('printed no parseable node:test summary'). The residual is that the capture itself still exits 0 and prints 'no summary N' without failing, so the operator learns about it one step later than they could.",
+      "suggested_fix": "Pass `env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('NODE_TEST_')))` on the execFileSync at :120, and exit non-zero from main() when `unparsed > 0`.",
+      "is_behavioral": false,
+      "tags": ["tooling", "carried-over"]
+    },
+    {
+      "id": "FND-103",
+      "axis": "process",
+      "severity": "MEDIUM",
+      "title": "The test that guards the gate is still untracked, so it is absent from the change it guards",
+      "location": { "file": "tools/issue24-regression-diff.test.mjs", "line_range": "1-403" },
+      "description": "Carried from iteration 1 and still open. `git status --porcelain` reports the file as '??'. It is now 26 cases and is the only thing pinning the shapes the gate must refuse — including, after this round, the crash-versus-refusal distinction that FND-201 turned on. `git diff 99fb015 -- server/src tools` does not contain it. A commit that does not `git add` it ships the strengthened tools without the suite that proves they still refuse a hang, leaving this review's evidence unreproducible from the commit. It also has no runnable surface (no npm script), matching the repo's documented wave1/wave3 orphan-suite pattern.",
+      "suggested_fix": "`git add tools/issue24-regression-diff.test.mjs` before committing, and add a root npm script for it.",
+      "is_behavioral": false,
+      "tags": ["provenance", "test-coverage", "carried-over"]
+    }
+  ],
+  "requirement_judgement": {
+    "requirement": "REL-BGSTAB-022",
+    "source": "docs/spec/30.buildergate-stability.srs.md",
+    "read_fresh": true,
+    "verdict": "implements the requirement",
+    "helper": "server/src/utils/atomicStoreWrite.ts — one temp path per write (`${destination}.${process.pid}.${randomUUID()}.tmp`), a backup published by write-to-private-temp + rename rather than copy-in-place, a selective bounded rename retry, and a failure path that unlinks only paths this call still owns.",
+    "converted_stores": [
+      { "store": "command presets", "call": "CommandPresetService.ts:274", "options": "defaults (backup on, ensureDirectory off)", "notes": "AppError(CONFIG_PERSIST_FAILED) mapping preserved" },
+      { "store": "workspace", "call": "WorkspaceService.ts:1738", "options": "defaults", "notes": "raw error still reaches the caller, which REL-BGSTAB-021's rollback reads" },
+      { "store": "terminal shortcuts", "call": "TerminalShortcutService.ts:536", "options": "defaults", "notes": "AppError mapping preserved" },
+      { "store": "recovery options", "call": "RecoveryOptionService.ts:421", "options": "writeBackup: !options.preserveExistingBackup", "notes": "the AC-7 carve-out for the recovery paths is passed through rather than defaulted" },
+      { "store": "agent command profiles", "call": "AgentLifecycleService.ts:111", "options": "ensureDirectory: true", "notes": "was a bare writeFile straight onto the destination; now gains temp file, rename and backup as AC-8 requires" },
+      { "store": "mcp control config", "call": "McpControlConfigStore.ts:73", "options": "writeBackup: false, ensureDirectory: true", "notes": "already had private temp naming; gains the AC-5 retry only, and correctly does not start writing a backup" },
+      { "store": "mcp webhook records", "call": "WebhookInvocationService.ts:432", "options": "writeBackup: false, ensureDirectory: true", "notes": "same as above" }
+    ],
+    "acceptance_criteria": [
+      { "ac": "AC-1", "holds": true, "evidence": "StorePublishCrossInstance.test.ts:84 — two independently constructed instances on one data file, both publishes resolve. Structurally guaranteed by privateTempPath(): no two calls can name the same temp path." },
+      { "ac": "AC-2", "holds": true, "evidence": "StorePublishCrossInstance.test.ts:120 — a peer overwrite interposed on the SHARED temp path between write and rename; the destination still holds this publish's document, because the publish never used that path." },
+      { "ac": "AC-3", "holds": true, "evidence": "StorePublishCrossInstance.test.ts:161 — the shorter-over-longer overlay that produced the measured 13-15% torn publishes leaves no foreign tail." },
+      { "ac": "AC-4", "holds": true, "evidence": "StorePublishCrossInstance.test.ts:227 plus atomicStoreWrite.ts:209-215 — the cleanup loop iterates ownedTemps only, which contains nothing a peer could be using. releaseOwnedTemp() (atomicStoreWrite.ts:118-123) removes by value rather than by position, so a published .bak is never a candidate for a later unlink." },
+      { "ac": "AC-5", "holds": true, "evidence": "atomicStoreWrite.ts:35,45,93-111 — TRANSIENT_RENAME_CODES = {EPERM, EACCES, EBUSY}, RENAME_RETRY_WAITS_MS = [10,20,40,80], one initial attempt plus four retries, exhausted budget rethrows the last error leaving the destination as it was. atomicStoreWrite.test.ts:91,107,150 assert the exact wait schedule through the injected delay seam (not a wall-clock tolerance), the five-attempt exhaustion with the destination intact and parseable, and no temp left behind." },
+      { "ac": "AC-6", "holds": true, "evidence": "atomicStoreWrite.ts:105 — a code outside the transient set throws immediately. atomicStoreWrite.test.ts:131 asserts ENOSPC rejects on attempt one with zero recorded waits." },
+      { "ac": "AC-7", "holds": true, "evidence": "atomicStoreWrite.ts:169-184 — the backup goes through its own private temp plus renameWithRetry, so it is published atomically and a peer overlay on the shared .bak path cannot leave a torn backup. StorePublishCrossInstance.test.ts:269 drives the interposed different-length overlay the criterion specifies; the AC-8 table additionally asserts, per backup-writing store, that the backup parses AND equals the document the destination held immediately before the publish replaced it. The iteration-1 change making the backup best-effort does not weaken AC-7: on backup failure the previous .bak is left whole and stale (or absent), never torn, and three new cases at atomicStoreWrite.test.ts:194/226/259 pin that the primary publish still completes and that a successfully published backup survives a later primary failure." },
+      { "ac": "AC-8", "holds": true, "evidence": "StorePublishCrossInstance.test.ts:455 asserts stores.length === 7 and, per store, that a peer overlay on the shared temp path does not affect what is published (which is what proves the store uses a private path), plus the backup content for the five that keep one and its ABSENCE for the two that never had one. :562 asserts per store that the pre-existing error type still reaches the caller (AppError + ErrorCode, or the raw EIO by code and message) and that a failed publish leaves the destination as it was. grep confirms all seven call sites route through publishStoreAtomically and that no `.tmp` / copyFile / bare fs.rename publish path survives in any of the seven services. Note on method: the suite argues AC-1..AC-7 per store structurally — all seven go through one helper, and each row proves the helper is actually the path taken — rather than re-running all seven criteria seven times. That is a sound argument and I accept it." },
+      { "ac": "AC-9", "holds": true, "evidence": "StorePublishCrossInstance.test.ts:650 — two overlapping publishes through one instance, each caller's own change readable after its call resolves. REL-BGSTAB-020's in-process promise chain is untouched: the helper is called from inside each store's existing flush, and the mutation chains at e.g. AgentLifecycleService.ts:118-122 are unchanged." }
+    ],
+    "concerns": [
+      "AgentLifecycleService previously wrote its store with the default file mode; it now inherits the helper's 0o600 default. That matches the mode the other four stores already used explicitly and is a tightening, not a regression — but it is a mode change to agent-command-profiles.json that no acceptance criterion names. It predates this round's diff.",
+      "The backup-is-best-effort decision (iteration 1) is a deliberate behaviour choice justified by the pre-existing `try { copyFile } catch {}` contract. It is now documented at atomicStoreWrite.ts:135-137 and 171-181, warns at console.warn with destination, errno and message, and is covered by three tests. I agree with the choice and with how it is recorded."
+    ]
+  },
+  "summary": {
+    "resolved": 6,
+    "total_open": 2,
+    "by_severity": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 1 },
+    "gate": "PASSED — CRITICAL=0 and HIGH=0. The two open items are carried-over MEDIUM/LOW: FND-103 (the guard suite is still untracked) and FND-202 (downgraded to LOW, its falsely-green consequence is now closed downstream).",
+    "regression": "PASS — 26/26 gate cases, 10/10 atomicStoreWrite, 8/8 StorePublishCrossInstance, tsc clean, v3 gate exit 0 with no refusal banner."
+  }
+}

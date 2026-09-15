@@ -340,11 +340,12 @@ test('REL-BGSTAB-022 AC-7: the backup parses whole under an interposed peer over
 // ---------------------------------------------------------------------------
 // AC-8 — every in-scope store under server/data/, not just command presets.
 //
-// AC-7 is conditional on a publish that writes a backup. McpControlConfigStore
-// and WebhookInvocationService have never written one and this change does not
-// give them one, so their rows assert that absence rather than skipping it
-// silently — a row that just disappeared would hide a store that stopped
-// backing up by accident.
+// Each row publishes over a store this fixture seeded first, so the five stores
+// that keep a backup are asserted to produce one holding exactly the document
+// they replaced. McpControlConfigStore and WebhookInvocationService have never
+// written a backup and this change does not give them one, so their rows assert
+// that absence rather than skipping it silently — a row that just disappeared
+// would hide a store that stopped backing up by accident.
 // ---------------------------------------------------------------------------
 
 interface StoreUnderTest {
@@ -459,13 +460,42 @@ test('REL-BGSTAB-022 AC-8: each of the seven in-scope stores publishes through a
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), `bgstab022-table-${store.name}-`));
     const dataFile = path.join(dir, store.file);
 
+    // A first publish into an empty directory has nothing to copy aside, so a
+    // backup assertion against it could only ever be vacuous. Give the stores
+    // that keep a backup a previous document to back up, published through the
+    // store's own path so the fixture cannot invent a shape the store would
+    // reject on load.
+    if (store.writesBackup) {
+      await store.publish(dataFile, 'previous');
+      assert.notEqual(
+        await fs.readFile(dataFile, 'utf-8').catch(() => null),
+        null,
+        `${store.name}: the seeding publish left no document, so the backup assertion below would be vacuous`,
+      );
+    }
+
     const realWriteFile = fs.writeFile.bind(fs);
     const realOpen = fs.open.bind(fs);
+    const realRename = fs.rename.bind(fs);
     const peerReachablePath = sharedTempOf(dataFile);
     const peerDocument = JSON.stringify({ version: 1, peer: 'P'.repeat(60000) }, null, 2);
     let interposed = false;
+    // What sat at the destination immediately before each rename onto it. The
+    // backup a publish writes is a copy of the destination as it was when that
+    // publish started, and nothing else writes the destination in between, so
+    // the last entry here is what the final publish must have backed up. Some
+    // stores publish more than once inside one `publish()` call (initialize()
+    // flushes, then the caller flushes), which is exactly why this is recorded
+    // rather than assumed to be the seeded document.
+    const beforeEachRename: Array<string | null> = [];
 
     await withPatchedFs({
+      rename: async (from: unknown, to: unknown) => {
+        if (String(to) === dataFile) {
+          beforeEachRename.push(await fs.readFile(dataFile, 'utf-8').catch(() => null));
+        }
+        return realRename(from as string, to as string);
+      },
       writeFile: async (file: unknown, data: unknown, options: unknown) => {
         if (!interposed && String(file).endsWith('.tmp') && String(file).startsWith(dataFile)) {
           interposed = true;
@@ -494,15 +524,35 @@ test('REL-BGSTAB-022 AC-8: each of the seven in-scope stores publishes through a
       assert.fail(`${store.name}: published a document that does not parse (${raw.length} bytes): ${(error as Error).message}`);
     }
 
-    const backupExists = await fs.readFile(`${dataFile}.bak`, 'utf-8').then(() => true, () => false);
+    const backup = await fs.readFile(`${dataFile}.bak`, 'utf-8').then(raw => raw, () => null);
     if (store.writesBackup) {
-      // First publish into an empty directory has nothing to back up, so this
-      // only asserts the two backup-less stores did not silently acquire one.
-      void backupExists;
+      assert.notEqual(
+        backup,
+        null,
+        `${store.name}: publishes over an existing store and must leave a backup of what it replaced`,
+      );
+      try {
+        JSON.parse(backup as string);
+      } catch (error) {
+        assert.fail(
+          `${store.name}: the backup does not parse (${(backup as string).length} bytes): ${(error as Error).message}`,
+        );
+      }
+      const replaced = beforeEachRename[beforeEachRename.length - 1];
+      assert.notEqual(
+        replaced,
+        null,
+        `${store.name}: the final publish replaced nothing, so the backup assertion below would be vacuous`,
+      );
+      assert.equal(
+        backup,
+        replaced,
+        `${store.name}: the backup does not hold the document that was at the destination before the publish replaced it`,
+      );
     } else {
       assert.equal(
-        backupExists,
-        false,
+        backup,
+        null,
         `${store.name}: has never written a backup and must not start; AC-7 is conditional on a publish that writes one`,
       );
     }
@@ -512,10 +562,26 @@ test('REL-BGSTAB-022 AC-8: each of the seven in-scope stores publishes through a
 test('REL-BGSTAB-022 AC-8: each converted store preserves the error type it rejected with before', async () => {
   const stores = await loadStores();
   const realRename = fs.rename.bind(fs);
+  const { AppError, ErrorCode } = await import('../utils/errors.js');
 
   for (const store of stores) {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), `bgstab022-err-${store.name}-`));
     const dataFile = path.join(dir, store.file);
+
+    // FND-206. Publishing into an empty directory left `before` null on every
+    // row, so the final comparison reduced to `null === null` — it held for any
+    // implementation, including one that wrote a corrupt document and deleted
+    // it again. Give the destination a real previous document first, published
+    // through the store's own path so the fixture cannot invent a shape the
+    // store would reject, and the comparison then asserts what it claims to:
+    // a publish that could not complete left the existing document untouched.
+    await store.publish(dataFile, 'previous');
+    const before = await fs.readFile(dataFile, 'utf-8').then(raw => raw, () => null);
+    assert.notEqual(
+      before,
+      null,
+      `${store.name}: the seeding publish left no document, so the survival assertion below would be vacuous`,
+    );
 
     let rejection: unknown = null;
     await withPatchedFs({
@@ -532,12 +598,49 @@ test('REL-BGSTAB-022 AC-8: each converted store preserves the error type it reje
     });
 
     assert.notEqual(rejection, null, `${store.name}: a failed publish must still reach the caller`);
-    const name = (rejection as Error).constructor.name;
     if (store.rejectsWith === 'AppError') {
-      assert.equal(name, 'AppError', `${store.name}: used to reject with AppError and must still do so`);
+      // `instanceof` plus the code, not the constructor name: a name check
+      // passes for any class that happens to be called AppError, and says
+      // nothing about which failure the caller is being told about.
+      assert.ok(
+        rejection instanceof AppError,
+        `${store.name}: used to reject with AppError and must still do so, got ${String((rejection as Error)?.constructor?.name)}`,
+      );
+      assert.equal(
+        (rejection as InstanceType<typeof AppError>).code,
+        ErrorCode.CONFIG_PERSIST_FAILED,
+        `${store.name}: the wrapped rejection must still name the persist failure`,
+      );
     } else {
-      assert.notEqual(name, 'AppError', `${store.name}: used to reject with the raw error and must still do so`);
+      // The injected error itself has to reach the caller. Asserting only
+      // "not an AppError" is satisfied by any unexpected throw — a TypeError
+      // from the fixture, an ENOENT from a missing directory — so it proves
+      // nothing about the store. Measured 2026-09-16: replacing the injected
+      // EIO with a plain TypeError left every row of the old assertion green.
+      assert.ok(rejection instanceof Error, `${store.name}: rejected with a non-Error value`);
+      assert.equal(
+        (rejection as NodeJS.ErrnoException).code,
+        'EIO',
+        `${store.name}: used to reject with the raw error and must still do so; the injected EIO did not reach the caller unchanged`,
+      );
+      assert.equal(
+        (rejection as Error).message,
+        'injected rename failure',
+        `${store.name}: the raw error reached the caller re-wrapped or re-worded`,
+      );
+      assert.equal(
+        rejection instanceof AppError,
+        false,
+        `${store.name}: used to reject with the raw error and must not start wrapping it`,
+      );
     }
+
+    const after = await fs.readFile(dataFile, 'utf-8').then(raw => raw, () => null);
+    assert.equal(
+      after,
+      before,
+      `${store.name}: a publish that could not complete must leave the destination as it was`,
+    );
   }
 });
 

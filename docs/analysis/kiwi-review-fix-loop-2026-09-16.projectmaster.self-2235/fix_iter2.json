@@ -1,0 +1,104 @@
+{
+  "iteration": 2,
+  "worktree": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916",
+  "head_at_start": "99fb015",
+  "committed": false,
+  "scope": "issue #24 regression gate (tools/issue24-capture-failing.mjs, tools/issue24-regression-diff.mjs)",
+  "findings": [
+    {
+      "id": "FND-101",
+      "severity": "HIGH",
+      "title": "The diff did not validate the field it compares",
+      "verdict": "confirmed and fixed",
+      "analysis": "The preflight refused a capture with no fileList, but `new Set(after.failing ?? [])` read a missing or non-array `failing` as zero failures, which is indistinguishable from a clean run. `capture.harnessErrors ?? []` had the same hole: a capture that cannot report which files failed to run was silently treated as one where all files ran.",
+      "files_changed": [
+        { "file": "tools/issue24-regression-diff.mjs", "line_range": "34-42", "change": "preflight loop now asserts `failing` and `harnessErrors` are arrays on both sides and pushes a GATE UNUSABLE problem naming the field and the value it found" },
+        { "file": "tools/issue24-regression-diff.mjs", "line_range": "44", "change": "harnessErrors read through Array.isArray instead of `?? []`" },
+        { "file": "tools/issue24-regression-diff.mjs", "line_range": "155-156", "change": "failing sets built through Array.isArray instead of `?? []`" },
+        { "file": "tools/issue24-regression-diff.test.mjs", "line_range": "179-217", "change": "four new cases: failing missing, failing not an array, harnessErrors missing, harnessErrors not an array" }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_messages": [
+          "✖ issue #24 gate: a capture with no failing list fails the gate — AssertionError: a capture that cannot say which tests failed cannot be compared (actual: 0, expected: 0, operator: notStrictEqual)",
+          "✖ issue #24 gate: a capture whose failing list is not an array fails the gate — AssertionError: a non-array failing field is not a failure set (actual: 0, expected: 0, operator: notStrictEqual)",
+          "✖ issue #24 gate: a capture with no harnessErrors list fails the gate — AssertionError: a capture that cannot say whether its files completed cannot anchor the comparison (actual: 0, expected: 0, operator: notStrictEqual)",
+          "✖ issue #24 gate: a capture whose harnessErrors is not an array fails the gate — AssertionError: a non-array harnessErrors field is not an error list (actual: 0, expected: 0, operator: notStrictEqual)"
+        ]
+      }
+    },
+    {
+      "id": "FND-102",
+      "severity": "HIGH",
+      "title": "A suite that stops registering tests read as green",
+      "verdict": "confirmed and fixed",
+      "analysis": "describeChildFailure was only consulted from the catch block, and a child that exits 0 having run nothing never throws. Measured on node v24.21.0: `node --test` on a file registering no tests exits 0, and a `node --test` child that inherits NODE_TEST_CONTEXT produces empty stdout and exit 0 (measured: nested execFileSync stdout was the empty string). CLAUDE.md records the same trap for this repository's own gate, where an assertion over that outcome 'passes vacuously with stdout empty'. Such a file contributed no failure names, raised no harness error and left the file set identical, so the gate said 'no new failures'.",
+      "files_changed": [
+        { "file": "tools/issue24-capture-failing.mjs", "line_range": "43-74", "change": "new exported parseFileSummary(output) reads the last `ℹ tests N` / `ℹ pass N` / `ℹ fail N` lines; returns null (absence of a claim) rather than zero when any of the three is missing" },
+        { "file": "tools/issue24-capture-failing.mjs", "line_range": "93-104", "change": "the per-file loop records perFileCounts[file] = parseFileSummary(out), including null" },
+        { "file": "tools/issue24-capture-failing.mjs", "line_range": "113-118", "change": "perFileCounts written into the capture document" },
+        { "file": "tools/issue24-capture-failing.mjs", "line_range": "121-122", "change": "console summary now reports how many files printed no parseable summary" },
+        { "file": "tools/issue24-regression-diff.mjs", "line_range": "31-41", "change": "comment recording the legacy-capture policy" },
+        { "file": "tools/issue24-regression-diff.mjs", "line_range": "63-88", "change": "a capture that carries perFileCounts must have a parsed count for every file it enumerated; a missing entry and an unparseable summary are each GATE UNUSABLE problems" },
+        { "file": "tools/issue24-regression-diff.mjs", "line_range": "91-98", "change": "UNVERIFIED DIMENSION notice when either capture predates the field" },
+        { "file": "tools/issue24-regression-diff.mjs", "line_range": "99-125", "change": "when both sides carry counts, any shared file whose count dropped is a GATE UNUSABLE problem; a count that rose and a file new in the after run are accepted" },
+        { "file": "tools/issue24-regression-diff.test.mjs", "line_range": "219-329", "change": "nine new cases: summary parsing from fixture text, empty output, 'skipping running files', partial summary, count dropped, count unparseable, count entry missing, count risen, file new in the after run, legacy capture" }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_messages": [
+          "✖ issue #24 capture: the per-file summary counts are parsed out of node:test output — TypeError: (intermediate value).parseFileSummary is not a function",
+          "✖ issue #24 capture: output with no summary at all parses as unknown, not as zero — TypeError: (intermediate value).parseFileSummary is not a function",
+          "✖ issue #24 capture: a partial summary is unknown rather than a count of zero — TypeError: (intermediate value).parseFileSummary is not a function",
+          "✖ issue #24 gate: a file whose test count dropped fails the gate — AssertionError: a suite that stopped registering tests must not read as green (actual: 0, expected: 0, operator: notStrictEqual)",
+          "✖ issue #24 gate: a file whose summary could not be parsed fails the gate — AssertionError: a file that printed no summary ran an unknown number of tests (actual: 0, expected: 0, operator: notStrictEqual)",
+          "✖ issue #24 gate: a capture that carries counts but omits an enumerated file fails the gate — AssertionError: a file with no recorded count is not a file with zero failures (actual: 0, expected: 0, operator: notStrictEqual)",
+          "✖ issue #24 gate: a capture predating per-file counts is accepted but reports the dimension as unverified — AssertionError: The input did not match the regular expression /UNVERIFIED DIMENSION/. Input: 'baseline files:   2\\nafter files:      2\\nbaseline failing: 0\\nafter failing:    0\\nno new failures\\n'"
+        ]
+      }
+    }
+  ],
+  "legacy_capture_policy": {
+    "question": "How should the diff treat a capture predating perFileCounts?",
+    "chosen": "accept-with-loud-notice",
+    "rejected": ["refuse-outright", "accept-silently"],
+    "rationale": "Absence of the whole perFileCounts key is the version marker. The two captures under docs/analysis/2026-09-16.issue24-store-publish/raw/ were taken before the field existed and cannot be re-taken against the pre-change tree, so refusing them would destroy recorded evidence rather than protect it; accepting them in silence would leave nothing in the output to say a vacuous suite could not have been detected. So the failing-name comparison still runs and the output leads with 'UNVERIFIED DIMENSION', naming what was not checked and how to fix it. Leniency is scoped strictly to the absent key: a capture that does carry perFileCounts must have a parsed count for every file it enumerated, and any missing or unparseable entry is GATE UNUSABLE.",
+    "comment_location": "tools/issue24-regression-diff.mjs:31-41"
+  },
+  "verification": {
+    "unit": {
+      "command": "node --test tools/issue24-regression-diff.test.mjs",
+      "cwd": "repo root",
+      "before_fix": "tests 24 | pass 13 | fail 11",
+      "after_fix": "tests 24 | suites 0 | pass 24 | fail 0 | cancelled 0 | skipped 0 | todo 0",
+      "result": "PASS"
+    },
+    "recorded_captures": {
+      "command": "node tools/issue24-regression-diff.mjs --baseline docs/analysis/2026-09-16.issue24-store-publish/raw/baseline.v2.json --after docs/analysis/2026-09-16.issue24-store-publish/raw/after.v2.json",
+      "cwd": "repo root",
+      "exit_code": 0,
+      "output": [
+        "UNVERIFIED DIMENSION: baseline and after capture(s) predate per-file test counts, so this comparison covers failing test names only. A suite that stopped registering tests would not be detected; re-capture both sides with the current tools/issue24-capture-failing.mjs to cover it.",
+        "files added since the baseline (2, not a problem): src/services/StorePublishCrossInstance.test.ts, src/utils/atomicStoreWrite.test.ts",
+        "baseline files:   31",
+        "after files:      33",
+        "baseline failing: 17",
+        "after failing:    16",
+        "no longer failing (1):",
+        "  src/services/TerminalResourcePolicy.test.ts :: OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers",
+        "no new failures"
+      ]
+    },
+    "real_capture_invoked": false,
+    "servers_started": false,
+    "ports_touched": []
+  },
+  "constraints_honoured": {
+    "no_existing_assertion_weakened": true,
+    "no_real_capture_run_in_tests": true,
+    "no_commit": true,
+    "no_ai_signature": true
+  }
+}

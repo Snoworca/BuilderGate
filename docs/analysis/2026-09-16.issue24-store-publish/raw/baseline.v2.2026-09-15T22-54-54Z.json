@@ -1,0 +1,23 @@
+{
+  "capturedAt": "2026-09-15T22:57:38.252Z",
+  "files": 33,
+  "failing": [
+    "src/services/SessionManagerEnvIsolation.test.ts :: SEC-MCP-003 the OSC 133 BASH_ENV injection survives the filter",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw",
+    "src/services/TerminalResourcePolicy.test.ts :: OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites",
+    "src/services/TerminalResourcePolicy.test.ts :: OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope",
+    "src/services/TerminalResourcePolicy.test.ts :: Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6"
+  ],
+  "harnessErrors": []
+}
