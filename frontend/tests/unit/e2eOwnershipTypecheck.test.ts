@@ -67,10 +67,20 @@ function referenceCount(source: ts.SourceFile, symbol: string): { declared: bool
     if (isDeclarationName) declared = true;
     if (ts.isIdentifier(node) && node.text === symbol) {
       const parent = node.parent;
-      const isOwnDeclarationName = parent !== undefined
-        && (ts.isVariableDeclaration(parent) || ts.isFunctionDeclaration(parent))
-        && parent.name === node;
-      if (!isOwnDeclarationName) reads += 1;
+      // A same-named identifier is only a read of the module binding when it is not the
+      // declaration's own name and not a member/property name, which belongs to some
+      // other object and would make an unread declaration look used.
+      const isBindingRead = parent === undefined || !(
+        ((ts.isVariableDeclaration(parent) || ts.isFunctionDeclaration(parent)) && parent.name === node)
+        || (ts.isPropertyAccessExpression(parent) && parent.name === node)
+        || (ts.isPropertyAssignment(parent) && parent.name === node)
+        || (ts.isPropertySignature(parent) && parent.name === node)
+        || (ts.isMethodDeclaration(parent) && parent.name === node)
+        || (ts.isMethodSignature(parent) && parent.name === node)
+        || (ts.isQualifiedName(parent) && parent.right === node)
+        || (ts.isBindingElement(parent) && parent.propertyName === node)
+      );
+      if (isBindingRead) reads += 1;
     }
     ts.forEachChild(node, visit);
   };
@@ -93,6 +103,36 @@ test('REL-BGSTAB-001 AC-3: the promotion spec declares no never-read DA1/snapsho
     );
   }
 });
+
+// Pin referenceCount's contract directly. Without this the guard above could quietly
+// start counting member names or comment text as reads and would then pass over exactly
+// the TS6133 state it exists to catch.
+const REFERENCE_CASES: ReadonlyArray<readonly [string, string, boolean, number]> = [
+  // label, source, expected declared, expected reads
+  ['declared, never read', 'const S = 1;', true, 0],
+  ['declared and read', 'const S = 1; console.log(S);', true, 1],
+  ['member name only', 'const S = 1; const o = { a: 1 }; o.S;', true, 0],
+  ['object key only', 'const S = 1; const o = { S: 2 };', true, 0],
+  ['comment mention only', 'const S = 1; // S is interesting', true, 0],
+  ['string mention only', 'const S = 1; const t = "S";', true, 0],
+  ['shorthand property is a read', 'const S = 1; const o = { S };', true, 1],
+  ['type member name only', 'const S = 1; interface I { S: number }', true, 0],
+  ['qualified type name only', 'const S = 1; type T = ns.S;', true, 0],
+  ['absent, comment only', '// S is interesting', false, 0],
+  ['function declared, never called', 'function S() {}', true, 0],
+  ['function declared and called', 'function S() {} S();', true, 1],
+];
+
+for (const [label, code, expectedDeclared, expectedReads] of REFERENCE_CASES) {
+  test(`REL-BGSTAB-001 AC-3: referenceCount — ${label}`, () => {
+    const source = ts.createSourceFile('case.ts', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    assert.deepEqual(
+      referenceCount(source, 'S'),
+      { declared: expectedDeclared, reads: expectedReads },
+      `referenceCount mis-read: ${code}`,
+    );
+  });
+}
 
 test('REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors', () => {
   // The referenced editor project emits declaration-only output under the gitignored
