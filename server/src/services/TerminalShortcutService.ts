@@ -15,6 +15,7 @@ import type {
   UpdateTerminalShortcutBindingInput,
 } from '../types/terminalShortcut.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { publishStoreAtomically } from '../utils/atomicStoreWrite.js';
 
 interface TerminalShortcutServiceOptions {
   dataPath?: string;
@@ -530,24 +531,11 @@ export class TerminalShortcutService {
       ...this.buildState(),
       lastUpdated: new Date().toISOString(),
     };
-    const tmpPath = this.dataFilePath + '.tmp';
-    const bakPath = this.dataFilePath + '.bak';
-
+    // @req REL-BGSTAB-022
     try {
-      await fs.writeFile(tmpPath, JSON.stringify(file, null, 2), { encoding: 'utf-8', mode: 0o600 });
-      try {
-        await fs.copyFile(this.dataFilePath, bakPath);
-      } catch {
-        // No existing file to backup.
-      }
-      await fs.rename(tmpPath, this.dataFilePath);
+      await publishStoreAtomically(this.dataFilePath, JSON.stringify(file, null, 2));
     } catch (error: any) {
       console.error('[TerminalShortcutService] Flush failed:', error.message);
-      try {
-        await fs.unlink(tmpPath);
-      } catch {
-        // Ignore cleanup failures.
-      }
       throw new AppError(ErrorCode.CONFIG_PERSIST_FAILED, 'Failed to persist terminal shortcuts');
     }
   }

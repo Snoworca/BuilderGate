@@ -1,0 +1,4 @@
+baseline failing: 16
+after failing:    17
+NEW FAILURES (1):
+  src/services/TerminalResourcePolicyCanary.test.ts :: PERF-BGSTAB-010 gated real-session PTY chain settles within the fixture bound after overflow cleanup

@@ -16,6 +16,7 @@ import {
   validateRecoveryCommand,
 } from '../utils/recoveryCommand.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { publishStoreAtomically } from '../utils/atomicStoreWrite.js';
 
 interface RecoveryOptionServiceOptions {
   dataPath?: string;
@@ -413,26 +414,15 @@ export class RecoveryOptionService {
       lastUpdated: new Date().toISOString(),
       options: this.sortedOptions(),
     };
-    const tmpPath = `${this.dataFilePath}.tmp`;
-    const bakPath = `${this.dataFilePath}.bak`;
-
+    // @req REL-BGSTAB-022 — preserveExistingBackup still suppresses the backup
+    // on the recovery paths, which is why writeBackup is passed through rather
+    // than defaulted.
     try {
-      await fs.writeFile(tmpPath, JSON.stringify(file, null, 2), { encoding: 'utf-8', mode: 0o600 });
-      if (!options.preserveExistingBackup) {
-        try {
-          await fs.copyFile(this.dataFilePath, bakPath);
-        } catch {
-          // No existing primary store to back up.
-        }
-      }
-      await fs.rename(tmpPath, this.dataFilePath);
+      await publishStoreAtomically(this.dataFilePath, JSON.stringify(file, null, 2), {
+        writeBackup: !options.preserveExistingBackup,
+      });
     } catch (error: any) {
       console.error('[RecoveryOptionService] Flush failed:', error.message);
-      try {
-        await fs.unlink(tmpPath);
-      } catch {
-        // Ignore cleanup failures.
-      }
       throw new AppError(ErrorCode.CONFIG_PERSIST_FAILED, 'Failed to persist recovery options');
     }
   }
