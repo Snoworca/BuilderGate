@@ -1,7 +1,7 @@
 713e193ff20c26596b7d04a7937d9297aaa96099247a4240bf1216aa6107e8bd  raw/baseline-workspaceOwnershipMigration.log
 f0f8848d4a73618321a1792a41cea1e0f6d964d6ea53e3fdc2db572eb224bd67  raw/changed-file-hashes.txt
 5e30b65f29dc06d2dfdfd01d8fe268f0f347b70bceec0e9c5afcc6ea2356c94a  raw/control-run-1.2026-09-15T20-15Z.list.log
-acb8960118b5ee9514e2a3ce8902385fe7a31272f6c2d9e59f54091986f07f19  raw/control-run-1.2026-09-15T20-27-21Z.reconstructed.json
+fb8b6b395150463ab54301cef3eba1f016c4799bf960efe98471809d9b9b6e54  raw/control-run-1.2026-09-15T20-27-21Z.json
 c92f53de3ded669578ad4dba6e4a34bebed07d39bb91f7d04cad695d86b32d8c  raw/control-run-2.2026-09-15T20-46-39Z.json
 a917f092b00624ccba9674d447e7dc4535af14060c88730e8cdc33270406260d  raw/control-run-2.2026-09-15T20-46-39Z.stderr
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  raw/final-tsc-app.log
@@ -17,6 +17,7 @@ b4c0b7ed2a52ede114e0bc4c14d23e78c613d72ad68098a6aa1385ccb575b354  raw/green-unit
 008151627c3fcf923abfcc45be2f83688894e100a65e6c0a25c3c2a1f628fd1a  raw/green-unit-workspaceOwnershipFixture.log
 8a8ab5324bbd399ee0aeb4ef924a9a13538b2069a912ebc0b41ffc8457de8c0e  raw/ports-after-shutdown.txt
 eef9c60f15d6dcddc0b75b60032d7cdeb6010a8e230941d9d63d8b993cad0145  raw/ports-before-shutdown.txt
+0d90aa484837ec221556fe76f7c5a9dcad808c53fa8e4ff75ae70f707456b236  raw/ports-final-observation.txt
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  raw/precond-tsc-editor-build.log
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  raw/red-tsc-app.log
 6da6c8f7c05602c19d1a3de7b41e59c91a90e1c769bd5b6aed978e96babe439c  raw/red-tsc-e2e-ownership.log
@@ -26,5 +27,5 @@ e21390b962c96501238a3e942a68428b7aeecfdb37932f95acfa14b1f41f2dd8  raw/red-unit-e
 aec0f8cc6d0c54665bb5ca7fe11316f494e472400eba26ecdaa07e7605fe55ee  raw/red-unit-workspaceOwnershipFixture.log
 83ee3e5c3cdf54201fbe4735441c2e44ac05245f713c9d75440abffa5def1ac9  raw/regression-selected-files.txt
 9ca9cb6bfd902f73fee7836de9f768a234658643ffe43fcae31fe2c6bc0defe0  raw/regression-unit.log
-29a15ed09a198142256fdf85d431f65d6c6b79c26a5097d80dccf2cf17540bf8  raw/review-fix-unit.log
+7c4b24109566ecb0ff25aeb129dae07e269179524c317b9acd08c590710f0aa1  raw/review-fix-unit.log
 dead6feb2a8e8d05a68d41304abe81cd471cb23d7b297b060ed6ca80563a7633  raw/screenshot-hashes.txt
