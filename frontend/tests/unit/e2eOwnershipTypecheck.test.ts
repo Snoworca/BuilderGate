@@ -20,6 +20,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import ts from 'typescript';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -53,19 +54,42 @@ test('REL-BGSTAB-001 AC-3: the ownership E2E project references the vendored edi
   );
 });
 
+// Counting textual matches would include comments and string literals, so a stray
+// mention could mask a still-unread declaration (or invent one that is not there).
+// Parse instead and count real identifier references, the way
+// workspaceOwnershipMigration.test.ts already inventories this same spec.
+function referenceCount(source: ts.SourceFile, symbol: string): { declared: boolean; reads: number } {
+  let declared = false;
+  let reads = 0;
+  const visit = (node: ts.Node): void => {
+    const isDeclarationName = (ts.isVariableDeclaration(node) || ts.isFunctionDeclaration(node))
+      && node.name !== undefined && ts.isIdentifier(node.name) && node.name.text === symbol;
+    if (isDeclarationName) declared = true;
+    if (ts.isIdentifier(node) && node.text === symbol) {
+      const parent = node.parent;
+      const isOwnDeclarationName = parent !== undefined
+        && (ts.isVariableDeclaration(parent) || ts.isFunctionDeclaration(parent))
+        && parent.name === node;
+      if (!isOwnDeclarationName) reads += 1;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return { declared, reads };
+}
+
 test('REL-BGSTAB-001 AC-3: the promotion spec declares no never-read DA1/snapshot helpers', () => {
-  const source = readFileSync(PROMOTION_SPEC, 'utf8');
+  const source = ts.createSourceFile(
+    PROMOTION_SPEC, readFileSync(PROMOTION_SPEC, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS,
+  );
   for (const symbol of ['REPLY_DA1_CONPTY', 'waitForSnapshot']) {
-    const occurrences = source.split(new RegExp(`\\b${symbol}\\b`)).length - 1;
-    // Exactly one occurrence is a declaration nothing reads, which is the TS6133 state
-    // this pins. Zero (deleted) and two-or-more (reintroduced and actually used, as the
-    // sibling fairness spec does with its own waitForSnapshot) are both acceptable, so
-    // this must not forbid the identifier outright.
-    assert.notEqual(
-      occurrences,
-      1,
-      `${symbol} occurs exactly once in the promotion spec, i.e. it is declared and never `
-        + `read, which fails noUnusedLocals (TS6133). Either delete it or use it.`,
+    const { declared, reads } = referenceCount(source, symbol);
+    // Deleted, or declared and actually read (as the sibling fairness spec does with its
+    // own waitForSnapshot), are both fine. Declared with zero reads is the TS6133 state.
+    assert.ok(
+      !declared || reads > 0,
+      `${symbol} is declared in the promotion spec and never read, which fails noUnusedLocals `
+        + `(TS6133). Either delete it or use it.`,
     );
   }
 });
