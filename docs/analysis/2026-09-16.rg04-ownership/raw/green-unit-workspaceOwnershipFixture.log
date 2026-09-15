@@ -1,0 +1,36 @@
+✔ REL001 actual fixture tracks UI and page-fetch responses and isolates sibling contexts/retries (109.766404ms)
+✔ REL001 unrelated origin method and path cannot be adopted by live observer (24.080228ms)
+✔ REL001 matching failed response never owns and remains observable (20.903889ms)
+✔ REL001 matching malformed response never owns and remains observable (16.985404ms)
+✔ REL001 matching service-worker response never owns and remains observable (17.420055ms)
+✔ REL001 matching route-fulfilled response never owns and remains observable (12.624832ms)
+✔ REL001 matching non-loopback response never owns and remains observable (12.839076ms)
+✔ REL001 matching wrong-port response never owns and remains observable (15.389161ms)
+✔ REL001 bracketed and bare loopback peer [::1] proves live traffic (14.485935ms)
+✔ REL001 bracketed and bare loopback peer ::1 proves live traffic (12.504085ms)
+✔ REL001 bracketed and bare loopback peer ::ffff:127.0.0.1 proves live traffic (14.477053ms)
+✔ REL001 bracketed and bare loopback peer 127.0.0.1 proves live traffic (13.751395ms)
+✔ REL001 bracketed non-loopback peer [2001:db8::1] never owns (12.336413ms)
+✔ REL001 bracketed non-loopback peer [::ffff:192.0.2.1] never owns (14.116205ms)
+✔ REL001 bracketed non-loopback peer [] never owns (10.370963ms)
+✔ REL001 bracketed non-loopback peer [::1 never owns (10.547467ms)
+✔ REL001 bracketed non-loopback peer ::1] never owns (10.840039ms)
+✔ REL001 cleanup and dispose await in-flight request response body and actual registry publication (13.958463ms)
+✔ REL001 request failure is observable and never turns unknown creation into an owned ID (14.657092ms)
+✔ REL001 actual API adapter publishes POST ID before returning and subsequent tab failure retains cleanup ownership (11.952728ms)
+✔ REL001 API adapter rejects quota failure without adopting list IDs or evicting user workspaces (10.521216ms)
+✔ REL001 API adapter validates registry run and owner before any POST (10.617405ms)
+✔ REL001 automatic fixture rejects mismatched run metadata before user test execution (10.410946ms)
+✔ REL001 captured actual base.extend auto fixture installs before use and cleans/disposes after failed test body (15.463993ms)
+✔ REL001 mock-only workspace specs remain on base fixture and cannot collect synthetic ownership (5.796097ms)
+✔ REL001 IPv6 loopback response is live and selected deletion preserves another workspace of the same owner (13.436679ms)
+✔ REL001 automatic fixture exposes cleanup503 with body failure false and retains records (11.806131ms)
+✔ REL001 automatic fixture exposes cleanup503 with body failure true and retains records (10.963587ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 779.531516
