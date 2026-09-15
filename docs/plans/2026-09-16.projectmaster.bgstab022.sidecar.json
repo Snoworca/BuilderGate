@@ -3,7 +3,7 @@
   "plan_contract": "1.2.0",
   "run_id": "2026-09-16.projectmaster.bgstab022",
   "target": "0.5.5-buildergate-stability",
-  "plan_version": "0.2.0",
+  "plan_version": "0.2.1",
   "generated_at": "2026-09-15T22:09:33Z",
   "tool_versions": {
     "speckiwi": "3.0.0",
@@ -12,7 +12,7 @@
   },
   "tdd_policy": "relaxed",
   "md_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md",
-  "md_sha256": "b5873b779328d07d43705dcd57c6852042c79482d446378cda56826fbf0ce45a",
+  "md_sha256": "4267079be1f68dbcad4d03043a9ddfafcfb42a326dce352399587e66accd55ac",
   "phases": [
     {
       "id": "PH-001",
@@ -839,7 +839,7 @@
       "acceptance_tests": [
         {
           "kind": "shell",
-          "cmd": "node tools/issue24-regression-diff.mjs --baseline docs/analysis/2026-09-16.issue24-store-publish/raw/baseline.json --after docs/analysis/2026-09-16.issue24-store-publish/raw/after.json",
+          "cmd": "node tools/issue24-regression-diff.mjs --baseline docs/analysis/2026-09-16.issue24-store-publish/raw/baseline.v3.json --after docs/analysis/2026-09-16.issue24-store-publish/raw/after.v3.json",
           "expected_exit": 0,
           "stdout_regex": "no new failures"
         },
@@ -859,7 +859,8 @@
         "The post-change failing-name set is compared to it by name, and the comparison reports no new failures.",
         "Every run is saved under its own timestamped filename; none is overwritten.",
         "SHA256SUMS.txt is recalculated last and matches the hashes quoted in the report.",
-        "A nested .gitignore admits raw/*.log past the root *.log rule."
+        "A nested .gitignore admits raw/*.log past the root *.log rule.",
+        "The baseline is captured with the same tool version as the after run, so both carry per-file test counts and the gate runs its strict path with no unverified dimension."
       ],
       "rollback": "Delete the evidence directory and the diff script. Neither is production code.",
       "trace_links": [
