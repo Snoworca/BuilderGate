@@ -54,10 +54,21 @@ test('REL-BGSTAB-001 AC-3: the ownership E2E project references the vendored edi
   );
 });
 
-// Counting textual matches would include comments and string literals, so a stray
-// mention could mask a still-unread declaration (or invent one that is not there).
-// Parse instead and count real identifier references, the way
-// workspaceOwnershipMigration.test.ts already inventories this same spec.
+// referenceCount is a SYNTACTIC APPROXIMATION, not an implementation of noUnusedLocals.
+// Its job is to name the cause quickly when the tsc run below goes red; the tsc run is
+// the oracle and is strictly stronger.
+//
+// It is accurate enough to be useful: parsing (rather than counting textual matches)
+// means comments and string literals no longer contribute, and member-name positions are
+// excluded so `o.waitForSnapshot` cannot pass for a read. It still OVER-COUNTS in binding
+// positions it cannot resolve without a TypeChecker — a same-named parameter, a nested
+// class or interface of the same name, a labeled statement, an enum member, a class
+// field, a JSX attribute, a type alias, and import/export specifier names all count as
+// reads. Every one of those errs toward PASS, i.e. toward masking the TS6133 state.
+// That is acceptable only because `tsc --noEmit -p tsconfig.e2e-ownership.json` below
+// asserts zero diagnostics and would still fail. Do not read a pass here as a guarantee,
+// and do not chase the remaining cases: closing them needs symbol resolution, and the
+// authoritative check already exists.
 function referenceCount(source: ts.SourceFile, symbol: string): { declared: boolean; reads: number } {
   let declared = false;
   let reads = 0;
@@ -98,15 +109,17 @@ test('REL-BGSTAB-001 AC-3: the promotion spec declares no never-read DA1/snapsho
     // own waitForSnapshot), are both fine. Declared with zero reads is the TS6133 state.
     assert.ok(
       !declared || reads > 0,
-      `${symbol} is declared in the promotion spec and never read, which fails noUnusedLocals `
-        + `(TS6133). Either delete it or use it.`,
+      `${symbol} is declared in the promotion spec and this syntactic scan found no `
+        + `identifier reference to it. That is the shape of a TS6133 "declared but never `
+        + `read", but this check does not resolve symbols, so treat it as a lead: the `
+        + `tsc --noEmit assertion in this file is what actually decides.`,
     );
   }
 });
 
-// Pin referenceCount's contract directly. Without this the guard above could quietly
-// start counting member names or comment text as reads and would then pass over exactly
-// the TS6133 state it exists to catch.
+// Pin referenceCount's ACTUAL behaviour, including where it is deliberately approximate.
+// Without this the helper could quietly start counting member names or comment text as
+// reads and would then pass over exactly the TS6133 state it exists to flag.
 const REFERENCE_CASES: ReadonlyArray<readonly [string, string, boolean, number]> = [
   // label, source, expected declared, expected reads
   ['declared, never read', 'const S = 1;', true, 0],

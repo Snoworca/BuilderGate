@@ -1,0 +1,61 @@
+{
+ "_provenance": "RECONSTRUCTION, NOT THE ORIGINAL ARTIFACT. The original JSON report for this run was written to raw/control-playwright-ownership.json and was OVERWRITTEN IN PLACE by the later re-measurement (now raw/control-run-2.2026-09-15T20-46-39Z.json). The values below are transcribed from the decoded 'workspace-ownership-control' attachment of that run as it was printed in the session transcript, and were independently decoded by the independent reviewer from the working tree before the overwrite. Byte-level equality with the original file is NOT claimed; only these field values are asserted. Recorded because this run is the only record that workspace cbaef065-d9c2-4154-bedd-22ecabffccb6 ever existed.",
+ "_run": {
+  "label": "control run 1 (first passing run, --reporter=json)",
+  "startTimeApprox": "2026-09-15T20:27:21.897Z",
+  "status": "passed",
+  "durationMs": 4824,
+  "headAtRun": "f16a8b4 (working tree; committed as f16a8b45a54c9fa2e362c3a6e2ff4531a835c368)"
+ },
+ "workspace-ownership-control": {
+  "uiResponseMetadata": [
+   {
+    "id": "500435f9-30ba-4e8e-af83-7840f410e7db",
+    "status": 201,
+    "fromServiceWorker": false,
+    "serverAddr": {
+     "ipAddress": "[::1]",
+     "port": 2222
+    }
+   },
+   {
+    "id": "6cb72c59-8c45-4d49-98a3-5a319b5ec299",
+    "status": 201,
+    "fromServiceWorker": false,
+    "serverAddr": {
+     "ipAddress": "[::1]",
+     "port": 2222
+    }
+   }
+  ],
+  "observedWorkspaceDeletes": [
+   "/api/workspaces/500435f9-30ba-4e8e-af83-7840f410e7db",
+   "/api/workspaces/6cb72c59-8c45-4d49-98a3-5a319b5ec299",
+   "/api/workspaces/cba639f6-a216-4395-96f4-614e8e9db5d0",
+   "/api/workspaces/13ae728e-fd04-430f-b7c3-9cfae4f23545",
+   "/api/workspaces/97e02ca7-6c9e-47a7-be04-070a0076d302",
+   "/api/workspaces/92cf5b94-259f-4948-a07e-c29c3a3c3aa8",
+   "/api/workspaces/3bc9dbcf-20f9-4a16-a8f8-c614cfc50f59",
+   "/api/workspaces/b5cabef4-16fc-45c1-9fd1-b5d00daac3ee",
+   "/api/workspaces/3f262d85-a430-498c-8aa0-963cdca033e3"
+  ],
+  "createdApiIds": [
+   "13ae728e-fd04-430f-b7c3-9cfae4f23545",
+   "b5cabef4-16fc-45c1-9fd1-b5d00daac3ee",
+   "3f262d85-a430-498c-8aa0-963cdca033e3",
+   "92cf5b94-259f-4948-a07e-c29c3a3c3aa8",
+   "3bc9dbcf-20f9-4a16-a8f8-c614cfc50f59",
+   "97e02ca7-6c9e-47a7-be04-070a0076d302",
+   "cba639f6-a216-4395-96f4-614e8e9db5d0"
+  ],
+  "preservedIds": [
+   "ff81eb62-491d-410b-a799-0f196a9a13a9",
+   "cbaef065-d9c2-4154-bedd-22ecabffccb6"
+  ],
+  "finalIds": [
+   "ff81eb62-491d-410b-a799-0f196a9a13a9",
+   "cbaef065-d9c2-4154-bedd-22ecabffccb6"
+  ],
+  "errorCount": 0
+ }
+}
