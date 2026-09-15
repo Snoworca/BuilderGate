@@ -74,22 +74,22 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 5216,
+                  "duration": 5051,
                   "errors": [],
                   "stdout": [],
                   "stderr": [
                     {
-                      "text": "(node:26975) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+                      "text": "(node:30248) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
                     }
                   ],
                   "retry": 0,
-                  "startTime": "2026-09-15T20:27:21.897Z",
+                  "startTime": "2026-09-15T20:46:48.514Z",
                   "annotations": [],
                   "attachments": [
                     {
                       "name": "workspace-ownership-control",
                       "contentType": "application/json",
-                      "body": "eyJ1aVJlc3BvbnNlTWV0YWRhdGEiOlt7ImlkIjoiNjc1Y2EzMzEtZWQwMC00Mzk2LWFiODktN2FjNjVhMTZlMDEyIiwic3RhdHVzIjoyMDEsImZyb21TZXJ2aWNlV29ya2VyIjpmYWxzZSwic2VydmVyQWRkciI6eyJpcEFkZHJlc3MiOiJbOjoxXSIsInBvcnQiOjIyMjJ9fSx7ImlkIjoiYzhhMTNjOWYtNjMxNC00Nzk3LTkxMTUtNzE4OTBiYzJiYjRkIiwic3RhdHVzIjoyMDEsImZyb21TZXJ2aWNlV29ya2VyIjpmYWxzZSwic2VydmVyQWRkciI6eyJpcEFkZHJlc3MiOiJbOjoxXSIsInBvcnQiOjIyMjJ9fV0sIm9ic2VydmVkV29ya3NwYWNlRGVsZXRlcyI6WyIvYXBpL3dvcmtzcGFjZXMvNjc1Y2EzMzEtZWQwMC00Mzk2LWFiODktN2FjNjVhMTZlMDEyIiwiL2FwaS93b3Jrc3BhY2VzL2M4YTEzYzlmLTYzMTQtNDc5Ny05MTE1LTcxODkwYmMyYmI0ZCIsIi9hcGkvd29ya3NwYWNlcy9jNzhjMjE0NS0xYTZjLTQyZGQtYWRmNi0wYmIyYmE0ZjkzZDMiLCIvYXBpL3dvcmtzcGFjZXMvYzcwNmI0MjYtMDI3My00NzU0LThiZDQtZDI5ZjkwNTk5NDY5IiwiL2FwaS93b3Jrc3BhY2VzL2M2OGU2NjE1LTAzNWQtNGQ2My1iMzdlLWI5ZDQ2M2Q3ZmU5YSIsIi9hcGkvd29ya3NwYWNlcy8zOGYwYmUzOC1lMGJhLTQ5YTAtOTNlOS00MzY4YWQyZmY3NTMiLCIvYXBpL3dvcmtzcGFjZXMvNzgwNjQwNzAtZDBiYS00MzBkLTk2NjAtM2ZkODMxZmYyMDJjIiwiL2FwaS93b3Jrc3BhY2VzL2ExYTMyNTE5LTI3NTQtNGM3Mi1hNGJhLWEwMWY1ZjUzNjZmYSIsIi9hcGkvd29ya3NwYWNlcy9kYmY3ZjNmYS1lY2NmLTQ5NzYtYmYxOC0zOGMwZDVhYjI3ZTEiXSwiY3JlYXRlZEFwaUlkcyI6WyJkYmY3ZjNmYS1lY2NmLTQ5NzYtYmYxOC0zOGMwZDVhYjI3ZTEiLCJjNzA2YjQyNi0wMjczLTQ3NTQtOGJkNC1kMjlmOTA1OTk0NjkiLCJjNjhlNjYxNS0wMzVkLTRkNjMtYjM3ZS1iOWQ0NjNkN2ZlOWEiLCI3ODA2NDA3MC1kMGJhLTQzMGQtOTY2MC0zZmQ4MzFmZjIwMmMiLCJhMWEzMjUxOS0yNzU0LTRjNzItYTRiYS1hMDFmNWY1MzY2ZmEiLCIzOGYwYmUzOC1lMGJhLTQ5YTAtOTNlOS00MzY4YWQyZmY3NTMiLCJjNzhjMjE0NS0xYTZjLTQyZGQtYWRmNi0wYmIyYmE0ZjkzZDMiXSwicHJlc2VydmVkSWRzIjpbImZmODFlYjYyLTQ5MWQtNDEwYi1hNzk5LTBmMTk2YTlhMTNhOSIsImNiYWVmMDY1LWQ5YzItNDE1NC1iZWRkLTIyZWNhYmZmY2NiNiJdLCJmaW5hbElkcyI6WyJmZjgxZWI2Mi00OTFkLTQxMGItYTc5OS0wZjE5NmE5YTEzYTkiLCJjYmFlZjA2NS1kOWMyLTQxNTQtYmVkZC0yMmVjYWJmZmNjYjYiXSwiZXJyb3JDb3VudCI6MH0="
+                      "body": "eyJ1aVJlc3BvbnNlTWV0YWRhdGEiOlt7ImlkIjoiNGY2Zjg4NzAtOTNjNS00YTNmLWJiYzQtNDgyMWMxYTUzODE2Iiwic3RhdHVzIjoyMDEsImZyb21TZXJ2aWNlV29ya2VyIjpmYWxzZSwic2VydmVyQWRkciI6eyJpcEFkZHJlc3MiOiJbOjoxXSIsInBvcnQiOjIyMjJ9fSx7ImlkIjoiY2U5MWE5OTQtMDlhNi00MzVlLTgzN2QtNzQzM2YyZmRmNGQwIiwic3RhdHVzIjoyMDEsImZyb21TZXJ2aWNlV29ya2VyIjpmYWxzZSwic2VydmVyQWRkciI6eyJpcEFkZHJlc3MiOiJbOjoxXSIsInBvcnQiOjIyMjJ9fV0sIm9ic2VydmVkV29ya3NwYWNlRGVsZXRlcyI6WyIvYXBpL3dvcmtzcGFjZXMvNGY2Zjg4NzAtOTNjNS00YTNmLWJiYzQtNDgyMWMxYTUzODE2IiwiL2FwaS93b3Jrc3BhY2VzL2NlOTFhOTk0LTA5YTYtNDM1ZS04MzdkLTc0MzNmMmZkZjRkMCIsIi9hcGkvd29ya3NwYWNlcy8xYjU3ODE0ZC0xNzQ4LTRjY2QtYjZlYy0zMDM4OTc0NDY0ZjkiLCIvYXBpL3dvcmtzcGFjZXMvZGM4ZTAzZDgtMTc0OC00YWE5LTgwNjItYTE3Y2U2ZjgyMjBiIiwiL2FwaS93b3Jrc3BhY2VzLzZjOGExMzIzLWY1OGYtNGRlYy1hY2Q5LTIzNmNjNTgwN2U4OSIsIi9hcGkvd29ya3NwYWNlcy9lNGE0ZDVmYi0yY2NlLTQ4MzUtYjM2NC0yZDZjN2Q3YWUxZTAiLCIvYXBpL3dvcmtzcGFjZXMvZTE3MjUxYzYtNWQ3ZS00NzFkLTg4ZGYtNWUyM2QzMTU0MTQ5IiwiL2FwaS93b3Jrc3BhY2VzL2NjZmJlN2M0LTFiYjAtNDNkMC05YTNhLWI0OTQyODUxZjdiZCIsIi9hcGkvd29ya3NwYWNlcy83Njk5Y2I4Yy05ODAzLTQzYWMtODEwMi0yZTFhNTg1ZDE4YjQiLCIvYXBpL3dvcmtzcGFjZXMvYWYyMGNkOTUtZDg3YS00OGY5LTgyMjMtMGNmYzQwNmU2M2YxIl0sImNyZWF0ZWRBcGlJZHMiOlsiZTE3MjUxYzYtNWQ3ZS00NzFkLTg4ZGYtNWUyM2QzMTU0MTQ5IiwiYWYyMGNkOTUtZDg3YS00OGY5LTgyMjMtMGNmYzQwNmU2M2YxIiwiY2NmYmU3YzQtMWJiMC00M2QwLTlhM2EtYjQ5NDI4NTFmN2JkIiwiZTRhNGQ1ZmItMmNjZS00ODM1LWIzNjQtMmQ2YzdkN2FlMWUwIiwiMWI1NzgxNGQtMTc0OC00Y2NkLWI2ZWMtMzAzODk3NDQ2NGY5IiwiZGM4ZTAzZDgtMTc0OC00YWE5LTgwNjItYTE3Y2U2ZjgyMjBiIiwiNzY5OWNiOGMtOTgwMy00M2FjLTgxMDItMmUxYTU4NWQxOGI0IiwiNmM4YTEzMjMtZjU4Zi00ZGVjLWFjZDktMjM2Y2M1ODA3ZTg5Il0sInByZXNlcnZlZElkcyI6WyJmZjgxZWI2Mi00OTFkLTQxMGItYTc5OS0wZjE5NmE5YTEzYTkiXSwiZmluYWxJZHMiOlsiZmY4MWViNjItNDkxZC00MTBiLWE3OTktMGYxOTZhOWExM2E5Il0sImVycm9yQ291bnQiOjB9"
                     }
                   ]
                 }
@@ -107,8 +107,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-09-15T20:27:14.810Z",
-    "duration": 12829.843,
+    "startTime": "2026-09-15T20:46:39.464Z",
+    "duration": 12698.151000000002,
     "expected": 1,
     "skipped": 0,
     "unexpected": 0,
