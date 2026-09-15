@@ -26,3 +26,4 @@ aec0f8cc6d0c54665bb5ca7fe11316f494e472400eba26ecdaa07e7605fe55ee  raw/red-unit-w
 83ee3e5c3cdf54201fbe4735441c2e44ac05245f713c9d75440abffa5def1ac9  raw/regression-selected-files.txt
 b28657b0dd36b6eb9dd6c0aaaba71331455045aa3dab505101ec9a36c0ea1209  raw/regression-unit.log
 7a30765bddb5ed59d15c2041f5946c291cd22a884cb759355d823b3aa4ce33d8  raw/review-fix-unit.log
+dead6feb2a8e8d05a68d41304abe81cd471cb23d7b297b060ed6ca80563a7633  raw/screenshot-hashes.txt

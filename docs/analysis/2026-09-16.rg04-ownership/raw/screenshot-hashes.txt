@@ -1,0 +1,2 @@
+2ac7b1eb7602dc0d1cc1ddd716d32c0a9f5c47f6fcda3349b7a547e2a22a3bcc  .playwright-mcp/2026-09-16.rg04-login-2222.png
+7638e5b2fbb145f9e06a05e24fe20c7292b7620b1b809025d5958e208872292a  .playwright-mcp/2026-09-16.rg04-workspace-ui-2222.png
