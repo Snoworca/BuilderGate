@@ -342,3 +342,56 @@ test('PERF-BGSTAB-008 AC-7 GREEN contract', async () => {
   const contract = await loadStatistics('PERF-BGSTAB-008 AC-7 contract not implemented');
   assertNoProductPromotion(contract);
 });
+
+// @req PERF-BGSTAB-012 AC-2
+//
+// `tieBrokenCount` was only checked as a non-negative integer, with no upper
+// bound and no cross-check against `order`. A producer whose clock never
+// advanced could nudge every reading by one ULP, satisfy the
+// strictly-increasing check on wholly synthetic timings, and write 0. The
+// disclosure was forgeable in the one direction that matters.
+test('PERF-BGSTAB-012 AC-2 tieBrokenCount may not understate the nudges the timings show', async () => {
+  const contract = await loadStatistics('benchmarkStatistics must expose validateExecutionManifest');
+
+  // A tie-broken reading is exactly the next representable double after its
+  // predecessor, so this is what a nudged pair looks like on the wire.
+  const nudged = createManifest();
+  const execution = nudged.execution as Record<string, unknown>;
+  const order = execution.order as Array<Record<string, unknown>>;
+  const base = order[0].observedAtMs as number;
+  order[1].observedAtMs = base + Number.EPSILON * base;
+  assert.ok(
+    (order[1].observedAtMs as number) > base,
+    'the fixture must still advance in time, or it would fail the earlier check instead',
+  );
+
+  execution.tieBrokenCount = 0;
+  assert.throws(
+    () => contract.validateExecutionManifest(nudged),
+    /tieBrokenCount is 0 but 1 consecutive execution\.order readings are one ULP apart/u,
+    'a run that nudged a reading and disclosed none must be rejected',
+  );
+
+  // The floor is a floor, not an equality: the check must not reject an honest
+  // run that discloses a nudge whose spacing is no longer visible.
+  execution.tieBrokenCount = 1;
+  assert.doesNotThrow(() => contract.validateExecutionManifest(nudged));
+  execution.tieBrokenCount = 2;
+  assert.doesNotThrow(
+    () => contract.validateExecutionManifest(nudged),
+    'over-disclosure up to the number of readings taken is not the failure this guards',
+  );
+
+  // But no more readings can have been nudged than were taken.
+  execution.tieBrokenCount = 3;
+  assert.throws(
+    () => contract.validateExecutionManifest(nudged),
+    /execution\.order holds only 2 readings/u,
+    'a count above the length of the observed order must be rejected',
+  );
+
+  // The unnudged fixture still passes with a zero disclosure, so the new check
+  // did not simply make every manifest fail.
+  const honest = createManifest();
+  assert.doesNotThrow(() => contract.validateExecutionManifest(honest));
+});

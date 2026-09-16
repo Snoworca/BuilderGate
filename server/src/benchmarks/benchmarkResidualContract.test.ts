@@ -3,12 +3,15 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
+  BENCHMARK_MODES,
   validateExecutionManifest,
   type BenchmarkExecutionManifest,
+  type BenchmarkMode,
 } from './benchmarkStatistics.js';
 import {
   createTerminalCharacterizationManifest,
   createTerminalWorkloadCorpus,
+  planExecutionOrder,
 } from './terminalCharacterization.js';
 
 // @req PERF-BGSTAB-012
@@ -386,5 +389,82 @@ test('PERF-BGSTAB-012 the sealed Wave-1 benchmark artifacts are byte-identical',
       sealed.contentDigest,
       `${sealed.name} must still carry the contentDigest that PERF-BGSTAB-008 and the G1 audit quote`,
     );
+  }
+});
+
+// @req PERF-BGSTAB-012 AC-2
+//
+// `planExecutionOrder` is the whole of the interleave guarantee: the runner is a
+// single loop over what this function returns, so whatever it emits is what ran.
+// Until this test existed the only coverage came through the manifest builder,
+// which always passes the four default modes and so only ever exercised the
+// rotating branch. The two-arm branch — added because a per-trial rotation puts
+// the same arm on both sides of a trial boundary at exactly two arms, producing
+// `A B | B A` — had no test at all, and deleting it left every suite green.
+//
+// The table is deliberately wider than the production call: arm counts either
+// side of the branch, workload counts including one and a large odd number, and
+// trial counts including one and two, because the defect appears at a boundary
+// between trials and so needs at least two of them to show up.
+test('PERF-BGSTAB-012 AC-2 planExecutionOrder alternates arms and covers every cell exactly once', () => {
+  const armCounts = [2, 3, 4] as const;
+  const workloadCounts = [1, 2, 3, 21] as const;
+  const trialCounts = [1, 2, 3] as const;
+
+  for (const armCount of armCounts) {
+    const modes: BenchmarkMode[] = BENCHMARK_MODES.slice(0, armCount);
+    assert.equal(modes.length, armCount, 'the fixture must supply as many distinct arms as the case names');
+
+    for (const workloadCount of workloadCounts) {
+      for (const trialCount of trialCounts) {
+        const label = `${armCount} arms x ${workloadCount} workloads x ${trialCount} trials`;
+        const order = planExecutionOrder(modes, workloadCount, trialCount);
+
+        assert.equal(
+          order.length,
+          armCount * workloadCount * trialCount,
+          `${label}: the plan must hold exactly one unit per (mode, workload, trial) cell`,
+        );
+
+        // The property `assertInterleaved` enforces on the persisted manifest,
+        // asserted here at the source so a plan that breaks it cannot be built
+        // in the first place. Trial boundaries are included because that is
+        // where the rotation defect appeared.
+        for (let index = 1; index < order.length; index += 1) {
+          assert.notEqual(
+            order[index].mode,
+            order[index - 1].mode,
+            `${label}: steps ${index - 1} and ${index} both ran ${order[index].mode}, so consecutive units did not alternate arms`,
+          );
+        }
+
+        // Dense and ascending from zero: a plan with a hole or a repeat would
+        // let a partial record look complete.
+        for (const [index, step] of order.entries()) {
+          assert.equal(step.sequence, index, `${label}: sequence must be dense and ascending from 0`);
+        }
+
+        // Alternation alone is satisfiable by a plan that drops cells and
+        // repeats others, so coverage is checked as a multiset rather than a
+        // set: every cell present, none twice.
+        const cells = order.map(step => `${step.mode}|${step.workloadIndex}|${step.trialId}`);
+        assert.equal(
+          new Set(cells).size,
+          cells.length,
+          `${label}: no (mode, workloadIndex, trialId) cell may appear twice`,
+        );
+        const expected: string[] = [];
+        for (let trial = 1; trial <= trialCount; trial += 1) {
+          for (let workloadIndex = 0; workloadIndex < workloadCount; workloadIndex += 1) {
+            for (const mode of modes) expected.push(`${mode}|${workloadIndex}|trial-${trial}`);
+          }
+        }
+        assert.deepEqual(
+          [...cells].sort(),
+          expected.sort(),
+          `${label}: the plan must cover every (mode, workloadIndex, trialId) cell exactly once`,
+        );
+      }
+    }
   }
 });

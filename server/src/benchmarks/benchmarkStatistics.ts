@@ -187,6 +187,15 @@ export interface BenchmarkExecutionRecord {
    * On a coarse-clock host this can reach the length of `order`, at which point
    * the strictly-increasing check passes on wholly synthetic timings. Recording
    * the count makes that visible instead of silent; zero is the healthy case.
+   *
+   * The validator holds this to a floor rather than an exact value. A nudged
+   * reading is exactly the next representable double after its predecessor, so
+   * consecutive `order` pairs one ULP apart are counted and this field may not
+   * fall below that count: an understated disclosure is rejected. It may exceed
+   * it, because a genuinely coarse clock can produce a nudge whose successor was
+   * later overwritten, and because over-disclosure is not the failure this field
+   * guards against. It may never exceed `order.length`, since there are only
+   * that many readings to nudge.
    */
   tieBrokenCount: number;
 }
@@ -525,6 +534,11 @@ export function validateExecutionManifest(
   for (const [index, stepValue] of execution.order.entries()) {
     validateExecutionStep(stepValue, `execution.order[${index}]`, index, manifest, true);
   }
+  // A nudged reading is exactly `nextUp(previous)`, so the pairs that carry one
+  // are recomputable from `order` itself. Counting them turns `tieBrokenCount`
+  // from a number the producer asserts into one it can only round up: a run that
+  // nudged every reading and then wrote 0 is rejected here.
+  let oneUlpPairs = 0;
   for (let index = 1; index < execution.order.length; index += 1) {
     const previous = (execution.order[index - 1] as Record<string, unknown>).observedAtMs as number;
     const current = (execution.order[index] as Record<string, unknown>).observedAtMs as number;
@@ -533,6 +547,20 @@ export function validateExecutionManifest(
         `execution.order[${index}].observedAtMs must be greater than the previous step's; an order that does not advance in time was not observed`,
       );
     }
+    if (current === nextUp(previous)) oneUlpPairs += 1;
+  }
+  // A floor, not an equality: this stays a disclosure, so an honest run on a
+  // coarse clock that reports more nudges than the spacing still shows is
+  // accepted. Only understating is impossible.
+  if ((execution.tieBrokenCount as number) < oneUlpPairs) {
+    throw new Error(
+      `execution.tieBrokenCount is ${String(execution.tieBrokenCount)} but ${oneUlpPairs} consecutive execution.order readings are one ULP apart, which is what a tie-broken reading looks like; the disclosure may not understate the nudges the timings themselves show`,
+    );
+  }
+  if ((execution.tieBrokenCount as number) > execution.order.length) {
+    throw new Error(
+      `execution.tieBrokenCount is ${String(execution.tieBrokenCount)} but execution.order holds only ${execution.order.length} readings; no more readings can have been nudged than were taken`,
+    );
   }
 
   // @req PERF-BGSTAB-012 AC-2
@@ -624,6 +652,29 @@ function validateExecutionStep(
  * block order can satisfy it at any length, and there is no minimum length below
  * which a true interleave fails.
  */
+/**
+ * The next representable double above `value`.
+ *
+ * This is the exact operation the runner performs when the clock has not
+ * advanced: it nudges the reading by one ULP so `order` stays a total order.
+ * Recomputing it here is what lets `tieBrokenCount` be checked against the data
+ * instead of taken on the producer's word.
+ */
+const NEXT_UP_VIEW = new ArrayBuffer(8);
+const NEXT_UP_F64 = new Float64Array(NEXT_UP_VIEW);
+const NEXT_UP_U64 = new BigUint64Array(NEXT_UP_VIEW);
+
+function nextUp(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  if (value === 0) {
+    NEXT_UP_U64[0] = 1n;
+    return NEXT_UP_F64[0];
+  }
+  NEXT_UP_F64[0] = value;
+  NEXT_UP_U64[0] += value > 0 ? 1n : -1n;
+  return NEXT_UP_F64[0];
+}
+
 function assertInterleaved(order: Array<Record<string, unknown>>, path: string): void {
   const distinctModes = new Set(order.map(step => step.mode as string));
   if (distinctModes.size < 2) {

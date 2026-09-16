@@ -137,13 +137,23 @@ test('OPS-BGSTAB-011 non-inert entries name a real consumer and inert entries na
     );
   }
 
-  // Neither class may go vacuous: an inventory that recorded everything as
-  // dotted-path would make the distinction decorative, and one that recorded
-  // nothing as dotted-path would mean the stronger rule never ran.
+  // The stronger class may not go vacuous: an inventory that recorded nothing as
+  // dotted-path would mean the access-chain rule never ran. The weaker class is
+  // pinned at its present size instead of being required to be non-empty,
+  // because the live state is that every attribution is dotted-path and the
+  // co-occurrence fallback has admitted nothing. Pinning the count keeps that
+  // fact from changing quietly: admitting the first co-occurrence entry, or
+  // losing one later, has to be a deliberate edit to this number and to
+  // `consumerDiscovery`, which states the same thing in prose.
   const all = readInventory().entries.flatMap((entry) => entry.consumers);
   assert.ok(
     all.some((consumer) => consumer.match === 'dotted-path'),
     'at least one consumer must be admitted by the dotted-path rule',
+  );
+  assert.equal(
+    all.filter((consumer) => consumer.match === 'co-occurrence').length,
+    0,
+    'no attribution is admitted by the weaker co-occurrence rule; update this pin and consumerDiscovery together if that changes',
   );
 });
 
@@ -239,6 +249,10 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
     ['promise', z.promise(z.object({ a: z.string() }))],
     ['function', z.function() as unknown as z.ZodTypeAny],
     ['custom', z.custom<{ a: string }>(() => true)],
+    // `z.instanceof` is a scalar, but it reports itself as `custom` and so
+    // cannot be told apart from a genuine composite by kind alone. It stays
+    // refused, and that is pinned rather than left to be rediscovered.
+    ['instanceof', z.instanceof(Date) as unknown as z.ZodTypeAny],
   ];
   for (const [label, child] of composites) {
     assert.throws(
@@ -263,6 +277,13 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
     ['undefined', z.undefined()],
     ['any', z.any()],
     ['unknown', z.unknown()],
+    // The rarely used scalars. Refusing these bought nothing — a scalar has no
+    // children to collapse — and only turned a usable config kind into a crash,
+    // so they are allowlisted and pinned here as leaves.
+    ['bigint', z.bigint()],
+    ['symbol', z.symbol()],
+    ['nan', z.nan()],
+    ['template_literal', z.templateLiteral(['a', z.string()])],
     // The shape `auth.password` actually has: a pipe whose endpoints are
     // scalars, wrapped in a default. The allowlist has to resolve through the
     // pipe or this leaf would start throwing.

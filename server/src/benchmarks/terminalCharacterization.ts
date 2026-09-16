@@ -329,6 +329,27 @@ function createVisibilityFactor(): BenchmarkVisibilityFactor {
   };
 }
 
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * What `execution.strategy` says, derived from the selection rather than fixed.
+ *
+ * The builder takes a caller-chosen mode selection and `planExecutionOrder`
+ * rotates only above two arms, so a single sentence claiming a per-trial
+ * rotation would describe a rotation a two-mode manifest never performed. The
+ * sentence is therefore built from the same condition the planner branches on.
+ */
+function describeExecutionStrategy(modeCount: number): string {
+  const ordering = 'Measurement is ordered trial-major, then workload, then mode';
+  const drift = 'Consecutive units therefore differ in mode, so drift in machine state over the run is spread across the arms instead of landing on whichever arm ran last.';
+  if (modeCount > 2) {
+    return `${ordering}, with the mode sequence rotated by trial index. ${drift}`;
+  }
+  if (modeCount === 2) {
+    return `${ordering}. The mode sequence is not rotated by trial index: with two arms a per-trial rotation would place the same arm on both sides of a trial boundary, so the order is fixed and the two arms simply alternate. ${drift}`;
+  }
+  return `${ordering}. Only one arm was selected, so there is no mode sequence to rotate and no interleaving to perform; every unit runs the same arm and drift over the run lands on it.`;
+}
+
 // @req PERF-BGSTAB-008
 export function createTerminalCharacterizationManifest(
   randomSeed = DEFAULT_RANDOM_SEED,
@@ -402,7 +423,7 @@ export function createTerminalCharacterizationManifest(
     execution: {
       derivedFrom: 'planned-sequence-with-observed-completions',
       interleaved: selectedModeIds.length > 1,
-      strategy: 'Measurement is ordered trial-major, then workload, then mode, with the mode sequence rotated by trial index. Consecutive units therefore differ in mode, so drift in machine state over the run is spread across the arms instead of landing on whichever arm ran last.',
+      strategy: describeExecutionStrategy(selectedModeIds.length),
       plannedOrder: planExecutionOrder(
         selectedModeIds,
         workloads.length,

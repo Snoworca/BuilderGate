@@ -81,7 +81,8 @@ function unwrap(schema: unknown, preferInput = false): unknown {
     const def = defOf(current);
     if (!def) return current;
 
-    if (kindOf(current) === 'pipe') {
+    const pipeKind = kindOf(current);
+    if (pipeKind === 'pipe' || pipeKind === 'ZodPipeline') {
       if (!preferInput && def.out !== undefined) {
         const out = unwrap(def.out, false);
         if (isObjectSchema(out)) return out;
@@ -107,17 +108,30 @@ function unwrap(schema: unknown, preferInput = false): unknown {
  * Zod kinds that are genuine leaves: a single value the operator writes.
  *
  * This is an allowlist rather than a list of known-bad kinds, because the
- * failure it guards against is silent. Anything that is not an object and not
- * listed here — a union, record, lazy, intersection, tuple, map, set, promise,
- * function or custom — carries structure that `shapeOf` cannot see, so it would
- * collapse into one leaf with the leaf count still looking plausible. A denylist
- * only catches the kinds someone thought of in advance; an allowlist makes every
- * unanticipated kind an immediate, named failure.
+ * failure it guards against is silent. A composite that is not an object and
+ * not listed here — a union, record, lazy, intersection, tuple, map, set,
+ * promise, function or custom — carries structure that `shapeOf` cannot see, so
+ * it would collapse into one leaf with the leaf count still looking plausible.
+ * A denylist only catches the kinds someone thought of in advance; an allowlist
+ * makes every unanticipated kind an immediate, named failure.
  *
- * `array` is deliberately present: `z.array(z.string())` is a genuine leaf,
- * because the operator sets it as one value. Both the zod3 (`ZodString`) and
- * zod4 (`string`) spellings are listed so the walk does not silently start
- * throwing on a major-version bump.
+ * The allowlist therefore holds every kind that is a single written value,
+ * including the rarely used scalars `bigint`, `symbol`, `nan` and
+ * `template_literal`: refusing those bought nothing, since a scalar has no
+ * children to lose, and only turned a usable config kind into a crash. The one
+ * scalar still refused is `z.instanceof`, which reports itself as `custom` and
+ * so cannot be told apart from a genuine `z.custom` composite by kind alone.
+ *
+ * `array` is deliberately present, and it is terminal BY POLICY rather than by
+ * structure: `z.array(z.string())` is a genuine leaf because the operator sets
+ * it as one value, and `fileManager.blockedExtensions` depends on staying one
+ * leaf. The element schema of an array is deliberately not walked, so
+ * `z.array(z.object({…}))` yields a single leaf silently — that is the one
+ * anticipated gap in the "every unanticipated kind fails loudly" guarantee
+ * above, and it is accepted because the config schema has no such array.
+ *
+ * Both the zod3 (`ZodString`) and zod4 (`string`) spellings are listed so the
+ * walk does not silently start throwing on a major-version bump.
  */
 const LEAF_KINDS = new Set([
   'string', 'ZodString',
@@ -132,6 +146,10 @@ const LEAF_KINDS = new Set([
   'undefined', 'ZodUndefined',
   'any', 'ZodAny',
   'unknown', 'ZodUnknown',
+  'bigint', 'ZodBigInt',
+  'symbol', 'ZodSymbol',
+  'nan', 'ZodNaN',
+  'template_literal', 'ZodTemplateLiteral',
 ]);
 
 /**
@@ -161,7 +179,7 @@ function shapeOf(schema: unknown, path: string): Record<string, unknown> | null 
     const kind = leafKindOf(unwrapped);
     if (kind === undefined || !LEAF_KINDS.has(kind)) {
       throw new Error(
-        `configSchemaLeaves cannot walk ${kind ?? 'an unrecognised schema'} at ${path || '<root>'}: it is not an object and not an allowlisted leaf kind, so any child schemas it carries would collapse into a single leaf. Teach the walker this kind before using it in the config schema.`,
+        `configSchemaLeaves cannot walk ${kind ?? 'an unrecognised schema'} at ${path || '<root>'}: it is not an object and not an allowlisted leaf kind, so any child schemas it carries would collapse into a single leaf and any it does not carry would be counted as a value the walker never verified. Teach the walker this kind before using it in the config schema.`,
       );
     }
     return null;
