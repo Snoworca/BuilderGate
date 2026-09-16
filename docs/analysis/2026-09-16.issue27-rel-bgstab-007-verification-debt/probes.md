@@ -118,7 +118,11 @@ regression — it is a deadline/timing test and the observation is concurrent-ru
 Command (cwd = `server/`): `npx tsx src/test-runner.ts`.
 
 Measured four times — twice at HEAD and twice at baseline, where "baseline" is the
-`HEAD~2` version of the two files this lane changed, restored into the worktree:
+**`a395550`** version of the two files this lane changed, restored into the worktree.
+The commit is named literally on purpose: a relative anchor such as `HEAD~2` rots as
+soon as another commit lands, and would later resolve to the commit that *introduced*
+the change — a reader would then compare the change against itself and read the null
+result as a passing control.
 
 | Arm | Run | Artifact | Result |
 |---|---|---|---|
