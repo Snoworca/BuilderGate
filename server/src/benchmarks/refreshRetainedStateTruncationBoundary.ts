@@ -333,6 +333,12 @@ const FIRING_BOUNDARY_PROBES: readonly {
   { cols: 80, rows: 24, scrollbackLines: 100, maxProbeLogicalLines: 40 },
   { cols: 80, rows: 24, scrollbackLines: 10000, maxProbeLogicalLines: 40 },
   { cols: 80, rows: 10, scrollbackLines: 1000, maxProbeLogicalLines: 40 },
+  // Narrow geometries wrap each fixture line across several physical rows, so
+  // the real boundary is NOT `rows + 1`. These two exist so the committed
+  // artifact itself refutes a producer that derives the boundary from `rows`,
+  // on the un-injected production path.
+  { cols: 8, rows: 24, scrollbackLines: 100, maxProbeLogicalLines: 40 },
+  { cols: 8, rows: 10, scrollbackLines: 1000, maxProbeLogicalLines: 40 },
 ];
 
 /** Characterization corpus. These numbers reproduce current behaviour; they are

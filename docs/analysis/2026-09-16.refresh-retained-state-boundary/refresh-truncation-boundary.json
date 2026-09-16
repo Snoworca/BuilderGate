@@ -499,6 +499,106 @@
       "probeCapLogicalLines": 40,
       "probedThroughLogicalLines": 11,
       "probeMethod": "ascending-linear-probe"
+    },
+    {
+      "probeObservations": [
+        {
+          "logicalLines": 1,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 2,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 3,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 4,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 5,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 6,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 7,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 8,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 9,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 10,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 11,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 12,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 13,
+          "observedLossLogicalLines": 1
+        }
+      ],
+      "cols": 8,
+      "rows": 24,
+      "scrollbackLines": 100,
+      "measuredFiringBoundaryLogicalLines": 13,
+      "largestLosslessLogicalLines": 12,
+      "probeCapLogicalLines": 40,
+      "probedThroughLogicalLines": 13,
+      "probeMethod": "ascending-linear-probe"
+    },
+    {
+      "probeObservations": [
+        {
+          "logicalLines": 1,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 2,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 3,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 4,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 5,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 6,
+          "observedLossLogicalLines": 1
+        }
+      ],
+      "cols": 8,
+      "rows": 10,
+      "scrollbackLines": 1000,
+      "measuredFiringBoundaryLogicalLines": 6,
+      "largestLosslessLogicalLines": 5,
+      "probeCapLogicalLines": 40,
+      "probedThroughLogicalLines": 6,
+      "probeMethod": "ascending-linear-probe"
     }
   ],
   "legacyByteBoundaryExercised": false,
@@ -514,6 +614,6 @@
   ],
   "contentDigest": {
     "algorithm": "sha256",
-    "value": "a55fb3070483f9809994bc162e4eafac406cbbf0d53a54b2ae7e3c53aa53aad1"
+    "value": "09249361e05842a091a9c009264a5877b49c4ccf404ce9cf2b84ce69859c0bee"
   }
 }

@@ -166,6 +166,43 @@ test('OBS-BGSTAB-009 AC-2 reports the boundary its measurements show, not one de
   );
 });
 
+test('OBS-BGSTAB-009 AC-2 measures the boundary on the production path, where it is not rows + 1', async () => {
+  // Rounds 3, 4 and 5 each claimed to have closed "the boundary must not be
+  // derived from rows", and each was defeated. The reason every time: the
+  // assertion sat behind the `measure` injection seam, so a producer could
+  // honour the oracle when the hook was present and return `rows + 1` when it
+  // was absent -- which is the path that writes the committed artifact.
+  //
+  // This test uses NO injection. The fixture emits 11-character lines, so at
+  // cols=8 each logical line wraps across two physical rows and only
+  // floor(rows / 2) logical lines fit the viewport. The real boundary is
+  // therefore far below rows + 1, and any producer deriving it from rows alone
+  // reports the wrong number here.
+  for (const geometry of [
+    { cols: 8, rows: 24, scrollbackLines: 100, expected: 13 },
+    { cols: 8, rows: 10, scrollbackLines: 1000, expected: 6 },
+  ]) {
+    const probed = await measureRefreshTruncationFiringBoundary({
+      cols: geometry.cols,
+      rows: geometry.rows,
+      scrollbackLines: geometry.scrollbackLines,
+      maxProbeLogicalLines: 40,
+    });
+
+    assert.notEqual(
+      geometry.expected,
+      geometry.rows + 1,
+      'the geometry must be one where rows + 1 is the wrong answer',
+    );
+    assert.equal(
+      probed.measuredFiringBoundaryLogicalLines,
+      geometry.expected,
+      `cols=${geometry.cols} rows=${geometry.rows} must report ${geometry.expected}, not ${geometry.rows + 1}`,
+    );
+    assert.equal(probed.largestLosslessLogicalLines, geometry.expected - 1);
+  }
+});
+
 test('OBS-BGSTAB-009 AC-2 measures the firing boundary at a second, different geometry', async () => {
   // A different `rows` must move the measured boundary, proving it tracks the
   // viewport rather than a constant baked into the producer.
@@ -258,6 +295,13 @@ test('OBS-BGSTAB-009 AC-5 emits machine-readable boundary evidence without raw t
     new Set(evidence.firingBoundaries.map((boundary) => boundary.rows)).size > 1,
     true,
     'at least two distinct row counts must be probed',
+  );
+  assert.equal(
+    evidence.firingBoundaries.some(
+      (boundary) => boundary.measuredFiringBoundaryLogicalLines !== boundary.rows + 1,
+    ),
+    true,
+    'the committed artifact must contain a boundary that rows + 1 does not explain',
   );
   for (const seed of evidence.seeds) {
     assert.equal(typeof seed.preRefreshLogicalLineHash, 'string');
