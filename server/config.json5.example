@@ -172,6 +172,8 @@
     maxTabsPerWorkspace: 8,
     maxTotalSessions: 32,
     flushDebounceMs: 5000,
+    terminalTitleDebounceMs: 250,   // 터미널 제목 갱신 디바운스 (0~5000ms, 0 = 즉시)
+    restoreInputDelayMs: 600,       // 세션 복구 후 입력 전송까지 지연 (0~10000ms)
   },
 
   // Two-Factor Authentication settings

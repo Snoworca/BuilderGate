@@ -140,6 +140,8 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
     maxTabsPerWorkspace: 8,
     maxTotalSessions: 32,
     flushDebounceMs: 5000,
+    terminalTitleDebounceMs: 250,
+    restoreInputDelayMs: 600,
   },
 
   twoFactor: {

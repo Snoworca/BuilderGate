@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import JSON5 from 'json5';
 import { renderBootstrapConfigTemplate } from './configTemplate.js';
+import { workspaceSchema } from '../schemas/config.schema.js';
 
 test('FR-BGSTAB-025 bootstrap templates omit every retired setting on both platforms', () => {
   for (const platform of ['linux', 'win32'] as const) {
@@ -77,4 +78,49 @@ test('config.json5.example documents resourceLimits defaults', async () => {
   assert.match(example, /gracefulWaitMs:\s*750/);
   assert.match(example, /forceWaitMs:\s*1500/);
   assert.match(example, /descendantSampleLimit:\s*64/);
+});
+
+async function readExample(): Promise<string> {
+  const rootRelativePath = path.resolve('server', 'config.json5.example');
+  const serverRelativePath = path.resolve('config.json5.example');
+  const examplePath = await fs.stat(rootRelativePath).then(
+    () => rootRelativePath,
+    () => serverRelativePath,
+  );
+  return fs.readFile(examplePath, 'utf-8');
+}
+
+test('FR-BGSTAB-026 bootstrap templates document every settable workspace key', () => {
+  const schemaKeys = Object.keys(workspaceSchema.shape).sort();
+  for (const platform of ['linux', 'win32'] as const) {
+    const raw = JSON5.parse(renderBootstrapConfigTemplate(platform));
+    assert.deepEqual(
+      Object.keys(raw.workspace ?? {}).sort(),
+      schemaKeys,
+      `${platform}: bootstrap workspace block must list exactly the schema's settable keys`,
+    );
+  }
+});
+
+test('FR-BGSTAB-026 config.json5.example documents every settable workspace key', async () => {
+  const raw = JSON5.parse(await readExample());
+  assert.deepEqual(
+    Object.keys(raw.workspace ?? {}).sort(),
+    Object.keys(workspaceSchema.shape).sort(),
+    'config.json5.example workspace block must list exactly the schema\'s settable keys',
+  );
+});
+
+test('FR-BGSTAB-026 documented workspace timing defaults match the schema defaults', async () => {
+  const parsedSchemaDefaults = workspaceSchema.parse({});
+  const sources: Array<[string, Record<string, unknown>]> = [
+    ['linux bootstrap', JSON5.parse(renderBootstrapConfigTemplate('linux')).workspace],
+    ['win32 bootstrap', JSON5.parse(renderBootstrapConfigTemplate('win32')).workspace],
+    ['config.json5.example', JSON5.parse(await readExample()).workspace],
+  ];
+  for (const [label, workspace] of sources) {
+    for (const key of ['terminalTitleDebounceMs', 'restoreInputDelayMs'] as const) {
+      assert.equal(workspace[key], parsedSchemaDefaults[key], `${label}: ${key}`);
+    }
+  }
 });
