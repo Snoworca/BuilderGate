@@ -19,7 +19,11 @@ async function loadStatistics(failureSignature: string): Promise<StatisticsContr
 
 function createManifest(): Record<string, unknown> {
   return {
-    schemaVersion: 1,
+    // @req PERF-BGSTAB-012
+    // schemaVersion 2: the three PERF-BGSTAB-012 fields below belong to that
+    // version and are rejected on a schemaVersion 1 manifest, which is the
+    // sealed Wave-1 shape.
+    schemaVersion: 2,
     runId: 'wave1-benchmark-contract',
     randomSeed: 7008,
     payload: {
@@ -63,9 +67,20 @@ function createManifest(): Record<string, unknown> {
       derivedFrom: 'execution',
       interleaved: true,
       strategy: 'fixture',
-      order: [
+      // The plan and the observation are separate arrays. The observation
+      // carries a strictly increasing completion timestamp, which is the field
+      // the plan cannot supply and which the validator therefore requires.
+      plannedOrder: [
         { sequence: 0, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-1' },
         { sequence: 1, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-1' },
+        { sequence: 2, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-2' },
+        { sequence: 3, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-2' },
+      ],
+      order: [
+        { sequence: 0, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-1', observedAtMs: 1 },
+        { sequence: 1, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-1', observedAtMs: 2 },
+        { sequence: 2, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-2', observedAtMs: 3 },
+        { sequence: 3, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-2', observedAtMs: 4 },
       ],
     },
     visibilityFactor: {

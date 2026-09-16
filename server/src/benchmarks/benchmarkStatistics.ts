@@ -33,7 +33,14 @@ export interface BenchmarkModeDescriptor {
 }
 
 export interface BenchmarkExecutionManifest {
-  schemaVersion: 1;
+  /**
+   * `1` is the sealed Wave-1 shape, which predates PERF-BGSTAB-012 and carries
+   * none of `outlierPolicy`, `execution` or `visibilityFactor`. `2` is the shape
+   * that carries all three. The version is what decides which of the two is
+   * legal: making the new fields required without a version bump would have
+   * retroactively invalidated the sealed artifact against its own schema.
+   */
+  schemaVersion: 1 | 2;
   runId: string;
   randomSeed: number;
   payload: {
@@ -112,7 +119,7 @@ export interface BenchmarkOutlierPolicy {
   excludedSampleIds: string[];
 }
 
-/** One unit of measured work, in the order it actually ran. */
+/** One unit of measured work, as planned. */
 export interface BenchmarkExecutionStep {
   /** Dense, ascending from zero, so a partial record cannot look complete. */
   sequence: number;
@@ -120,6 +127,23 @@ export interface BenchmarkExecutionStep {
   /** Index into `manifest.workloads`. */
   workloadIndex: number;
   trialId: string;
+}
+
+/**
+ * One unit of measured work, as it actually ran.
+ *
+ * The distinguishing field is `observedAtMs`, which the plan cannot supply. A
+ * step whose `mode` and `workloadIndex` were copied out of the plan would make
+ * the plan-versus-executed comparison tautological; a timestamp taken when the
+ * measurement returned cannot be copied from anything, so it is what turns the
+ * record from a declaration into an observation.
+ */
+export interface BenchmarkObservedExecutionStep extends BenchmarkExecutionStep {
+  /**
+   * A monotonic `performance.now()` reading taken when this unit of measurement
+   * completed. Strictly increasing across `order`.
+   */
+  observedAtMs: number;
 }
 
 /**
@@ -135,7 +159,13 @@ export interface BenchmarkExecutionRecord {
   interleaved: boolean;
   /** How the interleave was produced, for a reader reproducing the run. */
   strategy: string;
-  order: BenchmarkExecutionStep[];
+  /** The order the runner intended to walk. Declared before the run. */
+  plannedOrder: BenchmarkExecutionStep[];
+  /**
+   * The order the runner actually walked, each entry timestamped on completion.
+   * Empty only in a manifest that has not been run yet.
+   */
+  order: BenchmarkObservedExecutionStep[];
 }
 
 /** A cell whose second visibility level cannot exist. */
@@ -242,8 +272,25 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(sortJsonValue(value));
 }
 
+/** Options for {@link validateExecutionManifest}. */
+export interface ValidateExecutionManifestOptions {
+  /**
+   * Whether `execution.order` must be a non-empty, timestamped observation.
+   *
+   * Defaults to true, which is the contract every persisted artifact must meet.
+   * The builder passes false because it cannot know the observed order: it emits
+   * `plannedOrder` and an empty `order`, and the runner fills the latter in and
+   * revalidates with the default before anything is written.
+   */
+  requireObservedOrder?: boolean;
+}
+
 // @req PERF-BGSTAB-008
-export function validateExecutionManifest(value: unknown): asserts value is BenchmarkExecutionManifest {
+export function validateExecutionManifest(
+  value: unknown,
+  options: ValidateExecutionManifestOptions = {},
+): asserts value is BenchmarkExecutionManifest {
+  const requireObservedOrder = options.requireObservedOrder ?? true;
   assertNoPromotionFields(value, '$');
   const manifest = requireRecord(value, 'manifest');
   assertAllowedKeys(manifest, [
@@ -265,7 +312,11 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
     'execution',
     'visibilityFactor',
   ], 'manifest');
-  requireInteger(manifest.schemaVersion, 'schemaVersion', 1);
+  requireInteger(manifest.schemaVersion, 'schemaVersion');
+  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) {
+    throw new Error('schemaVersion must be 1 (sealed Wave-1 shape) or 2 (PERF-BGSTAB-012 shape)');
+  }
+  const schemaVersion = manifest.schemaVersion as 1 | 2;
   requireNonEmptyString(manifest.runId, 'runId');
   requireInteger(manifest.randomSeed, 'randomSeed');
 
@@ -378,6 +429,21 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
     requireNonEmptyString(interval.deltaSemantics, 'sampleInterval.deltaSemantics');
   }
 
+  // @req PERF-BGSTAB-012
+  // The three PERF-BGSTAB-012 fields belong to schemaVersion 2 and only to it.
+  // A v1 manifest that carried them would be claiming a contract its version
+  // does not describe, so they are rejected there rather than merely ignored.
+  if (schemaVersion === 1) {
+    for (const key of ['outlierPolicy', 'execution', 'visibilityFactor'] as const) {
+      if (manifest[key] !== undefined) {
+        throw new Error(
+          `${key} requires schemaVersion 2; a schemaVersion 1 manifest predates PERF-BGSTAB-012`,
+        );
+      }
+    }
+    return;
+  }
+
   // @req PERF-BGSTAB-012 AC-1
   // Required, not optional. An optional outlier policy would leave the Wave-1
   // shape valid, and the whole point of AC-1 is that that shape is not.
@@ -398,7 +464,15 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
 
   // @req PERF-BGSTAB-012 AC-2
   const execution = requireRecord(manifest.execution, 'execution');
-  assertAllowedKeys(execution, ['derivedFrom', 'interleaved', 'strategy', 'order'], 'execution');
+  assertAllowedKeys(
+    execution,
+    ['derivedFrom', 'interleaved', 'strategy', 'plannedOrder', 'order'],
+    'execution',
+  );
+  // `derivedFrom` is a string a producer can simply write. It is kept because it
+  // names the intent, but what makes the claim checkable is `observedAtMs` on
+  // every entry of `order`: a strictly increasing wall-clock reading that the
+  // plan cannot supply and that a copied-from-plan record cannot fake.
   if (execution.derivedFrom !== 'execution') {
     throw new Error('execution.derivedFrom must be execution; a declared order is not evidence');
   }
@@ -406,26 +480,42 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
     throw new Error('execution.interleaved must be boolean');
   }
   requireNonEmptyString(execution.strategy, 'execution.strategy');
-  if (!Array.isArray(execution.order) || execution.order.length === 0) {
-    throw new Error('execution.order must contain at least one step');
+
+  if (!Array.isArray(execution.plannedOrder) || execution.plannedOrder.length === 0) {
+    throw new Error('execution.plannedOrder must contain at least one step');
+  }
+  for (const [index, stepValue] of execution.plannedOrder.entries()) {
+    validateExecutionStep(stepValue, `execution.plannedOrder[${index}]`, index, manifest, false);
+  }
+
+  if (!Array.isArray(execution.order)) {
+    throw new Error('execution.order must be an array');
+  }
+  if (requireObservedOrder && execution.order.length === 0) {
+    throw new Error('execution.order must contain at least one observed step');
   }
   for (const [index, stepValue] of execution.order.entries()) {
-    const step = requireRecord(stepValue, `execution.order[${index}]`);
-    assertAllowedKeys(step, ['sequence', 'mode', 'workloadIndex', 'trialId'], `execution.order[${index}]`);
-    if (step.sequence !== index) {
-      throw new Error(`execution.order[${index}].sequence must equal ${index}`);
+    validateExecutionStep(stepValue, `execution.order[${index}]`, index, manifest, true);
+  }
+  for (let index = 1; index < execution.order.length; index += 1) {
+    const previous = (execution.order[index - 1] as Record<string, unknown>).observedAtMs as number;
+    const current = (execution.order[index] as Record<string, unknown>).observedAtMs as number;
+    if (!(current > previous)) {
+      throw new Error(
+        `execution.order[${index}].observedAtMs must be greater than the previous step's; an order that does not advance in time was not observed`,
+      );
     }
-    if (!BENCHMARK_MODES.includes(step.mode as BenchmarkMode)) {
-      throw new Error(`execution.order[${index}].mode is unsupported`);
+  }
+
+  // @req PERF-BGSTAB-012 AC-2
+  // `interleaved` is a producer literal, so it is recomputed rather than
+  // believed. A claim of interleaving means no arm occupies a contiguous block
+  // as long as its fair share of the run.
+  if (execution.interleaved === true) {
+    assertInterleaved(execution.plannedOrder as Array<Record<string, unknown>>, 'execution.plannedOrder');
+    if (execution.order.length > 0) {
+      assertInterleaved(execution.order as Array<Record<string, unknown>>, 'execution.order');
     }
-    requireInteger(step.workloadIndex, `execution.order[${index}].workloadIndex`);
-    requireNonNegativeNumber(step.workloadIndex, `execution.order[${index}].workloadIndex`);
-    // Bounding against the declared workloads is what makes the index mean
-    // something; an unbounded integer would let a step point at nothing.
-    if ((step.workloadIndex as number) >= (manifest.workloads as unknown[]).length) {
-      throw new Error(`execution.order[${index}].workloadIndex is outside the declared workloads`);
-    }
-    requireNonEmptyString(step.trialId, `execution.order[${index}].trialId`);
   }
 
   // @req PERF-BGSTAB-012 AC-3
@@ -448,6 +538,62 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
     requirePositiveInteger(exclusion.sessions, `visibilityFactor.structurallyUnreachable[${index}].sessions`);
     requirePositiveInteger(exclusion.clients, `visibilityFactor.structurallyUnreachable[${index}].clients`);
     requireNonEmptyString(exclusion.reason, `visibilityFactor.structurallyUnreachable[${index}].reason`);
+  }
+}
+
+// @req PERF-BGSTAB-012 AC-2
+function validateExecutionStep(
+  stepValue: unknown,
+  path: string,
+  index: number,
+  manifest: Record<string, unknown>,
+  observed: boolean,
+): void {
+  const step = requireRecord(stepValue, path);
+  assertAllowedKeys(
+    step,
+    observed
+      ? ['sequence', 'mode', 'workloadIndex', 'trialId', 'observedAtMs']
+      : ['sequence', 'mode', 'workloadIndex', 'trialId'],
+    path,
+  );
+  if (step.sequence !== index) {
+    throw new Error(`${path}.sequence must equal ${index}`);
+  }
+  if (!BENCHMARK_MODES.includes(step.mode as BenchmarkMode)) {
+    throw new Error(`${path}.mode is unsupported`);
+  }
+  requireInteger(step.workloadIndex, `${path}.workloadIndex`);
+  requireNonNegativeNumber(step.workloadIndex, `${path}.workloadIndex`);
+  // Bounding against the declared workloads is what makes the index mean
+  // something; an unbounded integer would let a step point at nothing.
+  if ((step.workloadIndex as number) >= (manifest.workloads as unknown[]).length) {
+    throw new Error(`${path}.workloadIndex is outside the declared workloads`);
+  }
+  requireNonEmptyString(step.trialId, `${path}.trialId`);
+  if (observed) {
+    requireFiniteNumber(step.observedAtMs, `${path}.observedAtMs`);
+    requireNonNegativeNumber(step.observedAtMs, `${path}.observedAtMs`);
+  }
+}
+
+// @req PERF-BGSTAB-012 AC-2
+function assertInterleaved(order: Array<Record<string, unknown>>, path: string): void {
+  const distinctModes = new Set(order.map(step => step.mode as string));
+  if (distinctModes.size < 2) {
+    throw new Error(`${path} claims interleaving but names only one arm`);
+  }
+  let longestRun = 1;
+  let currentRun = 1;
+  for (let index = 1; index < order.length; index += 1) {
+    currentRun = order[index].mode === order[index - 1].mode ? currentRun + 1 : 1;
+    longestRun = Math.max(longestRun, currentRun);
+  }
+  const fairShare = order.length / distinctModes.size;
+  if (!(longestRun < fairShare)) {
+    throw new Error(
+      `${path} is not interleaved: longest same-arm run was ${longestRun} of ${order.length} across ${distinctModes.size} arms`,
+    );
   }
 }
 

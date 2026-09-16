@@ -128,6 +128,44 @@ test('REL-BGSTAB-024 the existing test-runner assertion that pins the omission i
   );
 });
 
+// @req REL-BGSTAB-024 AC-8
+test('REL-BGSTAB-024 the configured transport mode still reaches production on two non-routing paths', () => {
+  const construction = readProductionWsRouterConstruction();
+  const source = readSource(INDEX_SOURCE_URL);
+
+  // The correction that AC-8 exists to record. An earlier draft of this
+  // requirement claimed the configured value was withheld from the router
+  // altogether. It is not: it is read into a local and handed to the router as
+  // the binary-negotiation gate, and separately to the terminal authority as a
+  // topology selector. Only the ROUTING mode is withheld. Asserting the two live
+  // paths keeps the contract honest and makes their loss observable, because an
+  // operator setting split today does change production behaviour here.
+  assert.match(
+    source,
+    /const\s+configuredWsTransportMode\s*=/u,
+    'index.ts must still derive the configured transport mode',
+  );
+  assert.match(
+    construction,
+    /binaryNegotiationTransportMode:\s*configuredWsTransportMode/u,
+    'the configured mode must still gate binary negotiation eligibility (AC-8)',
+  );
+  assert.match(
+    source,
+    /attachProductionTerminalAuthority\(\{[^}]*transportMode:\s*configuredWsTransportMode\s*===\s*'split'/u,
+    'the configured mode must still select the terminal authority topology (AC-8)',
+  );
+
+  // And the boundary the other ACs rest on: neither of those paths is the
+  // routing mode. If a future change spells the routing option here, AC-1's
+  // assertion fires; this one proves the two eligibility paths are what remain.
+  assert.doesNotMatch(
+    construction,
+    /\brealtime:\s*\{[^}]*wsTransportMode/u,
+    'the configured mode must not be smuggled into the router realtime option (AC-1)',
+  );
+});
+
 // @req REL-BGSTAB-024 AC-2
 test('REL-BGSTAB-024 a router built the way production builds it resolves to unified', () => {
   const router = createRouter();
@@ -172,8 +210,24 @@ test('REL-BGSTAB-024 the browser and the server disagree on the transport query 
   // defect resolved by it, so the test pins the divergence in both directions:
   // if either side is renamed to match the other, split becomes browser
   // reachable and this contract no longer describes production.
-  const controlUrlBuilder = frontend.slice(frontend.indexOf('export function buildControlWebSocketUrl'));
-  assert.notEqual(controlUrlBuilder, '', 'buildControlWebSocketUrl must exist');
+  // `indexOf` returns -1 on a miss and `slice(-1)` then yields the last
+  // character, which is a non-empty string; asserting the slice is non-empty
+  // would therefore not notice the function disappearing. The index is checked
+  // directly instead. The slice is also bounded at the next top-level
+  // declaration, so the negative assertion below cannot be satisfied by text
+  // that belongs to a different function.
+  const controlUrlBuilderStart = frontend.indexOf('export function buildControlWebSocketUrl');
+  assert.notEqual(controlUrlBuilderStart, -1, 'buildControlWebSocketUrl must exist');
+  const afterControlUrlBuilder = frontend.indexOf('\nexport ', controlUrlBuilderStart + 1);
+  const controlUrlBuilder = frontend.slice(
+    controlUrlBuilderStart,
+    afterControlUrlBuilder === -1 ? undefined : afterControlUrlBuilder,
+  );
+  assert.match(
+    controlUrlBuilder,
+    /^export function buildControlWebSocketUrl/u,
+    'the slice must start at buildControlWebSocketUrl',
+  );
   assert.match(
     controlUrlBuilder,
     /params\.set\('mode',\s*'split'\)/u,

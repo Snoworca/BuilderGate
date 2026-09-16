@@ -78,14 +78,52 @@ function unwrap(schema: unknown, preferInput = false): unknown {
   return current;
 }
 
-function shapeOf(schema: unknown): Record<string, unknown> | null {
+/**
+ * Zod kinds that carry child schemas the walk would otherwise swallow.
+ *
+ * A union, record, lazy, intersection or tuple is not an object schema, so
+ * `shapeOf` returns null for it and the whole subtree collapses into a single
+ * leaf — silently, and with the leaf count still looking plausible. None of
+ * these occurs in the config schema today, which is exactly why the failure
+ * would go unnoticed if one were introduced. `array` is deliberately absent:
+ * `z.array(z.string())` is a genuine leaf, because the operator sets it as one
+ * value.
+ */
+const UNSUPPORTED_COMPOSITE_KINDS = new Set([
+  'union', 'ZodUnion',
+  'discriminatedUnion', 'ZodDiscriminatedUnion',
+  'record', 'ZodRecord',
+  'lazy', 'ZodLazy',
+  'intersection', 'ZodIntersection',
+  'tuple', 'ZodTuple',
+]);
+
+function shapeOf(schema: unknown, path: string): Record<string, unknown> | null {
   const unwrapped = unwrap(schema) as ZodInternals | undefined;
-  if (!isObjectSchema(unwrapped)) return null;
+  if (!isObjectSchema(unwrapped)) {
+    const kind = kindOf(unwrapped);
+    if (kind !== undefined && UNSUPPORTED_COMPOSITE_KINDS.has(kind)) {
+      throw new Error(
+        `configSchemaLeaves cannot walk ${kind} at ${path || '<root>'}: its child schemas would collapse into a single leaf. Teach the walker this kind before using it in the config schema.`,
+      );
+    }
+    return null;
+  }
   const shape = unwrapped?.shape;
   const resolved = typeof shape === 'function'
     ? (shape as () => Record<string, unknown>)()
     : shape as Record<string, unknown> | undefined;
-  return resolved ?? null;
+  if (resolved === undefined) {
+    throw new Error(`configSchemaLeaves could not read the shape of the object at ${path || '<root>'}`);
+  }
+  // An empty object contributes neither a leaf nor any children, so it would
+  // vanish from the inventory entirely rather than fail the coverage pin.
+  if (Object.keys(resolved).length === 0) {
+    throw new Error(
+      `configSchemaLeaves found an object with no keys at ${path || '<root>'}: it would disappear from the leaf list instead of being classified.`,
+    );
+  }
+  return resolved;
 }
 
 /**
@@ -99,7 +137,7 @@ export function listConfigSchemaLeafPaths(schema: ZodType): string[] {
   const leaves: string[] = [];
 
   const visit = (node: unknown, prefix: string): void => {
-    const shape = shapeOf(node);
+    const shape = shapeOf(node, prefix);
     if (!shape) {
       if (prefix) leaves.push(prefix);
       return;

@@ -136,10 +136,9 @@ const RESERVED_WAVE6_SETTING_REASON = 'Reserved outside the selected Wave6 Setti
 export const EDITABLE_SETTINGS_KEYS: readonly EditableSettingsKey[] =
   Object.freeze(Object.keys(FIELD_SCOPES) as EditableSettingsKey[]);
 // @req OPS-BGSTAB-011 AC-5
-// Exported so the settings inventory reconciles against the live table instead
-// of a transcription of it. Read-only by contract: nothing outside this module
-// may mutate the set.
-export const RESERVED_WAVE6_SETTING_KEYS: ReadonlySet<EditableSettingsKey> = new Set<EditableSettingsKey>([
+// The module-internal source of truth. Mutable only because a Set has no frozen
+// form; it never leaves this module.
+const RESERVED_WAVE6_SETTING_KEY_LIST: readonly EditableSettingsKey[] = Object.freeze([
   'stabilityModes.headlessQueueMode',
   'stabilityModes.wsSendMode',
   'stabilityModes.frontendRuntimeResidency',
@@ -153,9 +152,43 @@ export const RESERVED_WAVE6_SETTING_KEYS: ReadonlySet<EditableSettingsKey> = new
   'resourceLimits.terminal.checkpointMaxBytes',
   'resourceLimits.terminal.visibleFlushBudgetBytes',
   'resourceLimits.terminal.scrollbackLines',
-]);
+] as EditableSettingsKey[]);
+const RESERVED_WAVE6_SETTING_KEY_SET = new Set<EditableSettingsKey>(RESERVED_WAVE6_SETTING_KEY_LIST);
+
+// @req OPS-BGSTAB-011 AC-5
+// Exported so the settings inventory reconciles against the live table instead
+// of a transcription of it.
+//
+// A `ReadonlySet` is a compile-time promise only: a caller who casts the export
+// back to `Set` can `.add()` a key and permanently change which Settings fields
+// report unavailable, from any module, for the process lifetime. The export is
+// therefore a frozen view over the internal set rather than the set itself, so
+// the read-only claim survives the cast. `EDITABLE_SETTINGS_KEYS` beside it is
+// already frozen; this makes the pair consistent.
+export const RESERVED_WAVE6_SETTING_KEYS: ReadonlySet<EditableSettingsKey> = Object.freeze({
+  get size() {
+    return RESERVED_WAVE6_SETTING_KEY_SET.size;
+  },
+  has: (key: EditableSettingsKey) => RESERVED_WAVE6_SETTING_KEY_SET.has(key),
+  keys: () => RESERVED_WAVE6_SETTING_KEY_LIST[Symbol.iterator](),
+  values: () => RESERVED_WAVE6_SETTING_KEY_LIST[Symbol.iterator](),
+  entries: function* entries(): SetIterator<[EditableSettingsKey, EditableSettingsKey]> {
+    for (const key of RESERVED_WAVE6_SETTING_KEY_LIST) {
+      yield [key, key];
+    }
+  },
+  forEach: (
+    callback: (value: EditableSettingsKey, value2: EditableSettingsKey, set: ReadonlySet<EditableSettingsKey>) => void,
+    thisArg?: unknown,
+  ) => {
+    for (const key of RESERVED_WAVE6_SETTING_KEY_LIST) {
+      callback.call(thisArg, key, key, RESERVED_WAVE6_SETTING_KEYS);
+    }
+  },
+  [Symbol.iterator]: () => RESERVED_WAVE6_SETTING_KEY_LIST[Symbol.iterator](),
+}) as ReadonlySet<EditableSettingsKey>;
 const RESERVED_WAVE6_SETTING_REASONS = new Map<EditableSettingsKey, string>(
-  [...RESERVED_WAVE6_SETTING_KEYS].map((key) => [key, RESERVED_WAVE6_SETTING_REASON]),
+  RESERVED_WAVE6_SETTING_KEY_LIST.map((key) => [key, RESERVED_WAVE6_SETTING_REASON]),
 );
 const DEFAULT_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
 const DEFAULT_TERMINAL_WIRE_FORMAT: TerminalWireFormat = 'json';

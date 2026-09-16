@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { z } from 'zod';
 import { configSchema } from './config.schema.js';
 import { listConfigSchemaLeafPaths } from './configSchemaLeaves.js';
 import {
@@ -106,8 +107,8 @@ test('OPS-BGSTAB-011 non-inert entries name a real consumer and inert entries na
       // construction. Accepting them would make AC-3 satisfiable by plumbing.
       assert.doesNotMatch(
         consumer.module,
-        /config\.schema\.ts$|config\.types\.ts$|settings\.types\.ts$|configTemplate\.ts$|\.test\.[cm]?tsx?$/u,
-        `${entry.path}: ${consumer.module} is schema or plumbing, not a runtime consumer`,
+        /config\.schema\.ts$|config\.types\.ts$|settings\.types\.ts$|configTemplate\.ts$|\.test\.[cm]?tsx?$|^server\/src\/benchmarks\//u,
+        `${entry.path}: ${consumer.module} is schema, plumbing or benchmark code, not a runtime consumer`,
       );
     }
   }
@@ -120,6 +121,11 @@ test('OPS-BGSTAB-011 the inventory agrees with the existing RuntimeConfigStore c
   // The editable key set and the Wave 6 reserved set are imported from the
   // module that owns them, so this is a reconciliation against the live tables
   // and not against a transcription of them.
+  // Both loops below would pass over an empty table without asserting anything,
+  // so the tables are checked to be populated first.
+  assert.ok(EDITABLE_SETTINGS_KEYS.length > 0, 'EDITABLE_SETTINGS_KEYS must not be empty');
+  assert.ok(RESERVED_WAVE6_SETTING_KEYS.size > 0, 'RESERVED_WAVE6_SETTING_KEYS must not be empty');
+
   for (const key of RESERVED_WAVE6_SETTING_KEYS) {
     const entry = byPath.get(key);
     assert.ok(entry, `${key} is reserved by RuntimeConfigStore but absent from the inventory`);
@@ -164,4 +170,55 @@ test('OPS-BGSTAB-011 safety-only entries record the bound they protect', () => {
       `${entry.path}: safetyBound belongs to safety-only entries only`,
     );
   }
+});
+
+// @req OPS-BGSTAB-011 AC-1
+//
+// The leaf walk underpins every assertion above, and its failure mode is silent:
+// a shape it does not understand collapses a whole subtree into one leaf, or
+// disappears entirely, and the count still looks plausible. These tests prove it
+// refuses rather than guesses.
+test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count', () => {
+  // An empty object contributes neither a leaf nor any children.
+  assert.throws(
+    () => listConfigSchemaLeafPaths(z.object({ section: z.object({}) })),
+    /no keys/u,
+    'an object with no keys must be refused, not dropped',
+  );
+
+  // Each of these carries child schemas that are not reachable through `shape`,
+  // so the walker would emit one leaf where a subtree belongs.
+  const composites: ReadonlyArray<readonly [string, z.ZodTypeAny]> = [
+    ['union', z.union([z.object({ a: z.string() }), z.object({ b: z.string() })])],
+    ['discriminatedUnion', z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('a'), a: z.string() }),
+      z.object({ kind: z.literal('b'), b: z.string() }),
+    ])],
+    ['record', z.record(z.string(), z.object({ a: z.string() }))],
+    ['lazy', z.lazy(() => z.object({ a: z.string() }))],
+    ['intersection', z.intersection(z.object({ a: z.string() }), z.object({ b: z.string() }))],
+    ['tuple', z.tuple([z.object({ a: z.string() })])],
+  ];
+  for (const [label, child] of composites) {
+    assert.throws(
+      () => listConfigSchemaLeafPaths(z.object({ section: child })),
+      /cannot walk/u,
+      `${label} must be refused rather than collapsed into a single leaf`,
+    );
+  }
+
+  // An array of scalars stays a leaf: the operator sets it as one value, and
+  // `fileManager.blockedExtensions` depends on that.
+  assert.deepEqual(
+    listConfigSchemaLeafPaths(z.object({ section: z.array(z.string()) })),
+    ['section'],
+  );
+});
+
+// @req OPS-BGSTAB-011 AC-1
+test('OPS-BGSTAB-011 the configuration schema still has exactly 81 leaves', () => {
+  // The pin the inventory is sized against. It is asserted separately from the
+  // coverage test so that a change in the schema's shape is distinguishable
+  // from a change in the inventory.
+  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 81);
 });

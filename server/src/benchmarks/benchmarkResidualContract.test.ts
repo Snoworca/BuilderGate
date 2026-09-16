@@ -70,7 +70,7 @@ test('PERF-BGSTAB-012 the manifest records an outlier policy, explicitly when no
     assert.deepEqual(policy.excludedSampleIds, [], 'retain-all must exclude nothing');
   }
 
-  assert.doesNotThrow(() => validateExecutionManifest(m));
+  assert.doesNotThrow(() => validateExecutionManifest(m, { requireObservedOrder: false }));
 
   // The validator must actually enforce it, or the assertion above only
   // describes today's builder and not the contract.
@@ -91,28 +91,33 @@ test('PERF-BGSTAB-012 the manifest records an execution-derived interleaved arm 
   assert.ok(execution, 'the manifest must carry an execution record');
   assert.equal(execution.derivedFrom, 'execution', 'the order must be observed, not declared in advance');
   assert.equal(execution.interleaved, true);
-  assert.ok(execution.order.length > 1, 'the order must describe more than one unit of work');
+  assert.ok(execution.plannedOrder.length > 1, 'the plan must describe more than one unit of work');
+
+  // The builder cannot know the observed order, so it emits the plan and leaves
+  // `order` empty. That emptiness is the point: a builder that filled `order` in
+  // would be publishing a declaration under an observed label.
+  assert.deepEqual(execution.order, [], 'an unrun manifest must not claim an observed order');
 
   // The substance of AC-2: arms alternate rather than running as contiguous
   // blocks. A block-ordered run would let machine drift land entirely on one
   // arm, which is exactly what interleaving is for.
-  const modes = [...new Set(execution.order.map((step) => step.mode))];
+  const modes = [...new Set(execution.plannedOrder.map((step) => step.mode))];
   assert.ok(modes.length > 1, 'interleaving is only meaningful across more than one arm');
 
   let longestRun = 1;
   let currentRun = 1;
-  for (let i = 1; i < execution.order.length; i += 1) {
-    currentRun = execution.order[i].mode === execution.order[i - 1].mode ? currentRun + 1 : 1;
+  for (let i = 1; i < execution.plannedOrder.length; i += 1) {
+    currentRun = execution.plannedOrder[i].mode === execution.plannedOrder[i - 1].mode ? currentRun + 1 : 1;
     longestRun = Math.max(longestRun, currentRun);
   }
   assert.ok(
-    longestRun < execution.order.length / modes.length,
-    `arms must interleave; longest same-arm run was ${longestRun} of ${execution.order.length}`,
+    longestRun < execution.plannedOrder.length / modes.length,
+    `arms must interleave; longest same-arm run was ${longestRun} of ${execution.plannedOrder.length}`,
   );
 
   // Sequence numbers must be dense and ordered, so a partially recorded run
   // cannot masquerade as a complete interleave.
-  execution.order.forEach((step, index) => {
+  execution.plannedOrder.forEach((step, index) => {
     assert.equal(step.sequence, index, 'execution order sequence numbers must be dense and ascending');
   });
 
@@ -123,6 +128,101 @@ test('PERF-BGSTAB-012 the manifest records an execution-derived interleaved arm 
     /execution/u,
     'a manifest without an execution record must be rejected',
   );
+});
+
+// @req PERF-BGSTAB-012 AC-2
+test('PERF-BGSTAB-012 an observed execution order must be timestamped and advance in time', () => {
+  const m = manifest();
+
+  // Without `observedAtMs` the executed order is a copy of the plan wearing an
+  // observed label, which is precisely what AC-2 refuses to accept. The
+  // validator must reject an untimestamped entry rather than take the
+  // `derivedFrom: 'execution'` string at its word.
+  const untimestamped = structuredClone(m) as unknown as Record<string, unknown>;
+  (untimestamped.execution as { order: unknown[] }).order = m.execution.plannedOrder
+    .map((step) => ({ ...step }));
+  assert.throws(
+    () => validateExecutionManifest(untimestamped),
+    /observedAtMs/u,
+    'an execution order without completion timestamps must be rejected',
+  );
+
+  // Timestamps that do not advance describe no sequence at all.
+  const stalled = structuredClone(m) as unknown as Record<string, unknown>;
+  (stalled.execution as { order: unknown[] }).order = m.execution.plannedOrder
+    .map((step) => ({ ...step, observedAtMs: 100 }));
+  assert.throws(
+    () => validateExecutionManifest(stalled),
+    /observedAtMs/u,
+    'an execution order whose timestamps do not advance must be rejected',
+  );
+
+  // And a well-formed observation passes.
+  const observed = structuredClone(m) as unknown as Record<string, unknown>;
+  (observed.execution as { order: unknown[] }).order = m.execution.plannedOrder
+    .map((step, index) => ({ ...step, observedAtMs: 100 + index }));
+  assert.doesNotThrow(() => validateExecutionManifest(observed));
+
+  // A run that has not happened yet is only legal for the builder, which says so.
+  assert.throws(
+    () => validateExecutionManifest(structuredClone(m)),
+    /observed step/u,
+    'a persisted manifest must carry an observed order',
+  );
+});
+
+// @req PERF-BGSTAB-012 AC-2
+test('PERF-BGSTAB-012 the interleaved flag is recomputed, not believed', () => {
+  const m = manifest();
+
+  // `interleaved: true` beside a block-ordered array is a producer literal that
+  // nothing checks. The validator computes the longest same-arm run instead.
+  const blocked = structuredClone(m) as unknown as Record<string, unknown>;
+  const execution = blocked.execution as { plannedOrder: unknown[]; order: unknown[] };
+  const blockOrdered = [...m.execution.plannedOrder]
+    .sort((left, right) => (left.mode < right.mode ? -1 : left.mode > right.mode ? 1 : 0))
+    .map((step, index) => ({ ...step, sequence: index }));
+  execution.plannedOrder = blockOrdered;
+  execution.order = blockOrdered.map((step, index) => ({ ...step, observedAtMs: 100 + index }));
+  assert.throws(
+    () => validateExecutionManifest(blocked),
+    /not interleaved/u,
+    'a block-ordered run must not be able to declare itself interleaved',
+  );
+});
+
+// @req PERF-BGSTAB-012
+test('PERF-BGSTAB-012 the sealed schemaVersion 1 manifest still validates', () => {
+  // The three PERF-BGSTAB-012 fields were added as required fields. Had they
+  // been required at every schema version, the sealed Wave-1 manifest — which
+  // predates them — would have started failing the schema it was written
+  // against. The version is what separates the two shapes.
+  const bytes = readFileSync(new URL(`${SEALED_DIR}/benchmark-raw-samples.json`, import.meta.url));
+  const sealedManifest = (JSON.parse(bytes.toString('utf8')) as {
+    manifest: Record<string, unknown>;
+  }).manifest;
+
+  assert.equal(sealedManifest.schemaVersion, 1, 'the sealed manifest is the pre-PERF-BGSTAB-012 shape');
+  assert.equal(sealedManifest.outlierPolicy, undefined);
+  assert.equal(sealedManifest.execution, undefined);
+  assert.equal(sealedManifest.visibilityFactor, undefined);
+  assert.doesNotThrow(
+    () => validateExecutionManifest(sealedManifest),
+    'the sealed Wave-1 manifest must still satisfy the schema it declares',
+  );
+
+  // A v1 manifest must not be able to smuggle the v2 fields in either, or the
+  // version would stop meaning anything.
+  assert.throws(
+    () => validateExecutionManifest({
+      ...sealedManifest,
+      outlierPolicy: { rule: 'retain-all', rationale: 'x', parameters: {}, excludedSampleIds: [] },
+    }),
+    /schemaVersion 2/u,
+  );
+
+  // And the current builder emits the newer version.
+  assert.equal(manifest().schemaVersion, 2, 'new manifests declare the PERF-BGSTAB-012 shape');
 });
 
 // @req PERF-BGSTAB-012 AC-3

@@ -12,6 +12,7 @@ import {
   canonicalJson,
   type BenchmarkExecutionManifest,
   type BenchmarkExecutionStep,
+  type BenchmarkObservedExecutionStep,
   type BenchmarkMode,
   type BenchmarkModeDescriptor,
   type BenchmarkRawSample,
@@ -230,6 +231,17 @@ const CLIENT_COUNTS = [1, 2, 8] as const;
  */
 const VISIBILITY_LEVELS = ['single-active', 'all-active'] as const;
 
+/**
+ * @req PERF-BGSTAB-012 AC-3
+ *
+ * Bumped from `-v1` when visibility became an independently varied factor and
+ * the corpus grew from twelve cells to twenty-one. The sealed Wave-1 artifact
+ * keeps `-v1`; two materially different corpora sharing one identifier would
+ * make a sample's `workloadManifestRef` ambiguous, which is the whole reason
+ * the reference exists.
+ */
+const TERMINAL_WORKLOAD_CORPUS_ID = 'wave1-terminal-workload-corpus-v2';
+
 // @req PERF-BGSTAB-008
 // @req PERF-BGSTAB-012 AC-3
 export function createTerminalWorkloadCorpus(): BenchmarkWorkload[] {
@@ -314,9 +326,12 @@ export function createTerminalCharacterizationManifest(
   const payload = generateTerminalPayload(randomSeed);
   const commit = readGitCommit();
   const cpuList = cpus();
+  const selectedModeIds = getTerminalCharacterizationModes()
+    .filter(mode => modeIds.includes(mode.id))
+    .map(mode => mode.id);
   const manifest: BenchmarkExecutionManifest = {
-    schemaVersion: 1,
-    runId: `wave1-terminal-characterization-${randomSeed}`,
+    schemaVersion: 2,
+    runId: `${TERMINAL_WORKLOAD_CORPUS_ID}-characterization-${randomSeed}`,
     randomSeed,
     payload: {
       generator: 'seeded-terminal-mixed-v1',
@@ -350,7 +365,7 @@ export function createTerminalCharacterizationManifest(
         'missing-frontend-runtime-config',
       ),
     },
-    workloadManifestId: 'wave1-terminal-workload-corpus-v1',
+    workloadManifestId: TERMINAL_WORKLOAD_CORPUS_ID,
     workloads: workloads.map(workload => ({
       ...workload,
       viewMix: { ...workload.viewMix },
@@ -364,28 +379,29 @@ export function createTerminalCharacterizationManifest(
     // @req PERF-BGSTAB-012 AC-1
     outlierPolicy: {
       rule: 'retain-all',
-      rationale: 'Each summary group aggregates exactly one sample per trial, and the trial count is 3. Discarding any observation would leave two, which is too few to bootstrap a median confidence interval from. Every sample is therefore retained, and this field records that as a decision rather than leaving it to be inferred from the absence of an exclusion list.',
+      rationale: 'Each summary group aggregates one sample per trial across three trials. Discarding an observation would leave two, too few to bootstrap a median confidence interval from, so every sample is retained and this field records that as a decision rather than leaving it to be inferred from the absence of an exclusion list. One caveat is recorded here rather than left to be discovered: the two client delivery-count metrics are measured once per mode and workload during the case pass and the same counts are replicated across all three trials, so those groups hold replicated values rather than three independent observations and their confidence intervals are degenerate by construction. Retaining them is still correct; reading their intervals as sampling variation is not.',
       parameters: {},
       excludedSampleIds: [],
     },
     // @req PERF-BGSTAB-012 AC-2
-    // The plan. runTerminalCharacterization records the order it actually walked
-    // and asserts it equals this, so the field a reader sees is the executed
-    // order and not merely an intended one.
+    // The builder emits only the plan. `order` stays empty until
+    // runTerminalCharacterization has actually walked it, because an order this
+    // function could fill in would be a declaration wearing an observed label.
     execution: {
       derivedFrom: 'execution',
-      interleaved: true,
+      interleaved: selectedModeIds.length > 1,
       strategy: 'Measurement is ordered trial-major, then workload, then mode, with the mode sequence rotated by trial index. Consecutive units therefore differ in mode, so drift in machine state over the run is spread across the arms instead of landing on whichever arm ran last.',
-      order: planExecutionOrder(
-        getTerminalCharacterizationModes().filter(mode => modeIds.includes(mode.id)).map(mode => mode.id),
+      plannedOrder: planExecutionOrder(
+        selectedModeIds,
         workloads.length,
         DEFAULT_TRIAL_COUNT,
       ),
+      order: [],
     },
     // @req PERF-BGSTAB-012 AC-3
     visibilityFactor: createVisibilityFactor(),
   };
-  validateExecutionManifest(manifest);
+  validateExecutionManifest(manifest, { requireObservedOrder: false });
   return manifest;
 }
 
@@ -429,8 +445,9 @@ export async function runTerminalCharacterization(
 
   // @req PERF-BGSTAB-012 AC-2
   // Measurement walks the planned order and records each unit as it completes.
-  const executedOrder: BenchmarkExecutionStep[] = [];
-  for (const step of manifest.execution.order) {
+  const executedOrder: BenchmarkObservedExecutionStep[] = [];
+  let previousObservedAtMs = -Infinity;
+  for (const step of manifest.execution.plannedOrder) {
     const workload = manifest.workloads[step.workloadIndex];
     const caseObservation = caseByKey.get(`${step.mode}:${step.workloadIndex}`);
     if (!workload || !caseObservation) {
@@ -445,14 +462,26 @@ export async function runTerminalCharacterization(
       step.trialId,
       metricInterval,
     ));
-    executedOrder.push({ ...step, sequence: executedOrder.length });
+    // Deliberately NOT `{ ...step }`. `mode` comes from the case that was
+    // actually looked up and measured, and `workloadIndex` from the position of
+    // the workload object that was actually passed to the measurement. Copying
+    // either out of the plan would make the comparison below tautological.
+    const observedAtMs = nextObservedTimestamp(previousObservedAtMs);
+    previousObservedAtMs = observedAtMs;
+    executedOrder.push({
+      sequence: executedOrder.length,
+      mode: caseObservation.mode,
+      workloadIndex: manifest.workloads.indexOf(workload),
+      trialId: step.trialId,
+      observedAtMs,
+    });
   }
 
   // The claim `derivedFrom: 'execution'` is only true if this holds. Comparing
   // rather than simply overwriting means a loop that silently skipped or
   // reordered work fails here instead of publishing a plan as though it were an
   // observation.
-  assertExecutedOrderMatchesPlan(manifest.execution.order, executedOrder);
+  assertExecutedOrderMatchesPlan(manifest.execution.plannedOrder, executedOrder);
   manifest.execution.order = executedOrder;
   validateExecutionManifest(manifest);
 
@@ -463,6 +492,34 @@ export async function runTerminalCharacterization(
     fixtureEvidence,
     executionOrder: ['manifest', 'raw-samples'],
   };
+}
+
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * `performance.now()` at the moment a unit of measurement completed.
+ *
+ * The clock is monotonic but not strictly increasing: two units that complete
+ * inside the same tick can read the same value. The recorded order has to be a
+ * total order for the timestamps to witness a sequence at all, so a tie is
+ * broken by the smallest representable step above the previous reading. That
+ * nudge is bounded by clock resolution and never moves a step past the next one.
+ */
+function nextObservedTimestamp(previous: number): number {
+  const now = performance.now();
+  if (!Number.isFinite(previous)) {
+    return now;
+  }
+  return now > previous ? now : nextAfter(previous);
+}
+
+function nextAfter(value: number): number {
+  let step = Number.EPSILON * Math.max(1, Math.abs(value));
+  let next = value + step;
+  while (next === value) {
+    step *= 2;
+    next = value + step;
+  }
+  return next;
 }
 
 // @req PERF-BGSTAB-012 AC-2
