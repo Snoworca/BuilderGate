@@ -1,0 +1,24 @@
+=== static reruns at the frozen tree; utc=2026-09-16T02:10:57Z HEAD=9c37cf4 (+ uncommitted review fixes) ===
+--- capacity unit tests (drive the real App at non-default capacities) ---
+✔ FR-BGSTAB-026 CAP-07 App through Sidebar to actual Item menu applies creation capacity 4.5 (18.202705ms)
+✔ FR-BGSTAB-026 CAP-07 TabBar keeps the independent 32-session creation guard (16.920925ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 704.963639
+--- e2e ownership typecheck guard ---
+✔ REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors (8135.81115ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8571.751794
+--- tsc --noEmit -p tsconfig.e2e-ownership.json ---
+tsc exit: 0

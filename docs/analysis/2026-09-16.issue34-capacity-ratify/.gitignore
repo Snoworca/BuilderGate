@@ -1,0 +1,4 @@
+# Issue #34 evidence bundle: the root .gitignore ignores *.log, but the raw
+# Playwright and server transcripts ARE the evidence this deliverable is built
+# on and must be tracked.
+!raw/*.log
