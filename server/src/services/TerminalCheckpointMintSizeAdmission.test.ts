@@ -28,20 +28,29 @@ import {
  * together — the size facts stay true, but the "server mints what the browser
  * must reject" conclusion is what the fix removes.
  *
+ * No suite runs this file. `server/package.json` exposes it as
+ * `npm run test:checkpoint-mint-size`, following the single-file convention of
+ * `test:authority-pin` and `test:retired-settings-residue`; the monolithic
+ * runner does not discover `*.test.ts` at all.
+ *
  * The adapter's `encodedByteTotal` is exactly
  * `Buffer.byteLength(checkpoint.serializedData, 'utf8')`, so the sampled byte
- * counts below are exact. Only the retained-line projection is extrapolated;
- * a full-scrollback run at 124 and 400 columns matched the projection to
- * within 0.07% (see
+ * counts below are exact. Only the retained-line projection is extrapolated.
+ * `SAMPLE_LINES` is deliberately 1500 — the size the projection was validated
+ * at: full-scrollback runs at 124, 200 and 400 columns matched a 1500-line
+ * projection to within 0.07% (see
  * `docs/analysis/2026-09-16.issue26-checkpoint-mint-size/`).
  */
 
-const SAMPLE_LINES = 600;
+const SAMPLE_LINES = 1500;
 
 /**
- * Coding-agent-shaped output: SGR attribute runs, as produced by syntax
- * highlighting, coloured diffs and progress lines. This is BuilderGate's
- * primary workload.
+ * Coding-agent-shaped output at PER-TOKEN SGR density: every token carries its
+ * own colour and reset, which is how a syntax highlighter or a coloured diff
+ * actually emits. That density is a precondition of the size result below, not
+ * an incidental detail — the same glyph volume at eight attribute runs per line
+ * reaches only 64% of the budget at 200 columns, and with no SGR at all only
+ * 46% (`docs/analysis/2026-09-16.issue26-checkpoint-mint-size/raw/density-*.jsonl`).
  */
 function agentLikeLine(cols: number, lineNumber: number): string {
   const colors = [31, 32, 33, 34, 35, 36, 91, 92, 93, 94, 96];
@@ -78,19 +87,32 @@ async function measureBytesPerRetainedLine(cols: number, scrollbackLines: number
   }
 }
 
-/** The predicate the browser coordinator applies to a `checkpoint-begin`. */
+/**
+ * A HAND-COPY of the comparison the browser coordinator applies to a
+ * `checkpoint-begin` (`frontend/src/utils/terminalWriteCoordinator.ts`). The
+ * real predicate is not exported and lives in the frontend package, so this
+ * server-side test cannot execute it. Nothing here covers the
+ * `checkpointMaxBytes ?? postCheckpointMaxBytes` fallback that is the only
+ * reason the limit applies at all — a change to that chain, to the comparison
+ * operator, or to the `parserTail` term leaves these cases green while
+ * invalidating their conclusion. Treat the browser side as asserted by
+ * arithmetic, not exercised.
+ */
 function browserWouldReject(encodedByteTotal: number, parserTailBytes: number, checkpointMaxBytes: number): boolean {
   return encodedByteTotal + parserTailBytes > checkpointMaxBytes;
 }
 
-test('the mint path never truncates: the retained checkpoint type forbids it', async () => {
+test('the retained checkpoint declares truncated:false as a literal type', async () => {
   const state = createHeadlessTerminalState({ cols: 80, rows: 30, scrollbackLines: 200 });
   try {
     await writeHeadlessTerminal(state, agentLikeLine(80, 1));
     const checkpoint = serializeRetainedHeadlessCheckpoint(state);
-    // `truncated` is typed as the literal `false`. The compatibility
+    // This pins the type declaration, not a threshold behaviour: `truncated`
+    // is a hardcoded literal in `serializeRetainedHeadlessCheckpoint`, so an
+    // implementation that DID shed scrollback above some size would still pass
+    // this case. The declaration is what matters here — the compatibility
     // serializer takes a `maxSnapshotBytes` budget and can return
-    // `truncated: true`; the retained path deliberately cannot. That
+    // `truncated: true`, and the retained path deliberately cannot. That
     // asymmetry is why no size-shedding remedy is available at mint without
     // breaking MIG-BGSTAB-002 AC-4 (the configured retained range must be
     // recoverable).
@@ -100,7 +122,7 @@ test('the mint path never truncates: the retained checkpoint type forbids it', a
   }
 });
 
-test('issue #26: at default limits a >=200 column session mints a checkpoint the browser must reject', async () => {
+test('issue #26: at default limits, per-token SGR at >=200 columns mints a checkpoint the browser must reject', async () => {
   const limits = terminalResourceLimitsSchema.parse({});
   const checkpointMaxBytes = limits.visibleOutputQueueMaxBytes;
   const scrollbackLines = limits.scrollbackLines;
@@ -121,7 +143,7 @@ test('issue #26: at default limits a >=200 column session mints a checkpoint the
   );
 });
 
-test('issue #26: 80 columns still fits, so the defect is width-driven rather than universal', async () => {
+test('issue #26: the same per-token density at 80 columns still fits', async () => {
   const limits = terminalResourceLimitsSchema.parse({});
   const bytesPerLine = await measureBytesPerRetainedLine(80, limits.scrollbackLines);
   const projectedEncodedByteTotal = Math.round(bytesPerLine * limits.scrollbackLines);
