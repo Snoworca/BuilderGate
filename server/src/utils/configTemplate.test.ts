@@ -91,6 +91,7 @@ async function readExample(): Promise<string> {
 }
 
 test('FR-BGSTAB-026 bootstrap templates document every settable workspace key', () => {
+  assert.ok(workspaceSchema.shape, 'workspaceSchema must expose .shape for the parity guards to read');
   const schemaKeys = Object.keys(workspaceSchema.shape).sort();
   for (const platform of ['linux', 'win32'] as const) {
     const raw = JSON5.parse(renderBootstrapConfigTemplate(platform));
@@ -111,16 +112,18 @@ test('FR-BGSTAB-026 config.json5.example documents every settable workspace key'
   );
 });
 
-test('FR-BGSTAB-026 documented workspace timing defaults match the schema defaults', async () => {
-  const parsedSchemaDefaults = workspaceSchema.parse({});
+test('FR-BGSTAB-026 documented workspace defaults match the schema defaults', async () => {
+  const parsedSchemaDefaults = workspaceSchema.parse({}) as Record<string, unknown>;
   const sources: Array<[string, Record<string, unknown>]> = [
     ['linux bootstrap', JSON5.parse(renderBootstrapConfigTemplate('linux')).workspace],
     ['win32 bootstrap', JSON5.parse(renderBootstrapConfigTemplate('win32')).workspace],
     ['config.json5.example', JSON5.parse(await readExample()).workspace],
   ];
   for (const [label, workspace] of sources) {
-    for (const key of ['terminalTitleDebounceMs', 'restoreInputDelayMs'] as const) {
-      assert.equal(workspace[key], parsedSchemaDefaults[key], `${label}: ${key}`);
+    // Every settable key, not just the two this issue introduced: a documented
+    // value that drifts from the schema default is the same defect either way.
+    for (const [key, expected] of Object.entries(parsedSchemaDefaults)) {
+      assert.equal(workspace[key], expected, `${label}: ${key}`);
     }
   }
 });
