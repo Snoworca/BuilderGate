@@ -1,12 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+
 import {
   REFRESH_TRUNCATION_EVIDENCE_SCHEMA_VERSION,
   classifyRefreshRetainedLineLoss,
   measureRefreshRetainedStateBoundary,
+  measureRefreshTruncationFiringBoundary,
   produceRefreshTruncationBoundaryEvidence,
 } from './refreshRetainedStateTruncationBoundary.js';
+
+const EVIDENCE_PATH = new URL(
+  '../../../docs/analysis/2026-09-16.refresh-retained-state-boundary/refresh-truncation-boundary.json',
+  import.meta.url,
+);
+const PR_MAP_PATH = new URL(
+  '../../../docs/analysis/2026-09-16.refresh-retained-state-boundary/pr-decomposition-and-rollback-gates.json',
+  import.meta.url,
+);
 
 // @req OBS-BGSTAB-009
 const FIXTURE = { cols: 80, rows: 24, scrollbackLines: 100 } as const;
@@ -40,7 +53,28 @@ test('OBS-BGSTAB-009 AC-2 pins the firing boundary at the first logical line abo
   assert.equal(atViewport.preRefreshLogicalLineHash, atViewport.postRefreshLogicalLineHash);
 
   assert.equal(pastViewport.observedLossLogicalLines, 1, 'the first line above the viewport is lost');
-  assert.equal(pastViewport.firingBoundaryLogicalLines, FIXTURE.rows + 1);
+
+  // The boundary is located by ascending probe, never assumed from `rows`.
+  const probed = await measureRefreshTruncationFiringBoundary({
+    ...FIXTURE,
+    maxProbeLogicalLines: FIXTURE.rows + 16,
+  });
+  assert.equal(probed.probeMethod, 'ascending-linear-probe');
+  assert.equal(probed.measuredFiringBoundaryLogicalLines, FIXTURE.rows + 1);
+  assert.equal(probed.largestLosslessLogicalLines, FIXTURE.rows);
+});
+
+test('OBS-BGSTAB-009 AC-2 measures the firing boundary at a second, different geometry', async () => {
+  // A different `rows` must move the measured boundary, proving it tracks the
+  // viewport rather than a constant baked into the producer.
+  const probed = await measureRefreshTruncationFiringBoundary({
+    cols: 80,
+    rows: 10,
+    scrollbackLines: 1000,
+    maxProbeLogicalLines: 30,
+  });
+  assert.equal(probed.measuredFiringBoundaryLogicalLines, 11);
+  assert.equal(probed.largestLosslessLogicalLines, 10);
 });
 
 test('OBS-BGSTAB-009 AC-3 separates expected eviction outside retention from loss inside retention', async () => {
@@ -92,7 +126,26 @@ test('OBS-BGSTAB-009 AC-5 emits machine-readable boundary evidence without raw t
   assert.equal(evidence.rawPayloadOmitted, true);
   assert.equal(evidence.setsProductRetainedRows, false);
 
-  assert.equal(evidence.seeds.length >= 4, true);
+  assert.equal(evidence.seeds.length, 8, 'the corpus is exactly the 8 documented seeds');
+  assert.equal(evidence.legacyByteBoundaryExercised, false);
+  assert.equal(
+    evidence.seeds.every((seed) => seed.snapshotTruncated === false),
+    true,
+    'no seed reaches the legacy 2 MiB cap, so it must not be claimed as exercised',
+  );
+  assert.equal(evidence.unexercisedAxes.length > 0, true);
+  assert.equal(
+    evidence.firingBoundaries.every(
+      (boundary) => boundary.measuredFiringBoundaryLogicalLines === boundary.rows + 1,
+    ),
+    true,
+    'every probed geometry must place the measured boundary at rows + 1',
+  );
+  assert.equal(
+    new Set(evidence.firingBoundaries.map((boundary) => boundary.rows)).size > 1,
+    true,
+    'at least two distinct row counts must be probed',
+  );
   for (const seed of evidence.seeds) {
     assert.equal(typeof seed.preRefreshLogicalLineHash, 'string');
     assert.equal(seed.preRefreshLogicalLineHash.length, 64);
@@ -106,4 +159,57 @@ test('OBS-BGSTAB-009 AC-5 emits machine-readable boundary evidence without raw t
 
   assert.equal(evidence.contentDigest.algorithm, 'sha256');
   assert.equal(evidence.contentDigest.value.length, 64);
+});
+
+test('OBS-BGSTAB-009 AC-5 keeps the committed boundary artifact reproducible', () => {
+  const raw = readFileSync(EVIDENCE_PATH, 'utf8');
+  const parsed = JSON.parse(raw) as { contentDigest: { value: string } };
+  const { contentDigest, ...body } = parsed as Record<string, unknown> & {
+    contentDigest: { value: string };
+  };
+  const recomputed = createHash('sha256').update(JSON.stringify(body), 'utf8').digest('hex');
+  assert.equal(
+    recomputed,
+    contentDigest.value,
+    'committed artifact digest must recompute from its own body',
+  );
+});
+
+test('MIG-BGSTAB-005 AC-1..AC-3 pins the PR decomposition and rollback gate map', () => {
+  const map = JSON.parse(readFileSync(PR_MAP_PATH, 'utf8')) as {
+    prs: {
+      prId: string;
+      issue: number;
+      authorityRequirements: string[];
+      entryGate: string;
+      rollbackGate: string;
+      reversible: boolean;
+      dependsOn: string[];
+    }[];
+  };
+
+  for (const pr of map.prs) {
+    for (const field of ['prId', 'entryGate', 'rollbackGate'] as const) {
+      assert.equal(typeof pr[field] === 'string' && pr[field].length > 0, true, `${pr.prId}.${field}`);
+    }
+    assert.equal(typeof pr.issue, 'number');
+    assert.equal(typeof pr.reversible, 'boolean');
+    assert.equal(Array.isArray(pr.authorityRequirements) && pr.authorityRequirements.length > 0, true);
+    assert.equal(Array.isArray(pr.dependsOn), true);
+  }
+
+  assert.deepEqual(
+    map.prs.map((pr) => pr.issue).sort((a, b) => a - b),
+    [10, 11, 12, 14, 22],
+    'the map must cover exactly the five implementation issues',
+  );
+
+  const irreversible = map.prs.filter((pr) => !pr.reversible);
+  assert.equal(irreversible.length, 1);
+  assert.equal(
+    map.prs.indexOf(irreversible[0]!),
+    map.prs.length - 1,
+    'the irreversible PR must be last',
+  );
+  assert.match(irreversible[0]!.rollbackGate, /NOT REVERSIBLE/u);
 });

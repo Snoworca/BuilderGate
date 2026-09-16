@@ -55,8 +55,12 @@ export interface RefreshRetainedStateBoundaryMeasurement {
   expectedEvictionLogicalLines: number;
   /** Lines inside configured retention that refresh nonetheless drops. */
   observedLossLogicalLines: number;
-  /** Smallest produced-line count at which observed loss appears, or null. */
-  firingBoundaryLogicalLines: number | null;
+  /**
+   * Whether this seed lost any line that was inside configured retention.
+   * This is a per-seed observation. It does NOT locate where loss begins --
+   * that is measured separately by `measureRefreshTruncationFiringBoundary`.
+   */
+  observedLossPresent: boolean;
   preRefreshLogicalLineHash: string;
   postRefreshLogicalLineHash: string;
   preRefreshCellHash: string;
@@ -83,6 +87,21 @@ export interface RefreshTruncationBoundaryEvidence {
   rawPayloadOmitted: true;
   setsProductRetainedRows: false;
   seeds: RefreshTruncationBoundarySeed[];
+  /** Independently probed firing boundaries; not derived from `seeds`. */
+  firingBoundaries: RefreshTruncationFiringBoundary[];
+  /**
+   * The legacy 2 MiB serializer cap is recorded as context only. The
+   * viewport-only refresh path never reaches it, so no seed in this corpus
+   * exercises that boundary; `snapshotTruncated` is false throughout. The
+   * 2 MiB boundary itself is characterized by OBS-BGSTAB-004 through
+   * `server/src/benchmarks/retainedStateLegacyBoundary.ts`.
+   */
+  legacyByteBoundaryExercised: false;
+  /**
+   * Axes this corpus does NOT vary: text (ASCII only), terminal buffer
+   * (normal only), view active/hidden, local cache state, ANSI split.
+   */
+  unexercisedAxes: readonly string[];
   contentDigest: { algorithm: 'sha256'; value: string };
 }
 
@@ -195,8 +214,7 @@ export async function measureRefreshRetainedStateBoundary(options: {
         refreshDeliveredLogicalLineCount: classification.preservedLogicalLines,
         expectedEvictionLogicalLines: classification.expectedEvictionLogicalLines,
         observedLossLogicalLines: classification.observedLossLogicalLines,
-        firingBoundaryLogicalLines:
-          classification.observedLossLogicalLines > 0 ? options.rows + 1 : null,
+        observedLossPresent: classification.observedLossLogicalLines > 0,
         preRefreshLogicalLineHash: sha256(JSON.stringify(preLines)),
         postRefreshLogicalLineHash: sha256(JSON.stringify(postLines)),
         preRefreshCellHash: authoritative.normal.cellHash,
@@ -226,6 +244,68 @@ export async function measureRefreshRetainedStateBoundary(options: {
   }
 }
 
+export interface RefreshTruncationFiringBoundary {
+  cols: number;
+  rows: number;
+  scrollbackLines: number;
+  /**
+   * Smallest produced logical-line count at which a line inside configured
+   * retention is lost. Found by ascending linear probe, not assumed.
+   */
+  measuredFiringBoundaryLogicalLines: number | null;
+  /** Largest probed count that still lost nothing. */
+  largestLosslessLogicalLines: number;
+  probedRange: { from: number; to: number };
+  probeMethod: 'ascending-linear-probe';
+}
+
+/**
+ * Locates the firing boundary empirically rather than deriving it. Probes
+ * upward from a single produced line until the first seed that loses a line
+ * inside configured retention.
+ */
+// @req OBS-BGSTAB-009
+export async function measureRefreshTruncationFiringBoundary(options: {
+  cols: number;
+  rows: number;
+  scrollbackLines: number;
+  maxProbeLogicalLines: number;
+}): Promise<RefreshTruncationFiringBoundary> {
+  let largestLossless = 0;
+  let boundary: number | null = null;
+  for (let lines = 1; lines <= options.maxProbeLogicalLines; lines += 1) {
+    const measurement = await measureRefreshRetainedStateBoundary({
+      cols: options.cols,
+      rows: options.rows,
+      scrollbackLines: options.scrollbackLines,
+      logicalLines: lines,
+    });
+    if (measurement.observedLossLogicalLines > 0) {
+      boundary = lines;
+      break;
+    }
+    largestLossless = lines;
+  }
+  return {
+    cols: options.cols,
+    rows: options.rows,
+    scrollbackLines: options.scrollbackLines,
+    measuredFiringBoundaryLogicalLines: boundary,
+    largestLosslessLogicalLines: largestLossless,
+    probedRange: { from: 1, to: options.maxProbeLogicalLines },
+    probeMethod: 'ascending-linear-probe',
+  };
+}
+
+/** Geometries whose firing boundary is measured rather than assumed. */
+const FIRING_BOUNDARY_PROBES: readonly {
+  cols: number; rows: number; scrollbackLines: number; maxProbeLogicalLines: number;
+}[] = [
+  { cols: 80, rows: 24, scrollbackLines: 100, maxProbeLogicalLines: 40 },
+  { cols: 80, rows: 24, scrollbackLines: 10000, maxProbeLogicalLines: 40 },
+  { cols: 80, rows: 10, scrollbackLines: 1000, maxProbeLogicalLines: 40 },
+];
+
 /** Characterization corpus. These numbers reproduce current behaviour; they are
  * not a proposed product retained-history value. */
 const CORPUS: readonly { cols: number; rows: number; scrollbackLines: number; logicalLines: number }[] = [
@@ -247,6 +327,11 @@ export async function produceRefreshTruncationBoundaryEvidence(): Promise<Refres
     seeds.push({ ...measurement, seedKind: 'characterization-corpus' });
   }
 
+  const firingBoundaries: RefreshTruncationFiringBoundary[] = [];
+  for (const probe of FIRING_BOUNDARY_PROBES) {
+    firingBoundaries.push(await measureRefreshTruncationFiringBoundary(probe));
+  }
+
   const body = {
     schemaVersion: REFRESH_TRUNCATION_EVIDENCE_SCHEMA_VERSION,
     requirementId: 'OBS-BGSTAB-009',
@@ -259,6 +344,16 @@ export async function produceRefreshTruncationBoundaryEvidence(): Promise<Refres
     rawPayloadOmitted: true,
     setsProductRetainedRows: false,
     seeds,
+    firingBoundaries,
+    legacyByteBoundaryExercised: false,
+    unexercisedAxes: [
+      'text:CJK-wide|combining|emoji',
+      'terminalBuffer:alternate',
+      'view:active|hidden',
+      'localCache:valid|absent|poisoned|oversized',
+      'ansi:split-escape-tail',
+      'legacy-2MiB-serialized-payload',
+    ],
   } as const;
 
   return {
