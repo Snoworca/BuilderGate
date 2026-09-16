@@ -18,7 +18,11 @@ const GUARD = path.join(TOOLS_DIR, 'require-owned-http-test-pipe.cjs');
 // posix carries four clauses win32 does not (owned directory, `.sock` suffix and
 // the two directory-shape cases), so the corpus is larger there.
 const EXPECTED_REJECTIONS = { linux: 36, darwin: 36, win32: 32 };
-const EXPECTED_FORWARDS = 2;
+const EXPECTED_FORWARDS = 3;
+// Rejections asserted outside the corpus array: zero-arity listen, two
+// later-argument forms, and the two http.Server cases that keep the corpus from
+// being blind to subject class.
+const EXPECTED_REJECTIONS_OUTSIDE_CORPUS = 5;
 
 // The child must not inherit an operator's guard log or a `node --test` context.
 function childEnv(extra) {
@@ -67,6 +71,7 @@ test('B0 listen guard self-check passes with the exact corpus it claims', () => 
   // An inequality would let the cases that cover the anchors and the directory
   // clauses be deleted without the suite noticing, so this is exact.
   assert.equal(report.rejected, expected);
+  assert.equal(report.rejectedOutsideCorpus, EXPECTED_REJECTIONS_OUTSIDE_CORPUS);
   assert.equal(report.forwardedToCapturedOriginal, EXPECTED_FORWARDS);
   assert.equal(report.openHandles, false, 'the self-check opens no real endpoint');
 });
@@ -84,7 +89,7 @@ test('the self-check actually drives the guard, counted from the guard own log',
     const events = readFileSync(logPath, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
     const rejects = events.filter((event) => event.event === 'reject-before-tcp-bind');
     const forwards = events.filter((event) => event.event === 'forward-owned-local-listen');
-    assert.equal(rejects.length, EXPECTED_REJECTIONS[process.platform]);
+    assert.equal(rejects.length, EXPECTED_REJECTIONS[process.platform] + EXPECTED_REJECTIONS_OUTSIDE_CORPUS);
     assert.equal(forwards.length, EXPECTED_FORWARDS);
     assert.equal(rejects.length + forwards.length, events.length, 'the guard emits no other event kind');
   } finally {
@@ -94,13 +99,25 @@ test('the self-check actually drives the guard, counted from the guard own log',
 
 test('the self-check covers the platform branch this lane does not take', () => {
   const other = process.platform === 'win32' ? 'linux' : 'win32';
-  const result = runSelfCheck({ platform: other });
-  assert.equal(result.status, 0, `self-check under forced ${other} exited ${result.status}: ${result.stderr}`);
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'b0-guard-other-'));
+  try {
+    const logPath = path.join(dir, 'guard-events.log');
+    const result = runSelfCheck({ platform: other, guardLog: logPath });
+    assert.equal(result.status, 0, `self-check under forced ${other} exited ${result.status}: ${result.stderr}`);
 
-  const report = JSON.parse(result.stdout.trim());
-  assert.equal(report.platform, other, 'the shim must actually take effect');
-  assert.equal(report.rejected, EXPECTED_REJECTIONS[other]);
-  assert.equal(report.forwardedToCapturedOriginal, EXPECTED_FORWARDS);
+    const report = JSON.parse(result.stdout.trim());
+    assert.equal(report.platform, other, 'the shim must actually take effect');
+    assert.equal(report.rejected, EXPECTED_REJECTIONS[other]);
+    assert.equal(report.forwardedToCapturedOriginal, EXPECTED_FORWARDS);
+    // Counted from the guard's own log for the same reason as the test above:
+    // the report's numbers are the child's, the log lines are the guard's.
+    const events = readFileSync(logPath, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    assert.equal(events.filter((event) => event.event === 'reject-before-tcp-bind').length,
+      EXPECTED_REJECTIONS[other] + EXPECTED_REJECTIONS_OUTSIDE_CORPUS);
+    assert.equal(events.filter((event) => event.event === 'forward-owned-local-listen').length, EXPECTED_FORWARDS);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('B0 listen guard refuses to load a kind that is not a regex literal', () => {

@@ -1,0 +1,106 @@
+# root npm run test:release-pipeline, now chaining test:tools
+
+> buildergate@0.5.4 test:release-pipeline
+> node --test tools/build-portable-runtime-evidence.test.mjs server/tools/canonical-authority-line-endings.test.mjs && npm --prefix server run test:tools && npm --prefix server run test:authority-pin && npm --prefix server run test:retired-settings-residue
+
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (455.172617ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (112.350805ms)
+✔ OPS-BGSTAB-008 the bundle writer completes on this working tree (6826.081678ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (329.947116ms)
+✔ OPS-BGSTAB-009 accepts the bundle layout the evidence writer produces (64.935424ms)
+✔ OPS-BGSTAB-009 still runs the runtime canary against the artifact policy (52.462231ms)
+✔ OPS-BGSTAB-009 rejects a bundle the runtime canary refuses (60.632766ms)
+✔ OPS-BGSTAB-009 still requires exactly 15 raw evidence sidecars (16.181638ms)
+✔ OPS-BGSTAB-009 rejects a bundle with any required file removed (57.063907ms)
+✔ OPS-BGSTAB-009 rejects declared paths that resolve outside the evidence root (48.4012ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7843.455408
+
+> buildergate-server@0.1.0 test:tools
+> node --test --test-concurrency=1 tools/*.test.*
+
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (516.96999ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (136.598083ms)
+✔ OPS-BGSTAB-008 the bundle writer completes on this working tree (7425.180017ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (282.736057ms)
+✔ node-pty runtime patches are idempotent and fail closed on target drift (18.845062ms)
+▶ fair scheduler pinned sources retain raw-byte provenance through Git checkout
+  ✔ src/benchmarks/terminalFairnessCharacterization.ts (266.185027ms)
+  ✔ src/benchmarks/fairSchedulerAuthorityLocator.ts (263.172628ms)
+  ✔ src/ws/wsSendPolicy.ts (251.222918ms)
+  ✔ src/ws/WsRouter.ts (264.035195ms)
+  ✔ src/services/TerminalResourcePolicy.ts (249.775668ms)
+  ✔ src/services/TerminalResourcePolicyCanary.ts (258.553753ms)
+✔ fair scheduler pinned sources retain raw-byte provenance through Git checkout (1562.481483ms)
+▶ fair scheduler current authority JSON retains raw-byte hashes through Git checkout
+  ✔ current.json (241.866316ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/fair-scheduler-decision.json (251.59606ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/provenance.json (257.089929ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-0.json (285.009149ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-1.json (281.288421ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-2.json (288.561094ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-3.json (271.671148ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-4.json (263.490041ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-0.json (255.065662ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-1.json (264.669548ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-2.json (258.531831ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-3.json (269.20857ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-4.json (269.739753ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-0.json (272.955669ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-1.json (268.970617ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-2.json (270.012377ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-3.json (256.57883ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-4.json (274.267218ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/manifest.json (245.964702ms)
+✔ fair scheduler current authority JSON retains raw-byte hashes through Git checkout (5090.02221ms)
+✔ B0 listen guard self-check passes with the exact corpus it claims (75.042969ms)
+✔ the self-check actually drives the guard, counted from the guard own log (73.453255ms)
+✔ the self-check covers the platform branch this lane does not take (72.581163ms)
+✔ B0 listen guard refuses to load a kind that is not a regex literal (42.606146ms)
+✔ PERF-BGSTAB-010 canonical bundle writer rejects source-root override and copies only current immutable generation (7175.081095ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22970.927405
+
+> buildergate-server@0.1.0 test:authority-pin
+> tsx --test src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts
+
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OPS-BGSTAB-010 the published generation pins the sources on disk (46.841351ms)
+✔ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy (6724.303481ms)
+✔ OPS-BGSTAB-010 altering one pinned byte breaks the digest equality (87.484085ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10373.395789
+
+> buildergate-server@0.1.0 test:retired-settings-residue
+> tsx --test src/utils/retiredSettingsResidue.test.ts
+
+✔ FR-BGSTAB-025 no shipped surface references a retired configuration path (5104.738693ms)
+✔ FR-BGSTAB-025 defaults constants for the retired logging and bruteForce blocks are gone (0.543537ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6360.696029
+EXIT=0

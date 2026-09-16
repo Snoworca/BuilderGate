@@ -13,7 +13,11 @@
 //     [--self-check <path>] [--wrapper <path>] [--guard <path>]
 //
 // Defaults point at the committed files under `server/tools/`. Pass an older
-// `--self-check` to measure what an earlier corpus did or did not cover.
+// `--self-check` to measure what an earlier corpus did or did not cover. The
+// wrapper resolves the self-check by its own fixed basename, so when
+// `--self-check` points at a corpus the committed wrapper does not match, pass
+// `--wrapper` too — otherwise the wrapper column measures a mismatched pair and
+// says so through a killed CONTROL row.
 
 import { mkdtempSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -25,7 +29,13 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const argv = process.argv.slice(2);
 const argOf = (name, fallback) => {
   const i = argv.indexOf(name);
-  return i === -1 ? fallback : resolve(argv[i + 1]);
+  if (i === -1) return fallback;
+  const value = argv[i + 1];
+  if (value === undefined || value.startsWith('--')) {
+    console.error(`${name} needs a path`);
+    process.exit(2);
+  }
+  return resolve(value);
 };
 const GUARD = argOf('--guard', join(REPO, 'server/tools/require-owned-http-test-pipe.cjs'));
 const SELF_CHECK = argOf('--self-check', join(REPO, 'server/tools/test-owned-http-test-pipe.cjs'));
@@ -83,6 +93,22 @@ const MUTANTS = [
   ['guard-disabled', 'forward every listen call', replaceOnce('if (!allowed) {', 'if (false) {')],
   ['error-code-changed', 'change the thrown error code',
     replaceOnce("error.code = 'B0_FORBIDDEN_TCP_LISTEN';", "error.code = 'B0_SOMETHING_ELSE';")],
+  // The four below attack the `allowed` expression rather than the predicate.
+  // A corpus built on one subject class or on arity-one calls alone is blind to
+  // them, which is why the self-check carries an http.Server subject and a
+  // zero-argument call.
+  ['subject-class-escape', 'allow any subject that is not a bare net.Server',
+    replaceOnce('const allowed = ownedEndpoint(args[0]);',
+      'const allowed = ownedEndpoint(args[0]) || this.constructor !== net.Server;')],
+  ['zero-arity-escape', 'allow a listen() call with no arguments',
+    replaceOnce('const allowed = ownedEndpoint(args[0]);',
+      'const allowed = args.length === 0 || ownedEndpoint(args[0]);')],
+  ['env-backdoor', 'allow everything when an environment variable is absent',
+    replaceOnce('const allowed = ownedEndpoint(args[0]);',
+      "const allowed = ownedEndpoint(args[0]) || !process.env.BUILDERGATE_B0_STRICT;")],
+  ['later-argument-escape', 'allow when any later argument opts out',
+    replaceOnce('const allowed = ownedEndpoint(args[0]);',
+      'const allowed = ownedEndpoint(args[0]) || args.some((a) => a && a.allowTcp === true);')],
 ];
 
 function runSurfaces(dir) {
@@ -93,12 +119,18 @@ function runSurfaces(dir) {
   return { selfCheck: selfCheck.status === 0, wrapper: wrapper.status === 0 };
 }
 
-function stage(guardSource) {
+// The temp directory is created and torn down inside one try/finally so a
+// failure while staging cannot leak it.
+function withStagedGuard(guardSource, body) {
   const dir = mkdtempSync(join(tmpdir(), 'b0-mutation-'));
-  writeFileSync(join(dir, basename(GUARD)), guardSource, 'utf8');
-  copyFileSync(SELF_CHECK, join(dir, basename(SELF_CHECK)));
-  copyFileSync(WRAPPER, join(dir, basename(WRAPPER)));
-  return dir;
+  try {
+    writeFileSync(join(dir, basename(GUARD)), guardSource, 'utf8');
+    copyFileSync(SELF_CHECK, join(dir, basename(SELF_CHECK)));
+    copyFileSync(WRAPPER, join(dir, basename(WRAPPER)));
+    return body(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 const guardSource = readFileSync(GUARD, 'utf8');
@@ -125,24 +157,13 @@ for (const [id, description, apply, equivalent] of MUTANTS) {
     console.log(`  ${id.padEnd(26)} ${'ANCHOR-MISSING'.padEnd(10)} ${''.padEnd(10)} ${description}`);
     continue;
   }
-  const dir = stage(mutated);
-  try {
-    const { selfCheck, wrapper } = runSurfaces(dir);
-    if (selfCheck && wrapper && !equivalent) survivors += 1;
-    const suffix = equivalent ? ` [equivalent] ${description}` : ` ${description}`;
-    console.log(`  ${id.padEnd(26)} ${(selfCheck ? 'SURVIVED' : 'killed').padEnd(10)} ${(wrapper ? 'SURVIVED' : 'killed').padEnd(10)}${suffix}`);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  const { selfCheck, wrapper } = withStagedGuard(mutated, runSurfaces);
+  if (selfCheck && wrapper && !equivalent) survivors += 1;
+  const suffix = equivalent ? ` [equivalent] ${description}` : ` ${description}`;
+  console.log(`  ${id.padEnd(26)} ${(selfCheck ? 'SURVIVED' : 'killed').padEnd(10)} ${(wrapper ? 'SURVIVED' : 'killed').padEnd(10)}${suffix}`);
 }
 
-const controlDir = stage(guardSource);
-let control;
-try {
-  control = runSurfaces(controlDir);
-} finally {
-  rmSync(controlDir, { recursive: true, force: true });
-}
+const control = withStagedGuard(guardSource, runSurfaces);
 console.log(`  ${'CONTROL (unmutated)'.padEnd(26)} ${(control.selfCheck ? 'SURVIVED' : 'killed').padEnd(10)} ${(control.wrapper ? 'SURVIVED' : 'killed').padEnd(10)} both surfaces must SURVIVE here`);
 console.log('#');
 console.log(`# mutants=${MUTANTS.length} anchor_missing=${anchorFailures} non_equivalent_survived_on_both_surfaces=${survivors}`);
@@ -150,6 +171,9 @@ console.log('# a mutant killed on one surface and surviving on the other is cove
 console.log('# surfaces are complementary, the wrapper reaching what the self-check cannot.');
 console.log(`# control_self_check=${control.selfCheck ? 'SURVIVED' : 'killed'} control_wrapper=${control.wrapper ? 'SURVIVED' : 'killed'}`);
 
+// Exit 0 = PASS, 1 = a mutant or the control needs review, 2 = the script could
+// not run (bad arguments). A consumer reading only $? can tell the three apart.
 const ok = control.selfCheck && control.wrapper && anchorFailures === 0 && survivors === 0;
 console.log(`# result=${ok ? 'PASS' : 'REVIEW'}`);
+console.log('# exit 0=PASS  1=REVIEW  2=bad invocation');
 process.exit(ok ? 0 : 1);
