@@ -1,0 +1,53 @@
+=== issue34 instrumented run: label=config-4-3 configured=4/3 utc=2026-09-16T02:42:56Z ===
+--- [1] server config in force (server/config.json5 workspace block) ---
+  workspace: {
+    dataPath: "./data/workspaces.json",
+    maxWorkspaces: 4,
+    maxTabsPerWorkspace: 3,
+    maxTotalSessions: 32,
+    flushDebounceMs: 5000,
+  },
+--- [2] ports BEFORE start (WSL ss) ---
+(none of 2001/2002/2221/2222 on the WSL side)
+--- [2b] ports BEFORE start (Windows netstat; authoritative for 2001/2002 only) ---
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596
+--- [3] starting this checkout's server/dist/index.js, NODE_ENV=production PORT=2222 ---
+listener pid (from ss, WSL-side): 112634
+--- [4] PROCESS IDENTITY via /proc (never the netstat.exe PID column) ---
+cmdline: node dist/index.js 
+cwd:     /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server
+exe:     /home/beom/.nvm/versions/node/v24.21.0/bin/node
+inherited BUILDERGATE_* in the child environ: 0
+NODE_ENV/PORT in the child environ:
+NODE_ENV=production
+PORT=2222
+--- [5] the limits the server actually publishes on the authenticated endpoint ---
+GET /api/workspaces limits = {'maxWorkspaces': 4, 'maxTabsPerWorkspace': 3}
+pre-existing workspaces = ['Workspace-1']
+--- [6] Playwright, env pair ISSUE34_MAX_WORKSPACES=4 ISSUE34_MAX_TABS=3 ---
+(node:112711) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:112734) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:80:1 › issue34 AC-3: the workspace create control reports the configured maxWorkspaces (7.7s)
+  ✓  2 [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:125:1 › issue34 AC-4: the add-terminal control reports the configured maxTabsPerWorkspace (7.4s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+  2 passed (22.4s)
+playwright exit: 0
+--- [7] teardown: kill ONLY pid 112634, verified above by /proc cmdline+cwd+exe ---
+/proc/112634 exists after kill: no
+--- [8] ports AFTER teardown (WSL ss) ---
+2221/2222 free on the WSL side
+--- [8b] ports AFTER teardown (Windows netstat) ---
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596
+=== end run label=config-4-3 ===

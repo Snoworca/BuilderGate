@@ -39,25 +39,37 @@ function readLimit(name: string, raw: string | undefined): number {
   return value;
 }
 
-// Supplied by the harness from the server config actually in force, so the same
-// spec run against two different configured pairs proves the UI tracks the value
-// instead of coinciding with one constant.
-const CONFIGURED_MAX_WORKSPACES = UNCONFIGURED ? 0 : readLimit('ISSUE34_MAX_WORKSPACES', RAW_MAX_WORKSPACES);
-const CONFIGURED_MAX_TABS = UNCONFIGURED ? 0 : readLimit('ISSUE34_MAX_TABS', RAW_MAX_TABS);
+type ConfiguredLimits = { maxWorkspaces: number; maxTabsPerWorkspace: number };
 
+// Resolved per test, never at module load. A throw here fails only this file's
+// tests; a throw at module load would fail collection for the whole `testDir`
+// (playwright.config.ts:7 sets `testDir: './tests/e2e'` with no `testIgnore`),
+// so one stale export in an operator's shell would abort every other spec too.
+//
+// The values are supplied by the harness from the server config actually in
+// force, so the same spec run against two different configured pairs proves the
+// UI tracks the value instead of coinciding with one constant.
+//
 // ANTI-CONSTANT GUARD. 10 and 8 are the exact numbers `da0e347` removed from
 // App.tsx, and they are also the pre-snapshot fallback in
 // useWorkspaceManager.ts:175. Run at 10 / 8 this spec would pass against a
 // re-hardcoded App.tsx and against a client that never received the server's
 // limits at all — it would assert nothing. Refuse the run rather than skip it,
 // because a skip reads as "not configured" while this is a configuration that
-// destroys the evidence.
-if (!UNCONFIGURED && (CONFIGURED_MAX_WORKSPACES === 10 || CONFIGURED_MAX_TABS === 8)) {
-  throw new Error(
-    'Issue #34 ratification cannot use the removed hardcoded pair: configure the server to a'
-    + ` maxWorkspaces other than 10 and a maxTabsPerWorkspace other than 8 (got ${CONFIGURED_MAX_WORKSPACES} / ${CONFIGURED_MAX_TABS}).`
-    + ' At those two values a passing assertion is satisfied by the constant the fix removed.',
-  );
+// destroys the evidence. The check is cross-paired on purpose: 10 was only ever
+// the workspaces constant and 8 only ever the tabs constant, so 8 / 10 is a
+// legitimate pair and is accepted.
+function resolveLimits(): ConfiguredLimits {
+  const maxWorkspaces = readLimit('ISSUE34_MAX_WORKSPACES', RAW_MAX_WORKSPACES);
+  const maxTabsPerWorkspace = readLimit('ISSUE34_MAX_TABS', RAW_MAX_TABS);
+  if (maxWorkspaces === 10 || maxTabsPerWorkspace === 8) {
+    throw new Error(
+      'Issue #34 ratification cannot use the removed hardcoded pair: configure the server to a'
+      + ` maxWorkspaces other than 10 and a maxTabsPerWorkspace other than 8 (got ${maxWorkspaces} / ${maxTabsPerWorkspace}).`
+      + ' At those two values a passing assertion is satisfied by the constant the fix removed.',
+    );
+  }
+  return { maxWorkspaces, maxTabsPerWorkspace };
 }
 
 // Without either variable there is nothing to assert, so the default suite skips
@@ -70,6 +82,7 @@ test('issue34 AC-3: the workspace create control reports the configured maxWorks
     registryPath: process.env.BUILDERGATE_E2E_RUN_DIR ?? '',
     runId: process.env.BUILDERGATE_E2E_RUN_ID ?? '', baseUrl: origin,
   };
+  const { maxWorkspaces: CONFIGURED_MAX_WORKSPACES, maxTabsPerWorkspace: CONFIGURED_MAX_TABS } = resolveLimits();
   const owner = `issue34-workspaces/${info.testId}/${info.retry}/${randomUUID()}`;
   await login(page);
   const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
@@ -114,6 +127,7 @@ test('issue34 AC-4: the add-terminal control reports the configured maxTabsPerWo
     registryPath: process.env.BUILDERGATE_E2E_RUN_DIR ?? '',
     runId: process.env.BUILDERGATE_E2E_RUN_ID ?? '', baseUrl: origin,
   };
+  const { maxTabsPerWorkspace: CONFIGURED_MAX_TABS } = resolveLimits();
   const owner = `issue34-tabs/${info.testId}/${info.retry}/${randomUUID()}`;
   await login(page);
   const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
