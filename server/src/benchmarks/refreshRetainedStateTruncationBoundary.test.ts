@@ -421,7 +421,8 @@ test('OBS-BGSTAB-009 AC-2 records a probe trail that carries no information beyo
   // This test pins that fact so nobody builds another false gate on the trail.
   // The property that matters -- the boundary reflects measurement rather than
   // a constant derived from `rows` -- is enforced by the wrapped-geometry test
-  // above, which needs no injection.
+  // above and by the unpinned-geometry confirmation test, neither of which uses
+  // an injection hook.
   const probed = await measureRefreshTruncationFiringBoundary({
     cols: 8,
     rows: 10,
@@ -442,56 +443,58 @@ test('OBS-BGSTAB-009 AC-2 records a probe trail that carries no information beyo
 
 test('OBS-BGSTAB-009 AC-2 confirms the reported boundary by independent measurement at an unpinned geometry', async () => {
   // Round-8 review built a producer that memorised the four (cols, rows) pairs
-  // the suite pins and returned `rows + 1` everywhere else. It passed 12/12
-  // while being wrong at every other geometry, because every boundary
-  // assertion compared against a constant the test itself supplied.
+  // the artifact pins and returned `rows + 1` everywhere else, passing 12/12
+  // because every boundary assertion compared against a constant the test
+  // itself supplied. This test supplies no expected value: it asks the producer
+  // for a boundary, then confirms that answer against
+  // `measureRefreshRetainedStateBoundary` directly -- the reported count must
+  // lose, the count below it must not.
   //
-  // This test supplies no expected value. It picks a geometry the artifact does
-  // NOT pin, asks the producer for a boundary, then confirms that answer
-  // against `measureRefreshRetainedStateBoundary` directly: the reported count
-  // must lose, and the count below it must not. That is the defining property
-  // of the boundary, checkable at any geometry without a formula -- and round 8
-  // established there is no correct closed-form rule to use instead.
+  // Round-9 review then defeated an earlier version of this test twice:
+  //   * the candidate list was a 6-entry literal, so a 10-entry table (those
+  //     six plus the artifact's four) passed 13/13 -- fixed here by DERIVING
+  //     the geometry from a per-run draw instead of listing it;
+  //   * one candidate, 12x6, does not wrap (the fixture line is 11 chars), so
+  //     its true boundary IS rows + 1 and the gate silently passed the very
+  //     adversary it was built for, 1 run in 6 -- fixed here by constraining
+  //     the draw to wrapping widths only.
   //
-  // The geometry rotates per run so no finite lookup table can cover it.
-  const candidates = [
-    { cols: 5, rows: 7 },
-    { cols: 3, rows: 5 },
-    { cols: 6, rows: 9 },
-    { cols: 4, rows: 9 },
-    { cols: 12, rows: 6 },
-    { cols: 7, rows: 11 },
-  ];
-  const geometry = candidates[Math.floor(Math.random() * candidates.length)]!;
+  // LIMIT, stated plainly: no test of this shape can distinguish a producer
+  // that measures from one that has memorised correct answers for every
+  // geometry. Widening the draw raises the cost of such a table; it does not
+  // close the gap, and it is not meant to. A producer that is correct at every
+  // geometry is correct. See the requirement's Implementation Notes.
+  const FIXTURE_LINE_WIDTH = 11;
+  const cols = 2 + Math.floor(Math.random() * 9); // 2..10, always wraps
+  const rows = 3 + Math.floor(Math.random() * 18); // 3..20
   const scrollbackLines = 1000;
+  assert.equal(cols < FIXTURE_LINE_WIDTH, true, 'the drawn width must wrap the fixture line');
 
   const probed = await measureRefreshTruncationFiringBoundary({
-    ...geometry,
+    cols,
+    rows,
     scrollbackLines,
     maxProbeLogicalLines: 60,
   });
   const boundary = probed.measuredFiringBoundaryLogicalLines;
-  assert.notEqual(boundary, null, `no boundary found at ${geometry.cols}x${geometry.rows}`);
+  assert.notEqual(boundary, null, `no boundary found at ${cols}x${rows}`);
+  assert.equal(boundary! > 1, true, `${cols}x${rows}: boundary ${boundary} leaves nothing below it`);
 
   const atBoundary = await measureRefreshRetainedStateBoundary({
-    ...geometry,
-    scrollbackLines,
-    logicalLines: boundary!,
+    cols, rows, scrollbackLines, logicalLines: boundary!,
   });
   const belowBoundary = await measureRefreshRetainedStateBoundary({
-    ...geometry,
-    scrollbackLines,
-    logicalLines: boundary! - 1,
+    cols, rows, scrollbackLines, logicalLines: boundary! - 1,
   });
 
   assert.equal(
     atBoundary.observedLossLogicalLines > 0,
     true,
-    `${geometry.cols}x${geometry.rows}: reported boundary ${boundary} must actually lose`,
+    `${cols}x${rows}: reported boundary ${boundary} must actually lose`,
   );
   assert.equal(
     belowBoundary.observedLossLogicalLines,
     0,
-    `${geometry.cols}x${geometry.rows}: ${boundary! - 1} must not lose, or ${boundary} is not the first`,
+    `${cols}x${rows}: ${boundary! - 1} must not lose, or ${boundary} is not the first`,
   );
 });
