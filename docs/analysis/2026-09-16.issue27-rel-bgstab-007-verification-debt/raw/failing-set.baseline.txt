@@ -10,4 +10,3 @@
 ✖ MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output
 ✖ MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps
 ✖ MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw
-✖ failing tests:

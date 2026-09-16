@@ -96,14 +96,49 @@ silently go vacuous again.
 
 ## Regression framing
 
+### node:test file-level arm (`TerminalAuthorityController.test.ts`)
+
 `TerminalAuthorityController.test.ts` carries **12 pre-existing failures** on this branch.
 Proven pre-existing by stashing only the two files this lane changed and re-running:
 baseline `tests 147 / pass 135 / fail 12`, with-change `tests 148 / pass 136 / fail 12`,
 and the failing-name sets are identical (`raw/failing-set.baseline.txt` vs
-`raw/failing-set.with-change.txt`).
+`raw/failing-set.with-change.txt`). **Each of those two files contains exactly 12 lines,
+one per failing test name.** (Earlier revisions of these artifacts also carried the
+captured `✖ failing tests:` banner line, which made them 13 lines and invited a reader
+counting lines to read "13 failures"; the banner has been stripped.)
 
 One additional name, `MIG-BGSTAB-002 production promotion deadline follows the configured
 browser ACK contract exactly once`, failed in a single early full-file run. It did **not**
 recur in three subsequent full-file runs with the change (`raw/*.with-change-run{1,2,3}.log`)
 and passes in isolation three times on both arms. Classified load-dependent, not a
 regression — it is a deadline/timing test and the observation is concurrent-run only.
+
+### Monolithic runner arm (`server/src/test-runner.ts`)
+
+Command (cwd = `server/`): `npx tsx src/test-runner.ts`.
+
+Measured four times — twice at HEAD and twice at baseline, where "baseline" is the
+`HEAD~2` version of the two files this lane changed, restored into the worktree:
+
+| Arm | Run | Artifact | Result |
+|---|---|---|---|
+| HEAD | 1 | `raw/monolithic-runner.head-run1.log` | 538 PASS / 3 test(s) failed |
+| HEAD | 2 | `raw/monolithic-runner.head-run2.log` | 538 PASS / 3 test(s) failed |
+| baseline | 1 | `raw/monolithic-runner.baseline-run1.log` | 538 PASS / 3 test(s) failed |
+| baseline | 2 | `raw/monolithic-runner.baseline-run2.log` | 538 PASS / 3 test(s) failed |
+
+The three failing names are identical across all four runs:
+`SessionManager keeps PowerShell prompt redraw idle in heuristic mode`,
+`SessionManager powershell shell bootstrap avoids delayed prompt-hook injection`,
+`authRoutes twoFactor.externalOnly: localhost bypass skips TOTP (bugfix)`.
+
+**The failure count is not stable run-to-run.** Earlier in the same session two runs of
+this same runner reported **4** failed; all four artifact-backed runs above reported **3**.
+No claim of stability is made here — only that the four runs captured as artifacts agree
+at 3, and that an earlier unretained observation disagreed at 4. The delta between the
+HEAD and baseline arms is zero in every retained run, which is the only comparison this
+arm is used for.
+
+The monolithic runner is self-contained and **does not discover `*.test.ts`**, so the
+test this lane added to `TerminalAuthorityController.test.ts` cannot change its totals.
+Its 538/3 figure is therefore a same-total control, not coverage of the change.

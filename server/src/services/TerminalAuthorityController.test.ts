@@ -1273,6 +1273,23 @@ type RecoverViewInput = {
   cacheState: 'absent' | 'poisoned';
 };
 
+// REL-BGSTAB-007 AC-8. Promotion itself loads authoritative recovery with no
+// browser context. Clear the recorded loads so a test's later assertions describe
+// its own recoverView calls only, while pinning that nothing recorded up to this
+// point carried a browser cache state. The assertion deliberately does not pin the
+// number of promotion-time loads — only that none of them is cache-sensitive.
+// Asserted through a temporary: assert.deepEqual narrows its first argument, and
+// narrowing harness.recoveryLoads to undefined[] would make the
+// cacheState/connectionId assertions at the call sites unreachable at the type level.
+function dropPromotionRecoveryLoad(harness: Pick<Harness, 'recoveryLoads'>): void {
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.cacheState).filter(cacheState => cacheState !== undefined),
+    [],
+    'promotion must load authoritative recovery without browser context',
+  );
+  harness.recoveryLoads.length = 0;
+}
+
 function compatibilityDrainKey(input: {
   connectionId: string;
   viewGeneration: number;
@@ -7830,17 +7847,7 @@ test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-
   const contract = await loadContract('MIG-AC-4');
   const harness = createHarness(contract);
   await promoteAllViews(harness.controller);
-  // Promotion itself loads authoritative recovery with no browser context.
-  // Drop that entry so the assertions below describe the recoverView calls only.
-  // Asserted through a temporary: assert.deepEqual narrows its first argument,
-  // and narrowing harness.recoveryLoads to undefined[] would make the
-  // cacheState/connectionId assertions below unreachable at the type level.
-  assert.deepEqual(
-    harness.recoveryLoads.map(load => load?.cacheState),
-    [undefined],
-    'promotion must load authoritative recovery without browser context',
-  );
-  harness.recoveryLoads.length = 0;
+  dropPromotionRecoveryLoad(harness);
   const absent = await harness.controller.recoverView({ connectionId: 'reload-absent', viewGeneration: 1, cacheState: 'absent' });
   const poisoned = await harness.controller.recoverView({ connectionId: 'reload-poisoned', viewGeneration: 2, cacheState: 'poisoned' });
   for (const result of [absent, poisoned]) {
@@ -7881,17 +7888,7 @@ test('Cache-poisoned authoritative recovery parity is failure-capable — REL-BG
   const contract = await loadContract('MIG-AC-4');
   const harness = createHarness(contract, { poisonAuthoritativeRecoveryOnCacheState: true });
   await promoteAllViews(harness.controller);
-  // Promotion itself loads authoritative recovery with no browser context.
-  // Drop that entry so the assertions below describe the recoverView calls only.
-  // Asserted through a temporary: assert.deepEqual narrows its first argument,
-  // and narrowing harness.recoveryLoads to undefined[] would make the
-  // cacheState/connectionId assertions below unreachable at the type level.
-  assert.deepEqual(
-    harness.recoveryLoads.map(load => load?.cacheState),
-    [undefined],
-    'promotion must load authoritative recovery without browser context',
-  );
-  harness.recoveryLoads.length = 0;
+  dropPromotionRecoveryLoad(harness);
   const absent = await harness.controller.recoverView({ connectionId: 'reload-absent', viewGeneration: 1, cacheState: 'absent' });
   const poisoned = await harness.controller.recoverView({ connectionId: 'reload-poisoned', viewGeneration: 2, cacheState: 'poisoned' });
 

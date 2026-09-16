@@ -1,0 +1,3 @@
+{"mode":"self","pr_url":null,"pr_number":null,
+ "self_scope":{"source":"commits","files":null,"commit_range":"HEAD~2..HEAD","diff_loc":243},
+ "note":"working tree clean; HEAD frozen at 229ed9f before review per orchestrator freeze rule"}
