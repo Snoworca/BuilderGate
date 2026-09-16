@@ -62,6 +62,23 @@ test('OBS-BGSTAB-009 AC-2 pins the firing boundary at the first logical line abo
   assert.equal(probed.probeMethod, 'ascending-linear-probe');
   assert.equal(probed.measuredFiringBoundaryLogicalLines, FIXTURE.rows + 1);
   assert.equal(probed.largestLosslessLogicalLines, FIXTURE.rows);
+
+  // The label alone proves nothing -- a producer could return `rows + 1` and
+  // still claim to have probed. Assert the defining PROPERTY instead: the
+  // reported boundary loses, and the count directly below it does not.
+  const boundary = probed.measuredFiringBoundaryLogicalLines!;
+  const atBoundary = await measureRefreshRetainedStateBoundary({
+    ...FIXTURE,
+    logicalLines: boundary,
+  });
+  const belowBoundary = await measureRefreshRetainedStateBoundary({
+    ...FIXTURE,
+    logicalLines: boundary - 1,
+  });
+  assert.equal(atBoundary.observedLossLogicalLines > 0, true, 'boundary must lose');
+  assert.equal(belowBoundary.observedLossLogicalLines, 0, 'the count below it must not');
+  assert.equal(probed.probedThroughLogicalLines, boundary, 'probe stopped at the boundary');
+  assert.equal(probed.probeCapLogicalLines >= boundary, true);
 });
 
 test('OBS-BGSTAB-009 AC-2 measures the firing boundary at a second, different geometry', async () => {
@@ -149,6 +166,10 @@ test('OBS-BGSTAB-009 AC-5 emits machine-readable boundary evidence without raw t
   for (const seed of evidence.seeds) {
     assert.equal(typeof seed.preRefreshLogicalLineHash, 'string');
     assert.equal(seed.preRefreshLogicalLineHash.length, 64);
+    assert.equal(typeof seed.postRefreshLogicalLineHash, 'string');
+    assert.equal(seed.postRefreshLogicalLineHash.length, 64);
+    assert.equal(typeof seed.preRefreshCellHash, 'string');
+    assert.equal(typeof seed.postRefreshCellHash, 'string');
     assert.equal(seed.seedKind, 'characterization-corpus');
     assert.equal(
       JSON.stringify(seed).includes('line-'),

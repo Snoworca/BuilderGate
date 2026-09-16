@@ -226,10 +226,8 @@
       "scrollbackLines": 100,
       "measuredFiringBoundaryLogicalLines": 25,
       "largestLosslessLogicalLines": 24,
-      "probedRange": {
-        "from": 1,
-        "to": 40
-      },
+      "probeCapLogicalLines": 40,
+      "probedThroughLogicalLines": 25,
       "probeMethod": "ascending-linear-probe"
     },
     {
@@ -238,10 +236,8 @@
       "scrollbackLines": 10000,
       "measuredFiringBoundaryLogicalLines": 25,
       "largestLosslessLogicalLines": 24,
-      "probedRange": {
-        "from": 1,
-        "to": 40
-      },
+      "probeCapLogicalLines": 40,
+      "probedThroughLogicalLines": 25,
       "probeMethod": "ascending-linear-probe"
     },
     {
@@ -250,10 +246,8 @@
       "scrollbackLines": 1000,
       "measuredFiringBoundaryLogicalLines": 11,
       "largestLosslessLogicalLines": 10,
-      "probedRange": {
-        "from": 1,
-        "to": 40
-      },
+      "probeCapLogicalLines": 40,
+      "probedThroughLogicalLines": 11,
       "probeMethod": "ascending-linear-probe"
     }
   ],
@@ -268,6 +262,6 @@
   ],
   "contentDigest": {
     "algorithm": "sha256",
-    "value": "4277a38ccacd4de370a7576777291bb3952572bbfd985bfbf3488f1d9e388fc5"
+    "value": "cb20da91376751fb63bb74f7bbd3bc28826d4596fa04ad74e09749bc01c5958a"
   }
 }

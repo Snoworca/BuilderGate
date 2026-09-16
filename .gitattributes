@@ -7,3 +7,7 @@ server/src/services/TerminalResourcePolicy.ts text eol=lf
 server/src/services/TerminalResourcePolicyCanary.ts text eol=lf
 # Preserve committed authority bytes on every platform.
 docs/analysis/terminal-fairness-authority/** -text
+# Preserve committed refresh retained-state boundary bytes on every platform.
+# OBS-BGSTAB-009 asserts byte equality against a fresh producer run and
+# SHA256SUMS.txt pins the same bytes; CRLF translation would break both.
+docs/analysis/2026-09-16.refresh-retained-state-boundary/** -text

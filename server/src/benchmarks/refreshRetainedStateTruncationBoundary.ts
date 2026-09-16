@@ -255,7 +255,10 @@ export interface RefreshTruncationFiringBoundary {
   measuredFiringBoundaryLogicalLines: number | null;
   /** Largest probed count that still lost nothing. */
   largestLosslessLogicalLines: number;
-  probedRange: { from: number; to: number };
+  /** Upper bound the probe was allowed to reach. */
+  probeCapLogicalLines: number;
+  /** Highest logical-line count actually evaluated (the probe stops at the boundary). */
+  probedThroughLogicalLines: number;
   probeMethod: 'ascending-linear-probe';
 }
 
@@ -273,7 +276,9 @@ export async function measureRefreshTruncationFiringBoundary(options: {
 }): Promise<RefreshTruncationFiringBoundary> {
   let largestLossless = 0;
   let boundary: number | null = null;
+  let probedThrough = 0;
   for (let lines = 1; lines <= options.maxProbeLogicalLines; lines += 1) {
+    probedThrough = lines;
     const measurement = await measureRefreshRetainedStateBoundary({
       cols: options.cols,
       rows: options.rows,
@@ -292,7 +297,8 @@ export async function measureRefreshTruncationFiringBoundary(options: {
     scrollbackLines: options.scrollbackLines,
     measuredFiringBoundaryLogicalLines: boundary,
     largestLosslessLogicalLines: largestLossless,
-    probedRange: { from: 1, to: options.maxProbeLogicalLines },
+    probeCapLogicalLines: options.maxProbeLogicalLines,
+    probedThroughLogicalLines: probedThrough,
     probeMethod: 'ascending-linear-probe',
   };
 }
