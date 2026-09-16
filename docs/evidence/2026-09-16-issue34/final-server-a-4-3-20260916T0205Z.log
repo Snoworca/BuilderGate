@@ -1,0 +1,78 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Crypto] CryptoService initialized
+[Auth] AuthService initialized
+[TOTP] TOTP is disabled
+[CommandPreset] CommandPresetService initialized
+[TerminalShortcut] TerminalShortcutService initialized
+[RecoveryOption] RecoveryOptionService initialized
+[Workspace] WorkspaceService initialized
+[Routes] API routes configured
+  - GET  /health (public)
+  - POST /api/auth/login (public)
+  - POST /api/auth/logout (protected)
+  - POST /api/auth/refresh (protected)
+  - GET  /api/auth/status (protected)
+  - GET  /api/settings (protected)
+  - PATCH /api/settings (protected)
+  - /api/command-presets/* (protected)
+  - /api/terminal-shortcuts/* (protected)
+  - /api/sessions/* (protected)
+  - /api/sessions/:id/cwd (protected, File API)
+  - /api/sessions/:id/files (protected, File API)
+[Static] Production assets served from /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/dist/public
+[SSL] No certificate configured, generating self-signed certificate...
+[SSL] Using existing self-signed certificate
+[WS] WebSocket router initialized
+[PTY] Global Windows backend default: winpty
+[PTY] Effective PowerShell backend default: winpty (policy: inherit)
+
+╔════════════════════════════════════════════════════════════════╗
+║           BuilderGate Server (HTTPS)                             ║
+╠════════════════════════════════════════════════════════════════╣
+║  HTTPS Server: https://localhost:2222                        ║
+║  Health Check: https://localhost:2222/health                 ║
+║  Login:        POST https://localhost:2222/api/auth/login    ║
+║  Global PTY:   winpty                                       ║
+║  TLS Version:  1.2 - 1.3                                       ║
+║  Auth:         JWT (HS256)                                     ║
+║  2FA:          Disabled                           ║
+╚════════════════════════════════════════════════════════════════╝
+
+[HTTP] Redirect server running on http://localhost:2221
+[HTTP] All requests redirected to HTTPS
+[Auth] Token issued: jti=6cacd7c0-0e65-43ea-aa83-636f7b35a470
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=6a47a8f9-4672-4a19-896f-012472410c8e
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=76d46dbe-e214-4865-ad35-677f9d93aab1
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=72e09795-dde9-4acd-94a1-f30f6e1ea762
+[Auth] Login successful from ::1
+[WS] Client connected: 04cebf23-a1fc-4564-825e-ee3a24fbde37
+[WS] Client disconnected: 04cebf23-a1fc-4564-825e-ee3a24fbde37
+[WS] Client connected: 240d7765-7607-4627-acb6-ab9a4c8fb499
+[Auth] Token issued: jti=c1361f4c-a48e-41a0-9369-3c62f14f291f
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=48dbdb1e-afef-4499-8232-2b160e436c33
+[Auth] Login successful from ::ffff:127.0.0.1
+[WS] Client disconnected: 240d7765-7607-4627-acb6-ab9a4c8fb499
+[Auth] Token issued: jti=2b0ebd36-36f0-45ac-a396-55cd772a7324
+[Auth] Login successful from ::1
+[WS] Client connected: 89d0b58c-23be-456e-b4b7-22ec6405034f
+[WS] Client disconnected: 89d0b58c-23be-456e-b4b7-22ec6405034f
+[WS] Client connected: bc95b479-5b24-42d5-98f7-19e9e163a07d
+[SessionManager] Shell startup readiness fallback used for session df8222b9-2612-4bf7-a1e2-4bcbcd7a5cbf
+[SessionManager] Shell startup readiness fallback used for session 557445a1-563d-416a-87de-61ab132eeb91
+[SessionManager] Shell startup readiness fallback used for session 4fb075f3-d52b-4ca6-b205-c6564c112b78
+[Auth] Token issued: jti=78ba8ff0-49db-4701-a176-6c16721d1875
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=d8070e63-53ff-422e-a9e4-c80877163045
+[Auth] Login successful from ::ffff:127.0.0.1
+[WS] Client disconnected: bc95b479-5b24-42d5-98f7-19e9e163a07d
+[Auth] Token issued: jti=f2f5b92e-6029-4386-9f93-2d65c98d857b
+[Auth] Login successful from ::ffff:127.0.0.1
+[Shutdown] SIGTERM received, saving session CWDs...
+[SessionManager] All CWD watchers stopped
+[Shutdown] Workspace state + CWDs saved
+[Shutdown] Session cleanup attempted=0 completed=0 degraded=0 skippedUnverified=0 remainingVerifiedDescendants=0

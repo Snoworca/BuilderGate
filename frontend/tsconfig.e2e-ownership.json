@@ -13,6 +13,7 @@
   "references": [{ "path": "./tsconfig.editor.json" }],
   "files": [
     "playwright.ownership-validation.config.ts",
+    "playwright.issue34-capacity.config.ts",
     "tests/e2e/busy-agent-workspace-bounce.spec.ts",
     "tests/e2e/grid-equal-mode.spec.ts",
     "tests/e2e/terminal-authority.spec.ts",
@@ -26,6 +27,7 @@
     "tests/e2e/wave1-retained-state-characterization.spec.ts",
     "tests/e2e/wave3-terminal-authority-promotion.spec.ts",
     "tests/e2e/wave3-terminal-authority-fairness.spec.ts",
-    "tests/e2e/workspace-ownership-validation.spec.ts"
+    "tests/e2e/workspace-ownership-validation.spec.ts",
+    "tests/e2e/issue34-capacity-ratify.spec.ts"
   ]
 }
