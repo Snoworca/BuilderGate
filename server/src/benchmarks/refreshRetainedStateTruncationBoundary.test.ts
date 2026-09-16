@@ -79,6 +79,46 @@ test('OBS-BGSTAB-009 AC-2 pins the firing boundary at the first logical line abo
   assert.equal(belowBoundary.observedLossLogicalLines, 0, 'the count below it must not');
   assert.equal(probed.probedThroughLogicalLines, boundary, 'probe stopped at the boundary');
   assert.equal(probed.probeCapLogicalLines >= boundary, true);
+
+  // The audit trail must be a contiguous ascending search from 1 to the
+  // boundary, losing only at the last step.
+  assert.deepEqual(
+    probed.probeObservations.map((observation) => observation.logicalLines),
+    Array.from({ length: boundary }, (_unused, index) => index + 1),
+  );
+  assert.equal(
+    probed.probeObservations.slice(0, -1).every((o) => o.observedLossLogicalLines === 0),
+    true,
+  );
+  assert.equal(probed.probeObservations.at(-1)!.observedLossLogicalLines > 0, true);
+});
+
+test('OBS-BGSTAB-009 AC-2 rejects a boundary that was reported without searching', async () => {
+  // Round-4 review built a producer that returned `rows + 1` with the right
+  // label and passed the whole suite. Counting real evaluations is the only
+  // assertion that distinguishes a search from an assertion about `rows`.
+  const evaluated: number[] = [];
+  const probed = await measureRefreshTruncationFiringBoundary({
+    ...FIXTURE,
+    maxProbeLogicalLines: FIXTURE.rows + 8,
+    measure: async (input) => {
+      evaluated.push(input.logicalLines);
+      return measureRefreshRetainedStateBoundary(input);
+    },
+  });
+
+  const boundary = probed.measuredFiringBoundaryLogicalLines!;
+  assert.deepEqual(
+    evaluated,
+    Array.from({ length: boundary }, (_unused, index) => index + 1),
+    'the producer must evaluate every count from 1 up to the boundary',
+  );
+  assert.equal(
+    evaluated.length,
+    probed.probeObservations.length,
+    'every recorded observation must correspond to a real evaluation',
+  );
+  assert.equal(evaluated.length > 1, true, 'a single evaluation is not a search');
 });
 
 test('OBS-BGSTAB-009 AC-2 measures the firing boundary at a second, different geometry', async () => {
@@ -152,11 +192,22 @@ test('OBS-BGSTAB-009 AC-5 emits machine-readable boundary evidence without raw t
   );
   assert.equal(evidence.unexercisedAxes.length > 0, true);
   assert.equal(
+    evidence.unexercisedAxes.includes('view:active|hidden'),
+    false,
+    'the view axis is inapplicable here, not merely unexercised',
+  );
+  assert.deepEqual(evidence.inapplicableAxes, ['view:active|hidden']);
+  assert.equal(
     evidence.firingBoundaries.every(
-      (boundary) => boundary.measuredFiringBoundaryLogicalLines === boundary.rows + 1,
+      (boundary) =>
+        boundary.measuredFiringBoundaryLogicalLines === boundary.largestLosslessLogicalLines + 1
+        && boundary.probeObservations.length === boundary.measuredFiringBoundaryLogicalLines,
     ),
     true,
-    'every probed geometry must place the measured boundary at rows + 1',
+    // Deliberately NOT `rows + 1`: AC-2 forbids deriving the boundary from
+    // rows, so the guard must not do it either. Internal consistency of the
+    // search is the property that holds regardless of geometry.
+    'each boundary must sit one above its largest lossless count and match its audit trail',
   );
   assert.equal(
     new Set(evidence.firingBoundaries.map((boundary) => boundary.rows)).size > 1,

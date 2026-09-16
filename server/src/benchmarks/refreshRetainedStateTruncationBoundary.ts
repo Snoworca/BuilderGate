@@ -98,10 +98,18 @@ export interface RefreshTruncationBoundaryEvidence {
    */
   legacyByteBoundaryExercised: false;
   /**
-   * Axes this corpus does NOT vary: text (ASCII only), terminal buffer
-   * (normal only), view active/hidden, local cache state, ANSI split.
+   * Axes that exist in the product but this corpus does not vary: text
+   * (ASCII only), terminal buffer (normal only), local cache state, split
+   * ANSI escape tail, and the legacy 2 MiB serialized-payload boundary.
    */
   unexercisedAxes: readonly string[];
+  /**
+   * Axes that do not exist in this harness at all. The reproduction runs
+   * against a headless node terminal model, so there is no browser view to
+   * be active or hidden. These are not "not yet measured" -- they are
+   * unmeasurable here and must be covered by a browser-level suite.
+   */
+  inapplicableAxes: readonly string[];
   contentDigest: { algorithm: 'sha256'; value: string };
 }
 
@@ -255,6 +263,12 @@ export interface RefreshTruncationFiringBoundary {
   measuredFiringBoundaryLogicalLines: number | null;
   /** Largest probed count that still lost nothing. */
   largestLosslessLogicalLines: number;
+  /**
+   * Every logical-line count the probe actually evaluated, in order, with the
+   * loss it observed there. This is the search's own audit trail: a producer
+   * that returned a boundary without searching cannot populate it consistently.
+   */
+  probeObservations: readonly { logicalLines: number; observedLossLogicalLines: number }[];
   /** Upper bound the probe was allowed to reach. */
   probeCapLogicalLines: number;
   /** Highest logical-line count actually evaluated (the probe stops at the boundary). */
@@ -273,17 +287,25 @@ export async function measureRefreshTruncationFiringBoundary(options: {
   rows: number;
   scrollbackLines: number;
   maxProbeLogicalLines: number;
+  /** Injectable for tests that need to observe that a real search happened. */
+  measure?: typeof measureRefreshRetainedStateBoundary;
 }): Promise<RefreshTruncationFiringBoundary> {
+  const measure = options.measure ?? measureRefreshRetainedStateBoundary;
+  const observations: { logicalLines: number; observedLossLogicalLines: number }[] = [];
   let largestLossless = 0;
   let boundary: number | null = null;
   let probedThrough = 0;
   for (let lines = 1; lines <= options.maxProbeLogicalLines; lines += 1) {
     probedThrough = lines;
-    const measurement = await measureRefreshRetainedStateBoundary({
+    const measurement = await measure({
       cols: options.cols,
       rows: options.rows,
       scrollbackLines: options.scrollbackLines,
       logicalLines: lines,
+    });
+    observations.push({
+      logicalLines: lines,
+      observedLossLogicalLines: measurement.observedLossLogicalLines,
     });
     if (measurement.observedLossLogicalLines > 0) {
       boundary = lines;
@@ -292,6 +314,7 @@ export async function measureRefreshTruncationFiringBoundary(options: {
     largestLossless = lines;
   }
   return {
+    probeObservations: observations,
     cols: options.cols,
     rows: options.rows,
     scrollbackLines: options.scrollbackLines,
@@ -355,11 +378,11 @@ export async function produceRefreshTruncationBoundaryEvidence(): Promise<Refres
     unexercisedAxes: [
       'text:CJK-wide|combining|emoji',
       'terminalBuffer:alternate',
-      'view:active|hidden',
       'localCache:valid|absent|poisoned|oversized',
       'ansi:split-escape-tail',
       'legacy-2MiB-serialized-payload',
     ],
+    inapplicableAxes: ['view:active|hidden'],
   } as const;
 
   return {

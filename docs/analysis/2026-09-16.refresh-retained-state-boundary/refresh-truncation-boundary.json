@@ -221,6 +221,108 @@
   ],
   "firingBoundaries": [
     {
+      "probeObservations": [
+        {
+          "logicalLines": 1,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 2,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 3,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 4,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 5,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 6,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 7,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 8,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 9,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 10,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 11,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 12,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 13,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 14,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 15,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 16,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 17,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 18,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 19,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 20,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 21,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 22,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 23,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 24,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 25,
+          "observedLossLogicalLines": 1
+        }
+      ],
       "cols": 80,
       "rows": 24,
       "scrollbackLines": 100,
@@ -231,6 +333,108 @@
       "probeMethod": "ascending-linear-probe"
     },
     {
+      "probeObservations": [
+        {
+          "logicalLines": 1,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 2,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 3,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 4,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 5,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 6,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 7,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 8,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 9,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 10,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 11,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 12,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 13,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 14,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 15,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 16,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 17,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 18,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 19,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 20,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 21,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 22,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 23,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 24,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 25,
+          "observedLossLogicalLines": 1
+        }
+      ],
       "cols": 80,
       "rows": 24,
       "scrollbackLines": 10000,
@@ -241,6 +445,52 @@
       "probeMethod": "ascending-linear-probe"
     },
     {
+      "probeObservations": [
+        {
+          "logicalLines": 1,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 2,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 3,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 4,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 5,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 6,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 7,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 8,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 9,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 10,
+          "observedLossLogicalLines": 0
+        },
+        {
+          "logicalLines": 11,
+          "observedLossLogicalLines": 1
+        }
+      ],
       "cols": 80,
       "rows": 10,
       "scrollbackLines": 1000,
@@ -255,13 +505,15 @@
   "unexercisedAxes": [
     "text:CJK-wide|combining|emoji",
     "terminalBuffer:alternate",
-    "view:active|hidden",
     "localCache:valid|absent|poisoned|oversized",
     "ansi:split-escape-tail",
     "legacy-2MiB-serialized-payload"
   ],
+  "inapplicableAxes": [
+    "view:active|hidden"
+  ],
   "contentDigest": {
     "algorithm": "sha256",
-    "value": "cb20da91376751fb63bb74f7bbd3bc28826d4596fa04ad74e09749bc01c5958a"
+    "value": "a55fb3070483f9809994bc162e4eafac406cbbf0d53a54b2ae7e3c53aa53aad1"
   }
 }
