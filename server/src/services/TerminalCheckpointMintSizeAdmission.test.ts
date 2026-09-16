@@ -37,9 +37,12 @@ import {
  * `Buffer.byteLength(checkpoint.serializedData, 'utf8')`, so the sampled byte
  * counts below are exact. Only the retained-line projection is extrapolated.
  * `SAMPLE_LINES` is deliberately 1500 — the size the projection was validated
- * at: full-scrollback runs at 124, 200 and 400 columns matched a 1500-line
- * projection to within 0.07% (see
- * `docs/analysis/2026-09-16.issue26-checkpoint-mint-size/`).
+ * at. Full-scrollback runs at 124, 200 and 400 columns all show the 1500-line
+ * sample underestimating bytes-per-line by the same 0.0567%, so the projection
+ * is biased LOW by a known, constant amount. That bias would matter on a thin
+ * margin; the 200-column case below clears the budget by ~22%, so it does not
+ * matter here, and the crossover itself is measured directly rather than
+ * projected (see `docs/analysis/2026-09-16.issue26-checkpoint-mint-size/`).
  */
 
 const SAMPLE_LINES = 1500;

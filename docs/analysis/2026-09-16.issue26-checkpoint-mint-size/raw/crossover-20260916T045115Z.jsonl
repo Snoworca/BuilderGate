@@ -1,0 +1,4 @@
+{"node":"v24.21.0","measuredAt":"2026-09-16T04:51:16.569Z","mode":"direct"}
+{"label":"direct-164col-10k","cols":164,"scrollbackLines":10000,"retainedLines":10001,"bytes":4140000,"mib":3.948,"pctOf4MiB":98.71,"chunks64k":64,"exceeds4MiB":false,"measuredAt":"2026-09-16T04:52:41.156Z"}
+{"label":"direct-165col-10k","cols":165,"scrollbackLines":10000,"retainedLines":10001,"bytes":4156000,"mib":3.963,"pctOf4MiB":99.09,"chunks64k":64,"exceeds4MiB":false,"measuredAt":"2026-09-16T04:54:08.875Z"}
+{"label":"direct-166col-10k","cols":166,"scrollbackLines":10000,"retainedLines":10001,"bytes":4197000,"mib":4.003,"pctOf4MiB":100.06,"chunks64k":65,"exceeds4MiB":true,"measuredAt":"2026-09-16T04:55:36.432Z"}

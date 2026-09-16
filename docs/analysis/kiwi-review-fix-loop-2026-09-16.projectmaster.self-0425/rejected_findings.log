@@ -1,0 +1,8 @@
+FND-015 [misunderstanding] — conclusion accepted, suggested fix rejected.
+  Reviewer proposed: make the harness import '../../../server/src/utils/headlessTerminal.js' so it runs in place.
+  Tried during the original investigation; fails at module resolution when the entry file sits outside server/src:
+    TypeError: Cannot destructure property 'SerializeAddon' of 'import_addon_serialize.default' as it is undefined
+      at headlessModule (server/src/utils/headlessTerminal.ts:12:9)
+  The underlying point — evidence whose reproduction requires touching the production source tree is weaker
+  than it should be — is accepted and recorded in 00.decision.md §8 together with this error, so a future
+  reader does not retry the same dead end.
