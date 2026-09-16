@@ -91,7 +91,7 @@ frontend/src/
 | wave3 증거 스크립트 | `tools/wave3/{authority-promotion-evidence, canary-admission-evidence, fair-scheduler-decision, retained-shadow-parity, terminal-resource-consumer-manifest}.test.mjs` (5개, **node:test 아님**) | `node tools/wave3/<파일>` (일부는 `--regenerate-green` 등 플래그를 받음) |
 | wave1 | `tools/wave1/g1-decision-gate.test.mjs` (1개) | `node --test tools/wave1/g1-decision-gate.test.mjs` — 스크립트 없음 |
 | server tools | `server/tools/*.test.{cjs,mjs}` (3개, node:test) | `node --test server/tools/<파일>` — 스크립트 없음 |
-| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts` (13 케이스) | 루트 `npm run test:release-pipeline` — 셋을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것** |
+| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts`, `server/src/utils/retiredSettingsResidue.test.ts` (15 케이스) | 루트 `npm run test:release-pipeline` — 넷을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것** |
 
 주의할 것:
 
