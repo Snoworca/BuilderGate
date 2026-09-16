@@ -37,17 +37,41 @@ const rejected = [0, 2222, 2001, 2002, '0', '2222', '127.0.0.1', undefined, null
   // either end. Without `^` or `$` on the name pattern these would be accepted.
   endpointFor(`evil-buildergate-http-${process.pid}-${randomUUID()}`),
   endpointFor(`buildergate-ws-${process.pid}-${randomUUID()}-evil`),
-  // A well-formed owned name outside the owned directory stays forbidden.
+  // A well-formed owned name outside the owned directory stays forbidden. On
+  // win32 the guard has no directory clause, so there this case is carried by
+  // the `^` anchor instead; it is kept on both lanes so the corpus is uniform.
   WIN32
     ? `\\\\.\\pipe\\sub\\buildergate-http-${process.pid}-${randomUUID()}`
     : path.join('/etc', `buildergate-http-${process.pid}-${randomUUID()}.sock`),
+  // Kinds outside the closed set stay forbidden whether the widening comes from
+  // the kind array or from the pattern template around it. `htt`/`httpx`/`ws2`
+  // bracket the accepted tokens so a relaxed alternation is visible.
+  ...['zz', 'htt', 'httpx', 'ws2', 'w', 'h'].map(
+    (kind) => endpointFor(`buildergate-${kind}-${process.pid}-${randomUUID()}`)),
+  // The separator between kind and pid is required, so an optional-separator
+  // pattern is visible here.
+  endpointFor(`buildergate-http${process.pid}-${randomUUID()}`),
+  // Nine arbitrary characters followed by a well-formed owned basename. The
+  // win32 branch slices exactly the named-pipe prefix length off the value
+  // before matching, so dropping the prefix check would let this through.
+  `${'P'.repeat(9)}buildergate-http-${process.pid}-${randomUUID()}`,
 ];
 // The `.sock` suffix clause exists only on the posix branch; on win32 the
 // named-pipe namespace carries no extension, so this case is posix-only. The
 // substitute extension is deliberately five characters long, the same width
 // the guard strips, so the case fails on the suffix clause alone rather than
 // on the name pattern.
-if (!WIN32) rejected.push(path.join(os.tmpdir(), `buildergate-http-${process.pid}-${randomUUID()}.sxck`));
+if (!WIN32) {
+  rejected.push(path.join(os.tmpdir(), `buildergate-http-${process.pid}-${randomUUID()}.sxck`));
+  // The owned directory is tmpdir itself, not a descendant of it and not a
+  // directory whose path merely starts with it.
+  rejected.push(path.join(os.tmpdir(), 'sub', `buildergate-http-${process.pid}-${randomUUID()}.sock`));
+  rejected.push(path.join(`${path.resolve(os.tmpdir())}-sibling`, `buildergate-http-${process.pid}-${randomUUID()}.sock`));
+  // The guard strips a fixed five-character suffix rather than everything from
+  // the first dot, so an owned name carrying an extra dotted segment is not an
+  // owned name.
+  rejected.push(path.join(os.tmpdir(), `buildergate-http-${process.pid}-${randomUUID()}.evil.sock`));
+}
 for (const input of rejected) assert.throws(() => server.listen(input), error => error.code === 'B0_FORBIDDEN_TCP_LISTEN');
 assert.equal(forwarded.length, 0, 'no forbidden form reaches the captured original listen');
 const callback = () => {};
@@ -58,9 +82,13 @@ assert.deepEqual(forwarded, [
   { server, args: [ownedWs, callback] },
 ]);
 assert.equal(server.listening, false, 'the no-bind self-check never opens a real endpoint');
-// Every field below is measured. `forwardedToCapturedOriginal` counts the calls
-// that reached the substituted original; `openHandles` is read back off the
-// socket. Neither is a constant asserting the property it reports.
+// `rejected` and `forwardedToCapturedOriginal` are counted from the corpus and
+// from the calls that reached the substituted original. `openHandles` is read
+// back off the socket, but it is a guard rail rather than a measurement of the
+// guard: `listen` is substituted before the guard loads, so no code path here
+// can bind and the value cannot be true. The caller that wants proof the guard
+// was actually exercised should set BUILDERGATE_B0_GUARD_LOG and count the
+// events the guard itself appends.
 console.log(JSON.stringify({
   platform: process.platform,
   rejected: rejected.length,

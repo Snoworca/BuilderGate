@@ -1,0 +1,155 @@
+#!/usr/bin/env node
+// Mutation battery for the B0 listen guard's test surfaces.
+//
+// Each mutant plants one defect in a COPY of `require-owned-http-test-pipe.cjs`
+// and runs the test surfaces against the copy. A mutant that SURVIVES means the
+// surface does not cover that invariant. Nothing here touches the repository:
+// every run happens in a fresh temp directory and no socket is ever bound,
+// because the self-check substitutes `net.Server.prototype.listen` before the
+// guard loads.
+//
+// Usage:
+//   node docs/analysis/2026-09-17.rg06-regression/guard-mutation-battery.mjs \
+//     [--self-check <path>] [--wrapper <path>] [--guard <path>]
+//
+// Defaults point at the committed files under `server/tools/`. Pass an older
+// `--self-check` to measure what an earlier corpus did or did not cover.
+
+import { mkdtempSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join, resolve, dirname, basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const argv = process.argv.slice(2);
+const argOf = (name, fallback) => {
+  const i = argv.indexOf(name);
+  return i === -1 ? fallback : resolve(argv[i + 1]);
+};
+const GUARD = argOf('--guard', join(REPO, 'server/tools/require-owned-http-test-pipe.cjs'));
+const SELF_CHECK = argOf('--self-check', join(REPO, 'server/tools/test-owned-http-test-pipe.cjs'));
+const WRAPPER = argOf('--wrapper', join(REPO, 'server/tools/owned-http-test-pipe-guard.test.cjs'));
+
+const replaceOnce = (needle, replacement) => (src) => {
+  if (!src.includes(needle)) return null;
+  return src.replace(needle, replacement);
+};
+
+const MUTANTS = [
+  ['anchor-start', 'drop the ^ anchor on the name pattern', replaceOnce('`^buildergate-', '`buildergate-')],
+  ['anchor-end', 'drop the $ anchor on the name pattern', replaceOnce('[0-9a-f]{12}$`', '[0-9a-f]{12}`')],
+  ['kind-open', 'open the kind set to .*', replaceOnce("['http', 'ws']", "['.*']")],
+  ['kind-metachar', 'add a metacharacter kind', replaceOnce("['http', 'ws']", "['http', 'ws', 'w.']")],
+  ['kind-shrink', 'revert the kind set to http only', replaceOnce("['http', 'ws']", "['http']")],
+  ['kind-template-widen', 'widen the alternation in the pattern template, bypassing the kind check',
+    replaceOnce("${OWNED_ENDPOINT_KINDS.join('|')})-", "${OWNED_ENDPOINT_KINDS.join('|')}|zz)-")],
+  ['pid-separator-optional', 'make the kind/pid separator optional',
+    replaceOnce("})-${process.pid}", "})-?${process.pid}")],
+  ['pid-any', 'drop the pid binding', replaceOnce('${process.pid}-[0-9a-f]{8}', '[0-9]+-[0-9a-f]{8}')],
+  ['uuid-any', 'relax the uuid shape to .+',
+    replaceOnce('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', '.+')],
+  ['kind-validation-removed', 'delete the load-time kind literal check',
+    (src) => {
+      const start = src.indexOf('for (const kind of OWNED_ENDPOINT_KINDS)');
+      if (start === -1) return null;
+      const end = src.indexOf('\n}\n', start);
+      if (end === -1) return null;
+      return src.slice(0, start) + src.slice(end + 3);
+    }],
+  ['dir-exact-to-prefix', 'accept any directory whose path starts with tmpdir',
+    replaceOnce('path.dirname(value) === path.resolve(os.tmpdir())',
+      'path.dirname(value).startsWith(path.resolve(os.tmpdir()))')],
+  ['dir-dropped', 'drop the owned-directory clause',
+    replaceOnce('path.dirname(value) === path.resolve(os.tmpdir())', 'true')],
+  ['suffix-dropped', 'drop the .sock suffix clause', replaceOnce("value.endsWith('.sock')", 'true')],
+  ['suffix-split-first-dot', 'strip from the first dot instead of a fixed five characters',
+    replaceOnce('path.basename(value).slice(0, -5)', "path.basename(value).split('.')[0]")],
+  // EQUIVALENT: on the posix branch `dirname(value) === resolve(tmpdir())` can
+  // only hold for an absolute path, and the win32 branch never evaluates this
+  // clause. The mutant changes no observable behaviour, so surviving it is not
+  // a coverage gap. The clause is kept as defence in depth.
+  ['absolute-dropped', 'drop the isAbsolute clause', replaceOnce('path.isAbsolute(value)', 'true'), true],
+  ['win32-prefix-dropped', 'drop the named-pipe prefix clause',
+    replaceOnce("return value.startsWith(prefix) && namePattern.test(value.slice(prefix.length));",
+      'return namePattern.test(value.slice(prefix.length));')],
+  ['win32-allow-all', 'accept everything on the win32 branch',
+    replaceOnce("return value.startsWith(prefix) && namePattern.test(value.slice(prefix.length));",
+      'return true;')],
+  ['posix-allow-all', 'accept every string on the posix branch',
+    replaceOnce('return path.isAbsolute(value)', 'return true || path.isAbsolute(value)')],
+  ['string-check-dropped', 'accept non-string first arguments',
+    replaceOnce("if (typeof value !== 'string') return false;", "if (typeof value !== 'string') return true;")],
+  ['guard-disabled', 'forward every listen call', replaceOnce('if (!allowed) {', 'if (false) {')],
+  ['error-code-changed', 'change the thrown error code',
+    replaceOnce("error.code = 'B0_FORBIDDEN_TCP_LISTEN';", "error.code = 'B0_SOMETHING_ELSE';")],
+];
+
+function runSurfaces(dir) {
+  const selfCheck = spawnSync(process.execPath, [join(dir, basename(SELF_CHECK))],
+    { encoding: 'utf8', cwd: dir, env: { ...process.env, BUILDERGATE_B0_GUARD_LOG: undefined } });
+  const wrapper = spawnSync(process.execPath, ['--test', join(dir, basename(WRAPPER))],
+    { encoding: 'utf8', cwd: dir, env: { ...process.env, BUILDERGATE_B0_GUARD_LOG: undefined } });
+  return { selfCheck: selfCheck.status === 0, wrapper: wrapper.status === 0 };
+}
+
+function stage(guardSource) {
+  const dir = mkdtempSync(join(tmpdir(), 'b0-mutation-'));
+  writeFileSync(join(dir, basename(GUARD)), guardSource, 'utf8');
+  copyFileSync(SELF_CHECK, join(dir, basename(SELF_CHECK)));
+  copyFileSync(WRAPPER, join(dir, basename(WRAPPER)));
+  return dir;
+}
+
+const guardSource = readFileSync(GUARD, 'utf8');
+console.log('# B0 guard mutation battery');
+console.log(`# generated_at    ${new Date().toISOString()}`);
+console.log(`# node            ${process.version}  platform=${process.platform}`);
+console.log(`# guard           ${GUARD.slice(REPO.length + 1)}`);
+console.log(`# self_check      ${SELF_CHECK.startsWith(REPO) ? SELF_CHECK.slice(REPO.length + 1) : SELF_CHECK}`);
+console.log(`# wrapper         ${WRAPPER.startsWith(REPO) ? WRAPPER.slice(REPO.length + 1) : WRAPPER}`);
+console.log('#');
+console.log('# killed   = the surface failed, so it covers this invariant');
+console.log('# SURVIVED = the surface passed against a defective guard, so it does NOT');
+console.log('# n/a      = the surface could not run at all against this mutant');
+console.log('# equivalent mutants change no observable behaviour; surviving them is expected');
+console.log('#');
+console.log(`# ${'mutant'.padEnd(26)} ${'self-check'.padEnd(10)} ${'wrapper'.padEnd(10)} description`);
+
+let survivors = 0;
+let anchorFailures = 0;
+for (const [id, description, apply, equivalent] of MUTANTS) {
+  const mutated = apply(guardSource);
+  if (mutated === null || mutated === guardSource) {
+    anchorFailures += 1;
+    console.log(`  ${id.padEnd(26)} ${'ANCHOR-MISSING'.padEnd(10)} ${''.padEnd(10)} ${description}`);
+    continue;
+  }
+  const dir = stage(mutated);
+  try {
+    const { selfCheck, wrapper } = runSurfaces(dir);
+    if (selfCheck && wrapper && !equivalent) survivors += 1;
+    const suffix = equivalent ? ` [equivalent] ${description}` : ` ${description}`;
+    console.log(`  ${id.padEnd(26)} ${(selfCheck ? 'SURVIVED' : 'killed').padEnd(10)} ${(wrapper ? 'SURVIVED' : 'killed').padEnd(10)}${suffix}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const controlDir = stage(guardSource);
+let control;
+try {
+  control = runSurfaces(controlDir);
+} finally {
+  rmSync(controlDir, { recursive: true, force: true });
+}
+console.log(`  ${'CONTROL (unmutated)'.padEnd(26)} ${(control.selfCheck ? 'SURVIVED' : 'killed').padEnd(10)} ${(control.wrapper ? 'SURVIVED' : 'killed').padEnd(10)} both surfaces must SURVIVE here`);
+console.log('#');
+console.log(`# mutants=${MUTANTS.length} anchor_missing=${anchorFailures} non_equivalent_survived_on_both_surfaces=${survivors}`);
+console.log('# a mutant killed on one surface and surviving on the other is covered: the two');
+console.log('# surfaces are complementary, the wrapper reaching what the self-check cannot.');
+console.log(`# control_self_check=${control.selfCheck ? 'SURVIVED' : 'killed'} control_wrapper=${control.wrapper ? 'SURVIVED' : 'killed'}`);
+
+const ok = control.selfCheck && control.wrapper && anchorFailures === 0 && survivors === 0;
+console.log(`# result=${ok ? 'PASS' : 'REVIEW'}`);
+process.exit(ok ? 0 : 1);

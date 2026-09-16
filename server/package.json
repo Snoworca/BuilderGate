@@ -10,6 +10,7 @@
     "start": "node dist/index.js",
     "test:authority-pin": "tsx --test src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts",
     "test:retired-settings-residue": "tsx --test src/utils/retiredSettingsResidue.test.ts",
+    "test:tools": "node --test --test-concurrency=1 tools/*.test.*",
     "test:checkpoint-mint-size": "tsx --test src/services/TerminalCheckpointMintSizeAdmission.test.ts",
     "test": "npm run build && node dist/test-runner.js"
   },
