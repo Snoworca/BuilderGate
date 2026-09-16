@@ -278,8 +278,9 @@ export interface RefreshTruncationFiringBoundary {
    * measurement.
    *
    * Neither is airtight, and the requirement says so: the wrapped probes pin
-   * five geometries, so a five-entry table defeats them, and the unpinned draw
-   * only enlarges the table needed (162 points). A producer correct at every
+   * two geometries (8x24, 8x10) and the artifact pins four distinct
+   * (cols, rows) pairs in all, so a four-entry table defeats every pinned
+   * assertion; the unpinned draw only enlarges the table needed (162 points). A producer correct at every
    * geometry cannot be told apart from one that measures -- and does not need
    * to be. See OBS-BGSTAB-009 Implementation Notes.
    */

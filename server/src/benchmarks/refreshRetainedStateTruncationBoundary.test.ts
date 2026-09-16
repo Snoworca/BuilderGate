@@ -427,7 +427,10 @@ test('OBS-BGSTAB-009 AC-2 records a probe trail that carries no information beyo
   // The property that matters -- the boundary reflects measurement rather than
   // a constant derived from `rows` -- is enforced by the wrapped-geometry test
   // above and by the unpinned-geometry confirmation test, neither of which uses
-  // an injection hook.
+  // an injection hook. Neither is airtight either: the wrapped test pins two
+  // geometries and the artifact four pairs in all, so a four-entry table passes
+  // them, and the unpinned draw only raises that to 162. "Checked", not
+  // "enforced" -- see OBS-BGSTAB-009 Implementation Notes.
   const probed = await measureRefreshTruncationFiringBoundary({
     cols: 8,
     rows: 10,
