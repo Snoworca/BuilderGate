@@ -1261,7 +1261,17 @@ interface Harness {
   }>;
   committedLegacyIdentities: Array<Record<string, unknown>>;
   quorumReceiptPromise: Promise<boolean> | null;
+  // REL-BGSTAB-007 AC-8: records every argument the authoritative recovery port
+  // was called with, so a test can prove the absent/poisoned contrast actually
+  // reached the authority boundary instead of being dropped by the controller.
+  recoveryLoads: Array<RecoverViewInput | undefined>;
 }
+
+type RecoverViewInput = {
+  connectionId: string;
+  viewGeneration: number;
+  cacheState: 'absent' | 'poisoned';
+};
 
 function compatibilityDrainKey(input: {
   connectionId: string;
@@ -1289,7 +1299,13 @@ function compatibilityDrainKey(input: {
 
 function createHarness(
   contract: ContractModule,
-  options: Readonly<{ quorumReceiptPromise?: Promise<boolean> }> = {},
+  options: Readonly<{
+    quorumReceiptPromise?: Promise<boolean>;
+    // REL-BGSTAB-007 AC-8 negative control. When set, the authoritative
+    // recovery port becomes sensitive to the browser's local cache state,
+    // which is exactly what AC-8 forbids. The parity assertion must go red.
+    poisonAuthoritativeRecoveryOnCacheState?: boolean;
+  }> = {},
 ): Harness {
   const harness = {
     events: [] as AuthorityEvent[],
@@ -1310,6 +1326,7 @@ function createHarness(
     transferredLegacyQueries: [] as Harness['transferredLegacyQueries'],
     committedLegacyIdentities: [] as Harness['committedLegacyIdentities'],
     quorumReceiptPromise: options.quorumReceiptPromise ?? null,
+    recoveryLoads: [] as Array<RecoverViewInput | undefined>,
   };
   const controller = contract.createTerminalAuthorityController({
     initial: {
@@ -1337,13 +1354,20 @@ function createHarness(
         harness.effectTimeline.push(event.type);
       }
     },
-    loadAuthoritativeRecovery: () => ({
-      retainedStateHash: 'sha256:configured-retained-range',
-      checkpointEpoch: '8001',
-      snapshotSeq: BOUNDARY_SOURCE_SEQ,
-      checkpointMessages: AUTHORITATIVE_CHECKPOINT_MESSAGES,
-      postSnapshotOutput: ['tail-42', 'tail-43'],
-    }),
+    loadAuthoritativeRecovery: (input?: RecoverViewInput) => {
+      harness.recoveryLoads.push(input ? { ...input } : undefined);
+      const tainted = options.poisonAuthoritativeRecoveryOnCacheState === true
+        && input?.cacheState === 'poisoned';
+      return {
+        retainedStateHash: tainted
+          ? 'sha256:local-cache-tainted'
+          : 'sha256:configured-retained-range',
+        checkpointEpoch: '8001',
+        snapshotSeq: BOUNDARY_SOURCE_SEQ,
+        checkpointMessages: AUTHORITATIVE_CHECKPOINT_MESSAGES,
+        postSnapshotOutput: tainted ? ['tail-42'] : ['tail-42', 'tail-43'],
+      };
+    },
     loadCompatibilityRecovery: input => {
       assert.deepEqual(input, {
         transitionEpoch: '9',
@@ -7806,6 +7830,17 @@ test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-
   const contract = await loadContract('MIG-AC-4');
   const harness = createHarness(contract);
   await promoteAllViews(harness.controller);
+  // Promotion itself loads authoritative recovery with no browser context.
+  // Drop that entry so the assertions below describe the recoverView calls only.
+  // Asserted through a temporary: assert.deepEqual narrows its first argument,
+  // and narrowing harness.recoveryLoads to undefined[] would make the
+  // cacheState/connectionId assertions below unreachable at the type level.
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.cacheState),
+    [undefined],
+    'promotion must load authoritative recovery without browser context',
+  );
+  harness.recoveryLoads.length = 0;
   const absent = await harness.controller.recoverView({ connectionId: 'reload-absent', viewGeneration: 1, cacheState: 'absent' });
   const poisoned = await harness.controller.recoverView({ connectionId: 'reload-poisoned', viewGeneration: 2, cacheState: 'poisoned' });
   for (const result of [absent, poisoned]) {
@@ -7816,7 +7851,65 @@ test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-
     assert.equal(result.snapshotSeq, BOUNDARY_SOURCE_SEQ);
     assert.deepEqual(result.postSnapshotOutput, ['tail-42', 'tail-43']);
   }
+  // REL-BGSTAB-007 AC-8. Without this assertion the parity check below is
+  // vacuous: recoverView() used to take no parameters at all, so `absent` and
+  // `poisoned` were two invocations of the same nullary function and
+  // deepEqual(absent, poisoned) could not fail for any input. Pin that the
+  // contrast actually reaches the authoritative recovery boundary.
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.cacheState),
+    ['absent', 'poisoned'],
+    'recoverView must forward the browser cache state to the authority boundary, '
+      + 'otherwise the absent/poisoned parity assertion tests nothing',
+  );
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.connectionId),
+    ['reload-absent', 'reload-poisoned'],
+    'recoverView must forward the requesting browser identity to the authority boundary',
+  );
   assert.deepEqual(absent, poisoned, 'cache state and browser identity cannot alter authoritative recovery bytes');
+});
+
+// REL-BGSTAB-007 AC-8 negative control. This is the proof that the parity
+// assertion in the test above has teeth. The harness is built with an
+// authoritative recovery port that honours the browser's local cache state —
+// precisely the defect AC-8 forbids ("Cache absent/poisoned에서도 parity가
+// 통과해야 한다"). The parity comparison must detect it. If this test ever
+// starts reporting that the two recoveries agree, the parity assertion above
+// has gone vacuous again and must be repaired before it is trusted.
+test('Cache-poisoned authoritative recovery parity is failure-capable — REL-BGSTAB-007 AC-8', async () => {
+  const contract = await loadContract('MIG-AC-4');
+  const harness = createHarness(contract, { poisonAuthoritativeRecoveryOnCacheState: true });
+  await promoteAllViews(harness.controller);
+  // Promotion itself loads authoritative recovery with no browser context.
+  // Drop that entry so the assertions below describe the recoverView calls only.
+  // Asserted through a temporary: assert.deepEqual narrows its first argument,
+  // and narrowing harness.recoveryLoads to undefined[] would make the
+  // cacheState/connectionId assertions below unreachable at the type level.
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.cacheState),
+    [undefined],
+    'promotion must load authoritative recovery without browser context',
+  );
+  harness.recoveryLoads.length = 0;
+  const absent = await harness.controller.recoverView({ connectionId: 'reload-absent', viewGeneration: 1, cacheState: 'absent' });
+  const poisoned = await harness.controller.recoverView({ connectionId: 'reload-poisoned', viewGeneration: 2, cacheState: 'poisoned' });
+
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.cacheState),
+    ['absent', 'poisoned'],
+    'precondition: the injected fault can only act if the cache state reaches the port',
+  );
+  assert.notDeepEqual(
+    absent,
+    poisoned,
+    'the injected cache-sensitive recovery must be observable, otherwise the parity '
+      + 'assertion in the MIG-BGSTAB-002 AC-4 contract cannot fail either',
+  );
+  assert.equal(absent.retainedStateHash, 'sha256:configured-retained-range');
+  assert.equal(poisoned.retainedStateHash, 'sha256:local-cache-tainted');
+  assert.deepEqual(absent.postSnapshotOutput, ['tail-42', 'tail-43']);
+  assert.deepEqual(poisoned.postSnapshotOutput, ['tail-42']);
 });
 
 test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-5', async () => {

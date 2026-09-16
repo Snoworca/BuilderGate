@@ -96,6 +96,17 @@ export interface TerminalAuthorityEvent {
   outputByteLength?: number;
 }
 
+// @req REL-BGSTAB-007 AC-8
+// What a browser asks for when it re-attaches after a refresh/reconnect/remount.
+// `cacheState` reports whether that browser still holds a local snapshot and
+// whether it is intact; AC-8 requires authoritative recovery to be identical in
+// both cases, so this value must be observable at the recovery boundary.
+export interface TerminalAuthorityRecoverViewRequest {
+  connectionId: string;
+  viewGeneration: number;
+  cacheState: 'absent' | 'poisoned';
+}
+
 export interface TerminalAuthorityControllerOptions {
   initial: {
     sessionId: string;
@@ -127,7 +138,13 @@ export interface TerminalAuthorityControllerOptions {
   onOrderedCompatibilityRecoveryRequired: (reason: string) => void;
   enqueueTerminalMessage: (message: object) => boolean | Promise<boolean>;
   emit: (event: TerminalAuthorityEvent) => void;
-  loadAuthoritativeRecovery: () => {
+  // @req REL-BGSTAB-007 AC-8
+  // The request is optional because promotion also loads authoritative
+  // recovery with no browser context. Existing nullary implementations stay
+  // assignable; passing the request is what makes "cache absent/poisoned must
+  // not alter authoritative recovery bytes" a falsifiable claim instead of a
+  // comparison of one nullary function against itself.
+  loadAuthoritativeRecovery: (request?: TerminalAuthorityRecoverViewRequest) => {
     retainedStateHash: string;
     checkpointEpoch: string;
     snapshotSeq: string;
@@ -235,11 +252,7 @@ export interface TerminalAuthorityController {
     transitionEpoch: string;
     parserTail: string;
   }): Promise<{ accepted: false; reason: string }>;
-  recoverView(input: {
-    connectionId: string;
-    viewGeneration: number;
-    cacheState: 'absent' | 'poisoned';
-  }): Promise<{
+  recoverView(input: TerminalAuthorityRecoverViewRequest): Promise<{
     ok: boolean;
     source: 'server-checkpoint';
     localCacheUsed: false;
@@ -1354,8 +1367,8 @@ export function createTerminalAuthorityController(
       return { accepted: false, reason: 'browser-parser-tail-transfer-forbidden' };
     },
 
-    async recoverView() {
-      const recovery = options.loadAuthoritativeRecovery();
+    async recoverView(input) {
+      const recovery = options.loadAuthoritativeRecovery(input);
       return {
         ok: state.mode === 'server',
         source: 'server-checkpoint',

@@ -1,0 +1,13 @@
+✖ MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session
+✖ MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles
+✖ MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior
+✖ MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle
+✖ MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix
+✖ MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection
+✖ MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session
+✖ MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output
+✖ MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate
+✖ MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output
+✖ MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps
+✖ MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw
+✖ failing tests:
