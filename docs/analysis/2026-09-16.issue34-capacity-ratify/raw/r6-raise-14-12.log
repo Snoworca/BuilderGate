@@ -1,0 +1,50 @@
+=== issue34 RAISE direction: configured=14/12 (both ABOVE the removed 10/8) utc=2026-09-16T03:16:21Z ===
+--- [1] server config in force ---
+  workspace: {
+    dataPath: "./data/workspaces.json",
+    maxWorkspaces: 14,
+    maxTabsPerWorkspace: 12,
+    maxTotalSessions: 32,
+    flushDebounceMs: 5000,
+  },
+--- [2] ports BEFORE start ---
+(none on the WSL side)
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596
+--- [3] starting this checkout's server/dist/index.js, NODE_ENV=production PORT=2222 ---
+--- [4] PROCESS IDENTITY via /proc (never the netstat.exe PID column) ---
+pid:     126693
+cmdline: node dist/index.js 
+cwd:     /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server
+exe:     /home/beom/.nvm/versions/node/v24.21.0/bin/node
+inherited BUILDERGATE_* in the child environ: 0
+NODE_ENV=production
+PORT=2222
+--- [5] limits the server actually publishes ---
+GET /api/workspaces limits = {'maxWorkspaces': 14, 'maxTabsPerWorkspace': 12}
+pre-existing workspaces = ['Workspace-1']
+--- [6] Playwright RAISE spec, env ISSUE34_MAX_WORKSPACES=14 ISSUE34_MAX_TABS=12 ---
+(node:126763) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:126783) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [Desktop Chrome] › tests/e2e/issue34-capacity-raise.spec.ts:80:1 › issue34 raise AC-4: the workspace create control is still enabled at the removed constant 10 (11.3s)
+  ✓  2 [Desktop Chrome] › tests/e2e/issue34-capacity-raise.spec.ts:148:1 › issue34 raise AC-4: the add-terminal control is still enabled at the removed constant 8 (11.8s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+  2 passed (30.2s)
+playwright exit: 0
+--- [7] teardown: kill ONLY pid 126693, identity verified above ---
+/proc/126693 exists after kill: no
+--- [8] ports AFTER teardown ---
+2221/2222 free on the WSL side
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596
+=== end raise run label=raise-14-12 ===

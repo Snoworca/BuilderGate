@@ -1,0 +1,9 @@
+=== raise-direction final teardown + port observation; utc=2026-09-16T03:17:35Z ===
+(no capture or server process remains)
+--- WSL ss ---
+2221/2222 free on the WSL side
+--- Windows netstat (authoritative for 2001/2002) ---
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596

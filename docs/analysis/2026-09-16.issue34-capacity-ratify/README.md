@@ -11,6 +11,13 @@ This directory is the runtime ratification of that fix, which the existing
 evidence row VE-2 explicitly did not cover ("Unit/actual function-render
 evidence, not HTTPS E2E").
 
+**Two directions, two specs.** Sections up to and including "Static evidence
+rerun (r4)" cover the *lower* direction — configured pairs below the shipped
+defaults 10 / 8. The *raise* direction, which is the symptom issue #34 lists
+first, is covered by a separate spec and a separate run, documented in
+["The raise direction (r5, r6)"](#the-raise-direction-r5-r6--the-other-half-of-the-issue)
+at the end of this file.
+
 ## Three capture generations
 
 `raw/` holds three generations, all real, all retained.
@@ -366,3 +373,173 @@ released by the same owner id. Both r3 runs recorded a single pre-existing
 workspace (section [5]: `pre-existing workspaces = ['Workspace-1']`) and it was
 never deleted. Every r3 run and every one of the six guard controls ended with
 the global teardown reporting `deleted=0, absent=0, failed=0`.
+
+## The raise direction (r5, r6) — the other half of the issue
+
+Everything above verifies a **mechanism**: the two constants are gone from
+`App.tsx` and the four props read `wm.limits.*`. That is not the same as
+verifying the **outcome the issue describes**. Issue #34 names two symptoms, and
+they are not symmetric:
+
+- **raise** the configured limit → the UI blocks first, so the setting looks ignored;
+- **lower** it → the UI permits an action the server then rejects.
+
+Every configured pair used above is **below** the shipped defaults 10 / 8 — r1
+used 4/3 and 5/2, r2 and r3 used 4/3 and 6/2. At those pairs only the second
+symptom is exercised. A `App.tsx` still hardcoded to `10` and `8` would keep
+every one of those assertions passing, because a control hardcoded to allow ten
+workspaces is not what stops you at four; the server's 409 is. So the raise
+direction was untested, and it is the direction the issue lists first.
+
+### What the raise spec asserts, and why "at 10 and 8" is the sharp test
+
+`frontend/tests/e2e/issue34-capacity-raise.spec.ts` is the new spec. It runs
+against a server configured **above** the removed pair and asserts **at the
+removed constants themselves**:
+
+| Step | Workspaces test (`spec.ts:80`) | Tabs test (`spec.ts:148`) |
+| --- | --- | --- |
+| Fill to exactly the removed constant | to 10 workspaces (`spec.ts:98-107`) | to 8 tabs (`spec.ts:167-170`) |
+| **The assertion** | `New Workspace` is **still enabled**, and no `Maximum 10 workspaces` control exists (`spec.ts:111-113`) | `Add Terminal` is **still enabled**, and no `Maximum 8 tabs` control exists (`spec.ts:176-178`) |
+| Then fill to the configured number | to 14 (`spec.ts:119-131`) | to 12, and one past it is refused with ≥400 (`spec.ts:182-187`) |
+| And it finally stops | `Maximum 14 workspaces`, visible **and disabled** (`spec.ts:134-136`) | `Maximum 12 tabs`, visible **and disabled** (`spec.ts:192-194`) |
+
+Ten workspaces and eight tabs is the precise point at which a UI hardcoded to
+10 / 8 would block. Asserting *at* it — rather than merely at the configured
+number — is what makes the test fail on the raise symptom rather than pass
+through it. The last row is the complement: the limit is followed upward, not
+simply ignored upward.
+
+`resolveLimits()` (`spec.ts:59-75`) **refuses** any configured pair at or below
+10 / 8, throwing at `spec.ts:68`. This is the mirror image of the sibling spec's
+anti-constant guard and it exists for the same reason: at or below the removed
+pair the "still enabled at 10 / 8" assertion is unreachable or vacuous, so a pass
+would mean nothing. It refuses rather than skips, because a skip reads as "nobody
+configured this run" while this is a configuration that cannot express the claim.
+Like the sibling, both guards run **per test** (`spec.ts:81`, `spec.ts:149`),
+never at module load, so a stale env export cannot abort collection for the whole
+`tests/e2e` testDir.
+
+The headroom exists: `server/src/schemas/config.schema.ts:253-254` caps
+`maxWorkspaces` at 50 (default 10) and `maxTabsPerWorkspace` at 16 (default 8),
+so 14 / 12 is a legal configuration with room above both constants.
+
+### r6 — the passing run
+
+`raw/r6-raise-14-12.log`, header `utc=2026-09-16T03:16:21Z`. Same external-runtime
+discipline as r3: this checkout's `server/dist/index.js` started directly with
+`NODE_ENV=production PORT=2222`, no daemon and no `start.bat`; Playwright under
+`frontend/playwright.issue34-raise.config.ts`, which sets `webServer: undefined`
+and scopes `testMatch` to this one spec.
+
+| Section | What the log records |
+| --- | --- |
+| [1] configured | `maxWorkspaces: 14`, `maxTabsPerWorkspace: 12` — **both above** the removed pair |
+| [4] identity | pid `126693`; `cmdline: node dist/index.js`; `cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server`; `exe: /home/beom/.nvm/versions/node/v24.21.0/bin/node`; `inherited BUILDERGATE_* in the child environ: 0`; `NODE_ENV=production`, `PORT=2222` |
+| [5] published | `GET /api/workspaces limits = {'maxWorkspaces': 14, 'maxTabsPerWorkspace': 12}`; `pre-existing workspaces = ['Workspace-1']` |
+| [6] asserted | `ISSUE34_MAX_WORKSPACES=14 ISSUE34_MAX_TABS=12`; **2 passed (30.2s)**, `playwright exit: 0` |
+| [7] teardown | "kill ONLY pid 126693"; `/proc/126693 exists after kill: no` |
+| [8] ports | WSL-side 2221/2222 free; TCP 2001 and 2002 still `LISTENING` under PID **30596** |
+
+The two tests and their durations, as the Playwright output names them:
+
+- `issue34-capacity-raise.spec.ts:80:1 › issue34 raise AC-4: the workspace create control is still enabled at the removed constant 10` — 11.3s
+- `issue34-capacity-raise.spec.ts:148:1 › issue34 raise AC-4: the add-terminal control is still enabled at the removed constant 8` — 11.8s
+
+Ownership: the run ended `[e2e] workspaces: deleted=0, absent=0, failed=0`, and
+the single pre-existing `Workspace-1` recorded in section [5] was not deleted.
+Server stdout is `raw/r6-raise-14-12-server.log`; the final teardown and port
+observation is `raw/r6-final-ports.txt` (`utc=2026-09-16T03:17:35Z`), which
+records that no capture or server process remains, 2221/2222 free on the WSL
+side, and 2001/2002 unchanged under PID 30596.
+
+### r5 — the earlier failing run, and what actually caused it
+
+`raw/r5-raise-14-12.log` (`utc=2026-09-16T03:10:38Z`) is the same spec at the
+same 14 / 12 configuration, and it is retained. **Test 1 failed, test 2 passed,
+`playwright exit: 1`.** It is kept because the way it failed is instructive.
+
+It was **the test's own bug, not a product defect.** The draft named its
+workspaces `issue34-raise-ws-${Date.now()}-${i}`. That prefix is 17 characters;
+`Date.now()` is 13 digits; plus the separator that is 31, so the name is exactly
+**32** characters while `i` is one digit and **33** once `i` reaches 10. And
+`server/src/services/WorkspaceService.ts:459` rejects a trimmed name longer than
+32 characters, throwing `ErrorCode.INVALID_NAME` at `:460`.
+
+The run therefore created nine workspaces and failed on its tenth creation call —
+and that call is the *first one past ten total workspaces*, which is to say the
+failure landed exactly where the capacity defect this spec exists to detect would
+land. Worse, it was unreadable: the ownership helper only inspects
+`status !== 201`, so
+`frontend/tests/e2e/workspaceLeakGuard.ts:127` reported the opaque
+`Error: Invalid workspace creation response proof` with no mention of names,
+counts or limits. An invalid name and a quota rejection are indistinguishable
+there.
+
+The r5 stack names draft `spec.ts:111:7`. The current file is offset from that
+draft by +7 lines before test 1 (the added comment at `spec.ts:38-44`) and a
+further +12 inside it (the added diagnostic), which places draft line 111 at the
+**second** loop's first creation, `i = 10` — the first name that is 33 characters
+long. The draft's screenshot call precedes that line, so r5 had already passed
+the "still enabled at 10" assertion before it broke.
+
+The fix was two changes to the test, and none to the product:
+
+1. Names shortened to `i34r-ws-${i}-${uuid8}` — 18 characters while `i` is one
+   digit, 19 at two (`spec.ts:101`, `spec.ts:122`).
+2. A diagnostic at `spec.ts:119-131`: every creation past the removed constant is
+   preceded by a count read, and a rejection now re-reads the count and reports
+   `creation N of 14 was rejected while the server's configured limit is {…}:
+   count before X, after Y` with the underlying error appended, instead of the
+   helper's opaque string.
+
+`spec.ts:38-44` carries a comment recording the whole episode so the next author
+does not rediscover the 32-character limit the same way.
+
+The brief for this round also reports a direct `curl` probe at the same 14 / 12
+configuration, showing creations succeeding to a total of 14 and the next
+returning `409 WORKSPACE_LIMIT_EXCEEDED`. **No artifact of that probe was
+retained** in `raw/`, and the server stdout logs contain no per-request lines, so
+it is recorded here as an unretained manual observation rather than as evidence.
+The server's correctness at 14 is separately visible in r6, where the same spec
+created all fourteen and only then observed the disabled control.
+
+### Screenshots (raise direction)
+
+`.playwright-mcp/` is excluded by root `.gitignore:82`, so only hashes can be
+recorded. Verified with `sha256sum` while writing this section:
+
+| File | SHA256 |
+| --- | --- |
+| `.playwright-mcp/issue34-raise-enabled-at-10-of-14.png` | `77aaa53ba2f93278c98503df6190b857a1c37e704308bca5959a5205f77b1bae` |
+| `.playwright-mcp/issue34-raise-disabled-at-14.png` | `7a61057069e9b6413a7b4d6d221915d65ca1b8a3f96e34c97498ac279f8b4370` |
+| `.playwright-mcp/issue34-raise-tabs-enabled-at-8-of-12.png` | `4affe37db183843a2a8cfd6c589fea4126e23f851b9ffbf908c86eccaccbc394` |
+| `.playwright-mcp/issue34-raise-tabs-disabled-at-12.png` | `4fc8567563f2c32f8231fc267bf264b0abfb1c02a66504454ca7405b92568184` |
+
+**The value-named-screenshot hazard recorded above recurred.** This spec also
+names its files after configured values (`spec.ts:114`, `:137`, `:179`, `:195`),
+and r5 and r6 ran at the same 14 / 12 pair, so every path r5 reached collided
+with r6's. `issue34-raise-enabled-at-10-of-14.png` is the concrete case: r5 wrote
+it before failing at the next line, and r6 re-wrote it — the bytes above are
+r6's, and r5's image is gone. The two tab images were overwritten the same way,
+because r5's test 2 passed and so produced both. Only
+`issue34-raise-disabled-at-14.png` has no r5 predecessor: its call
+(`spec.ts:137`) sits after the loop that r5 died in. Nothing load-bearing rests
+on the images; the logs do.
+
+### Both directions are now covered
+
+| Direction | Symptom | Spec | Evidence |
+| --- | --- | --- | --- |
+| **Lower** the configured limit below the shipped defaults | the UI permits an action the server then rejects | `frontend/tests/e2e/issue34-capacity-ratify.spec.ts` | r3 — `raw/r3-config-4-3.log` (4/3), `raw/r3-config-6-2.log` (6/2), plus six guard controls in `raw/r3-guard-controls.log` |
+| **Raise** it above the shipped defaults | the UI blocks first, so the setting looks ignored | `frontend/tests/e2e/issue34-capacity-raise.spec.ts` | r6 — `raw/r6-raise-14-12.log` (14/12), with the instructive failure `raw/r5-raise-14-12.log` retained |
+
+The two specs are complementary and neither subsumes the other: the lower spec's
+anti-constant guard refuses 10 or 8 at their own positions, and the raise spec
+refuses anything at or below 10 / 8 outright. Between them no configuration the
+issue describes is left unexercised.
+
+Both remain **manual-procedure guards, not CI coverage**, for the same reason:
+the two limits are not `RuntimeConfigStore` keys, so they are read once at server
+startup and exercising them requires an operator to edit `server/config.json5`
+and restart. Left alone, both skip.
