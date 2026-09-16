@@ -132,11 +132,12 @@ export interface BenchmarkExecutionStep {
 /**
  * One unit of measured work, as it actually ran.
  *
- * The distinguishing field is `observedAtMs`, which the plan cannot supply. A
- * step whose `mode` and `workloadIndex` were copied out of the plan would make
- * the plan-versus-executed comparison tautological; a timestamp taken when the
- * measurement returned cannot be copied from anything, so it is what turns the
- * record from a declaration into an observation.
+ * `mode`, `workloadIndex` and `trialId` are the planned values: the runner is a
+ * single deterministic loop over `plannedOrder` with no branching, so the arm
+ * sequence it walks is the planned sequence by construction. The one field the
+ * plan cannot supply is `observedAtMs`, a reading taken when the measurement
+ * returned. That is what is genuinely observed here — that each unit completed,
+ * and when.
  */
 export interface BenchmarkObservedExecutionStep extends BenchmarkExecutionStep {
   /**
@@ -149,12 +150,24 @@ export interface BenchmarkObservedExecutionStep extends BenchmarkExecutionStep {
 /**
  * PERF-BGSTAB-012 AC-2. The Wave-1 manifest carried an `executionOrder` of
  * `["manifest","raw-samples"]`, which is the order the artifacts were emitted in
- * and says nothing about the order the arms ran in. This records the latter, and
- * records that it was observed during the run rather than declared before it.
+ * and says nothing about the order the arms ran in. This records the latter.
+ *
+ * What it does and does not claim, plainly. The arm sequence in `order` is the
+ * sequence in `plannedOrder`: the runner is one deterministic loop over the plan
+ * with no branching, so it cannot deviate from it, and comparing the two cannot
+ * detect a reordering that the code has no way to produce. What is observed is
+ * the per-unit completion timestamp on each entry of `order`. And the interleave
+ * guarantee is enforced structurally, by `assertInterleaved` recomputing the
+ * longest same-arm run over the arrays themselves — not by trusting any string
+ * in this record.
  */
 export interface BenchmarkExecutionRecord {
-  /** Always `execution`: the order is captured as the run proceeds. */
-  derivedFrom: 'execution';
+  /**
+   * Names exactly what `order` is: the planned arm sequence, carrying a
+   * completion timestamp measured per unit. Not a claim that the sequence itself
+   * was discovered by watching the run.
+   */
+  derivedFrom: 'planned-sequence-with-observed-completions';
   /** Whether arms alternate rather than running as contiguous blocks. */
   interleaved: boolean;
   /** How the interleave was produced, for a reader reproducing the run. */
@@ -166,6 +179,16 @@ export interface BenchmarkExecutionRecord {
    * Empty only in a manifest that has not been run yet.
    */
   order: BenchmarkObservedExecutionStep[];
+  /**
+   * How many `observedAtMs` readings were not measured but derived, because the
+   * clock had not advanced since the previous unit and the value had to be
+   * nudged to the next representable double to keep `order` a total order.
+   *
+   * On a coarse-clock host this can reach the length of `order`, at which point
+   * the strictly-increasing check passes on wholly synthetic timings. Recording
+   * the count makes that visible instead of silent; zero is the healthy case.
+   */
+  tieBrokenCount: number;
 }
 
 /** A cell whose second visibility level cannot exist. */
@@ -466,16 +489,21 @@ export function validateExecutionManifest(
   const execution = requireRecord(manifest.execution, 'execution');
   assertAllowedKeys(
     execution,
-    ['derivedFrom', 'interleaved', 'strategy', 'plannedOrder', 'order'],
+    ['derivedFrom', 'interleaved', 'strategy', 'plannedOrder', 'order', 'tieBrokenCount'],
     'execution',
   );
-  // `derivedFrom` is a string a producer can simply write. It is kept because it
-  // names the intent, but what makes the claim checkable is `observedAtMs` on
-  // every entry of `order`: a strictly increasing wall-clock reading that the
-  // plan cannot supply and that a copied-from-plan record cannot fake.
-  if (execution.derivedFrom !== 'execution') {
-    throw new Error('execution.derivedFrom must be execution; a declared order is not evidence');
+  // `derivedFrom` is a string a producer can simply write, so it is required to
+  // be the one value that honestly describes what `order` holds: the planned arm
+  // sequence with a measured completion timestamp per unit. It is a label, not
+  // evidence. The checkable parts are `observedAtMs` on every entry, the
+  // strictly-increasing check below, `tieBrokenCount` for how many of those
+  // readings were derived rather than measured, and `assertInterleaved`.
+  if (execution.derivedFrom !== 'planned-sequence-with-observed-completions') {
+    throw new Error(
+      'execution.derivedFrom must be planned-sequence-with-observed-completions; the arm sequence is the planned one and only the completion timestamps are observed',
+    );
   }
+  requireNonNegativeInteger(execution.tieBrokenCount, 'execution.tieBrokenCount');
   if (typeof execution.interleaved !== 'boolean') {
     throw new Error('execution.interleaved must be boolean');
   }
@@ -509,8 +537,8 @@ export function validateExecutionManifest(
 
   // @req PERF-BGSTAB-012 AC-2
   // `interleaved` is a producer literal, so it is recomputed rather than
-  // believed. A claim of interleaving means no arm occupies a contiguous block
-  // as long as its fair share of the run.
+  // believed. A claim of interleaving means consecutive units differ in mode,
+  // which no contiguous block of an arm can satisfy at any length.
   if (execution.interleaved === true) {
     assertInterleaved(execution.plannedOrder as Array<Record<string, unknown>>, 'execution.plannedOrder');
     if (execution.order.length > 0) {
@@ -578,22 +606,37 @@ function validateExecutionStep(
 }
 
 // @req PERF-BGSTAB-012 AC-2
+/**
+ * The rule `execution.strategy` actually claims: consecutive units differ in
+ * mode.
+ *
+ * The earlier formulation compared the longest same-arm run against
+ * `length / distinctModes` — the arm's fair share of the run — and was wrong at
+ * both ends. Too weak, because a 252-step order of
+ * `[125×NO_ANALYZER, NO_RENDER, 125×NO_ANALYZER, NO_RENDER]` has a longest run
+ * of 125 against a fair share of 126 and was accepted, which is exactly the
+ * block concentration the check exists to reject: all the machine drift over 125
+ * consecutive units lands on one arm. Too strict, because a perfectly
+ * interleaved `[A, B]` has a longest run of 1 against a fair share of 1 and was
+ * rejected, so a legitimately alternating two-step order could not be expressed.
+ *
+ * Requiring the longest same-arm run to be exactly 1 has neither pathology: no
+ * block order can satisfy it at any length, and there is no minimum length below
+ * which a true interleave fails.
+ */
 function assertInterleaved(order: Array<Record<string, unknown>>, path: string): void {
   const distinctModes = new Set(order.map(step => step.mode as string));
   if (distinctModes.size < 2) {
     throw new Error(`${path} claims interleaving but names only one arm`);
   }
-  let longestRun = 1;
-  let currentRun = 1;
   for (let index = 1; index < order.length; index += 1) {
-    currentRun = order[index].mode === order[index - 1].mode ? currentRun + 1 : 1;
-    longestRun = Math.max(longestRun, currentRun);
-  }
-  const fairShare = order.length / distinctModes.size;
-  if (!(longestRun < fairShare)) {
-    throw new Error(
-      `${path} is not interleaved: longest same-arm run was ${longestRun} of ${order.length} across ${distinctModes.size} arms`,
-    );
+    const previousMode = order[index - 1].mode as string;
+    const currentMode = order[index].mode as string;
+    if (previousMode === currentMode) {
+      throw new Error(
+        `${path} is not interleaved: step ${index - 1} ran ${previousMode} and step ${index} ran ${currentMode}, so consecutive units did not alternate arms`,
+      );
+    }
   }
 }
 

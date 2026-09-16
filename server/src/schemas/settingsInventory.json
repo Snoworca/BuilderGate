@@ -15,7 +15,7 @@
     "user-visible"
   ],
   "classificationPrecedenceNote": "A leaf can satisfy more than one description; exactly one classification is recorded, chosen by this precedence. inert wins first because a leaf with no consumer cannot meaningfully be anything else. reserved wins next so that the keys RuntimeConfigStore names in RESERVED_WAVE6_SETTING_KEYS keep the classification that table already assigns them. safety-only then captures leaves whose role is to bound or deny, including some that are editable; editableInSettings records that overlap rather than hiding it.",
-  "consumerDiscovery": "Consumers were located by searching server/src, frontend/src, tools and server/tools for modules that reference BOTH the leaf's last path segment AND its immediate parent segment (for a top-level leaf, the top-level section name) as whole words in the same file. Requiring the parent as well as the leaf is what keeps an unrelated field of the same name — a `durationMs` that has nothing to do with `auth`, say — from being recorded as a consumer. Excluded from the search: the schema, the generated types, the config template, test files, benchmark code under server/src/benchmarks, and the key-agnostic plumbing that mentions every leaf by construction (RuntimeConfigStore.ts, SettingsService.ts, ConfigFileRepository.ts, TerminalResourcePolicyInventory.ts, frontend/src/types/settings.ts). At most two consumers are recorded per leaf, in module-path order. This is a LOCATOR, not an assertion: co-occurrence of the two segments makes the module a strong candidate, and the symbol is the nearest preceding declaration at the first line matching the leaf segment, so neither is guaranteed to be the exact function that reads the value. Treat it as 'start reading here'. The authoritative check on whether a leaf still has a consumer at all is a fresh search of the shipped surface; the pinning test enforces coverage and classification, not symbol precision. resourceLimits.telemetry.recentEventLimit is recorded explicitly because its only consumer is inside RuntimeConfigStore itself, where it sets the telemetry ring capacity, and that module is excluded from discovery.",
+  "consumerDiscovery": "Consumers are admitted by two rules, and every consumer records which one admitted it in its `match` field. `dotted-path`: the module contains an access chain that resolves to this leaf. That is one of three forms — the leaf's last two or more path segments written as member access (`twoFactor.issuer`, `ws.outputCoalesceWindowMs`, including `?.` and `['leaf']` spellings); a member access `X.leaf` whose receiver names the section (`authConfig.jwtSecret`) or is a generic config holder (`config`, `cfg`, `settings`, `options`, `limits`, or an identifier ending in one of those) in a module that names the section as a whole word or carries it in its own path (`this.config.certPath` in SSLService.ts); or a destructuring binding of the leaf out of such a source (`const { certPath, keyPath, caPath } = this.config`). `co-occurrence`: the module merely mentions the leaf's last path segment AND its immediate parent segment (for a top-level leaf, the top-level section name) as whole words somewhere in the same file, with no access chain anywhere. Where a leaf has any `dotted-path` match, its `co-occurrence` candidates are discarded, so a `co-occurrence` entry can appear only for a leaf with no access chain on the whole shipped surface. As of this derivation no entry is admitted by `co-occurrence`; the value stays in the vocabulary because the fallback is still reachable. Read both plainly. A `co-occurrence` entry is a place to START READING, not proof that the module consumes the value — it is only a locator. A `dotted-path` entry is far stronger but is still a locator, because a chain can appear in a comment, a log string or a regular expression, and because the `symbol` is the nearest preceding declaration at the match rather than a resolved binding. Searched: server/src, frontend/src, tools and server/tools. Excluded: the schema, the generated types, the config template, the schema-walk helper configSchemaLeaves.ts, test files and the monolithic test-runner, benchmark code under server/src/benchmarks, and the key-agnostic plumbing that mentions every leaf by construction (RuntimeConfigStore.ts, SettingsService.ts, ConfigFileRepository.ts, TerminalResourcePolicyInventory.ts, frontend/src/types/settings.ts). At most two consumers are recorded per leaf, listed in module-path order; where more than two qualified, shipped application code under server/src and frontend/src was preferred over build and ops scripts under tools. Two attributions were removed as confirmed false positives: server.port to McpNodeHttpListener.ts, which reads its own MCP `configRecord.port` and never `config.server.port`, and twoFactor.enabled to authRoutes.ts, where `twoFactor` occurs only in a comment and a log string. The authoritative check on whether a leaf still has a consumer at all is a fresh search of the shipped surface; the pinning test enforces coverage, classification and the `match` vocabulary, not symbol precision. resourceLimits.telemetry.recentEventLimit is recorded explicitly because its only consumer is inside RuntimeConfigStore itself, where it sets the telemetry ring capacity, and that module is excluded from discovery.",
   "entries": [
     {
       "path": "auth.durationMs",
@@ -24,12 +24,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "authConfig"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/AuthService.ts",
-          "symbol": "durationMs"
+          "symbol": "durationMs",
+          "match": "dotted-path"
         }
       ]
     },
@@ -41,11 +43,13 @@
       "consumers": [
         {
           "module": "server/src/index.ts",
-          "symbol": "authConfig"
+          "symbol": "authConfig",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/AuthService.ts",
-          "symbol": "AuthService"
+          "symbol": "AuthService",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "The JWT signing secret. Not a tuning value; exposing or weakening it breaks session authentication outright."
@@ -57,12 +61,9 @@
       "editableInSettings": false,
       "consumers": [
         {
-          "module": "server/src/routes/authRoutes.ts",
-          "symbol": "isValid"
-        },
-        {
           "module": "server/src/services/AuthService.ts",
-          "symbol": "cleaned"
+          "symbol": "cleaned",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Gates whether a password is demanded for loopback connections. Relaxing it removes an authentication requirement rather than tuning one."
@@ -74,12 +75,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "authConfig"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/routes/authRoutes.ts",
-          "symbol": "loginSchema"
+          "module": "server/src/services/AuthService.ts",
+          "symbol": "if",
+          "match": "dotted-path"
         }
       ]
     },
@@ -91,7 +94,8 @@
       "consumers": [
         {
           "module": "server/src/index.ts",
-          "symbol": "encryptedJwtSecret"
+          "symbol": "encryptedJwtSecret",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "The allow-list that decides who may complete first-run bootstrap. Widening it widens who can claim an unconfigured instance."
@@ -103,12 +107,9 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "fileManagerConfig"
-        },
-        {
-          "module": "server/src/schemas/configSchemaLeaves.ts",
-          "symbol": "resolved"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "for",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Deny-list of file extensions the file API refuses. Shortening it grants read access to file classes deliberately withheld."
@@ -120,12 +121,9 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "fileManagerConfig"
-        },
-        {
           "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "passwordPolicy"
+          "symbol": "passwordPolicy",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Deny-list of paths the file API refuses, covering .ssh, .gnupg and .aws. Shortening it exposes credential stores."
@@ -137,12 +135,9 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "fileManagerConfig"
-        },
-        {
           "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "allowedPowerShellBackends"
+          "symbol": "allowedPowerShellBackends",
+          "match": "dotted-path"
         }
       ]
     },
@@ -153,12 +148,9 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "fileManagerConfig"
-        },
-        {
           "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "allowedPowerShellBackends"
+          "symbol": "allowedPowerShellBackends",
+          "match": "dotted-path"
         }
       ]
     },
@@ -169,12 +161,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "fileManagerConfig"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "allowedPowerShellBackends",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "allowedPowerShellBackends"
+          "module": "server/src/index.ts",
+          "symbol": "fileManagerConfig",
+          "match": "dotted-path"
         }
       ]
     },
@@ -185,12 +179,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/SessionManager.ts",
-          "symbol": "cols"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalResourcePolicyCanaryPublicFixture.fixture.ts",
-          "symbol": "createFixtureConfig"
+          "module": "server/src/services/SessionManager.ts",
+          "symbol": "cols",
+          "match": "dotted-path"
         }
       ]
     },
@@ -201,12 +197,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/SessionManager.ts",
-          "symbol": "rows"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalResourcePolicyCanaryPublicFixture.fixture.ts",
-          "symbol": "createFixtureConfig"
+          "module": "server/src/services/SessionManager.ts",
+          "symbol": "rows",
+          "match": "dotted-path"
         }
       ]
     },
@@ -225,11 +223,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "LEGACY_TRUNCATED_REPLAY_PLACEHOLDER"
+          "symbol": "LEGACY_TRUNCATED_REPLAY_PLACEHOLDER",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalResourcePolicyCanaryPublicFixture.fixture.ts",
-          "symbol": "createFixtureConfig"
+          "module": "server/src/ws/binaryFrameCodec.ts",
+          "symbol": "bound",
+          "match": "dotted-path"
         }
       ]
     },
@@ -241,11 +241,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "SessionManagerInitialConfig"
+          "symbol": "SessionManagerInitialConfig",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "CompiledTerminalResourcePolicy"
+          "symbol": "CompiledTerminalResourcePolicy",
+          "match": "dotted-path"
         }
       ]
     },
@@ -256,12 +258,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/SessionManager.ts",
-          "symbol": "nextNormalized"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalAuthorityDebugService.ts",
-          "symbol": "tail"
+          "module": "server/src/services/SessionManager.ts",
+          "symbol": "nextNormalized",
+          "match": "dotted-path"
         }
       ]
     },
@@ -272,12 +276,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/SessionManager.ts",
-          "symbol": "reason"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalResourcePolicyCanaryPublicFixture.fixture.ts",
-          "symbol": "createFixtureConfig"
+          "module": "server/src/services/SessionManager.ts",
+          "symbol": "reason",
+          "match": "dotted-path"
         }
       ]
     },
@@ -289,11 +295,13 @@
       "consumers": [
         {
           "module": "server/src/index.ts",
-          "symbol": "effectivePowerShellBackend"
+          "symbol": "effectivePowerShellBackend",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "nextUseConptyRaw"
+          "symbol": "nextUseConptyRaw",
+          "match": "dotted-path"
         }
       ]
     },
@@ -305,11 +313,13 @@
       "consumers": [
         {
           "module": "server/src/index.ts",
-          "symbol": "powerShellBackend"
+          "symbol": "powerShellBackend",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "nextPowerShellBackendRaw"
+          "symbol": "nextPowerShellBackendRaw",
+          "match": "dotted-path"
         }
       ]
     },
@@ -321,11 +331,13 @@
       "consumers": [
         {
           "module": "server/src/index.ts",
-          "symbol": "wsRouter"
+          "symbol": "wsRouter",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/ws/WsRouter.ts",
-          "symbol": "WsRouter"
+          "symbol": "WsRouter",
+          "match": "dotted-path"
         }
       ]
     },
@@ -336,12 +348,9 @@
       "editableInSettings": false,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "configuredWsTransportMode"
-        },
-        {
-          "module": "server/src/services/TerminalAuthorityProductionAdapter.ts",
-          "symbol": "wsRouter"
+          "module": "server/src/ws/WsRouter.ts",
+          "symbol": "constructor",
+          "match": "dotted-path"
         }
       ]
     },
@@ -353,11 +362,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "The buffered-bytes ceiling past which the browser reconnects rather than accumulating. The schema superRefine requires it to exceed inputBackpressureBytes."
@@ -370,11 +381,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -386,11 +399,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "limits"
+          "symbol": "limits",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -402,11 +417,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "sessionData"
+          "symbol": "sessionData",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Bounds the headless pending-output queue in bytes. Epic #2 rule 2 forbids removing the bounded queue and memory safety it provides."
@@ -419,11 +436,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "sessionData"
+          "symbol": "sessionData",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Bounds the headless pending-output queue in chunks, for the same reason as pendingOutputMaxBytes."
@@ -435,12 +454,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/SessionManager.ts",
-          "symbol": "cloneHeadlessResourceLimits"
+          "module": "server/src/services/TerminalResourcePolicy.ts",
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "module": "server/src/services/TerminalResourcePolicyObservations.ts",
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -451,12 +472,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/SessionManager.ts",
-          "symbol": "cloneHeadlessResourceLimits"
+          "module": "server/src/services/TerminalResourcePolicy.ts",
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "module": "server/src/services/TerminalResourcePolicyObservations.ts",
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -468,11 +491,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -484,11 +509,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -500,11 +527,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -516,11 +545,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Total snapshot storage budget. The schema superRefine requires it to be at least perSnapshotMaxChars; it bounds aggregate memory."
@@ -533,7 +564,8 @@
       "consumers": [
         {
           "module": "server/src/services/RuntimeConfigStore.ts",
-          "symbol": "RuntimeConfigStore"
+          "symbol": "recentEventLimit",
+          "match": "dotted-path"
         }
       ]
     },
@@ -544,12 +576,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "module": "frontend/src/components/Terminal/TerminalView.tsx",
+          "symbol": "result",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/components/Terminal/TerminalView.tsx",
-          "symbol": "result"
+          "module": "server/src/services/TerminalResourcePolicy.ts",
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -561,11 +595,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -577,11 +613,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -593,11 +631,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -609,11 +649,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -625,11 +667,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "configuredPolicy"
+          "symbol": "configuredPolicy",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -641,11 +685,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -657,11 +703,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -673,11 +721,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "state"
+          "symbol": "state",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -689,11 +739,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -705,11 +757,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -721,11 +775,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -737,11 +793,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Caps simultaneously live terminals, bounding runtime residency."
@@ -754,11 +812,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Caps simultaneously live workspaces, bounding runtime residency."
@@ -771,11 +831,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -787,11 +849,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "smallOutputBypassBytes"
+          "symbol": "smallOutputBypassBytes",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ]
     },
@@ -803,11 +867,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "state"
+          "symbol": "state",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "smallOutputBypassBytes"
+          "symbol": "smallOutputBypassBytes",
+          "match": "dotted-path"
         }
       ]
     },
@@ -819,11 +885,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "RESOURCE_DEFINITIONS"
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicyObservations.ts",
-          "symbol": "REGISTERED_OBSERVATION_DECISIONS"
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "The hard ceiling on server-side socket buffering. The schema superRefine requires it to exceed serverBufferedHighWaterBytes; it is the bound that stops unbounded growth, not a throughput knob."
@@ -836,11 +904,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "state"
+          "symbol": "state",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "smallOutputBypassBytes"
+          "symbol": "smallOutputBypassBytes",
+          "match": "dotted-path"
         }
       ]
     },
@@ -851,12 +921,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "runtimeCors"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "passwordPolicy",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "passwordPolicy"
+          "module": "server/src/index.ts",
+          "symbol": "runtimeCors",
+          "match": "dotted-path"
         }
       ]
     },
@@ -867,12 +939,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "runtimeCors"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "allowedPowerShellBackends",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "allowedPowerShellBackends"
+          "module": "server/src/index.ts",
+          "symbol": "runtimeCors",
+          "match": "dotted-path"
         }
       ]
     },
@@ -883,12 +957,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "runtimeCors"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "allowedPowerShellBackends",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "allowedPowerShellBackends"
+          "module": "server/src/index.ts",
+          "symbol": "runtimeCors",
+          "match": "dotted-path"
         }
       ]
     },
@@ -900,11 +976,13 @@
       "consumers": [
         {
           "module": "server/src/index.ts",
-          "symbol": "PORT"
+          "symbol": "PORT",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/McpNodeHttpListener.ts",
-          "symbol": "onListening"
+          "module": "server/src/services/McpControlConfigStore.ts",
+          "symbol": "if",
+          "match": "dotted-path"
         }
       ]
     },
@@ -916,7 +994,8 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "initialStabilityModes"
+          "symbol": "initialStabilityModes",
+          "match": "dotted-path"
         }
       ]
     },
@@ -927,12 +1006,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/SessionManager.ts",
-          "symbol": "initialStabilityModes"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalResourcePolicyCanaryPublicFixture.fixture.ts",
-          "symbol": "createFixtureConfig"
+          "module": "server/src/services/SessionManager.ts",
+          "symbol": "initialStabilityModes",
+          "match": "dotted-path"
         }
       ]
     },
@@ -944,7 +1025,8 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "DEFAULT_SESSION_PROCESS_CLEANUP"
+          "symbol": "DEFAULT_SESSION_PROCESS_CLEANUP",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Bounds how many descendant processes cleanup will sample. Epic #2 forbids broad process-name termination; this is the bound that keeps the sweep narrow."
@@ -957,7 +1039,8 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "DEFAULT_SESSION_PROCESS_CLEANUP"
+          "symbol": "DEFAULT_SESSION_PROCESS_CLEANUP",
+          "match": "dotted-path"
         }
       ]
     },
@@ -969,7 +1052,8 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "DEFAULT_SESSION_PROCESS_CLEANUP"
+          "symbol": "DEFAULT_SESSION_PROCESS_CLEANUP",
+          "match": "dotted-path"
         }
       ]
     },
@@ -981,7 +1065,8 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "timeoutMs"
+          "symbol": "timeoutMs",
+          "match": "dotted-path"
         }
       ]
     },
@@ -993,7 +1078,8 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "initialStabilityModes"
+          "symbol": "initialStabilityModes",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1005,7 +1091,8 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "initialStabilityModes"
+          "symbol": "initialStabilityModes",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1016,8 +1103,9 @@
       "editableInSettings": false,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "mcpListenerController"
+          "module": "server/src/services/SSLService.ts",
+          "symbol": "loadCertificates",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1028,8 +1116,9 @@
       "editableInSettings": false,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "mcpListenerController"
+          "module": "server/src/services/SSLService.ts",
+          "symbol": "certPath",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1040,8 +1129,9 @@
       "editableInSettings": false,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "mcpListenerController"
+          "module": "server/src/services/SSLService.ts",
+          "symbol": "loadCertificates",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1052,12 +1142,9 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/TerminalResourcePolicyCanaryPublicFixture.fixture.ts",
-          "symbol": "createFixtureConfig"
-        },
-        {
-          "module": "tools/wave3/terminal-resource-policy-differential.ts",
-          "symbol": "createFixture"
+          "module": "frontend/src/utils/inputReliabilityMode.ts",
+          "symbol": "if",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1069,11 +1156,13 @@
       "consumers": [
         {
           "module": "server/src/services/SessionManager.ts",
-          "symbol": "effectivePowerShellBackend"
+          "symbol": "effectivePowerShellBackend",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "createLegacyTerminalResourceDecisionSnapshot"
+          "symbol": "createLegacyTerminalResourceDecisionSnapshot",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1085,11 +1174,13 @@
       "consumers": [
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
-          "symbol": "createLegacyTerminalResourceDecisionSnapshot"
+          "symbol": "createLegacyTerminalResourceDecisionSnapshot",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/TerminalResourcePolicyCanaryPublicFixture.fixture.ts",
-          "symbol": "createFixtureConfig"
+          "module": "server/src/ws/WsRouter.ts",
+          "symbol": "if",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1100,12 +1191,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/daemonTotpPreflight.ts",
-          "symbol": "service"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "shouldRefreshQr",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "shouldRefreshQr"
+          "module": "server/src/services/daemonTotpPreflight.ts",
+          "symbol": "service",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1116,12 +1209,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "encryptedJwtSecret"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "shouldRefreshQr",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/routes/authRoutes.ts",
-          "symbol": "isLocalhost"
+          "module": "server/src/index.ts",
+          "symbol": "encryptedJwtSecret",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1133,11 +1228,13 @@
       "consumers": [
         {
           "module": "server/src/index.ts",
-          "symbol": "authRoutes"
+          "symbol": "authRoutes",
+          "match": "dotted-path"
         },
         {
           "module": "server/src/routes/authRoutes.ts",
-          "symbol": "isLocalhost"
+          "symbol": "isLocalhost",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1148,12 +1245,14 @@
       "editableInSettings": true,
       "consumers": [
         {
-          "module": "server/src/services/daemonTotpPreflight.ts",
-          "symbol": "service"
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "shouldRefreshQr",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/components/Settings/SettingsPage.tsx",
-          "symbol": "shouldRefreshQr"
+          "module": "server/src/services/daemonTotpPreflight.ts",
+          "symbol": "service",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1164,12 +1263,14 @@
       "editableInSettings": false,
       "consumers": [
         {
-          "module": "server/src/index.ts",
-          "symbol": "initialMcpControlConfig"
+          "module": "server/src/services/AgentLifecycleService.ts",
+          "symbol": "createAgentCommandProfileService",
+          "match": "dotted-path"
         },
         {
-          "module": "server/src/services/AgentLifecycleService.ts",
-          "symbol": "createAgentCommandProfileService"
+          "module": "server/src/services/TerminalShortcutService.ts",
+          "symbol": "constructor",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1181,7 +1282,8 @@
       "consumers": [
         {
           "module": "server/src/services/WorkspaceService.ts",
-          "symbol": "WorkspaceConfig"
+          "symbol": "WorkspaceConfig",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1192,12 +1294,14 @@
       "editableInSettings": false,
       "consumers": [
         {
-          "module": "server/src/services/WorkspaceService.ts",
-          "symbol": "WorkspaceConfig"
+          "module": "frontend/src/App.tsx",
+          "symbol": "sidebarContent",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/App.tsx",
-          "symbol": "sidebarContent"
+          "module": "server/src/services/WorkspaceService.ts",
+          "symbol": "WorkspaceConfig",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Hard cap on tabs per workspace; bounds session fan-out."
@@ -1210,7 +1314,8 @@
       "consumers": [
         {
           "module": "server/src/services/WorkspaceService.ts",
-          "symbol": "WorkspaceConfig"
+          "symbol": "WorkspaceConfig",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Hard cap on total sessions; bounds PTY process count."
@@ -1222,12 +1327,14 @@
       "editableInSettings": false,
       "consumers": [
         {
-          "module": "server/src/services/WorkspaceService.ts",
-          "symbol": "WorkspaceConfig"
+          "module": "frontend/src/App.tsx",
+          "symbol": "sidebarContent",
+          "match": "dotted-path"
         },
         {
-          "module": "frontend/src/App.tsx",
-          "symbol": "sidebarContent"
+          "module": "server/src/services/WorkspaceService.ts",
+          "symbol": "WorkspaceConfig",
+          "match": "dotted-path"
         }
       ],
       "safetyBound": "Hard cap on persisted workspaces; bounds unbounded growth of the workspace store."
@@ -1240,7 +1347,8 @@
       "consumers": [
         {
           "module": "server/src/services/WorkspaceService.ts",
-          "symbol": "WorkspaceServiceOptions"
+          "symbol": "WorkspaceServiceOptions",
+          "match": "dotted-path"
         }
       ]
     },
@@ -1252,7 +1360,8 @@
       "consumers": [
         {
           "module": "server/src/services/WorkspaceService.ts",
-          "symbol": "WorkspaceConfig"
+          "symbol": "WorkspaceConfig",
+          "match": "dotted-path"
         }
       ]
     }

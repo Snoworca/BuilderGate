@@ -64,24 +64,29 @@ function createManifest(): Record<string, unknown> {
       excludedSampleIds: [],
     },
     execution: {
-      derivedFrom: 'execution',
+      // The arm sequence in `order` is the sequence in `plannedOrder`; the run
+      // adds a completion timestamp per unit and nothing else. The literal says
+      // that rather than claiming the sequence itself was discovered.
+      derivedFrom: 'planned-sequence-with-observed-completions',
       interleaved: true,
       strategy: 'fixture',
-      // The plan and the observation are separate arrays. The observation
-      // carries a strictly increasing completion timestamp, which is the field
-      // the plan cannot supply and which the validator therefore requires.
+      // Two steps, which the interleave rule accepts because no two consecutive
+      // steps share a mode. The four-step form this used to carry existed only
+      // to clear the old `longestRun < length / distinctModes` threshold, which
+      // rejected a perfectly alternating pair.
       plannedOrder: [
         { sequence: 0, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-1' },
         { sequence: 1, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-1' },
-        { sequence: 2, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-2' },
-        { sequence: 3, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-2' },
       ],
+      // The plan and the observation are separate arrays. The observation
+      // carries a strictly increasing completion timestamp, which is the field
+      // the plan cannot supply and which the validator therefore requires.
       order: [
         { sequence: 0, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-1', observedAtMs: 1 },
         { sequence: 1, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-1', observedAtMs: 2 },
-        { sequence: 2, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-2', observedAtMs: 3 },
-        { sequence: 3, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-2', observedAtMs: 4 },
       ],
+      // Both readings above advanced on their own, so nothing was nudged.
+      tieBrokenCount: 0,
     },
     visibilityFactor: {
       levels: ['single-active', 'all-active'],

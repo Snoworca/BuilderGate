@@ -21,9 +21,17 @@ const INVENTORY_URL = new URL('./settingsInventory.json', import.meta.url);
 const CLASSIFICATIONS = ['user-visible', 'reserved', 'inert', 'safety-only'] as const;
 type Classification = (typeof CLASSIFICATIONS)[number];
 
+// Which discovery rule admitted a consumer. `dotted-path` means the module
+// carries the leaf's own access chain; `co-occurrence` means it only mentions
+// the leaf and parent segments somewhere in the file, which is a place to start
+// reading rather than proof of consumption.
+const CONSUMER_MATCHES = ['dotted-path', 'co-occurrence'] as const;
+type ConsumerMatch = (typeof CONSUMER_MATCHES)[number];
+
 interface InventoryConsumer {
   readonly module: string;
   readonly symbol: string;
+  readonly match: ConsumerMatch;
 }
 
 interface InventoryEntry {
@@ -103,6 +111,14 @@ test('OPS-BGSTAB-011 non-inert entries name a real consumer and inert entries na
     for (const consumer of entry.consumers) {
       assert.ok(consumer.module.length > 0, `${entry.path}: consumer module must not be blank`);
       assert.ok(consumer.symbol.length > 0, `${entry.path}: consumer symbol must not be blank`);
+      // Every attribution has to declare which rule admitted it, so a reader can
+      // tell an access chain from bare co-occurrence without re-running the
+      // search. An entry with no `match` would let the weaker rule pass for the
+      // stronger one silently, which is the failure this field exists to stop.
+      assert.ok(
+        (CONSUMER_MATCHES as readonly string[]).includes(consumer.match),
+        `${entry.path}: consumer ${consumer.module} must record match as one of ${CONSUMER_MATCHES.join(' or ')}, got ${String(consumer.match)}`,
+      );
       // The excluded surfaces are the ones that mention every key by
       // construction. Accepting them would make AC-3 satisfiable by plumbing.
       assert.doesNotMatch(
@@ -111,7 +127,24 @@ test('OPS-BGSTAB-011 non-inert entries name a real consumer and inert entries na
         `${entry.path}: ${consumer.module} is schema, plumbing or benchmark code, not a runtime consumer`,
       );
     }
+    // Rule: where a leaf has an access chain anywhere on the shipped surface,
+    // the weaker co-occurrence candidates for that leaf are discarded. A leaf
+    // carrying both would be presenting a guess beside evidence.
+    const matches = new Set(entry.consumers.map((consumer) => consumer.match));
+    assert.ok(
+      !(matches.has('dotted-path') && matches.has('co-occurrence')),
+      `${entry.path}: co-occurrence consumers must be dropped once the leaf has a dotted-path match`,
+    );
   }
+
+  // Neither class may go vacuous: an inventory that recorded everything as
+  // dotted-path would make the distinction decorative, and one that recorded
+  // nothing as dotted-path would mean the stronger rule never ran.
+  const all = readInventory().entries.flatMap((entry) => entry.consumers);
+  assert.ok(
+    all.some((consumer) => consumer.match === 'dotted-path'),
+    'at least one consumer must be admitted by the dotted-path rule',
+  );
 });
 
 // @req OPS-BGSTAB-011 AC-5
@@ -187,7 +220,10 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
   );
 
   // Each of these carries child schemas that are not reachable through `shape`,
-  // so the walker would emit one leaf where a subtree belongs.
+  // so the walker would emit one leaf where a subtree belongs. The walk decides
+  // by allowlist, so a kind nobody anticipated is refused too; `map`, `set`,
+  // `promise`, `function` and `custom` are here as that second group — under the
+  // previous denylist every one of them collapsed silently into a single leaf.
   const composites: ReadonlyArray<readonly [string, z.ZodTypeAny]> = [
     ['union', z.union([z.object({ a: z.string() }), z.object({ b: z.string() })])],
     ['discriminatedUnion', z.discriminatedUnion('kind', [
@@ -198,6 +234,11 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
     ['lazy', z.lazy(() => z.object({ a: z.string() }))],
     ['intersection', z.intersection(z.object({ a: z.string() }), z.object({ b: z.string() }))],
     ['tuple', z.tuple([z.object({ a: z.string() })])],
+    ['map', z.map(z.string(), z.object({ a: z.string() }))],
+    ['set', z.set(z.object({ a: z.string() }))],
+    ['promise', z.promise(z.object({ a: z.string() }))],
+    ['function', z.function() as unknown as z.ZodTypeAny],
+    ['custom', z.custom<{ a: string }>(() => true)],
   ];
   for (const [label, child] of composites) {
     assert.throws(
@@ -207,12 +248,33 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
     );
   }
 
-  // An array of scalars stays a leaf: the operator sets it as one value, and
+  // The allowlisted kinds stay leaves. An array of scalars is the load-bearing
+  // one: the operator sets it as a single value, and
   // `fileManager.blockedExtensions` depends on that.
-  assert.deepEqual(
-    listConfigSchemaLeafPaths(z.object({ section: z.array(z.string()) })),
-    ['section'],
-  );
+  const leafKinds: ReadonlyArray<readonly [string, z.ZodTypeAny]> = [
+    ['array', z.array(z.string())],
+    ['string', z.string()],
+    ['number', z.number()],
+    ['boolean', z.boolean()],
+    ['literal', z.literal('a')],
+    ['enum', z.enum(['a', 'b'])],
+    ['date', z.date()],
+    ['null', z.null()],
+    ['undefined', z.undefined()],
+    ['any', z.any()],
+    ['unknown', z.unknown()],
+    // The shape `auth.password` actually has: a pipe whose endpoints are
+    // scalars, wrapped in a default. The allowlist has to resolve through the
+    // pipe or this leaf would start throwing.
+    ['preprocessed scalar', z.preprocess((value) => value ?? '', z.string()).default('')],
+  ];
+  for (const [label, child] of leafKinds) {
+    assert.deepEqual(
+      listConfigSchemaLeafPaths(z.object({ section: child })),
+      ['section'],
+      `${label} must stay a single leaf`,
+    );
+  }
 });
 
 // @req OPS-BGSTAB-011 AC-1

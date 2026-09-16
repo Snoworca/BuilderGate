@@ -89,8 +89,18 @@ test('PERF-BGSTAB-012 the manifest records an execution-derived interleaved arm 
   const execution = m.execution;
 
   assert.ok(execution, 'the manifest must carry an execution record');
-  assert.equal(execution.derivedFrom, 'execution', 'the order must be observed, not declared in advance');
+  // The label names exactly what the record holds: the planned arm sequence,
+  // with a completion timestamp measured per unit. The runner is one loop over
+  // the plan, so it cannot walk a different sequence, and a label claiming the
+  // sequence was discovered would be false.
+  assert.equal(
+    execution.derivedFrom,
+    'planned-sequence-with-observed-completions',
+    'the record must name the planned sequence and the observed completions, not claim a discovered order',
+  );
   assert.equal(execution.interleaved, true);
+  // An unrun manifest has taken no timestamp, so it can have nudged none.
+  assert.equal(execution.tieBrokenCount, 0, 'an unrun manifest cannot have tie-broken a timestamp');
   assert.ok(execution.plannedOrder.length > 1, 'the plan must describe more than one unit of work');
 
   // The builder cannot know the observed order, so it emits the plan and leaves
@@ -104,14 +114,20 @@ test('PERF-BGSTAB-012 the manifest records an execution-derived interleaved arm 
   const modes = [...new Set(execution.plannedOrder.map((step) => step.mode))];
   assert.ok(modes.length > 1, 'interleaving is only meaningful across more than one arm');
 
+  // Strengthened from `longestRun < plannedOrder.length / modes.length`. That
+  // compared the run against the arm's fair share, which a 252-step order of
+  // 125 NO_ANALYZER, one NO_RENDER, 125 NO_ANALYZER, one NO_RENDER satisfies —
+  // the exact block concentration interleaving exists to prevent. Consecutive
+  // units must simply differ in mode, which no block order can satisfy.
   let longestRun = 1;
   let currentRun = 1;
   for (let i = 1; i < execution.plannedOrder.length; i += 1) {
     currentRun = execution.plannedOrder[i].mode === execution.plannedOrder[i - 1].mode ? currentRun + 1 : 1;
     longestRun = Math.max(longestRun, currentRun);
   }
-  assert.ok(
-    longestRun < execution.plannedOrder.length / modes.length,
+  assert.equal(
+    longestRun,
+    1,
     `arms must interleave; longest same-arm run was ${longestRun} of ${execution.plannedOrder.length}`,
   );
 
@@ -134,10 +150,10 @@ test('PERF-BGSTAB-012 the manifest records an execution-derived interleaved arm 
 test('PERF-BGSTAB-012 an observed execution order must be timestamped and advance in time', () => {
   const m = manifest();
 
-  // Without `observedAtMs` the executed order is a copy of the plan wearing an
-  // observed label, which is precisely what AC-2 refuses to accept. The
-  // validator must reject an untimestamped entry rather than take the
-  // `derivedFrom: 'execution'` string at its word.
+  // `observedAtMs` is the only field in `order` that the plan does not already
+  // supply, so an untimestamped entry carries no observation at all. The
+  // validator must reject it rather than take the `derivedFrom` label — which a
+  // producer simply writes — at its word.
   const untimestamped = structuredClone(m) as unknown as Record<string, unknown>;
   (untimestamped.execution as { order: unknown[] }).order = m.execution.plannedOrder
     .map((step) => ({ ...step }));
@@ -189,6 +205,81 @@ test('PERF-BGSTAB-012 the interleaved flag is recomputed, not believed', () => {
     /not interleaved/u,
     'a block-ordered run must not be able to declare itself interleaved',
   );
+});
+
+// @req PERF-BGSTAB-012 AC-2
+test('PERF-BGSTAB-012 a block-concentrated order cannot pass as interleaved, and a two-step alternation can', () => {
+  const m = manifest();
+
+  // The case the fair-share threshold accepted: two long blocks of one arm,
+  // separated by a single step of the other. Its longest run is just under the
+  // arm's fair share, so the old rule let it through.
+  const concentrated = structuredClone(m) as unknown as Record<string, unknown>;
+  const modes = ['NO_ANALYZER', 'NO_RENDER'];
+  const blocky = [
+    ...Array.from({ length: 125 }, () => modes[0]),
+    modes[1],
+    ...Array.from({ length: 125 }, () => modes[0]),
+    modes[1],
+  ].map((mode, index) => ({ sequence: index, mode, workloadIndex: 0, trialId: 'trial-1' }));
+  const concentratedExecution = concentrated.execution as { plannedOrder: unknown[]; order: unknown[] };
+  concentratedExecution.plannedOrder = blocky;
+  concentratedExecution.order = blocky.map((step, index) => ({ ...step, observedAtMs: 100 + index }));
+  assert.throws(
+    () => validateExecutionManifest(concentrated),
+    /not interleaved/u,
+    'a block-concentrated order must be rejected however long the blocks are',
+  );
+
+  // And the case the fair-share threshold rejected: a genuinely alternating pair,
+  // whose longest run of 1 is not less than its fair share of 1.
+  const pair = structuredClone(m) as unknown as Record<string, unknown>;
+  const twoStep = modes.map((mode, index) => ({
+    sequence: index,
+    mode,
+    workloadIndex: 0,
+    trialId: 'trial-1',
+  }));
+  const pairExecution = pair.execution as { plannedOrder: unknown[]; order: unknown[] };
+  pairExecution.plannedOrder = twoStep;
+  pairExecution.order = twoStep.map((step, index) => ({ ...step, observedAtMs: 100 + index }));
+  assert.doesNotThrow(
+    () => validateExecutionManifest(pair),
+    'a two-step alternation is interleaved and must be accepted',
+  );
+});
+
+// @req PERF-BGSTAB-012 AC-2
+test('PERF-BGSTAB-012 the count of tie-broken completion timestamps is recorded and required', () => {
+  const m = manifest();
+  const observed = structuredClone(m) as unknown as Record<string, unknown>;
+  (observed.execution as { order: unknown[] }).order = m.execution.plannedOrder
+    .map((step, index) => ({ ...step, observedAtMs: 100 + index }));
+  assert.doesNotThrow(() => validateExecutionManifest(observed));
+
+  // Without the count, a run on a host whose clock never advanced would publish
+  // a strictly increasing ramp of fabricated readings and look identical to a
+  // healthy run. The field has to be present for that to be distinguishable.
+  const stripped = structuredClone(observed);
+  delete (stripped.execution as Record<string, unknown>).tieBrokenCount;
+  assert.throws(
+    () => validateExecutionManifest(stripped),
+    /tieBrokenCount/u,
+    'a manifest that does not say how many timestamps were nudged must be rejected',
+  );
+
+  const negative = structuredClone(observed);
+  (negative.execution as Record<string, unknown>).tieBrokenCount = -1;
+  assert.throws(() => validateExecutionManifest(negative), /tieBrokenCount/u);
+
+  const fractional = structuredClone(observed);
+  (fractional.execution as Record<string, unknown>).tieBrokenCount = 1.5;
+  assert.throws(() => validateExecutionManifest(fractional), /tieBrokenCount/u);
+
+  // A run that did nudge is still valid; the count is a disclosure, not a gate.
+  const nudged = structuredClone(observed);
+  (nudged.execution as Record<string, unknown>).tieBrokenCount = m.execution.plannedOrder.length;
+  assert.doesNotThrow(() => validateExecutionManifest(nudged));
 });
 
 // @req PERF-BGSTAB-012

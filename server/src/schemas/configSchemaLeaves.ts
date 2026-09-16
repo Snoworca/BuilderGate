@@ -21,6 +21,28 @@ import type { ZodType } from 'zod';
 /** Guards against a cycle in a malformed schema turning the walk into a hang. */
 const MAX_UNWRAP_DEPTH = 100;
 
+/**
+ * Kinds whose inner schema is the same value seen through a modifier.
+ *
+ * Only these are stripped. Chasing `innerType` for any kind that happens to have
+ * one is what let `z.promise(z.object(...))` pass as its own payload object: the
+ * promise is not a configuration value the operator writes, but the walk
+ * silently descended through it and emitted the payload's keys as config leaves.
+ * Restricting the strip to declared wrappers makes every other container reach
+ * the leaf-kind allowlist below and be refused by name.
+ */
+const TRANSPARENT_WRAPPER_KINDS = new Set([
+  'optional', 'ZodOptional',
+  'nullable', 'ZodNullable',
+  'default', 'ZodDefault',
+  'prefault', 'ZodPrefault',
+  'catch', 'ZodCatch',
+  'readonly', 'ZodReadonly',
+  'nonoptional', 'ZodNonOptional',
+  'branded', 'ZodBranded',
+  'effects', 'ZodEffects',
+]);
+
 interface ZodInternals {
   readonly _def?: {
     readonly type?: string;
@@ -71,40 +93,75 @@ function unwrap(schema: unknown, preferInput = false): unknown {
       return current;
     }
 
-    if (def.innerType !== undefined) { current = def.innerType; continue; }
-    if (def.schema !== undefined) { current = def.schema; continue; }
+    const kind = kindOf(current);
+    if (kind !== undefined && TRANSPARENT_WRAPPER_KINDS.has(kind)) {
+      if (def.innerType !== undefined) { current = def.innerType; continue; }
+      if (def.schema !== undefined) { current = def.schema; continue; }
+    }
     return current;
   }
   return current;
 }
 
 /**
- * Zod kinds that carry child schemas the walk would otherwise swallow.
+ * Zod kinds that are genuine leaves: a single value the operator writes.
  *
- * A union, record, lazy, intersection or tuple is not an object schema, so
- * `shapeOf` returns null for it and the whole subtree collapses into a single
- * leaf — silently, and with the leaf count still looking plausible. None of
- * these occurs in the config schema today, which is exactly why the failure
- * would go unnoticed if one were introduced. `array` is deliberately absent:
- * `z.array(z.string())` is a genuine leaf, because the operator sets it as one
- * value.
+ * This is an allowlist rather than a list of known-bad kinds, because the
+ * failure it guards against is silent. Anything that is not an object and not
+ * listed here — a union, record, lazy, intersection, tuple, map, set, promise,
+ * function or custom — carries structure that `shapeOf` cannot see, so it would
+ * collapse into one leaf with the leaf count still looking plausible. A denylist
+ * only catches the kinds someone thought of in advance; an allowlist makes every
+ * unanticipated kind an immediate, named failure.
+ *
+ * `array` is deliberately present: `z.array(z.string())` is a genuine leaf,
+ * because the operator sets it as one value. Both the zod3 (`ZodString`) and
+ * zod4 (`string`) spellings are listed so the walk does not silently start
+ * throwing on a major-version bump.
  */
-const UNSUPPORTED_COMPOSITE_KINDS = new Set([
-  'union', 'ZodUnion',
-  'discriminatedUnion', 'ZodDiscriminatedUnion',
-  'record', 'ZodRecord',
-  'lazy', 'ZodLazy',
-  'intersection', 'ZodIntersection',
-  'tuple', 'ZodTuple',
+const LEAF_KINDS = new Set([
+  'string', 'ZodString',
+  'number', 'ZodNumber',
+  'boolean', 'ZodBoolean',
+  'literal', 'ZodLiteral',
+  'enum', 'ZodEnum',
+  'nativeEnum', 'ZodNativeEnum',
+  'array', 'ZodArray',
+  'date', 'ZodDate',
+  'null', 'ZodNull',
+  'undefined', 'ZodUndefined',
+  'any', 'ZodAny',
+  'unknown', 'ZodUnknown',
 ]);
+
+/**
+ * The kind a non-object node ultimately resolves to.
+ *
+ * `unwrap` stops at a pipe whose endpoints are not objects, which is what
+ * `auth.password` (`z.preprocess(fn, z.string()).default('')`) resolves to. The
+ * pipe is not itself a leaf kind, so the allowlist has to be applied to what the
+ * pipe produces rather than to the pipe.
+ */
+function leafKindOf(schema: unknown): string | undefined {
+  let current = schema;
+  for (let depth = 0; depth < MAX_UNWRAP_DEPTH; depth += 1) {
+    const kind = kindOf(current);
+    if (kind !== 'pipe' && kind !== 'ZodPipeline' && kind !== 'ZodEffects') return kind;
+    const def = defOf(current);
+    const next = def?.out ?? def?.in ?? def?.schema;
+    if (next === undefined) return kind;
+    current = unwrap(next);
+  }
+  return kindOf(current);
+}
 
 function shapeOf(schema: unknown, path: string): Record<string, unknown> | null {
   const unwrapped = unwrap(schema) as ZodInternals | undefined;
   if (!isObjectSchema(unwrapped)) {
-    const kind = kindOf(unwrapped);
-    if (kind !== undefined && UNSUPPORTED_COMPOSITE_KINDS.has(kind)) {
+    const kind = leafKindOf(unwrapped);
+    if (kind === undefined || !LEAF_KINDS.has(kind)) {
       throw new Error(
-        `configSchemaLeaves cannot walk ${kind} at ${path || '<root>'}: its child schemas would collapse into a single leaf. Teach the walker this kind before using it in the config schema.`,
+        `configSchemaLeaves cannot walk ${kind ?? 'an unrecognised schema'} at ${path || '<root>'}: it is not an object and not an allowlisted leaf kind, so any child schemas it carries would collapse into a single leaf. Teach the walker this kind before using it in the config schema.`,
       );
     }
     return null;

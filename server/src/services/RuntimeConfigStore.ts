@@ -165,6 +165,14 @@ const RESERVED_WAVE6_SETTING_KEY_SET = new Set<EditableSettingsKey>(RESERVED_WAV
 // therefore a frozen view over the internal set rather than the set itself, so
 // the read-only claim survives the cast. `EDITABLE_SETTINGS_KEYS` beside it is
 // already frozen; this makes the pair consistent.
+//
+// The trade-off that buys: this object is not a `Set`. `instanceof Set` is false
+// for it, and it implements only the members `ReadonlySet` declares under the
+// current TypeScript `lib`. If that `lib` is raised to one where `ReadonlySet`
+// also declares the ES2025 composition methods (`union`, `intersection`,
+// `difference`, `isSubsetOf`, …), this cast stops type-checking and a caller
+// reaching for one of them would fail at run time today. The fix at that point
+// is to add the missing members here, not to hand out the real Set.
 export const RESERVED_WAVE6_SETTING_KEYS: ReadonlySet<EditableSettingsKey> = Object.freeze({
   get size() {
     return RESERVED_WAVE6_SETTING_KEY_SET.size;

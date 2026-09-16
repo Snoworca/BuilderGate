@@ -275,13 +275,23 @@ export function createTerminalWorkloadCorpus(): BenchmarkWorkload[] {
  * The order the measurement loop will walk.
  *
  * This is a pure function of the selection so that the manifest can carry the
- * order and `runTerminalCharacterization` can prove it followed it: the runner
- * records what it actually executed and fails if the two differ. Without that
- * check the field would be a declaration, which AC-2 explicitly does not accept.
+ * order before the run and a reader can reproduce it. The runner walks exactly
+ * this array, so the executed arm sequence is this sequence; what the run adds
+ * is a completion timestamp per unit.
  *
  * Trial-major, then workload, then mode, with the mode sequence rotated by trial
  * index. Rotating matters because a fixed mode order gives the first mode of each
  * group a consistently colder cache than the last.
+ *
+ * The rotation stops at two arms, and that is not a special case for its own
+ * sake. Each group is one full pass over the arms, so the step after a group is
+ * the rotation's first arm and the step before it is the rotation's last. With a
+ * per-trial rotation of one, those two are `r + n - 1` and `r + 1`, which differ
+ * modulo `n` for every `n` except 2 — at two arms a rotating plan produces
+ * `A B | B A`, a same-arm pair across the trial boundary. Two arms cannot both
+ * alternate and rotate, and alternation is the property `assertInterleaved`
+ * enforces and the one that matters, so with two arms the order is fixed. With
+ * three or more, rotating keeps alternation at every group and trial boundary.
  */
 export function planExecutionOrder(
   modes: readonly BenchmarkMode[],
@@ -289,10 +299,12 @@ export function planExecutionOrder(
   trialCount: number,
 ): BenchmarkExecutionStep[] {
   const order: BenchmarkExecutionStep[] = [];
+  const rotateByTrial = modes.length > 2;
   for (let trial = 1; trial <= trialCount; trial += 1) {
+    const rotation = rotateByTrial ? trial - 1 : 0;
     for (let workloadIndex = 0; workloadIndex < workloadCount; workloadIndex += 1) {
       for (let offset = 0; offset < modes.length; offset += 1) {
-        const mode = modes[(offset + trial - 1) % modes.length];
+        const mode = modes[(offset + rotation) % modes.length];
         order.push({
           sequence: order.length,
           mode,
@@ -388,7 +400,7 @@ export function createTerminalCharacterizationManifest(
     // runTerminalCharacterization has actually walked it, because an order this
     // function could fill in would be a declaration wearing an observed label.
     execution: {
-      derivedFrom: 'execution',
+      derivedFrom: 'planned-sequence-with-observed-completions',
       interleaved: selectedModeIds.length > 1,
       strategy: 'Measurement is ordered trial-major, then workload, then mode, with the mode sequence rotated by trial index. Consecutive units therefore differ in mode, so drift in machine state over the run is spread across the arms instead of landing on whichever arm ran last.',
       plannedOrder: planExecutionOrder(
@@ -397,6 +409,9 @@ export function createTerminalCharacterizationManifest(
         DEFAULT_TRIAL_COUNT,
       ),
       order: [],
+      // No unit has run, so no timestamp has been taken and none has been
+      // tie-broken. The runner overwrites this with the count it observed.
+      tieBrokenCount: 0,
     },
     // @req PERF-BGSTAB-012 AC-3
     visibilityFactor: createVisibilityFactor(),
@@ -447,6 +462,7 @@ export async function runTerminalCharacterization(
   // Measurement walks the planned order and records each unit as it completes.
   const executedOrder: BenchmarkObservedExecutionStep[] = [];
   let previousObservedAtMs = -Infinity;
+  let tieBrokenCount = 0;
   for (const step of manifest.execution.plannedOrder) {
     const workload = manifest.workloads[step.workloadIndex];
     const caseObservation = caseByKey.get(`${step.mode}:${step.workloadIndex}`);
@@ -462,27 +478,25 @@ export async function runTerminalCharacterization(
       step.trialId,
       metricInterval,
     ));
-    // Deliberately NOT `{ ...step }`. `mode` comes from the case that was
-    // actually looked up and measured, and `workloadIndex` from the position of
-    // the workload object that was actually passed to the measurement. Copying
-    // either out of the plan would make the comparison below tautological.
-    const observedAtMs = nextObservedTimestamp(previousObservedAtMs);
-    previousObservedAtMs = observedAtMs;
+    // `mode`, `workloadIndex` and `trialId` are the planned values. This loop
+    // has no branch that could walk anything other than `plannedOrder`, so the
+    // executed arm sequence is the planned one; the timestamp below is the part
+    // the plan cannot supply.
+    const observed = nextObservedTimestamp(previousObservedAtMs);
+    if (observed.tieBroken) tieBrokenCount += 1;
+    previousObservedAtMs = observed.value;
     executedOrder.push({
       sequence: executedOrder.length,
       mode: caseObservation.mode,
       workloadIndex: manifest.workloads.indexOf(workload),
       trialId: step.trialId,
-      observedAtMs,
+      observedAtMs: observed.value,
     });
   }
 
-  // The claim `derivedFrom: 'execution'` is only true if this holds. Comparing
-  // rather than simply overwriting means a loop that silently skipped or
-  // reordered work fails here instead of publishing a plan as though it were an
-  // observation.
   assertExecutedOrderMatchesPlan(manifest.execution.plannedOrder, executedOrder);
   manifest.execution.order = executedOrder;
+  manifest.execution.tieBrokenCount = tieBrokenCount;
   validateExecutionManifest(manifest);
 
   return {
@@ -503,13 +517,21 @@ export async function runTerminalCharacterization(
  * total order for the timestamps to witness a sequence at all, so a tie is
  * broken by the smallest representable step above the previous reading. That
  * nudge is bounded by clock resolution and never moves a step past the next one.
+ *
+ * `tieBroken` says which of the two happened, because the nudge is a fabricated
+ * value. On a host whose clock does not advance at all, every reading after the
+ * first would be `previous + ulp` and the validator's strictly-increasing check
+ * would pass on a ramp nothing measured. The caller counts these into
+ * `execution.tieBrokenCount` so that run is distinguishable from a healthy one.
  */
-function nextObservedTimestamp(previous: number): number {
+function nextObservedTimestamp(previous: number): { value: number; tieBroken: boolean } {
   const now = performance.now();
   if (!Number.isFinite(previous)) {
-    return now;
+    return { value: now, tieBroken: false };
   }
-  return now > previous ? now : nextAfter(previous);
+  return now > previous
+    ? { value: now, tieBroken: false }
+    : { value: nextAfter(previous), tieBroken: true };
 }
 
 function nextAfter(value: number): number {
@@ -523,6 +545,17 @@ function nextAfter(value: number): number {
 }
 
 // @req PERF-BGSTAB-012 AC-2
+/**
+ * A cheap structural guard on the walk, and no more than that.
+ *
+ * It does NOT detect reordering. The runner iterates `plannedOrder` directly and
+ * copies each step's `mode`, `workloadIndex` and `trialId`, so those fields
+ * cannot differ from the plan and comparing them proves nothing. What the length
+ * check does catch is a walk that ended early or ran long — a `break` or a
+ * duplicated push — which would otherwise publish a partial run under a full
+ * plan. The per-field loop is kept as a guard against a future refactor that
+ * stops copying, at which point it would start doing real work.
+ */
 function assertExecutedOrderMatchesPlan(
   planned: readonly BenchmarkExecutionStep[],
   executed: readonly BenchmarkExecutionStep[],
