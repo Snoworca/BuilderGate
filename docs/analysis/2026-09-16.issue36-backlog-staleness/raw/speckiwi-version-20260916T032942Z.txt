@@ -1,0 +1,5 @@
+# captured 20260916T032942Z
+$ npx speckiwi --version
+3.0.0
+$ node --version
+v24.21.0
