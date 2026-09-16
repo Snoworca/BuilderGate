@@ -190,9 +190,9 @@ test('OBS-BGSTAB-009 AC-2 measures the boundary on the production path, where it
     });
 
     assert.notEqual(
-      geometry.expected,
+      probed.measuredFiringBoundaryLogicalLines,
       geometry.rows + 1,
-      'the geometry must be one where rows + 1 is the wrong answer',
+      'the producer must not land on rows + 1 at a wrapping geometry',
     );
     assert.equal(
       probed.measuredFiringBoundaryLogicalLines,
@@ -405,4 +405,37 @@ test('MIG-BGSTAB-005 AC-1..AC-3 pins the PR decomposition and rollback gate map'
       );
     }
   }
+});
+
+test('OBS-BGSTAB-009 AC-2 records a probe trail that carries no information beyond the boundary', async () => {
+  // Deliberately a characterization, not a gate.
+  //
+  // Round 7 tried to use `probeObservations` to prove that a search actually
+  // happened. It cannot: the trail is fully determined by the boundary. The
+  // ascending probe stops at the first count that loses, and loss there is
+  // always exactly 1, so the trail is always `[0, 0, ..., 0, 1]` of length
+  // `boundary`. An implementation that computes the boundary analytically from
+  // one measurement can emit a byte-identical trail, and it is not cheating --
+  // it measured, it just used a better algorithm.
+  //
+  // This test pins that fact so nobody builds another false gate on the trail.
+  // The property that matters -- the boundary reflects measurement rather than
+  // a constant derived from `rows` -- is enforced by the wrapped-geometry test
+  // above, which needs no injection.
+  const probed = await measureRefreshTruncationFiringBoundary({
+    cols: 8,
+    rows: 10,
+    scrollbackLines: 1000,
+    maxProbeLogicalLines: 40,
+  });
+  const boundary = probed.measuredFiringBoundaryLogicalLines!;
+  const canonical = Array.from({ length: boundary }, (_unused, index) => ({
+    logicalLines: index + 1,
+    observedLossLogicalLines: index + 1 === boundary ? 1 : 0,
+  }));
+  assert.deepEqual(
+    probed.probeObservations,
+    canonical,
+    'if this ever differs, the trail has become informative and could gate provenance',
+  );
 });

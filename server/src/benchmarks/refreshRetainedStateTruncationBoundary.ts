@@ -264,9 +264,16 @@ export interface RefreshTruncationFiringBoundary {
   /** Largest probed count that still lost nothing. */
   largestLosslessLogicalLines: number;
   /**
-   * Every logical-line count the probe actually evaluated, in order, with the
-   * loss it observed there. This is the search's own audit trail: a producer
-   * that returned a boundary without searching cannot populate it consistently.
+   * Every logical-line count the probe evaluated, in order, with the loss it
+   * observed there.
+   *
+   * Descriptive metadata only. It is NOT evidence that a search happened and
+   * cannot be used as one: the trail is fully determined by the boundary
+   * (`[0, ..., 0, 1]` of length `boundary`, because the probe stops at the
+   * first losing count and loss there is always exactly 1). Any producer that
+   * knows the boundary can emit a byte-identical trail. Non-derivation is
+   * enforced instead by the wrapped-geometry probes, where `rows + 1` is the
+   * wrong answer and no test hook is involved.
    */
   probeObservations: readonly { logicalLines: number; observedLossLogicalLines: number }[];
   /** Upper bound the probe was allowed to reach. */
