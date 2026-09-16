@@ -95,8 +95,7 @@ test('OBS-BGSTAB-009 AC-2 pins the firing boundary at the first logical line abo
 
 test('OBS-BGSTAB-009 AC-2 rejects a boundary that was reported without searching', async () => {
   // Round-4 review built a producer that returned `rows + 1` with the right
-  // label and passed the whole suite. Counting real evaluations is the only
-  // assertion that distinguishes a search from an assertion about `rows`.
+  // label and passed the whole suite. Counting real evaluations rules that out.
   const evaluated: number[] = [];
   const probed = await measureRefreshTruncationFiringBoundary({
     ...FIXTURE,
@@ -119,6 +118,52 @@ test('OBS-BGSTAB-009 AC-2 rejects a boundary that was reported without searching
     'every recorded observation must correspond to a real evaluation',
   );
   assert.equal(evaluated.length > 1, true, 'a single evaluation is not a search');
+});
+
+test('OBS-BGSTAB-009 AC-2 reports the boundary its measurements show, not one derived from rows', async () => {
+  // Round-5 review showed that counting calls is orthogonal to derivation: a
+  // producer can call `measure` the right number of times, discard every
+  // result, and still return `rows + 1`. The only assertion that separates a
+  // real search from arithmetic is an oracle whose answer is NOT `rows + 1`.
+  const syntheticBoundary = 7;
+  assert.notEqual(
+    syntheticBoundary,
+    FIXTURE.rows + 1,
+    'the oracle must disagree with the arithmetic a faking producer would use',
+  );
+
+  const template = await measureRefreshRetainedStateBoundary({ ...FIXTURE, logicalLines: 1 });
+  const evaluated: number[] = [];
+  const probed = await measureRefreshTruncationFiringBoundary({
+    ...FIXTURE,
+    maxProbeLogicalLines: 40,
+    measure: async (input) => {
+      evaluated.push(input.logicalLines);
+      return {
+        ...template,
+        producedLogicalLineCount: input.logicalLines,
+        observedLossLogicalLines: input.logicalLines >= syntheticBoundary ? 3 : 0,
+      };
+    },
+  });
+
+  assert.equal(
+    probed.measuredFiringBoundaryLogicalLines,
+    syntheticBoundary,
+    'the producer must follow the measurements it received',
+  );
+  assert.equal(probed.largestLosslessLogicalLines, syntheticBoundary - 1);
+  assert.equal(probed.probedThroughLogicalLines, syntheticBoundary);
+  assert.deepEqual(
+    evaluated,
+    Array.from({ length: syntheticBoundary }, (_unused, index) => index + 1),
+    'the search must stop as soon as the oracle reports loss',
+  );
+  assert.deepEqual(
+    probed.probeObservations.map((observation) => observation.observedLossLogicalLines),
+    [...Array.from({ length: syntheticBoundary - 1 }, () => 0), 3],
+    'the audit trail must record the values the oracle actually returned',
+  );
 });
 
 test('OBS-BGSTAB-009 AC-2 measures the firing boundary at a second, different geometry', async () => {
