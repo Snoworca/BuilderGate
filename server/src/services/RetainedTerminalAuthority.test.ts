@@ -938,6 +938,16 @@ function readConsumerLogicalLines(
   return lines;
 }
 
+// Mirrors the retained attribute contract, deliberately reimplemented rather
+// than imported so this stays an independent baseline. A palette slot below 16
+// is one attribute whether it arrived as `ESC[33m` (P16) or `ESC[38;5;3m`
+// (P256); the serializer only ever re-emits the short form.
+// @req FR-BGSTAB-027 AC-2
+function canonicalPaletteColorToken(mode: number, color: number): [number, number] {
+  const isShortFormPalette = mode === 0x01000000 && color >= 0 && color <= 15;
+  return isShortFormPalette ? [0x02000000, color] : [mode, color];
+}
+
 function hashConsumerBuffer(
   state: HeadlessTerminalState,
   bufferType: 'normal' | 'alternate',
@@ -957,7 +967,8 @@ function hashConsumerBuffer(
         ? [x, current.getChars(), current.getCode(), current.getWidth()]
         : [
             x,
-            current.getFgColorMode(), current.getFgColor(), current.getBgColorMode(), current.getBgColor(),
+            ...canonicalPaletteColorToken(current.getFgColorMode(), current.getFgColor()),
+            ...canonicalPaletteColorToken(current.getBgColorMode(), current.getBgColor()),
             current.isBold(), current.isDim(), current.isItalic(), current.isUnderline(), current.isBlink(),
             current.isInverse(), current.isInvisible(), current.isStrikethrough(), current.isOverline(),
           ]);

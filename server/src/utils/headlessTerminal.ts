@@ -690,6 +690,27 @@ interface RetainedBufferView {
   getNullCell(): RepairCell;
 }
 
+// xterm stores an ANSI palette colour under two interchangeable modes: the
+// 16-colour short form (`ESC[33m`) as P16 and the indexed form (`ESC[38;5;3m`)
+// as P256. Both name the same palette slot and render identically, but
+// @xterm/addon-serialize always re-emits slots 0..15 in the short form. A
+// checkpoint minted from indexed SGR therefore rehydrates as P16 and the
+// attribute hash diverges on content that is byte-for-byte equivalent on
+// screen, which permanently fails the retained-state promotion parity gate.
+// Canonicalizing P16 onto the shared palette index removes that false
+// mismatch. DEFAULT and RGB are left alone: they are genuinely other modes.
+// @req FR-BGSTAB-027 AC-2 AC-3
+const XTERM_COLOR_MODE_P16 = 0x01000000;
+const XTERM_COLOR_MODE_P256 = 0x02000000;
+const XTERM_PALETTE_16_SIZE = 16;
+
+function canonicalPaletteColor(mode: number, color: number): readonly [number, number] {
+  if (mode === XTERM_COLOR_MODE_P16 && color >= 0 && color < XTERM_PALETTE_16_SIZE) {
+    return [XTERM_COLOR_MODE_P256, color];
+  }
+  return [mode, color];
+}
+
 function projectRetainedBuffer(
   buffer: RetainedBufferView,
   startRow: number,
@@ -723,8 +744,8 @@ function projectRetainedBuffer(
       cellTokens.push([x, current.getChars(), current.getCode(), current.getWidth()]);
       attributeTokens.push([
         x,
-        current.getFgColorMode(), current.getFgColor(),
-        current.getBgColorMode(), current.getBgColor(),
+        ...canonicalPaletteColor(current.getFgColorMode(), current.getFgColor()),
+        ...canonicalPaletteColor(current.getBgColorMode(), current.getBgColor()),
         current.isBold(), current.isDim(), current.isItalic(), current.isUnderline(),
         current.isBlink(), current.isInverse(), current.isInvisible(),
         current.isStrikethrough(), current.isOverline(),

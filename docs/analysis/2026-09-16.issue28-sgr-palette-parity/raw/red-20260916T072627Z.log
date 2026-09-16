@@ -1,0 +1,93 @@
+✖ FR-BGSTAB-027 AC-1 indexed SGR palette slots 0..15 survive the checkpoint round trip (198.347581ms)
+✖ FR-BGSTAB-027 AC-4 an SGR-dense scrollback keeps every principal comparer axis matching (824.990625ms)
+✖ FR-BGSTAB-027 AC-2 P16 short form and P256 indexed form of one palette slot hash alike (12.038193ms)
+✔ FR-BGSTAB-027 AC-3 palette normalization still distinguishes genuinely different attributes (18.502889ms)
+✔ BOUNDARY CONTROL — indexed slots at or above 16 were already round-trip stable (22.864511ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 2
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1895.018961
+
+✖ failing tests:
+
+test at src/utils/retainedCheckpointSgrParity.test.ts:1:1284
+✖ FR-BGSTAB-027 AC-1 indexed SGR palette slots 0..15 survive the checkpoint round trip (198.347581ms)
+  AssertionError [ERR_ASSERTION]: indexed palette slots 0..15 must not make the cells axis mismatch
+  + actual - expected
+  
+  + [
+  +   0,
+  +   1,
+  +   2,
+  +   3,
+  +   4,
+  +   5,
+  +   6,
+  +   7,
+  +   8,
+  +   9,
+  +   10,
+  +   11,
+  +   12,
+  +   13,
+  +   14,
+  +   15
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/retainedCheckpointSgrParity.test.ts:65:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [
+       0,  1,  2,  3,  4,  5,
+       6,  7,  8,  9, 10, 11,
+      12, 13, 14, 15
+    ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at src/utils/retainedCheckpointSgrParity.test.ts:1:1746
+✖ FR-BGSTAB-027 AC-4 an SGR-dense scrollback keeps every principal comparer axis matching (824.990625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'mismatch'
+  - 'match'
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/retainedCheckpointSgrParity.test.ts:83:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'mismatch',
+    expected: 'match',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/utils/retainedCheckpointSgrParity.test.ts:2:263
+✖ FR-BGSTAB-027 AC-2 P16 short form and P256 indexed form of one palette slot hash alike (12.038193ms)
+  AssertionError [ERR_ASSERTION]: foreground SGR 30 must hash like indexed slot 0
+  + actual - expected
+  
+  + 'f94c3bd8adf50d5ad0cca9aff5814405504d64d557679334bef66ede9a1125a3'
+  - '68e80ae9835cb43fe1fa49af22f36d795eba8fa911615a29a21848c2bb4bb9ba'
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/retainedCheckpointSgrParity.test.ts:94:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'f94c3bd8adf50d5ad0cca9aff5814405504d64d557679334bef66ede9a1125a3',
+    expected: '68e80ae9835cb43fe1fa49af22f36d795eba8fa911615a29a21848c2bb4bb9ba',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
