@@ -4,7 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const originalListen = net.Server.prototype.listen;
-const namePattern = new RegExp(`^buildergate-http-${process.pid}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`, 'i');
+// Owned local endpoints are named `buildergate-<kind>-<pid>-<uuid>`. The kind
+// set is closed: `http` for the local HTTP fixture helper, `ws` for the
+// WsRouter restore-metadata harness. Both are unix sockets or named pipes,
+// never TCP, so both are forwarded; any other kind is rejected.
+const OWNED_ENDPOINT_KINDS = ['http', 'ws'];
+const namePattern = new RegExp(`^buildergate-(?:${OWNED_ENDPOINT_KINDS.join('|')})-${process.pid}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`, 'i');
 function ownedEndpoint(value) {
   if (typeof value !== 'string') return false;
   if (process.platform === 'win32') {
@@ -26,7 +31,7 @@ net.Server.prototype.listen = function (...args) {
     })}\n`, 'utf8');
   }
   if (!allowed) {
-    const error = new Error('B0_FORBIDDEN_TCP_LISTEN: HTTP fixtures must use their owned local endpoint');
+    const error = new Error('B0_FORBIDDEN_TCP_LISTEN: test fixtures must listen on their owned local endpoint (buildergate-<kind>-<pid>-<uuid>)');
     error.code = 'B0_FORBIDDEN_TCP_LISTEN';
     throw error;
   }

@@ -1,0 +1,12 @@
+# glob nonempty proof at HEAD a6c7edc37869baf868c6764af2418d8d9ce0496d, cwd=server/, 20260916T204019Z
+orig-9.4 glob src/services/*.test.ts -> 28
+orig-9.4 glob src/ws/*.test.ts -> 25
+orig-9.4 glob src/utils/*.test.ts -> 8
+orig-9.4 union -> 61
+RG-06 superset find src -name '*.test.ts' -> 79
+RG-06 T2 selected (boot excluded) -> 78
+monolithic registered array entries -> 541
+server/tools/*.test.* -> 4
+--- superset check: orig-9.4 minus RG-06 selection ---
+src/ws/terminalWireFormatBoot.test.ts
+(empty above means no loss; terminalWireFormatBoot is covered separately in tier C)

@@ -1,0 +1,17 @@
+# post-tierC WSL listening sockets (ss -ltnp), 20260916T203806Z
+State  Recv-Q Send-Q  Local Address:Port Peer Address:PortProcess
+LISTEN 0      1000   10.255.255.254:53        0.0.0.0:*          
+LISTEN 0      4096    127.0.0.53%lo:53        0.0.0.0:*          
+LISTEN 0      4096       127.0.0.54:53        0.0.0.0:*          
+# windows view
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    127.0.0.1:22112        0.0.0.0:0              LISTENING       6036
+  TCP    127.0.0.1:24282        0.0.0.0:0              LISTENING       23024
+  TCP    127.0.0.1:24283        0.0.0.0:0              LISTENING       65876
+  TCP    127.0.0.1:24284        0.0.0.0:0              LISTENING       4364
+  TCP    127.0.0.1:24285        0.0.0.0:0              LISTENING       22120
+  TCP    127.0.0.1:32847        0.0.0.0:0              LISTENING       47524
+  TCP    127.0.0.1:34581        0.0.0.0:0              LISTENING       17840
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596

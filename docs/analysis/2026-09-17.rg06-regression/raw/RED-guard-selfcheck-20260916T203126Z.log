@@ -1,0 +1,18 @@
+/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/require-owned-http-test-pipe.cjs:31
+    throw error;
+    ^
+
+Error: B0_FORBIDDEN_TCP_LISTEN: HTTP fixtures must use their owned local endpoint
+    at net.Server.listen (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/require-owned-http-test-pipe.cjs:29:19)
+    at Object.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/test-owned-http-test-pipe.cjs:36:21)
+    at Module._compile (node:internal/modules/cjs/loader:1929:14)
+    at Object..js (node:internal/modules/cjs/loader:2060:10)
+    at Module.load (node:internal/modules/cjs/loader:1651:32)
+    at Module._load (node:internal/modules/cjs/loader:1443:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'B0_FORBIDDEN_TCP_LISTEN'
+}
+
+Node.js v24.21.0

@@ -1,0 +1,2 @@
+# Evidence logs must be tracked; root .gitignore excludes *.log
+!*.log
