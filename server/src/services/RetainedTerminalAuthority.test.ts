@@ -938,10 +938,16 @@ function readConsumerLogicalLines(
   return lines;
 }
 
-// Mirrors the retained attribute contract, deliberately reimplemented rather
-// than imported so this stays an independent baseline. A palette slot below 16
-// is one attribute whether it arrived as `ESC[33m` (P16) or `ESC[38;5;3m`
-// (P256); the serializer only ever re-emits the short form.
+// The surrounding consumer-hash helper independently re-derives the token
+// layout, arity, field selection and hashing discipline rather than importing
+// them, and that part stays a genuine independent baseline. This palette
+// canonicalization rule, by contrast, is deliberately mirrored: it is part of
+// the shared retained-attribute contract, so this copy restates the rule rather
+// than double-checking it. The rule itself is covered by
+// `server/src/utils/retainedCheckpointSgrParity.test.ts`.
+// The rule: a palette slot below 16 is one attribute whether it arrived as
+// `ESC[33m` (P16) or `ESC[38;5;3m` (P256); the serializer only ever re-emits
+// the short form.
 // @req FR-BGSTAB-027 AC-2
 function canonicalPaletteColorToken(mode: number, color: number): [number, number] {
   const isShortFormPalette = mode === 0x01000000 && color >= 0 && color <= 15;

@@ -118,14 +118,22 @@ test('FR-BGSTAB-027 AC-3 palette normalization still distinguishes genuinely dif
   const trueColor = await attributeHash(`${ESC}[38;2;170;85;0mX${ESC}[0m`);
   const bold = await attributeHash(`${ESC}[1mX${ESC}[0m`);
 
+  // This is the anti-collapse control for the normalization: an implementation
+  // that collapsed every palette colour into one token would drop this Set from
+  // 7 to 5, because slot3/slot4/slot11 would then coincide.
   const distinct = new Set([plain, slot3, slot4, slot11, slot3Bg, trueColor, bold]);
   assert.equal(distinct.size, 7, 'distinct attributes must keep distinct attribute hashes');
 });
 
 // @req FR-BGSTAB-027 AC-3
 test('BOUNDARY CONTROL — indexed slots at or above 16 were already round-trip stable', async () => {
-  // Without this the AC-1 test would also pass if the normalization silently
-  // collapsed every palette colour into one token.
+  // This is a scope control, not an anti-collapse control: a collapsing
+  // implementation would still pass here, because both sides collapse
+  // identically and the rehydrateAnsi assertion inspects the serializer rather
+  // than the hash. What it does pin is that slots >= 16 were never affected by
+  // the P16/P256 divergence, and that the serializer's short-form re-emission
+  // is confined to 0..15. The anti-collapse control is the AC-3 distinctness
+  // test above.
   for (const index of [16, 42, 128, 255]) {
     const { axes, rehydrateAnsi } = await roundTripAxes(`${ESC}[38;5;${index}mX${ESC}[0m`);
     assert.equal(axes.cells, 'match');
