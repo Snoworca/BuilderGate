@@ -129,7 +129,17 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
 };
 
 const RESERVED_WAVE6_SETTING_REASON = 'Reserved outside the selected Wave6 Settings field set';
-const RESERVED_WAVE6_SETTING_KEYS = new Set<EditableSettingsKey>([
+
+// @req OPS-BGSTAB-011 AC-5
+// The editable Settings key set, derived from FIELD_SCOPES so the two cannot
+// diverge. Exported for the same reason as RESERVED_WAVE6_SETTING_KEYS.
+export const EDITABLE_SETTINGS_KEYS: readonly EditableSettingsKey[] =
+  Object.freeze(Object.keys(FIELD_SCOPES) as EditableSettingsKey[]);
+// @req OPS-BGSTAB-011 AC-5
+// Exported so the settings inventory reconciles against the live table instead
+// of a transcription of it. Read-only by contract: nothing outside this module
+// may mutate the set.
+export const RESERVED_WAVE6_SETTING_KEYS: ReadonlySet<EditableSettingsKey> = new Set<EditableSettingsKey>([
   'stabilityModes.headlessQueueMode',
   'stabilityModes.wsSendMode',
   'stabilityModes.frontendRuntimeResidency',

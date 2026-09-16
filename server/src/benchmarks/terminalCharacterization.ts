@@ -11,9 +11,11 @@ import {
   BENCHMARK_MODES,
   canonicalJson,
   type BenchmarkExecutionManifest,
+  type BenchmarkExecutionStep,
   type BenchmarkMode,
   type BenchmarkModeDescriptor,
   type BenchmarkRawSample,
+  type BenchmarkVisibilityFactor,
   type BenchmarkWorkload,
   validateExecutionManifest,
 } from './benchmarkStatistics.js';
@@ -215,19 +217,92 @@ export function getTerminalCharacterizationModes(): BenchmarkModeDescriptor[] {
   }));
 }
 
+const SESSION_COUNTS = [1, 8, 32, 54] as const;
+const CLIENT_COUNTS = [1, 2, 8] as const;
+
+/**
+ * The two visibility levels the corpus varies.
+ *
+ * `single-active` is what the Wave-1 corpus measured and the only level it had:
+ * one visible session with the rest hidden. `all-active` is its complement, every
+ * session visible. Those are the two extremes of the factor, so measuring both
+ * brackets the range rather than sampling one arbitrary point inside it.
+ */
+const VISIBILITY_LEVELS = ['single-active', 'all-active'] as const;
+
 // @req PERF-BGSTAB-008
+// @req PERF-BGSTAB-012 AC-3
 export function createTerminalWorkloadCorpus(): BenchmarkWorkload[] {
   const workloads: BenchmarkWorkload[] = [];
-  for (const sessions of [1, 8, 32, 54] as const) {
-    for (const clients of [1, 2, 8] as const) {
+  for (const sessions of SESSION_COUNTS) {
+    for (const clients of CLIENT_COUNTS) {
+      // single-active: the Wave-1 shape, kept identical so the previously
+      // measured cells stay comparable with the sealed run.
       workloads.push({
         sessions,
         clients,
         viewMix: { active: 1, hidden: sessions - 1 },
       });
+      // all-active is the same workload with nothing hidden. At one session the
+      // two levels are the same point, so emitting it twice would double the
+      // cost and report a varied factor where none exists; that cell is recorded
+      // as structurally unreachable instead (see visibilityFactor below).
+      if (sessions === 1) continue;
+      workloads.push({
+        sessions,
+        clients,
+        viewMix: { active: sessions, hidden: 0 },
+      });
     }
   }
   return workloads;
+}
+
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * The order the measurement loop will walk.
+ *
+ * This is a pure function of the selection so that the manifest can carry the
+ * order and `runTerminalCharacterization` can prove it followed it: the runner
+ * records what it actually executed and fails if the two differ. Without that
+ * check the field would be a declaration, which AC-2 explicitly does not accept.
+ *
+ * Trial-major, then workload, then mode, with the mode sequence rotated by trial
+ * index. Rotating matters because a fixed mode order gives the first mode of each
+ * group a consistently colder cache than the last.
+ */
+export function planExecutionOrder(
+  modes: readonly BenchmarkMode[],
+  workloadCount: number,
+  trialCount: number,
+): BenchmarkExecutionStep[] {
+  const order: BenchmarkExecutionStep[] = [];
+  for (let trial = 1; trial <= trialCount; trial += 1) {
+    for (let workloadIndex = 0; workloadIndex < workloadCount; workloadIndex += 1) {
+      for (let offset = 0; offset < modes.length; offset += 1) {
+        const mode = modes[(offset + trial - 1) % modes.length];
+        order.push({
+          sequence: order.length,
+          mode,
+          workloadIndex,
+          trialId: `trial-${trial}`,
+        });
+      }
+    }
+  }
+  return order;
+}
+
+// @req PERF-BGSTAB-012 AC-3
+function createVisibilityFactor(): BenchmarkVisibilityFactor {
+  return {
+    levels: [...VISIBILITY_LEVELS],
+    structurallyUnreachable: CLIENT_COUNTS.map(clients => ({
+      sessions: 1,
+      clients,
+      reason: 'A single session is either visible or hidden, so single-active and all-active are the same point; there is no second visibility level to measure.',
+    })),
+  };
 }
 
 // @req PERF-BGSTAB-008
@@ -286,6 +361,29 @@ export function createTerminalCharacterizationManifest(
       durationMs: DEFAULT_TRIAL_DURATION_MS,
       deltaSemantics: 'after-minus-before for cumulative metrics; interval statistic for mean/p99/CPU',
     },
+    // @req PERF-BGSTAB-012 AC-1
+    outlierPolicy: {
+      rule: 'retain-all',
+      rationale: 'Each summary group aggregates exactly one sample per trial, and the trial count is 3. Discarding any observation would leave two, which is too few to bootstrap a median confidence interval from. Every sample is therefore retained, and this field records that as a decision rather than leaving it to be inferred from the absence of an exclusion list.',
+      parameters: {},
+      excludedSampleIds: [],
+    },
+    // @req PERF-BGSTAB-012 AC-2
+    // The plan. runTerminalCharacterization records the order it actually walked
+    // and asserts it equals this, so the field a reader sees is the executed
+    // order and not merely an intended one.
+    execution: {
+      derivedFrom: 'execution',
+      interleaved: true,
+      strategy: 'Measurement is ordered trial-major, then workload, then mode, with the mode sequence rotated by trial index. Consecutive units therefore differ in mode, so drift in machine state over the run is spread across the arms instead of landing on whichever arm ran last.',
+      order: planExecutionOrder(
+        getTerminalCharacterizationModes().filter(mode => modeIds.includes(mode.id)).map(mode => mode.id),
+        workloads.length,
+        DEFAULT_TRIAL_COUNT,
+      ),
+    },
+    // @req PERF-BGSTAB-012 AC-3
+    visibilityFactor: createVisibilityFactor(),
   };
   validateExecutionManifest(manifest);
   return manifest;
@@ -318,23 +416,45 @@ export async function runTerminalCharacterization(
     : [];
   const noRenderEvidence = fixtureEvidence[0];
 
+  // Case observations describe what each mode replaces or disables; they are
+  // setup, not measurement, so they stay grouped and do not enter the interleave.
+  const caseByKey = new Map<string, TerminalCharacterizationCase>();
   for (const mode of selectedModes) {
-    for (const workload of manifest.workloads) {
+    for (const [workloadIndex, workload] of manifest.workloads.entries()) {
       const caseObservation = await executeTerminalCase(mode, workload, payload, noRenderEvidence);
       cases.push(caseObservation);
-      for (let trial = 1; trial <= manifest.trials.count; trial += 1) {
-        const metricInterval = deterministicMetricSampler
-          ? createDeterministicMetricInterval(deterministicMetricSampler, manifest.trials.durationMs)
-          : await runActualSessionMetricInterval(mode, workload, payload, manifest.trials.durationMs);
-        rawSamples.push(...createMetricSamples(
-          manifest,
-          caseObservation,
-          `trial-${trial}`,
-          metricInterval,
-        ));
-      }
+      caseByKey.set(`${mode}:${workloadIndex}`, caseObservation);
     }
   }
+
+  // @req PERF-BGSTAB-012 AC-2
+  // Measurement walks the planned order and records each unit as it completes.
+  const executedOrder: BenchmarkExecutionStep[] = [];
+  for (const step of manifest.execution.order) {
+    const workload = manifest.workloads[step.workloadIndex];
+    const caseObservation = caseByKey.get(`${step.mode}:${step.workloadIndex}`);
+    if (!workload || !caseObservation) {
+      throw new Error(`execution step ${step.sequence} refers to a workload or case that does not exist`);
+    }
+    const metricInterval = deterministicMetricSampler
+      ? createDeterministicMetricInterval(deterministicMetricSampler, manifest.trials.durationMs)
+      : await runActualSessionMetricInterval(step.mode, workload, payload, manifest.trials.durationMs);
+    rawSamples.push(...createMetricSamples(
+      manifest,
+      caseObservation,
+      step.trialId,
+      metricInterval,
+    ));
+    executedOrder.push({ ...step, sequence: executedOrder.length });
+  }
+
+  // The claim `derivedFrom: 'execution'` is only true if this holds. Comparing
+  // rather than simply overwriting means a loop that silently skipped or
+  // reordered work fails here instead of publishing a plan as though it were an
+  // observation.
+  assertExecutedOrderMatchesPlan(manifest.execution.order, executedOrder);
+  manifest.execution.order = executedOrder;
+  validateExecutionManifest(manifest);
 
   return {
     manifest,
@@ -343,6 +463,27 @@ export async function runTerminalCharacterization(
     fixtureEvidence,
     executionOrder: ['manifest', 'raw-samples'],
   };
+}
+
+// @req PERF-BGSTAB-012 AC-2
+function assertExecutedOrderMatchesPlan(
+  planned: readonly BenchmarkExecutionStep[],
+  executed: readonly BenchmarkExecutionStep[],
+): void {
+  if (planned.length !== executed.length) {
+    throw new Error(
+      `execution order length mismatch: planned ${planned.length}, executed ${executed.length}`,
+    );
+  }
+  for (const [index, plannedStep] of planned.entries()) {
+    const executedStep = executed[index];
+    if (plannedStep.mode !== executedStep.mode
+      || plannedStep.workloadIndex !== executedStep.workloadIndex
+      || plannedStep.trialId !== executedStep.trialId
+      || plannedStep.sequence !== executedStep.sequence) {
+      throw new Error(`execution order diverged from the plan at step ${index}`);
+    }
+  }
 }
 
 // @req PERF-BGSTAB-008
@@ -873,6 +1014,22 @@ function createWorkloadExecutionId(
 }
 
 // @req PERF-BGSTAB-008
+// @req PERF-BGSTAB-012 AC-3
+/**
+ * The visibility segment of a sample ID.
+ *
+ * Sample IDs used to be `MODE:s{sessions}:c{clients}:{trial}:{metric}:{role}`.
+ * That was unique only while viewMix was a function of the session count. Once
+ * visibility became an independent factor, two workloads shared a cell and the
+ * ids collided — `aggregateBenchmarkSamples` caught it with "Duplicate raw
+ * sample ID". Encoding the mix keeps ids unique and keeps them readable, so a
+ * reader can tell the two visibility levels apart without joining back to the
+ * workload.
+ */
+function viewMixSegment(viewMix: { active: number; hidden: number }): string {
+  return `v${viewMix.active}-${viewMix.hidden}`;
+}
+
 function createMetricSamples(
   manifest: BenchmarkExecutionManifest,
   caseObservation: TerminalCharacterizationCase,
@@ -918,6 +1075,7 @@ function createMetricSamples(
           caseObservation.mode,
           `s${caseObservation.sessionCount}`,
           `c${caseObservation.clientCount}`,
+          viewMixSegment(caseObservation.viewMix),
           trialId,
           item.metric.metricName,
           roleSuffix || 'aggregate',
@@ -970,6 +1128,7 @@ function createMetricSamples(
             caseObservation.mode,
             `s${caseObservation.sessionCount}`,
             `c${caseObservation.clientCount}`,
+            viewMixSegment(caseObservation.viewMix),
             trialId,
             delivery.metric.metricName,
             comparator.clientId,

@@ -1,0 +1,17 @@
+{
+  "implementability": "high",
+  "product_fit": "core",
+  "rationale": "Items 1 and 2 are contract-only and require no runtime change. Item 3 reuses three existing inventory/scanner surfaces and is pinned by a test against the Zod schema. Item 4 modifies a harness that was measured to complete a full run in 100 seconds and already emits a validated machine-readable manifest.",
+  "code_evidence": [
+    "server/src/test-runner.ts#assert.doesNotMatch(construction, /wsTransportMode/u)",
+    "server/src/utils/retiredSettingsResidue.test.ts#RETIRED_LEAF_PATHS",
+    "server/src/services/RuntimeConfigStore.ts#FIELD_SCOPES",
+    "server/src/benchmarks/terminalCharacterization.ts#writeTerminalCharacterizationArtifacts"
+  ],
+  "blockers": [],
+  "conditions": [
+    "New benchmark artifacts must be written to a NEW directory; the Wave-1 artifacts are digest-sealed in PERF-BGSTAB-008 VE-2/VE-3 and MIG-BGSTAB-001 g1-evidence-audit.json.",
+    "Lifecycle demotion of FR-BGSTAB-006/007/015 requires user approval (OQ-1, OQ-2)."
+  ],
+  "external_module_required": false
+}

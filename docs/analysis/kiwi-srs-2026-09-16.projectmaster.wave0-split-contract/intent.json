@@ -1,0 +1,17 @@
+{
+  "summary": "Wave 0 contract gate for GitHub issue #3: resolve the split WebSocket contract drift with an explicit 0A/0B XOR decision, redirect FR-BGSTAB-015 toward semantic profiles plus a compatibility facade, fix a machine-readable settings inventory, and close the residual benchmark manifest gaps.",
+  "intent_type_hint": "update",
+  "key_entities": [
+    "FR-BGSTAB-006", "FR-BGSTAB-007", "FR-BGSTAB-015", "PERF-BGSTAB-008",
+    "REL-BGSTAB-006", "MIG-BGSTAB-001", "IR-BGSTAB-001",
+    "realtime.wsTransportMode", "realtime.terminalWireFormat",
+    "WsRouter", "parseWsTransportRequest", "buildControlWebSocketUrl",
+    "createTerminalWorkloadCorpus", "retiredSettingsResidue.test.ts"
+  ],
+  "ambiguities": [],
+  "implied_requirements": [
+    "Production transport boundary must be contracted, not merely observed.",
+    "Superseding must preserve the 2026-07-02 user-approved history of FR-BGSTAB-006/007."
+  ],
+  "semantic_equivalences": []
+}

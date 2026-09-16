@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "terminal-no-render-fixture-evidence",
+  "fixtureExecutionId": "no-render-ac7ded97bf86b799",
+  "source": "frontend/tests/benchmarks/terminalNoRenderFixtureEvidence.ts",
+  "mode": {
+    "id": "NO_RENDER",
+    "disabledLayers": [
+      "terminal-renderer"
+    ],
+    "replacedLayers": [
+      "terminal-write-consumer->benchmark-accounting-sink"
+    ],
+    "retainedLayers": [
+      "utf8-ingress",
+      "terminal-output-scheduler",
+      "queue-accounting"
+    ],
+    "controlComparator": "CONTROL_RENDER",
+    "fixture": "injected-terminal-write-consumer-v1"
+  },
+  "ingressDigest": "sha256:ac7ded97bf86b799f8668a5e205c8202647012dbe237934232f658c44bf6f7ec",
+  "control": {
+    "ingressDigest": "sha256:ac7ded97bf86b799f8668a5e205c8202647012dbe237934232f658c44bf6f7ec",
+    "rendererWriteCount": 1,
+    "writeConsumerInvocationCount": 1
+  },
+  "observation": {
+    "ingressDigest": "sha256:ac7ded97bf86b799f8668a5e205c8202647012dbe237934232f658c44bf6f7ec",
+    "rendererWriteCount": 0,
+    "accountingConsumerInvocationCount": 1,
+    "consumedBytes": 110
+  },
+  "contentDigest": "sha256:c03f1bbd117a0c1a86a83f7945f35428cd9246d76358ecacc9aff0e014dad3b2"
+}

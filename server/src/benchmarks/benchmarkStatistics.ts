@@ -82,6 +82,78 @@ export interface BenchmarkExecutionManifest {
     durationMs: number;
     deltaSemantics: string;
   };
+  // @req PERF-BGSTAB-012 AC-1
+  outlierPolicy: BenchmarkOutlierPolicy;
+  // @req PERF-BGSTAB-012 AC-2
+  execution: BenchmarkExecutionRecord;
+  // @req PERF-BGSTAB-012 AC-3
+  visibilityFactor: BenchmarkVisibilityFactor;
+}
+
+/**
+ * What the run did about outliers. PERF-BGSTAB-012 AC-1 requires this to be
+ * stated rather than implied: a manifest with no policy field is indistinguishable
+ * from one whose author never considered the question, and the Wave-1 manifest
+ * was exactly that.
+ *
+ * `retain-all` is a real policy, not a placeholder. This harness aggregates three
+ * trials per group, so discarding any of them would leave too few observations to
+ * bootstrap a confidence interval from; keeping all three and saying so is the
+ * honest answer at this sample size.
+ */
+export interface BenchmarkOutlierPolicy {
+  /** The rule applied, e.g. `retain-all`. */
+  rule: string;
+  /** Why that rule, in terms a later reader can re-evaluate. */
+  rationale: string;
+  /** Rule parameters, empty when the rule takes none. */
+  parameters: Record<string, number | string>;
+  /** Samples the rule removed before aggregation; empty under `retain-all`. */
+  excludedSampleIds: string[];
+}
+
+/** One unit of measured work, in the order it actually ran. */
+export interface BenchmarkExecutionStep {
+  /** Dense, ascending from zero, so a partial record cannot look complete. */
+  sequence: number;
+  mode: BenchmarkMode;
+  /** Index into `manifest.workloads`. */
+  workloadIndex: number;
+  trialId: string;
+}
+
+/**
+ * PERF-BGSTAB-012 AC-2. The Wave-1 manifest carried an `executionOrder` of
+ * `["manifest","raw-samples"]`, which is the order the artifacts were emitted in
+ * and says nothing about the order the arms ran in. This records the latter, and
+ * records that it was observed during the run rather than declared before it.
+ */
+export interface BenchmarkExecutionRecord {
+  /** Always `execution`: the order is captured as the run proceeds. */
+  derivedFrom: 'execution';
+  /** Whether arms alternate rather than running as contiguous blocks. */
+  interleaved: boolean;
+  /** How the interleave was produced, for a reader reproducing the run. */
+  strategy: string;
+  order: BenchmarkExecutionStep[];
+}
+
+/** A cell whose second visibility level cannot exist. */
+export interface BenchmarkVisibilityExclusion {
+  sessions: number;
+  clients: number;
+  reason: string;
+}
+
+/**
+ * PERF-BGSTAB-012 AC-3. Visibility used to be derived from the session count, so
+ * half the matrix never existed and nothing said so. This records both the levels
+ * that were varied and the cells where a second level is impossible.
+ */
+export interface BenchmarkVisibilityFactor {
+  /** The named levels the corpus varies, e.g. `single-active` and `all-active`. */
+  levels: string[];
+  structurallyUnreachable: BenchmarkVisibilityExclusion[];
 }
 
 export interface BenchmarkRawSample {
@@ -189,6 +261,9 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
     'metricSources',
     'modes',
     'sampleInterval',
+    'outlierPolicy',
+    'execution',
+    'visibilityFactor',
   ], 'manifest');
   requireInteger(manifest.schemaVersion, 'schemaVersion', 1);
   requireNonEmptyString(manifest.runId, 'runId');
@@ -301,6 +376,78 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
     assertAllowedKeys(interval, ['durationMs', 'deltaSemantics'], 'sampleInterval');
     requirePositiveNumber(interval.durationMs, 'sampleInterval.durationMs');
     requireNonEmptyString(interval.deltaSemantics, 'sampleInterval.deltaSemantics');
+  }
+
+  // @req PERF-BGSTAB-012 AC-1
+  // Required, not optional. An optional outlier policy would leave the Wave-1
+  // shape valid, and the whole point of AC-1 is that that shape is not.
+  const outlierPolicy = requireRecord(manifest.outlierPolicy, 'outlierPolicy');
+  assertAllowedKeys(
+    outlierPolicy,
+    ['rule', 'rationale', 'parameters', 'excludedSampleIds'],
+    'outlierPolicy',
+  );
+  requireNonEmptyString(outlierPolicy.rule, 'outlierPolicy.rule');
+  requireNonEmptyString(outlierPolicy.rationale, 'outlierPolicy.rationale');
+  requireRecord(outlierPolicy.parameters, 'outlierPolicy.parameters');
+  requireStringArray(outlierPolicy.excludedSampleIds, 'outlierPolicy.excludedSampleIds');
+  if (outlierPolicy.rule === 'retain-all'
+    && (outlierPolicy.excludedSampleIds as string[]).length > 0) {
+    throw new Error('outlierPolicy.rule retain-all cannot exclude samples');
+  }
+
+  // @req PERF-BGSTAB-012 AC-2
+  const execution = requireRecord(manifest.execution, 'execution');
+  assertAllowedKeys(execution, ['derivedFrom', 'interleaved', 'strategy', 'order'], 'execution');
+  if (execution.derivedFrom !== 'execution') {
+    throw new Error('execution.derivedFrom must be execution; a declared order is not evidence');
+  }
+  if (typeof execution.interleaved !== 'boolean') {
+    throw new Error('execution.interleaved must be boolean');
+  }
+  requireNonEmptyString(execution.strategy, 'execution.strategy');
+  if (!Array.isArray(execution.order) || execution.order.length === 0) {
+    throw new Error('execution.order must contain at least one step');
+  }
+  for (const [index, stepValue] of execution.order.entries()) {
+    const step = requireRecord(stepValue, `execution.order[${index}]`);
+    assertAllowedKeys(step, ['sequence', 'mode', 'workloadIndex', 'trialId'], `execution.order[${index}]`);
+    if (step.sequence !== index) {
+      throw new Error(`execution.order[${index}].sequence must equal ${index}`);
+    }
+    if (!BENCHMARK_MODES.includes(step.mode as BenchmarkMode)) {
+      throw new Error(`execution.order[${index}].mode is unsupported`);
+    }
+    requireInteger(step.workloadIndex, `execution.order[${index}].workloadIndex`);
+    requireNonNegativeNumber(step.workloadIndex, `execution.order[${index}].workloadIndex`);
+    // Bounding against the declared workloads is what makes the index mean
+    // something; an unbounded integer would let a step point at nothing.
+    if ((step.workloadIndex as number) >= (manifest.workloads as unknown[]).length) {
+      throw new Error(`execution.order[${index}].workloadIndex is outside the declared workloads`);
+    }
+    requireNonEmptyString(step.trialId, `execution.order[${index}].trialId`);
+  }
+
+  // @req PERF-BGSTAB-012 AC-3
+  const visibilityFactor = requireRecord(manifest.visibilityFactor, 'visibilityFactor');
+  assertAllowedKeys(visibilityFactor, ['levels', 'structurallyUnreachable'], 'visibilityFactor');
+  requireStringArray(visibilityFactor.levels, 'visibilityFactor.levels');
+  if ((visibilityFactor.levels as string[]).length < 2) {
+    throw new Error('visibilityFactor.levels must name at least two levels to be a varied factor');
+  }
+  if (!Array.isArray(visibilityFactor.structurallyUnreachable)) {
+    throw new Error('visibilityFactor.structurallyUnreachable must be an array');
+  }
+  for (const [index, exclusionValue] of visibilityFactor.structurallyUnreachable.entries()) {
+    const exclusion = requireRecord(exclusionValue, `visibilityFactor.structurallyUnreachable[${index}]`);
+    assertAllowedKeys(
+      exclusion,
+      ['sessions', 'clients', 'reason'],
+      `visibilityFactor.structurallyUnreachable[${index}]`,
+    );
+    requirePositiveInteger(exclusion.sessions, `visibilityFactor.structurallyUnreachable[${index}].sessions`);
+    requirePositiveInteger(exclusion.clients, `visibilityFactor.structurallyUnreachable[${index}].clients`);
+    requireNonEmptyString(exclusion.reason, `visibilityFactor.structurallyUnreachable[${index}].reason`);
   }
 }
 

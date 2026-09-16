@@ -48,6 +48,32 @@ function createManifest(): Record<string, unknown> {
       unit: 'ms',
       intervalDelta: false,
     }],
+    // @req PERF-BGSTAB-012 AC-1 AC-2 AC-3
+    // These three became required when PERF-BGSTAB-012 contracted them. The
+    // fixture gains them rather than the validator losing them: the checks below
+    // assert each is enforced, so dropping them here would be the weakening this
+    // fixture exists to detect.
+    outlierPolicy: {
+      rule: 'retain-all',
+      rationale: 'fixture',
+      parameters: {},
+      excludedSampleIds: [],
+    },
+    execution: {
+      derivedFrom: 'execution',
+      interleaved: true,
+      strategy: 'fixture',
+      order: [
+        { sequence: 0, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-1' },
+        { sequence: 1, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-1' },
+      ],
+    },
+    visibilityFactor: {
+      levels: ['single-active', 'all-active'],
+      structurallyUnreachable: [
+        { sessions: 1, clients: 1, reason: 'fixture' },
+      ],
+    },
   };
 }
 

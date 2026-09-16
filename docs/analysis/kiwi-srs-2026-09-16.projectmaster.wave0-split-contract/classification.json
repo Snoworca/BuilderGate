@@ -1,0 +1,37 @@
+{
+  "target": "0.5.5-buildergate-stability (items 1-3) / wave-1 (item 4)",
+  "classification": "update",
+  "rationale": "Four related SRS changes. (1) and (2) supersede existing requirements; (3) is a new-feature within the existing BGSTAB scope; (4) extends an existing requirement. The dominant label is update. Items are authored as four separate requirements per SS0.11 because they touch four distinct code surfaces (transport wiring, Settings surface, config inventory, benchmark harness).",
+  "evidence_paths": [
+    "server/src/index.ts#new WsRouter",
+    "server/src/test-runner.ts#assert.doesNotMatch(construction, /wsTransportMode/u)",
+    "server/src/ws/terminalWireFormat.ts#isTransportEligible",
+    "server/src/benchmarks/terminalCharacterization.ts#createTerminalWorkloadCorpus"
+  ],
+  "affected_existing_reqs": [
+    {"id": "FR-BGSTAB-006", "relation": "supersedes", "diff_summary": "production applicability of the split handshake contract is superseded; the standalone router behaviour it describes remains true and its body/Status/Stability are NOT modified"},
+    {"id": "FR-BGSTAB-007", "relation": "supersedes", "diff_summary": "production applicability of the split payload-routing contract is superseded on the same terms"},
+    {"id": "REL-BGSTAB-006", "relation": "extends", "diff_summary": "supplies the disposition that REL-BGSTAB-006 AC-5 deliberately left unresolved"},
+    {"id": "FR-BGSTAB-015", "relation": "supersedes", "diff_summary": "redirected from a 29-row per-key numeric Settings matrix to named semantic profiles plus a compatibility facade"},
+    {"id": "PERF-BGSTAB-008", "relation": "extends", "diff_summary": "adds outlier policy, interleaved execution ordering, and an independently varied visibility factor; existing sealed artifacts untouched"}
+  ],
+  "proposed_scope": "BGSTAB (existing)",
+  "proposed_prefix": "BGSTAB",
+  "proposed_type": "reliability (1) / functional (2) / operational (3) / performance (4)",
+  "confidence": "high",
+  "scope_boundary_impact": null,
+  "external_module_impact": null,
+  "policy_deviations": [
+    {
+      "rule": "SS9.2 update sequence step 4: update_status { id: REQ-X, status: 'discarded' }",
+      "deviation": "NOT applied to FR-BGSTAB-006, FR-BGSTAB-007, or FR-BGSTAB-015.",
+      "reason": "FR-BGSTAB-006/007 reached Stability=stable by explicit user approval on 2026-07-02; demoting or discarding them is item A-1 of the decision record's user-approval list and is outside the delegated authority. FR-BGSTAB-015 is Status=in_progress, so discarding it mid-flight would strand active work and destroy the 29-row ConPTY matrix the successor depends on. Both are therefore superseded by relation only, with the lifecycle transition recorded as an unresolved user_required Open Question that blocks promotion.",
+      "recorded_as": "OQ-1, OQ-2"
+    },
+    {
+      "rule": "Task instruction (4): 'AMEND PERF-BGSTAB-008' by adding new ACs",
+      "deviation": "Authored as a separate requirement with an `extends` relation instead of rewriting PERF-BGSTAB-008's acceptance criteria.",
+      "reason": "PERF-BGSTAB-008 is Status=implemented and its AC-1..AC-7 are satisfied by artifacts whose digests are sealed in its own VE-2/VE-3 and in MIG-BGSTAB-001's g1-evidence-audit.json. Appending unsatisfied ACs to it would force it back out of `implemented` and retroactively invalidate the G1 evidence audit. The CLI also offers no append operation, only a whole-block replace that would rewrite the sealed block."
+    }
+  ]
+}
