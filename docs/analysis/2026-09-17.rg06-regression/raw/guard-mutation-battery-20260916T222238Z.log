@@ -1,0 +1,12 @@
+# guard self-check mutation battery, 20260916T222238Z
+# a surviving mutant means the self-check does not cover that invariant
+killed    drop ^ anchor
+killed    drop $ anchor
+killed    drop owned-directory check
+killed    drop .sock suffix check
+killed    kind set gains a metacharacter
+killed    kind set opened to .*
+killed    drop pid binding
+killed    uuid shape relaxed to .+
+killed    kind set reverted to http only
+SURVIVED  UNMUTATED control (must SURVIVE)

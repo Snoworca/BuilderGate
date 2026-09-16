@@ -8,7 +8,15 @@ const originalListen = net.Server.prototype.listen;
 // set is closed: `http` for the local HTTP fixture helper, `ws` for the
 // WsRouter restore-metadata harness. Both are unix sockets or named pipes,
 // never TCP, so both are forwarded; any other kind is rejected.
+// A kind is interpolated into a RegExp, so the closed set is enforced here
+// rather than by convention: a kind carrying a metacharacter would silently
+// widen the accepted names. Loading fails loudly instead.
 const OWNED_ENDPOINT_KINDS = ['http', 'ws'];
+for (const kind of OWNED_ENDPOINT_KINDS) {
+  if (!/^[a-z0-9]+$/.test(kind)) {
+    throw new Error(`B0_INVALID_OWNED_ENDPOINT_KIND: ${JSON.stringify(kind)} is not a literal lowercase alphanumeric kind`);
+  }
+}
 const namePattern = new RegExp(`^buildergate-(?:${OWNED_ENDPOINT_KINDS.join('|')})-${process.pid}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`, 'i');
 function ownedEndpoint(value) {
   if (typeof value !== 'string') return false;
