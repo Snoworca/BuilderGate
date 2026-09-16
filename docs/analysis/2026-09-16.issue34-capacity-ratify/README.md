@@ -265,27 +265,43 @@ Ports, bracketed in sections [2]/[2b] and [8]/[8b] of each run and again in
   production instance was never touched.
 - WSL `ss` after each teardown: 2221/2222 free.
 
-## Static evidence rerun (r3)
+## Static evidence rerun (r4)
 
-`raw/r3-static-reruns.log`, captured 2026-09-16T02:53:55Z. The log states its own
-tree rather than leaving it to be inferred: `HEAD=c442948 plus the uncommitted
-review-round changes listed below; the next commit freezes exactly this content`,
-followed by an inlined `git status --porcelain` naming those files — the four
-documents of this deliverable, `frontend/tests/e2e/issue34-capacity-ratify.spec.ts`
-(the spec with the guards already moved into `resolveLimits()`), and the six
-untracked `r3-*` artifacts.
+`raw/r4-static-reruns.log` is the current one, and `raw/r3-static-reruns.log`
+(2026-09-16T02:53:55Z) is retained as the earlier capture.
 
-| Rerun | Counts |
+r3 is superseded for a reason worth stating. Its line 2 reads `HEAD=c442948 plus
+the uncommitted review-round changes listed below; the next commit freezes exactly
+this content` — and that promise turned out false: documentation edits followed the
+capture, so the commit contained more than the inlined `git status --porcelain`
+listing described. r4 does not make that class of claim at all. It records the tree
+it ran on — `HEAD` at capture, the uncommitted file list, and the `git hash-object`
+content hash of each of the three test inputs (`issue34-capacity-ratify.spec.ts`,
+`playwright.issue34-capacity.config.ts`, `tsconfig.e2e-ownership.json`) — and says
+nothing about any later commit. The hashes are what let a reader confirm the counts
+below describe the test inputs as committed, without relying on a promise.
+
+| Rerun | Counts (r4) |
 | --- | --- |
-| frontend capacity unit tests (`workspaceCapacity{Api,Hook,Ui}`) | `tests 26 / pass 26 / fail 0 / skipped 0 / todo 0`, 682.30ms |
-| `tests/unit/e2eOwnershipTypecheck.test.ts` | `tests 15 / pass 15 / fail 0 / skipped 0 / todo 0`, 8275.66ms |
+| frontend capacity unit tests (`workspaceCapacity{Api,Hook,Ui}`) | `tests 26 / pass 26 / fail 0 / skipped 0 / todo 0` |
+| `tests/unit/e2eOwnershipTypecheck.test.ts` | `tests 15 / pass 15 / fail 0 / skipped 0 / todo 0` |
 | `npx tsc --noEmit -p tsconfig.e2e-ownership.json` | `tsc exit: 0` |
+
+r3 recorded the same three results (26/26 in 682.30ms, 15/15 in 8275.66ms,
+`tsc exit: 0`) on its own tree.
 
 The capacity unit tests already drive the real `App` at non-default capacities;
 the log names `CAP-07 App through Sidebar to actual Item menu applies creation
 capacity 4.5` and `CAP-07 TabBar keeps the independent 32-session creation
 guard` among them. The typecheck guard's named case is
 `REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors`.
+
+The log records that tree as uncommitted at capture time and says the next
+commit would freeze it. That commit is `6458953`, which also carries
+documentation edits made after the capture — so the inlined status listing
+describes the moment of capture, not the commit's final contents. The test input
+it names, `frontend/tests/e2e/issue34-capacity-ratify.spec.ts`, was last modified
+before the capture and was committed unchanged.
 
 `raw/r2-static-reruns.log` is retained as the earlier generation, on the same
 footing as the other r2 artifacts. Its header names a different tree —

@@ -1,0 +1,39 @@
+=== r4 static reruns; utc=2026-09-16T03:05:09Z ===
+This log states only the tree it ran on. It makes no claim about any later commit —
+r3-static-reruns.log:2 promised 'the next commit freezes exactly this content' and that
+turned out false, because documentation edits followed the capture. Not repeating that.
+HEAD at capture: fd37b7986e19f776a39522ca5d6364e1cada3b33
+uncommitted files at capture:
+ M docs/analysis/2026-09-16.issue34-capacity-ratify/README.md
+ M docs/report/2026-09-16.issue34-workspace-tab-capacity-ratification.md
+ M docs/spec/30.buildergate-stability.srs.md
+ M kiwi/.status.json
+?? docs/analysis/2026-09-16.issue34-capacity-ratify/raw/r4-static-reruns.log
+test inputs' content hashes at capture:
+9fb9d93770362635e0e1eb20b0feb48fd5e293b6 frontend/tests/e2e/issue34-capacity-ratify.spec.ts
+3143e806a7f2b5c33ea8c54cd267c6a9d395e148 frontend/playwright.issue34-capacity.config.ts
+26d01e38cfc76d438dfce145d8106b3f8e0809b0 frontend/tsconfig.e2e-ownership.json
+
+--- capacity unit tests (drive the real App at non-default capacities) ---
+✔ FR-BGSTAB-026 CAP-07 App through Sidebar to actual Item menu applies creation capacity 4.5 (23.367074ms)
+✔ FR-BGSTAB-026 CAP-07 TabBar keeps the independent 32-session creation guard (28.304949ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 942.046655
+--- e2e ownership typecheck guard ---
+✔ REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors (8650.831221ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9198.064443
+--- tsc --noEmit -p tsconfig.e2e-ownership.json ---
+tsc exit: 0
