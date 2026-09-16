@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
 import {
+  BASELINE_FIELD_COVERAGE,
   REFRESH_TRUNCATION_EVIDENCE_SCHEMA_VERSION,
   classifyRefreshRetainedLineLoss,
   measureRefreshRetainedStateBoundary,
@@ -38,8 +39,16 @@ test('OBS-BGSTAB-009 AC-1 reproduces refresh retained-state truncation determini
   assert.notEqual(first.preRefreshLogicalLineHash, first.postRefreshLogicalLineHash);
   assert.notEqual(first.preRefreshCellHash, first.postRefreshCellHash);
 
-  // Determinism: identical inputs must produce byte-identical boundary evidence.
-  assert.deepEqual(second, first);
+  // Determinism: identical inputs must produce identical boundary evidence.
+  // `serializeLatency` is wall-clock and is excluded by construction -- it never
+  // reaches the sealed artifact either. Everything else must match exactly.
+  const { serializeLatency: firstLatency, ...firstDeterministic } = first;
+  const { serializeLatency: secondLatency, ...secondDeterministic } = second;
+  assert.deepEqual(secondDeterministic, firstDeterministic);
+  for (const latency of [firstLatency, secondLatency]) {
+    assert.equal(Number.isFinite(latency.retainedSerializeMs), true);
+    assert.equal(Number.isFinite(latency.legacySerializeMs), true);
+  }
 });
 
 test('OBS-BGSTAB-009 AC-2 pins the firing boundary at the first logical line above the viewport', async () => {
@@ -316,8 +325,12 @@ test('OBS-BGSTAB-009 AC-5 emits machine-readable boundary evidence without raw t
     assert.equal(typeof seed.preRefreshCellHash, 'string');
     assert.equal(typeof seed.postRefreshCellHash, 'string');
     assert.equal(seed.seedKind, 'characterization-corpus');
+    // Match the fixture's actual line format (`line-000001`), not the bare
+    // substring `line-`: reason codes such as `logical-line-hash-divergence`
+    // legitimately contain it, and a guard that fires on those is testing
+    // vocabulary rather than payload leakage.
     assert.equal(
-      JSON.stringify(seed).includes('line-'),
+      /line-\d{6}/u.test(JSON.stringify(seed)),
       false,
       'boundary evidence must not embed raw terminal text',
     );
@@ -505,4 +518,82 @@ test('OBS-BGSTAB-009 AC-2 confirms the reported boundary by independent measurem
     0,
     `${cols}x${rows}: ${boundary! - 1} must not lose, or ${boundary} is not the first`,
   );
+});
+
+test('OBS-BGSTAB-009 AC-6 carries the observable baseline fields and declares AC-12 unsatisfied', async () => {
+  const evidence = JSON.parse(readFileSync(EVIDENCE_PATH, 'utf8')) as {
+    baselineFieldCoverage: Record<string, { status: string; gatedTo?: string; reason: string }>;
+    baselineAcceptanceCriterion: {
+      source: string; satisfied: boolean;
+      presentFields: string[]; gatedFields: string[]; absentFields: string[];
+    };
+    seeds: { baselineSample: Record<string, unknown> }[];
+  };
+
+  // The six things issue #23 AC-12 asks for, each accounted for exactly once.
+  assert.deepEqual(Object.keys(evidence.baselineFieldCoverage).sort(), [
+    'applyLatency', 'browserLongTask', 'checkpointChunks',
+    'mismatchReason', 'queueMaxima', 'retainedRowsAndBytes', 'serializeLatency',
+  ]);
+
+  const ac = evidence.baselineAcceptanceCriterion;
+  assert.equal(ac.source, 'github-issue-23 AC-12');
+  assert.equal(ac.satisfied, false, 'a partial baseline must never be recorded as satisfying AC-12');
+  assert.deepEqual(ac.gatedFields.sort(), ['applyLatency', 'browserLongTask']);
+  assert.deepEqual(ac.absentFields, ['queueMaxima']);
+  assert.equal(ac.presentFields.length, 4);
+
+  // Every gated field must name the issue that will supply it.
+  for (const name of ac.gatedFields) {
+    assert.match(
+      evidence.baselineFieldCoverage[name]!.gatedTo!,
+      /github\.com\/Snoworca\/BuilderGate\/issues\/10$/u,
+      `${name} must be gated to the issue that builds the browser harness`,
+    );
+  }
+
+  // Every field claimed present must actually be in every seed.
+  for (const [name, field] of Object.entries(evidence.baselineFieldCoverage)) {
+    if (field.status !== 'present') continue;
+    const keys = (BASELINE_FIELD_COVERAGE[name]!.sampleKeys ?? []) as readonly string[];
+    assert.equal(keys.length > 0, true, `${name} claims present but names no sample key`);
+    for (const seed of evidence.seeds) {
+      for (const key of keys) {
+        // serializeLatency lives in the unsealed sibling artifact by design.
+        if (name === 'serializeLatency') continue;
+        assert.equal(
+          key in seed.baselineSample,
+          true,
+          `${name} claims present but ${key} is missing from a seed`,
+        );
+      }
+    }
+  }
+
+  // No wall-clock in the sealed artifact -- it is byte-compared and must stay stable.
+  for (const seed of evidence.seeds) {
+    assert.equal('retainedSerializeMs' in seed.baselineSample, false);
+    assert.equal('legacySerializeMs' in seed.baselineSample, false);
+  }
+});
+
+test('OBS-BGSTAB-009 AC-6 records mismatch reasons that match the measured loss', async () => {
+  const lossless = await measureRefreshRetainedStateBoundary({ ...FIXTURE, logicalLines: FIXTURE.rows });
+  const lossy = await measureRefreshRetainedStateBoundary({ ...FIXTURE, logicalLines: 200 });
+
+  assert.deepEqual(lossless.baselineSample.mismatchReasons, [],
+    'no loss must produce no mismatch reason');
+  assert.deepEqual(lossy.baselineSample.mismatchReasons, [
+    'logical-line-hash-divergence', 'cell-hash-divergence', 'retained-lines-absent-after-refresh',
+  ]);
+
+  // Retained rows and checkpoint chunking are real measurements, not constants.
+  assert.equal(lossy.baselineSample.retainedLogicalRows > lossless.baselineSample.retainedLogicalRows, true);
+  assert.equal(lossy.baselineSample.checkpointEncodedBytes > 0, true);
+  assert.equal(
+    lossy.baselineSample.checkpointChunkCount,
+    Math.ceil(lossy.baselineSample.checkpointEncodedBytes / lossy.baselineSample.checkpointChunkBytes),
+  );
+  assert.equal(lossy.baselineSample.checkpointChunkBytes, 65536,
+    'must track the production TERMINAL_CHECKPOINT_CHUNK_BYTES, imported not copied');
 });

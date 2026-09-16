@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type { HeadlessTerminalState, RetainedHeadlessBufferProjection } from '../utils/headlessTerminal.js';
+import { TERMINAL_CHECKPOINT_CHUNK_BYTES } from '../services/TerminalAuthorityProductionAdapter.js';
 import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
@@ -41,6 +42,13 @@ export interface RetainedCheckpointParity {
 }
 
 export interface RefreshRetainedStateBoundaryMeasurement {
+  baselineSample: BaselineRawSample;
+  /**
+   * Wall-clock serializer cost. Deliberately NOT part of `baselineSample`, and
+   * never written to the sealed artifact -- see `serializeLatency` in
+   * `BASELINE_FIELD_COVERAGE`.
+   */
+  serializeLatency: { retainedSerializeMs: number; legacySerializeMs: number };
   refreshPath: 'legacy-viewport-only-snapshot';
   cols: number;
   rows: number;
@@ -71,9 +79,103 @@ export interface RefreshRetainedStateBoundaryMeasurement {
   completeLogicalRowBoundary: boolean;
 }
 
-export interface RefreshTruncationBoundarySeed extends RefreshRetainedStateBoundaryMeasurement {
+/** A seed as written to the sealed artifact: no wall-clock, so it stays byte-stable. */
+export interface RefreshTruncationBoundarySeed
+  extends Omit<RefreshRetainedStateBoundaryMeasurement, 'serializeLatency'> {
   seedKind: 'characterization-corpus';
 }
+
+/**
+ * The per-seed half of issue #23's "baseline raw sample" acceptance criterion.
+ * Only the fields this harness can actually observe are present; see
+ * `BASELINE_FIELD_COVERAGE` for the machine-readable account of the rest.
+ */
+export interface BaselineRawSample {
+  /** Rows the authoritative model still holds, physical and logical. */
+  retainedPhysicalRows: number;
+  retainedLogicalRows: number;
+  retainedUtf8Bytes: number;
+  evictedPhysicalRows: number;
+  evictedLogicalRows: number;
+  evictedUtf8Bytes: number;
+  /** Chunks the production encoder would split this checkpoint into. */
+  checkpointEncodedBytes: number;
+  checkpointChunkCount: number;
+  checkpointChunkBytes: number;
+  /** Why refresh output differs from the authoritative model, if it does. */
+  mismatchReasons: readonly string[];
+}
+
+export type BaselineFieldStatus = 'present' | 'gated' | 'absent';
+
+export interface BaselineFieldCoverage {
+  status: BaselineFieldStatus;
+  /** Where the field lives in each seed's `baselineSample`, when present. */
+  sampleKeys?: readonly string[];
+  /** Issue that will supply a gated field. */
+  gatedTo?: string;
+  reason: string;
+}
+
+/**
+ * Issue #23 AC-12 asks the baseline raw sample to carry six things. This is the
+ * machine-readable account of which of them this artifact actually carries, so
+ * a reader does not have to infer coverage from prose.
+ *
+ * AC-12 is NOT satisfied by this artifact and must not be recorded as such.
+ */
+export const BASELINE_FIELD_COVERAGE: Readonly<Record<string, BaselineFieldCoverage>> = {
+  retainedRowsAndBytes: {
+    status: 'present',
+    sampleKeys: [
+      'retainedPhysicalRows', 'retainedLogicalRows', 'retainedUtf8Bytes',
+      'evictedPhysicalRows', 'evictedLogicalRows', 'evictedUtf8Bytes',
+    ],
+    reason: 'Observed on the server model via readRetainedHeadlessBufferMetrics.',
+  },
+  checkpointChunks: {
+    status: 'present',
+    sampleKeys: ['checkpointEncodedBytes', 'checkpointChunkCount', 'checkpointChunkBytes'],
+    reason:
+      'Derived from the retained checkpoint payload and the production chunk size '
+      + 'TERMINAL_CHECKPOINT_CHUNK_BYTES, imported so the two cannot drift apart.',
+  },
+  serializeLatency: {
+    status: 'present',
+    sampleKeys: ['retainedSerializeMs', 'legacySerializeMs'],
+    reason:
+      'Wall-clock around each serializer, single-shot and unwarmed. Emitted to the SEPARATE '
+      + 'artifact baseline-latency-samples.json, not to this one: this artifact is digest-sealed '
+      + 'and byte-compared against a fresh producer run, and wall-clock cannot satisfy that. '
+      + 'Treat the numbers as order-of-magnitude, not as a budget or an SLO.',
+  },
+  mismatchReason: {
+    status: 'present',
+    sampleKeys: ['mismatchReasons'],
+    reason: 'The reasons this module can see: logical-line and cell divergence on the refresh path.',
+  },
+  applyLatency: {
+    status: 'gated',
+    gatedTo: 'https://github.com/Snoworca/BuilderGate/issues/10',
+    reason:
+      'Apply happens in the browser. This harness drives a headless node terminal model and has '
+      + 'no applier, so the field is unobservable here rather than merely unmeasured. Issue #10 '
+      + 'builds the browser TerminalWriteCoordinator and is the first place it can be sampled.',
+  },
+  browserLongTask: {
+    status: 'gated',
+    gatedTo: 'https://github.com/Snoworca/BuilderGate/issues/10',
+    reason: 'Requires a browser main thread. Same harness limitation and same gate as applyLatency.',
+  },
+  queueMaxima: {
+    status: 'absent',
+    reason:
+      'This harness has no delivery queue at all -- no WebSocket, no per-client output queue, no '
+      + 'hold queue. The server-side queue budgets exist in SessionManager, but nothing in this '
+      + 'reproduction exercises them, so there is no maximum to record. Not gated to a later '
+      + 'issue because the server side is observable today; it simply is not observed here.',
+  },
+};
 
 export interface RefreshTruncationBoundaryEvidence {
   schemaVersion: typeof REFRESH_TRUNCATION_EVIDENCE_SCHEMA_VERSION;
@@ -87,6 +189,15 @@ export interface RefreshTruncationBoundaryEvidence {
   rawPayloadOmitted: true;
   setsProductRetainedRows: false;
   seeds: RefreshTruncationBoundarySeed[];
+  /** Machine-readable account of issue #23 AC-12 coverage. AC-12 is NOT satisfied. */
+  baselineFieldCoverage: Readonly<Record<string, BaselineFieldCoverage>>;
+  baselineAcceptanceCriterion: {
+    source: 'github-issue-23 AC-12';
+    satisfied: false;
+    presentFields: readonly string[];
+    gatedFields: readonly string[];
+    absentFields: readonly string[];
+  };
   /** Independently probed firing boundaries; not derived from `seeds`. */
   firingBoundaries: RefreshTruncationFiringBoundary[];
   /**
@@ -194,11 +305,15 @@ export async function measureRefreshRetainedStateBoundary(options: {
 }): Promise<RefreshRetainedStateBoundaryMeasurement> {
   const source = await seedTerminal(options);
   try {
+    const retainedStartedAt = performance.now();
     const authoritative = serializeRetainedHeadlessCheckpoint(source);
+    const retainedSerializeMs = performance.now() - retainedStartedAt;
     const metrics = readRetainedHeadlessBufferMetrics(source);
     const preLines = contentLines(authoritative.normal);
 
+    const legacyStartedAt = performance.now();
     const refreshSnapshot = serializeHeadlessTerminal(source, LEGACY_MAX_SNAPSHOT_BYTES);
+    const legacySerializeMs = performance.now() - legacyStartedAt;
     const refreshed = await rehydrate({ ...options, ansi: refreshSnapshot.data });
     const postLines = contentLines(refreshed.projection);
 
@@ -211,8 +326,34 @@ export async function measureRefreshRetainedStateBoundary(options: {
       refreshDeliveredLogicalLines: postLines.length,
     });
 
+    const preLineHash = sha256(JSON.stringify(preLines));
+    const postLineHash = sha256(JSON.stringify(postLines));
+    const mismatchReasons: string[] = [];
+    if (preLineHash !== postLineHash) mismatchReasons.push('logical-line-hash-divergence');
+    if (authoritative.normal.cellHash !== refreshed.projection.cellHash) {
+      mismatchReasons.push('cell-hash-divergence');
+    }
+    if (classification.observedLossLogicalLines > 0) {
+      mismatchReasons.push('retained-lines-absent-after-refresh');
+    }
+
+    const checkpointEncodedBytes = Buffer.byteLength(authoritative.serializedData, 'utf8');
+
     try {
       return {
+        baselineSample: {
+          retainedPhysicalRows: metrics.currentPhysicalRows,
+          retainedLogicalRows: metrics.currentLogicalRows,
+          retainedUtf8Bytes: metrics.currentUtf8Bytes,
+          evictedPhysicalRows: metrics.evictedPhysicalRows,
+          evictedLogicalRows: metrics.evictedLogicalRows,
+          evictedUtf8Bytes: metrics.evictedUtf8Bytes,
+          checkpointEncodedBytes,
+          checkpointChunkCount: Math.ceil(checkpointEncodedBytes / TERMINAL_CHECKPOINT_CHUNK_BYTES),
+          checkpointChunkBytes: TERMINAL_CHECKPOINT_CHUNK_BYTES,
+          mismatchReasons,
+        },
+        serializeLatency: { retainedSerializeMs, legacySerializeMs },
         refreshPath: 'legacy-viewport-only-snapshot',
         cols: options.cols,
         rows: options.rows,
@@ -223,8 +364,8 @@ export async function measureRefreshRetainedStateBoundary(options: {
         expectedEvictionLogicalLines: classification.expectedEvictionLogicalLines,
         observedLossLogicalLines: classification.observedLossLogicalLines,
         observedLossPresent: classification.observedLossLogicalLines > 0,
-        preRefreshLogicalLineHash: sha256(JSON.stringify(preLines)),
-        postRefreshLogicalLineHash: sha256(JSON.stringify(postLines)),
+        preRefreshLogicalLineHash: preLineHash,
+        postRefreshLogicalLineHash: postLineHash,
         preRefreshCellHash: authoritative.normal.cellHash,
         postRefreshCellHash: refreshed.projection.cellHash,
         retainedCheckpointParity: {
@@ -376,12 +517,67 @@ const CORPUS: readonly { cols: number; rows: number; scrollbackLines: number; lo
   { cols: 80, rows: 24, scrollbackLines: 10000, logicalLines: 10001 },
 ];
 
+export interface BaselineLatencySample {
+  cols: number;
+  rows: number;
+  scrollbackLines: number;
+  logicalLines: number;
+  retainedSerializeMs: number;
+  legacySerializeMs: number;
+}
+
+export interface BaselineLatencySamples {
+  schemaVersion: '1.0.0';
+  requirementId: 'OBS-BGSTAB-009';
+  evidenceKind: 'baseline_serialize_latency_samples';
+  /**
+   * Deliberately NOT digest-sealed and NOT byte-compared. Wall-clock varies run
+   * to run, so sealing it would either fail constantly or force a tolerance that
+   * hides drift. The sealed artifact next to this one carries everything that
+   * must be reproducible.
+   */
+  sealed: false;
+  method: 'single-shot, unwarmed, one measurement per seed';
+  setsPerformanceBudget: false;
+  samples: BaselineLatencySample[];
+}
+
+/**
+ * Serialize-latency half of issue #23 AC-12. Separate artifact by design --
+ * see `sealed` above.
+ */
+// @req OBS-BGSTAB-009
+export async function produceBaselineLatencySamples(): Promise<BaselineLatencySamples> {
+  const samples: BaselineLatencySample[] = [];
+  for (const entry of CORPUS) {
+    const measurement = await measureRefreshRetainedStateBoundary(entry);
+    samples.push({
+      cols: entry.cols,
+      rows: entry.rows,
+      scrollbackLines: entry.scrollbackLines,
+      logicalLines: entry.logicalLines,
+      retainedSerializeMs: measurement.serializeLatency.retainedSerializeMs,
+      legacySerializeMs: measurement.serializeLatency.legacySerializeMs,
+    });
+  }
+  return {
+    schemaVersion: '1.0.0',
+    requirementId: 'OBS-BGSTAB-009',
+    evidenceKind: 'baseline_serialize_latency_samples',
+    sealed: false,
+    method: 'single-shot, unwarmed, one measurement per seed',
+    setsPerformanceBudget: false,
+    samples,
+  };
+}
+
 // @req OBS-BGSTAB-009
 export async function produceRefreshTruncationBoundaryEvidence(): Promise<RefreshTruncationBoundaryEvidence> {
   const seeds: RefreshTruncationBoundarySeed[] = [];
   for (const entry of CORPUS) {
     const measurement = await measureRefreshRetainedStateBoundary(entry);
-    seeds.push({ ...measurement, seedKind: 'characterization-corpus' });
+    const { serializeLatency: _latency, ...deterministic } = measurement;
+    seeds.push({ ...deterministic, seedKind: 'characterization-corpus' });
   }
 
   const firingBoundaries: RefreshTruncationFiringBoundary[] = [];
@@ -403,6 +599,17 @@ export async function produceRefreshTruncationBoundaryEvidence(): Promise<Refres
     seeds,
     firingBoundaries,
     legacyByteBoundaryExercised: false,
+    baselineFieldCoverage: BASELINE_FIELD_COVERAGE,
+    baselineAcceptanceCriterion: {
+      source: 'github-issue-23 AC-12',
+      satisfied: false,
+      presentFields: Object.entries(BASELINE_FIELD_COVERAGE)
+        .filter(([, field]) => field.status === 'present').map(([name]) => name),
+      gatedFields: Object.entries(BASELINE_FIELD_COVERAGE)
+        .filter(([, field]) => field.status === 'gated').map(([name]) => name),
+      absentFields: Object.entries(BASELINE_FIELD_COVERAGE)
+        .filter(([, field]) => field.status === 'absent').map(([name]) => name),
+    },
     unexercisedAxes: [
       'text:CJK-wide|combining|emoji',
       'terminalBuffer:alternate',

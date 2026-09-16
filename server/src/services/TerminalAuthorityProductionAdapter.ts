@@ -299,7 +299,7 @@ interface TerminalAuthorityCheckpointIdentity {
   authoritativeModelInstanceId: string;
 }
 
-const TERMINAL_CHECKPOINT_CHUNK_BYTES = 64 * 1024;
+export const TERMINAL_CHECKPOINT_CHUNK_BYTES = 64 * 1024;
 const TERMINAL_AUTHORITY_AUDIT_MAX_ENTRIES = 2_048;
 
 function appendTerminalAuthorityAudit(

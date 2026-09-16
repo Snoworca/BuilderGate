@@ -11,6 +11,18 @@
   "setsProductRetainedRows": false,
   "seeds": [
     {
+      "baselineSample": {
+        "retainedPhysicalRows": 24,
+        "retainedLogicalRows": 24,
+        "retainedUtf8Bytes": 264,
+        "evictedPhysicalRows": 0,
+        "evictedLogicalRows": 0,
+        "evictedUtf8Bytes": 0,
+        "checkpointEncodedBytes": 310,
+        "checkpointChunkCount": 1,
+        "checkpointChunkBytes": 65536,
+        "mismatchReasons": []
+      },
       "refreshPath": "legacy-viewport-only-snapshot",
       "cols": 80,
       "rows": 24,
@@ -37,6 +49,22 @@
       "seedKind": "characterization-corpus"
     },
     {
+      "baselineSample": {
+        "retainedPhysicalRows": 25,
+        "retainedLogicalRows": 25,
+        "retainedUtf8Bytes": 275,
+        "evictedPhysicalRows": 0,
+        "evictedLogicalRows": 0,
+        "evictedUtf8Bytes": 0,
+        "checkpointEncodedBytes": 323,
+        "checkpointChunkCount": 1,
+        "checkpointChunkBytes": 65536,
+        "mismatchReasons": [
+          "logical-line-hash-divergence",
+          "cell-hash-divergence",
+          "retained-lines-absent-after-refresh"
+        ]
+      },
       "refreshPath": "legacy-viewport-only-snapshot",
       "cols": 80,
       "rows": 24,
@@ -63,6 +91,22 @@
       "seedKind": "characterization-corpus"
     },
     {
+      "baselineSample": {
+        "retainedPhysicalRows": 999,
+        "retainedLogicalRows": 999,
+        "retainedUtf8Bytes": 10989,
+        "evictedPhysicalRows": 0,
+        "evictedLogicalRows": 0,
+        "evictedUtf8Bytes": 0,
+        "checkpointEncodedBytes": 12985,
+        "checkpointChunkCount": 1,
+        "checkpointChunkBytes": 65536,
+        "mismatchReasons": [
+          "logical-line-hash-divergence",
+          "cell-hash-divergence",
+          "retained-lines-absent-after-refresh"
+        ]
+      },
       "refreshPath": "legacy-viewport-only-snapshot",
       "cols": 80,
       "rows": 24,
@@ -89,6 +133,22 @@
       "seedKind": "characterization-corpus"
     },
     {
+      "baselineSample": {
+        "retainedPhysicalRows": 1000,
+        "retainedLogicalRows": 1000,
+        "retainedUtf8Bytes": 11000,
+        "evictedPhysicalRows": 0,
+        "evictedLogicalRows": 0,
+        "evictedUtf8Bytes": 0,
+        "checkpointEncodedBytes": 12998,
+        "checkpointChunkCount": 1,
+        "checkpointChunkBytes": 65536,
+        "mismatchReasons": [
+          "logical-line-hash-divergence",
+          "cell-hash-divergence",
+          "retained-lines-absent-after-refresh"
+        ]
+      },
       "refreshPath": "legacy-viewport-only-snapshot",
       "cols": 80,
       "rows": 24,
@@ -115,6 +175,22 @@
       "seedKind": "characterization-corpus"
     },
     {
+      "baselineSample": {
+        "retainedPhysicalRows": 1001,
+        "retainedLogicalRows": 1001,
+        "retainedUtf8Bytes": 11011,
+        "evictedPhysicalRows": 0,
+        "evictedLogicalRows": 0,
+        "evictedUtf8Bytes": 0,
+        "checkpointEncodedBytes": 13011,
+        "checkpointChunkCount": 1,
+        "checkpointChunkBytes": 65536,
+        "mismatchReasons": [
+          "logical-line-hash-divergence",
+          "cell-hash-divergence",
+          "retained-lines-absent-after-refresh"
+        ]
+      },
       "refreshPath": "legacy-viewport-only-snapshot",
       "cols": 80,
       "rows": 24,
@@ -141,6 +217,22 @@
       "seedKind": "characterization-corpus"
     },
     {
+      "baselineSample": {
+        "retainedPhysicalRows": 9999,
+        "retainedLogicalRows": 9999,
+        "retainedUtf8Bytes": 109989,
+        "evictedPhysicalRows": 0,
+        "evictedLogicalRows": 0,
+        "evictedUtf8Bytes": 0,
+        "checkpointEncodedBytes": 129985,
+        "checkpointChunkCount": 2,
+        "checkpointChunkBytes": 65536,
+        "mismatchReasons": [
+          "logical-line-hash-divergence",
+          "cell-hash-divergence",
+          "retained-lines-absent-after-refresh"
+        ]
+      },
       "refreshPath": "legacy-viewport-only-snapshot",
       "cols": 80,
       "rows": 24,
@@ -167,6 +259,22 @@
       "seedKind": "characterization-corpus"
     },
     {
+      "baselineSample": {
+        "retainedPhysicalRows": 10000,
+        "retainedLogicalRows": 10000,
+        "retainedUtf8Bytes": 110000,
+        "evictedPhysicalRows": 0,
+        "evictedLogicalRows": 0,
+        "evictedUtf8Bytes": 0,
+        "checkpointEncodedBytes": 129998,
+        "checkpointChunkCount": 2,
+        "checkpointChunkBytes": 65536,
+        "mismatchReasons": [
+          "logical-line-hash-divergence",
+          "cell-hash-divergence",
+          "retained-lines-absent-after-refresh"
+        ]
+      },
       "refreshPath": "legacy-viewport-only-snapshot",
       "cols": 80,
       "rows": 24,
@@ -193,6 +301,22 @@
       "seedKind": "characterization-corpus"
     },
     {
+      "baselineSample": {
+        "retainedPhysicalRows": 10001,
+        "retainedLogicalRows": 10001,
+        "retainedUtf8Bytes": 110011,
+        "evictedPhysicalRows": 0,
+        "evictedLogicalRows": 0,
+        "evictedUtf8Bytes": 0,
+        "checkpointEncodedBytes": 130011,
+        "checkpointChunkCount": 2,
+        "checkpointChunkBytes": 65536,
+        "mismatchReasons": [
+          "logical-line-hash-divergence",
+          "cell-hash-divergence",
+          "retained-lines-absent-after-refresh"
+        ]
+      },
       "refreshPath": "legacy-viewport-only-snapshot",
       "cols": 80,
       "rows": 24,
@@ -602,6 +726,75 @@
     }
   ],
   "legacyByteBoundaryExercised": false,
+  "baselineFieldCoverage": {
+    "retainedRowsAndBytes": {
+      "status": "present",
+      "sampleKeys": [
+        "retainedPhysicalRows",
+        "retainedLogicalRows",
+        "retainedUtf8Bytes",
+        "evictedPhysicalRows",
+        "evictedLogicalRows",
+        "evictedUtf8Bytes"
+      ],
+      "reason": "Observed on the server model via readRetainedHeadlessBufferMetrics."
+    },
+    "checkpointChunks": {
+      "status": "present",
+      "sampleKeys": [
+        "checkpointEncodedBytes",
+        "checkpointChunkCount",
+        "checkpointChunkBytes"
+      ],
+      "reason": "Derived from the retained checkpoint payload and the production chunk size TERMINAL_CHECKPOINT_CHUNK_BYTES, imported so the two cannot drift apart."
+    },
+    "serializeLatency": {
+      "status": "present",
+      "sampleKeys": [
+        "retainedSerializeMs",
+        "legacySerializeMs"
+      ],
+      "reason": "Wall-clock around each serializer, single-shot and unwarmed. Emitted to the SEPARATE artifact baseline-latency-samples.json, not to this one: this artifact is digest-sealed and byte-compared against a fresh producer run, and wall-clock cannot satisfy that. Treat the numbers as order-of-magnitude, not as a budget or an SLO."
+    },
+    "mismatchReason": {
+      "status": "present",
+      "sampleKeys": [
+        "mismatchReasons"
+      ],
+      "reason": "The reasons this module can see: logical-line and cell divergence on the refresh path."
+    },
+    "applyLatency": {
+      "status": "gated",
+      "gatedTo": "https://github.com/Snoworca/BuilderGate/issues/10",
+      "reason": "Apply happens in the browser. This harness drives a headless node terminal model and has no applier, so the field is unobservable here rather than merely unmeasured. Issue #10 builds the browser TerminalWriteCoordinator and is the first place it can be sampled."
+    },
+    "browserLongTask": {
+      "status": "gated",
+      "gatedTo": "https://github.com/Snoworca/BuilderGate/issues/10",
+      "reason": "Requires a browser main thread. Same harness limitation and same gate as applyLatency."
+    },
+    "queueMaxima": {
+      "status": "absent",
+      "reason": "This harness has no delivery queue at all -- no WebSocket, no per-client output queue, no hold queue. The server-side queue budgets exist in SessionManager, but nothing in this reproduction exercises them, so there is no maximum to record. Not gated to a later issue because the server side is observable today; it simply is not observed here."
+    }
+  },
+  "baselineAcceptanceCriterion": {
+    "source": "github-issue-23 AC-12",
+    "satisfied": false,
+    "presentFields": [
+      "retainedRowsAndBytes",
+      "checkpointChunks",
+      "serializeLatency",
+      "mismatchReason"
+    ],
+    "gatedFields": [
+      "applyLatency",
+      "browserLongTask"
+    ],
+    "absentFields": [
+      "queueMaxima"
+    ]
+  },
   "unexercisedAxes": [
     "text:CJK-wide|combining|emoji",
     "terminalBuffer:alternate",
@@ -614,6 +807,6 @@
   ],
   "contentDigest": {
     "algorithm": "sha256",
-    "value": "09249361e05842a091a9c009264a5877b49c4ccf404ce9cf2b84ce69859c0bee"
+    "value": "702677c2af996d88ed04656957b29af8d964aaef5946f0a005b288eec1a4b732"
   }
 }
