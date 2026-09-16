@@ -174,10 +174,15 @@ test('OBS-BGSTAB-009 AC-2 measures the boundary on the production path, where it
   // was absent -- which is the path that writes the committed artifact.
   //
   // This test uses NO injection. The fixture emits 11-character lines, so at
-  // cols=8 each logical line wraps across two physical rows and only
-  // floor(rows / 2) logical lines fit the viewport. The real boundary is
-  // therefore far below rows + 1, and any producer deriving it from rows alone
-  // reports the wrong number here.
+  // cols=8 each logical line wraps across two physical rows and fewer logical
+  // lines fit the viewport. The real boundary is therefore well below rows + 1,
+  // and any producer deriving it from rows alone reports the wrong number here.
+  //
+  // The expected values below are MEASURED, not computed. Round 8 withdrew both
+  // floor(rows/h)+1 and ceil(rows/h)+1 as general rules, and floor is wrong even
+  // at cols=8: 8x9 has boundary 6 while floor(9/2)+1 = 5. It agrees at these two
+  // even-`rows` geometries by coincidence, which is exactly why no formula is
+  // used anywhere in this suite.
   for (const geometry of [
     { cols: 8, rows: 24, scrollbackLines: 100, expected: 13 },
     { cols: 8, rows: 10, scrollbackLines: 1000, expected: 6 },

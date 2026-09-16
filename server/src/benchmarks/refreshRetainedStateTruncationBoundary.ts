@@ -272,8 +272,16 @@ export interface RefreshTruncationFiringBoundary {
    * (`[0, ..., 0, 1]` of length `boundary`, because the probe stops at the
    * first losing count and loss there is always exactly 1). Any producer that
    * knows the boundary can emit a byte-identical trail. Non-derivation is
-   * enforced instead by the wrapped-geometry probes, where `rows + 1` is the
-   * wrong answer and no test hook is involved.
+   * checked instead by two seam-free tests: the wrapped-geometry probes, where
+   * `rows + 1` is the wrong answer, and the unpinned-geometry test, which
+   * supplies no expected value and confirms the reported boundary by direct
+   * measurement.
+   *
+   * Neither is airtight, and the requirement says so: the wrapped probes pin
+   * five geometries, so a five-entry table defeats them, and the unpinned draw
+   * only enlarges the table needed (162 points). A producer correct at every
+   * geometry cannot be told apart from one that measures -- and does not need
+   * to be. See OBS-BGSTAB-009 Implementation Notes.
    */
   probeObservations: readonly { logicalLines: number; observedLossLogicalLines: number }[];
   /** Upper bound the probe was allowed to reach. */
