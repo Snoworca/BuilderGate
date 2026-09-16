@@ -20,9 +20,9 @@ const GUARD = path.join(TOOLS_DIR, 'require-owned-http-test-pipe.cjs');
 const EXPECTED_REJECTIONS = { linux: 36, darwin: 36, win32: 32 };
 const EXPECTED_FORWARDS = 3;
 // Rejections asserted outside the corpus array: zero-arity listen, two
-// later-argument forms, and the two http.Server cases that keep the corpus from
-// being blind to subject class.
-const EXPECTED_REJECTIONS_OUTSIDE_CORPUS = 5;
+// later-argument forms, and a port plus a zero-arity call on each of http.Server
+// and https.Server, which keep the corpus from being blind to subject class.
+const EXPECTED_REJECTIONS_OUTSIDE_CORPUS = 7;
 
 // The child must not inherit an operator's guard log or a `node --test` context.
 function childEnv(extra) {
@@ -67,7 +67,7 @@ test('B0 listen guard self-check passes with the exact corpus it claims', () => 
 
   const report = JSON.parse(result.stdout.trim());
   const expected = EXPECTED_REJECTIONS[process.platform];
-  assert.ok(expected, `no expected corpus size recorded for platform ${process.platform}`);
+  assert.ok(expected, `no expected corpus size recorded for platform ${process.platform}; add one before running this lane`);
   // An inequality would let the cases that cover the anchors and the directory
   // clauses be deleted without the suite noticing, so this is exact.
   assert.equal(report.rejected, expected);
@@ -86,10 +86,20 @@ test('the self-check actually drives the guard, counted from the guard own log',
     const result = runSelfCheck({ guardLog: logPath });
     assert.equal(result.status, 0, `self-check exited ${result.status}: ${result.stderr}`);
 
+    const expected = EXPECTED_REJECTIONS[process.platform];
+    assert.ok(expected, `no expected corpus size recorded for platform ${process.platform}; add one before running this lane`);
     const events = readFileSync(logPath, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
     const rejects = events.filter((event) => event.event === 'reject-before-tcp-bind');
     const forwards = events.filter((event) => event.event === 'forward-owned-local-listen');
-    assert.equal(rejects.length, EXPECTED_REJECTIONS[process.platform] + EXPECTED_REJECTIONS_OUTSIDE_CORPUS);
+    // The payload is asserted, not just the event kind: a log that records every
+    // call as the same shape is useless for diagnosis and would otherwise pass.
+    assert.ok(rejects.some((event) => event.firstType === 'number' && event.first === 2222),
+      'the rejection of a literal TCP port is recorded with its value');
+    assert.ok(rejects.some((event) => event.firstType === 'object' && event.first === null),
+      'a non-string first argument is recorded as such');
+    assert.ok(forwards.every((event) => event.firstType === 'string' && typeof event.first === 'string'),
+      'forwarded owned endpoints are recorded with their path');
+    assert.equal(rejects.length, expected + EXPECTED_REJECTIONS_OUTSIDE_CORPUS);
     assert.equal(forwards.length, EXPECTED_FORWARDS);
     assert.equal(rejects.length + forwards.length, events.length, 'the guard emits no other event kind');
   } finally {

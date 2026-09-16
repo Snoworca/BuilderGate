@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const net = require('node:net');
 const http = require('node:http');
+const https = require('node:https');
 const path = require('node:path');
 const os = require('node:os');
 const { randomUUID } = require('node:crypto');
@@ -85,9 +86,15 @@ assert.throws(() => server.listen({ port: 2222, allowTcp: true }), (error) => er
 // The fixture the guard exists to contain is an `http.Server`, not a bare
 // `net.Server`. Both inherit the patched method, but a guard that discriminated
 // by subject class would be invisible to a corpus built on one class alone.
+// `https.Server` extends `tls.Server` extends `net.Server`; it is the class the
+// product binds on, so it is carried here too. The subject axis is sampled, not
+// enumerated — see the limitation note at the end of this file.
 const httpServer = http.createServer();
-assert.throws(() => httpServer.listen(2222), (error) => error.code === 'B0_FORBIDDEN_TCP_LISTEN');
-assert.throws(() => httpServer.listen(), (error) => error.code === 'B0_FORBIDDEN_TCP_LISTEN');
+const httpsServer = https.createServer();
+for (const subject of [httpServer, httpsServer]) {
+  assert.throws(() => subject.listen(2222), (error) => error.code === 'B0_FORBIDDEN_TCP_LISTEN');
+  assert.throws(() => subject.listen(), (error) => error.code === 'B0_FORBIDDEN_TCP_LISTEN');
+}
 assert.equal(forwarded.length, 0, 'no forbidden form reaches the captured original listen');
 const callback = () => {};
 assert.equal(server.listen(owned, callback), server);
@@ -101,6 +108,7 @@ assert.deepEqual(forwarded, [
 ]);
 assert.equal(server.listening, false, 'the no-bind self-check never opens a real endpoint');
 assert.equal(httpServer.listening, false, 'the no-bind self-check never opens a real endpoint');
+assert.equal(httpsServer.listening, false, 'the no-bind self-check never opens a real endpoint');
 // `rejected` and `forwardedToCapturedOriginal` are counted from the corpus and
 // from the calls that reached the substituted original. `openHandles` is read
 // back off the socket, but it is a guard rail rather than a measurement of the
@@ -110,11 +118,20 @@ assert.equal(httpServer.listening, false, 'the no-bind self-check never opens a 
 // events the guard itself appends.
 console.log(JSON.stringify({
   platform: process.platform,
-  // `rejected` counts the corpus array; the five cases outside it (zero-arity
-  // listen, two later-argument forms and two http.Server rejections) are counted
-  // separately so the wrapper can pin both.
+  // `rejected` counts the corpus array; the seven cases outside it (zero-arity
+  // listen, two later-argument forms, and a port and a zero-arity call on each of
+  // http.Server and https.Server) are counted separately so the wrapper can pin
+  // both.
   rejected: rejected.length,
-  rejectedOutsideCorpus: 5,
+  rejectedOutsideCorpus: 7,
   forwardedToCapturedOriginal: forwarded.length,
   openHandles: server.listening || httpServer.listening,
 }));
+
+// LIMITATION, stated rather than implied. This corpus is a fixed set of calls in
+// one process. A guard defect keyed on anything outside that set — a subject
+// class not sampled here, a call ordinal, wall-clock time, argv, or an
+// environment variable — is invisible to it, and no finite corpus closes that
+// class. What this file does buy is that the obvious shapes are covered and that
+// each covered invariant is demonstrably load-bearing: see the mutation battery
+// at docs/analysis/2026-09-17.rg06-regression/guard-mutation-battery.mjs.

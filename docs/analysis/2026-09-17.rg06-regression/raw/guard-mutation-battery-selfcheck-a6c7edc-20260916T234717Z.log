@@ -1,0 +1,53 @@
+# historical corpus run: --self-check is the test-owned-http-test-pipe.cjs of commit a6c7edc
+# the wrapper resolves its subject by a fixed basename, so a placeholder that always
+# passes is supplied for every historical run. ONLY the self-check column carries signal.
+# B0 guard mutation battery
+# generated_at    2026-09-16T23:47:17.216Z
+# node            v24.21.0  platform=linux
+# guard           server/tools/require-owned-http-test-pipe.cjs
+# self_check      /tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/rg06-historical/selfcheck.a6c7edc.cjs
+# wrapper         /tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/rg06-historical/noop-wrapper.test.cjs
+#
+# killed   = the surface failed, so it covers this invariant
+# SURVIVED = the surface passed against a defective guard, so it does NOT
+# n/a      = the surface could not run at all against this mutant
+# equivalent mutants change no observable behaviour; surviving them is expected
+#
+# mutant                     self-check wrapper    description
+  anchor-start               SURVIVED   SURVIVED   drop the ^ anchor on the name pattern
+  anchor-end                 SURVIVED   SURVIVED   drop the $ anchor on the name pattern
+  kind-open                  killed     SURVIVED   open the kind set to .*
+  kind-metachar              killed     SURVIVED   add a metacharacter kind
+  kind-shrink                SURVIVED   SURVIVED   revert the kind set to http only
+  kind-template-widen        SURVIVED   SURVIVED   widen the alternation in the pattern template, bypassing the kind check
+  pid-separator-optional     SURVIVED   SURVIVED   make the kind/pid separator optional
+  pid-any                    SURVIVED   SURVIVED   drop the pid binding
+  uuid-any                   killed     SURVIVED   relax the uuid shape to .+
+  kind-validation-removed    SURVIVED   SURVIVED   delete the load-time kind literal check
+  dir-exact-to-prefix        SURVIVED   SURVIVED   accept any directory whose path starts with tmpdir
+  dir-dropped                SURVIVED   SURVIVED   drop the owned-directory clause
+  suffix-dropped             SURVIVED   SURVIVED   drop the .sock suffix clause
+  suffix-split-first-dot     SURVIVED   SURVIVED   strip from the first dot instead of a fixed five characters
+  absolute-dropped           SURVIVED   SURVIVED   [equivalent] drop the isAbsolute clause
+  win32-prefix-dropped       SURVIVED   SURVIVED   drop the named-pipe prefix clause
+  win32-allow-all            SURVIVED   SURVIVED   accept everything on the win32 branch
+  posix-allow-all            killed     SURVIVED   accept every string on the posix branch
+  string-check-dropped       killed     SURVIVED   accept non-string first arguments
+  guard-disabled             killed     SURVIVED   forward every listen call
+  error-code-changed         killed     SURVIVED   change the thrown error code
+  subject-class-escape       SURVIVED   SURVIVED   allow any subject that is not a bare net.Server
+  zero-arity-escape          SURVIVED   SURVIVED   allow a listen() call with no arguments
+  env-backdoor               killed     SURVIVED   allow everything when an environment variable is absent
+  later-argument-escape      SURVIVED   SURVIVED   allow when any later argument opts out
+  https-subject-escape       SURVIVED   SURVIVED   allow any https.Server subject
+  log-first-field-nulled     SURVIVED   SURVIVED   record every intercepted value as null
+  log-firsttype-const        SURVIVED   SURVIVED   record every intercepted argument as a string
+  CONTROL (unmutated)        SURVIVED   SURVIVED   both surfaces must SURVIVE here
+#
+# mutants=28 anchor_missing=0 non_equivalent_survived_on_both_surfaces=19
+# a mutant killed on one surface and surviving on the other is covered: the two
+# surfaces are complementary, the wrapper reaching what the self-check cannot.
+# control_self_check=SURVIVED control_wrapper=SURVIVED
+# result=REVIEW
+# exit 0=PASS  1=REVIEW  2=bad invocation
+EXIT=1

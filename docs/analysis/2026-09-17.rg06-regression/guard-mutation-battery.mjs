@@ -109,13 +109,42 @@ const MUTANTS = [
   ['later-argument-escape', 'allow when any later argument opts out',
     replaceOnce('const allowed = ownedEndpoint(args[0]);',
       'const allowed = ownedEndpoint(args[0]) || args.some((a) => a && a.allowTcp === true);')],
+  ['https-subject-escape', 'allow any https.Server subject',
+    replaceOnce('const allowed = ownedEndpoint(args[0]);',
+      "const allowed = ownedEndpoint(args[0]) || this instanceof require('node:https').Server;")],
+  // The two below corrupt the guard's own event log rather than its decision.
+  // The log is what proves the self-check drove the guard, so a log that records
+  // every call identically would make that proof vacuous.
+  ['log-first-field-nulled', 'record every intercepted value as null',
+    replaceOnce("first: typeof args[0] === 'number' || typeof args[0] === 'string' ? args[0] : null,",
+      'first: null,')],
+  ['log-firsttype-const', 'record every intercepted argument as a string',
+    replaceOnce('firstType: typeof args[0],', "firstType: 'string',")],
 ];
+
+// A `node --test` child that inherits NODE_TEST_CONTEXT hits node's recursion
+// guard, runs zero files and exits 0 — which would report every mutant as
+// SURVIVED on a wrapper column that never ran. Strip it, and refuse to report a
+// wrapper verdict at all if the child produced no test output.
+function childEnv() {
+  const env = { ...process.env, BUILDERGATE_B0_GUARD_LOG: undefined };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('NODE_TEST_')) delete env[key];
+  }
+  return env;
+}
 
 function runSurfaces(dir) {
   const selfCheck = spawnSync(process.execPath, [join(dir, basename(SELF_CHECK))],
-    { encoding: 'utf8', cwd: dir, env: { ...process.env, BUILDERGATE_B0_GUARD_LOG: undefined } });
+    { encoding: 'utf8', cwd: dir, env: childEnv() });
   const wrapper = spawnSync(process.execPath, ['--test', join(dir, basename(WRAPPER))],
-    { encoding: 'utf8', cwd: dir, env: { ...process.env, BUILDERGATE_B0_GUARD_LOG: undefined } });
+    { encoding: 'utf8', cwd: dir, env: childEnv() });
+  const wrapperRanTests = /^# tests \d+$|^ℹ tests \d+$/m.test(wrapper.stdout || '')
+    && !/^# tests 0$|^ℹ tests 0$/m.test(wrapper.stdout || '');
+  if (!wrapperRanTests) {
+    console.error('the wrapper child ran no tests; its column would be vacuous');
+    process.exit(2);
+  }
   return { selfCheck: selfCheck.status === 0, wrapper: wrapper.status === 0 };
 }
 

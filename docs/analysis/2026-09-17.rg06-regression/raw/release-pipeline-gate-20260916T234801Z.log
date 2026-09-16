@@ -1,0 +1,61 @@
+# root npm run test:release-pipeline, chaining only the guard wrapper (no server/dist dependency)
+# server/dist present at this moment: yes
+
+> buildergate@0.5.4 test:release-pipeline
+> node --test tools/build-portable-runtime-evidence.test.mjs server/tools/canonical-authority-line-endings.test.mjs server/tools/owned-http-test-pipe-guard.test.cjs && npm --prefix server run test:authority-pin && npm --prefix server run test:retired-settings-residue
+
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (429.166831ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (107.656813ms)
+✔ OPS-BGSTAB-008 the bundle writer completes on this working tree (5864.339576ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (236.270083ms)
+✔ B0 listen guard self-check passes with the exact corpus it claims (62.188408ms)
+✔ the self-check actually drives the guard, counted from the guard own log (56.921331ms)
+✔ the self-check covers the platform branch this lane does not take (57.624073ms)
+✔ B0 listen guard refuses to load a kind that is not a regex literal (37.191281ms)
+✔ OPS-BGSTAB-009 accepts the bundle layout the evidence writer produces (41.871107ms)
+✔ OPS-BGSTAB-009 still runs the runtime canary against the artifact policy (40.752684ms)
+✔ OPS-BGSTAB-009 rejects a bundle the runtime canary refuses (42.959916ms)
+✔ OPS-BGSTAB-009 still requires exactly 15 raw evidence sidecars (14.191426ms)
+✔ OPS-BGSTAB-009 rejects a bundle with any required file removed (59.445632ms)
+✔ OPS-BGSTAB-009 rejects declared paths that resolve outside the evidence root (54.576124ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6735.098045
+
+> buildergate-server@0.1.0 test:authority-pin
+> tsx --test src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts
+
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OPS-BGSTAB-010 the published generation pins the sources on disk (42.409357ms)
+✔ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy (5414.588062ms)
+✔ OPS-BGSTAB-010 altering one pinned byte breaks the digest equality (76.525895ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8075.902021
+
+> buildergate-server@0.1.0 test:retired-settings-residue
+> tsx --test src/utils/retiredSettingsResidue.test.ts
+
+✔ FR-BGSTAB-025 no shipped surface references a retired configuration path (4425.045535ms)
+✔ FR-BGSTAB-025 defaults constants for the retired logging and bruteForce blocks are gone (0.427452ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5490.701205
+EXIT=0
+# git status --porcelain docs/analysis/terminal-fairness-authority AFTER:
