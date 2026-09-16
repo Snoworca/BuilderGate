@@ -159,15 +159,26 @@ test('OBS-BGSTAB-009 AC-5 emits machine-readable boundary evidence without raw t
 
   assert.equal(evidence.contentDigest.algorithm, 'sha256');
   assert.equal(evidence.contentDigest.value.length, 64);
+
+  // Pin the committed artifact to this producer run. Self-consistency of the
+  // artifact's own digest is not enough -- a hand-edited artifact with a
+  // recomputed digest, or producer drift, would both pass that check alone.
+  assert.equal(
+    JSON.stringify(evidence, null, 2) + '\n',
+    readFileSync(EVIDENCE_PATH, 'utf8'),
+    'committed boundary artifact must equal a fresh producer run byte for byte',
+  );
 });
 
-test('OBS-BGSTAB-009 AC-5 keeps the committed boundary artifact reproducible', () => {
+test('OBS-BGSTAB-009 AC-5 keeps the committed artifact digest self-consistent', () => {
   const raw = readFileSync(EVIDENCE_PATH, 'utf8');
   const parsed = JSON.parse(raw) as { contentDigest: { value: string } };
   const { contentDigest, ...body } = parsed as Record<string, unknown> & {
     contentDigest: { value: string };
   };
   const recomputed = createHash('sha256').update(JSON.stringify(body), 'utf8').digest('hex');
+  // Self-consistency only. Producer <-> artifact equality is pinned by the
+  // sibling AC-5 test that actually runs the producer.
   assert.equal(
     recomputed,
     contentDigest.value,
@@ -205,11 +216,32 @@ test('MIG-BGSTAB-005 AC-1..AC-3 pins the PR decomposition and rollback gate map'
   );
 
   const irreversible = map.prs.filter((pr) => !pr.reversible);
-  assert.equal(irreversible.length, 1);
-  assert.equal(
-    map.prs.indexOf(irreversible[0]!),
-    map.prs.length - 1,
-    'the irreversible PR must be last',
+  assert.equal(irreversible.length >= 1, true, 'at least one gated irreversible PR');
+
+  // AC-3 is plural-tolerant: every irreversible PR must follow every
+  // reversible one, rather than there being exactly one in last position.
+  const lastReversibleIndex = map.prs.reduce(
+    (acc, pr, index) => (pr.reversible ? index : acc),
+    -1,
   );
-  assert.match(irreversible[0]!.rollbackGate, /NOT REVERSIBLE/u);
+  const firstIrreversibleIndex = map.prs.findIndex((pr) => !pr.reversible);
+  assert.equal(
+    firstIrreversibleIndex > lastReversibleIndex,
+    true,
+    'every irreversible PR must come after every reversible one',
+  );
+
+  for (const pr of irreversible) {
+    assert.match(pr.rollbackGate, /NOT REVERSIBLE/u);
+    // Ordering in the array is not a gate on its own; an irreversible PR must
+    // actually depend on prior work.
+    assert.equal(pr.dependsOn.length > 0, true, `${pr.prId} must be gated by dependsOn`);
+    for (const dependency of pr.dependsOn) {
+      assert.equal(
+        map.prs.some((candidate) => candidate.prId === dependency),
+        true,
+        `${pr.prId} dependsOn ${dependency} must exist in the map`,
+      );
+    }
+  }
 });
