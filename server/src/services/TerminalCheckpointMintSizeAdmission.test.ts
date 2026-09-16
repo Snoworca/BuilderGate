@@ -132,16 +132,21 @@ test('issue #26: at default limits, per-token SGR at >=200 columns mints a check
   const checkpointMaxBytes = limits.checkpointMaxBytes;
   const scrollbackLines = limits.scrollbackLines;
 
-  // The issue #26 measurement was taken while `checkpointMaxBytes` and
-  // `visibleOutputQueueMaxBytes` both defaulted to 4 MiB. Nothing in the
-  // measurement distinguishes them, so if EITHER default moves the measurement
-  // must be re-taken rather than reinterpreted against the survivor.
+  // The #26 byte projection below is compared against `checkpointMaxBytes` alone — the hold
+  // budget (`visibleOutputQueueMaxBytes`) plays no part in that comparison. This guard on
+  // `checkpointMaxBytes` is therefore a precondition of the measurement: if it moves, re-measure #26.
   assert.equal(checkpointMaxBytes, 4 * 1024 * 1024, 'default checkpointMaxBytes moved; re-measure issue #26');
+  // This second guard is a re-measure TRIPWIRE, not a precondition of the #26 projection itself:
+  // the original #26 measurement happened to be taken when `visibleOutputQueueMaxBytes` coincided
+  // with `checkpointMaxBytes` (both 4 MiB), and the two budgets are now decoupled. If the hold
+  // default moves on its own, this trips so someone confirms the #26 numbers still describe
+  // reality — it does not mean the test itself is broken.
   assert.equal(
     limits.visibleOutputQueueMaxBytes,
     4 * 1024 * 1024,
-    'default visibleOutputQueueMaxBytes moved; the issue #26 measurement assumed it coincides with '
-    + 'checkpointMaxBytes — re-measure issue #26',
+    'default visibleOutputQueueMaxBytes moved; the #26 projection only depends on checkpointMaxBytes, '
+    + 'but the original #26 measurement was taken when the two defaults coincided — confirm the #26 '
+    + 'numbers still describe reality before assuming this test is broken',
   );
   assert.equal(scrollbackLines, 10000, 'default scrollbackLines moved; re-measure issue #26');
 

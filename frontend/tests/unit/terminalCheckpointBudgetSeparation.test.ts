@@ -195,6 +195,17 @@ test('REL_BGSTAB_023_AC2_checkpoint_admission_and_post_checkpoint_hold_are_gover
 /**
  * Offset one past the `}` closing the object literal that opens at `start`, ignoring braces inside
  * string/template literals and comments. Returns `source.length` when the literal never closes.
+ *
+ * Regex literals are deliberately NOT tracked — there is no regex-literal state here, and adding
+ * one correctly requires distinguishing a regex literal from a division operator, which needs real
+ * lexing (tracking the preceding token) and is not worth it for this test helper. This is a
+ * fail-closed gap: a regex literal inside the scanned options object that contains a `}` or a quote
+ * character (e.g. `/[}'"]/`) will desynchronize the brace/quote scan and this function will return
+ * the wrong offset, or fall through to `source.length`. When that happens this test fails with a
+ * misleading message (e.g. "the hold budget option moved") that does not name the real cause. If a
+ * future options literal needs such a regex, either move the regex literal out of the scanned object
+ * (e.g. hoist it to a named constant referenced by identifier) or extend this helper with real
+ * regex-literal tracking.
  */
 function endOfObjectLiteral(source: string, start: number): number {
   let depth = 0;
