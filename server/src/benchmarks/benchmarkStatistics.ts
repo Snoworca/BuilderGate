@@ -633,25 +633,6 @@ function validateExecutionStep(
   }
 }
 
-// @req PERF-BGSTAB-012 AC-2
-/**
- * The rule `execution.strategy` actually claims: consecutive units differ in
- * mode.
- *
- * The earlier formulation compared the longest same-arm run against
- * `length / distinctModes` — the arm's fair share of the run — and was wrong at
- * both ends. Too weak, because a 252-step order of
- * `[125×NO_ANALYZER, NO_RENDER, 125×NO_ANALYZER, NO_RENDER]` has a longest run
- * of 125 against a fair share of 126 and was accepted, which is exactly the
- * block concentration the check exists to reject: all the machine drift over 125
- * consecutive units lands on one arm. Too strict, because a perfectly
- * interleaved `[A, B]` has a longest run of 1 against a fair share of 1 and was
- * rejected, so a legitimately alternating two-step order could not be expressed.
- *
- * Requiring the longest same-arm run to be exactly 1 has neither pathology: no
- * block order can satisfy it at any length, and there is no minimum length below
- * which a true interleave fails.
- */
 /**
  * The next representable double above `value`.
  *
@@ -675,6 +656,25 @@ function nextUp(value: number): number {
   return NEXT_UP_F64[0];
 }
 
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * The rule `execution.strategy` actually claims: consecutive units differ in
+ * mode.
+ *
+ * The earlier formulation compared the longest same-arm run against
+ * `length / distinctModes` — the arm's fair share of the run — and was wrong at
+ * both ends. Too weak, because a 252-step order of
+ * `[125×NO_ANALYZER, NO_RENDER, 125×NO_ANALYZER, NO_RENDER]` has a longest run
+ * of 125 against a fair share of 126 and was accepted, which is exactly the
+ * block concentration the check exists to reject: all the machine drift over 125
+ * consecutive units lands on one arm. Too strict, because a perfectly
+ * interleaved `[A, B]` has a longest run of 1 against a fair share of 1 and was
+ * rejected, so a legitimately alternating two-step order could not be expressed.
+ *
+ * Requiring the longest same-arm run to be exactly 1 has neither pathology: no
+ * block order can satisfy it at any length, and there is no minimum length below
+ * which a true interleave fails.
+ */
 function assertInterleaved(order: Array<Record<string, unknown>>, path: string): void {
   const distinctModes = new Set(order.map(step => step.mode as string));
   if (distinctModes.size < 2) {

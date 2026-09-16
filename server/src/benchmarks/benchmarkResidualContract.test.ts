@@ -18,9 +18,10 @@ import {
 //
 // PERF-BGSTAB-008 AC-1..AC-7 are satisfied by the sealed Wave-1 run. This file
 // covers only the three obligations GitHub issue #3 added and PERF-BGSTAB-008
-// never contracted: an outlier policy, an execution-derived interleaved order,
-// and visibility as an independently varied factor. It also pins the sealed
-// artifacts so that satisfying those three cannot quietly rewrite them.
+// never contracted: an outlier policy, an interleaved arm order with observed
+// completion times, and visibility as an independently varied factor. It also
+// pins the sealed artifacts so that satisfying those three cannot quietly
+// rewrite them.
 
 const SEALED_DIR = '../../../docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline';
 
@@ -87,7 +88,7 @@ test('PERF-BGSTAB-012 the manifest records an outlier policy, explicitly when no
 });
 
 // @req PERF-BGSTAB-012 AC-2
-test('PERF-BGSTAB-012 the manifest records an execution-derived interleaved arm order', () => {
+test('PERF-BGSTAB-012 the manifest records an interleaved arm order with observed completion times', () => {
   const m = manifest();
   const execution = m.execution;
 
