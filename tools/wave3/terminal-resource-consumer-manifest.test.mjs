@@ -42,6 +42,7 @@ const expectedResourceKeys = [
   'resourceLimits.snapshots.perSnapshotMaxChars',
   'resourceLimits.snapshots.tombstoneTtlMs',
   'resourceLimits.snapshots.totalStorageBudgetChars',
+  'resourceLimits.terminal.checkpointMaxBytes',
   'resourceLimits.terminal.hiddenOutputPolicy',
   'resourceLimits.terminal.hiddenOutputTailBytes',
   'resourceLimits.terminal.inputQueueMaxBytes',
@@ -434,7 +435,10 @@ assert.deepEqual(manifest.evidence.consumerAstFingerprint, {
   schemaVersion: 'terminal-resource-evidence-ast/v1',
   typescriptVersion: '5.9.3',
 });
-assert.equal(manifest.consumers.length, 80);
+// 81, not the sealed historical 80: REL-BGSTAB-023 registered
+// resourceLimits.terminal.checkpointMaxBytes with its TerminalView consumer. The historical
+// seals asserted above stay at 80 — they record the PH-001 run, not today's inventory.
+assert.equal(manifest.consumers.length, 81);
 assert.equal(manifest.classifications.length, 10);
 const consumerEvidenceAstMutation = {
   ...manifest,

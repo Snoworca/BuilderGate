@@ -1,0 +1,13 @@
+✔ REL-BGSTAB-023 AC-1 the checkpoint byte budget is its own canonical schema key (1.903211ms)
+✔ REL-BGSTAB-023 AC-5 the shipped default leaves the effective budget unchanged (0.124416ms)
+✔ REL-BGSTAB-023 AC-1 the checkpoint byte budget shares the range it was split from (0.942132ms)
+✔ REL-BGSTAB-023 AC-1 the terminal block stays strict about unknown keys (0.245306ms)
+✔ REL-BGSTAB-023 AC-4 the checkpoint byte budget is registered as a terminal resource key (0.134433ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1735.349556

@@ -36,6 +36,7 @@ export type EditableSettingsKey =
   | 'resourceLimits.clientWs.hardReconnectBytes'
   | 'resourceLimits.terminal.visibleOutputQueueMaxBytes'
   | 'resourceLimits.terminal.visibleOutputMaxChunks'
+  | 'resourceLimits.terminal.checkpointMaxBytes'
   | 'resourceLimits.terminal.visibleFlushBudgetBytes'
   | 'resourceLimits.terminal.hiddenOutputPolicy'
   | 'resourceLimits.terminal.hiddenOutputTailBytes'
@@ -94,6 +95,7 @@ export interface ResourceLimitsSettings {
   terminal: {
     visibleOutputQueueMaxBytes: number;
     visibleOutputMaxChunks: number;
+    checkpointMaxBytes: number;
     visibleFlushBudgetBytes: number;
     hiddenOutputPolicy: 'write-hidden' | 'snapshot-restore' | 'debug-tail';
     hiddenOutputTailBytes: number;

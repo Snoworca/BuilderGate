@@ -65,6 +65,7 @@
     "tests/unit/terminalAuthorityProductionWiring.test.ts",
     "tests/unit/terminalBinaryNegotiationClient.test.ts",
     "tests/unit/terminalChannelRegistry.test.ts",
+    "tests/unit/terminalCheckpointBudgetSeparation.test.ts",
     "tests/unit/terminalCheckpointCapabilityScoping.test.ts",
     "tests/unit/terminalCheckpointRollbackTailWatermark.test.ts",
     "tests/unit/terminalCheckpointRuntime.test.ts",

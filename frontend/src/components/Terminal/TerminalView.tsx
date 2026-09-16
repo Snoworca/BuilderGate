@@ -3518,6 +3518,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         digestBytes: digestTerminalBytes,
         timeoutMs: TERMINAL_RECOVERY_WRITE_COMPLETION_TIMEOUT_MS,
         postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes,
+        checkpointMaxBytes: coordinatorLimits.checkpointMaxBytes,
         postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks,
         pendingInputMaxBytes: coordinatorInputLimits.inputQueueMaxBytes,
         pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks,

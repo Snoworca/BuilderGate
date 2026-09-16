@@ -143,6 +143,7 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   visibleOutputQueueMaxBytes: bytesLimit(1024, 268435456, 4194304),
   visibleOutputMaxChunks: countLimit(1, 65536, 512),
   visibleFlushBudgetBytes: bytesLimit(1024, 16777216, 262144),
+  checkpointMaxBytes: bytesLimit(1024, 268435456, 4194304),
   hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).default('snapshot-restore'),
   hiddenOutputTailBytes: bytesLimit(0, 16777216, 262144),
   inputQueueMaxBytes: bytesLimit(1024, 16777216, 65536),

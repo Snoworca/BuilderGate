@@ -71,6 +71,7 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
       visibleOutputQueueMaxBytes: 4194304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262144,
+      checkpointMaxBytes: 4194304,
       hiddenOutputPolicy: "snapshot-restore",
       hiddenOutputTailBytes: 262144,
       inputQueueMaxBytes: 65536,

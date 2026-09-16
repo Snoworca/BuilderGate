@@ -7,14 +7,14 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "8f0c6c851a32c94f90b1cfe4a96251dcab37e26b04ec988b692f89d2fefeb168",
+    "sha256": "09ad230fe9604f4716f01f8d5be21e88befa34dfcd3f66aa7b8bf334db7cb766",
     "sourceCount": 35,
-    "sourceSetSha256": "a9cfd583ff5a6a2f27e7941dfdf0425dff246dc5102152273b8a15b9eddfa117",
-    "exactConsumerTuples": 80,
+    "sourceSetSha256": "190a43ba7709c55104f78a88433d65995a69be9b222250bf2240cd088ca9e6cd",
+    "exactConsumerTuples": 81,
     "classifications": 10
   },
   "semanticInventory": {
-    "sha256": "f0e119fbc30adef1091084adc82028870f8c8bf3578fdf72c864d1b54601c023",
+    "sha256": "43177d0133364ccaa567d2585991b6d917cb9064f72e069d8639f6a71a15f0ba",
     "historicalEqualsCurrent": false,
     "divergence": {
       "reason": "evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source",
@@ -25,6 +25,7 @@
           "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"pty.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"session-generation\",\"state\":\"divergent-legacy\"}"
         ],
         "introduced": [
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.checkpointMaxBytes\",\"unit\":\"bytes\",\"source\":\"resourceLimits.terminal.checkpointMaxBytes\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-write-coordinator\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"terminal-runtime-construction\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"headless-terminal-construction\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"session-generation\",\"state\":\"consumed\"}"

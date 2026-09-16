@@ -131,6 +131,7 @@ export interface ClientWsResourceLimitsConfig {
 export interface TerminalResourceLimitsConfig {
   visibleOutputQueueMaxBytes: number;
   visibleOutputMaxChunks: number;
+  checkpointMaxBytes: number;
   visibleFlushBudgetBytes: number;
   hiddenOutputPolicy: 'write-hidden' | 'snapshot-restore' | 'debug-tail';
   hiddenOutputTailBytes: number;

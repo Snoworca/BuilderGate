@@ -106,6 +106,7 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'resourceLimits.clientWs.hardReconnectBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 536870912) },
   'resourceLimits.terminal.visibleOutputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.terminal.visibleOutputMaxChunks': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 65536) },
+  'resourceLimits.terminal.checkpointMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.terminal.visibleFlushBudgetBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
   'resourceLimits.terminal.hiddenOutputPolicy': { applyScope: 'immediate', writeOnly: false },
   'resourceLimits.terminal.hiddenOutputTailBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(0, 16777216) },
@@ -139,6 +140,7 @@ const RESERVED_WAVE6_SETTING_KEYS = new Set<EditableSettingsKey>([
   'resourceLimits.ws.outputCoalesceWindowMs',
   'resourceLimits.terminal.visibleOutputQueueMaxBytes',
   'resourceLimits.terminal.visibleOutputMaxChunks',
+  'resourceLimits.terminal.checkpointMaxBytes',
   'resourceLimits.terminal.visibleFlushBudgetBytes',
   'resourceLimits.terminal.scrollbackLines',
 ]);

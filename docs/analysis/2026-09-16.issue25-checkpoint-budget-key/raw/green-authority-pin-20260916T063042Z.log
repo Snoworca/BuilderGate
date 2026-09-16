@@ -1,0 +1,79 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OPS-BGSTAB-010 the published generation pins the sources on disk (24.737023ms)
+✔ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy (4611.555623ms)
+✔ OPS-BGSTAB-010 altering one pinned byte breaks the digest equality (42.851827ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 fixture contract — real SessionManager initialization retains authority and cleanup state (103.956108ms)
+✔ PERF-BGSTAB-010 gated headless fixture preserves full state while disposal releases held write callbacks (0.305942ms)
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 gated real-session fixture drains a held write before public cleanup (2367.713492ms)
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 gated real-session fixture releases resources after an assertion failure (2378.973161ms)
+[SessionManager] All CWD watchers stopped
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 emergency cleanup preserves a public finalizer error while releasing held callbacks (2342.10568ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session gated-headless-overflow-cleanup-red: Headless output queue overflow (observe): byte-limit
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+✔ PERF-BGSTAB-010 gated real-session PTY chain settles within the fixture bound after overflow cleanup (2374.842826ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1 (195.719833ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 production assembly shares one registry-derived lease authority (101.414742ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2 (204.863099ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3 (105.009484ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4 (105.419023ms)
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5 (123.004155ms)
+✔ REL-BGSTAB-010 headless finalizer revokes the old epoch and isolates same-ID recreation (116.938872ms)
+[WS] WebSocket router initialized
+[SessionManager] Headless terminal degraded (write) for session session-a1: simulated headless write failure
+✔ REL-BGSTAB-010 headless maxChunks admits exact N and rejects N+1 without bypass (134.07647ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 headless write failure settles the candidate to target-scoped legacy recovery (109.727123ms)
+✔ REL-BGSTAB-010 valid but inactive leases cannot preview admit or rollback active WS and headless targets (92.773709ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-nonselected: Headless output queue overflow (observe): byte-limit
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-a1: Headless output queue overflow (observe): byte-limit
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 production PTY path uses target-scoped non-destructive headless policy and restores legacy limit (156.762857ms)
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 headless rollback closes only after the actual write chain drains (99.827211ms)
+✔ REL-BGSTAB-010 headless rollback fences every pre-boundary policy generation (100.858921ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6 (0.459416ms)
+✔ REL-BGSTAB-010 coalescing preserves every admission identity and lifetime fence (0.414309ms)
+✔ PERF-BGSTAB-010 AC-3/AC-4 fair artifact admission 계약 부재 때문에 실패 (2.704152ms)
+✔ PERF-BGSTAB-010 published fair artifact admission validates the benchmark policy contract (2.853785ms)
+✔ PERF-BGSTAB-010 source default Canary admission fails closed (12.925835ms)
+✔ PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority (278.45368ms)
+✔ PERF-BGSTAB-010 fresh default Canary accepts canonical authority (2956.985705ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16718.157684

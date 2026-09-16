@@ -18,6 +18,7 @@ export interface TerminalResourceLimitsRuntimeConfig {
   visibleOutputQueueMaxBytes: number;
   visibleOutputMaxChunks: number;
   visibleFlushBudgetBytes: number;
+  checkpointMaxBytes: number;
   hiddenOutputPolicy: HiddenOutputPolicy;
   hiddenOutputTailBytes: number;
   inputQueueMaxBytes: number;
@@ -70,6 +71,7 @@ const DEFAULT_TERMINAL_LIMITS: TerminalResourceLimitsRuntimeConfig = {
   visibleOutputQueueMaxBytes: 4_194_304,
   visibleOutputMaxChunks: 512,
   visibleFlushBudgetBytes: 262_144,
+  checkpointMaxBytes: 4_194_304,
   hiddenOutputPolicy: 'snapshot-restore',
   hiddenOutputTailBytes: 262_144,
   inputQueueMaxBytes: 65_536,
@@ -269,6 +271,7 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
     visibleOutputQueueMaxBytes: DEFAULT_TERMINAL_LIMITS.visibleOutputQueueMaxBytes,
     visibleOutputMaxChunks: DEFAULT_TERMINAL_LIMITS.visibleOutputMaxChunks,
     visibleFlushBudgetBytes: DEFAULT_TERMINAL_LIMITS.visibleFlushBudgetBytes,
+    checkpointMaxBytes: DEFAULT_TERMINAL_LIMITS.checkpointMaxBytes,
     hiddenOutputTailBytes: DEFAULT_TERMINAL_LIMITS.hiddenOutputTailBytes,
     inputQueueMaxBytes: DEFAULT_TERMINAL_LIMITS.inputQueueMaxBytes,
     inputQueueTtlMs: DEFAULT_TERMINAL_LIMITS.inputQueueTtlMs,
@@ -279,6 +282,7 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
     visibleOutputQueueMaxBytes: [1024, 268_435_456],
     visibleOutputMaxChunks: [1, 65_536],
     visibleFlushBudgetBytes: [1024, 16_777_216],
+    checkpointMaxBytes: [1024, 268_435_456],
     hiddenOutputTailBytes: [0, 16_777_216],
     inputQueueMaxBytes: [1024, 16_777_216],
     inputQueueTtlMs: [1, 60_000],
