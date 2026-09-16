@@ -1,0 +1,3 @@
+{"node":"v24.21.0","measuredAt":"2026-09-16T04:07:56.804Z"}
+{"label":"A-baseline-agentlike-124col-10k","cols":124,"scrollbackLines":10000,"linesWritten":10000,"retainedLines":10001,"bytes":3040000,"mib":2.899,"pctOf4MiB":72.5,"bytesPerCell":2.451,"chunks64k":47,"exceeds4MiB":false}
+{"label":"B-wide-400col-10k","cols":400,"scrollbackLines":10000,"linesWritten":10000,"retainedLines":10001,"bytes":10545000,"mib":10.056,"pctOf4MiB":251.4,"bytesPerCell":2.636,"chunks64k":161,"exceeds4MiB":true}
