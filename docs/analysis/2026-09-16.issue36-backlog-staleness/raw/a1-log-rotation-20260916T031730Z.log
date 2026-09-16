@@ -1,0 +1,15 @@
+✔ a log under the limit is left alone (1.241428ms)
+✔ a log at the limit rotates and starts empty (0.566879ms)
+✔ generations shift and the oldest is dropped (0.810387ms)
+✔ a missing log is not an error (0.473861ms)
+✔ appendLog rotates on its own and keeps the new line (76.163002ms)
+✔ the default bound is far below the size this log actually reached (0.166225ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 140.085456
+exit=0

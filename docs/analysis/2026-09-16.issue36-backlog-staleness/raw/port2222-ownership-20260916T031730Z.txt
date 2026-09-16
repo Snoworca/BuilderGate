@@ -1,0 +1,8 @@
+# 2222 ownership at 20260916T031730Z (not mine; another lane)
+/proc/128934 cmdline=/bin/bash -c source /home/beom/.claude/shell-snapshots/snapshot-bash-1789493879192-89hp9a.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'W=/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916; E=$W/docs/analysis/2026-09-16.issue36-backlog-staleness/raw; T=$(date -u +%Y%m%dT%H%M%SZ)
+cd $W && node --test tools/daemon/log-rotation.test.js > $E/a1-log-rotation-$T.log 2>&1; echo "exit=$?" >> $E/a1-log-rotation-$T.log
+cd $W/server && npx tsx --test src/services/SessionManagerResizeBounds.test.ts > $E/a2-resize-bounds-$T.log 2>&1; echo "exit=$?" >> $E/a2-resize-bounds-$T.log
+cd $W/server && npx tsx --test src/services/TerminalAuthorityProductionRegression.test.ts > $E/c3-production-regression-$T.log 2>&1; echo "exit=$?" >> $E/c3-production-regression-$T.log
+cd $W && npx speckiwi validate --json > $E/srs-validate-$T.json 2>&1
+{ echo "# 2222 ownership at $T (not mine; another lane)"; ss -ltnp 2>/dev/null | grep 2222; for p in /proc/[0-9]*; do c=$(tr '"'"'\0'"'"' '"'"' '"'"' < $p/cmdline 2>/dev/null); case "$c" in *dist/index.js*) echo "$p cmdline=$c cwd=$(readlink $p/cwd)";; esac; done; } > $E/port2222-ownership-$T.txt 2>&1
+grep -E "^ℹ (tests|pass|fail)" $E/a1-log-rotation-$T.log $E/a2-resize-bounds-$T.log $E/c3-production-regression-$T.log; cat $E/srs-validate-$T.json; cat $E/port2222-ownership-$T.txt; echo "T=$T"' && pwd -P >| /tmp/claude-0a07-cwd  cwd=/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916

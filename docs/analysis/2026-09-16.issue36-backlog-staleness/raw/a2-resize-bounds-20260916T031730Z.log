@@ -1,0 +1,17 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ an ordinary resize reaches the pty unchanged (77.094331ms)
+✔ the documented maximum is honoured exactly (72.320434ms)
+✔ an oversized resize is clamped rather than refused (71.764988ms)
+✔ a non-positive resize is refused and never reaches the pty (296.999111ms)
+✔ a non-integer or non-finite resize is refused (213.312862ms)
+✔ a narrow terminal is honoured, not raised to the unused minimum (69.573629ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2773.096964
+exit=0
