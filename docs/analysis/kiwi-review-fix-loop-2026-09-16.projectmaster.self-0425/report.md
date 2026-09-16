@@ -4,9 +4,9 @@ mode: self
 mode_flags: ["--auto"]
 pr_url: null
 scope: commits 8ba0bad..HEAD (issue #26 lane)
-rounds: 2
-findings_total: 22
-classified: { immediate_fix: 21, discussion_needed: 0, rejected: 1 }
+rounds: 3
+findings_total: 29
+classified: { immediate_fix: 28, discussion_needed: 0, rejected: 1 }
 regression_pass: true
 closed_reqs_count: null
 pr_responded: false
@@ -48,12 +48,33 @@ A second defect of mine surfaced while fixing FND-103: the round-1 worklog edit 
 `json.dumps` defaults and silently converted the row from the canonical compact form to a
 spaced one. Restored to compact.
 
-## Why two rounds and not more
+## Round 3 — gate met, 7 further findings (0 CRITICAL, 0 HIGH, 2 MEDIUM, 5 LOW)
 
-Round 2's HIGH was a provenance gap, not a reasoning error, and its substantive finding
-(FND-102) was closed by replacing an inference with a measurement rather than by rewording.
-Both classes are terminal: there is no further inference left to challenge on the crossover
-number, because it is now read off a direct full-scrollback run.
+Round 3 confirmed all nine round-2 items resolved and met the Normal gate
+(CRITICAL = 0, HIGH = 0). Its remaining findings were fixed anyway because they were cheap
+and two of them were substantive.
+
+| Finding | Verdict |
+| --- | --- |
+| FND-201 MEDIUM — §6 still carried the first draft's "~170 columns" | accepted; the round-2 sweep had missed the one section that answers #25 |
+| FND-202 MEDIUM — the round-2 "correction" of the projection error was itself wrong | **accepted, and it reversed a reversal.** Round 1 explained the 0.067% as the 1500-written / 1501-retained off-by-one and was right; round 2's rewrite called that "not the cause" and substituted a constant 1.000567, which is the same off-by-one re-partitioned. Verified from the raw files: `sampleBytes ÷ 1500 × 10000` matches all five direct measurements **to the byte**, so the relationship is exact and there is no error term at all |
+| FND-203 LOW — an algebraic identity presented as a three-geometry empirical finding | accepted, folded into the FND-202 rewrite |
+| FND-204 LOW — the reproducibility caveat was not exhaustive | accepted; header-line differences now named |
+| FND-205 LOW — a verbatim TypeError quoted with no raw artifact | accepted; softened to what was observed once, with the durable claim separated from the quote |
+| FND-206 LOW — the report's changed-files table omitted the new harness | accepted |
+| FND-207 LOW — the "~34 runs" derivation mixed two harnesses | accepted; recomputed within one file |
+
+## Why three rounds and not more
+
+Each round's substantive finding was closed by replacing an inference with a measurement,
+not by rewording. Round 3's central finding was the last inference standing: the projection
+is now known to be exact rather than approximate, and the crossover is read off a direct
+full-scrollback run. There is nothing left in the chain to be wrong about — which is a
+different and better stopping condition than "the reviewer ran out of objections".
+
+Three separate times a claim in this lane survived one round and fell to the next, twice
+because a correction was adopted without verifying its reasoning. That pattern is recorded
+here rather than smoothed over.
 
 ## Regression
 
@@ -63,7 +84,8 @@ number, because it is now read off a direct full-scrollback run.
 
 ## Residual
 
-Nothing CRITICAL or HIGH outstanding. The lane's substantive conclusion did not change
-across either round; what changed is that two numbers and three rationales that were
-asserted more confidently than the evidence supported are now either measured or
-qualified.
+Nothing CRITICAL or HIGH outstanding after round 3. The lane's substantive conclusion —
+premise re-check, corrected severity, record-and-defer, and what #25 now needs — did not
+change across any of the three rounds. What changed is that every number and rationale that
+had been asserted more confidently than the evidence supported is now either measured
+directly or explicitly qualified.

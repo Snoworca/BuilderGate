@@ -1,4 +1,4 @@
-46112753b0041c1f8fcb0e6e0c4fb082b1be5a5e4f444665e4df06105fde5fc9  ./00.decision.md
+a3c80ca731d938bc68c81744953a401644b3766437b7756e869404fb8e81a29c  ./00.decision.md
 ca1a0b1c49dee12c1229958f9a0f65b483ead95fc86f21fb11a3db15c20db28d  ./density-and-crossover-harness.ts
 99c89223f674aa1c21601a3c0d868f7452778710fb6db113c38dbc41a03d7528  ./full-scrollback-harness.ts
 e027cf8ebf80d6dcdacced8a4dbd1c440e2436fb1868ec851db4061cb67bb787  ./raw/.gitignore
