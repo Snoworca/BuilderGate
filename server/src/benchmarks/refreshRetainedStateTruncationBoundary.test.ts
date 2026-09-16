@@ -439,3 +439,59 @@ test('OBS-BGSTAB-009 AC-2 records a probe trail that carries no information beyo
     'if this ever differs, the trail has become informative and could gate provenance',
   );
 });
+
+test('OBS-BGSTAB-009 AC-2 confirms the reported boundary by independent measurement at an unpinned geometry', async () => {
+  // Round-8 review built a producer that memorised the four (cols, rows) pairs
+  // the suite pins and returned `rows + 1` everywhere else. It passed 12/12
+  // while being wrong at every other geometry, because every boundary
+  // assertion compared against a constant the test itself supplied.
+  //
+  // This test supplies no expected value. It picks a geometry the artifact does
+  // NOT pin, asks the producer for a boundary, then confirms that answer
+  // against `measureRefreshRetainedStateBoundary` directly: the reported count
+  // must lose, and the count below it must not. That is the defining property
+  // of the boundary, checkable at any geometry without a formula -- and round 8
+  // established there is no correct closed-form rule to use instead.
+  //
+  // The geometry rotates per run so no finite lookup table can cover it.
+  const candidates = [
+    { cols: 5, rows: 7 },
+    { cols: 3, rows: 5 },
+    { cols: 6, rows: 9 },
+    { cols: 4, rows: 9 },
+    { cols: 12, rows: 6 },
+    { cols: 7, rows: 11 },
+  ];
+  const geometry = candidates[Math.floor(Math.random() * candidates.length)]!;
+  const scrollbackLines = 1000;
+
+  const probed = await measureRefreshTruncationFiringBoundary({
+    ...geometry,
+    scrollbackLines,
+    maxProbeLogicalLines: 60,
+  });
+  const boundary = probed.measuredFiringBoundaryLogicalLines;
+  assert.notEqual(boundary, null, `no boundary found at ${geometry.cols}x${geometry.rows}`);
+
+  const atBoundary = await measureRefreshRetainedStateBoundary({
+    ...geometry,
+    scrollbackLines,
+    logicalLines: boundary!,
+  });
+  const belowBoundary = await measureRefreshRetainedStateBoundary({
+    ...geometry,
+    scrollbackLines,
+    logicalLines: boundary! - 1,
+  });
+
+  assert.equal(
+    atBoundary.observedLossLogicalLines > 0,
+    true,
+    `${geometry.cols}x${geometry.rows}: reported boundary ${boundary} must actually lose`,
+  );
+  assert.equal(
+    belowBoundary.observedLossLogicalLines,
+    0,
+    `${geometry.cols}x${geometry.rows}: ${boundary! - 1} must not lose, or ${boundary} is not the first`,
+  );
+});

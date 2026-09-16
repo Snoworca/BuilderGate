@@ -280,6 +280,12 @@ export interface RefreshTruncationFiringBoundary {
   probeCapLogicalLines: number;
   /** Highest logical-line count actually evaluated (the probe stops at the boundary). */
   probedThroughLogicalLines: number;
+  /**
+   * Descriptive label, not a verified claim. AC-2 deliberately does not
+   * prescribe a search algorithm, so nothing checks that the search was in
+   * fact ascending and linear -- an implementation that computes the boundary
+   * some other way and reports the same label is conformant.
+   */
   probeMethod: 'ascending-linear-probe';
 }
 
