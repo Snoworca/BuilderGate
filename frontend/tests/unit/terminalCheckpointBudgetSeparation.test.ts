@@ -1,13 +1,15 @@
 // @req REL-BGSTAB-023 AC-2, AC-3, AC-5, AC-6
 //
-// Issue #25 / REL-BGSTAB-023. Two different budgets — the checkpoint snapshot byte budget and
-// the post-checkpoint hold byte budget — are one number in production today, because
+// Issue #25 / REL-BGSTAB-023. The checkpoint snapshot byte budget and the post-checkpoint hold
+// byte budget are two different budgets. They used to be one number in production, because
 // `terminalWriteCoordinator.ts` resolves `checkpointMaxBytes` as
-// `options.checkpointMaxBytes ?? postCheckpointMaxBytes` and `TerminalView` (the only production
-// call site of `createTerminalWriteCoordinator`) passes only `postCheckpointMaxBytes`.
+// `options.checkpointMaxBytes ?? postCheckpointMaxBytes` and `TerminalView` — the only production
+// call site of `createTerminalWriteCoordinator` — passed only `postCheckpointMaxBytes`.
 //
-// The coordinator already accepts an independent value; the missing half is the configuration
-// plumbing. These tests pin the plumbing, not the coordinator arithmetic.
+// The coordinator always accepted an independent value; the missing half was the configuration
+// plumbing, which now carries `resourceLimits.terminal.checkpointMaxBytes` to that call site. These
+// tests pin the plumbing, not the coordinator arithmetic, so the `??` fallback is no longer what
+// production resolves to.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
@@ -103,7 +105,16 @@ test('REL_BGSTAB_023_AC2_the_only_production_call_site_passes_the_checkpoint_bud
   const callSite = source.indexOf('createTerminalWriteCoordinator(');
   assert.notEqual(callSite, -1, `${signature}; the production call site moved`);
 
-  const optionsRegion = source.slice(callSite);
+  // Bound the search to the options object literal of that one call. Slicing to the end of this
+  // ~3800-line file would let a comment, an unrelated object literal, or a second coordinator
+  // construction anywhere below satisfy the assertion. Sibling option lines stay free to move
+  // around inside the literal.
+  const optionsStart = source.indexOf('{', callSite);
+  assert.notEqual(optionsStart, -1, `${signature}; the production call site has no options object`);
+  const optionsEnd = endOfObjectLiteral(source, optionsStart);
+  assert.notEqual(optionsEnd, source.length, `${signature}; the production options object is unterminated`);
+  const optionsRegion = source.slice(optionsStart, optionsEnd);
+
   const holdBudget = optionsRegion.indexOf('postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes');
   assert.notEqual(holdBudget, -1, `${signature}; the hold budget option moved`);
 
@@ -180,6 +191,64 @@ test('REL_BGSTAB_023_AC2_checkpoint_admission_and_post_checkpoint_hold_are_gover
     `${signature}; the coupled fallback no longer rejects, so this test no longer characterises it`,
   );
 });
+
+/**
+ * Offset one past the `}` closing the object literal that opens at `start`, ignoring braces inside
+ * string/template literals and comments. Returns `source.length` when the literal never closes.
+ */
+function endOfObjectLiteral(source: string, start: number): number {
+  let depth = 0;
+  let index = start;
+  while (index < source.length) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (char === '/' && next === '/') {
+      const lineEnd = source.indexOf('\n', index);
+      index = lineEnd === -1 ? source.length : lineEnd + 1;
+      continue;
+    }
+    if (char === '/' && next === '*') {
+      const blockEnd = source.indexOf('*/', index + 2);
+      index = blockEnd === -1 ? source.length : blockEnd + 2;
+      continue;
+    }
+    if (char === "'" || char === '"' || char === '`') {
+      index = endOfStringLiteral(source, index);
+      continue;
+    }
+    if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return index + 1;
+      }
+    }
+    index += 1;
+  }
+  return source.length;
+}
+
+function endOfStringLiteral(source: string, start: number): number {
+  const quote = source[start];
+  let index = start + 1;
+  while (index < source.length) {
+    const char = source[index];
+    if (char === '\\') {
+      index += 2;
+      continue;
+    }
+    if (char === quote) {
+      return index + 1;
+    }
+    if (quote === '`' && char === '$' && source[index + 1] === '{') {
+      index = endOfObjectLiteral(source, index + 1);
+      continue;
+    }
+    index += 1;
+  }
+  return source.length;
+}
 
 function createInertAdapter(): Record<string, unknown> {
   return {

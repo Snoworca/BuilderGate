@@ -17,11 +17,12 @@ import {
  * scrollback (`headlessTerminal.ts`, `serializeAddon.serialize()` with no
  * argument) and `TerminalAuthorityProductionAdapter` chunks the result at a
  * fixed 64 KiB with no size adaptation. Neither consults
- * `resourceLimits.terminal.visibleOutputQueueMaxBytes`, which is the value the
- * browser coordinator enforces as its effective `checkpointMaxBytes`
- * (`terminalWriteCoordinator.ts` derives `checkpointMaxBytes` from
- * `postCheckpointMaxBytes`, and `TerminalView` only ever passes
- * `postCheckpointMaxBytes: limits.visibleOutputQueueMaxBytes`).
+ * `resourceLimits.terminal.checkpointMaxBytes`, which is the budget the browser
+ * coordinator enforces on a `checkpoint-begin` (`TerminalView` passes
+ * `checkpointMaxBytes: coordinatorLimits.checkpointMaxBytes` explicitly, so the
+ * coordinator's `options.checkpointMaxBytes ?? postCheckpointMaxBytes` fallback
+ * is not what production resolves to). The server mint path consults no
+ * admission budget at all — that is the defect characterized here.
  *
  * These tests CHARACTERIZE the defect: they pass today because the defect is
  * present. When a mint-time admission check lands they must be revisited
@@ -94,12 +95,13 @@ async function measureBytesPerRetainedLine(cols: number, scrollbackLines: number
  * A HAND-COPY of the comparison the browser coordinator applies to a
  * `checkpoint-begin` (`frontend/src/utils/terminalWriteCoordinator.ts`). The
  * real predicate is not exported and lives in the frontend package, so this
- * server-side test cannot execute it. Nothing here covers the
- * `checkpointMaxBytes ?? postCheckpointMaxBytes` fallback that is the only
- * reason the limit applies at all — a change to that chain, to the comparison
- * operator, or to the `parserTail` term leaves these cases green while
- * invalidating their conclusion. Treat the browser side as asserted by
- * arithmetic, not exercised.
+ * server-side test cannot execute it. Nothing here covers the plumbing that
+ * carries `resourceLimits.terminal.checkpointMaxBytes` from runtime config into
+ * the coordinator — a change to that chain, to the comparison operator, or to
+ * the `parserTail` term leaves these cases green while invalidating their
+ * conclusion. Treat the browser side as asserted by arithmetic, not exercised.
+ * (`frontend/tests/unit/terminalCheckpointBudgetSeparation.test.ts` pins the
+ * plumbing half.)
  */
 function browserWouldReject(encodedByteTotal: number, parserTailBytes: number, checkpointMaxBytes: number): boolean {
   return encodedByteTotal + parserTailBytes > checkpointMaxBytes;
@@ -127,10 +129,20 @@ test('the retained checkpoint declares truncated:false as a literal type', async
 
 test('issue #26: at default limits, per-token SGR at >=200 columns mints a checkpoint the browser must reject', async () => {
   const limits = terminalResourceLimitsSchema.parse({});
-  const checkpointMaxBytes = limits.visibleOutputQueueMaxBytes;
+  const checkpointMaxBytes = limits.checkpointMaxBytes;
   const scrollbackLines = limits.scrollbackLines;
 
-  assert.equal(checkpointMaxBytes, 4 * 1024 * 1024, 'default visibleOutputQueueMaxBytes moved; re-measure issue #26');
+  // The issue #26 measurement was taken while `checkpointMaxBytes` and
+  // `visibleOutputQueueMaxBytes` both defaulted to 4 MiB. Nothing in the
+  // measurement distinguishes them, so if EITHER default moves the measurement
+  // must be re-taken rather than reinterpreted against the survivor.
+  assert.equal(checkpointMaxBytes, 4 * 1024 * 1024, 'default checkpointMaxBytes moved; re-measure issue #26');
+  assert.equal(
+    limits.visibleOutputQueueMaxBytes,
+    4 * 1024 * 1024,
+    'default visibleOutputQueueMaxBytes moved; the issue #26 measurement assumed it coincides with '
+    + 'checkpointMaxBytes — re-measure issue #26',
+  );
   assert.equal(scrollbackLines, 10000, 'default scrollbackLines moved; re-measure issue #26');
 
   const cols = 200;
@@ -152,7 +164,7 @@ test('issue #26: the same per-token density at 80 columns still fits', async () 
   const projectedEncodedByteTotal = Math.round(bytesPerLine * limits.scrollbackLines);
 
   assert.equal(
-    browserWouldReject(projectedEncodedByteTotal, 0, limits.visibleOutputQueueMaxBytes),
+    browserWouldReject(projectedEncodedByteTotal, 0, limits.checkpointMaxBytes),
     false,
     `issue #26: 80 columns projects to ${projectedEncodedByteTotal} bytes and is expected to stay inside the budget. `
     + 'A failure here means the headroom eroded further and the defect widened.',
