@@ -15,6 +15,7 @@
     "playwright.ownership-validation.config.ts",
     "playwright.issue34-capacity.config.ts",
     "playwright.issue34-raise.config.ts",
+    "playwright.issue7-clipboard.config.ts",
     "tests/e2e/busy-agent-workspace-bounce.spec.ts",
     "tests/e2e/grid-equal-mode.spec.ts",
     "tests/e2e/terminal-authority.spec.ts",

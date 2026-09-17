@@ -26,6 +26,7 @@ interface ClipboardCoordinator {
   copySelection(source: ClipboardSource): Promise<ClipboardActionResult>;
   pasteClipboard(source: ClipboardSource): Promise<ClipboardActionResult>;
   pasteText(text: string, source: ClipboardSource): ClipboardActionResult;
+  activate(): void;
   dispose(): void;
 }
 
@@ -68,6 +69,13 @@ const RED_SIGNATURES = {
   multiline: 'expected multiline paste to preserve exact text or reject explicitly without fallback',
   dispose: 'expected disposed coordinator to reject programmatic paste without admission or focus',
   redaction: 'expected clipboard observations and results to exclude raw copy and paste payloads',
+  copyEntryContext: 'expected copy to reject a missing or superseded target before reading the selection',
+  copyNoSelection: 'expected copy without a selection to reject explicitly without writing or clearing',
+  pasteTextNoTarget: 'expected pasteText without a live target to reject without admission or focus',
+  activateLive: 'expected activate on a live coordinator to leave in-flight work owned by its own epoch',
+  pasteAccepted: 'expected an accepted programmatic paste to be observed with its target identity',
+  pasteClipboardEntry: 'expected pasteClipboard to reject a missing or superseded target before reading the clipboard',
+  clipboardReadFailure: 'expected a failed clipboard read to reject as clipboard-read-failed without admission',
 } as const;
 
 async function requireCoordinatorFactory(signature: string): Promise<CoordinatorFactory> {
@@ -367,4 +375,260 @@ test('clipboard coordinator RED — observations and results redact raw clipboar
     ],
     signature,
   );
+});
+
+// The five tests below close contract clauses that an AST mutation sweep of
+// src/utils/terminalClipboardCoordinator.ts found unverified: deleting the guard
+// each one names left the whole suite green. Each asserts the transition, not the
+// resting state, so deleting the guard again makes the named test red.
+
+test('clipboard coordinator RED — copy rejects a missing or superseded target before reading the selection', async () => {
+  const signature = RED_SIGNATURES.copyEntryContext;
+  const factory = await requireCoordinatorFactory(signature);
+
+  const missing = createHarness();
+  missing.target = null;
+  const missingResult = await factory(missing.options).copySelection('keyboard');
+
+  assert.deepEqual(
+    missingResult,
+    { ok: false, action: 'copy', source: 'keyboard', reason: 'context-changed' },
+    signature,
+  );
+  assert.deepEqual(missing.written, [], signature);
+  assert.equal(missing.cleared.length, 0, signature);
+  assert.equal(missing.focused.length, 0, signature);
+
+  // A target that still captures but is no longer current: the entry guard must
+  // stop the copy before captureSelection runs, so the selection is never read.
+  let selectionReads = 0;
+  const superseded = createHarness({
+    isTargetCurrent: () => false,
+    captureSelection: () => {
+      selectionReads += 1;
+      return { text: 'must not be read', rangeKey: 'stale' };
+    },
+  });
+  const supersededResult = await factory(superseded.options).copySelection('tab-context-menu');
+
+  assert.deepEqual(
+    supersededResult,
+    { ok: false, action: 'copy', source: 'tab-context-menu', reason: 'context-changed' },
+    signature,
+  );
+  assert.equal(selectionReads, 0, signature);
+  assert.deepEqual(superseded.written, [], signature);
+  assert.equal(superseded.cleared.length, 0, signature);
+  assert.deepEqual(
+    superseded.observations.map(({ action, outcome, reason }) => ({ action, outcome, reason })),
+    [{ action: 'copy', outcome: 'rejected', reason: 'context-changed' }],
+    signature,
+  );
+});
+
+test('clipboard coordinator RED — copy without a selection rejects without writing or clearing', async () => {
+  const signature = RED_SIGNATURES.copyNoSelection;
+  const factory = await requireCoordinatorFactory(signature);
+
+  // Selection-less copy is the path that must leave Ctrl+C to the native SIGINT
+  // owner, so it must not write the clipboard and must not clear anything.
+  const absent = createHarness();
+  absent.selection = null;
+  const absentResult = await factory(absent.options).copySelection('keyboard');
+
+  assert.deepEqual(
+    absentResult,
+    { ok: false, action: 'copy', source: 'keyboard', reason: 'no-selection' },
+    signature,
+  );
+  assert.deepEqual(absent.written, [], signature);
+  assert.equal(absent.cleared.length, 0, signature);
+  assert.equal(absent.focused.length, 0, signature);
+
+  // An empty-but-present selection is a distinct operand of the same guard.
+  const empty = createHarness();
+  empty.selection = { text: '', rangeKey: 'collapsed-range' };
+  const emptyResult = await factory(empty.options).copySelection('grid-context-menu');
+
+  assert.deepEqual(
+    emptyResult,
+    { ok: false, action: 'copy', source: 'grid-context-menu', reason: 'no-selection' },
+    signature,
+  );
+  assert.deepEqual(empty.written, [], signature);
+  assert.equal(empty.cleared.length, 0, signature);
+  assert.deepEqual(
+    empty.observations.map(({ action, outcome, reason, payloadBytes }) => ({
+      action, outcome, reason, payloadBytes,
+    })),
+    [{ action: 'copy', outcome: 'rejected', reason: 'no-selection', payloadBytes: 0 }],
+    signature,
+  );
+});
+
+test('clipboard coordinator RED — pasteText without a live target rejects without admission', async () => {
+  const signature = RED_SIGNATURES.pasteTextNoTarget;
+  const factory = await requireCoordinatorFactory(signature);
+  const harness = createHarness();
+  harness.target = null;
+
+  const result = factory(harness.options).pasteText('no target fixture', 'command-preset');
+
+  assert.deepEqual(
+    result,
+    { ok: false, action: 'paste', source: 'command-preset', reason: 'context-changed' },
+    signature,
+  );
+  assert.equal(harness.admitted.length, 0, signature);
+  assert.equal(harness.focused.length, 0, signature);
+  assert.deepEqual(
+    harness.observations.map(({ action, outcome, reason, payloadBytes, sessionId }) => ({
+      action, outcome, reason, payloadBytes, sessionId,
+    })),
+    [{
+      action: 'paste',
+      outcome: 'rejected',
+      reason: 'context-changed',
+      payloadBytes: new TextEncoder().encode('no target fixture').byteLength,
+      // No target was captured, so no session identity can be attributed.
+      sessionId: undefined,
+    }],
+    signature,
+  );
+});
+
+test('clipboard coordinator RED — activate on a live coordinator does not supersede in-flight work', async () => {
+  const signature = RED_SIGNATURES.activateLive;
+  const factory = await requireCoordinatorFactory(signature);
+  const pending = deferred<string>();
+  const harness = createHarness({ readClipboardText: () => pending.promise });
+  const coordinator = factory(harness.options);
+
+  // Precondition for non-vacuity: the read is genuinely still outstanding when
+  // activate() runs, so the assertion below is about a live epoch and not about
+  // an operation that had already settled.
+  const inFlight = coordinator.pasteClipboard('tab-context-menu');
+  assert.equal(harness.admitted.length, 0, signature);
+
+  coordinator.activate();
+  pending.resolve('in-flight fixture');
+  const result = await inFlight;
+
+  assert.deepEqual(result, { ok: true, action: 'paste', source: 'tab-context-menu' }, signature);
+  assert.equal(harness.admitted.length, 1, signature);
+  assert.equal(harness.admitted[0]?.text, 'in-flight fixture', signature);
+
+  // The same call after a real dispose must still revive the coordinator, or the
+  // assertion above would be satisfiable by an activate() that does nothing.
+  coordinator.dispose();
+  coordinator.activate();
+  const revived = coordinator.pasteText('revived fixture', 'command-preset');
+  assert.deepEqual(revived, { ok: true, action: 'paste', source: 'command-preset' }, signature);
+});
+
+test('clipboard coordinator RED — accepted programmatic paste is observed with its target identity', async () => {
+  const signature = RED_SIGNATURES.pasteAccepted;
+  const factory = await requireCoordinatorFactory(signature);
+  const harness = createHarness();
+  const payload = 'observed paste fixture';
+
+  const result = factory(harness.options).pasteText(payload, 'grid-context-menu');
+
+  assert.deepEqual(result, { ok: true, action: 'paste', source: 'grid-context-menu' }, signature);
+  // Exactly-once is asserted against adapter admission, and this observation is
+  // the record of that admission. Without it an admitted paste leaves no trace.
+  assert.deepEqual(
+    harness.observations,
+    [{
+      action: 'paste',
+      source: 'grid-context-menu',
+      outcome: 'accepted',
+      payloadBytes: new TextEncoder().encode(payload).byteLength,
+      sessionId: 'session-a',
+      sessionGeneration: 7,
+      viewGeneration: 11,
+    }],
+    signature,
+  );
+});
+
+// The two tests below close gaps the post-fix sweep found that the pre-fix
+// grouping had misfiled: pasteClipboard's entry guard is a separate surface from
+// copySelection's and pasteText's, and the catch around the clipboard read was
+// verified only as a whole try/catch, not for the rejection it produces.
+
+test('clipboard coordinator RED — pasteClipboard rejects a missing or superseded target before reading the clipboard', async () => {
+  const signature = RED_SIGNATURES.pasteClipboardEntry;
+  const factory = await requireCoordinatorFactory(signature);
+
+  let reads = 0;
+  const countingRead = async () => {
+    reads += 1;
+    return 'must not be read';
+  };
+
+  const missing = createHarness({ readClipboardText: countingRead });
+  missing.target = null;
+  const missingResult = await factory(missing.options).pasteClipboard('tab-context-menu');
+
+  assert.deepEqual(
+    missingResult,
+    { ok: false, action: 'paste', source: 'tab-context-menu', reason: 'context-changed' },
+    signature,
+  );
+  // The guard must stop the operation before the clipboard is touched at all.
+  assert.equal(reads, 0, signature);
+  assert.equal(missing.admitted.length, 0, signature);
+  assert.equal(missing.focused.length, 0, signature);
+
+  reads = 0;
+  const superseded = createHarness({
+    readClipboardText: countingRead,
+    isTargetCurrent: () => false,
+  });
+  const supersededResult = await factory(superseded.options).pasteClipboard('grid-context-menu');
+
+  assert.deepEqual(
+    supersededResult,
+    { ok: false, action: 'paste', source: 'grid-context-menu', reason: 'context-changed' },
+    signature,
+  );
+  assert.equal(reads, 0, signature);
+  assert.equal(superseded.admitted.length, 0, signature);
+  assert.deepEqual(
+    superseded.observations.map(({ action, outcome, reason, payloadBytes }) => ({
+      action, outcome, reason, payloadBytes,
+    })),
+    [{ action: 'paste', outcome: 'rejected', reason: 'context-changed', payloadBytes: 0 }],
+    signature,
+  );
+});
+
+test('clipboard coordinator RED — a failed clipboard read rejects as clipboard-read-failed without admission', async () => {
+  const signature = RED_SIGNATURES.clipboardReadFailure;
+  const factory = await requireCoordinatorFactory(signature);
+  const denied = 'NotAllowedError: clipboard read denied';
+  const harness = createHarness({
+    readClipboardText: async () => { throw new Error(denied); },
+  });
+
+  const result = await factory(harness.options).pasteClipboard('tab-context-menu');
+
+  assert.deepEqual(
+    result,
+    { ok: false, action: 'paste', source: 'tab-context-menu', reason: 'clipboard-read-failed' },
+    signature,
+  );
+  assert.equal(harness.admitted.length, 0, signature);
+  assert.equal(harness.focused.length, 0, signature);
+  // The failure has to reach the debug channel as an explicit rejection rather
+  // than being swallowed, and without carrying the thrown message through.
+  assert.deepEqual(
+    harness.observations.map(({ action, outcome, reason, payloadBytes }) => ({
+      action, outcome, reason, payloadBytes,
+    })),
+    [{ action: 'paste', outcome: 'rejected', reason: 'clipboard-read-failed', payloadBytes: 0 }],
+    signature,
+  );
+  assert.equal(JSON.stringify(harness.observations).includes(denied), false, signature);
 });
