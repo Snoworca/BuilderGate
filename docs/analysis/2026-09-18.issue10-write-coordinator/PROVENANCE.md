@@ -90,3 +90,31 @@ versus older-epoch `{accepted:false, reason:'stale-stream-epoch'}`.
 The repair itself asserted its own match count (each anchor had to match exactly
 once) before rewriting, so a replacement that silently matched nothing could not
 masquerade as a successful edit.
+
+## Seal update — 2026-09-18, fourth write
+
+Moved input: **one added file**, `raw/P5-RED-rollback-writer-bounds.log`. No
+previously sealed file changed.
+
+That is the TDD RED run for `REL-BGSTAB-027`, captured before any production
+change: `ℹ tests 5 / pass 1 / fail 4 / todo 0`, exit 1. The one pass is the
+control — with a checkpoint open, the byte cap fires **by name**
+(`post-checkpoint-hold-overflow`) at the arithmetically predicted write
+(1 MiB / 4096 B = 256). Without that arm green the four red arms would prove
+nothing, because a probe whose control is dead cannot be told apart from a
+subject that is correct.
+
+The four failures were checked for the *right* reason, not merely for failing:
+
+| arm | assertion that failed | why it is the right reason |
+|---|---|---|
+| AC-1 | `admission never stopped at all` | the flood ran to its loop bound with no rejection |
+| AC-2 | `admission never stopped at all` | 1-byte writes, so the byte cap cannot be what should have stopped it |
+| AC-3 | `admission never stopped at all` | ledger raised far past both caps; nothing else took over |
+| AC-4 | `actual: true, expected: false` | a live write at the new generation was admitted before any fresh snapshot |
+
+One limit of AC-3 stated in advance: today the compatibility lane never stops at
+all, so that arm currently fails on *"never stopped"* rather than on the
+substituted reason. Its reason-discriminating assertion only becomes load-bearing
+once AC-1 is green. It is not yet evidence that the ledger is not standing in for
+a cap; it will be after the fix.

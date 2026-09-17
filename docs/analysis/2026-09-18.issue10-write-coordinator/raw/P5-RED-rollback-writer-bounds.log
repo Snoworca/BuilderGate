@@ -1,0 +1,90 @@
+✔ REL-BGSTAB-027 control — with a checkpoint open the byte cap fires by name at the predicted write (14.167485ms)
+✖ REL-BGSTAB-027 AC-1 — after rollback the compatibility writer stops at the byte cap (251.138813ms)
+✖ REL-BGSTAB-027 AC-2 — after rollback the compatibility writer stops at the chunk cap (43.016153ms)
+✖ REL-BGSTAB-027 AC-3 — neither cap may be substituted by the settlement ledger entry limit (401.729839ms)
+✖ REL-BGSTAB-027 AC-4 — rollback stops new authoritative output until a fresh snapshot converges (1.002034ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1055.836311
+
+✖ failing tests:
+
+test at tests/unit/terminalRollbackWriterBounds.test.ts:163:1
+✖ REL-BGSTAB-027 AC-1 — after rollback the compatibility writer stops at the byte cap (251.138813ms)
+  AssertionError [ERR_ASSERTION]: the post-rollback writer accepted writes past its declared byte cap: admission never stopped at all
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalRollbackWriterBounds.test.ts:171:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/terminalRollbackWriterBounds.test.ts:180:1
+✖ REL-BGSTAB-027 AC-2 — after rollback the compatibility writer stops at the chunk cap (43.016153ms)
+  AssertionError [ERR_ASSERTION]: the post-rollback writer accepted writes past its declared chunk cap: admission never stopped at all
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalRollbackWriterBounds.test.ts:197:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/terminalRollbackWriterBounds.test.ts:204:1
+✖ REL-BGSTAB-027 AC-3 — neither cap may be substituted by the settlement ledger entry limit (401.729839ms)
+  AssertionError [ERR_ASSERTION]: the writer was bounded by the settlement ledger rather than by a byte or chunk cap: admission never stopped at all
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalRollbackWriterBounds.test.ts:215:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/terminalRollbackWriterBounds.test.ts:227:1
+✖ REL-BGSTAB-027 AC-4 — rollback stops new authoritative output until a fresh snapshot converges (1.002034ms)
+  AssertionError [ERR_ASSERTION]: authoritative output was admitted after rollback before any fresh snapshot
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalRollbackWriterBounds.test.ts:241:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
