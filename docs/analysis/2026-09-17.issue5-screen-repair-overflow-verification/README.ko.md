@@ -81,7 +81,7 @@ reconnect 로 수렴하는데, spec 의 `buildRestoreNeeded` 가 `authorityEpoch
 | 15 | `<WT>/frontend` | `node ./issue5-seed-terminal.mjs` | 0 | `raw/seed-before-final.log` — spec 의 전제(터미널 1개)를 만든다 |
 | 16 | `<WT>/frontend` | 8번을 4회 반복 (**커밋되는 spec**, 15번으로 갓 만든 터미널 위에서) | 0 ×4 | `raw/e2e-final-committed-4x.log` — 네 run 모두 exit 0, 그러나 1차 시도 실패 5건. 아래 불안정성 절 참조 |
 | 17 | `<WT>/frontend` | `npx tsc -p tsconfig.test.json --noEmit` / `npx eslint <spec> <config>` / `npx tsc -p tsconfig.test.json --listFiles \| grep <spec>` / `npx tsc -b` (철회한 리비전 `960ac67` 에서 캡처) | 0 / 0 / 0 / 0 | `raw/typecheck-lint-registration.log` — **커밋본 증거가 아니다** |
-| 18 | `<WT>/frontend` | 17번과 같은 네 명령 + 선언 줄 확인 (**HEAD**) | 0 / 0 / 0 / 0 / 0 | `raw/typecheck-lint-head.log` — 커밋되는 spec 에 대한 실행이며 447/594 를 함께 찍는다 |
+| 18 | `<WT>/frontend` | 17번과 같은 네 명령 + 선언 줄 확인 (`a02c7a4` 에서 캡처. 이후 `b4ed3bb`·`2601880` 은 `frontend/` 를 건드리지 않는다) | 0 / 0 / 0 / 0 / 0 | `raw/typecheck-lint-head.log` — 커밋되는 spec 에 대한 실행이며 447/594 를 함께 찍는다 |
 
 `raw/typecheck-tests-2.log` 와 `raw/eslint-scoped.log` 는 **0바이트이며 아무것도 증명하지 못한다.**
 같은 명령의 입증력 있는 실행은 17번이다. 두 파일은 당시 제출된 산출물이라는 기록으로만 남긴다.
@@ -129,7 +129,8 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 때때로 engage 되지 않는다는 뜻이며 픽스처 준비 문제보다 무거운 진술이다.
 
 `compatibility-post-ack-failed:convergence-timeout` 디버그 이벤트는 **iteration 3 의 진단 덤프에만**
-찍혔다(같은 덤프 안에서 4줄). 다섯 실패 전체의 동반 증상으로 읽지 않는다.
+찍혔다 — 그 접미사가 붙은 줄은 3줄이고, 같은 덤프의 넷째 줄은 접미사 없는
+`compatibility-post-ack-failed` 다. 다섯 실패 전체의 동반 증상으로 읽지 않는다.
 
 **이 lane 의 변경이 원인이 아니다.** 16번이 돌린 spec 은 커밋본이고(테스트 선언 줄 447/594 가
 `git show HEAD:…` 와 일치한다), **같은 spec** 이 11·12번에서 1차 시도에 2 PASS 했다. 즉 spec 바이트는
@@ -146,6 +147,48 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 시도에 통과했다. 1회 green 으로 flake 라고 부르지 않기 위해 위 표를 그대로 남기고 별도 결함으로
 보고한다.
 
+### 산출물의 헤더 유무 — 무엇이 바이트로 남았는가
+
+**§4 의 제목은 "전체 명령줄·cwd·exit code" 지만, 그것이 파일 안에 기계로 적혀 있는 것은 일부다.**
+`raw/` 의 37개 산출물 중 `# cwd:`·`# command:`·`# exit=` 헤더를 가진 것은 **16개**, 없는 것은
+**21개**다.
+
+헤더가 있는 16개 — `e2e-final-committed-4x.log`, `e2e-final-green.log`, `e2e-frozen-tree-r2.log`,
+`e2e-mutation-final.log`, `e2e-mutation-nobarrier-selfseeded.log`, `e2e-selfseed-empty.log`,
+`e2e-selfseed-repeat.log`, `e2e-selfseeded.log`, `e2e-stability-4x.log`,
+`e2e-stability-committed-6x.log`, `e2e-stability-quiescent-6x.log`, `probe-authority.log`,
+`seed-before-final.log`, `teardown-before-selfseeded.log`, `typecheck-lint-head.log`,
+`typecheck-lint-registration.log`.
+
+나머지 21개에는 헤더가 없다 — 위 표의 **1~13번 산출물 전부**(`server-runner-baseline.log`,
+`server-runner-mutation-giantflush.log`, `server-split-handshake.log`, `fe-baseline.log`,
+`fe-unit-full.log`, `fe-unit-full-final.log`, `fe-unit-baseline-3fails.log`,
+`e2e-wave2-screen-repair-resync.log`, `e2e-wave2-screen-repair-resync-run2.log`,
+`e2e-ac4-step1.log`, `e2e-green-prefreeze.log`, `e2e-frozen-tree-preseeding.log`,
+`e2e-mutation-nobarrier.log`) 와 netstat 캡처 6개, 0바이트 2개다. **이 행들의 cwd·명령줄·exit code
+는 표의 산문 진술일 뿐이다.**
+
+각 로그가 바이트로 지탱하는 것은 이렇다. E2E 로그는 Playwright 가 찍는 test 선언 줄로 리비전이
+판별되고 말미 요약(`2 passed` / `2 failed`)이 결과를 준다. 1·2번은 말미의 `N test(s) failed` 줄이
+exit code 1 을 뒷받침한다. frontend unit 로그는 B2 inventory 덤프가 spec 의 tab 조작 fetch 줄
+번호를 찍으므로 그것으로 리비전을 되짚을 수 있다(아래 표 참조). 3번은 node:test 요약이
+28/15/0/13 을 준다. 그 밖의 것 — 어느 디렉터리에서 어떤 인자로 돌렸는지 — 은 이 문서의 진술이다.
+
+frontend unit 로그의 리비전은 이렇게 확인된다. spec 의 tab 조작 fetch 줄 번호는 리비전마다 다르다:
+`e901676` 은 POST 256 / DELETE 359, `b7155dc`(= 커밋본) 은 POST 297 / DELETE 400,
+`f719502` 는 DELETE 216 / POST 382 / DELETE 485 다. 커밋된 덤프는 `fe-unit-full.log` 297·400,
+`fe-unit-full-final.log` 216·382·485, `fe-unit-baseline-3fails.log` 256·359 이므로 표의 5·6·7번
+귀속과 일치한다.
+
+### 기각한 리뷰 finding — 근거를 남긴다
+
+한 리뷰 라운드가 표의 6·7번 귀속이 서로 뒤바뀌었다고 지적했다(`fe-unit-baseline-3fails.log` 가
+`f719502` 이고 `fe-unit-full-final.log` 가 `e901676` 이라는 주장). **바이트로 확인한 결과 그 지적이
+두 파일을 맞바꾼 것이고 표가 맞다.** 바로 위 문단의 대조가 근거이며, 리비전별 실제 줄 번호는
+`git show <rev>:frontend/tests/e2e/wave2-screen-repair-resync.spec.ts` 로 확인했다 — `e901676`
+POST 256, `b7155dc` POST 297, `f719502` DELETE 216 · POST 382. 따라서 선재 3건의 기준 트리 재현
+근거(7번)는 유효하다.
+
 ### 산출물의 spec 판별 — 테스트 선언 줄로 대조한다
 
 `raw/` 의 Playwright 로그는 test 선언 줄 번호를 찍으므로, 어느 리비전에서 돌았는지 바이트로
@@ -154,7 +197,7 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 | 리비전 | AC-4 / AC-8 선언 줄 |
 | --- | --- |
 | `e901676` (변경 전) | 406 / 551 |
-| `b7155dc` = **HEAD** (커밋되는 spec) | **447 / 594** |
+| `b7155dc` (커밋되는 spec. spec 바이트는 HEAD 까지 불변) | **447 / 594** |
 | `960ac67` (1차 시드 실험) | 463 / 610 |
 | `f719502` (2차 시드 실험) | 538 / 685 |
 | 커밋되지 않은 중간본 | 543 / 690, 564 / 711 |
@@ -255,7 +298,10 @@ exit code 1 을 뒷받침한다. frontend unit 로그는 B2 inventory 덤프가 
 ## 7. 도구
 
 - `tools/issue5-seed-terminal.mjs` — spec 이 전제하는 "workspace 에 터미널 1개"를 만든다.
-  기본 workspace 에 터미널이 없으면 `+ Add Terminal` 을 한 번 누르고 렌더를 기다린다.
+  **정확히는** `+ Add Terminal` 버튼이 보이면 한 번 누르고 `.xterm-screen` 이 뜨기를 기다린다.
+  버튼이 없을 때 찍는 `terminal already present` 는 "터미널이 있다" 가 아니라 "버튼이 없다" 는
+  뜻이며, 누른 뒤 서버 tab 수가 늘었는지 확인하지 않는다(§4 의 같은 지적 참조). 만들기만 하고
+  지우지 않으므로 파괴적 소유권 위험은 없다.
 - `tools/issue5-probe-authority.mjs` — 실 서버의 `screen-snapshot` wire 를 캡처해 authority proof
   필드 유무를 출력한다. 위 2절의 근거이며 출력은 `raw/probe-authority.log` 다.
 - ~~`tools/issue5-teardown-terminal.mjs`~~ — **제거했다.** workspace 의 터미널 탭을 소유권 확인 없이
@@ -268,7 +314,8 @@ exit code 1 을 뒷받침한다. frontend unit 로그는 B2 inventory 덤프가 
   산출물에도 적용해 번들에서 지운다. 실행 기록(`raw/teardown-before-selfseeded.log`)은 그 실행이
   있었다는 사실을 지우지 않기 위해 남긴다. 커밋되는 spec 은 이 도구를 필요로 하지 않는다.
 
-`tools/issue5-seed-terminal.mjs` 가 spec 의 전제를 만드는 정규 도구다. 9·15번 실행이 그 사용례다.
+`tools/issue5-seed-terminal.mjs` 가 spec 의 전제를 만드는 정규 도구다. 산출물이 남은 사용례는
+15번뿐이며, 9번에서 터미널을 시드했다는 것은 이 문서의 진술이다.
 
 남은 두 스크립트는 `@playwright/test` 를 해석해야 하므로 `<WT>/frontend` 에 복사해 실행한다.
 
