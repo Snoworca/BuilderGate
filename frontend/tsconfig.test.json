@@ -22,6 +22,7 @@
   "include": ["src"],
   "files": [
     "./tests/unit/terminalWriteInterleaving.test.ts",
+    "tests/unit/terminalGraceBuffer.test.ts",
     "tests/unit/workspaceCapacityApi.test.ts",
     "tests/unit/workspaceCapacityHook.test.ts",
     "tests/unit/workspaceCapacityUi.test.ts",
