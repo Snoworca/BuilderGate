@@ -684,11 +684,20 @@ if (process.argv.includes('--write-focused-evidence')) {
 // Do NOT run --write-focused-evidence to reconcile these: it overwrites the sealed artifact and
 // line 654 goes red, because the re-seal tool deliberately copies rawGreenEvidence hashes verbatim
 // rather than re-deriving them.
-const focusedPassMatch = /^\u2139 pass (\d+)$/m.exec(focused);
+// Normalised first: `$` in a JS multiline regex matches before \n and never before \r, and this
+// child's output can carry CRLF - the --write-focused-evidence branch below already strips it. An
+// anchored parse against the raw text would red on a Windows checkout for a reason unrelated to the
+// suite. `fail 0` is anchored for the same reason it is load-bearing: unanchored it also matches
+// "fail 0" inside a longer number or a test title.
+const focusedNormalised = focused.replace(/\r\n/g, '\n');
+const focusedPassMatch = /^\u2139 pass (\d+)$/m.exec(focusedNormalised);
+const focusedTestsMatch = /^\u2139 tests (\d+)$/m.exec(focusedNormalised);
 assert.ok(focusedPassMatch, 'the focused run must emit a parseable pass count');
+assert.ok(focusedTestsMatch, 'the focused run must emit a parseable test count');
 const focusedPassCount = Number(focusedPassMatch[1]);
+const focusedTestCount = Number(focusedTestsMatch[1]);
 assert.equal(focusedPassCount, 31);
-assert.match(focused, /fail 0/);
+assert.match(focusedNormalised, /^\u2139 fail 0$/m);
 assert.match(readFileSync(focusedEvidencePath, 'utf8'), /pass 24/);
 assert.match(readFileSync(focusedEvidencePath, 'utf8'), /fail 0/);
 
@@ -728,7 +737,8 @@ process.stdout.write(`${JSON.stringify({
   exactConsumerTuples: manifest.consumers.length,
   classifiedPaths: classifiedPaths.length,
   resourceKeys: expectedResourceKeys.length,
-  focusedTests: focusedPassCount,
+  focusedTests: focusedTestCount,
+  focusedPass: focusedPassCount,
   claims,
   activationEligible: false,
     manifestSha256,

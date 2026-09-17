@@ -7,9 +7,9 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "7c73b6f2b84e399e1ca7b047ec91f6b3535059904c89e1c11dbab6e043f5956f",
+    "sha256": "b2ef42077a5057f3e5d0a3bd944a3fd34813d62c95b2c79f5cd780c8781ab79c",
     "sourceCount": 36,
-    "sourceSetSha256": "abc775c0a9efb648b554a28872b37ec58a88e73d4dd5dac19461e0d833623422",
+    "sourceSetSha256": "bccbfecea9a9bd40cacd03f012e25a37afb75a4ce339624425325823358d70e4",
     "exactConsumerTuples": 81,
     "classifications": 10
   },

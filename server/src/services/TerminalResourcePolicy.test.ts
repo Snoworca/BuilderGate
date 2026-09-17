@@ -161,13 +161,17 @@ function assertSortedUnique(values: string[]): void {
 // by the named symbol, is reachable, or is anything but a comment or an import. AC-6's AST scan is
 // what carries ownership and liveness. This is a second, independent condition on the same claim,
 // not a substitute for that one.
-function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: string, consumerSymbol: string): void {
+function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: string, consumerSymbol: string): true {
   assert.ok(evidenceSignature.length > 0, `expected a non-empty evidence signature for ${path}#${consumerSymbol}`);
   const source = readFileSync(resolve(REPOSITORY_ROOT, path), 'utf8');
   assert.ok(
     source.includes(evidenceSignature),
     `manifest names ${path}#${consumerSymbol} as the consumer, but its evidence signature ${JSON.stringify(evidenceSignature)} does not occur in that file`,
   );
+  // Returned so the caller's tally counts helper COMPLETIONS. Incrementing in the caller's loop
+  // body instead makes the count a tautology over the array it is compared against: gutting this
+  // function's body would leave the tally at manifest.consumers.length and AC-1 green.
+  return true;
 }
 
 function assertRepositoryPath(path: string): void {
@@ -304,8 +308,11 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
     assert.ok(Array.isArray(entry.legacyAliases));
     assert.ok(entry.applyBoundary.length > 0);
     assertRepositoryPath(entry.consumerPath);
-    assertEvidenceSignaturePresentAt(entry.consumerPath, entry.evidenceSignature, entry.consumerSymbol);
-    signaturesChecked += 1;
+    signaturesChecked += assertEvidenceSignaturePresentAt(
+      entry.consumerPath,
+      entry.evidenceSignature,
+      entry.consumerSymbol,
+    ) ? 1 : 0;
   }
   // Exact, and local to this test rather than module scope. `> 0` on a module-global counter was
   // both already implied by the length assertion above and survivable by a future change that
@@ -1179,7 +1186,18 @@ test('OBS-BGSTAB-005 review regression — exact repository tuples validate bidi
 // longer has, so the fixture could not pose its question at all and failed on its own setup. The
 // count assertion below is what keeps that from degrading into a silent no-op instead.
 function insertBeforeMarkerLines(source: string, marker: string, inserted: string, name: string): string {
-  const newline = source.includes('\r\n') ? '\r\n' : '\n';
+  assert.ok(marker.trim().length > 0, `${name}: marker must not be blank`);
+  // FND-009's other half: this function rejoins the WHOLE file, so a mixed-ending target would have
+  // every line ending rewritten by a helper whose job is to insert a few lines - and the target's
+  // own template literals carry whitespace as content. Refuse mixed endings rather than normalise
+  // them silently. All current targets are pure LF.
+  const crlfCount = (source.match(/\r\n/g) ?? []).length;
+  const lfCount = (source.match(/\n/g) ?? []).length;
+  assert.ok(
+    crlfCount === 0 || crlfCount === lfCount,
+    `${name}: refusing to rewrite a mixed-line-ending file (${crlfCount} CRLF of ${lfCount} LF)`,
+  );
+  const newline = crlfCount > 0 ? '\r\n' : '\n';
   const lines = source.split(/\r?\n/);
   const markerLines = marker.replace(/\r\n/g, '\n').split('\n').map((line) => line.trim());
   const hits: number[] = [];
@@ -1208,7 +1226,6 @@ function insertBeforeMarkerLines(source: string, marker: string, inserted: strin
   for (const line of insertedLines) {
     assert.doesNotMatch(line, /`/, `${name}: inserted lines must not contain a template literal, because they are re-indented`);
   }
-  assert.ok(marker.trim().length > 0, `${name}: marker must not be blank`);
   lines.splice(hits[0], 0, ...insertedLines);
   return lines.join(newline);
 }
@@ -1280,6 +1297,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'unchanged-guard-after-constant-return',
+      driftMechanism: 'seal-only' as const,
       path: 'frontend/src/utils/terminalOutputScheduler.ts',
       from: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
       to: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
@@ -1290,6 +1308,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'unchanged-guard-after-try-finally-return',
+      driftMechanism: 'seal-only' as const,
       path: 'frontend/src/utils/terminalOutputScheduler.ts',
       from: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
       to: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
@@ -1309,6 +1328,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'object-option-noop-callee-decoy',
+      driftMechanism: 'tuple' as const,
       path: 'server/src/services/SessionManager.ts',
       from: 'maxBytes: limits.pendingOutputMaxBytes',
       to: 'maxBytes: Number.MAX_SAFE_INTEGER',
@@ -1337,6 +1357,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'call-input-noop-callee-decoy',
+      driftMechanism: 'tuple' as const,
       path: 'frontend/src/utils/terminalOutputScheduler.ts',
       from: 'config.visibleFlushBudgetBytes,',
       to: 'Number.MAX_SAFE_INTEGER,',
@@ -1365,6 +1386,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'control-guard-wrong-return-decoy',
+      driftMechanism: 'tuple' as const,
       path: 'frontend/src/utils/terminalOutputScheduler.ts',
       from: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
       to: 'Number.MAX_SAFE_INTEGER > config.visibleOutputQueueMaxBytes',
@@ -1433,12 +1455,19 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       from: 'limits.serverBufferedHighWaterBytes',
       to: 'Number.MAX_SAFE_INTEGER',
       suffix: '',
-      // 3, one per occurrence, so both catalog owners (WsRouter.sendTransportMessage, which holds
-      // two, and WsRouter.flushTransportQueue, which holds one) actually lose their evidence. This
-      // was 2 when the file had two occurrences; it stayed 2 when a third was added, which silently
-      // excluded flushTransportQueue. NOTE the residual: mutating every occurrence shows that both
-      // owners must carry evidence, not that one owner's evidence cannot be counted for the other.
-      // Proving that needs occurrence-targeted mutation, which this harness cannot express.
+      // 3, one per occurrence: two in WsRouter.sendTransportMessage and one in
+      // WsRouter.flushTransportQueue. It was 2 when the file held two, and stayed 2 when a third
+      // was added, so the tail occurrence stopped being mutated.
+      //
+      // RESIDUAL, and it is larger than the count fix suggests: discovery throws on the FIRST
+      // catalog entry with a missing signature, and the catalog lists sendTransportMessage before
+      // flushTransportQueue, so this fixture rejects on the first owner whether the second is
+      // mutated or not. It therefore proves the first owner must carry evidence and CANNOT observe
+      // the second at all - it does not prove what its name says, that one owner's evidence is not
+      // counted for the other. Doing that needs two fixtures each mutating one owner's occurrences
+      // by offset and asserting the throw names that owner's consumerSymbol, which this harness
+      // cannot express. What replaceCount 3 plus the exact-count assertion buys is a tripwire: the
+      // next time the occurrence count moves, this goes red instead of quietly narrowing.
       replaceCount: 3,
     },
   ] as const;
@@ -1472,11 +1501,42 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
         const mutatedInventory = await discoverTerminalResourceInventory({ repositoryRoot: targetRoot });
         const result = validateTerminalResourceConsumerManifest(manifest, mutatedInventory);
         assert.equal(result.ok, false, mutation.name);
-        assert.ok(result.errors.some((error) => (
-          error.code === 'missing-tuple'
-          || error.code === 'orphan-tuple'
-          || error.code === 'source-hash-mismatch'
-        )), mutation.name);
+        // The old form accepted missing-tuple OR orphan-tuple OR source-hash-mismatch. Every mutated
+        // file is in evidenceSourcePaths, so source-hash-mismatch is emitted for ANY byte-level
+        // change - a stray space satisfies it - which means the disjunction could not tell a
+        // discriminated decoy from an undiscriminated one, and reported both as the same pass.
+        //
+        // Measured, rather than assumed: three of these fixtures do produce tuple drift and three do
+        // not need the seal at all. The two `unchanged-guard-after-*` fixtures produce ONLY source
+        // errors, which matches what PH-001 declared about them - inserting `if (true) return` ahead
+        // of an unchanged guard is caught by the coarse source seal, not by the AST losing the
+        // tuple. So the mechanism is now declared per fixture and asserted, instead of one
+        // disjunction covering both and hiding which is which.
+        const tupleDrift = result.errors.filter((error) => (
+          error.code === 'missing-tuple' || error.code === 'orphan-tuple'
+        ));
+        const codes = JSON.stringify(result.errors.map((error) => error.code));
+        if (mutation.driftMechanism === 'tuple') {
+          assert.ok(
+            tupleDrift.length > 0,
+            `${mutation.name}: declared tuple drift, but the decoy changed no tuple; got ${codes}`,
+          );
+        } else {
+          // Seal-only, and that is a weaker thing to be: this fixture cannot distinguish its named
+          // decoy from a stray whitespace edit, because both trip the same source hash. Asserting
+          // the absence of tuple drift is what keeps the label honest - if the AST ever does learn
+          // to see this decoy, this goes red and the fixture gets promoted rather than silently
+          // staying in the weaker class.
+          assert.equal(
+            tupleDrift.length,
+            0,
+            `${mutation.name}: declared seal-only, but the decoy now produces tuple drift; promote it to driftMechanism 'tuple'. Got ${codes}`,
+          );
+          assert.ok(
+            result.errors.some((error) => error.code === 'source-hash-mismatch'),
+            `${mutation.name}: declared seal-only but produced no source-hash-mismatch; got ${codes}`,
+          );
+        }
       } else {
         await assert.rejects(
           () => discoverTerminalResourceInventory({ repositoryRoot: targetRoot }),
