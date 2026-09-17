@@ -825,3 +825,136 @@ test('status and cwd are last-wins and the subscribed payload survives the ready
   // through untouched.
   assert.deepEqual(seen, [{ status: 'running', cwd: '/second', ready: false }]);
 });
+
+// AC-2 / AC-5. A statement-deletion sweep over the module showed that the
+// resets inside the terminal branches were far less guarded than the ones in
+// the new-generation reset: 19 of 56 deletable statements survived the whole
+// suite, and every survivor was a reset. Point tests per field would drift, so
+// this seeds a FULLY POPULATED generation and asserts the entire post-state for
+// each branch. A reset that stops clearing any field fails here.
+
+function populatedGeneration(restore: ScreenRepairRestoreNeededMessage): GraceBufferedSessionState {
+  const state = applyAll([
+    restore,
+    snapshotFor(restore),
+    output('held', { replayToken: restore.replayToken }),
+    ready(restore),
+  ]);
+  // Precondition: every field this test asserts gets cleared must first be set,
+  // or the assertions describe the initial state rather than the transition.
+  assert.notEqual(state.restoreNeeded, undefined);
+  assert.notEqual(state.snapshot, undefined);
+  assert.notEqual(state.ready, undefined);
+  assert.equal(state.output.length, 1);
+  assert.ok(state.outputBytes > 0);
+  return state;
+}
+
+const TERMINAL_BRANCHES: readonly {
+  name: string;
+  frame: (restore: ScreenRepairRestoreNeededMessage) => Parameters<typeof applyGraceBufferedMessage>[2];
+  expect: (restore: ScreenRepairRestoreNeededMessage) => Partial<GraceBufferedSessionState>;
+}[] = [
+  {
+    name: 'snapshot whose authority proof does not match the outstanding restore',
+    frame: restore => snapshotFor(restore, { authorityRevision: 99 }),
+    expect: restore => ({
+      authorityProofMismatch: true,
+      // this branch does not retire the restore itself
+      restoreNeeded: restore,
+      snapshot: undefined,
+      ready: undefined,
+      output: [],
+      outputBytes: 0,
+    }),
+  },
+  {
+    name: 'restore-needed carrying no authority proof at all',
+    frame: () => ({
+      ...secondGeneration(),
+      authorityEpoch: undefined,
+      authorityRevision: undefined,
+      coversThroughSeq: undefined,
+    }),
+    expect: () => ({
+      authorityProofMismatch: true,
+      restoreNeeded: undefined,
+      snapshot: undefined,
+      ready: undefined,
+      output: [],
+      outputBytes: 0,
+    }),
+  },
+  {
+    // The 3-key duplicate check matches, so this frame reaches the NESTED
+    // proof comparison — an authority handover re-issuing the same tokens.
+    // That branch is the only place in the lane detecting this class.
+    name: 'duplicate restore tokens re-issued under a different authority epoch',
+    frame: restore => restoreNeeded({ ...restore, authorityEpoch: 'epoch-handover' }),
+    expect: () => ({
+      authorityProofMismatch: true,
+      restoreNeeded: undefined,
+      snapshot: undefined,
+      ready: undefined,
+      output: [],
+      outputBytes: 0,
+    }),
+  },
+  {
+    name: 'reconnect-required',
+    frame: () => reconnectRequired(),
+    expect: () => ({
+      restoreNeeded: undefined,
+      snapshot: undefined,
+      ready: undefined,
+      output: [],
+      outputBytes: 0,
+      outputOverflowReason: undefined,
+    }),
+  },
+];
+
+for (const branch of TERMINAL_BRANCHES) {
+  test(`a terminal branch clears the whole generation: ${branch.name}`, () => {
+    const restore = restoreNeeded();
+    const state = applyGraceBufferedMessage(populatedGeneration(restore), SESSION_ID, branch.frame(restore));
+    const expected = branch.expect(restore);
+    for (const [field, value] of Object.entries(expected)) {
+      assert.deepEqual(
+        state[field as keyof GraceBufferedSessionState],
+        value,
+        `${branch.name}: ${field} was not reset`,
+      );
+    }
+  });
+}
+
+// The overflow reason cannot coexist with a held tail, so it needs its own
+// seed. Both branches that clear it are covered here.
+test('reconnect-required and a plain grace snapshot each clear a latched overflow reason', () => {
+  const maxChunks = getTerminalResourceLimits().visibleOutputMaxChunks;
+  const restore = restoreNeeded();
+
+  const overflowed = (): GraceBufferedSessionState => {
+    let s = applyAll([restore, snapshotFor(restore)]);
+    for (let i = 0; i <= maxChunks; i += 1) s = applyGraceBufferedMessage(s, SESSION_ID, output('x'));
+    assert.equal(s.outputOverflowReason, 'chunk-cap-exceeded', 'precondition: a reason is latched');
+    return s;
+  };
+
+  assert.equal(
+    applyGraceBufferedMessage(overflowed(), SESSION_ID, reconnectRequired()).outputOverflowReason,
+    undefined,
+  );
+
+  // Plain-grace adoption: no restore outstanding, so the snapshot is the whole
+  // current view and the latched reason goes with the tail it described.
+  const plain = applyGraceBufferedMessage(overflowed(), SESSION_ID, reconnectRequired());
+  plain.reconnectRequired = undefined;
+  plain.restoreNeeded = undefined;
+  plain.outputOverflowReason = 'byte-cap-exceeded';
+  assert.equal(
+    applyGraceBufferedMessage(plain, SESSION_ID, snapshotFor(restore)).outputOverflowReason,
+    undefined,
+  );
+});
