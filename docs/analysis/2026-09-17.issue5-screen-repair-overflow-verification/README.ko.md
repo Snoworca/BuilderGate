@@ -84,7 +84,8 @@ reconnect 로 수렴하는데, spec 의 `buildRestoreNeeded` 가 `authorityEpoch
 | 18 | `<WT>/frontend` | 17번과 같은 네 명령 + 선언 줄 확인 (`a02c7a4` 에서 캡처. 이후 커밋은 `docs/` 와 `kiwi/` 만 건드리므로 `git diff a02c7a4..HEAD -- frontend/` 가 비어 있다) | 0 / 0 / 0 / 0 / 0 | `raw/typecheck-lint-head.log` — 커밋되는 spec 에 대한 실행이며 447/594 를 함께 찍는다 |
 
 `raw/typecheck-tests-2.log` 와 `raw/eslint-scoped.log` 는 **0바이트이며 아무것도 증명하지 못한다.**
-같은 명령의 입증력 있는 실행은 17번이다. 두 파일은 당시 제출된 산출물이라는 기록으로만 남긴다.
+같은 명령의 입증력 있는 실행은 **18번**이다 — 17번은 철회한 리비전에서 캡처되어 같은 표에서
+커밋본 증거가 아니라고 표시해 두었다. 0바이트 두 파일은 당시 제출된 산출물이라는 기록으로만 남긴다.
 
 8~16 번은 모두 lane 이 직접 기동해 소유한 `https://localhost:2222` 외부 listener 를 사용했다.
 `playwright.external-server.config.ts` 는 기본 config 의 `webServer` 를 `undefined` 로 덮어
@@ -161,13 +162,17 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 `seed-before-final.log`, `teardown-before-selfseeded.log`, `typecheck-lint-head.log`,
 `typecheck-lint-registration.log`.
 
-나머지 21개에는 헤더가 없다 — 위 표의 **1~13번 산출물 전부**(`server-runner-baseline.log`,
+나머지 21개에는 **선두 헤더가 없다** — 위 표의 **1~13번 산출물 전부**(`server-runner-baseline.log`,
 `server-runner-mutation-giantflush.log`, `server-split-handshake.log`, `fe-baseline.log`,
 `fe-unit-full.log`, `fe-unit-full-final.log`, `fe-unit-baseline-3fails.log`,
 `e2e-wave2-screen-repair-resync.log`, `e2e-wave2-screen-repair-resync-run2.log`,
 `e2e-ac4-step1.log`, `e2e-green-prefreeze.log`, `e2e-frozen-tree-preseeding.log`,
-`e2e-mutation-nobarrier.log`) 와 netstat 캡처 6개, 0바이트 2개다. **이 행들의 cwd·명령줄·exit code
-는 표의 산문 진술일 뿐이다.**
+`e2e-mutation-nobarrier.log`) 와 netstat 캡처 6개, 0바이트 2개다.
+
+여기서 "헤더" 는 **파일 첫 줄부터 시작하는 `# cwd:`·`# command:`·`# target:` 블록**을 뜻한다.
+파일 전체를 훑으면 예외가 하나 있다 — `fe-unit-full-final.log` 는 선두 헤더는 없지만 **마지막 줄에
+`# exit=1` 이 있다.** 따라서 **6번의 exit code 는 산문이 아니라 바이트로 남아 있다.** 그 하나를
+빼면, 위 21개 행의 cwd·명령줄·exit code 는 **표의 산문 진술일 뿐이다.**
 
 각 로그가 바이트로 지탱하는 것은 이렇다. E2E 로그는 Playwright 가 찍는 test 선언 줄로 리비전이
 판별되고 말미 요약(`2 passed` / `2 failed`)이 결과를 준다. 1·2번은 말미의 `N test(s) failed` 줄이
