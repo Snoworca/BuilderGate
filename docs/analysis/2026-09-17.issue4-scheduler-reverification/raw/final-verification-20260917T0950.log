@@ -1,0 +1,27 @@
+# Final verification at HEAD 3c77cba, 2026-09-17T09:44:00+09:00
+# host: Linux 6.6.87.2-microsoft-standard-WSL2+ x86_64, node v24.21.0
+
+$ cd frontend && npm run typecheck:tests
+
+> frontend@0.0.0 typecheck:tests
+> tsc -p tsconfig.test.json --noEmit
+
+exit=0
+
+$ cd frontend && npm run typecheck
+
+> frontend@0.0.0 typecheck
+> tsc -b
+
+exit=0
+
+$ cd frontend && npx eslint tests/unit/terminalOutputScheduler.test.ts tests/benchmarks/terminalNoRenderFixture.ts tests/benchmarks/terminalNoRenderFixture.test.ts tests/benchmarks/terminalNoRenderFixtureEvidence.ts tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts
+exit=0
+
+$ speckiwi --root <worktree> validate
+{"errors": 0, "warnings": 0, "byCode": {}}
+exit=0
+
+$ speckiwi --root <worktree> links check
+checked 820 broken 0
+exit=0
