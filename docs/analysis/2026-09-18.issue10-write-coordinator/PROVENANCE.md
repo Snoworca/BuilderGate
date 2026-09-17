@@ -52,3 +52,19 @@ tests also exits 0.
 
 `SHA256SUMS.txt` covers every file in this bundle except itself. Verify with
 `sha256sum -c SHA256SUMS.txt` from this directory.
+
+## Seal update — 2026-09-18, second write
+
+`SHA256SUMS.txt` moved. The input that moved is **one added file**,
+`raw/P3-coverage-discovery-blindspot.log`; no previously sealed file changed
+(their individual digests are unchanged between the two seals). Recorded here
+because a sealed hash moving is otherwise indistinguishable from a silent
+re-blessing.
+
+That log records a discovery gap found in **my own sweep**:
+`terminalOutputScheduler.ts:2,11` re-exports `createTerminalWriteCoordinator`
+from `./terminalWriteCoordinator.ts`, and the coordinator's own 63-test primary
+suite reaches the factory through that re-export. The string
+`terminalWriteCoordinator` occurs **zero** times in that suite, so a coverage
+enumeration keyed on the module name cannot see it — nor six sibling files.
+An AC can be covered by a test that whatever enumerates coverage cannot find.
