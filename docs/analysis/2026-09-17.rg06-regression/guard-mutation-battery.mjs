@@ -139,11 +139,14 @@ function runSurfaces(dir) {
     { encoding: 'utf8', cwd: dir, env: childEnv() });
   const wrapper = spawnSync(process.execPath, ['--test', join(dir, basename(WRAPPER))],
     { encoding: 'utf8', cwd: dir, env: childEnv() });
-  const wrapperRanTests = /^# tests \d+$|^ℹ tests \d+$/m.test(wrapper.stdout || '')
-    && !/^# tests 0$|^ℹ tests 0$/m.test(wrapper.stdout || '');
-  if (!wrapperRanTests) {
-    console.error('the wrapper child ran no tests; its column would be vacuous');
-    process.exit(2);
+  // A `# tests 1` line can come from a file with no `test()` calls at all, so the
+  // detector also requires a test name the wrapper owns.
+  const out = wrapper.stdout || '';
+  const ranTests = /^(?:#|ℹ) tests [1-9]\d*$/m.test(out) && out.includes('B0 listen guard');
+  if (!ranTests) {
+    const error = new Error('the wrapper child ran no tests of its own; its column would be vacuous');
+    error.code = 'B0_BATTERY_VACUOUS_WRAPPER';
+    throw error;
   }
   return { selfCheck: selfCheck.status === 0, wrapper: wrapper.status === 0 };
 }
@@ -161,6 +164,16 @@ function withStagedGuard(guardSource, body) {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+// A vacuous wrapper column is a bad invocation, not a survivor: exit 2. The
+// throw keeps the staging try/finally in charge of the temp directory.
+process.on('uncaughtException', (error) => {
+  if (error && error.code === 'B0_BATTERY_VACUOUS_WRAPPER') {
+    console.error(error.message);
+    process.exit(2);
+  }
+  throw error;
+});
 
 const guardSource = readFileSync(GUARD, 'utf8');
 console.log('# B0 guard mutation battery');
