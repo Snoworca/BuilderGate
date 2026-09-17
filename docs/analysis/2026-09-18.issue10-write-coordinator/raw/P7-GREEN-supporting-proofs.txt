@@ -1,0 +1,33 @@
+# REL-BGSTAB-027 GREEN — supporting proofs
+# HEAD at measurement: 5df20fc + uncommitted fix
+
+## 1. Program-membership proof for the new test (tsconfig.test.json uses an explicit "files" allowlist)
+BEFORE adding it to the allowlist: inject a type error -> tsc -p tsconfig.test.json --noEmit
+  exit = 0, and the compiler named the file 0 times. The test was NOT type-checked.
+AFTER adding it: same injection ->
+  exit = 2, compiler output:
+    tests/unit/terminalRollbackWriterBounds.test.ts(247,7): error TS2322: Type 'string' is not assignable to type 'number'.
+  The injected line was then removed and the file restored byte-identically.
+That membership check also exposed a REAL pre-existing type error in the test at line 209
+(Partial<typeof LIMITS> with an 'as const' object types the field as the literal 1024),
+which the missing allowlist entry had been hiding. Fixed.
+Final: tsc -p tsconfig.test.json --noEmit exit 0; tsc -b exit 0.
+
+## 2. The three full-suite failures are unrelated to this change — measured, not inherited
+Same two suites run twice: once with the fix, once with ONLY src/utils/terminalWriteCoordinator.ts
+reverted to HEAD 5df20fc (everything else identical), then restored byte-identically.
+  terminalHiddenOutput        with fix: tests 11 pass 10 fail 1 | baseline: tests 11 pass 10 fail 1
+  workspaceOwnershipMigration with fix: tests 51 pass 49 fail 2 | baseline: tests 51 pass 49 fail 2
+Identical in both arms, so this change is not their cause. Failing names:
+  REL-BGSTAB-012 settles ledger and holds stale view through drain
+  B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-persistence.spec.ts
+  B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-save.spec.ts
+Not root-caused here — out of this lane's scope. What is measured is only that reverting
+this change does not remove them.
+
+## 3. Adjacent regression, all green after the fix
+  terminalWriteCoordinator 63/63, terminalCheckpointRuntime 106/106, terminalWriteInterleaving 5/5,
+  terminalCheckpointBudgetSeparation 7/7, terminalSoleWriterInventory 3/3, visibleOutputRecovery 23/23,
+  terminalOutputScheduler 60/60, terminalCheckpointRollbackTailWatermark 1/1,
+  terminalCheckpointCapabilityScoping 11/11
+  full frontend unit: tests 1323 pass 1320 fail 3 todo 0 (the three above)

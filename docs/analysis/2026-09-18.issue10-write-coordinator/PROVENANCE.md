@@ -118,3 +118,28 @@ all, so that arm currently fails on *"never stopped"* rather than on the
 substituted reason. Its reason-discriminating assertion only becomes load-bearing
 once AC-1 is green. It is not yet evidence that the ledger is not standing in for
 a cap; it will be after the fix.
+
+## Seal update — 2026-09-18, fifth write
+
+Moved inputs: **three added files** — `raw/P6-GREEN-frontend-unit-full.log`,
+`raw/P7-GREEN-rollback-writer-bounds.log`, `raw/P7-GREEN-supporting-proofs.txt`.
+No previously sealed file changed.
+
+GREEN for `REL-BGSTAB-027`: the same five-test file is now 5/5, with the control
+still firing by name at the predicted write. Two things in `P7-GREEN-supporting-proofs.txt`
+are load-bearing and would otherwise be unverifiable from the tree:
+
+1. **The new test was not type-checked until it was added to the allowlist.**
+   `tsconfig.test.json` carries an explicit `files` list, and a new test file is
+   not picked up by it. Proven by injection both ways — before, an injected type
+   error left the build at exit 0 with the file named zero times; after, exit 2
+   with the compiler naming the file. The injected line was removed and the file
+   restored byte-identically. The same check surfaced a real pre-existing type
+   error in the test that the missing entry had been hiding.
+
+2. **The three remaining full-suite failures are not caused by this change.**
+   Measured rather than labelled: the two owning suites were run with the fix and
+   again with only `terminalWriteCoordinator.ts` reverted to `5df20fc`, and the
+   counts are identical in both arms (11/10/1 and 51/49/2). The file was restored
+   byte-identically afterwards. They are not root-caused here; the only claim is
+   that reverting this change does not remove them.

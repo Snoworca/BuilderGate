@@ -92,6 +92,7 @@
     "tests/benchmarks/terminalNoRenderFixture.test.ts",
     "tests/unit/terminalOutputSliceAlignment.test.ts",
     "tests/unit/terminalRestoreBufferBytes.test.ts",
+    "tests/unit/terminalRollbackWriterBounds.test.ts",
     "tests/unit/terminalRetainedStateDigest.test.ts",
     "tests/unit/visibleOutputRecoveryByteSeam.test.ts",
     "tests/unit/visibleOutputSegmentContiguity.test.ts",

@@ -396,6 +396,26 @@ export function createTerminalWriteCoordinator(
   let latestSourceSeq: ParsedOrdinal64 | null = null;
   let latestCheckpointEpoch: ParsedOrdinal64 | null = null;
   const queue: PendingMutation[] = [];
+  // Bytes still held in the queue. Read only from the bounded admission path
+  // above, where the chunk cap has already limited the queue length.
+  const queuedMutationBytes = (): number => {
+    let total = 0;
+    // The in-flight mutation has left the queue but is still retained, so it
+    // counts toward the budget. Excluding it lets exactly one write past the
+    // cap — measured as 1,052,672 bytes against a 1,048,576 cap.
+    for (const pending of activeMutation === null ? queue : [activeMutation, ...queue]) {
+      if (pending.type === 'write') total += pending.data.byteLength;
+      else if (pending.type === 'checkpoint') {
+        total += Math.max(0, pending.body.byteLength - pending.bodyOffset)
+          + pending.parserTail.byteLength;
+      } else if (pending.type === 'compatibility-write') {
+        total += typeof pending.data === 'string'
+          ? inputEncoder.encode(pending.data).byteLength
+          : pending.data.byteLength;
+      }
+    }
+    return total;
+  };
   const pendingInputs: PendingInput[] = [];
   let pendingInputBytes = 0;
   const settlementLedger = new Map<string, SettlementLedgerEntry>();
@@ -1616,6 +1636,19 @@ export function createTerminalWriteCoordinator(
       return rejected('fresh-checkpoint-required');
     }
 
+    // REL-BGSTAB-027 AC-4 (REL-BGSTAB-007 AC-12): rollback must stop new
+    // authoritative admission, output as well as input. The guard above fires on
+    // `recoveryInstallation`, which `rollback-to-compatibility` clears, so
+    // without this arm the rollback path silently loses the fence that
+    // `install-recovery-generation` has and admits live output before a fresh
+    // authoritative snapshot has converged.
+    if (
+      compatibilityRecoveryPending
+      && (command.type === 'live' || command.type === 'repair')
+    ) {
+      return rejected('compatibility-snapshot-required');
+    }
+
     if (command.type === 'queue-input') {
       if (
         typeof command.data !== 'string'
@@ -2039,6 +2072,22 @@ export function createTerminalWriteCoordinator(
       checkpointTransaction.postCheckpointBytes = nextHeldBytes;
       checkpointTransaction.postCheckpointMutations.push(mutation);
       return ACCEPTED;
+    }
+    // REL-BGSTAB-027 AC-1/AC-2: the caps above hang off `checkpointTransaction`,
+    // and `rollback-to-compatibility` sets it to null. Every state without a
+    // transaction — which is every state after a rollback — therefore used to
+    // fall through to an unbounded `queue.push`. Measured before this guard:
+    // 20,000 4 KiB writes all accepted, 78.1 MiB retained against a 1 MiB cap,
+    // zero recovery requests.
+    if (queue.length + (activeMutation === null ? 0 : 1) + 1 > postCheckpointMaxChunks) {
+      requestRecovery('compatibility-queue-overflow');
+      return rejectCommand('compatibility-queue-overflow');
+    }
+    // The chunk cap above bounds the queue, so this sum runs over at most
+    // `postCheckpointMaxChunks` entries rather than over an unbounded queue.
+    if (queuedMutationBytes() + compatibilityWriteBytes > postCheckpointMaxBytes) {
+      requestRecovery('compatibility-queue-overflow');
+      return rejectCommand('compatibility-queue-overflow');
     }
     queue.push(mutation);
     pump();

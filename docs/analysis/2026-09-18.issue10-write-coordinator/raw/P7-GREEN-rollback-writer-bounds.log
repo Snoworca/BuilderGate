@@ -1,0 +1,13 @@
+✔ REL-BGSTAB-027 control — with a checkpoint open the byte cap fires by name at the predicted write (6.786961ms)
+✔ REL-BGSTAB-027 AC-1 — after rollback the compatibility writer stops at the byte cap (5.62285ms)
+✔ REL-BGSTAB-027 AC-2 — after rollback the compatibility writer stops at the chunk cap (7.267571ms)
+✔ REL-BGSTAB-027 AC-3 — neither cap may be substituted by the settlement ledger entry limit (2.265487ms)
+✔ REL-BGSTAB-027 AC-4 — rollback stops new authoritative output until a fresh snapshot converges (0.649399ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 160.384366

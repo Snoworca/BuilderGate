@@ -73,7 +73,7 @@ type Coordinator = {
 
 function makeCoordinator(
   signature: string,
-  overrides: Partial<typeof LIMITS> = {},
+  overrides: Readonly<Record<string, number>> = {},
 ): { coordinator: Coordinator; recording: ReturnType<typeof recordingAdapter> } {
   const factory = (terminalOutputSchedulerModule as Record<string, unknown>)
     .createTerminalWriteCoordinator;
