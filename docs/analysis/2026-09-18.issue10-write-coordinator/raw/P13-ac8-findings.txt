@@ -1,0 +1,55 @@
+# Issue #10 AC-8(ii) — "dirty is not cleared before an authoritative ACK"
+# 2026-09-18. The last read-only verdict in this lane, now partly executed.
+
+## What is MEASURED BY EXECUTION
+
+clearHiddenOutputState() on a dirty state:
+    before {"skipped":true,"skippedBytes":4096,"debugTail":"abc"}
+    after  {"skipped":false,"skippedBytes":0,"debugTail":""}
+  CONTROL           input really was dirty                     = true
+  SUBJECT           dirty flag cleared                         = true
+  SUBJECT           skipped-byte accounting discarded          = true
+  NEGATIVE CONTROL  an already-clean state passes through by identity = true
+
+The negative control matters: it shows the clearing is a real transition rather
+than this function's only behaviour.
+
+TerminalContainer.tsx:1842 feeds `hiddenDirty` from
+hiddenOutputStateRef.current.skipped, so `skipped` is the dirty source.
+
+## What is NOT established by execution, and is read-only
+
+That the local-snapshot restore path REACHES that clear with no server ACK.
+TerminalContainer.tsx:3762 calls finishHiddenOutputRecovery('local-snapshot', true)
+on the branch where activeResync is null, and nothing on that branch involves an
+acknowledgement. That is read from source; the component was not executed here.
+Stated separately rather than folded into the measured half.
+
+Note the ADJACENT branch is conformant: when activeResync is non-null
+(:3750-3761) the code sets provisionalLocalState = true and returns WITHOUT
+finishing recovery, which is what REL-BGSTAB-025 AC-1 asks for. The finding
+concerns only the other branch.
+
+## The interpretive question this lane does NOT resolve
+
+REL-BGSTAB-025 AC-1 forbids the local snapshot from completing "ready or
+dirty-clear" on its own. The measured behaviour has that shape. But whether
+hiddenOutputState.skipped is within AC-1's meaning of "dirty" is a specification
+question, not a measurement:
+
+  - AC-1 sits in a requirement about the RETAINED-STATE local snapshot cache and
+    its provisional/authoritative lifecycle;
+  - hiddenOutputState tracks output skipped while the view was HIDDEN, which is a
+    different mechanism with a different owner.
+
+They may be the same "dirty" or two unrelated ones. This lane does not decide it
+and does not record a violation on the strength of a name match. Escalated to the
+orchestrator. If AC-1 does cover it, the fix belongs with REL-BGSTAB-025 (planned,
+stable) rather than with anything this lane has written.
+
+## Disposition
+
+AC-8(i)/(iii)/(iv) unchanged from the premise table: coordinator-side independence
+from terminalSnapshot.ts was measured true; whole-system independence measured
+false at this same call site; the "no NEW dependency" delta framing remains
+unmeasurable without a named baseline.

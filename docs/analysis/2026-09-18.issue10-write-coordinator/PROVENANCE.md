@@ -268,3 +268,32 @@ The damage was visible only because the shell also printed a syntax error and th
 file was re-read afterwards. A quieter substitution would have sealed silently.
 Evidence written through `echo` is subject to the shell's own expansions; a
 quoted heredoc is not.
+
+## Seal update — 2026-09-18, twelfth write
+
+Moved inputs: **three added files** — `probe/probe-ac8-dirty-clear.ts`,
+`raw/P13-ac8-dirty-clear.log`, `raw/P13-ac8-findings.txt`. No previously sealed
+file changed.
+
+AC-8(ii), the last read-only verdict in this lane, now partly executed. The clear
+itself is measured, with a positive control (the input really was dirty) and a
+negative control (an already-clean state passes through by identity, so clearing
+is a real transition rather than the function's only mode).
+
+Two things are deliberately kept separate from that measurement:
+
+1. That the local-snapshot path **reaches** the clear with no ACK is still read
+   from source — the React component was not executed. The adjacent branch is
+   conformant, setting `provisionalLocalState = true` and returning without
+   finishing recovery when a resync is active.
+2. Whether `hiddenOutputState.skipped` is within `REL-BGSTAB-025` AC-1's meaning
+   of "dirty" is a **specification question, not a measurement**. AC-1 governs
+   the retained-state local snapshot cache; `hiddenOutputState` tracks output
+   skipped while the view was hidden. They may be the same dirty or two unrelated
+   ones, and this lane does not record a violation on the strength of a name
+   match — the `policyIdentity` trap in the other direction.
+
+The probe's own first version invented its fixture fields and asked the question
+of a shape the code never sees. A fixture whose fields are guessed cannot pose
+the question it claims to; the corrected version is what is sealed, with the
+first version's error recorded in its header.
