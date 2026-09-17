@@ -20,6 +20,8 @@ import {
 } from '../../src/utils/terminalGraceBuffer.ts';
 import { getTerminalResourceLimits } from '../../src/utils/inputReliabilityMode.ts';
 import { getOutputUtf8ByteLength } from '../../src/utils/terminalOutputHotPath.ts';
+import type { TerminalOutputDelivery } from '../../src/utils/terminalOutputDelivery.ts';
+import { recordTerminalDebugEvent } from '../../src/utils/terminalDebugCapture.ts';
 import type {
   ScreenRepairReconnectRequiredMessage,
   ScreenRepairRestoreNeededMessage,
@@ -192,6 +194,36 @@ test('grace flush applies the current server snapshot before the held tail and o
   assert.ok(tailIndexes.length > 0);
   assert.ok(tailIndexes.every(index => index > snapshotAt), 'snapshot applies before every held chunk');
   assert.ok(tailIndexes.every(index => index < readyAt), 'the input gate opens only after the whole tail');
+});
+
+// AC-3 / AC-5. Ordering is not the whole dispatch contract. `screenSeq`,
+// `chunkId` and `replayToken` are exactly what the downstream prune, dedupe and
+// generation fence key on, so a flush that emits the right chunks in the right
+// order but strips their identity is still broken — and invisible to an
+// order-only assertion. This is also the producer-side gate for the hand-off
+// described in the report: the field the downstream prune reads must survive.
+test('the flush preserves chunk identity, not just chunk order', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([
+    restore,
+    snapshotFor(restore),
+    output('tail', {
+      screenSeq: 11,
+      chunkId: 'chunk-11',
+      authorityEpoch: restore.authorityEpoch,
+      authorityRevision: restore.authorityRevision,
+    }),
+  ]);
+
+  const seen: TerminalOutputDelivery[] = [];
+  flushGraceBufferedSession(state, { onOutput: delivery => seen.push(delivery) });
+
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0]?.whole.screenSeq, 11);
+  assert.equal(seen[0]?.whole.chunkId, 'chunk-11');
+  assert.equal(seen[0]?.whole.authorityEpoch, restore.authorityEpoch);
+  assert.equal(seen[0]?.whole.authorityRevision, restore.authorityRevision);
+  assert.equal(seen[0]?.replayToken, restore.replayToken);
 });
 
 // AC-3. The held tail is forwarded whole and in arrival order. Dropping the
@@ -545,4 +577,102 @@ test('a new generation after an authority proof mismatch converges and opens the
   const recorded = recordingHandlers();
   flushGraceBufferedSession(state, recorded.handlers);
   assert.deepEqual(recorded.calls, ['restore-needed', 'snapshot', 'output:tail', 'ready']);
+});
+
+// AC-2 / AC-5. Guards that survive deletion because no test drives the state
+// they fence against.
+
+test('a snapshot arriving after an authority proof mismatch is not adopted', () => {
+  const restore = restoreNeeded();
+  let state = applyAll([restore, snapshotFor(restore, { authorityRevision: 99 })]);
+  assert.equal(state.authorityProofMismatch, true);
+
+  // A well-formed snapshot for the latched generation must still be refused:
+  // the mismatch is terminal until a new restore generation resets it.
+  state = applyGraceBufferedMessage(state, SESSION_ID, snapshotFor(restore));
+  assert.equal(state.snapshot, undefined);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.deepEqual(recorded.calls, ['proof-mismatch']);
+});
+
+test('a snapshot proof mismatch discards the held tail and its byte accounting', () => {
+  const restore = restoreNeeded();
+  let state = applyAll([restore, snapshotFor(restore), output('held')]);
+  assert.equal(state.outputBytes, getOutputUtf8ByteLength('held'));
+
+  state = applyGraceBufferedMessage(state, SESSION_ID, snapshotFor(restore, { authorityRevision: 99 }));
+
+  // Stale byte accounting would inflate the next generation's cap usage and
+  // trip an overflow that never happened.
+  assert.deepEqual(state.output, []);
+  assert.equal(state.outputBytes, 0);
+});
+
+test('a restore-needed arriving after reconnect-required is ignored', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([reconnectRequired(), restore, output('after')]);
+
+  assert.equal(state.restoreNeeded, undefined, 'reconnect-required is terminal for the generation');
+  assert.notEqual(state.reconnectRequired, undefined);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.deepEqual(recorded.calls, ['reconnect-required']);
+});
+
+// AC-3. `subscribedInfo` carries the server's own ready flag. While recovery is
+// blocked it must be forced false, or the view is told it is ready by a second
+// route while the barrier holds the first.
+test('subscribed ready is forced false while recovery is blocked and passes through once it is not', () => {
+  const restore = restoreNeeded();
+  const blocked = applyAll([restore]);
+  blocked.subscribedInfo = { status: 'running', ready: true };
+  const blockedRecorded = recordingHandlers();
+  flushGraceBufferedSession(blocked, blockedRecorded.handlers);
+  assert.deepEqual(blockedRecorded.calls, ['restore-needed', 'subscribed:ready=false']);
+
+  const clear = createGraceBufferedSessionState();
+  clear.subscribedInfo = { status: 'running', ready: true };
+  const clearRecorded = recordingHandlers();
+  flushGraceBufferedSession(clear, clearRecorded.handlers);
+  assert.deepEqual(clearRecorded.calls, ['subscribed:ready=true']);
+});
+
+// The `input:rejected` case has no effect on buffered state — it exists purely
+// to record that the server rejected input while the view was detached. An
+// assertion on state cannot see it, so observe the debug event itself.
+test('input:rejected is recorded while detached and does not mutate the buffered generation', () => {
+  // The debug recorder stamps every event with `getInputReliabilityMode()`,
+  // which reads `window.location.hostname` and then `localStorage`. Both are
+  // shimmed here — minimally, and torn down at the end — because the recorder's
+  // side effect is the only observable this case has.
+  (globalThis as { window?: unknown }).window = { location: { hostname: 'localhost' } };
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+  // Force lazy store construction, then enable capture for this session only.
+  recordTerminalDebugEvent(SESSION_ID, 'test_bootstrap');
+  const store = (globalThis as unknown as {
+    window: { __buildergateTerminalDebug: { enable(id: string): void; events: { kind: string }[] } };
+  }).window.__buildergateTerminalDebug;
+  store.enable(SESSION_ID);
+
+  const restore = restoreNeeded();
+  const before = applyAll([restore, snapshotFor(restore), output('tail')]);
+  const snapshotOfState = JSON.stringify(before);
+
+  const after = applyGraceBufferedMessage(before, SESSION_ID, {
+    type: 'input:rejected',
+    sessionId: SESSION_ID,
+    reason: 'queue-overflow',
+  });
+
+  assert.equal(JSON.stringify(after), snapshotOfState, 'buffered generation is untouched');
+  assert.equal(store.events.some(event => event.kind === 'server_input_rejected'), true);
+  delete (globalThis as { window?: unknown }).window;
+  delete (globalThis as { localStorage?: unknown }).localStorage;
 });
