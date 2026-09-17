@@ -112,22 +112,56 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 
 ### 1차 시도 불안정성 — 갓 만든 터미널 위에서 재현된다
 
-16번(커밋되는 spec, 4회)에서 **1차 시도 실패가 5건** 있었다. 모두 `retries: 1` 에서 통과해 네 run
-모두 exit 0 이다. `retries: 1` 은 이 저장소 `playwright.config.ts` 의 기존 설정이다. 실패는 두
-서명으로 나뉜다.
+16번은 4회 실행이고 회마다 test 2개이므로 **1차 시도는 8회**다. 그중 **5회가 실패하고 모두
+`retries: 1` 에서 통과했다.** 네 run 모두 exit 0 이다. `retries: 1` 은 이 저장소
+`playwright.config.ts` 의 기존 설정이다. 내역은 다음과 같다.
 
-- `E2E precondition failed: target did not become actually hidden/dirty/skipped` — 2건
-- AC-4·AC-8 의 RED 계약 단언 자체. 디버그 이벤트에
-  `compatibility-post-ack-failed:convergence-timeout` 이 동반된다 — 3건. iteration 3 에서는 AC-4 도
-  1차 시도에 실패했다
+| iteration | 실패한 test | 1차 시도 실패 메시지 |
+| --- | --- | --- |
+| 1 | AC-8 | `RED AC-8: restore-needed did not engage the stale barrier, or provisional local restore cleared hidden dirty/skipped/stale or promoted retained equivalence` |
+| 2 | AC-8 | 위와 동일 |
+| 3 | AC-4 | `RED AC-4: restore-needed did not engage the stale barrier, or snapshot-covered prefix/tail was lost, duplicated, or reordered` |
+| 3 | AC-8 | `E2E precondition failed: target did not become actually hidden/dirty/skipped` |
+| 4 | AC-8 | 위와 동일 |
 
-**이 lane 의 변경이 원인이 아니다.** 16번이 돌린 spec 은 authority proof 수정만 들어간 커밋본이고,
-같은 spec 이 11·12번에서 2 PASS 했다. 11·12번과 16번의 차이는 spec 이 아니라 **터미널이 갓
-생성된 것인지**다 — 앞선 실행들은 오래 떠 있던 터미널을 재사용했다.
+즉 **RED 계약 단언 자체가 3회, precondition 이 2회**다. 계약 단언이 깨진다는 것은 stale barrier 가
+때때로 engage 되지 않는다는 뜻이며 픽스처 준비 문제보다 무거운 진술이다.
+
+`compatibility-post-ack-failed:convergence-timeout` 디버그 이벤트는 **iteration 3 의 진단 덤프에만**
+찍혔다(같은 덤프 안에서 4줄). 다섯 실패 전체의 동반 증상으로 읽지 않는다.
+
+**이 lane 의 변경이 원인이 아니다.** 16번이 돌린 spec 은 커밋본이고(테스트 선언 줄 447/594 가
+`git show HEAD:…` 와 일치한다), 같은 spec 이 11·12번에서 1차 시도에 2 PASS 했다. 11·12번과 16번의
+차이는 spec 이 아니라 **터미널이 갓 생성된 것인지**다 — 앞선 실행들은 오래 떠 있던 터미널을
+재사용했고, 16번은 15번이 방금 만든 터미널 위에서 돌았다.
 
 따라서 이것은 이 lane 이 만든 것이 아니라 **갓 만든 session 위에서 드러나는 기존 불안정성**으로
-본다. 원인은 특정하지 못했다. 1회 green 으로 flake 라고 부르지 않기 위해 위 수치와 두 서명을
-그대로 남기고 별도 결함으로 보고한다.
+본다. 원인은 특정하지 못했다. 1회 green 으로 flake 라고 부르지 않기 위해 위 표를 그대로 남기고
+별도 결함으로 보고한다.
+
+### 산출물의 spec 판별 — 테스트 선언 줄로 대조한다
+
+`raw/` 의 Playwright 로그는 test 선언 줄 번호를 찍으므로, 어느 리비전에서 돌았는지 바이트로
+판별할 수 있다. 커밋별 선언 줄은 다음과 같다.
+
+| 리비전 | AC-4 / AC-8 선언 줄 |
+| --- | --- |
+| `e901676` (변경 전) | 406 / 551 |
+| `b7155dc` = **HEAD** (커밋되는 spec) | **447 / 594** |
+| `960ac67` (1차 시드 실험) | 463 / 610 |
+| `f719502` (2차 시드 실험) | 538 / 685 |
+| 커밋되지 않은 중간본 | 543 / 690, 564 / 711 |
+
+커밋되는 spec(447/594)에 대한 로그는 `raw/e2e-green-prefreeze.log`,
+`raw/e2e-frozen-tree-preseeding.log`, `raw/e2e-mutation-nobarrier.log`,
+`raw/e2e-final-committed-4x.log` 넷이다. 위 표의 11·12·13·16번이 그것이다.
+`raw/e2e-ac4-step1.log` 도 447 을 찍지만 AC-4 만 돌린 중간 상태 실행이다.
+
+⚠️ **`raw/e2e-mutation-final.log`(538/685), `raw/e2e-selfseed-empty.log`(543/690),
+`raw/e2e-selfseed-repeat.log`(543/690) 는 헤더에 `# state: committed spec` 이라고 적혀 있으나
+그것은 사실이 아니다.** 그 헤더는 당시 내가 손으로 쓴 문장이고, 세 로그 모두 커밋되지 않은
+리비전에서 돌았다. 캡처된 바이트를 고쳐 쓰지 않기 위해 원문은 그대로 두고 각 파일 끝에 정정
+한 줄을 덧붙였으며, 판별 근거는 위 선언 줄 표다.
 
 ## 5. 포트·프로세스 안전
 

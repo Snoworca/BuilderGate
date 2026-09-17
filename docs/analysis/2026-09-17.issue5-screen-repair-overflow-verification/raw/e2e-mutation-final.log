@@ -399,3 +399,7 @@ restore barrier diagnostic [
     [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:538:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 
     [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
 # exit=1  (playwright reported '2 failed'; the wrapper aborted under set -e before writing this line, appended after the fact)
+# CORRECTION (appended after the run, bytes above unchanged): the "# state: committed spec"
+# header line above is false. This run used an uncommitted revision — see the test declaration
+# lines it prints and the revision table in the bundle README. The committed spec declares its
+# tests at 447/594.
