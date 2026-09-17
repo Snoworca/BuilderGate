@@ -1,0 +1,7 @@
+Error: refusing to re-seal: the classification exemption pins changed and the lineage record does not enumerate them.
+Evidence relocation and source hashes are re-sealed automatically; this axis is not.
+  no longer enumerated: + {"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"d5ee2b5e94dd56507a37f8df3f06e44f6c7b38d3a0f73a64218ec82a2d3e5678","reason":"Persists configuration; it is not a terminal runtime consumer."}
+  newly enumerated:    + {"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"0000000000000000000000000000000000000000000000000000000000000000","reason":"Persists configuration; it is not a terminal runtime consumer."}
+If this change is intended, re-run with --accept-classification-change.
+    at assertDriftChangeWasAccepted (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/terminal-resource-consumer-manifest-reseal.ts:324:9)
+    at main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/terminal-resource-consumer-manifest-reseal.ts:433:3)

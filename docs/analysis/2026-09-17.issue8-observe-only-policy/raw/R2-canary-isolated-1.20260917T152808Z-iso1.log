@@ -1,0 +1,74 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 fixture contract — real SessionManager initialization retains authority and cleanup state (91.469036ms)
+✔ PERF-BGSTAB-010 gated headless fixture preserves full state while disposal releases held write callbacks (0.250653ms)
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 gated real-session fixture drains a held write before public cleanup (2349.307689ms)
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 gated real-session fixture releases resources after an assertion failure (2341.220481ms)
+[SessionManager] All CWD watchers stopped
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 emergency cleanup preserves a public finalizer error while releasing held callbacks (2335.557513ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session gated-headless-overflow-cleanup-red: Headless output queue overflow (observe): byte-limit
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+✔ PERF-BGSTAB-010 gated real-session PTY chain settles within the fixture bound after overflow cleanup (2334.788701ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1 (154.081897ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 production assembly shares one registry-derived lease authority (85.527434ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2 (159.151841ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3 (79.584972ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4 (76.930379ms)
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5 (85.08503ms)
+✔ REL-BGSTAB-010 headless finalizer revokes the old epoch and isolates same-ID recreation (77.884245ms)
+[WS] WebSocket router initialized
+[SessionManager] Headless terminal degraded (write) for session session-a1: simulated headless write failure
+✔ REL-BGSTAB-010 headless maxChunks admits exact N and rejects N+1 without bypass (105.597425ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 headless write failure settles the candidate to target-scoped legacy recovery (82.5938ms)
+✔ REL-BGSTAB-010 valid but inactive leases cannot preview admit or rollback active WS and headless targets (76.162949ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-nonselected: Headless output queue overflow (observe): byte-limit
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-a1: Headless output queue overflow (observe): byte-limit
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 production PTY path uses target-scoped non-destructive headless policy and restores legacy limit (122.113504ms)
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 headless rollback closes only after the actual write chain drains (80.920653ms)
+✔ REL-BGSTAB-010 headless rollback fences every pre-boundary policy generation (83.787423ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6 (0.390247ms)
+✔ REL-BGSTAB-010 coalescing preserves every admission identity and lifetime fence (0.201047ms)
+✔ PERF-BGSTAB-010 AC-3/AC-4 fair artifact admission 계약 부재 때문에 실패 (2.026072ms)
+✔ PERF-BGSTAB-010 published fair artifact admission validates the benchmark policy contract (2.169451ms)
+✔ PERF-BGSTAB-010 source default Canary admission fails closed (21.62471ms)
+✔ PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority (195.032223ms)
+✔ PERF-BGSTAB-010 fresh default Canary accepts canonical authority (3616.310355ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17156.976917

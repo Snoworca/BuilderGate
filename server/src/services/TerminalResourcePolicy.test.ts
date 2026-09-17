@@ -149,8 +149,6 @@ function assertSortedUnique(values: string[]): void {
   assert.deepEqual(values, [...new Set(values)].sort((left, right) => left.localeCompare(right)));
 }
 
-let signaturesCheckedAtConsumerPaths = 0;
-
 // AC-1 requires the manifest to name each key's REAL consumer path, and existsSync cannot tell the
 // difference between "the consuming expression lives here" and "it used to". That gap is not
 // hypothetical: REL-BGSTAB-009 moved the grace lane from WebSocketProvider#bufferGraceMessage into
@@ -170,7 +168,6 @@ function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: strin
     source.includes(evidenceSignature),
     `manifest names ${path}#${consumerSymbol} as the consumer, but its evidence signature ${JSON.stringify(evidenceSignature)} does not occur in that file`,
   );
-  signaturesCheckedAtConsumerPaths += 1;
 }
 
 function assertRepositoryPath(path: string): void {
@@ -292,6 +289,7 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
   const { loadTerminalResourceConsumerManifest } = await loadInventoryContract();
   const manifest = await loadTerminalResourceConsumerManifest({ manifestPath: MANIFEST_PATH });
   const categories = new Set(manifest.consumers.map((entry) => entry.category));
+  let signaturesChecked = 0;
 
   assert.equal(manifest.schemaVersion, SCHEMA_VERSION);
   assert.equal(manifest.profileVersion, PROFILE_VERSION);
@@ -307,10 +305,16 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
     assert.ok(entry.applyBoundary.length > 0);
     assertRepositoryPath(entry.consumerPath);
     assertEvidenceSignaturePresentAt(entry.consumerPath, entry.evidenceSignature, entry.consumerSymbol);
+    signaturesChecked += 1;
   }
-  assert.ok(
-    signaturesCheckedAtConsumerPaths > 0,
-    'AC-1 must have checked at least one evidence signature; a zero here means the loop examined nothing',
+  // Exact, and local to this test rather than module scope. `> 0` on a module-global counter was
+  // both already implied by the length assertion above and survivable by a future change that
+  // checked one entry of eighty-one; it would also have carried across a re-entry of this file in
+  // one process. This says every entry was examined, which is the claim AC-1 rests on.
+  assert.equal(
+    signaturesChecked,
+    manifest.consumers.length,
+    'AC-1 must check the evidence signature of every manifest entry',
   );
 });
 
@@ -1195,6 +1199,16 @@ function insertBeforeMarkerLines(source: string, marker: string, inserted: strin
     .filter((line) => line.trim().length > 0)
     .map((line) => `${indent}${line.trim()}`);
   assert.ok(insertedLines.length > 0, `${name}: inserted text produced no lines`);
+  // Each inserted line is re-indented to the marker's indent. For JavaScript that is
+  // meaning-preserving - line breaks are kept, so ASI is unaffected, and only leading whitespace
+  // changes - with one exception: whitespace inside a template literal is content. Refuse those
+  // rather than rewrite them silently. Multi-line block inserts are fine and several fixtures use
+  // them, so this deliberately does NOT require each line to be a complete statement; an earlier
+  // draft did and false-reddened same-owner-dead-code-decoy, whose first line is `if (false) {`.
+  for (const line of insertedLines) {
+    assert.doesNotMatch(line, /`/, `${name}: inserted lines must not contain a template literal, because they are re-indented`);
+  }
+  assert.ok(marker.trim().length > 0, `${name}: marker must not be blank`);
   lines.splice(hits[0], 0, ...insertedLines);
   return lines.join(newline);
 }
@@ -1419,7 +1433,13 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       from: 'limits.serverBufferedHighWaterBytes',
       to: 'Number.MAX_SAFE_INTEGER',
       suffix: '',
-      replaceCount: 2,
+      // 3, one per occurrence, so both catalog owners (WsRouter.sendTransportMessage, which holds
+      // two, and WsRouter.flushTransportQueue, which holds one) actually lose their evidence. This
+      // was 2 when the file had two occurrences; it stayed 2 when a third was added, which silently
+      // excluded flushTransportQueue. NOTE the residual: mutating every occurrence shows that both
+      // owners must carry evidence, not that one owner's evidence cannot be counted for the other.
+      // Proving that needs occurrence-targeted mutation, which this harness cannot express.
+      replaceCount: 3,
     },
   ] as const;
   for (const mutation of mutations) {
@@ -1430,9 +1450,15 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       const source = await readFile(targetPath, 'utf8');
       const replacements = 'replaceCount' in mutation ? mutation.replaceCount : 1;
       const available = source.split(mutation.from).length - 1;
-      assert.ok(
-        available >= replacements,
-        `${mutation.name}: expected at least ${replacements} occurrence(s) of ${JSON.stringify(mutation.from)} in ${mutation.path}, found ${available}`,
+      // Exact, not >=. String.replace takes the first match each iteration, so a fixture whose
+      // target gains an occurrence quietly stops mutating the tail of its own target set: with
+      // `>=`, split-owner-does-not-share-evidence kept replaceCount 2 after WsRouter.ts grew a
+      // third occurrence, so both replacements landed in sendTransportMessage and
+      // flushTransportQueue was never mutated at all - while the fixture stayed green.
+      assert.equal(
+        available,
+        replacements,
+        `${mutation.name}: expected exactly ${replacements} occurrence(s) of ${JSON.stringify(mutation.from)} in ${mutation.path}, found ${available}`,
       );
       let mutatedSource = source;
       for (let index = 0; index < replacements; index += 1) {

@@ -469,8 +469,11 @@ assert.equal(manifest.profileVersion, legacyManifest.profileVersion);
 // legitimately change. Held strictly equal to the immutable historical seal it is unsatisfiable,
 // not safe - it went red here the moment resourceLimits.telemetry.sampleIntervalMs was retired
 // from ConfigFileRepository. Enumerated drift keeps the property the strict form was reaching for:
-// the verifier accepts exactly the classification identities the sealed lineage names, so a re-pin
-// still costs a deliberate re-seal and cannot land as a silent side effect.
+// the verifier accepts exactly the classification identities the sealed lineage names, and the
+// re-seal tool refuses to write a moved pin without --accept-classification-change, the same
+// operator gate the decision axis already had. Both halves are needed: enumeration alone would let
+// a re-pin ride along with a routine re-seal, and a pin is a blanket exemption from the
+// unregistered-call-site scan, so hiding a real consumer behind one is exactly the abuse.
 const classificationDrift = multisetDrift(
   legacyManifest.classifications,
   manifest.classifications,
@@ -681,7 +684,10 @@ if (process.argv.includes('--write-focused-evidence')) {
 // Do NOT run --write-focused-evidence to reconcile these: it overwrites the sealed artifact and
 // line 654 goes red, because the re-seal tool deliberately copies rawGreenEvidence hashes verbatim
 // rather than re-deriving them.
-assert.match(focused, /pass 31/);
+const focusedPassMatch = /^\u2139 pass (\d+)$/m.exec(focused);
+assert.ok(focusedPassMatch, 'the focused run must emit a parseable pass count');
+const focusedPassCount = Number(focusedPassMatch[1]);
+assert.equal(focusedPassCount, 31);
 assert.match(focused, /fail 0/);
 assert.match(readFileSync(focusedEvidencePath, 'utf8'), /pass 24/);
 assert.match(readFileSync(focusedEvidencePath, 'utf8'), /fail 0/);
@@ -722,7 +728,7 @@ process.stdout.write(`${JSON.stringify({
   exactConsumerTuples: manifest.consumers.length,
   classifiedPaths: classifiedPaths.length,
   resourceKeys: expectedResourceKeys.length,
-  focusedTests: 24,
+  focusedTests: focusedPassCount,
   claims,
   activationEligible: false,
     manifestSha256,
