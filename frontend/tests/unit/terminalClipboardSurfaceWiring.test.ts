@@ -96,13 +96,27 @@ test('FR-BGSTAB-021: test:unit:clipboard runs every clipboard unit test as a run
   // /\s+/ cannot see `||true`, `;true`, or a newline-separated compound, and all
   // three run the suite and then exit 0 on a red one -- connected and inert,
   // which is this requirement's original defect wearing a different hat.
-  const shellControl = script.match(/[;&|\n\r]/g) ?? [];
+  // Scanned OUTSIDE quoted regions. A bare character-class scan over the whole
+  // string false-reds two legitimate wirings -- `--test-name-pattern='copy|paste'`
+  // and any path containing `&` -- and a maintainer meeting that red is tempted
+  // to weaken the clause rather than quote correctly.
+  const unquoted = script.replace(/'[^']*'|"[^"]*"/g, '');
+  const shellControl = unquoted.match(/[;&|\n\r$`!]/g) ?? [];
   assert.deepEqual(
     shellControl,
     [],
     'test:unit:clipboard must be a single command that propagates the runner exit code; '
-    + `these shell control characters can discard it: ${JSON.stringify(shellControl)} in ${script}`,
+    + `these shell control characters can discard or invert it: ${JSON.stringify(shellControl)} in ${script}`,
   );
+  // What this clause does NOT cover, stated here rather than left implicit.
+  // Widening the character class cannot reach either of these:
+  //   - npm `pre`/`post` hooks wrap this script without appearing in its text, so
+  //     scanning the script string is structurally unable to see them. (npm does
+  //     skip `post` and propagate when the main script fails, so this is a limit
+  //     of the approach rather than a known hole.)
+  //   - any exit-code discard expressible without [;&|$`!] or a newline.
+  // The class has already grown once: it began as whitespace-separated tokens,
+  // which missed `||true`, `;true` and a newline compound.
 
   // The runner must lead its command, after a known prefix set. Accepting a
   // runner token at ANY position let `echo node --test <paths>` satisfy every

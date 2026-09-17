@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-17T13:40:11.671Z",
+  "generatedAt": "2026-09-17T13:54:10.067Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "da08b04af49129d7cf30aa6fdaa72464ab58bfcadb24b361bee6d82bac8964b3",
+    "value": "95357c7ea6d8c9a67022e9dcd5d800945b1d9c891fb93f908556e268426186d6",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "1010598e6a573d9136dbd18704ee7991111607ec9c14ffb0136ad594730346bd",
-        "size": 859367,
-        "mtimeMs": 1789652402790.0652
+        "sha256": "2ed16d98fb057adc0c0159ae2fca63a584e2cca4ed6d0c1017677ba81f909f58",
+        "size": 861540,
+        "mtimeMs": 1789653240480.2373
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -94,11 +94,11 @@
     "active": true,
     "metadata": {
       "schemaVersion": "1.0.0",
-      "owner": "DESKTOP-LCF0D3R:569229",
+      "owner": "DESKTOP-LCF0D3R:573120",
       "operation": "sync_index_rollups",
-      "requestId": "9a6d1e66-2f91-44a0-af7c-5d54a88ddc20",
-      "acquiredAt": "2026-09-17T13:40:11.490Z",
-      "expiresAt": "2026-09-17T13:41:11.490Z"
+      "requestId": "1b926020-d985-48f6-a0d5-b198963bc30e",
+      "acquiredAt": "2026-09-17T13:54:09.924Z",
+      "expiresAt": "2026-09-17T13:55:09.924Z"
     }
   }
 }

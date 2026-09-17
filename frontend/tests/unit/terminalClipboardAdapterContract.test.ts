@@ -108,6 +108,91 @@ test('TerminalView binds saved right-click selection to one xterm generation and
 // identifier. The test is named for a property -- no programmatic paste bypass --
 // and was implemented as the absence of a string, which is the same divergence of
 // name from predicate that the AC-5 raw-text guard had.
+// Review found the previous form pinned the `TerminalHandle` INTERFACE, and the
+// interface is not what ships. `useImperativeHandle<T, R extends T>` lets the
+// object literal carry members the interface never declares, so a paste bypass
+// added to the literal alone passed while the pinned set stayed unchanged -- the
+// fourth appearance of the same proxy-for-property defect, this time at the type
+// level. Three surfaces are pinned now: the interface, and both imperative-handle
+// object literals, which are the objects callers actually receive.
+//
+// Each name carries the reason it is not a paste entry point, so that meeting a
+// red here costs a decision rather than a keystroke. A bare list of names makes
+// the cheapest resolution "paste the new name in", which turns a guard into a
+// formality over time.
+//
+// What this test still cannot see, stated here rather than left to a report that
+// gets read second. Pinning a membership set is itself a proxy for "no paste
+// bypass exists":
+//   - a member already in the pinned set whose body changes to deliver twice
+//     without changing its callee text or arguments -- only the two paste members
+//     have their delivery shape asserted, the other 32 are pinned by name;
+//   - a paste path that never reaches either imperative handle at all, e.g. a
+//     module-scope export or a context value;
+//   - anything about runtime behaviour, since this parses both components and
+//     executes neither. Selection-less Ctrl+C SIGINT ownership is invisible here
+//     and to every other unit row on this requirement. Issue #87 owns that gap.
+const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
+  applyScreenRepair: 'applies a server screen repair; takes a message object, not a payload string',
+  awaitOutputIdle: 'output-drain probe; no input',
+  bindRestoreCoordinator: 'binds the restore adapter; no input',
+  captureRetainedState: 'reads retained state; no input',
+  clearSelection: 'clears selection; no input',
+  clearVisibleOutputRecovery: 'clears recovery bookkeeping; no input',
+  completeCheckpointTakeover: 'checkpoint lifecycle; no input',
+  copySelection: 'clipboard COPY entry point; coordinator-owned, asserted below',
+  fit: 'layout only',
+  focus: 'focus only; its lone string is a debug reason, not a payload',
+  getAuthorityViewGeneration: 'reads a generation; no input',
+  getMouseTrackingActive: 'reads mouse mode; no input',
+  getScreenRepairReadiness: 'reads readiness; no input',
+  getSelection: 'reads selection text; no input',
+  hasSelection: 'reads selection presence; no input',
+  invalidateClipboardContext: 'bumps the clipboard view generation; no input',
+  isCheckpointAuthorityActive: 'reads authority state; no input',
+  isCompatibilityRecoveryPending: 'reads recovery state; no input',
+  pasteClipboard: 'PASTE entry point; must delegate to the coordinator, asserted below',
+  pasteText: 'PASTE entry point; must delegate to the coordinator, asserted below',
+  probeOutputFifo: 'output probe; no input',
+  releasePending: 'releases pending writes; no input',
+  repairLayout: 'layout repair; its lone string is a reason, not a payload',
+  replaceWithSnapshot: 'writes terminal OUTPUT from a snapshot; not user input',
+  requestGridRepair: 'asks the grid to repair; no input',
+  restoreSnapshot: 'restores terminal OUTPUT; not user input',
+  sendInput: 'raw input path, deliberately NOT a clipboard paste: it is the shared '
+    + 'transport every input source ends in, including the coordinator. Routing a '
+    + 'clipboard payload here directly is the bypass this test exists to prevent.',
+  setInputTransportState: 'transport bookkeeping; no input',
+  setServerReady: 'readiness flag; no input',
+  setWindowsPty: 'platform flag; no input',
+  submitClear: 'clears the screen; no input',
+  submitOutput: 'writes terminal OUTPUT; not user input',
+  writeAndWait: 'writes terminal OUTPUT and awaits flush; its lone string is output, not input',
+  writeRecoveryTailAndWait: 'writes recovery OUTPUT; not user input',
+};
+
+const PASTE_HANDLE_MEMBERS = ['pasteClipboard', 'pasteText'] as const;
+
+// Members whose signature takes a lone `string`. Anything string-taking is a
+// candidate payload sink, so each must be named here deliberately. This is what
+// turns the pin from a tripwire into a predicate: adding `insertText: (data:
+// string) => …` fails BOTH the membership pin and this list, and the second
+// cannot be satisfied by copying a name without asserting what it does.
+const LONE_STRING_PARAMETER_MEMBERS = ['focus', 'repairLayout', 'sendInput', 'writeAndWait'] as const;
+
+// A `?? fallback` fires exactly when the primary target is missing, so anything
+// that DELIVERS there is a live second input path. Not every call delivers,
+// though: the container's fallbacks wrap a rejection result in Promise.resolve.
+// Rather than accept any call (which admits a real bypass) or reject any call
+// (which reddens correct code), the inert callees are named, and the fallback is
+// additionally forbidden from naming any delivery seam.
+const INERT_FALLBACK_CALLEES = ['Promise.resolve'] as const;
+const DELIVERY_SEAMS = ['sendInput', 'submitProgrammaticPaste', 'clipboardCoordinator', 'terminalRef', 'onInput'] as const;
+
+// `requestGridRepair` is optional on the interface and supplied by the container,
+// so the view's literal is the pinned set minus that one.
+const VIEW_LITERAL_OMISSIONS = ['requestGridRepair'] as const;
+
 function parseTsx(absolutePath: string): ts.SourceFile {
   return ts.createSourceFile(
     absolutePath,
@@ -118,25 +203,7 @@ function parseTsx(absolutePath: string): ts.SourceFile {
   );
 }
 
-// The full member list is pinned, not just the ones whose NAME matches /paste/.
-// Gating on the name verified a naming convention rather than the property: a
-// member called insertText or writeInput reaching sendInput is a programmatic
-// paste bypass that /paste/i never sees. Pinning the whole set means any new
-// handle member fails this test until someone decides whether it is one.
-const EXPECTED_TERMINAL_HANDLE_MEMBERS = [
-  'applyScreenRepair', 'awaitOutputIdle', 'bindRestoreCoordinator', 'captureRetainedState',
-  'clearSelection', 'clearVisibleOutputRecovery', 'completeCheckpointTakeover', 'copySelection',
-  'fit', 'focus', 'getAuthorityViewGeneration', 'getMouseTrackingActive', 'getScreenRepairReadiness',
-  'getSelection', 'hasSelection', 'invalidateClipboardContext', 'isCheckpointAuthorityActive',
-  'isCompatibilityRecoveryPending', 'pasteClipboard', 'pasteText', 'probeOutputFifo',
-  'releasePending', 'repairLayout', 'replaceWithSnapshot', 'requestGridRepair', 'restoreSnapshot',
-  'sendInput', 'setInputTransportState', 'setServerReady', 'setWindowsPty', 'submitClear',
-  'submitOutput', 'writeAndWait', 'writeRecoveryTailAndWait',
-] as const;
-
-const PASTE_HANDLE_MEMBERS = ['pasteClipboard', 'pasteText'] as const;
-
-function terminalHandleMemberNames(source: ts.SourceFile): string[] {
+function terminalHandleInterface(source: ts.SourceFile): ts.InterfaceDeclaration {
   // Collected into an array rather than assigned to a `let`: TypeScript does not
   // see assignments made inside the closure, narrows the variable to null, and
   // then types every later use as `never`.
@@ -149,15 +216,19 @@ function terminalHandleMemberNames(source: ts.SourceFile): string[] {
   };
   visit(source);
   assert.equal(found.length, 1, `expected exactly one TerminalHandle interface, found ${found.length}`);
+  return found[0]!;
+}
 
-  const members = found[0]!.members;
+function memberNames(declaration: ts.InterfaceDeclaration, source: ts.SourceFile): string[] {
+  const members = declaration.members;
   // Resolve quoted and computed names too. Restricting to ts.isIdentifier
   // silently dropped members, so `'pasteRaw': (data) => …` -- one pair of quotes
   // -- was absent from the "exact set" and the set still compared equal.
   const names = members
     .map(member => (member.name ? member.name.getText(source).replace(/^['"`]|['"`]$/g, '') : null))
     .filter((name): name is string => name !== null);
-  // Nothing may be dropped between the member list and the names compared below.
+  // Nothing may be dropped between the member list and the names compared below;
+  // an index or call signature has no name and would vanish silently.
   assert.equal(
     names.length,
     members.length,
@@ -185,7 +256,10 @@ function imperativeHandleProperties(source: ts.SourceFile): Map<string, ts.Expre
         if (literal && ts.isObjectLiteralExpression(literal)) {
           for (const property of literal.properties) {
             if (ts.isPropertyAssignment(property) && property.name) {
-              properties.set(property.name.getText(source).replace(/^['"`]|['"`]$/g, ''), property.initializer);
+              properties.set(
+                property.name.getText(source).replace(/^['"`]|['"`]$/g, ''),
+                property.initializer,
+              );
             }
           }
         }
@@ -197,71 +271,130 @@ function imperativeHandleProperties(source: ts.SourceFile): Map<string, ts.Expre
   return properties;
 }
 
-// The delegation must BE the coordinator call, not merely mention it. A body of
-// `{ sendInputRef.current(data); return clipboardCoordinator.pasteText(data, source); }`
-// contains the call and also delivers a second time -- the exactly-once
-// violation this row is cited for -- so a substring match accepts it.
-function soleDeliveryCallee(initializer: ts.Expression, source: ts.SourceFile): string {
-  assert.ok(
-    ts.isArrowFunction(initializer),
-    `expected an arrow function, got: ${initializer.getText(source).slice(0, 80)}`,
-  );
-  let body: ts.Node = (initializer as ts.ArrowFunction).body;
+// The delegation must BE the coordinator call, not merely mention it, and the
+// call must carry the caller's own arguments. Review defeated three weaker
+// forms: a block body that also called sendInput before returning the coordinator
+// result; a `?? fallback` whose right-hand side was itself a delivery and fires
+// exactly when the left is nullish; and `pasteText(data + data, source)`, which
+// duplicates the payload -- the exactly-once class this row is cited for.
+function assertSoleDelivery(
+  initializer: ts.Expression,
+  source: ts.SourceFile,
+  expectedCallee: string,
+  label: string,
+): void {
+  assert.ok(ts.isArrowFunction(initializer), `${label}: expected an arrow function`);
+  const arrow = initializer as ts.ArrowFunction;
+  const parameters = arrow.parameters.map(parameter => parameter.name.getText(source));
+
+  let body: ts.Node = arrow.body;
   assert.ok(
     !ts.isBlock(body),
-    'paste delegation must be a single expression; a block body can deliver more than once: '
-    + `${initializer.getText(source).slice(0, 120)}`,
+    `${label}: delegation must be a single expression; a block body can deliver more than once`,
   );
   while (ts.isParenthesizedExpression(body)) {
     body = body.expression;
   }
-  // `a?.b(...) ?? fallback` is the container's shape; the fallback is inert.
   if (ts.isBinaryExpression(body) && body.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) {
+    const fallback = body.right;
+    // The fallback fires precisely when the primary target is missing, so a call
+    // there is a live second delivery path, not inert decoration.
+    const calls: string[] = [];
+    const scan = (node: ts.Node): void => {
+      if (ts.isCallExpression(node)) calls.push(node.expression.getText(source));
+      ts.forEachChild(node, scan);
+    };
+    scan(fallback);
+    const delivering = calls.filter(callee => !INERT_FALLBACK_CALLEES.includes(callee as never));
+    assert.deepEqual(
+      delivering,
+      [],
+      `${label}: the ?? fallback fires when the primary is nullish, so it must not deliver. `
+      + `Unrecognised callees: ${JSON.stringify(delivering)}`,
+    );
+    const fallbackText = fallback.getText(source);
+    const seams = DELIVERY_SEAMS.filter(seam => fallbackText.includes(seam));
+    assert.deepEqual(
+      seams,
+      [],
+      `${label}: the ?? fallback must not reference a delivery seam. Found: ${JSON.stringify(seams)}`,
+    );
     body = body.left;
   }
   while (ts.isParenthesizedExpression(body)) {
     body = body.expression;
   }
-  assert.ok(
-    ts.isCallExpression(body),
-    `paste delegation must reduce to one call, got: ${body.getText(source).slice(0, 120)}`,
-  );
-  return (body as ts.CallExpression).expression.getText(source);
+  assert.ok(ts.isCallExpression(body), `${label}: delegation must reduce to one call`);
+  const call = body as ts.CallExpression;
+  assert.equal(call.expression.getText(source), expectedCallee, `${label}: wrong delivery callee`);
+
+  // Arguments must be the parameters themselves. `data + data` is a payload
+  // duplication that a callee-only comparison accepts.
+  const args = call.arguments.map(argument => argument.getText(source));
+  for (const argument of args) {
+    assert.ok(
+      parameters.includes(argument),
+      `${label}: argument \`${argument}\` is not one of the handler's parameters `
+      + `${JSON.stringify(parameters)}; the payload must be forwarded unmodified`,
+    );
+  }
+  assert.ok(args.length > 0, `${label}: expected the payload to be forwarded`);
 }
 
 test('Terminal imperative handles route every paste-capable member through the coordinator', () => {
   const view = parseTsx(fileURLToPath(new URL('../../src/components/Terminal/TerminalView.tsx', import.meta.url)));
   const container = parseTsx(fileURLToPath(new URL('../../src/components/Terminal/TerminalContainer.tsx', import.meta.url)));
 
-  // The whole surface is pinned. A new member of any name -- insertText,
-  // writeInput, pasteRaw, quoted or not -- fails here until it is reviewed.
+  const pinned = Object.keys(TERMINAL_HANDLE_MEMBERS).sort();
+
+  // 1. The declared type.
   assert.deepEqual(
-    terminalHandleMemberNames(view).slice().sort(),
-    [...EXPECTED_TERMINAL_HANDLE_MEMBERS].slice().sort(),
+    memberNames(terminalHandleInterface(view), view).sort(),
+    pinned,
     'TerminalHandle membership changed; decide whether the new member is a paste entry point',
   );
 
+  // 2. The objects callers actually receive. The interface is only a proxy for
+  //    these: useImperativeHandle<T, R extends T> admits extra members, so a
+  //    bypass can live in a literal that the interface never mentions.
   const viewProperties = imperativeHandleProperties(view);
   const containerProperties = imperativeHandleProperties(container);
-  assert.ok(
-    viewProperties.size > 10 && containerProperties.size > 10,
-    `imperative handle enumeration looks empty: view=${viewProperties.size} container=${containerProperties.size}`,
+  assert.deepEqual(
+    [...viewProperties.keys()].sort(),
+    pinned.filter(name => !VIEW_LITERAL_OMISSIONS.includes(name as never)),
+    'TerminalView imperative handle exposes members the pinned set does not cover',
+  );
+  assert.deepEqual(
+    [...containerProperties.keys()].sort(),
+    pinned,
+    'TerminalContainer imperative handle exposes members the pinned set does not cover',
   );
 
+  // 3. Every string-taking member is deliberately named, so a new payload sink
+  //    cannot be admitted by copying a name into the pin alone.
+  const loneStringMembers = terminalHandleInterface(view).members
+    .filter(member => {
+      const type = (member as ts.PropertySignature).type;
+      return !!type
+        && ts.isFunctionTypeNode(type)
+        && type.parameters.length === 1
+        && type.parameters[0]!.type?.kind === ts.SyntaxKind.StringKeyword;
+    })
+    .map(member => member.name!.getText(view).replace(/^['"`]|['"`]$/g, ''))
+    .sort();
+  assert.deepEqual(
+    loneStringMembers,
+    [...LONE_STRING_PARAMETER_MEMBERS].slice().sort(),
+    'a handle member now takes a lone string payload; say what it does before allowing it',
+  );
+
+  // 4. The two paste members deliver once, through the coordinator, unmodified.
   for (const member of PASTE_HANDLE_MEMBERS) {
     const viewInitializer = viewProperties.get(member);
     const containerInitializer = containerProperties.get(member);
     assert.ok(viewInitializer, `TerminalView must implement ${member}`);
     assert.ok(containerInitializer, `TerminalContainer must implement ${member}`);
-    assert.equal(
-      soleDeliveryCallee(viewInitializer!, view),
-      `clipboardCoordinator.${member}`,
-      `TerminalView.${member} must deliver solely through the clipboard coordinator`,
-    );
-    assert.equal(
-      soleDeliveryCallee(containerInitializer!, container),
-      `terminalRef.current?.${member}`,
-      `TerminalContainer.${member} must deliver solely through the inner terminal handle`,
-    );
+    assertSoleDelivery(viewInitializer!, view, `clipboardCoordinator.${member}`, `TerminalView.${member}`);
+    assertSoleDelivery(containerInitializer!, container, `terminalRef.current?.${member}`, `TerminalContainer.${member}`);
   }
 });
