@@ -958,3 +958,134 @@ test('reconnect-required and a plain grace snapshot each clear a latched overflo
     undefined,
   );
 });
+
+// An AST-based statement sweep (130 statements, not the 56 a shape-matching
+// regex found) left 17 survivors. Ten were `recordTerminalDebugEvent` calls —
+// the lane's entire observability surface. AC-2 and AC-7 both require an
+// OBSERVABLE reason, and a frame that is correctly ignored leaves no trace but
+// its debug event, so an unguarded emit is an unobservable silent drop.
+
+const IGNORE_EVENTS = new Set([
+  'websocket_grace_snapshot_after_reconnect_ignored',
+  'websocket_grace_snapshot_generation_mismatch',
+  'screen_repair_restore_after_reconnect_ignored',
+  'screen_repair_restore_grace_invalid_proof_ignored',
+  'screen_repair_restore_grace_proof_mismatch_ignored',
+  'screen_repair_restore_grace_duplicate_ignored',
+  'websocket_grace_output_generation_mismatch',
+  'websocket_grace_ready_generation_mismatch',
+  'websocket_grace_ready_snapshot_mismatch',
+  'screen_repair_grace_buffer_skipped',
+]);
+
+const IGNORE_PATHS: readonly {
+  event: string;
+  seed: () => Parameters<typeof applyGraceBufferedMessage>[2][];
+  frame: () => Parameters<typeof applyGraceBufferedMessage>[2];
+}[] = [
+  { event: 'websocket_grace_snapshot_after_reconnect_ignored',
+    seed: () => [reconnectRequired()], frame: () => snapshotFor(restoreNeeded()) },
+  { event: 'websocket_grace_snapshot_generation_mismatch',
+    seed: () => [restoreNeeded()], frame: () => snapshotFor(restoreNeeded(), { authorityRevision: 99 }) },
+  { event: 'screen_repair_restore_after_reconnect_ignored',
+    seed: () => [reconnectRequired()], frame: () => restoreNeeded() },
+  { event: 'screen_repair_restore_grace_invalid_proof_ignored',
+    seed: () => [], frame: () => ({ ...restoreNeeded(), authorityEpoch: undefined, authorityRevision: undefined, coversThroughSeq: undefined }) },
+  { event: 'screen_repair_restore_grace_proof_mismatch_ignored',
+    seed: () => [restoreNeeded()], frame: () => restoreNeeded({ authorityEpoch: 'epoch-handover' }) },
+  { event: 'screen_repair_restore_grace_duplicate_ignored',
+    seed: () => [restoreNeeded()], frame: () => restoreNeeded() },
+  { event: 'websocket_grace_output_generation_mismatch',
+    seed: () => [restoreNeeded()], frame: () => output('x', { replayToken: 'replay-other' }) },
+  { event: 'websocket_grace_ready_generation_mismatch',
+    seed: () => [restoreNeeded(), snapshotFor(restoreNeeded())],
+    frame: () => ready(restoreNeeded(), { replayToken: 'replay-other' }) },
+  { event: 'websocket_grace_ready_snapshot_mismatch',
+    seed: () => [snapshotFor(restoreNeeded())],
+    frame: () => ready(restoreNeeded(), { replayToken: 'replay-other' }) },
+];
+
+for (const path of IGNORE_PATHS) {
+  test(`an ignored frame is observable: ${path.event}`, () => {
+    (globalThis as { window?: unknown }).window = { location: { hostname: 'localhost' } };
+    (globalThis as { localStorage?: unknown }).localStorage = {
+      getItem: () => null, setItem: () => {}, removeItem: () => {},
+    };
+    try {
+      recordTerminalDebugEvent(SESSION_ID, 'test_bootstrap');
+      const store = (globalThis as unknown as {
+        window: { __buildergateTerminalDebug: { enable(id: string): void; events: { kind: string }[] } };
+      }).window.__buildergateTerminalDebug;
+      store.enable(SESSION_ID);
+      const before = store.events.length;
+      applyGraceBufferedMessage(applyAll(path.seed()), SESSION_ID, path.frame());
+      // Inclusion is too weak: a frame that falls through an ignore path emits
+      // its own event AND the next one, and `includes` passes on both. Assert
+      // the emitted ignore-event set is EXACTLY the expected one, so a missing
+      // `break;` between two ignore paths is red.
+      const emitted = store.events.slice(before).map(e => e.kind).filter(k => IGNORE_EVENTS.has(k));
+      assert.deepEqual(
+        emitted, [path.event],
+        `expected exactly [${path.event}]; saw ${JSON.stringify(emitted)}`,
+      );
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+      delete (globalThis as { localStorage?: unknown }).localStorage;
+    }
+  });
+}
+
+test('the overflow path is observable', () => {
+  const maxChunks = getTerminalResourceLimits().visibleOutputMaxChunks;
+  (globalThis as { window?: unknown }).window = { location: { hostname: 'localhost' } };
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: () => null, setItem: () => {}, removeItem: () => {},
+  };
+  try {
+    recordTerminalDebugEvent(SESSION_ID, 'test_bootstrap');
+    const store = (globalThis as unknown as {
+      window: { __buildergateTerminalDebug: { enable(id: string): void; events: { kind: string }[] } };
+    }).window.__buildergateTerminalDebug;
+    store.enable(SESSION_ID);
+    const before = store.events.length;
+    const restore = restoreNeeded();
+    let state = applyAll([restore, snapshotFor(restore)]);
+    for (let i = 0; i <= maxChunks; i += 1) state = applyGraceBufferedMessage(state, SESSION_ID, output('x'));
+    assert.equal(
+      store.events.slice(before).map(e => e.kind).includes('websocket_grace_output_overflow'), true,
+    );
+  } finally {
+    delete (globalThis as { window?: unknown }).window;
+    delete (globalThis as { localStorage?: unknown }).localStorage;
+  }
+});
+
+// AC-5. The opposite direction from the duplicate-detection test: a genuine
+// duplicate must NOT be treated as a new generation. Deleting the `break;` that
+// closes the duplicate-ignored block makes it fall through into the
+// new-generation reset and wipe the adopted snapshot and held tail.
+test('a byte-identical duplicate restore does not wipe the adopted generation', () => {
+  const restore = restoreNeeded();
+  const seeded = applyAll([restore, snapshotFor(restore), output('held', { replayToken: restore.replayToken })]);
+  assert.notEqual(seeded.snapshot, undefined, 'precondition: a snapshot is adopted');
+  assert.equal(seeded.output.length, 1, 'precondition: a tail is held');
+
+  const after = applyGraceBufferedMessage(seeded, SESSION_ID, restoreNeeded());
+
+  assert.notEqual(after.snapshot, undefined, 'the duplicate must not wipe the adopted snapshot');
+  assert.deepEqual(after.output.map(e => e.data), ['held'], 'the duplicate must not wipe the held tail');
+  assert.equal(after.outputBytes, getOutputUtf8ByteLength('held'));
+});
+
+// AC-3. `reconnect-required` is terminal for `session:ready` too — the guard
+// and its `break;` were both unguarded by the suite.
+test('a ready arriving after reconnect-required does not latch', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([restore, snapshotFor(restore), reconnectRequired(), ready(restore)]);
+
+  assert.equal(state.ready, undefined, 'the input gate must not latch on a terminal generation');
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.equal(recorded.calls.includes('ready'), false);
+});
