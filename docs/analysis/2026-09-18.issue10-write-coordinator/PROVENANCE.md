@@ -186,3 +186,23 @@ The point of both edits is the same one: an assertion that is true of the correc
 behaviour **and** of the defect is not a guard. The stronger predicate for the
 first site already existed in this repo on a sibling arm and had simply never
 been pointed at the cap.
+
+## Seal update — 2026-09-18, eighth write
+
+Moved inputs: **five added files** — `probe/probe-ac4-settings-reachability.ts`,
+`probe/probe-ac4-checkpoint-pacing.ts`, `raw/P10-ac4-settings-reachability.log`,
+`raw/P10-ac4-checkpoint-pacing.log`, `raw/P10-ac4-findings.txt`. No previously
+sealed file changed.
+
+AC-4 measured by execution rather than by grep, each arm with a control that
+fires. It **narrows this lane's own earlier claim**: "the frame CPU budget is
+never wired" was too strong. The live lane does enforce a 7 ms deadline at its
+default, so on AC-4's terms ("commonly applied") that half is satisfied; what is
+missing there is operator configurability, which AC-4 does not ask for.
+
+The genuine AC-4 gap is the checkpoint lane, and it is now demonstrated rather
+than inferred: the same 131072-byte body produces exactly 5 physical writes
+whether each write costs 0 ms or 1000 ms of simulated clock, while the control
+confirms the two arms really did differ in elapsed time (0 vs 5000). The write
+count is a pure function of body size. No frame budget and no input yield reach
+that lane.

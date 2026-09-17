@@ -1,0 +1,5 @@
+body bytes            = 131072 (slice constant 32768)
+fast clock (0ms/write)  writes = 5  elapsed = 0
+slow clock (1000ms/write) writes = 5  elapsed = 5000
+CONTROL the two arms really did differ in elapsed time = true
+SUBJECT write count is independent of elapsed time    = true => no frame CPU budget paces the checkpoint lane

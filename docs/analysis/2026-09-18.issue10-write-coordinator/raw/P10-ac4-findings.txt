@@ -1,0 +1,34 @@
+# Issue #10 AC-4 — measured by execution, 2026-09-18
+
+## Correction to this lane's earlier framing
+This lane earlier reported 'the frame CPU budget is never wired'. That is too strong.
+normalizeFrameBudgetMs(undefined) returns DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS = 7, so the
+LIVE lane does enforce a 7ms frame deadline at its default. What is missing on that half is
+operator configurability, not enforcement — and AC-4 asks for the budgets to be COMMONLY
+APPLIED, not to be settings-exposed. So half 1 is much narrower than first stated, and on
+AC-4's own terms the live lane satisfies it.
+
+## What IS measured, with controls
+
+### (a) the frame budget is not reachable from settings
+getTerminalResourceLimits() resolves 11 keys. Control: visibleFlushBudgetBytes present
+(262144). Subject: visibleFlushFrameBudgetMs absent. The control fires, so the absence is
+a measurement. Consequence: the 7ms default cannot be tuned by an operator, unlike its
+sibling byte budget. This is a REL-BGSTAB-023-shaped plumbing gap, not an AC-4 violation.
+
+### (b) the checkpoint lane is paced by a byte constant alone — this IS the AC-4 gap
+A 131072-byte checkpoint body (slice constant 32768) produces 5 physical writes.
+  with a clock advancing 0ms per write    -> 5 writes, elapsed 0
+  with a clock advancing 1000ms per write -> 5 writes, elapsed 5000
+CONTROL: the two arms genuinely differed in elapsed time (0 vs 5000), so the clock was
+live and the probe could have observed a difference.
+SUBJECT: the write count is identical, i.e. a pure function of body size and independent
+of elapsed time. No frame CPU budget and no input yield pace this lane. Corroborating:
+the coordinator has zero occurrences of shouldYield/frameDeadline while the scheduler has
+nine, and TerminalWriteCoordinatorOptions exposes no hook for either.
+
+## Scope note
+Wiring (a) is plumbing. Changing (b) alters the checkpoint write path's pacing, which is a
+behavioural change on a safety-critical lane. REL-BGSTAB-007 AC-6 requires the browser
+write slice to be a SEPARATE unit from the other budgets — it does not exempt the lane from
+a frame deadline, so (b) and AC-6 are compatible, but (b) is not a one-line wiring fix.
