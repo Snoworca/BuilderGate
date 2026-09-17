@@ -439,15 +439,23 @@ test('a replacement snapshot invalidates the ready token latched for the generat
 // enforces it: a restore-needed frame that carries no usable proof must not
 // engage the barrier on an unproven authority.
 test('a restore-needed frame with no authority proof is rejected rather than engaging the barrier', () => {
+  // Seed an ADOPTED generation first. Starting from a fresh state would make
+  // `restoreNeeded === undefined` true before production does anything, and the
+  // assertion would hold even if the invalid-proof branch stopped clearing it.
+  const adopted = restoreNeeded();
+  const seeded = applyAll([adopted, snapshotFor(adopted)]);
+  assert.notEqual(seeded.restoreNeeded, undefined, 'precondition: a generation is adopted');
+
   const unproven: ScreenRepairRestoreNeededMessage = {
-    ...restoreNeeded(),
+    ...secondGeneration(),
     authorityEpoch: undefined,
     authorityRevision: undefined,
     coversThroughSeq: undefined,
   };
-  const state = applyAll([unproven, output('tail'), ready(restoreNeeded())]);
+  const state = applyAll([unproven, output('tail'), ready(restoreNeeded())], seeded);
 
-  assert.equal(state.restoreNeeded, undefined, 'the unproven frame is not adopted');
+  assert.equal(state.restoreNeeded, undefined, 'the unproven frame discards the adopted generation');
+  assert.equal(state.snapshot, undefined);
   assert.equal(state.authorityProofMismatch, true);
 
   const recorded = recordingHandlers();
@@ -673,6 +681,74 @@ test('input:rejected is recorded while detached and does not mutate the buffered
 
   assert.equal(JSON.stringify(after), snapshotOfState, 'buffered generation is untouched');
   assert.equal(store.events.some(event => event.kind === 'server_input_rejected'), true);
+  delete (globalThis as { window?: unknown }).window;
+  delete (globalThis as { localStorage?: unknown }).localStorage;
+});
+
+// AC-3 / AC-5. The restore-branch ready fence is a conjunction; only its
+// `replayToken` half was gated. A ready carrying the right token but the wrong
+// snapshot sequence is a different generation and must not latch.
+test('a ready for the right replay token but the wrong snapshot sequence does not latch', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([
+    restore,
+    snapshotFor(restore),
+    ready(restore, { snapshotSeq: 999 }),
+  ]);
+
+  assert.equal(state.ready, undefined);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.equal(recorded.calls.includes('ready'), false, 'the input gate stays shut');
+});
+
+// The repair cases are pure debug side effects, exactly like `input:rejected`.
+// The argument that justified observing that one through the debug store
+// applies here too: a state assertion cannot see them.
+test('screen-repair and screen-repair:rejected are recorded while detached and do not mutate the generation', () => {
+  (globalThis as { window?: unknown }).window = { location: { hostname: 'localhost' } };
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+  recordTerminalDebugEvent(SESSION_ID, 'test_bootstrap');
+  const store = (globalThis as unknown as {
+    window: { __buildergateTerminalDebug: { enable(id: string): void; events: { kind: string }[] } };
+  }).window.__buildergateTerminalDebug;
+  store.enable(SESSION_ID);
+
+  const restore = restoreNeeded();
+  const before = applyAll([restore, snapshotFor(restore), output('tail')]);
+  const frozen = JSON.stringify(before);
+
+  let after = applyGraceBufferedMessage(before, SESSION_ID, {
+    type: 'screen-repair',
+    sessionId: SESSION_ID,
+    repairToken: restore.repairToken,
+    seq: restore.snapshotSeq,
+    cols: 80,
+    rows: 24,
+    bufferType: 'normal',
+    cursor: { x: 0, y: 0 },
+    viewportRows: [],
+    ansiPatch: '',
+    source: 'headless',
+  });
+  after = applyGraceBufferedMessage(after, SESSION_ID, {
+    type: 'screen-repair:rejected',
+    sessionId: SESSION_ID,
+    repairToken: restore.repairToken,
+    reason: 'apply-rejected',
+  });
+
+  assert.equal(JSON.stringify(after), frozen, 'buffered generation is untouched');
+  assert.equal(
+    store.events.filter(event => event.kind === 'screen_repair_grace_buffer_skipped').length,
+    2,
+    'both repair frames are recorded as skipped',
+  );
   delete (globalThis as { window?: unknown }).window;
   delete (globalThis as { localStorage?: unknown }).localStorage;
 });
