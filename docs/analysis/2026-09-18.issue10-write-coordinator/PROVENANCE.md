@@ -206,3 +206,28 @@ whether each write costs 0 ms or 1000 ms of simulated clock, while the control
 confirms the two arms really did differ in elapsed time (0 vs 5000). The write
 count is a pure function of body size. No frame budget and no input yield reach
 that lane.
+
+## Seal update — 2026-09-18, ninth write
+
+Moved inputs: **two added files** — `raw/P11-ac9-full-unit.log` and
+`raw/P11-ac9-mutation-testing.txt`. No previously sealed file changed.
+
+AC-9(ii). This retracts a claim this lane carried from its premise table: **"no
+test asserts zero loss" was wrong**, and it was search-derived. Injecting real
+loss defects reddens committed tests — four of them for dropped post-checkpoint
+output, one for a truncated snapshot body.
+
+The accurate statement is narrower and more useful: loss is covered for both
+modes tried, but **only incidentally**, by tests named for other properties
+(watermark/drain semantics, and pacing). The property had no named owner, so
+rewriting the pacing test would have silently unguarded snapshot-body loss.
+
+The new `terminalSnapshotLiveHandoverIntegrity.test.ts` gives it one, asserting
+loss, duplication and ordering over **one** byte stream rather than in the three
+separate lanes where they had been covered piecemeal.
+
+Its **first draft was green and exercised the wrong path** — live writes
+dispatched after `checkpoint-commit` never enter the post-checkpoint hold, so
+three of four mutations survived. Moving them before the commit fixed the
+scenario and all four are now caught. Without mutation testing this lane would
+have shipped a green test that asserted nothing about the handover it names.
