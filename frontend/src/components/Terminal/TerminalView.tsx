@@ -112,6 +112,7 @@ import {
   createTerminalInputKindRouter,
   disposeTerminalPendingInputQueueLifetime,
 } from '../../utils/terminalInputSequencer';
+import { DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS } from '../../utils/terminalOutputScheduler';
 import { isTerminalQueryReply } from '../../utils/terminalQueryReply';
 import {
   createTerminalWriteCoordinatorAdapter,
@@ -3526,6 +3527,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks,
         inputSettlementLedgerMaxEntries: INPUT_SETTLEMENT_LEDGER_MAX_ENTRIES,
         settlementLedgerTtlMs: coordinatorInputLimits.inputQueueTtlMs,
+        // Issue #10 AC-4: the frame CPU budget and the input yield apply to the
+        // checkpoint lane too, not only to the live visible-output lane. The
+        // budget reuses the scheduler's exported default rather than a second
+        // literal, and no new configuration key is introduced.
+        frameBudgetMs: DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS,
+        shouldYield: hasPendingBrowserInput,
       });
       checkpointMutationLeaseBarrierRef.current = true;
       const unregisterCheckpointDispatcher = registerTerminalCheckpointDispatcher(

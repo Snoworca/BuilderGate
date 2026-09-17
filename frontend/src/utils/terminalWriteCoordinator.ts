@@ -64,6 +64,15 @@ export interface TerminalWriteCoordinatorOptions {
   pendingInputMaxBytes?: number;
   pendingInputMaxCount?: number;
   pendingInputTtlMs?: number;
+  /**
+   * Frame CPU budget for the checkpoint write lane, in milliseconds. Absent
+   * means unpaced, which is the pre-existing behaviour for every caller that
+   * does not opt in (issue #10 AC-4; REL-BGSTAB-007 AC-6 keeps this a separate
+   * unit from the retention and chunk budgets).
+   */
+  frameBudgetMs?: number;
+  /** Returns true while browser input is pending, so the lane can yield to it. */
+  shouldYield?: () => boolean;
   settlementLedgerMaxEntries?: number;
   inputSettlementLedgerMaxEntries?: number;
   settlementLedgerTtlMs?: number;
@@ -387,6 +396,7 @@ export function createTerminalWriteCoordinator(
   let checkpointTransaction: CheckpointTransaction | null = null;
   let recoveryRequired = false;
   let compatibilityRecoveryPending = false;
+  let checkpointFrameDeadline: number | null = null;
   let compatibilityRecoveryResetApplied = false;
   let compatibilityRecoveryCompletionInProgress = false;
   let runtimeRecreationRequired = false;
@@ -398,6 +408,31 @@ export function createTerminalWriteCoordinator(
   const queue: PendingMutation[] = [];
   // Bytes still held in the queue. Read only from the bounded admission path
   // above, where the chunk cap has already limited the queue length.
+  const checkpointPacingEnabled = (): boolean =>
+    typeof options.frameBudgetMs === 'number' || typeof options.shouldYield === 'function';
+
+  const shouldDeferCheckpointFrame = (): boolean => {
+    if (!checkpointPacingEnabled()) return false;
+    if (options.shouldYield?.() === true) return true;
+    if (typeof options.frameBudgetMs !== 'number' || !(options.frameBudgetMs > 0)) return false;
+    if (checkpointFrameDeadline === null) {
+      checkpointFrameDeadline = now() + options.frameBudgetMs;
+      return false;
+    }
+    return now() >= checkpointFrameDeadline;
+  };
+
+  const deferCheckpointFrame = (): void => {
+    // A new frame begins when the continuation runs, so the deadline is cleared
+    // here rather than on resume — if scheduling throws, the next synchronous
+    // pass recomputes it instead of inheriting a spent one.
+    checkpointFrameDeadline = null;
+    setTimer(() => {
+      if (disposed) return;
+      pump();
+    }, 0);
+  };
+
   const queuedMutationBytes = (): number => {
     let total = 0;
     // The in-flight mutation has left the queue but is still retained, so it
@@ -1028,7 +1063,15 @@ export function createTerminalWriteCoordinator(
         && !disposed
         && !recoveryRequired
       ) {
-        pump();
+        // Issue #10 AC-4: the checkpoint lane honours the frame CPU budget and
+        // the input yield, not just the live lane. Deferring must SCHEDULE the
+        // continuation — a yield that schedules nothing is the hang this change
+        // risks, and terminalSnapshotLiveHandoverIntegrity guards against it.
+        if (mutation.type === 'checkpoint' && shouldDeferCheckpointFrame()) {
+          deferCheckpointFrame();
+        } else {
+          pump();
+        }
       }
     };
 

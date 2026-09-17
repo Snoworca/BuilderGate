@@ -297,3 +297,19 @@ The probe's own first version invented its fixture fields and asked the question
 of a shape the code never sees. A fixture whose fields are guessed cannot pose
 the question it claims to; the corrected version is what is sealed, with the
 first version's error recorded in its header.
+
+## Seal update — 2026-09-18, thirteenth write
+
+Moved inputs: **two added files** — `raw/P14-ac4b-full-unit.log` and
+`raw/P14-ac4b-findings.txt`. No previously sealed file changed.
+
+AC-4 (b) implemented under the orchestrator's gate, TDD-first. The RED carried a
+**negative control** — an unconfigured coordinator must be unchanged — without
+which both subjects would have been satisfied by an implementation that defers
+unconditionally and changed behaviour for every caller that opted into nothing.
+
+One limit is recorded rather than left implicit: the coordinator behaviour is
+executed, but that the production wiring reaches the lane **at runtime** rests on
+a typecheck and a read of the call site. Present-in-source and applied-at-runtime
+are different claims — the same distinction `#95` drew for `#101`. Browser-level
+confirmation belongs to the Playwright step.
