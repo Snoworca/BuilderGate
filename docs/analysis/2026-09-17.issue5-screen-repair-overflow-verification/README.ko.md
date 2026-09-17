@@ -231,20 +231,25 @@ POST 256, `b7155dc` POST 297, `f719502` DELETE 216 · POST 382. 따라서 선재
 | `b7155dc` (커밋되는 spec. spec 바이트는 HEAD 까지 불변) | **447 / 594** |
 | `960ac67` (1차 시드 실험) | 463 / 610 |
 | `f719502` (2차 시드 실험) | 538 / 685 |
-| 커밋되지 않은 중간본 | 447 / 572, 543 / 690, 564 / 711 |
+| 커밋되지 않은 중간본 | 543 / 690, 564 / 711 |
 
 커밋되는 spec(447/594)에 대한 로그는 `raw/e2e-green-prefreeze.log`,
 `raw/e2e-frozen-tree-preseeding.log`, `raw/e2e-mutation-nobarrier.log`,
 `raw/e2e-final-committed-4x.log` 넷이다. 위 표의 11·12·13·16번이 그것이다.
-`raw/e2e-ac4-step1.log` 은 447 / **572** 를 찍는다 — AC-4 선언 줄은 커밋본과 같지만 AC-8 선언 줄이
-다르므로 커밋본이 아니라 중간본이며, 그 실행은 AC-4 만 돌렸다.
+`raw/e2e-ac4-step1.log` 은 선언 줄을 **하나만** 찍는다 — AC-4 의 447 이다. `-g "AC-4"` 로 돌려
+AC-8 은 아예 실행되지 않았으므로 이 표로는 판별할 수 없다. 대신 그 로그가 찍은 실패 지점의 소스
+프레임으로 가른다: `> 572 | await expect.poll(async () => {` 인데 커밋본에서 같은 문장은 **573행**
+이다(`sed -n '573p'`). 한 줄 어긋나므로 커밋본이 아니라 중간본이다.
+
+(이 줄은 앞서 `447 / 572` 라는 선언 줄 쌍인 것처럼 표에 넣었다가 뺐다. 572 는 선언 줄이 아니라
+스택 프레임이고, 같은 문장이 AC-8 은 돌지 않았다고 적고 있어 자기모순이었다.)
 
 ⚠️ **다섯 개의 로그가 헤더에서 스스로를 "committed spec" 이라 부르지만 사실이 아니다.**
 `raw/e2e-mutation-final.log`, `raw/e2e-stability-committed-6x.log`, `raw/e2e-final-green.log` 는
 철회한 리비전 `f719502`(538/685)에서, `raw/e2e-selfseed-empty.log` 와
 `raw/e2e-selfseed-repeat.log`(543/690)는 커밋되지 않은 중간본에서 돌았다. 그 헤더는 당시 내가 손으로
 쓴 문장이며 캡처된 출력이 아니다. 캡처 바이트를 고쳐 쓰지 않기 위해 원문은 그대로 두고 **다섯 파일
-모두 끝에 정정 한 줄을 덧붙였다.** 판별 근거는 위 선언 줄 표다.
+모두 끝에 정정 블록(각 4줄)을 덧붙였다.** 판별 근거는 위 선언 줄 표다.
 `raw/e2e-stability-committed-6x.log` 는 파일 이름에도 `committed` 가 들어 있으나 같은 이유로 커밋본
 증거가 아니다.
 
@@ -320,7 +325,7 @@ POST 256, `b7155dc` POST 297, `f719502` DELETE 216 · POST 382. 따라서 선재
   뜻이며, 누른 뒤 서버 tab 수가 늘었는지 확인하지 않는다(§4 의 같은 지적 참조). 만들기만 하고
   지우지 않으므로 파괴적 소유권 위험은 없다. `raw/seed-before-final.log` 의 손으로 쓴 `# purpose:`
   줄은 이 정정 이전의 서술(`create it if the empty state is showing`)이라 같은 계열의 부정확한
-  헤더이며, 다른 다섯 건과 같은 방식으로 파일 끝에 정정 한 줄을 덧붙였다.
+  헤더이며, 다른 다섯 건과 같은 방식으로 파일 끝에 정정 블록(5줄)을 덧붙였다.
 - `tools/issue5-probe-authority.mjs` — 실 서버의 `screen-snapshot` wire 를 캡처해 authority proof
   필드 유무를 출력한다. 위 2절의 근거이며 출력은 `raw/probe-authority.log` 다.
 - ~~`tools/issue5-teardown-terminal.mjs`~~ — **제거했다.** workspace 의 터미널 탭을 소유권 확인 없이
