@@ -91,7 +91,8 @@
     "tests/unit/webSocketBackpressure.test.ts",
     "tests/unit/wsCheckpointProtocol.test.ts",
     "tests/unit/wsFrameDispatch.test.ts",
-    "tests/unit/xtermDecoderInterleaving.test.ts"
+    "tests/unit/xtermDecoderInterleaving.test.ts",
+    "tests/e2e/wave2-screen-repair-resync.spec.ts"
   ],
   // src/editor 는 tsconfig.editor.json 이 검사한다. exclude 는 tsconfig.app.json 에서
   // extends 로 물려받지만 references 는 상속되지 않으므로 여기에 다시 적는다 — 없으면

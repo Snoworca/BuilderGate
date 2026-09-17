@@ -1,0 +1,11 @@
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596
+  TCP    [::1]:2002             [::1]:56381            TIME_WAIT       0
+  TCP    [::1]:2002             [::1]:59124            ESTABLISHED     30596
+  TCP    [::1]:2002             [::1]:62283            ESTABLISHED     30596
+  TCP    [::1]:50060            [::1]:2002             TIME_WAIT       0
+  TCP    [::1]:59124            [::1]:2002             ESTABLISHED     84860
+  TCP    [::1]:62283            [::1]:2002             ESTABLISHED     84860
+  TCP    [::1]:63751            [::1]:2002             TIME_WAIT       0

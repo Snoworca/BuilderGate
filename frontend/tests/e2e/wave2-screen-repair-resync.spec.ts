@@ -14,6 +14,9 @@ type JsonFrame = Record<string, unknown> & {
   mode?: string;
   truncated?: boolean;
   source?: string;
+  authorityEpoch?: string;
+  authorityRevision?: number;
+  coversThroughSeq?: number;
 };
 
 type RoutedDirection = 'page-to-server' | 'server-to-page';
@@ -200,11 +203,48 @@ function countOccurrences(value: string, marker: string): number {
   return count;
 }
 
+interface ResyncAuthorityProof {
+  authorityEpoch: string;
+  authorityRevision: number;
+  coversThroughSeq: number;
+}
+
+/**
+ * The client ignores a `screen-repair:restore-needed` frame — and any snapshot
+ * offered as its answer — unless both carry the same authority proof and
+ * `coversThroughSeq` equals `snapshotSeq`. WsRouter derives that proof from the
+ * restore-authority snapshot it is about to replay, so the harness derives its
+ * synthetic proof from the observed authoritative snapshot instead of inventing
+ * one. Without it the injected frame is discarded as an invalid proof and the
+ * stale barrier under test never engages.
+ */
+function resyncAuthorityProof(
+  initialSnapshot: JsonFrame,
+  snapshotSeq: number,
+): ResyncAuthorityProof {
+  const authorityEpoch = initialSnapshot.authorityEpoch;
+  const authorityRevision = initialSnapshot.authorityRevision;
+  expect(
+    typeof authorityEpoch === 'string' && authorityEpoch.length > 0,
+    'E2E precondition failed: authoritative snapshot carried no authorityEpoch',
+  ).toBe(true);
+  expect(
+    Number.isSafeInteger(authorityRevision),
+    'E2E precondition failed: authoritative snapshot carried no authorityRevision',
+  ).toBe(true);
+  return {
+    authorityEpoch: authorityEpoch as string,
+    authorityRevision: Number(authorityRevision),
+    coversThroughSeq: snapshotSeq,
+  };
+}
+
 function buildRestoreNeeded(
   sessionId: string,
   repairToken: string,
   replayToken: string,
   snapshotSeq: number,
+  proof: ResyncAuthorityProof,
 ): JsonFrame {
   return {
     type: 'screen-repair:restore-needed',
@@ -215,6 +255,7 @@ function buildRestoreNeeded(
     outcome: 'fresh-snapshot-started',
     replayToken,
     snapshotSeq,
+    ...proof,
   };
 }
 
@@ -421,10 +462,11 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
       (message) => isAuthoritativeSnapshot(message, sessionId),
     )!;
     const snapshotSeq = Number(initialSnapshot.seq ?? 0) + 4;
+    const authorityProof = resyncAuthorityProof(initialSnapshot, snapshotSeq);
     const replayToken = `e2e-resync-${Date.now()}`;
     const repairToken = `e2e-repair-${Date.now()}`;
 
-    harness.injectToPage(buildRestoreNeeded(sessionId, repairToken, replayToken, snapshotSeq));
+    harness.injectToPage(buildRestoreNeeded(sessionId, repairToken, replayToken, snapshotSeq, authorityProof));
     await expectRestoreBarrier(page, sessionId, signature);
 
     const stamp = Date.now();
@@ -518,6 +560,7 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
       data: coveredPayloads.join(''),
       truncated: false,
       source: 'headless',
+      ...authorityProof,
     });
     harness.injectToPage({
       type: 'session:ready',
@@ -620,9 +663,10 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
       }).toBe(true);
 
       const snapshotSeq = Number(initialSnapshot.seq ?? 0) + 1;
+      const authorityProof = resyncAuthorityProof(initialSnapshot, snapshotSeq);
       const replayToken = `e2e-provisional-${Date.now()}`;
       const repairToken = `e2e-provisional-repair-${Date.now()}`;
-      harness.injectToPage(buildRestoreNeeded(sessionId, repairToken, replayToken, snapshotSeq));
+      harness.injectToPage(buildRestoreNeeded(sessionId, repairToken, replayToken, snapshotSeq, authorityProof));
       await expectRestoreBarrier(page, sessionId, signature);
 
       await page.locator(
@@ -641,6 +685,7 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
         source: 'headless',
         fallbackDataState: 'empty-no-recoverable-data',
         fallbackDataBytes: 0,
+        ...authorityProof,
       });
 
       await expect.poll(async () => {
@@ -683,6 +728,7 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
         data: `${lateFailedAuthorityMarker}\r\n`,
         truncated: false,
         source: 'headless',
+        ...authorityProof,
       });
 
       try {

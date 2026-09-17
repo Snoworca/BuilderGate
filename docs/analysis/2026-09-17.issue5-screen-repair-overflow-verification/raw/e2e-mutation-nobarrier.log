@@ -1,0 +1,331 @@
+(node:443582) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+restore barrier diagnostic [
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'replay-pending'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'subscribed'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'replay-pending'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'screen-snapshot-applied'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'replay-pending'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'screen-snapshot-apply-settled'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'repair-server-not-ready'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'visible_output_resync_retry_budget_reset'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      source: [32m'replacement-socket-authoritative-ready'[39m,
+      replayToken: [32m'96584416-efc1-4880-b54f-0e4b7e0d3fce'[39m,
+      snapshotSeq: [33m5[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'session-ready'[39m,
+      serverReady: [33mtrue[39m,
+      barrierReason: [32m'none'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  }
+]
+  ✘  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:447:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (5.9s)
+restore barrier diagnostic [
+  {
+    kind: [32m'visible_output_resync_retry_budget_reset'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      source: [32m'replacement-socket-authoritative-ready'[39m,
+      replayToken: [32m'09f8254f-2be5-4015-9eb0-13e85347350e'[39m,
+      snapshotSeq: [33m5[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'session-ready'[39m,
+      serverReady: [33mtrue[39m,
+      barrierReason: [32m'none'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  }
+]
+  ✘  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:447:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (retry #1) (9.7s)
+restore barrier diagnostic [
+  {
+    kind: [32m'visible_output_resync_retry_budget_reset'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      source: [32m'replacement-socket-authoritative-ready'[39m,
+      replayToken: [32m'072fb8be-78dd-480d-b1da-5e41c7897b0e'[39m,
+      snapshotSeq: [33m5[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'session-ready'[39m,
+      serverReady: [33mtrue[39m,
+      barrierReason: [32m'none'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mtrue[39m,
+      barrierReason: [32m'none'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mtrue[39m,
+      barrierReason: [32m'none'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  }
+]
+  ✘  3 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:594:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (13.8s)
+restore barrier diagnostic [
+  {
+    kind: [32m'visible_output_resync_retry_budget_reset'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      source: [32m'replacement-socket-authoritative-ready'[39m,
+      replayToken: [32m'6a288f0b-32d3-4ac8-bb40-85bd70edf5d4'[39m,
+      snapshotSeq: [33m5[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'session-ready'[39m,
+      serverReady: [33mtrue[39m,
+      barrierReason: [32m'none'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mtrue[39m,
+      barrierReason: [32m'none'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mtrue[39m,
+      barrierReason: [32m'none'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  }
+]
+  ✘  4 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:594:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (retry #1) (15.1s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+
+  1) [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:447:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 
+
+    Error: Frontend stale/resync barrier RED 계약 RED AC-4: restore-needed did not engage the stale barrier, or snapshot-covered prefix/tail was lost, duplicated, or reordered
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      163 | ): Promise<void> {
+      164 |   try {
+    > 165 |     await expect.poll(async () => {
+          |     ^
+      166 |       const events = await readDebugEvents(page, sessionId);
+      167 |       return events.some((event) => (
+      168 |         event.kind === 'input_transport_state_synced'
+        at expectRestoreBarrier (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:165:5)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:470:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: Frontend stale/resync barrier RED 계약 RED AC-4: restore-needed did not engage the stale barrier, or snapshot-covered prefix/tail was lost, duplicated, or reordered
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      163 | ): Promise<void> {
+      164 |   try {
+    > 165 |     await expect.poll(async () => {
+          |     ^
+      166 |       const events = await readDebugEvents(page, sessionId);
+      167 |       return events.some((event) => (
+      168 |         event.kind === 'input_transport_state_synced'
+        at expectRestoreBarrier (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:165:5)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:470:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:594:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
+
+    Error: Frontend stale/resync barrier RED 계약 RED AC-8: restore-needed did not engage the stale barrier, or provisional local restore cleared hidden dirty/skipped/stale or promoted retained equivalence
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      163 | ): Promise<void> {
+      164 |   try {
+    > 165 |     await expect.poll(async () => {
+          |     ^
+      166 |       const events = await readDebugEvents(page, sessionId);
+      167 |       return events.some((event) => (
+      168 |         event.kind === 'input_transport_state_synced'
+        at expectRestoreBarrier (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:165:5)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:670:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: Frontend stale/resync barrier RED 계약 RED AC-8: restore-needed did not engage the stale barrier, or provisional local restore cleared hidden dirty/skipped/stale or promoted retained equivalence
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      163 | ): Promise<void> {
+      164 |   try {
+    > 165 |     await expect.poll(async () => {
+          |     ^
+      166 |       const events = await readDebugEvents(page, sessionId);
+      167 |       return events.some((event) => (
+      168 |         event.kind === 'input_transport_state_synced'
+        at expectRestoreBarrier (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:165:5)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:670:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:447:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 
+    [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:594:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
