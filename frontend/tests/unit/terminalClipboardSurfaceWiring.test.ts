@@ -25,10 +25,21 @@ import { fileURLToPath } from 'node:url';
 const FRONTEND_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const UNIT_DIR = `${FRONTEND_ROOT}tests/unit`;
 
-// The repo's tsconfigs carry `//` comments; strip them before parsing.
+// The repo's tsconfigs carry `//` line comments, `/* */` block comments and
+// trailing commas. Stripping only line comments parsed tsconfig.test.json (which
+// happens to have none of the others) and threw on tsconfig.app.json.
 const readJsonc = (relativePath: string): unknown => JSON.parse(
-  readFileSync(`${FRONTEND_ROOT}${relativePath}`, 'utf8').replace(/^\s*\/\/.*$/gm, ''),
+  readFileSync(`${FRONTEND_ROOT}${relativePath}`, 'utf8')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/,(\s*[}\]])/g, '$1'),
 );
+
+// Both sides of every comparison go through this. The tsconfig clause used to
+// strip a leading "./" while the script clause did not, so a script written as
+// `--test ./tests/unit/x.test.ts` -- a perfectly valid node --test argument --
+// went red with correct wiring.
+const normalisePath = (value: string): string => value.replace(/\\/g, '/').replace(/^\.\//, '');
 
 // Case-insensitive, and .tsx as well as .ts: a file named clipboardPaste.test.ts
 // or TerminalClipboard.test.tsx is exactly as disconnectable as the two known
@@ -56,9 +67,7 @@ test('FR-BGSTAB-021: every clipboard unit test is in the tsconfig.test.json prog
   assert.ok(Array.isArray(files), 'tsconfig.test.json must declare a "files" allowlist');
   // Entries are written with and without a leading "./" in this file, and a path
   // separator difference must not read as a missing entry.
-  const declared = new Set(
-    (files as string[]).map(entry => entry.replace(/\\/g, '/').replace(/^\.\//, '')),
-  );
+  const declared = new Set((files as string[]).map(normalisePath));
 
   const missing = clipboardTestFiles.filter(name => !declared.has(`tests/unit/${name}`));
   assert.deepEqual(
@@ -82,11 +91,29 @@ test('FR-BGSTAB-021: test:unit:clipboard runs every clipboard unit test as a run
   // every file and runs none. Tokenise and require an actual test-runner
   // invocation with each file as its own argument.
   const tokens = script.split(/\s+/).filter(Boolean);
+
+  // A runner token anywhere, not at index 0: `npx node --test ...` and
+  // `cross-env NODE_ENV=test node --test ...` are legitimate wirings that an
+  // index-0 check rejects.
   assert.ok(
-    tokens[0] === 'node' && tokens.includes('--test'),
+    tokens.some(token => /(^|\/)node(\.exe)?$/.test(token)) && tokens.includes('--test'),
     `test:unit:clipboard must invoke the node test runner, got: ${script}`,
   );
-  const args = new Set(tokens.map(token => token.replace(/\\/g, '/')));
+
+  // Naming the files and running them is still not the same as FAILING when they
+  // fail. `node --test ... || true` names every file, runs every file, and exits
+  // 0 on a red suite -- the script is then connected and inert, which is this
+  // requirement's original defect wearing a different hat. No shell operator may
+  // stand between the runner and the caller's exit code.
+  const swallowing = tokens.filter(token => /^(\|\||&&|;|\||&)$/.test(token));
+  assert.deepEqual(
+    swallowing,
+    [],
+    'test:unit:clipboard must propagate the runner exit code; these tokens can discard it: '
+    + `${JSON.stringify(swallowing)} in ${script}`,
+  );
+
+  const args = new Set(tokens.map(normalisePath));
 
   const missing = clipboardTestFiles.filter(name => !args.has(`tests/unit/${name}`));
   assert.deepEqual(
@@ -94,4 +121,35 @@ test('FR-BGSTAB-021: test:unit:clipboard runs every clipboard unit test as a run
     [],
     `clipboard unit tests absent from test:unit:clipboard are run by nothing: ${JSON.stringify(missing)}`,
   );
+});
+
+test('FR-BGSTAB-021: the tsconfig.test.json program still type-checks strictly', () => {
+  // Membership is not the whole property. Leaving the files in `files[]` while
+  // relaxing the compiler options keeps `typecheck:tests` at exit 0 and silently
+  // stops it catching anything -- the program would still contain these files and
+  // would no longer be a check.
+  const testConfig = readJsonc('tsconfig.test.json') as {
+    extends?: string;
+    compilerOptions?: Record<string, unknown>;
+  };
+  assert.equal(
+    testConfig.extends,
+    './tsconfig.app.json',
+    'tsconfig.test.json must inherit the app compiler options rather than redefine them',
+  );
+
+  const appOptions = (readJsonc('tsconfig.app.json') as {
+    compilerOptions?: Record<string, unknown>;
+  }).compilerOptions ?? {};
+  assert.equal(appOptions.strict, true, 'tsconfig.app.json must keep strict: true');
+
+  // An override in the derived config wins over the base, so absence is the
+  // requirement here, not merely a true value in the base.
+  const overrides = testConfig.compilerOptions ?? {};
+  for (const option of ['strict', 'noImplicitAny', 'strictNullChecks'] as const) {
+    assert.ok(
+      !(option in overrides) || overrides[option] === true,
+      `tsconfig.test.json must not relax ${option}; got ${JSON.stringify(overrides[option])}`,
+    );
+  }
 });

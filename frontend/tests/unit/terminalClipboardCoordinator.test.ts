@@ -661,9 +661,24 @@ test('clipboard coordinator RED — a captured but superseded target is rejected
   );
   assert.equal(harness.admitted.length, 0, signature);
   assert.equal(harness.focused.length, 0, signature);
+  // Asserted whole rather than projected to {action, outcome, reason}: this test
+  // is the only evidence for this rejection, and a projection leaves the target
+  // identity and payload size unwitnessed. Passing `null` instead of `target`,
+  // or zeroing payloadBytes, are both argument substitutions that a deletion
+  // sweep cannot produce and that a projected assertion would not see -- while
+  // the traceability those fields carry is what the rejection is for.
   assert.deepEqual(
-    harness.observations.map(({ action, outcome, reason }) => ({ action, outcome, reason })),
-    [{ action: 'paste', outcome: 'rejected', reason: 'context-changed' }],
+    harness.observations,
+    [{
+      action: 'paste',
+      source: 'command-preset',
+      outcome: 'rejected',
+      reason: 'context-changed',
+      payloadBytes: new TextEncoder().encode('stale target payload').byteLength,
+      sessionId: 'session-a',
+      sessionGeneration: 7,
+      viewGeneration: 11,
+    }],
     signature,
   );
 });
