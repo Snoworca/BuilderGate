@@ -1,0 +1,167 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+... Skipped lines
+
+  {
+    actualConsumers: {
+      byteForByteEqual: true,
+      coverage: {
+        admission: true,
+...
+      byteForByteEqual: true,
++     disabledSha256: '36b1ac12f0634e1a4bf6ec3529524bdb72644b849bfacba7666f5b56f3328be6',
++     observedSha256: '36b1ac12f0634e1a4bf6ec3529524bdb72644b849bfacba7666f5b56f3328be6'
+-     disabledSha256: '840faf01a37a90b73c07a19e306fe1ae2f15a6b318b3f3d9fc85312ee8b11e40',
+-     observedSha256: '840faf01a37a90b73c07a19e306fe1ae2f15a6b318b3f3d9fc85312ee8b11e40'
+    },
+    schemaVersion: 'terminal-resource-policy-differential/v2',
+    telemetry: {
+      disabledCount: 0,
+      getterReadOnly: true,
++     observedCount: 35,
+-     observedCount: 34,
+      payloadFree: true
+    }
+  }
+
+    at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/terminal-resource-consumer-manifest.test.mjs:699:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: {
+    schemaVersion: 'terminal-resource-policy-differential/v2',
+    requirementId: 'OBS-BGSTAB-005',
+    fixtureId: 'observer-disabled-vs-observe-actual-consumer-corpus',
+    runtimeProjection: {
+      disabledSha256: '36b1ac12f0634e1a4bf6ec3529524bdb72644b849bfacba7666f5b56f3328be6',
+      observedSha256: '36b1ac12f0634e1a4bf6ec3529524bdb72644b849bfacba7666f5b56f3328be6',
+      byteForByteEqual: true
+    },
+    actualConsumers: {
+      disabledSha256: '2fe5453825d00a0a86ba633e0aceef72419170eb855d3a72dee09a0fa05c5287',
+      observedSha256: '2fe5453825d00a0a86ba633e0aceef72419170eb855d3a72dee09a0fa05c5287',
+      byteForByteEqual: true,
+      dimensions: {
+        'server.headless-output-queue': true,
+        'server.ws-send-policy': true,
+        'browser.websocket-backpressure': true,
+        'browser.output-scheduler': true,
+        'browser.hidden-output': true,
+        'browser.visible-output-recovery': true,
+        'browser.snapshot-storage': true,
+        'browser.runtime-residency': true
+      },
+      harnessIds: [
+        'server.headless-output-queue',
+        'server.ws-send-policy',
+        'browser.websocket-backpressure',
+        'browser.output-scheduler',
+        'browser.hidden-output',
+        'browser.visible-output-recovery',
+        'browser.snapshot-storage',
+        'browser.runtime-residency'
+      ],
+      coverage: {
+        admission: true,
+        cap: true,
+        drop: true,
+        reconnect: true,
+        recovery: true,
+        bytes: true,
+        order: true,
+        generation: true
+      }
+    },
+    candidate: {
+      selected: true,
+      status: 'unavailable',
+      reason: 'candidate-policy-not-registered',
+      appliedPolicyId: 'legacy-effective/v1',
+      legacyPolicyId: 'legacy-effective/v1'
+    },
+    evidenceOwnership: {
+      owner: 'RuntimeConfigStore',
+      kind: 'consumer-input-projection',
+      runtimeApplicationClaimed: false
+    },
+    telemetry: {
+      getterReadOnly: true,
+      disabledCount: 0,
+      observedCount: 35,
+      payloadFree: true
+    }
+  },
+  expected: {
+    schemaVersion: 'terminal-resource-policy-differential/v2',
+    requirementId: 'OBS-BGSTAB-005',
+    fixtureId: 'observer-disabled-vs-observe-actual-consumer-corpus',
+    runtimeProjection: {
+      disabledSha256: '840faf01a37a90b73c07a19e306fe1ae2f15a6b318b3f3d9fc85312ee8b11e40',
+      observedSha256: '840faf01a37a90b73c07a19e306fe1ae2f15a6b318b3f3d9fc85312ee8b11e40',
+      byteForByteEqual: true
+    },
+    actualConsumers: {
+      disabledSha256: '2fe5453825d00a0a86ba633e0aceef72419170eb855d3a72dee09a0fa05c5287',
+      observedSha256: '2fe5453825d00a0a86ba633e0aceef72419170eb855d3a72dee09a0fa05c5287',
+      byteForByteEqual: true,
+      dimensions: {
+        'server.headless-output-queue': true,
+        'server.ws-send-policy': true,
+        'browser.websocket-backpressure': true,
+        'browser.output-scheduler': true,
+        'browser.hidden-output': true,
+        'browser.visible-output-recovery': true,
+        'browser.snapshot-storage': true,
+        'browser.runtime-residency': true
+      },
+      harnessIds: [
+        'server.headless-output-queue',
+        'server.ws-send-policy',
+        'browser.websocket-backpressure',
+        'browser.output-scheduler',
+        'browser.hidden-output',
+        'browser.visible-output-recovery',
+        'browser.snapshot-storage',
+        'browser.runtime-residency'
+      ],
+      coverage: {
+        admission: true,
+        cap: true,
+        drop: true,
+        reconnect: true,
+        recovery: true,
+        bytes: true,
+        order: true,
+        generation: true
+      }
+    },
+    candidate: {
+      selected: true,
+      status: 'unavailable',
+      reason: 'candidate-policy-not-registered',
+      appliedPolicyId: 'legacy-effective/v1',
+      legacyPolicyId: 'legacy-effective/v1'
+    },
+    evidenceOwnership: {
+      owner: 'RuntimeConfigStore',
+      kind: 'consumer-input-projection',
+      runtimeApplicationClaimed: false
+    },
+    telemetry: {
+      getterReadOnly: true,
+      disabledCount: 0,
+      observedCount: 34,
+      payloadFree: true
+    }
+  },
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.21.0

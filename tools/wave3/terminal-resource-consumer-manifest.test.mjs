@@ -464,10 +464,22 @@ assert.notDeepEqual(
 );
 assert.equal(manifest.schemaVersion, legacyManifest.schemaVersion);
 assert.equal(manifest.profileVersion, legacyManifest.profileVersion);
+// A classification's accessEvidenceSha256 pins the occurrence multiset that buys its file an
+// exemption from consumer registration, so it has to move whenever that file's resource accesses
+// legitimately change. Held strictly equal to the immutable historical seal it is unsatisfiable,
+// not safe - it went red here the moment resourceLimits.telemetry.sampleIntervalMs was retired
+// from ConfigFileRepository. Enumerated drift keeps the property the strict form was reaching for:
+// the verifier accepts exactly the classification identities the sealed lineage names, so a re-pin
+// still costs a deliberate re-seal and cannot land as a silent side effect.
+const classificationDrift = multisetDrift(
+  legacyManifest.classifications,
+  manifest.classifications,
+  canonicalClassificationIdentity,
+);
 assert.deepEqual(
-  semanticInventory(manifest).classificationIdentities,
-  semanticInventory(legacyManifest).classificationIdentities,
-  'classification identity must not drift from the sealed historical inventory',
+  classificationDrift,
+  lineage.semanticInventory?.divergence?.classificationDrift,
+  'every classification exemption pin that drifts from the sealed historical inventory must be enumerated in the sealed lineage record',
 );
 const decisionDrift = multisetDrift(legacyManifest.consumers, manifest.consumers, decisionIdentity);
 assert.deepEqual(
@@ -478,6 +490,7 @@ assert.deepEqual(
 const currentSemanticDivergence = {
   reason: lineage.semanticInventory?.divergence?.reason,
   decisionDrift,
+  classificationDrift,
   relocatedEvidence: relocatedEvidence(legacyManifest.consumers, manifest.consumers),
   evidenceHashOnlyChangedTuples: evidenceHashOnlyChangedTuples(legacyManifest.consumers, manifest.consumers),
 };
@@ -543,7 +556,11 @@ assert.deepEqual(lineage, {
 assert.equal(Object.hasOwn(lineage.ph002RuntimeAnchor, 'sourcePath'), false);
 assert.notEqual(manifestSha256, lineage.ph002RuntimeAnchor.sha256);
 assert.notEqual(legacyManifestSha256, lineage.ph002RuntimeAnchor.sha256);
-assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 35);
+// 36, not 35: REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage
+// into terminalGraceBuffer#applyGraceBufferedMessage, so that file is now a consumer path and
+// enters the evidence source set. WebSocketContext.tsx stays in the set - it still owns
+// WebSocketProvider#send - so this is an addition, not a relocation of the source count.
+assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 36);
 assert.ok(Array.isArray(manifest.consumers));
 assert.ok(Array.isArray(manifest.classifications));
 assert.deepEqual(sortedUnique(manifest.consumers.map((entry) => entry.category)), sortedUnique(expectedCategories));
@@ -650,9 +667,24 @@ const focused = run(
 if (process.argv.includes('--write-focused-evidence')) {
   writeFileSync(focusedEvidencePath, focused.replace(/\r\n/g, '\n'), 'utf8');
 }
-assert.match(focused, /pass 24/);
+// These two assertions used to share one number, and that is unsatisfiable rather than strict.
+// focusedEvidencePath is the PH-001 GREEN artifact: it records that run, and line 654 above pins
+// its bytes by sha256, so it says `pass 24` permanently. The live run is today's, over two suites
+// that later lanes legitimately added cases to, and it says `pass 31`. Requiring one regex to
+// match both leaves only two exits - forge the sealed artifact, or freeze the two suites - and the
+// conflict stayed invisible because this file goes red earlier whenever the inventory is red,
+// which it was from the moment REL-BGSTAB-009 relocated the grace lane.
+//
+// So they are separated by what each one is evidence OF. `fail 0` carries the green claim; the
+// live count is here so that tests DISAPPEARING is red too, which `fail 0` alone permits.
+//
+// Do NOT run --write-focused-evidence to reconcile these: it overwrites the sealed artifact and
+// line 654 goes red, because the re-seal tool deliberately copies rawGreenEvidence hashes verbatim
+// rather than re-deriving them.
+assert.match(focused, /pass 31/);
 assert.match(focused, /fail 0/);
 assert.match(readFileSync(focusedEvidencePath, 'utf8'), /pass 24/);
+assert.match(readFileSync(focusedEvidencePath, 'utf8'), /fail 0/);
 
 const differentialOutput = run(
   process.execPath,

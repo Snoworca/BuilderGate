@@ -64,7 +64,12 @@ const DIVERGENCE_REASON = 'evidence moved: xterm option assembly extracted to te
   + 'the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the '
   + 'catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 '
   + 'AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the '
-  + 'canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source';
+  + 'canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source; '
+  + 'REL-BGSTAB-023 registered resourceLimits.terminal.checkpointMaxBytes, adding one decision to '
+  + 'browser.terminal.recovery-scheduler at the checkpoint-write-coordinator boundary; and '
+  + 'REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage into '
+  + 'terminalGraceBuffer#applyGraceBufferedMessage with an identical body, relocating the four '
+  + 'visibleOutputQueueMaxBytes/visibleOutputMaxChunks grace tuples without changing any decision';
 
 interface ManifestFile {
   schemaVersion: string;
@@ -169,6 +174,7 @@ interface RelocatedEvidence {
 interface Divergence {
   reason: string;
   decisionDrift: MultisetDrift;
+  classificationDrift: MultisetDrift;
   relocatedEvidence: RelocatedEvidence[];
   evidenceHashOnlyChangedTuples: number;
 }
@@ -183,13 +189,23 @@ interface Divergence {
  *
  * `relocatedEvidence` is the location axis, and it only covers decisions that survive on both
  * sides: same decision, evidence now found at a different path/symbol/signature.
+ *
+ * `classificationDrift` is the exemption axis. A classification's accessEvidenceSha256 pins the
+ * occurrence multiset that buys the file its exemption from consumer registration, so it MUST move
+ * whenever that file's resource accesses legitimately change - which makes strict equality against
+ * the immutable historical seal unsatisfiable rather than safe. It is enumerated here for the same
+ * reason decisions are: the verifier accepts exactly the drift the sealed lineage names, so a
+ * re-pin still costs a deliberate re-seal and can never happen as a silent side effect.
  */
 function describeDivergence(
   historical: readonly TerminalResourceConsumerManifestEntry[],
   current: readonly TerminalResourceConsumerManifestEntry[],
+  historicalClassifications: readonly TerminalResourcePathClassification[],
+  currentClassifications: readonly TerminalResourcePathClassification[],
 ): Divergence {
   const decisions = new Set([...historical, ...current].map(decisionIdentity));
   const decisionDrift = multisetDrift(historical, current, decisionIdentity);
+  const classificationDrift = multisetDrift(historicalClassifications, currentClassifications, classificationIdentity);
   const relocatedEvidence: RelocatedEvidence[] = [];
   for (const decision of decisions) {
     const historicalGroup = historical.filter((entry) => decisionIdentity(entry) === decision);
@@ -225,6 +241,7 @@ function describeDivergence(
   return {
     reason: DIVERGENCE_REASON,
     decisionDrift,
+    classificationDrift,
     relocatedEvidence: relocatedEvidence.sort((left, right) => byText(JSON.stringify(left), JSON.stringify(right))),
     evidenceHashOnlyChangedTuples,
   };
@@ -379,7 +396,12 @@ async function main(): Promise<void> {
   const manifestText = serialize(manifest);
   const manifestSha256 = sha256(Buffer.from(manifestText, 'utf8'));
 
-  const divergence = describeDivergence(legacyManifest.consumers, manifest.consumers);
+  const divergence = describeDivergence(
+    legacyManifest.consumers,
+    manifest.consumers,
+    legacyManifest.classifications,
+    manifest.classifications,
+  );
   const currentSemanticSha256 = semanticInventorySha256(manifest);
   const historicalEqualsCurrent = semanticInventorySha256(legacyManifest) === currentSemanticSha256;
   const sealedCurrent = sealedLineage.current as Record<string, unknown>;
@@ -447,6 +469,10 @@ async function main(): Promise<void> {
     + ` -${divergence.decisionDrift.retired.length} / +${divergence.decisionDrift.introduced.length}\n`);
   for (const decision of divergence.decisionDrift.retired) process.stdout.write(`    - ${decision}\n`);
   for (const decision of divergence.decisionDrift.introduced) process.stdout.write(`    + ${decision}\n`);
+  process.stdout.write('  classification exemption pins changed against the sealed historical manifest:'
+    + ` -${divergence.classificationDrift.retired.length} / +${divergence.classificationDrift.introduced.length}\n`);
+  for (const entry of divergence.classificationDrift.retired) process.stdout.write(`    - ${entry}\n`);
+  for (const entry of divergence.classificationDrift.introduced) process.stdout.write(`    + ${entry}\n`);
   process.stdout.write(`  evidence relocated away from the sealed historical manifest: ${divergence.relocatedEvidence.length} decision(s)\n`);
   for (const relocation of divergence.relocatedEvidence) {
     process.stdout.write(`    ${relocation.decision}\n`);

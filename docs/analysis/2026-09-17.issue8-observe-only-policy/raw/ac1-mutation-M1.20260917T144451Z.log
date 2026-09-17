@@ -1,0 +1,28 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✖ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1 (204.809894ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1850.739611
+
+✖ failing tests:
+
+test at src/services/TerminalResourcePolicy.test.ts:1:10793
+✖ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1 (204.809894ms)
+  AssertionError [ERR_ASSERTION]: manifest names frontend/src/contexts/WebSocketContext.tsx#applyGraceBufferedMessage as the consumer, but its evidence signature "current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes" does not occur in that file
+      at assertEvidenceSignaturePresentAt (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicy.test.ts:169:10)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicy.test.ts:309:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

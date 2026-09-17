@@ -1,0 +1,95 @@
+✖ SDS-AC-1 rejects every caller-provided protected ingress authority before native capture I/O (5.300691ms)
+✖ SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript and retains literal inventory imports (21.429934ms)
+✖ SDS-AC-3 rejects real directory leaves before native probing or writing and keeps special-role simulation private (0.369479ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 119.329767
+
+✖ failing tests:
+
+test at tools/wave3/fair-readmission-closure-v3.trust.test.mjs:61:1
+✖ SDS-AC-1 rejects every caller-provided protected ingress authority before native capture I/O (5.300691ms)
+  Error: reparse guard path must be an absolute Windows path
+      at assertExistingWindowsPath (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:200:11)
+      at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:47
+      at Array.map (<anonymous>)
+      at Object.assertSafeMany (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:30)
+      at checkPaths (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:23:11)
+      at removeOwned (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:76:5)
+      at Object.cleanup (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:99:11)
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.trust.test.mjs:90:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at tools/wave3/fair-readmission-closure-v3.trust.test.mjs:97:1
+✖ SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript and retains literal inventory imports (21.429934ms)
+  Error [AggregateError]: Admission fixture cleanup failed
+      at report (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fixture-actor-cleanup.mjs:11:34)
+      at Object.cleanup (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:100:5)
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.trust.test.mjs:171:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    [errors]: [
+      Error: reparse guard path must be an absolute Windows path
+          at assertExistingWindowsPath (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:200:11)
+          at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:47
+          at Array.map (<anonymous>)
+          at Object.assertSafeMany (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:30)
+          at checkPaths (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:23:11)
+          at begin (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:37:5)
+          at Object.capture (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:55:5)
+          at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.trust.test.mjs:157:27)
+          at async Test.run (node:internal/test_runner/test:1409:7)
+          at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+      Error: reparse guard path must be an absolute Windows path
+          at assertExistingWindowsPath (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:200:11)
+          at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:47
+          at Array.map (<anonymous>)
+          at Object.assertSafeMany (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:30)
+          at checkPaths (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:23:11)
+          at removeOwned (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:76:5)
+          at Object.cleanup (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:99:11)
+          at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.trust.test.mjs:171:10)
+          at async Test.run (node:internal/test_runner/test:1409:7)
+          at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+    ]
+  }
+
+test at tools/wave3/fair-readmission-closure-v3.trust.test.mjs:175:1
+✖ SDS-AC-3 rejects real directory leaves before native probing or writing and keeps special-role simulation private (0.369479ms)
+  Error [AggregateError]: Admission fixture cleanup failed
+      at report (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fixture-actor-cleanup.mjs:11:34)
+      at Object.cleanup (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:100:5)
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.trust.test.mjs:205:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    [errors]: [
+      Error: reparse guard path must be an absolute Windows path
+          at assertExistingWindowsPath (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:200:11)
+          at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:47
+          at Array.map (<anonymous>)
+          at Object.assertSafeMany (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:30)
+          at checkPaths (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:23:11)
+          at begin (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:37:5)
+          at Object.createDirectory (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:62:5)
+          at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.trust.test.mjs:182:10)
+          at async Test.run (node:internal/test_runner/test:1409:7)
+          at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+      Error: reparse guard path must be an absolute Windows path
+          at assertExistingWindowsPath (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:200:11)
+          at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:47
+          at Array.map (<anonymous>)
+          at Object.assertSafeMany (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.mjs:484:30)
+          at checkPaths (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:23:11)
+          at removeOwned (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:76:5)
+          at Object.cleanup (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-fixture-ownership.mjs:99:11)
+          at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/fair-readmission-closure-v3.trust.test.mjs:205:10)
+          at async Test.run (node:internal/test_runner/test:1409:7)
+          at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+    ]
+  }

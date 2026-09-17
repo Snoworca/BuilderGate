@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -149,6 +149,30 @@ function assertSortedUnique(values: string[]): void {
   assert.deepEqual(values, [...new Set(values)].sort((left, right) => left.localeCompare(right)));
 }
 
+let signaturesCheckedAtConsumerPaths = 0;
+
+// AC-1 requires the manifest to name each key's REAL consumer path, and existsSync cannot tell the
+// difference between "the consuming expression lives here" and "it used to". That gap is not
+// hypothetical: REL-BGSTAB-009 moved the grace lane from WebSocketProvider#bufferGraceMessage into
+// terminalGraceBuffer#applyGraceBufferedMessage, and AC-1 stayed green over four entries pointing
+// at a file whose named symbol no longer consumes anything, because the file still existed. The
+// evidence signature is the consuming expression itself, so its absence at the named path is the
+// cheapest condition the mere presence of the file cannot satisfy.
+//
+// What this does NOT establish, deliberately: a textual hit does not prove the expression is owned
+// by the named symbol, is reachable, or is anything but a comment or an import. AC-6's AST scan is
+// what carries ownership and liveness. This is a second, independent condition on the same claim,
+// not a substitute for that one.
+function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: string, consumerSymbol: string): void {
+  assert.ok(evidenceSignature.length > 0, `expected a non-empty evidence signature for ${path}#${consumerSymbol}`);
+  const source = readFileSync(resolve(REPOSITORY_ROOT, path), 'utf8');
+  assert.ok(
+    source.includes(evidenceSignature),
+    `manifest names ${path}#${consumerSymbol} as the consumer, but its evidence signature ${JSON.stringify(evidenceSignature)} does not occur in that file`,
+  );
+  signaturesCheckedAtConsumerPaths += 1;
+}
+
 function assertRepositoryPath(path: string): void {
   assert.equal(isAbsolute(path), false);
   assert.doesNotMatch(path, /\\/);
@@ -282,7 +306,12 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
     assert.ok(Array.isArray(entry.legacyAliases));
     assert.ok(entry.applyBoundary.length > 0);
     assertRepositoryPath(entry.consumerPath);
+    assertEvidenceSignaturePresentAt(entry.consumerPath, entry.evidenceSignature, entry.consumerSymbol);
   }
+  assert.ok(
+    signaturesCheckedAtConsumerPaths > 0,
+    'AC-1 must have checked at least one evidence signature; a zero here means the loop examined nothing',
+  );
 });
 
 test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2', async () => {
@@ -1139,6 +1168,37 @@ test('OBS-BGSTAB-005 review regression — exact repository tuples validate bidi
   }
 });
 
+// Mutation fixtures locate their insertion point by a run of trimmed lines rather than by a
+// verbatim substring. A verbatim marker carries the checkout's line endings and the source file's
+// indentation, both of which drift without changing any behaviour this suite is about: the
+// reserved-copy-option-decoy marker pinned a CRLF that server/src/services/SessionManager.ts no
+// longer has, so the fixture could not pose its question at all and failed on its own setup. The
+// count assertion below is what keeps that from degrading into a silent no-op instead.
+function insertBeforeMarkerLines(source: string, marker: string, inserted: string, name: string): string {
+  const newline = source.includes('\r\n') ? '\r\n' : '\n';
+  const lines = source.split(/\r?\n/);
+  const markerLines = marker.replace(/\r\n/g, '\n').split('\n').map((line) => line.trim());
+  const hits: number[] = [];
+  for (let index = 0; index + markerLines.length <= lines.length; index += 1) {
+    if (markerLines.every((expected, offset) => lines[index + offset].trim() === expected)) hits.push(index);
+  }
+  assert.equal(
+    hits.length,
+    1,
+    `${name}: expected exactly one occurrence of the ${markerLines.length}-line marker ${JSON.stringify(markerLines)}, found ${hits.length}`,
+  );
+  const target = lines[hits[0]];
+  const indent = target.slice(0, target.length - target.trimStart().length);
+  const insertedLines = inserted
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .map((line) => `${indent}${line.trim()}`);
+  assert.ok(insertedLines.length > 0, `${name}: inserted text produced no lines`);
+  lines.splice(hits[0], 0, ...insertedLines);
+  return lines.join(newline);
+}
+
 test('OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope', async () => {
   const {
     discoverTerminalResourceInventory,
@@ -1273,7 +1333,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-direct-guard-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1310,7 +1370,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-shadowed-use-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1319,7 +1379,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-noop-guard-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1328,7 +1388,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-call-input-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1337,7 +1397,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-return-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1346,7 +1406,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-for-of-shadow-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1368,17 +1428,18 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       await copyInventorySources(requiredPaths, targetRoot);
       const targetPath = join(targetRoot, mutation.path);
       const source = await readFile(targetPath, 'utf8');
-      assert.ok(source.includes(mutation.from));
+      const replacements = 'replaceCount' in mutation ? mutation.replaceCount : 1;
+      const available = source.split(mutation.from).length - 1;
+      assert.ok(
+        available >= replacements,
+        `${mutation.name}: expected at least ${replacements} occurrence(s) of ${JSON.stringify(mutation.from)} in ${mutation.path}, found ${available}`,
+      );
       let mutatedSource = source;
-      for (let index = 0; index < ('replaceCount' in mutation ? mutation.replaceCount : 1); index += 1) {
+      for (let index = 0; index < replacements; index += 1) {
         mutatedSource = mutatedSource.replace(mutation.from, mutation.to);
       }
       if ('insertBefore' in mutation) {
-        assert.ok(mutatedSource.includes(mutation.insertBefore), mutation.name);
-        mutatedSource = mutatedSource.replace(
-          mutation.insertBefore,
-          `${mutation.inserted}${mutation.insertBefore}`,
-        );
+        mutatedSource = insertBeforeMarkerLines(mutatedSource, mutation.insertBefore, mutation.inserted, mutation.name);
       }
       await writeFile(targetPath, `${mutatedSource}${mutation.suffix}`, 'utf8');
       if ('manifestDrift' in mutation && mutation.manifestDrift) {

@@ -1,0 +1,86 @@
+terminal resource consumer manifest re-seal
+  mode: dry run, no file is written
+  typescript: 5.9.3
+  unregistered call sites: 0
+docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json
+  sha256: 09ad230fe9604f4716f01f8d5be21e88befa34dfcd3f66aa7b8bf334db7cb766 -> e092f9d5dbceef5552f3132ad626c243ad4648b2ed4569b3d4269cf57811700a
+  consumers: 81 -> 81
+  classifications: 10 -> 10
+  exact consumer tuples: -4 / +4
+    - {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.visibleOutputMaxChunks","unit":"count","source":"resourceLimits.terminal.visibleOutputMaxChunks","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"grace-output-admission","state":"consumed"} frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: current.output.length + 1 > limits.visibleOutputMaxChunks :: derived-control 5a714cfe769a27f2a9ee9d8d538fed4ed45cf957809aeb79d479c6171e5861b9
+    - {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.visibleOutputMaxChunks","unit":"count","source":"resourceLimits.terminal.visibleOutputMaxChunks","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"grace-output-overflow-observation","state":"consumed"} frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: maxChunks: limits.visibleOutputMaxChunks :: object-option-flow c9a28a035b21ab2fc87f9ac6fff7bc69b4b6a250ed22c30f7b0ac1f618e7d02d
+    - {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.visibleOutputQueueMaxBytes","unit":"bytes","source":"resourceLimits.terminal.visibleOutputQueueMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"grace-output-admission","state":"consumed"} frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes :: derived-control 1822196d2e60eef23bc344fcd6217f7569948b9d2e5e2e5dbf1fda1bc2bee283
+    - {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.visibleOutputQueueMaxBytes","unit":"bytes","source":"resourceLimits.terminal.visibleOutputQueueMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"grace-output-overflow-observation","state":"consumed"} frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: maxBytes: limits.visibleOutputQueueMaxBytes :: object-option-flow c9a28a035b21ab2fc87f9ac6fff7bc69b4b6a250ed22c30f7b0ac1f618e7d02d
+    + {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.visibleOutputMaxChunks","unit":"count","source":"resourceLimits.terminal.visibleOutputMaxChunks","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"grace-output-admission","state":"consumed"} frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: current.output.length + 1 > limits.visibleOutputMaxChunks :: derived-control 5a714cfe769a27f2a9ee9d8d538fed4ed45cf957809aeb79d479c6171e5861b9
+    + {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.visibleOutputMaxChunks","unit":"count","source":"resourceLimits.terminal.visibleOutputMaxChunks","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"grace-output-overflow-observation","state":"consumed"} frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: maxChunks: limits.visibleOutputMaxChunks :: object-option-flow c9a28a035b21ab2fc87f9ac6fff7bc69b4b6a250ed22c30f7b0ac1f618e7d02d
+    + {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.visibleOutputQueueMaxBytes","unit":"bytes","source":"resourceLimits.terminal.visibleOutputQueueMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"grace-output-admission","state":"consumed"} frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes :: derived-control 1822196d2e60eef23bc344fcd6217f7569948b9d2e5e2e5dbf1fda1bc2bee283
+    + {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.visibleOutputQueueMaxBytes","unit":"bytes","source":"resourceLimits.terminal.visibleOutputQueueMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"grace-output-overflow-observation","state":"consumed"} frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: maxBytes: limits.visibleOutputQueueMaxBytes :: object-option-flow c9a28a035b21ab2fc87f9ac6fff7bc69b4b6a250ed22c30f7b0ac1f618e7d02d
+  classifications: -1 / +1
+    - {"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39","reason":"Persists configuration; it is not a terminal runtime consumer."}
+    + {"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"d5ee2b5e94dd56507a37f8df3f06e44f6c7b38d3a0f73a64218ec82a2d3e5678","reason":"Persists configuration; it is not a terminal runtime consumer."}
+  evidence source hashes: -6 / +7
+    - frontend/src/contexts/WebSocketContext.tsx:93ad4cf286e9c8ebf3925301f15a96615297cca01b58259df56c5b153cff7894
+    - server/src/services/RuntimeConfigStore.ts:29a32a2d5a141cbd122f282a3919c4d38bcc262d57e72b68f3fe9a6e57c73932
+    - server/src/services/TerminalResourcePolicy.test.ts:d5a8aac378c20fc18c683b960c2ebf195d3147e0c5065cadb5251f602f5e0455
+    - server/src/services/TerminalResourcePolicyInventory.ts:6774b3cc0dc9ef394b857d2a766e11bebb5ae8876bf6147c222f40fffced46ce
+    - server/src/services/TerminalResourcePolicyObservations.ts:2bbf74677018649e5316b5f2b0458c0710eab21ac553fbc5f29197e438dad7b0
+    - server/src/utils/headlessTerminal.ts:264a73dfc5140abcf68a86541961b2a5fb4e0a18a705d8d1f4b83f02d0d392ae
+    + frontend/src/contexts/WebSocketContext.tsx:31626bdd2181c14ef3ab048ab70d07c18c74f1e3232a327ed49cf15cd1268d4b
+    + frontend/src/utils/terminalGraceBuffer.ts:67776ee15f52b38f0f650157dec37d2016c5763d2784357e86637b7cccb8d76d
+    + server/src/services/RuntimeConfigStore.ts:f8141caa53894f31ff4d84f687af9350ec8e8af0904ebfdaacf52bca055eaf13
+    + server/src/services/TerminalResourcePolicy.test.ts:04dcd1f2fa7afedf3ee144505cc9fc3c03b836dfe88b24f85a2d8f796afe235f
+    + server/src/services/TerminalResourcePolicyInventory.ts:9c4ab75497790b6f61e3b9d595f6066cdb5eb4080a9077bdeee6195d629a4f4a
+    + server/src/services/TerminalResourcePolicyObservations.ts:39465172270aec42237112239ad40483b0bdc1eb77c7a27321d08594023e8ab1
+    + server/src/utils/headlessTerminal.ts:786aa5eed4f5a0f5827abaac3087832e0ecc152ac017b772acd29dbd38b8b2ef
+  sourceSetSha256: 190a43ba7709c55104f78a88433d65995a69be9b222250bf2240cd088ca9e6cd -> fd6285a11eea2342235631a53790a0e69d5ab6762c86724ea50470005971b433
+docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.lineage.json
+  semanticInventory.sha256: 43177d0133364ccaa567d2585991b6d917cb9064f72e069d8639f6a71a15f0ba -> 624f5d33f07257369013c1a90514cb46bf876cf8c9d78f35a0e515bfab031f9b
+  semanticInventory.historicalEqualsCurrent: false -> false
+  resource decisions changed against the sealed historical manifest: -3 / +4
+    - {"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"TerminalView:xterm-constructor-hardcoded","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"terminal-runtime-construction","state":"divergent-legacy"}
+    - {"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"pty.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"divergent-legacy"}
+    - {"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"pty.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"session-generation","state":"divergent-legacy"}
+    + {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.checkpointMaxBytes","unit":"bytes","source":"resourceLimits.terminal.checkpointMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"checkpoint-write-coordinator","state":"consumed"}
+    + {"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"terminal-runtime-construction","state":"consumed"}
+    + {"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"consumed"}
+    + {"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"session-generation","state":"consumed"}
+  evidence relocated away from the sealed historical manifest: 12 decision(s)
+    browser.hidden-output|resourceLimits.terminal.hiddenOutputPolicy|visibility-decision|consumed
+      - frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#$callback:useEffect:0@127825#onOutput :: hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy :: object-option-flow
+      + frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#subscribeSessionRuntime#onOutput :: hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy :: object-option-flow
+    browser.hidden-output|resourceLimits.terminal.hiddenOutputTailBytes|visibility-decision|consumed
+      - frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#$callback:useEffect:0@127825#onOutput :: hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes :: object-option-flow
+      + frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#subscribeSessionRuntime#onOutput :: hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes :: object-option-flow
+    browser.snapshot.persisted-storage|resourceLimits.snapshots.tombstoneTtlMs|terminal-dispose-tombstone-check|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057#$anonymous@169494 :: tombstoneTtlMs: snapshotLimits.tombstoneTtlMs :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime#disposeTerminalRuntime :: tombstoneTtlMs: snapshotLimits.tombstoneTtlMs :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-input-count-cap|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-settlement-ledger-cap|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-write-coordinator|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-admission|consumed
+      - frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: current.output.length + 1 > limits.visibleOutputMaxChunks :: derived-control
+      + frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: current.output.length + 1 > limits.visibleOutputMaxChunks :: derived-control
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-overflow-observation|consumed
+      - frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: maxChunks: limits.visibleOutputMaxChunks :: object-option-flow
+      + frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: maxChunks: limits.visibleOutputMaxChunks :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|checkpoint-write-coordinator|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-admission|consumed
+      - frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes :: derived-control
+      + frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes :: derived-control
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-overflow-observation|consumed
+      - frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: maxBytes: limits.visibleOutputQueueMaxBytes :: object-option-flow
+      + frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: maxBytes: limits.visibleOutputQueueMaxBytes :: object-option-flow
+    browser.terminal.write-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|browser-output-admission|consumed
+      - frontend/src/utils/terminalOutputScheduler.ts#createTerminalOutputScheduler#enqueueLegacy :: queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes :: control-guard
+      + frontend/src/utils/terminalOutputScheduler.ts#createTerminalOutputScheduler#enqueueBytesLegacy :: queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes :: control-guard
+  tuples whose evidence stayed put but whose AST hash moved: 6
+
+nothing was written. re-run with --reseal to apply.

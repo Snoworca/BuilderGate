@@ -23,6 +23,7 @@ const REGISTERED_OBSERVATION_DECISIONS = [
   ['browser.snapshot.persisted-storage', 'resourceLimits.snapshots.totalStorageBudgetChars', 'resourceLimits.snapshots.totalStorageBudgetChars', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.clientWs.hardReconnectBytes', 'resourceLimits.clientWs.hardReconnectBytes', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.clientWs.inputBackpressureBytes', 'resourceLimits.clientWs.inputBackpressureBytes', 'consumed'],
+  ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.checkpointMaxBytes', 'resourceLimits.terminal.checkpointMaxBytes', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.inputQueueMaxBytes', 'resourceLimits.terminal.inputQueueMaxBytes', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.inputQueueTtlMs', 'resourceLimits.terminal.inputQueueTtlMs', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.transportOutboxMaxBytes', 'resourceLimits.terminal.transportOutboxMaxBytes', 'consumed'],

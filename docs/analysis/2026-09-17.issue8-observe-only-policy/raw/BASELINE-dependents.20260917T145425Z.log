@@ -1,0 +1,1042 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OPS-BGSTAB-010 the published generation pins the sources on disk (11.847174ms)
+✖ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy (2.489903ms)
+✔ OPS-BGSTAB-010 altering one pinned byte breaks the digest equality (27.725484ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✖ PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle and rejects escaped references (1496.267676ms)
+✖ PERF-BGSTAB-010 portable compiled Canary accepts fresh canonical authority (1179.223732ms)
+✖ PERF-BGSTAB-010 one-field authority identity drift rejects default admission (4.306123ms)
+✔ PERF-BGSTAB-010 RuntimeConfigStore profile is non-secret and binds raw plus decision evidence (600.176279ms)
+✔ PERF-BGSTAB-010 policy profile deeply freezes leaves and changes measured evidence for a non-default policy (933.855616ms)
+✔ PERF-BGSTAB-010 one-field policy profile drift rejects fair-delivery evidence (393.243599ms)
+✔ PERF-BGSTAB-010 official writer retains an earlier generation when a policy profile changes (1600.439194ms)
+✔ PERF-BGSTAB-010 official writer reissues an already moved identical generation after a pointer-swap interruption (2262.779672ms)
+✔ PERF-BGSTAB-010 official writer preserves an earlier pointer when the moved retry generation differs (2128.748136ms)
+✔ PERF-BGSTAB-010 official writer fails closed on a stale output lock without changing LKG (1621.064322ms)
+✔ PERF-BGSTAB-010 concurrent docs publication fails closed while its output lock is held (1530.623652ms)
+✔ PERF-BGSTAB-010 docs publication path aliases share one output lock (890.821801ms)
+﹣ PERF-BGSTAB-010 docs publication shares its lock across an NTFS 8.3 output alias (2.685239ms) # NTFS 8.3 short path is unavailable for this test directory
+[Config] config.json5 not found — created from built-in bootstrap template
+[Config] Initial administrator password must be configured in the browser bootstrap flow.
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✖ PERF-BGSTAB-010 compiled runtime validates the published artifact through build provenance (5.038706ms)
+✖ PERF-BGSTAB-010 runtime policy profile default admission uses current authority identity (0.925096ms)
+✔ PERF-BGSTAB-010 source provenance parser fails closed for malformed manifests (1.987539ms)
+✖ PERF-BGSTAB-010 source-dist canonical authority parity fails closed (1462.728099ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ PERF-BGSTAB-010 artifact source digest covers runtime delivery and admission gates (1.351207ms)
+✔ PERF-BGSTAB-010 source provenance digest binds shared authority locator (11.828621ms)
+✔ PERF-BGSTAB-010 benchmark artifact records the same projected policy used by runtime admission (515.271344ms)
+✔ PERF-BGSTAB-010 published source digest is available to the runtime admission gate (417.245298ms)
+✔ PERF-BGSTAB-010 source policy profile default admission uses current authority identity (11.985716ms)
+✔ PERF-BGSTAB-010 AC-2/AC-3 deterministic WAN fair-scheduler artifact contract (675.579449ms)
+✔ PERF-BGSTAB-010 AC-2 applies the same WAN and ACK-fault workload to FIFO, Orca hold/bypass, and DRR (683.681607ms)
+✔ PERF-BGSTAB-010 AC-3 measured artifact validator fails closed for tampering and accepts complete evidence (437.728799ms)
+✔ PERF-BGSTAB-010 AC-3 validates every published trial sidecar against combined raw evidence (363.546204ms)
+✔ PERF-BGSTAB-010 AC-2/AC-3 registers every measured delivery bound and rejects a changed threshold contract (337.858675ms)
+✔ PERF-BGSTAB-010 AC-3 staged fair-scheduler artifact publish contract (805.088994ms)
+﹣ PERF-BGSTAB-010 decision writer shares its publish lock across an NTFS 8.3 output-root alias (1.797784ms) # NTFS 8.3 short path is unavailable for this test directory
+✔ PERF-BGSTAB-010 canonical authority publisher creates current immutable generation (4408.408664ms)
+✔ PERF-BGSTAB-010 source canonical bundle validates pointer provenance raw SHA and 1-2-8 decision (1717.422218ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OPS-BGSTAB-011 the inventory covers the configuration schema exactly once per leaf (3.303192ms)
+✔ OPS-BGSTAB-011 every entry carries one classification from the closed set and a reason (0.532084ms)
+✔ OPS-BGSTAB-011 non-inert entries name a real consumer and inert entries name none (1.548508ms)
+✔ OPS-BGSTAB-011 the inventory agrees with the existing RuntimeConfigStore classification tables (0.462917ms)
+✔ OPS-BGSTAB-011 safety-only entries record the bound they protect (0.576636ms)
+✔ OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count (6.076659ms)
+✔ OPS-BGSTAB-011 the configuration schema still has exactly 81 leaves (0.349757ms)
+✔ REL-BGSTAB-023 AC-1 the checkpoint byte budget is its own canonical schema key (3.60296ms)
+✔ REL-BGSTAB-023 AC-5 the shipped default leaves the effective budget unchanged (0.31746ms)
+✔ REL-BGSTAB-023 AC-1 the checkpoint byte budget shares the range it was split from (1.668052ms)
+✔ REL-BGSTAB-023 AC-1 the terminal block stays strict about unknown keys (0.432135ms)
+✔ REL-BGSTAB-023 AC-4 the checkpoint byte budget is registered as a terminal resource key (0.198372ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ FR-BGSTAB-025 strict legacy loading preserves the file and unrelated Settings persistence does not restore retired defaults (20.538712ms)
+✔ ConfigFileRepository inserts Wave6 resource sections into legacy config text (12.443216ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 reserves ordinary source tuples before headless commit (167.44382ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 PERF-BGSTAB-011 routes each ordinary reservation tuple unchanged after commit (107.03603ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 reserves rollover source tuples before headless commit (106.829137ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 PERF-BGSTAB-011 routes each rollover reservation tuple unchanged after commit (100.106849ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 1 snapshot-only resize(s) (102.625524ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 2 snapshot-only resize(s) (100.566676ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 preserves pending reservations across an interleaved snapshot rollover (90.058084ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-15 resize preserves queued source identities at snapshot 40 (67.243797ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] Headless terminal degraded (write) for session retained-authority-41011: ACK-16 injected first headless write failure
+[SessionManager] All CWD watchers stopped
+✔ ACK-15 resize preserves queued source identities at snapshot 18446744073709551613 (98.340495ms)
+✔ ACK-16 failed writes and headless recreation discard projected snapshot reservations (99.113077ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-16 enabling shadow after disabled output preserves committed source identity (101.748125ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-1 (302.853849ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — populated Ordinal64 rollover keeps oldest retained marker epoch-qualified (104.637352ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2 (119.628504ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-3 (99.459735ms)
+[SessionManager] All CWD watchers stopped
+[Session retained-authority-41020] Idle detection upgraded to osc133 mode
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-4 (115.328576ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-5 (103.355422ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6 (99.935304ms)
+✔ RED reviewer — failed competing mutation lease rolls back only its newly registered view (99.379445ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-7 (209.069926ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-8 (116.499166ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-9 (414.229145ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-1 (202.643579ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-2 (97.587314ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-3 (95.127755ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-6 (90.511886ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-7 (103.833936ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-9 (91.549553ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-10 (93.068396ms)
+✔ REL_BGSTAB_007_AC10_server_restart_is_authority_unavailable (182.792103ms)
+[SessionManager] All CWD watchers stopped
+✔ REL_BGSTAB_007_AC10_pty_exit_is_session_terminated (95.212626ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — production comparer requires an independent roundtrip baseline before principal-axis match (121.524851ms)
+[SessionManager] All CWD watchers stopped
+[Session pure-osc133-retained-record] Idle detection upgraded to osc133 mode
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — split semantic facts preserve record-local OSC BEL/ST, DSR, and repeated BEL occurrences (132.021908ms)
+✔ RED reviewer — pure OSC 133 status is retained as a semantic-only source record (93.407329ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — sampled shadow comparer never blocks legacy delivery or mutates a replacement generation (143.418637ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — shadow comparer samples only at global headless idle and enforces a low-duty interval (387.721884ms)
+[SessionManager] All CWD watchers stopped
+✔ MIG-BGSTAB-002 promotion evidence comparison is not starved by an unrelated busy session (97.39711ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — retained operation and fact evidence ledgers stay policy-bounded (309.400924ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — retained ledger byte accounting never rescans the full evidence arrays on commit (263.031849ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — parser-tail and eviction comparer axes fail closed without an independent baseline (114.919827ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — newline-free soft-wrap and reflow eviction advance exact oldest retained source (102.532628ms)
+✔ RED reviewer — actual input, resize, and query paths reject stale lease identity for two clients (90.275483ms)
+✔ RED reviewer — actual input path rejects every stale lease identity with eight clients (86.9472ms)
+✔ RED reviewer — missing actual mutation identity stays legacy-compatible but blocks shadow canary (89.664106ms)
+✔ RED reviewer — old authority identity cannot mutate replacement PTY through actual paths (88.893358ms)
+✔ lazy test-created SessionData keeps legacy resize compatibility without retained state (83.817852ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — resize advances snapshot identity without consuming PTY source sequence (86.734846ms)
+[SessionManager] Headless terminal degraded (write) for session actual-headless-write-degradation: forced actual retained write degradation
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-already-degraded] Idle detection upgraded to osc133 mode
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-queue-overflow] Idle detection upgraded to osc133 mode
+[SessionManager] Headless terminal degraded (queue-overflow) for session semantic-only-queue-overflow: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-commit-failure] Idle detection upgraded to osc133 mode
+[SessionManager] Headless terminal degraded (write) for session semantic-only-commit-failure: forced semantic-only commit failure
+[SessionManager] All CWD watchers stopped
+[Session pending-semantic-overflow-settlement] Idle detection upgraded to osc133 mode
+✔ RED reviewer — actual headless write degradation is typed and blocks authority canary (88.520266ms)
+✔ RED reviewer — degraded, overflow, and commit-failure OSC status records reject facts without empty delivery (262.918554ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session pending-semantic-overflow-settlement: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session throwing-policy-settler-isolated] Idle detection upgraded to osc133 mode
+✔ RED reviewer — queue overflow settles every previously accepted semantic record in ingest order (86.386871ms)
+[SessionManager] Headless policy failure settler threw for session throwing-policy-settler-isolated, output 0: Error: forced first settler failure
+    at settleFailure (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/RetainedTerminalAuthority.test.ts:2856:34)
+    at SessionManager.settleRetainedTerminalPendingOutputsBeforeDegrade (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/SessionManager.ts:8697:69)
+    at SessionManager.markHeadlessDegraded (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/SessionManager.ts:8647:10)
+    at SessionManager.queueHeadlessOutput (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/SessionManager.ts:7859:12)
+    at <anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/SessionManager.ts:1729:14)
+    at FakePty.emitData (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/RetainedTerminalAuthority.test.ts:306:48)
+    at <anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/RetainedTerminalAuthority.test.ts:2873:25)
+    at getActual (node:assert:611:5)
+    at strict.doesNotThrow (node:assert:779:32)
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/RetainedTerminalAuthority.test.ts:2872:12)
+[SessionManager] Headless terminal degraded (queue-overflow) for session throwing-policy-settler-isolated: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session pending-semantic-write-settlement] Idle detection upgraded to osc133 mode
+✔ RED reviewer — throwing policy settler cannot abort degradation settlement or current legacy delivery (93.196674ms)
+[SessionManager] Headless terminal degraded (write) for session pending-semantic-write-settlement: forced queued semantic settlement failure
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — headless write failure settles failed and later queued semantic records exactly once (83.601577ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ with no canonical key the browser is given the legacy decision, not the schema default (3.397599ms)
+✔ a canonical key is published as written (1.439856ms)
+✔ the published value equals the policy decision on both configurations (4.925831ms)
+✔ the server model honours a legacy-only configuration instead of the schema default (125.82391ms)
+✔ the server model and the published value agree on a legacy-only configuration (86.212837ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ RuntimeConfigStore builds a redacted editable snapshot (5.563365ms)
+✔ FR-BGSTAB-025 runtime snapshot and capabilities contain no retired leaves (1.750773ms)
+✔ RuntimeConfigStore marks platform-specific capabilities and merges editable patches (1.284739ms)
+✔ RuntimeConfigStore exposes Wave6 resource capabilities without leaking server-only runtime config (1.678924ms)
+✔ FR-BGSTAB-015 recentEventLimit capability is available with truthful constraints (1.04873ms)
+✔ FR-BGSTAB-015 replaceValues applies recentEventLimit to the existing observer immediately (4.98203ms)
+✔ FR-BGSTAB-015 replaceFromConfig applies recentEventLimit to the existing observer immediately (7.080382ms)
+✔ FR-BGSTAB-015 recentEventLimit rejects invalid values without clamping or changing observer state (5.505279ms)
+✔ RuntimeConfigStore validates Wave 0 resource limit patches after merging (2.134272ms)
+✔ IR-BGSTAB-001 AC-8 publishes terminalWireFormat and nothing else beyond the existing allowlist (3.220291ms)
+✔ IR-BGSTAB-001 AC-8 republishes terminalWireFormat after a runtime config reload (1.616407ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+[Auth] No password configured - authentication will fail
+✔ SettingsService persists selected Wave6 resource settings and reports truthful scopes (104.041916ms)
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+✔ SettingsService rejects invalid Wave6 resource relationships before persistence (113.877242ms)
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+✔ SettingsService rejects reserved Wave6 resource keys and ignores no-op selected patches (108.205779ms)
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+[Auth] No password configured - authentication will fail
+[Auth] No password configured - authentication will fail
+✔ SettingsService rolls back Wave6 resource runtime state when apply fails (112.1344ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1 (50.846115ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2 (7.790719ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-3 (4.987506ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-4 (1.283358ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-5 (1.598249ms)
+✖ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6 (1116.57347ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-7 (17.224478ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OBS-BGSTAB-005 review regression — raw provenance survives production loaders and replacements (94.667648ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OBS-BGSTAB-005 second review regression — explicit non-scrollback keys retain truthful loader provenance (14.35552ms)
+✔ OBS-BGSTAB-005 review regression — ConfigFileRepository previous/next provenance survives settings reload and rollback (4.815093ms)
+[Config] All passwords already encrypted
+[Config] Passwords encryption skipped: ZodError: [
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "resourceLimits",
+      "terminal",
+      "scrollbackLines"
+    ],
+    "message": "Invalid input: expected number, received string"
+  }
+]
+    at loadConfigFromPath (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/utils/config.ts:235:44)
+    at <anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/TerminalResourcePolicy.test.ts:736:13)
+    at getActual (node:assert:611:5)
+    at strict.throws (node:assert:759:24)
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/TerminalResourcePolicy.test.ts:735:12)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[Config] Configuration validation failed:
+[
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "resourceLimits",
+      "terminal",
+      "scrollbackLines"
+    ],
+    "message": "Invalid input: expected number, received string"
+  }
+]
+✔ OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized and never silently falls through (17.073026ms)
+✔ OBS-BGSTAB-005 review regression — compiler owns all 30 typed resources and records real legacy divergence (1.946123ms)
+✔ OBS-BGSTAB-005 review regression — no candidate profile is available without a registered stable contract (0.814152ms)
+✔ OBS-BGSTAB-005 review regression — telemetry is allowlisted, payload-free, bounded, and read-only on snapshot (1.14274ms)
+✖ OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites (216.451371ms)
+✖ OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope (238.141997ms)
+✔ OBS-BGSTAB-005 second review regression — production observe mode seeds bounded decisions on every config generation (4.235334ms)
+✔ OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers (2029.589681ms)
+✔ OBS-BGSTAB-005 review regression — observer differential preserves actual serialized legacy paths (2.399596ms)
+✔ PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed WS resource limits (0.909456ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 fixture contract — real SessionManager initialization retains authority and cleanup state (115.55465ms)
+✔ PERF-BGSTAB-010 gated headless fixture preserves full state while disposal releases held write callbacks (0.275948ms)
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 gated real-session fixture drains a held write before public cleanup (2355.097136ms)
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 gated real-session fixture releases resources after an assertion failure (2358.415431ms)
+[SessionManager] All CWD watchers stopped
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 emergency cleanup preserves a public finalizer error while releasing held callbacks (2355.451454ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session gated-headless-overflow-cleanup-red: Headless output queue overflow (observe): byte-limit
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+✔ PERF-BGSTAB-010 gated real-session PTY chain settles within the fixture bound after overflow cleanup (2346.790965ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1 (148.780817ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 production assembly shares one registry-derived lease authority (76.013091ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2 (154.806317ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3 (82.686973ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4 (75.885857ms)
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5 (83.838992ms)
+✔ REL-BGSTAB-010 headless finalizer revokes the old epoch and isolates same-ID recreation (83.504939ms)
+[WS] WebSocket router initialized
+[SessionManager] Headless terminal degraded (write) for session session-a1: simulated headless write failure
+✔ REL-BGSTAB-010 headless maxChunks admits exact N and rejects N+1 without bypass (103.837972ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 headless write failure settles the candidate to target-scoped legacy recovery (78.988415ms)
+✔ REL-BGSTAB-010 valid but inactive leases cannot preview admit or rollback active WS and headless targets (76.713991ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-nonselected: Headless output queue overflow (observe): byte-limit
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-a1: Headless output queue overflow (observe): byte-limit
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 production PTY path uses target-scoped non-destructive headless policy and restores legacy limit (142.203561ms)
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 headless rollback closes only after the actual write chain drains (80.116234ms)
+✔ REL-BGSTAB-010 headless rollback fences every pre-boundary policy generation (83.816054ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6 (0.446112ms)
+✔ REL-BGSTAB-010 coalescing preserves every admission identity and lifetime fence (0.205063ms)
+✔ PERF-BGSTAB-010 AC-3/AC-4 fair artifact admission 계약 부재 때문에 실패 (0.679537ms)
+✔ PERF-BGSTAB-010 published fair artifact admission validates the benchmark policy contract (0.179155ms)
+✔ PERF-BGSTAB-010 source default Canary admission fails closed (4.341478ms)
+✔ PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority (198.461959ms)
+✔ PERF-BGSTAB-010 fresh default Canary accepts canonical authority (119.627759ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ public recovery fixture observes one public session and releases it (141.198539ms)
+✔ ACK-04 source ACK returns first and second deltas without using the lane ceiling (3.853963ms)
+✔ ACK-05 source and legacy ACKs settle output and source-less dataGap once in either order (0.619606ms)
+✔ ACK-04 adjacent source ordinals above Number precision return distinct deltas (0.355032ms)
+✔ ACK-04 adjacent stream epochs above Number precision keep identical source ordinals distinct (0.238169ms)
+✔ ACK-05 a legacy cumulative ACK settles source output before a repeated source ACK (0.479027ms)
+✔ ACK-06 source distinguishes issued-but-unsent, holes and over-ACK without releasing credit (0.237382ms)
+✔ ACK-06 rollover preserves an outstanding old-epoch entry and accepts source zero in the next epoch (0.243832ms)
+✔ ACK-06 a source-less lane cannot acknowledge an invented source identity (0.255236ms)
+✔ ACK-02 recreated delivery lane retains the new session source floor and two delta credits (0.455624ms)
+✔ ACK-07 both and missing domains are rejected before unknown-lane validation (0.353811ms)
+✔ ACK-07 malformed source values and unknown kind take precedence over an unknown lane (0.280571ms)
+✔ ACK-07 invalid source domain values are observable and do not mutate the ledger (0.213895ms)
+✔ ACK-07 the first source tuple at the absolute zero boundary is acknowledged (0.248018ms)
+✔ ACK-10 source error diagnostics preserve the provided tuple (0.368386ms)
+✔ legacy ACK guard precedence and issued-but-unsent distinction remain unchanged (0.521477ms)
+✔ FRR fallback accessor does not create absent lanes or invoke snapshot (51.05695ms)
+✔ FRR fallback accessor distinguishes ordinary and plain terminated or downgraded lanes (1.258769ms)
+✔ FRR fallback accessor returns the recorded timeout reason without repeating recovery (1.372149ms)
+✔ FRR fallback accessor returns overflow but not an unrelated lane reason (0.972711ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-1 (1.751184ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-2 (1.706042ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-3 (3.462286ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-4 (2.09226ms)
+✔ PERF-BGSTAB-010 scheduler applies the projected slice, class weights, socket gate, and small-output bypass (1.019427ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-5 (2.738323ms)
+✔ PERF-BGSTAB-010 ledger measures the exact delivery identity envelope placed on the wire (0.687765ms)
+✔ PERF-BGSTAB-010 ledger retains recovery ordering metadata in the fair wire envelope (0.956461ms)
+✔ PERF-BGSTAB-010 transport failure releases the unacknowledgeable ledger entry before authoritative recovery (0.873689ms)
+✔ PERF-BGSTAB-010 per-session delivery identities stay monotonic when a control frame is queued (1.16616ms)
+✔ PERF-BGSTAB-010 fallback delegates recovery without synthetic terminal output (0.934159ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-6 (1.648428ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-7 (1.401214ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-8 (3.887103ms)
+✔ Fair delivery scheduler and ACK credit RED contract — PERF-BGSTAB-010 AC-9 (0.806517ms)
+✔ PERF-BGSTAB-011 credit ledger floors an empty body at one budget byte (0.731412ms)
+✔ PERF-BGSTAB-011 body domain keeps small-output bypass open past the socket soft gate (2.47352ms)
+✔ PERF-BGSTAB-011 body domain charges the deficit only above the bypass threshold (1.280618ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[WS] WebSocket router initialized
+[WS] Client disconnected: source-first
+[WS] Client disconnected: source-second
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR","trigger":"ack-timeout","withPeer":false,"recoveryReady":true,"schedulerPresent":false,"activeLane":null,"postOutput":[{"data":"FRR first after snapshot","screenSeq":42,"chunkId":"2"},{"data":"FRR second after snapshot","screenSeq":43,"chunkId":"3"}],"peerCredit":null}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR","trigger":"ack-timeout","withPeer":true,"recoveryReady":true,"schedulerPresent":true,"activeLane":null,"postOutput":[{"data":"FRR first after snapshot","screenSeq":42,"chunkId":"2"},{"data":"FRR second after snapshot","screenSeq":43,"chunkId":"3"}],"peerCredit":21}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR","trigger":"queue-overflow","withPeer":false,"recoveryReady":true,"schedulerPresent":false,"activeLane":null,"postOutput":[{"data":"FRR first after snapshot","screenSeq":42,"chunkId":"3"},{"data":"FRR second after snapshot","screenSeq":43,"chunkId":"4"}],"peerCredit":null}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR","trigger":"queue-overflow","withPeer":true,"recoveryReady":true,"schedulerPresent":true,"activeLane":null,"postOutput":[{"data":"FRR first after snapshot","screenSeq":42,"chunkId":"3"},{"data":"FRR second after snapshot","screenSeq":43,"chunkId":"4"}],"peerCredit":21}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR-hidden","withPeer":false,"gapEnqueueAttempts":0,"affectedTypes":["output","output"],"output":["hidden-after-one","hidden-after-two"]}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR-hidden","withPeer":true,"gapEnqueueAttempts":0,"affectedTypes":["output","output"],"output":["hidden-after-one","hidden-after-two"]}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-ac6-active-ledger
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-hidden-fence
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: browser wire rejected
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:878:33)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-fair-send-error
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-rejected-ack
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-timeout
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-withdraw
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-hidden-downgrade
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-artifact-rejection
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-rotate
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: late old-epoch callback
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:1239:33)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-fair-callback-rotate
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-last-lane
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-exit
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-queued-exit
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-queued-unsubscribe
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: synchronous candidate send failure
+    at Object.a.ws.send (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:1861:15)
+    at WsRouter.sendRawTransportMessage (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.sendTransportMessage (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6330:10)
+    at WsRouter.sendTo (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:7001:25)
+    at WsRouter.routeSessionOutput (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:5338:12)
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:1866:12)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: candidate callback failure
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:1880:28)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-b
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-c
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fence
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-all-generations
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-production-grandfather
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-direct
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: candidate direct synchronous failure
+    at Object.socket.ws.send (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2085:19)
+    at WsRouter.sendRawTransportMessage (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.drainTerminalResourcePolicyAdmissionQueue (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6829:10)
+    at WsRouter.admitTerminalResourcePolicyCanaryMessage (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:1565:32)
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2090:31)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+[WS] Client disconnected: client-error-direct
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: candidate observe callback failure
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2108:37)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-error-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: candidate enforce synchronous failure
+    at Object.socket.ws.send (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2162:15)
+    at WsRouter.sendRawTransportMessage (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.flushTransportQueue (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6417:10)
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2167:8)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-error-safe-send-enforce
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: candidate callback failure direct
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2208:35)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-auto-resume-direct
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: candidate callback failure safe-send-observe
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2208:35)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-auto-resume-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: candidate callback failure safe-send-enforce
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2208:35)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-auto-resume-safe-send-enforce
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: persistent callback failure direct
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: persistent callback failure direct
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-persistent-direct
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: persistent callback failure safe-send-observe
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: persistent callback failure safe-send-observe
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-persistent-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: persistent callback failure safe-send-enforce
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: persistent callback failure safe-send-enforce
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-persistent-safe-send-enforce
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: persistent synchronous enforce failure
+    at Object.socket.ws.send (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2319:26)
+    at WsRouter.sendRawTransportMessage (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.flushTransportQueue (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6417:10)
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2323:8)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send failed: Error: persistent synchronous enforce failure
+    at Object.socket.ws.send (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2319:26)
+    at WsRouter.sendRawTransportMessage (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.flushTransportQueue (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6417:10)
+    at <anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6636:14)
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:227:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[WS] Client disconnected: client-persistent-sync-enforce
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: rollback boundary callback failure
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2387:37)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-rollback-error-direct
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: rollback queued synchronous failure
+    at Object.socket.ws.send (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2406:19)
+    at WsRouter.sendRawTransportMessage (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.drainTerminalResourcePolicyAdmissionQueue (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6829:10)
+    at onSent (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouter.ts:6515:16)
+    at <anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:56:11)
+    at Object.flushNextSendCallback (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:92:7)
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2410:16)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-rollback-error-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: rollback boundary enforce callback failure
+    at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/ws/WsRouterSendPriority.test.ts:2452:33)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-rollback-error-safe-send-enforce
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-overflow
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-overflow-direct
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-overflow-safe-send-observe
+[WS] WebSocket router initialized
+[WS] Client disconnected: cleanup-0
+[WS] Client disconnected: cleanup-1
+[WS] Client disconnected: cleanup-2
+[WS] Client disconnected: cleanup-3
+[WS] Client disconnected: cleanup-4
+[WS] Client disconnected: cleanup-5
+[WS] Client disconnected: cleanup-6
+[WS] Client disconnected: cleanup-7
+[WS] Client disconnected: cleanup-8
+[WS] Client disconnected: cleanup-9
+[WS] Client disconnected: cleanup-10
+[WS] Client disconnected: cleanup-11
+[WS] Client disconnected: cleanup-12
+[WS] Client disconnected: cleanup-13
+[WS] Client disconnected: cleanup-14
+[WS] Client disconnected: cleanup-15
+[WS] Client disconnected: cleanup-16
+[WS] Client disconnected: cleanup-17
+[WS] Client disconnected: cleanup-18
+[WS] Client disconnected: cleanup-19
+[WS] Client disconnected: cleanup-20
+[WS] Client disconnected: cleanup-21
+[WS] Client disconnected: cleanup-22
+[WS] Client disconnected: cleanup-23
+[WS] Client disconnected: cleanup-24
+[WS] Client disconnected: cleanup-25
+[WS] Client disconnected: cleanup-26
+[WS] Client disconnected: cleanup-27
+[WS] Client disconnected: cleanup-28
+[WS] Client disconnected: cleanup-29
+[WS] Client disconnected: cleanup-30
+[WS] Client disconnected: cleanup-31
+[WS] Client disconnected: cleanup-32
+[WS] Client disconnected: cleanup-33
+[WS] Client disconnected: cleanup-34
+[WS] Client disconnected: cleanup-35
+[WS] Client disconnected: cleanup-36
+[WS] Client disconnected: cleanup-37
+[WS] Client disconnected: cleanup-38
+[WS] Client disconnected: cleanup-39
+[WS] Client disconnected: cleanup-40
+[WS] Client disconnected: cleanup-41
+[WS] Client disconnected: cleanup-42
+[WS] Client disconnected: cleanup-43
+[WS] Client disconnected: cleanup-44
+[WS] Client disconnected: cleanup-45
+[WS] Client disconnected: cleanup-46
+[WS] Client disconnected: cleanup-47
+[WS] Client disconnected: cleanup-48
+[WS] Client disconnected: cleanup-49
+[WS] Client disconnected: cleanup-50
+[WS] Client disconnected: cleanup-51
+[WS] Client disconnected: cleanup-52
+[WS] Client disconnected: cleanup-53
+[WS] Client disconnected: cleanup-54
+[WS] Client disconnected: cleanup-55
+[WS] Client disconnected: cleanup-56
+[WS] Client disconnected: cleanup-57
+[WS] Client disconnected: cleanup-58
+[WS] Client disconnected: cleanup-59
+[WS] Client disconnected: cleanup-60
+[WS] Client disconnected: cleanup-61
+[WS] Client disconnected: cleanup-62
+[WS] Client disconnected: cleanup-63
+[WS] Client disconnected: cleanup-64
+[WS] Client disconnected: cleanup-65
+[WS] Client disconnected: cleanup-66
+[WS] Client disconnected: cleanup-67
+[WS] Client disconnected: cleanup-68
+[WS] Client disconnected: cleanup-69
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+✔ PERF-BGSTAB-011 carries reserved source identity through fair delivery to two clients and a recreated lane (5.641548ms)
+✔ P4a PERF-BGSTAB-011 stale-output-pair preserves legacy rejection identity (131.787254ms)
+✔ P4a PERF-BGSTAB-011 stale-output-pair preserves explicit-legacy rejection identity (129.681894ms)
+✔ P4a PERF-BGSTAB-011 stale-output-pair preserves source rejection identity (109.918217ms)
+✔ P4a PERF-BGSTAB-011 inactive-capability preserves legacy rejection identity (0.477985ms)
+✔ P4a PERF-BGSTAB-011 inactive-capability preserves explicit-legacy rejection identity (0.358366ms)
+✔ P4a PERF-BGSTAB-011 inactive-capability preserves source rejection identity (0.439817ms)
+✔ P4a PERF-BGSTAB-011 stale-connection-epoch preserves legacy rejection identity (93.408861ms)
+✔ P4a PERF-BGSTAB-011 stale-connection-epoch preserves explicit-legacy rejection identity (94.888815ms)
+✔ P4a PERF-BGSTAB-011 stale-connection-epoch preserves source rejection identity (90.934877ms)
+✔ P4a PERF-BGSTAB-011 ACK_OVER_ACK preserves legacy rejection identity (92.670827ms)
+✔ P4a PERF-BGSTAB-011 ACK_OVER_ACK preserves explicit-legacy rejection identity (97.497561ms)
+✔ P4a PERF-BGSTAB-011 ACK_OVER_ACK preserves source rejection identity (105.54093ms)
+✔ P4a PERF-BGSTAB-011 malformed ACK_DOMAIN_CONFLICT warns without dispatch or credit (93.756496ms)
+✔ P4a PERF-BGSTAB-011 malformed ACK_DOMAIN_MISSING warns without dispatch or credit (94.47567ms)
+✔ P4a PERF-BGSTAB-011 malformed ACK_DOMAIN_INVALID warns without dispatch or credit (98.10016ms)
+✔ P4a PERF-BGSTAB-011 actual source ACK handler settles exact body bytes and duplicate zero (132.32281ms)
+✔ FRR ack-timeout snapshot-ready preserves two normal outputs on the last lane (108.75847ms)
+✔ FRR ack-timeout snapshot-ready preserves two normal outputs with an active peer (104.090094ms)
+✔ FRR queue-overflow snapshot-ready preserves two normal outputs on the last lane (98.906099ms)
+✔ FRR queue-overflow snapshot-ready preserves two normal outputs with an active peer (96.142161ms)
+✔ FRR repeated actual maintenance fallback produces only one recovery transaction (90.297798ms)
+✔ FRR stale affected ACKs after recovery return zero credit and preserve the peer (93.149898ms)
+✔ FRR post-fallback unsubscribe prevents new output through real router lifecycle entrypoints (94.7809ms)
+✔ FRR post-fallback session-termination prevents new output through real router lifecycle entrypoints (93.247079ms)
+✔ FRR post-fallback disconnect prevents new output through real router lifecycle entrypoints (92.338052ms)
+✔ FRR hidden-view request after actual timeout recovery preserves compatibility on the last lane (99.00624ms)
+✔ FRR hidden-view request after actual timeout recovery preserves compatibility with a peer (96.312727ms)
+✔ PERF-BGSTAB-010 runtime candidate delivery uses a server ledger and control-only cumulative ACK (89.358627ms)
+✔ PERF-BGSTAB-010 AC-6 unknown-lane ACK keeps an active fair ledger credit unchanged (110.267724ms)
+✔ PERF-BGSTAB-010 refuses fair delivery when the browser cannot recover hidden dropped output (0.545387ms)
+✔ PERF-BGSTAB-010 candidate transport callback failure releases its failed delivery ledger (109.158816ms)
+✔ PERF-BGSTAB-010 invalid or inactive delivery ACKs emit an observable protocol rejection (0.553062ms)
+✔ PERF-BGSTAB-010 runtime maintenance replaces an expired delivery with an authoritative screen-repair snapshot (102.719757ms)
+✔ PERF-BGSTAB-010 capability withdrawal releases every fair ledger and its maintenance timer (98.498124ms)
+✔ PERF-BGSTAB-010 hidden-continuity capability downgrade releases the active fair ledger (104.520673ms)
+✔ PERF-BGSTAB-010 artifact rejection on capability re-admission releases the active fair ledger (102.976858ms)
+✔ PERF-BGSTAB-010 capability re-enable rotates the delivery epoch and rejects delayed old ACKs (181.325077ms)
+✔ PERF-BGSTAB-010 delayed old-epoch transport callback cannot settle a re-enabled scheduler (186.462858ms)
+✔ PERF-BGSTAB-010 last terminated fair lane releases the maintenance timer without disturbing another session (100.706642ms)
+✔ PERF-BGSTAB-010 session termination releases the fair delivery ledger exactly once (92.589243ms)
+✔ PERF-BGSTAB-010 session termination removes queued fair delivery wire frames before transport drain (92.111682ms)
+✔ PERF-BGSTAB-010 unsubscribe removes queued fair delivery and releases the final lane (109.658156ms)
+✔ safe-send drains independent control before queued output backlog (0.913074ms)
+✔ safe-send queues output when projected buffered amount crosses high-water (0.641747ms)
+✔ safe-send closes when projected buffered amount crosses hard limit (0.467302ms)
+✔ safe-send preserves output queued while a previous output send is in flight (0.363237ms)
+✔ REL-BGSTAB-010 AC-6 RED — policy rollback does not direct-flush queued output past an in-flight callback (0.766329ms)
+✔ REL-BGSTAB-010 AC-6 RED — target rollback isolates client B and drains client A callback-by-callback (13.470503ms)
+✔ REL-BGSTAB-010 WS rollback blocks fresh activation until the old callback fence closes (0.871285ms)
+✔ REL-BGSTAB-010 WS rollback fences every pre-boundary generation before closing (0.757142ms)
+✔ REL-BGSTAB-010 production route grandfathers preserved backlog above a smaller candidate cap (0.568771ms)
+✔ REL-BGSTAB-010 explicit admission flushes in direct and observe modes without a permanent queue (0.806675ms)
+✔ REL-BGSTAB-010 direct and observe candidate send failures settle to legacy without forced reconnect (1.620072ms)
+✔ REL-BGSTAB-010 enforce candidate synchronous failure settles only the canary target (0.790835ms)
+✔ REL-BGSTAB-010 candidate callback failure automatically resumes the preserved queue in every mode (2.1017ms)
+✔ REL-BGSTAB-010 persistent candidate callback failure holds the complete boundary without a retry loop (2.700587ms)
+✔ REL-BGSTAB-010 persistent candidate synchronous failure holds the complete boundary without a retry loop (1.281661ms)
+✔ REL-BGSTAB-010 rollback-boundary send failures preserve queued transport in direct and observe modes (1.584596ms)
+✔ REL-BGSTAB-010 enforce rollback callback failure preserves the remaining pre-boundary queue (0.800373ms)
+✔ REL-BGSTAB-010 legacy overflow records rejection before bounded target close cleanup (0.554764ms)
+✔ REL-BGSTAB-010 direct and observe admission overflow fences only the target without reconnect (0.690668ms)
+✔ REL-BGSTAB-010 disconnect cleanup uses measured registries and bounds retained ledgers (6.097252ms)
+✔ safe-send preserves same-session lifecycle ordering behind queued output (0.57364ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: hidden-visibility-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: rel012-authoritative-hidden-client
+[WS] Client disconnected: rel012-peer-interest-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: rel012-revoked-interest-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: rel012-issued-continuity-client
+✔ PERF-BGSTAB-010 atomic authority promotion preserves current identity (2359.509892ms)
+✔ REL-BGSTAB-012 rejects stale visibility and latches ordered dataGap (87.482513ms)
+✔ REL-BGSTAB-012 latches one ordered dataGap after authoritative hidden delivery (103.372105ms)
+✔ REL-BGSTAB-012 settles revoked delivery interest exactly once without pausing producer (86.803559ms)
+✔ REL-BGSTAB-012 binds dataGap to issued continuity and current hidden view (89.033392ms)
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-024 the production WsRouter construction withholds the configured transport mode (1.691806ms)
+✔ REL-BGSTAB-024 the existing test-runner assertion that pins the omission is still present (3.178581ms)
+✔ REL-BGSTAB-024 the configured transport mode still reaches production on two non-routing paths (0.859422ms)
+✔ REL-BGSTAB-024 a router built the way production builds it resolves to unified (2.677875ms)
+✔ REL-BGSTAB-024 split survives as a standalone capability when the router is constructed with it (0.449278ms)
+✔ REL-BGSTAB-024 the browser and the server disagree on the transport query parameter name (1.029191ms)
+✔ REL-BGSTAB-024 the canonical transport parser is absent from the production upgrade path (0.983399ms)
+✔ REL-BGSTAB-024 the binary wire format is eligible only on the unified transport (0.216565ms)
+ℹ tests 281
+ℹ suites 0
+ℹ pass 269
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 2
+ℹ todo 0
+ℹ duration_ms 14590.340213
+
+✖ failing tests:
+
+test at src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts:1:2490
+✖ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy (2.489903ms)
+  AssertionError [ERR_ASSERTION]: server build must emit the compiled canary before this assertion means anything
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts:76:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts:1:2565
+✖ PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle and rejects escaped references (1496.267676ms)
+  Error: ENOENT: no such file or directory, lstat '/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/dist'
+      at async lstat (node:internal/fs/promises:1734:18)
+      at async Promise.all (index 0)
+      at async checkPaths (node:internal/fs/cp/cp:77:39)
+      at async cpFn (node:internal/fs/cp/cp:66:17)
+      at async createPortableCanonicalAuthority (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts:48:5)
+      at async TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts:86:19)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'lstat',
+    path: '/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/dist'
+  }
+
+test at src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts:2:297
+✖ PERF-BGSTAB-010 portable compiled Canary accepts fresh canonical authority (1179.223732ms)
+  Error: ENOENT: no such file or directory, lstat '/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/dist'
+      at async lstat (node:internal/fs/promises:1734:18)
+      at async Promise.all (index 0)
+      at async checkPaths (node:internal/fs/cp/cp:77:39)
+      at async cpFn (node:internal/fs/cp/cp:66:17)
+      at async createPortableCanonicalAuthority (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts:48:5)
+      at async TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts:144:19)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'lstat',
+    path: '/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/dist'
+  }
+
+test at src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts:3:297
+✖ PERF-BGSTAB-010 one-field authority identity drift rejects default admission (4.306123ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/dist/services/TerminalResourcePolicyCanary.js' imported from /tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerEvidenceBundleRuntime.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at nextResolve (node:internal/modules/esm/hooks:785:28)
+      at resolveBase (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/node_modules/tsx/dist/esm/index.mjs?1789656866627:2:3744)
+      at async resolveDirectory (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/node_modules/tsx/dist/esm/index.mjs?1789656866627:2:4237)
+      at async resolve (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/node_modules/tsx/dist/esm/index.mjs?1789656866627:2:5355)
+      at async nextResolve (node:internal/modules/esm/hooks:785:22)
+      at async AsyncLoaderHooksOnLoaderHookWorker.resolve (node:internal/modules/esm/hooks:269:24)
+      at async handleMessage (node:internal/modules/esm/worker:251:18) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/dist/services/TerminalResourcePolicyCanary.js'
+  }
+
+test at src/benchmarks/FairSchedulerSourceProvenanceRuntime.test.ts:1:2022
+✖ PERF-BGSTAB-010 compiled runtime validates the published artifact through build provenance (5.038706ms)
+  AssertionError [ERR_ASSERTION]: server build must emit the compiled fair-scheduler source provenance manifest
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerSourceProvenanceRuntime.test.ts:68:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/benchmarks/FairSchedulerSourceProvenanceRuntime.test.ts:1:3378
+✖ PERF-BGSTAB-010 runtime policy profile default admission uses current authority identity (0.925096ms)
+  AssertionError [ERR_ASSERTION]: PERF-BGSTAB-010 compiled default admission must bind the effective RuntimeConfigStore WebSocket profile
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerSourceProvenanceRuntime.test.ts:106:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/benchmarks/FairSchedulerSourceProvenanceRuntime.test.ts:1:5210
+✖ PERF-BGSTAB-010 source-dist canonical authority parity fails closed (1462.728099ms)
+  Error: ENOENT: no such file or directory, lstat '/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/dist'
+      at async lstat (node:internal/fs/promises:1734:18)
+      at async Promise.all (index 0)
+      at async checkPaths (node:internal/fs/cp/cp:77:39)
+      at async cpFn (node:internal/fs/cp/cp:66:17)
+      at async TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/benchmarks/FairSchedulerSourceProvenanceRuntime.test.ts:208:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'lstat',
+    path: '/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/dist'
+  }
+
+test at src/services/TerminalResourcePolicy.test.ts:1:16278
+✖ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6 (1116.57347ms)
+  Error: required terminal resource consumer signature missing: frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage
+      at discoverTerminalResourceInventory (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/TerminalResourcePolicyInventory.ts:1278:13)
+      at async TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/TerminalResourcePolicy.test.ts:408:26)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at src/services/TerminalResourcePolicy.test.ts:3:2737
+✖ OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites (216.451371ms)
+  Error: required terminal resource consumer signature missing: frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage
+      at discoverTerminalResourceInventory (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/TerminalResourcePolicyInventory.ts:1278:13)
+      at async TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/TerminalResourcePolicy.test.ts:922:21)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at src/services/TerminalResourcePolicy.test.ts:15:520
+✖ OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope (238.141997ms)
+  Error: required terminal resource consumer signature missing: frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage
+      at discoverTerminalResourceInventory (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/TerminalResourcePolicyInventory.ts:1278:13)
+      at async TestContext.<anonymous> (/tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/server/src/services/TerminalResourcePolicy.test.ts:1149:21)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
