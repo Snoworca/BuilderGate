@@ -193,7 +193,7 @@ test('grace flush applies the current server snapshot before the held tail and o
 // `visibleOutputRecovery`'s `authoritative-snapshot-applied` / `output-arrived`
 // path, covered by 'visible output recovery drops a snapshot-covered late chunk
 // before cap accounting'. This lane must not pre-empt it.
-test('grace flush forwards the whole held tail in arrival order and leaves snapshot-coverage pruning downstream', () => {
+test('the grace buffer holds the whole tail in arrival order and leaves snapshot-coverage pruning downstream', () => {
   const restore = restoreNeeded();
   const state = applyAll([restore, output('pre'), snapshotFor(restore), output('post')]);
 
@@ -317,34 +317,129 @@ test('grace flush treats reconnect-required as terminal: no snapshot, tail or re
   assert.deepEqual(recorded.calls, ['reconnect-required']);
 });
 
-// AC-6 / AC-8. Repeated remount must not let an earlier generation's held tail
-// reach the new view. Each flush consumes its own state; the caller starts the
-// next grace interval from a fresh one.
-test('a repeated remount cycle does not replay an earlier generation held tail into the new view', () => {
-  const firstRestore = restoreNeeded();
-  const first = applyAll([firstRestore, snapshotFor(firstRestore), output('first-tail'), ready(firstRestore)]);
-  const firstRecorded = recordingHandlers();
-  flushGraceBufferedSession(first, firstRecorded.handlers);
-  assert.deepEqual(firstRecorded.calls, ['restore-needed', 'snapshot', 'output:first-tail', 'ready']);
-
-  const secondRestore = restoreNeeded({
+function secondGeneration(
+  overrides: Partial<ScreenRepairRestoreNeededMessage> = {},
+): ScreenRepairRestoreNeededMessage {
+  return restoreNeeded({
     repairToken: 'repair-2',
     replayToken: 'replay-2',
     snapshotSeq: 9,
     coversThroughSeq: 9,
     authorityRevision: 4,
+    ...overrides,
   });
-  const second = applyAll([
-    secondRestore,
-    snapshotFor(secondRestore),
-    output('second-tail', { replayToken: secondRestore.replayToken }),
-    ready(secondRestore),
-  ]);
-  const secondRecorded = recordingHandlers();
-  flushGraceBufferedSession(second, secondRecorded.handlers);
+}
 
-  assert.deepEqual(secondRecorded.calls, ['restore-needed', 'snapshot', 'output:second-tail', 'ready']);
-  assert.equal(secondRecorded.calls.includes('output:first-tail'), false);
+// AC-5. Production reuses the map entry for a session across grace intervals —
+// `bufferGraceMessage` does `get(sessionId) ?? create`. So the purge that
+// matters is the in-place one on the new-generation reset, and a test that
+// builds a second state object proves nothing about it. This one holds a single
+// state across both generations, exactly as the caller does.
+test('a new restore generation purges the previous generation held tail from the same session state', () => {
+  const firstRestore = restoreNeeded();
+  let state = applyAll([firstRestore, snapshotFor(firstRestore), output('first-tail')]);
+  assert.deepEqual(state.output.map(entry => entry.data), ['first-tail']);
+
+  const secondRestore = secondGeneration();
+  state = applyAll(
+    [
+      secondRestore,
+      snapshotFor(secondRestore),
+      output('second-tail', { replayToken: secondRestore.replayToken }),
+      ready(secondRestore),
+    ],
+    state,
+  );
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+
+  assert.deepEqual(recorded.calls, ['restore-needed', 'snapshot', 'output:second-tail', 'ready']);
+  assert.equal(recorded.calls.includes('output:first-tail'), false);
+  assert.equal(state.outputBytes, getOutputUtf8ByteLength('second-tail'));
+});
+
+// AC-5. The duplicate-restore short circuit must key on all three of
+// repairToken / replayToken / snapshotSeq. Keying on the token alone would
+// swallow a re-issued restore for a NEW generation as a duplicate, and the
+// previous generation's tail would survive into it.
+test('a re-issued restore with the same repair token but a new replay generation is not treated as a duplicate', () => {
+  const firstRestore = restoreNeeded();
+  let state = applyAll([firstRestore, snapshotFor(firstRestore), output('first-tail')]);
+
+  const reissued = secondGeneration({ repairToken: firstRestore.repairToken });
+  state = applyGraceBufferedMessage(state, SESSION_ID, reissued);
+
+  assert.equal(state.restoreNeeded?.replayToken, reissued.replayToken);
+  assert.deepEqual(state.output, [], 'the superseded generation tail is purged');
+  assert.equal(state.outputBytes, 0);
+  assert.equal(state.snapshot, undefined);
+});
+
+// AC-3. A replacement snapshot invalidates the ready token latched for the
+// generation it replaces. Without that, the input gate opens on a stale
+// generation.
+test('a replacement snapshot invalidates the ready token latched for the generation it replaces', () => {
+  const restore = restoreNeeded();
+  let state = applyAll([restore, snapshotFor(restore), ready(restore)]);
+  assert.notEqual(state.ready, undefined, 'the ready token is latched first');
+
+  // The same generation's snapshot re-sent (a repeat of the authoritative
+  // frame) must not leave the earlier ready token standing.
+  state = applyGraceBufferedMessage(state, SESSION_ID, snapshotFor(restore, { data: 'SNAPSHOT-2' }));
+  assert.equal(state.ready, undefined);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.equal(recorded.calls.includes('ready'), false, 'the input gate stays shut on the stale token');
+});
+
+// AC-2. `hasValidAuthorityProof` is fail-closed, and this is the branch that
+// enforces it: a restore-needed frame that carries no usable proof must not
+// engage the barrier on an unproven authority.
+test('a restore-needed frame with no authority proof is rejected rather than engaging the barrier', () => {
+  const unproven: ScreenRepairRestoreNeededMessage = {
+    ...restoreNeeded(),
+    authorityEpoch: undefined,
+    authorityRevision: undefined,
+    coversThroughSeq: undefined,
+  };
+  const state = applyAll([unproven, output('tail'), ready(restoreNeeded())]);
+
+  assert.equal(state.restoreNeeded, undefined, 'the unproven frame is not adopted');
+  assert.equal(state.authorityProofMismatch, true);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.deepEqual(recorded.calls, ['proof-mismatch']);
+});
+
+// AC-2. Discarding the generation is only half the contract: it has to STAY
+// discarded. A chunk arriving after the overflow must not restart accounting.
+test('held output arriving after an overflow does not re-accumulate into the discarded generation', () => {
+  const maxChunks = getTerminalResourceLimits().visibleOutputMaxChunks;
+  const restore = restoreNeeded();
+
+  let state = applyAll([restore, snapshotFor(restore)]);
+  for (let index = 0; index <= maxChunks; index += 1) {
+    state = applyGraceBufferedMessage(state, SESSION_ID, output('x'));
+  }
+  assert.equal(state.outputOverflowReason, 'chunk-cap-exceeded');
+
+  state = applyGraceBufferedMessage(state, SESSION_ID, output('late'));
+  assert.deepEqual(state.output, []);
+  assert.equal(state.outputBytes, 0);
+  assert.equal(state.outputOverflowReason, 'chunk-cap-exceeded');
+});
+
+// AC-2. `reconnect-required` is terminal, so the buffer must stop admitting —
+// otherwise it keeps growing on a generation that can never be delivered.
+test('held output arriving after reconnect-required is not admitted', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([restore, snapshotFor(restore), reconnectRequired(), output('after')]);
+
+  assert.deepEqual(state.output, []);
+  assert.equal(state.outputBytes, 0);
 });
 
 // AC-2. An authority proof mismatch discards the generation and asks for a
