@@ -469,10 +469,18 @@ const registeredCorpusSize = Object.freeze({
   frontend: requiredFrontendRelTestNames.length + frontendLineageTestNames.length,
 });
 
+// `consumerAcMatrix.exactCells` was a bare `18` -- a hand transcription of
+// `consumerAcMatrixSpecs.length`, the same shape as the `exactTests: 42/133` pins replaced two
+// lines above. It was PRE-EXISTING and outside the round that removed those, and it is closed here
+// because it is the identical defect class: a live quantity retyped as a literal, whose cheapest
+// repair on a red is to retype it again. Non-emptiness is asserted below, because a universal
+// claim over an empty spec list is true and `exactCells: 0` would make the matrix gate vacuous.
+assert.ok(consumerAcMatrixSpecs.length > 0, 'the consumer x AC matrix spec list is empty');
+
 const activationThresholds = Object.freeze({
   serverFocused: Object.freeze({ minimumTests: registeredCorpusSize.server, maximumFailures: 0 }),
   frontendFocused: Object.freeze({ minimumTests: registeredCorpusSize.frontend, maximumFailures: 0 }),
-  consumerAcMatrix: Object.freeze({ exactCells: 18, maximumFailed: 0 }),
+  consumerAcMatrix: Object.freeze({ exactCells: consumerAcMatrixSpecs.length, maximumFailed: 0 }),
   inputHashMismatches: Object.freeze({ maximum: 0 }),
   productionStableProfiles: Object.freeze({ minimumPerConsumer: 1 }),
 });
@@ -606,7 +614,13 @@ for (const lane of ['server', 'frontend']) {
     assert.equal(operands.includes(entry.path), true,
       `${entry.path} is declared as a supporting operand of the ${lane} lane but the lane does not run it`);
   }
-  const requirementBearingInLane = requirementBearingTestSourcePaths
+  // Built from the EXECUTED paths, not from the executed-plus-declared-elsewhere union. The union
+  // made this axis weaker than the artifact it guards: a path the guard declares as "verified
+  // elsewhere, not executed here" could be added to a lane's args and stay green while
+  // `executedRequirementBearingFiles` in the published artifact kept saying it is not executed
+  // here. Off the executed list such an operand is neither requirement-bearing nor declared
+  // supporting, so it reddens on the next assertion.
+  const requirementBearingInLane = executedRequirementBearingTestSourcePaths
     .filter(path => path.startsWith(`${lane}/`))
     .map(path => path.slice(`${lane}/`.length));
   for (const operand of operands) {
@@ -680,7 +694,11 @@ for (const [lane, command] of Object.entries(focusedCommands)) {
 // and the elided script body is not compared to anything. A change to the eval script therefore
 // does not move `value`. That script's OUTPUT is separately pinned -- `inspectRuntime` hashes the
 // child's stdout into `productionRuntimeRegistry.*.stdoutSha256` and the snapshot shape is
-// asserted -- so a behavioural change in the script surfaces there, not here.
+// asserted -- so a behavioural change in the script surfaces there, not here. Flag ORDER and flag
+// VALUES are also not checked: the comparison is between sets of `--`-prefixed tokens, so
+// reordering the flags, or changing a `--flag=value` to a different value while keeping the same
+// token, is not distinguished here beyond the token text itself, and non-`--` operands other than
+// the single elided `--eval` argument are covered only by the arity assertion above.
 for (const [lane, command] of Object.entries(runtimeInspectionCommands)) {
   const placeholders = [...command.value.matchAll(/<[^<>]*>/gu)];
   assert.equal(placeholders.length, 1,
@@ -697,10 +715,15 @@ for (const [lane, command] of Object.entries(runtimeInspectionCommands)) {
     .filter(token => token.startsWith('--'));
   assert.ok(declaredFlags.includes('--eval'),
     `the ${lane} runtime inspection command's value does not declare --eval`);
-  for (const flag of declaredFlags) {
-    assert.equal(command.args.includes(flag), true,
-      `the ${lane} runtime inspection command declares ${flag} in its sealed value but does not pass it`);
-  }
+  // BOTH directions. Asserting only value-flags-appear-in-args left the converse open: a loader
+  // flag added to `args` (`--conditions`, `--import`, `--no-warnings`) would never have to appear
+  // in the sealed `value`, and the artifact would keep publishing a command string that omits it.
+  // Comparing the two sets sorted reddens either way round.
+  assert.deepEqual(
+    sorted([...new Set(declaredFlags)]),
+    sorted([...new Set(command.args.filter(arg => arg.startsWith('--')))]),
+    `the ${lane} runtime inspection command's sealed value and spawned args declare different flags`,
+  );
 }
 
 const serverRun = runCommand(focusedCommands.server);
