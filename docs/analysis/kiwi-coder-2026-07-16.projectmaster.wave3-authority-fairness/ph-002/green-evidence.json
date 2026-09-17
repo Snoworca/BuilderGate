@@ -10,19 +10,19 @@
     "T-PH002-05",
     "T-PH002-06"
   ],
-  "capturedAt": "2026-07-16T20:15:59.323Z",
+  "capturedAt": "2026-09-17T17:53:05.877Z",
   "commands": [
     {
       "cwd": "server",
       "value": "npx tsx --test src/services/TerminalResourcePolicyCanary.test.ts src/ws/WsRouterSendPriority.test.ts src/ws/WsRouterRestoreMetadata.test.ts src/ws/wsSendPolicyRestoreMetadata.test.ts",
       "exitCode": 0,
       "result": {
-        "total": 42,
-        "passed": 42,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "todo": 0
+        "todo": 0,
+        "registeredTestNames": 37,
+        "registeredResultSha256": "e8d8a4c3bb9ce849b9d89652f19b166efa7702ab1edf82cd3d1eb44aab00eb4d"
       }
     },
     {
@@ -30,12 +30,12 @@
       "value": "node --experimental-strip-types --test tests/unit/terminalOutputScheduler.test.ts tests/unit/terminalViewRecoveryContract.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/visibleOutputRecovery.test.ts",
       "exitCode": 0,
       "result": {
-        "total": 133,
-        "passed": 133,
         "failed": 0,
         "cancelled": 0,
         "skipped": 0,
-        "todo": 0
+        "todo": 0,
+        "registeredTestNames": 38,
+        "registeredResultSha256": "0f8c38477c8796cfd9a1005081995cb7ee374074ac4581b64d3ee4ce5b902384"
       }
     },
     {
@@ -87,35 +87,35 @@
     "files": [
       {
         "path": "server/src/services/TerminalResourcePolicyCanary.test.ts",
-        "sha256": "b6257fac889a92ccc7c7775a692b613fa79c68f2ba93e40a5385ff9175a84072"
+        "sha256": "6d94b08c702db30657665017fe27db5cf926c2e0a25d1b043039235d4d29a49a"
       },
       {
         "path": "server/src/ws/WsRouterSendPriority.test.ts",
-        "sha256": "9e0411924491fe8f8004ff18fe2fda8676a2d3d5539e3b418b289d063d33b6e2"
+        "sha256": "e00af9630a83ba603569b8d138bc10a1f909461f66cad389aea9a006a1945a4f"
       },
       {
         "path": "server/src/ws/WsRouterRestoreMetadata.test.ts",
-        "sha256": "593dd4959a447de2f4b68e97461fe42a0c4c0e65d346805ef8ec0396419c0be4"
+        "sha256": "2bd6374cca86ed448ebaa9638c910985298e5439506489b683e4ebeb934d8c6b"
       },
       {
         "path": "server/src/ws/wsSendPolicyRestoreMetadata.test.ts",
-        "sha256": "6ab3e7fe2c9dd34e5fc26373a0687438c05950559f36c21048db75cf18975def"
+        "sha256": "ac89f32a2b3677cb3b6860e95a36b6e438792df0f09670abeccb2cb629fbd6fe"
       },
       {
         "path": "frontend/tests/unit/terminalOutputScheduler.test.ts",
-        "sha256": "df9900b78eb60773faa011a11d269a0ce5d347e1b0e9db7c001beeed311ebd01"
+        "sha256": "b6c0150f31677092bb5b51c2e8e69103932b0b152cd8094deb3d63b896bda1a5"
       },
       {
         "path": "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
-        "sha256": "a3bfaf08d5b6b6db34546d0d1994ee311959077a74b268c0c638def3c0d3af68"
+        "sha256": "ebf0f104bd35f251e0a743326a7f0b969da02e30de880164b1f1c3ba974853c9"
       },
       {
         "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
-        "sha256": "f1a5812def96d504ebdd833159716caeae3fa9e0c076cf405e7318dc97faf5c2"
+        "sha256": "b6976377084085fb3b6006d9067f8aaefd4956ac0e209cd511c29e164236e773"
       },
       {
         "path": "frontend/tests/unit/visibleOutputRecovery.test.ts",
-        "sha256": "08b52cdbcfcd58d7cd2fd3393e6b356c9db466008728f9dd76ae11f0968ca796"
+        "sha256": "9d762b915f6b34cd2f3b6ad5ca6ca8577422b59129f06ee54cef0b5e91217809"
       }
     ],
     "requirementBearingFiles": [
@@ -123,7 +123,26 @@
       "server/src/ws/WsRouterSendPriority.test.ts",
       "frontend/tests/unit/terminalOutputScheduler.test.ts",
       "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
+      "frontend/tests/unit/terminalOutputAckCompletion.test.ts",
+      "server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts"
+    ],
+    "executedRequirementBearingFiles": [
+      "server/src/services/TerminalResourcePolicyCanary.test.ts",
+      "server/src/ws/WsRouterSendPriority.test.ts",
+      "frontend/tests/unit/terminalOutputScheduler.test.ts",
+      "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
       "frontend/tests/unit/terminalContainerRecoveryContract.test.ts"
+    ],
+    "requirementBearingFilesVerifiedElsewhere": [
+      {
+        "path": "frontend/tests/unit/terminalOutputAckCompletion.test.ts",
+        "reason": "Added by REL-BGSTAB-009 (commit 5abfc4c) for stale output-completion ACK suppression. It cites REL-BGSTAB-010 as the neighbouring authority contract rather than asserting one of its acceptance criteria, and it owns no consumer x AC matrix cell."
+      },
+      {
+        "path": "server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts",
+        "reason": "REL-BGSTAB-010 AC-7 consumer registration contract. AC-7 is not a per-consumer transition criterion and owns no cell in the AC-1..AC-6 consumer x AC matrix this guard computes; it is carried by its own named suite and its own verification evidence row."
+      }
     ],
     "requiredRelTestNames": {
       "server": [
@@ -201,10 +220,10 @@
         "server RED — split surrogate chunks never produce invalid UTF-8 source offsets"
       ],
       "frontend": [
-        "TerminalContainer never ACKs a TerminalView restore-buffer rejection as an applied snapshot",
+        "TerminalContainer keeps restore-buffer failure non-ACKable while acknowledging only a checkpoint takeover",
         "TerminalView propagates restore-buffer failure as FAILED_HELD without allowing live-output overtake",
         "TerminalView refuses FAILED_HELD convergence when coverage identity is unproven",
-        "TerminalView leaves FAILED_HELD ownership untouched on reset throw or replay-probe timeout",
+        "TerminalView leaves FAILED_HELD ownership untouched on reset throw or sole-writer rejection",
         "TerminalView restore replay is fenced by exact attempt epoch and xterm identity",
         "TerminalView resets scheduler and ingress retry ownership on terminal identity change and cleanup",
         "restore-needed and snapshot authority proof is exact and fail-closed",
@@ -213,117 +232,14 @@
       ]
     },
     "excludedPassingTests": {
-      "server": [
-        "safe-send closes when projected buffered amount crosses hard limit",
-        "safe-send drains independent control before queued output backlog",
-        "safe-send preserves output queued while a previous output send is in flight",
-        "safe-send preserves same-session lifecycle ordering behind queued output",
-        "safe-send queues output when projected buffered amount crosses high-water"
-      ],
-      "frontend": [
-        "chunk compaction never moves a FIFO barrier behind later output",
-        "chunk compaction tracks callback byte offsets even at a one-chunk limit",
-        "FIFO completion barrier is attached to the current boundary, not later output",
-        "Frontend stale/resync barrier RED 계약 — AC-10",
-        "Frontend stale/resync barrier RED 계약 — AC-11",
-        "Frontend stale/resync barrier RED 계약 — AC-2",
-        "Frontend stale/resync barrier RED 계약 — AC-3",
-        "Frontend stale/resync barrier RED 계약 — AC-5",
-        "Frontend stale/resync barrier RED 계약 — AC-6",
-        "no-active reconnect-required invalidates legacy speculative repair before installing its barrier",
-        "PERF-BGSTAB-008 AC-1 GREEN contract",
-        "PERF-BGSTAB-008 AC-1 RED contract",
-        "PERF-BGSTAB-008 AC-2 GREEN contract",
-        "PERF-BGSTAB-008 AC-2 RED contract",
-        "Remount adapter RED — fault input barrier",
-        "Remount adapter RED — grace authority barrier",
-        "Remount adapter RED — live/restore non-overlap",
-        "Remount adapter RED — normal path compatibility",
-        "Remount adapter RED — null-ref dispose ownership",
-        "Remount adapter RED — parser and Unicode corpus",
-        "replacement authoritative convergence is serialized behind in-flight speculative writes",
-        "replacement authoritative identity bypasses duplicate content optimization while recovery is blocking",
-        "replacement authoritative identity is reapplied even when seq and content are unchanged",
-        "replacement-socket authoritative ACK plus matching ready resets the recovery budget",
-        "restore-needed and reconnect-required terminate the legacy repair in-flight suppression",
-        "terminal output FIFO proof never retires a newer active write",
-        "terminal output scheduler can update queue limits without recreating the instance",
-        "terminal output scheduler does not split multibyte code points",
-        "terminal output scheduler drains multiple chunks in one frame until the frame time budget is reached",
-        "terminal output scheduler exposes a default frame time budget in the 6-8ms range",
-        "terminal output scheduler overflow includes already queued bytes in dropped count",
-        "terminal output scheduler preserves callback ordering after full chunk writes",
-        "terminal output scheduler reports overflow instead of accumulating unbounded output",
-        "terminal output scheduler reset cancels queued callbacks",
-        "terminal output scheduler reset fences a queued animation-frame callback before remount",
-        "terminal output scheduler retires a lost in-flight write only after FIFO proof",
-        "terminal output scheduler still makes progress when browser input stays pending",
-        "terminal output scheduler writes queued output within the flush budget",
-        "terminal output scheduler yields a flush turn while browser input is pending",
-        "terminal output scheduler yields the current frame when input becomes pending during a multi-chunk drain",
-        "TerminalContainer applies visible resync output admission in the production handler",
-        "TerminalContainer binds Container and TerminalView adapters to one recovery identity",
-        "TerminalContainer bounds authority recovery retries and resets them only after matching ready plus ACK",
-        "TerminalContainer completion probe writes an empty frame to the same xterm FIFO",
-        "TerminalContainer does not clear hidden output recovery after fallback placeholder",
-        "TerminalContainer does not finish visible recovery after fallback snapshot placeholder",
-        "TerminalContainer does not suppress authoritative repair while visible recovery is pending",
-        "TerminalContainer does not suppress recent repair while visible recovery is pending",
-        "TerminalContainer fences stale snapshot tokens before terminal replacement",
-        "TerminalContainer forces current replay snapshot past legacy content dedup",
-        "TerminalContainer keeps active resync isolated from late legacy repair callbacks",
-        "TerminalContainer keeps legacy repair recovery blocked when ready ACK send fails",
-        "TerminalContainer keeps queued input deferred while visible output recovery is blocking",
-        "TerminalContainer keeps snapshot recovery blocked when ready ACK send fails",
-        "TerminalContainer leaves provisional fallback unacked for bounded server reconnect",
-        "TerminalContainer makes duplicate restore-needed idempotent and fences snapshot sequence",
-        "TerminalContainer maps visible output recovery into the input transport barrier",
-        "TerminalContainer only finishes visible recovery after authoritative snapshot or local restore success",
-        "TerminalContainer preserves absent normal-wire screen sequence as unknown",
-        "TerminalContainer production recovery requests a token-fenced fresh snapshot and real reconnect",
-        "TerminalContainer rejects late authoritative snapshots after the active recovery is terminally failed",
-        "TerminalContainer retries queued input after visible output recovery finishes",
-        "TerminalContainer serializes legacy and hidden mutations before server authority",
-        "TerminalContainer settles the live-lane idle fence before resetting visible output",
-        "TerminalContainer uses runtime terminal limits for transport outbox budget and TTL",
-        "TerminalContainer uses runtime-configured transport outbox limits",
-        "TerminalView allows screen repair readiness while visible output recovery barrier is active",
-        "TerminalView bounds restore-pending output and drains segmented chunks without join",
-        "TerminalView live output idle uses a bounded FIFO fallback and retires the proven scheduler write",
-        "TerminalView plain Space and Backspace delegation does not rebuild input debug payload",
-        "TerminalView replay writes use a bounded same-xterm FIFO probe before releasing the lease",
-        "TerminalView suppresses parser replies during replay without silently dropping user onData",
-        "TerminalView uses runtime terminal limits for input queue budget and TTL",
-        "TerminalView uses runtime-configured input queue limits",
-        "TerminalView visible output scheduler uses cached runtime output limits",
-        "UTF-8 segmented queue RED 계약 — AC-1",
-        "UTF-8 segmented queue RED 계약 — AC-10",
-        "UTF-8 segmented queue RED 계약 — AC-2",
-        "UTF-8 segmented queue RED 계약 — AC-3",
-        "UTF-8 segmented queue RED 계약 — AC-4",
-        "UTF-8 segmented queue RED 계약 — AC-5",
-        "UTF-8 segmented queue RED 계약 — AC-6",
-        "UTF-8 segmented queue RED 계약 — AC-7",
-        "visible output mutation fence keeps authoritative replacement last",
-        "visible output recovery drops a snapshot-covered late chunk before cap accounting",
-        "visible output recovery exposes a transport barrier while pending or stale",
-        "visible output recovery ignores duplicate overflow while pending and clears on finish",
-        "visible output recovery keeps input blocked when abandoning a stale terminal view",
-        "visible output recovery retries failed replay sends before abandoning",
-        "visible output recovery seals terminal faults and releases held payloads",
-        "visible recovery retry budget is bounded across transactions and resets only after convergence",
-        "visible resync output admission separates tagged recovery from normal live output",
-        "WebSocket grace fences replay generations and makes reconnect terminal",
-        "WebSocket grace installs restore barrier before subscribed-ready and preserves duplicate chunks",
-        "WebSocket grace recovery state is discarded before a replacement socket resubscribes"
-      ],
-      "reason": "focused-file regression context outside REL-BGSTAB-010 and the explicitly registered authority-lineage corpus"
+      "sealed": false,
+      "reason": "Sibling tests in the focused files outside REL-BGSTAB-010 and the registered authority-lineage corpus. Their names and count belong to other requirements and move independently of this one, so they are printed on every run and never sealed."
     }
   },
   "implementationInputs": [
     {
       "path": "server/src/index.ts",
-      "sha256": "c01462baf96394d5c11dc125f8f34822abe6c53531f4ffa5780d2d12c94bcdf9"
+      "sha256": "9f4a12aed9dad1589c0c1dd201b46cb8da30bc7e098df5f9260a71df9306db29"
     },
     {
       "path": "server/src/services/TerminalResourcePolicyRuntime.ts",
@@ -331,19 +247,19 @@
     },
     {
       "path": "server/src/services/TerminalResourcePolicyCanary.ts",
-      "sha256": "1a511626b5b7814b20d30672b0ff1ab0b328ae70c9c44130a4c13ff934796402"
+      "sha256": "f8d79247bf47b03a5f9613134cea7b5c9516caccdea41b694c55e3870767a2f1"
     },
     {
       "path": "server/src/services/TerminalResourcePolicy.ts",
-      "sha256": "ea4bcab84cb299dba662dd59163af873cbf4510b48fb603538b60e881274e7f8"
+      "sha256": "f42db1034489cfa101d0596694a4f8eddd15629bb41c35a192b79d4555feadfa"
     },
     {
       "path": "server/src/services/RuntimeConfigStore.ts",
-      "sha256": "466442cdde123f3d162b1c8e966085d9542cb59ad66ea7215782802ea7ff6530"
+      "sha256": "f8141caa53894f31ff4d84f687af9350ec8e8af0904ebfdaacf52bca055eaf13"
     },
     {
       "path": "server/src/services/SessionManager.ts",
-      "sha256": "ca752793a40d5d2d561071a9fb18be42b5f82d4fe07840d0f33b28f5bb03b6f8"
+      "sha256": "968a1b39bb9273f1d34a0d458b1c9f10d525879a5f7904346ec290e483ad5eea"
     },
     {
       "path": "server/src/utils/boundedByteDeque.ts",
@@ -355,23 +271,23 @@
     },
     {
       "path": "server/src/ws/WsRouter.ts",
-      "sha256": "7217600bf1580e477519e5af73c042ece4c48e697046ffa70dcc923588bcd140"
+      "sha256": "e2ae4af70060376e8083078d435dac7248f5aa45f53146eff83811f1123c46ae"
     },
     {
       "path": "server/src/ws/wsSendPolicy.ts",
-      "sha256": "7ffe6f580e30f0a903c76742c6ba6344b3f9424b8812a82b62eff2b2a92e05bb"
+      "sha256": "d8161ec40992dfaabc0285fa39d29299b933133931e5be05197eefa7fc258939"
     },
     {
       "path": "server/src/types/ws-protocol.ts",
-      "sha256": "cba248f348ad0e57b1fbc03513b5fbbcf508eb023160df4b8ae1605233ce0465"
+      "sha256": "dda483db497b7103b7e909c621c57c7e9d43a2faca862badc9e3e61269161460"
     },
     {
       "path": "frontend/src/contexts/WebSocketContext.tsx",
-      "sha256": "a7b6cfa13a852bef94bfb30668826407452956e79354a6da879380a7492680ab"
+      "sha256": "31626bdd2181c14ef3ab048ab70d07c18c74f1e3232a327ed49cf15cd1268d4b"
     },
     {
       "path": "frontend/src/types/ws-protocol.ts",
-      "sha256": "3f76033ad84a2879bf6dc3334a00fde2147dbd332323a9f2e179cc3d5c8eb0ef"
+      "sha256": "04c87cc0609fda1a56b988263d28ac827de016546d6c98cbd79f1fd6a5c43c57"
     },
     {
       "path": "frontend/src/components/Terminal/TerminalRuntimeContext.tsx",
@@ -379,24 +295,24 @@
     },
     {
       "path": "frontend/src/components/Terminal/TerminalView.tsx",
-      "sha256": "49dd100e9e937c26bda188633c6d6448b1e6be3518eba43f7d81912168394a14"
+      "sha256": "9d449864006761bd350c8ad31e39db2f0262591e7ff854ad3df36f22cc6a1c32"
     },
     {
       "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
-      "sha256": "5903d483e5d0e33fa6df4fd0f2c9bfd70e8329816a650246c7b521d3a79f668f"
+      "sha256": "77aec12d2be652764006ad41174b0e43e59b8a216e9f3f86df07832141efe1be"
     },
     {
       "path": "frontend/src/utils/terminalOutputScheduler.ts",
-      "sha256": "f5b579f8bffe2e466ce318114477b9fb0edcae87ec720dd068af353f5867692f"
+      "sha256": "a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6"
     },
     {
       "path": "frontend/src/utils/visibleOutputRecovery.ts",
-      "sha256": "c04be7f92dfb7ee8bd1dcf0ac5c56ae992cb87613be8dde601257c2fff496171"
+      "sha256": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855"
     }
   ],
   "trustedObservationManifest": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json",
-    "sha256": "2dfec602f8e22db0569e5ff67f75bceada37d1959af38ecdb52441ebca7b3b57",
+    "sha256": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
     "requirementId": "OBS-BGSTAB-005",
     "status": "implemented"
   },
@@ -429,7 +345,7 @@
   },
   "evidenceTool": {
     "path": "tools/wave3/canary-admission-evidence.test.mjs",
-    "sha256": "ed7c177b437d528a71700bbf9f800eb31772592e631d8bc28242235f7ae1b778"
+    "sha256": "d3e9369b34e51c8addcfd80220d6b0c0d30c59490f9add4c0b4ef4e9b6ef3a0b"
   },
   "consumerAcMatrix": [
     {
@@ -611,11 +527,11 @@
         "REL-BGSTAB-010 reset and repair explicitly abort active and draining canaries",
         "REL-BGSTAB-010 oversized or saturated canary ingress settles to bounded target-local legacy without recovery",
         "REL-BGSTAB-010 restore-buffer flush retains ownership until write or observable rejection settlement",
-        "TerminalContainer never ACKs a TerminalView restore-buffer rejection as an applied snapshot",
+        "TerminalContainer keeps restore-buffer failure non-ACKable while acknowledging only a checkpoint takeover",
         "TerminalView propagates restore-buffer failure as FAILED_HELD without allowing live-output overtake",
         "restore-needed and snapshot authority proof is exact and fail-closed"
       ],
-      "evidenceSha256": "42bb499f9e95e91b3e26a36116f5e86797b3f29c9ba879bc2d34dc3ecbede8c4"
+      "evidenceSha256": "17a12502a6078cab5429468c63d57c41b9a137b9a6a60b272ae1d75554a5418e"
     },
     {
       "consumer": "frontend.output-scheduler",
@@ -640,10 +556,10 @@
         "REL-BGSTAB-010 restore-buffer ownership helper commits once and fails closed on identity mismatch",
         "REL-BGSTAB-010 restore-buffer helper waits for actual legacy callback and rejects contradictory sync admission",
         "TerminalView refuses FAILED_HELD convergence when coverage identity is unproven",
-        "TerminalView leaves FAILED_HELD ownership untouched on reset throw or replay-probe timeout",
+        "TerminalView leaves FAILED_HELD ownership untouched on reset throw or sole-writer rejection",
         "coalesced recovery output rejects the whole batch before a later stale segment can partially apply"
       ],
-      "evidenceSha256": "ff439e565e136b18286944ab7846cbcc10039352df44c7d43546026a30825950"
+      "evidenceSha256": "4514da7de04dc20be8a39e56eb42c502bb8e0623fbbe0d34ead044e69dfe4ed2"
     },
     {
       "consumer": "frontend.output-scheduler",

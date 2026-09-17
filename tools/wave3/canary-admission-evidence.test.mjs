@@ -26,12 +26,37 @@ const testSourcePaths = Object.freeze([
   'frontend/tests/unit/visibleOutputRecovery.test.ts',
 ]);
 
-const requirementBearingTestSourcePaths = Object.freeze([
+// Test sources naming REL-BGSTAB-010 that THIS guard executes through its focused commands.
+const executedRequirementBearingTestSourcePaths = Object.freeze([
   'server/src/services/TerminalResourcePolicyCanary.test.ts',
   'server/src/ws/WsRouterSendPriority.test.ts',
   'frontend/tests/unit/terminalOutputScheduler.test.ts',
   'frontend/tests/unit/terminalViewRecoveryContract.test.ts',
   'frontend/tests/unit/terminalContainerRecoveryContract.test.ts',
+]);
+
+// Test sources naming REL-BGSTAB-010 that this guard does NOT execute. Declaring a path here is
+// not free: each entry must say why it is verified elsewhere, so the cheapest way to clear a
+// future red is an argued line rather than a pasted path. `discoverRequirementBearingTests`
+// walks the tree, so a new REL-BGSTAB-010 suite that nobody declares still reddens this guard.
+const declaredElsewhereRequirementBearingTestSources = Object.freeze([
+  Object.freeze({
+    path: 'frontend/tests/unit/terminalOutputAckCompletion.test.ts',
+    reason: 'Added by REL-BGSTAB-009 (commit 5abfc4c) for stale output-completion ACK suppression. '
+      + 'It cites REL-BGSTAB-010 as the neighbouring authority contract rather than asserting one '
+      + 'of its acceptance criteria, and it owns no consumer x AC matrix cell.',
+  }),
+  Object.freeze({
+    path: 'server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts',
+    reason: 'REL-BGSTAB-010 AC-7 consumer registration contract. AC-7 is not a per-consumer '
+      + 'transition criterion and owns no cell in the AC-1..AC-6 consumer x AC matrix this guard '
+      + 'computes; it is carried by its own named suite and its own verification evidence row.',
+  }),
+]);
+
+const requirementBearingTestSourcePaths = Object.freeze([
+  ...executedRequirementBearingTestSourcePaths,
+  ...declaredElsewhereRequirementBearingTestSources.map(entry => entry.path),
 ]);
 
 const productionSourcePaths = Object.freeze([
@@ -175,10 +200,10 @@ const requiredFrontendRelTestNames = Object.freeze([
 ]);
 
 const frontendLineageTestNames = Object.freeze([
-  'TerminalContainer never ACKs a TerminalView restore-buffer rejection as an applied snapshot',
+  'TerminalContainer keeps restore-buffer failure non-ACKable while acknowledging only a checkpoint takeover',
   'TerminalView propagates restore-buffer failure as FAILED_HELD without allowing live-output overtake',
   'TerminalView refuses FAILED_HELD convergence when coverage identity is unproven',
-  'TerminalView leaves FAILED_HELD ownership untouched on reset throw or replay-probe timeout',
+  'TerminalView leaves FAILED_HELD ownership untouched on reset throw or sole-writer rejection',
   'TerminalView restore replay is fenced by exact attempt epoch and xterm identity',
   'TerminalView resets scheduler and ingress retry ownership on terminal identity change and cleanup',
   'restore-needed and snapshot authority proof is exact and fail-closed',
@@ -325,6 +350,19 @@ function summarizeFocused(result, requiredRelNames, lineageNames) {
     passedTestNames,
     excludedPassingTestNames,
     semanticResultSha256: canonicalSha256({ summary, passedTestNames, excludedPassingTestNames }),
+    // What may be SEALED. `total`, `passed`, `passedTestNames`, `excludedPassingTestNames` and
+    // the hash over them all move whenever any other lane adds a sibling test to one of these
+    // shared files, so sealing them makes --regenerate-green the cheapest route through a red and
+    // re-blesses whatever else moved at the same time. The corpus identity is already pinned
+    // exactly by the deepEquals above; what is sealed here is only what this requirement owns.
+    sealedProjection: Object.freeze({
+      failed: summary.failed,
+      cancelled: summary.cancelled,
+      skipped: summary.skipped,
+      todo: summary.todo,
+      registeredTestNames: registeredNames.length,
+      registeredResultSha256: canonicalSha256({ registeredNames: sorted(registeredNames) }),
+    }),
   });
 }
 
@@ -391,9 +429,23 @@ function matrixFromPassingTests(focused) {
   return Object.freeze(matrix);
 }
 
+// Derived, not transcribed. An exact total over these four shared files pinned every sibling
+// test another lane happens to add to them, which is not a property of REL-BGSTAB-010: the pins
+// 42 and 133 rotted to 106 and 168 without anyone noticing, and the cheapest repair was always to
+// retype a number nobody owns. What this requirement actually needs is that the run contained at
+// least its whole registered corpus and that none of it failed, skipped or went todo. Corpus
+// IDENTITY is pinned exactly and independently, by the `discoveredRelNames` deepEqual and by the
+// `registered === requiredCorpus` deepEqual in the matrix, so a registered test that disappears
+// or is renamed still reddens. What this no longer catches, stated plainly: the deletion of an
+// UNREGISTERED sibling test from one of these four files.
+const registeredCorpusSize = Object.freeze({
+  server: requiredServerRelTestNames.length + serverLineageTestNames.length,
+  frontend: requiredFrontendRelTestNames.length + frontendLineageTestNames.length,
+});
+
 const activationThresholds = Object.freeze({
-  serverFocused: Object.freeze({ exactTests: 42, maximumFailures: 0 }),
-  frontendFocused: Object.freeze({ exactTests: 133, maximumFailures: 0 }),
+  serverFocused: Object.freeze({ minimumTests: registeredCorpusSize.server, maximumFailures: 0 }),
+  frontendFocused: Object.freeze({ minimumTests: registeredCorpusSize.frontend, maximumFailures: 0 }),
   consumerAcMatrix: Object.freeze({ exactCells: 18, maximumFailed: 0 }),
   inputHashMismatches: Object.freeze({ maximum: 0 }),
   productionStableProfiles: Object.freeze({ minimumPerConsumer: 1 }),
@@ -401,9 +453,9 @@ const activationThresholds = Object.freeze({
 
 function evaluateActivation({ thresholds, focused, matrix, inputHashMismatches, runtimeRegistry }) {
   const required = [
-    thresholds?.serverFocused?.exactTests,
+    thresholds?.serverFocused?.minimumTests,
     thresholds?.serverFocused?.maximumFailures,
-    thresholds?.frontendFocused?.exactTests,
+    thresholds?.frontendFocused?.minimumTests,
     thresholds?.frontendFocused?.maximumFailures,
     thresholds?.consumerAcMatrix?.exactCells,
     thresholds?.consumerAcMatrix?.maximumFailed,
@@ -413,9 +465,9 @@ function evaluateActivation({ thresholds, focused, matrix, inputHashMismatches, 
   if (required.some(value => !Number.isSafeInteger(value) || value < 0)) return Object.freeze({ eligible: false, reason: 'threshold-missing' });
   if (inputHashMismatches > thresholds.inputHashMismatches.maximum) return Object.freeze({ eligible: false, reason: 'input-hash-threshold-failed' });
   if (
-    focused.server.total !== thresholds.serverFocused.exactTests
+    focused.server.total < thresholds.serverFocused.minimumTests
     || focused.server.failed > thresholds.serverFocused.maximumFailures
-    || focused.frontend.total !== thresholds.frontendFocused.exactTests
+    || focused.frontend.total < thresholds.frontendFocused.minimumTests
     || focused.frontend.failed > thresholds.frontendFocused.maximumFailures
   ) return Object.freeze({ eligible: false, reason: 'focused-test-threshold-failed' });
   const failedCells = matrix.filter(cell => cell.status !== 'pass').length;
@@ -436,6 +488,14 @@ assert.equal(redEvidence.schemaVersion, 'kiwi-tdd-red-evidence/v1');
 assert.equal(redEvidence.requirementId, 'REL-BGSTAB-010');
 assert.equal(redEvidence.phaseId, 'PH-002');
 assert.equal(redEvidence.iteration, 10);
+for (const entry of declaredElsewhereRequirementBearingTestSources) {
+  assert.ok(entry.reason.trim().length > 0,
+    `a test source declared as verified elsewhere carries no reason: ${entry.path}`);
+  assert.equal(executedRequirementBearingTestSourcePaths.includes(entry.path), false,
+    `${entry.path} is declared as verified elsewhere and also executed here`);
+}
+assert.equal(new Set(requirementBearingTestSourcePaths).size, requirementBearingTestSourcePaths.length,
+  'a requirement-bearing test source is declared twice');
 assert.deepEqual(discoverRequirementBearingTests(), sorted(requirementBearingTestSourcePaths),
   'REL-BGSTAB-010 appears in an unregistered test source or a registered source disappeared');
 
@@ -493,8 +553,8 @@ const expectedGreen = {
   taskIds: ['T-PH002-02', 'T-PH002-03', 'T-PH002-04', 'T-PH002-05', 'T-PH002-06'],
   capturedAt: regenerateGreen ? new Date().toISOString() : undefined,
   commands: [
-    { cwd: focusedCommands.server.cwd, value: focusedCommands.server.value, exitCode: 0, result: { total: focused.server.total, passed: focused.server.passed, failed: focused.server.failed, cancelled: focused.server.cancelled, skipped: focused.server.skipped, todo: focused.server.todo } },
-    { cwd: focusedCommands.frontend.cwd, value: focusedCommands.frontend.value, exitCode: 0, result: { total: focused.frontend.total, passed: focused.frontend.passed, failed: focused.frontend.failed, cancelled: focused.frontend.cancelled, skipped: focused.frontend.skipped, todo: focused.frontend.todo } },
+    { cwd: focusedCommands.server.cwd, value: focusedCommands.server.value, exitCode: 0, result: focused.server.sealedProjection },
+    { cwd: focusedCommands.frontend.cwd, value: focusedCommands.frontend.value, exitCode: 0, result: focused.frontend.sealedProjection },
     { cwd: runtimeInspections.server.cwd, value: runtimeInspections.server.command, exitCode: 0, result: runtimeInspections.server.snapshot },
     { cwd: runtimeInspections.frontend.cwd, value: runtimeInspections.frontend.command, exitCode: 0, result: runtimeInspections.frontend.snapshot },
   ],
@@ -508,12 +568,16 @@ const expectedGreen = {
     stage: 'green-after-exact-no-findings',
     files: testSourcePaths.map(path => ({ path, sha256: testHashes[path] })),
     requirementBearingFiles: [...requirementBearingTestSourcePaths],
+    executedRequirementBearingFiles: [...executedRequirementBearingTestSourcePaths],
+    requirementBearingFilesVerifiedElsewhere: declaredElsewhereRequirementBearingTestSources
+      .map(entry => ({ path: entry.path, reason: entry.reason })),
     requiredRelTestNames: { server: [...requiredServerRelTestNames], frontend: [...requiredFrontendRelTestNames] },
     authorityLineageTestNames: { server: [...serverLineageTestNames], frontend: [...frontendLineageTestNames] },
     excludedPassingTests: {
-      server: focused.server.excludedPassingTestNames,
-      frontend: focused.frontend.excludedPassingTestNames,
-      reason: 'focused-file regression context outside REL-BGSTAB-010 and the explicitly registered authority-lineage corpus',
+      sealed: false,
+      reason: 'Sibling tests in the focused files outside REL-BGSTAB-010 and the registered '
+        + 'authority-lineage corpus. Their names and count belong to other requirements and move '
+        + 'independently of this one, so they are printed on every run and never sealed.',
     },
   },
   implementationInputs: productionSourcePaths.map(path => ({ path, sha256: productionHashes[path] })),
@@ -569,7 +633,9 @@ const actualActivation = evaluateActivation({
 assert.deepEqual(actualActivation, { eligible: false, reason: 'candidate-unavailable' });
 const failedFocused = evaluateActivation({
   thresholds: activationThresholds,
-  focused: { ...focused, server: { ...focused.server, total: focused.server.total - 1 } },
+  // One below the registered corpus, not one below the live total: under a minimum the
+  // live-total-minus-one fixture would stay eligible and this proof would assert nothing.
+  focused: { ...focused, server: { ...focused.server, total: registeredCorpusSize.server - 1 } },
   matrix: consumerAcMatrix,
   inputHashMismatches: 0,
   runtimeRegistry: { server: { ...runtimeRegistry.server, stableProfileCount: 1 }, frontend: { ...runtimeRegistry.frontend, stableProfileCount: 1 } },
@@ -617,8 +683,8 @@ const artifact = {
   inputHashes: { files: rawInputHashes, sourceSetSha256: canonicalSha256(rawInputHashes), mismatches: 0 },
   productionSourceHashes: { files: productionHashes, sourceSetSha256: canonicalSha256(productionHashes) },
   focusedRuns: {
-    server: { cwd: focusedCommands.server.cwd, command: focusedCommands.server.value, exitCode: 0, ...focused.server },
-    frontend: { cwd: focusedCommands.frontend.cwd, command: focusedCommands.frontend.value, exitCode: 0, ...focused.frontend },
+    server: { cwd: focusedCommands.server.cwd, command: focusedCommands.server.value, exitCode: 0, ...focused.server.sealedProjection },
+    frontend: { cwd: focusedCommands.frontend.cwd, command: focusedCommands.frontend.value, exitCode: 0, ...focused.frontend.sealedProjection },
   },
   consumerAcMatrix,
   acceptanceEvidence,
@@ -645,8 +711,9 @@ process.stdout.write(`${JSON.stringify({
   requirementId: artifact.requirementId,
   phaseId: artifact.phaseId,
   taskId: artifact.taskId,
-  serverFocused: { total: focused.server.total, passed: focused.server.passed, failed: focused.server.failed },
-  frontendFocused: { total: focused.frontend.total, passed: focused.frontend.passed, failed: focused.frontend.failed },
+  serverFocused: { total: focused.server.total, passed: focused.server.passed, failed: focused.server.failed, minimumTests: activationThresholds.serverFocused.minimumTests },
+  frontendFocused: { total: focused.frontend.total, passed: focused.frontend.passed, failed: focused.frontend.failed, minimumTests: activationThresholds.frontendFocused.minimumTests },
+  unsealedSiblingTests: { server: focused.server.excludedPassingTestNames.length, frontend: focused.frontend.excludedPassingTestNames.length },
   exactRelNamedTests: requiredServerRelTestNames.length + requiredFrontendRelTestNames.length,
   registeredAuthorityLineageTests: serverLineageTestNames.length + frontendLineageTestNames.length,
   consumerAcMatrixCells: consumerAcMatrix.length,

@@ -1502,3 +1502,95 @@ export function validateTerminalResourceConsumerManifest(
 
   return { ok: errors.length === 0, errors };
 }
+
+// @req REL-BGSTAB-010 AC-7
+//
+// The consumer registration contract, and the direction the inventory contract does not hold.
+//
+// validateTerminalResourceConsumerManifest enforces that every consumer the AST finds is
+// registered. It says nothing about a registered id that no consumer uses, so an id can be
+// added to TERMINAL_RESOURCE_POLICY_CONSUMER_IDS and never acquire a consumer without anything
+// going red. This validator holds that direction.
+//
+// An id that is registered and unused is admissible only as an explicit reservation carrying a
+// written reason and a named decision owner. A reservation must also own no manifest tuple, so
+// a consumer that genuinely consumes cannot be moved into the reservation list to escape
+// registration -- the name alone never satisfies the check.
+
+export interface TerminalResourceConsumerRegistrationReservation {
+  consumerId: string;
+  reason: string;
+  decidedBy: string;
+}
+
+export interface TerminalResourceConsumerRegistrationResult {
+  ok: boolean;
+  checked: number;
+  errors: Array<{
+    code: 'unused-consumer-id' | 'reservation-without-reason'
+      | 'reservation-has-tuple' | 'reservation-not-registered';
+    reference: string;
+  }>;
+}
+
+// The single current reservation. `server.config.schema` has never been used as a consumerId
+// anywhere in this repository's history, and the schema-store area it was reserved for is served
+// by catalog entries carrying category 'server-config-schema-store' under the consumer id
+// 'server.config.runtime-store'. Whether this is a missing registration or a genuinely
+// inapplicable one is an open decision already recorded, and owned, elsewhere -- it is a step-0
+// task in docs/issues/wave4-wave5/20-consumer-rollout-tracker.md. This entry makes the open
+// decision fail loudly here instead of resting on someone reading that document.
+export const TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS:
+readonly TerminalResourceConsumerRegistrationReservation[] = Object.freeze([
+  Object.freeze({
+    consumerId: 'server.config.schema',
+    reason: 'Registered with no catalog entry and no manifest tuple; the schema-store area is '
+      + 'served by category server-config-schema-store under server.config.runtime-store. '
+      + 'Classifying this as a missing registration or as inapplicable is a step-0 decision in '
+      + 'docs/issues/wave4-wave5/20-consumer-rollout-tracker.md.',
+    decidedBy: 'wave4-wave5 consumer rollout step 0 (pending)',
+  }),
+]);
+
+export function getTerminalResourceCatalogConsumerIds(): TerminalResourcePolicyConsumerId[] {
+  return CONSUMER_CATALOG.map(entry => entry.consumerId);
+}
+
+export function validateTerminalResourceConsumerRegistration(input: {
+  consumerIds: readonly string[];
+  catalogConsumerIds: readonly string[];
+  manifestConsumerIds: readonly string[];
+  reservations: readonly TerminalResourceConsumerRegistrationReservation[];
+}): TerminalResourceConsumerRegistrationResult {
+  const errors: TerminalResourceConsumerRegistrationResult['errors'] = [];
+  const registered = new Set(input.consumerIds);
+  const used = new Set(input.catalogConsumerIds);
+  const withTuples = new Set(input.manifestConsumerIds);
+  const reservedById = new Map(input.reservations.map(entry => [entry.consumerId, entry]));
+
+  for (const reservation of input.reservations) {
+    if (!registered.has(reservation.consumerId)) {
+      errors.push({ code: 'reservation-not-registered', reference: reservation.consumerId });
+      continue;
+    }
+    if (reservation.reason.trim().length === 0 || reservation.decidedBy.trim().length === 0) {
+      errors.push({ code: 'reservation-without-reason', reference: reservation.consumerId });
+      continue;
+    }
+    if (withTuples.has(reservation.consumerId)) {
+      errors.push({ code: 'reservation-has-tuple', reference: reservation.consumerId });
+    }
+  }
+
+  let checked = 0;
+  for (const consumerId of input.consumerIds) {
+    checked += 1;
+    if (used.has(consumerId)) continue;
+    const reservation = reservedById.get(consumerId);
+    if (reservation === undefined) {
+      errors.push({ code: 'unused-consumer-id', reference: consumerId });
+    }
+  }
+
+  return { ok: errors.length === 0, checked, errors };
+}
