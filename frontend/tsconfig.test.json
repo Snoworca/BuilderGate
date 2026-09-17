@@ -82,6 +82,7 @@
     "tests/benchmarks/terminalNoRenderFixture.ts",
     "tests/benchmarks/terminalNoRenderFixtureEvidence.ts",
     "tests/benchmarks/terminalOutputSchedulerBenchmark.test.ts",
+    "tests/benchmarks/terminalNoRenderFixture.test.ts",
     "tests/unit/terminalOutputSliceAlignment.test.ts",
     "tests/unit/terminalRestoreBufferBytes.test.ts",
     "tests/unit/terminalRetainedStateDigest.test.ts",

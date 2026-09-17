@@ -2312,10 +2312,16 @@ test('UTF-8 segmented queue RED 계약 — AC-2', async () => {
   }
   assertDeliveredBytes(splitWrites, splitAnsiIngress);
 
-  const xtermModule: unknown = await import('@xterm/xterm');
-  const { Terminal } = (
-    xtermModule as { default?: typeof import('@xterm/xterm') }
-  ).default ?? (xtermModule as typeof import('@xterm/xterm'));
+  // The namespace is read through `unknown` because `'Terminal' in xtermModule` narrows the
+  // false branch of the published types to `never`, which hides the CJS-interop shape the
+  // installed build actually has.
+  const xtermNamespace = await import('@xterm/xterm') as unknown as
+    Partial<typeof import('@xterm/xterm')> & { default?: typeof import('@xterm/xterm') };
+  const xtermExports = 'Terminal' in xtermNamespace
+    ? xtermNamespace as typeof import('@xterm/xterm')
+    : xtermNamespace.default;
+  assert.ok(xtermExports, '@xterm/xterm must expose Terminal directly or on its default export');
+  const { Terminal } = xtermExports;
   const controlTerminal = new Terminal({ cols: 12, rows: 4, scrollback: 8 });
   const schedulerTerminal = new Terminal({ cols: 12, rows: 4, scrollback: 8 });
   const controlTitleEvents: string[] = [];
