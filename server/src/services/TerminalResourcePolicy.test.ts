@@ -162,7 +162,6 @@ function assertSortedUnique(values: string[]): void {
 // what carries ownership and liveness. This is a second, independent condition on the same claim,
 // not a substitute for that one.
 function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: string, consumerSymbol: string): number {
-  assert.ok(evidenceSignature.length > 0, `expected a non-empty evidence signature for ${path}#${consumerSymbol}`);
   const source = readFileSync(resolve(REPOSITORY_ROOT, path), 'utf8');
   const offset = source.indexOf(evidenceSignature);
   assert.ok(
@@ -316,6 +315,13 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
       entry.consumerPath,
       entry.evidenceSignature,
       entry.consumerSymbol,
+    );
+    // Checked HERE rather than inside the helper. An empty signature would make the slice check
+    // below true for any non-negative offset, and a guard against that is worthless while it sits
+    // in the component the caller is written to distrust.
+    assert.ok(
+      entry.evidenceSignature.length > 0,
+      `expected a non-empty evidence signature for ${entry.consumerPath}#${entry.consumerSymbol}`,
     );
     const consumerSource = readFileSync(resolve(REPOSITORY_ROOT, entry.consumerPath), 'utf8');
     assert.equal(
@@ -1196,15 +1202,17 @@ test('OBS-BGSTAB-005 review regression — exact repository tuples validate bidi
 // reserved-copy-option-decoy marker pinned a CRLF that server/src/services/SessionManager.ts no
 // longer has, so the fixture could not pose its question at all and failed on its own setup. The
 // count assertion below is what keeps that from degrading into a silent no-op instead.
-// This suite rewrites whole files: insertBeforeMarkerLines rejoins every line, and the write path
-// appends bare-LF suffixes. Either would silently normalise a mixed-ending target, and a target's
-// own template literals carry whitespace as content. So refuse mixed endings instead. `newlineCount`
-// counts ALL newlines including the LF of each CRLF, which is what the comparison needs - a pure
-// CRLF file has crlfCount === newlineCount. All current targets are pure LF.
+// Fixture suffixes are authored with bare LF. Both write sites run them through this so a CRLF
+// target is not handed a mixed-ending file.
 function toSourceNewlines(text: string, source: string): string {
   return text.replace(/\r?\n/g, source.includes('\r\n') ? '\r\n' : '\n');
 }
 
+// This suite rewrites whole files - insertBeforeMarkerLines rejoins every line - which would
+// silently normalise a mixed-ending target, and a target's own template literals carry whitespace as
+// content. So refuse mixed endings instead. `newlineCount` counts ALL newlines including the LF of
+// each CRLF, which is what the comparison needs: a pure CRLF file has crlfCount === newlineCount.
+// All current targets are pure LF.
 function assertUniformLineEndings(source: string, name: string, path: string): void {
   const crlfCount = (source.match(/\r\n/g) ?? []).length;
   const newlineCount = (source.match(/\n/g) ?? []).length;
@@ -1494,18 +1502,16 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       replaceCount: 3,
     },
   ] as const;
-  // The partition is pinned, because nothing else pins it. `driftMechanism` is a per-fixture
-  // declaration and the assertion below only holds a fixture to what it declares, so the cheapest
-  // green for a future "declared tuple drift, but the decoy changed no tuple" red is a one-word
-  // demotion to 'seal-only' - which is exactly the AST regression AC-6 exists to catch, silently
-  // reclassified. That demotion has already happened once, in this suite's own history. With these
-  // counts pinned it cannot happen without also editing a number here and arguing for it.
+  // The partition is pinned, because nothing else pins it. The cheapest green for a future
+  // "declared tuple drift, but the decoy changed no tuple" red is a one-word demotion to
+  // 'seal-only' - exactly the AST regression AC-6 exists to catch, silently reclassified - and that
+  // demotion has already happened once in this suite's own history.
   const manifestDriftFixtures = mutations.filter((entry) => 'manifestDrift' in entry && entry.manifestDrift);
   // MEMBERSHIP, not cardinality. Pinning three counts left a rename, a wholesale substitution, or a
   // paired swap free; one deepEqual over name:mechanism closes all of those and makes any
   // reclassification an explicit edit to this list. It is also what makes declaration mandatory at
-  // RUNTIME: a fixture that omitted driftMechanism appears here as `name:undefined` and reddens
-  // under `npx tsx --test`, which strips types, rather than only under `npm run build`.
+  // RUNTIME: a fixture that omitted driftMechanism renders as `name:undeclared` and reddens under
+  // `npx tsx --test`, which strips types, rather than only under `npm run build`.
   assert.deepEqual(
     manifestDriftFixtures
       .map((entry) => `${entry.name}:${'driftMechanism' in entry ? entry.driftMechanism : 'undeclared'}`)
@@ -1629,7 +1635,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
             assertUniformLineEndings(inertSource, `${mutation.name}-inert`, mutation.path);
             await writeFile(
               inertPath,
-              `${insertBeforeMarkerLines(inertSource, mutation.insertBefore, '// inert control, carries no decoy\n', `${mutation.name}-inert`)}${mutation.suffix}`,
+              `${insertBeforeMarkerLines(inertSource, mutation.insertBefore, '// inert control, carries no decoy\n', `${mutation.name}-inert`)}${toSourceNewlines(mutation.suffix, inertSource)}`,
               'utf8',
             );
             const inertInventory = await discoverTerminalResourceInventory({ repositoryRoot: inertRoot });
