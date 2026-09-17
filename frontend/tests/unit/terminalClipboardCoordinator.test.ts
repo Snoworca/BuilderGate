@@ -76,6 +76,7 @@ const RED_SIGNATURES = {
   pasteAccepted: 'expected an accepted programmatic paste to be observed with its target identity',
   pasteClipboardEntry: 'expected pasteClipboard to reject a missing or superseded target before reading the clipboard',
   clipboardReadFailure: 'expected a failed clipboard read to reject as clipboard-read-failed without admission',
+  staleTargetAdmission: 'expected a captured but superseded target to be rejected before admission',
 } as const;
 
 async function requireCoordinatorFactory(signature: string): Promise<CoordinatorFactory> {
@@ -631,4 +632,38 @@ test('clipboard coordinator RED — a failed clipboard read rejects as clipboard
     signature,
   );
   assert.equal(JSON.stringify(harness.observations).includes(denied), false, signature);
+});
+
+// Found by review, not by the sweep. pasteText's entry guard checks only that a
+// target was captured, not that it is still current, so the currency check
+// inside pasteCapturedText is the only thing standing between a superseded
+// target and admission. Every earlier differential fixture defined
+// isTargetCurrent as identity against captureTarget, so the two agreed by
+// construction and no input could reach this state -- the guard read as a no-op
+// because the harness could not pose the question, not because it does nothing.
+test('clipboard coordinator RED — a captured but superseded target is rejected before admission', async () => {
+  const signature = RED_SIGNATURES.staleTargetAdmission;
+  const factory = await requireCoordinatorFactory(signature);
+  // captureTarget succeeds and isTargetCurrent disagrees: these are independent
+  // inputs in production too, where they read separate refs.
+  const harness = createHarness({ isTargetCurrent: () => false });
+
+  // Precondition for non-vacuity: a target IS captured, so this test exercises
+  // the currency check and not the null-target guard that a separate test owns.
+  assert.notEqual(harness.options.captureTarget(), null, signature);
+
+  const result = factory(harness.options).pasteText('stale target payload', 'command-preset');
+
+  assert.deepEqual(
+    result,
+    { ok: false, action: 'paste', source: 'command-preset', reason: 'context-changed' },
+    signature,
+  );
+  assert.equal(harness.admitted.length, 0, signature);
+  assert.equal(harness.focused.length, 0, signature);
+  assert.deepEqual(
+    harness.observations.map(({ action, outcome, reason }) => ({ action, outcome, reason })),
+    [{ action: 'paste', outcome: 'rejected', reason: 'context-changed' }],
+    signature,
+  );
 });
