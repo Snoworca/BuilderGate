@@ -41,8 +41,10 @@ reconnect 로 수렴하는데, spec 의 `buildRestoreNeeded` 가 `authorityEpoch
 확인했고 그 출력이 `raw/probe-authority.log` 다(`authorityEpoch` 문자열, `authorityRevision` 정수,
 `coversThroughSeq === seq`).
 따라서 수정 방향은 spec 을 프로덕션 wire 형태에 다시 맞추는 것이며, 단언을 약화하지 않는다.
-`resyncAuthorityProof()` 는 관측된 authoritative snapshot 에서 proof 를 파생하고, proof 필드가
-없으면 precondition 으로 실패한다.
+`resyncAuthorityProof()` 는 관측된 authoritative snapshot 에서 `authorityEpoch`·`authorityRevision`
+을 읽고 없으면 precondition 으로 실패한다. `coversThroughSeq` 는 클라이언트 게이트가 `snapshotSeq`
+와의 일치를 요구하므로 주입값에서 합성한다 — 따라서 **이 spec 은 서버가 그 필드를 빠뜨리는 회귀는
+잡지 못한다.** 그 필드의 실 서버 확인은 `raw/probe-authority.log` 의 1회 캡처가 전부다.
 
 결과적으로 `REL-BGSTAB-008` VE-5 의 "HTTPS resync 2/2 PASS" 는 이 수정 이전에는 현재 트리에서
 재현되지 않았다.
@@ -175,18 +177,33 @@ spec 밖의 무엇인가다. 그 무엇인가가 무엇인지는 아래와 같�
 `e2e-mutation-nobarrier.log`) 와 netstat 캡처 6개, 0바이트 2개다.
 
 여기서 "헤더" 는 **파일 첫 줄부터 시작하는 `# cwd:`·`# command:`·`# target:` 블록**을 뜻한다.
-파일 전체를 훑으면 `#` 표식이 선두 블록 밖에 있는 파일이 하나 있다 — `fe-unit-full-final.log` 의
-**마지막 줄 `# exit=1`** 이다. 다만 그 줄도 도구가 찍은 것이 아니라 내가 덧붙인 것이므로, §4 가
-"손으로 쓴 문장이며 캡처된 출력이 아니다" 라고 판정한 다섯 헤더와 **같은 계열**이다. 같은 잣대를
-적용한다. 6번의 exit code 를 바이트로 뒷받침하는 것은 그 줄이 아니라 같은 파일 안에 node:test 가
-찍은 `ℹ fail 3` 이다(실패가 있으므로 exit 1). 그 점을 빼면 위 21개 행의 cwd·명령줄·exit code 는
-**표의 산문 진술일 뿐이다.**
+위 21개만 전체 스캔하면 `#` 표식이 있는 파일은 하나다 — `fe-unit-full-final.log` 의 마지막 줄
+`# exit=1`. 다만 그 줄도 도구가 찍은 것이 아니라 내가 덧붙인 것이므로, §4 가 "손으로 쓴 문장이며
+캡처된 출력이 아니다" 라고 판정한 다섯 헤더와 **같은 계열**이며 같은 잣대를 적용한다. (헤더가 있는
+16개 쪽에는 말미 `# exit=` 줄과 정정 블록이 더 있다 — 그것들도 전부 손으로 쓴 것이다.)
 
-각 로그가 바이트로 지탱하는 것은 이렇다. E2E 로그는 Playwright 가 찍는 test 선언 줄로 리비전이
-판별되고 말미 요약(`2 passed` / `2 failed`)이 결과를 준다. 1·2번은 말미의 `N test(s) failed` 줄이
-exit code 1 을 뒷받침한다. frontend unit 로그는 B2 inventory 덤프가 spec 의 tab 조작 fetch 줄
-번호를 찍으므로 그것으로 리비전을 되짚을 수 있다(아래 표 참조). 3번은 node:test 요약이
-28/15/0/13 을 준다. 그 밖의 것 — 어느 디렉터리에서 어떤 인자로 돌렸는지 — 은 이 문서의 진술이다.
+**그래서 헤더 없는 21개 행에서 산문일 뿐인 것은 cwd 와 정확한 명령줄이다. exit code 는 대부분
+바이트로 뒷받침된다** — 도구가 스스로 찍은 종료 판정이 파일 안에 있기 때문이다.
+
+| 행 | 산출물 | 도구가 찍은 종료 판정 |
+| --- | --- | --- |
+| 1 | `server-runner-baseline.log` | `3 test(s) failed` |
+| 2 | `server-runner-mutation-giantflush.log` | `8 test(s) failed` |
+| 3 | `server-split-handshake.log` | `ℹ fail 0` (todo 13) |
+| 4 | `fe-baseline.log` | `ℹ fail 0` |
+| 5 | `fe-unit-full.log` | `ℹ fail 3` |
+| 6 | `fe-unit-full-final.log` | `ℹ fail 3` |
+| 7 | `fe-unit-baseline-3fails.log` | `ℹ fail 3` |
+| 8·9 | `e2e-wave2-screen-repair-resync{,-run2}.log` | `2 failed` |
+| 10 | `e2e-ac4-step1.log` | `1 failed` |
+| 11·12 | `e2e-green-prefreeze.log`, `e2e-frozen-tree-preseeding.log` | `2 passed` |
+| 13 | `e2e-mutation-nobarrier.log` | `2 failed` |
+
+netstat 캡처 6개와 0바이트 2개에는 그런 판정이 없다.
+
+각 로그가 리비전을 어떻게 지탱하는지는 따로다. E2E 로그는 Playwright 가 찍는 test 선언 줄로
+리비전이 판별된다. frontend unit 로그는 B2 inventory 덤프가 spec 의 tab 조작 fetch 줄 번호를
+찍으므로 그것으로 되짚을 수 있다.
 
 frontend unit 로그의 리비전은 이렇게 확인된다. spec 의 tab 조작 fetch 줄 번호는 리비전마다 다르다:
 `e901676` 은 POST 256 / DELETE 359, `b7155dc`(= 커밋본) 은 POST 297 / DELETE 400,
