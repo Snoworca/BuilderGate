@@ -1542,7 +1542,8 @@ export interface TerminalResourceConsumerRegistrationResult {
   errors: Array<{
     code: 'unused-consumer-id' | 'reservation-without-reason'
       | 'reservation-has-tuple' | 'reservation-not-registered'
-      | 'duplicate-reservation' | 'reservation-for-used-id';
+      | 'duplicate-reservation' | 'reservation-for-used-id'
+      | 'reservation-id-occurs-in-production';
     reference: string;
   }>;
 }
@@ -1575,6 +1576,17 @@ export function validateTerminalResourceConsumerRegistration(input: {
   catalogConsumerIds: readonly string[];
   manifestConsumerIds: readonly string[];
   reservations: readonly TerminalResourceConsumerRegistrationReservation[];
+  // Reserved consumer id -> how many times that id's literal appears in a PRODUCTION source
+  // other than the registry declaration itself. A reservation asserts the id has no consumer.
+  // If the literal is written anywhere in production outside the two declaration sites that
+  // have to name it, that assertion is falsifiable and false: something is passing the id.
+  // Optional so the fixture tests below can omit it; when absent no occurrence check runs.
+  //
+  // What this still does NOT cover, stated plainly: a consumer that consumes the resource
+  // without ever naming the id -- reached through a variable, a re-export or an alias. That
+  // residual stays genuinely unreachable from a literal scan, and it is the same residual the
+  // manifest-tuple condition cannot resolve.
+  reservedIdProductionOccurrences?: Readonly<Record<string, number>>;
 }): TerminalResourceConsumerRegistrationResult {
   const errors: TerminalResourceConsumerRegistrationResult['errors'] = [];
   const registered = new Set(input.consumerIds);
@@ -1601,7 +1613,11 @@ export function validateTerminalResourceConsumerRegistration(input: {
   const reservedById = new Map(input.reservations.map(entry => [entry.consumerId, entry]));
 
   for (const reservation of input.reservations) {
-    // One error per reservation: a duplicated id is already reported once above.
+    // One error per reservation, and for a duplicated id the other diagnostics are DEFERRED to
+    // the next run: the `continue` means a duplicated id never reaches the registered / reason /
+    // used / tuple / occurrence checks, so an id that is duplicated AND unregistered AND unargued
+    // reports only `duplicate-reservation`. That is diagnostic loss, not a correctness escape --
+    // `ok` is still false, and the remaining faults surface once the duplicate is removed.
     if (duplicatedReservationIds.has(reservation.consumerId)) continue;
     if (!registered.has(reservation.consumerId)) {
       errors.push({ code: 'reservation-not-registered', reference: reservation.consumerId });
@@ -1617,8 +1633,18 @@ export function validateTerminalResourceConsumerRegistration(input: {
       errors.push({ code: 'reservation-for-used-id', reference: reservation.consumerId });
       continue;
     }
+    // Reachable only against a stale or hand-edited manifest. The manifest is generated one tuple
+    // per catalog entry, so against a freshly sealed manifest its id set equals the catalog id set
+    // and an id that is not already `used` owns no tuple -- and a used id was rejected one branch
+    // above. The suite's freshness assertion rejects a stale seal earlier, so this is defence in
+    // depth rather than a live discriminator. Kept because the freshness assertion is a separate
+    // contract that could be relaxed independently.
     if (withTuples.has(reservation.consumerId)) {
       errors.push({ code: 'reservation-has-tuple', reference: reservation.consumerId });
+      continue;
+    }
+    if ((input.reservedIdProductionOccurrences?.[reservation.consumerId] ?? 0) > 0) {
+      errors.push({ code: 'reservation-id-occurs-in-production', reference: reservation.consumerId });
     }
   }
 

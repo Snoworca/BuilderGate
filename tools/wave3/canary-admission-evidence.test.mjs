@@ -357,12 +357,18 @@ function summarizeFocused(result, requiredRelNames, lineageNames) {
     // exactly by the deepEquals above; what is sealed here is only what this requirement owns.
     //
     // What this seal is and is not. `registeredResultSha256` hashes the OBSERVED status of each
-    // registered name as read out of this run's TAP. The live assertions above -- the all-pass
-    // assertion and the per-registered-name pass assertion -- force every one of those statuses
-    // to 'pass' today, so on a green run this hash is a constant. Its falsification power is
-    // therefore only against a FUTURE WEAKENING of those assertions: if the all-pass assertion or
-    // the registered-name assertion is ever relaxed, a registered test that fails or goes absent
-    // changes this hash and the artifact deepEqual reds instead of passing quietly.
+    // registered name as read out of this run's TAP. On any run that REACHES this line, that
+    // observed status is provably the constant 'pass' for every registered name, because three
+    // assertions have already fired and none of them can be satisfied otherwise:
+    //   1. `runCommand` asserts the child's exit status is 0, so a lane with any failing test
+    //      throws before its output is ever summarized;
+    //   2. `summarizeFocused` asserts failed + cancelled + skipped + todo === 0 over the TAP
+    //      counts, so no non-pass status survives into the map;
+    //   3. `summarizeFocused` asserts executedTests.get(name) === 'pass' for every registered
+    //      name, so an absent or non-passing registered name throws.
+    // This value therefore differs from one computed off the literal name lists with every status
+    // forced to 'pass' ONLY IF all three of those assertions are weakened. It is a tripwire
+    // against that future weakening, and it is NOT evidence that a run occurred.
     // The run-derived evidence in the artifact that is falsifiable TODAY lives in `inputHashes`,
     // `productionSourceHashes` and `productionRuntimeRegistry.*.stdoutSha256`, not in this block.
     sealedProjection: Object.freeze({
@@ -511,19 +517,63 @@ for (const entry of declaredElsewhereRequirementBearingTestSources) {
 // "executed" and never adding it to focusedCommands is a cheaper way to hide a suite from
 // verification than the declared-elsewhere route, which at least costs a written reason.
 // The focused command args are cwd-relative, so the leading `server/` or `frontend/` is stripped.
-let auditedExecutedPathCount = 0;
+//
+// The check is POSITIONAL, and identical in strength on both platforms. A bare membership test
+// over every token accepted a path that appeared anywhere on the command line -- as the value of
+// a flag such as `--test-name-pattern`, or after an exclusion flag -- which is not execution.
+// Only the tokens AFTER `--test` are node's test-file operands, and they are pinned as an exact
+// set so a file cannot be added to a lane without being declared here.
+//
+// No counter compares this loop's own increment to the length of the array it iterates: that
+// comparison is a tautology and cannot detect an empty enumeration, which is the defect this
+// commit removes elsewhere. Non-emptiness is asserted up front instead.
+assert.ok(executedRequirementBearingTestSourcePaths.length > 0,
+  'no requirement-bearing test source is declared as executed by this guard');
+
+// The exact cwd-relative test-file operands each focused lane is expected to run. A superset of
+// the declared-executed paths: a lane may also run suites that name no requirement id.
+const focusedLaneTestOperands = Object.freeze({
+  server: Object.freeze([
+    'src/services/TerminalResourcePolicyCanary.test.ts',
+    'src/ws/WsRouterSendPriority.test.ts',
+    'src/ws/WsRouterRestoreMetadata.test.ts',
+    'src/ws/wsSendPolicyRestoreMetadata.test.ts',
+  ]),
+  frontend: Object.freeze([
+    'tests/unit/terminalOutputScheduler.test.ts',
+    'tests/unit/terminalViewRecoveryContract.test.ts',
+    'tests/unit/terminalContainerRecoveryContract.test.ts',
+    'tests/unit/visibleOutputRecovery.test.ts',
+  ]),
+});
+
+const laneTestOperands = new Map();
+for (const lane of ['server', 'frontend']) {
+  // On win32 the server lane passes one joined `cmd /c` string, so tokenize it; elsewhere the
+  // args array is already the token list.
+  const tokens = process.platform === 'win32'
+    ? focusedCommands[lane].args.flatMap(arg => arg.split(/\s+/u)).filter(Boolean)
+    : [...focusedCommands[lane].args];
+  const testFlagIndex = tokens.indexOf('--test');
+  assert.notEqual(testFlagIndex, -1,
+    `the ${lane} focused command carries no --test flag, so it names no test-file operands`);
+  const operands = tokens.slice(testFlagIndex + 1);
+  assert.deepEqual(operands.filter(token => token.startsWith('-')), [],
+    `the ${lane} focused command mixes flags in among its test-file operands`);
+  assert.deepEqual(sorted(operands), sorted([...focusedLaneTestOperands[lane]]),
+    `the ${lane} focused command runs a different set of test files than is declared here`);
+  laneTestOperands.set(lane, new Set(operands));
+}
+assert.deepEqual(sorted([...laneTestOperands.keys()]), ['frontend', 'server'],
+  'the focused-lane operand audit did not check both lanes');
+
 for (const path of executedRequirementBearingTestSourcePaths) {
   const lane = path.startsWith('server/') ? 'server' : path.startsWith('frontend/') ? 'frontend' : undefined;
   assert.notEqual(lane, undefined, `executed requirement-bearing path is in no focused lane: ${path}`);
   const relative = path.slice(`${lane}/`.length);
-  // On win32 the server lane passes one joined `cmd /c` string, so split args into tokens.
-  const argTokens = focusedCommands[lane].args.flatMap(arg => arg.split(/\s+/u));
-  assert.equal(argTokens.includes(relative), true,
-    `${path} is declared as executed here but is not an argument of the ${lane} focused command`);
-  auditedExecutedPathCount += 1;
+  assert.equal(laneTestOperands.get(lane).has(relative), true,
+    `${path} is declared as executed here but is not a test-file operand of the ${lane} focused command`);
 }
-assert.equal(auditedExecutedPathCount, executedRequirementBearingTestSourcePaths.length,
-  'the executed-path audit enumerated a different number of paths than are declared');
 assert.equal(new Set(requirementBearingTestSourcePaths).size, requirementBearingTestSourcePaths.length,
   'a requirement-bearing test source is declared twice');
 assert.deepEqual(discoverRequirementBearingTests(), sorted(requirementBearingTestSourcePaths),

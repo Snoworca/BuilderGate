@@ -10,7 +10,7 @@
     "T-PH002-05",
     "T-PH002-06"
   ],
-  "capturedAt": "2026-09-17T18:29:32.736Z",
+  "capturedAt": "2026-09-17T19:08:05.251Z",
   "commands": [
     {
       "cwd": "server",
@@ -345,7 +345,7 @@
   },
   "evidenceTool": {
     "path": "tools/wave3/canary-admission-evidence.test.mjs",
-    "sha256": "356885e2fab5f377d2d5980d7fc06347b037d4951f0f47d8adbe73b07753f086"
+    "sha256": "41fdd1213f0cdf8dc231dd2d506a8d98042a8e0569aa5f33a31a087359d72447"
   },
   "consumerAcMatrix": [
     {
