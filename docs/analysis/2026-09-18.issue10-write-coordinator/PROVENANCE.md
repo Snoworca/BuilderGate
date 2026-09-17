@@ -313,3 +313,29 @@ executed, but that the production wiring reaches the lane **at runtime** rests o
 a typecheck and a read of the call site. Present-in-source and applied-at-runtime
 are different claims — the same distinction `#95` drew for `#101`. Browser-level
 confirmation belongs to the Playwright step.
+
+## Seal update — 2026-09-18, fourteenth write
+
+Moved inputs: **two added files** — `probe/probe-ac8-recovery-trigger.ts` and
+`raw/P15-ac8-recovery-trigger.log`. No previously sealed file changed.
+
+AC-8(ii) resolved on the orchestrator's reduction: not "is this the same word",
+but "does clearing the bit remove a system-visible indication that output is
+unaccounted for". **It does.** The hidden-output recovery trigger at
+`TerminalContainer.tsx:3713-3715` is gated on `isVisible && skipped`, so once the
+bit is cleared a later visibility transition no longer re-attempts recovery.
+
+Measured by applying the real guard predicate to the real clear function's
+output, across three dirty shapes: armed `true` → `false` in every case. A
+negative control (never-dirty state) is already `false`, so the transition is
+real; a positive control shows the predicate can return `true`, so "disarmed"
+carries information.
+
+Stated limit: the guard predicate is **transcribed** from the call site and the
+React component was not executed. The composition is measured; the call site is
+read.
+
+Recorded as `REL-BGSTAB-025` VE-2, a counterexample against a `planned`
+requirement. **No AC checked, no status changed** — this is not a withdrawal of a
+verification claim but a record against a contract that is not yet implemented.
+The fix belongs to that requirement; this lane changed no code for it.

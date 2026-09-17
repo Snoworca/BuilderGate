@@ -1,0 +1,5 @@
+skipped with bytes and tail: armed before = true, armed after clear = false
+skipped, no tail: armed before = true, armed after clear = false
+skipped, zero bytes: armed before = true, armed after clear = false
+NEGATIVE CONTROL never-dirty state armed = false
+CONTROL predicate can be true            = true
