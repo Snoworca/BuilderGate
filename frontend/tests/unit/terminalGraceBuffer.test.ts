@@ -156,21 +156,30 @@ test('grace flush applies the current server snapshot before the held tail and o
     restore,
     output('tail-a'),
     snapshotFor(restore),
+    { type: 'status', sessionId: SESSION_ID, status: 'running' },
+    { type: 'cwd', sessionId: SESSION_ID, cwd: '/tmp' },
     output('tail-b'),
     output('tail-c'),
     ready(restore),
+    { type: 'session:exited', sessionId: SESSION_ID, exitCode: 3 },
   ]);
   const recorded = recordingHandlers();
 
   flushGraceBufferedSession(state, recorded.handlers);
 
+  // The non-barrier frames are pinned here too. Without them in the sequence,
+  // `onStatus`/`onCwd`/`onError` could be reordered across the snapshot or the
+  // gate and nothing would notice.
   assert.deepEqual(recorded.calls, [
     'restore-needed',
     'snapshot',
+    'status',
+    'cwd',
     'output:tail-a',
     'output:tail-b',
     'output:tail-c',
     'ready',
+    'error',
   ]);
 
   // Stated as an invariant as well as a literal sequence, so a future frame
@@ -456,4 +465,84 @@ test('grace flush reports an authority proof mismatch and withholds the snapshot
   flushGraceBufferedSession(state, recorded.handlers);
 
   assert.deepEqual(recorded.calls, ['proof-mismatch']);
+});
+
+// AC-3 / AC-5. Every other test seeds a restore, so the guards that exist only
+// on the plain-grace path (no restore outstanding) had no coverage at all.
+// These two drive that path directly.
+
+test('a plain grace snapshot with no outstanding restore prunes the held prefix it covers', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([
+    output('pre', { replayToken: restore.replayToken }),
+    snapshotFor(restore),
+    output('post', { replayToken: restore.replayToken }),
+    ready(restore),
+  ]);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+
+  // Contrast with the restore path, where the prefix is kept and pruning is
+  // left downstream: with no restore outstanding the snapshot is the whole
+  // current view, so anything held before it is already covered.
+  assert.deepEqual(recorded.calls, ['snapshot', 'output:post', 'ready']);
+  assert.equal(state.outputBytes, getOutputUtf8ByteLength('post'));
+});
+
+test('a plain grace ready for a generation other than the buffered snapshot does not open the input gate', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([
+    snapshotFor(restore),
+    ready(restore, { replayToken: 'replay-other' }),
+  ]);
+
+  assert.equal(state.ready, undefined);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.deepEqual(recorded.calls, ['snapshot']);
+});
+
+// AC-2 / AC-7 bounded convergence. Resetting the generation has to clear the
+// terminal flags too. If `outputOverflowReason` or `authorityProofMismatch`
+// survives into the next generation, a fully converged generation never opens
+// the gate — a permanent input block, not a bounded resync.
+
+test('a new generation after an overflow converges and opens the input gate', () => {
+  const maxChunks = getTerminalResourceLimits().visibleOutputMaxChunks;
+  const first = restoreNeeded();
+  let state = applyAll([first, snapshotFor(first)]);
+  for (let index = 0; index <= maxChunks; index += 1) {
+    state = applyGraceBufferedMessage(state, SESSION_ID, output('x'));
+  }
+  assert.equal(state.outputOverflowReason, 'chunk-cap-exceeded');
+
+  const second = secondGeneration();
+  state = applyAll(
+    [second, snapshotFor(second), output('tail', { replayToken: second.replayToken }), ready(second)],
+    state,
+  );
+  assert.equal(state.outputOverflowReason, undefined);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.deepEqual(recorded.calls, ['restore-needed', 'snapshot', 'output:tail', 'ready']);
+});
+
+test('a new generation after an authority proof mismatch converges and opens the input gate', () => {
+  const first = restoreNeeded();
+  let state = applyAll([first, snapshotFor(first, { authorityRevision: 99 })]);
+  assert.equal(state.authorityProofMismatch, true);
+
+  const second = secondGeneration();
+  state = applyAll(
+    [second, snapshotFor(second), output('tail', { replayToken: second.replayToken }), ready(second)],
+    state,
+  );
+  assert.equal(state.authorityProofMismatch, false);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.deepEqual(recorded.calls, ['restore-needed', 'snapshot', 'output:tail', 'ready']);
 });
