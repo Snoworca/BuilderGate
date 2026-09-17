@@ -134,7 +134,7 @@ function recordingHandlers(): RecordedFlush {
       onCwd: () => calls.push('cwd'),
       onOutput: delivery => calls.push(`output:${String(delivery.whole.data)}`),
       onSessionReady: () => calls.push('ready'),
-      onError: () => calls.push('error'),
+      onError: message => calls.push(`error:${message}`),
     },
   };
 }
@@ -181,7 +181,9 @@ test('grace flush applies the current server snapshot before the held tail and o
     'output:tail-b',
     'output:tail-c',
     'ready',
-    'error',
+    // The surfaced text is pinned, not just the fact that an error was
+    // emitted — the exit code is what the user actually reads.
+    'error:Shell exited with code 3',
   ]);
 
   // Stated as an invariant as well as a literal sequence, so a future frame
@@ -429,6 +431,9 @@ test('a replacement snapshot invalidates the ready token latched for the generat
   // frame) must not leave the earlier ready token standing.
   state = applyGraceBufferedMessage(state, SESSION_ID, snapshotFor(restore, { data: 'SNAPSHOT-2' }));
   assert.equal(state.ready, undefined);
+  // The replacement has to actually land. Asserting only the ready side effect
+  // would pass even if the newer frame were ignored and the stale one kept.
+  assert.equal(state.snapshot?.data, 'SNAPSHOT-2');
 
   const recorded = recordingHandlers();
   flushGraceBufferedSession(state, recorded.handlers);
@@ -616,6 +621,11 @@ test('a snapshot proof mismatch discards the held tail and its byte accounting',
   // trip an overflow that never happened.
   assert.deepEqual(state.output, []);
   assert.equal(state.outputBytes, 0);
+  // The adopted snapshot must go too. Only this test can assert it: the
+  // sibling drives the mismatch on the FIRST snapshot, so `current.snapshot`
+  // is already undefined there and the assertion would describe the initial
+  // state rather than the transition.
+  assert.equal(state.snapshot, undefined, 'the adopted snapshot does not survive the proof mismatch');
 });
 
 test('a restore-needed arriving after reconnect-required is ignored', () => {
@@ -751,4 +761,67 @@ test('screen-repair and screen-repair:rejected are recorded while detached and d
   );
   delete (globalThis as { window?: unknown }).window;
   delete (globalThis as { localStorage?: unknown }).localStorage;
+});
+
+// AC-3 / AC-5. The restore-branch ready fence is a three-way conjunction. The
+// `snapshotSeq` half is covered above and the plain-grace conjunction is
+// covered separately, but the restore branch's own `replayToken` half was
+// owned by neither — a different guard exercising a wrong token is not the
+// same guard.
+test('a ready for the right snapshot sequence but the wrong replay token does not latch on the restore branch', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([
+    restore,
+    snapshotFor(restore),
+    ready(restore, { replayToken: 'replay-other' }),
+  ]);
+
+  assert.equal(state.restoreNeeded, restore, 'precondition: the restore branch is the one under test');
+  assert.equal(state.ready, undefined);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.equal(recorded.calls.includes('ready'), false);
+});
+
+// `session:error` is the sibling of `session:exited`, which the ordering test
+// pins. Without this the server's own message never reaching the view would be
+// invisible.
+test('a session error surfaces the server message verbatim', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([
+    restore,
+    snapshotFor(restore),
+    { type: 'session:error', sessionId: SESSION_ID, message: 'pty spawn failed' },
+  ]);
+
+  const recorded = recordingHandlers();
+  flushGraceBufferedSession(state, recorded.handlers);
+  assert.equal(recorded.calls.includes('error:pty spawn failed'), true);
+});
+
+// AC-3. `status` and `cwd` are last-wins: the view must be handed the most
+// recent value, not the first one seen during the grace interval. And the
+// subscribed payload must survive whole — the same identity class as the held
+// chunks, one layer up.
+test('status and cwd are last-wins and the subscribed payload survives the ready override', () => {
+  const restore = restoreNeeded();
+  const state = applyAll([
+    restore,
+    snapshotFor(restore),
+    { type: 'status', sessionId: SESSION_ID, status: 'idle' },
+    { type: 'status', sessionId: SESSION_ID, status: 'running' },
+    { type: 'cwd', sessionId: SESSION_ID, cwd: '/first' },
+    { type: 'cwd', sessionId: SESSION_ID, cwd: '/second' },
+  ]);
+  assert.equal(state.status, 'running');
+  assert.equal(state.cwd, '/second');
+
+  state.subscribedInfo = { status: 'running', cwd: '/second', ready: true };
+  const seen: { status: string; cwd?: string; ready: boolean }[] = [];
+  flushGraceBufferedSession(state, { onSubscribed: info => seen.push(info) });
+
+  // `ready` is overridden while recovery is blocked; everything else must pass
+  // through untouched.
+  assert.deepEqual(seen, [{ status: 'running', cwd: '/second', ready: false }]);
 });
