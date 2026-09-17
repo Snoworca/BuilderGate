@@ -1,0 +1,11 @@
+{
+  "mode": "self",
+  "pr_url": null,
+  "pr_number": null,
+  "self_scope": {
+    "source": "commits",
+    "files": null,
+    "commit_range": "9164050..HEAD",
+    "diff_loc": 100
+  }
+}

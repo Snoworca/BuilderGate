@@ -466,14 +466,21 @@ export function createTerminalWriteCoordinator(
   const compatibilityRetention = (): { chunks: number; bytes: number } => {
     let chunks = 0;
     let bytes = 0;
-    const count = (pending: PendingMutation | null): void => {
-      if (pending === null || !isCompatibilityMutation(pending)) return;
+    const count = (pending: PendingMutation | null): boolean => {
+      if (pending === null || !isCompatibilityMutation(pending)) return true;
       chunks += 1;
       if (pending.type === 'compatibility-write') bytes += pending.encodedBytes;
+      // Once either cap is already exceeded the exact totals cannot change the
+      // decision, so stop walking. Without this the scan is O(queue), and the
+      // queue length is no longer bounded by the chunk cap now that
+      // non-compatibility entries do not count toward it.
+      return chunks <= postCheckpointMaxChunks && bytes <= postCheckpointMaxBytes;
     };
     // The in-flight mutation has left the queue but is still retained.
-    count(activeMutation);
-    for (const pending of queue) count(pending);
+    if (!count(activeMutation)) return { chunks, bytes };
+    for (const pending of queue) {
+      if (!count(pending)) break;
+    }
     return { chunks, bytes };
   };
   const pendingInputs: PendingInput[] = [];
@@ -1276,6 +1283,11 @@ export function createTerminalWriteCoordinator(
       drained: false,
       lastDrainedSourceSeq: null,
     };
+    // A checkpoint's drain starts here, so this is where its frame budget starts.
+    // Clearing it at `checkpoint-begin` instead would reset the budget of a
+    // PREVIOUS checkpoint still draining — begin is admissible while the earlier
+    // one is mid-drain — and hand that drain a fresh frame it had not earned.
+    checkpointFrameDeadline = null;
     queue.push({
       type: 'checkpoint',
       generation: viewGeneration,
@@ -1934,11 +1946,6 @@ export function createTerminalWriteCoordinator(
         requestRecovery('stale-snapshot-seq');
         return rejected('stale-snapshot-seq');
       }
-      // Each checkpoint starts a fresh frame. The deadline is otherwise cleared
-      // only on defer, so a checkpoint that ends inside budget leaves a spent
-      // timestamp behind and the NEXT checkpoint's first slice defers at once,
-      // spending a macrotask before any CPU has been used in that frame.
-      checkpointFrameDeadline = null;
       checkpointTransaction = {
         generation: viewGeneration,
         streamEpoch,
@@ -2125,10 +2132,10 @@ export function createTerminalWriteCoordinator(
         onRejected: command.onRejected,
       };
     }
+    // Already computed once when the mutation was constructed; re-encoding here
+    // was the other half of the cost the caching was meant to remove.
     const compatibilityWriteBytes = mutation.type === 'compatibility-write'
-      ? typeof mutation.data === 'string'
-        ? inputEncoder.encode(mutation.data).byteLength
-        : mutation.data.byteLength
+      ? mutation.encodedBytes
       : 0;
     const conflictsWithCheckpointAuthority = (
       mutation.type === 'compatibility-reset'

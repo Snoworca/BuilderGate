@@ -1,0 +1,53 @@
+# Issue #10 — re-review round (isolated reviewer, fix diff only)
+# 2026-09-18. All eight prior findings verdicted; four NEW findings, all introduced
+# by the fixes themselves. Severity gate met: 0 CRITICAL, 0 HIGH.
+
+## Prior findings, reviewer verdicts
+FND-001 RESOLVED — the new predicate partitions PendingMutation completely; the
+  original unbounded post-rollback writer is still bounded (rollback splices the
+  queue, so only compatibility mutations can enter, and zero-byte resize/fit
+  still count as chunks). Reviewer mutation-tested AC-5: reverting the accounting
+  makes it the only red arm (6 tests, 5 pass, 1 fail).
+FND-002 RESOLVED — both catches present; removing them reddens exactly the two new
+  arms (5 tests, 3 pass, 2 fail). Re-entrancy checked: the catch converges to the
+  same state the normal else-branch already runs in. A 12.8 MiB body through a
+  permanently-throwing scheduler completed without stack exhaustion.
+FND-003 RESOLVED — the one-entry ledger design has teeth.
+FND-004 RESOLVED in all three source locations.
+FND-005 PARTIALLY RESOLVED — see RND-002.
+FND-006 RESOLVED in the stated direction — see RND-003 for the opposite direction.
+FND-007 RESOLVED.
+FND-008 NOT RESOLVED, deliberately, and disclosed.
+
+## New findings, all introduced by the fixes — all now fixed
+RND-001 MEDIUM — the FND-001 fix deleted the O(1) chunk short-circuit, so every
+  compatibility admission walked the whole queue. Because non-compatibility
+  entries no longer count toward the chunk cap, the queue length is no longer
+  bounded by it. Reviewer measured 0.58 ms per admission behind 50,000 queued
+  live writes. FIXED: the scan now stops as soon as either cap is exceeded, since
+  exact totals past that point cannot change the decision.
+RND-002 LOW — admission still encoded the payload twice: once to cache
+  `encodedBytes`, once for `compatibilityWriteBytes` eight lines later. FIXED:
+  the second read now uses the cached value.
+RND-003 LOW, behavioural — clearing the frame deadline at `checkpoint-begin`
+  resets the budget of a PREVIOUS checkpoint still draining, because begin is
+  admissible mid-drain. Reviewer measured pacing degrading from 2.25 to 3.5
+  writes per yield. FIXED: the clear moved to where the drain actually starts, in
+  finalizeCheckpointTransaction.
+  NOT covered by a dedicated test. The pacing suite builds one checkpoint per
+  coordinator, so neither the carry-over nor this reset is visible to it. Stated
+  rather than implied.
+RND-004 LOW — the header written to CORRECT the FND-004 overclaim made a smaller
+  one: it said every arm asserts convergence, and the control arm did not. FIXED
+  by making the sentence true — the control arm now runs to quiescence and
+  asserts `pendingCommands === 0`, which it previously never checked at all.
+
+## Note on the shape of this round
+Four of four new findings were introduced by fixes to the previous four. Two of
+them (RND-001, RND-004) are the SAME defect class as the finding they were fixing,
+reintroduced at smaller scale: an efficiency fix that removed a bound, and a
+comment correcting an overclaim that overclaimed. Writing a rule does not install it.
+
+## Regression after all re-review fixes
+frontend unit 1334 tests, 1331 pass, 3 fail — the same three measured pre-existing
+failures. tsc -b and tsc -p tsconfig.test.json --noEmit both exit 0.

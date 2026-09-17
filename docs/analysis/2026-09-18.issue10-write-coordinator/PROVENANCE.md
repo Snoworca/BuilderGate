@@ -398,3 +398,23 @@ continuation outright. Both are fixed, each with a regression arm confirmed to
 discriminate by reverting the fix and watching it redden. `P17-review-round.txt`
 carries the full disposition, including three drafts of test arms that were wrong
 before they were right.
+
+## Seal update — 2026-09-18, seventeenth write
+
+Moved inputs: **two added files** — `raw/P18-rereview-round.txt` and
+`raw/P18-postrereview-full-unit.log`. No previously sealed file changed.
+
+A second hostile round reviewed the fix diff with the prior findings supplied as
+titles only. It verdicted all eight as resolved (or, for FND-008, deliberately
+not) and mutation-tested the two HIGH fixes itself rather than accepting them.
+
+It then found **four new defects, every one introduced by the fixes**, and two of
+those are the *same defect class as the finding they were fixing*: the efficiency
+fix removed the bound that made the scan cheap, and the comment written to correct
+an overclaim itself overclaimed. All four are now fixed. The severity gate was met
+before they were — 0 CRITICAL, 0 HIGH — so these were repaired because they were
+real, not because a gate demanded it.
+
+One is disclosed as uncovered: RND-003's repair moved the frame-deadline clear to
+where a checkpoint's drain begins, and the pacing suite builds one checkpoint per
+coordinator, so neither the original carry-over nor this repair is visible to it.

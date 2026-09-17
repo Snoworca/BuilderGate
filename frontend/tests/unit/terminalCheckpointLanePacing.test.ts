@@ -193,4 +193,13 @@ test('FR-BGSTAB-022 AC-2 — control: with no budget and no yield configured the
   assert.equal(h.deferred.length, 0, `${signature}: it deferred without being asked to`);
   assert.equal(h.kinds.filter(kind => kind === 'checkpoint').length, 4, signature);
   assert.equal(h.kinds.at(-1), 'parser-tail', signature);
+  // The header above claims every arm in this file asserts convergence. It had
+  // four of five when it was written — this arm drained only `held` and never
+  // checked `pendingCommands`. Rather than narrow the sentence, make it true:
+  // an unpaced lane must converge too, and nothing else asserted that here.
+  runToQuiescence(h);
+  assert.equal(
+    h.coordinator.getState().pendingCommands, 0,
+    `${signature}: the unpaced lane did not converge`,
+  );
 });
