@@ -3,7 +3,7 @@
   "requirementId": "REL-BGSTAB-010",
   "phaseId": "PH-002",
   "taskId": "T-PH002-06",
-  "capturedAt": "2026-09-17T17:53:05.937Z",
+  "capturedAt": "2026-09-17T18:29:32.793Z",
   "invocation": "node tools/wave3/canary-admission-evidence.test.mjs",
   "historicalRedBaseline": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json",
@@ -58,10 +58,10 @@
   ],
   "inputHashes": {
     "files": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "4bc556daaf4b4a7a1099cd2e691dd5b6cff9f73a3293ce31bd993a374dcb43e3",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "a6007a280f9759a27b7e7554d74f4326ff26c0fa89d90980c15b1ab0891c29ce",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json": "4ebd24ac98bcce70e75013344c47cacd423bfa38838792abdd7641e2e2832859",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
-      "tools/wave3/canary-admission-evidence.test.mjs": "d3e9369b34e51c8addcfd80220d6b0c0d30c59490f9add4c0b4ef4e9b6ef3a0b",
+      "tools/wave3/canary-admission-evidence.test.mjs": "356885e2fab5f377d2d5980d7fc06347b037d4951f0f47d8adbe73b07753f086",
       "server/src/services/TerminalResourcePolicyCanary.test.ts": "6d94b08c702db30657665017fe27db5cf926c2e0a25d1b043039235d4d29a49a",
       "server/src/ws/WsRouterSendPriority.test.ts": "e00af9630a83ba603569b8d138bc10a1f909461f66cad389aea9a006a1945a4f",
       "server/src/ws/WsRouterRestoreMetadata.test.ts": "2bd6374cca86ed448ebaa9638c910985298e5439506489b683e4ebeb934d8c6b",
@@ -71,7 +71,7 @@
       "frontend/tests/unit/terminalContainerRecoveryContract.test.ts": "b6976377084085fb3b6006d9067f8aaefd4956ac0e209cd511c29e164236e773",
       "frontend/tests/unit/visibleOutputRecovery.test.ts": "9d762b915f6b34cd2f3b6ad5ca6ca8577422b59129f06ee54cef0b5e91217809"
     },
-    "sourceSetSha256": "a8da8a32d0da2a66681b3bf5637dc775c0633fb60c8cda739b4d80617497a271",
+    "sourceSetSha256": "6097cef4bac5909c2824b9f6df47ce0b7cd71c8df09b8cf2144100684b8bbf5e",
     "mismatches": 0
   },
   "productionSourceHashes": {
@@ -107,7 +107,7 @@
       "skipped": 0,
       "todo": 0,
       "registeredTestNames": 37,
-      "registeredResultSha256": "e8d8a4c3bb9ce849b9d89652f19b166efa7702ab1edf82cd3d1eb44aab00eb4d"
+      "registeredResultSha256": "80c3ea3cfbe4ecf8665b79438c1bb301e46b5835bfbbfdaf391bdd83e0ccdd56"
     },
     "frontend": {
       "cwd": "frontend",
@@ -118,7 +118,7 @@
       "skipped": 0,
       "todo": 0,
       "registeredTestNames": 38,
-      "registeredResultSha256": "0f8c38477c8796cfd9a1005081995cb7ee374074ac4581b64d3ee4ce5b902384"
+      "registeredResultSha256": "8e591091481d91c175b8a026eac367e74da1185ebb638458d60ae36be7276a66"
     }
   },
   "consumerAcMatrix": [

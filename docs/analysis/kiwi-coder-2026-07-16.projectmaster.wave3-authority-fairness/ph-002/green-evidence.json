@@ -10,7 +10,7 @@
     "T-PH002-05",
     "T-PH002-06"
   ],
-  "capturedAt": "2026-09-17T17:53:05.877Z",
+  "capturedAt": "2026-09-17T18:29:32.736Z",
   "commands": [
     {
       "cwd": "server",
@@ -22,7 +22,7 @@
         "skipped": 0,
         "todo": 0,
         "registeredTestNames": 37,
-        "registeredResultSha256": "e8d8a4c3bb9ce849b9d89652f19b166efa7702ab1edf82cd3d1eb44aab00eb4d"
+        "registeredResultSha256": "80c3ea3cfbe4ecf8665b79438c1bb301e46b5835bfbbfdaf391bdd83e0ccdd56"
       }
     },
     {
@@ -35,7 +35,7 @@
         "skipped": 0,
         "todo": 0,
         "registeredTestNames": 38,
-        "registeredResultSha256": "0f8c38477c8796cfd9a1005081995cb7ee374074ac4581b64d3ee4ce5b902384"
+        "registeredResultSha256": "8e591091481d91c175b8a026eac367e74da1185ebb638458d60ae36be7276a66"
       }
     },
     {
@@ -345,7 +345,7 @@
   },
   "evidenceTool": {
     "path": "tools/wave3/canary-admission-evidence.test.mjs",
-    "sha256": "d3e9369b34e51c8addcfd80220d6b0c0d30c59490f9add4c0b4ef4e9b6ef3a0b"
+    "sha256": "356885e2fab5f377d2d5980d7fc06347b037d4951f0f47d8adbe73b07753f086"
   },
   "consumerAcMatrix": [
     {

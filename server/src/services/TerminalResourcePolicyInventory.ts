@@ -1513,9 +1513,22 @@ export function validateTerminalResourceConsumerManifest(
 // going red. This validator holds that direction.
 //
 // An id that is registered and unused is admissible only as an explicit reservation carrying a
-// written reason and a named decision owner. A reservation must also own no manifest tuple, so
-// a consumer that genuinely consumes cannot be moved into the reservation list to escape
-// registration -- the name alone never satisfies the check.
+// written reason and a named decision owner.
+//
+// What the manifest-tuple condition actually buys, measured rather than assumed. The consumer
+// manifest is GENERATED one tuple per catalog entry: discoverTerminalResourceInventory walks
+// CONSUMER_CATALOG and pushes exactly one discoveredTuples row per catalog entry. On a freshly
+// sealed manifest the manifest id set is therefore identical to the catalog id set -- measured
+// today at 81 catalog entries and 81 tuples over the same 10 distinct consumer ids. So for an id
+// that is not already `used`, the tuple condition cannot fire. It is a TRIPWIRE AGAINST A STALE
+// OR HAND-EDITED MANIFEST, not an independent check that a reserved consumer genuinely does not
+// consume.
+//
+// The residual, stated plainly: this guard cannot distinguish "registered and genuinely unused"
+// from "registered and consuming through a call site nobody catalogued". The manifest is derived
+// from the catalog, so both cases look identical to it, and a consumer id exists only in the
+// catalog in the first place. Separating them would need a signal the current inventory design
+// does not produce.
 
 export interface TerminalResourceConsumerRegistrationReservation {
   consumerId: string;
@@ -1528,7 +1541,8 @@ export interface TerminalResourceConsumerRegistrationResult {
   checked: number;
   errors: Array<{
     code: 'unused-consumer-id' | 'reservation-without-reason'
-      | 'reservation-has-tuple' | 'reservation-not-registered';
+      | 'reservation-has-tuple' | 'reservation-not-registered'
+      | 'duplicate-reservation' | 'reservation-for-used-id';
     reference: string;
   }>;
 }
@@ -1566,9 +1580,29 @@ export function validateTerminalResourceConsumerRegistration(input: {
   const registered = new Set(input.consumerIds);
   const used = new Set(input.catalogConsumerIds);
   const withTuples = new Set(input.manifestConsumerIds);
+
+  // Duplicates have to be found before the map is built: `new Map(...)` keeps the last entry for
+  // a repeated key and drops the rest silently, so a second reservation for the same id could
+  // otherwise overwrite an argued one with an unargued one and leave no trace.
+  const reservationOccurrences = new Map<string, number>();
+  for (const reservation of input.reservations) {
+    reservationOccurrences.set(
+      reservation.consumerId,
+      (reservationOccurrences.get(reservation.consumerId) ?? 0) + 1,
+    );
+  }
+  const duplicatedReservationIds = new Set<string>();
+  for (const [consumerId, count] of reservationOccurrences) {
+    if (count > 1) {
+      duplicatedReservationIds.add(consumerId);
+      errors.push({ code: 'duplicate-reservation', reference: consumerId });
+    }
+  }
   const reservedById = new Map(input.reservations.map(entry => [entry.consumerId, entry]));
 
   for (const reservation of input.reservations) {
+    // One error per reservation: a duplicated id is already reported once above.
+    if (duplicatedReservationIds.has(reservation.consumerId)) continue;
     if (!registered.has(reservation.consumerId)) {
       errors.push({ code: 'reservation-not-registered', reference: reservation.consumerId });
       continue;
@@ -1577,15 +1611,24 @@ export function validateTerminalResourceConsumerRegistration(input: {
       errors.push({ code: 'reservation-without-reason', reference: reservation.consumerId });
       continue;
     }
+    // A reservation is for an id nothing uses. Reserving one that IS in the catalog is a
+    // contradiction, and the loop below never examines it because it continues past used ids.
+    if (used.has(reservation.consumerId)) {
+      errors.push({ code: 'reservation-for-used-id', reference: reservation.consumerId });
+      continue;
+    }
     if (withTuples.has(reservation.consumerId)) {
       errors.push({ code: 'reservation-has-tuple', reference: reservation.consumerId });
     }
   }
 
+  // `checked` counts the ids that actually reached the used/reserved decision -- that is, the
+  // registered ids absent from the catalog, for which a reservation lookup was performed.
+  // Incrementing at the top of the loop would make it a restatement of consumerIds.length.
   let checked = 0;
   for (const consumerId of input.consumerIds) {
-    checked += 1;
     if (used.has(consumerId)) continue;
+    checked += 1;
     const reservation = reservedById.get(consumerId);
     if (reservation === undefined) {
       errors.push({ code: 'unused-consumer-id', reference: consumerId });

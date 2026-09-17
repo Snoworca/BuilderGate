@@ -355,13 +355,25 @@ function summarizeFocused(result, requiredRelNames, lineageNames) {
     // shared files, so sealing them makes --regenerate-green the cheapest route through a red and
     // re-blesses whatever else moved at the same time. The corpus identity is already pinned
     // exactly by the deepEquals above; what is sealed here is only what this requirement owns.
+    //
+    // What this seal is and is not. `registeredResultSha256` hashes the OBSERVED status of each
+    // registered name as read out of this run's TAP. The live assertions above -- the all-pass
+    // assertion and the per-registered-name pass assertion -- force every one of those statuses
+    // to 'pass' today, so on a green run this hash is a constant. Its falsification power is
+    // therefore only against a FUTURE WEAKENING of those assertions: if the all-pass assertion or
+    // the registered-name assertion is ever relaxed, a registered test that fails or goes absent
+    // changes this hash and the artifact deepEqual reds instead of passing quietly.
+    // The run-derived evidence in the artifact that is falsifiable TODAY lives in `inputHashes`,
+    // `productionSourceHashes` and `productionRuntimeRegistry.*.stdoutSha256`, not in this block.
     sealedProjection: Object.freeze({
       failed: summary.failed,
       cancelled: summary.cancelled,
       skipped: summary.skipped,
       todo: summary.todo,
       registeredTestNames: registeredNames.length,
-      registeredResultSha256: canonicalSha256({ registeredNames: sorted(registeredNames) }),
+      registeredResultSha256: canonicalSha256({
+        observed: sorted(registeredNames).map(name => [name, executedTests.get(name) ?? 'absent']),
+      }),
     }),
   });
 }
@@ -494,6 +506,24 @@ for (const entry of declaredElsewhereRequirementBearingTestSources) {
   assert.equal(executedRequirementBearingTestSourcePaths.includes(entry.path), false,
     `${entry.path} is declared as verified elsewhere and also executed here`);
 }
+// `executedRequirementBearingTestSourcePaths` is otherwise an unaudited label: nothing tied its
+// entries to what the focused commands actually run. Without this, listing a new suite as
+// "executed" and never adding it to focusedCommands is a cheaper way to hide a suite from
+// verification than the declared-elsewhere route, which at least costs a written reason.
+// The focused command args are cwd-relative, so the leading `server/` or `frontend/` is stripped.
+let auditedExecutedPathCount = 0;
+for (const path of executedRequirementBearingTestSourcePaths) {
+  const lane = path.startsWith('server/') ? 'server' : path.startsWith('frontend/') ? 'frontend' : undefined;
+  assert.notEqual(lane, undefined, `executed requirement-bearing path is in no focused lane: ${path}`);
+  const relative = path.slice(`${lane}/`.length);
+  // On win32 the server lane passes one joined `cmd /c` string, so split args into tokens.
+  const argTokens = focusedCommands[lane].args.flatMap(arg => arg.split(/\s+/u));
+  assert.equal(argTokens.includes(relative), true,
+    `${path} is declared as executed here but is not an argument of the ${lane} focused command`);
+  auditedExecutedPathCount += 1;
+}
+assert.equal(auditedExecutedPathCount, executedRequirementBearingTestSourcePaths.length,
+  'the executed-path audit enumerated a different number of paths than are declared');
 assert.equal(new Set(requirementBearingTestSourcePaths).size, requirementBearingTestSourcePaths.length,
   'a requirement-bearing test source is declared twice');
 assert.deepEqual(discoverRequirementBearingTests(), sorted(requirementBearingTestSourcePaths),

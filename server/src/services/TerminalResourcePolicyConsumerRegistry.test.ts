@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -29,9 +31,11 @@ const MANIFEST_PATH = join(
 // an id used by a catalog entry must be registered. Nothing held this direction, and it had
 // already rotted -- see the production reservation for the one id that is registered and unused.
 //
-// A reservation is deliberately NOT satisfiable by a name alone. It must also own no manifest
-// tuple, so a consumer that genuinely consumes cannot be parked in the reservation list to
-// escape registration.
+// The manifest-tuple condition is NOT an independent check of genuine non-consumption. The
+// manifest is generated one tuple per catalog entry, so on a fresh seal its id set equals the
+// catalog id set and the condition cannot fire for an id that is not already used. It is a
+// tripwire against a stale or hand-edited manifest. See the matching note in
+// TerminalResourcePolicyInventory.ts for the residual this guard cannot resolve.
 
 test('REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation', async () => {
   const consumerIds = TERMINAL_RESOURCE_POLICY_CONSUMER_IDS;
@@ -45,7 +49,13 @@ test('REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or
 
   // Count first. A universal claim over an empty enumeration is true, so these assertions have
   // to fire before the property below rather than after it.
-  assert.equal(consumerIds.length, 11);
+  // No bare literal count here. Pinning a live registry size as a number rots exactly the way
+  // this requirement is removing elsewhere: registering a twelfth consumer would red on the
+  // number before it redded on anything meaningful, and the cheapest repair would be retyping
+  // the number. Uniqueness and non-emptiness are properties that do not rot.
+  assert.ok(consumerIds.length > 0, 'registered consumer id enumeration returned nothing');
+  assert.equal(new Set(consumerIds).size, consumerIds.length,
+    'a consumer id is registered twice');
   assert.ok(catalogConsumerIds.length > 0, 'catalog consumer id enumeration returned nothing');
   assert.ok(manifestConsumerIds.length > 0, 'manifest consumer id enumeration returned nothing');
 
@@ -56,10 +66,27 @@ test('REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or
     reservations: TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS,
   });
 
-  assert.equal(result.checked, consumerIds.length,
-    'the guard did not examine every registered consumer id');
+  // `checked` is the number of registered ids that reached the used/reserved decision, i.e.
+  // those absent from the catalog. Today that is exactly one: server.config.schema.
+  assert.equal(result.checked, 1,
+    'checked counts registered ids absent from the catalog; expected only server.config.schema');
   assert.deepEqual(result.errors, []);
   assert.equal(result.ok, true);
+
+  // Manifest freshness. The sealed .current.json is trusted above for its tuple ids, but a stale
+  // seal would silently widen the reservation hole -- a consumer added since the seal owns no
+  // tuple in it, so a reservation for that consumer would pass the tuple condition. The manifest
+  // records evidence.sourceHashes as a path -> sha256(utf8 source) map (written at
+  // TerminalResourcePolicyInventory.ts where sourceHashes[path] is assigned), so the seal can be
+  // checked directly against the file on disk.
+  const inventorySourcePath = 'server/src/services/TerminalResourcePolicyInventory.ts';
+  const sealedSourceHashes = manifest.evidence?.sourceHashes as Record<string, string> | undefined;
+  assert.ok(sealedSourceHashes !== undefined, 'sealed manifest records no evidence.sourceHashes');
+  const onDiskSha256 = createHash('sha256')
+    .update(readFileSync(join(REPOSITORY_ROOT, inventorySourcePath), 'utf8'), 'utf8')
+    .digest('hex');
+  assert.equal(sealedSourceHashes[inventorySourcePath], onDiskSha256,
+    `sealed manifest is stale for ${inventorySourcePath}; its tuple ids cannot be trusted`);
 });
 
 test('REL-BGSTAB-010 AC-7 reservation membership is pinned so a new exemption costs an argued edit', () => {
@@ -83,7 +110,9 @@ test('REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id th
     reservations: [],
   });
 
-  assert.equal(result.checked, 2);
+  // Only server.config.schema is absent from the catalog, so only it reaches the decision.
+  assert.equal(result.checked, 1,
+    'checked counts registered ids absent from the catalog');
   assert.equal(result.ok, false);
   assert.deepEqual(result.errors, [{ code: 'unused-consumer-id', reference: 'server.config.schema' }]);
 });
@@ -134,4 +163,37 @@ test('REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id out
   assert.equal(result.ok, false);
   assert.deepEqual(result.errors,
     [{ code: 'reservation-not-registered', reference: 'server.retired.consumer' }]);
+});
+
+test('REL-BGSTAB-010 AC-7 registration guard rejects the same consumer id reserved twice', () => {
+  // Building the reservation map with `new Map(...)` keeps only the last entry for a repeated
+  // key, so a second reservation would otherwise overwrite an argued one and vanish.
+  const result = validateTerminalResourceConsumerRegistration({
+    consumerIds: ['server.ws.router', 'server.config.schema'],
+    catalogConsumerIds: ['server.ws.router'],
+    manifestConsumerIds: ['server.ws.router'],
+    reservations: [
+      { consumerId: 'server.config.schema', reason: 'the argued original', decidedBy: 'wave4-wave5 step 0' },
+      { consumerId: 'server.config.schema', reason: 'a later unargued copy', decidedBy: 'nobody' },
+    ],
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.errors, [{ code: 'duplicate-reservation', reference: 'server.config.schema' }]);
+});
+
+test('REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id the catalog uses', () => {
+  // A reservation asserts the id is unused. Reserving one that IS in the catalog is a
+  // contradiction, and the unused-id loop continues past used ids so nothing else examines it.
+  const result = validateTerminalResourceConsumerRegistration({
+    consumerIds: ['server.ws.router'],
+    catalogConsumerIds: ['server.ws.router'],
+    manifestConsumerIds: ['server.ws.router'],
+    reservations: [{ consumerId: 'server.ws.router', reason: 'claims to be unused', decidedBy: 'nobody' }],
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.errors, [{ code: 'reservation-for-used-id', reference: 'server.ws.router' }]);
+  assert.equal(result.checked, 0,
+    'a used id never reaches the used/reserved decision');
 });
