@@ -5,3 +5,8 @@
 clicked Add Terminal
 terminal visible
 # exit=0
+# CORRECTION (appended after the run, bytes above unchanged): the "# purpose:" line above says
+# the tool creates a terminal "if the empty state is showing". The tool actually clicks whenever
+# the "+ Add Terminal" button is present and does not verify that a tab was created; its
+# "terminal already present" branch means only that the button was absent. See the tool entry in
+# the bundle README.

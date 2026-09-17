@@ -81,7 +81,7 @@ reconnect 로 수렴하는데, spec 의 `buildRestoreNeeded` 가 `authorityEpoch
 | 15 | `<WT>/frontend` | `node ./issue5-seed-terminal.mjs` | 0 | `raw/seed-before-final.log` — spec 의 전제(터미널 1개)를 만든다 |
 | 16 | `<WT>/frontend` | 8번을 4회 반복 (**커밋되는 spec**, 15번으로 갓 만든 터미널 위에서) | 0 ×4 | `raw/e2e-final-committed-4x.log` — 네 run 모두 exit 0, 그러나 1차 시도 실패 5건. 아래 불안정성 절 참조 |
 | 17 | `<WT>/frontend` | `npx tsc -p tsconfig.test.json --noEmit` / `npx eslint <spec> <config>` / `npx tsc -p tsconfig.test.json --listFiles \| grep <spec>` / `npx tsc -b` (철회한 리비전 `960ac67` 에서 캡처) | 0 / 0 / 0 / 0 | `raw/typecheck-lint-registration.log` — **커밋본 증거가 아니다** |
-| 18 | `<WT>/frontend` | 17번과 같은 네 명령 + 선언 줄 확인 (`a02c7a4` 에서 캡처. 이후 `b4ed3bb`·`2601880` 은 `frontend/` 를 건드리지 않는다) | 0 / 0 / 0 / 0 / 0 | `raw/typecheck-lint-head.log` — 커밋되는 spec 에 대한 실행이며 447/594 를 함께 찍는다 |
+| 18 | `<WT>/frontend` | 17번과 같은 네 명령 + 선언 줄 확인 (`a02c7a4` 에서 캡처. 이후 커밋은 `docs/` 와 `kiwi/` 만 건드리므로 `git diff a02c7a4..HEAD -- frontend/` 가 비어 있다) | 0 / 0 / 0 / 0 / 0 | `raw/typecheck-lint-head.log` — 커밋되는 spec 에 대한 실행이며 447/594 를 함께 찍는다 |
 
 `raw/typecheck-tests-2.log` 와 `raw/eslint-scoped.log` 는 **0바이트이며 아무것도 증명하지 못한다.**
 같은 명령의 입증력 있는 실행은 17번이다. 두 파일은 당시 제출된 산출물이라는 기록으로만 남긴다.
@@ -129,8 +129,9 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 때때로 engage 되지 않는다는 뜻이며 픽스처 준비 문제보다 무거운 진술이다.
 
 `compatibility-post-ack-failed:convergence-timeout` 디버그 이벤트는 **iteration 3 의 진단 덤프에만**
-찍혔다 — 그 접미사가 붙은 줄은 3줄이고, 같은 덤프의 넷째 줄은 접미사 없는
-`compatibility-post-ack-failed` 다. 다섯 실패 전체의 동반 증상으로 읽지 않는다.
+찍혔다 — 그 덤프는 네 줄이고 그중 **첫·셋째·넷째** 줄에 그 접미사가 붙는다(로그 24·26·27행).
+**둘째** 줄(25행)은 접미사 없는 `compatibility-post-ack-failed` 다. 첫 줄은 `source:` 키이고
+나머지 셋은 `reason:` 키다. 다섯 실패 전체의 동반 증상으로 읽지 않는다.
 
 **이 lane 의 변경이 원인이 아니다.** 16번이 돌린 spec 은 커밋본이고(테스트 선언 줄 447/594 가
 `git show HEAD:…` 와 일치한다), **같은 spec** 이 11·12번에서 1차 시도에 2 PASS 했다. 즉 spec 바이트는
@@ -222,21 +223,6 @@ POST 256, `b7155dc` POST 297, `f719502` DELETE 216 · POST 382. 따라서 선재
 생성 응답 id 로 소유권을 잡는 기존 코드이며 이 lane 이 건드리지 않았다. 보고서와 §4 의 같은 표현도
 이 뜻이다.
 
-**§4 의 제목은 "전체 명령줄·cwd·exit code" 지만, 그것이 파일 안에 기계로 적혀 있는 것은 일부다.**
-`# cwd:`·`# command:`·`# exit=` 헤더를 가진 산출물은 16·18번과 12·14·15번 및 철회 실험 로그들이고,
-**1~10번의 산출물 대부분에는 헤더가 없다** — `server-runner-baseline.log`,
-`server-runner-mutation-giantflush.log`, `server-split-handshake.log`, `fe-baseline.log`,
-`fe-unit-full.log`, `fe-unit-full-final.log`, `fe-unit-baseline-3fails.log`, `e2e-ac4-step1.log`,
-`e2e-wave2-screen-repair-resync.log`, `e2e-wave2-screen-repair-resync-run2.log`,
-`e2e-green-prefreeze.log`, `e2e-frozen-tree-preseeding.log`, `e2e-mutation-nobarrier.log`,
-그리고 0바이트인 둘. 이 행들의 cwd·명령줄·exit code 는 **표의 산문 진술일 뿐이다.**
-
-각 로그가 바이트로 지탱하는 것은 이렇다. E2E 로그는 Playwright 가 찍는 test 선언 줄로 리비전이
-판별되고 말미 요약(`2 passed` / `2 failed`)이 결과를 준다. 1·2번은 말미의 `N test(s) failed` 줄이
-exit code 1 을 뒷받침한다. frontend unit 로그는 B2 inventory 덤프가 spec 의 fetch 호출 줄 번호를
-찍으므로 그것으로 리비전을 되짚을 수 있다. 3번은 node:test 요약이 28/15/0/13 을 준다.
-그 밖의 것 — 어느 디렉터리에서 어떤 인자로 돌렸는지 — 은 이 문서의 진술이다.
-
 ## 5. 포트·프로세스 안전
 
 - 2222 서버는 `NODE_ENV=production PORT=2222 node dist/index.js` 로 `<WT>/server` 에서 직접
@@ -301,7 +287,9 @@ exit code 1 을 뒷받침한다. frontend unit 로그는 B2 inventory 덤프가 
   **정확히는** `+ Add Terminal` 버튼이 보이면 한 번 누르고 `.xterm-screen` 이 뜨기를 기다린다.
   버튼이 없을 때 찍는 `terminal already present` 는 "터미널이 있다" 가 아니라 "버튼이 없다" 는
   뜻이며, 누른 뒤 서버 tab 수가 늘었는지 확인하지 않는다(§4 의 같은 지적 참조). 만들기만 하고
-  지우지 않으므로 파괴적 소유권 위험은 없다.
+  지우지 않으므로 파괴적 소유권 위험은 없다. `raw/seed-before-final.log` 의 손으로 쓴 `# purpose:`
+  줄은 이 정정 이전의 서술(`create it if the empty state is showing`)이라 같은 계열의 부정확한
+  헤더이며, 다른 다섯 건과 같은 방식으로 파일 끝에 정정 한 줄을 덧붙였다.
 - `tools/issue5-probe-authority.mjs` — 실 서버의 `screen-snapshot` wire 를 캡처해 authority proof
   필드 유무를 출력한다. 위 2절의 근거이며 출력은 `raw/probe-authority.log` 다.
 - ~~`tools/issue5-teardown-terminal.mjs`~~ — **제거했다.** workspace 의 터미널 탭을 소유권 확인 없이
