@@ -1,0 +1,49 @@
+# Issue #10 — browser verification at https://localhost:2222
+# 2026-09-18. Real server built from this checkout, real Chromium, real PTY.
+
+## Setup
+frontend `npm run build` exit 0, assets staged into server/dist/public.
+Server booted directly from this checkout: `NODE_ENV=production PORT=2222 node dist/index.js`,
+bypassing the daemon so no daemon state file is touched. No BUILDERGATE_* was inherited
+(measured: zero variables), so nothing needed stripping.
+TCP 2001/2002 were never present in this WSL namespace and were never touched; the only
+process stopped afterwards was the one started here, verified through /proc before the
+signal: exe=node, cwd=<this checkout>/server, cmdline='node dist/index.js'.
+
+## WHAT WAS VERIFIED
+1. The app built from these changes loads over HTTPS, authenticates, and mounts a terminal.
+   So TerminalView executed its coordinator construction site — the one carrying the new
+   frameBudgetMs / shouldYield wiring — in a real browser.
+2. A deterministic input -> output round trip through the modified sole-writer coordinator:
+   typed `echo ISSUE10-AC4B-MARKER-7F3A`, observed exactly TWO occurrences in the buffer
+   (the shell's own echo, then the command output) and the prompt returning.
+   The count is the assertion: loss would show 0 or 1, duplication 3 or more.
+   Shell-agnostic and bash-native, so #85's powershell downgrade is not in the path.
+   Single deterministic sequence, so #81's first-attempt flake is not the shape here.
+3. Console: exactly one error across the whole session, a CSP font-src violation on a
+   data: URI font. Unrelated to the coordinator BY INSPECTION — not measured against a
+   baseline build, and stated that way rather than called pre-existing.
+
+## WHAT COULD NOT BE VERIFIED, AND WHY — THE RESIDUAL
+The AC-4(b) pacing wiring could NOT be exercised at runtime, and the cause is architectural
+rather than a flaky probe:
+
+  WsRouter.ts:2515-2522 advertises `authorityMode: 'legacy'` and
+  `checkpointDeliveryActive: false` whenever no authority view is promoted, which is the
+  state of a normal session today. The live server log recorded ZERO checkpoint activity
+  (control: the log has 49 lines, so the search could have produced a hit).
+
+Server checkpoint authority is inactive by design — REL-BGSTAB-007 is `planned` and
+promotion is gated behind PH-004/PH-005, owned by #11 and #12. The checkpoint write lane
+therefore does not execute in a production session, so a browser cannot today distinguish
+a coordinator that honours the frame budget from one that ignores it.
+
+RESIDUAL, recorded rather than left implicit:
+  "The AC-4(b) production wiring is verified by typecheck and call-site read, and is
+   UNVERIFIED AT RUNTIME. It becomes verifiable when server checkpoint authority is
+   promoted (#11 / #12). Present-in-source and applied-at-runtime remain different claims
+   for this wiring."
+
+This is not a discrimination failure of the kind #81 and #85 describe. Those were avoided:
+the probe used input frames and buffer content rather than prompt text, and one
+deterministic sequence rather than a retry-sensitive flow.

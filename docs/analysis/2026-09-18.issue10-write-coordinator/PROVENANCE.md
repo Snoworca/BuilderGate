@@ -339,3 +339,36 @@ Recorded as `REL-BGSTAB-025` VE-2, a counterexample against a `planned`
 requirement. **No AC checked, no status changed** — this is not a withdrawal of a
 verification claim but a record against a contract that is not yet implemented.
 The fix belongs to that requirement; this lane changed no code for it.
+
+## Seal update — 2026-09-18, fifteenth write
+
+Moved inputs: **two added files** — `raw/P16-browser-verification.txt` and
+`browser/issue10-ac4b-runtime-marker.png`. No previously sealed file changed.
+
+Browser verification at `https://localhost:2222` against a server built and
+booted from this checkout. What it establishes and what it does not are kept
+apart:
+
+**Established.** The app built from these changes loads over HTTPS, authenticates
+and mounts a terminal, so `TerminalView` executed its coordinator construction
+site in a real browser; and a deterministic round trip through the modified
+sole-writer coordinator produced **exactly two** occurrences of a unique marker —
+the shell's echo and the command output. The count is the assertion: loss would
+show zero or one, duplication three or more.
+
+**Not established — the residual.** The AC-4(b) pacing wiring could not be
+exercised, because `WsRouter.ts:2515-2522` advertises `authorityMode: 'legacy'`
+and `checkpointDeliveryActive: false` when no authority view is promoted, which
+is every ordinary session today. The live server log recorded zero checkpoint
+activity, with the control that the log had 49 lines. Server checkpoint authority
+is inactive **by design** — `REL-BGSTAB-007` is `planned`, promotion is gated to
+PH-004/PH-005 under #11 and #12 — so a browser cannot today tell a coordinator
+that honours the frame budget from one that ignores it. The residual is recorded
+in `P16` rather than left implicit, and its cause is architectural rather than a
+flaky probe.
+
+One tool note worth the same treatment as `#100`: the Playwright MCP browser
+resolves output paths against **its own workspace root**, and wrote the screenshot
+into the **main worktree**, not this one. It was untracked there, was moved into
+this bundle, and main was left clean. Another tool whose root is not the worktree
+the work is happening in.
