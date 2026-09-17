@@ -143,3 +143,31 @@ are load-bearing and would otherwise be unverifiable from the tree:
    counts are identical in both arms (11/10/1 and 51/49/2). The file was restored
    byte-identically afterwards. They are not root-caused here; the only claim is
    that reverting this change does not remove them.
+
+## Seal update — 2026-09-18, sixth write
+
+Moved inputs: **two added files** — `raw/P8-guards-green.log` and
+`raw/P8-mutation-testing.txt`. No previously sealed file changed.
+
+These cover the test-only work for issue #10 AC-11 and AC-6(i), where production
+was already correct and only the guard was missing. A test written against
+already-correct code is green from birth, so being green says nothing about
+whether it can fail. Each new assertion was therefore mutation-tested.
+
+Three of the guards are real (M1 `clearWriteTimeout` on dispose, M2 settling the
+in-flight token, M3 the `stale-stream-epoch` rejection) — deleting each turns the
+suite red.
+
+**One is not, and it is recorded rather than quietly kept.** The late-callback
+test survives deletion of the `disposed` term, survives weakening the
+`activeMutation !== mutation` early return, and survives **deleting both guards
+as a group**. The group deletion is the decisive step, because one-at-a-time
+deletion cannot separate "nothing verifies this" from "a redundant sibling
+enforces it"; the group run rules the second out. Dispose has already drained the
+queue, nulled `activeMutation` and settled every token, so a late callback has
+nothing left to disturb. AC-11(iv) is not falsifiable through the public surface
+on the dispose path.
+
+That test is renamed to say it is a non-discriminating characterization and
+carries the measurement in its own comment. It is not counted as coverage. It is
+kept because deleting it would also delete the record that the question was asked.

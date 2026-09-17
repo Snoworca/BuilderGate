@@ -1,0 +1,11 @@
+✔ FR-BGSTAB-022 AC-6 — dispose releases the queue, the timer and the in-flight write callback (2.835215ms)
+✔ FR-BGSTAB-022 AC-6 — characterization: a post-dispose write callback changes nothing observable (non-discriminating) (0.239206ms)
+✔ FR-BGSTAB-022 AC-4 — a live frame from an older stream epoch is discarded (0.502695ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 129.862888
