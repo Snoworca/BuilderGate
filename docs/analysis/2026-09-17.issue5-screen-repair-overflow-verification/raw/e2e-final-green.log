@@ -311,3 +311,7 @@ restore barrier diagnostic [
     [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
   1 passed (1.1m)
 # exit=0
+# CORRECTION (appended after the run, bytes above unchanged): the header above calls this the
+# "committed spec". It is not. This run used revision f719502, a seeding experiment this lane
+# later withdrew; it declares its tests at 538/685, whereas the committed spec declares them at
+# 447/594. See the revision table in the bundle README.

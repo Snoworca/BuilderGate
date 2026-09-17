@@ -1,0 +1,15 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# revision: HEAD (5c79ea1) — spec declares its tests at 447/594
+# command: npx tsc -p tsconfig.test.json --noEmit
+# exit=0
+# command: npx eslint tests/e2e/wave2-screen-repair-resync.spec.ts playwright.external-server.config.ts
+# exit=0
+# command: npx tsc -p tsconfig.test.json --listFiles | grep wave2-screen-repair-resync.spec.ts
+/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts
+# exit=0
+# command: npx tsc -b
+# exit=0
+# command: grep -n "^  test('Frontend stale/resync" tests/e2e/wave2-screen-repair-resync.spec.ts
+447:  test('Frontend stale/resync barrier RED 계약 — AC-4', async ({ page }) => {
+594:  test('Frontend stale/resync barrier RED 계약 — AC-8', async ({ page }) => {
+# exit=0

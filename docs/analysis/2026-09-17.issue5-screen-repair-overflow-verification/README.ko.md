@@ -54,7 +54,7 @@ reconnect 로 수렴하는데, spec 의 `buildRestoreNeeded` 가 `authorityEpoch
 | 축 | 변형 | 결과 |
 | --- | --- | --- |
 | 서버 계약 | `appendScreenRepairQueuedOutput` 의 overflow 분기를 Wave 2 이전의 giant concatenation flush 로 되돌림 | `Repair queue·protocol RED 계약 — AC-1/AC-3/AC-5/AC-7/AC-10` 5건 전부 FAIL (`raw/server-runner-mutation-giantflush.log`) |
-| HTTPS E2E | `handleScreenRepairRestoreNeeded` 가 stale/resync transaction 을 만들지 않고 early return | AC-4·AC-8 둘 다 FAIL (`raw/e2e-mutation-final.log`, 커밋되는 spec 에 대한 실행). `raw/e2e-mutation-nobarrier.log` 와 `raw/e2e-mutation-nobarrier-selfseeded.log` 는 각각 시드 도입 전·중간 spec 에 대한 같은 변형의 실행이다 |
+| HTTPS E2E | `handleScreenRepairRestoreNeeded` 가 stale/resync transaction 을 만들지 않고 early return | AC-4·AC-8 둘 다 FAIL — `raw/e2e-mutation-nobarrier.log`(선언 줄 447/594, **커밋되는 spec**). 같은 변형을 철회한 리비전에서 돌린 `raw/e2e-mutation-nobarrier-selfseeded.log`(463/610)와 `raw/e2e-mutation-final.log`(538/685)도 남기지만 커밋본 증거가 아니다 |
 
 즉 수리된 E2E 는 제품 회귀를 실제로 잡는다.
 
@@ -80,7 +80,8 @@ reconnect 로 수렴하는데, spec 의 `buildRestoreNeeded` 가 `authorityEpoch
 | 14 | `<WT>/frontend` | `node ./issue5-probe-authority.mjs` (`tools/` 사본을 frontend 로 복사해 실행) | 0 | `raw/probe-authority.log` — 실 서버 `screen-snapshot` 이 `authorityEpoch`·`authorityRevision`·`coversThroughSeq` 를 실음 |
 | 15 | `<WT>/frontend` | `node ./issue5-seed-terminal.mjs` | 0 | `raw/seed-before-final.log` — spec 의 전제(터미널 1개)를 만든다 |
 | 16 | `<WT>/frontend` | 8번을 4회 반복 (**커밋되는 spec**, 15번으로 갓 만든 터미널 위에서) | 0 ×4 | `raw/e2e-final-committed-4x.log` — 네 run 모두 exit 0, 그러나 1차 시도 실패 5건. 아래 불안정성 절 참조 |
-| 17 | `<WT>/frontend` | `npx tsc -p tsconfig.test.json --noEmit` / `npx eslint <spec> <config>` / `npx tsc -p tsconfig.test.json --listFiles \| grep <spec>` / `npx tsc -b` | 0 / 0 / 0 / 0 | `raw/typecheck-lint-registration.log` |
+| 17 | `<WT>/frontend` | `npx tsc -p tsconfig.test.json --noEmit` / `npx eslint <spec> <config>` / `npx tsc -p tsconfig.test.json --listFiles \| grep <spec>` / `npx tsc -b` (철회한 리비전 `960ac67` 에서 캡처) | 0 / 0 / 0 / 0 | `raw/typecheck-lint-registration.log` — **커밋본 증거가 아니다** |
+| 18 | `<WT>/frontend` | 17번과 같은 네 명령 + 선언 줄 확인 (**HEAD**) | 0 / 0 / 0 / 0 / 0 | `raw/typecheck-lint-head.log` — 커밋되는 spec 에 대한 실행이며 447/594 를 함께 찍는다 |
 
 `raw/typecheck-tests-2.log` 와 `raw/eslint-scoped.log` 는 **0바이트이며 아무것도 증명하지 못한다.**
 같은 명령의 입증력 있는 실행은 17번이다. 두 파일은 당시 제출된 산출물이라는 기록으로만 남긴다.
@@ -135,9 +136,16 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 차이는 spec 이 아니라 **터미널이 갓 생성된 것인지**다 — 앞선 실행들은 오래 떠 있던 터미널을
 재사용했고, 16번은 15번이 방금 만든 터미널 위에서 돌았다.
 
-따라서 이것은 이 lane 이 만든 것이 아니라 **갓 만든 session 위에서 드러나는 기존 불안정성**으로
-본다. 원인은 특정하지 못했다. 1회 green 으로 flake 라고 부르지 않기 위해 위 표를 그대로 남기고
-별도 결함으로 보고한다.
+**단, 변수를 분리하지는 못했다.** 16번의 "갓 만든 터미널" 전제는 `tools/issue5-seed-terminal.mjs`
+가 `+ Add Terminal` 을 눌렀다는 것에 기댄다. 그 도구는 이 lane 이 spec 헬퍼를 철회한 이유와 같은
+순간 `count()` 경합을 그대로 갖고 있고 서버 tab 수가 늘었는지 확인하지 않는다 — 클릭이 no-op 이고
+이미 있던 터미널이 보였을 가능성을 배제하지 못한다. 대조군인 11·12번 로그에는 헤더가 없어 터미널의
+나이가 기록되어 있지 않다. 즉 n=2 대 n=4 의 비교이고 독립변수가 양쪽 모두 기록되지 않았다.
+
+그러므로 "session 이 갓 생성된 것이 원인" 은 **가설이지 확인된 인과가 아니다.** 확실한 것은 두
+가지뿐이다 — 이 실패들은 커밋되는 spec(447/594)에서 관측되었고, 같은 spec 의 다른 두 실행은 1차
+시도에 통과했다. 1회 green 으로 flake 라고 부르지 않기 위해 위 표를 그대로 남기고 별도 결함으로
+보고한다.
 
 ### 산출물의 spec 판별 — 테스트 선언 줄로 대조한다
 
@@ -157,11 +165,20 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 `raw/e2e-final-committed-4x.log` 넷이다. 위 표의 11·12·13·16번이 그것이다.
 `raw/e2e-ac4-step1.log` 도 447 을 찍지만 AC-4 만 돌린 중간 상태 실행이다.
 
-⚠️ **`raw/e2e-mutation-final.log`(538/685), `raw/e2e-selfseed-empty.log`(543/690),
-`raw/e2e-selfseed-repeat.log`(543/690) 는 헤더에 `# state: committed spec` 이라고 적혀 있으나
-그것은 사실이 아니다.** 그 헤더는 당시 내가 손으로 쓴 문장이고, 세 로그 모두 커밋되지 않은
-리비전에서 돌았다. 캡처된 바이트를 고쳐 쓰지 않기 위해 원문은 그대로 두고 각 파일 끝에 정정
-한 줄을 덧붙였으며, 판별 근거는 위 선언 줄 표다.
+⚠️ **다섯 개의 로그가 헤더에서 스스로를 "committed spec" 이라 부르지만 사실이 아니다.**
+`raw/e2e-mutation-final.log`, `raw/e2e-stability-committed-6x.log`, `raw/e2e-final-green.log` 는
+철회한 리비전 `f719502`(538/685)에서, `raw/e2e-selfseed-empty.log` 와
+`raw/e2e-selfseed-repeat.log`(543/690)는 커밋되지 않은 중간본에서 돌았다. 그 헤더는 당시 내가 손으로
+쓴 문장이며 캡처된 출력이 아니다. 캡처 바이트를 고쳐 쓰지 않기 위해 원문은 그대로 두고 **다섯 파일
+모두 끝에 정정 한 줄을 덧붙였다.** 판별 근거는 위 선언 줄 표다.
+`raw/e2e-stability-committed-6x.log` 는 파일 이름에도 `committed` 가 들어 있으나 같은 이유로 커밋본
+증거가 아니다.
+
+**헤더가 아예 없는 커밋본 로그가 셋 있다.** `raw/e2e-green-prefreeze.log`,
+`raw/e2e-frozen-tree-preseeding.log`, `raw/e2e-mutation-nobarrier.log` 는 헤더 관례를 만들기 전에
+캡처해서 `# cwd:`·`# command:`·`# exit=` 줄이 없다. 리비전은 선언 줄(447/594)로 바이트 검증되지만
+cwd·대상 listener·exit code 는 위 표의 산문 진술일 뿐이며, 바이트로 남은 것은 Playwright 말미의
+`2 passed` / `2 failed` 요약뿐이다.
 
 ## 5. 포트·프로세스 안전
 
