@@ -1,0 +1,46 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# command: npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --config playwright.external-server.config.ts --project "Desktop Chrome"
+# state: committed spec, second consecutive run with NO teardown in between — proves the spec returns the workspace to the state it found and reseeds on its own
+# target: https://localhost:2222 (externally owned listener, server PID 451255)
+(node:452180) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:543:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (5.9s)
+  ✘  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:690:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (19.0s)
+  ✓  3 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:690:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (retry #1) (19.7s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+
+  1) [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:690:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
+
+    Error: Frontend stale/resync barrier RED 계약 RED AC-8: restore-needed did not engage the stale barrier, or provisional local restore cleared hidden dirty/skipped/stale or promoted retained equivalence
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 10000ms exceeded while waiting on the predicate
+
+      785 |       });
+      786 |
+    > 787 |       await expect.poll(async () => {
+          |       ^
+      788 |         const events = await readDebugEvents(page, sessionId);
+      789 |         return events.some((event) => (
+      790 |           event.kind === 'visible_output_resync_state'
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:787:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/error-context.md
+
+  1 flaky
+    [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:690:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
+  1 passed (1.0m)
+# exit=0

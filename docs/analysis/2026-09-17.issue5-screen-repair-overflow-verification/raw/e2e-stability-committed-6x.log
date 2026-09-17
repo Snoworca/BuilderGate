@@ -1,0 +1,42 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# command: for i in 1..6; npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --config playwright.external-server.config.ts --project "Desktop Chrome"
+# purpose: first-attempt stability of the committed spec (hydration-aware seeding, seeded tab released afterEach, no quiescence wait)
+## iteration 1  07:09:24Z
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:538:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (5.1s)
+  ✓  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (17.4s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+  2 passed (31.6s)
+## iteration 1 playwright exit=0
+## iteration 2  07:10:04Z
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:538:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (5.2s)
+  ✓  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (17.6s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+  2 passed (31.8s)
+## iteration 2 playwright exit=0
+## iteration 3  07:10:44Z
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:538:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (6.2s)
+  ✓  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (18.2s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+  2 passed (34.1s)
+## iteration 3 playwright exit=0
+## iteration 4  07:11:27Z
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:538:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (6.2s)
+  ✓  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (17.5s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+  2 passed (33.5s)
+## iteration 4 playwright exit=0
+## iteration 5  07:12:10Z
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:538:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (6.0s)
+  ✓  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (18.3s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+  2 passed (33.5s)
+## iteration 5 playwright exit=0
+## iteration 6  07:12:52Z
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:538:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (5.2s)
+  ✘  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (17.9s)
+  ✓  3 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (retry #1) (18.1s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/test-failed-1.png
+  1 passed (59.0s)
+## iteration 6 playwright exit=0
+# exit=0

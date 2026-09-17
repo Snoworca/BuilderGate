@@ -1,0 +1,313 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# command: npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --config playwright.external-server.config.ts --project "Desktop Chrome"
+# state: production source restored to its committed bytes and rebuilt; committed spec with the hardened seeding helper
+(node:457931) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:538:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (6.6s)
+restore barrier diagnostic [
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'screen-repair-reconnect-required'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'visible-output-recovery'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'screen_repair_reconnect_required'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      repairToken: [32m'5cee88a9-f794-4ccb-8261-a74e2a0eaeb2'[39m,
+      reason: [32m'ack-timeout'[39m,
+      outcome: [32m'reconnect-required'[39m
+    }
+  },
+  {
+    kind: [32m'visible_output_resync_retry_attempted'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      kind: [32m'reconnect'[39m,
+      reason: [32m'screen-repair-reconnect-required'[39m,
+      attempt: [33m1[39m
+    }
+  },
+  {
+    kind: [32m'visible_output_resync_reconnect_requested'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'screen-repair-reconnect-required'[39m,
+      attempt: [33m1[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'ws-reconnecting-short'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'reconnecting'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'ws-reconnecting'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'ws-reconnecting-short'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'reconnecting'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'ws-reconnecting-short'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'reconnecting'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'visible-output-recovery'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'ws-connected'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'visible-output-recovery'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'visible-output-recovery'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'visible_output_resync_state'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      source: [32m'compatibility-snapshot-acknowledged'[39m,
+      transactionId: [32m'compatibility:64ad9062-0a67-4da9-9ab1-1838a4f3115d:4'[39m,
+      repairToken: [1mnull[22m,
+      replayToken: [32m'64ad9062-0a67-4da9-9ab1-1838a4f3115d'[39m,
+      snapshotSeq: [33m4[39m,
+      connectionGeneration: [33m2[39m,
+      sessionGeneration: [33m2[39m,
+      viewGeneration: [33m1[39m,
+      xtermGeneration: [33m1[39m,
+      staleTerminal: [33mfalse[39m,
+      terminalFailed: [33mfalse[39m,
+      currentViewTransactionReady: [33mfalse[39m,
+      retainedHistoryEquivalent: [33mfalse[39m,
+      provisionalLocalState: [33mtrue[39m,
+      hiddenDirty: [33mfalse[39m,
+      hiddenSkipped: [33mfalse[39m,
+      hiddenSkippedBytes: [33m0[39m,
+      heldOutputBytes: [33m0[39m,
+      heldOutputChunks: [33m0[39m,
+      activeTimerCount: [33m0[39m,
+      activeListenerCount: [33m1[39m,
+      activeTransactionCount: [33m1[39m,
+      acknowledgementReceived: [33mtrue[39m,
+      serverReadyLatched: [33mfalse[39m,
+      receivedOutputChunks: [33m0[39m,
+      receivedOutputBytes: [33m0[39m,
+      disposed: [33mfalse[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'screen-snapshot-applied'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'replay-pending'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'screen-snapshot-apply-settled'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'replay-pending'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'subscribed'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'replay-pending'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'visible_output_resync_state'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      source: [32m'compatibility-post-ack-failed:convergence-timeout'[39m,
+      transactionId: [32m'compatibility:64ad9062-0a67-4da9-9ab1-1838a4f3115d:4'[39m,
+      repairToken: [1mnull[22m,
+      replayToken: [32m'64ad9062-0a67-4da9-9ab1-1838a4f3115d'[39m,
+      snapshotSeq: [33m4[39m,
+      connectionGeneration: [33m2[39m,
+      sessionGeneration: [33m2[39m,
+      viewGeneration: [33m1[39m,
+      xtermGeneration: [33m1[39m,
+      staleTerminal: [33mfalse[39m,
+      terminalFailed: [33mfalse[39m,
+      currentViewTransactionReady: [33mfalse[39m,
+      retainedHistoryEquivalent: [33mfalse[39m,
+      provisionalLocalState: [33mtrue[39m,
+      hiddenDirty: [33mfalse[39m,
+      hiddenSkipped: [33mfalse[39m,
+      hiddenSkippedBytes: [33m0[39m,
+      heldOutputBytes: [33m0[39m,
+      heldOutputChunks: [33m0[39m,
+      activeTimerCount: [33m0[39m,
+      activeListenerCount: [33m1[39m,
+      activeTransactionCount: [33m1[39m,
+      acknowledgementReceived: [33mtrue[39m,
+      serverReadyLatched: [33mfalse[39m,
+      receivedOutputChunks: [33m0[39m,
+      receivedOutputBytes: [33m0[39m,
+      disposed: [33mfalse[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'compatibility-post-ack-failed'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'visible-output-recovery'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'connected'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'visible_output_resync_retry_attempted'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      kind: [32m'reconnect'[39m,
+      reason: [32m'compatibility-post-ack-failed:convergence-timeout'[39m,
+      attempt: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'visible_output_resync_reconnect_requested'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'compatibility-post-ack-failed:convergence-timeout'[39m,
+      attempt: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'render-sync'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'ws-reconnecting-short'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'reconnecting'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  },
+  {
+    kind: [32m'input_transport_state_synced'[39m,
+    details: {
+      inputReliabilityMode: [32m'observe'[39m,
+      reason: [32m'ws-reconnecting'[39m,
+      serverReady: [33mfalse[39m,
+      barrierReason: [32m'ws-reconnecting-short'[39m,
+      closedReason: [32m'none'[39m,
+      reconnectState: [32m'reconnecting'[39m,
+      sessionGeneration: [33m2[39m
+    }
+  }
+]
+  ✘  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (20.7s)
+  ✓  3 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (retry #1) (19.8s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+
+  1) [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
+
+    Error: Frontend stale/resync barrier RED 계약 RED AC-8: restore-needed did not engage the stale barrier, or provisional local restore cleared hidden dirty/skipped/stale or promoted retained equivalence
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      248 | ): Promise<void> {
+      249 |   try {
+    > 250 |     await expect.poll(async () => {
+          |     ^
+      251 |       const events = await readDebugEvents(page, sessionId);
+      252 |       return events.some((event) => (
+      253 |         event.kind === 'input_transport_state_synced'
+        at expectRestoreBarrier (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:250:5)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:761:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/error-context.md
+
+  1 flaky
+    [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:685:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
+  1 passed (1.1m)
+# exit=0
