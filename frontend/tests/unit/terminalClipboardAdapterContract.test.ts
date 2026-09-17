@@ -118,23 +118,56 @@ function parseTsx(absolutePath: string): ts.SourceFile {
   );
 }
 
+// The full member list is pinned, not just the ones whose NAME matches /paste/.
+// Gating on the name verified a naming convention rather than the property: a
+// member called insertText or writeInput reaching sendInput is a programmatic
+// paste bypass that /paste/i never sees. Pinning the whole set means any new
+// handle member fails this test until someone decides whether it is one.
+const EXPECTED_TERMINAL_HANDLE_MEMBERS = [
+  'applyScreenRepair', 'awaitOutputIdle', 'bindRestoreCoordinator', 'captureRetainedState',
+  'clearSelection', 'clearVisibleOutputRecovery', 'completeCheckpointTakeover', 'copySelection',
+  'fit', 'focus', 'getAuthorityViewGeneration', 'getMouseTrackingActive', 'getScreenRepairReadiness',
+  'getSelection', 'hasSelection', 'invalidateClipboardContext', 'isCheckpointAuthorityActive',
+  'isCompatibilityRecoveryPending', 'pasteClipboard', 'pasteText', 'probeOutputFifo',
+  'releasePending', 'repairLayout', 'replaceWithSnapshot', 'requestGridRepair', 'restoreSnapshot',
+  'sendInput', 'setInputTransportState', 'setServerReady', 'setWindowsPty', 'submitClear',
+  'submitOutput', 'writeAndWait', 'writeRecoveryTailAndWait',
+] as const;
+
+const PASTE_HANDLE_MEMBERS = ['pasteClipboard', 'pasteText'] as const;
+
 function terminalHandleMemberNames(source: ts.SourceFile): string[] {
-  let names: string[] | null = null;
+  // Collected into an array rather than assigned to a `let`: TypeScript does not
+  // see assignments made inside the closure, narrows the variable to null, and
+  // then types every later use as `never`.
+  const found: ts.InterfaceDeclaration[] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isInterfaceDeclaration(node) && node.name.text === 'TerminalHandle') {
-      names = node.members
-        .map(member => (member.name && ts.isIdentifier(member.name) ? member.name.text : null))
-        .filter((name): name is string => name !== null);
+      found.push(node);
     }
     ts.forEachChild(node, visit);
   };
   visit(source);
-  assert.ok(names !== null, 'TerminalHandle interface not found; the enumeration below would be empty');
-  return names!;
+  assert.equal(found.length, 1, `expected exactly one TerminalHandle interface, found ${found.length}`);
+
+  const members = found[0]!.members;
+  // Resolve quoted and computed names too. Restricting to ts.isIdentifier
+  // silently dropped members, so `'pasteRaw': (data) => …` -- one pair of quotes
+  // -- was absent from the "exact set" and the set still compared equal.
+  const names = members
+    .map(member => (member.name ? member.name.getText(source).replace(/^['"`]|['"`]$/g, '') : null))
+    .filter((name): name is string => name !== null);
+  // Nothing may be dropped between the member list and the names compared below.
+  assert.equal(
+    names.length,
+    members.length,
+    `TerminalHandle has ${members.length} members but only ${names.length} resolved to names`,
+  );
+  return names;
 }
 
-function imperativeHandleProperties(source: ts.SourceFile): Map<string, string> {
-  const properties = new Map<string, string>();
+function imperativeHandleProperties(source: ts.SourceFile): Map<string, ts.Expression> {
+  const properties = new Map<string, ts.Expression>();
   const visit = (node: ts.Node): void => {
     if (
       ts.isCallExpression(node)
@@ -151,8 +184,8 @@ function imperativeHandleProperties(source: ts.SourceFile): Map<string, string> 
         }
         if (literal && ts.isObjectLiteralExpression(literal)) {
           for (const property of literal.properties) {
-            if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.name)) {
-              properties.set(property.name.text, property.initializer.getText(source));
+            if (ts.isPropertyAssignment(property) && property.name) {
+              properties.set(property.name.getText(source).replace(/^['"`]|['"`]$/g, ''), property.initializer);
             }
           }
         }
@@ -164,45 +197,71 @@ function imperativeHandleProperties(source: ts.SourceFile): Map<string, string> 
   return properties;
 }
 
+// The delegation must BE the coordinator call, not merely mention it. A body of
+// `{ sendInputRef.current(data); return clipboardCoordinator.pasteText(data, source); }`
+// contains the call and also delivers a second time -- the exactly-once
+// violation this row is cited for -- so a substring match accepts it.
+function soleDeliveryCallee(initializer: ts.Expression, source: ts.SourceFile): string {
+  assert.ok(
+    ts.isArrowFunction(initializer),
+    `expected an arrow function, got: ${initializer.getText(source).slice(0, 80)}`,
+  );
+  let body: ts.Node = (initializer as ts.ArrowFunction).body;
+  assert.ok(
+    !ts.isBlock(body),
+    'paste delegation must be a single expression; a block body can deliver more than once: '
+    + `${initializer.getText(source).slice(0, 120)}`,
+  );
+  while (ts.isParenthesizedExpression(body)) {
+    body = body.expression;
+  }
+  // `a?.b(...) ?? fallback` is the container's shape; the fallback is inert.
+  if (ts.isBinaryExpression(body) && body.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) {
+    body = body.left;
+  }
+  while (ts.isParenthesizedExpression(body)) {
+    body = body.expression;
+  }
+  assert.ok(
+    ts.isCallExpression(body),
+    `paste delegation must reduce to one call, got: ${body.getText(source).slice(0, 120)}`,
+  );
+  return (body as ts.CallExpression).expression.getText(source);
+}
+
 test('Terminal imperative handles route every paste-capable member through the coordinator', () => {
   const view = parseTsx(fileURLToPath(new URL('../../src/components/Terminal/TerminalView.tsx', import.meta.url)));
   const container = parseTsx(fileURLToPath(new URL('../../src/components/Terminal/TerminalContainer.tsx', import.meta.url)));
 
-  const members = terminalHandleMemberNames(view);
-  // Guards the enumeration itself: a traversal that silently found nothing would
-  // make the set comparison below trivially satisfiable.
-  assert.ok(members.length > 10, `TerminalHandle enumeration looks empty: ${members.length} members`);
-
-  // The exact set, not a subset. A newly added `pasteRaw: (data) => sendInput(data)`
-  // is a genuine programmatic paste bypass, and only an exact comparison rejects it.
+  // The whole surface is pinned. A new member of any name -- insertText,
+  // writeInput, pasteRaw, quoted or not -- fails here until it is reviewed.
   assert.deepEqual(
-    members.filter(name => /paste/i.test(name)).sort(),
-    ['pasteClipboard', 'pasteText'],
-    'every paste-capable handle member must be an explicit clipboard coordinator entry point',
+    terminalHandleMemberNames(view).slice().sort(),
+    [...EXPECTED_TERMINAL_HANDLE_MEMBERS].slice().sort(),
+    'TerminalHandle membership changed; decide whether the new member is a paste entry point',
   );
 
   const viewProperties = imperativeHandleProperties(view);
   const containerProperties = imperativeHandleProperties(container);
-  assert.ok(viewProperties.size > 10 && containerProperties.size > 10, 'imperative handle enumeration looks empty');
+  assert.ok(
+    viewProperties.size > 10 && containerProperties.size > 10,
+    `imperative handle enumeration looks empty: view=${viewProperties.size} container=${containerProperties.size}`,
+  );
 
-  for (const member of ['pasteClipboard', 'pasteText']) {
-    assert.match(
-      viewProperties.get(member) ?? '',
-      /clipboardCoordinator\./,
-      `TerminalView.${member} must delegate to the clipboard coordinator`,
+  for (const member of PASTE_HANDLE_MEMBERS) {
+    const viewInitializer = viewProperties.get(member);
+    const containerInitializer = containerProperties.get(member);
+    assert.ok(viewInitializer, `TerminalView must implement ${member}`);
+    assert.ok(containerInitializer, `TerminalContainer must implement ${member}`);
+    assert.equal(
+      soleDeliveryCallee(viewInitializer!, view),
+      `clipboardCoordinator.${member}`,
+      `TerminalView.${member} must deliver solely through the clipboard coordinator`,
     );
-    assert.match(
-      containerProperties.get(member) ?? '',
-      /terminalRef\.current\?\./,
-      `TerminalContainer.${member} must delegate to the inner terminal handle`,
+    assert.equal(
+      soleDeliveryCallee(containerInitializer!, container),
+      `terminalRef.current?.${member}`,
+      `TerminalContainer.${member} must deliver solely through the inner terminal handle`,
     );
   }
-
-  // sendInput is a legitimate non-paste input API that sits on the same handle.
-  // It must not become a paste path by name, which is what the old assertion was
-  // reaching for and could not express.
-  assert.ok(
-    !/paste/i.test('sendInput') && members.includes('sendInput'),
-    'sendInput is expected to remain a non-paste member of the handle',
-  );
 });

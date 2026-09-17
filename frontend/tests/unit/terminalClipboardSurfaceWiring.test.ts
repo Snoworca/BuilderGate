@@ -92,25 +92,34 @@ test('FR-BGSTAB-021: test:unit:clipboard runs every clipboard unit test as a run
   // invocation with each file as its own argument.
   const tokens = script.split(/\s+/).filter(Boolean);
 
-  // A runner token anywhere, not at index 0: `npx node --test ...` and
-  // `cross-env NODE_ENV=test node --test ...` are legitimate wirings that an
-  // index-0 check rejects.
-  assert.ok(
-    tokens.some(token => /(^|\/)node(\.exe)?$/.test(token)) && tokens.includes('--test'),
-    `test:unit:clipboard must invoke the node test runner, got: ${script}`,
+  // Scanned on the RAW string, not on whitespace-separated tokens. Tokenising on
+  // /\s+/ cannot see `||true`, `;true`, or a newline-separated compound, and all
+  // three run the suite and then exit 0 on a red one -- connected and inert,
+  // which is this requirement's original defect wearing a different hat.
+  const shellControl = script.match(/[;&|\n\r]/g) ?? [];
+  assert.deepEqual(
+    shellControl,
+    [],
+    'test:unit:clipboard must be a single command that propagates the runner exit code; '
+    + `these shell control characters can discard it: ${JSON.stringify(shellControl)} in ${script}`,
   );
 
-  // Naming the files and running them is still not the same as FAILING when they
-  // fail. `node --test ... || true` names every file, runs every file, and exits
-  // 0 on a red suite -- the script is then connected and inert, which is this
-  // requirement's original defect wearing a different hat. No shell operator may
-  // stand between the runner and the caller's exit code.
-  const swallowing = tokens.filter(token => /^(\|\||&&|;|\||&)$/.test(token));
-  assert.deepEqual(
-    swallowing,
-    [],
-    'test:unit:clipboard must propagate the runner exit code; these tokens can discard it: '
-    + `${JSON.stringify(swallowing)} in ${script}`,
+  // The runner must lead its command, after a known prefix set. Accepting a
+  // runner token at ANY position let `echo node --test <paths>` satisfy every
+  // clause while running nothing -- the round-2 evasion, one token longer.
+  const RUNNER_PREFIXES = /^(npx|cross-env|[A-Z_][A-Z0-9_]*=.*)$/;
+  const command = [...tokens];
+  while (command.length > 0 && RUNNER_PREFIXES.test(command[0]!)) {
+    command.shift();
+  }
+  assert.ok(
+    command.length > 0 && /(^|\/)node(\.exe)?$/.test(command[0]!),
+    'test:unit:clipboard must lead with the node test runner after any npx, cross-env or '
+    + `VAR= prefix, got: ${script}`,
+  );
+  assert.ok(
+    command.includes('--test'),
+    `test:unit:clipboard must pass --test to the runner, got: ${script}`,
   );
 
   const args = new Set(tokens.map(normalisePath));
