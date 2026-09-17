@@ -199,6 +199,23 @@ const requiredFrontendRelTestNames = Object.freeze([
   'REL-BGSTAB-010 delayed same-data restore A cannot release or drain restore B',
 ]);
 
+// PROVENANCE OF THE FIRST TWO ENTRIES, recorded because they are re-pointings of an identity and a
+// reader would otherwise read them as ordinary names. This guard and its artifacts were imported
+// wholesale from the Wave 3 branch in eb0fe96 and 879a79c, and they registered two lineage names
+// that have never existed in THIS branch under any commit:
+//
+//   'TerminalView leaves FAILED_HELD ownership untouched on reset throw or replay-probe timeout'
+//       -- RENAMED. It is the same test, retitled to '... on reset throw or sole-writer rejection'
+//       in c25d761. Re-pointed at the current title.
+//
+//   'TerminalContainer never ACKs a TerminalView restore-buffer rejection as an applied snapshot'
+//       -- NEVER EXISTED HERE under any name. The property it names is carried by the first entry
+//       below, whose BODY signature cites REL-BGSTAB-010 but whose TITLE does not -- which is why
+//       discoverRequirementBearingTests, matching on the title, could not see that the property
+//       was covered while the registry said it was not. That discovery gap is tracked separately.
+//
+// Both entries hold the frontend.output-scheduler AC-3 and AC-5 matrix cells, so leaving them
+// pointing at absent names left those two cells unverifiable rather than merely mislabelled.
 const frontendLineageTestNames = Object.freeze([
   'TerminalContainer keeps restore-buffer failure non-ACKable while acknowledging only a checkpoint takeover',
   'TerminalView propagates restore-buffer failure as FAILED_HELD without allowing live-output overtake',
