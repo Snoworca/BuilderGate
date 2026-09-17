@@ -135,9 +135,25 @@ async function startDebugCapture(page: Page, sessionId: string): Promise<void> {
   }, sessionId);
 }
 
+/**
+ * The workspace this spec lands in may hold no terminal at all — a fresh
+ * server, or a run that follows a spec which cleaned its own tabs up. Every
+ * assertion here needs one live session, so seed exactly one when the empty
+ * state is showing and let an existing terminal stand otherwise. Without this
+ * the whole file fails in `waitForTerminal` on a bare instance, which reads as
+ * a product failure and is not one.
+ */
+async function ensureSeededTerminal(page: Page): Promise<void> {
+  const addTerminal = page.getByRole('button', { name: '+ Add Terminal' });
+  if (await addTerminal.count() > 0) {
+    await addTerminal.first().click();
+  }
+}
+
 async function establishTerminalHarness(page: Page, harness: RoutedWsFaultHarness): Promise<string> {
   await harness.install(page);
   await login(page);
+  await ensureSeededTerminal(page);
   await waitForTerminal(page);
   await expect.poll(() => harness.connectionCount, {
     message: 'E2E precondition failed: no real routed WebSocket connection',

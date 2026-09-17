@@ -1,0 +1,8 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# command: node ./issue5-probe-authority.mjs   (source: docs/analysis/2026-09-17.issue5-screen-repair-overflow-verification/tools/issue5-probe-authority.mjs)
+# target: https://localhost:2222 (externally owned listener, server PID 447639)
+# started: 2026-09-17T06:16:59Z
+screen-snapshot frames: 1
+{"type":"screen-snapshot","seq":3,"mode":"authoritative","source":"headless","replayToken":"string","authorityEpoch":"69444d56-c8d6-4e32-a985-b6980ff0bf03","authorityRevision":3,"coversThroughSeq":3}
+frame types: connected,terminal-checkpoint:capability,terminal-binary:rejected,screen-snapshot,subscribed
+# exit=0
