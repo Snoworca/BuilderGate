@@ -1,0 +1,55 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ MIG-BGSTAB-002 cleanup rejects a stale authority identity fence without releasing isolation (95.269766ms)
+✔ MIG-BGSTAB-002 cleanup fence blocks promotion until asynchronous isolation restoration completes (84.085296ms)
+✖ MIG-BGSTAB-002 cleanup serializes live PTY output after the restored headless checkpoint (113.5585ms)
+✔ MIG-BGSTAB-002 promotion claim blocks cleanup while controller promotion admission is asynchronous (82.011042ms)
+✔ MIG-BGSTAB-002 cleanup port rejects current non-legacy authority and missing fences (81.791925ms)
+✔ MIG-BGSTAB-002 cleanup accepts an exact completed legacy transition identity (81.921373ms)
+✖ MIG-BGSTAB-002 debug isolation uses the production headless queue and restores its retained override (91.9537ms)
+✔ MIG-BGSTAB-002 no-op failed-open isolation cleanup preserves recovery ACK and headless identity (79.133864ms)
+✔ MIG-BGSTAB-002 configured corpus windows yield to control-plane tasks (99.105536ms)
+✔ MIG-BGSTAB-002 headless recreation restores the registered legacy driver lease (84.911338ms)
+✔ MIG-BGSTAB-002 debug payload integrity fails closed before queue/model mutation (81.206187ms)
+✔ MIG-BGSTAB-002 query probe seeds through the counted model path and commits one live PTY reply (86.747192ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 10
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3773.029483
+
+✖ failing tests:
+
+test at src/services/SessionManagerTerminalAuthorityDebugIsolation.test.ts:1:9317
+✖ MIG-BGSTAB-002 cleanup serializes live PTY output after the restored headless checkpoint (113.5585ms)
+  AssertionError [ERR_ASSERTION]: live output accepted during cleanup must be applied after the restored checkpoint, not overwritten by it
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManagerTerminalAuthorityDebugIsolation.test.ts:442:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'ORIGINAL',
+    expected: /LIVE-DURING-DEBUG-CLEANUP/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at src/services/SessionManagerTerminalAuthorityDebugIsolation.test.ts:1:15964
+✖ MIG-BGSTAB-002 debug isolation uses the production headless queue and restores its retained override (91.9537ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /authority-debug-line-1/. Input:
+  
+  'authorit'
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManagerTerminalAuthorityDebugIsolation.test.ts:628:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'authorit',
+    expected: /authority-debug-line-1/,
+    operator: 'match',
+    diff: 'simple'
+  }
