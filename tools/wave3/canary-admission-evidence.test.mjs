@@ -686,8 +686,13 @@ for (const [lane, command] of Object.entries(focusedCommands)) {
 // CHECKED: the placeholder is exactly one angle-bracket group and it terminates the value, so the
 // elision is visible rather than silent; `--eval` appears exactly once in args; exactly one
 // argument follows it, so the placeholder stands for exactly one argument and no further operand
-// is hidden behind it; and every flag written in the declared value's prefix is genuinely present
-// in args, so a flag cannot be advertised without being passed.
+// is hidden behind it; the non-`--` operands that precede `--eval` are pinned per lane, so the
+// server lane's leading `node_modules/tsx/dist/cli.mjs` cannot be swapped for a different entry
+// point and the frontend lane cannot acquire a leading operand it does not declare; and the flags
+// written in the declared value's prefix are compared against the `--`-prefixed tokens in args as
+// SORTED MULTISETS in BOTH directions, so a flag cannot be advertised without being passed, a
+// loader flag cannot be passed without being advertised, and a flag passed twice is distinguished
+// from a flag passed once.
 //
 // NOT CHECKED, stated plainly: the interpreter words at the head of the value (`npx tsx` vs the
 // spawned `node node_modules/tsx/dist/cli.mjs`) are a human description and are not reconstructed;
@@ -695,10 +700,21 @@ for (const [lane, command] of Object.entries(focusedCommands)) {
 // does not move `value`. That script's OUTPUT is separately pinned -- `inspectRuntime` hashes the
 // child's stdout into `productionRuntimeRegistry.*.stdoutSha256` and the snapshot shape is
 // asserted -- so a behavioural change in the script surfaces there, not here. Flag ORDER and flag
-// VALUES are also not checked: the comparison is between sets of `--`-prefixed tokens, so
-// reordering the flags, or changing a `--flag=value` to a different value while keeping the same
-// token, is not distinguished here beyond the token text itself, and non-`--` operands other than
-// the single elided `--eval` argument are covered only by the arity assertion above.
+// VALUES are still not checked: the multiset comparison ignores position, so reordering the flags,
+// or changing a `--flag=value` to a different value while keeping the same token, is not
+// distinguished here beyond the token text itself.
+//
+// The earlier wording of this block said that non-`--` operands other than the elided `--eval`
+// argument were "covered only by the arity assertion above". That was WRONG: the arity assertion
+// constrains only what FOLLOWS `--eval`, so the server lane's leading operand was constrained by
+// nothing at all. It is pinned now rather than described.
+const EXPECTED_RUNTIME_INSPECTION_LEADING_OPERANDS = Object.freeze({
+  // Everything in `args` before `--eval` that is not a `--`-prefixed flag, per lane, in order.
+  // The server lane spawns node directly on tsx's cli entry point; the frontend lane spawns node
+  // itself and therefore leads with no operand at all.
+  server: Object.freeze(['node_modules/tsx/dist/cli.mjs']),
+  frontend: Object.freeze([]),
+});
 for (const [lane, command] of Object.entries(runtimeInspectionCommands)) {
   const placeholders = [...command.value.matchAll(/<[^<>]*>/gu)];
   assert.equal(placeholders.length, 1,
@@ -711,6 +727,16 @@ for (const [lane, command] of Object.entries(runtimeInspectionCommands)) {
     `the ${lane} runtime inspection command passes --eval more than once`);
   assert.equal(command.args.length - evalIndex - 1, 1,
     `the ${lane} runtime inspection command's placeholder stands for more than one argument`);
+  // The arity assertion above constrains only what FOLLOWS `--eval`. The operands BEFORE it -- the
+  // interpreter entry point the child actually runs -- are pinned here, per lane and in order.
+  const expectedLeadingOperands = EXPECTED_RUNTIME_INSPECTION_LEADING_OPERANDS[lane];
+  assert.notEqual(expectedLeadingOperands, undefined,
+    `the ${lane} runtime inspection command declares no expected leading operands`);
+  assert.deepEqual(
+    command.args.slice(0, evalIndex).filter(arg => !arg.startsWith('--')),
+    [...expectedLeadingOperands],
+    `the ${lane} runtime inspection command's operands before --eval are not the pinned ones`,
+  );
   const declaredFlags = command.value.slice(0, placeholders[0].index).split(/\s+/u)
     .filter(token => token.startsWith('--'));
   assert.ok(declaredFlags.includes('--eval'),
@@ -718,10 +744,15 @@ for (const [lane, command] of Object.entries(runtimeInspectionCommands)) {
   // BOTH directions. Asserting only value-flags-appear-in-args left the converse open: a loader
   // flag added to `args` (`--conditions`, `--import`, `--no-warnings`) would never have to appear
   // in the sealed `value`, and the artifact would keep publishing a command string that omits it.
-  // Comparing the two sets sorted reddens either way round.
+  // Comparing the two sorted reddens either way round.
+  //
+  // SORTED MULTISETS, not sets. Wrapping each side in `new Set(...)` collapsed repeats, so a flag
+  // passed twice in `args` and declared once in `value` -- or the reverse -- compared equal. Node
+  // treats a repeated flag as meaningful for several options, so that difference is real and the
+  // sealed value must carry it.
   assert.deepEqual(
-    sorted([...new Set(declaredFlags)]),
-    sorted([...new Set(command.args.filter(arg => arg.startsWith('--')))]),
+    sorted([...declaredFlags]),
+    sorted(command.args.filter(arg => arg.startsWith('--'))),
     `the ${lane} runtime inspection command's sealed value and spawned args declare different flags`,
   );
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +106,18 @@ test('REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or
   const sealedSourceEntries = Object.entries(sealedSourceHashes);
   // Count before the loop. A universal claim over an empty map is true.
   assert.ok(sealedSourceEntries.length > 0, 'sealed manifest records an empty evidence.sourceHashes');
+  // EXISTENCE before freshness. The loop below readFileSync's every sealed path, so a sealed source
+  // that was deleted or moved threw ENOENT out of the test before ANY contract assertion ran -- a
+  // crash instead of a diagnosis, and the reader is told nothing about which contract is at risk.
+  // A missing sealed source is itself the drift that widens the reservation hole, so it gets its
+  // own named assertion.
+  const missingSealedSourcePaths = sealedSourceEntries
+    .map(([sourcePath]) => sourcePath)
+    .filter(sourcePath => !existsSync(join(REPOSITORY_ROOT, sourcePath)));
+  assert.deepEqual(missingSealedSourcePaths, [],
+    `sealed manifest names ${missingSealedSourcePaths.length} source path(s) that no longer exist `
+    + `(${missingSealedSourcePaths.join(', ')}); the seal cannot be checked against disk and its `
+    + 'tuple ids cannot be trusted');
   const staleSourcePaths = sealedSourceEntries
     .filter(([sourcePath, sealedSha256]) => createHash('sha256')
       .update(readFileSync(join(REPOSITORY_ROOT, sourcePath), 'utf8'), 'utf8')
@@ -255,6 +267,24 @@ test('REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id the
 // other than the declaration sites that must name it, something is passing it and the claim is
 // false. This is the one part of "genuinely unused" that is checkable from the source tree.
 //
+// THE LARGEST RESIDUAL, stated here because the per-predicate notes below and the
+// "WHAT THIS STILL DOES NOT PIN" block further down both enumerate gaps, and a reader who sees
+// two careful enumerations concludes the enumerated gaps are the gaps. They are not.
+//
+// This scan is a FIXED-STRING COUNT OF THE ID LITERAL over .ts/.tsx/.js/.jsx/.mjs/.cjs files, so
+// EVERY REFERENCE THAT NEVER SPELLS THE LITERAL IS INVISIBLE TO IT, no matter how real the
+// consumption is. TERMINAL_RESOURCE_POLICY_CONSUMER_IDS is exported and `as const`, so all of
+//     consume(TERMINAL_RESOURCE_POLICY_CONSUMER_IDS[0])
+//     for (const id of TERMINAL_RESOURCE_POLICY_CONSUMER_IDS) consume(id)
+//     consume(TERMINAL_RESOURCE_POLICY_CONSUMER_IDS.find(id => id.endsWith('config.schema'))!)
+//     consume('server.config' + '.schema')
+// reach the reserved consumer while contributing ZERO literal occurrences, and this scan stays at
+// residual 0. Non-JS carriers are outside the extension filter entirely -- the json5 config, test
+// fixtures and the shell-integration scripts are never opened here.
+//
+// Closing that would take a symbol-level analysis, which is deliberately NOT built: the point of
+// stating it is that a green residual is evidence about the literal, not proof of non-consumption.
+//
 // Fixed-string counting, never a regex: `server.config.schema` as a regex matches the unrelated
 // hyphenated catalog category `server-config-schema-store`, because `.` matches `-`. That
 // category is real and lives in this very file's inventory, so the regex form would report a
@@ -273,16 +303,36 @@ test('REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id the
 // canary-admission-evidence.test.mjs is NOT among them, so the union with the seal did not reach
 // it and the sentence above motivated the widening with a file the widening did not scan.
 //
-// THE FILENAME RULE, stated explicitly rather than left implicit:
-//   * Under the SRC roots, a `.test.`/`.spec.` file is scanned only when the seal names it. This
-//     suite itself lives under server/src and writes the reserved id many times over, so scanning
-//     unsealed tests there would be circular.
-//   * Under TOOLS_SCAN_ROOTS every source file is scanned, sealed or not, filename regardless.
-//     Nothing under tools/wave3 is a copy of this suite, so the circularity that justifies the src
-//     exclusion does not exist there, and applying the exclusion would re-exclude the very file
-//     cited as the reason for widening.
+// THE EXCLUSION RULE, stated explicitly rather than left implicit:
+//   * EXACTLY ONE file is excluded: THIS SUITE'S OWN FILE, resolved from `import.meta.url` rather
+//     than hard-coded. It writes the reserved id many times over in its fixtures and in this very
+//     comment, so scanning it would be circular. That circularity argument names one file, and the
+//     exclusion now names the same one file.
+//   * Every OTHER source file under every root is scanned, tests and specs included, sealed or
+//     not. The previous rule excluded unsealed `.test.`/`.spec.` files under the src roots by
+//     FILENAME PATTERN, which is far broader than the argument that justified it. MEASURED cost of
+//     that breadth: server/src/services/TerminalResourcePolicyCanary.test.ts,
+//     server/src/ws/WsRouterSendPriority.test.ts and
+//     server/src/services/SettingsService.resourceLimits.test.ts all carry registered consumer-id
+//     literals and were all excluded, so a reserved id written into any of them was invisible.
+//     Dropping the pattern moves the scanned set from 384 files to 462 (+78, all of them src-root
+//     tests); MEASURED, that adds no new occurrence of the reserved id.
+//
+// WHAT IS STILL OUT OF SCOPE, and why: frontend/tests (the Playwright E2E and frontend unit
+// suites), server/tools, tools/ outside wave3, and every non-JS carrier are NOT walked. They are
+// out because the roots below are the union of the two src trees with tools/wave3, chosen to match
+// the seal's own model of consumer-bearing source -- not because anything establishes that a
+// consumer cannot live there. frontend/tests in particular does reference terminal settings, so
+// this is a real boundary and not an empty one; widening to it is a separate argued edit.
 const PRODUCTION_SCAN_ROOTS = ['server/src', 'frontend/src'];
 const TOOLS_SCAN_ROOTS = ['tools/wave3'];
+
+// This suite's own file, repository-relative. Resolved rather than hard-coded so that renaming or
+// moving the suite cannot silently turn the exclusion into an exclusion of nothing (which would
+// red loudly on its own fixtures) or of the wrong file.
+const THIS_SUITE_RELATIVE_PATH = fileURLToPath(import.meta.url)
+  .slice(REPOSITORY_ROOT.length)
+  .replace(/\\/gu, '/');
 
 const MANIFEST_SEALED_SOURCE_PATHS: ReadonlySet<string> = new Set(Object.keys(
   (JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as {
@@ -427,33 +477,29 @@ const RESERVED_ID_DECLARATION_SITES: ReadonlyArray<{
 ];
 
 function listProductionSourceFiles(): string[] {
-  const files = new Set<string>(MANIFEST_SEALED_SOURCE_PATHS);
-  const visit = (relativeRoot: string, dropUnsealedTests: boolean): void => {
+  // Seeded from the seal, which may name a path that has since been deleted or moved. The scan
+  // loop readFileSync's every file in this set, so an unguarded seed crashed with ENOENT before any
+  // contract assertion could speak. Missing sealed paths are dropped here and named by the
+  // freshness assertion in the production-contract test above, which is where that diagnosis
+  // belongs.
+  const files = new Set<string>([...MANIFEST_SEALED_SOURCE_PATHS]
+    .filter(sourcePath => existsSync(join(REPOSITORY_ROOT, sourcePath))));
+  const visit = (relativeRoot: string): void => {
     for (const entry of readdirSync(join(REPOSITORY_ROOT, relativeRoot), { withFileTypes: true })) {
       const relativePath = `${relativeRoot}/${entry.name}`;
       if (entry.isDirectory()) {
-        visit(relativePath, dropUnsealedTests);
+        visit(relativePath);
         continue;
       }
       if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(entry.name)) continue;
-      // Under the SRC roots, test and spec files are dropped ONLY when the seal does not name them.
-      // A file the manifest records as a source of consumer evidence belongs to the project's own
-      // model of consumer-bearing source whatever its filename says. An UNSEALED test file under
-      // those roots is excluded because this suite itself lives there and writes the reserved id
-      // many times over, so scanning it would be circular.
-      //
-      // Under TOOLS_SCAN_ROOTS `dropUnsealedTests` is false and nothing is dropped by filename.
-      // That is the whole point of the widening: the file the widening cites,
-      // tools/wave3/canary-admission-evidence.test.mjs, is an unsealed `.test.` file and the src
-      // rule would exclude it again.
-      if (dropUnsealedTests
-        && (entry.name.includes('.test.') || entry.name.includes('.spec.'))
-        && !MANIFEST_SEALED_SOURCE_PATHS.has(relativePath)) continue;
       files.add(relativePath);
     }
   };
-  for (const root of PRODUCTION_SCAN_ROOTS) visit(root, true);
-  for (const root of TOOLS_SCAN_ROOTS) visit(root, false);
+  for (const root of [...PRODUCTION_SCAN_ROOTS, ...TOOLS_SCAN_ROOTS]) visit(root);
+  // The ONLY exclusion, applied last so it also removes the file if the seal happens to name it.
+  // See THE EXCLUSION RULE above: one file, this one, because it is the only file whose reserved-id
+  // occurrences exist because of this scan.
+  files.delete(THIS_SUITE_RELATIVE_PATH);
   return [...files].sort((left, right) => left.localeCompare(right));
 }
 
@@ -477,6 +523,16 @@ interface ReservedIdOccurrenceScan {
   // reader to a file that has nothing to do with the id that failed.
   residualSitesById: Record<string, string[]>;
   entryHits: number[];
+  // EVERY occurrence the scan saw, with the line and the ACTUAL window hash at that line. Kept so
+  // a declaration-site entry that matched nothing can be diagnosed as "the source moved" rather
+  // than as "someone wrote the id into production".
+  occurrenceSites: Array<{
+    path: string;
+    consumerId: string;
+    line: number;
+    windowSha256: string;
+    lineText: string;
+  }>;
 }
 
 // Shared by the production contract row and by the scan test, so the occurrence branch of the
@@ -488,6 +544,7 @@ function scanReservedIdProductionOccurrences(reservedIds: readonly string[]): Re
   const residualById: Record<string, number> = {};
   const residualSitesById: Record<string, string[]> = {};
   const entryHits = RESERVED_ID_DECLARATION_SITES.map(() => 0);
+  const occurrenceSites: ReservedIdOccurrenceScan['occurrenceSites'] = [];
   for (const reservedId of reservedIds) {
     rawById.set(reservedId, 0);
     excludedById.set(reservedId, 0);
@@ -510,6 +567,13 @@ function scanReservedIdProductionOccurrences(reservedIds: readonly string[]): Re
           windowSha256 = anchorWindowSha256(lines, lineIndex);
           windowSha256ByLineIndex.set(lineIndex, windowSha256);
         }
+        occurrenceSites.push({
+          path: relativePath,
+          consumerId: reservedId,
+          line: lineIndex + 1,
+          windowSha256,
+          lineText,
+        });
         // The anchor is part of the MATCH, not a check applied after a match. A line elsewhere in
         // a listed file that happens to have the declared shape therefore matches no entry at all
         // and falls through to the residual, rather than matching an entry and then arguing about
@@ -540,20 +604,83 @@ function scanReservedIdProductionOccurrences(reservedIds: readonly string[]): Re
     });
   }
 
-  return { files, rawById, excludedById, residualById, residualSitesById, entryHits };
+  return {
+    files, rawById, excludedById, residualById, residualSitesById, entryHits, occurrenceSites,
+  };
 }
 
 test('REL-BGSTAB-010 AC-7 no reserved consumer id is written into production outside its declaration', async () => {
   const reservedIds = TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS.map(entry => entry.consumerId);
   assert.ok(reservedIds.length > 0, 'there are no reservations to scan for');
 
+  // The same missing-sealed-source diagnosis the production-contract test makes, repeated here
+  // because `listProductionSourceFiles` DROPS a sealed path that no longer exists (it must, or the
+  // scan crashes with ENOENT before any assertion). Dropping it silently would shrink the scan
+  // boundary with nothing going red, so it is named on this path too.
+  const missingSealedSourcePaths = [...MANIFEST_SEALED_SOURCE_PATHS]
+    .filter(sourcePath => !existsSync(join(REPOSITORY_ROOT, sourcePath)));
+  assert.deepEqual(missingSealedSourcePaths, [],
+    `sealed manifest names ${missingSealedSourcePaths.length} source path(s) that no longer exist `
+    + `(${missingSealedSourcePaths.join(', ')}); they are dropped from the scan boundary, so the `
+    + 'scan silently looks at less source than the seal claims');
+
   const scan = scanReservedIdProductionOccurrences(reservedIds);
   assert.ok(scan.files.length > 0, 'the production source scan enumerated no files');
+
+  // ORDER MATTERS, and it used to be wrong. The per-id residual assertion below fires for BOTH
+  // "someone wrote the id into production" and "a declaration site moved by a line", because a
+  // moved declaration matches no entry and falls straight into the residual. Running it first meant
+  // the only message an author of a legitimate, unrelated edit ever saw ACCUSED THEM of writing the
+  // id into production and handed them the exact new `path:line` -- steering directly toward a
+  // mechanical re-anchor, which is the one repair this whole mechanism exists to prevent. The
+  // message that says "re-read the site before re-anchoring" sat behind it and was unreachable.
+  //
+  // So the declaration-site reconciliation runs FIRST and diagnoses anchor rot by name.
+  //
+  // EXACTLY the declared number of occurrences, never `> 0`. `> 0` let one entry license
+  // arbitrarily many matching lines in its file, which is how a real consuming call written in the
+  // declared shape could hide behind a declaration-site exemption. A rotted exemption (matching
+  // nothing) and an over-broad one (matching more than it declares) both red here.
+  RESERVED_ID_DECLARATION_SITES.forEach((entry, index) => {
+    assert.ok(entry.occurrences > 0,
+      `declaration site ${entry.path} / ${entry.kind} declares no occurrences (${entry.covers})`);
+    // `covers` is the argued restatement that the occurrence is a declaration and not a use. An
+    // empty one is an exemption with no argument behind it.
+    assert.ok(entry.covers.trim().length > 0,
+      `declaration site ${entry.path}:${entry.line} / ${entry.kind} / ${entry.consumerId} carries `
+      + 'no `covers` argument; an exemption with nothing written in its defence is not an exemption');
+    if (scan.entryHits[index] === entry.occurrences) return;
+
+    // Does an occurrence of the same id, in the same file, with the same declared SHAPE exist
+    // somewhere the entry is not anchored to? Then the source moved and this is anchor rot, not a
+    // new use. Saying which of the two it is is the whole difference between "re-read the site"
+    // and "you introduced a consumer".
+    const shapeMatches = scan.occurrenceSites.filter(site => site.path === entry.path
+      && site.consumerId === entry.consumerId
+      && RESERVED_ID_OCCURRENCE_KIND_PREDICATES[entry.kind](site.lineText, entry.consumerId));
+    const actualAtDeclaredLine = scan.occurrenceSites
+      .find(site => site.path === entry.path && site.line === entry.line)?.windowSha256;
+    const diagnosis = shapeMatches.length > 0
+      ? `an occurrence of the declared shape exists at ${shapeMatches
+        .map(site => `${site.path}:${site.line}`).join(', ')} -- THE SOURCE MOVED. Re-read the site `
+        + 'and restate in `covers` that what is there is still a declaration and not a use, before '
+        + 're-anchoring line/windowSha256. Recomputing the hash mechanically defeats the mechanism.'
+      : 'no occurrence of the declared shape exists anywhere in that file -- this is a GENUINELY '
+        + 'NEW state, not a moved anchor: the declaration was deleted, renamed, or reshaped.';
+    assert.fail(
+      `declaration site ${entry.path}:${entry.line} / ${entry.kind} / ${entry.consumerId} matched `
+      + `${scan.entryHits[index]} occurrences, declared ${entry.occurrences} (${entry.covers}). `
+      + `expected windowSha256 ${entry.windowSha256}, actual at ${entry.path}:${entry.line} `
+      + `${actualAtDeclaredLine ?? '(no occurrence of this id on that line at all)'}. ${diagnosis}`);
+  });
 
   // No bare literal over a live quantity. How many times a reserved id's literal appears across
   // the source tree is exactly the kind of moving number the previous rounds removed elsewhere,
   // and naming one id in the assertion constrained nothing about any future reservation. The
   // expectation is derived per id instead, by iterating the reservations.
+  //
+  // Reaching here means every declaration site reconciled, so a residual now really is an
+  // occurrence no declaration accounts for.
   for (const reservedId of reservedIds) {
     const raw = scan.rawById.get(reservedId) ?? 0;
     const excluded = scan.excludedById.get(reservedId) ?? 0;
@@ -563,19 +690,6 @@ test('REL-BGSTAB-010 AC-7 no reserved consumer id is written into production out
       `${reservedId} is written into a scanned source outside its declared sites: `
       + `${scan.residualSitesById[reservedId].join(', ')}`);
   }
-
-  // EXACTLY the declared number of occurrences, never `> 0`. `> 0` let one entry license
-  // arbitrarily many matching lines in its file, which is how a real consuming call written in the
-  // declared shape could hide behind a declaration-site exemption. A rotted exemption (matching
-  // nothing) and an over-broad one (matching more than it declares) both red here.
-  RESERVED_ID_DECLARATION_SITES.forEach((entry, index) => {
-    assert.ok(entry.occurrences > 0,
-      `declaration site ${entry.path} / ${entry.kind} declares no occurrences (${entry.covers})`);
-    assert.equal(scan.entryHits[index], entry.occurrences,
-      `declaration site ${entry.path}:${entry.line} / ${entry.kind} / ${entry.consumerId} matched `
-      + `${scan.entryHits[index]} occurrences, declared ${entry.occurrences} (${entry.covers}). `
-      + 'If the surrounding source moved, re-read the site before re-anchoring line/windowSha256.');
-  });
 
   // The manifest ids come from the sealed file, not from a syntactic derivation off the catalog.
   // Passing getTerminalResourceCatalogConsumerIds() for both arguments would make the two agree by
@@ -682,10 +796,34 @@ function extractStringLiteralArrayDeclaration(sourceText: string, name: string):
   if (start === -1) return [];
   const end = sourceText.indexOf('\n]', start);
   if (end === -1) return [];
-  return sourceText.slice(start + opening.length, end)
-    .split('\n')
+  const bodyLines = sourceText.slice(start + opening.length, end).split('\n');
+  // The extractor must CONSUME EVERYTHING between the opening `[` and the terminator. The earlier
+  // form mapped every line through the single-quoted-element regex and then filtered the
+  // undefineds away, so any member that was not exactly a bare single-quoted element -- a
+  // double-quoted entry, or an entry with a trailing comment -- was DISCARDED SILENTLY. That is
+  // lossy in the direction that stays green: a mirror carrying MORE ids than the registry lost the
+  // unreadable ones and still deep-equalled the shorter registry. The non-emptiness guard at the
+  // call site catches only a TOTAL parse failure, which is the other half of the failure mode.
+  //
+  // So: count the lines that are neither blank nor pure comments, and require exactly that many
+  // extracted elements. An unreadable member is then a loud failure naming the line.
+  const memberLines = bodyLines.filter(line => {
+    const trimmed = line.trim();
+    return trimmed !== '' && !trimmed.startsWith('//');
+  });
+  const elements = memberLines
     .map(line => /^\s*'([^']*)'\s*,?\s*$/u.exec(line)?.[1])
     .filter((value): value is string => value !== undefined);
+  if (elements.length !== memberLines.length) {
+    const firstUnreadable = memberLines
+      .find(line => /^\s*'([^']*)'\s*,?\s*$/u.exec(line)?.[1] === undefined);
+    assert.fail(
+      `${name} has a member this extractor cannot read as a bare single-quoted element: `
+      + `${JSON.stringify(firstUnreadable)} -- ${memberLines.length} member lines yielded only `
+      + `${elements.length} elements, so the extraction is lossy and any comparison against it `
+      + 'would be weaker than it looks');
+  }
+  return elements;
 }
 
 test('REL-BGSTAB-010 AC-7 the EXPECTED_POLICY_CONSUMER_IDS mirror in TerminalResourcePolicy.test.ts is pinned to the live registry', () => {
