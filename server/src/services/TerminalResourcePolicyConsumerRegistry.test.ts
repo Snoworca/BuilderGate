@@ -59,11 +59,21 @@ test('REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or
   assert.ok(catalogConsumerIds.length > 0, 'catalog consumer id enumeration returned nothing');
   assert.ok(manifestConsumerIds.length > 0, 'manifest consumer id enumeration returned nothing');
 
+  // The occurrence branch of the guard has to be LIVE where the contract is held. Leaving
+  // `reservedIdProductionOccurrences` off this row meant the strongest of the reservation checks
+  // never ran against real data -- deleting the branch outright would not have reddened anything
+  // the production contract asserts. The same scan helper the dedicated scan test uses is called
+  // here, so the two cannot diverge.
+  const reservedIdProductionOccurrences = scanReservedIdProductionOccurrences(
+    TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS.map(entry => entry.consumerId),
+  ).residualById;
+
   const result = validateTerminalResourceConsumerRegistration({
     consumerIds,
     catalogConsumerIds,
     manifestConsumerIds,
     reservations: TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS,
+    reservedIdProductionOccurrences,
   });
 
   // `checked` is the number of registered ids that reached the used/reserved decision, i.e.
@@ -249,30 +259,108 @@ test('REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id the
 // hyphenated catalog category `server-config-schema-store`, because `.` matches `-`. That
 // category is real and lives in this very file's inventory, so the regex form would report a
 // false occurrence and this check would red for the wrong reason.
+//
+// Roots walked directly. The scanned set is the UNION of these roots with the sealed manifest's
+// own evidence.sourceHashes key set, because these two roots are narrower than the claim the scan
+// supports: the manifest -- which this suite already trusts for its consumer ids -- records
+// sources outside them (tools/wave3/...), and tools/wave3/canary-admission-evidence.test.mjs
+// literally passes `consumer: 'server.ws.router'` from outside them. Scanning less than the
+// project's own model of consumer-bearing source would let a consumer sit in a file this scan
+// never opens.
 const PRODUCTION_SCAN_ROOTS = ['server/src', 'frontend/src'];
 
-// Occurrences that are the DECLARATION of the reservation rather than a use of it, and are
-// therefore subtracted. Each entry names what it covers, so adding a mention costs an argued edit.
-const RESERVED_ID_DECLARATION_SITE_OCCURRENCES: ReadonlyArray<{
+const MANIFEST_SEALED_SOURCE_PATHS: ReadonlySet<string> = new Set(Object.keys(
+  (JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) as {
+    evidence?: { sourceHashes?: Record<string, string> };
+  }).evidence?.sourceHashes ?? {},
+));
+
+// How an occurrence is IDENTIFIED, not how many of them are forgiven.
+//
+// The previous form of this table forgave a COUNT per file. Two defects followed from that and
+// both are closed here. (1) The lookup matched on path alone inside a loop over reserved ids, so
+// every reserved id occurring in a listed file inherited that file's budget -- a second
+// reservation added later would arrive with a multi-occurrence production allowance it never
+// argued for. (2) Because only a count was forgiven, deleting the argumentative comment mention
+// in TerminalResourcePolicyInventory.ts and adding a REAL consuming call in the same file kept
+// the per-file count identical, hiding a genuine consumer with zero edits to any table or
+// assertion.
+//
+// So an occurrence is excluded only when it matches a declared entry on ALL THREE of path,
+// consumerId and kind, where `kind` is a structural predicate evaluated against the text of the
+// line the occurrence sits on. An occurrence matching no entry is a residual and fails.
+type ReservedIdOccurrenceKind =
+  | 'registry-array-entry'
+  | 'comment-line'
+  | 'reservation-consumer-id-property';
+
+const RESERVED_ID_OCCURRENCE_KIND_PREDICATES:
+Readonly<Record<ReservedIdOccurrenceKind, (lineText: string, consumerId: string) => boolean>> = {
+  // A bare element of a string-literal array: the trimmed line is the quoted id and nothing else
+  // but an optional trailing comma. A call site cannot take this shape, because a call needs a
+  // callee on the line or an enclosing expression that would leave other tokens behind.
+  // Residual it passes over: an element of an ARGUMENT array to a live call, e.g.
+  //   consumeResources([\n  'server.config.schema',\n]) -- the predicate sees one line and has no
+  // view of the enclosing array's identity, so a genuine consumer written that way is excluded.
+  'registry-array-entry': (lineText, consumerId) => {
+    const trimmed = lineText.trim();
+    return trimmed === `'${consumerId}',` || trimmed === `'${consumerId}'`;
+  },
+  // A line comment: argumentative prose about the reservation. Never executable.
+  // Residual it passes over: the id written inside a multi-line template literal whose line
+  // happens to begin with `//` -- a script body assembled as data and handed to an eval, a Worker
+  // or a spawned child. That text does reach a consumer, and this predicate reads it as a comment.
+  'comment-line': lineText => lineText.trim().startsWith('//'),
+  // The `consumerId` property of the reservation object literal, alone on its line.
+  // Residual it passes over: any OTHER object literal in the same declared file that also carries
+  // a `consumerId` property on its own line -- `registerConsumer({\n  consumerId: 'x',\n ... })`
+  // would be a genuine registration and is shaped identically. Keying the entry to the path
+  // confines this to TerminalResourcePolicyInventory.ts; inside that file it is a real gap.
+  'reservation-consumer-id-property': (lineText, consumerId) => {
+    const trimmed = lineText.trim();
+    return trimmed === `consumerId: '${consumerId}',` || trimmed === `consumerId: '${consumerId}'`;
+  },
+};
+
+// Occurrences that are the DECLARATION of the reservation rather than a use of it. Each entry
+// names exactly which occurrence it covers, so adding a mention costs an argued edit and cannot
+// be bought by bumping a number.
+const RESERVED_ID_DECLARATION_SITES: ReadonlyArray<{
   path: string;
-  count: number;
+  consumerId: string;
+  kind: ReservedIdOccurrenceKind;
   covers: string;
 }> = [
   {
     path: 'server/src/services/TerminalResourcePolicy.ts',
-    count: 1,
+    consumerId: 'server.config.schema',
+    kind: 'registry-array-entry',
     covers: 'the id literal inside the TERMINAL_RESOURCE_POLICY_CONSUMER_IDS declaration',
   },
   {
     path: 'server/src/services/TerminalResourcePolicyInventory.ts',
-    count: 2,
-    covers: 'the consumerId literal in the reservation entry, plus the one mention in the '
-      + 'comment block that argues that reservation',
+    consumerId: 'server.config.schema',
+    kind: 'comment-line',
+    covers: 'the mention in the comment block that argues this reservation',
+  },
+  {
+    path: 'server/src/services/TerminalResourcePolicyInventory.ts',
+    consumerId: 'server.config.schema',
+    kind: 'reservation-consumer-id-property',
+    covers: 'the consumerId property of the reservation entry itself',
+  },
+  {
+    path: 'server/src/services/TerminalResourcePolicy.test.ts',
+    consumerId: 'server.config.schema',
+    kind: 'registry-array-entry',
+    covers: 'the EXPECTED_POLICY_CONSUMER_IDS membership pin that mirrors the registry. This file '
+      + 'is scanned because the seal names it as a consumer-evidence source; the occurrence is a '
+      + 'declaration mirror asserting registry membership, not a consumer passing the id.',
   },
 ];
 
 function listProductionSourceFiles(): string[] {
-  const files: string[] = [];
+  const files = new Set<string>(MANIFEST_SEALED_SOURCE_PATHS);
   const visit = (relativeRoot: string): void => {
     for (const entry of readdirSync(join(REPOSITORY_ROOT, relativeRoot), { withFileTypes: true })) {
       const relativePath = `${relativeRoot}/${entry.name}`;
@@ -281,12 +369,18 @@ function listProductionSourceFiles(): string[] {
         continue;
       }
       if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(entry.name)) continue;
-      if (entry.name.includes('.test.') || entry.name.includes('.spec.')) continue;
-      files.push(relativePath);
+      // Test and spec files are dropped ONLY when the seal does not name them. A file the manifest
+      // records as a source of consumer evidence belongs to the project's own model of
+      // consumer-bearing source whatever its filename says, and excluding it would narrow the scan
+      // below the claim it supports. A test file that is NOT sealed is excluded as before: this
+      // suite itself writes the reserved id many times over, and scanning it would be circular.
+      if ((entry.name.includes('.test.') || entry.name.includes('.spec.'))
+        && !MANIFEST_SEALED_SOURCE_PATHS.has(relativePath)) continue;
+      files.add(relativePath);
     }
   };
   for (const root of PRODUCTION_SCAN_ROOTS) visit(root);
-  return files.sort((left, right) => left.localeCompare(right));
+  return [...files].sort((left, right) => left.localeCompare(right));
 }
 
 function countFixedStringOccurrences(haystack: string, needle: string): number {
@@ -299,60 +393,106 @@ function countFixedStringOccurrences(haystack: string, needle: string): number {
   return count;
 }
 
-test('REL-BGSTAB-010 AC-7 no reserved consumer id is written into production outside its declaration', () => {
+interface ReservedIdOccurrenceScan {
+  files: string[];
+  rawById: Map<string, number>;
+  excludedById: Map<string, number>;
+  residualById: Record<string, number>;
+  residualSites: string[];
+  entryHits: number[];
+}
+
+// Shared by the production contract row and by the scan test, so the occurrence branch of the
+// guard is exercised against real data on the path where the contract is actually held.
+function scanReservedIdProductionOccurrences(reservedIds: readonly string[]): ReservedIdOccurrenceScan {
+  const files = listProductionSourceFiles();
+  const rawById = new Map<string, number>();
+  const excludedById = new Map<string, number>();
+  const residualById: Record<string, number> = {};
+  const residualSites: string[] = [];
+  const entryHits = RESERVED_ID_DECLARATION_SITES.map(() => 0);
+  for (const reservedId of reservedIds) {
+    rawById.set(reservedId, 0);
+    excludedById.set(reservedId, 0);
+    residualById[reservedId] = 0;
+  }
+
+  for (const relativePath of files) {
+    const lines = readFileSync(join(REPOSITORY_ROOT, relativePath), 'utf8').split('\n');
+    lines.forEach((lineText, lineIndex) => {
+      for (const reservedId of reservedIds) {
+        const onLine = countFixedStringOccurrences(lineText, reservedId);
+        if (onLine === 0) continue;
+        rawById.set(reservedId, (rawById.get(reservedId) ?? 0) + onLine);
+        const matchedIndexes = RESERVED_ID_DECLARATION_SITES
+          .map((entry, index) => ({ entry, index }))
+          .filter(({ entry }) => entry.path === relativePath
+            && entry.consumerId === reservedId
+            && RESERVED_ID_OCCURRENCE_KIND_PREDICATES[entry.kind](lineText, reservedId))
+          .map(({ index }) => index);
+        // Every excluded occurrence must be attributable to EXACTLY ONE entry. Two entries
+        // matching the same line means the predicates overlap and the table has stopped
+        // identifying occurrences.
+        assert.ok(matchedIndexes.length <= 1,
+          `${relativePath}:${lineIndex + 1} matches ${matchedIndexes.length} declaration-site entries for ${reservedId}`);
+        if (matchedIndexes.length === 1) {
+          entryHits[matchedIndexes[0]] += onLine;
+          excludedById.set(reservedId, (excludedById.get(reservedId) ?? 0) + onLine);
+          continue;
+        }
+        residualById[reservedId] += onLine;
+        for (let repeat = 0; repeat < onLine; repeat += 1) {
+          residualSites.push(`${relativePath}:${lineIndex + 1}`);
+        }
+      }
+    });
+  }
+
+  return { files, rawById, excludedById, residualById, residualSites, entryHits };
+}
+
+test('REL-BGSTAB-010 AC-7 no reserved consumer id is written into production outside its declaration', async () => {
   const reservedIds = TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS.map(entry => entry.consumerId);
   assert.ok(reservedIds.length > 0, 'there are no reservations to scan for');
 
-  const productionFiles = listProductionSourceFiles();
-  assert.ok(productionFiles.length > 0, 'the production source scan enumerated no files');
+  const scan = scanReservedIdProductionOccurrences(reservedIds);
+  assert.ok(scan.files.length > 0, 'the production source scan enumerated no files');
 
-  const rawOccurrencesById = new Map<string, number>();
-  const declarationSiteTotalsById = new Map<string, number>();
+  // No bare literal over a live quantity. How many times a reserved id's literal appears across
+  // the source tree is exactly the kind of moving number the previous rounds removed elsewhere,
+  // and naming one id in the assertion constrained nothing about any future reservation. The
+  // expectation is derived per id instead, by iterating the reservations.
   for (const reservedId of reservedIds) {
-    rawOccurrencesById.set(reservedId, 0);
-    declarationSiteTotalsById.set(reservedId, 0);
-  }
-  for (const relativePath of productionFiles) {
-    const source = readFileSync(join(REPOSITORY_ROOT, relativePath), 'utf8');
-    for (const reservedId of reservedIds) {
-      const inFile = countFixedStringOccurrences(source, reservedId);
-      if (inFile === 0) continue;
-      rawOccurrencesById.set(reservedId, (rawOccurrencesById.get(reservedId) ?? 0) + inFile);
-      const declaration = RESERVED_ID_DECLARATION_SITE_OCCURRENCES.find(entry => entry.path === relativePath);
-      if (declaration === undefined) continue;
-      assert.ok(inFile >= declaration.count,
-        `${relativePath} carries fewer occurrences than the declared exclusion (${declaration.covers})`);
-      declarationSiteTotalsById.set(reservedId,
-        (declarationSiteTotalsById.get(reservedId) ?? 0) + declaration.count);
-    }
+    const raw = scan.rawById.get(reservedId) ?? 0;
+    const excluded = scan.excludedById.get(reservedId) ?? 0;
+    assert.equal(excluded + scan.residualById[reservedId], raw,
+      `occurrence accounting for ${reservedId} does not partition its raw occurrences`);
+    assert.equal(scan.residualById[reservedId], 0,
+      `${reservedId} is written into a scanned source outside its declared sites: `
+      + `${scan.residualSites.join(', ')}`);
   }
 
-  // The measured totals today: three raw occurrences of the single reserved id, all three at the
-  // two declaration sites above, leaving nothing outside them.
-  assert.equal(rawOccurrencesById.get('server.config.schema'), 3,
-    'the raw production occurrence count for the reserved id moved; re-argue the declaration sites');
+  // A declaration-site entry that matches nothing is a rotted exemption, and would otherwise sit
+  // in the table forgiving a site that no longer exists.
+  RESERVED_ID_DECLARATION_SITES.forEach((entry, index) => {
+    assert.ok(scan.entryHits[index] > 0,
+      `declaration site ${entry.path} / ${entry.kind} / ${entry.consumerId} matches no occurrence (${entry.covers})`);
+  });
 
-  const reservedIdProductionOccurrences: Record<string, number> = {};
-  for (const reservedId of reservedIds) {
-    reservedIdProductionOccurrences[reservedId] = Math.max(
-      0,
-      (rawOccurrencesById.get(reservedId) ?? 0) - (declarationSiteTotalsById.get(reservedId) ?? 0),
-    );
-  }
-  assert.deepEqual(reservedIdProductionOccurrences, { 'server.config.schema': 0 },
-    'a reserved consumer id is written into a production source outside its declaration');
-
+  // The manifest ids come from the sealed file, not from a syntactic derivation off the catalog.
+  // Passing getTerminalResourceCatalogConsumerIds() for both arguments would make the two agree by
+  // construction and make the tuple condition unaskable -- the correction this suite already
+  // records for the production contract row applies here identically.
+  const manifest = await loadTerminalResourceConsumerManifest({ manifestPath: MANIFEST_PATH });
   const result = validateTerminalResourceConsumerRegistration({
     consumerIds: TERMINAL_RESOURCE_POLICY_CONSUMER_IDS,
     catalogConsumerIds: getTerminalResourceCatalogConsumerIds(),
-    manifestConsumerIds: getTerminalResourceCatalogConsumerIds(),
+    manifestConsumerIds: manifest.consumers.map(entry => entry.consumerId),
     reservations: TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS,
-    reservedIdProductionOccurrences,
+    reservedIdProductionOccurrences: scan.residualById,
   });
-  assert.deepEqual(
-    result.errors.filter(entry => entry.code === 'reservation-id-occurs-in-production'),
-    [],
-  );
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.ok, true);
 });
 
 test('REL-BGSTAB-010 AC-7 registration guard rejects a reservation whose id is used in production', () => {

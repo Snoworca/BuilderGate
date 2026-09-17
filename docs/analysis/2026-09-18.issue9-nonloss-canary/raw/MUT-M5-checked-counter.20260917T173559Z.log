@@ -1,0 +1,56 @@
+✖ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (8.744418ms)
+✔ REL-BGSTAB-010 AC-7 reservation membership is pinned so a new exemption costs an argued edit (1.089551ms)
+✖ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.33208ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation with no reason or no decision owner (0.162002ms)
+✔ REL-BGSTAB-010 AC-7 registration guard refuses a reservation for an id that still owns manifest tuples (0.148303ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id outside the registry (0.185428ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 4
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 795.605059
+
+✖ failing tests:
+
+test at src/services/TerminalResourcePolicyConsumerRegistry.test.ts:1:676
+✖ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (8.744418ms)
+  AssertionError [ERR_ASSERTION]: the guard did not examine every registered consumer id
+  
+  0 !== 11
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts:59:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 11,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/TerminalResourcePolicyConsumerRegistry.test.ts:1:2128
+✖ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.33208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts:86:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+----STDERR----

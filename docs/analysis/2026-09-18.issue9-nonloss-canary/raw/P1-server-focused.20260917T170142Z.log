@@ -1,0 +1,560 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 fixture contract — real SessionManager initialization retains authority and cleanup state (107.249943ms)
+✔ PERF-BGSTAB-010 gated headless fixture preserves full state while disposal releases held write callbacks (0.288481ms)
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 gated real-session fixture drains a held write before public cleanup (2368.258535ms)
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 gated real-session fixture releases resources after an assertion failure (2342.072887ms)
+[SessionManager] All CWD watchers stopped
+[WS] WebSocket router initialized
+✔ PERF-BGSTAB-010 emergency cleanup preserves a public finalizer error while releasing held callbacks (2357.17787ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session gated-headless-overflow-cleanup-red: Headless output queue overflow (observe): byte-limit
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+✔ PERF-BGSTAB-010 gated real-session PTY chain settles within the fixture bound after overflow cleanup (2345.39121ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-1 (176.265144ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 production assembly shares one registry-derived lease authority (105.49028ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-2 (189.074189ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-3 (93.913611ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-4 (86.775973ms)
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-b
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-5 (94.001146ms)
+✔ REL-BGSTAB-010 headless finalizer revokes the old epoch and isolates same-ID recreation (89.744532ms)
+[WS] WebSocket router initialized
+[SessionManager] Headless terminal degraded (write) for session session-a1: simulated headless write failure
+✔ REL-BGSTAB-010 headless maxChunks admits exact N and rejects N+1 without bypass (121.303189ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-a
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 headless write failure settles the candidate to target-scoped legacy recovery (88.055157ms)
+✔ REL-BGSTAB-010 valid but inactive leases cannot preview admit or rollback active WS and headless targets (83.902838ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-nonselected: Headless output queue overflow (observe): byte-limit
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-a1: Headless output queue overflow (observe): byte-limit
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 production PTY path uses target-scoped non-destructive headless policy and restores legacy limit (151.809989ms)
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-010 headless rollback closes only after the actual write chain drains (82.525069ms)
+✔ REL-BGSTAB-010 headless rollback fences every pre-boundary policy generation (87.129595ms)
+✔ Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6 (0.458639ms)
+✔ REL-BGSTAB-010 coalescing preserves every admission identity and lifetime fence (0.202495ms)
+✔ PERF-BGSTAB-010 AC-3/AC-4 fair artifact admission 계약 부재 때문에 실패 (2.315349ms)
+✔ PERF-BGSTAB-010 published fair artifact admission validates the benchmark policy contract (2.554494ms)
+✔ PERF-BGSTAB-010 source default Canary admission fails closed (9.008847ms)
+✔ PERF-BGSTAB-010 source canonical resolver rejects noncanonical authority (218.117423ms)
+✔ PERF-BGSTAB-010 fresh default Canary accepts canonical authority (1139.485104ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Auth] AuthService initialized
+[WS] WebSocket router initialized
+[Auth] Token issued: jti=4cb49e49-1b32-4001-b3f9-58e848c58649
+[WS] Client connected: e092f689-df27-4a9c-b44e-6d87153a84af
+[WS] Client connected: 01367bda-4343-429c-95d0-3c3a4aa10b68
+[WS] Client disconnected: 01367bda-4343-429c-95d0-3c3a4aa10b68
+[WS] Client disconnected: e092f689-df27-4a9c-b44e-6d87153a84af
+[SessionManager] All CWD watchers stopped
+[Auth] AuthService initialized
+[WS] WebSocket router initialized
+[Auth] Token issued: jti=e0d4e4aa-09a4-43f0-848d-c0e9c2668256
+✔ server RED — real output sequence and ready authority tokens (240.79613ms)
+[WS] Client connected: f02e165b-2d2f-4ee1-ae69-30c0bb02beda
+[WS] Client disconnected: f02e165b-2d2f-4ee1-ae69-30c0bb02beda
+[SessionManager] All CWD watchers stopped
+[Auth] AuthService initialized
+[WS] WebSocket router initialized
+[Auth] Token issued: jti=e0aa034d-1f8f-4a75-8ee2-86f6e31b2e79
+✔ server fresh replay request is token-fenced and supersedes the pending snapshot (227.486313ms)
+[WS] Client connected: 21448266-adf4-4290-8a51-af0f1ffa46db
+[WS] Client disconnected: 21448266-adf4-4290-8a51-af0f1ffa46db
+[SessionManager] All CWD watchers stopped
+✔ server recovery refresh requires both replay and repair ownership tokens (271.172746ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[WS] WebSocket router initialized
+[WS] Client disconnected: source-first
+[WS] Client disconnected: source-second
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR","trigger":"ack-timeout","withPeer":false,"recoveryReady":true,"schedulerPresent":false,"activeLane":null,"postOutput":[{"data":"FRR first after snapshot","screenSeq":42,"chunkId":"2"},{"data":"FRR second after snapshot","screenSeq":43,"chunkId":"3"}],"peerCredit":null}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR","trigger":"ack-timeout","withPeer":true,"recoveryReady":true,"schedulerPresent":true,"activeLane":null,"postOutput":[{"data":"FRR first after snapshot","screenSeq":42,"chunkId":"2"},{"data":"FRR second after snapshot","screenSeq":43,"chunkId":"3"}],"peerCredit":21}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR","trigger":"queue-overflow","withPeer":false,"recoveryReady":true,"schedulerPresent":false,"activeLane":null,"postOutput":[{"data":"FRR first after snapshot","screenSeq":42,"chunkId":"3"},{"data":"FRR second after snapshot","screenSeq":43,"chunkId":"4"}],"peerCredit":null}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR","trigger":"queue-overflow","withPeer":true,"recoveryReady":true,"schedulerPresent":true,"activeLane":null,"postOutput":[{"data":"FRR first after snapshot","screenSeq":42,"chunkId":"3"},{"data":"FRR second after snapshot","screenSeq":43,"chunkId":"4"}],"peerCredit":21}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR-hidden","withPeer":false,"gapEnqueueAttempts":0,"affectedTypes":["output","output"],"output":["hidden-after-one","hidden-after-two"]}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+{"reproduction":"FRR-hidden","withPeer":true,"gapEnqueueAttempts":0,"affectedTypes":["output","output"],"output":["hidden-after-one","hidden-after-two"]}
+[WS] Client disconnected: p4a-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-ac6-active-ledger
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-hidden-fence
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: browser wire rejected
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:878:33)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-fair-send-error
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-rejected-ack
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-timeout
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-withdraw
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-hidden-downgrade
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-artifact-rejection
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-rotate
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: late old-epoch callback
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:1239:33)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-fair-callback-rotate
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-last-lane
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-exit
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-queued-exit
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fair-queued-unsubscribe
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: synchronous candidate send failure
+    at Object.a.ws.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:1861:15)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6330:10)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7001:25)
+    at WsRouter.routeSessionOutput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:5338:12)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:1866:12)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: candidate callback failure
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:1880:28)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-b
+[WS] Client disconnected: client-a
+[WS] Client disconnected: client-c
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-fence
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-all-generations
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-production-grandfather
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-direct
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: candidate direct synchronous failure
+    at Object.socket.ws.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2085:19)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.drainTerminalResourcePolicyAdmissionQueue (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6829:10)
+    at WsRouter.admitTerminalResourcePolicyCanaryMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1565:32)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2090:31)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+[WS] Client disconnected: client-error-direct
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: candidate observe callback failure
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2108:37)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-error-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: candidate enforce synchronous failure
+    at Object.socket.ws.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2162:15)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.flushTransportQueue (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6417:10)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2167:8)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-error-safe-send-enforce
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: candidate callback failure direct
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2208:35)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-auto-resume-direct
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: candidate callback failure safe-send-observe
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2208:35)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-auto-resume-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: candidate callback failure safe-send-enforce
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2208:35)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-auto-resume-safe-send-enforce
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: persistent callback failure direct
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: persistent callback failure direct
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-persistent-direct
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: persistent callback failure safe-send-observe
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: persistent callback failure safe-send-observe
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-persistent-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: persistent callback failure safe-send-enforce
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: persistent callback failure safe-send-enforce
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2253:41)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-persistent-safe-send-enforce
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: persistent synchronous enforce failure
+    at Object.socket.ws.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2319:26)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.flushTransportQueue (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6417:10)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2323:8)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send failed: Error: persistent synchronous enforce failure
+    at Object.socket.ws.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2319:26)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.flushTransportQueue (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6417:10)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6636:14)
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:227:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[WS] Client disconnected: client-persistent-sync-enforce
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: rollback boundary callback failure
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2387:37)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-rollback-error-direct
+[WS] WebSocket router initialized
+[WS] WebSocket send failed: Error: rollback queued synchronous failure
+    at Object.socket.ws.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2406:19)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.drainTerminalResourcePolicyAdmissionQueue (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6829:10)
+    at onSent (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6515:16)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:56:11)
+    at Object.flushNextSendCallback (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:92:7)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2410:16)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-rollback-error-safe-send-observe
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: rollback boundary enforce callback failure
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouterSendPriority.test.ts:2452:33)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: client-rollback-error-safe-send-enforce
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-overflow
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-overflow-direct
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-overflow-safe-send-observe
+[WS] WebSocket router initialized
+[WS] Client disconnected: cleanup-0
+[WS] Client disconnected: cleanup-1
+[WS] Client disconnected: cleanup-2
+[WS] Client disconnected: cleanup-3
+[WS] Client disconnected: cleanup-4
+[WS] Client disconnected: cleanup-5
+[WS] Client disconnected: cleanup-6
+[WS] Client disconnected: cleanup-7
+[WS] Client disconnected: cleanup-8
+[WS] Client disconnected: cleanup-9
+[WS] Client disconnected: cleanup-10
+[WS] Client disconnected: cleanup-11
+[WS] Client disconnected: cleanup-12
+[WS] Client disconnected: cleanup-13
+[WS] Client disconnected: cleanup-14
+[WS] Client disconnected: cleanup-15
+[WS] Client disconnected: cleanup-16
+[WS] Client disconnected: cleanup-17
+[WS] Client disconnected: cleanup-18
+[WS] Client disconnected: cleanup-19
+[WS] Client disconnected: cleanup-20
+[WS] Client disconnected: cleanup-21
+[WS] Client disconnected: cleanup-22
+[WS] Client disconnected: cleanup-23
+[WS] Client disconnected: cleanup-24
+[WS] Client disconnected: cleanup-25
+[WS] Client disconnected: cleanup-26
+[WS] Client disconnected: cleanup-27
+[WS] Client disconnected: cleanup-28
+[WS] Client disconnected: cleanup-29
+[WS] Client disconnected: cleanup-30
+[WS] Client disconnected: cleanup-31
+[WS] Client disconnected: cleanup-32
+[WS] Client disconnected: cleanup-33
+[WS] Client disconnected: cleanup-34
+[WS] Client disconnected: cleanup-35
+[WS] Client disconnected: cleanup-36
+[WS] Client disconnected: cleanup-37
+[WS] Client disconnected: cleanup-38
+[WS] Client disconnected: cleanup-39
+[WS] Client disconnected: cleanup-40
+[WS] Client disconnected: cleanup-41
+[WS] Client disconnected: cleanup-42
+[WS] Client disconnected: cleanup-43
+[WS] Client disconnected: cleanup-44
+[WS] Client disconnected: cleanup-45
+[WS] Client disconnected: cleanup-46
+[WS] Client disconnected: cleanup-47
+[WS] Client disconnected: cleanup-48
+[WS] Client disconnected: cleanup-49
+[WS] Client disconnected: cleanup-50
+[WS] Client disconnected: cleanup-51
+[WS] Client disconnected: cleanup-52
+[WS] Client disconnected: cleanup-53
+[WS] Client disconnected: cleanup-54
+[WS] Client disconnected: cleanup-55
+[WS] Client disconnected: cleanup-56
+[WS] Client disconnected: cleanup-57
+[WS] Client disconnected: cleanup-58
+[WS] Client disconnected: cleanup-59
+[WS] Client disconnected: cleanup-60
+[WS] Client disconnected: cleanup-61
+[WS] Client disconnected: cleanup-62
+[WS] Client disconnected: cleanup-63
+[WS] Client disconnected: cleanup-64
+[WS] Client disconnected: cleanup-65
+[WS] Client disconnected: cleanup-66
+[WS] Client disconnected: cleanup-67
+[WS] Client disconnected: cleanup-68
+[WS] Client disconnected: cleanup-69
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+✔ PERF-BGSTAB-011 carries reserved source identity through fair delivery to two clients and a recreated lane (5.765845ms)
+✔ P4a PERF-BGSTAB-011 stale-output-pair preserves legacy rejection identity (3923.349716ms)
+✔ P4a PERF-BGSTAB-011 stale-output-pair preserves explicit-legacy rejection identity (3678.119996ms)
+✔ P4a PERF-BGSTAB-011 stale-output-pair preserves source rejection identity (3783.36778ms)
+✔ P4a PERF-BGSTAB-011 inactive-capability preserves legacy rejection identity (0.524229ms)
+✔ P4a PERF-BGSTAB-011 inactive-capability preserves explicit-legacy rejection identity (0.371651ms)
+✔ P4a PERF-BGSTAB-011 inactive-capability preserves source rejection identity (0.412424ms)
+✔ P4a PERF-BGSTAB-011 stale-connection-epoch preserves legacy rejection identity (1233.982362ms)
+✔ P4a PERF-BGSTAB-011 stale-connection-epoch preserves explicit-legacy rejection identity (3517.916302ms)
+✔ P4a PERF-BGSTAB-011 stale-connection-epoch preserves source rejection identity (3632.160994ms)
+✔ P4a PERF-BGSTAB-011 ACK_OVER_ACK preserves legacy rejection identity (3593.763139ms)
+✔ P4a PERF-BGSTAB-011 ACK_OVER_ACK preserves explicit-legacy rejection identity (3395.806551ms)
+✔ P4a PERF-BGSTAB-011 ACK_OVER_ACK preserves source rejection identity (3793.017503ms)
+✔ P4a PERF-BGSTAB-011 malformed ACK_DOMAIN_CONFLICT warns without dispatch or credit (3675.662378ms)
+✔ P4a PERF-BGSTAB-011 malformed ACK_DOMAIN_MISSING warns without dispatch or credit (3837.966774ms)
+✔ P4a PERF-BGSTAB-011 malformed ACK_DOMAIN_INVALID warns without dispatch or credit (3601.456258ms)
+✔ P4a PERF-BGSTAB-011 actual source ACK handler settles exact body bytes and duplicate zero (3892.857312ms)
+✔ FRR ack-timeout snapshot-ready preserves two normal outputs on the last lane (3754.185213ms)
+✔ FRR ack-timeout snapshot-ready preserves two normal outputs with an active peer (3945.185325ms)
+✔ FRR queue-overflow snapshot-ready preserves two normal outputs on the last lane (3872.736998ms)
+✔ FRR queue-overflow snapshot-ready preserves two normal outputs with an active peer (3617.760673ms)
+✔ FRR repeated actual maintenance fallback produces only one recovery transaction (3828.228364ms)
+✔ FRR stale affected ACKs after recovery return zero credit and preserve the peer (3550.680751ms)
+✔ FRR post-fallback unsubscribe prevents new output through real router lifecycle entrypoints (3592.895193ms)
+✔ FRR post-fallback session-termination prevents new output through real router lifecycle entrypoints (3877.755108ms)
+✔ FRR post-fallback disconnect prevents new output through real router lifecycle entrypoints (3688.277797ms)
+✔ FRR hidden-view request after actual timeout recovery preserves compatibility on the last lane (3622.261862ms)
+✔ FRR hidden-view request after actual timeout recovery preserves compatibility with a peer (3560.222536ms)
+✔ PERF-BGSTAB-010 runtime candidate delivery uses a server ledger and control-only cumulative ACK (3499.396668ms)
+✔ PERF-BGSTAB-010 AC-6 unknown-lane ACK keeps an active fair ledger credit unchanged (5784.03301ms)
+✔ PERF-BGSTAB-010 refuses fair delivery when the browser cannot recover hidden dropped output (0.702841ms)
+✔ PERF-BGSTAB-010 candidate transport callback failure releases its failed delivery ledger (6815.724879ms)
+✔ PERF-BGSTAB-010 invalid or inactive delivery ACKs emit an observable protocol rejection (0.429522ms)
+✔ PERF-BGSTAB-010 runtime maintenance replaces an expired delivery with an authoritative screen-repair snapshot (3674.114745ms)
+✔ PERF-BGSTAB-010 capability withdrawal releases every fair ledger and its maintenance timer (3535.753871ms)
+✔ PERF-BGSTAB-010 hidden-continuity capability downgrade releases the active fair ledger (3639.863446ms)
+✔ PERF-BGSTAB-010 artifact rejection on capability re-admission releases the active fair ledger (3773.879398ms)
+✔ PERF-BGSTAB-010 capability re-enable rotates the delivery epoch and rejects delayed old ACKs (7042.810259ms)
+✔ PERF-BGSTAB-010 delayed old-epoch transport callback cannot settle a re-enabled scheduler (6842.966429ms)
+✔ PERF-BGSTAB-010 last terminated fair lane releases the maintenance timer without disturbing another session (3473.806862ms)
+✔ PERF-BGSTAB-010 session termination releases the fair delivery ledger exactly once (3512.265969ms)
+✔ PERF-BGSTAB-010 session termination removes queued fair delivery wire frames before transport drain (4453.849086ms)
+✔ PERF-BGSTAB-010 unsubscribe removes queued fair delivery and releases the final lane (7468.617287ms)
+✔ safe-send drains independent control before queued output backlog (1.088556ms)
+✔ safe-send queues output when projected buffered amount crosses high-water (1.898951ms)
+✔ safe-send closes when projected buffered amount crosses hard limit (1.376542ms)
+✔ safe-send preserves output queued while a previous output send is in flight (0.960155ms)
+✔ REL-BGSTAB-010 AC-6 RED — policy rollback does not direct-flush queued output past an in-flight callback (1.196144ms)
+✔ REL-BGSTAB-010 AC-6 RED — target rollback isolates client B and drains client A callback-by-callback (25.541237ms)
+✔ REL-BGSTAB-010 WS rollback blocks fresh activation until the old callback fence closes (1.537156ms)
+✔ REL-BGSTAB-010 WS rollback fences every pre-boundary generation before closing (1.192577ms)
+✔ REL-BGSTAB-010 production route grandfathers preserved backlog above a smaller candidate cap (1.393768ms)
+✔ REL-BGSTAB-010 explicit admission flushes in direct and observe modes without a permanent queue (2.454613ms)
+✔ REL-BGSTAB-010 direct and observe candidate send failures settle to legacy without forced reconnect (3.671259ms)
+✔ REL-BGSTAB-010 enforce candidate synchronous failure settles only the canary target (1.24462ms)
+✔ REL-BGSTAB-010 candidate callback failure automatically resumes the preserved queue in every mode (3.322214ms)
+✔ REL-BGSTAB-010 persistent candidate callback failure holds the complete boundary without a retry loop (11.243259ms)
+✔ REL-BGSTAB-010 persistent candidate synchronous failure holds the complete boundary without a retry loop (6.656972ms)
+✔ REL-BGSTAB-010 rollback-boundary send failures preserve queued transport in direct and observe modes (3.499073ms)
+✔ REL-BGSTAB-010 enforce rollback callback failure preserves the remaining pre-boundary queue (1.653976ms)
+✔ REL-BGSTAB-010 legacy overflow records rejection before bounded target close cleanup (1.251746ms)
+✔ REL-BGSTAB-010 direct and observe admission overflow fences only the target without reconnect (1.239154ms)
+✔ REL-BGSTAB-010 disconnect cleanup uses measured registries and bounds retained ledgers (11.776133ms)
+✔ safe-send preserves same-session lifecycle ordering behind queued output (0.811903ms)
+[WS] WebSocket router initialized
+[WS] Client disconnected: hidden-visibility-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: rel012-authoritative-hidden-client
+[WS] Client disconnected: rel012-peer-interest-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: rel012-revoked-interest-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: rel012-issued-continuity-client
+✔ PERF-BGSTAB-010 atomic authority promotion preserves current identity (2666.192512ms)
+✔ REL-BGSTAB-012 rejects stale visibility and latches ordered dataGap (3746.148108ms)
+✔ REL-BGSTAB-012 latches one ordered dataGap after authoritative hidden delivery (3550.872723ms)
+✔ REL-BGSTAB-012 settles revoked delivery interest exactly once without pausing producer (3727.20786ms)
+✔ REL-BGSTAB-012 binds dataGap to issued continuity and current hidden view (3582.831683ms)
+✔ server RED — normal identified output coalesces while preserving source segment boundaries (1.832686ms)
+✔ server RED — three identity-less output frames remain coalescible (0.214969ms)
+✔ PERF-BGSTAB-010 ACK-identified delivery frames never coalesce away their ledger identity (0.202863ms)
+✔ server RED — split surrogate chunks never produce invalid UTF-8 source offsets (0.139032ms)
+✔ PERF-BGSTAB-011 source transport sidecars preserve canonical uint64 boundaries (0.243304ms)
+✔ PERF-BGSTAB-011 source sidecar rejects noncanonical and overflowing ordinals (0.205614ms)
+✔ PERF-BGSTAB-011 canonical sourceSeq survives an invalid or absent streamEpoch sidecar (0.173727ms)
+✔ PERF-BGSTAB-011 canonical streamEpoch survives an invalid or absent sourceSeq sidecar (0.151529ms)
+ℹ tests 106
+ℹ suites 0
+ℹ pass 106
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 169015.353081

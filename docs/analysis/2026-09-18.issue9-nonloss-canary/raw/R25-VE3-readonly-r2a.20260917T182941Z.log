@@ -1,0 +1,34 @@
+{
+  "requirementId": "REL-BGSTAB-010",
+  "phaseId": "PH-002",
+  "taskId": "T-PH002-06",
+  "serverFocused": {
+    "total": 106,
+    "passed": 106,
+    "failed": 0,
+    "minimumTests": 37
+  },
+  "frontendFocused": {
+    "total": 168,
+    "passed": 168,
+    "failed": 0,
+    "minimumTests": 38
+  },
+  "unsealedSiblingTests": {
+    "server": 69,
+    "frontend": 130
+  },
+  "exactRelNamedTests": 60,
+  "registeredAuthorityLineageTests": 15,
+  "consumerAcMatrixCells": 18,
+  "productionStableProfiles": {
+    "server": 0,
+    "frontend": 0
+  },
+  "activation": {
+    "eligible": false,
+    "reason": "candidate-unavailable"
+  },
+  "verdict": "PASS_FAIL_CLOSED_CANDIDATE_UNAVAILABLE",
+  "artifactPath": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/canary-admission-evidence.json"
+}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -358,17 +358,25 @@ function summarizeFocused(result, requiredRelNames, lineageNames) {
     //
     // What this seal is and is not. `registeredResultSha256` hashes the OBSERVED status of each
     // registered name as read out of this run's TAP. On any run that REACHES this line, that
-    // observed status is provably the constant 'pass' for every registered name, because three
+    // observed status is provably the constant 'pass' for every registered name, because five
     // assertions have already fired and none of them can be satisfied otherwise:
     //   1. `runCommand` asserts the child's exit status is 0, so a lane with any failing test
     //      throws before its output is ever summarized;
     //   2. `summarizeFocused` asserts failed + cancelled + skipped + todo === 0 over the TAP
     //      counts, so no non-pass status survives into the map;
-    //   3. `summarizeFocused` asserts executedTests.get(name) === 'pass' for every registered
+    //   3. `summarizeFocused` asserts executedTests.size === summary.total, so a registered name
+    //      cannot be absent from the map while the summary still accounts for it;
+    //   4. `summarizeFocused` asserts `discoveredRelNames` deepEquals the exact required REL
+    //      registry, so a REL-named test going absent throws;
+    //   5. `summarizeFocused` asserts executedTests.get(name) === 'pass' for every registered
     //      name, so an absent or non-passing registered name throws.
     // This value therefore differs from one computed off the literal name lists with every status
-    // forced to 'pass' ONLY IF all three of those assertions are weakened. It is a tripwire
-    // against that future weakening, and it is NOT evidence that a run occurred.
+    // forced to 'pass' IF ANY ONE of those five assertions is weakened -- a disjunction, not a
+    // conjunction. Assertion 5 alone suffices: a registered AUTHORITY-LINEAGE name going absent is
+    // caught by neither the summary counts (they stay internally consistent) nor the
+    // `discoveredRelNames` deepEqual, which filters on names containing REL-BGSTAB-010 and so does
+    // not cover the lineage names at all. It is a tripwire against that future weakening, and it
+    // is NOT evidence that a run occurred.
     // The run-derived evidence in the artifact that is falsifiable TODAY lives in `inputHashes`,
     // `productionSourceHashes` and `productionRuntimeRegistry.*.stdoutSha256`, not in this block.
     sealedProjection: Object.freeze({
@@ -521,8 +529,16 @@ for (const entry of declaredElsewhereRequirementBearingTestSources) {
 // The check is POSITIONAL, and identical in strength on both platforms. A bare membership test
 // over every token accepted a path that appeared anywhere on the command line -- as the value of
 // a flag such as `--test-name-pattern`, or after an exclusion flag -- which is not execution.
-// Only the tokens AFTER `--test` are node's test-file operands, and they are pinned as an exact
-// set so a file cannot be added to a lane without being declared here.
+// Only the tokens AFTER `--test` are node's test-file operands.
+//
+// RESIDUAL, stated rather than papered over: this audit inspects only the tokens AFTER `--test`.
+// The prefix is UNCONSTRAINED, so a flag placed before `--test` -- `--test-skip-pattern=.`,
+// `--test-name-pattern='^$'` -- would leave the operand set identical while running nothing. This
+// audit therefore establishes MEMBERSHIP, not execution. Execution is established downstream and
+// independently, by `summarizeFocused` asserting that every registered REL and authority-lineage
+// name was observed as `pass` in the lane's TAP: a suppressed lane produces an empty TAP and every
+// one of those names is then absent. The prefix is deliberately left unpinned here because pinning
+// the full token list would re-create exactly the transcription problem removed just below.
 //
 // No counter compares this loop's own increment to the length of the array it iterates: that
 // comparison is a tautology and cannot detect an empty enumeration, which is the defect this
@@ -530,20 +546,37 @@ for (const entry of declaredElsewhereRequirementBearingTestSources) {
 assert.ok(executedRequirementBearingTestSourcePaths.length > 0,
   'no requirement-bearing test source is declared as executed by this guard');
 
-// The exact cwd-relative test-file operands each focused lane is expected to run. A superset of
-// the declared-executed paths: a lane may also run suites that name no requirement id.
-const focusedLaneTestOperands = Object.freeze({
+// Operands a lane runs that name NO requirement id. The expected operand set is no longer
+// transcribed: `focusedLaneTestOperands` restated the very paths already written into
+// `focusedCommands` several hundred lines above in this same file, so its deepEqual compared two
+// copies of one author's intent and was anchored to nothing outside that intent. The operand set
+// is derived from `focusedCommands[lane].args` instead -- that is what actually runs -- and
+// reconciled against two things that are not copies of it: the tree walk in
+// `discoverRequirementBearingTests`, which decides `requirementBearingTestSourcePaths`, and this
+// explicit, reasoned list. Adding a file to a lane therefore still costs an argued line, but
+// removing one from the transcription no longer silently relaxes anything.
+const focusedLaneSupportingTestOperands = Object.freeze({
   server: Object.freeze([
-    'src/services/TerminalResourcePolicyCanary.test.ts',
-    'src/ws/WsRouterSendPriority.test.ts',
-    'src/ws/WsRouterRestoreMetadata.test.ts',
-    'src/ws/wsSendPolicyRestoreMetadata.test.ts',
+    Object.freeze({
+      path: 'src/ws/WsRouterRestoreMetadata.test.ts',
+      reason: 'Carries authority-lineage tests registered in serverLineageTestNames, whose pass '
+        + 'status this guard asserts. It names no REL-BGSTAB-010 requirement id, so the tree walk '
+        + 'does not classify it as requirement-bearing.',
+    }),
+    Object.freeze({
+      path: 'src/ws/wsSendPolicyRestoreMetadata.test.ts',
+      reason: 'Carries authority-lineage tests registered in serverLineageTestNames, whose pass '
+        + 'status this guard asserts. It names no REL-BGSTAB-010 requirement id, so the tree walk '
+        + 'does not classify it as requirement-bearing.',
+    }),
   ]),
   frontend: Object.freeze([
-    'tests/unit/terminalOutputScheduler.test.ts',
-    'tests/unit/terminalViewRecoveryContract.test.ts',
-    'tests/unit/terminalContainerRecoveryContract.test.ts',
-    'tests/unit/visibleOutputRecovery.test.ts',
+    Object.freeze({
+      path: 'tests/unit/visibleOutputRecovery.test.ts',
+      reason: 'Carries authority-lineage tests registered in frontendLineageTestNames, whose pass '
+        + 'status this guard asserts. It names no REL-BGSTAB-010 requirement id, so the tree walk '
+        + 'does not classify it as requirement-bearing.',
+    }),
   ]),
 });
 
@@ -560,8 +593,31 @@ for (const lane of ['server', 'frontend']) {
   const operands = tokens.slice(testFlagIndex + 1);
   assert.deepEqual(operands.filter(token => token.startsWith('-')), [],
     `the ${lane} focused command mixes flags in among its test-file operands`);
-  assert.deepEqual(sorted(operands), sorted([...focusedLaneTestOperands[lane]]),
-    `the ${lane} focused command runs a different set of test files than is declared here`);
+  // Counted before the reconciliation below: a universal claim over an empty operand list is true.
+  assert.ok(operands.length > 0, `the ${lane} focused command names no test-file operands`);
+  assert.equal(new Set(operands).size, operands.length,
+    `the ${lane} focused command names the same test-file operand twice`);
+
+  const supporting = focusedLaneSupportingTestOperands[lane];
+  const supportingPaths = supporting.map(entry => entry.path);
+  for (const entry of supporting) {
+    assert.ok(entry.reason.trim().length > 0,
+      `a supporting operand of the ${lane} lane carries no reason: ${entry.path}`);
+    assert.equal(operands.includes(entry.path), true,
+      `${entry.path} is declared as a supporting operand of the ${lane} lane but the lane does not run it`);
+  }
+  const requirementBearingInLane = requirementBearingTestSourcePaths
+    .filter(path => path.startsWith(`${lane}/`))
+    .map(path => path.slice(`${lane}/`.length));
+  for (const operand of operands) {
+    const requirementBearing = requirementBearingInLane.includes(operand);
+    const declaredSupporting = supportingPaths.includes(operand);
+    assert.equal(requirementBearing || declaredSupporting, true,
+      `the ${lane} focused command runs ${operand}, which is neither a requirement-bearing source `
+      + 'nor a declared supporting file');
+    assert.equal(requirementBearing && declaredSupporting, false,
+      `${operand} is declared as a supporting file of the ${lane} lane and is also requirement-bearing`);
+  }
   laneTestOperands.set(lane, new Set(operands));
 }
 assert.deepEqual(sorted([...laneTestOperands.keys()]), ['frontend', 'server'],
@@ -578,6 +634,74 @@ assert.equal(new Set(requirementBearingTestSourcePaths).size, requirementBearing
   'a requirement-bearing test source is declared twice');
 assert.deepEqual(discoverRequirementBearingTests(), sorted(requirementBearingTestSourcePaths),
   'REL-BGSTAB-010 appears in an unregistered test source or a registered source disappeared');
+
+// The sealed `value` must describe the command that is actually SPAWNED. `runCommand` spawns
+// `executable` with `args`, while the green evidence and the admission artifact seal `value`, a
+// separately hand-written string. Nothing compared them, so the artifact's record of what produced
+// the evidence could drift arbitrarily from what ran, and nothing would redden.
+//
+// For the FOCUSED commands the reconstruction is literal, so the check is exact:
+//   * win32 server lane: `executable` is the shell and `args` is ['/d','/s','/c', <one string>];
+//     the joined string IS the value.
+//   * everywhere else: value === <interpreter name> + ' ' + args.join(' '), where the interpreter
+//     name is the executable's basename with any .exe suffix removed ('npx', 'node').
+function interpreterName(executablePath) {
+  return basename(executablePath).replace(/\.exe$/iu, '');
+}
+
+for (const [lane, command] of Object.entries(focusedCommands)) {
+  if (process.platform === 'win32' && command.executable !== process.execPath) {
+    assert.deepEqual(command.args.slice(0, 3), ['/d', '/s', '/c'],
+      `the ${lane} focused command is spawned through a shell with unexpected shell flags`);
+    assert.equal(command.args.length, 4,
+      `the ${lane} focused command passes more than one shell command string`);
+    assert.equal(command.args[3], command.value,
+      `the ${lane} focused command's sealed value is not the string handed to the shell`);
+    continue;
+  }
+  assert.equal(`${interpreterName(command.executable)} ${command.args.join(' ')}`, command.value,
+    `the ${lane} focused command's sealed value does not reconstruct from executable + args`);
+}
+
+// For the RUNTIME INSPECTION commands a literal reconstruction is NOT possible: `value` elides a
+// multi-kilobyte `--eval` script behind an angle-bracket placeholder, and the server lane declares
+// the conventional invocation (`npx tsx --eval ...`) while it actually spawns node directly on
+// tsx's cli entry point so the child is a single process this guard can account for. What IS
+// checkable is asserted; what is not is named.
+//
+// CHECKED: the placeholder is exactly one angle-bracket group and it terminates the value, so the
+// elision is visible rather than silent; `--eval` appears exactly once in args; exactly one
+// argument follows it, so the placeholder stands for exactly one argument and no further operand
+// is hidden behind it; and every flag written in the declared value's prefix is genuinely present
+// in args, so a flag cannot be advertised without being passed.
+//
+// NOT CHECKED, stated plainly: the interpreter words at the head of the value (`npx tsx` vs the
+// spawned `node node_modules/tsx/dist/cli.mjs`) are a human description and are not reconstructed;
+// and the elided script body is not compared to anything. A change to the eval script therefore
+// does not move `value`. That script's OUTPUT is separately pinned -- `inspectRuntime` hashes the
+// child's stdout into `productionRuntimeRegistry.*.stdoutSha256` and the snapshot shape is
+// asserted -- so a behavioural change in the script surfaces there, not here.
+for (const [lane, command] of Object.entries(runtimeInspectionCommands)) {
+  const placeholders = [...command.value.matchAll(/<[^<>]*>/gu)];
+  assert.equal(placeholders.length, 1,
+    `the ${lane} runtime inspection command's value must elide its script behind exactly one placeholder`);
+  assert.equal(command.value.endsWith('>'), true,
+    `the ${lane} runtime inspection command's placeholder must terminate its value`);
+  const evalIndex = command.args.indexOf('--eval');
+  assert.notEqual(evalIndex, -1, `the ${lane} runtime inspection command passes no --eval`);
+  assert.equal(command.args.filter(arg => arg === '--eval').length, 1,
+    `the ${lane} runtime inspection command passes --eval more than once`);
+  assert.equal(command.args.length - evalIndex - 1, 1,
+    `the ${lane} runtime inspection command's placeholder stands for more than one argument`);
+  const declaredFlags = command.value.slice(0, placeholders[0].index).split(/\s+/u)
+    .filter(token => token.startsWith('--'));
+  assert.ok(declaredFlags.includes('--eval'),
+    `the ${lane} runtime inspection command's value does not declare --eval`);
+  for (const flag of declaredFlags) {
+    assert.equal(command.args.includes(flag), true,
+      `the ${lane} runtime inspection command declares ${flag} in its sealed value but does not pass it`);
+  }
+}
 
 const serverRun = runCommand(focusedCommands.server);
 const frontendRun = runCommand(focusedCommands.frontend);

@@ -1580,7 +1580,9 @@ export function validateTerminalResourceConsumerRegistration(input: {
   // other than the registry declaration itself. A reservation asserts the id has no consumer.
   // If the literal is written anywhere in production outside the two declaration sites that
   // have to name it, that assertion is falsifiable and false: something is passing the id.
-  // Optional so the fixture tests below can omit it; when absent no occurrence check runs.
+  // Optional ONLY because the negative-path fixture tests construct minimal inputs that have no
+  // production occurrence map to supply; the production contract row passes it, so this branch is
+  // live against real data and deleting it reddens that row.
   //
   // What this still does NOT cover, stated plainly: a consumer that consumes the resource
   // without ever naming the id -- reached through a variable, a re-export or an alias. That

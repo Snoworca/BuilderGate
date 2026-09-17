@@ -1,0 +1,25 @@
+/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts:6
+  TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS,
+  ^
+SyntaxError: The requested module './TerminalResourcePolicyInventory.js' does not provide an export named 'TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:455:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:553:5)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.21.0
+✖ src/services/TerminalResourcePolicyConsumerRegistry.test.ts (762.412466ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 780.200061
+
+✖ failing tests:
+
+test at src/services/TerminalResourcePolicyConsumerRegistry.test.ts:1:1
+✖ src/services/TerminalResourcePolicyConsumerRegistry.test.ts (762.412466ms)
+  'test failed'
