@@ -164,16 +164,12 @@ function assertSortedUnique(values: string[]): void {
 function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: string, consumerSymbol: string): number {
   assert.ok(evidenceSignature.length > 0, `expected a non-empty evidence signature for ${path}#${consumerSymbol}`);
   const source = readFileSync(resolve(REPOSITORY_ROOT, path), 'utf8');
+  const offset = source.indexOf(evidenceSignature);
   assert.ok(
-    source.includes(evidenceSignature),
+    offset >= 0,
     `manifest names ${path}#${consumerSymbol} as the consumer, but its evidence signature ${JSON.stringify(evidenceSignature)} does not occur in that file`,
   );
-  // The OFFSET, not a constant. An earlier form returned the literal `true` with return type
-  // `true`, which tsc narrows so that `helper(...) ? 1 : 0` is provably the constant 1 - the tally
-  // then equalled manifest.consumers.length no matter what the body did, and gutting the two
-  // assertions above while keeping `return true` left AC-1 green. A value computed from the file
-  // under test cannot be produced by a stub.
-  return source.indexOf(evidenceSignature);
+  return offset;
 }
 
 function assertRepositoryPath(path: string): void {
@@ -310,18 +306,29 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
     assert.ok(Array.isArray(entry.legacyAliases));
     assert.ok(entry.applyBoundary.length > 0);
     assertRepositoryPath(entry.consumerPath);
+    // The returned offset is re-verified against the file HERE, independently of the helper. Two
+    // earlier forms of this counter were tautologies - `helper(...) ? 1 : 0` with return type
+    // `true`, then an unconditional `+= 1` inside a loop over the array it was compared against -
+    // and both stayed green with the helper's body deleted. Reading the file again and checking
+    // that the signature really sits at the returned offset is a claim a stub cannot satisfy: a
+    // `return 0` reddens unless the signature genuinely begins at byte 0.
     const signatureOffset = assertEvidenceSignaturePresentAt(
       entry.consumerPath,
       entry.evidenceSignature,
       entry.consumerSymbol,
     );
-    assert.ok(signatureOffset >= 0, `${entry.consumerPath}#${entry.consumerSymbol}: signature offset must be a real position`);
+    const consumerSource = readFileSync(resolve(REPOSITORY_ROOT, entry.consumerPath), 'utf8');
+    assert.equal(
+      consumerSource.slice(signatureOffset, signatureOffset + entry.evidenceSignature.length),
+      entry.evidenceSignature,
+      `${entry.consumerPath}#${entry.consumerSymbol}: the offset the signature check returned does not point at that signature`,
+    );
     signaturesChecked += 1;
   }
-  // Exact, and local to this test rather than module scope. `> 0` on a module-global counter was
-  // both already implied by the length assertion above and survivable by a future change that
-  // checked one entry of eighty-one; it would also have carried across a re-entry of this file in
-  // one process. This says every entry was examined, which is the claim AC-1 rests on.
+  // Kept as a loop-completion check only, and no longer carrying the coverage claim: incrementing
+  // unconditionally inside a loop over manifest.consumers and comparing to its length is provable
+  // by inspection. What actually establishes that every entry was examined is the per-entry offset
+  // re-verification above, which no stub satisfies.
   assert.equal(
     signaturesChecked,
     manifest.consumers.length,
@@ -1194,6 +1201,10 @@ test('OBS-BGSTAB-005 review regression — exact repository tuples validate bidi
 // own template literals carry whitespace as content. So refuse mixed endings instead. `newlineCount`
 // counts ALL newlines including the LF of each CRLF, which is what the comparison needs - a pure
 // CRLF file has crlfCount === newlineCount. All current targets are pure LF.
+function toSourceNewlines(text: string, source: string): string {
+  return text.replace(/\r?\n/g, source.includes('\r\n') ? '\r\n' : '\n');
+}
+
 function assertUniformLineEndings(source: string, name: string, path: string): void {
   const crlfCount = (source.match(/\r\n/g) ?? []).length;
   const newlineCount = (source.match(/\n/g) ?? []).length;
@@ -1205,6 +1216,10 @@ function assertUniformLineEndings(source: string, name: string, path: string): v
 
 function insertBeforeMarkerLines(source: string, marker: string, inserted: string, name: string): string {
   assert.ok(marker.trim().length > 0, `${name}: marker must not be blank`);
+  // This function rejoins every line, so it defends itself rather than relying on its callers to
+  // have checked. Both current callers do check first, but a third added later would inherit
+  // nothing. It is idempotent and cheap.
+  assertUniformLineEndings(source, name, '<insertBeforeMarkerLines input>');
   const newline = source.includes('\r\n') ? '\r\n' : '\n';
   const lines = source.split(/\r?\n/);
   const markerLines = marker.replace(/\r\n/g, '\n').split('\n').map((line) => line.trim());
@@ -1486,16 +1501,23 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
   // reclassified. That demotion has already happened once, in this suite's own history. With these
   // counts pinned it cannot happen without also editing a number here and arguing for it.
   const manifestDriftFixtures = mutations.filter((entry) => 'manifestDrift' in entry && entry.manifestDrift);
-  assert.equal(manifestDriftFixtures.length, 5, 'manifestDrift fixture count');
-  assert.equal(
-    manifestDriftFixtures.filter((entry) => 'driftMechanism' in entry && entry.driftMechanism === 'tuple').length,
-    3,
-    "fixtures whose decoy is discriminated by tuple drift; demoting one to 'seal-only' must change this number",
-  );
-  assert.equal(
-    manifestDriftFixtures.filter((entry) => 'driftMechanism' in entry && entry.driftMechanism === 'seal-only').length,
-    2,
-    "fixtures resting on the coarse source seal only; promoting one to 'tuple' must change this number",
+  // MEMBERSHIP, not cardinality. Pinning three counts left a rename, a wholesale substitution, or a
+  // paired swap free; one deepEqual over name:mechanism closes all of those and makes any
+  // reclassification an explicit edit to this list. It is also what makes declaration mandatory at
+  // RUNTIME: a fixture that omitted driftMechanism appears here as `name:undefined` and reddens
+  // under `npx tsx --test`, which strips types, rather than only under `npm run build`.
+  assert.deepEqual(
+    manifestDriftFixtures
+      .map((entry) => `${entry.name}:${'driftMechanism' in entry ? entry.driftMechanism : 'undeclared'}`)
+      .sort(),
+    [
+      'call-input-noop-callee-decoy:tuple',
+      'control-guard-wrong-return-decoy:tuple',
+      'object-option-noop-callee-decoy:tuple',
+      'unchanged-guard-after-constant-return:seal-only',
+      'unchanged-guard-after-try-finally-return:seal-only',
+    ],
+    "the manifestDrift fixture set and each fixture's declared mechanism; demoting a 'tuple' fixture to 'seal-only' is the cheapest green for the AST regression AC-6 exists to catch, so it has to be an edit here that someone argues for",
   );
   for (const mutation of mutations) {
     const targetRoot = await mkdtemp(join(tmpdir(), `buildergate-policy-${mutation.name}-`));
@@ -1527,12 +1549,15 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       if ('insertBefore' in mutation) {
         mutatedSource = insertBeforeMarkerLines(mutatedSource, mutation.insertBefore, mutation.inserted, mutation.name);
       }
-      await writeFile(targetPath, `${mutatedSource}${mutation.suffix}`, 'utf8');
+      // The suffix's newlines are normalised to the target's. assertUniformLineEndings refuses an
+      // already-mixed file but accepts a pure-CRLF one, so appending a bare-LF suffix to it would
+      // manufacture exactly the mixed-ending file the check exists to prevent - the detector was
+      // hoisted for that reason but the cause lives here.
+      await writeFile(targetPath, `${mutatedSource}${toSourceNewlines(mutation.suffix, mutatedSource)}`, 'utf8');
       if ('manifestDrift' in mutation && mutation.manifestDrift) {
-        // Enforced here as well as by the compiler. `npx tsx --test` strips types, and that is the
-        // command this suite is actually run with, so a fixture that omitted driftMechanism would
-        // fall into the seal-only branch under the runner and be caught only by `npm run build` -
-        // a command this project documents as frequently red for unrelated reasons.
+        // Redundant defence in depth, and labelled as such rather than justified by a reason that
+        // is no longer true: the membership pin above already reddens on an undeclared mechanism
+        // under the runner, so this cannot fire while that assertion stands.
         assert.ok(
           'driftMechanism' in mutation,
           `${mutation.name}: a manifestDrift fixture must declare driftMechanism`,
@@ -1585,6 +1610,17 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
           // rests entirely on the coarse seal. Asserting that equality is what stops the seal-only
           // label from being a claim someone has to take on trust - and it reddens if the decoy
           // ever starts to matter, which is the same signal as the tuple assertion above.
+          // The inert tree skips the from->to replacement and inserts only a comment, so it is a
+          // fair control ONLY while that replacement is a no-op. Both current seal-only fixtures
+          // declare from and to identically; nothing else pins that, and a future seal-only fixture
+          // given a real replacement would silently turn this into "replacement plus decoy matches
+          // comment alone" - which any byte change satisfies, so it would pass while measuring
+          // nothing. Masking, not noise, so it is asserted.
+          assert.equal(
+            mutation.from,
+            mutation.to,
+            `${mutation.name}: the seal-only control omits the from->to replacement, so it is only a fair comparison when that replacement is a no-op`,
+          );
           const inertRoot = await mkdtemp(join(tmpdir(), `buildergate-policy-${mutation.name}-inert-`));
           try {
             await copyInventorySources(requiredPaths, inertRoot);
