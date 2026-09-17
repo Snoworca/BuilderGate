@@ -1,5 +1,5 @@
 # cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
-# revision: HEAD (5c79ea1) — spec declares its tests at 447/594
+# revision: a02c7a4 (= HEAD at capture time); the spec declares its tests at 447/594
 # command: npx tsc -p tsconfig.test.json --noEmit
 # exit=0
 # command: npx eslint tests/e2e/wave2-screen-repair-resync.spec.ts playwright.external-server.config.ts

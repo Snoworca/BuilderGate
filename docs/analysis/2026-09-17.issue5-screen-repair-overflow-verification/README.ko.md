@@ -73,7 +73,7 @@ reconnect 로 수렴하는데, spec 의 `buildRestoreNeeded` 가 `authorityEpoch
 | 7 | `<WT>/frontend` | `node --experimental-strip-types --test tests/unit/terminalHiddenOutput.test.ts tests/unit/workspaceOwnershipMigration.test.ts` (변경분 stash 후 `e901676` 상태) | 1 | `raw/fe-unit-baseline-3fails.log` — 동일 3건 재현 → 선재 확인 |
 | 8 | `<WT>/frontend` | `npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --config playwright.external-server.config.ts --project "Desktop Chrome"` (수정 전 spec, workspace 에 터미널 없음) | 1 | `raw/e2e-wave2-screen-repair-resync.log` — 2 FAIL, `waitForTerminal` 타임아웃 |
 | 9 | `<WT>/frontend` | 8번과 동일 (수정 전 spec, 터미널을 시드한 뒤) | 1 | `raw/e2e-wave2-screen-repair-resync-run2.log` — 2 FAIL, `restore-needed-invalid-authority-proof` |
-| 10 | `<WT>/frontend` | 8번과 동일 + `-g "AC-4"` (restore-needed proof 만 수정한 중간 상태) | 1 | `raw/e2e-ac4-step1.log` — barrier 는 engage, snapshot proof 불일치로 뒤에서 실패 |
+| 10 | `<WT>/frontend` | 8번과 동일 + `-g "AC-4"` (restore-needed proof 만 수정한 중간 상태) | 1 | `raw/e2e-ac4-step1.log` — AC-4 만 실행, 1 failed. 로그에 남은 것은 두 시도 모두의 `RED AC-4: restore-needed did not engage the stale barrier, or snapshot-covered prefix/tail was lost, duplicated, or reordered` 한 줄뿐이다. 그 메시지는 선언형(disjunctive)이라 어느 쪽인지 가려주지 않는다 — 당시 barrier 는 engage 됐고 snapshot proof 가 어긋나 뒤에서 실패했다고 판단했으나 그 판단의 근거였던 진단 출력은 커밋하지 않았다 |
 | 11 | `<WT>/frontend` | 8번과 동일 (**커밋되는 spec**) | 0 | `raw/e2e-green-prefreeze.log` — 2 PASS |
 | 12 | `<WT>/frontend` | 8번과 동일 (**커밋되는 spec**, 11번과 별개 실행) | 0 | `raw/e2e-frozen-tree-preseeding.log` — 2 PASS |
 | 13 | `<WT>/frontend` | 8번과 동일 (**커밋되는 spec** + 프런트 변형) | 1 | `raw/e2e-mutation-nobarrier.log` — 2 FAIL |
@@ -132,9 +132,8 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 찍혔다(같은 덤프 안에서 4줄). 다섯 실패 전체의 동반 증상으로 읽지 않는다.
 
 **이 lane 의 변경이 원인이 아니다.** 16번이 돌린 spec 은 커밋본이고(테스트 선언 줄 447/594 가
-`git show HEAD:…` 와 일치한다), 같은 spec 이 11·12번에서 1차 시도에 2 PASS 했다. 11·12번과 16번의
-차이는 spec 이 아니라 **터미널이 갓 생성된 것인지**다 — 앞선 실행들은 오래 떠 있던 터미널을
-재사용했고, 16번은 15번이 방금 만든 터미널 위에서 돌았다.
+`git show HEAD:…` 와 일치한다), **같은 spec** 이 11·12번에서 1차 시도에 2 PASS 했다. 즉 spec 바이트는
+양쪽이 같으므로 차이는 spec 밖의 무엇인가다. 그 무엇인가가 무엇인지는 아래와 같이 기록되어 있지 않다.
 
 **단, 변수를 분리하지는 못했다.** 16번의 "갓 만든 터미널" 전제는 `tools/issue5-seed-terminal.mjs`
 가 `+ Add Terminal` 을 눌렀다는 것에 기댄다. 그 도구는 이 lane 이 spec 헬퍼를 철회한 이유와 같은
@@ -174,11 +173,26 @@ Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 `raw/e2e-stability-committed-6x.log` 는 파일 이름에도 `committed` 가 들어 있으나 같은 이유로 커밋본
 증거가 아니다.
 
-**헤더가 아예 없는 커밋본 로그가 셋 있다.** `raw/e2e-green-prefreeze.log`,
-`raw/e2e-frozen-tree-preseeding.log`, `raw/e2e-mutation-nobarrier.log` 는 헤더 관례를 만들기 전에
-캡처해서 `# cwd:`·`# command:`·`# exit=` 줄이 없다. 리비전은 선언 줄(447/594)로 바이트 검증되지만
-cwd·대상 listener·exit code 는 위 표의 산문 진술일 뿐이며, 바이트로 남은 것은 Playwright 말미의
-`2 passed` / `2 failed` 요약뿐이다.
+`raw/e2e-final-committed-4x.log` 의 헤더에 있는 "the spec does not create terminals" 는 **전제로
+필요한 터미널을 spec 이 스스로 만들지 않는다** 는 뜻이다. 커밋되는 spec 은 AC-8 안에서
+`hideTargetBehindTemporaryTab` 이 임시 tab 을 POST 로 만들고 자기가 받은 id 로 DELETE 한다 — 그것은
+생성 응답 id 로 소유권을 잡는 기존 코드이며 이 lane 이 건드리지 않았다. 보고서와 §4 의 같은 표현도
+이 뜻이다.
+
+**§4 의 제목은 "전체 명령줄·cwd·exit code" 지만, 그것이 파일 안에 기계로 적혀 있는 것은 일부다.**
+`# cwd:`·`# command:`·`# exit=` 헤더를 가진 산출물은 16·18번과 12·14·15번 및 철회 실험 로그들이고,
+**1~10번의 산출물 대부분에는 헤더가 없다** — `server-runner-baseline.log`,
+`server-runner-mutation-giantflush.log`, `server-split-handshake.log`, `fe-baseline.log`,
+`fe-unit-full.log`, `fe-unit-full-final.log`, `fe-unit-baseline-3fails.log`, `e2e-ac4-step1.log`,
+`e2e-wave2-screen-repair-resync.log`, `e2e-wave2-screen-repair-resync-run2.log`,
+`e2e-green-prefreeze.log`, `e2e-frozen-tree-preseeding.log`, `e2e-mutation-nobarrier.log`,
+그리고 0바이트인 둘. 이 행들의 cwd·명령줄·exit code 는 **표의 산문 진술일 뿐이다.**
+
+각 로그가 바이트로 지탱하는 것은 이렇다. E2E 로그는 Playwright 가 찍는 test 선언 줄로 리비전이
+판별되고 말미 요약(`2 passed` / `2 failed`)이 결과를 준다. 1·2번은 말미의 `N test(s) failed` 줄이
+exit code 1 을 뒷받침한다. frontend unit 로그는 B2 inventory 덤프가 spec 의 fetch 호출 줄 번호를
+찍으므로 그것으로 리비전을 되짚을 수 있다. 3번은 node:test 요약이 28/15/0/13 을 준다.
+그 밖의 것 — 어느 디렉터리에서 어떤 인자로 돌렸는지 — 은 이 문서의 진술이다.
 
 ## 5. 포트·프로세스 안전
 
@@ -201,8 +215,13 @@ cwd·대상 listener·exit code 는 위 표의 산문 진술일 뿐이며, 바�
 
 ## 6. 산출물에 남은 제약
 
-- 위 1·2번 로그는 `[TOTP] Manual entry key:` 줄이 실제 secret 을 찍으므로(GitHub issue #80)
-  커밋본에서 그 값만 `<redacted: GitHub issue 80>` 로 치환했다. 다른 바이트는 실행 원본 그대로다.
+- **1·2번 로그(`server-runner-baseline.log`, `server-runner-mutation-giantflush.log`)는 실행 후
+  편집되었다.** GitHub issue #80 때문에 두 가지를 지웠다. (a) `[TOTP] Manual entry key:` 의 값을
+  `<redacted: GitHub issue 80>` 로 치환했다(파일당 5줄). (b) 그 바로 위의 `Google Authenticator
+  QR Code:` ASCII 블록은 같은 secret 을 `otpauth://` URI 로 인코딩하므로 **파일당 5블록 100줄,
+  합계 200줄을 제거하고** 자리마다 제거 사실을 적은 한 줄을 남겼다. 그 두 종류를 뺀 나머지 바이트는
+  실행 원본 그대로이며, 편집 전후로 `PASS` 538 / `FAIL` 3 (1번)과 `PASS` 533 / `FAIL` 8 (2번), 그리고
+  실패 test 이름 목록이 동일함을 대조해 확인했다.
 - 5·6번의 FAIL 3건(`terminalHiddenOutput.test.ts` 의 `REL-BGSTAB-012 settles ledger and holds
   stale view through drain`, `workspaceOwnershipMigration.test.ts` 의 B2 inventory 2건)은 7번에서
   기준 트리 재현으로 선재임을 증명했다. 이 lane 의 범위가 아니며 수정하지 않았다.
@@ -239,11 +258,17 @@ cwd·대상 listener·exit code 는 위 표의 산문 진술일 뿐이며, 바�
   기본 workspace 에 터미널이 없으면 `+ Add Terminal` 을 한 번 누르고 렌더를 기다린다.
 - `tools/issue5-probe-authority.mjs` — 실 서버의 `screen-snapshot` wire 를 캡처해 authority proof
   필드 유무를 출력한다. 위 2절의 근거이며 출력은 `raw/probe-authority.log` 다.
-- `tools/issue5-teardown-terminal.mjs` — workspace 의 터미널 탭을 모두 닫아 empty state 를 만든다.
-  철회한 자체 시드 실험에서 시드 분기를 강제하려고 썼고, 출력은 `raw/teardown-before-selfseeded.log`
-  다(그 실행에서 `tabs left: 0`). 커밋된 spec 에는 필요하지 않으며 실험의 맥락을 위해 남긴다.
+- ~~`tools/issue5-teardown-terminal.mjs`~~ — **제거했다.** workspace 의 터미널 탭을 소유권 확인 없이
+  전부 닫는 도구였고, 철회한 자체 시드 실험에서 시드 분기를 강제하려고 공유 listener 에 대해 **한 번
+  실제로 실행했다**(`raw/teardown-before-selfseeded.log`, `tabs 1 … tabs left: 0`). 그 실행이 닫은
+  tab 이 이 lane 소유였는지는 기록되어 있지 않다.
+
+  이 lane 은 spec 자체 시드 헬퍼를 "소유권을 생성 응답 id 가 아니라 차집합으로 잡는다" 는 이유로
+  철회했는데, 이 도구는 소유권을 아예 보지 않으므로 같은 기준에서 더 나쁘다. 같은 잣대를 자기
+  산출물에도 적용해 번들에서 지운다. 실행 기록(`raw/teardown-before-selfseeded.log`)은 그 실행이
+  있었다는 사실을 지우지 않기 위해 남긴다. 커밋되는 spec 은 이 도구를 필요로 하지 않는다.
 
 `tools/issue5-seed-terminal.mjs` 가 spec 의 전제를 만드는 정규 도구다. 9·15번 실행이 그 사용례다.
 
-세 스크립트 모두 `@playwright/test` 를 해석해야 하므로 `<WT>/frontend` 에 복사해 실행한다.
+남은 두 스크립트는 `@playwright/test` 를 해석해야 하므로 `<WT>/frontend` 에 복사해 실행한다.
 
