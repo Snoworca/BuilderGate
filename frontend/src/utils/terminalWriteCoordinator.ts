@@ -261,6 +261,8 @@ interface PendingCompatibilityWrite {
   readonly generation: number;
   readonly kind: TerminalWriteKind;
   readonly data: string | Uint8Array;
+  /** Encoded size, computed once at admission so the budget scan never re-encodes. */
+  readonly encodedBytes: number;
   readonly onWritten?: () => void;
   readonly onRejected?: (reason: string) => void;
 }
@@ -406,14 +408,23 @@ export function createTerminalWriteCoordinator(
   let latestSourceSeq: ParsedOrdinal64 | null = null;
   let latestCheckpointEpoch: ParsedOrdinal64 | null = null;
   const queue: PendingMutation[] = [];
-  // Bytes still held in the queue. Read only from the bounded admission path
-  // above, where the chunk cap has already limited the queue length.
   const checkpointPacingEnabled = (): boolean =>
     typeof options.frameBudgetMs === 'number' || typeof options.shouldYield === 'function';
 
   const shouldDeferCheckpointFrame = (): boolean => {
     if (!checkpointPacingEnabled()) return false;
-    if (options.shouldYield?.() === true) return true;
+    // Caller-supplied and untrusted: the production predicate reaches into
+    // `navigator.scheduling.isInputPending`. A throw here escapes the write
+    // callback, where the enclosing catch cannot help because `callbackSettled`
+    // is already true, and the lane is left with work queued, nothing in flight
+    // and nothing scheduled. Treat a throwing predicate as "do not yield".
+    let yieldRequested = false;
+    try {
+      yieldRequested = options.shouldYield?.() === true;
+    } catch {
+      yieldRequested = false;
+    }
+    if (yieldRequested) return true;
     if (typeof options.frameBudgetMs !== 'number' || !(options.frameBudgetMs > 0)) return false;
     if (checkpointFrameDeadline === null) {
       checkpointFrameDeadline = now() + options.frameBudgetMs;
@@ -427,29 +438,43 @@ export function createTerminalWriteCoordinator(
     // here rather than on resume — if scheduling throws, the next synchronous
     // pass recomputes it instead of inheriting a spent one.
     checkpointFrameDeadline = null;
-    setTimer(() => {
-      if (disposed) return;
+    try {
+      setTimer(() => {
+        if (disposed) return;
+        pump();
+      }, 0);
+    } catch {
+      // A scheduler that cannot schedule must not strand the lane: the deadline
+      // is already cleared, so continuing synchronously costs one unpaced frame
+      // and keeps the checkpoint converging. Stranding it would hang the
+      // terminal with no recovery latch.
       pump();
-    }, 0);
+    }
   };
 
-  const queuedMutationBytes = (): number => {
-    let total = 0;
-    // The in-flight mutation has left the queue but is still retained, so it
-    // counts toward the budget. Excluding it lets exactly one write past the
-    // cap — measured as 1,052,672 bytes against a 1,048,576 cap.
-    for (const pending of activeMutation === null ? queue : [activeMutation, ...queue]) {
-      if (pending.type === 'write') total += pending.data.byteLength;
-      else if (pending.type === 'checkpoint') {
-        total += Math.max(0, pending.body.byteLength - pending.bodyOffset)
-          + pending.parserTail.byteLength;
-      } else if (pending.type === 'compatibility-write') {
-        total += typeof pending.data === 'string'
-          ? inputEncoder.encode(pending.data).byteLength
-          : pending.data.byteLength;
-      }
-    }
-    return total;
+  // Retention of the COMPATIBILITY lane only — the lane the post-checkpoint
+  // budget governs. Deliberately excludes the checkpoint entry, whose body is
+  // bounded by the separate `checkpointMaxBytes` (REL-BGSTAB-007 AC-6 keeps
+  // those units apart), and excludes live/repair writes, which finalize pushes
+  // in already bounded by the post-checkpoint hold. An earlier version of this
+  // guard summed all three against one budget and fired on states that were
+  // inside every declared budget — and it latched a recovery, tearing down a
+  // healthy view rather than merely rejecting.
+  const isCompatibilityMutation = (pending: PendingMutation): boolean =>
+    pending.type !== 'write' && pending.type !== 'checkpoint';
+
+  const compatibilityRetention = (): { chunks: number; bytes: number } => {
+    let chunks = 0;
+    let bytes = 0;
+    const count = (pending: PendingMutation | null): void => {
+      if (pending === null || !isCompatibilityMutation(pending)) return;
+      chunks += 1;
+      if (pending.type === 'compatibility-write') bytes += pending.encodedBytes;
+    };
+    // The in-flight mutation has left the queue but is still retained.
+    count(activeMutation);
+    for (const pending of queue) count(pending);
+    return { chunks, bytes };
   };
   const pendingInputs: PendingInput[] = [];
   let pendingInputBytes = 0;
@@ -1066,7 +1091,12 @@ export function createTerminalWriteCoordinator(
         // Issue #10 AC-4: the checkpoint lane honours the frame CPU budget and
         // the input yield, not just the live lane. Deferring must SCHEDULE the
         // continuation — a yield that schedules nothing is the hang this change
-        // risks, and terminalSnapshotLiveHandoverIntegrity guards against it.
+        // risks. The guard for THAT is terminalCheckpointLanePacing, whose arms
+        // assert `pendingCommands === 0` after quiescence including when the
+        // yield predicate or the scheduler throws. (An earlier comment here
+        // named terminalSnapshotLiveHandoverIntegrity; that file builds its
+        // coordinator with no budget and no yield, so it never enters this
+        // branch. It guards the unpaced lane, which is a different claim.)
         if (mutation.type === 'checkpoint' && shouldDeferCheckpointFrame()) {
           deferCheckpointFrame();
         } else {
@@ -1904,6 +1934,11 @@ export function createTerminalWriteCoordinator(
         requestRecovery('stale-snapshot-seq');
         return rejected('stale-snapshot-seq');
       }
+      // Each checkpoint starts a fresh frame. The deadline is otherwise cleared
+      // only on defer, so a checkpoint that ends inside budget leaves a spent
+      // timestamp behind and the NEXT checkpoint's first slice defers at once,
+      // spending a macrotask before any CPU has been used in that frame.
+      checkpointFrameDeadline = null;
       checkpointTransaction = {
         generation: viewGeneration,
         streamEpoch,
@@ -2050,11 +2085,15 @@ export function createTerminalWriteCoordinator(
       if (typeof command.data !== 'string' && !(command.data instanceof Uint8Array)) {
         return rejectCommand('invalid-compatibility-write');
       }
+      const payload = typeof command.data === 'string' ? command.data : command.data.slice();
       mutation = {
         type: 'compatibility-write',
         generation: viewGeneration,
         kind: command.kind,
-        data: typeof command.data === 'string' ? command.data : command.data.slice(),
+        data: payload,
+        encodedBytes: typeof payload === 'string'
+          ? inputEncoder.encode(payload).byteLength
+          : payload.byteLength,
         onWritten: command.onWritten,
         onRejected: command.onRejected,
       };
@@ -2122,13 +2161,11 @@ export function createTerminalWriteCoordinator(
     // fall through to an unbounded `queue.push`. Measured before this guard:
     // 20,000 4 KiB writes all accepted, 78.1 MiB retained against a 1 MiB cap,
     // zero recovery requests.
-    if (queue.length + (activeMutation === null ? 0 : 1) + 1 > postCheckpointMaxChunks) {
-      requestRecovery('compatibility-queue-overflow');
-      return rejectCommand('compatibility-queue-overflow');
-    }
-    // The chunk cap above bounds the queue, so this sum runs over at most
-    // `postCheckpointMaxChunks` entries rather than over an unbounded queue.
-    if (queuedMutationBytes() + compatibilityWriteBytes > postCheckpointMaxBytes) {
+    const retained = compatibilityRetention();
+    if (
+      retained.chunks + 1 > postCheckpointMaxChunks
+      || retained.bytes + compatibilityWriteBytes > postCheckpointMaxBytes
+    ) {
       requestRecovery('compatibility-queue-overflow');
       return rejectCommand('compatibility-queue-overflow');
     }

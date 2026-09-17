@@ -372,3 +372,29 @@ resolves output paths against **its own workspace root**, and wrote the screensh
 into the **main worktree**, not this one. It was untracked there, was moved into
 this bundle, and main was left clean. Another tool whose root is not the worktree
 the work is happening in.
+
+## Seal update — 2026-09-18, sixteenth write
+
+Moved inputs: **two added files** — `raw/P17-review-round.txt` and
+`raw/P17-postreview-full-unit.log`. No previously sealed file changed.
+
+**This entry supersedes a claim in the tenth-write seal above rather than editing
+it.** That entry said "the gate is satisfied: the new liveness guard reddens on a
+real stall". The stall was real and the guard did redden, but the guard builds its
+coordinator with **no budget and no yield**, so it never enters
+`deferCheckpointFrame` and cannot observe a defect inside the deferral — which is
+the risk the gate was about. The injection was made at the pre-pacing `pump()`
+site, at a tree where the defer branch did not yet exist. The risk **is** covered,
+by `terminalCheckpointLanePacing`, whose arms enable pacing and assert
+`pendingCommands === 0` after quiescence including when the predicate or the
+scheduler throws. The mis-attribution is corrected in the production comment and
+both test headers.
+
+A hostile self-review over the whole lane returned eight findings, and **two of
+the HIGHs were defects this lane introduced**: the compatibility guard charged the
+checkpoint body to the compatibility budget and latched a recovery on a healthy
+view, and a throwing yield predicate or scheduler dropped the checkpoint
+continuation outright. Both are fixed, each with a regression arm confirmed to
+discriminate by reverting the fix and watching it redden. `P17-review-round.txt`
+carries the full disposition, including three drafts of test arms that were wrong
+before they were right.

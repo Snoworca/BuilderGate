@@ -71,11 +71,17 @@ function concat(parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
-// Liveness guard for issue #10 AC-4. It exists BEFORE the checkpoint lane gets a
-// frame deadline and an input yield, because the failure mode that change risks
-// is a hung or torn terminal rather than a red test: a yield that is never
-// resumed leaves the checkpoint un-drained, ready closed and typed-ahead input
-// parked forever, and nothing else in the suite would say so.
+// Liveness guard for the UNPACED checkpoint lane.
+//
+// SCOPE CORRECTION: this file builds its coordinator with no `frameBudgetMs`,
+// no `shouldYield` and no `setTimer` override, so `checkpointPacingEnabled()`
+// is false and `deferCheckpointFrame` is never entered. It therefore does NOT
+// guard defects inside the deferral path, and an earlier header here — plus a
+// production comment and a sealed evidence note — claimed that it did. What it
+// does guard is that the lane converges at all: it still reddens if the
+// non-deferring `pump()` resume is removed. Defects inside the deferral are
+// guarded by terminalCheckpointLanePacing, including the throwing-predicate and
+// throwing-scheduler arms.
 //
 // It pins the full observable sequence — reset, geometry/modes, body slices,
 // parser tail, applied, post-snapshot live, drained, ready, input release — so

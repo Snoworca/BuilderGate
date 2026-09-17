@@ -1,0 +1,84 @@
+# Issue #10 — hostile self-review round, findings and disposition
+# 2026-09-18. Reviewer: isolated subagent over commit range 9164050..HEAD.
+# Eight findings: 2 HIGH, 3 MEDIUM, 3 LOW. Two of the HIGHs were defects this
+# lane INTRODUCED. Every fix below was TDD'd and each new arm was confirmed to
+# discriminate by reverting the fix and watching it redden.
+
+FND-001 HIGH  — FIXED. The AC-1/AC-2 guard summed three separately-budgeted lanes
+  against the post-checkpoint budget alone. After finalize the queue legitimately
+  holds the checkpoint entry (bounded by the SEPARATE checkpointMaxBytes, per
+  REL-BGSTAB-007 AC-6) plus the held mutations (bounded by postCheckpointMaxBytes).
+  The guard did not merely reject — it latched requestRecovery, tearing down a
+  healthy view. REPRODUCED INDEPENDENTLY before fixing: a 40 KiB body plus 8x5 KiB
+  of held output, caps 64 KiB/16, made a ZERO-BYTE resize return
+  compatibility-queue-overflow at only 9 of 16 chunks, so it was the BYTE arm.
+  Fix: account the compatibility lane only (compatibilityRetention), excluding the
+  checkpoint entry and the live/repair writes that finalize pushes in already
+  bounded. Regression arm added (AC-5). Note the first draft of that arm landed
+  7 bytes under the cap and passed without posing its question; the fixture
+  arithmetic was corrected to 0.7 + 8x0.05 caps.
+
+FND-002 HIGH  — FIXED. A throwing shouldYield or setTimer dropped the checkpoint
+  continuation with no recovery latch: work queued, nothing in flight, nothing
+  scheduled — a silently hung lane. The enclosing catch cannot help because
+  callbackSettled is already true. The production predicate reaches into
+  navigator.scheduling.isInputPending, a vendor surface already treated as
+  untrusted at its own call site. Fix: treat a throwing predicate as "do not
+  yield"; on a throwing scheduler, fall back to a synchronous pump so the
+  checkpoint still converges. Two arms added. Confirmed discriminating: reverting
+  both guards takes the suite from 5/5 to 3/5.
+  The first draft of the setTimer arm threw for EVERY timer, including write-
+  timeout arming, so it killed the checkpoint before any write and measured 0
+  writes instead of the stranding it claimed to test. Narrowed to delay 0.
+
+FND-003 MEDIUM — FIXED. The AC-3 arm was vacuous: it flooded the COMPATIBILITY
+  lane to rule out a settlement-ledger substitution, but claimSettlementToken is
+  reached only from the dispatch path, so compatibility writes carry no token and
+  settlement-ledger-overflow is unreachable there for any implementation. Raising
+  the ledger changed nothing and the only assertion with teeth duplicated AC-1.
+  A second draft routed the flood through dispatch instead and failed for a
+  different reason worth recording: with the ledger raised the LIVE lane never
+  stops, because it has no byte or chunk cap of its own. That is pre-existing and
+  is not this requirement's subject. Final design squeezes the ledger to ONE
+  entry and floods the compatibility lane anyway: a lane that consulted the
+  ledger would stop at once, so stopping at the byte boundary discriminates.
+
+FND-004 MEDIUM — FIXED (claims corrected, not code). The liveness guard was cited
+  in four places as covering the deferral path. It builds its coordinator with no
+  budget and no yield, so checkpointPacingEnabled() is false and
+  deferCheckpointFrame is never entered. The stall it reddened on was injected at
+  the pre-pacing pump() site, at a tree where the defer branch did not exist. The
+  risk IS covered — by terminalCheckpointLanePacing — but the guard was
+  mis-attributed. Corrected in the production comment, both test headers, and by
+  a NEW PROVENANCE entry rather than an edit of the sealed one.
+
+FND-005 MEDIUM — FIXED. The byte scan allocated a spread array per admission and
+  re-encoded every queued string write to read its length. Encoded size is now
+  computed once at admission and cached on the mutation.
+
+FND-006 LOW   — FIXED. checkpointFrameDeadline was cleared only on defer, so a
+  checkpoint ending inside budget left a spent timestamp and the next
+  checkpoint's first slice deferred immediately. Now cleared when a checkpoint
+  transaction is created. NOT covered by a dedicated test — the pacing suite runs
+  one checkpoint per coordinator, so a per-coordinator carry-over is invisible to
+  it. Stated rather than implied.
+
+FND-007 LOW   — FIXED. AC-4 asserted only accepted === false, which five other
+  fences would satisfy. Now pins the reason and asserts the precondition
+  (recoveryRequired === false) that makes this fence the one under test.
+
+FND-008 LOW   — RECORDED, NOT CHANGED. The compatibilityRecoveryPending fence has
+  no clearing path through checkpoint commit, so an authoritative resume that
+  skipped the boundary install would reject live output indefinitely. The reviewer
+  verified it is NOT reachable today: every rollback path drives the compatibility
+  recovery sequence that clears the flag. Changing the fence's scope is a
+  behavioural change on a safety-critical path with no failing test to justify it,
+  so it is reported as a fragility for the orchestrator rather than fixed here.
+
+ALSO RECORDED, out of scope: the live/repair lane has no byte or chunk cap of its
+own and is bounded only incidentally by settlementLedgerMaxEntries. Pre-existing,
+not introduced or worsened by this lane, surfaced by FND-003's second draft.
+
+Regression after all fixes: frontend unit 1334 tests, 1331 pass, 3 fail — the same
+three measured pre-existing failures. tsc -b and tsc -p tsconfig.test.json --noEmit
+both exit 0.

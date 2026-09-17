@@ -8,10 +8,13 @@
 // and no yield reached the lane.
 //
 // The failure mode this change risks is a hung or torn terminal rather than a
-// red test — a yield that schedules no resumption. That is guarded separately by
-// terminalSnapshotLiveHandoverIntegrity.test.ts, which reddens with
-// "ready never opened — the lane stalled". These tests are its complement: they
-// pin that pacing happens AND that it always resumes.
+// red test — a yield that schedules no resumption. THESE tests are the guard for
+// it, because they are the only ones that enable pacing and therefore the only
+// ones that enter `deferCheckpointFrame`: every arm asserts
+// `pendingCommands === 0` after quiescence, including when the yield predicate
+// or the scheduler throws. terminalSnapshotLiveHandoverIntegrity guards the
+// UNPACED lane and cannot reach this branch — an earlier note here said it
+// could, which was wrong.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import * as terminalOutputSchedulerModule from '../../src/utils/terminalOutputScheduler.ts';
@@ -134,6 +137,45 @@ test('FR-BGSTAB-022 AC-2 — the checkpoint lane yields while browser input is p
   runToQuiescence(h);
   assert.equal(h.kinds.filter(kind => kind === 'checkpoint').length, 4, signature);
   assert.equal(h.coordinator.getState().pendingCommands, 0, `${signature}: it never resumed`);
+});
+
+test('FR-BGSTAB-022 AC-2 — a throwing shouldYield must not strand the lane', () => {
+  // A dropped continuation is a hung terminal, not a red test. `shouldYield` is
+  // caller-supplied and the production one reaches into
+  // `navigator.scheduling.isInputPending`, a vendor surface already treated as
+  // untrusted at its call site. If it throws out of the write callback the
+  // enclosing catch cannot help — `callbackSettled` is already true — so the
+  // lane would be left with work queued, nothing in flight and nothing scheduled.
+  const signature = 'a throwing shouldYield stranded the checkpoint lane';
+  const h = harness({ frameBudgetMs: 7, shouldYield: () => { throw new Error('vendor surface blew up'); } });
+  h.setCostPerWrite(0);
+  submitCheckpoint(h, encoder.encode('S'.repeat(BODY)));
+  runToQuiescence(h);
+  assert.equal(h.coordinator.getState().pendingCommands, 0, `${signature}: work left stranded`);
+  assert.equal(h.kinds.filter(kind => kind === 'checkpoint').length, 4, signature);
+  assert.equal(h.kinds.at(-1), 'parser-tail', signature);
+});
+
+test('FR-BGSTAB-022 AC-2 — a throwing setTimer must not strand the lane', () => {
+  // The deadline is cleared before scheduling, so a throwing scheduler would
+  // otherwise leave no timer AND no deadline: nothing resumes the lane.
+  const signature = 'a throwing setTimer stranded the checkpoint lane';
+  const h = harness({
+    frameBudgetMs: 7,
+    // Throw ONLY for the deferral (delay 0). The coordinator also arms write
+    // timeouts through setTimer with a positive delay, and a fixture that throws
+    // for those kills the checkpoint before any write — the first draft did that
+    // and measured 0 writes instead of the stranding it claimed to test.
+    setTimer: (_callback: () => void, delayMs: number) => {
+      if (delayMs === 0) throw new Error('scheduler unavailable');
+      return { armed: true };
+    },
+  });
+  h.setCostPerWrite(1000); // guarantees the budget is spent and a defer is attempted
+  submitCheckpoint(h, encoder.encode('S'.repeat(BODY)));
+  runToQuiescence(h);
+  assert.equal(h.coordinator.getState().pendingCommands, 0, `${signature}: work left stranded`);
+  assert.equal(h.kinds.filter(kind => kind === 'checkpoint').length, 4, signature);
 });
 
 test('FR-BGSTAB-022 AC-2 — control: with no budget and no yield configured the lane is unchanged', () => {
