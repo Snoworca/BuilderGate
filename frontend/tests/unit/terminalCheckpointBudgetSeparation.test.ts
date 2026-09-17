@@ -190,6 +190,48 @@ test('REL_BGSTAB_023_AC2_checkpoint_admission_and_post_checkpoint_hold_are_gover
     { accepted: false, reason: 'invalid-checkpoint-metadata' },
     `${signature}; the coupled fallback no longer rejects, so this test no longer characterises it`,
   );
+
+  // REL-BGSTAB-007 AC-5 / REL-BGSTAB-011 AC-3: a cap excess must not become an
+  // empty success. The rejection above is not sufficient on its own — measured
+  // 2026-09-18, deleting the `requestRecovery('invalid-checkpoint-metadata')`
+  // call in the coordinator left every assertion above green, because the inert
+  // adapter records nothing. The client would then reject the oversized
+  // checkpoint but never latch recovery, never clear ready and never ask the
+  // server for a fresh snapshot: a stale screen reporting itself healthy.
+  //
+  // The stronger predicate already existed in this repo — the unsupported-mode
+  // preflight arm asserts recoveries AND zero writes — it just had never been
+  // applied to the byte/chunk cap arm.
+  const recoveries: string[] = [];
+  const mutations: string[] = [];
+  const recordingAdapter = {
+    ...createInertAdapter(),
+    write: (_command: unknown, onWritten: () => void) => { mutations.push('write'); onWritten(); },
+    resetParser: () => { mutations.push('reset'); },
+    resize: () => { mutations.push('resize'); },
+    clearScreen: () => { mutations.push('clear'); },
+    requestFreshRecovery: (reason: string) => { recoveries.push(reason); },
+  };
+  const overCap = (factory as (input: Record<string, unknown>) => {
+    dispatch(command: unknown): { accepted: boolean; reason?: string };
+  })({
+    viewGeneration: 7,
+    adapter: recordingAdapter,
+    digestBytes: (bytes: Uint8Array) => `size-probe:${bytes.byteLength}`,
+    postCheckpointMaxBytes: 1024,
+    postCheckpointMaxChunks: 16,
+  });
+  assert.equal(overCap.dispatch(begin).accepted, false, signature);
+  assert.deepEqual(
+    recoveries,
+    ['invalid-checkpoint-metadata'],
+    `${signature}; an over-cap checkpoint must latch a fresh-recovery request, not just be refused`,
+  );
+  assert.deepEqual(
+    mutations,
+    [],
+    `${signature}; an over-cap checkpoint must not touch the terminal at all`,
+  );
 });
 
 /**

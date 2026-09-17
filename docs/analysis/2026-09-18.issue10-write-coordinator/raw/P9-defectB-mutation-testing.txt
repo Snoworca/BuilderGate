@@ -1,0 +1,32 @@
+# Defect B — the two weak cap-boundary predicates, strengthened and mutation-verified
+# 2026-09-18. Production was already correct at both sites; only the guards were weak.
+
+## Site 1 — terminalCheckpointBudgetSeparation.test.ts, checkpoint admission cap arm
+Was: asserted only the dispatch return value against an adapter that records nothing.
+Named defect it would still pass: delete requestRecovery('invalid-checkpoint-metadata')
+  in the coordinator, leaving only the rejection. The client then refuses the oversized
+  checkpoint but never latches recovery, never clears ready and never asks for a fresh
+  snapshot — a stale screen reporting itself healthy.
+Now also asserts: recoveries deepEqual ['invalid-checkpoint-metadata'] AND zero terminal
+  mutations, using a recording adapter. This is the predicate the unsupported-mode
+  preflight arm already used in this repo; it had simply never been applied to the cap arm.
+MUTATION: delete that requestRecovery call  ->  7 tests, 6 pass, 1 FAIL  (CAUGHT)
+Baseline with production intact       ->  7 tests, 7 pass, 0 fail
+
+## Site 2 — binaryFrameCodec.test.ts, 'a client budget tighter than the server...'
+Was: asserted the scoped code, its grade, and fatal === undefined. It never asserted
+  result.frames.length on the over-cap input (the only frames.length assertion in the
+  test was on the roomy control).
+Named defect it would still pass: record the rejection AND still push the frame with a
+  zero-length body. The terminal then takes an empty OUTPUT frame at that sequence
+  number and silently advances past real output — literally 'cap excess becomes an
+  empty success', inside the test written to forbid it.
+Now also asserts: result.frames.length === 0. frames can legitimately be empty here, so
+  the count must be asserted rather than assumed.
+MUTATION: emit an empty-bodied frame beside the rejection -> 66 tests, 63 pass, 3 FAIL (CAUGHT)
+Baseline with production intact                          -> 66 tests, 66 pass, 0 fail
+
+## Note
+Production was NOT changed at either site. Both mutations were applied only to measure
+the predicates, then reverted byte-identically (sha256 verified each time).
+Covers REL-BGSTAB-007 AC-5 and REL-BGSTAB-011 AC-3 (cap excess must not be empty success).

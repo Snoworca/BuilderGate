@@ -171,3 +171,18 @@ on the dispose path.
 That test is renamed to say it is a non-discriminating characterization and
 carries the measurement in its own comment. It is not counted as coverage. It is
 kept because deleting it would also delete the record that the question was asked.
+
+## Seal update — 2026-09-18, seventh write
+
+Moved inputs: **two added files** — `raw/P9-defectB-green.log` and
+`raw/P9-defectB-mutation-testing.txt`. No previously sealed file changed.
+
+Defect B: the two cap-boundary guards were strengthened and each was
+mutation-verified against the specific defect it previously admitted. Production
+was not changed at either site; both mutations were applied only to measure the
+predicate and then reverted byte-identically.
+
+The point of both edits is the same one: an assertion that is true of the correct
+behaviour **and** of the defect is not a guard. The stronger predicate for the
+first site already existed in this repo on a sibling arm and had simply never
+been pointed at the cap.

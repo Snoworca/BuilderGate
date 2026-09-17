@@ -1,4 +1,4 @@
-36e7b2782063b8eca7724ae6a7be6c8802e974e18e7c0c91418d565bf7ba4c83  PROVENANCE.md
+31ad7ff59f6cea3a9dde7e4b5187c01eb9a1b7da6de46de37f3c9353c8d79af9  PROVENANCE.md
 9ee5ba04d7a7b26cff458ed69866c4a498a86f6d86fd3e4aaa08694d579b5057  probe/probe-ac12.v1-invalid.ts
 800a36f1f597ee6be28f5fcc31a7782625f504fe6b7b032f4b3e2463f7829394  probe/probe-ac12.v2.ts
 b00e5edce616964bd644f0e5e4cb09f08cff705e77403d0190ec9d2af3bf43bd  probe/probe-ac67911.v2.ts
@@ -15,3 +15,5 @@ e57ff6bfdd92af579f7756f53961e27db6403f58ffd7ccbdbac50fc10575fe95  raw/P6-GREEN-f
 41cc15bc240b6b14101a9221539efab60514b29cf20cf7db654db0cd48443261  raw/P7-GREEN-supporting-proofs.txt
 267c12c93563b7e81c45ebd20ce24b7d8544fc7414ee1b90452dc23e8e7fe165  raw/P8-guards-green.log
 5c79fd4979bbaecb1e84f2f0789c8a0d5328279b0a5c6f76e6233563657dcb37  raw/P8-mutation-testing.txt
+edd5bdfa3ada42fd3029212f3b8a00bc5e1532d3be934c5bfbf61d94f2aefa8f  raw/P9-defectB-green.log
+6b2f7e043850cc94b3c13370f832539d69dc8ab72b8bff08614576a5d8079ae7  raw/P9-defectB-mutation-testing.txt

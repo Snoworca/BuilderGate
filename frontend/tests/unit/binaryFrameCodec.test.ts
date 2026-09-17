@@ -592,6 +592,18 @@ test('a client budget tighter than the server drops the frame but keeps the batc
   assert.equal(result.scoped[0]?.code, 'payload-limit-exceeded');
   assert.equal(result.scoped[0]?.grade, 'scoped');
   assert.equal(result.fatal, undefined, 'an oversized frame must not discard the batch');
+  // REL-BGSTAB-007 AC-5: a cap excess must not become an empty success. Without
+  // this the three assertions above are all satisfied by a decoder that records
+  // the rejection AND still emits the frame with a truncated or zero-length
+  // body — the terminal would then take an empty OUTPUT frame at that sequence
+  // number and silently advance past real output, which is the exact failure the
+  // scoped rejection exists to prevent. `frames` can legitimately be empty here,
+  // so its count has to be asserted rather than assumed.
+  assert.equal(
+    result.frames.length,
+    0,
+    'the oversized frame must be dropped, not emitted with an empty body',
+  );
 });
 
 // ---------------------------------------------------------------------------
