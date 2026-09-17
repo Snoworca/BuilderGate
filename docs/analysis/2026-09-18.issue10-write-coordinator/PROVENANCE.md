@@ -68,3 +68,25 @@ suite reaches the factory through that re-export. The string
 `terminalWriteCoordinator` occurs **zero** times in that suite, so a coverage
 enumeration keyed on the module name cannot see it — nor six sibling files.
 An AC can be covered by a test that whatever enumerates coverage cannot find.
+
+## Seal update — 2026-09-18, third write
+
+Moved inputs: **two added files**, `probe/probe-ac67911.v2.ts` and
+`raw/P4-probe-ac67911-v2.log`. No previously sealed file changed.
+
+This probe is the lane's own re-verification of the AC-6 / AC-7 / AC-11 claims
+that had come from delegated measurement, run before any of them was allowed to
+become an SRS criterion. Delegated measurement is adequate for a premise table
+and is not adequate for a requirement.
+
+Its own first run carried a **dead control**: the AC-6(i) arm spread `...begin()`
+*after* the `type` key, so the spread reset `type` back to `checkpoint-begin`
+and the arm never reached a committed checkpoint. Control and subject both
+returned `recovery-required` — identical outputs, so the arm discriminated
+nothing. It was caught only because both arms' results are printed rather than
+a verdict. After the fix the control separates: same-epoch `{accepted:true}`
+versus older-epoch `{accepted:false, reason:'stale-stream-epoch'}`.
+
+The repair itself asserted its own match count (each anchor had to match exactly
+once) before rewriting, so a replacement that silently matched nothing could not
+masquerade as a successful edit.
