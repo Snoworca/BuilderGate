@@ -231,3 +231,40 @@ dispatched after `checkpoint-commit` never enter the post-checkpoint hold, so
 three of four mutations survived. Moving them before the commit fixed the
 scenario and all four are now caught. Without mutation testing this lane would
 have shipped a green test that asserted nothing about the handover it names.
+
+## Seal update — 2026-09-18, tenth write
+
+Moved inputs: **two added files** — `raw/P12-liveness-guard-green.log` and
+`raw/P12-ac4-gate.txt`. No previously sealed file changed.
+
+The orchestrator gated AC-4 (b) on landing a test that observes the failure mode
+the pacing change risks — a **hung or torn** terminal, not an unpaced one — and
+made an inability to build one the signal to defer (b) rather than the size of
+the change. **The gate is satisfied**: the new liveness guard reddens on a real
+stall with `ready never opened — the lane stalled`, and pins write-kind ordering
+so a tear is red too. It asserts its own precondition (ready closed before the
+drain) so that convergence cannot be satisfied vacuously.
+
+The finding worth carrying: the **first** stall injection survived and looked
+like a weak guard. It was a **dead mutation** — it targeted two `pump()` sites
+that do not govern the checkpoint slice loop, and the tell was that the
+observable event log came back byte-identical to the unmutated run, which a real
+stall cannot produce. A surviving mutation means either a weak test or a
+mutation that never reached the path, and the two are separated by checking the
+mutation changed behaviour at all. A dead mutation is a dead control.
+
+## Seal update — 2026-09-18, eleventh write
+
+Moved input: **one repaired file**, `raw/P12-ac4-gate.txt`. Nothing else changed.
+
+Naming the cause, because a moved seal is otherwise indistinguishable from a
+silent re-blessing: the tenth write produced that file with an unquoted
+backtick-wrapped `pump()` inside a shell `echo`, so the shell ran it as a command
+substitution, emitted an error, and **swallowed the token** — the sealed line
+read "the two  calls at lines 990 and 1044". The seal was computed over that
+damaged text. This write restores the missing token and re-seals.
+
+The damage was visible only because the shell also printed a syntax error and the
+file was re-read afterwards. A quieter substitution would have sealed silently.
+Evidence written through `echo` is subject to the shell's own expansions; a
+quoted heredoc is not.

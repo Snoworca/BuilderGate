@@ -71,6 +71,73 @@ function concat(parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
+// Liveness guard for issue #10 AC-4. It exists BEFORE the checkpoint lane gets a
+// frame deadline and an input yield, because the failure mode that change risks
+// is a hung or torn terminal rather than a red test: a yield that is never
+// resumed leaves the checkpoint un-drained, ready closed and typed-ahead input
+// parked forever, and nothing else in the suite would say so.
+//
+// It pins the full observable sequence — reset, geometry/modes, body slices,
+// parser tail, applied, post-snapshot live, drained, ready, input release — so
+// a stall is red (the tail of the sequence is missing) and a tear is red (the
+// order is wrong). Measured against production as it stands today.
+test('FR-BGSTAB-022 AC-5 — a checkpoint drains to ready and releases held input, in order', () => {
+  const signature = 'the checkpoint did not converge to ready with its input released';
+  const { coordinator, writes, held } = buildHandover();
+  const body = encoder.encode('S'.repeat(40 * 1024));
+  const parserTail = encoder.encode('\x1b[');
+  const base = {
+    streamEpoch: '1', checkpointEpoch: '1', sourceSeq: '10', snapshotSeq: '10',
+    oldestRetainedSeq: '1', retentionPolicyId: 'p1', viewGeneration: 7,
+    chunkCount: 1, encodedByteTotal: body.byteLength, digest: 'stable-digest',
+    cols: 80, rows: 24, modes: {}, parserTail,
+  };
+
+  assert.equal(
+    coordinator.dispatch({
+      type: 'queue-input', viewGeneration: 7, data: 'typed', settlementToken: 'in-1',
+    }).accepted,
+    true, `${signature}: precondition — input must be accepted and held`,
+  );
+  coordinator.dispatch({ ...base, type: 'checkpoint-begin' });
+  coordinator.dispatch({ ...base, type: 'checkpoint-chunk', index: 0, count: 1, data: body });
+  coordinator.dispatch({
+    type: 'live', streamEpoch: '1', sourceSeq: '11', viewGeneration: 7,
+    data: encoder.encode('tail'), settlementToken: 'lv-1',
+  });
+  coordinator.dispatch({ ...base, type: 'checkpoint-commit' });
+
+  // Before draining, the barrier must be closed — otherwise "it converged"
+  // would be true of a coordinator that never held anything in the first place.
+  assert.equal(
+    (coordinator as unknown as { getState(): { ready: boolean } }).getState().ready,
+    false,
+    `${signature}: precondition — ready must be closed while the checkpoint assembles`,
+  );
+
+  drain(held);
+
+  const state = (coordinator as unknown as {
+    getState(): { ready: boolean; pendingCommands: number; pendingInputs: number };
+  }).getState();
+  // A stall shows up here: un-drained work, a closed barrier, parked input.
+  assert.equal(state.ready, true, `${signature}: ready never opened — the lane stalled`);
+  assert.equal(state.pendingCommands, 0, `${signature}: writes left undrained — the lane stalled`);
+  assert.equal(state.pendingInputs, 0, `${signature}: input left parked — the lane stalled`);
+
+  // A tear shows up here: the post-snapshot live write must come after the body
+  // and the parser tail, never between the body slices.
+  const kinds = writes.map(entry => entry.kind);
+  const tailIndex = kinds.indexOf('parser-tail');
+  const liveIndex = kinds.indexOf('live');
+  assert.ok(tailIndex >= 0, `${signature}: the parser tail was never written`);
+  assert.ok(liveIndex > tailIndex, `${signature}: live output preceded the parser tail — torn`);
+  assert.ok(
+    kinds.slice(0, tailIndex).every(kind => kind === 'checkpoint'),
+    `${signature}: something interleaved into the snapshot body — torn`,
+  );
+});
+
 test('REL-BGSTAB-007 AC-3 — a snapshot-to-live handover loses, duplicates and reorders nothing', () => {
   const signature = 'the snapshot-to-live handover did not reproduce its input exactly';
   const { coordinator, writes, held } = buildHandover();

@@ -1,0 +1,10 @@
+✔ FR-BGSTAB-022 AC-5 — a checkpoint drains to ready and releases held input, in order (2.938473ms)
+✔ REL-BGSTAB-007 AC-3 — a snapshot-to-live handover loses, duplicates and reorders nothing (0.98336ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 138.061143
