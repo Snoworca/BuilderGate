@@ -697,9 +697,18 @@ assert.ok(focusedTestsMatch, 'the focused run must emit a parseable test count')
 const focusedPassCount = Number(focusedPassMatch[1]);
 const focusedTestCount = Number(focusedTestsMatch[1]);
 assert.equal(focusedPassCount, 31);
+// Asserted, not merely reported. Publishing a live count without constraining it is how the
+// hardcoded 24 drifted in the first place: add one todo or skipped case and `tests` becomes 32 while
+// `pass` stays 31 and `fail 0` still holds, so the guard would exit 0 while publishing a figure that
+// contradicts the 31 this bundle cites as final.
+assert.equal(focusedTestCount, 31);
 assert.match(focusedNormalised, /^\u2139 fail 0$/m);
-assert.match(readFileSync(focusedEvidencePath, 'utf8'), /pass 24/);
-assert.match(readFileSync(focusedEvidencePath, 'utf8'), /fail 0/);
+// Anchored and normalised for the same reason as the live assertions three lines up. These are the
+// two that matter most: the sealed artifact is the input an operator can regenerate or hand-edit,
+// and unanchored `/pass 24/` also matches `pass 240` or a test title containing that text.
+const sealedFocused = readFileSync(focusedEvidencePath, 'utf8').replace(/\r\n/g, '\n');
+assert.match(sealedFocused, /^\u2139 pass 24$/m);
+assert.match(sealedFocused, /^\u2139 fail 0$/m);
 
 const differentialOutput = run(
   process.execPath,

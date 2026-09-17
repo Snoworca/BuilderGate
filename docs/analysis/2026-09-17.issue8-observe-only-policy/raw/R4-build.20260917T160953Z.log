@@ -1,0 +1,13 @@
+
+> buildergate-server@0.1.0 prebuild
+> node tools/ensure-node-pty-windows-hide.cjs
+
+[prebuild] node-pty Windows runtime patches already applied.
+
+> buildergate-server@0.1.0 build
+> tsc && node tools/write-fair-scheduler-source-provenance.mjs && node tools/write-fair-scheduler-evidence-bundle.mjs && node -e "require('fs').cpSync('src/shell-integration', 'dist/shell-integration', {recursive:true})"
+
+src/services/TerminalResourcePolicy.test.ts(1491,51): error TS2339: Property 'driftMechanism' does not exist on type '{ readonly name: "comment-only-enforcement"; readonly path: "frontend/src/utils/terminalOutputScheduler.ts"; readonly from: "queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes"; readonly to: "Number.MAX_SAFE_INTEGER > config.visibleOutputQueueMaxBytes"; readonly suffix: "\n// queuedBytes + bytes.byte...'.
+  Property 'driftMechanism' does not exist on type '{ readonly name: "comment-only-enforcement"; readonly path: "frontend/src/utils/terminalOutputScheduler.ts"; readonly from: "queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes"; readonly to: "Number.MAX_SAFE_INTEGER > config.visibleOutputQueueMaxBytes"; readonly suffix: "\n// queuedBytes + bytes.byte...'.
+src/services/TerminalResourcePolicy.test.ts(1496,51): error TS2339: Property 'driftMechanism' does not exist on type '{ readonly name: "comment-only-enforcement"; readonly path: "frontend/src/utils/terminalOutputScheduler.ts"; readonly from: "queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes"; readonly to: "Number.MAX_SAFE_INTEGER > config.visibleOutputQueueMaxBytes"; readonly suffix: "\n// queuedBytes + bytes.byte...'.
+  Property 'driftMechanism' does not exist on type '{ readonly name: "comment-only-enforcement"; readonly path: "frontend/src/utils/terminalOutputScheduler.ts"; readonly from: "queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes"; readonly to: "Number.MAX_SAFE_INTEGER > config.visibleOutputQueueMaxBytes"; readonly suffix: "\n// queuedBytes + bytes.byte...'.

@@ -161,17 +161,19 @@ function assertSortedUnique(values: string[]): void {
 // by the named symbol, is reachable, or is anything but a comment or an import. AC-6's AST scan is
 // what carries ownership and liveness. This is a second, independent condition on the same claim,
 // not a substitute for that one.
-function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: string, consumerSymbol: string): true {
+function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: string, consumerSymbol: string): number {
   assert.ok(evidenceSignature.length > 0, `expected a non-empty evidence signature for ${path}#${consumerSymbol}`);
   const source = readFileSync(resolve(REPOSITORY_ROOT, path), 'utf8');
   assert.ok(
     source.includes(evidenceSignature),
     `manifest names ${path}#${consumerSymbol} as the consumer, but its evidence signature ${JSON.stringify(evidenceSignature)} does not occur in that file`,
   );
-  // Returned so the caller's tally counts helper COMPLETIONS. Incrementing in the caller's loop
-  // body instead makes the count a tautology over the array it is compared against: gutting this
-  // function's body would leave the tally at manifest.consumers.length and AC-1 green.
-  return true;
+  // The OFFSET, not a constant. An earlier form returned the literal `true` with return type
+  // `true`, which tsc narrows so that `helper(...) ? 1 : 0` is provably the constant 1 - the tally
+  // then equalled manifest.consumers.length no matter what the body did, and gutting the two
+  // assertions above while keeping `return true` left AC-1 green. A value computed from the file
+  // under test cannot be produced by a stub.
+  return source.indexOf(evidenceSignature);
 }
 
 function assertRepositoryPath(path: string): void {
@@ -308,11 +310,13 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
     assert.ok(Array.isArray(entry.legacyAliases));
     assert.ok(entry.applyBoundary.length > 0);
     assertRepositoryPath(entry.consumerPath);
-    signaturesChecked += assertEvidenceSignaturePresentAt(
+    const signatureOffset = assertEvidenceSignaturePresentAt(
       entry.consumerPath,
       entry.evidenceSignature,
       entry.consumerSymbol,
-    ) ? 1 : 0;
+    );
+    assert.ok(signatureOffset >= 0, `${entry.consumerPath}#${entry.consumerSymbol}: signature offset must be a real position`);
+    signaturesChecked += 1;
   }
   // Exact, and local to this test rather than module scope. `> 0` on a module-global counter was
   // both already implied by the length assertion above and survivable by a future change that
@@ -1185,19 +1189,23 @@ test('OBS-BGSTAB-005 review regression — exact repository tuples validate bidi
 // reserved-copy-option-decoy marker pinned a CRLF that server/src/services/SessionManager.ts no
 // longer has, so the fixture could not pose its question at all and failed on its own setup. The
 // count assertion below is what keeps that from degrading into a silent no-op instead.
+// This suite rewrites whole files: insertBeforeMarkerLines rejoins every line, and the write path
+// appends bare-LF suffixes. Either would silently normalise a mixed-ending target, and a target's
+// own template literals carry whitespace as content. So refuse mixed endings instead. `newlineCount`
+// counts ALL newlines including the LF of each CRLF, which is what the comparison needs - a pure
+// CRLF file has crlfCount === newlineCount. All current targets are pure LF.
+function assertUniformLineEndings(source: string, name: string, path: string): void {
+  const crlfCount = (source.match(/\r\n/g) ?? []).length;
+  const newlineCount = (source.match(/\n/g) ?? []).length;
+  assert.ok(
+    crlfCount === 0 || crlfCount === newlineCount,
+    `${name}: refusing to rewrite ${path}, which has mixed line endings (${crlfCount} CRLF of ${newlineCount} newlines)`,
+  );
+}
+
 function insertBeforeMarkerLines(source: string, marker: string, inserted: string, name: string): string {
   assert.ok(marker.trim().length > 0, `${name}: marker must not be blank`);
-  // FND-009's other half: this function rejoins the WHOLE file, so a mixed-ending target would have
-  // every line ending rewritten by a helper whose job is to insert a few lines - and the target's
-  // own template literals carry whitespace as content. Refuse mixed endings rather than normalise
-  // them silently. All current targets are pure LF.
-  const crlfCount = (source.match(/\r\n/g) ?? []).length;
-  const lfCount = (source.match(/\n/g) ?? []).length;
-  assert.ok(
-    crlfCount === 0 || crlfCount === lfCount,
-    `${name}: refusing to rewrite a mixed-line-ending file (${crlfCount} CRLF of ${lfCount} LF)`,
-  );
-  const newline = crlfCount > 0 ? '\r\n' : '\n';
+  const newline = source.includes('\r\n') ? '\r\n' : '\n';
   const lines = source.split(/\r?\n/);
   const markerLines = marker.replace(/\r\n/g, '\n').split('\n').map((line) => line.trim());
   const hits: number[] = [];
@@ -1471,12 +1479,35 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       replaceCount: 3,
     },
   ] as const;
+  // The partition is pinned, because nothing else pins it. `driftMechanism` is a per-fixture
+  // declaration and the assertion below only holds a fixture to what it declares, so the cheapest
+  // green for a future "declared tuple drift, but the decoy changed no tuple" red is a one-word
+  // demotion to 'seal-only' - which is exactly the AST regression AC-6 exists to catch, silently
+  // reclassified. That demotion has already happened once, in this suite's own history. With these
+  // counts pinned it cannot happen without also editing a number here and arguing for it.
+  const manifestDriftFixtures = mutations.filter((entry) => 'manifestDrift' in entry && entry.manifestDrift);
+  assert.equal(manifestDriftFixtures.length, 5, 'manifestDrift fixture count');
+  assert.equal(
+    manifestDriftFixtures.filter((entry) => 'driftMechanism' in entry && entry.driftMechanism === 'tuple').length,
+    3,
+    "fixtures whose decoy is discriminated by tuple drift; demoting one to 'seal-only' must change this number",
+  );
+  assert.equal(
+    manifestDriftFixtures.filter((entry) => 'driftMechanism' in entry && entry.driftMechanism === 'seal-only').length,
+    2,
+    "fixtures resting on the coarse source seal only; promoting one to 'tuple' must change this number",
+  );
   for (const mutation of mutations) {
     const targetRoot = await mkdtemp(join(tmpdir(), `buildergate-policy-${mutation.name}-`));
     try {
       await copyInventorySources(requiredPaths, targetRoot);
       const targetPath = join(targetRoot, mutation.path);
       const source = await readFile(targetPath, 'utf8');
+      // Hoisted out of insertBeforeMarkerLines so it covers all fixtures, not only the ones with an
+      // insertBefore, and checked before anything is written: the write below appends
+      // `mutation.suffix`, whose newlines are bare LF, so on a CRLF target the fixture would
+      // manufacture the mixed-ending file this check exists to refuse.
+      assertUniformLineEndings(source, mutation.name, mutation.path);
       const replacements = 'replaceCount' in mutation ? mutation.replaceCount : 1;
       const available = source.split(mutation.from).length - 1;
       // Exact, not >=. String.replace takes the first match each iteration, so a fixture whose
@@ -1498,6 +1529,14 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       }
       await writeFile(targetPath, `${mutatedSource}${mutation.suffix}`, 'utf8');
       if ('manifestDrift' in mutation && mutation.manifestDrift) {
+        // Enforced here as well as by the compiler. `npx tsx --test` strips types, and that is the
+        // command this suite is actually run with, so a fixture that omitted driftMechanism would
+        // fall into the seal-only branch under the runner and be caught only by `npm run build` -
+        // a command this project documents as frequently red for unrelated reasons.
+        assert.ok(
+          'driftMechanism' in mutation,
+          `${mutation.name}: a manifestDrift fixture must declare driftMechanism`,
+        );
         const mutatedInventory = await discoverTerminalResourceInventory({ repositoryRoot: targetRoot });
         const result = validateTerminalResourceConsumerManifest(manifest, mutatedInventory);
         assert.equal(result.ok, false, mutation.name);
@@ -1506,16 +1545,20 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
         // change - a stray space satisfies it - which means the disjunction could not tell a
         // discriminated decoy from an undiscriminated one, and reported both as the same pass.
         //
-        // Measured, rather than assumed: three of these fixtures do produce tuple drift and three do
-        // not need the seal at all. The two `unchanged-guard-after-*` fixtures produce ONLY source
-        // errors, which matches what PH-001 declared about them - inserting `if (true) return` ahead
-        // of an unchanged guard is caught by the coarse source seal, not by the AST losing the
-        // tuple. So the mechanism is now declared per fixture and asserted, instead of one
-        // disjunction covering both and hiding which is which.
+        // Measured, rather than assumed: three of these five fixtures produce tuple drift and so do
+        // not need the seal at all; the other two produce source errors only. Those two are the
+        // `unchanged-guard-after-*` pair, which matches what PH-001 declared about them - inserting
+        // `if (true) return` ahead of an unchanged guard is caught by the coarse source seal, not by
+        // the AST losing the tuple. So the mechanism is declared per fixture and asserted, instead
+        // of one disjunction covering both and hiding which is which.
         const tupleDrift = result.errors.filter((error) => (
           error.code === 'missing-tuple' || error.code === 'orphan-tuple'
         ));
         const codes = JSON.stringify(result.errors.map((error) => error.code));
+        // Printed, not just asserted. The 3-tuple/2-seal-only split is a measurement that overrode
+        // an external review finding, and a measurement whose only artifact is prose is one nobody
+        // can re-derive. Emitting it here means every run of this suite is its own evidence.
+        console.log(`driftMechanism ${mutation.driftMechanism} ${mutation.name} ${codes}`);
         if (mutation.driftMechanism === 'tuple') {
           assert.ok(
             tupleDrift.length > 0,
@@ -1524,9 +1567,9 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
         } else {
           // Seal-only, and that is a weaker thing to be: this fixture cannot distinguish its named
           // decoy from a stray whitespace edit, because both trip the same source hash. Asserting
-          // the absence of tuple drift is what keeps the label honest - if the AST ever does learn
-          // to see this decoy, this goes red and the fixture gets promoted rather than silently
-          // staying in the weaker class.
+          // the absence of tuple drift keeps the label honest - if the AST ever learns to see this
+          // decoy, this reddens and the fixture gets promoted rather than silently staying in the
+          // weaker class.
           assert.equal(
             tupleDrift.length,
             0,
@@ -1536,6 +1579,33 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
             result.errors.some((error) => error.code === 'source-hash-mismatch'),
             `${mutation.name}: declared seal-only but produced no source-hash-mismatch; got ${codes}`,
           );
+          // And the vacuity is MEASURED rather than described. An inert comment, carrying none of
+          // the fixture's decoy, is inserted at the same place in a separate tree; if its error set
+          // is identical then this fixture's decoy demonstrably contributes nothing and the pass
+          // rests entirely on the coarse seal. Asserting that equality is what stops the seal-only
+          // label from being a claim someone has to take on trust - and it reddens if the decoy
+          // ever starts to matter, which is the same signal as the tuple assertion above.
+          const inertRoot = await mkdtemp(join(tmpdir(), `buildergate-policy-${mutation.name}-inert-`));
+          try {
+            await copyInventorySources(requiredPaths, inertRoot);
+            const inertPath = join(inertRoot, mutation.path);
+            const inertSource = await readFile(inertPath, 'utf8');
+            assertUniformLineEndings(inertSource, `${mutation.name}-inert`, mutation.path);
+            await writeFile(
+              inertPath,
+              `${insertBeforeMarkerLines(inertSource, mutation.insertBefore, '// inert control, carries no decoy\n', `${mutation.name}-inert`)}${mutation.suffix}`,
+              'utf8',
+            );
+            const inertInventory = await discoverTerminalResourceInventory({ repositoryRoot: inertRoot });
+            const inertResult = validateTerminalResourceConsumerManifest(manifest, inertInventory);
+            assert.deepEqual(
+              inertResult.errors.map((error) => error.code).sort(),
+              result.errors.map((error) => error.code).sort(),
+              `${mutation.name}: declared seal-only, so an inert comment must produce the same error set as the decoy; if these differ the decoy is load-bearing and the fixture belongs in driftMechanism 'tuple'`,
+            );
+          } finally {
+            await rm(inertRoot, { recursive: true, force: true });
+          }
         }
       } else {
         await assert.rejects(
