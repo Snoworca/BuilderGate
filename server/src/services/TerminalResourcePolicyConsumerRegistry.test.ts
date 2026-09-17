@@ -651,12 +651,35 @@ test('REL-BGSTAB-010 AC-7 no reserved consumer id is written into production out
       + 'no `covers` argument; an exemption with nothing written in its defence is not an exemption');
     if (scan.entryHits[index] === entry.occurrences) return;
 
+    // OVER-MATCH IS DIAGNOSED FIRST, and it is NOT anchor rot. An entry matches a line only when
+    // the line NUMBER and the window sha256 both agree, so at most one line in the file can ever
+    // match a given entry. `entryHits > occurrences` is therefore reachable only one way: the
+    // DECLARED LINE ITSELF now carries more occurrences of the id than the entry declares. Falling
+    // through to the "source moved" branch told the reader to re-anchor `line`/`windowSha256`,
+    // which is precisely the wrong repair -- the anchor is still pointing at the right line; the
+    // line grew.
+    if (scan.entryHits[index] > entry.occurrences) {
+      assert.fail(
+        `declaration site ${entry.path}:${entry.line} / ${entry.kind} / ${entry.consumerId} matched `
+        + `${scan.entryHits[index]} occurrences, declared ${entry.occurrences} (${entry.covers}). `
+        + `THE DECLARED LINE ${entry.line} NOW CARRIES MORE OCCURRENCES OF THE ID THAN IT DECLARES `
+        + '-- an entry can match at most one line, because line number and windowSha256 are both '
+        + 'part of the match, so this is not a moved anchor. Do NOT re-anchor. Re-read that line: '
+        + 'the extra occurrence on it is unaccounted for and may be a use, and if it is a '
+        + 'declaration the entry must say so by raising `occurrences` and restating `covers`.');
+    }
+
     // Does an occurrence of the same id, in the same file, with the same declared SHAPE exist
     // somewhere the entry is not anchored to? Then the source moved and this is anchor rot, not a
     // new use. Saying which of the two it is is the whole difference between "re-read the site"
     // and "you introduced a consumer".
+    //
+    // The site the entry ALREADY matches is excluded, so "the source moved" cannot be said about a
+    // site that did not move. Without this the over-match case above -- and any future partial
+    // match -- would list the entry's own anchored line as evidence that the source moved.
     const shapeMatches = scan.occurrenceSites.filter(site => site.path === entry.path
       && site.consumerId === entry.consumerId
+      && !(site.line === entry.line && site.windowSha256 === entry.windowSha256)
       && RESERVED_ID_OCCURRENCE_KIND_PREDICATES[entry.kind](site.lineText, entry.consumerId));
     const actualAtDeclaredLine = scan.occurrenceSites
       .find(site => site.path === entry.path && site.line === entry.line)?.windowSha256;
@@ -790,12 +813,48 @@ test('REL-BGSTAB-010 AC-7 the sealed source key set that decides the scan bounda
 // source text. Deliberately narrow: it matches the exact declaration shape and reads only quoted
 // elements, so a declaration that changes shape yields nothing and the non-emptiness assertion at
 // the call site reddens rather than the equality passing vacuously.
-function extractStringLiteralArrayDeclaration(sourceText: string, name: string): string[] {
+function extractStringLiteralArrayDeclaration(
+  sourceText: string,
+  name: string,
+  anchoredLine?: number,
+): string[] {
   const opening = `const ${name} = [`;
   const start = sourceText.indexOf(opening);
   if (start === -1) return [];
+  // THE OPENING MUST BE UNIQUE IN THE FILE. `indexOf` is not lexically aware: it will happily find
+  // `const <NAME> = [` written inside a block comment or a template literal, and the `\n]`
+  // terminator below will close on that ghost body. A ghost whose members are all bare
+  // single-quoted elements then yields full member-line coverage, throws nothing, returns
+  // non-empty, satisfies the call site's non-emptiness guard, and the pin deep-equals the WRONG
+  // ARRAY -- the same defect class the member-line count closes, reached through another door.
+  // Uniqueness is the cheap lexical-awareness substitute: if the text appears twice, refuse rather
+  // than guess which one is the declaration.
+  assert.equal(sourceText.indexOf(opening, start + opening.length), -1,
+    `${name}: the declaration opening \`${opening}\` appears more than once in the source; this `
+    + 'extractor is not lexically aware and cannot tell a real declaration from one written inside '
+    + 'a block comment or a template literal, so it refuses to guess which occurrence to read');
   const end = sourceText.indexOf('\n]', start);
   if (end === -1) return [];
+  // THE EXTRACTED RANGE MUST CONTAIN THE LINE THE SCAN ALREADY ANCHORS IN THIS FILE.
+  // RESERVED_ID_DECLARATION_SITES pins one occurrence of the reserved id to a line number and a
+  // window sha256 in this same file, and that occurrence is argued to live inside this very array.
+  // Tying the range to it means the two mechanisms can no longer describe different pieces of
+  // source: a range that does not cover the anchored line is not the declaration the exemption
+  // talks about. This is a second, independent reason a ghost body cannot be read, since a ghost
+  // sits somewhere the anchor does not.
+  if (anchoredLine !== undefined) {
+    const allLines = sourceText.split('\n');
+    const anchoredLineStart = allLines.slice(0, anchoredLine - 1)
+      .reduce((total, line) => total + line.length + 1, 0);
+    const anchoredLineEnd = anchoredLineStart + (allLines[anchoredLine - 1]?.length ?? 0);
+    assert.ok(anchoredLine >= 1 && anchoredLine <= allLines.length
+      && anchoredLineStart >= start && anchoredLineEnd <= end,
+      `${name}: the extracted declaration range [${start}, ${end}) does not contain line `
+      + `${anchoredLine}, which RESERVED_ID_DECLARATION_SITES anchors inside this array. Either `
+      + 'the extractor latched onto a different (possibly commented-out or templated) declaration, '
+      + 'or the anchor and the declaration have drifted apart; both are argued edits, not '
+      + 'mechanical ones');
+  }
   const bodyLines = sourceText.slice(start + opening.length, end).split('\n');
   // The extractor must CONSUME EVERYTHING between the opening `[` and the terminator. The earlier
   // form mapped every line through the single-quoted-element regex and then filtered the
@@ -807,9 +866,18 @@ function extractStringLiteralArrayDeclaration(sourceText: string, name: string):
   //
   // So: count the lines that are neither blank nor pure comments, and require exactly that many
   // extracted elements. An unreadable member is then a loud failure naming the line.
+  //
+  // BLOCK COMMENTS ARE COMMENTS TOO. Counting only `//` lines as comments made a perfectly
+  // legitimate `/* note */`, `/** doc */`, a leading-`*` continuation line or a closing `*/`
+  // between members throw -- a FALSE failure. This array is a hand-maintained mirror in a file
+  // other lanes edit, so that turned a pin about consumer-id divergence red for a reason with
+  // nothing to do with divergence, and the cheapest repair on offer was deleting the comment.
+  // Residual, stated rather than implied: only the comment DELIMITER LINES are recognised. A
+  // block comment whose interior line begins with neither `*` nor `/` (`/*\n note\n*/`) still
+  // counts as a member line and still throws.
   const memberLines = bodyLines.filter(line => {
     const trimmed = line.trim();
-    return trimmed !== '' && !trimmed.startsWith('//');
+    return trimmed !== '' && !/^(?:\/\/|\/\*|\*)/u.test(trimmed);
   });
   const elements = memberLines
     .map(line => /^\s*'([^']*)'\s*,?\s*$/u.exec(line)?.[1])
@@ -837,9 +905,17 @@ test('REL-BGSTAB-010 AC-7 the EXPECTED_POLICY_CONSUMER_IDS mirror in TerminalRes
   //
   // The pin is held HERE rather than in that file: its test count is pinned at 31 by a separate
   // guard, so adding a test there would break that guard.
-  const mirrorSourceText = readFileSync(
-    join(REPOSITORY_ROOT, 'server/src/services/TerminalResourcePolicy.test.ts'), 'utf8');
-  const mirror = extractStringLiteralArrayDeclaration(mirrorSourceText, 'EXPECTED_POLICY_CONSUMER_IDS');
+  const mirrorPath = 'server/src/services/TerminalResourcePolicy.test.ts';
+  const mirrorSourceText = readFileSync(join(REPOSITORY_ROOT, mirrorPath), 'utf8');
+  // The anchor the production-occurrence scan already pins inside this same array. Looked up
+  // rather than retyped, so the two mechanisms cannot drift into describing different source.
+  const mirrorAnchors = RESERVED_ID_DECLARATION_SITES
+    .filter(entry => entry.path === mirrorPath && entry.kind === 'registry-array-entry');
+  assert.equal(mirrorAnchors.length, 1,
+    `expected exactly one registry-array-entry declaration site for ${mirrorPath}; the anchor this `
+    + 'pin ties its extracted range to is no longer unambiguous');
+  const mirror = extractStringLiteralArrayDeclaration(
+    mirrorSourceText, 'EXPECTED_POLICY_CONSUMER_IDS', mirrorAnchors[0].line);
 
   // Non-emptiness BEFORE the equality. A silent parse failure returning [] is a known failure mode
   // for text extraction, and `deepEqual([], [])` would make this whole test vacuous if the registry

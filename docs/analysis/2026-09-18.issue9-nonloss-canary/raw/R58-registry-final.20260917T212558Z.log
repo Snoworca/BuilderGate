@@ -1,0 +1,21 @@
+✔ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (1711.49322ms)
+✔ REL-BGSTAB-010 AC-7 reservation membership is pinned so a new exemption costs an argued edit (0.472896ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.229093ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation with no reason or no decision owner (0.195049ms)
+✔ REL-BGSTAB-010 AC-7 registration guard refuses a reservation for an id that still owns manifest tuples (0.18654ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id outside the registry (0.170518ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects the same consumer id reserved twice (0.301774ms)
+✔ REL-BGSTAB-010 AC-7 registration guard defers other diagnostics for a duplicated reservation (0.200954ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id the catalog uses (0.232148ms)
+✔ REL-BGSTAB-010 AC-7 no reserved consumer id is written into production outside its declaration (1389.319107ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation whose id is used in production (0.361138ms)
+✔ REL-BGSTAB-010 AC-7 the sealed source key set that decides the scan boundary is pinned (0.183332ms)
+✔ REL-BGSTAB-010 AC-7 the EXPECTED_POLICY_CONSUMER_IDS mirror in TerminalResourcePolicy.test.ts is pinned to the live registry (3.640905ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4635.885339
