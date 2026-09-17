@@ -179,6 +179,8 @@ test('REL-BGSTAB-010 AC-3 RED — explicit canary transition preserves below/at/
   type FrontendTarget = { viewId: string; connectionId: string; reconnectGeneration: number };
   type FrontendPolicyLease = Readonly<{
     leaseId: string;
+    policyId: string;
+    profileVersion: string;
     target: FrontendTarget;
     decision: Readonly<{
       candidateQueueMaxBytes: number;
@@ -485,7 +487,7 @@ test('REL-BGSTAB-010 frontend canary rollback fences admissions and closes at th
   assert.deepEqual(scheduler.enqueue('A'.repeat(80), () => completions.push('pre')), { ok: true });
 
   const rollbackApi = scheduler as typeof scheduler & {
-    rollbackCanaryTransition(lease: typeof lease): { state: 'draining' | 'closed'; reason: string };
+    rollbackCanaryTransition(rollbackLease: typeof lease): { state: 'draining' | 'closed'; reason: string };
     getCanaryCleanupSnapshot(): { targetHandles: number; listeners: number; timers: number; retainedEntries: number };
   };
   assert.deepEqual(rollbackApi.rollbackCanaryTransition(lease), {
@@ -540,10 +542,10 @@ test('REL-BGSTAB-010 frontend canary ledger is bounded immutable and records exa
     scheduler.configureCanaryTransition(issue(9));
   }
   const ledgerApi = scheduler as typeof scheduler & {
-    rollbackCanaryTransition(lease: typeof active): { state: 'draining' | 'closed'; reason: string };
+    rollbackCanaryTransition(rollbackLease: typeof active): { state: 'draining' | 'closed'; reason: string };
     getCanaryLedgerSnapshot(): {
       capacity: number; totalEvents: number; droppedEntries: number;
-      entries: readonly Array<Record<string, unknown>>;
+      entries: ReadonlyArray<Record<string, unknown>>;
     };
   };
   assert.deepEqual(ledgerApi.rollbackCanaryTransition(active), {
@@ -1388,7 +1390,9 @@ test('REL-BGSTAB-010 restore-buffer ownership helper commits once and fails clos
     onWritten: () => { written += 1; },
     onSettled: success => settlements.push(success),
   }), true);
-  lateReject?.();
+  const rejectLateWrite = lateReject as (() => void) | null;
+  assert.ok(rejectLateWrite, 'the writer must have captured onRejected');
+  rejectLateWrite();
   assert.deepEqual({ retained, written, settlements }, {
     retained: ['second'],
     written: 1,
@@ -1430,7 +1434,9 @@ test('REL-BGSTAB-010 restore-buffer helper waits for actual legacy callback and 
     onSettled: success => settlements.push(success),
   }), true);
   assert.equal(retained.length, 1, 'candidate-to-legacy admission alone must not commit the restore entry');
-  actualLegacyWritten?.();
+  const completeLegacyWrite = actualLegacyWritten as (() => void) | null;
+  assert.ok(completeLegacyWrite, 'the legacy writer must have captured onWritten');
+  completeLegacyWrite();
   assert.deepEqual({ retained, settlements }, { retained: [], settlements: [true] });
 
   const rejected = [{ id: 2, data: 'contradictory' }];
@@ -1473,7 +1479,9 @@ test('REL-BGSTAB-010 restore attempt identity fences a superseded identical-stri
 
   attemptEpoch = 2;
   retained = [newEntry];
-  oldWritten?.();
+  const completeOldWrite = oldWritten as (() => void) | null;
+  assert.ok(completeOldWrite, 'the superseded writer must have captured onWritten');
+  completeOldWrite();
   assert.deepEqual(retained, [newEntry], 'late old callback must not commit a new entry with equal text');
   assert.deepEqual(settlements, []);
 });
@@ -1499,9 +1507,13 @@ test('REL-BGSTAB-010 restore release is single-flight per attempt and supersedes
     settleEpochTwo = settle;
   });
   assert.equal(await first, false);
-  settleEpochOne?.(true);
+  const settleFirst = settleEpochOne as ((success: boolean) => void) | null;
+  assert.ok(settleFirst, 'epoch 1 must have received a settle callback');
+  settleFirst(true);
   assert.equal(gate.getActiveEpoch(), 2);
-  settleEpochTwo?.(true);
+  const settleSecond = settleEpochTwo as ((success: boolean) => void) | null;
+  assert.ok(settleSecond, 'epoch 2 must have received a settle callback');
+  settleSecond(true);
   assert.equal(await second, true);
   assert.equal(gate.getActiveEpoch(), null);
   assert.equal(starts, 2);
@@ -2300,12 +2312,10 @@ test('UTF-8 segmented queue RED 계약 — AC-2', async () => {
   }
   assertDeliveredBytes(splitWrites, splitAnsiIngress);
 
-  const xtermModule = await import('@xterm/xterm');
+  const xtermModule: unknown = await import('@xterm/xterm');
   const { Terminal } = (
-    'Terminal' in xtermModule
-      ? xtermModule
-      : xtermModule.default
-  ) as typeof import('@xterm/xterm');
+    xtermModule as { default?: typeof import('@xterm/xterm') }
+  ).default ?? (xtermModule as typeof import('@xterm/xterm'));
   const controlTerminal = new Terminal({ cols: 12, rows: 4, scrollback: 8 });
   const schedulerTerminal = new Terminal({ cols: 12, rows: 4, scrollback: 8 });
   const controlTitleEvents: string[] = [];

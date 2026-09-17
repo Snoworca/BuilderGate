@@ -1,0 +1,25 @@
+
+> frontend@0.0.0 typecheck:tests
+> tsc -p tsconfig.test.json --noEmit
+
+tests/benchmarks/terminalNoRenderFixture.ts(598,67): error TS2339: Property 'droppedBytes' does not exist on type '{ ok: false; reason: "visible-output-overflow"; droppedBytes: number; } | { ok: false; reason: "canary-admission-rejected"; rejectedBytes: number; }'.
+  Property 'droppedBytes' does not exist on type '{ ok: false; reason: "canary-admission-rejected"; rejectedBytes: number; }'.
+tests/unit/terminalOutputScheduler.test.ts(284,53): error TS2352: Conversion of type '{ visibleOutputQueueMaxBytes: number; visibleOutputMaxChunks: number; visibleFlushBudgetBytes: number; write: (data: TerminalOutputWriteData, onWritten: () => void) => void; schedule: (drain: () => void) => number; canaryTarget: FrontendTarget; validateCanaryPolicyLease: (value: unknown) => value is Readonly<...>; }' to type 'TerminalOutputSchedulerOptions & { canaryTarget: FrontendTarget; validateCanaryPolicyLease: (value: unknown) => value is Readonly<{ leaseId: string; target: FrontendTarget; decision: Readonly<...>; }>; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ visibleOutputQueueMaxBytes: number; visibleOutputMaxChunks: number; visibleFlushBudgetBytes: number; write: (data: TerminalOutputWriteData, onWritten: () => void) => void; schedule: (drain: () => void) => number; canaryTarget: FrontendTarget; validateCanaryPolicyLease: (value: unknown) => value is Readonly<...>; }' is not comparable to type 'TerminalOutputSchedulerOptions'.
+    Types of property 'validateCanaryPolicyLease' are incompatible.
+      Type '(value: unknown) => value is Readonly<{ leaseId: string; target: FrontendTarget; decision: Readonly<{ candidateQueueMaxBytes: number; legacyQueueMaxBytes: number; policyGeneration: number; }>; }>' is not comparable to type '(value: unknown) => value is TerminalOutputPolicyLease'.
+        Type predicate 'value is Readonly<{ leaseId: string; target: FrontendTarget; decision: Readonly<{ candidateQueueMaxBytes: number; legacyQueueMaxBytes: number; policyGeneration: number; }>; }>' is not assignable to 'value is TerminalOutputPolicyLease'.
+          Type 'Readonly<{ leaseId: string; target: FrontendTarget; decision: Readonly<{ candidateQueueMaxBytes: number; legacyQueueMaxBytes: number; policyGeneration: number; }>; }>' is missing the following properties from type 'TerminalOutputPolicyLease': policyId, profileVersion
+tests/unit/terminalOutputScheduler.test.ts(488,30): error TS2502: 'lease' is referenced directly or indirectly in its own type annotation.
+tests/unit/terminalOutputScheduler.test.ts(546,16): error TS1354: 'readonly' type modifier is only permitted on array and tuple literal types.
+tests/unit/terminalOutputScheduler.test.ts(1391,3): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.
+tests/unit/terminalOutputScheduler.test.ts(1433,3): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.
+tests/unit/terminalOutputScheduler.test.ts(1476,3): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.
+tests/unit/terminalOutputScheduler.test.ts(1502,3): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.
+tests/unit/terminalOutputScheduler.test.ts(1504,3): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.
+tests/unit/terminalOutputScheduler.test.ts(2307,21): error TS2339: Property 'default' does not exist on type 'never'.
