@@ -1,8 +1,8 @@
-// Lane teardown: close every terminal tab in the default workspace so the
-// spec's own seeding branch can be exercised from the empty state. Used to
-// produce raw/e2e-selfseeded.log and raw/e2e-frozen-tree-r2.log — without it a
-// run inherits a terminal from an earlier run and never reaches that branch.
-// Copy into frontend/ before running; it needs @playwright/test to resolve.
+// Lane teardown: close every terminal tab in the default workspace. It belongs
+// to the self-seeding experiment this lane withdrew (see the bundle README's
+// "채택하지 않은 실험" section); the committed spec does not need it. Its only
+// committed run is raw/teardown-before-selfseeded.log, against server PID
+// 451255. Copy into frontend/ before running; it needs @playwright/test.
 import { chromium } from '@playwright/test';
 const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({ ignoreHTTPSErrors: true, baseURL: 'https://localhost:2222' });

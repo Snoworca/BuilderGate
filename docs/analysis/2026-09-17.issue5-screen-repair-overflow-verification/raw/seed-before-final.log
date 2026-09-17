@@ -1,0 +1,7 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# command: node ./issue5-seed-terminal.mjs   (source: docs/analysis/2026-09-17.issue5-screen-repair-overflow-verification/tools/issue5-seed-terminal.mjs)
+# purpose: the spec requires one terminal in the workspace; create it if the empty state is showing
+# target: https://localhost:2222 (externally owned listener, server PID 471222)
+clicked Add Terminal
+terminal visible
+# exit=0

@@ -135,94 +135,9 @@ async function startDebugCapture(page: Page, sessionId: string): Promise<void> {
   }, sessionId);
 }
 
-interface SeededTerminalTab {
-  workspaceId: string;
-  tabId: string;
-}
-
-const seededTerminalTabs: SeededTerminalTab[] = [];
-
-/**
- * `login()` returns as soon as `.workspace-screen` is visible, and App renders
- * that container before the workspace list has been fetched. During that window
- * the no-workspace `EmptyState` is on screen with its `+ Add Terminal` button,
- * but `handleAddTab` reads an `activeWorkspaceId` that is still null, so the
- * click is a silent no-op — and on a workspace that does hold a terminal the
- * same button disappears the moment hydration lands. Branching on an
- * instantaneous `count()` therefore either seeds nothing or clicks an element
- * that is about to vanish. Wait for a hydrated workspace first, decide only
- * then, and confirm the seed actually produced a tab.
- */
-async function ensureSeededTerminal(page: Page): Promise<void> {
-  const terminal = page.locator('.xterm-screen:visible');
-  const hydratedWorkspace = page.locator('[role="option"][aria-selected="true"]');
-  await expect.poll(async () => (
-    await terminal.count() > 0 || await hydratedWorkspace.count() > 0
-  ), {
-    message: 'E2E precondition failed: the workspace list never hydrated',
-    timeout: 20_000,
-  }).toBe(true);
-
-  if (await terminal.count() > 0) {
-    return;
-  }
-
-  const before = await readWorkspaceTabKeys(page);
-  const addTerminal = page.getByRole('button', { name: '+ Add Terminal' });
-  await expect.poll(() => addTerminal.count(), {
-    message: 'E2E precondition failed: neither a terminal nor the empty state is present',
-    timeout: 20_000,
-  }).toBeGreaterThan(0);
-  await addTerminal.first().click();
-
-  await expect.poll(async () => (await readWorkspaceTabKeys(page)).length, {
-    message: 'E2E precondition failed: seeding did not create a terminal tab',
-    timeout: 20_000,
-  }).toBeGreaterThan(before.length);
-
-  for (const key of await readWorkspaceTabKeys(page)) {
-    if (before.includes(key)) continue;
-    const [workspaceId, tabId] = key.split('/');
-    seededTerminalTabs.push({ workspaceId, tabId });
-  }
-}
-
-/**
- * Every tab the server knows about, keyed `workspaceId/tabId`. Keying on the
- * pair rather than picking a workspace means the helper never has to guess
- * which workspace the click landed in — it owns whichever tab is new.
- */
-async function readWorkspaceTabKeys(page: Page): Promise<string[]> {
-  return page.evaluate(async () => {
-    const token = localStorage.getItem('cws_auth_token');
-    if (!token) return [];
-    const response = await fetch('/api/workspaces', { headers: { Authorization: `Bearer ${token}` } });
-    if (!response.ok) return [];
-    const payload = await response.json();
-    return (payload.tabs ?? []).map((tab: { id?: string; workspaceId?: string }) => (
-      `${String(tab.workspaceId)}/${String(tab.id)}`
-    ));
-  });
-}
-
-async function releaseSeededTerminalTabs(page: Page): Promise<void> {
-  if (seededTerminalTabs.length === 0) return;
-  const owned = seededTerminalTabs.splice(0, seededTerminalTabs.length);
-  await page.evaluate(async (tabs) => {
-    const token = localStorage.getItem('cws_auth_token');
-    if (!token) return;
-    const headers = { Authorization: `Bearer ${token}` };
-    for (const tab of tabs) {
-      await fetch(`/api/workspaces/${tab.workspaceId}/tabs/${tab.tabId}`, { method: 'DELETE', headers })
-        .catch(() => undefined);
-    }
-  }, owned);
-}
-
 async function establishTerminalHarness(page: Page, harness: RoutedWsFaultHarness): Promise<string> {
   await harness.install(page);
   await login(page);
-  await ensureSeededTerminal(page);
   await waitForTerminal(page);
   await expect.poll(() => harness.connectionCount, {
     message: 'E2E precondition failed: no real routed WebSocket connection',
@@ -524,12 +439,6 @@ async function restoreHiddenTargetContext(page: Page, context: HiddenTargetConte
 }
 
 test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
-  // The spec owns only the terminal it seeded itself, and gives it back so a
-  // second run meets the same empty workspace the first one did.
-  test.afterEach(async ({ page }) => {
-    await releaseSeededTerminalTabs(page);
-  });
-
   test.beforeEach(({ page }, testInfo) => {
     void page;
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only recovery contract');

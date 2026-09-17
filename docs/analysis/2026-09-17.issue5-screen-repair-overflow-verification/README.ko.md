@@ -25,20 +25,11 @@
 원인은 제품이 아니라 테스트 픽스처이며, **둘이다.**
 
 첫째, spec 은 `establishTerminalHarness` 에서 로그인 후 곧바로 `waitForTerminal` 을 기다릴 뿐
-터미널을 만들지 않았다. workspace 에 터미널이 없으면 `waitForTerminal` 에서 타임아웃하며, 이것이
+터미널을 만들지 않는다. workspace 에 터미널이 없으면 `waitForTerminal` 에서 타임아웃하며, 이것이
 첫 실행(`raw/e2e-wave2-screen-repair-resync.log`)의 실패 원인이다 — authority proof 와 무관하다.
-
-`ensureSeededTerminal()` 이 그 빈자리를 메운다. 다만 `login()` 은 `.workspace-screen` 이 보이면
-바로 돌아오고 App 은 workspace 목록을 받기 전에 그 컨테이너를 그린다. 그 창에서는 workspace 가
-없을 때의 `EmptyState` 가 `+ Add Terminal` 을 들고 떠 있는데 `handleAddTab` 이 읽는
-`activeWorkspaceId` 가 아직 null 이라 클릭이 조용히 아무 일도 하지 않는다. 반대로 터미널이 이미
-있는 workspace 에서는 hydration 이 끝나는 순간 그 버튼이 사라져, 순간 `count()` 로 분기하면 곧
-사라질 요소를 클릭하게 된다. 그래서 헬퍼는 **터미널이 보이거나 workspace 가 선택될 때까지 기다린
-뒤에** 분기하고, 시드한 다음에는 서버가 아는 tab 목록이 실제로 늘었는지 확인한다. 시드한 tab 은
-`workspaceId/tabId` 로 기억해 `afterEach` 에서 되돌려준다.
-
-`raw/e2e-selfseed-empty.log` 는 workspace 를 비운 상태(`raw/teardown-before-selfseeded.log` 가
-`tabs left: 0` 을 찍는다)에서 시작해 2건 PASS 함을 보인다.
+**이것은 spec 의 전제이지 결함이 아니라고 판단해 코드를 바꾸지 않았다.** 자체 시드를 넣었다가
+철회한 경위와 근거는 §4 에 적는다. 전제를 만족시키는 도구와 그 실행 기록은
+`tools/issue5-seed-terminal.mjs` 와 `raw/seed-before-final.log` 로 남긴다.
 
 둘째, 프런트는 `hasValidAuthorityProof` 를 통과하지 못하는
 `screen-repair:restore-needed` 를 `visible_output_resync_restore_invalid_proof_ignored` 로 버리고
@@ -75,80 +66,105 @@ reconnect 로 수렴하는데, spec 의 `buildRestoreNeeded` 가 `authorityEpoch
 | --- | --- | --- | --- | --- |
 | 1 | `<WT>/server` | `npx tsx src/test-runner.ts` | 1 | `raw/server-runner-baseline.log` — 538 PASS / 3 FAIL |
 | 2 | `<WT>/server` | `npx tsx src/test-runner.ts` (giant-flush 변형 적용 상태) | 1 | `raw/server-runner-mutation-giantflush.log` — 위 3건 + repair 계약 5건 FAIL |
-| 3 | `<WT>/server` | `npx tsx --test src/ws/WsRouterSplitHandshake.test.ts` | 0 | `raw/server-split-handshake.log` — tests 28 / pass 15 / fail 0 / todo 13 |
+| 3 | `<WT>/server` | `npx tsx --test src/ws/WsRouterSplitHandshake.test.ts` | 0 | `raw/server-split-handshake.log` — tests 28 / pass 15 / fail 0 / todo 13 (Wave-1 12 + Wave-3 1) |
 | 4 | `<WT>/frontend` | `node --experimental-strip-types --test tests/unit/visibleOutputRecovery.test.ts tests/unit/visibleOutputRecoveryByteSeam.test.ts tests/unit/visibleOutputSegmentContiguity.test.ts tests/unit/terminalContainerRecoveryContract.test.ts tests/unit/terminalViewRecoveryContract.test.ts` | 0 | `raw/fe-baseline.log` — 124/124 PASS |
-| 5 | `<WT>/frontend` | `node --experimental-strip-types --test tests/unit/*.test.ts` (시드 도입 전 spec) | 1 | `raw/fe-unit-full.log` — tests 1258 / pass 1255 / fail 3 |
-| 6 | `<WT>/frontend` | 5번과 동일 (**커밋되는 spec**) | 1 | `raw/fe-unit-full-final.log` — tests 1258 / pass 1255 / fail 3, 같은 3건 |
+| 5 | `<WT>/frontend` | `node --experimental-strip-types --test tests/unit/*.test.ts` | 1 | `raw/fe-unit-full.log` — tests 1258 / pass 1255 / fail 3. **커밋되는 spec** 에 대한 실행이다 |
+| 6 | `<WT>/frontend` | 5번과 동일 (철회한 시드 실험 spec) | 1 | `raw/fe-unit-full-final.log` — 같은 1258/1255/3 |
 | 7 | `<WT>/frontend` | `node --experimental-strip-types --test tests/unit/terminalHiddenOutput.test.ts tests/unit/workspaceOwnershipMigration.test.ts` (변경분 stash 후 `e901676` 상태) | 1 | `raw/fe-unit-baseline-3fails.log` — 동일 3건 재현 → 선재 확인 |
 | 8 | `<WT>/frontend` | `npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --config playwright.external-server.config.ts --project "Desktop Chrome"` (수정 전 spec, workspace 에 터미널 없음) | 1 | `raw/e2e-wave2-screen-repair-resync.log` — 2 FAIL, `waitForTerminal` 타임아웃 |
-| 9 | `<WT>/frontend` | 8번과 동일 (수정 전 spec, 터미널을 외부에서 시드한 뒤) | 1 | `raw/e2e-wave2-screen-repair-resync-run2.log` — 2 FAIL, `restore-needed-invalid-authority-proof` |
+| 9 | `<WT>/frontend` | 8번과 동일 (수정 전 spec, 터미널을 시드한 뒤) | 1 | `raw/e2e-wave2-screen-repair-resync-run2.log` — 2 FAIL, `restore-needed-invalid-authority-proof` |
 | 10 | `<WT>/frontend` | 8번과 동일 + `-g "AC-4"` (restore-needed proof 만 수정한 중간 상태) | 1 | `raw/e2e-ac4-step1.log` — barrier 는 engage, snapshot proof 불일치로 뒤에서 실패 |
-| 11 | `<WT>/frontend` | 8번과 동일 (proof 수정 후, 시드 도입 전 spec) | 0 | `raw/e2e-green-prefreeze.log` — 2 PASS |
-| 12 | `<WT>/frontend` | 8번과 동일 (proof 수정 후, 시드 도입 전 spec, 11번과 별개 실행) | 0 | `raw/e2e-frozen-tree-preseeding.log` — 2 PASS |
-| 13 | `<WT>/frontend` | `node ./issue5-probe-authority.mjs` (`tools/` 사본을 frontend 로 복사해 실행) | 0 | `raw/probe-authority.log` — 실 서버 `screen-snapshot` 이 `authorityEpoch`·`authorityRevision`·`coversThroughSeq` 를 실음 |
-| 14 | `<WT>/frontend` | `node ./issue5-teardown-terminal.mjs` | 0 | `raw/teardown-before-selfseeded.log` — `tabs left: 0`, empty state 확인 |
-| 15 | `<WT>/frontend` | 8번과 동일 (첫 시드 도입 spec, workspace 를 비운 뒤) | 0 | `raw/e2e-selfseeded.log` — 2 PASS |
-| 16 | `<WT>/frontend` | 8번과 동일 (첫 시드 도입 spec, 변형 되돌린 뒤) | 0 | `raw/e2e-frozen-tree-r2.log` — 2 PASS |
-| 17 | `<WT>/frontend` | 8번과 동일 (첫 시드 도입 spec + 프런트 변형) | 1 | `raw/e2e-mutation-nobarrier-selfseeded.log` — 2 FAIL |
-| 18 | `<WT>/frontend` | 8번과 동일 (hydration 대기를 넣은 spec, workspace 를 비운 뒤) | 0 | `raw/e2e-selfseed-empty.log` — 2 PASS, 시드 분기 실행 |
-| 19 | `<WT>/frontend` | 8번과 동일 (teardown 없이 곧바로 2회차) | 0 | `raw/e2e-selfseed-repeat.log` — 2 PASS, 단 AC-8 은 1차 시도 실패 후 재시도 통과 |
-| 20 | `<WT>/frontend` | 8번을 4회 반복 | 0 ×4 | `raw/e2e-stability-4x.log` — 8/8 1차 시도 통과 |
-| 21 | `<WT>/frontend` | 8번과 동일 (**커밋되는 spec** + 프런트 변형) | 1 | `raw/e2e-mutation-final.log` — 2 FAIL |
-| 22 | `<WT>/frontend` | 8번과 동일 (**커밋되는 spec**, 변형 되돌리고 재빌드) | 0 | `raw/e2e-final-green.log` — 통과, AC-8 은 1차 시도 실패 후 재시도 통과 |
-| 23 | `<WT>/frontend` | 8번을 6회 반복 (quiescence 대기를 시험한 spec) | 0 ×6 | `raw/e2e-stability-quiescent-6x.log` — 6회 중 3회에서 AC-8 1차 시도 실패. 이 대기는 **채택하지 않았다** |
-| 24 | `<WT>/frontend` | 8번을 6회 반복 (**커밋되는 spec**) | 0 ×6 | `raw/e2e-stability-committed-6x.log` — 6회 중 5회 1차 시도 통과, 1회 AC-8 재시도 |
-| 25 | `<WT>/frontend` | `npx tsc -p tsconfig.test.json --noEmit` / `npx eslint <spec> <config>` / `npx tsc -p tsconfig.test.json --listFiles \| grep <spec>` / `npx tsc -b` | 0 / 0 / 0 / 0 | `raw/typecheck-lint-registration.log` — 네 명령의 명령줄·cwd·exit code 와 listFiles 매칭 경로 |
+| 11 | `<WT>/frontend` | 8번과 동일 (**커밋되는 spec**) | 0 | `raw/e2e-green-prefreeze.log` — 2 PASS |
+| 12 | `<WT>/frontend` | 8번과 동일 (**커밋되는 spec**, 11번과 별개 실행) | 0 | `raw/e2e-frozen-tree-preseeding.log` — 2 PASS |
+| 13 | `<WT>/frontend` | 8번과 동일 (**커밋되는 spec** + 프런트 변형) | 1 | `raw/e2e-mutation-nobarrier.log` — 2 FAIL |
+| 14 | `<WT>/frontend` | `node ./issue5-probe-authority.mjs` (`tools/` 사본을 frontend 로 복사해 실행) | 0 | `raw/probe-authority.log` — 실 서버 `screen-snapshot` 이 `authorityEpoch`·`authorityRevision`·`coversThroughSeq` 를 실음 |
+| 15 | `<WT>/frontend` | `node ./issue5-seed-terminal.mjs` | 0 | `raw/seed-before-final.log` — spec 의 전제(터미널 1개)를 만든다 |
+| 16 | `<WT>/frontend` | 8번을 4회 반복 (**커밋되는 spec**, 15번으로 갓 만든 터미널 위에서) | 0 ×4 | `raw/e2e-final-committed-4x.log` — 네 run 모두 exit 0, 그러나 1차 시도 실패 5건. 아래 불안정성 절 참조 |
+| 17 | `<WT>/frontend` | `npx tsc -p tsconfig.test.json --noEmit` / `npx eslint <spec> <config>` / `npx tsc -p tsconfig.test.json --listFiles \| grep <spec>` / `npx tsc -b` | 0 / 0 / 0 / 0 | `raw/typecheck-lint-registration.log` |
 
 `raw/typecheck-tests-2.log` 와 `raw/eslint-scoped.log` 는 **0바이트이며 아무것도 증명하지 못한다.**
-같은 명령의 입증력 있는 실행은 25번이다. 두 파일은 당시 제출된 산출물이라는 기록으로만 남긴다.
+같은 명령의 입증력 있는 실행은 17번이다. 두 파일은 당시 제출된 산출물이라는 기록으로만 남긴다.
 
-8~24 번은 모두 lane 이 직접 기동해 소유한 `https://localhost:2222` 외부 listener 를 사용했다.
+8~16 번은 모두 lane 이 직접 기동해 소유한 `https://localhost:2222` 외부 listener 를 사용했다.
 `playwright.external-server.config.ts` 는 기본 config 의 `webServer` 를 `undefined` 로 덮어
 Playwright 가 어떤 서버도 자동 기동하지 못하게 한다.
 
-### AC-8 의 1차 시도 불안정성 — 관측된 그대로
+### 채택하지 않은 실험 — spec 자체 시드
 
-커밋되는 spec 으로 돌린 10회(19·20·22·24번) 중 **2회에서 AC-8 이 1차 시도에 실패하고 재시도에서
-통과했다.** 실패 지점은 그 test 안의 precondition 이며 메시지는
-`E2E precondition failed: target did not become actually hidden/dirty/skipped` 다. 세 번째 실패
-경로는 관측되지 않았다. 모두 다른 작업 없이 단독으로 돌린 실행이며, `retries: 1` 은 이 저장소의
-`playwright.config.ts` 가 원래 갖고 있던 설정이라 run 자체는 exit 0 으로 끝난다.
+이 lane 은 `establishTerminalHarness` 가 터미널을 직접 시드하게 만드는 변형을 만들었다가
+**철회했다.** 그 변형의 실행 기록은 `raw/` 에 남아 있으나(`e2e-selfseeded.log`,
+`e2e-selfseed-empty.log`, `e2e-selfseed-repeat.log`, `e2e-stability-4x.log`,
+`e2e-stability-committed-6x.log`, `e2e-stability-quiescent-6x.log`, `e2e-frozen-tree-r2.log`,
+`e2e-mutation-nobarrier-selfseeded.log`, `e2e-mutation-final.log`, `e2e-final-green.log`,
+`teardown-before-selfseeded.log`, `fe-unit-full-final.log`) **커밋된 spec 에 대한 증거가 아니다.**
+철회 이유는 둘이다.
 
-시드 도입 전 spec 으로 돌린 4회(11·12번 및 그 이전 두 실행)에서는 이 실패를 보지 못했다. 따라서
-test 마다 새 session 을 만드는 이 변경과 상관이 있다고 본다. 단 원인을 특정하지는 못했다 —
-막 생성된 터미널이 조용해질 때까지 기다리는 방법(23번)을 시험했더니 **6회 중 3회로 오히려 나빠져**
-채택하지 않았다. 1회 green 으로 flake 라고 부르지 않기 위해 위 수치를 그대로 남기고, 이 항목은
-별도 결함으로 보고한다.
+1. 소유권을 생성 응답의 id 가 아니라 전체 tab 목록의 차집합으로 잡았다. `/api/workspaces` 읽기가
+   한 번이라도 실패하면 기존 tab 전부가 "내가 만든 것"으로 분류되어 `afterEach` 가 사용자의
+   터미널을 지울 수 있다. 공유 listener 에서 파괴적이며 `CLAUDE.md` 의 E2E 소유권 규칙에 어긋난다.
+2. hydration 신호로 쓴 sidebar 선택 표시는 `.xterm-screen` 보다 먼저 뜬다. 터미널이 이미 있는
+   workspace 에서는 early-return 을 건너뛰고 시드 분기로 들어가는데, 그 상태에는 `EmptyState` 가
+   없고 tab bar 의 버튼 이름도 달라 20초 poll 을 태우고 실패한다. 남아 있는 실행 중 이 분기를
+   실제로 밟은 것은 없다.
+
+대신 spec 의 전제를 기록으로 남기고 도구(`tools/issue5-seed-terminal.mjs`)와 그 실행
+(`raw/seed-before-final.log`)을 함께 둔다.
+
+### 1차 시도 불안정성 — 갓 만든 터미널 위에서 재현된다
+
+16번(커밋되는 spec, 4회)에서 **1차 시도 실패가 5건** 있었다. 모두 `retries: 1` 에서 통과해 네 run
+모두 exit 0 이다. `retries: 1` 은 이 저장소 `playwright.config.ts` 의 기존 설정이다. 실패는 두
+서명으로 나뉜다.
+
+- `E2E precondition failed: target did not become actually hidden/dirty/skipped` — 2건
+- AC-4·AC-8 의 RED 계약 단언 자체. 디버그 이벤트에
+  `compatibility-post-ack-failed:convergence-timeout` 이 동반된다 — 3건. iteration 3 에서는 AC-4 도
+  1차 시도에 실패했다
+
+**이 lane 의 변경이 원인이 아니다.** 16번이 돌린 spec 은 authority proof 수정만 들어간 커밋본이고,
+같은 spec 이 11·12번에서 2 PASS 했다. 11·12번과 16번의 차이는 spec 이 아니라 **터미널이 갓
+생성된 것인지**다 — 앞선 실행들은 오래 떠 있던 터미널을 재사용했다.
+
+따라서 이것은 이 lane 이 만든 것이 아니라 **갓 만든 session 위에서 드러나는 기존 불안정성**으로
+본다. 원인은 특정하지 못했다. 1회 green 으로 flake 라고 부르지 않기 위해 위 수치와 두 서명을
+그대로 남기고 별도 결함으로 보고한다.
 
 ## 5. 포트·프로세스 안전
 
-- 2222 서버는 세 번 기동해 앞의 둘을 종료했다(WSL PID 440877, 447639, 451255). 세 번째는 이
-  lane 이 검증을 마친 뒤 종료하며, 종료 여부는 보고에 남긴다.
-- `raw/netstat-pre-20260917T053551Z.txt` (첫 기동 전), `raw/netstat-post-20260917T060157Z.txt`
-  (1차 E2E 종료 직후), `raw/netstat-final-20260917T060212Z.txt` (1차 2222 종료 후),
-  `raw/netstat-final-20260917T062552Z.txt` (2차 2222 종료 후) — 네 시점 모두 TCP
-  2001/2002 는 Windows PID `30596` 이 LISTENING 이다. 이 lane 은 그 프로세스에 어떤 신호도 보내지
-  않았고 `stop.bat` 을 쓰지 않았다. 각 캡처는 자기 시점만 증명한다.
-- 2222 서버는 `NODE_ENV=production PORT=2222 node dist/index.js` 로 `<WT>/server` 에서 직접 기동했고
-  (`env -u BUILDERGATE_ROOT -u BUILDERGATE_SERVER_ROOT -u BUILDERGATE_HOME -u BUILDERGATE_DATA_DIR`),
-  두 번 기동해 두 번 종료했다(WSL PID 440877, 447639). 매번 `/health` 가 돌려준 `pid` 와
-  `/proc/<pid>/cmdline`·`cwd`·`exe` 로 이 체크아웃 소유임을 확인한 뒤 그 PID 하나만 `kill` 했다. `netstat.exe` 의 PID 열은 WSL 릴레이의 Windows PID
-  이므로 소유 판정에 쓰지 않았다. 종료 후 2222 는 비어 있다. 남긴 백그라운드 프로세스는 없다.
+- 2222 서버는 `NODE_ENV=production PORT=2222 node dist/index.js` 로 `<WT>/server` 에서 직접
+  기동했고 (`env -u BUILDERGATE_ROOT -u BUILDERGATE_SERVER_ROOT -u BUILDERGATE_HOME -u
+  BUILDERGATE_DATA_DIR`), **네 번 기동해 네 번 종료했다** — WSL PID 440877, 447639, 451255,
+  471222. 매번 `/health` 가 돌려준 `pid` 가 그 PID 와 같은지, `/proc/<pid>/cwd` 가 이 체크아웃의
+  `server/` 인지 확인한 뒤 그 PID 하나만 `kill` 했다. `netstat.exe` 의 PID 열은 WSL 릴레이의
+  Windows PID 이므로 소유 판정에 쓰지 않았다. 마지막 종료 뒤 2222 는 비어 있고 남긴 백그라운드
+  프로세스는 없다.
+- netstat 캡처는 여섯 시점이다:
+  `raw/netstat-final-20260917T060212Z.txt`
+  `raw/netstat-final-20260917T062552Z.txt`
+  `raw/netstat-final-20260917T071712Z.txt`
+  `raw/netstat-final-20260917T073812Z.txt`
+  `raw/netstat-post-20260917T060157Z.txt`
+  `raw/netstat-pre-20260917T053551Z.txt`
+  모든 시점에서 TCP 2001/2002 는 Windows PID `30596` 이 LISTENING 이다. 이 lane 은 그 프로세스에
+  어떤 신호도 보내지 않았고 `stop.bat` 을 쓰지 않았다. 각 캡처는 자기 시점만 증명한다.
 
 ## 6. 산출물에 남은 제약
 
 - 위 1·2번 로그는 `[TOTP] Manual entry key:` 줄이 실제 secret 을 찍으므로(GitHub issue #80)
   커밋본에서 그 값만 `<redacted: GitHub issue 80>` 로 치환했다. 다른 바이트는 실행 원본 그대로다.
-- 5번의 FAIL 3건(`terminalHiddenOutput.test.ts` 의 `REL-BGSTAB-012 settles ledger and holds stale
-  view through drain`, `workspaceOwnershipMigration.test.ts` 의 B2 inventory 2건)은 6번에서 기준
-  트리 재현으로 선재임을 증명했다. 이 lane 의 범위가 아니며 수정하지 않았다.
-- 3번의 todo 13건은 exit code 0 뒤에 `✖ failing tests:` 로 찍히는 Wave-1 unified limitation
-  characterization 이다. 현재 실행의 관측값이며 과거 기록을 재라벨링하지 않는다.
+- 5·6번의 FAIL 3건(`terminalHiddenOutput.test.ts` 의 `REL-BGSTAB-012 settles ledger and holds
+  stale view through drain`, `workspaceOwnershipMigration.test.ts` 의 B2 inventory 2건)은 7번에서
+  기준 트리 재현으로 선재임을 증명했다. 이 lane 의 범위가 아니며 수정하지 않았다.
+- 3번의 todo 13건은 exit code 0 뒤에 `✖ failing tests:` 로 찍힌다. 12건이 Wave-1 production
+  unified limitation characterization, 1건이 Wave-3 split client-group routing 이다. 현재 실행의
+  관측값이며 과거 기록을 재라벨링하지 않는다.
 - **VE-8 이 덮지 못하는 범위**: 이 E2E 는 모든 프레임을 주입하므로 서버의 cap 초과·token abort
   경로를 구동하지 않는다. 그 obligation(SRS AC-3)은 VE-7 이 가리키는 서버 계약이 소유한다. 또한
   `truncated:false` 완전 payload 만 주입하므로 SRS AC-4 의 incomplete parser/ANSI tail 절반은
   다루지 않는다 — 그 절반은 `SessionManagerPartialEscapeTail.test.ts` 가 이미 소유하며 이 lane 은
   재실행하지 않았다.
+- spec 은 workspace 에 터미널이 하나 있어야 돈다. 이것은 전제이며 이 lane 은 코드로 바꾸지
+  않았다(§4 의 철회 절). 재현하려면 15번을 먼저 돌린다.
 - AC-8 test 의 late-frame 단언은 `visible_output_resync_failed_snapshot_ignored` 이벤트 대신
   replacement-generation fence 로도 충족된다. 이 절충은 이번 변경 이전부터 있던 것이며, 그 단언만
   따로 보면 VE-8 의 산문보다 약하다. 같은 블록의 `screen-snapshot:ready` 미전송과 marker 비가시
@@ -173,11 +189,10 @@ test 마다 새 session 을 만드는 이 변경과 상관이 있다고 본다. 
 - `tools/issue5-probe-authority.mjs` — 실 서버의 `screen-snapshot` wire 를 캡처해 authority proof
   필드 유무를 출력한다. 위 2절의 근거이며 출력은 `raw/probe-authority.log` 다.
 - `tools/issue5-teardown-terminal.mjs` — workspace 의 터미널 탭을 모두 닫아 empty state 를 만든다.
-  spec 의 자체 시드 분기를 실제로 통과시키기 위해 15·18 번 실행 앞에서 썼다. 출력은
-  `raw/teardown-before-selfseeded.log` 다.
+  철회한 자체 시드 실험에서 시드 분기를 강제하려고 썼고, 출력은 `raw/teardown-before-selfseeded.log`
+  다(그 실행에서 `tabs left: 0`). 커밋된 spec 에는 필요하지 않으며 실험의 맥락을 위해 남긴다.
 
-`tools/issue5-seed-terminal.mjs` 는 spec 이 자체 시드를 갖기 전에 쓰던 것이다. 지금은 불필요하며
-9~12 번 실행의 맥락을 위해 남긴다.
+`tools/issue5-seed-terminal.mjs` 가 spec 의 전제를 만드는 정규 도구다. 9·15번 실행이 그 사용례다.
 
 세 스크립트 모두 `@playwright/test` 를 해석해야 하므로 `<WT>/frontend` 에 복사해 실행한다.
 
