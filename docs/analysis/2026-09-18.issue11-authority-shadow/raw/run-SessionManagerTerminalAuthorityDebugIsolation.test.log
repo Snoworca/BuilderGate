@@ -1,0 +1,22 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ MIG-BGSTAB-002 cleanup rejects a stale authority identity fence without releasing isolation (99.45456ms)
+✔ MIG-BGSTAB-002 cleanup fence blocks promotion until asynchronous isolation restoration completes (77.920445ms)
+✔ MIG-BGSTAB-002 cleanup serializes live PTY output after the restored headless checkpoint (105.451265ms)
+✔ MIG-BGSTAB-002 promotion claim blocks cleanup while controller promotion admission is asynchronous (78.226406ms)
+✔ MIG-BGSTAB-002 cleanup port rejects current non-legacy authority and missing fences (80.316122ms)
+✔ MIG-BGSTAB-002 cleanup accepts an exact completed legacy transition identity (82.686866ms)
+✔ MIG-BGSTAB-002 debug isolation uses the production headless queue and restores its retained override (92.119687ms)
+✔ MIG-BGSTAB-002 no-op failed-open isolation cleanup preserves recovery ACK and headless identity (76.051118ms)
+✔ MIG-BGSTAB-002 configured corpus windows yield to control-plane tasks (92.779986ms)
+✔ MIG-BGSTAB-002 headless recreation restores the registered legacy driver lease (77.17698ms)
+✔ MIG-BGSTAB-002 debug payload integrity fails closed before queue/model mutation (75.592319ms)
+✔ MIG-BGSTAB-002 query probe seeds through the counted model path and commits one live PTY reply (77.301268ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3615.015887
