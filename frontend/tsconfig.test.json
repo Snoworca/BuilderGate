@@ -8,10 +8,11 @@
   // src/utils/terminalDebugCapture.ts, so without src the only `declare global`
   // in the program is a narrowed copy and the measurement becomes meaningless.
   //
-  // "files" is an allowlist that grows one file at a time. Scope today: the unit
-  // tests S4 touches (they import ws-protocol / WsTransportMessage / wsCodec),
-  // plus the dialog-stack tests, which were checked by no tsconfig at all, plus
-  // individually admitted e2e specs — currently only
+  // "files" is an explicit allowlist. It used to grow one file at a time, and by
+  // issue #82 it had drifted: 45 of 116 files under tests/unit/ were in no
+  // tsconfig at all. It now covers every file under tests/unit/, and
+  // tests/unit/tsconfigTestMembership.test.ts fails when that stops being true.
+  // e2e specs are still admitted individually — currently only
   // tests/e2e/wave2-screen-repair-resync.spec.ts, whose synthetic wire frames
   // have to stay in step with the client's authority-proof types.
   "extends": "./tsconfig.app.json",
@@ -103,6 +104,50 @@
     "tests/unit/wsCheckpointProtocol.test.ts",
     "tests/unit/wsFrameDispatch.test.ts",
     "tests/unit/xtermDecoderInterleaving.test.ts",
+    "tests/unit/commandPresetExecution.test.ts",
+    "tests/unit/commandPresetPaste.test.ts",
+    "tests/unit/contextMenuGeometry.test.ts",
+    "tests/unit/contextMenuModel.test.ts",
+    "tests/unit/contextMenuNavigation.test.ts",
+    "tests/unit/dialogGeometry.test.ts",
+    "tests/unit/editorTabBarLabel.test.ts",
+    "tests/unit/imeTransaction.test.ts",
+    "tests/unit/mcpControlDialog.test.ts",
+    "tests/unit/messageBoxContract.test.ts",
+    "tests/unit/mosaicEqualLayout.test.ts",
+    "tests/unit/mosaicLayoutStorage.test.ts",
+    "tests/unit/perfBgstab010Ac6ServerAckFaultContract.test.ts",
+    "tests/unit/perfBgstab010Ac9IsolatedE2EContract.test.ts",
+    "tests/unit/recoveryOptionArguments.test.ts",
+    "tests/unit/recoveryOptionDialog.test.ts",
+    "tests/unit/recoveryOptionIcon.test.ts",
+    "tests/unit/runtimeConfig.test.ts",
+    "tests/unit/settingsDraftHelpers.test.ts",
+    "tests/unit/splitWebSocketLifecycle.test.ts",
+    "tests/unit/terminalContextMenuRegisteredItems.test.ts",
+    "tests/unit/terminalDebugCapture.test.ts",
+    "tests/unit/terminalHiddenOutput.test.ts",
+    "tests/unit/terminalQueryReply.test.ts",
+    "tests/unit/terminalReplayGuard.test.ts",
+    "tests/unit/terminalRestoreCoordinator.test.ts",
+    "tests/unit/terminalRetainedState.test.ts",
+    "tests/unit/terminalRightClickPolicy.test.ts",
+    "tests/unit/terminalRuntimeRefs.test.ts",
+    "tests/unit/terminalShortcutBindings.test.ts",
+    "tests/unit/terminalSnapshot.test.ts",
+    "tests/unit/terminalSoleWriterInventory.test.ts",
+    "tests/unit/terminalStaleKeyRepeat.test.ts",
+    "tests/unit/terminalTransportQueueDecision.test.ts",
+    "tests/unit/terminalViewRecoveryContract.test.ts",
+    "tests/unit/terminalWriteCoordinator.test.ts",
+    "tests/unit/useDragReorder.test.ts",
+    "tests/unit/useTerminalRuntimeResidency.test.ts",
+    "tests/unit/useWorkspaceManager.test.ts",
+    "tests/unit/visibleOutputRecovery.test.ts",
+    "tests/unit/webSocketUrl.test.ts",
+    "tests/unit/workspaceItemBadge.test.ts",
+    "tests/unit/workspaceMoveDialog.test.ts",
+    "tests/unit/tsconfigTestMembership.test.ts",
     "tests/e2e/wave2-screen-repair-resync.spec.ts"
   ],
   // src/editor 는 tsconfig.editor.json 이 검사한다. exclude 는 tsconfig.app.json 에서

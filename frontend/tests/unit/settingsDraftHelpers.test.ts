@@ -56,15 +56,17 @@ test('does not emit unchanged, unavailable, telemetry, stability mode, or reserv
   capabilities['resourceLimits.clientWs.inputBackpressureBytes'] = unavailable;
 
   draft.resourceLimits.clientWs.inputBackpressureBytes = 3_000_000;
-  draft.resourceLimits.telemetry.sampleIntervalMs = 10_000;
+  // sampleIntervalMs is a retired leaf, so it is no longer in the draft type;
+  // set it reflectively to prove the patch builder still ignores it.
+  Reflect.set(draft.resourceLimits.telemetry, 'sampleIntervalMs', 10_000);
   draft.resourceLimits.terminal.visibleOutputQueueMaxBytes = 9_000_000;
   draft.stabilityModes.frontendRuntimeResidency = 'bounded';
 
   assert.equal(WAVE6_RESOURCE_LIMIT_GROUPS.some((group) =>
-    group.fields.some((field) => field.key === 'resourceLimits.telemetry.sampleIntervalMs')
+    group.fields.some((field) => (field.key as string) === 'resourceLimits.telemetry.sampleIntervalMs')
   ), false);
   assert.equal(WAVE6_RESOURCE_LIMIT_GROUPS.some((group) =>
-    group.fields.some((field) => field.key === 'resourceLimits.terminal.visibleOutputQueueMaxBytes')
+    group.fields.some((field) => (field.key as string) === 'resourceLimits.terminal.visibleOutputQueueMaxBytes')
   ), false);
   assert.deepEqual(buildWave6ResourceLimitsPatch(initial, draft, capabilities), undefined);
 });
@@ -186,6 +188,7 @@ function createEditableValues(): EditableSettingsValues {
         transportOutboxMaxBytes: 65_536,
         transportOutboxTtlMs: 5_000,
         scrollbackLines: 10_000,
+        checkpointMaxBytes: 1_048_576,
       },
       snapshots: {
         perSnapshotMaxChars: 1_000_000,
@@ -199,7 +202,9 @@ function createEditableValues(): EditableSettingsValues {
         hiddenRuntimeTtlMs: 300_000,
       },
       telemetry: {
-        sampleIntervalMs: 30_000,
+        // Retired leaf kept in the fixture so the helpers are exercised against
+        // a config that still carries it on disk.
+        ...{ sampleIntervalMs: 30_000 },
         recentEventLimit: 200,
       },
     },
@@ -262,7 +267,7 @@ const ALL_KEYS: EditableSettingsKey[] = [
   'resourceLimits.workspaceRuntime.maxLiveWorkspaces',
   'resourceLimits.workspaceRuntime.maxLiveTerminals',
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs',
-  'resourceLimits.telemetry.sampleIntervalMs',
+  'resourceLimits.telemetry.sampleIntervalMs' as EditableSettingsKey,
   'resourceLimits.telemetry.recentEventLimit',
   'stabilityModes.headlessQueueMode',
   'stabilityModes.wsSendMode',

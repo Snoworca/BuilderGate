@@ -1607,12 +1607,12 @@ test('FR_BGSTAB_022_AC3_checkpoint_applied_waits_for_contiguous_source_watermark
   }).accepted, true, signature);
   assert.equal(coordinator.dispatch(checkpoint.chunk).accepted, true, signature);
   assert.equal(coordinator.dispatch(checkpoint.commit).accepted, true, signature);
-  assert.deepEqual(recording.checkpointApplied, [], signature);
-  assert.deepEqual(recording.checkpointDrained, [], signature);
+  assert.equal(recording.checkpointApplied.length, 0, signature);
+  assert.equal(recording.checkpointDrained.length, 0, signature);
   recording.writes.shift()?.onWritten();
   recording.writes.shift()?.onWritten();
   recording.writes.shift()?.onWritten();
-  assert.deepEqual(recording.checkpointApplied, [], 'sourceSeq=11 incorrectly satisfied sourceSeq=12 watermark');
+  assert.equal(recording.checkpointApplied.length, 0, 'sourceSeq=11 incorrectly satisfied sourceSeq=12 watermark');
   assert.deepEqual(recording.ready, [], signature);
   recording.writes.shift()?.onWritten();
   assert.equal(recording.checkpointApplied.length, 1, signature);
@@ -1639,8 +1639,8 @@ test('FR_BGSTAB_022_AC3_checkpoint_commit_waits_for_post_commit_contiguous_sourc
   }).accepted, true, signature);
   assert.equal(coordinator.dispatch(checkpoint.commit).accepted, true, signature);
   assert.equal(recording.writes.length, 0, 'checkpoint mutated the terminal before its declared watermark arrived');
-  assert.deepEqual(recording.checkpointApplied, [], signature);
-  assert.deepEqual(recording.checkpointDrained, [], signature);
+  assert.equal(recording.checkpointApplied.length, 0, signature);
+  assert.equal(recording.checkpointDrained.length, 0, signature);
   assert.deepEqual(recording.releasedInput, [], signature);
 
   assert.equal(coordinator.dispatch({
@@ -1657,7 +1657,7 @@ test('FR_BGSTAB_022_AC3_checkpoint_commit_waits_for_post_commit_contiguous_sourc
   recording.writes.shift()?.onWritten();
   recording.writes.shift()?.onWritten();
   recording.writes.shift()?.onWritten();
-  assert.deepEqual(recording.checkpointApplied, [], 'checkpoint applied before sourceSeq=12 was physically written');
+  assert.equal(recording.checkpointApplied.length, 0, 'checkpoint applied before sourceSeq=12 was physically written');
   assert.deepEqual(recording.releasedInput, [], signature);
   recording.writes.shift()?.onWritten();
 

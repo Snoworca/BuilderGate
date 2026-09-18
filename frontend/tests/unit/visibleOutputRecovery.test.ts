@@ -348,16 +348,18 @@ test('coalesced recovery output rejects the whole batch before a later stale seg
 
   assert.equal(classifyVisibleResyncOutputBatch({
     ...common,
+    // classifyVisibleResyncOutputBatch only reads chunkId/screenSeq; its input
+    // type carries no payload field.
     chunks: [
-      { data: 'first', chunkId: 'live-1', screenSeq: 12 },
-      { data: 'stale', chunkId: 'missing-sequence' },
+      { chunkId: 'live-1', screenSeq: 12 },
+      { chunkId: 'missing-sequence' },
     ],
   }), null);
   assert.deepEqual(classifyVisibleResyncOutputBatch({
     ...common,
     chunks: [
-      { data: 'first', chunkId: 'live-1', screenSeq: 12 },
-      { data: 'second', chunkId: 'live-2', screenSeq: 13 },
+      { chunkId: 'live-1', screenSeq: 12 },
+      { chunkId: 'live-2', screenSeq: 13 },
     ],
   }), ['current-live', 'current-live']);
 });

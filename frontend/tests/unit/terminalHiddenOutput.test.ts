@@ -161,7 +161,7 @@ test('REL-BGSTAB-012 settles ledger and holds stale view through drain', () => {
   });
 
   assert.equal(
-    (hidden.nextState as Record<string, unknown>).dataGapPending,
+    (hidden.nextState as unknown as Record<string, unknown>).dataGapPending,
     true,
     signature,
   );

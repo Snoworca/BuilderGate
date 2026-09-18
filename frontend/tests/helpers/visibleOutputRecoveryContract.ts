@@ -19,6 +19,7 @@ export interface RecoveryTransactionState {
   connectionGeneration: number;
   sessionGeneration: number;
   staleTerminal: boolean;
+  terminalFailed: boolean;
   currentViewTransactionReady: boolean;
   retainedHistoryEquivalent: boolean;
   provisionalLocalState: boolean;

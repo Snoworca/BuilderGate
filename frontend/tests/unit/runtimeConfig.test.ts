@@ -112,7 +112,6 @@ const settingsSnapshotCapabilities = {
   'resourceLimits.workspaceRuntime.maxLiveWorkspaces': defaultCapability,
   'resourceLimits.workspaceRuntime.maxLiveTerminals': defaultCapability,
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs': defaultCapability,
-  'resourceLimits.telemetry.sampleIntervalMs': defaultCapability,
   'resourceLimits.telemetry.recentEventLimit': defaultCapability,
   'stabilityModes.headlessQueueMode': defaultCapability,
   'stabilityModes.wsSendMode': defaultCapability,
@@ -197,7 +196,8 @@ const settingsSnapshotWithWriteHiddenPolicy = {
         hiddenRuntimeTtlMs: 300_000,
       },
       telemetry: {
-        sampleIntervalMs: 30_000,
+        // Retired leaf: still present in on-disk configs, absent from the type.
+        ...{ sampleIntervalMs: 30_000 },
         recentEventLimit: 200,
       },
     },
