@@ -90,6 +90,7 @@ export interface WorkspaceState {
 export interface WorkspaceLimits {
   maxWorkspaces: number;
   maxTabsPerWorkspace: number;
+  maxTotalSessions: number;
 }
 
 export type WorkspaceStateResponse = WorkspaceState & { limits: WorkspaceLimits };

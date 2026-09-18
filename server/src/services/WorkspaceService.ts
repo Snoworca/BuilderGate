@@ -229,10 +229,15 @@ export class WorkspaceService {
     return this.state;
   }
 
-  getLimits(): Pick<WorkspaceConfig, 'maxWorkspaces' | 'maxTabsPerWorkspace'> {
+  // #66: maxTotalSessions is published alongside the other two because the browser was
+  // hardcoding 32 for it while the server enforced the configured value at :564. Two of the
+  // three limits travelled; the third did not, so a deployment that lowered the cap kept
+  // offering the old one in the UI and the refusal arrived from the server instead.
+  getLimits(): Pick<WorkspaceConfig, 'maxWorkspaces' | 'maxTabsPerWorkspace' | 'maxTotalSessions'> {
     return {
       maxWorkspaces: this.config.maxWorkspaces,
       maxTabsPerWorkspace: this.config.maxTabsPerWorkspace,
+      maxTotalSessions: this.config.maxTotalSessions,
     };
   }
 

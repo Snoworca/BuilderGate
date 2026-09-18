@@ -660,7 +660,7 @@ function AppContent() {
                   activeTabId={wm.activeWorkspace.activeTabId}
                   totalSessionCount={wm.totalSessionCount}
                   maxTabs={wm.limits.maxTabsPerWorkspace}
-                  maxSessions={32}
+                  maxSessions={wm.limits.maxTotalSessions}
                   onSelectTab={handleSelectTab}
                   onCloseTab={handleCloseTab}
                   onRenameTab={handleRenameTab}

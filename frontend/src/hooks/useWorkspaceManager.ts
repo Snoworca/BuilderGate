@@ -172,7 +172,7 @@ export interface UseWorkspaceManagerReturn {
 // ============================================================================
 
 export function useWorkspaceManager(): UseWorkspaceManagerReturn {
-  const [limits, setLimits] = useState<WorkspaceLimits>({ maxWorkspaces: 10, maxTabsPerWorkspace: 8 });
+  const [limits, setLimits] = useState<WorkspaceLimits>({ maxWorkspaces: 10, maxTabsPerWorkspace: 8, maxTotalSessions: 32 });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [tabs, setTabs] = useState<WorkspaceTabRuntime[]>([]);
   const [gridLayouts, setGridLayouts] = useState<GridLayout[]>([]);
