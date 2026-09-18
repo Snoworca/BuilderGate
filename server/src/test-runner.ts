@@ -649,6 +649,7 @@ async function main(): Promise<void> {
     { name: 'authRoutes FR-802: stage mismatch returns 400 (Phase 4)', run: testAuthRoutesStageMismatch },
     { name: 'authRoutes COMBO-1: 2FA disabled returns JWT directly (Phase 4)', run: testAuthRoutesCombo1 },
     { name: 'authRoutes localhostPasswordOnly: localhost bypass returns JWT (Phase 4)', run: testAuthRoutesLocalhostBypass },
+    { name: 'authRoutes loopback login helper is reusable within one process (#48)', run: testLoopbackLoginHelperIsReusableWithinOneProcess },
     { name: 'authRoutes twoFactor.externalOnly: localhost bypass skips TOTP (bugfix)', run: testAuthRoutesExternalOnlyBypass },
     { name: 'authRoutes twoFactor.externalOnly=false: external-only disabled still requires TOTP', run: testAuthRoutesExternalOnlyDisabled },
     { name: 'authRoutes TOTP verify success issues JWT (Phase 4)', run: testAuthRoutesTOTPVerifySuccess },
@@ -21941,30 +21942,48 @@ async function invokeLoopbackLoginOverTcp(
   body: Record<string, unknown>,
   ip = '192.168.1.1',
 ): Promise<{ status: number; body: Record<string, unknown> }> {
+  // This helper speaks real TCP on purpose: the localhost-bypass branch reads the peer address
+  // off the socket, which a unix-socket fixture cannot provide. Everything else about it is
+  // ordinary, and used not to be.
+  //
+  // Issue #84 removed the hardcoded port 2222 -- the port CLAUDE.md reserves for the app under
+  // verification -- which the helper bound while ALREADY reading the assigned port back, so the
+  // hardcode only ever created a collision. #48 is the rest of it: the response handler called
+  // server.close() and resolved in the same breath, so the caller continued while the listener
+  // and its sockets were still coming down. Close is awaited here, open sockets are tracked and
+  // destroyed, and the request carries a timeout, so a second call in the same process starts
+  // from a clean slate instead of from whatever the first one left running.
   const app = createAuthTestApp(accessors);
-  return new Promise((resolve, reject) => {
-    const server = http.createServer(app);
-    // Issue #84: this bound port 2222 — the port CLAUDE.md reserves for the app
-    // under verification — while already reading the assigned port back, so the
-    // hardcode was doing nothing but creating a collision. Two tests share this
-    // helper and the second reliably died with ECONNRESET. Bind ephemerally.
-    server.listen(0, () => {
-      const port = (server.address() as net.AddressInfo).port;
+  const server = http.createServer(app);
+  const sockets = new Set<import('node:net').Socket>();
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
+  });
+  try {
+    const port = await new Promise<number>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', () => {
+        server.off('error', reject);
+        resolve((server.address() as net.AddressInfo).port);
+      });
+    });
+    return await new Promise((resolve, reject) => {
       const postBody = JSON.stringify(body);
-      const options = {
+      const request = http.request({
         hostname: '127.0.0.1', port, method: 'POST',
         path: '/api/auth/login',
+        agent: false,
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postBody),
           'x-test-remote-addr': ip,
         },
-      };
-      const request = http.request(options, (res) => {
+      }, (res) => {
         const chunks: Buffer[] = [];
         res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.once('error', reject);
         res.on('end', () => {
-          server.close();
           try {
             const json = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
             resolve({ status: res.statusCode ?? 0, body: json });
@@ -21973,11 +21992,43 @@ async function invokeLoopbackLoginOverTcp(
           }
         });
       });
-      request.on('error', (e: Error) => { server.close(); reject(e); });
+      request.once('error', reject);
+      request.setTimeout(5000, () => request.destroy(new Error('loopback login request timed out')));
       request.write(postBody);
       request.end();
     });
+  } finally {
+    for (const socket of sockets) socket.destroy();
+    if (server.listening) {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('loopback login server cleanup timed out')), 5000);
+        server.close((error) => {
+          clearTimeout(timer);
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  }
+}
+
+// #48: the defect was only visible when the helper ran twice in ONE process -- each test on its
+// own passed, so per-test green said nothing about it. This runs it repeatedly in one process,
+// which is the shape that failed, and would fail again the moment the listener stops being torn
+// down before the next call.
+async function testLoopbackLoginHelperIsReusableWithinOneProcess(): Promise<void> {
+  const { accessors, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true, localhostPasswordOnly: true,
   });
+  try {
+    for (let attempt = 1; attempt <= 6; attempt += 1) {
+      const result = await invokeLoopbackLoginOverTcp(accessors, { password: 'test-password' });
+      assert.equal(result.status, 200, `attempt ${attempt} of the reused loopback helper failed`);
+      assert.ok(typeof result.body.token === 'string', `attempt ${attempt} returned no token`);
+    }
+  } finally {
+    authService.destroy();
+  }
 }
 
 async function invokeVerify(
