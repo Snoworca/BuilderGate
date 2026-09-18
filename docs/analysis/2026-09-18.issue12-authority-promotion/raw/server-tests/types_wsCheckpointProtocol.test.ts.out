@@ -1,0 +1,11 @@
+✔ checkpoint client contract accepts negotiate and apply/drain/failure ACK frames (1.08353ms)
+✔ MIG-BGSTAB-002 checkpoint delivery ready accepts only the prepared canonical control identity (0.164196ms)
+✔ checkpoint ACK contract rejects number, noncanonical, out-of-range and inconsistent ordinals (0.763347ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 617.481199

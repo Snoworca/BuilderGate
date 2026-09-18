@@ -1,0 +1,39 @@
+== AC-2 window paraphrases
+   '혼합'                   1 hits /  1 reqs  ['REL-BGSTAB-007']
+   '섞'                    2 hits /  2 reqs  ['IR-BGSTAB-001', 'PERF-BGSTAB-011']
+   '두 responder'          0 hits /  0 reqs  []
+   '양쪽'                   4 hits /  4 reqs  ['IR-BGSTAB-001', 'IR-BGSTAB-002', 'OBS-BGSTAB-007', 'REL-BGSTAB-017']
+   'both'                16 hits / 13 reqs  ['CON-MDE-002', 'FR-BGSTAB-008', 'FR-BGSTAB-028', 'FR-MDE-003', 'FR-MDE-007', 'FR-MDE-009', 'FR-MDE-010', 'IR-MCP-003', 'IR-MDE-001', 'OBS-BGSTAB-006']
+   'simultaneous'         0 hits /  0 reqs  []
+   'concurrently'         2 hits /  2 reqs  ['FR-AITUI-002', 'REL-BGSTAB-022']
+   '동시'                   2 hits /  2 reqs  ['PERF-BGSTAB-009', 'REL-BGSTAB-009']
+   '겹'                    0 hits /  0 reqs  []
+   'barrier'              7 hits /  6 reqs  ['FR-BGSTAB-002', 'FR-BGSTAB-021', 'MIG-BGSTAB-002', 'PERF-BGSTAB-010', 'REL-BGSTAB-008', 'REL-BGSTAB-009']
+   'ACK'                152 hits / 69 reqs  ['CON-MDE-001', 'FR-AITUI-004', 'FR-ARCH-003', 'FR-ARCH-005', 'FR-BGSTAB-001', 'FR-BGSTAB-002', 'FR-BGSTAB-003', 'FR-BGSTAB-007', 'FR-BGSTAB-008', 'FR-BGSTAB-009']
+== AC-11 ledger-retention paraphrases
+   'ledger를 유지'           0 hits /  0 reqs  []
+   '원장'                   3 hits /  2 reqs  ['IR-BGSTAB-001', 'PERF-BGSTAB-011']
+   '폐기하지'                 1 hits /  1 reqs  ['IR-BGSTAB-001']
+   '보존'                  19 hits / 12 reqs  ['FR-BGSTAB-021', 'OBS-BGSTAB-004', 'OBS-BGSTAB-005', 'OBS-BGSTAB-009', 'OPS-BGSTAB-007', 'PERF-BGSTAB-008', 'PERF-BGSTAB-009', 'PERF-BGSTAB-010', 'REL-BGSTAB-007', 'REL-BGSTAB-008']
+   'retain'              52 hits / 27 reqs  ['CON-BGSTAB-001', 'FR-BGSTAB-003', 'FR-BGSTAB-026', 'FR-BGSTAB-027', 'IR-BGSTAB-001', 'IR-BGSTAB-002', 'IR-MCP-002', 'IR-MCP-004', 'MIG-BGSTAB-001', 'MIG-BGSTAB-002']
+   '수렴할 때까지'              0 hits /  0 reqs  []
+   '안정될 때까지'              0 hits /  0 reqs  []
+   'stabil'              14 hits /  9 reqs  ['FR-BGSTAB-008', 'FR-BGSTAB-012', 'FR-BGSTAB-013', 'FR-BGSTAB-028', 'MIG-BGSTAB-001', 'MIG-BGSTAB-003', 'REL-BGSTAB-001', 'REL-BGSTAB-006', 'REL-BGSTAB-024']
+== AC-4 key paraphrases
+   '식별'                   9 hits /  7 reqs  ['IR-BGSTAB-001', 'MIG-BGSTAB-001', 'OBS-BGSTAB-005', 'OBS-BGSTAB-008', 'PERF-BGSTAB-008', 'REL-BGSTAB-006', 'REL-BGSTAB-018']
+   'identity'            32 hits / 15 reqs  ['CON-BGSTAB-001', 'FR-BGSTAB-006', 'FR-BGSTAB-009', 'FR-BGSTAB-011', 'FR-BGSTAB-019', 'FR-MDE-005', 'OBS-BGSTAB-007', 'PERF-BGSTAB-002', 'REL-BGSTAB-008', 'REL-BGSTAB-009']
+   'key'                 92 hits / 41 reqs  ['FR-AITUI-003', 'FR-BGSTAB-008', 'FR-BGSTAB-013', 'FR-BGSTAB-015', 'FR-BGSTAB-022', 'FR-BGSTAB-025', 'FR-BGSTAB-026', 'FR-BGSTAB-028', 'FR-MCP-001', 'FR-MCP-002']
+   '튜플'                   0 hits /  0 reqs  []
+   'tuple'                1 hits /  1 reqs  ['REL-BGSTAB-010']
+   '같은 fact'              0 hits /  0 reqs  []
+   'duplicate fact'       0 hits /  0 reqs  []
+
+== full text of the rows that could bear AC-2 / AC-11 ==
+--- MIG-BGSTAB-002 AC-2 (x) docs/spec/30.buildergate-stability.srs.md:3716
+    Authority handoff는 old responder admission 중지와 disable ACK, stale lease revoke, new driver lease install, new responder enable과 fresh authoritative checkpoint를 하나의 epoch barrier 안에서 순서대로 수행해야 한다.
+--- MIG-BGSTAB-002 AC-3 (x) docs/spec/30.buildergate-stability.srs.md:3717
+    한 epoch에는 snapshot/query/side-effect authority가 하나만 활성화되어야 하고 legacy model은 promotion 뒤 passive comparer/fallback으로만 남아 duplicate reply와 fact를 생성해서는 안 된다.
+--- MIG-BGSTAB-002 AC-5 (x) docs/spec/30.buildergate-stability.srs.md:3719
+    Rollback은 new admission 중지, new responder와 lease revoke, affected view stale, parser reset, 기존 ACK/backlog 폐기, 새 streamEpoch의 fresh compatibility checkpoint와 post-snapshot output, legacy responder enable 순서로 수행해야 한다.
+--- REL-BGSTAB-011 AC-5 (x) docs/spec/30.buildergate-stability.srs.md:3634
+    Title, cwd, bell, status와 terminal query side effect는 streamEpoch, sourceSeq와 record-local ordinal identity로 exactly-once commit되거나 관측 가능한 rejection으로 종결되어야 한다.

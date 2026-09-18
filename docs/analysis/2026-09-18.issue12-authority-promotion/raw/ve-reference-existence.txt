@@ -1,0 +1,8 @@
+PRESENT  c3987645be9a9c8f  docs/plans/2026-07-16.projectmaster.wave3-authority.plan.md
+PRESENT  35760e7af1bfcc9e  docs/plans/2026-07-16.projectmaster.wave3-authority.sidecar.json
+PRESENT  a1e6541f0b2e6a59  docs/memory/2026-07-20-wave3-refresh-checkpoint-regression.md
+ABSENT   ----------------  docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/authority-promotion-decision.json
+PRESENT  29f299016bd70f2c  docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph005-ac4-timing-report.md
+PRESENT  511197a1f032c045  docs/plans/2026-07-24.projectmaster.w3-fairbase.plan.md
+PRESENT  34745f9ad8042c61  docs/research/2026-07-15.orca-terminal-stack-absorption-research-and-implementation-plan.ko.md
+PRESENT  44caf4bfcbd1df1e  docs/research/2026-07-15.orca-refresh-retained-state-refactor-research-and-plan.ko.md

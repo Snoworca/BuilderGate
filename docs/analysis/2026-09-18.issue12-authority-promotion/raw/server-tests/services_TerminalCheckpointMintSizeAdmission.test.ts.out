@@ -1,0 +1,11 @@
+✔ the retained checkpoint declares truncated:false as a literal type (13.056832ms)
+✔ issue #26: at default limits, per-token SGR at >=200 columns mints a checkpoint the browser must reject (2385.505099ms)
+✔ issue #26: the same per-token density at 80 columns still fits (828.368453ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4816.767764

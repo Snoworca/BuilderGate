@@ -1,0 +1,668 @@
+✔ ACK send failure fails closed and a newer epoch installs a new view generation before recovery
+✔ ACK-01 PERF-BGSTAB-011 routes each ordinary reservation tuple unchanged after commit
+✔ ACK-01 PERF-BGSTAB-011 routes each rollover reservation tuple unchanged after commit
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 1 snapshot-only resize(s)
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 2 snapshot-only resize(s)
+✔ ACK-01 REL-BGSTAB-011 preserves pending reservations across an interleaved snapshot rollover
+✔ ACK-01 REL-BGSTAB-011 reserves ordinary source tuples before headless commit
+✔ ACK-01 REL-BGSTAB-011 reserves rollover source tuples before headless commit
+✔ ACK-15 resize preserves queued source identities at snapshot 18446744073709551613
+✔ ACK-15 resize preserves queued source identities at snapshot 40
+✔ ACK-16 enabling shadow after disabled output preserves committed source identity
+✔ ACK-16 failed writes and headless recreation discard projected snapshot reservations
+✔ Browser TerminalWriteCoordinator sole writer RED contract — FR-BGSTAB-022 AC-1
+✔ Browser TerminalWriteCoordinator sole writer RED contract — FR-BGSTAB-022 AC-2
+✔ Browser TerminalWriteCoordinator sole writer RED contract — FR-BGSTAB-022 AC-3
+✔ Browser TerminalWriteCoordinator sole writer RED contract — FR-BGSTAB-022 AC-4
+✔ Browser TerminalWriteCoordinator sole writer RED contract — FR-BGSTAB-022 AC-5
+✔ Browser TerminalWriteCoordinator sole writer RED contract — FR-BGSTAB-022 AC-6
+✔ Browser TerminalWriteCoordinator sole writer RED contract — FR-BGSTAB-022 AC-7
+✔ Browser TerminalWriteCoordinator sole writer RED contract — REL-BGSTAB-007 AC-11
+✔ Browser TerminalWriteCoordinator sole writer RED contract — REL-BGSTAB-007 AC-4
+✔ Browser TerminalWriteCoordinator sole writer RED contract — REL-BGSTAB-007 AC-5
+✔ Browser TerminalWriteCoordinator sole writer RED contract — REL-BGSTAB-007 AC-8
+✔ Cache-poisoned authoritative recovery parity is failure-capable — REL-BGSTAB-007 AC-8
+✔ FR_BGSTAB_022_AC1_compatibility_mutations_share_the_canonical_physical_deque
+✔ FR_BGSTAB_022_AC3_checkpoint_applied_waits_for_contiguous_source_watermark_then_drains_before_ready
+✔ FR_BGSTAB_022_AC3_checkpoint_commit_waits_for_post_commit_contiguous_source_watermark
+✔ FR_BGSTAB_022_AC3_legacy_compatibility_write_cannot_follow_or_overwrite_checkpoint_authority
+✔ FR_BGSTAB_022_AC3_legacy_repair_replay_cannot_queue_behind_committed_checkpoint
+✔ FR_BGSTAB_022_AC3_legacy_snapshot_reset_cannot_queue_behind_committed_checkpoint
+✔ FR_BGSTAB_022_AC3_unsupported_mode_preflight_has_zero_terminal_mutations
+✔ FR_BGSTAB_022_AC4_bounds_post_checkpoint_hold_with_injected_limits
+✔ FR_BGSTAB_022_AC4_checkpoint_applied_callback_failure_stops_tail_drain
+✔ FR_BGSTAB_022_AC4_checkpoint_assembly_timeout_fails_closed_without_open_tx_deadlock
+✔ FR_BGSTAB_022_AC4_checkpoint_chunk_cannot_exceed_declared_or_injected_byte_budget
+✔ FR_BGSTAB_022_AC4_checkpoint_fault_latches_recovery_until_fresh_generation
+✔ FR_BGSTAB_022_AC4_checkpoint_frames_cross_validate_complete_authority_identity
+✔ FR_BGSTAB_022_AC4_checkpoint_write_timeout_requires_runtime_recreation
+✔ FR_BGSTAB_022_AC4_duplicate_commit_while_waiting_for_watermark_fails_closed
+✔ FR_BGSTAB_022_AC4_explicit_rollback_atomically_unlocks_legacy_snapshot_after_recovery
+✔ FR_BGSTAB_022_AC4_failed_open_checkpoint_does_not_deadlock_as_already_open
+✔ FR_BGSTAB_022_AC4_legacy_error_installs_higher_ordered_compatibility_recovery
+✔ FR_BGSTAB_022_AC4_missing_write_callback_requires_runtime_recreation
+✔ FR_BGSTAB_022_AC4_post_commit_watermark_allows_monotonic_reserved_sequence_gaps
+✔ FR_BGSTAB_022_AC4_post_commit_watermark_wait_keeps_the_transaction_timeout
+✔ FR_BGSTAB_022_AC4_recovery_failed_atomically_cancels_checkpoint_and_preserves_reentrant_install
+✔ FR_BGSTAB_022_AC4_recovery_latch_requires_explicit_fresh_generation_epoch_install
+✔ FR_BGSTAB_022_AC4_reentrant_recovery_preserves_fresh_checkpoint_timer
+✔ FR_BGSTAB_022_AC4_rollback_write_timeout_requires_runtime_recreation_and_rejects_snapshot
+✔ FR_BGSTAB_022_AC4_transition_timeout_recreates_runtime_instead_of_reusing_xterm
+✔ FR_BGSTAB_022_AC5_checkpoint_begin_revokes_ready_and_holds_input_while_assembling
+✔ FR_BGSTAB_022_AC5_dispose_observably_settles_accepted_input_without_release
+✔ FR_BGSTAB_022_AC5_downstream_input_rejection_is_settled_once_without_payload
+✔ FR_BGSTAB_022_AC5_expiry_notifier_throw_settles_every_accepted_input
+✔ FR_BGSTAB_022_AC5_missing_queue_limit_injection_fails_closed
+✔ FR_BGSTAB_022_AC5_pending_input_and_settlement_ledger_are_bounded_by_injected_limits
+✔ FR_BGSTAB_022_AC5_pending_input_ttl_expires_fail_closed_and_releases_ownership
+✔ FR_BGSTAB_022_AC6_adapter_reentrancy_cannot_release_old_generation_inputs
+✔ FR_BGSTAB_022_AC6_compatibility_completion_reentrancy_cannot_open_input_over_a_new_write
+✔ FR_BGSTAB_022_AC6_late_pre_rollback_write_callback_cannot_double_settle_or_mutate_legacy
+✔ FR_BGSTAB_022_AC6_old_generation_callback_throw_cannot_poison_fresh_generation
+✔ FR_BGSTAB_022_AC6_recovery_install_keeps_old_physical_write_until_callback
+✔ FR_BGSTAB_022_AC6_rejects_duplicate_or_empty_settlement_credit
+✔ FR_BGSTAB_022_AC6_rollback_keeps_physical_write_ownership_until_old_callback_drains
+✔ FR_BGSTAB_022_AC6_supersede_keeps_old_physical_write_until_callback
+✔ Frontend stale/resync barrier RED 계약 — AC-10
+✔ Frontend stale/resync barrier RED 계약 — AC-11
+✔ Frontend stale/resync barrier RED 계약 — AC-2
+✔ Frontend stale/resync barrier RED 계약 — AC-3
+✔ Frontend stale/resync barrier RED 계약 — AC-5
+✔ Frontend stale/resync barrier RED 계약 — AC-6
+✔ IR-BGSTAB-002 AC-6 boundary control: a sound digest on a known version is delivered
+✔ IR-BGSTAB-002 AC-6 fail-closes an unknown digest version with its own reason
+✔ IR-BGSTAB-002 AC-6 keeps a wrong value distinct from a wrong version
+✔ MIG-BGSTAB-002 AC-5 locks the first proven compatibility drain target while PTY output continues
+✔ MIG-BGSTAB-002 AC-5 rollback drain ACK advances through the contiguous post-snapshot tail
+✔ MIG-BGSTAB-002 ACK success released after deadline cannot revive accepted readiness
+✔ MIG-BGSTAB-002 ANSI-colored substantive draft prefix remains observable as running output
+✖ MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session
+✔ MIG-BGSTAB-002 CRLF-terminated substantive draft prefix remains observable as running output
+✖ MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles
+✖ MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior
+✔ MIG-BGSTAB-002 Ctrl+C cancels a deferred bare echo candidate
+✔ MIG-BGSTAB-002 Ctrl+C cursor-only repaint does not suppress later semantic shell output
+✖ MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle
+✔ MIG-BGSTAB-002 Ctrl+C prompt return expires an unmatched interrupted draft correlation
+✔ MIG-BGSTAB-002 Ctrl+C prompt-only shell return remains idle
+✔ MIG-BGSTAB-002 Ctrl+C prompt-return suppression is consumed before later semantic prompt output
+✔ MIG-BGSTAB-002 Ctrl+C retains an already-observed bare echo prefix for its matching suffix
+✔ MIG-BGSTAB-002 Ctrl+C settles one already-pending delayed local echo before later semantic output
+✔ MIG-BGSTAB-002 E2E same-view renegotiation recognizes the already accepted attribute identity
+✔ MIG-BGSTAB-002 Enter clears delayed local-echo correlation
+✖ MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix
+✖ MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection
+✖ MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session
+✔ MIG-BGSTAB-002 SGR-only split local echo remains idle when its matching suffix arrives
+✔ MIG-BGSTAB-002 TerminalView queues checkpoint-authority input until its exact mutation lease arrives
+✔ MIG-BGSTAB-002 WebSocket status changes do not replace the terminal send callback
+✔ MIG-BGSTAB-002 a CSI-split SGR local echo remains idle across PTY chunks
+✖ MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output
+✔ MIG-BGSTAB-002 a bare draft prefix with a nonmatching suffix runs immediately
+✔ MIG-BGSTAB-002 a control-only repaint does not cancel the bounded bare echo deadline
+✔ MIG-BGSTAB-002 a mixed-lane frame batch defers only within its own lane FIFO
+✔ MIG-BGSTAB-002 a physically late ACK for a superseded rollback checkpoint is ignored
+✔ MIG-BGSTAB-002 a replacement attributes handshake takes precedence over a stale precommit driver
+✔ MIG-BGSTAB-002 a replacement draft cancels a deferred bare echo candidate
+✖ MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate
+✔ MIG-BGSTAB-002 a stale precommit driver identity cannot reject a replacement view attributes push
+✔ MIG-BGSTAB-002 a subscription-ready observer cannot rotate a still-open browser mutation owner
+✔ MIG-BGSTAB-002 accepted ACK retries one fresh owner when manager identity changes before settlement
+✔ MIG-BGSTAB-002 accepted owner keeps its attributes challenge for recovery capability refresh
+✔ MIG-BGSTAB-002 accepts an initial compatibility snapshot completion for the prepared generation
+✔ MIG-BGSTAB-002 acknowledged authoritative recovery re-arms after checkpoint mode becomes available
+✔ MIG-BGSTAB-002 admits a prepared checkpoint after its snapshot drained before the capability arrived
+✔ MIG-BGSTAB-002 an OSC-133 active Codex bare prefix deadline runs and clears its candidate
+✔ MIG-BGSTAB-002 an OSC-133 active Codex bare prefix with a nonmatching suffix runs and clears its candidate
+✔ MIG-BGSTAB-002 an OSC-133 active Codex delayed exact echo stays idle
+✔ MIG-BGSTAB-002 an active Codex CSI-split local echo stays idle across PTY chunks
+✔ MIG-BGSTAB-002 an active Codex bare draft prefix times out to running without a suffix
+✔ MIG-BGSTAB-002 an active Codex bare prefix with a nonmatching suffix runs immediately
+✔ MIG-BGSTAB-002 an already reserved view recovery cannot create a second checkpoint lifecycle
+✔ MIG-BGSTAB-002 an observed exact local echo is not revived as an interrupted draft
+✔ MIG-BGSTAB-002 an unrelated precommit lease cannot become the responder identity fallback
+✔ MIG-BGSTAB-002 applied same-generation capability without a lease preserves its current lease
+✔ MIG-BGSTAB-002 attachment destroy detaches active authority runtime and clears its owned factory
+✔ MIG-BGSTAB-002 authoritative headless apply does not await a slow client delivery callback
+✔ MIG-BGSTAB-002 authoritative snapshot acknowledgement re-arms its exact checkpoint responder view
+✔ MIG-BGSTAB-002 authoritative snapshot replacement reports the exact rejected fence
+✔ MIG-BGSTAB-002 authority state commits only after final server and legacy delivery settlement
+✔ MIG-BGSTAB-002 authority transition frames cannot overtake an already admitted output delivery
+✔ MIG-BGSTAB-002 authority-capable legacy delivery remains exactly once on the authority lane
+✔ MIG-BGSTAB-002 authority-ready recovery retries after transient empty router projection
+✖ MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output
+✔ MIG-BGSTAB-002 bare split local echo remains idle when its matching suffix arrives
+✔ MIG-BGSTAB-002 baseline legacy responder without an explicit lease id admits a replacement driver
+✔ MIG-BGSTAB-002 binding replacement recovers an active checkpoint live-output settlement failure
+✔ MIG-BGSTAB-002 blocked current mount reports the latest gate reason without retaining the event tape
+✔ MIG-BGSTAB-002 bounds checkpoint-ready retries for an unresponsive current view
+✔ MIG-BGSTAB-002 browser capability declaration never authors authority generations
+✔ MIG-BGSTAB-002 capability updates are scoped per session and rollback cannot disable another session
+✔ MIG-BGSTAB-002 capability view attributes are generated by the control plane without a mounted renderer
+✔ MIG-BGSTAB-002 capability view-attributes response is owned by WebSocketContext rather than TerminalView
+✔ MIG-BGSTAB-002 checkpoint ACK rejections reject malformed identity correlation metadata
+✔ MIG-BGSTAB-002 checkpoint admission failure rolls installed server leases back and keeps the final ACK provisional
+✔ MIG-BGSTAB-002 checkpoint capability without a lease preserves other and suspended-session mutation leases
+✔ MIG-BGSTAB-002 checkpoint delivery ready accepts only the prepared canonical control identity
+✖ MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps
+✔ MIG-BGSTAB-002 checkpoint input remains fenced until its exact view lease arrives
+✔ MIG-BGSTAB-002 checkpoint pump cannot deliver queued stale frames to a successor socket with the same logical connection
+✔ MIG-BGSTAB-002 checkpoint pump waits for each physical send settlement before admitting the next chunk
+✔ MIG-BGSTAB-002 checkpoint recovery readiness does not depend on a legacy attributes challenge
+✔ MIG-BGSTAB-002 checkpoint rejects stale snapshot Windows PTY metadata
+✔ MIG-BGSTAB-002 checkpoint send callback failure revokes server authority and starts fresh rollback
+✔ MIG-BGSTAB-002 checkpoint-ready deadline begins only after the control preparation settles
+✔ MIG-BGSTAB-002 cleanup E2E disables the request helper internal transient retry
+✔ MIG-BGSTAB-002 cleanup accepts an exact completed legacy transition identity
+✔ MIG-BGSTAB-002 cleanup attempt sequence never retries a timed-out or rejected first cleanup
+✔ MIG-BGSTAB-002 cleanup attempt sequence probes idempotency only after first cleanup succeeds
+✔ MIG-BGSTAB-002 cleanup bounds persistent zero-view rollback admission failure
+✔ MIG-BGSTAB-002 cleanup fails closed when zero-view rollback recovery never converges
+✔ MIG-BGSTAB-002 cleanup fence blocks promotion until asynchronous isolation restoration completes
+✔ MIG-BGSTAB-002 cleanup observes a stalled production rollback without restarting it
+✔ MIG-BGSTAB-002 cleanup port rejects current non-legacy authority and missing fences
+✔ MIG-BGSTAB-002 cleanup rejects a stale authority identity fence without releasing isolation
+✔ MIG-BGSTAB-002 cleanup retries only the exact legacy-settle sentinel before idempotency proof
+✔ MIG-BGSTAB-002 cleanup retries transient zero-view rollback admission before releasing isolation
+✔ MIG-BGSTAB-002 cleanup serializes live PTY output after the restored headless checkpoint
+✔ MIG-BGSTAB-002 cleanup waits for a zero-view production rollback to converge before releasing the exact isolation lease
+✔ MIG-BGSTAB-002 cleanup waits for topology-owned recovery after rollback start admission fails
+✔ MIG-BGSTAB-002 cleanup waits through the ordered rollback drain before releasing isolation
+✔ MIG-BGSTAB-002 compatibility checkpoint rejection cannot report rollback success
+✔ MIG-BGSTAB-002 compatibility drain coalesces concurrent cumulative watermarks
+✔ MIG-BGSTAB-002 compatibility recovery role is narrowly scoped to passive legacy snapshots
+✔ MIG-BGSTAB-002 compatibility snapshot releases aborted promotion held output
+✔ MIG-BGSTAB-002 configured checkpoint failure preserves generation lineage
+✔ MIG-BGSTAB-002 configured corpus recreation refreshes the replacement runtime before promotion
+✔ MIG-BGSTAB-002 configured corpus windows yield to control-plane tasks
+✔ MIG-BGSTAB-002 configured failure diagnostic excludes runtime secrets and has a byte ceiling
+✔ MIG-BGSTAB-002 configured retained range receives its bounded extended ACK settlement window
+✔ MIG-BGSTAB-002 configured retained-range apply failure cleans up without refresh or promotion
+✔ MIG-BGSTAB-002 configured retained-range lets the bounded promotion gate recover after refreshed capability churn
+✔ MIG-BGSTAB-002 configured retained-range preparation fails closed for missing refresh hook with ready reader
+✔ MIG-BGSTAB-002 configured retained-range preparation fails closed for rejected current runtime capability refresh
+✔ MIG-BGSTAB-002 configured retained-range preparation refreshes only the runtime recreated by corpus apply
+✔ MIG-BGSTAB-002 configured retained-range preparation refreshes the current legacy capability after corpus apply
+✔ MIG-BGSTAB-002 configured retained-range preparation yields for fresh responder input after corpus apply
+✔ MIG-BGSTAB-002 configured retained-range uses one exact refresh result without corpus-budget polling
+✔ MIG-BGSTAB-002 conflicting cleanup cannot disturb the active rollback transaction
+✔ MIG-BGSTAB-002 continuation refuses to mutate after server authority has been lost
+✔ MIG-BGSTAB-002 control and terminal frame pumps use distinct lane-specific keys
+✔ MIG-BGSTAB-002 cumulative drain accepts snapshot-first ACK and rejects underflow or over-ACK
+✔ MIG-BGSTAB-002 debug evidence failures preserve bounded diagnostic metadata
+✔ MIG-BGSTAB-002 debug isolation parser accepts an integrity-bound query continuation
+✔ MIG-BGSTAB-002 debug isolation parser accepts the exact basic legacy preparation
+✔ MIG-BGSTAB-002 debug isolation parser rejects a mode-policy mismatch
+✔ MIG-BGSTAB-002 debug isolation parser rejects an integrity mismatch without fallback
+✔ MIG-BGSTAB-002 debug isolation parser rejects unknown mutation fields
+✔ MIG-BGSTAB-002 debug isolation uses the production headless queue and restores its retained override
+✔ MIG-BGSTAB-002 debug payload integrity fails closed before queue/model mutation
+✔ MIG-BGSTAB-002 deferred future capability publishes attributes when dispatcher registration catches up
+✔ MIG-BGSTAB-002 delayed ANSI echo of a backspace-edited local draft stays idle after a prompt redraw
+✔ MIG-BGSTAB-002 delayed ANSI echo of a superseded pre-edit draft remains running
+✔ MIG-BGSTAB-002 delayed ANSI local echo split across PTY chunks stays idle until its matching suffix arrives
+✔ MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the debug correlation window expires
+✔ MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the pending input buffer is cleared
+✔ MIG-BGSTAB-002 delayed ANSI-colored nonmatching output remains running after the pending input buffer is cleared
+✔ MIG-BGSTAB-002 delayed Ctrl+C clear-line › prompt repaint stays idle when foreground detection is stale
+✔ MIG-BGSTAB-002 delayed Ctrl+C clear-line and cursor repaint stays idle when foreground detection is stale
+✔ MIG-BGSTAB-002 delayed Ctrl+C semantic output remains running when foreground detection is stale
+✔ MIG-BGSTAB-002 delayed active-draft echo prefix survives an intervening control-only repaint
+✔ MIG-BGSTAB-002 delayed local-input cursor visibility repaint stays idle when foreground detection is stale
+✔ MIG-BGSTAB-002 delayed local-input semantic output remains running when foreground detection is stale
+✔ MIG-BGSTAB-002 destructive split output change fences a generation-retargeted refresh
+✔ MIG-BGSTAB-002 does not send or latch prepared ready across a replaced control socket
+✔ MIG-BGSTAB-002 does not send prepared checkpoint-ready from an unproven clean runtime
+✔ MIG-BGSTAB-002 drained ordered rollback consumes passive capability without rotating the view
+✔ MIG-BGSTAB-002 duplicate cleanup for one token and lease joins the active rollback transaction
+✔ MIG-BGSTAB-002 empty authority withdrawal clears every retained mutation lease
+✔ MIG-BGSTAB-002 empty server capability remains an authoritative fail-closed withdrawal
+✔ MIG-BGSTAB-002 empty withdrawal cancels a deferred future capability before registration
+✔ MIG-BGSTAB-002 exact precommit and pending identities retain their full generation tuples
+✔ MIG-BGSTAB-002 exhausted checkpoint-ready retries roll back the unready server authority
+✔ MIG-BGSTAB-002 explicit legacy capability refresh fails closed after a bounded permanent topology gap
+✔ MIG-BGSTAB-002 explicit legacy capability refresh waits for a transient empty responder topology
+✔ MIG-BGSTAB-002 explicit recovery resumes an existing rollback with the current compatibility view
+✔ MIG-BGSTAB-002 explicit refresh retargets one successor challenge across view-generation churn
+✔ MIG-BGSTAB-002 explicit refresh waits for a held identity-changed rebind before fresh capability enqueue
+✔ MIG-BGSTAB-002 explicit rollback refreshes the authority-ready view after a zero-view reconnect
+✔ MIG-BGSTAB-002 failed compatibility query transfer keeps rollback retryable and uncommitted
+✔ MIG-BGSTAB-002 failed compatibility rebind removes the provisional drain ACK and retries transactionally
+✔ MIG-BGSTAB-002 failed-open server isolation rolls authority back before resource cleanup
+✔ MIG-BGSTAB-002 final dispatcher replacement accepts a legitimate lower generation after lifetime reset
+✔ MIG-BGSTAB-002 final promotion waits for production rollback before failed-open cleanup
+✔ MIG-BGSTAB-002 final release clears cached authority after transient same-turn replacement
+✔ MIG-BGSTAB-002 follower response is reject-only and cannot rotate the owner handshake
+✔ MIG-BGSTAB-002 follower split lane replacement and unpair preserve the exact owner handshake
+✔ MIG-BGSTAB-002 fresh legacy isolation performs a real promotion and compatibility rollback
+✔ MIG-BGSTAB-002 future capability is applied once when the replacement dispatcher reaches its generation
+✔ MIG-BGSTAB-002 generation retarget does not consume the later manager-identity recovery
+✔ MIG-BGSTAB-002 generation retarget preserves the immutable driver client anchor
+✔ MIG-BGSTAB-002 hard reload waits for exact control-lane readiness before its atomic checkpoint batch and PTY tail
+✔ MIG-BGSTAB-002 headless degradation settles the owned authority runtime without a partial attachment
+✔ MIG-BGSTAB-002 headless recreation disposes the previous authority runtime before replacement
+✔ MIG-BGSTAB-002 headless recreation restores the registered legacy driver lease
+✔ MIG-BGSTAB-002 headless runtime recreation restores a fresh legacy browser mutation lease
+✔ MIG-BGSTAB-002 held output already covered by the authoritative snapshot is not emitted twice
+✔ MIG-BGSTAB-002 held successor rebind resumes the latest generation with one bounded wake
+✔ MIG-BGSTAB-002 ignores a delayed ACK rejection whose checkpoint identity predates the active transaction
+✔ MIG-BGSTAB-002 ignores a delayed pre-rollback ACK rejection after installing its replacement boundary
+✔ MIG-BGSTAB-002 immediate Ctrl+C SGR-reset and cursor-hide repaint stays idle
+✔ MIG-BGSTAB-002 immediate Ctrl+C prompt repaint consumes its allowance before later semantic prompt output
+✔ MIG-BGSTAB-002 immediate semantic output after Ctrl+C remains running
+✔ MIG-BGSTAB-002 immediate semantic output after unsent printable input remains running
+✔ MIG-BGSTAB-002 interrupted-draft echo prefix survives an intervening control-only repaint
+✔ MIG-BGSTAB-002 invalidated compatibility commit cannot overwrite restarted recovery after settlement resumes
+✔ MIG-BGSTAB-002 invalidated promotion boundary cannot report success after topology recovery starts
+✔ MIG-BGSTAB-002 invalidated promotion boundary recovers before retrying isolation promotion
+✔ MIG-BGSTAB-002 invalidated promotion commit cannot overwrite topology abort after settlement resumes
+✔ MIG-BGSTAB-002 invalidated rollback checkpoint cannot mutate a replacement rollback context
+✔ MIG-BGSTAB-002 invalidated rollback transaction waits for production-owned recovery before legacy isolation settles
+✔ MIG-BGSTAB-002 isolates an ACK rejection that omits the active connection identity
+✔ MIG-BGSTAB-002 isolates an uncorrelatable ACK rejection after a fresh checkpoint starts
+✔ MIG-BGSTAB-002 isolates an uncorrelatable ACK rejection before a checkpoint starts
+✔ MIG-BGSTAB-002 large checkpoint body is parse-paced in bounded physical slices
+✔ MIG-BGSTAB-002 late legacy snapshots cannot overwrite active checkpoint authority
+✔ MIG-BGSTAB-002 legacy capability refresh follows the suspended browser driver instead of view order
+✔ MIG-BGSTAB-002 legacy compatibility responder identity rebinds to a replacement view
+✔ MIG-BGSTAB-002 legacy driver ownership transfers to the remaining capable view after disconnect
+✔ MIG-BGSTAB-002 legacy isolation waits for topology-owned rollback start recovery
+✔ MIG-BGSTAB-002 legacy output with no authority-capable view does not enter an epochless rollback
+✔ MIG-BGSTAB-002 model replacement reacquires recovery ACK inside one isolation lease
+✔ MIG-BGSTAB-002 model replacement waits for the recovery view to reconnect inside one isolation lease
+✔ MIG-BGSTAB-002 negotiation scopes mixed authority modes per session
+✔ MIG-BGSTAB-002 no-op failed-open isolation cleanup preserves recovery ACK and headless identity
+✔ MIG-BGSTAB-002 observes a prepared ready blocked before a control receipt exists
+✔ MIG-BGSTAB-002 only a pending replacement view recovery covers missing checkpoint output
+✔ MIG-BGSTAB-002 ordered rollback completion releases the real coordinator checkpoint authority
+✔ MIG-BGSTAB-002 output-replaced fences the initially selected owner during a held legacy rebind
+✔ MIG-BGSTAB-002 output-unpaired fences the initially selected owner during a held legacy rebind
+✔ MIG-BGSTAB-002 overlapping legacy capability refreshes do not piggyback an older challenge
+✔ MIG-BGSTAB-002 oversized configured diagnostics preserve bounded client churn evidence
+✔ MIG-BGSTAB-002 passive rollback observer releases only after its own snapshot drain
+✔ MIG-BGSTAB-002 pending challenge rejects a same-view client identity replacement
+✔ MIG-BGSTAB-002 pending challenge rejects a same-view driver lease identity replacement
+✔ MIG-BGSTAB-002 pending handshake does not amplify a capability into a blind retry queue
+✔ MIG-BGSTAB-002 pending view-attributes handshake stays pending without a reply then fails at its deadline
+✔ MIG-BGSTAB-002 poisoned configured failure emits bounded redacted authority diagnostics
+✔ MIG-BGSTAB-002 poisoned reload E2E cannot synthesize its capability response
+✔ MIG-BGSTAB-002 poisoned reload failure preserves replay transaction evidence
+✔ MIG-BGSTAB-002 poisoned reload re-enables client recovery diagnostics after navigation
+✔ MIG-BGSTAB-002 post-snapshot output remains on the checkpoint lane while promotion is settling
+✔ MIG-BGSTAB-002 post-snapshot test dispatch preserves the server checkpoint decision
+✔ MIG-BGSTAB-002 prepared checkpoint delivery capability is bound to its registered server view
+✔ MIG-BGSTAB-002 production adapter hard reload rebinds the live view and sends fresh recovery
+✔ MIG-BGSTAB-002 production attachment can activate retained shadow for an existing disabled session
+✔ MIG-BGSTAB-002 production client pairs split output before same-view renegotiation
+✔ MIG-BGSTAB-002 production destroy all-settles runtime map and factory ownership after responder detach failure
+✔ MIG-BGSTAB-002 production inventory exposes bounded authority audit metadata
+✔ MIG-BGSTAB-002 production inventory exposes the exact attached responder view count
+✔ MIG-BGSTAB-002 production parser accepts full disable and rollback boundaries only
+✔ MIG-BGSTAB-002 production promotion deadline follows the configured browser ACK contract exactly once
+✔ MIG-BGSTAB-002 production rollback overflow coalesces one fresh compatibility recovery
+✔ MIG-BGSTAB-002 production wiring preserves user-input order and generation ownership
+✔ MIG-BGSTAB-002 promotion admission fence owns output queued while the legacy prefix is unresolved
+✔ MIG-BGSTAB-002 promotion admission fence rejects a concurrent begin transaction
+✔ MIG-BGSTAB-002 promotion begin accepts a boundary ACK that wins the send-callback race
+✔ MIG-BGSTAB-002 promotion claim blocks cleanup while controller promotion admission is asynchronous
+✔ MIG-BGSTAB-002 promotion defers an acknowledged view until server authority is committed
+✔ MIG-BGSTAB-002 promotion evidence comparison is not starved by an unrelated busy session
+✔ MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when aborted recovery stalls
+✔ MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when promoting recovery stalls
+✔ MIG-BGSTAB-002 promotion fails closed without overlapping cleanup when rolling-back recovery stalls
+✔ MIG-BGSTAB-002 promotion installs concrete server driver and responder leases before checkpoint release
+✔ MIG-BGSTAB-002 promotion observes aborted topology recovery without starting a debug rollback
+✔ MIG-BGSTAB-002 promotion observes an active production rollback without starting a debug rollback
+✔ MIG-BGSTAB-002 promotion parity snapshot fails closed for missing lease, no-cache evidence, and comparer mismatch
+✔ MIG-BGSTAB-002 promotion performs one final bounded attempt after the last poll crosses its deadline
+✔ MIG-BGSTAB-002 promotion retry observes authority that converged between state read and command
+✔ MIG-BGSTAB-002 promotion revalidates the frozen responder topology after its legacy prefix drains
+✔ MIG-BGSTAB-002 promotion waits for a stalled production compatibility rollback before retrying
+✔ MIG-BGSTAB-002 promotion waits for an in-flight compatibility rollback before touching replay state
+✔ MIG-BGSTAB-002 promotion waits for production topology recovery without resuming rollback
+✔ MIG-BGSTAB-002 promotion waits for the replacement legacy lease admission to reopen
+✔ MIG-BGSTAB-002 query probe seeds through the counted model path and commits one live PTY reply
+✔ MIG-BGSTAB-002 reacquires a missing same-socket ready receipt after compatibility recovery completes
+✔ MIG-BGSTAB-002 reconnect cleanup revokes runtime leases and invalidates prepared promotion evidence
+✔ MIG-BGSTAB-002 reconnect generation emits one fresh authority-ready hook for the replacement view
+✔ MIG-BGSTAB-002 recovery ACK miss preserves bootstrap replay until the refreshed model is acknowledged
+✔ MIG-BGSTAB-002 recovery-pending user input uses the bounded transport queue and releases once with current identity
+✔ MIG-BGSTAB-002 refresh resolves only after manager acceptance and accepted ACK settlement
+✔ MIG-BGSTAB-002 registration stabilization preserves the last capability rejection evidence
+✔ MIG-BGSTAB-002 registration stabilization reuses an accepted idempotent view-attributes challenge
+✔ MIG-BGSTAB-002 rejected ACK settlement invalidates its challenge before a late duplicate
+✔ MIG-BGSTAB-002 rejected capability application cannot admit attributes or keep authority active
+✔ MIG-BGSTAB-002 rejected continuation preserves the bounded runtime reason
+✔ MIG-BGSTAB-002 rejects client-authored responder generations and grants both browser views from server stream state
+✔ MIG-BGSTAB-002 released ready inputs do not exhaust the output settlement ledger cap
+✔ MIG-BGSTAB-002 reload-safe input readiness reads the current gate without mutating transport overrides
+✔ MIG-BGSTAB-002 repeated ambiguous bare chunks do not rearm the deferred echo deadline
+✔ MIG-BGSTAB-002 repeated rollback boundary supersedes an open checkpoint in the same view generation
+✔ MIG-BGSTAB-002 replacement capability publication is scoped to that session only
+✔ MIG-BGSTAB-002 replacement challenge reply after the original deadline cannot revive readiness
+✔ MIG-BGSTAB-002 replacement connection retargets output policy without replacing xterm callbacks
+✔ MIG-BGSTAB-002 replacement local input invalidates the prior delayed local-echo correlation
+✔ MIG-BGSTAB-002 replacement view supersedes a stale checkpoint-ready preparation before stale disconnect
+✔ MIG-BGSTAB-002 reports an in-flight checkpoint takeover without treating every replacement rejection as ready
+✔ MIG-BGSTAB-002 retiring capability generation removes its old mutation lease
+✔ MIG-BGSTAB-002 retries a single failed authority-send rollback without another callback
+✔ MIG-BGSTAB-002 rollback cancels a pending checkpoint-ready deadline before it can retry
+✔ MIG-BGSTAB-002 rollback cannot interleave or reactivate an in-flight hard-reload checkpoint
+✔ MIG-BGSTAB-002 rollback held query transfer invokes the exact compatibility responder port
+✔ MIG-BGSTAB-002 rollback holds concurrent PTY output until the compatibility checkpoint settles
+✔ MIG-BGSTAB-002 rollback lease renewal on the same responder identity does not restart recovery
+✔ MIG-BGSTAB-002 rollback pending output stays bounded and restarts from a fresh authoritative snapshot
+✔ MIG-BGSTAB-002 rollback preserves focus before closing the checkpoint input barrier
+✔ MIG-BGSTAB-002 rollback query hold ledger fails closed at the configured chunk bound
+✔ MIG-BGSTAB-002 rollback query parity uses the live input-gate diagnostic
+✔ MIG-BGSTAB-002 rollback selects the suspended driver and withholds attributes challenges from passive peers
+✔ MIG-BGSTAB-002 rollback start stays on terminal delivery while legacy enable gates control replay
+✔ MIG-BGSTAB-002 rollback topology churn coalesces to one leading-edge recovery window
+✔ MIG-BGSTAB-002 rollback topology rejects a projected generation outside the active stream epoch
+✔ MIG-BGSTAB-002 rollback-start installs a same-view replacement boundary before the next checkpoint
+✔ MIG-BGSTAB-002 runtime factory registration backfills sessions restored before production authority attachment
+✔ MIG-BGSTAB-002 runtime factory registration is atomic and rejects a different owner factory
+✔ MIG-BGSTAB-002 runtime ports close real admission and restore the concrete browser driver only after both compatibility leases bind
+✔ MIG-BGSTAB-002 runtime recreation invalidates an old pending refresh before a new runtime refresh succeeds
+✔ MIG-BGSTAB-002 same-generation hard reload replaces the live server-authority view
+✔ MIG-BGSTAB-002 same-session dispatcher replacement cancels its transient empty negotiation
+✔ MIG-BGSTAB-002 same-turn replacement republishes its cached exact capability and lease once
+✔ MIG-BGSTAB-002 same-view checkpoint renegotiation projects its existing server-authority lease
+✔ MIG-BGSTAB-002 same-view runtime recreation rejects the old challenge before accepting the replacement
+✔ MIG-BGSTAB-002 screen repair waits for an accepted retained resize before checking geometry
+✔ MIG-BGSTAB-002 semantic output before a prompt-prefixed local draft remains running
+✔ MIG-BGSTAB-002 semantic output clears delayed local-echo correlation
+✔ MIG-BGSTAB-002 send failure waits for same-turn hard-reload topology settlement
+✔ MIG-BGSTAB-002 sends one prepared checkpoint-ready only after compatibility recovery completes
+✔ MIG-BGSTAB-002 sends prepared ready after a same-socket view-attributes control message
+✔ MIG-BGSTAB-002 server authority replaces stale frozen views before reconnect rollback
+✔ MIG-BGSTAB-002 server responder grant carries one canonical authority generation
+✔ MIG-BGSTAB-002 session finalization disposes a factory-owned authority runtime
+✔ MIG-BGSTAB-002 session finalization disposes authority timer and settles queued delivery exactly once
+✔ MIG-BGSTAB-002 session teardown cancels the deferred bare echo timer
+✔ MIG-BGSTAB-002 session teardown safely discards a deferred bare echo candidate
+✔ MIG-BGSTAB-002 silent xterm write and silent FIFO probe certify runtime recreation
+✔ MIG-BGSTAB-002 slow client delivery backlog is bounded without pausing PTY ingest
+✔ MIG-BGSTAB-002 slow xterm write is probe-certified before runtime recreation
+✔ MIG-BGSTAB-002 snapshot Windows PTY metadata applies only after snapshot authority succeeds
+✔ MIG-BGSTAB-002 snapshot replacement body shares the checkpoint sole-writer deque
+✔ MIG-BGSTAB-002 snapshot reset body and a later checkpoint share one physical order
+✔ MIG-BGSTAB-002 split control advertises view attributes only after its output lane pairs
+✔ MIG-BGSTAB-002 split output close invalidates pending handshake and re-pair requires a fresh exact identity
+✖ MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw
+✔ MIG-BGSTAB-002 stale driver attributes rotate once and only the fresh exact identity settles true
+✔ MIG-BGSTAB-002 stale hard-reload checkpoint settlement cannot roll back a live replacement view
+✔ MIG-BGSTAB-002 stale promotion deadline cannot roll back a replacement authority runtime
+✔ MIG-BGSTAB-002 stale ready gate cannot authorize a replacement terminal runtime
+✔ MIG-BGSTAB-002 stale scoped capability cannot replace the current generation or restart rollback
+✔ MIG-BGSTAB-002 streaming capture compacts xterm default-color blanks and preserves absolute DECSC cursor
+✔ MIG-BGSTAB-002 streaming capture proves the exact retained overlap without absolute line indexes
+✔ MIG-BGSTAB-002 subscribe re-announces a previously negotiated view after it becomes an authority candidate
+✔ MIG-BGSTAB-002 topology replacement during rollback does not reset the fresh parser again
+✔ MIG-BGSTAB-002 unadorned exact delayed draft echo remains idle
+✔ MIG-BGSTAB-002 unadorned substantive draft prefix remains observable as running output
+✔ MIG-BGSTAB-002 unready checkpoint preparation expires without admitting an authoritative checkpoint
+✔ MIG-BGSTAB-002 unregistering the legacy driver preserves the session responder through replacement rebind
+✔ MIG-BGSTAB-002 write-pipeline probe preserves pending checkpoint mode rehydrate bytes
+✔ MIG-BGSTAB-002 zero-attached producer waits for an open focused input gate
+✔ MIG-BGSTAB-002 zero-view hard reload retains PTY output for the replacement checkpoint
+✔ MIG-BGSTAB-002 zero-view rollback recovery wakes when a replacement view becomes authority-ready
+✔ OBS-BGSTAB-004 AC-4 canonical retained-state hash RED contract
+✔ OBS-BGSTAB-004 AC-4 read-only xterm capture repair RED contract
+✔ OBS-BGSTAB-004 AC-4/6 compact live fingerprint repair RED contract
+✔ OBS-BGSTAB-004 AC-4/6 retained-range ordered evidence repair RED contract
+✔ OBS-BGSTAB-004 AC-6 eviction and observed loss RED contract
+✔ PERF-BGSTAB-010 AC-6 browser records ACK rejection without delivery or status mutation
+✔ PERF-BGSTAB-010 browser ACK is emitted only after an accepted visible terminal write
+✔ RED reviewer — actual headless write degradation is typed and blocks authority canary
+✔ RED reviewer — actual input path rejects every stale lease identity with eight clients
+✔ RED reviewer — actual input, resize, and query paths reject stale lease identity for two clients
+✔ RED reviewer — degraded, overflow, and commit-failure OSC status records reject facts without empty delivery
+✔ RED reviewer — dispatcher cleanup removes its lease before listing remaining views for renegotiation
+✔ RED reviewer — failed competing mutation lease rolls back only its newly registered view
+✔ RED reviewer — headless write failure settles failed and later queued semantic records exactly once
+✔ RED reviewer — missing actual mutation identity stays legacy-compatible but blocks shadow canary
+✔ RED reviewer — negotiated mutation lease is attached only to matching input and resize frames
+✔ RED reviewer — negotiated observer stays registered, cannot mutate, and rebinds after driver disconnect
+✔ RED reviewer — negotiated retained lease fences actual websocket input and resize mutations
+✔ RED reviewer — newline-free soft-wrap and reflow eviction advance exact oldest retained source
+✔ RED reviewer — old authority identity cannot mutate replacement PTY through actual paths
+✔ RED reviewer — parser-tail and eviction comparer axes fail closed without an independent baseline
+✔ RED reviewer — populated Ordinal64 rollover keeps oldest retained marker epoch-qualified
+✔ RED reviewer — production comparer requires an independent roundtrip baseline before principal-axis match
+✔ RED reviewer — pure OSC 133 status is retained as a semantic-only source record
+✔ RED reviewer — queue overflow settles every previously accepted semantic record in ingest order
+✔ RED reviewer — resize advances snapshot identity without consuming PTY source sequence
+✔ RED reviewer — retained ledger byte accounting never rescans the full evidence arrays on commit
+✔ RED reviewer — retained operation and fact evidence ledgers stay policy-bounded
+✔ RED reviewer — router destroy unregisters retained views before terminating sockets
+✔ RED reviewer — sampled shadow comparer never blocks legacy delivery or mutates a replacement generation
+✔ RED reviewer — shadow comparer samples only at global headless idle and enforces a low-duty interval
+✔ RED reviewer — split semantic facts preserve record-local OSC BEL/ST, DSR, and repeated BEL occurrences
+✔ RED reviewer — throwing policy settler cannot abort degradation settlement or current legacy delivery
+✔ RED reviewer — view removal renegotiates release and resize lease rejection is observable
+✔ REL-BGSTAB-007 applies configured retained policy before delivery
+✔ REL-BGSTAB-007 fences active server recovery at an Ordinal64 retained-stream rollover until a fresh checkpoint settles
+✔ REL-BGSTAB-007 invalidates a settled delivery proof synchronously when split output is replaced
+✔ REL-BGSTAB-007 invalidates a settled delivery proof when split output re-pairs on the same view generation
+✔ REL-BGSTAB-007 isolates driver lease ledger and rollback epoch
+✔ REL-BGSTAB-007 keeps generic screen repair independent of checkpoint ACK evidence
+✔ REL-BGSTAB-007 preserves unaffected settled view proof across another split output re-pair
+✔ REL-BGSTAB-007 rekeys active server authority for every retained-stream rollover
+✔ REL-BGSTAB-007 removes checkpoint lifecycle seams from generic screen repair
+✔ REL-BGSTAB-007 removes dead Container bridge APIs from the checkpoint runtime
+✔ REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain
+✔ REL-BGSTAB-007/012 ordered rollback fences local restore until legacy responder enable
+✔ REL-BGSTAB-011 AC-3 — an over-cap retained checkpoint converges without a silent tail
+✔ REL-BGSTAB-011 AC-4/AC-9 — the shadow changes neither the delivered bytes nor the authority decision
+✔ REL-BGSTAB-012 admitted gap identity is stable after caller-owned input mutation
+✔ REL-BGSTAB-012 blocks ready and input until matching checkpoint drain ACK
+✔ REL-BGSTAB-012 cold capability without checkpoint identity cannot admit a gap
+✔ REL-BGSTAB-012 failure result distinguishes stale rejection from handled dispatch and preserves its peer
+✔ REL-BGSTAB-012 failure result rejects a missing dispatcher without inventing handling
+✔ REL-BGSTAB-012 failure result rejects inactive capability without touching the runtime
+✔ REL-BGSTAB-012 failure result rejects inactive runtime under an active registry capability
+✔ REL-BGSTAB-012 gap admission deduplicates and advances only the existing failure floor
+✔ REL-BGSTAB-012 gap admission fails closed for absent visibility
+✔ REL-BGSTAB-012 gap admission fails closed for future visibility
+✔ REL-BGSTAB-012 gap admission preserves loss at published visibility 2
+✔ REL-BGSTAB-012 gap admission preserves loss at published visibility 3
+✔ REL-BGSTAB-012 gap admission rejects connection without mutating its owner
+✔ REL-BGSTAB-012 gap admission rejects noncanonical ordinal without mutating its owner
+✔ REL-BGSTAB-012 gap admission rejects session without mutating its owner
+✔ REL-BGSTAB-012 gap admission rejects stale epoch without mutating its owner
+✔ REL-BGSTAB-012 gap admission rejects unknown connection without mutating its owner
+✔ REL-BGSTAB-012 gap admission rejects unknown view without mutating its owner
+✔ REL-BGSTAB-012 gap admission rejects view without mutating its owner
+✔ REL-BGSTAB-012 gap notification failure preserves its error and fail-closed barrier
+✔ REL-BGSTAB-012 gap registry rejects unavailable ownership and preserves another session
+✔ REL-BGSTAB-012 gap uses a pending failure floor without inventing an active checkpoint
+✔ REL-BGSTAB-012 gap without an owner notification cannot report admission success
+✔ REL-BGSTAB-012 isolates affected hidden recovery to its browser view
+✔ REL-BGSTAB-012 keeps PTY ingest and model continuity through authority rollback
+✔ REL-BGSTAB-012 preserves client isolation AI idle and renderer residency
+✔ REL-BGSTAB-012 preserves retained authority across peer disconnect and recovery rollback
+✔ REL-BGSTAB-012 rebinds bounded continuity or requires an authoritative fresh checkpoint
+✔ REL-BGSTAB-012 rebinds bounded continuity or requires fresh checkpoint
+✔ REL-BGSTAB-012 recovery result addition does not alter ordinary route result shapes
+✔ REL-BGSTAB-024 a router built the way production builds it resolves to unified
+✔ REL-BGSTAB-024 split survives as a standalone capability when the router is constructed with it
+✔ REL-BGSTAB-024 the binary wire format is eligible only on the unified transport
+✔ REL-BGSTAB-024 the browser and the server disagree on the transport query parameter name
+✔ REL-BGSTAB-024 the canonical transport parser is absent from the production upgrade path
+✔ REL-BGSTAB-024 the configured transport mode still reaches production on two non-routing paths
+✔ REL-BGSTAB-024 the existing test-runner assertion that pins the omission is still present
+✔ REL-BGSTAB-024 the production WsRouter construction withholds the configured transport mode
+✔ REL_BGSTAB_007_AC10_pty_exit_is_session_terminated
+✔ REL_BGSTAB_007_AC10_server_restart_is_authority_unavailable
+✔ REL_BGSTAB_007_AC4_higher_stream_epoch_requires_fresh_checkpoint
+✔ REL_BGSTAB_007_AC4_rejects_epoch_rollover_at_2_pow_64
+✔ REL_BGSTAB_007_AC4_rejects_json_number_noncanonical_and_out_of_range_ordinal64
+✔ Remount adapter RED — fault input barrier
+✔ Remount adapter RED — grace authority barrier
+✔ Remount adapter RED — live/restore non-overlap
+✔ Remount adapter RED — normal path compatibility
+✔ Remount adapter RED — null-ref dispose ownership
+✔ Remount adapter RED — parser and Unicode corpus
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-1
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-10
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-2
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-3
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-6
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-7
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-9
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-1
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-3
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-4
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-5
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-7
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-8
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-9
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-1
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-2
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-3
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-4
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-5
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-6
+✔ Single-authority promotion and rollback epoch RED contract — REL-BGSTAB-007 AC-12
+✔ TerminalContainer applies visible resync output admission in the production handler
+✔ TerminalContainer binds Container and TerminalView adapters to one recovery identity
+✔ TerminalContainer bounds and clears compatibility post-ACK convergence timeout
+✔ TerminalContainer bounds authority recovery retries and resets them only after matching ready plus ACK
+✔ TerminalContainer completion probe writes an empty frame to the same xterm FIFO
+✔ TerminalContainer defers a rollback-era authoritative snapshot until legacy authority releases it
+✔ TerminalContainer does not clear hidden output recovery after fallback placeholder
+✔ TerminalContainer does not finish visible recovery after fallback snapshot placeholder
+✔ TerminalContainer does not suppress authoritative repair while visible recovery is pending
+✔ TerminalContainer does not suppress recent repair while visible recovery is pending
+✔ TerminalContainer drains an authority-ready deferred snapshot after an in-flight apply settles
+✔ TerminalContainer fences stale snapshot tokens before terminal replacement
+✔ TerminalContainer forces current replay snapshot past legacy content dedup
+✔ TerminalContainer keeps active resync isolated from late legacy repair callbacks
+✔ TerminalContainer keeps compatibility input fenced through matching post-ACK tail drain and ready
+✔ TerminalContainer keeps legacy repair recovery blocked when ready ACK send fails
+✔ TerminalContainer keeps queued input deferred while visible output recovery is blocking
+✔ TerminalContainer keeps restore-buffer failure non-ACKable while acknowledging only a checkpoint takeover
+✔ TerminalContainer keeps snapshot recovery blocked when ready ACK send fails
+✔ TerminalContainer leaves provisional fallback unacked for bounded server reconnect
+✔ TerminalContainer makes duplicate restore-needed idempotent and fences snapshot sequence
+✔ TerminalContainer maps visible output recovery into the input transport barrier
+✔ TerminalContainer only finishes visible recovery after authoritative snapshot or local restore success
+✔ TerminalContainer preserves absent normal-wire screen sequence as unknown
+✔ TerminalContainer production recovery requests a token-fenced fresh snapshot and real reconnect
+✔ TerminalContainer rejects late authoritative snapshots after the active recovery is terminally failed
+✔ TerminalContainer retries an authority-ready deferred snapshot after its terminal ref reattaches
+✔ TerminalContainer retries queued input after visible output recovery finishes
+✔ TerminalContainer routes compatibility authority recovery to a same-socket full snapshot before reconnect
+✔ TerminalContainer serializes legacy and hidden mutations before server authority
+✔ TerminalContainer settles the live-lane idle fence before resetting visible output
+✔ TerminalContainer uses runtime terminal limits for transport outbox budget and TTL
+✔ TerminalContainer uses runtime-configured transport outbox limits
+✔ TerminalInputSequencer keeps control input as an ordered boundary after printable coalescing
+✔ TerminalInputSequencer preserves debug-disabled metadata without recomputing expensive metrics
+✔ TerminalInputSequencer reuses provided client-observed metadata when coalescing printable input
+✔ TerminalInputSequencer splits printable runs at the server sequence span limit
+✔ TerminalView allows screen repair readiness while visible output recovery barrier is active
+✔ TerminalView bounds restore-pending output and drains segmented chunks without join
+✔ TerminalView compatibility recovery delegates to the full recovery owner without manual repair
+✔ TerminalView compatibility tail write reports coordinator rejection as physical failure
+✔ TerminalView emits legacy authority readiness once after compatibility recovery fully converges
+✔ TerminalView hands legacy recovery across bounded reconnect runtime replacement
+✔ TerminalView leaves FAILED_HELD ownership untouched on reset throw or sole-writer rejection
+✔ TerminalView live output idle uses a bounded FIFO fallback and retires the proven scheduler write
+✔ TerminalView non-authoritative replay writes use a bounded same-xterm FIFO probe before releasing the lease
+✔ TerminalView plain Space and Backspace delegation does not rebuild input debug payload
+✔ TerminalView propagates restore-buffer failure as FAILED_HELD without allowing live-output overtake
+✔ TerminalView refuses FAILED_HELD convergence when coverage identity is unproven
+✔ TerminalView resets scheduler and ingress retry ownership on terminal identity change and cleanup
+✔ TerminalView restore replay is fenced by exact attempt epoch and xterm identity
+✔ TerminalView runtime recreation also requests bounded fresh snapshot recovery
+✔ TerminalView suppresses parser replies during replay without silently dropping user onData
+✔ TerminalView uses runtime terminal limits for input queue budget and TTL
+✔ TerminalView uses runtime-configured input queue limits
+✔ TerminalView visible output scheduler uses cached runtime output limits
+✔ WebSocket grace fences replay generations and makes reconnect terminal
+✔ WebSocket grace installs restore barrier before subscribed-ready and preserves duplicate chunks
+✔ WebSocket grace recovery state is discarded before a replacement socket resubscribes
+✔ WebSocket ingress validates every checkpoint-prefixed frame before routing or mutation
+✔ active capability is scoped to its negotiated session view generation
+✔ active per-session ingress submits start/chunk/commit/output and input to one coordinator
+✔ capability withdrawal advertises the clean rollback generation on reconnect
+✔ capability withdrawal atomically rolls recovery into a clean legacy generation
+✔ checkpoint ACK contract rejects number, noncanonical, out-of-range and inconsistent ordinals
+✔ checkpoint authority converges an initial authoritative restore without a prior snapshot
+✔ checkpoint capability response is explicit and cannot silently activate authority
+✔ checkpoint client contract accepts negotiate and apply/drain/failure ACK frames
+✔ checkpoint negotiation is request-only and keeps legacy authority inactive
+✔ checkpoint server contract accepts canonical start/chunk/commit frames
+✔ checkpoint server contract rejects JSON numbers and every noncanonical Ordinal64 form
+✔ checkpoint server contract rejects malformed transaction metadata before dispatch
+✔ coalesced UTF-8 output expands to exact recovery chunks without losing identity
+✔ coalesced recovery output rejects the whole batch before a later stale segment can partially apply
+✔ compatibility post-ACK convergence permanently rejects drained duplicate IDs and decrements bytes exactly
+✔ compatibility post-ACK convergence rejects duplicate and descending screen sequence before write admission
+✔ compatibility post-ACK convergence rejects stale identity and covered output without opening ready
+✔ compatibility post-ACK convergence waits for matching ready and physical tail drain in either order
+✔ compatibility progress timeout permits long draining tails but fails bounded inactivity
+✔ coordinator apply/drain lifecycle emits actual gated ACKs in order
+✔ coordinator-originated failure sends checkpoint recovery request even without manual repair
+✔ dispatcher remains dormant for passive capability and never mutates or success-ACKs
+✔ explicit runtime rollback and null capability are idempotent legacy transitions
+✖ failing tests:
+✔ frontend and server expose the exact same checkpoint wire declarations
+✔ future active checkpoint capability is explicit while the current server default remains passive
+✔ global capability and negotiate rejection scope wins over an injected sessionId
+✔ higher malformed boundary monotonically supersedes an in-flight recovery request
+✔ issue #26: at default limits, per-token SGR at >=200 columns mints a checkpoint the browser must reject
+✔ issue #26: the same per-token density at 80 columns still fits
+✔ lazy test-created SessionData keeps legacy resize compatibility without retained state
+✔ malformed active session frame installs fail-closed recovery instead of leaving a pending barrier
+✔ malformed session failure is isolated to its registered active view
+✔ malformed start preserves parseable offending generation and epoch in the recovery fence
+✔ mode rehydrate uses a deterministic supported escape prefix in the checkpoint physical write
+✔ no-active reconnect-required invalidates legacy speculative repair before installing its barrier
+✔ per-session dispatcher replacement fail-closes the old active generation
+✔ production terminal digest is real SHA-256, not the characterization FNV digest
+✔ production wiring registers the dormant dispatcher and isolates raw xterm mutation construction
+✔ query reply input kind bypasses user sequencer and outbox and rejects stale responder identity
+✔ real active-to-passive rollback settles input and admits a fresh legacy snapshot stream
+✔ real coordinator lifecycle sends apply then drain ACK before releasing queued input
+✔ reentrant coordinator rejection preserves the maximum offending epoch fence
+✔ replacement authoritative convergence is serialized behind in-flight speculative writes
+✔ replacement authoritative convergence is staged before the snapshot ACK can synchronously return ready
+✔ replacement authoritative identity bypasses duplicate content optimization while recovery is blocking
+✔ replacement authoritative identity is reapplied even when seq and content are unchanged
+✔ replacement authoritative snapshots bypass checkpoint suppression for retained-state recovery
+✔ replacement-socket authoritative ACK plus matching ready resets the recovery budget
+✔ resize lease rejection remains observable without failing checkpoint recovery
+✔ restore-needed and reconnect-required terminate the legacy repair in-flight suppression
+✔ restore-needed and snapshot authority proof is exact and fail-closed
+✔ runtime replacement rehydrates legacy recovery without duplicating an in-flight reconnect
+✔ same-session xterm recreation retains pending input while session lifetime cleanup settles it once
+✔ server validates negotiated view registrations and explicit recovery requests
+✔ session ready cannot open input until it matches the latest received snapshot lineage
+✔ session-scoped asynchronous ACK rejection is routed back into recovery
+✔ stale rejected start cannot lower the last accepted recovery epoch fence
+✔ stale-generation or wrong-session ingress is rejected without polluting fresh authority
+✔ static production inventory rejects every direct xterm mutation outside the sole writer
+✔ terminal input debug payload resolver does not rebuild when client metadata already exists
+✔ terminal input debug payload reuses module codec singletons and can skip high-cost details when capture is disabled
+✔ terminal query responder matches Orca static and model-state replies with ConPTY override and seed silence
+✔ terminal query responder stays silent before driver view attributes and matches OSC color and DSR 996 replies after push
+✔ terminalCheckpointRuntime promotion disables parser replies before positional disable ACK while preserving user input
+✔ terminalCheckpointRuntime rollback enables legacy parser replies only after fresh compatibility drain
+✔ the checkpoint-authority guard anchor resolves to exactly one site
+✔ the retained checkpoint declares truncated:false as a literal type
+✔ unexpected higher valid start also advances an in-flight recovery boundary
+✔ unsupported checkpoint mode fails before coordinator begin can reset or resize
+✔ visible output mutation fence keeps authoritative replacement last
+✔ visible output recovery drops a snapshot-covered late chunk before cap accounting
+✔ visible output recovery exposes a transport barrier while pending or stale
+✔ visible output recovery ignores duplicate overflow while pending and clears on finish
+✔ visible output recovery keeps input blocked when abandoning a stale terminal view
+✔ visible output recovery retries failed replay sends before abandoning
+✔ visible output recovery seals terminal faults and releases held payloads
+✔ visible recovery retry budget is bounded across transactions and resets only after convergence
+✔ visible resync output admission separates tagged recovery from normal live output

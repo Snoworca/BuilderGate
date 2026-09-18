@@ -1,0 +1,43 @@
+== AC-2 zero-window
+   '동시 활성'                    0 hits /  0 reqs  []
+   '동시에 활성'                   0 hits /  0 reqs  []
+   'overlap'                  4 hits /  4 reqs  ['FR-ARCH-002', 'FR-MDE-003', 'REL-BGSTAB-009', 'REL-BGSTAB-022']
+   '구간이 0'                    0 hits /  0 reqs  []
+   '하나만 활성'                   1 hits /  1 reqs  ['MIG-BGSTAB-002']
+== AC-4 ledger tuple
+   'valueHash'                0 hits /  0 reqs  []
+   'factType'                 0 hits /  0 reqs  []
+   'ordinal'                  4 hits /  4 reqs  ['IR-BGSTAB-001', 'OBS-BGSTAB-006', 'REL-BGSTAB-007', 'REL-BGSTAB-011']
+   'sourceSeq'                7 hits /  4 reqs  ['IR-BGSTAB-001', 'PERF-BGSTAB-011', 'REL-BGSTAB-007', 'REL-BGSTAB-011']
+   'dedup'                    2 hits /  2 reqs  ['FR-BGSTAB-021', 'REL-BGSTAB-011']
+   '중복 제거'                    0 hits /  0 reqs  []
+== AC-8 silent/zero
+   'silent'                  23 hits / 21 reqs  ['FR-BGSTAB-008', 'FR-BGSTAB-012', 'FR-BGSTAB-013', 'FR-BGSTAB-014', 'FR-BGSTAB-015', 'FR-BGSTAB-021', 'FR-BGSTAB-024', 'FR-BGSTAB-025']
+   '정확히 1회'                   1 hits /  1 reqs  ['FR-BGSTAB-021']
+   'exactly-once'             4 hits /  4 reqs  ['FR-BGSTAB-021', 'PERF-BGSTAB-009', 'REL-BGSTAB-008', 'REL-BGSTAB-011']
+   '0회'                       1 hits /  1 reqs  ['PERF-BGSTAB-009']
+   '관측 가능한 정책'                0 hits /  0 reqs  []
+== AC-11 ledger hold
+   'dedup ledger'             0 hits /  0 reqs  []
+   'ledger'                   9 hits /  6 reqs  ['PERF-BGSTAB-010', 'REL-BGSTAB-007', 'REL-BGSTAB-010', 'REL-BGSTAB-011', 'REL-BGSTAB-012', 'REL-BGSTAB-027']
+   'epoch 안정'                 0 hits /  0 reqs  []
+   '유지'                      15 hits / 11 reqs  ['FR-BGSTAB-021', 'IR-BGSTAB-001', 'MIG-BGSTAB-001', 'PERF-BGSTAB-008', 'PERF-BGSTAB-009', 'PERF-BGSTAB-011', 'REL-BGSTAB-008', 'REL-BGSTAB-009']
+== AC-9 repeat fact
+   '반복 fact'                  0 hits /  0 reqs  []
+   '같은 chunk'                 0 hits /  0 reqs  []
+   '여러'                       2 hits /  2 reqs  ['PERF-BGSTAB-009', 'PERF-BGSTAB-011']
+   '복수'                       0 hits /  0 reqs  []
+== AC-10 idle
+   'local echo'               5 hits /  5 reqs  ['FR-BGSTAB-024', 'FR-MCP-002', 'MIG-BGSTAB-002', 'REL-BGSTAB-011', 'REL-BGSTAB-012']
+   'prompt redraw'            7 hits /  7 reqs  ['FR-AITUI-003', 'FR-BGSTAB-024', 'FR-MCP-002', 'MIG-BGSTAB-002', 'PERF-BGSTAB-010', 'REL-BGSTAB-011', 'REL-BGSTAB-012']
+   'ticker'                   4 hits /  4 reqs  ['FR-MCP-002', 'PERF-BGSTAB-010', 'REL-BGSTAB-011', 'REL-BGSTAB-012']
+   'running'                 10 hits / 10 reqs  ['FR-AITUI-003', 'FR-BGSTAB-024', 'FR-MCP-002', 'MIG-BGSTAB-002', 'MIG-BGSTAB-004', 'PERF-BGSTAB-010', 'PERF-BGSTAB-012', 'REL-BGSTAB-001']
+   'idle'                     3 hits /  3 reqs  ['FR-AITUI-003', 'MIG-BGSTAB-004', 'PERF-BGSTAB-009']
+== AC-7 sizes
+   '10,000'                   2 hits /  2 reqs  ['OBS-BGSTAB-004', 'REL-BGSTAB-007']
+   '1,000'                    1 hits /  1 reqs  ['OBS-BGSTAB-004']
+   '2MiB'                     1 hits /  1 reqs  ['REL-BGSTAB-007']
+   'multibyte'                2 hits /  2 reqs  ['FR-BGSTAB-003', 'PERF-BGSTAB-001']
+   'reorder'                  5 hits /  5 reqs  ['FR-BGSTAB-016', 'OBS-BGSTAB-001', 'REL-BGSTAB-007', 'REL-BGSTAB-008', 'SEC-AITUI-001']
+== control-zero
+   'QQZZ-nonexistent-term'    0 hits /  0 reqs  []

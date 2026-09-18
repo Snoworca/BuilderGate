@@ -1,0 +1,19 @@
+✔ MIG-BGSTAB-002 capability updates are scoped per session and rollback cannot disable another session (1.104741ms)
+✔ MIG-BGSTAB-002 checkpoint capability without a lease preserves other and suspended-session mutation leases (0.561712ms)
+✔ MIG-BGSTAB-002 checkpoint input remains fenced until its exact view lease arrives (0.132123ms)
+✔ MIG-BGSTAB-002 rejected capability application cannot admit attributes or keep authority active (0.245438ms)
+✔ MIG-BGSTAB-002 retiring capability generation removes its old mutation lease (0.301613ms)
+✔ MIG-BGSTAB-002 empty authority withdrawal clears every retained mutation lease (0.1405ms)
+✔ MIG-BGSTAB-002 applied same-generation capability without a lease preserves its current lease (0.152998ms)
+✔ MIG-BGSTAB-002 future capability is applied once when the replacement dispatcher reaches its generation (0.348897ms)
+✔ MIG-BGSTAB-002 same-turn replacement republishes its cached exact capability and lease once (0.332649ms)
+✔ MIG-BGSTAB-002 replacement capability publication is scoped to that session only (0.299765ms)
+✔ MIG-BGSTAB-002 empty withdrawal cancels a deferred future capability before registration (0.177938ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 153.735936

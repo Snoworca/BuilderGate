@@ -1,0 +1,48 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ MIG-BGSTAB-002 a physically late ACK for a superseded rollback checkpoint is ignored (1.080847ms)
+✔ MIG-BGSTAB-002 post-snapshot output remains on the checkpoint lane while promotion is settling (0.09675ms)
+✔ MIG-BGSTAB-002 only a pending replacement view recovery covers missing checkpoint output (0.146938ms)
+✔ MIG-BGSTAB-002 control and terminal frame pumps use distinct lane-specific keys (0.109275ms)
+✔ MIG-BGSTAB-002 a mixed-lane frame batch defers only within its own lane FIFO (0.520641ms)
+✔ MIG-BGSTAB-002 rollback held query transfer invokes the exact compatibility responder port (18.516791ms)
+✔ MIG-BGSTAB-002 cumulative drain accepts snapshot-first ACK and rejects underflow or over-ACK (0.393327ms)
+✔ MIG-BGSTAB-002 authority-capable legacy delivery remains exactly once on the authority lane (1.130765ms)
+✔ MIG-BGSTAB-002 held output already covered by the authoritative snapshot is not emitted twice (1.064725ms)
+✔ MIG-BGSTAB-002 promotion installs concrete server driver and responder leases before checkpoint release (0.358908ms)
+✔ MIG-BGSTAB-002 server authority replaces stale frozen views before reconnect rollback (0.909533ms)
+✔ MIG-BGSTAB-002 checkpoint admission failure rolls installed server leases back and keeps the final ACK provisional (0.397932ms)
+✔ MIG-BGSTAB-002 failed compatibility rebind removes the provisional drain ACK and retries transactionally (0.893098ms)
+✔ MIG-BGSTAB-002 compatibility checkpoint rejection cannot report rollback success (0.3414ms)
+✔ MIG-BGSTAB-002 authority state commits only after final server and legacy delivery settlement (2.304566ms)
+✔ MIG-BGSTAB-002 rollback holds concurrent PTY output until the compatibility checkpoint settles (0.879329ms)
+✔ MIG-BGSTAB-002 authoritative headless apply does not await a slow client delivery callback (0.567723ms)
+✔ MIG-BGSTAB-002 slow client delivery backlog is bounded without pausing PTY ingest (1.735081ms)
+✔ MIG-BGSTAB-002 authority transition frames cannot overtake an already admitted output delivery (1.12342ms)
+✔ MIG-BGSTAB-002 invalidated promotion commit cannot overwrite topology abort after settlement resumes (0.603652ms)
+✔ MIG-BGSTAB-002 invalidated compatibility commit cannot overwrite restarted recovery after settlement resumes (0.606104ms)
+✔ MIG-BGSTAB-002 invalidated promotion boundary cannot report success after topology recovery starts (0.736218ms)
+✔ MIG-BGSTAB-002 invalidated rollback checkpoint cannot mutate a replacement rollback context (0.543587ms)
+✔ MIG-BGSTAB-002 rollback pending output stays bounded and restarts from a fresh authoritative snapshot (0.641008ms)
+✔ MIG-BGSTAB-002 compatibility snapshot releases aborted promotion held output (0.429759ms)
+✔ MIG-BGSTAB-002 production adapter hard reload rebinds the live view and sends fresh recovery (3.5848ms)
+✔ MIG-BGSTAB-002 promotion defers an acknowledged view until server authority is committed (2.998991ms)
+✔ MIG-BGSTAB-002 rollback start stays on terminal delivery while legacy enable gates control replay (3.142297ms)
+✔ MIG-BGSTAB-002 rollback selects the suspended driver and withholds attributes challenges from passive peers (3.02734ms)
+✔ MIG-BGSTAB-002 accepted owner keeps its attributes challenge for recovery capability refresh (2.95497ms)
+✔ MIG-BGSTAB-002 a stale precommit driver identity cannot reject a replacement view attributes push (2.995831ms)
+✔ MIG-BGSTAB-002 a replacement attributes handshake takes precedence over a stale precommit driver (2.976878ms)
+✔ MIG-BGSTAB-002 an unrelated precommit lease cannot become the responder identity fallback (3.19358ms)
+✔ MIG-BGSTAB-002 exact precommit and pending identities retain their full generation tuples (2.95524ms)
+✔ MIG-BGSTAB-002 rollback topology churn coalesces to one leading-edge recovery window (2.9595ms)
+✔ MIG-BGSTAB-002 a subscription-ready observer cannot rotate a still-open browser mutation owner (2.913551ms)
+✔ MIG-BGSTAB-002 an already reserved view recovery cannot create a second checkpoint lifecycle (3.29639ms)
+✔ REL-BGSTAB-012 keeps PTY ingest and model continuity through authority rollback (0.72933ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2431.777474

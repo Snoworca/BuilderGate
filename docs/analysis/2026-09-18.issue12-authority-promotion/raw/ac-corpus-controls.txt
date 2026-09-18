@@ -1,0 +1,14 @@
+corpus: 135 requirements / 913 AC rows
+CONTROL A MIG-BGSTAB-002: 6 ACs, checked=6
+CONTROL B REL-BGSTAB-007: 12 ACs, checked=0
+CONTROL B2 REL-BGSTAB-011: 9 ACs, checked=9
+CONTROL B3 MIG-BGSTAB-005: 5 ACs, checked=0
+CONTROL C  'epoch': 22 hits across 9 requirements -> ['FR-BGSTAB-022', 'FR-BGSTAB-024', 'IR-BGSTAB-001', 'MIG-BGSTAB-002', 'MIG-BGSTAB-004', 'PERF-BGSTAB-010', 'REL-BGSTAB-007', 'REL-BGSTAB-011', 'REL-BGSTAB-012']
+CONTROL C  'rollback': 29 hits across 19 requirements -> ['FR-BGSTAB-008', 'FR-BGSTAB-014', 'FR-BGSTAB-015', 'FR-BGSTAB-019', 'FR-BGSTAB-027', 'IR-BGSTAB-001', 'MIG-BGSTAB-002', 'MIG-BGSTAB-005', 'OBS-BGSTAB-006', 'OBS-BGSTAB-009', 'PERF-BGSTAB-010', 'REL-BGSTAB-007']
+CONTROL C  'dedup': 2 hits across 2 requirements -> ['FR-BGSTAB-021', 'REL-BGSTAB-011']
+CONTROL C  'lease': 28 hits across 18 requirements -> ['CON-BGSTAB-001', 'FR-BGSTAB-015', 'FR-BGSTAB-016', 'FR-BGSTAB-017', 'FR-BGSTAB-018', 'FR-BGSTAB-022', 'MIG-BGSTAB-002', 'MIG-BGSTAB-004', 'OBS-BGSTAB-001', 'OBS-BGSTAB-008', 'OPS-BGSTAB-010', 'REL-BGSTAB-007']
+CONTROL C  'responder': 3 hits across 2 requirements -> ['MIG-BGSTAB-002', 'MIG-BGSTAB-004']
+CONTROL C  'poisoned': 6 hits across 5 requirements -> ['MIG-BGSTAB-002', 'MIG-BGSTAB-004', 'OBS-BGSTAB-004', 'REL-BGSTAB-007', 'REL-BGSTAB-025']
+CONTROL C  'exactly-once': 4 hits across 4 requirements -> ['FR-BGSTAB-021', 'PERF-BGSTAB-009', 'REL-BGSTAB-008', 'REL-BGSTAB-011']
+CONTROL C  'ledger': 9 hits across 6 requirements -> ['PERF-BGSTAB-010', 'REL-BGSTAB-007', 'REL-BGSTAB-010', 'REL-BGSTAB-011', 'REL-BGSTAB-012', 'REL-BGSTAB-027']
+CONTROL C  'ZZZ-does-not-exist-QQ': 0 hits across 0 requirements -> []

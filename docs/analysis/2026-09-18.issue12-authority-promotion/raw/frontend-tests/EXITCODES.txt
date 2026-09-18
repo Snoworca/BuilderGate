@@ -1,0 +1,12 @@
+exit=0 terminalCheckpointCapabilityScoping ℹ tests 11 ℹ pass 11 ℹ fail 0 ℹ todo 0 
+exit=0 terminalAuthorityProductionWiring ℹ tests 8 ℹ pass 8 ℹ fail 0 ℹ todo 0 
+exit=0 terminalCheckpointRollbackTailWatermark ℹ tests 1 ℹ pass 1 ℹ fail 0 ℹ todo 0 
+exit=0 terminalCheckpointRuntime ℹ tests 106 ℹ pass 106 ℹ fail 0 ℹ todo 0 
+exit=0 terminalContainerRecoveryContract ℹ tests 60 ℹ pass 60 ℹ fail 0 ℹ todo 0 
+exit=0 terminalQueryReply ℹ tests 1 ℹ pass 1 ℹ fail 0 ℹ todo 0 
+exit=0 terminalRetainedState ℹ tests 7 ℹ pass 7 ℹ fail 0 ℹ todo 0 
+exit=0 terminalViewRecoveryContract ℹ tests 25 ℹ pass 25 ℹ fail 0 ℹ todo 0 
+exit=0 terminalWriteCoordinator ℹ tests 63 ℹ pass 63 ℹ fail 0 ℹ todo 0 
+exit=0 visibleOutputRecovery ℹ tests 23 ℹ pass 23 ℹ fail 0 ℹ todo 0 
+exit=0 wsCheckpointProtocol ℹ tests 13 ℹ pass 13 ℹ fail 0 ℹ todo 0 
+exit=0 terminalInputSequencer ℹ tests 8 ℹ pass 8 ℹ fail 0 ℹ todo 0 

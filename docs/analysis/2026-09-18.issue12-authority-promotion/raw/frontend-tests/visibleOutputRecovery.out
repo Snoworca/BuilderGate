@@ -1,0 +1,31 @@
+✔ MIG-BGSTAB-002 late legacy snapshots cannot overwrite active checkpoint authority (1.006111ms)
+✔ compatibility post-ACK convergence waits for matching ready and physical tail drain in either order (0.319555ms)
+✔ compatibility post-ACK convergence rejects stale identity and covered output without opening ready (0.172612ms)
+✔ compatibility post-ACK convergence permanently rejects drained duplicate IDs and decrements bytes exactly (0.594538ms)
+✔ compatibility post-ACK convergence rejects duplicate and descending screen sequence before write admission (0.206003ms)
+✔ compatibility progress timeout permits long draining tails but fails bounded inactivity (0.63424ms)
+✔ restore-needed and snapshot authority proof is exact and fail-closed (0.28216ms)
+✔ coalesced UTF-8 output expands to exact recovery chunks without losing identity (0.334539ms)
+✔ coalesced recovery output rejects the whole batch before a later stale segment can partially apply (0.260155ms)
+✔ visible recovery retry budget is bounded across transactions and resets only after convergence (0.719632ms)
+✔ replacement authoritative identity bypasses duplicate content optimization while recovery is blocking (0.175445ms)
+✔ checkpoint authority converges an initial authoritative restore without a prior snapshot (0.133445ms)
+✔ visible output recovery retries failed replay sends before abandoning (0.172779ms)
+✔ visible output recovery ignores duplicate overflow while pending and clears on finish (0.1384ms)
+✔ visible output recovery keeps input blocked when abandoning a stale terminal view (0.15092ms)
+✔ visible output recovery exposes a transport barrier while pending or stale (0.09747ms)
+✔ Frontend stale/resync barrier RED 계약 — AC-2 (1.543554ms)
+✔ Frontend stale/resync barrier RED 계약 — AC-5 (0.651198ms)
+✔ Frontend stale/resync barrier RED 계약 — AC-10 (0.393609ms)
+✔ visible output recovery seals terminal faults and releases held payloads (0.347642ms)
+✔ visible output recovery drops a snapshot-covered late chunk before cap accounting (0.242181ms)
+✔ visible resync output admission separates tagged recovery from normal live output (0.117299ms)
+✔ visible output mutation fence keeps authoritative replacement last (0.469766ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 143.23914
