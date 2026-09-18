@@ -696,12 +696,86 @@ assert.ok(focusedPassMatch, 'the focused run must emit a parseable pass count');
 assert.ok(focusedTestsMatch, 'the focused run must emit a parseable test count');
 const focusedPassCount = Number(focusedPassMatch[1]);
 const focusedTestCount = Number(focusedTestsMatch[1]);
-assert.equal(focusedPassCount, 31);
-// Asserted, not merely reported. Publishing a live count without constraining it is how the
-// hardcoded 24 drifted in the first place: add one todo or skipped case and `tests` becomes 32 while
-// `pass` stays 31 and `fail 0` still holds, so the guard would exit 0 while publishing a figure that
-// contradicts the 31 this bundle cites as final.
-assert.equal(focusedTestCount, 31);
+// The pins here were the literals 31/31, sitting directly under a comment warning that
+// a hardcoded count is how the 24 drifted. Retyping 31 -> 32 when a lane adds a case
+// would have made that comment false in the same edit that proved it true.
+//
+// But a count derived from these two files would have been WORSE than the literal, and
+// that is the point. The count was carrying two properties: `fail 0` makes the green
+// claim, and the count is what makes a test DISAPPEARING red, which `fail 0` alone
+// permits. Any count recomputed from the same two files moves with them -- delete a
+// test and both the expectation and the observation drop together, so the guard keeps
+// passing while the thing it guards is gone. Derivation would have preserved the
+// appearance of the check and removed half of what it checks.
+//
+// So the count is replaced by the corpus it was standing in for, following the
+// precedent of canary-admission-evidence.test.mjs, which replaced its own exactTests
+// 42/133 pins with an enumerated registry. Names are semantic where a number is not: a
+// renamed or deleted test is a real change that must be looked at, while a lane adding
+// a case is not, and now costs nobody a retype.
+//
+// Captured from a real run, not transcribed.
+const requiredFocusedTestNames = Object.freeze([
+  'FR-BGSTAB-015 recentEventLimit capability is available with truthful constraints',
+  'FR-BGSTAB-015 recentEventLimit rejects invalid values without clamping or changing observer state',
+  'FR-BGSTAB-015 replaceFromConfig applies recentEventLimit to the existing observer immediately',
+  'FR-BGSTAB-015 replaceValues applies recentEventLimit to the existing observer immediately',
+  'FR-BGSTAB-025 runtime snapshot and capabilities contain no retired leaves',
+  'IR-BGSTAB-001 AC-8 publishes terminalWireFormat and nothing else beyond the existing allowlist',
+  'IR-BGSTAB-001 AC-8 republishes terminalWireFormat after a runtime config reload',
+  'OBS-BGSTAB-005 a classification pin that does not match its recomputed evidence names itself',
+  'OBS-BGSTAB-005 review regression — ConfigFileRepository previous/next provenance survives settings reload and rollback',
+  'OBS-BGSTAB-005 review regression — compiler owns all 30 typed resources and records real legacy divergence',
+  'OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites',
+  'OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized and never silently falls through',
+  'OBS-BGSTAB-005 review regression — no candidate profile is available without a registered stable contract',
+  'OBS-BGSTAB-005 review regression — observer differential preserves actual serialized legacy paths',
+  'OBS-BGSTAB-005 review regression — raw provenance survives production loaders and replacements',
+  'OBS-BGSTAB-005 review regression — telemetry is allowlisted, payload-free, bounded, and read-only on snapshot',
+  'OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers',
+  'OBS-BGSTAB-005 second review regression — explicit non-scrollback keys retain truthful loader provenance',
+  'OBS-BGSTAB-005 second review regression — production observe mode seeds bounded decisions on every config generation',
+  'OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-3',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-4',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-5',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-7',
+  'PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed WS resource limits',
+  'RuntimeConfigStore builds a redacted editable snapshot',
+  'RuntimeConfigStore exposes Wave6 resource capabilities without leaking server-only runtime config',
+  'RuntimeConfigStore marks platform-specific capabilities and merges editable patches',
+  'RuntimeConfigStore validates Wave 0 resource limit patches after merging',
+]);
+
+// Property 1: nothing is failing, skipped or todo. `pass === tests` catches the case the
+// old comment named -- one todo makes `tests` exceed `pass` while `fail 0` still holds.
+assert.equal(
+  focusedPassCount, focusedTestCount,
+  `focused run has non-passing cases: pass ${focusedPassCount} of tests ${focusedTestCount}`,
+);
+
+// Property 2: every required case is still THERE. This is what the literal was really
+// for, and it now fails by name instead of by arithmetic.
+const observedFocusedNames = new Set(
+  [...focusedNormalised.matchAll(/^\u2714 (.+?)(?: \([\d.]+ms\))?$/gm)].map((m) => m[1]),
+);
+const missingFocusedNames = requiredFocusedTestNames.filter((name) => !observedFocusedNames.has(name));
+assert.deepEqual(
+  missingFocusedNames, [],
+  `focused run no longer contains ${missingFocusedNames.length} required case(s); a renamed or deleted test must be reviewed, not re-pinned`,
+);
+// Non-vacuity: the name parse must actually have found cases. Without this, a change to
+// the runner's output format would empty `observedFocusedNames`, and an empty required
+// list would then be trivially satisfied -- the exact shape of defect this file exists to
+// catch elsewhere.
+assert.ok(requiredFocusedTestNames.length > 0, 'the required focused corpus is empty');
+assert.ok(
+  observedFocusedNames.size >= requiredFocusedTestNames.length,
+  `parsed only ${observedFocusedNames.size} case names from the focused run; the output format likely changed`,
+);
 assert.match(focusedNormalised, /^\u2139 fail 0$/m);
 // Anchored and normalised for the same reason as the live assertions three lines up. These are the
 // two that matter most: the sealed artifact is the input an operator can regenerate or hand-edit,
