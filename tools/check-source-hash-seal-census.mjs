@@ -71,7 +71,20 @@ const REGISTRY = [
   { path: `${W2}/T-PH004-02/green-evidence.json`, status: 'undetermined', reason: 'Read by two wave3 verifiers; assertion against the tree not yet confirmed.' },
   { path: `${W2}/T-PH004-03/red-evidence.json`, status: 'historical', reason: 'RED baseline; a match would be the defect.' },
   { path: 'docs/analysis/kiwi-coder-2026-07-24.pm.evidence-diagnostic/scope-baseline.json', status: 'historical', reason: 'A baseline captured for a diagnostic; not a live gate.' },
-  { path: 'docs/analysis/kiwi-coder-2026-07-24.pm.fair-admission/provenance-manifest.json', status: 'historical', reason: 'Provenance record of a past run, 108 files; frozen by construction.' },
+  // #98 measured this one specifically, because an issue was filed calling its stale pin a
+  // defect of the #90 class. It is not, and the distinction is the whole point of this
+  // registry. #90's pin sat in a LIVE seal -- something asserts it against the tree, so a
+  // mismatch means the claim is false. This file claims nothing about the current tree: each
+  // row is {path, working_sha256, git_status, git_index_blob}, i.e. what the WORKING TREE
+  // held at the moment that run executed. A row here matching HEAD today would mean the
+  // record had been rewritten, which would be forging a run that never happened.
+  //
+  // The sharpest evidence is in the row the issue names: TerminalResourcePolicyInventory.ts
+  // is pinned at 5a14b19d with git_status '??' -- UNTRACKED at capture. That pin never
+  // corresponded to any commit, so there is no moment at which it "went" stale; it was a
+  // snapshot of an uncommitted working file from the start. 12 commits have touched that
+  // file since, which is expected rather than alarming.
+  { path: 'docs/analysis/kiwi-coder-2026-07-24.pm.fair-admission/provenance-manifest.json', status: 'historical', reason: 'Provenance record of a past run, 108 files; frozen by construction. Rows are working-tree state at execution time, not claims about HEAD -- the Inventory.ts row is git_status "??" (untracked at capture), so it never matched any commit. Matching HEAD would mean the record was forged.' },
   { path: 'docs/analysis/kiwi-coder-2026-07-27.pm.fair-readmission-current/post-replay-provenance-manifest.json', status: 'historical', reason: 'Post-replay provenance record of a past run.' },
   { path: 'docs/analysis/kiwi-planner-2026-07-26.pm.fair-readmission/code_context.json', status: 'undetermined', reason: 'Planner context capture; no reader confirmed.' },
 ];
