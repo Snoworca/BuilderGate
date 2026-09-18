@@ -1,6 +1,11 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
 import { getActiveSessionId, login, waitForTerminal } from './helpers';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "creates a session with shell: 'powershell'");
+
 type JsonFrame = Record<string, unknown> & {
   type?: string;
   sessionId?: string;

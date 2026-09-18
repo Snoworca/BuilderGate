@@ -2,6 +2,11 @@ import { test, expect, type Page } from './workspaceOwnershipFixture';
 import { login, waitForTerminal } from './helpers';
 import type { TerminalInputTransportOverride } from '../../src/types/ws-protocol';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "creates a session with shell: 'powershell'");
+
 async function createFreshPowerShellWorkspace(page: Page, name: string) {
   return page.evaluate(async ({ workspaceName }) => {
     const token = localStorage.getItem('cws_auth_token');

@@ -4635,6 +4635,12 @@ async function testSessionManagerPowerShellPromptRedrawStaysIdle(): Promise<void
   }, {
     execFileSyncFn: (() => Buffer.from('')) as any,
     platform: 'win32',
+    // Issue #102: this test pins platform 'win32' and hands createSession a
+    // Windows cwd. Without this the real existsSync runs against the host, so on
+    // Linux the fixture path is missing, resolveSpawnCwd silently falls back to
+    // $HOME, and the test fails on its first assertion for a reason that has
+    // nothing to do with prompt redraw. The probe belongs to the platform pin.
+    existsSyncFn: (path: string) => path === 'C:\\Users\\beom',
     spawnPty: ((_: string, __: string[], options: { cols?: number; rows?: number; useConpty?: boolean }) => {
       return {
         pid: 1,
@@ -5866,6 +5872,13 @@ function testSessionManagerPowerShellBootstrapArgs(): void {
     session: {
       idleDelayMs: 200,
     },
+  }, {
+    // Issue #102: this asserts how the PowerShell argv is built, which is a
+    // win32-only code path. Without the pin, normalizeShellForPlatform
+    // downgrades 'powershell' to 'auto' on a non-Windows host and the test
+    // fails on `'bash' !== 'powershell.exe'` before reaching anything it means
+    // to measure.
+    platform: 'win32',
   });
 
   const resolved = (manager as any).resolveShell('powershell', 'C:\\temp\\buildergate-cwd.txt');

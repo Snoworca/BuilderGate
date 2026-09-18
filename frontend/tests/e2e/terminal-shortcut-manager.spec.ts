@@ -6,6 +6,11 @@ import {
   waitForTerminal,
 } from './helpers';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "creates a session with shell: 'powershell'");
+
 test.describe('Terminal Shortcut Manager', () => {
   let e2eWorkspaceId: string | null = null;
 

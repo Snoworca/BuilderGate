@@ -3,6 +3,11 @@ import { expect, test, type Locator, type Page, type WebSocketRoute } from '@pla
 
 import { getActiveSessionId, login, waitForTerminal } from './helpers';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "discovers workspaces whose active tab has shellType 'powershell'");
+
 type JsonFrame = Record<string, unknown> & {
   type?: string;
   channel?: string;

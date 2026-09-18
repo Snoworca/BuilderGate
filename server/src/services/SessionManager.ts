@@ -361,6 +361,14 @@ type ReadProcessStartIdentity = typeof readProcessStartIdentity;
 interface SessionManagerDeps {
   execFileFn?: typeof execFile;
   execFileSyncFn?: typeof execFileSync;
+  /**
+   * Issue #102: resolveSpawnCwd probes the filesystem. Tests that pin
+   * `platform: 'win32'` also pass Windows fixture paths, which do not exist on
+   * a Linux host, so the real existsSync sent them down the fallback branch and
+   * they failed on their first assertion for a reason unrelated to what they
+   * were measuring. Injecting the probe keeps the platform pin honest.
+   */
+  existsSyncFn?: (path: string) => boolean;
   platform?: NodeJS.Platform;
   spawnPty?: typeof pty.spawn;
   processInspector?: SessionProcessInspector;
@@ -1208,6 +1216,7 @@ export class SessionManager {
   private runtimeHeadlessQueueConfig: RuntimeHeadlessQueueConfig;
   private readonly execFileFn: typeof execFile;
   private readonly execFileSyncFn: typeof execFileSync;
+  private readonly existsSyncFn: (path: string) => boolean;
   private readonly platform: NodeJS.Platform;
   private readonly spawnPty: typeof pty.spawn;
   private readonly processInspector: SessionProcessInspector;
@@ -1309,6 +1318,7 @@ export class SessionManager {
     this.cleanupTelemetry = createInitialCleanupTelemetry(this.runtimeSessionConfig.processCleanup.mode);
     this.execFileFn = deps.execFileFn ?? execFile;
     this.execFileSyncFn = deps.execFileSyncFn ?? execFileSync;
+    this.existsSyncFn = deps.existsSyncFn ?? existsSync;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
     this.processInspector = deps.processInspector ?? inspectSessionProcessBestEffort;
     this.processTreeTerminator = deps.processTreeTerminator ?? new DefaultProcessTreeTerminator({ platform: this.platform });
@@ -4244,7 +4254,7 @@ export class SessionManager {
     }
 
     // Verify directory exists; fall back to home if not
-    if (!existsSync(resolved)) {
+    if (!this.existsSyncFn(resolved)) {
       console.warn(`[SessionManager] CWD does not exist: ${resolved}, falling back to ${fallback}`);
       return fallback;
     }

@@ -9,6 +9,11 @@ import {
 } from '../../src/utils/terminalRetainedState.ts';
 import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers.ts';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "creates a session with shell: 'powershell'");
+
 const CONTRACT_MODULE_PATH = './wave1-retained-state-characterization.ts';
 const LEGACY_BOUNDARY_BYTES = 2 * 1024 * 1024;
 const LIVE_RESULTS_PATH = path.resolve(

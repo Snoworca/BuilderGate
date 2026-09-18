@@ -7,6 +7,24 @@ import {
   requireLocalDebugCapture,
 } from '../middleware/debugCaptureGuards.js';
 import { SessionManager } from './SessionManager.js';
+
+/**
+ * Issue #105: eleven tests in this file pin `platform: 'win32'` so they can
+ * exercise the PowerShell paths, but did not stub execFileSync. On win32 the
+ * manager verifies the winpty backend by spawning a real node subprocess that
+ * starts powershell.exe, which on a Linux host cannot succeed — it burns its
+ * 1.5s budget and then throws CONFIG_ERROR out of
+ * assertPowerShellWinptyAvailable, so the test dies at session creation with a
+ * timeout instead of measuring the invariant it names.
+ *
+ * The probe is host-capability detection, not the behaviour under test, so stub
+ * it and let the tests actually run here rather than skipping them. Six of the
+ * eleven are issue #12's AC-10 invariants, which would otherwise be
+ * unmeasurable on this platform.
+ */
+const STUB_WINPTY_PROBE = (() => Buffer.from('')) as unknown as NonNullable<
+  ConstructorParameters<typeof SessionManager>[1]
+>['execFileSyncFn'];
 import {
   createHeadlessTerminalState,
   writeHeadlessTerminal,
@@ -9300,6 +9318,7 @@ test('MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later C
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9339,6 +9358,7 @@ test('MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft thro
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9385,6 +9405,7 @@ test('MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mas
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9414,6 +9435,7 @@ test('MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft un
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9460,6 +9482,7 @@ test('MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal pro
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9489,6 +9512,7 @@ test('MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo p
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9530,6 +9554,7 @@ test('MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatch
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9562,6 +9587,7 @@ test('MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Code
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9595,6 +9621,7 @@ test('MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9927,6 +9954,7 @@ test('MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candid
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -10578,6 +10606,7 @@ test('MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw 
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
