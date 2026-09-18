@@ -150,6 +150,7 @@
     "tests/unit/terminalWebglRenderer.test.ts",
     "tests/unit/terminalWidthPolicyParity.test.ts",
     "tests/unit/tsconfigTestMembership.test.ts",
+    "tests/e2e/webgl-dom-fallback.spec.ts",
     "tests/e2e/wave2-screen-repair-resync.spec.ts"
   ],
   // src/editor 는 tsconfig.editor.json 이 검사한다. exclude 는 tsconfig.app.json 에서

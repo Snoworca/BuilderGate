@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
@@ -67,13 +67,37 @@ function read(relativePath: string): string {
   return readFileSync(new URL(relativePath, `file://${REPO_ROOT}`), 'utf8');
 }
 
+/**
+ * The addon check used to grep two hardcoded paths, which asserted a property of
+ * two string literals rather than of the system: a unicode addon loaded from any
+ * other module would have passed it silently. It now scans both source trees.
+ */
+function scanSources(relativeRoot: string): { file: string; text: string }[] {
+  const root = new URL(relativeRoot, `file://${REPO_ROOT}`);
+  const dir = root.pathname;
+  const walk = (d: string): string[] =>
+    readdirSync(d, { withFileTypes: true }).flatMap((e) => {
+      if (e.name === 'node_modules' || e.name === 'vendor') return [];
+      const full = `${d}/${e.name}`;
+      if (e.isDirectory()) return walk(full);
+      return /\.tsx?$/.test(e.name) ? [full] : [];
+    });
+  return walk(dir).map((file) => ({ file, text: readFileSync(file, 'utf8') }));
+}
+
 function setsOption(source: string, option: string): boolean {
   return new RegExp(`\\b${option}\\s*:`).test(source);
 }
 
 test('#16 neither side loads a unicode width addon without the other', () => {
-  const server = UNICODE_ADDON_PATTERN.test(read(SERVER_TERMINAL));
-  const browser = UNICODE_ADDON_PATTERN.test(read(BROWSER_TERMINAL));
+  const hits = (relativeRoot: string): string[] => scanSources(relativeRoot)
+    .filter(({ text }) => UNICODE_ADDON_PATTERN.test(text))
+    .map(({ file }) => file.replace(REPO_ROOT, ''));
+
+  const serverHits = hits('server/src');
+  const browserHits = hits('frontend/src');
+  const server = serverHits.length > 0;
+  const browser = browserHits.length > 0;
 
   assert.equal(
     server,
@@ -81,7 +105,27 @@ test('#16 neither side loads a unicode width addon without the other', () => {
     'The server and browser terminals disagree about loading a unicode width '
       + 'addon. Whichever side has one, the other must match, or recovered '
       + 'output shifts by a cell wherever a wide or combining character appears. '
-      + `server=${server} browser=${browser}`,
+      + `server=${serverHits.join(',') || 'none'} browser=${browserHits.join(',') || 'none'}`,
+  );
+});
+
+/**
+ * AC-4 of FR-BGSTAB-029: selection state must be read from xterm, never from the
+ * DOM. window.getSelection() keeps returning stale text after xterm has dropped
+ * a selection, so it reports the opposite of the truth.
+ */
+test('#16 terminal code never reads selection state from the DOM', () => {
+  const offenders = scanSources('frontend/src')
+    .filter(({ file }) => /Terminal|terminal/.test(file) && !/\/editor\//.test(file))
+    .filter(({ text }) => /window\.getSelection\s*\(/.test(text))
+    .map(({ file }) => file.replace(REPO_ROOT, ''));
+
+  assert.deepEqual(
+    offenders,
+    [],
+    'Terminal-scoped source must read xterm\'s own selection state. '
+      + 'window.getSelection() is a stale DOM artifact that survives after xterm '
+      + 'has cleared its selection, so it inverts the answer.',
   );
 });
 
