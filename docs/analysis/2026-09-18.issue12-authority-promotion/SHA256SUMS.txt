@@ -5,6 +5,7 @@ a5f346c115c9d1fd6d966b5aa94392e51885808df869e6777c392aadbae59303  ./03.reserved-
 3a8f7aa4e0349b9448804564c552db256ed1b365e783d201b25db7aacac46d1e  ./04.ac2-zero-window.md
 5590728375787d6d363e4e8dccaa461a5f3d47c2dfea45584bb3e5724ff4a54b  ./05.ac11-dedup-ledger.md
 59cfea7f0f17548ee58853865fca025b1296da83606e689340b0a356be900fd6  ./06.ac11-rollback-experiment.md
+68142788d9fa8ea691b7c8bfa18caa20e52558303917a92d650d3e9b18755eb5  ./07.ac2-named-owner.md
 408ae1dbaade61ac9a3f67230c38487ef0244c566c57488f525d57ce6d6b8fd7  ./probe/apply-issue12-probes.py
 b5b4a9f1af6ce3a266b59247e39c840045332516665288348b4756681e43707f  ./probe/apply-issue12-rollback-probe.py
 5aeb453cb1801cdb11f0e05743f455f6e3768ad9eb5e8b63f124dc73f2eb0f3f  ./raw/ac-corpus-at-240d86a.json
@@ -12,6 +13,13 @@ a07d942332c4871871ecd019213bdbf7427b32a0344463dfc2031002273d4dff  ./raw/ac-corpu
 9b161e2f335b856cb896a945b2c4f500de96a577ae0dfe3df6ae465f0ec4eded  ./raw/ac-corpus.json
 e64e7e90374f76d4dbd743e901ea98d2e56a81d6ed0125ea4439c9f5a721372f  ./raw/ac-term-probes-round2.txt
 91c3cd61332da3358ac87a0aabfe12ca4d23a57e1610bb12ef1b23d31bd709ff  ./raw/ac-term-probes.txt
+19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061  ./raw/ac2-owner/new-test.exit
+283afd1d866cc0c6ee7d39521892061e96fafaea2c0f0433a41865d2b17f8acf  ./raw/ac2-owner/new-test.out
+cac2224e98fa24fb6284613c536b6786cf7865fe257b04e0d1008630e51cfd31  ./raw/ac2-owner/reg_services_SessionManagerTerminalAuthorityDebugIsolation.test.ts.out
+0db0d092c1fae99d33189de3c897c1e7206e8cb8678e2edd20cc4dcb01ee493b  ./raw/ac2-owner/reg_services_SessionManagerTerminalAuthorityRuntimePorts.test.ts.out
+92fbd1d80b1aae7d1b84de852a1252ff1a0e49a7554f5d6f3cad05e3b6452457  ./raw/ac2-owner/regression.txt
+a6ce7f41eaf235b981cdbfe9a3d6a5d9a3502b6bd605ffc2acf78679a4ee9a2f  ./raw/ac2-owner/typecheck.exit
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/ac2-owner/typecheck.out
 24a407bebaf9925e2dd5e0aa167cbdc620b874dcfb58d6464e9533149ac5c09a  ./raw/all-test-names.txt
 b3d04c34cc4e1124d5127c1b4576b6714fc95f6998fdd30cbdfe3a2a1728fde2  ./raw/build-ac-corpus.py
 96e705d79bc50cfcec0c67bf2fabcfff706b6c8100c92f8e0d171d59e4d05e99  ./raw/controls.py

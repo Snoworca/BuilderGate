@@ -1,0 +1,12 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ MIG-BGSTAB-002 the server and legacy responders are never both enabled, at any step of promotion or rollback (94.092101ms)
+✔ MIG-BGSTAB-002 no handoff step admits a query reply on both the server and the compatibility path (87.004127ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3538.370367

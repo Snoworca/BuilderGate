@@ -1,0 +1,57 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ MIG-BGSTAB-002 screen repair waits for an accepted retained resize before checking geometry (168.400891ms)
+✔ MIG-BGSTAB-002 production attachment can activate retained shadow for an existing disabled session (129.997478ms)
+[SessionManager] Terminal authority runtime degradation cleanup failed: AggregateError: terminal-authority-runtime-degradation-cleanup-failed
+    at SessionManager.markHeadlessDegraded (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8614:9)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManagerTerminalAuthorityRuntimePorts.test.ts:444:12)
+    at Test.runInAsyncScope (node:async_hooks:227:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+    at Test.postRun (node:internal/test_runner/test:1542:19)
+    at Test.run (node:internal/test_runner/test:1467:12)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+  [errors]: [
+    Error: injected-query-responder-detach-failure
+        at Object.detach (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManagerTerminalAuthorityRuntimePorts.test.ts:428:15)
+        at SessionManager.detachTerminalAuthorityRuntime (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:5303:36)
+        at SessionManager.disposeTerminalAuthorityRuntimeForSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:5227:14)
+        at SessionManager.markHeadlessDegraded (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8610:40)
+        at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManagerTerminalAuthorityRuntimePorts.test.ts:444:12)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12),
+    Error: injected-query-responder-detach-failure
+        at Object.detach (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManagerTerminalAuthorityRuntimePorts.test.ts:428:15)
+        at SessionManager.disposeTerminalAuthorityRuntimeForSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:5233:30)
+        at SessionManager.markHeadlessDegraded (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8610:40)
+        at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManagerTerminalAuthorityRuntimePorts.test.ts:444:12)
+        at Test.runInAsyncScope (node:async_hooks:227:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+        at Test.postRun (node:internal/test_runner/test:1542:19)
+        at Test.run (node:internal/test_runner/test:1467:12)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ]
+}
+[SessionManager] Headless terminal degraded (write) for session terminal-authority-runtime-ports: injected-headless-degradation
+✔ MIG-BGSTAB-002 runtime factory registration backfills sessions restored before production authority attachment (165.488133ms)
+✔ MIG-BGSTAB-002 runtime factory registration is atomic and rejects a different owner factory (95.206243ms)
+✔ MIG-BGSTAB-002 headless recreation disposes the previous authority runtime before replacement (87.320911ms)
+✔ MIG-BGSTAB-002 headless degradation settles the owned authority runtime without a partial attachment (89.300031ms)
+✔ MIG-BGSTAB-002 session finalization disposes a factory-owned authority runtime (80.952331ms)
+✔ MIG-BGSTAB-002 runtime ports close real admission and restore the concrete browser driver only after both compatibility leases bind (87.730992ms)
+✔ MIG-BGSTAB-002 unregistering the legacy driver preserves the session responder through replacement rebind (86.530074ms)
+✔ MIG-BGSTAB-002 baseline legacy responder without an explicit lease id admits a replacement driver (83.436041ms)
+✔ MIG-BGSTAB-002 promotion parity snapshot fails closed for missing lease, no-cache evidence, and comparer mismatch (243.17834ms)
+✔ MIG-BGSTAB-002 reconnect cleanup revokes runtime leases and invalidates prepared promotion evidence (80.088368ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4281.672533
