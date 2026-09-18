@@ -3,6 +3,7 @@ e47d28e79ebe6a8e9327147addaa2a4f362bff58ffd256f6af8aa6f7a4e3bcdf  ./01.ac-map.md
 c7c9da8618d34a7dd9cd530bc6ee8f5c42028302fdde577b4e2b9585d36811ee  ./02.premise-table.md
 a5f346c115c9d1fd6d966b5aa94392e51885808df869e6777c392aadbae59303  ./03.reserved-ordinal-gap.md
 3a8f7aa4e0349b9448804564c552db256ed1b365e783d201b25db7aacac46d1e  ./04.ac2-zero-window.md
+5590728375787d6d363e4e8dccaa461a5f3d47c2dfea45584bb3e5724ff4a54b  ./05.ac11-dedup-ledger.md
 408ae1dbaade61ac9a3f67230c38487ef0244c566c57488f525d57ce6d6b8fd7  ./probe/apply-issue12-probes.py
 5aeb453cb1801cdb11f0e05743f455f6e3768ad9eb5e8b63f124dc73f2eb0f3f  ./raw/ac-corpus-at-240d86a.json
 a07d942332c4871871ecd019213bdbf7427b32a0344463dfc2031002273d4dff  ./raw/ac-corpus-controls.txt
