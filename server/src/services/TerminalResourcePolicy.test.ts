@@ -63,9 +63,11 @@ const EXPECTED_RESOURCE_KEYS = [
   'resourceLimits.snapshots.tombstoneTtlMs',
   'resourceLimits.snapshots.totalStorageBudgetChars',
   'resourceLimits.terminal.checkpointMaxBytes',
+  'resourceLimits.terminal.checkpointMaxChunks',
   'resourceLimits.terminal.hiddenOutputPolicy',
   'resourceLimits.terminal.hiddenOutputTailBytes',
   'resourceLimits.terminal.inputQueueMaxBytes',
+  'resourceLimits.terminal.inputQueueMaxCount',
   'resourceLimits.terminal.inputQueueTtlMs',
   'resourceLimits.terminal.scrollbackLines',
   'resourceLimits.terminal.transportOutboxMaxBytes',
@@ -366,7 +368,7 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2',
   assert.deepEqual(compiledFirst, compiledSecond);
   assert.equal(compiledFirst.mode, 'observe');
   assert.equal(compiledFirst.appliedPolicyId, compiledFirst.legacyPolicy.policyId);
-  assert.equal(Object.keys(compiledFirst.legacyPolicy.resources).length, 31);
+  assert.equal(Object.keys(compiledFirst.legacyPolicy.resources).length, 33);
   assert.equal(observation.decisionEvidence.runtimeApplicationClaimed, false);
   assert.equal(observation.decisionStackHash, stableHash(observation.decisionStack));
   assert.equal(observation.decisionStack.scrollback.serverHeadless.source, 'resourceLimits.terminal.scrollbackLines');
@@ -812,7 +814,7 @@ test('OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized a
   }
 });
 
-test('OBS-BGSTAB-005 review regression — compiler owns all 31 typed resources and records real legacy divergence', async () => {
+test('OBS-BGSTAB-005 review regression — compiler owns all 33 typed resources and records real legacy divergence', async () => {
   const { TERMINAL_RESOURCE_KEYS, compileTerminalResourcePolicy } = await loadContract('AC-2');
   assert.deepEqual([...TERMINAL_RESOURCE_KEYS].sort(), [...EXPECTED_RESOURCE_KEYS]);
   const compiled = compileTerminalResourcePolicy({

@@ -224,10 +224,12 @@ function getTerminalBufferType(term: Terminal): TerminalViewportSnapshotBufferTy
   return term.buffer.active.type === 'alternate' ? 'alternate' : 'normal';
 }
 
-function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueTtlMs: number } {
+function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueMaxCount: number; inputQueueTtlMs: number } {
   const limits = getTerminalResourceLimits();
   return {
     inputQueueMaxBytes: limits.inputQueueMaxBytes,
+    // #72: input scope owns its own count now. These used to read the OUTPUT chunk cap.
+    inputQueueMaxCount: limits.inputQueueMaxCount,
     inputQueueTtlMs: limits.inputQueueTtlMs,
   };
 }
@@ -3550,10 +3552,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes,
         checkpointMaxBytes: coordinatorLimits.checkpointMaxBytes,
         postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks,
+        checkpointMaxChunks: coordinatorLimits.checkpointMaxChunks,
         pendingInputMaxBytes: coordinatorInputLimits.inputQueueMaxBytes,
-        pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks,
+        pendingInputMaxCount: coordinatorInputLimits.inputQueueMaxCount,
         pendingInputTtlMs: coordinatorInputLimits.inputQueueTtlMs,
-        settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks,
+        settlementLedgerMaxEntries: coordinatorInputLimits.inputQueueMaxCount,
         inputSettlementLedgerMaxEntries: INPUT_SETTLEMENT_LEDGER_MAX_ENTRIES,
         settlementLedgerTtlMs: coordinatorInputLimits.inputQueueTtlMs,
         // Issue #10 AC-4: the frame CPU budget and the input yield apply to the

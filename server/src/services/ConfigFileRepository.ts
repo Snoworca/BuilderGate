@@ -214,6 +214,8 @@ function applyEditableValues(
   if (shouldApply('resourceLimits.terminal.hiddenOutputPolicy')) setPath(rawConfig, ['resourceLimits', 'terminal', 'hiddenOutputPolicy'], resourceLimits.terminal.hiddenOutputPolicy);
   if (shouldApply('resourceLimits.terminal.hiddenOutputTailBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'hiddenOutputTailBytes'], resourceLimits.terminal.hiddenOutputTailBytes);
   if (shouldApply('resourceLimits.terminal.inputQueueMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueMaxBytes'], resourceLimits.terminal.inputQueueMaxBytes);
+  if (shouldApply('resourceLimits.terminal.checkpointMaxChunks')) setPath(rawConfig, ['resourceLimits', 'terminal', 'checkpointMaxChunks'], resourceLimits.terminal.checkpointMaxChunks);
+  if (shouldApply('resourceLimits.terminal.inputQueueMaxCount')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueMaxCount'], resourceLimits.terminal.inputQueueMaxCount);
   if (shouldApply('resourceLimits.terminal.inputQueueTtlMs')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueTtlMs'], resourceLimits.terminal.inputQueueTtlMs);
   if (shouldApply('resourceLimits.terminal.transportOutboxMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'transportOutboxMaxBytes'], resourceLimits.terminal.transportOutboxMaxBytes);
   if (shouldApply('resourceLimits.terminal.transportOutboxTtlMs')) setPath(rawConfig, ['resourceLimits', 'terminal', 'transportOutboxTtlMs'], resourceLimits.terminal.transportOutboxTtlMs);
@@ -300,6 +302,8 @@ function renderPatchedConfig(
   if (shouldRender('resourceLimits.terminal.hiddenOutputPolicy')) replacements.set('resourceLimits.terminal.hiddenOutputPolicy', renderJson5Value(resourceLimits.terminal.hiddenOutputPolicy));
   if (shouldRender('resourceLimits.terminal.hiddenOutputTailBytes')) replacements.set('resourceLimits.terminal.hiddenOutputTailBytes', renderJson5Value(resourceLimits.terminal.hiddenOutputTailBytes));
   if (shouldRender('resourceLimits.terminal.inputQueueMaxBytes')) replacements.set('resourceLimits.terminal.inputQueueMaxBytes', renderJson5Value(resourceLimits.terminal.inputQueueMaxBytes));
+  if (shouldRender('resourceLimits.terminal.checkpointMaxChunks')) replacements.set('resourceLimits.terminal.checkpointMaxChunks', renderJson5Value(resourceLimits.terminal.checkpointMaxChunks));
+  if (shouldRender('resourceLimits.terminal.inputQueueMaxCount')) replacements.set('resourceLimits.terminal.inputQueueMaxCount', renderJson5Value(resourceLimits.terminal.inputQueueMaxCount));
   if (shouldRender('resourceLimits.terminal.inputQueueTtlMs')) replacements.set('resourceLimits.terminal.inputQueueTtlMs', renderJson5Value(resourceLimits.terminal.inputQueueTtlMs));
   if (shouldRender('resourceLimits.terminal.transportOutboxMaxBytes')) replacements.set('resourceLimits.terminal.transportOutboxMaxBytes', renderJson5Value(resourceLimits.terminal.transportOutboxMaxBytes));
   if (shouldRender('resourceLimits.terminal.transportOutboxTtlMs')) replacements.set('resourceLimits.terminal.transportOutboxTtlMs', renderJson5Value(resourceLimits.terminal.transportOutboxTtlMs));

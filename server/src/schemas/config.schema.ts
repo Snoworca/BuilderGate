@@ -147,9 +147,18 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   // operator-tunable and this was not, so the 7ms default could not be moved at all.
   visibleFlushFrameBudgetMs: durationLimit(1, 100, 7),
   checkpointMaxBytes: bytesLimit(1024, 268435456, 4194304),
+  // #70: the chunk half of the checkpoint budget. It used to resolve to the post-checkpoint
+  // hold cap because the only production caller passed just that one, which is the same shape
+  // REL-BGSTAB-023 fixed on the byte axis. The default is what it used to inherit.
+  checkpointMaxChunks: countLimit(1, 65536, 512),
   hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).default('snapshot-restore'),
   hiddenOutputTailBytes: bytesLimit(0, 16777216, 262144),
   inputQueueMaxBytes: bytesLimit(1024, 16777216, 65536),
+  // #72: input scope had bytes and a TTL but no COUNT, so the pending-input cap and the
+  // settlement ledger cap borrowed the OUTPUT chunk cap -- an operator tuning output chunking
+  // downward silently lowered how many inputs may be pending. The default is what they used
+  // to inherit.
+  inputQueueMaxCount: countLimit(1, 65536, 512),
   inputQueueTtlMs: durationLimit(1, 60000, 1500),
   transportOutboxMaxBytes: bytesLimit(1024, 16777216, 65536),
   transportOutboxTtlMs: durationLimit(1, 60000, 1500),

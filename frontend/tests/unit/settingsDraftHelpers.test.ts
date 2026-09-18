@@ -185,11 +185,13 @@ function createEditableValues(): EditableSettingsValues {
         hiddenOutputPolicy: 'write-hidden',
         hiddenOutputTailBytes: 262_144,
         inputQueueMaxBytes: 65_536,
+        inputQueueMaxCount: 512,
         inputQueueTtlMs: 5_000,
         transportOutboxMaxBytes: 65_536,
         transportOutboxTtlMs: 5_000,
         scrollbackLines: 10_000,
         checkpointMaxBytes: 1_048_576,
+        checkpointMaxChunks: 512,
       },
       snapshots: {
         perSnapshotMaxChars: 1_000_000,

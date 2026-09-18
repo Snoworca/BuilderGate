@@ -126,10 +126,13 @@ test('REL_BGSTAB_023_AC2_the_only_production_call_site_passes_the_checkpoint_bud
   );
 });
 
-test('REL_BGSTAB_023_AC6_the_chunk_budget_deliberately_still_converges_on_the_hold_budget', () => {
-  // Out of scope for REL-BGSTAB-023 by decision, not by impossibility. This test exists so the
-  // exclusion is explicit and a later change to it is visible rather than silent.
-  const signature = 'the chunk budget separation was changed without a requirement covering it';
+test('REL_BGSTAB_023_AC6_the_chunk_budget_fallback_is_now_a_default_production_no_longer_relies_on', () => {
+  // This test used to pin the chunk axis as deliberately EXCLUDED -- "so the exclusion is
+  // explicit and a later change to it is visible rather than silent". #70 is that later change,
+  // and this is it being visible: the coordinator's `?? postCheckpointMaxChunks` fallback stays,
+  // because a caller may still omit the option, but production no longer takes it. The
+  // production half is asserted in terminalChunkAndInputCountBudgets.test.ts.
+  const signature = 'the coordinator fallback that keeps omitting callers working was removed';
   const source = readFileSync(
     new URL('../../src/utils/terminalWriteCoordinator.ts', import.meta.url),
     'utf8',
@@ -138,6 +141,16 @@ test('REL_BGSTAB_023_AC6_the_chunk_budget_deliberately_still_converges_on_the_ho
     source,
     /options\.checkpointMaxChunks \?\? postCheckpointMaxChunks/u,
     signature,
+  );
+
+  const view = readFileSync(
+    new URL('../../src/components/Terminal/TerminalView.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    view,
+    /checkpointMaxChunks: coordinatorLimits\.checkpointMaxChunks/u,
+    'production must pass its own chunk budget rather than resolving through the fallback (#70)',
   );
 });
 

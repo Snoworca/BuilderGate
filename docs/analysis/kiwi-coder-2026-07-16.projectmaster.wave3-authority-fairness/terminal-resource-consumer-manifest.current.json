@@ -25,12 +25,12 @@
     "sourceHashes": {
       "frontend/src/components/Settings/settingsDraftHelpers.ts": "e4ef966e1731f468f3bba1a6bcfa443bc0b991d65178a81413836da0f5c3e8a7",
       "frontend/src/components/Terminal/TerminalContainer.tsx": "77aec12d2be652764006ad41174b0e43e59b8a216e9f3f86df07832141efe1be",
-      "frontend/src/components/Terminal/TerminalView.tsx": "4b2b25fe64a18da31398c6bae5fa16969bf6dc4935edf5dc1eb5c9c93e1cda65",
+      "frontend/src/components/Terminal/TerminalView.tsx": "38e7f79a7ae4b8ca27e731b4e6e832b9e240a402c2d4b0e9a5e62eaf47c3a3e2",
       "frontend/src/contexts/WebSocketContext.tsx": "31626bdd2181c14ef3ab048ab70d07c18c74f1e3232a327ed49cf15cd1268d4b",
       "frontend/src/hooks/useTerminalRuntimeResidency.ts": "839519d4c6fb58e3069aa5a2aff4f94e44e58675cb0aa4d47ad13913f0e8c415",
       "frontend/src/services/tokenStorage.ts": "90241907e80a501e6cf423f8c26b97a3245291cccfada64f168798c4e93ed1d7",
-      "frontend/src/types/settings.ts": "eb4a5ce816f764d1e88327ce01a9a0cee3985107bc658d9c41452256a2851b7a",
-      "frontend/src/utils/inputReliabilityMode.ts": "011768d989444e5c7e710d62a19a01349ba4e19ee946961f2e4fdc33e87e7ffe",
+      "frontend/src/types/settings.ts": "9a11c40b101dbdf16b9b34318cec12330b9455b85cac57305e7e84cfbeb94f33",
+      "frontend/src/utils/inputReliabilityMode.ts": "4f6a94de1c40686a242dce0139962efb08d7e3b292e84701a61178b28c04f015",
       "frontend/src/utils/terminalGraceBuffer.ts": "67776ee15f52b38f0f650157dec37d2016c5763d2784357e86637b7cccb8d76d",
       "frontend/src/utils/terminalHiddenOutput.ts": "1f0c3572f15df27e43bf736d93c5718a51ee6d366687a054b3b5f4ca35b31a6a",
       "frontend/src/utils/terminalOutputHotPath.ts": "d1e3b4cf4f66515fcee16ee2a2c9a74c2c6c14bf3396b1e1a18ce51fbc85c27b",
@@ -39,30 +39,30 @@
       "frontend/src/utils/terminalViewAttributes.ts": "125a6a9a1cad779aa11768e8948c6921bb1b1ef87466a060fb3d0dc78e82b304",
       "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855",
       "frontend/src/utils/webSocketBackpressure.ts": "6b1267425a009da86ed03cccfe8caa80520dcd65b82fff63ffe5e6886e132f29",
-      "server/src/schemas/config.schema.ts": "6832935dc23f36c103805a0dfe997b8a56c95eb203a688dd5c1e9e845e2cc60f",
-      "server/src/services/ConfigFileRepository.ts": "eb7fce15b8a73769b5e24579cbe1f1f44a4d52cb5962dcbdd50d6158cf1ee355",
-      "server/src/services/RuntimeConfigStore.test.ts": "fb9e242a7ff9cbb3887f5584ebca42fade7b4dbf9f75063340f2101a88bc439a",
-      "server/src/services/RuntimeConfigStore.ts": "b5c34e7971f38698e6b0b14a5d14e8caa04d72c122be780e1da70756af62b996",
+      "server/src/schemas/config.schema.ts": "7ab9aedcfdb80a13167e651e3be714f8ac37b5b03f742dbc0c1095139afbdd7f",
+      "server/src/services/ConfigFileRepository.ts": "13f979f3f987a40581f56971f9da6ed3e161701ca62c057dde16bbf7a1fb2e59",
+      "server/src/services/RuntimeConfigStore.test.ts": "e7539586ac19f1d605bb98b8aa9aeb1e5ae3f8ed6361448a8f107fda53c2508a",
+      "server/src/services/RuntimeConfigStore.ts": "991b3a0963a76ee24cc82080bb7dad3ee3292e2b797899e12bc8186a41c670db",
       "server/src/services/SessionManager.ts": "2f24c90abf18c43ca15e3da9d1b8de5c33d901ccb88f97999908624ed5c72e0c",
-      "server/src/services/SettingsService.ts": "47dd55e7a0335a42d94e83960d16c6d9a05581802f5feaecfe3f16deca14db9c",
-      "server/src/services/TerminalResourcePolicy.test.ts": "63d60f0c809726d139efc07e623e05ea91a7d8c6b322796a107783f7536ee46e",
-      "server/src/services/TerminalResourcePolicy.ts": "124fc22d297efd4d897e0d5addff66db7d3499219bc5e55f40553ab2a790064f",
-      "server/src/services/TerminalResourcePolicyInventory.ts": "5b6426cf2e4a7387fd91f90b29effb9adbc894cb7e61016e89d88416c6d963d9",
-      "server/src/services/TerminalResourcePolicyObservations.ts": "4cdabde2bf0c606ec0ed7a19047330df75f3883c7d0967286282eb1573e6a8e5",
-      "server/src/types/config.types.ts": "e1dd675de91f7cec914e5b4900e80cb995ce312616c366661de64351ef46571b",
-      "server/src/types/settings.types.ts": "5650dbd61205281fc63ce93feeadadfa83e91ae41f21e1e45d9305a23624e626",
+      "server/src/services/SettingsService.ts": "d85a0b87643654c2b00f0910bf368f94b172c16dd161c5a1cd5e04ea7b721bcc",
+      "server/src/services/TerminalResourcePolicy.test.ts": "6430aa4d93ea5249bcc67ae096a38929c19a8b772660631088bdd93a8558b37f",
+      "server/src/services/TerminalResourcePolicy.ts": "f74dcc2e4f961398f52c436ae786f03546a940934849f6b5c2a292d21c9c56b8",
+      "server/src/services/TerminalResourcePolicyInventory.ts": "fcb459df76310afbb5a75c69248ba2b8027ddce30439ed84109362aa074e9beb",
+      "server/src/services/TerminalResourcePolicyObservations.ts": "8a3929af930f389d21d50cc66b7918f3f2e8af2470382ba2f1d09508a92a9981",
+      "server/src/types/config.types.ts": "f0403118b085afc41721f8d895cac440273a9edcbcb10f9a721b1c83953978db",
+      "server/src/types/settings.types.ts": "a0546ff3e7ba51ec80bcd348c7eb05de0ced2713ae79a914ce4a75376d34fb0e",
       "server/src/utils/config.ts": "9e635112882563c2abbcdc6a265c0bc6f3ed9d1a830122390420e8beb29e85ff",
       "server/src/utils/configStrictLoader.ts": "72c500c9ff2ee80b5a128d7b2e3fcf0635c04993dbe1f716dce22f0006f9614f",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
       "server/src/utils/headlessTerminal.ts": "786aa5eed4f5a0f5827abaac3087832e0ecc152ac017b772acd29dbd38b8b2ef",
       "server/src/ws/WsRouter.ts": "8be24a988562b6865da65297f06c8c7e2c4ea0beda66bd7ba2c583780933d82b",
       "server/src/ws/wsSendPolicy.ts": "d8161ec40992dfaabc0285fa39d29299b933133931e5be05197eefa7fc258939",
-      "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "4707db00552c835d1c383b1a3e935231e3bbe41c837427838b6644c7461ebab0",
+      "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "1b81801bec8952f801cb378846cd31bba46f499324cec1baa229fe425deea5f1",
       "tools/wave3/terminal-resource-policy-differential.ts": "4e3037ede53b126b5c5dd117ba7d87426d9a8b81768492becf3c3f7b64d84f92"
     },
-    "sourceSetSha256": "6a02c82dff3b14b6f7898dd2bf2ed3b82c15c747f6759c3015fb8212d4470a44",
+    "sourceSetSha256": "a6645c8ce92a0608f9b35a0c37edafa42aa7937e68a620c3105add267441492f",
     "rawGreenEvidence": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "cd108916712e5fab8261b8ec3d636bd9fc58205318c3711193523c860c23a1a8",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "c219f24354e05dcbdfb5dd0bb43c309a71b6d2b4ba884262f4642a0478445f92",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"
     },
     "consumerAstFingerprint": {
@@ -953,7 +953,24 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "4a57db4338770d288e8cde4d8269035c02b2d90db250feb18e2649b1a31cc269"
+      "evidenceAstSha256": "5e0a8fa12c6ce1b373d0d39699a7e65a27c900195096668867e4407457e6e7ea"
+    },
+    {
+      "evidenceRole": "object-option-flow",
+      "consumerId": "browser.terminal.recovery-scheduler",
+      "category": "terminal-write-recovery-scheduler",
+      "resourceKey": "resourceLimits.terminal.inputQueueMaxCount",
+      "unit": "count",
+      "source": "resourceLimits.terminal.inputQueueMaxCount",
+      "applyBoundary": "recovery-generation",
+      "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
+      "consumerSymbol": "getInputQueueLimits",
+      "evidenceSignature": "inputQueueMaxCount: limits.inputQueueMaxCount",
+      "state": "consumed",
+      "schemaVersion": "terminal-resource-policy/v1",
+      "profileVersion": "legacy-effective/v1",
+      "legacyAliases": [],
+      "evidenceAstSha256": "5e0a8fa12c6ce1b373d0d39699a7e65a27c900195096668867e4407457e6e7ea"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -970,7 +987,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "4a57db4338770d288e8cde4d8269035c02b2d90db250feb18e2649b1a31cc269"
+      "evidenceAstSha256": "5e0a8fa12c6ce1b373d0d39699a7e65a27c900195096668867e4407457e6e7ea"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -987,7 +1004,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
+      "evidenceAstSha256": "7cbe40c50974d9a56dba014b2a9e8fef0f949d81b54101974d68ced3ca859028"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -1004,7 +1021,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
+      "evidenceAstSha256": "7cbe40c50974d9a56dba014b2a9e8fef0f949d81b54101974d68ced3ca859028"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -1021,41 +1038,58 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
+      "evidenceAstSha256": "7cbe40c50974d9a56dba014b2a9e8fef0f949d81b54101974d68ced3ca859028"
     },
     {
       "evidenceRole": "object-option-flow",
       "consumerId": "browser.terminal.recovery-scheduler",
       "category": "terminal-write-recovery-scheduler",
-      "resourceKey": "resourceLimits.terminal.visibleOutputMaxChunks",
+      "resourceKey": "resourceLimits.terminal.checkpointMaxChunks",
       "unit": "count",
-      "source": "resourceLimits.terminal.visibleOutputMaxChunks",
+      "source": "resourceLimits.terminal.checkpointMaxChunks",
+      "applyBoundary": "checkpoint-write-coordinator",
+      "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
+      "consumerSymbol": "TerminalView#mountTerminalRuntime",
+      "evidenceSignature": "checkpointMaxChunks: coordinatorLimits.checkpointMaxChunks",
+      "state": "consumed",
+      "schemaVersion": "terminal-resource-policy/v1",
+      "profileVersion": "legacy-effective/v1",
+      "legacyAliases": [],
+      "evidenceAstSha256": "7cbe40c50974d9a56dba014b2a9e8fef0f949d81b54101974d68ced3ca859028"
+    },
+    {
+      "evidenceRole": "object-option-flow",
+      "consumerId": "browser.terminal.recovery-scheduler",
+      "category": "terminal-write-recovery-scheduler",
+      "resourceKey": "resourceLimits.terminal.inputQueueMaxCount",
+      "unit": "count",
+      "source": "resourceLimits.terminal.inputQueueMaxCount",
       "applyBoundary": "checkpoint-input-count-cap",
       "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
       "consumerSymbol": "TerminalView#mountTerminalRuntime",
-      "evidenceSignature": "pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks",
+      "evidenceSignature": "pendingInputMaxCount: coordinatorInputLimits.inputQueueMaxCount",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
+      "evidenceAstSha256": "7cbe40c50974d9a56dba014b2a9e8fef0f949d81b54101974d68ced3ca859028"
     },
     {
       "evidenceRole": "object-option-flow",
       "consumerId": "browser.terminal.recovery-scheduler",
       "category": "terminal-write-recovery-scheduler",
-      "resourceKey": "resourceLimits.terminal.visibleOutputMaxChunks",
+      "resourceKey": "resourceLimits.terminal.inputQueueMaxCount",
       "unit": "count",
-      "source": "resourceLimits.terminal.visibleOutputMaxChunks",
+      "source": "resourceLimits.terminal.inputQueueMaxCount",
       "applyBoundary": "checkpoint-settlement-ledger-cap",
       "consumerPath": "frontend/src/components/Terminal/TerminalView.tsx",
       "consumerSymbol": "TerminalView#mountTerminalRuntime",
-      "evidenceSignature": "settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks",
+      "evidenceSignature": "settlementLedgerMaxEntries: coordinatorInputLimits.inputQueueMaxCount",
       "state": "consumed",
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
+      "evidenceAstSha256": "7cbe40c50974d9a56dba014b2a9e8fef0f949d81b54101974d68ced3ca859028"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -1527,7 +1561,7 @@
       "classification": "persistence-boundary",
       "symbol": "applyEditableValues",
       "evidenceSignature": "function applyEditableValues",
-      "accessEvidenceSha256": "ffd65faea77311ecc546e2a1f3a2651f8b75717b348fa67e97e64a67ed9960f8",
+      "accessEvidenceSha256": "ca98b5ec94e37563cbba04d830ed72fc3f4469df352588379aae04ef82a102bd",
       "reason": "Persists configuration; it is not a terminal runtime consumer."
     },
     {

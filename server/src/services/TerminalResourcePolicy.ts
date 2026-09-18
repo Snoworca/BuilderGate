@@ -106,6 +106,8 @@ const RESOURCE_DEFINITIONS = {
   'resourceLimits.snapshots.tombstoneTtlMs': { path: ['snapshots', 'tombstoneTtlMs'], unit: 'ms', applyBoundary: 'snapshot-cleanup' },
   'resourceLimits.snapshots.totalStorageBudgetChars': { path: ['snapshots', 'totalStorageBudgetChars'], unit: 'chars', applyBoundary: 'snapshot-eviction' },
   'resourceLimits.terminal.checkpointMaxBytes': { path: ['terminal', 'checkpointMaxBytes'], unit: 'bytes', applyBoundary: 'checkpoint-write-coordinator' },
+  'resourceLimits.terminal.checkpointMaxChunks': { path: ['terminal', 'checkpointMaxChunks'], unit: 'count', applyBoundary: 'checkpoint-write-coordinator' },
+  'resourceLimits.terminal.inputQueueMaxCount': { path: ['terminal', 'inputQueueMaxCount'], unit: 'count', applyBoundary: 'checkpoint-input-count-cap' },
   'resourceLimits.terminal.hiddenOutputPolicy': { path: ['terminal', 'hiddenOutputPolicy'], unit: 'enum', applyBoundary: 'visibility-decision' },
   'resourceLimits.terminal.hiddenOutputTailBytes': { path: ['terminal', 'hiddenOutputTailBytes'], unit: 'bytes', applyBoundary: 'visibility-decision' },
   'resourceLimits.terminal.inputQueueMaxBytes': { path: ['terminal', 'inputQueueMaxBytes'], unit: 'bytes', applyBoundary: 'recovery-generation' },

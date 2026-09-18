@@ -20,9 +20,11 @@ export interface TerminalResourceLimitsRuntimeConfig {
   visibleFlushBudgetBytes: number;
   visibleFlushFrameBudgetMs: number;
   checkpointMaxBytes: number;
+  checkpointMaxChunks: number;
   hiddenOutputPolicy: HiddenOutputPolicy;
   hiddenOutputTailBytes: number;
   inputQueueMaxBytes: number;
+  inputQueueMaxCount: number;
   inputQueueTtlMs: number;
   transportOutboxMaxBytes: number;
   transportOutboxTtlMs: number;
@@ -74,9 +76,11 @@ const DEFAULT_TERMINAL_LIMITS: TerminalResourceLimitsRuntimeConfig = {
   visibleFlushBudgetBytes: 262_144,
   visibleFlushFrameBudgetMs: 7,
   checkpointMaxBytes: 4_194_304,
+  checkpointMaxChunks: 512,
   hiddenOutputPolicy: 'snapshot-restore',
   hiddenOutputTailBytes: 262_144,
   inputQueueMaxBytes: 65_536,
+  inputQueueMaxCount: 512,
   inputQueueTtlMs: 1500,
   transportOutboxMaxBytes: 65_536,
   transportOutboxTtlMs: 1500,
@@ -275,8 +279,10 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
     visibleFlushBudgetBytes: DEFAULT_TERMINAL_LIMITS.visibleFlushBudgetBytes,
     visibleFlushFrameBudgetMs: DEFAULT_TERMINAL_LIMITS.visibleFlushFrameBudgetMs,
     checkpointMaxBytes: DEFAULT_TERMINAL_LIMITS.checkpointMaxBytes,
+    checkpointMaxChunks: DEFAULT_TERMINAL_LIMITS.checkpointMaxChunks,
     hiddenOutputTailBytes: DEFAULT_TERMINAL_LIMITS.hiddenOutputTailBytes,
     inputQueueMaxBytes: DEFAULT_TERMINAL_LIMITS.inputQueueMaxBytes,
+    inputQueueMaxCount: DEFAULT_TERMINAL_LIMITS.inputQueueMaxCount,
     inputQueueTtlMs: DEFAULT_TERMINAL_LIMITS.inputQueueTtlMs,
     transportOutboxMaxBytes: DEFAULT_TERMINAL_LIMITS.transportOutboxMaxBytes,
     transportOutboxTtlMs: DEFAULT_TERMINAL_LIMITS.transportOutboxTtlMs,
@@ -287,8 +293,10 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
     visibleFlushBudgetBytes: [1024, 16_777_216],
     visibleFlushFrameBudgetMs: [1, 100],
     checkpointMaxBytes: [1024, 268_435_456],
+    checkpointMaxChunks: [1, 65_536],
     hiddenOutputTailBytes: [0, 16_777_216],
     inputQueueMaxBytes: [1024, 16_777_216],
+    inputQueueMaxCount: [1, 65_536],
     inputQueueTtlMs: [1, 60_000],
     transportOutboxMaxBytes: [1024, 16_777_216],
     transportOutboxTtlMs: [1, 60_000],

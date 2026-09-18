@@ -3118,7 +3118,9 @@ test('production wiring registers the dormant dispatcher and isolates raw xterm 
   assert.match(view, /runtime\.submitInput\(data\)/u);
   assert.match(view, /legacy-output-during-checkpoint-authority/u);
   assert.match(view, /pendingInputMaxBytes:\s*coordinatorInputLimits\.inputQueueMaxBytes/u);
-  assert.match(view, /settlementLedgerMaxEntries:\s*coordinatorLimits\.visibleOutputMaxChunks/u);
+  // #72: the settlement ledger cap is input-scope now. It used to read the OUTPUT chunk cap,
+  // so tuning output chunking downward silently lowered it.
+  assert.match(view, /settlementLedgerMaxEntries:\s*coordinatorInputLimits\.inputQueueMaxCount/u);
   assert.doesNotMatch(view, /terminalRawMutationAdapter/u);
   assert.match(compositionRoot, /from '\.\/terminalRawMutationAdapter\.ts'/u);
 });
