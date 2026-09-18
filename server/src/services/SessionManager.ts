@@ -369,6 +369,18 @@ interface SessionManagerDeps {
    * were measuring. Injecting the probe keeps the platform pin honest.
    */
   existsSyncFn?: (path: string) => boolean;
+  /**
+   * Issue #89: the same defect class as `existsSyncFn` above, one layer over.
+   * `isCommandAvailable` branches on `this.platform`, so a test pinning
+   * `platform: 'win32'` makes it shell out to `where`, which does not exist on a
+   * Linux host. Every availability probe then answers false no matter what is
+   * installed -- measurably wrong here, where `which wsl.exe` finds
+   * /mnt/c/WINDOWS/system32/wsl.exe while `where wsl.exe` cannot run at all. A
+   * bash request then falls through resolveAutoShell to powershell, and
+   * buildShellEnv deliberately sets no BASH_ENV for powershell. Injecting the
+   * probe keeps the platform pin honest.
+   */
+  isCommandAvailableFn?: (cmd: string) => boolean;
   platform?: NodeJS.Platform;
   spawnPty?: typeof pty.spawn;
   processInspector?: SessionProcessInspector;
@@ -1233,6 +1245,7 @@ export class SessionManager {
   private readonly execFileFn: typeof execFile;
   private readonly execFileSyncFn: typeof execFileSync;
   private readonly existsSyncFn: (path: string) => boolean;
+  private readonly injectedIsCommandAvailable: ((cmd: string) => boolean) | null;
   private readonly platform: NodeJS.Platform;
   private readonly spawnPty: typeof pty.spawn;
   private readonly processInspector: SessionProcessInspector;
@@ -1335,6 +1348,7 @@ export class SessionManager {
     this.execFileFn = deps.execFileFn ?? execFile;
     this.execFileSyncFn = deps.execFileSyncFn ?? execFileSync;
     this.existsSyncFn = deps.existsSyncFn ?? existsSync;
+    this.injectedIsCommandAvailable = deps.isCommandAvailableFn ?? null;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
     this.processInspector = deps.processInspector ?? inspectSessionProcessBestEffort;
     this.processTreeTerminator = deps.processTreeTerminator ?? new DefaultProcessTreeTerminator({ platform: this.platform });
@@ -4076,6 +4090,9 @@ export class SessionManager {
   }
 
   private isCommandAvailable(cmd: string): boolean {
+    if (this.injectedIsCommandAvailable) {
+      return this.injectedIsCommandAvailable(cmd);
+    }
     try {
       if (this.platform === 'win32') {
         execSync(`where ${cmd}`, { stdio: 'ignore', windowsHide: true });
