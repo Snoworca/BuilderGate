@@ -266,3 +266,17 @@ Merge-time duplicate Requirement ID repair workflow:
 The Completed Work Log — inline in `docs/spec/00.index.md` §7 and its split history file `docs/spec/91.completed-work-log.md` — is a read-only summary for agents. Requirement Block status, Acceptance Criteria, Verification Evidence, and Change Notes remain the source of truth for completion.
 
 <!-- /SpecKiwi SRS workflow -->
+
+## 작업 강도 방침 (2026-09-18, 사용자 지시)
+
+**이 저장소는 상용 솔루션이 아니라 오픈소스다. 기능에 큰 문제가 없으면 정교하게 만들지 않는다.**
+
+- **속도를 우선한다.** 완결성보다 진행이 중요하다.
+- **리뷰 라운드는 기본 1회.** 실제 기능 결함(사용자가 겪는 동작 문제)이 나왔을 때만 추가로 돈다. 기록 정확성·문서 표현·계측기 정밀도 문제로 라운드를 반복하지 않는다.
+- **발견한 모든 것을 이슈로 만들지 않는다.** 범위 안이고 작으면 그 자리에서 고치고, 범위 밖이면 보고서에 한 줄로 남긴다. 별도 이슈는 **실제 기능 결함이거나 다른 작업을 막을 때만** 세운다.
+- **검증 장치의 정밀도를 목적으로 삼지 않는다.** 테스트가 실제 결함을 잡을 수 있으면 충분하다. 변이 테스트·대조군·봉인 검증은 **안전 임계 경로에서만** 요구한다.
+- **"충분히 좋다" 를 받아들인다.** 잔여와 한계는 기록하되, 그것을 닫으려고 작업을 연장하지 않는다.
+
+이 방침은 이 파일의 다른 규칙(TDD, SRS 워크플로, 안전 규칙)을 대체하지 않는다. 다만 **어디까지 파고들 것인가**에 대한 기본값을 낮춘다.
+
+**변하지 않는 것**: TCP 2001/2002 운영 중단 금지, 프로세스 안전 규칙, `git add -A` 금지, 기록을 고쳐 쓰지 않고 승계하는 것.
