@@ -1,0 +1,199 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 reserves ordinary source tuples before headless commit (125.149394ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 PERF-BGSTAB-011 routes each ordinary reservation tuple unchanged after commit (85.825665ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 reserves rollover source tuples before headless commit (90.809744ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 PERF-BGSTAB-011 routes each rollover reservation tuple unchanged after commit (87.392235ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 1 snapshot-only resize(s) (91.117248ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 2 snapshot-only resize(s) (86.97385ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 preserves pending reservations across an interleaved snapshot rollover (85.299469ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-15 resize preserves queued source identities at snapshot 40 (78.436062ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] Headless terminal degraded (write) for session retained-authority-41011: ACK-16 injected first headless write failure
+[SessionManager] All CWD watchers stopped
+✔ ACK-15 resize preserves queued source identities at snapshot 18446744073709551613 (78.205114ms)
+✔ ACK-16 failed writes and headless recreation discard projected snapshot reservations (76.428164ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-16 enabling shadow after disabled output preserves committed source identity (76.950387ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-1 (230.843671ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — populated Ordinal64 rollover keeps oldest retained marker epoch-qualified (80.121456ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2 (94.875977ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-3 (80.76614ms)
+[SessionManager] All CWD watchers stopped
+[Session retained-authority-41020] Idle detection upgraded to osc133 mode
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-4 (97.338262ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-5 (81.267137ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6 (77.433382ms)
+✔ RED reviewer — failed competing mutation lease rolls back only its newly registered view (77.264051ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-7 (159.989696ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-8 (87.352192ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-9 (294.024ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-1 (149.019123ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-2 (78.239874ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-3 (76.789851ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-6 (74.918784ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-7 (82.612303ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-9 (74.355092ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-10 (75.2753ms)
+✔ REL_BGSTAB_007_AC10_server_restart_is_authority_unavailable (140.486152ms)
+[SessionManager] All CWD watchers stopped
+✔ REL_BGSTAB_007_AC10_pty_exit_is_session_terminated (74.096706ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — production comparer requires an independent roundtrip baseline before principal-axis match (95.163909ms)
+[SessionManager] All CWD watchers stopped
+[Session pure-osc133-retained-record] Idle detection upgraded to osc133 mode
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — split semantic facts preserve record-local OSC BEL/ST, DSR, and repeated BEL occurrences (102.349439ms)
+✔ RED reviewer — pure OSC 133 status is retained as a semantic-only source record (73.137577ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — sampled shadow comparer never blocks legacy delivery or mutates a replacement generation (116.707958ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — shadow comparer samples only at global headless idle and enforces a low-duty interval (355.879294ms)
+[SessionManager] All CWD watchers stopped
+✔ MIG-BGSTAB-002 promotion evidence comparison is not starved by an unrelated busy session (81.31779ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — retained operation and fact evidence ledgers stay policy-bounded (262.001581ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — retained ledger byte accounting never rescans the full evidence arrays on commit (234.351992ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — parser-tail and eviction comparer axes fail closed without an independent baseline (93.593733ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — newline-free soft-wrap and reflow eviction advance exact oldest retained source (79.998822ms)
+✔ RED reviewer — actual input, resize, and query paths reject stale lease identity for two clients (70.73174ms)
+✔ RED reviewer — actual input path rejects every stale lease identity with eight clients (70.989154ms)
+✔ RED reviewer — missing actual mutation identity stays legacy-compatible but blocks shadow canary (74.242287ms)
+✔ RED reviewer — old authority identity cannot mutate replacement PTY through actual paths (75.344566ms)
+✔ lazy test-created SessionData keeps legacy resize compatibility without retained state (71.157645ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — resize advances snapshot identity without consuming PTY source sequence (76.654887ms)
+[SessionManager] Headless terminal degraded (write) for session actual-headless-write-degradation: forced actual retained write degradation
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-already-degraded] Idle detection upgraded to osc133 mode
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-queue-overflow] Idle detection upgraded to osc133 mode
+[SessionManager] Headless terminal degraded (queue-overflow) for session semantic-only-queue-overflow: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-commit-failure] Idle detection upgraded to osc133 mode
+[SessionManager] Headless terminal degraded (write) for session semantic-only-commit-failure: forced semantic-only commit failure
+[SessionManager] All CWD watchers stopped
+[Session pending-semantic-overflow-settlement] Idle detection upgraded to osc133 mode
+✔ RED reviewer — actual headless write degradation is typed and blocks authority canary (76.845602ms)
+✔ RED reviewer — degraded, overflow, and commit-failure OSC status records reject facts without empty delivery (217.668291ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session pending-semantic-overflow-settlement: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session throwing-policy-settler-isolated] Idle detection upgraded to osc133 mode
+✔ RED reviewer — queue overflow settles every previously accepted semantic record in ingest order (74.040937ms)
+[SessionManager] Headless policy failure settler threw for session throwing-policy-settler-isolated, output 0: Error: forced first settler failure
+    at settleFailure (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2856:34)
+    at SessionManager.settleRetainedTerminalPendingOutputsBeforeDegrade (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8697:69)
+    at SessionManager.markHeadlessDegraded (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8647:10)
+    at SessionManager.queueHeadlessOutput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:7859:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1729:14)
+    at FakePty.emitData (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:306:48)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2873:25)
+    at getActual (node:assert:611:5)
+    at strict.doesNotThrow (node:assert:779:32)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2872:12)
+[SessionManager] Headless terminal degraded (queue-overflow) for session throwing-policy-settler-isolated: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session pending-semantic-write-settlement] Idle detection upgraded to osc133 mode
+✔ RED reviewer — throwing policy settler cannot abort degradation settlement or current legacy delivery (83.321675ms)
+[SessionManager] Headless terminal degraded (write) for session pending-semantic-write-settlement: forced queued semantic settlement failure
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — headless write failure settles failed and later queued semantic records exactly once (74.224624ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ REL-BGSTAB-011 AC-4/AC-9 — the shadow changes neither the delivered bytes nor the authority decision (144.53796ms)
+[SessionManager] All CWD watchers stopped
+✖ REL-BGSTAB-011 AC-3 — an over-cap retained checkpoint converges without a silent tail (115.752959ms)
+ℹ tests 54
+ℹ suites 0
+ℹ pass 53
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8372.864228
+
+✖ failing tests:
+
+test at src/services/RetainedTerminalAuthority.test.ts:6:2639
+✖ REL-BGSTAB-011 AC-3 — an over-cap retained checkpoint converges without a silent tail (115.752959ms)
+  AssertionError [ERR_ASSERTION]: REL-BGSTAB-011 AC-3 over-cap retained checkpoint lost payload as a silent tail
+  + actual - expected
+  
+  + 'over-cap'
+  - 'over-cap-line-0-padding-padding-padding\r\n' +
+  -   'over-cap-line-1-padding-padding-padding\r\n' +
+  -   'over-cap-line-2-padding-padding-padding\r\n' +
+  -   'over-cap-line-3-padding-padding-padding\r\n' +
+  -   'over-cap-line-4-padding-padding-padding\r\n' +
+  -   'over-cap-line-5-padding-padding-padding\r\n' +
+  -   'over-cap-line-6-padding-padding-padding\r\n' +
+  -   'over-cap-line-7-padding-padding-padding\r\n' +
+  -   'over-cap-line-8-padding-padding-padding\r\n' +
+  -   'over-cap-line-9-padding-padding-padding\r\n' +
+  -   'over-cap-line-10-padding-padding-padding\r\n' +
+  -   'over-cap-line-11-padding-padding-padding\r\n' +
+  -   'over-cap-line-12-padding-padding-padding\r\n' +
+  -   'over-cap-line-13-padding-padding-padding\r\n' +
+  -   'over-cap-line-14-padding-padding-padding\r\n' +
+  -   'over-cap-line-15-padding-padding-padding\r\n' +
+  -   'over-cap-line-16-padding-padding-padding\r\n' +
+  -   'over-cap-line-17-padding-padding-padding\r\n' +
+  -   'over-cap-line-18-padding-padding-padding\r\n' +
+  -   'over-cap-line-19-padding-padding-padding\r\n' +
+  -   'over-cap-line-20-padding-padding-padding\r\n' +
+  -   'over-cap-line-21-padding-padding-padding\r\n' +
+  -   'over-cap-line-22-padding-padding-padding\r\n' +
+  -   'over-cap-line-23-padding-padding-padding\r\n'
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:3043:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'over-cap',
+    expected: 'over-cap-line-0-padding-padding-padding\r\nover-cap-line-1-padding-padding-padding\r\nover-cap-line-2-padding-padding-padding\r\nover-cap-line-3-padding-padding-padding\r\nover-cap-line-4-padding-padding-padding\r\nover-cap-line-5-padding-padding-padding\r\nover-cap-line-6-padding-padding-padding\r\nover-cap-line-7-padding-padding-padding\r\nover-cap-line-8-padding-padding-padding\r\nover-cap-line-9-padding-padding-padding\r\nover-cap-line-10-padding-padding-padding\r\nover-cap-line-11-padding-padding-padding\r\nover-cap-line-12-padding-padding-padding\r\nover-cap-line-13-padding-padding-padding\r\nover-cap-line-14-padding-padding-padding\r\nover-cap-line-15-padding-padding-padding\r\nover-cap-line-16-padding-padding-padding\r\nover-cap-line-17-padding-padding-padding\r\nover-cap-line-18-padding-padding-padding\r\nover-cap-line-19-padding-padding-padding\r\nover-cap-line-20-padding-padding-padding\r\nover-cap-line-21-padding-padding-padding\r\nover-cap-line-22-padding-padding-padding\r\nover-cap-line-23-padding-padding-padding\r\n',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

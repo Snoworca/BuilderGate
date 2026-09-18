@@ -2939,3 +2939,123 @@ test('RED reviewer — headless write failure settles failed and later queued se
     harness.close();
   }
 });
+
+// Named owner for issue #11 AC-9 / REL-BGSTAB-011 AC-4's second clause.
+//
+// Before this test the property was *covered but unowned*: injecting a
+// one-byte delivery change gated on shadow mode was caught only by tests named
+// for PERF-BGSTAB-011 reservation routing and ACK-16 source identity, so
+// rewriting either of those for its own stated reason would have unguarded this
+// silently. The test that carries the AC-9 assertions today —
+// `… RED contract — REL-BGSTAB-011 AC-7` — stayed green under that injection,
+// because `deliveries.some(entry => entry.data.includes(...))` is true of the
+// correct payload and of one whose tail the shadow has eaten.
+//
+// The predicate here is the one this repository already trusts for exactly this
+// question: ACK-01's "routes each reservation tuple unchanged after commit",
+// pointed at renderer delivery instead of at the reservation ledger.
+test('REL-BGSTAB-011 AC-4/AC-9 — the shadow changes neither the delivered bytes nor the authority decision', async () => {
+  const signature = 'REL-BGSTAB-011 AC-4/AC-9 shadow presence altered renderer delivery or the authority decision';
+  const payload = 'ac9-delivery-integrity-一二三-é-🙂 tail\r\nsecond line\r\n';
+
+  const runArm = async (retainedShadowEnabled: boolean) => {
+    const harness = createHarness({
+      sessionId: `ac9-delivery-${retainedShadowEnabled ? 'shadow' : 'disabled'}`,
+      retainedShadowEnabled,
+    });
+    try {
+      await harness.emit(payload);
+      const own = harness.deliveries.filter(entry => entry.sessionId === harness.sessionId);
+      return {
+        mode: harness.readState().mode,
+        deliveredChunks: own.map(entry => entry.data),
+        deliveredJoined: own.map(entry => entry.data).join(''),
+        authorityRevisions: own.map(entry => entry.authority?.authorityRevision),
+        screenSeqs: own.map(entry => entry.screenSeq),
+      };
+    } finally {
+      harness.close();
+    }
+  };
+
+  const shadow = await runArm(true);
+  const disabled = await runArm(false);
+
+  // Preconditions first, so this test goes false rather than vacuous if the two
+  // arms ever stop being different experiments, or if delivery stops happening
+  // at all. A universal claim over an empty delivery list is true.
+  assert.equal(shadow.mode, 'shadow', `${signature} (precondition: shadow arm must be in shadow mode)`);
+  assert.equal(disabled.mode, 'disabled', `${signature} (precondition: control arm must have the shadow off)`);
+  assert.equal(shadow.deliveredChunks.length, 1, `${signature} (precondition: shadow arm must deliver exactly one chunk)`);
+  assert.equal(disabled.deliveredChunks.length, 1, `${signature} (precondition: control arm must deliver exactly one chunk)`);
+
+  // The property. Equality, not `includes` — a substring predicate cannot see a
+  // tail the shadow has removed, which is how this went unguarded.
+  assert.deepEqual(shadow.deliveredChunks, disabled.deliveredChunks, signature);
+  assert.equal(shadow.deliveredJoined, payload, signature);
+  assert.equal(disabled.deliveredJoined, payload, signature);
+
+  // …and the authority decision, which is the other half of the AC.
+  assert.deepEqual(shadow.authorityRevisions, disabled.authorityRevisions, signature);
+  assert.deepEqual(shadow.authorityRevisions, [1], signature);
+  assert.deepEqual(shadow.screenSeqs, disabled.screenSeqs, signature);
+});
+
+// Named owner for issue #11 AC-5's second half.
+//
+// `… RED contract — REL-BGSTAB-011 AC-3` already owns the *empty* success: it
+// asserts `serializedData.length > 0` on the over-cap arm, and that assertion
+// does redden when the retained serializer is made to return an empty payload.
+// But `> 0` is a lower bound, and it is true of the correct state and of a
+// checkpoint silently truncated to its first few bytes. Injecting exactly that
+// left the whole 52-test suite green.
+//
+// The other assertion in that test, `checkpoint.truncated === false`, cannot
+// help: `RetainedHeadlessCheckpoint.truncated` is declared as the literal type
+// `false` and the producer hardcodes it, so the field admits one value across
+// every path that reaches it.
+test('REL-BGSTAB-011 AC-3 — an over-cap retained checkpoint converges without a silent tail', async () => {
+  const signature = 'REL-BGSTAB-011 AC-3 over-cap retained checkpoint lost payload as a silent tail';
+  const legacyCapBytes = 16;
+  const emittedLines = 24;
+  const harness = createHarness({
+    sessionId: 'ac3-over-cap-no-silent-tail',
+    maxSnapshotBytes: legacyCapBytes,
+    retainedScrollbackLines: 64,
+  });
+  try {
+    for (let index = 0; index < emittedLines; index += 1) {
+      await harness.emit(`over-cap-line-${index}-padding-padding-padding\r\n`);
+    }
+    const state = requireRetainedState(harness, signature);
+    const rehydrateBytes = Buffer.byteLength(state.checkpoint.rehydrateAnsi, 'utf8');
+
+    // Precondition: the arm under test must genuinely exceed the legacy
+    // compatibility cap. Asserting the property on an under-cap payload would
+    // pass for the wrong reason.
+    assert.ok(
+      rehydrateBytes > legacyCapBytes,
+      `${signature} (precondition: payload must exceed the legacy cap; was ${rehydrateBytes} bytes)`,
+    );
+
+    // The property: the retained checkpoint converges to the whole model, not to
+    // an empty success and not to a truncated one.
+    assert.equal(state.checkpoint.serializedData, state.checkpoint.rehydrateAnsi, signature);
+    assert.equal(
+      Buffer.byteLength(state.checkpoint.serializedData, 'utf8'),
+      rehydrateBytes,
+      signature,
+    );
+    assert.equal(state.checkpoint.normal.logicalLines.length, emittedLines, signature);
+    assert.ok(
+      state.checkpoint.serializedData.includes(`over-cap-line-${emittedLines - 1}`),
+      `${signature} (the newest line must survive)`,
+    );
+    assert.ok(
+      state.checkpoint.serializedData.includes('over-cap-line-0'),
+      `${signature} (the oldest retained line must survive)`,
+    );
+  } finally {
+    harness.close();
+  }
+});
