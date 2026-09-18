@@ -94,3 +94,45 @@ for (const failedStage of ['authentication', 'workspace-list'] as const) {
     });
   });
 }
+// #67: the harness used to collapse every non-201 into one message, so a quota refusal, a
+// name-length rejection and an auth failure were indistinguishable -- and that ambiguity
+// produced a real misdiagnosis. Each assertion names a DIFFERENT cause, so one generic
+// message cannot satisfy them all, and the success case must return null so a function that
+// always reported a failure would fail too.
+async function describeProof(proof: unknown): Promise<string | null> {
+  const url = new URL('../e2e/workspaceLeakGuard.ts', import.meta.url);
+  url.searchParams.set('b2-isolation', randomUUID());
+  const guard = await import(url.href) as typeof import('../e2e/workspaceLeakGuard.ts');
+  return guard.describeWorkspaceCreationProofFailure(proof);
+}
+
+const validProof = (over: Record<string, unknown>) => ({
+  url: 'https://localhost:2222/api/workspaces', method: 'POST', status: 201,
+  body: { id: 'ws-1' }, ...over,
+});
+
+test('#67 a quota refusal reports its status and body', async () => {
+  const message = await describeProof(validProof({ status: 409, body: { errorCode: 'WORKSPACE_LIMIT_EXCEEDED' } }));
+  assert.match(String(message), /status 409[\s\S]*WORKSPACE_LIMIT_EXCEEDED/u);
+});
+
+test('#67 a validation refusal is distinguishable from a quota refusal', async () => {
+  const message = await describeProof(validProof({ status: 400, body: { errorCode: 'VALIDATION_ERROR' } }));
+  assert.match(String(message), /status 400[\s\S]*VALIDATION_ERROR/u);
+  assert.doesNotMatch(String(message), /WORKSPACE_LIMIT_EXCEEDED/u);
+});
+
+test('#67 a 201 with no usable id says that is what happened', async () => {
+  const message = await describeProof(validProof({ body: {} }));
+  assert.match(String(message), /201 body carries no usable id/u);
+});
+
+test('#67 a wrong method and a bad url each name themselves', async () => {
+  assert.match(String(await describeProof(validProof({ method: 'GET' }))), /is not POST/u);
+  assert.match(String(await describeProof(validProof({ url: 'not a url' }))), /unusable url/u);
+});
+
+test('#67 a good proof returns null', async () => {
+  assert.equal(await describeProof(validProof({})), null,
+    'a function that always reported a failure would satisfy every assertion above');
+});

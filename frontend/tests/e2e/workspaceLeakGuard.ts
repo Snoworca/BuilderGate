@@ -117,15 +117,49 @@ export async function recordWorkspaceBaseline(input?: RegistryOptions): Promise<
   }
 }
 
+/**
+ * #67: validate the creation proof and say WHY it failed.
+ *
+ * This used to be one inline condition throwing one message, so a quota refusal
+ * (409 WORKSPACE_LIMIT_EXCEEDED), a name over the 32-character limit, an auth failure and a
+ * malformed body were indistinguishable -- and that ambiguity produced a real misdiagnosis.
+ *
+ * Extracted rather than fixed in place so it can be tested without standing up an ownership
+ * run: the checks it performs are about the RESPONSE, and coupling their test to the owner
+ * validation that happens to run first would test the fixture rather than the logic.
+ */
+export function describeWorkspaceCreationProofFailure(proof: unknown): string | null {
+  if (!object(proof)) return 'Invalid workspace creation response proof: no proof object';
+  if (typeof proof.url !== 'string' || !URL.canParse(proof.url)) {
+    return `Invalid workspace creation response proof: unusable url ${JSON.stringify(proof.url)}`;
+  }
+  if (proof.method !== 'POST') {
+    return `Invalid workspace creation response proof: method ${JSON.stringify(proof.method)} is not POST`;
+  }
+  if (proof.status !== 201) {
+    // The body is where the server explains itself, and it was being discarded. Quota and
+    // validation refusals are ordinary outcomes a caller may want to handle differently.
+    const detail = object(proof.body)
+      ? JSON.stringify(proof.body).slice(0, 400)
+      : String(proof.body).slice(0, 200);
+    return `Workspace creation refused with status ${proof.status}: ${detail}`;
+  }
+  if (!object(proof.body)) return 'Invalid workspace creation response proof: 201 with a non-object body';
+  if (!hasText(proof.body.id) || proof.body.id === '.' || proof.body.id === '..') {
+    return 'Invalid workspace creation response proof: 201 body carries no usable id '
+      + `(${JSON.stringify(proof.body.id)})`;
+  }
+  return null;
+}
+
 export async function registerWorkspaceCreation(input: RegistryOptions & {
   ownerId: string;
   proof: { url: string; method: string; status: number; body: unknown };
 }): Promise<{ workspaceId: string; registered: boolean }> {
   const options = await validateWorkspaceOwner(input);
   const proof = input.proof;
-  if (!object(proof) || typeof proof.url !== 'string' || !URL.canParse(proof.url)
-    || proof.method !== 'POST' || proof.status !== 201 || !object(proof.body) || !hasText(proof.body.id)
-    || proof.body.id === '.' || proof.body.id === '..') throw Error('Invalid workspace creation response proof');
+  const proofFailure = describeWorkspaceCreationProofFailure(proof);
+  if (proofFailure !== null) throw Error(proofFailure);
   const url = new URL(proof.url);
   if (url.origin !== options.baseUrl || url.pathname !== '/api/workspaces') throw Error('Foreign workspace creation response');
   const workspaceId = proof.body.id;
