@@ -6,10 +6,11 @@ a5f346c115c9d1fd6d966b5aa94392e51885808df869e6777c392aadbae59303  ./03.reserved-
 5590728375787d6d363e4e8dccaa461a5f3d47c2dfea45584bb3e5724ff4a54b  ./05.ac11-dedup-ledger.md
 59cfea7f0f17548ee58853865fca025b1296da83606e689340b0a356be900fd6  ./06.ac11-rollback-experiment.md
 68142788d9fa8ea691b7c8bfa18caa20e52558303917a92d650d3e9b18755eb5  ./07.ac2-named-owner.md
-10eb237755fc44a42e36222c04bcd43ef3a03a9f361b35b8847fbc6b31525900  ./08.shipping-rollback-path.md
+15c334be2152f629e606128026de5b61351efe1680b61a73b9be44fffa3a3bdf  ./08.shipping-rollback-path.md
 0d2b6467e94049265d11783ae3f756cec81dc96bc21d87b48357c32cc3b5ffe1  ./09.corrections-from-independent-review.md
 408ae1dbaade61ac9a3f67230c38487ef0244c566c57488f525d57ce6d6b8fd7  ./probe/apply-issue12-probes.py
 b5b4a9f1af6ce3a266b59247e39c840045332516665288348b4756681e43707f  ./probe/apply-issue12-rollback-probe.py
+fc4076663ad103a0033d1fff5b49c8129df112e333e77d1c1675c8692a799019  ./probe/apply-issue12-shipping-rollback-probe.py
 5aeb453cb1801cdb11f0e05743f455f6e3768ad9eb5e8b63f124dc73f2eb0f3f  ./raw/ac-corpus-at-240d86a.json
 a07d942332c4871871ecd019213bdbf7427b32a0344463dfc2031002273d4dff  ./raw/ac-corpus-controls.txt
 9b161e2f335b856cb896a945b2c4f500de96a577ae0dfe3df6ae465f0ec4eded  ./raw/ac-corpus.json
