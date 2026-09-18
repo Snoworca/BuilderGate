@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
-import { existsSync, writeFileSync as fsSyncWriteFile } from 'fs';
+import { existsSync, statSync, writeFileSync as fsSyncWriteFile } from 'fs';
 import http from 'node:http';
 import https from 'node:https';
 import type net from 'node:net';
@@ -4552,12 +4552,61 @@ async function testSessionManagerOrdinaryBashCommandKeepsLegacyFlow(): Promise<v
   }
 }
 
+// #64: the Hermes foreground tests waited a fixed 20ms or 1200ms for a transition and then
+// asserted on whatever state happened to exist. Whether the transition had landed depended on
+// how busy the machine was, so the same tree gave PASS and FAIL on different runs -- and a
+// flake inside the monolithic runner weakens every "the FAIL count did not grow" claim made
+// about it, because a real regression can be masked by a flake that happens to pass.
+//
+// Binding to the transition itself removes the dependence in both directions: the wait ends
+// when the state the test is about is observed, and the bound only decides how long to keep
+// looking before calling it a failure.
+// #64: SessionManager re-stamps foregroundStartedAt on every foreground activity update, so a
+// single "is it set yet" wait can still be overtaken by a later stamp. Waiting for the stamp to
+// stop moving is what actually establishes the ordering the stale-refresh guard cares about.
+async function waitForStableValue(
+  read: () => unknown,
+  description: string,
+  settleMs = 150,
+  timeoutMs = 8000,
+): Promise<unknown> {
+  const deadline = Date.now() + timeoutMs;
+  let previous = read();
+  while (Date.now() < deadline) {
+    await delay(settleMs);
+    const current = read();
+    if (current === previous && current !== undefined) return current;
+    previous = current;
+  }
+  assert.fail(`${description} never settled within ${timeoutMs}ms (last=${String(previous)})`);
+}
+
+async function waitForObservedState(
+  read: () => unknown,
+  expected: unknown,
+  description: string,
+  timeoutMs = 8000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let observed = read();
+  while (observed !== expected && Date.now() < deadline) {
+    await delay(20);
+    observed = read();
+  }
+  assert.equal(observed, expected, `${description} (waited up to ${timeoutMs}ms)`);
+}
+
 async function testSessionManagerHermesZshSubmitStaysIdle(): Promise<void> {
   const harness = createForegroundSessionHarness('zsh');
 
   try {
     harness.manager.writeInput(harness.session.id, 'hermes\r');
-    await delay(20);
+    // Wait for the transition this case is about, not for a fixed slice of wall clock.
+    await waitForObservedState(
+      () => harness.sessionData?.derivedState?.foregroundAppId,
+      'hermes',
+      'zsh submit must put Hermes in the foreground',
+    );
 
     const status = harness.manager.getSession(harness.session.id)?.status;
     const derivedState = harness.sessionData?.derivedState;
@@ -4580,6 +4629,14 @@ async function testSessionManagerIgnoresStaleCwdPromptRefreshDuringHermesLaunch(
     await fs.writeFile(cwdFilePath, process.cwd(), 'utf8');
 
     harness.manager.writeInput(harness.session.id, 'hermes\r');
+    // The launch has to be observed before the negative below means anything: asserting that a
+    // stale refresh did not take the foreground away is vacuous while the foreground has not
+    // been taken yet. The fixed window that follows is the refresh's chance to act wrongly.
+    await waitForObservedState(
+      () => harness.sessionData?.derivedState?.foregroundAppId,
+      'hermes',
+      'the Hermes foreground launch must be observed before the stale refresh window',
+    );
     await delay(1200);
 
     const status = harness.manager.getSession(harness.session.id)?.status;
@@ -4597,13 +4654,42 @@ async function testSessionManagerHermesZshPromptReturnRestoresShellPrompt(): Pro
 
   try {
     harness.manager.writeInput(harness.session.id, 'hermes\r');
-    await delay(20);
+    await waitForObservedState(
+      () => harness.sessionData?.derivedState?.foregroundAppId,
+      'hermes',
+      'Hermes must hold the foreground before the prompt can return from it',
+    );
+    // foregroundAppId lands one statement BEFORE foregroundStartedAt is stamped, and every later
+    // foreground activity update re-stamps it. Waiting for the stamp to settle is what puts the
+    // refresh after the launch, which is what separates a genuine prompt return from the stale
+    // refresh the guard suppresses.
+    await waitForStableValue(
+      () => harness.sessionData?.foregroundStartedAt,
+      'the Hermes foreground launch stamp',
+    );
     const cwdFilePath = harness.sessionData?.cwdFilePath;
     if (!cwdFilePath) {
       throw new Error('Expected cwdFilePath to be registered');
     }
     await fs.writeFile(cwdFilePath, process.cwd(), 'utf8');
-    await delay(1200);
+    // The scenario only exists when the refresh is NOT the stale one the launch suppresses:
+    // SessionManager ignores a cwd write whose mtime is within 5ms of foregroundStartedAt.
+    // The old form wrote 20ms after the keystroke and hoped the launch had been stamped first,
+    // which is the coin flip this test was losing about half the time. State the precondition
+    // and report both clocks when it does not hold, instead of failing later for a reason the
+    // message cannot name.
+    const foregroundStartedAt = harness.sessionData?.foregroundStartedAt;
+    const refreshMtime = statSync(cwdFilePath).mtimeMs;
+    assert.ok(
+      foregroundStartedAt !== undefined && refreshMtime > foregroundStartedAt + 5,
+      `the prompt refresh must be newer than the foreground launch to count as a return: `
+      + `mtime=${refreshMtime} foregroundStartedAt=${String(foregroundStartedAt)}`,
+    );
+    await waitForObservedState(
+      () => harness.sessionData?.derivedState?.ownership,
+      'shell_prompt',
+      'the prompt refresh must return ownership to the shell',
+    );
 
     const status = harness.manager.getSession(harness.session.id)?.status;
     const derivedState = harness.sessionData?.derivedState;

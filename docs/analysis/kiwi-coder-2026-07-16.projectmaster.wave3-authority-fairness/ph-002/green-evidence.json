@@ -10,7 +10,7 @@
     "T-PH002-05",
     "T-PH002-06"
   ],
-  "capturedAt": "2026-09-18T21:06:45.940Z",
+  "capturedAt": "2026-09-18T21:30:44.947Z",
   "commands": [
     {
       "cwd": "server",
@@ -87,7 +87,7 @@
     "files": [
       {
         "path": "server/src/services/TerminalResourcePolicyCanary.test.ts",
-        "sha256": "b47d4dacfc1a517c191e068b1f884b96ba0520aeaebf6fda5a6ecc591939dee7"
+        "sha256": "28a69bd876bfbeb07bbff030c43d53775c23b856ed2388fdc9f2a6f845ec5ac3"
       },
       {
         "path": "server/src/ws/WsRouterSendPriority.test.ts",

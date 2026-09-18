@@ -807,6 +807,17 @@ function createFixtureCwdWatchProbe(cwdFilePath: string): FixtureCwdWatchProbe {
   let calls = 0;
   let disposed = false;
   const witness = () => { calls += 1; };
+  // Two consecutive poll intervals with no witness call. Under load a poll owed for an
+  // earlier write can arrive late; this waits for that backlog to drain rather than
+  // assuming it already has. It gives up after a bounded number of attempts so a watcher
+  // that genuinely never stops firing fails the assertion below instead of hanging here.
+  const waitForWatcherQuiescence = async (): Promise<void> => {
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const before = calls;
+      await new Promise<void>((resolve) => setTimeout(resolve, 120));
+      if (calls === before) return;
+    }
+  };
   // #96: this probe was red roughly 1 run in 4, only under concurrent execution, and
   // serialising it made it green 106/106. The race is arithmetic, not timing luck:
   // watchFile polls on `interval`, and assertObserved waited 1250ms for it. At
@@ -833,6 +844,13 @@ function createFixtureCwdWatchProbe(cwdFilePath: string): FixtureCwdWatchProbe {
       );
     },
     async assertUnregistered() {
+      // #59: this proves a NEGATIVE, so the baseline has to be taken when the watcher is
+      // quiet. It was taken immediately, and a poll still owed for the PRE-cleanup write
+      // could land afterwards and be counted as a post-cleanup observation -- a red that
+      // says "the watcher survived" when what actually happened is that the machine was
+      // busy. Waiting for two idle poll intervals first binds the baseline to observed
+      // quiescence instead of to the hope that nothing is in flight.
+      await waitForWatcherQuiescence();
       const baseline = calls;
       writeFileSync(cwdFilePath, 'PERF-BGSTAB-010 watcher probe after cleanup\n', 'utf8');
       await new Promise<void>((resolve) => setTimeout(resolve, 1250));

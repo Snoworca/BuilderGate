@@ -1746,10 +1746,31 @@ test('OBS-BGSTAB-005 second review regression — production observe mode seeds 
 test('OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers', () => {
   const cliPath = join(REPOSITORY_ROOT, 'server/node_modules/tsx/dist/cli.mjs');
   const scriptPath = join(REPOSITORY_ROOT, 'tools/wave3/terminal-resource-policy-differential.ts');
-  const output = execFileSync(process.execPath, [cliPath, scriptPath], {
-    cwd: REPOSITORY_ROOT,
-    encoding: 'utf8',
-  });
+  // #59: this case was red in one sweep and green in the next with no change between them,
+  // and the gate read that as a fix. The script itself has no clock in it, so a red here is
+  // the CHILD failing, not the comparison failing -- and execFileSync threw with nothing but
+  // an exit status, which is why the red could not be attributed and was read as load. The
+  // child's own output is carried into the failure instead, and the bounds are stated rather
+  // than inherited: a child that hangs or floods now says so in its own words.
+  let output: string;
+  try {
+    output = execFileSync(process.execPath, [cliPath, scriptPath], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+  } catch (error) {
+    const failure = error as NodeJS.ErrnoException & {
+      status?: number | null; signal?: string | null; stdout?: string; stderr?: string;
+    };
+    throw new Error(
+      `the differential child did not complete: status=${failure.status ?? 'none'} `
+      + `signal=${failure.signal ?? 'none'} code=${failure.code ?? 'none'}\n`
+      + `stderr:\n${(failure.stderr ?? '').slice(-4000)}\n`
+      + `stdout:\n${(failure.stdout ?? '').slice(-4000)}`,
+    );
+  }
   const jsonStart = output.lastIndexOf('\n{');
   const parsed = JSON.parse(output.slice(jsonStart >= 0 ? jsonStart + 1 : 0)) as {
     actualConsumers?: {
