@@ -72,9 +72,13 @@ test('TerminalView synchronously fences hidden views with a distinct clipboard v
     terminalViewSource,
     /if \(!term \|\| terminalDisposedRef\.current \|\| !isVisibleRef\.current\) \{[\s\S]*?viewGeneration: clipboardViewGenerationRef\.current/,
   );
+  // Bounded span. The unbounded `[\s\S]*?` form this replaces matched 90,173
+  // characters -- very nearly the whole file -- so it asserted only that the three
+  // tokens each occur somewhere, in this order, not that they form one condition.
+  // The real condition spans 289 characters.
   assert.match(
     terminalViewSource,
-    /!terminalDisposedRef\.current[\s\S]*?&& isVisibleRef\.current[\s\S]*?&& clipboardViewGenerationRef\.current === target\.viewGeneration/,
+    /!terminalDisposedRef\.current[\s\S]{0,320}?&& isVisibleRef\.current[\s\S]{0,320}?&& clipboardViewGenerationRef\.current === target\.viewGeneration/,
   );
 });
 
@@ -87,17 +91,52 @@ test('TerminalView binds saved right-click selection to one xterm generation and
     terminalViewSource,
     /savedRightClickSelXtermGenerationRef\.current = xtermGenerationRef\.current;/,
   );
-  const resetCount = terminalViewSource.match(
-    /savedRightClickSelXtermGenerationRef\.current = 0;/g,
-  )?.length ?? 0;
-  assert.ok(resetCount >= 4, `expected mount, clear and dispose resets; observed ${resetCount}`);
-  assert.match(
-    terminalViewSource,
-    /clearBufferedOutput\(\);[\s\S]*?savedRightClickSelRef\.current = '';[\s\S]*?xtermGenerationRef\.current \+= 1;/,
+  // Each reset is anchored to the site that must perform it, rather than counted
+  // file-wide. The previous form was `resetCount >= 4` over the whole source with
+  // the message "expected mount, clear and dispose resets" -- it named three sites,
+  // required four occurrences, and constrained none of them to a location, so four
+  // resets added to unrelated branches satisfied it while any named site losing its
+  // reset still passed. The message was also wrong about the sites: there is no
+  // mount reset. The five that exist are enumerated here.
+  const RESET = String.raw`savedRightClickSelXtermGenerationRef\.current = 0;`;
+  const resetSites: ReadonlyArray<readonly [string, string]> = [
+    // Both imperative-handle clearSelection implementations: clearing the xterm
+    // selection must also drop the saved right-click copy of it.
+    ['clearSelection handle', String.raw`clearSelection: \(\) => \{`],
+    // Transport restore: the buffer the selection referred to is being replaced.
+    ['restore-pending', String.raw`transportBarrierReasonRef\.current = 'restore-pending';`],
+    // Left mouse button: a new selection gesture invalidates the saved one.
+    ['left-click clear', String.raw`else if \(e\.button === 0\) \{`],
+    // Dispose: the xterm generation the saved selection was bound to is gone.
+    ['dispose', String.raw`terminalWriteCoordinatorRef\.current = null;`],
+  ];
+  let anchoredResets = 0;
+  for (const [label, anchor] of resetSites) {
+    const matches = terminalViewSource.match(new RegExp(`${anchor}[\\s\\S]{0,240}?${RESET}`, 'g'));
+    assert.ok(matches, `${label} does not reset savedRightClickSelXtermGenerationRef within its own block`);
+    anchoredResets += matches.length;
+  }
+  // Every reset in the file belongs to one of the enumerated sites. A reset added
+  // anywhere else fails here rather than silently raising a file-wide count.
+  const totalResets = terminalViewSource.match(new RegExp(RESET, 'g'))?.length ?? 0;
+  assert.equal(
+    totalResets,
+    anchoredResets,
+    `${totalResets - anchoredResets} reset(s) outside the enumerated lifecycle sites`,
   );
+
+  // Bounded span: the real sequence is 211 characters. Unbounded, this matched
+  // 36,175 -- it bound an unrelated earlier clearBufferedOutput() call.
   assert.match(
     terminalViewSource,
-    /terminalRestoreAdapterRef\.current = null;[\s\S]*?savedRightClickSelRef\.current = '';[\s\S]*?xtermRef\.current = null;/,
+    /clearBufferedOutput\(\);[\s\S]{0,320}?savedRightClickSelRef\.current = '';[\s\S]{0,320}?xtermGenerationRef\.current \+= 1;/,
+  );
+  // This one is genuinely long: the dispose cleanup block runs ~35 lines between
+  // the adapter teardown and the xterm handle release, so the span is bounded at
+  // the block's measured size rather than at the tighter window used above.
+  assert.match(
+    terminalViewSource,
+    /terminalRestoreAdapterRef\.current = null;[\s\S]{0,2000}?savedRightClickSelRef\.current = '';[\s\S]{0,320}?xtermRef\.current = null;/,
   );
 });
 

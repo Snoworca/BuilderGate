@@ -429,9 +429,17 @@ test('MIG-BGSTAB-002 reports an in-flight checkpoint takeover without treating e
   assert.match(containerSnapshotChunk, /onRejected: \(reason\) => \{\s*replacementRejectionReason = reason;/u, signature);
   assert.match(terminalContainerSource, /replacementRejectionReason === 'checkpoint-authority-active'/u, signature);
   assert.match(terminalContainerSource, /screen_snapshot_checkpoint_authority_superseded/u, signature);
+  // Bounded spans. Unbounded, these matched 66,467 and 66,536 characters of a
+  // 160,320-character source -- 41% of the file. The lazy span bound the FIRST
+  // occurrence of the token, which is the member of the reason type union rather
+  // than the call site, and then ran to the end of the file to find the second
+  // token. Both assertions therefore passed on the existence of a type member plus
+  // any later occurrence of the target, and would have kept passing if the branch
+  // they are named for lost its body entirely. The real sequences are 147 and 216
+  // characters.
   assert.match(
     terminalContainerSource,
-    /checkpoint-authority-superseded-in-flight'[\s\S]*?else \{\s*initialRestorePendingRef\.current = false;/u,
+    /checkpoint-authority-superseded-in-flight'[\s\S]{0,240}?else \{\s*initialRestorePendingRef\.current = false;/u,
     signature,
   );
   assert.doesNotMatch(
@@ -441,7 +449,7 @@ test('MIG-BGSTAB-002 reports an in-flight checkpoint takeover without treating e
   );
   assert.match(
     terminalContainerSource,
-    /checkpoint-authority-superseded-in-flight'[\s\S]*?terminalRef\.current\?\.completeCheckpointTakeover\(\);/u,
+    /checkpoint-authority-superseded-in-flight'[\s\S]{0,320}?terminalRef\.current\?\.completeCheckpointTakeover\(\);/u,
     'checkpoint takeover must still send its prepared checkpoint-ready control without flushing held output',
   );
   assert.match(source, /completeCheckpointTakeover: \(\) => \{/u, signature);
