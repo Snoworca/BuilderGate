@@ -291,3 +291,20 @@ The Completed Work Log — inline in `docs/spec/00.index.md` §7 and its split h
 - 진 쪽 요구사항은 **승계(supersede)로 갱신**한다. 기록을 고쳐 쓰지 않는다는 규칙은 그대로다.
 
 **변하지 않는 것**: TCP 2001/2002 운영 중단 금지, 프로세스 안전 규칙, `git add -A` 금지, 보안 결정(OSC52 읽기 금지 등)은 성능·사용성 논거로 뒤집지 않는다.
+
+## SpecKiwi mutation 은 반드시 CLI 로, `--root` 를 고정해서 한다 (2026-09-19, #100)
+
+**MCP 의 mutation 도구를 쓰지 않는다.** 읽기 도구는 `workspaceRoot` 오버라이드를 수용하지만, **mutation 도구는 그것을 거부(`SRS-E075`)하고 MCP 서버 프로세스의 cwd 로 루트를 해석한다.**
+
+귀결: 워크트리에서 작업하면서 MCP mutation 을 부르면 **다른 브랜치의 체크아웃에 쓴다.** 그리고 그것이 오배치로 끝나지 않는다 — 두 트리의 Requirement ID 계열이 다르므로 짧은 쪽의 할당자가 **긴 쪽에서 이미 쓰고 있는 ID 를 내준다.** 두 브랜치가 만나는 순간 `SRS-E002` 중복이고, 이 저장소가 `repair requirement-id-collisions` 워크플로를 통째로 유지하는 이유가 그 조건이다.
+
+**mutation 응답에는 해석된 루트가 포함되지 않는다.** 읽기 도구는 `rootSource` 를 보고하지만 mutation 은 보고하지 않으므로, **호출자가 어디에 썼는지 확인할 방법이 없다.** 조용히 성공한다.
+
+올바른 형태:
+
+```bash
+npx speckiwi add-evidence <REQ-ID> --root . --type test --ref <path> --covers "AC-n" --notes "..."
+npx speckiwi validate --root . --fail-on-warning
+```
+
+CLI 는 cwd 를 루트로 삼고 `--root` 를 존중한다. 실측으로 확인된다 — 같은 `speckiwi show <ID>` 가 워크트리에서는 성공하고 다른 체크아웃에서는 `NOT_FOUND` 를 반환한다.
