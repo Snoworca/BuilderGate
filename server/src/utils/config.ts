@@ -21,6 +21,7 @@ import {
 } from './ptyPlatformPolicy.js';
 import { renderBootstrapConfigTemplate } from './configTemplate.js';
 import { loadConfigFromPathStrict } from './configStrictLoader.js';
+import { warnUnknownConfigKeys } from '../schemas/unknownConfigKeys.js';
 
 export { loadConfigFromPathStrict };
 
@@ -244,7 +245,14 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
     }
 
     // Validate and apply defaults using Zod schema
-    const validatedConfig = configSchema.parse(normalizeRawConfigForPlatform(rawConfig, platform));
+    const normalizedForPlatform = normalizeRawConfigForPlatform(rawConfig, platform);
+
+    // #62: say what was dropped. zod strips unknown keys silently unless a block is .strict(),
+    // and only the resourceLimits and stabilityModes subtrees are -- so a typo anywhere else
+    // produced a server that started normally and a setting that did nothing.
+    warnUnknownConfigKeys(normalizedForPlatform);
+
+    const validatedConfig = configSchema.parse(normalizedForPlatform);
 
     console.log('[Config] Configuration loaded successfully');
 
