@@ -26,9 +26,12 @@ import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 
+// #53: `test` comes from the ownership fixture, not from @playwright/test -- see the note on
+// removeOwnWorkspaces below.
 import { login } from './helpers';
+import { test, expect, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
 
 declare global {
   interface Window {
@@ -118,8 +121,14 @@ async function addTabAt(page: Page, workspaceId: string, cwd: string, name: stri
   }, { workspaceId, cwd, name });
 }
 
+// #53: every workspace this spec creates is recorded here, and teardown deletes exactly these.
+// It used to sweep by NAME PREFIX, which CLAUDE.md forbids outright -- a prefix match cannot
+// tell this run's workspace from a user's, and the boundary that rule protects is real user
+// data.
+const createdWorkspaceIds: string[] = [];
+
 async function createWorkspace(page: Page, name: string): Promise<string> {
-  return page.evaluate(async (name) => {
+  const created = await page.evaluate(async (name) => {
     const token = localStorage.getItem('cws_auth_token');
     const res = await fetch('/api/workspaces', {
       method: 'POST',
@@ -133,6 +142,8 @@ async function createWorkspace(page: Page, name: string): Promise<string> {
     const workspace = await res.json();
     return workspace.id as string;
   }, name);
+  createdWorkspaceIds.push(created);
+  return created;
 }
 
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
@@ -153,19 +164,16 @@ async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
 }
 
 async function removeOwnWorkspaces(page: Page): Promise<void> {
-  await page.evaluate(async (prefix) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch('/api/workspaces', { headers });
-    if (!res.ok) return;
-    const state = await res.json();
-    const owned = state.workspaces.filter((workspace: { id: string; name?: string }) =>
-      typeof workspace.name === 'string' && workspace.name.startsWith(prefix));
-    for (const workspace of owned) {
-      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
-    }
-  }, TAB_NAME_PREFIX);
+  // #53: deletes ONLY the ids this run created, through the ownership registry. The previous
+  // form listed every workspace and deleted any whose NAME started with the test prefix -- a
+  // user workspace that happened to share the prefix would have been destroyed, and the
+  // registry could not have told the difference either.
+  const ids = createdWorkspaceIds.splice(0);
+  for (const workspaceId of ids) {
+    await deleteOwnedWorkspaceForContext(page.context(), workspaceId);
+  }
 }
+
 
 async function selectTab(page: Page, name: string): Promise<void> {
   await page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first().click();

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { requireTestPassword } from './testPassword.js';
+import { requireTestPassword } from './testPassword.ts';
 
 function createSettingsSnapshot() {
   const immediateCapability = { applyScope: 'immediate', available: true, writeOnly: false };

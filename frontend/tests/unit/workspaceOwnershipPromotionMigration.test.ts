@@ -10,6 +10,11 @@ import type { BrowserContext } from '@playwright/test';
 import { recordWorkspaceBaseline } from '../e2e/workspaceLeakGuard.ts';
 import { attachWorkspaceOwnership } from '../e2e/workspaceOwnershipFixture.ts';
 
+// #57 removed the E2E password fallback. These tests never reach a real login -- they stub
+// fetch -- but the leak guard reads the password before calling it, so the process needs one.
+process.env.BUILDERGATE_PASSWORD ??= 'test-only-password';
+
+
 // B2: execute actual promotion setup with controlled browser response events and
 // the real ownership registry. No browser, HTTP request or actual DELETE occurs.
 async function harness(run: (h: {

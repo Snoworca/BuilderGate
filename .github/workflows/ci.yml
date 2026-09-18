@@ -97,10 +97,6 @@ jobs:
 
       # Excluded, each with a reason. Keep this list short; an exclusion list
       # that grows quietly is the defect #82 was about.
-      #   workspaceOwnershipMigration.test  correctly red: two markdown-editor
-      #                                     e2e specs still DELETE workspaces
-      #                                     with a raw fetch instead of the
-      #                                     owner-checked helper.
       #   terminalSavedSelectionDivergence.test  same: component render. See below.
       #   terminalViewKeyboardBehavior.test renders a React component, so it needs
       #                                     a JSX transform and module mocking that
@@ -115,7 +111,6 @@ jobs:
           set -euo pipefail
           mapfile -t files < <(
             find tests/unit tests/benchmarks -name '*.test.ts' \
-              ! -name 'workspaceOwnershipMigration.test.ts' \
               ! -name 'terminalViewKeyboardBehavior.test.ts' \
               ! -name 'terminalSavedSelectionDivergence.test.ts' \
               | sort

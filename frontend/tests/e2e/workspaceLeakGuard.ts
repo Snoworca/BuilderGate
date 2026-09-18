@@ -2,7 +2,7 @@ import { link } from 'node:fs';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { requireTestPassword } from './testPassword.js';
+import { requireTestPassword } from './testPassword.ts';
 
 // REL-BGSTAB-001: list differences and workspace names never grant ownership.
 export interface RegistryOptions {
@@ -162,6 +162,10 @@ export async function registerWorkspaceCreation(input: RegistryOptions & {
   if (proofFailure !== null) throw Error(proofFailure);
   const url = new URL(proof.url);
   if (url.origin !== options.baseUrl || url.pathname !== '/api/workspaces') throw Error('Foreign workspace creation response');
+  // describeWorkspaceCreationProofFailure already proved the body is an object carrying a
+  // usable id, but that narrowing cannot cross the call boundary. Re-read it through the same
+  // guards rather than asserting a type the compiler cannot check (#53).
+  if (!object(proof.body) || !hasText(proof.body.id)) throw Error('Invalid workspace creation response proof: unusable id');
   const workspaceId = proof.body.id;
   const row = { runId: options.runId, ownerId: input.ownerId, workspaceId };
   const name = `${digest(workspaceId)}.json`;

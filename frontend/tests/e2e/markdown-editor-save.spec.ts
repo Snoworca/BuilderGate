@@ -19,9 +19,14 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 
+// #53: `test` comes from the ownership fixture, not from @playwright/test. The fixture is
+// auto-attached, so every POST /api/workspaces this spec makes -- including the ones made
+// from inside the page -- is registered as owned, and deletion goes through the registry
+// instead of a raw DELETE that no guard can see.
 import { login } from './helpers';
+import { test, expect, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
 
 declare global {
   interface Window {
@@ -196,13 +201,7 @@ async function createWorkspace(page: Page, name: string): Promise<string> {
 }
 
 async function deleteWorkspace(page: Page, workspaceId: string): Promise<void> {
-  await page.evaluate(async (workspaceId) => {
-    const token = localStorage.getItem('cws_auth_token');
-    await fetch(`/api/workspaces/${workspaceId}`, {
-      method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-  }, workspaceId);
+  await deleteOwnedWorkspaceForContext(page.context(), workspaceId);
 }
 
 async function workspaceNameOf(page: Page, workspaceId: string): Promise<string> {
