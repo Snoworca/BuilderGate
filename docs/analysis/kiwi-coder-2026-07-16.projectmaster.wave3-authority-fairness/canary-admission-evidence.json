@@ -3,7 +3,7 @@
   "requirementId": "REL-BGSTAB-010",
   "phaseId": "PH-002",
   "taskId": "T-PH002-06",
-  "capturedAt": "2026-09-18T22:07:15.429Z",
+  "capturedAt": "2026-09-18T22:34:15.405Z",
   "invocation": "node tools/wave3/canary-admission-evidence.test.mjs",
   "historicalRedBaseline": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json",
@@ -58,7 +58,7 @@
   ],
   "inputHashes": {
     "files": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "8d79bd92d6a980c653c66fd135636d0225845c015c0da7901c4c055c6bbd6b0c",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "5d5131b1a384bd08068bfa7ff920d3a4f0501d5dbfd717ff8835c4095082e9e4",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json": "4ebd24ac98bcce70e75013344c47cacd423bfa38838792abdd7641e2e2832859",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
       "tools/wave3/canary-admission-evidence.test.mjs": "6c757afc4bb371e385fa4ac91d4657c6dba8f6a617839435d9354f18d84c8d48",
@@ -71,7 +71,7 @@
       "frontend/tests/unit/terminalContainerRecoveryContract.test.ts": "b6976377084085fb3b6006d9067f8aaefd4956ac0e209cd511c29e164236e773",
       "frontend/tests/unit/visibleOutputRecovery.test.ts": "256783b003acc9fd21459d7542e58ca66e3dea85996b0a90eb89a03e31569e81"
     },
-    "sourceSetSha256": "e2e84accaffc2645958cabd24318c3bb89c589ba5b246fadc10f3c2398b153c9",
+    "sourceSetSha256": "9cdcc7788e9460c1adfe28c1b4052efc3dfd4f5bd4003f9bd78652786e3535ea",
     "mismatches": 0
   },
   "productionSourceHashes": {
@@ -79,9 +79,9 @@
       "server/src/index.ts": "08e34b31fa63f4a8d0575bf147609302d0d0e6ab61a2feb2e22ff59c7e159746",
       "server/src/services/TerminalResourcePolicyRuntime.ts": "ad32dd32d46d7552aa630c45ff6517fdc8963960bd5ccc4bd289c8e12bb1e103",
       "server/src/services/TerminalResourcePolicyCanary.ts": "f8d79247bf47b03a5f9613134cea7b5c9516caccdea41b694c55e3870767a2f1",
-      "server/src/services/TerminalResourcePolicy.ts": "f74dcc2e4f961398f52c436ae786f03546a940934849f6b5c2a292d21c9c56b8",
-      "server/src/services/RuntimeConfigStore.ts": "991b3a0963a76ee24cc82080bb7dad3ee3292e2b797899e12bc8186a41c670db",
-      "server/src/services/SessionManager.ts": "2f24c90abf18c43ca15e3da9d1b8de5c33d901ccb88f97999908624ed5c72e0c",
+      "server/src/services/TerminalResourcePolicy.ts": "1b1f3ff8f0c91d21af656a8a96cb0e1aca40edc5ba7f455ac98baba3bf3ad33a",
+      "server/src/services/RuntimeConfigStore.ts": "3fa8673a5026eab7563d7221eb5661879ea3ec546332d48b434d95ba7ea93fde",
+      "server/src/services/SessionManager.ts": "589274b39bd2e5733b350ef3816f504d588bf6cdb29dcac1652c292e638a0a34",
       "server/src/utils/boundedByteDeque.ts": "1a77f4967b11d2d634a44c84c4e80e54e2e9e0588400a4b2b347213635be2aca",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
       "server/src/ws/WsRouter.ts": "8be24a988562b6865da65297f06c8c7e2c4ea0beda66bd7ba2c583780933d82b",
@@ -95,7 +95,7 @@
       "frontend/src/utils/terminalOutputScheduler.ts": "a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
       "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855"
     },
-    "sourceSetSha256": "ffe6ed1cdf98433c2d7a831e419ebf40979e72f2f02a7a892045715854ef45bc"
+    "sourceSetSha256": "ff87378d76e4b1cbf3b0f25fc192e50d2d3a0631ef80ca88efc8254ead9570f9"
   },
   "focusedRuns": {
     "server": {

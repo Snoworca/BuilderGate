@@ -2228,6 +2228,12 @@ export class SessionManager {
   }
 
   // @req REL-BGSTAB-011, REL-BGSTAB-007
+  // #78: the checkpoint chunk size used to be a constant with no configuration path, so the
+  // budget below reported it as unconfigured while the adapter chunked by it anyway.
+  getTerminalCheckpointChunkBytes(): number {
+    return this.effectiveResourceLimits.terminal.checkpointChunkBytes;
+  }
+
   getRetainedTerminalAuthorityState(sessionId: string): RetainedTerminalAuthorityState | undefined {
     const data = this.sessions.get(sessionId);
     if (!data) return undefined;
@@ -3219,8 +3225,9 @@ export class SessionManager {
         retained.blockers.delete('shadow-disabled');
         retained.blockers.add('independent-baseline-unavailable');
         retained.blockers.add('retained-authority-delivery-inactive');
-        retained.blockers.add('aggregate-model-memory-budget-unavailable');
-        retained.blockers.add('checkpoint-chunk-budget-unavailable');
+        // #78: the chunk axis is configured now, so only the unbudgeted axis remains -- and its
+        // blocker says it is not budgeted rather than that its budget could not be found.
+        retained.blockers.add('aggregate-model-memory-not-budgeted');
         retained.shadowSettlement = {
           admissionOpen: true,
           settled: false,
@@ -7472,8 +7479,7 @@ export class SessionManager {
         ? [
             'independent-baseline-unavailable',
             'retained-authority-delivery-inactive',
-            'aggregate-model-memory-budget-unavailable',
-            'checkpoint-chunk-budget-unavailable',
+            'aggregate-model-memory-not-budgeted',
           ]
         : ['shadow-disabled']),
       comparer: {
@@ -7689,13 +7695,18 @@ export class SessionManager {
       checkpoint,
       budgets: {
         retention: { key: 'retention', unit: 'lines', value: scrollback.value, source: scrollback.source, configured: true },
+        // #78: this axis has no enforcement anywhere, so it gets no configuration key. An
+        // unenforced resource setting is worse than none -- an operator reading it believes
+        // they are protected -- which is the same finding that removed the brute-force keys in
+        // #32. The source says that rather than implying an unfinished implementation.
         aggregateModelMemory: {
           key: 'aggregate-model-memory', unit: 'bytes', value: null,
-          source: 'unconfigured', configured: false,
+          source: 'not-budgeted', configured: false,
         },
         checkpointChunk: {
-          key: 'checkpoint-chunk', unit: 'bytes', value: null,
-          source: 'unconfigured', configured: false,
+          key: 'checkpoint-chunk', unit: 'bytes',
+          value: this.effectiveResourceLimits.terminal.checkpointChunkBytes,
+          source: 'resourceLimits.terminal.checkpointChunkBytes', configured: true,
         },
         perClientInflight: {
           key: 'per-client-inflight', unit: 'bytes',

@@ -50,6 +50,7 @@ export type EditableSettingsKey =
   | 'resourceLimits.terminal.hiddenOutputTailBytes'
   | 'resourceLimits.terminal.inputQueueMaxBytes'
   | 'resourceLimits.terminal.visibleFlushFrameBudgetMs'
+  | 'resourceLimits.terminal.checkpointChunkBytes'
   | 'resourceLimits.terminal.checkpointMaxChunks'
   | 'resourceLimits.terminal.inputQueueMaxCount'
   | 'resourceLimits.terminal.inputQueueTtlMs'

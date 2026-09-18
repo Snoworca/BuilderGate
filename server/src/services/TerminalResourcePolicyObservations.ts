@@ -42,6 +42,7 @@ const REGISTERED_OBSERVATION_DECISIONS = [
   ['server.pty.headless-model', 'resourceLimits.headless.overflowPolicy', 'resourceLimits.headless.overflowPolicy', 'consumed'],
   ['server.pty.headless-model', 'resourceLimits.headless.pendingOutputMaxBytes', 'resourceLimits.headless.pendingOutputMaxBytes', 'consumed'],
   ['server.pty.headless-model', 'resourceLimits.headless.pendingOutputMaxChunks', 'resourceLimits.headless.pendingOutputMaxChunks', 'consumed'],
+  ['server.pty.headless-model', 'resourceLimits.terminal.checkpointChunkBytes', 'resourceLimits.terminal.checkpointChunkBytes', 'consumed'],
   ['server.pty.headless-model', 'resourceLimits.terminal.scrollbackLines', 'resourceLimits.terminal.scrollbackLines', 'consumed'],
   ['server.snapshot.replay-repair', 'resourceLimits.headless.pendingOutputMaxChunks', 'resourceLimits.headless.pendingOutputMaxChunks', 'consumed'],
   ['server.ws.router', 'resourceLimits.ws.outputCoalesceWindowMs', 'resourceLimits.ws.outputCoalesceWindowMs', 'consumed'],

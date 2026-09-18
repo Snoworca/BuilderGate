@@ -151,6 +151,10 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   // hold cap because the only production caller passed just that one, which is the same shape
   // REL-BGSTAB-023 fixed on the byte axis. The default is what it used to inherit.
   checkpointMaxChunks: countLimit(1, 65536, 512),
+  // #78: the size of one checkpoint chunk. It was the hardcoded constant
+  // TERMINAL_CHECKPOINT_CHUNK_BYTES, and #26 measured checkpoints crossing the browser's
+  // acceptance limit on wide terminals with no way to adjust it. The default is that constant.
+  checkpointChunkBytes: bytesLimit(1024, 16777216, 65536),
   hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).default('snapshot-restore'),
   hiddenOutputTailBytes: bytesLimit(0, 16777216, 262144),
   inputQueueMaxBytes: bytesLimit(1024, 16777216, 65536),

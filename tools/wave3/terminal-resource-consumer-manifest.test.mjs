@@ -42,6 +42,7 @@ const expectedResourceKeys = [
   'resourceLimits.snapshots.perSnapshotMaxChars',
   'resourceLimits.snapshots.tombstoneTtlMs',
   'resourceLimits.snapshots.totalStorageBudgetChars',
+  'resourceLimits.terminal.checkpointChunkBytes',
   'resourceLimits.terminal.checkpointMaxBytes',
   'resourceLimits.terminal.checkpointMaxChunks',
   'resourceLimits.terminal.hiddenOutputPolicy',
@@ -447,7 +448,7 @@ assert.deepEqual(manifest.evidence.consumerAstFingerprint, {
 // projection that carries it (85).
 // The historical
 // seals asserted above stay at 80 — they record the PH-001 run, not today's inventory.
-assert.equal(manifest.consumers.length, 85);
+assert.equal(manifest.consumers.length, 86);
 assert.equal(manifest.classifications.length, 10);
 const consumerEvidenceAstMutation = {
   ...manifest,
@@ -568,11 +569,13 @@ assert.deepEqual(lineage, {
 assert.equal(Object.hasOwn(lineage.ph002RuntimeAnchor, 'sourcePath'), false);
 assert.notEqual(manifestSha256, lineage.ph002RuntimeAnchor.sha256);
 assert.notEqual(legacyManifestSha256, lineage.ph002RuntimeAnchor.sha256);
-// 36, not 35: REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage
+// 37, not 35: REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage
 // into terminalGraceBuffer#applyGraceBufferedMessage, so that file is now a consumer path and
-// enters the evidence source set. WebSocketContext.tsx stays in the set - it still owns
-// WebSocketProvider#send - so this is an addition, not a relocation of the source count.
-assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 36);
+// enters the evidence source set (36). WebSocketContext.tsx stays in the set - it still owns
+// WebSocketProvider#send - so this is an addition, not a relocation of the source count. #78
+// then registered the server-side checkpoint chunk size, whose consumer lives in
+// TerminalAuthorityProductionAdapter.ts, adding that file to the set (37).
+assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 37);
 assert.ok(Array.isArray(manifest.consumers));
 assert.ok(Array.isArray(manifest.classifications));
 assert.deepEqual(sortedUnique(manifest.consumers.map((entry) => entry.category)), sortedUnique(expectedCategories));
@@ -742,7 +745,7 @@ const requiredFocusedTestNames = Object.freeze([
   'IR-BGSTAB-001 AC-8 republishes terminalWireFormat after a runtime config reload',
   'OBS-BGSTAB-005 a classification pin that does not match its recomputed evidence names itself',
   'OBS-BGSTAB-005 review regression — ConfigFileRepository previous/next provenance survives settings reload and rollback',
-  'OBS-BGSTAB-005 review regression — compiler owns all 33 typed resources and records real legacy divergence',
+  'OBS-BGSTAB-005 review regression — compiler owns all 34 typed resources and records real legacy divergence',
   'OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites',
   'OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized and never silently falls through',
   'OBS-BGSTAB-005 review regression — no candidate profile is available without a registered stable contract',

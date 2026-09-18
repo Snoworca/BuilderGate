@@ -133,6 +133,7 @@ export interface TerminalResourceLimitsConfig {
   visibleOutputMaxChunks: number;
   checkpointMaxBytes: number;
   checkpointMaxChunks: number;
+  checkpointChunkBytes: number;
   visibleFlushBudgetBytes: number;
   visibleFlushFrameBudgetMs: number;
   hiddenOutputPolicy: 'write-hidden' | 'snapshot-restore' | 'debug-tail';

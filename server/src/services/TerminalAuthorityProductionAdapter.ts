@@ -299,6 +299,9 @@ interface TerminalAuthorityCheckpointIdentity {
   authoritativeModelInstanceId: string;
 }
 
+// #78: the shipped default for resourceLimits.terminal.checkpointChunkBytes. It stays exported
+// because the truncation-boundary benchmark imports it rather than copying the number, and it
+// is the fallback when no effective configuration is reachable.
 export const TERMINAL_CHECKPOINT_CHUNK_BYTES = 64 * 1024;
 const TERMINAL_AUTHORITY_AUDIT_MAX_ENTRIES = 2_048;
 
@@ -374,6 +377,9 @@ type ProductionTerminalAuthorityRuntimeFactory = (input: {
 };
 
 interface SessionManagerAuthorityApi {
+  // #78: the effective checkpoint chunk size. It used to be a module constant here, which is
+  // why the budget report called the axis unconfigured while this adapter chunked by it.
+  getTerminalCheckpointChunkBytes(): number;
   addSessionFinalizedListener(listener: (event: { sessionId: string }) => void): () => void;
   setTerminalAuthorityRuntimeFactory(factory: ProductionTerminalAuthorityRuntimeFactory | null): void;
   clearTerminalAuthorityRuntimeFactory(factory: ProductionTerminalAuthorityRuntimeFactory): boolean;
@@ -885,18 +891,23 @@ function encodeCheckpointPayload(data: string): {
   };
 }
 
-function encodeCheckpointChunks(data: string): ReadonlyArray<{
+function encodeCheckpointChunks(data: string, chunkBytes: number = TERMINAL_CHECKPOINT_CHUNK_BYTES): ReadonlyArray<{
   encoding: 'base64';
   data: string;
   encodedBytes: number;
 }> {
+  // #78: an out-of-range size would silently produce one chunk per byte or an infinite loop, so
+  // an unusable value falls back to the shipped default rather than being trusted.
+  const size = Number.isSafeInteger(chunkBytes) && chunkBytes >= 1024
+    ? chunkBytes
+    : TERMINAL_CHECKPOINT_CHUNK_BYTES;
   const bytes = Buffer.from(data, 'utf8');
   if (bytes.byteLength === 0) {
     return [{ encoding: 'base64', data: '', encodedBytes: 0 }];
   }
   const chunks: Array<{ encoding: 'base64'; data: string; encodedBytes: number }> = [];
-  for (let offset = 0; offset < bytes.byteLength; offset += TERMINAL_CHECKPOINT_CHUNK_BYTES) {
-    const chunk = bytes.subarray(offset, Math.min(bytes.byteLength, offset + TERMINAL_CHECKPOINT_CHUNK_BYTES));
+  for (let offset = 0; offset < bytes.byteLength; offset += size) {
+    const chunk = bytes.subarray(offset, Math.min(bytes.byteLength, offset + size));
     chunks.push({
       encoding: 'base64',
       data: chunk.toString('base64'),
@@ -1658,7 +1669,7 @@ function attachProductionTerminalAuthorityInternal(
     const retained = manager.getRetainedTerminalAuthorityState(sessionId);
     if (!retained) throw new Error('retained-terminal-authority-unavailable');
     const data = retained.checkpoint.serializedData;
-    const encodedChunks = encodeCheckpointChunks(data);
+    const encodedChunks = encodeCheckpointChunks(data, manager.getTerminalCheckpointChunkBytes());
     const parserTail = encodeCheckpointPayload(retained.checkpoint.pendingEscapeTailAnsi ?? '');
     runtime.wiring.checkpointDigestAdapterCallCount += 1;
     const digestHex = createHash('sha256').update(data, 'utf8').digest('hex');
@@ -4824,3 +4835,7 @@ function attachProductionTerminalAuthorityInternal(
     },
   };
 }
+
+// #78: the chunker is internal to this module but its size argument is a configuration
+// surface now, so it is reachable for test without exporting it into the production API.
+export const __testing = { encodeCheckpointChunks };

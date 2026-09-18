@@ -192,6 +192,7 @@ function createEditableValues(): EditableSettingsValues {
         scrollbackLines: 10_000,
         checkpointMaxBytes: 1_048_576,
         checkpointMaxChunks: 512,
+        checkpointChunkBytes: 65_536,
       },
       snapshots: {
         perSnapshotMaxChars: 1_000_000,

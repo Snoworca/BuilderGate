@@ -170,6 +170,7 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
         visibleFlushFrameBudgetMs: 7,
         checkpointMaxBytes: 4194304,
         checkpointMaxChunks: 512,
+        checkpointChunkBytes: 65536,
         hiddenOutputPolicy: 'snapshot-restore',
         hiddenOutputTailBytes: 262144,
         inputQueueMaxBytes: 65536,

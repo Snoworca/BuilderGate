@@ -1207,12 +1207,19 @@ test('Retained server model shadow and driver lease RED contract — REL-BGSTAB-
       signature,
     );
     assert.equal(new Set(Object.values(state.budgets).map(budget => budget.key)).size, 6, signature);
+    // #78: the chunk axis is configured now. The aggregate-model-memory axis stays unbudgeted --
+    // nothing enforces it, and an unenforced resource setting is worse than none -- but its
+    // source says that instead of implying an unfinished implementation.
     assert.equal(state.budgets.aggregateModelMemory.configured, false, signature);
-    assert.equal(state.budgets.aggregateModelMemory.source, 'unconfigured', signature);
-    assert.equal(state.budgets.checkpointChunk.configured, false, signature);
-    assert.equal(state.budgets.checkpointChunk.source, 'unconfigured', signature);
+    assert.equal(state.budgets.aggregateModelMemory.source, 'not-budgeted', signature);
+    assert.equal(state.budgets.checkpointChunk.configured, true, signature);
+    assert.equal(state.budgets.checkpointChunk.source, 'resourceLimits.terminal.checkpointChunkBytes', signature);
     assert.equal(state.budgets.aggregateModelMemory.value, null, signature);
-    assert.equal(state.budgets.checkpointChunk.value, null, signature);
+    assert.equal(
+      state.budgets.checkpointChunk.value,
+      config.resourceLimits!.terminal.checkpointChunkBytes,
+      signature,
+    );
     assert.equal(
       state.budgets.perClientInflight.value,
       config.resourceLimits!.ws.perClientOutputQueueMaxBytes,
@@ -1805,8 +1812,8 @@ test('Retained server model shadow and driver lease RED contract — REL-BGSTAB-
       Object.values(state.budgets).map(budget => [budget.key, budget.unit, budget.source, budget.configured]),
       [
         ['retention', 'lines', 'resourceLimits.terminal.scrollbackLines', true],
-        ['aggregate-model-memory', 'bytes', 'unconfigured', false],
-        ['checkpoint-chunk', 'bytes', 'unconfigured', false],
+        ['aggregate-model-memory', 'bytes', 'not-budgeted', false],
+        ['checkpoint-chunk', 'bytes', 'resourceLimits.terminal.checkpointChunkBytes', true],
         ['per-client-inflight', 'bytes', 'resourceLimits.ws.perClientOutputQueueMaxBytes', true],
         ['socket-gate', 'bytes', 'resourceLimits.ws.serverBufferedHighWaterBytes', true],
         ['browser-write-slice', 'bytes', 'resourceLimits.terminal.visibleFlushBudgetBytes', true],
@@ -1814,7 +1821,11 @@ test('Retained server model shadow and driver lease RED contract — REL-BGSTAB-
       signature,
     );
     assert.equal(state.budgets.aggregateModelMemory.value, null, signature);
-    assert.equal(state.budgets.checkpointChunk.value, null, signature);
+    assert.equal(
+      state.budgets.checkpointChunk.value,
+      config.resourceLimits!.terminal.checkpointChunkBytes,
+      signature,
+    );
     assert.equal(
       state.budgets.perClientInflight.value,
       config.resourceLimits!.ws.perClientOutputQueueMaxBytes,
@@ -2309,7 +2320,7 @@ test('RED reviewer — retained operation and fact evidence ledgers stay policy-
       recordsEvicted: true,
       factsEvicted: true,
       aggregateConfigured: false,
-      checkpointChunkConfigured: false,
+      checkpointChunkConfigured: true, // #78: the chunk size is a config key now
       ledgerEncodedBytesBounded: true,
       ledgerEncodedBytesExact: true,
       oversizedSemanticKeyCanonicalized: true,
