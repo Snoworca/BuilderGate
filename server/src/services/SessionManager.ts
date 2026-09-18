@@ -431,6 +431,22 @@ interface RetainedOrdinalPosition {
 
 // Reservation and model commit use the same ordinal transition. Projection has
 // no ledger/model side effects; only the eventual commit adopts a new epoch.
+/**
+ * Issue #106: a reservation/commit ordinal mismatch is an accounting error about
+ * ONE record. It used to be thrown as a plain Error, which the write chain could
+ * only treat like any other write failure - so it degraded the session, disposed
+ * the authoritative headless model and made every later recovery fall back, for
+ * the rest of the session. Marking the error lets the record-scope disposition
+ * be told apart from a genuine write failure without matching on message text.
+ */
+class TerminalAuthorityReservationCommitMismatchError extends Error {
+  readonly reservationCommitMismatch = true;
+}
+
+function isReservationCommitMismatch(error: unknown): boolean {
+  return error instanceof TerminalAuthorityReservationCommitMismatchError;
+}
+
 function advanceRetainedOrdinalPosition(
   position: RetainedOrdinalPosition,
   operation: 'output' | 'resize' | 'rejection',
@@ -4647,6 +4663,21 @@ export class SessionManager {
       })
       .catch((error) => {
         if (!this.isActiveSession(sessionId, sessionData)) return;
+        // Issue #106, option 2. The record has already been rejected and
+        // recorded as such by commitRetainedTerminalOutput's caller. Realign the
+        // counters so the next write commits, deliver this chunk so the user
+        // still sees it, and leave the model alone: the session stays healthy
+        // and promotable. Only a genuine write failure degrades.
+        if (isReservationCommitMismatch(error)) {
+          this.realignTerminalAuthorityReservation(sessionData);
+          if (data.length > 0) {
+            this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq, {
+              authorityEpoch: sessionData.authorityEpoch,
+              authorityRevision: sessionData.authorityRevision,
+            }, 'legacy-unnegotiated');
+          }
+          return;
+        }
         this.markHeadlessDegraded(sessionId, sessionData, 'write', error);
         if (data.length > 0) {
           this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq, {
@@ -5130,6 +5161,22 @@ export class SessionManager {
     } else {
       data.nextTerminalAuthorityStreamEpoch = reservedEpoch;
     }
+  }
+
+  /**
+   * Issue #106: pull the reservation counters back onto the committed position.
+   *
+   * synchronizeTerminalAuthoritySourceOrdinal deliberately repairs only a
+   * LAGGING counter and leaves a leading one alone, so without this a single
+   * mismatch would repeat on every subsequent write - trading permanent
+   * degradation for permanent rejection, which is no better. This is what makes
+   * the record-scope disposition self-healing rather than merely quieter.
+   */
+  private realignTerminalAuthorityReservation(data: SessionData): void {
+    const retained = this.ensureRetainedTerminalSessionState(data);
+    data.nextTerminalAuthorityStreamEpoch = retained.streamEpoch;
+    data.nextTerminalAuthoritySourceSeq = BigInt(retained.sourceSeq);
+    data.nextTerminalAuthoritySnapshotSeq = retained.snapshotSeq;
   }
 
   private reserveTerminalAuthorityOrdinal(data: SessionData, operation: 'output' | 'resize' | 'rejection'): RetainedOrdinalPosition {
@@ -8105,7 +8152,7 @@ export class SessionManager {
     }
     if (reservation?.reservedSourceSeq !== undefined
       && (projected.streamEpoch !== reservation.reservedStreamEpoch || projected.sourceSeq !== reservation.reservedSourceSeq)) {
-      throw new Error(`terminal-authority-reservation-commit-mismatch: reserved=${reservation.reservedStreamEpoch}/${reservation.reservedSourceSeq}, commit=${projected.streamEpoch}/${projected.sourceSeq}`);
+      throw new TerminalAuthorityReservationCommitMismatchError(`terminal-authority-reservation-commit-mismatch: reserved=${reservation.reservedStreamEpoch}/${reservation.reservedSourceSeq}, commit=${projected.streamEpoch}/${projected.sourceSeq}`);
     }
     this.advanceRetainedTerminalSourceOrdinal(sessionId, retained, true, reservation?.reservedStreamEpoch);
     // Ordinals identify actual model writes even while shadow collection is
