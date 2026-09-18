@@ -322,3 +322,34 @@ npx speckiwi validate --root . --fail-on-warning
 ```
 
 CLI 는 cwd 를 루트로 삼고 `--root` 를 존중한다. 실측으로 확인된다 — 같은 `speckiwi show <ID>` 가 워크트리에서는 성공하고 다른 체크아웃에서는 `NOT_FOUND` 를 반환한다.
+
+## SpecKiwi 도구의 알려진 함정 세 가지 (2026-09-19, #65 · #79)
+
+외부 패키지(`speckiwi ^3.0.0`)의 결함이라 이 저장소에서 고칠 수 없다. 회피 절차와 가드로 다룬다.
+
+### 1. `edit-requirement-table-rows` 가 Change Note 를 조용히 삼킨다
+
+요구사항 블록 전체를 **stale read 기준으로 다시 쓰므로**, 그 사이에 추가된 Change Note 가 **오류도 경고도 없이** 사라진다. `validate` 는 0 errors / 0 warnings 를 낸다 — 없어진 기록은 구조적 결함이 아니기 때문이다.
+
+- **Change Note 는 그 요구사항에 대한 table-row 쓰기를 전부 끝낸 뒤에 추가한다.**
+- 같은 요구사항에 반복 호출할 때마다 직전 호출 이후의 수동 편집이 사라질 수 있다고 가정한다.
+- `--dry-run` 을 선행하고, 실행 전후 `git diff` 의 삽입·삭제 줄 수가 의도와 정확히 일치하는지 본다.
+- 커밋 전에 `npm run check:srs-change-notes` 를 돌린다. Change Note 행은 append-only 이므로 **HEAD 보다 적어졌다면 쓰기가 하나 먹은 것**이다.
+
+또한 연산 키를 잘못 주면 **조용히 무시되고 원본과 동일한 교체**가 일어난다(`cells` · `fields` · `set`). 성공처럼 보이므로 증거를 갱신했다고 믿고 넘어갈 수 있다. 올바른 키는 `kind` · `rowId` · `values` 다.
+
+### 2. `sync-index` 가 lock 을 남긴다 — 다만 막지는 않는다
+
+`sync-index` 뒤 `kiwi/.status.json` 의 `lock.active` 가 `true` 로 남고 60초 뒤 만료된다. **실측으로 그 잔존 lock 은 아무것도 막지 않는다** — 두 번째 `sync-index`, `check-ac`, `add-change-note` 가 모두 그 아래에서 진행된다. 비용은 막힌 명령이 아니라 **다음 사람과 모든 diff 에게 "누군가 쓰는 중" 으로 읽히는 기록**이다.
+
+커밋된 파일의 lock 은 살아 있는 lock 일 수 없다. 커밋 전에 `lock` 을 `{"active": false, "metadata": null}` 로 되돌린다. `npm run check:kiwi-status` 가 이것을 막는다.
+
+### 3. Trace Links 행은 도구로 주소 지정할 수 없다
+
+`edit-requirement-table-rows` 는 **ID 열이 없는 Trace Links 행을 지목하지 못한다.** 그 표만은 수기 편집이 불가피하며, 그때는 **사유를 Change Note 로 남긴다.**
+
+관련해서: **이 저장소에서 행 번호는 빠르게 썩는다.** 불변 기록물의 참조는 이름(테스트 제목·심볼)으로 걸고, 이름을 댈 수 없으면 **경로만 남긴다.** 행 번호 범위는 다음 커밋에 이미 틀린 곳을 가리킨다.
+
+### 4. 에픽 작업 중에는 target 을 항상 명시한다
+
+Active Target 이 다른 것으로 설정돼 있으면 `speckiwi summary` 가 이 에픽의 요구사항을 보여주지 않는다. **명시를 빠뜨리면 관련 없는 집합에 대한 요약을 보고 판단하게 된다.** Active Target 기본값에 기대지 말고 `--target` 을 항상 넘긴다.

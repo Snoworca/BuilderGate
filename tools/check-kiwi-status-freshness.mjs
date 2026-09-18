@@ -69,4 +69,25 @@ if (stale.length > 0) {
   process.exit(1);
 }
 
-console.log(`kiwi status fingerprint matches all ${files.length} spec file(s).`);
+// Issue #79: `speckiwi sync-index` leaves lock.active true with a 60-second expiry, and the
+// repository has committed a status file in that state twice. Measured against the installed
+// CLI the residue does NOT block anything -- a second sync-index, a check-ac and an
+// add-change-note all proceed under it -- so what it costs is not a blocked command but a
+// record that reads as "someone is mid-write" to the next person and to every diff.
+//
+// A lock in a committed file is never a live lock: whoever held it is long gone and the
+// expiry has passed. Refusing it here keeps the residue out of the history, and the fix is to
+// set it back rather than to wait for anything.
+const lock = status?.lock;
+if (lock && lock.active === true) {
+  const expiresAt = lock.metadata?.expiresAt;
+  console.error('kiwi status carries an active lock, which a committed status file must never do.');
+  console.error(`  owner     ${lock.metadata?.owner ?? '<none>'}`);
+  console.error(`  operation ${lock.metadata?.operation ?? '<none>'}`);
+  console.error(`  expiresAt ${expiresAt ?? '<none>'}`);
+  console.error('\nThis is the sync-index residue in issue #79, not a live writer. Clear it by setting');
+  console.error('kiwi/.status.json lock to {"active": false, "metadata": null} before committing.');
+  process.exit(1);
+}
+
+console.log(`kiwi status fingerprint matches all ${files.length} spec file(s), and no lock is held.`);

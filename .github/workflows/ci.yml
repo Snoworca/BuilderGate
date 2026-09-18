@@ -153,6 +153,17 @@ jobs:
       - name: Kiwi status fingerprint
         run: npm run check:kiwi-status
 
+      # Issue #65. speckiwi's edit-requirement-table-rows rewrites a requirement block from a
+      # stale read, so a Change Note added in between disappears with no error -- and validate
+      # still reports 0/0, because a missing note is not a structural fault. Change Note rows
+      # are append-only here, so a requirement holding fewer than the base commit means a write
+      # ate one. Needs two commits of history to have something to compare against.
+      - name: SRS change note integrity
+        run: |
+          set -euo pipefail
+          git fetch --depth=2 origin "$GITHUB_SHA"
+          npm run check:srs-change-notes -- "$(git rev-parse "$GITHUB_SHA"^)"
+
   server:
     name: Server test runner
     runs-on: ubuntu-latest
