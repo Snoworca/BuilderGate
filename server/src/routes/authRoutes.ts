@@ -20,6 +20,9 @@ import type {
 } from '../types/auth.types.js';
 import { createAuthMiddleware } from '../middleware/authMiddleware.js';
 import { AppError, ErrorCode, createErrorResponse } from '../utils/errors.js';
+import {
+  authAttemptThrottleKey, clearAuthFailures, createAuthAttemptThrottle, recordAuthFailure,
+} from '../middleware/authAttemptThrottle.js';
 
 // ============================================================================
 // Request Validation Schemas
@@ -129,7 +132,11 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
   // ========================================================================
   // POST /api/auth/login
   // ========================================================================
-  router.post('/login', async (req: Request, res: Response): Promise<void> => {
+  // #61: both guessing surfaces are throttled. The password and the TOTP code are two locks on
+  // the same door, and rate-limiting only the first leaves the second open to the same attack.
+  const throttle = createAuthAttemptThrottle();
+
+  router.post('/login', throttle, async (req: Request, res: Response): Promise<void> => {
     try {
       const parseResult = loginSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -147,6 +154,7 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
       // 1. Password validation
       const isValid = authService.validatePassword(password);
       if (!isValid) {
+        recordAuthFailure(authAttemptThrottleKey(req));
         console.log(`[Auth] Login failed: invalid password from ${req.ip}`);
         res.status(401).json(createErrorResponse(ErrorCode.INVALID_PASSWORD));
         return;
@@ -156,6 +164,7 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
       const isLocalhost = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip ?? '');
       if (authService.getLocalhostPasswordOnly() && isLocalhost) {
         const { token } = authService.issueToken();
+        clearAuthFailures(authAttemptThrottleKey(req));
         console.log(`[Auth] Login successful (localhostPasswordOnly) from ${req.ip}`);
         res.json({ success: true, token, expiresIn: authService.getSessionDuration() } as LoginResponse);
         return;
@@ -217,7 +226,7 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
   // ========================================================================
   // POST /api/auth/verify (2FA + TOTP stage routing)
   // ========================================================================
-  router.post('/verify', async (req: Request, res: Response): Promise<void> => {
+  router.post('/verify', throttle, async (req: Request, res: Response): Promise<void> => {
     try {
       const authService = accessors.getAuthService();
       const totpService = accessors.getTOTPService();
@@ -253,6 +262,7 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
       // TOTP verification
       const result = totpService.verifyTOTP(otpCode, otpData);
       if (!result.valid) {
+        recordAuthFailure(authAttemptThrottleKey(req));
         if (otpData.attempts >= 3) totpService.invalidatePendingAuth(tempToken);
         res.status(401).json({
           success: false,
@@ -265,6 +275,9 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
       // TOTP success — verifyTOTP already set totpLastUsedStep (NFR-105)
       totpService.invalidatePendingAuth(tempToken);
       const { token } = authService.issueToken();
+      // #61: a success clears the counter. Without this a user who mistypes a few times and
+      // then gets in keeps paying the delay, which trains people to blame the product.
+      clearAuthFailures(authAttemptThrottleKey(req));
       console.log(`[Auth] TOTP verification successful from ${req.ip}`);
       res.json({ success: true, token, expiresIn: authService.getSessionDuration() } as VerifyResponse);
     } catch (error) {
