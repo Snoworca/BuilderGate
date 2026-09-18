@@ -432,7 +432,13 @@ export type InputRejectedReason =
   | 'transport-closed'
   | 'invalid-sequence'
   | 'invalid-payload'
-  | 'mode-observe-only';
+  | 'mode-observe-only'
+  /**
+   * REL-BGSTAB-028: this exact input operation was already written to the PTY.
+   * The command was not run a second time. Distinct from a failure - the
+   * client's earlier send succeeded and this retry is redundant.
+   */
+  | 'duplicate-operation';
 
 // terminal-delivery-ack-contract:start
 export type TerminalDeliveryAckIdentity =
@@ -574,6 +580,12 @@ export type ClientWsMessage =
       type: 'input';
       sessionId: string;
       data: string;
+      /**
+       * REL-BGSTAB-028: names this input operation so the server can tell a
+       * retry from a new command. Absent on legacy clients, which the server
+       * admits and reports as undeduplicated rather than assuming exactly-once.
+       */
+      inputOperationId?: string;
       inputSeqStart?: number;
       inputSeqEnd?: number;
       metadata?: InputDebugMetadata;
