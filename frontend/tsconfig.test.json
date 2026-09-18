@@ -22,6 +22,7 @@
   },
   "include": ["src"],
   "files": [
+    "./tests/unit/terminalSavedSelectionDivergence.test.ts",
     "./tests/unit/jsdomEnvironment.ts",
     "./tests/unit/terminalViewHarness.ts",
     "./tests/unit/terminalViewKeyboardBehavior.test.ts",
