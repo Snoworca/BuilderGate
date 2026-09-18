@@ -21821,7 +21821,11 @@ async function invokeLoopbackLoginOverTcp(
   const app = createAuthTestApp(accessors);
   return new Promise((resolve, reject) => {
     const server = http.createServer(app);
-    server.listen(2222, () => {
+    // Issue #84: this bound port 2222 — the port CLAUDE.md reserves for the app
+    // under verification — while already reading the assigned port back, so the
+    // hardcode was doing nothing but creating a collision. Two tests share this
+    // helper and the second reliably died with ECONNRESET. Bind ephemerally.
+    server.listen(0, () => {
       const port = (server.address() as net.AddressInfo).port;
       const postBody = JSON.stringify(body);
       const options = {

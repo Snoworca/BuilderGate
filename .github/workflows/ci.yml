@@ -1,0 +1,169 @@
+name: CI
+
+# Issue #84: before this workflow the repository had exactly one workflow
+# (release.yml), triggered only by tags, and it ran zero tests. Nothing ran on a
+# push or a pull request, so a test could be deleted, silently broken, or left
+# out of every tsconfig without anything turning red.
+#
+# This workflow runs a deliberately chosen subset. See "Scope" below for what it
+# covers and, more importantly, what it does not.
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Scope, and why each suite is in or out.
+  #
+  # IN:
+  #   frontend typecheck        tsc -b over app + editor projects.
+  #   frontend typecheck:tests  tsconfig.test.json. Kept separate from the build
+  #                             on purpose: tsconfig.test.json is deliberately
+  #                             NOT in tsconfig.json "references", because a
+  #                             test-only type error would otherwise break every
+  #                             build script and the release. Running it as its
+  #                             own step gives the signal without that coupling.
+  #                             This is also what makes #82's membership guard
+  #                             able to go red anywhere but a developer's shell.
+  #   frontend unit tests       tests/unit + tests/benchmarks, minus the
+  #                             exclusions listed in the step. No ports, no
+  #                             browser, no server.
+  #   server monolithic runner  src/test-runner.ts via tsx. 541 tests, green.
+  #                             Does not trigger a build, so a sha256 manifest
+  #                             mismatch under docs/analysis cannot turn this
+  #                             job red for an unrelated reason.
+  #   release pipeline guards   npm run test:release-pipeline. These three
+  #                             guards exist because the release build broke
+  #                             three separate times; they are cheap and they
+  #                             catch the expensive failure.
+  #
+  # OUT, with the reason:
+  #   frontend lint             74 pre-existing eslint errors. Adding it would
+  #                             mean a permanently red CI or a blanket disable.
+  #                             Needs its own cleanup pass first.
+  #   e2e (Playwright)          Needs a live server on 2222. playwright.config's
+  #                             webServer would run start.bat, and 14 specs are
+  #                             Windows-shell-bound anyway (#85). Not suitable
+  #                             for an ubuntu push job.
+  #   server/src/**/*.test.ts   60 files. Some read sibling .ts sources and so
+  #                             only work from src/, one boots a real server and
+  #                             grabs two ports per case, and
+  #                             WsRouterSplitHandshake.test.ts exits 0 with 14
+  #                             broken assertions parked as todo. Wiring these
+  #                             up honestly is its own task.
+  #   tools/wave3 closure       The admission gate re-runs its 20 siblings and
+  #                             was already timing out locally at 118s. It also
+  #                             passes vacuously if NODE_TEST_* leaks into the
+  #                             children. Too fragile to gate merges on.
+  #   tools/daemon              4 of 211 fail on Linux, two of them node-pty
+  #                             ConPTY patches that are Windows-only by nature.
+  #
+  # On exit codes: every step below reports real failures through a non-zero
+  # exit. The suites known to lie about their status (see OUT) are excluded
+  # rather than trusted.
+  # ---------------------------------------------------------------------------
+
+  frontend:
+    name: Frontend types and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck app
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Typecheck tests
+        working-directory: frontend
+        run: npm run typecheck:tests
+
+      # Excluded, each with a reason. Keep this list short; an exclusion list
+      # that grows quietly is the defect #82 was about.
+      #   terminalHiddenOutput.test.ts      REL-BGSTAB-012 is red on this HEAD
+      #                                     (dataGapPending undefined).
+      #   workspaceOwnershipMigration.test  correctly red: two markdown-editor
+      #                                     e2e specs still DELETE workspaces
+      #                                     with a raw fetch instead of the
+      #                                     owner-checked helper.
+      - name: Unit tests
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(
+            find tests/unit tests/benchmarks -name '*.test.ts' \
+              ! -name 'terminalHiddenOutput.test.ts' \
+              ! -name 'workspaceOwnershipMigration.test.ts' \
+              | sort
+          )
+          echo "running ${#files[@]} test files"
+          # Non-vacuity floor. A green exit code proves nothing if the glob
+          # matched nothing, and node --test with zero files exits 0. #84 asked
+          # specifically for this: do not judge by exit code alone.
+          if [ "${#files[@]}" -lt 100 ]; then
+            echo "::error::expected at least 100 unit test files, found ${#files[@]}"
+            exit 1
+          fi
+          node --experimental-strip-types --test "${files[@]}"
+
+  server:
+    name: Server test runner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install
+        working-directory: server
+        run: npm ci
+
+      # cwd must be server/: the runner's state files resolve against
+      # process.cwd(). This path does not invoke tsc, so it is unaffected by the
+      # evidence-bundle manifest check that runs during a build.
+      - name: Monolithic runner
+        working-directory: server
+        run: npx tsx src/test-runner.ts
+
+  release-guards:
+    name: Release pipeline guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root
+        run: npm ci
+
+      - name: Install server
+        working-directory: server
+        run: npm ci
+
+      - name: Release pipeline guards
+        run: npm run test:release-pipeline
