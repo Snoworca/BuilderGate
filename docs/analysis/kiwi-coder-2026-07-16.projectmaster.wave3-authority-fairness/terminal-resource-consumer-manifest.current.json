@@ -25,7 +25,7 @@
     "sourceHashes": {
       "frontend/src/components/Settings/settingsDraftHelpers.ts": "e4ef966e1731f468f3bba1a6bcfa443bc0b991d65178a81413836da0f5c3e8a7",
       "frontend/src/components/Terminal/TerminalContainer.tsx": "77aec12d2be652764006ad41174b0e43e59b8a216e9f3f86df07832141efe1be",
-      "frontend/src/components/Terminal/TerminalView.tsx": "9d449864006761bd350c8ad31e39db2f0262591e7ff854ad3df36f22cc6a1c32",
+      "frontend/src/components/Terminal/TerminalView.tsx": "8717c43e73d992a070102afbc6b9e61ca88bd14ecadca845906256af0cad2161",
       "frontend/src/contexts/WebSocketContext.tsx": "31626bdd2181c14ef3ab048ab70d07c18c74f1e3232a327ed49cf15cd1268d4b",
       "frontend/src/hooks/useTerminalRuntimeResidency.ts": "839519d4c6fb58e3069aa5a2aff4f94e44e58675cb0aa4d47ad13913f0e8c415",
       "frontend/src/services/tokenStorage.ts": "90241907e80a501e6cf423f8c26b97a3245291cccfada64f168798c4e93ed1d7",
@@ -43,11 +43,11 @@
       "server/src/services/ConfigFileRepository.ts": "b86c313153628cda48ad63959ba672a5903e3e93e4cab3ef724a0aaa93838e9d",
       "server/src/services/RuntimeConfigStore.test.ts": "9e904c7a4e39eac6ef319c898ba7ff2d1910526c706b5b56d30daf88494050f6",
       "server/src/services/RuntimeConfigStore.ts": "f8141caa53894f31ff4d84f687af9350ec8e8af0904ebfdaacf52bca055eaf13",
-      "server/src/services/SessionManager.ts": "968a1b39bb9273f1d34a0d458b1c9f10d525879a5f7904346ec290e483ad5eea",
+      "server/src/services/SessionManager.ts": "2f24c90abf18c43ca15e3da9d1b8de5c33d901ccb88f97999908624ed5c72e0c",
       "server/src/services/SettingsService.ts": "3e78b31a50ac43402435048b94798b24516c1d730b592b39973f355c8ad0c40b",
-      "server/src/services/TerminalResourcePolicy.test.ts": "fa7b8fb44bbce59b1bec86b4153e021abf7626ef43807eb6b2a7a723036151ac",
+      "server/src/services/TerminalResourcePolicy.test.ts": "0ad1899fbf09f9a72f4b3cb69ad32754616ae698922d88cc4bb04cc57d8fe410",
       "server/src/services/TerminalResourcePolicy.ts": "f42db1034489cfa101d0596694a4f8eddd15629bb41c35a192b79d4555feadfa",
-      "server/src/services/TerminalResourcePolicyInventory.ts": "e92ba37d29a91ed6277f77f19a9508ed8a6be7ffe7f5a4f9d31f10670f209970",
+      "server/src/services/TerminalResourcePolicyInventory.ts": "7423cd1f936e8fdd5abdcec48b2c37dd85d1e30b81b794a7b717c80ec22d5284",
       "server/src/services/TerminalResourcePolicyObservations.ts": "39465172270aec42237112239ad40483b0bdc1eb77c7a27321d08594023e8ab1",
       "server/src/types/config.types.ts": "48760305b3b5305f3f9b785c3cacf337db0c7e5c86034178d5237868a6d47a67",
       "server/src/types/settings.types.ts": "71cd16e4af8b5abd7c32f31830f4344f967837536f3c3f830cc791cd4cef2e39",
@@ -55,12 +55,12 @@
       "server/src/utils/configStrictLoader.ts": "72c500c9ff2ee80b5a128d7b2e3fcf0635c04993dbe1f716dce22f0006f9614f",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
       "server/src/utils/headlessTerminal.ts": "786aa5eed4f5a0f5827abaac3087832e0ecc152ac017b772acd29dbd38b8b2ef",
-      "server/src/ws/WsRouter.ts": "e2ae4af70060376e8083078d435dac7248f5aa45f53146eff83811f1123c46ae",
+      "server/src/ws/WsRouter.ts": "0f6b311772990f87014139f614053960c929fb3237e3d14b3d896322ef19daaf",
       "server/src/ws/wsSendPolicy.ts": "d8161ec40992dfaabc0285fa39d29299b933133931e5be05197eefa7fc258939",
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "c2c781abce17e6424fd525cb6627bcad355bac1bc9ccd0abc732bfc570df7f1f",
       "tools/wave3/terminal-resource-policy-differential.ts": "4e3037ede53b126b5c5dd117ba7d87426d9a8b81768492becf3c3f7b64d84f92"
     },
-    "sourceSetSha256": "2302316b2fecb609baba91558bf4f365d541d11b9da25a7f0b484777213463c4",
+    "sourceSetSha256": "725e4dc64ade882ce1a74f79165806c205a033b0f3b233c9e181689ffb9df2c9",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "7a85059377a251712f7f6632fc827d7d59e72b4be970ec000ec16e15e3d49ced",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"
@@ -953,7 +953,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "3168284ce0340287f4faf280e6bc341e5598a94cdbd4fbf4ebc1bd5d0ff2688b"
+      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -970,7 +970,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "3168284ce0340287f4faf280e6bc341e5598a94cdbd4fbf4ebc1bd5d0ff2688b"
+      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -987,7 +987,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "3168284ce0340287f4faf280e6bc341e5598a94cdbd4fbf4ebc1bd5d0ff2688b"
+      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -1004,7 +1004,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "3168284ce0340287f4faf280e6bc341e5598a94cdbd4fbf4ebc1bd5d0ff2688b"
+      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -1021,7 +1021,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "3168284ce0340287f4faf280e6bc341e5598a94cdbd4fbf4ebc1bd5d0ff2688b"
+      "evidenceAstSha256": "f046cd35219450cc5ee995d61741e4f89568f0186fa03872415c89163587a750"
     },
     {
       "evidenceRole": "object-option-flow",
