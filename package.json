@@ -52,6 +52,7 @@
     "test:daemon": "npm --prefix server run build && node --test tools/daemon/*.test.js",
     "test:daemon:wave5": "node --test tools/daemon/process-info.test.js tools/daemon/stop-client.test.js tools/daemon/sentinel.test.js tools/daemon/no-broad-kill.test.js tools/daemon/native-daemon.integration.test.js",
     "test:docs": "node --test tools/daemon/docs.test.js",
-    "test:integration:native-daemon": "node --test tools/daemon/native-daemon.integration.test.js"
+    "test:integration:native-daemon": "node --test tools/daemon/native-daemon.integration.test.js",
+    "check:kiwi-status": "node tools/check-kiwi-status-freshness.mjs"
   }
 }

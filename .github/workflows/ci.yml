@@ -138,6 +138,26 @@ jobs:
         working-directory: frontend
         run: npm run test:unit:terminal-view-behavior
 
+  records:
+    name: SRS record integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+
+      # Issue #91. kiwi/.status.json fingerprints the SRS bytes and this epic's
+      # lanes cite it as evidence of record integrity, but nothing verified it --
+      # no workflow, script or test referenced it at all. Two speckiwi mutations
+      # (add-change-note, add-related-doc) write the SRS without regenerating the
+      # fingerprint, so it goes stale by one write and any later mutation of a
+      # different kind silently repairs it. An unchecked "fingerprint matches"
+      # claim is therefore a coincidence of ordering.
+      - name: Kiwi status fingerprint
+        run: npm run check:kiwi-status
+
   server:
     name: Server test runner
     runs-on: ubuntu-latest
