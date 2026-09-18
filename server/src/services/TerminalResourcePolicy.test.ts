@@ -1883,3 +1883,36 @@ test('PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed
     signature,
   );
 });
+
+// Issue #90. The pin committed for ConfigFileRepository.ts at 5918146,
+// 99ca442c..., matched no blob of that file at any commit -- it was invalid from
+// birth rather than gone stale. Recomputed against the blob it was committed
+// against, the correct value was 633123e7..., which no commit ever held; the
+// value correct today, d5ee2b5e..., was already correct at bc94bea.
+//
+// It went unread not because it produced no signal, but because the signal it
+// produced was the SAME one a genuinely unregistered access produces: a
+// mismatched pin drops its path out of exactlyClassifiedPaths, and its accesses
+// then reappear in unregisteredCallSites. Measured by restoring 99ca442c today:
+// ConfigFileRepository's @resource-limits-root.[dynamic] returns to
+// unregisteredCallSites -- the exact symptom the record read as staleness.
+//
+// So this asserts what the two states must NOT share: a wrong pin now names
+// itself, with the pinned and the recomputed value, instead of being laundered
+// into a generic unregistered-access report.
+test('OBS-BGSTAB-005 a classification pin that does not match its recomputed evidence names itself', async () => {
+  const { discoverTerminalResourceInventory } = await loadInventoryContract();
+  const inventory = await discoverTerminalResourceInventory({ repositoryRoot: REPOSITORY_ROOT });
+
+  assert.deepEqual(
+    inventory.classificationPinMismatches,
+    [],
+    'every classification pin equals the access evidence recomputed from its own file',
+  );
+
+  // Non-vacuity: an empty-set claim is also what a never-populated field yields.
+  assert.ok(
+    inventory.classifications.length >= 10,
+    `expected the classification set to be populated; got ${inventory.classifications.length}`,
+  );
+});

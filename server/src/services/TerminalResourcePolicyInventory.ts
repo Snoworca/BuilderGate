@@ -183,6 +183,18 @@ export interface TerminalResourceInventory {
   tuples: TerminalResourceConsumerManifestEntry[];
   classifications: TerminalResourcePathClassification[];
   unregisteredCallSites: Array<{ path: string; symbol: string }>;
+  /**
+   * Issue #90. A classification entry whose pin does not equal the recomputed
+   * access evidence simply falls out of `exactlyClassifiedPaths`, and its
+   * accesses then resurface through `unregisteredCallSites`. That is a real
+   * signal, but it is the SAME signal a genuinely unregistered access produces,
+   * so the two are indistinguishable at the point of reading. The invalid
+   * `99ca442c` pin committed at 5918146 produced exactly this symptom and was
+   * read for months as "the pin went stale" rather than "the pin was never
+   * right": the correct value for that blob was 633123e7, which no commit ever
+   * held. Reported separately here so a wrong pin names itself.
+   */
+  classificationPinMismatches: Array<{ path: string; pinned: string; recomputed: string }>;
   evidenceHashSchemaVersion: string;
   typescriptVersion: string;
   evidenceSourcePaths: string[];
@@ -1317,6 +1329,13 @@ export async function discoverTerminalResourceInventory(options: {
   const exactlyClassifiedPaths = new Set(PATH_CLASSIFICATIONS.filter(
     (entry) => classificationAccessEvidence.get(entry.path) === entry.accessEvidenceSha256,
   ).map((entry) => entry.path));
+  const classificationPinMismatches = PATH_CLASSIFICATIONS
+    .filter((entry) => classificationAccessEvidence.get(entry.path) !== entry.accessEvidenceSha256)
+    .map((entry) => ({
+      path: entry.path,
+      pinned: entry.accessEvidenceSha256,
+      recomputed: classificationAccessEvidence.get(entry.path) ?? '',
+    }));
 
   const productionFiles = [
     ...await listProductionSourceFiles(options.repositoryRoot, 'server/src'),
@@ -1377,6 +1396,7 @@ export async function discoverTerminalResourceInventory(options: {
     tuples,
     classifications: PATH_CLASSIFICATIONS.map((entry) => ({ ...entry })),
     unregisteredCallSites,
+    classificationPinMismatches,
     evidenceHashSchemaVersion: TERMINAL_RESOURCE_EVIDENCE_HASH_SCHEMA_VERSION,
     typescriptVersion: ts.version,
     evidenceSourcePaths,
