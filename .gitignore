@@ -95,3 +95,15 @@ tmpclaude-*
 
 # SRS 빌드 중간 산출물 (최종 .md / .md.json 만 커밋)
 docs/srs/*/
+
+# Evidence is never ignored.
+#
+# A bare *.log above swallowed docs/analysis/**/*.log, so writing evidence as .log made it
+# INVISIBLE TO git status -- the tree read clean and a reviewer saw a complete commit. That
+# is worse than losing evidence outside the repository, because nothing ever asks. 382 logs
+# survived only because each bundle carried its own negation and every lane remembered.
+#
+# Negating *.log alone would fix one extension and leave the class open: *.tmp, *.temp,
+# tmp/, temp/, coverage/ and logs/ are all bare patterns that would swallow an evidence
+# file the same way. So this unignores the evidence tree itself rather than a file type.
+!docs/analysis/**
