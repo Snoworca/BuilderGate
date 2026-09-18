@@ -1,3 +1,25 @@
+// #74: the browser-side symmetry of the server fix in #28 (FR-BGSTAB-027).
+//
+// @xterm/addon-serialize always re-emits 256-palette indices 0..15 in the SHORT P16 form, so a
+// cell drawn with ESC[38;5;3m comes back rehydrated as P16 where it was written as P256. The two
+// spellings mean the same colour and compare unequal, which makes a parity check fail for a
+// difference that is not one.
+//
+// The server normalises at headlessTerminal.ts:707. This file projects the same cells on the
+// browser side and did not, so the two projections could disagree about a cell neither side had
+// changed. Normalising P16 UP to P256 rather than the reverse matches the server exactly --
+// picking the other direction here would swap which side is wrong instead of making them agree.
+const XTERM_COLOR_MODE_P16 = 0x01000000;
+const XTERM_COLOR_MODE_P256 = 0x02000000;
+const XTERM_PALETTE_16_SIZE = 16;
+
+function canonicalPaletteColor(mode: number, color: number): readonly [number, number] {
+  if (mode === XTERM_COLOR_MODE_P16 && color >= 0 && color < XTERM_PALETTE_16_SIZE) {
+    return [XTERM_COLOR_MODE_P256, color];
+  }
+  return [mode, color];
+}
+
 export type TerminalBufferType = 'normal' | 'alternate';
 
 export interface TerminalRetainedCell {
@@ -438,10 +460,10 @@ function canonicalizeCell(cell: TerminalRetainedCell): TerminalRetainedCell {
     chars: cell.chars,
     code: cell.code,
     width: cell.width,
-    fgMode: cell.fgMode,
-    bgMode: cell.bgMode,
-    fg: cell.fg,
-    bg: cell.bg,
+    fgMode: canonicalPaletteColor(cell.fgMode, cell.fg)[0],
+    bgMode: canonicalPaletteColor(cell.bgMode, cell.bg)[0],
+    fg: canonicalPaletteColor(cell.fgMode, cell.fg)[1],
+    bg: canonicalPaletteColor(cell.bgMode, cell.bg)[1],
     bold: Boolean(cell.bold),
     italic: Boolean(cell.italic),
     dim: Boolean(cell.dim),
@@ -534,10 +556,10 @@ export function captureTerminalRetainedState(
         chars: cell.getChars(),
         code: cell.getCode(),
         width: cell.getWidth(),
-        fgMode: cell.getFgColorMode(),
-        bgMode: cell.getBgColorMode(),
-        fg: cell.getFgColor(),
-        bg: cell.getBgColor(),
+        fgMode: canonicalPaletteColor(cell.getFgColorMode(), cell.getFgColor())[0],
+        bgMode: canonicalPaletteColor(cell.getBgColorMode(), cell.getBgColor())[0],
+        fg: canonicalPaletteColor(cell.getFgColorMode(), cell.getFgColor())[1],
+        bg: canonicalPaletteColor(cell.getBgColorMode(), cell.getBgColor())[1],
         bold: Boolean(cell.isBold()),
         italic: Boolean(cell.isItalic()),
         dim: Boolean(cell.isDim()),
@@ -622,10 +644,10 @@ function streamingCellRun(
     chars: cell.getChars(),
     code: cell.getCode(),
     width: cell.getWidth(),
-    fgMode: cell.getFgColorMode(),
-    bgMode: cell.getBgColorMode(),
-    fg: cell.getFgColor(),
-    bg: cell.getBgColor(),
+    fgMode: canonicalPaletteColor(cell.getFgColorMode(), cell.getFgColor())[0],
+    bgMode: canonicalPaletteColor(cell.getBgColorMode(), cell.getBgColor())[0],
+    fg: canonicalPaletteColor(cell.getFgColorMode(), cell.getFgColor())[1],
+    bg: canonicalPaletteColor(cell.getBgColorMode(), cell.getBgColor())[1],
     bold: Boolean(cell.isBold()),
     italic: Boolean(cell.isItalic()),
     dim: Boolean(cell.isDim()),
