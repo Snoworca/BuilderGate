@@ -1587,8 +1587,16 @@ export class WsRouter {
     }
 
     this.wss.handleUpgrade(req, socket, head, (ws) => {
+      // #76: the query parameter is the CLIENT speaking, and it used to be taken at face value.
+      // A client could put its own connection into split on a server the operator configured as
+      // unified, and because the wire-format gate keys off the connection's mode, that silently
+      // took binary negotiation away from it. The configured mode is the ceiling: a request is
+      // honoured only when it matches the configuration or asks for plain unified, which is the
+      // conservative side and affects nothing but the asking connection. Anything else falls
+      // back to the configured mode rather than being refused, so a stale client keeps working
+      // on a reconfigured server instead of failing its upgrade.
       const requested = url.searchParams.get('wsTransportMode');
-      const requestedMode = requested === 'split' || requested === 'split-shadow' || requested === 'unified'
+      const requestedMode = requested === this.wsTransportMode || requested === 'unified'
         ? requested
         : this.wsTransportMode;
       const channel = url.searchParams.get('channel');
