@@ -2,6 +2,12 @@ import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useLay
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { WebglAddon } from '@xterm/addon-webgl';
+import {
+  createTerminalWebglRenderer,
+  type TerminalWebglRenderer,
+  type WebglAddonLike,
+} from '../../utils/terminalWebglRenderer';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FontSizeToast } from './FontSizeToast';
@@ -421,6 +427,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const terminalRestoreAdapterRef = useRef<BoundTerminalRestoreAdapter | null>(null);
     const replayInputGuardRef = useRef(createTerminalReplayInputGuard());
     const pendingFocusRestoreRef = useRef(false);
+    const webglRendererRef = useRef<TerminalWebglRenderer | null>(null);
     const isVisibleRef = useRef(isVisible);
     const workspaceIdRef = useRef(workspaceId);
     const terminalShortcutStateRef = useRef<TerminalShortcutState | null>(terminalShortcutState);
@@ -3156,6 +3163,26 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.loadAddon(fitAddon);
       term.loadAddon(serializeAddon);
       term.open(terminalRef.current);
+
+      // Issue #15. WebGL is attached only while this terminal is visible, so
+      // hidden tabs do not hold contexts the browser would otherwise reclaim
+      // from a terminal the user is looking at. On context loss the addon is
+      // disposed, which drops xterm back to its DOM renderer; refresh() forces
+      // the DOM frame so the fallback is a repaint rather than a blank screen.
+      webglRendererRef.current = createTerminalWebglRenderer({
+        createAddon: () => new WebglAddon() as unknown as WebglAddonLike,
+        loadAddon: (addon) => { term.loadAddon(addon as unknown as WebglAddon); },
+        onFallback: (reason) => {
+          recordTerminalDebugEvent(sessionId, 'terminal_webgl_fallback', { reason });
+          try {
+            term.refresh(0, term.rows - 1);
+          } catch {
+            // A terminal disposed between the loss and this repaint has nothing
+            // left to draw; the DOM renderer is already what remains.
+          }
+        },
+      });
+      webglRendererRef.current.sync(isVisibleRef.current);
       const helperTextarea = getHelperTextarea();
       if (helperTextarea) {
         helperTextarea.setAttribute('aria-label', 'Terminal input');
@@ -4278,6 +4305,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         legacyAuthorityReadySyncPendingRef.current = false;
         inFlightOutputRef.current = [];
         clearBufferedOutput();
+        webglRendererRef.current?.dispose();
+        webglRendererRef.current = null;
         recordTerminalDebugEvent(sessionId, 'terminal_disposed');
         term.dispose();
       };
@@ -4331,6 +4360,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (wasVisible === isVisible) {
         return;
       }
+
+      // Issue #15: release the GPU context while hidden, retake it on reveal.
+      webglRendererRef.current?.sync(isVisible);
 
       if (!isVisible) {
         syncInputReadiness('hidden');

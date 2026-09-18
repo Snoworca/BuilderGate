@@ -147,6 +147,7 @@
     "tests/unit/webSocketUrl.test.ts",
     "tests/unit/workspaceItemBadge.test.ts",
     "tests/unit/workspaceMoveDialog.test.ts",
+    "tests/unit/terminalWebglRenderer.test.ts",
     "tests/unit/terminalWidthPolicyParity.test.ts",
     "tests/unit/tsconfigTestMembership.test.ts",
     "tests/e2e/wave2-screen-repair-resync.spec.ts"
