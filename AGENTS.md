@@ -62,7 +62,7 @@ https://localhost:2222  를 통하여 플레이라이트로 테스트 가능합�
 
 ## Password
 
-- Local test password: `1234`
+- Local test password: set `BUILDERGATE_PASSWORD` in the environment; there is no default in the tree (#57).
 
 ## Phase Completion Review Rule
 

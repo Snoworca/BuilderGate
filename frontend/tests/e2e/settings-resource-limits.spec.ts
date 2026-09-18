@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { requireTestPassword } from './testPassword.js';
 
 test.describe('Settings resource limits', () => {
   test('renders selected Wave6 fields and saves minimal nested resourceLimits patch', async ({ page }) => {
@@ -191,7 +192,7 @@ test.describe('Settings resource limits', () => {
 
 async function loginAndOpenSettings(page: Page): Promise<void> {
   await page.goto('/');
-  await page.fill('input[type="password"]', '1234');
+  await page.fill('input[type=\"password\"]', requireTestPassword());
   await page.click('button[type="submit"]');
   await expect(page.locator('.workspace-screen')).toBeVisible({ timeout: 10000 });
   await page.getByTitle('Settings').click();

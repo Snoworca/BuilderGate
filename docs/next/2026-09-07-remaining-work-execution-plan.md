@@ -730,7 +730,7 @@ cd C:\Work\git\_Snoworca\ProjectMaster
 node dev.js --port 2222
 ```
 
-**포트는 항상 2222** (프론트는 2223). health 는 `curl -k https://localhost:2222/health`. 비밀번호 1234.
+**포트는 항상 2222** (프론트는 2223). health 는 `curl -k https://localhost:2222/health`. 비밀번호 $BUILDERGATE_PASSWORD.
 
 ⛔ **`kill {pid}` 와 `taskkill /F /IM node.exe` 절대 금지** — dev.js 가 hot reload 로 자동 재시작한다.
 

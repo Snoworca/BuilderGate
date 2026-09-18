@@ -2,6 +2,7 @@ import { link } from 'node:fs';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { requireTestPassword } from './testPassword.js';
 
 // REL-BGSTAB-001: list differences and workspace names never grant ownership.
 export interface RegistryOptions {
@@ -58,7 +59,7 @@ async function ready(options: RegistryOptions): Promise<{ token: string; ids: Se
   const request = options.fetch ?? globalThis.fetch;
   const login = await request(`${options.baseUrl}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: process.env.BUILDERGATE_PASSWORD || '1234' }),
+    body: JSON.stringify({ password: requireTestPassword() }),
   });
   if (!login.ok) throw Error(`E2E authentication failed (${login.status})`);
   const auth: unknown = await login.json();

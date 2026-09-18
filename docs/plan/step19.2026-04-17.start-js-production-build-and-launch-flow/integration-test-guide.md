@@ -16,7 +16,7 @@
 2. AGENTS 검증 기준이면 `node start.js --port 2002`
 3. `curl -k https://localhost:2002/health`
 4. 브라우저에서 `https://localhost:2002/`
-5. 비밀번호 `1234`로 로그인
+5. 비밀번호 `$BUILDERGATE_PASSWORD`로 로그인
 6. workspace/tab 생성
 7. terminal output, cwd, websocket 연결 확인
 
@@ -41,7 +41,7 @@
 
 - Expected:
   - 로그인 화면 렌더링
-  - `1234` 로그인 경로가 동작
+  - `$BUILDERGATE_PASSWORD` 로그인 경로가 동작
   - authenticated app shell 렌더링
 
 ### 시나리오 3: ws-backed terminal session

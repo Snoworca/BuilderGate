@@ -22,7 +22,7 @@ start.bat --port 2222
 
 **검증 접속 포트는 항상 2222이다.** 아래 Rules와 현재 AGENTS의 소유권 사전검토를 따른다.
 브라우저에서 `https://localhost:2222` 접속. 서버 상태 확인: `curl -k https://localhost:2222/health`
-- 비밀번호 1234 — E2E 기본값(`frontend/tests/e2e/helpers.ts` 의 `BUILDERGATE_PASSWORD || '1234'`). `config.json5` 의 저장값은 암호화되어 있어 그 파일로는 확인할 수 없다
+- 비밀번호는 **`BUILDERGATE_PASSWORD` 환경변수**로 넘긴다. 코드에 기본값이 없다(#57) — `frontend/tests/e2e/testPassword.ts` 의 `requireTestPassword()` 가 미설정 시 그 사실을 이름과 함께 던진다. `config.json5` 의 저장값은 암호화되어 있어 그 파일로는 확인할 수 없다. **값을 이 문서나 어떤 추적 파일에도 적지 않는다** — 조직 규정이 로컬 테스트 값에 예외를 두지 않고 이 저장소는 public 이다
 - 코드 수정하면 자동으로 갱신됨
 
 ## Tech Stack

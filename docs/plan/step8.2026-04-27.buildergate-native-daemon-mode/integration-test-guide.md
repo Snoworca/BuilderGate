@@ -4,7 +4,7 @@
 
 - 수동 검증과 Playwright E2E 대상은 `https://localhost:2002`다.
 - health check는 `curl -k https://localhost:2002/health`를 사용한다.
-- local test password는 `1234`다.
+- local test password는 `$BUILDERGATE_PASSWORD`다.
 - 테스트 후 native stop 또는 안전한 cleanup으로 app/sentinel orphan process가 없어야 한다.
 
 ## 권장 실행 순서

@@ -747,7 +747,7 @@ npm install @xterm/addon-serialize
 
 ```
 전제: 서버 실행 중 (node dev.js)
-1. 로그인 (password: 1234)
+1. 로그인 (password: $BUILDERGATE_PASSWORD)
 2. 워크스페이스 A 생성, Grid 모드 전환
 3. 터미널에 'echo scrollback_test_A' 입력
 4. 여러 줄 출력 생성 (for i in 1..50 do echo line_$i; done)
