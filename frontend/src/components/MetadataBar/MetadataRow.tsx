@@ -4,6 +4,8 @@ import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { getRecoveryIconLabel } from '../../types/recoveryOption';
 import { useInlineRename } from '../../hooks/useInlineRename';
+import { copyTextToClipboard, resolveCopyOutcome } from '../../utils/clipboardCopy';
+import { recordTerminalDebugEvent } from '../../utils/terminalDebugCapture';
 
 interface Props {
   tab: WorkspaceTabRuntime;
@@ -54,7 +56,7 @@ function getSafeRecoveryIconLabel(recoveryIcon: WorkspaceTabRuntime['recoveryIco
 
 export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
   const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
-  const [copied, setCopied] = useState(false);
+  const [copyAttempt, setCopyAttempt] = useState<{ ok: boolean } | null>(null);
 
   const rename = useInlineRename({ onRename: onRename ?? (() => {}) });
 
@@ -63,14 +65,25 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
     return () => clearInterval(timer);
   }, [tab.createdAt]);
 
+  // Issue #83: a copy that did not happen must not be indistinguishable from one
+  // that did. The previous bare catch left no trace anywhere, so the badge simply
+  // never appeared - which is also what the user sees before clicking - and they
+  // pasted the clipboard's previous contents believing it had worked.
   const handleCopy = useCallback(async () => {
     if (!tab.cwd) return;
     try {
-      await navigator.clipboard.writeText(tab.cwd);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch { /* clipboard API failure */ }
-  }, [tab.cwd]);
+      await copyTextToClipboard(tab.cwd);
+      setCopyAttempt({ ok: true });
+    } catch (error) {
+      setCopyAttempt({ ok: false });
+      recordTerminalDebugEvent(tab.sessionId, 'metadata_cwd_copy_failed', {
+        reason: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+    setTimeout(() => setCopyAttempt(null), 1500);
+  }, [tab.cwd, tab.sessionId]);
+
+  const copyOutcome = resolveCopyOutcome(copyAttempt);
 
   // The tile root and the tab wrapper both open the terminal menu on a right
   // click, so the press is stopped here or two menus answer it.
@@ -166,9 +179,9 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
           className="metadata-cwd-path"
           onClick={handleCopy}
           onContextMenu={handlePathContextMenu}
-          title={copied ? 'Copied!' : (tab.cwd || '')}
+          title={copyOutcome === 'copied' ? 'Copied!' : copyOutcome === 'failed' ? 'Copy failed' : (tab.cwd || '')}
           style={{
-            color: copied ? '#22c55e' : '#e0e0e0',
+            color: copyOutcome === 'copied' ? '#22c55e' : copyOutcome === 'failed' ? '#ef4444' : '#e0e0e0',
             marginLeft: 'auto',
             cursor: 'pointer',
             overflow: 'hidden',
@@ -185,7 +198,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
             minWidth: 0,
           }}
         >
-          {copied ? '✓ Copied' : displayPath}
+          {copyOutcome === 'copied' ? '✓ Copied' : copyOutcome === 'failed' ? '✗ Copy failed' : displayPath}
         </span>
       )}
 
