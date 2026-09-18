@@ -345,10 +345,30 @@ export class RuntimeConfigStore {
    * server cannot recover, which REL-BGSTAB-007 AC-2 forbids.
    */
   private publicTerminalResourceLimits() {
+    const compiled = this.compileTerminalResourcePolicy();
+    const scrollback = compiled.legacyPolicy.terminal.scrollbackLines;
     const terminal = structuredClone(this.values.resourceLimits.terminal);
-    terminal.scrollbackLines = this.compileTerminalResourcePolicy()
-      .legacyPolicy.terminal.scrollbackLines.value;
-    return terminal;
+    terminal.scrollbackLines = scrollback.value;
+    // #95: the three facts an operator needs and could not previously reach.
+    //
+    // The value above has always been published; which key produced it has not, so a
+    // deployment that set only pty.scrollbackLines saw a number it could not explain and
+    // no warning that two keys disagreed. That is the incident this method's own comment
+    // describes, and it was diagnosable only by reading source.
+    //
+    // Deliberately NOT the observation object. getTerminalResourcePolicyObservation()
+    // is a pure function of config -- recordTerminalResourcePolicyDecision has zero
+    // production callers, so recentObservations is a hardcoded 34-row table re-derived at
+    // construction, and decisionStack/decisionEvidence/observationMode are literals.
+    // Publishing that under observation vocabulary would invite an operator to reason from
+    // it during an incident while it looks identical whether every consumer honours its
+    // limit or none do.
+    return {
+      ...terminal,
+      scrollbackSource: scrollback.source,
+      scrollbackLegacyAlias: scrollback.legacyAlias,
+      scrollbackSourceConflict: compiled.diagnostics.some((d) => d.code === 'source-conflict'),
+    };
   }
 
   getTerminalResourcePolicyObservation() {

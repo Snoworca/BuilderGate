@@ -151,3 +151,49 @@ test('the server model and the published value agree on a legacy-only configurat
   const raw = rawConfigWithout(false);
   assert.equal(headlessScrollbackFor(raw), publishedScrollback(storeFor(raw)));
 });
+
+/**
+ * #95: the published block carries the value but not its provenance.
+ *
+ * A deployment carrying only pty.scrollbackLines was handed a number it could not
+ * explain, and when both keys disagreed nothing said so. The three fields below are
+ * the whole operator-facing content of #95; the observation object is deliberately
+ * not published, because it is a pure function of config that observes nothing.
+ *
+ * These assertions are written so that a hardcoded value cannot satisfy them: each
+ * one compares the two fixtures against each other rather than against a constant.
+ */
+function publishedScrollbackProvenance(raw: Record<string, unknown>) {
+  const terminal = storeFor(raw).getPublicRuntimeConfig('queue').resourceLimits.terminal as {
+    scrollbackSource: string;
+    scrollbackLegacyAlias?: string;
+    scrollbackSourceConflict: boolean;
+  };
+  return terminal;
+}
+
+test('#95 the published terminal block names which key produced the scrollback value', () => {
+  const legacyOnly = publishedScrollbackProvenance(rawConfigWithout(false));
+  const canonical = publishedScrollbackProvenance(rawConfigWithout(4_000));
+
+  // Discriminating: a literal cannot report two different sources for two configs.
+  assert.notEqual(
+    legacyOnly.scrollbackSource, canonical.scrollbackSource,
+    'the source must distinguish a legacy-only deployment from a canonical one',
+  );
+  assert.equal(
+    legacyOnly.scrollbackLegacyAlias, 'pty.scrollbackLines',
+    'the legacy spelling must be named so an operator can find the key they set',
+  );
+});
+
+test('#95 the published terminal block reports a source conflict only when the keys disagree', () => {
+  assert.equal(
+    publishedScrollbackProvenance(rawConfigWithout(false)).scrollbackSourceConflict, false,
+    'a legacy-only deployment has nothing to conflict with',
+  );
+  assert.equal(
+    publishedScrollbackProvenance(rawConfigWithout(4_000)).scrollbackSourceConflict, true,
+    'pty.scrollbackLines=1000 and the canonical key=4000 is the conflict this exists to surface',
+  );
+});

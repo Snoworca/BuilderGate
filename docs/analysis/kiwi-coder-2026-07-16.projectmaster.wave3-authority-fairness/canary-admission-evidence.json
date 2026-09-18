@@ -3,7 +3,7 @@
   "requirementId": "REL-BGSTAB-010",
   "phaseId": "PH-002",
   "taskId": "T-PH002-06",
-  "capturedAt": "2026-09-18T11:29:37.408Z",
+  "capturedAt": "2026-09-18T15:25:14.746Z",
   "invocation": "node tools/wave3/canary-admission-evidence.test.mjs",
   "historicalRedBaseline": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json",
@@ -58,7 +58,7 @@
   ],
   "inputHashes": {
     "files": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "02f8965d74d307a97b61b278d7ff724a66ab4a75b8219d77dd44bbef42cf2159",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "fd79b0a075c188f1fea348cf0cf6b71699186b1ca064dd00ee23e1724d1ef5b6",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json": "4ebd24ac98bcce70e75013344c47cacd423bfa38838792abdd7641e2e2832859",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
       "tools/wave3/canary-admission-evidence.test.mjs": "6c757afc4bb371e385fa4ac91d4657c6dba8f6a617839435d9354f18d84c8d48",
@@ -71,7 +71,7 @@
       "frontend/tests/unit/terminalContainerRecoveryContract.test.ts": "b6976377084085fb3b6006d9067f8aaefd4956ac0e209cd511c29e164236e773",
       "frontend/tests/unit/visibleOutputRecovery.test.ts": "256783b003acc9fd21459d7542e58ca66e3dea85996b0a90eb89a03e31569e81"
     },
-    "sourceSetSha256": "f3ab54216daae9c7103e9c08ef6497d4c22810c65802d66331619bc453f3801c",
+    "sourceSetSha256": "d70e6a1c43e3c20c67cca2371c53dd60ee997c313aa2d8c140237ecb9f32386c",
     "mismatches": 0
   },
   "productionSourceHashes": {
@@ -80,7 +80,7 @@
       "server/src/services/TerminalResourcePolicyRuntime.ts": "ad32dd32d46d7552aa630c45ff6517fdc8963960bd5ccc4bd289c8e12bb1e103",
       "server/src/services/TerminalResourcePolicyCanary.ts": "f8d79247bf47b03a5f9613134cea7b5c9516caccdea41b694c55e3870767a2f1",
       "server/src/services/TerminalResourcePolicy.ts": "f42db1034489cfa101d0596694a4f8eddd15629bb41c35a192b79d4555feadfa",
-      "server/src/services/RuntimeConfigStore.ts": "f8141caa53894f31ff4d84f687af9350ec8e8af0904ebfdaacf52bca055eaf13",
+      "server/src/services/RuntimeConfigStore.ts": "230ac1d7674970c86145bb6dbab84a09613b44d0f232289765d2e0ba2c36b88c",
       "server/src/services/SessionManager.ts": "2f24c90abf18c43ca15e3da9d1b8de5c33d901ccb88f97999908624ed5c72e0c",
       "server/src/utils/boundedByteDeque.ts": "1a77f4967b11d2d634a44c84c4e80e54e2e9e0588400a4b2b347213635be2aca",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
@@ -95,7 +95,7 @@
       "frontend/src/utils/terminalOutputScheduler.ts": "a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
       "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855"
     },
-    "sourceSetSha256": "9815cfcc8037093a9ef7c7b272dcd91898ef64029899b0bf378351984d6e3965"
+    "sourceSetSha256": "7dc5c7fedc61cc004283a1a2c12bca3eea9156acaaba21ce5dfc496b40a7c2ea"
   },
   "focusedRuns": {
     "server": {

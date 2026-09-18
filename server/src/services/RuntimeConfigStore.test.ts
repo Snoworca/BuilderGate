@@ -175,6 +175,13 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
         transportOutboxMaxBytes: 65536,
         transportOutboxTtlMs: 1500,
         scrollbackLines: 10000,
+        // #95: provenance for the value on the line above. This deep-equal is the guard
+        // that stops server-only config leaking into the public payload, and it fired on
+        // this change, which is what it is for. These three are config KEY NAMES and a
+        // boolean -- no value, no secret -- and the value they describe was already public.
+        scrollbackSource: 'resourceLimits.terminal.scrollbackLines',
+        scrollbackLegacyAlias: undefined,
+        scrollbackSourceConflict: false,
       },
       snapshots: {
         perSnapshotMaxChars: 2000000,
