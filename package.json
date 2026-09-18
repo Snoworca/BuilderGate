@@ -54,6 +54,7 @@
     "test:docs": "node --test tools/daemon/docs.test.js",
     "test:integration:native-daemon": "node --test tools/daemon/native-daemon.integration.test.js",
     "check:kiwi-status": "node tools/check-kiwi-status-freshness.mjs",
-    "check:srs-change-notes": "node tools/check-srs-change-note-integrity.mjs"
+    "check:srs-change-notes": "node tools/check-srs-change-note-integrity.mjs",
+    "check:srs-merge-gates": "node tools/check-srs-merge-gates.mjs"
   }
 }

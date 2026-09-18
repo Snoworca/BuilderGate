@@ -158,6 +158,13 @@ jobs:
       # still reports 0/0, because a missing note is not a structural fault. Change Note rows
       # are append-only here, so a requirement holding fewer than the base commit means a write
       # ate one. Needs two commits of history to have something to compare against.
+      # Issue #75. REL-BGSTAB-007 is Stability=stable, Risk=high, and five requirements inherit
+      # its contract. Four unmerged branches hold it with 11 or 12 of 12 ACs checked, and issue
+      # #27 confirmed two of those checks are unfounded. Merging one of those branches would
+      # bring them back with the file, so the gate runs here rather than living in an issue.
+      - name: SRS merge gates
+        run: npm run check:srs-merge-gates
+
       - name: SRS change note integrity
         run: |
           set -euo pipefail
