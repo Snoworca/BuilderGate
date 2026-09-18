@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -37,6 +37,32 @@ function checkAttribute(attribute, relativePath) {
 function runWriter() {
   return spawnSync(process.execPath, [writerScript], { cwd: repositoryRoot, encoding: 'utf8' });
 }
+
+// #51: heal before ANY test reads the artifact.
+//
+// A leftover backup means a previous run of the boundary control below was killed between its
+// mutation and its restore, leaving a TRACKED file dirty. This used to be a `finally`, which
+// cannot survive SIGKILL or OOM.
+//
+// It runs at module scope rather than inside the boundary-control test on purpose: the first
+// attempt healed inside that test, which is the FOURTH one, so the three tests before it read the
+// corrupted artifact and failed first. Healing late is the same as not healing -- the run still
+// goes red for a reason that has nothing to do with what it measures.
+//
+// It reports rather than repairing silently. A quiet repair would hide that the tracked artifact
+// had been left dirty, which is the thing this issue is about.
+(function healOrphanedBoundaryControlBackup() {
+  const pointer = readPointer();
+  const targetPath = join(generationRoot(pointer), pointer.decision_artifact);
+  const backupPath = `${targetPath}.51-restore-backup`;
+  if (!existsSync(backupPath)) return;
+  writeFileSync(targetPath, readFileSync(backupPath));
+  rmSync(backupPath, { force: true });
+  process.stderr.write(
+    `#51: restored ${pointer.decision_artifact} from an orphaned backup; a previous run of the `
+    + 'boundary control was interrupted between its mutation and its restore.\n',
+  );
+})();
 
 test('OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings', () => {
   const pointer = readPointer();
@@ -105,12 +131,39 @@ test('OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered
   mutated[mutated.length - 1] = mutated[mutated.length - 1] === 0x20 ? 0x09 : 0x20;
   assert.notEqual(sha256(mutated), sha256(original), 'the boundary control must actually change the file content');
 
+  // #51: this mutates a TRACKED artifact in place. That is structurally required, not laziness --
+  // write-fair-scheduler-evidence-bundle.mjs forbids a repositoryRoot override by design
+  // ('canonical authority is bound to this repository', :194-195), so the boundary control cannot
+  // be pointed at a copy. The risk the issue names is real: kill the process between the write and
+  // the finally, and a tracked file stays dirty in the working tree.
+  //
+  // Closed in two layers, because `finally` alone cannot survive SIGKILL or OOM:
+  //   1. A backup file is written BEFORE the mutation. Any later run finds it and restores,
+  //      so the damage self-heals instead of waiting to be noticed in a diff.
+  //   2. Signal handlers restore on SIGINT/SIGTERM, which covers Ctrl+C and timeout kills.
+  // Layer 1 is what actually closes it; layer 2 only makes the common cases quiet.
+  const backupPath = `${targetPath}.51-restore-backup`;
+  const restore = () => {
+    try {
+      if (existsSync(backupPath)) {
+        writeFileSync(targetPath, readFileSync(backupPath));
+        rmSync(backupPath, { force: true });
+      }
+    } catch { /* restoring must never mask the assertion that sent us here */ }
+  };
+  const onSignal = () => { restore(); process.exit(130); };
+  process.once('SIGINT', onSignal);
+  process.once('SIGTERM', onSignal);
+
   let result;
   try {
+    writeFileSync(backupPath, original);
     writeFileSync(targetPath, mutated);
     result = runWriter();
   } finally {
-    writeFileSync(targetPath, original);
+    restore();
+    process.removeListener('SIGINT', onSignal);
+    process.removeListener('SIGTERM', onSignal);
   }
 
   assert.equal(
