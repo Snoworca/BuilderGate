@@ -807,7 +807,18 @@ function createFixtureCwdWatchProbe(cwdFilePath: string): FixtureCwdWatchProbe {
   let calls = 0;
   let disposed = false;
   const witness = () => { calls += 1; };
-  watchFile(cwdFilePath, { interval: 1000 }, witness);
+  // #96: this probe was red roughly 1 run in 4, only under concurrent execution, and
+  // serialising it made it green 106/106. The race is arithmetic, not timing luck:
+  // watchFile polls on `interval`, and assertObserved waited 1250ms for it. At
+  // interval 1000 that is 1.25 poll cycles of budget -- one busy event loop and the
+  // poll lands after the deadline. assertUnregistered had the same 1.25 cycles to
+  // prove a NEGATIVE, which is worse: it passed mostly because the poll had not
+  // happened yet, not because the watcher was gone.
+  //
+  // Polling faster binds both assertions to the signal instead of to a sleep: 25
+  // cycles inside the same wall-clock budget. The budget is unchanged, so the file
+  // still takes no longer to run.
+  watchFile(cwdFilePath, { interval: 50 }, witness);
   return {
     get disposed() {
       return disposed;
