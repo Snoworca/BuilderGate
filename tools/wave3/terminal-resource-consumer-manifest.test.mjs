@@ -718,6 +718,14 @@ const focusedTestCount = Number(focusedTestsMatch[1]);
 const requiredFocusedTestNames = Object.freeze([
   'FR-BGSTAB-015 recentEventLimit capability is available with truthful constraints',
   'FR-BGSTAB-015 recentEventLimit rejects invalid values without clamping or changing observer state',
+  // #94 audit note: these two titles are COMPOSED AT RUNTIME --
+  //   RuntimeConfigStore.test.ts:208 builds them as
+  //   test(`FR-BGSTAB-015 ${replacement} applies recentEventLimit ...`)
+  // so `git grep -F` on either string finds nothing but log artifacts, and a name-based
+  // source audit concludes they are phantom registrations. They are not; they are real and
+  // they run. This is a second blind spot in name-based lookup, distinct from the one #94
+  // names (a title that omits its requirement prefix): a title that exists only at runtime.
+  // Verify by executing, never by grepping the source.
   'FR-BGSTAB-015 replaceFromConfig applies recentEventLimit to the existing observer immediately',
   'FR-BGSTAB-015 replaceValues applies recentEventLimit to the existing observer immediately',
   'FR-BGSTAB-025 runtime snapshot and capabilities contain no retired leaves',
