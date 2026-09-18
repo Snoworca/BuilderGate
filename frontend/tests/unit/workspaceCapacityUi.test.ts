@@ -119,11 +119,11 @@ const capacityTabs = (count: number) => Array.from({ length: count }, (_, index)
 
 for (const limit of [8, 2, 12, 4.5]) {
   test(`FR-BGSTAB-026 CAP-07 App to actual TabBar applies creation capacity ${limit}`, () => {
-    const limits = { maxWorkspaces: 10, maxTabsPerWorkspace: limit };
+    const limits = { maxWorkspaces: 10, maxTabsPerWorkspace: limit, maxTotalSessions: 32 };
     const maxTabs = appLimit('WorkspaceTabBar', 'maxTabs', limits);
     const maxSessions = appLimit('WorkspaceTabBar', 'maxSessions', limits);
     assert.equal(maxTabs, limit);
-    assert.equal(maxSessions, 32);
+    assert.equal(maxSessions, limits.maxTotalSessions);
     for (const count of [Math.ceil(limit) - 1, Math.ceil(limit), Math.ceil(limit) + 1]) {
       let created = 0;
       const tree = tabBar({
@@ -166,21 +166,26 @@ for (const limit of [8, 2, 12, 4.5]) {
   });
 }
 
-test('FR-BGSTAB-026 CAP-07 TabBar keeps the independent 32-session creation guard', () => {
-  const limits = { maxWorkspaces: 20, maxTabsPerWorkspace: 12 };
-  const maxSessions = appLimit('WorkspaceTabBar', 'maxSessions', limits);
-  assert.equal(maxSessions, 32);
-  for (const totalSessionCount of [31, 32, 33]) {
-    let created = 0;
-    const tree = tabBar({
-      tabs: capacityTabs(1), activeTabId: null, totalSessionCount,
-      maxTabs: appLimit('WorkspaceTabBar', 'maxTabs', limits), maxSessions,
-      onAddTab: () => { created += 1; }, onSelectTab: noop, onCloseTab: noop, onRenameTab: noop, onReorderTabs: noop,
-    });
-    const add = buttons(tree).filter(button => String(button.props.children).trim() === '+');
-    assert.equal(add.length, 1);
-    assert.equal(add[0].props.disabled, totalSessionCount >= 32);
-    add[0].props.onClick!();
-    assert.equal(created, totalSessionCount >= 32 ? 0 : 1);
-  }
-});
+// #41: the session guard is no longer an independent literal in App -- it is forwarded from
+// limits.maxTotalSessions, so the limit is exercised at two different values. A test that
+// only ever asserted 32 could not tell a forwarded limit from a hardcoded one.
+for (const sessionLimit of [32, 40]) {
+  test(`FR-BGSTAB-026 CAP-07 TabBar applies the forwarded ${sessionLimit}-session creation guard`, () => {
+    const limits = { maxWorkspaces: 20, maxTabsPerWorkspace: 12, maxTotalSessions: sessionLimit };
+    const maxSessions = appLimit('WorkspaceTabBar', 'maxSessions', limits);
+    assert.equal(maxSessions, sessionLimit);
+    for (const totalSessionCount of [sessionLimit - 1, sessionLimit, sessionLimit + 1]) {
+      let created = 0;
+      const tree = tabBar({
+        tabs: capacityTabs(1), activeTabId: null, totalSessionCount,
+        maxTabs: appLimit('WorkspaceTabBar', 'maxTabs', limits), maxSessions,
+        onAddTab: () => { created += 1; }, onSelectTab: noop, onCloseTab: noop, onRenameTab: noop, onReorderTabs: noop,
+      });
+      const add = buttons(tree).filter(button => String(button.props.children).trim() === '+');
+      assert.equal(add.length, 1);
+      assert.equal(add[0].props.disabled, totalSessionCount >= sessionLimit);
+      add[0].props.onClick!();
+      assert.equal(created, totalSessionCount >= sessionLimit ? 0 : 1);
+    }
+  });
+}

@@ -53,7 +53,17 @@ function harness() {
   return { state, resolve, reject, cleanup };
 }
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
-const defaults = { maxWorkspaces: 10, maxTabsPerWorkspace: 8 };
+// #41: the declared default is read out of the hook instead of being copied here. A literal
+// copy rots silently the first time production adds a limit key -- which is exactly what
+// happened when maxTotalSessions joined the default and left this file red without anyone
+// noticing. Comparing state against the freshly parsed declaration still fails if the effect
+// clobbers the limits before a response arrives, which is what these cases are about.
+const limitsBinding = states.find(binding => binding.name === 'limits');
+assert.ok(limitsBinding, 'the hook must hold the workspace limits in state');
+const defaults = new Function(`return (${limitsBinding.initial});`)() as Record<string, unknown>;
+const defaultKeys = Object.keys(defaults);
+assert.ok(defaultKeys.length >= 2 && defaultKeys.every(key => typeof defaults[key] === 'number'),
+  'the declared default must be an object of numeric limits');
 
 test('FR-BGSTAB-026 CAP-04 initial effect retains default limits before receipt and exposes them', () => {
   const h = harness();
