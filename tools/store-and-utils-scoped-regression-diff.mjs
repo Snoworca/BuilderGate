@@ -20,7 +20,7 @@ function arg(name) {
 const baselinePath = arg('--baseline');
 const afterPath = arg('--after');
 if (!baselinePath || !afterPath) {
-  console.error('usage: issue24-regression-diff.mjs --baseline <json> --after <json>');
+  console.error('usage: store-and-utils-scoped-regression-diff.mjs --baseline <json> --after <json>');
   process.exit(2);
 }
 
@@ -56,7 +56,7 @@ for (const [label, capture] of [['baseline', baseline], ['after', after]]) {
     // harnessErrors, whose whole job is to report the files that did not run.
     if (!Array.isArray(capture[field])) {
       problems.push(
-        `${label}: recorded no ${field} array (got ${capture[field] === undefined ? 'nothing' : JSON.stringify(capture[field])}), so it cannot be compared; re-capture with the current tools/issue24-capture-failing.mjs`,
+        `${label}: recorded no ${field} array (got ${capture[field] === undefined ? 'nothing' : JSON.stringify(capture[field])}), so it cannot be compared; re-capture with the current tools/store-and-utils-scoped-capture-failing.mjs`,
       );
     }
   }
@@ -69,7 +69,7 @@ for (const [label, capture] of [['baseline', baseline], ['after', after]]) {
   }
   if (!Array.isArray(capture.fileList)) {
     problems.push(
-      `${label}: recorded no fileList, so there is no way to tell which files it ran; re-capture with the current tools/issue24-capture-failing.mjs`,
+      `${label}: recorded no fileList, so there is no way to tell which files it ran; re-capture with the current tools/store-and-utils-scoped-capture-failing.mjs`,
     );
   }
   if (capture.perFileCounts === undefined) {
@@ -101,7 +101,7 @@ if (legacyCaptures.length) {
   console.log(
     `UNVERIFIED DIMENSION: ${legacyCaptures.join(' and ')} capture(s) predate per-file test counts, ` +
     'so this comparison covers failing test names only. A suite that stopped registering tests ' +
-    'would not be detected; re-capture both sides with the current tools/issue24-capture-failing.mjs to cover it.',
+    'would not be detected; re-capture both sides with the current tools/store-and-utils-scoped-capture-failing.mjs to cover it.',
   );
 } else if (Array.isArray(baseline.fileList)) {
   // Both sides carry counts, so the count dimension is live. A file the after

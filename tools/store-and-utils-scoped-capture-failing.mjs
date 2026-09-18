@@ -7,6 +7,16 @@
 // indistinguishable from a file that passed. So the capture records what it
 // enumerated and how each child ended, and the diff refuses to compare two
 // captures unless both ran the same files to completion.
+// #60: THIS IS NOT A PROJECT-WIDE REGRESSION GATE.
+//
+// It collects server/src/services and server/src/utils only -- deliberately, to keep the run
+// short for the store work it was built for. src/ws, src/routes, src/benchmarks, src/schemas,
+// src/testing and src/types are NOT collected, so a store change whose blast radius reaches
+// the router or the WS layer will pass this and still be a regression.
+//
+// The file was called issue24-capture-failing.mjs, which said nothing about that. A later
+// reader had no way to learn the scope except by reading the collector. Renamed so the
+// limitation travels with the tool.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -116,8 +126,16 @@ function main() {
   for (const file of FILES) {
     let out = '';
     try {
+      // #60: NODE_TEST_* must not reach the child. A `node --test` parent exports
+      // NODE_TEST_CONTEXT, node's recursion guard then prints `skipping running files` and the
+      // child exits 0 having run NOTHING -- so this capture would record a clean sweep it never
+      // performed. CLAUDE.md documents this exact trap; the capture was subject to it.
+      const childEnv = Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !key.startsWith('NODE_TEST_')),
+      );
       out = execFileSync('npx', ['tsx', '--test', file],
-        { cwd: SERVER, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000 });
+        { cwd: SERVER, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 180000,
+          env: childEnv });
     } catch (e) {
       out = `${e.stdout ?? ''}${e.stderr ?? ''}`;
       const reason = describeChildFailure(e);

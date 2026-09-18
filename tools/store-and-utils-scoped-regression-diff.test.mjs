@@ -20,7 +20,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const DIFF = path.join(HERE, 'issue24-regression-diff.mjs');
+const DIFF = path.join(HERE, 'store-and-utils-scoped-regression-diff.mjs');
 
 const FILES = ['src/services/A.test.ts', 'src/utils/B.test.ts'];
 
@@ -143,7 +143,7 @@ test('issue #24 gate: a capture that recorded no file list fails the gate', () =
 });
 
 test('issue #24 capture: a child killed by the timeout is recorded as errored even with partial output', async () => {
-  const { describeChildFailure } = await import('./issue24-capture-failing.mjs');
+  const { describeChildFailure } = await import('./store-and-utils-scoped-capture-failing.mjs');
   const killed = Object.assign(new Error('spawnSync npx ETIMEDOUT'), {
     status: null, signal: 'SIGTERM', killed: true,
     stdout: '▶ some suite\n  ✔ a case that did run\n', stderr: '',
@@ -156,7 +156,7 @@ test('issue #24 capture: a child killed by the timeout is recorded as errored ev
 });
 
 test('issue #24 capture: an ordinary failing run is not recorded as a harness error', async () => {
-  const { describeChildFailure } = await import('./issue24-capture-failing.mjs');
+  const { describeChildFailure } = await import('./store-and-utils-scoped-capture-failing.mjs');
   const failed = Object.assign(new Error('Command failed'), {
     status: 1, signal: null, killed: false,
     stdout: '✖ a genuine assertion failure\n', stderr: '',
@@ -169,7 +169,7 @@ test('issue #24 capture: an ordinary failing run is not recorded as a harness er
 });
 
 test('issue #24 capture: a child that produced no output at all is recorded as errored', async () => {
-  const { describeChildFailure } = await import('./issue24-capture-failing.mjs');
+  const { describeChildFailure } = await import('./store-and-utils-scoped-capture-failing.mjs');
   const silent = Object.assign(new Error('spawnSync npx ENOENT'), {
     status: null, signal: null, killed: false, stdout: '', stderr: '',
   });
@@ -266,19 +266,19 @@ const SUMMARY_FIXTURE = [
 ].join('\n');
 
 test('issue #24 capture: the per-file summary counts are parsed out of node:test output', async () => {
-  const { parseFileSummary } = await import('./issue24-capture-failing.mjs');
+  const { parseFileSummary } = await import('./store-and-utils-scoped-capture-failing.mjs');
   assert.deepEqual(parseFileSummary(SUMMARY_FIXTURE), { tests: 10, pass: 9, fail: 1 });
 });
 
 test('issue #24 capture: output with no summary at all parses as unknown, not as zero', async () => {
-  const { parseFileSummary } = await import('./issue24-capture-failing.mjs');
+  const { parseFileSummary } = await import('./store-and-utils-scoped-capture-failing.mjs');
   // The NODE_TEST_CONTEXT recursion guard: nothing ran, stdout is empty, exit 0.
   assert.equal(parseFileSummary(''), null);
   assert.equal(parseFileSummary('skipping running files\n'), null);
 });
 
 test('issue #24 capture: a partial summary is unknown rather than a count of zero', async () => {
-  const { parseFileSummary } = await import('./issue24-capture-failing.mjs');
+  const { parseFileSummary } = await import('./store-and-utils-scoped-capture-failing.mjs');
   assert.equal(parseFileSummary('ℹ pass 3\nℹ fail 0\n'), null, 'a missing tests line cannot be read as zero tests');
 });
 
@@ -287,7 +287,7 @@ test('issue #24 capture: a partial summary is unknown rather than a count of zer
 // a truncated one yielded {tests: 9, pass: 8, fail: 3} — a triple that belongs
 // to neither run and whose pass+fail does not even reach its own tests count.
 test('issue #24 capture: a truncated later summary does not borrow counts from an earlier one', async () => {
-  const { parseFileSummary } = await import('./issue24-capture-failing.mjs');
+  const { parseFileSummary } = await import('./store-and-utils-scoped-capture-failing.mjs');
   const twoBlocks = [
     'ℹ tests 5',
     'ℹ pass 5',
@@ -307,7 +307,7 @@ test('issue #24 capture: a truncated later summary does not borrow counts from a
 });
 
 test('issue #24 capture: output whose only summary block is truncated parses as unknown', async () => {
-  const { parseFileSummary } = await import('./issue24-capture-failing.mjs');
+  const { parseFileSummary } = await import('./store-and-utils-scoped-capture-failing.mjs');
   assert.equal(
     parseFileSummary('▶ suite\nℹ tests 9\nℹ pass 8\n'),
     null,
