@@ -1,0 +1,30 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=0 seqAfter=0 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=0 reservedEpoch=1
+[ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=0 seqAfter=0 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=0 reservedEpoch=1
+✔ MIG-BGSTAB-002 cleanup rejects a stale authority identity fence without releasing isolation (114.334583ms)
+✔ MIG-BGSTAB-002 cleanup fence blocks promotion until asynchronous isolation restoration completes (105.645512ms)
+[ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=2 seqAfter=2 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=2 reservedEpoch=1
+[ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=2 seqAfter=2 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=1 pendingResizes=0 reservedSeq=3 reservedEpoch=1
+[ISSUE12-RB] epochBefore=1 epochAfter=2 epochChanged=true seqBefore=0 seqAfter=0 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=0 reservedEpoch=1
+[ISSUE12-RB] epochBefore=2 epochAfter=1 epochChanged=true seqBefore=0 seqAfter=0 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=0 reservedEpoch=2
+✔ MIG-BGSTAB-002 cleanup serializes live PTY output after the restored headless checkpoint (131.629266ms)
+✔ MIG-BGSTAB-002 promotion claim blocks cleanup while controller promotion admission is asynchronous (90.065795ms)
+✔ MIG-BGSTAB-002 cleanup port rejects current non-legacy authority and missing fences (91.994758ms)
+✔ MIG-BGSTAB-002 cleanup accepts an exact completed legacy transition identity (91.73646ms)
+[ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=1 seqAfter=1 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=1 reservedEpoch=1
+[ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=1 seqAfter=1 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=1 reservedEpoch=1
+✔ MIG-BGSTAB-002 debug isolation uses the production headless queue and restores its retained override (137.058439ms)
+✔ MIG-BGSTAB-002 no-op failed-open isolation cleanup preserves recovery ACK and headless identity (92.317532ms)
+✔ MIG-BGSTAB-002 configured corpus windows yield to control-plane tasks (119.073995ms)
+✔ MIG-BGSTAB-002 headless recreation restores the registered legacy driver lease (97.996736ms)
+✔ MIG-BGSTAB-002 debug payload integrity fails closed before queue/model mutation (98.751103ms)
+✔ MIG-BGSTAB-002 query probe seeds through the counted model path and commits one live PTY reply (116.370861ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3905.067824

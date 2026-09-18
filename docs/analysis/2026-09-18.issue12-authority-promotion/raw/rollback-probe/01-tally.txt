@@ -1,0 +1,7 @@
+      4 [ISSUE12-RB] epochBefore=7 epochAfter=7 epochChanged=false seqBefore=0 seqAfter=0 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=0 reservedEpoch=7
+      2 [ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=1 seqAfter=1 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=1 reservedEpoch=1
+      2 [ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=0 seqAfter=0 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=0 reservedEpoch=1
+      1 [ISSUE12-RB] epochBefore=2 epochAfter=1 epochChanged=true seqBefore=0 seqAfter=0 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=0 reservedEpoch=2
+      1 [ISSUE12-RB] epochBefore=1 epochAfter=2 epochChanged=true seqBefore=0 seqAfter=0 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=0 reservedEpoch=1
+      1 [ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=2 seqAfter=2 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=1 pendingResizes=0 reservedSeq=3 reservedEpoch=1
+      1 [ISSUE12-RB] epochBefore=1 epochAfter=1 epochChanged=false seqBefore=2 seqAfter=2 seqLowered=false keysBefore=0 keysAfter=0 pendingOutputs=0 pendingResizes=0 reservedSeq=2 reservedEpoch=1
