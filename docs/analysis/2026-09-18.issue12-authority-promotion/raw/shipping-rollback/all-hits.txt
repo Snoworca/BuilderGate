@@ -1,0 +1,80 @@
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-transaction-invalidated retainedEpoch=undefined ledgerKeys=-1 facts=-1
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-transaction-invalidated retainedEpoch=undefined ledgerKeys=-1 facts=-1
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-transaction-invalidated retainedEpoch=undefined ledgerKeys=-1 facts=-1
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=authority-not-server retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-start-enqueue-failed retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-start-enqueue-failed retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-transaction-invalidated retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-start-enqueue-failed retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=11 transitionEpoch=11 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=11 transitionEpoch=11 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=12 transitionEpoch=12 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-transaction-invalidated retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=false reason=rollback-transaction-invalidated retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=8 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=8 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=8 nextStreamEpoch=10 transitionEpoch=10 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=8 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0
+[ISSUE12-SHIP] entry retainedEpoch=7 nextStreamEpoch=9 transitionEpoch=9 ledgerKeys=0 facts=0 hasController=true
+[ISSUE12-SHIP] exit ok=true reason=undefined retainedEpoch=7 ledgerKeys=0 facts=0

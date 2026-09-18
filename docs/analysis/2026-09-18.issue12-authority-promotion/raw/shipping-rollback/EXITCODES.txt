@@ -1,0 +1,3 @@
+exit=1 services/TerminalAuthorityController.test.ts hits=80
+exit=0 services/TerminalAuthorityDebugService.test.ts hits=0
+exit=0 services/TerminalAuthorityProductionRegression.test.ts hits=0

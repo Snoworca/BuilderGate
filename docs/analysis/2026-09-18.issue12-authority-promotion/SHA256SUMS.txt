@@ -6,6 +6,7 @@ a5f346c115c9d1fd6d966b5aa94392e51885808df869e6777c392aadbae59303  ./03.reserved-
 5590728375787d6d363e4e8dccaa461a5f3d47c2dfea45584bb3e5724ff4a54b  ./05.ac11-dedup-ledger.md
 59cfea7f0f17548ee58853865fca025b1296da83606e689340b0a356be900fd6  ./06.ac11-rollback-experiment.md
 68142788d9fa8ea691b7c8bfa18caa20e52558303917a92d650d3e9b18755eb5  ./07.ac2-named-owner.md
+10eb237755fc44a42e36222c04bcd43ef3a03a9f361b35b8847fbc6b31525900  ./08.shipping-rollback-path.md
 408ae1dbaade61ac9a3f67230c38487ef0244c566c57488f525d57ce6d6b8fd7  ./probe/apply-issue12-probes.py
 b5b4a9f1af6ce3a266b59247e39c840045332516665288348b4756681e43707f  ./probe/apply-issue12-rollback-probe.py
 5aeb453cb1801cdb11f0e05743f455f6e3768ad9eb5e8b63f124dc73f2eb0f3f  ./raw/ac-corpus-at-240d86a.json
@@ -102,4 +103,12 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/server-t
 5949f2dd559dba7e3f5848becdf025f9e5cd49c616c17786f34e8f01b64467b3  ./raw/server-tests/ws_WsRouterCheckpointProtocol.test.ts.out
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/server-tests/ws_productionTransportBoundary.test.ts.err
 8e7414ea805f6d79f11a5bc7a6690af7ea1a187ee92a936b7b5fbbc6d85f1caf  ./raw/server-tests/ws_productionTransportBoundary.test.ts.out
+3eab2cb296750407bf64a31bb40f31fd07e5c00437d329fab53d09b923c27c22  ./raw/shipping-rollback/EXITCODES.txt
+6f17649db18e5f49a2b2e4f294f73f2510cd887b4083d7240a6588c7e06ba66e  ./raw/shipping-rollback/all-hits.txt
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/shipping-rollback/services_TerminalAuthorityController.test.ts.err
+398e28f1f7efcb00783d258b54717237d52a809ce0359f006c9e20553e8c8744  ./raw/shipping-rollback/services_TerminalAuthorityController.test.ts.out
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/shipping-rollback/services_TerminalAuthorityDebugService.test.ts.err
+9b1af7c70b93c5d7425349daeec4a0628540d6019bf19ccee8703c52d130dd28  ./raw/shipping-rollback/services_TerminalAuthorityDebugService.test.ts.out
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/shipping-rollback/services_TerminalAuthorityProductionRegression.test.ts.err
+9e880e770cbf0a372ef865e77e91686b1bee709a39e88d27047f5b3c103801fa  ./raw/shipping-rollback/services_TerminalAuthorityProductionRegression.test.ts.out
 ad6b5a02857ca983285363f910a571fe0a14b49e941597a003d522d94005787b  ./raw/ve-reference-existence.txt
