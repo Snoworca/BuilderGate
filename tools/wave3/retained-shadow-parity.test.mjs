@@ -264,7 +264,18 @@ const expectedCoverageAxisIds = Object.freeze([
 const expectedCoverageAxisIdsSha256 = 'e45cb0525ad44a3b2b22e02439efaefd3eba0744b9fe582206675babec912573';
 
 const thresholds = Object.freeze({
-  focused: Object.freeze({ exactTests: 57, maximumFailures: 0, maximumSkipped: 0 }),
+  // `minimumTests`, not `exactTests`. The count of EXECUTED tests is derived
+  // from the tree and grows whenever a later lane adds a test to one of the four
+  // pinned sources, so an exact count fails on growth for the same reason the
+  // identity check used to. What must not happen is a PINNED test ceasing to
+  // run, and that is enforced by name in assertExactFocusedTestIdentity, which
+  // is strictly stronger than any count.
+  //
+  // Note the asymmetry with `coverage.exactAxes` below, which stays exact: the
+  // axis set is authored inside this script as a closed literal list, not
+  // derived from the tree, so it cannot grow behind anyone's back and an exact
+  // count is the correct contract there.
+  focused: Object.freeze({ minimumTests: 57, maximumFailures: 0, maximumSkipped: 0 }),
   coverage: Object.freeze({
     exactAxes: 42,
     axisIdsSha256: expectedCoverageAxisIdsSha256,
@@ -413,15 +424,58 @@ function extractNamedTestBody(source, testName, sourcePath = 'inline-evidence-se
   return bodies[0];
 }
 
+// The allowlist pins what must NEVER disappear. It does not pin what may never
+// be added.
+//
+// The earlier form asserted `deepEqual(actual, expected)`, which is red for
+// three different reasons at once: a pinned test was DELETED, a pinned test was
+// SUBSTITUTED (same count, different name — the case this guard exists for), or
+// a new test was ADDED. Only the first two are hazards. The third is the normal
+// consequence of any later lane adding a test to one of the four pinned sources,
+// and it is structurally benign because "nothing was lost" is directly
+// measurable — it is exactly `missing.length === 0`.
+//
+// Conflating them made the guard go red on growth, and a guard that is red for
+// a benign reason stops carrying information: the next real substitution arrives
+// into an artifact everyone already knows is failing.
+//
+// So the two obligations are separated:
+//   1. the ALLOWLIST's own bytes are pinned by sha256, so an entry cannot be
+//      deleted or swapped without moving the seal. To be accurate about what
+//      changed: this protection already existed, in runEvidenceToolSelfTests,
+//      and a measured evasion confirms it still fires. Moving the call-site
+//      assertion from the EXECUTED set's hash to the ALLOWLIST's hash does not
+//      add protection — it removes the false red on growth while leaving the
+//      pin meaningful.
+//   2. every pinned name must still execute. Deletion and substitution both
+//      remove a pinned name, so both still fail here.
+// Additions are recorded in the artifact, not treated as failures.
 function assertExactFocusedTestIdentity(executed, expectedNames = expectedFocusedTestNames) {
   const sortedExpected = [...expectedNames].sort(compareCodeUnits);
   assert.deepEqual([...expectedNames], sortedExpected, 'focused test allowlist must stay sorted');
   assert.equal(new Set(expectedNames).size, expectedNames.length, 'focused test allowlist contains duplicates');
   const actualNames = [...executed.keys()].sort(compareCodeUnits);
-  assert.deepEqual(actualNames, sortedExpected, 'focused test identity mismatch');
+  assert.equal(new Set(actualNames).size, actualNames.length, 'focused run reported duplicate test names');
+
+  // An enumeration that can return zero must assert its own count before it
+  // asserts its property: `every pinned name is present` is vacuously true of an
+  // empty allowlist.
+  assert.ok(sortedExpected.length > 0, 'focused test allowlist must not be empty');
+
+  const actualSet = new Set(actualNames);
+  const missing = sortedExpected.filter(name => !actualSet.has(name));
+  assert.deepEqual(missing, [],
+    `focused test identity regression — ${missing.length} pinned test(s) no longer execute. `
+    + 'A deleted test and a test renamed in place are both this failure, and both are real.');
+
+  const expectedSet = new Set(sortedExpected);
+  const added = actualNames.filter(name => !expectedSet.has(name));
   return Object.freeze({
     names: Object.freeze(actualNames),
     sha256: canonicalSha256(actualNames),
+    allowlistSha256: canonicalSha256(sortedExpected),
+    missing: Object.freeze([]),
+    added: Object.freeze(added),
   });
 }
 
@@ -447,9 +501,37 @@ function runEvidenceToolSelfTests() {
   assert.equal(targetBody.includes('inside-target'), true);
   assert.equal(targetBody.includes('outside-target-only'), false,
     'a coverage anchor from another named test must not satisfy the target test');
+  // Substitution — same count, different name. The case this guard exists for.
   assert.throws(
     () => assertExactFocusedTestIdentity(new Map([['replacement test', 'pass']]), ['target test']),
-    /focused test identity mismatch/u,
+    /focused test identity regression/u,
+  );
+  // Deletion — a pinned test simply stops executing.
+  assert.throws(
+    () => assertExactFocusedTestIdentity(new Map([['other test', 'pass']]), ['other test', 'target test']),
+    /focused test identity regression/u,
+  );
+  // Addition — every pinned test still runs and a new one appeared alongside.
+  // This must NOT fail, and the addition must be reported rather than silently
+  // dropped, or the artifact would record growth as if it had not happened.
+  {
+    const grown = assertExactFocusedTestIdentity(
+      new Map([['target test', 'pass'], ['brand new test', 'pass']]),
+      ['target test'],
+    );
+    assert.deepEqual(grown.missing, [], 'a pure addition must lose nothing');
+    assert.deepEqual(grown.added, ['brand new test'], 'a pure addition must be reported in the artifact');
+    assert.equal(grown.allowlistSha256, canonicalSha256(['target test']),
+      'the allowlist hash must describe the allowlist, not the executed set');
+  }
+  // Allowlist tampering — swapping an entry must move the sealed hash, which is
+  // what stops someone turning a red into a green by editing the pin instead of
+  // the tree. The executed set is deliberately made to agree with the tampered
+  // allowlist, so only the hash can catch it.
+  assert.notEqual(
+    assertExactFocusedTestIdentity(new Map([['tampered test', 'pass']]), ['tampered test']).allowlistSha256,
+    canonicalSha256(['target test']),
+    'a substituted allowlist entry must change the allowlist hash',
   );
   assert.equal(canonicalSha256(expectedFocusedTestNames), expectedFocusedTestNamesSha256,
     'focused test allowlist hash changed without an explicit evidence contract update');
@@ -523,7 +605,7 @@ function buildCoverage(executed) {
 
 function evaluateGate({ candidateThresholds, focused, coverage, missingInputs, hashMismatches }) {
   const required = [
-    candidateThresholds?.focused?.exactTests,
+    candidateThresholds?.focused?.minimumTests,
     candidateThresholds?.focused?.maximumFailures,
     candidateThresholds?.focused?.maximumSkipped,
     candidateThresholds?.coverage?.exactAxes,
@@ -542,7 +624,7 @@ function evaluateGate({ candidateThresholds, focused, coverage, missingInputs, h
     || hashMismatches > candidateThresholds.inputHashes.maximumMismatches) {
     return Object.freeze({ eligible: false, reason: 'input-hash-threshold-failed' });
   }
-  if (focused.total !== candidateThresholds.focused.exactTests
+  if (focused.total < candidateThresholds.focused.minimumTests
     || focused.failed > candidateThresholds.focused.maximumFailures
     || focused.cancelled + focused.skipped + focused.todo > candidateThresholds.focused.maximumSkipped) {
     return Object.freeze({ eligible: false, reason: 'focused-test-threshold-failed' });
@@ -580,8 +662,10 @@ if (process.argv.includes('--self-test')) {
 const focusedRun = runFocused(focusedCommand);
 const { summary: focusedSummary, executed } = summarizeFocused(focusedRun);
 const focusedIdentity = assertExactFocusedTestIdentity(executed);
-assert.equal(focusedIdentity.sha256, expectedFocusedTestNamesSha256,
-  'focused test execution hash differs from the exact allowlist hash');
+// Pin the ALLOWLIST, not the executed set. This is the anti-substitution half:
+// no entry can be swapped or dropped from the allowlist without moving the seal.
+assert.equal(focusedIdentity.allowlistSha256, expectedFocusedTestNamesSha256,
+  'focused test allowlist hash differs from its seal — the allowlist itself was edited');
 const coverage = Object.freeze(buildCoverage(executed));
 const coverageIdentity = assertExactCoverageAxisIdentity(coverage.map(row => row.axis));
 assert.equal(coverageIdentity.sha256, expectedCoverageAxisIdsSha256,
@@ -659,6 +743,8 @@ const artifact = {
     passedTestNames: focusedIdentity.names,
     passedTestNamesSha256: focusedIdentity.sha256,
     expectedTestNamesSha256: expectedFocusedTestNamesSha256,
+    pinnedTestNamesMissing: focusedIdentity.missing,
+    unpinnedTestNamesAdded: focusedIdentity.added,
   },
   rawEvidencePaths,
   inputHashes: { files: inputHashes, sourceSetSha256: canonicalSha256(inputHashes), missing: 0, mismatches: 0 },
