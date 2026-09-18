@@ -24,6 +24,8 @@ import ts from 'typescript';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+// @ts-expect-error -- plain JS tooling module, intentionally untyped
+import { acquireTscBuildLock } from '../../tools/tscBuildLock.mjs';
 
 const FRONTEND_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TSC = resolve(FRONTEND_ROOT, 'node_modules/typescript/bin/tsc');
@@ -147,30 +149,36 @@ for (const [label, code, expectedDeclared, expectedReads] of REFERENCE_CASES) {
   });
 }
 
-test('REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors', () => {
+test('REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors', async () => {
   // The referenced editor project emits declaration-only output under the gitignored
-  // node_modules/.tmp; build it first or the reference resolves to TS6305.
-  // Note: these are the same artifacts `npm run build` and `npm run typecheck` consume,
-  // so this test shares a tsbuildinfo with them and must not run concurrently with a build.
-  const built = spawnSync(process.execPath, [TSC, '-b', 'tsconfig.editor.json'], {
-    cwd: FRONTEND_ROOT,
-    encoding: 'utf8',
-  });
-  assert.equal(
-    built.status,
-    0,
-    `precondition failed: tsc -b tsconfig.editor.json exited ${built.status}\n${built.stdout}${built.stderr}`,
-  );
+  // node_modules/.tmp; build it first or the reference resolves to TS6305. Those are the
+  // same artifacts `npm run build` and `npm run typecheck` write, so all three writers
+  // serialize on one lock (#55). Building somewhere private instead would stop exercising
+  // the project reference this test exists to verify, so the artifact stays shared.
+  const release = await acquireTscBuildLock({ label: 'e2eOwnershipTypecheck.test.ts' });
+  try {
+    const built = spawnSync(process.execPath, [TSC, '-b', 'tsconfig.editor.json'], {
+      cwd: FRONTEND_ROOT,
+      encoding: 'utf8',
+    });
+    assert.equal(
+      built.status,
+      0,
+      `precondition failed: tsc -b tsconfig.editor.json exited ${built.status}\n${built.stdout}${built.stderr}`,
+    );
 
-  const checked = spawnSync(process.execPath, [TSC, '--noEmit', '-p', 'tsconfig.e2e-ownership.json'], {
-    cwd: FRONTEND_ROOT,
-    encoding: 'utf8',
-  });
-  const diagnostics = `${checked.stdout}${checked.stderr}`.trim();
-  assert.equal(
-    diagnostics,
-    '',
-    `tsconfig.e2e-ownership.json must report no diagnostics, got:\n${diagnostics}`,
-  );
-  assert.equal(checked.status, 0, `tsc exited ${checked.status}`);
+    const checked = spawnSync(process.execPath, [TSC, '--noEmit', '-p', 'tsconfig.e2e-ownership.json'], {
+      cwd: FRONTEND_ROOT,
+      encoding: 'utf8',
+    });
+    const diagnostics = `${checked.stdout}${checked.stderr}`.trim();
+    assert.equal(
+      diagnostics,
+      '',
+      `tsconfig.e2e-ownership.json must report no diagnostics, got:\n${diagnostics}`,
+    );
+    assert.equal(checked.status, 0, `tsc exited ${checked.status}`);
+  } finally {
+    release();
+  }
 });
