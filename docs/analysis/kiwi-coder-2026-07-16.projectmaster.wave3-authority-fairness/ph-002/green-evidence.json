@@ -10,7 +10,7 @@
     "T-PH002-05",
     "T-PH002-06"
   ],
-  "capturedAt": "2026-09-17T21:40:03.305Z",
+  "capturedAt": "2026-09-18T11:29:37.362Z",
   "commands": [
     {
       "cwd": "server",
@@ -107,7 +107,7 @@
       },
       {
         "path": "frontend/tests/unit/terminalViewRecoveryContract.test.ts",
-        "sha256": "ebf0f104bd35f251e0a743326a7f0b969da02e30de880164b1f1c3ba974853c9"
+        "sha256": "8bf4a6dc0f99ac4ffad750e6a8bbf54558a7fc6224441f85fa113220f70ff8ed"
       },
       {
         "path": "frontend/tests/unit/terminalContainerRecoveryContract.test.ts",
@@ -115,7 +115,7 @@
       },
       {
         "path": "frontend/tests/unit/visibleOutputRecovery.test.ts",
-        "sha256": "9d762b915f6b34cd2f3b6ad5ca6ca8577422b59129f06ee54cef0b5e91217809"
+        "sha256": "256783b003acc9fd21459d7542e58ca66e3dea85996b0a90eb89a03e31569e81"
       }
     ],
     "requirementBearingFiles": [
@@ -259,7 +259,7 @@
     },
     {
       "path": "server/src/services/SessionManager.ts",
-      "sha256": "968a1b39bb9273f1d34a0d458b1c9f10d525879a5f7904346ec290e483ad5eea"
+      "sha256": "2f24c90abf18c43ca15e3da9d1b8de5c33d901ccb88f97999908624ed5c72e0c"
     },
     {
       "path": "server/src/utils/boundedByteDeque.ts",
@@ -271,7 +271,7 @@
     },
     {
       "path": "server/src/ws/WsRouter.ts",
-      "sha256": "e2ae4af70060376e8083078d435dac7248f5aa45f53146eff83811f1123c46ae"
+      "sha256": "0f6b311772990f87014139f614053960c929fb3237e3d14b3d896322ef19daaf"
     },
     {
       "path": "server/src/ws/wsSendPolicy.ts",
@@ -279,7 +279,7 @@
     },
     {
       "path": "server/src/types/ws-protocol.ts",
-      "sha256": "dda483db497b7103b7e909c621c57c7e9d43a2faca862badc9e3e61269161460"
+      "sha256": "4dcb9341d57f855c6cb89d59fbf4c6409842f9f78260c3bd1622385142ff6ad5"
     },
     {
       "path": "frontend/src/contexts/WebSocketContext.tsx",
@@ -287,7 +287,7 @@
     },
     {
       "path": "frontend/src/types/ws-protocol.ts",
-      "sha256": "04c87cc0609fda1a56b988263d28ac827de016546d6c98cbd79f1fd6a5c43c57"
+      "sha256": "01fed8c3bb7729e525941dca8ac926bcf124bea81cef36a320b122e8e8a40a30"
     },
     {
       "path": "frontend/src/components/Terminal/TerminalRuntimeContext.tsx",
@@ -295,7 +295,7 @@
     },
     {
       "path": "frontend/src/components/Terminal/TerminalView.tsx",
-      "sha256": "9d449864006761bd350c8ad31e39db2f0262591e7ff854ad3df36f22cc6a1c32"
+      "sha256": "8717c43e73d992a070102afbc6b9e61ca88bd14ecadca845906256af0cad2161"
     },
     {
       "path": "frontend/src/components/Terminal/TerminalContainer.tsx",
