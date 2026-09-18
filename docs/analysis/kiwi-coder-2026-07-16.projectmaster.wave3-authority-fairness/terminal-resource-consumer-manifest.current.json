@@ -57,10 +57,10 @@
       "server/src/utils/headlessTerminal.ts": "786aa5eed4f5a0f5827abaac3087832e0ecc152ac017b772acd29dbd38b8b2ef",
       "server/src/ws/WsRouter.ts": "0f6b311772990f87014139f614053960c929fb3237e3d14b3d896322ef19daaf",
       "server/src/ws/wsSendPolicy.ts": "d8161ec40992dfaabc0285fa39d29299b933133931e5be05197eefa7fc258939",
-      "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "04cd76aa9e657bf195d9428feee945041ae19a9370c353c917e4916e13861145",
+      "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "dfadd25bb3b87825e746e7285af2538747c54562c2fa93b338e50d74588f299c",
       "tools/wave3/terminal-resource-policy-differential.ts": "4e3037ede53b126b5c5dd117ba7d87426d9a8b81768492becf3c3f7b64d84f92"
     },
-    "sourceSetSha256": "d69f472923b7cf7652c4437e356188caed3401eca5166c242c8b638887e7e966",
+    "sourceSetSha256": "53beead1f3460fd5b97b5725ed2774827522d5b6543ac064c474e455c2f34106",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "7a85059377a251712f7f6632fc827d7d59e72b4be970ec000ec16e15e3d49ced",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"

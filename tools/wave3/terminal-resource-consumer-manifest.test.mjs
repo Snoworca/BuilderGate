@@ -813,6 +813,26 @@ const claims = {
 };
 assert.ok(Object.values(claims).every(Boolean), `executed differential claims failed: ${JSON.stringify(claims)}`);
 
+// activationEligible was the literal `false`. Nothing computed it, and it was true of both
+// the healthy state and the defective one: if enforcement ever became eligible, the line
+// would keep reporting false. That is the vacuous-assertion class, but inside an evidence
+// artifact rather than a test, which is worse -- VE rows cite it.
+//
+// The real gate lives in a sibling bundle (canary-admission-evidence's evaluateActivation)
+// and takes inputs this verifier does not have. Importing it would couple two bundles for
+// one boolean. But the executed differential already carries the gate's actual answer, from
+// the same issue() call every claim above derives from, so that is the source used here.
+//
+// Non-vacuity matters and it fails in the dangerous direction: `undefined !== 'unavailable'`
+// is true, so a missing field would silently report ELIGIBLE. Assert the field's presence
+// before reading it.
+assert.equal(
+  typeof executedDifferential.candidate.status, 'string',
+  'candidate.status is missing; activationEligible would silently report eligible',
+);
+const activationEligible = executedDifferential.candidate.status !== 'unavailable';
+const activationReason = activationEligible ? null : executedDifferential.candidate.reason;
+
 process.stdout.write(`${JSON.stringify({
   requirementId: 'OBS-BGSTAB-005',
   schemaVersion: manifest.schemaVersion,
@@ -823,6 +843,11 @@ process.stdout.write(`${JSON.stringify({
   focusedTests: focusedTestCount,
   focusedPass: focusedPassCount,
   claims,
-  activationEligible: false,
+  activationEligible,
+  activationReason,
+  // Every field above this line is measured. `requirementId` is the one declaration in the
+  // report -- an identifier, not an observation. Stated so that a declaration cannot be read
+  // as a measurement, which is the defect this field itself used to be.
+  declaredFields: ['requirementId'],
     manifestSha256,
 }, null, 2)}\n`);
