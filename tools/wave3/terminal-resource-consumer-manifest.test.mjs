@@ -51,6 +51,7 @@ const expectedResourceKeys = [
   'resourceLimits.terminal.transportOutboxMaxBytes',
   'resourceLimits.terminal.transportOutboxTtlMs',
   'resourceLimits.terminal.visibleFlushBudgetBytes',
+  'resourceLimits.terminal.visibleFlushFrameBudgetMs',
   'resourceLimits.terminal.visibleOutputMaxChunks',
   'resourceLimits.terminal.visibleOutputQueueMaxBytes',
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs',
@@ -435,10 +436,12 @@ assert.deepEqual(manifest.evidence.consumerAstFingerprint, {
   schemaVersion: 'terminal-resource-evidence-ast/v1',
   typescriptVersion: '5.9.3',
 });
-// 81, not the sealed historical 80: REL-BGSTAB-023 registered
-// resourceLimits.terminal.checkpointMaxBytes with its TerminalView consumer. The historical
+// 83, not the sealed historical 80: REL-BGSTAB-023 registered
+// resourceLimits.terminal.checkpointMaxBytes with its TerminalView consumer (81), and #101
+// registered resourceLimits.terminal.visibleFlushFrameBudgetMs with two consumers -- the
+// TerminalView option flow and the scheduler's own frame deadline (83). The historical
 // seals asserted above stay at 80 — they record the PH-001 run, not today's inventory.
-assert.equal(manifest.consumers.length, 81);
+assert.equal(manifest.consumers.length, 83);
 assert.equal(manifest.classifications.length, 10);
 const consumerEvidenceAstMutation = {
   ...manifest,
@@ -733,7 +736,7 @@ const requiredFocusedTestNames = Object.freeze([
   'IR-BGSTAB-001 AC-8 republishes terminalWireFormat after a runtime config reload',
   'OBS-BGSTAB-005 a classification pin that does not match its recomputed evidence names itself',
   'OBS-BGSTAB-005 review regression — ConfigFileRepository previous/next provenance survives settings reload and rollback',
-  'OBS-BGSTAB-005 review regression — compiler owns all 30 typed resources and records real legacy divergence',
+  'OBS-BGSTAB-005 review regression — compiler owns all 31 typed resources and records real legacy divergence',
   'OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites',
   'OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized and never silently falls through',
   'OBS-BGSTAB-005 review regression — no candidate profile is available without a registered stable contract',

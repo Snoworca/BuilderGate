@@ -24,7 +24,9 @@ import type { NextFunction, Request, Response } from 'express';
  * crash-loop clears counters, which is a real limitation and is why the delay is capped low
  * enough to stay useful rather than relied on as the only control.
  *
- * NO CONFIG SURFACE. #32 removed five `bruteForce.*` keys that nothing enforced, and the issue
+ * NO CONFIG SURFACE. #32 removed the five retired brute-force throttle keys that nothing
+ * enforced -- their literal names are deliberately not repeated here, because
+ * FR-BGSTAB-025 scans shipped surfaces for exactly that residue -- and the issue
  * is right that an unenforced security setting is worse than none -- an operator reading it
  * believes they are protected. Re-introducing the surface re-introduces that risk the moment a
  * later refactor drops the wiring, so the numbers live here next to the code that uses them.

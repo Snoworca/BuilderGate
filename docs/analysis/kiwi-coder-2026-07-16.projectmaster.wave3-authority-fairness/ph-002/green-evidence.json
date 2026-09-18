@@ -10,7 +10,7 @@
     "T-PH002-05",
     "T-PH002-06"
   ],
-  "capturedAt": "2026-09-18T19:25:05.728Z",
+  "capturedAt": "2026-09-18T20:36:17.079Z",
   "commands": [
     {
       "cwd": "server",
@@ -251,11 +251,11 @@
     },
     {
       "path": "server/src/services/TerminalResourcePolicy.ts",
-      "sha256": "f42db1034489cfa101d0596694a4f8eddd15629bb41c35a192b79d4555feadfa"
+      "sha256": "124fc22d297efd4d897e0d5addff66db7d3499219bc5e55f40553ab2a790064f"
     },
     {
       "path": "server/src/services/RuntimeConfigStore.ts",
-      "sha256": "230ac1d7674970c86145bb6dbab84a09613b44d0f232289765d2e0ba2c36b88c"
+      "sha256": "b5c34e7971f38698e6b0b14a5d14e8caa04d72c122be780e1da70756af62b996"
     },
     {
       "path": "server/src/services/SessionManager.ts",
@@ -295,7 +295,7 @@
     },
     {
       "path": "frontend/src/components/Terminal/TerminalView.tsx",
-      "sha256": "8717c43e73d992a070102afbc6b9e61ca88bd14ecadca845906256af0cad2161"
+      "sha256": "4b2b25fe64a18da31398c6bae5fa16969bf6dc4935edf5dc1eb5c9c93e1cda65"
     },
     {
       "path": "frontend/src/components/Terminal/TerminalContainer.tsx",

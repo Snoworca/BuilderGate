@@ -210,6 +210,7 @@ function applyEditableValues(
   if (shouldApply('resourceLimits.terminal.visibleOutputMaxChunks')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleOutputMaxChunks'], resourceLimits.terminal.visibleOutputMaxChunks);
   if (shouldApply('resourceLimits.terminal.checkpointMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'checkpointMaxBytes'], resourceLimits.terminal.checkpointMaxBytes);
   if (shouldApply('resourceLimits.terminal.visibleFlushBudgetBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleFlushBudgetBytes'], resourceLimits.terminal.visibleFlushBudgetBytes);
+  if (shouldApply('resourceLimits.terminal.visibleFlushFrameBudgetMs')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleFlushFrameBudgetMs'], resourceLimits.terminal.visibleFlushFrameBudgetMs);
   if (shouldApply('resourceLimits.terminal.hiddenOutputPolicy')) setPath(rawConfig, ['resourceLimits', 'terminal', 'hiddenOutputPolicy'], resourceLimits.terminal.hiddenOutputPolicy);
   if (shouldApply('resourceLimits.terminal.hiddenOutputTailBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'hiddenOutputTailBytes'], resourceLimits.terminal.hiddenOutputTailBytes);
   if (shouldApply('resourceLimits.terminal.inputQueueMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueMaxBytes'], resourceLimits.terminal.inputQueueMaxBytes);
@@ -295,6 +296,7 @@ function renderPatchedConfig(
   if (shouldRender('resourceLimits.terminal.visibleOutputMaxChunks')) replacements.set('resourceLimits.terminal.visibleOutputMaxChunks', renderJson5Value(resourceLimits.terminal.visibleOutputMaxChunks));
   if (shouldRender('resourceLimits.terminal.checkpointMaxBytes')) replacements.set('resourceLimits.terminal.checkpointMaxBytes', renderJson5Value(resourceLimits.terminal.checkpointMaxBytes));
   if (shouldRender('resourceLimits.terminal.visibleFlushBudgetBytes')) replacements.set('resourceLimits.terminal.visibleFlushBudgetBytes', renderJson5Value(resourceLimits.terminal.visibleFlushBudgetBytes));
+  if (shouldRender('resourceLimits.terminal.visibleFlushFrameBudgetMs')) replacements.set('resourceLimits.terminal.visibleFlushFrameBudgetMs', renderJson5Value(resourceLimits.terminal.visibleFlushFrameBudgetMs));
   if (shouldRender('resourceLimits.terminal.hiddenOutputPolicy')) replacements.set('resourceLimits.terminal.hiddenOutputPolicy', renderJson5Value(resourceLimits.terminal.hiddenOutputPolicy));
   if (shouldRender('resourceLimits.terminal.hiddenOutputTailBytes')) replacements.set('resourceLimits.terminal.hiddenOutputTailBytes', renderJson5Value(resourceLimits.terminal.hiddenOutputTailBytes));
   if (shouldRender('resourceLimits.terminal.inputQueueMaxBytes')) replacements.set('resourceLimits.terminal.inputQueueMaxBytes', renderJson5Value(resourceLimits.terminal.inputQueueMaxBytes));

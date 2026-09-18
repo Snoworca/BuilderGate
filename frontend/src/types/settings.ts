@@ -38,6 +38,7 @@ export type EditableSettingsKey =
   | 'resourceLimits.terminal.visibleOutputMaxChunks'
   | 'resourceLimits.terminal.checkpointMaxBytes'
   | 'resourceLimits.terminal.visibleFlushBudgetBytes'
+  | 'resourceLimits.terminal.visibleFlushFrameBudgetMs'
   | 'resourceLimits.terminal.hiddenOutputPolicy'
   | 'resourceLimits.terminal.hiddenOutputTailBytes'
   | 'resourceLimits.terminal.inputQueueMaxBytes'
@@ -97,6 +98,7 @@ export interface ResourceLimitsSettings {
     visibleOutputMaxChunks: number;
     checkpointMaxBytes: number;
     visibleFlushBudgetBytes: number;
+    visibleFlushFrameBudgetMs: number;
     hiddenOutputPolicy: 'write-hidden' | 'snapshot-restore' | 'debug-tail';
     hiddenOutputTailBytes: number;
     inputQueueMaxBytes: number;

@@ -154,6 +154,7 @@
     "tests/unit/workspaceItemBadge.test.ts",
     "tests/unit/workspaceMoveDialog.test.ts",
     "tests/unit/clipboardCopy.test.ts",
+    "tests/unit/terminalFrameBudgetReachability.test.ts",
     "tests/unit/terminalResidencyCharacterization.test.ts",
     "tests/unit/terminalWebglRenderer.test.ts",
     "tests/unit/terminalWidthPolicyParity.test.ts",

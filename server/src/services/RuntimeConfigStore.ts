@@ -108,6 +108,7 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'resourceLimits.terminal.visibleOutputMaxChunks': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 65536) },
   'resourceLimits.terminal.checkpointMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.terminal.visibleFlushBudgetBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.terminal.visibleFlushFrameBudgetMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1, 100) },
   'resourceLimits.terminal.hiddenOutputPolicy': { applyScope: 'immediate', writeOnly: false },
   'resourceLimits.terminal.hiddenOutputTailBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(0, 16777216) },
   'resourceLimits.terminal.inputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },

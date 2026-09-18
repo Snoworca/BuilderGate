@@ -143,6 +143,9 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   visibleOutputQueueMaxBytes: bytesLimit(1024, 268435456, 4194304),
   visibleOutputMaxChunks: countLimit(1, 65536, 512),
   visibleFlushBudgetBytes: bytesLimit(1024, 16777216, 262144),
+  // #101: the frame deadline the visible flush loop enforces. Its byte sibling above was
+  // operator-tunable and this was not, so the 7ms default could not be moved at all.
+  visibleFlushFrameBudgetMs: durationLimit(1, 100, 7),
   checkpointMaxBytes: bytesLimit(1024, 268435456, 4194304),
   hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).default('snapshot-restore'),
   hiddenOutputTailBytes: bytesLimit(0, 16777216, 262144),

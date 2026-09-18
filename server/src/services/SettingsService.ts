@@ -59,6 +59,7 @@ const resourceLimitsPatchSchema = z.object({
     visibleOutputMaxChunks: countPatch(1, 65536),
     checkpointMaxBytes: bytesPatch(1024, 268435456),
     visibleFlushBudgetBytes: bytesPatch(1024, 16777216),
+    visibleFlushFrameBudgetMs: durationPatch(1, 100),
     hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).optional(),
     hiddenOutputTailBytes: bytesPatch(0, 16777216),
     inputQueueMaxBytes: bytesPatch(1024, 16777216),

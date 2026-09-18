@@ -114,6 +114,7 @@ const RESOURCE_DEFINITIONS = {
   'resourceLimits.terminal.transportOutboxMaxBytes': { path: ['terminal', 'transportOutboxMaxBytes'], unit: 'bytes', applyBoundary: 'browser-transport-generation' },
   'resourceLimits.terminal.transportOutboxTtlMs': { path: ['terminal', 'transportOutboxTtlMs'], unit: 'ms', applyBoundary: 'browser-transport-generation' },
   'resourceLimits.terminal.visibleFlushBudgetBytes': { path: ['terminal', 'visibleFlushBudgetBytes'], unit: 'bytes', applyBoundary: 'browser-frame' },
+  'resourceLimits.terminal.visibleFlushFrameBudgetMs': { path: ['terminal', 'visibleFlushFrameBudgetMs'], unit: 'ms', applyBoundary: 'browser-frame' },
   'resourceLimits.terminal.visibleOutputMaxChunks': { path: ['terminal', 'visibleOutputMaxChunks'], unit: 'count', applyBoundary: 'browser-output-generation' },
   'resourceLimits.terminal.visibleOutputQueueMaxBytes': { path: ['terminal', 'visibleOutputQueueMaxBytes'], unit: 'bytes', applyBoundary: 'browser-output-generation' },
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs': { path: ['workspaceRuntime', 'hiddenRuntimeTtlMs'], unit: 'ms', applyBoundary: 'runtime-residency' },

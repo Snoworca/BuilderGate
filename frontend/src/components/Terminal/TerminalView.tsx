@@ -1594,6 +1594,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           visibleOutputQueueMaxBytes: limits.visibleOutputQueueMaxBytes,
           visibleOutputMaxChunks: limits.visibleOutputMaxChunks,
           visibleFlushBudgetBytes: limits.visibleFlushBudgetBytes,
+          visibleFlushFrameBudgetMs: limits.visibleFlushFrameBudgetMs,
           write: (chunk, onWritten, onRejected) => writeOutputDirect(term, chunk, onWritten, onRejected),
           shouldYield: hasPendingBrowserInput,
           canaryTarget: outputPolicyRuntime.target,
@@ -1641,6 +1642,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         visibleOutputQueueMaxBytes: limits.visibleOutputQueueMaxBytes,
         visibleOutputMaxChunks: limits.visibleOutputMaxChunks,
         visibleFlushBudgetBytes: limits.visibleFlushBudgetBytes,
+        visibleFlushFrameBudgetMs: limits.visibleFlushFrameBudgetMs,
       });
       return outputSchedulerRef.current;
     }, [

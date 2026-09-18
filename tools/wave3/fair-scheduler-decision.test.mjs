@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -108,8 +108,11 @@ function resolvePublishedArtifact(outputPath) {
   const root = dirname(outputPath);
   const path = resolve(root, publication.artifactPath);
   const rawPath = resolve(root, publication.rawPath);
-  assert.equal(path.startsWith(`${root}\\`), true, 'PERF-BGSTAB-010 publication escaped artifact root');
-  assert.equal(rawPath.startsWith(`${root}\\`), true, 'PERF-BGSTAB-010 publication escaped raw root');
+  // The separator comes from node, not from a literal: the hardcoded backslash this replaces made
+  // the containment check unsatisfiable on any platform whose separator is '/', so the guard could
+  // only ever fail there rather than checking anything (#101).
+  assert.equal(path.startsWith(`${root}${sep}`), true, 'PERF-BGSTAB-010 publication escaped artifact root');
+  assert.equal(rawPath.startsWith(`${root}${sep}`), true, 'PERF-BGSTAB-010 publication escaped raw root');
   assert.equal(existsSync(path), true, 'PERF-BGSTAB-010 published generation artifact missing');
   assert.equal(existsSync(rawPath), true, 'PERF-BGSTAB-010 published generation raw missing');
   return { path, rawPath, evidenceRoot: root };

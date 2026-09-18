@@ -49,6 +49,7 @@ export type EditableSettingsKey =
   | 'resourceLimits.terminal.hiddenOutputPolicy'
   | 'resourceLimits.terminal.hiddenOutputTailBytes'
   | 'resourceLimits.terminal.inputQueueMaxBytes'
+  | 'resourceLimits.terminal.visibleFlushFrameBudgetMs'
   | 'resourceLimits.terminal.inputQueueTtlMs'
   | 'resourceLimits.terminal.transportOutboxMaxBytes'
   | 'resourceLimits.terminal.transportOutboxTtlMs'

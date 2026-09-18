@@ -181,6 +181,7 @@ function createEditableValues(): EditableSettingsValues {
         visibleOutputQueueMaxBytes: 1_048_576,
         visibleOutputMaxChunks: 1024,
         visibleFlushBudgetBytes: 65_536,
+        visibleFlushFrameBudgetMs: 7,
         hiddenOutputPolicy: 'write-hidden',
         hiddenOutputTailBytes: 262_144,
         inputQueueMaxBytes: 65_536,

@@ -32,6 +32,7 @@ const REGISTERED_OBSERVATION_DECISIONS = [
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'consumed'],
   ['browser.terminal.write-scheduler', 'resourceLimits.terminal.scrollbackLines', 'resourceLimits.terminal.scrollbackLines', 'consumed'],
   ['browser.terminal.write-scheduler', 'resourceLimits.terminal.visibleFlushBudgetBytes', 'resourceLimits.terminal.visibleFlushBudgetBytes', 'consumed'],
+  ['browser.terminal.write-scheduler', 'resourceLimits.terminal.visibleFlushFrameBudgetMs', 'resourceLimits.terminal.visibleFlushFrameBudgetMs', 'consumed'],
   ['browser.terminal.write-scheduler', 'resourceLimits.terminal.visibleOutputMaxChunks', 'resourceLimits.terminal.visibleOutputMaxChunks', 'consumed'],
   ['browser.terminal.write-scheduler', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'consumed'],
   ['server.config.runtime-store', 'resourceLimits.headless.writeBatchMaxBytes', 'resourceLimits.headless.writeBatchMaxBytes', 'reserved-unapplied'],
