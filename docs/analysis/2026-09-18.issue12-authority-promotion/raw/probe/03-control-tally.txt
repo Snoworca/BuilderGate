@@ -1,0 +1,14 @@
+    115 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+     20 [ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+      4 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=40
+      4 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=28
+      2 [ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=40
+      2 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=24
+      1 [ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=28
+      1 [ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=24
+      1 [ISSUE12] site=A5053 mode=fallback health=degraded truncated=false dataLen=0
+      1 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=60
+      1 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=58
+      1 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=52
+      1 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=35
+      1 [ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=33

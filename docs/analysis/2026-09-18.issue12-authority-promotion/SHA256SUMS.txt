@@ -1,6 +1,8 @@
 68b6446417fdd719e25427346d9ccb3b24c4940a94854ea628222f09bfe47a46  ./00.evidence-provenance.md
 e47d28e79ebe6a8e9327147addaa2a4f362bff58ffd256f6af8aa6f7a4e3bcdf  ./01.ac-map.md
 c7c9da8618d34a7dd9cd530bc6ee8f5c42028302fdde577b4e2b9585d36811ee  ./02.premise-table.md
+a5f346c115c9d1fd6d966b5aa94392e51885808df869e6777c392aadbae59303  ./03.reserved-ordinal-gap.md
+408ae1dbaade61ac9a3f67230c38487ef0244c566c57488f525d57ce6d6b8fd7  ./probe/apply-issue12-probes.py
 5aeb453cb1801cdb11f0e05743f455f6e3768ad9eb5e8b63f124dc73f2eb0f3f  ./raw/ac-corpus-at-240d86a.json
 a07d942332c4871871ecd019213bdbf7427b32a0344463dfc2031002273d4dff  ./raw/ac-corpus-controls.txt
 9b161e2f335b856cb896a945b2c4f500de96a577ae0dfe3df6ae465f0ec4eded  ./raw/ac-corpus.json
@@ -36,6 +38,15 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/frontend
 4bdf48fdc91527975364f39ac3bde0c886f09d3c34147f54471dccbf3d9d9f0c  ./raw/frontend-tests/wsCheckpointProtocol.out
 37e91ed7c8e4ad165a3e3c2fb1de9a5575136bec7f4ca54754561d610f5238c9  ./raw/inherited-dirty-state.txt
 c6007806562d9ab518abc53d7e49f03ec7177abe5869fa1abb2805f5e5c27550  ./raw/probe-terms.py
+65a88f10a7659301114c264aff19bf4ae1c098dd43cfd657ddbda7b7cdd065a7  ./raw/probe/00-apply.txt
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/probe/01-subject.err
+d119fe09699fa9d82bf5172be51cd67b4f1b1ca30ea4def3333953c458941d6e  ./raw/probe/01-subject.exit
+468f54ae9597744aeb48924a20817c7d338ff00774cad0d40be0ed2b364ff585  ./raw/probe/01-subject.out
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/probe/02-full-suite.err
+ce99a51d53ad0d2bc93b6d6cbc6d674dfa8d638883bb8f6806a6974ff7c5ad87  ./raw/probe/02-full-suite.exit
+c6a9024de9b0835906ce48ab4399e79cf434edf7407adb3aeea7c1be036f27dc  ./raw/probe/02-full-suite.out
+e1d1b9ef221f2cc6c4f0dac4a69c43020953c3ebd48cddc2a806af557365e89d  ./raw/probe/03-control-tally.txt
+35923c4f03f915a13d54d35ec7937d24b40105cd134bd958b0d7ee6f77d3a1f0  ./raw/probe/04-restore.txt
 2781e51ff1fac0ced78022f6540899da37372e4a45e015dc49601100bbff04de  ./raw/server-tests/EXITCODES.txt
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./raw/server-tests/services_RetainedTerminalAuthority.test.ts.err
 8dec438b237eb0397a17023301b6da882efad37f57d3c6c8ce0dbca0cfdbab6b  ./raw/server-tests/services_RetainedTerminalAuthority.test.ts.out
