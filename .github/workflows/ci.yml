@@ -97,8 +97,6 @@ jobs:
 
       # Excluded, each with a reason. Keep this list short; an exclusion list
       # that grows quietly is the defect #82 was about.
-      #   terminalHiddenOutput.test.ts      REL-BGSTAB-012 is red on this HEAD
-      #                                     (dataGapPending undefined).
       #   workspaceOwnershipMigration.test  correctly red: two markdown-editor
       #                                     e2e specs still DELETE workspaces
       #                                     with a raw fetch instead of the
@@ -109,7 +107,6 @@ jobs:
           set -euo pipefail
           mapfile -t files < <(
             find tests/unit tests/benchmarks -name '*.test.ts' \
-              ! -name 'terminalHiddenOutput.test.ts' \
               ! -name 'workspaceOwnershipMigration.test.ts' \
               | sort
           )
