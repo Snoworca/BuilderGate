@@ -282,9 +282,20 @@ function expectedLegacyConsumerDecisions(store: RuntimeConfigStore): Record<stri
   };
 }
 
-function expectedAppliedPolicyIds(legacyPolicyId: string): Record<string, string> {
-  return Object.fromEntries(EXPECTED_POLICY_CONSUMER_IDS.map((consumerId) => [consumerId, legacyPolicyId]));
-}
+
+// #97: EXPECTED_POLICY_CONSUMER_IDS (declared above) is a hand-typed mirror of
+// TERMINAL_RESOURCE_POLICY_CONSUMER_IDS, and nothing in THIS file compares the two.
+// Its only reader used to be expectedAppliedPolicyIds(), which nothing ever called --
+// so while that dead function existed the array LOOKED verified and was not. The
+// function is deleted here. The array stays, because it is now genuinely verified from
+// outside: TerminalResourcePolicyConsumerRegistry.test.ts reads this file as text,
+// extracts the literal, asserts the extraction is non-empty BEFORE comparing, and
+// deep-equals it against the live registry in order.
+//
+// That sibling test is the ONLY thing keeping this array honest. Delete or weaken it and
+// the array silently reverts to an unverified duplicate. The note is placed here rather
+// than above the declaration on purpose: the registry suite anchors that site by line
+// number plus a sha256 over a three-line window, so a comment there would rot the anchor.
 
 test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1', async () => {
   const { loadTerminalResourceConsumerManifest } = await loadInventoryContract();

@@ -443,7 +443,14 @@ const RESERVED_ID_DECLARATION_SITES: ReadonlyArray<{
     path: 'server/src/services/TerminalResourcePolicyInventory.ts',
     consumerId: 'server.config.schema',
     kind: 'comment-line',
-    line: 1551,
+    // Re-anchored 1551 -> 1571 (#97). The site MOVED, it did not change: #90 inserted
+    // classificationPinMismatches reporting above it, shifting 20 lines. Re-read before
+    // re-anchoring as this table demands, and it is still the comment block arguing the
+    // reservation -- a declaration, not a use. The windowSha256 is UNCHANGED, which is
+    // the evidence: the three-line window hashes identically, so only the line number
+    // moved. Had the content changed, this hash would have moved too and the covers
+    // string would have needed re-arguing rather than re-pointing.
+    line: 1571,
     windowSha256: '01673b382b3ceb09876685d334ab969f45574d6f87c8a65fd936c15e698a52fc',
     occurrences: 1,
     covers: 'the mention in the comment block that argues this reservation',
@@ -452,7 +459,11 @@ const RESERVED_ID_DECLARATION_SITES: ReadonlyArray<{
     path: 'server/src/services/TerminalResourcePolicyInventory.ts',
     consumerId: 'server.config.schema',
     kind: 'reservation-consumer-id-property',
-    line: 1561,
+    // Re-anchored 1561 -> 1581 (#97), same +20 shift from #90 as the sibling entry above,
+    // and the same evidence: windowSha256 UNCHANGED, so the site moved without changing.
+    // Re-read -- it is still `consumerId: 'server.config.schema'` inside the reservation
+    // entry, which is the declaration this covers string names, not a use.
+    line: 1581,
     windowSha256: '4f2c456c34d92fba9258fb1ac6cddf3df88791d54cc38a97b30c711a407b59d1',
     occurrences: 1,
     covers: 'the consumerId property of the reservation entry itself',

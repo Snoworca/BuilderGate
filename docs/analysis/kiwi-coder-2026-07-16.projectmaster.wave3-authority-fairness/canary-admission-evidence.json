@@ -3,7 +3,7 @@
   "requirementId": "REL-BGSTAB-010",
   "phaseId": "PH-002",
   "taskId": "T-PH002-06",
-  "capturedAt": "2026-09-18T15:25:14.746Z",
+  "capturedAt": "2026-09-18T17:38:58.061Z",
   "invocation": "node tools/wave3/canary-admission-evidence.test.mjs",
   "historicalRedBaseline": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json",
@@ -58,11 +58,11 @@
   ],
   "inputHashes": {
     "files": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "fd79b0a075c188f1fea348cf0cf6b71699186b1ca064dd00ee23e1724d1ef5b6",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "bdcbd132ebe551d62fd535549149193ff32b16b217c1c967ca16cf0a2060c841",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json": "4ebd24ac98bcce70e75013344c47cacd423bfa38838792abdd7641e2e2832859",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
       "tools/wave3/canary-admission-evidence.test.mjs": "6c757afc4bb371e385fa4ac91d4657c6dba8f6a617839435d9354f18d84c8d48",
-      "server/src/services/TerminalResourcePolicyCanary.test.ts": "6d94b08c702db30657665017fe27db5cf926c2e0a25d1b043039235d4d29a49a",
+      "server/src/services/TerminalResourcePolicyCanary.test.ts": "b47d4dacfc1a517c191e068b1f884b96ba0520aeaebf6fda5a6ecc591939dee7",
       "server/src/ws/WsRouterSendPriority.test.ts": "e00af9630a83ba603569b8d138bc10a1f909461f66cad389aea9a006a1945a4f",
       "server/src/ws/WsRouterRestoreMetadata.test.ts": "2bd6374cca86ed448ebaa9638c910985298e5439506489b683e4ebeb934d8c6b",
       "server/src/ws/wsSendPolicyRestoreMetadata.test.ts": "ac89f32a2b3677cb3b6860e95a36b6e438792df0f09670abeccb2cb629fbd6fe",
@@ -71,7 +71,7 @@
       "frontend/tests/unit/terminalContainerRecoveryContract.test.ts": "b6976377084085fb3b6006d9067f8aaefd4956ac0e209cd511c29e164236e773",
       "frontend/tests/unit/visibleOutputRecovery.test.ts": "256783b003acc9fd21459d7542e58ca66e3dea85996b0a90eb89a03e31569e81"
     },
-    "sourceSetSha256": "d70e6a1c43e3c20c67cca2371c53dd60ee997c313aa2d8c140237ecb9f32386c",
+    "sourceSetSha256": "51fd213c480cc1aacd6261a153b174e40703fad1e29eddc36d95b8dcb10c977b",
     "mismatches": 0
   },
   "productionSourceHashes": {

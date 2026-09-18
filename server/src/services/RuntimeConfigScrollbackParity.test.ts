@@ -164,7 +164,7 @@ test('the server model and the published value agree on a legacy-only configurat
  * one compares the two fixtures against each other rather than against a constant.
  */
 function publishedScrollbackProvenance(raw: Record<string, unknown>) {
-  const terminal = storeFor(raw).getPublicRuntimeConfig('queue').resourceLimits.terminal as {
+  const terminal = storeFor(raw).getPublicRuntimeConfig('queue').resourceLimits.terminal as unknown as {
     scrollbackSource: string;
     scrollbackLegacyAlias?: string;
     scrollbackSourceConflict: boolean;
