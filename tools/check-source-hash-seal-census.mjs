@@ -161,6 +161,12 @@ for (const entry of REGISTRY) {
   }
 }
 
+function sha256OfNormalisedFile(bytes) {
+  const isBinary = bytes.includes(0);
+  const payload = isBinary ? bytes : Buffer.from(bytes.toString('utf8').replace(/\r\n/gu, '\n'), 'utf8');
+  return createHash('sha256').update(payload).digest('hex');
+}
+
 // 2. freshness, live entries only
 let liveChecked = 0;
 for (const entry of REGISTRY) {
@@ -169,7 +175,12 @@ for (const entry of REGISTRY) {
   if (!hashes) continue;
   for (const [path, recorded] of hashes) {
     let actual;
-    try { actual = createHash('sha256').update(await readFile(join(repositoryRoot, path))).digest('hex'); }
+    // #71: hash the line-ending-normalised text, the same way the producers of these seals do.
+    // Hashing working-tree bytes made every seal platform-dependent for the 32 of 35 pinned
+    // paths that carry no .gitattributes eol setting -- two developers on different platforms
+    // invalidated each other's seals with no edit at all. Files that are not text (a NUL byte
+    // decides) are hashed as bytes, because normalising those would corrupt them.
+    try { actual = sha256OfNormalisedFile(await readFile(join(repositoryRoot, path))); }
     catch { problems.push(`${entry.path}\n  pins a file that cannot be read: ${path}`); continue; }
     liveChecked += 1;
     if (actual !== recorded) {

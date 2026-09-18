@@ -1202,9 +1202,24 @@ function toRepositoryPath(repositoryRoot: string, path: string): string {
   return absolute;
 }
 
+// #71: line endings are normalised at the single point where source text enters this module.
+// The seal used to be a hash of WORKING-TREE bytes, and 32 of the 35 hashed paths have no
+// .gitattributes eol setting, so git hands out CRLF on one platform and LF on another and the
+// seal changes with no edit. Two developers on different platforms invalidate each other's
+// seals forever, and a mismatch here throws during the evidence-bundle build step -- which
+// means every test command, local build, release build and CI job goes red for a reason that
+// has nothing to do with the code.
+//
+// Normalising here rather than only before hashing also takes the platform out of the AST
+// evidence: character offsets shift by one per preceding line under CRLF, so the evidence
+// digests had the same dependence.
+export function normaliseSourceLineEndings(source: string): string {
+  return source.replace(/\r\n/gu, '\n');
+}
+
 async function readRequiredSource(repositoryRoot: string, path: string): Promise<string> {
   try {
-    return await readFile(toRepositoryPath(repositoryRoot, path), 'utf8');
+    return normaliseSourceLineEndings(await readFile(toRepositoryPath(repositoryRoot, path), 'utf8'));
   } catch (error) {
     throw new Error(`required terminal resource source missing: ${path}`, { cause: error });
   }
@@ -1359,7 +1374,8 @@ export async function discoverTerminalResourceInventory(options: {
       || path === 'server/src/services/TerminalResourcePolicyInventory.ts'
       || path === 'server/src/services/TerminalResourcePolicyObservations.ts'
     ) continue;
-    const source = sourceContents.get(path) ?? await readFile(toRepositoryPath(options.repositoryRoot, path), 'utf8');
+    const source = sourceContents.get(path)
+      ?? normaliseSourceLineEndings(await readFile(toRepositoryPath(options.repositoryRoot, path), 'utf8'));
     const sourceFile = parseSource(path, source);
     const accesses = discoverAstResourceAccesses(ts, sourceFile);
     const registeredMatches = evidenceMatches.filter((match) => match.entry.consumerPath === path);

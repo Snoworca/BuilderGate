@@ -3,7 +3,7 @@
   "requirementId": "REL-BGSTAB-010",
   "phaseId": "PH-002",
   "taskId": "T-PH002-06",
-  "capturedAt": "2026-09-18T22:34:15.405Z",
+  "capturedAt": "2026-09-18T22:50:31.690Z",
   "invocation": "node tools/wave3/canary-admission-evidence.test.mjs",
   "historicalRedBaseline": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json",
@@ -58,10 +58,10 @@
   ],
   "inputHashes": {
     "files": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "5d5131b1a384bd08068bfa7ff920d3a4f0501d5dbfd717ff8835c4095082e9e4",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "3d6f307b635528e51001f38f8203ba73168df36cb637c02d6ac4e7f85b19b8f8",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json": "4ebd24ac98bcce70e75013344c47cacd423bfa38838792abdd7641e2e2832859",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
-      "tools/wave3/canary-admission-evidence.test.mjs": "6c757afc4bb371e385fa4ac91d4657c6dba8f6a617839435d9354f18d84c8d48",
+      "tools/wave3/canary-admission-evidence.test.mjs": "4ae0c515a9c1c28677b991f9f052654503eafea5bf533177a0dfe81f83608a59",
       "server/src/services/TerminalResourcePolicyCanary.test.ts": "28a69bd876bfbeb07bbff030c43d53775c23b856ed2388fdc9f2a6f845ec5ac3",
       "server/src/ws/WsRouterSendPriority.test.ts": "e00af9630a83ba603569b8d138bc10a1f909461f66cad389aea9a006a1945a4f",
       "server/src/ws/WsRouterRestoreMetadata.test.ts": "2bd6374cca86ed448ebaa9638c910985298e5439506489b683e4ebeb934d8c6b",
@@ -71,7 +71,7 @@
       "frontend/tests/unit/terminalContainerRecoveryContract.test.ts": "b6976377084085fb3b6006d9067f8aaefd4956ac0e209cd511c29e164236e773",
       "frontend/tests/unit/visibleOutputRecovery.test.ts": "256783b003acc9fd21459d7542e58ca66e3dea85996b0a90eb89a03e31569e81"
     },
-    "sourceSetSha256": "9cdcc7788e9460c1adfe28c1b4052efc3dfd4f5bd4003f9bd78652786e3535ea",
+    "sourceSetSha256": "5df83cfbcbec405e1e2f18319859eae0bc90fbedf727bb27f1b3fe1be762bdbb",
     "mismatches": 0
   },
   "productionSourceHashes": {

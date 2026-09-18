@@ -260,7 +260,12 @@ function absolute(repositoryPath) {
 function readBytes(repositoryPath) {
   const path = absolute(repositoryPath);
   assert.equal(existsSync(path), true, `required evidence path is missing: ${repositoryPath}`);
-  return readFileSync(path);
+  const bytes = readFileSync(path);
+  // #71: seal the line-ending-normalised text. Hashing working-tree bytes made these seals
+  // platform-dependent -- git hands out CRLF on one platform and LF on another for any path
+  // with no .gitattributes eol setting, so the seal moved with no edit. A file holding a NUL
+  // byte is not text and is hashed as-is, because normalising it would corrupt it.
+  return bytes.includes(0) ? bytes : Buffer.from(bytes.toString('utf8').replace(/\r\n/gu, '\n'), 'utf8');
 }
 
 function readUtf8(repositoryPath) {
