@@ -101,6 +101,13 @@ jobs:
       #                                     e2e specs still DELETE workspaces
       #                                     with a raw fetch instead of the
       #                                     owner-checked helper.
+      #   terminalViewKeyboardBehavior.test renders a React component, so it needs
+      #                                     a JSX transform and module mocking that
+      #                                     --experimental-strip-types does not
+      #                                     provide. It runs in its own step below,
+      #                                     which is NOT optional -- it is the only
+      #                                     executing coverage of FR-BGSTAB-021's
+      #                                     TerminalView half (#87).
       - name: Unit tests
         working-directory: frontend
         run: |
@@ -108,6 +115,7 @@ jobs:
           mapfile -t files < <(
             find tests/unit tests/benchmarks -name '*.test.ts' \
               ! -name 'workspaceOwnershipMigration.test.ts' \
+              ! -name 'terminalViewKeyboardBehavior.test.ts' \
               | sort
           )
           echo "running ${#files[@]} test files"
@@ -119,6 +127,14 @@ jobs:
             exit 1
           fi
           node --experimental-strip-types --test "${files[@]}"
+
+      # Component-render tests. Separate because they need tsx's JSX transform and
+      # node's module mocking; see the exclusion note above. A green unit job with
+      # this step missing would report FR-BGSTAB-021 as covered when its
+      # TerminalView half is not executed at all, which is the defect #87 names.
+      - name: Unit tests (component render)
+        working-directory: frontend
+        run: npm run test:unit:terminal-view-behavior
 
   server:
     name: Server test runner

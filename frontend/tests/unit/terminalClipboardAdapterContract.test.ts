@@ -169,8 +169,13 @@ test('TerminalView binds saved right-click selection to one xterm generation and
 //   - a paste path that never reaches either imperative handle at all, e.g. a
 //     module-scope export or a context value;
 //   - anything about runtime behaviour, since this parses both components and
-//     executes neither. Selection-less Ctrl+C SIGINT ownership is invisible here
-//     and to every other unit row on this requirement. Issue #87 owns that gap.
+//     executes neither. Selection-less Ctrl+C SIGINT ownership is invisible here.
+//     That gap (issue #87) is now covered by tests/unit/terminalViewKeyboardBehavior
+//     .test.ts, which renders TerminalView and invokes its real key handler. That
+//     file owns AC-2 and AC-3 as BEHAVIOUR; this file continues to own the shape of
+//     the handle surface as TEXT, and the two do not substitute for each other: a
+//     paste member added to the literal is caught here and not there, and a branch
+//     whose condition inverts is caught there and not here.
 const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
   applyScreenRepair: 'applies a server screen repair; takes a message object, not a payload string',
   awaitOutputIdle: 'output-drain probe; no input',
