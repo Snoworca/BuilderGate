@@ -132,7 +132,9 @@ const HTTP_PORT = Number(PORT) - 1; // HTTP redirect port
 const DAEMON_START_ATTEMPT_ID = process.env.BUILDERGATE_DAEMON_START_ID ?? null;
 const DAEMON_STATE_GENERATION = Number.parseInt(process.env.BUILDERGATE_DAEMON_STATE_GENERATION ?? '', 10);
 const TOTP_SECRET_FILE_PATH = process.env.BUILDERGATE_TOTP_SECRET_PATH;
-const SUPPRESS_TOTP_QR = process.env.BUILDERGATE_SUPPRESS_TOTP_QR === '1';
+// #80: opt-IN. The old BUILDERGATE_SUPPRESS_TOTP_QR made the safe state the one you had to
+// remember to ask for, so every run that forgot it wrote a scannable second factor to stdout.
+const PRINT_TOTP_QR = process.env.BUILDERGATE_PRINT_TOTP_QR === '1';
 const SHUTDOWN_TOKEN = process.env.BUILDERGATE_SHUTDOWN_TOKEN;
 const WEB_ROOT_ENV_KEY = 'BUILDERGATE_WEB_ROOT';
 let fatalErrorLoggingInstalled = false;
@@ -219,7 +221,7 @@ function applyTwoFactorRuntime(
     cryptoService,
     changedKeys,
     secretFilePath: TOTP_SECRET_FILE_PATH,
-    suppressConsoleQr: SUPPRESS_TOTP_QR,
+    printConsoleQr: PRINT_TOTP_QR,
     initialStartup: options.initialStartup ?? false,
   });
   totpService = result.service;

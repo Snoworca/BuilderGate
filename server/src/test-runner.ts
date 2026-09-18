@@ -14219,8 +14219,16 @@ function testWorkspaceCapacityMetadata(): void {
     const state = workspaceService.getState();
     const before = JSON.stringify(state);
     const limits = readWorkspaceCapacity(workspaceService);
-    const expected = configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 };
-    assert.deepEqual(limits, expected, 'only the two configured capacity fields may be exposed');
+    // #66: maxTotalSessions joined the published capacity. The browser was hardcoding 32 for
+    // it while the server enforced the configured value, so two of the three limits travelled
+    // and the third did not. This guard fired on that change, which is what it is for -- the
+    // contract is now three fields, and it is still a deepEqual, so a FOURTH field added
+    // without argument still reddens.
+    const expected = {
+      ...(configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 }),
+      maxTotalSessions: 32,
+    };
+    assert.deepEqual(limits, expected, 'only the three configured capacity fields may be exposed');
     Reflect.set(limits, 'maxWorkspaces', 49);
     Reflect.set(limits, 'maxTabsPerWorkspace', 15);
     assert.deepEqual(readWorkspaceCapacity(workspaceService), expected);
@@ -14233,7 +14241,8 @@ function testWorkspaceCapacityMetadata(): void {
 }
 
 async function testWorkspaceCapacityGetRoute(): Promise<void> {
-  const expected = { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5 };
+  // #66: three-field capacity contract; see the note at the CAP-01 site.
+  const expected = { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5, maxTotalSessions: 32 };
   const { workspaceService, calls } = createWorkspaceCapacityHarness(expected);
   const workspace = await workspaceService.createWorkspace('Capacity route fixture');
   await workspaceService.addTab(workspace.id, 'bash', 'Existing tab');
@@ -14284,7 +14293,10 @@ async function testWorkspaceCapacityAuthRegistration(): Promise<void> {
 async function testWorkspaceCapacityEnforcement(configured?: CapacityLimits): Promise<void> {
   const { workspaceService, calls } = createWorkspaceCapacityHarness(configured);
   const limits = readWorkspaceCapacity(workspaceService);
-  assert.deepEqual(limits, configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 });
+  assert.deepEqual(limits, {
+    ...(configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 }),
+    maxTotalSessions: 32,
+  });
   const expected = { ...limits };
   Reflect.set(limits, 'maxWorkspaces', 49);
   Reflect.set(limits, 'maxTabsPerWorkspace', 15);
@@ -21380,7 +21392,7 @@ async function testTOTPInitializeGeneratesSecretWithoutGlobalWebCrypto(): Promis
       { enabled: true, issuer: 'PkgRuntime', accountName: 'admin' },
       crypto,
       secretFile,
-      { suppressConsoleQr: true },
+      { printConsoleQr: true },
     );
 
     service.initialize();
@@ -21461,7 +21473,10 @@ async function testTOTPInitializeSuppressesConsoleQr(): Promise<void> {
         { enabled: true, issuer: 'Suppressed', accountName: 'admin' },
         crypto,
         secretFile,
-        { suppressConsoleQr: true },
+        // #80: this test is named for SUPPRESSION, and the flag was inverted -- what used to be
+        // suppressConsoleQr: true is printConsoleQr: false. Left as `true` it would have asserted
+        // suppression while asking to print, and passed only because nothing printed the secret.
+        { printConsoleQr: false },
       );
       service.initialize();
       return service.generateQRDataUrl();
@@ -21490,6 +21505,10 @@ async function testTOTPInitializeQrRenderingFailureThrows(): Promise<void> {
       crypto,
       secretFile,
       {
+        // #80: printing is opt-in now, and this test is ABOUT the renderer failing, so it has
+        // to ask for the renderer to run. Without this the writer is never called and the
+        // test passes for the wrong reason -- a startup failure it no longer provokes.
+        printConsoleQr: true,
         qrCodeWriter: () => {
           throw new Error('QR renderer unavailable');
         },
@@ -21508,6 +21527,10 @@ async function testTOTPInitializeQrRenderingFailureThrows(): Promise<void> {
       crypto,
       secretFile,
       {
+        // #80: same reason as the first construction -- printing is opt-in, and this asserts
+        // that a FAILING renderer fails startup. Without asking for the renderer there is no
+        // renderer to fail.
+        printConsoleQr: true,
         qrCodeWriter: () => {
           throw new Error('QR renderer unavailable on existing secret');
         },
@@ -21607,7 +21630,7 @@ async function testReconcileTotpRuntimeUsesDaemonEnvSecretPathAndSuppressesQr():
 
   try {
     process.env.BUILDERGATE_TOTP_SECRET_PATH = secretFile;
-    process.env.BUILDERGATE_SUPPRESS_TOTP_QR = '1';
+    delete process.env.BUILDERGATE_PRINT_TOTP_QR; // #80: printing is now opt-in; absence is the safe state
 
     const captured = await captureConsoleLog(() => reconcileTotpRuntime({
       nextConfig: {
@@ -21682,7 +21705,7 @@ async function testDaemonTotpPreflightPrintsQrAndManualKey(): Promise<void> {
       { enabled: true, issuer: 'PreflightIssuer', accountName: 'preflight-admin' },
       crypto,
       secretFile,
-      { suppressConsoleQr: true },
+      { printConsoleQr: true },
     );
     seedService.initialize();
     seedService.destroy();
@@ -21706,8 +21729,13 @@ async function testDaemonTotpPreflightPrintsQrAndManualKey(): Promise<void> {
     assert.equal(captured.result.enabled, true);
     assert.equal(captured.result.secretFilePath, path.resolve(secretFile));
     assert.ok(captured.logs.some((line) => /Google Authenticator QR Code/u.test(line)));
-    assert.ok(captured.logs.some((line) => /Manual entry key: [A-Z2-7=]+/u.test(line)));
-    assert.ok(captured.logs.some((line) => /Issuer: PreflightIssuer \| Account: preflight-admin/u.test(line)));
+    // #80: the manual key assertion is INVERTED, not deleted. The preflight prints the QR
+    // because that is the enrolment moment, but the secret itself must not reach any log --
+    // a log reader who has it can mint valid codes forever. Asserting its absence here keeps
+    // the guard pointed at the thing that changed instead of quietly dropping it.
+    assert.ok(!captured.logs.some((line) => /Manual entry key/u.test(line)),
+      'the TOTP secret must never be printed, not even during enrolment');
+    assert.ok(captured.logs.some((line) => /Account: preflight-admin/u.test(line)));
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -21723,7 +21751,7 @@ async function testDaemonTotpPreflightSuppressesQrForSentinelRestart(): Promise<
       { enabled: true, issuer: 'SentinelIssuer', accountName: 'sentinel-admin' },
       crypto,
       secretFile,
-      { suppressConsoleQr: true },
+      { printConsoleQr: true },
     );
     seedService.initialize();
     seedService.destroy();
@@ -21741,7 +21769,9 @@ async function testDaemonTotpPreflightSuppressesQrForSentinelRestart(): Promise<
       {
         cryptoService: crypto,
         secretFilePath: secretFile,
-        suppressConsoleQr: true,
+        // #80: flag inverted. This test asserts SUPPRESSION for sentinel restarts, so it must
+        // pass false; `true` now means "print", which is the opposite of what it checks.
+        printConsoleQr: false,
       },
     ));
 

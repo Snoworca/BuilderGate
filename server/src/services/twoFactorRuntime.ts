@@ -13,7 +13,7 @@ interface ReconcileTotpRuntimeArgs {
   cryptoService: CryptoService;
   changedKeys?: EditableSettingsKey[];
   secretFilePath?: string;
-  suppressConsoleQr?: boolean;
+  printConsoleQr?: boolean;
   initialStartup?: boolean;
 }
 
@@ -28,7 +28,7 @@ export function reconcileTotpRuntime({
   cryptoService,
   changedKeys = [],
   secretFilePath,
-  suppressConsoleQr,
+  printConsoleQr,
   initialStartup = false,
 }: ReconcileTotpRuntimeArgs): ReconcileTotpRuntimeResult {
   if (!nextConfig.twoFactor?.enabled) {
@@ -42,7 +42,7 @@ export function reconcileTotpRuntime({
     cryptoService,
     resolvedSecretFilePath,
     {
-      suppressConsoleQr: suppressConsoleQr ?? process.env[SUPPRESS_TOTP_QR_ENV_KEY] === '1',
+      printConsoleQr: printConsoleQr ?? process.env[SUPPRESS_TOTP_QR_ENV_KEY] === '1',
     },
   );
   const warnings: string[] = [];
