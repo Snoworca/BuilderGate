@@ -32,6 +32,32 @@ export async function waitForTerminal(page: Page) {
   await page.waitForSelector('.xterm-screen:visible', { timeout: 15000 });
 }
 
+/**
+ * Issue #81: `waitForTerminal` answers "is SOME terminal visible", which is the right question
+ * only when the page is expected to hold exactly one. A caller that has just created a terminal
+ * is asking a different question, and gets the old terminal's readiness as an answer -- the
+ * wait returns immediately and the spec proceeds against a terminal that is not the one it
+ * made. That is the shape of the "precondition" failures #81 recorded, and it does not depend
+ * on the platform.
+ *
+ * These two express the question the creating caller actually has. They are additive: the 72
+ * existing `waitForTerminal` calls keep their meaning, which is correct wherever the page holds
+ * one terminal.
+ */
+export async function waitForTerminalCount(page: Page, expected: number, timeout = 30000): Promise<void> {
+  await page.waitForFunction(
+    (count) => document.querySelectorAll('.xterm-screen').length >= count,
+    expected,
+    { timeout },
+  );
+}
+
+/** Waits for the terminal that appeared after `before`, and for that one to be visible. */
+export async function waitForFreshTerminal(page: Page, before: number, timeout = 30000): Promise<void> {
+  await waitForTerminalCount(page, before + 1, timeout);
+  await page.locator('.xterm-screen').nth(before).waitFor({ state: 'visible', timeout });
+}
+
 /** Open the command preset manager through the header tools menu */
 export async function openCommandPresetDialog(page: Page): Promise<void> {
   await page.locator('button[title="Tools"]').click();

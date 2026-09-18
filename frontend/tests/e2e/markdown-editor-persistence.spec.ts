@@ -176,7 +176,15 @@ async function removeOwnWorkspaces(page: Page): Promise<void> {
 
 
 async function selectTab(page: Page, name: string): Promise<void> {
-  await page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first().click();
+  // #81: the tabs this spec selects were created through the API, and the tab bar learns about
+  // them asynchronously. Clicking straight away made the click's own 10s auto-wait the whole
+  // budget, and a run that lost that race failed with `locator.click: Timeout` naming only the
+  // selector -- the "first attempt fails, the retry passes" shape #81 records. Waiting for the
+  // tab to be present first binds this to the transition and, when the tab genuinely never
+  // arrives, says which tab and that it was never rendered rather than that a click timed out.
+  const tab = page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first();
+  await tab.waitFor({ state: 'visible', timeout: 30000 });
+  await tab.click();
 }
 
 async function selectWorkspace(page: Page, name: string): Promise<void> {
