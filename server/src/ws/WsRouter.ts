@@ -158,12 +158,15 @@ interface RuntimeSendPolicyConfig {
   limits: ServerWsResourceLimitsConfig;
 }
 
+import { createTerminalInputLedger, type TerminalInputLedger } from './terminalInputLedger.js';
+
 type InputValidationResult =
   | {
       ok: true;
       sessionId: string;
       data: string;
       metadata?: InputDebugMetadata;
+      inputOperationId?: string;
       inputSeqStart?: number;
       inputSeqEnd?: number;
       retainedIdentity?: RetainedTerminalWireMutationIdentity;
@@ -3028,6 +3031,13 @@ export class WsRouter {
     });
   }
 
+  /**
+   * REL-BGSTAB-028: remembers which input operations have already been written
+   * to a PTY, keyed by connection epoch and session, so a retried send does not
+   * execute the command twice.
+   */
+  private readonly inputLedger: TerminalInputLedger = createTerminalInputLedger();
+
   private handleInput(ws: WebSocket, rawMessage: unknown): void {
     if (this.handleTerminalQueryReplyInput(ws, rawMessage)) {
       return;
@@ -3097,6 +3107,27 @@ export class WsRouter {
           queuedInputCount: pending.queuedInputs.length,
           ...this.buildQueuedInputReplayDetails(queuedInput),
         },
+      });
+      return;
+    }
+
+    // REL-BGSTAB-028: refuse a second write of an operation already applied.
+    // Duplicates are reported rather than silently dropped, and input without an
+    // operation id is admitted and counted as undeduplicated rather than being
+    // treated as if exactly-once held for it.
+    const admission = this.inputLedger.admit({
+      connectionEpoch: meta?.connectionId ?? 'unknown-connection',
+      sessionId: input.sessionId,
+      ...(input.inputOperationId === undefined ? {} : { operationId: input.inputOperationId }),
+    });
+    if (!admission.write) {
+      this.rejectInput(ws, {
+        sessionId: input.sessionId,
+        data: input.data,
+        metadata: input.metadata,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason: 'duplicate-operation',
       });
       return;
     }
@@ -3558,6 +3589,13 @@ export class WsRouter {
     this.clearTransportQueueState(ws);
     this.terminalDeliveryVisibilityBySocket.delete(ws);
     this.terminalDeliveryCheckpointLedgers.delete(ws);
+    // REL-BGSTAB-028: free this connection's input ledger exactly once. Held
+    // past disconnect it would grow without bound, and a later connection
+    // reusing the id would inherit a dead connection's operation history.
+    const disconnectingMeta = this.clients.get(ws);
+    if (disconnectingMeta?.connectionId) {
+      this.inputLedger.releaseEpoch(disconnectingMeta.connectionId);
+    }
     this.settleTerminalResourcePolicyTargetOnTransportClose(ws);
     this.clients.delete(ws);
   }
@@ -4826,6 +4864,11 @@ export class WsRouter {
     const inputSeqEnd = typeof message.inputSeqEnd === 'number' && Number.isSafeInteger(message.inputSeqEnd)
       ? message.inputSeqEnd
       : undefined;
+    const inputOperationId = typeof message.inputOperationId === 'string'
+      && message.inputOperationId.length > 0
+      && message.inputOperationId.length <= 128
+      ? message.inputOperationId
+      : undefined;
     const retainedIdentity = this.parseRetainedTerminalWireMutationIdentity(message.retainedIdentity);
 
     if (Object.prototype.hasOwnProperty.call(message, 'retainedIdentity') && !retainedIdentity) {
@@ -4919,6 +4962,7 @@ export class WsRouter {
       sessionId,
       data,
       metadata,
+      ...(inputOperationId === undefined ? {} : { inputOperationId }),
       inputSeqStart,
       inputSeqEnd,
       retainedIdentity,
