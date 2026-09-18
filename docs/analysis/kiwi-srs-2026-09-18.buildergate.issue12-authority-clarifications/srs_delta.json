@@ -1,0 +1,103 @@
+{
+ "classification": "update-adjacent (annotation only)",
+ "classification_note": "The skill's four-way scheme has no 'clarification' label. This is closest to `update` in substance, but the orchestrator forbade `update`'s prescribed mechanics (add_requirement + supersedes + discard the old). Executed as annotation: Implementation Notes + Change Notes, zero AC edits, zero checkbox changes, zero new requirements.",
+ "mode": "live",
+ "mutation_channel": "speckiwi CLI with --root pinned (issue #100). MCP mutation tools deliberately NOT used - see preflight.json.",
+ "mcp_calls": [
+  {
+   "tool": "append-note",
+   "args": {
+    "id": "MIG-BGSTAB-002",
+    "section": "implementation_notes",
+    "tag": "OQ-12-1"
+   },
+   "ok": true
+  },
+  {
+   "tool": "append-note",
+   "args": {
+    "id": "MIG-BGSTAB-002",
+    "section": "implementation_notes",
+    "tag": "OQ-12-2"
+   },
+   "ok": true
+  },
+  {
+   "tool": "append-note",
+   "args": {
+    "id": "REL-BGSTAB-011",
+    "section": "implementation_notes",
+    "tag": "OQ-12-3"
+   },
+   "ok": true
+  },
+  {
+   "tool": "add-change-note",
+   "args": {
+    "id": "MIG-BGSTAB-002"
+   },
+   "ok": true
+  },
+  {
+   "tool": "add-change-note",
+   "args": {
+    "id": "REL-BGSTAB-011"
+   },
+   "ok": true
+  },
+  {
+   "tool": "append-note",
+   "args": {
+    "id": "MIG-BGSTAB-002",
+    "section": "implementation_notes",
+    "tag": "OQ-12 correction"
+   },
+   "ok": true
+  },
+  {
+   "tool": "append-note",
+   "args": {
+    "id": "REL-BGSTAB-011",
+    "section": "implementation_notes",
+    "tag": "OQ-12-3 correction"
+   },
+   "ok": true
+  },
+  {
+   "tool": "sync-index",
+   "args": {},
+   "ok": true,
+   "indexWritten": false
+  }
+ ],
+ "validate_spec_result": {
+  "ok": true,
+  "errors": 0,
+  "warnings": 0,
+  "exit": 0
+ },
+ "added_ids": [],
+ "demoted_ids": [],
+ "discarded_ids": [],
+ "requirements_total_before": 138,
+ "requirements_total_after": 138,
+ "ac_checkbox_changes": 0,
+ "ac_text_changes": 0,
+ "stable_requirements_touched": [],
+ "evaluation": {
+  "iterations": 1,
+  "CRITICAL": 0,
+  "HIGH": 0,
+  "MEDIUM": 5,
+  "LOW": 4,
+  "gate": "PASS (Normal: CRITICAL=0 AND HIGH=0)",
+  "note": "All 5 MEDIUM were record-accuracy defects in text destined for the SRS and were FIXED rather than reported-and-shipped. All 4 LOW recorded, none auto-dismissed."
+ },
+ "evaluator_disagreement": {
+  "subject": "line number of the dedup key literal",
+  "A": "8536 (correct)",
+  "B": "8534 - reported as 'confirmed exactly' (wrong)",
+  "resolved_by": "main agent, by printing lines 8533-8538 and grepping the literal",
+  "lesson": "a delegated verdict is not a premise"
+ }
+}

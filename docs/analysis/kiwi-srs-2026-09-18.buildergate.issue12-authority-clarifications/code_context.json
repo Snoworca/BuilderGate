@@ -1,0 +1,113 @@
+{
+  "relevant_files": [
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "8500-8551",
+      "signature": "private detectAndAppendRetainedTerminalFacts(...) — key = `${retained.streamEpoch}:${retained.sourceSeq}:${ordinal}`; retained.committedFactKeys.has/add(key) (assignment site is at line 8534, key computed 8534, has() 8537, add() 8541)",
+      "relevance": "CLAIM A primary evidence: confirms the dedup key shape and the add-site."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "480-485, 630-640",
+      "signature": "committedFactKeys: Set<string> (two type declarations: isolation snapshot type and RetainedTerminalSessionState)",
+      "relevance": "CLAIM A: field type declaration, confirms Set<string>."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "3215",
+      "signature": "retained.committedFactKeys.clear(); (inside a stream-epoch rollover branch of appendRetainedTerminalRecords/similar ordinal-rollover handling)",
+      "relevance": "CLAIM A: a CLEAR site, triggered on ordinal rollover (raises stream epoch), not on the shipping rollback path itself."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "8184",
+      "signature": "retained.committedFactKeys.clear(); (inside disableRetainedTerminalTracking-style full session iteration)",
+      "relevance": "CLAIM A: a CLEAR site, triggered when retained tracking mode is set to 'disabled' for every session."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "8244-8261",
+      "signature": "private removeRetainedTerminalFacts(retained, removeCount) — for each spliced-off fact with disposition==='committed', key = `${fact.streamEpoch}:${fact.sourceSeq}:${fact.ordinal}`; retained.committedFactKeys.delete(key)",
+      "relevance": "CLAIM A: the DELETE site, used for ledger eviction (scrollback trimming), keyed the same three-component way."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "7388",
+      "signature": "committedFactKeys: new Set(), (initial construction of a fresh RetainedTerminalSessionState)",
+      "relevance": "CLAIM A: initialization site, not a mutation of an existing set."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "5505-5540, 5940-5970",
+      "signature": "committedFactKeys: new Set(retained.committedFactKeys) (isolation snapshot capture, ~5534) and retained.committedFactKeys = new Set(original.committedFactKeys) (isolation restore, ~5964)",
+      "relevance": "CLAIM A/B: these are DEBUG-ISOLATION snapshot/restore sites (TerminalAuthorityDebugIsolationState), a test/debug harness mechanism distinct from the shipping rollback path. They copy the whole set wholesale rather than adding/deleting individual keys."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "5371-5378",
+      "signature": "async beginTerminalAuthorityRollback(sessionId, request): Promise<{ok, reason?}> { const controller = ...; return controller ? controller.beginRollback(request) : {ok:false, reason:'authority-runtime-unavailable'}; }",
+      "relevance": "CLAIM B primary evidence: the shipping rollback entry point on SessionManager is a thin delegation to TerminalAuthorityController.beginRollback and does not reference committedFactKeys at all."
+    },
+    {
+      "path": "server/src/services/TerminalAuthorityProductionAdapter.ts",
+      "line_range": "920-926",
+      "signature": "function nextOrdinal(value: string): string { return (BigInt(value) + 1n).toString(); }",
+      "relevance": "CLAIM B: ordinal increment helper used to compute the next stream epoch for rollback."
+    },
+    {
+      "path": "server/src/services/TerminalAuthorityProductionAdapter.ts",
+      "line_range": "4382-4468",
+      "signature": "const rollbackSession = async (input, compatibilityRecoveryPrepared = false) => {...}; const nextStreamEpoch = nextOrdinal(state.streamEpoch); ... manager.beginTerminalAuthorityRollback(sessionId, { transitionEpoch: nextStreamEpoch, nextStreamEpoch, ... })",
+      "relevance": "CLAIM B primary evidence: rollbackSession always computes nextStreamEpoch via nextOrdinal(state.streamEpoch) (strictly +1, i.e. higher) and passes it through; no reference to committedFactKeys anywhere in this function or file."
+    },
+    {
+      "path": "server/src/services/TerminalAuthorityController.ts",
+      "line_range": "1451-1465",
+      "signature": "async beginRollback(request) { ... if (!isCanonicalOrdinal64(request.transitionEpoch) || ... || request.transitionEpoch !== request.nextStreamEpoch || !ordinalGreaterThan(request.nextStreamEpoch, state.streamEpoch) || ...) return {ok:false, reason:'rollback-identity-invalid'}; ... }",
+      "relevance": "CLAIM B primary evidence: hard guard requires nextStreamEpoch to be strictly greater than the current streamEpoch, or the rollback call is rejected outright. No reference to committedFactKeys in this file (grep confirmed zero hits)."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "5391-5406",
+      "signature": "writeTerminalAuthorityServerQueryReply(sessionId, {responderLeaseId, reply}): checks runtime.admission.mode === 'server' && runtime.responder.active === 'server-headless' && runtime.responder.activeLeaseId === input.responderLeaseId && runtime.responder.serverEnabled && !runtime.responder.revokedLeaseIds.has(input.responderLeaseId)",
+      "relevance": "CLAIM C primary evidence: the server-side guard checks FIVE conjuncts, including BOTH `responder.active === 'server-headless'` AND `runtime.responder.serverEnabled` (not active alone)."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "5408-5429",
+      "signature": "writeTerminalAuthorityCompatibilityQueryReply(sessionId, {responderLeaseId, clientId, viewGeneration, reply}): checks admission.mode==='legacy' && responder.active==='legacy-browser' && responder.activeLeaseId===input.responderLeaseId && responder.legacyEnabled && !revokedLeaseIds.has(...) && driver.active==='legacy-browser' && driverLease.state==='active' && browserDriver?.clientId===input.clientId && browserDriver.viewGeneration===input.viewGeneration",
+      "relevance": "CLAIM C primary evidence: the legacy-path guard checks EIGHT conjuncts, including BOTH `responder.active === 'legacy-browser'` AND `runtime.responder.legacyEnabled`."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "line_range": "2561-2661,2725-2745,2822-2843,3020-3050,3183-3213,3222-3244,5265-5300,6090-6120,6624-6656,8595-8611",
+      "signature": "twelve sites assigning runtime.responder.active alongside runtime.responder.serverEnabled/legacyEnabled",
+      "relevance": "CLAIM C coverage: at every site inspected, `responder.active` (or its capture into a local `active` variable used to decide which boolean to clear) is assigned BEFORE the serverEnabled/legacyEnabled writes in the same statement block. No counter-example found."
+    },
+    {
+      "path": "server/src/services/SessionManagerTerminalAuthorityResponderExclusivity.test.ts",
+      "line_range": "1-27, 195-221",
+      "signature": "test('...the server and legacy responders are never both enabled...'); const both = samples.filter(sample => sample.serverEnabled && sample.legacyEnabled); assert.deepEqual(both, [], ...)",
+      "relevance": "COVERAGE QUESTION primary evidence: this file's own docstring states 'Before this file, nothing in server/src -- tests included -- read serverEnabled and legacyEnabled together' and 'the invariant was held by an assignment convention across twelve sites... Measured at HEAD 283ad7b... responder.active... is single-valued and is assigned before either boolean at all twelve sites.' Line 216 is the one place in the whole tree that names both identifiers on a single line (besides the comment on line 16)."
+    }
+  ],
+  "related_modules": [
+    "server/src/services/SessionManagerTerminalAuthorityRuntimePorts.test.ts",
+    "server/src/services/TerminalAuthorityController.test.ts"
+  ],
+  "missing_evidence": [
+    "Did not independently re-verify HEAD commit 283ad7b cited by the exclusivity test's docstring against the current checkout HEAD; the twelve-site count and 'assigned before' claim in that docstring were cross-checked directly by reading all twelve sites in SessionManager.ts myself and they held, but I did not diff against 283ad7b specifically.",
+    "Did not trace every caller of rollbackSession / beginTerminalAuthorityRollback end-to-end through the WebSocket/route layer; only the two functions named in the claim and their direct callee (TerminalAuthorityController.beginRollback) were inspected for committedFactKeys references."
+  ],
+  "external_paths_detected": [],
+  "claim_verdicts": {
+    "A": "confirmed",
+    "B": "confirmed",
+    "C": "refuted"
+  },
+  "claim_notes": {
+    "A": "Key shape confirmed exactly: `${retained.streamEpoch}:${retained.sourceSeq}:${ordinal}` at SessionManager.ts:8534 (has() at 8537, add() at 8541), stored as `committedFactKeys: Set<string>` on RetainedTerminalSessionState (type decl ~635, isolation-snapshot type decl ~484). ADD: line 8541 (detectAndAppendRetainedTerminalFacts). DELETE: line 8255 inside removeRetainedTerminalFacts (per-key delete on ledger eviction, keyed the same way from evicted fact records). CLEAR: three call sites — line 3215 (ordinal-rollover branch that also bumps streamEpoch), line 8184 (disable-all-retained-tracking sweep over every session). Additionally there are two whole-set copy sites that are NOT plain add/delete/clear: line 5534 clones the set into a debug-isolation snapshot (`new Set(retained.committedFactKeys)`), and line 5964 restores the whole set wholesale from that snapshot (`retained.committedFactKeys = new Set(original.committedFactKeys)`) as part of TerminalAuthorityDebugIsolationState cleanup — this is a test/debug harness path, not organic runtime traffic. Everything checks out as claimed.",
+    "B": "Confirmed on both parts. (1) Epoch direction: rollbackSession (TerminalAuthorityProductionAdapter.ts:4382) computes `nextStreamEpoch = nextOrdinal(state.streamEpoch)` (nextOrdinal is a strict BigInt+1, TerminalAuthorityProductionAdapter.ts:923) and TerminalAuthorityController.beginRollback (TerminalAuthorityController.ts:1451) additionally hard-rejects with `rollback-identity-invalid` unless `ordinalGreaterThan(request.nextStreamEpoch, state.streamEpoch)` holds — so the shipping path cannot roll back to an equal or lower epoch; it is enforced twice, not just asserted by convention. (2) committedFactKeys contact: neither rollbackSession nor beginRollback nor SessionManager.beginTerminalAuthorityRollback (SessionManager.ts:5371, a pure delegation to controller.beginRollback) references committedFactKeys anywhere — grep across TerminalAuthorityProductionAdapter.ts and TerminalAuthorityController.ts returns zero hits for that identifier. The set is untouched by the shipping rollback path itself; it only gets cleared later, indirectly, when the post-rollback stream advance eventually crosses an ordinal-rollover boundary (SessionManager.ts:3215) — a separate mechanism, not something rollback triggers directly.",
+    "C": "Refuted as an exclusive claim, though the core assertion about `responder.active` being the primary single-valued arbiter for the *hazard* property is correct. The two query-reply guards do NOT check `responder.active` alone: writeTerminalAuthorityServerQueryReply (SessionManager.ts:5391) requires `runtime.admission.mode === 'server' && runtime.responder.active === 'server-headless' && runtime.responder.activeLeaseId === input.responderLeaseId && runtime.responder.serverEnabled && !revokedLeaseIds.has(...)` — five conjuncts including the boolean `serverEnabled`. writeTerminalAuthorityCompatibilityQueryReply (SessionManager.ts:5408) checks eight conjuncts including `responder.legacyEnabled` plus driver-lease/view-generation state. So arbitration is by a compound guard, not a single field; `serverEnabled`/`legacyEnabled` are load-bearing conditions in the guards themselves, not vestigial. What IS true and matches the claim's spirit: at all twelve sites in SessionManager.ts that assign these two booleons, `responder.active` is assigned first in the same block, so the *simultaneous-both-true* hazard the exclusivity test cares about is structurally excluded by the active-field convention even if one of the two booleans were (hypothetically) left stale — but the query-reply guards as written still read the booleans, so a bug that flips only one boolean while leaving `active` correct WOULD currently be caught by these two functions returning false, contradicting the premise that the booleans are non-arbitrating vestiges."
+  }
+}

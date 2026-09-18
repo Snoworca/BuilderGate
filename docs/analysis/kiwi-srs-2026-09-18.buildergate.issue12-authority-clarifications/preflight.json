@@ -1,0 +1,13 @@
+{
+  "mcp": "available-but-REFUSED",
+  "cli": true,
+  "halted": false,
+  "mode": "cli-only",
+  "departure_from_skill_ssot": {
+    "skill_rule": "kiwi-srs header: normal SRS mutations require working `speckiwi mcp`; CLI is diagnostic/remediation only.",
+    "why_refused": "GitHub issue #100. The SpecKiwi MCP server resolves its root from its own process cwd, which in this session is the MAIN checkout on a different branch. Its mutation tools reject workspaceRoot (SRS-E075) and report no root at all, so the caller cannot check. The two trees carry DIFFERENT ID SERIES - this worktree reaches REL-BGSTAB-027, main stops at 021 - so main's allocator would hand back an ID already taken here. That is SRS-E002, the duplicate-Requirement-ID condition this repo maintains a whole repair workflow for.",
+    "control_run_this_session": "speckiwi --root <worktree> show REL-BGSTAB-027 -> found; same command from the main checkout -> NOT_FOUND. The two trees genuinely differ, and --root genuinely binds.",
+    "authority": "Orchestrator ruling, restated across four messages in this session.",
+    "consequence": "All mutations in this run go through the CLI with --root pinned at the worktree, dry-run first. This is a deliberate, recorded departure from the skill's SSOT, not an oversight."
+  }
+}
