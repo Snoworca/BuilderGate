@@ -10,41 +10,49 @@ import {
 /**
  * REL-BGSTAB-007 AC-3 — "retained range restored across refresh without loss".
  *
- * THIS FILE RECORDS A DEFECT. IT IS NOT A CONTRACT.
+ * THIS FILE IS A CONTRACT. It was a `test.fail()` characterization until
+ * 2026-09-20; the history below is kept rather than rewritten, because the
+ * measurement it records is real and only its INTERPRETATION was wrong.
  *
- * Measured 2026-09-19 against a live https://localhost:2222, 8 of 8 reloads:
- * after producing 700 lines the browser's normal buffer holds ~709 rows, and
- * after a reload it holds exactly 28 — the viewport. The scrollback is gone
- * every time, INCLUDING in the four runs that received an authoritative screen
- * snapshot, applied it and acked it. The full measurement is in
- * docs/analysis/2026-09-19.item6-buffer-bimodality.md.
+ * ── What was recorded here, and what it actually was ────────────────────────
  *
- * WHY test.fail() RATHER THAN A PLAIN RED. A red test in the suite is an orphan
- * red: it blocks, and the next person mid-feature reads it as obsolete and
- * deletes it. Marked `test.fail()`, the assertion below states the behaviour AC-3
- * REQUIRES, currently does not hold, and so the test "passes" today. The moment
- * someone implements AC-3 the assertion starts holding, Playwright reports
- * "expected to fail but passed", and the suite goes red — which is the signal we
- * actually want, because it means progress rather than breakage. Same pattern as
- * OBS-BGSTAB-009 and TC-7004.
+ * Measured 2026-09-19: 8 of 8 reloads left the browser's normal buffer at
+ * exactly 28 rows after a 700-line producer, and that was read as "the
+ * scrollback is gone every time". It was not. The reading was EARLY.
  *
- * WHEN AC-3 IS IMPLEMENTED: replace this with the real contract test, and SCOPE
- * this record rather than deleting it — narrow it to whatever remains uncovered,
- * or retire it with a change note saying what replaced it. A deleted
- * characterization leaves no trace that the behaviour was ever measured, and the
- * next person re-derives it. That lesson came from TC-7004 today.
+ * `settledNormalLength` returns after ~1.4s of an unchanging reading, and it
+ * starts the moment `waitForTerminal` resolves — and `waitForTerminal` only
+ * waits for `.xterm-screen:visible` (helpers.ts), which says nothing about the
+ * session being subscribed or restored. A fresh xterm holds exactly `rows`
+ * rows, so six identical readings of 28 satisfy "settled" while the restore is
+ * still in flight. The poll could not tell "finished" from "has not started".
  *
- * AC-3 IS NOT CHECKED BY THIS FILE. A test recording a violation is not evidence
- * of satisfaction, and it must never be cited as AC-3 coverage.
+ * Measured 2026-09-20 on a7a15c9b, server and frontend both built from that
+ * commit, 700 lines, retries=0:
+ *   - the old spec: 3 of 4 reloads "lost" the range, overlap=1/707, after=28
+ *   - a probe doing identical work but reading again 15s later: lateLength=707
+ *     and overlap=707/707 on EVERY such run — the complete range, oldest line
+ *     included, restored in full on exactly the runs called a loss
+ *   - the same probe with a fixed 8s wait instead of the settle poll: 4/4
+ * Changing only the wait strategy moved the outcome from 1/4 to 4/4. Nothing
+ * was ever lost. The earlier docs/analysis/2026-09-19.item6-buffer-bimodality.md
+ * measurement stands as data; its conclusion is superseded by this note.
  *
- * ── The structural hazard this file has to work around ──────────────────────
+ * So the assertion below is now an ordinary contract, and the settling after a
+ * reload waits for an observable end state (`waitForRestoredLine`) rather than
+ * for a reading to stop moving. DO NOT put a stability poll back. This is the
+ * second time this exact instrument failure has been recorded in this repo.
  *
- * Under `test.fail()` EVERY failure counts as the expected one, including a
- * broken precondition. A setup that silently stopped producing output would make
- * the characterization "pass" for entirely the wrong reason, and nothing would
- * say so. So the setup is asserted in a SEPARATE, ORDINARY test below: if the
- * producer or the fixture breaks, that test goes red and names the cause, while
- * this one cannot absorb it.
+ * ── Two structural hazards this file still works around ─────────────────────
+ *
+ * 1. The setup is asserted in a SEPARATE, ORDINARY test below. It predates the
+ *    removal of `test.fail()` (under which every failure, including a broken
+ *    precondition, counted as the expected one) and it is kept because it still
+ *    earns its place: if the producer or fixture breaks, that test goes red and
+ *    names the cause instead of this one absorbing it.
+ * 2. The claim is CONTENT IDENTITY, not length. A length is satisfied by
+ *    restoring the right 700 lines, by restoring 700 of something else, and by
+ *    a terminal that merely accumulated new output.
  */
 
 const LINES = 700;
@@ -99,7 +107,13 @@ async function readNormalLength(
   return snapshot.normalLength;
 }
 
-/** Samples until the reading stops moving, so nothing is read mid-change. */
+/**
+ * Samples until the reading stops moving, so nothing is read mid-change.
+ *
+ * ONLY SAFE BEFORE THE RELOAD. A stalled reading means "settled" only when
+ * something has already started; see waitForRestoredLine for why that does not
+ * hold after a reload.
+ */
 async function settledNormalLength(
   page: import('@playwright/test').Page,
   sessionId: string,
@@ -113,6 +127,59 @@ async function settledNormalLength(
     await page.waitForTimeout(200);
   }
   return seen.at(-1) ?? -1;
+}
+
+/**
+ * Waits for the reload's restore to LAND, rather than for the buffer to stop
+ * moving.
+ *
+ * WHY NOT settledNormalLength HERE. It returns after ~1.4s of an unchanging
+ * reading and it starts the moment `waitForTerminal` resolves -- and
+ * `waitForTerminal` only waits for `.xterm-screen:visible` (helpers.ts), which
+ * says nothing about the session being subscribed or restored. So after a reload
+ * the poll begins before the restore has been requested, finds a fresh xterm
+ * sitting at exactly `rows`, and six identical readings of 28 satisfy "settled".
+ * The poll cannot tell "finished" from "has not started" and reports 28 with full
+ * confidence either way.
+ *
+ * Measured 2026-09-20 on a7a15c9b, 700 lines, server and frontend both built from
+ * that commit: the characterization failed 3 of 4 reloads with overlap=1/707 and
+ * after=28. A probe running the identical work but reading again 15s later found
+ * lateLength=707 and overlap=707/707 on EVERY such run -- the complete range,
+ * oldest line included. The same probe with a fixed 8s wait in place of this poll
+ * passed 4/4. The reading was early; nothing was ever lost. On passing runs the
+ * whole subscribe+restore lands ~60ms after mount; on the others it lands after
+ * the settle window, and more produced output pushes it into that slower mode,
+ * which is why 700 lines reproduced and 300 did not.
+ *
+ * This is the same instrument failure the repository already recorded for this
+ * measurement ("안정화 폴링이 '안정됨' 과 '시작도 안 함' 을 구별하지 못했다"). It came back
+ * because the helper was rewritten, not because the lesson was wrong. Do not
+ * replace this with a stability poll again.
+ *
+ * THIS CANNOT MANUFACTURE A PASS. It polls for exactly the identity the assertion
+ * claims, and on timeout it returns anyway and lets that assertion fail with the
+ * same message it always had. A restore that never arrives is still a failure.
+ */
+async function waitForRestoredLine(
+  page: import('@playwright/test').Page,
+  sessionId: string,
+  oldestLogicalLineHash: string,
+  timeoutMs = 60_000,
+): Promise<{
+  fingerprints: { index: number; logicalLineHash: string }[];
+  elapsedMs: number;
+}> {
+  const startedAt = Date.now();
+  let fingerprints = await readLineFingerprints(page, sessionId);
+  while (
+    !fingerprints.some(line => line.logicalLineHash === oldestLogicalLineHash)
+    && Date.now() - startedAt < timeoutMs
+  ) {
+    await page.waitForTimeout(200);
+    fingerprints = await readLineFingerprints(page, sessionId);
+  }
+  return { fingerprints, elapsedMs: Date.now() - startedAt };
 }
 
 test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
@@ -162,8 +229,6 @@ test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
   });
 
   test('AC-3: the retained range survives a refresh', async ({ page }) => {
-    // Expected to fail TODAY. Going green here means AC-3 was implemented; see
-    // the header for what to do then.
     // REL-BGSTAB-007 AC-3, 2026-09-20: `test.fail()` removed in the same commit as the fix.
     // It asserted the behaviour AC-3 requires while that behaviour was absent, so the mark
     // was what kept a true statement from being an orphan red somebody deleted. The reload
@@ -172,8 +237,9 @@ test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
     //
     // The server half is verified -- the monolithic suite's subscribe/resubscribe test was
     // flipped from asserting the oldest marker ABSENT to asserting it present, and passes.
-    // This browser half is unverified until the routed run: it additionally requires xterm to
-    // render the delivered scrollback into its buffer, which no server-side test can show.
+    // The browser half is now verified too: with the settling fixed, this passes against a
+    // live https://localhost:2222 and the restore is observed with every line present,
+    // which is what shows xterm rendered the delivered scrollback into its buffer.
     test.setTimeout(180_000);
     await login(page);
     await waitForTerminal(page);
@@ -196,9 +262,15 @@ test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
 
       await page.reload();
       await waitForTerminal(page);
-      const afterReload = await settledNormalLength(page, session);
-      const after = await readLineFingerprints(page, session);
+      const restored = await waitForRestoredLine(page, session, oldest.logicalLineHash);
+      const after = restored.fingerprints;
+      const afterReload = await readNormalLength(page, session);
       const survivors = new Set(after.map(line => line.logicalLineHash));
+      // Diagnostic, never a gate. AC-3 has no latency clause, but the restore is
+      // bimodal (~60ms or seconds) and a green test should not hide which mode
+      // this run took.
+      // eslint-disable-next-line no-console
+      console.log(`[AC-3] restore observed after ${restored.elapsedMs}ms`);
       const overlap = before.filter(line => survivors.has(line.logicalLineHash)).length;
 
       // The assertion states what AC-3 REQUIRES, not what happens, and it states
