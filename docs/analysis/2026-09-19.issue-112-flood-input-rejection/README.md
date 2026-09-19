@@ -121,14 +121,41 @@ This is squarely the retained-terminal authority side (`SessionManager.ts`'s sha
 bookkeeping), not the input-reliability/ledger path (`SessionInputGateway`, the input sequencer,
 the dedup ledger) that #18's lane built -- no handoff needed.
 
-Not yet done: a fix. Candidates, not yet chosen between: (a) notify the client when
-`markHeadlessDegraded` revokes its lease so it can re-negotiate instead of retyping into a wall,
-(b) do not gate acceptance of PRIMARY-pty input on the HEADLESS shadow-PTY's health at all, since
-degrading the reconnect-recovery side channel is not obviously a reason to also stop accepting
-live keystrokes into the pty the user is actually looking at, or (c) raise the headless queue
-capacity so overflow is rarer (treats the symptom, not the silence).
+## Fixed: (b) then (a), decided by team-lead 2026-09-19
 
-## A second, more frequent symptom, found while re-measuring (not yet triaged)
+Decision: (b) is the real fix, in a precise form -- do not remove the lease *requirement* from
+`acceptRetainedTerminalMutationIdentity` (single-writer discipline is worth keeping), only stop
+headless degradation from revoking the driver lease it never held. (a) is required regardless,
+not as a fallback, because a lease can legitimately be revoked for other reasons and the client
+must always be told. (c) (raise the queue capacity) was rejected as a fix -- it changes how often
+the defect fires and nothing else.
+
+**(b)** -- `detachTerminalAuthorityRuntime` (`SessionManager.ts`) captures
+`runtime.driver.active === 'server-headless'` at detach time and only revokes
+`retained.driverLease` (the legacy browser lease) when that is true. Measured: when
+`markHeadlessDegraded` calls it, `driver.active` has already been nulled by
+`markHeadlessDegraded`'s own preceding code, so this branch was never reachable via that path in
+the first place -- the fail-closed revocation only fires for a genuine server-headless authority
+detach (session finalization, factory-registration rollback), where it is still correct.
+
+**(a)** -- a new wire message, `terminal-checkpoint:lease-revoked`, sent via
+`WsRouter.notifyRetainedTerminalDriverLeaseRevoked(sessionId, clientId, reason)` to the one
+connection that held the lease (not broadcast to every session subscriber), fired from both real
+revocation sites: the `wasServerHeadlessDriver` branch above, and
+`revokeTerminalAuthorityDriverLease` (the MIG-BGSTAB-002 admin-triggered revocation, a second,
+independent silent-revocation path found while fixing this). The client clears its cached lease
+for that session and calls `requestCurrentTerminalCheckpointCapability()` to renegotiate
+immediately, rather than waiting for the next `session:ready` or reconnect.
+
+**Re-measured after the fix: 3/3 flood runs, zero rejections, zero gate stalls.**
+`raw/after-fix-run{1,2,3}-clean.json` -- same 15,000-line flood, same probe. All three: `ws_input_sent`
+fires, the probe echoes back within ~0.4s of being sent, no `server_input_rejected`, no
+`terminal_input_rejected`, and `input_gate_synced` never reports `barrierReason:
+'visible-output-recovery'` sticking. This settles the open question below: the server rejection and
+the client-side gate stall were one event with two faces, not two independent defects -- both
+symptoms disappeared together once the headless queue-overflow stopped revoking the lease.
+
+## A second, more frequent symptom, found while re-measuring -- resolved by the same fix, see above
 
 Three post-split-fix runs of the identical 15,000-line flood + probe did NOT all reproduce the
 same failure. Two of three (`run1`, `run3`) never reached the server at all: the client's own
