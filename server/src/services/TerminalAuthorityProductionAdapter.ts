@@ -127,6 +127,17 @@ export interface ProductionTerminalAuthorityIntegration {
   }): Promise<{ ok: boolean; reason?: string }>;
   getState(sessionId: string): TerminalAuthorityState | undefined;
   getAuthorityState(sessionId: string): TerminalAuthorityState | undefined;
+  /**
+   * Diagnostic only: per-view frame pump state, so a stalled terminal delivery can be
+   * described rather than counted. Optional because it exists to answer one investigation.
+   */
+  getFramePumpState?(sessionId: string): readonly {
+    viewKey: string;
+    sending: boolean;
+    failed: boolean;
+    queuedFrames: number;
+    hasInFlight: boolean;
+  }[] | undefined;
   getAudit(sessionId: string): readonly TerminalAuthorityEvent[];
   getAuthorityAuditTrail(sessionId: string, limit?: number): readonly TerminalAuthorityEvent[];
   getWiring(sessionId?: string): ProductionTerminalAuthorityWiringEvidence;
@@ -4650,6 +4661,23 @@ function attachProductionTerminalAuthorityInternal(
     },
     getAuthorityState(sessionId) {
       return runtimes.get(sessionId)?.controller.getState();
+    },
+    /**
+     * Diagnostic: the per-view frame pumps, so a stalled terminal delivery can be described
+     * rather than counted. A delivery settles on `Promise.all` over per-view sends, and each
+     * send resolves from the WS callback in `enqueueSettledViewFrame`; this reports the
+     * pump state those callbacks act on.
+     */
+    getFramePumpState(sessionId) {
+      const runtime = runtimes.get(sessionId);
+      if (!runtime) return undefined;
+      return [...runtime.checkpointPumpsByView.entries()].map(([viewKey, pump]) => ({
+        viewKey,
+        sending: pump.sending,
+        failed: pump.failed,
+        queuedFrames: pump.frames.length,
+        hasInFlight: pump.inFlight !== undefined && pump.inFlight !== null,
+      }));
     },
     getAudit(sessionId) {
       return runtimes.get(sessionId)?.audit.map(event => ({ ...event })) ?? [];

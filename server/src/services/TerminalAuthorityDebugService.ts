@@ -63,6 +63,18 @@ export interface TerminalAuthorityDebugProductionAdapter {
   beginPromotion(sessionId: string): MaybePromise<{ ok: boolean; reason?: string }>;
   beginRollback(sessionId: string, reason?: string): MaybePromise<{ ok: boolean; reason?: string }>;
   getAuthorityState?(sessionId: string): TerminalAuthorityState | undefined;
+  /**
+   * Diagnostic only. The per-view frame pumps a stalled terminal delivery is waiting on:
+   * `pendingTerminalDeliveryCount` says a delivery is stuck, this says WHAT it is stuck on.
+   * Optional so implementations without frame pumps are unaffected.
+   */
+  getFramePumpState?(sessionId: string): readonly {
+    viewKey: string;
+    sending: boolean;
+    failed: boolean;
+    queuedFrames: number;
+    hasInFlight: boolean;
+  }[] | undefined;
   getState?(sessionId: string): TerminalAuthorityState | undefined;
   getAuthorityAuditTrail?(sessionId: string, limit?: number): unknown;
   getAudit?(sessionId: string): unknown;
@@ -299,6 +311,15 @@ export function createProductionTerminalAuthorityDebugRuntime(
                   ? { oldestPendingTerminalDeliveryAgeMs: authorityState.oldestPendingTerminalDeliveryAgeMs }
                   : {}),
               },
+            } : {}),
+            ...(options.authority.getFramePumpState ? {
+              // What the stalled delivery is actually waiting on, rather than another count
+              // of how long it has waited. `sending` with `hasInFlight` means a send callback
+              // that never fired; `failed` means the pump is dead and the queue behind it is
+              // orphaned; an empty array while deliveries pend means the pump was removed or
+              // replaced while a frame was in flight -- the one exit in enqueueSettledViewFrame
+              // that returns without resolving.
+              framePumps: options.authority.getFramePumpState(sessionId) ?? [],
             } : {}),
             ...(options.router ? {
               attachedResponderViewCount:
