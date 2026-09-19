@@ -23,7 +23,15 @@ function visit(node: ts.Node): void {
   ts.forEachChild(node, visit);
 }
 visit(hook.body);
-assert.equal(effects.length, 1, 'execute the unique production initial-load effect');
+// #108 added a second effect that calls workspaceApi.getAll -- the resync that runs whenever the
+// socket reaches 'connected'. These cases are about the INITIAL LOAD, which is the one that also
+// restores the persisted active workspace; selecting by that keeps them pointed at their subject
+// instead of at whichever getAll effect happens to be first.
+const initialLoadEffects = effects.filter(effect => effect.getText(ast).includes('loadActiveWorkspaceId'));
+assert.equal(initialLoadEffects.length, 1, 'execute the unique production initial-load effect');
+assert.equal(effects.length, 2, 'the initial load and the #108 reconnect resync are both expected');
+effects.length = 0;
+effects.push(initialLoadEffects[0]);
 const errorHelper = ast.statements.find((node): node is ts.FunctionDeclaration => ts.isFunctionDeclaration(node) && node.name?.text === 'getErrorMessage');
 assert.ok(errorHelper, 'reuse the real hook error conversion');
 const compiled = ts.transpileModule(`${errorHelper.getText(ast)}\nconst effect = ${effects[0].getText(ast)};`, {

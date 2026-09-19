@@ -5,6 +5,8 @@ import { resolveActiveWorkspaceAfterRemoval } from '../../src/hooks/workspaceAct
 import {
   applyMoveTabResultToTabs,
   applyTabReorderResultToTabs,
+  mergeFetchedTabsIntoRuntime,
+  shouldAdoptRemoteTabAsActive,
 } from '../../src/hooks/workspaceTabState.ts';
 import type { MoveTabResult, WorkspaceTabRuntime } from '../../src/types/workspace.ts';
 
@@ -141,3 +143,70 @@ function tab(
     cwd,
   };
 }
+
+// Issue #108: a tab created out of band -- by another client, by the API, by an agent -- arrives
+// over `tab:added`. The local creation path sets the workspace's activeTabId; this one did not,
+// so the tab appeared in the tab bar while the workspace had nothing active and no terminal was
+// mounted for it. Measured: twelve seconds with every `.terminal-view` at 0x0, a tab button
+// drawn and a live session behind it. Selecting the tab mounted it on the next sample.
+test('#108 a remote tab is adopted as active only when the workspace has nothing active to lose', () => {
+  // Nothing active: adopt.
+  assert.equal(shouldAdoptRemoteTabAsActive({ activeTabId: null }, [{ id: 't1' }]), true);
+  assert.equal(shouldAdoptRemoteTabAsActive({}, [{ id: 't1' }]), true);
+
+  // An active tab that no longer exists is not something to lose either.
+  assert.equal(shouldAdoptRemoteTabAsActive({ activeTabId: 'gone' }, [{ id: 't1' }]), true);
+
+  // The control, and the reason adoption is narrow: taking over while the user is working in
+  // another tab of that workspace would be worse than the defect.
+  assert.equal(shouldAdoptRemoteTabAsActive({ activeTabId: 't1' }, [{ id: 't1' }, { id: 't2' }]), false);
+
+  // No workspace, no decision.
+  assert.equal(shouldAdoptRemoteTabAsActive(undefined, [{ id: 't1' }]), false);
+});
+
+test('#108 the tab:added handler adopts through that helper rather than deciding inline', () => {
+  const handlerIndex = source.indexOf("'tab:added': (data) => {");
+  assert.notEqual(handlerIndex, -1);
+  const handler = source.slice(handlerIndex, handlerIndex + 900);
+  assert.match(handler, /shouldAdoptRemoteTabAsActive/u);
+  assert.match(handler, /activeTabId: tab\.id/u);
+  // The filter matters: the decision is about the tabs of the workspace that gained one, not
+  // about every tab the client knows.
+  assert.match(handler, /candidate\.workspaceId === tab\.workspaceId/u);
+});
+
+test('#108 a resync keeps runtime fields for tabs that survive and takes membership from the server', () => {
+  const fetched = [
+    { id: 't1', lastCwd: '/persisted' },
+    { id: 't3', lastCwd: '/new' },
+  ];
+  const current = [
+    { id: 't1', status: 'running' as const, cwd: '/live' },
+    { id: 't2', status: 'idle' as const, cwd: '/gone' },
+  ];
+
+  const merged = mergeFetchedTabsIntoRuntime(fetched, current);
+
+  assert.deepEqual(merged.map(tab => tab.id), ['t1', 't3'], 'membership comes from the server');
+  // The live cwd outlives the reconnect. Replacing it with the persisted one would blank a
+  // running terminal's header on every reconnect.
+  assert.equal(merged[0].cwd, '/live');
+  assert.equal(merged[0].status, 'running');
+  // A tab the client has never seen starts idle and falls back to the persisted cwd.
+  assert.equal(merged[1].cwd, '/new');
+  assert.equal(merged[1].status, 'idle');
+});
+
+test('#108 the hook refetches on every transition into connected, including the first', () => {
+  const index = source.indexOf("if (wsStatus !== 'connected') return;");
+  assert.notEqual(index, -1, 'the resync on connect is gone');
+  const chunk = source.slice(index, index + 700);
+  assert.match(chunk, /workspaceApi\.getAll\(\)/u);
+  assert.match(chunk, /mergeFetchedTabsIntoRuntime/u);
+  // The first connect must NOT be skipped. The dangerous window is exactly there: the initial
+  // load and the socket open are concurrent, so anything created in between is published to a
+  // socket that is not listening yet. A guard that skipped the first connect would leave open
+  // the very window the measurement fell into.
+  assert.doesNotMatch(chunk, /hasConnected|firstConnect|skipFirst/u);
+});

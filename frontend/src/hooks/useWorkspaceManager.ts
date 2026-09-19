@@ -13,6 +13,8 @@ import {
   applyMoveTabResultToTabs,
   applyTabReorderResultToTabs,
   canApplyMoveTabResult,
+  mergeFetchedTabsIntoRuntime,
+  shouldAdoptRemoteTabAsActive,
 } from './workspaceTabState';
 
 type WorkspaceTabChanges = Partial<Omit<
@@ -243,13 +245,44 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   // WebSocket Event Handlers
   // ============================================================================
 
-  const { clientId: wsClientId } = useWebSocketState();
+  const { clientId: wsClientId, status: wsStatus } = useWebSocketState();
   const { setWorkspaceHandlers } = useWebSocketActions();
 
   // Use WS clientId
   useEffect(() => {
     setClientId(wsClientId);
   }, [wsClientId]);
+
+  // #108: the load above runs once, and everything after it arrives as a broadcast. A broadcast
+  // published while this client's socket is not open is not queued anywhere and is simply lost,
+  // so the client's view diverges from the server until someone reloads. Measured on a live
+  // server: a workspace created over the API never reached the sidebar within 30 seconds.
+  //
+  // Refetching whenever the connection comes up closes every such gap at once, rather than
+  // adding a replay for each event kind.
+  //
+  // It deliberately does NOT skip the first connect. The dangerous window is exactly there: the
+  // initial load and the socket open are concurrent, so anything created in between is
+  // published to a socket that is not listening yet and is never heard of again. Skipping the
+  // first connect would leave that window open, which is the window the measurement fell into.
+  useEffect(() => {
+    if (wsStatus !== 'connected') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const state = await workspaceApi.getAll();
+        if (cancelled) return;
+        setLimits(state.limits);
+        setWorkspaces(state.workspaces);
+        setGridLayouts(state.gridLayouts);
+        setTabs(prev => mergeFetchedTabsIntoRuntime(state.tabs, prev));
+      } catch {
+        // A failed resync leaves the previous view in place. It is stale, which is what it
+        // already was; replacing it with an error state would hide a working terminal.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [wsStatus]);
 
   // Register workspace event handlers via WS
   useEffect(() => {
@@ -305,7 +338,19 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         const runtime: WorkspaceTabRuntime = { ...tab, status: 'idle', cwd: '' };
         setTabs(prev => {
           if (prev.some(t => t.id === tab.id)) return prev;
-          return [...prev, runtime];
+          const next = [...prev, runtime];
+          // #108: the local creation path sets activeTabId; this one did not, so a tab created
+          // out of band left the workspace with nothing active and no terminal mounted for it.
+          setWorkspaces(current => current.map(workspace => (
+            workspace.id === tab.workspaceId
+              && shouldAdoptRemoteTabAsActive(
+                workspace,
+                next.filter(candidate => candidate.workspaceId === tab.workspaceId),
+              )
+              ? { ...workspace, activeTabId: tab.id }
+              : workspace
+          )));
+          return next;
         });
       },
 
