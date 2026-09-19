@@ -14,12 +14,28 @@ import {
 // the same dual-package-hazard way tests/unit/terminalOutputScheduler.test.ts
 // and tests/unit/terminalUnicodeWidthGolden.test.ts already work around.
 const require = createRequire(import.meta.url);
-const xtermNamespace = require('@xterm/xterm') as unknown as {
-  Terminal?: typeof TerminalType;
-  default?: { Terminal?: typeof TerminalType };
-};
-const Terminal = xtermNamespace.Terminal ?? xtermNamespace.default?.Terminal;
-assert.ok(Terminal, '@xterm/xterm must expose Terminal directly or on its default export');
+
+/**
+ * Resolved through a function so the assertion actually narrows the type.
+ * `assert.ok` narrows by control flow, and control flow analysis does not cross
+ * a function boundary — a module-level `const Terminal` asserted at module scope
+ * is still `| undefined` inside every function below it (TS18048). Asserting and
+ * returning inside this function makes the returned binding non-optional, which
+ * is what `tests/unit/terminalUnicodeWidthGolden.test.ts` does for the same
+ * dual-package-hazard workaround. This was invisible until #16 added this file
+ * to `tsconfig.test.json`; nothing type-checked it before.
+ */
+function resolveTerminalConstructor(): typeof TerminalType {
+  const xtermNamespace = require('@xterm/xterm') as unknown as {
+    Terminal?: typeof TerminalType;
+    default?: { Terminal?: typeof TerminalType };
+  };
+  const resolved = xtermNamespace.Terminal ?? xtermNamespace.default?.Terminal;
+  assert.ok(resolved, '@xterm/xterm must expose Terminal directly or on its default export');
+  return resolved;
+}
+
+const Terminal = resolveTerminalConstructor();
 
 /**
  * Issue #16 item 3: the selection anchor needs a stable identity keyed to a
