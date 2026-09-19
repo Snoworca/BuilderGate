@@ -26,7 +26,7 @@ import { test } from 'node:test';
  * It deliberately does NOT assert that the two option sets are identical.
  * Making the browser match the server means turning on `reflowCursorLine`
  * there, which changes resize reflow behaviour and cannot be verified without a
- * browser. That belongs to #16's own fix, not to its guard.
+ * browser. That belongs to #114, the named successor to #16, not to this guard.
  */
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -57,7 +57,9 @@ const DECLARED_ASYMMETRY: ReadonlyMap<string, string> = new Map([
   [
     'reflowCursorLine',
     'Server-only. Turning it on in the browser changes resize reflow and needs '
-      + 'browser verification, so #16 owns that change, not this guard.',
+      + 'browser verification, so #114 owns that change, not this guard. '
+      + '(Was #16, which closed without doing it; #114 is the named successor. '
+      + 'This entry must be REPLACED when the asymmetry is resolved, not deleted.)',
   ],
 ]);
 
