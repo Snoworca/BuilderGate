@@ -7,14 +7,14 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "38b84ac4b9b485f4374ef0c915ea8f291a457497a44cf166f25010bb7e95ecc8",
-    "sourceCount": 37,
-    "sourceSetSha256": "5e358aab07b482d485ce1e3f5880f38d935cc7baf2a17ef79c60bfff3925f6eb",
-    "exactConsumerTuples": 86,
-    "classifications": 10
+    "sha256": "8fb79f9aa6ca00ea91b58222a6fe4d7d90248bc5f52a9dc37b06c7d53095fafa",
+    "sourceCount": 42,
+    "sourceSetSha256": "92a13b9a424a8cf8e8457b12a96e0b8d72d3071f1fc3f82e67923dedd5c82858",
+    "exactConsumerTuples": 88,
+    "classifications": 13
   },
   "semanticInventory": {
-    "sha256": "400c451429ed579756c11af2ec871e5a2bd1abd35e4bb5c515767c297e815ac9",
+    "sha256": "c28b8bbb9eaf24a88978015918bab5c4d32ffbce58de743b7f49d975488f4a9a",
     "historicalEqualsCurrent": false,
     "divergence": {
       "reason": "evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source; REL-BGSTAB-023 registered resourceLimits.terminal.checkpointMaxBytes, adding one decision to browser.terminal.recovery-scheduler at the checkpoint-write-coordinator boundary; and REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage into terminalGraceBuffer#applyGraceBufferedMessage with an identical body, relocating the four visibleOutputQueueMaxBytes/visibleOutputMaxChunks grace tuples without changing any decision",
@@ -27,11 +27,13 @@
           "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"pty.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"session-generation\",\"state\":\"divergent-legacy\"}"
         ],
         "introduced": [
+          "{\"consumerId\":\"browser.binary.frame-codec\",\"category\":\"browser-binary-frame-codec\",\"resourceKey\":\"resourceLimits.terminal.visibleOutputQueueMaxBytes\",\"unit\":\"bytes\",\"source\":\"resourceLimits.terminal.visibleOutputQueueMaxBytes\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"browser-frame-admission\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.checkpointMaxBytes\",\"unit\":\"bytes\",\"source\":\"resourceLimits.terminal.checkpointMaxBytes\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-write-coordinator\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.checkpointMaxChunks\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.checkpointMaxChunks\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-write-coordinator\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.inputQueueMaxCount\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.inputQueueMaxCount\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-input-count-cap\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.inputQueueMaxCount\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.inputQueueMaxCount\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-settlement-ledger-cap\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.inputQueueMaxCount\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.inputQueueMaxCount\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"recovery-generation\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.inputQueueTtlMs\",\"unit\":\"ms\",\"source\":\"resourceLimits.terminal.inputQueueTtlMs\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"pending-input-expiry\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"terminal-runtime-construction\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.visibleFlushFrameBudgetMs\",\"unit\":\"ms\",\"source\":\"resourceLimits.terminal.visibleFlushFrameBudgetMs\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"browser-frame\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.visibleFlushFrameBudgetMs\",\"unit\":\"ms\",\"source\":\"resourceLimits.terminal.visibleFlushFrameBudgetMs\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"browser-write-slice\",\"state\":\"consumed\"}",
@@ -45,7 +47,10 @@
           "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}"
         ],
         "introduced": [
-          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"149853555e33a671ec763309afb2000bd72a3e46a141d82b7c1eaea1f217f1d6\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}"
+          "{\"path\":\"frontend/src/utils/terminalWriteCoordinator.ts\",\"classification\":\"uncatalogueable\",\"symbol\":\"createTerminalWriteCoordinator\",\"evidenceSignature\":\"options.checkpointMaxBytes\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"Bounds on checkpointMaxBytes and checkpointMaxChunks received as plain options, so the access traces to no trusted getter and resolves to no canonical key. All five evidenceRole values yield roles=undefined; no catalogue row can describe it. Cataloguing requires the AST matcher to resolve delegated parameters.\"}",
+          "{\"path\":\"server/src/index.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"maxEntries: 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here caps MCP claim codes, not resourceLimits.snapshots.maxEntries. It is passed to McpToolService and never reaches a terminal resource decision.\"}",
+          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"149853555e33a671ec763309afb2000bd72a3e46a141d82b7c1eaea1f217f1d6\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}",
+          "{\"path\":\"server/src/services/McpToolService.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"options.maxEntries ?? 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here is this module's own claim-code ring bound, defaulted locally to 256 and unrelated to resourceLimits.snapshots.maxEntries.\"}"
         ]
       },
       "relocatedEvidence": [
@@ -74,6 +79,15 @@
           ],
           "introduced": [
             "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime#disposeTerminalRuntime :: tombstoneTtlMs: snapshotLimits.tombstoneTtlMs :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.inputQueueTtlMs|recovery-generation|consumed",
+          "retired": [
+            "frontend/src/components/Terminal/TerminalView.tsx#getInputQueueLimits :: inputQueueTtlMs: limits.inputQueueTtlMs :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/components/Terminal/TerminalView.tsx#getInputQueueLimits :: limits.inputQueueTtlMs, :: call-input"
           ]
         },
         {
@@ -140,7 +154,7 @@
           ]
         }
       ],
-      "evidenceHashOnlyChangedTuples": 11
+      "evidenceHashOnlyChangedTuples": 10
     }
   },
   "currentSlice": {

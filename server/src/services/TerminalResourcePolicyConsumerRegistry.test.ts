@@ -450,10 +450,19 @@ const RESERVED_ID_DECLARATION_SITES: ReadonlyArray<{
     // the evidence: the three-line window hashes identically, so only the line number
     // moved. Had the content changed, this hash would have moved too and the covers
     // string would have needed re-arguing rather than re-pointing.
-    line: 1571,
-    windowSha256: '01673b382b3ceb09876685d334ab969f45574d6f87c8a65fd936c15e698a52fc',
+    // #20 re-anchor, and this one is a RE-ARGUING rather than a re-pointing. Both the line
+    // and the windowSha256 moved, because the comment block itself was rewritten: step 0
+    // decided the question the old text called open, and the reservation now states
+    // not-applicable with the three measurements behind it. I re-read the site before
+    // re-anchoring, as this table demands. What is there is still the comment block arguing
+    // the reservation -- prose naming the id while making the case for it -- and not a use:
+    // nothing is passed, called or assigned. The id reaches production at exactly two sites,
+    // this comment and the registry array, which is the claim the reservation rests on.
+    line: 1750,
+    windowSha256: 'e46973792896bd37f432e89e4ab478a09ea4d1983e6a3b786f9c18989421d098',
     occurrences: 1,
-    covers: 'the mention in the comment block that argues this reservation',
+    covers: 'the mention in the comment block that argues this reservation, rewritten by #20 '
+      + 'step 0 to record the not-applicable decision and its three measurements',
   },
   {
     path: 'server/src/services/TerminalResourcePolicyInventory.ts',
@@ -463,17 +472,29 @@ const RESERVED_ID_DECLARATION_SITES: ReadonlyArray<{
     // and the same evidence: windowSha256 UNCHANGED, so the site moved without changing.
     // Re-read -- it is still `consumerId: 'server.config.schema'` inside the reservation
     // entry, which is the declaration this covers string names, not a use.
-    line: 1581,
-    windowSha256: '4f2c456c34d92fba9258fb1ac6cddf3df88791d54cc38a97b30c711a407b59d1',
+    // #20 re-anchor. The line moved because the comment block above was rewritten and the
+    // reservation's own `reason` restated; the windowSha256 moved with it because the
+    // three-line window includes those neighbouring lines. Re-read before re-anchoring: the
+    // occurrence is still `consumerId: 'server.config.schema'` as a property of the
+    // reservation entry -- a declaration of which id is reserved, not a use of it.
+    line: 1768,
+    windowSha256: 'b81ed7b53721a05d256326445a431e119cba2a9e3c9dea45759d338354fbdcde',
     occurrences: 1,
-    covers: 'the consumerId property of the reservation entry itself',
+    covers: 'the consumerId property of the reservation entry itself, whose reason now records '
+      + 'the #20 step-0 not-applicable decision',
   },
   {
     path: 'server/src/services/TerminalResourcePolicy.test.ts',
     consumerId: 'server.config.schema',
     kind: 'registry-array-entry',
-    line: 41,
-    windowSha256: 'ec395e07ddd4958ecb7cc421031892216c7c6343a3047a60f15350a55b3c9cc2',
+    // #20 re-anchor. The line moved because EXPECTED_CATEGORIES above it gained the
+    // browser-binary-frame-codec entry; the windowSha256 moved because the three-line window
+    // now includes 'browser.binary.frame-codec' appended to the mirror array itself. Re-read
+    // before re-anchoring: the occurrence is still a bare element of the
+    // EXPECTED_POLICY_CONSUMER_IDS string-literal array -- the mirror declaring which ids the
+    // registry holds, not a call site using one.
+    line: 43,
+    windowSha256: 'f81c305e71d2e23e668f79d35e0630bd2be1b549de17e4e5c53fa6744f76fe61',
     occurrences: 1,
     covers: 'the EXPECTED_POLICY_CONSUMER_IDS literal in that file. This file is scanned because '
       + 'the seal names it as a consumer-evidence source. The occurrence is a declaration mirror '
@@ -774,6 +795,17 @@ test('REL-BGSTAB-010 AC-7 registration guard rejects a reservation whose id is u
 // -- and it does not pin the contents of the walked roots, so a file appearing or disappearing
 // under server/src, frontend/src or tools/wave3 moves the scan without moving this list.
 const EXPECTED_MANIFEST_SEALED_SOURCE_PATHS: readonly string[] = [
+  // #20, argued rather than recomputed. Five entered because this tracker catalogued or
+  // classified them, which is what puts a path into requiredPaths:
+  //   binaryFrameCodec.ts         -- catalogued, browser.binary.frame-codec
+  //   pendingInputExpiry.ts       -- catalogued, browser.terminal.recovery-scheduler
+  //   terminalWriteCoordinator.ts -- classified uncatalogueable (access resolves to no key)
+  //   index.ts, McpToolService.ts -- classified name-collision (their maxEntries is the MCP
+  //                                  claim-code cap, not resourceLimits.snapshots.maxEntries)
+  // The sixth, TerminalAuthorityProductionAdapter.ts, is NOT from #20: the sealed manifest
+  // already carried it at HEAD (37 paths) while this pin listed 36, so this assertion was
+  // already red. Adding it corrects a pre-existing drift rather than widening a boundary.
+  // Kept in sorted order, which is what the comparison against the sorted sealed set requires.
   'frontend/src/components/Settings/settingsDraftHelpers.ts',
   'frontend/src/components/Terminal/TerminalContainer.tsx',
   'frontend/src/components/Terminal/TerminalView.tsx',
@@ -781,21 +813,27 @@ const EXPECTED_MANIFEST_SEALED_SOURCE_PATHS: readonly string[] = [
   'frontend/src/hooks/useTerminalRuntimeResidency.ts',
   'frontend/src/services/tokenStorage.ts',
   'frontend/src/types/settings.ts',
+  'frontend/src/utils/binaryFrameCodec.ts',
   'frontend/src/utils/inputReliabilityMode.ts',
+  'frontend/src/utils/pendingInputExpiry.ts',
   'frontend/src/utils/terminalGraceBuffer.ts',
   'frontend/src/utils/terminalHiddenOutput.ts',
   'frontend/src/utils/terminalOutputHotPath.ts',
   'frontend/src/utils/terminalOutputScheduler.ts',
   'frontend/src/utils/terminalSnapshot.ts',
   'frontend/src/utils/terminalViewAttributes.ts',
+  'frontend/src/utils/terminalWriteCoordinator.ts',
   'frontend/src/utils/visibleOutputRecovery.ts',
   'frontend/src/utils/webSocketBackpressure.ts',
+  'server/src/index.ts',
   'server/src/schemas/config.schema.ts',
   'server/src/services/ConfigFileRepository.ts',
+  'server/src/services/McpToolService.ts',
   'server/src/services/RuntimeConfigStore.test.ts',
   'server/src/services/RuntimeConfigStore.ts',
   'server/src/services/SessionManager.ts',
   'server/src/services/SettingsService.ts',
+  'server/src/services/TerminalAuthorityProductionAdapter.ts',
   'server/src/services/TerminalResourcePolicy.test.ts',
   'server/src/services/TerminalResourcePolicy.ts',
   'server/src/services/TerminalResourcePolicyInventory.ts',

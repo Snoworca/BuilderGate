@@ -12,6 +12,9 @@ export interface RegisteredTerminalResourcePolicyObservationDecision {
 }
 
 const REGISTERED_OBSERVATION_DECISIONS = [
+  // #20: the binary data plane consumes the visible output queue bound to refuse a frame
+  // that cannot enter the queue. It was consuming it uncatalogued until this tracker.
+  ['browser.binary.frame-codec', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'consumed'],
   ['browser.hidden-output', 'resourceLimits.terminal.hiddenOutputPolicy', 'resourceLimits.terminal.hiddenOutputPolicy', 'consumed'],
   ['browser.hidden-output', 'resourceLimits.terminal.hiddenOutputTailBytes', 'resourceLimits.terminal.hiddenOutputTailBytes', 'consumed'],
   ['browser.runtime.residency', 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', 'consumed'],

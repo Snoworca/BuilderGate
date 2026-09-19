@@ -81,6 +81,18 @@ export const TERMINAL_RESOURCE_POLICY_CONSUMER_IDS = [
   'browser.terminal.write-scheduler',
   'browser.terminal.recovery-scheduler',
   'browser.snapshot.persisted-storage',
+  // #20: the binary data plane's own consumer. Appended rather than inserted because
+  // RESERVED_ID_DECLARATION_SITES pins the reserved id at the head of this array to a
+  // fixed line, and inserting above it would move that anchor. (The id is deliberately not
+  // written here: naming it in a comment would itself count as a production occurrence.)
+  //
+  // It gets its own id rather than folding onto its caller (WebSocketContext, which is
+  // browser.terminal.recovery-scheduler) for the same reason server.ws.send-policy has one:
+  // it is a delegated policy decision that owns its own bound. deriveMaxBodyBytes takes
+  // visibleOutputQueueMaxBytes and refuses a frame that cannot enter the queue. Folding it
+  // in would also have left #18's sibling tracker row for the binary plane with no consumer
+  // behind it, which is the same hole as a consumer with no row seen from the other side.
+  'browser.binary.frame-codec',
 ] as const;
 
 export type TerminalResourcePolicyConsumerId = typeof TERMINAL_RESOURCE_POLICY_CONSUMER_IDS[number];

@@ -36,6 +36,8 @@ const EXPECTED_CATEGORIES = [
   'browser-runtime-residency-hidden-output',
   'terminal-write-recovery-scheduler',
   'persisted-snapshot-storage',
+  // #20: the binary data plane's own category, added with browser.binary.frame-codec.
+  'browser-binary-frame-codec',
 ] as const;
 const EXPECTED_POLICY_CONSUMER_IDS = [
   'server.config.schema',
@@ -49,6 +51,7 @@ const EXPECTED_POLICY_CONSUMER_IDS = [
   'browser.terminal.write-scheduler',
   'browser.terminal.recovery-scheduler',
   'browser.snapshot.persisted-storage',
+  'browser.binary.frame-codec',
 ] as const;
 const EXPECTED_RESOURCE_KEYS = [
   'resourceLimits.clientWs.hardReconnectBytes',
@@ -98,6 +101,13 @@ const EXPECTED_TRACE_PATHS = [
   'frontend/src/utils/terminalOutputScheduler.ts',
   'frontend/src/utils/terminalSnapshot.ts',
   'frontend/src/utils/visibleOutputRecovery.ts',
+  // #20: consumers that were consuming policy without being catalogued, found by scanning
+  // production for registered resource-key identifiers rather than by walking this catalogue.
+  'frontend/src/utils/binaryFrameCodec.ts',
+  'frontend/src/utils/pendingInputExpiry.ts',
+  // Classified rather than catalogued: its access resolves to no canonical key, so no row
+  // can describe it. Present here because classifications are trace paths too.
+  'frontend/src/utils/terminalWriteCoordinator.ts',
   'server/src/schemas/config.schema.ts',
   'server/src/services/ConfigFileRepository.ts',
   'server/src/services/RuntimeConfigStore.ts',
