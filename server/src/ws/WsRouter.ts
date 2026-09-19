@@ -3195,6 +3195,35 @@ export class WsRouter {
       return;
     }
 
+    if (!gatewayResult.accepted
+      && !input.retainedIdentity
+      && registeredViewGeneration !== undefined
+      && meta?.retainedTerminalMutationLeases?.has(input.sessionId) === true) {
+      // @req REL-BGSTAB-011 AC-6
+      // The identity came from this connection's cache, not from the client, and the write was
+      // refused. The usual cause is that another view adopted the lease and this one's generation
+      // is superseded. Re-adopt once and retry, so losing the lease costs a round trip rather than
+      // making this window read-only for the rest of the session. Bounded to one retry: if the
+      // second attempt fails the original rejection stands.
+      meta.retainedTerminalMutationLeases.delete(input.sessionId);
+      const readopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, input.sessionId, registeredViewGeneration);
+      if (readopted) {
+        this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, readopted);
+        try {
+          gatewayResult = this.submitWebSocketInputThroughGateway({
+            sessionId: input.sessionId,
+            data: input.data,
+            metadata: input.metadata,
+            inputSeqStart: input.inputSeqStart,
+            inputSeqEnd: input.inputSeqEnd,
+            retainedIdentity: readopted,
+          }, meta);
+        } catch (error) {
+          console.error('[WS] PTY input write failed after lease re-adoption:', error);
+        }
+      }
+    }
+
     if (!gatewayResult.accepted) {
       this.rejectInput(ws, {
         sessionId: input.sessionId,
