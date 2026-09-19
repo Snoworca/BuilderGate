@@ -66,6 +66,8 @@ interface EvictionWorkspaceContext {
 
 const RED_SIGNATURES = {
   fullEviction: 'FR-BGSTAB-029 AC-3: a fully evicted selection must disable the copy menu item',
+  refreshRemap: 'FR-BGSTAB-029 AC-5: a selection that cannot be remapped across a refresh must be '
+    + 'cleared and must leave the copy path unusable',
 } as const;
 
 test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
@@ -141,6 +143,85 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
    * any trim could apply. The precondition is still unreached; the explanation is now precise
    * instead of a placeholder.
    */
+  /**
+   * FR-BGSTAB-029 AC-5 (GitHub issue #16 item 7): across a refresh boundary, a selection
+   * anchor that cannot be verifiably remapped must leave the selection explicitly cleared
+   * and the copy path observably unusable -- never a silent copy of pre-refresh text.
+   *
+   * Why the control is not optional here. A page reload replaces the JS context, so no
+   * anchor and no selection can survive it by construction, and "no selection after reload"
+   * is therefore true in a healthy app AND in one where the terminal never came back at all.
+   * Asserting only absence would pass in both. The control -- a fresh selection made AFTER
+   * the reload, which must copy correctly -- is what separates them: it proves the restored
+   * terminal, the selection model and the copy path are all alive, so the cleared state
+   * being asserted above it is a real state rather than a dead app.
+   *
+   * Scope note: AC-5's evidence must cross an actual refresh. The within-session eviction
+   * and reflow measurements in this file are AC-3's and cannot be cited for AC-5.
+   */
+  test('AC-5: a selection does not survive a refresh, and post-refresh copy still works (control)', async ({ page }) => {
+    test.setTimeout(120_000);
+    await installMemoryClipboard(page);
+    await login(page);
+    await waitForTerminal(page);
+    const workspace = await activateEvictionWorkspace(page);
+    const sid = workspace.sessionId;
+
+    try {
+      const preMarker = `MARKER-PREREFRESH-${Date.now()}`;
+      await createSingleLineSelection(page, sid, preMarker);
+      const before = await captureSelection(page, sid);
+      expect(before?.text ?? '', RED_SIGNATURES.refreshRemap).toContain(preMarker);
+
+      await page.reload();
+      await waitForTerminal(page);
+      await waitForTerminalInputReady(page);
+
+      // The session must come back, or everything below is vacuous.
+      await expect
+        .poll(async () => (await captureTerminalLines(page, sid)) !== null, { timeout: 30_000 })
+        .toBe(true);
+
+      // 1. xterm's own model, not the DOM: no selection survived the boundary.
+      const after = await captureSelection(page, sid);
+      expect(after, `${RED_SIGNATURES.refreshRemap}: the selection capture hook was unavailable `
+        + 'after reload, so the restored session could not be observed at all').not.toBeNull();
+      expect(after?.hasSelection, RED_SIGNATURES.refreshRemap).toBe(false);
+      expect(after?.text ?? '', `${RED_SIGNATURES.refreshRemap}: pre-refresh text is still `
+        + 'selected after the boundary').not.toContain(preMarker);
+
+      // 2. The copy path is observably unusable in that state.
+      await openTerminalContextMenu(page);
+      await expect(copyMenuItem(page), RED_SIGNATURES.refreshRemap).toHaveClass(/disabled/);
+      await page.keyboard.press('Escape');
+
+      // 3. Control: a fresh post-refresh selection must copy correctly. Without this a
+      //    uniformly dead copy path -- or a terminal that never restored -- passes above.
+      const postMarker = `MARKER-POSTREFRESH-${Date.now()}`;
+      await createSingleLineSelection(page, sid, postMarker);
+      await openTerminalContextMenu(page);
+      await expect(
+        copyMenuItem(page),
+        'control: a fresh selection made after the refresh must leave copy enabled',
+      ).not.toHaveClass(/disabled/);
+      await copyMenuItem(page).click();
+
+      await expect
+        .poll(async () => page.evaluate(() => (window as typeof window & {
+          __e2eClipboardText?: string;
+        }).__e2eClipboardText ?? ''), { timeout: 10_000 })
+        .toContain(postMarker);
+
+      const copied = await page.evaluate(() => (window as typeof window & {
+        __e2eClipboardText?: string;
+      }).__e2eClipboardText ?? '');
+      expect(copied, `${RED_SIGNATURES.refreshRemap}: the clipboard carries pre-refresh text`)
+        .not.toContain(preMarker);
+    } finally {
+      await cleanupEvictionWorkspace(page, workspace);
+    }
+  });
+
   test('RECONCILE: output clears the selection here even with the click bug fixed', async ({ page }) => {
     test.setTimeout(60_000);
     await login(page);
