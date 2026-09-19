@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { z } from 'zod';
 import { configSchema } from './config.schema.js';
@@ -8,6 +9,7 @@ import {
   EDITABLE_SETTINGS_KEYS,
   RESERVED_WAVE6_SETTING_KEYS,
 } from '../services/RuntimeConfigStore.js';
+import { loadTerminalResourceConsumerManifest } from '../services/TerminalResourcePolicyInventory.js';
 
 // @req OPS-BGSTAB-011
 //
@@ -189,6 +191,61 @@ test('OPS-BGSTAB-011 the inventory agrees with the existing RuntimeConfigStore c
       `${key} is offered as an editable setting, so it cannot be inert`,
     );
   }
+});
+
+// @req OPS-BGSTAB-011 AC-5
+//
+// The second of the three sources AC-5 names: the sealed terminal resource consumer
+// manifest. It is loaded through the module that owns it rather than re-parsed here, so
+// this reconciles against the live artifact and not a transcription of it.
+//
+// The third source AC-5 names, the retired-key list in
+// server/src/utils/retiredSettingsResidue.test.ts, is NOT wired, and cannot be: that file
+// exports nothing at all. Its RETIRED_LEAF_PATHS is a module-local const inside a test that
+// also shells out to `git ls-files`, so importing it would execute that suite as a side
+// effect and still yield no binding. Copying the list here is precisely the independent
+// restatement AC-5 forbids, so the gap is recorded rather than papered over.
+const CONSUMER_MANIFEST_URL = new URL(
+  '../../../docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/'
+  + 'terminal-resource-consumer-manifest.current.json',
+  import.meta.url,
+);
+
+test('OPS-BGSTAB-011 the inventory agrees with the terminal resource consumer manifest', async () => {
+  const manifest = await loadTerminalResourceConsumerManifest({
+    manifestPath: fileURLToPath(CONSUMER_MANIFEST_URL),
+  });
+  // A manifest that loaded empty would make every loop below pass without asserting.
+  assert.ok(manifest.consumers.length > 0, 'the consumer manifest must not be empty');
+
+  const byPath = new Map(readInventory().entries.map((entry) => [entry.path, entry]));
+  const schemaLeaves = new Set(listConfigSchemaLeafPaths(configSchema));
+  let reconciled = 0;
+
+  for (const consumer of manifest.consumers) {
+    // The manifest addresses resources by the same dotted leaf path the inventory uses, but
+    // it may also name keys the schema no longer declares; those are the residue AC-5's
+    // other source covers, not this one's business.
+    if (!schemaLeaves.has(consumer.resourceKey)) continue;
+    const entry = byPath.get(consumer.resourceKey);
+    assert.ok(
+      entry,
+      `${consumer.resourceKey} is in the consumer manifest but absent from the inventory`,
+    );
+    if (consumer.state !== 'consumed') continue;
+    assert.notEqual(
+      entry.classification,
+      'inert',
+      `${consumer.resourceKey} has a consumed consumer in the manifest, so the inventory `
+      + 'cannot classify it inert without recording the conflict',
+    );
+    reconciled += 1;
+  }
+
+  assert.ok(
+    reconciled > 0,
+    'no consumed manifest entry reconciled against a schema leaf; the reconciliation ran empty',
+  );
 });
 
 // @req OPS-BGSTAB-011 AC-6
