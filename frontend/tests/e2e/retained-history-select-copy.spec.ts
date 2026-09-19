@@ -113,7 +113,13 @@ async function readLineFingerprints(page: Page, sessionId: string): Promise<Line
   }));
 }
 
-/** Samples until the reading stops moving, so nothing is read mid-restore. */
+/**
+ * Samples until the reading stops moving.
+ *
+ * ONLY SAFE BEFORE THE RELOAD. Its old docstring said "so nothing is read
+ * mid-restore", and that was false: an unchanging reading means "settled" only
+ * once something has started. See waitForRestoredFingerprints below.
+ */
 async function settledFingerprints(page: Page, sessionId: string): Promise<LineFingerprint[]> {
   let previous = -1;
   let stableFor = 0;
@@ -124,6 +130,56 @@ async function settledFingerprints(page: Page, sessionId: string): Promise<LineF
     previous = latest.length;
     await page.waitForTimeout(200);
   }
+  return latest;
+}
+
+/**
+ * Waits for the reload's restore to LAND, rather than for the row count to stop
+ * moving.
+ *
+ * WHY. `settledFingerprints` returns after ~1.4s of an unchanging LENGTH and it
+ * starts as soon as the terminal is readable. A fresh xterm holds exactly `rows`
+ * rows, so six identical readings of `rows` satisfy "settled" while the restore
+ * is still in flight — the poll cannot tell "finished" from "has not started".
+ * Measured 2026-09-20 on a7a15c9b against a live https://localhost:2222, the
+ * retained restore takes 6.2-9.0s (6524/9016/6161/6179 ms over four reloads),
+ * which is far outside that window.
+ *
+ * The identical defect was measured and fixed in
+ * retained-range-refresh-characterization.spec.ts (d3461466); this is the same
+ * poll in the spec that proves criterion 6. There it produced confident wrong
+ * readings of exactly `rows`.
+ *
+ * ITS EXPOSURE HERE IS A FALSE RED, NOT A FALSE GREEN. An early read yields a
+ * viewport-sized buffer, `contentSurvivor` comes back undefined and the
+ * assertion fails — so this was a live generator of red criterion-6 runs that
+ * look like a product regression and are not. That is why this is worth fixing
+ * rather than tolerating.
+ *
+ * THIS CANNOT MANUFACTURE A PASS. It polls for exactly the line the assertion is
+ * about, and on timeout it returns the last reading anyway and lets the
+ * assertion fail with the same message and the same overlap/row reporting it
+ * always had. A restore that genuinely never arrives is still a failure.
+ */
+async function waitForRestoredFingerprints(
+  page: Page,
+  sessionId: string,
+  oldestLogicalLineHash: string,
+  timeoutMs = 60_000,
+): Promise<LineFingerprint[]> {
+  const startedAt = Date.now();
+  let latest = await readLineFingerprints(page, sessionId);
+  while (
+    !latest.some(line => line.logicalLineHash === oldestLogicalLineHash)
+    && Date.now() - startedAt < timeoutMs
+  ) {
+    await page.waitForTimeout(200);
+    latest = await readLineFingerprints(page, sessionId);
+  }
+  // Diagnostic, never a gate. Criterion 6 has no latency clause, but the restore
+  // is bimodal (~60ms or seconds) and a green run should not hide which it took.
+  // eslint-disable-next-line no-console
+  console.log(`[item 6] restore observed after ${Date.now() - startedAt}ms`);
   return latest;
 }
 
@@ -229,7 +285,7 @@ test.describe('issue #16 item 6 — old retained lines stay selectable across a 
         .poll(async () => (await captureTerminalLines(page, session)) !== null, { timeout: 30_000 })
         .toBe(true);
 
-      const after = await settledFingerprints(page, session);
+      const after = await waitForRestoredFingerprints(page, session, oldest.logicalLineHash);
       const contentSurvivor = after.find(line => line.logicalLineHash === oldest.logicalLineHash);
       const overlap = before.filter(
         b => after.some(a => a.logicalLineHash === b.logicalLineHash),
