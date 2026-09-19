@@ -66,6 +66,7 @@ import {
 import { getCachedTerminalOutputResourceLimits } from '../utils/terminalOutputHotPath';
 import { classifyWsFrame } from '../utils/wsFrameDispatch';
 import { publishInputDiscard } from '../utils/inputDiscardFeedback';
+import { shouldSurfaceInputRejection } from '../utils/inputRejectionSurface';
 import { resolveLogicalClientId } from '../utils/logicalClientIdentity';
 import { deriveMaxBodyBytes } from '../utils/binaryFrameCodec';
 import { intakeBinaryFrames } from '../utils/binaryFrameIntake';
@@ -940,15 +941,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         });
         // @req REL-BGSTAB-016 @req REL-BGSTAB-011
         // The user typed and the server refused. Recording it in the debug ring is not telling
-        // anyone -- measured 2026-09-19, two refusals went by with nothing on screen. A refusal
-        // the server already decided is not a duplicate of the local discard sites; it is the
-        // remote one, and it owes the same surface. 'duplicate-operation' is excluded: that
-        // write did reach the PTY, so nothing was lost and a warning would be a lie.
-        // Every other reason IS surfaced, including #18's 'unknown-operation' and
-        // 'stale-target-generation': in all of them the write never reached the PTY.
-        // 'unknown-operation' matters most -- the server cannot say whether the command
-        // ran, so silence is the one wrong answer; only the user can look and decide.
-        if (msg.reason !== 'duplicate-operation') {
+        // anyone -- measured 2026-09-19, two refusals went by with nothing on screen.
+        // Which refusals owe a warning is decided by shouldSurfaceInputRejection: the rule is
+        // whether the write reached the PTY, and it used to be spelled here as a single
+        // exclusion whose comment was wrong about expired-operation.
+        if (shouldSurfaceInputRejection(msg.reason)) {
           publishInputDiscard(sessionId);
         }
       }

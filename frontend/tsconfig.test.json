@@ -31,6 +31,7 @@
     "./tests/unit/terminalOsc52Policy.test.ts",
     "./tests/unit/terminalPasteLimits.test.ts",
     "./tests/unit/logicalClientIdentity.test.ts",
+    "./tests/unit/inputRejectionSurface.test.ts",
     "./tests/unit/terminalWriteInterleaving.test.ts",
     "tests/unit/terminalGraceBuffer.test.ts",
     "tests/unit/viteAssetInlining.test.ts",

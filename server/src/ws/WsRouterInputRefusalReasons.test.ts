@@ -278,18 +278,91 @@ test('#111 AC-2 a genuinely new operation after a reconnect still reaches the PT
   }
 });
 
-test('#111 criterion 11 two different logical clients keep separate ledgers', () => {
+// --- #18 criterion 10 (REDUCED): composed IME text against the dedup ledger -------
+//
+// The criterion asks for zero duplicate/missing input across five failure modes crossed
+// with Windows Hangul / Linux candidate / macOS composition / kitty chord. Twenty cells at
+// equal depth is not what this is worth: the issue itself says IME is not broken today and
+// the axis exists to prove the EXISTING defences survive the migration.
+//
+// So three cells, chosen where composition state and the ledger actually touch each other
+// -- the identity and the bytes of a committed composition -- rather than one cell per
+// platform. A Hangul commit is the fixture because it is the multi-byte, multi-keystroke
+// case: several keydowns collapse into one onData chunk, so the operation covers text the
+// user never typed key-for-key, and getting the identity or the digest wrong there is
+// silent rather than loud.
+//
+// WHAT IS DELIBERATELY NOT COVERED, so the absence is not mistaken for coverage:
+//   - the BROWSER half (composition sequencing across a reconnect) cannot be driven here.
+//     Input delivery sits behind a transport/session/geometry readiness gate the jsdom
+//     harness never reaches, which is why no behaviour test in this repo asserts positive
+//     onInput delivery. A test shaped like "IME under reconnect" that never reached the
+//     gate would be a vacuous green, and this lane has already found three of those.
+//   - Linux candidate windows, macOS composition and kitty chords are NOT run. They differ
+//     from Hangul in how the browser produces the commit, not in what the server then does
+//     with it, and the server is the half these cells exercise.
+
+const HANGUL_COMMIT = '안녕하세요';
+
+test('#18 criterion 10 (Hangul x ACK-loss) a resent composition is written once', () => {
+  const harness = createHarness({}, 8);
+  try {
+    harness.send(inputMessage(1, HANGUL_COMMIT));
+    // The ACK is lost -- which for ordinary input means it never existed -- and the client
+    // resends the same operation on the same connection.
+    harness.send(inputMessage(1, HANGUL_COMMIT));
+
+    assert.equal(harness.lastRejection()?.reason, 'duplicate-operation');
+  } finally {
+    harness.destroy();
+  }
+});
+
+test('#18 criterion 10 (Hangul x reconnect) a composition resent on a new connection is written once', () => {
   const harness = createReconnectHarness();
   try {
-    const tabOne = harness.connect('tab-1');
-    harness.send(tabOne.socket, inputMessage(1));
+    const first = harness.connect('tab-ime');
+    harness.send(first.socket, inputMessage(1, HANGUL_COMMIT));
+    harness.disconnect(first.socket);
 
-    // Boundary: preserving across reconnect must not start sharing across tabs. Two tabs
-    // legitimately issue the same sequence numbers and neither may suppress the other.
-    const tabTwo = harness.connect('tab-2');
-    harness.send(tabTwo.socket, inputMessage(1));
+    const second = harness.connect('tab-ime');
+    harness.send(second.socket, inputMessage(1, HANGUL_COMMIT));
 
-    assert.equal(harness.lastRejection(tabTwo.socket), undefined);
+    assert.equal(
+      harness.lastRejection(second.socket)?.reason,
+      'duplicate-operation',
+      'composed text must not be re-executed after a reconnect',
+    );
+  } finally {
+    harness.destroy();
+  }
+});
+
+test('#18 criterion 10 (Hangul x duplicate retry) a corrected composition under a reused id is refused', () => {
+  const harness = createHarness({}, 8);
+  try {
+    harness.send(inputMessage(1, HANGUL_COMMIT));
+    // An IME state bug that reused one operation id for two different commits is the
+    // silent failure this guards: deduplicating would swallow the corrected text and
+    // report nothing, which is a LOST keystroke rather than a duplicated one.
+    harness.send(inputMessage(1, '안녕히가세요'));
+
+    assert.equal(harness.lastRejection()?.reason, 'payload-mismatch');
+  } finally {
+    harness.destroy();
+  }
+});
+
+test('#18 criterion 10 a composition and a following keystroke are separate operations', () => {
+  const harness = createHarness({}, 8);
+  try {
+    harness.send(inputMessage(1, HANGUL_COMMIT));
+    // Boundary: dedup must not bleed across operations. Several keydowns collapsing into
+    // one commit is exactly the shape that makes an over-eager identity rule swallow the
+    // next real keystroke.
+    harness.send(inputMessage(2, '\r'));
+
+    assert.equal(harness.lastRejection(), undefined, 'the Enter after a commit must run');
   } finally {
     harness.destroy();
   }
