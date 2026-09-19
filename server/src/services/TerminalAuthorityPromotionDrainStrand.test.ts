@@ -250,3 +250,86 @@ test('the drain quantity is observable: stranded reports one, applied reports ze
     healthy.dispose();
   }
 });
+
+const PROMOTION_REQUEST = {
+  sessionId: 'strand-session',
+  authorityEpoch: '1',
+  previousStreamEpoch: '1',
+  nextStreamEpoch: '2',
+  transitionEpoch: '2',
+  oldResponderLeaseId: 'legacy-responder-1',
+  nextResponderLeaseId: 'server-responder-1',
+  nextDriverLeaseId: 'server-driver-1',
+} as const;
+
+/**
+ * The second thing beginPromotion awaits, and the instrument for it.
+ *
+ * After the output drain it queues its responder-disable boundary on the serialised
+ * terminal-delivery chain and awaits that. A delivery ahead of it that never settles blocks
+ * it indefinitely, holds no output record, and is therefore invisible to
+ * `pendingLegacyBrowserOutputCount` -- which is why that count can be a correct zero while
+ * promotion still never returns.
+ *
+ * This test exists to be able to come back ZERO. If the chain is empty at promote time on a
+ * real session, this candidate is eliminated the way the drain was, and that is the outcome
+ * the instrument is built to allow rather than to avoid.
+ */
+test('the delivery chain depth and age are observable, and zero when nothing is queued', async () => {
+  const idle = createTerminalAuthorityController(createOptions());
+  try {
+    assert.equal(idle.getState().pendingTerminalDeliveryCount, 0, 'an idle session queues nothing');
+    assert.equal(
+      idle.getState().oldestPendingTerminalDeliveryAgeMs,
+      null,
+      'with nothing queued there is no oldest delivery to age',
+    );
+  } finally {
+    idle.dispose();
+  }
+
+  // A delivery that never settles: the enqueue returns a promise with no resolver.
+  const stalled = createTerminalAuthorityController(createOptions({
+    enqueueTerminalMessage: () => new Promise<boolean>(() => {}),
+  }));
+  try {
+    const reserved = stalled.enqueueHeadlessOutput({ sourceSeq: '1', data: 'x' });
+    await stalled.applyEnqueuedHeadlessOutput((reserved as { recordId: string }).recordId);
+    assert.equal(
+      stalled.getState().pendingLegacyBrowserOutputCount,
+      0,
+      'precondition: the output record applied cleanly, so the drain is empty -- this is the '
+      + 'exact state the live session reported, with promotion still unable to return',
+    );
+
+    void stalled.beginPromotion({ ...PROMOTION_REQUEST });
+    await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+    const state = stalled.getState();
+    assert.ok(
+      (state.pendingTerminalDeliveryCount ?? 0) > 0,
+      `a stalled delivery must be countable; got ${String(state.pendingTerminalDeliveryCount)}`,
+    );
+    assert.equal(
+      typeof state.oldestPendingTerminalDeliveryAgeMs,
+      'number',
+      'a queued delivery must have a measurable age',
+    );
+  } finally {
+    stalled.dispose();
+  }
+
+  // Control: the identical path with a delivery that settles must return the chain to zero,
+  // or the count reports a constant and proves nothing above.
+  const healthy = createTerminalAuthorityController(createOptions());
+  try {
+    await healthy.beginPromotion({ ...PROMOTION_REQUEST });
+    assert.equal(
+      healthy.getState().pendingTerminalDeliveryCount,
+      0,
+      'control: a settled delivery must leave the chain empty',
+    );
+  } finally {
+    healthy.dispose();
+  }
+});

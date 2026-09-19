@@ -79,6 +79,14 @@ export interface TerminalAuthorityState {
   // implementations of TerminalAuthorityState (test stubs) predate the field and are not
   // required to invent a number for a queue they do not have.
   pendingLegacyBrowserOutputCount?: number;
+  /**
+   * Deliveries queued on the serialised terminal-delivery chain that have not settled, and
+   * the age of the oldest. Depth alone cannot separate a busy chain from a stalled one;
+   * the age is what makes "stalled" measurable rather than inferred. Both are optional for
+   * the same reason as the count above: other implementations have no such chain.
+   */
+  pendingTerminalDeliveryCount?: number;
+  oldestPendingTerminalDeliveryAgeMs?: number | null;
   pendingDeliveryBytes: number;
   pendingDeliveryChunks: number;
   restartRequired: boolean;
@@ -503,6 +511,17 @@ export function createTerminalAuthorityController(
   let recoveryRequested = false;
   let serverAuthorityLeasesInstalled = false;
   let terminalDeliverySettlementChain: Promise<void> = Promise.resolve();
+  /**
+   * Every terminal delivery on this session is serialised onto the chain above, so a
+   * delivery that never settles blocks everything queued behind it -- including the
+   * responder-disable boundary `beginPromotion` awaits after the output drain. That stall
+   * holds no output record, so `pendingLegacyBrowserOutputCount` reports zero through it.
+   *
+   * Entries are added on enqueue and removed when the delivery settles either way. An entry
+   * that outlives its delivery is the thing being looked for, so this deliberately does not
+   * clean up on any other signal.
+   */
+  const pendingTerminalDeliveries = new Set<{ enqueuedAt: number }>();
   let promotionCommitTransaction: Promise<AckResult> | null = null;
   let promotionCommitToken: symbol | null = null;
   let compatibilityCommitTransaction: Promise<AckResult & { completed: boolean }> | null = null;
@@ -714,7 +733,11 @@ export function createTerminalAuthorityController(
         return false;
       }
     };
+    const deliveryEntry = { enqueuedAt: options.now() };
+    pendingTerminalDeliveries.add(deliveryEntry);
     const result = terminalDeliverySettlementChain.then(settle, settle);
+    const forget = (): void => { pendingTerminalDeliveries.delete(deliveryEntry); };
+    result.then(forget, forget);
     terminalDeliverySettlementChain = result.then(() => undefined, () => undefined);
     return result;
   };
@@ -2016,7 +2039,18 @@ export function createTerminalAuthorityController(
       const pendingLegacyBrowserOutputCount = [...pendingOutputs.values()]
         .filter(output => output.ingestOwnerToken === 'legacy-browser')
         .length;
-      return { ...state, pendingLegacyBrowserOutputCount };
+      const deliveries = [...pendingTerminalDeliveries];
+      const oldestEnqueuedAt = deliveries.reduce<number | null>(
+        (oldest, entry) => (oldest === null || entry.enqueuedAt < oldest ? entry.enqueuedAt : oldest),
+        null,
+      );
+      return {
+        ...state,
+        pendingLegacyBrowserOutputCount,
+        pendingTerminalDeliveryCount: deliveries.length,
+        oldestPendingTerminalDeliveryAgeMs:
+          oldestEnqueuedAt === null ? null : options.now() - oldestEnqueuedAt,
+      };
     },
   };
 

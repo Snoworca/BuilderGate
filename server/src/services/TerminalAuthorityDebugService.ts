@@ -289,6 +289,15 @@ export function createProductionTerminalAuthorityDebugRuntime(
                 ...(typeof authorityState.pendingLegacyBrowserOutputCount === 'number'
                   ? { pendingLegacyBrowserOutputCount: authorityState.pendingLegacyBrowserOutputCount }
                   : {}),
+                // The other thing beginPromotion waits on: its responder-disable boundary is
+                // queued on the serialised terminal-delivery chain, behind everything already
+                // there. Depth says how many are ahead; age says whether the head is stuck.
+                ...(typeof authorityState.pendingTerminalDeliveryCount === 'number'
+                  ? { pendingTerminalDeliveryCount: authorityState.pendingTerminalDeliveryCount }
+                  : {}),
+                ...(authorityState.oldestPendingTerminalDeliveryAgeMs !== undefined
+                  ? { oldestPendingTerminalDeliveryAgeMs: authorityState.oldestPendingTerminalDeliveryAgeMs }
+                  : {}),
               },
             } : {}),
             ...(options.router ? {
