@@ -5464,20 +5464,40 @@ export class WsRouter {
         // registration sat there with authorityStreamEpoch "3" and no active checkpoint ledger.
         // Having negotiated is not having been delivered to.
         const registration = meta?.terminalAuthorityViewRegistrations?.get(sessionId);
-        const deliveredByAuthority = registration !== undefined
-          && (this.terminalAuthorityViewModeReader?.({
+        // 2026-09-20: widened back from `mode === 'checkpoint'` to "has a registration".
+        //
+        // #110 narrowed it because a registered view in LEGACY mode was measurably receiving
+        // nothing, and the fallback had to reach it. That measurement was taken while the
+        // in-flight transport slot orphaned settlements: the authority delivery chain stalled
+        // after its first displaced send, so legacy views genuinely were not delivered to.
+        // The narrowing compensated for that bug, not for a structural gap.
+        //
+        // With the orphan fixed the compensation over-delivers. In legacy mode
+        // `checkpointOutputAuthority` is false, so sendTerminalFrame skips its server-mode
+        // block and reaches enqueueSettledViewFrame -- a registered legacy view IS delivered
+        // to by the authority path. Post-fix a 700-line producer left the browser holding
+        // ~1409 lines until a promotion replaced the buffer.
+        //
+        // The mode is still read, for the event detail below: it says WHICH path delivered,
+        // which is what a reader needs when this skip is the thing under suspicion.
+        const viewMode = registration !== undefined
+          ? (this.terminalAuthorityViewModeReader?.({
             ...registration,
             sessionId,
             clientId: meta!.clientId,
             connectionId: meta!.connectionId ?? meta!.clientId,
-          } as TerminalAuthorityViewRegistration) ?? 'legacy') === 'checkpoint';
+          } as TerminalAuthorityViewRegistration) ?? 'legacy')
+          : undefined;
+        const deliveredByAuthority = registration !== undefined;
         if (deliveredByAuthority) {
           // Not silent any more. A dropped chunk that leaves no trace is how this cost a day.
           this.recordReplayEvent({
             kind: 'output_skipped_delivered_by_authority',
             sessionId,
             details: {
-              reason: 'delivered-by-checkpoint-authority',
+              reason: viewMode === 'checkpoint'
+                ? 'delivered-by-checkpoint-authority'
+                : 'delivered-by-legacy-authority-responder',
               outputBytes: utf8ByteLength(data),
               viewGeneration: registration.viewGeneration,
             },
