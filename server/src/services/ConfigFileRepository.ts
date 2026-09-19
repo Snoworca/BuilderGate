@@ -1,4 +1,5 @@
 import JSON5 from 'json5';
+import { recordRawConfigSnapshot } from '../utils/rawConfigSnapshot.js';
 import { copyFileSync, readFileSync, writeFileSync } from 'fs';
 import type {
   Config,
@@ -155,6 +156,15 @@ export class ConfigFileRepository {
     try {
       copyFileSync(this.configPath, result.backupPath);
       writeFileSync(this.configPath, result.renderedContent, 'utf-8');
+      // OPS-BGSTAB-012: the raw snapshot behind `explicit` is refreshed HERE, on the one
+      // path that actually rewrites the file, rather than alongside the runtime apply.
+      // Updating the raw view and the runtime view from two places is how they drift, and
+      // the drift is silent: `explicit` would keep describing the boot-time file while the
+      // effective values described the patched runtime, and both halves would look right.
+      // The re-parse is of the rendered text that was just written, NOT of the parsed
+      // Config -- a parsed config has zod's defaults filled in and would report every key
+      // as declared.
+      recordRawConfigSnapshot(JSON5.parse(result.renderedContent));
     } catch (error) {
       throw new AppError(
         ErrorCode.CONFIG_PERSIST_FAILED,
