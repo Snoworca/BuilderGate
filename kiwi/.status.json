@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-19T00:57:21.869Z",
+  "generatedAt": "2026-09-19T01:16:23.975Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "2fc08807c63cf457669615bde2bae276b31f5640470de79b9aca82493169c1ec",
+    "value": "3861183e12e3a428b9ce064f1665da8a88389f2404e4c421b484111dbbd6c21e",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "a87e1ff8129c82e11a4a0a6f4818ebf5771847d890d49bd0b965656013c6ede4",
-        "size": 1104394,
-        "mtimeMs": 1789779440341.718
+        "sha256": "5c7ebbb0fb121e0929f497f72fc0786da03b9ab7aca3a235cc525988f2c482a1",
+        "size": 1107436,
+        "mtimeMs": 1789780522260.4426
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -38,9 +38,9 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "9450e3f8a3d154b160c40a4393a36f61c490450d4c090c2b688fdb0e780d5cea",
-        "size": 202055,
-        "mtimeMs": 1789494818519.0251
+        "sha256": "367f4c4e72e08747b22adcad739eab0746ecd1a6040fce93de4e8b4cac2d5385",
+        "size": 205640,
+        "mtimeMs": 1789780583505.5588
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -88,7 +88,7 @@
     },
     "constraint": {
       "BGSTAB": 1,
-      "MDE": 2
+      "MDE": 3
     }
   },
   "lock": {

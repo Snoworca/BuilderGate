@@ -363,12 +363,24 @@ export const workspaceApi = {
     const values = typeof limits === 'object' && limits !== null && !Array.isArray(limits)
       ? limits as Record<string, unknown>
       : undefined;
-    if (!values || Object.keys(values).length !== 2
+    // #66 added `maxTotalSessions` to what the server publishes here, because the browser was
+    // hardcoding 32 while the server enforced the configured value. This check still demanded
+    // EXACTLY TWO keys, so the three-key payload the server actually sends was rejected and the
+    // whole workspace state was thrown away -- measured against a freshly started server: the
+    // sidebar, the tab bar and the terminal were all empty and the only trace was one
+    // `invalid-workspace-limits` warning in the console.
+    //
+    // The count is kept rather than loosened to "at least": an exact set is what makes an
+    // unknown key visible here instead of downstream. It is now the set the server sends.
+    if (!values || Object.keys(values).length !== 3
       || !Object.hasOwn(values, 'maxWorkspaces') || !Object.hasOwn(values, 'maxTabsPerWorkspace')
+      || !Object.hasOwn(values, 'maxTotalSessions')
       || typeof values.maxWorkspaces !== 'number' || !Number.isFinite(values.maxWorkspaces)
       || values.maxWorkspaces < 1 || values.maxWorkspaces > 50
       || typeof values.maxTabsPerWorkspace !== 'number' || !Number.isFinite(values.maxTabsPerWorkspace)
-      || values.maxTabsPerWorkspace < 1 || values.maxTabsPerWorkspace > 16) {
+      || values.maxTabsPerWorkspace < 1 || values.maxTabsPerWorkspace > 16
+      || typeof values.maxTotalSessions !== 'number' || !Number.isFinite(values.maxTotalSessions)
+      || values.maxTotalSessions < 1 || values.maxTotalSessions > 128) {
       console.warn('[Workspace API] invalid-workspace-limits');
       throw new Error('invalid-workspace-limits');
     }

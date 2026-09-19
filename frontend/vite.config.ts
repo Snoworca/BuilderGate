@@ -6,6 +6,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { shouldInlineAsset } from './vite.assetInlining';
 
 const serverPort = parseInt(process.env.DEV_SERVER_PORT || '2002', 10);
 const frontendPort = parseInt(process.env.DEV_FRONTEND_PORT || '2003', 10);
@@ -13,6 +14,10 @@ const frontendPort = parseInt(process.env.DEV_FRONTEND_PORT || '2003', 10);
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // Fonts must stay as files: the server's CSP is font-src 'self'. See vite.assetInlining.ts.
+    assetsInlineLimit: (filePath: string) => shouldInlineAsset(filePath),
+  },
   resolve: {
     dedupe: ['react', 'react-dom', 'react-dnd', 'react-dnd-html5-backend'],
     alias: {
