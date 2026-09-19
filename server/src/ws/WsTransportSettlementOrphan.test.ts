@@ -72,7 +72,7 @@ function createRouter(): WsRouter {
   return new WsRouter(authServiceStub, sessionManagerStub);
 }
 
-test('a second tracked send on the same socket orphans the first message settlement', async () => {
+test('two tracked sends on the same socket both settle; neither is displaced', async () => {
   const router = createRouter();
   const socket = createDeferredSocket();
 
@@ -91,17 +91,14 @@ test('a second tracked send on the same socket orphans the first message settlem
   socket.flushNext();
   await new Promise<void>(resolve => setTimeout(resolve, SETTLE_PROBE_MS));
 
-  assert.equal(
-    settled.includes('first'),
-    false,
-    `the first message settled after being displaced; if this now fails, the in-flight `
-    + 'tracking is no longer one-slot-per-socket -- check that before deleting this test',
-  );
-  assert.equal(
-    settled.includes('second'),
-    true,
-    'precondition: the surviving message must settle, or this test proves nothing about '
-    + 'displacement specifically',
+  // Flipped from characterization to regression guard in the same commit as the fix. Before
+  // the in-flight slot became a set this asserted the OPPOSITE -- that `first` never settled
+  // -- and passed. If it starts failing, displacement has returned.
+  assert.deepEqual(
+    [...settled].sort(),
+    ['first', 'second'],
+    'a concurrently sent message did not settle; the in-flight tracking has reverted to '
+    + 'one slot per socket and a displaced send has lost its only resolver',
   );
 });
 
@@ -131,5 +128,77 @@ test('control: serialised sends on the same socket both settle', async () => {
     ['first', 'second'],
     'control failed: serialised sends did not both settle, so the displacement test above '
     + 'is measuring something other than displacement',
+  );
+});
+
+/**
+ * The two bugs the single slot causes beyond the orphan, both live today and both invisible
+ * for the same reason: a displaced message quietly isn't there.
+ *
+ * These assert the CORRECT behaviour, so they are red until the slot becomes a set. They
+ * each carry a control, because "the boundary is missing a message" is also satisfied by a
+ * harness that never got two messages in flight at all.
+ */
+
+interface RouterInternals {
+  transportPolicyGeneration: number;
+  findSocketForCanaryTarget(target: unknown): unknown;
+  hasPendingPolicyGeneration(target: unknown, generation: number): boolean;
+  captureWsRollbackBoundary(target: unknown): Set<unknown>;
+}
+
+function internals(router: WsRouter, ws: WebSocket): RouterInternals {
+  const raw = router as unknown as RouterInternals;
+  raw.findSocketForCanaryTarget = () => ws;
+  return raw;
+}
+
+test('the rollback boundary captures every in-flight message, not only the newest', () => {
+  const router = createRouter();
+  const socket = createDeferredSocket();
+  const raw = internals(router, socket.ws);
+
+  router.sendTo(socket.ws, { type: 'output', sessionId: 's', data: 'first' }, () => {});
+  const afterFirst = raw.captureWsRollbackBoundary({});
+  assert.equal(
+    afterFirst.size,
+    1,
+    'control: with one send in flight the boundary must contain exactly it, or this test '
+    + 'cannot tell a missing message from a boundary that never captures anything',
+  );
+
+  router.sendTo(socket.ws, { type: 'output', sessionId: 's', data: 'second' }, () => {});
+  const afterSecond = raw.captureWsRollbackBoundary({});
+  assert.equal(
+    afterSecond.size,
+    2,
+    'the rollback boundary omitted a message that is still in flight; a displaced send is '
+    + 'excluded from the boundary it belongs to',
+  );
+});
+
+test('a displaced in-flight message is still found by its policy generation', () => {
+  const router = createRouter();
+  const socket = createDeferredSocket();
+  const raw = internals(router, socket.ws);
+
+  const firstGeneration = raw.transportPolicyGeneration;
+  router.sendTo(socket.ws, { type: 'output', sessionId: 's', data: 'first' }, () => {});
+  assert.equal(
+    raw.hasPendingPolicyGeneration({}, firstGeneration),
+    true,
+    'control: the generation of the only in-flight message must be found, or this test '
+    + 'cannot distinguish displacement from a lookup that never finds anything',
+  );
+
+  // A second send under a later generation takes the slot.
+  raw.transportPolicyGeneration = firstGeneration + 1;
+  router.sendTo(socket.ws, { type: 'output', sessionId: 's', data: 'second' }, () => {});
+
+  assert.equal(
+    raw.hasPendingPolicyGeneration({}, firstGeneration),
+    true,
+    'a message of this generation is still in flight but the lookup answered false; the '
+    + 'displaced message is invisible to policy-generation checks',
   );
 });

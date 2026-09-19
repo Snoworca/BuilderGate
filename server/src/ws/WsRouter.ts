@@ -599,7 +599,25 @@ export class WsRouter {
     timers: new Set<string>(),
   };
   private terminalResourcePolicyPrunedLedgerCount = 0;
-  private readonly inFlightTransportMessages = new Map<WebSocket, WsTransportMessage>();
+  /**
+   * In-flight tracked transport messages per socket.
+   *
+   * This was `Map<WebSocket, WsTransportMessage>` -- one slot -- until 2026-09-20. A second
+   * tracked send overwrote the first, and when the first `ws.send` callback fired it found a
+   * different message in the slot and returned WITHOUT settling, so its `onSettled` never
+   * ran and its promise lost its only resolver. Every other exit in that callback settles;
+   * only displacement did not, precisely because the slot could not hold two.
+   *
+   * A set makes the structure match what the surrounding code already believes. It also
+   * fixes two defects the single slot caused on its own: the rollback boundary silently
+   * omitted a displaced message, and policy-generation lookups answered false while a
+   * message of that generation was still in flight.
+   *
+   * Deliberately NOT fixed here: tracking and serialisation are still gated on different
+   * predicates (`onSettled` present vs. a transport queue state existing). This removes the
+   * instance, not the class.
+   */
+  private readonly inFlightTransportMessages = new Map<WebSocket, Set<WsTransportMessage>>();
   private readonly policyRollbackDrainSockets = new Set<WebSocket>();
   private readonly terminalResourcePolicyAdmissionDrainSockets = new Set<WebSocket>();
   private transportPolicyGeneration = 0;
@@ -6465,7 +6483,11 @@ export class WsRouter {
   private hasPendingPolicyGeneration(target: WsCanaryTarget, generation: number): boolean {
     const ws = this.findSocketForCanaryTarget(target);
     if (!ws) return false;
-    if (this.inFlightTransportMessages.get(ws)?.policyGeneration === generation) return true;
+    const inFlightForGeneration = this.inFlightTransportMessages.get(ws);
+    if (inFlightForGeneration
+      && [...inFlightForGeneration].some(message => message.policyGeneration === generation)) {
+      return true;
+    }
     const queue = this.transportQueues.get(ws);
     return queue ? getTransportMessagesInPriorityOrder(queue)
       .some(message => message.policyGeneration === generation) : false;
@@ -6475,8 +6497,7 @@ export class WsRouter {
     const boundary = new Set<WsTransportMessage>();
     const ws = this.findSocketForCanaryTarget(target);
     if (!ws) return boundary;
-    const inFlight = this.inFlightTransportMessages.get(ws);
-    if (inFlight) boundary.add(inFlight);
+    for (const inFlight of this.inFlightTransportMessages.get(ws) ?? []) boundary.add(inFlight);
     const queue = this.transportQueues.get(ws);
     if (queue) {
       for (const message of getTransportMessagesInPriorityOrder(queue)) boundary.add(message);
@@ -6490,7 +6511,7 @@ export class WsRouter {
     const ws = this.findSocketForCanaryTarget(target);
     if (!ws) return false;
     const inFlight = this.inFlightTransportMessages.get(ws);
-    if (inFlight && boundary.has(inFlight)) return true;
+    if (inFlight && [...inFlight].some(message => boundary.has(message))) return true;
     const queue = this.transportQueues.get(ws);
     return queue ? getTransportMessagesInPriorityOrder(queue).some(message => boundary.has(message)) : false;
   }
@@ -6804,14 +6825,18 @@ export class WsRouter {
     }
 
     const tracksSettlement = state !== undefined || message.onSettled !== undefined;
-    if (tracksSettlement) this.inFlightTransportMessages.set(ws, message);
+    if (tracksSettlement) {
+      const tracked = this.inFlightTransportMessages.get(ws) ?? new Set<WsTransportMessage>();
+      tracked.add(message);
+      this.inFlightTransportMessages.set(ws, tracked);
+    }
 
     try {
       const onSent = (error?: Error) => {
-        if (tracksSettlement && this.inFlightTransportMessages.get(ws) !== message) {
+        if (tracksSettlement && !this.inFlightTransportMessages.get(ws)?.has(message)) {
           return;
         }
-        if (tracksSettlement) this.inFlightTransportMessages.delete(ws);
+        if (tracksSettlement) this.forgetInFlightTransportMessage(ws, message);
         if (state) {
           state.sending = false;
         }
@@ -6884,9 +6909,7 @@ export class WsRouter {
       const canaryFailure = this.isCurrentCandidateTransportMessage(ws, message)
         || this.isWsRollbackBoundaryMessage(ws, message);
       const fairDeliveryFailure = this.isFairTerminalDeliveryTransportMessage(message);
-      if (this.inFlightTransportMessages.get(ws) === message) {
-        this.inFlightTransportMessages.delete(ws);
-      }
+      this.forgetInFlightTransportMessage(ws, message);
       if (state) {
         state.sending = false;
       }
@@ -6931,6 +6954,14 @@ export class WsRouter {
       : control;
     return target === ws
       && this.getTerminalAuthorityTransportBindingId(target) === expected.bindingId;
+  }
+
+  /** Removes one tracked message, dropping the socket's entry once nothing is in flight. */
+  private forgetInFlightTransportMessage(ws: WebSocket, message: WsTransportMessage): void {
+    const tracked = this.inFlightTransportMessages.get(ws);
+    if (!tracked) return;
+    tracked.delete(message);
+    if (tracked.size === 0) this.inFlightTransportMessages.delete(ws);
   }
 
   private settleTransportMessage(message: WsTransportMessage, error?: Error): void {
@@ -7074,7 +7105,9 @@ export class WsRouter {
     const state = this.transportQueues.get(ws);
     const inFlight = this.inFlightTransportMessages.get(ws);
     if (inFlight) {
-      this.settleTransportMessage(inFlight, new Error('terminal-authority-transport-closed'));
+      for (const message of inFlight) {
+        this.settleTransportMessage(message, new Error('terminal-authority-transport-closed'));
+      }
       this.inFlightTransportMessages.delete(ws);
     }
     if (!state) {
