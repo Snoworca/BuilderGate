@@ -989,6 +989,9 @@ export type ReplayEventKind =
   | 'input_flushed_timeout'
   | 'output_queued'
   | 'output_covered_by_snapshot'
+  // #110: a legacy-audience chunk withheld because the checkpoint authority path already
+  // delivered it to this view. Recorded rather than dropped in silence.
+  | 'output_skipped_delivered_by_authority'
   | 'output_flushed'
   | 'ready_sent'
   | 'screen_repair_requested'

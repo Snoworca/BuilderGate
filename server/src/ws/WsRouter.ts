@@ -5313,9 +5313,37 @@ export class WsRouter {
       }
 
       const meta = this.clients.get(ws);
-      if (audience === 'legacy-unnegotiated'
-        && meta?.terminalAuthorityViewRegistrations?.has(sessionId)) {
-        continue;
+      if (audience === 'legacy-unnegotiated') {
+        // #110. Every caller passing this audience is a FALLBACK: the authority path could not
+        // or did not deliver the chunk, and one of them says so outright -- "deliver this chunk
+        // so the user still sees it". The filter therefore has to name the views the authority
+        // path actually delivered to, which is the ones in checkpoint mode. It used to name
+        // every view that had merely negotiated, and a negotiated view still in legacy mode is
+        // exactly the common case: measured 2026-09-19, a session echoed `codex`, emitted its
+        // startup queries and a 928-byte paint, and the browser was sent none of it while the
+        // registration sat there with authorityStreamEpoch "3" and no active checkpoint ledger.
+        // Having negotiated is not having been delivered to.
+        const registration = meta?.terminalAuthorityViewRegistrations?.get(sessionId);
+        const deliveredByAuthority = registration !== undefined
+          && (this.terminalAuthorityViewModeReader?.({
+            ...registration,
+            sessionId,
+            clientId: meta!.clientId,
+            connectionId: meta!.connectionId ?? meta!.clientId,
+          } as TerminalAuthorityViewRegistration) ?? 'legacy') === 'checkpoint';
+        if (deliveredByAuthority) {
+          // Not silent any more. A dropped chunk that leaves no trace is how this cost a day.
+          this.recordReplayEvent({
+            kind: 'output_skipped_delivered_by_authority',
+            sessionId,
+            details: {
+              reason: 'delivered-by-checkpoint-authority',
+              outputBytes: utf8ByteLength(data),
+              viewGeneration: registration.viewGeneration,
+            },
+          });
+          continue;
+        }
       }
       const pending = meta?.replayPendingSessions.get(sessionId);
       if (pending) {
