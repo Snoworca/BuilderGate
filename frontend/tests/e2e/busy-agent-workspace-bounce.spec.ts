@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './workspaceOwnershipFixture';
-import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
+import { getActiveSessionId, login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
 
 /**
  * A workspace switch while a long-running agent holds the terminal must not
@@ -76,8 +76,25 @@ async function findWorkspaceOption(page: Page, workspaceName: string) {
 }
 
 async function readVisibleTerminalText(page: Page) {
-  const text = await page.locator('.terminal-view:visible .xterm-rows').first().textContent();
-  return text ?? '';
+  // #39: `.xterm-rows` is the DOM renderer's output, and since #15 attached the WebGL addon
+  // the visible terminal draws to a canvas -- measured on this host: `.xterm-screen` 1,
+  // `.xterm-rows` 0, canvases 3. The old selector therefore matches nothing at all rather
+  // than matching late, which is why the failure read `element(s) not found` while a
+  // 1060x598 terminal was plainly on screen. `webgl-dom-fallback.spec.ts` records the same
+  // fact from the other side: "while WebGL is attached the terminal text is not in the DOM".
+  //
+  // Reading the rows when they exist keeps this working under the DOM renderer (and after a
+  // WebGL context loss falls back to it); when they do not, the text is genuinely
+  // unreadable from the DOM and an empty string is the honest answer rather than a hang.
+  const rows = page.locator('.terminal-view:visible .xterm-rows').first();
+  if (await rows.count() > 0) return (await rows.textContent()) ?? '';
+  // WebGL is attached: read the buffer through the test-host-gated debug hook instead.
+  const sessionId = await getActiveSessionId(page);
+  if (!sessionId) return '';
+  return await page.evaluate(
+    (id) => window.__buildergateTerminalDebug?.captureTerminalText?.(id) ?? '',
+    sessionId,
+  );
 }
 
 
@@ -152,12 +169,31 @@ test.describe('Busy agent survives workspace bounce', () => {
     await agentOption.click();
     await expect(agentOption).toHaveAttribute('aria-selected', 'true');
 
+    // #39: this spec creates its tab through the API and then typed into
+    // `.terminal-view:visible` straight after selecting the workspace. Measured outside the
+    // spec, that sequence leaves every `.terminal-view` at 0x0 for at least twelve seconds --
+    // the tab button renders and the tab has a session, but no terminal host is mounted for
+    // it. Selecting the tab, the way a user reaching that workspace does, mounts it at once
+    // (1060x598 on the next sample). The `waitForTerminal` in beforeEach cannot stand in for
+    // this: it ran before the switch and answered for whichever terminal was on screen then.
+    const agentTab = page.locator('.workspace-tabbar [role="tab"]').first();
+    await agentTab.waitFor({ state: 'visible', timeout: 30000 });
+    await agentTab.click();
+    await expect(page.locator('.terminal-view:visible .xterm-screen').first())
+      .toBeVisible({ timeout: 30000 });
+
     // codex draws a full-screen TUI and keeps redrawing it, which is what holds
     // the headless write chain non-empty for as long as it runs.
     await sendVisibleTerminalCommand(page, 'codex');
-    // codex may open on an update notice; nothing else draws until it is
-    // dismissed, so clear it before waiting for the banner.
-    await page.waitForTimeout(4000);
+    // codex may open on an update notice; nothing else draws until it is dismissed, so clear
+    // it before waiting for the banner. #39: wait for codex to have drawn SOMETHING rather
+    // than for a fixed 4s -- on a slow boot the old sleep read an empty screen and skipped the
+    // dismissal, and then the banner poll below waited out its whole minute for a notice
+    // nobody had answered.
+    await expect.poll(
+      async () => (await readVisibleTerminalText(page)).trim().length,
+      { timeout: 30000, message: 'codex printed nothing at all after launch' },
+    ).toBeGreaterThan(0);
     if ((await readVisibleTerminalText(page)).includes('Update available')) {
       await page.keyboard.press('2');
       await page.waitForTimeout(2000);

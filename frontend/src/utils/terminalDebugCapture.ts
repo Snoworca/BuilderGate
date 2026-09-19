@@ -103,6 +103,11 @@ interface TerminalDebugStore {
   readInputGateSnapshot: (sessionId: string) => TerminalInputGateDebugSnapshot | null;
   setNextWebSocketInputSendFailure: (override: DebugWebSocketSendFailureOverride | null) => boolean;
   requestRepairLayout: (sessionId: string, reason?: string) => Promise<boolean>;
+  // #39: the visible terminal draws through the WebGL addon since #15, and while that is
+  // attached the text is not in the DOM at all -- `.xterm-rows` is absent, not late. Specs
+  // that assert on what the terminal shows had no way to read it. This reads the buffer
+  // itself, so it answers the same under either renderer.
+  captureTerminalText: (sessionId: string) => string | null;
   captureRetainedState: (sessionId: string) => TerminalRetainedStateEvidence | null;
   captureRetainedStateStreaming: (
     sessionId: string,
@@ -112,6 +117,7 @@ interface TerminalDebugStore {
   inputGateSnapshotReaders: Map<string, () => TerminalInputGateDebugSnapshot>;
   webSocketSendFailureHandlers: Set<(override: DebugWebSocketSendFailureOverride | null) => void>;
   repairLayoutHandlers: Map<string, (reason: string) => Promise<boolean>>;
+  terminalTextCaptureHandlers: Map<string, () => string>;
   retainedStateCaptureHandlers: Map<string, () => TerminalRetainedStateEvidence>;
   retainedStateStreamingCaptureHandlers: Map<
     string,
@@ -253,6 +259,12 @@ function getStore(): TerminalDebugStore | null {
         }
         return await handler(reason);
       },
+      captureTerminalText(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.terminalTextCaptureHandlers.get(sessionId)?.() ?? null;
+      },
       captureRetainedState(sessionId: string) {
         if (!isLocalTestHost()) {
           return null;
@@ -269,6 +281,7 @@ function getStore(): TerminalDebugStore | null {
       inputGateSnapshotReaders: new Map<string, () => TerminalInputGateDebugSnapshot>(),
       webSocketSendFailureHandlers: new Set<(override: DebugWebSocketSendFailureOverride | null) => void>(),
       repairLayoutHandlers: new Map<string, (reason: string) => Promise<boolean>>(),
+      terminalTextCaptureHandlers: new Map<string, () => string>(),
       retainedStateCaptureHandlers: new Map<string, () => TerminalRetainedStateEvidence>(),
       retainedStateStreamingCaptureHandlers: new Map<
         string,
@@ -343,6 +356,27 @@ export function registerTerminalRepairLayoutHandler(
     const current = store.repairLayoutHandlers.get(sessionId);
     if (current === handler) {
       store.repairLayoutHandlers.delete(sessionId);
+    }
+  };
+}
+
+// #39: reading the visible terminal's text does not work through the DOM while the WebGL
+// renderer is attached, and every renderer keeps the same buffer. Test-host gated like its
+// neighbours, so nothing is exposed in ordinary use.
+export function registerTerminalTextCaptureHandler(
+  sessionId: string,
+  handler: () => string,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.terminalTextCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.terminalTextCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.terminalTextCaptureHandlers.delete(sessionId);
     }
   };
 }

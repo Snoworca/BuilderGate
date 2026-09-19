@@ -588,9 +588,17 @@ export async function getServerSessionCount(page: Page): Promise<number> {
  * had never driven.
  */
 export async function sendVisibleTerminalCommand(page: Page, command: string): Promise<void> {
-  const input = page.locator('.terminal-view:visible .xterm-helper-textarea').first();
-  await input.click();
-  await page.waitForTimeout(300);
+  // #39: this clicked `.xterm-helper-textarea`, which xterm keeps off-screen on purpose --
+  // Playwright reports it as "element is not visible" and the click never lands. Focus the way
+  // a user does, by clicking the terminal screen, and then wait for the helper textarea to
+  // actually hold focus rather than for a fixed 300ms.
+  const screen = page.locator('.terminal-view:visible .xterm-screen').first();
+  await screen.waitFor({ state: 'visible', timeout: 30000 });
+  await screen.click();
+  await page.waitForFunction(() => {
+    const active = document.activeElement;
+    return active instanceof HTMLTextAreaElement && active.classList.contains('xterm-helper-textarea');
+  }, undefined, { timeout: 10000 });
   await page.keyboard.type(command);
   await page.keyboard.press('Enter');
 }

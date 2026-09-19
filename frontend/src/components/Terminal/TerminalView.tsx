@@ -32,6 +32,7 @@ import {
   registerInputTransportOverrideHandler,
   registerTerminalRepairLayoutHandler,
   registerTerminalRetainedStateCaptureHandler,
+  registerTerminalTextCaptureHandler,
   registerTerminalRetainedStateStreamingCaptureHandler,
   recordTerminalDebugEvent,
 } from '../../utils/terminalDebugCapture';
@@ -4143,6 +4144,19 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const unregisterRepairLayoutHandler = registerTerminalRepairLayoutHandler(sessionId, (reason) => {
         return repairLayoutAfterIme(reason);
       });
+      // #39: the on-screen text, read from the buffer rather than the DOM, because the WebGL
+      // renderer draws to a canvas and leaves no `.xterm-rows` for a spec to read.
+      const unregisterTerminalTextCaptureHandler = registerTerminalTextCaptureHandler(
+        sessionId,
+        () => {
+          const lines: string[] = [];
+          const buffer = term.buffer.active;
+          for (let row = 0; row < term.rows; row += 1) {
+            lines.push(buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? '');
+          }
+          return lines.join('\n');
+        },
+      );
       const unregisterRetainedStateCaptureHandler = registerTerminalRetainedStateCaptureHandler(
         sessionId,
         () => createTerminalRetainedStateEvidence(captureTerminalRetainedState(term)),
@@ -4217,6 +4231,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         unregisterInputTransportOverride();
         unregisterInputGateSnapshotReader();
         unregisterRepairLayoutHandler();
+        unregisterTerminalTextCaptureHandler();
         unregisterRetainedStateCaptureHandler();
         unregisterRetainedStateStreamingCaptureHandler();
         if (helperTextarea) {
