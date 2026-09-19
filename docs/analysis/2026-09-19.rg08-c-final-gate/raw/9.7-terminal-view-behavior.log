@@ -1,0 +1,47 @@
+
+> frontend@0.0.0 test:unit:terminal-view-behavior
+> tsx --tsconfig tsconfig.test.json --experimental-test-module-mocks --import ./tests/unit/assetStubLoader-register.mjs --test tests/unit/terminalViewKeyboardBehavior.test.ts tests/unit/terminalSavedSelectionDivergence.test.ts tests/unit/terminalPasteUnifiedPath.test.ts
+
+(node:1043650) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1043650) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+✔ AC-8: a keyboard paste carrying a close marker is sanitized before it is bracketed (793.679767ms)
+✔ AC-8: the capture listener owns the paste so xterm cannot paste it a second time (43.81047ms)
+✔ AC-8: keyboard paste obeys the multiline guard it used to bypass entirely (31.059359ms)
+✔ AC-8: with bracketed paste on, a multiline paste is admitted (26.07983ms)
+An update to TerminalView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+✔ #18: ordinary typing does not enter the paste path (37.772088ms)
+✔ AC-1: the OSC52 handler is registered at all, so the policy is a decision (24.956657ms)
+✔ AC-1: a read request writes nothing and is consumed rather than passed on (29.364789ms)
+✔ AC-5: an allowed OSC52 write reaches the clipboard through the coordinator (29.066801ms)
+✔ AC-4: a malformed OSC52 payload leaves the clipboard untouched (29.636835ms)
+✔ AC-3: an oversized OSC52 payload is refused without writing a truncated prefix (32.22974ms)
+(node:1043651) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1043651) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+✔ a saved right-click selection outlives the visible selection, and typing does not end it (798.674584ms)
+(node:1043652) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1043652) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+✔ AC-2: Ctrl+C without a selection delegates to xterm so the PTY receives SIGINT (814.9682ms)
+✔ AC-2: Ctrl+C with a selection is owned by the clipboard coordinator, not xterm (40.163968ms)
+✔ AC-3: a successful copy clears the selection it copied (27.781128ms)
+✔ AC-3: a copy whose selection changed mid-write leaves the new selection alone (24.653442ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14895.818563
+EXIT=0
