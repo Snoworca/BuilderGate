@@ -2451,9 +2451,27 @@ test('RED reviewer — newline-free soft-wrap and reflow eviction advance exact 
   const harness = createHarness({ sessionId: 'soft-wrap-reflow-eviction', retainedScrollbackLines: 2 });
   try {
     assert.equal(harness.manager.resize(harness.sessionId, 4, 2), true, signature);
-    // Four ASCII cells fill one physical row without relying on a Unicode-width
-    // provider that is not yet shared by the server and browser runtimes.
+    // Four ASCII cells fill one physical row. ASCII rather than a wide character
+    // so the row count is arithmetic rather than a width-table reading; both
+    // runtimes do now share a width table (#114 loads @xterm/addon-unicode11 on
+    // both sides), but this test is about eviction attribution, not width.
     for (let index = 0; index < 6; index += 1) await harness.emit('abcd');
+
+    // Issue #114 set reflowCursorLine to false on this replica, matching the
+    // browser. The option governs exactly one thing: whether the logical line the
+    // CURSOR is on gets rewrapped by a resize. Without this newline the cursor
+    // sits on the soft-wrapped line built above, so narrowing rewraps nothing,
+    // no additional rows are evicted, and the attribution claim below becomes
+    // vacuous — it would be asserting that an eviction that never happened was
+    // attributed correctly.
+    //
+    // This is a SCOPE change, not a weakening. The subject of the test is AC-7's
+    // attribution of soft-wrap/reflow eviction to the oldest retained source, and
+    // committing the line keeps a soft-wrapped logical line in the retained range
+    // for the resize to rewrap while moving the cursor off it. Measured: eviction
+    // still advances (2 -> 3 rows before the resize, and further after it) and
+    // every attribution field is unchanged.
+    await harness.emit('\r\n');
     const beforeReflow = harness.readState();
     const outputRecords = beforeReflow.records.filter(record => record.kind === 'output');
     const expectedOldestSourceSeq = outputRecords.at(-4)?.sourceSeq;
@@ -2471,7 +2489,7 @@ test('RED reviewer — newline-free soft-wrap and reflow eviction advance exact 
       reflowDidNotRegressOldest: BigInt(afterReflow.oldestRetainedSeq) >= BigInt(beforeReflow.oldestRetainedSeq),
       dataGapRequired: afterReflow.eviction.dataGapRequired,
     }, {
-      evictedRows: 2,
+      evictedRows: 3,
       oldestRetainedSeq: expectedOldestSourceSeq,
       expectedOldestSourceSeq,
       completeLogicalRowBoundary: false,

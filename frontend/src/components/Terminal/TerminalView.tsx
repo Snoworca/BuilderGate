@@ -2,6 +2,7 @@ import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useLay
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { shouldExpirePendingInput } from '../../utils/pendingInputExpiry';
 import {
   publishInputDiscard,
@@ -39,6 +40,7 @@ import {
   registerInputTransportOverrideHandler,
   registerTerminalRepairLayoutHandler,
   registerTerminalBufferLengthsCaptureHandler,
+  registerTerminalWidthPolicyCaptureHandler,
   registerTerminalRetainedStateCaptureHandler,
   registerTerminalTextCaptureHandler,
   registerTerminalSelectionCaptureHandler,
@@ -3406,7 +3408,23 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         ...resolveTerminalXtermOptions(getTerminalResourceLimits()),
         convertEol: false,
         disableStdin: true,
+        // Issue #114. Both stated rather than inherited so this terminal and the
+        // server replica move together; see the notes on DEFAULT_TERMINAL_OPTIONS
+        // and UNICODE_WIDTH_VERSION in server/src/utils/headlessTerminal.ts.
+        //
+        // allowProposedApi is not optional here: xterm throws from
+        // Unicode11Addon.activate() without it, so the loadAddon call below would
+        // fail for every terminal this component creates.
+        allowProposedApi: true,
+        reflowCursorLine: false,
       });
+
+      // Issue #114. The unicode width table, loaded here and on the server's
+      // retained replica, never on one alone — see the note on
+      // UNICODE_WIDTH_VERSION in server/src/utils/headlessTerminal.ts for the
+      // measurement and for why one side alone shifts recovered output.
+      term.loadAddon(new Unicode11Addon());
+      term.unicode.activeVersion = '11';
 
       const fitAddon = new FitAddon();
       const serializeAddon = new SerializeAddon();
@@ -4492,6 +4510,29 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           cols: term.cols,
         }),
       );
+      const unregisterWidthPolicyCaptureHandler = registerTerminalWidthPolicyCaptureHandler(
+        sessionId,
+        () => {
+          // `term.unicode` is proposed API and throws when allowProposedApi is
+          // absent. Reporting that as null rather than letting it escape keeps a
+          // misconfigured build readable instead of turning the probe into a crash.
+          let unicodeActiveVersion: string | null = null;
+          let unicodeVersions: string[] = [];
+          try {
+            unicodeActiveVersion = term.unicode.activeVersion;
+            unicodeVersions = [...term.unicode.versions];
+          } catch {
+            unicodeActiveVersion = null;
+            unicodeVersions = [];
+          }
+          return {
+            unicodeActiveVersion,
+            unicodeVersions,
+            allowProposedApi: term.options.allowProposedApi,
+            reflowCursorLine: term.options.reflowCursorLine,
+          };
+        },
+      );
       const unregisterRetainedStateStreamingCaptureHandler =
         registerTerminalRetainedStateStreamingCaptureHandler(
           sessionId,
@@ -4566,6 +4607,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         unregisterTerminalSelectionCaptureHandler();
         unregisterRetainedStateCaptureHandler();
         unregisterBufferLengthsCaptureHandler();
+        unregisterWidthPolicyCaptureHandler();
         unregisterRetainedStateStreamingCaptureHandler();
         if (helperTextarea) {
           helperTextarea.removeEventListener('keydown', onHelperKeyDown);

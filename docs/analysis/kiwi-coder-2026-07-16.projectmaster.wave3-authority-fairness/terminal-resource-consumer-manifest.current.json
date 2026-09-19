@@ -25,7 +25,7 @@
     "sourceHashes": {
       "frontend/src/components/Settings/settingsDraftHelpers.ts": "e4ef966e1731f468f3bba1a6bcfa443bc0b991d65178a81413836da0f5c3e8a7",
       "frontend/src/components/Terminal/TerminalContainer.tsx": "9a48ec701129788c99b85ece2761686738806fad603011b28090bc67493cfcea",
-      "frontend/src/components/Terminal/TerminalView.tsx": "883edcb499e8c6bbb2b59de9289af7bb16b681d93a1a0681298f1494f7dffabc",
+      "frontend/src/components/Terminal/TerminalView.tsx": "4799d61b06cb1d742a45fae558739428aad6e8e512b4121d0c5b8dc234c75a0f",
       "frontend/src/contexts/WebSocketContext.tsx": "b3f34a3730492dec2ce01166727f3cb2119900b2babbadc4f366e5825a3253cf",
       "frontend/src/hooks/useTerminalRuntimeResidency.ts": "839519d4c6fb58e3069aa5a2aff4f94e44e58675cb0aa4d47ad13913f0e8c415",
       "frontend/src/services/tokenStorage.ts": "90241907e80a501e6cf423f8c26b97a3245291cccfada64f168798c4e93ed1d7",
@@ -60,13 +60,13 @@
       "server/src/utils/config.ts": "4d45bfd80be67defca6d0d0199c86a4343c7b6b1c8fd2f63c721c33a5968a818",
       "server/src/utils/configStrictLoader.ts": "a48552fc4963b921f32a73c75a010f5b6636bc39832c2e0e46ede371524fb2a2",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
-      "server/src/utils/headlessTerminal.ts": "786aa5eed4f5a0f5827abaac3087832e0ecc152ac017b772acd29dbd38b8b2ef",
+      "server/src/utils/headlessTerminal.ts": "d56fb6315c21bc75ff43b9ed5d048b520ba12b874041b71a90a6f19c60bdf4be",
       "server/src/ws/WsRouter.ts": "3e9ea81d3075c8a6329e55498f704f864c00798de87dfab7f50e7d99660e2d51",
       "server/src/ws/wsSendPolicy.ts": "d8161ec40992dfaabc0285fa39d29299b933133931e5be05197eefa7fc258939",
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "fd2ddb3243927cad1d5ce4daa7d985b6fa4fec73aea19aa933959eec622f38a5",
       "tools/wave3/terminal-resource-policy-differential.ts": "4e3037ede53b126b5c5dd117ba7d87426d9a8b81768492becf3c3f7b64d84f92"
     },
-    "sourceSetSha256": "fed85d601b1b64340b3ffae16b8bde275efe90f880977fc2f6e27d73b6db4d42",
+    "sourceSetSha256": "136dc3efc954706a180665ee2203989234a5a19fddd445e9a4242a738af1e479",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "717db211ba52cf1c223a296dcda512a412011476d30fcaed18b4b503ea45ce6b",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"

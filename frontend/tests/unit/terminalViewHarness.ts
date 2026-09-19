@@ -44,6 +44,17 @@ export function createFakeTerminalClass(state: FakeTerminalState) {
     element: HTMLElement | undefined;
     textarea: HTMLTextAreaElement | undefined;
 
+    /**
+     * #114. TerminalView loads @xterm/addon-unicode11 and then selects the
+     * version through this object. It is modelled here rather than guarded for
+     * in production on purpose: a component that tolerated a missing `unicode`
+     * would carry on with xterm's built-in width table while the server replica
+     * used Unicode 11, and recovered output would shift by a cell from the first
+     * emoji onward — silently, which is the failure FR-BGSTAB-029 exists to stop.
+     * The fake therefore has to grow the surface the component uses.
+     */
+    unicode = { activeVersion: '6', versions: ['6', '11'] };
+
     attachCustomKeyEventHandler(handler: (ev: KeyboardEvent) => boolean): void {
       state.keyHandler = handler;
     }
@@ -126,6 +137,7 @@ export function installTerminalViewModuleMocks(state: FakeTerminalState, wsStub:
   mock.module('@xterm/addon-fit', { namedExports: { FitAddon: FakeAddon } });
   mock.module('@xterm/addon-serialize', { namedExports: { SerializeAddon: FakeAddon } });
   mock.module('@xterm/addon-webgl', { namedExports: { WebglAddon: FakeAddon } });
+  mock.module('@xterm/addon-unicode11', { namedExports: { Unicode11Addon: FakeAddon } });
 
   mock.module('../../src/contexts/WebSocketContext.tsx', {
     namedExports: {

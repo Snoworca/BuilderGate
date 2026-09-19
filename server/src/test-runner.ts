@@ -14514,7 +14514,21 @@ async function testHeadlessSnapshotResize(): Promise<void> {
       assert.ok(before.data.length > 0);
       assert.ok(after.data.length > 0);
       assert.deepEqual(beforeLines, ['abcdefghij', '12345', '']);
-      assert.deepEqual(afterLines, ['abcde', 'fghij', '12345', '']);
+
+      // Issue #114 moved reflowCursorLine from true to false here, so the logical
+      // line the cursor sits on is no longer rewrapped on a narrow and its
+      // overflow ('fghij') is dropped instead. That looks like content loss and
+      // is not one in production: this harness has no shell, and a shell reprints
+      // its prompt line on SIGWINCH. Measured in a real browser against a live
+      // PTY — frontend/tests/e2e/terminal-width-policy-browser.spec.ts — a
+      // 190-character typed command is still on screen in full after narrowing
+      // the window from 1400px to 520px with this option off.
+      //
+      // The reason it is off is that the browser terminal has always been off,
+      // and this replica exists to reproduce what the browser shows. With the
+      // option on, the replica rewrapped a line the browser had truncated, so a
+      // restore handed the user a screen they had not been looking at.
+      assert.deepEqual(afterLines, ['abcde', '12345', '', '']);
       assert.deepEqual(readHeadlessLines(restored, 4), afterLines);
     } finally {
       restored.dispose();

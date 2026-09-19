@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { ISerializeOptions, SerializeAddon as SerializeAddonType } from '@xterm/addon-serialize';
 import serializeModule from '@xterm/addon-serialize';
+import unicode11Module from '@xterm/addon-unicode11';
 import type { ITerminalOptions, Terminal as HeadlessTerminalType } from '@xterm/headless';
 import headlessModule from '@xterm/headless';
 import type {
@@ -10,7 +11,39 @@ import type {
 } from '../types/ws-protocol.js';
 
 const { SerializeAddon } = serializeModule;
+const { Unicode11Addon } = unicode11Module;
 const { Terminal } = headlessModule;
+
+/**
+ * Issue #114. The unicode width table both engines use.
+ *
+ * xterm's built-in table is Unicode 6, under which every astral emoji is one
+ * cell. A shell computing its own line width uses wcwidth, which gives two, so
+ * the two disagree about where the cursor is the moment any emoji is printed —
+ * and modern CLI and agent output is full of them. Measured 2026-09-20 across
+ * both engines: astral emoji 1 -> 2 cells, a ZWJ family 3 -> 6, a skin-tone pair
+ * 2 -> 4; CJK, ambiguous-width and ASCII unchanged. Both engines returned
+ * identical values for every sample, which is the property that matters here.
+ *
+ * It MUST be loaded on both sides or on neither. One side alone shifts recovered
+ * output by a cell from the first emoji onward, which is the failure
+ * FR-BGSTAB-029 exists to prevent;
+ * frontend/tests/unit/terminalWidthPolicyParity.test.ts fails when only one
+ * source tree loads one, and frontend/tests/unit/terminalUnicodeWidthGolden.test.ts
+ * runs both engines and compares them against recorded values.
+ *
+ * Bound: Unicode 11 is a per-code-point table, not a grapheme segmenter. A BMP
+ * emoji with VS16 stays one cell and a ZWJ sequence is the sum of its parts
+ * rather than one glyph's width. `@xterm/addon-unicode-graphemes` is the thing
+ * that would change that, and adopting it is a separate decision that would have
+ * to be taken on both sides at once for the same reason.
+ */
+export const UNICODE_WIDTH_VERSION = '11';
+
+function installUnicodeWidthTable(terminal: HeadlessTerminalType): void {
+  terminal.loadAddon(new Unicode11Addon());
+  terminal.unicode.activeVersion = UNICODE_WIDTH_VERSION;
+}
 
 export interface HeadlessTerminalState {
   terminal: HeadlessTerminalType;
@@ -203,9 +236,28 @@ type RepairStyle = {
   overline: boolean;
 };
 
+/**
+ * Issue #114. `reflowCursorLine` is false on both sides, and both sides say so
+ * explicitly rather than inheriting the default, so an xterm release that moved
+ * the default would move them together or not at all.
+ *
+ * It used to be true here and unset in the browser. Measured 2026-09-20 by
+ * driving both engines through one stream: with the cursor on a wrapped prompt
+ * line — the state a live shell is normally in — a 40 -> 72 resize put the same
+ * text on different rows with the cursor two rows apart, and 40 -> 24 diverged
+ * the other way. Committed history agreed either way, which is why nothing
+ * noticed. This replica exists to reproduce what the browser shows so restore
+ * can hand it back, so a divergence is a defect here by definition.
+ *
+ * False rather than true on both sides because xterm's default is false for a
+ * stated reason — "shells usually handle this themselves" — and the browser
+ * terminal is attached to a real shell. Both engines consume that one shell's
+ * output. frontend/tests/unit/terminalReflowParity.test.ts drives both engines
+ * and fails if they diverge again.
+ */
 const DEFAULT_TERMINAL_OPTIONS: Pick<ITerminalOptions, 'allowProposedApi' | 'reflowCursorLine'> = {
   allowProposedApi: true,
-  reflowCursorLine: true,
+  reflowCursorLine: false,
 };
 
 export const VIEWPORT_ONLY_SERIALIZE_OPTIONS: ISerializeOptions = { scrollback: 0 };
@@ -223,6 +275,7 @@ export function createHeadlessTerminalState(options: {
     scrollback: options.scrollbackLines,
     windowsPty: options.windowsPty,
   });
+  installUnicodeWidthTable(terminal);
   const serializeAddon = new SerializeAddon();
   terminal.loadAddon(serializeAddon);
   const state: HeadlessTerminalState = {

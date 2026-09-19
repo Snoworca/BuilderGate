@@ -24,9 +24,14 @@ import { test } from 'node:test';
  *   - the declared asymmetry below stops being true, in either direction.
  *
  * It deliberately does NOT assert that the two option sets are identical.
- * Making the browser match the server means turning on `reflowCursorLine`
- * there, which changes resize reflow behaviour and cannot be verified without a
- * browser. That belongs to #114, the named successor to #16, not to this guard.
+ * `allowProposedApi` is still server-only, with its reason below.
+ *
+ * #114 closed the `reflowCursorLine` half. It was server-only true; both sides
+ * now state false. That entry moved from DECLARED_ASYMMETRY to RESOLVED_PARITY
+ * rather than being deleted, so removing the value from either side is red
+ * instead of silent. What the option actually does to a buffer is measured by
+ * driving both engines in tests/unit/terminalReflowParity.test.ts; a source-text
+ * pin cannot see it, and that file is what noticed the divergence.
  */
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -48,18 +53,48 @@ const WIDTH_AFFECTING_OPTIONS = ['allowProposedApi', 'reflowCursorLine'] as cons
  * "fixes" it without removing the entry.
  */
 const DECLARED_ASYMMETRY: ReadonlyMap<string, string> = new Map([
+  // Empty since #114. Both width-affecting options are now set on both sides and
+  // live in RESOLVED_PARITY below. This map is kept rather than deleted: it is
+  // where a NEW one-sided option gets declared, and the test below fails if one
+  // appears without an entry here.
+]);
+
+/**
+ * Options that were asymmetric and are not any more, with the value both sides
+ * must now carry. This is the replacement DECLARED_ASYMMETRY asked for: the
+ * entry does not disappear when the gap closes, it changes what it claims.
+ *
+ * An option listed here must be set EXPLICITLY on both sides with this value.
+ * Explicitly, not merely equal in effect: an xterm release that moved the
+ * default would move whichever side inherited it and leave the other behind,
+ * which is the failure that produced this entry in the first place.
+ */
+const RESOLVED_PARITY: ReadonlyMap<string, { value: string; note: string }> = new Map([
   [
     'allowProposedApi',
-    'Server-only. Precondition for swapping the unicode width table. Harmless '
-      + 'while neither side loads a unicode addon, which the addon check below '
-      + 'enforces.',
+    {
+      value: 'true',
+      note: 'Issue #114. Was server-only, tolerated because it is only the precondition '
+        + 'for swapping the unicode width table and neither side swapped it. Adopting '
+        + '@xterm/addon-unicode11 on both sides made it mandatory in the browser too: '
+        + 'xterm throws from Unicode11Addon.activate() without it, so a browser terminal '
+        + 'built without this option would fail to load the addon. Measured — the golden '
+        + 'corpus reported every one of its 18 entries red with the addon requested and '
+        + 'the option absent, including the ASCII baseline, because construction threw.',
+    },
   ],
   [
     'reflowCursorLine',
-    'Server-only. Turning it on in the browser changes resize reflow and needs '
-      + 'browser verification, so #114 owns that change, not this guard. '
-      + '(Was #16, which closed without doing it; #114 is the named successor. '
-      + 'This entry must be REPLACED when the asymmetry is resolved, not deleted.)',
+    {
+      value: 'false',
+      note: 'Issue #114. Was server-only true, browser unset. Measured 2026-09-20 by '
+        + 'driving both engines through one stream: with the cursor on a wrapped prompt '
+        + 'line the same text landed on different rows after a resize, cursor two rows '
+        + 'apart. False on both because xterm defaults it false for a stated reason — '
+        + '"shells usually handle this themselves" — and both engines consume the output '
+        + 'of one real shell. The behaviour itself is measured in '
+        + 'tests/unit/terminalReflowParity.test.ts; this entry only pins the policy.',
+    },
   ],
 ]);
 
@@ -156,16 +191,37 @@ test('#16 width-affecting options keep the values this guard was written against
 
   // Both are server-only today, so only the server carries a value to pin. If
   // the browser gains either one, the asymmetry test above fires first.
-  assert.match(
-    server,
-    /allowProposedApi:\s*true/,
-    'The server stopped enabling allowProposedApi; the unicode width table can '
-      + 'no longer be swapped there, so re-derive this contract.',
-  );
-  assert.match(
-    server,
-    /reflowCursorLine:\s*true/,
-    'The server stopped enabling reflowCursorLine; resize reflow now differs '
-      + 'from what this contract was measured against.',
-  );
+  // allowProposedApi moved to RESOLVED_PARITY in #114 and is pinned on both
+  // sides by the test below, so it is deliberately not re-pinned here.
+  assert.ok(server.length > 0, 'the server terminal source must be readable');
+  // reflowCursorLine moved to RESOLVED_PARITY in #114 and is pinned on both
+  // sides by the test below, so it is deliberately not re-pinned here.
+});
+
+test('#114 resolved parity options are set explicitly on both sides with the same value', () => {
+  const server = read(SERVER_TERMINAL);
+  const browser = read(BROWSER_TERMINAL);
+
+  assert.ok(RESOLVED_PARITY.size > 0, 'RESOLVED_PARITY must not be emptied; see its comment');
+
+  for (const [option, { value, note }] of RESOLVED_PARITY) {
+    assert.ok(note.trim().length > 0, `${option} is declared resolved without a reason`);
+
+    const expected = new RegExp(`\\b${option}\\s*:\\s*${value}\\b`);
+    assert.match(
+      server,
+      expected,
+      `${SERVER_TERMINAL} must set ${option}: ${value}. ${note}`,
+    );
+    assert.match(
+      browser,
+      expected,
+      `${BROWSER_TERMINAL} must set ${option}: ${value}. ${note}`,
+    );
+
+    assert.ok(
+      !DECLARED_ASYMMETRY.has(option),
+      `${option} is declared both asymmetric and resolved; drop one of the two`,
+    );
+  }
 });

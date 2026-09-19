@@ -57,6 +57,8 @@ interface WidthProbeCell {
 
 interface WidthProbeTerminal {
   write(data: string, callback?: () => void): void;
+  loadAddon(addon: object): void;
+  unicode: { activeVersion: string };
   dispose(): void;
   readonly buffer: {
     readonly active: {
@@ -84,6 +86,38 @@ function loadTerminalConstructor(specifier: string): WidthProbeTerminalConstruct
 
 const BrowserTerminal = loadTerminalConstructor('@xterm/xterm');
 const HeadlessTerminal = loadTerminalConstructor('@xterm/headless');
+
+/**
+ * Issue #114 loaded `@xterm/addon-unicode11` on both sides, so this corpus has
+ * to load it too or it measures a pair of terminals that no longer exists in
+ * production — the same failure the provenance test below guards for options.
+ *
+ * Which is why the version is not written here as a constant: it is read out of
+ * both production sources, and a side that stops loading the addon, or sets a
+ * different version, reddens the provenance test rather than quietly changing
+ * what this file measures.
+ */
+const unicode11Module = require('@xterm/addon-unicode11') as unknown as {
+  Unicode11Addon?: new () => object;
+  default?: { Unicode11Addon?: new () => object };
+};
+const Unicode11Addon = unicode11Module.Unicode11Addon ?? unicode11Module.default?.Unicode11Addon;
+assert.ok(Unicode11Addon, '@xterm/addon-unicode11 must expose Unicode11Addon');
+
+const BROWSER_TERMINAL_SOURCE = readFileSync(
+  new URL('../../src/components/Terminal/TerminalView.tsx', import.meta.url),
+  'utf8',
+);
+
+/** The unicode version a source asks for, or null if it loads no addon at all. */
+function declaredUnicodeVersion(source: string): string | null {
+  if (!/Unicode11Addon/.test(source)) return null;
+  const version = source.match(/activeVersion\s*=\s*(?:UNICODE_WIDTH_VERSION|'([0-9]+)')/u);
+  if (!version) return null;
+  if (version[1]) return version[1];
+  const constant = source.match(/UNICODE_WIDTH_VERSION\s*=\s*'([0-9]+)'/u);
+  return constant ? constant[1] : null;
+}
 
 // ---------------------------------------------------------------------------
 // Server option provenance
@@ -123,18 +157,31 @@ function parseServerDefaultOptions(): Record<string, boolean> {
 /** Declared, so that a server-side option addition reddens this file rather than passing through it. */
 const SERVER_DEFAULT_OPTIONS_AS_MEASURED = Object.freeze({
   allowProposedApi: true,
-  reflowCursorLine: true,
+  // Issue #114 moved this from true to false and made the browser state the
+  // same value explicitly. It cannot change a cell width — it only acts on a
+  // resize, and this corpus never resizes — and the 18 goldens below were
+  // re-run across the change without one moving. The resize behaviour it does
+  // govern is measured in tests/unit/terminalReflowParity.test.ts.
+  reflowCursorLine: false,
 });
 
 /**
- * The browser sets neither width-affecting option; these are the remaining
- * construction options from TerminalView.tsx that a buffer can observe. Font,
- * theme and cursor styling are renderer-only and cannot change cell widths, so
- * they are deliberately absent.
+ * The construction options from TerminalView.tsx that a buffer can observe.
+ * Font, theme and cursor styling are renderer-only and cannot change cell
+ * widths, so they are deliberately absent.
+ *
+ * #114 added both width-affecting options here. `allowProposedApi` was
+ * server-only while neither side swapped the width table; loading
+ * `@xterm/addon-unicode11` made it mandatory on this side too, because xterm
+ * throws from Unicode11Addon.activate() without it. That is not a detail this
+ * corpus can paper over: an engine constructed without it here would fail to
+ * load the addon and then measure the built-in table.
  */
 const BROWSER_OPTIONS_AS_MEASURED = Object.freeze({
   convertEol: false,
   disableStdin: true,
+  allowProposedApi: true,
+  reflowCursorLine: false,
 });
 
 // ---------------------------------------------------------------------------
@@ -225,38 +272,56 @@ const WIDTH_CORPUS: readonly WidthGolden[] = [
     cells: [['❤️', 1]],
     cursorX: 1,
   },
-  // CHARACTERIZATION, and the single most consequential row in this file: under
-  // xterm's built-in UnicodeV6 table a plain astral emoji is ONE cell wide, not
-  // two. Both sides agree on that today. Loading a unicode11 provider on either
-  // side alone is precisely the #16 failure, and it moves this to 2.
+  // The single most consequential row in this file, and the one #114 moved.
+  // Under xterm's built-in UnicodeV6 table a plain astral emoji was ONE cell,
+  // while a shell computing its own line width with wcwidth says two — so the
+  // two disagreed about the cursor from the first emoji onward. Both sides now
+  // load @xterm/addon-unicode11 and both say two, with a width-0 continuation
+  // cell exactly as a CJK syllable has. Predictable under Unicode 11, not a
+  // characterization. Loading the provider on either side ALONE remains the #16
+  // failure; that is what the provenance test above exists to catch.
   {
     name: 'emoji-astral',
     input: '\u{1F44D}\u{1F600}',
-    cells: [['\u{1F44D}', 1], ['\u{1F600}', 1]],
-    cursorX: 2,
+    cells: [['\u{1F44D}', 2], ['', 0], ['\u{1F600}', 2]],
+    cursorX: 4,
   },
-  // CHARACTERIZATION. A ZWJ sequence is NOT kept in one cell: the ZWJ joins the
-  // cell of the emoji before it and the next emoji starts a new cell, so a
-  // two-emoji ZWJ pair spends two columns and a four-emoji family spends four.
+  // CHARACTERIZATION, and the bound on what #114 bought. Unicode 11 is a
+  // per-code-point width table, not a grapheme segmenter: the ZWJ joins the cell
+  // of the emoji before it and the next emoji starts a new cell, so a ZWJ pair
+  // spends FOUR columns and a four-emoji family spends EIGHT. A terminal with a
+  // grapheme segmenter would draw either as one two-column glyph.
+  //
+  // This is nonetheless what a shell's own wcwidth arithmetic produces, which is
+  // the agreement that matters for cursor position. @xterm/addon-unicode-graphemes
+  // is the thing that would change it, and adopting it is a separate decision
+  // that would have to be taken on both sides at once for the same reason.
   {
     name: 'emoji-zwj-pair',
     input: '\u{1F469}‍\u{1F4BB}',
-    cells: [['\u{1F469}‍', 1], ['\u{1F4BB}', 1]],
-    cursorX: 2,
+    cells: [['\u{1F469}‍', 2], ['', 0], ['\u{1F4BB}', 2]],
+    cursorX: 4,
   },
   {
     name: 'emoji-zwj-family',
     input: '\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}',
-    cells: [['\u{1F468}‍', 1], ['\u{1F469}‍', 1], ['\u{1F467}‍', 1], ['\u{1F466}', 1]],
-    cursorX: 4,
+    cells: [
+      ['\u{1F468}‍', 2], ['', 0],
+      ['\u{1F469}‍', 2], ['', 0],
+      ['\u{1F467}‍', 2], ['', 0],
+      ['\u{1F466}', 2],
+    ],
+    cursorX: 8,
   },
   // CHARACTERIZATION. A skin-tone modifier is itself an astral emoji code point
-  // and takes its own cell rather than merging into the base emoji's.
+  // and takes its own cell rather than merging into the base emoji's — so under
+  // Unicode 11 the pair spends four columns, for the same per-code-point reason
+  // as the ZWJ rows above.
   {
     name: 'emoji-skin-tone-modifier',
     input: '\u{1F44D}\u{1F3FD}',
-    cells: [['\u{1F44D}', 1], ['\u{1F3FD}', 1]],
-    cursorX: 2,
+    cells: [['\u{1F44D}', 2], ['', 0], ['\u{1F3FD}', 2]],
+    cursorX: 4,
   },
   // Zero-width characters consume no column, but they are not all handled the
   // same way: ZWSP and ZWNJ attach to the preceding cell's contents, while a BOM
@@ -279,8 +344,8 @@ const WIDTH_CORPUS: readonly WidthGolden[] = [
   {
     name: 'mixed-script-run',
     input: '가A\u{1F44D}é中',
-    cells: [['가', 2], ['', 0], ['A', 1], ['\u{1F44D}', 1], ['é', 1], ['中', 2]],
-    cursorX: 7,
+    cells: [['가', 2], ['', 0], ['A', 1], ['\u{1F44D}', 2], ['', 0], ['é', 1], ['中', 2]],
+    cursorX: 8,
   },
 ];
 
@@ -301,9 +366,20 @@ async function measure(
   Terminal: WidthProbeTerminalConstructor,
   extraOptions: Readonly<Record<string, unknown>>,
   input: string,
+  unicodeVersion: string | null,
 ): Promise<WidthMeasurement> {
   const terminal = new Terminal({ cols: COLS, rows: ROWS, scrollback: SCROLLBACK, ...extraOptions });
   try {
+    if (unicodeVersion !== null) {
+      terminal.loadAddon(new Unicode11Addon!());
+      terminal.unicode.activeVersion = unicodeVersion;
+      assert.equal(
+        terminal.unicode.activeVersion,
+        unicodeVersion,
+        `the engine refused unicode version ${unicodeVersion}; the corpus below would then `
+          + 'describe the built-in table while production uses another',
+      );
+    }
     await writeAsync(terminal, input);
     const line = terminal.buffer.active.getLine(0);
     assert.ok(line, 'row 0 must exist after a write');
@@ -350,6 +426,26 @@ test('#16 the corpus configures its headless engine from the server\'s own optio
   );
 });
 
+test('#114 both sources load the same unicode width table, and this corpus loads it too', () => {
+  const server = declaredUnicodeVersion(SERVER_TERMINAL_SOURCE);
+  const browser = declaredUnicodeVersion(BROWSER_TERMINAL_SOURCE);
+
+  assert.equal(
+    browser,
+    server,
+    'The browser and the server ask for different unicode width tables. One side alone '
+      + 'shifts recovered output by a cell from the first emoji onward, which is the failure '
+      + `FR-BGSTAB-029 exists to notice. server=${server ?? 'none'} browser=${browser ?? 'none'}`,
+  );
+  assert.equal(
+    server,
+    '11',
+    'The corpus below was measured with the Unicode 11 table loaded on both engines. A '
+      + 'different table, or none, moves the emoji rows; re-measure the corpus deliberately '
+      + 'rather than letting this file describe a terminal production does not build.',
+  );
+});
+
 /**
  * Substitution guard, borrowed from tests/unit/xtermDecoderInterleaving.test.ts.
  * Unlike that file this one runs BOTH packages, so a version split does not
@@ -388,8 +484,18 @@ test('#16 the corpus covers every width class issue #16 names', () => {
 
 for (const entry of WIDTH_CORPUS) {
   test(`#16 width golden — ${entry.name}`, async () => {
-    const server = await measure(HeadlessTerminal, { ...SERVER_DEFAULT_OPTIONS_AS_MEASURED }, entry.input);
-    const browser = await measure(BrowserTerminal, { ...BROWSER_OPTIONS_AS_MEASURED }, entry.input);
+    const server = await measure(
+      HeadlessTerminal,
+      { ...SERVER_DEFAULT_OPTIONS_AS_MEASURED },
+      entry.input,
+      declaredUnicodeVersion(SERVER_TERMINAL_SOURCE),
+    );
+    const browser = await measure(
+      BrowserTerminal,
+      { ...BROWSER_OPTIONS_AS_MEASURED },
+      entry.input,
+      declaredUnicodeVersion(BROWSER_TERMINAL_SOURCE),
+    );
 
     assert.deepEqual(
       toGoldenShape(server),

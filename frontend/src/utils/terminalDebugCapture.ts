@@ -110,6 +110,26 @@ export interface TerminalBufferLengthsDebugSnapshot {
   cols: number;
 }
 
+/**
+ * #114. What the LIVE terminal ended up with, as opposed to what the source
+ * says it was constructed with.
+ *
+ * The unit guards read both source trees as text and both engines in bare Node.
+ * Neither can answer whether the width addon actually activated in a shipped
+ * browser bundle: an addon can be dropped by a bundler, and
+ * `Unicode11Addon.activate()` throws outright when `allowProposedApi` is absent,
+ * which the source text alone cannot tell you happened. This reads the running
+ * object so the answer comes from the terminal the user is looking at.
+ */
+export interface TerminalWidthPolicyDebugSnapshot {
+  /** `term.unicode.activeVersion`, or null when reading it threw. */
+  unicodeActiveVersion: string | null;
+  /** Versions the running terminal offers; '11' only appears once the addon registered. */
+  unicodeVersions: string[];
+  allowProposedApi: boolean | undefined;
+  reflowCursorLine: boolean | undefined;
+}
+
 interface TerminalDebugStore {
   events: TerminalClientDebugEvent[];
   enabledAll: boolean;
@@ -136,6 +156,8 @@ interface TerminalDebugStore {
   captureTerminalSelection: (sessionId: string) => TerminalSelectionDebugSnapshot | null;
   // #16 item 6: see TerminalBufferLengthsDebugSnapshot.
   captureTerminalBufferLengths: (sessionId: string) => TerminalBufferLengthsDebugSnapshot | null;
+  // #114: see TerminalWidthPolicyDebugSnapshot.
+  captureTerminalWidthPolicy: (sessionId: string) => TerminalWidthPolicyDebugSnapshot | null;
   captureRetainedState: (sessionId: string) => TerminalRetainedStateEvidence | null;
   captureRetainedStateStreaming: (
     sessionId: string,
@@ -148,6 +170,7 @@ interface TerminalDebugStore {
   terminalTextCaptureHandlers: Map<string, () => string>;
   selectionCaptureHandlers: Map<string, () => TerminalSelectionDebugSnapshot>;
   bufferLengthsCaptureHandlers: Map<string, () => TerminalBufferLengthsDebugSnapshot>;
+  widthPolicyCaptureHandlers: Map<string, () => TerminalWidthPolicyDebugSnapshot>;
   retainedStateCaptureHandlers: Map<string, () => TerminalRetainedStateEvidence>;
   retainedStateStreamingCaptureHandlers: Map<
     string,
@@ -307,6 +330,12 @@ function getStore(): TerminalDebugStore | null {
         }
         return this.bufferLengthsCaptureHandlers.get(sessionId)?.() ?? null;
       },
+      captureTerminalWidthPolicy(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.widthPolicyCaptureHandlers.get(sessionId)?.() ?? null;
+      },
       captureRetainedState(sessionId: string) {
         if (!isLocalTestHost()) {
           return null;
@@ -326,6 +355,7 @@ function getStore(): TerminalDebugStore | null {
       terminalTextCaptureHandlers: new Map<string, () => string>(),
       selectionCaptureHandlers: new Map<string, () => TerminalSelectionDebugSnapshot>(),
       bufferLengthsCaptureHandlers: new Map<string, () => TerminalBufferLengthsDebugSnapshot>(),
+      widthPolicyCaptureHandlers: new Map<string, () => TerminalWidthPolicyDebugSnapshot>(),
       retainedStateCaptureHandlers: new Map<string, () => TerminalRetainedStateEvidence>(),
       retainedStateStreamingCaptureHandlers: new Map<
         string,
@@ -443,6 +473,27 @@ export function registerTerminalBufferLengthsCaptureHandler(
     const current = store.bufferLengthsCaptureHandlers.get(sessionId);
     if (current === handler) {
       store.bufferLengthsCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
+// #114: same test-host gating as its neighbours, so nothing is exposed in
+// ordinary use. See TerminalWidthPolicyDebugSnapshot for why source text cannot
+// answer this question.
+export function registerTerminalWidthPolicyCaptureHandler(
+  sessionId: string,
+  handler: () => TerminalWidthPolicyDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.widthPolicyCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.widthPolicyCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.widthPolicyCaptureHandlers.delete(sessionId);
     }
   };
 }
