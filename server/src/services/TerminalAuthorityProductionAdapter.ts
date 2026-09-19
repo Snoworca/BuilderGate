@@ -3404,8 +3404,32 @@ function attachProductionTerminalAuthorityInternal(
         // topology change would repeatedly invalidate the active checkpoint.
         return;
       }
+      // #16 item 6: this gate decides whether a registering view is elected for a fresh
+      // authoritative checkpoint, and it used to return silently. Every neighbouring branch
+      // records -- view-recovery-view-rebind-rejected, view-recovery-checkpoint-failed,
+      // checkpoint-delivery-ready-rejected -- so a reload rejected HERE produced an audit
+      // trail byte-identical to one where the cascade was never reached, and the two were
+      // indistinguishable after the fact. Measured 2026-09-20: a reload on a session
+      // reporting server mode appended nothing to the ring at all, and that null could not
+      // be read. Same reason #110 added output_skipped_delivered_by_authority: a decision
+      // that leaves no trace costs a day to re-derive.
       if (state.mode !== 'server'
-        || registration.authorityStreamEpoch !== state.streamEpoch) return;
+        || registration.authorityStreamEpoch !== state.streamEpoch) {
+        appendTerminalAuthorityAudit(runtime.audit, {
+          type: 'view-recovery-election-skipped',
+          kind: state.mode !== 'server'
+            ? 'authority-mode-not-server'
+            : 'registration-stream-epoch-mismatch',
+          sessionId: registration.sessionId,
+          connectionId: registration.connectionId,
+          viewGeneration: registration.viewGeneration,
+          // Both values, so a mismatch says WHICH pair disagreed rather than only that one did.
+          authorityMode: state.mode,
+          registrationStreamEpoch: registration.authorityStreamEpoch,
+          authorityStreamEpoch: state.streamEpoch,
+        } as never);
+        return;
+      }
       const registrationKey = viewKey(registration);
       if (!runtime.activeCheckpointsByView.has(registrationKey)
         && !runtime.reservedCheckpointsByView.has(registrationKey)) {
