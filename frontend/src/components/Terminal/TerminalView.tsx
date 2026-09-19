@@ -76,6 +76,8 @@ import {
   type TerminalClipboardSource,
   type TerminalClipboardTarget,
 } from '../../utils/terminalClipboardCoordinator';
+import { sanitizeTerminalPasteText } from '../../utils/terminalPasteSanitizer';
+import { evaluateOsc52Request } from '../../utils/terminalOsc52';
 import {
   resolveTerminalXtermOptions,
   TERMINAL_XTERM_THEME,
@@ -2878,8 +2880,23 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           closedReason: transportClosedReasonRef.current,
         };
       }
-      if (hasLineBreak(data) && !term.modes.bracketedPasteMode) {
-        const debugInput = buildTerminalInputDebugPayload(data, {
+      // #18: 다섯 입력 경로가 공유하는 단 하나의 sanitize 지점. 키보드 Ctrl+V 도
+      // onPasteCapture 에서 이 함수로 들어오므로 여기만 지키면 전부 균일해진다.
+      // 아래의 여러 줄 가드와 term.paste() 는 반드시 sanitize 된 텍스트를 봐야 한다 —
+      // 원문을 보면 제거될 마커가 줄 수를 바꿔 가드 판정을 흔든다.
+      const sanitized = sanitizeTerminalPasteText(data);
+      if (sanitized.removedControlCount > 0 || sanitized.removedBracketedPasteMarkers > 0) {
+        recordTerminalDebugEvent(sessionId, 'terminal_paste_sanitized', {
+          source,
+          removedControlCount: sanitized.removedControlCount,
+          removedBracketedPasteMarkers: sanitized.removedBracketedPasteMarkers,
+          bracketedPasteMode: term.modes.bracketedPasteMode,
+        });
+      }
+      const pasteText = sanitized.text;
+
+      if (hasLineBreak(pasteText) && !term.modes.bracketedPasteMode) {
+        const debugInput = buildTerminalInputDebugPayload(pasteText, {
           captureSeq: nextCaptureSeq(),
         }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
         recordTerminalDebugEvent(sessionId, 'terminal_input_rejected', {
@@ -2907,7 +2924,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       };
       programmaticPasteRef.current = pendingPaste;
       try {
-        term.paste(data);
+        term.paste(pasteText);
       } finally {
         if (programmaticPasteRef.current === pendingPaste) {
           programmaticPasteRef.current = null;
@@ -4056,6 +4073,36 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         });
       });
 
+      // SEC-BGSTAB-001: OSC52 clipboard 정책.
+      //
+      // 실측 2026-09-19 (이 변경 전): xterm 6.0.0 번들은 OSC 0,1,2,4,8,10,11,12,104,
+      // 110,111,112 만 등록하고 52 는 등록하지 않으며 @xterm/addon-clipboard 도 설치되어
+      // 있지 않다. 즉 OSC52 는 '거부되고' 있던 것이 아니라 **아무도 배선하지 않아서**
+      // 조용히 버려지고 있었다. 누군가 그 addon 을 추가하는 순간 읽기와 쓰기가 한꺼번에,
+      // 프롬프트도 상한도 base64 검증도 없이 켜진다. 여기서 직접 등록해 그 창을 닫는다.
+      //
+      // 핸들러는 어떤 경우에도 true 를 돌려준다 = '처리했다'. 읽기 요청에 대해 false 를
+      // 돌려 다른 처리기로 흘려보내면 언젠가 응답을 만들어 내는 경로가 생길 수 있고,
+      // 그 응답은 PTY 의 input 채널로 주입된다. 읽기는 거부가 아니라 '소비 후 침묵' 이다.
+      term.parser.registerOscHandler(52, (data: string) => {
+        const decision = evaluateOsc52Request(data, {
+          allowWrite: getTerminalResourceLimits().osc52.allowWrite,
+        });
+        // AC-6: 네 결과 전부 관측 가능해야 한다. payload 원문은 어떤 필드에도 담지 않는다 --
+        // 크기와 판정만 남긴다.
+        recordTerminalDebugEvent(sessionId, 'terminal_osc52', {
+          outcome: decision.kind,
+          decodedBytes: 'decodedBytes' in decision ? decision.decodedBytes : null,
+          malformedDetail: decision.kind === 'refuse-malformed' ? decision.detail : null,
+        });
+        if (decision.kind === 'allow-write') {
+          // AC-5: coordinator 를 거쳐야 generation guard 와 관측 채널을 상속한다.
+          // AC-7: 확인 프롬프트는 없다.
+          void clipboardCoordinator.copyText(decision.text, 'osc52');
+        }
+        return true;
+      });
+
       term.onData((data) => {
         if (data.length === 0) return;
         if (data === '\x1b[I' || data === '\x1b[O') return;
@@ -4169,9 +4216,35 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       // xterm의 _inputEvent 핸들러가 두 번째 triggerDataEvent를 호출해 이중 붙여넣기가 발생한다.
       // capture 단계에서 preventDefault를 호출하면 브라우저 삽입 동작만 막고
       // xterm 내부 paste 핸들러(clipboardData 읽기)는 그대로 실행된다.
+      //
+      // #18: 여기서 clipboardData 를 직접 읽어 coordinator 로 넘긴다.
+      // 그 전까지 이 리스너는 preventDefault 만 했고 실제 클립보드 읽기는 xterm 의
+      // Clipboard.handlePasteEvent 안에서 일어났다. 그 경로는 term.paste() 로 직행해
+      // submitProgrammaticPaste 를 통째로 우회하므로 sanitize 도, 여러 줄 가드도,
+      // generation guard 도, 관측 기록도 적용되지 않았다 — 다섯 경로 중 이것 하나만
+      // 무방비였고 onData 에서는 평범한 타이핑과 구분조차 되지 않았다.
+      //
+      // xterm 은 paste 를 element 와 textarea 양쪽에 **버블** 단계로 건다(실측
+      // CoreBrowserTerminal.ts:342-344). 둘 다 termEl 의 자손이므로 capture 단계인
+      // 이 리스너가 먼저 돈다. stopPropagation 으로 그 두 핸들러를 차단해야 이중
+      // 붙여넣기가 나지 않는다 — preventDefault 만으로는 xterm 핸들러가 그대로 돈다.
       const onPasteCapture = (e: Event) => {
         markUserXtermDataProvenance();
         e.preventDefault();
+        e.stopPropagation();
+
+        const clipboardData = (e as ClipboardEvent).clipboardData;
+        if (!clipboardData) {
+          // 클립보드를 읽을 수 없으면 아무것도 보내지 않는다. xterm 경로는 이미
+          // 막혔으므로 여기서 조용히 통과시키면 붙여넣기가 누락된 채 끝나는데,
+          // sanitize 를 건너뛴 입력을 PTY 로 흘리는 것보다 낫다.
+          recordTerminalDebugEvent(sessionId, 'terminal_paste_rejected', {
+            source: 'keyboard-paste',
+            reason: 'clipboard-data-unavailable',
+          });
+          return;
+        }
+        clipboardCoordinator.pasteText(clipboardData.getData('text/plain'), 'keyboard');
       };
       termEl.addEventListener('paste', onPasteCapture, { capture: true });
 

@@ -102,6 +102,13 @@
       transportOutboxMaxBytes: 65536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10000,
+      // SEC-BGSTAB-001: OSC52 clipboard 정책.
+      // 쓰기는 기본 허용이며 강화된 배포는 false 로 끌 수 있다.
+      // 읽기 스위치는 의도적으로 없다 — OSC52 읽기는 무조건 거부되며,
+      // 그것을 켜는 설정은 어떤 stability 에서도 존재하지 않는다.
+      osc52: {
+        allowWrite: true,
+      },
     },
     snapshots: {
       perSnapshotMaxChars: 2000000,

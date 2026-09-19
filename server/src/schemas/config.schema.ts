@@ -167,6 +167,15 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   transportOutboxMaxBytes: bytesLimit(1024, 16777216, 65536),
   transportOutboxTtlMs: durationLimit(1, 60000, 1500),
   scrollbackLines: countLimit(0, 50000, 10000),
+  // SEC-BGSTAB-001: OSC52 clipboard 정책. 스위치는 쓰기 하나뿐이고 읽기 스위치는
+  // 의도적으로 없다. 읽기 응답은 PTY 의 input 채널로 주입되므로 사용자가 마지막으로
+  // 복사한 것 -- 이 사용자 집단에서는 대개 키나 토큰 -- 에 대한 직접적인 유출
+  // 원시수단이고, 설정으로 두면 에이전트가 켜도록 설득당할 수 있다. 아래 .strict()
+  // 덕분에 allowRead 같은 키는 조용히 무시되는 것이 아니라 거부된다 -- 즉 '읽기를
+  // 켜는 설정' 은 어떤 stability 에서도 구조적으로 만들어질 수 없다.
+  osc52: defaultObject(z.object({
+    allowWrite: z.boolean().default(true),
+  }).strict()),
 }).strict());
 
 export const snapshotResourceLimitsSchema = defaultObject(z.object({

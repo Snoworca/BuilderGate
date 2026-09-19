@@ -2,7 +2,11 @@ export type TerminalClipboardSource =
   | 'keyboard'
   | 'tab-context-menu'
   | 'grid-context-menu'
-  | 'command-preset';
+  | 'command-preset'
+  // SEC-BGSTAB-001 AC-5: 터미널이 OSC52 로 요청한 클립보드 쓰기. 사용자 행위가 아니므로
+  // copySelection 이 아니라 copyText 로 들어오며, generation guard 와 관측 채널은
+  // 나머지 네 경로와 똑같이 상속한다.
+  | 'osc52';
 
 export interface TerminalClipboardTarget {
   terminalIdentity: object;
@@ -67,6 +71,13 @@ export interface TerminalClipboardCoordinatorOptions {
 
 export interface TerminalClipboardCoordinator {
   copySelection(source: TerminalClipboardSource): Promise<TerminalClipboardActionResult>;
+  /**
+   * 선택 영역이 아니라 주어진 텍스트를 클립보드에 쓴다 (SEC-BGSTAB-001 AC-5).
+   *
+   * copySelection 과 달리 선택을 지우지도 포커스를 옮기지도 않는다. 사용자가 요청한
+   * 복사가 아니기 때문이다 — 그렇게 하면 타이핑 중인 사용자의 커서가 움직인다.
+   */
+  copyText(text: string, source: TerminalClipboardSource): Promise<TerminalClipboardActionResult>;
   pasteClipboard(source: TerminalClipboardSource): Promise<TerminalClipboardActionResult>;
   pasteText(text: string, source: TerminalClipboardSource): TerminalClipboardActionResult;
   activate(): void;
@@ -177,6 +188,30 @@ export function createTerminalClipboardCoordinator(
 
       options.clearSelection(target);
       options.focus(target);
+      observe('copy', source, 'accepted', payloadBytes, target);
+      return { ok: true, action: 'copy', source };
+    },
+
+    async copyText(text, source) {
+      const operationGeneration = lifecycleGeneration;
+      const payloadBytes = textEncoder.encode(text).byteLength;
+      const target = disposed ? null : options.captureTarget();
+      if (!target || !isCurrent(target, operationGeneration)) {
+        return reject('copy', source, 'context-changed', payloadBytes, target);
+      }
+
+      try {
+        await options.writeClipboardText(text);
+      } catch {
+        return reject('copy', source, 'clipboard-write-failed', payloadBytes, target);
+      }
+
+      // 쓰기가 도는 동안 탭이 교체됐을 수 있다. 그 경우 성공으로 보고하면 사라진
+      // 세션이 한 일을 현재 세션의 결과처럼 기록하게 된다.
+      if (!isCurrent(target, operationGeneration)) {
+        return reject('copy', source, 'context-changed', payloadBytes, target);
+      }
+
       observe('copy', source, 'accepted', payloadBytes, target);
       return { ok: true, action: 'copy', source };
     },

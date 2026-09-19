@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-type ClipboardSource = 'keyboard' | 'tab-context-menu' | 'grid-context-menu' | 'command-preset';
+// SEC-BGSTAB-001 AC-5 adds 'osc52': an OSC52 write is routed through this coordinator
+// rather than touching navigator.clipboard directly, so it inherits FR-BGSTAB-021's
+// generation guard and observation channel instead of bypassing both.
+type ClipboardSource =
+  | 'keyboard' | 'tab-context-menu' | 'grid-context-menu' | 'command-preset' | 'osc52';
 
 interface ClipboardTarget {
   terminalIdentity: object;
@@ -24,6 +28,7 @@ interface ClipboardActionResult {
 
 interface ClipboardCoordinator {
   copySelection(source: ClipboardSource): Promise<ClipboardActionResult>;
+  copyText(text: string, source: ClipboardSource): Promise<ClipboardActionResult>;
   pasteClipboard(source: ClipboardSource): Promise<ClipboardActionResult>;
   pasteText(text: string, source: ClipboardSource): ClipboardActionResult;
   activate(): void;
@@ -681,4 +686,102 @@ test('clipboard coordinator RED — a captured but superseded target is rejected
     }],
     signature,
   );
+});
+
+// --- SEC-BGSTAB-001 AC-5/AC-6: the OSC52 write path -------------------------------
+//
+// An OSC52 write is a terminal-originated request to set the system clipboard. It is
+// NOT a user copy action, which is why it goes through copyText rather than
+// copySelection: there is no selection involved, and it must not clear one or move
+// focus. What it must inherit is the generation guard and the observation channel.
+
+test('SEC-BGSTAB-001 AC-5 — an OSC52 write reaches the clipboard under the osc52 source', async () => {
+  const signature = 'expected an OSC52 write to reach the clipboard through the coordinator';
+  const harness = createHarness();
+  const factory = await requireCoordinatorFactory(signature);
+  const coordinator = factory(harness.options);
+
+  const result = await coordinator.copyText('agent output', 'osc52');
+
+  assert.deepEqual(result, { ok: true, action: 'copy', source: 'osc52' }, signature);
+  assert.deepEqual(harness.written, ['agent output'], signature);
+});
+
+test('SEC-BGSTAB-001 AC-5 — an OSC52 write does not clear the selection or steal focus', async () => {
+  const signature = 'expected an OSC52 write to leave selection and focus alone';
+  const harness = createHarness();
+  const factory = await requireCoordinatorFactory(signature);
+  const coordinator = factory(harness.options);
+
+  await coordinator.copyText('agent output', 'osc52');
+
+  // copySelection clears and focuses because the user asked for a copy. Nobody asked
+  // for this one, so doing either would move the cursor under a user who is typing.
+  assert.equal(harness.cleared.length, 0, signature);
+  assert.equal(harness.focused.length, 0, signature);
+});
+
+test('SEC-BGSTAB-001 AC-5 — an OSC52 write inherits the generation guard', async () => {
+  const signature = 'expected an OSC52 write to be rejected once its target is superseded';
+  const write = deferred<void>();
+  const written: string[] = [];
+  const harness = createHarness({
+    writeClipboardText: (text) => { written.push(text); return write.promise; },
+  });
+  const factory = await requireCoordinatorFactory(signature);
+  const coordinator = factory(harness.options);
+
+  const pending = coordinator.copyText('agent output', 'osc52');
+  // The tab is replaced while the clipboard write is in flight.
+  harness.target = { terminalIdentity: {}, sessionId: 'session-b', sessionGeneration: 8, viewGeneration: 12 };
+  write.resolve(undefined);
+  const result = await pending;
+
+  assert.equal(result.ok, false, signature);
+  assert.equal(result.reason, 'context-changed', signature);
+});
+
+test('SEC-BGSTAB-001 AC-5 — a disposed coordinator refuses an OSC52 write', async () => {
+  const signature = 'expected a disposed coordinator to refuse an OSC52 write';
+  const harness = createHarness();
+  const factory = await requireCoordinatorFactory(signature);
+  const coordinator = factory(harness.options);
+  coordinator.dispose();
+
+  const result = await coordinator.copyText('agent output', 'osc52');
+
+  assert.equal(result.ok, false, signature);
+  assert.deepEqual(harness.written, [], signature);
+});
+
+test('SEC-BGSTAB-001 AC-6 — an OSC52 observation carries size, never the payload', async () => {
+  const signature = 'expected the OSC52 observation to exclude the raw payload';
+  const harness = createHarness();
+  const factory = await requireCoordinatorFactory(signature);
+  const coordinator = factory(harness.options);
+
+  await coordinator.copyText('secret-token-value', 'osc52');
+
+  const observed = harness.observations.filter((event) => event.source === 'osc52');
+  assert.equal(observed.length, 1, signature);
+  assert.equal(observed[0].outcome, 'accepted', signature);
+  assert.equal(observed[0].payloadBytes, 18, signature);
+  assert.equal(JSON.stringify(observed[0]).includes('secret-token-value'), false, signature);
+});
+
+test('SEC-BGSTAB-001 AC-6 — a failed OSC52 clipboard write is observed as rejected', async () => {
+  const signature = 'expected a failed OSC52 write to be observable rather than silent';
+  const harness = createHarness({
+    writeClipboardText: async () => { throw new Error('permission denied'); },
+  });
+  const factory = await requireCoordinatorFactory(signature);
+  const coordinator = factory(harness.options);
+
+  const result = await coordinator.copyText('agent output', 'osc52');
+
+  assert.equal(result.ok, false, signature);
+  assert.equal(result.reason, 'clipboard-write-failed', signature);
+  const observed = harness.observations.filter((event) => event.source === 'osc52');
+  assert.equal(observed.length, 1, signature);
+  assert.equal(observed[0].outcome, 'rejected', signature);
 });

@@ -521,11 +521,36 @@ function renderResourceLimitsRootBody(resourceLimits: ResourceLimitsConfig): str
   ]);
 }
 
+function isNestedConfigRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * SEC-BGSTAB-001: resourceLimits 의 leaf 가 전부 스칼라라는 가정은 더 이상 참이 아니다.
+ *
+ * renderJson5Value 의 마지막 줄은 String(value) 이므로 중첩 객체는 조용히
+ * `[object Object]` 가 되고, 호출자가 곧바로 수행하는 JSON5.parse 가 거기서 터진다.
+ * 증상은 '설정 저장 실패' 로 나타나며 원인은 이 한 줄이다. terminal.osc52 가 이
+ * 스키마의 첫 중첩 leaf 이고, 앞으로 생길 것들도 같은 경로를 탄다.
+ */
+function renderResourceLimitEntry(key: string, value: unknown): string[] {
+  if (isNestedConfigRecord(value)) {
+    return [
+      `${key}: {`,
+      ...Object.entries(value)
+        .flatMap(([nestedKey, nestedValue]) => renderResourceLimitEntry(nestedKey, nestedValue))
+        .map((line) => `  ${line}`),
+      '},',
+    ];
+  }
+  return [`${key}: ${renderJson5Value(value)},`];
+}
+
 function renderResourceLimitSectionBody(
   sectionName: ResourceLimitSectionName,
   section: ResourceLimitsConfig[ResourceLimitSectionName],
 ): string[] {
-  return Object.entries(section).map(([key, value]) => `${key}: ${renderJson5Value(value)},`);
+  return Object.entries(section).flatMap(([key, value]) => renderResourceLimitEntry(key, value));
 }
 
 function renderStabilityModesBody(stabilityModes: StabilityModesConfig): string[] {

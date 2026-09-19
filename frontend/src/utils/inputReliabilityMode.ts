@@ -30,6 +30,8 @@ export interface TerminalResourceLimitsRuntimeConfig {
   transportOutboxMaxBytes: number;
   transportOutboxTtlMs: number;
   scrollbackLines: number;
+  // SEC-BGSTAB-001 AC-2: OSC52 쓰기 스위치. 읽기 스위치는 존재하지 않으며 만들지 않는다.
+  osc52: { allowWrite: boolean };
 }
 
 export interface SnapshotResourceLimitsRuntimeConfig {
@@ -87,6 +89,7 @@ const DEFAULT_TERMINAL_LIMITS: TerminalResourceLimitsRuntimeConfig = {
   transportOutboxMaxBytes: 65_536,
   transportOutboxTtlMs: 1500,
   scrollbackLines: 10_000,
+  osc52: { allowWrite: true },
 };
 
 const DEFAULT_SNAPSHOT_LIMITS: SnapshotResourceLimitsRuntimeConfig = {
@@ -317,9 +320,19 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
     return { ...DEFAULT_TERMINAL_LIMITS };
   }
 
+  // SEC-BGSTAB-001 AC-2: 서버가 보내지 않았거나 boolean 이 아니면 기본값(허용)으로
+  // 수렴한다. 이 스위치의 기본이 '허용' 이므로 fail-open 이 곧 명세된 기본 동작이다.
+  // 읽기에 해당하는 키는 여기서도 존재하지 않는다 -- 파싱하지 않으므로 서버가
+  // 보내더라도 프런트엔드에는 도달할 자리가 없다.
+  const osc52Source = value.osc52;
+  const allowWrite = isPlainObject(osc52Source) && typeof osc52Source.allowWrite === 'boolean'
+    ? osc52Source.allowWrite
+    : DEFAULT_TERMINAL_LIMITS.osc52.allowWrite;
+
   return {
     ...parsedNumbers,
     hiddenOutputPolicy,
+    osc52: { allowWrite },
   };
 }
 

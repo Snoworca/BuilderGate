@@ -280,6 +280,8 @@ test('runtime config loads terminal hidden output limits from public payload', a
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10_000,
+      // SEC-BGSTAB-001 AC-2: OSC52 writes default to allowed and the payload carries no read switch.
+      osc52: { allowWrite: true },
     });
     const decision = resolveHiddenOutput(createHiddenOutputState(), {
       isVisible: false,
@@ -363,6 +365,8 @@ test('runtime config loads all public resource limit sections from public payloa
       transportOutboxMaxBytes: 256_000,
       transportOutboxTtlMs: 3500,
       scrollbackLines: 20_000,
+      // SEC-BGSTAB-001 AC-2: OSC52 writes default to allowed and the payload carries no read switch.
+      osc52: { allowWrite: true },
     });
     assert.deepEqual(getSnapshotResourceLimits(), {
       perSnapshotMaxChars: 1_500_000,
@@ -541,6 +545,8 @@ test('runtime config falls back to Wave7 hidden output defaults for invalid term
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10_000,
+      // SEC-BGSTAB-001 AC-2: OSC52 writes default to allowed and the payload carries no read switch.
+      osc52: { allowWrite: true },
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -608,6 +614,8 @@ test('runtime config falls back to defaults for invalid resource limit sections'
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10_000,
+      // SEC-BGSTAB-001 AC-2: OSC52 writes default to allowed and the payload carries no read switch.
+      osc52: { allowWrite: true },
     });
     assert.deepEqual(getSnapshotResourceLimits(), {
       perSnapshotMaxChars: 2_000_000,
@@ -652,6 +660,70 @@ test('runtime config accepts split websocket transport mode', async () => {
     await initializeInputReliabilityMode();
 
     assert.equal(getWsTransportMode(), 'split');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+// --- SEC-BGSTAB-001: the OSC52 switch must survive the transport ------------------
+
+function osc52ConfigResponse(terminalOverrides: Record<string, unknown>): () => Promise<Response> {
+  return async () => new Response(JSON.stringify({
+    inputReliabilityMode: 'queue',
+    resourceLimits: { terminal: terminalOverrides },
+  }), { status: 200 });
+}
+
+test('SEC-BGSTAB-001 AC-2 a hardened allowWrite:false survives the runtime-config transport', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = osc52ConfigResponse({ osc52: { allowWrite: false } });
+
+  try {
+    await initializeInputReliabilityMode();
+    // 이것이 없으면 강화된 배포가 스위치를 껐는데도 프런트엔드는 계속 허용한다 --
+    // 조용히 실패하는 보안 설정이고, 서버 스키마 테스트만으로는 잡히지 않는다.
+    assert.equal(getTerminalResourceLimits().osc52.allowWrite, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('SEC-BGSTAB-001 AC-2 an omitted osc52 block defaults to allowing writes', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = osc52ConfigResponse({ scrollbackLines: 12_000 });
+
+  try {
+    await initializeInputReliabilityMode();
+    assert.equal(getTerminalResourceLimits().osc52.allowWrite, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('SEC-BGSTAB-001 AC-1 no read switch can arrive over the transport either', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = osc52ConfigResponse({ osc52: { allowWrite: true, allowRead: true } });
+
+  try {
+    await initializeInputReliabilityMode();
+    const limits = getTerminalResourceLimits();
+    // 읽기를 켜는 키는 서버 스키마가 거부하지만, 설령 payload 에 실려 오더라도
+    // 프런트엔드에는 그것이 도달할 자리가 없어야 한다. 파싱되지 않으므로 존재하지 않는다.
+    assert.deepEqual(Object.keys(limits.osc52), ['allowWrite']);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('SEC-BGSTAB-001 AC-2 a non-boolean allowWrite falls back to the allowed default', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = osc52ConfigResponse({ osc52: { allowWrite: 'false' } });
+
+  try {
+    await initializeInputReliabilityMode();
+    // 경계값: 문자열 'false' 는 boolean 이 아니다. 기본값이 '허용' 이므로
+    // fail-open 이 곧 명세된 기본 동작이며, 조용히 꺼지는 것보다 낫다.
+    assert.equal(getTerminalResourceLimits().osc52.allowWrite, true);
   } finally {
     globalThis.fetch = originalFetch;
   }

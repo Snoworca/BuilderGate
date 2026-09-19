@@ -383,3 +383,41 @@ test('realtime.terminalWireFormat is independent of wsTransportMode', () => {
   assert.equal(parsed.realtime.wsTransportMode, 'split');
   assert.equal(parsed.realtime.terminalWireFormat, 'binary-shadow');
 });
+
+// --- SEC-BGSTAB-001: the OSC52 policy switch -------------------------------------
+//
+// 실측 2026-09-19 (병합 전): osc52 / allowWrite 는 이 스키마 어디에도 없었다. 오늘의
+// 안전은 결정이 아니라 사고였다 -- xterm 번들이 OSC 52 핸들러를 등록하지 않고
+// @xterm/addon-clipboard 가 설치되어 있지 않아서 조용히 버려지고 있었을 뿐이다.
+// 아래 세 테스트가 그것을 결정으로 만든다.
+
+test('SEC-BGSTAB-001 AC-2 OSC52 writes are allowed by default', () => {
+  const parsed = configSchema.parse(minimalConfig());
+
+  assert.equal(parsed.resourceLimits.terminal.osc52.allowWrite, true);
+});
+
+test('SEC-BGSTAB-001 AC-2 a hardened deployment can turn OSC52 writes off', () => {
+  const parsed = configSchema.parse({
+    ...minimalConfig(),
+    resourceLimits: { terminal: { osc52: { allowWrite: false } } },
+  });
+
+  assert.equal(parsed.resourceLimits.terminal.osc52.allowWrite, false);
+});
+
+test('SEC-BGSTAB-001 AC-1 no setting can enable OSC52 reads, at any stability', () => {
+  // 읽기는 기본값이 꺼져 있는 것이 아니라 존재하지 않는다. 설정으로 두면 에이전트가
+  // 켜도록 설득당할 수 있고, 읽기 응답은 PTY 의 input 채널로 주입되므로 사용자가
+  // 마지막으로 복사한 것에 대한 직접적인 유출수단이 된다.
+  for (const readish of ['allowRead', 'allow_read', 'read', 'allowReads']) {
+    assert.throws(
+      () => configSchema.parse({
+        ...minimalConfig(),
+        resourceLimits: { terminal: { osc52: { [readish]: true } } },
+      }),
+      /unrecognized|Unrecognized/i,
+      `${readish} must be rejected, not silently ignored`,
+    );
+  }
+});

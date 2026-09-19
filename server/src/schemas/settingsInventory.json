@@ -678,6 +678,25 @@
       ]
     },
     {
+      "path": "resourceLimits.terminal.osc52.allowWrite",
+      "classification": "safety-only",
+      "reason": "Exists to bound or deny rather than to tune. Not offered in Settings. SEC-BGSTAB-001 makes OSC52 a decision instead of an accident: before it, xterm registered no OSC 52 handler and @xterm/addon-clipboard was not installed, so the escape was discarded by the dependency graph rather than by policy.",
+      "editableInSettings": false,
+      "consumers": [
+        {
+          "module": "frontend/src/components/Terminal/TerminalView.tsx",
+          "symbol": "TerminalView",
+          "match": "dotted-path"
+        },
+        {
+          "module": "frontend/src/utils/inputReliabilityMode.ts",
+          "symbol": "parseTerminalLimits",
+          "match": "dotted-path"
+        }
+      ],
+      "safetyBound": "Gates OSC52 clipboard WRITES only, and the absence of a sibling read key is itself the bound: OSC52 reads are denied unconditionally because a read reply is injected into the PTY input channel, making whatever the user last copied -- for this user population usually a key or token -- directly exfiltratable. Writes are additionally capped at 100KB decoded and refused, never truncated, on oversize or on base64/UTF-8 failure."
+    },
+    {
       "path": "resourceLimits.terminal.transportOutboxMaxBytes",
       "classification": "user-visible",
       "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow.",

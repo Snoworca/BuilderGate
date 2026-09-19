@@ -83,6 +83,12 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
       transportOutboxMaxBytes: 65536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10000,
+      // SEC-BGSTAB-001: OSC52 clipboard. Writes are allowed by default; set this to
+      // false to harden a deployment. There is deliberately no read switch -- OSC52
+      // reads are denied unconditionally and no setting can enable them.
+      osc52: {
+        allowWrite: true,
+      },
     },
     snapshots: {
       perSnapshotMaxChars: 2000000,
