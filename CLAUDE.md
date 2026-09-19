@@ -132,7 +132,7 @@ frontend/src/
 
 ### E2E 테스트
 
-- editor branch의 2026-09-03 관찰은 E2E37파일/651 project-expanded cases(Desktop217), unit92파일과 타입 미등재 사례를 기록했다. 이는 역사적 수치이며 현재 통합 수집 수/통과 증거가 아니다. 새 테스트는 실제 tsconfig 입력에 포함되는지 확인한다. frontend root tsc만으로 앱/테스트 타입 검증을 주장하지 않는다.
+- editor branch의 2026-09-03 관찰은 E2E37파일/651 project-expanded cases(Desktop217), unit92파일과 타입 미등재 사례를 기록했다. 이는 역사적 수치이며 현재 통합 수집 수/통과 증거가 아니다. 새 테스트는 실제 tsconfig 입력에 포함되는지 확인한다. frontend root tsc만으로 앱/테스트 타입 검증을 주장하지 않는다. **이유(2026-09-19 실측)**: `frontend/tsconfig.json`은 `"files": []`에 `tsconfig.app.json`/`tsconfig.editor.json`/`tsconfig.node.json`만 `references`로 얹은 solution 파일이다. `npx tsc --noEmit`(빌드 모드 `-b` 없이)은 이 파일 하나만 열고 파일이 0개이므로 참조된 프로젝트를 하나도 컴파일하지 않은 채 아무 진단 없이 exit 0 을 낸다 — "클린"과 "아무것도 안 검사함"이 출력만으로 구분되지 않는다. `tsconfig.e2e-ownership.json`은 root 의 `references`에도 없어 이 셋 중 어느 것을 돌려도 검사되지 않는다. 앱/테스트 타입을 실제로 검증하려면 `npx tsc -p tsconfig.app.json --noEmit`처럼 대상 프로젝트를 매번 명시해서 개별적으로 돌린다(현재 프로젝트: app, editor, node, e2e-ownership 넷 전부 별도 실행 필요).
 - 기존 editor spec과 `workspace-ownership-validation.spec.ts`, `workspaceOwnershipFixture.ts`를 먼저 읽는다. 성공한 생성 응답의 ID만 소유하며 사용자/다른 테스트 workspace를 prefix나 quota 회복 목적으로 삭제하지 않는다. 시드는 각 spec의 소유권/초기상태 계약에 맞춰 만든다.
 - 실제 브라우저는 검증된 외부 `https://localhost:2222`만 사용한다. 자동 webServer가 다른 인스턴스를 재사용하거나 시작하지 않게 검토하고, 앞뒤 health와 정확한 프로세스 정체성을 확인한다. 임의 포트로 우회하지 않는다.
 - editor branch는 장시간 실행에서 서버 소실과 초기 seed 의존성을 관찰했다. 현재 실패 원인이나 고정 수명으로 단정하지 않는다. 실패 케이스가 달라진다는 이유로 제품 결함을 배제하거나 서버를 재시작하지 않는다. 실제 원시 로그·소유 상태로 원인을 조사한다.
