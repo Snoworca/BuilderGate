@@ -91,6 +91,7 @@ import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import {
   createSessionInputGateway,
   INPUT_REJECTED_REPLAY_PENDING,
+  INPUT_REJECTED_ENTER_POLICY,
 } from '../services/SessionInputGateway.js';
 import type {
   TerminalResourcePolicyCanaryTarget,
@@ -4876,8 +4877,38 @@ export class WsRouter {
     }
     return {
       accepted: false,
-      reason: result.code === INPUT_REJECTED_REPLAY_PENDING ? 'context-changed' : 'server-error',
+      reason: this.mapSessionInputGatewayDenialToRejectedReason(result.code),
     };
+  }
+
+  /**
+   * #112: this used to be `result.code === INPUT_REJECTED_REPLAY_PENDING ? 'context-changed'
+   * : 'server-error'` -- one code named, every other denial the gateway can return flattened
+   * into the same opaque label as a genuinely unexpected exception. Measured 2026-09-19: a
+   * write that SessionInputGateway explicitly refused (TARGET_NOT_LIVE, the write never
+   * reached the PTY) was indistinguishable on the wire from a thrown error, which is why the
+   * live flood investigation had to trace server console output to find out what actually
+   * happened. Named here instead, so the client (and the debug log) gets the fact the
+   * gateway already computed.
+   *
+   * TARGET_NOT_FOUND and INPUT_REJECTED_ENTER_POLICY are not reachable from the plain
+   * websocket path this method serves today (WsRouter always supplies a resolveTarget, and
+   * evaluateEnterPolicy only fires for MCP/agent sources) -- mapped anyway so a future caller
+   * of this same gateway does not fall back into the generic label by omission.
+   */
+  private mapSessionInputGatewayDenialToRejectedReason(code: unknown): InputRejectedReason {
+    switch (code) {
+      case INPUT_REJECTED_REPLAY_PENDING:
+        return 'context-changed';
+      case 'TARGET_NOT_LIVE':
+        return 'target-not-live';
+      case 'TARGET_NOT_FOUND':
+        return 'target-not-found';
+      case INPUT_REJECTED_ENTER_POLICY:
+        return 'enter-policy-rejected';
+      default:
+        return 'server-error';
+    }
   }
 
   // @req FR-MCP-002

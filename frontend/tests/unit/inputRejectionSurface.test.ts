@@ -40,6 +40,12 @@ test('REL-BGSTAB-016 a refusal whose write never reached the PTY is surfaced', (
     'driver-lease-unavailable',
     'stale-target-generation',
     'paste-too-large',
+    // #112: all three mean the write did not reach the PTY (a binding could not be
+    // resolved, a binding would not accept the write, or an Enter-carrying send lacked
+    // the required scope) -- the opposite of the two reasons excluded below.
+    'target-not-live',
+    'target-not-found',
+    'enter-policy-rejected',
   ] as const) {
     assert.equal(shouldSurfaceInputRejection(reason), true, reason);
   }

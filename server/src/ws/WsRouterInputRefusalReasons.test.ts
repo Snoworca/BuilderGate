@@ -278,6 +278,47 @@ test('#111 AC-2 a genuinely new operation after a reconnect still reaches the PT
   }
 });
 
+// --- #112: a write that never reaches the PTY must not be flattened to 'server-error' ------
+//
+// Measured 2026-09-19 against a live 15,000-line flood: the input gate stayed open
+// (inputReady: true) for the whole window, ws_input_sent fired (the browser did send it),
+// and 20ms later the server answered input:rejected reason:'server-error'. That reason is
+// the router's OWN mapping collapsing every SessionInputGateway code except
+// INPUT_REJECTED_REPLAY_PENDING into one opaque label -- the client (and whoever reads the
+// debug log afterward) cannot tell "the write never reached the PTY" from a thrown exception
+// from a payload the client sent wrong. Both are real distinct facts SessionInputGateway
+// already computes and the router already discards, the exact shape of #18/#111's fix.
+
+test('#112 a write that never reaches the PTY is reported as target-not-live, not server-error', () => {
+  const harness = createHarness({
+    writeInput: () => false,
+  });
+  try {
+    harness.send(inputMessage(1));
+
+    assert.equal(harness.lastRejection()?.reason, 'target-not-live');
+  } finally {
+    harness.destroy();
+  }
+});
+
+test('#111 criterion 11 two different logical clients keep separate ledgers', () => {
+  const harness = createReconnectHarness();
+  try {
+    const tabOne = harness.connect('tab-1');
+    harness.send(tabOne.socket, inputMessage(1));
+
+    // Boundary: preserving across reconnect must not start sharing across tabs. Two tabs
+    // legitimately issue the same sequence numbers and neither may suppress the other.
+    const tabTwo = harness.connect('tab-2');
+    harness.send(tabTwo.socket, inputMessage(1));
+
+    assert.equal(harness.lastRejection(tabTwo.socket), undefined);
+  } finally {
+    harness.destroy();
+  }
+});
+
 // --- #18 criterion 10 (REDUCED): composed IME text against the dedup ledger -------
 //
 // The criterion asks for zero duplicate/missing input across five failure modes crossed

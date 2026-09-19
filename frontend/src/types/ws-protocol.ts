@@ -568,7 +568,36 @@ export type InputRejectedReason =
    * was never malformed. Refused whole rather than truncated: a half-pasted command is
    * a command, and running half of one is worse than running none.
    */
-  | 'paste-too-large';
+  | 'paste-too-large'
+  /**
+   * #112: SessionInputGateway's TARGET_NOT_LIVE, previously flattened to 'server-error'
+   * along with everything else the gateway could deny except INPUT_REJECTED_REPLAY_PENDING.
+   * Means the write did not reach the PTY -- either the session binding could not be
+   * resolved, or the low-level write itself was refused. Measured 2026-09-19 against a
+   * live 15,000-line flood: the input gate stayed open (inputReady: true) and
+   * ws_input_sent fired the whole time, so the browser did send the keystrokes; the
+   * server answered input:rejected 20ms later with the old opaque 'server-error', which
+   * is indistinguishable from a thrown exception on a malformed payload. This name is the
+   * fact the server already had and was discarding.
+   */
+  | 'target-not-live'
+  /**
+   * #112: SessionInputGateway's TARGET_NOT_FOUND -- resolveTarget produced no binding at
+   * all for this session, as opposed to 'target-not-live' where a binding existed but
+   * would not accept the write. Not currently reachable from the plain websocket input
+   * path (WsRouter always supplies a resolveTarget), but mapped here rather than left to
+   * fall into 'server-error' so the gateway's own vocabulary is not silently narrowed for
+   * whichever caller does trigger it.
+   */
+  | 'target-not-found'
+  /**
+   * #112: SessionInputGateway's INPUT_REJECTED_ENTER_POLICY -- a submit-carrying send
+   * arrived without the actor scope required to press Enter on someone else's behalf.
+   * Not reachable from the plain websocket input path today (evaluateEnterPolicy only
+   * applies to MCP/agent sources), mapped for the same reason as 'target-not-found': the
+   * generic fallback must not become the answer for a code the gateway already named.
+   */
+  | 'enter-policy-rejected';
 
 // terminal-delivery-ack-contract:start
 export type TerminalDeliveryAckIdentity =
