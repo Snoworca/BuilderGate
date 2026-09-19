@@ -21,6 +21,7 @@ import {
   TERMINAL_INPUT_TTL_WAN_MS,
   measurePasteBytes,
   isPasteWithinCap,
+  resolveEffectiveInputQueueTtlMs,
   resolveTerminalInputTtlMs,
 } from '../../src/utils/terminalPasteLimits.ts';
 
@@ -91,4 +92,59 @@ test('#18 criterion 8 an unknown hostname is treated as remote, not as loopback'
   // which drops input. Guessing "remote" only delays a rejection.
   assert.equal(resolveTerminalInputTtlMs(''), TERMINAL_INPUT_TTL_WAN_MS);
   assert.equal(resolveTerminalInputTtlMs(undefined), TERMINAL_INPUT_TTL_WAN_MS);
+});
+
+// --- #20: the local/WAN choice as a named decision ------------------------------
+//
+// Extracted from an inline ternary inside TerminalView's getInputQueueLimits object
+// literal. Two reasons, and the first stands on its own: a policy decision with a name
+// reads better than a conditional buried in an object literal, and it can be tested
+// without rendering a terminal.
+//
+// The second is that the inline form was not describable by the consumer inventory. The
+// value went through a const and a ternary, and every evidenceRole resolved to
+// roles=undefined -- no catalogue row could match it. Passed as a call ARGUMENT the access
+// takes a shape the matcher already handles; `normalizeChunkLimit(config.visibleOutputMaxChunks)`
+// in terminalOutputScheduler.ts is catalogued as call-input today.
+
+test('#20 an operator-tuned TTL is returned unchanged', () => {
+  // The configured value stays authoritative. Only the DEFAULT is environment-resolved, so
+  // a deployment that has tuned this is never overridden.
+  assert.equal(resolveEffectiveInputQueueTtlMs(9_000, 'builder.example.com'), 9_000);
+  assert.equal(resolveEffectiveInputQueueTtlMs(9_000, 'localhost'), 9_000);
+});
+
+test('#20 an untouched default resolves by environment', () => {
+  assert.equal(
+    resolveEffectiveInputQueueTtlMs(TERMINAL_INPUT_TTL_LOCAL_MS, 'localhost'),
+    TERMINAL_INPUT_TTL_LOCAL_MS,
+  );
+  assert.equal(
+    resolveEffectiveInputQueueTtlMs(TERMINAL_INPUT_TTL_LOCAL_MS, 'builder.example.com'),
+    TERMINAL_INPUT_TTL_WAN_MS,
+  );
+});
+
+test('#20 an unknown hostname resolves the default as remote', () => {
+  // Same asymmetry as resolveTerminalInputTtlMs: guessing local applies a short cap to a
+  // possibly slow link and drops input; guessing remote only delays a rejection.
+  assert.equal(
+    resolveEffectiveInputQueueTtlMs(TERMINAL_INPUT_TTL_LOCAL_MS, undefined),
+    TERMINAL_INPUT_TTL_WAN_MS,
+  );
+});
+
+test('#20 the extracted helper reproduces the inline behaviour it replaces', () => {
+  // Boundary against a silent behaviour change during extraction: the old expression was
+  // `configured === LOCAL ? resolve(hostname) : configured`, and this asserts that exact
+  // truth table rather than trusting that the move was faithful.
+  for (const [configured, hostname, expected] of [
+    [TERMINAL_INPUT_TTL_LOCAL_MS, 'localhost', TERMINAL_INPUT_TTL_LOCAL_MS],
+    [TERMINAL_INPUT_TTL_LOCAL_MS, '10.0.0.7', TERMINAL_INPUT_TTL_WAN_MS],
+    [1, 'localhost', 1],
+    [60_000, '10.0.0.7', 60_000],
+  ] as const) {
+    assert.equal(resolveEffectiveInputQueueTtlMs(configured, hostname), expected,
+      `${configured} @ ${String(hostname)}`);
+  }
 });

@@ -55,3 +55,27 @@ export function resolveTerminalInputTtlMs(hostname: string | undefined): number 
     ? TERMINAL_INPUT_TTL_LOCAL_MS
     : TERMINAL_INPUT_TTL_WAN_MS;
 }
+
+/**
+ * #20: 설정된 TTL 에 환경별 기본값을 적용한다.
+ *
+ * TerminalView 의 getInputQueueLimits 안에 있던 인라인 삼항식을 이름 있는 결정으로
+ * 꺼낸 것이다. 이유 둘 중 첫째만으로도 충분하다 — 정책 판단에 이름이 붙는 편이
+ * 객체 리터럴에 묻힌 조건식보다 읽기 쉽고, 터미널을 렌더하지 않고 테스트할 수 있다.
+ *
+ * 둘째: 인라인 형태는 consumer inventory 가 기술할 수 없었다. 값이 const 와 삼항식을
+ * 거치면서 모든 evidenceRole 이 roles=undefined 로 떨어졌고 어떤 카탈로그 행도 맞지
+ * 않았다. 호출 **인자**로 넘기면 matcher 가 이미 다루는 모양이 된다
+ * (terminalOutputScheduler.ts 의 normalizeChunkLimit(config.visibleOutputMaxChunks) 가
+ * 오늘 call-input 으로 카탈로그에 있다).
+ *
+ * 운영자가 값을 옮겼으면 그 값이 우선이다. 환경으로 해석되는 것은 **기본값뿐**이다.
+ */
+export function resolveEffectiveInputQueueTtlMs(
+  configuredTtlMs: number,
+  hostname: string | undefined,
+): number {
+  return configuredTtlMs === TERMINAL_INPUT_TTL_LOCAL_MS
+    ? resolveTerminalInputTtlMs(hostname)
+    : configuredTtlMs;
+}
