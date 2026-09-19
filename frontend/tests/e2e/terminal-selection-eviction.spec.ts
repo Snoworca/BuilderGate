@@ -110,8 +110,8 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
   /**
    * RECONCILIATION, 2026-09-19. tests/unit/terminalSelectionLifecycleCharacterization.test.ts
    * measured that raw @xterm/xterm 6.0.0 preserves a selection through ordinary output
-   * (`append-one-output-line`: hasSelection stays true, text unchanged). That directly
-   * contradicts this file's own earlier finding that a selection here dies on essentially
+   * (`append-one-output-line`: hasSelection stays true, text unchanged). That looked like it
+   * contradicted this file's own earlier finding that a selection here dies on essentially
    * any output, and the leading hypothesis was that the earlier finding was an artifact of
    * the unconditional `screen.click()` bug this file's history already found and fixed in
    * `focusTerminalHost`/`sendVisibleTerminalCommand`.
@@ -119,22 +119,27 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
    * This test re-checks it using ONLY the fixed, non-clicking helpers
    * (`sendVisibleTerminalCommandPreservingSelection`, which skips the click when the
    * terminal is already focused, and a selection created the same fixed way). The result:
-   * the selection is still cleared. So the click bug is ruled out as the explanation --
-   * something in this app's real traffic (not present in the goldens' plain
-   * `write('NEWOUTPUT\r\n')` test) causes an xterm-recognized clearing transition
-   * (RIS/reset/alt-screen switch/row-resize all clear per the goldens' own corpus; a
-   * column-only resize does not). What specifically triggers it is NOT identified here --
-   * a quick pass found no output-triggered `term.resize()`/refit call site in
-   * TerminalView.tsx, so this is left as an open question rather than a guess.
+   * the selection is still cleared. So the click bug is ruled out as the explanation.
    *
-   * Practical upshot: FR-BGSTAB-029's withdrawn partial-trim AC (see its change note) still
-   * cannot be un-withdrawn on THIS finding -- the precondition it needed (a selection
-   * surviving long enough to reach a partial-trim) is still measured unreachable here, now
-   * confirmed twice with correct instruments instead of once. What changes is the
-   * explanation: it is not "xterm clears on any output" (the goldens' raw-xterm test rules
-   * that out) and it is not an explicit `clearSelection()` call in this app's own code
-   * (independently verified separately) -- it is a real, currently unnamed mechanism that
-   * behaves like one of xterm's own clearing transitions.
+   * RESOLVED, not left open: this test's own method is confounded and cannot say more than
+   * that. Producing "one harmless command's output" REQUIRES TYPING the command, and typing
+   * is itself an xterm-recognized selection-clearer, independent of whatever output follows.
+   * The `AC-3 CONTRAST` test below isolates the two: it drags a selection onto a line from an
+   * ALREADY-RUNNING producer (so nothing is typed at the moment of or after the drag) and
+   * shows the selection survives continued output, matching the issue16-goldens lane's
+   * independent parked-viewport measurement (drag after the producer starts, nothing typed
+   * afterward: survives 1.5s/3s/5s of continuous output). Then it types one command against
+   * that same still-live selection and shows THAT clears it. So: typing clears it, output
+   * alone does not, and this test's own result was typing doing the clearing the whole time --
+   * not a resize, not an unnamed mechanism, and not this app's `clearSelection()` (independently
+   * verified absent from any write/render path).
+   *
+   * Practical upshot for FR-BGSTAB-029's withdrawn partial-trim AC (see its change note): the
+   * withdrawal's bottom line is unaffected either way, because the AC needed a selection to
+   * survive long enough to reach a partial SCROLLBACK TRIM, and typing a command is exactly
+   * the thing that was measured (here and in the AC-3 CONTRAST test) to end a selection before
+   * any trim could apply. The precondition is still unreached; the explanation is now precise
+   * instead of a placeholder.
    */
   test('RECONCILE: output clears the selection here even with the click bug fixed', async ({ page }) => {
     test.setTimeout(60_000);
@@ -155,9 +160,86 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
       const after = await captureSelection(page, sid);
       expect(
         after,
-        'MEASURED 2026-09-19: a harmless command\'s output clears the selection even through '
-        + 'the FIXED (non-clicking) helpers -- ruling out the click-bug hypothesis as the '
-        + 'explanation. See this test\'s doc comment for what is and is not concluded from that.',
+        'MEASURED 2026-09-19: a harmless command clears the selection even through the FIXED '
+        + '(non-clicking) helpers -- ruling out the click-bug hypothesis. The AC-3 CONTRAST test '
+        + 'below isolates why: typing the command, not the output it produces, is what clears it.',
+      ).toEqual({ hasSelection: false, text: '' });
+    } finally {
+      await cleanupEvictionWorkspace(page, workspace);
+    }
+  });
+
+  /**
+   * AC-3 CONTRAST, 2026-09-19. The RECONCILE test above cannot separate "typing a command"
+   * from "the output that command produces", because producing output here always requires
+   * typing something first. This test breaks that confound by starting a producer ONCE, then
+   * doing everything else -- the drag and the wait -- without typing again.
+   *
+   * Part 1 drags a selection onto a line from an ALREADY-RUNNING trickle producer (so nothing
+   * is typed at the moment of the drag) and waits for several MORE lines to arrive with no
+   * further typing at all. This reproduces, through this app's real WebSocket/PTY pipeline
+   * rather than raw xterm, the issue16-goldens lane's independent finding: a parked-viewport
+   * drag survives 1.5s/3s/5s of continuous output. If this app cleared on output the way an
+   * earlier measurement here assumed, this is where it would show up -- and per that lane's
+   * measurement, it does not.
+   *
+   * Part 2 then types one command against that same still-live selection, as the direct
+   * contrast: this is what actually clears it (matching RECONCILE above), isolated from any
+   * output that follows the typing.
+   */
+  test('AC-3 CONTRAST: continuing output under a live selection preserves it; typing clears it', async ({ page }) => {
+    test.setTimeout(60_000);
+    await login(page);
+    await waitForTerminal(page);
+    const workspace = await activateEvictionWorkspace(page);
+    const sid = workspace.sessionId;
+
+    try {
+      const runId = Date.now();
+      const trickleCount = 8;
+      // Typed ONCE, before the drag. The producer keeps running and emitting
+      // for ~2.4s after this call returns (waiting only for the FIRST line),
+      // which is the window Part 1 drags into and then waits through without
+      // typing anything else.
+      const trickleCommand = `for i in $(seq 1 ${trickleCount}); do echo TRICKLE-${runId}-$i; sleep 0.3; done`;
+      const firstLine = `TRICKLE-${runId}-1`;
+      const lastLine = `TRICKLE-${runId}-${trickleCount}`;
+      await sendCommandAndWaitForMarker(page, sid, trickleCommand, firstLine, { perAttemptTimeoutMs: 5_000 });
+
+      // --- Part 1: drag while the producer is still running; type nothing from here on. ---
+      const position = await locateMarker(page, sid, firstLine);
+      await dragAcrossRow(page, position);
+      await focusTerminalHost(page, sid);
+      await expect.poll(
+        async () => (await captureSelection(page, sid))?.hasSelection ?? false,
+        {
+          message: `E2E precondition failed: the drag across "${firstLine}" produced no selection.`,
+          timeout: 5_000,
+        },
+      ).toBe(true);
+      const dragged = await captureSelection(page, sid);
+      expect(dragged?.text.trim()).toContain(firstLine);
+
+      // Let the rest of the trickle arrive with NOTHING typed in between.
+      await markerVisible(page, sid, lastLine, 8_000);
+
+      const afterOutput = await captureSelection(page, sid);
+      expect(
+        afterOutput,
+        'CONTRACT: output continuing to arrive under a live selection, with nothing typed after '
+        + 'the drag, must not clear it -- matches the issue16-goldens lane\'s independent '
+        + 'parked-viewport measurement (survives 1.5s/3s/5s of continuous output), reproduced '
+        + 'here through this app\'s real pipeline rather than raw xterm.',
+      ).toEqual({ hasSelection: true, text: firstLine });
+
+      // --- Part 2: the contrast. Typing -- not the output that follows -- clears it. ---
+      await sendVisibleTerminalCommandPreservingSelection(page, sid, `echo TRICKLE-${runId}-typed`);
+      await markerVisible(page, sid, `TRICKLE-${runId}-typed`, 8_000);
+      const afterTyping = await captureSelection(page, sid);
+      expect(
+        afterTyping,
+        'CONTRAST: typing a command against the same still-live selection clears it, isolated '
+        + 'from the output that follows the typing (already shown safe in Part 1 above).',
       ).toEqual({ hasSelection: false, text: '' });
     } finally {
       await cleanupEvictionWorkspace(page, workspace);
