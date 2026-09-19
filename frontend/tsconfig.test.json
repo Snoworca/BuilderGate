@@ -28,6 +28,7 @@
     "./tests/unit/terminalViewKeyboardBehavior.test.ts",
     "./tests/unit/terminalPasteUnifiedPath.test.ts",
     "./tests/unit/terminalPasteSanitizer.test.ts",
+    "./tests/unit/retainedStatePersistenceBoundary.test.ts",
     "./tests/unit/terminalOsc52Policy.test.ts",
     "./tests/unit/terminalPasteLimits.test.ts",
     "./tests/unit/logicalClientIdentity.test.ts",

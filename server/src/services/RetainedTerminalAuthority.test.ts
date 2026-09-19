@@ -2020,6 +2020,57 @@ test('REL_BGSTAB_007_AC10_pty_exit_is_session_terminated', async () => {
   }
 });
 
+/*
+ * REL-BGSTAB-026 AC-2 — the two tests above assert the POSITIVE half: a restart is
+ * classified `authority-unavailable` and a PTY exit is classified `session-terminated`.
+ * AC-2 also forbids something, and a classification being correct does not by itself
+ * establish that nothing else claims parity. These two assert the prohibition.
+ *
+ * They are kept as separate tests from each other, and from the live-server coverage
+ * elsewhere in this file, because AC-4 requires the restart scope and the live-refresh
+ * scope to be verified separately so that one passing cannot be cited for the other.
+ */
+
+test('REL-BGSTAB-026 AC-2 — a restarted server claims no retained-state parity', () => {
+  const signature = 'a restarted server still exposed retained-state parity';
+  const harness = createHarness({ sessionId: 'server-restart-claims-no-parity' });
+  harness.close();
+
+  // A restart is a fresh process with no memory of the session.
+  const restarted = new SessionManager();
+  try {
+    const api = restarted as unknown as RetainedTerminalAuthorityApi;
+    assert.deepEqual(
+      api.getRetainedTerminalAuthorityAvailability?.(harness.sessionId),
+      { availability: 'authority-unavailable', reason: 'server-restart-or-session-missing' },
+      signature,
+    );
+    // The prohibition: no parity is reported, not even a negative one. There is no
+    // authority state to compare against, so any parity verdict would be manufactured.
+    assert.equal(api.getRetainedTerminalAuthorityState?.(harness.sessionId), undefined, signature);
+  } finally {
+    restarted.stopAllCwdWatching();
+  }
+});
+
+test('REL-BGSTAB-026 AC-2 — a terminated PTY claims no retained-state parity', async () => {
+  const signature = 'a terminated PTY still exposed retained-state parity';
+  const harness = createHarness({ sessionId: 'pty-exit-claims-no-parity' });
+  try {
+    await harness.emit('before-exit\r\n');
+    harness.pty.emitExit(0);
+
+    assert.equal(
+      harness.api.getRetainedTerminalAuthorityAvailability?.(harness.sessionId)?.availability,
+      'session-terminated',
+      signature,
+    );
+    assert.equal(harness.api.getRetainedTerminalAuthorityState?.(harness.sessionId), undefined, signature);
+  } finally {
+    harness.manager.stopAllCwdWatching();
+  }
+});
+
 test('RED reviewer — production comparer requires an independent roundtrip baseline before principal-axis match', async () => {
   const signature = 'REL-BGSTAB-011 AC-4 production comparer self-comparison was incorrectly canary-eligible';
   const harness = createHarness({ sessionId: 'independent-roundtrip-baseline' });
