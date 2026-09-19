@@ -37,7 +37,15 @@ const LIVE_REFRESH_SCOPE_ACS = new Set(['AC-1']);
  */
 const TEST_SCOPES: ReadonlyMap<string, 'restart' | 'live-refresh' | 'meta'> = new Map([
   ['server/src/services/retainedStateScopeSeparation.test.ts', 'meta'],
+  // One file can hold both scopes, so references are classified per test where they do.
+  // The bare path means the restart-scope tests in that file; the fragment below names the
+  // live-refresh test that REL-BGSTAB-007 authored and this requirement cites for AC-1.
   ['server/src/services/RetainedTerminalAuthority.test.ts', 'restart'],
+  [
+    'server/src/services/RetainedTerminalAuthority.test.ts#Retained server model shadow and '
+    + 'driver lease RED contract — REL-BGSTAB-007 AC-10',
+    'live-refresh',
+  ],
   ['frontend/tests/unit/retainedStatePersistenceBoundary.test.ts', 'restart'],
   ['frontend/tests/unit/visibleOutputRecovery.test.ts', 'live-refresh'],
 ]);
