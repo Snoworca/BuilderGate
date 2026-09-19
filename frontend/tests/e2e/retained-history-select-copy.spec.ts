@@ -137,18 +137,38 @@ async function settledFingerprints(page: Page, sessionId: string): Promise<LineF
  * Waits for the reload's restore to LAND, rather than for the row count to stop
  * moving.
  *
- * WHY. `settledFingerprints` returns after ~1.4s of an unchanging LENGTH and it
- * starts as soon as the terminal is readable. A fresh xterm holds exactly `rows`
- * rows, so six identical readings of `rows` satisfy "settled" while the restore
- * is still in flight — the poll cannot tell "finished" from "has not started".
- * Measured 2026-09-20 on a7a15c9b against a live https://localhost:2222, the
- * retained restore takes 6.2-9.0s (6524/9016/6161/6179 ms over four reloads),
- * which is far outside that window.
+ * THIS SPEC WAS PASSING ON A ~100ms MARGIN. Measured 2026-09-20 on a7a15c9b
+ * against a live https://localhost:2222, this spec's own restore (LINES = 300)
+ * completes at 1536 / 1440 / 1533 ms. The `settledFingerprints` window it used
+ * to depend on is ~1.4s — six unchanging 200ms samples. So the restore was
+ * landing roughly a hundred milliseconds AFTER the window it was racing.
+ *
+ * That single number explains both observations at once: why criterion 6 was
+ * observed passing (9/9 on 2026-09-20), and why it could not have kept passing.
+ * "Latent" here does not mean "might fail someday under unspecified
+ * conditions" — it means ANY change that adds ~100ms to the restore, or removes
+ * ~100ms from the window, flips this spec red for a reason that has nothing to
+ * do with criterion 6. Do not read the fix as speculative and revert it; the
+ * margin is measured, on this spec, not inferred from another one.
+ *
+ * WHY THE OLD POLL COULD NOT SEE IT. `settledFingerprints` returns after ~1.4s
+ * of an unchanging LENGTH and starts as soon as the terminal is readable. A
+ * fresh xterm holds exactly `rows` rows, so six identical readings of `rows`
+ * satisfy "settled" while the restore is still in flight — the poll cannot tell
+ * "finished" from "has not started".
  *
  * The identical defect was measured and fixed in
- * retained-range-refresh-characterization.spec.ts (d3461466); this is the same
- * poll in the spec that proves criterion 6. There it produced confident wrong
- * readings of exactly `rows`.
+ * retained-range-refresh-characterization.spec.ts (d3461466), where the same
+ * poll produced confident wrong readings of exactly `rows`. That spec's
+ * producer is larger and its restore takes 6524/9016/6161/6179 ms — far outside
+ * the window rather than just past it, which is why it failed outright there and
+ * merely sat on the margin here.
+ *
+ * NOT A SIZE CLAIM. The two specs differ in producer size AND content shape AND
+ * assertions, n=3 against n=4, uninterleaved, so line count is not isolated. All
+ * that is supported is that the restore latency is not a single constant and the
+ * two measured populations do not overlap. Anyone chasing this should vary size
+ * deliberately rather than read these two numbers as a trend.
  *
  * ITS EXPOSURE HERE IS A FALSE RED, NOT A FALSE GREEN. An early read yields a
  * viewport-sized buffer, `contentSurvivor` comes back undefined and the
