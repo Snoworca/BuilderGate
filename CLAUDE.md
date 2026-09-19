@@ -22,7 +22,7 @@ start.bat --port 2222
 
 **검증 접속 포트는 항상 2222이다.** 아래 Rules와 현재 AGENTS의 소유권 사전검토를 따른다.
 브라우저에서 `https://localhost:2222` 접속. 서버 상태 확인: `curl -k https://localhost:2222/health`
-- 비밀번호 1234 — E2E 기본값(`frontend/tests/e2e/helpers.ts` 의 `BUILDERGATE_PASSWORD || '1234'`). `config.json5` 의 저장값은 암호화되어 있어 그 파일로는 확인할 수 없다
+- 비밀번호는 **`BUILDERGATE_PASSWORD` 환경변수**로 넘긴다. 코드에 기본값이 없다(#57) — `frontend/tests/e2e/testPassword.ts` 의 `requireTestPassword()` 가 미설정 시 그 사실을 이름과 함께 던진다. `config.json5` 의 저장값은 암호화되어 있어 그 파일로는 확인할 수 없다. **값을 이 문서나 어떤 추적 파일에도 적지 않는다** — 조직 규정이 로컬 테스트 값에 예외를 두지 않고 이 저장소는 public 이다
 - 코드 수정하면 자동으로 갱신됨
 
 ## Tech Stack
@@ -68,7 +68,7 @@ frontend/src/
 - 현재 사용자 지시와 `AGENTS.md`의 프로젝트 목표·SRS·strict TDD·독립 리뷰·provenance·보존 규칙을 따른다. 진행 상태는 `docs/plan/2026-09-08.remaining-work-autonomous.plan.md`의 Resume를 읽는다. editor branch의 과거 실행 기록은 통합 상태의 검증 증거가 아니다.
 - 실제 검증은 `start.bat --port 2222`와 `https://localhost:2222`를 사용한다. 임의 포트 병렬 레인 예외는 없다. TCP2001/2002 서버는 종료하거나 테스트에 사용하지 않는다.
 - **TCP2002 는 이 프로젝트가 이 시스템에 실제로 배포되어 운영 중인 포트다. 2002 포트를 점유한 프로세스를 어떠한 경우에도 종료하지 않는다.** `stop.bat`·`stop.js`·내부 shutdown 엔드포인트·OS 수준 종료 모두 금지이며, 2002 를 멈춰야 검증이 진행되는 상황이라면 멈추지 말고 그 사실을 사용자에게 보고하고 지시를 기다린다. 2001 도 같은 프로세스가 함께 점유하므로(2026-09-10 실측: 하나의 PID 가 2001·2002 를 동시에 LISTENING) 2001 을 내리는 것이 곧 운영 중단이다 — 위 줄의 2001/2002 종료 금지는 그대로 유효하다. `tools/start-runtime.js` 는 다른 데몬이 떠 있으면 "A different BuilderGate daemon is already running" 을 내며 2222 로 뜨지 않는데, 그때 2002 를 내리는 것은 해결책이 아니다. 데몬을 거치지 않고 이 체크아웃의 `server/dist/index.js` 를 `NODE_ENV=production PORT=2222` 로 직접 띄우면 데몬 상태 파일을 건드리지 않고 검증할 수 있다. 그때 상속된 `BUILDERGATE_*` 는 설치본을 가리키므로 자식 환경에서 전부 제거하되 `NODE_ENV` 는 남긴다.
-- 종료는 `stop.bat`를 우선한다. 정상 종료가 불가능한 TCP2222의 BuilderGate listener만 OS의 실제 owning PID, 실행 파일과 명령줄이 이 checkout 소유인지 검증한 후 그 PID 하나를 종료할 수 있다. 전체 Node 종료, process tree 종료, wrapper 취소/신호, 다른 node.exe 종료는 금지다. 포트가 이미 비었으면 잔여 프로세스를 종료하지 않는다.
+- 종료는 `stop.bat`를 우선하되 **범위를 명시한다**: `stop.bat --port 2222`. 포트를 대지 않으면 상속된 `BUILDERGATE_ROOT` 가 대상을 고르며, 그것이 설치본을 가리키면 운영 데몬(2001/2002)이 멈춘다(#50). 이 체크아웃 밖의 root 가 상속된 경우 `stop` 은 이제 거부하며, 정말 그 대상이면 `--root <dir>` 또는 `--allow-foreign-root` 로 말해야 한다. 정상 종료가 불가능한 TCP2222의 BuilderGate listener만 OS의 실제 owning PID, 실행 파일과 명령줄이 이 checkout 소유인지 검증한 후 그 PID 하나를 종료할 수 있다. 전체 Node 종료, process tree 종료, wrapper 취소/신호, 다른 node.exe 종료는 금지다. 포트가 이미 비었으면 잔여 프로세스를 종료하지 않는다.
 - 환경 변수는 실행별로 확인하고 보호 guard/소유 경로 설정을 보존한다. 상속된 설정이 설치본을 가리키는지 확인하고, 필요한 변경은 검토된 child environment에만 적용한다. `BUILDERGATE_*` 일괄 삭제나 parent 환경 변경을 기본 절차로 사용하지 않는다. 실제 설정의 load/merge와 경로를 확인하며 비밀값을 출력하지 않는다.
 - 원본 dirty/untracked/config 파일을 다른 worktree에 복사해 baseline을 만들지 않는다. 깨끗한 전용 checkout에서 검토된 소유 fixture를 만들고 정확한 입력 hash와 HEAD를 기록한다.
 - 스크린샷은 `.playwright-mcp/`에 저장한다. UI는 요구된 editor 통합 외에 개인 판단으로 바꾸지 않는다. 연구·계획과 검증의 역할 분리 및 모델 선택은 현재 사용자/AGENTS 지시를 따른다.
@@ -91,7 +91,7 @@ frontend/src/
 | wave3 증거 스크립트 | `tools/wave3/{authority-promotion-evidence, canary-admission-evidence, fair-scheduler-decision, retained-shadow-parity, terminal-resource-consumer-manifest}.test.mjs` (5개, **node:test 아님**) | `node tools/wave3/<파일>` (일부는 `--regenerate-green` 등 플래그를 받음) |
 | wave1 | `tools/wave1/g1-decision-gate.test.mjs` (1개) | `node --test tools/wave1/g1-decision-gate.test.mjs` — 스크립트 없음 |
 | server tools | `server/tools/*.test.{cjs,mjs}` (3개, node:test) | `node --test server/tools/<파일>` — 스크립트 없음 |
-| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts` (13 케이스) | 루트 `npm run test:release-pipeline` — 셋을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것** |
+| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts`, `server/src/utils/retiredSettingsResidue.test.ts` (15 케이스) | 루트 `npm run test:release-pipeline` — 넷을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것** |
 
 주의할 것:
 
@@ -130,6 +130,10 @@ frontend/src/
 - 기존 editor spec과 `workspace-ownership-validation.spec.ts`, `workspaceOwnershipFixture.ts`를 먼저 읽는다. 성공한 생성 응답의 ID만 소유하며 사용자/다른 테스트 workspace를 prefix나 quota 회복 목적으로 삭제하지 않는다. 시드는 각 spec의 소유권/초기상태 계약에 맞춰 만든다.
 - 실제 브라우저는 검증된 외부 `https://localhost:2222`만 사용한다. 자동 webServer가 다른 인스턴스를 재사용하거나 시작하지 않게 검토하고, 앞뒤 health와 정확한 프로세스 정체성을 확인한다. 임의 포트로 우회하지 않는다.
 - editor branch는 장시간 실행에서 서버 소실과 초기 seed 의존성을 관찰했다. 현재 실패 원인이나 고정 수명으로 단정하지 않는다. 실패 케이스가 달라진다는 이유로 제품 결함을 배제하거나 서버를 재시작하지 않는다. 실제 원시 로그·소유 상태로 원인을 조사한다.
+- **2222 에 대한 Playwright 실행은 호스트 전역에서 한 번에 하나다. 실행 전 established 연결 수가 0 인지 확인하고, 0 이 아니면 시작하지 않는다.** `workers: 1` 은 한 Playwright *프로세스* 안에서만 직렬화하며 두 프로세스에 대해서는 아무것도 하지 않는다. 동시에 도는 두 레인은 `test-results/`(Playwright 가 기동 시 통째로 지운다), workspace-ownership 레지스트리, 서버의 전역 workspace 목록과 라이브 세션 수를 공유한다 — 그래서 **한 레인이 다른 레인을 제품 결함처럼 보이는 이유로 실패시킬 수 있다.** 2026-09-19 실측: 한 레인의 기동이 다른 레인의 ownership 레지스트리를 실행 도중 삭제해 `ENOENT … test-results/.workspace-ownership/<runId>/run.json` → `AggregateError: Workspace ownership tracking failed` 로 끝났다. 단언은 전부 통과한 뒤 cleanup 경로에서 난 실패였다.
+  - 사전 카운트를 **출력만 하고 진행하지 않는다.** 0 이 아니면 하드 스톱이다. 이 항목이 생긴 이유가 정확히 "4 를 보고도 시작한 것" 이다.
+  - 충돌로 레지스트리가 지워지면 그 실행이 만든 workspace 가 남을 수 있다. 그때도 **prefix 로 지우지 않는다** — 생성 응답의 정확한 ID 를 실행 산출물에서 복구해 그 하나만 지우고, 복구할 수 없으면 남겨둔 채 보고한다.
+  - 다른 레인의 실행이 진행 중일 때 인증된 delete 를 쏘지 않는다. 그 delete 가 상대 spec 과 경합하는 것이 Workspace-1 급 손상이 나는 경로다.
 - UI 동작 수정의 E2E 증거와 단위 검증을 구분한다. 스크린샷은 `.playwright-mcp/`, 시나리오는 실제 로그인→기능→종료 흐름을 따른다. 실제 실행은 AGENTS의 포트/프로세스/원본 보존 사전검토 이후다.
 ## 작업 로그 및 보고서
 
@@ -281,6 +285,19 @@ The Completed Work Log — inline in `docs/spec/00.index.md` §7 and its split h
 
 이 방침은 이 파일의 다른 규칙(TDD, SRS 워크플로, 안전 규칙)을 대체하지 않는다. 다만 **어디까지 파고들 것인가**에 대한 기본값을 낮춘다.
 
+## 알려진 실패(known failure) 라벨의 상속 규칙 (2026-09-18, issue #89)
+
+**다른 커밋에서 측정된 실패 분류를 인용할 때는, 그 원인이 내 HEAD 에서도 성립하는지 먼저 확인한다.**
+실패 *이름* 이 같다는 것은 *원인* 이 같다는 뜻이 아니다.
+
+- 알려진 실패 목록은 허용목록이고, 허용목록은 썩는다. 코드 허용목록은 red 가 났을 때 사람이 한 번은 보지만, **실패 목록은 red 가 계속 나는 것이 정상 상태**라 아무도 다시 보지 않는다.
+- 이것은 이 파일의 *"editor branch 의 과거 실행 기록은 통합 상태의 검증 증거가 아니다"* 를 실패 목록으로 확장한 것이다.
+- 항목의 필수 필드는 넷이며, 하나라도 빠지면 재검증이 불가능하므로 항목으로 인정하지 않는다: **(1) 테스트 이름 (2) 측정된 원인 (3) 측정된 커밋 SHA (4) 측정 일자**.
+- 가능하면 이름이 아니라 **실패 서명(스택 최상단 + 던진 메시지)** 으로 매칭한다.
+- 실측 근거: VE-11 의 선재 실패 6건을 현재 HEAD 에서 전수 재검증한 결과 **6건 전부가 기록된 그대로는 사실이 아니었다** (2건은 이미 통과, 3건은 #8 이 해결, 1건은 여전히 red 이나 기록된 것과 전혀 다른 원인). 상세는 `docs/plan/2026-09-18.issue-2-lane-standing-brief.md`.
+
+**심볼을 옮기거나 이름을 바꾸기 전에**, 그것을 import 가 아니라 **문자열로 지목하는 것**을 저장소 전체에서 찾는다 — 카탈로그·매니페스트·evidence signature·소스 텍스트 단언·CI glob·문서 앵커. 전부 컴파일러에도 동작 테스트에도 보이지 않는다. "토큰 동일" 은 **동작** 질문에 답하지 **정체성** 질문에 답하지 않는다.
+
 **변하지 않는 것**: TCP 2001/2002 운영 중단 금지, 프로세스 안전 규칙, `git add -A` 금지, 기록을 고쳐 쓰지 않고 승계하는 것.
 
 ## 성능과 사용성 우선 (2026-09-18, 사용자 지시)
@@ -309,3 +326,34 @@ npx speckiwi validate --root . --fail-on-warning
 ```
 
 CLI 는 cwd 를 루트로 삼고 `--root` 를 존중한다. 실측으로 확인된다 — 같은 `speckiwi show <ID>` 가 워크트리에서는 성공하고 다른 체크아웃에서는 `NOT_FOUND` 를 반환한다.
+
+## SpecKiwi 도구의 알려진 함정 세 가지 (2026-09-19, #65 · #79)
+
+외부 패키지(`speckiwi ^3.0.0`)의 결함이라 이 저장소에서 고칠 수 없다. 회피 절차와 가드로 다룬다.
+
+### 1. `edit-requirement-table-rows` 가 Change Note 를 조용히 삼킨다
+
+요구사항 블록 전체를 **stale read 기준으로 다시 쓰므로**, 그 사이에 추가된 Change Note 가 **오류도 경고도 없이** 사라진다. `validate` 는 0 errors / 0 warnings 를 낸다 — 없어진 기록은 구조적 결함이 아니기 때문이다.
+
+- **Change Note 는 그 요구사항에 대한 table-row 쓰기를 전부 끝낸 뒤에 추가한다.**
+- 같은 요구사항에 반복 호출할 때마다 직전 호출 이후의 수동 편집이 사라질 수 있다고 가정한다.
+- `--dry-run` 을 선행하고, 실행 전후 `git diff` 의 삽입·삭제 줄 수가 의도와 정확히 일치하는지 본다.
+- 커밋 전에 `npm run check:srs-change-notes` 를 돌린다. Change Note 행은 append-only 이므로 **HEAD 보다 적어졌다면 쓰기가 하나 먹은 것**이다.
+
+또한 연산 키를 잘못 주면 **조용히 무시되고 원본과 동일한 교체**가 일어난다(`cells` · `fields` · `set`). 성공처럼 보이므로 증거를 갱신했다고 믿고 넘어갈 수 있다. 올바른 키는 `kind` · `rowId` · `values` 다.
+
+### 2. `sync-index` 가 lock 을 남긴다 — 다만 막지는 않는다
+
+`sync-index` 뒤 `kiwi/.status.json` 의 `lock.active` 가 `true` 로 남고 60초 뒤 만료된다. **실측으로 그 잔존 lock 은 아무것도 막지 않는다** — 두 번째 `sync-index`, `check-ac`, `add-change-note` 가 모두 그 아래에서 진행된다. 비용은 막힌 명령이 아니라 **다음 사람과 모든 diff 에게 "누군가 쓰는 중" 으로 읽히는 기록**이다.
+
+커밋된 파일의 lock 은 살아 있는 lock 일 수 없다. 커밋 전에 `lock` 을 `{"active": false, "metadata": null}` 로 되돌린다. `npm run check:kiwi-status` 가 이것을 막는다.
+
+### 3. Trace Links 행은 도구로 주소 지정할 수 없다
+
+`edit-requirement-table-rows` 는 **ID 열이 없는 Trace Links 행을 지목하지 못한다.** 그 표만은 수기 편집이 불가피하며, 그때는 **사유를 Change Note 로 남긴다.**
+
+관련해서: **이 저장소에서 행 번호는 빠르게 썩는다.** 불변 기록물의 참조는 이름(테스트 제목·심볼)으로 걸고, 이름을 댈 수 없으면 **경로만 남긴다.** 행 번호 범위는 다음 커밋에 이미 틀린 곳을 가리킨다.
+
+### 4. 에픽 작업 중에는 target 을 항상 명시한다
+
+Active Target 이 다른 것으로 설정돼 있으면 `speckiwi summary` 가 이 에픽의 요구사항을 보여주지 않는다. **명시를 빠뜨리면 관련 없는 집합에 대한 요약을 보고 판단하게 된다.** Active Target 기본값에 기대지 말고 `--target` 을 항상 넘긴다.
