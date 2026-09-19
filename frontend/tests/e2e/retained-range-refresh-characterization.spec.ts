@@ -148,9 +148,14 @@ async function settledNormalLength(
  * lateLength=707 and overlap=707/707 on EVERY such run -- the complete range,
  * oldest line included. The same probe with a fixed 8s wait in place of this poll
  * passed 4/4. The reading was early; nothing was ever lost. On passing runs the
- * whole subscribe+restore lands ~60ms after mount; on the others it lands after
- * the settle window, and more produced output pushes it into that slower mode,
- * which is why 700 lines reproduced and 300 did not.
+ * whole subscribe+restore lands ~60ms after mount; on the others it lands well
+ * after the settle window -- measured restore times here are 6.2-9.0s.
+ *
+ * NOT CLAIMED: that this depends on producer size. 300 lines passing 4 times was
+ * read as immunity, but if the true rate were ~1/3 then four consecutive passes
+ * has probability (2/3)^4 = 0.20, which is unremarkable for a spec that is
+ * equally exposed. Separating 33% from 0% needs a denominator nobody has run.
+ * Size is UNEXCLUDED BUT UNSUPPORTED; do not repeat it as a finding.
  *
  * This is the same instrument failure the repository already recorded for this
  * measurement ("안정화 폴링이 '안정됨' 과 '시작도 안 함' 을 구별하지 못했다"). It came back
