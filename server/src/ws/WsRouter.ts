@@ -85,7 +85,10 @@ import {
   type SubscribedChannelFields,
   type TerminalBinaryGroupSession,
 } from './terminalBinaryGroupSession.js';
-import type { TerminalBinaryCapabilityOffer } from './terminalBinaryNegotiation.js';
+import type {
+  TerminalBinaryCapabilityOffer,
+  TerminalBinaryRejected,
+} from './terminalBinaryNegotiation.js';
 import type { TerminalWireFormat } from './terminalWireFormat.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import {
@@ -125,6 +128,32 @@ function restoreAuthorityRetryDelayMs(attempt: number): number {
 }
 const SCREEN_REPAIR_ACK_TIMEOUT_MS = 5_000;
 const MAX_RECENT_REPLAY_EVENTS = 256;
+const MAX_RECENT_HANDSHAKE_REJECTIONS = 128;
+
+/**
+ * OPS-BGSTAB-014 — what a capability handshake refusal leaves behind.
+ *
+ * Deliberately NOT a `ReplayTelemetryEvent`: that type requires `sessionId: string`, and a
+ * capability handshake is connection- or group-scoped, so fitting it there would mean
+ * inventing a session id for a rejection that has none. A sentinel in a required field
+ * looks like a session id, reads like a session id, and means "there wasn't one" -- the
+ * reading whose meaning depends on context the reading does not carry (AC-2).
+ *
+ * `sessionId: null` says the absence outright instead.
+ */
+export interface HandshakeRejectionRecord {
+  readonly recordId: number;
+  readonly recordedAt: string;
+  readonly handshake: 'binary' | 'checkpoint';
+  readonly reason: string;
+  readonly phase?: string;
+  /** Null when the rejection carried no session identity. Never a placeholder. */
+  readonly sessionId: string | null;
+  /** Null when the socket had no registered client, which is itself a rejection cause. */
+  readonly clientId: string | null;
+  /** Whether the peer was told. A refusal that answers nothing is a defect, not a record. */
+  readonly answered: boolean;
+}
 const MAX_REPLAY_QUEUED_INPUT_BYTES = 64 * 1024;
 const MAX_REPLAY_QUEUED_INPUT_AGE_MS = 3_000;
 const MAX_INPUT_SEQUENCE_SPAN = 1024;
@@ -2065,8 +2094,44 @@ export class WsRouter {
   // `01 §2.2`
   private handleTerminalBinaryCapability(ws: WebSocket, rawMessage: unknown): void {
     const group = this.ensureTerminalBinaryGroup(ws);
-    if (!group) return;
-    this.sendTo(ws, group.negotiate(rawMessage as TerminalBinaryCapabilityOffer));
+    if (!group) {
+      // OPS-BGSTAB-014 AC-3. `ensureTerminalBinaryGroup` yields undefined on exactly one
+      // condition -- no registered client for this socket -- and the checkpoint handler
+      // answers that same condition with `invalid-message`. Returning silently here left
+      // an offer with no reply, no record, and nothing to find afterwards. No new reason
+      // is introduced: this is the one the adjacent handler already uses (AC-4).
+      const rejection: TerminalBinaryRejected = {
+        type: 'terminal-binary:rejected',
+        supportedFrameVersions: [],
+        phase: 'offer',
+        reason: 'invalid-message',
+      };
+      this.sendTo(ws, rejection);
+      this.recordHandshakeRejection({
+        handshake: 'binary',
+        reason: rejection.reason,
+        phase: rejection.phase,
+        sessionId: null,
+        clientId: null,
+        answered: true,
+      });
+      return;
+    }
+    const result = group.negotiate(rawMessage as TerminalBinaryCapabilityOffer);
+    this.sendTo(ws, result);
+    if (result.type === 'terminal-binary:rejected') {
+      // Was `console.warn` on the client and nothing on the server. A record that cannot
+      // be read afterwards has the same value as no record (AC-1). A binary handshake is
+      // group-scoped, so there is no session to name and the record says so.
+      this.recordHandshakeRejection({
+        handshake: 'binary',
+        reason: result.reason,
+        phase: result.phase,
+        sessionId: null,
+        clientId: this.clients.get(ws)?.clientId ?? null,
+        answered: true,
+      });
+    }
   }
 
   // @req PERF-BGSTAB-010 AC-5 AC-6
@@ -2759,6 +2824,17 @@ export class WsRouter {
       reason,
       ...(sessionId ? { sessionId } : {}),
       ...(rejectedMessageType ? { rejectedMessageType } : {}),
+    });
+    // Recorded with whatever identity exists. The rejections least likely to carry a
+    // sessionId -- `invalid-message` for a payload malformed enough to lose it -- are the
+    // ones a reader most wants, so the record must not be conditional on having one.
+    this.recordHandshakeRejection({
+      handshake: 'checkpoint',
+      reason,
+      phase,
+      sessionId: sessionId ?? null,
+      clientId: this.clients.get(ws)?.clientId ?? null,
+      answered: true,
     });
   }
 
@@ -6214,6 +6290,44 @@ export class WsRouter {
       transportOutputCoalesceCount: this.transportOutputCoalesceCount,
       recentReplayEvents: [...this.recentReplayEvents],
     };
+  }
+
+  /**
+   * Bounded, connection-scoped, and written before any debug gate -- a rejection must be
+   * findable whether or not someone thought to switch capture on beforehand, because the
+   * question is always asked afterwards (AC-1).
+   */
+  private readonly recentHandshakeRejections: HandshakeRejectionRecord[] = [];
+  private handshakeRejectionCounter = 0;
+
+  private recordHandshakeRejection(input: {
+    handshake: 'binary' | 'checkpoint';
+    reason: string;
+    phase?: string;
+    sessionId?: string | null;
+    clientId?: string | null;
+    answered: boolean;
+  }): void {
+    this.recentHandshakeRejections.push({
+      recordId: ++this.handshakeRejectionCounter,
+      recordedAt: new Date().toISOString(),
+      handshake: input.handshake,
+      reason: input.reason,
+      ...(input.phase === undefined ? {} : { phase: input.phase }),
+      sessionId: input.sessionId ?? null,
+      clientId: input.clientId ?? null,
+      answered: input.answered,
+    });
+    if (this.recentHandshakeRejections.length > MAX_RECENT_HANDSHAKE_REJECTIONS) {
+      this.recentHandshakeRejections.splice(
+        0,
+        this.recentHandshakeRejections.length - MAX_RECENT_HANDSHAKE_REJECTIONS,
+      );
+    }
+  }
+
+  getHandshakeRejections(limit = MAX_RECENT_HANDSHAKE_REJECTIONS): readonly HandshakeRejectionRecord[] {
+    return this.recentHandshakeRejections.slice(-Math.max(1, limit));
   }
 
   recordReplayEvent(event: ReplayTelemetryEventInput): void {
