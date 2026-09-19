@@ -72,6 +72,9 @@
     "tests/e2e/wave2-terminal-restore.spec.ts",
 
     // Issue #114.
-    "tests/e2e/terminal-width-policy-browser.spec.ts"
+    "tests/e2e/terminal-width-policy-browser.spec.ts",
+
+    // Issue #113 probe.
+    "tests/e2e/issue113-restore-latency-probe.spec.ts"
   ]
 }

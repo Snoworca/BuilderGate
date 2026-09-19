@@ -184,20 +184,46 @@ async function settledFingerprints(page: Page, sessionId: string): Promise<LineF
 async function waitForRestoredFingerprints(
   page: Page,
   sessionId: string,
-  oldestLogicalLineHash: string,
+  oldestLineText: string,
   timeoutMs = 60_000,
 ): Promise<LineFingerprint[]> {
   const startedAt = Date.now();
-  let latest = await readLineFingerprints(page, sessionId);
-  while (
-    !latest.some(line => line.logicalLineHash === oldestLogicalLineHash)
-    && Date.now() - startedAt < timeoutMs
-  ) {
-    await page.waitForTimeout(200);
-    latest = await readLineFingerprints(page, sessionId);
+  // #113: the POLL must not call captureRetainedState. That capture hashes the
+  // whole retained state with fnv1a64 over a canonical JSON serialisation — two
+  // BigInt operations per byte, measured at 70x the cost of reading a line — and
+  // polling it across a reload was a material share of the latency logged below.
+  // Measured 2026-09-20, one build, one execution: with the cheap probe the
+  // restore lands at 4170-4246ms whether the producer wrote 300 or 700 lines;
+  // with the hashing probe the same runs report 5410-8558ms and the main thread
+  // stalls for 1.1-2.9s. The excess IS the instrument, and because the hash cost
+  // grows with the buffer it is also what made the latency look size-dependent.
+  //
+  // The claim this spec makes is still content identity by hash. Only the poll
+  // changed: it waits on the oldest produced line's TEXT, then reads the
+  // fingerprints once. Once is not a loop.
+  for (;;) {
+    const probe = await page.evaluate(
+      (id) => window.__buildergateTerminalDebug?.captureTerminalScrollbackProbe?.(
+        id,
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      ) ?? null,
+      sessionId,
+    );
+    if (probe === null) {
+      throw new Error(
+        'captureTerminalScrollbackProbe is unavailable for this session — the instrument is '
+        + 'absent, which is not the same as the line not being back',
+      );
+    }
+    // Exact match on the trimmed line: translateToString(true) trims the right
+    // side, and `includes` would accept RH-10-... for RH-1-...
+    if (probe.lines.some(line => line.text.trim() === oldestLineText)) break;
+    if (Date.now() - startedAt >= timeoutMs) break;
+    await page.waitForTimeout(100);
   }
-  // Diagnostic, never a gate. Criterion 6 has no latency clause, but the restore
-  // is bimodal (~60ms or seconds) and a green run should not hide which it took.
+  const latest = await readLineFingerprints(page, sessionId);
+  // Diagnostic, never a gate. Criterion 6 has no latency clause, and a green run
+  // should not hide how long it took.
   // eslint-disable-next-line no-console
   console.log(`[item 6] restore observed after ${Date.now() - startedAt}ms`);
   return latest;
@@ -312,7 +338,9 @@ test.describe('issue #16 item 6 — old retained lines stay selectable across a 
         .poll(async () => (await captureTerminalLines(page, session)) !== null, { timeout: 30_000 })
         .toBe(true);
 
-      const after = await waitForRestoredFingerprints(page, session, oldest.logicalLineHash);
+      // The wait keys on the oldest produced line's TEXT (cheap); the claim below
+      // is still content identity by hash. See #113 on waitForRestoredFingerprints.
+      const after = await waitForRestoredFingerprints(page, session, markerFor(1));
       const contentSurvivor = after.find(line => line.logicalLineHash === oldest.logicalLineHash);
       const overlap = before.filter(
         b => after.some(a => a.logicalLineHash === b.logicalLineHash),

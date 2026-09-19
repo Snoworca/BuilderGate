@@ -169,22 +169,53 @@ async function settledNormalLength(
 async function waitForRestoredLine(
   page: import('@playwright/test').Page,
   sessionId: string,
-  oldestLogicalLineHash: string,
+  oldestLineText: string,
   timeoutMs = 60_000,
 ): Promise<{
   fingerprints: { index: number; logicalLineHash: string }[];
   elapsedMs: number;
 }> {
   const startedAt = Date.now();
-  let fingerprints = await readLineFingerprints(page, sessionId);
-  while (
-    !fingerprints.some(line => line.logicalLineHash === oldestLogicalLineHash)
-    && Date.now() - startedAt < timeoutMs
-  ) {
-    await page.waitForTimeout(200);
-    fingerprints = await readLineFingerprints(page, sessionId);
+  // #113: the POLL must not call captureRetainedState. That capture hashes the
+  // whole retained state with fnv1a64 over a canonical JSON serialisation — two
+  // BigInt operations per byte — and polling it was a material share of the
+  // latency this loop reports. Measured 2026-09-20, same build, one execution:
+  //
+  //   instrument   300 lines        700 lines
+  //   cheap        4219 / 4170ms    4228 / 4246ms   no main-thread stall
+  //   hashing      5410 / 8558ms    6940 / 6713ms   1.1-2.9s of stall
+  //
+  // A CPU profile of a 700-line reload put that hash and its stringifier at the
+  // top of the whole page's self-time. The excess over the cheap floor IS the
+  // instrument, and because the hash cost grows with the buffer it is also what
+  // made the latency look size-dependent — with the cheap probe 300 and 700
+  // lines differ by 9ms.
+  //
+  // So the loop reads one named line with captureTerminalScrollbackProbe, which
+  // costs one translateToString. The expensive capture is still used ONCE after
+  // the wait, for the content-identity claim; once is not a loop.
+  for (;;) {
+    const probe = await page.evaluate(
+      (id) => window.__buildergateTerminalDebug?.captureTerminalScrollbackProbe?.(
+        id,
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      ) ?? null,
+      sessionId,
+    );
+    if (probe === null) {
+      throw new Error(
+        'captureTerminalScrollbackProbe is unavailable for this session — the instrument is '
+        + 'absent, which is not the same as the line not being back',
+      );
+    }
+    // Exact match on the trimmed line: translateToString(true) trims the right
+    // side, and `includes` would accept RETAINED-10 for RETAINED-1.
+    if (probe.lines.some(line => line.text.trim() === oldestLineText)) break;
+    if (Date.now() - startedAt >= timeoutMs) break;
+    await page.waitForTimeout(100);
   }
-  return { fingerprints, elapsedMs: Date.now() - startedAt };
+  const elapsedMs = Date.now() - startedAt;
+  return { fingerprints: await readLineFingerprints(page, sessionId), elapsedMs };
 }
 
 test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
@@ -267,7 +298,10 @@ test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
 
       await page.reload();
       await waitForTerminal(page);
-      const restored = await waitForRestoredLine(page, session, oldest.logicalLineHash);
+      // The wait keys on the oldest produced line's TEXT, which is cheap to read.
+      // The claim below is still content identity by hash; only the polling
+      // changed. See the note on waitForRestoredLine for the measurement.
+      const restored = await waitForRestoredLine(page, session, 'RETAINED-1');
       const after = restored.fingerprints;
       const afterReload = await readNormalLength(page, session);
       const survivors = new Set(after.map(line => line.logicalLineHash));

@@ -130,6 +130,32 @@ export interface TerminalWidthPolicyDebugSnapshot {
   reflowCursorLine: boolean | undefined;
 }
 
+/**
+ * #113. A CHEAP content-bearing read of the normal buffer.
+ *
+ * The only instrument that could say whether a particular line is back after
+ * a reload was `captureRetainedState`, and it hashes the entire retained state
+ * with fnv1a64 over a canonical JSON serialisation — two BigInt operations per
+ * byte. Profiled 2026-09-20 during a reload of a 700-line session, that hash
+ * and its stringifier were the top self-time entries in the whole page, and
+ * the spec measuring restore latency was calling it every 200ms. The
+ * instrument was a material share of the thing it was measuring.
+ *
+ * `captureTerminalText` is not a substitute: it reads `term.rows` rows from
+ * `viewportY`, so it cannot see scrollback at all, and a restore that has not
+ * happened looks the same as one that has.
+ *
+ * This reads named lines out of the NORMAL buffer with one translateToString
+ * each. It is content-bearing, so it is not the single-number conflation
+ * `normalLength` suffers from, and it costs nothing measurable.
+ */
+export interface TerminalScrollbackProbeDebugSnapshot {
+  normalLength: number;
+  rows: number;
+  /** Text of the requested normal-buffer rows, in the order requested. */
+  lines: { index: number; text: string }[];
+}
+
 interface TerminalDebugStore {
   events: TerminalClientDebugEvent[];
   enabledAll: boolean;
@@ -158,6 +184,11 @@ interface TerminalDebugStore {
   captureTerminalBufferLengths: (sessionId: string) => TerminalBufferLengthsDebugSnapshot | null;
   // #114: see TerminalWidthPolicyDebugSnapshot.
   captureTerminalWidthPolicy: (sessionId: string) => TerminalWidthPolicyDebugSnapshot | null;
+  // #113: see TerminalScrollbackProbeDebugSnapshot.
+  captureTerminalScrollbackProbe: (
+    sessionId: string,
+    indices: readonly number[],
+  ) => TerminalScrollbackProbeDebugSnapshot | null;
   captureRetainedState: (sessionId: string) => TerminalRetainedStateEvidence | null;
   captureRetainedStateStreaming: (
     sessionId: string,
@@ -171,6 +202,10 @@ interface TerminalDebugStore {
   selectionCaptureHandlers: Map<string, () => TerminalSelectionDebugSnapshot>;
   bufferLengthsCaptureHandlers: Map<string, () => TerminalBufferLengthsDebugSnapshot>;
   widthPolicyCaptureHandlers: Map<string, () => TerminalWidthPolicyDebugSnapshot>;
+  scrollbackProbeCaptureHandlers: Map<
+    string,
+    (indices: readonly number[]) => TerminalScrollbackProbeDebugSnapshot
+  >;
   retainedStateCaptureHandlers: Map<string, () => TerminalRetainedStateEvidence>;
   retainedStateStreamingCaptureHandlers: Map<
     string,
@@ -336,6 +371,12 @@ function getStore(): TerminalDebugStore | null {
         }
         return this.widthPolicyCaptureHandlers.get(sessionId)?.() ?? null;
       },
+      captureTerminalScrollbackProbe(sessionId: string, indices: readonly number[]) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.scrollbackProbeCaptureHandlers.get(sessionId)?.(indices) ?? null;
+      },
       captureRetainedState(sessionId: string) {
         if (!isLocalTestHost()) {
           return null;
@@ -356,6 +397,10 @@ function getStore(): TerminalDebugStore | null {
       selectionCaptureHandlers: new Map<string, () => TerminalSelectionDebugSnapshot>(),
       bufferLengthsCaptureHandlers: new Map<string, () => TerminalBufferLengthsDebugSnapshot>(),
       widthPolicyCaptureHandlers: new Map<string, () => TerminalWidthPolicyDebugSnapshot>(),
+      scrollbackProbeCaptureHandlers: new Map<
+        string,
+        (indices: readonly number[]) => TerminalScrollbackProbeDebugSnapshot
+      >(),
       retainedStateCaptureHandlers: new Map<string, () => TerminalRetainedStateEvidence>(),
       retainedStateStreamingCaptureHandlers: new Map<
         string,
@@ -494,6 +539,27 @@ export function registerTerminalWidthPolicyCaptureHandler(
     const current = store.widthPolicyCaptureHandlers.get(sessionId);
     if (current === handler) {
       store.widthPolicyCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
+// #113: test-host gated like its neighbours. See
+// TerminalScrollbackProbeDebugSnapshot for why the existing instruments could
+// not answer this question without distorting it.
+export function registerTerminalScrollbackProbeCaptureHandler(
+  sessionId: string,
+  handler: (indices: readonly number[]) => TerminalScrollbackProbeDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.scrollbackProbeCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.scrollbackProbeCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.scrollbackProbeCaptureHandlers.delete(sessionId);
     }
   };
 }

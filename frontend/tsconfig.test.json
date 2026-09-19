@@ -58,6 +58,7 @@
     "tests/unit/e2eOwnershipTypecheck.test.ts",
     "tests/unit/e2eSpecTsconfigMembership.test.ts",
     "tests/unit/terminalReflowParity.test.ts",
+    "tests/unit/restoreLatencyInstrumentCost.test.ts",
     "tests/unit/binaryFrameCodec.test.ts",
     "tests/unit/binaryFrameIntake.test.ts",
     "tests/unit/binaryFrameIntakeWiring.test.ts",
