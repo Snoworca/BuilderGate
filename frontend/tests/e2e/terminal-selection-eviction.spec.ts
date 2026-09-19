@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { test, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
-import { login, openTerminalContextMenu, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
+import { login, openTerminalContextMenu, waitForTerminal, waitForTerminalInputReady } from './helpers';
 
 /**
  * FR-BGSTAB-029 (GitHub issue #16) selection-eviction regressions.
@@ -40,6 +40,33 @@ import { login, openTerminalContextMenu, sendVisibleTerminalCommand, waitForTerm
  * "the first visible terminal" by DOM order, which during a workspace switch could
  * transiently be an outgoing session's terminal rather than the one this spec just
  * created. That helper now takes `{ sessionId }` and every call below passes it.
+ *
+ * Three more things measured 2026-09-19, unparking this spec once `captureTerminalSelection`
+ * (the debug hook this file's earlier draft was blocked on) went live, all found by
+ * distrusting a conclusion drawn from the DOM and re-checking it against xterm's own model:
+ *
+ *   1. A `page.mouse.move(x, y, { steps: N })` drag does not add real wall-clock delay
+ *      between the events it dispatches, and left `term.hasSelection()` false every time --
+ *      not "no visible DOM trace of a selection" (which the WebGL renderer would produce
+ *      either way), a real absence confirmed by the hook. Moving in a loop with a small
+ *      `waitForTimeout` between steps (`dragAcrossRow`) fixed it; see also `focusTerminalHost`
+ *      -- the earlier "no selection" conclusion in this file's history was drawn before this
+ *      hook existed and cannot be trusted either way.
+ *   2. `focusTerminalHost`'s and `sendVisibleTerminalCommand`'s `screen.click()` clears
+ *      whatever selection currently exists as a side effect (an unrelated mousedown+mouseup
+ *      reads as "place the cursor here" to xterm's `SelectionService`), which made every
+ *      later flood command in this file destroy the selection it was supposed to be testing
+ *      the eviction of, for a reason that had nothing to do with the flood's OUTPUT. Both
+ *      are fixed here to skip the click when the terminal is already correctly focused.
+ *   3. A selection anchored to a row is cleared once that row scrolls off the CURRENTLY
+ *      VISIBLE viewport, independent of how much scrollback capacity remains --
+ *      `resourceLimits.terminal.scrollbackLines` (10000) does not govern this. A diagnostic
+ *      script lost a single-row selection after as few as 50 lines of new output. The second
+ *      test below no longer tries to put its two markers scrollback-distances apart with a
+ *      flood in between (that killed the selection before it could ever become two-ended);
+ *      it drags across both markers in one motion while both are on screen, then floods by
+ *      an amount bounded strictly between their two row indices so the drag's start scrolls
+ *      off while its end does not.
  */
 
 interface EvictionWorkspaceContext {
@@ -94,7 +121,27 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
     }
   });
 
-  test(
+  // #16 item 2, second half -- PARKED, not proven reachable. Measured 2026-09-19, after this
+  // test's own precondition steps (drag-select spanning both markers, confirmed via
+  // captureTerminalSelection) started passing: the theorized bug -- xterm's
+  // SelectionModel.handleTrim clamping selectionStart to buffer row 0 while selectionEnd
+  // stays live, reported by hasSelection()/getSelection() as a silently-wrong selection --
+  // is not reachable in this app as it stands, because something clears the selection
+  // OUTRIGHT (hasSelection() false, not "shifted") on essentially any subsequent output, well
+  // before any scrollback-position nuance could matter. Isolated with three measurements, in
+  // increasing order of how little it takes: (1) a precisely bounded flood sized strictly
+  // between the two markers' row indices (this test's own approach, tuned twice) still
+  // produced a full clear every time; (2) a single-row selection was lost after as few as 50
+  // lines of unrelated output, nowhere near the configured 10000-line browser scrollback;
+  // (3) a selection was cleared by one bare Enter keypress producing a single new prompt
+  // line, with no scrolling and no scrollback pressure of any kind. This traces to something
+  // in this app clearing the selection on essentially any output, not to xterm's own
+  // scrollback-trim logic, which this test's setup could never reach as a result. Left as
+  // `fixme` rather than deleted or forced green: the setup (real drag, multi-row, verified via
+  // the debug hook before asserting anything about eviction) is sound and worth keeping if the
+  // premise turns out to be reachable some other way; the assertions below encode what the
+  // ORIGINAL theorized bug predicts, not what was measured.
+  test.fixme(
     'new AC: a selection trimmed at the top but surviving at the bottom must not silently point at the wrong lines',
     async ({ page }) => {
       test.setTimeout(180_000);
@@ -108,30 +155,85 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
         const topMarker = `TOP-MARKER-${Date.now()}`;
         const bottomMarker = `BOTTOM-MARKER-${Date.now()}`;
 
-        // Anchor the selection at topMarker's row while it is still on screen. A real
-        // drag (not a bare click) matches how a user actually starts a selection and
-        // establishes both selectionStart and selectionEnd at this row.
-        await createSingleLineSelection(page, sid, topMarker);
-
-        // Push topMarker far above the viewport before bottomMarker appears, so the
-        // two can never be simultaneously visible -- this is the same situation a
-        // real user hits with a large scrollback, and it rules out a drag that
-        // happens to stay within one screenful.
-        await floodLines(page, sid, 3_000, 'GAP');
+        // Measured 2026-09-19: a selection anchored to a row is cleared as soon as that row
+        // scrolls off the CURRENTLY VISIBLE screen -- a diagnostic script found a single-row
+        // selection gone after as little as 50 lines of new output, regardless of the
+        // configured browser scrollback (resourceLimits.terminal.scrollbackLines = 10000,
+        // server/config.json5, is not what governs this). So the two markers cannot be
+        // established thousands of lines apart with a flood in between; they must both be
+        // on screen AT ONCE when the selection is made, one drag spanning both rows, and the
+        // later flood must be small and precisely bounded: enough to push topMarker's row
+        // past the top of the viewport, but not enough to also push bottomMarker's row past
+        // it.
+        await sendCommandAndWaitForMarker(page, sid, `echo ${topMarker}`, topMarker);
+        // A small filler gap so the later flood has room to land strictly between the two
+        // rows -- back-to-back echoes leave only 2-3 rows of natural separation (the command
+        // echo plus its output), too narrow a window once the flood command's own echo line
+        // is accounted for.
+        await floodLines(page, sid, 15, 'GAP');
         await sendCommandAndWaitForMarker(page, sid, `echo ${bottomMarker}`, bottomMarker);
 
-        // Shift+click extends selectionEnd to bottomMarker while leaving
-        // selectionStart exactly where the initial drag put it (xterm's own
-        // SelectionService._handleIncrementalClick only touches selectionEnd).
-        await shiftClickMarker(page, sid, bottomMarker);
+        // Both row indices read from the SAME viewport snapshot, so they are directly
+        // comparable -- reading them separately (one snapshot per marker) would let an
+        // intervening scroll shift one relative to the other.
+        const lines = await captureTerminalLines(page, sid);
+        if (lines === null) {
+          throw new Error('E2E precondition failed: captureTerminalText debug hook is unavailable');
+        }
+        const topRowIndex = lines.findIndex(line => line.trim() === topMarker);
+        const bottomRowIndex = lines.findIndex(line => line.trim() === bottomMarker);
+        if (topRowIndex === -1 || bottomRowIndex === -1) {
+          throw new Error(
+            `E2E precondition failed: markers not both found in one viewport snapshot `
+            + `(topRowIndex=${topRowIndex}, bottomRowIndex=${bottomRowIndex}, lines=${JSON.stringify(lines)})`,
+          );
+        }
+        expect(
+          bottomRowIndex,
+          'E2E precondition failed: bottomMarker must be strictly below topMarker in the same '
+          + `viewport snapshot (topRowIndex=${topRowIndex}, bottomRowIndex=${bottomRowIndex})`,
+        ).toBeGreaterThan(topRowIndex);
 
-        // Calibrated against this server's configured browser scrollback
-        // (resourceLimits.terminal.scrollbackLines = 10000, server/config.json5)
-        // plus viewport rows, so that topMarker's row (written before the 3000-line
-        // gap) crosses below buffer row 0 while bottomMarker's row (written after
-        // the gap) does not. The 3000-line gap gives a wide margin against any
-        // error in that estimate.
-        await floodLines(page, sid, 9_700, 'FLOOD');
+        // One drag spanning both rows -- both markers are simultaneously visible right now,
+        // so this does not need the separate shift+click extension a scrollback-spanning
+        // selection would.
+        const screen = terminalScope(page, sid).locator('.xterm-screen');
+        const box = await screen.boundingBox();
+        if (!box) throw new Error('E2E precondition failed: terminal screen has no bounding box');
+        const rowHeight = box.height / lines.length;
+        const topPosition: MarkerPosition = { x: box.x, y: box.y + (topRowIndex + 0.5) * rowHeight, width: box.width };
+        const bottomPosition: MarkerPosition = { x: box.x, y: box.y + (bottomRowIndex + 0.5) * rowHeight, width: box.width };
+        await dragAcrossRow(page, { x: topPosition.x, y: topPosition.y, width: topPosition.width }, bottomPosition.y);
+        await focusTerminalHost(page, sid);
+
+        // Assert the selection exists and spans both markers -- via xterm's own model,
+        // before the flood that is about to trim it -- rather than assuming the drag worked.
+        // This is the "before" half of the discriminating comparison: what the user actually
+        // selected, captured with the one instrument that can see it under WebGL, kept for
+        // comparison against what Ctrl+C actually produces below.
+        const beforeTrim = await captureSelection(page, sid);
+        expect(
+          beforeTrim?.hasSelection,
+          'E2E precondition failed: the drag across both markers did not leave a selection '
+          + `according to xterm's own model. Captured: ${JSON.stringify(beforeTrim)}`,
+        ).toBe(true);
+        expect(
+          beforeTrim?.text,
+          'E2E precondition failed: the selection does not span both markers -- '
+          + `expected it to contain both "${topMarker}" and "${bottomMarker}". Captured: `
+          + `${JSON.stringify(beforeTrim?.text)}`,
+        ).toEqual(expect.stringContaining(topMarker));
+        expect(beforeTrim?.text).toEqual(expect.stringContaining(bottomMarker));
+        const originallySelectedText = beforeTrim!.text;
+
+        // Push topMarker's row past the top of the viewport while keeping bottomMarker's row
+        // on screen -- strictly greater than topRowIndex, less than bottomRowIndex. Biased
+        // toward topRowIndex (a third of the way into the gap, not the midpoint) rather than
+        // split evenly: floodLines' own command sends `node -e "..."` as one line before its
+        // output starts, and that extra line (plus normal prompt overhead) eats into the
+        // margin on the bottom side, not the top.
+        const floodAmount = topRowIndex + Math.max(2, Math.floor((bottomRowIndex - topRowIndex) / 3));
+        await floodLines(page, sid, floodAmount, 'FLOOD');
 
         await focusTerminalHost(page, sid);
         await page.keyboard.press('Control+C');
@@ -145,6 +247,17 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
         }).toBeGreaterThan(0);
 
         const copied = (await readClipboardWriteCalls(page)).at(-1) ?? '';
+        // The discriminating assertion: compare what was actually copied against what was
+        // originally selected (captured above, before the flood), not just "is copy
+        // disabled" -- xterm's SelectionModel.handleTrim clamps selectionStart to buffer row
+        // 0 instead of clearing the selection when only the top scrolls off, so hasSelection
+        // stays true and copy stays enabled throughout. A copy that silently diverged from
+        // what the user dragged over is the injury this AC exists to catch.
+        expect(
+          copied,
+          `${RED_SIGNATURES.partialTrim}\noriginally selected: ${JSON.stringify(originallySelectedText)}\n`
+          + `actually copied: ${JSON.stringify(copied)}`,
+        ).not.toEqual(originallySelectedText);
         expect(copied, RED_SIGNATURES.partialTrim).not.toContain(topMarker);
       } finally {
         await cleanupEvictionWorkspace(page, workspace);
@@ -177,6 +290,28 @@ async function captureTerminalLines(page: Page, sessionId: string): Promise<stri
 }
 
 /**
+ * Reads xterm's own selection model directly (`term.hasSelection()` / `term.getSelection()`,
+ * via `TerminalView.tsx`'s `registerTerminalSelectionCaptureHandler`) instead of the DOM.
+ *
+ * Under the WebGL renderer a selection is painted on canvas with no DOM trace at all -- no
+ * `.xterm-selection` element, and the browser's Selection API never reflects it either. Before
+ * this hook existed, "no `.xterm-selection` in the DOM" and "empty clipboard after Ctrl+C" were
+ * the only signals this spec had, and both are equally consistent with "no selection was made"
+ * and "a selection exists but this instrument cannot see it" -- there was no way to tell which.
+ * That ambiguity is why an earlier draft's "the drag creates no selection" conclusion could not
+ * be trusted and is not assumed true here; this hook is what actually answers the question.
+ */
+async function captureSelection(
+  page: Page,
+  sessionId: string,
+): Promise<{ hasSelection: boolean; text: string } | null> {
+  return page.evaluate(
+    (id) => window.__buildergateTerminalDebug?.captureTerminalSelection?.(id) ?? null,
+    sessionId,
+  );
+}
+
+/**
  * Waits for a line that is EXACTLY `marker` (after trailing-whitespace trim), not merely a
  * line that contains it as a substring.
  *
@@ -200,6 +335,32 @@ async function markerVisible(page: Page, sessionId: string, marker: string, time
   } catch {
     return false;
   }
+}
+
+/**
+ * Types a command into the terminal like `sendVisibleTerminalCommand` (`helpers.ts`), but
+ * skips the initial click if the terminal's helper textarea is already focused.
+ *
+ * Measured 2026-09-19: `sendVisibleTerminalCommand`'s unconditional `screen.click()` clears
+ * any active xterm selection as a side effect, the same way `focusTerminalHost`'s own click
+ * used to (see that function's doc comment) -- a click that lands away from the drag's own
+ * mouseup is an unrelated mousedown+mouseup, and xterm's `SelectionService` treats that as
+ * "place the cursor here", ending the selection. This spec sends flood commands (via
+ * `floodLines`) AFTER creating a selection specifically to test whether the FLOOD'S OUTPUT
+ * evicts it -- if the command that STARTS the flood clears the selection by clicking, every
+ * such test would show "selection gone" regardless of whether the flood's output ever
+ * mattered, which is exactly the vacuous-pass shape this spec's own control tests exist to
+ * catch elsewhere. A real user does not re-click a terminal they are already typing into.
+ */
+async function sendVisibleTerminalCommandPreservingSelection(
+  page: Page,
+  sessionId: string,
+  command: string,
+): Promise<void> {
+  await focusTerminalHost(page, sessionId);
+  await waitForTerminalInputReady(page);
+  await page.keyboard.type(command);
+  await page.keyboard.press('Enter');
 }
 
 /**
@@ -230,7 +391,7 @@ async function sendCommandAndWaitForMarker(
       await focusTerminalHost(page, sessionId);
       await page.keyboard.press('Control+U');
     }
-    await sendVisibleTerminalCommand(page, command, { sessionId });
+    await sendVisibleTerminalCommandPreservingSelection(page, sessionId, command);
     if (await markerVisible(page, sessionId, marker, perAttemptTimeoutMs)) {
       return;
     }
@@ -273,7 +434,24 @@ async function locateMarker(page: Page, sessionId: string, marker: string): Prom
   return { x: box.x, y: box.y + (rowIndex + 0.5) * rowHeight, width: box.width };
 }
 
+/**
+ * Focuses the terminal's helper textarea, but only by clicking if it is not already
+ * focused. Measured 2026-09-19: calling this unconditionally right after a real mouse drag
+ * (as `createSingleLineSelection` used to) cleared the selection the drag had just made --
+ * `.click()` clicks the CENTER of the terminal, a second, unrelated mousedown+mouseup that
+ * xterm's `SelectionService` correctly treats as "place the cursor here, ending any prior
+ * selection", the same way a normal click in the middle of previously-selected text does.
+ * A drag already leaves the helper textarea focused (confirmed via `document.activeElement`
+ * immediately before and after a drag in a standalone check), so the safe behavior is to
+ * skip the click entirely when focus is already correct, and only click to (re-)acquire
+ * focus from elsewhere -- which has no selection to protect.
+ */
 async function focusTerminalHost(page: Page, sessionId: string): Promise<void> {
+  const alreadyFocused = await page.evaluate(() => {
+    const active = document.activeElement;
+    return active instanceof HTMLTextAreaElement && active.classList.contains('xterm-helper-textarea');
+  });
+  if (alreadyFocused) return;
   const screen = terminalScope(page, sessionId).locator('.xterm-screen');
   await screen.click();
   await page.waitForFunction(() => {
@@ -282,26 +460,69 @@ async function focusTerminalHost(page: Page, sessionId: string): Promise<void> {
   }, undefined, { timeout: 10_000 });
 }
 
-/** Real mouse drag across a freshly emitted marker line -- sets selectionStart AND selectionEnd there. */
+/**
+ * Drags the mouse across one row, slowly enough for xterm's `SelectionService` to register
+ * a drag rather than a click.
+ *
+ * Measured 2026-09-19: `page.mouse.move(x, y, { steps: N })` interpolates position but does
+ * not add real wall-clock delay between the dispatched events -- CDP fires them back to back.
+ * A drag built that way left `term.hasSelection()` false via `captureTerminalSelection` every
+ * time, with no visible error; a diagnostic script that instead moved in a loop with a small
+ * `waitForTimeout` between steps produced a real selection on the first try, with no other
+ * change (same coordinates, same buttons, no modifier key). Holding Shift during the drag
+ * (`terminal-clipboard.spec.ts`'s `createVisibleTerminalSelection` does this) was tried first
+ * and made no difference on its own -- the pacing was the actual fix.
+ *
+ * Starts 1px inside the row's left edge rather than 4px: at 4px the mousedown landed in the
+ * right half of the first character's cell, which xterm's coordinate-to-column mapping
+ * resolves to the SECOND column, silently dropping the row's first character from the
+ * selection (measured: selecting "DIAGMARK" copied "IAGMARK"). 1px reliably lands in the left
+ * half of column 0's cell for this terminal's font metrics.
+ */
+async function dragAcrossRow(page: Page, position: MarkerPosition, endY: number = position.y): Promise<void> {
+  const x1 = position.x + 1;
+  const x2 = position.x + position.width - 4;
+  const steps = 20;
+  await page.mouse.move(x1, position.y);
+  await page.mouse.down();
+  for (let i = 1; i <= steps; i += 1) {
+    await page.mouse.move(
+      x1 + ((x2 - x1) * i) / steps,
+      position.y + ((endY - position.y) * i) / steps,
+    );
+    await page.waitForTimeout(20);
+  }
+  await page.mouse.up();
+}
+
+/**
+ * Real mouse drag across a freshly emitted marker line -- sets selectionStart AND
+ * selectionEnd there. Asserts, via xterm's own model rather than the DOM, that the drag
+ * actually produced a selection covering the marker before returning -- a caller that skips
+ * straight to an eviction assertion cannot tell "eviction cleared it" from "there was never
+ * a selection to clear" (`captureSelection`'s doc comment explains why the DOM cannot answer
+ * this question under the WebGL renderer).
+ */
 async function createSingleLineSelection(page: Page, sessionId: string, marker: string): Promise<void> {
   await sendCommandAndWaitForMarker(page, sessionId, `echo ${marker}`, marker);
   const position = await locateMarker(page, sessionId, marker);
-  await page.mouse.move(position.x + 4, position.y);
-  await page.mouse.down();
-  await page.mouse.move(position.x + position.width - 4, position.y, { steps: 8 });
-  await page.mouse.up();
+  await dragAcrossRow(page, position);
   await focusTerminalHost(page, sessionId);
-}
 
-/** Shift+click extends the existing selection's end to this row without touching its start. */
-async function shiftClickMarker(page: Page, sessionId: string, marker: string): Promise<void> {
-  const position = await locateMarker(page, sessionId, marker);
-  await page.keyboard.down('Shift');
-  try {
-    await page.mouse.click(position.x + position.width - 4, position.y);
-  } finally {
-    await page.keyboard.up('Shift');
-  }
+  await expect.poll(
+    async () => (await captureSelection(page, sessionId))?.hasSelection ?? false,
+    {
+      message: `E2E precondition failed: the drag across marker "${marker}" produced no selection `
+        + 'according to xterm\'s own model (term.hasSelection()) -- not merely no visible DOM trace.',
+      timeout: 5_000,
+    },
+  ).toBe(true);
+  const selection = await captureSelection(page, sessionId);
+  expect(
+    selection?.text.trim(),
+    `E2E precondition failed: the drag's selection text was "${selection?.text}", expected it to `
+    + `contain marker "${marker}"`,
+  ).toContain(marker);
 }
 
 /** Emits `count` lines via a portable `node -e` one-liner and waits for the last one to render. */
