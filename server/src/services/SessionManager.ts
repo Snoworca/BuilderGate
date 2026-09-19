@@ -3274,7 +3274,21 @@ export class SessionManager {
       // mutation must still prove the exact browser binding that was suspended
       // at the positional handoff.
       retained.blockers.add('mutation-identity-missing');
-      return runtime.admission.mode !== 'server';
+      const rejectedByAdmission = runtime.admission.mode === 'server';
+      // #112 root-cause instrumentation: a plain browser client never attaches
+      // retainedIdentity unless it holds a mutation lease (attachRetainedMutationLease
+      // in the frontend). If admission has moved to 'server' this rejects every keystroke
+      // from a client that never re-acquired a lease -- distinct from the field-mismatch
+      // case captured below.
+      if (rejectedByAdmission && this.isDebugCaptureEnabled(data.session.id)) {
+        this.captureDebugEvent(data.session.id, 'pty', 'mutation_identity_rejected', {
+          cause: 'identity-missing',
+          admissionMode: runtime.admission.mode,
+          driverActive: String(runtime.driver.active),
+          responderActive: String(runtime.responder.active),
+        });
+      }
+      return !rejectedByAdmission;
     }
     if (identity.authorityEpoch !== data.authorityEpoch) {
       this.recordRetainedTerminalLateMessage(data.session.id, identity.authorityEpoch, 'stale-mutation');
@@ -3297,7 +3311,32 @@ export class SessionManager {
       && retained.driverViewGeneration === identity.viewGeneration
       && retained.driverLease.generation === identity.leaseGeneration;
     const accepted = exactRegisteredView && (serverAuthorityUserMutation || legacyDriverMutation);
-    if (!accepted) retained.blockers.add('driver-lease-failure');
+    if (!accepted) {
+      retained.blockers.add('driver-lease-failure');
+      // #112 root-cause instrumentation: names which comparison failed instead of leaving
+      // "the identity did not match" as the only fact. Never includes authorityEpoch/
+      // leaseGeneration values themselves (opaque uuid/counter tokens, not secrets, but no
+      // reason to widen what a debug capture exposes beyond a match/mismatch boolean).
+      if (this.isDebugCaptureEnabled(data.session.id)) {
+        this.captureDebugEvent(data.session.id, 'pty', 'mutation_identity_rejected', {
+          cause: 'field-mismatch',
+          admissionMode: runtime.admission.mode,
+          driverActive: String(runtime.driver.active),
+          responderActive: String(runtime.responder.active),
+          authorityEpochMatch: identity.authorityEpoch === data.authorityEpoch,
+          clientRegistered: client !== undefined,
+          clientViewGenerationMatch: client?.viewGeneration === identity.viewGeneration,
+          hasSuspendedBrowserDriver: suspended !== null,
+          suspendedIdentityMatch: suspended?.clientId === identity.clientId
+            && suspended.viewGeneration === identity.viewGeneration
+            && suspended.leaseGeneration === identity.leaseGeneration,
+          legacyDriverLeaseActive: retained.driverLease.state === 'active',
+          legacyDriverIdentityMatch: retained.driverLease.ownerClientId === identity.clientId
+            && retained.driverViewGeneration === identity.viewGeneration
+            && retained.driverLease.generation === identity.leaseGeneration,
+        });
+      }
+    }
     return accepted;
   }
 

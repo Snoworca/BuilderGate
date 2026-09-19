@@ -64,6 +64,29 @@ async function readEvents(sessionId) {
   return page.evaluate((id) => window.__buildergateTerminalDebug?.getEvents?.(id) ?? [], sessionId);
 }
 
+// #112 root-cause follow-up: SessionManager's own debug capture (server-side) is a SEPARATE
+// store from window.__buildergateTerminalDebug (client-side) -- enabling the client store does
+// not enable this one. Needed to read acceptRetainedTerminalMutationIdentity's new
+// mutation_identity_rejected diagnostic event, which only exists server-side.
+async function enableServerDebugCapture(sessionId) {
+  return page.evaluate(async (id) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = { Authorization: `Bearer ${token}` };
+    const res = await fetch(`/api/sessions/debug-capture/${id}/enable`, { method: 'POST', headers });
+    if (!res.ok) throw new Error(`server debug-capture enable failed: ${res.status}`);
+  }, sessionId);
+}
+
+async function readServerDebugCapture(sessionId) {
+  return page.evaluate(async (id) => {
+    const token = localStorage.getItem('cws_auth_token');
+    const headers = { Authorization: `Bearer ${token}` };
+    const res = await fetch(`/api/sessions/debug-capture/${id}?limit=500`, { headers });
+    if (!res.ok) throw new Error(`server debug-capture read failed: ${res.status}`);
+    return res.json();
+  }, sessionId);
+}
+
 async function captureLines(sessionId) {
   const text = await page.evaluate((id) => window.__buildergateTerminalDebug?.captureTerminalText?.(id) ?? null, sessionId);
   return text === null ? null : text.split('\n');
@@ -121,6 +144,7 @@ try {
     window.__buildergateTerminalDebug?.clear?.(id);
     window.__buildergateTerminalDebug?.enable?.(id);
   }, sessionId);
+  await enableServerDebugCapture(sessionId);
 
   const t0 = Date.now();
   const sample = async (label) => {
@@ -186,6 +210,8 @@ try {
   const kindCounts = {};
   for (const e of allEvents) kindCounts[e.kind] = (kindCounts[e.kind] ?? 0) + 1;
 
+  const serverDebugCapture = await readServerDebugCapture(sessionId);
+
   const result = {
     floodCount: FLOOD_COUNT,
     sessionId,
@@ -196,6 +222,7 @@ try {
     relevantEvents,
     kindCounts,
     allEvents,
+    serverDebugCapture,
   };
   fs.writeFileSync(OUT_FILE, JSON.stringify(result, null, 2));
   log('wrote', OUT_FILE);

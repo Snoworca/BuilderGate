@@ -39,20 +39,94 @@ canonical copy stays here.
   `raw/after-split-fix-run3-client-gate-stall.json` — two of the three post-split-fix runs did
   NOT reproduce the server-rejection path at all. See "A second, more frequent symptom" below.
 
-## What this settles and what it does not
+## Correction: `sessionGeneration: 2` was a red herring
 
-Settled: the loss is not the network (the browser's send is confirmed via `ws_input_sent` when
-it gets that far). When the write does reach `SessionInputGateway`, the server explicitly
-refuses it, and as of the split-fix measurement the specific reason is
-`acceptRetainedTerminalMutationIdentity` rejecting a stale retained-terminal mutation identity
-(`target-identity-stale`), not a gone session (`target-session-gone` was never observed). This
-matches the earlier `sessionGeneration: 2` anomaly noted in the pre-split raw captures -- some
-generation bump happens mid-flood that the client's held identity does not survive.
+Earlier notes here (and the report that went with them) treated `sessionGeneration: 2` in the
+`ws_input_sent` client debug events as a lead -- evidence that something bumped a generation
+counter mid-flood. A control measurement disproves that: `raw/before-fix-target-was-server-error`
+and every later capture create their session through `page.reload()`, and `sessionGeneration` is
+a purely client-local `useRef(1)` in `TerminalContainer.tsx`, bumped only by
+`bumpSessionGeneration()` (reasons: `reconnect-ttl-expired`, `ws-disconnected`,
+`session-id-changed`) -- none of which fired in any capture (`input_session_generation_bumped`
+never appears in `allEvents`). A control run with a trivial 10-line flood that did NOT reproduce
+the lockup still showed `sessionGeneration: 2` in its `ws_input_sent` events
+(`raw/control-tiny-flood` was not archived, but is reproducible: any fresh session created via
+this script's own `page.reload()` starts at 2). The bump happens during the page's initial
+connection handshake, before the measurement's `clear()`/`enable()` call, and is unrelated to the
+flood or to `target-identity-stale`. This is a correction to what was reported earlier, not new
+information layered on top of it.
 
-Not yet settled, and now sharper than before: WHY the retained-terminal identity goes stale
-mid-flood (what bumps `authorityEpoch`/`viewGeneration`/`leaseGeneration` during a plain output
-flood with no client-side reconnect or view change), and the relationship between that and the
-second symptom below.
+## Root cause, measured: headless shadow-PTY queue overflow silently revokes the mutation lease
+
+Added a server-side diagnostic (`SessionManager.acceptRetainedTerminalMutationIdentity`, event
+kind `mutation_identity_rejected`, read via the existing `GET/POST
+/api/sessions/debug-capture/:id` routes -- a SEPARATE store from
+`window.__buildergateTerminalDebug`, which only sees client-side events) and re-measured.
+`raw/root-cause-instrumented-run1.json` shows four `mutation_identity_rejected` events, all
+identical:
+
+```
+cause: 'field-mismatch', admissionMode: 'none', driverActive: 'null', responderActive: 'null',
+authorityEpochMatch: true, clientRegistered: true, clientViewGenerationMatch: true,
+hasSuspendedBrowserDriver: false, legacyDriverLeaseActive: false, legacyDriverIdentityMatch: false
+```
+
+The client's identity is NOT stale in the sense of a mismatched epoch or view generation --
+`authorityEpochMatch` and `clientViewGenerationMatch` are both `true`. The rejection happens
+because `acceptRetainedTerminalMutationIdentity` (`SessionManager.ts:3263`) requires an ACTIVE
+driver lease (legacy `retained.driverLease.state === 'active'`, or a server-authority
+`suspendedBrowserDriver` match) on top of that identity match, and neither exists: `admissionMode`
+is `'none'` (not even the shadow-mode default of `'legacy'`), and both `driverActive` and
+`responderActive` are `null`.
+
+Immediately before these four rejections, the same capture shows `headless_degraded` with
+`phase: 'queue-overflow'`, then `snapshot_requested` / `snapshot_fallback_degraded`. Tracing
+`markHeadlessDegraded()` (`SessionManager.ts:8808`, called from the queue-overflow site at
+`SessionManager.ts:8080`) shows it unconditionally tears down the session's authority state when
+the server's HEADLESS shadow-PTY (a second, server-only PTY instance that exists purely to
+maintain reconnect-recoverable retained state, separate from the primary PTY the user's keystrokes
+actually reach) cannot keep up with output volume and its queue overflows:
+
+```
+authorityRuntime.admission.mode = 'none';
+authorityRuntime.driver.active = null;
+authorityRuntime.driver.activeLeaseId = null;
+authorityRuntime.responder.active = null;
+authorityRuntime.responder.activeLeaseId = null;
+```
+
+It also revokes the active driver/responder lease ids and calls
+`disposeTerminalAuthorityRuntimeForSession`. **No wire message tells the client this happened.**
+The client keeps attaching its now-invalid `retainedIdentity` (built from the lease it believes it
+still holds, per `attachRetainedMutationLease` in
+`frontend/src/utils/terminalCheckpointRuntime.ts`) to every keystroke, and the server correctly
+refuses each one, forever, until something re-negotiates a lease the client has no reason to know
+it needs.
+
+The same queue-overflow path also calls `startDegradedReplayRecovery()`
+(`SessionManager.ts:8983`), which calls `wsRouter.refreshReplaySnapshots(sessionId, { origin:
+'degraded', ... })` -- pushing the client into a resync/repair cycle. This is very likely the
+same event that produces the `visible-output-recovery` barrier stall described below: one
+`queue-overflow` event, two client-visible symptoms (a resync push that may or may not complete,
+and a silently revoked lease that blocks every keystroke once it does).
+
+This also explains why "large retained scrollback" was the common factor across all three
+observations team-lead noted (this flood, the other two flood runs, and the unrelated 41-hour-old
+session): the headless shadow-PTY's queue overflows relative to how much retained state it is
+already carrying and how fast output arrives, not specifically because a "flood" script sent
+15,000 lines. A flood is just the fastest way to reach the same queue-overflow condition that
+size and age reach independently.
+
+This is squarely the retained-terminal authority side (`SessionManager.ts`'s shadow/driver-lease
+bookkeeping), not the input-reliability/ledger path (`SessionInputGateway`, the input sequencer,
+the dedup ledger) that #18's lane built -- no handoff needed.
+
+Not yet done: a fix. Candidates, not yet chosen between: (a) notify the client when
+`markHeadlessDegraded` revokes its lease so it can re-negotiate instead of retyping into a wall,
+(b) do not gate acceptance of PRIMARY-pty input on the HEADLESS shadow-PTY's health at all, since
+degrading the reconnect-recovery side channel is not obviously a reason to also stop accepting
+live keystrokes into the pty the user is actually looking at, or (c) raise the headless queue
+capacity so overflow is rarer (treats the symptom, not the silence).
 
 ## A second, more frequent symptom, found while re-measuring (not yet triaged)
 
