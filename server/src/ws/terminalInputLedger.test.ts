@@ -149,3 +149,36 @@ test('REL-BGSTAB-028 AC-1 sessions do not share an operation namespace', () => {
   const other = ledger.admit({ connectionEpoch: EPOCH, sessionId: 'session-b', operationId: 'op-1' });
   assert.equal(other.write, true, signature);
 });
+
+test('#18 the same operation id with a different payload is refused as a mismatch, not silently swallowed', () => {
+  const signature = '#18: a reused identifier carrying different bytes is a client bug, and a silent drop hides it';
+  const ledger = createTerminalInputLedger();
+  const first = ledger.admit({ connectionEpoch: EPOCH, sessionId: SESSION, operationId: 'op-1', payload: 'ls\r' });
+  assert.equal(first.write, true, signature);
+  assert.equal(first.outcome, 'admitted', signature);
+
+  // The genuine retry -- same id, same bytes -- stays a plain duplicate.
+  const retry = ledger.admit({ connectionEpoch: EPOCH, sessionId: SESSION, operationId: 'op-1', payload: 'ls\r' });
+  assert.equal(retry.write, false, signature);
+  assert.equal(retry.outcome, 'duplicate', signature);
+
+  // Same id, different bytes. Treating this as a duplicate would drop a command the user
+  // typed and report nothing; treating it as new would run the id twice.
+  const mismatch = ledger.admit({ connectionEpoch: EPOCH, sessionId: SESSION, operationId: 'op-1', payload: 'rm -rf .\r' });
+  assert.equal(mismatch.write, false, signature);
+  assert.equal(mismatch.outcome, 'payload-mismatch', signature);
+});
+
+test('#18 an operation admitted without a payload still deduplicates, because the digest is optional', () => {
+  const signature = '#18: the digest tightens the check where a payload is given; it must not weaken it where none is';
+  const ledger = createTerminalInputLedger();
+  assert.equal(ledger.admit({ connectionEpoch: EPOCH, sessionId: SESSION, operationId: 'op-1' }).outcome, 'admitted', signature);
+  assert.equal(ledger.admit({ connectionEpoch: EPOCH, sessionId: SESSION, operationId: 'op-1' }).outcome, 'duplicate', signature);
+  // A later send that does carry a payload cannot be compared against nothing, so it is a
+  // duplicate rather than a fabricated mismatch.
+  assert.equal(
+    ledger.admit({ connectionEpoch: EPOCH, sessionId: SESSION, operationId: 'op-1', payload: 'x' }).outcome,
+    'duplicate',
+    signature,
+  );
+});

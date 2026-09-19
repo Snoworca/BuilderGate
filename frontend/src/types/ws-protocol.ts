@@ -521,6 +521,19 @@ export type InputRejectedReason =
    */
   | 'duplicate-operation'
   /**
+   * REL-BGSTAB-028 AC-5: this operation was applied and has since fallen out of the ledger's
+   * retry window. The server can no longer prove the result, so it refuses rather than
+   * running the command a second time. Distinct from 'duplicate-operation', where the
+   * earlier application is still on record.
+   */
+  | 'expired-operation'
+  /**
+   * REL-BGSTAB-028: this operation id was already used for different bytes. Neither
+   * deduplicating nor admitting is safe -- the first would drop a command the user typed,
+   * the second would run one id twice -- so the client is told its identifiers collided.
+   */
+  | 'payload-mismatch'
+  /**
    * REL-BGSTAB-011 AC-6: the payload was well formed, but this view does not hold the
    * retained driver lease and could not take it. Distinct from 'invalid-payload', which
    * blamed the client for a message that was never malformed.

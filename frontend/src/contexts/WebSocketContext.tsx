@@ -940,6 +940,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         // the server already decided is not a duplicate of the local discard sites; it is the
         // remote one, and it owes the same surface. 'duplicate-operation' is excluded: that
         // write did reach the PTY, so nothing was lost and a warning would be a lie.
+        // 'expired-operation' and 'payload-mismatch' are NOT excluded -- in both of those the
+        // write never reached the PTY, so the user did lose what they typed.
         if (msg.reason !== 'duplicate-operation') {
           publishInputDiscard(sessionId);
         }

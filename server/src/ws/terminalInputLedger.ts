@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /**
  * REL-BGSTAB-028 — server-side exactly-once ledger for terminal input.
  *
@@ -24,7 +26,12 @@
  *   be visible rather than assumed.
  */
 
-export type TerminalInputOutcome = 'admitted' | 'duplicate' | 'expired' | 'unidentified';
+export type TerminalInputOutcome =
+  | 'admitted'
+  | 'duplicate'
+  | 'expired'
+  | 'payload-mismatch'
+  | 'unidentified';
 
 export interface TerminalInputAdmission {
   /** Whether the caller should write this input to the PTY. */
@@ -39,6 +46,16 @@ export interface TerminalInputLedgerKey {
 
 export interface TerminalInputAdmissionRequest extends TerminalInputLedgerKey {
   operationId?: string;
+  /**
+   * The bytes this operation carries, when the caller has them.
+   *
+   * #18 requires that the same identifier arriving with different bytes be refused as a
+   * protocol error rather than deduplicated. Without this the two cases are indistinguishable
+   * and the wrong one is silent: a reused id would swallow a command the user actually typed
+   * and report nothing. Optional, because an id alone still deduplicates -- the digest
+   * tightens the check where a payload is given and must not weaken it where none is.
+   */
+  payload?: string;
 }
 
 export interface TerminalInputLedgerStats {
@@ -49,6 +66,7 @@ export interface TerminalInputLedgerStats {
   admitted: number;
   duplicates: number;
   expired: number;
+  payloadMismatches: number;
   unidentified: number;
 }
 
@@ -74,6 +92,8 @@ const DEFAULT_MAX_OPERATIONS_PER_SESSION = 512;
 interface LedgerEntry {
   /** Insertion-ordered, so the oldest remembered operation is evicted first. */
   operations: Set<string>;
+  /** operationId -> digest of the bytes it was admitted with, for ids that carried any. */
+  operationDigests: Map<string, string>;
   /**
    * Operations evicted from `operations`, remembered only as "this happened".
    *
@@ -88,7 +108,12 @@ interface LedgerEntry {
   admitted: number;
   duplicates: number;
   expired: number;
+  payloadMismatches: number;
   unidentified: number;
+}
+
+function digestPayload(payload: string): string {
+  return createHash('sha256').update(payload, 'utf8').digest('hex');
 }
 
 export function createTerminalInputLedger(
@@ -112,10 +137,12 @@ export function createTerminalInputLedger(
     if (!entry) {
       entry = {
         operations: new Set(),
+        operationDigests: new Map(),
         expiredOperations: new Set(),
         admitted: 0,
         duplicates: 0,
         expired: 0,
+        payloadMismatches: 0,
         unidentified: 0,
       };
       sessions.set(key.sessionId, entry);
@@ -133,6 +160,15 @@ export function createTerminalInputLedger(
       }
 
       if (entry.operations.has(request.operationId)) {
+        const knownDigest = entry.operationDigests.get(request.operationId);
+        if (
+          knownDigest !== undefined
+          && request.payload !== undefined
+          && digestPayload(request.payload) !== knownDigest
+        ) {
+          entry.payloadMismatches += 1;
+          return { write: false, outcome: 'payload-mismatch' };
+        }
         entry.duplicates += 1;
         return { write: false, outcome: 'duplicate' };
       }
@@ -143,10 +179,14 @@ export function createTerminalInputLedger(
       }
 
       entry.operations.add(request.operationId);
+      if (request.payload !== undefined) {
+        entry.operationDigests.set(request.operationId, digestPayload(request.payload));
+      }
       if (entry.operations.size > maxOperations) {
         const oldest = entry.operations.values().next();
         if (!oldest.done) {
           entry.operations.delete(oldest.value);
+          entry.operationDigests.delete(oldest.value);
           entry.expiredOperations.add(oldest.value);
           if (entry.expiredOperations.size > maxOperations) {
             // The tombstone set is bounded too, so an operation old enough to fall out of
@@ -194,6 +234,7 @@ export function createTerminalInputLedger(
         admitted: entry?.admitted ?? 0,
         duplicates: entry?.duplicates ?? 0,
         expired: entry?.expired ?? 0,
+        payloadMismatches: entry?.payloadMismatches ?? 0,
         unidentified: entry?.unidentified ?? 0,
       };
     },

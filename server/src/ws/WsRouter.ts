@@ -3159,15 +3159,24 @@ export class WsRouter {
       connectionEpoch: meta?.connectionId ?? 'unknown-connection',
       sessionId: input.sessionId,
       ...(input.inputOperationId === undefined ? {} : { operationId: input.inputOperationId }),
+      payload: input.data,
     });
     if (!admission.write) {
+      // REL-BGSTAB-028 AC-5: every refusal used to be reported as 'duplicate-operation',
+      // which was true for one of three outcomes. An expired operation and a reused
+      // identifier are different facts about the client's state and it can act on them --
+      // the first means the retry window has passed, the second means its ids collided.
       this.rejectInput(ws, {
         sessionId: input.sessionId,
         data: input.data,
         metadata: input.metadata,
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
-        reason: 'duplicate-operation',
+        reason: admission.outcome === 'expired'
+          ? 'expired-operation'
+          : admission.outcome === 'payload-mismatch'
+            ? 'payload-mismatch'
+            : 'duplicate-operation',
       });
       return;
     }
