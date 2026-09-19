@@ -940,8 +940,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         // the server already decided is not a duplicate of the local discard sites; it is the
         // remote one, and it owes the same surface. 'duplicate-operation' is excluded: that
         // write did reach the PTY, so nothing was lost and a warning would be a lie.
-        // 'expired-operation' and 'payload-mismatch' are NOT excluded -- in both of those the
-        // write never reached the PTY, so the user did lose what they typed.
+        // Every other reason IS surfaced, including #18's 'unknown-operation' and
+        // 'stale-target-generation': in all of them the write never reached the PTY.
+        // 'unknown-operation' matters most -- the server cannot say whether the command
+        // ran, so silence is the one wrong answer; only the user can look and decide.
         if (msg.reason !== 'duplicate-operation') {
           publishInputDiscard(sessionId);
         }

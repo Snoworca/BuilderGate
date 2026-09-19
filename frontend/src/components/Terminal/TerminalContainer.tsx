@@ -68,7 +68,7 @@ import {
   TerminalInputSequencer,
   type SequencedTerminalInput,
 } from '../../utils/terminalInputSequencer';
-import { buildTerminalInputOperationId } from '../../utils/terminalInputOperationId';
+import { buildTerminalInputIdentityFields } from '../../utils/terminalInputOperationId';
 import { resolveStaleSocketReconnectDecision } from '../../utils/terminalTransportQueueDecision';
 import type {
   InputDebugMetadata,
@@ -894,11 +894,12 @@ export const TerminalContainer = memo(
     ): SendResult => {
       const debugInput = resolveInputDebugPayload(input.data, input.metadata, sessionId);
       const metadata = input.metadata ?? buildClientInputDebugMetadata(debugInput.details);
-      const inputOperationId = buildTerminalInputOperationId({
+      const identity = buildTerminalInputIdentityFields({
         sequencerEpoch: inputSequencerEpochRef.current,
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
       });
+      const inputOperationId = identity.inputOperationId ?? null;
       const result = send({
         type: 'input',
         sessionId,
@@ -906,7 +907,9 @@ export const TerminalContainer = memo(
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
         metadata,
-        ...(inputOperationId === null ? {} : { inputOperationId }),
+        // #18 criterion 6: id and ordering are one fact in two fields, so they are built
+        // together and spread together. buildTerminalInputIdentityFields owns the pairing.
+        ...identity,
       });
 
       if (result.ok) {

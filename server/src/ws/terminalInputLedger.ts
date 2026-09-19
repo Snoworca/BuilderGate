@@ -31,7 +31,19 @@ export type TerminalInputOutcome =
   | 'duplicate'
   | 'expired'
   | 'payload-mismatch'
-  | 'unidentified';
+  | 'unidentified'
+  /**
+   * #18 criterion 6/7: this operation predates everything still remembered, so the
+   * ledger cannot say whether it was applied.
+   *
+   * Distinct from `expired`, which is a tombstone hit and therefore a POSITIVE fact
+   * ("it happened and I evicted the result"). `unknown` is the absence of any record
+   * combined with proof that the record could have been dropped. Before this outcome
+   * existed the case was silently re-admitted and the command ran a second time --
+   * REL-BGSTAB-028's own AC-5 evidence named that window "the honest limit of this
+   * design", and criterion 6 forbids precisely it: if you do not know, do not execute.
+   */
+  | 'unknown';
 
 export interface TerminalInputAdmission {
   /** Whether the caller should write this input to the PTY. */
@@ -56,6 +68,21 @@ export interface TerminalInputAdmissionRequest extends TerminalInputLedgerKey {
    * tightens the check where a payload is given and must not weaken it where none is.
    */
   payload?: string;
+  /**
+   * Where this operation sits in the client's ordering, when the client can say.
+   *
+   * The ledger deliberately treats `operationId` as OPAQUE -- it does not parse the
+   * `e{epoch}:{start}-{end}` shape the browser happens to build, because that would tie
+   * the server's dedup to a frontend string format. The ordinal arrives as its own field
+   * instead, which is also the direction criterion 2 points: operation identity is
+   * (connection epoch, session, target generation, operation id / seq range).
+   *
+   * `epoch` is the SEQUENCER epoch, not the connection epoch. TerminalInputSequencer
+   * restarts numbering at 1 on every session attach, so starts are monotonic only within
+   * one sequencer epoch and the watermark has to be kept per epoch. Omitted by clients
+   * that cannot order their operations; those keep the pre-existing behaviour.
+   */
+  sequence?: { epoch: number; start: number };
 }
 
 export interface TerminalInputLedgerStats {
@@ -66,6 +93,8 @@ export interface TerminalInputLedgerStats {
   admitted: number;
   duplicates: number;
   expired: number;
+  /** #18: refusals where the ledger could not say whether the operation had been applied. */
+  unknown: number;
   payloadMismatches: number;
   unidentified: number;
 }
@@ -105,9 +134,21 @@ interface LedgerEntry {
    * is a refusal, not an admission.
    */
   expiredOperations: Set<string>;
+  /** operationId -> its client ordering, for ids that carried one. */
+  operationSequences: Map<string, { epoch: number; start: number }>;
+  /**
+   * sequencerEpoch -> the highest `start` this ledger has FULLY forgotten.
+   *
+   * A later arrival at or below this line cannot be distinguished from a retry of
+   * something already applied, so it is refused as `unknown` rather than re-executed.
+   * A genuinely new operation is always above it, because the sequencer is monotonic
+   * within an epoch.
+   */
+  forgottenWatermark: Map<number, number>;
   admitted: number;
   duplicates: number;
   expired: number;
+  unknown: number;
   payloadMismatches: number;
   unidentified: number;
 }
@@ -139,9 +180,12 @@ export function createTerminalInputLedger(
         operations: new Set(),
         operationDigests: new Map(),
         expiredOperations: new Set(),
+        operationSequences: new Map(),
+        forgottenWatermark: new Map(),
         admitted: 0,
         duplicates: 0,
         expired: 0,
+        unknown: 0,
         payloadMismatches: 0,
         unidentified: 0,
       };
@@ -178,7 +222,22 @@ export function createTerminalInputLedger(
         return { write: false, outcome: 'expired' };
       }
 
+      // #18 criterion 6: no record AND provably old enough to have been forgotten.
+      // Checked after the two positive lookups above, which are more specific facts.
+      // Without ordering information this branch cannot fire, and the client keeps the
+      // pre-existing behaviour rather than having input refused on a guess.
+      if (request.sequence) {
+        const watermark = entry.forgottenWatermark.get(request.sequence.epoch);
+        if (watermark !== undefined && request.sequence.start <= watermark) {
+          entry.unknown += 1;
+          return { write: false, outcome: 'unknown' };
+        }
+      }
+
       entry.operations.add(request.operationId);
+      if (request.sequence) {
+        entry.operationSequences.set(request.operationId, request.sequence);
+      }
       if (request.payload !== undefined) {
         entry.operationDigests.set(request.operationId, digestPayload(request.payload));
       }
@@ -196,6 +255,18 @@ export function createTerminalInputLedger(
             const oldestTombstone = entry.expiredOperations.values().next();
             if (!oldestTombstone.done) {
               entry.expiredOperations.delete(oldestTombstone.value);
+              // #18: this id is now FULLY forgotten. Raise the watermark so a later
+              // retry of it is refused as `unknown` instead of re-executing. This is
+              // what closes the window REL-BGSTAB-028 AC-5 documented but could not shut.
+              const forgotten = entry.operationSequences.get(oldestTombstone.value);
+              if (forgotten) {
+                const previous = entry.forgottenWatermark.get(forgotten.epoch) ?? 0;
+                entry.forgottenWatermark.set(
+                  forgotten.epoch,
+                  Math.max(previous, forgotten.start),
+                );
+              }
+              entry.operationSequences.delete(oldestTombstone.value);
             }
           }
         }
@@ -234,6 +305,7 @@ export function createTerminalInputLedger(
         admitted: entry?.admitted ?? 0,
         duplicates: entry?.duplicates ?? 0,
         expired: entry?.expired ?? 0,
+        unknown: entry?.unknown ?? 0,
         payloadMismatches: entry?.payloadMismatches ?? 0,
         unidentified: entry?.unidentified ?? 0,
       };

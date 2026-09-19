@@ -200,3 +200,49 @@ test('AC-3: an oversized OSC52 payload is refused without writing a truncated pr
 
   await view.unmount();
 });
+
+// --- #18 criterion 8: the size cap on the shared paste path ----------------------
+
+test('AC-8/criterion 8: an oversize paste is refused locally instead of reaching the terminal', async () => {
+  Object.assign(sharedState, freshState());
+  const view = await renderTerminalView({ state: sharedState });
+
+  // One byte over the server's own 64 KiB limit. Before the cap this reached the
+  // transport and came back as `invalid-payload` -- the server blaming the client for a
+  // message that was never malformed.
+  view.pasteFromClipboard('a'.repeat(64 * 1024 + 1));
+  await view.flush();
+
+  assert.deepEqual(sharedState.pasted, [], 'an oversize paste must not reach term.paste()');
+
+  await view.unmount();
+});
+
+test('AC-8/criterion 8: a paste exactly at the cap still goes through', async () => {
+  Object.assign(sharedState, freshState());
+  const view = await renderTerminalView({ state: sharedState });
+
+  // Boundary on the allowed side, so the cap cannot quietly become off-by-one and
+  // start refusing pastes that used to work.
+  const atCap = 'a'.repeat(64 * 1024);
+  view.pasteFromClipboard(atCap);
+  await view.flush();
+
+  assert.deepEqual(sharedState.pasted, [atCap]);
+
+  await view.unmount();
+});
+
+test('AC-8/criterion 8: the cap counts bytes, so multi-byte text is refused earlier', async () => {
+  Object.assign(sharedState, freshState());
+  const view = await renderTerminalView({ state: sharedState });
+
+  // Well under the cap in characters, over it in UTF-8 bytes. A character-based cap
+  // would admit this and the server would then refuse it as invalid-payload.
+  view.pasteFromClipboard('가'.repeat(30 * 1024));
+  await view.flush();
+
+  assert.deepEqual(sharedState.pasted, [], 'the cap must be measured in encoded bytes');
+
+  await view.unmount();
+});

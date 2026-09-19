@@ -468,7 +468,37 @@ export type InputRejectedReason =
    * retained driver lease and could not take it. Distinct from 'invalid-payload', which
    * blamed the client for a message that was never malformed.
    */
-  | 'driver-lease-unavailable';
+  | 'driver-lease-unavailable'
+  /**
+   * #18 criterion 6: the ledger cannot account for this operation -- it predates
+   * everything still remembered, so the server can neither prove it was applied nor
+   * prove it was not. Refusing is the only safe answer; admitting would re-execute a
+   * command that may already have run, which is the failure the ledger exists to stop.
+   *
+   * Distinct from 'expired-operation', which is a POSITIVE record ("it happened and the
+   * result was evicted"). This one is the absence of a record plus proof that a record
+   * could have been dropped. A client seeing this should resynchronise rather than retry:
+   * retrying the same identifier will keep producing the same answer.
+   */
+  | 'unknown-operation'
+  /**
+   * #18 criterion 7: the view this input was written from is older than the one the
+   * server has registered for the session. Previously reported as
+   * 'driver-lease-unavailable', which invited a retry that could never succeed --
+   * SessionManager had already computed 'stale-view-generation' internally and the
+   * router discarded it. The client should resync its view generation, not retry.
+   */
+  | 'stale-target-generation'
+  /**
+   * #18 criterion 8: the paste exceeded the size cap and was refused locally.
+   *
+   * The cap is the server's own MAX_REPLAY_QUEUED_INPUT_BYTES, so this is not a new
+   * restriction -- it is the same refusal with a reason the user can act on. Previously
+   * the server answered `invalid-payload`, which blamed the client for a message that
+   * was never malformed. Refused whole rather than truncated: a half-pasted command is
+   * a command, and running half of one is worse than running none.
+   */
+  | 'paste-too-large';
 
 // terminal-delivery-ack-contract:start
 export type TerminalDeliveryAckIdentity =
@@ -616,6 +646,16 @@ export type ClientWsMessage =
        * admits and reports as undeduplicated rather than assuming exactly-once.
        */
       inputOperationId?: string;
+      /**
+       * #18 criterion 6: the sequencer epoch the ordinals below belong to.
+       *
+       * Sent as its own field rather than parsed out of `inputOperationId`, which the
+       * server treats as opaque. TerminalInputSequencer restarts numbering at 1 on every
+       * session attach, so `inputSeqStart` is monotonic only within one sequencer epoch;
+       * without this the server cannot tell a re-attach's first keystroke from a retry of
+       * something it has forgotten.
+       */
+      inputSequencerEpoch?: number;
       inputSeqStart?: number;
       inputSeqEnd?: number;
       metadata?: InputDebugMetadata;

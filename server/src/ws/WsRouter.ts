@@ -167,6 +167,7 @@ type InputValidationResult =
       data: string;
       metadata?: InputDebugMetadata;
       inputOperationId?: string;
+      inputSequencerEpoch?: number;
       inputSeqStart?: number;
       inputSeqEnd?: number;
       retainedIdentity?: RetainedTerminalWireMutationIdentity;
@@ -3107,19 +3108,23 @@ export class WsRouter {
       // discarded. Measured 2026-09-19: the previous holder was a background tab with a live
       // socket, so waiting for it to disconnect would have meant waiting forever.
       const adopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, input.sessionId, registeredViewGeneration);
-      if (!adopted) {
+      if (!adopted.ok) {
         this.rejectInput(ws, {
           sessionId: input.sessionId,
           data: input.data,
           metadata: input.metadata,
           inputSeqStart: input.inputSeqStart,
           inputSeqEnd: input.inputSeqEnd,
-          reason: 'driver-lease-unavailable',
+          // #18 criterion 7: staleness and contention are different facts. The first means
+          // "resync your view"; the second means "someone else is driving, try again".
+          reason: adopted.reason === 'stale-view-generation'
+            ? 'stale-target-generation'
+            : 'driver-lease-unavailable',
         });
         return;
       }
-      retainedIdentity = adopted;
-      this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, adopted);
+      retainedIdentity = adopted.lease;
+      this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, adopted.lease);
     }
 
     if (pending) {
@@ -3159,6 +3164,12 @@ export class WsRouter {
       connectionEpoch: meta?.connectionId ?? 'unknown-connection',
       sessionId: input.sessionId,
       ...(input.inputOperationId === undefined ? {} : { operationId: input.inputOperationId }),
+      // #18 criterion 6: ordering, so a retry the ledger has fully forgotten is refused as
+      // `unknown` instead of being re-executed. Both halves are required -- without them
+      // the ledger keeps the previous behaviour rather than guessing.
+      ...(input.inputSequencerEpoch === undefined || input.inputSeqStart === undefined
+        ? {}
+        : { sequence: { epoch: input.inputSequencerEpoch, start: input.inputSeqStart } }),
       payload: input.data,
     });
     if (!admission.write) {
@@ -3176,7 +3187,9 @@ export class WsRouter {
           ? 'expired-operation'
           : admission.outcome === 'payload-mismatch'
             ? 'payload-mismatch'
-            : 'duplicate-operation',
+            : admission.outcome === 'unknown'
+              ? 'unknown-operation'
+              : 'duplicate-operation',
       });
       return;
     }
@@ -3216,8 +3229,8 @@ export class WsRouter {
       // second attempt fails the original rejection stands.
       meta.retainedTerminalMutationLeases.delete(input.sessionId);
       const readopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, input.sessionId, registeredViewGeneration);
-      if (readopted) {
-        this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, readopted);
+      if (readopted.ok) {
+        this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, readopted.lease);
         try {
           gatewayResult = this.submitWebSocketInputThroughGateway({
             sessionId: input.sessionId,
@@ -3225,7 +3238,7 @@ export class WsRouter {
             metadata: input.metadata,
             inputSeqStart: input.inputSeqStart,
             inputSeqEnd: input.inputSeqEnd,
-            retainedIdentity: readopted,
+            retainedIdentity: readopted.lease,
           }, meta);
         } catch (error) {
           console.error('[WS] PTY input write failed after lease re-adoption:', error);
@@ -4883,7 +4896,7 @@ export class WsRouter {
     meta: WsClientMeta,
     sessionId: string,
     viewGeneration: number,
-  ): RetainedTerminalWireMutationIdentity | null {
+  ): { ok: true; lease: RetainedTerminalWireMutationIdentity } | { ok: false; reason?: string } {
     const adopter = this.sessionManager as unknown as {
       adoptRetainedTerminalMutationLease?: (
         sessionId: string,
@@ -4892,7 +4905,13 @@ export class WsRouter {
       ) => { ok: true; authorityEpoch: string; viewGeneration: number; leaseGeneration: string } | { ok: false; reason: string };
     };
     const adopted = adopter.adoptRetainedTerminalMutationLease?.(sessionId, meta.clientId, viewGeneration);
-    if (!adopted || !adopted.ok) return null;
+    if (!adopted || !adopted.ok) {
+      // #18 criterion 7: the refusal reason used to be discarded here, so a stale view
+      // generation reached the client as `driver-lease-unavailable` -- an answer that
+      // invites a retry which can never succeed. SessionManager already distinguishes the
+      // two; only this return threw the distinction away.
+      return { ok: false, reason: adopted?.reason };
+    }
     const lease: RetainedTerminalWireMutationIdentity = {
       authorityEpoch: adopted.authorityEpoch,
       viewGeneration: adopted.viewGeneration,
@@ -4900,7 +4919,7 @@ export class WsRouter {
     };
     meta.retainedTerminalMutationLeases ??= new Map();
     meta.retainedTerminalMutationLeases.set(sessionId, lease);
-    return lease;
+    return { ok: true, lease };
   }
 
   // @req REL-BGSTAB-011 AC-6
@@ -5001,6 +5020,14 @@ export class WsRouter {
       && message.inputOperationId.length <= 128
       ? message.inputOperationId
       : undefined;
+    // #18 criterion 6: ordering for the dedup ledger's forgotten-watermark. A client that
+    // omits it, or sends something that is not a positive integer, simply gets the previous
+    // behaviour -- the watermark cannot fire and nothing is refused on a guess.
+    const inputSequencerEpoch = typeof message.inputSequencerEpoch === 'number'
+      && Number.isSafeInteger(message.inputSequencerEpoch)
+      && message.inputSequencerEpoch > 0
+      ? message.inputSequencerEpoch
+      : undefined;
     const retainedIdentity = this.parseRetainedTerminalWireMutationIdentity(message.retainedIdentity);
 
     if (Object.prototype.hasOwnProperty.call(message, 'retainedIdentity') && !retainedIdentity) {
@@ -5095,6 +5122,7 @@ export class WsRouter {
       data,
       metadata,
       ...(inputOperationId === undefined ? {} : { inputOperationId }),
+      ...(inputSequencerEpoch === undefined ? {} : { inputSequencerEpoch }),
       inputSeqStart,
       inputSeqEnd,
       retainedIdentity,

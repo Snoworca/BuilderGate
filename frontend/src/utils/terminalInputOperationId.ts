@@ -47,3 +47,33 @@ export function buildTerminalInputOperationId(
   const id = `e${input.sequencerEpoch}:${input.inputSeqStart}-${input.inputSeqEnd}`;
   return id.length <= MAX_TERMINAL_INPUT_OPERATION_ID_LENGTH ? id : null;
 }
+
+export interface TerminalInputIdentityFields {
+  inputOperationId?: string;
+  inputSequencerEpoch?: number;
+}
+
+/**
+ * The wire fields that name this operation, emitted as a pair or not at all.
+ *
+ * #18 criterion 6 added `inputSequencerEpoch` beside the identifier. The server keeps the
+ * id opaque and reads the ordering from the epoch plus `inputSeqStart`, so the two are one
+ * fact split across two fields: an id with no epoch lets a forgotten retry re-execute, and
+ * an epoch with no id claims an ordering for an operation the server cannot name.
+ *
+ * Built here rather than spread at the call site so the pairing is a property of a function
+ * a test can call. That is the lesson of DEFECT A, where `inputOperationId` sat declared on
+ * both wire types and written by nobody: the only thing covering the send site was the type,
+ * and a type cannot notice that a field is never populated.
+ */
+export function buildTerminalInputIdentityFields(
+  input: TerminalInputOperationIdInput,
+): TerminalInputIdentityFields {
+  const inputOperationId = buildTerminalInputOperationId(input);
+  if (inputOperationId === null) {
+    // AC-4's path: send without an identifier and be reported as unidentified, which is
+    // honest, rather than half-named.
+    return {};
+  }
+  return { inputOperationId, inputSequencerEpoch: input.sequencerEpoch };
+}

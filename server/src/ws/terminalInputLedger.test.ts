@@ -182,3 +182,110 @@ test('#18 an operation admitted without a payload still deduplicates, because th
     signature,
   );
 });
+
+// --- #18 criterion 6/7: `unknown` is not a synonym for `expired` -------------------
+//
+// `expired` means "I hold a tombstone: this operation happened and I evicted its result."
+// `unknown` means "this operation predates everything I still remember, so I cannot say
+// whether it happened." Before this, the second case was SILENTLY RE-ADMITTED -- the
+// ledger's own AC-5 evidence called that window "the honest limit of this design", and
+// criterion 6 forbids exactly it: an uncertain retry must not silently re-execute.
+//
+// Ordering is what separates the two from a brand-new operation, and the sequencer already
+// has it. The operation id is left opaque to the ledger; the ordinal arrives as its own
+// field instead, which is also what criterion 2 asks for.
+
+function admitSequenced(
+  ledger: ReturnType<typeof createTerminalInputLedger>,
+  operationId: string,
+  sequencerEpoch: number,
+  start: number,
+): TerminalInputAdmission {
+  return ledger.admit({
+    connectionEpoch: EPOCH,
+    sessionId: SESSION,
+    operationId,
+    sequence: { epoch: sequencerEpoch, start },
+  });
+}
+
+test('#18 a retry older than everything remembered is refused as unknown, not re-executed', () => {
+  const signature = '#18 criterion 6: an uncertain retry must not silently re-execute';
+  const ledger = createTerminalInputLedger({ maxOperationsPerSession: 2 });
+
+  admitSequenced(ledger, 'e1:1-1', 1, 1);
+  admitSequenced(ledger, 'e1:2-2', 1, 2);
+  // Four more push e1:1-1 out of `operations` and then out of the tombstone set.
+  for (const n of [3, 4, 5, 6]) admitSequenced(ledger, `e1:${n}-${n}`, 1, n);
+
+  const retry = admitSequenced(ledger, 'e1:1-1', 1, 1);
+
+  assert.equal(retry.write, false, signature);
+  assert.equal(retry.outcome, 'unknown', signature);
+});
+
+test('#18 unknown is distinct from expired, which still means a tombstone hit', () => {
+  const signature = '#18 criterion 7: the two refusals are different facts and must not be merged';
+  const ledger = createTerminalInputLedger({ maxOperationsPerSession: 2 });
+
+  admitSequenced(ledger, 'e1:1-1', 1, 1);
+  admitSequenced(ledger, 'e1:2-2', 1, 2);
+  // One more eviction: e1:1-1 is now a tombstone, not yet forgotten.
+  admitSequenced(ledger, 'e1:3-3', 1, 3);
+
+  const tombstoned = admitSequenced(ledger, 'e1:1-1', 1, 1);
+
+  assert.equal(tombstoned.outcome, 'expired', signature);
+  assert.equal(tombstoned.write, false, signature);
+});
+
+test('#18 forgetting old operations does not refuse genuinely new ones', () => {
+  const signature = '#18: the watermark must not swallow new input -- that would break the terminal';
+  const ledger = createTerminalInputLedger({ maxOperationsPerSession: 2 });
+
+  for (const n of [1, 2, 3, 4, 5, 6]) admitSequenced(ledger, `e1:${n}-${n}`, 1, n);
+  // The sequencer is monotonic within an epoch, so a new operation is always above
+  // anything forgotten.
+  const fresh = admitSequenced(ledger, 'e1:7-7', 1, 7);
+
+  assert.equal(fresh.write, true, signature);
+  assert.equal(fresh.outcome, 'admitted', signature);
+});
+
+test('#18 a new sequencer epoch restarts at 1 without being mistaken for a forgotten operation', () => {
+  const signature = '#18: the watermark is per sequencer epoch, because reset(1) restarts numbering';
+  const ledger = createTerminalInputLedger({ maxOperationsPerSession: 2 });
+
+  for (const n of [1, 2, 3, 4, 5, 6]) admitSequenced(ledger, `e1:${n}-${n}`, 1, n);
+  // A session re-attach bumps the sequencer epoch and restarts the count at 1. Without
+  // per-epoch watermarks this first keystroke after a re-attach would be refused.
+  const reattached = admitSequenced(ledger, 'e2:1-1', 2, 1);
+
+  assert.equal(reattached.write, true, signature);
+  assert.equal(reattached.outcome, 'admitted', signature);
+});
+
+test('#18 without ordering information the legacy re-admission behaviour is unchanged', () => {
+  const signature = '#18: a client that cannot order its operations gets the old behaviour, visibly';
+  const ledger = createTerminalInputLedger({ maxOperationsPerSession: 2 });
+
+  admissions(ledger, ['op-1', 'op-2', 'op-3', 'op-4', 'op-5', 'op-6']);
+  // Boundary: no `sequence`, so the ledger cannot prove the retry is old. It is admitted,
+  // exactly as before this change, rather than being refused on a guess.
+  const retry = admissions(ledger, ['op-1'])[0];
+
+  assert.equal(retry.write, true, signature);
+  assert.equal(retry.outcome, 'admitted', signature);
+});
+
+test('#18 unknown refusals are counted separately in the snapshot', () => {
+  const signature = '#18 criterion 7: the state has to be traceable, not just returned once';
+  const ledger = createTerminalInputLedger({ maxOperationsPerSession: 2 });
+
+  for (const n of [1, 2, 3, 4, 5, 6]) admitSequenced(ledger, `e1:${n}-${n}`, 1, n);
+  admitSequenced(ledger, 'e1:1-1', 1, 1);
+
+  const stats = ledger.snapshot({ connectionEpoch: EPOCH, sessionId: SESSION });
+  assert.equal(stats.unknown, 1, signature);
+  assert.equal(stats.expired, 0, signature);
+});

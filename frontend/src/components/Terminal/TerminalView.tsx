@@ -79,6 +79,12 @@ import {
 import { sanitizeTerminalPasteText } from '../../utils/terminalPasteSanitizer';
 import { evaluateOsc52Request } from '../../utils/terminalOsc52';
 import {
+  TERMINAL_INPUT_TTL_LOCAL_MS,
+  TERMINAL_PASTE_MAX_BYTES,
+  measurePasteBytes,
+  resolveTerminalInputTtlMs,
+} from '../../utils/terminalPasteLimits';
+import {
   resolveTerminalXtermOptions,
   TERMINAL_XTERM_THEME,
 } from '../../utils/terminalViewAttributes';
@@ -179,6 +185,9 @@ type InputRejectedReason =
   | 'queue-overflow'
   | 'context-changed'
   | 'unsupported-multiline-paste'
+  // #18 criterion 8: refused locally for size. Kept beside the multiline refusal because
+  // both are local paste policy, decided before anything reaches the transport.
+  | 'paste-too-large'
   | 'session-missing'
   | 'session-closed'
   | 'server-error'
@@ -240,7 +249,12 @@ function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueMaxCount
     inputQueueMaxBytes: limits.inputQueueMaxBytes,
     // #72: input scope owns its own count now. These used to read the OUTPUT chunk cap.
     inputQueueMaxCount: limits.inputQueueMaxCount,
-    inputQueueTtlMs: limits.inputQueueTtlMs,
+    // #18 criterion 8: one timeout cannot be right for loopback and for a WAN link at
+    // once. The configured value stays authoritative when an operator has moved it; the
+    // local/WAN split only decides the DEFAULT, so a tuned deployment is not overridden.
+    inputQueueTtlMs: limits.inputQueueTtlMs === TERMINAL_INPUT_TTL_LOCAL_MS
+      ? resolveTerminalInputTtlMs(typeof location === 'undefined' ? undefined : location.hostname)
+      : limits.inputQueueTtlMs,
   };
 }
 
@@ -2894,6 +2908,29 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         });
       }
       const pasteText = sanitized.text;
+
+      // #18 criterion 8: refuse oversize here rather than letting the server answer
+      // `invalid-payload`, which blames the client for a message that was never malformed.
+      // The cap is the server's own MAX_REPLAY_QUEUED_INPUT_BYTES, so this changes what the
+      // user is TOLD, not what succeeds. Bytes, not characters -- a paste of three-byte
+      // characters is well under the cap by length and well over it by size.
+      const pasteBytes = measurePasteBytes(pasteText);
+      if (pasteBytes > TERMINAL_PASTE_MAX_BYTES) {
+        recordTerminalDebugEvent(sessionId, 'terminal_input_rejected', {
+          reason: 'paste-too-large',
+          source,
+          byteLength: pasteBytes,
+          byteBudget: TERMINAL_PASTE_MAX_BYTES,
+        });
+        return {
+          ok: false,
+          reason: 'paste-too-large',
+          source,
+          captureState: captureStateRef.current,
+          barrierReason: transportBarrierReasonRef.current,
+          closedReason: transportClosedReasonRef.current,
+        };
+      }
 
       if (hasLineBreak(pasteText) && !term.modes.bracketedPasteMode) {
         const debugInput = buildTerminalInputDebugPayload(pasteText, {
