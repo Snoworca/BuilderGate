@@ -8,20 +8,10 @@ import { login, openTerminalContextMenu, waitForTerminal, waitForTerminalInputRe
  * AC-3 ("fully evicted selection is invalidated") was previously checked only on a
  * hand-run live-browser measurement (VE-2/VE-5) with no re-runnable artifact -- an
  * independent review correctly called that CRITICAL and reverted it to unchecked.
- * The first test below is the Playwright spec VE-5 named as the closing bar: a real
+ * The test below is the Playwright spec VE-5 named as the closing bar: a real
  * mouse drag selects a line, output floods past it, and the copy path must become
  * unavailable -- with a live-selection control so a spec that always reports
  * "disabled" cannot pass vacuously.
- *
- * The second test covers a DIFFERENT, newly discovered defect in the same family,
- * found by reading xterm's own `SelectionModel.handleTrim` directly: when only the
- * TOP of a multi-line selection scrolls off (selectionStart clamped to 0) while the
- * BOTTOM survives (selectionEnd stays >= 0), xterm does not clear the selection at
- * all -- it silently keeps reporting a "selection" whose start no longer means what
- * it did when the user made it. The discriminating assertion is not "is copy
- * disabled" (it copies happily) but "does the copied text still start at the line
- * the user actually selected" -- a selection clamped to buffer row 0 copies content
- * that never included the marker the user dragged from.
  *
  * Every terminal interaction below is scoped to this test's own session id
  * (`[data-session-id]`, set by TerminalRuntimeLayer.tsx). Row text is read through
@@ -41,32 +31,31 @@ import { login, openTerminalContextMenu, waitForTerminal, waitForTerminalInputRe
  * transiently be an outgoing session's terminal rather than the one this spec just
  * created. That helper now takes `{ sessionId }` and every call below passes it.
  *
- * Three more things measured 2026-09-19, unparking this spec once `captureTerminalSelection`
- * (the debug hook this file's earlier draft was blocked on) went live, all found by
- * distrusting a conclusion drawn from the DOM and re-checking it against xterm's own model:
+ * Two more things measured 2026-09-19, once `captureTerminalSelection` (the debug hook
+ * this file's earlier draft was blocked on) went live, both found by distrusting a
+ * conclusion drawn from the DOM and re-checking it against xterm's own model -- the earlier
+ * "the drag creates no selection" conclusion in this file's history was drawn before this
+ * hook existed and could not be trusted either way, and turned out to be true, just not for
+ * a reason the DOM could ever have shown:
  *
  *   1. A `page.mouse.move(x, y, { steps: N })` drag does not add real wall-clock delay
- *      between the events it dispatches, and left `term.hasSelection()` false every time --
- *      not "no visible DOM trace of a selection" (which the WebGL renderer would produce
- *      either way), a real absence confirmed by the hook. Moving in a loop with a small
- *      `waitForTimeout` between steps (`dragAcrossRow`) fixed it; see also `focusTerminalHost`
- *      -- the earlier "no selection" conclusion in this file's history was drawn before this
- *      hook existed and cannot be trusted either way.
+ *      between the events it dispatches, and left `term.hasSelection()` false every time.
+ *      Moving in a loop with a small `waitForTimeout` between steps (`dragAcrossRow`) fixed
+ *      it.
  *   2. `focusTerminalHost`'s and `sendVisibleTerminalCommand`'s `screen.click()` clears
  *      whatever selection currently exists as a side effect (an unrelated mousedown+mouseup
  *      reads as "place the cursor here" to xterm's `SelectionService`), which made every
  *      later flood command in this file destroy the selection it was supposed to be testing
  *      the eviction of, for a reason that had nothing to do with the flood's OUTPUT. Both
  *      are fixed here to skip the click when the terminal is already correctly focused.
- *   3. A selection anchored to a row is cleared once that row scrolls off the CURRENTLY
- *      VISIBLE viewport, independent of how much scrollback capacity remains --
- *      `resourceLimits.terminal.scrollbackLines` (10000) does not govern this. A diagnostic
- *      script lost a single-row selection after as few as 50 lines of new output. The second
- *      test below no longer tries to put its two markers scrollback-distances apart with a
- *      flood in between (that killed the selection before it could ever become two-ended);
- *      it drags across both markers in one motion while both are on screen, then floods by
- *      an amount bounded strictly between their two row indices so the drag's start scrolls
- *      off while its end does not.
+ *
+ * A second AC (a selection trimmed at the top but surviving at the bottom, from reading
+ * xterm's own `SelectionModel.handleTrim`) was proposed, attempted, and withdrawn the same
+ * day -- see FR-BGSTAB-029's change note. `handleTrim`'s partial-clamp path is real in
+ * xterm, but a selection here does not survive long enough to reach it: it was measured
+ * gone after a single bare Enter keypress at an empty prompt (no scroll, no scrollback
+ * pressure at all), so the precondition the AC needed never occurs in this app. That is a
+ * wrong criterion, not a gap in the product -- withdrawn rather than parked.
  */
 
 interface EvictionWorkspaceContext {
@@ -77,9 +66,6 @@ interface EvictionWorkspaceContext {
 
 const RED_SIGNATURES = {
   fullEviction: 'FR-BGSTAB-029 AC-3: a fully evicted selection must disable the copy menu item',
-  partialTrim:
-    'FR-BGSTAB-029 new AC: a selection trimmed at the top but surviving at the bottom must not '
-    + 'silently copy content that no longer includes the originally selected top line',
 } as const;
 
 test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
@@ -120,150 +106,6 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
       await cleanupEvictionWorkspace(page, workspace);
     }
   });
-
-  // #16 item 2, second half -- PARKED, not proven reachable. Measured 2026-09-19, after this
-  // test's own precondition steps (drag-select spanning both markers, confirmed via
-  // captureTerminalSelection) started passing: the theorized bug -- xterm's
-  // SelectionModel.handleTrim clamping selectionStart to buffer row 0 while selectionEnd
-  // stays live, reported by hasSelection()/getSelection() as a silently-wrong selection --
-  // is not reachable in this app as it stands, because something clears the selection
-  // OUTRIGHT (hasSelection() false, not "shifted") on essentially any subsequent output, well
-  // before any scrollback-position nuance could matter. Isolated with three measurements, in
-  // increasing order of how little it takes: (1) a precisely bounded flood sized strictly
-  // between the two markers' row indices (this test's own approach, tuned twice) still
-  // produced a full clear every time; (2) a single-row selection was lost after as few as 50
-  // lines of unrelated output, nowhere near the configured 10000-line browser scrollback;
-  // (3) a selection was cleared by one bare Enter keypress producing a single new prompt
-  // line, with no scrolling and no scrollback pressure of any kind. This traces to something
-  // in this app clearing the selection on essentially any output, not to xterm's own
-  // scrollback-trim logic, which this test's setup could never reach as a result. Left as
-  // `fixme` rather than deleted or forced green: the setup (real drag, multi-row, verified via
-  // the debug hook before asserting anything about eviction) is sound and worth keeping if the
-  // premise turns out to be reachable some other way; the assertions below encode what the
-  // ORIGINAL theorized bug predicts, not what was measured.
-  test.fixme(
-    'new AC: a selection trimmed at the top but surviving at the bottom must not silently point at the wrong lines',
-    async ({ page }) => {
-      test.setTimeout(180_000);
-      await installMemoryClipboard(page);
-      await login(page);
-      await waitForTerminal(page);
-      const workspace = await activateEvictionWorkspace(page);
-      const sid = workspace.sessionId;
-
-      try {
-        const topMarker = `TOP-MARKER-${Date.now()}`;
-        const bottomMarker = `BOTTOM-MARKER-${Date.now()}`;
-
-        // Measured 2026-09-19: a selection anchored to a row is cleared as soon as that row
-        // scrolls off the CURRENTLY VISIBLE screen -- a diagnostic script found a single-row
-        // selection gone after as little as 50 lines of new output, regardless of the
-        // configured browser scrollback (resourceLimits.terminal.scrollbackLines = 10000,
-        // server/config.json5, is not what governs this). So the two markers cannot be
-        // established thousands of lines apart with a flood in between; they must both be
-        // on screen AT ONCE when the selection is made, one drag spanning both rows, and the
-        // later flood must be small and precisely bounded: enough to push topMarker's row
-        // past the top of the viewport, but not enough to also push bottomMarker's row past
-        // it.
-        await sendCommandAndWaitForMarker(page, sid, `echo ${topMarker}`, topMarker);
-        // A small filler gap so the later flood has room to land strictly between the two
-        // rows -- back-to-back echoes leave only 2-3 rows of natural separation (the command
-        // echo plus its output), too narrow a window once the flood command's own echo line
-        // is accounted for.
-        await floodLines(page, sid, 15, 'GAP');
-        await sendCommandAndWaitForMarker(page, sid, `echo ${bottomMarker}`, bottomMarker);
-
-        // Both row indices read from the SAME viewport snapshot, so they are directly
-        // comparable -- reading them separately (one snapshot per marker) would let an
-        // intervening scroll shift one relative to the other.
-        const lines = await captureTerminalLines(page, sid);
-        if (lines === null) {
-          throw new Error('E2E precondition failed: captureTerminalText debug hook is unavailable');
-        }
-        const topRowIndex = lines.findIndex(line => line.trim() === topMarker);
-        const bottomRowIndex = lines.findIndex(line => line.trim() === bottomMarker);
-        if (topRowIndex === -1 || bottomRowIndex === -1) {
-          throw new Error(
-            `E2E precondition failed: markers not both found in one viewport snapshot `
-            + `(topRowIndex=${topRowIndex}, bottomRowIndex=${bottomRowIndex}, lines=${JSON.stringify(lines)})`,
-          );
-        }
-        expect(
-          bottomRowIndex,
-          'E2E precondition failed: bottomMarker must be strictly below topMarker in the same '
-          + `viewport snapshot (topRowIndex=${topRowIndex}, bottomRowIndex=${bottomRowIndex})`,
-        ).toBeGreaterThan(topRowIndex);
-
-        // One drag spanning both rows -- both markers are simultaneously visible right now,
-        // so this does not need the separate shift+click extension a scrollback-spanning
-        // selection would.
-        const screen = terminalScope(page, sid).locator('.xterm-screen');
-        const box = await screen.boundingBox();
-        if (!box) throw new Error('E2E precondition failed: terminal screen has no bounding box');
-        const rowHeight = box.height / lines.length;
-        const topPosition: MarkerPosition = { x: box.x, y: box.y + (topRowIndex + 0.5) * rowHeight, width: box.width };
-        const bottomPosition: MarkerPosition = { x: box.x, y: box.y + (bottomRowIndex + 0.5) * rowHeight, width: box.width };
-        await dragAcrossRow(page, { x: topPosition.x, y: topPosition.y, width: topPosition.width }, bottomPosition.y);
-        await focusTerminalHost(page, sid);
-
-        // Assert the selection exists and spans both markers -- via xterm's own model,
-        // before the flood that is about to trim it -- rather than assuming the drag worked.
-        // This is the "before" half of the discriminating comparison: what the user actually
-        // selected, captured with the one instrument that can see it under WebGL, kept for
-        // comparison against what Ctrl+C actually produces below.
-        const beforeTrim = await captureSelection(page, sid);
-        expect(
-          beforeTrim?.hasSelection,
-          'E2E precondition failed: the drag across both markers did not leave a selection '
-          + `according to xterm's own model. Captured: ${JSON.stringify(beforeTrim)}`,
-        ).toBe(true);
-        expect(
-          beforeTrim?.text,
-          'E2E precondition failed: the selection does not span both markers -- '
-          + `expected it to contain both "${topMarker}" and "${bottomMarker}". Captured: `
-          + `${JSON.stringify(beforeTrim?.text)}`,
-        ).toEqual(expect.stringContaining(topMarker));
-        expect(beforeTrim?.text).toEqual(expect.stringContaining(bottomMarker));
-        const originallySelectedText = beforeTrim!.text;
-
-        // Push topMarker's row past the top of the viewport while keeping bottomMarker's row
-        // on screen -- strictly greater than topRowIndex, less than bottomRowIndex. Biased
-        // toward topRowIndex (a third of the way into the gap, not the midpoint) rather than
-        // split evenly: floodLines' own command sends `node -e "..."` as one line before its
-        // output starts, and that extra line (plus normal prompt overhead) eats into the
-        // margin on the bottom side, not the top.
-        const floodAmount = topRowIndex + Math.max(2, Math.floor((bottomRowIndex - topRowIndex) / 3));
-        await floodLines(page, sid, floodAmount, 'FLOOD');
-
-        await focusTerminalHost(page, sid);
-        await page.keyboard.press('Control+C');
-
-        await expect.poll(() => readClipboardWriteCallCount(page), {
-          message:
-            'E2E precondition failed: no clipboard write occurred after Control+C -- the selection was '
-            + 'likely fully cleared (flood size too large for this environment\'s scrollback) rather than '
-            + 'partially trimmed. If this keeps failing, raise the gap and re-tune the flood size.',
-          timeout: 10_000,
-        }).toBeGreaterThan(0);
-
-        const copied = (await readClipboardWriteCalls(page)).at(-1) ?? '';
-        // The discriminating assertion: compare what was actually copied against what was
-        // originally selected (captured above, before the flood), not just "is copy
-        // disabled" -- xterm's SelectionModel.handleTrim clamps selectionStart to buffer row
-        // 0 instead of clearing the selection when only the top scrolls off, so hasSelection
-        // stays true and copy stays enabled throughout. A copy that silently diverged from
-        // what the user dragged over is the injury this AC exists to catch.
-        expect(
-          copied,
-          `${RED_SIGNATURES.partialTrim}\noriginally selected: ${JSON.stringify(originallySelectedText)}\n`
-          + `actually copied: ${JSON.stringify(copied)}`,
-        ).not.toEqual(originallySelectedText);
-        expect(copied, RED_SIGNATURES.partialTrim).not.toContain(topMarker);
-      } finally {
-        await cleanupEvictionWorkspace(page, workspace);
-      }
-    },
-  );
 });
 
 function terminalScope(page: Page, sessionId: string) {
@@ -479,17 +321,14 @@ async function focusTerminalHost(page: Page, sessionId: string): Promise<void> {
  * selection (measured: selecting "DIAGMARK" copied "IAGMARK"). 1px reliably lands in the left
  * half of column 0's cell for this terminal's font metrics.
  */
-async function dragAcrossRow(page: Page, position: MarkerPosition, endY: number = position.y): Promise<void> {
+async function dragAcrossRow(page: Page, position: MarkerPosition): Promise<void> {
   const x1 = position.x + 1;
   const x2 = position.x + position.width - 4;
   const steps = 20;
   await page.mouse.move(x1, position.y);
   await page.mouse.down();
   for (let i = 1; i <= steps; i += 1) {
-    await page.mouse.move(
-      x1 + ((x2 - x1) * i) / steps,
-      position.y + ((endY - position.y) * i) / steps,
-    );
+    await page.mouse.move(x1 + ((x2 - x1) * i) / steps, position.y);
     await page.waitForTimeout(20);
   }
   await page.mouse.up();
@@ -554,20 +393,6 @@ async function installMemoryClipboard(page: Page): Promise<void> {
         },
       },
     });
-  });
-}
-
-async function readClipboardWriteCallCount(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const state = window as typeof window & { __e2eClipboardWriteCalls?: string[] };
-    return state.__e2eClipboardWriteCalls?.length ?? 0;
-  });
-}
-
-async function readClipboardWriteCalls(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const state = window as typeof window & { __e2eClipboardWriteCalls?: string[] };
-    return [...(state.__e2eClipboardWriteCalls ?? [])];
   });
 }
 
