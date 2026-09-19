@@ -78,32 +78,67 @@ function attach(router: WsRouter, ws: WebSocket, options: { registered: boolean 
   raw.terminalAuthorityViewModeReader = () => 'legacy';
 }
 
-test('a registered legacy view is not served the fallback the authority path already delivered', () => {
+const PRODUCER_LINES = 40;
+
+function producerLines(): string[] {
+  return Array.from({ length: PRODUCER_LINES }, (_, index) => `PUMP-${index + 1}`);
+}
+
+/** Every payload this socket received, as the marker text carried in each chunk. */
+function receivedMarkers(sent: readonly string[]): string[] {
+  return sent.flatMap((payload) => {
+    const match = /PUMP-\d+/u.exec(payload);
+    return match ? [match[0]] : [];
+  });
+}
+
+test('a registered legacy view is served none of what the authority path already delivered', () => {
   const router = createRouter();
   const socket = createSocket();
   attach(router, socket.ws, { registered: true });
 
-  router.routeSessionOutput(SESSION, 'line-one\r\n', 1, {}, 'legacy-unnegotiated');
+  for (const line of producerLines()) {
+    router.routeSessionOutput(SESSION, `${line}\r\n`, 1, {}, 'legacy-unnegotiated');
+  }
 
-  assert.equal(
-    socket.sent.length,
-    0,
-    'the fallback delivered to a view the authority path had already delivered to; that '
-    + 'view receives the same bytes twice',
+  // Asserted on identity, not on a count: a fix that suppressed only some of the duplicates
+  // would still reduce the total, and "fewer" is not "none".
+  assert.deepEqual(
+    receivedMarkers(socket.sent),
+    [],
+    'the fallback delivered lines the authority path had already delivered; the view receives '
+    + 'those bytes twice',
   );
 });
 
-test('control: a subscriber the authority path does not address still receives the fallback', () => {
+/**
+ * The control, and it is load-bearing rather than belt-and-braces.
+ *
+ * Every assertion above is satisfied by a fix that removes the fallback outright, not just by
+ * one that corrects its predicate. This sends the same numbered producer to a subscriber the
+ * authority path does NOT address and requires every line back, in order and contiguous --
+ * so it fails if the fallback is deleted, if it drops chunks, or if it reorders them.
+ *
+ * Contiguity matters for the same reason the harness lane added it to their criterion: a
+ * partially-broken fix can land near the right total while silently losing a third of the
+ * traffic, and a count cannot tell those apart.
+ */
+test('control: an unaddressed subscriber receives every fallback line, in order', () => {
   const router = createRouter();
   const socket = createSocket();
   attach(router, socket.ws, { registered: false });
 
-  router.routeSessionOutput(SESSION, 'line-one\r\n', 1, {}, 'legacy-unnegotiated');
+  const expected = producerLines();
+  for (const line of expected) {
+    router.routeSessionOutput(SESSION, `${line}\r\n`, 1, {}, 'legacy-unnegotiated');
+  }
 
-  assert.equal(
-    socket.sent.length,
-    1,
-    'control failed: an unregistered subscriber received nothing, so the fix has disabled '
-    + 'the fallback rather than narrowed it -- this is exactly what #110 prevented',
+  assert.deepEqual(
+    receivedMarkers(socket.sent),
+    expected,
+    'control failed: the fallback did not deliver every line in order to a subscriber the '
+    + 'authority path does not address. If this is empty the fallback has been disabled '
+    + 'rather than narrowed -- exactly what #110 prevented; if it is short or reordered, the '
+    + 'fallback is losing traffic',
   );
 });
