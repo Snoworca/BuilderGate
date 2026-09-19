@@ -1549,8 +1549,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const snapshotLimits = getSnapshotResourceLimits();
       try {
         const raw = localStorage.getItem(getTerminalSnapshotKey(sessionId));
+        // REL-BGSTAB-007 AC-8: a snapshot that cannot show it belongs to THIS session
+        // generation is refused rather than restored. sessionGenerationRef is the value
+        // this component already uses to discard stale-generation buffered entries, so a
+        // surviving session whose generation moved no longer restores a superseded screen.
         const snapshot = parseTerminalViewportSnapshot(raw, sessionId, {
           maxContentLength: snapshotLimits.perSnapshotMaxChars,
+          expectedGeneration: String(sessionGenerationRef.current),
         });
         if (!snapshot) {
           clearStoredSnapshot();
@@ -1582,7 +1587,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const storedSnapshot = parseTerminalViewportSnapshot(
           localStorage.getItem(getTerminalSnapshotKey(sessionId)),
           sessionId,
-          { maxContentLength: snapshotLimits.perSnapshotMaxChars },
+          {
+            maxContentLength: snapshotLimits.perSnapshotMaxChars,
+            expectedGeneration: String(sessionGenerationRef.current),
+          },
         );
         const bufferType = getTerminalBufferType(term);
         if (
@@ -1598,6 +1606,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const snapshot: TerminalViewportSnapshotPayload = {
           schemaVersion: TERMINAL_SNAPSHOT_SCHEMA_VERSION,
           payloadKind: TERMINAL_SNAPSHOT_PAYLOAD_KIND,
+          generation: String(sessionGenerationRef.current),
           sessionId,
           content,
           cols: term.cols,
