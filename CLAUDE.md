@@ -95,6 +95,12 @@ frontend/src/
 
 주의할 것:
 
+- **저장소 전체를 감시하는 테스트가 있다. 자기 모듈이 아니라 *남의 파일* 때문에 빨개진다.** `server/src/services/TerminalResourcePolicy.test.ts` 는 `server/src` 와 `frontend/src` 전체를 AST 로 훑어 정책 자원에 접근하면서 인벤토리에 등재되지 않은 지점(`unregisteredCallSites`)을 찾는다. **프런트엔드 파일 한 줄을 고쳐서 이 서버 테스트를 빨갛게 만들 수 있다** — 그리고 그것이 이 파일의 목적이다.
+
+  그래서 "내가 건드린 파일의 테스트만 돌린다" 는 전략에 구조적으로 걸리지 않는다. 모놀리식 러너(`src/test-runner.ts`)는 `*.test.ts` 를 디스커버리하지 않으므로 **542/542 를 보고해도 이 파일은 한 번도 돌지 않았다.** 2026-09-19 실측: `acac5a68` 이 `TerminalView.tsx` 의 `getInputQueueLimits()` 에 `limits.inputQueueTtlMs` 읽기를 추가하면서 이 가드가 빨개졌고, **그 상태로 커밋·리뷰·푸시됐다.** 작성자도 리뷰어도 프런트 스위트·모놀리식 러너·release pipeline·타입체크·빌드를 전부 돌렸고, **그중 어느 것도 이 파일을 실행하지 않았다.** 가드는 첫 실행에서 정확히 지목했다 — 아무도 실행하지 않았을 뿐이다.
+
+  **정책 자원(`resourceLimits.*`)을 읽는 코드를 추가·수정했다면 이 파일을 직접 돌린다**: cwd=`server/` 에서 `npx tsx --test src/services/TerminalResourcePolicy.test.ts`.
+
 - **exit code 를 회귀 신호로 믿을 수 없는 파일이 있다.** `server/src/ws/WsRouterSplitHandshake.test.ts` 는 `fail 0` 으로 **exit 0** 을 반환하지만, 그 todo 들은 실제로 assertion 이 깨진 채 `✖ failing tests:` 에 찍힌다(`3 !== 1` 등, 전부 "Wave-1 production unified limitation characterization"). 나중에 진짜로 green 이 되어도 exit code 는 그대로 0 이다 → **todo 카운트와 `✖` 목록을 대조**해야 한다.
   - #77: 여기 있던 `pass 14 / todo 14` 를 지웠다. 그 숫자는 2026-08-19 실측이었고 오늘은 `pass 15 / todo 13` 이며, 이 문서를 고치는 동안에도 다시 움직인다. **대조해야 할 것은 어떤 숫자가 아니라 todo 카운트와 `✖` 목록이 서로 맞는지다.** 숫자를 적어두면 그 숫자가 기준처럼 읽히고, 틀린 기준은 없는 기준보다 나쁘다.
 - **프론트 단위 전수(`node --experimental-strip-types --test tests/unit/*.test.ts`)에서 빨간 파일이 전부 회귀는 아니다.** 실제 xterm 을 렌더하는 테스트는 module mock 과 asset stub 이 필요해 그 러너에서 반드시 실패하고, 전용 스크립트 `npm run test:unit:terminal-view-behavior` 에서 통과한다. **개수를 외우지 말고 목록을 도출할 것** — 그 스크립트의 파일 목록이 곧 "전수에서 실패해도 되는 집합" 이며, 둘이 어긋나면 그것이 신호다. 2026-09-19 실측: `terminalPasteUnifiedPath.test.ts`(#18 에서 신설)가 그 목록에 없어 전수가 3 fail 로 보였고, 같은 파일이 전용 러너에서는 10/10 이었다. 새로 만든 컴포넌트 렌더 테스트는 `tsconfig.test.json` 등록만으로 끝나지 않는다 — 이 스크립트에도 넣어야 한다.
