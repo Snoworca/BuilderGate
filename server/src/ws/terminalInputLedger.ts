@@ -52,7 +52,16 @@ export interface TerminalInputAdmission {
 }
 
 export interface TerminalInputLedgerKey {
-  connectionEpoch: string;
+  /**
+   * #111 / #18 criterion 11: the LOGICAL client, not the socket.
+   *
+   * This used to be `connectionEpoch`, fed from `meta.connectionId` -- a fresh uuid per
+   * socket -- and the disconnect handler dropped the whole entry. A real reconnect
+   * therefore met an empty ledger and a resent operation ran a second time, which is the
+   * duplicate-execution symptom this ledger exists to prevent. The record has to outlive
+   * the connection; only connection-OWNED state (waiters, timeouts) dies with the socket.
+   */
+  logicalClientId: string;
   sessionId: string;
 }
 
@@ -106,17 +115,30 @@ export interface TerminalInputLedgerOptions {
    * exactly-once actually needs.
    */
   maxOperationsPerSession?: number;
+  /**
+   * #111: how long a remembered operation stays remembered.
+   *
+   * Required once the record outlives the socket: a count bound alone would keep a quiet
+   * client's entry forever. Criterion 11 names TTL/cap eviction as one of the three
+   * release points, the other two being logical client retirement and session close.
+   */
+  ttlMs?: number;
+  /** Injectable clock, so the TTL can be tested without waiting for it. */
+  now?: () => number;
 }
 
 export interface TerminalInputLedger {
   admit: (request: TerminalInputAdmissionRequest) => TerminalInputAdmission;
   /** Returns true when there was state to free, false when already released. */
   release: (key: TerminalInputLedgerKey) => boolean;
-  releaseEpoch: (connectionEpoch: string) => number;
+  /** Releases every session this logical client held. Returns how many were freed. */
+  releaseLogicalClient: (logicalClientId: string) => number;
   snapshot: (key: TerminalInputLedgerKey) => TerminalInputLedgerStats;
 }
 
 const DEFAULT_MAX_OPERATIONS_PER_SESSION = 512;
+/** Five minutes: long enough to cover a reconnect, short enough to bound a quiet client. */
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
 interface LedgerEntry {
   /** Insertion-ordered, so the oldest remembered operation is evicted first. */
@@ -136,6 +158,8 @@ interface LedgerEntry {
   expiredOperations: Set<string>;
   /** operationId -> its client ordering, for ids that carried one. */
   operationSequences: Map<string, { epoch: number; start: number }>;
+  /** operationId -> when it was admitted, for TTL eviction. */
+  operationAdmittedAt: Map<string, number>;
   /**
    * sequencerEpoch -> the highest `start` this ledger has FULLY forgotten.
    *
@@ -164,15 +188,17 @@ export function createTerminalInputLedger(
     1,
     options.maxOperationsPerSession ?? DEFAULT_MAX_OPERATIONS_PER_SESSION,
   );
-  // epoch -> sessionId -> entry. Nested rather than a composite string key so a
+  const ttlMs = Math.max(1, options.ttlMs ?? DEFAULT_TTL_MS);
+  const now = options.now ?? Date.now;
+  // logicalClientId -> sessionId -> entry. Nested rather than a composite string key so a
   // session id containing the separator cannot collide with another entry.
-  const epochs = new Map<string, Map<string, LedgerEntry>>();
+  const clients = new Map<string, Map<string, LedgerEntry>>();
 
   const entryFor = (key: TerminalInputLedgerKey): LedgerEntry => {
-    let sessions = epochs.get(key.connectionEpoch);
+    let sessions = clients.get(key.logicalClientId);
     if (!sessions) {
       sessions = new Map();
-      epochs.set(key.connectionEpoch, sessions);
+      clients.set(key.logicalClientId, sessions);
     }
     let entry = sessions.get(key.sessionId);
     if (!entry) {
@@ -181,6 +207,7 @@ export function createTerminalInputLedger(
         operationDigests: new Map(),
         expiredOperations: new Set(),
         operationSequences: new Map(),
+        operationAdmittedAt: new Map(),
         forgottenWatermark: new Map(),
         admitted: 0,
         duplicates: 0,
@@ -197,6 +224,24 @@ export function createTerminalInputLedger(
   return {
     admit(request: TerminalInputAdmissionRequest): TerminalInputAdmission {
       const entry = entryFor(request);
+
+      // #111: evict by age before answering. A record that outlives the socket needs a
+      // bound of its own, and an expired one must fall through to the SAME paths an
+      // evicted one takes -- the watermark still refuses a sequenced retry as `unknown`,
+      // so the TTL cannot become a second silent-re-execute route.
+      const cutoff = now() - ttlMs;
+      for (const [id, admittedAt] of entry.operationAdmittedAt) {
+        if (admittedAt > cutoff) continue;
+        entry.operationAdmittedAt.delete(id);
+        entry.operations.delete(id);
+        entry.operationDigests.delete(id);
+        const forgotten = entry.operationSequences.get(id);
+        if (forgotten) {
+          const previous = entry.forgottenWatermark.get(forgotten.epoch) ?? 0;
+          entry.forgottenWatermark.set(forgotten.epoch, Math.max(previous, forgotten.start));
+          entry.operationSequences.delete(id);
+        }
+      }
 
       if (request.operationId === undefined || request.operationId === '') {
         entry.unidentified += 1;
@@ -235,6 +280,7 @@ export function createTerminalInputLedger(
       }
 
       entry.operations.add(request.operationId);
+      entry.operationAdmittedAt.set(request.operationId, now());
       if (request.sequence) {
         entry.operationSequences.set(request.operationId, request.sequence);
       }
@@ -246,6 +292,7 @@ export function createTerminalInputLedger(
         if (!oldest.done) {
           entry.operations.delete(oldest.value);
           entry.operationDigests.delete(oldest.value);
+          entry.operationAdmittedAt.delete(oldest.value);
           entry.expiredOperations.add(oldest.value);
           if (entry.expiredOperations.size > maxOperations) {
             // The tombstone set is bounded too, so an operation old enough to fall out of
@@ -276,29 +323,29 @@ export function createTerminalInputLedger(
     },
 
     release(key: TerminalInputLedgerKey): boolean {
-      const sessions = epochs.get(key.connectionEpoch);
+      const sessions = clients.get(key.logicalClientId);
       if (!sessions) {
         return false;
       }
       const removed = sessions.delete(key.sessionId);
       if (sessions.size === 0) {
-        epochs.delete(key.connectionEpoch);
+        clients.delete(key.logicalClientId);
       }
       return removed;
     },
 
-    releaseEpoch(connectionEpoch: string): number {
-      const sessions = epochs.get(connectionEpoch);
+    releaseLogicalClient(logicalClientId: string): number {
+      const sessions = clients.get(logicalClientId);
       if (!sessions) {
         return 0;
       }
       const released = sessions.size;
-      epochs.delete(connectionEpoch);
+      clients.delete(logicalClientId);
       return released;
     },
 
     snapshot(key: TerminalInputLedgerKey): TerminalInputLedgerStats {
-      const entry = epochs.get(key.connectionEpoch)?.get(key.sessionId);
+      const entry = clients.get(key.logicalClientId)?.get(key.sessionId);
       return {
         tracked: entry?.operations.size ?? 0,
         expiredTracked: entry?.expiredOperations.size ?? 0,

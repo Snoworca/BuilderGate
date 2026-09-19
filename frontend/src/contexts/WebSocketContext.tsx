@@ -66,6 +66,7 @@ import {
 import { getCachedTerminalOutputResourceLimits } from '../utils/terminalOutputHotPath';
 import { classifyWsFrame } from '../utils/wsFrameDispatch';
 import { publishInputDiscard } from '../utils/inputDiscardFeedback';
+import { resolveLogicalClientId } from '../utils/logicalClientIdentity';
 import { deriveMaxBodyBytes } from '../utils/binaryFrameCodec';
 import { intakeBinaryFrames } from '../utils/binaryFrameIntake';
 import {
@@ -289,6 +290,9 @@ function getWsUrl(): string {
     token,
     location: window.location,
     transportMode: getWsTransportMode(),
+    // #111: the per-tab identity the server keys its dedup record by, so a resent input
+    // is still recognised after a reconnect instead of running a second time.
+    logicalClientId: resolveLogicalClientId(window.sessionStorage),
   });
 }
 

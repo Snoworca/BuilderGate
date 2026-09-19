@@ -179,3 +179,118 @@ test('#18 criterion 7 an adoption failure that is not staleness still reports th
     harness.destroy();
   }
 });
+
+// --- #111 / #18 criterion 11: dedup must survive a reconnect ---------------------
+//
+// The ledger itself was never the problem -- it deduplicates whatever key it is given.
+// The defect was the ROUTER's choice of key: `meta.connectionId`, a fresh uuid per socket,
+// released on disconnect. So this case cannot be written at the ledger level at all; it
+// only appears where the key is chosen, which is why it went unwritten for so long.
+
+interface ReconnectHarness {
+  connect: (logicalClientId: string) => { socket: FakeWebSocket; meta: WsClientMeta };
+  disconnect: (socket: FakeWebSocket) => void;
+  send: (socket: FakeWebSocket, message: Record<string, unknown>) => void;
+  lastRejection: (socket: FakeWebSocket) => Record<string, unknown> | undefined;
+  destroy: () => void;
+}
+
+function createReconnectHarness(): ReconnectHarness {
+  const manager = {
+    getSession: (sessionId: string) => ({ id: sessionId }),
+    writeInput: () => true,
+    registerRetainedTerminalClientView: () => ({ ok: true, reason: 'registered' }),
+    unregisterRetainedTerminalClientView: () => ({ ok: true, reason: 'unregistered-driver-revoked' }),
+  };
+  const router = new WsRouter({} as AuthService, manager as unknown as SessionManager);
+  const internals = router as unknown as {
+    clients: Map<WebSocket, WsClientMeta>;
+    handleMessage: (ws: WebSocket, raw: Buffer | string) => void;
+    handleDisconnect: (ws: WebSocket) => void;
+  };
+  let connectionOrdinal = 0;
+
+  return {
+    connect: (logicalClientId) => {
+      connectionOrdinal += 1;
+      const socket = new FakeWebSocket();
+      const meta = {
+        clientId: `client-${connectionOrdinal}`,
+        // A real reconnect gets a brand-new connectionId. That is the whole point.
+        connectionId: `connection-${connectionOrdinal}`,
+        logicalClientId,
+        isAlive: true,
+        subscribedSessions: new Set([SESSION]),
+        replayPendingSessions: new Map(),
+        screenRepairPendingSessions: new Map(),
+      } as unknown as WsClientMeta;
+      internals.clients.set(socket as unknown as WebSocket, meta);
+      return { socket, meta };
+    },
+    disconnect: (socket) => internals.handleDisconnect(socket as unknown as WebSocket),
+    send: (socket, message) => internals.handleMessage(
+      socket as unknown as WebSocket,
+      JSON.stringify(message),
+    ),
+    lastRejection: (socket) => socket.frames
+      .filter((frame) => frame.type === 'input:rejected').at(-1),
+    destroy: () => router.destroy(),
+  };
+}
+
+test('#111 AC-2 an operation resent on a NEW connection is not written to the PTY twice', () => {
+  const harness = createReconnectHarness();
+  try {
+    const first = harness.connect('tab-1');
+    harness.send(first.socket, inputMessage(1));
+
+    // The socket drops and the client reconnects. Connection-owned state settles here;
+    // the dedup record must not.
+    harness.disconnect(first.socket);
+    const second = harness.connect('tab-1');
+    harness.send(second.socket, inputMessage(1));
+
+    assert.equal(
+      harness.lastRejection(second.socket)?.reason,
+      'duplicate-operation',
+      'a resend after reconnect must be refused, not written a second time',
+    );
+  } finally {
+    harness.destroy();
+  }
+});
+
+test('#111 AC-2 a genuinely new operation after a reconnect still reaches the PTY', () => {
+  const harness = createReconnectHarness();
+  try {
+    const first = harness.connect('tab-1');
+    harness.send(first.socket, inputMessage(1));
+    harness.disconnect(first.socket);
+
+    const second = harness.connect('tab-1');
+    harness.send(second.socket, inputMessage(2));
+
+    // Preserving the record must not freeze the terminal: only the RESENT operation is
+    // refused, and everything typed afterwards still runs.
+    assert.equal(harness.lastRejection(second.socket), undefined);
+  } finally {
+    harness.destroy();
+  }
+});
+
+test('#111 criterion 11 two different logical clients keep separate ledgers', () => {
+  const harness = createReconnectHarness();
+  try {
+    const tabOne = harness.connect('tab-1');
+    harness.send(tabOne.socket, inputMessage(1));
+
+    // Boundary: preserving across reconnect must not start sharing across tabs. Two tabs
+    // legitimately issue the same sequence numbers and neither may suppress the other.
+    const tabTwo = harness.connect('tab-2');
+    harness.send(tabTwo.socket, inputMessage(1));
+
+    assert.equal(harness.lastRejection(tabTwo.socket), undefined);
+  } finally {
+    harness.destroy();
+  }
+});

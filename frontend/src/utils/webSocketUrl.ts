@@ -9,6 +9,14 @@ export interface BuildControlWebSocketUrlOptions {
   token: string | null;
   location: WebSocketUrlLocation;
   transportMode: WsTransportMode;
+  /**
+   * #111 / #18 criterion 11: the per-tab identity the server keys its dedup record by.
+   *
+   * Omitted when the browser cannot produce one (blocked storage). Absent means absent --
+   * an empty parameter would be a claim of identity the client cannot back, and the server
+   * falls back to connection-scoped behaviour rather than treating '' as a shared client.
+   */
+  logicalClientId?: string;
 }
 
 export interface SplitOutputMetadata {
@@ -52,8 +60,12 @@ export function buildControlWebSocketUrl({
   token,
   location,
   transportMode,
+  logicalClientId,
 }: BuildControlWebSocketUrlOptions): string {
   const params = new URLSearchParams({ token: token || '' });
+  if (logicalClientId && logicalClientId.trim().length > 0) {
+    params.set('logicalClientId', logicalClientId);
+  }
   if (transportMode === 'split' || transportMode === 'split-shadow') {
     params.set('mode', 'split');
     params.set('channel', 'control');

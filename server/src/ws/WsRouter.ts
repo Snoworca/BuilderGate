@@ -324,6 +324,8 @@ interface TerminalAuthorityConnectionContext {
   channelRole: 'control' | 'output';
   clientGroupId?: string;
   pairToken?: string;
+  /** #111 / #18 criterion 11: the browser's per-tab identity, stable across reconnects. */
+  logicalClientId?: string;
 }
 
 interface SplitClientGroup {
@@ -1612,6 +1614,13 @@ export class WsRouter {
         ...(url.searchParams.get('pairToken')
           ? { pairToken: url.searchParams.get('pairToken') ?? undefined }
           : {}),
+        // #111: trimmed and length-bounded before it becomes a ledger key. An unbounded
+        // client-supplied string would let one connection allocate an arbitrarily large
+        // key, and a blank one would silently merge every such client into one namespace.
+        ...(((url.searchParams.get('logicalClientId') ?? '').trim().length > 0
+          && (url.searchParams.get('logicalClientId') ?? '').length <= 128)
+          ? { logicalClientId: (url.searchParams.get('logicalClientId') ?? '').trim() }
+          : {}),
       };
       this.wss.emit('connection', ws, req, result.payload, connectionContext);
     });
@@ -1726,6 +1735,11 @@ export class WsRouter {
       const meta: WsClientMeta = {
         clientId,
         connectionId,
+        // #111: absent for legacy clients, which then stay connection-scoped exactly as
+        // before rather than sharing a namespace they never asked for.
+        ...(requestedContext?.logicalClientId
+          ? { logicalClientId: requestedContext.logicalClientId }
+          : {}),
         clientGroupId,
         channelRole: 'control',
         wsTransportMode: requestedMode,
@@ -3161,7 +3175,10 @@ export class WsRouter {
     // operation id is admitted and counted as undeduplicated rather than being
     // treated as if exactly-once held for it.
     const admission = this.inputLedger.admit({
-      connectionEpoch: meta?.connectionId ?? 'unknown-connection',
+      // #111: the LOGICAL client, so the record survives a reconnect. Falling back to
+      // connectionId keeps legacy clients working exactly as before rather than sharing
+      // a namespace they never asked for.
+      logicalClientId: meta?.logicalClientId ?? meta?.connectionId ?? 'unknown-connection',
       sessionId: input.sessionId,
       ...(input.inputOperationId === undefined ? {} : { operationId: input.inputOperationId }),
       // #18 criterion 6: ordering, so a retry the ledger has fully forgotten is refused as
@@ -3680,12 +3697,22 @@ export class WsRouter {
     this.clearTransportQueueState(ws);
     this.terminalDeliveryVisibilityBySocket.delete(ws);
     this.terminalDeliveryCheckpointLedgers.delete(ws);
-    // REL-BGSTAB-028: free this connection's input ledger exactly once. Held
-    // past disconnect it would grow without bound, and a later connection
-    // reusing the id would inherit a dead connection's operation history.
+    // #111 / #18 criterion 11: the input ledger is NOT freed here any more.
+    //
+    // It used to be, keyed by this connection's id, on the reasoning quoted below that
+    // holding it past disconnect would grow without bound. The bound was real; the
+    // conclusion was not. Dropping the record on socket loss meant a reconnecting client
+    // met an empty ledger and its resent input was written to the PTY a SECOND time --
+    // the duplicate execution this ledger exists to prevent. Growth is now bounded by the
+    // record's own TTL and entry cap instead, and the record is released by logical client
+    // retirement or session close. Connection-owned state (waiters, timeouts) still
+    // settles here, which is what criterion 11 asks for and what the lines above do.
+    //
+    // A client that sends no logical id is still connection-scoped, so for it the old
+    // reasoning still holds and its ledger is still freed here.
     const disconnectingMeta = this.clients.get(ws);
-    if (disconnectingMeta?.connectionId) {
-      this.inputLedger.releaseEpoch(disconnectingMeta.connectionId);
+    if (disconnectingMeta && !disconnectingMeta.logicalClientId && disconnectingMeta.connectionId) {
+      this.inputLedger.releaseLogicalClient(disconnectingMeta.connectionId);
     }
     this.settleTerminalResourcePolicyTargetOnTransportClose(ws);
     this.clients.delete(ws);
@@ -5931,6 +5958,14 @@ export class WsRouter {
           ? this.splitSocketGroups.get(ws)?.control
           : ws;
         if (control) this.terminateFairDeliverySession(control, sessionId);
+        // #111 / #18 criterion 11: session close is one of the three release points for
+        // the dedup record, now that socket loss is no longer one of them. Without this
+        // the record would linger for its whole TTL after the PTY it describes is gone.
+        const owner = this.clients.get(ws);
+        const logicalClientId = owner?.logicalClientId ?? owner?.connectionId;
+        if (logicalClientId) {
+          this.inputLedger.release({ logicalClientId, sessionId });
+        }
       }
       this.sendTo(ws, { type: event, sessionId, ...payload });
     }

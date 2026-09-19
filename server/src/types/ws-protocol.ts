@@ -944,6 +944,16 @@ export interface SubscribedSessionInfo {
 export interface WsClientMeta {
   clientId: string;
   connectionId?: string;
+  /**
+   * #111 / #18 criterion 11: the identity that survives a reconnect.
+   *
+   * `connectionId` is a fresh uuid per socket, so anything keyed by it is lost the moment
+   * the socket drops -- which is how a resent input came to be written to the PTY twice.
+   * The browser supplies this per tab and keeps it across reconnects; when it is absent
+   * (legacy client) the router falls back to `connectionId` and the pre-existing
+   * connection-scoped behaviour, observably rather than silently.
+   */
+  logicalClientId?: string;
   clientGroupId?: string;
   channelRole?: 'control' | 'output';
   wsTransportMode?: 'unified' | 'split-shadow' | 'split';
