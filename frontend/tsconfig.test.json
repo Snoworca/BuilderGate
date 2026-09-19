@@ -38,6 +38,7 @@
     "tests/unit/workspaceOwnershipFixture.test.ts",
     "tests/unit/terminalRetainedPaletteParity.test.ts",
     "tests/unit/terminalCheckpointMutationLeaseBarrier.test.ts",
+    "tests/unit/serverInputRejectionFeedback.test.ts",
     "tests/unit/workspaceLimitsParity.test.ts",
     "tests/unit/workspaceOwnershipMigration.test.ts",
     "tests/unit/workspaceOwnershipCleanupMigration.test.ts",

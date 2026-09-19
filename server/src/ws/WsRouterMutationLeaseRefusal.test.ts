@@ -131,3 +131,138 @@ test('REL-BGSTAB-011 a granted lease carries no refusal', () => {
     router.destroy();
   }
 });
+
+// @req REL-BGSTAB-011
+test('REL-BGSTAB-011 a registered view whose lease was refused adopts it by writing instead of losing the write', () => {
+  // Measured 2026-09-19 on https://localhost:2222: after the barrier fix the browser sent
+  // (ws_input_sent 2, inputOperationId "e2:1-5" and "e2:6-6") and the server answered
+  // input:rejected/invalid-payload for both, because meta.retainedTerminalViews had the session
+  // while meta.retainedTerminalMutationLeases did not. Nothing was written and nothing surfaced.
+  const writes: Array<{ sessionId: string; data: string; identity: unknown }> = [];
+  const adoptCalls: Array<{ clientId: string; viewGeneration: number }> = [];
+  const manager = {
+    registerRetainedTerminalClientView: () => ({ ok: true, reason: 'registered' }),
+    establishRetainedTerminalMutationLease: () => ({ ok: false, reason: 'driver-owned-by-other-client' }),
+    adoptRetainedTerminalMutationLease: (sessionId: string, clientId: string, viewGeneration: number) => {
+      adoptCalls.push({ clientId, viewGeneration });
+      return {
+        ok: true,
+        sessionId,
+        clientId,
+        authorityEpoch: 'authority-epoch-1',
+        viewGeneration,
+        leaseGeneration: 'adopted-1',
+      };
+    },
+    unregisterRetainedTerminalClientView: () => ({ ok: true, reason: 'unregistered-driver-revoked' }),
+    getSession: (sessionId: string) => ({ id: sessionId, status: 'idle' }),
+    writeInput: (sessionId: string, data: string, _m: unknown, _s: unknown, identity: unknown) => {
+      writes.push({ sessionId, data, identity });
+      return true;
+    },
+  };
+  const router = new WsRouter({} as AuthService, manager as unknown as SessionManager);
+  const socket = new FakeWebSocket();
+  const meta: WsClientMeta = {
+    clientId: 'typing-client',
+    isAlive: true,
+    subscribedSessions: new Set(['session-adopt']),
+    replayPendingSessions: new Map(),
+    screenRepairPendingSessions: new Map(),
+  };
+  const internals = router as unknown as {
+    clients: Map<WebSocket, WsClientMeta>;
+    handleMessage: (ws: WebSocket, raw: Buffer | string) => void;
+  };
+  internals.clients.set(socket as unknown as WebSocket, meta);
+  try {
+    internals.handleMessage(socket as unknown as WebSocket, JSON.stringify({
+      type: 'terminal-checkpoint:negotiate',
+      protocolVersion: TERMINAL_CHECKPOINT_PROTOCOL_VERSION,
+      views: [{ sessionId: 'session-adopt', viewGeneration: 4 }],
+    }));
+    assert.deepEqual(socket.frames.at(-1)?.mutationLeaseRefusals, [{
+      sessionId: 'session-adopt',
+      viewGeneration: 4,
+      reason: 'driver-owned-by-other-client',
+    }]);
+
+    internals.handleMessage(socket as unknown as WebSocket, JSON.stringify({
+      type: 'input',
+      sessionId: 'session-adopt',
+      data: 'codex',
+      inputSeqStart: 1,
+      inputSeqEnd: 5,
+    }));
+
+    assert.deepEqual(adoptCalls, [{ clientId: 'typing-client', viewGeneration: 4 }]);
+    assert.equal(writes.length, 1, 'the write must reach the PTY');
+    assert.equal(writes[0]!.data, 'codex');
+    assert.deepEqual(writes[0]!.identity, {
+      clientId: 'typing-client',
+      authorityEpoch: 'authority-epoch-1',
+      viewGeneration: 4,
+      leaseGeneration: 'adopted-1',
+    });
+    assert.equal(
+      socket.frames.some(frame => frame.type === 'input:rejected'),
+      false,
+      'an adopted write must not be reported as rejected',
+    );
+    const capability = socket.frames.filter(frame => frame.type === 'terminal-checkpoint:capability').at(-1);
+    assert.deepEqual(capability?.mutationLeases, [{
+      sessionId: 'session-adopt',
+      authorityEpoch: 'authority-epoch-1',
+      viewGeneration: 4,
+      leaseGeneration: 'adopted-1',
+    }], 'the client must be told it now holds the lease');
+  } finally {
+    router.destroy();
+  }
+});
+
+// @req REL-BGSTAB-011
+test('REL-BGSTAB-011 a write that cannot adopt the lease is refused with a reason that names the cause', () => {
+  const manager = {
+    registerRetainedTerminalClientView: () => ({ ok: true, reason: 'registered' }),
+    establishRetainedTerminalMutationLease: () => ({ ok: false, reason: 'authority-admission-closed' }),
+    adoptRetainedTerminalMutationLease: () => ({ ok: false, reason: 'authority-admission-closed' }),
+    unregisterRetainedTerminalClientView: () => ({ ok: true, reason: 'unregistered-driver-revoked' }),
+    getSession: (sessionId: string) => ({ id: sessionId, status: 'idle' }),
+    writeInput: () => true,
+  };
+  const router = new WsRouter({} as AuthService, manager as unknown as SessionManager);
+  const socket = new FakeWebSocket();
+  const meta: WsClientMeta = {
+    clientId: 'blocked-client',
+    isAlive: true,
+    subscribedSessions: new Set(['session-blocked']),
+    replayPendingSessions: new Map(),
+    screenRepairPendingSessions: new Map(),
+  };
+  const internals = router as unknown as {
+    clients: Map<WebSocket, WsClientMeta>;
+    handleMessage: (ws: WebSocket, raw: Buffer | string) => void;
+  };
+  internals.clients.set(socket as unknown as WebSocket, meta);
+  try {
+    internals.handleMessage(socket as unknown as WebSocket, JSON.stringify({
+      type: 'terminal-checkpoint:negotiate',
+      protocolVersion: TERMINAL_CHECKPOINT_PROTOCOL_VERSION,
+      views: [{ sessionId: 'session-blocked', viewGeneration: 2 }],
+    }));
+    internals.handleMessage(socket as unknown as WebSocket, JSON.stringify({
+      type: 'input',
+      sessionId: 'session-blocked',
+      data: 'x',
+      inputSeqStart: 1,
+      inputSeqEnd: 1,
+    }));
+    const rejection = socket.frames.filter(frame => frame.type === 'input:rejected').at(-1);
+    // 'invalid-payload' said the client sent something malformed. It had not: the payload was
+    // fine and the server simply would not let it drive.
+    assert.equal(rejection?.reason, 'driver-lease-unavailable');
+  } finally {
+    router.destroy();
+  }
+});

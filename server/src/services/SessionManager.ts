@@ -2446,6 +2446,79 @@ export class SessionManager {
     };
   }
 
+  // @req REL-BGSTAB-011 AC-6
+  // The driver lease as first claimed goes to whichever view subscribed first, which is not
+  // necessarily the view the user is typing in. Measured 2026-09-19 on https://localhost:2222
+  // with a probe at the refusal site: a background browser tab held the lease with its socket
+  // still open, and every write from the focused tab was refused with
+  // `driver-owned-by-other-client` for the life of the session. The user saw a terminal that
+  // ate keystrokes. establishRetainedTerminalMutationLease cannot resolve that -- it refuses
+  // the moment anyone else owns the lease -- so writing is the signal that decides ownership:
+  // the view that mutates takes the lease, and the previous holder becomes an observer.
+  //
+  // Only the exactly-registered view of a live session under browser admission may adopt, and
+  // the handoff goes through handoffRetainedTerminalDriverLease so the superseded owner's
+  // lease generation is invalidated rather than left to race the new one.
+  adoptRetainedTerminalMutationLease(
+    sessionId: string,
+    clientId: string,
+    viewGeneration: number,
+  ):
+    | {
+        ok: true;
+        sessionId: string;
+        authorityEpoch: string;
+        clientId: string;
+        viewGeneration: number;
+        leaseGeneration: string;
+      }
+    | { ok: false; reason: string } {
+    const data = this.sessions.get(sessionId);
+    if (!data) return { ok: false, reason: 'authority-unavailable' };
+    const retained = data.retainedTerminal;
+    if (retained.mode !== 'shadow') return { ok: false, reason: 'authority-unavailable' };
+    const client = retained.clients.get(clientId);
+    if (!client || client.viewGeneration !== viewGeneration) {
+      return { ok: false, reason: 'client-view-missing' };
+    }
+    const runtime = this.ensureTerminalAuthorityRuntimePortState(retained);
+    if (runtime.admission.mode === 'server') {
+      // Server headless owns the driver here; a browser view must not take it by typing.
+      return { ok: false, reason: 'authority-admission-closed' };
+    }
+    const owner = retained.driverLease.ownerClientId;
+    if (owner !== null && owner !== clientId) {
+      const handoff = this.handoffRetainedTerminalDriverLease(
+        sessionId,
+        owner,
+        retained.driverViewGeneration ?? viewGeneration,
+        clientId,
+        viewGeneration,
+        retained.driverLease.generation,
+      );
+      if (!handoff.ok) return { ok: false, reason: handoff.reason ?? 'driver-lease-failure' };
+      this.maybeOpenTerminalAuthorityCompatibilityAdmission(runtime);
+      return {
+        ok: true,
+        sessionId,
+        authorityEpoch: data.authorityEpoch,
+        clientId,
+        viewGeneration,
+        leaseGeneration: handoff.generation,
+      };
+    }
+    const claimed = this.claimRetainedTerminalDriverLease(sessionId, clientId, viewGeneration);
+    if (!claimed.ok) return { ok: false, reason: claimed.reason ?? 'driver-lease-failure' };
+    return {
+      ok: true,
+      sessionId,
+      authorityEpoch: data.authorityEpoch,
+      clientId,
+      viewGeneration,
+      leaseGeneration: claimed.generation,
+    };
+  }
+
   handoffRetainedTerminalDriverLease(
     sessionId: string,
     currentClientId: string,

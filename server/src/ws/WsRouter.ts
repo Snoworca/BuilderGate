@@ -3097,18 +3097,29 @@ export class WsRouter {
       return;
     }
 
-    const retainedIdentity = input.retainedIdentity
+    let retainedIdentity = input.retainedIdentity
       ?? meta?.retainedTerminalMutationLeases?.get(input.sessionId);
-    if (meta?.retainedTerminalViews?.has(input.sessionId) && !retainedIdentity) {
-      this.rejectInput(ws, {
-        sessionId: input.sessionId,
-        data: input.data,
-        metadata: input.metadata,
-        inputSeqStart: input.inputSeqStart,
-        inputSeqEnd: input.inputSeqEnd,
-        reason: 'invalid-payload',
-      });
-      return;
+    const registeredViewGeneration = meta?.retainedTerminalViews?.get(input.sessionId);
+    if (meta && registeredViewGeneration !== undefined && !retainedIdentity) {
+      // @req REL-BGSTAB-011 AC-6
+      // Writing is the signal that decides who drives. This view is registered and the user is
+      // typing into it, so it takes the lease from whoever holds it rather than having the write
+      // discarded. Measured 2026-09-19: the previous holder was a background tab with a live
+      // socket, so waiting for it to disconnect would have meant waiting forever.
+      const adopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, input.sessionId, registeredViewGeneration);
+      if (!adopted) {
+        this.rejectInput(ws, {
+          sessionId: input.sessionId,
+          data: input.data,
+          metadata: input.metadata,
+          inputSeqStart: input.inputSeqStart,
+          inputSeqEnd: input.inputSeqEnd,
+          reason: 'driver-lease-unavailable',
+        });
+        return;
+      }
+      retainedIdentity = adopted;
+      this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, adopted);
     }
 
     if (pending) {
@@ -4827,6 +4838,60 @@ export class WsRouter {
         snapshotSeq: pending.snapshotSeq,
       });
     }
+  }
+
+  // @req REL-BGSTAB-011 AC-6
+  private adoptRetainedTerminalMutationLeaseForWrite(
+    meta: WsClientMeta,
+    sessionId: string,
+    viewGeneration: number,
+  ): RetainedTerminalWireMutationIdentity | null {
+    const adopter = this.sessionManager as unknown as {
+      adoptRetainedTerminalMutationLease?: (
+        sessionId: string,
+        clientId: string,
+        viewGeneration: number,
+      ) => { ok: true; authorityEpoch: string; viewGeneration: number; leaseGeneration: string } | { ok: false; reason: string };
+    };
+    const adopted = adopter.adoptRetainedTerminalMutationLease?.(sessionId, meta.clientId, viewGeneration);
+    if (!adopted || !adopted.ok) return null;
+    const lease: RetainedTerminalWireMutationIdentity = {
+      authorityEpoch: adopted.authorityEpoch,
+      viewGeneration: adopted.viewGeneration,
+      leaseGeneration: adopted.leaseGeneration,
+    };
+    meta.retainedTerminalMutationLeases ??= new Map();
+    meta.retainedTerminalMutationLeases.set(sessionId, lease);
+    return lease;
+  }
+
+  // @req REL-BGSTAB-011 AC-6
+  // The client raised its mutation-lease barrier on a capability that carried no lease. Tell it
+  // the lease is now its own, so the next keystroke is not gated on a refusal that no longer holds.
+  private sendAdoptedMutationLeaseCapability(
+    ws: WebSocket,
+    meta: WsClientMeta,
+    sessionId: string,
+    viewGeneration: number,
+    lease: RetainedTerminalWireMutationIdentity,
+  ): void {
+    const registration = meta.terminalAuthorityViewRegistrations?.get(sessionId);
+    this.sendTo(ws, {
+      type: 'terminal-checkpoint:capability',
+      protocolVersion: TERMINAL_CHECKPOINT_PROTOCOL_VERSION,
+      accepted: true,
+      authorityMode: 'legacy',
+      checkpointDeliveryActive: false,
+      ordinalEncoding: 'canonical-uint64-decimal',
+      digestAlgorithms: ['sha256'],
+      registeredViews: [registration ?? { sessionId, viewGeneration }],
+      mutationLeases: [{
+        sessionId,
+        authorityEpoch: lease.authorityEpoch,
+        viewGeneration: lease.viewGeneration,
+        leaseGeneration: lease.leaseGeneration,
+      }],
+    });
   }
 
   private rejectInput(

@@ -519,7 +519,13 @@ export type InputRejectedReason =
    * The command was not run a second time. Distinct from a failure - the
    * client's earlier send succeeded and this retry is redundant.
    */
-  | 'duplicate-operation';
+  | 'duplicate-operation'
+  /**
+   * REL-BGSTAB-011 AC-6: the payload was well formed, but this view does not hold the
+   * retained driver lease and could not take it. Distinct from 'invalid-payload', which
+   * blamed the client for a message that was never malformed.
+   */
+  | 'driver-lease-unavailable';
 
 // terminal-delivery-ack-contract:start
 export type TerminalDeliveryAckIdentity =

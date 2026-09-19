@@ -3070,3 +3070,92 @@ test('REL-BGSTAB-011 AC-3 — an over-cap retained checkpoint converges without 
     harness.close();
   }
 });
+
+type MutationLeaseAdoption =
+  | { ok: true; sessionId: string; authorityEpoch: string; clientId: string; viewGeneration: number; leaseGeneration: string }
+  | { ok: false; reason: string };
+
+function adopt(harness: Harness, clientId: string, viewGeneration: number): MutationLeaseAdoption {
+  return (harness.api as unknown as {
+    adoptRetainedTerminalMutationLease(
+      sessionId: string, clientId: string, viewGeneration: number,
+    ): MutationLeaseAdoption;
+  }).adoptRetainedTerminalMutationLease(harness.sessionId, clientId, viewGeneration);
+}
+
+// @req REL-BGSTAB-011
+test('REL-BGSTAB-011 AC-6 the client that actually types adopts the driver lease from a live holder', () => {
+  // Measured 2026-09-19 on https://localhost:2222 with a server-side probe at the refusal site:
+  //   reason "driver-owned-by-other-client", driverLease.ownerClientId a client that was STILL
+  //   in connectedClients. A background view that merely subscribed first became the sole driver
+  //   and the view the user was typing in was refused forever. establishRetainedTerminalMutationLease
+  //   cannot fix that: it refuses whenever anyone else owns the lease, live or not.
+  const signature = 'a registered view that writes must be able to take the driver lease';
+  const harness = createHarness();
+  try {
+    assert.equal(harness.api.registerRetainedTerminalClientView(harness.sessionId, 'background-tab', 1).ok, true, signature);
+    assert.equal(harness.api.claimRetainedTerminalDriverLease(harness.sessionId, 'background-tab', 1).ok, true, signature);
+    assert.equal(harness.api.registerRetainedTerminalClientView(harness.sessionId, 'typing-tab', 1).ok, true, signature);
+
+    assert.deepEqual(
+      harness.api.establishRetainedTerminalMutationLease(harness.sessionId, 'typing-tab', 1),
+      { ok: false, reason: 'driver-owned-by-other-client' },
+      'precondition: the existing path refuses while another client holds the lease',
+    );
+
+    const adopted = adopt(harness, 'typing-tab', 1);
+    assert.equal(adopted.ok, true, signature);
+    assert.equal(adopted.ok === true && adopted.clientId, 'typing-tab', signature);
+    assert.equal(adopted.ok === true && adopted.viewGeneration, 1, signature);
+
+    // The old holder must no longer be able to mutate under its stale lease identity.
+    assert.equal(
+      harness.api.observeRetainedTerminalDriverMutation(harness.sessionId, 'background-tab', 1, '1', 'input').accepted,
+      false,
+      'the superseded holder must not keep driving',
+    );
+    assert.equal(
+      harness.api.observeRetainedTerminalDriverMutation(
+        harness.sessionId, 'typing-tab', 1,
+        adopted.ok === true ? adopted.leaseGeneration : '',
+        'input',
+      ).accepted,
+      true,
+      signature,
+    );
+  } finally {
+    harness.close();
+  }
+});
+
+// @req REL-BGSTAB-011
+test('REL-BGSTAB-011 AC-6 adoption is idempotent for the client that already holds the lease', () => {
+  const harness = createHarness();
+  try {
+    harness.api.registerRetainedTerminalClientView(harness.sessionId, 'only-tab', 1);
+    const first = adopt(harness, 'only-tab', 1);
+    assert.equal(first.ok, true);
+    const second = adopt(harness, 'only-tab', 1);
+    assert.equal(second.ok, true);
+    assert.equal(
+      second.ok === true && first.ok === true && second.leaseGeneration,
+      first.ok === true ? first.leaseGeneration : '',
+      're-adopting must not churn the lease generation out from under an in-flight write',
+    );
+  } finally {
+    harness.close();
+  }
+});
+
+// @req REL-BGSTAB-011
+test('REL-BGSTAB-011 AC-6 a view that was never registered cannot adopt the lease', () => {
+  const harness = createHarness();
+  try {
+    harness.api.registerRetainedTerminalClientView(harness.sessionId, 'owner', 1);
+    harness.api.claimRetainedTerminalDriverLease(harness.sessionId, 'owner', 1);
+    assert.deepEqual(adopt(harness, 'stranger', 1), { ok: false, reason: 'client-view-missing' });
+    assert.deepEqual(adopt(harness, 'owner', 9), { ok: false, reason: 'client-view-missing' });
+  } finally {
+    harness.close();
+  }
+});

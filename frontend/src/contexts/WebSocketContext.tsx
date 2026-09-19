@@ -65,6 +65,7 @@ import {
 } from '../utils/webSocketUrl';
 import { getCachedTerminalOutputResourceLimits } from '../utils/terminalOutputHotPath';
 import { classifyWsFrame } from '../utils/wsFrameDispatch';
+import { publishInputDiscard } from '../utils/inputDiscardFeedback';
 import { deriveMaxBodyBytes } from '../utils/binaryFrameCodec';
 import { intakeBinaryFrames } from '../utils/binaryFrameIntake';
 import {
@@ -933,6 +934,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           inputSeqStart: msg.inputSeqStart ?? null,
           inputSeqEnd: msg.inputSeqEnd ?? null,
         });
+        // @req REL-BGSTAB-016 @req REL-BGSTAB-011
+        // The user typed and the server refused. Recording it in the debug ring is not telling
+        // anyone -- measured 2026-09-19, two refusals went by with nothing on screen. A refusal
+        // the server already decided is not a duplicate of the local discard sites; it is the
+        // remote one, and it owes the same surface. 'duplicate-operation' is excluded: that
+        // write did reach the PTY, so nothing was lost and a warning would be a lie.
+        if (msg.reason !== 'duplicate-operation') {
+          publishInputDiscard(sessionId);
+        }
       }
       const handlers = sessionHandlersRef.current.get(sessionId);
       if (!handlers) {
@@ -996,6 +1006,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           requestCurrentTerminalCheckpointCapability();
           break;
         case 'input:rejected':
+          // Surfaced above, before handler lookup, so a refusal is reported even for a session
+          // whose handlers are not mounted.
           break;
         case 'cwd':
           handlers.onCwd?.(msg.cwd);
