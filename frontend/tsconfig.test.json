@@ -123,6 +123,7 @@
     "tests/unit/messageBoxContract.test.ts",
     "tests/unit/mosaicEqualLayout.test.ts",
     "tests/unit/mosaicLayoutStorage.test.ts",
+    "tests/unit/pendingInputExpiry.test.ts",
     "tests/unit/perfBgstab010Ac6ServerAckFaultContract.test.ts",
     "tests/unit/perfBgstab010Ac9IsolatedE2EContract.test.ts",
     "tests/unit/recoveryOptionArguments.test.ts",

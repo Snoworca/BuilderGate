@@ -2,6 +2,7 @@ import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useLay
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { shouldExpirePendingInput } from '../../utils/pendingInputExpiry';
 import { WebglAddon } from '@xterm/addon-webgl';
 import {
   createTerminalWebglRenderer,
@@ -753,13 +754,37 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const expirePendingInputQueue = useCallback(() => {
       const now = Date.now();
       const { inputQueueTtlMs } = getInputQueueLimits();
+      // #109: a barrier that is still in progress is not a stuck queue. The TTL is 1500ms by
+      // default and a restore on a session with large retained scrollback was measured holding
+      // the gate for about ten seconds, so every character typed during the restore expired
+      // before it could be sent -- silently.
+      const barrierActive = captureStateRef.current === 'transient-blocked'
+        && transportBarrierReasonRef.current !== 'none';
       const remaining: PendingTerminalInput[] = [];
       let remainingBytes = 0;
+      let held = 0;
 
       for (const entry of pendingInputQueueRef.current) {
-        if (now - entry.queuedAt > inputQueueTtlMs) {
+        const queuedMs = now - entry.queuedAt;
+        if (shouldExpirePendingInput({
+          queuedMs,
+          containsEnter: entry.containsEnter,
+          ttlMs: inputQueueTtlMs,
+          barrierActive,
+        })) {
           rejectQueuedInput(entry, entry.containsEnter ? 'timeout-enter-safety' : 'timeout');
           continue;
+        }
+        if (queuedMs > inputQueueTtlMs) {
+          held += 1;
+          // Held past its TTL on purpose. Recorded so the hold is observable rather than a gap
+          // in the event stream that has to be inferred.
+          recordTerminalDebugEvent(sessionId, 'terminal_input_held_for_barrier', {
+            queuedMs,
+            ttlMs: inputQueueTtlMs,
+            barrierReason: transportBarrierReasonRef.current,
+            source: entry.source,
+          });
         }
         remaining.push(entry);
         remainingBytes += entry.byteLength;
@@ -767,7 +792,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       pendingInputQueueRef.current = remaining;
       pendingInputQueueBytesRef.current = remainingBytes;
-    }, [rejectQueuedInput]);
+
+      // #109: a held entry must be looked at again. The original pass is scheduled once, at
+      // TTL+25ms, so without this an entry held through a barrier would never be reconsidered
+      // if the barrier lifted without a flush -- it would sit in the queue instead of expiring.
+      if (held > 0) {
+        const timer = setTimeout(() => {
+          inputQueueExpiryTimersRef.current.delete(timer);
+          expirePendingInputQueueRef.current?.();
+        }, inputQueueTtlMs + 25);
+        inputQueueExpiryTimersRef.current.add(timer);
+      }
+    }, [rejectQueuedInput, sessionId]);
+    const expirePendingInputQueueRef = useRef<(() => void) | null>(null);
+    expirePendingInputQueueRef.current = expirePendingInputQueue;
 
     const scheduleInputQueueExpiry = useCallback(() => {
       const { inputQueueTtlMs } = getInputQueueLimits();

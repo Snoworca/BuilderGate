@@ -105,7 +105,11 @@ test('TerminalView uses runtime terminal limits for input queue budget and TTL',
   assert.notEqual(expireIndex, -1);
   const expireChunk = source.slice(expireIndex, expireIndex + 850);
   assert.match(expireChunk, /inputQueueTtlMs/);
-  assert.match(expireChunk, /now - entry\.queuedAt > inputQueueTtlMs/);
+  // #109: the comparison moved into shouldExpirePendingInput, which knows about the barrier.
+  // A wall-clock TTL alone dropped every character typed during a ten-second restore.
+  assert.match(expireChunk, /now - entry\.queuedAt/);
+  assert.match(expireChunk, /shouldExpirePendingInput/);
+  assert.match(expireChunk, /barrierActive/);
 
   const enqueueIndex = source.indexOf('const enqueuePendingInput = useCallback');
   assert.notEqual(enqueueIndex, -1);
