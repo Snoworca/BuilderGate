@@ -18,6 +18,7 @@ import {
   renderTerminalView,
   type FakeTerminalState,
 } from './terminalViewHarness.ts';
+import { sanitizeTerminalPasteText } from '../../src/utils/terminalPasteSanitizer.ts';
 
 const ESC = '\u001b';
 
@@ -245,4 +246,39 @@ test('AC-8/criterion 8: the cap counts bytes, so multi-byte text is refused earl
   assert.deepEqual(sharedState.pasted, [], 'the cap must be measured in encoded bytes');
 
   await view.unmount();
+});
+
+// --- #18 criterion 1: what typing shares with paste, and what it must not ---------
+//
+// "Single coordinator" cannot mean "same treatment". Stripping an embedded ESC from a
+// paste is the whole point of the sanitizer; stripping it from a user pressing Escape
+// would break vi, less, menus -- the terminal. So the two paths share IDENTITY,
+// SEQUENCING and the QUEUE/GATE, and they already do: both typing and paste leave
+// TerminalView through submitCapturedInput -> onInput -> TerminalInputSequencer, which is
+// where the operation id and sequence range are assigned. What stays on the paste path is
+// paste POLICY: sanitize, the multiline guard, and the clipboard generation guard.
+
+test('#18 criterion 1: a real Escape keypress is delegated to xterm untouched', async () => {
+  Object.assign(sharedState, freshState());
+  const view = await renderTerminalView({ state: sharedState });
+
+  const { handlerResult, defaultPrevented } = view.pressKey({ key: 'Escape' });
+
+  // Returning true hands the key to xterm, which encodes it and emits it on onData.
+  // Returning false, or preventing the default, would swallow Escape; running it through
+  // the paste sanitizer would delete it outright, since that is exactly what the
+  // sanitizer does to a bare ESC (see terminalPasteSanitizer.test.ts).
+  assert.equal(handlerResult, true, 'Escape must reach xterm');
+  assert.equal(defaultPrevented, false, 'Escape must not be swallowed by TerminalView');
+  assert.deepEqual(sharedState.pasted, [], 'a keypress must never enter the paste path');
+
+  await view.unmount();
+});
+
+test('#18 criterion 1: the sanitizer would destroy Escape, which is why typing must not share it', () => {
+  // This is the concrete reason the two paths are not unified further. It is asserted
+  // rather than left as a comment so that anyone who later routes typing through
+  // sanitizeTerminalPasteText meets a red test explaining what breaks.
+  assert.equal(sanitizeTerminalPasteText('').text, '');
+  assert.equal(sanitizeTerminalPasteText('[A').text, '[A');
 });
