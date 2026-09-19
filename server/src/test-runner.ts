@@ -8112,9 +8112,20 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
     let tlsDispatchCount = 0;
     try {
       process.env.BUILDERGATE_SERVER_ROOT = tlsRoot;
+      // #42: this bound port 2222 and asserted it, calling it "the exclusive test port".
+      // 2222 is the project's ONLY verification port and CLAUDE.md requires a server to be
+      // running on it, so the two requirements contradict each other: whenever verification
+      // was set up, this test failed with EADDRINUSE, and the failure has been carried as a
+      // "known pre-existing" one ever since. Measured 2026-09-19: it is the sole failure in
+      // the monolithic runner, and it is the only thing keeping RG-08's section 9.1 from
+      // being literally green.
+      //
+      // The subject here is that a direct-TLS listener serves MCP over HTTPS. Which port it
+      // lands on is not part of that claim, so it takes an ephemeral one and the assertion
+      // below checks what the handle actually reports.
       tlsHandle = await createMcpNodeHttpListener({
         bindHost: '127.0.0.1',
-        port: 2222,
+        port: 0,
         transportSecurity: 'direct_tls',
       }, async (request) => {
         tlsDispatchCount += 1;
@@ -8131,7 +8142,10 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
         };
       }, { sslConfig: { certPath: '', keyPath: '', caPath: '' } });
       const directTlsPort = Number(asRecord(tlsHandle, 'direct TLS listener handle').port);
-      assert.equal(directTlsPort, 2222, 'direct TLS listener must use the exclusive test port');
+      assert.ok(
+        Number.isInteger(directTlsPort) && directTlsPort > 0 && directTlsPort !== 2222,
+        `direct TLS listener must report the ephemeral port it actually bound, got ${directTlsPort}`,
+      );
       const directTlsResponseBody = await new Promise<string>((resolve, reject) => {
         const payload = JSON.stringify({ jsonrpc: '2.0', id: 'direct-tls', method: 'ping' });
         const req = https.request({

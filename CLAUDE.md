@@ -118,6 +118,8 @@ frontend/src/
   - **함정**: evidence-bundle 이 `docs/analysis/terminal-fairness-authority/` 의 sha256 매니페스트를 재검증하고 불일치 시 throw 한다 → **build 실패**. 그러면 위의 **테스트 명령·로컬 빌드·릴리스 빌드·CI 가 전부 깨진다.** 테스트 코드와 무관한 이유로 red 가 되므로, 테스트가 깨졌다고 진단하기 전에 build 로그를 먼저 볼 것.
   - 테스트만 돌릴 의도라면 cwd=`server/` 에서 `npx tsx src/test-runner.ts` (build 를 타지 않음). 단 이 러너는 `*.test.ts` 를 디스커버리하지 않으므로 이것만으로는 회귀 커버리지가 되지 않는다.
 
+- **모놀리식 러너의 `SEC-MCP-001 AC-6` 실패는 환경 탓이 아니었다 (2026-09-19, #42 에서 해소).** 이 테스트가 실제 TLS 리스너를 **2222 에 바인딩**하고 그 포트를 "the exclusive test port" 라고 단언하고 있었다. 2222 는 이 저장소의 유일한 검증 포트이고 이 문서가 거기 서버를 띄우라고 요구하므로, **두 요구가 서로 모순**이었다 — 검증 환경을 갖춘 기계에서는 반드시 `EADDRINUSE` 로 실패한다. 그래서 몇 주 동안 "알려진 선재 실패" 로 상속됐고, 그 라벨은 **증상에는 정확하고 원인에는 틀렸다.** 위 #89 절의 반대 방향 사례다. 리스너를 ephemeral 포트(0)로 바꾸고 핸들이 실제로 보고한 포트를 단언하도록 고쳐서 지금은 **542/542 exit 0** 이며, 2222 가 떠 있는 채로 통과한다. 교훈: **테스트가 고정된 well-known 포트를 점유한다면 그 테스트를 의심할 것.**
+
 **루트에는 `test` 스크립트가 없다** — `npm test` 는 루트에서 `Missing script` 로 실패한다. server 용은 `npm --prefix server test`. 루트의 test 스크립트 4개(`test:daemon`, `test:daemon:wave5`, `test:docs`, `test:integration:native-daemon`)는 전부 `tools/daemon/` 만 겨냥한다. 어느 한 명령을 돌리고 "테스트 통과"로 보고하지 말 것.
 
 - **규칙**:
