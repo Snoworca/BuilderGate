@@ -96,6 +96,20 @@ export interface TerminalSelectionDebugSnapshot {
   text: string;
 }
 
+/**
+ * #16 item 6: the retained-state evidence walks `buffer.active` only, so a short capture
+ * cannot say whether the normal buffer is short or merely inactive -- an alternate buffer
+ * has no scrollback and its length is exactly `rows`. This reports both lengths so one
+ * measurement discriminates instead of narrowing.
+ */
+export interface TerminalBufferLengthsDebugSnapshot {
+  activeType: 'normal' | 'alternate';
+  normalLength: number;
+  alternateLength: number;
+  rows: number;
+  cols: number;
+}
+
 interface TerminalDebugStore {
   events: TerminalClientDebugEvent[];
   enabledAll: boolean;
@@ -120,6 +134,8 @@ interface TerminalDebugStore {
   captureTerminalText: (sessionId: string) => string | null;
   // #16: renderer-independent selection read, see TerminalSelectionDebugSnapshot.
   captureTerminalSelection: (sessionId: string) => TerminalSelectionDebugSnapshot | null;
+  // #16 item 6: see TerminalBufferLengthsDebugSnapshot.
+  captureTerminalBufferLengths: (sessionId: string) => TerminalBufferLengthsDebugSnapshot | null;
   captureRetainedState: (sessionId: string) => TerminalRetainedStateEvidence | null;
   captureRetainedStateStreaming: (
     sessionId: string,
@@ -131,6 +147,7 @@ interface TerminalDebugStore {
   repairLayoutHandlers: Map<string, (reason: string) => Promise<boolean>>;
   terminalTextCaptureHandlers: Map<string, () => string>;
   selectionCaptureHandlers: Map<string, () => TerminalSelectionDebugSnapshot>;
+  bufferLengthsCaptureHandlers: Map<string, () => TerminalBufferLengthsDebugSnapshot>;
   retainedStateCaptureHandlers: Map<string, () => TerminalRetainedStateEvidence>;
   retainedStateStreamingCaptureHandlers: Map<
     string,
@@ -284,6 +301,12 @@ function getStore(): TerminalDebugStore | null {
         }
         return this.selectionCaptureHandlers.get(sessionId)?.() ?? null;
       },
+      captureTerminalBufferLengths(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.bufferLengthsCaptureHandlers.get(sessionId)?.() ?? null;
+      },
       captureRetainedState(sessionId: string) {
         if (!isLocalTestHost()) {
           return null;
@@ -302,6 +325,7 @@ function getStore(): TerminalDebugStore | null {
       repairLayoutHandlers: new Map<string, (reason: string) => Promise<boolean>>(),
       terminalTextCaptureHandlers: new Map<string, () => string>(),
       selectionCaptureHandlers: new Map<string, () => TerminalSelectionDebugSnapshot>(),
+      bufferLengthsCaptureHandlers: new Map<string, () => TerminalBufferLengthsDebugSnapshot>(),
       retainedStateCaptureHandlers: new Map<string, () => TerminalRetainedStateEvidence>(),
       retainedStateStreamingCaptureHandlers: new Map<
         string,
@@ -405,6 +429,24 @@ export function registerTerminalTextCaptureHandler(
 // model is the only thing that answers "is there a selection" under the WebGL
 // renderer, since neither `.xterm-selection` nor the browser's Selection API exist
 // there. Test-host gated like its neighbours, so nothing is exposed in ordinary use.
+export function registerTerminalBufferLengthsCaptureHandler(
+  sessionId: string,
+  handler: () => TerminalBufferLengthsDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.bufferLengthsCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.bufferLengthsCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.bufferLengthsCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
 export function registerTerminalSelectionCaptureHandler(
   sessionId: string,
   handler: () => TerminalSelectionDebugSnapshot,

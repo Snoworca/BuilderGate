@@ -38,6 +38,7 @@ import {
   registerInputGateSnapshotReader,
   registerInputTransportOverrideHandler,
   registerTerminalRepairLayoutHandler,
+  registerTerminalBufferLengthsCaptureHandler,
   registerTerminalRetainedStateCaptureHandler,
   registerTerminalTextCaptureHandler,
   registerTerminalSelectionCaptureHandler,
@@ -4472,6 +4473,16 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         sessionId,
         () => createTerminalRetainedStateEvidence(captureTerminalRetainedState(term)),
       );
+      const unregisterBufferLengthsCaptureHandler = registerTerminalBufferLengthsCaptureHandler(
+        sessionId,
+        () => ({
+          activeType: term.buffer.active.type,
+          normalLength: term.buffer.normal.length,
+          alternateLength: term.buffer.alternate.length,
+          rows: term.rows,
+          cols: term.cols,
+        }),
+      );
       const unregisterRetainedStateStreamingCaptureHandler =
         registerTerminalRetainedStateStreamingCaptureHandler(
           sessionId,
@@ -4545,6 +4556,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         unregisterTerminalTextCaptureHandler();
         unregisterTerminalSelectionCaptureHandler();
         unregisterRetainedStateCaptureHandler();
+        unregisterBufferLengthsCaptureHandler();
         unregisterRetainedStateStreamingCaptureHandler();
         if (helperTextarea) {
           helperTextarea.removeEventListener('keydown', onHelperKeyDown);
