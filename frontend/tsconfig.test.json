@@ -172,6 +172,7 @@
     "tests/unit/terminalResidencyCharacterization.test.ts",
     "tests/unit/terminalWebglRenderer.test.ts",
     "tests/unit/terminalWidthPolicyParity.test.ts",
+    "tests/unit/terminalUnicodeWidthGolden.test.ts",
     "tests/unit/tscBuildLock.test.ts",
     "tests/unit/tsconfigTestMembership.test.ts",
     "tests/e2e/webgl-dom-fallback.spec.ts",
