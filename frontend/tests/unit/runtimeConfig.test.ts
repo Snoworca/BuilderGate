@@ -6,6 +6,7 @@ import {
   getFrontendRuntimeResidencyMode,
   getRuntimeConfigVersion,
   getSnapshotResourceLimits,
+  getOsc52AllowWrite,
   getTerminalResourceLimits,
   getWsTransportMode,
   getWorkspaceRuntimeResourceLimits,
@@ -13,6 +14,7 @@ import {
   reloadRuntimeConfig,
   subscribeRuntimeConfigChanges,
 } from '../../src/utils/inputReliabilityMode.ts';
+import { evaluateOsc52Request } from '../../src/utils/terminalOsc52.ts';
 import * as terminalViewAttributesModule from '../../src/utils/terminalViewAttributes.ts';
 import {
   createHiddenOutputState,
@@ -280,8 +282,6 @@ test('runtime config loads terminal hidden output limits from public payload', a
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10_000,
-      // SEC-BGSTAB-001 AC-2: OSC52 writes default to allowed and the payload carries no read switch.
-      osc52: { allowWrite: true },
     });
     const decision = resolveHiddenOutput(createHiddenOutputState(), {
       isVisible: false,
@@ -365,8 +365,6 @@ test('runtime config loads all public resource limit sections from public payloa
       transportOutboxMaxBytes: 256_000,
       transportOutboxTtlMs: 3500,
       scrollbackLines: 20_000,
-      // SEC-BGSTAB-001 AC-2: OSC52 writes default to allowed and the payload carries no read switch.
-      osc52: { allowWrite: true },
     });
     assert.deepEqual(getSnapshotResourceLimits(), {
       perSnapshotMaxChars: 1_500_000,
@@ -545,8 +543,6 @@ test('runtime config falls back to Wave7 hidden output defaults for invalid term
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10_000,
-      // SEC-BGSTAB-001 AC-2: OSC52 writes default to allowed and the payload carries no read switch.
-      osc52: { allowWrite: true },
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -614,8 +610,6 @@ test('runtime config falls back to defaults for invalid resource limit sections'
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10_000,
-      // SEC-BGSTAB-001 AC-2: OSC52 writes default to allowed and the payload carries no read switch.
-      osc52: { allowWrite: true },
     });
     assert.deepEqual(getSnapshotResourceLimits(), {
       perSnapshotMaxChars: 2_000_000,
@@ -665,65 +659,91 @@ test('runtime config accepts split websocket transport mode', async () => {
   }
 });
 
-// --- SEC-BGSTAB-001: the OSC52 switch must survive the transport ------------------
 
-function osc52ConfigResponse(terminalOverrides: Record<string, unknown>): () => Promise<Response> {
+// --- SEC-BGSTAB-001 AC-2: the OSC52 switch must survive the transport ------------
+//
+// THE LOAD-BEARING DIRECTION IS `false`, NOT THE DEFAULT.
+//
+// A test that only checks the default is satisfied by a transport that publishes nothing at
+// all -- which was literally the state before #20 rehomed this key, and it would have passed.
+// The dangerous case is the other one: an operator hardens a deployment with
+// allowWrite: false, the publish path drops it or the parser ignores it, and the browser
+// allows OSC52 writes anyway. The server honours the switch, the page does not, and nothing
+// goes red. That is a security control failing open with no signal.
+
+function securityPayloadResponse(security: unknown): () => Promise<Response> {
   return async () => new Response(JSON.stringify({
     inputReliabilityMode: 'queue',
-    resourceLimits: { terminal: terminalOverrides },
+    security,
   }), { status: 200 });
 }
 
 test('SEC-BGSTAB-001 AC-2 a hardened allowWrite:false survives the runtime-config transport', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = osc52ConfigResponse({ osc52: { allowWrite: false } });
+  globalThis.fetch = securityPayloadResponse({ osc52: { allowWrite: false } });
 
   try {
     await initializeInputReliabilityMode();
-    // 이것이 없으면 강화된 배포가 스위치를 껐는데도 프런트엔드는 계속 허용한다 --
-    // 조용히 실패하는 보안 설정이고, 서버 스키마 테스트만으로는 잡히지 않는다.
-    assert.equal(getTerminalResourceLimits().osc52.allowWrite, false);
+    assert.equal(getOsc52AllowWrite(), false, 'a hardened deployment must reach the browser');
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('SEC-BGSTAB-001 AC-2 an omitted osc52 block defaults to allowing writes', async () => {
+test('SEC-BGSTAB-001 AC-2 a hardened false actually refuses an OSC52 write end to end', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = osc52ConfigResponse({ scrollbackLines: 12_000 });
+  globalThis.fetch = securityPayloadResponse({ osc52: { allowWrite: false } });
 
   try {
     await initializeInputReliabilityMode();
-    assert.equal(getTerminalResourceLimits().osc52.allowWrite, true);
+    // The switch is only worth transporting if the policy honours it. This is the assertion
+    // that would have caught "the server refuses, the browser allows".
+    const decision = evaluateOsc52Request(`c;${Buffer.from('x', 'utf-8').toString('base64')}`, {
+      allowWrite: getOsc52AllowWrite(),
+    });
+    assert.equal(decision.kind, 'deny-write-disabled');
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('SEC-BGSTAB-001 AC-1 no read switch can arrive over the transport either', async () => {
+test('SEC-BGSTAB-001 AC-2 an absent security section leaves writes allowed', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = osc52ConfigResponse({ osc52: { allowWrite: true, allowRead: true } });
+  globalThis.fetch = securityPayloadResponse(undefined);
 
   try {
     await initializeInputReliabilityMode();
-    const limits = getTerminalResourceLimits();
-    // 읽기를 켜는 키는 서버 스키마가 거부하지만, 설령 payload 에 실려 오더라도
-    // 프런트엔드에는 그것이 도달할 자리가 없어야 한다. 파싱되지 않으므로 존재하지 않는다.
-    assert.deepEqual(Object.keys(limits.osc52), ['allowWrite']);
+    // Fail-open by design, per AC-2: writes are allowed unless a deployment turns them off.
+    assert.equal(getOsc52AllowWrite(), true);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test('SEC-BGSTAB-001 AC-2 a non-boolean allowWrite falls back to the allowed default', async () => {
+test('SEC-BGSTAB-001 AC-2 a non-boolean allowWrite does not silently disable writes', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = osc52ConfigResponse({ osc52: { allowWrite: 'false' } });
+  globalThis.fetch = securityPayloadResponse({ osc52: { allowWrite: 'false' } });
 
   try {
     await initializeInputReliabilityMode();
-    // 경계값: 문자열 'false' 는 boolean 이 아니다. 기본값이 '허용' 이므로
-    // fail-open 이 곧 명세된 기본 동작이며, 조용히 꺼지는 것보다 낫다.
-    assert.equal(getTerminalResourceLimits().osc52.allowWrite, true);
+    // Boundary: the string 'false' is not a boolean. Coercing it would let a malformed
+    // payload disable a feature; only an explicit boolean false turns writes off.
+    assert.equal(getOsc52AllowWrite(), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('SEC-BGSTAB-001 AC-1 no read switch arrives over the transport', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = securityPayloadResponse({ osc52: { allowWrite: true, allowRead: true } });
+
+  try {
+    await initializeInputReliabilityMode();
+    // The server schema rejects such a key, but even if one arrived there is no parser path
+    // that could carry it: the browser exposes one boolean and nothing else.
+    assert.equal(getOsc52AllowWrite(), true);
+    assert.equal(evaluateOsc52Request('c;?', { allowWrite: true }).kind, 'deny-read');
   } finally {
     globalThis.fetch = originalFetch;
   }

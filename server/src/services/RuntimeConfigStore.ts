@@ -211,6 +211,13 @@ export interface PublicRuntimeConfig {
   terminalWireFormat: TerminalWireFormat;
   stabilityModes: Pick<StabilityModesConfig, 'frontendRuntimeResidency'>;
   resourceLimits: Pick<ResourceLimitsConfig, 'clientWs' | 'terminal' | 'snapshots' | 'workspaceRuntime'>;
+  /**
+   * SEC-BGSTAB-001: a NARROW projection, not the security subtree.
+   *
+   * Only the one switch the browser needs is published. Sending `security` wholesale would
+   * newly expose CORS configuration to the page for no reason other than convenience.
+   */
+  security: { osc52: { allowWrite: boolean } };
 }
 
 export interface RuntimeConfigStoreOptions {
@@ -335,6 +342,18 @@ export class RuntimeConfigStore {
         terminal: this.publicTerminalResourceLimits(),
         snapshots: structuredClone(this.values.resourceLimits.snapshots),
         workspaceRuntime: structuredClone(this.values.resourceLimits.workspaceRuntime),
+      },
+      // SEC-BGSTAB-001 AC-2: the browser must see this or a hardened deployment fails OPEN --
+      // the server would refuse OSC52 writes while the page kept allowing them, with nothing
+      // going red. Until #20 this rode along inside resourceLimits.terminal's structuredClone;
+      // now it is published deliberately.
+      // Read from the parsed source config, NOT from editable values: this switch is
+      // deliberately not Settings-editable (AC-2 says config.json5), so it has no editable
+      // entry. `security` is optional at the raw-config level, and the `?? true` is the one
+      // code-level fallback -- FAIL-OPEN BY DESIGN, matching AC-2's "writes are allowed by
+      // default". An operator who hardens a deployment writes the section explicitly.
+      security: {
+        osc52: { allowWrite: this.sourceConfig.security?.osc52.allowWrite ?? true },
       },
     };
   }

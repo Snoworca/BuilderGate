@@ -21,6 +21,7 @@ function createConfigFixture(): Config {
       idleDelayMs: 200,
     },
     security: {
+      osc52: { allowWrite: true },
       cors: {
         allowedOrigins: ['https://example.com'],
         credentials: true,
@@ -199,7 +200,12 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
         hiddenRuntimeTtlMs: 600000,
       },
     },
+    // SEC-BGSTAB-001: one boolean, published deliberately. The browser must see a hardened
+    // allowWrite:false or the control fails OPEN -- server refuses, page allows, nothing red.
+    security: { osc52: { allowWrite: true } },
   });
+  // The narrowness is the point: CORS config stays server-only.
+  assert.equal('cors' in publicConfig.security, false);
   assert.equal('headless' in publicConfig.resourceLimits, false);
   assert.equal('ws' in publicConfig.resourceLimits, false);
   assert.equal('telemetry' in publicConfig.resourceLimits, false);
@@ -292,7 +298,12 @@ test('IR-BGSTAB-001 AC-8 publishes terminalWireFormat and nothing else beyond th
   // 늘면 비공개 값이 새어 나간 것이다.
   assert.deepEqual(
     Object.keys(published).sort(),
-    ['inputReliabilityMode', 'resourceLimits', 'stabilityModes', 'terminalWireFormat', 'wsTransportMode'],
+    // SEC-BGSTAB-001: 'security' is a deliberate addition, not a widening of convenience.
+    // It carries ONE boolean -- security.osc52.allowWrite -- because a hardened deployment
+    // that the browser never learns about fails OPEN: the server refuses OSC52 writes while
+    // the page keeps allowing them, with nothing going red. The projection is narrow on
+    // purpose; publishing the security subtree would newly expose CORS config to the page.
+    ['inputReliabilityMode', 'resourceLimits', 'security', 'stabilityModes', 'terminalWireFormat', 'wsTransportMode'],
   );
 
   // 사다리 네 값이 모두 그대로 실려야 한다.

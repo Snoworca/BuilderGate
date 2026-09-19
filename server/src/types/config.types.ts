@@ -43,6 +43,8 @@ export interface CORSConfig {
 
 export interface SecurityConfig {
   cors: CORSConfig;
+  /** SEC-BGSTAB-001: OSC52 clipboard policy. Writes default to allowed; reads have no switch. */
+  osc52: { allowWrite: boolean };
 }
 
 // ============================================================================

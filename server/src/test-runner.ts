@@ -21091,6 +21091,7 @@ function createConfigFixture(): Config {
       idleDelayMs: 200,
     },
     security: {
+      osc52: { allowWrite: true },
       cors: {
         allowedOrigins: ['https://example.com'],
         credentials: true,

@@ -30,8 +30,6 @@ export interface TerminalResourceLimitsRuntimeConfig {
   transportOutboxMaxBytes: number;
   transportOutboxTtlMs: number;
   scrollbackLines: number;
-  // SEC-BGSTAB-001 AC-2: OSC52 쓰기 스위치. 읽기 스위치는 존재하지 않으며 만들지 않는다.
-  osc52: { allowWrite: boolean };
 }
 
 export interface SnapshotResourceLimitsRuntimeConfig {
@@ -56,6 +54,7 @@ interface BrowserResourceLimitsRuntimeConfig {
 
 interface RuntimeConfigPayload {
   inputReliabilityMode?: unknown;
+  security?: { osc52?: unknown };
   wsTransportMode?: unknown;
   stabilityModes?: {
     frontendRuntimeResidency?: unknown;
@@ -89,7 +88,6 @@ const DEFAULT_TERMINAL_LIMITS: TerminalResourceLimitsRuntimeConfig = {
   transportOutboxMaxBytes: 65_536,
   transportOutboxTtlMs: 1500,
   scrollbackLines: 10_000,
-  osc52: { allowWrite: true },
 };
 
 const DEFAULT_SNAPSHOT_LIMITS: SnapshotResourceLimitsRuntimeConfig = {
@@ -111,7 +109,21 @@ let runtimeConfigVersion = 0;
 let wsTransportMode: WsTransportMode = 'unified';
 let frontendRuntimeResidency: FrontendRuntimeResidencyMode = 'bounded';
 let resourceLimits: BrowserResourceLimitsRuntimeConfig = createDefaultResourceLimits();
+/**
+ * SEC-BGSTAB-001 AC-2: the OSC52 write switch, published as its own narrow projection.
+ *
+ * It used to ride inside resourceLimits.terminal because the key was filed under
+ * resourceLimits; #20 rehomed it to `security`, which is the namespace that describes what
+ * it is. Defaulting to true here matches AC-2 -- writes are allowed unless a deployment
+ * turns them off -- and the DANGEROUS direction is a hardened `false` being dropped in
+ * transit, which is what osc52AllowWrite's transport test asserts end to end.
+ */
+let osc52AllowWrite = true;
 const runtimeConfigSubscribers = new Set<() => void>();
+
+export function getOsc52AllowWrite(): boolean {
+  return osc52AllowWrite;
+}
 
 export function getInputReliabilityMode(): InputReliabilityMode {
   return getLocalOverride() ?? runtimeMode;
@@ -137,6 +149,11 @@ export async function initializeInputReliabilityMode(): Promise<InputReliability
     wsTransportMode = parseWsTransportMode(payload.wsTransportMode);
     frontendRuntimeResidency = parseFrontendRuntimeResidency(payload.stabilityModes?.frontendRuntimeResidency);
     resourceLimits = parseResourceLimits(payload.resourceLimits);
+    // SEC-BGSTAB-001 AC-2. Only an explicit boolean false turns writes off; anything else --
+    // absent section, wrong type, server that predates the key -- leaves the documented
+    // default. That is fail-open by design, matching AC-2, and it is why the load-bearing
+    // test asserts the FALSE direction survives the wire rather than asserting the default.
+    osc52AllowWrite = parseOsc52AllowWrite(payload.security?.osc52);
     cleanupTerminalSnapshotTombstonesFromRuntimeConfig();
     runtimeModeLoaded = true;
     publishRuntimeConfigChange();
@@ -273,6 +290,11 @@ function parseClientWsLimits(value: unknown): ClientWsResourceLimitsRuntimeConfi
   return parsed;
 }
 
+function parseOsc52AllowWrite(value: unknown): boolean {
+  if (isPlainObject(value) && typeof value.allowWrite === 'boolean') return value.allowWrite;
+  return true;
+}
+
 function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfig {
   if (!isPlainObject(value)) {
     return { ...DEFAULT_TERMINAL_LIMITS };
@@ -320,19 +342,10 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
     return { ...DEFAULT_TERMINAL_LIMITS };
   }
 
-  // SEC-BGSTAB-001 AC-2: 서버가 보내지 않았거나 boolean 이 아니면 기본값(허용)으로
-  // 수렴한다. 이 스위치의 기본이 '허용' 이므로 fail-open 이 곧 명세된 기본 동작이다.
-  // 읽기에 해당하는 키는 여기서도 존재하지 않는다 -- 파싱하지 않으므로 서버가
-  // 보내더라도 프런트엔드에는 도달할 자리가 없다.
-  const osc52Source = value.osc52;
-  const allowWrite = isPlainObject(osc52Source) && typeof osc52Source.allowWrite === 'boolean'
-    ? osc52Source.allowWrite
-    : DEFAULT_TERMINAL_LIMITS.osc52.allowWrite;
 
   return {
     ...parsedNumbers,
     hiddenOutputPolicy,
-    osc52: { allowWrite },
   };
 }
 

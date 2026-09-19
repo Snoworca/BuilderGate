@@ -391,19 +391,35 @@ test('realtime.terminalWireFormat is independent of wsTransportMode', () => {
 // @xterm/addon-clipboard 가 설치되어 있지 않아서 조용히 버려지고 있었을 뿐이다.
 // 아래 세 테스트가 그것을 결정으로 만든다.
 
-test('SEC-BGSTAB-001 AC-2 OSC52 writes are allowed by default', () => {
+test('SEC-BGSTAB-001 AC-2 OSC52 writes default to allowed once the security block exists', () => {
+  // `security` is optional at the top level, so the schema default materialises only when the
+  // section is present. The effective default for a config with NO security block is supplied
+  // by RuntimeConfigStore's single documented fallback -- fail-open by design, per AC-2 -- and
+  // is pinned by the runtime-config transport tests rather than here.
+  const parsed = configSchema.parse({
+    ...minimalConfig(),
+    security: { cors: { allowedOrigins: [], credentials: true, maxAge: 86400 } },
+  });
+
+  assert.equal(parsed.security?.osc52.allowWrite, true);
+});
+
+test('SEC-BGSTAB-001 AC-2 an absent security block leaves the switch to the runtime fallback', () => {
+  // Stated rather than assumed: nothing in the parsed config asserts a value here, so anyone
+  // reading config.security?.osc52 directly must supply the default themselves. There is
+  // exactly one such reader (RuntimeConfigStore.getPublicRuntimeConfig).
   const parsed = configSchema.parse(minimalConfig());
 
-  assert.equal(parsed.resourceLimits.terminal.osc52.allowWrite, true);
+  assert.equal(parsed.security, undefined);
 });
 
 test('SEC-BGSTAB-001 AC-2 a hardened deployment can turn OSC52 writes off', () => {
   const parsed = configSchema.parse({
     ...minimalConfig(),
-    resourceLimits: { terminal: { osc52: { allowWrite: false } } },
+    security: { cors: { allowedOrigins: [], credentials: true, maxAge: 86400 }, osc52: { allowWrite: false } },
   });
 
-  assert.equal(parsed.resourceLimits.terminal.osc52.allowWrite, false);
+  assert.equal(parsed.security?.osc52.allowWrite, false);
 });
 
 test('SEC-BGSTAB-001 AC-1 no setting can enable OSC52 reads, at any stability', () => {
@@ -414,7 +430,7 @@ test('SEC-BGSTAB-001 AC-1 no setting can enable OSC52 reads, at any stability', 
     assert.throws(
       () => configSchema.parse({
         ...minimalConfig(),
-        resourceLimits: { terminal: { osc52: { [readish]: true } } },
+        security: { cors: { allowedOrigins: [], credentials: true, maxAge: 86400 }, osc52: { [readish]: true } },
       }),
       /unrecognized|Unrecognized/i,
       `${readish} must be rejected, not silently ignored`,

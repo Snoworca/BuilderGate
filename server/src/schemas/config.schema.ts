@@ -25,8 +25,30 @@ export const corsSchema = z.object({
   maxAge: z.number().min(0).max(86400).default(86400)
 });
 
+// Hoisted above securitySchema: that schema now nests an osc52 block that uses it.
+const defaultObject = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((value) => value === undefined ? {} : value, schema);
+
 export const securitySchema = z.object({
-  cors: corsSchema
+  cors: corsSchema,
+  /**
+   * SEC-BGSTAB-001: OSC52 clipboard 정책.
+   *
+   * #20 에서 `resourceLimits.terminal.osc52` 로부터 옮겨 왔다. 원래 자리는 AC-2 의
+   * "기존 terminal 블록" 이라는 지시를 그대로 읽은 결과였지만, `resourceLimits` 는
+   * **유계 자원** 의 namespace 다. 단위도 없고, 무엇이 admission 되지도 drain 되지도
+   * 않으며, 상한을 줄여 조용히 절단될 것도 없는 boolean 이 거기 있으면 두 가지가
+   * 잘못된다. 자원 스캐너가 정책 소비자로 오인하고(#20 에서 실제로 두 번 걸렸다),
+   * 더 중요하게는 namespace 이름이 미래의 작성자에게 "이건 낮춰도 되는 수치" 라고
+   * 말하게 된다. 지금 그것을 낮추는 코드가 없다는 사실은 구조가 아니라 우연이다.
+   *
+   * 옮기는 비용이 0 인 이유: 이 키는 오늘 추가됐고 릴리스된 적이 없다.
+   *
+   * 읽기 스위치는 여기에도 없다. 읽기는 영구 금지이며 .strict() 가 그것을 강제한다.
+   */
+  osc52: defaultObject(z.object({
+    allowWrite: z.boolean().default(true),
+  }).strict()),
 });
 
 // ============================================================================
@@ -37,8 +59,6 @@ export const serverSchema = z.object({
   port: z.number().min(1).max(65535).default(2002)
 });
 
-const defaultObject = <T extends z.ZodType>(schema: T) =>
-  z.preprocess((value) => value === undefined ? {} : value, schema);
 
 export const realtimeSchema = defaultObject(z.object({
   wsTransportMode: z.enum(['unified', 'split-shadow', 'split']).default('unified'),
@@ -167,15 +187,6 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   transportOutboxMaxBytes: bytesLimit(1024, 16777216, 65536),
   transportOutboxTtlMs: durationLimit(1, 60000, 1500),
   scrollbackLines: countLimit(0, 50000, 10000),
-  // SEC-BGSTAB-001: OSC52 clipboard 정책. 스위치는 쓰기 하나뿐이고 읽기 스위치는
-  // 의도적으로 없다. 읽기 응답은 PTY 의 input 채널로 주입되므로 사용자가 마지막으로
-  // 복사한 것 -- 이 사용자 집단에서는 대개 키나 토큰 -- 에 대한 직접적인 유출
-  // 원시수단이고, 설정으로 두면 에이전트가 켜도록 설득당할 수 있다. 아래 .strict()
-  // 덕분에 allowRead 같은 키는 조용히 무시되는 것이 아니라 거부된다 -- 즉 '읽기를
-  // 켜는 설정' 은 어떤 stability 에서도 구조적으로 만들어질 수 없다.
-  osc52: defaultObject(z.object({
-    allowWrite: z.boolean().default(true),
-  }).strict()),
 }).strict());
 
 export const snapshotResourceLimitsSchema = defaultObject(z.object({

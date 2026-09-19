@@ -83,12 +83,6 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
       transportOutboxMaxBytes: 65536,
       transportOutboxTtlMs: 1500,
       scrollbackLines: 10000,
-      // SEC-BGSTAB-001: OSC52 clipboard. Writes are allowed by default; set this to
-      // false to harden a deployment. There is deliberately no read switch -- OSC52
-      // reads are denied unconditionally and no setting can enable them.
-      osc52: {
-        allowWrite: true,
-      },
     },
     snapshots: {
       perSnapshotMaxChars: 2000000,
@@ -119,6 +113,13 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
   },
 
   security: {
+    // SEC-BGSTAB-001: OSC52 clipboard policy. Writes are allowed by default; set false to
+    // harden a deployment. There is deliberately no read switch -- OSC52 reads are denied
+    // unconditionally and no setting can enable them. Not editable from Settings: AC-2 makes
+    // this a deployment decision, not a runtime one.
+    osc52: {
+      allowWrite: true,
+    },
     cors: {
       allowedOrigins: [],
       credentials: true,
