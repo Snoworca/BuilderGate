@@ -115,6 +115,8 @@ frontend/src/
   - `start.bat` / `tools/start-runtime.js` — dist 부재 시 **frontend → server** 순으로 빌드 (frontend 가 실패하면 server build 는 아예 도달하지 않는다)
   - **루트의 build 계열 스크립트 18개 전부** — `npm run build`(=`build:daemon-all`), `build:daemon-exe`, `build:pkg:*`, `build:{platform}` 등이 모두 `ensureBuildArtifacts()` 를 거쳐 server build 를 실행한다. CI(`release.yml`) 도 이 경로를 탄다. `ensureBuildArtifacts()` 역시 **frontend → server** 순이므로 위의 "frontend 실패 시 server build 미도달" 함정이 이 18개와 CI 전체에 적용된다
   - build 파이프라인: `prebuild: ensure-node-pty-windows-hide.cjs` → `tsc` → `write-fair-scheduler-source-provenance.mjs` → `write-fair-scheduler-evidence-bundle.mjs` → `cpSync(src/shell-integration → dist/shell-integration)`. 산출물은 gitignored `server/dist/**` 이며 추적 파일을 바꾸지 않는다.
+  - **함정 2 (2026-09-19, #112 실측)**: `tools/wave3/fair-scheduler-authority-publish.mjs` 는 **dist 산출물을 근거로 재현을 판정한다.** 봉인된 소스를 고친 뒤 **빌드 없이** 이 스크립트를 돌리면 stale dist 를 보고 "소스와 측정이 둘 다 재현됨" 이라 판단해 **같은 generation 을 그대로 둔 채 조용히 끝난다** — 아무 일도 안 했는데 성공처럼 보인다. 올바른 순서는 **build → publish → build** 두 번이다(두 번째 빌드가 증거 번들을 새 generation 으로 재동기화한다). 그래야 `OPS-BGSTAB-010` 의 compiled-canary 단언까지 green 이 된다.
+
   - **함정**: evidence-bundle 이 `docs/analysis/terminal-fairness-authority/` 의 sha256 매니페스트를 재검증하고 불일치 시 throw 한다 → **build 실패**. 그러면 위의 **테스트 명령·로컬 빌드·릴리스 빌드·CI 가 전부 깨진다.** 테스트 코드와 무관한 이유로 red 가 되므로, 테스트가 깨졌다고 진단하기 전에 build 로그를 먼저 볼 것.
   - 테스트만 돌릴 의도라면 cwd=`server/` 에서 `npx tsx src/test-runner.ts` (build 를 타지 않음). 단 이 러너는 `*.test.ts` 를 디스커버리하지 않으므로 이것만으로는 회귀 커버리지가 되지 않는다.
 
