@@ -586,13 +586,35 @@ export async function getServerSessionCount(page: Page): Promise<number> {
  * without a prior click to focus, both negative, while `keyboard.type()` was
  * positive. A spec that used `fill()` therefore asserted against a terminal it
  * had never driven.
+ *
+ * `options.sessionId`, when given, scopes the target to the terminal owned by that
+ * session (`[data-session-id]`, set by `TerminalRuntimeLayer.tsx`) instead of "the first
+ * visible terminal". Without this, a caller that had just switched workspaces could type
+ * into whichever terminal happened to be first in DOM order -- during a switch there is a
+ * transient window where the outgoing session's terminal is still mounted and visible while
+ * the incoming one mounts, so `.first()` can resolve to the wrong one. Measured 2026-09-19:
+ * this produced an intermittent, session-crossing failure (typing into a workspace the
+ * caller did not create) rather than a consistent one, which is what made it hard to see.
+ * Callers that don't know or care which session they mean keep the old, unscoped behaviour.
  */
-export async function sendVisibleTerminalCommand(page: Page, command: string): Promise<void> {
+export async function sendVisibleTerminalCommand(
+  page: Page,
+  command: string,
+  options: { sessionId?: string } = {},
+): Promise<void> {
   // #39: this clicked `.xterm-helper-textarea`, which xterm keeps off-screen on purpose --
   // Playwright reports it as "element is not visible" and the click never lands. Focus the way
   // a user does, by clicking the terminal screen, and then wait for the helper textarea to
   // actually hold focus rather than for a fixed 300ms.
-  const screen = page.locator('.terminal-view:visible .xterm-screen').first();
+  const screen = options.sessionId
+    ? page.locator(`[data-session-id="${options.sessionId}"] .xterm-screen`)
+    : page.locator('.terminal-view:visible .xterm-screen').first();
+  if (options.sessionId) {
+    await expect(
+      screen,
+      `E2E precondition failed: terminal for session "${options.sessionId}" did not resolve to exactly one element`,
+    ).toHaveCount(1, { timeout: 30000 });
+  }
   await screen.waitFor({ state: 'visible', timeout: 30000 });
   await screen.click();
   await page.waitForFunction(() => {

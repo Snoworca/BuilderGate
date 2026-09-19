@@ -24,6 +24,7 @@
     "tests/e2e/terminal-mobile-scroll.spec.ts",
     "tests/e2e/terminal-title-auto-tab-name.spec.ts",
     "tests/e2e/terminal-clipboard.spec.ts",
+    "tests/e2e/terminal-selection-eviction.spec.ts",
     "tests/e2e/header-context-menu-regression.spec.ts",
     "tests/e2e/terminal-shortcut-manager.spec.ts",
     "tests/e2e/wave1-retained-state-characterization.spec.ts",

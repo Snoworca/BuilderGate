@@ -40,6 +40,7 @@ import {
   registerTerminalRepairLayoutHandler,
   registerTerminalRetainedStateCaptureHandler,
   registerTerminalTextCaptureHandler,
+  registerTerminalSelectionCaptureHandler,
   registerTerminalRetainedStateStreamingCaptureHandler,
   recordTerminalDebugEvent,
 } from '../../utils/terminalDebugCapture';
@@ -4369,6 +4370,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           return lines.join('\n');
         },
       );
+      // #16: under the WebGL renderer, selection is painted on canvas with no DOM
+      // representation -- no `.xterm-selection` element and `window.getSelection()`
+      // never reflects it. Read xterm's own model directly instead.
+      const unregisterTerminalSelectionCaptureHandler = registerTerminalSelectionCaptureHandler(
+        sessionId,
+        () => ({ hasSelection: term.hasSelection(), text: term.getSelection() }),
+      );
       const unregisterRetainedStateCaptureHandler = registerTerminalRetainedStateCaptureHandler(
         sessionId,
         () => createTerminalRetainedStateEvidence(captureTerminalRetainedState(term)),
@@ -4444,6 +4452,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         unregisterInputGateSnapshotReader();
         unregisterRepairLayoutHandler();
         unregisterTerminalTextCaptureHandler();
+        unregisterTerminalSelectionCaptureHandler();
         unregisterRetainedStateCaptureHandler();
         unregisterRetainedStateStreamingCaptureHandler();
         if (helperTextarea) {

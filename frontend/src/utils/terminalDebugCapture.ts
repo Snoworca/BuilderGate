@@ -86,6 +86,16 @@ export interface TerminalInputGateDebugSnapshot {
   serverReady: boolean;
 }
 
+// #16: under the WebGL renderer a selection is painted on canvas with no DOM
+// representation at all -- no `.xterm-selection` element, and `window.getSelection()`
+// (the browser's own DOM selection) never reflects it either. A spec cannot tell
+// "no selection" from "selection exists but is unobservable through the DOM" without
+// reading xterm's own model directly, which is what this exposes.
+export interface TerminalSelectionDebugSnapshot {
+  hasSelection: boolean;
+  text: string;
+}
+
 interface TerminalDebugStore {
   events: TerminalClientDebugEvent[];
   enabledAll: boolean;
@@ -108,6 +118,8 @@ interface TerminalDebugStore {
   // that assert on what the terminal shows had no way to read it. This reads the buffer
   // itself, so it answers the same under either renderer.
   captureTerminalText: (sessionId: string) => string | null;
+  // #16: renderer-independent selection read, see TerminalSelectionDebugSnapshot.
+  captureTerminalSelection: (sessionId: string) => TerminalSelectionDebugSnapshot | null;
   captureRetainedState: (sessionId: string) => TerminalRetainedStateEvidence | null;
   captureRetainedStateStreaming: (
     sessionId: string,
@@ -118,6 +130,7 @@ interface TerminalDebugStore {
   webSocketSendFailureHandlers: Set<(override: DebugWebSocketSendFailureOverride | null) => void>;
   repairLayoutHandlers: Map<string, (reason: string) => Promise<boolean>>;
   terminalTextCaptureHandlers: Map<string, () => string>;
+  selectionCaptureHandlers: Map<string, () => TerminalSelectionDebugSnapshot>;
   retainedStateCaptureHandlers: Map<string, () => TerminalRetainedStateEvidence>;
   retainedStateStreamingCaptureHandlers: Map<
     string,
@@ -265,6 +278,12 @@ function getStore(): TerminalDebugStore | null {
         }
         return this.terminalTextCaptureHandlers.get(sessionId)?.() ?? null;
       },
+      captureTerminalSelection(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.selectionCaptureHandlers.get(sessionId)?.() ?? null;
+      },
       captureRetainedState(sessionId: string) {
         if (!isLocalTestHost()) {
           return null;
@@ -282,6 +301,7 @@ function getStore(): TerminalDebugStore | null {
       webSocketSendFailureHandlers: new Set<(override: DebugWebSocketSendFailureOverride | null) => void>(),
       repairLayoutHandlers: new Map<string, (reason: string) => Promise<boolean>>(),
       terminalTextCaptureHandlers: new Map<string, () => string>(),
+      selectionCaptureHandlers: new Map<string, () => TerminalSelectionDebugSnapshot>(),
       retainedStateCaptureHandlers: new Map<string, () => TerminalRetainedStateEvidence>(),
       retainedStateStreamingCaptureHandlers: new Map<
         string,
@@ -377,6 +397,28 @@ export function registerTerminalTextCaptureHandler(
     const current = store.terminalTextCaptureHandlers.get(sessionId);
     if (current === handler) {
       store.terminalTextCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
+// #16: same precedent as registerTerminalTextCaptureHandler -- xterm's own selection
+// model is the only thing that answers "is there a selection" under the WebGL
+// renderer, since neither `.xterm-selection` nor `window.getSelection()` exist there.
+// Test-host gated like its neighbours, so nothing is exposed in ordinary use.
+export function registerTerminalSelectionCaptureHandler(
+  sessionId: string,
+  handler: () => TerminalSelectionDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.selectionCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.selectionCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.selectionCaptureHandlers.delete(sessionId);
     }
   };
 }
