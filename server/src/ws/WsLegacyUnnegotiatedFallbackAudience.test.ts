@@ -55,7 +55,18 @@ function createSocket() {
 
 const SESSION = 'session-fallback';
 
-function attach(router: WsRouter, ws: WebSocket, options: { registered: boolean }): void {
+type ViewKind = 'delivered' | 'registered-but-not-delivered' | 'unregistered';
+
+/**
+ * `delivered` builds a registration that satisfies every condition
+ * `getTerminalAuthorityResponderViews` imposes -- capabilities, and the three generations
+ * agreeing -- so the authority path addresses this view.
+ *
+ * `registered-but-not-delivered` has a registration whose `driverLeaseGeneration` disagrees
+ * with its `authorityStreamEpoch`. It is excluded from the responder set, so the authority
+ * path does NOT address it, and the fallback is the only path that can reach it.
+ */
+function attach(router: WsRouter, ws: WebSocket, kind: ViewKind): void {
   const raw = router as unknown as {
     sessionSubscribers: Map<string, Set<WebSocket>>;
     clients: Map<WebSocket, Record<string, unknown>>;
@@ -64,17 +75,26 @@ function attach(router: WsRouter, ws: WebSocket, options: { registered: boolean 
   const subscribers = raw.sessionSubscribers.get(SESSION) ?? new Set<WebSocket>();
   subscribers.add(ws);
   raw.sessionSubscribers.set(SESSION, subscribers);
+
+  const registration = kind === 'unregistered' ? undefined : {
+    sessionId: SESSION,
+    viewGeneration: 1,
+    queryReplyCapability: 'terminal.query-reply-input.v1',
+    parserResponderCapability: 'terminal.parser-responder-disable.v1',
+    authorityStreamEpoch: '1',
+    // The one field that decides membership of the responder set.
+    driverLeaseGeneration: kind === 'delivered' ? '1' : '2',
+    acceptedViewAttributesGeneration: '1',
+  };
+
   raw.clients.set(ws, {
-    clientId: options.registered ? 'client-registered' : 'client-plain',
-    connectionId: options.registered ? 'conn-registered' : 'conn-plain',
+    clientId: `client-${kind}`,
+    connectionId: `conn-${kind}`,
+    channelRole: 'control',
     replayPendingSessions: new Map(),
     subscribedSessions: new Set([SESSION]),
-    ...(options.registered
-      ? { terminalAuthorityViewRegistrations: new Map([[SESSION, { viewGeneration: 1 }]]) }
-      : {}),
+    ...(registration ? { terminalAuthorityViewRegistrations: new Map([[SESSION, registration]]) } : {}),
   });
-  // Legacy mode: the authority path has no active checkpoint for this view, which is the
-  // state #110 measured and the state this session is in.
   raw.terminalAuthorityViewModeReader = () => 'legacy';
 }
 
@@ -95,7 +115,7 @@ function receivedMarkers(sent: readonly string[]): string[] {
 test('a registered legacy view is served none of what the authority path already delivered', () => {
   const router = createRouter();
   const socket = createSocket();
-  attach(router, socket.ws, { registered: true });
+  attach(router, socket.ws, 'delivered');
 
   for (const line of producerLines()) {
     router.routeSessionOutput(SESSION, `${line}\r\n`, 1, {}, 'legacy-unnegotiated');
@@ -126,7 +146,7 @@ test('a registered legacy view is served none of what the authority path already
 test('control: an unaddressed subscriber receives every fallback line, in order', () => {
   const router = createRouter();
   const socket = createSocket();
-  attach(router, socket.ws, { registered: false });
+  attach(router, socket.ws, 'unregistered');
 
   const expected = producerLines();
   for (const line of expected) {
@@ -140,5 +160,35 @@ test('control: an unaddressed subscriber receives every fallback line, in order'
     + 'authority path does not address. If this is empty the fallback has been disabled '
     + 'rather than narrowed -- exactly what #110 prevented; if it is short or reordered, the '
     + 'fallback is losing traffic',
+  );
+});
+
+/**
+ * The subset edge. `terminalAuthorityDeliveryDisposition` is SESSION-level; the skip
+ * predicate is per-connection. `legacy-delivered` means the authority path delivered to the
+ * views in `getTerminalAuthorityResponderViews`, which requires a registration AND matching
+ * capabilities AND three agreeing generations AND being the newest open control socket.
+ *
+ * A connection holding a registration that fails any of those is NOT delivered to. Skipping
+ * it on the strength of the registration alone converts duplicate delivery into MISSING
+ * delivery for that connection -- strictly worse than the doubling, and the failure #110
+ * existed to prevent, reintroduced through a different predicate.
+ */
+test('a registered view the authority path does not address still receives the fallback', () => {
+  const router = createRouter();
+  const socket = createSocket();
+  attach(router, socket.ws, 'registered-but-not-delivered');
+
+  const expected = producerLines();
+  for (const line of expected) {
+    router.routeSessionOutput(SESSION, `${line}\r\n`, 1, {}, 'legacy-unnegotiated');
+  }
+
+  assert.deepEqual(
+    receivedMarkers(socket.sent),
+    expected,
+    'a connection with a registration outside the responder set received nothing: the skip '
+    + 'predicate is wider than the set the authority path actually delivers to, so this '
+    + 'connection is served by neither path',
   );
 });

@@ -5464,22 +5464,31 @@ export class WsRouter {
         // registration sat there with authorityStreamEpoch "3" and no active checkpoint ledger.
         // Having negotiated is not having been delivered to.
         const registration = meta?.terminalAuthorityViewRegistrations?.get(sessionId);
-        // 2026-09-20: widened back from `mode === 'checkpoint'` to "has a registration".
+        // 2026-09-20. Two corrections, in order.
         //
-        // #110 narrowed it because a registered view in LEGACY mode was measurably receiving
-        // nothing, and the fallback had to reach it. That measurement was taken while the
-        // in-flight transport slot orphaned settlements: the authority delivery chain stalled
-        // after its first displaced send, so legacy views genuinely were not delivered to.
-        // The narrowing compensated for that bug, not for a structural gap.
-        //
-        // With the orphan fixed the compensation over-delivers. In legacy mode
-        // `checkpointOutputAuthority` is false, so sendTerminalFrame skips its server-mode
-        // block and reaches enqueueSettledViewFrame -- a registered legacy view IS delivered
-        // to by the authority path. Post-fix a 700-line producer left the browser holding
+        // (1) #110 narrowed this from "has a registration" to "is in checkpoint mode",
+        // because a registered LEGACY view was measurably receiving nothing. That was taken
+        // on 2026-09-19 while the in-flight transport slot orphaned settlements, so the
+        // authority chain stalled after its first displaced send and legacy views genuinely
+        // were not delivered to. The narrowing compensated for that bug; once it was fixed
+        // the compensation over-delivered, and a 700-line producer left the browser holding
         // ~1409 lines until a promotion replaced the buffer.
         //
-        // The mode is still read, for the event detail below: it says WHICH path delivered,
-        // which is what a reader needs when this skip is the thing under suspicion.
+        // (2) Widening it back to "has a registration" was ALSO wrong, and worse. The
+        // disposition that gates this whole branch is session-level; a registration is not.
+        // `getTerminalAuthorityResponderViews` requires the registration AND matching
+        // capabilities AND three agreeing generations AND being the newest open control
+        // socket with a ready terminal lane. A connection failing any of those is not
+        // delivered to, and skipping it on the registration alone turned duplicate delivery
+        // into MISSING delivery -- the failure #110 existed to prevent, by another route.
+        //
+        // So the predicate is now the delivery set itself rather than a proxy for it. Two
+        // independent expressions of "which views does the authority path serve" is the same
+        // mismatch recorded as the residual on the in-flight set: mechanisms that must agree,
+        // computed separately, with nothing asserting they do.
+        const deliveredConnectionIds = new Set(
+          this.getTerminalAuthorityResponderViews(sessionId).map(view => view.connectionId),
+        );
         const viewMode = registration !== undefined
           ? (this.terminalAuthorityViewModeReader?.({
             ...registration,
@@ -5488,7 +5497,8 @@ export class WsRouter {
             connectionId: meta!.connectionId ?? meta!.clientId,
           } as TerminalAuthorityViewRegistration) ?? 'legacy')
           : undefined;
-        const deliveredByAuthority = registration !== undefined;
+        const deliveredByAuthority = meta !== undefined
+          && deliveredConnectionIds.has(meta.connectionId ?? meta.clientId);
         if (deliveredByAuthority) {
           // Not silent any more. A dropped chunk that leaves no trace is how this cost a day.
           this.recordReplayEvent({
@@ -5499,7 +5509,7 @@ export class WsRouter {
                 ? 'delivered-by-checkpoint-authority'
                 : 'delivered-by-legacy-authority-responder',
               outputBytes: utf8ByteLength(data),
-              viewGeneration: registration.viewGeneration,
+              viewGeneration: registration?.viewGeneration ?? -1,
             },
           });
           continue;
