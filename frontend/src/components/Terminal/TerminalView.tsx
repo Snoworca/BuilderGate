@@ -47,6 +47,7 @@ import {
 import {
   getInputReliabilityMode,
   getSnapshotResourceLimits,
+  getOsc52AllowWrite,
   getTerminalResourceLimits,
 } from '../../utils/inputReliabilityMode';
 import {
@@ -77,6 +78,12 @@ import {
   type TerminalClipboardSource,
   type TerminalClipboardTarget,
 } from '../../utils/terminalClipboardCoordinator';
+import {
+  captureSelectionAnchor,
+  disposeSelectionAnchor,
+  verifySelectionAnchor,
+  type SelectionAnchor,
+} from '../../utils/terminalSelectionAnchor';
 import { sanitizeTerminalPasteText } from '../../utils/terminalPasteSanitizer';
 import { evaluateOsc52Request } from '../../utils/terminalOsc52';
 import {
@@ -411,6 +418,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const savedRightClickSelRef = useRef<string>('');
     const savedRightClickSelGenerationRef = useRef(0);
     const savedRightClickSelXtermGenerationRef = useRef(0);
+    // Issue #16 item 3/4: lazily maintained anchor for the CURRENT live
+    // selection, keyed to the rangeKey it was captured for so a later
+    // recompute (the clipboard coordinator's "check" step) reuses the same
+    // markers instead of registering a fresh pair every call. See
+    // frontend/src/utils/terminalSelectionAnchor.ts for what this verifies
+    // and why (measured, not assumed).
+    const activeSelectionAnchorRef = useRef<{ rangeKey: string; anchor: SelectionAnchor } | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const serializeAddonRef = useRef<SerializeAddon | null>(null);
     const [toastFontSize, setToastFontSize] = useState<number | null>(null);
@@ -3001,6 +3015,32 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       && clipboardViewGenerationRef.current === target.viewGeneration
     ), [sessionId]);
 
+    // Issue #16 item 3: keep the anchor for the CURRENT live selection in sync
+    // with `rangeKey`/`viewGeneration`, so a later call for the SAME
+    // still-live selection reuses the same two markers instead of
+    // registering a fresh pair (and leaking the old ones' onTrim/onInsert/
+    // onDelete listeners) every time captureClipboardSelection runs. A
+    // mismatch on either key means the selection or the terminal instance
+    // has moved on, so the stale anchor is disposed before a new one (if any)
+    // replaces it.
+    const refreshSelectionAnchor = useCallback((
+      term: Terminal,
+      viewGeneration: number,
+      rangeKey: string,
+      position: { start: { x: number; y: number }; end: { x: number; y: number } },
+    ): void => {
+      const cached = activeSelectionAnchorRef.current;
+      if (cached && cached.rangeKey === rangeKey && cached.anchor.viewGeneration === viewGeneration) {
+        return;
+      }
+      if (cached) {
+        disposeSelectionAnchor(cached.anchor);
+        activeSelectionAnchorRef.current = null;
+      }
+      const anchor = captureSelectionAnchor(term, viewGeneration, position);
+      activeSelectionAnchorRef.current = anchor ? { rangeKey, anchor } : null;
+    }, []);
+
     const captureClipboardSelection = useCallback((
       target: TerminalClipboardTarget,
     ): TerminalClipboardSelection | null => {
@@ -3014,12 +3054,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const liveText = term.getSelection();
       if (liveText.length > 0) {
         const position = term.getSelectionPosition();
-        return {
-          text: liveText,
-          rangeKey: position
-            ? `${position.start.x}:${position.start.y}-${position.end.x}:${position.end.y}`
-            : `live:${liveText.length}`,
-        };
+        const rangeKey = position
+          ? `${position.start.x}:${position.start.y}-${position.end.x}:${position.end.y}`
+          : `live:${liveText.length}`;
+        // Only a real position can anchor an identity. Its absence here is
+        // expected only outside real usage (a test double that models
+        // selection text without modelling buffer/marker mechanics) -- in
+        // this app's real xterm, getSelectionPosition() is reliable whenever
+        // getSelection() is non-empty, since both read the same selection
+        // service. When it IS absent, isSelectionCurrent below has no anchor
+        // to check and falls back to the pre-existing text/rangeKey
+        // comparison rather than treating unavailability as staleness.
+        if (position) {
+          refreshSelectionAnchor(term, target.viewGeneration, rangeKey, position);
+        }
+        return { text: liveText, rangeKey };
       }
       const savedText = savedRightClickSelRef.current;
       return (
@@ -3031,7 +3080,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             rangeKey: `saved:${savedRightClickSelGenerationRef.current}`,
           }
         : null;
-    }, [isClipboardTargetCurrent]);
+    }, [isClipboardTargetCurrent, refreshSelectionAnchor]);
 
     const clipboardCoordinator = useMemo(() => createTerminalClipboardCoordinator({
       captureTarget: captureClipboardTarget,
@@ -3039,7 +3088,29 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       captureSelection: captureClipboardSelection,
       isSelectionCurrent: (target, selection) => {
         const current = captureClipboardSelection(target);
-        return current?.text === selection.text && current.rangeKey === selection.rangeKey;
+        if (current?.text !== selection.text || current.rangeKey !== selection.rangeKey) {
+          return false;
+        }
+        // Issue #16 item 4: same-epoch+geometry (the check above) is not
+        // enough on its own -- it is what let a marker-less "same
+        // coordinates" comparison call something current that no longer
+        // was. When a real anchor exists for this exact selection, verify
+        // it: markers survive trim/insert/delete/reflow but not a terminal
+        // instance swap, and content is re-read rather than trusted, which
+        // is what catches term.reset() leaving a marker undisposed over
+        // now-empty content (measured; see terminalSelectionAnchor.ts).
+        const cached = activeSelectionAnchorRef.current;
+        const term = xtermRef.current;
+        if (cached && term && cached.rangeKey === selection.rangeKey) {
+          const verdict = verifySelectionAnchor(cached.anchor, term, clipboardViewGenerationRef.current);
+          if (!verdict.valid) {
+            recordTerminalDebugEvent(sessionId, 'terminal_selection_anchor_stale', {
+              reason: verdict.reason,
+            });
+            return false;
+          }
+        }
+        return true;
       },
       readClipboardText: () => navigator.clipboard.readText(),
       writeClipboardText: (text) => navigator.clipboard.writeText(text),
@@ -3058,6 +3129,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         savedRightClickSelRef.current = '';
         savedRightClickSelGenerationRef.current += 1;
         savedRightClickSelXtermGenerationRef.current = 0;
+        disposeSelectionAnchor(activeSelectionAnchorRef.current?.anchor);
+        activeSelectionAnchorRef.current = null;
       },
       focus: () => focusTerminalInput('clipboard-coordinator'),
       observe: (event) => {
@@ -3165,6 +3238,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         savedRightClickSelRef.current = '';
         savedRightClickSelGenerationRef.current += 1;
         savedRightClickSelXtermGenerationRef.current = 0;
+        disposeSelectionAnchor(activeSelectionAnchorRef.current?.anchor);
+        activeSelectionAnchorRef.current = null;
       },
       copySelection: (source = 'keyboard') => clipboardCoordinator.copySelection(source),
       pasteClipboard: (source = 'command-preset') => clipboardCoordinator.pasteClipboard(source),
@@ -4124,7 +4199,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       // 그 응답은 PTY 의 input 채널로 주입된다. 읽기는 거부가 아니라 '소비 후 침묵' 이다.
       term.parser.registerOscHandler(52, (data: string) => {
         const decision = evaluateOsc52Request(data, {
-          allowWrite: getTerminalResourceLimits().osc52.allowWrite,
+          allowWrite: getOsc52AllowWrite(),
         });
         // AC-6: 네 결과 전부 관측 가능해야 한다. payload 원문은 어떤 필드에도 담지 않는다 --
         // 크기와 판정만 남긴다.
