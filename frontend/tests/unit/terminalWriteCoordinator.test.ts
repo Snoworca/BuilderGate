@@ -1,7 +1,67 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import ts from 'typescript';
 import * as terminalOutputSchedulerModule from '../../src/utils/terminalOutputScheduler.ts';
+
+/**
+ * Blanks comments and string/template literals, preserving every offset and
+ * newline so a reported position still resolves to the right place in the file.
+ *
+ * WHY THIS EXISTS. The two static inventories below used to regex the raw file,
+ * so they matched prose. Measured 2026-09-19: `term.reset(` occurs exactly once
+ * in TerminalView.tsx, at line 3104, inside the comment
+ * "is what catches term.reset() leaving a marker undisposed over" -- a comment
+ * DESCRIBING xterm's behaviour, written alongside the selection-anchor work.
+ * There is no call site; every real `.reset(` in that file is on a queue or
+ * scheduler ref. The guard reported a sole-writer violation anyway, and it
+ * attached to a specific commit with a plausible story, which is the most
+ * expensive shape of false red: the obvious next step is editing
+ * TerminalView.tsx -- a pinned path in the consumer manifest -- to remove a
+ * violation that was never there, invalidating a seal in the process.
+ *
+ * Rewording the comment would have cleared the red and left a guard that any
+ * future comment can trip, and that an author could silence by phrasing. String
+ * literals are blanked for the same reason even though no case has appeared yet:
+ * a guard that reads prose as code cannot distinguish description from
+ * violation, and which kind of non-code it happens to be is not the point.
+ *
+ * The TypeScript scanner is used rather than a regex for comment stripping
+ * because a regex cannot tell `//` inside a string from a comment, and getting
+ * that wrong reintroduces exactly the class of error this repairs.
+ */
+function blankNonCode(source: string): string {
+  const out = source.split('');
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    /* skipTrivia */ false,
+    ts.LanguageVariant.JSX,
+    source,
+  );
+  const blanked = new Set<ts.SyntaxKind>([
+    ts.SyntaxKind.SingleLineCommentTrivia,
+    ts.SyntaxKind.MultiLineCommentTrivia,
+    ts.SyntaxKind.StringLiteral,
+    ts.SyntaxKind.NoSubstitutionTemplateLiteral,
+    ts.SyntaxKind.TemplateHead,
+    ts.SyntaxKind.TemplateMiddle,
+    ts.SyntaxKind.TemplateTail,
+  ]);
+  for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
+    if (!blanked.has(kind)) continue;
+    // Newlines are preserved so line numbers stay correct; everything else
+    // becomes a space so offsets do too.
+    for (let index = scanner.getTokenStart(); index < scanner.getTokenEnd(); index += 1) {
+      if (out[index] !== '\n') out[index] = ' ';
+    }
+  }
+  return out.join('');
+}
+
+/** Offset -> 1-based line. A bare offset in a failure message is not diagnosable. */
+function lineOf(source: string, offset: number): number {
+  return source.slice(0, offset).split('\n').length;
+}
 
 type WriteKind = 'live' | 'checkpoint' | 'repair' | 'parser-tail';
 
@@ -489,7 +549,9 @@ test('Browser TerminalWriteCoordinator sole writer RED contract — REL-BGSTAB-0
   const forbidden = /(?:(?:\bterm|xtermRef\.current)\??\.(?:write|reset|resize|clear)\s*\(|(?:fitAddon|fitAddonRef\.current)\??\.fit\s*\(|\bterm\.options\.windowsPty\s*=)/g;
   const findings = files.flatMap(file => {
     const source = readFileSync(file, 'utf8');
-    return [...source.matchAll(forbidden)].map(match => `${file}:${match.index}:${match[0]}`);
+    // Comments and string literals are not call sites; see blankNonCode.
+    return [...blankNonCode(source).matchAll(forbidden)]
+      .map(match => `${file}:${lineOf(source, match.index)}:${match[0]}`);
   });
   assert.deepEqual(findings, [], `${signature}: production xterm mutation must be coordinator-owned`);
 });
@@ -528,13 +590,67 @@ test('static production inventory rejects every direct xterm mutation outside th
   ];
   const findings = files.flatMap(file => {
     const source = readFileSync(file, 'utf8');
-    return patterns.flatMap(pattern => [...source.matchAll(pattern)].map(match => ({ file, call: match[0] })));
+    const code = blankNonCode(source);
+    return patterns.flatMap(pattern => [...code.matchAll(pattern)]
+      .map(match => ({ file, line: lineOf(source, match.index), call: match[0] })));
   });
   assert.deepEqual(findings, [], 'production direct xterm writers remain outside TerminalWriteCoordinator');
   const adapterSource = readFileSync('src/utils/terminalRawMutationAdapter.ts', 'utf8');
   for (const rawOperation of ['terminal.write(', 'terminal.reset(', 'terminal.resize(', 'terminal.clear(', 'fitAddon.fit()', 'terminal.options.windowsPty =']) {
     assert.equal(adapterSource.includes(rawOperation), true, `raw mutation adapter is missing ${rawOperation}`);
   }
+});
+
+/**
+ * The control for blankNonCode. Without it, the two inventories above would only
+ * be proven to have STOPPED FIRING — which a guard that matches nothing at all
+ * also achieves. These cases assert the distinction the guard is supposed to
+ * make: a call is a violation, prose about a call is not.
+ *
+ * Deliberately synthetic. Asserting against the production files would pin this
+ * control to whatever TerminalView.tsx happens to contain today, so it would
+ * break when someone rewords a comment — and the whole point of this repair is
+ * that comment text must not decide whether a guard passes.
+ */
+test('the sole-writer inventory matches call sites, not comments or string literals', () => {
+  const forbidden = /(?:\bterm|xtermRef\.current)\??\.(?:write|reset|resize|clear)\s*\(/g;
+  const matches = (source: string): string[] =>
+    [...blankNonCode(source).matchAll(forbidden)].map(match => match[0]);
+
+  // Must still be caught. A guard that stopped seeing these is not fixed, it is off.
+  assert.deepEqual(matches('term.reset();'), ['term.reset('], 'a bare call must be caught');
+  assert.deepEqual(matches('  xtermRef.current?.write(data);'), ['xtermRef.current?.write('],
+    'an optional-chained call through the ref must be caught');
+  assert.deepEqual(matches('if (ok) { term.clear(); }'), ['term.clear('],
+    'a call nested in a block must be caught');
+
+  // Must NOT be caught. This is the false red that cost an hour: a comment
+  // DESCRIBING the behaviour read as a violation of it.
+  assert.deepEqual(matches('// is what catches term.reset() leaving a marker undisposed over'), [],
+    'a line comment mentioning the call is not a call');
+  assert.deepEqual(matches('/* block: term.write() is coordinator-owned */'), [],
+    'a block comment mentioning the call is not a call');
+  assert.deepEqual(matches('const message = "term.resize() must go through the coordinator";'), [],
+    'a string literal mentioning the call is not a call');
+  assert.deepEqual(matches('const help = `use the adapter, not term.clear()`;'), [],
+    'a template literal mentioning the call is not a call');
+
+  // The mixed case is the one a naive comment-stripping regex gets wrong: a `//`
+  // inside a string does not start a comment, so the real call after it must
+  // still be found.
+  assert.deepEqual(
+    matches('const url = "https://example.com"; term.write(data);'),
+    ['term.write('],
+    'a call following a string containing // must still be caught',
+  );
+
+  // Offsets and lines must survive blanking, or a failure names the wrong place —
+  // which is how a bare offset of 123231 became an hour of chasing a call site
+  // that did not exist.
+  const source = 'const a = 1;\n// term.reset() in prose\nterm.reset();\n';
+  const found = [...blankNonCode(source).matchAll(forbidden)];
+  assert.equal(found.length, 1, 'only the real call is a finding');
+  assert.equal(lineOf(source, found[0].index), 3, 'the reported line must be the call, not the comment');
 });
 
 test('FR_BGSTAB_022_AC4_checkpoint_fault_latches_recovery_until_fresh_generation', () => {
