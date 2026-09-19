@@ -281,6 +281,14 @@ export function createProductionTerminalAuthorityDebugRuntime(
               authorityState: {
                 mode: authorityState.mode,
                 heldPostBoundaryCount: authorityState.heldPostBoundaryCount,
+                // The quantity beginPromotion's drain awaits. Non-zero here means a
+                // promotion attempt on this session will block until those records settle.
+                // Omitted rather than reported as undefined when the authority does not
+                // supply it, so the pinned inventory shape is unchanged for callers that
+                // predate the field.
+                ...(typeof authorityState.pendingLegacyBrowserOutputCount === 'number'
+                  ? { pendingLegacyBrowserOutputCount: authorityState.pendingLegacyBrowserOutputCount }
+                  : {}),
               },
             } : {}),
             ...(options.router ? {

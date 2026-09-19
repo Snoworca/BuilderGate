@@ -67,6 +67,18 @@ export interface TerminalAuthorityState {
   frozenRequiredResponderCount: number;
   acceptedDisableAckCount: number;
   heldPostBoundaryCount: number;
+  /**
+   * Outstanding pending outputs owned by `legacy-browser` -- the exact set
+   * `beginPromotion` drains before it can settle. Reported so a session that will hang a
+   * promotion is observable BEFORE one is attempted: a record stranded by a failed apply
+   * never settles, and no later output clears it, so buffer quiescence cannot see it.
+   * Computed at read time from `pendingOutputs` rather than tracked, so it cannot drift
+   * away from the set the drain actually awaits.
+   */
+  // Optional on the interface, always populated by this controller's getState(): other
+  // implementations of TerminalAuthorityState (test stubs) predate the field and are not
+  // required to invent a number for a queue they do not have.
+  pendingLegacyBrowserOutputCount?: number;
   pendingDeliveryBytes: number;
   pendingDeliveryChunks: number;
   restartRequired: boolean;
@@ -1998,7 +2010,13 @@ export function createTerminalAuthorityController(
     },
 
     getState() {
-      return { ...state };
+      // The same predicate beginPromotion filters on, deliberately duplicated rather than
+      // shared: if the drain's filter changes, this count must be updated with it, and a
+      // shared helper would let them silently diverge in meaning while still agreeing.
+      const pendingLegacyBrowserOutputCount = [...pendingOutputs.values()]
+        .filter(output => output.ingestOwnerToken === 'legacy-browser')
+        .length;
+      return { ...state, pendingLegacyBrowserOutputCount };
     },
   };
 

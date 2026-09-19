@@ -196,3 +196,57 @@ test('control: with the apply succeeding, the same promotion settles promptly', 
     controller.dispose();
   }
 });
+
+/**
+ * The instrument for the live case: `pendingLegacyBrowserOutputCount` on the authority
+ * state, surfaced through the debug inventory. A strand is invisible to buffer quiescence
+ * -- the record predates the measurement window and no later output settles it -- so the
+ * count is the only thing that can say, BEFORE a promotion is attempted, whether that
+ * promotion will hang.
+ *
+ * It is computed at read time from `pendingOutputs` with the same predicate the drain
+ * filters on, so it cannot report a number the drain disagrees with.
+ */
+test('the drain quantity is observable: stranded reports one, applied reports zero', async () => {
+  let failNextCommit = true;
+  const stranded = createTerminalAuthorityController(createOptions({
+    emit: (event: { type: string }) => {
+      if (event.type === 'headless-model-committed' && failNextCommit) {
+        failNextCommit = false;
+        throw new Error('injected-commit-failure');
+      }
+    },
+  }));
+  try {
+    assert.equal(
+      stranded.getState().pendingLegacyBrowserOutputCount,
+      0,
+      'precondition: a fresh session has nothing outstanding',
+    );
+    const reserved = stranded.enqueueHeadlessOutput({ sourceSeq: '1', data: 'stranded-output' });
+    await assert.rejects(
+      () => stranded.applyEnqueuedHeadlessOutput((reserved as { recordId: string }).recordId),
+      /injected-commit-failure/u,
+    );
+    assert.equal(
+      stranded.getState().pendingLegacyBrowserOutputCount,
+      1,
+      'a failed apply must leave its record countable; this is what quiescence cannot see',
+    );
+  } finally {
+    stranded.dispose();
+  }
+
+  const healthy = createTerminalAuthorityController(createOptions());
+  try {
+    const reserved = healthy.enqueueHeadlessOutput({ sourceSeq: '1', data: 'applied-output' });
+    await healthy.applyEnqueuedHeadlessOutput((reserved as { recordId: string }).recordId);
+    assert.equal(
+      healthy.getState().pendingLegacyBrowserOutputCount,
+      0,
+      'control: a successful apply must clear the record, or the count reports a constant',
+    );
+  } finally {
+    healthy.dispose();
+  }
+});
