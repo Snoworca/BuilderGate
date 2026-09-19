@@ -1283,6 +1283,12 @@ export function createTerminalCheckpointRuntime(
     if (
       message.type === 'terminal-checkpoint:continuity-rebound'
       || message.type === 'terminal-checkpoint:fresh-checkpoint-required'
+      // #112: a driver-lease revocation is a control-plane fact, not a checkpoint delivery
+      // frame -- it carries no viewGeneration/streamEpoch identity for this transaction
+      // narrowing to key off. WebSocketContext.tsx handles it before any message reaches
+      // this coordinator; excluded here purely so the identity-bearing types below stay
+      // exhaustive.
+      || message.type === 'terminal-checkpoint:lease-revoked'
     ) {
       return rejected('checkpoint-control-frame');
     }

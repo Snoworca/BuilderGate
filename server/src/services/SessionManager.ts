@@ -2890,12 +2890,23 @@ export class SessionManager {
     }
     runtime.driver.revokedLeaseIds.add(input.driverLeaseId);
     if (runtime.driver.active === 'legacy-browser') {
+      // #112: a legitimate revocation of the browser's own driver lease -- tell the
+      // affected client so it renegotiates instead of continuing to attach an identity
+      // that will be refused forever.
+      const revokedOwnerClientId = retained.driverLease.ownerClientId;
       retained.driverLease = {
         ownerClientId: null,
         generation: retained.driverLease.generation,
         state: 'revoked',
       };
       retained.driverViewGeneration = null;
+      if (revokedOwnerClientId) {
+        this.wsRouter?.notifyRetainedTerminalDriverLeaseRevoked(
+          sessionId,
+          revokedOwnerClientId,
+          'driver-lease-revoked',
+        );
+      }
     }
     runtime.driver.active = null;
     runtime.driver.activeLeaseId = null;
@@ -5487,6 +5498,21 @@ export class SessionManager {
     const retained = this.ensureRetainedTerminalSessionState(data);
     const runtime = this.ensureTerminalAuthorityRuntimePortState(retained);
 
+    // #112: whether detaching this controller can leave an ORPHANED SERVER-HEADLESS
+    // authority -- the risk the fail-closed revocation below exists for -- depends on
+    // whether the controller now being detached was actually driving via server-headless
+    // admission. When it was not (runtime.driver.active is 'legacy-browser' or null), the
+    // browser's legacy driver lease is a separate authority arm this controller never held
+    // and never suspended, so there is no handoff to fail closed against. Measured
+    // 2026-09-19: a headless shadow-PTY queue overflow (a server-only reconnect-recovery
+    // side channel) disposed a query-only, legacy-admission controller through this path
+    // and it silently revoked the typing browser's own live driver lease as a side effect --
+    // the identity the browser kept sending afterward still matched exactly
+    // (authorityEpoch, viewGeneration, clientId), it was simply refused forever because the
+    // lease backing it no longer existed. Degrading the side channel is not a reason to
+    // revoke write authority that channel never held.
+    const wasServerHeadlessDriver = runtime.driver.active === 'server-headless';
+
     // The controller identity above is the ownership fence for this detach.
     // Revoke every concrete server lease before removing the responder/controller
     // references so a caller-owned live session cannot be left with an orphaned
@@ -5507,13 +5533,27 @@ export class SessionManager {
     runtime.responder.legacyEnabled = false;
     runtime.responder.serverEnabled = false;
     runtime.admission = { mode: 'none', transitionEpoch: null };
-    retained.driverLease = {
-      ownerClientId: null,
-      generation: retained.driverLease.generation,
-      state: 'revoked',
-    };
-    retained.driverViewGeneration = null;
-    runtime.suspendedBrowserDriver = null;
+    if (wasServerHeadlessDriver) {
+      // #112: this revocation is genuine (the browser's driver role really was suspended
+      // in favor of server-headless authority that is now being torn down) -- tell the
+      // client so it can renegotiate instead of continuing to send an identity that will
+      // be refused forever.
+      const revokedOwnerClientId = retained.driverLease.ownerClientId;
+      retained.driverLease = {
+        ownerClientId: null,
+        generation: retained.driverLease.generation,
+        state: 'revoked',
+      };
+      retained.driverViewGeneration = null;
+      runtime.suspendedBrowserDriver = null;
+      if (revokedOwnerClientId) {
+        this.wsRouter?.notifyRetainedTerminalDriverLeaseRevoked(
+          sessionId,
+          revokedOwnerClientId,
+          'authority-runtime-detached',
+        );
+      }
+    }
     runtime.serverRecoveryAcks.clear();
     runtime.noLocalCacheEvidence = null;
     runtime.limitedSessionSelected = false;

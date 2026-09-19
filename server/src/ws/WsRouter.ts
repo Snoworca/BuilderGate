@@ -6029,6 +6029,21 @@ export class WsRouter {
     }
   }
 
+  // #112: a driver lease can be revoked for reasons that have nothing to do with the
+  // browser's identity (a headless side-channel degrading, an authority mode transition) --
+  // measured 2026-09-19: it used to happen with no wire signal at all, so the browser kept
+  // attaching a retainedIdentity built from a lease that no longer existed and every
+  // keystroke was refused forever. This targets the one connection that actually held the
+  // lease (a session can have other subscribers who were never the driver and do not need
+  // to hear about this), not every subscriber of the session the way sendSessionEvent does.
+  notifyRetainedTerminalDriverLeaseRevoked(sessionId: string, clientId: string, reason: string): void {
+    for (const [ws, meta] of this.clients) {
+      if (meta.clientId === clientId && ws.readyState === WebSocket.OPEN) {
+        this.sendTo(ws, { type: 'terminal-checkpoint:lease-revoked', sessionId, reason });
+      }
+    }
+  }
+
   // @req REL-BGSTAB-012 AC-5 AC-7
   private discardCheckpointQueuedFairDeliveryTransport(
     control: WebSocket,

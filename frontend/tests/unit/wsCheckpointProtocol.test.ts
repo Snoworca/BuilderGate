@@ -219,6 +219,50 @@ test('MIG-BGSTAB-002 checkpoint ACK rejections reject malformed identity correla
   }
 });
 
+// #112: a driver lease used to be revoked with no wire signal at all -- the browser kept
+// attaching a retainedIdentity built from a lease that no longer existed and every keystroke
+// was refused forever. This is the one connection's targeted notification, sent so it can
+// clear the stale lease and renegotiate; see the WebSocketContext.tsx handler below.
+test('#112 terminal-checkpoint:lease-revoked round-trips and fails closed on a malformed frame', () => {
+  const valid = {
+    type: 'terminal-checkpoint:lease-revoked',
+    sessionId: 'session-checkpoint-1',
+    reason: 'authority-runtime-detached',
+  };
+  assert.equal(parseTerminalCheckpointServerMessage(valid).ok, true);
+  for (const mutation of [
+    { sessionId: '' },
+    { sessionId: undefined },
+    { reason: 42 },
+    { reason: undefined },
+  ] as const) {
+    assert.equal(
+      parseTerminalCheckpointServerMessage({ ...valid, ...mutation }).ok,
+      false,
+      `lease-revoked must fail closed for ${JSON.stringify(mutation)}`,
+    );
+  }
+});
+
+test('#112 a revoked lease is cleared from the client cache and triggers renegotiation', () => {
+  const context = readFileSync(new URL('../../src/contexts/WebSocketContext.tsx', import.meta.url), 'utf8');
+  const branchStart = context.indexOf("checkpoint.type === 'terminal-checkpoint:lease-revoked'");
+  assert.ok(branchStart >= 0, 'WebSocketContext must handle the lease-revoked message');
+  const branchEnd = context.indexOf("checkpoint.type === 'terminal-checkpoint:rejected'", branchStart);
+  assert.ok(branchEnd > branchStart);
+  const branch = context.slice(branchStart, branchEnd);
+  assert.match(
+    branch,
+    /retainedMutationLeasesRef\.current\.delete\(checkpoint\.sessionId\)/,
+    'the stale lease for exactly this session must be dropped, not the whole cache',
+  );
+  assert.match(
+    branch,
+    /requestCurrentTerminalCheckpointCapability\(\)/,
+    'the client must renegotiate rather than silently continuing without a lease',
+  );
+});
+
 test('WebSocket ingress validates every checkpoint-prefixed frame before routing or mutation', () => {
   const context = readFileSync(new URL('../../src/contexts/WebSocketContext.tsx', import.meta.url), 'utf8');
   const prefixGuard = context.indexOf("rawMessage.type.startsWith('terminal-checkpoint:')");

@@ -716,6 +716,19 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (checkpoint.type === 'terminal-checkpoint:lease-revoked') {
+        // #112: the server just told us our mutation lease is gone for a reason that has
+        // nothing to do with our identity being wrong (it was correct all along) --
+        // continuing to attach it to every keystroke would be refused forever. Clear the
+        // stale cache entry and re-negotiate now instead of waiting for the next
+        // session-ready or reconnect to happen to fix it.
+        retainedMutationLeasesRef.current.delete(checkpoint.sessionId);
+        recordTerminalDebugEvent(checkpoint.sessionId, 'terminal_checkpoint_lease_revoked', {
+          reason: checkpoint.reason,
+        });
+        requestCurrentTerminalCheckpointCapability();
+        return;
+      }
       if (checkpoint.type === 'terminal-checkpoint:rejected') {
         if (checkpoint.sessionId) {
           recordTerminalDebugEvent(checkpoint.sessionId, 'terminal_checkpoint_server_rejected', {

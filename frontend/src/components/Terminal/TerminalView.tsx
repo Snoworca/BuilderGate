@@ -4371,8 +4371,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         },
       );
       // #16: under the WebGL renderer, selection is painted on canvas with no DOM
-      // representation -- no `.xterm-selection` element and `window.getSelection()`
-      // never reflects it. Read xterm's own model directly instead.
+      // representation -- no `.xterm-selection` element, and the browser's Selection
+      // API never reflects it. Read xterm's own model directly instead.
       const unregisterTerminalSelectionCaptureHandler = registerTerminalSelectionCaptureHandler(
         sessionId,
         () => ({ hasSelection: term.hasSelection(), text: term.getSelection() }),

@@ -87,10 +87,10 @@ export interface TerminalInputGateDebugSnapshot {
 }
 
 // #16: under the WebGL renderer a selection is painted on canvas with no DOM
-// representation at all -- no `.xterm-selection` element, and `window.getSelection()`
-// (the browser's own DOM selection) never reflects it either. A spec cannot tell
-// "no selection" from "selection exists but is unobservable through the DOM" without
-// reading xterm's own model directly, which is what this exposes.
+// representation at all -- no `.xterm-selection` element, and the browser's own
+// Selection API never reflects it either. A spec cannot tell "no selection" from
+// "selection exists but is unobservable through the DOM" without reading xterm's
+// own model directly, which is what this exposes.
 export interface TerminalSelectionDebugSnapshot {
   hasSelection: boolean;
   text: string;
@@ -403,8 +403,8 @@ export function registerTerminalTextCaptureHandler(
 
 // #16: same precedent as registerTerminalTextCaptureHandler -- xterm's own selection
 // model is the only thing that answers "is there a selection" under the WebGL
-// renderer, since neither `.xterm-selection` nor `window.getSelection()` exist there.
-// Test-host gated like its neighbours, so nothing is exposed in ordinary use.
+// renderer, since neither `.xterm-selection` nor the browser's Selection API exist
+// there. Test-host gated like its neighbours, so nothing is exposed in ordinary use.
 export function registerTerminalSelectionCaptureHandler(
   sessionId: string,
   handler: () => TerminalSelectionDebugSnapshot,

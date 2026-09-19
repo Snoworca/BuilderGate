@@ -276,9 +276,22 @@ export interface TerminalCheckpointRejectedMessage {
   rejectedMessageType?: 'resize';
 }
 
+// #112: measured 2026-09-19 -- a driver lease used to be revoked (a headless side-channel
+// degrading, an authority mode transition) with no wire signal at all. The browser kept
+// attaching a retainedIdentity built from a lease that no longer existed, and every
+// keystroke was refused forever because nothing told it to stop and renegotiate. Sent to
+// the one connection that actually held the lease, not broadcast to every subscriber of
+// the session.
+export interface TerminalCheckpointLeaseRevokedMessage {
+  type: 'terminal-checkpoint:lease-revoked';
+  sessionId: string;
+  reason: string;
+}
+
 export type TerminalCheckpointServerMessage =
   | TerminalCheckpointCapabilityMessage
   | TerminalCheckpointRejectedMessage
+  | TerminalCheckpointLeaseRevokedMessage
   | TerminalCheckpointStartMessage
   | TerminalCheckpointChunkMessage
   | TerminalCheckpointCommitMessage
@@ -1372,6 +1385,12 @@ export function parseTerminalCheckpointServerMessage(
       )
     ) {
       return { ok: true, message: value as unknown as TerminalCheckpointCapabilityMessage };
+    }
+    return validationFailure(value);
+  }
+  if (value.type === 'terminal-checkpoint:lease-revoked') {
+    if (isNonEmptyProtocolString(value.sessionId) && typeof value.reason === 'string') {
+      return { ok: true, message: value as unknown as TerminalCheckpointLeaseRevokedMessage };
     }
     return validationFailure(value);
   }
