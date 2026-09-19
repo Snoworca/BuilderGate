@@ -3,6 +3,11 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { shouldExpirePendingInput } from '../../utils/pendingInputExpiry';
+import {
+  publishInputDiscard,
+  shouldShowInputDiscardFeedback,
+  subscribeToInputDiscards,
+} from '../../utils/inputDiscardFeedback';
 import { WebglAddon } from '@xterm/addon-webgl';
 import {
   createTerminalWebglRenderer,
@@ -12,6 +17,7 @@ import {
 import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FontSizeToast } from './FontSizeToast';
+import { InputDiscardedToast } from './InputDiscardedToast';
 import {
   clearTerminalSnapshotRemovalRequest,
   getTerminalSnapshotKey,
@@ -391,6 +397,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const fitAddonRef = useRef<FitAddon | null>(null);
     const serializeAddonRef = useRef<SerializeAddon | null>(null);
     const [toastFontSize, setToastFontSize] = useState<number | null>(null);
+    // REL-BGSTAB-016 (#109): discards coalesce into one count rather than one surface each.
+    const [discardedInputCount, setDiscardedInputCount] = useState(0);
+    const discardToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [terminalRuntimeRevision, setTerminalRuntimeRevision] = useState(0);
     const runtimeRecreationRecoveryReasonRef = useRef<{
       sessionId: string;
@@ -964,6 +973,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const mode = getInputReliabilityMode();
       if (captureAllowedRef.current && captureStateRef.current === 'transient-blocked') {
         if (mode === 'observe') {
+          // REL-BGSTAB-016 (#109): this branch used to record a debug event and return, and
+          // nothing on screen changed -- the user's characters were simply not there.
+          if (shouldShowInputDiscardFeedback({
+            site: 'capture-gate',
+            mode,
+            state: captureStateRef.current,
+          })) {
+            publishInputDiscard(sessionId);
+          }
           recordTerminalDebugEvent(sessionId, 'terminal_input_would_queue', {
             ...debugInput.details,
             reason: 'mode-observe-only',
@@ -1285,6 +1303,25 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         }, 1200);
       }
     }, [requestViewportSync]);
+
+    // REL-BGSTAB-016 (#109): both discard sites publish here; the surface lives in this view.
+    useEffect(() => {
+      const unsubscribe = subscribeToInputDiscards(sessionId, () => {
+        setDiscardedInputCount(previous => previous + 1);
+        if (discardToastTimerRef.current) clearTimeout(discardToastTimerRef.current);
+        discardToastTimerRef.current = setTimeout(() => {
+          setDiscardedInputCount(0);
+          discardToastTimerRef.current = null;
+        }, 1200);
+      });
+      return () => {
+        unsubscribe();
+        if (discardToastTimerRef.current) {
+          clearTimeout(discardToastTimerRef.current);
+          discardToastTimerRef.current = null;
+        }
+      };
+    }, [sessionId]);
 
     const { handleTouchStart, handleTouchMove, handleTouchEnd, getInitialFontSize } = usePinchZoom({
       minSize: FONT_MIN,
@@ -4559,6 +4596,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       >
         <div ref={terminalRef} className="terminal-container" data-terminal-container="true" />
         <FontSizeToast fontSize={toastFontSize} />
+        <InputDiscardedToast discardedCount={discardedInputCount} />
       </div>
     );
   }

@@ -17,6 +17,7 @@ import {
   getTerminalResourceLimits,
   getWsTransportMode,
 } from '../../utils/inputReliabilityMode';
+import { publishInputDiscard, shouldShowInputDiscardFeedback } from '../../utils/inputDiscardFeedback';
 import {
   getCachedTerminalOutputResourceLimits,
   getOutputUtf8ByteLength as getUtf8ByteLength,
@@ -781,6 +782,13 @@ export const TerminalContainer = memo(
     ) => {
       const mode = getInputReliabilityMode();
       if (mode === 'observe') {
+        // REL-BGSTAB-016 (#109): the transport half of the same silence. AC-2 records why the
+        // predicate differs in name only -- classifyTransportQueueDecision has already rejected
+        // the invisible, closed and missing-token cases before a call reaches here with
+        // action 'queue'.
+        if (shouldShowInputDiscardFeedback({ site: 'transport-queue', mode, state: decision.action })) {
+          publishInputDiscard(sessionId);
+        }
         recordTransportInputQueueEvent('transport_input_would_queue', input, {
           reason: 'mode-observe-only',
           source,
