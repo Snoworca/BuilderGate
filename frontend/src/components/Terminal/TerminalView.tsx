@@ -3103,10 +3103,22 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         // instance swap, and content is re-read rather than trusted, which
         // is what catches term.reset() leaving a marker undisposed over
         // now-empty content (measured; see terminalSelectionAnchor.ts).
+        //
+        // A column resize that reflows is a separate, measured gap markers
+        // alone cannot see: xterm's own selection stays pinned to its old
+        // coordinates while the marker correctly follows the real content to
+        // its new row, so a copy reads the SELECTION (stale) not the marker
+        // (correct). getSelectionPosition() here is the live position the
+        // check needs to catch that divergence.
         const cached = activeSelectionAnchorRef.current;
         const term = xtermRef.current;
         if (cached && term && cached.rangeKey === selection.rangeKey) {
-          const verdict = verifySelectionAnchor(cached.anchor, term, clipboardViewGenerationRef.current);
+          const verdict = verifySelectionAnchor(
+            cached.anchor,
+            term,
+            clipboardViewGenerationRef.current,
+            term.getSelectionPosition(),
+          );
           if (!verdict.valid) {
             recordTerminalDebugEvent(sessionId, 'terminal_selection_anchor_stale', {
               reason: verdict.reason,

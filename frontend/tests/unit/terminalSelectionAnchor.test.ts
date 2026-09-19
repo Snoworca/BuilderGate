@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import type { Terminal as TerminalType } from '@xterm/xterm';
+import { installJsdomEnvironment } from './jsdomEnvironment.ts';
 import {
   captureSelectionAnchor,
   verifySelectionAnchor,
@@ -74,13 +75,27 @@ function positionForRow(row: number, startX: number, endX: number) {
   return { start: { x: startX, y: row }, end: { x: endX, y: row } };
 }
 
+/**
+ * Simulates "the live selection still points exactly where the marker says
+ * the anchored content is" -- the position verifySelectionAnchor should see
+ * when nothing has repointed the selection. Tests that are not specifically
+ * about the reflow-repositioning check use this so they keep exercising only
+ * what they exercised before that check existed.
+ */
+function atMarker(anchor: { startMarker: { line: number }; endMarker: { line: number }; startCol: number; endCol: number }) {
+  return {
+    start: { x: anchor.startCol, y: anchor.startMarker.line },
+    end: { x: anchor.endCol, y: anchor.endMarker.line },
+  };
+}
+
 test('verify() reports valid immediately after capture, for a live single-line selection', async () => {
   const term = makeTerm();
   await writeAsync(term, 'select-me-now\r\n');
   const row = await findAbsoluteRow(term, 'select-me-now');
   const anchor = captureSelectionAnchor(term, 1, positionForRow(row, 0, 13));
   assert.ok(anchor, 'anchor is captured for a real position');
-  const verdict = verifySelectionAnchor(anchor!, term, 1);
+  const verdict = verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!));
   assert.deepEqual(verdict, { valid: true });
   disposeSelectionAnchor(anchor);
 });
@@ -94,7 +109,7 @@ test('verify() rejects with markers-disposed once scrollback trims the anchored 
   // Flood far past the scrollback capacity (rows=5 + scrollback=10 => 15) so
   // the anchored row is evicted, not merely scrolled within the buffer.
   for (let i = 5; i < 30; i += 1) await writeAsync(term, `line${i}\r\n`);
-  const verdict = verifySelectionAnchor(anchor!, term, 1);
+  const verdict = verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!));
   assert.deepEqual(verdict, { valid: false, reason: 'markers-disposed' });
 });
 
@@ -112,14 +127,14 @@ test('verify() stays valid across a resize that reflows (rewraps) OTHER rows, le
 
   term.resize(15, 5); // narrower: forces the long line above to rewrap into more rows
   assert.deepEqual(
-    verifySelectionAnchor(anchor!, term, 1),
+    verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!)),
     { valid: true },
     'identity survives a narrowing reflow that does not touch the marked span itself',
   );
 
   term.resize(80, 5); // wider: unwraps the long line back
   assert.deepEqual(
-    verifySelectionAnchor(anchor!, term, 1),
+    verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!)),
     { valid: true },
     'identity survives a widening reflow back',
   );
@@ -143,7 +158,7 @@ test('verify() conservatively rejects when reflow itself splits the marked span 
 
   term.resize(10, 5); // narrower than the 12-column selected span itself
   assert.deepEqual(
-    verifySelectionAnchor(anchor!, term, 1),
+    verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!)),
     { valid: false, reason: 'content-mismatch' },
     'a selection whose own span no longer fits the row is correctly treated as unverifiable, not silently trusted',
   );
@@ -166,7 +181,7 @@ test('verify() rejects with content-mismatch after term.reset(), even though the
   // decoration.
   assert.equal(anchor!.startMarker.isDisposed, false, 'reset() leaves the marker looking undisposed');
 
-  const verdict = verifySelectionAnchor(anchor!, term, 1);
+  const verdict = verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!));
   assert.deepEqual(verdict, { valid: false, reason: 'content-mismatch' });
 });
 
@@ -185,7 +200,7 @@ test('verify() rejects with generation-mismatch when the terminal instance has b
   // Without a generation check, reading termB via the old marker's .line would
   // silently return termB's unrelated content at that row index -- the exact
   // "quietly copy something else" failure AC-3 forbids.
-  const verdict = verifySelectionAnchor(anchor!, termB, 2);
+  const verdict = verifySelectionAnchor(anchor!, termB, 2, atMarker(anchor!));
   assert.deepEqual(verdict, { valid: false, reason: 'generation-mismatch' });
 });
 
@@ -201,7 +216,7 @@ test('verify() rejects with content-mismatch when a full erase (ESC[2J) wipes th
   // asserting the exact reason keeps this from degenerating into "verify()
   // returned some falsy thing", which would pass for the wrong cause too.
   assert.deepEqual(
-    verifySelectionAnchor(anchor!, term, 1),
+    verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!)),
     { valid: false, reason: 'markers-disposed' },
   );
 });
@@ -232,13 +247,152 @@ test('a multi-row selection shares independent markers per boundary, and evictio
     end: { x: 10, y: endRow },
   });
   assert.ok(anchor);
-  assert.deepEqual(verifySelectionAnchor(anchor!, term, 1), { valid: true });
+  assert.deepEqual(verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!)), { valid: true });
 
   // Flood enough to evict only the earlier (top) row, not the later (bottom) one.
   for (let i = 0; i < 40; i += 1) await writeAsync(term, `flood${i}\r\n`);
   assert.deepEqual(
-    verifySelectionAnchor(anchor!, term, 1),
+    verifySelectionAnchor(anchor!, term, 1, atMarker(anchor!)),
     { valid: false, reason: 'markers-disposed' },
     'losing either boundary is enough to invalidate the whole anchor',
   );
+});
+
+// ---------------------------------------------------------------------------
+// A REAL LIVE SELECTION, not a synthetic position -- against a real, opened
+// (jsdom-hosted) Terminal. The tests above pass a `SelectionAnchorPosition`
+// directly, which is faithful to what captureSelectionAnchor's own contract
+// takes, but it cannot exercise the gap the goldens lane found in
+// tests/unit/terminalSelectionLifecycleCharacterization.test.ts: a column
+// resize that reflows repoints xterm's OWN selection (same start/end
+// coordinates, different underlying content) while the marker this module
+// registers correctly follows the content to its new row. Verifying only the
+// marker's own bookkeeping cannot see that divergence -- it has to compare
+// against what the LIVE SELECTION now reports.
+// ---------------------------------------------------------------------------
+installJsdomEnvironment();
+
+const liveRequire = createRequire(import.meta.url);
+const liveXtermNamespace = liveRequire('@xterm/xterm') as unknown as {
+  Terminal?: typeof TerminalType;
+  default?: { Terminal?: typeof TerminalType };
+};
+const LiveTerminal = liveXtermNamespace.Terminal ?? liveXtermNamespace.default?.Terminal;
+assert.ok(LiveTerminal, '@xterm/xterm must expose Terminal directly or on its default export');
+
+function createHost(): HTMLElement {
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  return host;
+}
+
+const WRAPPING_LINE = 'A'.repeat(30);
+const TARGET_LINE = 'TARGETTARGETTARGET';
+const TRAILING_LINE = 'C'.repeat(30);
+
+async function seedAndSelectTargetLive(term: TerminalType): Promise<number> {
+  await writeAsync(term as unknown as TerminalType, `${WRAPPING_LINE}\r\n${TARGET_LINE}\r\n${TRAILING_LINE}\r\n`);
+  let row = -1;
+  for (let y = 0; y < term.buffer.active.length; y += 1) {
+    if ((term.buffer.active.getLine(y)?.translateToString(true) ?? '').startsWith('TARGET')) {
+      row = y;
+      break;
+    }
+  }
+  assert.notEqual(row, -1, 'the seeded TARGET line must be locatable before selecting it');
+  (term as unknown as { select: (x: number, y: number, len: number) => void }).select(0, row, TARGET_LINE.length);
+  assert.equal(term.getSelection(), TARGET_LINE, 'precondition: selection starts out holding TARGET_LINE');
+  return row;
+}
+
+test('REFLOW HOLE, CLOSED: a widening reflow repoints the live selection, and verify() now catches it', async () => {
+  const term = new LiveTerminal!({ cols: 20, rows: 8, scrollback: 100 });
+  term.open(createHost());
+  try {
+    await seedAndSelectTargetLive(term);
+    const positionBefore = term.getSelectionPosition();
+    assert.ok(positionBefore);
+
+    const anchor = captureSelectionAnchor(term, 1, positionBefore!);
+    assert.ok(anchor, 'a real live selection must produce a real anchor');
+
+    term.resize(40, 8); // widen: unwraps the AAAA... line above TARGET, shifting rows below up by one
+
+    const positionAfter = term.getSelectionPosition();
+    const liveTextAfter = term.getSelection();
+    // This is the measured finding (goldens lane,
+    // terminalSelectionLifecycleCharacterization.test.ts), restated as the
+    // precondition of this test: coordinates are untouched, but the content
+    // underneath is not TARGET_LINE any more.
+    assert.deepEqual(positionAfter, positionBefore, 'xterm pins the selection to the same coordinates through reflow');
+    assert.notEqual(liveTextAfter, TARGET_LINE, 'the content at those pinned coordinates is now a different line');
+
+    // The marker, unlike the selection, DID move -- it is still measured to
+    // correctly track TARGET_LINE's new row. That is not the bug; it is what
+    // made the original bug possible to miss (the anchor's OWN bookkeeping
+    // looked perfectly fine).
+    assert.notEqual(anchor!.startMarker.line, positionAfter!.start.y, 'the marker followed the content; the selection did not');
+
+    // THE FIX: verify() is given the LIVE selection's current position
+    // (positionAfter, still pinned to the pre-reflow coordinates) and checks
+    // it against where the marker says the anchored content actually is now.
+    // They disagree, which is exactly what should invalidate the anchor --
+    // a copy right now would read the selection's stale coordinates, not the
+    // marker's, and would return the wrong text if this check did not exist.
+    const verdict = verifySelectionAnchor(anchor!, term, 1, positionAfter);
+    assert.deepEqual(
+      verdict,
+      { valid: false, reason: 'selection-repositioned' },
+      'a live selection that no longer aligns with the marker must be rejected, not silently trusted '
+        + `(a copy right now would write ${JSON.stringify(liveTextAfter)}, not the originally selected `
+        + `${JSON.stringify(TARGET_LINE)})`,
+    );
+    disposeSelectionAnchor(anchor);
+  } finally {
+    term.dispose();
+  }
+});
+
+test('REFLOW, control: verify() stays valid when the live selection position still matches the marker', async () => {
+  const term = new LiveTerminal!({ cols: 20, rows: 8, scrollback: 100 });
+  term.open(createHost());
+  try {
+    await seedAndSelectTargetLive(term);
+    const position = term.getSelectionPosition();
+    assert.ok(position);
+    const anchor = captureSelectionAnchor(term, 1, position!);
+    assert.ok(anchor);
+
+    // No reflow happens here, so the live selection position still equals
+    // what was captured -- this is the boundary control for the test above,
+    // so that a bug in the position check itself (e.g. always rejecting)
+    // would be caught rather than passing vacuously.
+    assert.deepEqual(
+      verifySelectionAnchor(anchor!, term, 1, term.getSelectionPosition()),
+      { valid: true },
+    );
+    disposeSelectionAnchor(anchor);
+  } finally {
+    term.dispose();
+  }
+});
+
+test('verify() rejects with no-live-selection when the selection is gone entirely', async () => {
+  const term = new LiveTerminal!({ cols: 20, rows: 8, scrollback: 100 });
+  term.open(createHost());
+  try {
+    await seedAndSelectTargetLive(term);
+    const position = term.getSelectionPosition();
+    assert.ok(position);
+    const anchor = captureSelectionAnchor(term, 1, position!);
+    assert.ok(anchor);
+
+    assert.deepEqual(
+      verifySelectionAnchor(anchor!, term, 1, undefined),
+      { valid: false, reason: 'no-live-selection' },
+    );
+    disposeSelectionAnchor(anchor);
+  } finally {
+    term.dispose();
+  }
 });

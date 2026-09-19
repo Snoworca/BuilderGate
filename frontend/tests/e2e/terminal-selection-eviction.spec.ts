@@ -106,6 +106,63 @@ test.describe('FR-BGSTAB-029 terminal selection eviction', () => {
       await cleanupEvictionWorkspace(page, workspace);
     }
   });
+
+  /**
+   * RECONCILIATION, 2026-09-19. tests/unit/terminalSelectionLifecycleCharacterization.test.ts
+   * measured that raw @xterm/xterm 6.0.0 preserves a selection through ordinary output
+   * (`append-one-output-line`: hasSelection stays true, text unchanged). That directly
+   * contradicts this file's own earlier finding that a selection here dies on essentially
+   * any output, and the leading hypothesis was that the earlier finding was an artifact of
+   * the unconditional `screen.click()` bug this file's history already found and fixed in
+   * `focusTerminalHost`/`sendVisibleTerminalCommand`.
+   *
+   * This test re-checks it using ONLY the fixed, non-clicking helpers
+   * (`sendVisibleTerminalCommandPreservingSelection`, which skips the click when the
+   * terminal is already focused, and a selection created the same fixed way). The result:
+   * the selection is still cleared. So the click bug is ruled out as the explanation --
+   * something in this app's real traffic (not present in the goldens' plain
+   * `write('NEWOUTPUT\r\n')` test) causes an xterm-recognized clearing transition
+   * (RIS/reset/alt-screen switch/row-resize all clear per the goldens' own corpus; a
+   * column-only resize does not). What specifically triggers it is NOT identified here --
+   * a quick pass found no output-triggered `term.resize()`/refit call site in
+   * TerminalView.tsx, so this is left as an open question rather than a guess.
+   *
+   * Practical upshot: FR-BGSTAB-029's withdrawn partial-trim AC (see its change note) still
+   * cannot be un-withdrawn on THIS finding -- the precondition it needed (a selection
+   * surviving long enough to reach a partial-trim) is still measured unreachable here, now
+   * confirmed twice with correct instruments instead of once. What changes is the
+   * explanation: it is not "xterm clears on any output" (the goldens' raw-xterm test rules
+   * that out) and it is not an explicit `clearSelection()` call in this app's own code
+   * (independently verified separately) -- it is a real, currently unnamed mechanism that
+   * behaves like one of xterm's own clearing transitions.
+   */
+  test('RECONCILE: output clears the selection here even with the click bug fixed', async ({ page }) => {
+    test.setTimeout(60_000);
+    await login(page);
+    await waitForTerminal(page);
+    const workspace = await activateEvictionWorkspace(page);
+    const sid = workspace.sessionId;
+
+    try {
+      const marker = `MARKER-RECONCILE-${Date.now()}`;
+      await createSingleLineSelection(page, sid, marker);
+      const before = await captureSelection(page, sid);
+      expect(before?.hasSelection, 'precondition: the drag produced a real selection').toBe(true);
+
+      await sendVisibleTerminalCommandPreservingSelection(page, sid, 'echo unrelated-output-line');
+      await markerVisible(page, sid, 'unrelated-output-line', 8_000);
+
+      const after = await captureSelection(page, sid);
+      expect(
+        after,
+        'MEASURED 2026-09-19: a harmless command\'s output clears the selection even through '
+        + 'the FIXED (non-clicking) helpers -- ruling out the click-bug hypothesis as the '
+        + 'explanation. See this test\'s doc comment for what is and is not concluded from that.',
+      ).toEqual({ hasSelection: false, text: '' });
+    } finally {
+      await cleanupEvictionWorkspace(page, workspace);
+    }
+  });
 });
 
 function terminalScope(page: Page, sessionId: string) {

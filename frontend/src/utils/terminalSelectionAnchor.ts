@@ -17,12 +17,31 @@ import type { IBuffer, IMarker, Terminal } from '@xterm/xterm';
  * marker from a torn-down terminal will happily keep reporting a `.line`
  * that, if read against a DIFFERENT (newer) Terminal instance's buffer,
  * returns whatever unrelated content occupies that row index there -- with
- * no signal that anything is wrong. So `verify()` checks three independent
- * things, in order: the terminal generation the anchor was captured against
- * (catches instance replacement, which marker state alone cannot), marker
- * disposal (catches structural removal), and a content re-check at the
- * marker's current line (catches the reset()-class gap where bookkeeping
- * does not notice but the content did change).
+ * no signal that anything is wrong.
+ *
+ * A THIRD gap, measured 2026-09-19 by the goldens lane
+ * (terminalSelectionLifecycleCharacterization.test.ts) and confirmed here
+ * directly against this module: a column resize that reflows repoints
+ * xterm's OWN selection while leaving its coordinates untouched -- widening
+ * a terminal can unwrap a line above the selection, shifting every row below
+ * up by one, and `getSelectionPosition()` keeps reporting the SAME
+ * start/end row even though a different logical line is now there. The
+ * marker tracks the real content correctly (that survival is what makes the
+ * bug easy to miss); the selection does not. So a content re-check at the
+ * marker's own row alone cannot see this: it would find the anchored
+ * content exactly where the marker says it is and report valid, while a
+ * copy right now would read the SELECTION's stale coordinates and return
+ * something else entirely. `verify()` therefore takes the CURRENT live
+ * selection position as an input and checks it against the marker's
+ * tracked position before trusting anything else.
+ *
+ * `verify()` checks four independent things, in order: the terminal
+ * generation the anchor was captured against (catches instance replacement,
+ * which marker state alone cannot), marker disposal (catches structural
+ * removal), whether the live selection still points at the marker's tracked
+ * row/col (catches reflow repointing, which marker state alone cannot), and
+ * a content re-check at the marker's current line (catches the reset()-class
+ * gap where bookkeeping does not notice but the content did change).
  *
  * This module deliberately does not call `term.getSelectionPosition()`
  * itself. That call needs a live `_selectionService`, which only exists
@@ -60,6 +79,8 @@ export interface SelectionAnchor {
 export type SelectionAnchorStaleReason =
   | 'generation-mismatch'
   | 'markers-disposed'
+  | 'no-live-selection'
+  | 'selection-repositioned'
   | 'content-mismatch';
 
 export type SelectionAnchorVerdict =
@@ -129,6 +150,7 @@ export function verifySelectionAnchor(
   anchor: SelectionAnchor,
   term: BufferCapableTerminal,
   currentViewGeneration: number,
+  currentSelectionPosition: SelectionAnchorPosition | null | undefined,
 ): SelectionAnchorVerdict {
   // Checked first and independently of marker state: a marker survives its
   // owning terminal's dispose() untouched (measured), so marker-only checks
@@ -139,6 +161,23 @@ export function verifySelectionAnchor(
 
   if (anchor.startMarker.isDisposed || anchor.endMarker.isDisposed) {
     return { valid: false, reason: 'markers-disposed' };
+  }
+
+  if (!currentSelectionPosition) {
+    return { valid: false, reason: 'no-live-selection' };
+  }
+
+  // THE REFLOW CHECK. A copy reads the SELECTION, not the marker, so an
+  // anchor that only vouches for its own bookkeeping is not enough -- it has
+  // to confirm the selection has not quietly drifted off the row/col the
+  // marker says the anchored content actually lives at now.
+  if (
+    currentSelectionPosition.start.y !== anchor.startMarker.line
+    || currentSelectionPosition.end.y !== anchor.endMarker.line
+    || currentSelectionPosition.start.x !== anchor.startCol
+    || currentSelectionPosition.end.x !== anchor.endCol
+  ) {
+    return { valid: false, reason: 'selection-repositioned' };
   }
 
   const active = term.buffer.active;
