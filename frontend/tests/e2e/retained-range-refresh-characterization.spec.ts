@@ -52,8 +52,33 @@ const LINES = 700;
  * A terminal that holds only its viewport reports `rows` rows. 200 is far above
  * any plausible viewport and far below the ~709 a full retained range gives, so
  * it separates the two without pinning either.
+ *
+ * SUPPORTING READING ONLY — never the claim. See the note on content identity
+ * below for why a length cannot carry this test.
  */
 const RETAINED_RANGE_FLOOR = 200;
+
+/**
+ * Reads xterm's own per-line fingerprints. `logicalLineHash` is an fnv1a64 over
+ * `{ isWrapped, text }` (src/utils/terminalRetainedState.ts), so a line that
+ * survives a reload keeps its hash and a different line does not.
+ */
+async function readLineFingerprints(
+  page: import('@playwright/test').Page,
+  sessionId: string,
+): Promise<{ index: number; logicalLineHash: string }[]> {
+  const evidence = await page.evaluate(
+    (id) => window.__buildergateTerminalDebug?.captureRetainedState?.(id) ?? null,
+    sessionId,
+  );
+  if (evidence === null) {
+    throw new Error(
+      'captureRetainedState is unavailable for this session — the instrument is absent, which is '
+      + 'not the same as an empty retained range',
+    );
+  }
+  return evidence.lineFingerprints.map(({ index, logicalLineHash }) => ({ index, logicalLineHash }));
+}
 
 async function readNormalLength(
   page: import('@playwright/test').Page,
@@ -113,11 +138,24 @@ test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
         `RETAINED-${LINES}`,
         { perAttemptTimeoutMs: 60_000 },
       );
+      const length = await settledNormalLength(page, session);
+      const fingerprints = await readLineFingerprints(page, session);
+      // Content, not length. A length alone is satisfied by a terminal that
+      // merely accumulated output, which is a live path here: measured
+      // 2026-09-19, writing 100 lines into a session holding nothing grew the
+      // buffer 28 -> 129 with nothing restored at all.
       expect(
-        await settledNormalLength(page, session),
-        'the producer must fill the retained range before a reload, or the characterization '
-        + 'below would record a loss that never had anything to lose',
+        fingerprints.length,
+        'the producer must leave identifiable retained lines before a reload, or the '
+        + 'characterization below would record a loss that never had anything to lose',
       ).toBeGreaterThan(RETAINED_RANGE_FLOOR);
+      expect(
+        new Set(fingerprints.map(line => line.logicalLineHash)).size,
+        'the retained lines must be distinguishable from each other, or an identity check after '
+        + 'the reload could be satisfied by any line at all',
+      ).toBeGreaterThan(RETAINED_RANGE_FLOOR);
+      // Supporting reading.
+      expect(length).toBeGreaterThan(RETAINED_RANGE_FLOOR);
     } finally {
       await cleanupSelectionWorkspace(page.context(), workspace);
     }
@@ -140,20 +178,36 @@ test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
         { perAttemptTimeoutMs: 60_000 },
       );
       const beforeReload = await settledNormalLength(page, session);
+      const before = await readLineFingerprints(page, session);
+      // The OLDEST retained line. A partial restore drops the far end of the
+      // scrollback first, so this is the line a length-based check is least
+      // likely to miss the loss of.
+      const oldest = before[0];
+      expect(oldest, 'no retained lines to fingerprint before the reload').toBeTruthy();
 
       await page.reload();
       await waitForTerminal(page);
       const afterReload = await settledNormalLength(page, session);
+      const after = await readLineFingerprints(page, session);
+      const survivors = new Set(after.map(line => line.logicalLineHash));
+      const overlap = before.filter(line => survivors.has(line.logicalLineHash)).length;
 
-      // The assertion states what AC-3 REQUIRES, not what happens. Measured
-      // 2026-09-19: afterReload is 28 on 8 of 8, so this fails and `test.fail()`
-      // turns that into a pass. When it stops failing, the suite says so.
+      // The assertion states what AC-3 REQUIRES, not what happens, and it states
+      // it as CONTENT IDENTITY rather than length.
+      //
+      // Length cannot carry this claim. `normalLength > 200` is satisfied by
+      // restoring the right 700 lines, by restoring 700 lines of something else,
+      // and by a terminal that simply accumulated new output before the reading
+      // settled. That is the same conflation this investigation spent four rounds
+      // untangling: 28 meant both "restored the viewport" and "restored nothing",
+      // because a fresh xterm has exactly `rows` rows either way.
       expect(
-        afterReload,
+        survivors.has(oldest.logicalLineHash),
         `REL-BGSTAB-007 AC-3 requires the retained range to survive a refresh without loss. `
-        + `Measured before=${beforeReload} after=${afterReload}. A value equal to the viewport `
-        + 'height means the scrollback was not restored by any path.',
-      ).toBeGreaterThan(RETAINED_RANGE_FLOOR);
+        + `The oldest pre-reload logical line is not present afterwards. `
+        + `overlap=${overlap}/${before.length}, length before=${beforeReload} after=${afterReload}. `
+        + 'Length is reported as a supporting reading only; the claim is that THIS line survived.',
+      ).toBe(true);
     } finally {
       await cleanupSelectionWorkspace(page.context(), workspace);
     }
