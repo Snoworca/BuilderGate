@@ -173,12 +173,38 @@ export function createTerminalClipboardCoordinator(
       }
       const payloadBytes = textEncoder.encode(selection.text).byteLength;
 
+      // Issue #16 criterion 4 / FR-BGSTAB-029 AC-3: verify identity BEFORE
+      // committing anything to the clipboard. The previous order wrote first
+      // and checked afterwards, so a selection that could not be verified had
+      // already reached the clipboard by the time it was refused -- and the
+      // refusal returned without clearing, leaving the user holding wrong text
+      // next to a selection that looked like it matched.
+      //
+      // The reachable case is a reflowing column resize: xterm keeps its own
+      // selection pinned to the old coordinates over different content, so text
+      // and rangeKey still compare equal and only the selection anchor catches
+      // the divergence (see isSelectionCurrent in TerminalView.tsx).
+      if (!isCurrent(target, operationGeneration)) {
+        // No clear here on purpose: clearSelection() acts on whatever terminal
+        // is live now, not on `target`, so clearing a replaced target would
+        // wipe the incoming one's selection.
+        return reject('copy', source, 'context-changed', payloadBytes, target);
+      }
+      if (!options.isSelectionCurrent(target, selection)) {
+        options.clearSelection(target);
+        return reject('copy', source, 'context-changed', payloadBytes, target);
+      }
+
       try {
         await options.writeClipboardText(selection.text);
       } catch {
         return reject('copy', source, 'clipboard-write-failed', payloadBytes, target);
       }
 
+      // Mid-flight replacement is a different case and keeps FR-BGSTAB-021
+      // AC-1's preserve-the-selection rule: here the user made a NEW selection
+      // (or switched tabs) while the write was in flight, and clearing would
+      // destroy that action rather than protect it.
       if (
         !isCurrent(target, operationGeneration)
         || !options.isSelectionCurrent(target, selection)

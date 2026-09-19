@@ -785,3 +785,91 @@ test('SEC-BGSTAB-001 AC-6 — a failed OSC52 clipboard write is observed as reje
   assert.equal(observed.length, 1, signature);
   assert.equal(observed[0].outcome, 'rejected', signature);
 });
+
+// ---------------------------------------------------------------------------
+// Issue #16 criterion 4 / FR-BGSTAB-029 AC-3 — refuse BEFORE the clipboard is
+// written, not after.
+//
+// The pre-fix order was capture -> write -> check -> clear, so a selection whose
+// identity could not be verified had ALREADY reached the clipboard by the time
+// the check ran, and the refusal path returned without clearing. Measured with
+// isSelectionCurrent forced false: result was
+// {ok:false, reason:'context-changed'} while the clipboard held the stale text
+// and cleared.length was 0. The user is then holding wrong text and still
+// looking at a selection that appears to correspond to it.
+//
+// The path that makes this reachable in the product is a reflowing column
+// resize: xterm pins its own selection to the old coordinates over different
+// content, so text and rangeKey both still compare equal and only the selection
+// anchor catches the divergence (terminalSelectionAnchor.test.ts, 'REFLOW HOLE,
+// CLOSED'). That anchor verdict reaches the coordinator through
+// isSelectionCurrent and nowhere else, so these two files meet at that seam:
+// the anchor file proves the verdict goes false on reflow, and these cases
+// prove a false verdict costs the clipboard write.
+//
+// The mid-flight case is deliberately NOT this: see the 'target-only and
+// selection-only replacement' test above, which keeps preserving the selection
+// because there the user made a NEW selection while the write was in flight,
+// and destroying it would destroy the user's own action. See FR-BGSTAB-021
+// AC-1's 2026-09-20 Change Note.
+// ---------------------------------------------------------------------------
+
+test('#16 criterion 4 — an unverifiable selection is cleared and refused BEFORE any clipboard write', async () => {
+  const signature = 'expected an unverifiable selection to be cleared and refused without reaching the clipboard';
+  const factory = await requireCoordinatorFactory(signature);
+  const harness = createHarness({ isSelectionCurrent: () => false });
+  const coordinator = factory(harness.options);
+
+  const result = await coordinator.copySelection('keyboard');
+
+  assert.deepEqual(
+    result,
+    { ok: false, action: 'copy', source: 'keyboard', reason: 'context-changed' },
+    signature,
+  );
+  // The whole point: the stale text must never have been written.
+  assert.deepEqual(harness.written, [], signature);
+  assert.equal(harness.cleared.length, 1, signature);
+  assert.equal(harness.cleared[0], harness.target, signature);
+  // Refusing is not a success; focus must not move as if a copy had happened.
+  assert.equal(harness.focused.length, 0, signature);
+  const rejected = harness.observations.filter((event) => event.outcome === 'rejected');
+  assert.equal(rejected.length, 1, signature);
+  assert.equal(rejected[0].reason, 'context-changed', signature);
+});
+
+test('#16 criterion 4 — the pre-write refusal reports the stale payload size without the payload', async () => {
+  const signature = 'expected the pre-write refusal to stay observable and redacted';
+  const factory = await requireCoordinatorFactory(signature);
+  const harness = createHarness({ isSelectionCurrent: () => false });
+  harness.selection = { text: 'secret-selection-text', rangeKey: '9:0-9:21' };
+  const coordinator = factory(harness.options);
+
+  await coordinator.copySelection('grid-context-menu');
+
+  const rejected = harness.observations.filter((event) => event.outcome === 'rejected');
+  assert.equal(rejected.length, 1, signature);
+  assert.equal(rejected[0].payloadBytes, 21, signature);
+  assert.equal(JSON.stringify(rejected[0]).includes('secret-selection-text'), false, signature);
+});
+
+test('#16 criterion 4 — a target superseded before the write is refused without clearing the live terminal', async () => {
+  // clearSelection is wired to xtermRef.current.clearSelection() in
+  // TerminalView, i.e. it clears whatever terminal is live NOW, not the target
+  // argument. So the clear belongs only on the branch where the target is still
+  // current and it is the SELECTION that cannot be verified. Clearing on a
+  // target-replacement branch would wipe the incoming tab's selection.
+  const signature = 'expected a superseded target to be refused before the write without clearing';
+  const factory = await requireCoordinatorFactory(signature);
+  const harness = createHarness();
+  let live = true;
+  harness.options.isTargetCurrent = () => live;
+  const coordinator = factory(harness.options);
+  live = false;
+
+  const result = await coordinator.copySelection('keyboard');
+
+  assert.equal(result.ok, false, signature);
+  assert.equal(harness.written.length, 0, signature);
+  assert.equal(harness.cleared.length, 0, signature);
+});
