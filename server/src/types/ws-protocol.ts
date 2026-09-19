@@ -225,6 +225,16 @@ export type TerminalCheckpointClientMessage =
   | TerminalCheckpointReadyMessage
   | TerminalCheckpointContinuityRebindMessage;
 
+// @req REL-BGSTAB-011
+// A view the server registered but refused a mutation lease for, and why. Without this
+// the client receives a lease-less capability and cannot tell refusal from an unfinished
+// negotiation; measured 2026-09-19, it then held input indefinitely.
+export interface TerminalCheckpointMutationLeaseRefusal {
+  sessionId: string;
+  viewGeneration: number;
+  reason: string;
+}
+
 export interface TerminalCheckpointCapabilityMessage {
   type: 'terminal-checkpoint:capability';
   protocolVersion: TerminalCheckpointProtocolVersion;
@@ -237,6 +247,7 @@ export interface TerminalCheckpointCapabilityMessage {
   digestAlgorithms: readonly ['sha256'];
   registeredViews?: readonly TerminalCheckpointRegisteredView[];
   mutationLeases?: readonly RetainedTerminalMutationLease[];
+  mutationLeaseRefusals?: readonly TerminalCheckpointMutationLeaseRefusal[];
 }
 
 export type TerminalCheckpointRejectedReason =

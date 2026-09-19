@@ -293,6 +293,46 @@ export function isTerminalCheckpointMutationLeaseReady(
   )) === true;
 }
 
+export type TerminalCheckpointMutationLeaseBarrierDecision =
+  | Readonly<{ held: true; reason: 'view-not-registered' }>
+  | Readonly<{ held: false; reason: 'lease-granted' }>
+  | Readonly<{ held: false; reason: 'lease-refused'; refusalReason?: string }>;
+
+// @req REL-BGSTAB-011
+// Decides whether a capability message leaves terminal input fenced behind the
+// mutation-lease barrier.
+//
+// Measured 2026-09-19 against https://localhost:2222: the server registered the view,
+// refused the lease (`if (!lease.ok) continue;` in WsRouter) and still sent a capability
+// whose mutationLeases filtered to empty. The client treated "no lease" as "not yet" and
+// held every keystroke for the full 60s poll with barrierReason "checkpoint-pending".
+//
+// Registration is the server's answer. A missing lease inside an answer that names this
+// exact view is a refusal, not an unfinished negotiation, so input flows and the server
+// stays authoritative over what it will actually accept. A terminal whose write the
+// server rejects visibly is strictly better than one that silently eats keystrokes.
+export function resolveTerminalCheckpointMutationLeaseBarrier(
+  capability: TerminalCheckpointCapabilityMessage,
+  sessionId: string,
+  viewGeneration: number,
+): TerminalCheckpointMutationLeaseBarrierDecision {
+  if (isTerminalCheckpointMutationLeaseReady(capability, sessionId, viewGeneration)) {
+    return { held: false, reason: 'lease-granted' };
+  }
+  const registersThisView = capability.registeredViews?.some(view => (
+    view.sessionId === sessionId && view.viewGeneration === viewGeneration
+  )) === true;
+  if (!registersThisView) {
+    return { held: true, reason: 'view-not-registered' };
+  }
+  const refusal = capability.mutationLeaseRefusals?.find(entry => (
+    entry.sessionId === sessionId && entry.viewGeneration === viewGeneration
+  ));
+  return refusal
+    ? { held: false, reason: 'lease-refused', refusalReason: refusal.reason }
+    : { held: false, reason: 'lease-refused' };
+}
+
 // @req REL-BGSTAB-011
 export function releaseTerminalCheckpointDispatcherRegistration(input: Readonly<{
   sessionId: string;

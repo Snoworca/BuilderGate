@@ -117,7 +117,7 @@ import {
 import {
   createTerminalCheckpointRuntime,
   createTerminalResponderHandoffRuntime,
-  isTerminalCheckpointMutationLeaseReady,
+  resolveTerminalCheckpointMutationLeaseBarrier,
   resolveTerminalCheckpointInputRoute,
   type TerminalCheckpointRuntime,
   type TerminalResponderHandoffRuntime,
@@ -772,6 +772,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const remaining: PendingTerminalInput[] = [];
       let remainingBytes = 0;
       let held = 0;
+      let oldestHeldMs = 0;
+      const heldSources = new Set<string>();
 
       for (const entry of pendingInputQueueRef.current) {
         const queuedMs = now - entry.queuedAt;
@@ -786,17 +788,29 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         }
         if (queuedMs > inputQueueTtlMs) {
           held += 1;
-          // Held past its TTL on purpose. Recorded so the hold is observable rather than a gap
-          // in the event stream that has to be inferred.
-          recordTerminalDebugEvent(sessionId, 'terminal_input_held_for_barrier', {
-            queuedMs,
-            ttlMs: inputQueueTtlMs,
-            barrierReason: transportBarrierReasonRef.current,
-            source: entry.source,
-          });
+          oldestHeldMs = Math.max(oldestHeldMs, queuedMs);
+          heldSources.add(entry.source);
         }
         remaining.push(entry);
         remainingBytes += entry.byteLength;
+      }
+
+      if (held > 0) {
+        // Held past its TTL on purpose. Recorded so the hold is observable rather than a gap
+        // in the event stream that has to be inferred.
+        //
+        // One event per drain pass, not one per entry. Measured 2026-09-19 while investigating
+        // #39: the per-entry form re-recorded every held keystroke on every retry tick, and a
+        // terminal held for fifty seconds filled the whole 400-event client ring with nothing
+        // but this kind. The events that would have said WHY input was held had all been
+        // evicted -- the flood destroyed exactly the evidence anyone reading it came for.
+        recordTerminalDebugEvent(sessionId, 'terminal_input_held_for_barrier', {
+          heldEntries: held,
+          oldestQueuedMs: oldestHeldMs,
+          ttlMs: inputQueueTtlMs,
+          barrierReason: transportBarrierReasonRef.current,
+          sources: [...heldSources].join(","),
+        });
       }
 
       pendingInputQueueRef.current = remaining;
@@ -3364,7 +3378,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           refreshTerminalCheckpointRegistration();
         },
         onCapabilityRegistration: (capability) => {
-          checkpointMutationLeaseBarrierRef.current = !isTerminalCheckpointMutationLeaseReady(capability, sessionId, xtermGenerationRef.current);
+          // @req REL-BGSTAB-011
+          const leaseBarrier = resolveTerminalCheckpointMutationLeaseBarrier(
+            capability,
+            sessionId,
+            xtermGenerationRef.current,
+          );
+          checkpointMutationLeaseBarrierRef.current = leaseBarrier.held;
+          if (leaseBarrier.reason === 'lease-refused') {
+            recordTerminalDebugEvent(sessionId, 'terminal_checkpoint_mutation_lease_refused', {
+              viewGeneration: xtermGenerationRef.current,
+              authorityMode: capability.authorityMode,
+              refusalReason: leaseBarrier.refusalReason ?? 'unreported',
+            });
+          }
           syncInputReadiness('terminal-checkpoint-mutation-lease');
           // @req MIG-BGSTAB-002 AC-3
           // A replacement browser runtime can join after the original responder

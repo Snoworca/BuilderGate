@@ -138,13 +138,19 @@ test('PERF-BGSTAB-010 AC-6 browser records ACK rejection without delivery or sta
   );
 });
 
-test('MIG-BGSTAB-002 TerminalView queues checkpoint-authority input until its exact mutation lease arrives', () => {
-  const signature = 'checkpoint authority without a current mutation lease must not emit bare input';
-  assert.match(terminalViewSource, /isTerminalCheckpointMutationLeaseReady/, signature);
+test('MIG-BGSTAB-002 TerminalView queues checkpoint-authority input until the server answers for its view', () => {
+  // @req REL-BGSTAB-011
+  // Superseded 2026-09-19: the barrier used to be `!isTerminalCheckpointMutationLeaseReady(...)`,
+  // which held input forever whenever the server registered the view and refused the lease.
+  // The decision now comes from resolveTerminalCheckpointMutationLeaseBarrier, which holds
+  // only while the server has not answered for this view at all.
+  const signature = 'checkpoint authority input must stay fenced until the server answers for this view';
+  assert.match(terminalViewSource, /resolveTerminalCheckpointMutationLeaseBarrier/, signature);
   assert.match(terminalViewSource, /checkpointMutationLeaseBarrierRef/, signature);
+  assert.doesNotMatch(terminalViewSource, /isTerminalCheckpointMutationLeaseReady/, signature);
   assert.match(
     terminalViewSource,
-    /checkpointMutationLeaseBarrierRef\.current = !isTerminalCheckpointMutationLeaseReady\(capability, sessionId, xtermGenerationRef\.current\)/,
+    /const leaseBarrier = resolveTerminalCheckpointMutationLeaseBarrier\(\s*capability,\s*sessionId,\s*xtermGenerationRef\.current,\s*\);\s*checkpointMutationLeaseBarrierRef\.current = leaseBarrier\.held;/u,
     signature,
   );
   assert.match(

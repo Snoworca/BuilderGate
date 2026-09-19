@@ -2366,6 +2366,15 @@ export class WsRouter {
         viewGeneration: number;
         leaseGeneration: string;
       }> = [];
+      // @req REL-BGSTAB-011
+      // A refused lease used to be dropped on the floor: the view was still registered and
+      // the capability still sent, with mutationLeases filtered to empty. The browser could
+      // not distinguish that from a negotiation still in flight and held input forever.
+      const mutationLeaseRefusals: Array<{
+        sessionId: string;
+        viewGeneration: number;
+        reason: string;
+      }> = [];
       for (const view of parsed.message.views ?? []) {
         meta.retainedTerminalMutationLeases?.delete(view.sessionId);
         const previousViewGeneration = previousViewGenerations.get(view.sessionId);
@@ -2507,7 +2516,14 @@ export class WsRouter {
           meta.clientId,
           view.viewGeneration,
         );
-        if (!lease.ok) continue;
+        if (!lease.ok) {
+          mutationLeaseRefusals.push({
+            sessionId: view.sessionId,
+            viewGeneration: view.viewGeneration,
+            reason: lease.reason,
+          });
+          continue;
+        }
         meta.retainedTerminalMutationLeases ??= new Map();
         meta.retainedTerminalMutationLeases.set(view.sessionId, {
           authorityEpoch: lease.authorityEpoch,
@@ -2540,6 +2556,10 @@ export class WsRouter {
           const authorityMode = authorityView
             ? this.terminalAuthorityViewModeReader?.(authorityView) ?? 'legacy'
             : 'legacy';
+          const viewRefusals = mutationLeaseRefusals.filter(refusal => (
+            refusal.sessionId === registeredView.sessionId
+            && refusal.viewGeneration === registeredView.viewGeneration
+          ));
           this.sendTo(ws, {
             type: 'terminal-checkpoint:capability',
             protocolVersion: TERMINAL_CHECKPOINT_PROTOCOL_VERSION,
@@ -2553,6 +2573,7 @@ export class WsRouter {
               lease.sessionId === registeredView.sessionId
               && lease.viewGeneration === registeredView.viewGeneration
             )),
+            ...(viewRefusals.length > 0 ? { mutationLeaseRefusals: viewRefusals } : {}),
           });
         }
       }
