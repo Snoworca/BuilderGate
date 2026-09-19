@@ -29,6 +29,10 @@ const expectedCategories = [
   'browser-runtime-residency-hidden-output',
   'terminal-write-recovery-scheduler',
   'persisted-snapshot-storage',
+  // #20 (8bf50e2a): the binary frame codec is its own category rather than a member of an
+  // existing one. Folding it into the write/recovery lane would have made two different
+  // enforcement boundaries answer to one name, which is the shape this tracker exists to stop.
+  'browser-binary-frame-codec',
 ];
 const expectedResourceKeys = [
   'resourceLimits.clientWs.hardReconnectBytes',
@@ -448,8 +452,22 @@ assert.deepEqual(manifest.evidence.consumerAstFingerprint, {
 // projection that carries it (85).
 // The historical
 // seals asserted above stay at 80 — they record the PH-001 run, not today's inventory.
-assert.equal(manifest.consumers.length, 86);
-assert.equal(manifest.classifications.length, 10);
+// 88, not 86: #20 (8bf50e2a) joined a second, key-rooted detection signal into the same sink
+// as the accessor-rooted one, and it saw two consumers the catalog had never named —
+// browser.terminal.recovery-scheduler and browser.binary.frame-codec (87, 88). That commit
+// regenerated the manifest but left this pin at 86, so the guard has been red ever since.
+// That is the guard working: a new queue must not enter the inventory without the count
+// being restated by hand. Restating it is the registration.
+assert.equal(manifest.consumers.length, 88);
+// 13, not 10: the same #20 signal that found the two consumers above also had to say why it
+// was NOT counting three other sites it walked past. Two are name collisions — `maxEntries`
+// in server/src/index.ts and McpToolService.ts bounds that module's own claim-code ring
+// (locally defaulted to 256) and has nothing to do with resourceLimits.snapshots.maxEntries.
+// The third is the detector's own stated limit: terminalWriteCoordinator takes
+// checkpointMaxBytes/checkpointMaxChunks as plain options, so accessor-rooted tracing
+// resolves them to no canonical key and the site is uncatalogueable rather than unregistered.
+// Recording a refusal is what keeps it from reading as an oversight later.
+assert.equal(manifest.classifications.length, 13);
 const consumerEvidenceAstMutation = {
   ...manifest,
   consumers: manifest.consumers.map((entry, index) => (index === 0
@@ -575,7 +593,14 @@ assert.notEqual(legacyManifestSha256, lineage.ph002RuntimeAnchor.sha256);
 // WebSocketProvider#send - so this is an addition, not a relocation of the source count. #78
 // then registered the server-side checkpoint chunk size, whose consumer lives in
 // TerminalAuthorityProductionAdapter.ts, adding that file to the set (37).
-assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 37);
+// 42, not 37: #20's key-rooted signal widened the walk, and every file it now has an opinion
+// about enters the evidence source set — whether the opinion was "consumer" or "not one".
+// Two arrive as consumers (frontend/src/utils/binaryFrameCodec.ts,
+// frontend/src/utils/pendingInputExpiry.ts) and three as recorded refusals
+// (frontend/src/utils/terminalWriteCoordinator.ts uncatalogueable; server/src/index.ts and
+// server/src/services/McpToolService.ts name-collision). Nothing left the set, so this is
+// five additions and not a relocation.
+assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 42);
 assert.ok(Array.isArray(manifest.consumers));
 assert.ok(Array.isArray(manifest.classifications));
 assert.deepEqual(sortedUnique(manifest.consumers.map((entry) => entry.category)), sortedUnique(expectedCategories));
