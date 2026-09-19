@@ -3,6 +3,12 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import {
+  NON_GATE_CONFIG_ENUMS as NON_GATE_ENUMS,
+  TERMINAL_PATH_GATE_KEYS as GATE_KEYS,
+  type TerminalPathGateKeyName,
+} from './terminalPathGateKeys.js';
+
 /**
  * Guards the gate-key inventory in
  * `docs/analysis/2026-09-19.issue21-gate-key-inventory.md` (#21 step 0).
@@ -33,31 +39,6 @@ function declaredEnumDefaults(): Map<string, string> {
   return found;
 }
 
-/**
- * The six keys that gate the new terminal path, plus the schema enums that are NOT gates.
- * A new enum in the schema fails this guard until it is triaged into one list or the other,
- * which is the whole point: issue #21's table went stale by omission, not by error.
- */
-const GATE_KEYS: ReadonlyMap<string, { readonly schemaDefault: string; readonly consumer: string }> = new Map([
-  ['wsTransportMode', { schemaDefault: 'unified', consumer: 'server/src/services/RuntimeConfigStore.ts' }],
-  ['terminalWireFormat', { schemaDefault: 'json', consumer: 'server/src/index.ts' }],
-  // Listed as a gate key in the inventory but marked non-gating: the schema offers two
-  // values and no runtime branch consumes the difference. Its consumer entry is the file
-  // that plumbs it, not a file that branches on it.
-  ['headlessQueueMode', { schemaDefault: 'observe', consumer: 'server/src/services/SessionManager.ts' }],
-  ['wsSendMode', { schemaDefault: 'direct', consumer: 'server/src/ws/WsRouter.ts' }],
-  ['frontendRuntimeResidency', { schemaDefault: 'bounded', consumer: 'frontend/src/hooks/useTerminalRuntimeResidency.ts' }],
-  ['hiddenOutputPolicy', { schemaDefault: 'snapshot-restore', consumer: 'server/src/services/TerminalResourcePolicy.ts' }],
-]);
-
-/** Schema enums triaged as NOT selecting between the old and new terminal path. */
-const NON_GATE_ENUMS: ReadonlyMap<string, string> = new Map([
-  ['mode', 'session.processCleanup.mode — process-tree termination, owned by FR-BGSTAB-019'],
-  ['windowsPowerShellBackend', 'PTY backend selection, not a terminal-path axis'],
-  ['shell', 'shell selection, not a terminal-path axis'],
-  ['overflowPolicy', 'headless overflow handling, not a path selector'],
-]);
-
 test('#21 step 0 — the terminal-path gate keys and their defaults are the inventoried six', () => {
   const signature = 'the gate-key inventory no longer matches the schema';
   const declared = declaredEnumDefaults();
@@ -76,7 +57,7 @@ test('#21 step 0 — a new schema enum must be triaged as gate or non-gate', () 
   const declared = declaredEnumDefaults();
 
   const untriaged = [...declared.keys()]
-    .filter((key) => !GATE_KEYS.has(key) && !NON_GATE_ENUMS.has(key));
+    .filter((key) => !GATE_KEYS.has(key as TerminalPathGateKeyName) && !NON_GATE_ENUMS.has(key));
 
   assert.deepEqual(
     untriaged,

@@ -42,6 +42,7 @@ import {
   type TerminalResourcePolicyConsumerId,
   type TerminalResourcePolicyDifferenceReason,
 } from './TerminalResourcePolicy.js';
+import type { TerminalPathGateKeyName } from '../schemas/terminalPathGateKeys.js';
 import type {
   SessionManager,
   TerminalResourcePolicyHeadlessDrainBoundary,
@@ -327,6 +328,29 @@ export class RuntimeConfigStore {
 
   getFieldCapabilities(): Record<EditableSettingsKey, FieldCapability> {
     return structuredClone(this.capabilities);
+  }
+
+  /**
+   * The effective value of every terminal-path gate key, read from this store's own live
+   * state. Two of the six have no public read-back surface -- `/api/runtime-config`
+   * publishes only `frontendRuntimeResidency` under `stabilityModes` -- and
+   * OPS-BGSTAB-012 AC-7 deliberately does not widen it, so the backup artifact reads them
+   * here instead.
+   *
+   * Declaration presence is NOT answerable from here: these values are post-parse, and zod
+   * has already filled defaults in. The caller supplies the raw config for that.
+   *
+   * @req OPS-BGSTAB-012 AC-2, AC-7
+   */
+  getTerminalPathGateKeyValues(): Record<TerminalPathGateKeyName, string> {
+    return {
+      wsTransportMode: this.wsTransportMode,
+      terminalWireFormat: this.terminalWireFormat,
+      headlessQueueMode: this.values.stabilityModes.headlessQueueMode,
+      wsSendMode: this.values.stabilityModes.wsSendMode,
+      frontendRuntimeResidency: this.values.stabilityModes.frontendRuntimeResidency,
+      hiddenOutputPolicy: this.values.resourceLimits.terminal.hiddenOutputPolicy,
+    };
   }
 
   getPublicRuntimeConfig(inputReliabilityMode: InputReliabilityMode): PublicRuntimeConfig {
