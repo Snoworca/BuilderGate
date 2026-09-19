@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   TERMINAL_PATH_GATE_KEYS,
   type TerminalPathGateKeyName,
@@ -82,6 +84,12 @@ export interface TerminalPathGateKeyProvenance {
   readonly serverBuild: string;
   readonly configSourcePath: string;
   readonly schemaShapeId: string;
+  /**
+   * When the raw config behind `explicit` was captured. Null means no load was recorded,
+   * which keeps "the file declared nothing" distinguishable from "nothing was read" --
+   * both otherwise present as six `explicit: false` rows.
+   */
+  readonly rawConfigCapturedAt?: string | null;
 }
 
 export interface TerminalPathGateKeyBackupEntry {
@@ -164,4 +172,19 @@ export function buildTerminalPathGateKeyBackup(
     provenance,
     keys,
   };
+}
+
+/**
+ * Identifies the gate-key schema shape the artifact was built against. If a key is added,
+ * removed, renamed, or its schema default moves, this changes -- which is what a later
+ * reader needs in order to tell whether the artifact's key set is still the right one to
+ * restore from.
+ *
+ * @req OPS-BGSTAB-012 AC-3
+ */
+export function createTerminalPathGateKeySchemaShapeId(): string {
+  const shape = [...TERMINAL_PATH_GATE_KEYS]
+    .map(([name, descriptor]) => `${name}:${descriptor.path}:${descriptor.schemaDefault}:${descriptor.gating}`)
+    .join('|');
+  return `sha256:${createHash('sha256').update(shape, 'utf8').digest('hex')}`;
 }

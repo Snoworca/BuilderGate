@@ -217,6 +217,8 @@ function readNormalizedRawConfig(configPath: string): Record<string, unknown> {
  * Uses Zod schema for validation and default values
  * Automatically encrypts plaintext passwords
  */
+import { recordRawConfigSnapshot } from './rawConfigSnapshot.js';
+
 export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform = process.platform): Config {
   try {
     ensureConfigExists(configPath, platform);
@@ -235,6 +237,7 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
       // Validate and apply defaults using Zod schema
       const validatedConfig = configSchema.parse(updatedRawConfig);
       console.log('[Config] Configuration loaded successfully');
+      recordRawConfigSnapshot(updatedRawConfig);
       return registerTerminalResourceConfigProvenance(
         validatedConfig as Config,
         updatedRawConfig,
@@ -256,6 +259,7 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
 
     console.log('[Config] Configuration loaded successfully');
 
+    recordRawConfigSnapshot(rawConfig);
     return registerTerminalResourceConfigProvenance(
       validatedConfig as Config,
       rawConfig,
@@ -277,6 +281,7 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
 
     // Return validated defaults
     const fallbackConfig = configSchema.parse({}) as Config;
+    recordRawConfigSnapshot({});
     return registerTerminalResourceConfigProvenance(fallbackConfig, {}, 'fallback-defaults');
   }
 }

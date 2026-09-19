@@ -42,11 +42,14 @@ function readNormalizedRawConfig(configPath: string): Record<string, unknown> {
  * invalid files must fail instead of falling back to schema defaults. This
  * module intentionally does not export a config singleton.
  */
+import { recordRawConfigSnapshot } from './rawConfigSnapshot.js';
+
 export function loadConfigFromPathStrict(configPath: string, platform: NodeJS.Platform = process.platform): Config {
   ensureConfigExists(configPath, platform);
   const rawConfig = readNormalizedRawConfig(configPath);
   const normalizedConfig = normalizeRawConfigForPlatform(rawConfig, platform);
   const validatedConfig = configSchema.parse(normalizedConfig);
+  recordRawConfigSnapshot(rawConfig);
   return registerTerminalResourceConfigProvenance(
     validatedConfig as Config,
     rawConfig,

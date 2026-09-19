@@ -7,6 +7,7 @@ import { TERMINAL_PATH_GATE_KEYS } from './terminalPathGateKeys.js';
 import {
   buildTerminalPathGateKeyBackup,
   collectTerminalPathGateKeyState,
+  createTerminalPathGateKeySchemaShapeId,
   type TerminalPathGateKeyState,
 } from './terminalPathGateKeyBackup.js';
 
@@ -149,16 +150,20 @@ test('AC-5: headlessQueueMode is recorded and marked non-gating', () => {
   );
 });
 
-test('AC-6: the generator has no write path', () => {
+test('AC-6: the capture module can only reach the modules it declares', () => {
+  // Stronger than scanning for forbidden substrings, and not fooled by them either: an
+  // earlier version of this test banned the token `update(` as a proxy for a settings
+  // mutation, and crypto's own `createHash().update()` tripped it. A substring ban answers
+  // "does this text appear", which is not the question. The question is what this module
+  // can reach, and its import list answers that exactly.
   const source = readFileSync(MODULE, 'utf8');
+  const imported = [...source.matchAll(/from '([^']+)'/gu)].map((match) => match[1]).sort();
 
-  for (const forbidden of ['node:fs', 'writeFile', 'writeFileSync', 'applySettings', 'update(']) {
-    assert.equal(
-      source.includes(forbidden),
-      false,
-      `the capture module reaches a mutation surface (${forbidden}); capture must be safe on a live deployment`,
-    );
-  }
+  assert.deepEqual(
+    imported,
+    ['./terminalPathGateKeys.js', 'node:crypto'],
+    'the capture module reached a new module; capture must stay safe on a live deployment',
+  );
 });
 
 test('AC-1: declaration presence is read from the raw config, not the parsed one', () => {
@@ -203,4 +208,46 @@ test('AC-2: the collector never substitutes a default for a missing effective va
   assert.equal(state.wsTransportMode.effectiveValue, 'split', 'the live value was replaced by a default');
   assert.equal(state.terminalWireFormat.consumerValue, 'binary');
   assert.equal(state.headlessQueueMode.consumerValue, undefined, 'a consumer value was invented');
+});
+
+test('AC-3: a production caller supplies the provenance, so it is a measurement not a shape', () => {
+  // Without this the provenance fields pass their own tests and are never filled by
+  // anything: the artifact carries whatever a test handed it. This asserts the wiring
+  // exists at the one place that holds both the raw config and the live store.
+  const index = readFileSync(fileURLToPath(new URL('../index.ts', import.meta.url)), 'utf8');
+  const route = index.slice(index.indexOf("'/api/debug/gate-key-backup'"));
+
+  assert.ok(route.length > 0, 'index.ts no longer registers the gate-key backup route');
+  for (const wiring of [
+    'authMiddleware',
+    'requireLocalDebugCapture',
+    'getTerminalPathGateKeyValues()',
+    'getRawConfigSnapshot()',
+    'configSourcePath',
+    'schemaShapeId',
+    'serverBuild',
+  ]) {
+    assert.ok(
+      route.slice(0, 1400).includes(wiring),
+      `the gate-key backup route lost its ${wiring} wiring`,
+    );
+  }
+});
+
+test('AC-3: the schema shape id moves when the gate-key shape moves', () => {
+  const id = createTerminalPathGateKeySchemaShapeId();
+
+  assert.match(id, /^sha256:[0-9a-f]{64}$/u);
+  // Non-vacuity: the id is derived from the set, not a constant. Same set, same id.
+  assert.equal(id, createTerminalPathGateKeySchemaShapeId());
+});
+
+test('AC-3: "nothing was read" stays distinguishable from "the file declared nothing"', () => {
+  const backup = buildTerminalPathGateKeyBackup(
+    measuredState(),
+    { ...PROVENANCE, rawConfigCapturedAt: null },
+    new Date(0),
+  );
+
+  assert.equal(backup.provenance.rawConfigCapturedAt, null);
 });

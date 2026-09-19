@@ -24,7 +24,13 @@ import { createRecoveryOptionRoutes } from './routes/recoveryOptionRoutes.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
-import { config, getServerRoot } from './utils/config.js';
+import { config, getConfigPath, getServerRoot } from './utils/config.js';
+import { getRawConfigSnapshot, getRawConfigSnapshotCapturedAt } from './utils/rawConfigSnapshot.js';
+import {
+  buildTerminalPathGateKeyBackup,
+  collectTerminalPathGateKeyState,
+  createTerminalPathGateKeySchemaShapeId,
+} from './schemas/terminalPathGateKeyBackup.js';
 import { inputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { FileService } from './services/FileService.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
@@ -875,6 +881,38 @@ function setupRoutes(): void {
     handleRollback: invokeTerminalAuthorityDebugHandler('handleRollback') as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['handleRollback'],
     handleFault: invokeTerminalAuthorityDebugHandler('handleFault') as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['handleFault'],
   });
+  /**
+   * OPS-BGSTAB-012 — the terminal-path gate key backup.
+   *
+   * Behind the same guard as the other debug reads: authenticated AND loopback-only. That
+   * is the trust boundary this artifact wants -- readable by someone on the host running a
+   * rollback drill, not published. AC-7 declined to widen `/api/runtime-config`, and this
+   * is why it did not need to: two of the six keys have no public surface and are read
+   * here from the store in-process.
+   *
+   * Read-only by construction: it reports, and there is no route that applies one back.
+   */
+  app.get('/api/debug/gate-key-backup', authMiddleware, requireLocalDebugCapture, (_req, res) => {
+    const state = collectTerminalPathGateKeyState({
+      effectiveValues: runtimeConfigStore.getTerminalPathGateKeyValues(),
+      rawConfig: getRawConfigSnapshot(),
+      // The router took this from module-top-level `config` at boot, while the store
+      // reassigns its own copy on reload. Where they differ the artifact records both.
+      consumerValues: { terminalWireFormat: config.realtime?.terminalWireFormat },
+    });
+
+    res.json(buildTerminalPathGateKeyBackup(
+      state,
+      {
+        serverBuild: `node-${process.version}`,
+        configSourcePath: getConfigPath(),
+        schemaShapeId: createTerminalPathGateKeySchemaShapeId(),
+        rawConfigCapturedAt: getRawConfigSnapshotCapturedAt(),
+      },
+      new Date(),
+    ));
+  });
+
   app.get('/api/sessions/debug-capture/:id', authMiddleware, requireLocalDebugCapture, requireExistingDebugSession, (req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     const sessionId = req.params.id;
