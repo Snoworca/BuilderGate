@@ -676,7 +676,8 @@
           "symbol": "REGISTERED_OBSERVATION_DECISIONS",
           "match": "dotted-path"
         }
-      ]
+      ],
+      "classificationTensionNote": "Classification tension, recorded 2026-09-19, not resolved here. This leaf is user-visible while its count twin resourceLimits.terminal.inputQueueMaxCount is safety-only, yet TerminalView.tsx passes them at adjacent lines of the same call -- inputQueueMaxBytes as pendingInputMaxBytes, inputQueueMaxCount as both pendingInputMaxCount and settlementLedgerMaxEntries -- so both bound the same pending-input queue. On this file's own classificationPrecedence, safety-only outranks user-visible where both fit, which suggests this entry rather than the twin is the one to revisit. Left as-is deliberately: it is a pre-existing classification and changing it is a record decision for whoever owns this entry, not a side effect of classifying the twin."
     },
     {
       "path": "resourceLimits.terminal.inputQueueMaxCount",
