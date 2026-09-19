@@ -87,10 +87,9 @@ import {
 import { sanitizeTerminalPasteText } from '../../utils/terminalPasteSanitizer';
 import { evaluateOsc52Request } from '../../utils/terminalOsc52';
 import {
-  TERMINAL_INPUT_TTL_LOCAL_MS,
   TERMINAL_PASTE_MAX_BYTES,
   measurePasteBytes,
-  resolveTerminalInputTtlMs,
+  resolveEffectiveInputQueueTtlMs,
 } from '../../utils/terminalPasteLimits';
 import {
   resolveTerminalXtermOptions,
@@ -253,11 +252,6 @@ function getTerminalBufferType(term: Terminal): TerminalViewportSnapshotBufferTy
 
 function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueMaxCount: number; inputQueueTtlMs: number } {
   const limits = getTerminalResourceLimits();
-  // #20: read the configured TTL once into a name instead of twice inside one ternary.
-  // Reading a policy value twice in a single expression is a wart on its own, and it is also
-  // the reason the consumer inventory could not describe this site: one catalogue row covers
-  // only the first read, and a row for the else branch resolves to no canonical key at all.
-  const configuredTtlMs = limits.inputQueueTtlMs;
   return {
     inputQueueMaxBytes: limits.inputQueueMaxBytes,
     // #72: input scope owns its own count now. These used to read the OUTPUT chunk cap.
@@ -265,9 +259,14 @@ function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueMaxCount
     // #18 criterion 8: one timeout cannot be right for loopback and for a WAN link at
     // once. The configured value stays authoritative when an operator has moved it; the
     // local/WAN split only decides the DEFAULT, so a tuned deployment is not overridden.
-    inputQueueTtlMs: configuredTtlMs === TERMINAL_INPUT_TTL_LOCAL_MS
-      ? resolveTerminalInputTtlMs(typeof location === 'undefined' ? undefined : location.hostname)
-      : configuredTtlMs,
+    // #20: the local/WAN decision lives behind a name rather than as an inline ternary here.
+    // Passing the policy value as a call argument is also the one shape the consumer-inventory
+    // matcher can describe -- the `const` + ternary form resolved to no role under any of the
+    // five, so no catalogue row could cover this site at all.
+    inputQueueTtlMs: resolveEffectiveInputQueueTtlMs(
+      limits.inputQueueTtlMs,
+      typeof location === 'undefined' ? undefined : location.hostname,
+    ),
   };
 }
 
