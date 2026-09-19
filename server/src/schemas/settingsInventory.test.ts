@@ -299,9 +299,17 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
 });
 
 // @req OPS-BGSTAB-011 AC-1
-test('OPS-BGSTAB-011 the configuration schema still has exactly 81 leaves', () => {
+test('OPS-BGSTAB-011 the configuration schema still has exactly 86 leaves', () => {
   // The pin the inventory is sized against. It is asserted separately from the
   // coverage test so that a change in the schema's shape is distinguishable
   // from a change in the inventory.
-  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 81);
+  //
+  // 81 -> 86 on 2026-09-19. The schema had grown by five leaves while this pin
+  // and the coverage test stayed red, so the file had been failing all day on
+  // debt rather than on a regression -- which is the state that teaches people
+  // to stop reading it. Four of the five were unclassified
+  // (terminal.checkpointChunkBytes, .checkpointMaxChunks, .inputQueueMaxCount,
+  // .visibleFlushFrameBudgetMs) and are now classified on their own measured
+  // evidence; the fifth already had an entry.
+  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 86);
 });

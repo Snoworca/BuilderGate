@@ -570,6 +570,24 @@
       ]
     },
     {
+      "path": "resourceLimits.terminal.checkpointChunkBytes",
+      "classification": "user-visible",
+      "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow. Measured not to be in RESERVED_WAVE6_SETTING_KEYS. It sizes one checkpoint chunk rather than capping how much may be held: issue #78 made the former hardcoded TERMINAL_CHECKPOINT_CHUNK_BYTES adjustable after #26 measured checkpoints crossing the browser acceptance limit on wide terminals, so its role is tuning, not a ceiling.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "server/src/services/SessionManager.ts",
+          "symbol": "effectiveResourceLimits",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/services/TerminalResourcePolicy.ts",
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
       "path": "resourceLimits.terminal.checkpointMaxBytes",
       "classification": "reserved",
       "reason": "Listed in RuntimeConfigStore RESERVED_WAVE6_SETTING_KEYS: outside the selected Wave 6 Settings field set, so it is rejected on direct PATCH and hidden from Settings capabilities.",
@@ -586,6 +604,25 @@
           "match": "dotted-path"
         }
       ]
+    },
+    {
+      "path": "resourceLimits.terminal.checkpointMaxChunks",
+      "classification": "safety-only",
+      "reason": "Exists to bound or deny rather than to tune. Offered in Settings, but its role is the bound it enforces. Measured not to be in RESERVED_WAVE6_SETTING_KEYS.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "server/src/services/TerminalResourcePolicy.ts",
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/services/TerminalResourcePolicyObservations.ts",
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
+        }
+      ],
+      "safetyBound": "The chunk half of the checkpoint budget: it caps how many chunks one checkpoint may hold. Issue #70 records that it previously resolved to the post-checkpoint hold cap because the only production caller passed that one value, the same shape REL-BGSTAB-023 fixed on the byte axis. Its byte twin checkpointMaxBytes is reserved, so the two halves are classified differently for different measured reasons rather than by analogy."
     },
     {
       "path": "resourceLimits.terminal.hiddenOutputPolicy",
@@ -640,6 +677,25 @@
           "match": "dotted-path"
         }
       ]
+    },
+    {
+      "path": "resourceLimits.terminal.inputQueueMaxCount",
+      "classification": "safety-only",
+      "reason": "Exists to bound or deny rather than to tune. Offered in Settings, but its role is the bound it enforces. Measured not to be in RESERVED_WAVE6_SETTING_KEYS.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "server/src/services/TerminalResourcePolicy.ts",
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/services/TerminalResourcePolicyObservations.ts",
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
+          "match": "dotted-path"
+        }
+      ],
+      "safetyBound": "Caps two queues at once: TerminalView.tsx passes it as both pendingInputMaxCount and settlementLedgerMaxEntries, so it bounds pending input and the settlement ledger together. Issue #72 records that before it existed both borrowed the OUTPUT chunk cap, so tuning output chunking downward silently lowered how many inputs could be pending."
     },
     {
       "path": "resourceLimits.terminal.inputQueueTtlMs",
@@ -727,6 +783,24 @@
         {
           "module": "server/src/services/TerminalResourcePolicy.ts",
           "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
+      "path": "resourceLimits.terminal.visibleFlushFrameBudgetMs",
+      "classification": "user-visible",
+      "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow. Measured not to be in RESERVED_WAVE6_SETTING_KEYS. It is a per-frame pacing budget for the write lane -- absent means unpaced -- so it governs throughput and latency rather than capping retained memory.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "server/src/services/TerminalResourcePolicy.ts",
+          "symbol": "RESOURCE_DEFINITIONS",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/services/TerminalResourcePolicyObservations.ts",
+          "symbol": "REGISTERED_OBSERVATION_DECISIONS",
           "match": "dotted-path"
         }
       ]
