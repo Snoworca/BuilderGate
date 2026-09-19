@@ -173,6 +173,7 @@
     "tests/unit/terminalResidencyCharacterization.test.ts",
     "tests/unit/terminalWebglRenderer.test.ts",
     "tests/unit/terminalWidthPolicyParity.test.ts",
+    "tests/unit/terminalWidthProviderRollback.test.ts",
     "tests/unit/terminalUnicodeWidthGolden.test.ts",
     "tests/unit/terminalSelectionLifecycleCharacterization.test.ts",
     "tests/unit/terminalSelectionAnchor.test.ts",
