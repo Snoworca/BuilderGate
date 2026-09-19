@@ -490,7 +490,7 @@ async function main(): Promise<void> {
     { name: 'WsRouter reports replay observability counters', run: testWsRouterObservabilityCounters },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
-    { name: 'WsRouter sends viewport-only snapshots on subscribe and resubscribe', run: testWsRouterViewportOnlySnapshotReplayStart },
+    { name: 'WsRouter sends retained-range snapshots on subscribe and resubscribe', run: testWsRouterViewportOnlySnapshotReplayStart },
     { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
     { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
@@ -16210,8 +16210,22 @@ function testWsRouterDegradedReplayStart(): void {
   router.destroy();
 }
 
-function assertViewportOnlySnapshotPayload(payload: string, oldMarker: string, latestMarker: string): void {
-  assert.doesNotMatch(payload, new RegExp(oldMarker));
+/**
+ * REL-BGSTAB-007 AC-3, 2026-09-20: flipped from viewport-only to retained-range.
+ *
+ * This asserted the OPPOSITE until today -- that the oldest marker was ABSENT from a
+ * subscribe snapshot -- and it passed, because `getAtomicRestoreSnapshot` served
+ * `serializeHeadlessTerminal`'s `{ scrollback: 0 }` default. That is the behaviour five
+ * measured rounds recorded as a 700-line producer reloading to 28 lines, and AC-3 requires
+ * the authoritative retained range to survive a refresh instead.
+ *
+ * Checked before flipping: no requirement designates this as a current-behaviour record the
+ * way OBS-BGSTAB-009 AC-4 designates TC-7004, and nothing in docs/spec references it. So it
+ * is a characterization of the defect rather than a pinned record, and it moves with the
+ * contract rather than being scoped around it.
+ */
+function assertRetainedRangeSnapshotPayload(payload: string, oldMarker: string, latestMarker: string): void {
+  assert.match(payload, new RegExp(oldMarker));
   assert.match(payload, new RegExp(latestMarker));
 }
 
@@ -16258,7 +16272,7 @@ async function testWsRouterViewportOnlySnapshotReplayStart(): Promise<void> {
     const firstSnapshot = sent.find((message) => message.type === 'screen-snapshot');
     assert.equal(firstSnapshot?.type, 'screen-snapshot');
     assert.equal(firstSnapshot?.mode, 'authoritative');
-    assertViewportOnlySnapshotPayload(String(firstSnapshot?.data), oldMarker, latestMarker);
+    assertRetainedRangeSnapshotPayload(String(firstSnapshot?.data), oldMarker, latestMarker);
 
     (router as any).handleUnsubscribe(ws, [harness.sessionId]);
     (router as any).handleSubscribe(ws, [harness.sessionId]);
@@ -16267,7 +16281,7 @@ async function testWsRouterViewportOnlySnapshotReplayStart(): Promise<void> {
       .at(-1);
     assert.equal(secondSnapshot?.type, 'screen-snapshot');
     assert.equal(secondSnapshot?.mode, 'authoritative');
-    assertViewportOnlySnapshotPayload(String(secondSnapshot?.data), oldMarker, latestMarker);
+    assertRetainedRangeSnapshotPayload(String(secondSnapshot?.data), oldMarker, latestMarker);
   } finally {
     router.destroy();
     harness.dispose();

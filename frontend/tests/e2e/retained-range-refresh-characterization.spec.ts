@@ -164,7 +164,16 @@ test.describe('REL-BGSTAB-007 AC-3 retained range across refresh', () => {
   test('AC-3: the retained range survives a refresh', async ({ page }) => {
     // Expected to fail TODAY. Going green here means AC-3 was implemented; see
     // the header for what to do then.
-    test.fail();
+    // REL-BGSTAB-007 AC-3, 2026-09-20: `test.fail()` removed in the same commit as the fix.
+    // It asserted the behaviour AC-3 requires while that behaviour was absent, so the mark
+    // was what kept a true statement from being an orphan red somebody deleted. The reload
+    // snapshot now carries the retained range (SessionManager.serializeRetainedRestoreSnapshot),
+    // so the assertion below is an ordinary contract rather than a characterization.
+    //
+    // The server half is verified -- the monolithic suite's subscribe/resubscribe test was
+    // flipped from asserting the oldest marker ABSENT to asserting it present, and passes.
+    // This browser half is unverified until the routed run: it additionally requires xterm to
+    // render the delivered scrollback into its buffer, which no server-side test can show.
     test.setTimeout(180_000);
     await login(page);
     await waitForTerminal(page);

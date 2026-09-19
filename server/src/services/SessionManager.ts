@@ -6467,6 +6467,37 @@ export class SessionManager {
    *
    * @req REL-BGSTAB-009
    */
+  /**
+   * REL-BGSTAB-007 AC-3: the reload restore must carry the authoritative retained range, not
+   * one viewport. `serializeHeadlessTerminal` defaults to `{ scrollback: 0 }`, which is why a
+   * 700-line producer reloaded to 28 lines across five measured rounds under both legacy and
+   * server authority.
+   *
+   * AC-6 constrains how: over `maxSnapshotBytes` that serializer returns `data: ''` with
+   * `truncated: true` -- an EMPTY payload reported as success -- and AC-6 bars that cap from
+   * acting as "retained history를 empty로 만드는 authority cap". So the retained width is
+   * halved until it fits rather than passed through to an empty result, and the viewport is
+   * the floor: this can restore less than the full range, never less than today's behaviour,
+   * and never a blank screen.
+   *
+   * The retention width is read from the same policy value the headless terminal was created
+   * with (`initializeHeadlessState`), so there is one expression of "how much is retained"
+   * rather than two that can disagree.
+   */
+  private serializeRetainedRestoreSnapshot(
+    headless: HeadlessTerminalState,
+  ): ReturnType<typeof serializeHeadlessTerminal> {
+    const maxSnapshotBytes = this.runtimePtyConfig.maxSnapshotBytes;
+    const retained = this.compiledTerminalResourcePolicy.legacyPolicy.terminal.scrollbackLines.value;
+
+    for (let scrollback = retained; scrollback >= 1; scrollback = Math.floor(scrollback / 2)) {
+      const candidate = serializeHeadlessTerminal(headless, maxSnapshotBytes, { scrollback });
+      if (!candidate.truncated) return candidate;
+    }
+    // Viewport-only is the floor, and it is what the reload was served before AC-3.
+    return serializeHeadlessTerminal(headless, maxSnapshotBytes);
+  }
+
   getAtomicRestoreSnapshot(sessionId: string): AtomicRestoreSnapshotResult {
     const data = this.sessions.get(sessionId);
     if (!data || data.headlessHealth !== 'healthy' || !data.headless) {
@@ -6486,7 +6517,7 @@ export class SessionManager {
       const parserComplete = data.parserComplete;
       const pendingEscapeTailAnsi = data.pendingEscapeTailAnsi;
       try {
-        const serialized = serializeHeadlessTerminal(headless, this.runtimePtyConfig.maxSnapshotBytes);
+        const serialized = this.serializeRetainedRestoreSnapshot(headless);
         if (
           this.sessions.get(sessionId) !== data
           || data.headless !== headless
