@@ -143,6 +143,67 @@ async function readTabStatuses(page: Page, workspaceId: string): Promise<string[
 }
 
 
+
+/**
+ * codex shows a chain of one-time onboarding prompts before it draws anything, and which ones
+ * appear depends on the machine's codex state, not on this test. Measured 2026-09-19 against a
+ * live session on https://localhost:2222, a fresh run walked three in a row: an update notice
+ * ("1. Update now / 2. Skip / 3. Skip until next version"), then "Do you trust the contents of
+ * this directory?", then a new-model choice. None of them contains the string 'Update
+ * available', which is what this spec used to look for, and it pressed '2' exactly once -- so
+ * codex sat on the first prompt until the banner poll timed out, and the failure read
+ * "codex never drew its interface" as though the product were at fault.
+ *
+ * Every one of these prompts is a selection list with a highlighted default and the footer
+ * "press enter to continue" or "press enter to confirm", so Enter is both what a user presses
+ * and the one key that does not depend on the option order of a particular codex version.
+ */
+async function dismissCodexStartupPrompts(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const text = await readVisibleTerminalText(page);
+    if (text.includes('OpenAI Codex')) return;
+    if (!/press enter to (continue|confirm)/i.test(text)) return;
+    await page.keyboard.press('Enter');
+    // The screen has to actually change, or the next iteration would answer the same prompt
+    // twice and walk past whatever came after it.
+    await expect.poll(
+      async () => await readVisibleTerminalText(page) !== text,
+      { timeout: 15000, message: 'codex startup prompt did not respond to Enter' },
+    ).toBe(true);
+  }
+}
+
+
+/**
+ * What the screen shows cannot distinguish "the agent never started" from "the keystrokes never
+ * left the browser". The input gate can: `barrierReason` names what is holding input and
+ * `serverReady` says whether the client believes the session is up. Measured 2026-09-19, a
+ * terminal stuck behind `visible-output-recovery` held keystrokes for 49.6s against a 1.5s TTL
+ * while rendering a live prompt, which on screen is indistinguishable from an idle shell.
+ */
+async function describeInputGate(page: Page): Promise<string> {
+  const sessionId = await getActiveSessionId(page);
+  if (!sessionId) return 'input gate: no active session id';
+  const gate = await page.evaluate(
+    (id) => window.__buildergateTerminalDebug?.readInputGateSnapshot?.(id) ?? null,
+    sessionId,
+  );
+  const text = (await readVisibleTerminalText(page)).replace(/\n+/gu, '\n').trim();
+  // The barrier name alone says input is held, not what set it. The recorded events say which
+  // transition left it that way, and they are the only thing that survives the run.
+  const events = await page.evaluate((id) => {
+    const recorded = window.__buildergateTerminalDebug?.getEvents?.(id) ?? [];
+    const counts: Record<string, number> = {};
+    for (const event of recorded) counts[event.kind] = (counts[event.kind] ?? 0) + 1;
+    const interesting = recorded.filter(event => event.kind !== 'terminal_input_held_for_barrier');
+    return { total: recorded.length, counts, tail: interesting.slice(-60) };
+  }, sessionId);
+  return `session ${sessionId}\ninput gate: ${JSON.stringify(gate)}`
+    + `\nscreen tail: ${JSON.stringify(text.slice(-400))}`
+    + `\nevent counts: ${JSON.stringify(events.counts)}`
+    + `\nlast events: ${JSON.stringify(events.tail)}`;
+}
+
 test.describe('Busy agent survives workspace bounce', () => {
   test.beforeEach(async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop-only regression coverage');
@@ -164,6 +225,9 @@ test.describe('Busy agent survives workspace bounce', () => {
     await page.reload();
     await page.waitForSelector('.workspace-screen', { timeout: 15000 });
     await waitForTerminal(page);
+    // After the reload, not before: the flag lives in the page and the reload throws it away.
+    // Enabling it in beforeEach printed empty diagnostics on a real failure.
+    await page.evaluate(() => { window.__buildergateTerminalDebug?.enable?.(); });
 
     const agentOption = await findWorkspaceOption(page, agentWorkspace.name);
     await agentOption.click();
@@ -194,16 +258,20 @@ test.describe('Busy agent survives workspace bounce', () => {
       async () => (await readVisibleTerminalText(page)).trim().length,
       { timeout: 30000, message: 'codex printed nothing at all after launch' },
     ).toBeGreaterThan(0);
-    if ((await readVisibleTerminalText(page)).includes('Update available')) {
-      await page.keyboard.press('2');
-      await page.waitForTimeout(2000);
-    }
+    await dismissCodexStartupPrompts(page);
     // The banner proves codex is actually drawing, which is the precondition of
     // this test: a prompt alone would make every assertion below vacuous.
-    await expect.poll(
-      async () => readVisibleTerminalText(page),
-      { timeout: 60000, message: 'codex never drew its interface' },
-    ).toContain('OpenAI Codex');
+    try {
+      await expect.poll(
+        async () => readVisibleTerminalText(page),
+        { timeout: 60000, message: 'codex never drew its interface' },
+      ).toContain('OpenAI Codex');
+    } catch (error) {
+      // This failure has twice been read as a product defect and twice been something else --
+      // once codex's own onboarding prompts, once a held input gate. The screen text alone
+      // cannot tell those apart, so say which one it was.
+      throw new Error(`${(error as Error).message}\n\n${await describeInputGate(page)}`);
+    }
 
     const otherOption = await findWorkspaceOption(page, otherWorkspace.name);
     await page.evaluate(() => { window.__busyAgentFrames = []; });

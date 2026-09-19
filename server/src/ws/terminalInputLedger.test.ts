@@ -100,10 +100,30 @@ test('REL-BGSTAB-028 AC-3 the ledger is bounded and evicts oldest first', () => 
 
   const stats = ledger.snapshot({ connectionEpoch: EPOCH, sessionId: SESSION });
   assert.equal(stats.tracked, 3, signature);
-  // op-1 was evicted, so its retry is no longer recognised as a duplicate.
+  // #18: this assertion used to read `write: true` -- "op-1 was evicted, so its retry is no
+  // longer recognised as a duplicate". That pinned the defect as the contract. op-1 had
+  // already been written to the PTY, so re-admitting its retry runs the command a second
+  // time, which is the exact failure the ledger exists to prevent. Eviction may forget the
+  // result; it must not forget that the operation happened.
+  const evictedRetry = admissions(ledger, ['op-1'])[0];
+  assert.equal(evictedRetry.write, false, signature);
+  assert.equal(evictedRetry.outcome, 'expired', signature);
+  // op-4 is still tracked, and a retry of it is a plain duplicate rather than an expiry.
+  const trackedRetry = admissions(ledger, ['op-4'])[0];
+  assert.equal(trackedRetry.write, false, signature);
+  assert.equal(trackedRetry.outcome, 'duplicate', signature);
+});
+
+test('#18 an operation old enough to fall out of both sets is admitted again, and that bound is stated', () => {
+  const signature = '#18: the tombstone set is bounded too; the window is a limit, not a secret';
+  const ledger = createTerminalInputLedger({ maxOperationsPerSession: 2 });
+  admissions(ledger, ['op-1', 'op-2']);
+  // Two evictions push op-1 out of `operations` and then out of `expiredOperations`.
+  admissions(ledger, ['op-3', 'op-4', 'op-5', 'op-6']);
+  const stats = ledger.snapshot({ connectionEpoch: EPOCH, sessionId: SESSION });
+  assert.equal(stats.tracked, 2, signature);
+  assert.equal(stats.expiredTracked, 2, signature);
   assert.equal(admissions(ledger, ['op-1'])[0].write, true, signature);
-  // op-4 is still tracked.
-  assert.equal(admissions(ledger, ['op-4'])[0].write, false, signature);
 });
 
 test('REL-BGSTAB-028 AC-4 input without an operation id is observably undeduplicated', () => {

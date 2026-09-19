@@ -12,6 +12,23 @@ import {
 } from '../helpers/visibleOutputRecoveryContract.ts';
 
 const source = readFileSync(new URL('../../src/components/Terminal/TerminalView.tsx', import.meta.url), 'utf8');
+
+/**
+ * The body of a top-level `const <name> = useCallback(...)` declaration in TerminalView.
+ *
+ * These assertions used to slice a fixed character count after the declaration, which made
+ * them measure the length of the function rather than its content: adding four lines inside
+ * `expirePendingInputQueue` on 2026-09-19 pushed `now - entry.queuedAt` past an 850-character
+ * window and turned a passing contract red without changing anything it was asserting about.
+ * Bounding by the next sibling declaration tracks the function itself, so the test fails when
+ * the contract is broken and not when the function grows.
+ */
+function declarationBody(name: string): string {
+  const start = source.indexOf(`const ${name} = useCallback`);
+  assert.notEqual(start, -1, `no declaration named ${name}`);
+  const next = source.indexOf('\n    const ', start + 1);
+  return next === -1 ? source.slice(start) : source.slice(start, next);
+}
 const terminalContainerSource = readFileSync(
   new URL('../../src/components/Terminal/TerminalContainer.tsx', import.meta.url),
   'utf8',
@@ -88,9 +105,7 @@ function invokeTerminalViewRestoreAdapter(
 }
 
 test('TerminalView allows screen repair readiness while visible output recovery barrier is active', () => {
-  const readinessIndex = source.indexOf('const getScreenRepairReadiness = useCallback');
-  assert.notEqual(readinessIndex, -1);
-  const readinessChunk = source.slice(readinessIndex, readinessIndex + 1300);
+  const readinessChunk = declarationBody('getScreenRepairReadiness');
 
   assert.match(readinessChunk, /transportBarrierReasonRef\.current !== 'visible-output-recovery'/);
   assert.match(readinessChunk, /reason: 'input-active'/);
@@ -101,9 +116,7 @@ test('TerminalView uses runtime terminal limits for input queue budget and TTL',
   assert.doesNotMatch(source, /INPUT_QUEUE_BYTE_BUDGET/);
   assert.doesNotMatch(source, /INPUT_QUEUE_TTL_MS/);
 
-  const expireIndex = source.indexOf('const expirePendingInputQueue = useCallback');
-  assert.notEqual(expireIndex, -1);
-  const expireChunk = source.slice(expireIndex, expireIndex + 850);
+  const expireChunk = declarationBody('expirePendingInputQueue');
   assert.match(expireChunk, /inputQueueTtlMs/);
   // #109: the comparison moved into shouldExpirePendingInput, which knows about the barrier.
   // A wall-clock TTL alone dropped every character typed during a ten-second restore.
@@ -111,9 +124,7 @@ test('TerminalView uses runtime terminal limits for input queue budget and TTL',
   assert.match(expireChunk, /shouldExpirePendingInput/);
   assert.match(expireChunk, /barrierActive/);
 
-  const enqueueIndex = source.indexOf('const enqueuePendingInput = useCallback');
-  assert.notEqual(enqueueIndex, -1);
-  const enqueueChunk = source.slice(enqueueIndex, enqueueIndex + 2200);
+  const enqueueChunk = declarationBody('enqueuePendingInput');
   assert.match(enqueueChunk, /inputQueueMaxBytes/);
   assert.match(enqueueChunk, /queuedByteBudget: inputQueueMaxBytes/);
 });
@@ -127,9 +138,7 @@ test('TerminalView uses runtime-configured input queue limits', () => {
 test('TerminalView visible output scheduler uses cached runtime output limits', () => {
   assert.match(source, /getCachedTerminalOutputResourceLimits/);
 
-  const schedulerIndex = source.indexOf('const getOutputScheduler = useCallback');
-  assert.notEqual(schedulerIndex, -1);
-  const schedulerChunk = source.slice(schedulerIndex, schedulerIndex + 1400);
+  const schedulerChunk = declarationBody('getOutputScheduler');
   assert.match(schedulerChunk, /getCachedTerminalOutputResourceLimits\(\)/);
   assert.doesNotMatch(schedulerChunk, /getTerminalResourceLimits\(\)/);
 });

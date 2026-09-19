@@ -599,6 +599,36 @@ export async function sendVisibleTerminalCommand(page: Page, command: string): P
     const active = document.activeElement;
     return active instanceof HTMLTextAreaElement && active.classList.contains('xterm-helper-textarea');
   }, undefined, { timeout: 10000 });
+  // Focus is not readiness. Measured 2026-09-19 against https://localhost:2222: on a freshly
+  // attached session the input gate sat at `restore-pending` for 4.3 seconds while the shell
+  // started, and the pending-input TTL is 1500ms -- so a command typed the moment the terminal
+  // element appeared had its Enter dropped as `timeout-enter-safety` at 1505ms and its five
+  // remaining characters dropped as `timeout` at 4331ms, the instant the gate finally opened.
+  // Nothing reached the shell, and the failure read as "the agent never started".
+  //
+  // This is the product behaving as designed -- queue mode holds input for a bounded time and
+  // then discards it rather than injecting stale keystrokes into a shell that has since come
+  // alive -- so the test has to do what a user does and wait for the terminal to be ready.
+  await waitForTerminalInputReady(page);
   await page.keyboard.type(command);
   await page.keyboard.press('Enter');
+}
+
+/**
+ * Waits until the terminal will actually accept input. Falls through after the timeout rather
+ * than throwing, so a caller on a build without the debug hook behaves as it did before.
+ */
+export async function waitForTerminalInputReady(page: Page, timeout = 30000): Promise<boolean> {
+  const sessionId = await getActiveSessionId(page);
+  if (!sessionId) return false;
+  try {
+    await page.waitForFunction(
+      (id) => window.__buildergateTerminalDebug?.readInputGateSnapshot?.(id)?.inputReady === true,
+      sessionId,
+      { timeout },
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }

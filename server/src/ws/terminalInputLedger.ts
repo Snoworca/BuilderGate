@@ -24,7 +24,7 @@
  *   be visible rather than assumed.
  */
 
-export type TerminalInputOutcome = 'admitted' | 'duplicate' | 'unidentified';
+export type TerminalInputOutcome = 'admitted' | 'duplicate' | 'expired' | 'unidentified';
 
 export interface TerminalInputAdmission {
   /** Whether the caller should write this input to the PTY. */
@@ -44,8 +44,11 @@ export interface TerminalInputAdmissionRequest extends TerminalInputLedgerKey {
 export interface TerminalInputLedgerStats {
   /** Operation ids currently remembered. Bounded by maxOperationsPerSession. */
   tracked: number;
+  /** Evicted operation ids still remembered as having happened. Bounded the same way. */
+  expiredTracked: number;
   admitted: number;
   duplicates: number;
+  expired: number;
   unidentified: number;
 }
 
@@ -71,8 +74,20 @@ const DEFAULT_MAX_OPERATIONS_PER_SESSION = 512;
 interface LedgerEntry {
   /** Insertion-ordered, so the oldest remembered operation is evicted first. */
   operations: Set<string>;
+  /**
+   * Operations evicted from `operations`, remembered only as "this happened".
+   *
+   * #18: without this set, eviction turned the ledger inside out. An operation that had
+   * already been written to the PTY, once evicted, was re-admitted on retry and executed a
+   * second time -- the precise failure the ledger exists to prevent, reached by the mechanism
+   * that was supposed to bound it. Forgetting that an operation was applied must not read as
+   * "it never happened"; it reads as "it happened and I can no longer prove the result", which
+   * is a refusal, not an admission.
+   */
+  expiredOperations: Set<string>;
   admitted: number;
   duplicates: number;
+  expired: number;
   unidentified: number;
 }
 
@@ -95,7 +110,14 @@ export function createTerminalInputLedger(
     }
     let entry = sessions.get(key.sessionId);
     if (!entry) {
-      entry = { operations: new Set(), admitted: 0, duplicates: 0, unidentified: 0 };
+      entry = {
+        operations: new Set(),
+        expiredOperations: new Set(),
+        admitted: 0,
+        duplicates: 0,
+        expired: 0,
+        unidentified: 0,
+      };
       sessions.set(key.sessionId, entry);
     }
     return entry;
@@ -115,11 +137,27 @@ export function createTerminalInputLedger(
         return { write: false, outcome: 'duplicate' };
       }
 
+      if (entry.expiredOperations.has(request.operationId)) {
+        entry.expired += 1;
+        return { write: false, outcome: 'expired' };
+      }
+
       entry.operations.add(request.operationId);
       if (entry.operations.size > maxOperations) {
         const oldest = entry.operations.values().next();
         if (!oldest.done) {
           entry.operations.delete(oldest.value);
+          entry.expiredOperations.add(oldest.value);
+          if (entry.expiredOperations.size > maxOperations) {
+            // The tombstone set is bounded too, so an operation old enough to fall out of
+            // both is admitted again. That window is the honest limit of this design and is
+            // recorded rather than hidden: it takes 2 * maxOperationsPerSession further
+            // operations on one connection before a retry can re-execute.
+            const oldestTombstone = entry.expiredOperations.values().next();
+            if (!oldestTombstone.done) {
+              entry.expiredOperations.delete(oldestTombstone.value);
+            }
+          }
         }
       }
       entry.admitted += 1;
@@ -152,8 +190,10 @@ export function createTerminalInputLedger(
       const entry = epochs.get(key.connectionEpoch)?.get(key.sessionId);
       return {
         tracked: entry?.operations.size ?? 0,
+        expiredTracked: entry?.expiredOperations.size ?? 0,
         admitted: entry?.admitted ?? 0,
         duplicates: entry?.duplicates ?? 0,
+        expired: entry?.expired ?? 0,
         unidentified: entry?.unidentified ?? 0,
       };
     },

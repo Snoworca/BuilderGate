@@ -68,6 +68,7 @@ import {
   TerminalInputSequencer,
   type SequencedTerminalInput,
 } from '../../utils/terminalInputSequencer';
+import { buildTerminalInputOperationId } from '../../utils/terminalInputOperationId';
 import { resolveStaleSocketReconnectDecision } from '../../utils/terminalTransportQueueDecision';
 import type {
   InputDebugMetadata,
@@ -299,6 +300,8 @@ export const TerminalContainer = memo(
     const transportOutboxExpiryTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
     const deliverSequencedInputRef = useRef<(input: SequencedTerminalInput, reason: string) => void>(() => {});
     const inputSequencerRef = useRef<TerminalInputSequencer | null>(null);
+    // Bumped with every sequencer reset so a restarted sequence cannot reuse an operation id.
+    const inputSequencerEpochRef = useRef(1);
     const reconnectStartedAtRef = useRef<number | null>(null);
     const reconnectTtlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const {
@@ -891,6 +894,11 @@ export const TerminalContainer = memo(
     ): SendResult => {
       const debugInput = resolveInputDebugPayload(input.data, input.metadata, sessionId);
       const metadata = input.metadata ?? buildClientInputDebugMetadata(debugInput.details);
+      const inputOperationId = buildTerminalInputOperationId({
+        sequencerEpoch: inputSequencerEpochRef.current,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+      });
       const result = send({
         type: 'input',
         sessionId,
@@ -898,11 +906,13 @@ export const TerminalContainer = memo(
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
         metadata,
+        ...(inputOperationId === null ? {} : { inputOperationId }),
       });
 
       if (result.ok) {
         recordTerminalDebugEvent(sessionId, 'ws_input_sent', {
           ...debugInput.details,
+          inputOperationId: inputOperationId ?? 'none',
           inputSeqStart: input.inputSeqStart,
           inputSeqEnd: input.inputSeqEnd,
           logicalChunkCount: input.logicalChunkCount,
@@ -1168,6 +1178,7 @@ export const TerminalContainer = memo(
       lastSentResizeRef.current = null;
       lastStatusRef.current = null;
       inputSequencerRef.current?.reset(1);
+      inputSequencerEpochRef.current += 1;
       supersededVisibleOutputResyncKeysRef.current.clear();
       visibleOutputResyncEpochRef.current += 1;
       visibleOutputMutationFenceRef.current?.invalidateSpeculative();
