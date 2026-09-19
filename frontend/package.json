@@ -24,7 +24,7 @@
     "test:e2e:issue34-raise": "playwright test --config playwright.issue34-raise.config.ts --project \"Desktop Chrome\"",
     "postinstall": "patch-package",
     "preview": "vite preview",
-    "test:unit:terminal-view-behavior": "tsx --tsconfig tsconfig.test.json --experimental-test-module-mocks --import ./tests/unit/assetStubLoader-register.mjs --test tests/unit/terminalViewKeyboardBehavior.test.ts tests/unit/terminalSavedSelectionDivergence.test.ts tests/unit/terminalPasteUnifiedPath.test.ts"
+    "test:unit:terminal-view-behavior": "tsx --tsconfig tsconfig.test.json --experimental-test-module-mocks --import ./tests/unit/assetStubLoader-register.mjs --test tests/unit/terminalViewKeyboardBehavior.test.ts tests/unit/terminalSavedSelectionDivergence.test.ts tests/unit/terminalPasteUnifiedPath.test.ts tests/unit/terminalPasteUnifiedPath.test.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
