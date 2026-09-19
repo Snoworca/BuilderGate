@@ -292,22 +292,12 @@ test.describe('issue #16 item 6 — old retained lines stay selectable across a 
     try {
       await produceHistory(page, session);
       const before = await settledFingerprints(page, session);
-      // NON-VACUITY FLOOR, asserted HERE and not only in the 'setup control'
-      // test above. That control runs on a different page and a different
-      // workspace, so it cannot vouch for this run. Without this line the
-      // cell-identity half below can silently degrade into a claim about a
-      // single viewport line -- the cheapest thing that satisfies
-      // "the oldest line survived" is a buffer that never grew past the
-      // viewport at all, in which case nothing was retained and nothing was
-      // tested. Measured: the repo has been bitten by this shape three times
-      // (normalLength > floor satisfied by new output with nothing restored;
-      // hasSelection() true while getSelection() was empty; overlap > 0
-      // satisfied by one coincidentally identical blank line).
       expect(
         before.length,
-        'issue #16 item 6: this contract test needs a genuinely RETAINED range of its own before '
-        + 'the reload. Below the floor the surviving-line assertion could be satisfied by a '
-        + 'viewport line, so it would pass while measuring nothing.',
+        'issue #16 item 6: this test must start from a filled retained range. Without this the '
+        + 'cell-identity assertion below silently degrades into a claim about a viewport line that '
+        + 'never left the screen — the floor in the setup control test runs on a different page and '
+        + 'workspace and cannot vouch for this run.',
       ).toBeGreaterThan(RETAINED_RANGE_FLOOR);
       // The oldest retained line. A partial restore drops the far end of the
       // scrollback first, so this is the one a length-based check is least
