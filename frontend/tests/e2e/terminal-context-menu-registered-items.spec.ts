@@ -376,6 +376,8 @@ test.describe('Terminal context menu registered item paste', () => {
 
     const sessionId = await getActiveSessionId(page);
     test.skip(!sessionId, 'Need an active session');
+    // test.skip throws when its condition holds, which TypeScript cannot see.
+    if (sessionId === null) throw new Error('unreachable: test.skip already bailed');
 
     const warnings: string[] = [];
     page.on('console', message => {

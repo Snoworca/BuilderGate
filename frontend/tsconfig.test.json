@@ -56,6 +56,7 @@
     "tests/unit/workspaceOwnershipExternalConfig.test.ts",
     "tests/unit/workspaceOwnershipValidationControl.test.ts",
     "tests/unit/e2eOwnershipTypecheck.test.ts",
+    "tests/unit/e2eSpecTsconfigMembership.test.ts",
     "tests/unit/binaryFrameCodec.test.ts",
     "tests/unit/binaryFrameIntake.test.ts",
     "tests/unit/binaryFrameIntakeWiring.test.ts",

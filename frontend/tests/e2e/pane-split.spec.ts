@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, waitForTerminal, rightClickPane, selectMenuItem, getPaneCount, verifyPaneCount, dragResizer } from './helpers';
+import { login, waitForTerminal, rightClickPane, selectMenuItem, verifyPaneCount, dragResizer } from './helpers';
 
 test.describe('Pane Split System', () => {
   test.beforeEach(async ({ page }) => {

@@ -212,7 +212,11 @@ export async function openAc6BrowserAckProbe(page: Page): Promise<Ac6Probe> {
               return;
             }
             cleanup();
-            resolve(frame as AckRejectedFrame);
+            // `type`, `sessionId`, `connectionEpoch`, `deliverySeq` and
+            // `reason` were each compared against the probe above, which
+            // is every field of AckRejectedFrame; `parse` still returns a
+            // loose record, so the widening step is needed to say it.
+            resolve(frame as unknown as AckRejectedFrame);
           };
           probe.socket.addEventListener('message', onMessage);
           probe.socket.addEventListener('error', onError);

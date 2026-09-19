@@ -35,6 +35,40 @@
     "tests/e2e/wave3-terminal-authority-fairness.spec.ts",
     "tests/e2e/workspace-ownership-validation.spec.ts",
     "tests/e2e/issue34-capacity-ratify.spec.ts",
-    "tests/e2e/issue34-capacity-raise.spec.ts"
+    "tests/e2e/issue34-capacity-raise.spec.ts",
+
+    // Issue #115: these 26 arrived together. Until then they were in no
+    // tsconfig at all, so `tsc -p` exiting 0 was a statement about the other
+    // 22 and said nothing about these. Registering them turned up 42 real
+    // type errors across 13 files, including four specs that each carried a
+    // different narrowed copy of the same `declare global`. Membership is now
+    // enforced by tests/unit/e2eSpecTsconfigMembership.test.ts — a new spec
+    // that nobody lists is red, not invisible.
+    "tests/e2e/auth-bootstrap.spec.ts",
+    "tests/e2e/command-management-dialog.spec.ts",
+    "tests/e2e/input-discard-feedback.spec.ts",
+    "tests/e2e/markdown-editor-appearance.spec.ts",
+    "tests/e2e/markdown-editor-entry.spec.ts",
+    "tests/e2e/markdown-editor-lifecycle.spec.ts",
+    "tests/e2e/markdown-editor-modal-regression.spec.ts",
+    "tests/e2e/markdown-editor-persistence.spec.ts",
+    "tests/e2e/markdown-editor-placement.spec.ts",
+    "tests/e2e/markdown-editor-save.spec.ts",
+    "tests/e2e/mcp-control-dialog.spec.ts",
+    "tests/e2e/pane-keyboard.spec.ts",
+    "tests/e2e/pane-persistence.spec.ts",
+    "tests/e2e/pane-split.spec.ts",
+    "tests/e2e/perf-bgstab-010-ac6-server-ack-fault.spec.ts",
+    "tests/e2e/perf-bgstab-010-ac9-isolated.spec.ts",
+    "tests/e2e/recovery-options.spec.ts",
+    "tests/e2e/session-env-isolation.spec.ts",
+    "tests/e2e/settings-2fa-qr.spec.ts",
+    "tests/e2e/settings-password-policy.spec.ts",
+    "tests/e2e/settings-resource-limits.spec.ts",
+    "tests/e2e/terminal-context-menu-registered-items.spec.ts",
+    "tests/e2e/terminal-paste.spec.ts",
+    "tests/e2e/terminal-right-click-policy.spec.ts",
+    "tests/e2e/wave1-split-characterization.spec.ts",
+    "tests/e2e/wave2-terminal-restore.spec.ts"
   ]
 }

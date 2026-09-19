@@ -220,8 +220,20 @@ test.describe('Settings password policy', () => {
     await saveButton.click();
     await expect(page.locator('.settings-banner-success')).toContainText('next login 1');
 
-    expect(submittedPatch?.auth?.currentPassword).toBe('1234');
-    expect(submittedPatch?.auth?.newPassword).toBe(maxLengthPassword);
-    expect(submittedPatch?.auth?.confirmPassword).toBe(maxLengthPassword);
+    // The mock's callback is the only writer, and TypeScript's flow analysis
+    // does not enter it, so `submittedPatch` is still narrowed to its `null`
+    // initializer here. Read it back at its declared type.
+    // An annotation cannot undo this: TypeScript intersects the declared type
+    // with the narrowed initializer, so the const would be `never` too.
+    const captured = submittedPatch as unknown as {
+      auth?: {
+        currentPassword?: string;
+        newPassword?: string;
+        confirmPassword?: string;
+      };
+    } | null;
+    expect(captured?.auth?.currentPassword).toBe('1234');
+    expect(captured?.auth?.newPassword).toBe(maxLengthPassword);
+    expect(captured?.auth?.confirmPassword).toBe(maxLengthPassword);
   });
 });

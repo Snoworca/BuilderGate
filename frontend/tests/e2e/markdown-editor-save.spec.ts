@@ -28,22 +28,18 @@ import { type Locator, type Page } from '@playwright/test';
 import { login } from './helpers';
 import { test, expect, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
 
-declare global {
-  interface Window {
-    __buildergateEditorWindowDebug?: {
-      readTerminalHost(tabId: string): {
-        isVisible: boolean;
-        rect: { left: number; top: number; width: number; height: number };
-      } | undefined;
-      readEditorProbe(filePath: string): {
-        documentId: string;
-        markdownSource: string;
-        extensionsToken: number;
-      } | undefined;
-      setEditorReadOnly(filePath: string, readOnly: boolean): boolean;
-    };
-  }
-}
+/**
+ * The authoritative declaration of `window.__buildergateEditorWindowDebug` lives
+ * beside the code that installs it, in src/components/editor/EditorWindowLayer.tsx,
+ * and reaches this spec through the `"include": ["src"]` of tsconfig.test.json.
+ *
+ * Issue #115: this spec used to carry its own narrowed copy. Four specs each had
+ * one, all different, and none of them was ever compiled next to another — the
+ * specs were in no tsconfig at all. Registering them put the copies in one
+ * program, where they are TS2717 conflicts. A narrowed copy of a global is the
+ * same defect the tsconfig comment warns about: it type-checks against a shape
+ * that is not the one production installs.
+ */
 
 const TAB_NAME_PREFIX = 'e2e-mde-save';
 const FILE_BODY = '# save fixture\n\nalpha\n';
@@ -155,29 +151,6 @@ async function killSession(page: Page, sessionId: string): Promise<void> {
 }
 
 /**
- * A workspace of this spec's own, for the one scenario that has to empty a
- * workspace of tabs. Doing that to the shared one would destroy whatever
- * another spec left there, and nothing in this file could put it back. The run
- * teardown removes workspaces created during the run.
- */
-async function createOwnWorkspace(page: Page, name: string): Promise<string> {
-  return page.evaluate(async (name) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const res = await fetch('/api/workspaces', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) throw new Error(`workspace create failed: ${res.status}`);
-    const workspace = await res.json();
-    return (workspace.id ?? workspace.workspace?.id) as string;
-  }, name);
-}
-
-/**
  * Creates a workspace and answers with its id.
  *
  * Owned by this spec: only ids that came back from a successful create are
@@ -224,25 +197,10 @@ async function selectWorkspace(page: Page, name: string): Promise<void> {
     .toBeVisible({ timeout: 15000 });
 }
 
-async function listTabIds(page: Page, workspaceId: string): Promise<string[]> {
-  return page.evaluate(async (workspaceId) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const res = await fetch('/api/workspaces', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) return [];
-    const state = await res.json();
-    return state.tabs
-      .filter((tab: { workspaceId?: string }) =>
-        tab.workspaceId === undefined || tab.workspaceId === workspaceId)
-      .map((tab: { id: string }) => tab.id) as string[];
-  }, workspaceId);
-}
-
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   await page.evaluate(async ({ workspaceId, prefix }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/workspaces', { headers });
     if (!res.ok) return;
     const state = await res.json();

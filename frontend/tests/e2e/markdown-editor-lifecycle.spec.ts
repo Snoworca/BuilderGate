@@ -29,25 +29,18 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 
 import { login } from './helpers';
 
-declare global {
-  interface Window {
-    __buildergateEditorWindowDebug?: {
-      readTerminalHost(tabId: string): {
-        isVisible: boolean;
-        rect: { left: number; top: number; width: number; height: number };
-      } | undefined;
-      /** The props a mounted editor window is passing to the editor. */
-      readEditorProbe(filePath: string): {
-        documentId: string;
-        markdownSource: string;
-        /** One number per `extensions` array object. Equal means identical. */
-        extensionsToken: number;
-      } | undefined;
-      /** Drives the editor handle the window holds. Returns false if unknown. */
-      setEditorReadOnly(filePath: string, readOnly: boolean): boolean;
-    };
-  }
-}
+/**
+ * The authoritative declaration of `window.__buildergateEditorWindowDebug` lives
+ * beside the code that installs it, in src/components/editor/EditorWindowLayer.tsx,
+ * and reaches this spec through the `"include": ["src"]` of tsconfig.test.json.
+ *
+ * Issue #115: this spec used to carry its own narrowed copy. Four specs each had
+ * one, all different, and none of them was ever compiled next to another — the
+ * specs were in no tsconfig at all. Registering them put the copies in one
+ * program, where they are TS2717 conflicts. A narrowed copy of a global is the
+ * same defect the tsconfig comment warns about: it type-checks against a shape
+ * that is not the one production installs.
+ */
 
 const TAB_NAME_PREFIX = 'e2e-mde-life';
 
@@ -119,7 +112,7 @@ async function addTabAt(page: Page, workspaceId: string, cwd: string, name: stri
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   await page.evaluate(async ({ workspaceId, prefix }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/workspaces', { headers });
     if (!res.ok) return;
     const state = await res.json();
@@ -169,7 +162,7 @@ async function restartTab(page: Page, workspaceId: string, tabId: string): Promi
 async function readFileViaApi(page: Page, tabId: string, filePath: string): Promise<string> {
   return page.evaluate(async ({ tabId, filePath }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const state = await (await fetch('/api/workspaces', { headers })).json();
     const tab = state.tabs.find((item: { id: string }) => item.id === tabId);
     const res = await fetch(
@@ -227,17 +220,6 @@ function editorWindow(page: Page): Locator {
 function editorPanelFor(page: Page, fileName: string): Locator {
   return page.locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
 }
-
-/** The tab row of the one editor window. */
-function editorTabs(page: Page): Locator {
-  return page.locator('.editor-window-surface .editor-tab-label');
-}
-
-/** One tab of that row, by the file it holds. */
-function editorTabFor(page: Page, fileName: string): Locator {
-  return editorTabs(page).filter({ hasText: fileName }).first();
-}
-
 
 /**
  * The editor of one document, found by the panel that holds it.

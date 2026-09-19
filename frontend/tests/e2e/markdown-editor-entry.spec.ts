@@ -176,7 +176,7 @@ async function addTabAt(page: Page, workspaceId: string, cwd: string, name: stri
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   await page.evaluate(async ({ workspaceId, prefix }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/workspaces', { headers });
     if (!res.ok) return;
     const state = await res.json();
@@ -235,18 +235,6 @@ function editorWindow(page: Page): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface');
 }
 
-/**
- * The panel holding one document, found by the path it carries.
- *
- * Not by the window title: one window holds every open document, and its title
- * names only the active tab -- a search through the window would match every
- * open editor at once. The match is on the path's tail so a caller can name a
- * file without spelling out the temporary directory it sits in.
- */
-function editorPanelFor(page: Page, fileName: string): Locator {
-  return page.locator(`.editor-document-panel[data-document-id$="${fileName}"]`);
-}
-
 /** The tab row of the one editor window. */
 function editorTabs(page: Page): Locator {
   return page.locator('.editor-window-surface .editor-tab-label');
@@ -255,30 +243,6 @@ function editorTabs(page: Page): Locator {
 /** One tab of that row, by the file it holds. */
 function editorTabFor(page: Page, fileName: string): Locator {
   return editorTabs(page).filter({ hasText: fileName }).first();
-}
-
-/**
- * The stacking value the modeless layer paints with. `windowDialogModel` derives
- * it from the entry's index in its stack, so a raise is visible here as a change
- * in the order of two numbers -- which is what "raised to the front" means.
- */
-async function layerZOf(page: Page, fileName: string): Promise<number> {
-  const layer = page.locator('.window-dialog-layer-modeless').filter({
-    has: page.locator('.editor-window-surface .window-dialog-title').getByText(fileName, { exact: true }),
-  }).first();
-  return layer.evaluate(element => Number.parseInt(getComputedStyle(element).zIndex, 10));
-}
-
-/**
- * How far `front` is in front of `back`, taken from one moment.
- *
- * Raising reindexes the whole stack, so both windows' z-index move together and
- * the highest value in a two-window stack is the same number before and after.
- * A comparison that read one side before the press would be waiting for the
- * other to exceed a value the stack no longer holds -- a wait nothing can end.
- */
-async function zLead(page: Page, front: string, back: string): Promise<number> {
-  return (await layerZOf(page, front)) - (await layerZOf(page, back));
 }
 
 test.describe('FR-MDE-007 session path context menu entry point', () => {

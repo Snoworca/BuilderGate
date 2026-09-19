@@ -33,19 +33,21 @@ import { type Locator, type Page } from '@playwright/test';
 import { login } from './helpers';
 import { test, expect, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
 
+/**
+ * The authoritative declaration of `window.__buildergateEditorWindowDebug` lives
+ * beside the code that installs it, in src/components/editor/EditorWindowLayer.tsx,
+ * and reaches this spec through the `"include": ["src"]` of tsconfig.test.json.
+ *
+ * Issue #115: this spec used to carry its own narrowed copy. Four specs each had
+ * one, all different, and none of them was ever compiled next to another — the
+ * specs were in no tsconfig at all. Registering them put the copies in one
+ * program, where they are TS2717 conflicts. A narrowed copy of a global is the
+ * same defect the tsconfig comment warns about: it type-checks against a shape
+ * that is not the one production installs.
+ */
+
 declare global {
   interface Window {
-    __buildergateEditorWindowDebug?: {
-      readTerminalHost(tabId: string): {
-        isVisible: boolean;
-        rect: { left: number; top: number; width: number; height: number };
-      } | undefined;
-      readEditorProbe(filePath: string): {
-        documentId: string;
-        markdownSource: string;
-        extensionsToken: number;
-      } | undefined;
-    };
     /** Keys this page read from `localStorage` since the recorder was armed. */
     __persistenceSpecReads?: string[];
   }
@@ -149,7 +151,7 @@ async function createWorkspace(page: Page, name: string): Promise<string> {
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   await page.evaluate(async ({ workspaceId, prefix }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/workspaces', { headers });
     if (!res.ok) return;
     const state = await res.json();
@@ -345,7 +347,7 @@ async function readEditorProbe(page: Page, filePath: string): Promise<
  * zero one. The computed value is the fallback for the render where react-rnd
  * has put the size in a stylesheet rule rather than inline.
  */
-async function editorFrameSize(page: Page, fileName: string): Promise<
+async function editorFrameSize(page: Page): Promise<
   { width: number; height: number } | null
 > {
   return editorWindow(page).first().evaluate((surface) => {
@@ -378,8 +380,8 @@ async function editorBodyText(page: Page, fileName: string): Promise<string> {
   return (await content.textContent()) ?? '';
 }
 
-/** Types into the window open on `fileName`, leaving the document unsaved. */
-async function typeIntoEditor(page: Page, fileName: string, text: string): Promise<void> {
+/** Types into the open editor window, leaving the document unsaved. */
+async function typeIntoEditor(page: Page, text: string): Promise<void> {
   const surface = editorWindow(page).first();
   await surface.locator('.cm-content').first().click();
   await page.keyboard.type(text);
@@ -452,7 +454,7 @@ test.describe('markdown editor persistence', () => {
 
     // And it carries a real rect rather than the zero-size surface a withheld
     // placement would leave.
-    const deferredSize = await editorFrameSize(page, 'CLAUDE.md');
+    const deferredSize = await editorFrameSize(page);
     expect(deferredSize).not.toBeNull();
     expect(deferredSize!.width).toBeGreaterThan(0);
     expect(deferredSize!.height).toBeGreaterThan(0);
@@ -495,7 +497,7 @@ test.describe('markdown editor persistence', () => {
     const filePath = `${cwd.replace(/[\\/]+$/, '')}${cwd.includes('\\') ? '\\' : '/'}CLAUDE.md`;
 
     const unsaved = 'AC6-UNSAVED-SENTINEL';
-    await typeIntoEditor(page, 'CLAUDE.md', unsaved);
+    await typeIntoEditor(page, unsaved);
     await expect.poll(
       async () => editorBodyText(page, 'CLAUDE.md'),
       { timeout: 15000, message: 'the typed text never reached the editor' },
