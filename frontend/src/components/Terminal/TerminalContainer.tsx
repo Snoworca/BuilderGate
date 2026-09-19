@@ -1217,12 +1217,19 @@ export const TerminalContainer = memo(
       recordTerminalDebugEvent(sessionId, 'visibility_changed', {
         visible: isVisible,
       });
+      // #110: this used to be `isVisible && isGridSurface`, and isGridSurface is
+      // `host.className.includes('grid-cell')` -- a presentation detail kept for middle-click
+      // paste. Terminals in the workspace tab surface are not grid cells, so every one of them
+      // reported itself permanently invisible and the server withheld their output. Measured
+      // 2026-09-19: every visibility message in a whole run was {isVisible:false, generation:1},
+      // and `true` was never sent. isVisible already means displayed with non-zero area, which
+      // is exactly what delivery interest asks.
       publishTerminalDeliveryVisibility({
         sessionId,
-        isVisible: isVisible && isGridSurface,
+        isVisible,
         deliveryInterestRefCount: 1,
       });
-    }, [isGridSurface, isVisible, publishTerminalDeliveryVisibility, sessionId]);
+    }, [isVisible, publishTerminalDeliveryVisibility, sessionId]);
 
     const sendResizeIfNeeded = useCallback((cols: number, rows: number, reason: string) => {
       const lastSent = lastSentResizeRef.current;

@@ -158,9 +158,29 @@ async function readTabStatuses(page: Page, workspaceId: string): Promise<string[
  * "press enter to continue" or "press enter to confirm", so Enter is both what a user presses
  * and the one key that does not depend on the option order of a particular codex version.
  */
+function codexHasDecided(text: string): boolean {
+  return text.includes('OpenAI Codex') || /press enter to (continue|confirm)/i.test(text);
+}
+
 async function dismissCodexStartupPrompts(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    const text = await readVisibleTerminalText(page);
+    let text = await readVisibleTerminalText(page);
+    if (!codexHasDecided(text)) {
+      // #110 follow-up. This used to sample once and return the moment the screen showed
+      // neither the banner nor a prompt -- which is exactly codex's state for the first second
+      // after launch, and between one prompt and the next. Measured 2026-09-19: the helper
+      // returned having pressed nothing, and the outer poll then failed 60s later with the
+      // update notice still on screen. Not a focus problem: an Enter that landed without focus
+      // would have failed the "did not respond to Enter" poll below, and that never fired.
+      const decided = await expect.poll(
+        async () => {
+          text = await readVisibleTerminalText(page);
+          return codexHasDecided(text);
+        },
+        { timeout: 15000, message: 'codex printed neither its banner nor a startup prompt' },
+      ).toBe(true).then(() => true, () => false);
+      if (!decided) return;
+    }
     if (text.includes('OpenAI Codex')) return;
     if (!/press enter to (continue|confirm)/i.test(text)) return;
     await page.keyboard.press('Enter');

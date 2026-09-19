@@ -992,6 +992,9 @@ export type ReplayEventKind =
   // #110: a legacy-audience chunk withheld because the checkpoint authority path already
   // delivered it to this view. Recorded rather than dropped in silence.
   | 'output_skipped_delivered_by_authority'
+  // #110: a chunk withheld because the client reported this view hidden. The data gap that
+  // replaces it is latched once, so without this the 2nd..Nth withheld chunk left no trace.
+  | 'output_withheld_view_hidden'
   | 'output_flushed'
   | 'ready_sent'
   | 'screen_repair_requested'

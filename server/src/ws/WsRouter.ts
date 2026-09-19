@@ -5419,6 +5419,18 @@ export class WsRouter {
         ? connectionFairScheduler
         : undefined;
       if (visibility && !visibility.isVisible && fairScheduler) {
+        // #110: the data gap below latches once, so every later chunk vanished without a trace.
+        // 8 of 10 chunks of a codex launch went this way and the only symptom was a blank
+        // terminal. Record each one.
+        this.recordReplayEvent({
+          kind: 'output_withheld_view_hidden',
+          sessionId,
+          details: {
+            outputBytes: utf8ByteLength(data),
+            visibilityGeneration: visibility.visibilityGenerationWire,
+            dataGapLatched: visibility.dataGapLatched,
+          },
+        });
         const connectionId = meta?.connectionId ?? meta?.clientId;
         const registration = connectionId && meta
           ? this.getTerminalAuthorityNegotiatedView(
