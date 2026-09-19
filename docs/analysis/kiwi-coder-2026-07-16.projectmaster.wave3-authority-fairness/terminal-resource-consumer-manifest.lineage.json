@@ -7,14 +7,14 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "8fb79f9aa6ca00ea91b58222a6fe4d7d90248bc5f52a9dc37b06c7d53095fafa",
+    "sha256": "d6c5e6bb15883be43cd499659db9085196e943e8389725523f9d8cbd60908b1d",
     "sourceCount": 42,
-    "sourceSetSha256": "92a13b9a424a8cf8e8457b12a96e0b8d72d3071f1fc3f82e67923dedd5c82858",
+    "sourceSetSha256": "fed85d601b1b64340b3ffae16b8bde275efe90f880977fc2f6e27d73b6db4d42",
     "exactConsumerTuples": 88,
     "classifications": 13
   },
   "semanticInventory": {
-    "sha256": "c28b8bbb9eaf24a88978015918bab5c4d32ffbce58de743b7f49d975488f4a9a",
+    "sha256": "671615b0183b31bee5abcfdec061afa5b1495ebd25a2d7a08a6cd10ba7c41147",
     "historicalEqualsCurrent": false,
     "divergence": {
       "reason": "evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source; REL-BGSTAB-023 registered resourceLimits.terminal.checkpointMaxBytes, adding one decision to browser.terminal.recovery-scheduler at the checkpoint-write-coordinator boundary; and REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage into terminalGraceBuffer#applyGraceBufferedMessage with an identical body, relocating the four visibleOutputQueueMaxBytes/visibleOutputMaxChunks grace tuples without changing any decision",
@@ -44,13 +44,15 @@
       },
       "classificationDrift": {
         "retired": [
-          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}"
+          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}",
+          "{\"path\":\"server/src/services/RuntimeConfigStore.ts\",\"classification\":\"policy-projection\",\"symbol\":\"getTerminalResourcePolicyObservation\",\"evidenceSignature\":\"getTerminalResourcePolicyObservation\",\"accessEvidenceSha256\":\"f98f45d38dbe49427b6c59b6f0817a7c702d9967b0e1195027e078cbb61aaaa6\",\"reason\":\"Projects effective values and evidence without claiming consumer application.\"}"
         ],
         "introduced": [
           "{\"path\":\"frontend/src/utils/terminalWriteCoordinator.ts\",\"classification\":\"uncatalogueable\",\"symbol\":\"createTerminalWriteCoordinator\",\"evidenceSignature\":\"options.checkpointMaxBytes\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"Bounds on checkpointMaxBytes and checkpointMaxChunks received as plain options, so the access traces to no trusted getter and resolves to no canonical key. All five evidenceRole values yield roles=undefined; no catalogue row can describe it. Cataloguing requires the AST matcher to resolve delegated parameters.\"}",
           "{\"path\":\"server/src/index.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"maxEntries: 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here caps MCP claim codes, not resourceLimits.snapshots.maxEntries. It is passed to McpToolService and never reaches a terminal resource decision.\"}",
-          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"149853555e33a671ec763309afb2000bd72a3e46a141d82b7c1eaea1f217f1d6\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}",
-          "{\"path\":\"server/src/services/McpToolService.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"options.maxEntries ?? 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here is this module's own claim-code ring bound, defaulted locally to 256 and unrelated to resourceLimits.snapshots.maxEntries.\"}"
+          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"7a7822e6c551e7925d142cb80242000d9a25aacb32206c133c18d3bd90feb2b7\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}",
+          "{\"path\":\"server/src/services/McpToolService.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"options.maxEntries ?? 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here is this module's own claim-code ring bound, defaulted locally to 256 and unrelated to resourceLimits.snapshots.maxEntries.\"}",
+          "{\"path\":\"server/src/services/RuntimeConfigStore.ts\",\"classification\":\"policy-projection\",\"symbol\":\"getTerminalResourcePolicyObservation\",\"evidenceSignature\":\"getTerminalResourcePolicyObservation\",\"accessEvidenceSha256\":\"78427023d0a139495e813d8d5fdde67f468708854da8eb7e93b527763c48b69c\",\"reason\":\"Projects effective values and evidence without claiming consumer application.\"}"
         ]
       },
       "relocatedEvidence": [
@@ -154,7 +156,7 @@
           ]
         }
       ],
-      "evidenceHashOnlyChangedTuples": 10
+      "evidenceHashOnlyChangedTuples": 12
     }
   },
   "currentSlice": {

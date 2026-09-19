@@ -25,7 +25,7 @@
     "sourceHashes": {
       "frontend/src/components/Settings/settingsDraftHelpers.ts": "e4ef966e1731f468f3bba1a6bcfa443bc0b991d65178a81413836da0f5c3e8a7",
       "frontend/src/components/Terminal/TerminalContainer.tsx": "9a48ec701129788c99b85ece2761686738806fad603011b28090bc67493cfcea",
-      "frontend/src/components/Terminal/TerminalView.tsx": "136a500f67aec1e68296ed1081098fe6d15db52854aacf12b891f92f9a7edbdd",
+      "frontend/src/components/Terminal/TerminalView.tsx": "883edcb499e8c6bbb2b59de9289af7bb16b681d93a1a0681298f1494f7dffabc",
       "frontend/src/contexts/WebSocketContext.tsx": "b3f34a3730492dec2ce01166727f3cb2119900b2babbadc4f366e5825a3253cf",
       "frontend/src/hooks/useTerminalRuntimeResidency.ts": "839519d4c6fb58e3069aa5a2aff4f94e44e58675cb0aa4d47ad13913f0e8c415",
       "frontend/src/services/tokenStorage.ts": "90241907e80a501e6cf423f8c26b97a3245291cccfada64f168798c4e93ed1d7",
@@ -37,36 +37,36 @@
       "frontend/src/utils/terminalHiddenOutput.ts": "1f0c3572f15df27e43bf736d93c5718a51ee6d366687a054b3b5f4ca35b31a6a",
       "frontend/src/utils/terminalOutputHotPath.ts": "d1e3b4cf4f66515fcee16ee2a2c9a74c2c6c14bf3396b1e1a18ce51fbc85c27b",
       "frontend/src/utils/terminalOutputScheduler.ts": "a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
-      "frontend/src/utils/terminalSnapshot.ts": "93d7a197da52ea9653e533c8f2eae28ef45363aeec613f2e344b9761f971d20c",
+      "frontend/src/utils/terminalSnapshot.ts": "b5621383c23e92932e8a8834a54575dae57ca538493bb5f4a084aa34371a5da6",
       "frontend/src/utils/terminalViewAttributes.ts": "125a6a9a1cad779aa11768e8948c6921bb1b1ef87466a060fb3d0dc78e82b304",
       "frontend/src/utils/terminalWriteCoordinator.ts": "e9cc89993d03388524a6bb3204290b41bbd5a44d04f6f566ac2d28f4cf8a69aa",
       "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855",
       "frontend/src/utils/webSocketBackpressure.ts": "6b1267425a009da86ed03cccfe8caa80520dcd65b82fff63ffe5e6886e132f29",
-      "server/src/index.ts": "08e34b31fa63f4a8d0575bf147609302d0d0e6ab61a2feb2e22ff59c7e159746",
+      "server/src/index.ts": "74ebf295223823de00f74b5b12428707c17992c3d8829bb17d8ba25c227ae7b1",
       "server/src/schemas/config.schema.ts": "1d7395955771bef2f464ca957403e57656136fde0503bebc2bad0d3d7506838a",
-      "server/src/services/ConfigFileRepository.ts": "70c66abb2c481b687ba541e2bfd1639cfd82c32c8d4c528ecd7f520e23ab7dc5",
+      "server/src/services/ConfigFileRepository.ts": "26c76728f01a3b2b913feb95bac5e131a328da0e8e99ef946963e7b44ceb3132",
       "server/src/services/McpToolService.ts": "cf8f8aa1538fdd1837ed96c74f08cbf73dc3b55ec4f516fc5970b37dbbbf24d9",
       "server/src/services/RuntimeConfigStore.test.ts": "43e862e2f3b9a0885ca850f834d1c30d999b1c1273e116ee242ba7eeadac341e",
-      "server/src/services/RuntimeConfigStore.ts": "c2ffeed66457c4f8cf9e79dd7d1efdc3738c0e04d1f026e4ca60373870fe528a",
-      "server/src/services/SessionManager.ts": "949eb17b41fe4b436a15d27da97b26e0382926573874db43ab06f15ee3c6b08d",
+      "server/src/services/RuntimeConfigStore.ts": "59345bed0746531c8166ac6230cb5c39a8c0a0b72873e6897aace912f4021628",
+      "server/src/services/SessionManager.ts": "48fd9fc580c521c88dbe386ae75a5c72e1530d378f8146d19878360ca700a34e",
       "server/src/services/SettingsService.ts": "d4549c65a296d25d7d94e41bae80739c9a444ea6d150610098c65a24815074da",
-      "server/src/services/TerminalAuthorityProductionAdapter.ts": "a1620ad20398680922002836c8043002fde05760dde390fa60bc9eeea0c25d50",
+      "server/src/services/TerminalAuthorityProductionAdapter.ts": "738965fcf503f8a64740e4e8e034c11ab718a3ecb26e8041761c16184f734cfe",
       "server/src/services/TerminalResourcePolicy.test.ts": "2a0a3226dda66d201a8fe1d28909d407774dbbf3fce1e0aed03be2b3ec1a9d91",
       "server/src/services/TerminalResourcePolicy.ts": "b3fae39fa863bc2d860f383cf910a629e260796ae7f5aaf2b741aaacc08f37df",
-      "server/src/services/TerminalResourcePolicyInventory.ts": "6688c363d9ac0869c7dd35c4cd5cc6641617046ecc21d1cd30c3e1df3b6ea65a",
+      "server/src/services/TerminalResourcePolicyInventory.ts": "fde3e82f164ca098c93a4d669dbce551ca56e1da616734f4de373f0b19baed37",
       "server/src/services/TerminalResourcePolicyObservations.ts": "b1aa326d315f98114b84af57ae1422bc1255187dbfc5d0427b718c97d223acc1",
       "server/src/types/config.types.ts": "2df049ba21a8ae2de32783aeac8b1f374f69c6d0dbc6117a1ac9c7db42062651",
       "server/src/types/settings.types.ts": "0df7e22096f5ffa83cb756a9ccd2afe3d200ae181bcd1bae4ebbea77de952877",
-      "server/src/utils/config.ts": "9e635112882563c2abbcdc6a265c0bc6f3ed9d1a830122390420e8beb29e85ff",
-      "server/src/utils/configStrictLoader.ts": "72c500c9ff2ee80b5a128d7b2e3fcf0635c04993dbe1f716dce22f0006f9614f",
+      "server/src/utils/config.ts": "4d45bfd80be67defca6d0d0199c86a4343c7b6b1c8fd2f63c721c33a5968a818",
+      "server/src/utils/configStrictLoader.ts": "a48552fc4963b921f32a73c75a010f5b6636bc39832c2e0e46ede371524fb2a2",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
       "server/src/utils/headlessTerminal.ts": "786aa5eed4f5a0f5827abaac3087832e0ecc152ac017b772acd29dbd38b8b2ef",
-      "server/src/ws/WsRouter.ts": "7faed512155c004dc51694dc0b8da1d1f03f8b7d71a4a7e092228c98b80efa0f",
+      "server/src/ws/WsRouter.ts": "3e9ea81d3075c8a6329e55498f704f864c00798de87dfab7f50e7d99660e2d51",
       "server/src/ws/wsSendPolicy.ts": "d8161ec40992dfaabc0285fa39d29299b933133931e5be05197eefa7fc258939",
-      "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "dfd7bc405e447b14d4909662a92cc45f44cdfe19e08f31624829b8400077b3fa",
+      "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "fd2ddb3243927cad1d5ce4daa7d985b6fa4fec73aea19aa933959eec622f38a5",
       "tools/wave3/terminal-resource-policy-differential.ts": "4e3037ede53b126b5c5dd117ba7d87426d9a8b81768492becf3c3f7b64d84f92"
     },
-    "sourceSetSha256": "92a13b9a424a8cf8e8457b12a96e0b8d72d3071f1fc3f82e67923dedd5c82858",
+    "sourceSetSha256": "fed85d601b1b64340b3ffae16b8bde275efe90f880977fc2f6e27d73b6db4d42",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "717db211ba52cf1c223a296dcda512a412011476d30fcaed18b4b503ea45ce6b",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"
@@ -1203,7 +1203,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "3a3dc790e15eab247e232ee749de2375f1ccb9fd87f5ea63cf2c14ec1a1ea5c7"
+      "evidenceAstSha256": "a97cbbd4206494797b6b4f9fc615454c50f3a9553f7440c7cbc9b9c9577e7b51"
     },
     {
       "evidenceRole": "object-option-flow",
@@ -1220,7 +1220,7 @@
       "schemaVersion": "terminal-resource-policy/v1",
       "profileVersion": "legacy-effective/v1",
       "legacyAliases": [],
-      "evidenceAstSha256": "1a4fa709090afc0f4c0f260d44798ad2d7552aef1cbb62a8e7d48932031ea15e"
+      "evidenceAstSha256": "5364c60007ccb681fc29b3af1f30388bb9e82e37edda202042b1f02f5a8583a4"
     },
     {
       "evidenceRole": "control-guard",
@@ -1602,7 +1602,7 @@
       "classification": "policy-projection",
       "symbol": "getTerminalResourcePolicyObservation",
       "evidenceSignature": "getTerminalResourcePolicyObservation",
-      "accessEvidenceSha256": "f98f45d38dbe49427b6c59b6f0817a7c702d9967b0e1195027e078cbb61aaaa6",
+      "accessEvidenceSha256": "78427023d0a139495e813d8d5fdde67f468708854da8eb7e93b527763c48b69c",
       "reason": "Projects effective values and evidence without claiming consumer application."
     },
     {
@@ -1618,7 +1618,7 @@
       "classification": "persistence-boundary",
       "symbol": "applyEditableValues",
       "evidenceSignature": "function applyEditableValues",
-      "accessEvidenceSha256": "149853555e33a671ec763309afb2000bd72a3e46a141d82b7c1eaea1f217f1d6",
+      "accessEvidenceSha256": "7a7822e6c551e7925d142cb80242000d9a25aacb32206c133c18d3bd90feb2b7",
       "reason": "Persists configuration; it is not a terminal runtime consumer."
     },
     {
