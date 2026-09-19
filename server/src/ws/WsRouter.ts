@@ -92,6 +92,8 @@ import {
   createSessionInputGateway,
   INPUT_REJECTED_REPLAY_PENDING,
   INPUT_REJECTED_ENTER_POLICY,
+  TARGET_SESSION_GONE,
+  TARGET_MUTATION_IDENTITY_STALE,
 } from '../services/SessionInputGateway.js';
 import type {
   TerminalResourcePolicyCanaryTarget,
@@ -4843,16 +4845,30 @@ export class WsRouter {
     retainedIdentity?: RetainedTerminalWireMutationIdentity;
   }, meta?: WsClientMeta): WebSocketInputGatewayResult {
     const gateway = createSessionInputGateway({
-      writeInput: (write) => this.sessionManager.writeInput(
-        String(write.sessionId ?? ''),
-        String(write.data ?? ''),
-        write.metadata as InputDebugMetadata | undefined,
-        {
-          inputSeqStart: typeof write.inputSeqStart === 'number' ? write.inputSeqStart : undefined,
-          inputSeqEnd: typeof write.inputSeqEnd === 'number' ? write.inputSeqEnd : undefined,
-        },
-        this.toRetainedTerminalMutationIdentity(meta, input.retainedIdentity),
-      ),
+      // #112: writeInputDetailed() (not the boolean writeInput()) so the gateway -- and from
+      // there mapSessionInputGatewayDenialToRejectedReason() -- can tell a dead session from a
+      // stale mutation identity instead of both arriving as a bare `false`.
+      writeInput: (write) => {
+        const detailed = this.sessionManager.writeInputDetailed(
+          String(write.sessionId ?? ''),
+          String(write.data ?? ''),
+          write.metadata as InputDebugMetadata | undefined,
+          {
+            inputSeqStart: typeof write.inputSeqStart === 'number' ? write.inputSeqStart : undefined,
+            inputSeqEnd: typeof write.inputSeqEnd === 'number' ? write.inputSeqEnd : undefined,
+          },
+          this.toRetainedTerminalMutationIdentity(meta, input.retainedIdentity),
+        );
+        if (detailed.ok) return true;
+        return {
+          ok: false,
+          code: detailed.denialReason === 'session-gone'
+            ? TARGET_SESSION_GONE
+            : detailed.denialReason === 'mutation-identity-stale'
+              ? TARGET_MUTATION_IDENTITY_STALE
+              : 'TARGET_NOT_LIVE',
+        };
+      },
       resolveTarget: () => this.resolveWebSocketGatewayTarget(input.sessionId),
       readReplayState: () => ({
         replayPending: meta?.replayPendingSessions.has(input.sessionId) === true,
@@ -4895,11 +4911,22 @@ export class WsRouter {
    * websocket path this method serves today (WsRouter always supplies a resolveTarget, and
    * evaluateEnterPolicy only fires for MCP/agent sources) -- mapped anyway so a future caller
    * of this same gateway does not fall back into the generic label by omission.
+   *
+   * #112 follow-up: TARGET_NOT_LIVE itself used to be the end of the trail -- re-measuring
+   * after the fix above still could not tell "the flood killed the session" from "the session
+   * is alive but this client's mutation identity went stale mid-flood" apart, because
+   * SessionManager.writeInput() collapsed both into the same `false`. writeInputDetailed()
+   * (see submitWebSocketInputThroughGateway below) now names which one happened, and these two
+   * cases carry that fact out to the wire instead of re-flattening it into target-not-live.
    */
   private mapSessionInputGatewayDenialToRejectedReason(code: unknown): InputRejectedReason {
     switch (code) {
       case INPUT_REJECTED_REPLAY_PENDING:
         return 'context-changed';
+      case TARGET_SESSION_GONE:
+        return 'target-session-gone';
+      case TARGET_MUTATION_IDENTITY_STALE:
+        return 'target-identity-stale';
       case 'TARGET_NOT_LIVE':
         return 'target-not-live';
       case 'TARGET_NOT_FOUND':

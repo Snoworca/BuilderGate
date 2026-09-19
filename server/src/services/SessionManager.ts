@@ -811,6 +811,19 @@ export interface RetainedTerminalMutationIdentity {
   leaseGeneration: string;
 }
 
+// #112: writeInput() used to collapse three different facts into one `false`. A flood
+// measurement (docs/analysis/2026-09-19.issue-112-flood-input-rejection/) could not tell
+// "the session is gone" from "the session is alive but this client's mutation identity is
+// stale" because both left the same boolean behind. writeInputDetailed() below names which
+// one happened; writeInput() stays a thin boolean wrapper so its ~50 existing callers are
+// unaffected.
+export type WriteInputDenialReason = 'session-gone' | 'mutation-identity-stale' | 'write-failed';
+
+export interface WriteInputDetailedResult {
+  ok: boolean;
+  denialReason?: WriteInputDenialReason;
+}
+
 interface RetainedTerminalAuthorityState {
   availability: 'available';
   mode: 'shadow' | 'disabled';
@@ -3461,6 +3474,9 @@ export class SessionManager {
     this.debugCaptureBySession.delete(sessionId);
   }
 
+  // #112: thin wrapper kept for the ~50 existing call sites (test-runner.ts, restore-path
+  // gateway) that only ever needed a boolean. New callers that must distinguish denial
+  // reasons should call writeInputDetailed() directly.
   writeInput(
     id: string,
     input: string,
@@ -3468,12 +3484,24 @@ export class SessionManager {
     inputSequence?: { inputSeqStart?: number; inputSeqEnd?: number },
     retainedIdentity?: RetainedTerminalMutationIdentity,
   ): boolean {
+    return this.writeInputDetailed(id, input, clientMetadata, inputSequence, retainedIdentity).ok;
+  }
+
+  writeInputDetailed(
+    id: string,
+    input: string,
+    clientMetadata?: InputDebugMetadata,
+    inputSequence?: { inputSeqStart?: number; inputSeqEnd?: number },
+    retainedIdentity?: RetainedTerminalMutationIdentity,
+  ): WriteInputDetailedResult {
     const data = this.sessions.get(id);
     if (!data) {
       this.recordRetainedTerminalLateMessage(id);
-      return false;
+      return { ok: false, denialReason: 'session-gone' };
     }
-    if (!this.acceptRetainedTerminalMutationIdentity(data, retainedIdentity)) return false;
+    if (!this.acceptRetainedTerminalMutationIdentity(data, retainedIdentity)) {
+      return { ok: false, denialReason: 'mutation-identity-stale' };
+    }
     const inputDebugDetails: Record<string, InputDebugValue> = {
       ...buildInputDebugDetails(input, clientMetadata),
       ...(typeof inputSequence?.inputSeqStart === 'number' ? { inputSeqStart: inputSequence.inputSeqStart } : {}),
@@ -3598,10 +3626,10 @@ export class SessionManager {
         error: error instanceof Error ? error.message : String(error),
       });
       console.error(`[PTY] Failed to write input to session ${id}:`, error);
-      return false;
+      return { ok: false, denialReason: 'write-failed' };
     }
     data.session.lastActiveAt = new Date();
-    return true;
+    return { ok: true };
   }
 
   /**

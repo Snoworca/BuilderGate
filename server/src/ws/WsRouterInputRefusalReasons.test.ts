@@ -56,6 +56,10 @@ function createHarness(
   const manager = {
     getSession: (sessionId: string) => ({ id: sessionId }),
     writeInput: (_sessionId: string, data: string) => { writes.push(data); return true; },
+    // #112: the router's websocket input path now calls writeInputDetailed(), not
+    // writeInput(), so it can carry a denial reason. Kept in sync with SessionManager's
+    // real { ok, denialReason? } shape.
+    writeInputDetailed: (_sessionId: string, data: string) => { writes.push(data); return { ok: true }; },
     registerRetainedTerminalClientView: () => ({ ok: true, reason: 'registered' }),
     unregisterRetainedTerminalClientView: () => ({ ok: true, reason: 'unregistered-driver-revoked' }),
     ...managerOverrides,
@@ -199,6 +203,7 @@ function createReconnectHarness(): ReconnectHarness {
   const manager = {
     getSession: (sessionId: string) => ({ id: sessionId }),
     writeInput: () => true,
+    writeInputDetailed: () => ({ ok: true }),
     registerRetainedTerminalClientView: () => ({ ok: true, reason: 'registered' }),
     unregisterRetainedTerminalClientView: () => ({ ok: true, reason: 'unregistered-driver-revoked' }),
   };
@@ -290,13 +295,50 @@ test('#111 AC-2 a genuinely new operation after a reconnect still reaches the PT
 // already computes and the router already discards, the exact shape of #18/#111's fix.
 
 test('#112 a write that never reaches the PTY is reported as target-not-live, not server-error', () => {
+  // 'write-failed' (the pty.write() threw) is the one denial reason that is NOT split
+  // further below -- it keeps the fallback wire reason.
   const harness = createHarness({
-    writeInput: () => false,
+    writeInputDetailed: () => ({ ok: false, denialReason: 'write-failed' }),
   });
   try {
     harness.send(inputMessage(1));
 
     assert.equal(harness.lastRejection()?.reason, 'target-not-live');
+  } finally {
+    harness.destroy();
+  }
+});
+
+// --- #112 follow-up: target-not-live itself was still two different facts ----------------
+//
+// Re-measuring after the fix above still could not say WHY the write did not reach the PTY:
+// SessionManager.writeInput() returns the same `false` whether the session no longer exists
+// (`!data`) or the session exists but acceptRetainedTerminalMutationIdentity() refused it
+// (a stale authorityEpoch/viewGeneration/leaseGeneration). Those need opposite fixes -- one
+// says the flood killed the session, the other says a generation bump left the client's
+// identity behind mid-flood -- so guessing between them was no longer good enough.
+
+test('#112 a session that is gone by write time is reported as target-session-gone', () => {
+  const harness = createHarness({
+    writeInputDetailed: () => ({ ok: false, denialReason: 'session-gone' }),
+  });
+  try {
+    harness.send(inputMessage(1));
+
+    assert.equal(harness.lastRejection()?.reason, 'target-session-gone');
+  } finally {
+    harness.destroy();
+  }
+});
+
+test('#112 a refused mutation identity is reported as target-identity-stale, not target-session-gone', () => {
+  const harness = createHarness({
+    writeInputDetailed: () => ({ ok: false, denialReason: 'mutation-identity-stale' }),
+  });
+  try {
+    harness.send(inputMessage(1));
+
+    assert.equal(harness.lastRejection()?.reason, 'target-identity-stale');
   } finally {
     harness.destroy();
   }

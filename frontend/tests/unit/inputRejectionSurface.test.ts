@@ -46,6 +46,11 @@ test('REL-BGSTAB-016 a refusal whose write never reached the PTY is surfaced', (
     'target-not-live',
     'target-not-found',
     'enter-policy-rejected',
+    // #112 follow-up: the split of target-not-live's two write-time causes. A dead
+    // session and a refused mutation identity both mean the write did not land either --
+    // neither belongs in REACHED_THE_PTY.
+    'target-session-gone',
+    'target-identity-stale',
   ] as const) {
     assert.equal(shouldSurfaceInputRejection(reason), true, reason);
   }

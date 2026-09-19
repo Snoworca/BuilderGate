@@ -509,8 +509,31 @@ export type InputRejectedReason =
    * server answered input:rejected 20ms later with the old opaque 'server-error', which
    * is indistinguishable from a thrown exception on a malformed payload. This name is the
    * fact the server already had and was discarding.
+   *
+   * #112 follow-up: re-measuring after the above still could not explain WHY the write did
+   * not reach the PTY -- SessionManager.writeInput() collapsed a gone session and a stale
+   * mutation identity into the same `false`. Those two now have their own reasons below
+   * ('target-session-gone', 'target-identity-stale'); this one remains the fallback for a
+   * PTY write that threw, or any caller of the gateway that still returns a bare boolean.
    */
   | 'target-not-live'
+  /**
+   * #112: SessionManager.writeInputDetailed()'s 'session-gone' -- the session existed when
+   * the router resolved the target, but SessionManager.sessions no longer had it by the time
+   * the write itself ran (a narrow TOCTOU window, e.g. the session was destroyed mid-flight).
+   * Distinct from 'target-identity-stale': the session is not merely refusing this client,
+   * it is gone.
+   */
+  | 'target-session-gone'
+  /**
+   * #112: SessionManager.writeInputDetailed()'s 'mutation-identity-stale' --
+   * acceptRetainedTerminalMutationIdentity() refused the write because the session is a
+   * retained-terminal shadow session and the caller's authorityEpoch/viewGeneration/
+   * leaseGeneration no longer match what the session has on record (e.g. a generation bump
+   * happened mid-flood). The session is alive; this specific client's identity is not
+   * current.
+   */
+  | 'target-identity-stale'
   /**
    * #112: SessionInputGateway's TARGET_NOT_FOUND -- resolveTarget produced no binding at
    * all for this session, as opposed to 'target-not-live' where a binding existed but

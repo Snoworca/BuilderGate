@@ -95,6 +95,7 @@ function createRouter(options: {
       source: 'compatibility-cap' as const,
     }),
     writeInput: () => true,
+    writeInputDetailed: () => ({ ok: true }),
     getRetainedTerminalAuthorityState: () => ({ streamEpoch: '1' }),
     registerRetainedTerminalClientView: () => ({ ok: true, reason: 'registered' }),
     unregisterRetainedTerminalClientView: () => ({ ok: true, reason: 'unregistered' }),

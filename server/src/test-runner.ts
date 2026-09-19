@@ -15173,6 +15173,17 @@ function createWsRouterHarness(options?: {
       calls.writeInput.push({ sessionId, data, metadata });
       return true;
     },
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- mirror the same behavior (including the simulated-throw option) so
+    // tests exercising this stub still reach the write path instead of hitting a
+    // TypeError on a mock that predates the split.
+    writeInputDetailed: (sessionId: string, data: string, metadata?: unknown) => {
+      if (options?.writeInputThrows) {
+        throw new Error('simulated write failure');
+      }
+      calls.writeInput.push({ sessionId, data, metadata });
+      return { ok: true };
+    },
     resize: () => true,
     ...(options?.getAtomicRestoreSnapshot
       ? { getAtomicRestoreSnapshot: options.getAtomicRestoreSnapshot }
@@ -15740,6 +15751,12 @@ function testWsRouterPreservesInputQueueAcrossReplayRefresh(): void {
     writeInput: (sessionId: string, data: string, metadata?: unknown) => {
       calls.writeInput.push({ sessionId, data, metadata });
       return true;
+    },
+    // #112: same reason as createWsRouterHarness above -- the router now calls
+    // writeInputDetailed() for the websocket input path.
+    writeInputDetailed: (sessionId: string, data: string, metadata?: unknown) => {
+      calls.writeInput.push({ sessionId, data, metadata });
+      return { ok: true };
     },
     resize: () => true,
   } as unknown as SessionManager;
@@ -16318,6 +16335,10 @@ function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16390,6 +16411,10 @@ function testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh(): void {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16481,6 +16506,10 @@ function testWsRouterFlushesSnapshotCoveredOutputOnRefreshTimeout(): void {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16553,6 +16582,10 @@ function createMutableSnapshotWsRouterHarness(snapshotState: {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => options?.replayQueueLimit ?? 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16812,6 +16845,10 @@ function testWsRouterSuppressesUnchangedEmptyFallbackReplayRefresh(): void {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {

@@ -138,6 +138,7 @@ function createRouter(terminalResourcePolicyAuthority?: {
     }),
     unregisterRetainedTerminalClientView: () => undefined,
     writeInput: () => true,
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
 

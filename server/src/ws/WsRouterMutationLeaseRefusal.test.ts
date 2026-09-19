@@ -160,6 +160,11 @@ test('REL-BGSTAB-011 a registered view whose lease was refused adopts it by writ
       writes.push({ sessionId, data, identity });
       return true;
     },
+    // #112: the router's websocket input path calls writeInputDetailed(), not writeInput().
+    writeInputDetailed: (sessionId: string, data: string, _m: unknown, _s: unknown, identity: unknown) => {
+      writes.push({ sessionId, data, identity });
+      return { ok: true };
+    },
   };
   const router = new WsRouter({} as AuthService, manager as unknown as SessionManager);
   const socket = new FakeWebSocket();
@@ -230,6 +235,7 @@ test('REL-BGSTAB-011 a write that cannot adopt the lease is refused with a reaso
     unregisterRetainedTerminalClientView: () => ({ ok: true, reason: 'unregistered-driver-revoked' }),
     getSession: (sessionId: string) => ({ id: sessionId, status: 'idle' }),
     writeInput: () => true,
+    writeInputDetailed: () => ({ ok: true }),
   };
   const router = new WsRouter({} as AuthService, manager as unknown as SessionManager);
   const socket = new FakeWebSocket();
@@ -293,6 +299,14 @@ test('REL-BGSTAB-011 a client whose cached lease was superseded re-adopts instea
       if ((identity as { leaseGeneration?: string } | undefined)?.leaseGeneration !== currentGeneration) return false;
       writes.push(data);
       return true;
+    },
+    // #112: the router's websocket input path calls writeInputDetailed(), not writeInput().
+    writeInputDetailed: (_id: string, data: string, _m: unknown, _s: unknown, identity: unknown) => {
+      if ((identity as { leaseGeneration?: string } | undefined)?.leaseGeneration !== currentGeneration) {
+        return { ok: false, denialReason: 'mutation-identity-stale' as const };
+      }
+      writes.push(data);
+      return { ok: true };
     },
   };
   const router = new WsRouter({} as AuthService, manager as unknown as SessionManager);

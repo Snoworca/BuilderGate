@@ -2,10 +2,18 @@ import { normalizeMcpPromptPreview } from './McpSecurityContract.js';
 
 export const INPUT_REJECTED_REPLAY_PENDING = 'INPUT_REJECTED_REPLAY_PENDING';
 export const INPUT_REJECTED_ENTER_POLICY = 'INPUT_REJECTED_ENTER_POLICY';
+// #112: writeLowLevelInput() used to flatten every write failure to TARGET_NOT_LIVE. These
+// two split out the write-time facts that need opposite fixes: the session was gone by the
+// time the write reached SessionManager, versus the session is alive but the caller's
+// retained-terminal mutation identity was refused. See SessionManager.WriteInputDenialReason.
+export const TARGET_SESSION_GONE = 'TARGET_SESSION_GONE';
+export const TARGET_MUTATION_IDENTITY_STALE = 'TARGET_MUTATION_IDENTITY_STALE';
 
 export const INPUT_GATEWAY_DENIAL_CODES = [
   INPUT_REJECTED_REPLAY_PENDING,
   INPUT_REJECTED_ENTER_POLICY,
+  TARGET_SESSION_GONE,
+  TARGET_MUTATION_IDENTITY_STALE,
   'STALE_SESSION_ID',
   'TARGET_NOT_LIVE',
   'TARGET_NOT_FOUND',
@@ -141,15 +149,21 @@ function submitInputThroughGateway(
   }
 
   let accepted = true;
+  let writeDenialCode: InputGatewayDenialCode | undefined;
   if (shouldWrite) {
-    accepted = writeLowLevelInput(deps, request, binding, data);
+    const writeResult = writeLowLevelInput(deps, request, binding, data);
+    accepted = writeResult.accepted;
+    writeDenialCode = writeResult.code;
   }
 
   const auditId = shouldAudit(source, request) ? auditGatewayInput(deps, request, accepted ? 'accepted' : 'write-failed') : undefined;
   if (!accepted) {
+    // #112: writeLowLevelInput() now forwards the specific code SessionManager reported
+    // (TARGET_SESSION_GONE / TARGET_MUTATION_IDENTITY_STALE) when it has one. TARGET_NOT_LIVE
+    // stays the fallback for callers that only ever returned a bare boolean.
     return {
       accepted: false,
-      code: 'TARGET_NOT_LIVE',
+      code: writeDenialCode ?? 'TARGET_NOT_LIVE',
       ...(auditId ? { auditId } : {}),
     };
   }
@@ -208,7 +222,7 @@ function writeLowLevelInput(
   request: StringRecord,
   binding: StringRecord,
   data: string,
-): boolean {
+): { accepted: boolean; code?: InputGatewayDenialCode } {
   const metadata = buildWriteMetadata(request);
   const result = deps.writeInput({
     sessionId: binding.currentSessionId,
@@ -221,7 +235,14 @@ function writeLowLevelInput(
     inputSeqEnd: request.inputSeqEnd,
   });
   const record = asRecord(result);
-  return result !== false && record.ok !== false;
+  const accepted = result !== false && record.ok !== false;
+  if (accepted) return { accepted: true };
+  // #112: deps.writeInput may return a bare `false` (legacy callers) or an object carrying
+  // the specific denial code (WsRouter's websocket path). Forward the code when there is one.
+  return {
+    accepted: false,
+    code: typeof record.code === 'string' ? (record.code as InputGatewayDenialCode) : undefined,
+  };
 }
 
 // @req IR-MCP-004
