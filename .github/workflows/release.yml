@@ -177,29 +177,41 @@ jobs:
 
           verifyConfig(configPath, 'release config.json5');
           if (fs.existsSync(serverConfigPath)) fail(`server/config.json5 must not be exposed in release artifact: ${serverConfigPath}`);
+          // OPS-BGSTAB-017: the runtime is one executable. The server bundle,
+          // the daemon tools and node-pty live inside it, so the paths this
+          // used to require are exactly the paths that must now be absent.
+          const isWindows = process.env.PROFILE.startsWith('win-');
+          const isMac = process.env.PROFILE.startsWith('macos-');
           const commonRequired = [
             ['web/index.html', 'web index'],
             ['shell-integration/bash-osc133.sh', 'shell integration'],
-            ['server/dist/index.js', 'server runtime'],
-            ['server/dist/utils/configStrictLoader.js', 'strict config preflight'],
-            ['server/dist/services/daemonTotpPreflight.js', 'TOTP daemon preflight'],
-            ['server/node_modules/node-pty/package.json', 'node-pty runtime'],
-            ['server/node_modules/node-pty/lib/conpty_console_list_agent.js', 'node-pty ConPTY helper'],
+            [isWindows ? 'BuilderGate.exe' : 'buildergate', 'single-file runtime'],
           ];
-          const platformRequired = process.env.PROFILE.startsWith('win-')
+          const platformRequired = isMac
             ? [
-                ['BuilderGate.cmd', 'Windows launcher'],
-                ['BuilderGate.ps1', 'PowerShell launcher'],
-                ['node/node.exe', 'portable Node runtime'],
+                ['BuilderGate.app/Contents/MacOS/BuilderGate', 'macOS app launcher'],
+                ['BuilderGate.app/Contents/Resources/runtime/buildergate', 'macOS app runtime'],
               ]
-            : [
-                ['buildergate', 'POSIX launcher'],
-                ['node/bin/node', 'portable Node runtime'],
-              ];
+            : [];
 
           for (const [relativePath, label] of [...commonRequired, ...platformRequired]) {
             const fullPath = path.join(sourceDir, relativePath);
             if (!fs.existsSync(fullPath)) fail(`${label} missing: ${fullPath}`);
+          }
+
+          // Required-path lists do not catch a regression that ADDS things, and
+          // the regression this requirement exists to prevent is exactly that:
+          // shipping a Node runtime and an unpruned node_modules beside the app.
+          const forbidden = [
+            ['server', 'server runtime must be embedded in the executable'],
+            ['tools', 'daemon tools must be embedded in the executable'],
+            ['node_modules', 'node_modules must be embedded in the executable'],
+            ['node', 'a standalone Node runtime must not be shipped'],
+            [isWindows ? 'BuilderGate.cmd' : 'BuilderGate.sh', 'launcher script must not be shipped'],
+          ];
+          for (const [relativePath, message] of forbidden) {
+            const fullPath = path.join(sourceDir, relativePath);
+            if (fs.existsSync(fullPath)) fail(`${message}: ${fullPath}`);
           }
           NODE
 

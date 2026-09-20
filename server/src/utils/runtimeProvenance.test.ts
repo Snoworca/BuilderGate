@@ -122,3 +122,72 @@ test('FR-BGSTAB-030 AC-2 a missing build id is null rather than an invented valu
   assert.equal(view.rootsForeign, false);
   assert.equal(view.buildId, null);
 });
+
+/**
+ * OPS-BGSTAB-017 AC-5.
+ *
+ * Measured 2026-09-21: the packaged single executable printed the foreign-root
+ * warning on a correct start, and `/health` answered `rootsForeign: true`. Under
+ * pkg the running module is loaded from `/snapshot/<project>`, a path that does
+ * not exist on disk, while config and web resolve beside the executable — so all
+ * three roots looked foreign.
+ *
+ * FR-BGSTAB-030 argues that a warning firing on every correct start is a warning
+ * nobody reads. The fix is not to suppress the check when packaged: an inherited
+ * BUILDERGATE_CONFIG_PATH pointing at the installed deployment is exactly as
+ * wrong inside an executable as outside one. It is to anchor on the thing that
+ * plays the same role there — the directory the executable sits in, which is
+ * already what `tools/daemon/runtime-paths.js` resolves the packaged root to.
+ */
+
+const EXE_DIR = '/opt/BuilderGate-0.5.4';
+
+function packagedInput(overrides: Partial<RuntimeProvenanceInput> = {}): RuntimeProvenanceInput {
+  return {
+    // pkg loads the bundle from a virtual filesystem; this path has no on-disk
+    // existence and no relationship to where the executable was placed.
+    moduleDir: '/snapshot/ProjectMaster/server/dist-pkg',
+    packagedExecutableDir: EXE_DIR,
+    serverRoot: EXE_DIR,
+    configPath: `${EXE_DIR}/config.json5`,
+    webRoot: `${EXE_DIR}/web`,
+    ...overrides,
+  };
+}
+
+test('OPS-BGSTAB-017 AC-5 a packaged runtime serving files beside its executable reports no foreign root', () => {
+  const provenance = describeRuntimeProvenance(packagedInput());
+
+  assert.deepEqual(provenance.foreign, []);
+  assert.equal(provenance.hasForeignRoot, false);
+  assert.equal(provenance.toHealthView(null).rootsForeign, false);
+});
+
+test('OPS-BGSTAB-017 AC-5 the packaged anchor is the executable directory, not the snapshot path', () => {
+  const provenance = describeRuntimeProvenance(packagedInput());
+
+  assert.equal(provenance.anchor, EXE_DIR);
+});
+
+test('OPS-BGSTAB-017 AC-5 a packaged runtime pointed at another deployment is still caught', () => {
+  // The cheapest way to make the two tests above pass is to stop checking when
+  // packaged. This is the case that refuses that: the inherited variable this
+  // whole requirement exists to catch is still inherited inside an executable.
+  const provenance = describeRuntimeProvenance(packagedInput({
+    configPath: '/opt/installed/builder-gate/config.json5',
+    webRoot: '/opt/installed/builder-gate/web',
+  }));
+
+  assert.equal(provenance.hasForeignRoot, true);
+  assert.deepEqual(provenance.foreign.map(entry => entry.name), ['configPath', 'webRoot']);
+  assert.equal(provenance.toHealthView('abc').rootsForeign, true);
+});
+
+test('OPS-BGSTAB-017 AC-5 an unpackaged runtime still anchors on its checkout', () => {
+  // Boundary: adding the packaged branch must not move the anchor for the
+  // ordinary case, which is the one FR-BGSTAB-030 was measured against.
+  const provenance = describeRuntimeProvenance(input());
+
+  assert.equal(provenance.anchor, '/home/u/checkout-a');
+  assert.equal(provenance.hasForeignRoot, false);
+});

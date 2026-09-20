@@ -35,8 +35,14 @@ const {
   getPkgBuiltBasePath,
   getPkgFetchBasePath,
   installRuntimeDependencies,
+  canEmbedWindowsIcon,
+  describeNodePtyHostSupport,
   parseArgs,
   platformFromPkgTarget,
+  resolveNodePtyAssetGlobs,
+  resolvePkgBuildConfig,
+  resolvePkgConfigPath,
+  PKG_ENTRY_SCRIPT,
   prepareWindowsPkgBaseIcon,
   resolveBuildTargets,
   validateBuildOutput,
@@ -208,30 +214,109 @@ test('default daemon exe target keeps single dist/bin output contract', () => {
   assert.match(target.pkgTarget, /^node22-/);
 });
 
-test('root npm build scripts expose all supported daemon targets', () => {
+test('OPS-BGSTAB-017 AC-1 the default build produces a single executable for every supported OS', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
 
+  // The whole point of the requirement: `npm run build` reaches the single-file
+  // builder, not the portable one that ships a Node runtime and node_modules.
   assert.equal(packageJson.scripts.build, 'npm run build:daemon-all');
-  assert.equal(packageJson.scripts['build:daemon-all'], 'node tools/build-portable-runtime.js --all-supported');
-  assert.equal(packageJson.scripts['build:windows-amd64'], 'node tools/build-portable-runtime.js --profile win-amd64');
-  assert.equal(packageJson.scripts['build:linux-amd64'], 'node tools/build-portable-runtime.js --profile linux-amd64');
-  assert.equal(packageJson.scripts['build:windows-arm64'], 'node tools/build-portable-runtime.js --profile win-arm64');
-  assert.equal(packageJson.scripts['build:linux-arm64'], 'node tools/build-portable-runtime.js --profile linux-arm64');
-  assert.equal(packageJson.scripts['build:macos-arm64'], 'node tools/build-portable-runtime.js --profile macos-arm64');
-  assert.equal(packageJson.scripts['build:pkg:windows-amd64'], 'node tools/build-daemon-exe.js --profile win-amd64');
-  assert.equal(packageJson.scripts['build:pkg:linux-amd64'], 'node tools/build-daemon-exe.js --profile linux-amd64');
-  assert.equal(packageJson.scripts['build:pkg:windows-arm64'], 'node tools/build-daemon-exe.js --profile win-arm64');
-  assert.equal(packageJson.scripts['build:pkg:linux-arm64'], 'node tools/build-daemon-exe.js --profile linux-arm64');
-  assert.equal(packageJson.scripts['build:pkg:macos-arm64'], 'node tools/build-daemon-exe.js --profile macos-arm64');
-  assert.equal(packageJson.scripts['build:daemon-win-arm64'], 'npm run build:windows-arm64');
-  assert.equal(packageJson.scripts['build:daemon-linux-arm64'], 'npm run build:linux-arm64');
-  assert.equal(packageJson.scripts['build:daemon-mac-arm64'], 'npm run build:macos-arm64');
-  assert.equal(packageJson.scripts['build:daemon-macos-arm64'], 'npm run build:macos-arm64');
+  assert.equal(packageJson.scripts['build:daemon-all'], 'node tools/build-daemon-exe.js --all-supported');
+
+  for (const [script, profile] of [
+    ['build:windows-amd64', 'win-amd64'],
+    ['build:linux-amd64', 'linux-amd64'],
+    ['build:windows-arm64', 'win-arm64'],
+    ['build:linux-arm64', 'linux-arm64'],
+    ['build:macos-arm64', 'macos-arm64'],
+  ]) {
+    assert.equal(packageJson.scripts[script], `node tools/build-daemon-exe.js --profile ${profile}`);
+    assert.equal(packageJson.scripts[`build:pkg:${script.slice('build:'.length)}`], `npm run ${script}`);
+  }
+
+  // Windows, Linux and macOS are each covered by at least one default target.
+  const platforms = new Set(ALL_SUPPORTED_TARGETS.map((name) => TARGET_PROFILES[name].platform));
+  assert.deepEqual([...platforms].sort(), ['darwin', 'linux', 'win32']);
+
+  // The portable layout stays reachable under its own name rather than being
+  // deleted: it is the fallback if a platform turns out not to survive pkg.
+  assert.equal(packageJson.scripts['build:portable-all'], 'node tools/build-portable-runtime.js --all-supported');
+  assert.equal(packageJson.scripts['build:portable:linux-amd64'], 'node tools/build-portable-runtime.js --profile linux-amd64');
+
   assert.deepEqual(packageJson.pkg.scripts.filter((entry) => entry.startsWith('server/')), [
     'server/dist-pkg/*.cjs',
     'server/node_modules/node-pty/lib/**/*.js',
   ]);
-  assert.equal(packageJson.pkg.assets.includes('server/node_modules/node-pty/prebuilds/**/*'), true);
+
+  // Assets are per target now (AC-6) and come from resolveNodePtyAssetGlobs. A
+  // repo-wide list left here would never be read and would still read as
+  // authoritative to the next person.
+  assert.equal('assets' in packageJson.pkg, false);
+});
+
+test('OPS-BGSTAB-017 AC-6 a target embeds its own node-pty artifacts and nothing else', () => {
+  const windows = resolveNodePtyAssetGlobs('win32', 'x64');
+
+  // Measured 2026-09-21: a packaged Windows executable carrying exactly this set
+  // spawned a PTY through both backends, the two producing different escape
+  // sequences, so neither entry here is speculative.
+  assert.deepEqual(windows, [
+    'server/node_modules/node-pty/package.json',
+    'server/node_modules/node-pty/prebuilds/win32-x64/*.node',
+    'server/node_modules/node-pty/prebuilds/win32-x64/winpty.dll',
+    'server/node_modules/node-pty/prebuilds/win32-x64/winpty-agent.exe',
+    'server/node_modules/node-pty/prebuilds/win32-x64/conpty/*',
+  ]);
+});
+
+test('OPS-BGSTAB-017 AC-6 macOS carries spawn-helper, which it execs rather than loads', () => {
+  // node-pty only uses spawn-helper under __APPLE__ (src/unix/pty.cc); on Linux
+  // it forks and execs directly, which is why the Linux set has no helper.
+  assert.deepEqual(resolveNodePtyAssetGlobs('darwin', 'arm64'), [
+    'server/node_modules/node-pty/package.json',
+    'server/node_modules/node-pty/prebuilds/darwin-arm64/*.node',
+    'server/node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper',
+  ]);
+});
+
+test('OPS-BGSTAB-017 AC-6 Linux takes the locally built addon because node-pty ships no Linux prebuild', () => {
+  // node-pty 1.1.0 prebuilds cover darwin-{arm64,x64} and win32-{arm64,x64} only.
+  // A Linux target therefore depends on the host build, which is why CI builds
+  // each Linux target on a matching runner.
+  assert.deepEqual(resolveNodePtyAssetGlobs('linux', 'x64'), [
+    'server/node_modules/node-pty/package.json',
+    'server/node_modules/node-pty/build/Release/*.node',
+  ]);
+});
+
+test('OPS-BGSTAB-017 AC-6 no target glob reaches another platform or a debug symbol', () => {
+  // The old static `prebuilds/**/*` put 60 MB into every executable, including
+  // winpty-agent.pdb and OpenConsole.exe inside the Linux binary. Verified by
+  // reading those strings back out of the built Linux executable.
+  for (const profile of Object.values(TARGET_PROFILES)) {
+    const globs = resolveNodePtyAssetGlobs(profile.platform, profile.arch);
+    const own = profile.platform === 'linux'
+      ? 'build/Release'
+      : `prebuilds/${profile.platform === 'win32' ? 'win32' : 'darwin'}-${profile.arch}`;
+
+    for (const glob of globs) {
+      assert.equal(glob.includes('.pdb'), false, `${glob} reaches debug symbols`);
+      assert.equal(glob.includes('**'), false, `${glob} is a recursive glob`);
+      if (glob.includes('prebuilds/') || glob.includes('build/Release')) {
+        assert.equal(glob.includes(own), true, `${glob} does not belong to ${profile.profileName}`);
+      }
+    }
+  }
+});
+
+test('OPS-BGSTAB-017 AC-6 the per-target pkg config keeps the script list and swaps only the assets', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
+  const config = resolvePkgBuildConfig(TARGET_PROFILES['win-amd64']);
+
+  // pkg refuses `package.json` and `--config` together, so the config has to
+  // carry the scripts too; dropping them would silently leave the daemon
+  // entrypoints out of the snapshot.
+  assert.deepEqual(config.scripts, packageJson.pkg.scripts);
+  assert.deepEqual(config.assets, resolveNodePtyAssetGlobs('win32', 'x64'));
 });
 
 test('packaged server bundle contract has one CJS runtime and two CJS preflight entries', () => {
@@ -429,6 +514,10 @@ test('buildExe uses the icon-patched local pkg cache for Windows executables', (
 
   buildExe(outputDir, 'node22-win-x64', {
     platform: 'win32',
+    // This is the Windows-host path; rcedit cannot run anywhere else, and the
+    // separate skip test covers what happens when the host is not Windows.
+    hostPlatform: 'win32',
+    pkgConfigPath: path.join(outputDir, 'pkg-config.json'),
     pkgCacheDir,
     sourcePkgCacheDir: sourceCacheDir,
     rceditPath: fakeRceditPath,
@@ -750,4 +839,150 @@ test('validateSourceDaemonInputs requires source and packaged sentinel entrypoin
     () => validateSourceDaemonInputs(root),
     /tools[\\/]daemon[\\/]sentinel\.js/,
   );
+});
+
+test('OPS-BGSTAB-017 a Windows or macOS target packages from any host', () => {
+  // node-pty ships prebuilt addons for both, so pkg can embed the right file
+  // without the host matching. Measured 2026-09-21: a win32-x64 executable
+  // packaged on linux/x64 spawned a PTY on Windows through both backends.
+  for (const profileName of ['win-amd64', 'win-arm64', 'macos-arm64']) {
+    const support = describeNodePtyHostSupport(TARGET_PROFILES[profileName], {
+      platform: 'linux',
+      arch: 'x64',
+    });
+    assert.equal(support.supported, true, `${profileName} should package from linux/x64`);
+    assert.equal(support.reason, null);
+  }
+});
+
+test('OPS-BGSTAB-017 a Linux target refuses a host of another architecture', () => {
+  // Without this the build succeeds and produces an executable carrying an x64
+  // addon for an arm64 machine: it looks right and cannot open a terminal.
+  const support = describeNodePtyHostSupport(TARGET_PROFILES['linux-arm64'], {
+    platform: 'linux',
+    arch: 'x64',
+  });
+
+  assert.equal(support.supported, false);
+  assert.match(support.reason, /linux\/arm64 host/);
+  assert.match(support.reason, /this one is linux\/x64/);
+});
+
+test('OPS-BGSTAB-017 a Linux target is supported on a matching host', () => {
+  // Boundary: the guard must not block the case release CI actually runs, where
+  // every Linux target is built on a runner of its own architecture.
+  for (const [profileName, arch] of [['linux-amd64', 'x64'], ['linux-arm64', 'arm64']]) {
+    const support = describeNodePtyHostSupport(TARGET_PROFILES[profileName], {
+      platform: 'linux',
+      arch,
+    });
+    assert.equal(support.supported, true, `${profileName} on linux/${arch}`);
+  }
+});
+
+test('OPS-BGSTAB-017 a Linux target refuses a non-Linux host', () => {
+  const support = describeNodePtyHostSupport(TARGET_PROFILES['linux-amd64'], {
+    platform: 'win32',
+    arch: 'x64',
+  });
+
+  assert.equal(support.supported, false);
+  assert.match(support.reason, /this one is win32\/x64/);
+});
+
+test('OPS-BGSTAB-017 the Windows icon step is skipped, not failed, on a non-Windows host', () => {
+  // rcedit is itself a Windows executable. Under WSL it starts and then cannot
+  // read its own argument: `Unable to load file: "/mnt/c/.../built-v22.22.2-win-x64"`.
+  // The base binary is a valid PE32+ and pkg packages it correctly without the
+  // icon, so losing the icon must not lose the executable.
+  assert.equal(canEmbedWindowsIcon('win32'), true);
+  assert.equal(canEmbedWindowsIcon('linux'), false);
+  assert.equal(canEmbedWindowsIcon('darwin'), false);
+
+  const outputDir = createBuildOutputFixture();
+  const calls = [];
+  buildExe(outputDir, 'node22-win-x64', {
+    platform: 'win32',
+    hostPlatform: 'linux',
+    pkgConfigPath: path.join(outputDir, 'pkg-config.json'),
+    runCommand: (command, args, options) => {
+      calls.push({ command, args, label: options.label });
+      return { status: 0 };
+    },
+    log: () => {},
+  });
+
+  // One call, and it is pkg — rcedit was not attempted.
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].label, 'pkg daemon launcher');
+  assert.equal(calls.some((call) => call.label.startsWith('rcedit')), false);
+});
+
+test('OPS-BGSTAB-017 the packaged build names the entry and a per-target config', () => {
+  const outputDir = createBuildOutputFixture({ platform: 'linux' });
+  const configPath = path.join(outputDir, 'pkg-config.json');
+  const calls = [];
+
+  buildExe(outputDir, 'node22-linux-x64', {
+    platform: 'linux',
+    pkgConfigPath: configPath,
+    runCommand: (command, args, options) => {
+      calls.push({ command, args, label: options.label });
+      return { status: 0 };
+    },
+    log: () => {},
+  });
+
+  const args = calls[0].args;
+  // pkg refuses `package.json` and `--config` together, so the entry is named.
+  assert.equal(args.includes('.'), false);
+  assert.equal(args.includes(PKG_ENTRY_SCRIPT), true);
+  assert.deepEqual(args.slice(args.indexOf('--config'), args.indexOf('--config') + 2), ['--config', configPath]);
+
+  const written = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  assert.deepEqual(written.assets, resolveNodePtyAssetGlobs('linux', 'x64'));
+  assert.equal(written.assets.some((glob) => glob.includes('win32')), false);
+});
+
+test('OPS-BGSTAB-017 the per-target pkg config is written at the project root', () => {
+  // This is the invariant that broke. pkg resolves a --config file's globs
+  // against that file's own directory, so writing it anywhere but ROOT makes
+  // `server/dist-pkg/*.cjs` resolve somewhere that does not exist. pkg then
+  // exits 0 and writes an executable with no application in it: measured
+  // 2026-09-21 with the config under dist/, the binary held 0 `node-pty`
+  // strings and 0 `Provenance` strings, and every check that existed passed.
+  const configPath = resolvePkgConfigPath('node22-linux-x64', '/srv/project');
+
+  assert.equal(path.dirname(configPath), path.resolve('/srv/project'));
+  assert.equal(path.basename(configPath), '.pkg-config-node22-linux-x64.json');
+
+  // Two targets must not share a file: `--all-supported` builds them in turn
+  // and each one deletes its own config when it finishes.
+  assert.notEqual(
+    resolvePkgConfigPath('node22-win-x64', '/srv/project'),
+    resolvePkgConfigPath('node22-linux-x64', '/srv/project'),
+  );
+});
+
+test('OPS-BGSTAB-017 the per-target config exists while pkg runs and is gone after', () => {
+  const outputDir = createBuildOutputFixture({ platform: 'linux' });
+  const configPath = resolvePkgConfigPath('node22-linux-x64');
+  let presentDuringBuild = null;
+  let contentsDuringBuild = null;
+
+  buildExe(outputDir, 'node22-linux-x64', {
+    platform: 'linux',
+    runCommand: () => {
+      presentDuringBuild = fs.existsSync(configPath);
+      contentsDuringBuild = presentDuringBuild ? JSON.parse(fs.readFileSync(configPath, 'utf8')) : null;
+      return { status: 0 };
+    },
+    log: () => {},
+  });
+
+  // pkg reads the file while it runs, so it has to be there then...
+  assert.equal(presentDuringBuild, true);
+  assert.deepEqual(contentsDuringBuild.assets, resolveNodePtyAssetGlobs('linux', 'x64'));
+  // ...and it is a build artifact at the project root, so it must not survive.
+  assert.equal(fs.existsSync(configPath), false);
 });

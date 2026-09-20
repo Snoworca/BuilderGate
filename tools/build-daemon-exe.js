@@ -39,6 +39,142 @@ const APP_EXE_NAME = DEFAULT_EXECUTABLE_NAMES.appExeName;
 const PACKAGE_VERSION = String(ROOT_PACKAGE.version ?? '').trim();
 const CONFIG_POLICY_BOOTSTRAP_TEMPLATE = 'bootstrap-template';
 const CONFIG_POLICY_SOURCE_OR_TEMPLATE = 'source-or-template';
+/**
+ * The script pkg packages (OPS-BGSTAB-017).
+ *
+ * pkg refuses `package.json` and `--config` in the same invocation ("Specify
+ * either 'package.json' or config. Not both"), and the per-target asset list
+ * has to come from somewhere, so the entry is named explicitly. It is read from
+ * the same `bin` field pkg would have followed, so the two cannot drift.
+ */
+const PKG_ENTRY_SCRIPT = (() => {
+  const bin = ROOT_PACKAGE.bin;
+  const entry = typeof bin === 'string' ? bin : bin?.buildergate;
+  if (!entry) {
+    throw new Error('Root package.json has no bin entry for pkg to package');
+  }
+  return entry;
+})();
+
+/**
+ * The node-pty files one target actually needs.
+ *
+ * The recursive `prebuilds` glob this replaced put every platform's prebuild into
+ * every executable — 60 MB, including `winpty-agent.pdb` and `OpenConsole.exe`
+ * inside the Linux binary, which was read back out of the built artifact to
+ * confirm it.
+ *
+ * Measured 2026-09-21: a Windows executable carrying exactly the win32 list
+ * below spawned a PTY through both the conpty and the winpty backend. The two
+ * emitted different escape sequences, so both paths really ran and neither
+ * `winpty.dll`/`winpty-agent.exe` nor the `conpty/` pair is speculative — the
+ * winpty backend is reachable from the settings UI (#117).
+ */
+function resolveNodePtyAssetGlobs(platform, arch) {
+  const base = 'server/node_modules/node-pty';
+  const globs = [`${base}/package.json`];
+
+  if (platform === 'linux') {
+    // node-pty 1.1.0 ships prebuilds for darwin-{arm64,x64} and win32-{arm64,x64}
+    // only. On Linux the addon is compiled during install, so the artifact is
+    // whatever the build host produced — which is why release CI builds each
+    // Linux target on a matching runner rather than cross-packaging.
+    globs.push(`${base}/build/Release/*.node`);
+    return globs;
+  }
+
+  const prebuild = `${base}/prebuilds/${platform === 'win32' ? 'win32' : 'darwin'}-${arch}`;
+  globs.push(`${prebuild}/*.node`);
+
+  if (platform === 'win32') {
+    globs.push(
+      `${prebuild}/winpty.dll`,
+      `${prebuild}/winpty-agent.exe`,
+      `${prebuild}/conpty/*`,
+    );
+  } else {
+    // macOS only. node-pty execs spawn-helper under __APPLE__ (src/unix/pty.cc);
+    // Linux forks and execs directly, which is why it has no helper above.
+    globs.push(`${prebuild}/spawn-helper`);
+  }
+
+  return globs;
+}
+
+/**
+ * Can this host produce a working executable for `profile`?
+ *
+ * Windows and macOS targets are fine from anywhere: node-pty ships prebuilt
+ * addons for win32-{x64,arm64} and darwin-{x64,arm64}, and pkg embeds the file
+ * without caring which host it was built on. Linux has no prebuild at all — the
+ * addon is compiled during `npm install` for the machine doing the installing —
+ * so a Linux target is only real when this host is that same platform and arch.
+ *
+ * Cross-packaging a Linux target anyway does not fail: pkg embeds whatever
+ * `build/Release/pty.node` happens to be there, and the result is an executable
+ * that looks correct and cannot open a terminal on the machine it was built for.
+ * Release CI builds each Linux target on a matching runner, so this only ever
+ * fires for a local cross build.
+ */
+function describeNodePtyHostSupport(profile, host = { platform: process.platform, arch: process.arch }) {
+  if (profile.platform !== 'linux') {
+    return { supported: true, reason: null };
+  }
+  if (host.platform === 'linux' && host.arch === profile.arch) {
+    return { supported: true, reason: null };
+  }
+  return {
+    supported: false,
+    reason: `node-pty ships no Linux prebuild, so ${profile.profileName} has to be packaged on a `
+      + `linux/${profile.arch} host; this one is ${host.platform}/${host.arch}. `
+      + 'Packaging it here would embed the wrong architecture and the terminal would fail at runtime.',
+  };
+}
+
+/**
+ * Can this host embed the Windows icon?
+ *
+ * The icon is written into the pkg base binary by `rcedit-x64.exe`, which is
+ * itself a Windows executable. Under WSL it starts through interop and then
+ * fails, because it is handed a POSIX path: `Unable to load file:
+ * "/mnt/c/.../dist/.pkg-cache/v3.5/built-v22.22.2-win-x64"`. The base binary is
+ * fine — a valid 57 MB PE32+ — and pkg packages it correctly without the icon.
+ *
+ * So a non-Windows host loses the icon, not the executable. Release CI builds
+ * every Windows target on `windows-latest`, so shipped artifacts always carry
+ * it; this only relaxes local cross builds.
+ */
+function canEmbedWindowsIcon(hostPlatform = process.platform) {
+  return hostPlatform === 'win32';
+}
+
+/**
+ * Where the per-target pkg config is written.
+ *
+ * It must sit at ROOT. pkg resolves a --config file's `scripts` and `assets`
+ * globs against that file's own directory, not against the working directory:
+ * written under `dist/`, `server/dist-pkg/*.cjs` resolved to
+ * `dist/server/dist-pkg/*.cjs`, matched nothing, and pkg wrote an executable
+ * with no server bundle and no node-pty in it — exit 0, plausible size, every
+ * existing check green. Measured 2026-09-21: moving this one path to ROOT took
+ * the binary from 0 to 16 `node-pty` strings.
+ */
+function resolvePkgConfigPath(target, root = ROOT) {
+  return path.join(root, `.pkg-config-${target}.json`);
+}
+
+/**
+ * The pkg config for one target. `scripts` is carried through unchanged: with
+ * `--config` pkg stops reading package.json entirely, so leaving them out would
+ * quietly drop the daemon entrypoints and the node-pty JS from the snapshot.
+ */
+function resolvePkgBuildConfig(profile) {
+  return {
+    scripts: ROOT_PACKAGE.pkg.scripts,
+    assets: resolveNodePtyAssetGlobs(profile.platform, profile.arch),
+  };
+}
+
 const TARGET_PROFILES = Object.freeze({
   'win-amd64': {
     profileName: 'win-amd64',
@@ -823,7 +959,13 @@ function buildExe(outputDir, target, options = {}) {
   const npx = getNpxCommand();
   const commonArgs = ['--yes', PKG_PACKAGE_SPEC];
   const runCommand = options.runCommand ?? run;
-  const pkgBaseIcon = platform === 'win32'
+  const log = options.log ?? console.log;
+  const iconHostPlatform = options.hostPlatform ?? process.platform;
+  if (platform === 'win32' && !canEmbedWindowsIcon(iconHostPlatform)) {
+    log(`[exe-build] Windows icon not embedded: rcedit needs a Windows host, this is ${iconHostPlatform}. `
+      + 'The executable is unaffected; release CI builds Windows targets on windows-latest.');
+  }
+  const pkgBaseIcon = platform === 'win32' && canEmbedWindowsIcon(iconHostPlatform)
     ? prepareWindowsPkgBaseIcon(target, path.join(outputDir, ICON_ICO_NAME), {
       pkgCacheDir: options.pkgCacheDir,
       rceditCacheDir: options.rceditCacheDir,
@@ -840,16 +982,44 @@ function buildExe(outputDir, target, options = {}) {
     }
     : process.env;
 
+  const arch = options.arch ?? archFromPkgTarget(target) ?? process.arch;
+  // The config has to sit at ROOT. pkg resolves the `scripts` and `assets`
+  // globs in a --config file against that file's own directory, not against the
+  // working directory: with the config under dist/, `server/dist-pkg/*.cjs`
+  // resolved to `dist/server/dist-pkg/*.cjs`, matched nothing, and pkg packaged
+  // an executable with no server bundle and no node-pty in it. It exited 0 and
+  // validateBuildOutput passed, because everything it checks sits BESIDE the
+  // executable. Measured 2026-09-21: moving this one path to ROOT took the
+  // binary from 0 to 16 `node-pty` strings.
+  const pkgConfigPath = options.pkgConfigPath ?? resolvePkgConfigPath(target);
+  fs.mkdirSync(path.dirname(pkgConfigPath), { recursive: true });
+  fs.writeFileSync(
+    pkgConfigPath,
+    `${JSON.stringify(resolvePkgBuildConfig({ platform, arch }), null, 2)}\n`,
+    'utf8',
+  );
+
   console.log(`[exe-build] Building daemon launcher (${target})...`);
-  runCommand(npx, [
-    ...commonArgs,
-    ROOT,
-    '--targets', target,
-    '--output', path.join(outputDir, appExeName),
-    '--no-bytecode',
-    '--public-packages', '*',
-    '--public',
-  ], { label: 'pkg daemon launcher', env });
+  // Asset globs resolve against the working directory, not against the config
+  // file and not against the entry script. `run` uses ROOT, and the globs above
+  // are written relative to ROOT. Verified by packaging an entry that sits in a
+  // subdirectory and confirming the root-relative assets were still embedded.
+  try {
+    runCommand(npx, [
+      ...commonArgs,
+      PKG_ENTRY_SCRIPT,
+      '--config', pkgConfigPath,
+      '--targets', target,
+      '--output', path.join(outputDir, appExeName),
+      '--no-bytecode',
+      '--public-packages', '*',
+      '--public',
+    ], { label: 'pkg daemon launcher', env });
+  } finally {
+    if (!options.pkgConfigPath) {
+      fs.rmSync(pkgConfigPath, { force: true });
+    }
+  }
 }
 
 function applyExecutableIcons(outputDir, platform, options = {}) {
@@ -1181,7 +1351,7 @@ function validateBuildOutput(outputDir, options = {}) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const targets = resolveBuildTargets(options);
+  let targets = resolveBuildTargets(options);
   const multiTargetOutputRoot = targets.length > 1 ? path.resolve(options.outputDir) : null;
   for (const target of targets) {
     assertSafeOutputDir(target.outputDir);
@@ -1190,6 +1360,31 @@ async function main() {
     assertSafeOutputRoot(multiTargetOutputRoot);
   }
   validateSourceDaemonInputs(ROOT);
+
+  // An explicitly requested target that this host cannot produce is an error —
+  // that is the CI path, where each target runs on its own matching runner. A
+  // matrix run on a developer machine skips instead, loudly, so that asking for
+  // "all of them" still yields the ones that are real here.
+  const buildable = [];
+  const skipped = [];
+  for (const target of targets) {
+    const support = describeNodePtyHostSupport(target);
+    if (support.supported) {
+      buildable.push(target);
+      continue;
+    }
+    if (targets.length === 1) {
+      throw new Error(`[exe-build] ${support.reason}`);
+    }
+    skipped.push({ target, reason: support.reason });
+  }
+  for (const entry of skipped) {
+    console.warn(`[exe-build] SKIPPED ${entry.target.profileName}: ${entry.reason}`);
+  }
+  targets = buildable;
+  if (targets.length === 0) {
+    throw new Error('[exe-build] No requested target can be built on this host.');
+  }
 
   console.log(`[exe-build] Targets: ${targets.map((target) => `${target.profileName}:${target.pkgTarget}`).join(', ')}`);
   if (multiTargetOutputRoot) {
@@ -1292,6 +1487,12 @@ module.exports = {
   loadBootstrapConfigTemplate,
   parseArgs,
   platformFromPkgTarget,
+  canEmbedWindowsIcon,
+  describeNodePtyHostSupport,
+  resolveNodePtyAssetGlobs,
+  resolvePkgBuildConfig,
+  resolvePkgConfigPath,
+  PKG_ENTRY_SCRIPT,
   prepareWindowsPkgBaseIcon,
   profileNameFor,
   resolveBuildTargets,

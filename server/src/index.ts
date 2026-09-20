@@ -193,11 +193,31 @@ const PRODUCTION_INDEX_HTML = path.join(PRODUCTION_PUBLIC_DIR, 'index.html');
  * The running module's own directory — the one thing no environment variable
  * can move. `dist/index.js` sits in exactly one checkout whatever the
  * environment claims, which is what makes the question below decidable.
+ *
+ * The `typeof __dirname` arm is not decoration (OPS-BGSTAB-017). The packaged
+ * build bundles this file to CJS, where `import.meta` does not exist; esbuild
+ * substitutes an empty object, so the bare form evaluates
+ * `fileURLToPath(undefined)` and throws before the server has done anything.
+ * The build still succeeds, so the only symptom is an executable that will not
+ * start.
  */
-const RUNTIME_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const RUNTIME_MODULE_DIR = typeof __dirname === 'string'
+  ? __dirname
+  : path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Set only when this runtime is a packaged single executable. Inside pkg the
+ * module above is loaded from a virtual `/snapshot/...` path, which is not a
+ * tree anything else resolves into — so the executable's own directory is what
+ * plays the anchor's role there. See OPS-BGSTAB-017.
+ */
+const PACKAGED_EXECUTABLE_DIR = (process as NodeJS.Process & { pkg?: unknown }).pkg
+  ? path.dirname(process.execPath)
+  : null;
 
 const RUNTIME_PROVENANCE = describeRuntimeProvenance({
   moduleDir: RUNTIME_MODULE_DIR,
+  packagedExecutableDir: PACKAGED_EXECUTABLE_DIR,
   serverRoot: getServerRoot(),
   configPath: getConfigPath(),
   webRoot: PRODUCTION_PUBLIC_DIR,

@@ -8,6 +8,26 @@ import { resolveFairTerminalDeliveryPolicy } from '../services/TerminalResourceP
 import type { RuntimeConfigStore } from '../services/RuntimeConfigStore.js';
 import { FAIR_SCHEDULER_AUTHORITY_LOGICAL_LOCATOR } from './fairSchedulerAuthorityLocator.js';
 
+/**
+ * This module's own file path.
+ *
+ * The three self-locating functions below decide which runtime they are in by
+ * comparing this against `src/` and `dist/`, so it has to be a real path under
+ * every module system this file is built into.
+ *
+ * The `typeof __filename` arm exists for the packaged build (OPS-BGSTAB-017).
+ * `tools/build-daemon-exe.js` runs the server through esbuild with
+ * `format: 'cjs'`, and CJS has no `import.meta` — esbuild substitutes an empty
+ * object, so a bare `fileURLToPath(import.meta.url)` becomes
+ * `fileURLToPath(undefined)` and throws. The read at the bottom of this file
+ * runs at module init, so it threw before the server reached anything, and the
+ * build itself stayed green: the only symptom was an executable that would not
+ * start. Under real ESM `__filename` is undefined and the ternary falls through.
+ */
+const MODULE_FILE = typeof __filename === 'string'
+  ? __filename
+  : fileURLToPath(import.meta.url);
+
 // @req PERF-BGSTAB-010 AC-2 AC-3 AC-4
 const SCHEMA_VERSION = 'fair-scheduler-decision/v1' as const;
 const PRNG = Object.freeze({
@@ -278,7 +298,7 @@ export function validateFairSchedulerSourceProvenanceManifest(value: unknown):
 }
 
 export function getFairSchedulerBenchmarkSourceDigest(): string {
-  const current = fileURLToPath(import.meta.url);
+  const current = MODULE_FILE;
   const serverRoot = resolve(dirname(current), '../..');
   const runtimeRelativePath = relative(serverRoot, current).replace(/\\/gu, '/');
   if (runtimeRelativePath.startsWith('src/')) {
@@ -301,7 +321,7 @@ export function getFairSchedulerBenchmarkSourceDigest(): string {
 }
 
 export function resolveFairSchedulerEvidenceRoot(): string {
-  const current = fileURLToPath(import.meta.url);
+  const current = MODULE_FILE;
   const serverRoot = resolve(dirname(current), '../..');
   const runtimeRelativePath = relative(serverRoot, current).replace(/\\/gu, '/');
   if (runtimeRelativePath.startsWith('src/')) {
@@ -496,7 +516,7 @@ function isAuthorityManifestEntryReference(value: unknown): value is string {
 export function createFairSchedulerEvidenceAuthorityResolver(
   input: { repositoryRoot?: string } = {},
 ): FairSchedulerEvidenceAuthorityResolver {
-  const current = fileURLToPath(import.meta.url);
+  const current = MODULE_FILE;
   const serverRoot = resolve(dirname(current), '../..');
   const runtimeRelativePath = relative(serverRoot, current).replace(/\\/gu, '/');
   const useCompiledAuthority = runtimeRelativePath === 'dist/benchmarks/terminalFairnessCharacterization.js';
@@ -2395,7 +2415,7 @@ function parseProfileFromCli(): FairSchedulerBenchmarkInput & { outputPath: stri
   };
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && resolve(process.argv[1]) === MODULE_FILE) {
   void Promise.all([
     import('../services/RuntimeConfigStore.js'),
     import('../utils/config.js'),

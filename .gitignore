@@ -107,3 +107,7 @@ docs/srs/*/
 # tmp/, temp/, coverage/ and logs/ are all bare patterns that would swallow an evidence
 # file the same way. So this unignores the evidence tree itself rather than a file type.
 !docs/analysis/**
+
+# Transient per-target pkg config written at ROOT during exe builds
+# (pkg resolves --config globs against the config file's own directory).
+.pkg-config-*.json

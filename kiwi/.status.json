@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-20T16:40:07.801Z",
+  "generatedAt": "2026-09-20T19:49:05.050Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "ba3254cfa22d525a80365b5084f84b4ca64c6a85d3572febc086efcda7b95cd3",
+    "value": "9d31a0e166a0ff32322eb3f8ff513a4a1b2dfddc1ef22879deecf2bbf6ea4d8d",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "cb3695c4632f660bdb98d2441c2a9e3b9d0e787092327d54151e310034402107",
-        "size": 1347648,
-        "mtimeMs": 1789922397668.456
+        "sha256": "8f3d04e828ed15a20b14fe1c6ca56ff145715abe3323db4f1e9f8fc81db48e03",
+        "size": 1358323,
+        "mtimeMs": 1789933744677.2512
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -79,7 +79,7 @@
       "BGSTAB": 5
     },
     "operational": {
-      "BGSTAB": 16
+      "BGSTAB": 17
     },
     "interface": {
       "BGSTAB": 2,

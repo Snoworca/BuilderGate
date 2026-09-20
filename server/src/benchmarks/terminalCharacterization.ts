@@ -203,7 +203,12 @@ const METRIC_SOURCES = [
   },
 ] as const;
 
-const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+// OPS-BGSTAB-017: `import.meta` is an empty object once this is bundled to CJS.
+// `resolve` normalises either form, and every use below goes through `resolve`
+// or `cwd`, so the trailing-separator difference is not observable.
+const PROJECT_ROOT = typeof __dirname === 'string'
+  ? resolve(__dirname, '../../..')
+  : fileURLToPath(new URL('../../../', import.meta.url));
 const DEFAULT_RANDOM_SEED = 7008;
 const DEFAULT_TRIAL_COUNT = 3;
 const DEFAULT_TRIAL_DURATION_MS = 250;

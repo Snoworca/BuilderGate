@@ -30,6 +30,16 @@ export interface RuntimeProvenanceInput {
   serverRoot: string;
   configPath: string;
   webRoot: string;
+  /**
+   * The directory holding the executable, when this runtime is a packaged
+   * single binary (OPS-BGSTAB-017). Inside pkg the module is loaded from a
+   * virtual `/snapshot/...` path that exists nowhere on disk, so `moduleDir`
+   * cannot answer "did a resolved path leave my tree". The executable's own
+   * directory plays that role there: it is where `runtime-paths.js` already
+   * resolves the packaged root to, and it is where config and web are read
+   * from. Left unset for an ordinary checkout.
+   */
+  packagedExecutableDir?: string | null;
 }
 
 /**
@@ -75,7 +85,15 @@ export function describeRuntimeProvenance(input: RuntimeProvenanceInput): Runtim
   // level too far up anchors on the PARENT of the checkout, which makes every
   // sibling checkout look local — the guard then passes while measuring
   // nothing. The second one was caught by the sibling-prefix test.
-  const anchor = resolve(input.moduleDir, '..', '..');
+  //
+  // Packaged (OPS-BGSTAB-017): the executable's directory IS the tree. Anchoring
+  // on `/snapshot/...` made every real path foreign and fired the warning on
+  // every correct start — the failure this requirement's own reasoning warns
+  // about. The check is not skipped when packaged: an inherited
+  // BUILDERGATE_CONFIG_PATH is as wrong inside an executable as outside one.
+  const anchor = input.packagedExecutableDir
+    ? resolve(input.packagedExecutableDir)
+    : resolve(input.moduleDir, '..', '..');
 
   const candidates: ResolvedRuntimePath[] = [
     { name: 'serverRoot', resolved: resolve(input.serverRoot) },
