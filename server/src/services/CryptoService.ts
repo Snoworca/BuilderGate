@@ -22,14 +22,36 @@ const AUTH_TAG_LENGTH = 16; // 128 bits
 const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_DIGEST = 'sha256';
 
+export interface CryptoServiceOptions {
+  /**
+   * FR-BGSTAB-030 AC-3. A human-readable description of what the master key was
+   * derived from, used only to explain a decryption failure.
+   *
+   * Measured 2026-09-20: a config encrypted under WSL could not be read by the
+   * same checkout started from cmd.exe, because the key source is
+   * `hostname-platform-arch` and only `os.platform()` differed. What surfaced
+   * was node's GCM text, `Unsupported state or unable to authenticate data`,
+   * which is equally true of a corrupted value, a truncated value and a value
+   * encrypted under another key — and says nothing about which. Naming the
+   * source this process derived is what makes the last one actionable.
+   *
+   * It must not be the key, or anything secret. `hostname-platform-arch` is
+   * already printed at startup.
+   */
+  keySourceLabel?: string;
+}
+
 export class CryptoService {
   private masterKey: Buffer;
+  private keySourceLabel: string | null;
 
   /**
    * Create a CryptoService instance
    * @param masterKeySource - Source for master key derivation (e.g., machine ID, env var)
+   * @param options - see CryptoServiceOptions
    */
-  constructor(masterKeySource: string) {
+  constructor(masterKeySource: string, options: CryptoServiceOptions = {}) {
+    this.keySourceLabel = options.keySourceLabel?.trim() || null;
     // Derive master key from source using a fixed salt for consistency
     const fixedSalt = Buffer.from('buildergate-master-key-salt-v1', 'utf-8');
     this.masterKey = crypto.pbkdf2Sync(
@@ -132,11 +154,32 @@ export class CryptoService {
 
       return plaintext;
     } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Unknown error';
       throw new AppError(
         ErrorCode.DECRYPTION_ERROR,
-        `Decryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Decryption failed: ${reason}${this.describeLikelyKeyMismatch(reason)}`
       );
     }
+  }
+
+  /**
+   * FR-BGSTAB-030 AC-3. Adds the key-mismatch explanation, and only when the
+   * failure is actually consistent with one.
+   *
+   * The boundary matters: a malformed value, or one that is not in `enc(...)`
+   * form at all, fails for a reason that has nothing to do with the key. Saying
+   * "wrong key" for those would be as uninformative as the message this
+   * replaces, just wrong in a new direction. So this fires on the authentication
+   * failure specifically — the signature of a ciphertext that decrypted under
+   * the wrong key.
+   */
+  private describeLikelyKeyMismatch(reason: string): string {
+    if (this.keySourceLabel === null) return '';
+    if (!/unable to authenticate data|bad decrypt|auth/i.test(reason)) return '';
+    return `. This value was most likely encrypted with a different master key. `
+      + `This process derives its key from "${this.keySourceLabel}", which includes the `
+      + `platform, so a config written by a different platform on the same machine `
+      + `cannot be read here.`;
   }
 
   /**

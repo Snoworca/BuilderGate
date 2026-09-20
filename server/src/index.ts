@@ -9,11 +9,12 @@ import express from 'express';
 import cors from 'cors';
 import https from 'https';
 import http, { type ServerResponse } from 'http';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import crypto from 'node:crypto';
 import os from 'os';
 import httpProxy from 'http-proxy';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import { createSessionRoutes } from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
@@ -25,6 +26,10 @@ import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
 import { config, getConfigPath, getServerRoot } from './utils/config.js';
+import {
+  describeRuntimeProvenance,
+  formatForeignRootWarning,
+} from './utils/runtimeProvenance.js';
 import { getRawConfigSnapshot, getRawConfigSnapshotCapturedAt } from './utils/rawConfigSnapshot.js';
 import {
   buildTerminalPathGateKeyBackup,
@@ -174,6 +179,46 @@ const PRODUCTION_PUBLIC_DIR = process.env[WEB_ROOT_ENV_KEY]?.trim()
   ? path.resolve(process.env[WEB_ROOT_ENV_KEY]!)
   : path.join(getServerRoot(), 'dist', 'public');
 const PRODUCTION_INDEX_HTML = path.join(PRODUCTION_PUBLIC_DIR, 'index.html');
+
+/**
+ * FR-BGSTAB-030. Which checkout is this process actually serving?
+ *
+ * Measured 2026-09-20: started from cmd.exe, this checkout's dist inherited
+ * fifteen BUILDERGATE_* variables from the Windows environment, all pointing at
+ * the installed deployment. It started, /health answered 200, and the assets and
+ * config were the installed deployment's. Nothing in the running system said so.
+ */
+/**
+ * The running module's own directory — the one thing no environment variable
+ * can move. `dist/index.js` sits in exactly one checkout whatever the
+ * environment claims, which is what makes the question below decidable.
+ */
+const RUNTIME_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+const RUNTIME_PROVENANCE = describeRuntimeProvenance({
+  moduleDir: RUNTIME_MODULE_DIR,
+  serverRoot: getServerRoot(),
+  configPath: getConfigPath(),
+  webRoot: PRODUCTION_PUBLIC_DIR,
+});
+
+/**
+ * A short digest of the served bundle entry point, so a caller can tell one
+ * build from another without being handed a filesystem path. Null when there is
+ * no bundle to hash, which is an honest answer rather than an invented id.
+ */
+function readServedBuildId(): string | null {
+  try {
+    return crypto.createHash('sha256')
+      .update(readFileSync(PRODUCTION_INDEX_HTML))
+      .digest('hex')
+      .slice(0, 12);
+  } catch {
+    return null;
+  }
+}
+
+const SERVED_BUILD_ID = readServedBuildId();
 
 function setupFatalErrorLogging(): void {
   if (fatalErrorLoggingInstalled) {
@@ -554,7 +599,12 @@ function setupRoutes(): void {
       authenticated: false,
       pid: process.pid,
       startAttemptId: DAEMON_START_ATTEMPT_ID,
-      stateGeneration: Number.isInteger(DAEMON_STATE_GENERATION) ? DAEMON_STATE_GENERATION : null
+      stateGeneration: Number.isInteger(DAEMON_STATE_GENERATION) ? DAEMON_STATE_GENERATION : null,
+      // FR-BGSTAB-030 AC-2. A 200 says a server is up; it has never said WHICH.
+      // These two fields are what a scripted preflight needs to tell this build
+      // from another one, and they are deliberately a verdict and a digest
+      // rather than paths: /health takes no auth.
+      ...RUNTIME_PROVENANCE.toHealthView(SERVED_BUILD_ID),
     });
   });
 
@@ -1002,12 +1052,26 @@ app.use((err: Error, req: express.Request, res: express.Response, _next: express
 
 async function startServer(): Promise<void> {
   try {
+    // ====================================================================
+    // FR-BGSTAB-030 AC-1. Say it FIRST, before anything that might fail.
+    //
+    // The decryption failure that a foreign config produces is thrown from
+    // inside AuthService a few lines below, and measured 2026-09-20 that is
+    // the only thing the operator sees. Printing the provenance after it
+    // would mean the one message that explains the crash never appears.
+    // ====================================================================
+    for (const line of formatForeignRootWarning(RUNTIME_PROVENANCE)) {
+      console.warn(line);
+    }
+
     // ========================================================================
     // Initialize Crypto Service (Phase 2)
     // ========================================================================
     // Use machine ID + hostname as master key source for consistency
     const machineId = `${os.hostname()}-${os.platform()}-${os.arch()}`;
-    cryptoService = new CryptoService(machineId);
+    // FR-BGSTAB-030 AC-3. The label is what turns a failed GCM auth tag into
+    // "this file was written by a different platform on this machine".
+    cryptoService = new CryptoService(machineId, { keySourceLabel: machineId });
     console.log('[Crypto] CryptoService initialized');
 
     // ========================================================================

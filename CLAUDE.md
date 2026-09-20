@@ -312,6 +312,49 @@ The Completed Work Log — inline in `docs/spec/00.index.md` §7 and its split h
 
 **변하지 않는 것**: TCP 2001/2002 운영 중단 금지, 프로세스 안전 규칙, `git add -A` 금지, 기록을 고쳐 쓰지 않고 승계하는 것.
 
+## WSL 에서 맞던 절차가 cmd.exe 에서 맞지 않는다 (2026-09-20, FR-BGSTAB-030)
+
+**cmd.exe 는 설치본의 환경을 상속한다. WSL 은 상속하지 않는다.** 실측: Windows 환경에
+`BUILDERGATE_*` 가 **15개** 설정돼 있고 전부 설치본(`C:\Work\agent-tools\builder-gate__`)을
+가리킨다 — `CONFIG_PATH`, `WEB_ROOT`, `RUNTIME_ROOT`, `DAEMON_STATE_PATH`, `SHUTDOWN_TOKEN`,
+`TOTP_SECRET_PATH` 등. WSL 셸에는 **하나도 없다.**
+
+그래서 "`BUILDERGATE_*` 를 자식 환경에서 전부 제거한다" 를 WSL 에서 지키는 것은 공짜였고,
+cmd.exe 에서는 **이름을 아는 것만 지우면 지켜지지 않는다.** 실측으로 4개만 지우고 띄웠더니
+서버가 정상 기동했고 `/health` 는 200 이었으나 **서빙한 정적 자산과 읽은 config 가 설치본의
+것**이었다(`2FA: TOTP` 로 드러남 — 이 체크아웃은 `Disabled`).
+
+- 이름을 열거하지 말고 **있는 것을 전부** 지운다:
+  `for /f "delims==" %%v in ('set BUILDERGATE 2^>nul') do set "%%v="`
+- 비밀번호처럼 **남겨야 하는 값은 그 루프 뒤에** 설정한다. 루프 앞에 두면 같이 지워진다
+  (실측: 지워졌고, 서버는 비밀번호 없이 뜬 채 `INVALID_PASSWORD` 만 답했다).
+- `set BUILDERGATE` 로 확인하면 **NAME=VALUE 가 찍혀 비밀값이 로그에 남는다.** 이름만 찍는다.
+- `start.bat`/`start-runtime.js` 는 쓰지 않는다. 운영 데몬(2001/2002)이 떠 있으면 2222 로
+  뜨지 않고 데몬 상태 파일을 건드릴 수 있다. 이 파일 위쪽이 지정한 `dist\index.js` 직접 실행이
+  그 상황의 경로다.
+- **WSL 의 `localhost:2222` 는 Windows 리스너에 닿지 않는다.** WSL 에서는 기본 게이트웨이
+  IP(`ip route show default` 의 세 번째 필드)로 간다. E2E 스위트는 `localhost` 를 보므로
+  서버가 Windows 에 있으면 돌지 않는다.
+
+## 설정 암호화는 플랫폼에 묶여 있다 (2026-09-20, FR-BGSTAB-030)
+
+`machineId` 는 `${os.hostname()}-${os.platform()}-${os.arch()}` 다(`server/src/index.ts`).
+**같은 기계·같은 파일이라도 WSL(`linux`)에서 암호화한 `config.json5` 는 Windows(`win32`)에서
+복호화되지 않는다.** 키를 바꾸는 것은 기존 config 를 전부 무효화하므로 해법이 아니다.
+
+- 한 체크아웃을 두 플랫폼에서 띄우려면 **플랫폼별 config 를 따로 둔다.**
+  `BUILDERGATE_CONFIG_PATH` 로 지정하되 **이 체크아웃 안**을 가리킨다.
+- 평문 비밀번호를 넣으면 서버가 기동 시 자기 키로 암호화해 파일에 다시 쓴다
+  (`[Config] auth.password encrypted`). 평문은 첫 기동까지만 디스크에 있다.
+- **`BUILDERGATE_PASSWORD` 는 서버가 읽지 않는다.** `server/src` 참조 0건 — 테스트 하네스
+  전용이다. 서버 비밀번호는 `config.json5` 에서만 온다.
+
+**이제 이 둘은 제품이 말해 준다**(FR-BGSTAB-030): 해석된 루트가 실행 중인 코드의 체크아웃
+밖이면 기동 시 `[Provenance]` 경고가 변수와 경로를 지목하고, `/health` 가 `rootsForeign`
+과 `buildId` 를 함께 낸다. **`/health` 200 을 "내가 빌드한 서버" 로 읽지 말라는 이 파일의
+규칙이, 이제 기억이 아니라 필드로 확인된다.** 복호화 실패도 키 유도 근거의 불일치를 원인으로
+지목한다.
+
 ## 성능과 사용성 우선 (2026-09-18, 사용자 지시)
 
 **빠른 성능과 편리한 사용성 두 마리를 모두 잡는다. 이 둘이 판단 기준의 최상위다.**
