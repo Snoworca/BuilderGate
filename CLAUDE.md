@@ -72,6 +72,49 @@ frontend/src/
 - 환경 변수는 실행별로 확인하고 보호 guard/소유 경로 설정을 보존한다. 상속된 설정이 설치본을 가리키는지 확인하고, 필요한 변경은 검토된 child environment에만 적용한다. `BUILDERGATE_*` 일괄 삭제나 parent 환경 변경을 기본 절차로 사용하지 않는다. 실제 설정의 load/merge와 경로를 확인하며 비밀값을 출력하지 않는다.
 - 원본 dirty/untracked/config 파일을 다른 worktree에 복사해 baseline을 만들지 않는다. 깨끗한 전용 checkout에서 검토된 소유 fixture를 만들고 정확한 입력 hash와 HEAD를 기록한다.
 - 스크린샷은 `.playwright-mcp/`에 저장한다. UI는 요구된 editor 통합 외에 개인 판단으로 바꾸지 않는다. 연구·계획과 검증의 역할 분리 및 모델 선택은 현재 사용자/AGENTS 지시를 따른다.
+## 🚨 TCP 2002 는 지금 운영 중이다. 이 프로세스를 종료시키지 마라 (2026-09-21, 사용자 지시)
+
+**2002 는 이 시스템에 실제로 배포되어 서비스 중인 포트다. 어떤 이유로도, 어떤 우회로도
+그 프로세스를 죽이지 않는다.** 위 Rules 의 금지 조항은 그대로 유효하며, 이 절은 그것을
+**기계적으로 식별 가능하게** 만든다 — 규칙을 아는 것과 눈앞의 PID 가 그것인지 아는 것은
+다른 일이고, 사고는 항상 후자에서 난다.
+
+### 식별자: PID 가 아니라 명령줄로 가른다
+
+PID 는 재부팅마다 바뀌므로 외워 둘 수 없다. **명령줄이 판별자다.**
+
+| | 운영 데몬 — **절대 금지** | 이 체크아웃 — 소유 확인 후 그 PID 하나만 |
+|---|---|---|
+| 명령줄 | `C:\Work\agent-tools\builder-gate__\node\node.exe C:\Work\agent-tools\builder-gate__\server\dist\index.js` | `node dist/index.js` (상대 경로) |
+| 실행 파일 | 설치본 안의 `node.exe` | 시스템 node / nvm node |
+| 포트 | **2001 과 2002 를 한 PID 가 동시에** | 2222 |
+| cwd | `C:\Work\agent-tools\builder-gate__\server` | `.../ProjectMaster*/server` |
+
+즉 **절대 경로면 설치본, 상대 경로면 내 것**이다. 2026-09-21 실측 당시 데몬은 PID 30596
+이었고 2001·2002 를 함께 LISTENING 했다. **2001 을 내리는 것이 곧 2002 운영 중단이다.**
+
+종료 전에 반드시:
+
+```bash
+# WSL 에서도 Windows 리스너를 본다 (ss 로는 안 보인다)
+cmd.exe /c "netstat -ano" | tr -d '\r' | grep LISTENING | grep -E ":(2001|2002|2222)\s"
+# 대상 PID 의 명령줄을 눈으로 확인한다 — 절대 경로면 중단
+```
+
+그리고 작업 **뒤에도** 같은 명령으로 2001·2002 가 같은 PID 로 남아 있는지 본다.
+
+### 오늘 실제로 아슬아슬했던 세 가지
+
+1. **`pkill -f "<패턴>"` 은 자기 자신을 매치한다.** 2026-09-21 실측: `pkill -f "playwright test tests/e2e/issue113"` 가 그 문자열을 담은 **자기 셸**을 죽여 exit 144 로 끝났고 편집이 유실됐다. 패턴이 넓었다면 데몬을 잡았을 수 있다. → 종료는 `pgrep` 으로 **후보를 먼저 출력**하고, 각 PID 의 `/proc/<pid>/cmdline` 또는 `Win32_Process.CommandLine` 을 확인한 뒤 **PID 하나씩** 지목한다.
+2. **`taskkill /T` 는 트리를 지운다.** 부모를 잘못 고르면 자식까지 간다. 대상이 확정된 리프 프로세스면 `/T` 를 쓰지 않는다.
+3. **cmd.exe 는 설치본의 `BUILDERGATE_SHUTDOWN_TOKEN` 과 `BUILDERGATE_DAEMON_STATE_PATH` 를 상속한다.** 그 상태에서 내부 shutdown 엔드포인트나 `stop` 을 부르면 **대상은 2002 다.** WSL 셸에는 그 변수가 하나도 없어서 WSL 기준 경험이 그대로 옮겨지지 않는다(아래 cmd.exe 절 참조).
+
+### 2002 를 멈춰야만 진행되는 상황이면
+
+멈추지 말고 **그 사실을 보고하고 지시를 기다린다.** 우회로를 찾지 않는다. 검증이 필요하면
+데몬을 거치지 않고 이 체크아웃의 `server/dist/index.js` 를 `NODE_ENV=production PORT=2222`
+로 직접 띄운다 — 데몬 상태 파일을 건드리지 않는다.
+
 ## 테스트 규칙 (필수)
 
 아래 날짜별 수치와 실패 서술은 병합 전 관찰 기록이다. 현재 통합 결과로 재라벨링하지 않는다. 현재 admission은 exact20 자식과 no-kill observer 계약이며 canonical bbf59ed에서3회 통과했다; 통합 source에는 새 검증이 필요하다. split은15 ordinary PASS/13 TODO의 기록이며 완료가 아니다. 표의 명령은 실행 surface 안내이지 안전성 검토 면제가 아니다.
