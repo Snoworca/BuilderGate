@@ -30,6 +30,7 @@ import {
   describeRuntimeProvenance,
   formatForeignRootWarning,
 } from './utils/runtimeProvenance.js';
+import { describeGlobalPtyBackend } from './utils/ptyPlatformPolicy.js';
 import { getRawConfigSnapshot, getRawConfigSnapshotCapturedAt } from './utils/rawConfigSnapshot.js';
 import {
   buildTerminalPathGateKeyBackup,
@@ -1697,12 +1698,19 @@ async function startServer(): Promise<void> {
 
     // Start HTTPS server
     httpsServer.listen(PORT, () => {
-      const powerShellBackend = config.pty.windowsPowerShellBackend ?? 'inherit';
-      const effectivePowerShellBackend = powerShellBackend === 'inherit'
-        ? (config.pty.useConpty ? 'conpty' : 'winpty')
-        : powerShellBackend;
-      console.log(`[PTY] Global Windows backend default: ${config.pty.useConpty ? 'conpty' : 'winpty'}`);
-      console.log(`[PTY] Effective PowerShell backend default: ${effectivePowerShellBackend} (policy: ${powerShellBackend})`);
+      // CON-BGSTAB-002 AC-5. Windows backend selection is only a thing on
+      // Windows. These two lines used to print everywhere, so a Linux start
+      // announced "Global Windows backend default: winpty" on a host that has no
+      // winpty — Unix uses its own pseudo-terminal and node-pty goes straight to
+      // it. The banner line below says what IS in use on every platform.
+      if (process.platform === 'win32') {
+        const powerShellBackend = config.pty.windowsPowerShellBackend ?? 'inherit';
+        const effectivePowerShellBackend = powerShellBackend === 'inherit'
+          ? (config.pty.useConpty ? 'conpty' : 'winpty')
+          : powerShellBackend;
+        console.log(`[PTY] Global Windows backend default: ${config.pty.useConpty ? 'conpty' : 'winpty'}`);
+        console.log(`[PTY] Effective PowerShell backend default: ${effectivePowerShellBackend} (policy: ${powerShellBackend})`);
+      }
       const twoFAStatus = (() => {
         const totpEnabled = config.twoFactor?.enabled ?? false;
         if (!totpEnabled) return 'Disabled';
@@ -1716,7 +1724,7 @@ async function startServer(): Promise<void> {
       console.log(`║  HTTPS Server: https://localhost:${PORT}                        ║`);
       console.log(`║  Health Check: https://localhost:${PORT}/health                 ║`);
       console.log(`║  Login:        POST https://localhost:${PORT}/api/auth/login    ║`);
-      console.log(`║  Global PTY:   ${config.pty.useConpty ? 'ConPTY' : 'winpty'}                                       ║`);
+      console.log(`║  Global PTY:   ${describeGlobalPtyBackend(process.platform, config.pty.useConpty).padEnd(38)}║`);
       console.log('║  TLS Version:  1.2 - 1.3                                       ║');
       console.log('║  Auth:         JWT (HS256)                                     ║');
       console.log(`║  2FA:          ${twoFAStatus.padEnd(30)}     ║`);

@@ -1298,6 +1298,8 @@ function testConfigBootstrapAppliesPlatformPtyDefaults(): void {
   },
 }`;
 
+  // CON-BGSTAB-002: Windows defaults to ConPTY, and PowerShell inherits it
+  // rather than being carved out, so the pair is true/inherit.
   const windows = applyBootstrapPtyDefaultsToConfigText(example, 'win32');
   assert.match(windows, /useConpty:\s*true,/);
   assert.match(windows, /windowsPowerShellBackend:\s*"inherit",/);
