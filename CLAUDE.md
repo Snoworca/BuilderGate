@@ -91,7 +91,7 @@ frontend/src/
 | wave3 증거 스크립트 | `tools/wave3/{authority-promotion-evidence, canary-admission-evidence, fair-scheduler-decision, retained-shadow-parity, terminal-resource-consumer-manifest}.test.mjs` (5개, **node:test 아님**) | `node tools/wave3/<파일>` (일부는 `--regenerate-green` 등 플래그를 받음) |
 | wave1 | `tools/wave1/g1-decision-gate.test.mjs` (1개) | `node --test tools/wave1/g1-decision-gate.test.mjs` — 스크립트 없음 |
 | server tools | `server/tools/*.test.{cjs,mjs}` (3개, node:test) | `node --test server/tools/<파일>` — 스크립트 없음 |
-| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts`, `server/src/utils/retiredSettingsResidue.test.ts` (15 케이스) | 루트 `npm run test:release-pipeline` — 넷을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것** |
+| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts`, `server/src/utils/retiredSettingsResidue.test.ts` (15 케이스), `tools/wave3/terminal-resource-consumer-manifest.test.mjs` | 루트 `npm run test:release-pipeline` — 다섯을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것.** 소비자 매니페스트는 2026-09-21 에 체인에 들어왔다(그 전에는 어떤 스크립트도 그것을 부르지 않아 봉인이 조용히 낡았다 — 아래 절 참조) |
 
 주의할 것:
 
@@ -311,6 +311,29 @@ The Completed Work Log — inline in `docs/spec/00.index.md` §7 and its split h
 **심볼을 옮기거나 이름을 바꾸기 전에**, 그것을 import 가 아니라 **문자열로 지목하는 것**을 저장소 전체에서 찾는다 — 카탈로그·매니페스트·evidence signature·소스 텍스트 단언·CI glob·문서 앵커. 전부 컴파일러에도 동작 테스트에도 보이지 않는다. "토큰 동일" 은 **동작** 질문에 답하지 **정체성** 질문에 답하지 않는다.
 
 **변하지 않는 것**: TCP 2001/2002 운영 중단 금지, 프로세스 안전 규칙, `git add -A` 금지, 기록을 고쳐 쓰지 않고 승계하는 것.
+
+## 재봉인은 커밋 직전에, 마지막으로 한다 (2026-09-21)
+
+**봉인한 뒤에 소스를 한 줄이라도 더 고치면 그 봉인은 낡는다.** 하루에 두 번 그렇게
+했다 — `7dfff106` 과 `50fc673f` 둘 다 낡은 소비자 매니페스트와 함께 푸시됐다. 두 번 다
+같은 모양이다: 재봉인 → 리뷰하다 파일 하나 더 수정 → 커밋. 사이에 검증기를 돌리지 않았다.
+
+그 원인은 주의력이 아니라 구조였다. **어떤 npm 스크립트도 그 검증기를 부르지 않았다.**
+`test:release-pipeline` 도 덮지 않아서, 그 게이트가 19/19 통과하는 동안 매니페스트는
+빨갰다. 유일한 소비자인 `server/src/services/TerminalResourcePolicy.test.ts` 역시 어떤
+스크립트에도 없다(모놀리식 러너는 `*.test.ts` 를 디스커버리하지 않는다).
+
+2026-09-21 에 `npm run check:consumer-manifest` 를 만들고 **`test:release-pipeline`
+체인에 엮었다.** 스크립트를 만들기만 하고 아무도 부르지 않으면 표면은 실재하지 않는다 —
+이 저장소가 `server/tools/*.test.*` 에서 이미 배운 것이다(`docs/analysis/2026-09-17.rg06-regression/00.decision-table.md` §5.4).
+공허하지 않음을 실측했다: 봉인 해시 하나를 변조하면 앞 세 단계(14/3/2)가 전부 통과한 뒤
+`check:consumer-manifest` 단계에서 `AssertionError` 로 exit 1 이 된다.
+
+- **순서를 지킨다**: 소스 수정 → (전부 끝난 뒤) 재봉인 → 검증기 → 커밋.
+- 재봉인 뒤에 무언가를 고쳤다면 **다시 봉인한다.** dry-run 요약의
+  `exact consumer tuples`·`classifications` 가 `unchanged` 인지 매번 본다.
+- 이것은 `git add -A` 금지가 새 generation 디렉터리를 남기는 것과 같은 부류다 —
+  **안전 규칙의 옳은 적용이 그 다음 실패를 만든다.**
 
 ## WSL 에서 맞던 절차가 cmd.exe 에서 맞지 않는다 (2026-09-20, FR-BGSTAB-030)
 
