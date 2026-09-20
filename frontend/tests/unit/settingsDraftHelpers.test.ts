@@ -5,10 +5,13 @@ import type {
   EditableSettingsValues,
   FieldCapability,
 } from '../../src/types/settings.ts';
+import type { SecretPatchDraft } from '../../src/components/Settings/settingsDraftHelpers.ts';
 import {
   WAVE6_RESOURCE_LIMIT_GROUPS,
+  buildSettingsPatch,
   buildWave6ResourceLimitsPatch,
   setResourceLimitValue,
+  useConptyFromTerminalBackend,
   validateWave6ResourceLimitDraft,
 } from '../../src/components/Settings/settingsDraftHelpers.ts';
 
@@ -122,6 +125,57 @@ function createCapabilities(): Record<EditableSettingsKey, FieldCapability> {
     constraints: { min: 1, max: 10, step: 1, unit: 'count' },
   };
   return capabilities;
+}
+
+/**
+ * Issue #117. The global PTY backend control and the PowerShell override are
+ * parent and child on one axis, and the Settings page now shows both as selects
+ * in the same vocabulary. These two pin the boundary the redesign must not
+ * blur, from BOTH sides rather than once in whichever direction the change
+ * happened to move.
+ *
+ * The rejected idea was to let the PowerShell select drive `useConpty`. That
+ * turns a PowerShell-scoped override into a global switch, so choosing conpty
+ * for PowerShell would silently move cmd and bash too — the opposite of why the
+ * override exists. It was added (a224f6e3, step18) because
+ * `PowerShell/PSReadLine on ConPTY` corrupted the screen on rapid Enter, and its
+ * entire purpose is to carve PowerShell OUT of the global choice.
+ */
+test('#117 changing the global backend leaves the PowerShell override alone', () => {
+  const initial = createEditableValues();
+  const draft = structuredClone(initial);
+  const capabilities = createCapabilities();
+
+  draft.pty.useConpty = useConptyFromTerminalBackend('conpty');
+
+  const patch = buildSettingsPatch(initial, draft, noSecrets(), capabilities);
+
+  assert.equal(patch.pty?.useConpty, true);
+  assert.ok(
+    !('windowsPowerShellBackend' in (patch.pty ?? {})),
+    `the global control must not write the PowerShell override; got ${JSON.stringify(patch.pty)}`,
+  );
+});
+
+test('#117 changing the PowerShell override leaves the global backend alone', () => {
+  const initial = createEditableValues();
+  const draft = structuredClone(initial);
+  const capabilities = createCapabilities();
+
+  draft.pty.windowsPowerShellBackend = 'winpty';
+
+  const patch = buildSettingsPatch(initial, draft, noSecrets(), capabilities);
+
+  assert.equal(patch.pty?.windowsPowerShellBackend, 'winpty');
+  assert.ok(
+    !('useConpty' in (patch.pty ?? {})),
+    `the PowerShell override must not write the global switch; got ${JSON.stringify(patch.pty)}`,
+  );
+});
+
+/** No password change; the patch builder still requires the full shape. */
+function noSecrets(): SecretPatchDraft {
+  return { currentPassword: '', newPassword: '', confirmPassword: '' };
 }
 
 function createEditableValues(): EditableSettingsValues {

@@ -14,6 +14,7 @@ import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 import { reloadRuntimeConfig } from '../../utils/inputReliabilityMode';
 import {
+  TERMINAL_BACKEND_OPTIONS,
   WAVE6_RESOURCE_LIMIT_GROUPS,
   buildSettingsPatch,
   formatResourceLimitInput,
@@ -21,6 +22,8 @@ import {
   parseResourceLimitInput,
   resourceLimitTestId,
   setResourceLimitValue,
+  terminalBackendFromUseConpty,
+  useConptyFromTerminalBackend,
   validateWave6ResourceLimitDraft,
 } from './settingsDraftHelpers';
 import './SettingsPage.css';
@@ -198,7 +201,7 @@ export function SettingsPage({ visible, onBack }: Props) {
     }
 
     if (winptyUnavailable && !draft.pty.useConpty) {
-      errors.push('winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.');
+      errors.push('winpty is unavailable on this host. Set "Terminal backend" to conpty before saving terminal settings.');
     }
 
     errors.push(...validateWave6ResourceLimitDraft(draft, snapshot.capabilities));
@@ -211,16 +214,20 @@ export function SettingsPage({ visible, onBack }: Props) {
     return JSON.stringify(snapshot.values) !== JSON.stringify(draft) || JSON.stringify(secrets) !== JSON.stringify(EMPTY_SECRETS);
   }, [draft, secrets, snapshot]);
 
+  // #117. Names the relationship the two controls have, which the old checkbox
+  // plus select could not show: this one is the default every shell inherits.
+  const terminalBackendHint = 'Every shell uses this backend unless a per-shell override below says otherwise.';
+
   const powerShellBackendHint = useMemo(() => {
     if (!draft || !snapshot) return '';
     const capabilityReason = snapshot.capabilities['pty.windowsPowerShellBackend']?.reason;
     const allowsWinpty = (snapshot.capabilities['pty.windowsPowerShellBackend']?.options ?? ['inherit', 'conpty', 'winpty']).includes('winpty');
     const baseHint = draft.pty.windowsPowerShellBackend === 'inherit'
       ? (!draft.pty.useConpty && !allowsWinpty
-          ? 'winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.'
-          : `PowerShell inherits ${draft.pty.useConpty ? 'ConPTY' : 'winpty'} from "Use ConPTY".`)
+          ? 'winpty is unavailable on this host. Set "Terminal backend" to conpty before saving terminal settings.'
+          : `PowerShell inherits ${draft.pty.useConpty ? 'conpty' : 'winpty'} from "Terminal backend".`)
       : (!draft.pty.useConpty && !allowsWinpty
-          ? 'winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.'
+          ? 'winpty is unavailable on this host. Set "Terminal backend" to conpty before saving terminal settings.'
           : `New PowerShell sessions will force ${draft.pty.windowsPowerShellBackend}.`);
     return capabilityReason ? `${baseHint} ${capabilityReason}` : baseHint;
   }, [draft, snapshot]);
@@ -421,8 +428,20 @@ export function SettingsPage({ visible, onBack }: Props) {
                   {(snapshot.capabilities['pty.shell'].options ?? ['auto']).map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </Field>
+              {/* #117: a select in the SAME vocabulary as the PowerShell override
+                  below, so the two read as parent and child. The stored value is
+                  still the boolean node-pty expects, so nothing migrates. */}
               {snapshot.capabilities['pty.useConpty'].available && (
-                <Field label="Use ConPTY" scope={scope(snapshot, 'pty.useConpty')}><input type="checkbox" checked={draft.pty.useConpty} onChange={(e) => updateDraft((next) => { next.pty.useConpty = e.target.checked; })} /></Field>
+                <Field label="Terminal backend" scope={scope(snapshot, 'pty.useConpty')} hint={terminalBackendHint}>
+                  <select
+                    value={terminalBackendFromUseConpty(draft.pty.useConpty)}
+                    onChange={(e) => updateDraft((next) => {
+                      next.pty.useConpty = useConptyFromTerminalBackend(e.target.value, next.pty.useConpty);
+                    })}
+                  >
+                    {TERMINAL_BACKEND_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </Field>
               )}
               {snapshot.capabilities['pty.windowsPowerShellBackend']?.available && (
                 <Field label="PowerShell backend" scope={scope(snapshot, 'pty.windowsPowerShellBackend')} hint={powerShellBackendHint}>

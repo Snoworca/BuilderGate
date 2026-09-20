@@ -102,6 +102,46 @@ export const WAVE6_RESOURCE_LIMIT_KEYS = WAVE6_RESOURCE_LIMIT_GROUPS.flatMap((gr
   group.fields.map((field) => field.key)
 );
 
+/**
+ * Issue #117. The global Windows PTY backend, as the Settings page names it.
+ *
+ * `pty.useConpty` is node-pty's own option (`node-pty.d.ts`), mirrored into the
+ * config since the first commit and rendered as a `Use ConPTY` checkbox. Beside
+ * it sat an `inherit | conpty | winpty` select for the PowerShell override, so
+ * one axis was presented in two vocabularies and the parent/child relation
+ * between them was invisible.
+ *
+ * These two functions are the whole of the fix: the checkbox becomes a select
+ * reading the same words, while the stored value stays the boolean the server
+ * and node-pty already expect. No schema change, no migration.
+ *
+ * The options deliberately exclude `inherit`. `inherit` means "follow the global
+ * choice", which is not something the global choice itself can do.
+ */
+export const TERMINAL_BACKEND_OPTIONS = ['conpty', 'winpty'] as const;
+
+export type TerminalBackendOption = (typeof TERMINAL_BACKEND_OPTIONS)[number];
+
+export function terminalBackendFromUseConpty(useConpty: boolean): TerminalBackendOption {
+  return useConpty ? 'conpty' : 'winpty';
+}
+
+/**
+ * `fallback` is the CURRENT value, not `false`.
+ *
+ * The select cannot emit anything outside the two options today, so this branch
+ * is unreachable from the UI. It is written this way because the failure would
+ * be silent and in the dangerous direction: defaulting to false drops a Windows
+ * deployment to winpty, the backend this project has measured corrupting
+ * PowerShell (docs/analysis/2026-04-16.powershell-rapid-enter-...). Keeping the
+ * current value means an unreadable input changes nothing.
+ */
+export function useConptyFromTerminalBackend(value: string, fallback = true): boolean {
+  if (value === 'conpty') return true;
+  if (value === 'winpty') return false;
+  return fallback;
+}
+
 export function buildSettingsPatch(
   initial: EditableSettingsValues,
   draft: EditableSettingsValues,
