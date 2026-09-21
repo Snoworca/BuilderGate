@@ -68,6 +68,7 @@ test('server RED — normal identified output coalesces while preserving source 
     beforeSnapshot,
     afterSnapshot,
     10,
+    () => undefined,
   ) as SegmentedTransportMessage | null;
   assert.ok(coalesced, SIGNATURE);
   assert.equal(coalesced.outputData, 'ABC한글');
@@ -115,11 +116,11 @@ test('server RED — three identity-less output frames remain coalescible', () =
     data: '😀',
   }, 102);
 
-  const firstMerge = tryCoalesceOutputMessage(first, second, 10);
+  const firstMerge = tryCoalesceOutputMessage(first, second, 10, () => undefined);
   assert.ok(firstMerge);
   assert.equal(firstMerge.sourceSegments, undefined);
 
-  const secondMerge = tryCoalesceOutputMessage(firstMerge, third, 10);
+  const secondMerge = tryCoalesceOutputMessage(firstMerge, third, 10, () => undefined);
   assert.ok(secondMerge);
   assert.deepEqual({
     data: secondMerge.outputData,
@@ -150,7 +151,7 @@ test('PERF-BGSTAB-010 ACK-identified delivery frames never coalesce away their l
     deliveryKind: 'output',
   }, 101);
 
-  assert.equal(tryCoalesceOutputMessage(first, second, 10), null);
+  assert.equal(tryCoalesceOutputMessage(first, second, 10, () => undefined), null);
 });
 
 test('server RED — split surrogate chunks never produce invalid UTF-8 source offsets', () => {
@@ -169,7 +170,7 @@ test('server RED — split surrogate chunks never produce invalid UTF-8 source o
     chunkId: 'chunk-low',
   }, 101);
 
-  assert.equal(tryCoalesceOutputMessage(high, low, 10), null);
+  assert.equal(tryCoalesceOutputMessage(high, low, 10, () => undefined), null);
 });
 test('PERF-BGSTAB-011 source transport sidecars preserve canonical uint64 boundaries', () => {
   for (const sourceSeq of ['0', '9007199254740993', '18446744073709551615']) {

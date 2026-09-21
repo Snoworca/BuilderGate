@@ -3321,9 +3321,9 @@ test('Non-loss policy canary infrastructure RED contract — REL-BGSTAB-010 AC-6
   const undefinedGeneration = make('undefined');
   assert.equal(old.policyGeneration, 40, signature(6));
   assert.equal('policyGeneration' in (JSON.parse(jsonWirePayloadText(old.payload)) as Record<string, unknown>), false);
-  assert.equal(tryCoalesceOutputMessage(old, different, 10), null);
-  assert.equal(tryCoalesceOutputMessage(old, undefinedGeneration, 10), null);
-  const coalesced = tryCoalesceOutputMessage(old, same, 10) as typeof old | null;
+  assert.equal(tryCoalesceOutputMessage(old, different, 10, () => undefined), null);
+  assert.equal(tryCoalesceOutputMessage(old, undefinedGeneration, 10, () => undefined), null);
+  const coalesced = tryCoalesceOutputMessage(old, same, 10, () => undefined) as typeof old | null;
   assert.ok(coalesced);
   assert.equal(coalesced.policyGeneration, 40);
   assert.equal('policyGeneration' in (JSON.parse(jsonWirePayloadText(coalesced.payload)) as Record<string, unknown>), false);
@@ -3343,7 +3343,7 @@ test('REL-BGSTAB-010 coalescing preserves every admission identity and lifetime 
   }, data === 'a' ? 100 : 101, { ...metadata, ...overrides });
   const existing = make('a');
   const identical = make('b');
-  assert.ok(tryCoalesceOutputMessage(existing, identical, 10),
+  assert.ok(tryCoalesceOutputMessage(existing, identical, 10, () => undefined),
     'fully identical internal provenance may coalesce');
   for (const [field, incoming] of [
     ['policyGeneration', make('b', { policyGeneration: 41 })],
@@ -3353,7 +3353,7 @@ test('REL-BGSTAB-010 coalescing preserves every admission identity and lifetime 
     ['source', make('b', { source: 'legacy-fallback' })],
     ['exactlyOnceKey', make('b', { exactlyOnceKey: 'entry-b' })],
   ] as const) {
-    assert.equal(tryCoalesceOutputMessage(existing, incoming, 10), null,
+    assert.equal(tryCoalesceOutputMessage(existing, incoming, 10, () => undefined), null,
       `${field} mismatch must not erase per-admission provenance`);
   }
 });

@@ -74,11 +74,13 @@ import {
   removeTransportMessages,
   replaceLastTerminalTransportMessage,
   tryCoalesceOutputMessage,
+  type WsTransportCodec,
   type FairTerminalDelivery,
   type WsTransportMessage,
   type WsTransportQueueState,
 } from './wsSendPolicy.js';
 import { createFairTerminalDeliveryScheduler } from './wsSendPolicy.js';
+import { isCanonicalOrdinal64 } from '../types/ws-protocol.js';
 import { wirePayloadByteLength } from './wirePayload.js';
 import {
   createTerminalBinaryGroupSession,
@@ -87,6 +89,15 @@ import {
 } from './terminalBinaryGroupSession.js';
 import type { TerminalBinaryCapabilityOffer } from './terminalBinaryNegotiation.js';
 import type { TerminalWireFormat } from './terminalWireFormat.js';
+import {
+  DATA_PLANE_OPCODE,
+  SERVER_TO_CLIENT_OPCODE_BY_TYPE,
+  createV1DecodeContext,
+  decodeWsMessage,
+  defaultFlagsForOpcode,
+  encodeFrame,
+  type OutputWireMessage,
+} from './binaryFrameCodec.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import {
   createSessionInputGateway,
@@ -542,6 +553,13 @@ interface TerminalDeliveryCheckpointLedger {
   settled: boolean;
 }
 
+/**
+ * Bound for decoding our own shadow frame. It is not a wire limit: a shadow
+ * frame never leaves the process, and the frame we are about to check is one we
+ * just built, so the only job here is to keep a corrupt length from allocating.
+ */
+const SHADOW_DECODE_MAX_BODY_BYTES = 64 * 1024 * 1024;
+
 export class WsRouter {
   private wss: WebSocketServer;
   private clients: Map<WebSocket, WsClientMeta> = new Map();
@@ -596,7 +614,7 @@ export class WsRouter {
   private transportPolicyGeneration = 0;
   private readonly wsTransportMode: 'unified' | 'split-shadow' | 'split';
   private readonly binaryNegotiationTransportMode: 'unified' | 'split-shadow' | 'split';
-  private readonly terminalWireFormat: TerminalWireFormat;
+  private terminalWireFormat: TerminalWireFormat;
   /** One binary session per connection group (`01 §3.2` — the group agrees as a whole). */
   private readonly terminalBinaryGroups = new Map<string, TerminalBinaryGroupSession>();
   private readonly splitClientGroups = new Map<string, SplitClientGroup>();
@@ -1935,6 +1953,204 @@ export class WsRouter {
   }
 
   /** The group's session if one exists. Never creates: see `ensureTerminalBinaryGroup`. */
+  /**
+   * The one place a terminal payload send can obtain a codec.
+   *
+   * FR-BGSTAB-024 AC-1. Returning `undefined` means JSON, which is what every
+   * control-plane message and every un-negotiated group gets. `binary-shadow`
+   * returns a codec whose encoder deliberately declines after comparing, so the
+   * frame is built and checked while the wire stays JSON (IR-BGSTAB-001 AC-3).
+   */
+  private transportCodecFor(
+    ws: WebSocket,
+    message: object,
+  ): WsTransportCodec | undefined {
+    if (this.terminalWireFormat === 'json') return undefined;
+    // Shadow has no handshake, so the group it records into has to be created
+    // here. On the negotiating rungs a group belongs to a client that offered —
+    // allocating one for a client that never did would hand out channel ids for
+    // a conversation that is not happening.
+    const group = this.terminalBinaryGroupFor(ws)
+      ?? (this.terminalWireFormat === 'binary-shadow' ? this.ensureTerminalBinaryGroup(ws) : undefined);
+    if (!group) return undefined;
+    const decision = group.wireDecision();
+    if (!decision.encodeBinary) return undefined;
+    const sendBinary = decision.sendBinary;
+    return {
+      binding: { codec: 'binary', codecEpoch: group.codecEpoch },
+      encodeBinary: (candidate: object, opcode: number) => {
+        let frame: Uint8Array | undefined;
+        try {
+          frame = this.buildTerminalBinaryFrame(group, candidate, opcode);
+        } catch (error) {
+          // Shadow exists to find exactly this: a payload the encoder cannot
+          // frame. Swallowing it would make shadow report success for the one
+          // thing it was built to catch.
+          if (!sendBinary) group.recordShadowMismatch();
+          else group.recordCodecFallback();
+          console.warn('[WS] binary frame encode failed', {
+            opcode,
+            sendBinary,
+            reason: error instanceof Error ? error.message : String(error),
+          });
+          return undefined;
+        }
+        if (frame === undefined) {
+          // A negotiated group that could not frame a terminal payload is the
+          // case worth counting; an unframed opcode in shadow is not a miss.
+          if (sendBinary) group.recordCodecFallback();
+          return undefined;
+        }
+        if (!sendBinary) {
+          this.compareShadowFrame(group, frame, candidate);
+          // Declining is how shadow keeps the wire on JSON: `encodeFor` falls
+          // back to the JSON payload when the binary encoder returns nothing.
+          return undefined;
+        }
+        return frame;
+      },
+    };
+  }
+
+  /**
+   * Builds the frame for one terminal payload, or declines.
+   *
+   * Only OUTPUT is framed in this step. Snapshot and checkpoint opcodes are
+   * assigned but unframed, and declining sends them as JSON — which is the
+   * documented contract of `encodeFor`, not a silent drop.
+   */
+  private buildTerminalBinaryFrame(
+    group: TerminalBinaryGroupSession,
+    message: object,
+    opcode: number,
+  ): Uint8Array | undefined {
+    if (opcode !== DATA_PLANE_OPCODE.OUTPUT) return undefined;
+    const record = message as {
+      sessionId?: unknown;
+      data?: unknown;
+      screenSeq?: unknown;
+      chunkId?: unknown;
+      authorityRevision?: unknown;
+      sourceSeq?: unknown;
+    };
+    if (typeof record.sessionId !== 'string' || typeof record.data !== 'string') return undefined;
+
+    const authority = this.sessionManager.getTerminalAuthorityState?.(record.sessionId);
+    const sendBinary = group.wireDecision().sendBinary;
+    // A negotiated group must address the channel the client was told about;
+    // shadow allocates its own, because channel 0 is reserved and the encoder
+    // refuses it even for a frame that never reaches the wire.
+    const channel = group.lookupChannel(record.sessionId)
+      ?? (sendBinary
+        ? undefined
+        : group.ensureShadowChannel({
+            sessionId: record.sessionId,
+            streamEpoch: authority?.streamEpoch ?? '0',
+          }));
+    if (!channel) return undefined;
+    const streamEpoch = channel.streamEpoch;
+
+    const ordinal = (value: unknown): string =>
+      isCanonicalOrdinal64(value) ? String(value) : '0';
+    const frame: OutputWireMessage = {
+      opcode: DATA_PLANE_OPCODE.OUTPUT,
+      flags: defaultFlagsForOpcode(DATA_PLANE_OPCODE.OUTPUT, { endOfBatch: true }),
+      channelId: channel.channelId,
+      streamEpoch,
+      sourceSeq: ordinal(record.sourceSeq),
+      prologue: {
+        screenSeq: typeof record.screenSeq === 'number' && Number.isSafeInteger(record.screenSeq)
+          ? String(record.screenSeq)
+          : '0',
+        chunkIdBase: ordinal(record.chunkId),
+        authorityRevision: typeof record.authorityRevision === 'number'
+          && Number.isSafeInteger(record.authorityRevision)
+          && record.authorityRevision >= 0
+          ? record.authorityRevision
+          : 0,
+        authorityEpochIndex: 0,
+      },
+      segments: [],
+      body: Buffer.from(record.data, 'utf8'),
+    };
+    // Throwing is deliberate: the caller decides whether an unencodable payload
+    // is a shadow finding or a negotiated-group fallback, and both are recorded.
+    return encodeFrame(frame);
+  }
+
+  /**
+   * IR-BGSTAB-001 AC-3 shadow: decode our own frame and check the body against
+   * the JSON the client is actually getting. Comparing bytes would prove
+   * nothing — the two encodings are different by construction; what has to
+   * match is what the receiver would reconstruct.
+   */
+  private compareShadowFrame(
+    group: TerminalBinaryGroupSession,
+    bytes: Uint8Array,
+    message: object,
+  ): void {
+    if (!group.shadowActive) return;
+    const record = message as { data?: unknown };
+    if (typeof record.data !== 'string') return;
+    let restored: string | undefined;
+    try {
+      const decoded = decodeWsMessage(bytes, createV1DecodeContext({
+        maxBodyBytes: SHADOW_DECODE_MAX_BODY_BYTES,
+        channelState: () => 'active',
+      }));
+      if (!decoded.fatal && decoded.frames.length === 1) {
+        restored = new TextDecoder().decode(decoded.frames[0].payload.subarray(24));
+      }
+    } catch {
+      restored = undefined;
+    }
+    if (restored !== record.data) group.recordShadowMismatch();
+  }
+
+  /**
+   * The only way a group leaves the binary codec (IR-BGSTAB-001 AC-4).
+   *
+   * All four triggers land here so the MIG-BGSTAB-002 AC-5 order is written
+   * once: stop admitting, invalidate everything already built, take the
+   * channels back, and let the next subscribe rebuild from a fresh checkpoint.
+   */
+  private rollbackTerminalBinaryGroup(
+    groupKey: string,
+    trigger: 'hot-reload' | 'client-decode-failure' | 'renegotiation-failed' | 'server-restart',
+  ): void {
+    const group = this.terminalBinaryGroups.get(groupKey);
+    if (!group) return;
+    const epoch = group.bumpCodecEpoch();
+    const channelIds = group.retireAllChannels();
+    for (const [ws, meta] of this.clients) {
+      if ((meta.clientGroupId ?? meta.clientId) !== groupKey) continue;
+      if (channelIds.length > 0) {
+        this.sendTo(ws, { type: 'terminal-binary:channel-retired', channelIds, reason: 'unsubscribed' });
+      }
+    }
+    console.warn('[WS] binary data plane rolled back', { groupKey, trigger, codecEpoch: epoch });
+  }
+
+  /**
+   * Hot-reload of `realtime.terminalWireFormat` (rollback trigger #1).
+   *
+   * Only a narrowing rolls back. Widening must not disturb a group that is
+   * mid-stream — the client asked for JSON and is reading JSON; it starts
+   * speaking binary at its next offer.
+   */
+  applyTerminalWireFormat(next: TerminalWireFormat): void {
+    const previous = this.terminalWireFormat;
+    if (previous === next) return;
+    this.terminalWireFormat = next;
+    const rank: Record<TerminalWireFormat, number> = {
+      json: 0, 'binary-shadow': 1, 'binary-optin': 2, binary: 3,
+    };
+    if (rank[next] >= rank[previous]) return;
+    for (const groupKey of [...this.terminalBinaryGroups.keys()]) {
+      this.rollbackTerminalBinaryGroup(groupKey, 'hot-reload');
+    }
+  }
+
   private terminalBinaryGroupFor(ws: WebSocket): TerminalBinaryGroupSession | undefined {
     const key = this.terminalBinaryGroupKey(ws);
     return key === undefined ? undefined : this.terminalBinaryGroups.get(key);
@@ -6342,7 +6558,12 @@ export class WsRouter {
     if (isOutputBudgetMessage(message)) {
       const last = getLastTerminalTransportMessage(state);
       const coalesced = last
-        ? tryCoalesceOutputMessage(last, message, limits.outputCoalesceWindowMs)
+        ? tryCoalesceOutputMessage(
+            last,
+            message,
+            limits.outputCoalesceWindowMs,
+            sessionId => this.transportCodecFor(ws, { type: 'output', sessionId }),
+          )
         : null;
       if (last && coalesced) {
         const nextOutputBytes = state.outputBytes - last.byteLength + coalesced.byteLength;
@@ -6944,7 +7165,7 @@ export class WsRouter {
     if (ws.readyState !== WebSocket.OPEN) {
       return;
     }
-    const transportMessage = createWsTransportMessage({
+    const outputMessage = {
       type: 'output',
       sessionId,
       data,
@@ -6954,7 +7175,13 @@ export class WsRouter {
       authorityEpoch: metadata.authorityEpoch,
       authorityRevision: metadata.authorityRevision,
       chunkId: metadata.chunkId,
-    });
+    };
+    const transportMessage = createWsTransportMessage(
+      outputMessage,
+      Date.now(),
+      {},
+      this.transportCodecFor(ws, outputMessage),
+    );
     transportMessage.outputData = undefined;
     this.sendTransportMessage(ws, transportMessage);
   }
@@ -6980,7 +7207,7 @@ export class WsRouter {
           : record.type === 'output'
             ? undefined
             : `ws-${now}-${this.replayEventCounter}`,
-      });
+      }, this.transportCodecFor(ws, msg));
       const authorityFrame = typeof record.type === 'string' && (
         record.type.startsWith('terminal-authority:')
         || record.type.startsWith('terminal-checkpoint:')

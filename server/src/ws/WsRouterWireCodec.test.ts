@@ -148,7 +148,8 @@ test('SDS-AC-4 binary-optin sends negotiated output as a binary frame and contro
   assert.equal(decoded.fatal, undefined, JSON.stringify(decoded));
   assert.equal(decoded.frames.length, 1);
   assert.equal(decoded.frames[0].opcode, DATA_PLANE_OPCODE.OUTPUT);
-  assert.equal(new TextDecoder().decode(decoded.frames[0].body), 'hello');
+  // OUTPUT prologue is 24 bytes; the body follows it (no segments here).
+  assert.equal(new TextDecoder().decode(decoded.frames[0].payload.subarray(24)), 'hello');
 });
 
 test('SDS-AC-5 a negotiated group falls back to JSON for a session with no channel and counts it', () => {

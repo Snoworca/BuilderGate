@@ -5,7 +5,7 @@ import { createTerminalBinaryGroupSession } from './terminalBinaryGroupSession.j
 /** SDS §4: the send path needs the reverse lookup the interface never had. */
 function negotiated() {
   const group = createTerminalBinaryGroupSession({ now: () => 1, wireFormat: 'binary-optin', transportMode: 'unified' });
-  const r = group.negotiate({ supportedFrameVersions: [1], acceptedFlagMask: 0x0001 | 0x0008 } as never);
+  const r = group.negotiate({ type: 'terminal-binary:negotiate', supportedFrameVersions: [1], acceptedFlagMask: 0x0001 | 0x0008 });
   assert.equal(r.type, 'terminal-binary:capability');
   return group;
 }

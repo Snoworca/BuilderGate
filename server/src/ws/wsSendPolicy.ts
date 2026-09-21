@@ -256,9 +256,20 @@ export function tryCoalesceOutputMessage(
   existing: WsTransportMessage,
   incoming: WsTransportMessage,
   coalesceWindowMs: number,
+  /**
+   * The codec the merged message must be rebuilt with.
+   *
+   * PERF-BGSTAB-011 AC-2 / IR-BGSTAB-001 AC-3: this used to rebuild without a
+   * codec, so on a negotiated group two binary outputs merged into a JSON one.
+   * That is two encodings inside one `streamEpoch` — the thing AC-3 forbids —
+   * and nothing observed it, because a JSON frame on a binary group is still a
+   * frame the client can read.
+   */
+  codecFor: (sessionId: string) => WsTransportCodec | undefined,
 ): WsTransportMessage | null {
   if (
-    existing.kind !== 'output'
+    existing.payload.codec !== incoming.payload.codec
+    || existing.kind !== 'output'
     || incoming.kind !== 'output'
     || !existing.sessionId
     || existing.sessionId !== incoming.sessionId
@@ -314,7 +325,7 @@ export function tryCoalesceOutputMessage(
     source: existing.source,
     exactlyOnceKey: existing.exactlyOnceKey,
     policyAdmissionMode: existing.policyAdmissionMode,
-  });
+  }, codecFor(existing.sessionId));
 }
 
 function hasRecoveryIdentity(message: WsTransportMessage): boolean {
