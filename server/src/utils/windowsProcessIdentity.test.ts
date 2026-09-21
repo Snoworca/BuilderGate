@@ -433,16 +433,21 @@ test('PERF-BGSTAB-013 AC-6 POSIX still samples descendants', async () => {
 });
 
 /**
- * Characterization, not an endorsement.
+ * Characterization, not an endorsement. Tracked as #118.
  *
  * `readPosixProcessInfo` reads `/proc/<pid>/stat`, which macOS does not have,
  * so on darwin the identity is null, `inspect` refuses, and enforce mode never
  * terminates a process tree -- it always answers `skipped-unverified`. The PTY
  * is still killed by `finalizeSession`, so the shell dies; its descendants may
- * not. This pins that behaviour so a macOS implementation replaces it
+ * not -- node-pty's `UnixTerminal.kill` signals the shell PID alone, not the
+ * process group. This pins that behaviour so a macOS implementation replaces it
  * deliberately rather than changing it by accident. It has not been executed on
  * macOS; the claim is about the code path, which is platform-dispatched only
  * between win32 and everything else.
+ *
+ * When #118 is implemented this test goes red for the right reason. The answer
+ * is to narrow its scope to platforms without a process-identity source, not to
+ * delete it -- a red characterization test and a stale one look identical.
  */
 test('PERF-BGSTAB-013 a process with no procfs entry yields no identity and no kill', async () => {
   const calls: ExecCall[] = [];
