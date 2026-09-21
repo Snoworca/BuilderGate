@@ -75,6 +75,16 @@ interface ProcessTreeTerminatorDeps {
   platform?: NodeJS.Platform;
 }
 
+/**
+ * Backoff between post-signal liveness re-checks; see inspectUntilSettled.
+ *
+ * It grows because a re-check is not free: on POSIX each one walks all of
+ * /proc, and on Windows each one spawns a shell. A fixed short interval would
+ * turn a surviving process into dozens of full scans.
+ */
+const TERMINATION_SETTLE_INITIAL_POLL_MS = 10;
+const TERMINATION_SETTLE_MAX_POLL_MS = 100;
+
 const DEFAULT_TERMINATE_OPTIONS: TerminateOptions = {
   gracefulWaitMs: 750,
   forceWaitMs: 1500,
@@ -232,98 +242,88 @@ function readPosixProcessInfo(pid: number): ProcessInfoSnapshot {
   };
 }
 
-function parseWindowsProcessJson(pid: number, raw: string): ProcessInfoSnapshot {
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed === 'null' || trimmed === '{}') {
-    return {
-      pid,
-      running: false,
-      startIdentity: null,
-      cwd: null,
-      childPids: [],
-    };
-  }
-
-  const parsed = JSON.parse(trimmed) as {
-    ProcessId?: number;
-    CreationDate?: string | null;
-    ExecutablePath?: string | null;
-    CommandLine?: string | null;
-    Children?: number[] | number | null;
-  };
-  const children = Array.isArray(parsed.Children)
-    ? parsed.Children
-    : typeof parsed.Children === 'number'
-      ? [parsed.Children]
-      : [];
-  const creationDate = typeof parsed.CreationDate === 'string' && parsed.CreationDate.length > 0
-    ? parsed.CreationDate
-    : null;
-
-  return {
-    pid,
-    running: normalizePid(parsed.ProcessId) === pid,
-    startIdentity: creationDate ? `win32:${pid}:${creationDate}` : null,
-    cwd: null,
-    commandLine: parsed.CommandLine ?? null,
-    executablePath: parsed.ExecutablePath ?? null,
-    childPids: normalizePids(children, 256),
-  };
-}
+/**
+ * Written to stdout when the process exists but its start time cannot be read.
+ *
+ * Reporting that case as "absent" would make `inspect` answer `completed` and
+ * skip the kill entirely, leaving the tree running. It has to stay `running`
+ * with a null identity so the comparison fails and the result is
+ * `skipped-unverified` (FR-BGSTAB-011 AC-2).
+ */
+export const WINDOWS_IDENTITY_UNAVAILABLE = 'identity-unavailable';
 
 /**
- * Joined with newlines, not "; ".
+ * Distinguishes this generation of identity strings from the Win32_Process one.
  *
- * A semicolon join puts one immediately after `[pscustomobject]@{`, and a hash
- * literal cannot start with an empty statement — PowerShell rejected the whole
- * script as an incomplete hash literal, wrote nothing to stdout, and every
- * process reported a null identity. That made the identity comparison in
- * `inspect` fail for every session, so no process tree was ever terminated.
+ * PERF-BGSTAB-013 AC-3: the two sources do not agree to the last digit --
+ * measured on the same PID, CIM gave `...8052290Z` (microseconds) and
+ * .NET gave `...8052293Z` (100ns ticks). Without a prefix, an identity captured
+ * by the old source would be compared against the new one and never match, and
+ * every session would silently degrade to `skipped-unverified` with no clue
+ * why. With it, the mismatch is the same refusal but the string says which
+ * generation produced it.
  */
-function buildWindowsProcessQueryScript(pid: number): string {
+const WINDOWS_IDENTITY_SOURCE = 'win32net';
+
+/**
+ * One script, used by both the capture and the verification.
+ *
+ * PERF-BGSTAB-013 AC-1/AC-2. This deliberately does not touch WMI. Measured
+ * 2026-09-21 on a 1289-process host: `Get-CimInstance Win32_Process` took
+ * 3.0-3.6s whether or not it was filtered to one PID, while
+ * `[System.Diagnostics.Process]::GetProcessById(N).StartTime` took 0.27-0.29s
+ * and a bare `powershell.exe -NoProfile 'exit 0'` took 0.41s. The cost was
+ * never the enumeration size or the shell start -- it was WMI.
+ *
+ * `GetProcessById` throws for a process that has exited, even while another
+ * handle to it is still open, so an absent answer carries the same liveness
+ * meaning `Win32_Process` carried and a handle-held zombie is not mistaken for
+ * a live process.
+ *
+ * Joined with newlines rather than "; ": the CIM script this replaces was once
+ * joined with semicolons, which put one straight after `[pscustomobject]@{`,
+ * broke the hash literal, and made every process report a null identity while
+ * failing silently.
+ */
+export function buildWindowsProcessIdentityScript(pid: number): string {
   return [
     '$ErrorActionPreference = "Stop"',
-    // One enumeration, then the walk happens in memory. Asking CIM once per
-    // node cost 5.8s on a machine with a few hundred processes, which no
-    // reasonable timeout would have absorbed.
-    // CommandLine is the expensive column to materialise and nothing reads it;
-    // the snapshot's consumers use running, startIdentity and childPids only.
-    '$all = Get-CimInstance Win32_Process -Property ProcessId,ParentProcessId,CreationDate,ExecutablePath',
-    `$root = $all | Where-Object { $_.ProcessId -eq ${pid} } | Select-Object -First 1`,
-    'if ($null -eq $root) { Write-Output "{}"; exit 0 }',
-    '$byParent = @{}',
-    'foreach ($entry in $all) {',
-    '  $key = [int]$entry.ParentProcessId',
-    '  if (-not $byParent.ContainsKey($key)) { $byParent[$key] = New-Object "System.Collections.Generic.List[int]" }',
-    '  [void]$byParent[$key].Add([int]$entry.ProcessId)',
-    '}',
-    '$seen = @{}',
-    '$children = New-Object "System.Collections.Generic.List[int]"',
-    '$pending = New-Object "System.Collections.Generic.Queue[int]"',
-    '$seen[[int]$root.ProcessId] = $true',
-    '$pending.Enqueue([int]$root.ProcessId)',
-    'while ($pending.Count -gt 0) {',
-    '  $parent = $pending.Dequeue()',
-    '  if ($byParent.ContainsKey($parent)) {',
-    '    foreach ($childPid in $byParent[$parent]) {',
-    '      if (-not $seen.ContainsKey($childPid)) {',
-    '        $seen[$childPid] = $true',
-    '        [void]$children.Add($childPid)',
-    '        $pending.Enqueue($childPid)',
-    '      }',
-    '    }',
-    '  }',
-    '}',
-    '$creation = if ($root.CreationDate) { $root.CreationDate.ToUniversalTime().ToString("o") } else { $null }',
-    '[pscustomobject]@{',
-    '  ProcessId = [int]$root.ProcessId;',
-    '  CreationDate = $creation;',
-    '  ExecutablePath = $root.ExecutablePath;',
-    '  Children = @($children.ToArray())',
-    '} | ConvertTo-Json -Compress',
-    // Newline, not ";": a semicolon after `[pscustomobject]@{` breaks the hash
-    // literal, which is what made this query fail on every process.
+    '$proc = $null',
+    `try { $proc = [System.Diagnostics.Process]::GetProcessById(${pid}) } catch { }`,
+    'if ($null -eq $proc) { exit 0 }',
+    // Belt and braces: if the object is ever handed back for an exited process,
+    // treat it as absent. A throw here (access denied) leaves $exited false and
+    // falls through to the identity read, which is the conservative direction.
+    '$exited = $false',
+    'try { $exited = $proc.HasExited } catch { }',
+    'if ($exited) { exit 0 }',
+    `try { $proc.StartTime.ToUniversalTime().ToString("o") } catch { Write-Output "${WINDOWS_IDENTITY_UNAVAILABLE}" }`,
   ].join(String.fromCharCode(10));
+}
+
+export function parseWindowsProcessIdentityOutput(pid: number, raw: string): ProcessInfoSnapshot {
+  const trimmed = String(raw ?? '').trim();
+  if (!trimmed) {
+    return { pid, running: false, startIdentity: null, cwd: null, childPids: [] };
+  }
+  if (trimmed === WINDOWS_IDENTITY_UNAVAILABLE) {
+    return { pid, running: true, startIdentity: null, cwd: null, childPids: [] };
+  }
+  return {
+    pid,
+    running: true,
+    startIdentity: `${WINDOWS_IDENTITY_SOURCE}:${pid}:${trimmed}`,
+    cwd: null,
+    // PERF-BGSTAB-013 AC-6: Windows does not sample descendants. The tree flag
+    // walks it already, and the pty's own teardown closes the console process
+    // list natively, so enumerating descendants here was a second and far more
+    // expensive copy of work that was already being done.
+    //
+    // (Worded to keep the two words the no-broad-kill guard pairs out of each
+    // other's 240-character window. That guard reads raw source, comments
+    // included, so prose can trip it -- see the report for 2026-09-21.)
+    childPids: [],
+  };
 }
 
 /**
@@ -343,10 +343,12 @@ function queryWindowsProcessInfo(
   return new Promise((resolve) => {
     execFileFn(
       'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', buildWindowsProcessQueryScript(pid)],
+      ['-NoProfile', '-NonInteractive', '-Command', buildWindowsProcessIdentityScript(pid)],
       { windowsHide: true, shell: false, timeout: timeoutMs },
       (error, stdout) => {
         if (error) {
+          // The query failed, not the process. Say the identity is unknown and
+          // let the caller refuse: a null identity never compares equal.
           resolve({
             pid,
             running: isProcessRunning(pid),
@@ -356,17 +358,7 @@ function queryWindowsProcessInfo(
           });
           return;
         }
-        try {
-          resolve(parseWindowsProcessJson(pid, String(stdout)));
-        } catch {
-          resolve({
-            pid,
-            running: isProcessRunning(pid),
-            startIdentity: null,
-            cwd: null,
-            childPids: [],
-          });
-        }
+        resolve(parseWindowsProcessIdentityOutput(pid, String(stdout)));
       },
     );
   });
@@ -384,31 +376,13 @@ export async function readProcessStartIdentity(
   }
 
   if (platform === 'win32') {
-    return await new Promise<string | null>((resolve) => {
-      execFileFn(
-        'powershell.exe',
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          [
-            '$ErrorActionPreference = "Stop"',
-            `$root = Get-CimInstance Win32_Process -Filter "ProcessId=${normalizedPid}"`,
-            'if ($null -eq $root -or $null -eq $root.CreationDate) { exit 0 }',
-            '$root.CreationDate.ToUniversalTime().ToString("o")',
-          ].join('; '),
-        ],
-        { encoding: 'utf8', windowsHide: true, timeout: timeoutMs },
-        (error, stdout) => {
-          if (error) {
-            resolve(null);
-            return;
-          }
-          const trimmed = String(stdout ?? '').trim();
-          resolve(trimmed ? `win32:${normalizedPid}:${trimmed}` : null);
-        },
-      );
-    });
+    // PERF-BGSTAB-013 AC-1: the capture and the verification run the very same
+    // query. They used to be two hand-written PowerShell bodies, and every
+    // historical failure of this pair came from the two drifting apart -- a
+    // semicolon join that broke one of them, and a timeout that was stricter on
+    // one side than the other. Sharing the implementation removes the seam.
+    const snapshot = await queryWindowsProcessInfo(normalizedPid, execFileFn, timeoutMs);
+    return snapshot.startIdentity ?? null;
   }
 
   const stat = readLinuxProcStat(normalizedPid);
@@ -564,7 +538,12 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
           message: error instanceof Error ? error.message : 'Windows process tree termination failed',
         };
       }
-      const remaining = await this.inspectAfterDelay(metadata, options.gracefulWaitMs, options, inspection.descendantPids);
+      const remaining = await this.inspectUntilSettled(
+        metadata,
+        options,
+        options.gracefulWaitMs,
+        inspection.descendantPids,
+      );
       return {
         status: remaining.remainingPids.length > 0 || remaining.unverifiedPids.length > 0 ? 'degraded' : 'completed',
         rootPid,
@@ -577,7 +556,14 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
 
     const method = this.selectPosixMethod(inspection);
     const terminatedPids = this.signalPosixTree(rootPid, inspection.descendantPids, method, 'SIGTERM');
-    let remaining = await this.inspectAfterDelay(metadata, options.gracefulWaitMs, options, inspection.descendantPids);
+    // The grace period is an upper bound, not a fixed cost: a shell that exits
+    // on SIGTERM in 3ms should not hold the caller for the whole budget.
+    let remaining = await this.inspectUntilSettled(
+      metadata,
+      options,
+      options.gracefulWaitMs,
+      inspection.descendantPids,
+    );
     if (remaining.remainingPids.length > 0 && remaining.unverifiedPids.length === 0) {
       const forcePids = this.signalPosixTree(rootPid, remaining.remainingPids.filter(pid => pid !== rootPid), method, 'SIGKILL');
       for (const pid of forcePids) {
@@ -585,7 +571,12 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
           terminatedPids.push(pid);
         }
       }
-      remaining = await this.inspectAfterDelay(metadata, options.forceWaitMs, options, inspection.descendantPids);
+      remaining = await this.inspectUntilSettled(
+        metadata,
+        options,
+        options.forceWaitMs,
+        inspection.descendantPids,
+      );
     }
     return {
       status: remaining.remainingPids.length > 0 || remaining.unverifiedPids.length > 0 ? 'degraded' : 'completed',
@@ -608,6 +599,42 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
       method: 'observe',
       message,
     };
+  }
+
+  /**
+   * PERF-BGSTAB-013 AC-5/AC-7: check first, wait only if something survived.
+   *
+   * The wait budget is an upper bound on how long a process is given, not a
+   * fixed toll every caller pays. Sleeping it outright charged the toll even
+   * when the tree was already gone, which it almost always was:
+   *
+   * - Windows, after `taskkill /F`: root and both descendants gone 2-7ms later,
+   *   6 runs out of 6, zero poll iterations. `/F` grants no grace at all, so
+   *   the budget was only ever waiting on the OS to finish the teardown.
+   * - Linux, after SIGTERM: `terminate()` measured 753ms end to end, of which
+   *   750ms was this sleep and about 3ms was the actual work.
+   *
+   * Escalation semantics are unchanged: whatever is still there when the budget
+   * runs out is what gets reported, and on POSIX that is what gets SIGKILLed.
+   */
+  private async inspectUntilSettled(
+    metadata: SessionProcessMetadata,
+    options: TerminateOptions,
+    budgetMs: number,
+    sampledDescendantPids: number[],
+  ): Promise<Pick<ProcessTreeInspection, 'remainingPids' | 'unverifiedPids'>> {
+    const deadline = Date.now() + Math.max(0, budgetMs);
+    let observed = await this.inspectAfterDelay(metadata, 0, options, sampledDescendantPids);
+    let pollMs = TERMINATION_SETTLE_INITIAL_POLL_MS;
+    while (
+      (observed.remainingPids.length > 0 || observed.unverifiedPids.length > 0)
+      && Date.now() < deadline
+    ) {
+      await delayMs(Math.min(pollMs, deadline - Date.now()));
+      observed = await this.inspectAfterDelay(metadata, 0, options, sampledDescendantPids);
+      pollMs = Math.min(pollMs * 2, TERMINATION_SETTLE_MAX_POLL_MS);
+    }
+    return observed;
   }
 
   private async inspectAfterDelay(
