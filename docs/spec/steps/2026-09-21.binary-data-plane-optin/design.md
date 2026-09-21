@@ -5,7 +5,7 @@
 | Document Type | sds |
 | Task | 2026-09-21.binary-data-plane-optin |
 | Target | wave-5 |
-| Status | draft |
+| Status | agreed |
 | Date | 2026-09-21 |
 
 ## 1. Context & Scope
