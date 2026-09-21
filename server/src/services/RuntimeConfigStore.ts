@@ -48,6 +48,7 @@ import type {
 } from './SessionManager.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import type { WsTransportMessage } from '../ws/wsSendPolicy.js';
+import { getDefaultTerminalWireFormat } from '../ws/terminalWireFormatDefault.js';
 import {
   createTerminalResourcePolicyLeaseIssuer,
   type TerminalResourcePolicyCanaryTarget,
@@ -146,7 +147,11 @@ const RESERVED_WAVE6_SETTING_REASONS = new Map<EditableSettingsKey, string>(
   [...RESERVED_WAVE6_SETTING_KEYS].map((key) => [key, RESERVED_WAVE6_SETTING_REASON]),
 );
 const DEFAULT_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
-const DEFAULT_TERMINAL_WIRE_FORMAT: TerminalWireFormat = 'json';
+/**
+ * MIG-BGSTAB-004 AC-1: the default follows the published evidence, and is json
+ * whenever that evidence is absent, incomplete or tampered with (fail-closed).
+ */
+const DEFAULT_TERMINAL_WIRE_FORMAT: TerminalWireFormat = getDefaultTerminalWireFormat();
 
 export interface PublicRuntimeConfig {
   inputReliabilityMode: InputReliabilityMode;

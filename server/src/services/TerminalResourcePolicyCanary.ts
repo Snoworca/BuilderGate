@@ -11,7 +11,7 @@ import {
   validateFairSchedulerEvidenceReference,
   validateFairSchedulerDecisionArtifact,
   validateFairSchedulerTrialArtifacts,
-} from '../benchmarks/terminalFairnessCharacterization.js';
+  SEALED_BENCHMARK_WORKLOAD,} from '../benchmarks/terminalFairnessCharacterization.js';
 import type { FairSchedulerEvidenceAuthorityResolver } from '../benchmarks/terminalFairnessCharacterization.js';
 
 export {
@@ -338,6 +338,11 @@ function validateFairDeliveryCandidateArtifactAtCanonicalAuthority(input: {
         seed: workload.seed,
         repeats: workload.repeats,
         samples: workload.samples,
+        // PERF-BGSTAB-011 AC-4: the codec is part of what was measured, so the
+        // rebuilt aggregate has to carry it or `rawEvidenceDigest` cannot match.
+        // `json` is an absent key on both sides, which is what keeps every
+        // generation published before the dimension existed reproducible.
+        ...(workload.codec === 'binary' ? { wireFormat: 'binary' as const } : {}),
       },
       runtimePolicyProfile: artifact.runtimePolicyProfile,
       samples,
@@ -356,7 +361,14 @@ function validateFairDeliveryCandidateArtifactAtCanonicalAuthority(input: {
         ? { accepted: true, reason: 'decision-artifact-verified' }
         : { accepted: false, reason: 'decision-artifact-authority-policy-identity-mismatch' };
     }
-    const contract = getFairSchedulerBenchmarkContract();
+    // Same sealed workload, codec taken from the evidence: a binary generation
+    // has a different workloadSchemaHash than a json one, and comparing against
+    // the json contract would reject every binary artifact.
+    const contract = getFairSchedulerBenchmarkContract(
+      workload.codec === 'binary'
+        ? { ...SEALED_BENCHMARK_WORKLOAD, wireFormat: 'binary' }
+        : undefined,
+    );
     const runtimePolicyHash = sha256(input.runtimePolicy);
     const contractValidation = validateFairDeliveryCandidateArtifact({
       policyHash: runtimePolicyHash,

@@ -81,6 +81,7 @@ import {
 } from './wsSendPolicy.js';
 import { createFairTerminalDeliveryScheduler } from './wsSendPolicy.js';
 import { isCanonicalOrdinal64 } from '../types/ws-protocol.js';
+import { getDefaultTerminalWireFormat } from './terminalWireFormatDefault.js';
 import { wirePayloadByteLength } from './wirePayload.js';
 import {
   createTerminalBinaryGroupSession,
@@ -666,7 +667,7 @@ export class WsRouter {
     this.inputReliabilityMode = options.inputReliabilityMode ?? configuredInputReliabilityMode;
     this.wsTransportMode = options.realtime?.wsTransportMode ?? 'unified';
     this.binaryNegotiationTransportMode = options.binaryNegotiationTransportMode ?? 'unified';
-    this.terminalWireFormat = options.realtime?.terminalWireFormat ?? 'json';
+    this.terminalWireFormat = options.realtime?.terminalWireFormat ?? getDefaultTerminalWireFormat();
     this.terminalResourcePolicyAuthority = options.terminalResourcePolicyAuthority;
     this.runtimeSendPolicyConfig = {
       mode: stabilityModesSchema.parse(options.stabilityModes).wsSendMode,

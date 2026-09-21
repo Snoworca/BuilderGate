@@ -26,7 +26,21 @@ export interface FairSchedulerBenchmarkInput {
   seed: number;
   repeats: number;
   samples: number;
+  /**
+   * Which codec the measured deliveries are sized with (PERF-BGSTAB-011 AC-4).
+   *
+   * The scheduler classifies a delivery by its wire `byteLength`
+   * (`smallOutputBypassBytes`), and a JSON envelope and a binary frame carrying
+   * the same body are different sizes, so a payload can bypass under one codec
+   * and be held under the other. Omitting the field means `json`, which is what
+   * every generation before this one was measured with — recording it as an
+   * absent key rather than an explicit default is what keeps those generations
+   * reproducible instead of retroactively renaming their workload.
+   */
+  wireFormat?: FairSchedulerBenchmarkCodec;
 }
+
+export type FairSchedulerBenchmarkCodec = 'json' | 'binary';
 
 export interface FairSchedulerRuntimePolicyProfile {
   schemaVersion: 'fair-scheduler-runtime-policy-profile/v1';
@@ -1001,10 +1015,15 @@ function benchmarkWorkload(input: FairSchedulerBenchmarkInput) {
     seed: input.seed,
     repeats: input.repeats,
     samples: input.samples,
+    // Deliberately omitted for json: every generation published before the codec
+    // dimension existed was a json run, and adding the key unconditionally would
+    // change their workload hash and make them unreproducible.
+    ...(input.wireFormat === 'binary' ? { codec: 'binary' as const } : {}),
   };
 }
 
-export function getFairSchedulerBenchmarkContract(input: FairSchedulerBenchmarkInput = {
+/** The sealed workload. The codec is the only axis that may vary (PERF-BGSTAB-011 AC-4). */
+export const SEALED_BENCHMARK_WORKLOAD: FairSchedulerBenchmarkInput = Object.freeze({
   clients: [1, 2, 8],
   wanLatencyMs: 150,
   wanJitterMs: 20,
@@ -1012,7 +1031,12 @@ export function getFairSchedulerBenchmarkContract(input: FairSchedulerBenchmarkI
   seed: 20260723,
   repeats: 5,
   samples: 30,
-}, runtimePolicyProfile?: FairSchedulerRuntimePolicyProfile) {
+});
+
+export function getFairSchedulerBenchmarkContract(
+  input: FairSchedulerBenchmarkInput = SEALED_BENCHMARK_WORKLOAD,
+  runtimePolicyProfile?: FairSchedulerRuntimePolicyProfile,
+) {
   validateInput(input);
   const workload = benchmarkWorkload(input);
   const profile = resolveFairSchedulerRuntimePolicyProfile(runtimePolicyProfile);
@@ -1177,8 +1201,37 @@ interface BaselineQueueEntry {
   bytes: number;
 }
 
+/**
+ * The wire size of one delivery under the codec being measured.
+ *
+ * PERF-BGSTAB-011 AC-4. The binary arm is computed rather than encoded: framing
+ * here would need a channel table, a stream epoch and an authority the benchmark
+ * has no business owning, and the only property the scheduler reads is the byte
+ * count. Header and prologue are the frame's fixed cost (`binaryFrameCodec.ts`
+ * FRAME_HEADER_BYTES plus the 24-byte OUTPUT prologue) and the body is the
+ * payload's own UTF-8 length, which is what the credit ledger already counts.
+ */
+function deliveryWireBytes(
+  message: {
+    type: 'output';
+    sessionId: string;
+    data: string;
+    connectionEpoch: string;
+    deliverySeq: number;
+    deliveryKind: 'output' | 'control';
+  },
+  wireFormat: FairSchedulerBenchmarkCodec | undefined,
+): number {
+  if (wireFormat !== 'binary') return createWsTransportMessage(message).byteLength;
+  return BINARY_FRAME_FIXED_BYTES + Buffer.byteLength(message.data, 'utf8');
+}
+
+/** 28-byte header plus the 24-byte OUTPUT prologue; v1 sends one frame per message. */
+const BINARY_FRAME_FIXED_BYTES = 28 + 24;
+
 function createBaselineQueue(input: {
   clientCount: number;
+  wireFormat?: FairSchedulerBenchmarkCodec;
 }): BaselineQueueEntry[] {
   const queue: BaselineQueueEntry[] = [];
   const deliverySequences = new Map<string, number>();
@@ -1192,14 +1245,14 @@ function createBaselineQueue(input: {
       connectionEpoch,
       sessionId,
       kind,
-      bytes: createWsTransportMessage({
+      bytes: deliveryWireBytes({
         type: 'output',
         sessionId,
         data: payload,
         connectionEpoch,
         deliverySeq,
         deliveryKind: kind,
-      }).byteLength,
+      }, input.wireFormat),
     });
   };
   for (let index = 0; index < 3; index += 1) {
@@ -1275,6 +1328,7 @@ function runFifoBaseline(input: {
   targetClient: number;
   latencyMs: number;
   ackFault: FairSchedulerRawSample['ackFault'];
+  wireFormat?: FairSchedulerBenchmarkCodec;
 }): FairSchedulerMetrics {
   const queue = createBaselineQueue(input);
   return measureBaselineOrder(queue, queue, input);
@@ -1286,6 +1340,7 @@ function runOrcaHoldBypassBaseline(input: {
   latencyMs: number;
   ackFault: FairSchedulerRawSample['ackFault'];
   policy: ReturnType<typeof resolveFairTerminalDeliveryPolicy>;
+  wireFormat?: FairSchedulerBenchmarkCodec;
 }): FairSchedulerMetrics {
   const queue = createBaselineQueue(input);
   const smallOutputBypassBytes = input.policy.smallOutputBypassBytes.value;
@@ -1311,7 +1366,12 @@ function createRawArtifacts(
           const random = createXorshift32(fnv1a(trialSeed, `client/${client}/lane/${lane}/sample/${sample}/fault/ack`));
           const jitterMs = Math.floor((random() * (input.wanJitterMs * 2 + 1)) - input.wanJitterMs);
           const ackFault = ['duplicate', 'stale', 'out-of-order'][Math.floor(random() * 3)] as FairSchedulerRawSample['ackFault'];
-          const workload = { clientCount, targetClient: client, latencyMs: input.wanLatencyMs + jitterMs };
+          const workload = {
+            clientCount,
+            targetClient: client,
+            latencyMs: input.wanLatencyMs + jitterMs,
+            ...(input.wireFormat === undefined ? {} : { wireFormat: input.wireFormat }),
+          };
           const candidate = runCandidateWorkload({
             ...workload,
             ackFault,
@@ -1686,7 +1746,15 @@ export function validateFairSchedulerDecisionArtifact(input: {
     || canonicalJson(rawArtifacts.runtimePolicyProfile) !== canonicalJson(artifactProfile.profile)) {
     return { accepted: false, reason: 'runtime-policy-profile-mismatch' };
   }
-  const contract = getFairSchedulerBenchmarkContract(undefined, requestedProfile.profile);
+  // The workload stays sealed; only the codec may differ, and it has to come
+  // from the evidence rather than from the caller. Deriving the whole contract
+  // from the artifact would let an artifact declare its own workload valid.
+  const contract = getFairSchedulerBenchmarkContract(
+    rawArtifacts.workload?.wireFormat === 'binary'
+      ? { ...SEALED_BENCHMARK_WORKLOAD, wireFormat: 'binary' }
+      : undefined,
+    requestedProfile.profile,
+  );
   if (artifact.workloadSchemaHash !== contract.workloadSchemaHash
     || canonicalJson(artifact.workload) !== canonicalJson(contract.workload)) {
     return { accepted: false, reason: 'workload-schema-hash-mismatch' };
@@ -1711,6 +1779,10 @@ export function validateFairSchedulerDecisionArtifact(input: {
     seed: contract.workload.seed,
     repeats: contract.workload.repeats,
     samples: contract.workload.samples,
+    // The canonical workload carries the codec as `codec`; the raw input carries
+    // it as `wireFormat`. Both omit it for json, which is what lets generations
+    // published before the dimension existed still compare equal.
+    ...('codec' in contract.workload ? { wireFormat: contract.workload.codec } : {}),
   })) {
     return { accepted: false, reason: 'raw-workload-mismatch' };
   }

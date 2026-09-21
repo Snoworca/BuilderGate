@@ -29,7 +29,18 @@
  * profile is not configurable.
  *
  * Usage (from the repository root, after `npm --prefix server run build`):
- *   node tools/wave3/fair-scheduler-authority-publish.mjs [--dry-run]
+ *   node tools/wave3/fair-scheduler-authority-publish.mjs [--dry-run] [--codec json|binary]
+ *
+ * CODEC (PERF-BGSTAB-011 AC-4, added 2026-09-22)
+ * ----------------------------------------------
+ * The scheduler sizes a delivery by its wire `byteLength`, so `smallOutputBypassBytes`
+ * classifies the same payload differently under a JSON envelope than under a binary frame.
+ * A binary default therefore needs its own generation, measured with the codec that will
+ * actually run -- that is the artifact MIG-BGSTAB-004 AC-1 gates the default on.
+ *
+ * `--codec json` is the historical run and is bit-identical to what this tool produced before
+ * the flag existed: the workload omits the codec key entirely for json, so every generation
+ * published earlier still reproduces. Only `--codec binary` adds it.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -41,6 +52,13 @@ const pointerPath = join(authorityRoot, 'current.json');
 const compiled = join(repositoryRoot, 'server/dist/benchmarks/terminalFairnessCharacterization.js');
 
 // Sealed workload. Identical to the profileArgs in fair-scheduler-decision.test.mjs.
+const codecIndex = process.argv.indexOf('--codec');
+const codec = codecIndex === -1 ? 'json' : process.argv[codecIndex + 1];
+if (codec !== 'json' && codec !== 'binary') {
+  console.error(`--codec must be json or binary, received ${String(codec)}`);
+  process.exit(2);
+}
+
 const PROFILE = {
   clients: [1, 2, 8],
   wanLatencyMs: 150,
@@ -49,6 +67,8 @@ const PROFILE = {
   seed: 20260723,
   repeats: 5,
   samples: 30,
+  // Absent for json on purpose; see the CODEC note above.
+  ...(codec === 'binary' ? { wireFormat: 'binary' } : {}),
 };
 
 if (!existsSync(compiled)) {
@@ -58,6 +78,7 @@ if (!existsSync(compiled)) {
 
 const before = existsSync(pointerPath) ? JSON.parse(readFileSync(pointerPath, 'utf8')) : null;
 console.log(`current generation: ${before?.generation_id ?? '(none)'}`);
+console.log(`codec under measurement: ${codec}`);
 
 if (process.argv.includes('--dry-run')) {
   console.log('dry run: nothing was written.');
