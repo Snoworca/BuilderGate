@@ -6,6 +6,7 @@ import type { AuthService } from '../services/AuthService.js';
 import type { SessionManager } from '../services/SessionManager.js';
 import type { WsClientMeta } from '../types/ws-protocol.js';
 import { WsRouter } from './WsRouter.js';
+import { getDefaultTerminalWireFormat } from './terminalWireFormatDefault.js';
 import type { TerminalWireFormat } from './terminalWireFormat.js';
 
 /**
@@ -421,9 +422,14 @@ test('a known session with no authority state gets no channel rather than a fabr
   assert.equal(row.authorityEpoch, undefined);
 });
 
-test('a router configured with no wire format at all refuses to speak binary', () => {
-  // The whole feature is gated on this default. Every other test names the rung
-  // explicitly, so without this one the default is never exercised.
+test('a router configured with no wire format at all follows the resolved default', () => {
+  // This pinned `group-not-eligible` while the default was the constant `json`.
+  // MIG-BGSTAB-004 made the default a function of the published evidence, so the
+  // old expectation went red for the right reason and was re-scoped rather than
+  // deleted: an unconfigured router now does whatever the evidence says, and an
+  // explicit json still refuses. The evidence-absent case is covered by
+  // terminalWireFormatDefault.test.ts, which needs no router at all.
+  const resolved = getDefaultTerminalWireFormat();
   const router = new WsRouter({} as AuthService, fakeSessionManager(), {
     realtime: { wsTransportMode: 'unified' },
   });
@@ -442,7 +448,31 @@ test('a router configured with no wire format at all refuses to speak binary', (
 
   internals.handleTerminalBinaryCapability(ws, VALID_OFFER);
 
-  assert.equal(negotiationReply(socket).reason, 'group-not-eligible');
+  const reply = negotiationReply(socket);
+  if (resolved === 'binary-optin' || resolved === 'binary') {
+    assert.equal(reply.type, 'terminal-binary:capability', JSON.stringify(reply));
+  } else {
+    assert.equal(reply.reason, 'group-not-eligible');
+  }
+
+  // Control: an operator who wrote json explicitly is never overridden.
+  const configured = new WsRouter({} as AuthService, fakeSessionManager(), {
+    realtime: { wsTransportMode: 'unified', terminalWireFormat: 'json' },
+  });
+  const jsonSocket = new FakeWebSocket();
+  const jsonWs = jsonSocket as unknown as WebSocket;
+  const jsonInternals = configured as unknown as RouterInternals;
+  jsonInternals.clients.set(jsonWs, {
+    clientId: 'client-json',
+    clientGroupId: 'group-json',
+    wsTransportMode: 'unified',
+    isAlive: true,
+    subscribedSessions: new Set(),
+    replayPendingSessions: new Map(),
+    screenRepairPendingSessions: new Map(),
+  } as unknown as WsClientMeta);
+  jsonInternals.handleTerminalBinaryCapability(jsonWs, VALID_OFFER);
+  assert.equal(negotiationReply(jsonSocket).reason, 'group-not-eligible');
 });
 
 test('a client that never offers binary allocates no group state', () => {

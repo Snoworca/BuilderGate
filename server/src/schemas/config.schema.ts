@@ -45,7 +45,12 @@ export const realtimeSchema = defaultObject(z.object({
   // The binary data-plane rollout ladder (05 §8.2), orthogonal to the transport
   // mode above. `json` keeps the wire exactly as it is today, so a deployment
   // that never sets this behaves as it always has.
-  terminalWireFormat: z.enum(['json', 'binary-shadow', 'binary-optin', 'binary']).default('json'),
+  // Optional, not `.default('json')`. MIG-BGSTAB-004 AC-1 makes the default a
+  // function of the published evidence, and a zod default would fill the field
+  // in before that resolution ever ran — the operator's "I did not configure
+  // this" and "I chose json" would become the same value, and the flip could
+  // never take effect.
+  terminalWireFormat: z.enum(['json', 'binary-shadow', 'binary-optin', 'binary']).optional(),
 }).strict());
 
 // ============================================================================

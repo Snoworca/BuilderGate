@@ -86,10 +86,8 @@ export function resolveDefaultTerminalWireFormat(
  */
 export function loadPublishedDecisionArtifact(evidenceRoot?: string): unknown {
   try {
-    const root = evidenceRoot ?? resolve(
-      dirname(fileURLToPath(import.meta.url)),
-      '../benchmarks/fair-scheduler-evidence',
-    );
+    const root = evidenceRoot ?? findEvidenceRoot();
+    if (root === undefined) return undefined;
     const pointerPath = resolve(root, 'current.json');
     if (!existsSync(pointerPath)) return undefined;
     const pointer: unknown = JSON.parse(readFileSync(pointerPath, 'utf8'));
@@ -106,6 +104,25 @@ export function loadPublishedDecisionArtifact(evidenceRoot?: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Where the build put the evidence bundle.
+ *
+ * Two layouts have to agree. Compiled, this module is `dist/ws/` and the bundle
+ * is its sibling `dist/benchmarks/`. Run from source under tsx — which is how
+ * the server boots in development and in the boot tests — it is `src/ws/`, and
+ * the bundle is still only ever written into `dist`. Resolving just the first
+ * one made a source run silently fall back to json, so the default depended on
+ * how the process had been started rather than on the evidence.
+ */
+function findEvidenceRoot(): string | undefined {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    resolve(here, '../benchmarks/fair-scheduler-evidence'),
+    resolve(here, '../../dist/benchmarks/fair-scheduler-evidence'),
+  ];
+  return candidates.find(candidate => existsSync(resolve(candidate, 'current.json')));
 }
 
 let cached: TerminalWireFormat | undefined;

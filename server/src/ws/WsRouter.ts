@@ -2136,6 +2136,42 @@ export class WsRouter {
   }
 
   /**
+   * Session-scoped kill switch (MIG-BGSTAB-004 AC-4).
+   *
+   * Takes one session off the binary codec by retiring its channels. The next
+   * frame for it finds no channel, falls back to JSON and is counted — the same
+   * path a session that never had a channel already takes, so this adds a
+   * trigger rather than a second way of being on JSON.
+   *
+   * Deliberately not a rollback: `rollbackTerminalBinaryGroup` bumps the codec
+   * epoch, which invalidates every frame the group has in flight. Doing that to
+   * demote one session would stop the other twenty-three, which is precisely
+   * the blast radius AC-4 forbids.
+   */
+  demoteTerminalBinarySession(sessionId: string, reason: string): void {
+    const subscribers = this.sessionSubscribers.get(sessionId);
+    if (!subscribers || subscribers.size === 0) return;
+    let demoted = false;
+    for (const ws of subscribers) {
+      const group = this.terminalBinaryGroupFor(ws);
+      if (!group?.isNegotiated) continue;
+      const channelIds = group.closeSession(sessionId);
+      if (channelIds.length === 0) continue;
+      demoted = true;
+      // Announced before the ids can be reissued, so a late frame is refused
+      // rather than delivered to whoever holds the number next (`01 §1.5`).
+      this.sendTo(ws, {
+        type: 'terminal-binary:channel-retired',
+        channelIds,
+        reason: 'unsubscribed',
+      });
+    }
+    if (demoted) {
+      console.warn('[WS] binary data plane demoted for one session', { sessionId, reason });
+    }
+  }
+
+  /**
    * Hot-reload of `realtime.terminalWireFormat` (rollback trigger #1).
    *
    * Only a narrowing rolls back. Widening must not disturb a group that is

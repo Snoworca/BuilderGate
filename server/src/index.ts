@@ -25,6 +25,7 @@ import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
 import { config, getServerRoot } from './utils/config.js';
+import { getDefaultTerminalWireFormat } from './ws/terminalWireFormatDefault.js';
 import { inputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { FileService } from './services/FileService.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
@@ -1544,7 +1545,7 @@ async function startServer(): Promise<void> {
     const wsRouter = new WsRouter(authService, sessionManager, {
       resourceLimits: runtimeValues.resourceLimits,
       stabilityModes: runtimeValues.stabilityModes,
-      realtime: { terminalWireFormat: config.realtime?.terminalWireFormat },
+      realtime: { terminalWireFormat: config.realtime?.terminalWireFormat ?? getDefaultTerminalWireFormat() },
       binaryNegotiationTransportMode: configuredWsTransportMode,
       terminalResourcePolicyAuthority: terminalResourcePolicyRuntimeAuthority,
     });

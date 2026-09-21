@@ -99,7 +99,12 @@ function get(port: number, at: string): Promise<number | null> {
   });
 }
 
-function postJson(port: number, at: string, body: unknown): Promise<{ status: number | null; body: string }> {
+function postJson(
+  port: number,
+  at: string,
+  body: unknown,
+  bearer?: string,
+): Promise<{ status: number | null; body: string }> {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
     const req = https.request(
@@ -109,7 +114,11 @@ function postJson(port: number, at: string, body: unknown): Promise<{ status: nu
         path: at,
         method: 'POST',
         rejectUnauthorized: false,
-        headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) },
+        headers: {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(payload),
+          ...(bearer === undefined ? {} : { authorization: `Bearer ${bearer}` }),
+        },
       },
       (res) => {
         let out = '';
@@ -370,4 +379,164 @@ test('IR-BGSTAB-001 a client asking for split cannot negotiate binary on a unifi
 
   assert.equal(answer.type, 'terminal-binary:rejected');
   assert.notEqual(answer.accepted, true);
+});
+
+/**
+ * MIG-BGSTAB-004 AC-1 end to end, with no `realtime` block at all.
+ *
+ * Every other test in this repository builds the codec path from parts. This one
+ * asks the question an operator actually has: with a stock config, does a real
+ * server hand a real client real binary frames? The config deliberately omits
+ * `realtime` — the answer therefore comes from the resolved default and the
+ * published evidence, which is the thing the flip changed.
+ */
+async function readFirstBinaryOutputOnDefaultConfig(): Promise<{
+  negotiated: string;
+  binaryFrames: number;
+  jsonOutputs: number;
+  firstFrameBody: string;
+  seen: string[];
+}> {
+  const port = await reserveAdjacentPortPair();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bg-binary-e2e-'));
+  const configPath = path.join(root, 'config.json5');
+  fs.writeFileSync(configPath, `{
+  server: { port: ${port} },
+  pty: { shell: "auto" },
+  session: { idleDelayMs: 200 },
+  ssl: { certPath: "", keyPath: "", caPath: "" },
+  auth: { password: "${PASSWORD}", durationMs: 1800000, maxDurationMs: 86400000, jwtSecret: "", localhostPasswordOnly: false },
+  twoFactor: { enabled: false },
+}
+`, 'utf-8');
+
+  const env = childEnv(configPath, root, port);
+  const child = spawn(process.execPath, [TSX_CLI, ENTRY], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  live.add(child);
+  const log: string[] = [];
+  let logBytes = 0;
+  const capture = (chunk: unknown) => {
+    const text = String(chunk);
+    logBytes += text.length;
+    if (logBytes <= LOG_CAP_BYTES) log.push(text);
+  };
+  child.stdout?.on('data', capture);
+  child.stderr?.on('data', capture);
+
+  try {
+    const cancelled = { done: false };
+    const exited = new Promise<{ exitCode: number | null }>((resolve) => {
+      child.once('exit', (code) => { cancelled.done = true; resolve({ exitCode: code }); });
+    });
+    const first = await Promise.race([exited, waitHealthy(port, cancelled).then(healthy => ({ healthy }))]);
+    if ('exitCode' in first) throw new Error(`server exited with ${first.exitCode}\n${log.join('')}`);
+    if (!first.healthy) throw new Error(`server never became healthy\n${log.join('')}`);
+
+    const login = await postJson(port, '/api/auth/login', { password: PASSWORD });
+    assert.equal(login.status, 200, `login failed: ${login.body}`);
+    const token = (JSON.parse(login.body) as { token?: string }).token;
+    assert.ok(token, 'login returned no token');
+
+    const created = await postJson(port, '/api/sessions', { name: 'binary-e2e' }, token);
+    assert.equal(created.status, 201, `session create failed: ${created.status} ${created.body}`);
+    const sessionId = (JSON.parse(created.body) as { id?: string }).id;
+    assert.ok(sessionId, `session create returned no id: ${created.body}`);
+
+    return await new Promise((resolve, reject) => {
+      const ws = new WebSocket(`wss://127.0.0.1:${port}/ws?token=${encodeURIComponent(token)}`, {
+        rejectUnauthorized: false,
+      });
+      let negotiated = 'none';
+      let binaryFrames = 0;
+      let jsonOutputs = 0;
+      let firstFrameBody = '';
+      const seen: string[] = [];
+      const finish = (error?: Error) => {
+        clearTimeout(timer);
+        try { ws.close(); } catch { /* already gone */ }
+        if (error) reject(error);
+        else resolve({ negotiated, binaryFrames, jsonOutputs, firstFrameBody, seen });
+      };
+      const timer = setTimeout(() => {
+        // Resolving rather than rejecting: the counts are the finding, and a
+        // zero is a result worth reading, not a harness failure to debug.
+        finish();
+      }, NEGOTIATION_TIMEOUT_MS);
+
+      ws.on('open', () => {
+        ws.send(JSON.stringify({
+          type: 'terminal-binary:negotiate',
+          supportedFrameVersions: [1],
+          acceptedFlagMask: 0xff,
+        }));
+      });
+      ws.on('message', (raw: unknown, isBinary?: boolean) => {
+        if (isBinary === true || Buffer.isBuffer(raw) && negotiated === 'terminal-binary:capability' && raw[0] === 1) {
+          const bytes = raw as Buffer;
+          binaryFrames += 1;
+          if (firstFrameBody === '') {
+            // 28-byte header + 24-byte OUTPUT prologue, then the body.
+            firstFrameBody = bytes.subarray(28 + 24).toString('utf8');
+          }
+          if (binaryFrames >= 1 && firstFrameBody.length > 0) finish();
+          return;
+        }
+        let message: { type?: string } = {};
+        try { message = JSON.parse(String(raw)) as { type?: string }; } catch { return; }
+        if (typeof message.type === 'string' && seen.length < 60) seen.push(message.type);
+        if (message.type === 'terminal-binary:capability' || message.type === 'terminal-binary:rejected') {
+          negotiated = message.type;
+          ws.send(JSON.stringify({ type: 'subscribe', sessionIds: [sessionId] }));
+          // No `input` here: a raw socket cannot satisfy the browser's input
+          // provenance permit and the server answers `input:rejected`, which
+          // would look like a codec failure. The shell's own prompt is enough.
+          return;
+        }
+        // The snapshot gate holds queued output until the client says it has
+        // applied the snapshot. Without this reply nothing is ever delivered,
+        // and the test would report "binary never arrived" for a reason that has
+        // nothing to do with the codec.
+        if (message.type === 'screen-snapshot') {
+          const snapshot = message as { sessionId?: string; replayToken?: string };
+          if (typeof snapshot.sessionId === 'string') {
+            ws.send(JSON.stringify({
+              type: 'screen-snapshot:ready',
+              sessionId: snapshot.sessionId,
+              replayToken: snapshot.replayToken,
+            }));
+            // A shell prints its prompt on its own once output is released.
+            setTimeout(() => {
+              try {
+                ws.send(JSON.stringify({ type: 'resize', sessionId: snapshot.sessionId, cols: 80, rows: 24 }));
+              } catch { /* closed */ }
+            }, 300);
+          }
+          return;
+        }
+        if (message.type === 'output') jsonOutputs += 1;
+      });
+      ws.on('error', (error: Error) => finish(new Error(`${error.message}\n${log.join('')}`)));
+    });
+  } finally {
+    await stop(child);
+    live.delete(child);
+    try { fs.rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }); } catch { /* housekeeping */ }
+  }
+}
+
+test('MIG-BGSTAB-004 AC-1 a stock config negotiates binary and delivers real binary frames', async () => {
+  const observed = await readFirstBinaryOutputOnDefaultConfig();
+  assert.equal(
+    observed.negotiated,
+    'terminal-binary:capability',
+    'with the binary default resolved, a stock server must accept a capability offer',
+  );
+  assert.ok(
+    observed.binaryFrames > 0,
+    `no binary frame arrived (json outputs: ${observed.jsonOutputs}; messages seen: ${observed.seen.join(', ')})`,
+  );
+  assert.ok(
+    observed.firstFrameBody.length > 0,
+    'the first binary frame decoded to an empty body',
+  );
 });
