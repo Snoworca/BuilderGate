@@ -1904,6 +1904,9 @@ export class WsRouter {
       case 'terminal-binary:unknown-channel':
         this.handleTerminalBinaryUnknownChannel(ws, msg);
         break;
+      case 'terminal-binary:decode-failure':
+        this.handleTerminalBinaryDecodeFailure(ws, msg);
+        break;
       case 'terminal-delivery:ack':
         this.handleTerminalDeliveryAck(ws, msg);
         break;
@@ -2220,6 +2223,26 @@ export class WsRouter {
    * row, and the codec epoch is deliberately unchanged so frames already in
    * flight stay deliverable.
    */
+  /**
+   * Rollback trigger #2: the client says it could not decode a frame.
+   *
+   * A client that cannot read the codec cannot be talked out of it, so the only
+   * answer is to take the whole group back to JSON. The report is validated
+   * first — a rollback any peer can trigger with an empty message would be a
+   * denial of service against every session on that group.
+   */
+  private handleTerminalBinaryDecodeFailure(ws: WebSocket, rawMessage: unknown): void {
+    const record = rawMessage as { code?: unknown };
+    if (typeof record?.code !== 'string' || record.code.length === 0) {
+      console.warn('[WS] terminal-binary decode-failure report rejected: no code');
+      return;
+    }
+    const key = this.terminalBinaryGroupKey(ws);
+    if (key === undefined) return;
+    console.warn('[WS] client reported a binary decode failure', { code: record.code });
+    this.rollbackTerminalBinaryGroup(key, 'client-decode-failure');
+  }
+
   private handleTerminalBinaryUnknownChannel(ws: WebSocket, rawMessage: unknown): void {
     const record = rawMessage as { channelIds?: unknown };
     if (!Array.isArray(record?.channelIds)) {

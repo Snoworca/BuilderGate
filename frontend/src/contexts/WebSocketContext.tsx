@@ -755,6 +755,17 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           openReadyState: WebSocket.OPEN,
         });
       }
+      // A fatal decode means this client cannot read the codec at all, so it
+      // tells the server rather than degrading quietly. Scoped rejections stay
+      // local: they cost one frame, not the connection's ability to read them.
+      if (report.fatal && wsRef.current?.readyState === WebSocket.OPEN) {
+        sendOpenBrowserWebSocketMessage({
+          message: { type: 'terminal-binary:decode-failure', code: report.fatal.code },
+          socket: wsRef.current,
+          limits: getClientWsResourceLimits(),
+          openReadyState: WebSocket.OPEN,
+        });
+      }
       if (report.fatal || report.scoped.length > 0 || report.unroutable.length > 0) {
         console.warn('[WS] binary frame rejected', {
           fatal: report.fatal?.code,

@@ -657,6 +657,7 @@ export type ClientWsMessage =
       acceptedFlagMask: number;
     }
   | { type: 'terminal-binary:unknown-channel'; channelIds: readonly number[] }
+  | { type: 'terminal-binary:decode-failure'; code: string }
   | { type: 'ping' };
 
 // ============================================================================
