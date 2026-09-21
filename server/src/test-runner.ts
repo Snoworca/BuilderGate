@@ -183,8 +183,8 @@ async function main(): Promise<void> {
     { name: 'ProcessTreeTerminator rejects PID start identity mismatch', run: testProcessTreeTerminatorRejectsIdentityMismatch },
     { name: 'ProcessTreeTerminator skips POSIX termination when cwd is unavailable', run: testProcessTreeTerminatorSkipsPosixMissingCwd },
     { name: 'ProcessTreeTerminator skips POSIX termination when cwd mismatches', run: testProcessTreeTerminatorSkipsCwdMismatch },
-    { name: 'ProcessTreeTerminator uses Windows taskkill by PID without shell', run: testProcessTreeTerminatorWindowsTaskkillByPid },
-    { name: 'ProcessTreeTerminator reports failed Windows taskkill without throwing', run: testProcessTreeTerminatorWindowsTaskkillFailureReportsFailed },
+    { name: 'ProcessTreeTerminator kills the Windows tree by PID without shell', run: testProcessTreeTerminatorWindowsTaskkillByPid },
+    { name: 'ProcessTreeTerminator reports a failed Windows tree kill without throwing', run: testProcessTreeTerminatorWindowsTaskkillFailureReportsFailed },
     { name: 'ProcessTreeTerminator skips WSL backend without Linux process identity', run: testProcessTreeTerminatorSkipsWslWithoutLinuxIdentity },
     { name: 'ProcessTreeTerminator avoids POSIX process-group kill when PGID is unverified', run: testProcessTreeTerminatorPosixLeafFirstWhenPgidUnverified },
     { name: 'ProcessTreeTerminator does not use POSIX process-group kill with root PGID alone', run: testProcessTreeTerminatorDoesNotUsePgidFromRootAlone },
@@ -2984,10 +2984,15 @@ async function testProcessTreeTerminatorWindowsTaskkillByPid(): Promise<void> {
   });
 
   assert.equal(result.status, 'completed');
-  assert.equal(result.method, 'windows-taskkill-tree');
+  assert.equal(result.method, 'windows-verified-tree-kill');
   assert.equal(execCalls.length, 1);
-  assert.equal(execCalls[0].file, 'taskkill.exe');
-  assert.deepEqual(execCalls[0].args, ['/PID', '123', '/T', '/F']);
+  // PERF-BGSTAB-014 superseded the taskkill mandate in FR-BGSTAB-011 AC-3. The
+  // properties AC-3 protects are asserted here directly instead of through the
+  // name of the tool: PID-only targeting, no shell, hidden window.
+  assert.equal(execCalls[0].file, 'powershell.exe');
+  assert.match(String(execCalls[0].args.at(-1)), /\$root = 123\b/);
+  assert.match(String(execCalls[0].args.at(-1)), /CreateToolhelp32Snapshot/);
+  assert.ok(!String(execCalls[0].args.at(-1)).includes('/IM'));
   assert.equal(execCalls[0].options.shell, false);
   assert.equal(execCalls[0].options.windowsHide, true);
 }
@@ -3002,7 +3007,7 @@ async function testProcessTreeTerminatorWindowsTaskkillFailureReportsFailed(): P
       childPids: [456],
     }),
     execFileFn: ((_file: string, _args: string[], _options: any, callback: (error: Error | null, stdout?: string, stderr?: string) => void) => {
-      callback(new Error('taskkill failed'), '', '');
+      callback(new Error('tree kill failed'), '', '');
       return {} as any;
     }) as any,
   });
@@ -3024,10 +3029,10 @@ async function testProcessTreeTerminatorWindowsTaskkillFailureReportsFailed(): P
   });
 
   assert.equal(result.status, 'failed');
-  assert.equal(result.method, 'windows-taskkill-tree');
+  assert.equal(result.method, 'windows-verified-tree-kill');
   assert.deepEqual(result.terminatedPids, []);
   assert.deepEqual(result.remainingPids, [123, 456]);
-  assert.match(result.message ?? '', /taskkill failed/);
+  assert.match(result.message ?? '', /tree kill failed/);
 }
 
 async function testProcessTreeTerminatorSkipsWslWithoutLinuxIdentity(): Promise<void> {

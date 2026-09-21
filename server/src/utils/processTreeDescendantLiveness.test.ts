@@ -57,9 +57,13 @@ function windowsTerminator(
       probeCalls.push(pid);
       return probe ? probe(pid) : live.has(pid);
     },
-    execFileFn: ((file: string, _args: string[], _opts: unknown, cb: (error: null) => void) => {
-      if (file === 'taskkill.exe') killed = true;
-      setTimeout(() => cb(null), 0);
+    execFileFn: ((file: string, args: string[], _opts: unknown, cb: (error: null, stdout?: string) => void) => {
+      // PERF-BGSTAB-014: the verified kill is a PowerShell toolhelp walk now,
+      // not taskkill. The harness watches for the script, not the tool.
+      if (file === 'powershell.exe' && String(args.at(-1)).includes('CreateToolhelp32Snapshot')) {
+        killed = true;
+      }
+      setTimeout(() => cb(null, 'killed=1000'), 0);
       return {} as never;
     }) as never,
   });

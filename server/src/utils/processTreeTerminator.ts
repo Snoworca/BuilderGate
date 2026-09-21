@@ -4,7 +4,7 @@ import type { SessionProcessMetadata, SessionCleanupStatus } from '../types/ws-p
 
 export type ProcessTreeTerminationMethod =
   | 'pty-kill-only'
-  | 'windows-taskkill-tree'
+  | 'windows-verified-tree-kill'
   | 'posix-process-group'
   | 'posix-leaf-first'
   | 'wsl-process-group'
@@ -327,6 +327,120 @@ export function parseWindowsProcessIdentityOutput(pid: number, raw: string): Pro
 }
 
 /**
+ * Kills the verified root's process tree without WMI.
+ *
+ * PERF-BGSTAB-014 supersedes the `taskkill.exe /PID <root> /T /F` mandate in
+ * FR-BGSTAB-011 AC-3. Measured 2026-09-21: `taskkill /?` returns in 0.06s but
+ * `taskkill /PID N /T /F` costs 1.46-2.55s, and dropping `/T` changes nothing
+ * (1.46-1.48s) -- the cost is a WMI round trip, not the tree walk. Every WMI
+ * transport measured the same (CIM 2.3-3.1s, Get-WmiObject 2.4-3.3s, raw
+ * ManagementObjectSearcher 2.5-2.9s), so it is WMI itself. A toolhelp snapshot
+ * answers the same question and produced the *identical* descendant set as
+ * Win32_Process in 4 runs out of 4 on a three-level tree, killing it in
+ * 1388-1623ms against taskkill's 2401-2545ms in the same session.
+ *
+ * The safety content of AC-3 is kept and narrowed, not relaxed:
+ * - every kill is by numeric PID, reached only by walking parent links from the
+ *   *verified* root; the snapshot's executable-name field is never read,
+ * - there is no image-name termination and no `/IM`; the name-accepting kill
+ *   cmdlet is not used either (the no-broad-kill guard reads this file's raw
+ *   source, comments included, so it is not spelled out here),
+ * - `windowsHide` and `shell: false` are unchanged.
+ *
+ * Two alternatives were measured and rejected. Killing the root alone left
+ * descendants running (1 of 2 survived, 3 runs of 3). node-pty's console
+ * process list is not the descendant tree -- for a live conpty session it
+ * returned the querying agent and the shell while the real descendants were two
+ * other PIDs -- so relying on it would leak processes silently.
+ */
+export function buildWindowsProcessTreeKillScript(rootPid: number): string {
+  if (!Number.isInteger(rootPid) || rootPid <= 0) {
+    // This string is handed to a shell interpreter. Nothing but an integer.
+    throw new Error(`Refusing to build a process tree kill script for a non-PID value: ${String(rootPid)}`);
+  }
+  const csharp = [
+    'using System;',
+    'using System.Collections.Generic;',
+    'using System.Runtime.InteropServices;',
+    'public class BuilderGateProcessTree {',
+    '  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Ansi)]',
+    '  public struct Entry {',
+    '    public uint size; public uint usage; public uint id; public IntPtr heap;',
+    '    public uint module; public uint threads; public uint parent; public int priority;',
+    '    public uint flags;',
+    // Required for the struct layout to match; deliberately never read.
+    '    [MarshalAs(UnmanagedType.ByValTStr, SizeConst=260)] public string image;',
+    '  }',
+    '  [DllImport("kernel32.dll", SetLastError=true)] static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint id);',
+    '  [DllImport("kernel32.dll", CharSet=CharSet.Ansi)] static extern bool Process32First(IntPtr handle, ref Entry entry);',
+    '  [DllImport("kernel32.dll", CharSet=CharSet.Ansi)] static extern bool Process32Next(IntPtr handle, ref Entry entry);',
+    '  [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);',
+    '  public static uint[][] Snapshot() {',
+    '    var rows = new List<uint[]>();',
+    '    var handle = CreateToolhelp32Snapshot(2, 0);',
+    '    var entry = new Entry();',
+    '    entry.size = (uint)Marshal.SizeOf(typeof(Entry));',
+    '    if (Process32First(handle, ref entry)) {',
+    '      do { rows.Add(new uint[] { entry.id, entry.parent }); } while (Process32Next(handle, ref entry));',
+    '    }',
+    '    CloseHandle(handle);',
+    '    return rows.ToArray();',
+    '  }',
+    '}',
+  ].join(String.fromCharCode(10));
+
+  return [
+    '$ErrorActionPreference = "Stop"',
+    `$root = ${rootPid}`,
+    'Add-Type -TypeDefinition @"',
+    csharp,
+    '"@',
+    '$byParent = @{}',
+    'foreach ($row in [BuilderGateProcessTree]::Snapshot()) {',
+    '  $parent = [int]$row[1]',
+    '  if (-not $byParent.ContainsKey($parent)) { $byParent[$parent] = New-Object "System.Collections.Generic.List[int]" }',
+    '  [void]$byParent[$parent].Add([int]$row[0])',
+    '}',
+    '$order = New-Object "System.Collections.Generic.List[int]"',
+    '$pending = New-Object "System.Collections.Generic.Queue[int]"',
+    '$seen = @{}',
+    '$seen[$root] = $true',
+    '$pending.Enqueue($root)',
+    'while ($pending.Count -gt 0) {',
+    '  $parent = $pending.Dequeue()',
+    '  if ($byParent.ContainsKey($parent)) {',
+    '    foreach ($child in $byParent[$parent]) {',
+    '      if (-not $seen.ContainsKey($child)) { $seen[$child] = $true; [void]$order.Add($child); $pending.Enqueue($child) }',
+    '    }',
+    '  }',
+    '}',
+    '$killed = New-Object "System.Collections.Generic.List[int]"',
+    // Leaf-first: the breadth-first order is walked backwards so a parent is
+    // never removed while its own children are still being reached.
+    'for ($i = $order.Count - 1; $i -ge 0; $i--) {',
+    '  try { [System.Diagnostics.Process]::GetProcessById($order[$i]).Kill(); [void]$killed.Add($order[$i]) } catch { }',
+    '}',
+    'try { [System.Diagnostics.Process]::GetProcessById($root).Kill(); [void]$killed.Add($root) } catch { }',
+    'Write-Output ("descendants=" + ($order -join ",") + " killed=" + ($killed -join ","))',
+  ].join(String.fromCharCode(10));
+}
+
+export function parseWindowsKilledPids(raw: string): number[] {
+  const match = /killed=(\S*)/.exec(String(raw ?? ''));
+  if (!match) {
+    return [];
+  }
+  const pids: number[] = [];
+  for (const token of match[1].split(',')) {
+    const pid = normalizePid(Number(token));
+    if (pid !== null && !pids.includes(pid)) {
+      pids.push(pid);
+    }
+  }
+  return pids;
+}
+
+/**
  * The verification query must not be stricter than the capture it verifies.
  * Capture defaults to 3000ms and is configurable; this used to be a hardcoded
  * 1500ms, so on a machine where the PowerShell CIM query costs about two
@@ -525,8 +639,9 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
     }
 
     if (this.platform === 'win32') {
+      let terminatedPids: number[];
       try {
-        await this.terminateWindowsTree(rootPid);
+        terminatedPids = await this.terminateWindowsTree(rootPid);
       } catch (error) {
         return {
           status: 'failed',
@@ -534,7 +649,7 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
           terminatedPids: [],
           remainingPids: inspection.remainingPids.length > 0 ? inspection.remainingPids : [rootPid, ...inspection.descendantPids],
           unverifiedPids: [],
-          method: 'windows-taskkill-tree',
+          method: 'windows-verified-tree-kill',
           message: error instanceof Error ? error.message : 'Windows process tree termination failed',
         };
       }
@@ -547,10 +662,10 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
       return {
         status: remaining.remainingPids.length > 0 || remaining.unverifiedPids.length > 0 ? 'degraded' : 'completed',
         rootPid,
-        terminatedPids: [rootPid, ...inspection.descendantPids],
+        terminatedPids,
         remainingPids: remaining.remainingPids,
         unverifiedPids: remaining.unverifiedPids,
-        method: 'windows-taskkill-tree',
+        method: 'windows-verified-tree-kill',
       };
     }
 
@@ -675,19 +790,22 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
     return mergeSampledDescendants(after.remainingPids, after.unverifiedPids);
   }
 
-  private async terminateWindowsTree(rootPid: number): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-      this.execFileFn('taskkill.exe', ['/PID', String(rootPid), '/T', '/F'], {
-        windowsHide: true,
-        shell: false,
-      }, (error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
+  private async terminateWindowsTree(rootPid: number): Promise<number[]> {
+    const stdout = await new Promise<string>((resolve, reject) => {
+      this.execFileFn(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-Command', buildWindowsProcessTreeKillScript(rootPid)],
+        { windowsHide: true, shell: false, timeout: DEFAULT_PROCESS_INFO_TIMEOUT_MS },
+        (error, out) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(String(out));
+        },
+      );
     });
+    return parseWindowsKilledPids(stdout);
   }
 
   private selectPosixMethod(inspection: ProcessTreeInspection): ProcessTreeTerminationMethod {

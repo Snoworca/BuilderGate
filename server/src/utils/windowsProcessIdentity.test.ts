@@ -128,7 +128,8 @@ test('PERF-BGSTAB-013 AC-3 a WMI-generation identity is refused and nothing is k
   );
 
   assert.equal(result.status, 'skipped-unverified');
-  assert.deepEqual(calls.filter(call => call.file === 'taskkill.exe'), []);
+  // "no taskkill" is now trivially true, so assert on what actually kills.
+  assert.deepEqual(calls.filter(call => String(call.args.at(-1)).includes('CreateToolhelp32Snapshot')), []);
 });
 
 // --- AC-4: found but unreadable identity is not "absent" -------------------
@@ -164,7 +165,7 @@ test('PERF-BGSTAB-013 AC-4 an unreadable identity yields skipped-unverified, not
     gracefulWaitMs: 0, forceWaitMs: 0, descendantSampleLimit: 64,
   });
   assert.equal(result.status, 'skipped-unverified');
-  assert.deepEqual(calls.filter(call => call.file === 'taskkill.exe'), []);
+  assert.deepEqual(calls.filter(call => String(call.args.at(-1)).includes('CreateToolhelp32Snapshot')), []);
 });
 
 // --- AC-5: no graceful sleep before the first post-kill check ---------------
@@ -188,9 +189,11 @@ function windowsTerminator(afterKill: Partial<ProcessInfoSnapshot>) {
         ...afterKill,
       } as ProcessInfoSnapshot;
     },
-    execFileFn: ((file: string, _args: string[], _opts: unknown, cb: (error: null) => void) => {
-      if (file === 'taskkill.exe') killed = true;
-      queueMicrotask(() => cb(null));
+    execFileFn: ((file: string, args: string[], _opts: unknown, cb: (error: null, stdout?: string) => void) => {
+      if (file === 'powershell.exe' && String(args.at(-1)).includes('CreateToolhelp32Snapshot')) {
+        killed = true;
+      }
+      queueMicrotask(() => cb(null, 'killed=4321'));
       return {} as never;
     }) as never,
   });
@@ -241,7 +244,11 @@ test('PERF-BGSTAB-013 AC-6 the Windows snapshot reports no sampled descendants',
   assert.deepEqual(snapshot.childPids, []);
 });
 
-test('PERF-BGSTAB-013 AC-6 a verified Windows kill still runs taskkill with the PID-only tree flags', async () => {
+test('PERF-BGSTAB-013 AC-6 a verified Windows kill targets the tree by PID alone', async () => {
+  // This pinned `taskkill.exe /PID 4321 /T /F` until PERF-BGSTAB-014 superseded
+  // the tool mandate in FR-BGSTAB-011 AC-3. It was re-scoped, not deleted: the
+  // property being protected is that the kill is reached from the verified PID
+  // and never from an image name. PERF-BGSTAB-014 owns the script's contents.
   const calls: ExecCall[] = [];
   const terminator = new DefaultProcessTreeTerminator({
     platform: 'win32',
@@ -251,11 +258,12 @@ test('PERF-BGSTAB-013 AC-6 a verified Windows kill still runs taskkill with the 
     gracefulWaitMs: 0, forceWaitMs: 0, descendantSampleLimit: 64,
   });
 
-  // FR-BGSTAB-011 AC-3 is unchanged by this requirement.
-  const kills = calls.filter(call => call.file === 'taskkill.exe');
+  const kills = calls.filter(call => String(call.args.at(-1)).includes('CreateToolhelp32Snapshot'));
   assert.equal(kills.length, 1);
-  assert.deepEqual(kills[0].args, ['/PID', '4321', '/T', '/F']);
-  assert.equal(result.method, 'windows-taskkill-tree');
+  assert.equal(kills[0].file, 'powershell.exe');
+  assert.match(String(kills[0].args.at(-1)), /\$root = 4321\b/);
+  assert.deepEqual(calls.filter(call => call.file === 'taskkill.exe'), []);
+  assert.equal(result.method, 'windows-verified-tree-kill');
 });
 
 // --- query failure keeps the conservative fallback -------------------------
