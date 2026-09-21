@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-08T00:24:53.113Z",
+  "generatedAt": "2026-09-21T00:41:10.488Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "99d122885e09a429d12915a575be6fd00a8293e4dc4a48afc8eeaf7d7215d444",
+    "value": "1ad3e9610581c301114dbc80c0fc2be63af7868f85bfd804ec9a2c929ff0b655",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "4563dfe273d21a51f5ec34fed3f50390f1f5303d4fd47ef587091f2eecc22162",
-        "size": 5501,
-        "mtimeMs": 1787046649696.615
+        "sha256": "b78db238a1a3e32c7bf75b262860a49b6ec8daf369fde2a4d7c360c1782f52fc",
+        "size": 5867,
+        "mtimeMs": 1789502103435.5637
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -26,15 +26,21 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "05cf9bb4c0cd0bc8d05c85a1ec7854ff3c01482057cd77a44c2935228fc54ebb",
-        "size": 534865,
-        "mtimeMs": 1788827093083.3801
+        "sha256": "82403b2c9a43ba4113a7539c7b11d3f88a083f63fc14dc49ce4381a4a2a257fe",
+        "size": 596425,
+        "mtimeMs": 1789951248565.6965
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "b413c2e31a9259adbbbfb981fc5a55af787e585f39dbe6ae73adeaf07e363a71",
-        "size": 95041,
-        "mtimeMs": 1787048047488.9062
+        "sha256": "e92f3b0dc7c5107e85754f86e8828e2c41b32a5fa4326da060604cb398881763",
+        "size": 107558,
+        "mtimeMs": 1789123239584.7822
+      },
+      {
+        "path": "docs/spec/41.markdown-editor.srs.md",
+        "sha256": "9450e3f8a3d154b160c40a4393a36f61c490450d4c090c2b688fdb0e780d5cea",
+        "size": 202055,
+        "mtimeMs": 1789115899969.4556
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -49,33 +55,39 @@
       "ARCH": 6,
       "AITUI": 5,
       "BGSTAB": 26,
-      "MCP": 6
+      "MCP": 6,
+      "MDE": 10
     },
     "security": {
       "AITUI": 2,
-      "MCP": 2
+      "MCP": 3
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 19,
+      "BGSTAB": 21,
       "MCP": 1
     },
     "observability": {
-      "BGSTAB": 7,
+      "BGSTAB": 8,
       "MCP": 1
     },
     "performance": {
-      "BGSTAB": 11
+      "BGSTAB": 12
     },
     "migration": {
       "BGSTAB": 4
     },
     "operational": {
-      "BGSTAB": 7
+      "BGSTAB": 10
     },
     "interface": {
       "BGSTAB": 2,
-      "MCP": 5
+      "MCP": 5,
+      "MDE": 1
+    },
+    "constraint": {
+      "BGSTAB": 1,
+      "MDE": 2
     }
   },
   "lock": {

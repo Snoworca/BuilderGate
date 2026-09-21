@@ -3258,6 +3258,9 @@ async function testProcessTreeTerminatorReportsSurvivingSampledChildAfterRootExi
     killFn: (pid: number, signal?: NodeJS.Signals | number) => {
       killCalls.push({ pid, signal });
     },
+    // PERF-BGSTAB-012 AC-3: post-kill descendant liveness no longer goes
+    // through processInfoProvider, so the surviving child is declared here.
+    processLivenessProbe: (pid: number) => pid === 200,
     processInfoProvider: async (pid: number) => {
       if (pid === 123) {
         rootCalls += 1;

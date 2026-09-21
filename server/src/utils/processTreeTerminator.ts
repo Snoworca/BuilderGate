@@ -60,6 +60,18 @@ interface ProcessTreeTerminatorDeps {
     processInfoTimeoutMs?: number;
   killFn?: (pid: number, signal?: NodeJS.Signals | number) => void;
   processInfoProvider?: (pid: number) => Promise<ProcessInfoSnapshot>;
+  /**
+   * Answers "is this one PID still alive" for post-kill verification.
+   *
+   * PERF-BGSTAB-012 AC-3: this used to go through `processInfoProvider`, whose
+   * Windows implementation enumerates every process on the machine. Measured on
+   * a 1289-process host that enumeration costs 3.0-3.6s, and the verification
+   * ran one per sampled descendant, so a session close reached 16.8s for three
+   * descendants and 32.8s for eight. Liveness is a one-PID question and is
+   * answered directly. No kill decision is taken from this probe: it only
+   * decides what gets reported as a surviving descendant.
+   */
+  processLivenessProbe?: (pid: number) => boolean | Promise<boolean>;
   platform?: NodeJS.Platform;
 }
 
@@ -436,6 +448,7 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
   private readonly execFileFn: typeof execFile;
   private readonly killFn: (pid: number, signal?: NodeJS.Signals | number) => void;
   private readonly processInfoProvider: (pid: number) => Promise<ProcessInfoSnapshot>;
+  private readonly processLivenessProbe: (pid: number) => boolean | Promise<boolean>;
   private readonly platform: NodeJS.Platform;
 
   constructor(deps: ProcessTreeTerminatorDeps = {}) {
@@ -447,6 +460,7 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
       execFileFn: this.execFileFn,
       processInfoTimeoutMs: deps.processInfoTimeoutMs,
     });
+    this.processLivenessProbe = deps.processLivenessProbe ?? isProcessRunning;
   }
 
   async inspect(
@@ -615,8 +629,8 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
           continue;
         }
         try {
-          const info = await this.processInfoProvider(pid);
-          if (info.running) {
+          // One-PID liveness only; see `processLivenessProbe` in the deps.
+          if (await this.processLivenessProbe(pid)) {
             unverified.push(pid);
           }
         } catch {

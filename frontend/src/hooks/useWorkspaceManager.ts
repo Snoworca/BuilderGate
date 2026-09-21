@@ -14,6 +14,13 @@ import {
   applyTabReorderResultToTabs,
   canApplyMoveTabResult,
 } from './workspaceTabState';
+import {
+  applyActiveTabId,
+  planTabClose,
+  removeTabFromList,
+  restoreTabToList,
+  runTabClose,
+} from './workspaceTabClose';
 
 type WorkspaceTabChanges = Partial<Omit<
   WorkspaceTab,
@@ -472,37 +479,31 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   }, []);
 
   const closeTab = useCallback(async (workspaceId: string, tabId: string) => {
-    try {
-      // Calculate next active tab BEFORE deletion (FR-7205)
-      const wsTabs = tabs
-        .filter(t => t.workspaceId === workspaceId)
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-      const ws = workspaces.find(w => w.id === workspaceId);
-      let nextActiveTabId: string | null = null;
-
-      if (ws?.activeTabId === tabId) {
-        const currentIndex = wsTabs.findIndex(t => t.id === tabId);
-        if (currentIndex >= 0) {
-          // Right adjacent first, then left
-          const rightTab = wsTabs[currentIndex + 1];
-          const leftTab = wsTabs[currentIndex - 1];
-          nextActiveTabId = rightTab?.id ?? leftTab?.id ?? null;
+    // PERF-BGSTAB-012: apply the close locally first, then call the server.
+    // deleteTab awaits verified process-tree termination, which costs seconds on
+    // Windows, and the tab must not stay on screen until that finishes.
+    const plan = planTabClose(tabs, workspaces, workspaceId, tabId);
+    const closedTab = plan.tab;
+    await runTabClose(plan, {
+      applyLocalClose: () => {
+        setTabs(prev => removeTabFromList(prev, tabId));
+        setWorkspaces(prev => applyActiveTabId(prev, workspaceId, plan.nextActiveTabId));
+        pruneMosaicLayoutForDeletedTab(workspaceId, tabId);
+        clearTerminalSnapshot(closedTab?.sessionId);
+      },
+      requestDelete: (targetWorkspaceId, targetTabId) => workspaceApi.deleteTab(targetWorkspaceId, targetTabId),
+      revertLocalClose: () => {
+        // The mosaic layout entry and the terminal snapshot are not restored:
+        // the pane is rebuilt from the tab list and the snapshot is a cache.
+        if (closedTab) {
+          setTabs(prev => restoreTabToList(prev, closedTab, plan.tabIndex));
         }
-      } else {
-        nextActiveTabId = ws?.activeTabId ?? null;
-      }
-      const tabToClose = tabs.find(t => t.id === tabId);
-
-      await workspaceApi.deleteTab(workspaceId, tabId);
-      setTabs(prev => prev.filter(t => t.id !== tabId));
-      setWorkspaces(prev => prev.map(w =>
-        w.id === workspaceId ? { ...w, activeTabId: nextActiveTabId } : w
-      ));
-      pruneMosaicLayoutForDeletedTab(workspaceId, tabId);
-      clearTerminalSnapshot(tabToClose?.sessionId);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
-    }
+        setWorkspaces(prev => applyActiveTabId(prev, workspaceId, plan.previousActiveTabId));
+      },
+      reportError: (error: unknown) => {
+        setError(getErrorMessage(error));
+      },
+    });
   }, [tabs, workspaces]);
 
   const updateTab = useCallback(async (workspaceId: string, tabId: string, updates: { name?: string }) => {
