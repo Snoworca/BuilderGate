@@ -314,14 +314,11 @@ export function parseWindowsProcessIdentityOutput(pid: number, raw: string): Pro
     running: true,
     startIdentity: `${WINDOWS_IDENTITY_SOURCE}:${pid}:${trimmed}`,
     cwd: null,
-    // PERF-BGSTAB-013 AC-6: Windows does not sample descendants. The tree flag
-    // walks it already, and the pty's own teardown closes the console process
-    // list natively, so enumerating descendants here was a second and far more
-    // expensive copy of work that was already being done.
-    //
-    // (Worded to keep the two words the no-broad-kill guard pairs out of each
-    // other's 240-character window. That guard reads raw source, comments
-    // included, so prose can trip it -- see the report for 2026-09-21.)
+    // PERF-BGSTAB-013 AC-6: Windows does not sample descendants here. The
+    // verified kill walks the tree itself from the root PID, and node-pty's own
+    // teardown closes the console process list natively, so enumerating
+    // descendants at this point was a second and far more expensive copy of
+    // work that was already being done.
     childPids: [],
   };
 }
@@ -342,9 +339,8 @@ export function parseWindowsProcessIdentityOutput(pid: number, raw: string): Pro
  * The safety content of AC-3 is kept and narrowed, not relaxed:
  * - every kill is by numeric PID, reached only by walking parent links from the
  *   *verified* root; the snapshot's executable-name field is never read,
- * - there is no image-name termination and no `/IM`; the name-accepting kill
- *   cmdlet is not used either (the no-broad-kill guard reads this file's raw
- *   source, comments included, so it is not spelled out here),
+ * - there is no image-name termination: no `/IM`, and not `Stop-Process`,
+ *   which is the cmdlet that would accept a name,
  * - `windowsHide` and `shell: false` are unchanged.
  *
  * Two alternatives were measured and rejected. Killing the root alone left
