@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="ko" data-ds="c" data-density="normal">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>파일 탐색기 디자인 시안</title>
+<style>
+/* ===========================================================================
+   0. 페이지 자체의 크롬
+   시안을 판단하려면 바탕이 중립이어야 하므로, 페이지 색은 아래 디자인 시스템
+   토큰과 분리해 둔다. 목업 안쪽만 --bg-*/--fg-* 토큰을 쓴다.
+   =========================================================================== */
+:root{
+  --page-bg:#101012; --page-card:#17171a; --page-card2:#1d1d21;
+  --page-fg:#e8e8ea; --page-muted:#9b9ba3; --page-faint:#6b6b74;
+  --page-line:#2a2a30; --page-accent:#7aa2f7; --page-ok:#7ee081; --page-warn:#e0c07e;
+  --mono:ui-monospace,'Cascadia Mono','Consolas','D2Coding','SF Mono',monospace;
+  --ui:-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic',Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--page-bg); color:var(--page-fg); font-family:var(--ui);
+  font-size:15px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:0 24px 120px}
+
+/* ---- 페이지 머리 ---- */
+.masthead{padding:56px 0 28px; border-bottom:1px solid var(--page-line)}
+.masthead h1{font-size:30px; line-height:1.25; font-weight:650; letter-spacing:-.02em}
+.masthead .sub{color:var(--page-muted); margin-top:10px; font-size:15px}
+.masthead .meta{margin-top:18px; display:flex; flex-wrap:wrap; gap:8px}
+.chip{
+  font-size:12px; padding:4px 10px; border-radius:999px;
+  border:1px solid var(--page-line); color:var(--page-muted); background:var(--page-card);
+}
+
+/* ---- 섹션 ---- */
+section{margin-top:56px; scroll-margin-top:84px}
+h2{font-size:20px; font-weight:650; letter-spacing:-.01em; display:flex; align-items:baseline; gap:10px}
+h2 .num{color:var(--page-accent); font-variant-numeric:tabular-nums; font-size:15px; font-weight:600}
+h3{font-size:15px; font-weight:620; margin-top:28px; color:var(--page-fg)}
+p{color:var(--page-muted); margin-top:10px; max-width:74ch}
+p strong, li strong{color:var(--page-fg); font-weight:600}
+ul{margin-top:10px; padding-left:20px; color:var(--page-muted); max-width:74ch}
+li{margin-top:5px}
+code{font-family:var(--mono); font-size:.88em; background:var(--page-card2);
+     border:1px solid var(--page-line); border-radius:4px; padding:1px 5px; color:#cfd6e4}
+.note{
+  margin-top:16px; padding:12px 14px; border-left:2px solid var(--page-accent);
+  background:var(--page-card); border-radius:0 6px 6px 0; font-size:14px; color:var(--page-muted);
+}
+.note.warn{border-left-color:var(--page-warn)}
+
+table{width:100%; border-collapse:collapse; margin-top:16px; font-size:14px}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--page-line); vertical-align:top}
+th{color:var(--page-faint); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.04em}
+td{color:var(--page-muted)}
+td:first-child{color:var(--page-fg); white-space:nowrap}
+td .num{font-variant-numeric:tabular-nums; color:var(--page-fg); font-weight:600}
+
+/* ---- 전환 도구 (sticky) ---- */
+.switcher{
+  position:sticky; top:0; z-index:50; margin:0 -24px; padding:12px 24px;
+  background:color-mix(in srgb, var(--page-bg) 88%, transparent);
+  backdrop-filter:blur(12px); border-bottom:1px solid var(--page-line);
+  display:flex; flex-wrap:wrap; gap:18px; align-items:center;
+}
+.switcher .group{display:flex; align-items:center; gap:8px}
+.switcher .label{font-size:12px; color:var(--page-faint); text-transform:uppercase; letter-spacing:.05em}
+.seg{display:flex; background:var(--page-card2); border:1px solid var(--page-line); border-radius:8px; padding:2px}
+.seg button{
+  font:inherit; font-size:13px; padding:5px 12px; border:0; border-radius:6px;
+  background:transparent; color:var(--page-muted); cursor:pointer; white-space:nowrap;
+}
+.seg button:hover{color:var(--page-fg)}
+.seg button[aria-pressed="true"]{background:var(--page-accent); color:#0b0e16; font-weight:600}
+
+/* ===========================================================================
+   1. 디자인 시스템 토큰 — 세 안
+   이름(계약)은 셋이 같고 값만 다르다. 그래야 목업 하나로 비교가 된다.
+   =========================================================================== */
+
+/* --- A. 터미널 계승 (VS Code Dark+) --- */
+[data-ds="a"]{
+  --bg-app:#1e1e1e; --bg-chrome:#323233; --bg-surface:#252526; --bg-raised:#2d2d2d;
+  --bg-hover:#2a2d2e; --bg-active:#04395e; --bg-paper:#ffffff;
+  --fg:#d4d4d4; --fg-strong:#ffffff; --fg-muted:#9d9d9d; --fg-faint:#6e6e6e;
+  --line:#3c3c3c; --line-strong:#565656;
+  --accent:#007acc; --accent-fg:#ffffff; --sel-bar:transparent;
+  --danger:#f14c4c; --warn:#cca700; --ok:#4ec9b0;
+  --r-sm:4px; --r-md:4px; --r-lg:6px;
+  --row-h:24px; --shadow-win:0 18px 46px rgba(0,0,0,.42);
+  --tab-shape:0;
+}
+/* --- B. 한 겹 밝게 (Fluent 계열) --- */
+[data-ds="b"]{
+  --bg-app:#202020; --bg-chrome:#2b2b2b; --bg-surface:#272727; --bg-raised:#2f2f2f;
+  --bg-hover:rgba(255,255,255,.055); --bg-active:rgba(0,120,212,.20); --bg-paper:#ffffff;
+  --fg:#dcdcdc; --fg-strong:#f5f5f5; --fg-muted:#a0a0a0; --fg-faint:#767676;
+  --line:#3a3a3a; --line-strong:#4a4a4a;
+  --accent:#0078d4; --accent-fg:#ffffff; --sel-bar:var(--accent);
+  --danger:#e05c5c; --warn:#d8a534; --ok:#4cc38a;
+  --r-sm:6px; --r-md:8px; --r-lg:10px;
+  --row-h:28px; --shadow-win:0 24px 60px rgba(0,0,0,.5);
+  --tab-shape:1;
+}
+/* --- C. 표면 적응형 — 크롬은 B 와 같고, 종이 표면에서 토큰을 다시 건다 --- */
+[data-ds="c"]{
+  --bg-app:#202020; --bg-chrome:#2b2b2b; --bg-surface:#272727; --bg-raised:#2f2f2f;
+  --bg-hover:rgba(255,255,255,.055); --bg-active:rgba(0,120,212,.20); --bg-paper:#ffffff;
+  --fg:#dcdcdc; --fg-strong:#f5f5f5; --fg-muted:#a0a0a0; --fg-faint:#767676;
+  --line:#3a3a3a; --line-strong:#4a4a4a;
+  --accent:#0078d4; --accent-fg:#ffffff; --sel-bar:var(--accent);
+  --danger:#e05c5c; --warn:#d8a534; --ok:#4cc38a;
+  --r-sm:6px; --r-md:8px; --r-lg:10px;
+  --row-h:28px; --shadow-win:0 24px 60px rgba(0,0,0,.5);
+  --tab-shape:1;
+}
+/* C 에서만: 종이 위에 놓인 표면은 밝은 토큰으로 갈아탄다 */
+[data-ds="c"] [data-surface="paper"]{
+  --bg-surface:#fbfbfb; --bg-raised:#f1f1f1;
+  --bg-hover:rgba(0,0,0,.05); --bg-active:rgba(0,120,212,.14);
+  --fg:#1f1f1f; --fg-strong:#000000; --fg-muted:#5c5c5c; --fg-faint:#8a8a8a;
+  --line:#e3e3e3; --line-strong:#cdcdcd;
+}
+/* 조밀 모드 */
+[data-density="compact"]{--row-h:22px}
+
+/* ===========================================================================
+   2. 목업 공통 — 창(WindowDialog) 껍데기
+   =========================================================================== */
+.stage{
+  margin-top:20px; padding:36px 28px; border-radius:14px;
+  border:1px solid var(--page-line);
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(255,255,255,.028), transparent 60%),
+    var(--bg-app);
+  display:flex; justify-content:center;
+}
+.stage.tight{padding:24px}
+
+.win{
+  width:100%; max-width:760px; display:flex; flex-direction:column;
+  background:var(--bg-surface); color:var(--fg);
+  border:1px solid var(--line-strong); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-win); overflow:hidden; position:relative;
+  font-size:13px;
+}
+.win.wide{max-width:900px}
+.win-title{
+  display:flex; align-items:center; gap:8px; flex-shrink:0; height:40px;
+  padding:0 8px 0 14px; background:var(--bg-chrome);
+  border-bottom:1px solid var(--line); cursor:move; user-select:none;
+}
+.win-title h4{flex:1 1 auto; min-width:0; font-size:13px; font-weight:600; color:var(--fg-strong);
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:-.005em}
+.win-title .dirty{color:var(--warn); font-weight:400; font-size:12px}
+.win-btn{
+  display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+  width:28px; height:28px; border:1px solid transparent; border-radius:var(--r-sm);
+  background:transparent; color:var(--fg-muted); cursor:pointer;
+}
+.win-btn:hover{background:var(--bg-hover); color:var(--fg-strong)}
+.win-btn.close:hover{background:#5a2b2b; border-color:#7a4444; color:#fff}
+.win-body{flex:1; min-height:0; display:flex; overflow:hidden}
+
+/* ---- 탭 막대 ---- */
+.tabs{
+  display:flex; align-items:stretch; gap:2px; flex:0 0 auto;
+  padding:4px 6px 0; background:var(--bg-raised);
+  border-bottom:1px solid var(--line); overflow-x:auto;
+}
+.tab{
+  display:inline-flex; align-items:center; gap:7px; padding:0 9px; height:28px;
+  font-size:12px; color:var(--fg-muted); cursor:pointer; white-space:nowrap;
+  border:1px solid transparent; border-bottom:0;
+  border-radius:calc(var(--r-sm) * var(--tab-shape)) calc(var(--r-sm) * var(--tab-shape)) 0 0;
+}
+.tab:hover{background:var(--bg-hover); color:var(--fg)}
+.tab[aria-selected="true"]{
+  background:var(--bg-surface); color:var(--fg-strong);
+  border-color:var(--line); font-weight:550;
+}
+.tab .x{opacity:.5; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; border-radius:3px}
+.tab .x:hover{opacity:1; background:var(--bg-hover)}
+.tab.add{padding:0 8px; color:var(--fg-faint)}
+
+/* ---- 경로 막대 ---- */
+.pathbar{
+  display:flex; align-items:center; gap:6px; flex:0 0 auto; height:32px;
+  padding:0 8px 0 10px; border-bottom:1px solid var(--line); background:var(--bg-surface);
+}
+.pathbar .p{
+  flex:1; min-width:0; font-family:var(--mono); font-size:11.5px; color:var(--fg-muted);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:rtl; text-align:left;
+}
+.pathbar .sp{flex:1}
+
+/* ===========================================================================
+   3. 파일 트리
+   =========================================================================== */
+.tree{flex:1; min-height:0; overflow:auto; padding:4px 0; background:var(--bg-surface); user-select:none}
+.tree.fixed{flex:0 0 296px; height:296px}
+.row{
+  display:flex; align-items:center; gap:6px; height:var(--row-h); padding-right:10px;
+  cursor:default; position:relative; color:var(--fg); white-space:nowrap;
+  border-left:2px solid transparent;
+}
+.row:hover{background:var(--bg-hover)}
+.row[aria-selected="true"]{background:var(--bg-active); border-left-color:var(--sel-bar); color:var(--fg-strong)}
+.row .tw{
+  width:16px; height:16px; flex:0 0 16px; display:inline-flex; align-items:center; justify-content:center;
+  color:var(--fg-faint); transition:transform .12s ease;
+}
+.row .tw.open{transform:rotate(90deg)}
+.row .tw.leaf{visibility:hidden}
+.row .ic{width:16px; height:16px; flex:0 0 16px; color:var(--fg-muted)}
+.row.dir .ic{color:var(--accent)}
+.row .nm{font-size:12.5px; overflow:hidden; text-overflow:ellipsis}
+.row .meta{margin-left:auto; font-size:11px; color:var(--fg-faint); font-variant-numeric:tabular-nums; padding-left:16px}
+.row.cut{opacity:.45}
+.row.cut .nm{text-decoration:none; outline:1px dashed var(--line-strong); outline-offset:2px; border-radius:2px}
+.row.unopenable .nm, .row.unopenable .ic{opacity:.45}
+.row.loading .nm{color:var(--fg-faint); font-style:italic}
+.row.error .nm{color:var(--danger)}
+.row.error .ic{color:var(--danger)}
+/* 들여쓰기 안내선 */
+.row .pad{flex:0 0 auto; height:100%; position:relative}
+.row .pad::before{
+  content:''; position:absolute; left:50%; top:0; bottom:0; width:1px;
+  background:var(--line); opacity:.55;
+}
+.spin{width:12px;height:12px;border:1.5px solid var(--line-strong);border-top-color:var(--accent);
+      border-radius:50%;animation:sp .7s linear infinite;flex:0 0 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---- 모바일 조작 줄 ---- */
+.mobilebar{
+  display:none; flex:0 0 auto; gap:4px; padding:6px; background:var(--bg-raised);
+  border-top:1px solid var(--line); overflow-x:auto;
+}
+[data-view="mobile"] .mobilebar{display:flex}
+.mobilebar button{
+  flex:1 0 auto; min-width:56px; height:44px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:2px; font:inherit; font-size:10.5px;
+  background:transparent; border:1px solid var(--line); border-radius:var(--r-sm);
+  color:var(--fg-muted); cursor:pointer;
+}
+.mobilebar button:hover:not(:disabled){background:var(--bg-hover); color:var(--fg-strong)}
+.mobilebar button:disabled{opacity:.35; cursor:not-allowed}
+[data-view="mobile"] .win{max-width:400px}
+[data-view="mobile"] .win.wide{max-width:400px}
+[data-view="mobile"] .editor-tree{display:none}
+
+/* ===========================================================================
+   4. 컨텍스트 메뉴
+   =========================================================================== */
+.ctx{
+  position:absolute; z-index:30; min-width:186px; padding:4px;
+  background:var(--bg-chrome); border:1px solid var(--line-strong);
+  border-radius:var(--r-md); box-shadow:0 12px 32px rgba(0,0,0,.5); font-size:12.5px;
+}
+.ctx button{
+  display:flex; width:100%; align-items:center; gap:9px; padding:6px 9px;
+  font:inherit; font-size:12.5px; background:transparent; border:0; border-radius:var(--r-sm);
+  color:var(--fg); cursor:pointer; text-align:left;
+}
+.ctx button:hover:not(:disabled){background:var(--accent); color:var(--accent-fg)}
+.ctx button:disabled{color:var(--fg-faint); cursor:default}
+.ctx button .k{margin-left:auto; font-size:11px; opacity:.6; font-family:var(--mono)}
+.ctx button:hover:not(:disabled) .k{opacity:.85}
+.ctx hr{border:0; border-top:1px solid var(--line); margin:4px 2px}
+.ctx .check{width:14px; text-align:center; color:var(--accent)}
+.ctx button:hover .check{color:var(--accent-fg)}
+
+/* ===========================================================================
+   5. 창 범위 모달 — 창 표면 안에만 겹친다
+   =========================================================================== */
+.scrim{
+  position:absolute; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
+  padding:16px; background:rgba(0,0,0,.45);
+}
+.scrim[hidden]{display:none}
+.modal{
+  width:100%; max-width:400px; background:var(--bg-chrome); color:var(--fg);
+  border:1px solid var(--line-strong); border-radius:var(--r-lg);
+  box-shadow:0 20px 50px rgba(0,0,0,.55); overflow:hidden;
+}
+.modal header{display:flex; gap:10px; align-items:flex-start; padding:16px 16px 0}
+.modal .badge{
+  flex:0 0 26px; width:26px; height:26px; border-radius:50%; display:grid; place-items:center;
+  font-size:14px; font-weight:700;
+}
+.modal .badge.warn{background:color-mix(in srgb,var(--warn) 22%,transparent); color:var(--warn)}
+.modal .badge.err{background:color-mix(in srgb,var(--danger) 22%,transparent); color:var(--danger)}
+.modal h5{font-size:13.5px; font-weight:620; color:var(--fg-strong); line-height:1.4}
+.modal .desc{padding:8px 16px 0 52px; font-size:12.5px; color:var(--fg-muted)}
+.modal .desc .path{font-family:var(--mono); font-size:11.5px; color:var(--fg); word-break:break-all}
+.modal .cmp{
+  margin:12px 16px 0 52px; border:1px solid var(--line); border-radius:var(--r-sm);
+  font-size:11.5px; overflow:hidden;
+}
+.modal .cmp div{display:flex; gap:10px; padding:6px 9px}
+.modal .cmp div+div{border-top:1px solid var(--line)}
+.modal .cmp span:first-child{flex:0 0 52px; color:var(--fg-faint)}
+.modal .cmp span:last-child{font-family:var(--mono); color:var(--fg-muted)}
+.modal footer{
+  margin-top:16px; padding:12px 16px; background:var(--bg-surface);
+  border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+}
+.modal .ask{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--fg-muted); cursor:pointer}
+.modal .ask input{accent-color:var(--accent); width:14px; height:14px}
+.modal .acts{margin-left:auto; display:flex; gap:7px}
+.btn{
+  font:inherit; font-size:12.5px; padding:6px 13px; border-radius:var(--r-sm); cursor:pointer;
+  border:1px solid var(--line-strong); background:var(--bg-chrome); color:var(--fg);
+}
+.btn:hover{background:var(--bg-hover); color:var(--fg-strong)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-fg); font-weight:600}
+.btn.primary:hover{filter:brightness(1.12); background:var(--accent); color:var(--accent-fg)}
+.btn.danger{background:var(--danger); border-color:var(--danger); color:#fff; font-weight:600}
+.btn.danger:hover{filter:brightness(1.12); background:var(--danger); color:#fff}
+
+/* ===========================================================================
+   6. 진행 표시 — 하단 상태바 · 우하단 알림창
+   =========================================================================== */
+.appshell{
+  width:100%; max-width:900px; border:1px solid var(--line-strong); border-radius:var(--r-lg);
+  overflow:hidden; background:var(--bg-app); display:flex; flex-direction:column;
+  box-shadow:var(--shadow-win); position:relative; min-height:230px;
+}
+.appshell .fakehdr{
+  height:38px; flex:0 0 auto; background:var(--bg-chrome); border-bottom:1px solid var(--line);
+  display:flex; align-items:center; padding:0 12px; gap:10px; font-size:12px; color:var(--fg-muted);
+}
+.appshell .fakebody{
+  flex:1; padding:14px 16px; font-family:var(--mono); font-size:11.5px; color:var(--fg-faint);
+  line-height:1.9; background:#000;
+}
+.appshell .fakebody b{color:#4ec9b0; font-weight:400}
+.statusbar{
+  flex:0 0 auto; height:26px; display:flex; align-items:center; gap:10px; padding:0 10px;
+  background:var(--bg-chrome); border-top:1px solid var(--line); font-size:11.5px;
+  color:var(--fg-muted); cursor:pointer;
+}
+.statusbar:hover{background:var(--bg-hover)}
+.statusbar .bar{
+  flex:0 0 132px; height:5px; border-radius:999px; background:var(--line); overflow:hidden;
+}
+.statusbar .bar i{display:block; height:100%; background:var(--accent); border-radius:999px}
+.statusbar .txt{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.statusbar .pct{font-variant-numeric:tabular-nums; color:var(--fg)}
+.statusbar.await{color:var(--warn)}
+.statusbar.await .dot{width:7px;height:7px;border-radius:50%;background:var(--warn);
+  animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+
+.popover{
+  position:absolute; right:10px; bottom:32px; z-index:25; width:300px;
+  background:var(--bg-chrome); border:1px solid var(--line-strong); border-radius:var(--r-md);
+  box-shadow:0 16px 40px rgba(0,0,0,.55); overflow:hidden;
+}
+.popover[hidden]{display:none}
+.popover h6{padding:9px 12px; font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--fg-faint); border-bottom:1px solid var(--line); font-weight:600}
+.job{padding:9px 12px; display:flex; flex-direction:column; gap:6px}
+.job+.job{border-top:1px solid var(--line)}
+.job .t{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--fg)}
+.job .t .who{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.job .t .cancel{width:20px;height:20px;border-radius:var(--r-sm);border:0;background:transparent;
+  color:var(--fg-faint);cursor:pointer;display:grid;place-items:center}
+.job .t .cancel:hover{background:var(--bg-hover);color:var(--danger)}
+.job .b{height:4px;border-radius:999px;background:var(--line);overflow:hidden}
+.job .b i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.job.awaiting .b i{background:var(--warn)}
+.job .s{font-size:11px;color:var(--fg-faint);font-family:var(--mono);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job.awaiting .s{color:var(--warn);font-family:var(--ui)}
+
+/* ===========================================================================
+   7. 편집기 창 — 어두운 크롬 + 흰 종이 + 좌측 트리
+   =========================================================================== */
+.editor-tree{
+  flex:0 0 212px; display:flex; flex-direction:column; min-width:0;
+  background:var(--bg-surface); border-right:1px solid var(--line);
+}
+.editor-tree .head{
+  display:flex; align-items:center; gap:6px; height:30px; flex:0 0 auto;
+  padding:0 4px 0 10px; border-bottom:1px solid var(--line);
+}
+.editor-tree .head .p{
+  flex:1; min-width:0; font-family:var(--mono); font-size:11px; color:var(--fg-muted);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.editor-tree .head .x{width:22px;height:22px;border:0;border-radius:var(--r-sm);background:transparent;
+  color:var(--fg-muted);cursor:pointer;display:grid;place-items:center;flex:0 0 22px}
+.editor-tree .head .x:hover{background:var(--bg-hover);color:var(--fg-strong)}
+.editor-doc{flex:1; min-width:0; display:flex; flex-direction:column}
+.paper{
+  flex:1; background:var(--bg-paper); color:#000; padding:22px 26px; overflow:auto;
+  font-size:13.5px; line-height:1.75; min-height:240px;
+}
+.paper h1{font-size:19px; font-weight:650; margin-bottom:4px; letter-spacing:-.01em}
+.paper .by{color:#6a6a6a; font-size:12px; margin-bottom:16px}
+.paper h2{font-size:15px; font-weight:620; margin:18px 0 6px; color:#111}
+.paper p{color:#24292f; margin:0 0 9px; max-width:none; font-size:13.5px}
+.paper ol{padding-left:20px; color:#24292f; font-size:13.5px}
+.paper ol li{margin:3px 0}
+.paper code{background:#f2f3f5;border-color:#e0e2e6;color:#1f2328}
+.paper .cursor{display:inline-block;width:1.5px;height:1.05em;background:#0078d4;
+  vertical-align:text-bottom;animation:blink 1.1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+.editor-tabs{background:var(--bg-raised)}
+[data-ds="c"] .editor-tabs{background:#f1f1f1}
+
+/* ===========================================================================
+   8. 토큰 견본 · 범례
+   =========================================================================== */
+.swatches{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-top:18px}
+.sw{border:1px solid var(--page-line); border-radius:8px; overflow:hidden; background:var(--page-card)}
+.sw .chipc{height:46px; border-bottom:1px solid var(--page-line)}
+.sw .n{padding:7px 9px 2px; font-family:var(--mono); font-size:10.5px; color:var(--page-fg)}
+.sw .v{padding:0 9px 8px; font-family:var(--mono); font-size:10px; color:var(--page-faint)}
+
+.legend{display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:14px; font-size:12.5px; color:var(--page-muted)}
+.legend b{color:var(--page-fg); font-weight:600}
+
+.cols{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:18px}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.card{border:1px solid var(--page-line); border-radius:10px; padding:16px; background:var(--page-card)}
+.card h4{font-size:13.5px; font-weight:620; color:var(--page-fg)}
+.card p{margin-top:7px; font-size:13px}
+.card .verdict{margin-top:12px; font-size:12.5px; padding-top:10px; border-top:1px solid var(--page-line)}
+.card .verdict b{color:var(--page-fg)}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;margin-bottom:8px;font-weight:600}
+.tag.rec{background:color-mix(in srgb,var(--page-ok) 20%,transparent);color:var(--page-ok)}
+.tag.neu{background:var(--page-card2);color:var(--page-muted);border:1px solid var(--page-line)}
+
+.btnrow{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+.btnrow button{
+  font:inherit; font-size:12.5px; padding:6px 12px; border-radius:7px; cursor:pointer;
+  background:var(--page-card2); border:1px solid var(--page-line); color:var(--page-muted);
+}
+.btnrow button:hover{color:var(--page-fg); border-color:var(--page-faint)}
+.hint{font-size:12px; color:var(--page-faint); margin-top:10px}
+/* ===========================================================================
+   9. 모드 전환 · 상위로 가기 · 목록 뷰
+   `..` 는 트리 노드가 아니라 창의 크롬이다. 보이기는 맨 위 고정 행이지만
+   data-path 가 없으므로 선택·클립보드·삭제가 애초에 닿지 못한다.
+   =========================================================================== */
+.modeseg{display:flex; flex:0 0 auto; padding:2px; gap:2px;
+  background:var(--bg-raised); border:1px solid var(--line); border-radius:var(--r-sm)}
+.modeseg button{font:inherit; font-size:11px; padding:2px 9px; border:0; border-radius:calc(var(--r-sm) - 2px);
+  background:transparent; color:var(--fg-muted); cursor:pointer; white-space:nowrap}
+.modeseg button:hover{color:var(--fg-strong)}
+.modeseg button[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); font-weight:600}
+.win-btn:disabled{opacity:.3; cursor:not-allowed}
+.win-btn:disabled:hover{background:transparent; color:var(--fg-muted)}
+
+.row.updir{
+  position:sticky; top:0; z-index:2; background:var(--bg-surface);
+  border-bottom:1px solid var(--line); color:var(--fg-muted); cursor:pointer;
+}
+.row.updir:hover{background:var(--bg-hover); color:var(--fg-strong)}
+.row.updir .nm{font-family:var(--mono); font-size:12px; letter-spacing:.06em}
+.row.updir .hintk{margin-left:auto; font-size:10.5px; color:var(--fg-faint); padding-left:14px}
+
+/* 목록 뷰 — 현재 디렉터리의 직계만 */
+.lhead{
+  position:sticky; top:0; z-index:3; display:flex; align-items:center; height:24px;
+  padding-right:10px; background:var(--bg-raised); border-bottom:1px solid var(--line);
+  font-size:10.5px; color:var(--fg-faint); text-transform:uppercase; letter-spacing:.05em;
+}
+.lhead span{cursor:pointer}
+.lhead span:hover{color:var(--fg)}
+.lhead .nm{flex:1; min-width:0; padding-left:43px}
+.row.lrow .nm{flex:1; min-width:0}
+.cmt{flex:0 0 116px; font-size:11px; color:var(--fg-faint); font-variant-numeric:tabular-nums}
+.csz{flex:0 0 68px; font-size:11px; color:var(--fg-faint); font-variant-numeric:tabular-nums; text-align:right}
+.row.lrow[aria-selected="true"] .cmt, .row.lrow[aria-selected="true"] .csz{color:var(--fg)}
+
+/* 세션 경로 줄과 그 우클릭 메뉴 (설계안 7절) — MetadataRow 를 옮긴 것 */
+.entrydemo{position:relative; width:100%; max-width:560px; padding-bottom:168px}
+.metarow{
+  display:flex; align-items:center; gap:10px; height:28px; padding:0 10px 0 0;
+  background:var(--bg-raised); border:1px solid var(--line); border-radius:var(--r-sm);
+  font-size:12.5px; color:var(--fg-muted); overflow:hidden;
+}
+.metarow .clr{width:4px; height:100%; background:var(--accent); flex:0 0 4px}
+.metarow .nm{color:var(--fg-strong); font-weight:550}
+.metarow .cwd{
+  flex:1; min-width:0; font-family:var(--mono); font-size:11.5px; color:var(--fg-muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  outline:1px dashed var(--accent); outline-offset:3px; border-radius:2px; cursor:context-menu;
+}
+.metarow .el{font-variant-numeric:tabular-nums; font-size:11px; color:var(--fg-faint)}
+
+/* 최소화했을 때 헤더 트레이에 놓이는 줄 (설계안 9.2) */
+.traychip{
+  display:inline-flex; align-items:center; gap:9px; padding:9px 14px; align-self:center;
+  font:inherit; font-size:12.5px; cursor:pointer;
+  background:var(--bg-chrome); color:var(--fg);
+  border:1px solid var(--line-strong); border-radius:var(--r-md);
+  box-shadow:0 8px 22px rgba(0,0,0,.35);
+}
+.traychip[hidden]{display:none}
+.traychip:hover{background:var(--bg-hover); color:var(--fg-strong)}
+.traychip .badge{
+  min-width:17px; height:17px; padding:0 5px; border-radius:999px;
+  background:var(--accent); color:var(--accent-fg);
+  font-size:10.5px; font-weight:700; display:grid; place-items:center;
+}
+.traychip .sub{color:var(--fg-faint); font-size:11px}
+
+/* 좌측 패널 크기 조절 손잡이 (설계안 9.1) — 상한은 창 폭의 50% */
+.editor-tree{position:relative}
+.resizer{
+  position:absolute; top:0; right:-3px; bottom:0; width:6px; z-index:6;
+  cursor:col-resize; touch-action:none;
+}
+.resizer::after{content:''; position:absolute; inset:0 2px; border-radius:2px; background:transparent}
+.resizer:hover::after, .resizer.drag::after{background:var(--accent); opacity:.65}
+.wbadge{
+  flex:0 0 auto; font-size:10px; font-variant-numeric:tabular-nums; color:var(--fg-faint);
+  padding:1px 5px; border:1px solid var(--line); border-radius:999px; white-space:nowrap;
+}
+.wbadge.cap{color:var(--warn); border-color:var(--warn)}
+[data-view="mobile"] .resizer{display:none}
+
+/* 창 하단 진행 줄 (설계안 4.4) — 그 창에서 시작한 작업만 */
+.winprog{
+  display:flex; align-items:center; gap:9px; flex:0 0 auto; height:28px; padding:0 6px 0 10px;
+  background:var(--bg-raised); border-top:1px solid var(--line); font-size:11.5px; color:var(--fg-muted);
+}
+.winprog[hidden]{display:none}
+.winprog .b{flex:0 0 110px; height:5px; border-radius:999px; background:var(--line); overflow:hidden}
+.winprog .b i{display:block; height:100%; background:var(--accent); border-radius:999px;
+  transition:width .25s ease}
+.winprog .t{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.winprog .n{font-variant-numeric:tabular-nums; color:var(--fg)}
+.winprog .more{color:var(--fg-faint); cursor:pointer; text-decoration:underline dotted}
+.winprog .more:hover{color:var(--fg-strong)}
+
+.only{display:none}
+[data-ds="a"] .only-a,[data-ds="b"] .only-b,[data-ds="c"] .only-c{display:block}
+</style>
+</head>
+<body>
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-chev" viewBox="0 0 16 16"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-dir" viewBox="0 0 16 16"><path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h2.4c.4 0 .78.16 1.06.44l.9.9c.1.1.23.16.36.16h4.28c.83 0 1.5.67 1.5 1.5v5.75c0 .83-.67 1.5-1.5 1.5h-9c-.83 0-1.5-.67-1.5-1.5v-7.25z" fill="currentColor"/></symbol>
+  <symbol id="i-dir-open" viewBox="0 0 16 16"><path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h2.4c.4 0 .78.16 1.06.44l.9.9c.1.1.23.16.36.16h4.28c.83 0 1.5.67 1.5 1.5v.75H4.6c-.66 0-1.24.43-1.43 1.06L1.75 12V4.25z" fill="currentColor"/><path d="M3.6 8.1a1 1 0 01.96-.72h9.4a.8.8 0 01.77 1.02l-1.1 3.85a1 1 0 01-.96.72H3.27a.8.8 0 01-.77-1.02L3.6 8.1z" fill="currentColor" opacity=".72"/></symbol>
+  <symbol id="i-file" viewBox="0 0 16 16"><path d="M4 1.75h4.5L12.5 5.7v8.55c0 .55-.45 1-1 1h-7.5c-.55 0-1-.45-1-1V2.75c0-.55.45-1 1-1z" fill="currentColor" opacity=".9"/><path d="M8.4 1.9v3.4h3.6" fill="none" stroke="var(--bg-surface)" stroke-width="1.1"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 11-1.6-3.66" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13.2 2v3.1h-3.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-newdir" viewBox="0 0 16 16"><path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h2.4c.4 0 .78.16 1.06.44l.9.9c.1.1.23.16.36.16h4.28c.83 0 1.5.67 1.5 1.5v5.75c0 .83-.67 1.5-1.5 1.5h-9c-.83 0-1.5-.67-1.5-1.5v-7.25z" fill="currentColor" opacity=".55"/><path d="M8 7v4M6 9h4" fill="none" stroke="var(--bg-surface)" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.6l6 10.8H2L8 2.6z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.4v3.1M8 11.4v.9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="wrap">
+
+<header class="masthead">
+  <h1>파일 탐색기 — 디자인 시안</h1>
+  <p class="sub">
+    <code>docs/plan/2026-09-12.file-explorer.design.md</code> 의 화면 요구사항을 실제 픽셀로 옮긴 것입니다.
+    설계안은 <strong>무엇을 만들지</strong>까지 정해 두었고, 정해지지 않은 것은 <strong>어떤 시각 언어로 만들지</strong>입니다.
+  </p>
+  <div class="meta">
+    <span class="chip">2026-09-23</span>
+    <span class="chip">구현 전 · SRS 미등록</span>
+    <span class="chip">대상 <code style="background:none;border:0;padding:0">work/mcp-session-orchestration-20260709</code></span>
+  </div>
+</header>
+
+<div class="switcher">
+  <div class="group">
+    <span class="label">디자인 시스템</span>
+    <div class="seg" id="ds-seg">
+      <button data-ds-pick="a" aria-pressed="false">A 터미널 계승</button>
+      <button data-ds-pick="b" aria-pressed="false">B 한 겹 밝게</button>
+      <button data-ds-pick="c" aria-pressed="true">C 표면 적응형 · 채택</button>
+    </div>
+  </div>
+  <div class="group">
+    <span class="label">밀도</span>
+    <div class="seg" id="dn-seg">
+      <button data-dn-pick="normal" aria-pressed="true">보통</button>
+      <button data-dn-pick="compact" aria-pressed="false">조밀</button>
+    </div>
+  </div>
+  <div class="group">
+    <span class="label">폭</span>
+    <div class="seg" id="vw-seg">
+      <button data-vw-pick="desktop" aria-pressed="true">데스크톱</button>
+      <button data-vw-pick="mobile" aria-pressed="false">모바일</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ 1. 진단 ============================ -->
+<section id="s1">
+  <h2><span class="num">01</span> 지금 코드에 디자인 시스템이 없습니다</h2>
+  <p>
+    시안을 그리기 전에 <code>frontend/src</code> 의 CSS 를 전수 측정했습니다. 새 화면을 얹기 전에
+    알고 있어야 할 숫자들입니다.
+  </p>
+
+  <table>
+    <thead><tr><th style="width:34%">측정 항목</th><th style="width:14%">값</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td>고유 hex 색상</td><td><span class="num">146</span></td>
+          <td>29개 CSS 파일에 흩어져 있습니다. 가장 많이 쓰인 <code>#ffffff</code> 가 40회, <code>#3d3d3d</code> 17회, <code>#3c3c3c</code> 14회.</td></tr>
+      <tr><td>앱 레벨 디자인 토큰</td><td><span class="num">0</span></td>
+          <td>선언된 CSS 변수 41개는 <strong>전부</strong> 벤더링된 편집기의 <code>--atomic-editor-*</code> 이고 편집기 안에서만 유효합니다.</td></tr>
+      <tr><td>강조색 계열</td><td><span class="num">3</span>벌</td>
+          <td>VS Code <code>#007acc</code>·<code>#0e639c</code> / Fluent <code>#0078d4</code>·<code>#106ebe</code> / 보라 <code>#7c3aed</code>·<code>#8250df</code>·<code>#a78bfa</code>. 셋이 한 화면에서 만납니다.</td></tr>
+      <tr><td><code>border-radius</code> 종류</td><td><span class="num">12</span>종</td>
+          <td>1·2·3·4·5·6·7·8·10·12·16·999px. 4px 가 35회로 사실상 기본값이지만 명시된 적은 없습니다.</td></tr>
+      <tr><td><code>font-size</code> 종류</td><td><span class="num">12</span>종</td>
+          <td>10~24px. 12px 26회, 13px 22회, 14px 16회.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note warn">
+    <strong>파일 탐색기가 이 문제를 크게 만듭니다.</strong>
+    설계안이 새로 들여오는 표면은 트리·탭·경로 막대·컨텍스트 메뉴·창 범위 모달 3종·하단 상태바·알림창·모바일 버튼 줄
+    — 여덟 가지입니다. 토큰 없이 얹으면 146 이 200 이 됩니다. 토큰 레이어를 먼저 깔아야 할 시점이
+    <strong>다음 큰 기능 직전</strong>인 이유입니다.
+  </div>
+
+  <h3>그리고 진짜 결정 지점</h3>
+  <p>
+    설계안 §9 는 <strong>같은 트리 컴포넌트를 서로 다른 두 표면에 놓습니다.</strong>
+    §9.2 의 탐색기 창은 어두운 크롬(<code>#252526</code>)이고, §9.1 의 편집기 창 좌측 패널은
+    흰 종이(<code>EditorWindow.css</code> 가 본문에 <code>background:#ffffff</code> 와 <code>data-theme="light"</code> 를 겁니다) 옆자리입니다.
+  </p>
+  <p>
+    이 한 가지가 아래 세 안을 가릅니다. 나머지는 취향이지만 이것은 구조입니다.
+  </p>
+</section>
+
+<!-- ============================ 2. 세 가지 안 ============================ -->
+<section id="s2">
+  <h2><span class="num">02</span> 세 가지 안</h2>
+  <p>
+    셋은 <strong>토큰 이름이 같습니다.</strong> <code>--bg-surface</code>, <code>--fg-muted</code>, <code>--accent</code> …
+    값만 다릅니다. 그래서 위의 전환 버튼으로 이 페이지의 모든 목업이 동시에 갈아입습니다 —
+    나중에 안을 바꿔도 컴포넌트는 그대로라는 뜻이기도 합니다.
+  </p>
+
+  <div class="cols">
+    <div class="card">
+      <span class="tag neu">A</span>
+      <h4>터미널 계승 — VS Code Dark+</h4>
+      <p>
+        지금 앱이 이미 쓰고 있는 색을 그대로 토큰으로 옮깁니다. <code>#1e1e1e</code> / <code>#252526</code> /
+        <code>#323233</code>, 강조 <code>#007acc</code>, 선택 행 <code>#04395e</code>. 모서리 4px, 행 높이 24px.
+      </p>
+      <p class="verdict">
+        <b>얻는 것</b> — 터미널·사이드바와 이음매가 없습니다. 기존 화면을 한 줄도 안 고쳐도 됩니다.<br>
+        <b>잃는 것</b> — 강조색 3벌 중 하나를 고른 것일 뿐이라 보라 계열(편집기)은 그대로 남습니다.
+        편집기 창 안에서 어두운 트리와 흰 종이가 맞닿는 단차도 그대로입니다.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="tag neu">B</span>
+      <h4>한 겹 밝게 — Fluent 계열</h4>
+      <p>
+        어둠은 유지하되 표면을 한 단계 올리고(<code>#202020</code> / <code>#272727</code> / <code>#2b2b2b</code>),
+        경계를 선보다 표면 대비로 말합니다. 강조는 <code>#0078d4</code> 하나로 통일 —
+        이미 <code>EditorWindow.css</code> 의 스크롤바가 쓰고 있는 값입니다. 모서리 6~8px, 행 높이 28px.
+      </p>
+      <p class="verdict">
+        <b>얻는 것</b> — 손가락으로 누를 수 있는 크기가 되고(모바일 요구사항 4번), 선택 행에 2px 강조 바가
+        생겨 다중 선택이 한눈에 읽힙니다. 강조색이 한 벌이 됩니다.<br>
+        <b>잃는 것</b> — 기존 화면과 미세하게 어긋나는 구간이 생깁니다. 밀도가 낮아져 같은 높이에 덜 들어갑니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="cols" style="grid-template-columns:1fr">
+    <div class="card">
+      <span class="tag rec">C · 채택 (2026-09-23)</span>
+      <h4>표면 적응형 — 크롬은 B, 종이 위에서는 밝게</h4>
+      <p>
+        토큰을 <strong>표면별로</strong> 정의합니다. 같은 <code>FileTree</code> 컴포넌트가
+        <code>data-surface="chrome"</code> 인 탐색기 창에서는 어둡게, <code>data-surface="paper"</code> 인
+        편집기 좌측 패널에서는 밝게 렌더됩니다. CSS 한 블록이면 됩니다.
+      </p>
+      <p class="verdict">
+        <b>얻는 것</b> — 편집기 창 안의 색 단차가 사라집니다. 트리가 문서에 딸린 물건으로 읽히고,
+        그것이 설계안 §9.1 이 의도한 관계입니다. 컴포넌트는 한 벌 그대로입니다.<br>
+        <b>잃는 것</b> — 토큰 값이 두 벌이 되어 색을 고칠 때 두 군데를 봐야 합니다.
+        벤더링된 편집기가 이미 <code>[data-theme="light"]</code> 로 같은 일을 하고 있어 방식은 검증돼 있지만,
+        <strong>그 둘을 합칠지 나란히 둘지는 정해야 합니다.</strong>
+      </p>
+    </div>
+  </div>
+
+  <h3>지금 선택된 안의 토큰</h3>
+  <p>기본값은 채택된 <strong>C</strong> 입니다. A · B 는 비교용으로 남겨 두었습니다.</p>
+  <div class="swatches" id="swatches"></div>
+</section>
+
+<!-- ============================ 3. 탐색기 창 ============================ -->
+<section id="s3">
+  <h2><span class="num">03</span> 탐색기 모달리스 창</h2>
+  <p>
+    설계안 §9.2. <code>WindowDialog</code> 를 <code>mode="modeless"</code> 로 띄우고
+    <code>dialogId</code> 는 <code>file-explorer:{workspaceId}</code>, 워크스페이스마다 하나입니다.
+    탭마다 독립된 <code>useFileTree</code> 를 갖고 뿌리가 서로 다를 수 있습니다.
+  </p>
+
+  <div class="stage">
+    <button class="traychip" id="exp-tray" hidden>
+      <svg width="15" height="15"><use href="#i-dir"/></svg>
+      파일 탐색기 — Workspace 1
+      <span class="badge">1</span>
+      <span class="sub">눌러서 되살리기</span>
+    </button>
+    <div class="win" id="explorer-win" data-surface="chrome">
+      <div class="win-title">
+        <h4>파일 탐색기 — Workspace 1</h4>
+        <button class="win-btn" id="exp-min" title="최소화"><span style="font-size:11px">—</span></button>
+        <button class="win-btn close" title="닫기"><svg width="13" height="13"><use href="#i-x"/></svg></button>
+      </div>
+
+      <div class="win-body" style="flex-direction:column">
+        <div class="tabs" role="tablist">
+          <div class="tab" role="tab" aria-selected="true">ProjectMaster<span class="x"><svg width="9" height="9"><use href="#i-x"/></svg></span></div>
+          <div class="tab" role="tab" aria-selected="false">docs\plan<span class="x"><svg width="9" height="9"><use href="#i-x"/></svg></span></div>
+          <div class="tab add" title="새 탭"><svg width="12" height="12"><use href="#i-plus"/></svg></div>
+        </div>
+
+        <div class="pathbar">
+          <button class="win-btn" id="exp-up" title="상위 디렉터리로"><span style="font-size:13px">↑</span></button>
+          <span class="p" id="exp-path">C:\work\git\_Snoworca\ProjectMaster</span>
+          <div class="modeseg" id="exp-mode">
+            <button data-mode="tree" aria-pressed="true">트리</button>
+            <button data-mode="list" aria-pressed="false">목록</button>
+          </div>
+          <button class="win-btn" title="새로 읽기"><svg width="13" height="13"><use href="#i-refresh"/></svg></button>
+          <button class="win-btn" title="새 폴더"><svg width="14" height="14"><use href="#i-newdir"/></svg></button>
+        </div>
+
+        <div class="tree fixed" data-tree="explorer" data-ops="1" data-newtab="1"></div>
+
+        <div class="mobilebar">
+          <button><svg width="15" height="15"><use href="#i-file"/></svg>복사</button>
+          <button><svg width="15" height="15"><use href="#i-file"/></svg>잘라내기</button>
+          <button><svg width="15" height="15"><use href="#i-file"/></svg>붙여넣기</button>
+          <button><svg width="15" height="15"><use href="#i-x"/></svg>삭제</button>
+          <button><svg width="15" height="15"><use href="#i-file"/></svg>이름 바꾸기</button>
+          <button><svg width="15" height="15"><use href="#i-newdir"/></svg>새 폴더</button>
+        </div>
+
+        <!-- 창 안 진행 줄 (설계안 4.4). 작업이 없으면 자리를 차지하지 않습니다 -->
+        <div class="winprog" id="exp-prog">
+          <div class="b"><i style="width:38%"></i></div>
+          <span class="t">복사 — components/editor/EditorWindow.tsx</span>
+          <span class="n">128 / 337</span>
+          <span class="more" data-openpop>외 2개</span>
+          <button class="win-btn" title="취소" style="width:22px;height:22px"><svg width="11" height="11"><use href="#i-x"/></svg></button>
+        </div>
+      </div>
+
+      <!-- 트리 컨텍스트 메뉴 (설계안 §7) -->
+      <div class="ctx" id="tree-ctx" hidden style="top:96px; left:190px">
+        <button data-act="open"><span class="check"></span><span class="lbl">편집기로 열기</span></button>
+        <button data-act="newtab"><span class="check"></span><span class="lbl">새 탭에서 열기</span></button>
+        <hr>
+        <button data-act="copy"><span class="check"></span><span class="lbl">복사</span><span class="k">Ctrl+C</span></button>
+        <button data-act="cut"><span class="check"></span><span class="lbl">잘라내기</span><span class="k">Ctrl+X</span></button>
+        <button data-act="paste"><span class="check"></span><span class="lbl">붙여넣기</span><span class="k">Ctrl+V</span></button>
+        <hr>
+        <button data-act="rename"><span class="check"></span><span class="lbl">이름 바꾸기</span><span class="k">F2</span></button>
+        <button data-act="delete"><span class="check"></span><span class="lbl">삭제</span><span class="k">Del</span></button>
+        <hr>
+        <button data-act="newdir"><span class="check"></span><span class="lbl">새 폴더</span></button>
+        <button data-act="refresh"><span class="check"></span><span class="lbl">새로 읽기</span></button>
+      </div>
+
+      <!-- 창 범위 모달 (설계안 §5) -->
+      <div class="scrim" id="exp-scrim" hidden></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><b>선택</b> 강조 배경 + 왼쪽 강조 바</span>
+    <span><b>잘라내기 대기</b> 흐림 + 점선 테두리</span>
+    <span><b>열 수 없음</b> 흐림 (조작은 가능, 열기만 막힘)</span>
+    <span><b>로딩</b> 회전자</span>
+    <span><b>오류</b> 빨강</span>
+  </div>
+
+  <div class="btnrow">
+    <button data-ctx-toggle>컨텍스트 메뉴 띄우기</button>
+    <button data-modal="conflict">이름 충돌 모달</button>
+    <button data-modal="error">오류 모달</button>
+    <button data-modal="delete">삭제 확인 모달</button>
+    <button data-modal="">모달 닫기</button>
+    <button data-prog-toggle>창 안 진행 줄 끄기</button>
+  </div>
+  <p class="hint">
+    삼각형은 선택을 바꾸지 않고 펼칩니다(§8.2). 경로 막대의 <strong>↑</strong> 와 <strong>트리 · 목록</strong> 은 04 절에서 설명합니다.
+    클립보드에는 잘라내기 대기 중인 <code>docs/report</code> 가 들어 있어 <strong>붙여넣기가 활성</strong>입니다.
+  </p>
+
+  <h3>우클릭이 선택을 다루는 방식 — 직접 해 보십시오</h3>
+  <table>
+    <thead><tr><th style="width:30%">해 볼 것</th><th>일어나는 일</th></tr></thead>
+    <tbody>
+      <tr><td>선택 안 된 항목에 우클릭</td><td>그 항목 하나만 선택하고 메뉴를 엽니다</td></tr>
+      <tr><td><strong><code>Ctrl</code>+클릭으로 3개 고른 뒤 그중 하나에 우클릭</strong></td>
+          <td><strong>선택이 유지되고</strong> 메뉴가 <code>복사 (3개)</code> · <code>삭제 (3개)</code> 로 바뀝니다.
+              이름 바꾸기는 하나일 때만 됩니다</td></tr>
+      <tr><td>빈 곳에 우클릭</td><td>선택이 풀리고 <strong>붙여넣기 · 새 폴더 · 새로 읽기</strong> 셋만 남습니다</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <strong>가운데 줄이 이 기능의 쓰임새입니다.</strong> 우클릭이 선택을 하나로 줄이면,
+    여러 개를 골라 놓고 메뉴를 연 사람이 그 자리에서 다시 고르게 됩니다 —
+    <strong>메뉴로는 다중 조작을 할 수 없게 되는 것</strong>이고, 앞선 설계가 이 규칙을 적지 않은 채 남겨 두었던 자리입니다.
+  </div>
+
+  <h3>창은 하나, 최소화는 트레이로</h3>
+  <table>
+    <thead><tr><th style="width:26%"></th><th></th></tr></thead>
+    <tbody>
+      <tr><td>창 개수</td>
+          <td><strong>워크스페이스당 하나</strong>입니다. 가시성이
+              <code>!minimized &amp;&amp; screen==='workspace' &amp;&amp; windowWorkspaceId===activeWorkspaceId</code>
+              3항 논리곱이라(<code>editorWindowVisibility.ts</code>) 화면에는 최대 한 개입니다.
+              여러 디렉터리는 <strong>탭</strong>으로 봅니다</td></tr>
+      <tr><td>최소화</td>
+          <td><strong>닫히지 않고 언마운트하지도 않습니다.</strong> <code>display:none</code> 만 겁니다.
+              제목 표시줄의 <strong>—</strong> 를 눌러 보십시오 — 헤더 트레이의 줄로 바뀌고,
+              누르면 <strong>펼친 디렉터리 · 선택 · 모드 · 뿌리가 그대로</strong> 돌아옵니다</td></tr>
+      <tr><td>이중 패널</td>
+          <td>원래 Mdir 의 좌우 분할은 <strong>이번에 넣지 않습니다.</strong> 나중에 얹을 수 있고
+              이 설계의 어느 것도 되돌리지 않습니다 (설계안 13절)</td></tr>
+    </tbody>
+  </table>
+  <p class="hint">
+    위 칩은 자리를 보이려고 스테이지 가운데에 놓았습니다. 실제 제품에서는
+    <strong>헤더 오른쪽 트레이 버튼</strong>(<code>Header.tsx:134</code>) 안의 줄 하나입니다 —
+    창 하나당 한 줄이고 탭마다 만들지 않습니다.
+  </p>
+
+  <h3>여는 길 세 가지</h3>
+  <p>
+    아래는 <code>MetadataRow</code> — 타일에서 <strong>터미널 아래</strong>에 붙는 28px 줄입니다
+    (<code>MosaicTile.tsx:114</code> → <code>:119</code>). 점선 친 cwd 텍스트에서 오른쪽 버튼을 누르면 나오는 메뉴입니다.
+  </p>
+
+  <div class="stage tight">
+    <div class="entrydemo">
+      <div class="metarow">
+        <span class="clr"></span>
+        <span class="nm">claude-1</span>
+        <span class="cwd">C:\work\git\_Snoworca\ProjectMaster</span>
+        <span class="el">02:14:31</span>
+      </div>
+      <div class="ctx" style="top:38px; left:118px; min-width:172px">
+        <button><span class="check"></span><span class="lbl">파일 탐색기</span></button>
+        <hr>
+        <button><span class="check"></span><span class="lbl">CLAUDE.md</span></button>
+        <button><span class="check"></span><span class="lbl">CLAUDE.local.md</span></button>
+        <button><span class="check"></span><span class="lbl">AGENTS.md</span></button>
+      </div>
+    </div>
+  </div>
+
+  <ul>
+    <li><strong>세션 경로 우클릭</strong> — 위 메뉴의 맨 위 항목</li>
+    <li><strong>터미널 우클릭 메뉴</strong>의 <code>파일 탐색기 열기</code></li>
+    <li><strong>헤더의 아이콘 버튼</strong></li>
+  </ul>
+
+  <div class="note">
+    <strong>세 파일 위에 둡니다.</strong> 앞선 설계는 아래에 두기로 했었습니다.
+    <code>EDITOR_INSTRUCTION_FILES</code>(<code>editorFileMenu.ts:19</code>)는 <strong>늘 수 있는 목록</strong>이라,
+    아래에 붙이면 목록이 길어질 때마다 탐색기 항목이 밀려 내려갑니다 —
+    같은 메뉴인데 항목의 자리가 해마다 달라집니다. 위는 고정된 자리입니다.
+  </div>
+  <p class="hint">
+    참고로 실제 <code>MetadataRow</code> 는 배경을 <code>#2a2a2a</code> 로 직접 박아 두었습니다
+    (<code>MetadataRow.tsx:98</code>). 01 절이 센 146개 중 하나이고, 여기서는 토큰으로 그렸습니다.
+  </p>
+
+  <div class="note">
+    <strong>모달이 창 표면 안에만 겹칩니다.</strong> 설계안 §5 의 핵심입니다. 전역 모달 대역에 넣으면
+    파일 하나를 덮어쓸지 묻는 동안 <strong>터미널까지 멈춥니다.</strong> 에이전트를 지켜보지 못하게 되는 것은
+    이 제품에서 받아들일 수 없는 비용이므로, 창 하나만 막는 모달을 새로 만듭니다.
+    위 모달 버튼을 눌러 보시면 창 바깥은 덮이지 않는 것을 볼 수 있습니다.
+  </div>
+</section>
+
+<!-- ============================ 4. 모드 전환 ============================ -->
+<section id="s4">
+  <h2><span class="num">04</span> 모드 전환 — 트리와 목록</h2>
+  <p>
+    위 03 절의 창에서 <strong>경로 막대의 “트리 · 목록”</strong> 을 눌러 보십시오.
+    아래 창은 같은 것을 목록 모드로 열어 둔 것이고, 뿌리도 <code>docs</code> 로 한 단계 내려가 있습니다.
+  </p>
+
+  <div class="stage">
+    <div class="win" data-surface="chrome" style="max-width:640px">
+      <div class="win-title">
+        <h4>파일 탐색기 — 목록 모드</h4>
+        <button class="win-btn close" title="닫기"><svg width="13" height="13"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="win-body" style="flex-direction:column">
+        <div class="pathbar">
+          <button class="win-btn" id="lst-up" title="상위 디렉터리로"><span style="font-size:13px">&#8593;</span></button>
+          <span class="p" id="lst-path"></span>
+          <div class="modeseg" id="lst-mode">
+            <button data-mode="tree" aria-pressed="false">트리</button>
+            <button data-mode="list" aria-pressed="true">목록</button>
+          </div>
+        </div>
+        <div class="tree fixed" data-tree="list" data-ops="1" style="flex-basis:238px; height:238px"></div>
+      </div>
+      <div class="scrim" hidden></div>
+    </div>
+  </div>
+
+  <h3>모순은 “모드”가 아니라 “뿌리”에 있었습니다</h3>
+  <p>
+    트리가 현재 디렉터리 하위만 본다는 것은 맞습니다. 그런데 그 제약은
+    <strong>현재 디렉터리가 움직일 수 있게 되면 제약이 아니게 됩니다.</strong>
+    그래서 고칠 곳은 뷰가 아니라 훅입니다 — <code>useFileTree</code> 가 가변 뿌리와
+    <code>goUp()</code> · <code>setRoot()</code> 를 갖습니다. 그러면 두 모드는 두 기능이 아니라
+    <strong>한 상태의 두 뷰</strong>가 됩니다.
+  </p>
+  <ul>
+    <li><strong>트리</strong> — 뿌리 + 펼쳐 둔 자손</li>
+    <li><strong>목록</strong> — 뿌리의 직계만</li>
+    <li><code>childrenByPath</code> 캐시를 공유하므로 <strong>모드 전환에 서버 요청이 0건</strong>입니다</li>
+    <li>펼침 상태는 뿌리가 바뀌어도 버리지 않습니다. 절대 경로라 뿌리 밖의 항목은 그리지 않을 뿐,
+        되돌아오면 그대로 살아 있습니다</li>
+  </ul>
+
+  <h3><code>..</code> 는 트리 노드가 아니라 창의 크롬입니다</h3>
+  <p>
+    보이는 모양은 요청하신 그대로 — <strong>맨 위에 고정된 <code>..</code> 행</strong>이고 눌러서 올라갑니다.
+    다른 것은 데이터 모델뿐입니다. 그 행에는 <code>data-path</code> 가 없어서
+    선택·클립보드·<code>Delete</code> 가 <strong>애초에 닿지 못합니다.</strong>
+  </p>
+  <div class="note">
+    <strong>설계안이 이미 이 판단을 내려 뒀습니다.</strong> §8.1 은 서버 <code>listDirectory</code> 가
+    루트 아닌 디렉터리마다 넣어 주는 <code>..</code> 항목을 훅이 <strong>일부러 걸러낸다</strong>고 적고,
+    이유를 “부모로 가는 일은 뿌리를 바꾸는 조작이지 자식 노드가 아니므로”라고 밝힙니다.
+    노드로 만들면 선택 · <code>Ctrl+A</code> · <code>Shift</code> 범위 · 컨텍스트 메뉴 · 클립보드 ·
+    <code>Delete</code> <strong>여섯 곳 전부</strong>에 예외를 심어야 하고, 하나만 빠지면
+    <code>..</code> 를 복사하거나 지우려 드는 버그가 됩니다.
+  </div>
+  <div class="note">
+    <strong>덤 — 버리던 신호를 쓰게 됩니다.</strong> 걸러내던 그 서버 <code>..</code> 항목이
+    이제 “위로 갈 수 있는가”의 답입니다. 올라갈 수 없는 자리에서는 <code>↑</code> 가 흐려집니다
+    (위 두 창에서 뿌리까지 올라가 보시면 됩니다). 클라이언트가 실패할 요청을 쏘지 않아도 됩니다.
+  </div>
+
+  <h3>편집기 좌측 패널은 트리 전용입니다</h3>
+  <p>
+    212px 폭에 <em>수정한 날짜</em>·<em>크기</em> 컬럼은 들어가지 않습니다. 모드 토글은 탐색기 창에만 둡니다.
+    다만 <code>..</code> 는 그쪽에도 둡니다 — 설계안 §9.1 이 이미
+    “사용자가 트리 안에서 뿌리를 옮겼다면 그 조작을 유지한다”고 뿌리 이동을 허용하고 있습니다.
+    아래 05 절의 편집기 창에서 확인하실 수 있습니다.
+  </p>
+
+  <h3>목록 모드에서 달라지는 조작</h3>
+  <table>
+    <thead><tr><th style="width:26%">조작</th><th style="width:37%">트리</th><th>목록</th></tr></thead>
+    <tbody>
+      <tr><td>디렉터리 더블클릭</td><td>펼치거나 접습니다</td><td><strong>그 안으로 들어갑니다</strong> (뿌리 변경)</td></tr>
+      <tr><td>삼각형</td><td>선택을 바꾸지 않고 펼칩니다</td><td>없습니다</td></tr>
+      <tr><td>파일 더블클릭</td><td colspan="2">편집기 창에서 엽니다 — 같습니다</td></tr>
+      <tr><td>선택 · 클립보드 · 단축키</td><td colspan="2">같습니다. 뷰가 달라도 선택 집합은 하나입니다</td></tr>
+      <tr><td>정렬</td><td>서버 순서 그대로 (<code>FR-FILE-002</code>)</td><td>머리글을 눌러 이름 · 날짜 · 크기</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================ 5. 편집기 좌측 패널 ============================ -->
+<section id="s5">
+  <h2><span class="num">05</span> 편집기 창 좌측 패널 — 표면 문제가 보이는 자리</h2>
+  <p>
+    설계안 §9.1. 같은 트리가 <strong>흰 종이 옆</strong>에 섭니다.
+    위의 전환 버튼으로 <strong>A·B 와 C 를 번갈아 보시면</strong> 이 시안의 유일한 구조적 선택이 드러납니다.
+  </p>
+  <ul>
+    <li><strong>파일 조작을 지원합니다</strong> — 우클릭 메뉴와 단축키가 탐색기 창과 같습니다.
+        빠지는 것은 <em>새 탭에서 열기</em> 하나뿐입니다(여기엔 탭이 없습니다)</li>
+    <li><strong>항상 트리 모드입니다.</strong> 목록 모드는 없습니다 — 이 폭에 날짜·크기 컬럼이 들어가지 않습니다</li>
+    <li><strong>경계를 끌어서 폭을 조절합니다.</strong> 오른쪽 가장자리를 잡고 끌어 보십시오.
+        상한은 <strong>창 폭의 50%</strong> 이고, 배지가 상한에 닿으면 노란색이 됩니다.
+        더블클릭하면 기본값(212px)으로 돌아갑니다</li>
+  </ul>
+  <div class="note">
+    <strong>저장값과 렌더값을 나눕니다.</strong> 창이 좁아져 50% 상한에 걸려도 저장한 폭은 그대로라,
+    창을 다시 넓히면 원래 폭으로 돌아옵니다. 상한이 사용자의 설정을 덮어쓰면
+    창을 한 번 줄였다 키운 것만으로 폭이 영영 달라집니다.
+  </div>
+
+  <div class="stage">
+    <div class="win wide" id="editor-win">
+      <div class="win-title">
+        <h4>2026-09-12.file-explorer.design.md <span class="dirty">· 저장되지 않음</span></h4>
+        <button class="win-btn" title="저장"><span style="font-size:11px">저장</span></button>
+        <button class="win-btn" title="최대화"><span style="font-size:11px">□</span></button>
+        <button class="win-btn" title="최소화"><span style="font-size:11px">—</span></button>
+        <button class="win-btn close" title="닫기"><svg width="13" height="13"><use href="#i-x"/></svg></button>
+      </div>
+
+      <div class="win-body">
+        <!-- 좌측 트리 패널: 여기가 data-surface="paper" 다 -->
+        <aside class="editor-tree" data-surface="paper" id="ed-pane">
+          <div class="head">
+            <span class="p">ProjectMaster</span>
+            <span class="wbadge" id="ed-wbadge">212px</span>
+            <button class="x" title="패널 닫기"><svg width="12" height="12"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="tree" data-tree="editor" data-ops="1"></div>
+          <div class="resizer" id="ed-resizer" title="끌어서 폭 조절 · 더블클릭하면 기본값"></div>
+        </aside>
+
+        <div class="editor-doc">
+          <div class="tabs editor-tabs" data-surface="paper" role="tablist">
+            <div class="tab" role="tab" aria-selected="true">file-explorer.design.md<span class="x"><svg width="9" height="9"><use href="#i-x"/></svg></span></div>
+            <div class="tab" role="tab" aria-selected="false">CLAUDE.md<span class="x"><svg width="9" height="9"><use href="#i-x"/></svg></span></div>
+          </div>
+          <div class="paper">
+            <h1>파일 탐색기 설계: 트리 뷰, 탭, 파일 조작 작업</h1>
+            <div class="by">작성일: 2026-09-12 · 2026-09-13 개정</div>
+            <h2>1. 요구사항</h2>
+            <ol>
+              <li>마크다운 편집기 창의 왼쪽에 파일 트리 형식의 탐색 뷰를 붙입니다.</li>
+              <li>파일 탐색기를 독립된 모달리스 창으로 띄웁니다. 이 창은 탭으로 구분됩니다.</li>
+              <li>파일 조작(복사·이동·삭제)을 구현합니다.<span class="cursor"></span></li>
+            </ol>
+            <h2>2. 현재 코드가 이미 갖고 있는 것</h2>
+            <p>이번에 실제로 파일을 열어서 확인한 사실입니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 편집기 창의 컨텍스트 메뉴 (§9.1 — 탭 막대와 제목 표시줄 빈 곳에만 붙인다) -->
+      <div class="ctx" id="editor-ctx" style="top:46px; left:300px">
+        <button><span class="check">✓</span>파일 트리 패널</button>
+        <hr>
+        <button><span class="check"></span>저장<span class="k">Ctrl+S</span></button>
+        <button><span class="check"></span>이 탭 닫기<span class="k">Ctrl+W</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="card only only-a">
+      <h4>지금 보시는 것 — A</h4>
+      <p>
+        트리가 어두운 채로 흰 종이와 맞닿습니다. 창 하나 안에 두 개의 테마가 보입니다.
+        경계가 뚜렷해서 <strong>트리가 창에 속한 물건</strong>으로 읽히는 장점이 있고,
+        실제로 설계안은 트리를 창 전체의 것으로 규정합니다. 단차를 결함이 아니라 의도로 볼 여지가 있습니다.
+      </p>
+    </div>
+    <div class="card only only-b">
+      <h4>지금 보시는 것 — B</h4>
+      <p>
+        A 와 같은 구조입니다. 단차는 그대로이고 트리 쪽이 조금 더 부드럽습니다.
+        행 높이 28px 라 손가락으로 누를 수 있게 되고, 선택 행의 왼쪽 강조 바 덕분에
+        여러 항목을 골랐을 때 어디까지 골랐는지가 A 보다 잘 읽힙니다.
+      </p>
+    </div>
+    <div class="card only only-c">
+      <h4>지금 보시는 것 — C</h4>
+      <p>
+        트리가 종이 쪽 색으로 갈아탔습니다. 창 하나가 하나의 문서 작업 공간으로 읽히고,
+        탭 막대까지 같은 결이 됩니다. 값을 치른 곳은 <strong>탐색기 창과 편집기 트리가 더 이상 같은 색이 아니라는 점</strong>입니다 —
+        위의 03 절과 번갈아 보시면 같은 컴포넌트가 두 얼굴을 갖는 것이 보입니다.
+      </p>
+    </div>
+    <div class="card">
+      <h4>참고 — 이미 있는 선례</h4>
+      <p>
+        벤더링된 편집기가 <code>[data-theme="light"]</code> 로 정확히 같은 일을 합니다
+        (<code>inline-preview.css:767-811</code>). <code>EditorWindow.css</code> 의 주석도
+        “같은 색을 두 벌 적으면 상류를 다시 들여올 때 한쪽만 움직여 조용히 어긋난다”고 적어 두었습니다.
+      </p>
+      <p class="verdict">
+        <b>그래서 C 를 고르면 물어야 할 것</b> — 새 <code>--bg-*</code> 토큰과
+        <code>--atomic-editor-*</code> 를 하나로 합칠지, 나란히 둘지.
+        합치면 상류 재도입이 어려워지고, 나란히 두면 색이 두 벌 남습니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 6. 창 범위 모달 3종 ============================ -->
+<section id="s6">
+  <h2><span class="num">06</span> 창 범위 모달 세 가지</h2>
+  <p>
+    설계안 §5. 셋 다 탐색기 창 표면 안에만 겹치고, 포커스를 그 안에 가두며,
+    <code>Escape</code> 는 취소로 처리합니다. 앞의 둘에는 “더 이상 묻지 않기”가 있고
+    <strong>삭제 확인에는 없습니다.</strong>
+  </p>
+
+  <div class="stage" style="gap:18px; flex-wrap:wrap; align-items:flex-start">
+    <!-- 이름 충돌 -->
+    <div class="modal" style="max-width:330px">
+      <header>
+        <span class="badge warn"><svg width="14" height="14"><use href="#i-warn"/></svg></span>
+        <h5>같은 이름이 이미 있습니다</h5>
+      </header>
+      <div class="desc"><span class="path">EditorWindow.tsx</span></div>
+      <div class="cmp">
+        <div><span>원본</span><span>12.4 KB · 09-23 18:15</span></div>
+        <div><span>대상</span><span>11.9 KB · 09-21 09:02</span></div>
+      </div>
+      <footer>
+        <label class="ask"><input type="checkbox"> 더 이상 묻지 않기</label>
+        <div class="acts">
+          <button class="btn">복사하지 않기</button>
+          <button class="btn">이름 바꾸기</button>
+          <button class="btn primary">덮어쓰기</button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- 오류 -->
+    <div class="modal" style="max-width:330px">
+      <header>
+        <span class="badge err">!</span>
+        <h5>접근이 거부되었습니다</h5>
+      </header>
+      <div class="desc">
+        <span class="path">server/certs/server.key</span>
+        <div style="margin-top:6px">EPERM: operation not permitted</div>
+      </div>
+      <footer>
+        <label class="ask"><input type="checkbox"> 더 이상 묻지 않기</label>
+        <div class="acts">
+          <button class="btn">취소</button>
+          <button class="btn">무시</button>
+          <button class="btn primary">재시도</button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- 삭제 확인 -->
+    <div class="modal" style="max-width:330px">
+      <header>
+        <span class="badge err"><svg width="14" height="14"><use href="#i-warn"/></svg></span>
+        <h5>3개 항목을 지웁니다</h5>
+      </header>
+      <div class="desc">
+        <span class="path">docs/report · docs/worklog · AGENTS.md</span>
+        <div style="margin-top:6px">되돌릴 수 없습니다. 휴지통을 거치지 않습니다.</div>
+      </div>
+      <footer>
+        <span style="font-size:11.5px; color:var(--fg-faint)">“묻지 않기” 없음</span>
+        <div class="acts">
+          <button class="btn">취소</button>
+          <button class="btn danger">삭제</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>삭제에만 체크박스를 달지 않은 이유.</strong> 설계안이 명시한 근거를 그대로 옮기면 —
+    삭제는 되돌릴 수 없고, <strong>묻지 않기로 한 사실 자체를 사용자가 잊었을 때 잃는 것이 너무 큽니다.</strong>
+    UI 에 빈 자리가 남는 것이 어색해 보여도 채우지 않는 편이 맞습니다.
+  </div>
+</section>
+
+<!-- ============================ 7. 진행 표시 ============================ -->
+<section id="s7">
+  <h2><span class="num">07</span> 진행 표시 세 단계</h2>
+  <p>
+    설계안 §4. 진행은 <strong>세 자리</strong>에 뜹니다 — 탐색기 창 하단의 진행 줄(§4.4, 03 절 창에서 보실 수 있습니다),
+    앱 하단 상태바, 그리고 상태바를 눌러 여는 우하단 알림창.
+    셋 다 <strong>작업이 없을 때 자리를 차지하지 않습니다.</strong>
+  </p>
+  <p>
+    진행이 앱 전역이고 질문이 창 안인 이유는 <strong>작업이 창보다 오래 살기 때문</strong>입니다 —
+    §3.5 가 작업을 브라우저 연결이 아니라 세션에 매답니다. 탐색기 창을 닫아도 복사는 계속 돌고,
+    창 안 진행 줄이 사라진 자리를 상태바가 이어받습니다.
+  </p>
+
+  <div class="stage tight">
+    <div class="appshell" id="appshell">
+      <div class="fakehdr">
+        <strong style="color:var(--fg)">BuilderGate</strong>
+        <span>Workspace 1</span>
+        <span style="margin-left:auto">세션 3</span>
+      </div>
+      <div class="fakebody">
+        <div>$ claude --dangerously-skip-permissions</div>
+        <div><b>● 편집기 창 탭 단위 닫기를 확인하는 중…</b></div>
+        <div>&nbsp;</div>
+        <div style="opacity:.6">터미널은 파일 작업 중에도 멈추지 않습니다.</div>
+      </div>
+
+      <div class="statusbar" id="statusbar"></div>
+
+      <div class="popover" id="popover" hidden>
+        <h6>파일 작업 3개</h6>
+        <div class="job">
+          <div class="t"><span class="who">복사 · frontend/src → backup/</span>
+            <button class="cancel" title="취소"><svg width="11" height="11"><use href="#i-x"/></svg></button></div>
+          <div class="b"><i style="width:38%"></i></div>
+          <div class="s">128 / 337 — components/editor/EditorWindow.tsx</div>
+        </div>
+        <div class="job">
+          <div class="t"><span class="who">이동 · docs/report → archive/</span>
+            <button class="cancel" title="취소"><svg width="11" height="11"><use href="#i-x"/></svg></button></div>
+          <div class="b"><i style="width:81%"></i></div>
+          <div class="s">42 / 52 — 2026-09-19.terminal-scrollback.md</div>
+        </div>
+        <div class="job awaiting">
+          <div class="t"><span class="who">삭제 · node_modules/.cache</span>
+            <button class="cancel" title="취소"><svg width="11" height="11"><use href="#i-x"/></svg></button></div>
+          <div class="b"><i style="width:64%"></i></div>
+          <div class="s">응답 대기 중 — 눌러서 탐색기 창 열기</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btnrow">
+    <button data-sb="one" >작업 1개 · 막대</button>
+    <button data-sb="many">작업 3개 · 회전</button>
+    <button data-sb="await">응답 대기 중</button>
+    <button data-sb="none">작업 없음 (상태바 사라짐)</button>
+  </div>
+
+  <div class="note">
+    <strong>“응답 대기 중”은 설계안 §4.3 이 막은 고장입니다.</strong>
+    결정 모달이 탐색기 창 안에서만 뜨므로, 그 창이 닫혀 있으면 물어볼 자리가 없어 작업이 영원히 멈춥니다.
+    그래서 상태바의 그 항목을 누르면 <strong>탐색기 창을 다시 열면서 모달을 띄웁니다.</strong>
+  </div>
+</section>
+
+<!-- ============================ 8. 정해야 할 것 ============================ -->
+<section id="s8">
+  <h2><span class="num">08</span> 정해야 할 것</h2>
+
+  <table>
+    <thead><tr><th style="width:5%">#</th><th style="width:40%">질문</th><th>권장</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="num">1</span></td>
+        <td>세 안 중 어느 것인가</td>
+        <td><strong>결정됨 — C (표면 적응형).</strong> 2026-09-23. 이 페이지의 기본값이 C 입니다.</td>
+      </tr>
+      <tr>
+        <td><span class="num">2</span></td>
+        <td>토큰 레이어를 이번에 깔 것인가, 탐색기부터 만들고 나중에 정리할 것인가</td>
+        <td><strong>이번에</strong>. 탐색기가 들여오는 표면이 여덟 가지라 나중에 정리하면 146 이 200 이 된 뒤입니다.
+            다만 <strong>기존 29개 CSS 파일을 지금 다 고치지는 않습니다</strong> — 새 파일만 토큰을 쓰고,
+            기존 파일은 만질 일이 생길 때 옮깁니다.</td>
+      </tr>
+      <tr>
+        <td><span class="num">3</span></td>
+        <td>새 토큰과 <code>--atomic-editor-*</code> 를 합칠 것인가</td>
+        <td><strong>나란히 둡니다.</strong> 벤더링 코드는 상류를 다시 들여올 수 있어야 하고,
+            <code>EditorWindow.css</code> 의 기존 주석이 같은 판단을 이미 적어 두었습니다.</td>
+      </tr>
+      <tr>
+        <td><span class="num">4</span></td>
+        <td>강조색을 <code>#0078d4</code> 로 통일할 것인가</td>
+        <td><strong>예.</strong> <code>#007acc</code> 와 <code>#0078d4</code> 는 눈으로 구별되지 않으면서
+            두 벌로 관리되고 있습니다. 보라 계열은 편집기 문법 강조에 남기고 UI 에서는 쓰지 않습니다.</td>
+      </tr>
+      <tr>
+        <td><span class="num">6</span></td>
+        <td>위로 어디까지 올라갈 수 있는가</td>
+        <td><strong>미정 — 답이 필요합니다.</strong> 세션 작업 디렉터리에서 멈출 것인지,
+            서버의 blocked path 정책(<code>NFR-SEC-004</code>)만 지키고 드라이브 루트까지 열 것인지.
+            전자는 예측 가능하고, 후자는 저장소 밖 파일을 끌어올 수 있어 실제로 쓰입니다.
+            시안은 지금 저장소 뿌리에서 <code>↑</code> 를 흐리게 처리해 두었습니다.</td>
+      </tr>
+      <tr>
+        <td><span class="num">7</span></td>
+        <td>모드와 정렬을 어디에 저장하는가</td>
+        <td><strong>탭마다 따로, 워크스페이스별로 <code>localStorage</code>.</strong>
+            패널 너비를 저장하는 방식과 같습니다(설계안 §9.1). 큰 디렉터리를 목록으로 보는 탭과
+            구조를 트리로 보는 탭이 동시에 있는 것이 이 기능의 쓰임새입니다.</td>
+      </tr>
+      <tr>
+        <td><span class="num">8</span></td>
+        <td>기본 모드는 무엇인가</td>
+        <td><strong>트리.</strong> 편집기 좌측 패널이 트리 전용이라 사용자가 먼저 만나는 것이 트리이고,
+            두 자리의 첫인상이 같아야 같은 물건으로 읽힙니다.</td>
+      </tr>
+      <tr>
+        <td><span class="num">5</span></td>
+        <td>행 높이 24px(A) 인가 28px(B·C) 인가</td>
+        <td><strong>28px.</strong> 요구사항 4번이 모바일 조작을 명시하고 있고, 24px 행은
+            손가락으로 정확히 고를 수 없습니다. 밀도가 아쉬우면 위의 “조밀” 전환처럼
+            사용자 설정으로 22px 을 열어 둡니다.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>설계안 §13 의 미결 3건은 그대로 남습니다</h3>
+  <ul>
+    <li>스코프를 <code>FEX</code> 와 <code>FOP</code> 둘로 나눌 것인가 (설계안 권장: 나눈다)</li>
+    <li>응답 대기 10분 초과 시 자동 취소할 것인가 (설계안 권장: 취소한다, 단 10분은 짐작값)</li>
+    <li>편집기 좌측 패널에서도 파일 조작을 허용할 것인가 (설계안 권장: 탐색 전용)</li>
+    <li><strong>새로 생긴 것</strong> — 모드 전환과 뿌리 이동은 설계안에 없습니다.
+        <code>useFileTree</code> 의 서명이 <code>(sessionId, rootPath)</code> 에서
+        가변 뿌리로 바뀌므로 §8.1 · §8.2 · §9.1 · §9.2 를 함께 갱신해야 합니다</li>
+  </ul>
+
+  <div class="note warn">
+    <strong>번호 충돌 하나를 보고합니다.</strong> 설계안 §10 은 편집기 좌측 패널 요구사항에
+    <code>FR-MDE-011</code> 을 예약해 두었는데, 그 번호는 2026-09-23 커밋 <code>ee67ed40</code> 에서
+    “md 편집창 탭 단위 닫기”가 이미 가져갔습니다. 좌측 패널은 다음 번호로 가야 합니다.
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<script>
+'use strict';
+
+/* ---------------------------------------------------------------------------
+   트리 데이터 — 실제 저장소 구조. 상태 표시를 한 화면에서 보려고
+   cut(잘라내기 대기) · loading · error · binary(열 수 없음) 를 심어 두었습니다.
+   --------------------------------------------------------------------------- */
+const DATA = [
+  {n:'docs', dir:true, mt:'2026-09-23 18:15', ch:[
+    {n:'plan', dir:true, mt:'2026-09-23 01:37', ch:[
+      {n:'2026-09-12.file-explorer.design.md',   size:'18.4 KB', mt:'2026-09-13 22:04'},
+      {n:'2026-09-12.file-explorer.mockup.html', size:'67.1 KB', mt:'2026-09-23 01:37'},
+      {n:'2026-09-01.markdown-editor-modeless-windows.design.md', size:'42.1 KB', mt:'2026-09-01 14:52'},
+    ]},
+    {n:'report', dir:true, cut:true, mt:'2026-09-23 02:10',
+      ch:[{n:'2026-09-23.md-편집창-탭-단위-닫기.md', size:'6.2 KB', mt:'2026-09-23 02:10'}]},
+    {n:'spec', dir:true, mt:'2026-09-23 01:52',
+      ch:[{n:'41.markdown-editor.srs.md', size:'96.7 KB', mt:'2026-09-23 01:52'},
+          {n:'00.index.md', size:'11.3 KB', mt:'2026-09-22 19:40'}]},
+    {n:'worklog', dir:true, state:'loading', mt:'2026-09-23 02:11', ch:[]},
+    {n:'struct',  dir:true, state:'error',   mt:'2026-04-02 09:00', ch:[]},
+  ]},
+  {n:'frontend', dir:true, mt:'2026-09-23 01:20', ch:[{n:'src', dir:true, mt:'2026-09-23 01:20', ch:[]}]},
+  {n:'server',   dir:true, mt:'2026-09-22 23:48', ch:[{n:'src', dir:true, mt:'2026-09-22 23:48', ch:[]}]},
+  {n:'tools',    dir:true, mt:'2026-09-19 16:02', ch:[]},
+  {n:'AGENTS.md',     size:'12.8 KB', mt:'2026-09-18 11:05'},
+  {n:'CLAUDE.md',     size:'48.2 KB', mt:'2026-09-20 08:33'},
+  {n:'PRD.md',        size:'9.1 KB',  mt:'2026-04-02 09:00'},
+  {n:'package.json',  size:'3.4 KB',  mt:'2026-09-19 16:02'},
+  {n:'start.bat',     size:'1.2 KB',  mt:'2026-07-10 13:21'},
+  {n:'node_pty.node', size:'2.1 MB',  mt:'2026-07-10 13:21', binary:true},
+];
+
+const REPO = 'C:\\work\\git\\_Snoworca\\ProjectMaster';
+
+/* 탐색기 전용 클립보드 (설계안 6.1). 브라우저 것이 아니라 우리 것이고
+   탭과 창을 가리지 않는 하나의 값입니다. 트리에 흐리게 그려진 docs/report 가 그 내용입니다. */
+const CLIPBOARD = {mode:'cut', entries:['docs/report']};
+const svg  = (id, s) => '<svg width="'+s+'" height="'+s+'" aria-hidden="true"><use href="#'+id+'"/></svg>';
+const UNIT = {B:1, KB:1024, MB:1048576, GB:1073741824};
+function bytesOf(n){
+  if(!n.size) return -1;                 /* 디렉터리는 항상 파일 앞 */
+  const m = /^([\d.]+)\s*(B|KB|MB|GB)$/.exec(n.size);
+  return m ? parseFloat(m[1]) * UNIT[m[2]] : 0;
+}
+
+function findNode(path){
+  let list = DATA, nd = null;
+  for(const segn of path.split('/')){
+    nd = list.find(x => x.n === segn);
+    if(!nd) return null;
+    list = nd.ch || [];
+  }
+  return nd;
+}
+
+/* ---------------------------------------------------------------------------
+   탐색기 한 개 = 가변 뿌리 + 두 가지 뷰
+   설계안 §8.1 의 useFileTree 가 rootPath 를 고정으로 받던 것을,
+   goUp()/setRoot() 를 가진 가변 뿌리로 바꾼 모습입니다. 그러면 트리와 목록은
+   두 기능이 아니라 같은 상태의 두 뷰가 됩니다.
+   §9.3 대로 인스턴스끼리 상태를 공유하지 않습니다.
+   --------------------------------------------------------------------------- */
+function makeBrowser(host, opt){
+  const st = {
+    root: (opt.root || []).slice(),
+    mode: opt.mode || 'tree',
+    open: new Set(opt.open || []),
+    sel : new Set(opt.sel  || []),
+    sort: {key:'name', dir:1},
+  };
+
+  function childrenAt(arr){
+    let list = DATA;
+    for(const segn of arr){
+      const nd = list.find(x => x.n === segn && x.dir);
+      if(!nd) return {list:[], node:null};
+      list = nd.ch || [];
+      var last = nd;
+    }
+    return {list, node: arr.length ? last : null};
+  }
+
+  function rowHtml(nd, depth, path, extra){
+    const isOpen = nd.dir && st.open.has(path);
+    const cls = ['row'];
+    if(nd.dir) cls.push('dir');
+    if(nd.cut) cls.push('cut');
+    if(nd.binary) cls.push('unopenable');
+    if(extra) cls.push(extra);
+
+    let h = '<div class="'+cls.join(' ')+'" data-path="'+path+'"'
+          + (st.sel.has(path) ? ' aria-selected="true"' : '') + '>';
+    for(let i=0;i<depth;i++) h += '<span class="pad" style="width:14px"></span>';
+    h += st.mode === 'tree' && nd.dir
+       ? '<span class="tw'+(isOpen?' open':'')+'" data-tw="1">'+svg('i-chev',13)+'</span>'
+       : '<span class="tw leaf"></span>';
+    h += '<span class="ic">'+svg(nd.dir ? (isOpen?'i-dir-open':'i-dir') : 'i-file', 15)+'</span>';
+    h += '<span class="nm">'+nd.n+'</span>';
+    if(st.mode === 'list'){
+      h += '<span class="cmt">'+(nd.mt||'')+'</span>';
+      h += '<span class="csz">'+(nd.size||'')+'</span>';
+    } else if(nd.size){
+      h += '<span class="meta">'+nd.size+'</span>';
+    }
+    return h + '</div>';
+  }
+
+  function stateRow(depth, kind){
+    let h = '<div class="row '+kind+'">';
+    for(let i=0;i<depth;i++) h += '<span class="pad" style="width:14px"></span>';
+    h += '<span class="tw leaf"></span>';
+    return kind === 'loading'
+      ? h + '<span class="spin"></span><span class="nm">읽는 중…</span></div>'
+      : h + '<span class="ic">'+svg('i-warn',14)+'</span>'
+          + '<span class="nm">읽을 수 없습니다 — EACCES</span></div>';
+  }
+
+  /* `..` 는 노드가 아니라 창의 크롬입니다. data-path 가 없으므로
+     선택 · 클립보드 · Delete 가 애초에 닿지 못합니다. */
+  const upRow = () => st.root.length === 0 ? '' :
+    '<div class="row updir" data-up="1"><span class="tw leaf"></span>'
+    + '<span class="ic">'+svg('i-dir-open',15)+'</span>'
+    + '<span class="nm">..</span><span class="hintk">상위 디렉터리</span></div>';
+
+  function sorted(list){
+    const k = st.sort.key, d = st.sort.dir;
+    return list.slice().sort((a,b) => {
+      if(!!a.dir !== !!b.dir) return a.dir ? -1 : 1;   /* FR-FILE-002: 디렉터리 먼저 */
+      let r = 0;
+      if(k === 'size') r = bytesOf(a) - bytesOf(b);
+      else if(k === 'mtime') r = (a.mt||'').localeCompare(b.mt||'');
+      else r = a.n.localeCompare(b.n, 'ko');
+      return r * d;
+    });
+  }
+
+  function draw(){
+    const base = st.root.length ? st.root.join('/') + '/' : '';
+    const {list} = childrenAt(st.root);
+    let out = '';
+
+    if(st.mode === 'list'){
+      const ar = st.sort.dir > 0 ? ' \u25b4' : ' \u25be';
+      const mark = k => st.sort.key === k ? ar : '';
+      out += '<div class="lhead"><span class="nm" data-key="name">이름'+mark('name')+'</span>'
+           + '<span class="cmt" data-key="mtime">수정한 날짜'+mark('mtime')+'</span>'
+           + '<span class="csz" data-key="size">크기'+mark('size')+'</span></div>';
+      out += upRow();
+      for(const nd of sorted(list)) out += rowHtml(nd, 0, base + nd.n, 'lrow');
+      if(!list.length) out += '<div class="row"><span class="tw leaf"></span>'
+                            + '<span class="nm" style="color:var(--fg-faint)">비어 있습니다</span></div>';
+    } else {
+      out += upRow();
+      (function walk(nodes, depth, prefix){
+        for(const nd of nodes){
+          const path = prefix + nd.n;
+          out += rowHtml(nd, depth, path);
+          if(nd.dir && st.open.has(path)){
+            if(nd.state) out += stateRow(depth+1, nd.state);
+            else walk(nd.ch || [], depth+1, path+'/');
+          }
+        }
+      })(list, 0, base);
+    }
+    host.innerHTML = out;
+    if(opt.onChange) opt.onChange(st);
+  }
+
+  function goUp(){ if(st.root.length){ st.root.pop(); draw(); } }
+  function enter(path){ st.root = path.split('/'); draw(); }
+
+  host.addEventListener('click', e => {
+    if(e.target.closest('[data-up]')) return goUp();
+    const head = e.target.closest('.lhead span');
+    if(head){
+      const k = head.dataset.key;
+      st.sort = {key:k, dir: st.sort.key === k ? -st.sort.dir : 1};
+      return draw();
+    }
+    const row = e.target.closest('.row');
+    if(!row || !row.dataset.path) return;
+    const path = row.dataset.path;
+    /* 삼각형은 선택을 바꾸지 않고 펼칩니다 (설계안 §8.2) */
+    if(e.target.closest('[data-tw]')){
+      st.open.has(path) ? st.open.delete(path) : st.open.add(path);
+      return draw();
+    }
+    if(e.ctrlKey || e.metaKey) st.sel.has(path) ? st.sel.delete(path) : st.sel.add(path);
+    else { st.sel.clear(); st.sel.add(path); }
+    draw();
+  });
+
+  host.addEventListener('dblclick', e => {
+    const row = e.target.closest('.row');
+    if(!row || !row.dataset.path || !row.classList.contains('dir')) return;
+    const path = row.dataset.path;
+    /* 목록에서는 그 안으로 들어가고, 트리에서는 펼칩니다 */
+    if(st.mode === 'list') return enter(path);
+    st.open.has(path) ? st.open.delete(path) : st.open.add(path);
+    draw();
+  });
+
+  if(host.dataset.ops === '1'){
+    host.addEventListener('contextmenu', e => {
+      if(e.target.closest('[data-up]')) return;      /* `..` 에는 메뉴가 붙지 않습니다 */
+      e.preventDefault();
+      const row  = e.target.closest('.row');
+      const path = row && row.dataset.path;
+
+      if(path){
+        /* 설계안 7절: 이미 선택된 항목 위에서는 선택을 유지합니다.
+           이것이 빠지면 여러 개를 골라 놓고 우클릭하는 순간 선택이 하나로 줄어,
+           메뉴로는 다중 조작을 할 수 없게 됩니다. */
+        if(!st.sel.has(path)){ st.sel.clear(); st.sel.add(path); }
+      } else {
+        st.sel.clear();                              /* 빈 곳 */
+      }
+      draw();
+
+      const nd = path ? findNode(path) : null;
+      showCtx(e, host.closest('.win'), {
+        item   : !!path,
+        isDir  : !!(nd && nd.dir),
+        openable: !!(nd && !nd.dir && !nd.binary),
+        newtab : host.dataset.newtab === '1' && st.mode === 'tree',
+        count  : st.sel.size,
+      });
+    });
+  }
+
+  draw();
+  return {st, draw, goUp, setMode(m){ st.mode = m; draw(); }};
+}
+
+/* ---- 인스턴스 셋. 상태를 공유하지 않습니다 (설계안 §9.3) ---- */
+function wire(browser, upBtn, pathEl, modeBox){
+  return st => {
+    if(upBtn)  upBtn.disabled = st.root.length === 0;
+    if(upBtn)  upBtn.title = st.root.length ? '상위 디렉터리로'
+                                            : '더 올라갈 수 없습니다 — 경계 규칙 미정 (08절)';
+    if(pathEl) pathEl.textContent = REPO + (st.root.length ? '\\' + st.root.join('\\') : '');
+    if(modeBox) modeBox.querySelectorAll('button').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.mode === st.mode)));
+  };
+}
+
+const expUp = document.getElementById('exp-up');
+const expPath = document.getElementById('exp-path');
+const expMode = document.getElementById('exp-mode');
+const explorer = makeBrowser(document.querySelector('[data-tree="explorer"]'), {
+  root:[], mode:'tree',
+  open:['docs','docs/plan','docs/worklog','docs/struct'],
+  sel :['docs/plan/2026-09-12.file-explorer.design.md'],
+  onChange: wire(null, expUp, expPath, expMode),
+});
+expUp.addEventListener('click', () => explorer.goUp());
+expMode.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(b) explorer.setMode(b.dataset.mode);
+});
+
+const lstUp = document.getElementById('lst-up');
+const lstPath = document.getElementById('lst-path');
+const lstMode = document.getElementById('lst-mode');
+const lister = makeBrowser(document.querySelector('[data-tree="list"]'), {
+  root:['docs'], mode:'list', open:[], sel:['docs/spec'],
+  onChange: wire(null, lstUp, lstPath, lstMode),
+});
+lstUp.addEventListener('click', () => lister.goUp());
+lstMode.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(b) lister.setMode(b.dataset.mode);
+});
+
+/* 편집기 좌측 패널 — 항상 트리 모드, 모드 토글 없음. `..` 와 파일 조작은 있습니다 (설계안 §9.1).
+   `data-newtab` 이 없으므로 "새 탭에서 열기"만 빠집니다 — 여기에는 탭이 없습니다. */
+const edPath = document.querySelector('.editor-tree .head .p');
+const editor = makeBrowser(document.querySelector('[data-tree="editor"]'), {
+  root:[], mode:'tree',
+  open:['docs','docs/plan'],
+  sel :['docs/plan/2026-09-12.file-explorer.design.md'],
+  onChange: st => { edPath.textContent = st.root.length ? st.root[st.root.length-1] : 'ProjectMaster'; },
+});
+
+/* --------------------------------------------------------------------------
+   컨텍스트 메뉴 — 창 표면 기준으로 자리를 잡습니다
+   -------------------------------------------------------------------------- */
+const ctx = document.getElementById('tree-ctx');
+
+const CTX_LABEL = {copy:'복사', cut:'잘라내기', delete:'삭제'};
+
+/* 항목을 인덱스가 아니라 data-act 이름으로 고릅니다. 메뉴에 줄이 하나 늘거나
+   구분선이 옮겨가면 인덱스는 조용히 이웃 항목을 가리키게 됩니다. */
+function showCtx(e, win, info){
+  /* 메뉴는 하나뿐이므로, 눌린 행이 속한 창 안으로 옮겨서 좌표를 그 창 기준으로 푼다.
+     .ctx 는 position:absolute 이고 .win 이 position:relative 이므로 옮기는 것만으로 맞는다. */
+  if(ctx.parentElement !== win) win.appendChild(ctx);
+  const b = win.getBoundingClientRect();
+  const has = CLIPBOARD.entries.length > 0;
+  const dirOrEmpty = info.item ? info.isDir : true;
+  const on = {
+    open   : info.item && info.openable,
+    newtab : info.item && info.isDir && info.newtab,
+    copy   : info.item,
+    cut    : info.item,
+    paste  : has,
+    rename : info.item && info.count === 1,   /* 여럿을 한꺼번에 이름 바꿀 수는 없습니다 */
+    delete : info.item,
+    newdir : dirOrEmpty,
+    refresh: dirOrEmpty,
+  };
+  for(const btn of ctx.querySelectorAll('button')){
+    const act = btn.dataset.act;
+    btn.disabled = !on[act];
+    /* 선택이 여럿이면 몇 개에 적용되는지 메뉴가 말해 줍니다 */
+    if(CTX_LABEL[act]) btn.querySelector('.lbl').textContent =
+      CTX_LABEL[act] + (info.count > 1 ? ' (' + info.count + '개)' : '');
+  }
+  ctx.hidden = false;
+  let x = e.clientX - b.left, y = e.clientY - b.top;
+  x = Math.min(x, b.width  - ctx.offsetWidth  - 8);
+  y = Math.min(y, b.height - ctx.offsetHeight - 8);
+  ctx.style.left = Math.max(4, x) + 'px';
+  ctx.style.top  = Math.max(4, y) + 'px';
+}
+document.addEventListener('click', e => {
+  if(!e.target.closest('#tree-ctx') && !e.target.closest('[data-ctx-toggle]')) ctx.hidden = true;
+});
+document.querySelector('[data-ctx-toggle]').addEventListener('click', () => {
+  const win = document.getElementById('explorer-win');
+  const b = win.getBoundingClientRect();
+  showCtx({clientX:b.left + 190, clientY:b.top + 150}, win,
+          {item:true, isDir:false, openable:true, newtab:true, count:explorer.st.sel.size});
+});
+
+/* --------------------------------------------------------------------------
+   창 범위 모달 — 창 표면 안에만 겹칩니다 (설계안 §5)
+   -------------------------------------------------------------------------- */
+const scrim = document.getElementById('exp-scrim');
+const MODALS = {
+  conflict: `<div class="modal">
+      <header><span class="badge warn">${svg('i-warn',14)}</span><h5>같은 이름이 이미 있습니다</h5></header>
+      <div class="desc"><span class="path">EditorWindow.tsx</span></div>
+      <div class="cmp">
+        <div><span>원본</span><span>12.4 KB · 09-23 18:15</span></div>
+        <div><span>대상</span><span>11.9 KB · 09-21 09:02</span></div>
+      </div>
+      <footer>
+        <label class="ask"><input type="checkbox"> 더 이상 묻지 않기</label>
+        <div class="acts">
+          <button class="btn" data-close>복사하지 않기</button>
+          <button class="btn" data-close>이름 바꾸기</button>
+          <button class="btn primary" data-close>덮어쓰기</button>
+        </div>
+      </footer></div>`,
+  error: `<div class="modal">
+      <header><span class="badge err">!</span><h5>접근이 거부되었습니다</h5></header>
+      <div class="desc"><span class="path">server/certs/server.key</span>
+        <div style="margin-top:6px">EPERM: operation not permitted</div></div>
+      <footer>
+        <label class="ask"><input type="checkbox"> 더 이상 묻지 않기</label>
+        <div class="acts">
+          <button class="btn" data-close>취소</button>
+          <button class="btn" data-close>무시</button>
+          <button class="btn primary" data-close>재시도</button>
+        </div>
+      </footer></div>`,
+  delete: `<div class="modal">
+      <header><span class="badge err">${svg('i-warn',14)}</span><h5>3개 항목을 지웁니다</h5></header>
+      <div class="desc"><span class="path">docs/report · docs/worklog · AGENTS.md</span>
+        <div style="margin-top:6px">되돌릴 수 없습니다. 휴지통을 거치지 않습니다.</div></div>
+      <footer>
+        <span style="font-size:11.5px; color:var(--fg-faint)">“묻지 않기” 없음</span>
+        <div class="acts">
+          <button class="btn" data-close>취소</button>
+          <button class="btn danger" data-close>삭제</button>
+        </div>
+      </footer></div>`,
+};
+function openModal(kind){
+  if(!kind || !MODALS[kind]){ scrim.hidden = true; scrim.innerHTML = ''; return; }
+  scrim.innerHTML = MODALS[kind];
+  scrim.hidden = false;
+  ctx.hidden = true;
+}
+document.querySelectorAll('[data-modal]').forEach(b =>
+  b.addEventListener('click', () => openModal(b.dataset.modal)));
+scrim.addEventListener('click', e => {
+  if(e.target === scrim || e.target.closest('[data-close]')) openModal('');
+});
+document.addEventListener('keydown', e => {   /* Escape = 그 질문을 취소 */
+  if(e.key === 'Escape'){ openModal(''); ctx.hidden = true; }
+});
+
+/* --------------------------------------------------------------------------
+   하단 상태바 · 알림창 (설계안 §4)
+   -------------------------------------------------------------------------- */
+const sb = document.getElementById('statusbar');
+const pop = document.getElementById('popover');
+const SB = {
+  none : null,
+  one  : `<div class="bar"><i style="width:38%"></i></div>
+          <span class="txt">복사 중 — components/editor/EditorWindow.tsx</span>
+          <span class="pct">128 / 337</span>`,
+  many : `<span class="spin"></span><span class="txt">3개 작업 진행 중</span>
+          <span class="pct">61%</span>`,
+  await: `<span class="dot"></span><span class="txt">응답 대기 중 — node_modules/.cache 삭제</span>
+          <span class="pct" style="color:var(--warn)">눌러서 열기</span>`,
+};
+function setSb(kind){
+  const html = SB[kind];
+  if(!html){ sb.style.display = 'none'; pop.hidden = true; return; }
+  sb.style.display = 'flex';
+  sb.className = 'statusbar' + (kind === 'await' ? ' await' : '');
+  sb.innerHTML = html;
+}
+document.querySelectorAll('[data-sb]').forEach(b =>
+  b.addEventListener('click', () => setSb(b.dataset.sb)));
+sb.addEventListener('click', () => { pop.hidden = !pop.hidden; });
+document.addEventListener('click', e => {
+  if(!e.target.closest('#popover') && !e.target.closest('#statusbar')) pop.hidden = true;
+});
+setSb('one');
+
+/* --------------------------------------------------------------------------
+   편집기 좌측 패널 크기 조절 (설계안 9.1)
+   상한은 창 폭의 50%. 저장값과 렌더값을 나눠 둡니다 — 창이 좁아져서 상한에
+   걸려도 저장한 폭은 그대로라, 창을 다시 넓히면 원래 폭으로 돌아옵니다.
+   -------------------------------------------------------------------------- */
+const edWin  = document.getElementById('editor-win');
+const edPane = document.getElementById('ed-pane');
+const edRez  = document.getElementById('ed-resizer');
+const edBadge= document.getElementById('ed-wbadge');
+const PANE_MIN = 160, PANE_DEFAULT = 212;
+let panePref = PANE_DEFAULT;                    /* 사용자가 정한 폭 — 창 크기로 바뀌지 않습니다 */
+
+const winW    = () => edWin.getBoundingClientRect().width;
+const paneCap = () => Math.floor(winW() * 0.5);
+
+function applyPane(){
+  const cap = paneCap();
+  const w = Math.max(PANE_MIN, Math.min(panePref, cap));
+  edPane.style.flexBasis = w + 'px';
+  edBadge.textContent = w + 'px · ' + Math.round(w / winW() * 100) + '%';
+  edBadge.classList.toggle('cap', w >= cap);
+  edBadge.title = w >= cap ? '창 폭의 50% 상한에 걸렸습니다' : '';
+}
+
+edRez.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  edRez.setPointerCapture(e.pointerId);
+  edRez.classList.add('drag');
+  const x0 = e.clientX, w0 = edPane.getBoundingClientRect().width;
+  const move = ev => {
+    /* 끌 때는 상한에서 멈춥니다. 사용자가 뜻을 밝히는 순간에만 자르고,
+       창 크기 변화로는 저장값을 건드리지 않습니다. */
+    panePref = Math.max(PANE_MIN, Math.min(w0 + (ev.clientX - x0), paneCap()));
+    applyPane();
+  };
+  const up = () => {
+    edRez.classList.remove('drag');
+    edRez.removeEventListener('pointermove', move);
+    edRez.removeEventListener('pointerup', up);
+    edRez.removeEventListener('pointercancel', up);
+  };
+  edRez.addEventListener('pointermove', move);
+  edRez.addEventListener('pointerup', up);
+  edRez.addEventListener('pointercancel', up);
+});
+edRez.addEventListener('dblclick', () => { panePref = PANE_DEFAULT; applyPane(); });
+window.addEventListener('resize', applyPane);
+applyPane();
+
+/* --------------------------------------------------------------------------
+   최소화 → 헤더 트레이 (설계안 9.2)
+   창을 DOM 에서 떼지 않고 display 만 끕니다. 헐면 펼쳐 둔 디렉터리와 선택이
+   날아가고, 8.1 이 그것을 저장하지 않기로 했습니다.
+   -------------------------------------------------------------------------- */
+const expWin  = document.getElementById('explorer-win');
+const expTray = document.getElementById('exp-tray');
+document.getElementById('exp-min').addEventListener('click', () => {
+  expWin.style.display = 'none';      /* remove() 가 아닙니다 */
+  expTray.hidden = false;
+});
+expTray.addEventListener('click', () => {
+  expTray.hidden = true;
+  expWin.style.display = '';
+});
+
+/* --------------------------------------------------------------------------
+   창 안 진행 줄 (설계안 4.4)
+   -------------------------------------------------------------------------- */
+const expProg = document.getElementById('exp-prog');
+const progBtn = document.querySelector('[data-prog-toggle]');
+progBtn.addEventListener('click', () => {
+  expProg.hidden = !expProg.hidden;
+  progBtn.textContent = expProg.hidden ? '창 안 진행 줄 켜기' : '창 안 진행 줄 끄기';
+});
+document.querySelector('[data-openpop]').addEventListener('click', () => {
+  document.getElementById('s7').scrollIntoView({behavior:'smooth', block:'center'});
+  setTimeout(() => { setSb('many'); pop.hidden = false; }, 450);
+});
+
+/* --------------------------------------------------------------------------
+   전환 도구 + 토큰 견본
+   -------------------------------------------------------------------------- */
+const root = document.documentElement;
+function seg(id, attr, apply){
+  const box = document.getElementById(id);
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    box.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    apply(b.dataset[attr]);
+  });
+}
+seg('ds-seg','dsPick', v => { root.dataset.ds = v; drawSwatches(); });
+seg('dn-seg','dnPick', v => root.dataset.density = v);
+seg('vw-seg','vwPick', v => root.dataset.view = v);
+
+const TOKENS = [
+  ['--bg-app','앱 바탕'], ['--bg-chrome','제목 표시줄'], ['--bg-surface','창 표면'],
+  ['--bg-raised','탭 막대'], ['--bg-active','선택 행'], ['--accent','강조'],
+  ['--fg','본문'], ['--fg-muted','보조'], ['--fg-faint','흐림'],
+  ['--line','경계'], ['--line-strong','진한 경계'],
+  ['--danger','오류'], ['--warn','주의'], ['--ok','정상'],
+];
+const probe = document.createElement('div');
+probe.setAttribute('data-surface','paper');
+probe.style.display = 'none';
+document.body.appendChild(probe);
+
+function swatchHtml(el, label){
+  const cs = getComputedStyle(el);
+  let h = '';
+  if(label) h += '<div style="grid-column:1/-1;font-size:12px;color:var(--page-faint);margin-top:6px">'+label+'</div>';
+  for(const [name, ko] of TOKENS){
+    const v = cs.getPropertyValue(name).trim();
+    h += '<div class="sw"><div class="chipc" style="background:'+v+'"></div>'
+       + '<div class="n">'+name+'</div><div class="v">'+ko+' · '+v+'</div></div>';
+  }
+  return h;
+}
+function drawSwatches(){
+  const host = document.getElementById('swatches');
+  let h = swatchHtml(root, '');
+  if(root.dataset.ds === 'c'){
+    h += swatchHtml(probe, 'C 에서만 — data-surface="paper" 일 때 다시 걸리는 값');
+  }
+  host.innerHTML = h;
+}
+drawSwatches();
+</script>
+</body>
+</html>
