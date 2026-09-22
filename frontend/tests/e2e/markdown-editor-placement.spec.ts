@@ -423,7 +423,9 @@ test.describe('markdown editor placement and stacking', () => {
       height: Math.round(dragged!.height),
     });
 
-    // Close every document, which closes the window, and open one again. The
+    // Close the only document, which takes the window with it (FR-MDE-011:
+    // the title bar control closes one document, and this window holds one),
+    // and open one again. The
     // window comes back where it was dragged to rather than at its opening
     // placement -- which the first box above is, so the two are distinguishable.
     await surface.locator('button[aria-label="Close"]').click();

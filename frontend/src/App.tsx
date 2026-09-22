@@ -797,7 +797,6 @@ function AppContent() {
                         onToggleMaximize={editor.toggleMaximizeWindow}
                         onMinimize={editor.minimizeWindow}
                         onDirtyChange={editor.setWindowDirty}
-                        onCloseWindow={editor.closeWindow}
                       />
                     )}
                   />

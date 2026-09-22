@@ -25,6 +25,7 @@ import {
   toEditorWindowRecord,
   type EditorWindowRecord,
 } from '../components/editor/editorWindowRecord.ts';
+import { selectRestorableDocuments } from './editorRestoreAdmission.ts';
 import type { UseWindowStateResult } from './useWindowState.ts';
 import {
   createEditorWindowPlacementState,
@@ -293,8 +294,6 @@ export interface UseEditorWindowsResult {
   updateWindowRect: (rect: DialogRect) => void;
   /** A document started, or stopped, differing from the file. */
   setWindowDirty: (filePath: string, dirty: boolean) => void;
-  /** Closes the whole window, which closes every document in it. */
-  closeWindow: () => void;
   minimizeWindow: () => void;
   toggleMaximizeWindow: () => void;
   writeFile: (sessionId: string, path: string, content: string) => Promise<{ success: boolean }>;
@@ -374,6 +373,22 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
    * every save for the rest of the session.
    * @req FR-MDE-009
    */
+  /**
+   * Paths the user has closed in this page load.
+   *
+   * The reopen's reads take as long as they take, and the user is looking at
+   * the screen throughout. A close that happens in that gap has already
+   * happened by the time the results land, and the reopen compares against the
+   * documents that are open at that moment -- where a document closed on
+   * purpose looks exactly like one that was never opened. Measured: a
+   * hand-opened document, closed to an empty screen, came back.
+   *
+   * A ref rather than state: nothing renders from it, and a render triggered
+   * by a close would be a render for a set that has not changed.
+   * @req FR-MDE-009
+   */
+  const closedByUserRef = useRef(new Set<string>());
+
   const forgetPendingRestore = useCallback((filePath: string) => {
     pendingRestoreRef.current.forEach((pending, workspaceId) => {
       const next = pending.filter(record => record.filePath !== filePath);
@@ -459,6 +474,11 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     // its stored record: closing this document must remove it.
     // @req FR-MDE-009
     forgetPendingRestore(filePath);
+    // Opening it again is a new decision and rescinds the earlier close, or a
+    // path closed once could never be reopened by a restore for the rest of
+    // the page load.
+    // @req FR-MDE-009
+    closedByUserRef.current.delete(filePath);
 
     setDocuments((current) => {
       if (current.some(document => document.filePath === filePath)) {
@@ -691,6 +711,11 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   const closeDocument = useCallback((filePath: string) => {
     const workspaceId = activeWorkspaceId;
 
+    // Recorded before the state changes, so a reopen that lands in between
+    // reads the close rather than racing it.
+    // @req FR-MDE-009
+    closedByUserRef.current.add(filePath);
+
     setDocuments(current => current.filter(document => document.filePath !== filePath));
 
     if (workspaceId === null) return;
@@ -730,22 +755,12 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     });
   }, [activeWorkspaceId]);
 
-  /**
-   * Closes the window and every document in it. The title bar's close control
-   * asks each panel first, so by the time this runs nothing is unsaved.
-   * @req FR-MDE-010
-   */
-  const closeWindow = useCallback(() => {
-    const workspaceId = activeWorkspaceId;
-    if (workspaceId === null) return;
-
-    setDocuments(current => current.filter(document => document.workspaceId !== workspaceId));
-    setShells((current) => {
-      if (current[workspaceId] === undefined) return current;
-      const { [workspaceId]: _removed, ...rest } = current;
-      return rest;
-    });
-  }, [activeWorkspaceId]);
+  // There is deliberately no bulk close here. One that discarded every
+  // document of a workspace in a single call is what emptied a window of a
+  // dozen tabs on one press, and it asked nothing first because the branch
+  // that reached it was the one taken when nothing was dirty. The window goes
+  // with its last document instead, which `closeDocument` above already does.
+  // @req FR-MDE-011
 
   const minimizeWindow = useCallback(() => {
     updateShell(shell => ({ ...shell, ...minimizeEditorWindow(shell) }));
@@ -835,8 +850,11 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       // moment it is dispatched -- with another update already pending on this
       // component it is deferred to the render phase -- so a value computed in
       // there and read afterwards would still be empty.
-      const alreadyOpen = new Set(documentsRef.current.map(document => document.filePath));
-      const added = restored.filter(document => !alreadyOpen.has(document.filePath));
+      const added = selectRestorableDocuments({
+        restored,
+        alreadyOpen: documentsRef.current.map(document => document.filePath),
+        closedByUser: closedByUserRef.current,
+      });
 
       if (added.length === 0) return;
 
@@ -844,8 +862,12 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       // last committed list, and a document opened between that commit and
       // this dispatch would otherwise be added a second time under the path.
       setDocuments((current) => {
-        const open = new Set(current.map(document => document.filePath));
-        return [...current, ...added.filter(document => !open.has(document.filePath))];
+        const admitted = selectRestorableDocuments({
+          restored: added,
+          alreadyOpen: current.map(document => document.filePath),
+          closedByUser: closedByUserRef.current,
+        });
+        return admitted.length === 0 ? current : [...current, ...admitted];
       });
       added.forEach(document => forgetPendingRestore(document.filePath));
 
@@ -942,7 +964,6 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     dismissOpenError,
     updateWindowRect,
     setWindowDirty,
-    closeWindow,
     minimizeWindow,
     toggleMaximizeWindow,
     writeFile: fileApi.writeFile,

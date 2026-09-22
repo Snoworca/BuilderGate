@@ -16,6 +16,7 @@
 // @req FR-MDE-002
 // @req FR-MDE-006
 // @req FR-MDE-010
+// @req FR-MDE-011
 
 import {
   useCallback,
@@ -33,6 +34,7 @@ import type { DialogRect, DialogSize } from '../dialog/types';
 import './EditorWindow.css';
 import { EditorDocumentPanel, type EditorDocumentHandle } from './EditorDocumentPanel.tsx';
 import { EditorTabBar } from './EditorTabBar.tsx';
+import { planEditorWindowCloseControl } from './editorWindowCloseControl.ts';
 import { createEditorWindowSaveShortcutHandler } from './editorWindowSaveShortcut.ts';
 
 /**
@@ -148,8 +150,6 @@ export interface EditorWindowProps {
    * @req FR-MDE-008
    */
   onDirtyChange: (filePath: string, dirty: boolean) => void;
-  /** The title bar's close control was used, which closes the whole window. */
-  onCloseWindow: () => void;
 }
 
 function fileNameOf(filePath: string): string {
@@ -178,7 +178,6 @@ export function EditorWindow({
   onToggleMaximize,
   onMinimize,
   onDirtyChange,
-  onCloseWindow,
 }: EditorWindowProps) {
   const actionsRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
@@ -297,26 +296,32 @@ export function EditorWindow({
   }, [activeTab, resolveTabSession, saveActive]);
 
   /**
-   * The title bar's close control closes the window, which means closing every
-   * tab in it.
+   * The title bar's close control closes the active document -- one per press.
    *
-   * Asked one at a time, oldest first, and each panel decides for itself
-   * whether to prompt. A panel that prompts stops the sweep where it is: the
-   * user is answering about that document, and closing the ones behind it
-   * while the question is on screen would take documents they have not been
-   * asked about. The remaining tabs are closed by the next press.
-   * @req FR-MDE-010
+   * It goes through that document's own panel, which is the same path the
+   * tab's own `x` takes, so the close branches of FR-MDE-006 decide whether
+   * anything is asked. Closing the tab behind the panel's back would discard
+   * an unsaved body with no prompt.
+   *
+   * The window is not closed here, and there is no longer anything that
+   * closes it: it disappears when its last document does, which is already
+   * what closing the last tab produces.
+   * @req FR-MDE-011
    */
-  const requestCloseWindow = useCallback(() => {
-    const dirtyTab = tabs.find(tab => handlesRef.current.get(tab.filePath)?.isDirty() === true);
-    if (dirtyTab !== undefined) {
-      onSelectTab(dirtyTab.filePath);
-      handlesRef.current.get(dirtyTab.filePath)?.requestClose();
+  const requestCloseActiveTab = useCallback(() => {
+    const plan = planEditorWindowCloseControl({ tabs, activeFilePath });
+    if (plan.kind === 'nothing') return;
+
+    const handle = handlesRef.current.get(plan.filePath);
+    // A tab whose panel has not registered yet has no unsaved body to lose,
+    // so closing it directly is the same answer the panel would have given.
+    if (handle === undefined) {
+      onCloseTab(plan.filePath);
       return;
     }
 
-    onCloseWindow();
-  }, [onCloseWindow, onSelectTab, tabs]);
+    handle.requestClose();
+  }, [activeFilePath, onCloseTab, tabs]);
 
   const titlebarActions = (
     <div ref={actionsRef} style={ACTIONS_STYLE} className="editor-window-actions">
@@ -355,7 +360,7 @@ export function EditorWindow({
       mode="modeless"
       defaultRect={SUPERSEDED_DEFAULT_RECT}
       minSize={EDITOR_WINDOW_MIN_SIZE}
-      onClose={requestCloseWindow}
+      onClose={requestCloseActiveTab}
       showCloseButton
       resizable={placeable}
       movable={placeable}
