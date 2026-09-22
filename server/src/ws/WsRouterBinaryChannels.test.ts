@@ -279,7 +279,14 @@ test('a binary-configured group accepts a well formed offer', () => {
   assert.equal(reply.type, 'terminal-binary:capability');
   assert.equal(reply.accepted, true);
   assert.equal(reply.frameVersion, 1);
-  assert.deepEqual(reply.channels, []);
+  // This asserted an empty table until negotiation started adopting sessions
+  // that were already subscribed. `setup` pre-subscribes one, so the table is
+  // now the adopted channel — that is the fix, not a regression. The property
+  // still worth pinning is that the table describes exactly what was subscribed.
+  assert.deepEqual(
+    (reply.channels as Array<{ sessionId: string }>).map(channel => channel.sessionId),
+    [SESSION_ID],
+  );
 });
 
 test('an offer missing a mandatory flag is rejected by name', () => {
@@ -371,7 +378,10 @@ test('unsubscribing a session that never had a channel announces nothing', () =>
   internals.handleTerminalBinaryCapability(ws, VALID_OFFER);
   socket.frames.length = 0;
 
-  internals.handleUnsubscribe(ws, [SESSION_ID]);
+  // A session this group never carried. `SESSION_ID` no longer qualifies: it is
+  // pre-subscribed by `setup`, so negotiation adopts it and it does have a
+  // channel. Using it here would assert nothing about the unsubscribe path.
+  internals.handleUnsubscribe(ws, ['session-never-subscribed']);
 
   assert.equal(retiredNotice(socket), undefined);
 });

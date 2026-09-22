@@ -2295,7 +2295,37 @@ export class WsRouter {
   private handleTerminalBinaryCapability(ws: WebSocket, rawMessage: unknown): void {
     const group = this.ensureTerminalBinaryGroup(ws);
     if (!group) return;
-    this.sendTo(ws, group.negotiate(rawMessage as TerminalBinaryCapabilityOffer));
+    const result = group.negotiate(rawMessage as TerminalBinaryCapabilityOffer);
+    if (result.type !== 'terminal-binary:capability') {
+      this.sendTo(ws, result);
+      return;
+    }
+
+    // Sessions subscribed before the handshake have no channel: `openChannel`
+    // refuses before negotiation, correctly, because there is no agreement yet
+    // that the client can read a frame. Nothing used to go back for them, so
+    // they stayed on JSON for the life of the connection while the server
+    // reported `binary` — measured 2026-09-22 against a running server as
+    // 0 binary frames and 2 JSON outputs for the subscribe-then-negotiate order,
+    // which is the order the browser uses on every reconnect.
+    //
+    // Adopting them before the acceptance is sent matters: the acceptance is the
+    // channel table the client routes by, and a frame addressed to a channel it
+    // never heard about is dropped as unroutable. Adopting after would trade a
+    // JSON fallback for lost output.
+    const meta = this.clients.get(ws);
+    for (const sessionId of meta?.subscribedSessions ?? []) {
+      if (group.lookupChannel(sessionId)) continue;
+      const authority = this.sessionManager.getTerminalAuthorityState?.(sessionId);
+      if (!authority) continue;
+      group.openChannel({
+        sessionId,
+        streamEpoch: authority.streamEpoch,
+        authorityEpoch: authority.authorityEpoch,
+      });
+    }
+
+    this.sendTo(ws, group.reannounce() ?? result);
   }
 
   // @req PERF-BGSTAB-010 AC-5 AC-6

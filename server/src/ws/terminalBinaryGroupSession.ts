@@ -155,6 +155,15 @@ export function createTerminalBinaryGroupSession(input: {
       // frame, so addressing one would be worse than staying on JSON.
       if (!negotiated) return NO_CHANNEL;
 
+      // Idempotent per session. A channel maps to exactly one session (01:369),
+      // and the reverse has to hold too: allocating a second id for a session
+      // that already has one leaves the first in the announced table forever,
+      // addressing frames to a channel nothing will retire. This became
+      // reachable when negotiation started adopting already-subscribed
+      // sessions — the adoption and the subscribe both open the same session.
+      const existing = [...seeds.values()].find(seed => seed.sessionId === session.sessionId);
+      if (existing) return existing;
+
       const { channelId } = allocator.allocate(session.sessionId);
       const seed: TerminalBinaryChannelSeed = Object.freeze({
         sessionId: session.sessionId,
