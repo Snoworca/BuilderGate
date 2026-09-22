@@ -1,0 +1,5 @@
+{"ts": "2026-09-22T20:06:51.380294+00:00", "phase": "7", "suite": "frontend/tests/unit/*.test.ts", "tests": 1264, "pass": 1261, "fail": 3, "baseline": "1255/1252/3 at 1b1fcd25", "delta": "+9 tests +9 pass +0 fail", "failures_matched_by": "단언 텍스트 — terminalHiddenOutput.test.ts:154 의 dataGap ledger, workspaceOwnershipMigration.test.ts:194 의 owner-checked helper. 기준선과 동일"}
+{"ts": "2026-09-22T20:06:51.380294+00:00", "phase": "7", "suite": "frontend/tests/unit/designTokens.test.ts", "tests": 9, "pass": 9, "fail": 0}
+{"ts": "2026-09-22T20:06:51.380294+00:00", "phase": "7", "suite": "server/src/services/fileNameCollision.test.ts", "tests": 15, "pass": 15, "fail": 0, "runner": "Windows npx tsx"}
+{"ts": "2026-09-22T20:06:51.380294+00:00", "phase": "7", "suite": "frontend tsc -b", "result": "오류 0"}
+{"ts": "2026-09-22T20:06:51.380294+00:00", "phase": "7", "suite": "frontend tsc -p tsconfig.test.json --noEmit", "result": "오류 0", "note": "이번에 designTokens.test.ts 가 프로그램에 포함됐다 — 이전에는 --listFiles 가 0 이었다"}

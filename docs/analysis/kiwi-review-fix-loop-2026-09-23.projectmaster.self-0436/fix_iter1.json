@@ -1,0 +1,26 @@
+{
+  "iter": 1,
+  "fixer": "senior-fixer subagent (Opus)",
+  "main_verified": {
+    "server_tests": "15/15 (Windows tsx) — 메인이 직접 실행",
+    "frontend_designTokens": "9/9 — 메인이 직접 실행",
+    "typecheck_tests_includes_file": "tsc -p tsconfig.test.json --listFiles | grep -c designTokens = 1 — 메인이 직접 실행",
+    "files_with_real_content_change": 4
+  },
+  "fixes": [
+    {"finding_id":"FND-001","summary":"포화 진입점이 셋이라 가드도 셋. carriedCount 가 우리가 만들 수 있었던 숫자만 이어받고(isSafeInteger(n) && isSafeInteger(n+1)), 루프가 매 회 isSafeInteger(counter) 를 다시 보고 RangeError 를 던지며, MAX_ATTEMPTS=10000 이 항상 true 인 predicate 를 막는다","mock_scan_passed":true,"external_module_touch":false},
+    {"finding_id":"FND-002","summary":"String(value) !== digits 왕복 검사. isSafeInteger 가 1e21 을 먼저 거르지만 왕복 검사가 일반형이고 zero padding(FND-005)도 같이 잡는다","mock_scan_passed":true,"external_module_touch":false},
+    {"finding_id":"FND-005","summary":"Math.max(2, ...) 가 아니라 carriedCount 의 value < FIRST_COPY -> null 게이트로 하한을 둔다. (0)/(1) 은 우리가 만들 수 없는 번호이므로 사용자의 것이고, 이어받으면 사용자가 일부러 매긴 번호를 말없이 바꾼다","mock_scan_passed":true,"external_module_touch":false},
+    {"finding_id":"FND-003","summary":"구분자가 있으면 predicate 를 보기 전에 TypeError 를 던진다. 충돌한 경우에만 던지면 답의 모양이 여전히 답에 의존하게 되고 그것이 원래 결함이었다","mock_scan_passed":true,"external_module_touch":false},
+    {"finding_id":"FND-004","summary":"node:path 를 버리고 마지막 점으로 직접 쪼갠다. 구분자만 막아서는 부족했다 — path.win32 가 'c:report.md' 의 드라이브 접두사도 떼어낸다","mock_scan_passed":true,"external_module_touch":false},
+    {"finding_id":"FND-006","summary":"var() 스캔을 더했다(바꾼 것이 아니라). referenced.length > 0 을 먼저 단언해 '아무것도 못 찾고 통과' 를 막는다","mock_scan_passed":true,"external_module_touch":false},
+    {"finding_id":"FND-009","summary":"정규화(소문자·3자리 hex 확장)로 #DCDCDC 를 막고, WCAG 상대 휘도로 paper 가 chrome 보다 밝은지와 대비 4.5:1/3:1 을 양쪽 표면에서 단언한다. --fg-faint 는 3.34:1 이라 의도적으로 제외","mock_scan_passed":true,"external_module_touch":false},
+    {"finding_id":"FND-011","summary":"tsconfig.test.json files 에 등재. 추가 전 --listFiles 가 0 이었고 일부러 넣은 타입 오류가 보이지 않던 것을 측정한 뒤 추가했다","mock_scan_passed":true,"external_module_touch":false}
+  ],
+  "deviation_accepted_by_main": {
+    "finding_id": "FND-005",
+    "what": "'report (0).md' -> 'report (0) (2).md' (Math.max 였다면 'report (2).md')",
+    "why": "이어받기가 존재하는 이유가 원래 테스트 주석에 적힌 'report (2).md 가 report (2) (2).md 가 되면 안 된다' 이고, 그 이유는 우리가 만드는 접미사에만 적용된다. (0)/(1) 은 사용자가 붙인 것이다.",
+    "known_consequence": "'report (1).md' -> 'report (1) (2).md'. 기존 테스트가 이 케이스를 단언한 적이 없다."
+  }
+}

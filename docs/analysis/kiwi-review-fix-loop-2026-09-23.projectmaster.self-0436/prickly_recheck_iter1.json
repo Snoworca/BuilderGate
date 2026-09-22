@@ -1,0 +1,51 @@
+{
+ "iter": 1,
+ "reviewer": "recheck-reviewer subagent (§0.2 격리 — fixer 의 정당화 미전달)",
+ "resolved_findings": [
+  "FND-001",
+  "FND-002",
+  "FND-003",
+  "FND-004",
+  "FND-005",
+  "FND-006",
+  "FND-009",
+  "FND-011"
+ ],
+ "unresolved_findings": [],
+ "agreement_with_main": "메인이 독립적으로 재현한 5건과 전부 일치. 리뷰어는 8건 전부를 재현으로 판정했다.",
+ "findings": [
+  {
+   "id": "NEW-001",
+   "severity": "MEDIUM",
+   "axis": "P1",
+   "title": "2^53 정지 테스트가 진짜 무한 스핀 위에서 통과한다 — 지금 빨간 것은 다른 가드 덕분",
+   "location": "server/src/services/fileNameCollision.test.ts:119-125",
+   "description": "assert.throws(fn, /9007199254740991/) 이 숫자 문자열만 고정하고 오류 정체를 보지 않는다. budgeted() 예산 오류 메시지가 마지막 조회 후보를 담는데 그것이 바로 r (9007199254740991).md 다. 결함을 전부 되돌리면 pass 14/fail 1 이 나오고 이 테스트는 초록 체크를 낸다(20001회 조회, 후보 2개). 현재의 빨강은 MAX_ATTEMPTS 가 먼저 발사되고 그 메시지가 마침 그 숫자를 담지 않기 때문이다 — 상한을 올리면 조용히 측정을 멈춘다.",
+   "status": "fixer 에 전달함 — RangeError + 문장으로 단언하도록"
+  },
+  {
+   "id": "NEW-002",
+   "severity": "LOW",
+   "axis": "P2",
+   "title": "var() 스캔이 tokens.css 한 파일만 읽는다",
+   "location": "frontend/tests/unit/designTokens.test.ts:175-199",
+   "description": "오늘 tokens.css 의 유일한 var() 는 --sel-bar: var(--accent) 로 선언 파일 안의 자기참조다. 사각지대가 이미 비어 있지 않다 — IconButton.css 가 var(--accent) 를 참조하는데 읽히지 않는다. 리뷰어가 비편집기 CSS 30개를 전수 스캔해 미선언 참조 3건(--font-mono, --tab-color, --terminal-bg)을 찾았으나 전부 인라인 fallback 이나 JS 설정값이라 살아 있는 결함은 없다. 곁가지로 referenced.length > 0 가드가 그 한 줄에 의존해, --sel-bar 를 리터럴로 인라인하면 '아무것도 측정하지 않는다' 는 거짓 빨강이 난다.",
+   "decision": "고치지 않는다. AC-10 을 닫을 때 AC-4·AC-5·AC-11 을 '새 CSS 파일 집합' 인자로 함께 확장하기로 이미 정했다 — 그 자리가 이것의 자리다."
+  }
+ ],
+ "reviewer_mutation_evidence": {
+  "server": "8 변이, 각각 정확히 한 건만 빨개지고 그 한 건이 해당 가드를 이름으로 지목하는 테스트",
+  "frontend": "10 변이. FND-009a 를 paper 값 전부를 chrome 과 문자열로 다르게 한 채 재실행해 휘도 테스트가 혼자 무게를 지는 것을 확인했고, paper --bg-surface #282828(chrome #272727 보다 한 비트 밝음)은 휘도는 통과하나 대비에서 빨개진다",
+  "contrast_maths": "WCAG 기준쌍 재현 — 흑백 21.00, #777/white 4.48, #767676/white 4.54, 동색 1.00. 가장 빠듯한 실측은 chrome --fg-muted 5.71:1 (기준 3:1), paper --fg 는 15.93:1 (기준 4.5)",
+  "max_attempts": "5000개 충돌 이름이 0.91ms / 5002회 조회로 풀린다. 상한은 그 2배라 실제 디렉터리에서 도달 불가"
+ },
+ "summary": {
+  "total": 2,
+  "by_severity": {
+   "CRITICAL": 0,
+   "HIGH": 0,
+   "MEDIUM": 1,
+   "LOW": 1
+  }
+ }
+}

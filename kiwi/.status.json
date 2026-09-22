@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-22T19:37:47.409Z",
+  "generatedAt": "2026-09-22T19:42:01.313Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "2e7c8df9b2367bfc798ffa5628c9c5bf411c0d4504f2ced26366ac52107cafb3",
+    "value": "da518fcd687abd50ea826d18202b7c033d82a5be2dbca911c2a8ffca79621616",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -14,9 +14,9 @@
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "bc4dc2e57557548767e5fe75cc4ab98f92fa4fdb22bcffc543af3a7ed64f98c8",
-        "size": 24563,
-        "mtimeMs": 1790105815910.2424
+        "sha256": "2425ba020bfdc7133a32108965045258661b8788871f660577ff758d43ccc2c1",
+        "size": 25793,
+        "mtimeMs": 1790106122053.731
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
@@ -50,9 +50,9 @@
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "27deee337513841646b551fe46d41efa05a8030d7d318b0dc7d0e35556dcc6a0",
-        "size": 23683,
-        "mtimeMs": 1790105825063.6345
+        "sha256": "70f82c91dd861d6b5370aa36821a0cc9f8c7465f6b438f6a29a858ca1423b7a8",
+        "size": 24437,
+        "mtimeMs": 1790105942674.087
       },
       {
         "path": "docs/spec/90.appendix.md",

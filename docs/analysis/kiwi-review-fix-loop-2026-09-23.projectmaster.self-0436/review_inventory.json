@@ -1,0 +1,54 @@
+{
+ "source": "prickly-reviewer subagent (Opus)",
+ "commit": "f67e5376",
+ "summary": {
+  "total": 15,
+  "by_severity": {
+   "CRITICAL": 0,
+   "HIGH": 4,
+   "MEDIUM": 7,
+   "LOW": 4
+  },
+  "by_axis": {
+   "P1": 4,
+   "P2": 4,
+   "P3": 5,
+   "P4": 1,
+   "P5": 0,
+   "P6": 0,
+   "P7": 1
+  }
+ },
+ "main_verified": [
+  {
+   "id": "FND-001",
+   "how": "timeout 5 node — 프로세스가 돌아오지 않음(exit 143). 무한 루프 확인"
+  },
+  {
+   "id": "FND-006",
+   "how": "grep 'var(' designTokens.test.ts = 0건. AC-11 이 이름 붙인 대상을 전혀 스캔하지 않음 확인"
+  },
+  {
+   "id": "FND-009",
+   "how": "소스 :86 이 paper.get(name) === root.get(name) 문자열 비교임을 직접 확인"
+  },
+  {
+   "id": "FND-011",
+   "how": "grep designTokens tsconfig.test.json = 0건, files 목록 67개에 없음 확인"
+  },
+  {
+   "id": "FND-008",
+   "how": "기존 CSS 에 #1e1e1e 8파일·#252526 6파일, #202020·#2b2b2b 는 0파일 확인"
+  }
+ ],
+ "reviewer_cleared": [
+  "CSS @import 위치",
+  "EXISTING_SUFFIX non-greedy",
+  "AC-8 비침습",
+  "--sel-bar 재바인딩 부재",
+  "빈 문자열/./.. 입력",
+  "유니코드·공백",
+  "P5 성능",
+  "P6 보안"
+ ]
+}

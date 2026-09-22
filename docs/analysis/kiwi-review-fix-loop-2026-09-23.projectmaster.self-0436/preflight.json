@@ -1,0 +1,9 @@
+{
+ "git": true,
+ "gh": null,
+ "regression_env": "node --experimental-strip-types --test (frontend) / npx tsx --test (server, Windows)",
+ "skip_regression": false,
+ "mcp": false,
+ "cli": true,
+ "note": "PR 모드 아님 — gh 불필요. server 회귀는 WSL 에서 tsx 가 esbuild win32 바이너리로 죽으므로 Windows 에서 돌린다."
+}

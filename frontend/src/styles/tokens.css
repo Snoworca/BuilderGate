@@ -15,7 +15,23 @@
  */
 
 :root {
-  /* Surfaces, from the furthest back to the nearest. */
+  /* Surfaces, from the furthest back to the nearest.
+   *
+   * The two darkest are new values rather than the ones on screen today. The
+   * chrome the application actually renders is #1e1e1e and #252526; design
+   * §10.2 chose this palette over them, and AC-8 is what leaves them where
+   * they are for now, because recolouring files this layer does not otherwise
+   * touch would be a change nobody asked this work to make. Each of those
+   * files moves to a token the next time somebody has reason to open it.
+   *
+   * So #202020 appears only here, and that is not a typo. Measured 2026-09-23
+   * under frontend/src, excluding this file and the vendored editor: #1e1e1e
+   * in 7 .css files — 8 if the vendored editor's own stylesheet is counted,
+   * 10 if the .tsx and .ts that inline it are — and #252526 in 6 .css files
+   * and nowhere else. #202020 and #2b2b2b appear in none of them under any of
+   * those ways of counting. The spread on the first number is why the basis
+   * is written out: 7 and 8 are both right, about different questions.
+   */
   --bg-app: #202020;
   --bg-chrome: #2b2b2b;
   --bg-surface: #272727;

@@ -1,0 +1,94 @@
+{
+ "note": "메인이 resolveNameCollision 의 경계값을 실제로 돌려 관측한 것. 리뷰 판정이 아니라 측정값이다 — 판정은 까칠 리뷰어 서브에이전트가 한다(§0.1).",
+ "runner": "Windows npx tsx",
+ "observed": [
+  {
+   "input": "\"\"",
+   "output": "\" (2)\"",
+   "assessment": "빈 이름이 공백으로 시작하는 이름이 된다. 호출자가 빈 이름을 넘기지 않는 것이 전제."
+  },
+  {
+   "input": "\".\"",
+   "output": "\". (2)\"",
+   "assessment": "현재 디렉터리. 복사 대상이 될 수 없다."
+  },
+  {
+   "input": "\"..\"",
+   "output": "\".. (2)\"",
+   "assessment": "주목. CON-FEX-001 이 '..' 를 노드가 아니라 크롬으로 두었으므로 여기 도달할 수 없어야 한다. 도달한다면 그 제약이 깨진 것이다."
+  },
+  {
+   "input": "\"a (0).md\"",
+   "output": "\"a (1).md\"",
+   "assessment": "0 에서 1 로 이어받는다. 규칙은 '2부터' 인데 (1) 이 만들어진다 — 이어받기와 시작값 규칙이 어긋나는 유일한 지점."
+  },
+  {
+   "input": "\"a (1).md\"",
+   "output": "\"a (2).md\"",
+   "assessment": "정상"
+  },
+  {
+   "input": "\"a (-1).md\"",
+   "output": "\"a (-1) (2).md\"",
+   "assessment": "정규식이 (\\d+) 라 음수는 접미사로 보지 않는다. 중첩되지만 -1 은 유효한 접미사가 아니므로 방어 가능."
+  },
+  {
+   "input": "\"a (2) (3).md\"",
+   "output": "\"a (2) (4).md\"",
+   "assessment": "non-greedy 가 마지막 괄호만 잡는다. 의도대로."
+  },
+  {
+   "input": "\"a (999999999999).md\"",
+   "output": "\"a (1000000000000).md\"",
+   "assessment": "Number 안전 범위 안. 정상"
+  },
+  {
+   "input": "\"한글 파일.md\"",
+   "output": "\"한글 파일 (2).md\"",
+   "assessment": "정상 (콘솔 인코딩만 깨져 보임)"
+  },
+  {
+   "input": "\"  leading.md\"",
+   "output": "\"  leading (2).md\"",
+   "assessment": "정상"
+  },
+  {
+   "input": "\"a.\"",
+   "output": "\"a (2).\"",
+   "assessment": "path.parse 가 ext='.' 로 읽는다. Windows 에서 애초에 유효하지 않은 이름."
+  },
+  {
+   "input": "\".a.b\"",
+   "output": "\".a (2).b\"",
+   "assessment": "extname 의미대로. 정상"
+  }
+ ],
+ "not_probed": [
+  {
+   "what": "isTaken 이 항상 true 를 돌려줄 때",
+   "why": "while 루프가 끝나지 않아 프로브가 멈춘다. 실제 호출자는 유한한 디렉터리를 보므로 종료하지만, 호출자 버그 하나가 서버 이벤트 루프를 붙든다. 상한 가드 여부는 리뷰어 판정에 맡긴다."
+  }
+ ],
+ "block_helper_probe": {
+  "note": "메인이 designTokens.test.ts 의 block()/declarations() 를 그대로 옮겨 돌린 관측. 판정은 리뷰어 몫.",
+  "observed": [
+   {
+    "case": "@media 안의 :root 가 진짜 :root 앞에 있을 때",
+    "result": "미디어 쿼리 안쪽 값(99px)을 읽는다",
+    "impact": "가드가 잘못된 블록을 읽고도 통과하거나 엉뚱하게 실패한다"
+   },
+   {
+    "case": ":root 블록이 둘일 때",
+    "result": "첫 번째만 읽는다 (#000). CSS 실효값은 마지막(#0078d4)",
+    "impact": "동일"
+   },
+   {
+    "case": "[data-surface=\"paper-x\"] 가 [data-surface=\"paper\"] 앞에 있을 때",
+    "result": "올바르게 진짜 paper 를 찾는다",
+    "impact": "없음 — 닫는 따옴표가 구분해 준다"
+   }
+  ],
+  "current_state": "지금 tokens.css 는 :root 가 하나이고 미디어 쿼리가 없어 가드가 정확하다. 문제는 지금이 아니라 '가드가 그 :root 가 아니라 어떤 :root 를 읽는다' 는 것이다.",
+  "not_fixed_by_main": "§0.1 이 메인의 직접 수정을 금지한다. 수정은 시니어 fixer 서브에이전트가 한다."
+ }
+}

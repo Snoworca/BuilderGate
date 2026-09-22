@@ -1,0 +1,17 @@
+{
+ "mode": "self",
+ "pr_url": null,
+ "pr_number": null,
+ "self_scope": {
+  "source": "commits",
+  "files": [
+   "frontend/src/styles/tokens.css",
+   "frontend/src/index.css",
+   "frontend/tests/unit/designTokens.test.ts",
+   "server/src/services/fileNameCollision.ts",
+   "server/src/services/fileNameCollision.test.ts"
+  ],
+  "commit_range": "f67e5376^..f67e5376",
+  "diff_loc": null
+ }
+}
