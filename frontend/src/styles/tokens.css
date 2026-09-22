@@ -1,0 +1,80 @@
+/* BuilderGate design tokens — CON-ARCH-001.
+ *
+ * One set of names; the values are re-bound per surface. A component asks for
+ * --bg-surface and gets the right answer wherever it is mounted, so no
+ * component carries a branch on which surface it sits on.
+ *
+ * Two surfaces exist today. `chrome` is the dark window furniture the terminal
+ * and the explorer window live in, and it is the default — anything that does
+ * not say otherwise gets it. `paper` is the light body the editor window puts a
+ * document on, and the file tree that stands beside that document is on it too.
+ *
+ * These tokens and the vendored editor's --atomic-editor-* stay apart on
+ * purpose. That palette belongs to a component we re-import from upstream, and
+ * a reference in either direction turns the next re-import into a merge.
+ */
+
+:root {
+  /* Surfaces, from the furthest back to the nearest. */
+  --bg-app: #202020;
+  --bg-chrome: #2b2b2b;
+  --bg-surface: #272727;
+  --bg-raised: #2f2f2f;
+  --bg-hover: rgba(255, 255, 255, 0.055);
+  --bg-active: rgba(0, 120, 212, 0.2);
+  --bg-paper: #ffffff;
+
+  /* Text, from the most to the least prominent. */
+  --fg: #dcdcdc;
+  --fg-strong: #f5f5f5;
+  --fg-muted: #a0a0a0;
+  --fg-faint: #767676;
+
+  /* Edges. */
+  --line: #3a3a3a;
+  --line-strong: #4a4a4a;
+
+  /* One accent. The application had three families before this file existed
+   * (#007acc, #0078d4, and a violet set); the two blues are indistinguishable
+   * on screen and were being maintained separately. */
+  --accent: #0078d4;
+  --accent-fg: #ffffff;
+  --sel-bar: var(--accent);
+
+  /* Meaning. */
+  --danger: #e05c5c;
+  --warn: #d8a534;
+  --ok: #4cc38a;
+
+  /* Shape. */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+
+  /* Density. 28px is what a finger can land on; the requirement that the file
+   * explorer work on a phone is what sets it. */
+  --row-h: 28px;
+}
+
+/* For people who would rather see more rows than hit them accurately. */
+[data-density="compact"] {
+  --row-h: 22px;
+}
+
+/* The light surface. Only the tokens whose answer depends on what is behind
+ * them are re-bound — the app and chrome backgrounds are not among them,
+ * because a paper region sits inside chrome rather than replacing it. */
+[data-surface="paper"] {
+  --bg-surface: #fbfbfb;
+  --bg-raised: #f1f1f1;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 120, 212, 0.14);
+
+  --fg: #1f1f1f;
+  --fg-strong: #000000;
+  --fg-muted: #5c5c5c;
+  --fg-faint: #8a8a8a;
+
+  --line: #e3e3e3;
+  --line-strong: #cdcdcd;
+}

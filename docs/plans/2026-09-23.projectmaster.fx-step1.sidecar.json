@@ -151,7 +151,12 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/designTokens.test.ts",
+     "exit_code": 1,
+     "captured_failure": "6 fail / 0 pass — AC-1·AC-2·AC-11·AC-6·AC-7 은 ENOENT(frontend/src/styles/tokens.css 없음), AC-9 는 의도한 단언에서 실패('index.css does not import ./styles/tokens.css'). AC-9 가 파일 부재가 아니라 자기 단언으로 실패한 것이 그 가드가 독립적으로 의미 있다는 증거다.",
+     "timestamp": "2026-09-22T19:30:10.269036+00:00"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -245,7 +250,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/designTokens.test.ts",
+     "exit_code": 0,
+     "timestamp": "2026-09-22T19:31:54.418940+00:00"
+    }
    },
    "trace_links": [
     {
@@ -330,8 +339,17 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
-    "green_evidence": null
+    "red_evidence": {
+     "command": "변이 주입 — tokens.css 의 --accent 를 #007acc 로, --warn 을 #8250df 로 각각 되돌린 뒤 실행",
+     "exit_code": 1,
+     "captured_failure": "두 case 가 처음부터 green 이었으므로(구현이 먼저 있었다) 변이 테스트로 red 를 증명했다. 변이 1(--accent #007acc) -> AC-4 만 실패. 변이 2(--warn #8250df) -> AC-5 만 실패. 변이 3(paper 블록 --fg-muted 오타) -> AC-2 와 AC-11 이 함께 실패. 복원 후 8/8 green.",
+     "timestamp": "2026-09-22T19:31:54.418940+00:00"
+    },
+    "green_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/designTokens.test.ts",
+     "exit_code": 0,
+     "timestamp": "2026-09-22T19:31:54.418940+00:00"
+    }
    },
    "trace_links": [
     {
@@ -405,8 +423,17 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
-    "green_evidence": null
+    "red_evidence": {
+     "command": "T-PH001-03 의 변이 1 과 동일",
+     "exit_code": 1,
+     "captured_failure": "--accent 가 #007acc 일 때 AC-4 만 실패",
+     "timestamp": "2026-09-22T19:31:54.418940+00:00"
+    },
+    "green_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/designTokens.test.ts",
+     "exit_code": 0,
+     "timestamp": "2026-09-22T19:31:54.418940+00:00"
+    }
    },
    "trace_links": [
     {
@@ -436,7 +463,7 @@
      "path": "frontend/src/styles/tokens.css"
     }
    ],
-   "action": "커밋 diff 에서 frontend/src 의 기존 .css 파일에 대한 색상 변경 줄이 0 임을 확인한다.",
+   "action": "커밋 diff 에서 frontend/src 의 기존 .css 파일에 대한 색상 변경 줄이 0 임을 확인한다. --ignore-cr-at-eol 를 반드시 붙인다 — 이 워크트리에는 세션 이전부터 CRLF 차이가 있어, 그것 없이 세면 손대지 않은 파일 5개가 변경으로 잡히고 hex 줄 230개가 바뀐 것처럼 보인다.",
    "acceptance_tests": [
     {
      "kind": "checklist",
@@ -447,11 +474,12 @@
     }
    ],
    "verification_cmd": {
-    "posix": "git diff --name-only -- 'frontend/src/**/*.css' | grep -v -e tokens.css -e index.css | wc -l",
-    "windows": "git diff --name-only -- frontend/src/**/*.css"
+    "posix": "git diff --ignore-cr-at-eol --name-only -- 'frontend/src/**/*.css' 'frontend/src/*.css' | grep -v -e tokens.css -e index.css | wc -l",
+    "windows": "git diff --ignore-cr-at-eol --name-only -- 'frontend/src/**/*.css' 'frontend/src/*.css' | grep -v -e tokens.css -e index.css | wc -l"
    },
    "dod": [
-    "변경된 기존 CSS 파일 수가 0 이다"
+    "변경된 기존 CSS 파일 수가 0 이다 (--ignore-cr-at-eol 적용 후)",
+    "CRLF 만 다른 파일을 변경으로 세지 않는다"
    ],
    "rollback": "해당 없음 (확인 Task)",
    "estimated_effort": "S",
@@ -510,7 +538,7 @@
     }
    ],
    "verification_cmd": {
-    "posix": "cd server && npx tsx --test src/services/fileNameCollision.test.ts",
+    "posix": "powershell.exe -NoProfile -Command \"cd 'C:\\work\\git\\_Snoworca\\ProjectMaster\\server'; npx tsx --test src/services/fileNameCollision.test.ts\"",
     "windows": "cd server && npx tsx --test src/services/fileNameCollision.test.ts"
    },
    "dod": [
@@ -559,7 +587,12 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "powershell.exe -NoProfile -Command \"cd 'C:\\work\\git\\_Snoworca\\ProjectMaster\\server'; npx tsx --test src/services/fileNameCollision.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "변이 3종으로 증명했다. 최초 red 는 무효였다 — WSL 에서 npx tsx 가 esbuild win32 바이너리 때문에 시작조차 못 했고(@esbuild/win32-x64 is present but this platform needs @esbuild/linux-x64) exit 1 이 red 처럼 보였을 뿐 단언에 도달하지 못했다. Windows 에서 다시 돌린 뒤 구현을 변이시켜 확인: (1) 기존 suffix 이어받기 제거 -> 1건 실패 (2) 빈 자리 조기 반환 제거 -> 1건 실패 (3) 접미사를 확장자 뒤로 -> 4건 실패. 복원 후 7/7.",
+     "timestamp": "2026-09-22T19:33:59.274435+00:00"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -604,7 +637,7 @@
     }
    ],
    "verification_cmd": {
-    "posix": "cd server && npx tsx --test src/services/fileNameCollision.test.ts",
+    "posix": "powershell.exe -NoProfile -Command \"cd 'C:\\work\\git\\_Snoworca\\ProjectMaster\\server'; npx tsx --test src/services/fileNameCollision.test.ts\"",
     "windows": "cd server && npx tsx --test src/services/fileNameCollision.test.ts"
    },
    "dod": [
@@ -646,7 +679,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "powershell.exe -NoProfile -Command \"cd 'C:\\work\\git\\_Snoworca\\ProjectMaster\\server'; npx tsx --test src/services/fileNameCollision.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-22T19:33:59.274435+00:00"
+    }
    },
    "trace_links": [
     {
@@ -841,6 +878,25 @@
    "severity": "med",
    "description": "이름 충돌 규칙에서 'a.tar.gz' 의 확장자를 path.extname 이 '.gz' 로 보므로 'a.tar (2).gz' 가 된다. 사용자 기대와 다를 수 있다.",
    "mitigation": "테스트에 그 케이스를 명시해 결정된 동작으로 고정한다.",
+   "affected_task_ids": [
+    "T-PH002-01",
+    "T-PH002-02"
+   ]
+  },
+  {
+   "id": "R-04",
+   "severity": "med",
+   "description": "이 워크트리에는 세션 이전부터 frontend/ 전반에 CRLF 차이가 있다. AC-8 을 git diff 로 검증할 때 --ignore-cr-at-eol 를 빠뜨리면 손대지 않은 CSS 5개가 변경으로, hex 줄 230개가 바뀐 것으로 잡혀 통과할 것이 실패로 보인다.",
+   "mitigation": "T-PH001-05 의 verification_cmd 에 --ignore-cr-at-eol 를 박아 두었다. 실측으로 확인: 그 옵션을 주면 5개 파일 전부 diff 0줄이다.",
+   "affected_task_ids": [
+    "T-PH001-05"
+   ]
+  },
+  {
+   "id": "R-05",
+   "severity": "high",
+   "description": "WSL 에서 server 테스트를 npx tsx 로 돌리면 esbuild 가 win32 바이너리라 프로세스가 죽고 exit 1 을 낸다. 그 exit 1 은 단언 실패와 구별되지 않아 'red 를 봤다' 고 오판하게 만든다 — 실제로 이번에 한 번 오판했다.",
+   "mitigation": "server 테스트는 Windows 에서 돌린다. 그리고 red 를 봤다고 말하기 전에 실패 출력에 테스트 이름이 들어 있는지 확인한다 — 러너가 죽으면 파일 이름만 나온다.",
    "affected_task_ids": [
     "T-PH002-01",
     "T-PH002-02"

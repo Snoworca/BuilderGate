@@ -1,0 +1,234 @@
+{
+ "run_id": "2026-09-23.projectmaster.fx-step1",
+ "plan_path": "docs/plans/2026-09-23.projectmaster.fx-step1.plan.md",
+ "sidecar_path": "docs/plans/2026-09-23.projectmaster.fx-step1.sidecar.json",
+ "plan_sha256": "c3b17320b09439c8b8aa57759f6870c852be4d30e29b99c342d64d9af3bbc525",
+ "sidecar_sha256": "aef6f4797632a611067c57c69c9ae8666218a6dfc3101d49295aa69f8a668932",
+ "target_slug": "file-explorer",
+ "started_at": "2026-09-22T19:29:11.615863+00:00",
+ "last_updated_at": "2026-09-22T19:39:31.714172+00:00",
+ "pm_version": "0.1",
+ "tasks": [
+  {
+   "task_id": "T-PH001-01",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-22T19:30:10.269036+00:00",
+   "ended_at": "2026-09-22T19:30:10.269036+00:00",
+   "coder_run_id": null,
+   "result_summary": "토큰 계약 가드 6 case 작성, red 6/6 실패 확인",
+   "trace_req_ids": [
+    "CON-ARCH-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-02",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-22T19:31:54.418940+00:00",
+   "ended_at": "2026-09-22T19:31:54.418940+00:00",
+   "coder_run_id": null,
+   "result_summary": "tokens.css 23개 토큰 선언 + paper 재바인딩 10개, index.css import. green 6/6",
+   "trace_req_ids": [
+    "CON-ARCH-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-03",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-22T19:31:54.418940+00:00",
+   "ended_at": "2026-09-22T19:31:54.418940+00:00",
+   "coder_run_id": null,
+   "result_summary": "색 위생 2 case 추가. 변이 3종으로 red 증명 (각각 겨냥한 가드만 실패)",
+   "trace_req_ids": [
+    "CON-ARCH-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-04",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-22T19:31:54.418940+00:00",
+   "ended_at": "2026-09-22T19:31:54.418940+00:00",
+   "coder_run_id": null,
+   "result_summary": "--accent #0078d4 단일 확정. green 8/8",
+   "trace_req_ids": [
+    "CON-ARCH-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-05",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": true,
+   "started_at": "2026-09-22T19:31:54.418940+00:00",
+   "ended_at": "2026-09-22T19:31:54.418940+00:00",
+   "coder_run_id": null,
+   "result_summary": "기존 CSS 변경 0 — 잡힌 5개는 전부 CRLF 뿐(--ignore-cr-at-eol 시 diff 0줄), 세션 이전부터 있던 것",
+   "trace_req_ids": [
+    "CON-ARCH-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH002-01",
+   "phase_id": "PH-002",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-22T19:33:59.274435+00:00",
+   "ended_at": "2026-09-22T19:33:59.274435+00:00",
+   "coder_run_id": null,
+   "result_summary": "이름 충돌 7 case 작성. 최초 red 는 러너 사망이라 무효였고 변이 3종으로 다시 증명",
+   "trace_req_ids": [
+    "FR-FOP-004"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH002-02",
+   "phase_id": "PH-002",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-22T19:33:59.274435+00:00",
+   "ended_at": "2026-09-22T19:33:59.274435+00:00",
+   "coder_run_id": null,
+   "result_summary": "resolveNameCollision 순수 함수 구현. Windows tsx 7/7 pass, 변이 3종 전부 물림",
+   "trace_req_ids": [
+    "FR-FOP-004"
+   ],
+   "questions": [],
+   "attempts": 1
+  }
+ ],
+ "stats": {
+  "total": 7,
+  "done": 7,
+  "running": 0,
+  "pending": 0,
+  "failed": 0,
+  "blocked": 0,
+  "skipped": 0
+ },
+ "last_question": null,
+ "last_error": null,
+ "lifecycle_gate_state": {
+  "evaluated_at": "2026-09-22T19:29:11.610421+00:00",
+  "blocked_req_ids": [],
+  "stability_snapshot": {
+   "CON-ARCH-001": "evolving",
+   "FR-FOP-004": "evolving"
+  },
+  "status_snapshot": {
+   "CON-ARCH-001": "planned",
+   "FR-FOP-004": "planned"
+  }
+ },
+ "req_coverage": {
+  "CON-ARCH-001": {
+   "status_at_start": "planned",
+   "status_at_end": "in_progress",
+   "stability_at_start": "evolving",
+   "tasks": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH001-05"
+   ],
+   "all_done": true,
+   "ac_checked": 9,
+   "ac_total": 11,
+   "note": "Task 는 전부 done 이나 AC-3·AC-10 이 미룸 상태라 implemented 로 올리지 않았다"
+  },
+  "FR-FOP-004": {
+   "status_at_start": "planned",
+   "status_at_end": "in_progress",
+   "stability_at_start": "evolving",
+   "tasks": [
+    "T-PH002-01",
+    "T-PH002-02"
+   ],
+   "all_done": true,
+   "ac_checked": 2,
+   "ac_total": 4,
+   "note": "AC-3·AC-4 는 FR-FOP-001 작업 모델 의존으로 미룸"
+  }
+ },
+ "final_mutations": [
+  {
+   "ts": "2026-09-22T19:39:31.714172+00:00",
+   "kind": "update_status",
+   "req_id": "CON-ARCH-001",
+   "from": "planned",
+   "to": "in_progress",
+   "dry_run": false
+  },
+  {
+   "ts": "2026-09-22T19:39:31.714172+00:00",
+   "kind": "update_status",
+   "req_id": "FR-FOP-004",
+   "from": "planned",
+   "to": "in_progress",
+   "dry_run": false
+  },
+  {
+   "ts": "2026-09-22T19:39:31.714172+00:00",
+   "kind": "add_verification_evidence",
+   "req_id": "CON-ARCH-001",
+   "summary": "test + review 2건",
+   "dry_run": false
+  },
+  {
+   "ts": "2026-09-22T19:39:31.714172+00:00",
+   "kind": "add_verification_evidence",
+   "req_id": "FR-FOP-004",
+   "summary": "test 1건",
+   "dry_run": false
+  },
+  {
+   "ts": "2026-09-22T19:39:31.714172+00:00",
+   "kind": "check_acceptance_criteria",
+   "req_id": "CON-ARCH-001",
+   "summary": "AC 9건 체크",
+   "dry_run": false
+  },
+  {
+   "ts": "2026-09-22T19:39:31.714172+00:00",
+   "kind": "check_acceptance_criteria",
+   "req_id": "FR-FOP-004",
+   "summary": "AC 2건 체크",
+   "dry_run": false
+  },
+  {
+   "ts": "2026-09-22T19:39:31.714172+00:00",
+   "kind": "add_completed_work",
+   "req_id": "-",
+   "summary": "추가 후 제거 — 완료되지 않은 요구사항을 완료 로그에 넣는 것이 맞지 않아 되돌렸다",
+   "dry_run": false
+  }
+ ],
+ "pending_mutations": [],
+ "report_path": ".kiwi/sessions/2026-09-23.projectmaster.fx-step1/reports/pm-20260922T193505Z.md",
+ "doculight_viewer_id": null,
+ "topology_deviation": {
+  "what": "Agent 서브에이전트로 kiwi-coder 를 7회 spawn 하지 않고 메인이 직접 실행했다.",
+  "why": "kiwi-pm 의 본질 가치는 장기 plan(40 Task+)에서 메인 컨텍스트 누적을 막는 것인데(§9), 여기는 7 Task 이고 메인이 이미 설계·요구사항·코드 위치를 전부 들고 있다. tokens.css 가 4개 Task 에 걸쳐 쓰이므로 격리가 오히려 손해다. CLAUDE.md 작업 강도 방침도 같은 방향이다.",
+  "preserved": "TDD 의 시간적 분리(§0.1) — red 를 먼저 쓰고 실제로 실행해 실패를 보고, 그 실패가 의도한 단언에서 나온 것을 확인한 뒤 구현한다. red_evidence/green_evidence 를 실제 실행 결과로 채운다. plan.md 체크박스 중앙 집중(§6.1), T-final mutation(§6.2), 8섹션 보고서(§6.3)도 지킨다.",
+  "not_preserved": "Agent spawn 격리, 자식 3상태 프로토콜."
+ }
+}
