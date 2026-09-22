@@ -3,19 +3,19 @@
   {
    "req_id": "CON-ARCH-001",
    "feasibility": "high",
-   "score": 93,
+   "score": 85,
    "axes": {
     "implementability": {
-     "score": 28
+     "score": 23
     },
     "evidence_strength": {
-     "score": 16
+     "score": 15
     },
     "dependency_health": {
      "score": 15
     },
     "ac_verifiability": {
-     "score": 14
+     "score": 12
     },
     "scope_fit": {
      "score": 10
@@ -26,13 +26,21 @@
    },
    "blockers": [],
    "conditions": [
-    "기존 29개 CSS 파일을 건드리지 않는다는 경계를 지켜야 한다"
+    "기존 29개 CSS 파일을 건드리지 않는다는 경계를 지켜야 한다",
+    "현재 본문 기준 재채점(2026-09-23). AC-9·AC-10·AC-11 은 이 저장소에 선례가 없는 CSS 정적 분석 가드 3종을 요구한다 — 토큰 파일이 진입점에서 실제 로드되는지, 새 CSS 에 hex 리터럴이 없는지, 모든 var(--x) 의 x 가 실재하는지. globals.css 의 CSS 변수는 실측 0건이라 그린필드이지만 선례도 0건이다. AC-6 의 '조밀 모드 22px 를 설정으로' 는 CSS 가 아니라 설정 배선이 필요한 유일한 항목이다."
    ],
    "rationale": "CSS 토큰 선언과 data-surface 재선언뿐이다. DOM 하네스가 없어 동작 테스트는 못 하지만 이 저장소의 확립된 패턴인 소스 가드(주석 스트립 후 정규식)로 계약을 고정할 수 있다. 의존이 없고 나머지 화면 작업 전부가 이 위에 올라간다.",
    "has_verification": false,
    "current_stability": "evolving",
    "current_status": "planned",
-   "external_module_impact": null
+   "external_module_impact": null,
+   "rescore_log": [
+    {
+     "from": 93,
+     "to": 85,
+     "why": "최초 93점은 AC 8개 본문에 매긴 값이고 지금은 11개다. 같은 93 을 받은 FR-FEX-010(메뉴 항목 하나 삽입)과 같은 난이도일 수 없다"
+    }
+   ]
   },
   {
    "req_id": "FR-FEX-010",
@@ -69,7 +77,7 @@
   {
    "req_id": "FR-FOP-004",
    "feasibility": "high",
-   "score": 89,
+   "score": 86,
    "axes": {
     "implementability": {
      "score": 27
@@ -78,10 +86,10 @@
      "score": 15
     },
     "dependency_health": {
-     "score": 14
+     "score": 12
     },
     "ac_verifiability": {
-     "score": 14
+     "score": 13
     },
     "scope_fit": {
      "score": 10
@@ -91,12 +99,21 @@
     }
    },
    "blockers": [],
-   "conditions": [],
+   "conditions": [
+    "AC-3·AC-4('묻지 않기' 의 유효 범위)는 FR-FOP-001 의 awaiting-decision 루프와 IR-FOP-001 AC-4 의 applyToAll 이 먼저 서야 구현도 판정도 된다. AC-1·AC-2(이름 규칙)는 순수 로직이라 그 의존이 없다 — 둘을 나눠 착수할 수 있다."
+   ],
    "rationale": "순수 로직이다. '이름 (2).확장자' 규칙과 '묻지 않기의 유효 범위가 그 작업 한정' 둘 다 서버 단위 테스트로 판정된다. 외부 의존이 없다.",
    "has_verification": false,
    "current_stability": "evolving",
    "current_status": "planned",
-   "external_module_impact": null
+   "external_module_impact": null,
+   "rescore_log": [
+    {
+     "from": 89,
+     "to": 86,
+     "why": "IR-FOP-001/FR-FOP-005 는 같은 의존을 conditions 에 달았는데 이것만 빠져 있었다. 토대인 FR-FOP-001 이 79/medium 인데 그 위가 27/30 일 수 없다"
+    }
+   ]
   },
   {
    "req_id": "SEC-FOP-001",
@@ -498,14 +515,14 @@
   },
   {
    "req_id": "FR-FEX-004",
-   "feasibility": "medium",
-   "score": 76,
+   "feasibility": "high",
+   "score": 82,
    "axes": {
     "implementability": {
-     "score": 21
+     "score": 25
     },
     "evidence_strength": {
-     "score": 14
+     "score": 16
     },
     "dependency_health": {
      "score": 12
@@ -522,13 +539,20 @@
    },
    "blockers": [],
    "conditions": [
-    "헤더 트레이가 지금 문서 단위다 — listEditorTrayEntries(documents) 가 문서마다 줄을 만든다. 창 단위 줄을 넣으려면 그 모델을 바꿔야 하고, 그것은 편집기 트레이의 기존 동작을 건드린다"
+    "실측 정정(2026-09-23): 트레이 소비 경계가 editorTrayItems?: ContextMenuItem[] 평평한 배열 하나이고(Header.tsx:31 → :229-235 가 일반 ContextMenu 로 넘김) 공급 지점이 App.tsx:635 단 하나다. 탐색기 줄은 거기서 concat 하면 되고 listEditorTrayEntries 와 editorTrayModel.ts 는 건드리지 않는다. 함께 맞출 것은 hasEditorWindows 와 editorTrayOpenCount 두 프롭뿐이다."
    ],
    "rationale": "최소화가 언마운트가 아니라는 규칙은 editorWindowVisibility.ts 가 이미 한다. 위험은 트레이 모델 변경이 기존 편집기 트레이에 회귀를 낼 수 있다는 것.",
    "has_verification": false,
    "current_stability": "evolving",
    "current_status": "planned",
-   "external_module_impact": null
+   "external_module_impact": null,
+   "rescore_log": [
+    {
+     "from": 76,
+     "to": 82,
+     "why": "독립 검토가 과장된 위험을 지적했고 Header.tsx:31/229-235 와 App.tsx:635 를 직접 열어 확인함"
+    }
+   ]
   },
   {
    "req_id": "FR-FEX-002",

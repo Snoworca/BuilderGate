@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-22T19:15:57.911Z",
+  "generatedAt": "2026-09-22T19:27:13.636Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "7cce7e249507484cecfeb729f46808d6f69aaa910095ac06703c28330abd289b",
+    "value": "879b44f1049ec888ee344520c228eb5aa67b5d62621178eea7ed4939e71ed086",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -14,9 +14,9 @@
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "0fe07e4ce6a06d9583c483c1daa635d537c1872b88715b7a123d34f44d664c59",
-        "size": 22222,
-        "mtimeMs": 1790104267797.8281
+        "sha256": "7027ab717255769b25cd63f12419de4a288c10ea8733b05b0e0517f4ea5cdfc7",
+        "size": 23830,
+        "mtimeMs": 1790105217748.373
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
@@ -38,21 +38,21 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "c69fa32b55eeb23d7f74ff6bf4978ea48e8899434d5bf06048f25895b13a481d",
-        "size": 214522,
-        "mtimeMs": 1790104557010.1223
+        "sha256": "7bae029119c9a90f49144adde32a7ea8ab9342122efe6c2a51ca19d37e98bc82",
+        "size": 215152,
+        "mtimeMs": 1790104596891.085
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "d2a5e2450e551ceddab0537b19355e6c5bc35edd3b279f9b5179ce13ed82705e",
-        "size": 32446,
-        "mtimeMs": 1790104497070.7712
+        "sha256": "190f46aa7354d6e6e1e4805809db19af49995e485521cd82a4f03caad6234fa9",
+        "size": 33429,
+        "mtimeMs": 1790105019365.9734
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "806cd2504fc7664270091040cc59d9ebdebd87e077251d756a7746324eb93c85",
-        "size": 21472,
-        "mtimeMs": 1790104539940.5835
+        "sha256": "6a17a63a8ced6cb54ef2a876f93ce151696469c0d8817b6efc30ee82d00e76db",
+        "size": 23312,
+        "mtimeMs": 1790105232374.322
       },
       {
         "path": "docs/spec/90.appendix.md",

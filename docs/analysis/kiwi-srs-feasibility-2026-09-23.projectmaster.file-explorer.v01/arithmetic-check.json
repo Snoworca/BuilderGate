@@ -1,0 +1,16 @@
+{
+  "note": "메인 세션이 평가자와 독립적으로 수행한 산술 검증. 두 값이 일치해야 의미가 있으므로 평가자 결과를 기다리지 않고 따로 계산했다.",
+  "checked": 22,
+  "sum_mismatches": 0,
+  "label_mismatches": 0,
+  "axis_over_cap": 0,
+  "axis_averages_pct_of_cap": {
+    "implementability": 79,
+    "evidence_strength": 72,
+    "dependency_health": 84,
+    "ac_verifiability": 85,
+    "scope_fit": 96,
+    "product_fit": 87
+  },
+  "reading": "evidence_strength 가 72% 로 가장 낮고 scope_fit 이 96% 로 가장 높다. 둘 다 예상과 맞는다 — 22건 중 대부분이 아직 없는 코드를 가리키는 addition_site 라 증거가 약할 수밖에 없고(그것이 이 단계의 정상 상태다), 반대로 scope 경계는 설계안이 13절에서 '다루지 않은 것' 을 명시적으로 그어 두어 누수가 거의 없다. 이 두 숫자가 반대였다면 판정을 의심해야 했다."
+}

@@ -1,0 +1,119 @@
+[
+ {
+  "id": "CON-ARCH-001",
+  "stability": "evolving",
+  "ac_total": 11,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6",
+   "AC-7",
+   "AC-8",
+   "AC-9",
+   "AC-10",
+   "AC-11"
+  ]
+ },
+ {
+  "id": "FR-FOP-001",
+  "stability": "evolving",
+  "ac_total": 5,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5"
+  ]
+ },
+ {
+  "id": "FR-FOP-002",
+  "stability": "evolving",
+  "ac_total": 5,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5"
+  ]
+ },
+ {
+  "id": "IR-FOP-001",
+  "stability": "evolving",
+  "ac_total": 6,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6"
+  ]
+ },
+ {
+  "id": "IR-FOP-002",
+  "stability": "evolving",
+  "ac_total": 7,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6",
+   "AC-7"
+  ]
+ },
+ {
+  "id": "FR-FOP-003",
+  "stability": "evolving",
+  "ac_total": 5,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5"
+  ]
+ },
+ {
+  "id": "FR-FOP-004",
+  "stability": "evolving",
+  "ac_total": 4,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4"
+  ]
+ },
+ {
+  "id": "FR-FOP-005",
+  "stability": "evolving",
+  "ac_total": 6,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6"
+  ]
+ },
+ {
+  "id": "SEC-FOP-001",
+  "stability": "evolving",
+  "ac_total": 5,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5"
+  ]
+ }
+]
