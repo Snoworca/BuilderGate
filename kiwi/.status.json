@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-22T19:12:30.562Z",
+  "generatedAt": "2026-09-22T19:15:57.911Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "0e5f484b9f0d371018ce1cdbf7f154048e0fe8e85ed761945bec1fafa535e1c0",
+    "value": "7cce7e249507484cecfeb729f46808d6f69aaa910095ac06703c28330abd289b",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -38,21 +38,21 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "78080223dd0c354703fb5db6eb58514372ebbaa7101323cbc8c9933412acd60d",
-        "size": 214174,
-        "mtimeMs": 1790103539838.4753
+        "sha256": "c69fa32b55eeb23d7f74ff6bf4978ea48e8899434d5bf06048f25895b13a481d",
+        "size": 214522,
+        "mtimeMs": 1790104557010.1223
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "3c1627152c5838c0738460b8804d6ab5bc4fbc868e1d589f7d517685c8233e9c",
-        "size": 31697,
-        "mtimeMs": 1790104350317.2214
+        "sha256": "d2a5e2450e551ceddab0537b19355e6c5bc35edd3b279f9b5179ce13ed82705e",
+        "size": 32446,
+        "mtimeMs": 1790104497070.7712
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "3d3e9d5d2078b8020c47d2ae3b294639587d00060c95de6e69efc2e98e775a73",
-        "size": 20390,
-        "mtimeMs": 1790103895577.236
+        "sha256": "806cd2504fc7664270091040cc59d9ebdebd87e077251d756a7746324eb93c85",
+        "size": 21472,
+        "mtimeMs": 1790104539940.5835
       },
       {
         "path": "docs/spec/90.appendix.md",
