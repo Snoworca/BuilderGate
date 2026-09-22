@@ -1,22 +1,22 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-22T10:50:15.242Z",
+  "generatedAt": "2026-09-22T17:53:32.325Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "90cca3695a6598289494bb10faa9c57c8e15face5055a46fc3e34321b54fba45",
+    "value": "a6448709bbf24c462dcae863fcd7ea055fec938a198cff2613be1432baeec075",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "b78db238a1a3e32c7bf75b262860a49b6ec8daf369fde2a4d7c360c1782f52fc",
-        "size": 5867,
-        "mtimeMs": 1789502103435.5637
+        "sha256": "0f1a66ab9ebf00025fe768c5ac4e7338f2e5c2685d68284bc81927e016272c81",
+        "size": 6774,
+        "mtimeMs": 1790098988342.629
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "7f7ff64ab632c468d3b8cb6877f3ed3b4905ba3955aef141703eca882e5b4b65",
-        "size": 18460,
-        "mtimeMs": 1779081464397.9382
+        "sha256": "655a7b0a2463c6bf2ae7f296d501bc0dec62478a1e43c9f0870bfc0b939d26bb",
+        "size": 20667,
+        "mtimeMs": 1790099579187.5571
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
@@ -38,9 +38,21 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "b55b81626d36630807c6ff2d8572520e5276514a7b02a265a022ed665f51fab1",
-        "size": 210672,
-        "mtimeMs": 1790074195045.7422
+        "sha256": "033930a43edd2d9914876ca66dc46c3816ed1a65c0aa8eb614e0a174e35cfa57",
+        "size": 213889,
+        "mtimeMs": 1790099587190.2004
+      },
+      {
+        "path": "docs/spec/42.file-explorer.srs.md",
+        "sha256": "6383b70ea20a6260e9f113b810554fae3fa317edff99b88b7e84ff91a6bb42d5",
+        "size": 27058,
+        "mtimeMs": 1790099594403.21
+      },
+      {
+        "path": "docs/spec/43.file-operations.srs.md",
+        "sha256": "0931fb2141d50903924cb91f062dca37b9748f25a3f6d64621df3e5fa59c9c69",
+        "size": 16451,
+        "mtimeMs": 1790099594408.3035
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -56,11 +68,20 @@
       "AITUI": 5,
       "BGSTAB": 26,
       "MCP": 6,
-      "MDE": 11
+      "MDE": 12,
+      "FEX": 11,
+      "FOP": 5
+    },
+    "constraint": {
+      "ARCH": 1,
+      "BGSTAB": 1,
+      "MDE": 2,
+      "FEX": 1
     },
     "security": {
       "AITUI": 2,
-      "MCP": 3
+      "MCP": 3,
+      "FOP": 1
     },
     "reliability": {
       "AITUI": 1,
@@ -83,11 +104,8 @@
     "interface": {
       "BGSTAB": 2,
       "MCP": 5,
-      "MDE": 1
-    },
-    "constraint": {
-      "BGSTAB": 1,
-      "MDE": 2
+      "MDE": 1,
+      "FOP": 2
     }
   },
   "lock": {
