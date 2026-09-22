@@ -1,0 +1,13 @@
+{
+ "policy_source": "project",
+ "policy_path": ".kiwi/feasibility-policy.yaml",
+ "diverges_from_default": true,
+ "divergence": "medium -> evolving (스킬 기본 §0.G6 은 keep). 파일 상단의 근거: 이 저장소의 요구사항은 draft 에서 시작하는데 draft 는 구현 진입을 아예 막으므로, medium 을 keep 하면 결정을 미루는 것이 아니라 영구히 거부하는 것이 된다. medium 은 '더 어렵다' 이지 '시작할 수 없다' 가 아니다.",
+ "effect_here": "이번 대상 22건은 이미 전부 evolving 이라 divergence 가 결과를 바꾸지 않는다. 그러나 출처를 default 로 보고했다면 틀린 보고가 됐을 것이다.",
+ "gates": {
+  "status_conflict_policy": "warn",
+  "require_user_confirm_for_stable": true,
+  "require_user_confirm_for_deprecated": true
+ },
+ "reason_template": "Feasibility={feasibility} (score {score}). {blocker_summary} Run: {run_id}"
+}

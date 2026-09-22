@@ -1,0 +1,19 @@
+{
+  "mcp": false, "cli": true, "halted": false, "mode": "cli-fallback",
+  "mcp_skip_reason": "CLAUDE.md #100 — MCP mutation 이 workspaceRoot 오버라이드를 거부하고 서버 프로세스 cwd 로 루트를 해석해 다른 체크아웃에 쓴다",
+  "tools_detected": {
+    "update_stability": "cli: speckiwi update-stability",
+    "get_active_target": "cli: speckiwi active-target",
+    "list_requirements": "cli: speckiwi list",
+    "get_requirement": "cli: speckiwi show",
+    "validate_spec": "cli: speckiwi validate",
+    "summarize_target": "cli: speckiwi summary",
+    "tag_mutation": false
+  },
+  "topology_deviation": {
+    "what": "스킬 기본 토폴로지(프리스크린 ceil(22/5)=5 + Opus 시니어 22 + 평가자 2~3/iter)를 쓰지 않았다. 판정은 메인이 직접 하고 평가자만 별도 서브에이전트로 띄웠다.",
+    "why": "CLAUDE.md 작업 강도 방침 — '리뷰 라운드는 기본 1회', '검증 장치의 정밀도를 목적으로 삼지 않는다', '속도를 우선한다'. 메인 세션이 이미 22건을 직접 작성했고 인용한 코드 위치를 전부 열어 확인한 상태라 시니어 재분석의 한계효용이 낮다.",
+    "preserved": "§0.1 (검증자는 별도 서브에이전트, 인라인 자가검증 금지) 과 §0.2 (평가자 입력 격리 — rationale strip) 는 그대로 지켰다. 이 둘이 스킬의 핵심 제약이다.",
+    "not_preserved": "프리스크린·시니어 청크 분할. 판정 근거는 per-req-judgement.json 에 코드 증거와 함께 남긴다."
+  }
+}

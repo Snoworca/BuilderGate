@@ -1,0 +1,740 @@
+{
+ "judgements": [
+  {
+   "req_id": "CON-ARCH-001",
+   "feasibility": "high",
+   "score": 93,
+   "axes": {
+    "implementability": {
+     "score": 28
+    },
+    "evidence_strength": {
+     "score": 16
+    },
+    "dependency_health": {
+     "score": 15
+    },
+    "ac_verifiability": {
+     "score": 14
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 10
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "기존 29개 CSS 파일을 건드리지 않는다는 경계를 지켜야 한다"
+   ],
+   "rationale": "CSS 토큰 선언과 data-surface 재선언뿐이다. DOM 하네스가 없어 동작 테스트는 못 하지만 이 저장소의 확립된 패턴인 소스 가드(주석 스트립 후 정규식)로 계약을 고정할 수 있다. 의존이 없고 나머지 화면 작업 전부가 이 위에 올라간다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-010",
+   "feasibility": "high",
+   "score": 93,
+   "axes": {
+    "implementability": {
+     "score": 28
+    },
+    "evidence_strength": {
+     "score": 18
+    },
+    "dependency_health": {
+     "score": 15
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [],
+   "rationale": "가장 작다. buildEditorFileMenuItems 가 EDITOR_INSTRUCTION_FILES.map 한 줄이라 앞에 항목과 구분선을 끼우면 끝이고 반환 타입도 그대로다. MetadataRow:79 가 이미 onPathContextMenu 를 물고 있다. 터미널 메뉴 항목 추가만 새 배선이다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FOP-004",
+   "feasibility": "high",
+   "score": 89,
+   "axes": {
+    "implementability": {
+     "score": 27
+    },
+    "evidence_strength": {
+     "score": 15
+    },
+    "dependency_health": {
+     "score": 14
+    },
+    "ac_verifiability": {
+     "score": 14
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [],
+   "rationale": "순수 로직이다. '이름 (2).확장자' 규칙과 '묻지 않기의 유효 범위가 그 작업 한정' 둘 다 서버 단위 테스트로 판정된다. 외부 의존이 없다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "SEC-FOP-001",
+   "feasibility": "high",
+   "score": 90,
+   "axes": {
+    "implementability": {
+     "score": 26
+    },
+    "evidence_strength": {
+     "score": 18
+    },
+    "dependency_health": {
+     "score": 14
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [],
+   "rationale": "resolveAndValidate 와 config.blockedPaths 가 이미 있고 그대로 쓴다. AC-5(거부를 사용자에게 보임)만 새 경로다. FileService.ts:171 을 직접 확인했다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "IR-FOP-001",
+   "feasibility": "high",
+   "score": 86,
+   "axes": {
+    "implementability": {
+     "score": 26
+    },
+    "evidence_strength": {
+     "score": 15
+    },
+    "dependency_health": {
+     "score": 13
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "FR-FOP-001 의 작업 모델이 먼저 있어야 한다"
+   ],
+   "rationale": "fileRoutes.ts 에 라우트 넷을 더한다. 출발지/목적지 세션을 따로 검증하는 것이 유일한 새 규칙이고 그것도 기존 resolveAndValidate 를 두 번 부르는 형태다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-006",
+   "feasibility": "high",
+   "score": 87,
+   "axes": {
+    "implementability": {
+     "score": 26
+    },
+    "evidence_strength": {
+     "score": 16
+    },
+    "dependency_health": {
+     "score": 13
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [],
+   "rationale": "ContextMenu 모델(:16-45)과 useLongPress 가 그대로 쓰인다. 결정 15(선택 유지)는 순수 함수로 뽑으면 DOM 없이 판정된다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-011",
+   "feasibility": "high",
+   "score": 87,
+   "axes": {
+    "implementability": {
+     "score": 26
+    },
+    "evidence_strength": {
+     "score": 16
+    },
+    "dependency_health": {
+     "score": 13
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [],
+   "rationale": "viewableExtensions 재사용. 클릭 의미 표는 전부 순수 판정 함수로 뽑을 수 있다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-003",
+   "feasibility": "high",
+   "score": 86,
+   "axes": {
+    "implementability": {
+     "score": 25
+    },
+    "evidence_strength": {
+     "score": 16
+    },
+    "dependency_health": {
+     "score": 13
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "CON-MDE-001 의 3000번대 z-대역을 공유한다"
+   ],
+   "rationale": "WindowDialog mode=modeless 와 dialogStack.raiseDialogById 가 이미 한다. 탭 모델은 편집기 것을 따른다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "CON-FEX-001",
+   "feasibility": "high",
+   "score": 86,
+   "axes": {
+    "implementability": {
+     "score": 25
+    },
+    "evidence_strength": {
+     "score": 17
+    },
+    "dependency_health": {
+     "score": 13
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 8
+    }
+   },
+   "blockers": [],
+   "conditions": [],
+   "rationale": "제약이라 구현이 아니라 '하지 않음' 을 지키는 일이다. 노드 목록에서 빼는 것은 훅 한 줄이고, 여섯 조작이 닿지 않는 것은 소스 가드와 순수 함수 테스트로 고정한다. FileService.ts:169-178 확인함.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-005",
+   "feasibility": "high",
+   "score": 84,
+   "axes": {
+    "implementability": {
+     "score": 25
+    },
+    "evidence_strength": {
+     "score": 15
+    },
+    "dependency_health": {
+     "score": 13
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 9
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "편집기 패널에서는 포커스 범위를 트리 패널로 좁혀야 한다 (FR-MDE-012 와 결합)"
+   ],
+   "rationale": "editorWindowSaveShortcut.ts 의 포커스 판정 방식을 그대로 따른다. 클립보드는 애플리케이션 전역 값 하나라 단순하다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FOP-002",
+   "feasibility": "high",
+   "score": 84,
+   "axes": {
+    "implementability": {
+     "score": 25
+    },
+    "evidence_strength": {
+     "score": 14
+    },
+    "dependency_health": {
+     "score": 13
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [],
+   "rationale": "fs.cp 를 걸어 다니는 구현으로 바꾸는 것은 잘 알려진 작업이다. scanning/transferring 분리와 삭제의 항목 수 진행률까지 서버 테스트로 판정된다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-001",
+   "feasibility": "high",
+   "score": 83,
+   "axes": {
+    "implementability": {
+     "score": 24
+    },
+    "evidence_strength": {
+     "score": 14
+    },
+    "dependency_health": {
+     "score": 13
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "useFileBrowser 를 확장하지 않고 새로 만든다"
+   ],
+   "rationale": "훅 하나. 가변 뿌리·두 모드·캐시 공유가 전부 순수 상태 전이라 DOM 없이 테스트된다. 기존 useFileBrowser(149행)는 한 디렉터리만 담아 출발점이 아니다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FOP-005",
+   "feasibility": "high",
+   "score": 81,
+   "axes": {
+    "implementability": {
+     "score": 23
+    },
+    "evidence_strength": {
+     "score": 14
+    },
+    "dependency_health": {
+     "score": 12
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "FR-FOP-001 의 작업 모델 필요"
+   ],
+   "rationale": "'쓰다 만 파일 하나만 지운다' 가 진행 중 목적지 경로를 추적하고 있어야 성립한다. 작업 모델에 그 필드를 넣으면 되지만 스트림 중단 시점 처리가 조심스럽다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FOP-001",
+   "feasibility": "medium",
+   "score": 79,
+   "axes": {
+    "implementability": {
+     "score": 22
+    },
+    "evidence_strength": {
+     "score": 13
+    },
+    "dependency_health": {
+     "score": 12
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "결정 대기 상태가 프로세스 재시작을 넘지 못한다 — 서버가 죽으면 진행 중 작업은 사라진다"
+   ],
+   "rationale": "상태 기계 자체는 어렵지 않으나 이 저장소에 작업 레지스트리에 해당하는 것이 없어 통째로 새로 만든다. copyFile/moveFile/deleteFile(313-410)이 동기 단발이라 감싸는 층이 필요하다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "IR-FOP-002",
+   "feasibility": "high",
+   "score": 81,
+   "axes": {
+    "implementability": {
+     "score": 24
+    },
+    "evidence_strength": {
+     "score": 13
+    },
+    "dependency_health": {
+     "score": 12
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 10
+    },
+    "product_fit": {
+     "score": 9
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "wsProtocolParityAck.test.ts 의 메시지 목록을 함께 갱신해야 한다 — 빠뜨리면 그 테스트가 빨개진다"
+   ],
+   "rationale": "ServerWsMessage 에 세 종류를 더한다. 페이로드 필드를 이번에 AC 로 명시해서 네 요구사항의 판정 불가 상태가 풀렸다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-004",
+   "feasibility": "medium",
+   "score": 76,
+   "axes": {
+    "implementability": {
+     "score": 21
+    },
+    "evidence_strength": {
+     "score": 14
+    },
+    "dependency_health": {
+     "score": 12
+    },
+    "ac_verifiability": {
+     "score": 12
+    },
+    "scope_fit": {
+     "score": 9
+    },
+    "product_fit": {
+     "score": 8
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "헤더 트레이가 지금 문서 단위다 — listEditorTrayEntries(documents) 가 문서마다 줄을 만든다. 창 단위 줄을 넣으려면 그 모델을 바꿔야 하고, 그것은 편집기 트레이의 기존 동작을 건드린다"
+   ],
+   "rationale": "최소화가 언마운트가 아니라는 규칙은 editorWindowVisibility.ts 가 이미 한다. 위험은 트레이 모델 변경이 기존 편집기 트레이에 회귀를 낼 수 있다는 것.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-002",
+   "feasibility": "medium",
+   "score": 75,
+   "axes": {
+    "implementability": {
+     "score": 21
+    },
+    "evidence_strength": {
+     "score": 13
+    },
+    "dependency_health": {
+     "score": 12
+    },
+    "ac_verifiability": {
+     "score": 12
+    },
+    "scope_fit": {
+     "score": 9
+    },
+    "product_fit": {
+     "score": 8
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "maxDirectoryEntries 기본값이 10000 이다. 목록 뷰가 1만 행을 DOM 으로 그릴 수 없으므로 가상 스크롤을 넣거나 목록 전용 상한을 따로 둬야 한다 — 설계안 14절이 '실측 후 정한다' 로 남긴 미결이고 이번에 실측됐다"
+   ],
+   "rationale": "모드 전환과 정렬 자체는 쉽다. 위험은 전부 규모에서 온다. totalEntries 가 limit 적용 전 값이라 잘림 검출은 가능하다(FileService.ts:161).",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-008",
+   "feasibility": "medium",
+   "score": 74,
+   "axes": {
+    "implementability": {
+     "score": 21
+    },
+    "evidence_strength": {
+     "score": 12
+    },
+    "dependency_health": {
+     "score": 11
+    },
+    "ac_verifiability": {
+     "score": 13
+    },
+    "scope_fit": {
+     "score": 9
+    },
+    "product_fit": {
+     "score": 8
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "세 자리 중 하단 상태바는 App.tsx 에 새 영역을 만든다 — 기존 레이아웃을 건드리는 유일한 요구사항이다"
+   ],
+   "rationale": "StatusBar.tsx 는 재사용하지 않는다(negative trace). 진행 줄·상태바·팝오버 셋이 같은 작업 목록을 보는 구조라 상태를 한 곳에 둬야 한다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FOP-003",
+   "feasibility": "medium",
+   "score": 72,
+   "axes": {
+    "implementability": {
+     "score": 20
+    },
+    "evidence_strength": {
+     "score": 12
+    },
+    "dependency_health": {
+     "score": 11
+    },
+    "ac_verifiability": {
+     "score": 12
+    },
+    "scope_fit": {
+     "score": 9
+    },
+    "product_fit": {
+     "score": 8
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "'멈춰 있는 시간의 총합 10분' 은 짐작값이고, 그 총합을 어디서 누적하는지가 정해져 있지 않다"
+   ],
+   "rationale": "작업을 세션에 매는 것은 FR-FOP-001 의 레지스트리가 하면 된다. 새로고침 복구는 GET /api/file-jobs 로 되지만 서버 재시작은 넘지 못한다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-009",
+   "feasibility": "medium",
+   "score": 72,
+   "axes": {
+    "implementability": {
+     "score": 20
+    },
+    "evidence_strength": {
+     "score": 13
+    },
+    "dependency_health": {
+     "score": 10
+    },
+    "ac_verifiability": {
+     "score": 12
+    },
+    "scope_fit": {
+     "score": 9
+    },
+    "product_fit": {
+     "score": 8
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "FR-FEX-007(창 범위 모달)과 FR-FOP-003(결정 대기) 둘이 먼저 서야 한다. 사슬에서 가장 약한 고리를 따라간다"
+   ],
+   "rationale": "reviveByPath 의 순서(minimized 해제 + 워크스페이스 전환 + raise)를 그대로 쓴다. 자체 난이도는 낮으나 의존이 둘 다 medium 이다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-MDE-012",
+   "feasibility": "medium",
+   "score": 72,
+   "axes": {
+    "implementability": {
+     "score": 20
+    },
+    "evidence_strength": {
+     "score": 12
+    },
+    "dependency_health": {
+     "score": 11
+    },
+    "ac_verifiability": {
+     "score": 12
+    },
+    "scope_fit": {
+     "score": 9
+    },
+    "product_fit": {
+     "score": 8
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "AC 가 13개로 가장 크다. 폭 조절·포커스 범위 좁히기·표면 적응이 한 요구사항에 묶여 있어 부분 완료를 판정하기 어렵다"
+   ],
+   "rationale": "EditorWindow.tsx:375 의 BODY_STYLE div 를 가로 배치로 감싸는 구조 변경이다. 포커스 범위를 창이 아니라 패널로 좁히는 것이 안전장치라 빠뜨리면 Delete 가 파일을 지운다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null
+  },
+  {
+   "req_id": "FR-FEX-007",
+   "feasibility": "medium",
+   "score": 70,
+   "axes": {
+    "implementability": {
+     "score": 18
+    },
+    "evidence_strength": {
+     "score": 12
+    },
+    "dependency_health": {
+     "score": 11
+    },
+    "ac_verifiability": {
+     "score": 12
+    },
+    "scope_fit": {
+     "score": 9
+    },
+    "product_fit": {
+     "score": 8
+    }
+   },
+   "blockers": [],
+   "conditions": [
+    "dialogStack 에 '창 하나만 막는 모달' 개념이 없다. 지금은 modal/modeless 두 대역뿐이고, 포커스를 창 표면 안에 가두는 장치를 새로 만들어야 한다 — 이 에픽에서 가장 새로운 기계다",
+    "실측 확인(WindowDialog.tsx:170-190): 기존 modal 포커스 격리는 document.body 의 모든 형제에 inert 를 건다. 부분 격리 장치가 없으므로 재사용분 0, 전부 새로 만든다. 최초 판정의 implementability 18/30 은 이 확인으로 유지되나 근거가 추정에서 실측으로 바뀌었다."
+   ],
+   "rationale": "전역 모달 대역을 쓰면 안 되는 이유(복사 중 터미널이 멈춤)가 분명해서 우회가 없다. 포커스 트랩은 접근성 회귀를 내기 쉬운 자리다.",
+   "has_verification": false,
+   "current_stability": "evolving",
+   "current_status": "planned",
+   "external_module_impact": null,
+   "evidence_verified_by_main": true
+  }
+ ]
+}

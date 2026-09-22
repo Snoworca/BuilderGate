@@ -1,0 +1,27 @@
+{
+  "note": "사용자 지시 '디자인 가이드도 함께 읽어서 디자인 규칙을 함께 지키며 진행하시오' 에 대한 규칙 목록. 출처는 설계안 10절(디자인 시스템)과 시안이다. 별도 디자인 가이드 파일은 이 저장소에 없다 — docs/wiki/04.frontend-architecture.md 에도 스타일 절이 없음을 확인했다. 각 규칙에 '어떻게 검사하는가' 를 붙였다. 검사할 수 없는 규칙은 지켜지지 않는다.",
+  "source": ["docs/plan/2026-09-12.file-explorer.design.md §10", "docs/plan/2026-09-12.file-explorer.mockup.html"],
+  "rules": [
+    {"id":"DR-1","rule":"새로 쓰는 컴포넌트 CSS 에 hex 색상 리터럴을 쓰지 않는다. 색은 전부 토큰 var() 로 참조한다.",
+     "check":"새 CSS 파일에 /#[0-9a-fA-F]{3,8}\\b/ 가 없다 (tokens.css 자신은 예외)","req":"CON-ARCH-001 AC-1"},
+    {"id":"DR-2","rule":"토큰 이름은 계약에 있는 것만 쓴다 — --bg-*, --fg-*, --line*, --accent*, --danger/warn/ok, --r-*, --row-h.",
+     "check":"새 CSS 가 참조하는 var(--x) 의 x 가 전부 tokens.css 의 :root 선언에 있다. 오타로 만들어진 죽은 토큰을 잡는다","req":"CON-ARCH-001 AC-1"},
+    {"id":"DR-3","rule":"표면에 따라 달라지는 값은 [data-surface=\"paper\"] 블록에서만 다시 건다. 컴포넌트에 표면 분기를 넣지 않는다.",
+     "check":"새 컴포넌트 소스에 data-surface 를 읽어 분기하는 코드가 없다 (속성을 '거는' 것은 허용, '읽어서 분기' 는 금지)","req":"CON-ARCH-001 AC-2, AC-3"},
+    {"id":"DR-4","rule":"UI 강조색은 #0078d4 하나다. #007acc 를 새로 쓰지 않는다.",
+     "check":"새 파일에 #007acc / #0e639c 가 없다","req":"CON-ARCH-001 AC-4"},
+    {"id":"DR-5","rule":"보라 계열(#7c3aed, #8250df, #a78bfa, #6639ba)은 편집기 문법 강조 전용이다. UI 에 쓰지 않는다.",
+     "check":"새 파일에 그 값들이 없다","req":"CON-ARCH-001 AC-5"},
+    {"id":"DR-6","rule":"기본 행 높이는 --row-h 28px, 조밀 모드 22px.",
+     "check":"tokens.css 의 :root 가 --row-h:28px, [data-density=\"compact\"] 가 22px","req":"CON-ARCH-001 AC-6"},
+    {"id":"DR-7","rule":"--atomic-editor-* 와 합치지 않는다. 새 토큰이 그것을 참조하지도, 그것이 새 토큰을 참조하지도 않는다.",
+     "check":"tokens.css 에 atomic-editor 문자열이 없다","req":"CON-ARCH-001 AC-7"},
+    {"id":"DR-8","rule":"기존 29개 CSS 파일을 일괄 치환하지 않는다. 새로 쓰는 파일만 토큰을 쓴다.",
+     "check":"커밋 diff 에서 기존 CSS 파일의 색상 변경 줄 수가 0 이다","req":"CON-ARCH-001 AC-8"},
+    {"id":"DR-9","rule":"토큰 파일은 실제로 앱에 로드되어야 한다. import 되지 않은 토큰 파일은 죽은 파일이다.",
+     "check":"frontend/src/index.css 또는 main.tsx 가 tokens.css 를 import 한다","req":"CON-ARCH-001 (AC 에 없음 — 이번에 추가 필요)"},
+    {"id":"DR-10","rule":"모바일 조작 대상은 손가락으로 누를 수 있어야 한다. 행과 버튼의 최소 높이가 있다.",
+     "check":"모바일 버튼 줄의 min-height 가 44px 이상, 트리 행이 --row-h(28px) 이상","req":"FR-FEX-005 AC-8, 요구사항 4번"}
+  ],
+  "gap_found": "DR-9(토큰 파일이 실제로 로드되는가)에 해당하는 AC 가 CON-ARCH-001 에 없다. 토큰을 선언만 하고 import 하지 않으면 모든 다른 AC 가 통과하면서 화면은 아무것도 달라지지 않는다 — 통과하면서 아무것도 측정하지 않는 가드가 된다."
+}
