@@ -181,7 +181,10 @@ function deps(fs: MemoryFs): Parameters<RunJob>[1] {
   return { fsOps: fs, validatePath: () => {}, decide: async () => ({ choice: 'skip' }), onProgress: () => {} };
 }
 
-test('확인 뒤 목적지에 남의 파일이 생기면 배타 생성이 EEXIST 로 실패하고 러너는 그 파일을 지우지 않는다', async () => {
+// 러너는 새 파일도 임시 이름에 쓴 뒤 rename 한다(FR-FOP-005) — 목적지 이름에 쓰기 스트림을 열지 않는다.
+// 그래서 배타 생성('wx')은 임시 이름을 지키고, 목적지 이름은 rename 직전의 재확인이 지킨다. 그 사이 생긴
+// 남의 파일은 작업 실패가 아니라 그 항목의 fs 오류(EEXIST) 결정이다(FR-FEX-007 AC-5).
+test('확인 뒤 목적지에 남의 파일이 생기면 러너는 그 파일을 덮어쓰거나 지우지 않고 EEXIST 오류 결정을 묻는다', async () => {
   const runJob = await loadRunner();
   const theirs = Buffer.from('someone else wrote this');
   const fs = new MemoryFs().dir('/src').file('/src/a.bin', Buffer.alloc(32, 0x61)).dir('/dst');
@@ -189,17 +192,25 @@ test('확인 뒤 목적지에 남의 파일이 생기면 배타 생성이 EEXIST
   fs.afterLstat = (p) => {
     if (p === '/dst/a.bin' && !fs.nodes.has(p)) fs.file(p, theirs);
   };
-  const result = await runJob({ operation: 'copy', sources: ['/src/a.bin'], destDir: '/dst' }, deps(fs));
+  const asked: { kind: string; detail?: string }[] = [];
+  const result = await runJob({ operation: 'copy', sources: ['/src/a.bin'], destDir: '/dst' }, {
+    ...deps(fs),
+    decide: async (req: { kind: string; detail?: string }) => {
+      asked.push({ kind: req.kind, detail: req.detail });
+      return { choice: 'skip' };
+    },
+  } as Parameters<RunJob>[1]);
 
   assert.ok(
-    fs.log.some((e) => e.op === 'copy-call' && e.path === '/dst/a.bin'),
+    fs.log.some((e) => e.op === 'copy-call' && parentOf(e.path) === '/dst'),
     '픽스처가 경합 지점에 닿지 않았다 — 복사를 시도하지 않았다',
   );
-  assert.equal(result.outcome, 'failed');
-  assert.equal((result.error as { code?: string } | undefined)?.code, 'EEXIST');
+  assert.equal(result.outcome, 'completed', `작업이 실패로 끝났다: ${(result.error as { code?: string } | undefined)?.code}`);
+  assert.deepEqual(asked, [{ kind: 'error', detail: 'EEXIST' }]);
   const unlinks = fs.log.flatMap((e) => (e.op === 'unlink' ? [e.path] : []));
-  assert.deepEqual(unlinks, [], `남의 파일을 정리 대상으로 지웠다: ${JSON.stringify(unlinks)}`);
+  assert.ok(!unlinks.includes('/dst/a.bin'), `남의 파일을 정리 대상으로 지웠다: ${JSON.stringify(unlinks)}`);
   assert.deepEqual(fs.bytes('/dst/a.bin'), theirs, '남의 파일의 바이트가 바뀌었다');
+  assert.deepEqual(fs.list('/dst'), ['a.bin'], '임시 파일이 남았다');
 });
 
 test('실제 어댑터는 이미 있는 목적지에 쓰지 않고 EEXIST 로 실패한다', async () => {

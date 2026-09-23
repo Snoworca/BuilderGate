@@ -1,0 +1,9 @@
+{"iter":1,"fixes":[
+{"finding_id":"FND-001","files":["server/src/routes/fileJobRoutes.ts","server/src/services/fileJobs/fileJobPaths.ts","server/src/services/fileJobs/fileJobManager.ts"],"rationale_strip":""},
+{"finding_id":"FND-002","files":["server/src/services/fileJobs/fileJobPaths.ts","server/src/index.ts"],"rationale_strip":""},
+{"finding_id":"FND-003","files":["server/src/services/fileJobs/fileJobRunner.ts","server/src/services/fileJobs/fileJobManager.ts","server/src/index.ts"],"rationale_strip":""},
+{"finding_id":"FND-004","files":["server/src/services/fileJobs/fileJobRunner.ts","server/src/services/fileJobs/fileJobManager.ts","server/src/types/ws-protocol.ts","frontend/src/types/ws-protocol.ts"],"rationale_strip":""},
+{"finding_id":"FND-005","files":["server/src/services/fileJobs/fileJobRunner.ts","server/src/services/fileJobs/fileJobManager.ts","server/src/index.ts"],"rationale_strip":""},
+{"finding_id":"FND-006","files":["server/src/services/fileJobs/fileJobRunner.ts"],"rationale_strip":""},
+{"finding_id":"FND-007","files":["server/src/services/fileJobs/fileJobRunner.ts"],"rationale_strip":""}],
+"regression":"fileJobs+routes+parity 143/143, pathValidator+FileService* 37/37, terminalWireFormatBoot 7/7, server tsc 0, frontend tsc -b 0 (Windows)"}

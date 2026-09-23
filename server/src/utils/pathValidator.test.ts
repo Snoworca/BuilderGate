@@ -16,9 +16,9 @@ import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { lstat, mkdir, mkdtemp, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { AppError, ErrorCode } from './errors.js';
-import { isPathBlocked, resolveAndValidate } from './pathValidator.js';
+import { isPathBlocked, resolveAndValidate, resolveAndValidateEntry } from './pathValidator.js';
 import { FileService } from '../services/FileService.js';
 import type { FileManagerConfig } from '../types/file.types.js';
 
@@ -252,5 +252,38 @@ test('FileService: createDirectory 는 blocked 이름의 새 폴더를 만들지
     // 대조군
     await service.createDirectory(SESSION_ID, '.', 'plain');
     assert.equal(await exists(join(f.cwd, 'plain')), true);
+  });
+});
+
+// ── C. 세션 루트 자신이 링크일 때의 entryPath ────────────────────────────────────
+
+// RCK-001: 베이스 자신을 가리키는 경로는 entryPath 로 링크 대상(real)을 돌려주었다. cwd 가 junction 이면
+// 삭제·이동이 링크가 아니라 대상 트리를 지웠다. 계약은 "마지막 이름은 풀지 않은 항목" 이다.
+test('C: cwd 가 junction 이면 cwd 자신의 entryPath 는 대상이 아니라 링크 자신이고, realPath 는 대상이다', async (t) => {
+  await withFixture(async (f) => {
+    const realDir = join(dirname(f.cwd), 'real-cwd');
+    const linkCwd = join(dirname(f.cwd), 'link-cwd');
+    await mkdir(realDir);
+    await writeFile(join(realDir, 'keep.txt'), 'keep');
+    if (!(await linkDir(t, realDir, linkCwd))) return;
+    for (const target of [linkCwd, '.']) {
+      const entry = await resolveAndValidateEntry(linkCwd, target, [BLOCKED]);
+      assert.equal(entry.entryPath, linkCwd, `${target}: entryPath 가 링크가 아니라 대상이다`);
+      assert.equal(entry.realPath, realDir);
+    }
+    // 대조군: 링크가 아닌 cwd 는 자기 자신이다.
+    assert.equal((await resolveAndValidateEntry(f.cwd, '.', [BLOCKED])).entryPath, f.cwd);
+  });
+});
+
+test('C: FileService.deleteFile 로 junction 인 cwd 자신을 지워도 대상 트리의 파일은 남는다', async (t) => {
+  await withFixture(async (f) => {
+    const realDir = join(dirname(f.cwd), 'real-cwd');
+    const linkCwd = join(dirname(f.cwd), 'link-cwd');
+    await mkdir(realDir);
+    await writeFile(join(realDir, 'keep.txt'), 'keep');
+    if (!(await linkDir(t, realDir, linkCwd))) return;
+    await serviceOn(linkCwd).deleteFile(SESSION_ID, '.').catch(() => {});
+    assert.equal(await exists(join(realDir, 'keep.txt')), true, '링크 대신 대상 트리를 지웠다');
   });
 });

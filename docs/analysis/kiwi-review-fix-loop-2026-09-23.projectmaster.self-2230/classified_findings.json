@@ -1,0 +1,79 @@
+{
+ "policy": "--auto severity guardrail (CRITICAL/HIGH/MEDIUM auto-fix; LOW fix when small and safety-relevant, else defer) + CLAUDE.md speed-first",
+ "immediate_fix": [
+  {
+   "id": "FND-001",
+   "severity": "CRITICAL",
+   "is_behavioral": true,
+   "tags": [
+    "bug",
+    "security"
+   ],
+   "estimated_complexity": "small",
+   "rationale": "relative path validated against session cwd but executed against server cwd; deletes server/config.json5"
+  },
+  {
+   "id": "FND-002",
+   "severity": "HIGH",
+   "is_behavioral": true,
+   "tags": [
+    "bug"
+   ],
+   "estimated_complexity": "small",
+   "rationale": "root must be captured once at accept time"
+  },
+  {
+   "id": "FND-003",
+   "severity": "MEDIUM",
+   "is_behavioral": true,
+   "tags": [
+    "security"
+   ],
+   "estimated_complexity": "medium",
+   "rationale": "blocked descendant exfiltration via rename"
+  },
+  {
+   "id": "FND-004",
+   "severity": "MEDIUM",
+   "is_behavioral": true,
+   "tags": [
+    "bug"
+   ],
+   "estimated_complexity": "medium",
+   "rationale": "FR-FEX-007 AC-5 needs retry/skip error decisions and a failure code; downstream fx4 depends on it"
+  },
+  {
+   "id": "FND-006",
+   "severity": "LOW",
+   "is_behavioral": true,
+   "tags": [
+    "security"
+   ],
+   "estimated_complexity": "trivial",
+   "rationale": "one lstat per directory; safety"
+  },
+  {
+   "id": "FND-007",
+   "severity": "LOW",
+   "is_behavioral": false,
+   "tags": [
+    "regression",
+    "security"
+   ],
+   "estimated_complexity": "trivial",
+   "rationale": "missing tests + realpath compare, falls out of FND-001"
+  },
+  {
+   "id": "FND-005",
+   "severity": "LOW",
+   "is_behavioral": true,
+   "tags": [
+    "bug"
+   ],
+   "estimated_complexity": "small",
+   "rationale": "user directive: close found problems; truncated file under final name after shutdown"
+  }
+ ],
+ "discussion_needed": [],
+ "rejected": []
+}

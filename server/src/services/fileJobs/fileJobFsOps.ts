@@ -7,7 +7,7 @@
 // 복사는 반드시 스트림으로 한다. 한 번에 읽어 쓰는 API 는 파일 전체를 메모리에 올리고,
 // OS 복사 API 는 끝날 때까지 진행을 알려 주지 않아 큰 파일에서 진행 막대가 멈춘다.
 import { createReadStream, createWriteStream } from 'node:fs';
-import { lstat, mkdir, open, readdir, realpath, rename, rmdir, unlink } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readdir, realpath, rename, rmdir, unlink } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 
 // @req FR-FOP-002
@@ -51,6 +51,12 @@ export interface FileJobFsOps {
   unlink(p: string): Promise<void>;
   rmdir(p: string): Promise<void>;
   rename(src: string, dst: string): Promise<void>;
+  /**
+   * existing 의 하드 링크를 newPath 에 만든다. newPath 가 있으면 EEXIST 로 실패하고 그 파일을 건드리지 않는다 —
+   * 러너가 새 파일을 "없을 때만" 원자적으로 놓는 데 쓴다. 하드 링크가 없는 볼륨은 EPERM·ENOTSUP 등으로 실패하고
+   * 러너는 lstat 재확인 + rename 으로 되돌아간다. 없는 구현(메모리 fs 등)도 그 길을 탄다.
+   */
+  hardLink?(existing: string, newPath: string): Promise<void>;
 }
 
 /**
@@ -156,5 +162,9 @@ export const nodeFileJobFsOps: FileJobFsOps = {
 
   async rename(src, dst) {
     await rename(src, dst);
+  },
+
+  async hardLink(existing, newPath) {
+    await link(existing, newPath);
   },
 };

@@ -19,7 +19,7 @@
  * server/src/test-runner.ts 는 *.test.ts 를 찾지 않으므로 이 파일은 node:test 로 따로 돌린다.
  */
 
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
@@ -59,6 +59,8 @@ interface JsonResponse {
 
 interface Harness {
   cwdA: string;
+  /** 세션 A 의 cwd 로 쓰인 문자열. 기본은 cwdA 이고, cwdAVia 를 주면 그것이 돌려준 경로(예: cwdA 를 가리키는 링크)다. */
+  sessionCwdA: string;
   cwdB: string;
   manager: FileJobManager;
   runCalls: { spec: FileJobSpec; deps: FileJobRunnerDeps }[];
@@ -93,7 +95,7 @@ async function realTempDir(prefix: string): Promise<string> {
 }
 
 async function withHarness(
-  options: { blockedPaths?: string[] },
+  options: { blockedPaths?: string[]; cwdAVia?: (cwdA: string) => Promise<string> },
   run: (h: Harness) => Promise<void>,
 ): Promise<void> {
   const { createFileJobRoutes, validateSessionPath } = await loadModules();
@@ -108,7 +110,8 @@ async function withHarness(
     await fs.writeFile(path.join(cwdA, BLOCKED_SEGMENT, 'f.txt'), 'x');
     await fs.mkdir(path.join(cwdB, BLOCKED_SEGMENT));
 
-    const cwds = new Map([[SESSION_A, cwdA], [SESSION_B, cwdB]]);
+    const sessionCwdA = options.cwdAVia ? await options.cwdAVia(cwdA) : cwdA;
+    const cwds = new Map([[SESSION_A, sessionCwdA], [SESSION_B, cwdB]]);
     const pathPolicy = {
       async getCwd(sessionId: string): Promise<string> {
         const cwd = cwds.get(sessionId);
@@ -146,6 +149,7 @@ async function withHarness(
       await withLocalHttpServer(app, async (fixture: LocalHttpTestFixture) => {
         await run({
           cwdA,
+          sessionCwdA,
           cwdB,
           manager,
           runCalls,
@@ -562,4 +566,262 @@ test('라우터에 등록된 경로가 네 개뿐이고 작업별 진행 조회 
     const progress = await h.call('GET', `/api/file-jobs/${encodeURIComponent(started.body.jobId)}/progress`);
     assert.equal(progress.status, 404);
   });
+});
+
+// ── 상대 경로 거부와 검증된 경로 전달 ─────────────────────────────────────────
+//
+// 검증은 세션 cwd 기준으로 경로를 풀어서 보는데, 러너가 받은 원래 문자열을 그대로 쓰면 그 문자열은
+// 서버 프로세스의 cwd 기준으로 풀린다. 둘이 다른 곳을 가리키면 검증한 곳이 아닌 곳을 지운다.
+
+// @req IR-FOP-001
+// @req SEC-FOP-001
+test('상대 경로(드라이브 상대·루트 상대 포함)의 출발지·목적지는 400 으로 거부되고 작업이 만들어지지 않는다', async () => {
+  await withHarness({}, async (h) => {
+    const absSource = path.join(h.cwdA, 'f.txt');
+    const cases: Record<string, unknown>[] = [
+      { operation: 'delete', sourceSessionId: SESSION_A, sources: ['f.txt'] },
+      { operation: 'delete', sourceSessionId: SESSION_A, sources: [absSource, './sub'] },
+      { operation: 'delete', sourceSessionId: SESSION_A, sources: ['C:f.txt'] },
+      { operation: 'delete', sourceSessionId: SESSION_A, sources: ['\\f.txt'] },
+      { operation: 'copy', sourceSessionId: SESSION_A, sources: [absSource], destPath: 'sub' },
+      { operation: 'move', sourceSessionId: SESSION_A, sources: [absSource], destPath: 'C:sub' },
+    ];
+    for (const body of cases) {
+      const res = await h.call('POST', '/api/file-jobs', body);
+      assertError(res, 400, 'INVALID_INPUT', /absolute/);
+    }
+    assert.equal(h.runCalls.length, 0, '상대 경로 요청이 작업을 시작했다');
+    assert.deepEqual(h.manager.list(), []);
+    assert.equal(await fs.readFile(absSource, 'utf8'), 'a');
+  });
+});
+
+// @req IR-FOP-001
+test('isAcceptedAbsolutePath 는 win32 에서 드라이브 문자와 구분자로 시작하는 경로만, POSIX 에서 / 로 시작하는 경로만 받는다', async () => {
+  const { isAcceptedAbsolutePath } = (await import('./fileJobRoutes.js')) as unknown as {
+    isAcceptedAbsolutePath?: (p: string, platform: NodeJS.Platform) => boolean;
+  };
+  assert.equal(typeof isAcceptedAbsolutePath, 'function', 'isAcceptedAbsolutePath 가 export 되지 않았다');
+  const accept = isAcceptedAbsolutePath!;
+  assert.equal(accept('C:\\work\\a.txt', 'win32'), true);
+  assert.equal(accept('c:/work/a.txt', 'win32'), true);
+  for (const bad of ['C:a.txt', '\\a.txt', '/a.txt', 'a.txt', '.\\a.txt', '..\\a.txt', 'C:']) {
+    assert.equal(accept(bad, 'win32'), false, `win32 에서 ${bad} 를 받았다`);
+  }
+  assert.equal(accept('/home/me/a.txt', 'linux'), true);
+  for (const bad of ['a.txt', './a.txt', 'C:\\a.txt', '~/a.txt']) {
+    assert.equal(accept(bad, 'linux'), false, `linux 에서 ${bad} 를 받았다`);
+  }
+});
+
+// @req SEC-FOP-001
+// @req IR-FOP-002
+test('러너는 검증된 경로(출발지는 entry, 목적지는 실제 경로)를 받고, done 의 affectedDirectories 는 받은 문자열 모양이다', async () => {
+  await withHarness({}, async (h) => {
+    h.setBehavior(async () => ({ outcome: 'completed', processedEntries: 1 }));
+    // 정규화되지 않은 절대 경로: 러너는 검증한 모양(정규화된 경로)을 받는다.
+    const res = await h.call('POST', '/api/file-jobs', {
+      operation: 'copy',
+      sourceSessionId: SESSION_A,
+      sources: [path.join(h.cwdA, 'sub') + path.sep + '..' + path.sep + 'f.txt'],
+      destSessionId: SESSION_B,
+      destPath: path.join(h.cwdB, '.', 'sub') + path.sep,
+    });
+    assert.equal(res.status, 202, JSON.stringify(res.body));
+    await waitFor(() => h.runCalls.length === 1, 'runner invoked');
+    assert.deepEqual(h.runCalls[0].spec.sources, [path.join(h.cwdA, 'f.txt')]);
+    assert.equal(h.runCalls[0].spec.destDir, path.join(h.cwdB, 'sub'));
+
+    // 부모 사슬의 링크는 풀린 위치로, 링크 자신인 출발지는 링크 그대로 넘어간다 — 삭제가 대상이 아니라 링크를 지우게.
+    const target = path.join(h.cwdA, 'sub');
+    await fs.writeFile(path.join(target, 'x.txt'), 'x');
+    const link = path.join(h.cwdA, 'j');
+    await fs.symlink(target, link, 'junction');
+    const viaLink = await h.call('POST', '/api/file-jobs', {
+      operation: 'delete',
+      sourceSessionId: SESSION_A,
+      sources: [path.join(link, 'x.txt')],
+    });
+    assert.equal(viaLink.status, 202, JSON.stringify(viaLink.body));
+    await waitFor(() => h.runCalls.length === 2, 'runner invoked (via link)');
+    assert.deepEqual(h.runCalls[1].spec.sources, [path.join(target, 'x.txt')]);
+    await waitFor(
+      () => h.broadcasts.some((b) => b.event === 'file-job:done' && b.payload.jobId === viaLink.body.jobId),
+      'done via link',
+    );
+    const done = h.broadcasts.find((b) => b.event === 'file-job:done' && b.payload.jobId === viaLink.body.jobId);
+    assert.deepEqual(done?.payload.affectedDirectories, [link]);
+
+    const linkItself = await h.call('POST', '/api/file-jobs', {
+      operation: 'delete',
+      sourceSessionId: SESSION_A,
+      sources: [link],
+    });
+    assert.equal(linkItself.status, 202, JSON.stringify(linkItself.body));
+    await waitFor(() => h.runCalls.length === 3, 'runner invoked (link itself)');
+    assert.deepEqual(h.runCalls[2].spec.sources, [link], '링크 자신 대신 링크 대상을 넘겼다');
+  });
+});
+
+// RCK-001: 세션 루트 자신을 지우거나 옮기는 요청은 뜻한 것일 수 없다(세션이 선 폴더가 사라진다). 게다가 cwd 가
+// 링크면 검증기가 돌려준 경로가 링크 대상이라 대상 트리가 통째로 지워졌다. 라우트에서 받지 않는다.
+// @req SEC-FOP-001
+// @req IR-FOP-001
+test('delete·move 의 출발지가 세션 루트 자신이면 400 으로 거부되고 작업이 만들어지지 않는다 — copy 는 받는다', async () => {
+  await withHarness({}, async (h) => {
+    for (const source of [h.cwdA, h.cwdA + path.sep, path.join(h.cwdA, 'sub', '..')]) {
+      const del = await h.call('POST', '/api/file-jobs', { operation: 'delete', sourceSessionId: SESSION_A, sources: [source] });
+      assertError(del, 400, 'INVALID_INPUT', /session/);
+      const mv = await h.call('POST', '/api/file-jobs', {
+        operation: 'move', sourceSessionId: SESSION_A, sources: [source], destSessionId: SESSION_B, destPath: h.cwdB,
+      });
+      assertError(mv, 400, 'INVALID_INPUT', /session/);
+    }
+    assert.equal(h.runCalls.length, 0, '세션 루트를 지우거나 옮기는 작업이 시작됐다');
+    assert.deepEqual(h.manager.list(), []);
+    // 대조군: 세션 루트를 다른 세션으로 복사하는 것은 막지 않는다. 루트 아래의 항목 삭제도 받는다.
+    const copy = await h.call('POST', '/api/file-jobs', {
+      operation: 'copy', sourceSessionId: SESSION_A, sources: [h.cwdA], destSessionId: SESSION_B, destPath: h.cwdB,
+    });
+    assert.equal(copy.status, 202, JSON.stringify(copy.body));
+    const child = await h.call('POST', '/api/file-jobs', { operation: 'delete', sourceSessionId: SESSION_A, sources: [path.join(h.cwdA, 'f.txt')] });
+    assert.equal(child.status, 202, JSON.stringify(child.body));
+  });
+});
+
+// @req SEC-FOP-001
+test('세션 cwd 가 링크(junction)일 때 그 cwd 를 지우는 요청은 거부되고 대상 트리의 파일은 남는다', async () => {
+  let linkPath = '';
+  await withHarness(
+    {
+      cwdAVia: async (cwdA) => {
+        linkPath = `${cwdA}-link`;
+        await fs.symlink(cwdA, linkPath, 'junction');
+        return linkPath;
+      },
+    },
+    async (h) => {
+      try {
+        const res = await h.call('POST', '/api/file-jobs', { operation: 'delete', sourceSessionId: SESSION_A, sources: [h.sessionCwdA] });
+        assertError(res, 400, 'INVALID_INPUT', /session/);
+        // 실제 경로 철자는 문자열로 링크 cwd 밖이라 경로 검증이 먼저 거부한다 — 어느 철자로도 작업이 생기지 않는다.
+        const real = await h.call('POST', '/api/file-jobs', { operation: 'delete', sourceSessionId: SESSION_A, sources: [h.cwdA] });
+        assertError(real, 403, 'PATH_TRAVERSAL', /traversal/i);
+        assert.equal(h.runCalls.length, 0);
+        assert.equal(await fs.readFile(path.join(h.cwdA, 'f.txt'), 'utf8'), 'a');
+      } finally {
+        await fs.rm(linkPath, { force: true, recursive: false }).catch(() => fs.rmdir(linkPath).catch(() => {}));
+      }
+    },
+  );
+});
+
+// RC2-001: 라우트가 세션 루트의 출발지로 링크 자신(<실제 부모>/<이름>)을 넘기자, 운영 배선의 출발지 검증(captureSessionRoot
+// 로 realpath 에 고정한 루트 기준)이 그 문자열을 "루트 밖" 으로 거부했다. 위 하네스는 루트를 고정하지 않고 러너도 가짜라
+// 202 만 보고 초록이었다 — 여기서는 index.ts 와 같은 모양의 validatePathFor 와 실제 러너로 작업이 끝나는지까지 본다.
+// @req FR-FOP-001
+// @req SEC-FOP-001
+test('세션 cwd 가 링크(junction)여도 세션 루트를 복사하는 작업은 운영 배선(고정한 실제 루트) 아래에서 완료된다', async () => {
+  const { createFileJobRoutes } = await loadModules();
+  const paths = await import('../services/fileJobs/fileJobPaths.js');
+  const { runJob } = await import('../services/fileJobs/fileJobRunner.js');
+  const { nodeFileJobFsOps } = await import('../services/fileJobs/fileJobFsOps.js');
+  const target = await realTempDir('fjr-rootcopy-a-');
+  const cwdB = await realTempDir('fjr-rootcopy-b-');
+  const link = `${target}-link`;
+  try {
+    await fs.writeFile(path.join(target, 'f.txt'), 'a');
+    await fs.symlink(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+    const cwds = new Map([[SESSION_A, link], [SESSION_B, cwdB]]);
+    const policy: FileJobPathPolicy = {
+      async getCwd(sessionId: string): Promise<string> {
+        const cwd = cwds.get(sessionId);
+        if (!cwd) throw new AppError(ErrorCode.SESSION_NOT_FOUND);
+        return cwd;
+      },
+      blockedPaths: [],
+    };
+    const broadcasts: Broadcast[] = [];
+    const manager = new FileJobManager({
+      runJob,
+      fsOps: nodeFileJobFsOps,
+      broadcast: (sessionId, event, payload) => broadcasts.push({ sessionId, event, payload }),
+      clock: { now: () => Date.now() },
+      timers: { setTimeout: () => ({}), clearTimeout: () => {} },
+      // index.ts 의 validatePathFor 와 같은 모양 — 작업을 받을 때 루트를 실제 경로로 한 번 고정한다.
+      validatePathFor: (sessionId) => {
+        const root = paths.captureSessionRoot(policy, sessionId);
+        return async (p) => {
+          await paths.validateCreatePath(policy, sessionId, p, { root });
+        };
+      },
+    });
+    const app = express();
+    app.use(express.json());
+    app.use('/api/file-jobs', createFileJobRoutes(manager, policy));
+    try {
+      await withLocalHttpServer(app, async (fixture: LocalHttpTestFixture) => {
+        const response = await fixture.request({
+          method: 'POST',
+          path: '/api/file-jobs',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ operation: 'copy', sourceSessionId: SESSION_A, sources: [link], destSessionId: SESSION_B, destPath: cwdB }),
+        });
+        assert.equal(response.statusCode, 202, response.body);
+        await waitFor(() => broadcasts.some((b) => b.event === 'file-job:done'), 'copy done');
+        const done = broadcasts.find((b) => b.event === 'file-job:done')!;
+        assert.equal(done.payload.outcome, 'completed', `세션 루트 복사가 끝나지 못했다: ${JSON.stringify(done.payload)}`);
+        const copied = await fs.readdir(cwdB);
+        assert.equal(copied.length, 1, `목적지에 복사본이 하나여야 한다: ${copied.join(', ')}`);
+        assert.equal(await fs.readFile(path.join(cwdB, copied[0], 'f.txt'), 'utf8'), 'a');
+      });
+    } finally {
+      manager.dispose();
+    }
+  } finally {
+    await fs.rm(link, { force: true, recursive: false }).catch(() => fs.rmdir(link).catch(() => {}));
+    await fs.rm(target, { recursive: true, force: true });
+    await fs.rm(cwdB, { recursive: true, force: true });
+  }
+});
+
+// RC2-003: 세션 루트 판정이 cwd 를 항목으로 검증하느라 cwd 의 부모까지 realpath 했다. 부모가 통과만 허용된 디렉터리
+// (Windows 에서 EPERM)면 루트 아래 모든 항목의 삭제가 403 이 됐다. 루트 판정에는 부모의 실제 위치가 필요 없다.
+// @req SEC-FOP-001
+// @req FR-FOP-002
+test('세션 루트 판정은 cwd 의 부모를 realpath 하지 않는다 — 부모가 EPERM 이어도 루트 아래 항목 삭제는 받는다', async () => {
+  await withHarness({}, async (h) => {
+    const parentKey = path.dirname(h.cwdA).toLowerCase();
+    const realpathCalls: string[] = [];
+    const original = fs.realpath;
+    const spy = mock.method(fs, 'realpath', async (p: unknown, ...rest: unknown[]) => {
+      const key = path.resolve(String(p)).toLowerCase();
+      realpathCalls.push(key);
+      if (key === parentKey) {
+        throw Object.assign(new Error('EPERM: operation not permitted'), { code: 'EPERM' });
+      }
+      return (original as (...a: unknown[]) => Promise<string>)(p, ...rest);
+    });
+    try {
+      const res = await h.call('POST', '/api/file-jobs', { operation: 'delete', sourceSessionId: SESSION_A, sources: [path.join(h.cwdA, 'f.txt')] });
+      assert.equal(res.status, 202, JSON.stringify(res.body));
+      assert.equal(realpathCalls.includes(parentKey), false, 'cwd 의 부모를 realpath 했다');
+    } finally {
+      spy.mock.restore();
+    }
+  });
+});
+
+// RCK-008: 매핑된 드라이브가 UNC 로 풀리는 호스트에서 세션 cwd 가 '\\server\share\...' 이면 모든 요청이 400 이었다.
+// @req IR-FOP-001
+test('isAcceptedAbsolutePath 는 win32 에서 서버·공유 이름이 있는 UNC 경로를 받고, 장치 경로·불완전한 UNC 는 거부한다', async () => {
+  const { isAcceptedAbsolutePath } = await import('./fileJobRoutes.js');
+  for (const good of ['\\\\srv\\share\\a.txt', '\\\\srv\\share\\', '\\\\srv\\share', '//srv/share/a.txt']) {
+    assert.equal(isAcceptedAbsolutePath(good, 'win32'), true, `win32 에서 UNC ${good} 를 거부했다`);
+  }
+  for (const bad of ['\\\\srv', '\\\\srv\\', '\\\\?\\C:\\a.txt', '\\\\.\\pipe\\x', 'C:foo', '\\foo', '\\\\\\share\\a']) {
+    assert.equal(isAcceptedAbsolutePath(bad, 'win32'), false, `win32 에서 ${bad} 를 받았다`);
+  }
+  // POSIX 에는 UNC 가 없다.
+  assert.equal(isAcceptedAbsolutePath('\\\\srv\\share\\a.txt', 'linux'), false);
 });

@@ -1,0 +1,8 @@
+{
+ "git": true,
+ "pr_mode": false,
+ "regression_env": "server node:test via Windows tsx (cmd.exe); WSL tsx broken",
+ "mcp": false,
+ "cli": true,
+ "note": "MCP mutations forbidden (#100); --close-reqs mutations via CLI --root ."
+}

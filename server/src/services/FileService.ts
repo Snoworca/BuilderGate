@@ -12,7 +12,8 @@ import path from 'path';
 import { execSync } from 'child_process';
 import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent } from '../types/file.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
-import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked } from '../utils/pathValidator.js';
+import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget } from '../utils/pathValidator.js';
+import { isFileJobTempName } from './fileJobs/fileJobRunner.js';
 
 // MIME type mapping for common extensions
 const MIME_TYPES: Record<string, string> = {
@@ -156,8 +157,9 @@ export class FileService {
       throw new AppError(ErrorCode.PATH_NOT_FOUND, 'Path is not a directory');
     }
 
-    // Read directory entries
-    const dirents = await fs.readdir(dirPath, { withFileTypes: true });
+    // Read directory entries. A file job's in-progress temp file (and one left
+    // behind by a crash) is not the user's file: it is hidden, and not counted.
+    const dirents = (await fs.readdir(dirPath, { withFileTypes: true })).filter(dirent => !isFileJobTempName(dirent.name));
     const totalEntries = dirents.length + (path.parse(dirPath).root !== dirPath ? 1 : 0); // ".." only below a root, as pushed below
 
     // Limit entries
@@ -359,6 +361,11 @@ export class FileService {
     // Rename the entry the user named: if the source is a link, the link moves,
     // not its target. Its real location is still validated.
     const srcResolved = (await resolveAndValidateEntry(cwd, source, this.config.blockedPaths)).entryPath;
+    // Moving the session folder itself would move the folder the session stands
+    // in (or, for a link cwd, leave a link that points into itself).
+    if (await isSessionRootTarget(cwd, { resolved: path.resolve(cwd, source), entryPath: srcResolved })) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Cannot move the session folder itself');
+    }
     const destResolved = await resolveAndValidate(cwd, destination, this.config.blockedPaths);
 
     // Check source exists (lstat: the entry itself, not what a link points to)
@@ -403,6 +410,11 @@ export class FileService {
     // but acting on it would delete a link's target (a junction to a folder
     // would empty that folder); entryPath is the link itself.
     const resolved = (await resolveAndValidateEntry(cwd, filePath, this.config.blockedPaths)).entryPath;
+    // Deleting the session folder itself would remove the whole project (or,
+    // for a link cwd, the link out of its parent directory).
+    if (await isSessionRootTarget(cwd, { resolved: path.resolve(cwd, filePath), entryPath: resolved })) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Cannot delete the session folder itself');
+    }
 
     // lstat so a link to a directory is not taken for a directory: it is
     // unlinked, never removed recursively.

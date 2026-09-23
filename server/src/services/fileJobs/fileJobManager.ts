@@ -22,7 +22,7 @@
 // 진행 보고는 작업마다 progressThrottle 로 줄여 보낸다(IR-FOP-002 AC-5). done 직전에 대기 값을
 // 먼저 내보내 마지막 막대가 100% 에 닿게 하고, done 뒤로는 아무것도 보내지 않는다.
 import { randomUUID } from 'node:crypto';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import type { FileJobFsOps } from './fileJobFsOps.js';
 import { createProgressThrottle, type ProgressThrottle } from './progressThrottle.js';
 import type {
@@ -54,8 +54,16 @@ export interface FileJobManagerDeps {
   broadcast(sessionId: string, event: FileJobEvent, payload: Record<string, unknown>): void;
   clock: { now(): number };
   timers: FileJobTimers;
-  /** 세션의 작업 루트 기준 경로 검증기를 만든다. 거부는 throw(또는 reject)로 한다. */
+  /**
+   * 세션의 작업 루트 기준 경로 검증기를 만든다. 거부는 throw(또는 reject)로 한다. 작업을 받을 때 세션마다
+   * 한 번 부른다 — 운영 배선은 이때 세션 루트를 고정해, 작업 도중의 cd 가 검증 기준을 바꾸지 않게 한다.
+   */
   validatePathFor(sessionId: string): (p: string) => void | Promise<void>;
+  /**
+   * 경로가 blocked 인가. 러너가 스캔 중 만나는 자손마다 부른다 — 최상위 출발지와 만드는 경로는 검증기가
+   * 보지만 디렉터리 안의 자손은 보지 않는다. 없으면 자손을 거르지 않는다.
+   */
+  isPathBlocked?(p: string): boolean;
 }
 
 export interface FileJobStartInput {
@@ -63,6 +71,12 @@ export interface FileJobStartInput {
   /** 없으면 출발지 세션. */
   destSessionId?: string;
   spec: FileJobSpec;
+  /**
+   * 클라이언트가 보낸 모양 그대로의 spec. 러너는 spec(검증된 경로)을 받고, done 의 affectedDirectories 는
+   * 이것으로 만든다 — 받는 쪽은 자기가 보낸 경로와 맞춰 목록을 다시 읽으므로 실제 경로로 바꾸면 못 찾는다.
+   * 없으면 spec.
+   */
+  requestedSpec?: FileJobSpec;
 }
 
 export interface FileJobSummary {
@@ -76,7 +90,10 @@ export interface FileJobSummary {
 export interface FileJobDecisionAnswer {
   decisionId: string;
   choice: FileJobConflictChoice;
-  /** true 면 같은 작업의 남은 같은 종류(kind) 질문 중 이 답이 선택지에 드는 것에 묻지 않고 적용한다. 작업이 끝나면 버린다. */
+  /**
+   * true 면 같은 작업의 남은 같은 부류(충돌·거부) 질문 중 이 답이 선택지에 드는 것에 묻지 않고 적용한다. fs 오류
+   * 질문의 답은 기억하지 않는다. 작업이 끝나면 버린다.
+   */
   applyToAll?: boolean;
 }
 
@@ -108,8 +125,8 @@ interface PendingDecision {
   payload: Record<string, unknown>;
   /** 이 질문에 받아들일 답. 질문마다 다르다 — 제자리 붙여넣기에는 overwrite 가 없다. */
   choices: readonly FileJobConflictChoice[];
-  /** applyToAll 로 고른 답을 어느 종류의 질문에 기억할지. */
-  kind: FileJobDecisionRequest['kind'];
+  /** applyToAll 로 고른 답을 어느 부류의 질문에 기억할지. */
+  questionClass: QuestionClass;
   resolve(answer: { choice: FileJobConflictChoice }): void;
   reject(err: unknown): void;
 }
@@ -130,13 +147,36 @@ interface Job {
   /** 끝난 뒤에만 채워진다. */
   result: FileJobResult | null;
   /**
-   * applyToAll 로 고른 답을 질문 종류별로. 이 작업에만 속하고 끝날 때 버린다. 종류를 나누지 않으면
+   * applyToAll 로 고른 답을 질문 부류별로. 이 작업에만 속하고 끝날 때 버린다. 부류를 나누지 않으면
    * 링크 오류에 고른 "모두 건너뛰기" 가 뒤의 충돌 질문에 적용되어 파일이 묻지도 않고 빠진다.
    */
-  applyToAllChoice: Partial<Record<FileJobDecisionRequest['kind'], FileJobConflictChoice>>;
+  applyToAllChoice: Partial<Record<QuestionClass, FileJobConflictChoice>>;
+  /** 러너가 내는 검증된 경로를 받는 쪽이 보낸 모양으로 되돌리는 접두사 쌍. 긴 것부터. */
+  displayPrefixes: DisplayPrefix[];
   progress: ProgressThrottle<Record<string, unknown>>;
   /** done 에 싣는다. 러너 결과에 없는 값이라 시작할 때 spec 으로 정한다. */
   affectedDirectories: string[];
+  /** 러너 결과까지 반영한 실행. dispose 가 이것이 끝나기를 기다린다. */
+  running: Promise<void> | null;
+}
+
+/**
+ * applyToAll 을 기억하는 단위. kind 만으로 나누면 링크·blocked 거부(선택지 skip 뿐)에 고른 "모두 건너뛰기" 가 같은
+ * kind('error')인 fs 오류(ENOSPC·EACCES)까지 묻지 않고 건너뛰어, 파일이 빠진 작업이 completed 로 끝난다.
+ * fs 오류는 retry 를 선택지로 갖는 질문이다 — 그 답은 오류마다 다른 판단이라 기억하지 않는다.
+ */
+type QuestionClass = 'conflict' | 'refusal' | 'fs-error';
+
+function questionClassOf(kind: FileJobDecisionRequest['kind'], choices: readonly FileJobConflictChoice[]): QuestionClass {
+  if (kind === 'conflict') return 'conflict';
+  return choices.includes('retry') ? 'fs-error' : 'refusal';
+}
+
+interface DisplayPrefix {
+  /** 러너가 쓰는 검증된 경로. */
+  validated: string;
+  /** 클라이언트가 보낸 경로. */
+  requested: string;
 }
 
 // 러너와 같은 이유로 접는다 — NTFS·APFS 에서 '/A' 와 '/a' 는 같은 항목이다.
@@ -175,6 +215,42 @@ export function normalizeSources(sources: readonly string[]): string[] {
 }
 
 /**
+ * 검증된 경로 → 요청한 경로 접두사 쌍. 출발지는 정규화 전의 같은 자리끼리, 목적지는 destDir 끼리 짝짓는다.
+ * 같은 모양이면 뺀다. 긴 검증 경로부터 둔다 — 겹치는 접두사 중 가장 가까운 것이 이긴다.
+ */
+// @req IR-FOP-002
+function displayPrefixesOf(validated: FileJobSpec, requested: FileJobSpec | undefined): DisplayPrefix[] {
+  if (!requested) return [];
+  const pairs: DisplayPrefix[] = [];
+  const add = (v: string | undefined, r: string | undefined): void => {
+    if (v === undefined || r === undefined || pathKey(v) === pathKey(r)) return;
+    pairs.push({ validated: v, requested: r });
+  };
+  if (validated.sources.length === requested.sources.length) {
+    validated.sources.forEach((v, i) => add(v, requested.sources[i]));
+  }
+  add(validated.destDir, requested.destDir);
+  return pairs.sort((a, b) => pathKey(b.validated).length - pathKey(a.validated).length);
+}
+
+/**
+ * p 가 어떤 검증된 접두사 자신이거나 그 아래면 그 부분을 요청한 접두사로 바꾼다. 받는 쪽은 자기가 보낸 경로와
+ * affectedDirectories 로 행을 찾는다 — junction 대상·'/private/tmp'·UNC 모양의 경로로는 그 행을 찾지 못한다.
+ * 비교는 구간 단위다('/real/a' 는 '/real/ab' 의 접두사가 아니다).
+ */
+function toDisplayPath(p: string, prefixes: readonly DisplayPrefix[]): string {
+  if (prefixes.length === 0) return p;
+  const key = pathKey(p);
+  for (const { validated, requested } of prefixes) {
+    const vk = pathKey(validated);
+    if (key === vk) return requested;
+    const base = vk.endsWith(sep) ? vk : vk + sep;
+    if (key.startsWith(base)) return join(requested, relative(resolve(validated), resolve(p)));
+  }
+  return p;
+}
+
+/**
  * 작업이 바꿀 수 있는 디렉터리들. 받는 쪽이 목록을 다시 읽을 대상이다. copy 는 목적지,
  * delete 는 출발지의 부모, move 는 둘 다. destDir 은 받은 문자열 그대로, 부모는 (정규화된)
  * 출발지 문자열의 dirname 이다 — resolve 하면 받는 쪽이 보낸 경로와 모양이 달라져 맞춰 볼 수 없다.
@@ -199,11 +275,22 @@ function abortError(): Error {
   return err;
 }
 
+// 오류 객체의 code 가 이 모양일 때만 싣는다 — errno('EACCES')나 정책 코드('PATH_BLOCKED')다. 메시지는 싣지
+// 않는다: fs 오류 메시지에는 절대 경로가 들어 있어, 두 세션에 방송하면 한 세션의 트리가 다른 쪽에 보인다.
+const ERROR_CODE_SHAPE = /^[A-Z][A-Z0-9_]{0,63}$/;
+
+// @req IR-FOP-002
+function doneErrorCode(error: unknown): string {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  return typeof code === 'string' && ERROR_CODE_SHAPE.test(code) ? code : 'UNKNOWN';
+}
+
 // @req FR-FOP-003
 // @req FR-FOP-005
 export class FileJobManager {
   private readonly jobs = new Map<string, Job>();
   private disposed = false;
+  private disposing: Promise<void> | null = null;
 
   constructor(private readonly deps: FileJobManagerDeps) {}
 
@@ -253,12 +340,16 @@ export class FileJobManager {
       retentionTimer: undefined,
       result: null,
       applyToAllChoice: {},
+      displayPrefixes: displayPrefixesOf(input.spec, input.requestedSpec),
       progress: createProgressThrottle(
         (payload) => this.emit(job, 'file-job:progress', payload),
         this.deps.clock,
         this.deps.timers,
       ),
-      affectedDirectories: affectedDirectoriesOf(spec),
+      affectedDirectories: affectedDirectoriesOf(
+        input.requestedSpec ? { ...input.requestedSpec, sources: normalizeSources(input.requestedSpec.sources) } : spec,
+      ),
+      running: null,
     };
     this.jobs.set(job.jobId, job);
 
@@ -268,6 +359,7 @@ export class FileJobManager {
       // 복사 중 만난 링크의 대상은 출발지 세션의 트리여야 한다 — 목적지 세션 기준으로 보면 한 세션의
       // 권한으로 다른 세션의 파일을 읽는다.
       validateSourcePath: checkSource,
+      isBlocked: this.deps.isPathBlocked ? (p) => this.deps.isPathBlocked!(p) : undefined,
       decide: (req) => this.askUser(job, req),
       onProgress: (progress) => this.onProgress(job, progress),
       onStateChange: (state) => this.onStateChange(job, state),
@@ -291,7 +383,7 @@ export class FileJobManager {
             : { outcome: 'failed' as const, processedEntries: 0, error },
       );
     }
-    void running.then(
+    job.running = running.then(
       (result) => this.finish(job, result),
       // 러너는 스스로 실패를 결과로 바꾸므로 여기에 오는 것은 러너 밖의 결함이다. 작업을
       // 끝나지 않은 채 두면 목록에 영원히 남으므로 failed 로 닫는다.
@@ -340,7 +432,11 @@ export class FileJobManager {
     if (!pending.choices.includes(answer.choice)) {
       throw new FileJobManagerError('INVALID_CHOICE', `Unknown decision choice: ${String(answer.choice)}`);
     }
-    if (answer.applyToAll === true) job.applyToAllChoice[pending.kind] = answer.choice;
+    // fs 오류의 답(retry·skip)은 기억하지 않는다. retry 를 기억하면 계속 실패하는 항목을 묻지 않고 영원히 다시
+    // 시도하고, skip 을 기억하면 사용자가 본 적 없는 오류(ENOSPC 등)의 파일이 조용히 빠진다.
+    if (answer.applyToAll === true && pending.questionClass !== 'fs-error' && answer.choice !== 'retry') {
+      job.applyToAllChoice[pending.questionClass] = answer.choice;
+    }
     job.pending = null;
     pending.resolve({ choice: answer.choice });
   }
@@ -393,21 +489,30 @@ export class FileJobManager {
     }
   }
 
-  /** 도는 작업을 멈추고 타이머를 모두 거둔다. 여러 번 불러도 된다. */
+  /**
+   * 도는 작업을 멈추고 타이머를 모두 거둔다. 여러 번 불러도 된다(같은 promise 를 돌려준다).
+   * 돌려준 promise 는 멈춘 러너들이 돌아온 뒤에 settle 된다 — 러너는 abort 뒤에도 쓰던 임시 파일을 지우고
+   * 나서야 돌아오므로, 종료 절차가 기다리지 않으면 프로세스가 그 정리 전에 끝나 잔재를 남긴다. reject 하지 않는다.
+   */
   // @req FR-FOP-003
-  dispose(): void {
-    if (this.disposed) return;
+  // @req FR-FOP-005
+  dispose(): Promise<void> {
+    if (this.disposing) return this.disposing;
     this.disposed = true;
+    const running: Promise<void>[] = [];
     for (const job of this.jobs.values()) {
       if (!job.result) {
         job.controller.abort();
         this.releasePending(job);
+        if (job.running) running.push(job.running);
       }
       job.progress.dispose();
       this.clearTimer(job, 'awaitTimer');
       this.clearTimer(job, 'retentionTimer');
     }
     this.jobs.clear();
+    this.disposing = Promise.allSettled(running).then(() => undefined);
+    return this.disposing;
   }
 
   // ── 내부 ──────────────────────────────────────────────────────────────────
@@ -446,7 +551,8 @@ export class FileJobManager {
   private onProgress(job: Job, progress: FileJobProgress): void {
     // done 뒤의 진행 보고는 받는 쪽에서 끝난 막대를 되살린다.
     if (this.disposed || job.result) return;
-    job.progress.push({ jobId: job.jobId, ...progress });
+    const currentPath = progress.currentPath === null ? null : toDisplayPath(progress.currentPath, job.displayPrefixes);
+    job.progress.push({ jobId: job.jobId, ...progress, currentPath });
   }
 
   // @req FR-FOP-003
@@ -488,7 +594,8 @@ export class FileJobManager {
     // 기억한 답이 이 질문의 선택지에 없으면(overwrite 를 기억했는데 제자리 붙여넣기거나 파일 ↔
     // 디렉터리 충돌이다) 묻는다 —
     // 선택지 밖의 답을 적용하는 길을 만들지 않는다.
-    const remembered = job.applyToAllChoice[req.kind];
+    const questionClass = questionClassOf(req.kind, req.choices);
+    const remembered = questionClass === 'fs-error' ? undefined : job.applyToAllChoice[questionClass];
     if (remembered !== undefined && req.choices.includes(remembered)) {
       return Promise.resolve({ choice: remembered });
     }
@@ -499,12 +606,12 @@ export class FileJobManager {
         jobId: job.jobId,
         decisionId,
         kind: req.kind,
-        path: req.path,
+        path: toDisplayPath(req.path, job.displayPrefixes),
         // 충돌에는 덧붙일 설명이 없다(null). 키는 늘 싣는다 — 받는 쪽이 kind 마다 모양을 가리지 않게.
         detail: req.detail ?? null,
         choices,
       };
-      job.pending = { decisionId, payload, choices, kind: req.kind, resolve, reject };
+      job.pending = { decisionId, payload, choices, questionClass, resolve, reject };
       this.emit(job, 'file-job:decision-required', payload);
     });
   }
@@ -533,12 +640,15 @@ export class FileJobManager {
     job.progress.flush();
     job.progress.dispose();
     // atomic 은 싣지 않는다 — 그것은 cancel 응답에만 있다(IR-FOP-002 AC-4).
-    this.emit(job, 'file-job:done', {
+    const payload: Record<string, unknown> = {
       jobId: job.jobId,
       outcome: result.outcome,
       processedEntries: result.processedEntries,
       affectedDirectories: [...job.affectedDirectories],
-    });
+    };
+    // 실패한 작업만 이유를 싣는다. 받는 쪽이 "실패" 만 보고는 무엇을 고쳐야 할지 모른다.
+    if (result.outcome === 'failed') payload.errorCode = doneErrorCode(result.error);
+    this.emit(job, 'file-job:done', payload);
     job.retentionTimer = this.deps.timers.setTimeout(() => {
       job.retentionTimer = undefined;
       if (this.jobs.get(job.jobId) === job) this.jobs.delete(job.jobId);

@@ -32,7 +32,12 @@ import { FileService } from './services/FileService.js';
 import { FileJobManager } from './services/fileJobs/fileJobManager.js';
 import { runJob } from './services/fileJobs/fileJobRunner.js';
 import { nodeFileJobFsOps } from './services/fileJobs/fileJobFsOps.js';
-import { validateCreatePath, type FileJobPathPolicy } from './services/fileJobs/fileJobPaths.js';
+import {
+  captureSessionRoot,
+  isFileJobPathBlocked,
+  validateCreatePath,
+  type FileJobPathPolicy,
+} from './services/fileJobs/fileJobPaths.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
 import { terminalResourcePolicyRuntimeAuthority } from './services/TerminalResourcePolicyRuntime.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
@@ -232,10 +237,17 @@ function applyTwoFactorRuntime(
   return result.warnings;
 }
 
+/** 종료 때 멈춘 파일 작업의 정리를 기다리는 상한. */
+const FILE_JOB_SHUTDOWN_WAIT_MS = 3_000;
+
 async function performServerGracefulShutdown(reason: string) {
   // 도는 파일 작업을 멈추고 대기·보존 타이머를 거둔다. 세션 정리보다 먼저 — 세션이 내려가는 동안
-  // 작업이 그 세션으로 방송하거나 새 파일을 만들지 않게.
-  fileJobManager.dispose();
+  // 작업이 그 세션으로 방송하거나 새 파일을 만들지 않게. 멈춘 러너가 쓰던 임시 파일을 지울 때까지 잠깐
+  // 기다린다 — 기다리지 않으면 프로세스가 먼저 끝나 잔재가 남는다. 멈추지 않는 작업이 종료를 붙잡지 않게 상한을 둔다.
+  await Promise.race([
+    fileJobManager.dispose(),
+    new Promise<void>((resolve) => setTimeout(resolve, FILE_JOB_SHUTDOWN_WAIT_MS).unref()),
+  ]);
   const stopMcpListener = mcpListenerControllerInstance?.stop;
   if (typeof stopMcpListener === 'function') {
     await stopMcpListener();
@@ -550,10 +562,18 @@ const fileJobManager = new FileJobManager({
     setTimeout: (fn, ms) => setTimeout(fn, ms).unref(),
     clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
   },
-  // 검증된 경로 값은 쓰지 않는다 — 관리자 계약은 거부(reject)만 본다.
-  validatePathFor: (sessionId) => async (p) => {
-    await validateCreatePath(fileJobPathPolicy, sessionId, p);
+  // 검증된 경로 값은 쓰지 않는다 — 관리자 계약은 거부(reject)만 본다. 세션 루트는 작업을 받을 때(관리자가
+  // 이것을 부를 때) 한 번 고정한다 — 큰 복사 도중 사용자가 터미널에서 cd 하면 매번 읽는 cwd 로는 멀쩡한
+  // 목적지가 세션 밖이 되어 작업이 끝난다. blockedPaths 는 고정하지 않는다(validateCreatePath 가 매번 읽는다).
+  validatePathFor: (sessionId) => {
+    const root = captureSessionRoot(fileJobPathPolicy, sessionId);
+    return async (p) => {
+      await validateCreatePath(fileJobPathPolicy, sessionId, p, { root });
+    };
   },
+  // 디렉터리 안의 자손은 위 검증을 거치지 않는다. 러너가 스캔하며 이것으로 걸러 blocked 자손을 복사·삭제·
+  // 이동하지 않는다.
+  isPathBlocked: (p) => isFileJobPathBlocked(fileJobPathPolicy, p),
 });
 // DELETE /api/sessions/:id 는 onSessionDeleted 로 거두지만, 탭·워크스페이스 삭제, 탭 재시작, PTY 종료는
 // 그 라우트를 거치지 않고 SessionManager 에서 바로 세션을 끝낸다. 그 경로의 작업이 주인 없는 세션에

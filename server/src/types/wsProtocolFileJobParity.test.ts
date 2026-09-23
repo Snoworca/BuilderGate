@@ -32,7 +32,8 @@ const EXPECTED_FIELDS: Record<FileJobType, readonly string[]> = {
     'processedEntries', 'totalEntries', 'currentPath',
   ],
   'file-job:decision-required': ['type', 'sessionId', 'jobId', 'decisionId', 'kind', 'path', 'detail', 'choices'],
-  'file-job:done': ['type', 'sessionId', 'jobId', 'outcome', 'processedEntries', 'affectedDirectories'],
+  // errorCode 는 failed 에만 실리는 선택 필드다(경로 없는 errno·정책 코드). 오류 대화상자가 이유를 보이게 한다.
+  'file-job:done': ['type', 'sessionId', 'jobId', 'outcome', 'processedEntries', 'affectedDirectories', 'errorCode'],
 };
 
 interface FieldDecl {
@@ -322,6 +323,27 @@ test('file-job:done 선언 필드가 jobId·outcome·processedEntries·affectedD
 test('서버·프런트엔드 두 사본의 file-job 메시지 세 종이 같은 type 문자열과 같은 필드 이름 집합을 갖는다 (주석 제거 후 비교)', () => {
   const diffs = diffFileJobDeclarations(COPIES[0], COPIES[1]);
   assert.deepEqual(diffs, [], `ws-protocol copies disagree:\n  ${diffs.join('\n  ')}`);
+});
+
+// @req IR-FOP-002 AC-3
+// @req FR-FEX-007 AC-5
+test('file-job:decision-required 의 choices 가 overwrite·rename·skip·retry 리터럴이고, done 의 errorCode 는 선택 string 이다', () => {
+  for (const copy of COPIES) {
+    const decision = requireArm(copy, 'file-job:decision-required');
+    const choices = decision.get('choices');
+    assert.ok(choices, `${copy.label}: choices missing`);
+    const inner = /^Array<(.*)>$/.exec(choices.typeText) ?? /^\((.*)\)\[\]$/.exec(choices.typeText);
+    assert.ok(inner, `${copy.label}: choices must be an array of literals, got '${choices.typeText}'`);
+    const literals = literalSet(inner[1]);
+    assert.ok(literals, `${copy.label}: choices members must be string literals, got '${inner[1]}'`);
+    assert.deepEqual([...literals].sort(), ['overwrite', 'rename', 'retry', 'skip'], `${copy.label}: choices literals`);
+
+    const done = requireArm(copy, 'file-job:done');
+    const errorCode = done.get('errorCode');
+    assert.ok(errorCode, `${copy.label}: done.errorCode missing`);
+    assert.equal(errorCode.optional, true, `${copy.label}: done.errorCode must be optional (only failed jobs carry it)`);
+    assert.equal(errorCode.typeText, 'string', `${copy.label}: done.errorCode type`);
+  }
 });
 
 // 아래 fixture 는 대조 함수 자체를 시험한다 — 위 다섯 case 가 공허하게 통과할 수 없음을 보이기 위해서다.

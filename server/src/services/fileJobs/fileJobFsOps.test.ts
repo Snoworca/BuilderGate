@@ -189,3 +189,26 @@ test('fileJobFsOps.ts·fileJobRunner.ts 소스(주석 제거)에 fs.copyFile·co
   }
   assert.deepEqual(hits, []);
 });
+
+// RCK-004: 새 파일을 "없을 때만" 놓는 원자 연산. rename 은 이미 있는 이름을 말없이 교체한다.
+// @req FR-FOP-005
+test('실제 어댑터의 hardLink 는 새 이름을 만들고, 이미 있는 이름에는 EEXIST 로 실패하며 그 파일을 건드리지 않는다', async () => {
+  const { nodeFileJobFsOps } = (await import('./fileJobFsOps.js')) as unknown as {
+    nodeFileJobFsOps: { hardLink?: (existing: string, newPath: string) => Promise<void> };
+  };
+  assert.equal(typeof nodeFileJobFsOps.hardLink, 'function', 'nodeFileJobFsOps.hardLink 가 없다 — 운영이 교체 가능한 rename 으로만 놓는다');
+  const dir = await realpath(await mkdtemp(join(tmpdir(), 'bg-filejob-hardlink-')));
+  try {
+    await writeFile(join(dir, 'tmp'), 'mine');
+    await nodeFileJobFsOps.hardLink!(join(dir, 'tmp'), join(dir, 'a.txt'));
+    assert.equal(await readFile(join(dir, 'a.txt'), 'utf8'), 'mine');
+    await writeFile(join(dir, 'b.txt'), 'theirs');
+    await assert.rejects(nodeFileJobFsOps.hardLink!(join(dir, 'tmp'), join(dir, 'b.txt')), (err: unknown) => {
+      assert.equal((err as { code?: string }).code, 'EEXIST');
+      return true;
+    });
+    assert.equal(await readFile(join(dir, 'b.txt'), 'utf8'), 'theirs');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

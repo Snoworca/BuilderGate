@@ -669,7 +669,9 @@ test('같은 시나리오를 사용자 취소와 자동 취소로 돌리면 결�
   assert.equal(user.log.filter((e) => e.op === 'unlink' || e.op === 'rmdir').length, 0, '사용자 취소가 롤백 연산을 했다');
   // 상대값 — 자동 취소가 같은 규칙을 따른다.
   assert.deepEqual(auto.done, user.done, 'done 페이로드가 다르다');
-  assert.deepEqual(auto.log, user.log, 'fs 연산 목록이 다르다');
+  // 임시 이름(.bg-part-<무작위>)은 실행마다 다르다 — 이름의 무작위 부분만 지우고 연산 순서와 경로는 그대로 비교한다.
+  const canon = (log: unknown): unknown => JSON.parse(JSON.stringify(log).replace(/\.bg-part-[0-9a-f]+/g, '.bg-part-*'));
+  assert.deepEqual(canon(auto.log), canon(user.log), 'fs 연산 목록이 다르다');
   assert.deepEqual(auto.dst, user.dst);
   assert.deepEqual(auto.dstA, user.dstA);
 });

@@ -90,3 +90,32 @@ test('FileService.listDirectory counts the parent entry below a root', async () 
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 });
+
+// RCK-006: 파일 작업이 쓰는 도중의 임시 파일(.bg-part-<16 hex>)이 목록에 보였고, 서버가 죽으면 영영 남아 보였다.
+// 러너가 만드는 정확한 이름만 숨긴다 — 비슷하게 생긴 사용자 파일은 그대로 보인다. totalEntries 도 같은 기준이다.
+test('FileService.listDirectory hides file-job temp names and counts totalEntries without them', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'));
+  try {
+    await fs.writeFile(path.join(tempDir, 'a.txt'), 'a');
+    await fs.writeFile(path.join(tempDir, '.bg-part-0123456789abcdef'), 'partial');
+    await fs.writeFile(path.join(tempDir, '.bg-part-mine'), 'user file');
+    await fs.writeFile(path.join(tempDir, '.bg-part-0123456789abcdef0'), 'user file, too long');
+    const listing = await listingService(tempDir).listDirectory('session-1', '.');
+
+    assert.deepEqual(
+      listing.entries.map(entry => entry.name),
+      ['..', '.bg-part-0123456789abcdef0', '.bg-part-mine', 'a.txt'],
+    );
+    assert.equal(listing.totalEntries, 4);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('the temp-name pattern FileService hides is the one the file-job runner generates', async () => {
+  const runner = await import('./fileJobs/fileJobRunner.js') as unknown as { isFileJobTempName?: (name: string) => boolean };
+  assert.equal(typeof runner.isFileJobTempName, 'function', 'fileJobRunner does not export isFileJobTempName');
+  assert.equal(runner.isFileJobTempName!('.bg-part-0123456789abcdef'), true);
+  assert.equal(runner.isFileJobTempName!('.bg-part-mine'), false);
+  assert.equal(runner.isFileJobTempName!('x.bg-part-0123456789abcdef'), false);
+});

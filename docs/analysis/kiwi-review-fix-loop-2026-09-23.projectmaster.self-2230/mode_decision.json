@@ -1,0 +1,19 @@
+{
+ "mode": "self",
+ "pr_url": null,
+ "pr_number": null,
+ "self_scope": {
+  "source": "base-head",
+  "files": [
+   "server/src/services/fileJobs",
+   "server/src/routes/fileJobRoutes.ts",
+   "server/src/utils/pathValidator.ts",
+   "server/src/services/FileService.ts",
+   "server/src/index.ts",
+   "server/src/types/ws-protocol.ts",
+   "frontend/src/types/ws-protocol.ts"
+  ],
+  "commit_range": "a9aed374..HEAD",
+  "diff_loc": 6685
+ }
+}

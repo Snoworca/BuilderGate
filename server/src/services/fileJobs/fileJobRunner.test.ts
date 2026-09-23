@@ -370,7 +370,8 @@ test('큰 파일 하나를 복사할 때 그 파일이 끝나기 전에 중간 �
   );
   assert.equal(result.outcome, 'completed');
 
-  const copyDone = indexOf(fs, (e) => e.op === 'copy-done' && e.path === '/dst/big.bin');
+  // 새 파일도 임시 이름에 쓴 뒤 rename 하므로(FR-FOP-005) 복사의 끝은 출발지로 찾는다.
+  const copyDone = indexOf(fs, (e) => e.op === 'copy-done' && e.src === '/src/big.bin');
   assert.ok(copyDone >= 0, '복사가 copyFileStream 을 거치지 않았다');
   const before = fs.log
     .slice(0, copyDone)
@@ -541,7 +542,8 @@ test('충돌은 전송 도중 만나는 순서대로 하나씩 묻는다 — 첫
     decides.map((d) => d.path),
     ['/dst/b.txt', '/dst/c.txt'],
   );
-  const aDone = indexOf(fs, (e) => e.op === 'copy-done' && e.path === '/dst/a.txt');
+  // 새 파일은 임시 이름에 쓴 뒤 rename 한다(FR-FOP-005) — 전송의 끝은 목적지 이름으로의 rename 이다.
+  const aDone = indexOf(fs, (e) => e.op === 'rename' && e.path === '/dst/a.txt');
   assert.ok(aDone >= 0 && aDone < decides[0].i, '첫 결정 요청 전에 a.txt 전송이 끝나 있지 않다');
   // 사전 스캔이 없다는 직접 증거: 첫 질문 시점까지 c 의 목적지는 들여다보지도 않았다.
   // 미리 훑어 모은 뒤 게으르게 묻는 구현은 위의 순서 단언을 통과하지만 이것에 걸린다.
@@ -568,14 +570,20 @@ test('재귀 자식과 이름 바꾼 대상을 포함해 작업이 만드는 모
   );
   assert.equal(result.outcome, 'completed');
 
+  // 파일은 임시 이름에 쓴 뒤(copy-start) 목적지 이름으로 rename 한다(FR-FOP-005). 셋 다 만드는 경로다.
   const created = fs.log.flatMap((e, i) =>
-    e.op === 'mkdir' || e.op === 'copy-start' ? [{ i, path: e.path }] : [],
+    e.op === 'mkdir' || e.op === 'copy-start' || e.op === 'rename' ? [{ i, op: e.op, path: e.path }] : [],
   );
   // 무엇이 만들어졌는지를 정확히 건다 — 아무것도 만들지 않는 구현은 "만든 것은 모두
   // 검증되었다" 를 공짜로 만족한다. 재명명 대상은 resolveNameCollision 의 'a (2).txt'.
   assert.deepEqual(
-    created.map((c) => c.path).sort(),
+    created.filter((c) => c.op !== 'copy-start').map((c) => c.path).sort(),
     ['/dst/a (2).txt', '/dst/d', '/dst/d/b.bin', '/dst/d/e', '/dst/d/e/c.txt'].sort(),
+  );
+  // 임시 이름은 최종 이름과 같은 디렉터리에 있다 — 다른 디렉터리면 rename 이 장치 경계를 넘을 수 있다.
+  assert.deepEqual(
+    created.filter((c) => c.op === 'copy-start').map((c) => parentOf(c.path)).sort(),
+    ['/dst', '/dst/d', '/dst/d/e'],
   );
   // 각 경로는 만들어지기 직전에(그보다 앞선 시점에) 검증 콜백을 거쳤다.
   for (const c of created) {

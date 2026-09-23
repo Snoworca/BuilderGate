@@ -167,15 +167,24 @@ export async function resolveAndValidateEntry(
     throw new AppError(ErrorCode.PATH_BLOCKED);
   }
 
-  // A missing tail cannot contain a link, so the entry is the real path. The
-  // base itself has no parent inside the base to judge; it is named as is.
-  if (missing.length > 0 || resolved === path.resolve(basePath)) {
-    return { realPath: full, entryPath: missing.length > 0 ? full : real };
+  // A missing tail cannot contain a link, so the entry is the real path.
+  if (missing.length > 0) {
+    return { realPath: full, entryPath: full };
+  }
+  const isBase = resolved === path.resolve(basePath);
+  // A filesystem root has no parent and no name; it is its own entry.
+  if (isBase && path.dirname(resolved) === resolved) {
+    return { realPath: full, entryPath: real };
   }
   const realParent = await fs.realpath(path.dirname(resolved)).catch((err: unknown) => {
     throw realpathFailure(err);
   });
   const entryPath = path.join(realParent, path.basename(resolved));
+  // The base's own entry sits in its parent, outside the base by definition, so
+  // the location checks below do not apply. It still keeps its final name: when
+  // the base is a link, returning its target would make a delete of the base
+  // remove the target tree instead of the link.
+  if (isBase) return { realPath: full, entryPath };
   if (isOutside(realBase, entryPath)) {
     throw new AppError(ErrorCode.PATH_TRAVERSAL);
   }
@@ -183,4 +192,35 @@ export async function resolveAndValidateEntry(
     throw new AppError(ErrorCode.PATH_BLOCKED);
   }
   return { realPath: full, entryPath };
+}
+
+/**
+ * True when a target validated against cwd names the session folder itself.
+ * Deleting or moving that entry removes the folder the session stands in (or,
+ * when the cwd is a link, the link out of its parent), which no request means.
+ * The path validator cannot refuse it: the root's own entry sits in its parent,
+ * outside the base by definition, and is exempt from the location checks.
+ *
+ * Two spellings are compared. resolved (the requested path resolved against
+ * cwd) against the cwd string catches the root however it was written: every
+ * spelling the validator accepts lies under the cwd string, so the root is the
+ * one that resolves to it. entryPath against the real cwd catches the same
+ * folder reached by its real name. realPath is deliberately not compared: a
+ * link inside the session pointing at the root has the root as its realPath,
+ * yet deleting it only removes the link.
+ *
+ * Only cwd itself is realpath'd, never its parent — a traverse-only parent
+ * would otherwise make every delete under the session fail.
+ */
+export async function isSessionRootTarget(
+  cwd: string,
+  target: { resolved: string; entryPath: string }
+): Promise<boolean> {
+  const fold = (p: string): string => {
+    const r = path.resolve(p);
+    return process.platform === 'win32' || process.platform === 'darwin' ? r.toLowerCase() : r;
+  };
+  if (fold(target.resolved) === fold(cwd)) return true;
+  const realCwd = await fs.realpath(cwd).catch(() => cwd);
+  return fold(target.entryPath) === fold(realCwd);
 }
