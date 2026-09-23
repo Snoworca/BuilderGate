@@ -16,3 +16,13 @@
 {"ts": "2026-09-23T13:23:45Z", "event": "task_done", "task_id": "T-PH002-08", "summary": "CSS·표면 디자인 규칙 가드 12 red + 자체검사 1. 변이 37종 포착"}
 {"ts": "2026-09-23T13:40:43Z", "event": "task_done", "task_id": "T-PH002-09", "summary": "창·탭·경로·트리/목록 뷰·CSS·훅 구현. 가드 34/36(나머지 2 = T-PH002-10), 전체 1371/1367"}
 {"ts": "2026-09-23T13:53:05Z", "event": "task_done", "task_id": "T-PH002-10", "summary": "세 진입점 배선(App·Header·MosaicContainer·useEditorWindows.openDocument). wiring 23/23, 전체 1371/1369"}
+{"ts": "2026-09-23T13:59:37Z", "event": "task_done", "task_id": "T-PH003-01", "summary": "클립보드·단축키 판정 7 red(모듈 부재). 변이 11종 포착"}
+{"ts": "2026-09-23T14:03:06Z", "event": "task_done", "task_id": "T-PH003-02", "summary": "클립보드 저장소·단축키 판정 구현 7/7. repeat 무시, 세션 혼합 붙여넣기 거부"}
+{"ts": "2026-09-23T14:05:11Z", "event": "task_done", "task_id": "T-PH003-07", "summary": "상호작용 배선 소스 가드 11 red. 변이 17종 포착. tsconfig 줄은 PM 추가 대기"}
+{"ts": "2026-09-23T14:07:04Z", "event": "task_done", "task_id": "T-PH003-03", "summary": "컨텍스트 메뉴·모바일 버튼 빌더 10 red. 변이 13/14(나머지 등가)"}
+{"ts": "2026-09-23T14:07:19Z", "event": "task_done", "task_id": "T-PH003-05", "summary": "파일 작업 클라이언트·WS 라우팅·포트 9 red. 상대 경로 사전 거부. 변이 12종 포착"}
+{"ts": "2026-09-23T14:10:45Z", "event": "task_done", "task_id": "T-PH003-04", "summary": "컨텍스트 메뉴·모바일 버튼 빌더 구현 10/10 + AC-7 가드 green"}
+{"ts": "2026-09-23T14:13:36Z", "event": "task_done", "task_id": "T-PH003-06", "summary": "파일 작업 클라이언트·WS 라우팅·포트 9/9. 절대 경로 판정은 fileTreeState.isAbsolutePathSyntax(DR-20)"}
+{"ts": "2026-09-23T14:39:41Z", "event": "task_done", "task_id": "T-PH003-08", "summary": "메뉴·클립보드·단축키·모바일·확인 줄·인라인 이름 바꾸기·작업 done 배선. 가드 11/11, 전체 1408/1407. 잔여 LOW 2(보고)"}
+{"ts": "2026-09-23T14:52:10Z", "event": "task_done", "task_id": "T-PH003-09", "summary": "Playwright 스펙 14건 작성(실행 보류: BUILDERGATE_PASSWORD). e2e tsconfig references 누락 수정, 전용 config 추가. 남은 타입 오류 2건은 봉인된 wave3 스펙(선재)"}
+{"ts": "2026-09-23T14:53:40Z", "event": "task_done", "task_id": "T-PH003-10", "summary": "회귀: 단위 1409/1408(선재 REL-BGSTAB-012 만), tsc -b·test 0, DR-08 0, 13개 테스트 등재, 사장 코드 import 0"}

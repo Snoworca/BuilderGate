@@ -6,6 +6,7 @@
 import { tokenStorage } from './tokenStorage.ts';
 import { parseApiErrorPayload } from './apiError.ts';
 export { parseApiErrorPayload } from './apiError.ts';
+import { createFileJobClient } from '../components/fileExplorer/fileJobClient.ts';
 
 import type {
   Session,
@@ -347,6 +348,9 @@ export const fileApi = {
     return res.json();
   },
 };
+
+// File jobs (copy/move/delete with progress and decisions) -- FR-FEX-005
+export const fileJobApi = createFileJobClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
 
 // ============================================================================
 // Workspace API (Step 7)

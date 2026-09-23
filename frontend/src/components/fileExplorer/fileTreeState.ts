@@ -101,6 +101,20 @@ function stripTrailingSeparators(path: string): string {
   return path.slice(0, end);
 }
 
+// Syntax only: is this spelling anchored to a root rather than to some current
+// directory? POSIX '/x' (but not '//x'), drive 'C:\x' / 'C:/x', and UNC with a
+// server and a share name. Drive-relative 'C:foo' and root-relative '\foo' are
+// not; device namespaces ('\\?\', '\\.\') are refused. Whether the path may be
+// touched is still the server's call. Used by the file-job client, which must
+// not send a relative path (the server resolves it against its own cwd).
+// @req FR-FEX-005
+export function isAbsolutePathSyntax(path: string): boolean {
+  if (path.startsWith('/') && !isSeparator(path[1])) return true;
+  if (/^[A-Za-z]:[\\/]/.test(path)) return true;
+  const unc = /^[\\/]{2}([^\\/]+)[\\/]([^\\/]+)/.exec(path);
+  return unc !== null && unc[1] !== '?' && unc[1] !== '.';
+}
+
 // Syntax only: this cuts the last segment off. Whether the result may be listed
 // is the server's call, so no boundary is judged here.
 export function parentPathOf(path: string): string {

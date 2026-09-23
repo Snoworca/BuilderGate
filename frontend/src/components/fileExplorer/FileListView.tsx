@@ -4,15 +4,18 @@
 import type { MouseEvent } from 'react';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
 import type { DirectoryEntry } from '../../types/index.ts';
+import { decideContextMenuSelection } from './fileExplorerContextMenu.ts';
 import {
   decideDoubleClick,
   decideRowPointer,
+  resolveContextMenuTarget,
   rowRenderClass,
   type ExplorerClipboard,
   type NodeRow,
 } from './fileRowInteraction.ts';
 import { LIST_COLUMNS, selectListRows, type ListColumn, type ListSort } from './fileListView.ts';
 import { canGoUp, selectVisibleRows } from './fileTreeState.ts';
+import type { FileExplorerMenuRequest, FileRowRename } from './FileTreeView.tsx';
 
 export interface FileListViewProps {
   tree: UseFileTreeResult;
@@ -21,6 +24,8 @@ export interface FileListViewProps {
   clipboard?: ExplorerClipboard | null;
   /** A double click on an openable file. Opening is the editor's, never the explorer's. */
   onOpenFile: (filePath: string) => void;
+  onOpenMenu?: (request: FileExplorerMenuRequest) => void;
+  renaming?: FileRowRename | null;
 }
 
 const COLUMN_LABELS: Record<ListColumn, string> = {
@@ -49,7 +54,7 @@ function formatModified(modified: string): string {
 
 // @req FR-FEX-002
 // @req FR-FEX-011
-export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile }: FileListViewProps) {
+export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null }: FileListViewProps) {
   const listRows = selectListRows(tree.state, sort);
   // Paths come from the tree's own rows, so a list row names the same path the
   // reducer checks a selection against.
@@ -80,6 +85,8 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
   // decide on; every other row goes through decideDoubleClick.
   const handleDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as Element;
+    // Double clicking a word in the rename box selects it; it must not open the file.
+    if (target instanceof HTMLInputElement) return;
     if (target.closest('[data-up]') !== null) {
       void tree.goUp();
       return;
@@ -90,6 +97,37 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
     const decision = decideDoubleClick(nodeOf(entry), tree.state.mode);
     if (decision.type === 'open-editor') onOpenFile(decision.path);
     else if (decision.type === 'enter') void tree.setRoot(decision.path);
+  };
+
+  // The selection is settled before the menu opens, so every menu action reads
+  // the selection it was opened for.
+  const presentMenu = (clickedPath: string | null, x: number, y: number) => {
+    const decision = decideContextMenuSelection(tree.state.selectedPaths, clickedPath);
+    if (decision.targets.length === 0) tree.dispatch({ type: 'CLEAR_SELECTION' });
+    else if (clickedPath !== null && !tree.state.selectedPaths.has(clickedPath)) {
+      tree.dispatch({ type: 'CLICK_ROW', path: clickedPath, mods: { ctrl: false, shift: false }, orderedPaths: nodePaths });
+    }
+    const entry = listRows.find((candidate) => nodeOf(candidate).path === clickedPath);
+    onOpenMenu?.({
+      x,
+      y,
+      target: clickedPath === null ? 'empty' : 'item',
+      path: clickedPath,
+      // Blank space stands for the folder being shown.
+      isDir: entry === undefined || entry.type === 'directory',
+    });
+  };
+
+  // One handler on the rows container: a row resolves by data-path, blank space
+  // is the folder, and '..' gets no menu at all.
+  const handleContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+    const target = resolveContextMenuTarget(event.target as Element);
+    if (target.kind === 'none') {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    presentMenu(target.kind === 'item' ? target.path : null, event.clientX, event.clientY);
   };
 
   return (
@@ -109,7 +147,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
           </button>
         ))}
       </div>
-      <div className="fx-rows" onDoubleClick={handleDoubleClick}>
+      <div className="fx-rows" onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}>
         {canGoUp(tree.state) && (
           <div className="fx-row fx-up-row" data-up="true" role="row">
             <span className="fx-name fx-col-name">..</span>
@@ -130,7 +168,18 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
             >
               <span className="fx-name fx-col-name">
                 <span className="fx-icon">{entry.type === 'directory' ? '▸' : '·'}</span>
-                {entry.name}
+                {renaming?.path === row.path ? (
+                  <input
+                    className="fx-rename-input"
+                    aria-label="새 이름"
+                    ref={renaming.inputRef}
+                    value={renaming.editName}
+                    onChange={renaming.handleChange}
+                    onKeyDown={renaming.handleKeyDown}
+                    onBlur={renaming.handleBlur}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                ) : entry.name}
               </span>
               <span className="fx-meta fx-col-modified">{formatModified(entry.modified)}</span>
               <span className="fx-meta fx-col-size">{formatSize(entry)}</span>

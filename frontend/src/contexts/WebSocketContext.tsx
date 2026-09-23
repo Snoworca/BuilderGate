@@ -11,6 +11,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback, us
 import type { ReactNode } from 'react';
 import { tokenStorage } from '../services/tokenStorage';
 import { setWsClientId } from '../services/api';
+import { isFileJobMessage, type FileJobServerMessage } from '../components/fileExplorer/fileJobEvents.ts';
 import type {
   ClientWsMessage,
   ScreenRepairMessage,
@@ -170,6 +171,9 @@ interface GraceBufferedSessionState {
 
 export type WorkspaceEventHandler = (data: unknown) => void;
 
+// @req FR-FEX-001
+export type FileJobMessageHandler = (msg: FileJobServerMessage) => void;
+
 export interface TerminalResponderHandoffViewHandlers {
   getViewGeneration: () => number;
   onResponderDisableBoundary: (
@@ -195,6 +199,7 @@ export interface WebSocketContextValue {
   send: (msg: ClientWsMessage) => SendResult;
   subscribeSession: (sessionId: string, handlers: SessionHandlers) => () => void;
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
+  registerFileJobHandler: (handler: FileJobMessageHandler) => () => void;
   requestReconnect: (reason: string) => boolean;
   publishTerminalDeliveryVisibility: (input: {
     sessionId: string;
@@ -229,6 +234,7 @@ export interface WebSocketActionsValue {
   send: (msg: ClientWsMessage) => SendResult;
   subscribeSession: (sessionId: string, handlers: SessionHandlers) => () => void;
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
+  registerFileJobHandler: (handler: FileJobMessageHandler) => () => void;
   requestReconnect: (reason: string) => boolean;
   publishTerminalDeliveryVisibility: (input: {
     sessionId: string;
@@ -371,6 +377,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     controlSocketId: '',
   }));
   const workspaceHandlersRef = useRef<Record<string, WorkspaceEventHandler>>({});
+  const fileJobHandlersRef = useRef<Set<FileJobMessageHandler>>(new Set());
   const debugSendFailureOverrideRef = useRef<Required<DebugWebSocketSendFailureOverride> | null>(null);
   const activeSubscriptionsRef = useRef<Set<string>>(new Set());
   const pendingUnsubscribeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -1208,6 +1215,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // File-job events carry a sessionId but belong to explorer windows, not to
+    // terminal session handlers, so they are handed off before that branch.
+    if (isFileJobMessage(msg)) {
+      for (const handler of [...fileJobHandlersRef.current]) {
+        handler(msg);
+      }
+      return;
+    }
+
     // Session events (have sessionId field)
     if ('sessionId' in msg) {
       const sessionId = (msg as { sessionId: string }).sessionId;
@@ -1699,6 +1715,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     workspaceHandlersRef.current = handlers;
   }, []);
 
+  // @req FR-FEX-001
+  const registerFileJobHandler = useCallback((handler: FileJobMessageHandler): (() => void) => {
+    fileJobHandlersRef.current.add(handler);
+    return () => {
+      fileJobHandlersRef.current.delete(handler);
+    };
+  }, []);
+
   const registerTerminalResponderHandoffView = useCallback((
     sessionId: string,
     handlers: TerminalResponderHandoffViewHandlers,
@@ -1795,6 +1819,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     send,
     subscribeSession,
     setWorkspaceHandlers,
+    registerFileJobHandler,
     requestReconnect,
     publishTerminalDeliveryVisibility,
     registerTerminalCheckpointDispatcher,
@@ -1806,6 +1831,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }), [
     getTerminalControlSocketReceipt,
     publishTerminalDeliveryVisibility,
+    registerFileJobHandler,
     registerTerminalCheckpointDispatcher,
     registerTerminalResponderHandoffRuntime,
     registerTerminalResponderHandoffView,

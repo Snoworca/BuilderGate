@@ -4043,7 +4043,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerClipboard.test.ts", "exit_code": 1, "captured_failure": "tests 7, pass 0, fail 7. Every case fails with Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/fileExplorer/fileExplorerClipboard.ts' (5 cases) or '.../fileExplorerShortcuts.ts' (2 cases: decideFileExplorerShortcut Delete/F2, focus-outside DR-16). tsc -p tsconfig.test.json: 7 errors, all in fileExplorerClipboard.test.ts (TS2307 for the two missing modules + TS7006 cascades).", "timestamp": "2026-09-23T13:58:40Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -4216,7 +4216,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerClipboard.test.ts", "exit_code": 0, "timestamp": "2026-09-23T14:02:16.265Z"}
    },
    "trace_links": [
     {
@@ -4416,7 +4416,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerContextMenu.test.ts", "exit_code": 1, "captured_failure": "tests 10 / pass 0 / fail 10 — every case fails with ERR_MODULE_NOT_FOUND for src/components/fileExplorer/fileExplorerContextMenu.ts (dynamic import per test)", "timestamp": "2026-09-23T14:06:37Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -4638,7 +4638,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerContextMenu.test.ts tests/unit/fileRowInteraction.test.ts", "exit_code": 0, "timestamp": "2026-09-23T14:10:13Z"}
    },
    "trace_links": [
     {
@@ -4772,7 +4772,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobClient.test.ts", "exit_code": 1, "captured_failure": "tests 9 / pass 0 / fail 9 — 4 top-level TC (AC4-03 with 5 subtests, AC5-03, AC6-05, AC1-03) each fail individually with ERR_MODULE_NOT_FOUND: frontend/src/components/fileExplorer/fileJobClient.ts (AC6-05: fileJobEvents.ts)", "timestamp": "2026-09-23T00:00:00Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -4918,7 +4918,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobClient.test.ts", "exit_code": 0, "timestamp": "2026-09-23T14:12:57Z"}
    },
    "trace_links": [
     {
@@ -5117,7 +5117,12 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerInteractionWiring.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 11 / pass 0 / fail 11\nTC-REQ-CON-FEX-001-AC3-02: src/components/fileExplorer/FileTreeView.tsx: no onContextMenu handler — the context menu is not wired into this view\nTC-REQ-FR-FEX-006-AC9-01: target files must exist before their wiring can be checked; missing: src/components/fileExplorer/FileExplorerMobileBar.tsx, src/components/fileExplorer/FileExplorerConfirmBar.tsx\nTC-REQ-FR-FEX-003-AC4-02: target files must exist before their wiring can be checked; missing: src/components/fileExplorer/FileExplorerMobileBar.tsx, src/components/fileExplorer/FileExplorerConfirmBar.tsx\nTC-REQ-FR-FEX-005-AC2-02: src/components/fileExplorer/FileExplorerWindow.tsx must read the shared clipboard from ./fileExplorerClipboard\nTC-REQ-FR-FEX-005-AC6-02: src/components/fileExplorer/FileExplorerWindow.tsx:253: the window surface root (the first child of <WindowDialog>) has no onKeyDown\nTC-REQ-FR-FEX-005-AC8-02: target files must exist before their wiring can be checked; missing: src/components/fileExplorer/FileExplorerMobileBar.tsx\nTC-REQ-FR-FEX-005-AC5-02: target files must exist before their wiring can be checked; missing: src/components/fileExplorer/FileExplorerMobileBar.tsx, src/components/fileExplorer/FileExplorerConfirmBar.tsx\nTC-REQ-FR-FEX-006-AC1-02: target files must exist before their wiring can be checked; missing: src/components/fileExplorer/FileExplorerMobileBar.tsx, src/components/fileExplorer/FileExplorerConfirmBar.tsx\nTC-REQ-FR-FEX-006-AC2-03: target files must exist before their wiring can be checked; missing: src/components/fileExplorer/FileExplorerMobileBar.tsx, src/components/fileExplorer/FileExplorerConfirmBar.tsx\nTC-REQ-CON-FEX-001-AC3-05: src/components/fileExplorer/FileTreeView.tsx: no container-level onContextMenu (one not on a data-path row)\nTC-REQ-FR-FEX-001-AC6-07: src/components/fileExplorer/FileExplorerWindow.tsx: registerFileJobHandler is never called — finished jobs refresh nothing",
+     "timestamp": "2026-09-23T14:04:14Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -5400,7 +5405,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerInteractionWiring.test.ts", "exit_code": 0, "timestamp": "2026-09-23T14:39:05Z"}
    },
    "trace_links": [
     {

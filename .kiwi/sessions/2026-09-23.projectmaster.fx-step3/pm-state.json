@@ -6,7 +6,7 @@
  "sidecar_sha256": "d736ebacab01f4081b86fc1da45b887882f5fb58bd092a725a36c55bf2282fa6",
  "target_slug": "file-explorer",
  "started_at": "2026-09-23T08:57:30Z",
- "last_updated_at": "2026-09-23T13:53:05Z",
+ "last_updated_at": "2026-09-23T14:53:40Z",
  "pm_version": "0.1",
  "tasks": [
   {
@@ -313,112 +313,112 @@
   {
    "task_id": "T-PH003-01",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T13:59:37Z",
+   "ended_at": "2026-09-23T13:59:37Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "클립보드·단축키 판정 7 red(모듈 부재). 변이 11종 포착",
    "trace_req_ids": [
     "CON-FEX-001",
     "FR-FEX-002",
     "FR-FEX-005"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-02",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:03:06Z",
+   "ended_at": "2026-09-23T14:03:06Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "클립보드 저장소·단축키 판정 구현 7/7. repeat 무시, 세션 혼합 붙여넣기 거부",
    "trace_req_ids": [
     "CON-FEX-001",
     "FR-FEX-002",
     "FR-FEX-005"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-03",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:07:04Z",
+   "ended_at": "2026-09-23T14:07:04Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "컨텍스트 메뉴·모바일 버튼 빌더 10 red. 변이 13/14(나머지 등가)",
    "trace_req_ids": [
     "FR-FEX-005",
     "FR-FEX-006",
     "FR-FEX-011"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-04",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:10:45Z",
+   "ended_at": "2026-09-23T14:10:45Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "컨텍스트 메뉴·모바일 버튼 빌더 구현 10/10 + AC-7 가드 green",
    "trace_req_ids": [
     "FR-FEX-005",
     "FR-FEX-006",
     "FR-FEX-011"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-05",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:07:19Z",
+   "ended_at": "2026-09-23T14:07:19Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "파일 작업 클라이언트·WS 라우팅·포트 9 red. 상대 경로 사전 거부. 변이 12종 포착",
    "trace_req_ids": [
     "FR-FEX-001",
     "FR-FEX-005"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-06",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:13:36Z",
+   "ended_at": "2026-09-23T14:13:36Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "파일 작업 클라이언트·WS 라우팅·포트 9/9. 절대 경로 판정은 fileTreeState.isAbsolutePathSyntax(DR-20)",
    "trace_req_ids": [
     "FR-FEX-001",
     "FR-FEX-005"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-07",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:05:11Z",
+   "ended_at": "2026-09-23T14:05:11Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "상호작용 배선 소스 가드 11 red. 변이 17종 포착. tsconfig 줄은 PM 추가 대기",
    "trace_req_ids": [
     "CON-FEX-001",
     "FR-FEX-001",
@@ -427,17 +427,17 @@
     "FR-FEX-006"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-08",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:39:41Z",
+   "ended_at": "2026-09-23T14:39:41Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "메뉴·클립보드·단축키·모바일·확인 줄·인라인 이름 바꾸기·작업 done 배선. 가드 11/11, 전체 1408/1407. 잔여 LOW 2(보고)",
    "trace_req_ids": [
     "CON-FEX-001",
     "FR-FEX-001",
@@ -446,17 +446,17 @@
     "FR-FEX-006"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-09",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": true,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:52:10Z",
+   "ended_at": "2026-09-23T14:52:10Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "Playwright 스펙 14건 작성(실행 보류: BUILDERGATE_PASSWORD). e2e tsconfig references 누락 수정, 전용 config 추가. 남은 타입 오류 2건은 봉인된 wave3 스펙(선재)",
    "trace_req_ids": [
     "FR-FEX-002",
     "FR-FEX-003",
@@ -467,17 +467,17 @@
     "SEC-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-10",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": true,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T14:53:40Z",
+   "ended_at": "2026-09-23T14:53:40Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "회귀: 단위 1409/1408(선재 REL-BGSTAB-012 만), tsc -b·test 0, DR-08 0, 13개 테스트 등재, 사장 코드 import 0",
    "trace_req_ids": [
     "CON-ARCH-001",
     "CON-FEX-001",
@@ -491,14 +491,14 @@
     "SEC-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   }
  ],
  "stats": {
   "total": 28,
-  "done": 18,
+  "done": 28,
   "running": 0,
-  "pending": 10,
+  "pending": 0,
   "failed": 0,
   "blocked": 0,
   "skipped": 0

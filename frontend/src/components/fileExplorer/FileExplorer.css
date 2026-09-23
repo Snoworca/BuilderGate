@@ -321,3 +321,148 @@
   padding-left: 8px;
   text-align: right;
 }
+
+/* The surface takes focus so shortcuts know they are meant for it; the rows
+   carry the selection, so the surface itself draws no ring. */
+.fx-window-body:focus {
+  outline: none;
+}
+
+/* The rows fill the scroll area, so a right click below the last row lands on
+   the rows container and opens the folder's menu. */
+.fx-scroll > .fx-rows,
+.fx-scroll > .fx-list {
+  min-height: 100%;
+}
+
+.fx-list > .fx-rows {
+  flex: 1 1 auto;
+}
+
+.fx-rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: calc(var(--row-h) - 4px);
+  padding: 0 4px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  color: var(--fg-strong);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+/* In-window confirm row: questions and short errors, inside the window's
+   content, blocking nothing else. */
+
+.fx-confirm-bar {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+
+.fx-confirm-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.fx-confirm-row + .fx-confirm-row {
+  border-top: 1px solid var(--line);
+}
+
+.fx-confirm-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-strong);
+}
+
+.fx-confirm-error .fx-confirm-text {
+  color: var(--danger);
+}
+
+.fx-confirm-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-muted);
+}
+
+.fx-confirm-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  color: var(--fg-strong);
+  font: inherit;
+}
+
+.fx-confirm-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.fx-confirm-button {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.fx-confirm-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg-strong);
+}
+
+.fx-confirm-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.fx-confirm-button.fx-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Mobile button row: stands in for the shortcuts on a phone. */
+
+.fx-mobile-bar {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+
+.fx-mobile-button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+}
+
+.fx-mobile-button:disabled {
+  opacity: 0.4;
+}
