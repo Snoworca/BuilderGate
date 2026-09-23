@@ -358,8 +358,52 @@
   }
  },
  "req_coverage": {},
- "final_mutations": [],
+ "final_mutations": [
+  {
+   "kind": "update_status",
+   "req_id": "FR-FOP-001",
+   "to": "implemented"
+  },
+  {
+   "kind": "update_status",
+   "req_id": "FR-FOP-002",
+   "to": "implemented"
+  },
+  {
+   "kind": "update_status",
+   "req_id": "FR-FOP-003",
+   "to": "implemented"
+  },
+  {
+   "kind": "update_status",
+   "req_id": "FR-FOP-004",
+   "to": "implemented"
+  },
+  {
+   "kind": "update_status",
+   "req_id": "FR-FOP-005",
+   "to": "implemented"
+  },
+  {
+   "kind": "update_status",
+   "req_id": "IR-FOP-001",
+   "to": "implemented"
+  },
+  {
+   "kind": "update_status",
+   "req_id": "IR-FOP-002",
+   "to": "implemented"
+  },
+  {
+   "kind": "update_status",
+   "req_id": "SEC-FOP-001",
+   "to": "in_progress"
+  },
+  {
+   "kind": "add_completed_work_plan_summary"
+  }
+ ],
  "pending_mutations": [],
- "report_path": null,
+ "report_path": ".kiwi/sessions/2026-09-23.projectmaster.fx-step2/reports/pm-20260923T1310Z.md",
  "doculight_viewer_id": null
 }

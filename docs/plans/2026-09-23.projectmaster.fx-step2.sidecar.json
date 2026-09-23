@@ -288,7 +288,13 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobState.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 5 / pass 0 / fail 5. 다섯 테스트 전부 이름으로 ✖ 출력, 각각 ERR_MODULE_NOT_FOUND (fileJobState.js 부재 — 테스트마다 동적 import 라 러너 사망이 아니라 테스트별 실패). 임시 스텁 확인(삭제함): 허용형 스텁은 case1(actual 7 expected 6)·case2(Missing expected exception)·case5(actual {next:cancelled} expected {ignored:true}) 단언 실패, 재진입 차단 스텁은 case3·4·5 실패, 올바른 스텁은 5/5 통과",
+     "timestamp": "2026-09-23T08:14:54.226Z",
+     "note": "paired red task T-PH001-01"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobState.test.ts\"",
      "exit_code": 0,
@@ -709,7 +715,13 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 11 / pass 0 / fail 11 — 11 case 전부 이름으로 ✖. 원인: Error [ERR_MODULE_NOT_FOUND]: Cannot find module .../fileJobs/fileJobRunner.js · fileJobFsOps.js (테스트 본문 안 동적 import). 임시 스텁 검증: 옳은 스텁 11/11 통과, 틀린 스텁 9종이 각각 의도한 단언에서 실패(청크 진행 누락, 사전 충돌 스캔, 생성 후 검증, scanning 중 바이트 진행, 삭제 바이트 진행, 답 뒤 running 복귀 누락, decide 미호출 2초 기한, readFile 기반 어댑터, 문자열 속 // 뒤 readFile 은닉). 스텁은 삭제함.",
+     "timestamp": "2026-09-23T08:31:54Z",
+     "note": "paired red task T-PH001-03"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts src\\services\\fileJobs\\fileJobState.test.ts\"",
      "exit_code": 0,
@@ -761,6 +773,7 @@
    "title": "취소·이동 의미론 테스트 작성 (가짜 + 실제 fs)",
    "type": "code",
    "req_ids": [
+    "FR-FOP-002",
     "FR-FOP-005"
    ],
    "files": [
@@ -1129,7 +1142,13 @@
       "kind": "integration"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunnerCancel.test.ts src\\services\\fileJobs\\fileJobRunnerCancelRealFs.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 14 / pass 3 / fail 11. 모듈 부재 실패 0 — 11건 모두 단언에서 실패. [AC1-01] outcome 'failed' !== 'cancelled' (AbortError The operation was aborted — 취소가 실패로 떨어짐; 끝난 a.bin 바이트 단언은 통과). [AC2-01] '쓰던 파일 /dst/b.bin 이 목적지에 남았다' (부분본 미삭제). [AC3-01] outcome=failed — 취소 경로 미진입. [AC4-01] outcome 'failed' !== 'cancelled' (processedEntries 판정 이전). [AC1-03 추가] '취소 뒤 복사 시도: copy-call /src/b.bin -> /dst/b.bin' (파일 사이 취소 무시). [AC5-01] 'rename 호출: []' (move 미구현, scan 뒤 not implemented). [AC6-01] 'rename 을 먼저 시도하지 않았다'. [AC6-02] outcome=failed 'File job operation not implemented: move'. [AC2-02 실제 fs] '쓰다 만 big.bin 가 디스크에 남았다 (65536 B)' (fs.stat). [AC2-05 추가 실제 fs] '원래 262144 B 가 65536 B 가 되었다' (createWriteStream 이 덮어쓰기 대상을 잘라 원본 소실). [AC6-03 실제 fs] outcome failed 'File job operation not implemented: move'. [FR-FOP-002 AC3-07 추가] red 아님 — 현재 어댑터가 이미 settle 전에 두 번째 onBytes 를 내므로 통과(기존 1 MiB 테스트가 증명하지 못하던 것을 실측으로 고정하는 검증 구멍 봉합 case).",
+     "timestamp": "2026-09-23T08:44:19Z",
+     "note": "paired red task T-PH001-05"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunnerCancel.test.ts src\\services\\fileJobs\\fileJobRunnerCancelRealFs.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobState.test.ts src\\services\\fileJobs\\fileJobRunnerDurability.test.ts\"",
      "exit_code": 0,
@@ -1565,7 +1584,13 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManager.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "ℹ tests 13 / pass 0 / fail 13 — 13 named tests each ✖ with Error [ERR_MODULE_NOT_FOUND]: Cannot find module ...\\fileJobs\\fileJobManager.js imported from ...\\fileJobManager.test.ts",
+     "timestamp": "2026-09-23T09:15:32Z",
+     "note": "paired red task T-PH002-01"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManager.test.ts\"",
      "exit_code": 0,
@@ -2215,7 +2240,13 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManagerEmit.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 18 / pass 7 / fail 11. ✖ applyToAll 3건: 같은 작업이 다시 물었다(2 !== 1) — applyToAll 미기억(applyToAll=false 대조군은 통과). ✖ 제자리 붙여넣기 2건(가짜 fs·실제 디스크): done {outcome:failed, processedEntries:0} — 러너 EINVAL. ✖ 진행 제한: 1초 창 {start:0,count:338} (총 1005회) — 제한 없음(하한·leading 단언은 통과). ✖ decision-required 키: choices·detail 없음. ✖ done 키: affectedDirectories 없음. ✖ affectedDirectories copy/move/delete 3건: 배열이 아니다. ✔(이미 구현된 동작의 고정): progress 키 집합, 두 세션 송신, 취소 시 processedEntries=3, DECISION_MISMATCH, INVALID_CHOICE, MANAGER_DISPOSED, dispose 뒤 타이머 0",
+     "timestamp": "2026-09-23T09:43:17.159Z",
+     "note": "paired red task T-PH002-03"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManagerEmit.test.ts\"",
      "exit_code": 0,
@@ -2520,7 +2551,13 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\types\\wsProtocolFileJobParity.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 6 pass 1 fail 5. AC-1: missing arm file-job:progress, file-job:decision-required, file-job:done in server ServerWsMessage; AC-2/3/4: missing arm file-job:<type> in server ServerWsMessage; AC-7: ws-protocol copies disagree: missing arm file-job:* in server/frontend. Mutation fixture case passes (allowed by dod).",
+     "timestamp": "2026-09-23T10:06:25Z",
+     "note": "paired red task T-PH003-01"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\types\\wsProtocolFileJobParity.test.ts\"",
      "exit_code": 0,
@@ -3006,7 +3043,13 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\routes\\fileJobRoutes.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 13, pass 0, fail 13 — every case fails with Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'server/src/routes/fileJobRoutes.js' (fileJobRoutes.ts and services/fileJobs/fileJobPaths.ts do not exist yet)",
+     "timestamp": "2026-09-23T10:14:47Z",
+     "note": "paired red task T-PH003-03"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\routes\\fileJobRoutes.test.ts\"",
      "exit_code": 0,
@@ -3344,7 +3387,13 @@
       "kind": "integration"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobPathSecurity.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 4, pass 0, fail 4, skipped 0 (junctions created without EPERM). AC2-05: AssertionError expected a kind=error decision for the junction; outcome=failed, decisions=[] (lstat throws EUNSUPPORTEDTYPE, job fails). AC2-06: AssertionError file was created inside the blocked directory through a junction; outcome=completed (resolveAndValidate ENOENT branch skips realpath and blocked recheck). AC2-07: AssertionError paths were created outside the destination session cwd through a junction; outcome=completed (outside dir gained a.txt and dir). AC2-08: AssertionError scanning must finish past the link and reach transferring; outcome=failed, phases=[scanning,scanning].",
+     "timestamp": "2026-09-23T10:41:58Z",
+     "note": "paired red task T-PH003-05"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobPathSecurity.test.ts\"",
      "exit_code": 0,
@@ -3373,7 +3422,8 @@
    "type": "code",
    "req_ids": [
     "FR-FOP-003",
-    "IR-FOP-001"
+    "IR-FOP-001",
+    "SEC-FOP-001"
    ],
    "files": [
     {
@@ -3587,7 +3637,13 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobWiring.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "✖ index.ts 가 /api/file-jobs 를 authMiddleware 뒤에 마운트한다 — AssertionError: index.ts 가 createFileJobRoutes 를 import 하지 않는다\n✖ index.ts 가 onSessionDeleted 에서 그 세션의 작업을 정리한다 — AssertionError: createSessionRoutes 옵션에 onSessionDeleted 가 없다\n✖ fileJobRoutes.ts 의 GET 핸들러가 … broadcastWs 를 넘긴다 — AssertionError: index.ts 에 `const <이름> = new FileJobManager(…)` 가 없다\n✖ 라우터의 pathPolicy 와 관리자의 validatePathFor 가 한 정책 객체 … — AssertionError: index.ts 에 `const <이름> = new FileJobManager(…)` 가 없다\n✖ 운영 배선에서 출발지·목적지 검증 모두 validateCreatePath 를 쓴다 … — AssertionError: fileJobRoutes.ts 가 여전히 validateSessionPath 를 부른다 (2 !== 0)\nℹ tests 6 · pass 1 (스캐너 자기 점검·양성 대조) · fail 5",
+     "timestamp": "2026-09-23T12:42:52Z",
+     "note": "paired red task T-PH003-07"
+    },
     "green_evidence": {
      "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobWiring.test.ts\"",
      "exit_code": 0,
@@ -3863,7 +3919,8 @@
       "TC-REQ-FR-FOP-002-AC3-03",
       "TC-REQ-FR-FOP-002-AC3-04",
       "TC-REQ-FR-FOP-002-AC3-05",
-      "TC-REQ-FR-FOP-002-AC3-06"
+      "TC-REQ-FR-FOP-002-AC3-06",
+      "TC-REQ-FR-FOP-002-AC3-07"
      ]
     },
     {
@@ -3922,7 +3979,9 @@
       "TC-REQ-FR-FOP-003-AC3-03",
       "TC-REQ-FR-FOP-003-AC3-04",
       "TC-REQ-FR-FOP-003-AC3-05",
-      "TC-REQ-FR-FOP-003-AC3-06"
+      "TC-REQ-FR-FOP-003-AC3-06",
+      "TC-REQ-FR-FOP-003-AC3-07",
+      "TC-REQ-FR-FOP-003-AC3-08"
      ]
     },
     {
@@ -3968,7 +4027,9 @@
       "TC-REQ-FR-FOP-004-AC3-01",
       "TC-REQ-FR-FOP-004-AC3-02",
       "TC-REQ-FR-FOP-004-AC3-03",
-      "TC-REQ-FR-FOP-004-AC3-04"
+      "TC-REQ-FR-FOP-004-AC3-04",
+      "TC-REQ-FR-FOP-004-AC3-05",
+      "TC-REQ-FR-FOP-004-AC3-06"
      ]
     },
     {
@@ -4002,12 +4063,14 @@
      "ac_id": "AC-1",
      "test_case_ids": [
       "TC-REQ-FR-FOP-005-AC1-01",
-      "TC-REQ-FR-FOP-005-AC6-02",
-      "TC-REQ-FR-FOP-005-AC2-02",
-      "TC-REQ-FR-FOP-005-AC6-03",
       "TC-REQ-FR-FOP-005-AC1-02",
-      "TC-REQ-FR-FOP-005-AC6-05",
+      "TC-REQ-FR-FOP-005-AC1-03",
+      "TC-REQ-FR-FOP-005-AC2-02",
       "TC-REQ-FR-FOP-005-AC2-04",
+      "TC-REQ-FR-FOP-005-AC2-05",
+      "TC-REQ-FR-FOP-005-AC6-02",
+      "TC-REQ-FR-FOP-005-AC6-03",
+      "TC-REQ-FR-FOP-005-AC6-05",
       "TC-REQ-FR-FOP-005-AC6-06"
      ]
     },
@@ -4015,12 +4078,13 @@
      "ac_id": "AC-2",
      "test_case_ids": [
       "TC-REQ-FR-FOP-005-AC2-01",
-      "TC-REQ-FR-FOP-005-AC6-02",
       "TC-REQ-FR-FOP-005-AC2-02",
-      "TC-REQ-FR-FOP-005-AC6-03",
       "TC-REQ-FR-FOP-005-AC2-03",
-      "TC-REQ-FR-FOP-005-AC6-05",
       "TC-REQ-FR-FOP-005-AC2-04",
+      "TC-REQ-FR-FOP-005-AC2-05",
+      "TC-REQ-FR-FOP-005-AC6-02",
+      "TC-REQ-FR-FOP-005-AC6-03",
+      "TC-REQ-FR-FOP-005-AC6-05",
       "TC-REQ-FR-FOP-005-AC6-06"
      ]
     },
@@ -4037,7 +4101,11 @@
       "TC-REQ-FR-FOP-005-AC4-01",
       "TC-REQ-FR-FOP-005-AC4-02",
       "TC-REQ-FR-FOP-005-AC4-03",
-      "TC-REQ-FR-FOP-005-AC4-04"
+      "TC-REQ-FR-FOP-005-AC4-04",
+      "TC-REQ-FR-FOP-005-AC4-05",
+      "TC-REQ-FR-FOP-005-AC4-06",
+      "TC-REQ-FR-FOP-005-AC4-07",
+      "TC-REQ-FR-FOP-005-AC4-08"
      ]
     },
     {
@@ -4152,7 +4220,8 @@
       "TC-REQ-IR-FOP-002-AC1-01",
       "TC-REQ-IR-FOP-002-AC1-02",
       "TC-REQ-IR-FOP-002-AC1-03",
-      "TC-REQ-IR-FOP-002-AC1-04"
+      "TC-REQ-IR-FOP-002-AC1-04",
+      "TC-REQ-IR-FOP-002-AC1-05"
      ]
     },
     {
@@ -4170,7 +4239,9 @@
       "TC-REQ-IR-FOP-002-AC3-01",
       "TC-REQ-IR-FOP-002-AC3-02",
       "TC-REQ-IR-FOP-002-AC3-03",
-      "TC-REQ-IR-FOP-002-AC3-04"
+      "TC-REQ-IR-FOP-002-AC3-04",
+      "TC-REQ-IR-FOP-002-AC3-05",
+      "TC-REQ-IR-FOP-002-AC3-06"
      ]
     },
     {
@@ -4179,14 +4250,18 @@
       "TC-REQ-IR-FOP-002-AC4-01",
       "TC-REQ-IR-FOP-002-AC4-02",
       "TC-REQ-IR-FOP-002-AC4-03",
-      "TC-REQ-IR-FOP-002-AC4-04"
+      "TC-REQ-IR-FOP-002-AC4-04",
+      "TC-REQ-IR-FOP-002-AC4-05",
+      "TC-REQ-IR-FOP-002-AC4-06",
+      "TC-REQ-IR-FOP-002-AC4-07"
      ]
     },
     {
      "ac_id": "AC-5",
      "test_case_ids": [
       "TC-REQ-IR-FOP-002-AC5-01",
-      "TC-REQ-IR-FOP-002-AC5-02"
+      "TC-REQ-IR-FOP-002-AC5-02",
+      "TC-REQ-IR-FOP-002-AC5-03"
      ]
     },
     {
@@ -4233,7 +4308,8 @@
       "TC-REQ-SEC-FOP-001-AC1-01",
       "TC-REQ-SEC-FOP-001-AC1-02",
       "TC-REQ-SEC-FOP-001-AC1-03",
-      "TC-REQ-SEC-FOP-001-AC1-04"
+      "TC-REQ-SEC-FOP-001-AC1-04",
+      "TC-REQ-SEC-FOP-001-AC1-05"
      ]
     },
     {
@@ -4250,7 +4326,14 @@
       "TC-REQ-SEC-FOP-001-AC2-09",
       "TC-REQ-SEC-FOP-001-AC2-10",
       "TC-REQ-SEC-FOP-001-AC2-11",
-      "TC-REQ-SEC-FOP-001-AC2-12"
+      "TC-REQ-SEC-FOP-001-AC2-12",
+      "TC-REQ-SEC-FOP-001-AC2-13",
+      "TC-REQ-SEC-FOP-001-AC2-14",
+      "TC-REQ-SEC-FOP-001-AC2-15",
+      "TC-REQ-SEC-FOP-001-AC2-16",
+      "TC-REQ-SEC-FOP-001-AC2-17",
+      "TC-REQ-SEC-FOP-001-AC2-18",
+      "TC-REQ-SEC-FOP-001-AC2-19"
      ]
     }
    ]

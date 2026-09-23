@@ -8,7 +8,7 @@
   "summary": {
     "errors": 0,
     "warnings": 0,
-    "checks_total": 25
+    "checks_total": 26
   },
   "results": [
     {
@@ -126,6 +126,13 @@
     {
       "id": "C16",
       "title": "phase.depends_on DAG (no cycles)",
+      "status": "pass",
+      "severity": null,
+      "detail": null
+    },
+    {
+      "id": "C17",
+      "title": "task.files[].path exists + line_range valid",
       "status": "pass",
       "severity": null,
       "detail": null
