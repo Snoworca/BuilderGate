@@ -1,0 +1,7 @@
+{
+ "mcp": false,
+ "cli": true,
+ "halted": false,
+ "mode": "cli-fallback",
+ "reason": "MCP mutations forbidden in this repo (#100): they ignore workspaceRoot"
+}

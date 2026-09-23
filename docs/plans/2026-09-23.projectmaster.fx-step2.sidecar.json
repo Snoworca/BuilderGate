@@ -1,0 +1,4941 @@
+{
+ "schema_version": "1.1.0",
+ "plan_contract": "1.2.0",
+ "run_id": "2026-09-23.projectmaster.fx-step2",
+ "target": "file-explorer",
+ "plan_version": "0.1.0",
+ "generated_at": "2026-09-23T03:05:00Z",
+ "tool_versions": {
+  "speckiwi": "3.0.0",
+  "kiwi_planner": "0.6.0",
+  "validator": "0.6.0"
+ },
+ "tdd_policy": "strict",
+ "md_path": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md",
+ "md_sha256": "ed8cdbff9f2a7ac556fa41a95417fda2568af69396cb9785e05dd27c495c842d",
+ "phases": [
+  {
+   "id": "PH-001",
+   "title": "작업 상태 기계와 러너",
+   "goal": "복사·이동·삭제를 상태 기계 위의 2단계(scanning/transferring) 러너로 만들고 취소·EXDEV 의미론과 중간 경로 검증을 주입형 fsOps 로 검증한다.",
+   "depends_on": [],
+   "task_ids": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH001-05",
+    "T-PH001-06"
+   ]
+  },
+  {
+   "id": "PH-002",
+   "title": "세션 결속 작업 관리자",
+   "goal": "작업을 세션에 매어 새로고침을 견디게 하고, 누적 10분 자동 취소·applyToAll 작업 한정·초당 10회 진행 제한·WS 송신을 붙인다.",
+   "depends_on": [
+    "PH-001"
+   ],
+   "task_ids": [
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH002-03",
+    "T-PH002-04"
+   ]
+  },
+  {
+   "id": "PH-003",
+   "title": "프로토콜·REST·배선",
+   "goal": "두 ws-protocol 사본에 file-job 메시지를 더해 대조로 지키고, /api/file-jobs 네 경로와 세션별 경로 검증, index.ts 배선을 마친다.",
+   "depends_on": [
+    "PH-002"
+   ],
+   "task_ids": [
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-05",
+    "T-PH003-06",
+    "T-PH003-07",
+    "T-PH003-08",
+    "T-PH003-09"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "T-PH001-01",
+   "phase_id": "PH-001",
+   "title": "작업 상태 기계 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobState.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobState.test.ts"
+    }
+   ],
+   "action": "fileJobState 의 상태 집합·허용 전이·awaiting-decision 재진입·취소 수락 상태·종료 상태 취소의 ignored 반환을 단언한다. 파일 시스템·타이머에 의존하지 않는 순수 단위 테스트다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobState.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobState.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobState.test.ts\""
+   },
+   "dod": [
+    "다섯 case 가 red 로 실패한다",
+    "실패 출력에 테스트 이름이 찍힌다 — 러너 사망(파일 이름만 출력)과 구별된다"
+   ],
+   "rollback": "테스트 파일 삭제",
+   "estimated_effort": "S",
+   "covers_ac": [
+    "AC-1",
+    "AC-3",
+    "AC-4"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-001-AC1-01",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "작업 상태는 queued·running·awaiting-decision·completed·cancelled·failed 여섯 가지다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC1-02",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "허용되지 않은 전이(completed → running)는 거부된다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC3-01",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "awaiting-decision → running → awaiting-decision 재진입이 허용된다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC4-01",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "취소는 running 과 awaiting-decision 두 상태에서 받아 cancelled 로 간다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC4-02",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "종료 상태에 온 취소는 오류가 아니라 ignored 를 돌려준다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-01-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH001-02",
+   "phase_id": "PH-001",
+   "title": "fileJobState 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobState.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobState.test.ts"
+    }
+   ],
+   "action": "export type FileJobState 과 transition(state, event): { next } | { ignored: true } | throw 를 쓰는 순수 모듈. 전이표: queued→running, running→awaiting-decision|completed|failed|cancelled, awaiting-decision→running|cancelled. 종료 상태(completed·cancelled·failed)에 온 cancel 은 ignored.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobState.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobState.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobState.test.ts\""
+   },
+   "dod": [
+    "T-PH001-01 의 다섯 case 전부 통과",
+    "파일 시스템·타이머 import 0건"
+   ],
+   "rollback": "구현 파일 삭제",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH001-01"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-3",
+    "AC-4"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-001-AC1-03",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "작업 상태는 queued·running·awaiting-decision·completed·cancelled·failed 여섯 가지다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC1-04",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "허용되지 않은 전이(completed → running)는 거부된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC3-02",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "awaiting-decision → running → awaiting-decision 재진입이 허용된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC4-03",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "취소는 running 과 awaiting-decision 두 상태에서 받아 cancelled 로 간다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC4-04",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobState.test.ts",
+      "test_symbol": "종료 상태에 온 취소는 오류가 아니라 ignored 를 돌려준다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-02-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH001-03",
+   "phase_id": "PH-001",
+   "title": "러너 단계·진행률·중간 경로 검증·실제 어댑터 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-001",
+    "FR-FOP-002",
+    "SEC-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunner.test.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobFsOps.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunner.test.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobFsOps.test.ts"
+    }
+   ],
+   "action": "fileJobRunner.test.ts: 주입형 FileJobFsOps 가짜(메모리 트리 + 청크 단위 copyFileStream)와 주입형 validatePath·decide 콜백으로 runJob 을 몰아 두 단계, 스트림 중간 진행, 삭제의 항목 수 진행, 진행 페이로드 필드, 결정 후 재개, 사전 충돌 스캔 부재, 생성 경로 전수 검증을 단언한다. fileJobFsOps.test.ts: realpath 임시 디렉터리에서 실제 어댑터의 copyFileStream 을 1 MiB 파일로 돌려 onBytes 호출 수(≥2, 완료 전)와 바이트 동일성을 단언하고, 금지 호출 목록(fs.copyFile·copyFileSync·fs.cp·cpSync·readFile)이 두 소스에 없음을 소스 텍스트로 단언한다. 충돌 재명명은 기존 resolveNameCollision(server/src/services/fileNameCollision.ts) 을 쓴다고 가정한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobRunner.test.ts src/services/fileJobs/fileJobFsOps.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts\""
+   },
+   "dod": [
+    "열한 case 가 red 로 실패한다",
+    "실패 출력에 테스트 이름이 찍힌다"
+   ],
+   "rollback": "두 테스트 파일 삭제",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH001-02"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-002-AC1-01",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "scanning 단계는 항목 수와 전체 바이트를 세고 그동안 processedBytes 진행을 내지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC2-01",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "transferring 의 processedBytes 는 단조 증가하는 누적값이고 마지막 값이 totalBytes 와 같다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC3-01",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "큰 파일 하나를 복사할 때 그 파일이 끝나기 전에 중간 진행이 한 번 이상 나온다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC4-01",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "삭제는 processedEntries 로 진행하고 processedBytes 를 진행 지표로 쓰지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC5-01",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "모든 진행 보고가 processedBytes·totalBytes·processedEntries·totalEntries 를 함께 싣는다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC2-01",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "충돌에서 멈췄다가 답을 받으면 running 으로 돌아가 남은 항목을 처리한다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC5-01",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "충돌은 전송 도중 만나는 순서대로 하나씩 묻는다 — 첫 결정 요청 전에 이미 한 파일 이상이 전송되어 있다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-01",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "재귀 자식과 이름 바꾼 대상을 포함해 작업이 만드는 모든 경로가 경로 검증 콜백을 거친다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-02",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "검증 콜백이 거부한 중간 경로는 만들어지지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC3-02",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobFsOps.test.ts",
+      "test_symbol": "실제 어댑터로 1 MiB 임시 파일을 64 KiB 청크로 복사하면 완료 전에 onBytes 가 2회 이상 불리고 사본 바이트가 원본과 같다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC3-03",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobFsOps.test.ts",
+      "test_symbol": "fileJobFsOps.ts·fileJobRunner.ts 소스(주석 제거)에 fs.copyFile·copyFileSync·fs.cp·cpSync·readFile 호출이 없다",
+      "kind": "contract",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-03-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-001"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH001-03-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-002"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH001-03-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "SEC-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH001-04",
+   "phase_id": "PH-001",
+   "title": "fileJobRunner 와 실제 fs 어댑터 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-001",
+    "FR-FOP-002",
+    "SEC-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunner.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobFsOps.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunner.test.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobFsOps.test.ts"
+    }
+   ],
+   "action": "runJob(spec, { fsOps, validatePath, decide, onProgress, signal }): Promise<FileJobResult>. scanning 은 lstat/readdir 로 항목 수·바이트만 세고, transferring 은 copyFileStream(src, dst, onBytes, signal) 으로 청크마다 누적 바이트를 보고한다. 충돌은 전송 루프 안에서 decide 로 묻고(awaiting-decision), rename 선택은 resolveNameCollision 으로 이름을 정한다. 만들기 직전 모든 경로(재명명 대상·재귀 자식 포함)를 validatePath 에 넘긴다. fileJobFsOps.ts 는 node:fs 스트림(createReadStream({ highWaterMark: 64 KiB })/createWriteStream + pipeline) 기반 실제 구현이며 파일 전체를 메모리에 올리지 않는다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobRunner.test.ts src/services/fileJobs/fileJobFsOps.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts\""
+   },
+   "dod": [
+    "T-PH001-03 의 열한 case 전부 통과",
+    "T-PH001-01 의 다섯 case 회귀 없음",
+    "두 소스에 fs.copyFile·copyFileSync·fs.cp·cpSync·readFile 호출 0건 — 소스 계약 case 가 지킨다"
+   ],
+   "rollback": "두 구현 파일 삭제",
+   "estimated_effort": "L",
+   "depends_on_task": [
+    "T-PH001-03"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-002-AC1-02",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "scanning 단계는 항목 수와 전체 바이트를 세고 그동안 processedBytes 진행을 내지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC2-02",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "transferring 의 processedBytes 는 단조 증가하는 누적값이고 마지막 값이 totalBytes 와 같다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC3-04",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "큰 파일 하나를 복사할 때 그 파일이 끝나기 전에 중간 진행이 한 번 이상 나온다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC4-02",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "삭제는 processedEntries 로 진행하고 processedBytes 를 진행 지표로 쓰지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC5-02",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "모든 진행 보고가 processedBytes·totalBytes·processedEntries·totalEntries 를 함께 싣는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC2-02",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "충돌에서 멈췄다가 답을 받으면 running 으로 돌아가 남은 항목을 처리한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-001-AC5-02",
+      "req_id": "FR-FOP-001",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "충돌은 전송 도중 만나는 순서대로 하나씩 묻는다 — 첫 결정 요청 전에 이미 한 파일 이상이 전송되어 있다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-03",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "재귀 자식과 이름 바꾼 대상을 포함해 작업이 만드는 모든 경로가 경로 검증 콜백을 거친다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-04",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunner.test.ts",
+      "test_symbol": "검증 콜백이 거부한 중간 경로는 만들어지지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC3-05",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobFsOps.test.ts",
+      "test_symbol": "실제 어댑터로 1 MiB 임시 파일을 64 KiB 청크로 복사하면 완료 전에 onBytes 가 2회 이상 불리고 사본 바이트가 원본과 같다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC3-06",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobFsOps.test.ts",
+      "test_symbol": "fileJobFsOps.ts·fileJobRunner.ts 소스(주석 제거)에 fs.copyFile·copyFileSync·fs.cp·cpSync·readFile 호출이 없다",
+      "kind": "contract"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-04-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-001"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH001-04-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-002"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH001-04-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "SEC-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH001-05",
+   "phase_id": "PH-001",
+   "title": "취소·이동 의미론 테스트 작성 (가짜 + 실제 fs)",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-005"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts"
+    }
+   ],
+   "action": "fileJobRunnerCancel.test.ts: 주입형 fsOps 로 호출 순서를 기록하고 AbortSignal 로 전송 도중 취소한다. fileJobRunnerCancelRealFs.test.ts: realpath 임시 디렉터리와 실제 fileJobFsOps 로 큰 파일(수 MiB, onBytes 첫 호출에서 abort) 복사를 취소한 뒤 fs.stat 으로 상태를 확인하고, rename 만 EXDEV 를 던지게 감싼 실제 어댑터로 장치 간 이동을 흉내 낸다 — 실제 교차 장치 파일 시스템은 필요 없다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunnerCancel.test.ts src\\services\\fileJobs\\fileJobRunnerCancelRealFs.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobRunnerCancel.test.ts src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunnerCancel.test.ts src\\services\\fileJobs\\fileJobRunnerCancelRealFs.test.ts\""
+   },
+   "dod": [
+    "아홉 case 가 red 로 실패한다",
+    "실패가 모듈 부재가 아니라 단언에서 난 case 가 있으면 그 이름을 기록한다"
+   ],
+   "rollback": "두 테스트 파일 삭제",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH001-04"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-005-AC1-01",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소 전에 끝난 파일은 목적지에 그대로 남는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC2-01",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소 순간 쓰던 파일 하나만 목적지에서 unlink 된다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC3-01",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소 뒤 되돌리기 연산(끝난 사본의 rm·역방향 rename)이 한 번도 호출되지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC4-01",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소 결과가 실제로 끝난 항목 수를 processedEntries 로 싣는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC5-01",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "같은 장치 이동은 rename 한 번으로 끝나 결과가 atomic: true 를 싣는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC6-01",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "rename 이 EXDEV 를 던지면 파일마다 복사 직후 원본을 지운다 — 모든 복사가 모든 삭제보다 앞서는 순서가 나오지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC6-02",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-6",
+       "AC-1",
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "EXDEV 이동 도중 취소하면 끝난 파일은 목적지에만, 쓰던 파일은 원본에만 남는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC2-02",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-2",
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts",
+      "test_symbol": "실제 파일 복사 도중 abort 하면 fs.stat 이 부분 사본의 ENOENT 와 끝난 사본의 존재를 보인다 — 쓰기 스트림 destroy·close 대기 후 unlink 라 Windows 에서도 EBUSY/EPERM 이 없다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC6-03",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-6",
+       "AC-1",
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts",
+      "test_symbol": "rename 만 EXDEV 를 던지고 복사·삭제는 실제 어댑터로 도는 이동을 도중 취소하면 이동 끝난 파일은 목적지에만 있고, 쓰던 파일은 목적지 부분본이 없고 원본이 남으며, 손대지 않은 파일은 원본에 남는다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-05-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-05"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH001-06",
+   "phase_id": "PH-001",
+   "title": "러너 취소·이동 경로 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-005"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunner.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobFsOps.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts"
+    }
+   ],
+   "action": "signal abort 시 진행 중이던 파일 하나만 지우고 끝난 파일은 둔다 — copyFileStream 이 쓰기 스트림을 destroy 하고 'close' 를 기다린 뒤 unlink 한다(Windows 에서 열린 핸들 unlink 는 EBUSY/EPERM). 롤백 경로를 두지 않는다. move 는 먼저 rename 을 시도해 성공하면 { atomic: true } 로 끝내고, EXDEV 이면 파일 단위로 copyFileStream → unlink(원본) 를 교대로 수행한다. 결과에 outcome·processedEntries·affectedDirectories·atomic 을 싣는다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunnerCancel.test.ts src\\services\\fileJobs\\fileJobRunnerCancelRealFs.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobRunnerCancel.test.ts src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunnerCancel.test.ts src\\services\\fileJobs\\fileJobRunnerCancelRealFs.test.ts\""
+   },
+   "dod": [
+    "T-PH001-05 의 아홉 case 전부 통과",
+    "T-PH001-03 의 열한 case 회귀 없음"
+   ],
+   "rollback": "러너·어댑터 변경분 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH001-05"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-005-AC1-02",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소 전에 끝난 파일은 목적지에 그대로 남는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC2-03",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소 순간 쓰던 파일 하나만 목적지에서 unlink 된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC3-02",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소 뒤 되돌리기 연산(끝난 사본의 rm·역방향 rename)이 한 번도 호출되지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC4-02",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소 결과가 실제로 끝난 항목 수를 processedEntries 로 싣는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC5-02",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "같은 장치 이동은 rename 한 번으로 끝나 결과가 atomic: true 를 싣는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC6-04",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "rename 이 EXDEV 를 던지면 파일마다 복사 직후 원본을 지운다 — 모든 복사가 모든 삭제보다 앞서는 순서가 나오지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC6-05",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-6",
+       "AC-1",
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "EXDEV 이동 도중 취소하면 끝난 파일은 목적지에만, 쓰던 파일은 원본에만 남는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC2-04",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-2",
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts",
+      "test_symbol": "실제 파일 복사 도중 abort 하면 fs.stat 이 부분 사본의 ENOENT 와 끝난 사본의 존재를 보인다 — 쓰기 스트림 destroy·close 대기 후 unlink 라 Windows 에서도 EBUSY/EPERM 이 없다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC6-06",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-6",
+       "AC-1",
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts",
+      "test_symbol": "rename 만 EXDEV 를 던지고 복사·삭제는 실제 어댑터로 도는 이동을 도중 취소하면 이동 끝난 파일은 목적지에만 있고, 쓰던 파일은 목적지 부분본이 없고 원본이 남으며, 손대지 않은 파일은 원본에 남는다",
+      "kind": "integration"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-06-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-06"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH002-01",
+   "phase_id": "PH-002",
+   "title": "작업 관리자 세션 결속·자동 취소·종료 보존 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-003",
+    "FR-FOP-005"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobManager.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobManager.test.ts"
+    }
+   ],
+   "action": "주입형 clock/timer(가짜 setTimeout·now)와 가짜 broadcastWs 로 FileJobManager 를 구동한다. 대기 사이에 긴 running 구간을 넣어 벽시계와 대기 누적을 갈라 놓는다. 사용자 취소·자동 취소 비교는 같은 가짜 fsOps 시나리오를 두 번 돌려 기록된 연산 목록과 done 페이로드를 deepEqual 한다. 10분을 실제로 기다리지 않는다. 각 case 끝에 manager.dispose() 로 타이머를 정리한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManager.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobManager.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManager.test.ts\""
+   },
+   "dod": [
+    "열 case 가 red 로 실패한다",
+    "테스트 실행이 실제 시간 1초 안에 끝난다"
+   ],
+   "rollback": "테스트 파일 삭제",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH001-06"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-003-AC1-01",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "작업은 sessionId 에 매이고 연결 식별자를 받지 않는다 — 구독자가 없어도 completed 에 이른다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC2-01",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "list() 는 비종료 작업만 돌려주고 끝난 작업은 빠진다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC3-01",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "resendPendingDecisions(sessionId) 가 대기 중인 decision-required 를 같은 decisionId 로 다시 보낸다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC4-01",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "running 30분 → 대기 6분 → running 30분 → 대기 3분: 벽시계 10분·66분 시점 모두 취소가 없다 (벽시계 타이머가 아니라 대기 누적 예산이다)",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC4-02",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "위 시나리오에서 세 번째 대기가 누적 10분을 넘는 순간에만 자동 취소된다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC4-03",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "대기 누적 9분 59초에서는 취소되지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC5-01",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "같은 시나리오를 사용자 취소와 자동 취소로 돌리면 결과가 같다 — 끝난 파일 유지, 롤백 연산 0, done 페이로드(processedEntries 포함) 동일",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC5-02",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "자동 취소 뒤 늦게 온 decision 은 사용자 취소 뒤와 같은 오류로 거부된다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC5-03",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "같은 장치 이동이 끝난 작업은 5분 보존되고 그동안 cancel 이 {outcome:'ignored', atomic:true} 를 돌려주며 list() 에는 없다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC5-04",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "보존 5분이 지나면 기록이 사라지고 cancel 은 not-found 다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH002-01-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-003"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH002-01-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH002-02",
+   "phase_id": "PH-002",
+   "title": "FileJobManager 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-003",
+    "FR-FOP-005"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobManager.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobManager.test.ts"
+    }
+   ],
+   "action": "new FileJobManager({ runJob, broadcast: (sessionId, event, payload) => void, clock, timers, validatePathFor }). jobId 키 레지스트리, 각 작업은 sourceSessionId·destSessionId 에 매인다. list() 는 비종료만. awaiting-decision 진입마다 남은 예산(10분 − 누적)으로 타이머를 걸고 나갈 때 누적을 더한다. 예산 소진 시 cancel(jobId) 과 같은 함수를 부른다. 종료 작업은 5분 보존(list 제외)하고 그동안 cancel 은 { outcome: 'ignored', atomic?: true } 를 돌려준다. resendPendingDecisions(sessionId), cancelSessionJobs(sessionId), dispose() 를 제공한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManager.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobManager.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManager.test.ts\""
+   },
+   "dod": [
+    "T-PH002-01 의 열 case 전부 통과",
+    "dispose 후 남은 타이머 0"
+   ],
+   "rollback": "구현 파일 삭제",
+   "estimated_effort": "L",
+   "depends_on_task": [
+    "T-PH002-01"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-003-AC1-02",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "작업은 sessionId 에 매이고 연결 식별자를 받지 않는다 — 구독자가 없어도 completed 에 이른다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC2-02",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "list() 는 비종료 작업만 돌려주고 끝난 작업은 빠진다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC3-02",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "resendPendingDecisions(sessionId) 가 대기 중인 decision-required 를 같은 decisionId 로 다시 보낸다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC4-04",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "running 30분 → 대기 6분 → running 30분 → 대기 3분: 벽시계 10분·66분 시점 모두 취소가 없다 (벽시계 타이머가 아니라 대기 누적 예산이다)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC4-05",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "위 시나리오에서 세 번째 대기가 누적 10분을 넘는 순간에만 자동 취소된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC4-06",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "대기 누적 9분 59초에서는 취소되지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC5-03",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "같은 시나리오를 사용자 취소와 자동 취소로 돌리면 결과가 같다 — 끝난 파일 유지, 롤백 연산 0, done 페이로드(processedEntries 포함) 동일",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC5-04",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "자동 취소 뒤 늦게 온 decision 은 사용자 취소 뒤와 같은 오류로 거부된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC5-05",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "같은 장치 이동이 끝난 작업은 5분 보존되고 그동안 cancel 이 {outcome:'ignored', atomic:true} 를 돌려주며 list() 에는 없다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC5-06",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "보존 5분이 지나면 기록이 사라지고 cancel 은 not-found 다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH002-02-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-003"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH002-02-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH002-03",
+   "phase_id": "PH-002",
+   "title": "결정 범위·송신 페이로드·진행 제한 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-004",
+    "FR-FOP-005",
+    "IR-FOP-002"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobManagerEmit.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobManagerEmit.test.ts"
+    }
+   ],
+   "action": "가짜 broadcast 가 받은 (sessionId, event, payload) 를 기록해 applyToAll 의 작업 한정 범위(같은 세션 동시 작업 포함), 작업 종료 후 비기억, 초당 10회 제한(가짜 clock 으로 1000회 진행 발생), 세 이벤트의 페이로드 키 집합, 두 세션 동시 송신, 취소 시 processedEntries 값을 단언한다. 선택지는 설계 §5 표를 따른다 — conflict: overwrite·rename·skip, error: ignore·retry·cancel.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManagerEmit.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobManagerEmit.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManagerEmit.test.ts\""
+   },
+   "dod": [
+    "아홉 case 가 red 로 실패한다"
+   ],
+   "rollback": "테스트 파일 삭제",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH002-02"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-004-AC3-01",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "applyToAll=true 로 답한 선택이 같은 작업의 남은 충돌에 적용되어 다시 묻지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC3-02",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "같은 세션에서 동시에 도는 작업 A 가 applyToAll=true 로 답해도 작업 B 의 충돌은 decision-required 를 낸다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC4-01",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "작업이 끝난 뒤 새 작업은 같은 충돌을 다시 묻는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC5-01",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "진행 보고는 작업마다 1초 창에서 10회를 넘지 않고 마지막 값은 버려지지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC2-01",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "file-job:progress 페이로드 키가 jobId·phase·processedBytes·totalBytes·processedEntries·totalEntries·currentPath 다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC3-01",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "file-job:decision-required 페이로드가 jobId·decisionId·kind·path·detail·choices 를 싣는다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC4-01",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "file-job:done 페이로드 키가 정확히 jobId·outcome·processedEntries·affectedDirectories 다 — atomic 은 싣지 않는다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC1-01",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "출발지·목적지 세션이 다르면 file-job:* 이벤트를 두 세션 모두에 보낸다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC4-03",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "N개 파일을 마친 뒤 취소하면 file-job:done 의 processedEntries 가 정확히 N 이다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH002-03-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-004"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH002-03-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH002-03-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-002"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH002-04",
+   "phase_id": "PH-002",
+   "title": "applyToAll 범위·진행 제한·송신 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-004",
+    "FR-FOP-005",
+    "IR-FOP-002"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobManager.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/progressThrottle.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobManagerEmit.test.ts"
+    }
+   ],
+   "action": "applyToAll 선택은 작업 객체의 필드로만 두고 작업 종료 시 함께 버린다(전역·세션 저장 없음). progressThrottle 은 작업마다 leading + trailing 으로 100ms 당 1회를 넘기지 않고, done 직전에 대기 중인 마지막 값을 flush 한다. 송신은 broadcast(sessionId, 'file-job:progress'|'file-job:decision-required'|'file-job:done', payload) 이며 두 세션이 다르면 두 번 부른다. done 페이로드는 IR-FOP-002 AC-4 의 네 필드만 싣는다. 생산 배선은 sessionManager.broadcastWs(SessionManager.ts:7036-7039) 이고 WsRouter.ts·wsSendPolicy.ts 는 손대지 않는다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManagerEmit.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobManagerEmit.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManagerEmit.test.ts\""
+   },
+   "dod": [
+    "T-PH002-03 의 아홉 case 전부 통과",
+    "T-PH002-01 의 열 case 회귀 없음"
+   ],
+   "rollback": "관리자 변경분 되돌리기 + progressThrottle.ts 삭제",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH002-03"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FOP-004-AC3-03",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "applyToAll=true 로 답한 선택이 같은 작업의 남은 충돌에 적용되어 다시 묻지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC3-04",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "같은 세션에서 동시에 도는 작업 A 가 applyToAll=true 로 답해도 작업 B 의 충돌은 decision-required 를 낸다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC4-02",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "작업이 끝난 뒤 새 작업은 같은 충돌을 다시 묻는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC5-02",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "진행 보고는 작업마다 1초 창에서 10회를 넘지 않고 마지막 값은 버려지지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC2-02",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "file-job:progress 페이로드 키가 jobId·phase·processedBytes·totalBytes·processedEntries·totalEntries·currentPath 다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC3-02",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "file-job:decision-required 페이로드가 jobId·decisionId·kind·path·detail·choices 를 싣는다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC4-02",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "file-job:done 페이로드 키가 정확히 jobId·outcome·processedEntries·affectedDirectories 다 — atomic 은 싣지 않는다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC1-02",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "출발지·목적지 세션이 다르면 file-job:* 이벤트를 두 세션 모두에 보낸다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC4-04",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "N개 파일을 마친 뒤 취소하면 file-job:done 의 processedEntries 가 정확히 N 이다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH002-04-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-004"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH002-04-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH002-04-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-002"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-01",
+   "phase_id": "PH-003",
+   "title": "WS 프로토콜 file-job 메시지 대조 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "IR-FOP-002"
+   ],
+   "files": [
+    {
+     "path": "server/src/types/wsProtocolFileJobParity.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/types/wsProtocolFileJobParity.test.ts"
+    }
+   ],
+   "action": "server/src/types/ws-protocol.ts 와 frontend/src/types/ws-protocol.ts 원본 텍스트를 읽어 주석을 걷어낸 뒤 'export type ServerWsMessage =' 부터 'export interface SubscribedSessionInfo' 까지를 잘라 file-job 세 arm 의 type 문자열과 필드 이름을 추출·대조한다. 대조 함수 자체를 변이 fixture 로 한 번 더 시험해 공허한 통과를 막는다. 소스 텍스트 단언이므로 src/ 에서만 돈다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\types\\wsProtocolFileJobParity.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/types/wsProtocolFileJobParity.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\types\\wsProtocolFileJobParity.test.ts\""
+   },
+   "dod": [
+    "여섯 case 중 변이 fixture case 를 뺀 다섯이 red 로 실패한다",
+    "변이 fixture case 는 대조 함수가 있으면 처음부터 통과해도 된다"
+   ],
+   "rollback": "테스트 파일 삭제",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH002-04"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-7"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-IR-FOP-002-AC1-03",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "서버 ServerWsMessage 유니온이 file-job:progress·file-job:decision-required·file-job:done 세 type 을 포함한다",
+      "kind": "contract",
+      "expected_failure_signature": "file-job:progress|missing arm|AssertionError"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC2-03",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "file-job:progress 선언 필드가 jobId·phase·processedBytes·totalBytes·processedEntries·totalEntries·currentPath 다",
+      "kind": "contract",
+      "expected_failure_signature": "file-job:progress|missing arm|AssertionError"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC3-03",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "file-job:decision-required 선언 필드가 jobId·decisionId·kind·path·detail·choices 이고 kind 가 conflict|error 다",
+      "kind": "contract",
+      "expected_failure_signature": "file-job:progress|missing arm|AssertionError"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC4-03",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "file-job:done 선언 필드가 jobId·outcome·processedEntries·affectedDirectories 이고 outcome 이 completed|cancelled|failed 다",
+      "kind": "contract",
+      "expected_failure_signature": "file-job:progress|missing arm|AssertionError"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC7-01",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "서버·프런트엔드 두 사본의 file-job 메시지 세 종이 같은 type 문자열과 같은 필드 이름 집합을 갖는다 (주석 제거 후 비교)",
+      "kind": "contract",
+      "expected_failure_signature": "file-job:progress|missing arm|AssertionError"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC7-02",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "한쪽 사본에만 필드를 더한 변이 입력에서 대조 함수가 실패한다",
+      "kind": "contract",
+      "expected_failure_signature": "file-job:progress|missing arm|AssertionError"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-01-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-002"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-02",
+   "phase_id": "PH-003",
+   "title": "두 ws-protocol 사본에 file-job 메시지 추가",
+   "type": "code",
+   "req_ids": [
+    "IR-FOP-002"
+   ],
+   "files": [
+    {
+     "path": "server/src/types/ws-protocol.ts",
+     "line_range": "746-832"
+    },
+    {
+     "path": "frontend/src/types/ws-protocol.ts",
+     "line_range": "839-907"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/types/wsProtocolFileJobParity.test.ts"
+    }
+   ],
+   "action": "두 ServerWsMessage 유니온에 인라인 arm 세 개를 같은 순서·같은 필드로 더한다: { type: 'file-job:progress'; sessionId; jobId; phase: 'scanning'|'transferring'; processedBytes; totalBytes; processedEntries; totalEntries; currentPath } / { type: 'file-job:decision-required'; sessionId; jobId; decisionId; kind: 'conflict'|'error'; path; detail; choices: string[] } / { type: 'file-job:done'; sessionId; jobId; outcome: 'completed'|'cancelled'|'failed'; processedEntries; affectedDirectories: string[] }. sessionId 는 broadcastWs 가 붙이는 봉투 필드다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\types\\wsProtocolFileJobParity.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/types/wsProtocolFileJobParity.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\types\\wsProtocolFileJobParity.test.ts\""
+   },
+   "dod": [
+    "T-PH003-01 의 여섯 case 전부 통과",
+    "wsProtocolParityAck.test.ts 회귀 없음",
+    "server tsc --noEmit 오류 0"
+   ],
+   "rollback": "두 파일의 추가 arm 제거",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH003-01"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-7"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-IR-FOP-002-AC1-04",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "서버 ServerWsMessage 유니온이 file-job:progress·file-job:decision-required·file-job:done 세 type 을 포함한다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC2-04",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "file-job:progress 선언 필드가 jobId·phase·processedBytes·totalBytes·processedEntries·totalEntries·currentPath 다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC3-04",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "file-job:decision-required 선언 필드가 jobId·decisionId·kind·path·detail·choices 이고 kind 가 conflict|error 다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC4-04",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "file-job:done 선언 필드가 jobId·outcome·processedEntries·affectedDirectories 이고 outcome 이 completed|cancelled|failed 다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC7-03",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "서버·프런트엔드 두 사본의 file-job 메시지 세 종이 같은 type 문자열과 같은 필드 이름 집합을 갖는다 (주석 제거 후 비교)",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC7-04",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "server/src/types/wsProtocolFileJobParity.test.ts",
+      "test_symbol": "한쪽 사본에만 필드를 더한 변이 입력에서 대조 함수가 실패한다",
+      "kind": "contract"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-02-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-002"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-03",
+   "phase_id": "PH-003",
+   "title": "REST 진입점·경로 검증 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-003",
+    "FR-FOP-005",
+    "IR-FOP-001",
+    "IR-FOP-002",
+    "SEC-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/routes/fileJobRoutes.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/routes/fileJobRoutes.test.ts"
+    }
+   ],
+   "action": "express 앱에 createFileJobRoutes(manager, pathPolicy) 를 '/api/file-jobs' 로 올리고 server/src/testing/localHttpTestServer.ts 의 withLocalHttpServer 로 요청한다(TCP 포트 사용 안 함). 매니저는 실제 FileJobManager 에 가짜 runJob·가짜 broadcast 를 주입한다. 두 세션을 서로 다른 realpath 임시 디렉터리 cwd 로 두는 가짜 세션 조회와 blockedPaths 설정으로 경로 정책을 양방향·양성 case 까지 시험한다. IR-FOP-001 AC-3 과 SEC-FOP-001 AC-1 은 같은 파일·같은 헬퍼를 시험한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\routes\\fileJobRoutes.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/routes/fileJobRoutes.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\routes\\fileJobRoutes.test.ts\""
+   },
+   "dod": [
+    "열세 case 가 red 로 실패한다",
+    "테스트가 2001/2002/2222 어느 포트에도 접속하지 않는다"
+   ],
+   "rollback": "테스트 파일 삭제",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH003-02"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-IR-FOP-001-AC1-01",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "POST /api/file-jobs 가 operation·sourceSessionId·sources 를 받아 jobId 를 돌려준다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC2-01",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "destSessionId·destPath 를 sourceSessionId 와 별개로 받아 매니저에 그대로 넘긴다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC3-01",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "목적지 세션 cwd 안에서만 유효한 출발지 경로는 거부된다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC3-02",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "출발지 세션 cwd 안에서만 유효한 목적지 경로는 거부된다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC3-03",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "출발지 세션 cwd 안의 출발지와 목적지 세션 cwd 안에서만 유효한 목적지는 받아들여 jobId 를 돌려준다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC1-01",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "blocked path 에 걸린 출발지는 PATH_BLOCKED 로 거부되고 작업이 만들어지지 않는다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC1-02",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "blocked path 에 걸린 목적지도 PATH_BLOCKED 로 거부된다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC4-01",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "POST /api/file-jobs/:jobId/decision 이 decisionId·choice·applyToAll 을 받아 매니저에 전달하고 누락 시 400 이다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC5-01",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "DELETE /api/file-jobs/:jobId 가 진행 중인 작업을 취소한다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC5-07",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "실제 매니저에서 원자적 같은 장치 이동이 끝난 뒤 DELETE 가 404 가 아니라 200 {outcome:'ignored', atomic:true} 를 돌려준다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC6-01",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "GET /api/file-jobs 는 비종료 작업만 돌려준다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC3-03",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "실제 매니저에서 결정 대기 중 GET /api/file-jobs 를 부르면 같은 decisionId 의 file-job:decision-required 가 다시 broadcast 되고 응답의 그 작업에 pendingDecision 이 인라인으로 실린다",
+      "kind": "integration",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC6-01",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "라우터에 등록된 경로가 네 개뿐이고 작업별 진행 조회 경로(GET /:jobId 등)가 없다",
+      "kind": "contract",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-03-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-003"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-03-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-03-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-001"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-03-04",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-002"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-03-05",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "SEC-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-04",
+   "phase_id": "PH-003",
+   "title": "fileJobRoutes 와 경로 검증 헬퍼 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-003",
+    "FR-FOP-005",
+    "IR-FOP-001",
+    "IR-FOP-002",
+    "SEC-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/routes/fileJobRoutes.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobPaths.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/routes/fileJobRoutes.test.ts"
+    }
+   ],
+   "action": "fileJobPaths.ts: validateSessionPath(sessionId, p) = getCwd(sessionId) + resolveAndValidate(cwd, p, blockedPaths) (server/src/utils/pathValidator.ts:49-76) 를 감싼 단일 헬퍼. 라우트는 출발지 경로를 sourceSessionId 로, 목적지를 destSessionId 로 이 헬퍼에 넘긴다. GET 은 list() 를 돌려주며 각 작업에 pendingDecision 을 인라인으로 싣고, 대기 결정이 있는 작업마다 manager.resendPendingDecisions 로 같은 decisionId 를 다시 broadcast 한다. DELETE 는 매니저의 { outcome: 'ignored', atomic? } 를 200 으로 돌려주고 보존 기록조차 없으면 404 다. 라우트 네 개만 등록하고 오류는 fileRoutes.ts 의 handleError 와 같은 AppError 매핑을 따른다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\routes\\fileJobRoutes.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/routes/fileJobRoutes.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\routes\\fileJobRoutes.test.ts\""
+   },
+   "dod": [
+    "T-PH003-03 의 열세 case 전부 통과",
+    "경로 검증 구현이 fileJobPaths.ts 한 곳에만 있다"
+   ],
+   "rollback": "두 구현 파일 삭제",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH003-03"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-IR-FOP-001-AC1-02",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "POST /api/file-jobs 가 operation·sourceSessionId·sources 를 받아 jobId 를 돌려준다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC2-02",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "destSessionId·destPath 를 sourceSessionId 와 별개로 받아 매니저에 그대로 넘긴다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC3-04",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "목적지 세션 cwd 안에서만 유효한 출발지 경로는 거부된다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC3-05",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "출발지 세션 cwd 안에서만 유효한 목적지 경로는 거부된다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC3-06",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "출발지 세션 cwd 안의 출발지와 목적지 세션 cwd 안에서만 유효한 목적지는 받아들여 jobId 를 돌려준다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC1-03",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "blocked path 에 걸린 출발지는 PATH_BLOCKED 로 거부되고 작업이 만들어지지 않는다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC1-04",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "blocked path 에 걸린 목적지도 PATH_BLOCKED 로 거부된다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC4-02",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "POST /api/file-jobs/:jobId/decision 이 decisionId·choice·applyToAll 을 받아 매니저에 전달하고 누락 시 400 이다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC5-02",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "DELETE /api/file-jobs/:jobId 가 진행 중인 작업을 취소한다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC5-08",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "실제 매니저에서 원자적 같은 장치 이동이 끝난 뒤 DELETE 가 404 가 아니라 200 {outcome:'ignored', atomic:true} 를 돌려준다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-001-AC6-02",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "GET /api/file-jobs 는 비종료 작업만 돌려준다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC3-04",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "실제 매니저에서 결정 대기 중 GET /api/file-jobs 를 부르면 같은 decisionId 의 file-job:decision-required 가 다시 broadcast 되고 응답의 그 작업에 pendingDecision 이 인라인으로 실린다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC6-02",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "server/src/routes/fileJobRoutes.test.ts",
+      "test_symbol": "라우터에 등록된 경로가 네 개뿐이고 작업별 진행 조회 경로(GET /:jobId 등)가 없다",
+      "kind": "contract"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-04-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-003"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-04-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-04-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-001"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-04-04",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-002"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-04-05",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "SEC-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-05",
+   "phase_id": "PH-003",
+   "title": "실제 파일 시스템 경로 보안 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "SEC-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobPathSecurity.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobPathSecurity.test.ts"
+    }
+   ],
+   "action": "realpath 임시 디렉터리에 두 세션 cwd 와 cwd 밖 디렉터리를 만들고, 실제 FileJobManager + 실제 runJob + 실제 fileJobFsOps + 실제 validateSessionPath 로 작업을 돌린다. 링크는 fs.symlink(target, path, 'junction') 을 우선하고(Windows 권한 불필요), 생성이 EPERM 이면 t.skip('fs.symlink EPERM: 심볼릭 링크 생성 권한 없음') 으로 이유를 남기고 건너뛴다 — 조용히 통과시키지 않는다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobPathSecurity.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobPathSecurity.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobPathSecurity.test.ts\""
+   },
+   "dod": [
+    "네 case 가 red 로 실패하거나, 링크 생성 불가 시 이유가 적힌 skip 으로 보고된다",
+    "skip 이 아닌 case 는 pass 로 끝나지 않는다"
+   ],
+   "rollback": "테스트 파일 삭제",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH003-04"
+   ],
+   "covers_ac": [
+    "AC-2"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-05",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "출발지 트리 안에 cwd 밖 디렉터리를 가리키는 junction 이 있으면 그 항목이 kind=error 결정을 내고 그 아래 목적지 경로가 하나도 만들어지지 않는다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|junction|kind=error|PATH_"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-06",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "매니저가 러너에 넘기는 검증기(실제 validateSessionPath)가 blockedPaths 아래 목적지 경로를 거부해 그 경로가 만들어지지 않는다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|junction|kind=error|PATH_"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-07",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "목적지 세션 cwd 밖을 가리키는 junction 아래에 새로 만들 경로는 가장 가까운 기존 조상을 realpath 로 풀어 검증하므로 거부된다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|junction|kind=error|PATH_"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-08",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "scanning 은 lstat 을 쓴다 — 심볼릭 항목의 크기·자식을 링크 대상에서 세지 않는다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|junction|kind=error|PATH_"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-05-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-05"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "SEC-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-06",
+   "phase_id": "PH-003",
+   "title": "러너 lstat·링크 해석·최근접 조상 검증 구현",
+   "type": "code",
+   "req_ids": [
+    "SEC-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobRunner.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobPaths.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobPathSecurity.test.ts"
+    }
+   ],
+   "action": "scanning 은 lstat 을 쓰고, 심볼릭 항목은 realpath 로 푼 대상을 출발지 세션 정책으로 검증해 cwd 밖·blocked 이면 그 항목에 kind=error 결정을 내고 그 아래는 만들지 않는다. fileJobPaths 에 validateCreatePath(sessionId, p) 를 더해, 만들 경로의 가장 가까운 기존 조상을 realpath 로 풀어 세션 정책으로 검증한 뒤 나머지 이름을 붙인다(resolveAndValidate 의 ENOENT 분기가 realpath 를 건너뛰는 틈을 막는다). 매니저는 러너에 이 함수를 넘긴다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobPathSecurity.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobPathSecurity.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobPathSecurity.test.ts\""
+   },
+   "dod": [
+    "T-PH003-05 의 네 case 전부 통과(또는 이유가 적힌 skip)",
+    "T-PH001-03·T-PH003-03 회귀 없음"
+   ],
+   "rollback": "러너·헬퍼 변경분 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH003-05"
+   ],
+   "covers_ac": [
+    "AC-2"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-09",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "출발지 트리 안에 cwd 밖 디렉터리를 가리키는 junction 이 있으면 그 항목이 kind=error 결정을 내고 그 아래 목적지 경로가 하나도 만들어지지 않는다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-10",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "매니저가 러너에 넘기는 검증기(실제 validateSessionPath)가 blockedPaths 아래 목적지 경로를 거부해 그 경로가 만들어지지 않는다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-11",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "목적지 세션 cwd 밖을 가리키는 junction 아래에 새로 만들 경로는 가장 가까운 기존 조상을 realpath 로 풀어 검증하므로 거부된다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-12",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "scanning 은 lstat 을 쓴다 — 심볼릭 항목의 크기·자식을 링크 대상에서 세지 않는다",
+      "kind": "integration"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-06-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-06"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "SEC-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-07",
+   "phase_id": "PH-003",
+   "title": "서버 배선 계약 가드 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-003",
+    "IR-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobWiring.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobWiring.test.ts"
+    }
+   ],
+   "action": "server/src/index.ts 와 server/src/routes/fileJobRoutes.ts 원본을 주석 제거 후 읽어 app.use('/api/file-jobs', authMiddleware, …) 마운트, createSessionRoutes 옵션의 onSessionDeleted → cancelSessionJobs 배선, broadcastWs 송신 주입, GET 핸들러의 resendPendingDecisions 호출을 단언한다. index.ts 가 부트스트랩을 export 하지 않아 소스 텍스트 가드가 유일한 실행 가능 형태다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobWiring.test.ts\"",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobWiring.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobWiring.test.ts\""
+   },
+   "dod": [
+    "index.ts 에 관한 두 case 가 red 로 실패한다",
+    "resendPendingDecisions case 는 T-PH003-04 이후라 routes 절반은 통과할 수 있으나 index.ts 절반이 red 를 만든다"
+   ],
+   "rollback": "테스트 파일 삭제",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH003-06"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-3"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-IR-FOP-001-AC1-03",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobWiring.test.ts",
+      "test_symbol": "index.ts 가 /api/file-jobs 를 authMiddleware 뒤에 마운트한다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|/api/file-jobs|onSessionDeleted|broadcastWs"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC1-03",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobWiring.test.ts",
+      "test_symbol": "index.ts 가 onSessionDeleted 에서 그 세션의 작업을 정리한다 — 작업 수명이 연결이 아니라 세션에 매인다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|/api/file-jobs|onSessionDeleted|broadcastWs"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC3-05",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobWiring.test.ts",
+      "test_symbol": "fileJobRoutes.ts 의 GET 핸들러가 manager.resendPendingDecisions 를 부르고, index.ts 가 매니저 broadcast 로 sessionManager.broadcastWs 를 넘긴다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|/api/file-jobs|onSessionDeleted|broadcastWs"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-07-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-07"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-003"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-07-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-07"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-08",
+   "phase_id": "PH-003",
+   "title": "index.ts 에 작업 관리자·라우트 배선",
+   "type": "code",
+   "req_ids": [
+    "FR-FOP-003",
+    "IR-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/index.ts",
+     "line_range": "904-915"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "server/src/services/fileJobs/fileJobWiring.test.ts"
+    }
+   ],
+   "action": "FileJobManager 를 fileService(:1018) 뒤에 만들고 broadcast 로 sessionManager.broadcastWs 를 준다. createSessionRoutes 옵션에 onSessionDeleted: (id) => fileJobManager.cancelSessionJobs(id) 를 더하고, fileRoutes 마운트(:914-915) 옆에 app.use('/api/file-jobs', authMiddleware, createFileJobRoutes(fileJobManager, pathPolicy)) 를 둔다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobWiring.test.ts\"",
+     "expected_exit": 0,
+     "stdout_regex": "fail 0"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsx --test src/services/fileJobs/fileJobWiring.test.ts",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobWiring.test.ts\""
+   },
+   "dod": [
+    "T-PH003-07 의 세 case 전부 통과",
+    "server tsc --noEmit 오류 0"
+   ],
+   "rollback": "index.ts 변경분 되돌리기",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH003-07"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-3"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-IR-FOP-001-AC1-04",
+      "req_id": "IR-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobWiring.test.ts",
+      "test_symbol": "index.ts 가 /api/file-jobs 를 authMiddleware 뒤에 마운트한다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC1-04",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobWiring.test.ts",
+      "test_symbol": "index.ts 가 onSessionDeleted 에서 그 세션의 작업을 정리한다 — 작업 수명이 연결이 아니라 세션에 매인다",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC3-06",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobWiring.test.ts",
+      "test_symbol": "fileJobRoutes.ts 의 GET 핸들러가 manager.resendPendingDecisions 를 부르고, index.ts 가 매니저 broadcast 로 sessionManager.broadcastWs 를 넘긴다",
+      "kind": "contract"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-08-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-08"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-003"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-08-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-08"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-09",
+   "phase_id": "PH-003",
+   "title": "회귀 검증 — 손댄 테스트 전수와 타입 검사",
+   "type": "review",
+   "req_ids": [
+    "FR-FOP-001",
+    "FR-FOP-002",
+    "FR-FOP-003",
+    "FR-FOP-004",
+    "FR-FOP-005",
+    "IR-FOP-001",
+    "IR-FOP-002",
+    "SEC-FOP-001"
+   ],
+   "files": [
+    {
+     "path": "server/src/index.ts"
+    }
+   ],
+   "action": "아래 15개 파일을 파일별로 돌리고 server tsc --noEmit 을 돌린다: src/services/fileJobs/fileJobState.test.ts, src/services/fileJobs/fileJobRunner.test.ts, src/services/fileJobs/fileJobFsOps.test.ts, src/services/fileJobs/fileJobRunnerCancel.test.ts, src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts, src/services/fileJobs/fileJobManager.test.ts, src/services/fileJobs/fileJobManagerEmit.test.ts, src/services/fileJobs/fileJobPathSecurity.test.ts, src/services/fileJobs/fileJobWiring.test.ts, src/types/wsProtocolFileJobParity.test.ts, src/routes/fileJobRoutes.test.ts, src/types/wsProtocolParityAck.test.ts, src/services/fileNameCollision.test.ts, src/services/FileService.test.ts, src/services/FileServiceWrite.test.ts. 추가로 git diff --ignore-cr-at-eol --name-only 에 봉인 소스 server/src/ws/WsRouter.ts·server/src/ws/wsSendPolicy.ts 가 없음을 확인한다. FileService.ts 는 이 계획 밖 별도 커밋(설계 결정 24, listDirectory 배치 stat)이 바꾸므로 변경 금지 검사 대상이 아니다.",
+   "acceptance_tests": [
+    {
+     "kind": "checklist",
+     "items": [
+      "15개 테스트 파일이 각각 fail 0 으로 끝난다",
+      "cd server && npx tsc --noEmit 이 오류 0 이다",
+      "WsRouter.ts·wsSendPolicy.ts 변경 0 — authority 재발행 불필요"
+     ]
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd server && npx tsc --noEmit && git diff --ignore-cr-at-eol --name-only -- src/ws/WsRouter.ts src/ws/wsSendPolicy.ts | wc -l",
+    "windows": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsc --noEmit && git diff --ignore-cr-at-eol --name-only -- src/ws/WsRouter.ts src/ws/wsSendPolicy.ts\""
+   },
+   "dod": [
+    "15개 파일 전부 fail 0 (링크 권한 부족 skip 은 이유 문자열 확인)",
+    "server tsc --noEmit 오류 0",
+    "봉인 소스 두 개 변경 0"
+   ],
+   "rollback": "해당 없음 (확인 Task)",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH003-08"
+   ],
+   "covers_ac": [],
+   "tdd": {
+    "applicable": false,
+    "phase": "n/a",
+    "exempt_reason": "회귀 확인 검토 Task 다. 새 동작이 없고 앞선 red/green Task 들의 테스트 전수와 타입 검사를 다시 돌려 판정하므로 별도 테스트를 쓸 대상이 없다.",
+    "test_cases": []
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-09-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-09"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-001"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-09-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-09"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-002"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-09-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-09"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-003"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-09-04",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-09"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-004"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-09-05",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-09"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FOP-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-09-06",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-09"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-001"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-09-07",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-09"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "IR-FOP-002"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-09-08",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-09"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "SEC-FOP-001"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  }
+ ],
+ "coverage": [
+  {
+   "req_id": "FR-FOP-001",
+   "stability": "evolving",
+   "ac_total": 5,
+   "ac_covered": 5,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH003-09"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-001-AC1-01",
+      "TC-REQ-FR-FOP-001-AC1-02",
+      "TC-REQ-FR-FOP-001-AC1-03",
+      "TC-REQ-FR-FOP-001-AC1-04"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-001-AC2-01",
+      "TC-REQ-FR-FOP-001-AC2-02"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-001-AC3-01",
+      "TC-REQ-FR-FOP-001-AC3-02"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-001-AC4-01",
+      "TC-REQ-FR-FOP-001-AC4-02",
+      "TC-REQ-FR-FOP-001-AC4-03",
+      "TC-REQ-FR-FOP-001-AC4-04"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-001-AC5-01",
+      "TC-REQ-FR-FOP-001-AC5-02"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "FR-FOP-002",
+   "stability": "evolving",
+   "ac_total": 5,
+   "ac_covered": 5,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH003-09"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-002-AC1-01",
+      "TC-REQ-FR-FOP-002-AC1-02"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-002-AC2-01",
+      "TC-REQ-FR-FOP-002-AC2-02"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-002-AC3-01",
+      "TC-REQ-FR-FOP-002-AC3-02",
+      "TC-REQ-FR-FOP-002-AC3-03",
+      "TC-REQ-FR-FOP-002-AC3-04",
+      "TC-REQ-FR-FOP-002-AC3-05",
+      "TC-REQ-FR-FOP-002-AC3-06"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-002-AC4-01",
+      "TC-REQ-FR-FOP-002-AC4-02"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-002-AC5-01",
+      "TC-REQ-FR-FOP-002-AC5-02"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "FR-FOP-003",
+   "stability": "evolving",
+   "ac_total": 5,
+   "ac_covered": 5,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-07",
+    "T-PH003-08",
+    "T-PH003-09"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-003-AC1-01",
+      "TC-REQ-FR-FOP-003-AC1-02",
+      "TC-REQ-FR-FOP-003-AC1-03",
+      "TC-REQ-FR-FOP-003-AC1-04"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-003-AC2-01",
+      "TC-REQ-FR-FOP-003-AC2-02"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-003-AC3-01",
+      "TC-REQ-FR-FOP-003-AC3-02",
+      "TC-REQ-FR-FOP-003-AC3-03",
+      "TC-REQ-FR-FOP-003-AC3-04",
+      "TC-REQ-FR-FOP-003-AC3-05",
+      "TC-REQ-FR-FOP-003-AC3-06"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-003-AC4-01",
+      "TC-REQ-FR-FOP-003-AC4-02",
+      "TC-REQ-FR-FOP-003-AC4-03",
+      "TC-REQ-FR-FOP-003-AC4-04",
+      "TC-REQ-FR-FOP-003-AC4-05",
+      "TC-REQ-FR-FOP-003-AC4-06"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-003-AC5-01",
+      "TC-REQ-FR-FOP-003-AC5-02",
+      "TC-REQ-FR-FOP-003-AC5-03",
+      "TC-REQ-FR-FOP-003-AC5-04"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "FR-FOP-004",
+   "stability": "evolving",
+   "ac_total": 4,
+   "ac_covered": 2,
+   "missing_ac_ids": [
+    "AC-1",
+    "AC-2"
+   ],
+   "covered_tasks": [
+    "T-PH002-03",
+    "T-PH002-04",
+    "T-PH003-09"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-004-AC3-01",
+      "TC-REQ-FR-FOP-004-AC3-02",
+      "TC-REQ-FR-FOP-004-AC3-03",
+      "TC-REQ-FR-FOP-004-AC3-04"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-004-AC4-01",
+      "TC-REQ-FR-FOP-004-AC4-02"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "FR-FOP-005",
+   "stability": "evolving",
+   "ac_total": 6,
+   "ac_covered": 6,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH001-05",
+    "T-PH001-06",
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH002-03",
+    "T-PH002-04",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-09"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-005-AC1-01",
+      "TC-REQ-FR-FOP-005-AC6-02",
+      "TC-REQ-FR-FOP-005-AC2-02",
+      "TC-REQ-FR-FOP-005-AC6-03",
+      "TC-REQ-FR-FOP-005-AC1-02",
+      "TC-REQ-FR-FOP-005-AC6-05",
+      "TC-REQ-FR-FOP-005-AC2-04",
+      "TC-REQ-FR-FOP-005-AC6-06"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-005-AC2-01",
+      "TC-REQ-FR-FOP-005-AC6-02",
+      "TC-REQ-FR-FOP-005-AC2-02",
+      "TC-REQ-FR-FOP-005-AC6-03",
+      "TC-REQ-FR-FOP-005-AC2-03",
+      "TC-REQ-FR-FOP-005-AC6-05",
+      "TC-REQ-FR-FOP-005-AC2-04",
+      "TC-REQ-FR-FOP-005-AC6-06"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-005-AC3-01",
+      "TC-REQ-FR-FOP-005-AC3-02"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-005-AC4-01",
+      "TC-REQ-FR-FOP-005-AC4-02",
+      "TC-REQ-FR-FOP-005-AC4-03",
+      "TC-REQ-FR-FOP-005-AC4-04"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-005-AC5-01",
+      "TC-REQ-FR-FOP-005-AC5-02",
+      "TC-REQ-FR-FOP-005-AC5-03",
+      "TC-REQ-FR-FOP-005-AC5-04",
+      "TC-REQ-FR-FOP-005-AC5-05",
+      "TC-REQ-FR-FOP-005-AC5-06",
+      "TC-REQ-FR-FOP-005-AC5-07",
+      "TC-REQ-FR-FOP-005-AC5-08"
+     ]
+    },
+    {
+     "ac_id": "AC-6",
+     "test_case_ids": [
+      "TC-REQ-FR-FOP-005-AC6-01",
+      "TC-REQ-FR-FOP-005-AC6-02",
+      "TC-REQ-FR-FOP-005-AC6-03",
+      "TC-REQ-FR-FOP-005-AC6-04",
+      "TC-REQ-FR-FOP-005-AC6-05",
+      "TC-REQ-FR-FOP-005-AC6-06"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "IR-FOP-001",
+   "stability": "evolving",
+   "ac_total": 6,
+   "ac_covered": 6,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-07",
+    "T-PH003-08",
+    "T-PH003-09"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-001-AC1-01",
+      "TC-REQ-IR-FOP-001-AC1-02",
+      "TC-REQ-IR-FOP-001-AC1-03",
+      "TC-REQ-IR-FOP-001-AC1-04"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-001-AC2-01",
+      "TC-REQ-IR-FOP-001-AC2-02"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-001-AC3-01",
+      "TC-REQ-IR-FOP-001-AC3-02",
+      "TC-REQ-IR-FOP-001-AC3-03",
+      "TC-REQ-IR-FOP-001-AC3-04",
+      "TC-REQ-IR-FOP-001-AC3-05",
+      "TC-REQ-IR-FOP-001-AC3-06"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-001-AC4-01",
+      "TC-REQ-IR-FOP-001-AC4-02"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-001-AC5-01",
+      "TC-REQ-IR-FOP-001-AC5-02"
+     ]
+    },
+    {
+     "ac_id": "AC-6",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-001-AC6-01",
+      "TC-REQ-IR-FOP-001-AC6-02"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "IR-FOP-002",
+   "stability": "evolving",
+   "ac_total": 7,
+   "ac_covered": 7,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH002-03",
+    "T-PH002-04",
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-09"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-002-AC1-01",
+      "TC-REQ-IR-FOP-002-AC1-02",
+      "TC-REQ-IR-FOP-002-AC1-03",
+      "TC-REQ-IR-FOP-002-AC1-04"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-002-AC2-01",
+      "TC-REQ-IR-FOP-002-AC2-02",
+      "TC-REQ-IR-FOP-002-AC2-03",
+      "TC-REQ-IR-FOP-002-AC2-04"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-002-AC3-01",
+      "TC-REQ-IR-FOP-002-AC3-02",
+      "TC-REQ-IR-FOP-002-AC3-03",
+      "TC-REQ-IR-FOP-002-AC3-04"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-002-AC4-01",
+      "TC-REQ-IR-FOP-002-AC4-02",
+      "TC-REQ-IR-FOP-002-AC4-03",
+      "TC-REQ-IR-FOP-002-AC4-04"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-002-AC5-01",
+      "TC-REQ-IR-FOP-002-AC5-02"
+     ]
+    },
+    {
+     "ac_id": "AC-6",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-002-AC6-01",
+      "TC-REQ-IR-FOP-002-AC6-02"
+     ]
+    },
+    {
+     "ac_id": "AC-7",
+     "test_case_ids": [
+      "TC-REQ-IR-FOP-002-AC7-01",
+      "TC-REQ-IR-FOP-002-AC7-02",
+      "TC-REQ-IR-FOP-002-AC7-03",
+      "TC-REQ-IR-FOP-002-AC7-04"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "SEC-FOP-001",
+   "stability": "evolving",
+   "ac_total": 5,
+   "ac_covered": 2,
+   "missing_ac_ids": [
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "covered_tasks": [
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-05",
+    "T-PH003-06",
+    "T-PH003-09"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-SEC-FOP-001-AC1-01",
+      "TC-REQ-SEC-FOP-001-AC1-02",
+      "TC-REQ-SEC-FOP-001-AC1-03",
+      "TC-REQ-SEC-FOP-001-AC1-04"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-SEC-FOP-001-AC2-01",
+      "TC-REQ-SEC-FOP-001-AC2-02",
+      "TC-REQ-SEC-FOP-001-AC2-03",
+      "TC-REQ-SEC-FOP-001-AC2-04",
+      "TC-REQ-SEC-FOP-001-AC2-05",
+      "TC-REQ-SEC-FOP-001-AC2-06",
+      "TC-REQ-SEC-FOP-001-AC2-07",
+      "TC-REQ-SEC-FOP-001-AC2-08",
+      "TC-REQ-SEC-FOP-001-AC2-09",
+      "TC-REQ-SEC-FOP-001-AC2-10",
+      "TC-REQ-SEC-FOP-001-AC2-11",
+      "TC-REQ-SEC-FOP-001-AC2-12"
+     ]
+    }
+   ]
+  }
+ ],
+ "orphans": [],
+ "unreferenced_reqs": [],
+ "excluded_reqs": [],
+ "deferred_ac": [
+  {
+   "req_id": "FR-FOP-004",
+   "ac_id": "AC-1",
+   "reason": "done in fx-step1 (T-PH002-01/02), checked in SRS",
+   "user_decision_id": "planner-2026-09-23-fx-step2-prior-plan"
+  },
+  {
+   "req_id": "FR-FOP-004",
+   "ac_id": "AC-2",
+   "reason": "done in fx-step1 (T-PH002-01/02), checked in SRS",
+   "user_decision_id": "planner-2026-09-23-fx-step2-prior-plan"
+  },
+  {
+   "req_id": "SEC-FOP-001",
+   "ac_id": "AC-3",
+   "reason": "client-side; frontend chunk",
+   "user_decision_id": "planner-2026-09-23-fx-step2-server-only"
+  },
+  {
+   "req_id": "SEC-FOP-001",
+   "ac_id": "AC-4",
+   "reason": "client-side; frontend chunk",
+   "user_decision_id": "planner-2026-09-23-fx-step2-server-only"
+  },
+  {
+   "req_id": "SEC-FOP-001",
+   "ac_id": "AC-5",
+   "reason": "client-side; frontend chunk",
+   "user_decision_id": "planner-2026-09-23-fx-step2-server-only"
+  }
+ ],
+ "risks": [
+  {
+   "id": "R-01",
+   "severity": "high",
+   "description": "server/src/ws/WsRouter.ts·wsSendPolicy.ts 는 fair-scheduler authority 핀 소스다. 손대면 evidence-bundle 불일치로 build·테스트·CI 가 전부 red 가 되고 재발행 절차가 걸린다.",
+   "mitigation": "송신은 기존 sessionManager.broadcastWs(SessionManager.ts:7036-7039)만 쓰고 진행 제한은 progressThrottle.ts 에서 자체 구현한다. T-PH003-09 가 두 파일의 diff 0 을 확인한다.",
+   "affected_task_ids": [
+    "T-PH002-04",
+    "T-PH003-08",
+    "T-PH003-09"
+   ]
+  },
+  {
+   "id": "R-02",
+   "severity": "high",
+   "description": "WSL 에서 npx tsx 는 esbuild 가 win32 바이너리라 죽으며 exit 1 을 낸다. 그 exit 1 은 단언 실패와 구별되지 않아 red 를 봤다고 오판하게 만든다.",
+   "mitigation": "server 테스트는 cmd.exe /c 로 Windows node 에서 돌린다. red 판정 전에 실패 출력에 테스트 이름이 있는지 확인한다.",
+   "affected_task_ids": [
+    "T-PH001-01",
+    "T-PH001-03",
+    "T-PH001-05",
+    "T-PH002-01",
+    "T-PH002-03",
+    "T-PH003-01",
+    "T-PH003-03",
+    "T-PH003-05",
+    "T-PH003-07"
+   ]
+  },
+  {
+   "id": "R-03",
+   "severity": "med",
+   "description": "큰 파일 복사를 readFile/copyFile 로 하면 중간 진행이 없고 메모리를 파일 크기만큼 쓴다.",
+   "mitigation": "fileJobFsOps.ts 는 createReadStream/createWriteStream + pipeline 만 쓴다. DoD 에 fs.readFile/fs.cp 호출 0건을 넣었다.",
+   "affected_task_ids": [
+    "T-PH001-04"
+   ]
+  },
+  {
+   "id": "R-04",
+   "severity": "med",
+   "description": "10분 자동 취소와 진행 제한 타이머가 테스트에서 누수되면 node:test 가 끝나지 않거나 실제로 10분을 기다린다.",
+   "mitigation": "clock/timers 를 주입하고 dispose() 로 전부 정리한다. DoD 에 실행 시간 1초 이내를 넣었다.",
+   "affected_task_ids": [
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH002-04"
+   ]
+  },
+  {
+   "id": "R-05",
+   "severity": "med",
+   "description": "trailing 없는 throttle 은 마지막 진행 값을 버려 화면이 100% 에 도달하지 못한다.",
+   "mitigation": "leading + trailing 으로 구현하고 done 직전 flush 한다. 테스트가 마지막 값 전달을 단언한다.",
+   "affected_task_ids": [
+    "T-PH002-03",
+    "T-PH002-04"
+   ]
+  },
+  {
+   "id": "R-06",
+   "severity": "med",
+   "description": "resolveAndValidate 는 대상이 없으면(ENOENT) realpath 없이 경로를 돌려준다. 심볼릭 링크 부모 아래에 새로 만드는 중간 경로가 cwd 밖으로 새어도 통과할 수 있다.",
+   "mitigation": "scanning 은 lstat, 링크 항목은 realpath 후 출발지 정책 검증, 만들 경로는 가장 가까운 기존 조상을 realpath 로 풀어 검증한다. 실제 fs 테스트(junction, EPERM 시 이유 있는 skip)가 지킨다.",
+   "affected_task_ids": [
+    "T-PH003-05",
+    "T-PH003-06"
+   ]
+  },
+  {
+   "id": "R-07",
+   "severity": "med",
+   "description": "소스 텍스트를 읽는 계약 테스트는 dist/ 에서 돌리면 ENOENT 로 깨진다.",
+   "mitigation": "src/ 에서 npx tsx --test 로만 돌린다. verification_cmd 가 그 형태다.",
+   "affected_task_ids": [
+    "T-PH003-01",
+    "T-PH003-07"
+   ]
+  },
+  {
+   "id": "R-09",
+   "severity": "med",
+   "description": "Windows 에서 열린 쓰기 스트림의 파일을 unlink 하면 EBUSY/EPERM 으로 실패해 부분 파일이 남는다.",
+   "mitigation": "쓰기 스트림 destroy 후 close 를 기다린 뒤 unlink 한다. 실제 fs 취소 테스트가 fs.stat 으로 부재를 확인한다.",
+   "affected_task_ids": [
+    "T-PH001-05",
+    "T-PH001-06"
+   ]
+  },
+  {
+   "id": "R-10",
+   "severity": "med",
+   "description": "Windows 에서 fs.symlink 는 권한이 필요할 수 있어 경로 보안 테스트가 조용히 통과할 위험이 있다.",
+   "mitigation": "디렉터리는 junction 을 쓰고, EPERM 이면 이유를 적은 t.skip 으로 보고한다. 리뷰 Task 가 skip 이유를 확인한다.",
+   "affected_task_ids": [
+    "T-PH003-05",
+    "T-PH003-09"
+   ]
+  },
+  {
+   "id": "R-08",
+   "severity": "low",
+   "description": "기존 동기 copy/move/delete 엔드포인트(fileRoutes.ts)의 동작이 바뀌면 현재 UI 가 깨진다.",
+   "mitigation": "이 계획은 FileService.ts 를 수정하지 않는다(별도 커밋의 listDirectory 변경은 계획 밖). T-PH003-09 가 FileService 테스트 회귀를 확인한다.",
+   "affected_task_ids": [
+    "T-PH003-09"
+   ]
+  }
+ ],
+ "open_questions": [
+  {
+   "id": "OQ-01",
+   "question": "작업 레지스트리는 메모리에만 있어 서버 재기동 시 진행 중 작업이 사라진다. 재기동 생존은 FR-FOP-003 에 없으므로 이번 증분에서 다루지 않는다 — 요구사항으로 올릴 것인가?",
+   "blocks_task_ids": []
+  },
+  {
+   "id": "OQ-02",
+   "question": "IR-FOP-002 AC-3 의 choices 값을 설계 §5 표(conflict: overwrite·rename·skip / error: ignore·retry·cancel)로 고정했다. 문자열 값을 SRS 에 명시할 것인가?",
+   "blocks_task_ids": []
+  }
+ ],
+ "external_module_impact": [],
+ "tdd_decisions": [
+  {
+   "task_id": "T-PH003-09",
+   "decision": "accept-as-exempt",
+   "reason": "회귀 확인 검토 Task 다. 새 동작이 없고 앞선 red/green Task 들의 테스트 전수와 타입 검사를 다시 돌려 판정하므로 별도 테스트를 쓸 대상이 없다.",
+   "user_decision_id": "planner-2026-09-23-fx-step2-review-task",
+   "decided_at": "2026-09-23T03:05:00Z"
+  }
+ ],
+ "coder_handoff_readiness": [
+  {
+   "phase_id": "PH-001",
+   "ready": true,
+   "blockers": []
+  },
+  {
+   "phase_id": "PH-002",
+   "ready": true,
+   "blockers": []
+  },
+  {
+   "phase_id": "PH-003",
+   "ready": true,
+   "blockers": []
+  }
+ ],
+ "mcp_call_log": [
+  {
+   "seq": 1,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "29353f67ade00baba33a6d38303b8b9fd3942b30",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 2,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "6a89f58f220dd9ce1552753aa78ee780607f82df",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 3,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "91d6b2c7af81d57b32ad283dc8d8779ba758e6ea",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 4,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "850c01bb1ddc08e0e1c32b6661e5cb3eb03c22ee",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 5,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "SEC-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "aab0032c4b1a89dd84783c3f43f16610d5c1b15d",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 6,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "c2174b4cae634990dffefcb40907c60d10912f16",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 7,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "a99fdf48c7999250baceff770ed1244db6cefba3",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 8,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "SEC-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "14bc1f437248367ba5a5dc86204390d3687fc774",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 9,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-05"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "d2b0c2ebeb9298e1f0e08f12f9db13c1b8fe9a4c",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 10,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-06"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "8462e398b12f609238af58ba6bfe74055e1ac7dd",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 11,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-003"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "141d9aa33aa19b4a95a9ecbfb1a9afdd3ddfabdd",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 12,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "ee3a9afdc09dbc5bc97d1ed40542653e5a1edc7f",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 13,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-003"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "a183b2a2f92c850c9f566c0b0b17192ea61e3249",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 14,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "008180b121cc6e220dd086481e1669bdbafaa1cf",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 15,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "c085a19c01317a104c8a7e85d1c567bb07813f74",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 16,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "df5cb812251b303b05629b00fd59858a3e651cc6",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 17,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "aa8744d9d831b3c5ee07c2e282f3153138cfb2ea",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 18,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "562ae3320a0914fa7c44482140731da16709384c",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 19,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "09b1ad3e98d7de2fa9742cafaf13558015efae0f",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 20,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "cec0d5260e5c10b1fa6288245a618c3fb625d0d7",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 21,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "7d60de69671f66934e078e369e60d777483467ed",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 22,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "357fda42ba2e78de945e8e41a7c51dfccbae9466",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 23,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-003"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "39c2066b4b086f44bc43b4c99f2cacd6e9e78253",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 24,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "715fc98dadc5102979e4e9d036eb93d3660d978a",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 25,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "4caa59cfa4de9b04223db109bb3eeeb87ea10cbd",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 26,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "4417e4dd42745a48000e271aeed2efd999803085",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 27,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "SEC-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "1176a83ab1d877e095fee24be507213e1b5b56e0",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 28,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-003"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "69139038e87cc2a2964b8c0b98980b747e77cb6f",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 29,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "6f5100c1096c1b4a6a8aef744204f636bee0f9a7",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 30,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "ae1b3eba62f3c542bc22f03633624df3eeea5bbf",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 31,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "b4508862008af5fb72ff6aeefa34c8fa8a0977f3",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 32,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "SEC-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "7281569b1d06f2056366c6ec6294b4a10dccd800",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 33,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-05"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "SEC-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "a69ddadec04181bf00ebba0fce9b20be6bb7e6e1",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 34,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-06"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "SEC-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "0bf205ceb5ed8a79805dcd97ceaa218f449dec8c",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 35,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-07"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-003"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "4fcf8543a690b93c16ba0cae9917f392f0d93ec2",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 36,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-07"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "3bdf5407d12ff06ce6bd6252b13fc37cab4dfa10",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 37,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-08"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-003"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "4d7ff079311de71d3e081f0f0d55b493f41fe135",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 38,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-08"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "0b89dc61fe87d3a48e2aea518e30fb2581769750",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 39,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-09"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "65986d4518309980cad83c84ad07e1f33dac124e",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 40,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-09"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "19b0525b24446aae5d4dddb8f10ba0fd2bc478ce",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 41,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-09"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-003"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "157d76094704e94e9d90db3e624ba80119f2aab8",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 42,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-09"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "46a62b02ae60254a9289d00bafa72c5034010cf2",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 43,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-09"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FOP-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "6118b3a40ad4d9404fd1d06c96df3768e1e1afd9",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 44,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-09"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "45f77f0aa1f85b469f834cf922d617ffaf9ccb57",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 45,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-09"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "IR-FOP-002"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "b8f8c9df994c91c4fcf99d5a3ffb186bf41be9f4",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 46,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-09"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "SEC-FOP-001"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "c30557c5bd23dbc65d8b7077481b631815b807ad",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 47,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FOP-001",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md#T-PH001-01"
+   },
+   "args_hash": "4a7d05e42dfc874b66021b078c08a219dfa42473",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 48,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FOP-002",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md#T-PH001-03"
+   },
+   "args_hash": "983c200174232c47e05f60f55b301cae55d5b653",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 49,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FOP-003",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md#T-PH002-01"
+   },
+   "args_hash": "4f233b446ae7793a84340071730ed8867d1d6676",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 50,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FOP-004",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md#T-PH002-03"
+   },
+   "args_hash": "ab64bd5e2182fd3433a17a88a41c65874f961b3d",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 51,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FOP-005",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md#T-PH001-05"
+   },
+   "args_hash": "a15fc7b98d25ff8950e6fc5afeb9449f052586f9",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 52,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "IR-FOP-001",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md#T-PH003-03"
+   },
+   "args_hash": "8d9ba8039ff190bdecba64472286582a4ed87e5c",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 53,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "IR-FOP-002",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md#T-PH002-03"
+   },
+   "args_hash": "814f07e9f2420347ca1814db1442950172b45b7c",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 54,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "SEC-FOP-001",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step2.plan.md#T-PH001-03"
+   },
+   "args_hash": "2723c0d23fbcbd493513f9801702540aea92ce86",
+   "response_hash": null,
+   "timestamp": "2026-09-23T03:05:00Z",
+   "ok": null,
+   "dry_run": true
+  }
+ ]
+}

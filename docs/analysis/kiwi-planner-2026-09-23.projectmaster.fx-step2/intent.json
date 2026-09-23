@@ -1,0 +1,46 @@
+{
+  "target_intent": "fx-step2 = FOP 스코프 8건(FR-FOP-001..005, IR-FOP-001, IR-FOP-002, SEC-FOP-001)만 구현한다 — 서버 파일 조작 작업(Job) 상태 기계, scanning/transferring 2단계 진행률, REST 진입점, WebSocket 진행 보고, blocked-path 검증. 화면(FEX)·토큰(ARCH)·편집기 패널(MDE)은 이 입력에 없으므로 이번 계획 범위 밖이다.",
+  "user_priorities": [
+    "설계 §12 구현 순서의 3~5단계(서버 작업 모델 → 결정 대기 → REST/WS)를 그대로 따른다 — 화면보다 서버를 먼저, 브라우저 없이 끝까지 검증 가능하게",
+    "복사·이동·삭제를 queued→running→(awaiting-decision→running)*→completed 상태 기계로 감싸고, 사전 일괄 스캔 방식은 채택하지 않는다(§3.1)",
+    "진행률은 scanning(파일수·바이트 세기, 막대 없음)과 transferring(누적 바이트) 2단계, 삭제는 바이트 대신 항목 수로 낸다(§3.2)",
+    "작업은 연결이 아니라 세션에 결속 — 새로고침 생존, GET /api/file-jobs 복구, 응답 대기 누적 10분 초과 시 자동 취소(§3.5)",
+    "취소는 전체 롤백 없음 — 이미 끝난 파일은 유지, 쓰다 만 파일 하나만 삭제, EXDEV 이동은 파일 단위 복사+삭제를 교대로 하고 전체 복사 후 전체 삭제는 금지(§3.7, FR-FOP-005 AC-6)",
+    "경로 검증은 기존 blocked-path 정책(FileService.resolveAndValidate, NFR-SEC-004)만 재사용 — 클라이언트/신규 경계 규칙 사본을 만들지 않는다"
+  ],
+  "ambiguities": [
+    "FR-FOP-004 는 이미 status=in_progress, AC-1/AC-2 checked=true(이름 (2).확장자 넘버링 구현됨) — 이번 계획은 그 로직을 재구현하지 않고 새 상태 기계에 연결만 해야 하며, AC-3/AC-4('더 이상 묻지 않기'는 작업 종료까지만)는 요구사항 본문이 명시적으로 'FR-FOP-001 의 awaiting-decision 루프와 IR-FOP-001 AC-4 의 applyToAll 이 먼저 서 있어야 한다'고 선행 조건을 걸어 두었다 — Task 순서가 이 의존을 어겨선 안 된다",
+    "IR-FOP-002(WS 진행 보고, 초당 10회 제한)를 구현하려면 서버 WS 송신 경로(WsRouter.ts, wsSendPolicy.ts)를 건드릴 필요가 있는지 불명 — 두 파일 모두 fair-scheduler authority 의 6개 핀 소스에 포함되어(server/src/ws/WsRouter.ts 274KB, server/src/ws/wsSendPolicy.ts 41KB) 건드리면 authority 재발행(build→publish→build→verify) 의무가 걸린다. rate-limit 을 file-job 서비스 자체에서 독립 구현해 두 파일을 우회할지, 아니면 정식으로 손대고 재발행 절차를 Task 에 넣을지 계획에서 정해야 한다",
+    "세션 결속 작업(job) 레지스트리를 어느 모듈에 둘지 미정 — FileService 에는 현재 세션별 상태 저장소가 없다. 새 JobManager/FileJobService 클래스와 SessionManager 의 관계(세션 종료 시 job 처리, 서버 재기동 시 복구 여부)를 계획이 결정해야 한다",
+    "IR-FOP-001 AC-2/3(출발지·목적지를 서로 다른 세션 기준으로 각각 검증)은 resolveAndValidate 가 단일 세션 컨텍스트만 받는 현재 시그니처의 확장을 요구한다 — 확장 방식(오버로드 vs 신규 함수)이 미정"
+  ],
+  "non_coding_signals": [
+    "IR-FOP-002 AC-7: ws-protocol.ts 에 file-job:progress/decision-required/done 을 추가하면 wsProtocolParityAck.test.ts 의 메시지 대조 목록도 같은 Task 에서 갱신해야 한다 — 별도 Task 로 미루면 그 테스트가 깨진다",
+    "SRS 증거·상태 갱신은 반드시 CLI 로, `--root .` 고정: `npx speckiwi add-evidence <REQ-ID> --root . --type test --ref <path> --covers \"AC-n\"`, `npx speckiwi validate --root . --fail-on-warning` — MCP mutation 도구(mcp__speckiwi__*)는 서버 프로세스 cwd 로 루트를 해석해 다른 워크트리에 쓸 수 있으므로 절대 쓰지 않는다(CLAUDE.md #100)",
+    "같은 요구사항에 edit-requirement-table-rows 를 반복 호출하면 직전 Change Note 가 조용히 사라진다 — Change Note 는 그 요구사항의 표 편집이 전부 끝난 뒤 마지막에 추가한다",
+    "sync-index 뒤 kiwi/.status.json 의 lock.active 를 커밋 전에 false 로 되돌린다(npm run check:kiwi-status)",
+    "작업 완료 시 docs/worklog/{yyyy-mm-dd}.jsonl (tools/worklog.mjs add) 과 docs/report/{yyyy-mm-dd}.{제목}.md 작성 의무 — kiwi-planner/kiwi-coder 는 snoworca-* 가 아니므로 면제 대상이 아니다",
+    "git add -A 금지, 파일을 명시해서 스테이징한다",
+    "커밋 메시지에 AI 서명/Co-Authored-By 를 넣지 않는다 — 이 사용자(hancomins.com, irae@ 예외 대상 아님)에게는 조직 규정이 적용되어 기본 첨부 안내보다 우선한다"
+  ],
+  "project_constraints_for_plan": [
+    "strict TDD: 실패하는 테스트를 먼저 쓰는 Task 와 통과시키는 구현 Task 를 분리한다",
+    "no DOM harness — FOP 8건은 서버 전용이라 이번 계획에 브라우저/E2E Task 가 필요 없다",
+    "테스트는 파일별로 cwd=server/ 에서 `npx tsx --test src/<경로>.test.ts` 로 돌린다 — server/src/test-runner.ts 는 *.test.ts 를 자동 디스커버리하지 않으므로 '테스트 통과' 를 그 러너 한 번으로 주장하지 않는다",
+    "TCP 2001/2002 는 어떤 경우에도 종료하지 않는다. 실제 검증 포트는 2222 (start.bat --port 2222), 이번 서버 전용 작업은 대부분 단위테스트로 끝나 2222 기동이 필요 없을 가능성이 높다",
+    "git add -A 금지 — 파일 단위 스테이징",
+    "SpecKiwi mutation 은 CLI + --root . 고정만 허용, MCP mutation 도구 금지",
+    "SRS Trace Links 행은 도구로 주소 지정 불가 — 필요 시 수기 편집하고 사유를 Change Note 에 남긴다",
+    "WsRouter.ts / wsSendPolicy.ts (fair-scheduler authority 핀 소스)를 건드리는 Task 가 생기면, 그 Task 뒤에 `node tools/wave3/fair-scheduler-authority-publish.mjs` 재발행(순서: build→publish→build→verify)과 `npm run test:release-pipeline` 검증을 별도 Task 로 반드시 붙인다. 가능하면 애초에 두 파일을 건드리지 않는 설계(file-job 자체 rate-limit, 별도 broadcast 경로)를 우선한다",
+    "FR-FOP-005 AC-6 대응 시 moveFile 의 기존 동기 API(fileRoutes.ts:53,67,81,95 가 호출)를 깨지 않아야 한다 — EXDEV 시 파일 단위 교대 처리로 바꾸는 리팩터가 기존 동기 엔드포인트의 동작을 바꾸지 않는지 계획에서 확인한다",
+    "속도 우선 방침(CLAUDE.md 2026-09-18): 리뷰 라운드는 기본 1회, 실제 기능 결함이 나올 때만 추가. 범위 밖 발견은 이슈화하지 말고 보고서에 한 줄로 남긴다. 검증 정밀도(변이 테스트·대조군)는 SEC-FOP-001(경로 검증) 같은 안전 임계 경로에만 요구하고 나머지는 '충분히 좋음' 을 받아들인다",
+    "런타임 의존성은 승인 없이 바로 추가하고 이유를 커밋 메시지에 남긴다"
+  ],
+  "risk_notes": [
+    "WsRouter.ts·wsSendPolicy.ts 는 fair-scheduler authority 의 6개 핀 소스 중 둘이다 — 수정 시 evidence-bundle sha256 불일치로 build/test/CI 전체가 빨개질 수 있고, 재발행 순서를 틀리면(publish 를 build 앞에 실행) 실패 없이 조용히 이전 generation 을 재발행한다. IR-FOP-002 구현 방식을 잘못 고르면 이번 8건짜리 서버 작업이 릴리스 파이프라인 전체를 막을 수 있다",
+    "FR-FOP-003(세션 결속·10분 자동 취소)은 세션별 백그라운드 타이머/저장소가 새로 필요하다 — SessionManager 생명주기(세션 종료·서버 재기동)와 겹치는 타이머 누수·정리 누락 위험이 있다",
+    "FR-FOP-005 는 현재 moveFile 이 fs.rename 우선 시도 후 EXDEV 시 copyFile+deleteFile 로 떨어지는 단일 파일 로직을 그대로 두되, 상위 job 오케스트레이터가 여러 파일에 걸쳐 '복사 전부 후 삭제 전부'를 하지 않도록 강제해야 한다 — 이 둘을 혼동하면 취소 의미론(AC-1/AC-2)이 깨진다",
+    "IR-FOP-001 이 출발지/목적지를 별개 세션으로 각각 검증해야 하는데, resolveAndValidate 확장이 기존 단일 세션 호출부(fileRoutes.ts 의 동기 copy/move/delete)에 회귀를 만들지 않는지 확인이 필요하다",
+    "FR-FOP-004 는 in_progress 로 이미 부분 구현되어 있다 — 이번 계획이 그 사실을 무시하고 AC-1/2 를 다시 만들면 중복 구현이 되고, 반대로 AC-3/4 선행조건(FOP-001·IR-FOP-001 AC-4)을 놓치면 '더 이상 묻지 않기' 범위가 잘못 구현된다"
+  ]
+}

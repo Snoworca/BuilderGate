@@ -1,0 +1,433 @@
+[
+ {
+  "id": "FR-FOP-001",
+  "title": "파일 조작 작업은 답을 기다리며 멈출 수 있는 상태 기계다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 복사·이동·삭제를 queued → running → (awaiting-decision → running)* → completed 상태 기계로 수행하여, 실행 도중 사용자에게 묻고 답을 받은 뒤 이어서 진행해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "작업은 queued·running·awaiting-decision·completed·cancelled·failed 상태를 가진다",
+    "checked": false,
+    "line": 71
+   },
+   {
+    "id": "AC-2",
+    "text": "awaiting-decision 에서 답을 받으면 running 으로 돌아가 남은 항목을 이어서 처리한다",
+    "checked": false,
+    "line": 72
+   },
+   {
+    "id": "AC-3",
+    "text": "한 작업 안에서 awaiting-decision 으로 여러 번 들어갈 수 있다",
+    "checked": false,
+    "line": 73
+   },
+   {
+    "id": "AC-4",
+    "text": "취소는 running 과 awaiting-decision 두 상태 모두에서 받는다",
+    "checked": false,
+    "line": 74
+   },
+   {
+    "id": "AC-5",
+    "text": "실행 전 일괄 스캔으로 충돌을 모으는 별도 경로를 두지 않는다",
+    "checked": false,
+    "line": 75
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:313-410",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — copyFile/moveFile/deleteFile 이 지금 동기 단발이다. 상태 기계를 가진 작업 모델로 감싼다",
+    "line": 86
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ },
+ {
+  "id": "FR-FOP-002",
+  "title": "작업은 scanning 과 transferring 두 단계로 진행한다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 파일 조작을 대상을 세는 scanning 단계와 실제로 옮기는 transferring 단계로 나누어 수행하고, 각 단계에 맞는 진행률을 보고해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "scanning 단계는 파일 수와 전체 바이트를 세고 그동안 막대 진행률을 보고하지 않는다",
+    "checked": false,
+    "line": 127
+   },
+   {
+    "id": "AC-2",
+    "text": "transferring 단계는 누적 바이트를 보고한다",
+    "checked": false,
+    "line": 128
+   },
+   {
+    "id": "AC-3",
+    "text": "복사는 스트림으로 수행하여 파일 하나가 아주 클 때도 중간 진행률이 나온다",
+    "checked": false,
+    "line": 129
+   },
+   {
+    "id": "AC-4",
+    "text": "삭제는 바이트가 아니라 처리한 항목 수로 진행률을 낸다",
+    "checked": false,
+    "line": 130
+   },
+   {
+    "id": "AC-5",
+    "text": "진행 보고에는 바이트와 항목 수를 함께 실어 화면이 작업 종류에 따라 고른다",
+    "checked": false,
+    "line": 131
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:339",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — fs.cp({recursive:true}) 를 걸어 다니며 세는 구현으로 교체할 자리",
+    "line": 142
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ },
+ {
+  "id": "FR-FOP-003",
+  "title": "작업은 연결이 아니라 세션에 매이고 새로고침을 견딘다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 파일 조작 작업을 브라우저 연결이 아니라 세션에 매어, 사용자가 새로고침해도 진행 중이던 작업이 중단되지 않게 해야 한다. 멈춰 있는 시간의 총합이 10분을 넘으면 작업을 자동으로 취소해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "새로고침해도 진행 중이던 작업이 중단되지 않는다",
+    "checked": false,
+    "line": 299
+   },
+   {
+    "id": "AC-2",
+    "text": "다시 접속한 클라이언트는 GET /api/file-jobs 로 살아 있는 작업을 다시 받는다",
+    "checked": false,
+    "line": 300
+   },
+   {
+    "id": "AC-3",
+    "text": "답을 기다리던 작업이 있으면 서버가 decision-required 를 다시 보낸다",
+    "checked": false,
+    "line": 301
+   },
+   {
+    "id": "AC-4",
+    "text": "멈춰 있는 시간의 총합이 10분을 넘으면 작업을 자동 취소한다",
+    "checked": false,
+    "line": 302
+   },
+   {
+    "id": "AC-5",
+    "text": "자동 취소는 사용자가 취소했을 때와 같은 규칙을 따른다",
+    "checked": false,
+    "line": 303
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — 작업을 세션에 매어 두는 저장소가 아직 없다",
+    "line": 314
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ },
+ {
+  "id": "FR-FOP-004",
+  "title": "이름이 겹칠 때의 규칙과 묻지 않기의 범위",
+  "status": "in_progress",
+  "stability": "evolving",
+  "requirement": "시스템은 이름 바꾸기를 '이름 (2).확장자' 형태로 만들고 이미 있으면 숫자를 올려야 하며, '더 이상 묻지 않기' 선택은 그 작업이 끝날 때까지만 적용해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "이름 바꾸기는 '이름 (2).확장자' 를 만들고 그 이름도 있으면 숫자를 하나씩 올린다",
+    "checked": true,
+    "line": 355
+   },
+   {
+    "id": "AC-2",
+    "text": "디렉터리는 확장자가 없으므로 '이름 (2)' 가 된다",
+    "checked": true,
+    "line": 356
+   },
+   {
+    "id": "AC-3",
+    "text": "더 이상 묻지 않기는 그 작업이 끝날 때까지만 적용된다 — 이 판정에는 FR-FOP-001 의 awaiting-decision 루프와 IR-FOP-001 AC-4 의 applyToAll 이 먼저 서 있어야 한다",
+    "checked": false,
+    "line": 357
+   },
+   {
+    "id": "AC-4",
+    "text": "작업이 끝나면 그 선택을 기억하지 않는다",
+    "checked": false,
+    "line": 358
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:313",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — copyFile 은 :328-335 에서 목적지 존재를 검사해 FILE_ALREADY_EXISTS 를 던진다. 충돌 검출은 하되 재명명을 하지 않는다 — '이름 (2).확장자' 가 들어갈 자리",
+    "line": 371
+   },
+   {
+    "type": "Task",
+    "reference": "T-PH002-01",
+    "relation": "depends_on",
+    "notes": "kiwi-planner 2026-09-23.projectmaster.fx-step1 — 이 요구사항을 짓는 Task 사슬의 첫 항목. 전체는 plan 의 §4 역색인 참조",
+    "line": 372
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ },
+ {
+  "id": "FR-FOP-005",
+  "title": "취소는 되돌리지 않고 쓰다 만 파일 하나만 지운다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 작업이 취소되면 이미 마친 파일을 그대로 두고 취소한 순간 쓰고 있던 파일 하나만 지워야 하며, 무엇이 실제로 끝났는지 숫자로 보고해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "취소해도 이미 복사를 마친 파일은 지우지 않는다",
+    "checked": false,
+    "line": 415
+   },
+   {
+    "id": "AC-2",
+    "text": "취소한 순간 쓰고 있던 파일 하나는 지운다",
+    "checked": false,
+    "line": 416
+   },
+   {
+    "id": "AC-3",
+    "text": "전체 롤백 경로를 두지 않는다",
+    "checked": false,
+    "line": 417
+   },
+   {
+    "id": "AC-4",
+    "text": "작업 종료 보고에 실제로 끝난 항목 수가 들어간다 (예: 23개 복사 후 취소됨)",
+    "checked": false,
+    "line": 418
+   },
+   {
+    "id": "AC-5",
+    "text": "같은 장치 안의 이동은 fs.rename 으로 원자적으로 끝나 취소를 받을 중간 상태가 아예 없다 — 작업이 그 사실을 밝히고, 이미 끝난 작업에 온 취소 요청을 실패가 아니라 무시로 처리한다",
+    "checked": false,
+    "line": 419
+   },
+   {
+    "id": "AC-6",
+    "text": "장치를 건너는 이동(EXDEV)은 전체 복사 후 전체 삭제로 하지 않는다 — 현재 moveFile:381-384 가 copyFile + deleteFile 을 통째로 부르는데, 그러면 취소 시점에 원본과 사본이 모두 온전히 남거나 모두 사라지는 두 상태뿐이라 AC-1·AC-2 를 지킬 수 없다",
+    "checked": false,
+    "line": 420
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:337-342",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — 취소 시 쓰다 만 파일 하나만 지우는 처리가 들어갈 자리. :339 는 디렉터리 분기 fs.cp(recursive) 이고 단일 파일 복사는 :341 fs.copyFile 이다 — 후자(또는 그것을 대체할 스트림 복사)가 실제 자리다",
+    "line": 431
+   },
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:377-390",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — moveFile 이 fs.rename 을 먼저 시도하고 EXDEV 일 때만 copyFile + deleteFile 로 내려간다. 두 경로의 취소 의미가 서로 다르다",
+    "line": 432
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ },
+ {
+  "id": "IR-FOP-001",
+  "title": "파일 조작 작업의 REST 진입점",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 POST /api/file-jobs, POST /api/file-jobs/:jobId/decision, DELETE /api/file-jobs/:jobId, GET /api/file-jobs 를 제공해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "POST /api/file-jobs 는 operation, sourceSessionId, sources 를 받고 jobId 를 돌려준다",
+    "checked": false,
+    "line": 183
+   },
+   {
+    "id": "AC-2",
+    "text": "POST /api/file-jobs 는 destSessionId 와 destPath 를 sourceSessionId 와 별개로 받는다",
+    "checked": false,
+    "line": 184
+   },
+   {
+    "id": "AC-3",
+    "text": "출발지 경로는 출발지 세션 기준으로, 목적지 경로는 목적지 세션 기준으로 각각 검증한다",
+    "checked": false,
+    "line": 185
+   },
+   {
+    "id": "AC-4",
+    "text": "POST /api/file-jobs/:jobId/decision 은 decisionId, choice, applyToAll 을 받는다",
+    "checked": false,
+    "line": 186
+   },
+   {
+    "id": "AC-5",
+    "text": "DELETE /api/file-jobs/:jobId 는 작업을 취소한다",
+    "checked": false,
+    "line": 187
+   },
+   {
+    "id": "AC-6",
+    "text": "GET /api/file-jobs 는 살아 있는 작업 목록을 돌려주어 새로고침 후 복구에 쓰인다",
+    "checked": false,
+    "line": 188
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/routes/fileRoutes.ts",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — /api/file-jobs 계열이 들어갈 자리. 현재 copy/move/delete 는 동기식이다",
+    "line": 199
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ },
+ {
+  "id": "IR-FOP-002",
+  "title": "진행 보고와 결정 요청은 WebSocket 으로 보낸다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 file-job:progress, file-job:decision-required, file-job:done 메시지를 기존 WebSocket 연결로 보내야 하며, 진행 보고는 작업마다 초당 10회로 제한해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "ServerWsMessage 에 file-job:progress, file-job:decision-required, file-job:done 을 추가한다",
+    "checked": false,
+    "line": 240
+   },
+   {
+    "id": "AC-2",
+    "text": "file-job:progress 는 jobId, phase, processedBytes, totalBytes, processedEntries, totalEntries, currentPath 를 싣는다",
+    "checked": false,
+    "line": 241
+   },
+   {
+    "id": "AC-3",
+    "text": "file-job:decision-required 는 jobId, decisionId, kind(conflict|error), path, detail, choices 를 싣는다 — FR-FOP-004 의 충돌 선택지와 FR-FEX-007 의 모달이 이 필드로 그려진다",
+    "checked": false,
+    "line": 242
+   },
+   {
+    "id": "AC-4",
+    "text": "file-job:done 은 jobId, outcome(completed|cancelled|failed), processedEntries, affectedDirectories 를 싣는다 — FR-FOP-005 AC-4 의 항목 수 보고와 FR-FEX-001 AC-6 의 영향 디렉터리 재조회가 이 필드에 의존한다",
+    "checked": false,
+    "line": 243
+   },
+   {
+    "id": "AC-5",
+    "text": "진행 보고는 작업마다 초당 10회를 넘지 않는다",
+    "checked": false,
+    "line": 244
+   },
+   {
+    "id": "AC-6",
+    "text": "REST 폴링 경로를 두지 않는다",
+    "checked": false,
+    "line": 245
+   },
+   {
+    "id": "AC-7",
+    "text": "wsProtocolParityAck.test.ts 의 메시지 대조 목록을 함께 갱신한다",
+    "checked": false,
+    "line": 246
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/types/ws-protocol.ts",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — ServerWsMessage 에 file-job:* 세 종류를 더한다",
+    "line": 257
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ },
+ {
+  "id": "SEC-FOP-001",
+  "title": "파일 조작 경로 검증은 서버의 blocked path 정책을 그대로 따른다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 파일 조작 작업의 모든 경로를 기존 파일 API 가 쓰는 path traversal 및 blocked path 정책(레거시 SRS `docs/srs/buildergate.srs.md` §4.7 의 `NFR-SEC-004`, 구현은 `FileService` 의 `resolveAndValidate` 와 `config.blockedPaths`)으로 검증해야 하며, 클라이언트가 별도의 경계 규칙을 갖지 않아야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "출발지와 목적지 경로 모두 blocked path 정책으로 검증한다",
+    "checked": false,
+    "line": 474
+   },
+   {
+    "id": "AC-2",
+    "text": "작업 도중 만들어지는 중간 경로도 같은 검증을 거친다",
+    "checked": false,
+    "line": 475
+   },
+   {
+    "id": "AC-3",
+    "text": "클라이언트는 경계 규칙의 사본을 갖지 않는다",
+    "checked": false,
+    "line": 476
+   },
+   {
+    "id": "AC-4",
+    "text": "'↑' 활성 여부는 서버 listDirectory 응답의 '..' 유무로 판정하되, 그 신호는 '드라이브 루트가 아님' 만 뜻한다 (FileService.ts:171 의 조건이 parsed.root !== dirPath 다)",
+    "checked": false,
+    "line": 477
+   },
+   {
+    "id": "AC-5",
+    "text": "부모가 blocked path 라 나열이 거부되면 그 오류를 사용자에게 보이고 뿌리를 바꾸지 않는다 — '↑' 가 활성이라는 것이 나열 가능을 보장하지 않는다",
+    "checked": false,
+    "line": 478
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:171",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — 경계 조건 parsed.root !== dirPath. '..' 는 드라이브 루트까지 붙는다",
+    "line": 489
+   },
+   {
+    "type": "Code",
+    "reference": "server/src/utils/pathValidator.ts:32-56",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — isPathBlocked 와 resolveAndValidate. 요구사항 본문이 가리키는 정책의 실제 구현이고 FileService 의 모든 메서드가 이미 부른다",
+    "line": 490
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ }
+]

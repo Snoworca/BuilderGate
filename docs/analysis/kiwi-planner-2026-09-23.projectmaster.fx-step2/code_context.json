@@ -1,0 +1,204 @@
+{
+  "req_anchors": [
+    {
+      "req_id": "FR-FOP-001",
+      "files": [
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "313-421",
+          "signature": "async copyFile(sessionId,source,destination) / async moveFile(sessionId,source,destination) / async deleteFile(sessionId,filePath): Promise<void>",
+          "note": "REQ trace cites 313-410; actual copyFile+moveFile+deleteFile span 313-421 (deleteFile runs to 421, not 410). All three are synchronous single-shot async methods today -- no state machine, no awaiting-decision concept, no cancellation hook. This is the addition site to wrap in a job/state-machine service."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FOP-002",
+      "files": [
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "337-342",
+          "signature": "if (srcStat.isDirectory()) { await fs.cp(srcResolved, destResolved, { recursive: true }); } else { await fs.copyFile(srcResolved, destResolved); }",
+          "note": "REQ trace ':339' is accurate for the fs.cp(recursive) branch. Neither branch streams or reports incremental progress -- fs.cp/fs.copyFile are single fire-and-forget calls with no progress callback. AC-3 (streamed copy with mid-file progress) requires replacing at least the fs.copyFile branch (341) with a manual stream pipe (fs.createReadStream/createWriteStream) that can emit periodic byte counts."
+        },
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "409-414",
+          "signature": "if (stat.isDirectory()) { await fs.rm(resolved, { recursive: true }); } else { await fs.unlink(resolved); }",
+          "note": "Delete has the same shape: one fire-and-forget call, no per-item progress. AC-4 (progress by processed item count, not bytes) needs a manual directory walk instead of fs.rm(recursive)."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FOP-003",
+      "files": [
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "1191",
+          "signature": "private sessions: Map<string, SessionData> = new Map();",
+          "note": "No job storage tied to session exists yet, confirming the REQ's addition_site note. This Map is the precedent for how session-scoped state is held; a job registry would likely be its own service (not a field on SessionManager) keyed by sessionId, since FileService is already a separate service."
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "3250-3259",
+          "signature": "deleteSession(id: string, reason: SessionCleanupReason = 'direct-session-delete'): boolean",
+          "note": "Calls private finalizeSession (6701). This and terminateSession (3262) are the two session-teardown entry points a job registry's cleanup would need to run alongside."
+        },
+        {
+          "path": "server/src/routes/sessionRoutes.ts",
+          "line_range": "7-9,61-83",
+          "signature": "interface SessionRoutesOptions { onSessionDeleting?; onSessionDeleted?; } / router.delete('/:id', ...)",
+          "note": "DELETE /api/sessions/:id already calls two injectable hooks: onSessionDeleting (line 69, before termination) and onSessionDeleted (line 72, after successful termination). index.ts:904-906 currently wires ONLY onSessionDeleting (to workspaceService.markSessionStoppedByDirectDelete). onSessionDeleted is unused today -- a natural, already-existing hook point for 'cancel/purge jobs for this session' cleanup, with no FileService/route change needed beyond adding a callback in index.ts."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FOP-004",
+      "files": [
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "328-335",
+          "signature": "// Check destination doesn't exist ... throw new AppError(ErrorCode.FILE_ALREADY_EXISTS);",
+          "note": "REQ trace ':313' + note citing ':328-335' is exact. copyFile detects the collision but only throws; it never renames. moveFile has the identical shape at 370-375. Both are the addition sites where a job would call resolveNameCollision instead of throwing, when the conflict decision resolves to 'rename'."
+        },
+        {
+          "path": "server/src/services/fileNameCollision.ts",
+          "line_range": "85-120",
+          "signature": "export function resolveNameCollision(name: string, isTaken: (candidate: string) => boolean): string",
+          "note": "Already implemented and unit-tested (FR-FOP-004 AC-1/AC-2 marked checked:true in the REQ). Pure, synchronous, takes one path SEGMENT (throws TypeError if given a path with a separator) and a caller-supplied 'isTaken' predicate -- it does not touch the filesystem itself. The job service supplies the predicate (e.g. an fs.stat-based check or a running in-job set of names already claimed during a multi-file op)."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FOP-005",
+      "files": [
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "337-342",
+          "signature": "if (srcStat.isDirectory()) { fs.cp(...) } else { fs.copyFile(...) }",
+          "note": "REQ trace ':337-342' matches exactly. This is the single-file-copy branch (341) that AC-1/AC-2 (delete only the in-flight partial file on cancel, keep already-finished ones) target -- it needs to become an abortable stream so a cancel mid-copy can unlink only the partial destination."
+        },
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "377-391",
+          "signature": "try { await fs.rename(srcResolved, destResolved); } catch (err) { if (code === 'EXDEV') { await this.copyFile(...); await this.deleteFile(...); return; } ... }",
+          "note": "REQ trace ':377-390' matches exactly; the EXDEV branch itself is lines 381-384 (matches AC-6's 'moveFile:381-384' citation exactly: if EXDEV -> copyFile -> deleteFile -> return). AC-6 is correct that this branch has no partial/cancellable intermediate state today: copyFile and deleteFile are each awaited to completion as opaque units, so a cancel during EXDEV move can only land on 'both survive' or 'both gone', not 'partial file' as AC-1/AC-2 require. AC-5 (fs.rename is atomic, no mid-state, late cancel must be a no-op not a failure) is true of the fs.rename branch (378) as-is."
+        }
+      ]
+    },
+    {
+      "req_id": "IR-FOP-001",
+      "files": [
+        {
+          "path": "server/src/routes/fileRoutes.ts",
+          "line_range": "1-142",
+          "signature": "export function createFileRoutes(fileService: FileService): Router",
+          "note": "Existing pattern to follow for the new /api/file-jobs router: factory function taking the service as a constructor arg, returns an Express Router, each handler does try/catch -> handleError(err,res) (128-141) which special-cases AppError (129-131) vs generic 500 (132-140). All existing routes are mounted as sub-paths of /:id/... because the router itself is mounted at '/api/sessions' (index.ts:915) -- IR-FOP-001's paths (POST /api/file-jobs, not under /api/sessions/:id) mean this is a NEW router mounted at a new base path, not an addition to fileRoutes.ts's existing router."
+        },
+        {
+          "path": "server/src/index.ts",
+          "line_range": "914-915",
+          "signature": "const fileRoutes = createFileRoutes(fileService); app.use('/api/sessions', authMiddleware, fileRoutes);",
+          "note": "Addition site for mounting a new router, e.g. app.use('/api/file-jobs', authMiddleware, fileJobRoutes) placed near this block. authMiddleware is the same middleware already used for every other protected route (904-915, 571-585)."
+        }
+      ]
+    },
+    {
+      "req_id": "IR-FOP-002",
+      "files": [
+        {
+          "path": "server/src/types/ws-protocol.ts",
+          "line_range": "746-832",
+          "signature": "export type ServerWsMessage = | ScreenSnapshotMessage | ... | { type: 'connected'; clientId: string } | { type: 'pong' };",
+          "note": "The full outbound union. Addition site for file-job:progress / file-job:decision-required / file-job:done as three new arm(s), most naturally as inline object types following the same '| { type: ...; sessionId: string; ... }' idiom used for cwd/status/session:error (lines 803-805)."
+        },
+        {
+          "path": "server/src/services/SessionManager.ts",
+          "line_range": "7034-7037",
+          "signature": "broadcastWs(sessionId: string, event: string, payload: object): void { this.wsRouter?.sendSessionEvent(sessionId, event, payload); }",
+          "note": "THE existing per-session WS push API, already used in production for 'status' (1944), 'cwd' (4965), 'session:exited' (6733). This is the call a file-job service should use: sessionManager.broadcastWs(sessionId, 'file-job:progress', {...}) produces the wire message {type:'file-job:progress', sessionId, ...payload}. Caveat: it is keyed by exactly ONE sessionId, but IR-FOP-001 AC-2 lets sourceSessionId and destSessionId differ -- if a client is only subscribed to the destination session's panel it will not receive pushes unless the job service calls broadcastWs twice (once per distinct session) or a session-pair variant is added."
+        },
+        {
+          "path": "server/src/ws/WsRouter.ts",
+          "line_range": "5981-5999",
+          "signature": "getSubscribers(sessionId): Set<WebSocket> | undefined / sendSessionEvent(sessionId, event, payload): void",
+          "note": "sendSessionEvent iterates this.sessionSubscribers.get(sessionId) and calls sendTo(ws, {type:event, sessionId, ...payload}) for each socket (line 5997). sendTo itself is at 7279-7328 and does the actual transport-queue/backpressure-aware send."
+        },
+        {
+          "path": "server/src/ws/WsRouter.ts",
+          "line_range": "7101-7107",
+          "signature": "broadcastAll(event, data, excludeClientId?): void",
+          "note": "A separate, unrelated push API that sends to literally every connected client regardless of session subscription. Not the right primitive for file-job pushes (would leak job progress to clients not viewing that session) -- included here only so it isn't confused with sendSessionEvent."
+        },
+        {
+          "path": "server/src/types/wsProtocolParityAck.test.ts",
+          "line_range": "1-153",
+          "signature": "node:test file, imports both server/src/types/ws-protocol.ts and frontend/src/types/ws-protocol.ts by URL",
+          "note": "IMPORTANT MISMATCH with the REQ text: IR-FOP-002 AC-7 says to update 'the message comparison list' in this file, implying a generic enumeration of ServerWsMessage members that must be kept in sync. No such generic list exists. The file's actual scope is narrow: (1) parity of parseTerminalDeliveryAckMessage/parseTerminalDeliveryAckRejectedMessage between the two ws-protocol.ts copies (lines 61-114); (2) a textual-anchor diff of a '// terminal-delivery-ack-contract:start/end' block shared verbatim between server and frontend copies (116-137); (3) one assertion (139-152) that scans the raw ServerWsMessage union text (via string slicing between 'export type ServerWsMessage =' and 'export interface SubscribedSessionInfo {') and checks it (a) contains the literal line '| TerminalDeliveryAckRejectedMessage' and (b) does NOT contain an inline 'type: \"terminal-delivery:ack-rejected\"' object literal. Adding new file-job:* arms to the union will not touch any of these three checks and requires no change to this test file. If IR-FOP-002 AC-7 is taken literally, either the REQ text is wrong about this file's coupling, or a NEW parity mechanism (e.g. a matching contract block, or a frontend ws-protocol.ts update + a new assertion) needs to be designed and is not yet present in code."
+        }
+      ]
+    },
+    {
+      "req_id": "SEC-FOP-001",
+      "files": [
+        {
+          "path": "server/src/utils/pathValidator.ts",
+          "line_range": "17-76",
+          "signature": "validatePath(basePath,targetPath) / isPathBlocked(targetPath,blockedPaths) / isBlockedExtension(ext,blockedExtensions) / async resolveAndValidate(basePath,targetPath,blockedPaths): Promise<string>",
+          "note": "REQ trace cites 'pathValidator.ts:32-56' for 'isPathBlocked and resolveAndValidate' -- this undershoots: isPathBlocked is 32-36 and isBlockedExtension is 41-43, both fully inside the cited range, but resolveAndValidate is 49-76, extending 20 lines past the cited upper bound of 56 (the symlink-resolution half of the function, lines 60-75, is outside 32-56). All of copyFile/moveFile/deleteFile/listDirectory/readFile/writeFile/createDirectory already call resolveAndValidate for every path they touch, source AND destination both included for copy/move (FileService.ts:317-318, 359-360) -- so AC-1 (both source and destination validated) is already true today for the existing single-shot endpoints. A new file-job service must keep calling resolveAndValidate per-path rather than caching/re-deriving trust, to preserve AC-2 (intermediate paths validated too)."
+        },
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "170-178",
+          "signature": "const parsed = path.parse(dirPath); if (parsed.root !== dirPath) { entries.push({ name: '..', ... }); }",
+          "note": "REQ trace ':171' is exact for the '..' / drive-root condition cited in AC-4."
+        }
+      ]
+    }
+  ],
+  "missing_anchors": [],
+  "external_paths_detected": [],
+  "addition_sites": [
+    {
+      "path": "server/src/services/FileService.ts",
+      "why": "copyFile (313-350), moveFile (355-391), deleteFile (396-421) are the synchronous primitives a new job/state-machine layer would wrap or replace (streaming copy for progress, per-item delete counting, collision-driven rename via fileNameCollision.ts, partial-file cleanup on cancel)."
+    },
+    {
+      "path": "server/src/routes/fileRoutes.ts",
+      "why": "Existing factory-function + Router + AppError-aware handleError pattern (128-141) to mirror for a new file-job router; NOT itself extended since IR-FOP-001's paths live at /api/file-jobs, not /api/sessions/:id/files/*."
+    },
+    {
+      "path": "server/src/index.ts",
+      "why": "Lines 914-915 show the mount pattern (createXRoutes(service) + app.use(path, authMiddleware, router)) to copy for a new '/api/file-jobs' mount; lines 904-906 show where a session-delete lifecycle hook (onSessionDeleted, currently unused) could be wired for job cleanup; line 1018 shows where FileService (and by extension a new FileJobService) gets constructed with sessionManager."
+    },
+    {
+      "path": "server/src/types/ws-protocol.ts",
+      "why": "ServerWsMessage union (746-832) needs the three new file-job:* message shapes added as arms, following the existing inline-object-type idiom."
+    },
+    {
+      "path": "server/src/services/SessionManager.ts",
+      "why": "broadcastWs (7034-7037) is the push mechanism a job service should call; it is public and already imported implicitly wherever sessionManager is held. A FileJobService will likely need the real SessionManager (not FileService's narrow 4-method SessionManagerLike interface at FileService.ts:52-58) to reach broadcastWs and hasSession/deleteSession-adjacent lifecycle hooks."
+    },
+    {
+      "path": "server/src/routes/sessionRoutes.ts",
+      "why": "onSessionDeleted callback (declared 7-9, invoked 72) is defined but unused by index.ts today -- the cleanest existing hook for 'cancel jobs when their session is deleted' without touching SessionManager internals."
+    }
+  ],
+  "ws_push_api": "sessionManager.broadcastWs(sessionId: string, event: string, payload: object): void (server/src/services/SessionManager.ts:7034-7037) is the established, already-in-production per-session push API (used today for 'status', 'cwd', 'session:exited'). It delegates to WsRouter.sendSessionEvent(sessionId, event, payload) (ws/WsRouter.ts:5985-5999), which looks up this.sessionSubscribers.get(sessionId) and calls sendTo(ws, {type: event, sessionId, ...payload}) (sendTo itself: 7279-7328) for every subscribed socket. It is keyed by exactly one sessionId; there is a separate, unrelated broadcastAll(event, data, excludeClientId?) (7101-7107) that sends to every connected client regardless of subscription and is NOT appropriate for job pushes. Because IR-FOP-001 AC-2 allows sourceSessionId != destSessionId, a job that wants both panels updated must call broadcastWs once per distinct session id (no built-in multi-session fan-out exists).",
+  "parity_test": {
+    "path": "server/src/types/wsProtocolParityAck.test.ts",
+    "structure": "154-line node:test file that dynamically imports both server/src/types/ws-protocol.ts and frontend/src/types/ws-protocol.ts by file URL and runs three kinds of checks: (1) parser-level round-trip/rejection parity for parseTerminalDeliveryAckMessage and parseTerminalDeliveryAckRejectedMessage across a shared accepted/rejected fixture table (lines 34-114); (2) a byte-for-byte comparison of a delimited '// terminal-delivery-ack-contract:start' ... ':end' text block that must be identical (whitespace-normalized) in both files (116-137); (3) one raw-text assertion over the ServerWsMessage union body specifically (139-152) checking it contains the literal '| TerminalDeliveryAckRejectedMessage' line and does not contain an inline duplicate 'type: \"terminal-delivery:ack-rejected\"' object. There is NO generic/enumerated list of all ServerWsMessage member names anywhere in this file. IR-FOP-002 AC-7's instruction to update 'the message comparison list' does not correspond to anything this file currently does for arbitrary new message types -- adding file-job:progress/decision-required/done to the union requires no change here under the file's current assertions."
+  },
+  "test_harness": {
+    "pattern": "Two co-existing styles for server-side file tests. (1) Direct unit test (services/FileService.test.ts): constructs `new FileService(mockSessionManager, configObject)` where mockSessionManager is a plain object literal implementing exactly the 4-method SessionManagerLike interface ({getSession, getPtyPid, getInitialCwd, getCwdFilePath}), and a temp dir via `await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'))`, cleaned up in a finally block with `fs.rm(tempDir, {recursive:true, force:true})`. FileManagerConfig object literal shape: {maxFileSize, maxDirectoryEntries, blockedExtensions: string[], blockedPaths: string[], cwdCacheTtlMs}. (2) Route-level HTTP test (services/FileServiceWrite.test.ts): builds a real Express app (`express(); app.use(express.json()); app.use('/api/sessions', createFileRoutes(service))`), serves it via `withLocalHttpServer` from ../testing/localHttpTestServer.js which binds to a named pipe on Windows or a unix domain socket in tmpdir on other platforms (NOT a TCP port, so it never touches 2001/2002/2222), and issues requests through a `request({method,path,headers,body})` fixture function returning {statusCode,headers,body}. Both styles use realpath'd temp dirs (`fs.realpath(await fs.mkdtemp(...))`) because pathValidator compares resolved/realpath'd forms.",
+    "working_command": "From WSL bash: `cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileNameCollision.test.ts\"`. Plain `npx tsx --test ...` run directly from WSL bash fails with esbuild TransformError ('You installed esbuild for another platform... @esbuild/win32-x64 package is present but this platform needs @esbuild/linux-x64') because server/node_modules/@esbuild only has win32-x64 installed and server/node_modules/.bin/ is empty (0 entries) in this checkout -- `npx tsx --version` alone succeeds (no transform needed) but is misleading since it doesn't exercise the TS loader. Routing the same npx tsx invocation through cmd.exe (Windows node.exe) succeeds because Windows Node resolves the win32 esbuild binary correctly.",
+    "sample_pass": "15 passed / 0 failed / 0 skipped (server/src/services/fileNameCollision.test.ts, run via the cmd.exe/npx tsx command above, duration_ms 268.9)"
+  },
+  "session_lifecycle": "Sessions live in SessionManager's private `sessions: Map<string, SessionData>` (services/SessionManager.ts:1191). Created by `createSession(...)` (1329). Deleted via either `deleteSession(id, reason)` (3250-3259, synchronous, used for the direct-delete path) or `terminateSession(id, options)` (3262-3313, async, does process-tree termination first) -- both funnel into private `finalizeSession(sessionId, data, options)` (6701-...) which marks `data.finalized = true`, clears timers, records cleanup observation, optionally calls `broadcastWs(sessionId, 'session:exited', ...)` (line 6733 inside finalizeSession) and kills the pty. The HTTP layer (`routes/sessionRoutes.ts`, DELETE /:id at 61-83) wraps this with two injectable lifecycle hooks declared in `SessionRoutesOptions` (7-9): `onSessionDeleting` (called at line 69, before `terminateSession`) and `onSessionDeleted` (called at line 72, only after successful termination). `index.ts:904-906` wires only `onSessionDeleting` today (to `workspaceService.markSessionStoppedByDirectDelete`); `onSessionDeleted` is declared but currently unused anywhere in index.ts, making it the natural, already-existing hook for a file-job registry to cancel/purge jobs keyed to a deleted session without modifying SessionManager or sessionRoutes.ts themselves.",
+  "notes": [
+    "Sandbox/environment oddity, not a code finding: an esbuild TransformError stack trace (raised only when invoking `npx tsx` directly from WSL bash, not via cmd.exe) showed module paths rooted at /mnt/c/Work/agent-tools/builder-gate__/server/node_modules/... even though `git rev-parse --show-toplevel` and `realpath` both confirm the working tree is /mnt/c/work/git/_Snoworca/ProjectMaster. Both `C:\\work\\git\\_Snoworca\\ProjectMaster\\server\\node_modules\\tsx` and `C:\\Work\\agent-tools\\builder-gate__\\server\\node_modules\\tsx` exist per `cmd.exe /c \"if exist ...\"` checks. Did not investigate further (out of scope, no repo source file references an external/hardcoded path); flagged only so the plan author isn't confused if they see it too.",
+    "No existing job/queue/progress/EventEmitter abstraction exists anywhere under server/src/services/*.ts (grepped \\bjob\\b, progress, EventEmitter). The only unrelated 'job' hit is an inline object literal in AgentLifecycleService.ts:508 for scheduling a delayed session-close, not a reusable pattern.",
+    "BootstrapSetupService.ts (~lines 22-116) has a Map-based request-throttle (`enforceRateLimit`/`throttle`) that is the closest style precedent in the codebase for IR-FOP-002 AC-5's 'max 10 progress messages/sec per job' -- it throttles by requestIp for auth attempts, so it's a style reference only, not directly reusable code.",
+    "server/src/test-runner.ts does not discover *.test.ts files (documented both in FileServiceWrite.test.ts:9-10 and in CLAUDE.md's test rules) -- any new file-job tests must be run individually with the per-file node:test commands documented in CLAUDE.md.",
+    "FR-FOP-003's AC-2/AC-3 (GET /api/file-jobs restores live jobs after reload; decision-required re-sent) and AC-4/AC-5 (10-minute total-disconnected-time auto-cancel, same rules as manual cancel) have zero existing code to anchor to -- this is greenfield; the closest structural precedent is how SessionManager persists/represents session state in-memory (services/SessionManager.ts:1191) plus the reconnect-refresh pattern already used for terminal replay (out of this task's scope to fully trace, but 'ScreenRepairMessage'/'session:ready' messages in ws-protocol.ts show the existing reconnect-resync idiom if the plan author wants a closer look)."
+  ]
+}
