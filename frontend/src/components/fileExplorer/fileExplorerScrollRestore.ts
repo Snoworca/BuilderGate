@@ -63,3 +63,24 @@ export function decideAnchorPersist(input: {
 }): 'save' | 'skip' {
   return input.restoreState !== 'pending' && input.userInitiated && input.rowCount > 0 ? 'save' : 'skip';
 }
+
+// The first-level row at or above the container's top edge; inside an expanded
+// directory that is the directory itself. Rows are read lazily and the search
+// stops at the first row below the edge, so only rows up to it are measured.
+// A container without layout (display: none — an inactive tab, a hidden or
+// minimized window) reports every rect as 0, and the search would then name the
+// last row; no layout names nothing, so the pending save is dropped instead.
+// @req FR-FEX-003
+export function pickAnchorRow(
+  containerTop: number,
+  rows: Iterable<{ name: string; top: number }>,
+  hasLayout: boolean,
+): string | null {
+  if (!hasLayout) return null;
+  let name: string | null = null;
+  for (const row of rows) {
+    if (name !== null && row.top > containerTop) break;
+    name = row.name;
+  }
+  return name;
+}

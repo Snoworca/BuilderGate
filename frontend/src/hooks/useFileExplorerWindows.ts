@@ -13,7 +13,9 @@ import { isEditorWindowVisible, type EditorWindowScreen } from '../components/ed
 import { decideOpenFileExplorer, fileExplorerDialogId } from '../components/fileExplorer/fileExplorerDialog.ts';
 import {
   closeTab as closeExplorerTab,
+  dropWindowsOfRemovedWorkspaces,
   openInNewTab,
+  removedWorkspaceIds,
   restoreFileExplorerTabs,
   setActiveTab,
   updateTabTree,
@@ -25,6 +27,7 @@ import type { FileTreeMode } from '../components/fileExplorer/fileTreeState.ts';
 import type { Workspace, WorkspaceTabRuntime } from '../types/workspace.ts';
 import {
   readPersistedFileExplorerState,
+  removeFileExplorerStateForWorkspace,
   saveFileExplorerStateForWorkspace,
   type FileExplorerTabRecord,
 } from './windowStateStorage.ts';
@@ -82,6 +85,12 @@ export interface UseFileExplorerWindowsInput {
 export interface UseFileExplorerWindowsResult extends FileExplorerWindowActions {
   windows: FileExplorerWindowView[];
   openFileExplorer: (request: OpenFileExplorerRequest) => void;
+  /**
+   * The callbacks alone, as one object whose identity never changes. A window
+   * takes this rather than the whole result: the result changes with every
+   * terminal status or cwd flip, which would re-render every memoized panel.
+   */
+  actions: FileExplorerWindowActions;
 }
 
 // Field by field, so a live tab's tree (expanded paths, selection) never reaches
@@ -291,6 +300,26 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     savedRef.current = windows;
   }, [windows]);
 
+  // A deleted workspace takes its window and its stored tabs with it; otherwise
+  // the record would stay mounted for a workspace nobody can reach, and its
+  // tabs would come back if the id were ever seen again.
+  // Decided on the committed records (the ref is set by the effect above, which
+  // runs first), because a state updater runs later and could not report what
+  // it removed in time to clear storage.
+  // A workspace whose explorer was closed has no record but may still have
+  // stored tabs, so its key is cleared from the id list's own diff as well.
+  const previousWorkspaceIdsRef = useRef<readonly string[]>([]);
+  useEffect(() => {
+    const liveIds = workspaces.map((workspace) => workspace.id);
+    const gone = removedWorkspaceIds(previousWorkspaceIdsRef.current, liveIds);
+    // An empty list is "not loaded"; keeping the last loaded one lets the diff
+    // see a deletion that arrives after it.
+    if (liveIds.length > 0) previousWorkspaceIdsRef.current = liveIds;
+    const { removed } = dropWindowsOfRemovedWorkspaces(windowsRef.current, liveIds);
+    if (removed.length > 0) setWindows((current) => dropWindowsOfRemovedWorkspaces(current, liveIds).windows);
+    for (const workspaceId of new Set([...removed, ...gone])) removeFileExplorerStateForWorkspace(workspaceId);
+  }, [workspaces]);
+
   const viewCacheRef = useRef(new WeakMap<FileExplorerTab, FileExplorerTabView>());
   const views = useMemo<FileExplorerWindowView[]>(() => Object.entries(windows).map(([workspaceId, record]) => ({
     workspaceId,
@@ -317,11 +346,10 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     }),
   })), [windows, resolveTabSession, tabs, screen, activeWorkspaceId]);
 
-  // Stable while nothing changes, so a window that takes this object as its
-  // actions does not rebuild its handlers on every render.
-  return useMemo(() => ({
-    windows: views,
-    openFileExplorer,
+  // Built from the callbacks only, every one of which is itself stable, so this
+  // object keeps its identity across tab, screen and cwd changes and a memoized
+  // panel that takes it does not re-render for them.
+  const actions = useMemo<FileExplorerWindowActions>(() => ({
     closeFileExplorer,
     minimizeFileExplorer,
     selectTab,
@@ -331,8 +359,12 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     setTabMode,
     setTabSort,
     setTabAnchor,
-  }), [
-    views, openFileExplorer, closeFileExplorer, minimizeFileExplorer, selectTab, closeTab,
-    addTab, setTabRoot, setTabMode, setTabSort, setTabAnchor,
-  ]);
+  }), [closeFileExplorer, minimizeFileExplorer, selectTab, closeTab, addTab, setTabRoot, setTabMode, setTabSort, setTabAnchor]);
+
+  return useMemo(() => ({
+    ...actions,
+    actions,
+    windows: views,
+    openFileExplorer,
+  }), [actions, views, openFileExplorer]);
 }

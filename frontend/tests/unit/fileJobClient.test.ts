@@ -288,3 +288,37 @@ test('TC-REQ-FR-FEX-005-AC1-03 cut 붙여넣기 제출 성공 후 클립보드�
   assert.equal(await client.pasteFromClipboard({ client: none, target }), null);
   assert.deepEqual(none.submitted, []);
 });
+
+test('FX3-007 잘라낸 폴더를 그 안으로 붙여넣으면 보내지 않고 짧은 이유로 거절하며 클립보드는 그대로다', async () => {
+  const client = await loadClient();
+  const clipboard = await loadClipboard();
+  const cut = clipboard.cutSelection({ sessionId: 's-1', paths: ['/work/docs'] });
+  const submitted: unknown[] = [];
+  const fake = { submit: async (request: unknown) => { submitted.push(request); return { jobId: 'job-p' }; } };
+  await assert.rejects(
+    client.pasteFromClipboard({ client: fake, target: { destSessionId: 's-1', destPath: '/work/docs/sub' } }),
+    (error: unknown) => error instanceof Error && error.message !== '' && !/HTTP/.test(error.message),
+  );
+  assert.deepEqual(submitted, [], 'a move into its own source reached the server');
+  assert.equal(clipboard.getFileExplorerClipboard(), cut, 'a refused paste must not consume the cut');
+});
+
+test('FX3-007 붙여넣기 단일 비행: 첫 제출이 끝나기 전의 두 번째 누름은 무시된다', async () => {
+  const client = await loadClient();
+  const flight = client.createSingleFlight();
+  let release: (value: { jobId: string }) => void = () => {};
+  let calls = 0;
+  const first = flight.run(() => {
+    calls += 1;
+    return new Promise<{ jobId: string }>((resolve) => { release = resolve; });
+  });
+  const second = await flight.run(async () => { calls += 1; return { jobId: 'job-2' }; });
+  assert.equal(second, null, 'the second press was not ignored');
+  assert.equal(calls, 1);
+  release({ jobId: 'job-1' });
+  assert.deepEqual(await first, { jobId: 'job-1' });
+
+  // Settled — including by failure — the next press goes through.
+  await assert.rejects(flight.run(async () => { throw new Error('HTTP 400'); }));
+  assert.deepEqual(await flight.run(async () => ({ jobId: 'job-3' })), { jobId: 'job-3' });
+});

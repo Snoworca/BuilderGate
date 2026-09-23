@@ -539,3 +539,40 @@ test('주석 제거 후 소스: useFileTree 는 useReducer(fileTreeReducer)·cre
   assert.doesNotMatch(controller, /from\s+['"]react['"]/, 'the controller runs without React');
   assert.match(controller, /shouldFetchChildren/, 'whether to read is decided by shouldFetchChildren only');
 });
+
+// ---------------------------------------------------------------------------
+// FX3-005 — a finished job and a confirmed delete take their paths out of the
+// selection, so a second Delete or a copy cannot act on a path that is gone
+// ---------------------------------------------------------------------------
+
+test('FX3-005 applyJobDone 이 끝나면 사라진 경로가 선택에서 빠지고 남은 경로는 그대로 선택된다', async () => {
+  const h = await boot(ROOT, { [ROOT]: L_ROOT });
+  const order = [...visibleNodePaths(h.store.getState())];
+  h.store.dispatch({ type: 'CLICK_ROW', path: A_TXT, mods: { ctrl: false, shift: false }, orderedPaths: order });
+  h.store.dispatch({ type: 'CLICK_ROW', path: SRC, mods: { ctrl: true, shift: false }, orderedPaths: order });
+  assert.deepEqual([...h.store.getState().selectedPaths].sort(), [A_TXT, SRC].sort(), 'precondition: two rows selected');
+
+  // a.txt was deleted by the job; the refreshed listing no longer has it.
+  h.auto[ROOT] = listing(ROOT, [dir('docs'), dir('src')], true);
+  fire(h.ctl.applyJobDone([ROOT]));
+  await flush();
+
+  const state = h.store.getState();
+  assert.equal(entryNames(state, ROOT)?.includes('a.txt'), false, 'precondition: the listing was refreshed');
+  assert.deepEqual([...state.selectedPaths], [SRC], 'the deleted path stayed selected, or the surviving one was dropped');
+  assert.ok(state.anchorPath === null || visibleNodePaths(state).has(state.anchorPath), 'the anchor points at a deleted path');
+});
+
+test('FX3-005 deselect 는 확인된 삭제의 원본을 즉시 선택에서 뺀다', async () => {
+  const h = await boot(ROOT, { [ROOT]: L_ROOT });
+  const order = [...visibleNodePaths(h.store.getState())];
+  h.store.dispatch({ type: 'CLICK_ROW', path: A_TXT, mods: { ctrl: false, shift: false }, orderedPaths: order });
+  h.store.dispatch({ type: 'CLICK_ROW', path: DOCS, mods: { ctrl: true, shift: false }, orderedPaths: order });
+  h.ctl.deselect([A_TXT]);
+  const state = h.store.getState();
+  assert.deepEqual([...state.selectedPaths], [DOCS]);
+  assert.equal(state.anchorPath, DOCS, 'an anchor that was not removed stays');
+  h.ctl.deselect([DOCS]);
+  assert.equal(h.store.getState().selectedPaths.size, 0);
+  assert.equal(h.store.getState().anchorPath, null, 'a removed anchor must not survive');
+});

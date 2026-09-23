@@ -302,3 +302,18 @@ export function readPersistedFileExplorerState(
     return null;
   }
 }
+
+/**
+ * Forgets a workspace's explorer tabs, for a workspace that no longer exists.
+ * @req FR-FEX-003
+ */
+export function removeFileExplorerStateForWorkspace(
+  workspaceId: string,
+  storage: Storage = localStorage,
+): void {
+  try {
+    storage.removeItem(getFileExplorerStateStorageKey(workspaceId));
+  } catch (error) {
+    console.warn('[fileExplorer] explorer state was not removed from localStorage:', error);
+  }
+}

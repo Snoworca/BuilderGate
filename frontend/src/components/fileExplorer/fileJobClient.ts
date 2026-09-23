@@ -8,10 +8,13 @@
 // @req FR-FEX-005
 
 import {
+  beginClipboardPaste,
   buildDeleteJobRequest,
   buildPasteJobRequest,
   clearFileExplorerClipboard,
+  endClipboardPaste,
   getFileExplorerClipboard,
+  isMoveIntoOwnSource,
   type DeleteJobRequest,
   type ExplorerSelection,
   type PasteJobRequest,
@@ -110,18 +113,27 @@ export async function requestDelete(input: {
   client: Submitter;
   confirm: ConfirmPort;
   selection: ExplorerSelection;
+  /**
+   * Called with the submitted sources once the server accepted the job --
+   * not on confirm, so a refused POST leaves the caller's selection alone.
+   */
+  onAccepted?: (sources: readonly string[]) => void;
 }): Promise<{ jobId: string } | null> {
   const request = buildDeleteJobRequest(input.selection);
   if (!request) return null;
   const answer = await input.confirm('delete', { paths: request.sources });
   if (answer !== 'confirm') return null;
-  return input.client.submit(request);
+  const result = await input.client.submit(request);
+  input.onAccepted?.(request.sources);
+  return result;
 }
 
 /**
  * Pastes the shared clipboard into the target directory. A cut is consumed
  * only after the server accepted the job (and only if the clipboard was not
  * replaced meanwhile), so a failed paste can be retried; a copy stays.
+ * A paste of a clipboard value that is already being pasted -- from any tab,
+ * window or the editor's panel -- sends nothing and resolves null.
  * @req FR-FEX-005
  */
 export async function pasteFromClipboard(input: {
@@ -130,11 +142,46 @@ export async function pasteFromClipboard(input: {
 }): Promise<{ jobId: string } | null> {
   const clipboard = getFileExplorerClipboard();
   if (!clipboard) return null;
+  // Said here rather than returned as a silent null: the user pressed paste and
+  // should see why nothing happened.
+  if (isMoveIntoOwnSource(clipboard, input.target)) {
+    throw new Error('폴더를 그 자신 안으로 옮길 수 없습니다');
+  }
   const request = buildPasteJobRequest(clipboard, input.target);
   if (!request) return null;
-  const result = await input.client.submit(request);
-  if (clipboard.mode === 'cut' && getFileExplorerClipboard() === clipboard) {
-    clearFileExplorerClipboard();
+  if (!beginClipboardPaste(clipboard)) return null;
+  try {
+    const result = await input.client.submit(request);
+    if (clipboard.mode === 'cut' && getFileExplorerClipboard() === clipboard) {
+      clearFileExplorerClipboard();
+    }
+    return result;
+  } finally {
+    endClipboardPaste(clipboard);
   }
-  return result;
+}
+
+export interface SingleFlight {
+  /** Runs `task` unless one is still running; then resolves null and runs nothing. */
+  run<T>(task: () => Promise<T>): Promise<T | null>;
+}
+
+/**
+ * A second paste pressed before the first submit settled would send the same
+ * cut twice (the clipboard is consumed only after the server accepts).
+ * @req FR-FEX-005
+ */
+export function createSingleFlight(): SingleFlight {
+  let busy = false;
+  return {
+    async run(task) {
+      if (busy) return null;
+      busy = true;
+      try {
+        return await task();
+      } finally {
+        busy = false;
+      }
+    },
+  };
 }

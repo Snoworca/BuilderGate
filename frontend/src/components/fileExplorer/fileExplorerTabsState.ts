@@ -24,6 +24,12 @@ export interface FileExplorerTab {
   tree: FileTreeState;
   sort: ListSort | null;
   scrollAnchor: string | null;
+  /**
+   * Where the tab came from. Only a restored root can have vanished while the
+   * page was closed; a tab the user just opened failing its first listing is
+   * the user's to see (SEC-FOP-001 AC-5). Not stored: it describes this load.
+   */
+  origin: 'restored' | 'opened';
 }
 
 export interface FileExplorerTabs {
@@ -71,6 +77,7 @@ export function openInNewTab(
     tree: createInitialFileTreeState({ root: target.path, mode: 'tree' }),
     sort: null,
     scrollAnchor: null,
+    origin: 'opened',
   };
   return { tabs: [...state.tabs, tab], activeTabId: tab.id };
 }
@@ -140,6 +147,7 @@ export function restoreFileExplorerTabs(
       tree: createInitialFileTreeState({ root, mode: isTreeMode(record.mode) ? record.mode : 'tree' }),
       sort: record.sort,
       scrollAnchor: record.scrollAnchor,
+      origin: 'restored',
     };
   });
 
@@ -158,4 +166,42 @@ export function restoreFileExplorerTabs(
 // @req FR-FEX-003
 export function resolveRestoredRootFailure(input: { origin: 'restore' | 'navigate' }): RestoredRootFailureAction {
   return input.origin === 'restore' ? 'fallback-to-session-cwd' : 'keep-root-with-error';
+}
+
+// What a tab does when its very first listing fails, by where it came from.
+// @req FR-FEX-003
+export function firstListingFailureAction(tab: Pick<FileExplorerTab, 'origin'>): RestoredRootFailureAction {
+  return resolveRestoredRootFailure({ origin: tab.origin === 'restored' ? 'restore' : 'navigate' });
+}
+
+// A workspace that is gone takes its explorer window along. An empty list is
+// read as "not loaded yet" rather than "all deleted", so a slow first fetch
+// cannot wipe every window. The same object comes back when nothing is
+// removed, so a caller keyed on identity does not re-render.
+// @req FR-FEX-003
+export function dropWindowsOfRemovedWorkspaces<R>(
+  windows: Record<string, R>,
+  liveWorkspaceIds: readonly string[],
+): { windows: Record<string, R>; removed: string[] } {
+  if (liveWorkspaceIds.length === 0) return { windows, removed: [] };
+  const live = new Set(liveWorkspaceIds);
+  const removed = Object.keys(windows).filter((id) => !live.has(id));
+  if (removed.length === 0) return { windows, removed };
+  const next = { ...windows };
+  for (const id of removed) delete next[id];
+  return { windows: next, removed };
+}
+
+/**
+ * The workspace ids that were in `previous` and are gone from `current`. An
+ * empty `current` means the list has not loaded -- the server never deletes the
+ * last workspace -- so it removes nothing. Unlike dropWindowsOfRemovedWorkspaces
+ * this does not depend on a window record existing, so a workspace whose
+ * explorer was closed still has its stored tabs cleared.
+ * @req FR-FEX-003
+ */
+export function removedWorkspaceIds(previous: readonly string[], current: readonly string[]): string[] {
+  if (current.length === 0) return [];
+  const live = new Set(current);
+  return previous.filter((id) => !live.has(id));
 }

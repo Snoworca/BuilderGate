@@ -17,6 +17,7 @@ import type {
   DecidePort,
   FileJobChoice,
 } from './fileExplorerPorts.ts';
+import { decidePromptRowKey } from './fileExplorerShortcuts.ts';
 
 export type FileExplorerPrompt = { id: number } & (
   | { kind: 'confirm-delete'; paths: readonly string[]; resolve: (answer: 'confirm' | 'cancel') => void }
@@ -169,12 +170,12 @@ function PromptRow({ prompt }: { prompt: FileExplorerPrompt }) {
   const [name, setName] = useState(prompt.kind === 'name' ? prompt.initial : '');
 
   // The row answers its own keys: the window surface would otherwise read a
-  // Delete or Ctrl+C typed here as a file operation on the selection.
+  // Delete or Ctrl+V typed here as a file operation on the selection.
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    event.stopPropagation();
-    if (event.key !== 'Escape') return;
-    if (prompt.kind === 'confirm-delete') prompt.resolve('cancel');
-    else if (prompt.kind === 'name') prompt.resolve(null);
+    const action = decidePromptRowKey({ promptKind: prompt.kind, key: event.key });
+    if (action.stopPropagation) event.stopPropagation();
+    if (action.resolve === 'cancel' && prompt.kind === 'confirm-delete') prompt.resolve('cancel');
+    else if (action.resolve === 'dismiss' && prompt.kind === 'name') prompt.resolve(null);
   };
 
   if (prompt.kind === 'confirm-delete') {

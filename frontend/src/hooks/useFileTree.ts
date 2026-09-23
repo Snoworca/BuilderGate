@@ -83,5 +83,6 @@ export function useFileTree(sessionId: string, initialRoot: string, initialMode:
     refresh: controller.refresh,
     setMode: controller.setMode,
     applyJobDone: controller.applyJobDone,
+    deselect: controller.deselect,
   }), [state, dispatch, controller]);
 }

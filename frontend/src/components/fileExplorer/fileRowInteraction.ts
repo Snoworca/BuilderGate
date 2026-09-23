@@ -3,6 +3,7 @@
 // Kept free of React and the DOM so every rule is testable without rendering;
 // the components only translate events into these inputs and dispatch the result.
 import { isViewableExtension } from '../../utils/viewableExtensions.ts';
+import { cutPathsOf } from './fileExplorerClipboard.ts';
 import type { FileTreeMode, RowClickModifiers, VisibleRow } from './fileTreeState.ts';
 
 export type NodeRow = Extract<VisibleRow, { kind: 'node' }>;
@@ -68,7 +69,7 @@ export function rowRenderClass(row: NodeRow, clipboard: ExplorerClipboard | null
   if (row.type === 'file' && !isOpenableFile(row.name)) classes.push('unopenable');
   // Matched by path alone: the row carries no session id, and the explorer shows
   // one session's tree at a time.
-  if (clipboard?.mode === 'cut' && clipboard.entries.some((entry) => entry.path === row.path)) {
+  if (clipboard !== null && cutPathsOf(clipboard).has(row.path)) {
     classes.push('cut');
   }
   return classes.join(' ');

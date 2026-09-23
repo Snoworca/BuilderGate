@@ -1,6 +1,7 @@
 // The explorer's list mode: the root's direct children in three columns, every
 // one of them in the DOM (FR-FEX-002 AC-8). The column set and the sort rule
 // live in fileListView.ts; the row decisions in fileRowInteraction.ts.
+import { useMemo } from 'react';
 import type { MouseEvent } from 'react';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
 import type { DirectoryEntry } from '../../types/index.ts';
@@ -55,7 +56,13 @@ function formatModified(modified: string): string {
 // @req FR-FEX-002
 // @req FR-FEX-011
 export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null }: FileListViewProps) {
-  const listRows = selectListRows(tree.state, sort);
+  // Sorting a large directory on every render (each selection click, each
+  // clipboard change) is the cost this saves. The rows depend only on the
+  // root's listing entry and the sort, and a listing entry is replaced, never
+  // mutated, when it changes.
+  const rootListing = tree.state.childrenByPath.get(tree.state.root);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the listing entry, not the whole state
+  const listRows = useMemo(() => selectListRows(tree.state, sort), [rootListing, sort]);
   // Paths come from the tree's own rows, so a list row names the same path the
   // reducer checks a selection against.
   const pathByName = new Map(selectVisibleRows(tree.state).flatMap((row) => (row.kind === 'node' ? [[row.name, row.path] as const] : [])));

@@ -25,12 +25,16 @@ export function toListRow(entry: DirectoryEntry): ListRow {
   return { name: entry.name, modified: entry.modified, size: entry.size };
 }
 
+// 'ko' collation so Hangul names and case-mixed Latin names order the way a
+// Korean user reads them, independent of the browser's default locale. One
+// collator for the module: localeCompare with a locale argument builds one per
+// comparison, which dominates sorting a large directory.
+const NAME_COLLATOR = new Intl.Collator('ko');
+
 function compareByKey(a: DirectoryEntry, b: DirectoryEntry, key: ListColumn): number {
   switch (key) {
-    // 'ko' collation so Hangul names and case-mixed Latin names order the way a
-    // Korean user reads them, independent of the browser's default locale.
     case 'name':
-      return a.name.localeCompare(b.name, 'ko');
+      return NAME_COLLATOR.compare(a.name, b.name);
     // ISO-8601 strings from the server compare chronologically as plain strings.
     case 'modified':
       return a.modified < b.modified ? -1 : a.modified > b.modified ? 1 : 0;

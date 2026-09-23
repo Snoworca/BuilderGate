@@ -14,6 +14,7 @@
 // The row renderer already owns this shape (it dims cut rows); sharing it keeps
 // the two from drifting. Type-only, so no runtime edge back to the row module.
 import type { ExplorerClipboard } from './fileRowInteraction.ts';
+import { isSameOrUnderPath } from './fileTreeState.ts';
 
 export type { ExplorerClipboard };
 
@@ -83,6 +84,29 @@ export function subscribeFileExplorerClipboard(listener: () => void): () => void
   };
 }
 
+// Clipboard values being pasted right now. The clipboard is one value for the
+// whole application, so the guard against sending it twice lives beside it:
+// a per-panel flag let two panels submit the same cut before the first POST
+// answered (the cut is consumed only once the server accepts). Keyed on the
+// value, which is replaced rather than mutated, so a new copy is never blocked
+// by the paste of an old one.
+const pastesInFlight = new WeakSet<ExplorerClipboard>();
+
+/**
+ * Marks `value` as being pasted; false when a paste of it is already running.
+ * @req FR-FEX-005
+ */
+export function beginClipboardPaste(value: ExplorerClipboard): boolean {
+  if (pastesInFlight.has(value)) return false;
+  pastesInFlight.add(value);
+  return true;
+}
+
+/** @req FR-FEX-005 */
+export function endClipboardPaste(value: ExplorerClipboard): void {
+  pastesInFlight.delete(value);
+}
+
 // '..' is window chrome, never a target (CON-FEX-001). Checked here as well as
 // in the tree state so the guarantee does not depend on every caller having
 // gone through it. Only an exact '..' last segment counts, in either separator;
@@ -122,6 +146,45 @@ export function cutSelection(selection: ExplorerSelection): ExplorerClipboard | 
   return store('cut', selection);
 }
 
+// Every drawn row asks whether it is cut, so the answer is one set lookup: the
+// set is built once per clipboard value (the value is replaced, never mutated)
+// and dropped with it.
+const cutPathCache = new WeakMap<ExplorerClipboard, ReadonlySet<string>>();
+const EMPTY_PATHS: ReadonlySet<string> = new Set();
+let cutPathSetBuilds = 0;
+
+/**
+ * The paths a cut clipboard dims; empty for a copy.
+ * @req FR-FEX-005
+ */
+export function cutPathsOf(clipboard: ExplorerClipboard): ReadonlySet<string> {
+  if (clipboard.mode !== 'cut') return EMPTY_PATHS;
+  const cached = cutPathCache.get(clipboard);
+  if (cached !== undefined) return cached;
+  cutPathSetBuilds += 1;
+  const paths = new Set(clipboard.entries.map((entry) => entry.path));
+  cutPathCache.set(clipboard, paths);
+  return paths;
+}
+
+/** How many cut sets have been built; lets a test pin "once per value". */
+export function cutPathSetBuildCount(): number {
+  return cutPathSetBuilds;
+}
+
+/**
+ * A move whose destination is one of its own sources, or under one, would ask
+ * the server to put a folder inside itself. Only within one session: another
+ * session's path names another place.
+ * @req FR-FEX-005
+ */
+export function isMoveIntoOwnSource(clipboard: ExplorerClipboard, target: PasteTarget): boolean {
+  if (clipboard.mode !== 'cut') return false;
+  return clipboard.entries.some((entry) => entry.sessionId === target.destSessionId
+    && !isParentMarker(entry.path)
+    && isSameOrUnderPath(target.destPath, entry.path));
+}
+
 /**
  * Paste goes to the current tab's directory. The request carries one source
  * session, so a clipboard whose entries span sessions (only reachable through a
@@ -135,6 +198,9 @@ export function buildPasteJobRequest(clipboard: ExplorerClipboard, target: Paste
   }
   const sourceSessionId = entries[0].sessionId;
   if (entries.some((entry) => entry.sessionId !== sourceSessionId)) {
+    return null;
+  }
+  if (isMoveIntoOwnSource(clipboard, target)) {
     return null;
   }
   return {

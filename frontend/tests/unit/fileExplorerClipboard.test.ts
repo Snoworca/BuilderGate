@@ -306,3 +306,96 @@ test('클립보드 API 가 mode 인자를 받지 않는다 — 모드 무관 하
   assert.equal(m.cutSelection.length, 1);
   assert.ok(!('clipboard' in state), 'the tree state does not carry a clipboard');
 });
+
+// ---------------------------------------------------------------------------
+// FX3 review fixes — cut-row lookup, move into itself, copy with a text
+// selection, keys typed into the confirm row
+// ---------------------------------------------------------------------------
+
+test('FX3-003 cutPathsOf: 잘라낸 경로 집합은 클립보드 참조마다 한 번만 만들어지고 행 판정이 그 집합을 쓴다', async () => {
+  const m = await loadClipboard();
+  const rows = await import('../../src/components/fileExplorer/fileRowInteraction.ts');
+  const cut: Clipboard = { mode: 'cut', entries: [{ sessionId: SESSION_A, path: A_TXT }, { sessionId: SESSION_A, path: DOCS }] };
+  const before = m.cutPathSetBuildCount();
+
+  const nodes = [A_TXT, DOCS, `${ROOT}\\b.txt`, `${ROOT}\\c.txt`].map((path) => ({
+    kind: 'node' as const, path, name: path.split('\\').pop()!, type: 'file' as const, depth: 0,
+  }));
+  const classes = nodes.map((row) => rows.rowRenderClass(row, cut).split(' ').includes('cut'));
+  assert.deepEqual(classes, [true, true, false, false], 'cut rows are exactly the clipboard entries');
+  assert.equal(m.cutPathSetBuildCount() - before, 1, 'the cut set must be built once per clipboard value, not once per row');
+
+  // A new clipboard value is a new set; the same value keeps its set.
+  const copy: Clipboard = { mode: 'copy', entries: [{ sessionId: SESSION_A, path: A_TXT }] };
+  assert.equal(rows.rowRenderClass(nodes[0], copy).split(' ').includes('cut'), false, 'a copy dims nothing');
+  assert.equal(m.cutPathsOf(cut).has(A_TXT), true);
+  assert.equal(m.cutPathSetBuildCount() - before, 1, 'the same reference reused its set');
+  const cut2: Clipboard = { mode: 'cut', entries: [{ sessionId: SESSION_A, path: DOCS }] };
+  assert.equal(m.cutPathsOf(cut2).has(A_TXT), false);
+  assert.equal(m.cutPathSetBuildCount() - before, 2);
+});
+
+test('FX3-007 잘라낸 폴더를 그 자신이나 그 아래로 옮기는 붙여넣기는 요청을 만들지 않는다', async () => {
+  const m = await loadClipboard();
+  const cut: Clipboard = { mode: 'cut', entries: [{ sessionId: SESSION_A, path: DOCS }] };
+  const into = (destPath: string, destSessionId = SESSION_A) => m.buildPasteJobRequest(cut, { destSessionId, destPath });
+
+  assert.equal(into(DOCS), null, 'moving a folder onto itself');
+  assert.equal(into(`${DOCS}\\sub`), null, 'moving a folder under itself');
+  assert.equal(into('c:/work/repo/DOCS/sub'), null, 'Windows paths compare case-folded and separator-agnostic');
+  assert.equal(into(`${DOCS}\\`), null, 'a trailing separator is the same folder');
+  assert.notEqual(into(`${ROOT}\\docs2`), null, "'docs2' is a sibling, not under 'docs'");
+  assert.notEqual(into(ROOT), null, 'the parent is a valid destination');
+  assert.notEqual(into(`${DOCS}\\sub`, SESSION_B), null, 'another session is another namespace');
+  assert.equal(m.isMoveIntoOwnSource(cut, { destSessionId: SESSION_A, destPath: `${DOCS}\\sub` }), true);
+
+  // POSIX stays case-sensitive: '/home/u/Docs' is not '/home/u/docs'.
+  const posix: Clipboard = { mode: 'cut', entries: [{ sessionId: SESSION_A, path: '/home/u/docs' }] };
+  assert.equal(m.buildPasteJobRequest(posix, { destSessionId: SESSION_A, destPath: '/home/u/docs/x' }), null);
+  assert.notEqual(m.buildPasteJobRequest(posix, { destSessionId: SESSION_A, destPath: '/home/u/Docs/x' }), null);
+
+  // A copy into itself is the server's to refuse or rename; only a move is cut off here.
+  const copy: Clipboard = { mode: 'copy', entries: [{ sessionId: SESSION_A, path: DOCS }] };
+  assert.notEqual(m.buildPasteJobRequest(copy, { destSessionId: SESSION_A, destPath: `${DOCS}\\sub` }), null);
+});
+
+test('FX3-011 텍스트 선택이 있으면 Ctrl+C·Ctrl+X 는 ignore — 브라우저 복사가 이긴다', async () => {
+  const { decideFileExplorerShortcut } = await loadShortcuts();
+  const withText = { focusedInSurface: true, selectionCount: 2, hasTextSelection: true };
+  assert.equal(decideFileExplorerShortcut({ event: CTRL_C, ...withText }).kind, 'ignore');
+  assert.equal(decideFileExplorerShortcut({ event: CTRL_X, ...withText }).kind, 'ignore');
+  assert.equal(decideFileExplorerShortcut({ event: CTRL_V, ...withText }).kind, 'paste', 'paste is not a text copy');
+  assert.equal(decideFileExplorerShortcut({ event: DELETE, ...withText }).kind, 'confirm-delete');
+  const noText = { ...withText, hasTextSelection: false };
+  assert.equal(decideFileExplorerShortcut({ event: CTRL_C, ...noText }).kind, 'copy');
+  assert.equal(decideFileExplorerShortcut({ event: CTRL_X, ...noText }).kind, 'cut');
+});
+
+test('FX3-001 확인 줄에 친 Delete·Ctrl+V·Ctrl+C 는 표면 단축키 처리기로 올라가지 않는다', async () => {
+  const { decidePromptRowKey, createFileExplorerShortcutHandler } = await loadShortcuts();
+  for (const kind of ['name', 'confirm-delete', 'decide'] as const) {
+    for (const event of [DELETE, CTRL_V, CTRL_C, CTRL_X, F2, key({ key: 'a' })]) {
+      const action = decidePromptRowKey({ promptKind: kind, key: event.key });
+      assert.equal(action.stopPropagation, true, `${kind}/${event.key}: reaches the surface handler`);
+    }
+  }
+  assert.equal(decidePromptRowKey({ promptKind: 'name', key: 'Escape' }).resolve, 'dismiss');
+  assert.equal(decidePromptRowKey({ promptKind: 'confirm-delete', key: 'Escape' }).resolve, 'cancel');
+  assert.equal(decidePromptRowKey({ promptKind: 'decide', key: 'Escape' }).resolve, null, 'a job question is answered, never dismissed by a key');
+  assert.equal(decidePromptRowKey({ promptKind: 'name', key: 'Delete' }).resolve, null);
+
+  // The composition that matters: an event bubbling from the row to the surface
+  // is stopped, so the surface handler never runs.
+  const ran: string[] = [];
+  const surface = createFileExplorerShortcutHandler({
+    getContext: () => ({ focusedInSurface: true, selectionCount: 1 }),
+    run: (d) => { ran.push(d.kind); },
+  });
+  for (const event of [DELETE, CTRL_V]) {
+    let stopped = false;
+    const action = decidePromptRowKey({ promptKind: 'name', key: event.key });
+    if (action.stopPropagation) stopped = true;
+    if (!stopped) surface({ ...event, preventDefault: () => {} });
+  }
+  assert.deepEqual(ran, [], 'a key typed into the folder-name input ran a file operation');
+});

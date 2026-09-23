@@ -518,3 +518,58 @@ test('nearestName: 정렬 순서상 가장 가까운 이름, 없으면 첫 행, 
   assert.match(code, /import\s*\{[^}]*\bcompareListRows\b[^}]*\}\s*from\s*'\.\/fileListView\.ts'/);
   assert.equal(/localeCompare/.test(code), false, '복원 모듈이 자기 정렬 규칙을 따로 갖고 있다');
 });
+
+// ---------------------------------------------------------------------------
+// FX3-008 — only a restored tab falls back when its first listing fails; a tab
+// the user just opened keeps its root and shows the error (SEC-FOP-001 AC-5)
+// ---------------------------------------------------------------------------
+
+test('FX3-008 탭은 출처(restored/opened)를 갖고, 첫 조회 실패 대비책은 복원된 탭에만 적용된다', async () => {
+  const { openInNewTab, restoreFileExplorerTabs, firstListingFailureAction } = await loadTabs();
+  const restored = restoreFileExplorerTabs(
+    {
+      schemaVersion: 1,
+      savedAt: '',
+      activeTabId: 'fx-1',
+      tabs: [{ id: 'fx-1', originTabId: 'term-2', root: SRC, mode: 'tree', sort: null, scrollAnchor: null }],
+    },
+    deps,
+  );
+  assert.equal(restored.tabs[0].origin, 'restored');
+  assert.equal(firstListingFailureAction(restored.tabs[0]), 'fallback-to-session-cwd');
+
+  const opened = openInNewTab(restored, { sessionId: SESSION_1, path: DOCS, originTabId: 'term-1' });
+  const fresh = opened.tabs[opened.tabs.length - 1];
+  assert.equal(fresh.origin, 'opened');
+  assert.equal(firstListingFailureAction(fresh), 'keep-root-with-error', 'a brand-new tab silently jumped to the session cwd');
+});
+
+// ---------------------------------------------------------------------------
+// FX3-010 — a deleted workspace takes its explorer window and stored tabs with it
+// ---------------------------------------------------------------------------
+
+test('FX3-010 사라진 워크스페이스의 창 기록은 빠지고 그 저장 키가 지워진다; 목록이 비면 아무것도 지우지 않는다', async () => {
+  const { dropWindowsOfRemovedWorkspaces } = await loadTabs();
+  const store = await loadStore();
+  const windows = { [WS_A]: { tag: 'a' }, [WS_B]: { tag: 'b' } };
+
+  const kept = dropWindowsOfRemovedWorkspaces(windows, [WS_A, WS_B]);
+  assert.equal(kept.windows, windows, 'nothing removed must keep the same object (no re-render)');
+  assert.deepEqual(kept.removed, []);
+
+  const dropped = dropWindowsOfRemovedWorkspaces(windows, [WS_A]);
+  assert.deepEqual(Object.keys(dropped.windows), [WS_A]);
+  assert.deepEqual(dropped.removed, [WS_B]);
+
+  // An empty list is a list not loaded yet, not "every workspace was deleted".
+  const empty = dropWindowsOfRemovedWorkspaces(windows, []);
+  assert.equal(empty.windows, windows);
+  assert.deepEqual(empty.removed, []);
+
+  const storage = new MemoryStorage();
+  store.saveFileExplorerStateForWorkspace(WS_B, { tabs: [], activeTabId: null }, storage);
+  store.saveFileExplorerStateForWorkspace(WS_A, { tabs: [], activeTabId: null }, storage);
+  store.removeFileExplorerStateForWorkspace(WS_B, storage);
+  assert.equal(storage.getItem(store.getFileExplorerStateStorageKey(WS_B)), null);
+  assert.notEqual(storage.getItem(store.getFileExplorerStateStorageKey(WS_A)), null, "another workspace's key was removed");
+});

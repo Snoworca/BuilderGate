@@ -47,7 +47,8 @@ export type FileTreeAction =
   | { type: 'INVALIDATE_DIRECTORIES'; affectedDirectories: string[] }
   | { type: 'CLICK_ROW'; path: string; mods: RowClickModifiers; orderedPaths: string[] }
   | { type: 'SELECT_ALL'; orderedPaths: string[] }
-  | { type: 'CLEAR_SELECTION' };
+  | { type: 'CLEAR_SELECTION' }
+  | { type: 'DESELECT_PATHS'; paths: string[] };
 
 export type VisibleRow =
   | { kind: 'up' }
@@ -126,6 +127,35 @@ export function parentPathOf(path: string): string {
   // 'C:\work' -> 'C:\' and '/home' -> '/': keep the separator that makes a root.
   if (head === '' || /^[A-Za-z]:$/.test(head)) return trimmed.slice(0, cut + 1);
   return head;
+}
+
+// Decided by the prefix only, as the tree controller decides it: a backslash is
+// a legal character inside a POSIX name.
+function isWindowsPathSyntax(path: string): boolean {
+  return /^[A-Za-z]:/.test(path) || path.startsWith('\\');
+}
+
+// Windows paths compare with one separator and case-folded (NTFS is
+// case-insensitive for the user); POSIX paths compare as spelled.
+function comparablePath(path: string): { key: string; separator: string } {
+  if (isWindowsPathSyntax(path)) {
+    return { key: stripTrailingSeparators(path.replace(/\//g, '\\')).toLowerCase(), separator: '\\' };
+  }
+  return { key: stripTrailingSeparators(path), separator: '/' };
+}
+
+// Syntax only: is `candidate` the same entry as `ancestor` or somewhere under
+// it? Separator-aware, so 'docs2' is not under 'docs'. Used to refuse moving a
+// folder into itself before the request is sent; the server still judges
+// whether either path may be touched.
+// @req FR-FEX-005
+export function isSameOrUnderPath(candidate: string, ancestor: string): boolean {
+  const a = comparablePath(ancestor);
+  const c = comparablePath(candidate);
+  if (a.separator !== c.separator) return false;
+  if (c.key === a.key) return true;
+  const prefix = a.key.endsWith(a.separator) ? a.key : a.key + a.separator;
+  return c.key.startsWith(prefix);
 }
 
 // Children join with the parent's own separator and never double it ('C:\' + 'work').
@@ -276,5 +306,14 @@ export function fileTreeReducer(state: FileTreeState, action: FileTreeAction): F
 
     case 'CLEAR_SELECTION':
       return { ...state, selectedPaths: new Set(), anchorPath: null };
+
+    case 'DESELECT_PATHS': {
+      // Only the named paths leave; the rest of a multi-selection stays.
+      const removed = new Set(action.paths);
+      const anchorRemoved = state.anchorPath !== null && removed.has(state.anchorPath);
+      if (!anchorRemoved && ![...state.selectedPaths].some((path) => removed.has(path))) return state;
+      const selectedPaths = new Set([...state.selectedPaths].filter((path) => !removed.has(path)));
+      return { ...state, selectedPaths, anchorPath: anchorRemoved ? null : state.anchorPath };
+    }
   }
 }

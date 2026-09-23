@@ -17,7 +17,7 @@
 // @req FR-FEX-011
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { KeyboardEvent, RefObject, TouchEvent } from 'react';
+import type { KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
 import { IconButton } from '../common';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { WindowDialog } from '../dialog/WindowDialog';
@@ -41,12 +41,13 @@ import { buildFileExplorerContextMenuItems, type FileExplorerMenuHandlers } from
 import { fileExplorerDialogId } from './fileExplorerDialog.ts';
 import { FileExplorerMobileBar } from './FileExplorerMobileBar.tsx';
 import { FileExplorerPathBar } from './FileExplorerPathBar.tsx';
-import { decideAnchorPersist, decideScrollRestore, type RestoreState } from './fileExplorerScrollRestore.ts';
-import { createFileExplorerShortcutHandler, type FileExplorerShortcutDecision } from './fileExplorerShortcuts.ts';
+import { decideAnchorPersist, decideScrollRestore, pickAnchorRow, type RestoreState } from './fileExplorerScrollRestore.ts';
+import { createFileExplorerShortcutHandler, isExplorerTextSelection, type FileExplorerShortcutDecision } from './fileExplorerShortcuts.ts';
 import { FileExplorerTabBar } from './FileExplorerTabBar.tsx';
-import { resolveRestoredRootFailure } from './fileExplorerTabsState.ts';
+import { firstListingFailureAction } from './fileExplorerTabsState.ts';
 import { pasteFromClipboard, requestDelete, type FileJobRequest } from './fileJobClient.ts';
-import { routeFileJobMessage, type FileJobRoute } from './fileJobEvents.ts';
+import { routeFileJobMessage } from './fileJobEvents.ts';
+import { createFileJobOwnership, type FileJobDecideRoute, type FileJobOwnership, type FileJobOwnershipDeps } from './fileJobOwnership.ts';
 import { selectListRows, type ListSort } from './fileListView.ts';
 import { FileListView } from './FileListView.tsx';
 import { decideRowPointer, isOpenableFile } from './fileRowInteraction.ts';
@@ -68,12 +69,13 @@ const ANCHOR_ROW_SELECTOR = '.fx-row[data-name][data-depth="0"]';
 const ANCHOR_COMMIT_DELAY_MS = 200;
 
 type ShortcutAction = Exclude<FileExplorerShortcutDecision, { kind: 'ignore' }>;
-type DecideRoute = Extract<FileJobRoute, { kind: 'decide' }>;
 
 /** What the window's key handler needs from the panel on screen. */
 interface PanelCommands {
   selectionCount: number;
   run: (action: ShortcutAction) => void;
+  /** Saves a scroll position still waiting for its settle timer, now. */
+  flushAnchor: () => void;
 }
 
 type RegisterPanelCommands = (tabId: string, commands: RefObject<PanelCommands | null>) => () => void;
@@ -158,10 +160,12 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     if (!restoreListingPendingRef.current || rootStatus === undefined || rootStatus === 'loading') return;
     restoreListingPendingRef.current = false;
     if (rootStatus !== 'error') return;
-    if (resolveRestoredRootFailure({ origin: 'restore' }) !== 'fallback-to-session-cwd') return;
+    // A tab the user just opened is not a restored root: its failure stays on
+    // screen rather than silently moving the tab.
+    if (firstListingFailureAction(tab) !== 'fallback-to-session-cwd') return;
     if (tab.fallbackRoot === '' || tab.fallbackRoot === state.root) return;
     void tree.setRoot(tab.fallbackRoot);
-  }, [rootStatus, state.root, tab.fallbackRoot, tree]);
+  }, [rootStatus, state.root, tab, tree]);
 
   const setMode = useCallback((mode: FileTreeMode) => {
     tree.setMode(mode);
@@ -179,7 +183,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   // The controller's functions are stable for a session, so effects and
   // callbacks depend on them rather than on the tree result, which changes with
   // every state update.
-  const { applyJobDone } = tree;
+  const { applyJobDone, deselect } = tree;
 
   const { isMobile } = useResponsive();
   const { registerFileJobHandler } = useWebSocketActions();
@@ -190,14 +194,27 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
 
   // Only jobs this panel started are answered here: another tab on the same
   // session receives the same events and must not ask the same question twice.
-  // A question can arrive before the POST that started its job has returned, so
-  // unclaimed ones wait until their job is claimed or finishes.
-  const ownJobsRef = useRef(new Set<string>());
-  const waitingDecisionsRef = useRef(new Map<string, DecideRoute>());
+  // The ordering rules (a question or a finish that beats the POST's reply)
+  // live in fileJobOwnership; this panel only supplies its effects. The deps
+  // read through a ref so the one ownership object outlives re-renders.
+  const ownershipDepsRef = useRef<FileJobOwnershipDeps | null>(null);
+  const ownershipRef = useRef<FileJobOwnership | null>(null);
+  const ownership = useCallback((): FileJobOwnership => {
+    if (ownershipRef.current === null) {
+      ownershipRef.current = createFileJobOwnership({
+        answer: (route) => ownershipDepsRef.current?.answer(route),
+        withdraw: (jobId) => ownershipDepsRef.current?.withdraw(jobId),
+        showFailure: (errorCode) => ownershipDepsRef.current?.showFailure(errorCode),
+        cancel: (jobId) => ownershipDepsRef.current?.cancel(jobId),
+      });
+    }
+    return ownershipRef.current;
+  }, []);
 
-  const answerDecision = useCallback((route: DecideRoute) => {
+  const answerDecision = useCallback((route: FileJobDecideRoute) => {
     void decideJob(route.jobId, route.detail)
       .then((answer) => {
+        ownership().decisionSettled(route.jobId);
         // Withdrawn: the job finished (or stopped waiting) before an answer.
         if (answer === null) return undefined;
         return fileJobApi.decide(route.jobId, {
@@ -207,20 +224,36 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         });
       })
       .catch((error: unknown) => showError(`결정을 보내지 못했습니다: ${messageOf(error)}`));
-  }, [decideJob, showError]);
+  }, [decideJob, ownership, showError]);
+
+  useLayoutEffect(() => {
+    ownershipDepsRef.current = {
+      answer: answerDecision,
+      withdraw: dropJob,
+      showFailure: (errorCode) => showError(`파일 작업이 실패했습니다${errorCode ? ` (${errorCode})` : ''}`),
+      // Nobody is left to show the error to; the server's own timeout is the
+      // backstop if the cancel does not arrive.
+      cancel: (jobId) => { fileJobApi.cancel(jobId).catch(() => undefined); },
+    };
+  });
+
+  // On unmount no row is left to answer a question, so a job of this panel
+  // stopped on one is cancelled. A running job keeps running; a question it
+  // raises later times out on the server (the app-wide job store planned for
+  // fx-step4 removes that gap). A StrictMode re-mount gets a fresh object.
+  useEffect(() => {
+    if (ownershipRef.current?.disposed) ownershipRef.current = null;
+    const current = ownership();
+    return () => current.dispose();
+  }, [ownership]);
 
   const jobClient = useMemo(() => ({
     submit: async (request: FileJobRequest) => {
       const result = await fileJobApi.submit(request);
-      ownJobsRef.current.add(result.jobId);
-      const waiting = waitingDecisionsRef.current.get(result.jobId);
-      if (waiting !== undefined) {
-        waitingDecisionsRef.current.delete(result.jobId);
-        answerDecision(waiting);
-      }
+      ownership().claim(result.jobId);
       return result;
     },
-  }), [answerDecision]);
+  }), [ownership]);
 
   // Every finished job refreshes the directories it touched in this tab, whoever
   // started it: a failed or cancelled job may still have changed some files.
@@ -230,16 +263,11 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     if (route.kind === 'invalidate') {
       void applyJobDone(route.directories);
       if (msg.type !== 'file-job:done') return;
-      waitingDecisionsRef.current.delete(msg.jobId);
-      dropJob(msg.jobId);
-      if (ownJobsRef.current.delete(msg.jobId) && msg.outcome === 'failed') {
-        showError(`파일 작업이 실패했습니다${msg.errorCode ? ` (${msg.errorCode})` : ''}`);
-      }
+      ownership().onDone({ jobId: msg.jobId, outcome: msg.outcome, errorCode: msg.errorCode });
     } else if (route.kind === 'decide') {
-      if (ownJobsRef.current.has(route.jobId)) answerDecision(route);
-      else waitingDecisionsRef.current.set(route.jobId, route);
+      ownership().onDecision(route);
     }
-  }), [answerDecision, applyJobDone, dropJob, registerFileJobHandler, showError, tab.sessionId]);
+  }), [applyJobDone, ownership, registerFileJobHandler, tab.sessionId]);
 
   const renamingPathRef = useRef<string | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -329,6 +357,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       cutSelection({ sessionId: tab.sessionId, paths: selectedPaths() });
     },
     paste: () => {
+      // A second paste of the same clipboard while this one is in flight -- from
+      // this panel or any other -- is refused inside pasteFromClipboard.
       pasteFromClipboard({ client: jobClient, target: { destSessionId: tab.sessionId, destPath: targetDirectory } })
         .catch((error: unknown) => showError(`붙여넣지 못했습니다: ${messageOf(error)}`));
     },
@@ -337,7 +367,10 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       if (paths.length === 1) beginRename(paths[0]);
     },
     delete: () => {
-      requestDelete({ client: jobClient, confirm: confirmDelete, selection: { sessionId: tab.sessionId, paths: selectedPaths() } })
+      // The selection leaves once the server has accepted the job, so a second
+      // Delete or a copy cannot act on the same paths again, while a refused
+      // POST leaves the files selected for a retry.
+      requestDelete({ client: jobClient, confirm: confirmDelete, selection: { sessionId: tab.sessionId, paths: selectedPaths() }, onAccepted: deselect })
         .catch((error: unknown) => showError(`삭제하지 못했습니다: ${messageOf(error)}`));
     },
     newdir: () => {
@@ -370,7 +403,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
 
   const commandsRef = useRef<PanelCommands | null>(null);
   useLayoutEffect(() => {
-    commandsRef.current = { selectionCount: state.selectedPaths.size, run: runShortcut };
+    commandsRef.current = { selectionCount: state.selectedPaths.size, run: runShortcut, flushAnchor: commitPendingAnchor };
   });
   useEffect(() => registerCommands(tab.id, commandsRef), [registerCommands, tab.id]);
 
@@ -395,7 +428,11 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   // The listing in the order it is drawn: the list's sort in list mode, the
   // server's order for the tree's first level.
   const sort = state.mode === 'list' ? tab.sort : null;
-  const rootEntries = selectListRows(state, sort);
+  // Re-sorted only when the root's listing entry or the sort changes, not on
+  // every selection click; a listing entry is replaced, never mutated.
+  const rootListing = state.childrenByPath.get(state.root);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the listing entry, not the whole state
+  const rootEntries = useMemo(() => selectListRows(state, sort), [rootListing, sort]);
 
   // Runs after every render until the anchor has been placed: rows arrive with
   // a later render than the one that mounted the panel, and an inactive tab has
@@ -427,43 +464,69 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     if (restore.shouldPersist && restore.name !== null) actions.setTabAnchor(workspaceId, tab.id, restore.name);
   });
 
-  // The decision is made on each scroll event; only its commit waits.
-  const pendingAnchorRef = useRef<{ decision: 'save' | 'skip'; name: string } | null>(null);
+  // Whether a scroll may be saved is decided on each scroll event, because the
+  // programmatic-scroll flag is only true during the restore's own frame. The
+  // top row is searched for once the scrolling settles: reading every row's
+  // position forces a layout, which is too much for each scroll event.
+  const pendingAnchorRef = useRef<{ decision: 'save' | 'skip' } | null>(null);
   const anchorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (anchorTimerRef.current !== null) clearTimeout(anchorTimerRef.current);
   }, []);
 
   const commitPendingAnchor = useCallback(() => {
+    if (anchorTimerRef.current !== null) clearTimeout(anchorTimerRef.current);
     anchorTimerRef.current = null;
     const pending = pendingAnchorRef.current;
     pendingAnchorRef.current = null;
-    if (pending?.decision === 'save') actions.setTabAnchor(workspaceId, tab.id, pending.name);
+    const container = scrollRef.current;
+    if (container === null || pending === null) return;
+    // No client rects means display: none somewhere above; every row would
+    // measure 0 and the search would name the last row.
+    const hasLayout = container.getClientRects().length > 0;
+    function* rowTops(root: HTMLElement) {
+      for (const element of root.querySelectorAll<HTMLElement>(ANCHOR_ROW_SELECTOR)) {
+        yield { name: element.dataset.name ?? '', top: element.getBoundingClientRect().top };
+      }
+    }
+    const name = pickAnchorRow(hasLayout ? container.getBoundingClientRect().top : 0, rowTops(container), hasLayout);
+    if (pending.decision === 'save' && name !== null && name !== '') actions.setTabAnchor(workspaceId, tab.id, name);
   }, [actions, tab.id, workspaceId]);
+
+  // Hiding ends the scroll, so a commit still waiting for its timer runs now,
+  // while the rows are laid out: the window's display: none comes from its own
+  // layout effect, which runs after this child's. An inactive tab is already
+  // hidden by its className here, so the window flushes before switching tabs
+  // (flushAnchor); this effect then finds no layout and drops nothing it could
+  // have saved.
+  useLayoutEffect(() => {
+    if ((active && !hidden) || anchorTimerRef.current === null) return;
+    clearTimeout(anchorTimerRef.current);
+    commitPendingAnchor();
+  }, [active, hidden, commitPendingAnchor]);
 
   const handleScroll = useCallback(() => {
     const container = scrollRef.current;
     if (container === null) return;
     const userInitiated = !programmaticScrollRef.current;
-    const rowElements = container.querySelectorAll<HTMLElement>(ANCHOR_ROW_SELECTOR);
-    // The first-level row at or above the top edge; inside an expanded
-    // directory that is the directory itself.
-    const top = container.getBoundingClientRect().top;
-    let name: string | null = null;
-    for (const element of rowElements) {
-      if (name !== null && element.getBoundingClientRect().top > top) break;
-      name = element.dataset.name ?? null;
-    }
     const decision = decideAnchorPersist({
       restoreState: restoreStateRef.current,
       userInitiated,
-      rowCount: rowElements.length,
+      rowCount: container.querySelectorAll(ANCHOR_ROW_SELECTOR).length,
     });
-    if (decision !== 'save' || name === null) return;
-    pendingAnchorRef.current = { decision, name };
+    if (decision !== 'save') return;
+    pendingAnchorRef.current = { decision };
     if (anchorTimerRef.current !== null) clearTimeout(anchorTimerRef.current);
     anchorTimerRef.current = setTimeout(commitPendingAnchor, ANCHOR_COMMIT_DELAY_MS);
   }, [commitPendingAnchor]);
+
+  // A text selection left in the window (a path dragged over in the confirm
+  // row) would otherwise keep Ctrl+C meaning text after the user went back to
+  // the rows. The rename input keeps its own caret.
+  const handleRowsPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.target instanceof Element && event.target.closest('input, textarea') !== null) return;
+    window.getSelection()?.removeAllRanges();
+  };
 
   return (
     <div className={`fx-tab-panel${active ? '' : ' fx-inactive'}`} role="tabpanel">
@@ -472,6 +535,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         className="fx-scroll"
         ref={scrollRef}
         onScroll={handleScroll}
+        onPointerDown={handleRowsPointerDown}
         onTouchStart={handleTouchStart}
         onTouchMove={longPress.onTouchMove}
         onTouchEnd={longPress.onTouchEnd}
@@ -530,6 +594,13 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, act
   useLayoutEffect(() => {
     activeTabIdRef.current = activeTab?.id ?? null;
   });
+  // A tab switch hides the panel through its className in the same commit, so
+  // its layout is gone before any of its effects run; the scroll position it
+  // is still waiting to save is committed here, before the switch.
+  const flushActiveAnchor = () => {
+    const id = activeTabIdRef.current;
+    if (id !== null) panelCommandsRef.current.get(id)?.current?.flushAnchor();
+  };
   const registerPanelCommands = useCallback<RegisterPanelCommands>((tabId, commands) => {
     const registry = panelCommandsRef.current;
     registry.set(tabId, commands);
@@ -544,9 +615,14 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, act
     getContext: () => {
       const id = activeTabIdRef.current;
       const commands = id === null ? null : panelCommandsRef.current.get(id)?.current ?? null;
+      const textSelection = window.getSelection();
       return {
         focusedInSurface: bodyRef.current?.contains(document.activeElement) ?? false,
         selectionCount: commands?.selectionCount ?? 0,
+        // Selected text in the path bar or the confirm row is what a Ctrl+C
+        // then means, as everywhere else in the browser. Text over the rows or
+        // elsewhere on the page does not count.
+        hasTextSelection: isExplorerTextSelection(textSelection, bodyRef.current),
       };
     },
     run: (action) => {
@@ -582,9 +658,13 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, act
           tabs={tabs}
           activeTabId={activeTab?.id ?? null}
           rootOf={(tab) => tab.tree.root}
-          onSelect={(tabId) => actions.selectTab(workspaceId, tabId)}
+          onSelect={(tabId) => {
+            flushActiveAnchor();
+            actions.selectTab(workspaceId, tabId);
+          }}
           onClose={(tabId) => actions.closeTab(workspaceId, tabId)}
           onAdd={() => {
+            flushActiveAnchor();
             if (activeTab !== undefined) actions.addTab(workspaceId, activeTab.tree.root);
           }}
         />

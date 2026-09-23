@@ -35,6 +35,8 @@ export interface FileTreeController {
   refresh(path: string): Promise<void>;
   setMode(mode: FileTreeMode): void;
   applyJobDone(affectedDirectories: readonly string[]): Promise<void>;
+  /** Takes these paths out of the selection now (a confirmed delete). */
+  deselect(paths: readonly string[]): void;
 }
 
 type RequestOutcome =
@@ -78,15 +80,17 @@ export function createFileTreeController(deps: FileTreeControllerDeps): FileTree
   let pendingGoUp: { token: number; target: string } | null = null;
 
   // Selection and anchor only make sense for rows on screen; after the root
-  // moves they may point at paths the user can no longer see or act on knowingly.
+  // moves, or a job deletes or moves entries, they may point at paths the user
+  // can no longer see or act on knowingly. Only those paths leave: what is still
+  // on screen stays selected.
   const pruneInvisibleSelection = (): void => {
     const state = getState();
     if (state.selectedPaths.size === 0 && state.anchorPath === null) return;
     const visible = new Set<string>();
     for (const row of selectVisibleRows(state)) if (row.kind === 'node') visible.add(row.path);
-    const stale = [...state.selectedPaths].some((p) => !visible.has(p))
-      || (state.anchorPath !== null && !visible.has(state.anchorPath));
-    if (stale) dispatch({ type: 'CLEAR_SELECTION' });
+    const stale = [...state.selectedPaths].filter((p) => !visible.has(p));
+    if (state.anchorPath !== null && !visible.has(state.anchorPath)) stale.push(state.anchorPath);
+    if (stale.length > 0) dispatch({ type: 'DESELECT_PATHS', paths: stale });
   };
 
   // `cache` false is for the goUp probe: the parent is not a node in the current
@@ -190,6 +194,11 @@ export function createFileTreeController(deps: FileTreeControllerDeps): FileTree
       // read in flight is re-read anyway, because that read may predate the job.
       const reads = [...keys].filter((key) => cached.has(key)).map((key) => load(key, true));
       await Promise.all(reads);
+      pruneInvisibleSelection();
+    },
+
+    deselect(paths) {
+      if (paths.length > 0) dispatch({ type: 'DESELECT_PATHS', paths: [...paths] });
     },
   };
 }

@@ -836,7 +836,7 @@ function AppContent() {
                       tabs={explorerWindow.tabs}
                       activeTabId={explorerWindow.activeTabId}
                       hidden={explorerWindow.hidden}
-                      actions={explorer}
+                      actions={explorer.actions}
                       onOpenFile={editor.openDocument}
                     />
                   ))}
