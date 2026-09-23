@@ -63,6 +63,8 @@ https://localhost:2222  를 통하여 플레이라이트로 테스트 가능합�
 ## Password
 
 - Local test password: `1234`
+- E2E 검증 포트는 항상 `2222` 다(`https://localhost:2222`).
+- Playwright E2E 는 비밀번호를 `BUILDERGATE_PASSWORD` 환경변수로만 받는다(`frontend/tests/e2e/testPassword.ts` 의 `requireTestPassword()`, 미설정이면 변수 이름을 대며 실패). 값은 이 파일이나 다른 추적 파일에 새로 적지 않는다 — 조직 규정상 비밀번호를 문서에 노출하지 않으며 이 저장소는 public 이다.
 
 ## Phase Completion Review Rule
 
