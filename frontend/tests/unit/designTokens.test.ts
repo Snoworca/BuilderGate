@@ -56,9 +56,18 @@ function block(source: string, selector: string): string {
   const at = source.indexOf(selector);
   assert.notEqual(at, -1, `selector not found: ${selector}`);
   const open = source.indexOf('{', at);
-  const close = source.indexOf('}', open);
-  assert.ok(open !== -1 && close !== -1, `unterminated block: ${selector}`);
-  return source.slice(open + 1, close);
+  assert.notEqual(open, -1, `unterminated block: ${selector}`);
+  // Matched by depth, not by the next '}': a nested block (an @media or @supports
+  // inside the selector's body) would otherwise end the slice at its own brace.
+  let depth = 0;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(open + 1, i);
+    }
+  }
+  assert.fail(`unterminated block: ${selector}`);
 }
 
 /** Declared names inside one block, with their values. */
@@ -217,10 +226,28 @@ test('CON-ARCH-001 AC-7 the token layer does not reach into the vendored editor'
 test('CON-ARCH-001 AC-9 the application entry point actually loads the token layer', () => {
   // Without this every other assertion in this file passes over a stylesheet
   // the browser never sees.
+  const indexCss = css('../../src/index.css');
   assert.match(
-    css('../../src/index.css'),
+    indexCss,
     /@import\s+(url\()?['"]\.\/styles\/tokens\.css['"]\)?\s*;/,
     'index.css does not import ./styles/tokens.css',
+  );
+  // First statement, not merely present: a browser drops an @import that follows
+  // any other rule, silently, and every assertion above would still pass.
+  assert.match(
+    indexCss.trimStart(),
+    /^@import\s+(url\()?['"]\.\/styles\/tokens\.css['"]\)?\s*;/,
+    'the tokens @import is not the first statement of index.css, so the browser ignores it',
+  );
+  // And index.css is itself on the entry point's import list. The chain is
+  // main.tsx -> index.css -> tokens.css; this pins the first link.
+  const entry = readFileSync(new URL('../../src/main.tsx', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  assert.match(
+    entry,
+    /^\s*import\s+['"]\.\/index\.css['"]\s*;?\s*$/m,
+    'main.tsx does not import ./index.css',
   );
 });
 
