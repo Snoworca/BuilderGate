@@ -1,0 +1,177 @@
+{
+  "target_intent": "Build the frontend file-explorer surfaces (FR-FEX-001..011, CON-FEX-001, FR-MDE-012, plus the client-side ACs step2 deferred: SEC-FOP-001 AC-3/4/5, FR-FOP-004 AC-3/4) on top of the already-implemented CON-ARCH-001 token layer (frontend/src/styles/tokens.css), closing CON-ARCH-001 AC-3 and AC-10 as the first real component consumers of the contract, while obeying the design guide's checkable rules below.",
+
+  "design_rules": [
+    {
+      "id": "DR-01",
+      "rule": "New FEX/MDE component CSS contains no hex or rgb(a) color literal. Colors are referenced only via var(--token).",
+      "source": "design §10.1/§10.2; CON-ARCH-001 AC-10 (open)",
+      "how_to_check": "source guard: for each new *.css under frontend/src/components/fileExplorer/** and any new file added to frontend/src/components/editor/** (excluding tokens.css itself), strip /* */ comments and scan for /#[0-9a-f]{3,8}\\b|rgba?\\(/i → must be zero matches. Mirrors the pattern already used by frontend/tests/unit/designTokens.test.ts.",
+      "applies_to": "all new component CSS files"
+    },
+    {
+      "id": "DR-02",
+      "rule": "New CSS only references token names that are actually declared in tokens.css (or a component-local custom property declared in the same file) — no reference to an undeclared/misspelled var(--x).",
+      "source": "CON-ARCH-001 AC-1, AC-11",
+      "how_to_check": "source guard: extract every var(--[a-z0-9-]+) occurrence from new CSS; the token half of each must be in the declared set from tokens.css (:root ∪ [data-surface=\"paper\"] ∪ [data-density=\"compact\"]) or declared earlier in the same file. Anything else fails.",
+      "applies_to": "all new CSS files"
+    },
+    {
+      "id": "DR-03",
+      "rule": "Components may write data-surface=\"chrome\"|\"paper\" as a JSX attribute but must never read it (dataset, getAttribute, prop threading, computed-style inspection) to branch rendering or logic.",
+      "source": "design §10.3 (\"컴포넌트는 자기가 어느 표면에 있는지 몰라도 됩니다\"); CON-ARCH-001 AC-3 (open, unchecked)",
+      "how_to_check": "source guard: grep new *.tsx/*.ts for `.dataset.surface`, `getAttribute('data-surface')`/`getAttribute(\"data-surface\")`, a prop literally named `surface`, or string comparisons against 'chrome'/'paper' outside a JSX attribute-value position → zero matches. Note (see ambiguities): this only catches the obvious forms — see gap below.",
+      "applies_to": "all new components under fileExplorer/ and the new editor tree panel"
+    },
+    {
+      "id": "DR-04",
+      "rule": "The single UI accent is #0078d4. #007acc and #0e639c (the old VS Code Dark+ pair) must not appear in new files.",
+      "source": "CON-ARCH-001 AC-4; design §10.2",
+      "how_to_check": "source guard: grep new files for #007acc|#0e639c (case-insensitive) → zero.",
+      "applies_to": "all new CSS/TSX files"
+    },
+    {
+      "id": "DR-05",
+      "rule": "The violet/purple family (#7c3aed, #8250df, #a78bfa, #6639ba) is reserved for editor syntax highlighting and must not appear in new UI (tree/list/menu/modal/statusbar) files.",
+      "source": "CON-ARCH-001 AC-5",
+      "how_to_check": "source guard: grep new UI files (excluding vendored editor syntax-theme files) for those literals → zero.",
+      "applies_to": "all new UI component CSS outside the vendored editor"
+    },
+    {
+      "id": "DR-06",
+      "rule": "Tree/list row height comes from var(--row-h); no component hardcodes 24px/28px/22px (or any literal) as a row's height.",
+      "source": "design §10.2, mockup `.row{height:var(--row-h)}`; CON-ARCH-001 AC-6",
+      "how_to_check": "source guard: grep new CSS for `height:\\s*\\d+px` on selectors matching row/tree/list-row class names (e.g. .row, .lrow, .tree-row) → only `var(--row-h)` is allowed there.",
+      "applies_to": "FileTree / FileList row CSS"
+    },
+    {
+      "id": "DR-07",
+      "rule": "New tokens/components stay independent of the vendored editor's --atomic-editor-* palette: no new file references that prefix, and tokens.css is not referenced back from the vendored editor.",
+      "source": "design §10.4 (\"나란히 둡니다. 합치지 않습니다.\"); CON-ARCH-001 AC-7",
+      "how_to_check": "source guard: grep new files for the string `atomic-editor` → zero (tokens.css already passes this per VE-2/4).",
+      "applies_to": "all new files"
+    },
+    {
+      "id": "DR-08",
+      "rule": "This step's commit produces zero color-literal diff lines in the pre-existing 29 CSS files outside the new file-explorer/token work — no drive-by recoloring of unrelated CSS.",
+      "source": "CON-ARCH-001 AC-8",
+      "how_to_check": "source guard: `git diff <base>..HEAD -- frontend/src '*.css'` excluding newly-added files; grep changed (+/-) lines for hex/rgb literals → zero.",
+      "applies_to": "commit diff for this step"
+    },
+    {
+      "id": "DR-09",
+      "rule": "The `..` (up-directory) row is chrome, not a tree node: it must not carry the same node-identity attribute (e.g. data-path) that selection, Ctrl+A, Shift-range, context-menu, clipboard, and Delete handlers key off — so those six code paths structurally cannot reach it, not merely via an added `if (path !== '..')` guard.",
+      "source": "design §0 decision 7, §8.1 (\"노드로 두면 ... 여섯 곳 전부에 예외를 심어야 합니다\"); CON-FEX-001 AC-1..AC-6; mockup lines 1447-1452 (no data-path on .row.updir)",
+      "how_to_check": "source guard: the up-row's JSX branch must render without the identity attribute (e.g. data-path) that the node-row branch sets, and selection/menu/clipboard/Delete handlers must read that same attribute to resolve a target — grep confirms the up-row omits it. The full behavioral claim (Ctrl+A truly excludes it, etc.) needs a DOM/unit test, not source grep alone — flag as needs-test.",
+      "applies_to": "FileTree and FileList row renderer, useFileTree selection/clipboard logic"
+    },
+    {
+      "id": "DR-10",
+      "rule": "Selected-row styling is exactly background: var(--bg-active) plus a left border/accent set to var(--sel-bar) — no literal color, no full border, no different accent var.",
+      "source": "mockup `.row[aria-selected=\"true\"]{background:var(--bg-active); border-left-color:var(--sel-bar)}`",
+      "how_to_check": "source guard: in new row CSS, the `[aria-selected=\"true\"]` rule block must set `background` to `var(--bg-active)` and a left-border-color property to `var(--sel-bar)`, and must not additionally set a literal color.",
+      "applies_to": "FileTree/FileList row CSS"
+    },
+    {
+      "id": "DR-11",
+      "rule": "The explorer modeless window's root does not carry data-surface=\"paper\"; the editor left tree panel's own wrapper carries data-surface=\"paper\" explicitly, and that attribute is not also present on the document/CodeMirror area (so the paper re-theme doesn't leak past the tree panel).",
+      "source": "design §10.3; mockup line 724 (`data-surface=\"chrome\"` on explorer .win) and line 1021 (`data-surface=\"paper\"` on .editor-tree, not on the document panel)",
+      "how_to_check": "source guard: grep the explorer window root JSX for data-surface=\"paper\" → absent (chrome is the :root default, so it may be present as \"chrome\" or simply omitted). Grep the new FileTreePane wrapper JSX for data-surface=\"paper\" → present. Grep EditorDocumentPanel/CodeMirror wrapper JSX for data-surface=\"paper\" → absent.",
+      "applies_to": "explorer window shell, FileTreePane, EditorDocumentPanel"
+    },
+    {
+      "id": "DR-12",
+      "rule": "Window-scoped decision modals (conflict/error/delete-confirm) do not register in the global modal dialog stack; they render as an overlay scoped inside the explorer/editor window's own DOM subtree, not full-screen.",
+      "source": "design §5 (\"전역 모달 대역에 등록하지 않습니다\"); FR-FEX-007",
+      "how_to_check": "source guard: new modal component does not call the modal-mode registration API exported by frontend/src/components/dialog/dialogStack.ts / WindowDialog.tsx (grep for those export names). Confirm the modal's root element is rendered inside the window's own container, not via a portal to a page-level modal root. The \"terminal still receives input while this modal is open\" claim needs an E2E/browser test — source grep alone cannot prove it.",
+      "applies_to": "conflict modal, error modal, delete-confirm modal"
+    },
+    {
+      "id": "DR-13",
+      "rule": "Mobile action-button-row buttons have min-height >= 44px (finger target); this is on top of DR-06's row-height rule, called out separately because requirement 4 (mobile) is a distinct AC from AC-6 (row height).",
+      "source": "design 요구사항 4, mockup .mobilebar; CON-ARCH-001 AC-6 rationale",
+      "how_to_check": "source guard: new mobile-button-row CSS rule sets `min-height: 44px` (or larger) explicitly.",
+      "applies_to": "mobile action button row CSS"
+    },
+    {
+      "id": "DR-14",
+      "rule": "List mode renders every directory entry as a real DOM row — no virtualization/windowing (only-visible-rows-mounted) logic or library.",
+      "source": "design §0 decision 22, §8.4 (\"행이 DOM 에 실재한다는 것 자체가 계약\"); FR-FEX-002 AC-8",
+      "how_to_check": "source guard: new list-mode component/package.json does not import a virtualization library (react-window, react-virtualized, @tanstack/react-virtual, etc.) and does not slice the rendered row array by scroll position or viewport bounds. The AC-8 claim itself (\"행을 이름으로 찾을 수 있다\", all rows present up to maxDirectoryEntries) needs a DOM/unit test asserting rendered-row-count === entry-count for a large fixture list — flag as needs-test, not just source guard.",
+      "applies_to": "FileList component"
+    },
+    {
+      "id": "DR-15",
+      "rule": "Scroll position is persisted and restored by anchor (the top-visible row's name/id), never by a raw pixel scrollTop number; a failed restore (anchor row not found) must not overwrite the stored anchor value.",
+      "source": "design §9.2 결정 23 (\"스크롤 복원은 픽셀이 아니라 앵커로\")",
+      "how_to_check": "needs a unit/DOM test, not pure source grep — assert the persisted state's shape is a string (row name/id), not a number; assert the \"not found\" branch of the restore function does not call the persist/save function. Partial source guard: grep the persisted-state type/interface for a `scrollTop`-shaped numeric field → should be absent.",
+      "applies_to": "explorer window scroll-restore logic (per tab, per design §9.2)"
+    },
+    {
+      "id": "DR-16",
+      "rule": "Ctrl+C/Ctrl+X/Ctrl+V/Delete/F2 are intercepted only when DOM focus is inside the relevant tree surface (explorer window surface as a whole; for the editor left panel, the tree panel only — excluding the CodeMirror document area) — never as unconditional global document listeners.",
+      "source": "design §6.2 (\"포커스가 트리 표면 안에 있을 때만 가로챕니다\"); FR-FEX-005 AC-7; FR-MDE-012 AC-9 (citing FR-FEX-005 AC-7 as canonical source)",
+      "how_to_check": "unit-testable pure-function pattern, following the precedent in frontend/src/components/editor/editorWindowSaveShortcut.ts: the shortcut-decision function takes a `focused` boolean (or equivalent) read at press time and returns an 'ignore' decision when false. A unit test asserts Ctrl+C fired while `focused:false` (e.g. terminal/editor-body has focus) does not populate the file clipboard, for both the explorer-window scope and the editor-left-panel scope.",
+      "applies_to": "explorer window keydown handler, editor left panel keydown handler"
+    },
+    {
+      "id": "DR-17",
+      "rule": "Context menu is built from one ordered item list/config per context (tree, list, editor-panel, empty-area) rather than ad hoc per-surface JSX blocks, matching the design's fixed item set and order, with shortcut labels shown; list-mode explorer and the editor left panel both omit only '새 탭에서 열기', nothing else.",
+      "source": "design §7 table + \"목록 모드에서도 같습니다\" + §9.1 파일 조작 절; FR-FEX-006 AC-4/6/7/8; FR-MDE-012 AC-8; mockup lines 772-783",
+      "how_to_check": "source guard: menu-item construction is a single data structure the builder filters, not duplicated per-surface literal arrays — grep for a shared item-id list. A unit test snapshots the built array for {tree, list, editor-panel, empty-area} inputs against the expected item-id sequence (open→newtab→copy→cut→paste→rename→delete→newdir→refresh, minus context-appropriate omissions) and checks each item's shortcut label string is present where applicable. Actual visual rendering/placement needs a browser/E2E check.",
+      "applies_to": "context menu item builder"
+    },
+    {
+      "id": "DR-18",
+      "rule": "Path bar element order is fixed left-to-right: up-button (↑) → current-root path text → mode toggle (tree/list) → refresh button → new-folder button.",
+      "source": "mockup lines 738-747; design §9.2",
+      "how_to_check": "unit/snapshot test on the path-bar component's rendered child order (by test-id or role sequence) — not a CSS-only check, since order is DOM/render order, not visual float order.",
+      "applies_to": "explorer window path bar"
+    },
+    {
+      "id": "DR-19",
+      "rule": "border-radius values only use var(--r-sm)/var(--r-md)/var(--r-lg) (6/8/10px); no new literal radius value is introduced.",
+      "source": "design §10.2 token contract listing --r-sm/--r-md/--r-lg",
+      "how_to_check": "source guard: grep new CSS for `border-radius:\\s*[0-9]` (a literal number) → zero; only var(--r-*) forms allowed.",
+      "applies_to": "all new CSS"
+    },
+    {
+      "id": "DR-20",
+      "rule": "The client holds no copy of the upward-navigation boundary policy: the '↑' button's/row's enabled state is derived solely from whether the server's listDirectory response included a '..' entry, not from any client-computed comparison against the session's initial working directory or a hardcoded root list.",
+      "source": "design §0 decision 8, §8.1 (\"'↑' 버튼의 활성 여부는 서버 응답에 '..' 가 들어 있는지로 판정\"); SEC-FOP-001 AC-3, AC-4 (both open — explicitly deferred by fx-step2 to \"frontend chunk\")",
+      "how_to_check": "source guard: grep new frontend files for path-prefix/boundary comparisons (e.g. comparing the candidate root against a stored 'session cwd' or a client-side blocked-paths list) used to disable the up-button/row → should not exist. The up-affordance's disabled state must read a boolean/flag that traces directly to the presence of '..' in the directory-listing response (FileService.ts parent-existence signal), not a locally recomputed one.",
+      "applies_to": "useFileTree goUp()/up-affordance enablement logic"
+    }
+  ],
+
+  "visual_spec": {
+    "row_height": "var(--row-h), default 28px (finger-target driven by requirement 4), [data-density=\"compact\"] overrides to 22px. Applies to both tree rows and list rows identically.",
+    "selection": "[aria-selected=\"true\"] row: background: var(--bg-active); border-left: 2px solid var(--sel-bar) (sel-bar aliases --accent, #0078d4); text color var(--fg-strong). Non-selected hover: background: var(--bg-hover) only, no border.",
+    "up_row": "Rendered as the first row (sticky top in the mockup), class-equivalent to `.row.updir`, using the same row height and a directory-open icon + '..' label + a muted hint ('상위 디렉터리'). It carries a distinct interaction marker (e.g. data-up) instead of the node-identity attribute (data-path) that every other row carries — selection/menu/clipboard/Ctrl+A/Shift-range/Delete code all key off that node-identity attribute and so cannot address it. No context menu opens on it. Present only when a parent exists (root.length > 0 client-side, or equivalently the server response contains '..').",
+    "path_bar_order": "Left to right: [↑ up-button] [current root path text, RTL-ellipsized like the mockup's .pathbar .p] [mode toggle: 트리 | 목록 segmented control] [새로 읽기 (refresh) icon button] [새 폴더 (new folder) icon button].",
+    "context_menu_items": "In order: 편집기로 열기 (enabled only if openable file) → 새 탭에서 열기 (enabled only for a directory in the explorer window's tree/list; entirely absent in the editor left panel) → separator → 복사 (Ctrl+C) → 잘라내기 (Ctrl+X) → 붙여넣기 (Ctrl+V, enabled only if clipboard non-empty) → separator → 이름 바꾸기 (F2, enabled only when selection size === 1) → 삭제 (Del) → separator → 새 폴더 → 새로 읽기. Right-click on an already-selected item keeps the whole selection (does not collapse to one); right-click on empty space clears selection and shows only 붙여넣기/새 폴더/새로 읽기.",
+    "surfaces": "Explorer modeless window (and everything inside it: tree, list, path bar, tabs, context menu, window-scoped modals, in-window progress strip) sits on data-surface=\"chrome\" (or the unset :root default, which IS chrome — chrome is not a re-bind, paper is). The editor window's left FileTreePane sits on data-surface=\"paper\", applied to the FileTreePane's own wrapper element only — the tab bar, EditorDocumentPanel/CodeMirror body to its right, and the window's own title bar/chrome (menus, min/max/close buttons) remain on the default chrome values. Bottom status bar, corner notification popover, and mobile button row are app-chrome-level and use the default (chrome) token set."
+  },
+
+  "ambiguities": [
+    "DR-03 (no-surface-branching, CON-ARCH-001 AC-3) can only be mechanically checked for the obvious forms (dataset reads, getAttribute, literal string comparisons). A component could still indirectly 'know' its surface via a prop passed down from a surface-aware parent without ever touching the DOM attribute itself; no source guard fully proves the AC's intent ('컴포넌트는 자기가 어느 표면에 있는지 알지 못한다'). Plan/tests should treat the grep as a necessary-not-sufficient check and rely on code review for the rest.",
+    "The exact new component directory path (e.g. frontend/src/components/fileExplorer/ vs. frontend/src/components/FileExplorer/) is not fixed by the design doc — no such directory exists yet. The plan must choose the path; the rules above are written to apply regardless of the chosen name ('new files under the file-explorer feature area').",
+    "FR-FEX-002 AC-8's 'no virtual scroll, up to maxDirectoryEntries' claim needs the current numeric value of maxDirectoryEntries (referenced in FileService.ts per the design doc) to size a DOM-row-count fixture/test; this agent did not look up that constant — the plan should pull it from server/src/services/FileService.ts or its config before writing the AC-8 test.",
+    "I read the mockup's design-system token block (lines 1-220), the up-row/list/click-handler script section (lines 440-560, 1420-1600), and the explorer window/context-menu/path-bar markup (lines 720-820) closely, but did not fully read the decision-modal CSS/markup (roughly lines 220-440, the conflict/error/delete-confirm modal styling) or the corner-notification-popover and bottom-status-bar CSS in detail. Pixel-level values for those surfaces (padding, exact modal width, popover shape) are not covered by the design_rules above and should be re-derived directly from the mockup by whoever writes those specific tasks, not assumed from this summary.",
+    "CON-ARCH-001 AC-4's literal text names only #007acc; DR-04 also blocks #0e639c because design §10.2's own rationale text calls out the VS Code pair together ('#007acc·#0e639c') as the thing #0078d4 replaces. This is a reasonable widening but is this agent's inference, not a direct AC quote — flag if the plan wants a narrower literal-AC-only guard.",
+    "No FR-FEX-003 (탐색기 모달리스 창과 탭) AC text was fetched in this pass (only its title), so tab-bar-specific rules (z-order, raise-on-click, dialogId format `file-explorer:{workspaceId}`) are described in the design doc body (§9.2) but not cross-checked against that requirement's exact AC wording — worth a quick `speckiwi show FR-FEX-003` before the plan finalizes tab-bar tasks."
+  ],
+
+  "project_constraints_for_plan": [
+    "Do not touch server/ — this step is frontend-only. All server-side work (FR-FOP-001..005, IR-FOP-001/002, most of SEC-FOP-001) was already completed in fx-step2 (docs/plans/2026-09-23.projectmaster.fx-step2.plan.md); this step covers what step2's §1.3 exclusion table explicitly deferred to the 'frontend chunk': SEC-FOP-001 AC-3/AC-4/AC-5 and FR-FOP-004 AC-3/AC-4, plus all of FEX/MDE-012 and closing CON-ARCH-001 AC-3/AC-10.",
+    "CLAUDE.md TDD/SpecKiwi workflow: every behavior-changing task must cite its Requirement ID and follow write-failing-test-first before implementation; do not implement behavior with no matching SRS requirement (all needed REQ IDs already exist and are Stability=evolving, Status=planned/in_progress — none are draft/deprecated, so no stop-and-ask is triggered by that gate).",
+    "CLAUDE.md 작업 강도 방침 (2026-09-18): default one review round; only re-loop on an actual functional defect, not on documentation polish or instrumentation precision; runtime npm dependencies may be added without asking, but design §0 decision reuses the existing ContextMenu/useLongPress/dialogStack/WindowDialog components — prefer that reuse over adding new UI libraries (e.g. do not add a virtualization or menu library; DR-14 explicitly forbids virtualization).",
+    "Frontend unit tests live under frontend/tests/unit/ (see the existing designTokens.test.ts precedent for the source-guard test style expected for DR-01/02/04/05/06/07/08/19). E2E must target the already-running https://localhost:2222 only, with the single-global-Playwright-process preflight gate from CLAUDE.md's E2E rules section (pgrep-based, not connection-count-based) before any `npx playwright test` invocation.",
+    "This is greenfield: no frontend/src/components/fileExplorer (or similarly named) directory exists yet, so every DR above will be exercised for the first time — there is no legacy code in that area to reconcile against.",
+    "CON-ARCH-001 AC-3 and AC-10 are the two open ACs this step is explicitly meant to close (per the task framing); the plan should include an explicit task/AC-check step that flips those two once the first real components exist, plus updates CON-ARCH-001's own Change Notes/Verification Evidence per the SpecKiwi workflow (kiwi-coder ordinarily does this MCP mutation — plan should route it there, using CLI not MCP mutation tools per this repo's 2026-09-19 note on `--root` pinning)."
+  ],
+
+  "non_coding_signals": [
+    "None found that block or reroute this step. SRS registration for all needed requirements (FEX, FOP client-side leftovers, MDE-012, ARCH) already happened in step 1 of the design doc's §12 implementation order (2026-09-23) and step2 already exists — this step is pure implementation against existing, evolving-stability requirements, not new spec authoring."
+  ]
+}

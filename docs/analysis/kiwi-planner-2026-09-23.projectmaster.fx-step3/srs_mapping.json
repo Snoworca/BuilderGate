@@ -1,0 +1,328 @@
+{
+  "req_inventory": [
+    {
+      "req_id": "FR-FEX-001",
+      "ac_in_scope": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"],
+      "ac_deferred": [],
+      "depends_on": ["IR-FOP-002"],
+      "testability": {
+        "AC-1": "frontend/src/hooks/fileTreeState.ts reducer: dispatch SET_ROOT(path) and GO_UP; assert state.root updates and GO_UP pops one segment (mirrors mockup.html st.root.pop() at line 1498). node:test, no DOM.",
+        "AC-2": "pure selector selectVisibleRows(state) in fileTreeState.ts: tree mode walks root+expandedPaths recursively over childrenByPath; list mode returns only childrenByPath.get(root)'s direct entries. Assert the two row-path sets differ from identical input state.",
+        "AC-3": "reducer test: dispatch SET_MODE('list') then SET_MODE('tree') against a state with populated childrenByPath; assert childrenByPath is deep-equal before/after and no FETCH_* action is ever dispatched by SET_MODE — it only ever writes state.mode.",
+        "AC-4": "reducer test: populate expandedPaths, dispatch SET_ROOT to a different path and back; assert expandedPaths is unchanged by either transition (deep-equal).",
+        "AC-5": "pure decision fn shouldFetchChildren(childrenByPath, path, {isRefresh}) returns true only when childrenByPath has no entry for path, or isRefresh is true; false when an entry (even loading/error) already exists and isRefresh is false. Table-driven node:test.",
+        "AC-6": "pure fn directoriesToRefresh(affectedDirectories) sourced from IR-FOP-002 AC-4's file-job:done.affectedDirectories field; reducer test that INVALIDATE_DIRECTORIES(affectedDirectories) clears only those childrenByPath entries and leaves sibling entries intact."
+      },
+      "browser_only": []
+    },
+    {
+      "req_id": "CON-FEX-001",
+      "ac_in_scope": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"],
+      "ac_deferred": [],
+      "depends_on": ["FR-FEX-001"],
+      "testability": {
+        "AC-1": "pure parser normalizeDirectoryEntries(rawEntries): given a raw listDirectory response containing an entry named '..', assert the returned node array has zero entries with name==='..'. This feeds childrenByPath directly, so '..' never becomes a node anywhere downstream.",
+        "AC-2": "selection reducer test: TOGGLE_SELECT only ever receives paths sourced from selectVisibleRows() (FR-FEX-001 AC-2), which AC-1's parser guarantees excludes '..'; additionally assert selectAll()/selectRange() (FR-FEX-011 AC-1) never contain the up-sentinel even when the test deliberately starts a range at row 0.",
+        "AC-3": "pure decision fn isContextMenuEligible(row) returns false for the synthetic 'up' row kind; source-text guard (comment-stripped) on the row markup confirms the '..' row omits the onContextMenu handler entirely, mirroring mockup.html's contextmenu listener early-return at line 1534 (`if(e.target.closest('[data-up]')) return;`).",
+        "AC-4": "pure fns selectAll(childrenByPath, root) and selectRange(visibleRows, anchorPath, targetPath), both built on selectVisibleRows() — assert their outputs never contain the up-sentinel, including a test that deliberately requests the full visible range.",
+        "AC-5": "invariant test on FR-FEX-005's copySelection/cutSelection and the delete-request builder: constructing a clipboard entry or delete request from a selection produced by selectAll()/selectRange() never yields a '..' entry (follows structurally from AC-2/AC-4 but is asserted explicitly once at the clipboard/delete boundary).",
+        "AC-6": "pure fn hasParent(rawEntries) = rawEntries.some(e => e.name === '..'), returning a boolean without adding anything to childrenByPath. Reused verbatim by SEC-FOP-001 AC-4 for the '↑' button's enabled state."
+      },
+      "browser_only": []
+    },
+    {
+      "req_id": "FR-FEX-011",
+      "ac_in_scope": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"],
+      "ac_deferred": [],
+      "depends_on": ["FR-FEX-001", "CON-FEX-001"],
+      "testability": {
+        "AC-1": "pure fn applyRowClick(selection, path, {ctrlKey, shiftKey}, visibleRows): plain click replaces selection with {path}; ctrlKey toggles path in/out; shiftKey selects the contiguous range between the last anchor and path within visibleRows (mirrors mockup.html lines 1517-1518). Table-driven node:test.",
+        "AC-2": "pure fn decideDoubleClick(row, mode) returns {type:'open-editor', path} for a file row in either mode; source-text guard confirms the wiring calls the existing shared 'open editor window' function when intent.type==='open-editor' rather than a new one.",
+        "AC-3": "same decideDoubleClick(row, mode): directory row returns {type:'toggle-expand'} when mode==='tree', {type:'enter', path} when mode==='list' (mirrors mockup.html lines 1522-1530). Both branches asserted directly.",
+        "AC-4": "reducer test: dispatch TOGGLE_EXPAND(path) (the triangle-icon action, mirrors mockup.html lines 1512-1516) and assert selectedPaths is unchanged while expandedPaths flips.",
+        "AC-5": "decideDoubleClick(row, mode) returns {type:'noop'} when !isViewableExtension(row.name); paired with pure fn rowRenderClass(row) asserted to include 'unopenable' in that case. The actual dimmed *visual* rendering (opacity/CSS) is browser_only.",
+        "AC-6": "source-text guard (comment-stripped) on the double-click decision module: assert it imports isViewableExtension from frontend/src/utils/viewableExtensions.ts and does not redeclare a parallel extension set.",
+        "AC-7": "source-text guard: grep the selection reducer, clipboard module (FR-FEX-005) and delete-request builder for any reference to isViewableExtension/viewableExtensions — assert zero matches, proving the openable check is confined to decideDoubleClick and cannot block copy/move/delete."
+      },
+      "browser_only": ["AC-5"]
+    },
+    {
+      "req_id": "FR-FEX-002",
+      "ac_in_scope": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"],
+      "ac_deferred": [],
+      "depends_on": ["FR-FEX-001", "FR-FEX-011"],
+      "testability": {
+        "AC-1": "the toggle's onClick dispatches SET_MODE, already exercised by FR-FEX-001 AC-1/AC-3 reducer tests. The control's actual presence in the path bar is browser_only.",
+        "AC-2": "pure mapping fn toListRow(entry: DirectoryEntry) -> {name, modified, size} in frontend/src/hooks/fileListView.ts; assert exactly those three fields with no 'type' field, from a DirectoryEntry fixture. Column *rendering* is browser_only.",
+        "AC-3": "pure fn sortEntries(entries, null) is the identity function — assert output order equals a server-order input fixture ('..'-then-dir-then-file), proving the client applies no default resort.",
+        "AC-4": "pure fn sortEntries(entries, {key, dir}) (mirrors mockup.html sorted() at lines 1454-1464): directories always precede files regardless of key/dir; within a group, compare by name ('ko' locale), mtime string, or size number. Table-driven tests across all three keys x both directions, including a mixed fixture confirming dirs stay first when sorted by size ascending.",
+        "AC-5": "covered by FR-FEX-011 AC-3's decideDoubleClick(row, 'list') -> {type:'enter'} branch; not duplicated here.",
+        "AC-6": "reducer test: SELECT in tree mode, then SET_MODE('list'), then nothing else — assert selectedPaths unchanged. Clipboard (FR-FEX-005 AC-1) is a module-level store whose API takes no mode parameter at all, so mode-independence is structural, asserted by the clipboard test's function signature.",
+        "AC-7": "pure fn createInitialFileTreeState(...).mode === 'tree' when no persisted preference exists; the localStorage-restore fallback is tested with the MemoryStorage fixture pattern shared with FR-FEX-003 AC-6.",
+        "AC-8": "not unit-testable without a real DOM. Testability = (a) source-text guard: grep the new FileList component for any import of react-window / react-virtualized / @tanstack/react-virtual and assert zero matches; (b) browser_only Playwright test against https://localhost:2222 that opens a directory near maxDirectoryEntries and locates rows by name at both ends of the list via DOM query, confirming no windowing."
+      },
+      "browser_only": ["AC-1", "AC-2", "AC-8"]
+    },
+    {
+      "req_id": "FR-FEX-003",
+      "ac_in_scope": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9", "AC-10", "AC-11"],
+      "ac_deferred": [],
+      "depends_on": ["FR-FEX-001", "FR-FEX-002"],
+      "testability": {
+        "AC-1": "pure fn getFileExplorerDialogId(workspaceId) -> `file-explorer:${workspaceId}`; assert the format and that two calls with the same workspaceId are equal (the key both open-or-raise decisions and dialogStack registration share).",
+        "AC-2": "pure fn decideOpenFileExplorer(existingDialogIds, workspaceId) -> {action:'raise'|'create', dialogId}; table test for dialogId present -> 'raise', absent -> 'create'. The raiseDialogById() call-through is a thin wrapper over frontend/src/components/dialog/dialogStack.ts, already unit-tested (createDialogStackState is pure, no DOM — see frontend/tests/unit/dialogStack.test.ts).",
+        "AC-3": "pure module frontend/src/hooks/fileExplorerTabsState.ts: Record<tabId, FileTreeState>. Test creating two tabs, dispatching SET_ROOT on each independently, and asserting their .root values diverge with no cross-contamination.",
+        "AC-4": "pure fn openInNewTab(tabsState, path) adds a tab with root===path, tested directly; source-text guard confirms both the directory context-menu item and the tab-bar plus button call this one function rather than each building a tab record inline.",
+        "AC-5": "no new logic: z-order comes entirely from existing WindowDialog/dialogStack (CON-MDE-001/FR-MDE-003), already covered by dialogStack.test.ts. Testability here is a source-text guard confirming the explorer window renders via <WindowDialog mode=\"modeless\" dialogId={...}> with no bespoke z-index/stacking CSS added.",
+        "AC-6": "MemoryStorage-backed test (pattern from frontend/tests/unit/mosaicLayoutStorage.test.ts): saveFileExplorerTabPrefs(storage, workspaceId, tabId, {mode, sort}) then loadFileExplorerTabPrefs(...) round-trips; a second tabId under the same workspace persists independently.",
+        "AC-7": "negative test on the same persisted-prefs module: after a save+load cycle the restored object has no expandedPaths key, and the raw stored JSON string does not contain the substring 'expandedPaths'.",
+        "AC-8": "pure fn computeScrollAnchor(topVisibleRowName: string) persists a string (row name), never a number; MemoryStorage round-trip test asserts typeof loaded.scrollAnchor === 'string'.",
+        "AC-9": "pure decision fn decideScrollRestore({rowCount, anchorName, visibleNames}) returns 'wait' whenever rowCount===0 regardless of anchorName — mirrors design.md's table (lines 539-543) and the existing admission-style pattern already in this repo (frontend/src/hooks/editorRestoreAdmission.ts / editorRestoreAdmission.test.ts). Table-driven node:test covering all branches.",
+        "AC-10": "same decideScrollRestore fn: when anchorName is absent from visibleNames (rowCount>0), the returned action carries shouldPersist:false; a companion test on the persistence module asserts the save function is only invoked when shouldPersist is true.",
+        "AC-11": "same decideScrollRestore fn: on a missing anchor, resolves via pure fn nearestName(sortedVisibleNames, missingName) using FR-FEX-002 AC-4's comparator, falling back to visibleNames[0] (or 'top' when visibleNames is empty). Table-tested."
+      },
+      "browser_only": ["AC-1", "AC-2"]
+    },
+    {
+      "req_id": "FR-FEX-006",
+      "ac_in_scope": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8", "AC-9"],
+      "ac_deferred": [],
+      "depends_on": ["FR-FEX-001", "FR-FEX-002", "FR-FEX-005", "FR-FEX-011"],
+      "testability": {
+        "AC-1": "pure fn decideContextMenuSelection(currentSelection, clickedPath) -> {clickedPath} when clickedPath is not already selected (mirrors mockup.html lines 1539-1547). node:test.",
+        "AC-2": "same fn: when clickedPath is already selected, returns currentSelection unchanged (deep-equal) — this is design decision 15, the single most important branch in this file.",
+        "AC-3": "same fn with clickedPath===null (empty-area click) -> empty selection; paired with buildFileExplorerContextMenuItems({item:false,...}) asserting the returned labels are exactly ['붙여넣기','새 폴더','새로 읽기'], in that order.",
+        "AC-4": "pure builder buildFileExplorerContextMenuItems(info) mirrors mockup.html's `on` table (lines 1628-1638): '편집기로 열기'.disabled reflects !info.openable; '새 탭에서 열기'.disabled reflects !(info.isDir && info.context==='explorer-window') — info.context is the seam onto FR-MDE-012's editor panel (see seams_for_later_plan).",
+        "AC-5": "same builder: '붙여넣기'.disabled === (clipboard.entries.length === 0), tested with empty and non-empty clipboard fixtures.",
+        "AC-6": "same builder: '이름 바꾸기'.disabled === (info.count !== 1), tested at count 0, 1 and 2.",
+        "AC-7": "same builder: assert item.shortcut equals the exact combo string ('Ctrl+C'/'Ctrl+X'/'Ctrl+V'/'Delete'/'F2') for copy/cut/paste/delete/rename, using the ContextMenuActionItem.shortcut field that already exists in frontend/src/components/ContextMenu/ContextMenu.tsx.",
+        "AC-8": "same builder called with mode:'list': assert '새 탭에서 열기' is absent from the returned array while every other tree-mode action is still present (see ambiguities re: omit vs disable).",
+        "AC-9": "source-text guard (comment-stripped): the new context-menu wiring imports ContextMenu from frontend/src/components/ContextMenu/ContextMenu and useLongPress from frontend/src/hooks/useLongPress.ts rather than reimplementing either."
+      },
+      "browser_only": ["AC-1", "AC-2", "AC-3"]
+    },
+    {
+      "req_id": "FR-FEX-005",
+      "ac_in_scope": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7", "AC-8"],
+      "ac_deferred": [],
+      "depends_on": ["FR-FEX-001", "FR-FEX-006", "IR-FOP-001"],
+      "testability": {
+        "AC-1": "module-scoped store frontend/src/utils/fileExplorerClipboard.ts with set/get/clear and no tab/session partitioning in its API — test: set() from one caller context, get() from an unrelated caller context returns the same value.",
+        "AC-2": "pure fn rowRenderClass(row, clipboard) includes 'cut' when {sessionId,path} of row is in clipboard.entries && clipboard.mode==='cut' (mirrors mockup.html's nd.cut check at line 1416). Actual dimmed rendering (opacity) is browser_only.",
+        "AC-3": "pure fns copySelection(selectedPaths, sessionId) and cutSelection(selectedPaths, sessionId) -> {mode:'copy'|'cut', entries:[{sessionId,path}...]}; assert shape and mode for both.",
+        "AC-4": "pure fn buildPasteJobRequest(clipboard, destSessionId, destPath) -> {operation: clipboard.mode==='cut'?'move':'copy', sourceSessionId, sources, destSessionId, destPath}, matching IR-FOP-001 AC-1/AC-2's POST /api/file-jobs body exactly. This is the seam onto the server route being built in parallel; the request-shape construction is fully unit-testable now, the actual POST is integration/E2E.",
+        "AC-5": "pure fn decideShortcutAction(key, modifiers, selectionCount) routes Delete -> {action:'confirm-delete'} and F2 -> {action:'rename'} only when selectionCount===1 (reuses FR-FEX-006 AC-6's single-selection rule, not reimplemented). 'confirm-delete' is a request onto a `confirm` port that FR-FEX-007 fills later (see seams_for_later_plan). F2 wires the existing frontend/src/hooks/useInlineRename.ts hook — component wiring, browser_only for the visible rename UI.",
+        "AC-6": "pure fn decideShortcutInterception(candidates, focusedScopeId, boundScopeId), reused from the DOM-focus decision pattern already in frontend/src/components/editor/editorWindowSaveShortcut.ts (its test's windowFixture({focused}) fixture shape applies directly). Safety-critical per design.md §6.2 ('터미널의 Ctrl+C가 먹히면 심각한 고장'), so a real-browser confirmation is also required.",
+        "AC-7": "same decideShortcutInterception fn, scoped to the tree-panel element id rather than the whole window — testable today with a synthetic scope id even though the editor left panel itself (FR-MDE-012) does not exist in this chunk; see seams_for_later_plan.",
+        "AC-8": "pure builder buildMobileActionButtons(state) reuses FR-FEX-006 AC-5/AC-6's enablement predicates (paste needs non-empty clipboard, rename needs count===1) and does not consult isViewableExtension (per FR-FEX-011 AC-7) — assert disabled flags against the same fixtures already used for the context-menu builder. Actual button-row rendering on a mobile viewport is browser_only."
+      },
+      "browser_only": ["AC-2", "AC-6", "AC-7", "AC-8"]
+    },
+    {
+      "req_id": "FR-FEX-010",
+      "ac_in_scope": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6"],
+      "ac_deferred": [],
+      "depends_on": ["FR-FEX-003"],
+      "testability": {
+        "AC-1": "extend the existing frontend/tests/unit/editorFileMenu.test.ts (its labelsOf() helper already exists): call buildEditorFileMenuItems(...) and assert labelsOf(items)[0] === '파일 탐색기'.",
+        "AC-2": "same extended test: assert items[1] is a separator ({separator:true}) and items[2..4].label equals EDITOR_INSTRUCTION_FILES in order (['CLAUDE.md','CLAUDE.local.md','AGENTS.md']) — the explorer entry+separator come strictly before the map output, never interleaved or appended.",
+        "AC-3": "the AC is a non-regression constraint on frontend/src/utils/editorFileMenu.ts:152's EDITOR_INSTRUCTION_FILES.map loop and its ContextMenuItem[] return type; fully covered by the AC-1/AC-2 test plus the existing TypeScript build (tsc) enforcing the signature.",
+        "AC-4": "extend BuildTerminalMenuOptions in frontend/src/utils/contextMenuBuilder.ts with an onOpenFileExplorer callback; add a new test file (this module currently has none) mirroring editorFileMenu.test.ts's pattern — call buildTerminalContextMenuItems(...) and assert an item labelled '파일 탐색기 열기' is present and its onClick invokes onOpenFileExplorer.",
+        "AC-5": "pure decision reused from FR-FEX-003 AC-2 (decideOpenFileExplorer); the header button's onClick wiring to that function is a one-line source-text guard. Actual button presence/click in the real header is browser_only.",
+        "AC-6": "single source-text guard across all three call sites (session-path menu, terminal menu, header button): grep (comment-stripped) that each imports and calls decideOpenFileExplorer / getFileExplorerDialogId from the shared fileExplorerDialogId.ts module rather than reimplementing an open-or-raise check per site — exactly the failure mode CON-FEX-001's own trace links document against the dead MdirPanel (eight scattered '..' exceptions instead of one guard)."
+      },
+      "browser_only": ["AC-5"]
+    },
+    {
+      "req_id": "SEC-FOP-001",
+      "ac_in_scope": ["AC-3", "AC-4", "AC-5"],
+      "ac_deferred": [
+        { "ac": "AC-1", "reason": "server-side path validation (resolveAndValidate / config.blockedPaths in server/src/utils/pathValidator.ts) — owned by the server-swimlane agent editing server/ in this same run; out of scope for this frontend mapping." },
+        { "ac": "AC-2", "reason": "server-side intermediate-path validation during job execution — same server swimlane, out of scope here." }
+      ],
+      "depends_on": ["CON-FEX-001", "FR-FEX-001"],
+      "testability": {
+        "AC-3": "structural/negative source-text guard (comment-stripped): grep every new frontend file-explorer module for boundary-policy patterns (isPathBlocked-style names, drive-root regexes, a hardcoded blocked-path list, home-grown '..'-traversal resolution) and assert zero matches — the client must carry no copy of the server's policy, only read its yes/no signal (AC-4).",
+        "AC-4": "reuses CON-FEX-001 AC-6's pure fn hasParent(rawEntries) directly for the '↑' button's enabled state; a contract-level test on the same function additionally asserts its name/JSDoc does not claim 'listable' — it only claims 'not the drive root', matching FileService.ts:171's parsed.root !== dirPath condition cited in the requirement.",
+        "AC-5": "pure state-machine test on fileTreeState.ts's root-navigation flow: dispatch NAVIGATE_UP -> assert the pending root is not yet committed to .root; simulate a rejected fetch (blocked-path error) -> assert .root stays at (or reverts to) the prior confirmed value and an .error field is set; simulate a resolved fetch -> assert .root commits. Fully pure, no network; the surface that shows the error to the user is noted in ambiguities."
+      },
+      "browser_only": ["AC-5"]
+    },
+    {
+      "req_id": "CON-ARCH-001",
+      "ac_in_scope": ["AC-3", "AC-10"],
+      "ac_deferred": [
+        { "ac": "AC-1", "reason": "checked:true already — token names declared, verified by frontend/tests/unit/designTokens.test.ts's AC-1 test." },
+        { "ac": "AC-2", "reason": "checked:true already — paper/chrome re-binding, verified by designTokens.test.ts's AC-2 tests." },
+        { "ac": "AC-4", "reason": "checked:true already — single accent colour, verified by designTokens.test.ts's retired-colour scan." },
+        { "ac": "AC-5", "reason": "checked:true already — violet reserved for editor syntax highlighting, same retired-colour scan." },
+        { "ac": "AC-6", "reason": "checked:true already — row height 28px/22px, verified by designTokens.test.ts's AC-6 test." },
+        { "ac": "AC-7", "reason": "checked:true already — no reach into --atomic-editor-*, verified by designTokens.test.ts's AC-7 test." },
+        { "ac": "AC-8", "reason": "checked:true already — existing .css files untouched by the token-layer commit; a diff-scoped concern of Phase 1, not this frontend chunk." },
+        { "ac": "AC-9", "reason": "checked:true already — tokens.css import chain verified by designTokens.test.ts's AC-9 test." },
+        { "ac": "AC-11", "reason": "checked:true already — declared-vs-referenced token names verified by designTokens.test.ts's AC-11 test." }
+      ],
+      "depends_on": [],
+      "testability": {
+        "AC-3": "extend frontend/tests/unit/designTokens.test.ts (or a sibling file) with a source-text guard over the new file-explorer component files once written (e.g. frontend/src/components/FileExplorer/**/*.tsx), comment-stripped: grep for any conditional branch keyed on a surface concept (props.surface===, dataset/getAttribute('data-surface') reads, ternaries containing 'chrome'/'paper' identifiers) and assert zero matches — only CSS may branch, via [data-surface=...] selectors.",
+        "AC-10": "same-style guard over the new file-explorer .css files, comment-stripped: regex for hex literals (/#[0-9a-fA-F]{3,8}\\b/) and assert zero matches — mirrors the existing RETIRED_COLOURS scan already in designTokens.test.ts, pointed at the new files instead of the 29 pre-existing ones this task explicitly leaves untouched (design §10.1)."
+      },
+      "browser_only": []
+    }
+  ],
+  "dependency_graph": [
+    { "from": "FR-FEX-001", "to": "IR-FOP-002", "why": "AC-6's directoriesToRefresh() reads file-job:done.affectedDirectories, a field IR-FOP-002 AC-4 defines; without it the hook cannot know which directories to invalidate." },
+    { "from": "CON-FEX-001", "to": "FR-FEX-001", "why": "the '..'-exclusion parser feeds the same childrenByPath the hook owns; there is exactly one place raw listDirectory responses become nodes." },
+    { "from": "FR-FEX-011", "to": "FR-FEX-001", "why": "click/selection decisions operate on selectVisibleRows() and the selection/expansion reducer state FR-FEX-001 defines." },
+    { "from": "FR-FEX-011", "to": "CON-FEX-001", "why": "the '..' row is excluded from decideDoubleClick/click handling entirely, by never appearing in the rows those functions see." },
+    { "from": "FR-FEX-002", "to": "FR-FEX-001", "why": "mode and sort live in the same per-tab tree state FR-FEX-001 defines." },
+    { "from": "FR-FEX-002", "to": "FR-FEX-011", "why": "list-mode directory double-click reuses decideDoubleClick's mode-aware branch rather than a separate handler." },
+    { "from": "FR-FEX-003", "to": "FR-FEX-001", "why": "each tab owns an independent useFileTree instance; tab state is a record of FR-FEX-001's per-instance state." },
+    { "from": "FR-FEX-003", "to": "FR-FEX-002", "why": "mode and sort are persisted per tab, per workspace — the thing being persisted is FR-FEX-002's state." },
+    { "from": "FR-FEX-006", "to": "FR-FEX-005", "why": "paste/copy/cut menu items are enabled from the same clipboard FR-FEX-005 owns." },
+    { "from": "FR-FEX-006", "to": "FR-FEX-011", "why": "'편집기로 열기' is enabled by the same isViewableExtension-backed openable check FR-FEX-011 AC-6 defines." },
+    { "from": "FR-FEX-006", "to": "FR-FEX-002", "why": "the list-mode menu variant (AC-8) is keyed on the same mode field FR-FEX-002 defines." },
+    { "from": "FR-FEX-005", "to": "IR-FOP-001", "why": "buildPasteJobRequest's output shape is a direct match of IR-FOP-001 AC-1/AC-2's POST /api/file-jobs body — a server-contract dependency across the FEX/FOP scope split." },
+    { "from": "FR-FEX-005", "to": "FR-FEX-006", "why": "F2/rename and the mobile button row reuse FR-FEX-006's single-selection and clipboard-non-empty enablement predicates rather than redefining them." },
+    { "from": "FR-FEX-010", "to": "FR-FEX-003", "why": "all three entry points call the same decideOpenFileExplorer/getFileExplorerDialogId pair FR-FEX-003 AC-1/AC-2 define." },
+    { "from": "SEC-FOP-001", "to": "CON-FEX-001", "why": "the '↑' enablement signal (AC-4) is the same hasParent() output CON-FEX-001 AC-6 already defines for parsing purposes." },
+    { "from": "SEC-FOP-001", "to": "FR-FEX-001", "why": "AC-5's commit/rollback discipline around a rejected navigate-up lives in the same root-navigation state machine FR-FEX-001 owns." }
+  ],
+  "seams_for_later_plan": [
+    {
+      "need": "Delete confirmation before a delete job is submitted (FR-FEX-005 AC-5)",
+      "seam": "route delete through a `confirm(kind, detail): Promise<'confirm'|'cancel'>` port; decideShortcutAction and the context-menu 'delete' action call this port rather than a concrete modal component, so this chunk can ship with a minimal synchronous stand-in while the real window-scoped modal is built.",
+      "filled_by": "FR-FEX-007"
+    },
+    {
+      "need": "Name-conflict and error decision prompts during copy/move (design §3.1/§5, FR-FOP-004)",
+      "seam": "generalize the same port to `decide(kind:'conflict'|'error', detail, applyToAll): Promise<Choice>`, fed by IR-FOP-002's file-job:decision-required messages; this chunk only needs the port's call shape to exist, not its UI.",
+      "filled_by": "FR-FEX-007"
+    },
+    {
+      "need": "Copy/move progress feedback while a paste job runs (design §4.4 in-window progress line)",
+      "seam": "buildPasteJobRequest (FR-FEX-005 AC-4) only submits the job via IR-FOP-001; wire IR-FOP-002's file-job:progress messages into a no-op/log-sink onProgress(jobId, payload) port now so the plumbing exists without building the progress UI.",
+      "filled_by": "FR-FEX-008"
+    },
+    {
+      "need": "Status-bar '응답 대기 중' entry when a decision is pending but the explorer window is closed or minimized (design §4.3)",
+      "seam": "expose a pendingDecisionCount selector off the same job-tracking state FR-FEX-005/FR-FEX-006 already touch through the decide() port, so this later requirement can subscribe without re-deriving job state.",
+      "filled_by": "FR-FEX-009"
+    },
+    {
+      "need": "'새 탭에서 열기' must stay inactive in the editor left panel, which has no tabs (FR-FEX-006 AC-4, design §7 '목록 모드에서도 같습니다')",
+      "seam": "buildFileExplorerContextMenuItems(info) takes an explicit info.context: 'explorer-window' | 'editor-panel' now; this chunk's tests only exercise 'explorer-window', and FR-MDE-012 supplies 'editor-panel' when the panel is wired.",
+      "filled_by": "FR-MDE-012"
+    },
+    {
+      "need": "Shortcut interception scoped to the editor left panel's tree surface, not its document area (FR-FEX-005 AC-7, design §6.2)",
+      "seam": "decideShortcutInterception(candidates, focusedScopeId, boundScopeId) is written generically now and unit-tested with a synthetic scope id; FR-MDE-012 supplies the real panel DOM element id and attaches the keydown listener.",
+      "filled_by": "FR-MDE-012"
+    },
+    {
+      "need": "Minimize-to-tray for the explorer window is discussed in design §9.2 but scoped to a separate requirement",
+      "seam": "FR-FEX-003's window carries no minimized state in this chunk; decideOpenFileExplorer(existingDialogIds, workspaceId) is written so a later minimized check can be added to its 'raise' branch without changing its signature or call sites.",
+      "filled_by": "FR-FEX-004"
+    }
+  ],
+  "suggested_modules": [
+    {
+      "path": "frontend/src/hooks/fileTreeState.ts",
+      "purpose": "Pure reducer + selectors for root/mode/expandedPaths/childrenByPath/selectedPaths; fetch-needed decisions; the '..'-stripping parser; root-navigation commit/rollback.",
+      "covers": ["FR-FEX-001 AC-1", "FR-FEX-001 AC-2", "FR-FEX-001 AC-3", "FR-FEX-001 AC-4", "FR-FEX-001 AC-5", "FR-FEX-001 AC-6", "CON-FEX-001 AC-1", "CON-FEX-001 AC-2", "CON-FEX-001 AC-4", "CON-FEX-001 AC-6", "FR-FEX-011 AC-1", "FR-FEX-011 AC-4", "FR-FEX-002 AC-3", "FR-FEX-002 AC-6", "FR-FEX-002 AC-7", "SEC-FOP-001 AC-5"]
+    },
+    {
+      "path": "frontend/src/hooks/useFileTree.ts",
+      "purpose": "React wiring of fileTreeState.ts to fileApi/session; one instance per explorer tab and one for the editor left panel.",
+      "covers": ["FR-FEX-001 (integration)", "FR-FEX-003 AC-3"]
+    },
+    {
+      "path": "frontend/src/hooks/fileExplorerDoubleClick.ts",
+      "purpose": "decideDoubleClick, isContextMenuEligible and rowRenderClass — the open/expand/enter/noop decision and its render-class consequences.",
+      "covers": ["FR-FEX-011 AC-2", "FR-FEX-011 AC-3", "FR-FEX-011 AC-5", "FR-FEX-011 AC-6", "FR-FEX-011 AC-7", "CON-FEX-001 AC-3"]
+    },
+    {
+      "path": "frontend/src/hooks/fileListView.ts",
+      "purpose": "toListRow mapping (name/modified/size) and the sortEntries comparator (directories-first, three sort keys).",
+      "covers": ["FR-FEX-002 AC-2", "FR-FEX-002 AC-4"]
+    },
+    {
+      "path": "frontend/src/hooks/fileExplorerTabsState.ts",
+      "purpose": "Per-tab tree instances keyed by tabId; localStorage persistence of mode/sort/scroll-anchor per workspace, explicitly excluding expandedPaths.",
+      "covers": ["FR-FEX-003 AC-3", "FR-FEX-003 AC-4", "FR-FEX-003 AC-6", "FR-FEX-003 AC-7", "FR-FEX-003 AC-8"]
+    },
+    {
+      "path": "frontend/src/hooks/fileExplorerScrollRestore.ts",
+      "purpose": "decideScrollRestore state machine (wait/restore/fallback-nearest/fallback-top) and nearestName().",
+      "covers": ["FR-FEX-003 AC-9", "FR-FEX-003 AC-10", "FR-FEX-003 AC-11"]
+    },
+    {
+      "path": "frontend/src/utils/fileExplorerDialogId.ts",
+      "purpose": "getFileExplorerDialogId(workspaceId) and decideOpenFileExplorer(existingDialogIds, workspaceId) — the single open-or-raise decision shared by all entry points.",
+      "covers": ["FR-FEX-003 AC-1", "FR-FEX-003 AC-2", "FR-FEX-010 AC-5", "FR-FEX-010 AC-6"]
+    },
+    {
+      "path": "frontend/src/utils/fileExplorerContextMenu.ts",
+      "purpose": "decideContextMenuSelection, buildFileExplorerContextMenuItems and buildMobileActionButtons — selection-on-right-click and the shared enablement predicates.",
+      "covers": ["FR-FEX-006 AC-1", "FR-FEX-006 AC-2", "FR-FEX-006 AC-3", "FR-FEX-006 AC-4", "FR-FEX-006 AC-5", "FR-FEX-006 AC-6", "FR-FEX-006 AC-7", "FR-FEX-006 AC-8", "FR-FEX-005 AC-8"]
+    },
+    {
+      "path": "frontend/src/utils/fileExplorerClipboard.ts",
+      "purpose": "Module-scoped clipboard store, copySelection/cutSelection, buildPasteJobRequest, decideShortcutAction and decideShortcutInterception.",
+      "covers": ["FR-FEX-005 AC-1", "FR-FEX-005 AC-3", "FR-FEX-005 AC-4", "FR-FEX-005 AC-5", "FR-FEX-005 AC-6", "FR-FEX-005 AC-7"]
+    },
+    {
+      "path": "frontend/src/utils/editorFileMenu.ts",
+      "purpose": "Existing module; extend buildEditorFileMenuItems to prepend the explorer entry and separator before the EDITOR_INSTRUCTION_FILES.map loop.",
+      "covers": ["FR-FEX-010 AC-1", "FR-FEX-010 AC-2", "FR-FEX-010 AC-3"]
+    },
+    {
+      "path": "frontend/src/utils/contextMenuBuilder.ts",
+      "purpose": "Existing module; extend BuildTerminalMenuOptions/buildTerminalContextMenuItems with an onOpenFileExplorer item.",
+      "covers": ["FR-FEX-010 AC-4"]
+    },
+    {
+      "path": "frontend/src/components/FileExplorer/",
+      "purpose": "New render-only components (FileTree, FileList, PathBar, TabBar, context menu wiring) consuming the pure modules above; new .tsx/.css files here are the targets of CON-ARCH-001 AC-3/AC-10's guards once written.",
+      "covers": ["FR-FEX-002 AC-1", "FR-FEX-002 AC-8", "FR-FEX-011 AC-5 (visual)", "FR-FEX-005 AC-2 (visual)", "CON-ARCH-001 AC-3", "CON-ARCH-001 AC-10"]
+    }
+  ],
+  "ambiguities": [
+    {
+      "req_id": "FR-FEX-006",
+      "ac": "AC-8",
+      "issue": "design.md §7 says the list-mode menu 'drops only 새 탭에서 열기' but does not say whether that item is omitted from the array or present-and-disabled. FR-FEX-006 AC-4's own phrasing ('...일 때만 활성') suggests disabled is the general pattern for every other item, which would argue for disabled-not-omitted here too for consistency; but the mockup.html host.dataset.newtab gate (line 1554, 1630) treats it as a boolean that can also be false for reasons unrelated to mode, which reads more like an omission/exclusion signal.",
+      "proposed_resolution": "Omit the item entirely in list mode (matches the mockup's data-driven exclusion and needs no separate disabled-styling rule); assert absence from the array in the AC-8 test rather than presence-with-disabled:true."
+    },
+    {
+      "req_id": "FR-FEX-002",
+      "ac": "AC-8",
+      "issue": "'no virtual scroll, all rows present in DOM' is fundamentally a rendering guarantee. A source-text guard (no import of a named virtualization library) only rules out the specific libraries checked for — a hand-rolled windowing implementation using plain refs/IntersectionObserver would pass the guard while still violating the AC.",
+      "proposed_resolution": "Treat the source-text guard as a cheap regression trip-wire only, not the primary evidence. Require the browser_only Playwright row-count/name-lookup test (against https://localhost:2222, per this repo's testing rules) as the actual gate for this AC when the implementing skill closes it out."
+    },
+    {
+      "req_id": "FR-FEX-005",
+      "ac": "AC-7",
+      "issue": "AC-7 is in this chunk's scope, but its subject (the editor left panel's tree surface) is FR-MDE-012, explicitly listed as later-plan work. The pure decision function can be written and tested now against a synthetic scope id, but there is no real panel to wire it to yet, so this chunk cannot produce end-to-end verification of AC-7, only the reusable building block.",
+      "proposed_resolution": "Accept the pure-function test as this chunk's complete discharge of AC-7's testable surface; track the real wiring explicitly as a seam filled by FR-MDE-012 (see seams_for_later_plan) rather than leaving AC-7 silently unaddressed."
+    },
+    {
+      "req_id": "FR-FEX-006",
+      "ac": "AC-4",
+      "issue": "Same root cause as FR-FEX-005 AC-7: '새 탭에서 열기는 탐색기 창의 디렉터리일 때만 활성' implies a context distinction (explorer window vs. editor panel) that only becomes meaningful once FR-MDE-012 exists. Building buildFileExplorerContextMenuItems with an info.context parameter now is speculative in the sense that only one context value ('explorer-window') is ever exercised by this chunk's tests.",
+      "proposed_resolution": "Add the info.context parameter now with 'explorer-window' as the only value this chunk tests; document in the function's JSDoc that 'editor-panel' is reserved for FR-MDE-012 so the parameter is not later mistaken for dead code and removed."
+    },
+    {
+      "req_id": "SEC-FOP-001",
+      "ac": "AC-5",
+      "issue": "The requirement says a blocked-parent listing failure must 'show the error to the user' but does not specify the UI surface. FR-FEX-007's window-scoped modal (the natural home for this) is explicitly later-plan; a global toast would work but is not mentioned anywhere in design.md for this specific failure mode, and design.md's decision-modal discussion (§5) is scoped to copy/move/delete flows, not navigation.",
+      "proposed_resolution": "Use a lightweight inline error state surfaced near the path bar / '↑' button (non-modal, e.g. a transient message or error icon with tooltip) for this chunk, and re-route it through FR-FEX-007's window-scoped modal once that lands if a stronger interrupt turns out to be needed — same shape as the other FR-FEX-007 seams in this document."
+    },
+    {
+      "req_id": "FR-FEX-010",
+      "ac": "AC-6",
+      "issue": "The AC says all three entry points must raise rather than close an already-open window, but the header icon button (AC-5) and terminal menu (AC-4) are new call sites with no existing analogue in this repo to check for a competing 'close on second click' convention the way MetadataRow's cwd-menu already has one for other actions. It is not fully certain from the design doc whether the header button should be a toggle (open/close) rather than an always-open-or-raise action.",
+      "proposed_resolution": "Read design.md §9.2 and §12 as decisive: they describe only '열기' entry points and 'raise, never close' for all three, with no toggle behavior mentioned anywhere. Implement the header button as always open-or-raise, never a close-toggle, consistent with the other two entry points and with decideOpenFileExplorer's two-branch (raise|create) contract, which has no 'close' branch at all."
+    }
+  ]
+}

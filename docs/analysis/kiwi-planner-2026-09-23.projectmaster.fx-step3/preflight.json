@@ -1,0 +1,6 @@
+{
+ "mcp": false,
+ "cli": true,
+ "halted": false,
+ "mode": "cli-fallback"
+}

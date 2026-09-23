@@ -1,0 +1,323 @@
+{
+  "req_anchors": [
+    {
+      "req_id": "FR-FEX-001",
+      "files": [
+        {
+          "path": "frontend/src/hooks/useFileBrowser.ts",
+          "line_range": "1-149",
+          "signature": "export function useFileBrowser(sessionId: string, initialPath?: string | null): UseFileBrowserReturn",
+          "note": "Negative precedent, not to extend. Single-directory model: entries/currentPath, no expandedPaths/childrenByPath/selectedPaths/root/mode. navigate()/goUp() replace the directory wholesale rather than caching per-path. This is the shape FR-FEX-001 explicitly says NOT to grow into useFileTree."
+        },
+        {
+          "path": "frontend/src/types/index.ts",
+          "line_range": "100-113",
+          "signature": "interface DirectoryEntry { name; type: 'file'|'directory'; size; extension?; modified } / interface DirectoryListing { cwd; path; entries; totalEntries }",
+          "note": "Server response shape useFileTree's childrenByPath entries will be built from."
+        }
+      ]
+    },
+    {
+      "req_id": "CON-FEX-001",
+      "files": [
+        {
+          "path": "frontend/src/hooks/useFileBrowser.ts",
+          "line_range": "118-132",
+          "signature": "const stats = useMemo(() => { for (const entry of entries) { if (entry.name === '..') continue; ... } }, [entries])",
+          "note": "Confirms design-doc claim exactly: '..' filtering exists ONLY inside this one useMemo (stats). The `entries` array itself (returned to callers, e.g. line 32/55/63) still contains the raw '..' row from the server. No filtering exists anywhere else in this hook."
+        },
+        {
+          "path": "frontend/src/components/FileManager/MdirPanel.tsx",
+          "line_range": "74,90,107,195,216,238,269,313",
+          "signature": "entry.name === '..' guards, 8 occurrences",
+          "note": "Verified by grep — matches requirement's own count exactly (8, not the 6 an earlier design draft assumed). Dead code; cited as 'what happens if you make .. a node' cautionary reference, not for reuse. Example at :216 — `entry.name === '..' ? activePath : joinPath(activePath, entry.name)`."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FEX-011",
+      "files": [
+        {
+          "path": "frontend/src/utils/viewableExtensions.ts",
+          "line_range": "1-16",
+          "signature": "export function isViewableExtension(filePath: string): boolean",
+          "note": "Whole file. Pure function, Set-based, lastIndexOf('.') + lowercase compare. Currently unimported anywhere in src (dead code but directly reusable, zero dependencies). Extension set: md/markdown/mdx, common code exts, html/css/scss, json/yaml/xml/svg/sql. No .txt/.log. AC-6 requires reusing this exact module."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FEX-002",
+      "files": [
+        {
+          "path": "frontend/src/types/index.ts",
+          "line_range": "100-106",
+          "signature": "DirectoryEntry { name, type, size, extension?, modified }",
+          "note": "AC-2's three list columns (name/modified/size) map directly onto existing fields; no server or type change needed for the list-mode columns themselves."
+        }
+      ],
+      "note_server_side": "AC-3's sort order and AC-8's row-DOM-presence budget both cite server/src/services/FileService.ts:203-211 and :161-171 — out of scope for this frontend pass (server/ owned by a concurrent agent); treat as given contract, not to be re-verified here."
+    },
+    {
+      "req_id": "FR-FEX-003",
+      "files": [
+        {
+          "path": "frontend/src/components/dialog/types.ts",
+          "line_range": "3,23-38",
+          "signature": "export type DialogMode = 'modal' | 'modeless'; interface WindowDialogProps { dialogId; title; mode; defaultRect; minSize; onClose; children; ... }",
+          "note": "mode='modeless' is exactly the WindowDialog contract FR-FEX-003 AC-1 needs."
+        },
+        {
+          "path": "frontend/src/components/dialog/dialogStack.ts",
+          "line_range": "127-138",
+          "signature": "export function raiseDialogById(dialogId: string, mode: 'modeless'): boolean",
+          "note": "AC-2's 'raise instead of reopen' mechanism, already generic over dialogId. Imported directly from './dialogStack.ts' (not re-exported by components/dialog/index.ts — useEditorWindows.ts:40 imports it that way)."
+        },
+        {
+          "path": "frontend/src/components/editor/EditorWindow.tsx",
+          "line_range": "94-96,358",
+          "signature": "export function editorWindowDialogId(workspaceId: string): string { return `editor-window:${workspaceId}`; }",
+          "note": "Exact precedent for the `file-explorer:{workspaceId}` dialogId AC-1 specifies -- one exported id-builder function, called both at mount (dialogId={...}) and from the hook when raising (useEditorWindows.ts:452,517)."
+        },
+        {
+          "path": "frontend/src/components/dialog/windowDialogModel.ts",
+          "line_range": "11-13,58-68",
+          "signature": "LAYER_BANDS.modeless = { base: 3000, cap: 3980 }; layerZ = min(base + layerIndex*LAYER_STEP, cap)",
+          "note": "This is where CON-MDE-001's '3000 band' actually lives -- not a hardcoded z-index. WindowDialog.css itself has unrelated hardcoded 5000/5001 z-index rules for other elements; the per-instance z comes from this model via inline style (WindowDialog.tsx:338,344,349 -- behavior.layerZ/backdropZ/dialogZ)."
+        },
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts",
+          "line_range": "326",
+          "signature": "const [shells, setShells] = useState<Record<string, EditorWindowShell>>({})",
+          "note": "Per-workspace Record model AC design should mirror for the explorer's own per-workspace window state, per design §9.2's 'A' decision (one window per workspace, Record not array)."
+        },
+        {
+          "path": "frontend/src/components/editor/editorWindowVisibility.ts",
+          "line_range": "53-85",
+          "signature": "isEditorWindowVisible(input): !minimized && screen==='workspace' && windowWorkspaceId===activeWorkspaceId",
+          "note": "The 3-term AND visibility predicate design §9.2 explicitly says the explorer window follows. Also the source of the never-unmount rationale (module header comment, lines 1-8) design §9.2 'minimization' section quotes almost verbatim."
+        },
+        {
+          "path": "frontend/src/hooks/windowStateStorage.ts",
+          "line_range": "27-46,61-138",
+          "signature": "STORAGE_KEY_PREFIX='window_state_'; getWindowStateStorageKey(workspaceId); saveWindowStateForWorkspace(workspaceId, windows, storage=localStorage); readPersistedWindowState(...)",
+          "note": "AC-6's per-tab, per-workspace localStorage convention to copy: prefix + workspaceId key, versioned wrapper object {schemaVersion, windows/records, savedAt}, injectable `storage: Storage = localStorage` param (testability), try/catch returning null/false rather than throwing on quota/parse failure."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FEX-006",
+      "files": [
+        {
+          "path": "frontend/src/components/ContextMenu/ContextMenu.tsx",
+          "line_range": "16-39,401-482",
+          "signature": "interface ContextMenuActionItem { label; className?; icon?; onClick?; disabled?; destructive?; shortcut?; children?; separator?: false } / ContextMenuSeparatorItem { separator: true } / type ContextMenuItem = union / export function ContextMenu({ position, onClose, items, restoreFocusElement })",
+          "note": "AC-7's per-item shortcut display is a first-class field already (`item.shortcut`, rendered at line 357/666). AC-9: component already desktop-portal + mobile full-page-dialog dual-mode via useResponsive().isMobile (line 403,467)."
+        },
+        {
+          "path": "frontend/src/hooks/useLongPress.ts",
+          "line_range": "1-162",
+          "signature": "(whole file; not read in depth this pass)",
+          "note": "AC-9's mobile long-press hook, already used by MosaicTile.tsx (onTouchStart/onTouchMove/onTouchEnd wiring pattern at MosaicTile.tsx:100-101 and TerminalRuntimeLayer.tsx:133-135)."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FEX-005",
+      "files": [
+        {
+          "path": "frontend/src/components/editor/editorWindowSaveShortcut.ts",
+          "line_range": "1-40 (module exists, not fully read this pass)",
+          "signature": "focus-scoped Ctrl+S interception pattern",
+          "note": "AC-6/AC-7's model to copy: gate the keydown handler on whether focus is inside the relevant surface (window vs. panel) before intercepting, exactly as this module already does for the editor's save shortcut. Cited directly by design §6.2 and by the requirement's own trace link."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-FEX-010",
+      "files": [
+        {
+          "path": "frontend/src/utils/editorFileMenu.ts",
+          "line_range": "19-23,152-162",
+          "signature": "export const EDITOR_INSTRUCTION_FILES = ['CLAUDE.md','CLAUDE.local.md','AGENTS.md'] as const; export function buildEditorFileMenuItems(options): ContextMenuItem[] { return EDITOR_INSTRUCTION_FILES.map(...) }",
+          "note": "AC-3's addition site: buildEditorFileMenuItems is currently exactly one `.map()` call over EDITOR_INSTRUCTION_FILES; the explorer item + separator must be prepended to the returned array, return type ContextMenuItem[] unchanged."
+        },
+        {
+          "path": "frontend/src/components/MetadataBar/MetadataRow.tsx",
+          "line_range": "12,55,79-83",
+          "signature": "onPathContextMenu?: (x: number, y: number) => void; ... handleContextMenu = useCallback(...) => onPathContextMenu(event.clientX, event.clientY)",
+          "note": "AC-1's session-path right-click is already wired end to end; nothing new to add here, only in editorFileMenu.ts's item list."
+        },
+        {
+          "path": "frontend/src/components/Grid/MosaicTile.tsx",
+          "line_range": "118-123",
+          "signature": "<MetadataRow tab={tab} onRename={...} onPathContextMenu={onPathContextMenu ? (x,y) => onPathContextMenu(x,y,tabId) : undefined} />",
+          "note": "Confirms design doc's 'MosaicTile.tsx:114 -> :119' citation: :114 is the terminal content div, :119 is the MetadataRow row directly below it (28px cwd bar)."
+        },
+        {
+          "path": "frontend/src/components/Terminal/TerminalRuntimeLayer.tsx",
+          "line_range": "127-135",
+          "signature": "onContextMenu={(event) => { event.preventDefault(); getHostInteractions(tab.id)?.onContextMenu?.(event.clientX, event.clientY); }}",
+          "note": "AC-4's terminal right-click entry point; the menu items themselves are built elsewhere (utils/contextMenuBuilder.ts buildTerminalContextMenuItems, not yet read for its full item list this pass) -- '파일 탐색기 열기' would be a new item added to that builder's output, not a new event handler."
+        },
+        {
+          "path": "frontend/src/components/Header/Header.tsx",
+          "line_range": "132-158",
+          "signature": "{hasEditorWindows && (<button className=\"header-action-button header-editor-tray-button\" onClick={...} aria-label=\"편집기 창\">...)}",
+          "note": "AC-5's precedent: the header icon button for editor windows. A new file-explorer header button would follow the same `header-action-button` class + conditional-render-on-prop pattern, added as a Header prop threaded from App.tsx (App.tsx:589-599 instantiates useEditorWindows and passes its outputs into <Header> at :620-637)."
+        }
+      ]
+    },
+    {
+      "req_id": "SEC-FOP-001",
+      "files": [
+        {
+          "path": "frontend/src/services/api.ts",
+          "line_range": "274-349",
+          "signature": "export const fileApi = { getCwd, listDirectory, readFile, writeFile, copyFile, moveFile, deleteFile, createDirectory }",
+          "note": "AC-3 relevance: the frontend has zero client-side path-boundary logic today -- every one of these calls is a bare authFetch to a server route with no local validation, which is exactly the 'no copy of the boundary rules' AC-3 requires preserving. AC-4/AC-5 (the server's blocked-path/'..'-presence semantics in FileService.ts) are server/ code, out of scope for this frontend-only pass -- another agent owns that tree concurrently; not independently re-verified here."
+        }
+      ]
+    },
+    {
+      "req_id": "CON-ARCH-001",
+      "files": [
+        {
+          "path": "frontend/src/styles/tokens.css",
+          "line_range": "1-97",
+          "signature": "whole file",
+          "note": "ALREADY IMPLEMENTED as of today (file mtime 2026-09-23 16:53, ahead of this analysis). All 22 contract token names present under :root (chrome/default) with a [data-surface=\"paper\"] re-bind block for the 10 surface-dependent ones, plus [data-density=\"compact\"]. AC-1,2,4,5,6,7,9,11 already have passing tests (see test_harness below). AC-3 (components carry no surface branch) and AC-10 (new component CSS has zero hex literals, var()-only) are NOT yet testable/verified -- no new component CSS exists yet to check them against; these two remain open work for this plan."
+        },
+        {
+          "path": "frontend/src/index.css",
+          "line_range": "1-4",
+          "signature": "@import './styles/tokens.css'; (first statement of file)",
+          "note": "AC-9 satisfied: import chain main.tsx -> index.css -> tokens.css, already verified by tests/unit/designTokens.test.ts's AC-9 test."
+        },
+        {
+          "path": "frontend/src/components/common/IconButton.css",
+          "line_range": "1-36",
+          "signature": ".icon-button { width:22px; height:22px; border-radius:3px; ... } :focus-visible { outline: 2px solid var(--accent, #4a9eff); }",
+          "note": "Existing convention example for new small-component CSS: BEM-ish flat class names, var(--token, fallback) pattern already present in one spot (predates tokens.css and uses a DIFFERENT fallback color #4a9eff, not one of the token file's values -- a loose end AC-10-compliant new CSS should not copy)."
+        }
+      ]
+    }
+  ],
+  "reusable": [
+    {
+      "what": "Modeless window host + z-index band model",
+      "path": "frontend/src/components/dialog/WindowDialog.tsx, dialogStack.ts, windowDialogModel.ts, types.ts",
+      "line_range": "WindowDialog.tsx:56-90 (props/hook wiring); dialogStack.ts:127-138 (raiseDialogById); windowDialogModel.ts:11-13,58-68 (3000 band)",
+      "how": "Instantiate <WindowDialog dialogId={fileExplorerDialogId(workspaceId)} mode=\"modeless\" .../> exactly as EditorWindow.tsx does; call raiseDialogById(fileExplorerDialogId(workspaceId), 'modeless') from the three entry points before falling back to opening a fresh window."
+    },
+    {
+      "what": "Per-workspace window visibility (never unmount, hide via display:none)",
+      "path": "frontend/src/components/editor/editorWindowVisibility.ts",
+      "line_range": "53-103",
+      "how": "isEditorWindowVisible-shaped predicate (minimized && screen && workspaceId match), minimize/restore pure reducers. The explorer window's tray-minimize behavior (design §9.2) should reuse this exact module or a structurally identical sibling."
+    },
+    {
+      "what": "Per-workspace localStorage key + versioned envelope pattern",
+      "path": "frontend/src/hooks/windowStateStorage.ts, frontend/src/hooks/mosaicLayoutStorage.ts",
+      "line_range": "windowStateStorage.ts:27-46,61-138",
+      "how": "Same STORAGE_KEY_PREFIX + workspaceId scheme, {schemaVersion, ..., savedAt} wrapper, storage param defaulting to localStorage for test injection, try/catch swallow-and-null on read, swallow-and-false on write. Apply for explorer per-tab mode/sort/scroll-anchor persistence (design §9.2)."
+    },
+    {
+      "what": "Context menu component + item model (desktop portal / mobile full-page dialog)",
+      "path": "frontend/src/components/ContextMenu/ContextMenu.tsx",
+      "line_range": "16-39,401-482",
+      "how": "Import ContextMenuItem/ContextMenuActionItem/ContextMenuSeparatorItem types; build explorer menus as plain arrays of these and pass to <ContextMenu items={...} position={...} onClose={...}/>. shortcut field already renders inline (design §7's 'Copy Ctrl+C' requirement is free)."
+    },
+    {
+      "what": "Long-press-to-open-menu on mobile",
+      "path": "frontend/src/hooks/useLongPress.ts",
+      "line_range": "whole file",
+      "how": "Same onTouchStart/onTouchMove/onTouchEnd wiring already used by MosaicTile.tsx and TerminalRuntimeLayer.tsx for terminal's context menu."
+    },
+    {
+      "what": "Focus-scoped keyboard shortcut interception",
+      "path": "frontend/src/components/editor/editorWindowSaveShortcut.ts",
+      "line_range": "module-level pattern",
+      "how": "Copy the 'only intercept when focus is inside surface X' gating this module uses for Ctrl+S, for Ctrl+C/X/V/Delete/F2 scoped to the tree surface (window-wide in the explorer window, panel-only -- excluding CodeMirror body -- in the editor's left panel)."
+    },
+    {
+      "what": "File extension viewability check",
+      "path": "frontend/src/utils/viewableExtensions.ts",
+      "line_range": "1-16",
+      "how": "import { isViewableExtension } from '../utils/viewableExtensions'; call directly, no changes needed. Currently zero importers in src, so this is a pure addition of a first real caller."
+    },
+    {
+      "what": "Existing file CRUD REST client",
+      "path": "frontend/src/services/api.ts",
+      "line_range": "274-349",
+      "how": "fileApi.listDirectory/readFile/writeFile/copyFile/moveFile/deleteFile/createDirectory are all already implemented and auth-headered; useFileTree can call these directly for non-job-model reads (listDirectory) while the new file-job WS/REST endpoints (server-side, design §3) are a separate, not-yet-existing surface for actual copy/move/delete progress."
+    },
+    {
+      "what": "Editor-window dialogId builder as precedent",
+      "path": "frontend/src/components/editor/EditorWindow.tsx",
+      "line_range": "94-96",
+      "how": "Mirror with `export function fileExplorerDialogId(workspaceId: string): string { return \\`file-explorer:${workspaceId}\\`; }` per FR-FEX-003 AC-1's exact literal format."
+    },
+    {
+      "what": "Header icon button + tray badge pattern",
+      "path": "frontend/src/components/Header/Header.tsx",
+      "line_range": "132-158",
+      "how": "New file-explorer header button follows the same conditional-render + header-action-button class + aria-label/title pattern; threaded through as a new Header prop set from App.tsx the same way hasEditorWindows/editorTrayItems/editorTrayOpenCount are today (App.tsx:589-599,620-637)."
+    },
+    {
+      "what": "Design token layer (already built)",
+      "path": "frontend/src/styles/tokens.css, frontend/src/index.css",
+      "line_range": "tokens.css:1-97; index.css:1-4",
+      "how": "New explorer/tree CSS files reference var(--bg-surface) etc. directly; wrap the explorer window's root in data-surface=\"chrome\" is implicit (root default), and the editor left panel wraps in data-surface=\"paper\" per design §10.3. No new token declarations should be needed -- the full CONTRACT list in tokens.css already covers everything design §10.2 specifies."
+    }
+  ],
+  "dead_code": [
+    {
+      "path": "frontend/src/components/FileManager/ (FileOperationDialog.tsx, MdirFileList.tsx, MdirFooter.tsx, MdirHeader.tsx, MdirPanel.tsx, MdirPanel.css, index.ts -- 950 lines total)",
+      "verdict": "ignore",
+      "why": "Not wired into App.tsx's render tree (confirmed by CLAUDE.md and by grep -- nothing under src imports components/FileManager). Dual-pane Mdir-style browser, not a tree; '..' modeled as a real node with 8 scattered exception sites (verified). Design doc explicitly treats this as a negative reference ('what happens if you don't make .. chrome') rather than a starting point. Deletion is left to the user's judgment per design §2, not this plan's job."
+    },
+    {
+      "path": "frontend/src/hooks/useFileBrowser.ts",
+      "verdict": "ignore",
+      "why": "Single-directory, non-cached, non-tree hook (149 lines). FR-FEX-001's own trace link marks it 'negative -- do not extend, write useFileTree new.' Its CRUD wrapper calls (copyFile/moveFile/deleteFile/createDirectory) do show a workable fileApi-calling pattern but are trivial enough not to need reuse as-is."
+    },
+    {
+      "path": "frontend/src/utils/viewableExtensions.ts",
+      "verdict": "reuse",
+      "why": "Small, pure, dependency-free, currently unimported. Exactly what FR-FEX-011 AC-6 asks to reuse verbatim."
+    }
+  ],
+  "test_harness": {
+    "pure_example": "frontend/tests/unit/editorFileMenu.test.ts -- imports plain functions from src/utils/editorFileMenu.ts (buildEditorFileMenuItems, decideEditorFileMenuSelection, resolveEditorFilePath) and asserts on their return shape via small local `probe()`/`labelsOf()`/`choose()` helpers that type-narrow ContextMenuItem unions before reading fields. No DOM, no mocks.",
+    "source_guard_example": "frontend/tests/unit/designTokens.test.ts -- reads raw CSS text with readFileSync(new URL(relativePath, import.meta.url), 'utf8'), strips /* comments */ via regex, then parses selector blocks by brace-depth counting (block()) and declaration lines by regex (declarations()) rather than a real CSS parser. Includes a normalise() step (lowercase, collapse #abc->#aabbcc) before comparing colors, a WCAG luminance/contrast calculator for the 'paper is actually readable' assertion, and an AC-9 test that checks index.css's @import is literally the first statement (browsers silently ignore a non-leading @import).",
+    "commands": [
+      "cd frontend && node --experimental-strip-types --test tests/unit/<name>.test.ts",
+      "cd frontend && npm run typecheck (= tsc -b, main app + references, does NOT check tests/)",
+      "cd frontend && npm run typecheck:tests (= tsc -p tsconfig.test.json --noEmit)"
+    ],
+    "tsconfig_allowlist": "frontend/tsconfig.test.json `files` array is a manually-grown allowlist (not a glob) -- any new *.test.ts must be added to this array or typecheck:tests silently skips it. Currently ~50+ entries; designTokens.test.ts, editorFileMenu.test.ts, dialogStack.test.ts, editorWindow*.test.ts already present as of this pass."
+  },
+  "design_tokens": {
+    "names": [
+      "--bg-app", "--bg-chrome", "--bg-surface", "--bg-raised", "--bg-hover", "--bg-active", "--bg-paper",
+      "--fg", "--fg-strong", "--fg-muted", "--fg-faint",
+      "--line", "--line-strong",
+      "--accent", "--accent-fg", "--sel-bar",
+      "--danger", "--warn", "--ok",
+      "--r-sm", "--r-md", "--r-lg",
+      "--row-h"
+    ],
+    "surface_attr": "data-surface=\"chrome\" is the implicit default (no selector needed, :root already is chrome); data-surface=\"paper\" is an explicit attribute selector re-binding 10 of the 22 tokens (--bg-surface, --bg-raised, --bg-hover, --bg-active, --fg, --fg-strong, --fg-muted, --fg-faint, --line, --line-strong). Density is a separate orthogonal attribute: data-density=\"compact\" re-binds only --row-h to 22px (default 28px)."
+  },
+  "external_paths_detected": [
+    "server/src/services/FileService.ts (sort order AC-3/AC-4 for FR-FEX-002 and FR-FEX-003 line-anchors, and blocked-path validation for SEC-FOP-001 -- another agent's concurrent scope, not read this pass)",
+    "server/src/utils/pathValidator.ts (isPathBlocked/resolveAndValidate for SEC-FOP-001 -- not read this pass)"
+  ],
+  "notes": [
+    "Biggest finding: CON-ARCH-001's token layer (frontend/src/styles/tokens.css + index.css import) is ALREADY BUILT AND TESTED as of today (mtime 2026-09-23 16:53), including AC-1,2,4,5,6,7,9,11. This corresponds to 'step 2' of the design doc's §12 implementation order, marked not-yet-done in the doc itself as of the doc's own last edit -- the doc is stale relative to the working tree. Only AC-3 (component-level: no surface branching) and AC-10 (new component CSS is hex-free) remain open, and both can only be verified once actual tree/window CSS is written -- they are properties OF new code, not of tokens.css.",
+    "useEditorWindows.ts (971 lines) is the single largest and most load-bearing file for this whole feature's window/tray/localStorage/z-order precedent. Its per-workspace Record<string, Shell> model, restore-once-per-workspace ref-gating, and pathMenu/pathMenuItems fields (lines 283-286,590-601) are the concrete template for both the new fileExplorer window store and the FR-FEX-010 session-path-menu addition.",
+    "No dedicated 'fileTree' or 'FileExplorer' component/hook exists anywhere in frontend/src yet -- this is a from-scratch build on top of well-established dialog/menu/storage infrastructure, not a refactor.",
+    "Server-side file-job model (design doc §3, copy/move/delete progress over WS) is entirely out of scope for the requirement set given to this analysis (none of FR-FOP-*, IR-FOP-* were included) and out of scope per the 'do not touch server/' instruction; SEC-FOP-001's AC-1/2 (which are server-side) were also excluded from this pass's requirement list, only AC-3/4/5 (client-side implications) were in scope.",
+    "IconButton.css already contains one var(--accent, #4a9eff) reference predating tokens.css, with a fallback color that does NOT match tokens.css's --accent (#0078d4). This is an existing file design §10.1 explicitly says not to touch in this pass (AC-8), so it's a pre-existing inconsistency to leave alone, not something for new tree/explorer CSS to imitate."
+  ]
+}

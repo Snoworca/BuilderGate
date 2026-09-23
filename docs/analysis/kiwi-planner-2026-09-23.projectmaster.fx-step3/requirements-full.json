@@ -1,0 +1,717 @@
+[
+ {
+  "id": "FR-FEX-001",
+  "title": "useFileTree 는 가변 뿌리를 갖고 두 모드를 한 상태로 표현한다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 파일 트리 상태를 expandedPaths, childrenByPath, selectedPaths, root, mode 로 갖고 goUp() 과 setRoot() 로 뿌리를 옮길 수 있어야 하며, 트리 모드와 목록 모드가 같은 상태의 두 뷰여야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "훅은 root 를 가변으로 갖고 goUp() 과 setRoot(path) 를 제공한다",
+    "checked": false,
+    "line": 76
+   },
+   {
+    "id": "AC-2",
+    "text": "트리 모드는 뿌리와 펼쳐 둔 자손을 그리고, 목록 모드는 뿌리의 직계만 그린다",
+    "checked": false,
+    "line": 77
+   },
+   {
+    "id": "AC-3",
+    "text": "두 모드가 childrenByPath 를 공유하여 모드 전환에 서버 요청이 발생하지 않는다",
+    "checked": false,
+    "line": 78
+   },
+   {
+    "id": "AC-4",
+    "text": "뿌리가 바뀌어도 expandedPaths 를 버리지 않고, 되돌아오면 펼쳐 둔 상태가 그대로 살아 있다",
+    "checked": false,
+    "line": 79
+   },
+   {
+    "id": "AC-5",
+    "text": "디렉터리를 처음 펼칠 때만 조회하고, 다시 읽으려면 refresh(path) 를 명시적으로 호출해야 한다",
+    "checked": false,
+    "line": 80
+   },
+   {
+    "id": "AC-6",
+    "text": "파일 작업이 끝나면 영향을 받은 디렉터리만 다시 읽는다",
+    "checked": false,
+    "line": 81
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "frontend/src/hooks/useFileBrowser.ts:21-24",
+    "relation": "negative",
+    "notes": "trace_intent: negative — 의도된 부재. useFileBrowser 는 한 디렉터리만 담고(entries/currentPath) 펼침·선택·캐시가 없다. 확장하지 않고 useFileTree 를 새로 만든다",
+    "line": 92
+   },
+   {
+    "type": "Code",
+    "reference": "frontend/src/hooks/useFileTree.ts",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — 새 훅. 가변 뿌리, expandedPaths, childrenByPath, selectedPaths, mode, goUp, setRoot",
+    "line": 93
+   }
+  ],
+  "filePath": "docs/spec/42.file-explorer.srs.md"
+ },
+ {
+  "id": "CON-FEX-001",
+  "title": "'..' 는 트리 노드가 아니라 창의 크롬이다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 상위 디렉터리로 가는 '..' 를 노드 목록에 넣지 않고 창의 크롬으로 그려, 선택·클립보드·삭제 같은 파일 조작이 그 항목에 닿을 수 없게 해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "'..' 행은 노드 목록에 들어가지 않는다",
+    "checked": false,
+    "line": 134
+   },
+   {
+    "id": "AC-2",
+    "text": "'..' 는 선택 집합에 들어갈 수 없다",
+    "checked": false,
+    "line": 135
+   },
+   {
+    "id": "AC-3",
+    "text": "'..' 에는 컨텍스트 메뉴가 붙지 않는다",
+    "checked": false,
+    "line": 136
+   },
+   {
+    "id": "AC-4",
+    "text": "Ctrl+A 와 Shift 범위 선택이 '..' 를 포함하지 않는다",
+    "checked": false,
+    "line": 137
+   },
+   {
+    "id": "AC-5",
+    "text": "클립보드 담기와 Delete 가 '..' 를 대상으로 삼을 수 없다",
+    "checked": false,
+    "line": 138
+   },
+   {
+    "id": "AC-6",
+    "text": "서버 listDirectory 가 돌려주는 '..' 항목은 노드로 만들지 않고, '상위가 존재하는가' 판정에만 쓴다 (경계 판정은 SEC-FOP-001 참조)",
+    "checked": false,
+    "line": 139
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:169-178",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — 서버가 '..' 를 목록 맨 앞에 넣는 곳. 훅은 이것을 노드로 만들지 않는다",
+    "line": 150
+   },
+   {
+    "type": "Code",
+    "reference": "frontend/src/components/FileManager/MdirPanel.tsx:74,90,107,195,216,238,269,313",
+    "relation": "negative",
+    "notes": "trace_intent: negative — 이 제약의 실물 증거. 죽은 Mdir 패널이 '..' 를 노드로 두었고 그 결과 entry.name === '..' 예외가 여덟 곳에 흩어져 있다. 요구사항 본문은 여섯 곳을 예상했는데 실제 코드는 여덟 곳이다. 재사용 대상이 아니라 '이렇게 하지 말라' 의 근거다",
+    "line": 151
+   },
+   {
+    "type": "Code",
+    "reference": "frontend/src/hooks/useFileBrowser.ts:121-130",
+    "relation": "negative",
+    "notes": "trace_intent: negative — 이 훅의 '..' 필터는 stats useMemo 안에만 있고(:123) entries 배열은 '..' 를 그대로 담는다. 즉 걸러내는 코드가 지금 어디에도 없으므로 useFileTree 에서 새로 써야 한다",
+    "line": 152
+   }
+  ],
+  "filePath": "docs/spec/42.file-explorer.srs.md"
+ },
+ {
+  "id": "FR-FEX-011",
+  "title": "트리에서 클릭이 하는 일과 열 수 있는 파일의 판정",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 단일 클릭을 선택으로, 파일 더블클릭을 편집기 열기로 다루어야 하며, 열 수 없는 파일은 흐리게 그려 더블클릭을 받지 않아야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "단일 클릭은 선택이고 Ctrl 은 추가 선택, Shift 는 범위 선택이다",
+    "checked": false,
+    "line": 730
+   },
+   {
+    "id": "AC-2",
+    "text": "파일 더블클릭은 편집기 창에서 연다",
+    "checked": false,
+    "line": 731
+   },
+   {
+    "id": "AC-3",
+    "text": "트리 모드에서 디렉터리 더블클릭은 펼치거나 접는다",
+    "checked": false,
+    "line": 732
+   },
+   {
+    "id": "AC-4",
+    "text": "삼각형 아이콘 클릭은 선택을 바꾸지 않고 펼치거나 접는다",
+    "checked": false,
+    "line": 733
+   },
+   {
+    "id": "AC-5",
+    "text": "열 수 없는 파일은 흐리게 그리고 더블클릭을 받지 않는다",
+    "checked": false,
+    "line": 734
+   },
+   {
+    "id": "AC-6",
+    "text": "열 수 있는지의 판정은 viewableExtensions.ts 의 확장자 집합을 재사용한다",
+    "checked": false,
+    "line": 735
+   },
+   {
+    "id": "AC-7",
+    "text": "열 수 없는 파일도 복사·이동·삭제는 되며 판정이 막는 것은 여는 일뿐이다",
+    "checked": false,
+    "line": 736
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "frontend/src/utils/viewableExtensions.ts",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — 열 수 있는 파일 판정에 재사용할 확장자 집합. 현재 렌더 트리에 연결되어 있지 않다",
+    "line": 747
+   }
+  ],
+  "filePath": "docs/spec/42.file-explorer.srs.md"
+ },
+ {
+  "id": "FR-FEX-002",
+  "title": "탐색기 창의 모드 전환과 목록 모드",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 탐색기 창의 경로 막대에 트리·목록 모드 토글을 제공하고, 목록 모드에서 현재 디렉터리의 직계만 이름·수정한 날짜·크기 컬럼으로 보여야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "경로 막대에 트리·목록 토글이 있다",
+    "checked": false,
+    "line": 195
+   },
+   {
+    "id": "AC-2",
+    "text": "목록 모드는 이름·수정한 날짜·크기 세 컬럼을 보여 준다",
+    "checked": false,
+    "line": 196
+   },
+   {
+    "id": "AC-3",
+    "text": "기본 정렬은 서버 순서를 따르고 '..' · 디렉터리 · 파일 순이다 (FileService.ts:203-211 이 이미 그렇게 정렬하며, 레거시 SRS `docs/srs/buildergate.srs.md` 의 `FR-FILE-002` 가 같은 것을 요구한다)",
+    "checked": false,
+    "line": 197
+   },
+   {
+    "id": "AC-4",
+    "text": "머리글을 눌러 이름·수정한 날짜·크기로 정렬해도 디렉터리가 항상 파일 앞이다",
+    "checked": false,
+    "line": 198
+   },
+   {
+    "id": "AC-5",
+    "text": "목록 모드에서 디렉터리를 더블클릭하면 펼치지 않고 그 안으로 들어간다",
+    "checked": false,
+    "line": 199
+   },
+   {
+    "id": "AC-6",
+    "text": "선택 집합과 클립보드는 모드와 무관하게 하나이며 모드를 바꿔도 유지된다",
+    "checked": false,
+    "line": 200
+   },
+   {
+    "id": "AC-7",
+    "text": "기본 모드는 트리다",
+    "checked": false,
+    "line": 201
+   },
+   {
+    "id": "AC-8",
+    "text": "목록 모드는 가상 스크롤을 쓰지 않는다 — maxDirectoryEntries 까지의 모든 행이 DOM 에 실재하며, 이름으로 행 요소를 찾을 수 있다",
+    "checked": false,
+    "line": 202
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:203-211",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — :203-211 의 정렬이 '..' 먼저, 디렉터리, 이름순(대소문자 무시)이다. AC-3 이 인용하는 그 순서다. (별건 관찰: :161 이 dirents.length + 1 로 '..' 를 무조건 더하는데 :171 은 드라이브 루트가 아닐 때만 push 하므로, 루트에서는 잘림이 없어도 entries.length < totalEntries 가 참이 된다. 이 요구사항의 AC 는 잘림을 쓰지 않으므로 여기서는 다루지 않는다)",
+    "line": 213
+   }
+  ],
+  "filePath": "docs/spec/42.file-explorer.srs.md"
+ },
+ {
+  "id": "FR-FEX-003",
+  "title": "탐색기 모달리스 창과 탭",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 파일 탐색기를 워크스페이스당 하나의 모달리스 창으로 띄우고, 탭마다 독립된 트리 인스턴스를 두어 뿌리가 서로 다를 수 있게 해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "dialogId 는 file-explorer:{workspaceId} 이고 워크스페이스당 하나만 존재한다",
+    "checked": false,
+    "line": 256
+   },
+   {
+    "id": "AC-2",
+    "text": "이미 떠 있으면 다시 열 때 닫지 않고 raiseDialogById 로 끌어올린다",
+    "checked": false,
+    "line": 257
+   },
+   {
+    "id": "AC-3",
+    "text": "탭마다 독립된 트리 인스턴스를 갖고 뿌리가 서로 다를 수 있다",
+    "checked": false,
+    "line": 258
+   },
+   {
+    "id": "AC-4",
+    "text": "새 탭은 디렉터리 컨텍스트 메뉴의 '새 탭에서 열기' 와 탭 막대의 더하기 버튼으로 만든다",
+    "checked": false,
+    "line": 259
+   },
+   {
+    "id": "AC-5",
+    "text": "쌓임 순서는 CON-MDE-001 의 3000번대 대역과 FR-MDE-003 규칙을 그대로 따른다",
+    "checked": false,
+    "line": 260
+   },
+   {
+    "id": "AC-6",
+    "text": "모드와 정렬은 탭마다 따로 워크스페이스별 localStorage 에 저장한다",
+    "checked": false,
+    "line": 261
+   },
+   {
+    "id": "AC-7",
+    "text": "펼쳐 둔 디렉터리 목록은 저장하지 않는다",
+    "checked": false,
+    "line": 262
+   },
+   {
+    "id": "AC-8",
+    "text": "스크롤 위치는 픽셀이 아니라 맨 위에 보이던 행의 이름으로 저장한다 — 그 사이 파일이 지워지면 같은 픽셀이 다른 항목을 가리킨다",
+    "checked": false,
+    "line": 263
+   },
+   {
+    "id": "AC-9",
+    "text": "복원은 목록에 행이 존재하는 것을 관측한 뒤에만 스크롤을 쓴다 — 행이 0개인 동안 쓰면 브라우저가 조용히 0 으로 클램프한다",
+    "checked": false,
+    "line": 264
+   },
+   {
+    "id": "AC-10",
+    "text": "앵커를 찾지 못한 복원은 저장된 위치를 갱신하지 않는다 — 늦게 그려진 것을 영구 손실로 바꾸지 않기 위해서다",
+    "checked": false,
+    "line": 265
+   },
+   {
+    "id": "AC-11",
+    "text": "앵커 행이 사라졌으면 정렬 순서상 가장 가까운 이름으로 가고, 그것도 없으면 맨 위로 간다",
+    "checked": false,
+    "line": 266
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "frontend/src/components/dialog/WindowDialog.tsx",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — 모달리스 창 프레임. mode=modeless 로 띄운다",
+    "line": 277
+   }
+  ],
+  "filePath": "docs/spec/42.file-explorer.srs.md"
+ },
+ {
+  "id": "FR-FEX-006",
+  "title": "컨텍스트 메뉴와 우클릭이 선택을 다루는 방식",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 트리 항목의 오른쪽 버튼(모바일은 길게 누르기)에 컨텍스트 메뉴를 열고, 이미 선택된 항목 위에서 누르면 선택을 유지해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "선택되지 않은 항목에 우클릭하면 그 항목 하나만 선택하고 메뉴를 연다",
+    "checked": false,
+    "line": 435
+   },
+   {
+    "id": "AC-2",
+    "text": "이미 선택된 항목에 우클릭하면 선택을 그대로 두고 메뉴의 조작이 선택 전체에 적용된다",
+    "checked": false,
+    "line": 436
+   },
+   {
+    "id": "AC-3",
+    "text": "빈 곳에 우클릭하면 선택을 해제하고 붙여넣기·새 폴더·새로 읽기 셋만 보여 준다",
+    "checked": false,
+    "line": 437
+   },
+   {
+    "id": "AC-4",
+    "text": "편집기로 열기는 열 수 있는 파일일 때만, 새 탭에서 열기는 탐색기 창의 디렉터리일 때만 활성이다",
+    "checked": false,
+    "line": 438
+   },
+   {
+    "id": "AC-5",
+    "text": "붙여넣기는 클립보드가 비어 있지 않을 때만 활성이다",
+    "checked": false,
+    "line": 439
+   },
+   {
+    "id": "AC-6",
+    "text": "이름 바꾸기는 선택이 하나일 때만 활성이다",
+    "checked": false,
+    "line": 440
+   },
+   {
+    "id": "AC-7",
+    "text": "메뉴 항목에 해당 단축키를 함께 표시한다",
+    "checked": false,
+    "line": 441
+   },
+   {
+    "id": "AC-8",
+    "text": "목록 모드의 메뉴는 새 탭에서 열기만 빠지고 나머지는 트리와 같다",
+    "checked": false,
+    "line": 442
+   },
+   {
+    "id": "AC-9",
+    "text": "기존 ContextMenu 컴포넌트와 useLongPress 훅을 그대로 쓴다",
+    "checked": false,
+    "line": 443
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "frontend/src/components/ContextMenu/ContextMenu.tsx:16-45",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — ContextMenuActionItem 과 ContextMenuSeparatorItem. 탐색기 메뉴가 이 모델을 그대로 쓴다",
+    "line": 454
+   },
+   {
+    "type": "Code",
+    "reference": "frontend/src/hooks/useLongPress.ts",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — 모바일 길게 누르기",
+    "line": 455
+   }
+  ],
+  "filePath": "docs/spec/42.file-explorer.srs.md"
+ },
+ {
+  "id": "FR-FEX-005",
+  "title": "탐색기 전용 클립보드와 단축키",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 { mode: 'copy' | 'cut', entries: [{ sessionId, path }] } 형태의 탐색기 전용 클립보드를 두고, Ctrl+C·Ctrl+X·Ctrl+V·Delete·F2 를 트리 표면에 포커스가 있을 때만 가로채야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "클립보드는 탭과 창을 가리지 않는 하나의 값이라 탭 사이 복사·이동이 저절로 된다",
+    "checked": false,
+    "line": 376
+   },
+   {
+    "id": "AC-2",
+    "text": "잘라내기로 담긴 항목은 트리에서 흐리게 그려 아직 옮겨지지 않았음을 보인다",
+    "checked": false,
+    "line": 377
+   },
+   {
+    "id": "AC-3",
+    "text": "Ctrl+C·Ctrl+X 는 선택을 각각 복사·잘라내기 모드로 담는다",
+    "checked": false,
+    "line": 378
+   },
+   {
+    "id": "AC-4",
+    "text": "Ctrl+V 는 현재 탭의 디렉터리에 붙여넣는다",
+    "checked": false,
+    "line": 379
+   },
+   {
+    "id": "AC-5",
+    "text": "Delete 는 확인 모달을 거쳐 선택을 지우고 F2 는 이름을 바꾼다",
+    "checked": false,
+    "line": 380
+   },
+   {
+    "id": "AC-6",
+    "text": "탐색기 창에서는 창 표면 안에 포커스가 있을 때 가로챈다",
+    "checked": false,
+    "line": 381
+   },
+   {
+    "id": "AC-7",
+    "text": "편집기 좌측 패널에서는 트리 패널 표면 안에 포커스가 있을 때만 가로채고 문서 영역은 제외한다",
+    "checked": false,
+    "line": 382
+   },
+   {
+    "id": "AC-8",
+    "text": "모바일에서는 단축키 대신 복사·잘라내기·붙여넣기·삭제·이름 바꾸기·새 폴더 버튼 줄을 두고 할 수 없는 동작은 흐리게 처리한다",
+    "checked": false,
+    "line": 383
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "frontend/src/components/editor/editorWindowSaveShortcut.ts",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — 단축키를 포커스로 가두는 기존 판정 방식. 편집기 패널에서는 범위를 트리 패널 표면으로 좁힌다",
+    "line": 394
+   }
+  ],
+  "filePath": "docs/spec/42.file-explorer.srs.md"
+ },
+ {
+  "id": "FR-FEX-010",
+  "title": "탐색기를 여는 세 진입점과 세션 경로 메뉴의 순서",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 세션 경로 우클릭 메뉴, 터미널 우클릭 메뉴, 헤더 아이콘 버튼 셋으로 탐색기를 열 수 있어야 하며, 세션 경로 메뉴에서는 '파일 탐색기' 를 지시 파일 목록보다 위에 두고 구분선으로 나눠야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "세션 경로(MetadataRow 의 cwd 텍스트) 우클릭 메뉴 맨 위에 '파일 탐색기' 가 있다",
+    "checked": false,
+    "line": 671
+   },
+   {
+    "id": "AC-2",
+    "text": "그 아래 구분선을 두고 CLAUDE.md·CLAUDE.local.md·AGENTS.md 가 이어진다",
+    "checked": false,
+    "line": 672
+   },
+   {
+    "id": "AC-3",
+    "text": "buildEditorFileMenuItems 가 탐색기 항목과 구분선을 EDITOR_INSTRUCTION_FILES 순회보다 앞에 넣고 반환 타입은 그대로다",
+    "checked": false,
+    "line": 673
+   },
+   {
+    "id": "AC-4",
+    "text": "터미널 우클릭 메뉴에 '파일 탐색기 열기' 가 있다",
+    "checked": false,
+    "line": 674
+   },
+   {
+    "id": "AC-5",
+    "text": "헤더의 아이콘 버튼으로도 열린다",
+    "checked": false,
+    "line": 675
+   },
+   {
+    "id": "AC-6",
+    "text": "세 진입점 모두 이미 떠 있는 창을 닫지 않고 끌어올린다",
+    "checked": false,
+    "line": 676
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "frontend/src/utils/editorFileMenu.ts:152",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — buildEditorFileMenuItems 의 EDITOR_INSTRUCTION_FILES 순회 앞에 탐색기 항목과 구분선을 넣는다",
+    "line": 687
+   },
+   {
+    "type": "Code",
+    "reference": "frontend/src/components/MetadataBar/MetadataRow.tsx:79",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — 세션 경로 우클릭이 이미 onPathContextMenu 로 연결되어 있다",
+    "line": 688
+   },
+   {
+    "type": "Code",
+    "reference": "frontend/src/utils/editorFileMenu.ts:19-23",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — EDITOR_INSTRUCTION_FILES 가 3개 고정 목록이다. 늘 수 있으므로 탐색기 항목을 그 위에 둔다",
+    "line": 689
+   }
+  ],
+  "filePath": "docs/spec/42.file-explorer.srs.md"
+ },
+ {
+  "id": "SEC-FOP-001",
+  "title": "파일 조작 경로 검증은 서버의 blocked path 정책을 그대로 따른다",
+  "status": "planned",
+  "stability": "evolving",
+  "requirement": "시스템은 파일 조작 작업의 모든 경로를 기존 파일 API 가 쓰는 path traversal 및 blocked path 정책(레거시 SRS `docs/srs/buildergate.srs.md` §4.7 의 `NFR-SEC-004`, 구현은 `FileService` 의 `resolveAndValidate` 와 `config.blockedPaths`)으로 검증해야 하며, 클라이언트가 별도의 경계 규칙을 갖지 않아야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "출발지와 목적지 경로 모두 blocked path 정책으로 검증한다",
+    "checked": false,
+    "line": 475
+   },
+   {
+    "id": "AC-2",
+    "text": "작업 도중 만들어지는 중간 경로도 같은 검증을 거친다",
+    "checked": false,
+    "line": 476
+   },
+   {
+    "id": "AC-3",
+    "text": "클라이언트는 경계 규칙의 사본을 갖지 않는다",
+    "checked": false,
+    "line": 477
+   },
+   {
+    "id": "AC-4",
+    "text": "'↑' 활성 여부는 서버 listDirectory 응답의 '..' 유무로 판정하되, 그 신호는 '드라이브 루트가 아님' 만 뜻한다 (FileService.ts:171 의 조건이 parsed.root !== dirPath 다)",
+    "checked": false,
+    "line": 478
+   },
+   {
+    "id": "AC-5",
+    "text": "부모가 blocked path 라 나열이 거부되면 그 오류를 사용자에게 보이고 뿌리를 바꾸지 않는다 — '↑' 가 활성이라는 것이 나열 가능을 보장하지 않는다",
+    "checked": false,
+    "line": 479
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "server/src/services/FileService.ts:171",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — 경계 조건 parsed.root !== dirPath. '..' 는 드라이브 루트까지 붙는다",
+    "line": 490
+   },
+   {
+    "type": "Code",
+    "reference": "server/src/utils/pathValidator.ts:32-56",
+    "relation": "verifies",
+    "notes": "trace_intent: verifies — isPathBlocked 와 resolveAndValidate. 요구사항 본문이 가리키는 정책의 실제 구현이고 FileService 의 모든 메서드가 이미 부른다",
+    "line": 491
+   }
+  ],
+  "filePath": "docs/spec/43.file-operations.srs.md"
+ },
+ {
+  "id": "CON-ARCH-001",
+  "title": "표면 적응형 디자인 토큰 계약",
+  "status": "in_progress",
+  "stability": "evolving",
+  "requirement": "시스템은 화면 색·모서리·행 높이를 이름이 고정된 CSS 토큰으로 정의하고, data-surface 값에 따라 같은 이름의 값을 다시 걸어 한 컴포넌트가 어두운 표면과 밝은 표면 모두에서 렌더되게 해야 한다.",
+  "acceptanceCriteria": [
+   {
+    "id": "AC-1",
+    "text": "--bg-*, --fg-*, --line*, --accent*, --danger/warn/ok, --r-*, --row-h 토큰 이름을 정의한다",
+    "checked": true,
+    "line": 395
+   },
+   {
+    "id": "AC-2",
+    "text": "chrome 표면과 paper 표면이 같은 토큰 이름에 다른 값을 건다 — chrome 은 별도 선택자 없이 :root 기본값이 바인딩하고, paper 는 [data-surface=\"paper\"] 가 그 위에 다시 건다",
+    "checked": true,
+    "line": 396
+   },
+   {
+    "id": "AC-3",
+    "text": "컴포넌트는 자기가 어느 표면에 있는지 알지 못하고 조건 분기를 갖지 않는다",
+    "checked": false,
+    "line": 397
+   },
+   {
+    "id": "AC-4",
+    "text": "UI 강조색은 #0078d4 하나이며 #007acc 를 새로 쓰지 않는다",
+    "checked": true,
+    "line": 398
+   },
+   {
+    "id": "AC-5",
+    "text": "보라 계열은 편집기 문법 강조에만 남기고 UI 에 쓰지 않는다",
+    "checked": true,
+    "line": 399
+   },
+   {
+    "id": "AC-6",
+    "text": "기본 행 높이는 28px 이고 조밀 모드 22px 를 설정으로 연다",
+    "checked": true,
+    "line": 400
+   },
+   {
+    "id": "AC-7",
+    "text": "--atomic-editor-* 와 합치지 않고 나란히 둔다",
+    "checked": true,
+    "line": 401
+   },
+   {
+    "id": "AC-8",
+    "text": "이 작업이 기존 CSS 파일의 색상 선언을 바꾸지 않는다 — 커밋 diff 에서 frontend/src 의 기존 .css 파일에 대한 색상 변경 줄이 0 이다 (파일 개수로 세지 않는다: frontend/src 의 .css 는 31개이고 그중 hex 를 담은 것이 29개, atomic-editor 벤더링이 1개라 '29개' 는 도출 방법에 따라 29 또는 30 이 되어 두 사람이 같게 검증할 수 없다)",
+    "checked": true,
+    "line": 402
+   },
+   {
+    "id": "AC-9",
+    "text": "토큰 파일이 앱 진입점에서 실제로 로드된다 — 선언만 하고 import 하지 않으면 위 여덟 항목이 모두 통과하면서 화면은 하나도 달라지지 않는다",
+    "checked": true,
+    "line": 403
+   },
+   {
+    "id": "AC-10",
+    "text": "새로 쓰는 컴포넌트 CSS 에 hex 색상 리터럴이 없다 — 색은 전부 var() 로 토큰을 참조한다",
+    "checked": false,
+    "line": 404
+   },
+   {
+    "id": "AC-11",
+    "text": "새 CSS 가 참조하는 모든 var(--x) 의 x 가 토큰 선언에 실재한다 — 오타로 만들어진 죽은 토큰을 잡는다",
+    "checked": true,
+    "line": 405
+   }
+  ],
+  "traceLinks": [
+   {
+    "type": "Code",
+    "reference": "frontend/src/styles/globals.css",
+    "relation": "addition_site",
+    "notes": "trace_intent: addition_site — 토큰 레이어가 들어갈 자리. 현재 이 파일에 CSS 변수 선언이 0개다",
+    "line": 420
+   },
+   {
+    "type": "Code",
+    "reference": "frontend/src/styles/globals.css",
+    "relation": "negative",
+    "notes": "trace_intent: negative — 실측으로 재확인(2026-09-23): 이 파일에 '--' 가 0회 등장한다. 토큰 기반이 전혀 없다는 뜻이고, AC-9·AC-10·AC-11 이 요구하는 CSS 정적 분석 가드 3종도 이 저장소에 선례가 없다",
+    "line": 421
+   },
+   {
+    "type": "Task",
+    "reference": "T-PH001-01",
+    "relation": "depends_on",
+    "notes": "kiwi-planner 2026-09-23.projectmaster.fx-step1 — 이 요구사항을 짓는 Task 사슬의 첫 항목. 전체는 plan 의 §4 역색인 참조",
+    "line": 422
+   }
+  ],
+  "filePath": "docs/spec/10.product-architecture.srs.md"
+ }
+]
