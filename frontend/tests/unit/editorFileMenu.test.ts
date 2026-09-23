@@ -220,3 +220,101 @@ test('FR-MDE-007 both MetadataRow render sites carry the path context menu handl
     );
   });
 });
+
+// FR-FEX-010 — the file explorer entry at the top of the same menu.
+//
+// The order is the user's own decision: the explorer first, then a separator,
+// then the instruction files. EDITOR_INSTRUCTION_FILES is a list that can grow,
+// and an entry placed under it would drift down every time it did; the top is
+// the one position that stays put.
+//
+// The option is threaded through a variable typed as the builder's options plus
+// the new field, so this file still type-checks before the field exists and the
+// failure lands on the assertions below rather than on the compiler.
+type EditorFileMenuOptionsWithExplorer = Parameters<typeof buildEditorFileMenuItems>[0] & {
+  onOpenFileExplorer?: (tabId: string) => void;
+};
+
+function buildWithExplorer(
+  overrides: Partial<EditorFileMenuOptionsWithExplorer> = {},
+): { items: ReturnType<typeof buildEditorFileMenuItems>; explorerCalls: string[]; selections: EditorFileMenuSelection[] } {
+  const explorerCalls: string[] = [];
+  const selections: EditorFileMenuSelection[] = [];
+  const options: EditorFileMenuOptionsWithExplorer = {
+    cwd: CWD,
+    tabId: 'tab-7',
+    openWindows: [],
+    onSelect: selection => selections.push(selection),
+    onOpenFileExplorer: tabId => explorerCalls.push(tabId),
+    ...overrides,
+  };
+
+  return { items: buildEditorFileMenuItems(options), explorerCalls, selections };
+}
+
+test('FR-FEX-010 AC-1 the first item is 파일 탐색기 and it opens the explorer for the right-clicked tab', () => {
+  const { items, explorerCalls, selections } = buildWithExplorer();
+  const first = probe(items)[0];
+
+  assert.equal(first?.label, '파일 탐색기', 'the explorer is the first item');
+  assert.equal(first?.separator, undefined, 'the first item is an action, not a separator');
+  assert.equal(typeof first?.onClick, 'function', 'the explorer item carries a handler');
+
+  (first?.onClick as () => void)();
+
+  // The right-clicked tab, not the active one: in grid mode the tile under the
+  // pointer is routinely not the active tile.
+  assert.deepEqual(explorerCalls, ['tab-7']);
+  // Choosing the explorer is not choosing a file.
+  assert.deepEqual(selections, []);
+
+  // A second tab id, so a handler that ignores options.tabId and hard-codes
+  // the one above cannot pass.
+  const other = buildWithExplorer({ tabId: 'tab-3' });
+  (probe(other.items)[0]?.onClick as () => void)();
+  assert.deepEqual(other.explorerCalls, ['tab-3']);
+});
+
+test('FR-FEX-010 AC-2 a separator follows, then the instruction files in their declared order', () => {
+  const { items } = buildWithExplorer();
+  const probed = probe(items);
+
+  assert.equal(probed.length, 2 + EDITOR_INSTRUCTION_FILES.length);
+  assert.equal(probed[1]?.separator, true, 'items[1] is the separator');
+  assert.deepEqual(labelsOf(items.slice(2)), [...EDITOR_INSTRUCTION_FILES]);
+  // The whole order at once, so neither a missing separator nor the explorer
+  // appended at the bottom can satisfy this by accident.
+  assert.deepEqual(labelsOf(items), ['파일 탐색기', undefined, 'CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md']);
+});
+
+test('FR-FEX-010 AC-3 the instruction file items keep their open/revive decisions when the explorer is present', () => {
+  const revived = resolveEditorFilePath(CWD, 'CLAUDE.md');
+  const { items, explorerCalls, selections } = buildWithExplorer({
+    openWindows: [{ tabId: 'tab-1', filePath: revived }],
+  });
+
+  // Still a plain array the existing ContextMenu renders.
+  assert.ok(Array.isArray(items));
+  assert.equal(labelsOf(items)[0], '파일 탐색기');
+
+  choose(items, 'CLAUDE.md');
+  choose(items, 'CLAUDE.local.md');
+  choose(items, 'AGENTS.md');
+
+  assert.deepEqual(selections, [
+    { kind: 'revive', filePath: revived, tabId: 'tab-1' },
+    { kind: 'open', filePath: resolveEditorFilePath(CWD, 'CLAUDE.local.md'), tabId: 'tab-7' },
+    { kind: 'open', filePath: resolveEditorFilePath(CWD, 'AGENTS.md'), tabId: 'tab-7' },
+  ]);
+  assert.deepEqual(explorerCalls, [], 'choosing a file does not open the explorer');
+
+  // Without the option the menu is the three files and nothing else, which is
+  // what every caller that has not been wired yet still sees.
+  const withoutExplorer = buildEditorFileMenuItems({
+    cwd: CWD,
+    tabId: 'tab-7',
+    openWindows: [],
+    onSelect: () => undefined,
+  });
+  assert.deepEqual(labelsOf(withoutExplorer), [...EDITOR_INSTRUCTION_FILES]);
+});

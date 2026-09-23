@@ -1886,7 +1886,12 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerDialog.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 3 / pass 0 / fail 3 — every case fails by name with Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/fileExplorer/fileExplorerDialog.ts' (dynamic import inside each test body). Bite check with temporary stubs, then deleted: constant id + non-empty→raise fails AC1-01·AC2-01; substring match + toggle fails AC2-01·AC6-01; entryPoint-dependent close fails AC6-01; correct stub passes 3/3 and tsc -p tsconfig.test.json exits 0.",
+     "timestamp": "2026-09-23T10:19:47Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -2001,7 +2006,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerDialog.test.ts", "exit_code": 0, "timestamp": "2026-09-23T10:24:43Z"}
    },
    "trace_links": [
     {
@@ -2225,9 +2230,24 @@
       "test_file": "frontend/tests/unit/fileExplorerTabs.test.ts",
       "test_symbol": "저장값이 없거나 깨졌으면 기본 mode 'tree' 로 복원",
       "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-003-AC6-05",
+      "req_id": "FR-FEX-003",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTabs.test.ts",
+      "test_symbol": "탐색기 저장은 편집기 window_state_ 키와 PersistedWindowState 를 건드리지 않고 file_explorer_state_ 별도 키에만 쓴다",
+      "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTabs.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 15 / pass 0 / fail 15 — 15 tests each ✖ by name; cause: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../src/components/fileExplorer/fileExplorerTabsState.ts' (and fileExplorerScrollRestore.ts; windowStateStorage.ts lacks getFileExplorerStateStorageKey/saveFileExplorerStateForWorkspace/readPersistedFileExplorerState). Temporary stubs (deleted): correct stub 15/15 pass; 12 wrong stubs each caught, incl. failed-restore-persists-fallback and fallback-scrollIntoView-saves.",
+     "timestamp": "2026-09-23T10:32:17Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -2466,7 +2486,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTabs.test.ts", "exit_code": 0, "timestamp": "2026-09-23T11:20:00Z"}
    },
    "trace_links": [
     {
@@ -2596,7 +2616,12 @@
       "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileMenu.test.ts tests/unit/terminalContextMenuFileExplorer.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 10 / pass 6 / fail 4 — the 5 FR-MDE-007 cases and the AC-4 absence guard pass; fails by name on the intended assertions: AC-1 'the explorer is the first item' (menu[0] is 'CLAUDE.md'), AC-2 length 3 !== 5, AC-3 'CLAUDE.md' !== '파일 탐색기', AC-4 'the terminal menu offers 파일 탐색기 열기; got [\"새 세션\",\"세션 닫기\",\"복사\",\"붙여넣기\"]'. AC-4 fails on the assertion, not ERR_MODULE_NOT_FOUND, because contextMenuBuilder.ts already exists. Temporary stubs (since reverted, sha256 verified): no separator -> AC-2 red; explorer at bottom -> AC-1/2/3 red; hard-coded tab id -> AC-1 red; correct order -> 8/8 and 2/2 green",
+     "timestamp": "2026-09-23T12:37:40Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -2732,7 +2757,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileMenu.test.ts tests/unit/terminalContextMenuFileExplorer.test.ts tests/unit/terminalContextMenuRegisteredItems.test.ts tests/unit/contextMenuModel.test.ts", "exit_code": 0, "timestamp": "2026-09-23T12:40:48Z"}
    },
    "trace_links": [
     {
@@ -3001,9 +3026,34 @@
       "test_file": "frontend/tests/unit/fileExplorerWiring.test.ts",
       "test_symbol": "세 진입점(App 세션 경로 메뉴 옵션·터미널 메뉴 두 호출부·헤더)이 useFileExplorerWindows.openFileExplorer 하나로 모이고 그 함수가 decideOpenFileExplorer 를 쓴다",
       "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-003-AC2-04",
+      "req_id": "FR-FEX-003",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWiring.test.ts",
+      "test_symbol": "최소화된 창을 다시 열면 raise 분기가 워크스페이스 창 기록을 찾아 minimized 를 false 로 두고 raiseDialogById(id,'modeless') 를 부르며 탭을 만들지 않는다 — 창·훅은 minimized/hidden 으로 언마운트하지 않는다 (설계 결정 20)",
+      "kind": "contract"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-003-AC3-03",
+      "req_id": "FR-FEX-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWiring.test.ts",
+      "test_symbol": "restoreFileExplorerTabs 의 resolveSession 이 resolveTabSession(originTabId) 를 쓰고, 그 탭이 사라졌으면 워크스페이스의 활성 터미널 탭 세션으로 대체한다",
+      "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWiring.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 23 / pass 2 / fail 21 — all 21 TC-REQ-* cases ✖ by name; the 2 passing are scanner self-tests. AC1-01 fails with Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../src/components/fileExplorer/fileExplorerPathBarModel.ts'; FR-FEX-010-AC5-01 fails with 'src/components/Header/Header.tsx must declare an onOpenFileExplorer prop'; the other 19 fail with 'target files must exist before their wiring can be checked; missing: src/...' naming each absent file. Bite check in a scratch copy of src (not the checkout): a plausible T-PH002-09 fixture leaves exactly FR-FEX-010-AC5-01/AC6-02 red; adding the T-PH002-10 wiring makes 23/23 pass; 35 single-point mutations each fail their intended case. Lexer swept over all 223 src .ts/.tsx files with balanced brackets. tsc -p tsconfig.test.json exits 0.",
+     "timestamp": "2026-09-23T13:10:59Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -3240,7 +3290,7 @@
       "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerDesignRules.test.ts", "exit_code": 1, "captured_failure": "tests 13 / pass 1 / fail 12. 12 TC-REQ-CON-ARCH-001-* red: explorer components absent — AC10-01: 'no css files in src/components/fileExplorer/, and the components that would import one are missing: …FileExplorerWindow.tsx, …FileExplorerTabBar.tsx, …FileExplorerPathBar.tsx, …FileTreeView.tsx, …FileListView.tsx'; the other 11: 'target files must exist before their design rules can be checked; missing: …'. The one pass is the scanner self-check.", "timestamp": "2026-09-23T13:23:13Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -3653,7 +3703,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+      "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerDesignRules.test.ts tests/unit/fileExplorerWiring.test.ts",
+      "exit_code": 1,
+      "timestamp": "2026-09-23T13:39:46Z"
+    }
    },
    "trace_links": [
     {
@@ -3835,7 +3889,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWiring.test.ts", "exit_code": 0, "timestamp": "2026-09-23T13:45:21Z"}
    },
    "trace_links": [
     {

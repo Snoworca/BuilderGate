@@ -23,6 +23,8 @@ import {
   toEditorWindowRecord,
   type EditorWindowRecord,
 } from '../components/editor/editorWindowRecord.ts';
+import type { FileTreeMode } from '../components/fileExplorer/fileTreeState.ts';
+import { LIST_COLUMNS, type ListSort } from '../components/fileExplorer/fileListView.ts';
 
 const STORAGE_KEY_PREFIX = 'window_state_';
 const SCHEMA_VERSION = 1;
@@ -160,4 +162,143 @@ export function restoreWindowStateForWorkspace(
   }
 
   return restoreEditorWindowRecords(stored.windows, existingTabIds);
+}
+
+// ---------------------------------------------------------------------------
+// File explorer tabs
+//
+// A second store under its own key, following the editor's conventions: an
+// envelope that carries its version, an injectable storage, and null for
+// anything unusable. It is a separate key rather than a field of the editor's
+// value so neither schema can move the other -- a change to
+// PersistedWindowState would silently drop every user's saved editor windows.
+// ---------------------------------------------------------------------------
+
+const FILE_EXPLORER_KEY_PREFIX = 'file_explorer_state_';
+const FILE_EXPLORER_SCHEMA_VERSION = 1;
+
+/**
+ * Exactly what one explorer tab keeps between page loads. No expanded
+ * directories (FR-FEX-003 AC-7), no pixel offset of any kind (AC-8): the scroll
+ * position is the name of the top visible row. No session id either: it means
+ * nothing after a reload, so the tab is re-bound through originTabId.
+ * @req FR-FEX-003
+ */
+export interface FileExplorerTabRecord {
+  id: string;
+  originTabId: string;
+  root: string;
+  mode: FileTreeMode;
+  sort: ListSort | null;
+  scrollAnchor: string | null;
+}
+
+/**
+ * @req FR-FEX-003
+ */
+export interface PersistedFileExplorerState {
+  schemaVersion: typeof FILE_EXPLORER_SCHEMA_VERSION;
+  tabs: FileExplorerTabRecord[];
+  activeTabId: string | null;
+  savedAt: string;
+}
+
+/**
+ * @req FR-FEX-003
+ */
+export function getFileExplorerStateStorageKey(workspaceId: string): string {
+  return FILE_EXPLORER_KEY_PREFIX + workspaceId;
+}
+
+function toListSort(value: unknown): ListSort | null {
+  if (value === null || typeof value !== 'object') return null;
+  const { key, dir } = value as Partial<ListSort>;
+  if (!(LIST_COLUMNS as readonly unknown[]).includes(key)) return null;
+  if (dir !== 'asc' && dir !== 'desc') return null;
+  return { key: key as ListSort['key'], dir };
+}
+
+// Field-by-field projection, used on both write and read. Naming the six fields
+// is what keeps a live tab's expanded paths, pixel offset and session id out of
+// the stored value, and keeps a hand-edited value from carrying them back in.
+// Returns null only when the record cannot name a tab at all; an unusable root
+// or mode is repaired instead, so a tab the user arranged is not dropped.
+function toFileExplorerTabRecord(value: unknown): FileExplorerTabRecord | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const { id, originTabId, root, mode, sort, scrollAnchor } = value as Record<string, unknown>;
+  if (typeof id !== 'string' || id === '' || typeof originTabId !== 'string') return null;
+  return {
+    id,
+    originTabId,
+    // An empty root is left for the restore to point at the session's cwd.
+    root: typeof root === 'string' ? root : '',
+    mode: mode === 'list' ? 'list' : 'tree',
+    sort: toListSort(sort),
+    scrollAnchor: typeof scrollAnchor === 'string' ? scrollAnchor : null,
+  };
+}
+
+/**
+ * Writes a workspace's explorer tabs. Answers whether the write happened, for
+ * the same reason `saveWindowStateForWorkspace` does.
+ * @req FR-FEX-003
+ */
+export function saveFileExplorerStateForWorkspace(
+  workspaceId: string,
+  state: { tabs: readonly FileExplorerTabRecord[]; activeTabId: string | null },
+  storage: Storage = localStorage,
+): boolean {
+  try {
+    const data: PersistedFileExplorerState = {
+      schemaVersion: FILE_EXPLORER_SCHEMA_VERSION,
+      tabs: state.tabs
+        .map(tab => toFileExplorerTabRecord(tab))
+        .filter((record): record is FileExplorerTabRecord => record !== null),
+      activeTabId: state.activeTabId,
+      savedAt: new Date().toISOString(),
+    };
+    storage.setItem(getFileExplorerStateStorageKey(workspaceId), JSON.stringify(data));
+    return true;
+  } catch (error) {
+    console.warn('[fileExplorer] explorer state was not written to localStorage:', error);
+    return false;
+  }
+}
+
+/**
+ * Reads a workspace's explorer tabs back, or null when there is nothing usable.
+ * Same stance as `readPersistedWindowState`: the value is arbitrary browser
+ * text, and every way it can be wrong has the same answer -- restore no tabs --
+ * so none of them throws.
+ * @req FR-FEX-003
+ */
+export function readPersistedFileExplorerState(
+  workspaceId: string,
+  storage: Storage = localStorage,
+): PersistedFileExplorerState | null {
+  try {
+    const raw = storage.getItem(getFileExplorerStateStorageKey(workspaceId));
+    if (!raw) return null;
+
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const { schemaVersion, tabs, activeTabId, savedAt } = parsed as Partial<PersistedFileExplorerState>;
+    if (schemaVersion !== FILE_EXPLORER_SCHEMA_VERSION || !Array.isArray(tabs)) {
+      return null;
+    }
+
+    return {
+      schemaVersion: FILE_EXPLORER_SCHEMA_VERSION,
+      tabs: tabs
+        .map(tab => toFileExplorerTabRecord(tab))
+        .filter((record): record is FileExplorerTabRecord => record !== null),
+      activeTabId: typeof activeTabId === 'string' ? activeTabId : null,
+      savedAt: typeof savedAt === 'string' ? savedAt : '',
+    };
+  } catch {
+    return null;
+  }
 }

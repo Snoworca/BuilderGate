@@ -39,6 +39,13 @@ interface HeaderProps {
    */
   /** How many documents are open, across every workspace. */
   editorTrayOpenCount?: number;
+  /**
+   * Opens the file explorer for the active tab, or raises it when it is
+   * already open. Absent when there is no active tab, and then the button is
+   * not drawn.
+   * @req FR-FEX-010
+   */
+  onOpenFileExplorer?: () => void;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -64,6 +71,7 @@ export function Header({
   hasEditorWindows,
   editorTrayItems,
   editorTrayOpenCount = 0,
+  onOpenFileExplorer,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [editorTrayPosition, setEditorTrayPosition] = useState<{ x: number; y: number } | null>(null);
@@ -129,6 +137,30 @@ export function Header({
 
       {(onOpenSettings || onLogout || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && (
         <div className="header-right">
+          {onOpenFileExplorer && (
+            // Open or raise only. A toggle would make a second press close a
+            // window the user may have just lost behind another one.
+            <button
+              className="header-action-button"
+              onClick={onOpenFileExplorer}
+              aria-label="파일 탐색기"
+              title="파일 탐색기"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ position: 'relative', top: '2px' }}
+              >
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              </svg>
+            </button>
+          )}
           {hasEditorWindows && (
             <button
               className="header-action-button header-editor-tray-button"

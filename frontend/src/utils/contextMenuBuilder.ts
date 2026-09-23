@@ -31,6 +31,13 @@ export interface BuildTerminalMenuOptions {
   hasSelection: boolean;
   registeredPresetMenu?: RegisteredPresetMenuOptions;
   moveWorkspace?: MoveWorkspaceMenuOptions;
+  /**
+   * Opens the file explorer for this session. Optional so that a caller which
+   * does not opt in gets exactly the menu it got before -- this builder is under
+   * the stable FR-ARCH-004..006 contracts.
+   * @req FR-FEX-010
+   */
+  onOpenFileExplorer?: () => void;
 }
 
 export function buildTerminalContextMenuItems(
@@ -48,6 +55,7 @@ export function buildTerminalContextMenuItems(
     hasSelection,
     registeredPresetMenu,
     moveWorkspace,
+    onOpenFileExplorer,
   } = options;
 
   const newSessionItem: ContextMenuItem =
@@ -102,6 +110,14 @@ export function buildTerminalContextMenuItems(
                 moveWorkspace.onRequest();
               }
             },
+          } satisfies ContextMenuItem,
+        ]
+      : []),
+    ...(onOpenFileExplorer
+      ? [
+          {
+            label: '파일 탐색기 열기',
+            onClick: onOpenFileExplorer,
           } satisfies ContextMenuItem,
         ]
       : []),

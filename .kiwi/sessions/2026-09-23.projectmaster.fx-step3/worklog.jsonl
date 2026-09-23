@@ -6,3 +6,13 @@
 {"ts": "2026-09-23T09:56:36Z", "event": "task_done", "task_id": "T-PH001-06", "summary": "fileRowInteraction 11/12 + 의도된 AC-7 가드 1, tsc 0, 스위트 실패는 REL-BGSTAB-012 + AC-7 가드뿐"}
 {"ts": "2026-09-23T10:05:45Z", "event": "task_done", "task_id": "T-PH001-07", "summary": "트리 컨트롤러·훅 14 case red(경합 7 포함), 틀린 스텁 9종 표적 단언에서만 실패"}
 {"ts": "2026-09-23T10:14:02Z", "event": "task_done", "task_id": "T-PH001-08", "summary": "컨트롤러·훅 14/14 green, 전체 1310/1312(예상 실패 2), tsc 둘 다 0. 리뷰 MEDIUM 2·LOW 3 수정"}
+{"ts": "2026-09-23T10:22:45Z", "event": "task_done", "task_id": "T-PH002-01", "summary": "창 결정 3 case red(이름별), 틀린 스텁 3종"}
+{"ts": "2026-09-23T10:25:36Z", "event": "task_done", "task_id": "T-PH002-02", "summary": "창 결정 3/3 green, 전체 1313/1315(예상 2), tsc 0"}
+{"ts": "2026-09-23T10:39:30Z", "event": "task_done", "task_id": "T-PH002-03", "summary": "탭·저장·스크롤 앵커 15 case red(이름별), 틀린 스텁 13종(실패한 복원이 저장, 폴백 스크롤이 저장, 편집기 키 오염 등) 각 포착"}
+{"ts": "2026-09-23T10:45:44Z", "event": "task_done", "task_id": "T-PH002-04", "summary": "탭·저장·앵커 15/15 green, windowStateStorage 8/8 유지(추가 141줄·편집기 변경 0, CRLF 유지), 전체 1328/1330(예상 2), tsc 0"}
+{"ts": "2026-09-23T12:38:39Z", "event": "task_done", "task_id": "T-PH002-05", "summary": "진입점 메뉴 4 case red(의도 단언), 스텁 3종(구분선 없음·맨 아래·탭 id 고정) 포착. 재개 후 완료"}
+{"ts": "2026-09-23T12:41:59Z", "event": "task_done", "task_id": "T-PH002-06", "summary": "진입점 메뉴 green 21/21, 전체 1333/1335(예상 2), tsc 0. CRLF 보존"}
+{"ts": "2026-09-23T13:12:13Z", "event": "task_done", "task_id": "T-PH002-07", "summary": "창·뷰·진입점 가드 21 red(+스캐너 자체 2 green). JSX 인식 렉서, 변이 35종 포착. Sonnet×4 CRITICAL 1·HIGH 7 반영"}
+{"ts": "2026-09-23T13:23:45Z", "event": "task_done", "task_id": "T-PH002-08", "summary": "CSS·표면 디자인 규칙 가드 12 red + 자체검사 1. 변이 37종 포착"}
+{"ts": "2026-09-23T13:40:43Z", "event": "task_done", "task_id": "T-PH002-09", "summary": "창·탭·경로·트리/목록 뷰·CSS·훅 구현. 가드 34/36(나머지 2 = T-PH002-10), 전체 1371/1367"}
+{"ts": "2026-09-23T13:53:05Z", "event": "task_done", "task_id": "T-PH002-10", "summary": "세 진입점 배선(App·Header·MosaicContainer·useEditorWindows.openDocument). wiring 23/23, 전체 1371/1369"}

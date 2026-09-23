@@ -81,6 +81,8 @@ interface MosaicContainerProps {
   onRequestMoveTab?: (tabId: string) => void;
   /** Forwarded to each tile's metadata row. @req FR-MDE-007 */
   onPathContextMenu?: (x: number, y: number, tabId: string) => void;
+  /** Opens the file explorer for a tile's tab. @req FR-FEX-010 */
+  onOpenFileExplorer?: (tabId: string) => void;
 }
 
 function buildMissingTerminalClipboardResult(): TerminalClipboardActionResult {
@@ -119,6 +121,7 @@ export function MosaicContainer({
   onLayoutChange,
   onRequestMoveTab,
   onPathContextMenu,
+  onOpenFileExplorer,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
   const currentTabIdsKey = currentTabIds.join(',');
@@ -724,6 +727,8 @@ export function MosaicContainer({
             onRequestMoveTab?.(tabId);
           },
         },
+        // For the right-clicked tile, which in grid mode is often not the active one.
+        onOpenFileExplorer: onOpenFileExplorer ? () => onOpenFileExplorer(tabId) : undefined,
         registeredPresetMenu: {
           presets: registeredPresetSnapshot,
           onSelectPreset: (preset) => handleRegisteredPresetPaste(tabId, preset),
@@ -741,6 +746,7 @@ export function MosaicContainer({
       hasTerminalSelection,
       isTerminalMouseTracking,
       onRequestMoveTab,
+      onOpenFileExplorer,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,
     ],

@@ -1,0 +1,323 @@
+/* The file explorer window — CON-ARCH-001.
+ *
+ * Colours, radii and the row height come from tokens.css only. The window sits
+ * on the default chrome surface, so it names no surface and carries no branch
+ * on one. Stacking is the dialog stack's (the WindowDialog 3000 band); nothing
+ * here sets a layer.
+ */
+
+.fx-window {
+  --fx-mono: ui-monospace, 'Cascadia Mono', Consolas, 'D2Coding', 'SF Mono', monospace;
+  background: var(--bg-surface);
+  color: var(--fg);
+}
+
+.fx-window-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fx-window-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-size: 13px;
+  background: var(--bg-surface);
+  color: var(--fg);
+}
+
+/* Tab strip */
+
+.fx-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding: 4px 6px 0;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.fx-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 10px;
+  height: 28px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+}
+
+.fx-tab:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.fx-tab[aria-selected="true"] {
+  background: var(--bg-surface);
+  color: var(--fg-strong);
+  border-color: var(--line);
+}
+
+.fx-tab-close,
+.fx-tab-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font: inherit;
+}
+
+.fx-tab-add {
+  align-self: center;
+  margin-left: 2px;
+}
+
+.fx-tab-close:hover,
+.fx-tab-add:hover {
+  background: var(--bg-hover);
+  color: var(--fg-strong);
+}
+
+/* Panels: one per tab, all mounted, only the active one shown. */
+
+.fx-tab-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.fx-tab-panel.fx-inactive {
+  display: none;
+}
+
+/* Path bar */
+
+.fx-pathbar-wrap {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-surface);
+}
+
+.fx-pathbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+}
+
+.fx-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--fx-mono);
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.fx-bar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font: inherit;
+}
+
+.fx-bar-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg-strong);
+}
+
+.fx-bar-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.fx-pathbar-error {
+  padding: 4px 10px 6px;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* Scroll area and rows */
+
+.fx-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0;
+  background: var(--bg-surface);
+  user-select: none;
+}
+
+.fx-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--row-h);
+  padding-right: 10px;
+  color: var(--fg);
+  white-space: nowrap;
+  cursor: default;
+  border-left: 2px solid transparent;
+}
+
+.fx-row:hover {
+  background: var(--bg-hover);
+}
+
+.fx-row[aria-selected="true"] {
+  background: var(--bg-active);
+  border-left-color: var(--sel-bar);
+  color: var(--fg-strong);
+}
+
+.fx-up-row {
+  padding-left: 4px;
+  color: var(--fg-muted);
+}
+
+.fx-expander {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--fg-faint);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.fx-expander.fx-open {
+  transform: rotate(90deg);
+}
+
+.fx-expander.fx-leaf {
+  visibility: hidden;
+}
+
+.fx-icon {
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+}
+
+.fx-dir .fx-icon {
+  color: var(--accent);
+}
+
+.fx-name {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fx-meta {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.fx-error-text {
+  color: var(--danger);
+}
+
+/* Files the editor cannot open, and entries on the clipboard to be moved. */
+.fx-row.unopenable .fx-name,
+.fx-row.unopenable .fx-icon {
+  opacity: 0.45;
+}
+
+.fx-row.cut {
+  opacity: 0.45;
+}
+
+/* List mode */
+
+.fx-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fx-list-header {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px 0 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-surface);
+}
+
+.fx-list-head {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-faint);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fx-list-head:hover {
+  color: var(--fg-strong);
+}
+
+.fx-list-row {
+  padding-left: 6px;
+}
+
+.fx-col-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fx-col-modified {
+  flex: 0 0 150px;
+  margin-left: 0;
+  padding-left: 8px;
+}
+
+.fx-col-size {
+  flex: 0 0 72px;
+  margin-left: 0;
+  padding-left: 8px;
+  text-align: right;
+}

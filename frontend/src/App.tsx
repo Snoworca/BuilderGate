@@ -34,6 +34,8 @@ import { EDITOR_WINDOW_BOUNDS_SELECTOR } from './components/editor/editorWindowB
 import { EditorWindow } from './components/editor/EditorWindow';
 import { createTabSessionLookup } from './components/editor/editorWindowRecord';
 import { useEditorWindows } from './hooks/useEditorWindows';
+import { useFileExplorerWindows } from './hooks/useFileExplorerWindows';
+import { FileExplorerWindow } from './components/fileExplorer/FileExplorerWindow';
 import { useWindowState } from './hooks/useWindowState';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
@@ -476,6 +478,26 @@ function AppContent() {
   );
   const resolveTabSession = useMemo(() => createTabSessionLookup(wm.tabs), [wm.tabs]);
 
+  // One explorer window per workspace. Every entry point (session path menu,
+  // both terminal menus, header button) goes through openTabFileExplorer, so
+  // they all make the same open-or-raise decision.
+  // @req FR-FEX-010
+  const explorer = useFileExplorerWindows({
+    workspaces: wm.workspaces,
+    tabs: wm.tabs,
+    resolveTabSession,
+    screen,
+    activeWorkspaceId: wm.activeWorkspaceId,
+  });
+  // The workspace is the tab's own rather than the active one: a terminal menu
+  // can be opened on a tab while another workspace's tab strip is not in view,
+  // and the window belongs with the tab it was opened from.
+  const openTabFileExplorer = useCallback((tabId: string) => {
+    const workspaceId = wm.tabs.find(tab => tab.id === tabId)?.workspaceId;
+    if (workspaceId === undefined) return;
+    explorer.openFileExplorer({ workspaceId, originTabId: tabId });
+  }, [explorer.openFileExplorer, wm.tabs]);
+
   const tabContextMenuItems = useMemo(() => {
     if (!tabContextMenu.targetId) return [];
     const targetTab = wm.activeWorkspaceTabs.find(t => t.id === tabContextMenu.targetId);
@@ -506,6 +528,7 @@ function AppContent() {
           handleRequestWorkspaceMove(targetTab.id);
         },
       },
+      onOpenFileExplorer: () => openTabFileExplorer(targetTab.id),
       registeredPresetMenu: {
         presets: registeredPresetSnapshot,
         onSelectPreset: (preset) => handleRegisteredPresetPaste(tabContextMenu.targetId!, preset),
@@ -519,6 +542,7 @@ function AppContent() {
     handleCloseTab,
     closeTabContextMenu,
     handleRequestWorkspaceMove,
+    openTabFileExplorer,
     registeredPresetSnapshot,
     handleRegisteredPresetPaste,
     copyTerminalSelection,
@@ -596,6 +620,7 @@ function AppContent() {
     resolveTabSession,
     activeWorkspaceTabIds,
     windowState,
+    onOpenFileExplorer: openTabFileExplorer,
   });
 
   const sidebarContent = (
@@ -634,6 +659,7 @@ function AppContent() {
         hasEditorWindows={editor.hasWindows}
         editorTrayItems={editor.trayItems}
         editorTrayOpenCount={editor.openCount}
+        onOpenFileExplorer={activeTab ? () => openTabFileExplorer(activeTab.id) : undefined}
       />
       <div className="main">
         {/* Desktop sidebar */}
@@ -702,6 +728,7 @@ function AppContent() {
                       onLayoutChange={handleLayoutChange}
                       onRequestMoveTab={handleRequestWorkspaceMove}
                       onPathContextMenu={editor.openPathMenu}
+                      onOpenFileExplorer={openTabFileExplorer}
                     />
                   ) : null}
 
@@ -800,6 +827,19 @@ function AppContent() {
                       />
                     )}
                   />
+                  {/* Beside the editor layer for the same reason: a workspace
+                      with no tabs keeps its explorer window mounted. */}
+                  {explorer.windows.map(explorerWindow => (
+                    <FileExplorerWindow
+                      key={explorerWindow.workspaceId}
+                      workspaceId={explorerWindow.workspaceId}
+                      tabs={explorerWindow.tabs}
+                      activeTabId={explorerWindow.activeTabId}
+                      hidden={explorerWindow.hidden}
+                      actions={explorer}
+                      onOpenFile={editor.openDocument}
+                    />
+                  ))}
                 </TerminalRuntimeProvider>
               </>
             ) : (

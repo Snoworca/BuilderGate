@@ -64,6 +64,7 @@ import {
 import {
   buildEditorFileMenuItems,
   isMissingFileError,
+  resolveEditorFilePath,
   selectEditorPathMenuTab,
   type EditorFileMenuSelection,
 } from '../utils/editorFileMenu.ts';
@@ -258,6 +259,12 @@ export interface UseEditorWindowsInput {
    * @req FR-MDE-009
    */
   windowState: UseWindowStateResult;
+  /**
+   * Opens the file explorer for a tab. Given to the session path menu, which
+   * leaves the explorer entry out when this is absent.
+   * @req FR-FEX-010
+   */
+  onOpenFileExplorer?: (tabId: string) => void;
 }
 
 export interface UseEditorWindowsResult {
@@ -297,6 +304,14 @@ export interface UseEditorWindowsResult {
   minimizeWindow: () => void;
   toggleMaximizeWindow: () => void;
   writeFile: (sessionId: string, path: string, content: string) => Promise<{ success: boolean }>;
+  /**
+   * Opens an absolute path in the editor for `tabId`, or brings the document
+   * forward when it is already open. The same decision the path menu makes, so
+   * a file reached through the explorer and through the menu is one window.
+   * Keeps its identity while documents open and close.
+   * @req FR-FEX-003
+   */
+  openDocument: (filePath: string, tabId: string) => void;
 }
 
 /**
@@ -314,6 +329,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     resolveTabSession,
     activeWorkspaceTabIds,
     windowState,
+    onOpenFileExplorer,
   } = input;
   const { restoreWindows, saveWindows } = windowState;
 
@@ -597,8 +613,38 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       tabId: targetTab.id,
       openWindows: documents,
       onSelect: handleSelect,
+      onOpenFileExplorer,
     });
-  }, [documents, handleSelect, pathMenu, tabs]);
+  }, [documents, handleSelect, onOpenFileExplorer, pathMenu, tabs]);
+
+  // Read through documentsRef rather than closed over, so the function keeps
+  // its identity while documents come and go: the explorer's memoized panels
+  // take it as a prop and would otherwise re-render on every open and close.
+  // The path is split and re-joined through resolveEditorFilePath so that its
+  // separators are unified exactly as the path menu's are; otherwise a path
+  // with mixed separators would miss the open document and open a second
+  // window onto the same file. The path style is read from its prefix, as
+  // everywhere else: a backslash is a legal character in a POSIX file name, and
+  // treating it as a separator would rewrite the path sent to the server. A
+  // POSIX directory holding a backslash is passed through untouched for the
+  // same reason.
+  // @req FR-FEX-003
+  const openDocument = useCallback((filePath: string, tabId: string) => {
+    const windowsStyle = /^[A-Za-z]:/.test(filePath) || filePath.startsWith('\\');
+    const cut = windowsStyle
+      ? Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
+      : filePath.lastIndexOf('/');
+    const dir = filePath.slice(0, cut + 1);
+    const key = cut < 0 || (!windowsStyle && dir.includes('\\'))
+      ? filePath
+      : resolveEditorFilePath(dir, filePath.slice(cut + 1));
+    const existing = documentsRef.current.find(document => document.filePath === key);
+    if (existing !== undefined) {
+      reviveByPath(key, existing.workspaceId);
+      return;
+    }
+    void openWindow(key, tabId);
+  }, [openWindow, reviveByPath]);
 
   // The names the rows read, attached here rather than looked up inside the
   // tray model: that model turns documents into rows and has no business
@@ -967,5 +1013,6 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     minimizeWindow,
     toggleMaximizeWindow,
     writeFile: fileApi.writeFile,
+    openDocument,
   };
 }

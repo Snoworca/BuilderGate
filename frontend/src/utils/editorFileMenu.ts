@@ -55,6 +55,12 @@ export interface EditorFileMenuOptions {
   tabId: string;
   openWindows: readonly OpenEditorWindow[];
   onSelect: (selection: EditorFileMenuSelection) => void;
+  /**
+   * Opens the file explorer for the right-clicked tab. Optional so a caller
+   * that has not been wired for the explorer still gets the three files alone.
+   * @req FR-FEX-010
+   */
+  onOpenFileExplorer?: (tabId: string) => void;
 }
 
 /**
@@ -150,7 +156,7 @@ export function selectEditorPathMenuTab<TTab extends { id: string; cwd: string }
  * @req FR-MDE-007
  */
 export function buildEditorFileMenuItems(options: EditorFileMenuOptions): ContextMenuItem[] {
-  return EDITOR_INSTRUCTION_FILES.map(fileName => ({
+  const fileItems: ContextMenuItem[] = EDITOR_INSTRUCTION_FILES.map(fileName => ({
     label: fileName,
     onClick: () => options.onSelect(decideEditorFileMenuSelection({
       cwd: options.cwd,
@@ -159,4 +165,18 @@ export function buildEditorFileMenuItems(options: EditorFileMenuOptions): Contex
       openWindows: options.openWindows,
     })),
   }));
+
+  const { onOpenFileExplorer } = options;
+  if (!onOpenFileExplorer) {
+    return fileItems;
+  }
+
+  // The explorer goes first because EDITOR_INSTRUCTION_FILES can grow, and an
+  // entry placed under it would drift down each time; the top stays put. It
+  // opens for the right-clicked tab, which in grid mode is often not the active one.
+  return [
+    { label: '파일 탐색기', onClick: () => onOpenFileExplorer(options.tabId) },
+    { separator: true },
+    ...fileItems,
+  ];
 }
