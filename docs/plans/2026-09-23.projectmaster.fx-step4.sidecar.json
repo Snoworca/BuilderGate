@@ -1,0 +1,5354 @@
+{
+ "schema_version": "1.1.0",
+ "plan_contract": "1.2.0",
+ "run_id": "2026-09-23.projectmaster.fx-step4",
+ "target": "file-explorer",
+ "plan_version": "0.1.0",
+ "generated_at": "2026-09-23T15:00:00Z",
+ "tool_versions": {
+  "speckiwi": "3.0.0",
+  "kiwi_planner": "0.6.0",
+  "validator": "0.6.0"
+ },
+ "tdd_policy": "strict",
+ "md_path": "docs/plans/2026-09-23.projectmaster.fx-step4.plan.md",
+ "md_sha256": "3a0381a40d30bbfd11451d22d12ba125f2c5557860853d1baa5326225712b1db",
+ "phases": [
+  {
+   "id": "PH-001",
+   "title": "창 범위 결정 모달",
+   "goal": "ConfirmPort·DecidePort 의 기본 구현을 창 안 확인 줄에서 탐색기 창 표면에만 겹치는 모달로 바꾼다. 전역 모달 대역에 등록하지 않는다.",
+   "depends_on": [],
+   "task_ids": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH001-03",
+    "T-PH001-04"
+   ]
+  },
+  {
+   "id": "PH-002",
+   "title": "최소화와 헤더 트레이",
+   "goal": "탐색기 창의 최소화·최대화 배치를 편집기와 같은 규칙으로 두고 헤더 트레이에 창당 한 줄로 되살리는 길을 낸다.",
+   "depends_on": [],
+   "task_ids": [
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH002-03",
+    "T-PH002-04"
+   ]
+  },
+  {
+   "id": "PH-003",
+   "title": "작업 저장소·진행 표시·응답 대기",
+   "goal": "파일 작업을 창이 아니라 앱 전역 저장소에 두고 창 안 진행 줄·하단 상태바·알림창 세 자리와 응답 대기 되살리기를 붙인다.",
+   "depends_on": [
+    "PH-001",
+    "PH-002"
+   ],
+   "task_ids": [
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-05"
+   ]
+  },
+  {
+   "id": "PH-004",
+   "title": "편집기 좌측 파일 트리 패널",
+   "goal": "편집기 창 본문 왼쪽에 트리 전용 패널을 두고 파일 조작·폭 조절·창 컨텍스트 메뉴를 붙이며, 단축키를 트리 패널 표면으로 가둔다.",
+   "depends_on": [
+    "PH-001",
+    "PH-003"
+   ],
+   "task_ids": [
+    "T-PH004-01",
+    "T-PH004-02",
+    "T-PH004-03",
+    "T-PH004-04",
+    "T-PH004-05"
+   ]
+  },
+  {
+   "id": "PH-005",
+   "title": "브라우저 스펙과 회귀",
+   "goal": "브라우저에서만 보이는 AC 의 Playwright 스펙을 type-check 로 남기고 전체 회귀·타입 검사로 증분을 닫는다.",
+   "depends_on": [
+    "PH-003",
+    "PH-004"
+   ],
+   "task_ids": [
+    "T-PH005-01",
+    "T-PH005-02"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "T-PH001-01",
+   "phase_id": "PH-001",
+   "title": "창 범위 모달 모델 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-007"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/unit/fileExplorerModalModel.test.ts"
+    }
+   ],
+   "action": "fileExplorerModalModel.ts 의 순수 판정을 node:test 로 단언한다. 입력은 fileExplorerPorts.ts 의 DecideDetail({kind, path, choices}) 이며 서버 choices 는 기본 conflict=[overwrite, rename, skip], error=[retry, skip] 이고 in-place·종류 불일치 충돌은 [rename, skip] 이다(server/src/services/fileJobs/fileJobRunner.ts FILE_JOB_CONFLICT_CHOICES 외). 모델은 받은 choices 만 선택지로 만든다. '취소' 는 서버 choice 가 아니라 작업 DELETE(fileJobClient.cancel) 로 가는 모달 쪽 선택지다. 모듈이 없으므로 모든 case 는 동적 import 에서 실패해야 한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerModalModel.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerModalModel.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerModalModel.test.ts"
+   },
+   "dod": [
+    "8 case 가 red 로 실패한다",
+    "실패 사유가 모듈 부재다",
+    "frontend/tsconfig.test.json files[] 에 tests/unit/fileExplorerModalModel.test.ts 를 추가했다"
+   ],
+   "rollback": "테스트 파일 삭제 + tsconfig.test.json 한 줄 되돌리기",
+   "estimated_effort": "S",
+   "covers_ac": [
+    "AC-2",
+    "AC-3",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-007-AC5-01",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "buildDecisionModal(kind='error') 선택지가 무시(skip)·재시도(retry)·취소(cancel) 순서다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC5-02",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "resolveDecisionAnswer: 'cancel' 은 {kind:'cancel-job'}, 그 밖은 {kind:'decide', choice, applyToAll} — 서버 choices 에 없는 선택지는 만들지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC6-01",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "buildDecisionModal(kind='conflict') 선택지가 덮어쓰기(overwrite)·이름 바꾸기(rename)·복사하지 않기(skip) 순서다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC7-01",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "두 결정 모달 모두 showApplyToAll=true 이고 라벨이 '더 이상 묻지 않기' 다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC8-01",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "buildDeleteConfirmModal 은 showApplyToAll=false — 묻지 않기 필드 자체가 없다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC3-01",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "decideWindowModalKey: Escape 는 결정 모달에서 cancel-job, 삭제 확인에서 'cancel'; 다른 키는 none",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC2-01",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "nextFocusIndex: 마지막에서 Tab 은 0, 0 에서 Shift+Tab 은 마지막, 표면 밖 포커스는 0 — 포커스가 모달 컨트롤 밖으로 나가지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC5-01",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "buildDeleteConfirmModal: 항목 1개는 이름을, 여럿은 개수를 묻고 버튼은 삭제·취소 둘이다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-01-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH001-01-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-007"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH001-02",
+   "phase_id": "PH-001",
+   "title": "fileExplorerModalModel 구현과 DecideAnswer 확장",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-007"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/components/fileExplorer/fileExplorerPorts.ts"
+    }
+   ],
+   "action": "새 모듈 frontend/src/components/fileExplorer/fileExplorerModalModel.ts — export: WindowModalModel{title, message, choices:[{id, label, danger?}], showApplyToAll, applyToAllLabel?}; buildDecisionModal(detail); buildDeleteConfirmModal(paths); resolveDecisionAnswer(choiceId, applyToAll) -> {kind:'decide', choice, applyToAll} | {kind:'cancel-job'}; decideWindowModalKey(model, key) -> 'cancel' | 'none'; nextFocusIndex(count, current, shift) (current=-1 은 표면 밖). fileExplorerPorts.ts 의 DecideAnswer 를 {kind:'decide'; choice; applyToAll} | {kind:'cancel-job'} 합집합으로 넓힌다 — 호출부(FileExplorerWindow.tsx answerDecision)는 T-PH001-04 가 맞춘다. 다른 모듈 값 import 는 '.ts' 접미사.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerModalModel.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerModalModel.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerModalModel.test.ts"
+   },
+   "dod": [
+    "T-PH001-01 의 8 case 전부 통과",
+    "선택지 라벨이 AC 문구와 같다: 무시·재시도·취소 / 덮어쓰기·이름 바꾸기·복사하지 않기",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "새 모듈 삭제 + fileExplorerPorts.ts 되돌리기",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH001-01"
+   ],
+   "covers_ac": [
+    "AC-2",
+    "AC-3",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-007-AC5-51",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "buildDecisionModal(kind='error') 선택지가 무시(skip)·재시도(retry)·취소(cancel) 순서다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC5-52",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "resolveDecisionAnswer: 'cancel' 은 {kind:'cancel-job'}, 그 밖은 {kind:'decide', choice, applyToAll} — 서버 choices 에 없는 선택지는 만들지 않는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC6-51",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "buildDecisionModal(kind='conflict') 선택지가 덮어쓰기(overwrite)·이름 바꾸기(rename)·복사하지 않기(skip) 순서다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC7-51",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "두 결정 모달 모두 showApplyToAll=true 이고 라벨이 '더 이상 묻지 않기' 다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC8-51",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "buildDeleteConfirmModal 은 showApplyToAll=false — 묻지 않기 필드 자체가 없다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC3-51",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "decideWindowModalKey: Escape 는 결정 모달에서 cancel-job, 삭제 확인에서 'cancel'; 다른 키는 none (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC2-51",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "nextFocusIndex: 마지막에서 Tab 은 0, 0 에서 Shift+Tab 은 마지막, 표면 밖 포커스는 0 — 포커스가 모달 컨트롤 밖으로 나가지 않는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC5-51",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerModalModel.test.ts",
+      "test_symbol": "buildDeleteConfirmModal: 항목 1개는 이름을, 여럿은 개수를 묻고 버튼은 삭제·취소 둘이다 (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-02-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH001-02-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-007"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH001-03",
+   "phase_id": "PH-001",
+   "title": "창 범위 모달 배선 소스 가드 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-007"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts"
+    }
+   ],
+   "action": "fileExplorerInteractionWiring.test.ts 의 스캐너(주석 제거 + 리터럴 공백화 뷰)를 복사해 쓴다(*.test.ts import 금지). 대상: FileExplorerWindowModal.tsx(신규 — 부재는 실패), FileExplorerWindow.tsx, FileExplorerConfirmBar.tsx, FileExplorer.css. 대상 파일 존재를 먼저 단언하고 빈 집합으로 통과하지 않는다. 결정 모듈 이름(nextFocusIndex·decideWindowModalKey·resolveDecisionAnswer·buildDecisionModal·buildDeleteConfirmModal)은 고정 매칭, 상태 setter·prop 이름은 모양 매칭.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts"
+   },
+   "dod": [
+    "10 case 가 red 로 실패한다",
+    "FileExplorerWindowModal.tsx 부재가 실패 사유로 드러난다",
+    "tsconfig.test.json files[] 에 추가"
+   ],
+   "rollback": "테스트 파일 삭제 + tsconfig.test.json 한 줄 되돌리기",
+   "estimated_effort": "M",
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-007-AC1-02",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "FileExplorerWindowModal.tsx 가 존재하고 createPortal 을 쓰지 않으며 FileExplorerWindow.tsx 가 그것을 fx-window-body 안에서 렌더한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC1-03",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "FileExplorer.css: .fx-window-modal 은 position:absolute + inset 0 (fixed 아님), .fx-window-body 는 position:relative — 창 바깥을 덮지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC4-01",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "모달 파일에 useDialogStack·registerDialogStackEntry·WindowDialog·mode=\"modal\"·document.body 형제 inert 가 없다 — 전역 모달 대역에 등록하지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC2-02",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "모달 onKeyDown 이 Tab 을 nextFocusIndex 로 돌리고 마운트 시 첫 컨트롤에 포커스한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC3-02",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "모달 onKeyDown 이 Escape 를 decideWindowModalKey 로 판정하고 stopPropagation 한다(창 단축키로 새지 않음)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC7-02",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "결정 분기가 applyToAll 체크박스를 렌더하고 그 값을 resolveDecisionAnswer 로 넘긴다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC8-02",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "삭제 확인 분기에는 checkbox 가 없다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC6-02",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "결정 분기의 버튼이 buildDecisionModal(detail).choices 를 map 해서만 만들어진다 — 선택지 라벨·id 하드코딩 없음(서버가 [rename, skip] 만 보내는 in-place 충돌도 그대로 따른다)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC5-03",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "answerDecision 이 cancel-job 답을 fileJobApi.cancel(jobId) 로, decide 답을 fileJobApi.decide 로 보낸다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC5-02",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "requestDelete 에 넘기는 ConfirmPort 가 창 범위 모달의 confirm 이고, FileExplorerConfirmBar 의 FileExplorerPrompt 에 'confirm-delete'·'decide' 종류가 더는 없다(승계)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-03-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH001-03-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-007"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH001-04",
+   "phase_id": "PH-001",
+   "title": "FileExplorerWindowModal 구현과 창에 배선",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-007"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/components/fileExplorer/FileExplorerWindow.tsx"
+    },
+    {
+     "path": "frontend/src/components/fileExplorer/FileExplorerConfirmBar.tsx"
+    },
+    {
+     "path": "frontend/src/components/fileExplorer/FileExplorer.css"
+    }
+   ],
+   "action": "신규 FileExplorerWindowModal.tsx: useFileExplorerWindowModal() 훅이 큐(기존 ConfirmBar 의 큐 의미 그대로 — 두 작업이 동시에 물어도 하나를 버리지 않는다)를 들고 confirm: ConfirmPort, decide: DecidePort 를 낸다. 컴포넌트는 fx-window-body 안의 absolute 오버레이(.fx-window-modal, 뒤 반투명 막 .fx-window-modal-scrim)로 그리고 role=\"alertdialog\" 를 쓰되 aria-modal 은 두지 않는다(페이지 전체를 막는 의미). Tab/Shift+Tab 은 nextFocusIndex, Escape 는 decideWindowModalKey. FileExplorerWindow.tsx: 탭 패널마다 있던 confirmBar.confirm/decide 를 창 한 곳의 모달 훅으로 올리고 패널에 prop 으로 내린다(한 창에 모달 하나). answerDecision: cancel-job → fileJobApi.cancel(route.jobId). FileExplorerConfirmBar.tsx 는 이름 입력(새 폴더)과 오류 줄만 남긴다. CSS 는 tokens.css 토큰만(fileExplorerDesignRules.test.ts 가 검사). T-PH003-08(fx-step3)이 만든 파일 위에 얹으므로 착수 전 그 Task 의 커밋 여부를 git log 로 확인한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerInteractionWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerDesignRules.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts"
+   },
+   "dod": [
+    "T-PH001-03 의 10 case 통과",
+    "fileExplorerInteractionWiring.test.ts 가 여전히 통과 — ConfirmBar 기대가 바뀌면 그 가드의 확인 줄 단언을 모달 기준으로 옮기고 약화하지 않는다",
+    "fileExplorerDesignRules.test.ts 통과",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "FileExplorerWindowModal.tsx 삭제 + 세 파일 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH001-03",
+    "T-PH001-02"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-007-AC1-52",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "FileExplorerWindowModal.tsx 가 존재하고 createPortal 을 쓰지 않으며 FileExplorerWindow.tsx 가 그것을 fx-window-body 안에서 렌더한다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC1-53",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "FileExplorer.css: .fx-window-modal 은 position:absolute + inset 0 (fixed 아님), .fx-window-body 는 position:relative — 창 바깥을 덮지 않는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC4-51",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "모달 파일에 useDialogStack·registerDialogStackEntry·WindowDialog·mode=\"modal\"·document.body 형제 inert 가 없다 — 전역 모달 대역에 등록하지 않는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC2-52",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "모달 onKeyDown 이 Tab 을 nextFocusIndex 로 돌리고 마운트 시 첫 컨트롤에 포커스한다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC3-52",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "모달 onKeyDown 이 Escape 를 decideWindowModalKey 로 판정하고 stopPropagation 한다(창 단축키로 새지 않음) (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC7-52",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "결정 분기가 applyToAll 체크박스를 렌더하고 그 값을 resolveDecisionAnswer 로 넘긴다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC8-52",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "삭제 확인 분기에는 checkbox 가 없다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC6-52",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "결정 분기의 버튼이 buildDecisionModal(detail).choices 를 map 해서만 만들어진다 — 선택지 라벨·id 하드코딩 없음(서버가 [rename, skip] 만 보내는 in-place 충돌도 그대로 따른다) (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC5-53",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "answerDecision 이 cancel-job 답을 fileJobApi.cancel(jobId) 로, decide 답을 fileJobApi.decide 로 보낸다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC5-52",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerWindowModalWiring.test.ts",
+      "test_symbol": "requestDelete 에 넘기는 ConfirmPort 가 창 범위 모달의 confirm 이고, FileExplorerConfirmBar 의 FileExplorerPrompt 에 'confirm-delete'·'decide' 종류가 더는 없다(승계) (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH001-04-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH001-04-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH001-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-007"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH002-01",
+   "phase_id": "PH-002",
+   "title": "탐색기 최소화·트레이·되살리기 판정 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-004"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/unit/fileExplorerTray.test.ts"
+    }
+   ],
+   "action": "fileExplorerTrayModel.ts 의 순수 판정을 단언한다. 배치 전이는 editorWindowVisibility.ts 의 minimizeEditorWindow/restoreEditorWindow 와 editorWindowPlacement.ts 의 toggleMaximize 를 재사용하는지까지 본다(같은 규칙이 두 벌이 되지 않게). fixture 레코드는 FileExplorerTabs + minimized + EditorWindowPlacementState 모양.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTray.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTray.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTray.test.ts"
+   },
+   "dod": [
+    "7 case 가 red 로 실패한다",
+    "tsconfig.test.json files[] 에 추가"
+   ],
+   "rollback": "테스트 파일 삭제 + tsconfig.test.json 한 줄 되돌리기",
+   "estimated_effort": "S",
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-004-AC1-01",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "minimizeFileExplorerRecord 는 minimized 만 세우고 tabs·activeTabId 는 같은 참조로 남긴다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC2-01",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "최소화 후 되살린 레코드가 minimized 를 뺀 모든 필드(탭 뿌리·모드·정렬·앵커·활성 탭)에서 원래와 같다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC3-01",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "listFileExplorerTrayEntries: 탭 3개인 창도 줄 1개, 워크스페이스 둘이면 줄 2개",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC3-02",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "hasHeaderTrayWindows(editorCount, explorerCount): 어느 한쪽만 있어도 true, 둘 다 0 이면 false",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC4-01",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "줄 라벨이 '파일 탐색기 — {워크스페이스 이름}', 이름이 없으면 '(이름 없음)'",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC5-01",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "decideReviveFileExplorer: 다른 워크스페이스면 switchWorkspaceId, 설정 화면이면 showWorkspaceScreen, raiseDialogId 는 file-explorer:{id}",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC6-01",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "toggleMaximize 로 stage 가 된 레코드를 최소화했다 되살려도 placement 가 stage 다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH002-01-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-004"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH002-02",
+   "phase_id": "PH-002",
+   "title": "fileExplorerTrayModel 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-004"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/components/editor/editorWindowVisibility.ts"
+    },
+    {
+     "path": "frontend/src/components/editor/editorTrayModel.ts"
+    }
+   ],
+   "action": "신규 frontend/src/components/fileExplorer/fileExplorerTrayModel.ts — export: FileExplorerWindowHiding = EditorWindowHidingState 재사용; minimizeFileExplorerRecord·restoreFileExplorerRecord(minimizeEditorWindow/restoreEditorWindow 위임); toggleFileExplorerMaximize(toggleMaximize 위임); listFileExplorerTrayEntries(windows, workspaceNameOf) -> [{workspaceId, label}]; hasHeaderTrayWindows(editorCount, explorerCount); decideReviveFileExplorer({workspaceId, activeWorkspaceId, screen}) -> {switchWorkspaceId: string|null, showWorkspaceScreen, raiseDialogId}. editorTrayModel.ts 의 MISSING_WORKSPACE_NAME 를 export 해 같은 표기를 쓴다(값 변경 없음). editorWindowVisibility.ts 는 읽기만 하며 수정이 필요하면 export 추가에 그친다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTray.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/editorTrayModel.test.ts",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTray.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTray.test.ts"
+   },
+   "dod": [
+    "T-PH002-01 의 7 case 통과",
+    "editorTrayModel.test.ts·editorWindowVisibility.test.ts 회귀 없음",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "새 모듈 삭제 + editorTrayModel.ts export 되돌리기",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH002-01"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-004-AC1-51",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "minimizeFileExplorerRecord 는 minimized 만 세우고 tabs·activeTabId 는 같은 참조로 남긴다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC2-51",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "최소화 후 되살린 레코드가 minimized 를 뺀 모든 필드(탭 뿌리·모드·정렬·앵커·활성 탭)에서 원래와 같다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC3-51",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "listFileExplorerTrayEntries: 탭 3개인 창도 줄 1개, 워크스페이스 둘이면 줄 2개 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC3-52",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "hasHeaderTrayWindows(editorCount, explorerCount): 어느 한쪽만 있어도 true, 둘 다 0 이면 false (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC4-51",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "줄 라벨이 '파일 탐색기 — {워크스페이스 이름}', 이름이 없으면 '(이름 없음)' (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC5-51",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "decideReviveFileExplorer: 다른 워크스페이스면 switchWorkspaceId, 설정 화면이면 showWorkspaceScreen, raiseDialogId 는 file-explorer:{id} (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC6-51",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerTray.test.ts",
+      "test_symbol": "toggleMaximize 로 stage 가 된 레코드를 최소화했다 되살려도 placement 가 stage 다 (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH002-02-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-004"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH002-03",
+   "phase_id": "PH-002",
+   "title": "최소화·트레이·최대화 배선 소스 가드 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-004"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts"
+    }
+   ],
+   "action": "대상: frontend/src/App.tsx, frontend/src/hooks/useFileExplorerWindows.ts, FileExplorerWindow.tsx. 스캐너는 fileExplorerWiring.test.ts 사본. 대상 존재 먼저 단언. 결정 모듈 이름(minimizeFileExplorerRecord·listFileExplorerTrayEntries·hasHeaderTrayWindows·decideReviveFileExplorer·toggleFileExplorerMaximize·raiseDialogById)은 고정 매칭.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerMinimizeWiring.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerMinimizeWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerMinimizeWiring.test.ts"
+   },
+   "dod": [
+    "5 case 가 red 로 실패한다",
+    "tsconfig.test.json files[] 에 추가"
+   ],
+   "rollback": "테스트 파일 삭제 + tsconfig.test.json 한 줄 되돌리기",
+   "estimated_effort": "S",
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-004-AC1-02",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "App.tsx 의 explorer.windows.map 이 minimized 로 거르지 않고 FileExplorerWindow 는 hidden prop 으로만 감춘다(조건부 언마운트 없음)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC2-02",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "useFileExplorerWindows 의 minimizeFileExplorer 가 minimizeFileExplorerRecord 를 거치고 tabs 를 새로 만들지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC3-03",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-3",
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "App.tsx 가 listFileExplorerTrayEntries 결과의 label 을 가공 없이 Header editorTrayItems 의 label 로 합치고 hasEditorWindows 를 hasHeaderTrayWindows 로 계산한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC5-02",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "useFileExplorerWindows.reviveFileExplorer 가 decideReviveFileExplorer 결과로 setActiveWorkspaceId·setScreen·raiseDialogById 를 부른다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC6-02",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "FileExplorerWindow 제목 표시줄에 최대화 IconToggleButton 이 있고 placement=stage 일 때 WindowDialog 에 측정한 stage rect 를 controlled rect 로 넘긴다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH002-03-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-004"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH002-04",
+   "phase_id": "PH-002",
+   "title": "탐색기 트레이 줄·되살리기·최대화 배선",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-004"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/hooks/useFileExplorerWindows.ts"
+    },
+    {
+     "path": "frontend/src/components/fileExplorer/FileExplorerWindow.tsx"
+    },
+    {
+     "path": "frontend/src/App.tsx"
+    },
+    {
+     "path": "frontend/src/components/editor/editorWindowRect.ts"
+    }
+   ],
+   "action": "useFileExplorerWindows: FileExplorerWindowRecord 에 EditorWindowPlacementState 필드를 더하고(새 창은 floating + 기본 rect — 편집기와 달리 탐색기는 stage 로 열리지 않는다), minimizeFileExplorer 를 minimizeFileExplorerRecord 로, 새 toggleMaximizeFileExplorer·reviveFileExplorer(workspaceId) 를 추가한다. 입력에 setActiveWorkspaceId·setScreen 을 받는다(App.tsx 의 wm.setActiveWorkspaceId·setScreen). openFileExplorer 의 raise 경로도 restoreFileExplorerRecord 로 바꾼다. FileExplorerWindow: IconToggleButton(최대화) 추가, placement=stage 면 editorWindowRect.ts 의 toStageRect 로 .terminal-workspace-stage(EDITOR_WINDOW_BOUNDS_SELECTOR) 측정값을 rect 로, 아니면 persistGeometry 그대로. App.tsx: editor.trayItems 뒤에 탐색기 줄을 붙인 배열(onClick → explorer.reviveFileExplorer)을 editorTrayItems 로, hasEditorWindows={hasHeaderTrayWindows(editor.openCount, explorer.windows.length)}. Header.tsx 는 바꾸지 않는다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerMinimizeWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerMinimizeWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerMinimizeWiring.test.ts"
+   },
+   "dod": [
+    "T-PH002-03 의 5 case 통과",
+    "fileExplorerWiring.test.ts 회귀 없음",
+    "Header.tsx diff 0",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "세 파일 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH002-03",
+    "T-PH002-02"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-004-AC1-52",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "App.tsx 의 explorer.windows.map 이 minimized 로 거르지 않고 FileExplorerWindow 는 hidden prop 으로만 감춘다(조건부 언마운트 없음) (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC2-52",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "useFileExplorerWindows 의 minimizeFileExplorer 가 minimizeFileExplorerRecord 를 거치고 tabs 를 새로 만들지 않는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC3-53",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-3",
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "App.tsx 가 listFileExplorerTrayEntries 결과의 label 을 가공 없이 Header editorTrayItems 의 label 로 합치고 hasEditorWindows 를 hasHeaderTrayWindows 로 계산한다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC5-52",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "useFileExplorerWindows.reviveFileExplorer 가 decideReviveFileExplorer 결과로 setActiveWorkspaceId·setScreen·raiseDialogById 를 부른다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC6-52",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerMinimizeWiring.test.ts",
+      "test_symbol": "FileExplorerWindow 제목 표시줄에 최대화 IconToggleButton 이 있고 placement=stage 일 때 WindowDialog 에 측정한 stage rect 를 controlled rect 로 넘긴다 (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH002-04-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH002-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-004"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-01",
+   "phase_id": "PH-003",
+   "title": "앱 전역 파일 작업 저장소 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/unit/fileJobStore.test.ts"
+    }
+   ],
+   "action": "fileJobStore.ts 의 순수 리듀서(fileJobStoreReducer)와 셀렉터를 단언한다. 이벤트 입력은 fileJobEvents.ts routeFileJobMessage 가 내는 FileJobRoute 와 GET /api/file-jobs 응답 원소({jobId, sourceSessionId, destSessionId, ..., pendingDecision})다. 액션: JOB_STARTED{jobId, sessionId, origin:{workspaceId, tabId}, operation}, PROGRESS, DECISION_REQUIRED, DECISION_ANSWERED, DONE, SYNC_LIST{jobs, workspaceOfSession}. 시각은 쓰지 않고 단조 증가 seq 로 최근을 판정한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobStore.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobStore.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobStore.test.ts"
+   },
+   "dod": [
+    "12 case 가 red 로 실패한다",
+    "tsconfig.test.json files[] 에 추가"
+   ],
+   "rollback": "테스트 파일 삭제 + tsconfig.test.json 한 줄 되돌리기",
+   "estimated_effort": "M",
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-008-AC1-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectWindowJobs(state, workspaceId) 는 origin.workspaceId 가 같은 작업만 돌려준다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC2-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectProgressRowView: 막대 비율(바이트)·작업 종류 라벨(복사/이동/삭제)·처리 항목 수/전체·취소할 jobId",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC3-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "창의 작업이 3개면 가장 최근(startedSeq) 것 하나와 moreCount=2",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC4-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectStatusBarView: 1개는 {kind:'single', fraction, currentFile(마지막 세그먼트)}, 2개 이상은 {kind:'multiple', count, spinner:true}",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC5-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "phase='scanning' 이면 세 뷰 모두 막대 대신 indeterminate(회전)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC6-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectPopoverRows: 작업마다 한 줄, 각 줄에 fraction 과 jobId",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC7-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "decidePopoverOutsideClose(inPopover, inStatusBar): 둘 다 밖일 때만 닫는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC8-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "빈 저장소: 상태바 {kind:'hidden'}, 진행 줄 null, 알림창 줄 []",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC9-01",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "저장소는 창 레코드를 모른다 — 창이 닫혀도 작업이 남고 상태바 뷰가 그것을 센다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC1-01",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "결정 대기 작업이 있으면 상태바 뷰에 awaiting={workspaceId, jobId} 와 라벨 '응답 대기 중'",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC1-02",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "origin 을 모르는 작업(GET 목록·새로고침으로 받은 것)의 결정은 sessionId→workspaceId 조회로 귀속한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC3-01",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectPendingDecisionsForWindow(workspaceId) 가 대기 결정을 돌려주고 decisionAnswered·done 이후에는 비운다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-01-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-008"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-01-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-009"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-02",
+   "phase_id": "PH-003",
+   "title": "fileJobStore 리듀서·셀렉터·외부 저장소 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/components/fileExplorer/fileJobEvents.ts"
+    },
+    {
+     "path": "frontend/src/components/fileExplorer/fileExplorerPorts.ts"
+    }
+   ],
+   "action": "신규 frontend/src/components/fileExplorer/fileJobStore.ts — fileJobStoreReducer, 셀렉터 selectWindowJobs·selectProgressRowView·selectStatusBarView·selectPopoverRows·selectPendingDecisionsForWindow·decidePopoverOutsideClose, 그리고 fileExplorerClipboard.ts 와 같은 모양의 모듈 단일 저장소(dispatchFileJob·getFileJobSnapshot·subscribeFileJobs — useSyncExternalStore 용). 작업 목록은 클립보드처럼 앱 전체에 하나다(design 9.3). fileJobEvents.ts 는 route 에 필요한 필드만 보탠다(done 의 outcome/errorCode 는 이미 msg 에 있다). fileExplorerPorts.ts 의 FileJobProgress 는 재사용한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobStore.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobClient.test.ts",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobStore.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobStore.test.ts"
+   },
+   "dod": [
+    "T-PH003-01 의 12 case 통과",
+    "fileJobClient.test.ts 회귀 없음",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "새 모듈 삭제 + 두 파일 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH003-01"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-008-AC1-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectWindowJobs(state, workspaceId) 는 origin.workspaceId 가 같은 작업만 돌려준다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC2-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectProgressRowView: 막대 비율(바이트)·작업 종류 라벨(복사/이동/삭제)·처리 항목 수/전체·취소할 jobId (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC3-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "창의 작업이 3개면 가장 최근(startedSeq) 것 하나와 moreCount=2 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC4-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectStatusBarView: 1개는 {kind:'single', fraction, currentFile(마지막 세그먼트)}, 2개 이상은 {kind:'multiple', count, spinner:true} (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC5-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "phase='scanning' 이면 세 뷰 모두 막대 대신 indeterminate(회전) (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC6-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectPopoverRows: 작업마다 한 줄, 각 줄에 fraction 과 jobId (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC7-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "decidePopoverOutsideClose(inPopover, inStatusBar): 둘 다 밖일 때만 닫는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC8-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "빈 저장소: 상태바 {kind:'hidden'}, 진행 줄 null, 알림창 줄 [] (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC9-51",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "저장소는 창 레코드를 모른다 — 창이 닫혀도 작업이 남고 상태바 뷰가 그것을 센다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC1-51",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "결정 대기 작업이 있으면 상태바 뷰에 awaiting={workspaceId, jobId} 와 라벨 '응답 대기 중' (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC1-52",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "origin 을 모르는 작업(GET 목록·새로고침으로 받은 것)의 결정은 sessionId→workspaceId 조회로 귀속한다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC3-51",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileJobStore.test.ts",
+      "test_symbol": "selectPendingDecisionsForWindow(workspaceId) 가 대기 결정을 돌려주고 decisionAnswered·done 이후에는 비운다 (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-02-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-008"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-02-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-009"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-03",
+   "phase_id": "PH-003",
+   "title": "진행 세 자리·응답 대기 배선 소스 가드 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/unit/fileJobProgressWiring.test.ts"
+    }
+   ],
+   "action": "대상: frontend/src/App.tsx, FileExplorerWindow.tsx, 신규 FileJobStatusBar.tsx·FileJobPopover.tsx·FileExplorerProgressRow.tsx·frontend/src/hooks/useFileJobStoreSync.ts(부재는 실패). 스캐너는 fileExplorerInteractionWiring.test.ts 사본. StatusBar/StatusBar.tsx(사장 코드)를 import 하지 않는 것도 단언한다(FR-FEX-008 trace negative).",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts"
+   },
+   "dod": [
+    "14 case 가 red 로 실패한다",
+    "tsconfig.test.json files[] 에 추가"
+   ],
+   "rollback": "테스트 파일 삭제 + tsconfig.test.json 한 줄 되돌리기",
+   "estimated_effort": "M",
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-008-AC4-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobStatusBar 가 App.tsx 에서 렌더되고 useSyncExternalStore(subscribeFileJobs) 로 selectStatusBarView 를 읽는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC6-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobPopover 의 줄 취소 버튼이 fileJobApi.cancel 을 부른다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC7-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobPopover 에 WindowDialog·useDialogStack·registerDialogStackEntry·Rnd 가 없고 document pointerdown 리스너가 decidePopoverOutsideClose 로 닫는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC8-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobStatusBar·FileExplorerProgressRow·FileJobPopover 가 뷰(줄)가 비면 null 을 반환한다(자리 없음)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC5-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobStatusBar·FileJobPopover 가 셀렉터의 indeterminate 플래그로 회전 요소와 막대 요소를 분기한다 — phase 를 무시한 막대 고정 렌더 없음",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC9-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "file-job WS 라우팅이 App 수준 useFileJobStoreSync(registerFileJobHandler) 에서 저장소로 가고 FileExplorerWindow 의 submit 이 JOB_STARTED 를 origin.workspaceId 와 함께 dispatch 한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC2-01",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-2",
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "상태바의 '응답 대기 중' 버튼(뷰의 awaiting 이 있을 때만 렌더) onClick 이 explorer.reviveFileExplorer 또는 openFileExplorer 로 그 워크스페이스 창을 연다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC2-02",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "useFileJobStoreSync 가 WS (재)연결 시 fileJobApi.list() 결과를 SYNC_LIST 로 넣는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC1-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileExplorerWindow 가 FileExplorerProgressRow 를 selectWindowJobs(workspaceId) 로 렌더한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC2-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "진행 줄 취소 버튼이 fileJobApi.cancel 을 부른다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC3-02",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "진행 줄의 '외 N개' 버튼이 알림창을 연다(저장소의 popover open 상태를 공유)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC5-03",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileExplorerProgressRow 가 indeterminate 플래그로 회전 요소와 막대 요소를 분기한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC3-02",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "창의 모달 큐가 selectPendingDecisionsForWindow(workspaceId) 에서 채워진다 — 창이 마운트되면 기다리던 결정이 뜬다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC4-01",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "응답 대기 경로의 결정도 FileExplorerWindowModal 로만 그리고 portal·dialog stack 을 쓰지 않는다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-03-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-008"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-03-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-009"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-04",
+   "phase_id": "PH-003",
+   "title": "하단 상태바·알림창·저장소 동기화 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/App.tsx"
+    },
+    {
+     "path": "frontend/src/contexts/WebSocketContext.tsx"
+    }
+   ],
+   "action": "신규 hooks/useFileJobStoreSync.ts: registerFileJobHandler 로 모든 file-job 메시지를 routeFileJobMessage → dispatchFileJob, 연결 상태가 connected 로 바뀔 때 fileJobApi.list() → SYNC_LIST(workspaceOfSession 은 wm.tabs 의 sessionId→workspaceId). 신규 FileJobStatusBar.tsx(App 하단, .main 아래; 뷰 hidden 이면 null; single=막대+파일 이름, multiple=개수+회전; scanning=회전; awaiting 버튼 → onRevive(workspaceId)) 와 FileJobPopover.tsx(우하단 absolute, 작업마다 막대+취소, 끌기·크기 조절 없음, 바깥 pointerdown 으로 닫힘, dialogStack 미등록). 스타일은 새 파일 frontend/src/components/fileExplorer/FileJobStatus.css 에 토큰만. App.tsx: useFileJobStoreSync 호출, <FileJobStatusBar onRevive={explorer.reviveFileExplorer} /> 배치. WebSocketContext.tsx 는 연결 상태 노출이 이미 있으면 읽기만 한다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-6]\\b"
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts"
+   },
+   "dod": [
+    "r33a 8 case(FR-FEX-008 AC-4/5/6/7/8/9, FR-FEX-009 AC-1/2) 통과 — 남은 실패는 T-PH003-05 의 6 case 뿐",
+    "StatusBar/StatusBar.tsx 를 import 하지 않는다",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "신규 파일 삭제 + App.tsx 되돌리기",
+   "estimated_effort": "L",
+   "depends_on_task": [
+    "T-PH003-03",
+    "T-PH003-02",
+    "T-PH002-04"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-008-AC4-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobStatusBar 가 App.tsx 에서 렌더되고 useSyncExternalStore(subscribeFileJobs) 로 selectStatusBarView 를 읽는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC6-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobPopover 의 줄 취소 버튼이 fileJobApi.cancel 을 부른다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC7-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobPopover 에 WindowDialog·useDialogStack·registerDialogStackEntry·Rnd 가 없고 document pointerdown 리스너가 decidePopoverOutsideClose 로 닫는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC8-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobStatusBar·FileExplorerProgressRow·FileJobPopover 가 뷰(줄)가 비면 null 을 반환한다(자리 없음) (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC5-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileJobStatusBar·FileJobPopover 가 셀렉터의 indeterminate 플래그로 회전 요소와 막대 요소를 분기한다 — phase 를 무시한 막대 고정 렌더 없음 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC9-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "file-job WS 라우팅이 App 수준 useFileJobStoreSync(registerFileJobHandler) 에서 저장소로 가고 FileExplorerWindow 의 submit 이 JOB_STARTED 를 origin.workspaceId 와 함께 dispatch 한다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC2-51",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-2",
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "상태바의 '응답 대기 중' 버튼(뷰의 awaiting 이 있을 때만 렌더) onClick 이 explorer.reviveFileExplorer 또는 openFileExplorer 로 그 워크스페이스 창을 연다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC2-52",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "useFileJobStoreSync 가 WS (재)연결 시 fileJobApi.list() 결과를 SYNC_LIST 로 넣는다 (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-04-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-008"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-04-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-009"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH003-05",
+   "phase_id": "PH-003",
+   "title": "창 안 진행 줄·저장소 기반 결정 큐 배선",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/components/fileExplorer/FileExplorerWindow.tsx"
+    },
+    {
+     "path": "frontend/src/components/fileExplorer/FileExplorer.css"
+    }
+   ],
+   "action": "신규 FileExplorerProgressRow.tsx: 창 하단(모바일 버튼 줄과 같은 자리 위)에 selectProgressRowView(selectWindowJobs(snapshot, workspaceId)) 가 null 이면 null, 아니면 막대(scanning 은 회전)·종류·'128 / 337'·취소 버튼·'외 N개' 버튼(→ 알림창 열기). FileExplorerWindow.tsx: 패널의 ownJobsRef/waitingDecisionsRef 를 저장소로 대체 — submit 은 JOB_STARTED(origin={workspaceId, tabId}) dispatch, 결정은 selectPendingDecisionsForWindow(workspaceId) 를 모달 큐에 공급하고 답한 뒤 DECISION_ANSWERED. invalidate(done) 처리는 패널에 남긴다(탭 트리 재조회는 패널 몫). 창이 닫혀도 저장소가 작업을 들고 있으므로 다시 열면 모달이 뜬다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerInteractionWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts"
+   },
+   "dod": [
+    "fileJobProgressWiring.test.ts 14 case 전부 통과",
+    "PH-001 모달 가드·fx-step3 배선 가드 회귀 없음",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "신규 파일 삭제 + 두 파일 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH001-04"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-008-AC1-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileExplorerWindow 가 FileExplorerProgressRow 를 selectWindowJobs(workspaceId) 로 렌더한다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC2-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "진행 줄 취소 버튼이 fileJobApi.cancel 을 부른다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC3-52",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "진행 줄의 '외 N개' 버튼이 알림창을 연다(저장소의 popover open 상태를 공유) (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC5-53",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "FileExplorerProgressRow 가 indeterminate 플래그로 회전 요소와 막대 요소를 분기한다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC3-52",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "창의 모달 큐가 selectPendingDecisionsForWindow(workspaceId) 에서 채워진다 — 창이 마운트되면 기다리던 결정이 뜬다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC4-51",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileJobProgressWiring.test.ts",
+      "test_symbol": "응답 대기 경로의 결정도 FileExplorerWindowModal 로만 그리고 portal·dialog stack 을 쓰지 않는다 (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH003-05-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-05"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-008"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH003-05-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH003-05"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-009"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH004-01",
+   "phase_id": "PH-004",
+   "title": "편집기 트리 패널 모델 테스트 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-005",
+    "FR-MDE-012"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    },
+    {
+     "path": "frontend/tests/unit/fileExplorerContextMenu.test.ts"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/unit/editorFileTreePane.test.ts"
+    },
+    {
+     "path": "frontend/tests/unit/fileExplorerContextMenu.test.ts"
+    }
+   ],
+   "action": "editorFileTreePaneModel.ts 의 순수 판정과 windowStateStorage.ts 의 새 저장 함수를 단언한다. 포커스 판정 fixture 는 contains(node) 만 가진 가짜 노드 트리(pane, document, titlebar). 컨텍스트 메뉴 case 는 기존 fileExplorerContextMenu.test.ts 에 추가한다 — 지금 editor-panel 에서 newtab 은 disabled 로 보이므로(fileExplorerContextMenu.ts isActionShown) 이 case 가 red 다. localStorage 는 테스트 안의 Map 기반 가짜로 주입.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePane.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerContextMenu.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail 1\\b"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePane.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePane.test.ts"
+   },
+   "dod": [
+    "editorFileTreePane.test.ts 10 case red",
+    "fileExplorerContextMenu.test.ts 의 새 case 1개만 red, 기존 case 는 통과",
+    "tsconfig.test.json files[] 에 editorFileTreePane.test.ts 추가"
+   ],
+   "rollback": "새 테스트 파일 삭제 + fileExplorerContextMenu.test.ts 추가분 되돌리기",
+   "estimated_effort": "M",
+   "covers_ac": [
+    "AC-2",
+    "AC-4",
+    "AC-5",
+    "AC-7",
+    "AC-8",
+    "AC-9",
+    "AC-10",
+    "AC-11",
+    "AC-12",
+    "AC-13"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-MDE-012-AC10-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-10"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "clampPaneDragWidth: 160 미만은 160, 창 폭 50% 초과는 50%; resetPaneWidth() = 212",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC11-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-11"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "renderPaneWidth(저장 400, 창 600)=300 이고 저장값은 400 그대로; 창 1000 이면 400 으로 돌아온다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC11-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-11"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "applyPaneDrag(시작폭, delta, 창폭) 이 상한에서 멈추고 그 값이 저장값이 된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC12-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-12"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "saveEditorTreePaneState 가 워크스페이스별 키에 {width, collapsed} 만 쓴다 — expandedPaths 를 넘겨도 버린다; 깨진 JSON 은 기본값",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC5-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "resolvePaneRoot: 같은 세션이면 사용자가 옮긴 뿌리 유지, 세션이 바뀌면 새 세션 cwd",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC2-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "isEditorWindowMenuTarget: 'tabbar-empty'·'titlebar-empty' 만 true, 'tab'·'document'·'titlebar-button' 은 false",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC4-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "buildEditorWindowContextMenu({paneOpen}) 는 두 상태 모두 '파일 트리' 항목을 내고 열려 있을 때만 checked",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC8-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerContextMenu.test.ts",
+      "test_symbol": "buildFileExplorerContextMenuItems(context='editor-panel') 에 '새 탭에서 열기' 가 없고 복사·잘라내기·붙여넣기·이름 바꾸기·삭제·새 폴더는 있다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC13-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-13"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "paneInitiallyCollapsed(isMobile=true) 는 true, collapseAfterOpen(isMobile) 은 모바일에서만 true",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC9-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "문서 영역에 포커스가 있을 때 Delete 는 decideFileExplorerShortcut 이 ignore 이고 createFileExplorerShortcutHandler 가 preventDefault 를 부르지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC7-01",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "decidePaneShortcutFocus({pane, document, active}): active 가 트리 패널 안일 때만 focusedInSurface=true, 문서 영역·창 제목줄은 false",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH004-01-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH004-01-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-MDE-012"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH004-02",
+   "phase_id": "PH-004",
+   "title": "editorFileTreePaneModel·패널 저장·메뉴 숨김 구현",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-005",
+    "FR-MDE-012"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/hooks/windowStateStorage.ts"
+    },
+    {
+     "path": "frontend/src/components/fileExplorer/fileExplorerContextMenu.ts",
+     "line_range": "115-119"
+    }
+   ],
+   "action": "신규 frontend/src/components/editor/editorFileTreePaneModel.ts — PANE_DEFAULT_WIDTH=212, PANE_MIN_WIDTH=160, PANE_MAX_RATIO=0.5; clampPaneDragWidth·renderPaneWidth·applyPaneDrag·resetPaneWidth·resolvePaneRoot·isEditorWindowMenuTarget·buildEditorWindowContextMenu·paneInitiallyCollapsed·collapseAfterOpen·decidePaneShortcutFocus. windowStateStorage.ts: getEditorTreePaneStorageKey(workspaceId)(prefix editor_tree_pane_, 편집기 창 레코드·탐색기 레코드와 키·스키마 버전 분리), saveEditorTreePaneState·readEditorTreePaneState({width, collapsed} 두 필드만 투영). fileExplorerContextMenu.ts isActionShown: context==='editor-panel' 이면 'newtab' 을 숨긴다(disabled 유지가 아니라 제거).",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePane.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerContextMenu.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/windowStateStorage.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePane.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePane.test.ts"
+   },
+   "dod": [
+    "T-PH004-01 의 11 case 통과",
+    "windowStateStorage.test.ts 회귀 없음 — 편집기 PersistedWindowState·탐색기 레코드 diff 0",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "새 모듈 삭제 + 두 파일 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH004-01"
+   ],
+   "covers_ac": [
+    "AC-2",
+    "AC-4",
+    "AC-5",
+    "AC-7",
+    "AC-8",
+    "AC-9",
+    "AC-10",
+    "AC-11",
+    "AC-12",
+    "AC-13"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-MDE-012-AC10-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-10"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "clampPaneDragWidth: 160 미만은 160, 창 폭 50% 초과는 50%; resetPaneWidth() = 212 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC11-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-11"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "renderPaneWidth(저장 400, 창 600)=300 이고 저장값은 400 그대로; 창 1000 이면 400 으로 돌아온다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC11-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-11"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "applyPaneDrag(시작폭, delta, 창폭) 이 상한에서 멈추고 그 값이 저장값이 된다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC12-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-12"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "saveEditorTreePaneState 가 워크스페이스별 키에 {width, collapsed} 만 쓴다 — expandedPaths 를 넘겨도 버린다; 깨진 JSON 은 기본값 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC5-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "resolvePaneRoot: 같은 세션이면 사용자가 옮긴 뿌리 유지, 세션이 바뀌면 새 세션 cwd (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC2-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "isEditorWindowMenuTarget: 'tabbar-empty'·'titlebar-empty' 만 true, 'tab'·'document'·'titlebar-button' 은 false (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC4-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "buildEditorWindowContextMenu({paneOpen}) 는 두 상태 모두 '파일 트리' 항목을 내고 열려 있을 때만 checked (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC8-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/fileExplorerContextMenu.test.ts",
+      "test_symbol": "buildFileExplorerContextMenuItems(context='editor-panel') 에 '새 탭에서 열기' 가 없고 복사·잘라내기·붙여넣기·이름 바꾸기·삭제·새 폴더는 있다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC13-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-13"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "paneInitiallyCollapsed(isMobile=true) 는 true, collapseAfterOpen(isMobile) 은 모바일에서만 true (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC9-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "문서 영역에 포커스가 있을 때 Delete 는 decideFileExplorerShortcut 이 ignore 이고 createFileExplorerShortcutHandler 가 preventDefault 를 부르지 않는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC7-51",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePane.test.ts",
+      "test_symbol": "decidePaneShortcutFocus({pane, document, active}): active 가 트리 패널 안일 때만 focusedInSurface=true, 문서 영역·창 제목줄은 false (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH004-02-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH004-02-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-MDE-012"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH004-03",
+   "phase_id": "PH-004",
+   "title": "편집기 트리 패널 배선 소스 가드 작성",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-005",
+    "FR-MDE-012"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/unit/editorFileTreePaneWiring.test.ts"
+    }
+   ],
+   "action": "대상: frontend/src/components/editor/EditorWindow.tsx, 신규 EditorFileTreePane.tsx, 신규 frontend/src/hooks/useFileTreeOperations.ts(부재는 실패), FileExplorerWindow.tsx. 스캐너는 fileExplorerWiring.test.ts 사본. EditorWindow.tsx:375-396 의 BODY_STYLE div 가 addition_site(FR-MDE-012 trace).",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts",
+     "expected_exit": 1,
+     "stdout_regex": "fail [1-9]"
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts"
+   },
+   "dod": [
+    "14 case 가 red 로 실패한다",
+    "tsconfig.test.json files[] 에 추가"
+   ],
+   "rollback": "테스트 파일 삭제 + tsconfig.test.json 한 줄 되돌리기",
+   "estimated_effort": "M",
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9",
+    "AC-10",
+    "AC-11",
+    "AC-12",
+    "AC-13"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "red",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-MDE-012-AC8-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "useFileTreeOperations 훅이 존재하고 FileExplorerTabPanel 과 EditorFileTreePane 이 둘 다 그것으로 메뉴·클립보드·붙여넣기·삭제·이름 바꾸기·새 폴더를 수행한다(경로 하나)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC1-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "EditorWindow 본문이 가로 배치이고 EditorFileTreePane 이 첫 자식, EditorTabBar 와 EditorDocumentPanel 들이 오른쪽 세로 래퍼 안에 있다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC2-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "onContextMenu 가 탭 막대 빈 곳과 제목 표시줄에만 붙고 isEditorWindowMenuTarget 을 거치며 EditorDocumentPanel 에는 없다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC3-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널 머리에 닫기 IconButton 이 있고 titlebarActions 에 패널 토글이 없다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC4-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "창 메뉴가 buildEditorWindowContextMenu({paneOpen}) 로 만들어진다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC5-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널 뿌리가 resolveTabSession(활성 탭) 과 그 세션 cwd 를 resolvePaneRoot 에 넣어 정해진다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC6-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널이 useFileTree(..., 'tree') 로 만들고 setMode·FileListView·모드 토글을 쓰지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC7-01",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널이 FileTreeView 를 쓰고 '..' 크롬의 goUp 을 연결한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC9-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "createFileExplorerShortcutHandler 의 keydown 이 패널 루트에만 붙고 EditorWindow 본문·EditorDocumentPanel 에는 파일 단축키 핸들러가 없다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC7-02",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널 핸들러의 focusedInSurface 가 decidePaneShortcutFocus(패널 루트) 로 계산된다 — 창 표면 contains 가 아니다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC10-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-10"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "6px 스플리터가 pointer 드래그에 applyPaneDrag, onDoubleClick 에 resetPaneWidth 를 쓴다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC11-03",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-11"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "saveEditorTreePaneState 호출이 드래그 종료·더블클릭 핸들러에만 있고 창 크기 변화(ResizeObserver/rect 변화) 경로에는 없으며 렌더 폭은 renderPaneWidth(저장값, 창폭) 이다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC12-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-12"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "폭·접힘이 saveEditorTreePaneState(workspaceId, ...) 로 저장되고 readEditorTreePaneState 로 복원된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC13-02",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-13"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "isMobile 이면 패널이 오버레이 클래스로 문서 위에 겹치고 파일을 연 뒤 collapseAfterOpen 으로 접힌다",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH004-03-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH004-03-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-03"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-MDE-012"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH004-04",
+   "phase_id": "PH-004",
+   "title": "useFileTreeOperations 추출 — 탐색기 탭 패널을 그 위로 옮김",
+   "type": "code",
+   "req_ids": [
+    "FR-MDE-012"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/components/fileExplorer/FileExplorerWindow.tsx"
+    }
+   ],
+   "action": "FileExplorerTabPanel 안의 파일 조작(commitRename·beginRename·createDirectoryIn·menuHandlers·runShortcut·jobClient submit)을 신규 frontend/src/hooks/useFileTreeOperations.ts 로 옮긴다. 입력: {sessionId, tree(treeRef), menu, context:'explorer-window'|'editor-panel', confirm, askName, showError, onOpenFile, onNewTab?, origin:{workspaceId, tabId}}. 출력: {menuHandlers, menuItems, runShortcut, rowRename}. 동작은 그대로 — fx-step3 가드와 PH-001·PH-003 가드가 통과한 채로 옮긴다(행동 변경 없는 이동).",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerInteractionWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts"
+   },
+   "dod": [
+    "TC-REQ-FR-MDE-012-AC8-52 의 탐색기 쪽 절반(FileExplorerTabPanel 이 훅 사용) 충족",
+    "fx-step3·PH-001·PH-003 배선 가드 회귀 없음 — 가드가 옮긴 이름을 FileExplorerWindow.tsx 에서 고정 매칭하면 대상 파일 목록에 훅을 더하고 단언은 약화하지 않는다",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "훅 파일 삭제 + FileExplorerWindow.tsx 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH004-03",
+    "T-PH004-02",
+    "T-PH003-05"
+   ],
+   "covers_ac": [
+    "AC-8"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-MDE-012-AC8-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-8"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "useFileTreeOperations 훅이 존재하고 FileExplorerTabPanel 과 EditorFileTreePane 이 둘 다 그것으로 메뉴·클립보드·붙여넣기·삭제·이름 바꾸기·새 폴더를 수행한다(경로 하나) (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH004-04-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-04"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-MDE-012"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH004-05",
+   "phase_id": "PH-004",
+   "title": "EditorFileTreePane 구현과 편집기 창 배선",
+   "type": "code",
+   "req_ids": [
+    "FR-FEX-005",
+    "FR-MDE-012"
+   ],
+   "files": [
+    {
+     "path": "frontend/src/components/editor/EditorWindow.tsx",
+     "line_range": "375-396"
+    },
+    {
+     "path": "frontend/src/components/editor/EditorWindow.css"
+    },
+    {
+     "path": "frontend/src/components/editor/EditorWindowLayer.tsx"
+    },
+    {
+     "path": "frontend/src/App.tsx"
+    }
+   ],
+   "action": "신규 EditorFileTreePane.tsx: 머리(뿌리 경로 + 닫기 X) · FileTreeView(useFileTree(sessionId, root, 'tree'), '..' → goUp) · useFileTreeOperations(context 'editor-panel', 새 탭 없음) · 패널 루트 keydown = createFileExplorerShortcutHandler(focusedInSurface=decidePaneShortcutFocus) · 삭제 확인/결정은 PH-001 FileExplorerWindowModal 을 편집기 창 본문 범위로 재사용 · 오른쪽 6px 스플리터(pointer 드래그 applyPaneDrag, 더블클릭 resetPaneWidth, 렌더 폭 renderPaneWidth) · 모바일은 오버레이 + 파일 연 뒤 접힘. EditorWindow.tsx: BODY_STYLE div 를 가로 배치로 감싸 패널을 왼쪽에 두고 탭 막대·문서 패널을 오른쪽 세로 래퍼로, 탭 막대 빈 곳·제목 표시줄 onContextMenu → isEditorWindowMenuTarget → ContextMenu(buildEditorWindowContextMenu). 새 prop: resolveTabCwd, onOpenFile(패널에서 연 파일을 이 창의 새 탭으로; editor.openDocument). EditorWindowLayer.tsx/App.tsx 가 그 prop 을 내린다. 스타일은 EditorWindow.css 에 토큰만(편집기 흰 종이 표면, data-surface).",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowSaveShortcut.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node --experimental-strip-types --test tests/unit/editorWindowClose.test.ts",
+     "expected_exit": 0
+    },
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts"
+   },
+   "dod": [
+    "editorFileTreePaneWiring.test.ts 14 case 전부 통과",
+    "편집기 저장 단축키·닫기 회귀 없음",
+    "tsc -p tsconfig.test.json 오류 0"
+   ],
+   "rollback": "EditorFileTreePane.tsx 삭제 + 네 파일 되돌리기",
+   "estimated_effort": "L",
+   "depends_on_task": [
+    "T-PH004-03",
+    "T-PH004-04"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-9",
+    "AC-10",
+    "AC-11",
+    "AC-12",
+    "AC-13"
+   ],
+   "tdd": {
+    "applicable": true,
+    "phase": "green",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-MDE-012-AC1-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "EditorWindow 본문이 가로 배치이고 EditorFileTreePane 이 첫 자식, EditorTabBar 와 EditorDocumentPanel 들이 오른쪽 세로 래퍼 안에 있다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC2-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "onContextMenu 가 탭 막대 빈 곳과 제목 표시줄에만 붙고 isEditorWindowMenuTarget 을 거치며 EditorDocumentPanel 에는 없다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC3-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널 머리에 닫기 IconButton 이 있고 titlebarActions 에 패널 토글이 없다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC4-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "창 메뉴가 buildEditorWindowContextMenu({paneOpen}) 로 만들어진다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC5-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널 뿌리가 resolveTabSession(활성 탭) 과 그 세션 cwd 를 resolvePaneRoot 에 넣어 정해진다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC6-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널이 useFileTree(..., 'tree') 로 만들고 setMode·FileListView·모드 토글을 쓰지 않는다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC7-51",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널이 FileTreeView 를 쓰고 '..' 크롬의 goUp 을 연결한다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC9-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "createFileExplorerShortcutHandler 의 keydown 이 패널 루트에만 붙고 EditorWindow 본문·EditorDocumentPanel 에는 파일 단축키 핸들러가 없다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC7-52",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "패널 핸들러의 focusedInSurface 가 decidePaneShortcutFocus(패널 루트) 로 계산된다 — 창 표면 contains 가 아니다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC10-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-10"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "6px 스플리터가 pointer 드래그에 applyPaneDrag, onDoubleClick 에 resetPaneWidth 를 쓴다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC11-53",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-11"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "saveEditorTreePaneState 호출이 드래그 종료·더블클릭 핸들러에만 있고 창 크기 변화(ResizeObserver/rect 변화) 경로에는 없으며 렌더 폭은 renderPaneWidth(저장값, 창폭) 이다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC12-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-12"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "폭·접힘이 saveEditorTreePaneState(workspaceId, ...) 로 저장되고 readEditorTreePaneState 로 복원된다 (green)",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC13-52",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-13"
+      ],
+      "test_file": "frontend/tests/unit/editorFileTreePaneWiring.test.ts",
+      "test_symbol": "isMobile 이면 패널이 오버레이 클래스로 문서 위에 겹치고 파일을 연 뒤 collapseAfterOpen 으로 접힌다 (green)",
+      "kind": "unit"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH004-05-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-05"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH004-05-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH004-05"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-MDE-012"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH005-01",
+   "phase_id": "PH-005",
+   "title": "브라우저 전용 AC 의 Playwright 스펙 작성 (실행은 보류)",
+   "type": "perf_test",
+   "req_ids": [
+    "FR-FEX-004",
+    "FR-FEX-005",
+    "FR-FEX-007",
+    "FR-FEX-008",
+    "FR-FEX-009",
+    "FR-MDE-012"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.e2e-ownership.json"
+    }
+   ],
+   "test_files": [
+    {
+     "path": "frontend/tests/e2e/file-explorer-step4.spec.ts"
+    }
+   ],
+   "action": "./workspaceOwnershipFixture 의 test/expect 와 createOwnedWorkspaceViaApi 로 소유 워크스페이스를 만들고 정리는 그 fixture 의 소유 ID 경로로만 한다(raw DELETE·prefix 삭제 금지). 로그인은 helpers.ts login, BUILDERGATE_PASSWORD 는 testPassword.ts requireTestPassword(). baseURL 은 https://localhost:2222 고정, 서버 기동 없음. 스크린샷은 .playwright-mcp/. 이름 충돌 fixture 는 소유 워크스페이스 cwd 아래 임시 디렉터리에서만 만든다.",
+   "acceptance_tests": [
+    {
+     "kind": "shell",
+     "cmd": "cd frontend && node_modules/.bin/tsc -p tsconfig.e2e-ownership.json --noEmit",
+     "expected_exit": 0
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node_modules/.bin/tsc -p tsconfig.e2e-ownership.json --noEmit",
+    "windows": "cd frontend && node_modules/.bin/tsc -p tsconfig.e2e-ownership.json --noEmit"
+   },
+   "dod": [
+    "spec 이 tsconfig.e2e-ownership.json files[] 에 등재되고 type-check 통과",
+    "실행은 BUILDERGATE_PASSWORD 확보 후로 보류 — 실행 전 pgrep -af 'playwright test' | grep -v pgrep 가 비어 있어야 한다",
+    "11 case 가 스펙에 이름으로 존재"
+   ],
+   "rollback": "spec 삭제 + tsconfig.e2e-ownership.json 한 줄 되돌리기",
+   "estimated_effort": "M",
+   "depends_on_task": [
+    "T-PH003-05",
+    "T-PH004-05",
+    "T-PH002-04"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-7",
+    "AC-9",
+    "AC-10"
+   ],
+   "tdd": {
+    "applicable": false,
+    "exempt_reason": "BUILDERGATE_PASSWORD 가 이 환경에 없어 https://localhost:2222 대상 실행이 불가능하다. red 를 관측할 수 없는 스펙이므로 type-check 만 통과 기준으로 두고 실행 증거는 비밀번호 확보 후 채운다.",
+    "phase": "n/a",
+    "test_cases": [
+     {
+      "id": "TC-REQ-FR-FEX-007-AC1-09",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "결정 모달의 bounding box 가 탐색기 창 표면 안에 있다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC2-09",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "Tab 을 반복해도 포커스가 모달 컨트롤 안에서만 돈다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-007-AC4-09",
+      "req_id": "FR-FEX-007",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "모달이 떠 있는 동안 터미널이 키 입력을 받는다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC2-09",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "최소화 → 트레이 줄 → 되살리기 후 펼친 디렉터리와 선택이 그대로다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-004-AC3-09",
+      "req_id": "FR-FEX-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "트레이에 '파일 탐색기 — {워크스페이스}' 줄이 창당 하나",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC4-09",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "큰 디렉터리 복사 중 하단 상태바에 막대와 파일 이름이 보이고 끝나면 자리를 비운다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-008-AC7-09",
+      "req_id": "FR-FEX-008",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "상태바를 누르면 알림창이 열리고 바깥 클릭으로 닫히며 dialog stack 에 항목이 없다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-009-AC2-09",
+      "req_id": "FR-FEX-009",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "이름 충돌을 기다리는 중 창을 닫으면 상태바에 '응답 대기 중' 이 뜨고 누르면 창이 모달과 함께 열린다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC9-09",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-9"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "CodeMirror 본문에서 누른 Delete 는 글자를 지우고 파일은 남는다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-MDE-012-AC10-09",
+      "req_id": "FR-MDE-012",
+      "ac_refs": [
+       "AC-10"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "스플리터를 창 폭 절반 너머로 끌면 절반에서 멈추고, 창을 줄였다 키우면 원래 폭으로 돌아온다",
+      "kind": "e2e"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-005-AC7-09",
+      "req_id": "FR-FEX-005",
+      "ac_refs": [
+       "AC-7"
+      ],
+      "test_file": "frontend/tests/e2e/file-explorer-step4.spec.ts",
+      "test_symbol": "편집기 본문에서 Ctrl+C 는 텍스트를 복사하고 탐색기 클립보드는 비어 있다(패널 붙여넣기 비활성)",
+      "kind": "e2e"
+     }
+    ],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH005-01-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-004"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-01-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-01-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-007"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-01-04",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-008"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-01-05",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-009"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-01-06",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-01"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-MDE-012"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  },
+  {
+   "id": "T-PH005-02",
+   "phase_id": "PH-005",
+   "title": "회귀·타입 검사·기존 CSS 비침습 확인",
+   "type": "review",
+   "req_ids": [
+    "FR-FEX-004",
+    "FR-FEX-005",
+    "FR-FEX-007",
+    "FR-FEX-008",
+    "FR-FEX-009",
+    "FR-MDE-012"
+   ],
+   "files": [
+    {
+     "path": "frontend/tsconfig.test.json"
+    }
+   ],
+   "action": "새 단위 테스트 8개 파일과 fx-step3 의 13개, editorTrayModel·editorWindow*·windowStateStorage·designTokens·dialogStack 을 돌리고 전체 단위 스위트를 기준선과 대조한다. 기준선은 착수 시점에 다시 잰다(상속한 실패 라벨은 그 HEAD 에서 원인을 재확인). tsc -b 와 tsconfig.test.json 둘 다 오류 0. 기존 .css 수정분의 색 리터럴 diff 줄 0(DR-08, --ignore-cr-at-eol). StatusBar/StatusBar.tsx·MdirPanel·useFileBrowser 를 새 코드가 import 하지 않는다.",
+   "acceptance_tests": [
+    {
+     "kind": "checklist",
+     "items": [
+      "cd frontend && node --experimental-strip-types --test tests/unit/*.test.ts 의 실패 목록이 착수 시점 기준선과 같다 — 새 실패 0",
+      "tsc -b 오류 0",
+      "tsc -p tsconfig.test.json --noEmit 오류 0",
+      "새 테스트 8개 파일이 tsconfig.test.json files[] 에 있다: fileExplorerModalModel.test.ts, fileExplorerWindowModalWiring.test.ts, fileExplorerTray.test.ts, fileExplorerMinimizeWiring.test.ts, fileJobStore.test.ts, fileJobProgressWiring.test.ts, editorFileTreePane.test.ts, editorFileTreePaneWiring.test.ts",
+      "git diff --ignore-cr-at-eol HEAD -- 'frontend/src/**/*.css' 의 기존 파일 +/- 줄 중 hex/rgb 리터럴 0 (DR-08)",
+      "StatusBar/StatusBar.tsx·MdirPanel·useFileBrowser 를 새 코드가 import 하지 않는다",
+      "전역 모달 대역 등록 0: 새 파일에 useDialogStack(…, 'modal')·WindowDialog mode=\"modal\" 없음"
+     ]
+    }
+   ],
+   "verification_cmd": {
+    "posix": "cd frontend && node --experimental-strip-types --test tests/unit/*.test.ts && node_modules/.bin/tsc -b && node_modules/.bin/tsc -p tsconfig.test.json --noEmit",
+    "windows": "cd frontend && node --experimental-strip-types --test tests/unit/*.test.ts && node_modules/.bin/tsc -b && node_modules/.bin/tsc -p tsconfig.test.json --noEmit"
+   },
+   "dod": [
+    "실패 목록이 기준선과 같다 — 새 실패 0",
+    "두 tsc 오류 0",
+    "DR-08 diff 줄 0",
+    "8개 새 테스트 파일 전부 실행됨: fileExplorerModalModel.test.ts, fileExplorerWindowModalWiring.test.ts, fileExplorerTray.test.ts, fileExplorerMinimizeWiring.test.ts, fileJobStore.test.ts, fileJobProgressWiring.test.ts, editorFileTreePane.test.ts, editorFileTreePaneWiring.test.ts"
+   ],
+   "rollback": "해당 없음 (확인 Task)",
+   "estimated_effort": "S",
+   "depends_on_task": [
+    "T-PH005-01"
+   ],
+   "covers_ac": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9",
+    "AC-10",
+    "AC-11",
+    "AC-12",
+    "AC-13"
+   ],
+   "tdd": {
+    "applicable": false,
+    "exempt_reason": "회귀와 diff 를 읽어 판정하는 검토 Task 다. 자체 테스트를 새로 쓰지 않는다.",
+    "phase": "n/a",
+    "test_cases": [],
+    "red_evidence": null,
+    "green_evidence": null
+   },
+   "trace_links": [
+    {
+     "link_id": "TL-T-PH005-02-01",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-004"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-02-02",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-005"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-02-03",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-007"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-02-04",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-008"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-02-05",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-FEX-009"
+     },
+     "relation": "depends_on"
+    },
+    {
+     "link_id": "TL-T-PH005-02-06",
+     "source": {
+      "type": "Task",
+      "id": "T-PH005-02"
+     },
+     "target": {
+      "type": "Requirement",
+      "reference": "FR-MDE-012"
+     },
+     "relation": "depends_on"
+    }
+   ]
+  }
+ ],
+ "coverage": [
+  {
+   "req_id": "FR-FEX-007",
+   "stability": "evolving",
+   "ac_total": 8,
+   "ac_covered": 8,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH005-01",
+    "T-PH005-02"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-007-AC1-02",
+      "TC-REQ-FR-FEX-007-AC1-03",
+      "TC-REQ-FR-FEX-007-AC1-52",
+      "TC-REQ-FR-FEX-007-AC1-53",
+      "TC-REQ-FR-FEX-007-AC1-09"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-007-AC2-01",
+      "TC-REQ-FR-FEX-007-AC2-51",
+      "TC-REQ-FR-FEX-007-AC2-02",
+      "TC-REQ-FR-FEX-007-AC2-52",
+      "TC-REQ-FR-FEX-007-AC2-09"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-007-AC3-01",
+      "TC-REQ-FR-FEX-007-AC3-51",
+      "TC-REQ-FR-FEX-007-AC3-02",
+      "TC-REQ-FR-FEX-007-AC3-52"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-007-AC4-01",
+      "TC-REQ-FR-FEX-007-AC4-51",
+      "TC-REQ-FR-FEX-007-AC4-09"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-007-AC5-01",
+      "TC-REQ-FR-FEX-007-AC5-02",
+      "TC-REQ-FR-FEX-007-AC5-51",
+      "TC-REQ-FR-FEX-007-AC5-52",
+      "TC-REQ-FR-FEX-007-AC5-03",
+      "TC-REQ-FR-FEX-007-AC5-53"
+     ]
+    },
+    {
+     "ac_id": "AC-6",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-007-AC6-01",
+      "TC-REQ-FR-FEX-007-AC6-51",
+      "TC-REQ-FR-FEX-007-AC6-02",
+      "TC-REQ-FR-FEX-007-AC6-52"
+     ]
+    },
+    {
+     "ac_id": "AC-7",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-007-AC7-01",
+      "TC-REQ-FR-FEX-007-AC7-51",
+      "TC-REQ-FR-FEX-007-AC7-02",
+      "TC-REQ-FR-FEX-007-AC7-52"
+     ]
+    },
+    {
+     "ac_id": "AC-8",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-007-AC8-01",
+      "TC-REQ-FR-FEX-007-AC8-51",
+      "TC-REQ-FR-FEX-007-AC8-02",
+      "TC-REQ-FR-FEX-007-AC8-52"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "FR-FEX-005",
+   "stability": "evolving",
+   "ac_total": 8,
+   "ac_covered": 2,
+   "missing_ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-6",
+    "AC-8"
+   ],
+   "covered_tasks": [
+    "T-PH001-01",
+    "T-PH001-02",
+    "T-PH001-03",
+    "T-PH001-04",
+    "T-PH004-01",
+    "T-PH004-02",
+    "T-PH004-03",
+    "T-PH004-05",
+    "T-PH005-01",
+    "T-PH005-02"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": []
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": []
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": []
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": []
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-005-AC5-01",
+      "TC-REQ-FR-FEX-005-AC5-51",
+      "TC-REQ-FR-FEX-005-AC5-02",
+      "TC-REQ-FR-FEX-005-AC5-52"
+     ]
+    },
+    {
+     "ac_id": "AC-6",
+     "test_case_ids": []
+    },
+    {
+     "ac_id": "AC-7",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-005-AC7-01",
+      "TC-REQ-FR-FEX-005-AC7-51",
+      "TC-REQ-FR-FEX-005-AC7-02",
+      "TC-REQ-FR-FEX-005-AC7-52",
+      "TC-REQ-FR-FEX-005-AC7-09"
+     ]
+    },
+    {
+     "ac_id": "AC-8",
+     "test_case_ids": []
+    }
+   ]
+  },
+  {
+   "req_id": "FR-FEX-004",
+   "stability": "evolving",
+   "ac_total": 6,
+   "ac_covered": 6,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH002-01",
+    "T-PH002-02",
+    "T-PH002-03",
+    "T-PH002-04",
+    "T-PH005-01",
+    "T-PH005-02"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-004-AC1-01",
+      "TC-REQ-FR-FEX-004-AC1-51",
+      "TC-REQ-FR-FEX-004-AC1-02",
+      "TC-REQ-FR-FEX-004-AC1-52"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-004-AC2-01",
+      "TC-REQ-FR-FEX-004-AC2-51",
+      "TC-REQ-FR-FEX-004-AC2-02",
+      "TC-REQ-FR-FEX-004-AC2-52",
+      "TC-REQ-FR-FEX-004-AC2-09"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-004-AC3-01",
+      "TC-REQ-FR-FEX-004-AC3-02",
+      "TC-REQ-FR-FEX-004-AC3-51",
+      "TC-REQ-FR-FEX-004-AC3-52",
+      "TC-REQ-FR-FEX-004-AC3-03",
+      "TC-REQ-FR-FEX-004-AC3-53",
+      "TC-REQ-FR-FEX-004-AC3-09"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-004-AC4-01",
+      "TC-REQ-FR-FEX-004-AC4-51",
+      "TC-REQ-FR-FEX-004-AC3-03",
+      "TC-REQ-FR-FEX-004-AC3-53"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-004-AC5-01",
+      "TC-REQ-FR-FEX-004-AC5-51",
+      "TC-REQ-FR-FEX-004-AC5-02",
+      "TC-REQ-FR-FEX-004-AC5-52"
+     ]
+    },
+    {
+     "ac_id": "AC-6",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-004-AC6-01",
+      "TC-REQ-FR-FEX-004-AC6-51",
+      "TC-REQ-FR-FEX-004-AC6-02",
+      "TC-REQ-FR-FEX-004-AC6-52"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "FR-FEX-008",
+   "stability": "evolving",
+   "ac_total": 9,
+   "ac_covered": 9,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-05",
+    "T-PH005-01",
+    "T-PH005-02"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC1-01",
+      "TC-REQ-FR-FEX-008-AC1-51",
+      "TC-REQ-FR-FEX-008-AC1-02",
+      "TC-REQ-FR-FEX-008-AC1-52"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC2-01",
+      "TC-REQ-FR-FEX-008-AC2-51",
+      "TC-REQ-FR-FEX-008-AC2-02",
+      "TC-REQ-FR-FEX-008-AC2-52"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC3-01",
+      "TC-REQ-FR-FEX-008-AC3-51",
+      "TC-REQ-FR-FEX-008-AC3-02",
+      "TC-REQ-FR-FEX-008-AC3-52"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC4-01",
+      "TC-REQ-FR-FEX-008-AC4-51",
+      "TC-REQ-FR-FEX-008-AC4-02",
+      "TC-REQ-FR-FEX-008-AC4-52",
+      "TC-REQ-FR-FEX-008-AC4-09"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC5-01",
+      "TC-REQ-FR-FEX-008-AC5-51",
+      "TC-REQ-FR-FEX-008-AC5-02",
+      "TC-REQ-FR-FEX-008-AC5-03",
+      "TC-REQ-FR-FEX-008-AC5-52",
+      "TC-REQ-FR-FEX-008-AC5-53"
+     ]
+    },
+    {
+     "ac_id": "AC-6",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC6-01",
+      "TC-REQ-FR-FEX-008-AC6-51",
+      "TC-REQ-FR-FEX-008-AC6-02",
+      "TC-REQ-FR-FEX-008-AC6-52"
+     ]
+    },
+    {
+     "ac_id": "AC-7",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC7-01",
+      "TC-REQ-FR-FEX-008-AC7-51",
+      "TC-REQ-FR-FEX-008-AC7-02",
+      "TC-REQ-FR-FEX-008-AC7-52",
+      "TC-REQ-FR-FEX-008-AC7-09"
+     ]
+    },
+    {
+     "ac_id": "AC-8",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC8-01",
+      "TC-REQ-FR-FEX-008-AC8-51",
+      "TC-REQ-FR-FEX-008-AC8-02",
+      "TC-REQ-FR-FEX-008-AC8-52"
+     ]
+    },
+    {
+     "ac_id": "AC-9",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-008-AC9-01",
+      "TC-REQ-FR-FEX-008-AC9-51",
+      "TC-REQ-FR-FEX-008-AC9-02",
+      "TC-REQ-FR-FEX-008-AC9-52"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "FR-FEX-009",
+   "stability": "evolving",
+   "ac_total": 4,
+   "ac_covered": 4,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH003-03",
+    "T-PH003-04",
+    "T-PH003-05",
+    "T-PH005-01",
+    "T-PH005-02"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-009-AC1-01",
+      "TC-REQ-FR-FEX-009-AC1-02",
+      "TC-REQ-FR-FEX-009-AC1-51",
+      "TC-REQ-FR-FEX-009-AC1-52",
+      "TC-REQ-FR-FEX-009-AC2-01",
+      "TC-REQ-FR-FEX-009-AC2-51"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-009-AC2-01",
+      "TC-REQ-FR-FEX-009-AC2-02",
+      "TC-REQ-FR-FEX-009-AC2-51",
+      "TC-REQ-FR-FEX-009-AC2-52",
+      "TC-REQ-FR-FEX-009-AC2-09"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-009-AC3-01",
+      "TC-REQ-FR-FEX-009-AC3-51",
+      "TC-REQ-FR-FEX-009-AC3-02",
+      "TC-REQ-FR-FEX-009-AC3-52"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-FEX-009-AC4-01",
+      "TC-REQ-FR-FEX-009-AC4-51"
+     ]
+    }
+   ]
+  },
+  {
+   "req_id": "FR-MDE-012",
+   "stability": "evolving",
+   "ac_total": 13,
+   "ac_covered": 13,
+   "missing_ac_ids": [],
+   "covered_tasks": [
+    "T-PH004-01",
+    "T-PH004-02",
+    "T-PH004-03",
+    "T-PH004-04",
+    "T-PH004-05",
+    "T-PH005-01",
+    "T-PH005-02"
+   ],
+   "ac_test_map": [
+    {
+     "ac_id": "AC-1",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC1-01",
+      "TC-REQ-FR-MDE-012-AC1-51"
+     ]
+    },
+    {
+     "ac_id": "AC-2",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC2-01",
+      "TC-REQ-FR-MDE-012-AC2-51",
+      "TC-REQ-FR-MDE-012-AC2-02",
+      "TC-REQ-FR-MDE-012-AC2-52"
+     ]
+    },
+    {
+     "ac_id": "AC-3",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC3-01",
+      "TC-REQ-FR-MDE-012-AC3-51"
+     ]
+    },
+    {
+     "ac_id": "AC-4",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC4-01",
+      "TC-REQ-FR-MDE-012-AC4-51",
+      "TC-REQ-FR-MDE-012-AC4-02",
+      "TC-REQ-FR-MDE-012-AC4-52"
+     ]
+    },
+    {
+     "ac_id": "AC-5",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC5-01",
+      "TC-REQ-FR-MDE-012-AC5-51",
+      "TC-REQ-FR-MDE-012-AC5-02",
+      "TC-REQ-FR-MDE-012-AC5-52"
+     ]
+    },
+    {
+     "ac_id": "AC-6",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC6-01",
+      "TC-REQ-FR-MDE-012-AC6-51"
+     ]
+    },
+    {
+     "ac_id": "AC-7",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC7-01",
+      "TC-REQ-FR-MDE-012-AC7-51"
+     ]
+    },
+    {
+     "ac_id": "AC-8",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC8-01",
+      "TC-REQ-FR-MDE-012-AC8-51",
+      "TC-REQ-FR-MDE-012-AC8-02",
+      "TC-REQ-FR-MDE-012-AC8-52"
+     ]
+    },
+    {
+     "ac_id": "AC-9",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC9-01",
+      "TC-REQ-FR-MDE-012-AC9-51",
+      "TC-REQ-FR-MDE-012-AC9-02",
+      "TC-REQ-FR-MDE-012-AC9-52",
+      "TC-REQ-FR-MDE-012-AC9-09"
+     ]
+    },
+    {
+     "ac_id": "AC-10",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC10-01",
+      "TC-REQ-FR-MDE-012-AC10-51",
+      "TC-REQ-FR-MDE-012-AC10-02",
+      "TC-REQ-FR-MDE-012-AC10-52",
+      "TC-REQ-FR-MDE-012-AC10-09"
+     ]
+    },
+    {
+     "ac_id": "AC-11",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC11-01",
+      "TC-REQ-FR-MDE-012-AC11-02",
+      "TC-REQ-FR-MDE-012-AC11-51",
+      "TC-REQ-FR-MDE-012-AC11-52",
+      "TC-REQ-FR-MDE-012-AC11-03",
+      "TC-REQ-FR-MDE-012-AC11-53"
+     ]
+    },
+    {
+     "ac_id": "AC-12",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC12-01",
+      "TC-REQ-FR-MDE-012-AC12-51",
+      "TC-REQ-FR-MDE-012-AC12-02",
+      "TC-REQ-FR-MDE-012-AC12-52"
+     ]
+    },
+    {
+     "ac_id": "AC-13",
+     "test_case_ids": [
+      "TC-REQ-FR-MDE-012-AC13-01",
+      "TC-REQ-FR-MDE-012-AC13-51",
+      "TC-REQ-FR-MDE-012-AC13-02",
+      "TC-REQ-FR-MDE-012-AC13-52"
+     ]
+    }
+   ]
+  }
+ ],
+ "orphans": [],
+ "unreferenced_reqs": [],
+ "excluded_reqs": [],
+ "deferred_ac": [
+  {
+   "req_id": "FR-FEX-005",
+   "ac_id": "AC-1",
+   "reason": "fx-step3 계획(VE-1, T-PH003-01~10)이 이미 소유한다. 이번 증분은 열린 AC-5·AC-7 만 닫는다.",
+   "user_decision_id": "planner-2026-09-23-fx-step4-owned-by-fx-step3"
+  },
+  {
+   "req_id": "FR-FEX-005",
+   "ac_id": "AC-2",
+   "reason": "fx-step3 계획(VE-1, T-PH003-01~10)이 이미 소유한다. 이번 증분은 열린 AC-5·AC-7 만 닫는다.",
+   "user_decision_id": "planner-2026-09-23-fx-step4-owned-by-fx-step3"
+  },
+  {
+   "req_id": "FR-FEX-005",
+   "ac_id": "AC-3",
+   "reason": "fx-step3 계획(VE-1, T-PH003-01~10)이 이미 소유한다. 이번 증분은 열린 AC-5·AC-7 만 닫는다.",
+   "user_decision_id": "planner-2026-09-23-fx-step4-owned-by-fx-step3"
+  },
+  {
+   "req_id": "FR-FEX-005",
+   "ac_id": "AC-4",
+   "reason": "fx-step3 계획(VE-1, T-PH003-01~10)이 이미 소유한다. 이번 증분은 열린 AC-5·AC-7 만 닫는다.",
+   "user_decision_id": "planner-2026-09-23-fx-step4-owned-by-fx-step3"
+  },
+  {
+   "req_id": "FR-FEX-005",
+   "ac_id": "AC-6",
+   "reason": "fx-step3 계획(VE-1, T-PH003-01~10)이 이미 소유한다. 이번 증분은 열린 AC-5·AC-7 만 닫는다.",
+   "user_decision_id": "planner-2026-09-23-fx-step4-owned-by-fx-step3"
+  },
+  {
+   "req_id": "FR-FEX-005",
+   "ac_id": "AC-8",
+   "reason": "fx-step3 계획(VE-1, T-PH003-01~10)이 이미 소유한다. 이번 증분은 열린 AC-5·AC-7 만 닫는다.",
+   "user_decision_id": "planner-2026-09-23-fx-step4-owned-by-fx-step3"
+  }
+ ],
+ "risks": [
+  {
+   "id": "R-01",
+   "severity": "high",
+   "description": "편집기 좌측 패널이 파일 단축키를 창 표면으로 잡으면 CodeMirror 에서 누른 Delete 가 파일을 지운다(design 6.2, 결정 16).",
+   "mitigation": "decidePaneShortcutFocus 를 단위로, 리스너가 패널 루트에만 붙는 것을 소스 가드로, 본문 Delete 가 글자를 지우는 것을 E2E 로 막는다. 삭제는 묻지 않기 없는 확인 모달을 한 번 더 거친다.",
+   "affected_task_ids": [
+    "T-PH004-01",
+    "T-PH004-02",
+    "T-PH004-03",
+    "T-PH004-05",
+    "T-PH005-01"
+   ]
+  },
+  {
+   "id": "R-02",
+   "severity": "med",
+   "description": "T-PH001-04 와 T-PH003-05 가 fx-step3 T-PH003-08(병행 진행 중)이 만드는 FileExplorerWindow.tsx·FileExplorerConfirmBar.tsx 위에 얹는다. 커밋 전 파일을 고치면 공유 워크트리 충돌.",
+   "mitigation": "착수 전 git log 로 T-PH003-08 커밋을 확인하고 그 파일을 마지막으로 만진 레인에 묻는다. 커밋 전이면 기다린다.",
+   "affected_task_ids": [
+    "T-PH001-04",
+    "T-PH003-05",
+    "T-PH004-04"
+   ]
+  },
+  {
+   "id": "R-03",
+   "severity": "med",
+   "description": "file-job 메시지는 broadcastWs(sessionId) 로 오므로 그 세션을 구독하지 않은 클라이언트의 저장소에는 진행·결정이 오지 않는다.",
+   "mitigation": "WS (재)연결 시 GET /api/file-jobs 로 SYNC_LIST 하고 서버가 대기 결정을 재전송한다(fileJobRoutes GET). 구독 밖 세션은 E2E 에서 관측한다.",
+   "affected_task_ids": [
+    "T-PH003-02",
+    "T-PH003-04"
+   ]
+  },
+  {
+   "id": "R-04",
+   "severity": "med",
+   "description": "결정 처리를 패널 ownJobsRef 에서 앱 저장소로 옮기면 같은 세션의 두 탭·두 창이 같은 결정을 두 번 물을 수 있다.",
+   "mitigation": "selectPendingDecisionsForWindow 는 origin.workspaceId 로 한 창에만 귀속하고 창 안에서는 모달 하나가 큐를 소비한다. DECISION_ANSWERED 가 그 항목을 지운다.",
+   "affected_task_ids": [
+    "T-PH003-01",
+    "T-PH003-02",
+    "T-PH003-05"
+   ]
+  },
+  {
+   "id": "R-05",
+   "severity": "low",
+   "description": "useFileTreeOperations 추출이 fx-step3 소스 가드의 고정 이름 매칭을 깰 수 있다.",
+   "mitigation": "T-PH004-04 는 행동 변경 없는 이동이고, 가드가 깨지면 대상 파일 목록에 훅을 더할 뿐 단언을 약화하지 않는다(DoD).",
+   "affected_task_ids": [
+    "T-PH004-04"
+   ]
+  },
+  {
+   "id": "R-06",
+   "severity": "low",
+   "description": "탐색기 창 최대화는 편집기처럼 레이어가 stage 를 측정하지 않으면 stage rect 가 없다.",
+   "mitigation": "EDITOR_WINDOW_BOUNDS_SELECTOR 측정 + toStageRect 를 재사용하고, 측정 불가면 persistGeometry rect 로 떨어진다.",
+   "affected_task_ids": [
+    "T-PH002-04"
+   ]
+  }
+ ],
+ "open_questions": [
+  {
+   "id": "OQ-01",
+   "question": "결정 모달의 Escape(AC-3 '그 질문을 취소') 를 작업 취소(DELETE)로 둘 것인가, 모달만 닫고 작업은 대기로 남길 것인가? 이번 계획은 작업 취소 — 모달만 닫으면 창 안에 물어볼 자리가 사라져 FR-FEX-009 의 상태바 경로로만 돌아올 수 있다.",
+   "blocks_task_ids": []
+  },
+  {
+   "id": "OQ-02",
+   "question": "'더 이상 묻지 않기' 는 서버 applyToAll(그 작업 안에서만, design 3.6)로 보낸다. 창·세션 범위로 기억하지 않는 것이 맞는가? 이번 계획은 작업 범위만.",
+   "blocks_task_ids": []
+  },
+  {
+   "id": "OQ-03",
+   "question": "E2E 전용 증거(T-PH005-01 의 11 case)는 BUILDERGATE_PASSWORD 확보 전까지 단위·소스 증거만 있다. 그 전에 SRS 를 verified 로 올리지 않는다 — 확보 시점은?",
+   "blocks_task_ids": [
+    "T-PH005-01"
+   ]
+  }
+ ],
+ "external_module_impact": [],
+ "tdd_decisions": [
+  {
+   "task_id": "T-PH005-01",
+   "decision": "accept-as-exempt",
+   "reason": "BUILDERGATE_PASSWORD 가 이 환경에 없어 https://localhost:2222 대상 실행이 불가능하다. red 를 관측할 수 없는 스펙이므로 type-check 만 통과 기준으로 두고 실행 증거는 비밀번호 확보 후 채운다.",
+   "user_decision_id": "planner-2026-09-23-fx-step4-no-password",
+   "decided_at": "2026-09-23T15:00:00Z"
+  },
+  {
+   "task_id": "T-PH005-02",
+   "decision": "accept-as-exempt",
+   "reason": "회귀와 diff 를 읽어 판정하는 검토 Task 다. 자체 테스트를 새로 쓰지 않는다.",
+   "user_decision_id": "planner-2026-09-23-fx-step4-review-task",
+   "decided_at": "2026-09-23T15:00:00Z"
+  }
+ ],
+ "coder_handoff_readiness": [
+  {
+   "phase_id": "PH-001",
+   "ready": false,
+   "blockers": [
+    "upstream_uncommitted:fx-step3:T-PH003-08"
+   ]
+  },
+  {
+   "phase_id": "PH-002",
+   "ready": true,
+   "blockers": []
+  },
+  {
+   "phase_id": "PH-003",
+   "ready": false,
+   "blockers": [
+    "phase_dependency:PH-001"
+   ]
+  },
+  {
+   "phase_id": "PH-004",
+   "ready": false,
+   "blockers": [
+    "phase_dependency:PH-001",
+    "phase_dependency:PH-003"
+   ]
+  },
+  {
+   "phase_id": "PH-005",
+   "ready": false,
+   "blockers": [
+    "phase_dependency:PH-003",
+    "phase_dependency:PH-004",
+    "env_missing:BUILDERGATE_PASSWORD"
+   ]
+  }
+ ],
+ "mcp_call_log": [
+  {
+   "seq": 1,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "f98ec8ecc67377f176d452c238658c49fd6e1e24",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 2,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-007"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "9c968ed40e6d12dbfe3accb427da0460d9c05cd9",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 3,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "92785cde7687def5e8915cd370037ad69bc75a38",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 4,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-007"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "afe208526f7e3577b5fff63704e971e4baf37ce2",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 5,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "d98cdc6f131b64a18a2dec7be9b5b4ee38f4795f",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 6,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-007"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "c3b598987b117fec6a560598a5757a7fba47a5f4",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 7,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "5411c018baf15fee22d164e955805424f9d39734",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 8,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH001-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-007"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "f5ddbf910f4d7f7a8cce2c84fa38ddcf0ddbd3f7",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 9,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "c16a64d301bccc0bfad2c7934a8ebdd60d250851",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 10,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "2f6010f98c3e9ed2ccc770c2b7aa829103e16c63",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 11,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "3b879d1d7b2bd3815788b90945d43afdfa2c9a76",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 12,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH002-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "e78e5323065454a4e610303debb40b9bc3c84d01",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 13,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-008"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "a3725d411d2c2ef391a30f9e963f85047a0c038f",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 14,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-009"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "051465bc287a4e2672f97abdbeea6f1aa8aac2f7",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 15,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-008"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "649b396400edd502aa9e569d1e47d5a3f8376dc0",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 16,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-009"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "57b953cb6c7aad03a1c2940afdc4f57d0709f7f3",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 17,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-008"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "abc9799891253aa927ecf285c0962f466ca24531",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 18,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-009"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "b660dcf1a7aab93817c98faddc32f5ac5df76a5c",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 19,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-008"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "37a63b20447086aef91dd22ad45ffdd82e168ff6",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 20,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-009"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "ff0e6d2a696710bdc605ec42bc6580e837f43608",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 21,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-05"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-008"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "66f10825373be59191455bcc0748ea92c1e3dc81",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 22,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH003-05"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-009"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "7215b867176abe4e0044dc3c24910dcead9c095d",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 23,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "d8b4c1c6ebc666ff3e4c291496d863160161d493",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 24,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-MDE-012"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "27a4ac86549ec4b96f28e86e3f52e8f453f1c635",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 25,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "2585602ad5f17cffe2895e243cf475eb09b68d2f",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 26,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-MDE-012"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "b1c0056d1c74fd1671a0554113bb9c782d9bb2ed",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 27,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "7f0e9c9234d7774ad4ea6f9ba3ea562b36881b2a",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 28,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-03"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-MDE-012"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "15ba12ee9c0c1e706a7848e1a15b9fc46ec2f722",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 29,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-04"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-MDE-012"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "4866f1f748b35f428cc85ff2b283a4d0e52cf580",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 30,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-05"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "88418a497e5ebcd295855716f61d30708a7b7b3e",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 31,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH004-05"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-MDE-012"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "5796e3a9059ccf140029aad5c70d77e51d7b60aa",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 32,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "b0e3cad3cb963b8116d56c547b12200e60dcd1f1",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 33,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "7953fbab0377c66ca2cc7548a996b252680d3974",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 34,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-007"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "b5217339af23fedfb8d20dfa49421754c4f81f2f",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 35,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-008"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "b9b707413b637b42fedc1624ba677b8fc5ee1e86",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 36,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-009"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "996ea17d8bf3181848f9cbb038cc581de59cfe36",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 37,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-01"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-MDE-012"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "6ae2215f4a539cb33e22108bb32744819e92f5a5",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 38,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-004"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "52d8de43f32a4c198c8fed03ac553b7684a570fe",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 39,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-005"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "ba96ee87f01beb1ba7bc874fedb34b1a1c33b0f4",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 40,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-007"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "d3fc43e8c7e0ae4b9ee3b1305ef389ab4f88f199",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 41,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-008"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "ebd9cc8b1440293d0c4b93fa97ded134ab0972ff",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 42,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-FEX-009"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "6623c61c3064250711d9e6586d9c15b6cf45cdfe",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 43,
+   "call": "add_trace_link",
+   "args": {
+    "source": {
+     "type": "Task",
+     "id": "T-PH005-02"
+    },
+    "target": {
+     "type": "Requirement",
+     "reference": "FR-MDE-012"
+    },
+    "relation": "depends_on"
+   },
+   "args_hash": "7702fd3d5faea11b728c7ced84d206b2b0aa40bb",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 44,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FEX-007",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step4.plan.md#T-PH001-01"
+   },
+   "args_hash": "6a983434cfbe48161373c0e998da5810e24b3c31",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 45,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FEX-005",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step4.plan.md#T-PH001-01"
+   },
+   "args_hash": "3b0e91b6635ab0014e182cf99b8c320a95c59df2",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 46,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FEX-004",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step4.plan.md#T-PH002-01"
+   },
+   "args_hash": "d0c59f9c9ce26b579a304cc2f1b72d29c7fe70d4",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 47,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FEX-008",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step4.plan.md#T-PH003-01"
+   },
+   "args_hash": "dd0ec3affde8ee5ae047b2aded6f568a31b60203",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 48,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-FEX-009",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step4.plan.md#T-PH003-01"
+   },
+   "args_hash": "9e1cd3339ebe2b2bbf4912913df128fcba382f75",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  },
+  {
+   "seq": 49,
+   "call": "add_verification_evidence",
+   "args": {
+    "id": "FR-MDE-012",
+    "type": "plan",
+    "reference": "docs/plans/2026-09-23.projectmaster.fx-step4.plan.md#T-PH004-01"
+   },
+   "args_hash": "e32ed22223ff65b792a6d75bf281a5b262895e62",
+   "response_hash": null,
+   "timestamp": "2026-09-23T15:00:00Z",
+   "ok": null,
+   "dry_run": true
+  }
+ ]
+}

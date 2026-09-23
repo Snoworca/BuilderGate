@@ -1,0 +1,15 @@
+{
+ "evaluator": "independent Sonnet subagent (round 1, input isolated: REQs + plan + sidecar + code)",
+ "pass": false,
+ "findings": [
+  {"severity": "CRITICAL", "axis": "A12", "ref": "FR-FEX-007 AC-6", "finding": "conflict choices proven only at model level", "resolution": "added TC-REQ-FR-FEX-007-AC6-02/-52 wiring guard (buttons map buildDecisionModal choices)"},
+  {"severity": "CRITICAL", "axis": "A12", "ref": "FR-FEX-008 AC-5", "finding": "scanning spinner proven only at selector level", "resolution": "added TC-REQ-FR-FEX-008-AC5-02/-52 (status bar, popover) and -AC5-03/-53 (progress row)"},
+  {"severity": "CRITICAL", "axis": "A12", "ref": "FR-MDE-012 AC-11", "finding": "resize must not persist width - no wiring check", "resolution": "added TC-REQ-FR-MDE-012-AC11-03/-53"},
+  {"severity": "HIGH", "axis": "A7", "ref": "PH-004", "finding": "T-PH004-04 depends on T-PH003-05 but PH-004 did not depend on PH-003", "resolution": "PH-004.depends_on = [PH-001, PH-003]"},
+  {"severity": "MEDIUM", "axis": "A12", "ref": "FR-FEX-004 AC-4", "finding": "label only model-level", "resolution": "TC-REQ-FR-FEX-004-AC3-03 ac_refs += AC-4"},
+  {"severity": "MEDIUM", "axis": "A12", "ref": "FR-FEX-009 AC-1", "finding": "tagged AC-2 only", "resolution": "TC-REQ-FR-FEX-009-AC2-01 ac_refs += AC-1"},
+  {"severity": "MEDIUM", "axis": "A12", "ref": "FR-FEX-008 AC-8", "finding": "popover missing from null-when-empty guard", "resolution": "FileJobPopover added to TC-REQ-FR-FEX-008-AC8-02"},
+  {"severity": "MEDIUM", "axis": "A8", "ref": "EditorWindow.tsx line range", "finding": "375-395 should be 375-396", "resolution": "corrected"}
+ ],
+ "post_fix": {"critical": 0, "high": 0, "validator_exit": 0}
+}

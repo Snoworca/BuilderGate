@@ -1,0 +1,92 @@
+[
+ {
+  "id": "FR-FEX-007",
+  "stability": "evolving",
+  "ac_total": 8,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6",
+   "AC-7",
+   "AC-8"
+  ]
+ },
+ {
+  "id": "FR-FEX-005",
+  "stability": "evolving",
+  "ac_total": 8,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6",
+   "AC-7",
+   "AC-8"
+  ]
+ },
+ {
+  "id": "FR-FEX-004",
+  "stability": "evolving",
+  "ac_total": 6,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6"
+  ]
+ },
+ {
+  "id": "FR-FEX-008",
+  "stability": "evolving",
+  "ac_total": 9,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6",
+   "AC-7",
+   "AC-8",
+   "AC-9"
+  ]
+ },
+ {
+  "id": "FR-FEX-009",
+  "stability": "evolving",
+  "ac_total": 4,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4"
+  ]
+ },
+ {
+  "id": "FR-MDE-012",
+  "stability": "evolving",
+  "ac_total": 13,
+  "ac_ids": [
+   "AC-1",
+   "AC-2",
+   "AC-3",
+   "AC-4",
+   "AC-5",
+   "AC-6",
+   "AC-7",
+   "AC-8",
+   "AC-9",
+   "AC-10",
+   "AC-11",
+   "AC-12",
+   "AC-13"
+  ]
+ }
+]

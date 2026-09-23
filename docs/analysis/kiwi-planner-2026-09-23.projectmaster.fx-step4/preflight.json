@@ -1,0 +1,13 @@
+{
+ "mcp": "not-used (repo issue #100: MCP mutation tools resolve root from server cwd; reads done via CLI)",
+ "cli": "npx speckiwi show --root . --json (read-only)",
+ "halted": false,
+ "target": "file-explorer",
+ "req_filter": ["FR-FEX-004", "FR-FEX-005", "FR-FEX-007", "FR-FEX-008", "FR-FEX-009", "FR-MDE-012"],
+ "stability": {"evolving": 6, "draft": 0, "deprecated": 0},
+ "excluded_reqs": [],
+ "draft_policy": "exclude-draft",
+ "tdd_policy": "strict",
+ "srs_mutations": 0,
+ "mcp_call_log_mode": "dry_run entries only, written to docs/plans/"
+}
