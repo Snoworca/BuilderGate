@@ -40,6 +40,9 @@ const T = {
   confirmBar: `${FX}FileExplorerConfirmBar.tsx`,
   css: `${FX}FileExplorer.css`,
   windowsHook: 'hooks/useFileExplorerWindows.ts',
+  // The explorer tab panel's file operations — menu, rename, new-tab entry —
+  // moved here so the editor's tree pane shares them (FR-MDE-012 AC-8).
+  opsHook: 'hooks/useFileTreeOperations.ts',
   tokens: 'styles/tokens.css',
 } as const;
 
@@ -558,6 +561,39 @@ function follow(files: readonly Lexed[], src: Lexed, spans: readonly Span[]): Lo
   return out;
 }
 
+/** The value of `key` in the object literal at `args`: `key: value` or the shorthand `key`. */
+function propertyValueOf(src: Lexed, args: Span, key: string): Span | null {
+  const text = src.bare.slice(args.start, args.end);
+  const m = new RegExp(`(?:^|[{,\\s])${key}\\s*(:|,|\\})`).exec(text);
+  if (m === null) return null;
+  const keyEnd = args.start + m.index + m[0].length - 1;
+  if (m[1] !== ':') return { start: keyEnd - key.length, end: keyEnd };
+  let k = keyEnd + 1;
+  while (/\s/.test(src.bare[k])) k += 1;
+  return readExpression(src.bare, k);
+}
+
+/**
+ * `follow`, plus one hop through useFileTreeOperations: an `onX(` called inside
+ * the hook is the `onX` its callers pass in `useFileTreeOperations({ onX: … })`,
+ * just as a view's `onX(` is the window's `onX={…}`.
+ */
+function followThroughOps(files: readonly Lexed[], src: Lexed, spans: readonly Span[]): Located[] {
+  const out = follow(files, src, spans);
+  if (src.path !== `src/${T.opsHook}`) return out;
+  const text = spansText(src, [...spans]).bare;
+  const names = new Set([...text.matchAll(/\b(on[A-Z][\w$]*)\s*(?:\?\.\s*)?\(/g)].map(m => m[1]));
+  for (const name of names) {
+    for (const file of files) {
+      for (const call of callArgs(file, 'useFileTreeOperations')) {
+        const value = propertyValueOf(file, call, name);
+        if (value !== null) out.push(...expand(file, value).map(span => ({ src: file, span })));
+      }
+    }
+  }
+  return out;
+}
+
 function locatedText(located: readonly Located[], view: 'code' | 'bare'): string {
   return located.map(l => l.src[view].slice(l.span.start, l.span.end)).join('\n');
 }
@@ -657,23 +693,41 @@ test('TC-REQ-CON-FEX-001-AC3-02 DR-09: up 행 분기가 data-path·onContextMenu
 // ---------------------------------------------------------------------------
 
 test('TC-REQ-FR-FEX-006-AC9-01 메뉴 배선이 components/ContextMenu/ContextMenu 의 ContextMenu 와 hooks/useLongPress 를 import 해 쓰고 재구현하지 않는다', () => {
-  requireSources(EXPLORER_TSX);
+  requireSources([...EXPLORER_TSX, T.opsHook]);
   const files = explorerTsxAll().map(read);
 
+  // The menu's items come from buildFileExplorerContextMenuItems, directly or
+  // as useFileTreeOperations' menuItems — which the hook must build with it.
+  const ops = read(T.opsHook);
+  const opsBuildsMenu = importedFrom(ops, /^\.\.\/components\/fileExplorer\/fileExplorerContextMenu(?:\.ts)?$/).includes('buildFileExplorerContextMenuItems')
+    && refersTo(ops, 'menuItems', 'buildFileExplorerContextMenuItems')
+    && /\breturn\s*\{[^}]*\bmenuItems\b[^}]*\}/.test(ops.bare);
   const menuUsers = files.filter(f => importedFrom(f, /^\.\.\/ContextMenu(?:\/ContextMenu(?:\.tsx)?|\/index(?:\.ts)?)?$/).includes('ContextMenu'));
   assert.ok(menuUsers.length > 0, 'no explorer component imports ContextMenu from ../ContextMenu/ContextMenu');
   let rendered = 0;
   for (const f of menuUsers) {
+    let viaOps = false;
     for (const tag of openingTags(f, 'ContextMenu')) {
       rendered += 1;
       const items = attrValue(f, tag, 'items');
       assert.ok(items !== null, `${where(f, tag.start)}: <ContextMenu> has no items`);
-      assert.ok(refersTo(f, items.bare, 'buildFileExplorerContextMenuItems'),
-        `${where(f, tag.start)}: <ContextMenu items> must come from buildFileExplorerContextMenuItems`);
+      const direct = refersTo(f, items.bare, 'buildFileExplorerContextMenuItems');
+      const fromOps = /\.\s*menuItems\b/.test(items.bare) && refersTo(f, items.bare, 'useFileTreeOperations');
+      if (fromOps) {
+        viaOps = true;
+        assert.ok(opsBuildsMenu, `${ops.path}: menuItems must be built with buildFileExplorerContextMenuItems imported from ../components/fileExplorer/fileExplorerContextMenu and returned`);
+      }
+      assert.ok(direct || fromOps,
+        `${where(f, tag.start)}: <ContextMenu items> must come from buildFileExplorerContextMenuItems (directly or as useFileTreeOperations' menuItems)`);
     }
     if (openingTags(f, 'ContextMenu').length > 0) {
-      assert.ok(importedFrom(f, /^\.\/fileExplorerContextMenu(?:\.ts)?$/).includes('buildFileExplorerContextMenuItems'),
-        `${f.path} must import buildFileExplorerContextMenuItems from ./fileExplorerContextMenu`);
+      if (viaOps) {
+        assert.ok(importedFrom(f, /^\.\.\/\.\.\/hooks\/useFileTreeOperations(?:\.ts)?$/).includes('useFileTreeOperations'),
+          `${f.path} must import useFileTreeOperations from ../../hooks/useFileTreeOperations`);
+      } else {
+        assert.ok(importedFrom(f, /^\.\/fileExplorerContextMenu(?:\.ts)?$/).includes('buildFileExplorerContextMenuItems'),
+          `${f.path} must import buildFileExplorerContextMenuItems from ./fileExplorerContextMenu`);
+      }
     }
   }
   assert.ok(rendered > 0, 'ContextMenu is imported but never rendered');
@@ -701,13 +755,15 @@ test('TC-REQ-FR-FEX-006-AC9-01 메뉴 배선이 components/ContextMenu/ContextMe
 // ---------------------------------------------------------------------------
 
 test("TC-REQ-FR-FEX-003-AC4-02 탭 막대 더하기 버튼과 메뉴 '새 탭에서 열기' 가 모두 openInNewTab 을 부른다", () => {
-  requireSources([...EXPLORER_TSX, T.windowsHook]);
+  requireSources([...EXPLORER_TSX, T.windowsHook, T.opsHook]);
   const hook = read(T.windowsHook);
   const addTab = definitionOf(hook, 'addTab');
   assert.ok(addTab !== null, `${hook.path}: addTab is not defined`);
   assert.match(hook.bare.slice(addTab.start, addTab.end), /\bopenInNewTab\s*\(/, `${hook.path}: addTab must open the tab with openInNewTab`);
 
-  const files = explorerTsxAll().map(read);
+  // The menu is built in useFileTreeOperations; its '새 탭에서 열기' calls the
+  // onNewTab the panel hands it, followed one hop by followThroughOps.
+  const files = [...explorerTsxAll().map(read), read(T.opsHook)];
   const win = files.find(f => f.path === `src/${T.window}`)!;
   const onAdd = handlerBodies(win, 'onAdd');
   assert.equal(onAdd.length, 1, `${win.path}: expected one onAdd on the tab bar`);
@@ -735,7 +791,7 @@ test("TC-REQ-FR-FEX-003-AC4-02 탭 막대 더하기 버튼과 메뉴 '새 탭에
       const brace = f.bare.indexOf('{', matchBracket(f.bare, k));
       value = { start: brace, end: matchBracket(f.bare, brace) + 1 };
     } else value = definitionOf(f, key[1], obj.start) ?? { start: at - key[1].length, end: at };
-    assert.match(locatedText(follow(files, f, expand(f, value)), 'bare'), REACHES_NEW_TAB,
+    assert.match(locatedText(followThroughOps(files, f, expand(f, value)), 'bare'), REACHES_NEW_TAB,
       `${where(f, value.start)}: '새 탭에서 열기' must reach addTab/openInNewTab, the same path as the tab bar's +`);
   }
 });
@@ -870,9 +926,14 @@ test('TC-REQ-FR-FEX-005-AC5-02 DR-12: 확인 줄이 창 콘텐츠 안에 렌더�
     assert.ok(insideDialog || insidePanel, `${where(win, tag.start)}: the confirm row is rendered outside the window's content`);
   }
 
-  const files = explorerTsxAll().map(read);
-  const renamers = files.filter(f => importedFrom(f, /^\.\.\/\.\.\/hooks\/useInlineRename(?:\.ts)?$/).includes('useInlineRename'));
-  assert.ok(renamers.length > 0, 'no explorer component imports useInlineRename from ../../hooks/useInlineRename');
+  // Inline rename is one of the file operations useFileTreeOperations holds;
+  // from hooks/ it imports useInlineRename as ./useInlineRename.
+  requireSources([T.opsHook]);
+  const files = [...explorerTsxAll().map(read), read(T.opsHook)];
+  const renamers = files.filter(f => importedFrom(f, f.path === `src/${T.opsHook}`
+    ? /^\.\/useInlineRename(?:\.ts)?$/
+    : /^\.\.\/\.\.\/hooks\/useInlineRename(?:\.ts)?$/).includes('useInlineRename'));
+  assert.ok(renamers.length > 0, 'neither an explorer component nor useFileTreeOperations imports useInlineRename');
   let movesFile = false;
   for (const f of renamers) {
     for (const args of callArgs(f, 'useInlineRename')) {

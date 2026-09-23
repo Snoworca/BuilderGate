@@ -141,3 +141,98 @@
 .editor-window-surface .editor-tab-close:hover {
   color: #000000;
 }
+
+/* The body: the file-tree pane on the left, the documents on the right
+ * (design 9.1). Positioned so the pane can float over the documents on a
+ * phone. */
+.editor-window-surface .editor-window-row {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  min-height: 0;
+}
+
+.editor-window-surface .editor-window-documents {
+  /* Its own stacking context, so no layer inside the editor can paint over
+   * the pane when it floats on a phone. */
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The wrapper only exists to take the tab bar's right click; the bar inside
+ * keeps its own layout. */
+.editor-window-surface .editor-tab-bar-host {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+/* The left file-tree pane. Its colours are tokens: the pane root carries
+ * data-surface="paper", which selects the light values beside the white
+ * document, and the explorer rows it draws read the same tokens. */
+.editor-window-surface .editor-tree-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+  font-size: 13px;
+  background: var(--bg-surface);
+  color: var(--fg);
+  border-right: 1px solid var(--line);
+}
+
+.editor-window-surface .editor-tree-pane:focus {
+  outline: none;
+}
+
+.editor-window-surface .editor-tree-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 2px 4px 2px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+}
+
+.editor-window-surface .editor-tree-pane-root {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--fg-muted);
+}
+
+/* On a phone the pane floats over the documents instead of taking their room. */
+.editor-window-surface .editor-tree-pane-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.18);
+}
+
+/* The 6px band that resizes the pane (design 9.1). It sits on the white body
+ * outside the pane's paper surface, so it takes the tab bar's greys. */
+.editor-window-surface .editor-tree-splitter {
+  flex: 0 0 6px;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+  background: #f3f3f3;
+}
+
+.editor-window-surface .editor-tree-splitter:hover {
+  background: #0078d4;
+}

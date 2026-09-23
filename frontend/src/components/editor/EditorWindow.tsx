@@ -17,6 +17,7 @@
 // @req FR-MDE-006
 // @req FR-MDE-010
 // @req FR-MDE-011
+// @req FR-MDE-012
 
 import {
   useCallback,
@@ -25,14 +26,31 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent,
+  type PointerEvent,
 } from 'react';
 import { IconButton, IconToggleButton } from '../common';
+import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { WindowDialog } from '../dialog/WindowDialog';
+import { readEditorTreePaneState, saveEditorTreePaneState } from '../../hooks/windowStateStorage.ts';
+import { useResponsive } from '../../hooks/useResponsive.ts';
 import type { DialogRect, DialogSize } from '../dialog/types';
 // The window's own light surface. Imported here because the rules it sets are
 // scoped to `.editor-window-surface`, which is this component's class.
 import './EditorWindow.css';
 import { EditorDocumentPanel, type EditorDocumentHandle } from './EditorDocumentPanel.tsx';
+import { EditorFileTreePane } from './EditorFileTreePane.tsx';
+import {
+  applyPaneDrag,
+  buildEditorWindowContextMenu,
+  clampPaneDragWidth,
+  collapseAfterOpen,
+  isEditorWindowMenuTarget,
+  paneInitiallyCollapsed,
+  renderPaneWidth,
+  resetPaneWidth,
+  type EditorWindowMenuTarget,
+} from './editorFileTreePaneModel.ts';
 import { EditorTabBar } from './EditorTabBar.tsx';
 import { planEditorWindowCloseControl } from './editorWindowCloseControl.ts';
 import { createEditorWindowSaveShortcutHandler } from './editorWindowSaveShortcut.ts';
@@ -52,13 +70,6 @@ export const EDITOR_WINDOW_MIN_SIZE: DialogSize = { width: 320, height: 240 };
 // WindowDialog reads this into its uncontrolled rect on every mount, whatever
 // `persistGeometry` says, and the controlled `rect` below then supersedes it.
 const SUPERSEDED_DEFAULT_RECT: DialogRect = { x: 0, y: 0, width: 720, height: 520 };
-
-const BODY_STYLE: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  minHeight: 0,
-  height: '100%',
-};
 
 const ACTIONS_STYLE: CSSProperties = {
   display: 'flex',
@@ -150,6 +161,30 @@ export interface EditorWindowProps {
    * @req FR-MDE-008
    */
   onDirtyChange: (filePath: string, dirty: boolean) => void;
+  /**
+   * The working directory of a terminal tab's session, which is where the
+   * left file-tree pane starts. Undefined while the tab has none to report.
+   * @req FR-MDE-012
+   */
+  resolveTabCwd: (tabId: string) => string | undefined;
+  /**
+   * A file chosen in the left file-tree pane opens as a tab of this window,
+   * bound to the active tab's terminal tab -- the route the explorer's files
+   * take.
+   * @req FR-MDE-012
+   */
+  onOpenFile: (filePath: string, tabId: string) => void;
+}
+
+/** A drag of the pane's splitter, from pointerdown to its end. */
+interface PaneDrag {
+  pointerId: number;
+  startX: number;
+  startWidth: number;
+  /** The width the drag last produced: what is saved when it ends. */
+  width: number;
+  /** A press that never moved saves nothing, or it would save a clipped width. */
+  moved: boolean;
 }
 
 function fileNameOf(filePath: string): string {
@@ -178,6 +213,8 @@ export function EditorWindow({
   onToggleMaximize,
   onMinimize,
   onDirtyChange,
+  resolveTabCwd,
+  onOpenFile,
 }: EditorWindowProps) {
   const actionsRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
@@ -199,6 +236,102 @@ export function EditorWindow({
 
   const activeTab = tabs.find(tab => tab.filePath === activeFilePath) ?? null;
   const activeTabClosed = activeTab !== null && resolveTabSession(activeTab.tabId) === undefined;
+
+  // The left file-tree pane follows the active tab's session (FR-MDE-012 AC-5).
+  // Without a live session or a directory to start from there is nothing to
+  // list, so the pane is not mounted at all.
+  const paneSessionId = activeTab === null ? undefined : resolveTabSession(activeTab.tabId);
+  const paneCwd = activeTab === null ? undefined : resolveTabCwd(activeTab.tabId);
+  const paneMounted = paneSessionId !== undefined && paneCwd !== undefined && paneCwd !== '';
+
+  const { isMobile } = useResponsive();
+  // Width and fold are the workspace's (AC-12). The saved width is what the
+  // user chose; what is drawn is that width clipped to this window (AC-11), and
+  // the clip never flows back into what is saved.
+  const [savedPane] = useState(() => readEditorTreePaneState(workspaceId));
+  const [paneWidth, setPaneWidth] = useState(savedPane.width);
+  const [paneCollapsed, setPaneCollapsed] = useState(() => paneInitiallyCollapsed({ isMobile, savedCollapsed: savedPane.collapsed }));
+  // A pane that was never opened is never mounted, so a window that does not
+  // use it lists no directory. Once opened it stays mounted while folded, so
+  // expanded folders and the selection survive a close and reopen.
+  const [paneEverOpened, setPaneEverOpened] = useState(!paneCollapsed);
+  const paneRenderWidth = renderPaneWidth(paneWidth, rect.width);
+  const paneDragRef = useRef<PaneDrag | null>(null);
+
+  // A phone's fold is not remembered: the pane always starts folded there, and
+  // opening it for one file must not open it on the desktop next time.
+  const setPaneOpen = useCallback((open: boolean) => {
+    // With no session to list there is no pane to open; flipping the state
+    // would only show a check mark over nothing and save it.
+    if (open && !paneMounted) return;
+    setPaneCollapsed(!open);
+    if (open) setPaneEverOpened(true);
+    if (!isMobile) saveEditorTreePaneState(workspaceId, { width: paneWidth, collapsed: !open });
+  }, [isMobile, paneMounted, paneWidth, workspaceId]);
+
+  // A window narrowed to phone width would leave the pane covering the
+  // document; it folds, and that fold is not saved.
+  useEffect(() => {
+    if (isMobile) setPaneCollapsed(true);
+  }, [isMobile]);
+
+  const startPaneDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    // The drag starts from the width on screen, so the band does not jump when
+    // the saved width is wider than this window allows.
+    paneDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: paneRenderWidth, width: paneWidth, moved: false };
+  };
+
+  const movePaneDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = paneDragRef.current;
+    if (drag === null || drag.pointerId !== event.pointerId) return;
+    drag.width = applyPaneDrag(drag.startWidth, event.clientX - drag.startX, rect.width);
+    drag.moved = true;
+    setPaneWidth(drag.width);
+  };
+
+  // Saved once, when the drag ends: a pointermove fires many times a second.
+  const endPaneDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = paneDragRef.current;
+    if (drag === null || drag.pointerId !== event.pointerId) return;
+    paneDragRef.current = null;
+    if (drag.moved) saveEditorTreePaneState(workspaceId, { width: drag.width, collapsed: paneCollapsed });
+  };
+
+  // Clamped to this window, so a reset in a narrow window does not save a
+  // width past its cap.
+  const resetPaneDrag = () => {
+    const width = clampPaneDragWidth(resetPaneWidth(), rect.width);
+    setPaneWidth(width);
+    saveEditorTreePaneState(workspaceId, { width, collapsed: paneCollapsed });
+  };
+
+  // On a phone the pane covers the document, so it folds once a file is open.
+  const handlePaneOpenFile = useCallback((filePath: string) => {
+    if (activeTab === null) return;
+    onOpenFile(filePath, activeTab.tabId);
+    if (collapseAfterOpen(isMobile)) setPaneCollapsed(true);
+  }, [activeTab, isMobile, onOpenFile]);
+
+  // The window menu opens only on the empty parts of the tab bar and the title
+  // bar (AC-2). The document keeps the browser's own menu, which is in real use
+  // in an editor.
+  const [windowMenu, setWindowMenu] = useState<{ x: number; y: number } | null>(null);
+  const windowMenuItems = buildEditorWindowContextMenu({
+    paneOpen: paneMounted && !paneCollapsed,
+    onTogglePane: () => setPaneOpen(paneCollapsed),
+  });
+
+  const handleTabBarContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+    const target: EditorWindowMenuTarget = event.target instanceof Element && event.target.closest('.editor-tab') !== null
+      ? 'tab'
+      : 'tabbar-empty';
+    if (!isEditorWindowMenuTarget(target)) return;
+    event.preventDefault();
+    setWindowMenu({ x: event.clientX, y: event.clientY });
+  };
 
   // WindowDialog portals into document.body and forwards no ref, so both nodes
   // are reached from one this component owns. They are different nodes and are
@@ -249,6 +382,24 @@ export function EditorWindow({
     frame.style.display = hidden ? 'none' : shownFrameDisplayRef.current;
     surface.style.display = hidden ? 'none' : shownSurfaceDisplayRef.current;
   }, [frame, hidden]);
+
+  // WindowDialog draws the title bar and takes no menu for it, so its right
+  // click is reached with a native listener on the node it renders.
+  // @req FR-MDE-012
+  useEffect(() => {
+    const titlebar = frame?.querySelector<HTMLElement>('.window-dialog-titlebar') ?? null;
+    if (titlebar === null) return undefined;
+    const handleTitlebarContextMenu = (event: globalThis.MouseEvent) => {
+      const target: EditorWindowMenuTarget = event.target instanceof Element && event.target.closest('button') !== null
+        ? 'titlebar-button'
+        : 'titlebar-empty';
+      if (!isEditorWindowMenuTarget(target)) return;
+      event.preventDefault();
+      setWindowMenu({ x: event.clientX, y: event.clientY });
+    };
+    titlebar.addEventListener('contextmenu', handleTitlebarContextMenu);
+    return () => titlebar.removeEventListener('contextmenu', handleTitlebarContextMenu);
+  }, [frame]);
 
   const saveActive = useCallback(() => {
     if (activeFilePath === null) return;
@@ -372,27 +523,63 @@ export function EditorWindow({
       titlebarActions={titlebarActions}
       dirty={activeTab?.dirty === true}
     >
-      <div style={BODY_STYLE}>
-        <EditorTabBar
-          tabs={tabs}
-          activeFilePath={activeFilePath}
-          onSelect={onSelectTab}
-          onClose={onCloseTab}
-        />
-        {tabs.map(tab => (
-          <EditorDocumentPanel
-            key={tab.filePath}
-            filePath={tab.filePath}
-            tabId={tab.tabId}
-            bodyAtOpen={tab.bodyAtOpen}
-            hidden={tab.filePath !== activeFilePath}
-            resolveTabSession={resolveTabSession}
-            writeFile={writeFile}
-            onDirtyChange={(dirty) => onDirtyChange(tab.filePath, dirty)}
-            onClose={() => onCloseTab(tab.filePath)}
-            onRegisterHandle={registerHandle}
+      {/* The pane sits left of the tab bar rather than under it: the tabs
+          belong to the documents, the tree to the whole window (design 9.1). */}
+      <div className="editor-window-row">
+        {paneMounted && paneEverOpened && activeTab !== null && (
+          <EditorFileTreePane
+            workspaceId={workspaceId}
+            tabId={activeTab.tabId}
+            sessionId={paneSessionId}
+            sessionCwd={paneCwd}
+            hidden={paneCollapsed}
+            isMobile={isMobile}
+            style={{ width: paneRenderWidth }}
+            onClose={() => setPaneOpen(false)}
+            onOpenFile={handlePaneOpenFile}
           />
-        ))}
+        )}
+        {paneMounted && !paneCollapsed && !isMobile && (
+          <div
+            className="editor-tree-splitter"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="파일 트리 폭"
+            onPointerDown={startPaneDrag}
+            onPointerMove={movePaneDrag}
+            onPointerUp={endPaneDrag}
+            onPointerCancel={endPaneDrag}
+            onLostPointerCapture={endPaneDrag}
+            onDoubleClick={resetPaneDrag}
+          />
+        )}
+        <div className="editor-window-documents">
+          <div className="editor-tab-bar-host" onContextMenu={handleTabBarContextMenu}>
+            <EditorTabBar
+              tabs={tabs}
+              activeFilePath={activeFilePath}
+              onSelect={onSelectTab}
+              onClose={onCloseTab}
+            />
+          </div>
+          {tabs.map(tab => (
+            <EditorDocumentPanel
+              key={tab.filePath}
+              filePath={tab.filePath}
+              tabId={tab.tabId}
+              bodyAtOpen={tab.bodyAtOpen}
+              hidden={tab.filePath !== activeFilePath}
+              resolveTabSession={resolveTabSession}
+              writeFile={writeFile}
+              onDirtyChange={(dirty) => onDirtyChange(tab.filePath, dirty)}
+              onClose={() => onCloseTab(tab.filePath)}
+              onRegisterHandle={registerHandle}
+            />
+          ))}
+        </div>
+        {windowMenu !== null && (
+          <ContextMenu position={windowMenu} items={windowMenuItems} onClose={() => setWindowMenu(null)} />
+        )}
       </div>
     </WindowDialog>
   );

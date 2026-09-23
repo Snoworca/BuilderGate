@@ -36,6 +36,9 @@ const T = {
   css: `${FX}FileExplorer.css`,
   pathBarModel: `${FX}fileExplorerPathBarModel.ts`,
   windowsHook: 'hooks/useFileExplorerWindows.ts',
+  // The explorer tab panel's file operations moved here (FR-MDE-012 AC-8), so
+  // the path handling that went with them stays under DR-20.
+  opsHook: 'hooks/useFileTreeOperations.ts',
   treeHook: 'hooks/useFileTree.ts',
   header: 'components/Header/Header.tsx',
   app: 'App.tsx',
@@ -923,8 +926,8 @@ test('TC-REQ-FR-FEX-011-AC5-02 행 렌더러가 rowRenderClass 를 className 에
 const PATH_SYNTAX_EXEMPT = [`${FX}fileTreeState.ts`, `${FX}fileTreeController.ts`];
 
 test('TC-REQ-SEC-FOP-001-AC3-01 fileExplorer/**·useFileTree·useFileExplorerWindows 에 경계 규칙 사본이 없다 (DR-20)', () => {
-  requireSources([...EXPLORER_TSX, T.pathBarModel, T.treeHook, T.windowsHook, ...PATH_SYNTAX_EXEMPT]);
-  const files = [...new Set([...explorerTree(), T.treeHook, T.windowsHook])];
+  requireSources([...EXPLORER_TSX, T.pathBarModel, T.treeHook, T.windowsHook, T.opsHook, ...PATH_SYNTAX_EXEMPT]);
+  const files = [...new Set([...explorerTree(), T.treeHook, T.windowsHook, T.opsHook])];
   for (const path of files) {
     const src = read(path);
     const policy = /\b(isPathBlocked|blockedPaths|resolveAndValidate)\b/.exec(src.code);

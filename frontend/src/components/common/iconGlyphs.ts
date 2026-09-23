@@ -14,7 +14,8 @@ export type IconName =
   | 'maximize'
   | 'restore'
   | 'minimize'
-  | 'document';
+  | 'document'
+  | 'close';
 
 export interface IconGlyph {
   /** SVG path data on the 24x24 viewBox, drawn in order. */
@@ -70,6 +71,13 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
       'M14 2v6h6',
       'M9 13h6',
       'M9 17h4',
+    ],
+  },
+  // Two crossed strokes: dismiss the thing this sits on, not the window.
+  close: {
+    paths: [
+      'M6 6l12 12',
+      'M18 6L6 18',
     ],
   },
 };

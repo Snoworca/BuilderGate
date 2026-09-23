@@ -60,6 +60,9 @@ const T = {
   popover: `${FX}FileJobPopover.tsx`,
   progressRow: `${FX}FileExplorerProgressRow.tsx`,
   sync: 'hooks/useFileJobStoreSync.ts',
+  // The explorer tab panel's file operations, shared with the editor's tree
+  // pane (FR-MDE-012 AC-8): the job client that dispatches JOB_STARTED lives here.
+  opsHook: 'hooks/useFileTreeOperations.ts',
 } as const;
 
 // Modules by their path under src/, extension dropped.
@@ -72,6 +75,7 @@ const M = {
   progressRow: `${FX}FileExplorerProgressRow`,
   windowModal: `${FX}FileExplorerWindowModal`,
   sync: 'hooks/useFileJobStoreSync',
+  opsHook: 'hooks/useFileTreeOperations',
   api: 'services/api',
   ws: 'contexts/WebSocketContext',
 } as const;
@@ -952,10 +956,11 @@ test('TC-REQ-FR-FEX-008-AC5-02 FileJobStatusBar·FileJobPopover 가 셀렉터의
 });
 
 test('TC-REQ-FR-FEX-008-AC9-02 file-job WS 라우팅이 App 수준 useFileJobStoreSync(registerFileJobHandler) 에서 저장소로 가고 FileExplorerWindow 의 submit 이 JOB_STARTED 를 origin.workspaceId 와 함께 dispatch 한다', () => {
-  requireSources([T.app, T.sync, T.window]);
+  requireSources([T.app, T.sync, T.window, T.opsHook]);
   const app = read(T.app);
   const sync = read(T.sync);
   const win = read(T.window);
+  const ops = read(T.opsHook);
 
   // At the app, not in a window: a closed or minimized window must not stop
   // the store from hearing about its jobs.
@@ -977,15 +982,25 @@ test('TC-REQ-FR-FEX-008-AC9-02 file-job WS 라우팅이 App 수준 useFileJobSto
       `${where(sync, args.start)}: the effect must return what registerFileJobHandler returns, or the handler outlives the app`);
   }
 
-  requireImport(win, M.store, 'dispatchFileJob');
-  const started = dispatches(win, 'JOB_STARTED');
-  assert.ok(started.length > 0, `${win.path} never dispatches JOB_STARTED — a submitted job would have no window to show it`);
+  // The panel's submit is useFileTreeOperations' job client: the hook
+  // dispatches JOB_STARTED with the origin it is given, and the window gives it
+  // an origin carrying its own workspaceId.
+  requireImport(ops, M.store, 'dispatchFileJob');
+  const started = dispatches(ops, 'JOB_STARTED');
+  assert.ok(started.length > 0, `${ops.path} never dispatches JOB_STARTED — a submitted job would have no window to show it`);
   for (const args of started) {
-    assert.ok(originCarriesWorkspace(win, args), `${where(win, args.start)}: JOB_STARTED's origin must carry the window's workspaceId`);
-    const fn = enclosingFunction(win, args.start);
-    assert.ok(fn !== null && /\bfileJobApi\s*\.\s*submit\s*\(/.test(win.bare.slice(fn.start, fn.end)),
-      `${where(win, args.start)}: JOB_STARTED is not dispatched where fileJobApi.submit answered`);
-    assert.match(win.bare.slice(args.start, args.end), /\bjobId\b/, `${where(win, args.start)}: JOB_STARTED does not name the submitted job`);
+    assert.ok(originCarriesWorkspace(ops, args), `${where(ops, args.start)}: JOB_STARTED's origin must carry the given origin's workspaceId`);
+    const fn = enclosingFunction(ops, args.start);
+    assert.ok(fn !== null && /\bfileJobApi\s*\.\s*submit\s*\(/.test(ops.bare.slice(fn.start, fn.end)),
+      `${where(ops, args.start)}: JOB_STARTED is not dispatched where fileJobApi.submit answered`);
+    assert.match(ops.bare.slice(args.start, args.end), /\bjobId\b/, `${where(ops, args.start)}: JOB_STARTED does not name the submitted job`);
+  }
+  assert.doesNotMatch(win.bare, /\bfileJobApi\s*\.\s*submit\s*\(/, `${win.path} submits a job itself — a second job client would bypass the store's JOB_STARTED`);
+  requireImport(win, M.opsHook, 'useFileTreeOperations');
+  const opsCalls = callArgs(win, 'useFileTreeOperations');
+  assert.ok(opsCalls.length > 0, `${win.path} never calls useFileTreeOperations — the panel submits no job`);
+  for (const args of opsCalls) {
+    assert.ok(originCarriesWorkspace(win, args), `${where(win, args.start)}: useFileTreeOperations' origin must carry the window's workspaceId`);
   }
 });
 

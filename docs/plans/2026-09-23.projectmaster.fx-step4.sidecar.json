@@ -2940,7 +2940,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts", "exit_code": 1, "captured_failure": "tests 14 / pass 0 / fail 14 — every case: AssertionError 'target files must exist before their wiring can be checked; missing: src/components/editor/EditorFileTreePane.tsx' (AC8-02 also names src/hooks/useFileTreeOperations.ts). Guards mutation-checked on a scratch fixture of the intended end state (hook + pane + EditorWindow/FileExplorerWindow/App/EditorWindow.css edits): 14/14 pass, 38/38 mutations killed each by its own case, plus 3 prose/literal mutants killed.", "timestamp": "2026-09-23T18:03:23Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -3041,7 +3041,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerInteractionWiring.test.ts tests/unit/fileJobProgressWiring.test.ts tests/unit/fileExplorerWindowModalWiring.test.ts tests/unit/fileExplorerRecheck.test.ts tests/unit/fileExplorerWiring.test.ts && node_modules/.bin/tsc -p tsconfig.test.json --noEmit", "exit_code": 0, "timestamp": "2026-09-23T18:12:51Z"}
    },
    "trace_links": [
     {
@@ -3270,7 +3270,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePaneWiring.test.ts", "exit_code": 0, "timestamp": "2026-09-23T18:29:17Z"}
    },
    "trace_links": [
     {

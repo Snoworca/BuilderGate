@@ -85,6 +85,7 @@
     "tests/unit/fileExplorerWindowModalWiring.test.ts",
     "tests/unit/fileJobProgressWiring.test.ts",
     "tests/unit/fileJobPopoverState.test.ts",
+    "tests/unit/editorFileTreePaneWiring.test.ts",
     "tests/unit/terminalContextMenuFileExplorer.test.ts",
     "tests/unit/liveOutputTokens.test.ts",
     "tests/unit/terminalAuthorityProductionWiring.test.ts",

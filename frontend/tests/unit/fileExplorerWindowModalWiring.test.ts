@@ -43,6 +43,10 @@ const T = {
   window: `${FX}FileExplorerWindow.tsx`,
   confirmBar: `${FX}FileExplorerConfirmBar.tsx`,
   css: `${FX}FileExplorer.css`,
+  // The explorer tab panel's file operations, shared with the editor's tree
+  // pane (FR-MDE-012 AC-8): requestDelete is called here with the confirm the
+  // panel hands it.
+  opsHook: 'hooks/useFileTreeOperations.ts',
 } as const;
 
 // Held as a list so that the set can never come out empty.
@@ -957,17 +961,38 @@ test("TC-REQ-FR-FEX-005-AC5-02 requestDelete 에 넘기는 ConfirmPort 가 창 �
   const modal = read(T.modal);
   assert.ok(importedFrom(modal, /^\.\/fileExplorerPorts(?:\.ts)?$/).includes('ConfirmPort'), `${modal.path} must take ConfirmPort from ./fileExplorerPorts`);
 
+  requireSources([T.opsHook]);
   const win = read(T.window);
+  const ops = read(T.opsHook);
   const modalNames = derive(win, 'useFileExplorerWindowModal');
   const barNames = derive(win, 'useFileExplorerConfirmBar');
-  const deletes = callArgs(win, 'requestDelete');
-  assert.ok(deletes.length > 0, `${win.path}: requestDelete is never called`);
-  for (const args of deletes) {
+
+  // useFileTreeOperations calls requestDelete with the confirm it was given,
+  // untouched: its own `confirm` parameter, declared nowhere else.
+  const opsFn = /\bexport\s+function\s+useFileTreeOperations\s*\(\s*\{/.exec(ops.bare);
+  assert.ok(opsFn !== null, `${ops.path}: export function useFileTreeOperations({ … }) is gone`);
+  const paramsOpen = opsFn.index + opsFn[0].length - 1;
+  const params = ops.bare.slice(paramsOpen + 1, matchBracket(ops.bare, paramsOpen));
+  assert.match(params, /(?:^|[,\s])confirm\s*(?:,|$)/, `${ops.path}: useFileTreeOperations must take confirm as its own parameter, unrenamed`);
+  assert.doesNotMatch(ops.bare, /\b(?:const|let|var|function)\s+confirm\b|[{,]\s*confirm\s*[,}]\s*=(?!=)/, `${ops.path}: declares another confirm — requestDelete's could be something other than the one handed in`);
+  const opsDeletes = callArgs(ops, 'requestDelete');
+  assert.ok(opsDeletes.length > 0, `${ops.path}: requestDelete is never called`);
+  for (const args of opsDeletes) {
+    const value = propertyValue(ops, args, 'confirm');
+    assert.ok(value !== null, `${where(ops, args.start)}: requestDelete gets no confirm`);
+    assert.equal(ops.bare.slice(value.start, value.end).trim(), 'confirm', `${where(ops, value.start)}: requestDelete's confirm must be the confirm useFileTreeOperations was given`);
+  }
+
+  // The window hands it the window modal's ConfirmPort, never the confirm row's.
+  const handed = callArgs(win, 'useFileTreeOperations');
+  assert.ok(handed.length > 0, `${win.path}: useFileTreeOperations is never called — the panel deletes nothing`);
+  // A requestDelete the window still calls itself is held to the same rule.
+  for (const args of [...handed, ...callArgs(win, 'requestDelete')]) {
     const value = propertyValue(win, args, 'confirm');
-    assert.ok(value !== null, `${where(win, args.start)}: requestDelete gets no confirm`);
+    assert.ok(value !== null, `${where(win, args.start)}: gets no confirm`);
     const text = win.bare.slice(value.start, value.end);
-    assert.ok(isDerived(modalNames, value.start, text), `${where(win, value.start)}: requestDelete's confirm must be the window modal's ConfirmPort`);
-    assert.ok(!isDerived(barNames, value.start, text), `${where(win, value.start)}: requestDelete's confirm still comes from the in-window confirm row`);
+    assert.ok(isDerived(modalNames, value.start, text), `${where(win, value.start)}: the delete confirm must be the window modal's ConfirmPort`);
+    assert.ok(!isDerived(barNames, value.start, text), `${where(win, value.start)}: the delete confirm still comes from the in-window confirm row`);
   }
 
   const bar = read(T.confirmBar);

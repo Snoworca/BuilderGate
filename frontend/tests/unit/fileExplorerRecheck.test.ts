@@ -61,6 +61,11 @@ function hookCalls(text: string, hook: string): string[] {
 }
 
 const WINDOW = 'components/fileExplorer/FileExplorerWindow.tsx';
+// The explorer tab panel's file operations moved into this hook, which the
+// editor's tree pane shares (FR-MDE-012 AC-8). Checks that followed those
+// operations in the window read the window and the hook together.
+const OPS_HOOK = 'hooks/useFileTreeOperations.ts';
+const panelOps = (): string => `${source(WINDOW)}\n${source(OPS_HOOK)}`;
 
 function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void; reject: (e: unknown) => void } {
   let resolve: (v: T) => void = () => {};
@@ -185,7 +190,7 @@ test('FX3R-003 requestDelete: onAccepted 는 서버가 받은 뒤에만, 거절�
 });
 
 test('FX3R-003 패널: 확인 즉시 선택을 풀지 않는다 — requestDelete 의 onAccepted 로 deselect 한다', () => {
-  const win = source(WINDOW);
+  const win = panelOps();
   assert.doesNotMatch(win, /\bconfirmAndDeselect\b/, 'deselecting on confirm loses the selection when the POST is refused');
   const call = hookCalls(win, 'requestDelete');
   assert.ok(call.length >= 1, 'the panel no longer calls requestDelete');
@@ -285,7 +290,7 @@ test('FX3R-005 붙여넣기 진행 중 표시는 클립보드 값 단위로 전�
 });
 
 test('FX3R-005 패널은 자기만의 붙여넣기 단일 비행을 두지 않는다', () => {
-  const win = source(WINDOW);
+  const win = panelOps();
   assert.doesNotMatch(win, /\bcreateSingleFlight\s*\(/, 'a per-panel single flight lets two panels submit the same cut');
 });
 
@@ -298,13 +303,13 @@ test('FX3R-005 패널은 자기만의 붙여넣기 단일 비행을 두지 않�
 // stays in the app-wide store until its window is opened again. These two cases now pin that the
 // old per-panel glue is gone and that submit hands the job to the store instead.
 test('FX3R-006 (FR-FEX-009 AC-3 로 대체) 패널은 소유권 객체를 만들거나 폐기하지 않는다', () => {
-  const win = source(WINDOW);
+  const win = panelOps();
   assert.doesNotMatch(win, /\bcreateFileJobOwnership\b/, 'the panel still creates a per-panel ownership object');
   assert.doesNotMatch(win, /\bownershipRef\b/, 'the panel still keeps an ownership ref');
 });
 
 test('FX3R-006 (FR-FEX-009 AC-3 로 대체) jobClient.submit 은 작업을 저장소에 JOB_STARTED 로 넘긴다', () => {
-  const win = source(WINDOW);
+  const win = panelOps();
   const client = /const\s+jobClient\s*=\s*useMemo\s*\(/.exec(win);
   assert.ok(client, 'jobClient = useMemo(...) not found');
   assert.match(bracketBody(win, client.index + client[0].length - 1), /\bdispatchFileJob\s*\(\s*\{[^}]*type\s*:\s*['"]JOB_STARTED['"]/, 'submit must record the job in the store with JOB_STARTED');

@@ -481,6 +481,11 @@ function AppContent() {
     [residentTabIds, wm.tabs],
   );
   const resolveTabSession = useMemo(() => createTabSessionLookup(wm.tabs), [wm.tabs]);
+  // Where the editor window's file-tree pane starts: the terminal tab's cwd.
+  const resolveTabCwd = useCallback(
+    (tabId: string) => wm.tabs.find((tab) => tab.id === tabId)?.cwd,
+    [wm.tabs],
+  );
 
   // One explorer window per workspace. Every entry point (session path menu,
   // both terminal menus, header button) goes through openTabFileExplorer, so
@@ -856,6 +861,8 @@ function AppContent() {
                         onToggleMaximize={editor.toggleMaximizeWindow}
                         onMinimize={editor.minimizeWindow}
                         onDirtyChange={editor.setWindowDirty}
+                        resolveTabCwd={resolveTabCwd}
+                        onOpenFile={editor.openDocument}
                       />
                     )}
                   />

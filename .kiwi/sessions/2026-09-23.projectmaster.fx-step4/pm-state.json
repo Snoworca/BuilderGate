@@ -4,7 +4,7 @@
  "sidecar_path": "docs/plans/2026-09-23.projectmaster.fx-step4.sidecar.json",
  "target_slug": "file-explorer",
  "started_at": "2026-09-23T15:41:39Z",
- "last_updated_at": "2026-09-23T17:58:27Z",
+ "last_updated_at": "2026-09-23T18:29:53Z",
  "pm_version": "0.1",
  "tasks": [
   {
@@ -246,49 +246,49 @@
   {
    "task_id": "T-PH004-03",
    "phase_id": "PH-004",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T18:04:50Z",
+   "ended_at": "2026-09-23T18:04:50Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "편집기 트리 패널 배선 가드 14 red. 변이 38/38",
    "trace_req_ids": [
     "FR-FEX-005",
     "FR-MDE-012"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH004-04",
    "phase_id": "PH-004",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T18:13:41Z",
+   "ended_at": "2026-09-23T18:13:41Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "useFileTreeOperations 추출(순수 리팩터). 가드 7건 범위 확장(약화 없음, 변이 확인). 전체 1538/1523(남은 14 는 T-PH004-05)",
    "trace_req_ids": [
     "FR-MDE-012"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH004-05",
    "phase_id": "PH-004",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T18:29:53Z",
+   "ended_at": "2026-09-23T18:29:53Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "편집기 좌측 트리 패널·스플리터·창 메뉴·모바일 오버레이 14/14. 전체 1538/1537",
    "trace_req_ids": [
     "FR-FEX-005",
     "FR-MDE-012"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH005-01",
@@ -333,9 +333,9 @@
  ],
  "stats": {
   "total": 20,
-  "done": 15,
+  "done": 18,
   "running": 0,
-  "pending": 5,
+  "pending": 2,
   "failed": 0,
   "blocked": 0,
   "skipped": 0

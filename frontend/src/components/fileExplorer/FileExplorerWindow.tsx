@@ -8,7 +8,9 @@
 // stored (design decision 20).
 //
 // Each panel also owns its file operations: the context menu, the mobile button
-// row, the in-window confirm row and inline rename. The window only routes keys
+// row, the in-window confirm row and inline rename. The operations themselves
+// are useFileTreeOperations, shared with the editor's tree pane, so the two
+// surfaces have one code path (FR-MDE-012 AC-8). The window only routes keys
 // to the active panel, and only while focus is inside its own surface (DR-16).
 //
 // File jobs live in the app-wide store (fileJobStore), not in a panel: a panel
@@ -40,29 +42,22 @@ import { toStageRect } from '../editor/editorWindowRect.ts';
 import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import { useFileTree } from '../../hooks/useFileTree.ts';
 import type { FileExplorerTabView, FileExplorerWindowActions } from '../../hooks/useFileExplorerWindows.ts';
-import { useInlineRename } from '../../hooks/useInlineRename.ts';
+import { useFileTreeOperations, type FileTreeShortcutAction } from '../../hooks/useFileTreeOperations.ts';
 import { useLongPress } from '../../hooks/useLongPress.ts';
 import { useResponsive } from '../../hooks/useResponsive.ts';
-import { fileApi, fileJobApi } from '../../services/api.ts';
+import { fileJobApi } from '../../services/api.ts';
 import './FileExplorer.css';
-import {
-  copySelection,
-  cutSelection,
-  getFileExplorerClipboard,
-  subscribeFileExplorerClipboard,
-} from './fileExplorerClipboard.ts';
+import { getFileExplorerClipboard, subscribeFileExplorerClipboard } from './fileExplorerClipboard.ts';
 import { FileExplorerConfirmBar, useFileExplorerConfirmBar } from './FileExplorerConfirmBar.tsx';
 import { FileExplorerWindowModal, useFileExplorerWindowModal, type FileExplorerWindowModalState } from './FileExplorerWindowModal.tsx';
-import { buildFileExplorerContextMenuItems, type FileExplorerMenuHandlers } from './fileExplorerContextMenu.ts';
 import { fileExplorerDialogId } from './fileExplorerDialog.ts';
 import { FileExplorerMobileBar } from './FileExplorerMobileBar.tsx';
 import { FileExplorerPathBar } from './FileExplorerPathBar.tsx';
 import { FileExplorerProgressRow } from './FileExplorerProgressRow.tsx';
 import { decideAnchorPersist, decideScrollRestore, pickAnchorRow, type RestoreState } from './fileExplorerScrollRestore.ts';
-import { createFileExplorerShortcutHandler, isExplorerTextSelection, type FileExplorerShortcutDecision } from './fileExplorerShortcuts.ts';
+import { createFileExplorerShortcutHandler, isExplorerTextSelection } from './fileExplorerShortcuts.ts';
 import { FileExplorerTabBar } from './FileExplorerTabBar.tsx';
 import { firstListingFailureAction } from './fileExplorerTabsState.ts';
-import { pasteFromClipboard, requestDelete, type FileJobRequest } from './fileJobClient.ts';
 import { routeFileJobMessage } from './fileJobEvents.ts';
 import {
   dispatchFileJob,
@@ -74,9 +69,9 @@ import {
 } from './fileJobStore.ts';
 import { selectListRows, type ListSort } from './fileListView.ts';
 import { FileListView } from './FileListView.tsx';
-import { decideRowPointer, isOpenableFile } from './fileRowInteraction.ts';
-import { parentPathOf, type FileTreeMode } from './fileTreeState.ts';
-import { FileTreeView, type FileExplorerMenuRequest, type FileRowRename } from './FileTreeView.tsx';
+import { decideRowPointer } from './fileRowInteraction.ts';
+import type { FileTreeMode } from './fileTreeState.ts';
+import { FileTreeView, type FileExplorerMenuRequest } from './FileTreeView.tsx';
 
 // Module level so the references are stable: WindowDialog puts minSize into
 // callback dependencies.
@@ -92,7 +87,7 @@ const ANCHOR_ROW_SELECTOR = '.fx-row[data-name][data-depth="0"]';
 // once the scrolling pauses, so each step does not re-render and write storage.
 const ANCHOR_COMMIT_DELAY_MS = 200;
 
-type ShortcutAction = Exclude<FileExplorerShortcutDecision, { kind: 'ignore' }>;
+type ShortcutAction = FileTreeShortcutAction;
 
 /** What the window's key handler needs from the panel on screen. */
 interface PanelCommands {
@@ -105,18 +100,6 @@ interface PanelCommands {
 }
 
 type RegisterPanelCommands = (tabId: string, commands: RefObject<PanelCommands | null>) => () => void;
-
-function lastSegment(path: string): string {
-  const parts = path.split(/[\\/]/).filter((part) => part !== '');
-  return parts[parts.length - 1] ?? path;
-}
-
-// Joined with the parent's own separator and never doubled, as the tree joins
-// its children, so the new path is spelled like the rows around it.
-function childPath(parent: string, name: string): string {
-  if (parent.endsWith('/') || parent.endsWith('\\')) return parent + name;
-  return parent + (parent.includes('\\') ? '\\' : '/') + name;
-}
 
 function messageOf(error: unknown): string {
   return error instanceof Error && error.message !== '' ? error.message : String(error);
@@ -210,10 +193,9 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     onOpenFile(filePath, tab.originTabId);
   }, [onOpenFile, tab.originTabId]);
 
-  // The controller's functions are stable for a session, so effects and
-  // callbacks depend on them rather than on the tree result, which changes with
-  // every state update.
-  const { applyJobDone, deselect } = tree;
+  // The controller's functions are stable for a session, so effects depend on
+  // them rather than on the tree result, which changes with every state update.
+  const { applyJobDone } = tree;
 
   const { isMobile } = useResponsive();
   const { registerFileJobHandler } = useWebSocketActions();
@@ -222,24 +204,6 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   const { askName, showError } = confirmBar;
   const { confirm: confirmDelete } = windowModal;
   const [menu, setMenu] = useState<FileExplorerMenuRequest | null>(null);
-
-  // The job is handed to the app-wide store as soon as the server accepted it,
-  // tagged with this window's workspace, so the window can ask its questions
-  // and show its failure even after this panel or the window is gone. A done or
-  // a question that beat the POST's reply is held by the store until then.
-  const jobClient = useMemo(() => ({
-    submit: async (request: FileJobRequest) => {
-      const result = await fileJobApi.submit(request);
-      dispatchFileJob({
-        type: 'JOB_STARTED',
-        jobId: result.jobId,
-        sessionId: request.sourceSessionId,
-        origin: { workspaceId, tabId: tab.id },
-        operation: request.operation,
-      });
-      return result;
-    },
-  }), [tab.id, workspaceId]);
 
   // Every finished job refreshes the directories it touched in this tab, whoever
   // started it: a failed or cancelled job may still have changed some files.
@@ -251,141 +215,24 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     if (route.kind === 'invalidate') void applyJobDone(route.directories);
   }), [applyJobDone, registerFileJobHandler, tab.sessionId]);
 
-  const renamingPathRef = useRef<string | null>(null);
-  const [renamingPath, setRenamingPath] = useState<string | null>(null);
-
-  // The inline editor commits on Enter and again on blur; the ref makes the
-  // second commit a no-op.
-  const commitRename = useCallback(async (name: string) => {
-    const source = renamingPathRef.current;
-    renamingPathRef.current = null;
-    setRenamingPath(null);
-    if (source === null || name === lastSegment(source)) return;
-    if (/[\\/]/.test(name)) {
-      showError('이름에 경로 구분자를 쓸 수 없습니다');
-      return;
-    }
-    const parent = parentPathOf(source);
-    try {
-      await fileApi.moveFile(tab.sessionId, source, childPath(parent, name));
-      await applyJobDone([parent]);
-    } catch (error) {
-      showError(`이름을 바꾸지 못했습니다: ${messageOf(error)}`);
-    }
-  }, [applyJobDone, showError, tab.sessionId]);
-
-  const rename = useInlineRename({
-    onRename: (name) => {
-      void commitRename(name);
-    },
-  });
-
-  const { startEdit } = rename;
-  const beginRename = useCallback((path: string) => {
-    renamingPathRef.current = path;
-    setRenamingPath(path);
-    startEdit(lastSegment(path));
-  }, [startEdit]);
-
-  const rowRename: FileRowRename | null = rename.isEditing && renamingPath !== null
-    ? {
-        path: renamingPath,
-        editName: rename.editName,
-        inputRef: rename.inputRef,
-        handleChange: rename.handleChange,
-        // Escape unmounts the focused input, and Chromium then fires blur, which
-        // the hook commits; dropping the target first makes that commit a no-op.
-        handleKeyDown: (event) => {
-          if (event.key === 'Escape') renamingPathRef.current = null;
-          rename.handleKeyDown(event);
-        },
-        handleBlur: rename.handleBlur,
-      }
-    : null;
-
-  const createDirectoryIn = async (directory: string) => {
-    const name = await askName('새 폴더 이름', '새 폴더');
-    if (name === null) return;
-    if (/[\\/]/.test(name)) {
-      showError('이름에 경로 구분자를 쓸 수 없습니다');
-      return;
-    }
-    try {
-      await fileApi.createDirectory(tab.sessionId, directory, name);
-      await applyJobDone([directory]);
-    } catch (error) {
-      showError(`폴더를 만들지 못했습니다: ${messageOf(error)}`);
-    }
-  };
-
-  // Menu actions act on the selection, which the view settled before opening
-  // the menu; handlers are rebuilt every render, so this is the selection on
-  // screen. A menu opened on a directory row pastes and creates inside it;
-  // everywhere else the folder being shown is the target.
-  const selectedPaths = () => [...state.selectedPaths];
-  const targetDirectory = menu !== null && menu.target === 'item' && menu.isDir && menu.path !== null ? menu.path : state.root;
-
-  const menuHandlers: FileExplorerMenuHandlers = {
-    open: () => {
-      if (menu?.path) handleOpenFile(menu.path);
-    },
-    newtab: () => {
-      if (menu?.path) actions.addTab(workspaceId, menu.path);
-    },
-    copy: () => {
-      copySelection({ sessionId: tab.sessionId, paths: selectedPaths() });
-    },
-    cut: () => {
-      cutSelection({ sessionId: tab.sessionId, paths: selectedPaths() });
-    },
-    paste: () => {
-      // A second paste of the same clipboard while this one is in flight -- from
-      // this panel or any other -- is refused inside pasteFromClipboard.
-      pasteFromClipboard({ client: jobClient, target: { destSessionId: tab.sessionId, destPath: targetDirectory } })
-        .catch((error: unknown) => showError(`붙여넣지 못했습니다: ${messageOf(error)}`));
-    },
-    rename: () => {
-      const paths = selectedPaths();
-      if (paths.length === 1) beginRename(paths[0]);
-    },
-    delete: () => {
-      // The selection leaves once the server has accepted the job, so a second
-      // Delete or a copy cannot act on the same paths again, while a refused
-      // POST leaves the files selected for a retry.
-      requestDelete({ client: jobClient, confirm: confirmDelete, selection: { sessionId: tab.sessionId, paths: selectedPaths() }, onAccepted: deselect })
-        .catch((error: unknown) => showError(`삭제하지 못했습니다: ${messageOf(error)}`));
-    },
-    newdir: () => {
-      void createDirectoryIn(targetDirectory);
-    },
-    refresh: () => {
-      void tree.refresh(targetDirectory);
-    },
-  };
-
-  const menuItems = menu === null ? [] : buildFileExplorerContextMenuItems({
-    target: menu.target,
-    isDir: menu.isDir,
-    openable: menu.target === 'item' && !menu.isDir && menu.path !== null && isOpenableFile(lastSegment(menu.path)),
-    count: state.selectedPaths.size,
-    clipboardEmpty: clipboard === null,
-    mode: state.mode,
+  // The file operations are shared with the editor's tree pane. The job each
+  // one submits is recorded in the store under this window's workspace; the
+  // delete is asked in the window's modal, a folder name in the confirm row.
+  const ops = useFileTreeOperations({
+    sessionId: tab.sessionId,
+    tree,
+    menu,
     context: 'explorer-window',
-  }, menuHandlers);
-
-  const runShortcut = (action: ShortcutAction) => {
-    switch (action.kind) {
-      case 'copy': menuHandlers.copy(); break;
-      case 'cut': menuHandlers.cut(); break;
-      case 'paste': menuHandlers.paste(); break;
-      case 'confirm-delete': menuHandlers.delete(); break;
-      case 'rename': menuHandlers.rename(); break;
-    }
-  };
-
+    confirm: confirmDelete,
+    askName,
+    showError,
+    onOpenFile: handleOpenFile,
+    onNewTab: (path) => actions.addTab(workspaceId, path),
+    origin: { workspaceId, tabId: tab.id },
+  });
   const commandsRef = useRef<PanelCommands | null>(null);
   useLayoutEffect(() => {
-    commandsRef.current = { selectionCount: state.selectedPaths.size, run: runShortcut, flushAnchor: commitPendingAnchor, showError };
+    commandsRef.current = { selectionCount: state.selectedPaths.size, run: ops.runShortcut, flushAnchor: commitPendingAnchor, showError };
   });
   useEffect(() => registerCommands(tab.id, commandsRef), [registerCommands, tab.id]);
 
@@ -512,7 +359,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
 
   return (
     <div className={`fx-tab-panel${active ? '' : ' fx-inactive'}`} role="tabpanel">
-      <FileExplorerPathBar tree={tree} setMode={setMode} onNewDirectory={() => void createDirectoryIn(state.root)} />
+      <FileExplorerPathBar tree={tree} setMode={setMode} onNewDirectory={() => void ops.createDirectoryIn(state.root)} />
       <div
         className="fx-scroll"
         ref={scrollRef}
@@ -531,17 +378,17 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
               clipboard={clipboard}
               onOpenFile={handleOpenFile}
               onOpenMenu={setMenu}
-              renaming={rowRename}
+              renaming={ops.rowRename}
             />
           )
-          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={rowRename} />}
+          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} />}
       </div>
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
       {isMobile && (
-        <FileExplorerMobileBar selectionCount={state.selectedPaths.size} clipboardEmpty={clipboard === null} handlers={menuHandlers} />
+        <FileExplorerMobileBar selectionCount={state.selectedPaths.size} clipboardEmpty={clipboard === null} handlers={ops.menuHandlers} />
       )}
       {menu !== null && (
-        <ContextMenu position={{ x: menu.x, y: menu.y }} items={menuItems} onClose={() => setMenu(null)} />
+        <ContextMenu position={{ x: menu.x, y: menu.y }} items={ops.menuItems} onClose={() => setMenu(null)} />
       )}
     </div>
   );
