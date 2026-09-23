@@ -1,5 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import type { TerminalInputTransportOverride } from '../../src/types/ws-protocol';
+import { requireTestPassword } from './testPassword.js';
 
 interface RecoveryOptionPayload {
   command: string;
@@ -18,7 +19,7 @@ interface RecoveryOptionRecord extends Required<Omit<RecoveryOptionPayload, 'ico
 
 /** Login with password from env or default */
 export async function login(page: Page) {
-  const password = process.env.BUILDERGATE_PASSWORD || '1234';
+  const password = requireTestPassword();
   await page.goto('/');
   await page.waitForSelector('input[type="password"]', { timeout: 10000 });
   await page.fill('input[type="password"]', password);

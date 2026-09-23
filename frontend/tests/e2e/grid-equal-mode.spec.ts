@@ -2,6 +2,7 @@ import type { CapturedWsMessage } from './workspaceWsCaptureTypes';
 import { expect, type Page } from '@playwright/test';
 import { test } from './workspaceOwnershipFixture';
 import { login } from './helpers';
+import { requireTestPassword } from './testPassword.js';
 
 type WorkspaceSetup = {
   workspaceId: string;
@@ -293,7 +294,7 @@ async function createAuxWorkspace(page: Page): Promise<{ id: string; name: strin
 async function waitForWorkspaceScreen(page: Page): Promise<void> {
   const passwordField = page.locator('input[type="password"]');
   if (await passwordField.isVisible().catch(() => false)) {
-    await passwordField.fill(process.env.BUILDERGATE_PASSWORD || '1234');
+    await passwordField.fill(requireTestPassword());
     await page.click('button[type="submit"]');
   }
 

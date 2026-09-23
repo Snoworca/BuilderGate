@@ -20569,11 +20569,18 @@ async function testRecoveryCommandRestoreQuoting(): Promise<void> {
   );
 }
 
+// #57: an AuthService fixture, not a credential. The literal here used to be the same string
+// the E2E harness used as a login password, which is what put it in the count -- but nothing
+// authenticates with this one; it is an arbitrary value handed to a temp service. Requiring an
+// environment variable would cost every unit run a setup step and buy no secrecy, so it is
+// simply named for what it is.
+const UNIT_FIXTURE_PASSWORD = 'unit-fixture-password';
+
 async function testRecoveryOptionRoutesCrudAndAuth(): Promise<void> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-recovery-option-routes-'));
   const dataPath = path.join(tempDir, 'recovery-options.json');
   const authService = new AuthService({
-    password: '1234',
+    password: UNIT_FIXTURE_PASSWORD,
     durationMs: 60_000,
     jwtSecret: 'recovery-option-route-test-secret',
   }, new CryptoService('recovery-option-route-test'));
@@ -20775,7 +20782,7 @@ async function testTerminalShortcutRoutesCrudValidationAndAuth(): Promise<void> 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-terminal-shortcut-routes-'));
   const dataPath = path.join(tempDir, 'terminal-shortcuts.json');
   const authService = new AuthService({
-    password: '1234',
+    password: UNIT_FIXTURE_PASSWORD,
     durationMs: 60_000,
     jwtSecret: 'terminal-shortcut-route-test-secret',
   }, new CryptoService('terminal-shortcut-route-test'));

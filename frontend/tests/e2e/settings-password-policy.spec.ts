@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { requireTestPassword } from './testPassword.js';
 
 function createSettingsSnapshot() {
   const immediateCapability = { applyScope: 'immediate', available: true, writeOnly: false };
@@ -183,7 +184,7 @@ test.describe('Settings password policy', () => {
     });
 
     await page.goto('/');
-    await page.fill('input[type="password"]', '1234');
+    await page.fill('input[type=\"password\"]', requireTestPassword());
     await page.click('button[type="submit"]');
     await expect(page.locator('.workspace-screen')).toBeVisible({ timeout: 10000 });
 
@@ -200,7 +201,7 @@ test.describe('Settings password policy', () => {
     const saveButton = page.getByTestId('settings-save-button');
     const policyMessage = 'Password must be 4 to 128 characters';
 
-    await currentPassword.fill('1234');
+    await currentPassword.fill(requireTestPassword());
 
     for (const invalidPassword of ['abc', 'abcd ', 'Password?1', 'A'.repeat(129)]) {
       await newPassword.fill(invalidPassword);
@@ -219,7 +220,7 @@ test.describe('Settings password policy', () => {
     await saveButton.click();
     await expect(page.locator('.settings-banner-success')).toContainText('next login 1');
 
-    expect(submittedPatch?.auth?.currentPassword).toBe('1234');
+    expect(submittedPatch?.auth?.currentPassword).toBe(requireTestPassword());
     expect(submittedPatch?.auth?.newPassword).toBe(maxLengthPassword);
     expect(submittedPatch?.auth?.confirmPassword).toBe(maxLengthPassword);
   });
