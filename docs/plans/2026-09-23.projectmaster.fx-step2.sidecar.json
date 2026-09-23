@@ -165,7 +165,12 @@
       "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobState.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 5 / pass 0 / fail 5. 다섯 테스트 전부 이름으로 ✖ 출력, 각각 ERR_MODULE_NOT_FOUND (fileJobState.js 부재 — 테스트마다 동적 import 라 러너 사망이 아니라 테스트별 실패). 임시 스텁 확인(삭제함): 허용형 스텁은 case1(actual 7 expected 6)·case2(Missing expected exception)·case5(actual {next:cancelled} expected {ignored:true}) 단언 실패, 재진입 차단 스텁은 case3·4·5 실패, 올바른 스텁은 5/5 통과",
+     "timestamp": "2026-09-23T08:14:54.226Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -284,7 +289,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobState.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T08:17:25.000Z"
+    }
    },
    "trace_links": [
     {
@@ -482,7 +491,12 @@
       "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 11 / pass 0 / fail 11 — 11 case 전부 이름으로 ✖. 원인: Error [ERR_MODULE_NOT_FOUND]: Cannot find module .../fileJobs/fileJobRunner.js · fileJobFsOps.js (테스트 본문 안 동적 import). 임시 스텁 검증: 옳은 스텁 11/11 통과, 틀린 스텁 9종이 각각 의도한 단언에서 실패(청크 진행 누락, 사전 충돌 스캔, 생성 후 검증, scanning 중 바이트 진행, 삭제 바이트 진행, 답 뒤 running 복귀 누락, decide 미호출 2초 기한, readFile 기반 어댑터, 문자열 속 // 뒤 readFile 은닉). 스텁은 삭제함.",
+     "timestamp": "2026-09-23T08:31:54Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -696,7 +710,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts src\\services\\fileJobs\\fileJobState.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T08:38:26.242Z"
+    }
    },
    "trace_links": [
     {
@@ -898,9 +916,48 @@
       "test_symbol": "rename 만 EXDEV 를 던지고 복사·삭제는 실제 어댑터로 도는 이동을 도중 취소하면 이동 끝난 파일은 목적지에만 있고, 쓰던 파일은 목적지 부분본이 없고 원본이 남으며, 손대지 않은 파일은 원본에 남는다",
       "kind": "integration",
       "expected_failure_signature": "AssertionError|atomic|EXDEV|unlink|ENOENT"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC2-05",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-2",
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancelRealFs.test.ts",
+      "test_symbol": "덮어쓰기 도중 취소해도 목적지의 원래 파일이 바이트 그대로 남고 임시 파일 잔재가 없다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|원래 .* B 가 .* B 가 되었다|원래 파일의 바이트가 바뀌었다"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-002-AC3-07",
+      "req_id": "FR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobFsOps.test.ts",
+      "test_symbol": "실제 어댑터의 두 번째 onBytes 는 copyFileStream promise 가 settle 되기 전에 불린다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|settle 되어 있었다|두 번째 호출이 없다"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC1-03",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobRunnerCancel.test.ts",
+      "test_symbol": "취소는 파일 사이에서도 즉시 먹는다 — 취소 이후 새 copyFileStream 호출이 없다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|취소 뒤 복사 시도"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunnerCancel.test.ts src\\services\\fileJobs\\fileJobRunnerCancelRealFs.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 14 / pass 3 / fail 11. 모듈 부재 실패 0 — 11건 모두 단언에서 실패. [AC1-01] outcome 'failed' !== 'cancelled' (AbortError The operation was aborted — 취소가 실패로 떨어짐; 끝난 a.bin 바이트 단언은 통과). [AC2-01] '쓰던 파일 /dst/b.bin 이 목적지에 남았다' (부분본 미삭제). [AC3-01] outcome=failed — 취소 경로 미진입. [AC4-01] outcome 'failed' !== 'cancelled' (processedEntries 판정 이전). [AC1-03 추가] '취소 뒤 복사 시도: copy-call /src/b.bin -> /dst/b.bin' (파일 사이 취소 무시). [AC5-01] 'rename 호출: []' (move 미구현, scan 뒤 not implemented). [AC6-01] 'rename 을 먼저 시도하지 않았다'. [AC6-02] outcome=failed 'File job operation not implemented: move'. [AC2-02 실제 fs] '쓰다 만 big.bin 가 디스크에 남았다 (65536 B)' (fs.stat). [AC2-05 추가 실제 fs] '원래 262144 B 가 65536 B 가 되었다' (createWriteStream 이 덮어쓰기 대상을 잘라 원본 소실). [AC6-03 실제 fs] outcome failed 'File job operation not implemented: move'. [FR-FOP-002 AC3-07 추가] red 아님 — 현재 어댑터가 이미 settle 전에 두 번째 onBytes 를 내므로 통과(기존 1 MiB 테스트가 증명하지 못하던 것을 실측으로 고정하는 검증 구멍 봉합 case).",
+     "timestamp": "2026-09-23T08:44:19Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -1073,7 +1130,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobRunnerCancel.test.ts src\\services\\fileJobs\\fileJobRunnerCancelRealFs.test.ts src\\services\\fileJobs\\fileJobFsOps.test.ts src\\services\\fileJobs\\fileJobRunner.test.ts src\\services\\fileJobs\\fileJobState.test.ts src\\services\\fileJobs\\fileJobRunnerDurability.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T08:56:49Z"
+    }
    },
    "trace_links": [
     {
