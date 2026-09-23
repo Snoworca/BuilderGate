@@ -810,6 +810,10 @@ export type ServerWsMessage =
   | { type: 'cwd';            sessionId: string; cwd: string }
   | { type: 'session:error';  sessionId: string; message: string }
   | { type: 'session:exited'; sessionId: string; exitCode: number }
+  // File-job events — fileJobManager 가 broadcastWs 로 보내고 라우터가 sessionId 봉투를 씌운다
+  | { type: 'file-job:progress'; sessionId: string; jobId: string; phase: 'scanning' | 'transferring'; processedBytes: number; totalBytes: number; processedEntries: number; totalEntries: number; currentPath: string | null }
+  | { type: 'file-job:decision-required'; sessionId: string; jobId: string; decisionId: string; kind: 'conflict' | 'error'; path: string; detail: string | null; choices: Array<'overwrite' | 'rename' | 'skip'> }
+  | { type: 'file-job:done'; sessionId: string; jobId: string; outcome: 'completed' | 'cancelled' | 'failed'; processedEntries: number; affectedDirectories: string[] }
   // Subscribe response
   | { type: 'subscribed';     sessions: SubscribedSessionInfo[] }
   // Workspace events

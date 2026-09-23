@@ -2379,7 +2379,12 @@
       "expected_failure_signature": "file-job:progress|missing arm|AssertionError"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\types\\wsProtocolFileJobParity.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 6 pass 1 fail 5. AC-1: missing arm file-job:progress, file-job:decision-required, file-job:done in server ServerWsMessage; AC-2/3/4: missing arm file-job:<type> in server ServerWsMessage; AC-7: ws-protocol copies disagree: missing arm file-job:* in server/frontend. Mutation fixture case passes (allowed by dod).",
+     "timestamp": "2026-09-23T10:06:25Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -2516,7 +2521,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\types\\wsProtocolFileJobParity.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T10:30:00Z"
+    }
    },
    "trace_links": [
     {
@@ -2733,7 +2742,12 @@
       "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\routes\\fileJobRoutes.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 13, pass 0, fail 13 — every case fails with Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'server/src/routes/fileJobRoutes.js' (fileJobRoutes.ts and services/fileJobs/fileJobPaths.ts do not exist yet)",
+     "timestamp": "2026-09-23T10:14:47Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -2817,6 +2831,9 @@
     },
     {
      "path": "server/src/services/fileJobs/fileJobPaths.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobManager.ts"
     }
    ],
    "test_files": [
@@ -2990,7 +3007,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\routes\\fileJobRoutes.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T11:05:00Z"
+    }
    },
    "trace_links": [
     {
@@ -3145,9 +3166,36 @@
       "test_symbol": "scanning 은 lstat 을 쓴다 — 심볼릭 항목의 크기·자식을 링크 대상에서 세지 않는다",
       "kind": "integration",
       "expected_failure_signature": "AssertionError|junction|kind=error|PATH_"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-13",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "링크의 실제 대상이 출발지 세션 cwd 안이면 따라가서 내용을 복사하고 error 결정을 내지 않는다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|kind=error|completed"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-14",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "따라간 링크가 cwd 안의 상위 디렉터리를 가리켜 순환하면 끝없이 내려가지 않고 그 항목에 error 결정을 낸다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|kind=error|loop"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobPathSecurity.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 4, pass 0, fail 4, skipped 0 (junctions created without EPERM). AC2-05: AssertionError expected a kind=error decision for the junction; outcome=failed, decisions=[] (lstat throws EUNSUPPORTEDTYPE, job fails). AC2-06: AssertionError file was created inside the blocked directory through a junction; outcome=completed (resolveAndValidate ENOENT branch skips realpath and blocked recheck). AC2-07: AssertionError paths were created outside the destination session cwd through a junction; outcome=completed (outside dir gained a.txt and dir). AC2-08: AssertionError scanning must finish past the link and reach transferring; outcome=failed, phases=[scanning,scanning].",
+     "timestamp": "2026-09-23T10:41:58Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -3254,10 +3302,54 @@
       "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
       "test_symbol": "scanning 은 lstat 을 쓴다 — 심볼릭 항목의 크기·자식을 링크 대상에서 세지 않는다",
       "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-15",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "링크의 실제 대상이 출발지 세션 cwd 안이면 따라가서 내용을 복사하고 error 결정을 내지 않는다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-16",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "따라간 링크가 cwd 안의 상위 디렉터리를 가리켜 순환하면 끝없이 내려가지 않고 그 항목에 error 결정을 낸다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-17",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "출발지 cwd 안에 있어도 blocked 디렉터리를 가리키는 링크는 따라가지 않고 그 항목에 error 결정을 낸다",
+      "kind": "integration"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-18",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobPathSecurity.test.ts",
+      "test_symbol": "스캔 뒤 질문에 멈춘 사이 따라간 링크가 cwd 밖으로 다시 걸려도 검증한 대상의 내용만 복사된다",
+      "kind": "integration"
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobPathSecurity.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T12:37:40Z"
+    }
    },
    "trace_links": [
     {
@@ -3355,9 +3447,36 @@
       "test_symbol": "fileJobRoutes.ts 의 GET 핸들러가 manager.resendPendingDecisions 를 부르고, index.ts 가 매니저 broadcast 로 sessionManager.broadcastWs 를 넘긴다",
       "kind": "contract",
       "expected_failure_signature": "AssertionError|/api/file-jobs|onSessionDeleted|broadcastWs"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC2-19",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-2"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobWiring.test.ts",
+      "test_symbol": "라우터의 pathPolicy 와 관리자의 validatePathFor 가 한 정책 객체(같은 getCwd·blockedPaths)에서 온다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|FileJobManager|validatePathFor|정책"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC1-05",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobWiring.test.ts",
+      "test_symbol": "운영 배선에서 출발지·목적지 검증 모두 validateCreatePath 를 쓴다 — validateSessionPath 는 원시 cwd 와 비교해 링크·8.3 cwd 안의 링크를 잘못 거부한다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|validateSessionPath|validateCreatePath"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobWiring.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "✖ index.ts 가 /api/file-jobs 를 authMiddleware 뒤에 마운트한다 — AssertionError: index.ts 가 createFileJobRoutes 를 import 하지 않는다\n✖ index.ts 가 onSessionDeleted 에서 그 세션의 작업을 정리한다 — AssertionError: createSessionRoutes 옵션에 onSessionDeleted 가 없다\n✖ fileJobRoutes.ts 의 GET 핸들러가 … broadcastWs 를 넘긴다 — AssertionError: index.ts 에 `const <이름> = new FileJobManager(…)` 가 없다\n✖ 라우터의 pathPolicy 와 관리자의 validatePathFor 가 한 정책 객체 … — AssertionError: index.ts 에 `const <이름> = new FileJobManager(…)` 가 없다\n✖ 운영 배선에서 출발지·목적지 검증 모두 validateCreatePath 를 쓴다 … — AssertionError: fileJobRoutes.ts 가 여전히 validateSessionPath 를 부른다 (2 !== 0)\nℹ tests 6 · pass 1 (스캐너 자기 점검·양성 대조) · fail 5",
+     "timestamp": "2026-09-23T12:42:52Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -3469,7 +3588,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobWiring.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T12:47:20.000Z"
+    }
    },
    "trace_links": [
     {

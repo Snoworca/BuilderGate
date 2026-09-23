@@ -973,3 +973,55 @@ test('러너를 직접 쓰는 호출자가 종류가 다른 충돌에 overwrite 
   assert.deepEqual(fs.list('/d'), ['x']);
   assert.deepEqual(fs.list('/d/x'), []);
 });
+
+// ── FR-FOP-004 : applyToAll 은 질문의 종류마다 따로 기억한다 ───────────────────
+
+test('링크 오류 질문에 applyToAll=true 로 skip 을 고르면 같은 종류의 오류에만 적용되고 뒤의 충돌 질문은 다시 묻는다', async () => {
+  const { FileJobManager } = await load();
+  const time = new FakeTime();
+  const sent: Sent[] = [];
+  const answers: string[] = [];
+  // 러너 대역: 오류 → 충돌 → 오류 순으로 묻는다. 결정의 범위만 보려는 것이라 디스크는 쓰지 않는다.
+  const stubRun = async (_spec: FileJobSpec, deps: FileJobRunnerDeps): Promise<FileJobResult> => {
+    // 관리자는 러너가 알린 상태로 답을 받을지 정한다 — 실제 러너처럼 묻는 동안 awaiting-decision 을 알린다.
+    const ask = async (kind: 'error' | 'conflict', path: string, choices: Choice[]): Promise<void> => {
+      deps.onStateChange?.('awaiting-decision');
+      try {
+        answers.push(`${kind}:${(await deps.decide({ kind, path, choices })).choice}`);
+      } finally {
+        deps.onStateChange?.('running');
+      }
+    };
+    await ask('error', '/s/link1', ['skip']);
+    await ask('conflict', '/d/a', ['overwrite', 'rename', 'skip']);
+    await ask('error', '/s/link2', ['skip']);
+    return { outcome: 'completed', processedEntries: 3 };
+  };
+  const manager = new FileJobManager({
+    runJob: stubRun,
+    fsOps: new MemoryFs(),
+    broadcast: (sessionId, event, payload) => {
+      sent.push({ sessionId, event, payload, at: time.nowMs });
+    },
+    clock: time.clock,
+    timers: time.timers,
+    validatePathFor: () => () => {},
+  });
+  try {
+    const { jobId } = manager.start({ sourceSessionId: 's1', spec: { operation: 'copy', sources: ['/s/link1'], destDir: '/d' } });
+    await until(() => decisionsOf(sent, jobId).length === 1, '첫 번째 링크 오류');
+    assert.equal(decisionsOf(sent, jobId)[0].payload.kind, 'error');
+    answer(manager, jobId, decisionsOf(sent, jobId)[0], 'skip', true);
+    await until(() => decisionsOf(sent, jobId).length > 1 || doneOf(sent, jobId).length > 0, '충돌 질문 또는 done');
+    assert.equal(doneOf(sent, jobId).length, 0, `오류에 고른 skip-for-all 이 충돌을 묻지 않고 건너뛰었다: ${JSON.stringify(answers)}`);
+    const conflict = decisionsOf(sent, jobId)[1];
+    assert.equal(conflict.payload.kind, 'conflict');
+    answer(manager, jobId, conflict, 'overwrite');
+    await until(() => doneOf(sent, jobId).length > 0 || decisionsOf(sent, jobId).length > 2, 'done 또는 세 번째 질문');
+    // 대조군: 같은 종류(오류)에는 기억한 답이 그대로 적용된다 — 아무것도 기억하지 않는 관리자가 통과하지 못하게.
+    assert.equal(decisionsOf(sent, jobId).length, 2, '같은 종류의 두 번째 링크 오류를 다시 물었다');
+    assert.deepEqual(answers, ['error:skip', 'conflict:overwrite', 'error:skip']);
+  } finally {
+    manager.dispose();
+  }
+});

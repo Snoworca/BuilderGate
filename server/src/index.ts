@@ -17,6 +17,7 @@ import path from 'path';
 import { createSessionRoutes } from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
+import { createFileJobRoutes } from './routes/fileJobRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
@@ -28,6 +29,10 @@ import { config, getServerRoot } from './utils/config.js';
 import { getDefaultTerminalWireFormat } from './ws/terminalWireFormatDefault.js';
 import { inputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { FileService } from './services/FileService.js';
+import { FileJobManager } from './services/fileJobs/fileJobManager.js';
+import { runJob } from './services/fileJobs/fileJobRunner.js';
+import { nodeFileJobFsOps } from './services/fileJobs/fileJobFsOps.js';
+import { validateCreatePath, type FileJobPathPolicy } from './services/fileJobs/fileJobPaths.js';
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
 import { terminalResourcePolicyRuntimeAuthority } from './services/TerminalResourcePolicyRuntime.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
@@ -228,6 +233,9 @@ function applyTwoFactorRuntime(
 }
 
 async function performServerGracefulShutdown(reason: string) {
+  // 도는 파일 작업을 멈추고 대기·보존 타이머를 거둔다. 세션 정리보다 먼저 — 세션이 내려가는 동안
+  // 작업이 그 세션으로 방송하거나 새 파일을 만들지 않게.
+  fileJobManager.dispose();
   const stopMcpListener = mcpListenerControllerInstance?.stop;
   if (typeof stopMcpListener === 'function') {
     await stopMcpListener();
@@ -510,6 +518,48 @@ const fileManagerConfig = config.fileManager || {
   blockedPaths: ['.ssh', '.gnupg', '.aws'],
   cwdCacheTtlMs: 1000,
 };
+
+// 파일 조작 작업의 경로 정책은 이 객체 하나다. 라우터(요청 시점 검증)와 관리자(러너가 만드는 경로
+// 검증)가 같은 것을 봐야 한쪽만 고쳐지는 일이 없다. 세션 cwd 는 파일 API 와 같은 FileService 가 푼다
+// (없는 세션은 AppError(SESSION_NOT_FOUND) 로 reject).
+// @req SEC-FOP-001
+const fileJobPathPolicy: FileJobPathPolicy = {
+  getCwd: (sessionId) => fileService.getCwd(sessionId),
+  // 아래 접근자로 바로 교체된다. 교체가 빠져도 빈 목록이 아니라 기동 시 설정으로 막히게 둔다.
+  blockedPaths: fileManagerConfig.blockedPaths,
+};
+// 설정 화면의 blockedPaths 변경은 재시작 없이 적용된다(applyScope: immediate). 기동 시 배열을 쥐고 있으면
+// 새로 막은 경로로 파일 작업이 계속 들어가므로, 읽을 때마다 현재 런타임 설정을 본다. SettingsService 는
+// runtimeConfigStore 를 먼저 바꾸고 실패하면 되돌리므로 FileService 와 같은 값을 가리킨다.
+Object.defineProperty(fileJobPathPolicy, 'blockedPaths', {
+  enumerable: true,
+  get: (): readonly string[] =>
+    runtimeConfigStore?.getEditableValues().fileManager.blockedPaths ?? fileManagerConfig.blockedPaths,
+});
+
+// 작업 수명은 WebSocket 연결이 아니라 세션에 매인다 — 진행·질문은 세션 방송으로 나가고, 세션이
+// 지워질 때 onSessionDeleted 가 그 세션의 작업을 거둔다.
+// @req FR-FOP-003
+const fileJobManager = new FileJobManager({
+  broadcast: (sessionId, event, payload) => sessionManager.broadcastWs(sessionId, event, payload),
+  runJob,
+  fsOps: nodeFileJobFsOps,
+  clock: { now: () => Date.now() },
+  // 대기·보존 타이머가 종료 신호 뒤 프로세스를 붙잡지 않게 unref 한다. 정상 종료는 dispose() 가 거둔다.
+  timers: {
+    setTimeout: (fn, ms) => setTimeout(fn, ms).unref(),
+    clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+  },
+  // 검증된 경로 값은 쓰지 않는다 — 관리자 계약은 거부(reject)만 본다.
+  validatePathFor: (sessionId) => async (p) => {
+    await validateCreatePath(fileJobPathPolicy, sessionId, p);
+  },
+});
+// DELETE /api/sessions/:id 는 onSessionDeleted 로 거두지만, 탭·워크스페이스 삭제, 탭 재시작, PTY 종료는
+// 그 라우트를 거치지 않고 SessionManager 에서 바로 세션을 끝낸다. 그 경로의 작업이 주인 없는 세션에
+// 대해 계속 돌지 않도록 모든 종료가 지나는 finalizer 에도 건다. 두 번 불려도 무해하다 — 취소는 abort 와 대기 해제뿐이고 둘 다 멱등이다.
+// @req FR-FOP-003
+sessionManager.addSessionFinalizedListener(({ sessionId }) => fileJobManager.cancelSessionJobs(sessionId));
 
 // The session file write carries a whole document, so a parser left at the
 // body-parser default of 100KB would refuse to save documents the read path
@@ -903,6 +953,7 @@ function setupRoutes(): void {
   });
   const sessionRoutes = createSessionRoutes({
     onSessionDeleting: (sessionId) => workspaceService.markSessionStoppedByDirectDelete(sessionId),
+    onSessionDeleted: (sessionId) => fileJobManager.cancelSessionJobs(sessionId),
   });
   app.use('/api/sessions', authMiddleware, sessionRoutes);
 
@@ -913,6 +964,9 @@ function setupRoutes(): void {
   // File manager routes (auth required, same base path)
   const fileRoutes = createFileRoutes(fileService);
   app.use('/api/sessions', authMiddleware, fileRoutes);
+
+  // File job routes (auth required) — 복사·이동·삭제 작업. 진행은 WebSocket 세션 방송으로 간다.
+  app.use('/api/file-jobs', authMiddleware, createFileJobRoutes(fileJobManager, fileJobPathPolicy));
 
   console.log('[Routes] API routes configured');
   console.log('  - GET  /health (public)');

@@ -18,7 +18,7 @@
 import { randomBytes } from 'node:crypto';
 import { basename, dirname, join, relative, resolve, isAbsolute } from 'node:path';
 import { resolveNameCollision } from '../fileNameCollision.js';
-import type { FileJobFsOps } from './fileJobFsOps.js';
+import type { FileJobFsOps, FileJobFsStat } from './fileJobFsOps.js';
 import { transition, type FileJobState } from './fileJobState.js';
 
 // @req FR-FOP-002
@@ -54,22 +54,57 @@ export const FILE_JOB_IN_PLACE_CHOICES: readonly FileJobConflictChoice[] = Objec
  * 하지 않으므로 overwrite 는 늘 실패한다 — 고를 수 없는 답을 내놓지 않는다.
  */
 export const FILE_JOB_KIND_MISMATCH_CHOICES: readonly FileJobConflictChoice[] = FILE_JOB_IN_PLACE_CHOICES;
+/**
+ * 따라갈 수 없는 링크(대상이 출발지 세션 밖·blocked·순환·풀 수 없음)의 선택지. 그 항목을 옮길
+ * 방법이 없으니 건너뛰기뿐이다. 작업 전체를 멈추려면 취소한다.
+ */
+export const FILE_JOB_LINK_ERROR_CHOICES: readonly FileJobConflictChoice[] = Object.freeze(['skip']);
 
 // @req FR-FOP-001
 // @req FR-FOP-004
 export interface FileJobDecisionRequest {
-  kind: 'conflict';
-  /** 이미 있는 목적지 경로. */
+  /** conflict: 목적지에 이미 항목이 있다. error: 출발지 항목을 옮길 수 없다(따라갈 수 없는 링크). */
+  kind: 'conflict' | 'error';
+  /** conflict 면 이미 있는 목적지 경로, error 면 옮길 수 없는 출발지 항목. */
   path: string;
   /** 이 질문에 받아들일 수 있는 답. 답의 검증은 이 목록을 기준으로 한다. */
   choices: readonly FileJobConflictChoice[];
+  /**
+   * error 의 이유. 사용자가 왜 건너뛰어야 하는지 보게 한다. 링크 대상의 실제 위치는 싣지 않는다 —
+   * path 가 보여 주는 것 이상을 드러내면 거부한 대상의 존재와 위치가 새어 나간다.
+   */
+  detail?: string;
 }
+
+/** 링크를 따라가지 않은 이유. 사람이 읽는 문장이고 경로를 담지 않는다. */
+export const FILE_JOB_LINK_REFUSAL = Object.freeze({
+  outside: 'link target is outside the session folder',
+  blocked: 'link target is blocked',
+  unresolvable: 'link target does not exist or cannot be read',
+  cycle: 'link points back into a folder being copied',
+  unchecked: 'links cannot be followed here',
+  changed: 'link target changed while scanning',
+  notMovable: 'link cannot be moved to this destination',
+});
+
+// 링크 대상 검증기가 던지는 코드 중 "정책상 거부" 만 링크 건너뛰기로 바꾼다. 세션이 사라졌거나
+// 디스크 오류면 그 링크 하나의 문제가 아니므로 작업을 실패로 드러낸다 — 건너뛰기로 바꾸면 복사가
+// 조용히 빠진 채 completed 로 끝난다. 문자열로 비교한다: 러너는 검증기의 오류 타입에 묶이지 않는다.
+const LINK_POLICY_REFUSALS: Readonly<Record<string, string>> = Object.freeze({
+  PATH_TRAVERSAL: FILE_JOB_LINK_REFUSAL.outside,
+  PATH_BLOCKED: FILE_JOB_LINK_REFUSAL.blocked,
+});
 
 // @req FR-FOP-001
 export interface FileJobRunnerDeps {
   fsOps: FileJobFsOps;
   /** 만들기 직전의 모든 경로를 받는다. 거부는 throw 로 한다. */
   validatePath: (p: string) => void | Promise<void>;
+  /**
+   * 출발지 세션 정책 검증기. 복사 중 만난 링크의 실제 대상을 받는다. 없으면 링크를 따라가지
+   * 않는다 — 검증할 수 없는 대상을 읽으면 출발지 세션 밖의 내용이 목적지로 새어 나간다.
+   */
+  validateSourcePath?: (p: string) => void | Promise<void>;
   decide: (req: FileJobDecisionRequest) => Promise<{ choice: FileJobConflictChoice }>;
   onProgress: (p: FileJobProgress) => void;
   onStateChange?: (s: FileJobState) => void;
@@ -87,8 +122,20 @@ export interface FileJobResult {
 }
 
 interface ScannedEntry {
+  /** 사용자가 보는 경로. 목적지 이름(basename)과 진행·질문 표시에 쓴다. */
   path: string;
-  kind: 'file' | 'directory';
+  /**
+   * 실제로 읽는 경로. 따라간 링크와 그 자손은 검증한 실제 경로 아래를 가리키고, 그 밖에는 path 와
+   * 같다. 링크 경로로 다시 읽으면 스캔 뒤(질문에 멈춘 사이 등) 다시 걸린 링크의 새 대상을 읽는다 —
+   * 검증은 스캔 때 대상에 했으므로 그 내용이 검증 없이 목적지로 새어 나간다.
+   */
+  readPath: string;
+  /**
+   * link 는 따라가지 않은 링크 자신이다. 따라간 링크는 대상의 종류(file·directory)로 담긴다.
+   */
+  kind: 'file' | 'directory' | 'link';
+  /** 복사 중 따라가지 않은 링크면 그 이유(FILE_JOB_LINK_REFUSAL). 결정의 detail 로 나간다. */
+  refusal?: string;
   size: number;
   /** 디렉터리만. readdir 순서. */
   children: ScannedEntry[];
@@ -237,29 +284,120 @@ class JobRun {
   private async scan(): Promise<ScannedEntry[]> {
     this.report(null);
     const roots: ScannedEntry[] = [];
-    for (const source of this.spec.sources) roots.push(await this.scanEntry(source));
+    for (const source of this.spec.sources) roots.push(await this.scanEntry(source, source, new Set()));
     return roots;
   }
 
+  /**
+   * ancestors 는 지금 내려온 디렉터리들의 실제 경로(foldName)다. 링크를 따라가는 복사만 채운다 —
+   * 링크가 없으면 디렉터리 트리는 순환할 수 없다.
+   */
   // @req FR-FOP-002
-  private async scanEntry(path: string): Promise<ScannedEntry> {
+  // @req SEC-FOP-001
+  private async scanEntry(path: string, readPath: string, ancestors: Set<string>): Promise<ScannedEntry> {
     const { fsOps } = this.deps;
     this.throwIfAborted();
-    const stat = await fsOps.lstat(path);
+    const stat = await fsOps.lstat(readPath);
     if (!stat) {
       throw codedError('ENOENT', `Source not found: ${path}`);
     }
-    const entry: ScannedEntry = { path, kind: stat.kind, size: stat.kind === 'file' ? stat.size : 0, children: [] };
+    let kind: ScannedEntry['kind'];
+    let size = 0;
+    let realDir: string | null = null;
+    let refusal: string | undefined;
+    if (stat.kind === 'symlink') {
+      // 링크를 따라가는 것은 복사뿐이다. 이동·삭제는 링크 자신을 다룬다 — 이동 중에 대상을 따라가
+      // 원본을 지우거나, 삭제가 링크 너머의 트리를 지우면 사용자가 고른 적 없는 파괴다.
+      const target = this.spec.operation === 'copy' ? await this.resolveLink(readPath, ancestors) : null;
+      if (target && 'real' in target) {
+        kind = target.kind;
+        size = target.kind === 'file' ? target.size : 0;
+        realDir = target.real;
+        readPath = target.real;
+      } else {
+        kind = 'link';
+        refusal = target?.refused;
+      }
+    } else {
+      kind = stat.kind;
+      size = stat.kind === 'file' ? stat.size : 0;
+    }
+    const entry: ScannedEntry = { path, readPath, kind, size, children: [] };
+    if (refusal !== undefined) entry.refusal = refusal;
     this.totalEntries += 1;
     // 삭제는 바이트로 진행하지 않으므로 분모에도 싣지 않는다 — 0/450 막대가 멈춰 보이지 않게.
     if (this.spec.operation !== 'delete') this.totalBytes += entry.size;
     this.report(path);
     if (entry.kind === 'directory') {
-      for (const name of await fsOps.readdir(path)) {
-        entry.children.push(await this.scanEntry(join(path, name)));
+      const key = this.spec.operation === 'copy' ? foldName(realDir ?? (await this.realOf(readPath))) : null;
+      const added = key !== null && !ancestors.has(key);
+      if (added) ancestors.add(key);
+      try {
+        for (const name of await fsOps.readdir(readPath)) {
+          entry.children.push(await this.scanEntry(join(path, name), join(readPath, name), ancestors));
+        }
+      } finally {
+        if (added) ancestors.delete(key);
       }
     }
     return entry;
+  }
+
+  /**
+   * 링크를 따라가도 되면 대상의 실제 경로와 종류를, 아니면 거부 이유를 돌려준다. 따라가도 되는 것은
+   * 대상이 풀리고, 지금 내려온 디렉터리가 아니며(순환), 출발지 세션 정책을 통과할 때뿐이다.
+   * 판단할 수단(realpath·출발지 검증기)이 없으면 따라가지 않는다 — 모르면 거부한다.
+   */
+  // @req SEC-FOP-001
+  private async resolveLink(
+    path: string,
+    ancestors: ReadonlySet<string>,
+  ): Promise<{ real: string; kind: 'file' | 'directory'; size: number } | { refused: string }> {
+    const { fsOps, validateSourcePath } = this.deps;
+    if (!fsOps.realpath || !validateSourcePath) return { refused: FILE_JOB_LINK_REFUSAL.unchecked };
+    let real: string;
+    try {
+      real = await fsOps.realpath(path);
+    } catch {
+      // 대상이 없는 링크·권한 없는 대상. 어느 쪽이든 옮길 내용을 확인할 수 없다.
+      return { refused: FILE_JOB_LINK_REFUSAL.unresolvable };
+    }
+    this.throwIfAborted();
+    if (ancestors.has(foldName(real))) return { refused: FILE_JOB_LINK_REFUSAL.cycle };
+    try {
+      await validateSourcePath(real);
+    } catch (err) {
+      // 검증 중의 취소는 거부가 아니라 취소다.
+      this.throwIfAborted();
+      const code = errnoCode(err);
+      const reason = code !== undefined && Object.hasOwn(LINK_POLICY_REFUSALS, code) ? LINK_POLICY_REFUSALS[code] : undefined;
+      if (reason === undefined) throw err;
+      return { refused: reason };
+    }
+    this.throwIfAborted();
+    const target = await fsOps.lstat(real);
+    // realpath 의 결과는 링크일 수 없지만, 그 사이에 바뀌었으면 다시 풀지 않고 거부한다.
+    if (!target || target.kind === 'symlink') return { refused: FILE_JOB_LINK_REFUSAL.changed };
+    return { real, kind: target.kind, size: target.size };
+  }
+
+  /** 순환 판정용 실제 경로. 풀 수 없으면 입력 경로로 대신한다 — 디렉터리 자체의 읽기가 곧 실패를 드러낸다. */
+  private async realOf(path: string): Promise<string> {
+    const { fsOps } = this.deps;
+    if (!fsOps.realpath) return resolve(path);
+    return fsOps.realpath(path).catch(() => resolve(path));
+  }
+
+  /** 따라갈 수 없는 링크를 사용자에게 알리고 건너뛴다. 그 아래로는 아무것도 만들지 않는다. */
+  // @req SEC-FOP-001
+  private async refuseLink(entry: ScannedEntry): Promise<void> {
+    // 이유가 없는 링크는 이동 중 링크로 옮길 수 없는 자리의 것이다 — 복사는 스캔에서 늘 이유를 남긴다.
+    const detail = entry.refusal ?? FILE_JOB_LINK_REFUSAL.notMovable;
+    const choice = await this.ask('error', entry.path, FILE_JOB_LINK_ERROR_CHOICES, detail);
+    if (!FILE_JOB_LINK_ERROR_CHOICES.includes(choice)) {
+      throw codedError('EINVAL', `Unknown link error choice: ${String(choice)}`);
+    }
+    this.markSkipped(entry);
   }
 
   // ── copy ────────────────────────────────────────────────────────────────
@@ -282,6 +420,11 @@ class JobRun {
   private async copyEntry(entry: ScannedEntry, dst: string): Promise<void> {
     const { fsOps } = this.deps;
     this.throwIfAborted();
+    // 목적지를 보기 전에 거른다 — 옮길 수 없는 항목에 충돌 질문부터 하면 답해도 소용없는 질문이 된다.
+    if (entry.kind === 'link') {
+      await this.refuseLink(entry);
+      return;
+    }
     // 목적지는 도달한 그 순간에만 본다 — 사전 스캔 없이 만나는 순서대로 묻는다.
     const existing = await fsOps.lstat(dst);
     let target = dst;
@@ -319,7 +462,7 @@ class JobRun {
       return;
     }
 
-    await this.writeFile(entry.path, target, replace);
+    await this.writeFile(entry.readPath, target, replace);
     this.processedEntries += 1;
     this.report(entry.path);
   }
@@ -392,6 +535,12 @@ class JobRun {
   private async moveEntry(entry: ScannedEntry, dst: string, tryRename: boolean): Promise<boolean> {
     const { fsOps } = this.deps;
     this.throwIfAborted();
+    // rename 은 링크를 링크로 옮긴다(대상을 읽지 않는다). 그럴 수 없는 자리에서는 링크를 재현할
+    // 수단이 없으므로 묻고 건너뛴다 — 출발지에 남으므로 부모를 rmdir 할 근거가 아니다.
+    if (entry.kind === 'link' && !tryRename) {
+      await this.refuseLink(entry);
+      return false;
+    }
     const existing = await fsOps.lstat(dst);
     let target = dst;
     let mergeInto = false;
@@ -434,6 +583,10 @@ class JobRun {
       }
     }
     this.movedPiecewise = true;
+    if (entry.kind === 'link') {
+      await this.refuseLink(entry);
+      return false;
+    }
 
     if (entry.kind === 'directory') {
       if (!mergeInto) {
@@ -474,14 +627,14 @@ class JobRun {
   private async askConflictFor(
     entry: ScannedEntry,
     dst: string,
-    existingKind: ScannedEntry['kind'],
+    existingKind: FileJobFsStat['kind'],
   ): Promise<FileJobConflictChoice> {
     const choices = samePath(entry.path, dst)
       ? FILE_JOB_IN_PLACE_CHOICES
       : entry.kind !== existingKind
         ? FILE_JOB_KIND_MISMATCH_CHOICES
         : FILE_JOB_CONFLICT_CHOICES;
-    const choice = await this.askConflict(dst, choices);
+    const choice = await this.ask('conflict', dst, choices);
     // 관리자가 이미 질문별로 거르지만, 러너를 직접 쓰는 호출자도 있다. 선택지 밖의 답을
     // 흘려보내면 제자리 붙여넣기의 overwrite 가 원본을 비우고, 종류가 다른 충돌의 overwrite 는
     // 병합·교체 어느 쪽에도 맞지 않으며, 모르는 답은 가장 파괴적인 선택(덮어쓰기)이 기본값이 된다.
@@ -492,12 +645,19 @@ class JobRun {
   }
 
   // @req FR-FOP-001
-  private async askConflict(path: string, choices: readonly FileJobConflictChoice[]): Promise<FileJobConflictChoice> {
+  private async ask(
+    kind: FileJobDecisionRequest['kind'],
+    path: string,
+    choices: readonly FileJobConflictChoice[],
+    detail?: string,
+  ): Promise<FileJobConflictChoice> {
     this.moveTo('awaiting-decision');
     try {
       // 답을 기다리는 동안의 취소는 답을 기다리지 않고 바로 끝낸다 — 사용자가 대화상자를
       // 닫지 않은 채 취소했을 수 있다.
-      const { choice } = await this.untilAborted(this.deps.decide({ kind: 'conflict', path, choices }));
+      // detail 은 있을 때만 싣는다 — 충돌 요청의 모양({ kind, path, choices })을 바꾸지 않는다.
+      const req: FileJobDecisionRequest = detail === undefined ? { kind, path, choices } : { kind, path, choices, detail };
+      const { choice } = await this.untilAborted(this.deps.decide(req));
       return choice;
     } finally {
       // 전이표에 awaiting-decision → failed 가 없다. 결정이 실패해도 running 으로 돌아온 뒤
@@ -530,6 +690,7 @@ class JobRun {
       for (const child of entry.children) await this.deleteEntry(child);
       await fsOps.rmdir(entry.path);
     } else {
+      // 링크는 링크 자신만 지운다(unlink 는 대상을 따라가지 않는다). 스캔이 삭제에서는 링크를 따라가지 않는다.
       await fsOps.unlink(entry.path);
     }
     this.processedEntries += 1;

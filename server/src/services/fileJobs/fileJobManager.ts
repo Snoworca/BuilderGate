@@ -76,7 +76,7 @@ export interface FileJobSummary {
 export interface FileJobDecisionAnswer {
   decisionId: string;
   choice: FileJobConflictChoice;
-  /** true 면 같은 작업의 남은 질문 중 이 답이 선택지에 드는 것에 묻지 않고 적용한다. 작업이 끝나면 버린다. */
+  /** true 면 같은 작업의 남은 같은 종류(kind) 질문 중 이 답이 선택지에 드는 것에 묻지 않고 적용한다. 작업이 끝나면 버린다. */
   applyToAll?: boolean;
 }
 
@@ -108,6 +108,8 @@ interface PendingDecision {
   payload: Record<string, unknown>;
   /** 이 질문에 받아들일 답. 질문마다 다르다 — 제자리 붙여넣기에는 overwrite 가 없다. */
   choices: readonly FileJobConflictChoice[];
+  /** applyToAll 로 고른 답을 어느 종류의 질문에 기억할지. */
+  kind: FileJobDecisionRequest['kind'];
   resolve(answer: { choice: FileJobConflictChoice }): void;
   reject(err: unknown): void;
 }
@@ -127,8 +129,11 @@ interface Job {
   retentionTimer: unknown;
   /** 끝난 뒤에만 채워진다. */
   result: FileJobResult | null;
-  /** applyToAll 로 고른 답. 이 작업에만 속하고 끝날 때 버린다. */
-  applyToAllChoice: FileJobConflictChoice | null;
+  /**
+   * applyToAll 로 고른 답을 질문 종류별로. 이 작업에만 속하고 끝날 때 버린다. 종류를 나누지 않으면
+   * 링크 오류에 고른 "모두 건너뛰기" 가 뒤의 충돌 질문에 적용되어 파일이 묻지도 않고 빠진다.
+   */
+  applyToAllChoice: Partial<Record<FileJobDecisionRequest['kind'], FileJobConflictChoice>>;
   progress: ProgressThrottle<Record<string, unknown>>;
   /** done 에 싣는다. 러너 결과에 없는 값이라 시작할 때 spec 으로 정한다. */
   affectedDirectories: string[];
@@ -247,7 +252,7 @@ export class FileJobManager {
       awaitTimer: undefined,
       retentionTimer: undefined,
       result: null,
-      applyToAllChoice: null,
+      applyToAllChoice: {},
       progress: createProgressThrottle(
         (payload) => this.emit(job, 'file-job:progress', payload),
         this.deps.clock,
@@ -260,6 +265,9 @@ export class FileJobManager {
     const runnerDeps: FileJobRunnerDeps = {
       fsOps: this.deps.fsOps,
       validatePath: checkDest,
+      // 복사 중 만난 링크의 대상은 출발지 세션의 트리여야 한다 — 목적지 세션 기준으로 보면 한 세션의
+      // 권한으로 다른 세션의 파일을 읽는다.
+      validateSourcePath: checkSource,
       decide: (req) => this.askUser(job, req),
       onProgress: (progress) => this.onProgress(job, progress),
       onStateChange: (state) => this.onStateChange(job, state),
@@ -332,9 +340,24 @@ export class FileJobManager {
     if (!pending.choices.includes(answer.choice)) {
       throw new FileJobManagerError('INVALID_CHOICE', `Unknown decision choice: ${String(answer.choice)}`);
     }
-    if (answer.applyToAll === true) job.applyToAllChoice = answer.choice;
+    if (answer.applyToAll === true) job.applyToAllChoice[pending.kind] = answer.choice;
     job.pending = null;
     pending.resolve({ choice: answer.choice });
+  }
+
+  /**
+   * 대기 중인 질문의 decision-required 페이로드. 없으면(작업이 없거나 끝났거나 답을 기다리지
+   * 않으면) null. 재접속한 쪽이 목록 조회 한 번으로 대화상자를 복원하게 하려는 것이다 —
+   * broadcast 재전송만으로는 그 순간 연결이 없던 쪽이 질문을 놓친다.
+   * 복사본을 준다. 호출자가 바꿔도 재전송 페이로드(같은 decisionId)가 흔들리지 않게.
+   * 판정 기준은 resendPendingDecisions 와 같다 — 목록과 재전송이 서로 다른 질문을 말하면 안 된다.
+   */
+  // @req FR-FOP-003
+  getPendingDecision(jobId: string): Record<string, unknown> | null {
+    const job = this.jobs.get(jobId);
+    if (!job?.pending) return null;
+    const payload = job.pending.payload;
+    return { ...payload, choices: [...(payload.choices as readonly unknown[])] };
   }
 
   /** 사용자 취소와 자동 취소의 유일한 입구. */
@@ -465,8 +488,8 @@ export class FileJobManager {
     // 기억한 답이 이 질문의 선택지에 없으면(overwrite 를 기억했는데 제자리 붙여넣기거나 파일 ↔
     // 디렉터리 충돌이다) 묻는다 —
     // 선택지 밖의 답을 적용하는 길을 만들지 않는다.
-    const remembered = job.applyToAllChoice;
-    if (remembered !== null && req.choices.includes(remembered)) {
+    const remembered = job.applyToAllChoice[req.kind];
+    if (remembered !== undefined && req.choices.includes(remembered)) {
       return Promise.resolve({ choice: remembered });
     }
     const choices = [...req.choices];
@@ -477,11 +500,11 @@ export class FileJobManager {
         decisionId,
         kind: req.kind,
         path: req.path,
-        // 충돌에는 덧붙일 설명이 없다. 키는 늘 싣는다 — 받는 쪽이 kind 마다 모양을 가리지 않게.
-        detail: null,
+        // 충돌에는 덧붙일 설명이 없다(null). 키는 늘 싣는다 — 받는 쪽이 kind 마다 모양을 가리지 않게.
+        detail: req.detail ?? null,
         choices,
       };
-      job.pending = { decisionId, payload, choices, resolve, reject };
+      job.pending = { decisionId, payload, choices, kind: req.kind, resolve, reject };
       this.emit(job, 'file-job:decision-required', payload);
     });
   }
@@ -504,7 +527,7 @@ export class FileJobManager {
     }
     job.result = result;
     job.pending = null;
-    job.applyToAllChoice = null;
+    job.applyToAllChoice = {};
     this.clearTimer(job, 'awaitTimer');
     // 창에 막힌 마지막 진행(processed = total)이 done 뒤에 나가거나 버려지지 않게 먼저 내보낸다.
     job.progress.flush();

@@ -33,7 +33,7 @@
 //   resendPendingDecisions(sessionId) → void
 //     그 세션에 매인 작업 중 답을 기다리는 것의 decision-required 를 같은 페이로드(같은 decisionId)로
 //     다시 보낸다. 취소로 끝난 작업의 대기 결정은 남아 있지 않다.
-//   cancelSessionJobs(sessionId) → void   (이 파일 범위 밖)
+//   cancelSessionJobs(sessionId) → void   (그 세션에 매인 비종료 작업을 취소, 여러 번 불러도 된다)
 //   dispose() → void                       (타이머 정리, 여러 번 불러도 된다)
 //   상수: FILE_JOB_AWAIT_BUDGET_MS = 600000, FILE_JOB_RETENTION_MS = 300000
 //   페이로드: decision-required 는 jobId·decisionId·kind·path 를, done 은 jobId·outcome·processedEntries
@@ -87,6 +87,7 @@ interface Manager {
   decide(jobId: string, answer: { decisionId: string; choice: 'overwrite' | 'rename' | 'skip'; applyToAll?: boolean }): void;
   cancel(jobId: string): CancelResult;
   resendPendingDecisions(sessionId: string): void;
+  cancelSessionJobs(sessionId: string): void;
   dispose(): void;
 }
 
@@ -722,6 +723,29 @@ test('start 직후 곧바로 cancel 해도 throw 하지 않는다 — queued 를
     assert.equal(done.processedEntries, 0);
     assert.equal(fs.copyCalls('/src/f0'), 0, '취소한 작업이 복사를 시작했다');
     assert.deepEqual(fs.list('/dst'), []);
+  });
+});
+
+// index.ts 는 DELETE 라우트와 세션 finalizer 두 곳에서 같은 세션을 거두므로, 한 세션에 두 번 불려도
+// 무해해야 하고 다른 세션의 작업은 건드리지 않아야 한다.
+// @req FR-FOP-003
+test('cancelSessionJobs 를 같은 세션에 두 번 불러도 throw 하지 않고 done 은 한 번이며, 다른 세션 작업은 끝까지 돈다', async () => {
+  const fs = new MemoryFs().dir('/src').file('/src/f0', 0x30).file('/src/f1', 0x31).dir('/dst').dir('/dst2');
+  await withManager(fs, async ({ manager, sent }) => {
+    const a = manager.start({ sourceSessionId: 's1', spec: { operation: 'copy', sources: ['/src/f0'], destDir: '/dst' } });
+    const b = manager.start({ sourceSessionId: 's2', spec: { operation: 'copy', sources: ['/src/f1'], destDir: '/dst2' } });
+    assert.doesNotThrow(() => manager.cancelSessionJobs('s1'), '첫 cancelSessionJobs 가 throw 했다');
+    assert.doesNotThrow(() => manager.cancelSessionJobs('s1'), '두 번째 cancelSessionJobs 가 throw 했다');
+    await until(() => doneOf(sent, a.jobId).length > 0 && doneOf(sent, b.jobId).length > 0, 'done');
+    assert.doesNotThrow(() => manager.cancelSessionJobs('s1'), '끝난 뒤 cancelSessionJobs 가 throw 했다');
+    const doneA = doneOf(sent, a.jobId);
+    assert.equal(doneA.length, 1, `s1 작업의 done 이 ${doneA.length}번 나갔다`);
+    assert.equal(doneA[0].payload.outcome, 'cancelled');
+    assert.deepEqual(fs.list('/dst'), []);
+    const doneB = doneOf(sent, b.jobId);
+    assert.equal(doneB.length, 1);
+    assert.equal(doneB[0].payload.outcome, 'completed', '다른 세션의 작업이 함께 취소되었다');
+    assert.deepEqual(fs.bytes('/dst2/f1'), Buffer.alloc(8, 0x31));
   });
 });
 

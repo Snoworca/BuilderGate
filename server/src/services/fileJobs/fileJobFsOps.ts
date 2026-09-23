@@ -7,12 +7,13 @@
 // 복사는 반드시 스트림으로 한다. 한 번에 읽어 쓰는 API 는 파일 전체를 메모리에 올리고,
 // OS 복사 API 는 끝날 때까지 진행을 알려 주지 않아 큰 파일에서 진행 막대가 멈춘다.
 import { createReadStream, createWriteStream } from 'node:fs';
-import { lstat, mkdir, open, readdir, rename, rmdir, unlink } from 'node:fs/promises';
+import { lstat, mkdir, open, readdir, realpath, rename, rmdir, unlink } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 
 // @req FR-FOP-002
 export interface FileJobFsStat {
-  kind: 'file' | 'directory';
+  /** symlink 는 링크 자신이다(Windows junction 포함). 대상의 종류·크기는 담지 않는다. */
+  kind: 'file' | 'directory' | 'symlink';
   size: number;
 }
 
@@ -26,6 +27,11 @@ export interface FileJobCopyOptions {
 export interface FileJobFsOps {
   /** 없으면 null. 링크는 따라가지 않는다. */
   lstat(p: string): Promise<FileJobFsStat | null>;
+  /**
+   * 링크를 모두 푼 실제 경로. 러너는 링크 대상을 출발지 세션 정책으로 검사하고 순환을 끊는 데
+   * 쓴다. 없는 구현(메모리 fs 등)이면 러너는 링크를 따라가지 않는다 — 풀 수 없는 링크는 거부한다.
+   */
+  realpath?(p: string): Promise<string>;
   /** 이름만 돌려준다. */
   readdir(p: string): Promise<string[]>;
   /** 한 단계만 만든다. 이미 있으면 EEXIST 로 실패한다 — 러너가 충돌을 먼저 물었어야 한다. */
@@ -69,13 +75,20 @@ export const nodeFileJobFsOps: FileJobFsOps = {
     }
     if (st.isDirectory()) return { kind: 'directory', size: 0 };
     if (st.isFile()) return { kind: 'file', size: st.size };
-    // 심볼릭 링크·장치·소켓은 거부한다. 스트림으로 읽으면 링크를 따라가 검증된 루트 밖의
-    // 내용을 복사하게 되고, 인터페이스의 두 종류 중 어느 쪽으로 보고해도 거짓이 된다.
+    // 링크는 링크로 보고한다. 파일·디렉터리로 보고하면 러너가 대상을 검증 없이 따라가고, 던지면
+    // 링크 하나 때문에 작업 전체가 실패한다. 크기는 싣지 않는다 — 링크 자신의 크기는 전송량이 아니다.
+    if (st.isSymbolicLink()) return { kind: 'symlink', size: 0 };
+    // 장치·소켓은 거부한다. 스트림으로 읽으면 끝나지 않거나(FIFO) 파일이 아닌 것을 파일로
+    // 복사하게 되고, 인터페이스의 어느 종류로 보고해도 거짓이 된다.
     const err = new Error(`Unsupported file type (not a regular file or directory): ${p}`) as Error & {
       code: string;
     };
     err.code = 'EUNSUPPORTEDTYPE';
     throw err;
+  },
+
+  async realpath(p) {
+    return realpath(p);
   },
 
   async readdir(p) {

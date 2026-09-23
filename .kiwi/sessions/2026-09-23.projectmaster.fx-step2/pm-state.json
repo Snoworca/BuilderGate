@@ -6,7 +6,7 @@
  "sidecar_sha256": "36294acc4ac7b8dc733a87bf9d982834ab7e84946ac5de74ae7bc072de34c138",
  "target_slug": "file-explorer",
  "started_at": "2026-09-23T08:12:53Z",
- "last_updated_at": "2026-09-23T09:52:24Z",
+ "last_updated_at": "2026-09-23T13:00:41Z",
  "pm_version": "0.1",
  "tasks": [
   {
@@ -172,42 +172,42 @@
   {
    "task_id": "T-PH003-01",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T10:06:52Z",
+   "ended_at": "2026-09-23T10:06:52Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "프로토콜 사본 대조 6 case: red 5(의도 단언), 대조 함수 자체 1 green. 문자열 인식 주석 제거 스캐너",
    "trace_req_ids": [
     "IR-FOP-002"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-02",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T10:09:36Z",
+   "ended_at": "2026-09-23T10:09:36Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "두 ws-protocol 사본에 file-job 3종 추가: parity 6/6, ack 9/9, fileJobs 70/70, 프런트 ws 관련 13 파일 유지, tsc 양쪽 새 오류 0",
    "trace_req_ids": [
     "IR-FOP-002"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-03",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T10:24:53Z",
+   "ended_at": "2026-09-23T10:24:53Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "REST 13 case red(이름별), 틀린 스텁 9종 표적만 실패. 실제 관리자 사용",
    "trace_req_ids": [
     "FR-FOP-003",
     "FR-FOP-005",
@@ -216,17 +216,17 @@
     "SEC-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-04",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T10:31:03Z",
+   "ended_at": "2026-09-23T10:31:03Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "REST green: routes 13/13, fileJobs 70/70, parity+ack 15/15, tsc 0. 테스트 타입 주석만 수정(PM 승인 A)",
    "trace_req_ids": [
     "FR-FOP-003",
     "FR-FOP-005",
@@ -235,79 +235,79 @@
     "SEC-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-05",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T10:42:40Z",
+   "ended_at": "2026-09-23T10:42:40Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "경로 보안 4 case red(의도 단언). 실행 확인: junction 으로 차단 .git 안·cwd 밖 쓰기가 completed 로 끝남",
    "trace_req_ids": [
     "SEC-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-06",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T12:39:15Z",
+   "ended_at": "2026-09-23T12:39:15Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "경로 보안 green 8/8(+긍정·순환·차단대상·재지정 case), routes 13, fileJobs 70, parity 15, tsc 0. 리뷰 HIGH(TOCTOU 링크 재지정) 수정",
    "trace_req_ids": [
     "SEC-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-07",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T12:43:20Z",
+   "ended_at": "2026-09-23T12:43:20Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "배선 가드 red 5(의도 단언)+대조군 1 green, 변이 5종 포착",
    "trace_req_ids": [
     "FR-FOP-003",
     "IR-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-08",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T12:50:57Z",
+   "ended_at": "2026-09-23T12:50:57Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "배선 green 6/6, 통합 115/115, 실제 index.ts 부팅 테스트 7/7, tsc 0",
    "trace_req_ids": [
     "FR-FOP-003",
     "IR-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-09",
    "phase_id": "PH-003",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": true,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T13:00:41Z",
+   "ended_at": "2026-09-23T13:00:41Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "회귀: 16 파일 161/161(부팅 테스트 포함), server tsc 0, 봉인 소스 변경 0. 플래키 waitFor(200 setImmediate) 를 시간 기반으로 고친 뒤 route 10/10 연속 통과",
    "trace_req_ids": [
     "FR-FOP-001",
     "FR-FOP-002",
@@ -319,14 +319,14 @@
     "SEC-FOP-001"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   }
  ],
  "stats": {
   "total": 19,
-  "done": 10,
+  "done": 19,
   "running": 0,
-  "pending": 9,
+  "pending": 0,
   "failed": 0,
   "blocked": 0,
   "skipped": 0

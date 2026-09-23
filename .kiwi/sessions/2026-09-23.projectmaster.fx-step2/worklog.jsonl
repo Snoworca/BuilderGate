@@ -8,3 +8,12 @@
 {"ts": "2026-09-23T09:26:29Z", "event": "task_done", "task_id": "T-PH002-02", "summary": "관리자 13/13 + PH-001 31/31, tsc 0. 리뷰 HIGH 2·MEDIUM 2·LOW 1 수정"}
 {"ts": "2026-09-23T09:44:57Z", "event": "task_done", "task_id": "T-PH002-03", "summary": "송신·결정 범위 18 case: red 11(의도 단언; 진행 무제한 338회/초 실측), 기존 동작 고정 green 7(수용). 제자리 붙여넣기 충돌화 포함"}
 {"ts": "2026-09-23T09:52:24Z", "event": "task_done", "task_id": "T-PH002-04", "summary": "송신·진행 제한·제자리 붙여넣기 green: Emit 18/18, 관리자 13/13, PH-001 31/31, tsc 0. 제한 간격 112ms(flush 포함 10회/초 보장)"}
+{"ts": "2026-09-23T10:06:52Z", "event": "task_done", "task_id": "T-PH003-01", "summary": "프로토콜 사본 대조 6 case: red 5(의도 단언), 대조 함수 자체 1 green. 문자열 인식 주석 제거 스캐너"}
+{"ts": "2026-09-23T10:09:36Z", "event": "task_done", "task_id": "T-PH003-02", "summary": "두 ws-protocol 사본에 file-job 3종 추가: parity 6/6, ack 9/9, fileJobs 70/70, 프런트 ws 관련 13 파일 유지, tsc 양쪽 새 오류 0"}
+{"ts": "2026-09-23T10:24:53Z", "event": "task_done", "task_id": "T-PH003-03", "summary": "REST 13 case red(이름별), 틀린 스텁 9종 표적만 실패. 실제 관리자 사용"}
+{"ts": "2026-09-23T10:31:03Z", "event": "task_done", "task_id": "T-PH003-04", "summary": "REST green: routes 13/13, fileJobs 70/70, parity+ack 15/15, tsc 0. 테스트 타입 주석만 수정(PM 승인 A)"}
+{"ts": "2026-09-23T10:42:40Z", "event": "task_done", "task_id": "T-PH003-05", "summary": "경로 보안 4 case red(의도 단언). 실행 확인: junction 으로 차단 .git 안·cwd 밖 쓰기가 completed 로 끝남"}
+{"ts": "2026-09-23T12:39:15Z", "event": "task_done", "task_id": "T-PH003-06", "summary": "경로 보안 green 8/8(+긍정·순환·차단대상·재지정 case), routes 13, fileJobs 70, parity 15, tsc 0. 리뷰 HIGH(TOCTOU 링크 재지정) 수정"}
+{"ts": "2026-09-23T12:43:20Z", "event": "task_done", "task_id": "T-PH003-07", "summary": "배선 가드 red 5(의도 단언)+대조군 1 green, 변이 5종 포착"}
+{"ts": "2026-09-23T12:50:57Z", "event": "task_done", "task_id": "T-PH003-08", "summary": "배선 green 6/6, 통합 115/115, 실제 index.ts 부팅 테스트 7/7, tsc 0"}
+{"ts": "2026-09-23T13:00:41Z", "event": "task_done", "task_id": "T-PH003-09", "summary": "회귀: 16 파일 161/161(부팅 테스트 포함), server tsc 0, 봉인 소스 변경 0. 플래키 waitFor(200 setImmediate) 를 시간 기반으로 고친 뒤 route 10/10 연속 통과"}
