@@ -19,6 +19,7 @@
 }
 
 .fx-window-body {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -465,4 +466,54 @@
 
 .fx-mobile-button:disabled {
   opacity: 0.4;
+}
+
+/* The window-scoped modal covers only this window's body: other windows and
+   the terminal stay usable, which a page-wide overlay would prevent. */
+.fx-window-modal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fx-window-modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-surface);
+  opacity: 0.6;
+}
+
+.fx-window-modal-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  color: var(--fg);
+}
+
+.fx-window-modal-title {
+  font-weight: 600;
+}
+
+.fx-window-modal-message {
+  overflow-wrap: anywhere;
+}
+
+.fx-window-modal-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fx-window-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
 }

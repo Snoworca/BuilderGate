@@ -56,7 +56,7 @@ const TRAY_PATH_MAX_LENGTH = 56;
 /** What a row shows where a name is gone. Filled in rather than left blank: a
  * row with an empty segment reads as a row for nothing, and the row is still
  * how the document is reached. */
-const MISSING_WORKSPACE_NAME = '(이름 없음)';
+export const MISSING_WORKSPACE_NAME = '(이름 없음)';
 const MISSING_TAB_NAME = '(닫힌 탭)';
 
 /**

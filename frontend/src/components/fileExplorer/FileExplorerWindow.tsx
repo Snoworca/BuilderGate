@@ -8,20 +8,35 @@
 // stored (design decision 20).
 //
 // Each panel also owns its file operations: the context menu, the mobile button
-// row, the in-window confirm row, inline rename and the answers to its own file
-// jobs. The window only routes keys to the active panel, and only while focus is
-// inside its own surface (DR-16).
+// row, the in-window confirm row and inline rename. The window only routes keys
+// to the active panel, and only while focus is inside its own surface (DR-16).
+//
+// File jobs live in the app-wide store (fileJobStore), not in a panel: a panel
+// records the job it submitted there, and the window asks the questions and
+// shows the failures of its workspace's jobs. Nothing is cancelled when a
+// window goes away, so a question waits in the store until the window is
+// opened again (FR-FEX-009 AC-3).
+//
+// 최대화 fills the terminal stage the same way an editor window does: the
+// stage is measured and handed to the dialog as a controlled rect. Back in
+// floating, the dialog is uncontrolled again and finds its persisted rect.
 //
 // @req FR-FEX-002
 // @req FR-FEX-003
+// @req FR-FEX-004
 // @req FR-FEX-011
+// @req FR-FEX-008
+// @req FR-FEX-009
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
-import { IconButton } from '../common';
+import { IconButton, IconToggleButton } from '../common';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { WindowDialog } from '../dialog/WindowDialog';
 import type { DialogRect, DialogSize } from '../dialog/types';
+import { EDITOR_WINDOW_BOUNDS_SELECTOR } from '../editor/editorWindowBounds.ts';
+import type { EditorWindowPlacement } from '../editor/editorWindowPlacement.ts';
+import { toStageRect } from '../editor/editorWindowRect.ts';
 import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import { useFileTree } from '../../hooks/useFileTree.ts';
 import type { FileExplorerTabView, FileExplorerWindowActions } from '../../hooks/useFileExplorerWindows.ts';
@@ -37,17 +52,26 @@ import {
   subscribeFileExplorerClipboard,
 } from './fileExplorerClipboard.ts';
 import { FileExplorerConfirmBar, useFileExplorerConfirmBar } from './FileExplorerConfirmBar.tsx';
+import { FileExplorerWindowModal, useFileExplorerWindowModal, type FileExplorerWindowModalState } from './FileExplorerWindowModal.tsx';
 import { buildFileExplorerContextMenuItems, type FileExplorerMenuHandlers } from './fileExplorerContextMenu.ts';
 import { fileExplorerDialogId } from './fileExplorerDialog.ts';
 import { FileExplorerMobileBar } from './FileExplorerMobileBar.tsx';
 import { FileExplorerPathBar } from './FileExplorerPathBar.tsx';
+import { FileExplorerProgressRow } from './FileExplorerProgressRow.tsx';
 import { decideAnchorPersist, decideScrollRestore, pickAnchorRow, type RestoreState } from './fileExplorerScrollRestore.ts';
 import { createFileExplorerShortcutHandler, isExplorerTextSelection, type FileExplorerShortcutDecision } from './fileExplorerShortcuts.ts';
 import { FileExplorerTabBar } from './FileExplorerTabBar.tsx';
 import { firstListingFailureAction } from './fileExplorerTabsState.ts';
 import { pasteFromClipboard, requestDelete, type FileJobRequest } from './fileJobClient.ts';
 import { routeFileJobMessage } from './fileJobEvents.ts';
-import { createFileJobOwnership, type FileJobDecideRoute, type FileJobOwnership, type FileJobOwnershipDeps } from './fileJobOwnership.ts';
+import {
+  dispatchFileJob,
+  getFileJobSnapshot,
+  selectPendingDecisionsForWindow,
+  selectWindowFailures,
+  subscribeFileJobs,
+  type FileJobDecideRoute,
+} from './fileJobStore.ts';
 import { selectListRows, type ListSort } from './fileListView.ts';
 import { FileListView } from './FileListView.tsx';
 import { decideRowPointer, isOpenableFile } from './fileRowInteraction.ts';
@@ -76,6 +100,8 @@ interface PanelCommands {
   run: (action: ShortcutAction) => void;
   /** Saves a scroll position still waiting for its settle timer, now. */
   flushAnchor: () => void;
+  /** Puts a message on the panel's error line; the window uses it for its jobs' failures. */
+  showError: (message: string) => void;
 }
 
 type RegisterPanelCommands = (tabId: string, commands: RefObject<PanelCommands | null>) => () => void;
@@ -102,6 +128,8 @@ export interface FileExplorerWindowProps {
   activeTabId: string | null;
   /** The visibility predicate said no. The window hides; nothing unmounts. */
   hidden: boolean;
+  /** 'stage' while maximized over the terminal area. */
+  placement: EditorWindowPlacement;
   actions: FileExplorerWindowActions;
   /**
    * A double click on an openable file. The explorer never reads a file itself:
@@ -119,9 +147,11 @@ interface FileExplorerTabPanelProps {
   actions: FileExplorerWindowActions;
   onOpenFile: (filePath: string, tabId: string) => void;
   registerCommands: RegisterPanelCommands;
+  /** The window's one modal: every tab asks its delete and job questions here. */
+  windowModal: FileExplorerWindowModalState;
 }
 
-const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, tab, active, hidden, actions, onOpenFile, registerCommands }: FileExplorerTabPanelProps) {
+const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, tab, active, hidden, actions, onOpenFile, registerCommands, windowModal }: FileExplorerTabPanelProps) {
   // The root the tree lists from. It follows navigation, so a session change
   // (a terminal restart rebuilds the tree's controller, which lists this root
   // again) keeps the directory the user is in rather than the one the tab
@@ -189,85 +219,37 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   const { registerFileJobHandler } = useWebSocketActions();
   const clipboard = useSyncExternalStore(subscribeFileExplorerClipboard, getFileExplorerClipboard);
   const confirmBar = useFileExplorerConfirmBar();
-  const { decideJob, dropJob, confirm: confirmDelete, askName, showError } = confirmBar;
+  const { askName, showError } = confirmBar;
+  const { confirm: confirmDelete } = windowModal;
   const [menu, setMenu] = useState<FileExplorerMenuRequest | null>(null);
 
-  // Only jobs this panel started are answered here: another tab on the same
-  // session receives the same events and must not ask the same question twice.
-  // The ordering rules (a question or a finish that beats the POST's reply)
-  // live in fileJobOwnership; this panel only supplies its effects. The deps
-  // read through a ref so the one ownership object outlives re-renders.
-  const ownershipDepsRef = useRef<FileJobOwnershipDeps | null>(null);
-  const ownershipRef = useRef<FileJobOwnership | null>(null);
-  const ownership = useCallback((): FileJobOwnership => {
-    if (ownershipRef.current === null) {
-      ownershipRef.current = createFileJobOwnership({
-        answer: (route) => ownershipDepsRef.current?.answer(route),
-        withdraw: (jobId) => ownershipDepsRef.current?.withdraw(jobId),
-        showFailure: (errorCode) => ownershipDepsRef.current?.showFailure(errorCode),
-        cancel: (jobId) => ownershipDepsRef.current?.cancel(jobId),
-      });
-    }
-    return ownershipRef.current;
-  }, []);
-
-  const answerDecision = useCallback((route: FileJobDecideRoute) => {
-    void decideJob(route.jobId, route.detail)
-      .then((answer) => {
-        ownership().decisionSettled(route.jobId);
-        // Withdrawn: the job finished (or stopped waiting) before an answer.
-        if (answer === null) return undefined;
-        return fileJobApi.decide(route.jobId, {
-          decisionId: route.decisionId,
-          choice: answer.choice,
-          applyToAll: answer.applyToAll,
-        });
-      })
-      .catch((error: unknown) => showError(`결정을 보내지 못했습니다: ${messageOf(error)}`));
-  }, [decideJob, ownership, showError]);
-
-  useLayoutEffect(() => {
-    ownershipDepsRef.current = {
-      answer: answerDecision,
-      withdraw: dropJob,
-      showFailure: (errorCode) => showError(`파일 작업이 실패했습니다${errorCode ? ` (${errorCode})` : ''}`),
-      // Nobody is left to show the error to; the server's own timeout is the
-      // backstop if the cancel does not arrive.
-      cancel: (jobId) => { fileJobApi.cancel(jobId).catch(() => undefined); },
-    };
-  });
-
-  // On unmount no row is left to answer a question, so a job of this panel
-  // stopped on one is cancelled. A running job keeps running; a question it
-  // raises later times out on the server (the app-wide job store planned for
-  // fx-step4 removes that gap). A StrictMode re-mount gets a fresh object.
-  useEffect(() => {
-    if (ownershipRef.current?.disposed) ownershipRef.current = null;
-    const current = ownership();
-    return () => current.dispose();
-  }, [ownership]);
-
+  // The job is handed to the app-wide store as soon as the server accepted it,
+  // tagged with this window's workspace, so the window can ask its questions
+  // and show its failure even after this panel or the window is gone. A done or
+  // a question that beat the POST's reply is held by the store until then.
   const jobClient = useMemo(() => ({
     submit: async (request: FileJobRequest) => {
       const result = await fileJobApi.submit(request);
-      ownership().claim(result.jobId);
+      dispatchFileJob({
+        type: 'JOB_STARTED',
+        jobId: result.jobId,
+        sessionId: request.sourceSessionId,
+        origin: { workspaceId, tabId: tab.id },
+        operation: request.operation,
+      });
       return result;
     },
-  }), [ownership]);
+  }), [tab.id, workspaceId]);
 
   // Every finished job refreshes the directories it touched in this tab, whoever
   // started it: a failed or cancelled job may still have changed some files.
+  // Progress, questions and finishes reach the store at the app level
+  // (useFileJobStoreSync); only the tab's own tree refresh is done here.
   useEffect(() => registerFileJobHandler((msg) => {
     const route = routeFileJobMessage(msg);
     if (route === null || route.sessionId !== tab.sessionId) return;
-    if (route.kind === 'invalidate') {
-      void applyJobDone(route.directories);
-      if (msg.type !== 'file-job:done') return;
-      ownership().onDone({ jobId: msg.jobId, outcome: msg.outcome, errorCode: msg.errorCode });
-    } else if (route.kind === 'decide') {
-      ownership().onDecision(route);
-    }
-  }), [applyJobDone, ownership, registerFileJobHandler, tab.sessionId]);
+    if (route.kind === 'invalidate') void applyJobDone(route.directories);
+  }), [applyJobDone, registerFileJobHandler, tab.sessionId]);
 
   const renamingPathRef = useRef<string | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -403,7 +385,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
 
   const commandsRef = useRef<PanelCommands | null>(null);
   useLayoutEffect(() => {
-    commandsRef.current = { selectionCount: state.selectedPaths.size, run: runShortcut, flushAnchor: commitPendingAnchor };
+    commandsRef.current = { selectionCount: state.selectedPaths.size, run: runShortcut, flushAnchor: commitPendingAnchor, showError };
   });
   useEffect(() => registerCommands(tab.id, commandsRef), [registerCommands, tab.id]);
 
@@ -565,9 +547,45 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   );
 });
 
+/**
+ * The terminal stage in dialog coordinates while `active`, or null when it is
+ * not measured (inactive, or no stage element on screen). Re-measured as the
+ * stage resizes, since the sidebar and the window size both move it.
+ * @req FR-FEX-004
+ */
+function useStageRect(active: boolean): DialogRect | null {
+  const [rect, setRect] = useState<DialogRect | null>(null);
+  useLayoutEffect(() => {
+    if (!active) return undefined;
+    const stage = document.querySelector<HTMLElement>(EDITOR_WINDOW_BOUNDS_SELECTOR);
+    if (stage === null) {
+      setRect(null);
+      return undefined;
+    }
+    const measure = () => {
+      const next = toStageRect(stage.getBoundingClientRect());
+      setRect((current) => (current !== null
+        && current.x === next.x && current.y === next.y
+        && current.width === next.width && current.height === next.height ? current : next));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(stage);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, [active]);
+  return rect;
+}
+
 // @req FR-FEX-003
-export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, actions, onOpenFile }: FileExplorerWindowProps) {
+export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, placement, actions, onOpenFile }: FileExplorerWindowProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const maximized = placement === 'stage';
+  const stageRect = useStageRect(maximized && !hidden);
+  const windowModal = useFileExplorerWindowModal();
   const shownFrameDisplayRef = useRef<string | null>(null);
   const shownSectionDisplayRef = useRef<string | null>(null);
 
@@ -609,6 +627,70 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, act
     };
   }, []);
 
+  // A job's failure and its questions belong to the window, not to the tab
+  // that started it: the tab may be closed by the time they arrive. They go to
+  // the panel on screen.
+  const showJobError = useCallback((message: string) => {
+    const id = activeTabIdRef.current;
+    if (id !== null) panelCommandsRef.current.get(id)?.current?.showError(message);
+  }, []);
+
+  // The selectors build a new array on every call, so they run on the snapshot
+  // inside useMemo rather than as the store's getSnapshot.
+  const jobSnapshot = useSyncExternalStore(subscribeFileJobs, getFileJobSnapshot);
+  const pendingDecisions = useMemo(() => selectPendingDecisionsForWindow(jobSnapshot, workspaceId), [jobSnapshot, workspaceId]);
+  const jobFailures = useMemo(() => selectWindowFailures(jobSnapshot, workspaceId), [jobSnapshot, workspaceId]);
+
+  // Questions put to the modal and not yet answered, by job. The store keeps a
+  // decision pending until DECISION_ANSWERED, so without this every store
+  // update would queue the same question again.
+  const askedDecisionsRef = useRef(new Map<string, string>());
+  const { dropJob } = windowModal;
+
+  const askDecision = useCallback((route: FileJobDecideRoute) => {
+    askedDecisionsRef.current.set(route.jobId, route.decisionId);
+    void windowModal.decideJob(route.jobId, route.detail)
+      .then((answer) => {
+        // Withdrawn: the job finished, or stopped waiting, before an answer.
+        if (answer === null) return undefined;
+        const asked = askedDecisionsRef.current;
+        if (asked.get(route.jobId) === route.decisionId) asked.delete(route.jobId);
+        dispatchFileJob({ type: 'DECISION_ANSWERED', jobId: route.jobId, decisionId: route.decisionId });
+        // '취소' / Escape: the question is withdrawn by ending the job itself.
+        if (answer.kind === 'cancel-job') return fileJobApi.cancel(route.jobId);
+        return fileJobApi.decide(route.jobId, {
+          decisionId: route.decisionId,
+          choice: answer.choice,
+          applyToAll: answer.applyToAll,
+        });
+      })
+      .catch((error: unknown) => showJobError(`결정을 보내지 못했습니다: ${messageOf(error)}`));
+  }, [windowModal, showJobError]);
+
+  // A mounted window asks every question its workspace's jobs are waiting on,
+  // including ones that arrived while it was closed. A question the store no
+  // longer holds (its job ended, or another client answered) is withdrawn.
+  useEffect(() => {
+    const asked = askedDecisionsRef.current;
+    const pendingByJob = new Map(pendingDecisions.map((route) => [route.jobId, route.decisionId]));
+    for (const [jobId, decisionId] of [...asked]) {
+      if (pendingByJob.get(jobId) === decisionId) continue;
+      asked.delete(jobId);
+      dropJob(jobId);
+    }
+    for (const route of pendingDecisions) {
+      if (asked.get(route.jobId) !== route.decisionId) askDecision(route);
+    }
+  }, [askDecision, dropJob, pendingDecisions]);
+
+  // Each failure is shown once, in this window only, and then released.
+  useEffect(() => {
+    for (const failure of jobFailures) {
+      showJobError(`파일 작업이 실패했습니다${failure.errorCode ? ` (${failure.errorCode})` : ''}`);
+      dispatchFileJob({ type: 'FAILURE_SHOWN', jobId: failure.jobId });
+    }
+  }, [jobFailures, showJobError]);
+
   // Focus is judged by containment in this surface, so a Ctrl+C typed in a
   // terminal never reaches the explorer (DR-16).
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => createFileExplorerShortcutHandler({
@@ -633,6 +715,12 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, act
 
   const titlebarActions = (
     <div className="fx-window-actions">
+      <IconToggleButton
+        pressed={maximized}
+        icons={{ on: 'restore', off: 'maximize' }}
+        label="최대화"
+        onToggle={() => actions.toggleMaximizeFileExplorer(workspaceId)}
+      />
       <IconButton icon="minimize" label="최소화" onClick={() => actions.minimizeFileExplorer(workspaceId)} />
     </div>
   );
@@ -646,7 +734,12 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, act
       minSize={FILE_EXPLORER_MIN_SIZE}
       onClose={() => actions.closeFileExplorer(workspaceId)}
       showCloseButton
-      resizable
+      // Maximized, the window is the stage: a drag or resize would emit a rect
+      // the stage would take straight back, and would store it as the floating
+      // geometry. Without a measurable stage it stays where it floated.
+      rect={maximized ? stageRect ?? undefined : undefined}
+      movable={!maximized}
+      resizable={!maximized}
       persistGeometry
       surfaceClassName="fx-window"
       titlebarActions={titlebarActions}
@@ -678,8 +771,11 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, act
             actions={actions}
             onOpenFile={onOpenFile}
             registerCommands={registerPanelCommands}
+            windowModal={windowModal}
           />
         ))}
+        <FileExplorerProgressRow workspaceId={workspaceId} />
+        <FileExplorerWindowModal modal={windowModal} />
       </div>
     </WindowDialog>
   );

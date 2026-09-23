@@ -115,6 +115,9 @@ function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInf
 function isActionShown(id: FileExplorerMenuActionId, info: FileExplorerMenuInfo): boolean {
   if (info.target === 'empty') return EMPTY_SPACE_ACTIONS.has(id);
   if (id === 'newtab' && info.mode === 'list') return false;
+  // The editor window's side panel has no tabs to open into (FR-MDE-012 AC-8):
+  // removed rather than disabled, since it could never become usable there.
+  if (id === 'newtab' && info.context === 'editor-panel') return false;
   return true;
 }
 

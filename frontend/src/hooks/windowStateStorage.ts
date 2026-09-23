@@ -25,6 +25,7 @@ import {
 } from '../components/editor/editorWindowRecord.ts';
 import type { FileTreeMode } from '../components/fileExplorer/fileTreeState.ts';
 import { LIST_COLUMNS, type ListSort } from '../components/fileExplorer/fileListView.ts';
+import { PANE_DEFAULT_WIDTH } from '../components/editor/editorFileTreePaneModel.ts';
 
 const STORAGE_KEY_PREFIX = 'window_state_';
 const SCHEMA_VERSION = 1;
@@ -315,5 +316,114 @@ export function removeFileExplorerStateForWorkspace(
     storage.removeItem(getFileExplorerStateStorageKey(workspaceId));
   } catch (error) {
     console.warn('[fileExplorer] explorer state was not removed from localStorage:', error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Editor window's left file-tree pane
+//
+// A third store under its own key and version, for the same reason the
+// explorer has one: neither the editor's records nor the explorer's tabs may
+// move when this schema changes. It keeps two fields only (FR-MDE-012 AC-12).
+// Expanded directories are not kept: a path that vanished in between would
+// fail on every restore, which costs more than re-expanding saves.
+// ---------------------------------------------------------------------------
+
+const EDITOR_TREE_PANE_KEY_PREFIX = 'editor_tree_pane_';
+const EDITOR_TREE_PANE_SCHEMA_VERSION = 1;
+
+/**
+ * @req FR-MDE-012
+ */
+export interface EditorTreePaneState {
+  width: number;
+  collapsed: boolean;
+}
+
+/**
+ * @req FR-MDE-012
+ */
+export interface PersistedEditorTreePaneState extends EditorTreePaneState {
+  schemaVersion: typeof EDITOR_TREE_PANE_SCHEMA_VERSION;
+  savedAt: string;
+}
+
+// A pane nobody has opened yet starts closed: the design gives the pane one way
+// in, the editor window's context menu (design 9.1), so it is something the
+// user asks for rather than something every editor window suddenly carries.
+const DEFAULT_EDITOR_TREE_PANE_STATE: EditorTreePaneState = Object.freeze({
+  width: PANE_DEFAULT_WIDTH,
+  collapsed: true,
+});
+
+/**
+ * @req FR-MDE-012
+ */
+export function getEditorTreePaneStorageKey(workspaceId: string): string {
+  return EDITOR_TREE_PANE_KEY_PREFIX + workspaceId;
+}
+
+// Field-by-field projection, used on both write and read, so a live pane
+// object's expanded paths cannot reach the store and a hand edit cannot bring
+// extra fields back. An unusable field falls back to its default on its own.
+function toEditorTreePaneState(value: unknown): EditorTreePaneState {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...DEFAULT_EDITOR_TREE_PANE_STATE };
+  }
+  const { width, collapsed } = value as Record<string, unknown>;
+  return {
+    width: typeof width === 'number' && Number.isFinite(width) && width > 0
+      ? width
+      : DEFAULT_EDITOR_TREE_PANE_STATE.width,
+    collapsed: typeof collapsed === 'boolean' ? collapsed : DEFAULT_EDITOR_TREE_PANE_STATE.collapsed,
+  };
+}
+
+/**
+ * Writes a workspace's pane width and collapsed state. Answers whether the
+ * write happened, for the same reason `saveWindowStateForWorkspace` does.
+ * @req FR-MDE-012
+ */
+export function saveEditorTreePaneState(
+  workspaceId: string,
+  state: EditorTreePaneState,
+  storage: Storage = localStorage,
+): boolean {
+  try {
+    const data: PersistedEditorTreePaneState = {
+      schemaVersion: EDITOR_TREE_PANE_SCHEMA_VERSION,
+      ...toEditorTreePaneState(state),
+      savedAt: new Date().toISOString(),
+    };
+    storage.setItem(getEditorTreePaneStorageKey(workspaceId), JSON.stringify(data));
+    return true;
+  } catch (error) {
+    console.warn('[editorTreePane] pane state was not written to localStorage:', error);
+    return false;
+  }
+}
+
+/**
+ * Reads a workspace's pane state back. Unlike the other two stores this never
+ * answers null: the pane always has a width and a collapsed state, so anything
+ * unusable -- nothing stored, broken text, another schema -- reads as the
+ * defaults, and none of it throws.
+ * @req FR-MDE-012
+ */
+export function readEditorTreePaneState(
+  workspaceId: string,
+  storage: Storage = localStorage,
+): EditorTreePaneState {
+  try {
+    const raw = storage.getItem(getEditorTreePaneStorageKey(workspaceId));
+    if (!raw) return { ...DEFAULT_EDITOR_TREE_PANE_STATE };
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)
+      || (parsed as { schemaVersion?: unknown }).schemaVersion !== EDITOR_TREE_PANE_SCHEMA_VERSION) {
+      return { ...DEFAULT_EDITOR_TREE_PANE_STATE };
+    }
+    return toEditorTreePaneState(parsed);
+  } catch {
+    return { ...DEFAULT_EDITOR_TREE_PANE_STATE };
   }
 }

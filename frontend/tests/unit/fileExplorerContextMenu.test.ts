@@ -8,8 +8,8 @@ import type * as ContextMenuModule from '../../src/components/fileExplorer/fileE
 // The menu is one ordered constant (FILE_EXPLORER_MENU_ORDER) that every surface
 // filters; nothing copies the list per surface. Openability arrives only as the
 // `openable` input -- this module never judges extensions itself (the source
-// guard in fileRowInteraction.test.ts enforces that). Only the 'explorer-window'
-// context is exercised here: the editor side panel's menu is FR-MDE-012's.
+// guard in fileRowInteraction.test.ts enforces that). The 'editor-panel'
+// context (FR-MDE-012 AC-8) differs only by dropping '새 탭에서 열기'.
 //
 // The module is loaded inside each test: a static import of a missing module
 // kills the runner before any test is named, so a red run would show one crash
@@ -265,6 +265,29 @@ test("mode 'list' 에서 '새 탭에서 열기' 만 빠지고 나머지 id 순�
     const list = idsOf(buildFileExplorerContextMenuItems(itemInfo({ isDir, mode: 'list' }), recordingHandlers([])));
     assert.deepEqual(list, tree.filter(id => id !== 'newtab'), `isDir=${isDir}`);
     assert.deepEqual(list, ['open', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh']);
+  }
+});
+
+// TC-REQ-FR-MDE-012-AC8-01 -- the editor window's side panel has no tabs, so
+// the one item that opens a tab is removed, not left disabled.
+test("buildFileExplorerContextMenuItems(context='editor-panel') 에 '새 탭에서 열기' 가 없고 복사·잘라내기·붙여넣기·이름 바꾸기·삭제·새 폴더는 있다", async () => {
+  const { buildFileExplorerContextMenuItems } = await load();
+  for (const isDir of [false, true]) {
+    const calls: string[] = [];
+    const items = buildFileExplorerContextMenuItems(
+      itemInfo({ isDir, context: 'editor-panel', mode: 'tree' }),
+      recordingHandlers(calls),
+    );
+    const ids = idsOf(items);
+    assert.ok(!ids.includes('newtab'), `no '새 탭에서 열기' in the editor panel (isDir=${isDir}): ${ids.join(',')}`);
+    assert.deepEqual(ids, ['open', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh'], `isDir=${isDir}`);
+    for (const id of ['copy', 'cut', 'paste', 'rename', 'delete']) {
+      assert.equal(isEnabled(items, id), true, `${id} is usable in the editor panel (isDir=${isDir})`);
+      (itemById(items, id).onClick as () => void)();
+    }
+    assert.deepEqual(calls, ['copy', 'cut', 'paste', 'rename', 'delete']);
+    // The new-folder item is there; it is enabled where the explorer enables it.
+    assert.equal(isEnabled(items, 'newdir'), isDir, `newdir isDir=${isDir}`);
   }
 });
 

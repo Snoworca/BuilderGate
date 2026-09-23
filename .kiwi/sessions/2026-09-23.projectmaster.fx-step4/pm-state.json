@@ -1,0 +1,346 @@
+{
+ "run_id": "2026-09-23.projectmaster.fx-step4",
+ "plan_path": "docs/plans/2026-09-23.projectmaster.fx-step4.plan.md",
+ "sidecar_path": "docs/plans/2026-09-23.projectmaster.fx-step4.sidecar.json",
+ "target_slug": "file-explorer",
+ "started_at": "2026-09-23T15:41:39Z",
+ "last_updated_at": "2026-09-23T17:58:27Z",
+ "pm_version": "0.1",
+ "tasks": [
+  {
+   "task_id": "T-PH001-01",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T15:45:12Z",
+   "ended_at": "2026-09-23T15:45:12Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "창 범위 모달 모델 8 red. 변이 13/14(남은 1 등가)",
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-007"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-02",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T15:53:52Z",
+   "ended_at": "2026-09-23T15:53:52Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "모달 모델 8/8, DecideAnswer 에 cancel-job 추가(취소는 job DELETE)",
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-007"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-03",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T17:38:45Z",
+   "ended_at": "2026-09-23T17:38:45Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "창 범위 모달 배선 가드 10 red. 변이 24/24",
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-007"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-04",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T17:49:02Z",
+   "ended_at": "2026-09-23T17:49:02Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "창 범위 모달 구현·배선 10/10. ConfirmBar 는 이름 입력·오류 줄만",
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-007"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH002-01",
+   "phase_id": "PH-002",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T15:46:27Z",
+   "ended_at": "2026-09-23T15:46:27Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "트레이 판정 7 red. 변이 12종 포착",
+   "trace_req_ids": [
+    "FR-FEX-004"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH002-02",
+   "phase_id": "PH-002",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T15:52:02Z",
+   "ended_at": "2026-09-23T15:52:02Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "트레이 모델 구현 7/7, editorTrayModel MISSING_WORKSPACE_NAME export",
+   "trace_req_ids": [
+    "FR-FEX-004"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH002-03",
+   "phase_id": "PH-002",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T15:58:21Z",
+   "ended_at": "2026-09-23T15:58:21Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "트레이 배선 가드 5 red. 변이 10종 포착",
+   "trace_req_ids": [
+    "FR-FEX-004"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH002-04",
+   "phase_id": "PH-002",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T17:38:52Z",
+   "ended_at": "2026-09-23T17:38:52Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "트레이 줄·되살리기·최대화 배선 5/5. 전체 1506/1495(남은 red 는 T-PH001-04 대기 가드 10 + 선재 1)",
+   "trace_req_ids": [
+    "FR-FEX-004"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH003-01",
+   "phase_id": "PH-003",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T15:50:22Z",
+   "ended_at": "2026-09-23T15:50:22Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "앱 전역 작업 저장소 19 red(계획 12 + 소유권 규칙 7). 변이 22 중 등가 외 전부 포착",
+   "trace_req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH003-02",
+   "phase_id": "PH-003",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T15:56:17Z",
+   "ended_at": "2026-09-23T15:56:17Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "앱 전역 작업 저장소 19/19. 끝난 작업 부활·답한 결정 재질문 막음",
+   "trace_req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH003-03",
+   "phase_id": "PH-003",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T17:43:52Z",
+   "ended_at": "2026-09-23T17:43:52Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "진행 세 자리·응답 대기 배선 가드 14 red. 변이 42/42",
+   "trace_req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH003-04",
+   "phase_id": "PH-003",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T17:52:27Z",
+   "ended_at": "2026-09-23T17:52:27Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "상태바·알림창·진행 줄 컴포넌트·저장소 동기화 10/14(남은 4 는 창 쪽 T-PH003-05)",
+   "trace_req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH003-05",
+   "phase_id": "PH-003",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T17:58:27Z",
+   "ended_at": "2026-09-23T17:58:27Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "창을 앱 전역 저장소로 전환, 진행 줄·응답 대기 결정 큐 배선. 전체 1524/1523",
+   "trace_req_ids": [
+    "FR-FEX-008",
+    "FR-FEX-009"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH004-01",
+   "phase_id": "PH-004",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T15:52:30Z",
+   "ended_at": "2026-09-23T15:52:30Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "편집기 트리 패널 모델·저장 10 red + 편집기 패널 메뉴 1 red. 변이 20종 포착",
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-MDE-012"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH004-02",
+   "phase_id": "PH-004",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T17:32:13Z",
+   "ended_at": "2026-09-23T17:32:13Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step4",
+   "result_summary": "편집기 트리 패널 모델·저장·메뉴 숨김 10/10+11/11. 데스크톱 기본 접힘",
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-MDE-012"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH004-03",
+   "phase_id": "PH-004",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-MDE-012"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH004-04",
+   "phase_id": "PH-004",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-MDE-012"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH004-05",
+   "phase_id": "PH-004",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-MDE-012"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH005-01",
+   "phase_id": "PH-005",
+   "status": "pending",
+   "tdd_exempted": true,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-004",
+    "FR-FEX-005",
+    "FR-FEX-007",
+    "FR-FEX-008",
+    "FR-FEX-009",
+    "FR-MDE-012"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH005-02",
+   "phase_id": "PH-005",
+   "status": "pending",
+   "tdd_exempted": true,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-004",
+    "FR-FEX-005",
+    "FR-FEX-007",
+    "FR-FEX-008",
+    "FR-FEX-009",
+    "FR-MDE-012"
+   ],
+   "questions": [],
+   "attempts": 0
+  }
+ ],
+ "stats": {
+  "total": 20,
+  "done": 15,
+  "running": 0,
+  "pending": 5,
+  "failed": 0,
+  "blocked": 0,
+  "skipped": 0
+ },
+ "final_mutations": [],
+ "pending_mutations": [],
+ "report_path": null
+}

@@ -218,7 +218,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerModalModel.test.ts", "exit_code": 1, "captured_failure": "tests 8 / pass 0 / fail 8 — every case: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/fileExplorer/fileExplorerModalModel.ts'", "timestamp": "2026-09-23T15:44:35Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -383,7 +383,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerModalModel.test.ts", "exit_code": 0, "timestamp": "2026-09-23T15:49:44Z"}
    },
    "trace_links": [
     {
@@ -566,7 +566,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts", "exit_code": 1, "captured_failure": "tests 10 / pass 0 / fail 10 — every case: AssertionError 'target files must exist before their wiring can be checked; missing: src/components/fileExplorer/FileExplorerWindowModal.tsx'. With a stub modal file each case fails on its own wiring assertion instead (import FileExplorerWindowModal, fx-window-modal class, role=alertdialog, nextFocusIndex, decideWindowModalKey, resolveDecisionAnswer, buildDeleteConfirmModal, buildDecisionModal, DecidePort, ConfirmPort). Scratch T-PH001-04 build: 10/10 green, 24/24 mutants killed.", "timestamp": "2026-09-23T17:37:40Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -771,7 +771,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerWindowModalWiring.test.ts", "exit_code": 0, "timestamp": "2026-09-23T17:48:30Z"}
    },
    "trace_links": [
     {
@@ -921,7 +921,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTray.test.ts", "exit_code": 1, "captured_failure": "tests 7 / pass 0 / fail 7 — every case: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../src/components/fileExplorer/fileExplorerTrayModel.ts'", "timestamp": "2026-09-23T15:45:52Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -1071,7 +1071,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerTray.test.ts tests/unit/editorTrayModel.test.ts tests/unit/editorTrayPresentation.test.ts tests/unit/editorWindowVisibility.test.ts", "exit_code": 0, "timestamp": "2026-09-23T15:49:07Z"}
    },
    "trace_links": [
     {
@@ -1189,7 +1189,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerMinimizeWiring.test.ts", "exit_code": 1, "captured_failure": "tests 5 / pass 0 / fail 5 — AC1-02: useFileExplorerWindows.ts must import minimizeFileExplorerRecord; AC2-02: must import restoreFileExplorerRecord; AC3-03: App.tsx must import listFileExplorerTrayEntries; AC5-02: useFileExplorerWindows.ts must import decideReviveFileExplorer; AC6-02: FileExplorerWindow.tsx expected one <IconToggleButton label=\"최대화\">, found 0", "timestamp": "2026-09-23T15:57:33Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -1328,7 +1328,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileExplorerMinimizeWiring.test.ts", "exit_code": 0, "timestamp": "2026-09-23T17:38:00Z"}
    },
    "trace_links": [
     {
@@ -1520,7 +1520,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobStore.test.ts", "exit_code": 1, "captured_failure": "tests 19 / pass 0 / fail 19 (12 planned TC + 7 store-semantics cases) — every case: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/fileExplorer/fileJobStore.ts'", "timestamp": "2026-09-23T15:49:41Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -1736,7 +1736,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobStore.test.ts", "exit_code": 0, "timestamp": "2026-09-23T15:55:47Z"}
    },
    "trace_links": [
     {
@@ -1960,7 +1960,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts", "exit_code": 1, "captured_failure": "tests 14 / pass 0 / fail 14. 13 cases: 'target files must exist before their wiring can be checked; missing: src/components/fileExplorer/FileJobStatusBar.tsx | FileJobPopover.tsx | FileExplorerProgressRow.tsx | FileExplorerWindowModal.tsx | src/hooks/useFileJobStoreSync.ts'. TC-REQ-FR-FEX-009-AC3-02 (window only): 'FileExplorerWindow.tsx must import selectPendingDecisionsForWindow from src/components/fileExplorer/fileJobStore'. Guards mutation-checked on a scratch fixture of the intended end state: 14/14 pass, 42/42 mutations killed, each target's removal fails its cases.", "timestamp": "2026-09-23T17:42:58Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -2134,7 +2134,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts", "exit_code": 1, "timestamp": "2026-09-23T17:51:49Z"}
    },
    "trace_links": [
     {
@@ -2292,7 +2292,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/fileJobProgressWiring.test.ts tests/unit/fileExplorerRecheck.test.ts", "exit_code": 0, "timestamp": "2026-09-23T17:57:59Z"}
    },
    "trace_links": [
     {
@@ -2500,7 +2500,7 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePane.test.ts && node --experimental-strip-types --test tests/unit/fileExplorerContextMenu.test.ts", "exit_code": 1, "captured_failure": "editorFileTreePane.test.ts: tests 10 pass 0 fail 10 (9x ERR_MODULE_NOT_FOUND src/components/editor/editorFileTreePaneModel.ts; 1x AssertionError 'windowStateStorage exports getEditorTreePaneStorageKey'). fileExplorerContextMenu.test.ts: tests 11 pass 10 fail 1 (editor-panel case: AssertionError no '새 탭에서 열기' in the editor panel (isDir=false): open,newtab,sep,...)", "timestamp": "2026-09-23T15:51:47Z"},
     "green_evidence": null
    },
    "trace_links": [
@@ -2713,7 +2713,7 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {"command": "cd frontend && node --experimental-strip-types --test tests/unit/editorFileTreePane.test.ts tests/unit/fileExplorerContextMenu.test.ts tests/unit/windowStateStorage.test.ts", "exit_code": 0, "timestamp": "2026-09-23T15:55:57Z"}
    },
    "trace_links": [
     {

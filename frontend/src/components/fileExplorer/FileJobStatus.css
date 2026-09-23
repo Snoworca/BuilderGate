@@ -1,0 +1,207 @@
+/* File-job progress: the app's bottom status bar, the popover it opens and the
+   thin row at the bottom of an explorer window (design 4.1, 4.2, 4.4). Tokens
+   only; the fileExplorerDesignRules guard reads every CSS the explorer imports. */
+
+.fx-job-statusbar {
+  flex: 0 0 auto;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  background: var(--bg-chrome);
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.fx-job-statusbar:hover {
+  background: var(--bg-hover);
+}
+
+.fx-job-statusbar:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.fx-job-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fx-job-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.fx-job-bar {
+  flex: 0 0 132px;
+  height: 5px;
+  border-radius: var(--r-sm);
+  background: var(--line);
+  overflow: hidden;
+}
+
+.fx-job-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--r-sm);
+}
+
+.fx-job-spinner {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: var(--r-lg);
+  animation: fx-job-spin 0.9s linear infinite;
+}
+
+@keyframes fx-job-spin {
+  to { transform: rotate(360deg); }
+}
+
+.fx-job-awaiting {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--warn);
+  font: inherit;
+  cursor: pointer;
+}
+
+.fx-job-awaiting:hover {
+  background: var(--bg-hover);
+}
+
+.fx-job-awaiting-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-lg);
+  background: var(--warn);
+  animation: fx-job-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes fx-job-pulse {
+  50% { opacity: 0.25; }
+}
+
+.fx-job-popover {
+  position: fixed;
+  right: 10px;
+  bottom: 32px;
+  /* Above modeless windows (band 3000-3980), below modal dialogs (5000). */
+  z-index: 4000;
+  width: 300px;
+  max-height: 50vh;
+  overflow-y: auto;
+  background: var(--bg-chrome);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: 0 16px 40px var(--bg-app);
+}
+
+.fx-job-popover-title {
+  margin: 0;
+  padding: 9px 12px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.fx-job-item {
+  padding: 9px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fx-job-item + .fx-job-item {
+  border-top: 1px solid var(--line);
+}
+
+.fx-job-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--fg);
+}
+
+.fx-job-item .fx-job-bar {
+  flex: 0 0 auto;
+  height: 4px;
+}
+
+.fx-job-cancel {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-faint);
+  font: inherit;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.fx-job-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--danger);
+}
+
+.fx-job-row {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 8px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-chrome);
+  font-size: 11.5px;
+  color: var(--fg-muted);
+}
+
+.fx-job-row .fx-job-bar {
+  flex: 0 0 96px;
+  height: 4px;
+}
+
+.fx-job-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.fx-job-more {
+  flex: 0 0 auto;
+  height: 18px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.fx-job-more:hover {
+  background: var(--bg-hover);
+}

@@ -293,26 +293,19 @@ test('FX3R-005 패널은 자기만의 붙여넣기 단일 비행을 두지 않�
 // FX3R-006 — the ownership glue
 // ---------------------------------------------------------------------------
 
-test('FX3R-006 패널의 소유권 effect 는 dispose 를 부르는 정리를 돌려주고, 폐기된 객체를 새로 만든다 (StrictMode)', () => {
+// FR-FEX-009 AC-3 supersedes the FX3R-006 glue: the panel no longer owns jobs, so there is no
+// ownership object to dispose and nothing is cancelled when a window unmounts — a waiting question
+// stays in the app-wide store until its window is opened again. These two cases now pin that the
+// old per-panel glue is gone and that submit hands the job to the store instead.
+test('FX3R-006 (FR-FEX-009 AC-3 로 대체) 패널은 소유권 객체를 만들거나 폐기하지 않는다', () => {
   const win = source(WINDOW);
-  const effect = hookCalls(win, 'useEffect').find((args) => /\bownership\s*\(\s*\)/.test(args) && /\.dispose\s*\(/.test(args));
-  assert.ok(effect, 'no useEffect creates the ownership object and disposes it');
-  assert.match(effect, /\breturn\s*\(\s*\)\s*=>[^;]*\.dispose\s*\(\s*\)/, 'the ownership effect must return a cleanup that calls dispose()');
-  assert.match(effect, /ownershipRef\.current\s*\?\.\s*disposed[\s\S]*ownershipRef\.current\s*=\s*null/, 'a disposed object (StrictMode re-mount) must be replaced');
+  assert.doesNotMatch(win, /\bcreateFileJobOwnership\b/, 'the panel still creates a per-panel ownership object');
+  assert.doesNotMatch(win, /\bownershipRef\b/, 'the panel still keeps an ownership ref');
 });
 
-test('FX3R-006 jobClient.submit 과 WS 처리기는 소유권 ref 를 거친다', () => {
+test('FX3R-006 (FR-FEX-009 AC-3 로 대체) jobClient.submit 은 작업을 저장소에 JOB_STARTED 로 넘긴다', () => {
   const win = source(WINDOW);
   const client = /const\s+jobClient\s*=\s*useMemo\s*\(/.exec(win);
   assert.ok(client, 'jobClient = useMemo(...) not found');
-  assert.match(bracketBody(win, client.index + client[0].length - 1), /\bownership\s*\(\s*\)\s*\.\s*claim\s*\(/, 'submit must claim the job through the ownership ref');
-
-  const ws = hookCalls(win, 'registerFileJobHandler');
-  assert.ok(ws.length >= 1, 'the panel registers no file job handler');
-  const handler = ws.join('\n');
-  assert.match(handler, /\bownership\s*\(\s*\)\s*\.\s*onDone\s*\(/, 'a finished job must reach ownership().onDone');
-  assert.match(handler, /\bownership\s*\(\s*\)\s*\.\s*onDecision\s*\(/, 'a question must reach ownership().onDecision');
-  const ownership = /const\s+ownership\s*=\s*useCallback\s*\(/.exec(win);
-  assert.ok(ownership, 'ownership = useCallback(...) not found');
-  assert.match(bracketBody(win, ownership.index + ownership[0].length - 1), /\bownershipRef\.current\b/, 'ownership() must read the ref');
+  assert.match(bracketBody(win, client.index + client[0].length - 1), /\bdispatchFileJob\s*\(\s*\{[^}]*type\s*:\s*['"]JOB_STARTED['"]/, 'submit must record the job in the store with JOB_STARTED');
 });

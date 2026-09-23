@@ -23,10 +23,12 @@ export interface DecideDetail {
   choices: readonly FileJobChoice[];
 }
 
-export interface DecideAnswer {
-  choice: FileJobChoice;
-  applyToAll: boolean;
-}
+// 'cancel-job' is not a server choice: it withdraws the question by cancelling
+// the whole job (DELETE), which is what the modal's '취소' and Escape mean.
+// @req FR-FEX-007
+export type DecideAnswer =
+  | { kind: 'decide'; choice: FileJobChoice; applyToAll: boolean }
+  | { kind: 'cancel-job' };
 
 /** @req FR-FEX-005 */
 export type DecidePort = (detail: DecideDetail) => Promise<DecideAnswer>;

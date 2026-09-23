@@ -9,7 +9,12 @@
 // selection the user left behind are still there when it comes back.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getDialogStackEntries, raiseDialogById } from '../components/dialog/dialogStack.ts';
-import { isEditorWindowVisible, type EditorWindowScreen } from '../components/editor/editorWindowVisibility.ts';
+import type { EditorWindowPlacement } from '../components/editor/editorWindowPlacement.ts';
+import {
+  isEditorWindowVisible,
+  type EditorWindowHidingState,
+  type EditorWindowScreen,
+} from '../components/editor/editorWindowVisibility.ts';
 import { decideOpenFileExplorer, fileExplorerDialogId } from '../components/fileExplorer/fileExplorerDialog.ts';
 import {
   closeTab as closeExplorerTab,
@@ -22,6 +27,12 @@ import {
   type FileExplorerTab,
   type FileExplorerTabs,
 } from '../components/fileExplorer/fileExplorerTabsState.ts';
+import {
+  decideReviveFileExplorer,
+  minimizeFileExplorerRecord,
+  restoreFileExplorerRecord,
+  toggleFileExplorerMaximize,
+} from '../components/fileExplorer/fileExplorerTrayModel.ts';
 import type { ListSort } from '../components/fileExplorer/fileListView.ts';
 import type { FileTreeMode } from '../components/fileExplorer/fileTreeState.ts';
 import type { Workspace, WorkspaceTabRuntime } from '../types/workspace.ts';
@@ -32,9 +43,19 @@ import {
   type FileExplorerTabRecord,
 } from './windowStateStorage.ts';
 
-interface FileExplorerWindowRecord extends FileExplorerTabs {
-  minimized: boolean;
-}
+// The editor's hiding and placement state, so minimize and 최대화 go through
+// the editor's own transitions. `floatingRect` stays null: a floating explorer
+// window keeps its rect in the dialog's persisted geometry instead.
+type FileExplorerWindowRecord = FileExplorerTabs & EditorWindowHidingState;
+
+// Unlike the editor, the explorer does not open into the stage: it is a tool
+// window beside the terminal, not a document that wants the whole area.
+const NEW_WINDOW_STATE: EditorWindowHidingState = {
+  minimized: false,
+  placement: 'floating',
+  placementBeforeStage: null,
+  floatingRect: null,
+};
 
 /**
  * A tab as a window renders it: the stored tab plus where it goes when its
@@ -50,6 +71,8 @@ export interface FileExplorerWindowView {
   tabs: FileExplorerTabView[];
   activeTabId: string | null;
   minimized: boolean;
+  /** 'stage' while maximized over the terminal area. */
+  placement: EditorWindowPlacement;
   /** The three-term visibility said no. The surface hides; nothing unmounts. */
   hidden: boolean;
 }
@@ -64,6 +87,7 @@ export interface OpenFileExplorerRequest {
 export interface FileExplorerWindowActions {
   closeFileExplorer: (workspaceId: string) => void;
   minimizeFileExplorer: (workspaceId: string) => void;
+  toggleMaximizeFileExplorer: (workspaceId: string) => void;
   selectTab: (workspaceId: string, tabId: string) => void;
   closeTab: (workspaceId: string, tabId: string) => void;
   /** Opens a tab on the active tab's current root and session. */
@@ -80,11 +104,17 @@ export interface UseFileExplorerWindowsInput {
   resolveTabSession: (tabId: string) => string | undefined;
   screen: EditorWindowScreen;
   activeWorkspaceId: string | null;
+  /** Used by a tray row whose window belongs to another workspace. */
+  setActiveWorkspaceId: (workspaceId: string) => void;
+  /** Used by a tray row chosen while the settings screen is up. */
+  setScreen: (screen: EditorWindowScreen) => void;
 }
 
 export interface UseFileExplorerWindowsResult extends FileExplorerWindowActions {
   windows: FileExplorerWindowView[];
   openFileExplorer: (request: OpenFileExplorerRequest) => void;
+  /** A header tray row: brings the window back, from wherever the user is. */
+  reviveFileExplorer: (workspaceId: string) => void;
   /**
    * The callbacks alone, as one object whose identity never changes. A window
    * takes this rather than the whole result: the result changes with every
@@ -108,19 +138,24 @@ function toTabRecord(tab: FileExplorerTab): FileExplorerTabRecord {
 
 /**
  * @req FR-FEX-003
+ * @req FR-FEX-004
  * @req FR-FEX-010
  */
 export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseFileExplorerWindowsResult {
-  const { workspaces, tabs, resolveTabSession, screen, activeWorkspaceId } = input;
+  const { workspaces, tabs, resolveTabSession, screen, activeWorkspaceId, setActiveWorkspaceId, setScreen } = input;
   const [windows, setWindows] = useState<Record<string, FileExplorerWindowRecord>>({});
 
   // Read from callbacks that must see the committed value, not the one captured
   // when the callback was made.
   const windowsRef = useRef(windows);
   const lookupRef = useRef({ workspaces, tabs, resolveTabSession });
+  // Revival reads these at the moment of the click, so the callback itself can
+  // stay stable instead of changing with every screen or workspace switch.
+  const navigationRef = useRef({ screen, activeWorkspaceId, setActiveWorkspaceId, setScreen });
   useEffect(() => {
     windowsRef.current = windows;
     lookupRef.current = { workspaces, tabs, resolveTabSession };
+    navigationRef.current = { screen, activeWorkspaceId, setActiveWorkspaceId, setScreen };
   });
 
   const updateWindow = useCallback((workspaceId: string, change: (record: FileExplorerWindowRecord) => FileExplorerWindowRecord) => {
@@ -193,7 +228,7 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     // registered-id check above could not see it before its commit.
     setWindows((current) => (current[workspaceId] !== undefined
       ? current
-      : { ...current, [workspaceId]: { ...initial, minimized: false } }));
+      : { ...current, [workspaceId]: { ...initial, ...NEW_WINDOW_STATE } }));
   }, []);
 
   const closeFileExplorer = useCallback((workspaceId: string) => {
@@ -205,8 +240,31 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     });
   }, []);
 
+  // Only the hiding flag changes; the record keeps its tabs, whose trees hold
+  // the expanded directories and selection, as the same references.
   const minimizeFileExplorer = useCallback((workspaceId: string) => {
-    updateWindow(workspaceId, (record) => (record.minimized ? record : { ...record, minimized: true }));
+    updateWindow(workspaceId, (record) => (record.minimized ? record : minimizeFileExplorerRecord(record)));
+  }, [updateWindow]);
+
+  const toggleMaximizeFileExplorer = useCallback((workspaceId: string) => {
+    updateWindow(workspaceId, (record) => toggleFileExplorerMaximize(record));
+  }, [updateWindow]);
+
+  // A tray row reaches the window from any workspace and from the settings
+  // screen, so un-hiding alone is not enough: the window is only visible once
+  // its workspace is active and the workspace screen is up.
+  const reviveFileExplorer = useCallback((workspaceId: string) => {
+    if (windowsRef.current[workspaceId] === undefined) return;
+    const navigation = navigationRef.current;
+    const decision = decideReviveFileExplorer({
+      workspaceId,
+      activeWorkspaceId: navigation.activeWorkspaceId,
+      screen: navigation.screen,
+    });
+    if (decision.showWorkspaceScreen) navigation.setScreen('workspace');
+    if (decision.switchWorkspaceId !== null) navigation.setActiveWorkspaceId(decision.switchWorkspaceId);
+    updateWindow(workspaceId, (record) => (record.minimized ? restoreFileExplorerRecord(record) : record));
+    raiseDialogById(decision.raiseDialogId, 'modeless');
   }, [updateWindow]);
 
   const selectTab = useCallback((workspaceId: string, tabId: string) => {
@@ -338,6 +396,7 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     }),
     activeTabId: record.activeTabId,
     minimized: record.minimized,
+    placement: record.placement,
     hidden: !isEditorWindowVisible({
       minimized: record.minimized,
       screen,
@@ -352,6 +411,7 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
   const actions = useMemo<FileExplorerWindowActions>(() => ({
     closeFileExplorer,
     minimizeFileExplorer,
+    toggleMaximizeFileExplorer,
     selectTab,
     closeTab,
     addTab,
@@ -359,12 +419,13 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     setTabMode,
     setTabSort,
     setTabAnchor,
-  }), [closeFileExplorer, minimizeFileExplorer, selectTab, closeTab, addTab, setTabRoot, setTabMode, setTabSort, setTabAnchor]);
+  }), [closeFileExplorer, minimizeFileExplorer, toggleMaximizeFileExplorer, selectTab, closeTab, addTab, setTabRoot, setTabMode, setTabSort, setTabAnchor]);
 
   return useMemo(() => ({
     ...actions,
     actions,
     windows: views,
     openFileExplorer,
-  }), [actions, views, openFileExplorer]);
+    reviveFileExplorer,
+  }), [actions, views, openFileExplorer, reviveFileExplorer]);
 }

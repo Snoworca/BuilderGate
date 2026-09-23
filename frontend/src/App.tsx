@@ -36,6 +36,10 @@ import { createTabSessionLookup } from './components/editor/editorWindowRecord';
 import { useEditorWindows } from './hooks/useEditorWindows';
 import { useFileExplorerWindows } from './hooks/useFileExplorerWindows';
 import { FileExplorerWindow } from './components/fileExplorer/FileExplorerWindow';
+import { hasHeaderTrayWindows, listFileExplorerTrayEntries } from './components/fileExplorer/fileExplorerTrayModel';
+import { FileJobStatusBar } from './components/fileExplorer/FileJobStatusBar';
+import { useFileJobStoreSync } from './hooks/useFileJobStoreSync';
+import type { ContextMenuItem } from './components/ContextMenu/ContextMenu';
 import { useWindowState } from './hooks/useWindowState';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
@@ -488,7 +492,13 @@ function AppContent() {
     resolveTabSession,
     screen,
     activeWorkspaceId: wm.activeWorkspaceId,
+    setActiveWorkspaceId: wm.setActiveWorkspaceId,
+    setScreen,
   });
+  // File-job events reach the store here, at the app, so a closed or minimized
+  // explorer window cannot stop its jobs from being tracked.
+  // @req FR-FEX-009
+  useFileJobStoreSync(wm.tabs);
   // The workspace is the tab's own rather than the active one: a terminal menu
   // can be opened on a tab while another workspace's tab strip is not in view,
   // and the window belongs with the tab it was opened from.
@@ -623,6 +633,28 @@ function AppContent() {
     onOpenFileExplorer: openTabFileExplorer,
   });
 
+  // The header tray lists explorer windows after the editor's documents, one row
+  // per window, so a minimized explorer has a way back. The list is keyed on the
+  // rows' text rather than on the arrays behind it, for the reason the editor's
+  // trayItems gives: those arrays are rebuilt on every render, and a new list
+  // each time would re-render the header on every commit.
+  // @req FR-FEX-004
+  const explorerTrayEntries = listFileExplorerTrayEntries(
+    explorer.windows,
+    workspaceId => wm.workspaces.find(ws => ws.id === workspaceId)?.name,
+  );
+  const explorerTrayKey = explorerTrayEntries.map(entry => `${entry.workspaceId}\u0000${entry.label}`).join('\u0001');
+  const headerTrayItems = useMemo<ContextMenuItem[]>(
+    () => editor.trayItems.concat(explorerTrayEntries.map(entry => ({
+      label: entry.label,
+      onClick: () => explorer.reviveFileExplorer(entry.workspaceId),
+    }))),
+    // `explorerTrayEntries` is rebuilt every render; `explorerTrayKey` carries
+    // exactly what its rows show.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor.trayItems, explorerTrayKey, explorer.reviveFileExplorer],
+  );
+
   const sidebarContent = (
     <WorkspaceSidebar
       workspaces={wm.workspaces}
@@ -656,8 +688,8 @@ function AppContent() {
         onOpenTerminalShortcutManager={() => setShowTerminalShortcutDialog(true)}
         onOpenRecoveryOptionManager={() => setShowRecoveryOptionDialog(true)}
         onOpenMcpControlManager={() => setShowMcpControlDialog(true)}
-        hasEditorWindows={editor.hasWindows}
-        editorTrayItems={editor.trayItems}
+        hasEditorWindows={hasHeaderTrayWindows(editor.openCount, explorer.windows.length)}
+        editorTrayItems={headerTrayItems}
         editorTrayOpenCount={editor.openCount}
         onOpenFileExplorer={activeTab ? () => openTabFileExplorer(activeTab.id) : undefined}
       />
@@ -836,6 +868,7 @@ function AppContent() {
                       tabs={explorerWindow.tabs}
                       activeTabId={explorerWindow.activeTabId}
                       hidden={explorerWindow.hidden}
+                      placement={explorerWindow.placement}
                       actions={explorer.actions}
                       onOpenFile={editor.openDocument}
                     />
@@ -853,6 +886,9 @@ function AppContent() {
           />
         </main>
       </div>
+
+      {/* Below .main so it takes a row only while a file job runs (design 4.1). */}
+      <FileJobStatusBar onRevive={explorer.reviveFileExplorer} />
 
       {/* Tab mode context menu */}
       {tabContextMenu.isOpen && tabContextMenu.position && (
