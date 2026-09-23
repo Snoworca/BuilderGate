@@ -108,3 +108,23 @@ export function decideReviveFileExplorer(input: ReviveFileExplorerInput): Revive
     raiseDialogId: fileExplorerDialogId(input.workspaceId),
   };
 }
+
+export interface ReviveFileExplorerTarget {
+  /** Whether the workspace still has an explorer window record. */
+  hasWindow: boolean;
+  /** The workspace's active terminal tab, which a newly opened window takes as its origin. */
+  workspaceActiveTabId: string | null;
+}
+
+export type ReviveFileExplorerAction = { kind: 'restore' } | { kind: 'open'; originTabId: string };
+
+/**
+ * What revival does to the window itself. With no record left -- the window was
+ * closed, the page reloaded, or the job came from the editor's tree pane -- the
+ * window is opened instead: the 응답 대기 button is the only way to a question
+ * whose window is gone, and doing nothing would leave the job waiting forever.
+ * @req FR-FEX-009
+ */
+export function decideReviveFileExplorerAction(target: ReviveFileExplorerTarget): ReviveFileExplorerAction {
+  return target.hasWindow ? { kind: 'restore' } : { kind: 'open', originTabId: target.workspaceActiveTabId ?? '' };
+}

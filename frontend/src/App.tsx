@@ -36,7 +36,11 @@ import { createTabSessionLookup } from './components/editor/editorWindowRecord';
 import { useEditorWindows } from './hooks/useEditorWindows';
 import { useFileExplorerWindows } from './hooks/useFileExplorerWindows';
 import { FileExplorerWindow } from './components/fileExplorer/FileExplorerWindow';
-import { hasHeaderTrayWindows, listFileExplorerTrayEntries } from './components/fileExplorer/fileExplorerTrayModel';
+import {
+  decideReviveFileExplorerAction,
+  hasHeaderTrayWindows,
+  listFileExplorerTrayEntries,
+} from './components/fileExplorer/fileExplorerTrayModel';
 import { FileJobStatusBar } from './components/fileExplorer/FileJobStatusBar';
 import { useFileJobStoreSync } from './hooks/useFileJobStoreSync';
 import type { ContextMenuItem } from './components/ContextMenu/ContextMenu';
@@ -513,6 +517,24 @@ function AppContent() {
     explorer.openFileExplorer({ workspaceId, originTabId: tabId });
   }, [explorer.openFileExplorer, wm.tabs]);
 
+  // The status bar's 응답 대기 button is the only way to a question whose window
+  // is gone: closed, lost to a reload, or never opened because the job came from
+  // the editor's tree pane. Revival switches workspace and screen as a tray row
+  // does; with no window left, the window is then opened, and it asks the
+  // question on mount.
+  // @req FR-FEX-009
+  const explorerWindows = explorer.windows;
+  const reviveFileExplorerForJob = useCallback((workspaceId: string) => {
+    const action = decideReviveFileExplorerAction({
+      hasWindow: explorerWindows.some(view => view.workspaceId === workspaceId),
+      workspaceActiveTabId: wm.workspaces.find(ws => ws.id === workspaceId)?.activeTabId ?? null,
+    });
+    explorer.reviveFileExplorer(workspaceId);
+    if (action.kind === 'open') explorer.openFileExplorer({ workspaceId, originTabId: action.originTabId });
+    // The hook's callbacks are stable; the result object around them is not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [explorerWindows, explorer.reviveFileExplorer, explorer.openFileExplorer, wm.workspaces]);
+
   const tabContextMenuItems = useMemo(() => {
     if (!tabContextMenu.targetId) return [];
     const targetTab = wm.activeWorkspaceTabs.find(t => t.id === tabContextMenu.targetId);
@@ -895,7 +917,7 @@ function AppContent() {
       </div>
 
       {/* Below .main so it takes a row only while a file job runs (design 4.1). */}
-      <FileJobStatusBar onRevive={explorer.reviveFileExplorer} />
+      <FileJobStatusBar onRevive={reviveFileExplorerForJob} />
 
       {/* Tab mode context menu */}
       {tabContextMenu.isOpen && tabContextMenu.position && (

@@ -482,3 +482,118 @@ test('[FR-FEX-008 AC-1] 리듀서는 순수하다 — 입력 상태를 바꾸지
   const clock = /\b(Date\.now|new Date|performance\.now)\b/.exec(src);
   assert.equal(clock, null, clock ? `fileJobStore.ts reads the clock (${clock[1]})` : '');
 });
+
+// ---------------------------------------------------------------------------
+// Review round fx4 — attribution on reconnect, guards the earlier suite let
+// survive a mutation, the list round-trip, failure routing and popover rows
+// ---------------------------------------------------------------------------
+
+test('[FR-FEX-009 AC-2] 재연결 SYNC_LIST 는 소켓으로 먼저 본 미귀속 작업(다른 클라이언트의 것일 수 있다)을 세션 조회로 이 클라이언트에 귀속하지 않는다', async () => {
+  const m = await load();
+  // Every client hears every job. A job this client only heard about over the
+  // socket and never claimed may be another client's, and the session lookup
+  // would hand its question to a window here.
+  const heard = run(m, [progress('other-job')]);
+  const synced = run(m, [{
+    type: 'SYNC_LIST',
+    jobs: [listed('other-job', { pending: 'd-1' })],
+    workspaceOfSession: { [S1]: WS_A },
+  }], heard);
+  assert.deepEqual(ids(m.selectWindowJobs(synced, WS_A)), [], 'an unclaimed job seen before the list was adopted into this client');
+  assert.deepEqual(pendingIds(m, synced, WS_A), [], 'another client\'s question was put to a window here');
+  const view = m.selectStatusBarView(synced);
+  assert.ok(view.kind === 'single');
+  assert.equal(view.awaiting, null);
+
+  // A job the list names for the first time is still attributed by the lookup:
+  // after a reload there is nothing else to go on.
+  const fresh = run(m, [{ type: 'SYNC_LIST', jobs: [listed('first-seen')], workspaceOfSession: { [S1]: WS_A } }]);
+  assert.deepEqual(ids(m.selectWindowJobs(fresh, WS_A)), ['first-seen']);
+  // An attribution an earlier list made is kept by the next one.
+  const again = run(m, [{ type: 'SYNC_LIST', jobs: [listed('first-seen')], workspaceOfSession: {} }], fresh);
+  assert.deepEqual(ids(m.selectWindowJobs(again, WS_A)), ['first-seen']);
+});
+
+test('[FR-FEX-009 AC-2] 미귀속으로 끝난(earlyDone) 작업은 늦게 온 SYNC_LIST 스냅숏이 다시 살리지 않는다', async () => {
+  const m = await load();
+  // The snapshot was taken before the done; the socket already delivered it.
+  const state = run(m, [
+    progress('gone'),
+    done('gone', 'completed'),
+    { type: 'SYNC_LIST', jobs: [listed('gone')], workspaceOfSession: { [S1]: WS_A } },
+  ]);
+  assert.deepEqual(m.selectPopoverRows(state), [], 'a finished job came back from a stale list and no later done removes it');
+  assert.deepEqual(m.selectStatusBarView(state), { kind: 'hidden' });
+});
+
+test('[FR-FEX-009 AC-3] 대기 결정이 없는 SYNC_LIST 스냅숏은 소켓이 먼저 전한 질문을 지우지 않는다', async () => {
+  const m = await load();
+  const state = run(m, [
+    started('j', WS_A),
+    decision('j', 'd-5'),
+    { type: 'SYNC_LIST', jobs: [listed('j')], workspaceOfSession: { [S1]: WS_A } },
+  ]);
+  assert.deepEqual(pendingIds(m, state, WS_A), ['j/d-5'], 'the question the socket delivered after the snapshot was lost');
+});
+
+test('[FR-FEX-009 AC-3] 답한 뒤 다시 온 같은 DECISION_REQUIRED 는 다시 묻지 않는다', async () => {
+  const m = await load();
+  const answeredState = run(m, [started('j', WS_A), decision('j', 'd-1'), answered('j', 'd-1')]);
+  const resent = m.fileJobStoreReducer(answeredState, decision('j', 'd-1', S2));
+  assert.deepEqual(pendingIds(m, resent, WS_A), [], 'an answered question was asked again');
+  assert.equal(resent, answeredState, 'a re-sent answered decision must be a no-op');
+});
+
+test('[FR-FEX-009 AC-1] 미귀속 작업의 대기 결정은 awaiting 을 만들지 않고, 더 오래된 귀속 작업의 결정이 있으면 그것을 가리킨다', async () => {
+  const m = await load();
+  const unclaimed = run(m, [decision('u')]);
+  const only = m.selectStatusBarView(unclaimed);
+  assert.ok(only.kind === 'single');
+  assert.equal(only.awaiting, null, 'no window here can answer an unclaimed question');
+
+  // The claimed job is older, so a search that stops at the first waiting job
+  // would find the unclaimed one and show no button at all.
+  const mixed = run(m, [started('c', WS_A), decision('c', 'd-c'), decision('u', 'd-u')]);
+  const view = m.selectStatusBarView(mixed);
+  assert.ok(view.kind === 'multiple');
+  assert.deepEqual(view.awaiting, { workspaceId: WS_A, jobId: 'c', label: '응답 대기 중' });
+});
+
+test('[FR-FEX-009 AC-2] 목록 요청 이후(sinceSeq 초과)에 시작된 작업은 그 목록의 응답이 거두지 않는다', async () => {
+  const m = await load();
+  const before = run(m, [started('old', WS_A), started('lost', WS_A)]);
+  const sinceSeq = before.seq;
+  // JOB_STARTED lands while the list request is in flight.
+  const during = run(m, [started('new', WS_A)], before);
+  const synced = run(m, [{ type: 'SYNC_LIST', sinceSeq, jobs: [listed('old')], workspaceOfSession: { [S1]: WS_A } }], during);
+  assert.deepEqual(ids(m.selectWindowJobs(synced, WS_A)).sort(), ['new', 'old'], 'a job started during the round-trip was reaped');
+
+  // Without sinceSeq (and for jobs older than it) the reap is unchanged.
+  const reaped = run(m, [{ type: 'SYNC_LIST', jobs: [listed('old')], workspaceOfSession: {} }], during);
+  assert.deepEqual(ids(m.selectWindowJobs(reaped, WS_A)), ['old']);
+});
+
+test('[FR-FEX-009 AC-3] 실패는 작업을 시작한 탐색기 탭(origin.tabId)을 담는다 — 목록으로만 아는 작업은 null', async () => {
+  const m = await load();
+  const failed = run(m, [started('f', WS_A), done('f', 'failed', 'EIO')]);
+  assert.deepEqual(m.selectWindowFailures(failed, WS_A).map((f) => [f.jobId, f.tabId]), [['f', `${WS_A}-tab-1`]]);
+
+  const early = run(m, [done('e', 'failed', 'EIO'), started('e', WS_B)]);
+  assert.deepEqual(m.selectWindowFailures(early, WS_B).map((f) => [f.jobId, f.tabId]), [['e', `${WS_B}-tab-1`]]);
+
+  const adopted = run(m, [
+    { type: 'SYNC_LIST', jobs: [listed('a')], workspaceOfSession: { [S1]: WS_A } },
+    done('a', 'failed', 'EIO'),
+  ]);
+  assert.deepEqual(m.selectWindowFailures(adopted, WS_A).map((f) => [f.jobId, f.tabId]), [['a', null]]);
+});
+
+test('[FR-FEX-008 AC-6] 알림창 줄: 작업 종류를 모르면 \'파일 작업\', 대기 결정이 있으면 awaiting 표시', async () => {
+  const m = await load();
+  const state = run(m, [started('known', WS_A, 'move'), decision('unknown', 'd-u')]);
+  const byId = new Map(m.selectPopoverRows(state).map((row) => [row.jobId, row]));
+  assert.equal(byId.get('unknown')?.label, '파일 작업', 'a row with an empty label');
+  assert.equal(byId.get('unknown')?.awaiting, true);
+  assert.equal(byId.get('known')?.label, '이동');
+  assert.equal(byId.get('known')?.awaiting, false);
+});

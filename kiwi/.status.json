@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-23T15:40:24.454Z",
+  "generatedAt": "2026-09-23T19:03:34.071Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "b4d469d7a85663e82a56d2003a79d78fcdc87b9087ae2dda447af60c9520a1d5",
+    "value": "c3ab8b4a10d9261a0a6bddf38ce7fea2edea7c8703d4c85cf8784e6d22c70697",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -38,15 +38,15 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "7bae029119c9a90f49144adde32a7ea8ab9342122efe6c2a51ca19d37e98bc82",
-        "size": 215152,
-        "mtimeMs": 1790104596891.085
+        "sha256": "4845929c89ec9c553655a4892b0ba6ea55cb34364d0a517304fb53790e4350b0",
+        "size": 220509,
+        "mtimeMs": 1790190201067.457
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "8a7c3c7e0ac5016f1fbbcdb6a2da3a8ffd0921f14d88eb41eaef28468dc68c4c",
-        "size": 62628,
-        "mtimeMs": 1790178011595.965
+        "sha256": "c8f0acefb791467777046a722b77a92a521118ffdcf5e43299dbce7d6eda4175",
+        "size": 74751,
+        "mtimeMs": 1790190195232.5166
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",

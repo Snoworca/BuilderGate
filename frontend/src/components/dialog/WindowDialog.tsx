@@ -8,7 +8,7 @@ import {
   writeDialogGeometry,
 } from './dialogGeometry';
 import { useDialogStack } from './dialogStack';
-import { createWindowDialogBehaviorModel, windowDialogTitleText } from './windowDialogModel';
+import { createWindowDialogBehaviorModel, selectGeometryToPersist, windowDialogTitleText } from './windowDialogModel';
 import { isDialogRectMoved } from './dialogDragCommit';
 import type { DialogRect, DialogSize, WindowDialogProps } from './types';
 import './WindowDialog.css';
@@ -306,10 +306,15 @@ export function WindowDialog({
 
   const handleClose = useCallback(() => {
     if (behavior.persistGeometry) {
-      writeDialogGeometry(dialogId, clampDialogRect(rectRef.current, getViewportSize(), minSize));
+      const persisted = selectGeometryToPersist({
+        isControlled,
+        liveRect: rectRef.current,
+        floatingRect: uncontrolledRect,
+      });
+      writeDialogGeometry(dialogId, clampDialogRect(persisted, getViewportSize(), minSize));
     }
     onClose();
-  }, [behavior.persistGeometry, dialogId, minSize, onClose]);
+  }, [behavior.persistGeometry, dialogId, isControlled, minSize, onClose, uncontrolledRect]);
 
   // What Rnd is allowed to render the box at, which is not always `minSize`.
   //

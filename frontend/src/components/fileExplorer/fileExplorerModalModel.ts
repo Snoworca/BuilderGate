@@ -120,3 +120,15 @@ export function nextFocusIndex(count: number, current: number, shift: boolean): 
   if (current < 0 || current >= count) return 0;
   return shift ? (current - 1 + count) % count : (current + 1) % count;
 }
+
+/**
+ * Whether a question takes focus when it appears. A delete confirm answers a
+ * key the user just pressed in this window, so it always does. A server
+ * question arrives on its own, and taking focus then would pull typing out of a
+ * terminal into the modal (DR-12, DR-16): it takes focus only when focus is
+ * already inside the window. The Tab trap still holds once focus is inside.
+ * @req FR-FEX-007
+ */
+export function shouldFocusWindowModalOnMount(kind: 'delete' | 'job', focusInHost: boolean): boolean {
+  return kind === 'delete' || focusInHost;
+}

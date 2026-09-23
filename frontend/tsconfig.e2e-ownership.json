@@ -26,7 +26,8 @@
     "tests/e2e/workspace-ownership-validation.spec.ts",
     "tests/e2e/markdown-editor-persistence.spec.ts",
     "tests/e2e/markdown-editor-save.spec.ts",
-    "tests/e2e/file-explorer.spec.ts"
+    "tests/e2e/file-explorer.spec.ts",
+    "tests/e2e/file-explorer-step4.spec.ts"
   ],
   // references 는 extends 로 상속되지 않는다. 없으면 편집기 호스트가 배럴을 import 하는
   // 순간 vendored 편집기 소스가 이 프로그램으로 끌려와 TS1294 가 난다(tsconfig.test.json 과 같은 이유).

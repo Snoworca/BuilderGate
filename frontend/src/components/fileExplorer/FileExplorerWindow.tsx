@@ -405,10 +405,7 @@ function useStageRect(active: boolean): DialogRect | null {
   useLayoutEffect(() => {
     if (!active) return undefined;
     const stage = document.querySelector<HTMLElement>(EDITOR_WINDOW_BOUNDS_SELECTOR);
-    if (stage === null) {
-      setRect(null);
-      return undefined;
-    }
+    if (stage === null) return undefined;
     const measure = () => {
       const next = toStageRect(stage.getBoundingClientRect());
       setRect((current) => (current !== null
@@ -424,7 +421,10 @@ function useStageRect(active: boolean): DialogRect | null {
       observer?.disconnect();
     };
   }, [active]);
-  return rect;
+  // Derived rather than cleared from the effect: an inactive window has no
+  // stage rect, and the last measurement is replaced before paint when it is
+  // active again.
+  return active ? rect : null;
 }
 
 // @req FR-FEX-003
@@ -474,12 +474,18 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
     };
   }, []);
 
-  // A job's failure and its questions belong to the window, not to the tab
-  // that started it: the tab may be closed by the time they arrive. They go to
-  // the panel on screen.
-  const showJobError = useCallback((message: string) => {
-    const id = activeTabIdRef.current;
-    if (id !== null) panelCommandsRef.current.get(id)?.current?.showError(message);
+  // A job's failure goes to the tab that started it when that tab is still
+  // open, and to the panel on screen otherwise: the tab may be closed by the
+  // time it arrives. Whether a panel showed it is returned, so a failure no
+  // panel could show stays in the store for the next chance.
+  const showJobError = useCallback((message: string, originTabId: string | null = null): boolean => {
+    const registry = panelCommandsRef.current;
+    const activeId = activeTabIdRef.current;
+    const panel = (originTabId === null ? null : registry.get(originTabId)?.current ?? null)
+      ?? (activeId === null ? null : registry.get(activeId)?.current ?? null);
+    if (panel === null) return false;
+    panel.showError(message);
+    return true;
   }, []);
 
   // The selectors build a new array on every call, so they run on the snapshot
@@ -494,24 +500,41 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
   const askedDecisionsRef = useRef(new Map<string, string>());
   const { dropJob } = windowModal;
 
+  // A POST that failed leaves the question unanswered on the server, so it is
+  // asked again; this counter re-runs the asking effect for it.
+  const [reaskTick, setReaskTick] = useState(0);
+
   const askDecision = useCallback((route: FileJobDecideRoute) => {
     askedDecisionsRef.current.set(route.jobId, route.decisionId);
     void windowModal.decideJob(route.jobId, route.detail)
-      .then((answer) => {
+      .then(async (answer) => {
         // Withdrawn: the job finished, or stopped waiting, before an answer.
-        if (answer === null) return undefined;
+        if (answer === null) return;
+        // '취소' / Escape: the question is withdrawn by ending the job itself.
+        if (answer.kind === 'cancel-job') {
+          await fileJobApi.cancel(route.jobId);
+        } else {
+          await fileJobApi.decide(route.jobId, {
+            decisionId: route.decisionId,
+            choice: answer.choice,
+            applyToAll: answer.applyToAll,
+          });
+        }
+        // Settled only once the server took the answer. Until then the job is
+        // still marked asked, so a store update meanwhile does not put the same
+        // question up again.
         const asked = askedDecisionsRef.current;
         if (asked.get(route.jobId) === route.decisionId) asked.delete(route.jobId);
         dispatchFileJob({ type: 'DECISION_ANSWERED', jobId: route.jobId, decisionId: route.decisionId });
-        // '취소' / Escape: the question is withdrawn by ending the job itself.
-        if (answer.kind === 'cancel-job') return fileJobApi.cancel(route.jobId);
-        return fileJobApi.decide(route.jobId, {
-          decisionId: route.decisionId,
-          choice: answer.choice,
-          applyToAll: answer.applyToAll,
-        });
       })
-      .catch((error: unknown) => showJobError(`결정을 보내지 못했습니다: ${messageOf(error)}`));
+      .catch((error: unknown) => {
+        showJobError(`결정을 보내지 못했습니다: ${messageOf(error)}`);
+        // The store still holds the question. Forgetting that it was asked lets
+        // the effect put it up again; a job that is gone withdraws it on done.
+        const asked = askedDecisionsRef.current;
+        if (asked.get(route.jobId) === route.decisionId) asked.delete(route.jobId);
+        setReaskTick((tick) => tick + 1);
+      });
   }, [windowModal, showJobError]);
 
   // A mounted window asks every question its workspace's jobs are waiting on,
@@ -528,13 +551,14 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
     for (const route of pendingDecisions) {
       if (asked.get(route.jobId) !== route.decisionId) askDecision(route);
     }
-  }, [askDecision, dropJob, pendingDecisions]);
+  }, [askDecision, dropJob, pendingDecisions, reaskTick]);
 
-  // Each failure is shown once, in this window only, and then released.
+  // Each failure is shown once, in this window only, and released only once a
+  // panel actually showed it.
   useEffect(() => {
     for (const failure of jobFailures) {
-      showJobError(`파일 작업이 실패했습니다${failure.errorCode ? ` (${failure.errorCode})` : ''}`);
-      dispatchFileJob({ type: 'FAILURE_SHOWN', jobId: failure.jobId });
+      const shown = showJobError(`파일 작업이 실패했습니다${failure.errorCode ? ` (${failure.errorCode})` : ''}`, failure.tabId);
+      if (shown) dispatchFileJob({ type: 'FAILURE_SHOWN', jobId: failure.jobId });
     }
   }, [jobFailures, showJobError]);
 

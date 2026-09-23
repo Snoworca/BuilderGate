@@ -7,7 +7,7 @@ import {
   readDialogGeometry,
   writeDialogGeometry,
 } from '../../src/components/dialog/dialogGeometry.ts';
-import { createWindowDialogBehaviorModel } from '../../src/components/dialog/windowDialogModel.ts';
+import { createWindowDialogBehaviorModel, selectGeometryToPersist } from '../../src/components/dialog/windowDialogModel.ts';
 
 const DIALOG_ID = 'editor-window-c-work-notes-readme-md';
 const GEOMETRY_KEY = 'buildergate.dialog.editor-window-c-work-notes-readme-md.geometry';
@@ -172,4 +172,20 @@ test('FR-MDE-001 persistGeometry=false writes no geometry and a controlled rect 
   assert.notEqual(actionsIndex, -1, 'the titlebar does not render titlebarActions');
   assert.notEqual(closeIndex, -1, 'the titlebar no longer renders the close button');
   assert.ok(actionsIndex < closeIndex, 'titlebarActions must precede the close button');
+});
+
+test('FR-FEX-004 a window closed while its rect is controlled (maximized) persists its last floating rect, not the stage', () => {
+  const floating = { x: 120, y: 90, width: 640, height: 480 };
+  const stage = { x: 0, y: 0, width: 1280, height: 760 };
+
+  // Maximized, the live rect is the stage the host measured. Storing it would
+  // bring the window back as a floating window the size of the whole stage.
+  assert.deepEqual(selectGeometryToPersist({ isControlled: true, liveRect: stage, floatingRect: floating }), floating);
+  // Floating, the live rect is exactly what the user placed.
+  assert.deepEqual(selectGeometryToPersist({ isControlled: false, liveRect: floating, floatingRect: stage }), floating);
+
+  // The close path goes through it, so the choice cannot drift from the helper.
+  const closeBody = sliceBetween(readWindowDialogSource(), 'const handleClose = useCallback(', '}, [');
+  assert.match(closeBody, /\bselectGeometryToPersist\s*\(/, 'handleClose does not choose the persisted rect through selectGeometryToPersist');
+  assert.match(closeBody, /\buncontrolledRect\b/, 'handleClose does not hand the floating rect to the choice');
 });

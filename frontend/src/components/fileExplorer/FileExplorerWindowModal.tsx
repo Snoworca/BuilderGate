@@ -18,6 +18,7 @@ import {
   decideWindowModalKey,
   nextFocusIndex,
   resolveDecisionAnswer,
+  shouldFocusWindowModalOnMount,
   type WindowModalChoiceId,
   type WindowModalModel,
 } from './fileExplorerModalModel.ts';
@@ -134,10 +135,19 @@ function WindowModalSurface({ entry }: { entry: WindowModalEntry }) {
   const model = modelOf(entry);
   const [applyToAll, setApplyToAll] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const controls = (): HTMLElement[] => [...(boxRef.current?.querySelectorAll<HTMLElement>('button, input') ?? [])];
 
+  // A server question must not pull focus out of a terminal (DR-12, DR-16).
+  // The host is the element the modal is drawn in (the explorer's window body,
+  // or the editor's tree pane); focus already there means the user is working
+  // in it and the question may take it.
   useEffect(() => {
-    controls()[0]?.focus();
+    const host = overlayRef.current?.parentElement ?? null;
+    const focusInHost = host !== null && host.contains(document.activeElement);
+    if (shouldFocusWindowModalOnMount(entry.kind, focusInHost)) controls()[0]?.focus();
+    // Decided once, when the question appears; later focus moves are the user's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -158,7 +168,7 @@ function WindowModalSurface({ entry }: { entry: WindowModalEntry }) {
   };
 
   return (
-    <div className="fx-window-modal">
+    <div className="fx-window-modal" ref={overlayRef}>
       <div className="fx-window-modal-scrim" />
       <div className="fx-window-modal-box" role="alertdialog" aria-label={model.title} ref={boxRef} onKeyDown={handleKeyDown}>
         <div className="fx-window-modal-title">{model.title}</div>

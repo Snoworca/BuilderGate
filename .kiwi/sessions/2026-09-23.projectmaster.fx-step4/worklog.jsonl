@@ -16,3 +16,5 @@
 {"ts": "2026-09-23T18:04:50Z", "event": "task_done", "task_id": "T-PH004-03", "summary": "편집기 트리 패널 배선 가드 14 red. 변이 38/38"}
 {"ts": "2026-09-23T18:13:41Z", "event": "task_done", "task_id": "T-PH004-04", "summary": "useFileTreeOperations 추출(순수 리팩터). 가드 7건 범위 확장(약화 없음, 변이 확인). 전체 1538/1523(남은 14 는 T-PH004-05)"}
 {"ts": "2026-09-23T18:29:53Z", "event": "task_done", "task_id": "T-PH004-05", "summary": "편집기 좌측 트리 패널·스플리터·창 메뉴·모바일 오버레이 14/14. 전체 1538/1537"}
+{"ts": "2026-09-23T18:36:40Z", "event": "task_done", "task_id": "T-PH005-01", "summary": "브라우저 스펙 11건 작성·타입 검사(실행 보류: BUILDERGATE_PASSWORD), 전용 config testMatch 확장"}
+{"ts": "2026-09-23T18:55:10Z", "event": "task_done", "task_id": "T-PH005-02", "summary": "회귀: 1547/1546(선재만), tsc 0, e2e tsc 선재 2건만, 편집기 CSS 색 리터럴 3건 토큰으로 교체"}

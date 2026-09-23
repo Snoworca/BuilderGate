@@ -68,3 +68,14 @@ export function createWindowDialogBehaviorModel(input: {
     dialogZ: layerZ + 1,
   };
 }
+
+/**
+ * The rect a closing window stores as its floating geometry. While the host
+ * controls the rect (a maximized window fills the stage), the live rect is the
+ * stage, and storing it would bring the window back as a floating window the
+ * size of the whole stage. The last rect the user placed it at is stored instead.
+ * @req FR-FEX-004
+ */
+export function selectGeometryToPersist<R>(input: { isControlled: boolean; liveRect: R; floatingRect: R }): R {
+  return input.isControlled ? input.floatingRect : input.liveRect;
+}

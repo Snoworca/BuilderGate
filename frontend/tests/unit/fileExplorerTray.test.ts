@@ -298,3 +298,23 @@ test('toggleMaximize 로 stage 가 된 레코드를 최소화했다 되살려도
     'the placement record is written by the editor transition, not here',
   );
 });
+
+test('[FR-FEX-009 AC-2] decideReviveFileExplorerAction: 창 레코드가 없으면(닫힘·새로고침·편집기 창에서 시작한 작업) 그 워크스페이스의 활성 탭으로 창을 연다', async () => {
+  const { decideReviveFileExplorerAction } = await load();
+  // The 응답 대기 button is the only way to reach a question whose window is
+  // gone; reviving nothing would leave the job waiting on the server forever.
+  assert.deepEqual(
+    decideReviveFileExplorerAction({ hasWindow: false, workspaceActiveTabId: 'tab-7' }),
+    { kind: 'open', originTabId: 'tab-7' },
+  );
+  // No active tab is known: the open still goes ahead and the hook falls back to the workspace's session.
+  assert.deepEqual(
+    decideReviveFileExplorerAction({ hasWindow: false, workspaceActiveTabId: null }),
+    { kind: 'open', originTabId: '' },
+  );
+  assert.deepEqual(
+    decideReviveFileExplorerAction({ hasWindow: true, workspaceActiveTabId: 'tab-7' }),
+    { kind: 'restore' },
+    'an existing window is un-hidden and raised, not opened again',
+  );
+});

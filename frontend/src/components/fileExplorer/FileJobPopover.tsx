@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
 import { fileJobApi } from '../../services/api.ts';
 import { closeFileJobPopover, isFileJobPopoverOpen, subscribeFileJobPopover } from './fileJobPopoverState.ts';
-import { decidePopoverOutsideClose, getFileJobSnapshot, selectPopoverRows, subscribeFileJobs } from './fileJobStore.ts';
+import { AWAITING_LABEL, decidePopoverOutsideClose, getFileJobSnapshot, selectPopoverRows, subscribeFileJobs } from './fileJobStore.ts';
 import './FileJobStatus.css';
 
 export interface FileJobPopoverProps {
@@ -57,7 +57,8 @@ export function FileJobPopover({ statusBarRef }: FileJobPopoverProps) {
       {rows.map((row) => (
         <div key={row.jobId} className="fx-job-item">
           <div className="fx-job-item-head">
-            <span className="fx-job-text">{row.label}</span>
+            {/* A waiting job is marked in its row: the status bar's button names only one of them. */}
+            <span className="fx-job-text">{row.awaiting ? `${row.label} · ${AWAITING_LABEL}` : row.label}</span>
             <button
               type="button"
               className="fx-job-cancel"

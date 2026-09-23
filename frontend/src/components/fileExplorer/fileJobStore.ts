@@ -4,11 +4,11 @@
 // windows only read them through selectors; the question is asked again when
 // the window that started the job is shown again (FR-FEX-009).
 //
-// It also carries the attribution rules the per-panel fileJobOwnership kept:
-// every file-job event reaches every client and races the POST that started
-// the job, so a question or a finish that arrives before JOB_STARTED is held,
+// It also carries the attribution rules the removed per-panel ownership
+// object kept: every file-job event reaches every client and races the POST
+// that started the job, so a question or a finish that arrives before JOB_STARTED is held,
 // only the window that started a job is asked, and a finish withdraws the
-// question. Unlike fileJobOwnership the store never cancels a job because a
+// question. Unlike that object the store never cancels a job because a
 // window went away -- that rule is exactly what FR-FEX-009 replaces.
 //
 // The reducer is pure and reads no clock: recency is a sequence number, so the
@@ -34,6 +34,8 @@ export interface FileJobEntry {
   readonly operation: FileJobOperation | null;
   /** Workspace of the window that started the job; null while nobody here has claimed it. */
   readonly workspaceId: string | null;
+  /** The explorer tab that started the job, so its failure is shown there; null when only a list named it. */
+  readonly originTabId: string | null;
   /** True once JOB_STARTED named the origin; a session lookup only fills a gap until then. */
   readonly claimed: boolean;
   readonly startedSeq: number;
@@ -52,6 +54,8 @@ export interface FileJobEarlyDone {
 export interface FileJobFailure {
   readonly jobId: string;
   readonly workspaceId: string;
+  /** The explorer tab that started the job, or null when it is not known. */
+  readonly tabId: string | null;
   readonly errorCode?: string;
 }
 
@@ -103,7 +107,14 @@ export type FileJobStoreAction =
   | { type: 'DECISION_REQUIRED'; route: FileJobDecideRoute }
   | { type: 'DECISION_ANSWERED'; jobId: string; decisionId: string }
   | { type: 'DONE'; jobId: string; sessionId: string; outcome: FileJobOutcome; errorCode?: string }
-  | { type: 'SYNC_LIST'; sessionId?: string; jobs: readonly FileJobListedJob[]; workspaceOfSession: Readonly<Record<string, string>> }
+  | {
+    type: 'SYNC_LIST';
+    sessionId?: string;
+    /** The store's seq when the list was requested; entries started after it are not reaped. */
+    sinceSeq?: number;
+    jobs: readonly FileJobListedJob[];
+    workspaceOfSession: Readonly<Record<string, string>>;
+  }
   | { type: 'FAILURE_SHOWN'; jobId: string };
 
 function withoutJob(jobs: Readonly<Record<string, FileJobEntry>>, jobId: string): Record<string, FileJobEntry> {
@@ -131,6 +142,7 @@ function freshEntry(jobId: string, sessionId: string, seq: number): FileJobEntry
     destSessionId: null,
     operation: null,
     workspaceId: null,
+    originTabId: null,
     claimed: false,
     startedSeq: seq,
     progress: null,
@@ -165,7 +177,12 @@ export function fileJobStoreReducer(state: FileJobStoreState, action: FileJobSto
         // Already over before the POST returned: report a failure to the window that
         // started it, and never list it as running, since no later done would remove it.
         const failures = early.outcome === 'failed'
-          ? addFailure(state.failures, { jobId: action.jobId, workspaceId: action.origin.workspaceId, errorCode: early.errorCode })
+          ? addFailure(state.failures, {
+            jobId: action.jobId,
+            workspaceId: action.origin.workspaceId,
+            tabId: action.origin.tabId,
+            errorCode: early.errorCode,
+          })
           : state.failures;
         return {
           ...state,
@@ -186,6 +203,7 @@ export function fileJobStoreReducer(state: FileJobStoreState, action: FileJobSto
         sessionId: action.sessionId,
         operation: action.operation,
         workspaceId: action.origin.workspaceId,
+        originTabId: action.origin.tabId,
         claimed: true,
         startedSeq: seq,
       };
@@ -229,7 +247,12 @@ export function fileJobStoreReducer(state: FileJobStoreState, action: FileJobSto
       const job = state.jobs[action.jobId];
       if (job?.workspaceId != null) {
         const failures = action.outcome === 'failed'
-          ? addFailure(state.failures, { jobId: action.jobId, workspaceId: job.workspaceId, errorCode: action.errorCode })
+          ? addFailure(state.failures, {
+            jobId: action.jobId,
+            workspaceId: job.workspaceId,
+            tabId: job.originTabId,
+            errorCode: action.errorCode,
+          })
           : state.failures;
         return {
           ...state,
@@ -254,9 +277,11 @@ export function fileJobStoreReducer(state: FileJobStoreState, action: FileJobSto
       const jobs: Record<string, FileJobEntry> = {};
       // A done lost while the socket was down would otherwise keep a job on the
       // status bar forever: reap what the server no longer lists, within the list's scope.
+      // A job started after the list was requested cannot be in it yet, so it is kept.
       for (const [jobId, job] of Object.entries(state.jobs)) {
         const inScope = action.sessionId === undefined || job.sessionId === action.sessionId || job.destSessionId === action.sessionId;
-        if (!inScope || listed.has(jobId)) jobs[jobId] = job;
+        const newerThanList = action.sinceSeq !== undefined && job.startedSeq > action.sinceSeq;
+        if (!inScope || listed.has(jobId) || newerThanList) jobs[jobId] = job;
       }
       for (const item of action.jobs) {
         // The snapshot can predate a done the socket already delivered (held in earlyDone
@@ -264,9 +289,11 @@ export function fileJobStoreReducer(state: FileJobStoreState, action: FileJobSto
         if (isFinished(state, item.jobId)) continue;
         const prev = jobs[item.jobId];
         // After a reload no JOB_STARTED exists; the session's workspace is the best owner we have.
-        const workspaceId = prev?.claimed === true
-          ? prev.workspaceId
-          : prev?.workspaceId ?? action.workspaceOfSession[item.sourceSessionId] ?? action.workspaceOfSession[item.destSessionId] ?? null;
+        // Only for a job this list names first: one already heard over the socket and never
+        // claimed may be another client's, since every client hears every job.
+        const workspaceId = prev === undefined
+          ? action.workspaceOfSession[item.sourceSessionId] ?? action.workspaceOfSession[item.destSessionId] ?? null
+          : prev.workspaceId;
         const pd = item.pendingDecision;
         const listedPending: FileJobDecideRoute | null = pd === null || pd.decisionId === prev?.answeredDecisionId
           ? null
@@ -333,7 +360,12 @@ export interface FileJobPopoverRow {
   label: string;
   fraction: number;
   indeterminate: boolean;
+  /** The job is waiting on a question. */
+  awaiting: boolean;
 }
+
+/** A row whose operation is not known yet (a job only heard over the socket) still says what it is. */
+export const UNKNOWN_JOB_LABEL = '파일 작업';
 
 // Display only: the last name in either separator style. Path policy stays on the server.
 function lastSegment(path: string): string {
@@ -409,9 +441,10 @@ export function selectStatusBarView(state: FileJobStoreState): FileJobStatusBarV
 export function selectPopoverRows(state: FileJobStoreState): FileJobPopoverRow[] {
   return byRecency(Object.values(state.jobs)).map((job) => ({
     jobId: job.jobId,
-    label: labelOf(job),
+    label: job.operation === null ? UNKNOWN_JOB_LABEL : labelOf(job),
     fraction: fractionOf(job),
     indeterminate: indeterminateOf(job),
+    awaiting: job.pending !== null,
   }));
 }
 

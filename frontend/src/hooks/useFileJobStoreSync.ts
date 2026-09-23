@@ -11,7 +11,7 @@
 // @req FR-FEX-009
 
 import { useEffect, useRef } from 'react';
-import { dispatchFileJob, type FileJobListedJob } from '../components/fileExplorer/fileJobStore.ts';
+import { dispatchFileJob, getFileJobSnapshot, type FileJobListedJob } from '../components/fileExplorer/fileJobStore.ts';
 import { routeFileJobMessage, type FileJobServerMessage } from '../components/fileExplorer/fileJobEvents.ts';
 import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
 import { fileJobApi } from '../services/api.ts';
@@ -67,10 +67,14 @@ export function useFileJobStoreSync(tabs: readonly FileJobSyncTab[]): void {
   useEffect(() => {
     if (status !== 'connected') return undefined;
     let stale = false;
+    // A job started while the list is in flight cannot be in it; the seq taken
+    // here lets the reap spare it.
+    const sinceSeq = getFileJobSnapshot().seq;
     fileJobApi.list().then((jobs) => {
       if (stale) return;
       dispatchFileJob({
         type: 'SYNC_LIST',
+        sinceSeq,
         jobs: jobs as FileJobListedJob[],
         workspaceOfSession: workspaceBySession(tabsRef.current),
       });

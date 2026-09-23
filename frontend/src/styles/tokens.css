@@ -49,6 +49,7 @@
   /* Edges. */
   --line: #3a3a3a;
   --line-strong: #4a4a4a;
+  --shadow-overlay: 2px 0 8px rgba(0, 0, 0, 0.45);
 
   /* One accent. The application had three families before this file existed
    * (#007acc, #0078d4, and a violet set); the two blues are indistinguishable
@@ -93,4 +94,5 @@
 
   --line: #e3e3e3;
   --line-strong: #cdcdcd;
+  --shadow-overlay: 2px 0 8px rgba(0, 0, 0, 0.18);
 }

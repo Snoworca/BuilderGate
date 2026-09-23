@@ -253,8 +253,11 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
   // A tray row reaches the window from any workspace and from the settings
   // screen, so un-hiding alone is not enough: the window is only visible once
   // its workspace is active and the workspace screen is up.
+  //
+  // The navigation happens even when the workspace has no window left: the
+  // status bar's 응답 대기 button revives first and then opens the window
+  // (App.tsx), and the window must open where the user can see it.
   const reviveFileExplorer = useCallback((workspaceId: string) => {
-    if (windowsRef.current[workspaceId] === undefined) return;
     const navigation = navigationRef.current;
     const decision = decideReviveFileExplorer({
       workspaceId,

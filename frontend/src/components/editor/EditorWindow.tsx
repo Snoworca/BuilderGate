@@ -28,12 +28,14 @@ import {
   type CSSProperties,
   type MouseEvent,
   type PointerEvent,
+  type TouchEvent as ReactTouchEvent,
 } from 'react';
 import { IconButton, IconToggleButton } from '../common';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { WindowDialog } from '../dialog/WindowDialog';
 import { readEditorTreePaneState, saveEditorTreePaneState } from '../../hooks/windowStateStorage.ts';
 import { useResponsive } from '../../hooks/useResponsive.ts';
+import { useLongPress } from '../../hooks/useLongPress.ts';
 import type { DialogRect, DialogSize } from '../dialog/types';
 // The window's own light surface. Imported here because the rules it sets are
 // scoped to `.editor-window-surface`, which is this component's class.
@@ -308,6 +310,15 @@ export function EditorWindow({
     saveEditorTreePaneState(workspaceId, { width, collapsed: paneCollapsed });
   };
 
+  // The close button is inside the pane, and folding hides it with focus on
+  // it, which drops focus to body and leaves the editor's shortcuts dead.
+  // Focus moves to the window surface first, which is what those shortcuts
+  // measure against.
+  const closePane = useCallback(() => {
+    surfaceRef.current?.focus({ preventScroll: true });
+    setPaneOpen(false);
+  }, [setPaneOpen]);
+
   // On a phone the pane covers the document, so it folds once a file is open.
   const handlePaneOpenFile = useCallback((filePath: string) => {
     if (activeTab === null) return;
@@ -331,6 +342,26 @@ export function EditorWindow({
     if (!isEditorWindowMenuTarget(target)) return;
     event.preventDefault();
     setWindowMenu({ x: event.clientX, y: event.clientY });
+  };
+
+  // iOS Safari raises no contextmenu for a long press, so on a phone the same
+  // menu is reached by holding the same empty areas. Touch only: a held mouse
+  // button on the title bar is the start of a drag.
+  const openWindowMenuAt = useCallback((point: { clientX: number; clientY: number }) => {
+    setWindowMenu({ x: point.clientX, y: point.clientY });
+  }, []);
+  const {
+    onTouchStart: startWindowMenuLongPress,
+    onTouchMove: moveWindowMenuLongPress,
+    onTouchEnd: endWindowMenuLongPress,
+  } = useLongPress(openWindowMenuAt);
+
+  const handleTabBarTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const target: EditorWindowMenuTarget = event.target instanceof Element && event.target.closest('.editor-tab') !== null
+      ? 'tab'
+      : 'tabbar-empty';
+    if (!isEditorWindowMenuTarget(target)) return;
+    startWindowMenuLongPress(event);
   };
 
   // WindowDialog portals into document.body and forwards no ref, so both nodes
@@ -397,9 +428,30 @@ export function EditorWindow({
       event.preventDefault();
       setWindowMenu({ x: event.clientX, y: event.clientY });
     };
+    // The title bar is a node WindowDialog renders, so its long press takes
+    // native listeners too. useLongPress only reads `touches`, which the native
+    // event carries with the same shape.
+    const handleTitlebarTouchStart = (event: globalThis.TouchEvent) => {
+      const target: EditorWindowMenuTarget = event.target instanceof Element && event.target.closest('button') !== null
+        ? 'titlebar-button'
+        : 'titlebar-empty';
+      if (!isEditorWindowMenuTarget(target)) return;
+      startWindowMenuLongPress(event as unknown as ReactTouchEvent);
+    };
+    const handleTitlebarTouchMove = (event: globalThis.TouchEvent) => moveWindowMenuLongPress(event as unknown as ReactTouchEvent);
     titlebar.addEventListener('contextmenu', handleTitlebarContextMenu);
-    return () => titlebar.removeEventListener('contextmenu', handleTitlebarContextMenu);
-  }, [frame]);
+    titlebar.addEventListener('touchstart', handleTitlebarTouchStart);
+    titlebar.addEventListener('touchmove', handleTitlebarTouchMove);
+    titlebar.addEventListener('touchend', endWindowMenuLongPress);
+    titlebar.addEventListener('touchcancel', endWindowMenuLongPress);
+    return () => {
+      titlebar.removeEventListener('contextmenu', handleTitlebarContextMenu);
+      titlebar.removeEventListener('touchstart', handleTitlebarTouchStart);
+      titlebar.removeEventListener('touchmove', handleTitlebarTouchMove);
+      titlebar.removeEventListener('touchend', endWindowMenuLongPress);
+      titlebar.removeEventListener('touchcancel', endWindowMenuLongPress);
+    };
+  }, [endWindowMenuLongPress, frame, moveWindowMenuLongPress, startWindowMenuLongPress]);
 
   const saveActive = useCallback(() => {
     if (activeFilePath === null) return;
@@ -535,13 +587,14 @@ export function EditorWindow({
             hidden={paneCollapsed}
             isMobile={isMobile}
             style={{ width: paneRenderWidth }}
-            onClose={() => setPaneOpen(false)}
+            onClose={closePane}
             onOpenFile={handlePaneOpenFile}
           />
         )}
         {paneMounted && !paneCollapsed && !isMobile && (
           <div
             className="editor-tree-splitter"
+            data-surface="paper"
             role="separator"
             aria-orientation="vertical"
             aria-label="파일 트리 폭"
@@ -554,7 +607,14 @@ export function EditorWindow({
           />
         )}
         <div className="editor-window-documents">
-          <div className="editor-tab-bar-host" onContextMenu={handleTabBarContextMenu}>
+          <div
+            className="editor-tab-bar-host"
+            onContextMenu={handleTabBarContextMenu}
+            onTouchStart={handleTabBarTouchStart}
+            onTouchMove={moveWindowMenuLongPress}
+            onTouchEnd={endWindowMenuLongPress}
+            onTouchCancel={endWindowMenuLongPress}
+          >
             <EditorTabBar
               tabs={tabs}
               activeFilePath={activeFilePath}

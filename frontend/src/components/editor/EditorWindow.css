@@ -220,19 +220,19 @@
   bottom: 0;
   left: 0;
   z-index: 2;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-overlay);
 }
 
-/* The 6px band that resizes the pane (design 9.1). It sits on the white body
- * outside the pane's paper surface, so it takes the tab bar's greys. */
+/* The 6px band that resizes the pane (design 9.1). It carries data-surface="paper",
+ * so it reads the same light surface tokens as the pane beside it. */
 .editor-window-surface .editor-tree-splitter {
   flex: 0 0 6px;
   width: 6px;
   cursor: col-resize;
   touch-action: none;
-  background: #f3f3f3;
+  background: var(--bg-raised);
 }
 
 .editor-window-surface .editor-tree-splitter:hover {
-  background: #0078d4;
+  background: var(--accent);
 }

@@ -150,3 +150,13 @@ test('TC-REQ-FR-FEX-005-AC5-01 buildDeleteConfirmModal: 항목 1개는 이름을
   assert.doesNotMatch(many.message, /a\.txt|b\.txt|c\.txt/);
   assert.deepEqual(choiceIds(many), ['confirm', 'cancel']);
 });
+
+test('[FR-FEX-007 AC-2] shouldFocusWindowModalOnMount: 삭제 확인은 늘 포커스를 받고, 서버 결정은 포커스가 이미 창 안에 있을 때만 — 터미널의 포커스를 뺏지 않는다(DR-12/16)', async () => {
+  const { shouldFocusWindowModalOnMount } = await load();
+  // A delete confirm answers a key the user just pressed in this window.
+  assert.equal(shouldFocusWindowModalOnMount('delete', false), true);
+  assert.equal(shouldFocusWindowModalOnMount('delete', true), true);
+  // A server question arrives on its own; typing in a terminal must not land in it.
+  assert.equal(shouldFocusWindowModalOnMount('job', false), false, 'an incoming question stole focus from outside the window');
+  assert.equal(shouldFocusWindowModalOnMount('job', true), true);
+});
