@@ -26,23 +26,14 @@ import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from './workspaceOwnershipFixture';
 
 import { login } from './helpers';
 
+// __buildergateEditorWindowDebug is declared once, by the layer that installs it
+// (EditorWindowLayer.tsx). A copy here drifted from it and stopped compiling.
 declare global {
   interface Window {
-    __buildergateEditorWindowDebug?: {
-      readTerminalHost(tabId: string): {
-        isVisible: boolean;
-        rect: { left: number; top: number; width: number; height: number };
-      } | undefined;
-      readEditorProbe(filePath: string): {
-        documentId: string;
-        markdownSource: string;
-        extensionsToken: number;
-      } | undefined;
-    };
     /** Keys this page read from `localStorage` since the recorder was armed. */
     __persistenceSpecReads?: string[];
   }
@@ -138,7 +129,7 @@ async function createWorkspace(page: Page, name: string): Promise<string> {
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   await page.evaluate(async ({ workspaceId, prefix }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/workspaces', { headers });
     if (!res.ok) return;
     const state = await res.json();
@@ -152,20 +143,9 @@ async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   }, { workspaceId, prefix: TAB_NAME_PREFIX });
 }
 
-async function removeOwnWorkspaces(page: Page): Promise<void> {
-  await page.evaluate(async (prefix) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch('/api/workspaces', { headers });
-    if (!res.ok) return;
-    const state = await res.json();
-    const owned = state.workspaces.filter((workspace: { id: string; name?: string }) =>
-      typeof workspace.name === 'string' && workspace.name.startsWith(prefix));
-    for (const workspace of owned) {
-      await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE', headers });
-    }
-  }, TAB_NAME_PREFIX);
-}
+// Workspaces a test creates are removed by the owned fixture's teardown, which deletes only
+// the IDs this context's own create responses returned. A name-prefix sweep used to live here;
+// it could delete a workspace that merely looked like a test's (CLAUDE.md, E2E 절).
 
 async function selectTab(page: Page, name: string): Promise<void> {
   await page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first().click();
@@ -216,16 +196,6 @@ function editorWindows(page: Page): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface');
 }
 
-/**
- * The window whose titlebar names `fileName`.
- *
- * The dirty marker is absorbed by the match rather than excluded from it: an
- * unsaved window is titled `CLAUDE.md*`, and a locator pinned to the bare name
- * finds nothing at all from the first keystroke onwards -- which `toBeHidden`
- * reports as a hidden window rather than as a missed one, so the assertion
- * would pass while measuring nothing. Anchored at both ends, so the name of one
- * file never matches the window of another.
- */
 /** The workspace's one editor window. */
 function editorWindow(page: Page): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface');
@@ -329,7 +299,7 @@ async function readEditorProbe(page: Page, filePath: string): Promise<
  * zero one. The computed value is the fallback for the render where react-rnd
  * has put the size in a stylesheet rule rather than inline.
  */
-async function editorFrameSize(page: Page, fileName: string): Promise<
+async function editorFrameSize(page: Page): Promise<
   { width: number; height: number } | null
 > {
   return editorWindow(page).first().evaluate((surface) => {
@@ -364,8 +334,9 @@ async function editorBodyText(page: Page, fileName: string): Promise<string> {
 
 /** Types into the window open on `fileName`, leaving the document unsaved. */
 async function typeIntoEditor(page: Page, fileName: string, text: string): Promise<void> {
-  const surface = editorWindow(page).first();
-  await surface.locator('.cm-content').first().click();
+  // The panel that holds fileName, which is what editorBodyText reads back. The window's
+  // first .cm-content in DOM order can belong to a hidden tab once a second document opens.
+  await editorPanelFor(page, fileName).locator('.cm-content').first().click();
   await page.keyboard.type(text);
 }
 
@@ -384,7 +355,6 @@ test.describe('markdown editor persistence', () => {
     if (testInfo.project.name !== 'Desktop Chrome' || workspaceId === null) return;
     try {
       await removeOwnTabs(page, workspaceId);
-      await removeOwnWorkspaces(page);
       await page.evaluate((key) => localStorage.removeItem(key), windowStateKey(workspaceId));
     } catch {
       // A teardown that cannot reach the server is not a test result.
@@ -436,7 +406,7 @@ test.describe('markdown editor persistence', () => {
 
     // And it carries a real rect rather than the zero-size surface a withheld
     // placement would leave.
-    const deferredSize = await editorFrameSize(page, 'CLAUDE.md');
+    const deferredSize = await editorFrameSize(page);
     expect(deferredSize).not.toBeNull();
     expect(deferredSize!.width).toBeGreaterThan(0);
     expect(deferredSize!.height).toBeGreaterThan(0);

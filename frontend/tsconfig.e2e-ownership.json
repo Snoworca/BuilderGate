@@ -22,6 +22,8 @@
     "tests/e2e/wave1-retained-state-characterization.spec.ts",
     "tests/e2e/wave3-terminal-authority-promotion.spec.ts",
     "tests/e2e/wave3-terminal-authority-fairness.spec.ts",
-    "tests/e2e/workspace-ownership-validation.spec.ts"
+    "tests/e2e/workspace-ownership-validation.spec.ts",
+    "tests/e2e/markdown-editor-persistence.spec.ts",
+    "tests/e2e/markdown-editor-save.spec.ts"
   ]
 }

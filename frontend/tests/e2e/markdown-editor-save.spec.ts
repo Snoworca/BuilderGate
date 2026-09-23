@@ -19,26 +19,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, deleteOwnedWorkspaceForContext, type Locator, type Page } from './workspaceOwnershipFixture';
 
 import { login } from './helpers';
-
-declare global {
-  interface Window {
-    __buildergateEditorWindowDebug?: {
-      readTerminalHost(tabId: string): {
-        isVisible: boolean;
-        rect: { left: number; top: number; width: number; height: number };
-      } | undefined;
-      readEditorProbe(filePath: string): {
-        documentId: string;
-        markdownSource: string;
-        extensionsToken: number;
-      } | undefined;
-      setEditorReadOnly(filePath: string, readOnly: boolean): boolean;
-    };
-  }
-}
 
 const TAB_NAME_PREFIX = 'e2e-mde-save';
 const FILE_BODY = '# save fixture\n\nalpha\n';
@@ -150,29 +133,6 @@ async function killSession(page: Page, sessionId: string): Promise<void> {
 }
 
 /**
- * A workspace of this spec's own, for the one scenario that has to empty a
- * workspace of tabs. Doing that to the shared one would destroy whatever
- * another spec left there, and nothing in this file could put it back. The run
- * teardown removes workspaces created during the run.
- */
-async function createOwnWorkspace(page: Page, name: string): Promise<string> {
-  return page.evaluate(async (name) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const res = await fetch('/api/workspaces', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) throw new Error(`workspace create failed: ${res.status}`);
-    const workspace = await res.json();
-    return (workspace.id ?? workspace.workspace?.id) as string;
-  }, name);
-}
-
-/**
  * Creates a workspace and answers with its id.
  *
  * Owned by this spec: only ids that came back from a successful create are
@@ -195,16 +155,6 @@ async function createWorkspace(page: Page, name: string): Promise<string> {
   }, name);
 }
 
-async function deleteWorkspace(page: Page, workspaceId: string): Promise<void> {
-  await page.evaluate(async (workspaceId) => {
-    const token = localStorage.getItem('cws_auth_token');
-    await fetch(`/api/workspaces/${workspaceId}`, {
-      method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-  }, workspaceId);
-}
-
 async function workspaceNameOf(page: Page, workspaceId: string): Promise<string> {
   return page.evaluate(async (workspaceId) => {
     const token = localStorage.getItem('cws_auth_token');
@@ -225,25 +175,10 @@ async function selectWorkspace(page: Page, name: string): Promise<void> {
     .toBeVisible({ timeout: 15000 });
 }
 
-async function listTabIds(page: Page, workspaceId: string): Promise<string[]> {
-  return page.evaluate(async (workspaceId) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const res = await fetch('/api/workspaces', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) return [];
-    const state = await res.json();
-    return state.tabs
-      .filter((tab: { workspaceId?: string }) =>
-        tab.workspaceId === undefined || tab.workspaceId === workspaceId)
-      .map((tab: { id: string }) => tab.id) as string[];
-  }, workspaceId);
-}
-
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   await page.evaluate(async ({ workspaceId, prefix }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/workspaces', { headers });
     if (!res.ok) return;
     const state = await res.json();
@@ -425,7 +360,7 @@ test.describe('markdown editor save flow and tab binding', () => {
       await page.unrouteAll({ behavior: 'ignoreErrors' });
       await removeOwnTabs(page, workspaceId);
       for (const owned of ownedWorkspaceIds) {
-        await deleteWorkspace(page, owned);
+        await deleteOwnedWorkspaceForContext(page.context(), owned);
       }
       ownedWorkspaceIds = [];
     } catch (error) {
