@@ -158,7 +158,7 @@ export class FileService {
 
     // Read directory entries
     const dirents = await fs.readdir(dirPath, { withFileTypes: true });
-    const totalEntries = dirents.length + 1; // +1 for ".."
+    const totalEntries = dirents.length + (path.parse(dirPath).root !== dirPath ? 1 : 0); // ".." only below a root, as pushed below
 
     // Limit entries
     const limited = dirents.slice(0, this.config.maxDirectoryEntries);
