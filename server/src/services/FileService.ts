@@ -12,7 +12,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent } from '../types/file.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
-import { resolveAndValidate, isBlockedExtension } from '../utils/pathValidator.js';
+import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked } from '../utils/pathValidator.js';
 
 // MIME type mapping for common extensions
 const MIME_TYPES: Record<string, string> = {
@@ -356,12 +356,14 @@ export class FileService {
     this.assertSessionExists(sessionId);
 
     const cwd = await this.getCwd(sessionId);
-    const srcResolved = await resolveAndValidate(cwd, source, this.config.blockedPaths);
+    // Rename the entry the user named: if the source is a link, the link moves,
+    // not its target. Its real location is still validated.
+    const srcResolved = (await resolveAndValidateEntry(cwd, source, this.config.blockedPaths)).entryPath;
     const destResolved = await resolveAndValidate(cwd, destination, this.config.blockedPaths);
 
-    // Check source exists
+    // Check source exists (lstat: the entry itself, not what a link points to)
     try {
-      await fs.stat(srcResolved);
+      await fs.lstat(srcResolved);
     } catch {
       throw new AppError(ErrorCode.PATH_NOT_FOUND, 'Source path not found');
     }
@@ -397,11 +399,16 @@ export class FileService {
     this.assertSessionExists(sessionId);
 
     const cwd = await this.getCwd(sessionId);
-    const resolved = await resolveAndValidate(cwd, filePath, this.config.blockedPaths);
+    // Remove the entry the user named. The validator judges the real location,
+    // but acting on it would delete a link's target (a junction to a folder
+    // would empty that folder); entryPath is the link itself.
+    const resolved = (await resolveAndValidateEntry(cwd, filePath, this.config.blockedPaths)).entryPath;
 
+    // lstat so a link to a directory is not taken for a directory: it is
+    // unlinked, never removed recursively.
     let stat;
     try {
-      stat = await fs.stat(resolved);
+      stat = await fs.lstat(resolved);
     } catch {
       throw new AppError(ErrorCode.PATH_NOT_FOUND);
     }
@@ -434,6 +441,11 @@ export class FileService {
     const cwd = await this.getCwd(sessionId);
     const resolved = await resolveAndValidate(cwd, basePath, this.config.blockedPaths);
     const dirPath = path.join(resolved, name);
+    // Only basePath went through the validator; the new name is appended after
+    // it, so a blocked name ('.ssh', or '.SSH.' on Windows) needs its own check.
+    if (isPathBlocked(dirPath, this.config.blockedPaths)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED);
+    }
 
     try {
       await fs.stat(dirPath);
