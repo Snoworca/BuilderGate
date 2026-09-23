@@ -42,11 +42,27 @@ export interface FileJobProgress {
 
 export type FileJobConflictChoice = 'overwrite' | 'rename' | 'skip';
 
+/** 일반 충돌의 선택지. */
+export const FILE_JOB_CONFLICT_CHOICES: readonly FileJobConflictChoice[] = Object.freeze(['overwrite', 'rename', 'skip']);
+/**
+ * 출발지와 목적지가 같은 항목(제자리 붙여넣기)의 선택지. 자기 자신 위로의 덮어쓰기는 쓰기
+ * 스트림이 여는 순간 원본을 잘라 빈 파일을 남기므로 선택지에서 뺀다.
+ */
+export const FILE_JOB_IN_PLACE_CHOICES: readonly FileJobConflictChoice[] = Object.freeze(['rename', 'skip']);
+/**
+ * 종류가 다른 항목끼리의 충돌(파일 ↔ 디렉터리)의 선택지. 그 교체는 한쪽 트리를 지워야 해서
+ * 하지 않으므로 overwrite 는 늘 실패한다 — 고를 수 없는 답을 내놓지 않는다.
+ */
+export const FILE_JOB_KIND_MISMATCH_CHOICES: readonly FileJobConflictChoice[] = FILE_JOB_IN_PLACE_CHOICES;
+
 // @req FR-FOP-001
+// @req FR-FOP-004
 export interface FileJobDecisionRequest {
   kind: 'conflict';
   /** 이미 있는 목적지 경로. */
   path: string;
+  /** 이 질문에 받아들일 수 있는 답. 답의 검증은 이 목록을 기준으로 한다. */
+  choices: readonly FileJobConflictChoice[];
 }
 
 // @req FR-FOP-001
@@ -273,30 +289,18 @@ class JobRun {
     let replace = false;
 
     if (existing) {
-      // 같은 파일로의 덮어쓰기는 쓰기 스트림이 여는 순간 원본을 잘라 빈 파일을 남긴다.
-      if (samePath(entry.path, dst)) {
-        throw codedError('EINVAL', `Source and destination are the same: ${dst}`);
-      }
-      const choice = await this.askConflict(dst);
+      const choice = await this.askConflictFor(entry, dst, existing.kind);
       if (choice === 'skip') {
         this.markSkipped(entry);
         return;
       }
       if (choice === 'rename') {
         target = await this.freeSiblingName(dst);
-      } else if (choice !== 'overwrite') {
-        // 모르는 답을 덮어쓰기로 흘려보내면 가장 파괴적인 선택이 기본값이 된다.
-        throw codedError('EINVAL', `Unknown conflict choice: ${String(choice)}`);
-      } else if (entry.kind === 'directory' && existing.kind === 'directory') {
+      } else if (entry.kind === 'directory') {
         // 디렉터리 덮어쓰기는 병합이다. 자식마다 다시 충돌을 확인한다 — 기존 트리를
-        // 통째로 지우는 것은 사용자가 고른 적 없는 파괴다.
+        // 통째로 지우는 것은 사용자가 고른 적 없는 파괴다. 종류가 다르면 askConflictFor 가
+        // overwrite 를 이미 막았으므로 여기의 기존 항목은 디렉터리다.
         mergeInto = true;
-      } else if (entry.kind !== existing.kind) {
-        // 파일↔디렉터리 교체는 한쪽 트리를 지워야 하므로 여기서 하지 않는다.
-        throw codedError(
-          entry.kind === 'directory' ? 'ENOTDIR' : 'EISDIR',
-          `Cannot overwrite ${existing.kind} with ${entry.kind}: ${dst}`,
-        );
       } else {
         replace = true;
       }
@@ -394,25 +398,22 @@ class JobRun {
     let replace = false;
 
     if (existing) {
+      // 제자리 이동: 항목이 이미 사용자가 고른 자리에 있다. 묻거나 이름을 바꾸면 고른 적 없는
+      // 이름이 생기므로 아무것도 건드리지 않고 처리한 것으로만 센다. 출발지가 그대로 남으므로
+      // 부모를 rmdir 할 근거가 아니다(false).
       if (samePath(entry.path, dst)) {
-        throw codedError('EINVAL', `Source and destination are the same: ${dst}`);
+        this.markSkipped(entry);
+        return false;
       }
-      const choice = await this.askConflict(dst);
+      const choice = await this.askConflictFor(entry, dst, existing.kind);
       if (choice === 'skip') {
         this.markSkipped(entry);
         return false;
       }
       if (choice === 'rename') {
         target = await this.freeSiblingName(dst);
-      } else if (choice !== 'overwrite') {
-        throw codedError('EINVAL', `Unknown conflict choice: ${String(choice)}`);
-      } else if (entry.kind === 'directory' && existing.kind === 'directory') {
+      } else if (entry.kind === 'directory') {
         mergeInto = true;
-      } else if (entry.kind !== existing.kind) {
-        throw codedError(
-          entry.kind === 'directory' ? 'ENOTDIR' : 'EISDIR',
-          `Cannot overwrite ${existing.kind} with ${entry.kind}: ${dst}`,
-        );
       } else {
         replace = true;
       }
@@ -463,13 +464,40 @@ class JobRun {
     return true;
   }
 
+  /**
+   * 이미 있는 dst 에 대해 묻고, 그 질문의 선택지 안에 드는 답만 돌려준다. 출발지와 목적지가
+   * 같으면(제자리 붙여넣기) 실패가 아니라 덮어쓰기를 뺀 충돌이다. 종류가 다르면(파일 ↔
+   * 디렉터리) 덮어쓰기는 늘 실패하므로 역시 뺀다.
+   */
   // @req FR-FOP-001
-  private async askConflict(path: string): Promise<FileJobConflictChoice> {
+  // @req FR-FOP-004
+  private async askConflictFor(
+    entry: ScannedEntry,
+    dst: string,
+    existingKind: ScannedEntry['kind'],
+  ): Promise<FileJobConflictChoice> {
+    const choices = samePath(entry.path, dst)
+      ? FILE_JOB_IN_PLACE_CHOICES
+      : entry.kind !== existingKind
+        ? FILE_JOB_KIND_MISMATCH_CHOICES
+        : FILE_JOB_CONFLICT_CHOICES;
+    const choice = await this.askConflict(dst, choices);
+    // 관리자가 이미 질문별로 거르지만, 러너를 직접 쓰는 호출자도 있다. 선택지 밖의 답을
+    // 흘려보내면 제자리 붙여넣기의 overwrite 가 원본을 비우고, 종류가 다른 충돌의 overwrite 는
+    // 병합·교체 어느 쪽에도 맞지 않으며, 모르는 답은 가장 파괴적인 선택(덮어쓰기)이 기본값이 된다.
+    if (!choices.includes(choice)) {
+      throw codedError('EINVAL', `Unknown conflict choice: ${String(choice)}`);
+    }
+    return choice;
+  }
+
+  // @req FR-FOP-001
+  private async askConflict(path: string, choices: readonly FileJobConflictChoice[]): Promise<FileJobConflictChoice> {
     this.moveTo('awaiting-decision');
     try {
       // 답을 기다리는 동안의 취소는 답을 기다리지 않고 바로 끝낸다 — 사용자가 대화상자를
       // 닫지 않은 채 취소했을 수 있다.
-      const { choice } = await this.untilAborted(this.deps.decide({ kind: 'conflict', path }));
+      const { choice } = await this.untilAborted(this.deps.decide({ kind: 'conflict', path, choices }));
       return choice;
     } finally {
       // 전이표에 awaiting-decision → failed 가 없다. 결정이 실패해도 running 으로 돌아온 뒤

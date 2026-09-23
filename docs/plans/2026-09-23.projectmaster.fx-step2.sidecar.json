@@ -1312,9 +1312,47 @@
       "test_symbol": "보존 5분이 지나면 기록이 사라지고 cancel 은 not-found 다",
       "kind": "unit",
       "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC3-07",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "취소하면 대기 중이던 결정이 풀려 관리자가 그 작업을 붙잡지 않는다 — 재전송할 결정이 남지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC4-05",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "관리자는 sources 를 정규화한다 — 중복과 다른 source 의 하위 경로를 없애 두 번 세지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC4-06",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "start 직후 곧바로 cancel 해도 throw 하지 않는다 — queued 를 드러내지 않고 아무것도 복사하지 않은 채 끝난다",
+      "kind": "unit",
+      "expected_failure_signature": "Cannot find module|ERR_MODULE_NOT_FOUND"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManager.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "ℹ tests 13 / pass 0 / fail 13 — 13 named tests each ✖ with Error [ERR_MODULE_NOT_FOUND]: Cannot find module ...\\fileJobs\\fileJobManager.js imported from ...\\fileJobManager.test.ts",
+     "timestamp": "2026-09-23T09:15:32Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -1495,10 +1533,44 @@
       "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
       "test_symbol": "보존 5분이 지나면 기록이 사라지고 cancel 은 not-found 다",
       "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-003-AC3-08",
+      "req_id": "FR-FOP-003",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "취소하면 대기 중이던 결정이 풀려 관리자가 그 작업을 붙잡지 않는다 — 재전송할 결정이 남지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC4-07",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "관리자는 sources 를 정규화한다 — 중복과 다른 source 의 하위 경로를 없애 두 번 세지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-005-AC4-08",
+      "req_id": "FR-FOP-005",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManager.test.ts",
+      "test_symbol": "start 직후 곧바로 cancel 해도 throw 하지 않는다 — queued 를 드러내지 않고 아무것도 복사하지 않은 채 끝난다",
+      "kind": "unit"
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManager.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T09:20:00Z"
+    }
    },
    "trace_links": [
     {
@@ -1677,9 +1749,201 @@
       "test_symbol": "N개 파일을 마친 뒤 취소하면 file-job:done 의 processedEntries 가 정확히 N 이다",
       "kind": "unit",
       "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-04",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "파일을 그 파일이 있던 폴더에 붙여넣으면 choices 가 rename·skip 뿐인 충돌이 되고 rename 은 이름 (2) 사본을 만든다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-05",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "실제 디스크에서도 제자리 붙여넣기를 rename 으로 답하면 원본은 그대로이고 a (2).txt 가 생긴다",
+      "kind": "integration",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC5-03",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "dispose 는 창에 막혀 대기 중인 진행 보고의 타이머까지 거두고 그 뒤로 아무것도 보내지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC4-05",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "copy 의 done.affectedDirectories 는 목적지 디렉터리 하나다",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC4-06",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "move 의 done.affectedDirectories 는 목적지와 출발지들의 부모다 — 중복 없이",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC4-07",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "delete 의 done.affectedDirectories 는 출발지들의 부모다 — 중복 없이",
+      "kind": "contract",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC3-05",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "지금 대기 중인 것이 아닌 decisionId 로 답하면 DECISION_MISMATCH 로 거부하고 질문은 열려 있다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC3-06",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "모르는 choice 로 답하면 INVALID_CHOICE 로 거부하고 같은 질문에 다시 답할 수 있다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-IR-FOP-002-AC1-05",
+      "req_id": "IR-FOP-002",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "dispose 뒤의 start 는 MANAGER_DISPOSED 로 거부하고 아무것도 보내지 않는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|applyToAll|file-job:|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-06",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "파일을 그 파일이 있는 폴더로 이동하면 묻지 않고 원본을 그대로 둔 채 완료하고 처리 항목으로 센다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|choices|INVALID_CHOICE|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-07",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "디렉터리를 그 디렉터리가 있는 폴더로 이동해도 묻지 않고 트리를 그대로 둔 채 모든 항목을 처리로 센다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|choices|INVALID_CHOICE|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-08",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "실제 디스크에서도 제자리 이동은 묻지 않고 원본을 그대로 둔 채 완료한다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|choices|INVALID_CHOICE|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-09",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "제자리 디렉터리 복사는 여전히 rename·skip 충돌로 묻는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|choices|INVALID_CHOICE|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-10",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "파일을 같은 이름의 디렉터리가 있는 곳에 복사하면 choices 가 rename·skip 이고 overwrite 는 INVALID_CHOICE, rename 은 x (2) 를 만든다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|choices|INVALID_CHOICE|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-11",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "디렉터리를 같은 이름의 파일이 있는 곳으로 이동하면 choices 가 rename·skip 이고 overwrite 는 INVALID_CHOICE, rename 은 x (2) 로 옮긴다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|choices|INVALID_CHOICE|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-12",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "러너를 직접 쓰는 호출자가 종류가 다른 충돌에 overwrite 를 돌려주면 목적지를 건드리지 않고 EINVAL 로 실패한다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|choices|INVALID_CHOICE|processedEntries"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC3-05",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "일반 충돌에서 applyToAll 로 기억한 overwrite 는 같은 작업의 종류가 다른 충돌에 적용되지 않고 다시 묻는다",
+      "kind": "unit",
+      "expected_failure_signature": "AssertionError|choices|INVALID_CHOICE|processedEntries"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManagerEmit.test.ts\"",
+     "exit_code": 1,
+     "captured_failure": "tests 18 / pass 7 / fail 11. ✖ applyToAll 3건: 같은 작업이 다시 물었다(2 !== 1) — applyToAll 미기억(applyToAll=false 대조군은 통과). ✖ 제자리 붙여넣기 2건(가짜 fs·실제 디스크): done {outcome:failed, processedEntries:0} — 러너 EINVAL. ✖ 진행 제한: 1초 창 {start:0,count:338} (총 1005회) — 제한 없음(하한·leading 단언은 통과). ✖ decision-required 키: choices·detail 없음. ✖ done 키: affectedDirectories 없음. ✖ affectedDirectories copy/move/delete 3건: 배열이 아니다. ✔(이미 구현된 동작의 고정): progress 키 집합, 두 세션 송신, 취소 시 processedEntries=3, DECISION_MISMATCH, INVALID_CHOICE, MANAGER_DISPOSED, dispose 뒤 타이머 0",
+     "timestamp": "2026-09-23T09:43:17.159Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -1737,6 +2001,9 @@
     },
     {
      "path": "server/src/services/fileJobs/progressThrottle.ts"
+    },
+    {
+     "path": "server/src/services/fileJobs/fileJobRunner.ts"
     }
    ],
    "test_files": [
@@ -1866,10 +2133,94 @@
       "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
       "test_symbol": "N개 파일을 마친 뒤 취소하면 file-job:done 의 processedEntries 가 정확히 N 이다",
       "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-13",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "파일을 그 파일이 있는 폴더로 이동하면 묻지 않고 원본을 그대로 둔 채 완료하고 처리 항목으로 센다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-14",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "디렉터리를 그 디렉터리가 있는 폴더로 이동해도 묻지 않고 트리를 그대로 둔 채 모든 항목을 처리로 센다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-15",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "실제 디스크에서도 제자리 이동은 묻지 않고 원본을 그대로 둔 채 완료한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-16",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "제자리 디렉터리 복사는 여전히 rename·skip 충돌로 묻는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-17",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "파일을 같은 이름의 디렉터리가 있는 곳에 복사하면 choices 가 rename·skip 이고 overwrite 는 INVALID_CHOICE, rename 은 x (2) 를 만든다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-18",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "디렉터리를 같은 이름의 파일이 있는 곳으로 이동하면 choices 가 rename·skip 이고 overwrite 는 INVALID_CHOICE, rename 은 x (2) 로 옮긴다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC1-19",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "러너를 직접 쓰는 호출자가 종류가 다른 충돌에 overwrite 를 돌려주면 목적지를 건드리지 않고 EINVAL 로 실패한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FOP-004-AC3-06",
+      "req_id": "FR-FOP-004",
+      "ac_refs": [
+       "AC-3"
+      ],
+      "test_file": "server/src/services/fileJobs/fileJobManagerEmit.test.ts",
+      "test_symbol": "일반 충돌에서 applyToAll 로 기억한 overwrite 는 같은 작업의 종류가 다른 충돌에 적용되지 않고 다시 묻는다",
+      "kind": "unit"
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cmd.exe /c \"cd /d C:\\work\\git\\_Snoworca\\ProjectMaster\\server && npx tsx --test src\\services\\fileJobs\\fileJobManagerEmit.test.ts\"",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T09:51:48.000Z"
+    }
    },
    "trace_links": [
     {

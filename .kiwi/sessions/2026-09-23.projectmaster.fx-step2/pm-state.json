@@ -6,7 +6,7 @@
  "sidecar_sha256": "36294acc4ac7b8dc733a87bf9d982834ab7e84946ac5de74ae7bc072de34c138",
  "target_slug": "file-explorer",
  "started_at": "2026-09-23T08:12:53Z",
- "last_updated_at": "2026-09-23T08:57:52Z",
+ "last_updated_at": "2026-09-23T09:52:24Z",
  "pm_version": "0.1",
  "tasks": [
   {
@@ -106,68 +106,68 @@
   {
    "task_id": "T-PH002-01",
    "phase_id": "PH-002",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T09:18:55Z",
+   "ended_at": "2026-09-23T09:18:55Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "관리자 13 case red(이름별). 틀린 스텁 15종 각 의도 단언에서 실패. +3 case(결정 해제, sources 정규화, queued 비노출)",
    "trace_req_ids": [
     "FR-FOP-003",
     "FR-FOP-005"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH002-02",
    "phase_id": "PH-002",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T09:26:29Z",
+   "ended_at": "2026-09-23T09:26:29Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "관리자 13/13 + PH-001 31/31, tsc 0. 리뷰 HIGH 2·MEDIUM 2·LOW 1 수정",
    "trace_req_ids": [
     "FR-FOP-003",
     "FR-FOP-005"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH002-03",
    "phase_id": "PH-002",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T09:44:57Z",
+   "ended_at": "2026-09-23T09:44:57Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "송신·결정 범위 18 case: red 11(의도 단언; 진행 무제한 338회/초 실측), 기존 동작 고정 green 7(수용). 제자리 붙여넣기 충돌화 포함",
    "trace_req_ids": [
     "FR-FOP-004",
     "FR-FOP-005",
     "IR-FOP-002"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH002-04",
    "phase_id": "PH-002",
-   "status": "pending",
+   "status": "done",
    "tdd_exempted": false,
-   "started_at": null,
-   "ended_at": null,
-   "coder_run_id": null,
-   "result_summary": null,
+   "started_at": "2026-09-23T09:52:24Z",
+   "ended_at": "2026-09-23T09:52:24Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step2",
+   "result_summary": "송신·진행 제한·제자리 붙여넣기 green: Emit 18/18, 관리자 13/13, PH-001 31/31, tsc 0. 제한 간격 112ms(flush 포함 10회/초 보장)",
    "trace_req_ids": [
     "FR-FOP-004",
     "FR-FOP-005",
     "IR-FOP-002"
    ],
    "questions": [],
-   "attempts": 0
+   "attempts": 1
   },
   {
    "task_id": "T-PH003-01",
@@ -324,9 +324,9 @@
  ],
  "stats": {
   "total": 19,
-  "done": 6,
+  "done": 10,
   "running": 0,
-  "pending": 13,
+  "pending": 9,
   "failed": 0,
   "blocked": 0,
   "skipped": 0

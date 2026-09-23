@@ -4,3 +4,7 @@
 {"ts": "2026-09-23T08:39:16Z", "event": "task_done", "task_id": "T-PH001-04", "summary": "러너·어댑터 16/16 green, tsc 0. 리뷰로 결함 5 수정(대소문자 무시 rename 충돌 등)"}
 {"ts": "2026-09-23T08:45:27Z", "event": "task_done", "task_id": "T-PH001-05", "summary": "취소·이동 11 case red(의도 단언). 덮어쓰기 중 취소 시 원본 소실 실측(262144→65536 B). +3 case(원자적 덮어쓰기, 완료 전 onBytes, 파일 사이 취소)"}
 {"ts": "2026-09-23T08:57:52Z", "event": "task_done", "task_id": "T-PH001-06", "summary": "취소·이동 green 31/31, tsc 0. fixture rename 을 메모리 이동으로(단언 무변경). 리뷰 MEDIUM 2 수정: wx 배타 생성, EXDEV 원본 삭제 전 datasync"}
+{"ts": "2026-09-23T09:18:55Z", "event": "task_done", "task_id": "T-PH002-01", "summary": "관리자 13 case red(이름별). 틀린 스텁 15종 각 의도 단언에서 실패. +3 case(결정 해제, sources 정규화, queued 비노출)"}
+{"ts": "2026-09-23T09:26:29Z", "event": "task_done", "task_id": "T-PH002-02", "summary": "관리자 13/13 + PH-001 31/31, tsc 0. 리뷰 HIGH 2·MEDIUM 2·LOW 1 수정"}
+{"ts": "2026-09-23T09:44:57Z", "event": "task_done", "task_id": "T-PH002-03", "summary": "송신·결정 범위 18 case: red 11(의도 단언; 진행 무제한 338회/초 실측), 기존 동작 고정 green 7(수용). 제자리 붙여넣기 충돌화 포함"}
+{"ts": "2026-09-23T09:52:24Z", "event": "task_done", "task_id": "T-PH002-04", "summary": "송신·진행 제한·제자리 붙여넣기 green: Emit 18/18, 관리자 13/13, PH-001 31/31, tsc 0. 제한 간격 112ms(flush 포함 10회/초 보장)"}
