@@ -15,6 +15,29 @@ import { AppError, ErrorCode } from '../utils/errors.js';
 import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget } from '../utils/pathValidator.js';
 import { isFileJobTempName } from './fileJobs/fileJobRunner.js';
 
+// Upper bound on fs.stat calls in flight for one directory listing. libuv runs
+// fs work on a small thread pool (4 by default), so a few dozen pending requests
+// already keep it saturated; more would only lengthen the queue that every other
+// fs call in the server waits in.
+const LIST_STAT_CONCURRENCY = 32;
+
+/**
+ * Map items through an async fn with at most `limit` calls pending, keeping
+ * result order aligned with input order.
+ */
+async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 // MIME type mapping for common extensions
 const MIME_TYPES: Record<string, string> = {
   '.md': 'text/markdown',
@@ -179,7 +202,12 @@ export class FileService {
       });
     }
 
-    for (const dirent of limited) {
+    // The stats are independent and were the whole cost of a large listing when
+    // awaited one by one (design decision 24). They run in a bounded pool, not an
+    // unbounded Promise.all: maxDirectoryEntries allows 10000, and that many
+    // simultaneous requests would queue every other fs call in the server behind
+    // them. Results land by index so the pre-sort order stays readdir order.
+    const statted = await mapWithConcurrency(limited, LIST_STAT_CONCURRENCY, async (dirent): Promise<DirectoryEntry | null> => {
       try {
         const fullPath = path.join(dirPath, dirent.name);
         const entryStat = await fs.stat(fullPath);
@@ -196,10 +224,14 @@ export class FileService {
           entry.extension = ext;
         }
 
-        entries.push(entry);
+        return entry;
       } catch {
         // Skip entries we can't stat (permission errors, etc.)
+        return null;
       }
+    });
+    for (const entry of statted) {
+      if (entry) entries.push(entry);
     }
 
     // Sort: ".." first, then directories first, then alphabetical (case-insensitive)
