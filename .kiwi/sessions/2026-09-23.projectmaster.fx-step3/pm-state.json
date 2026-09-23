@@ -1,0 +1,541 @@
+{
+ "run_id": "2026-09-23.projectmaster.fx-step3",
+ "plan_path": "docs/plans/2026-09-23.projectmaster.fx-step3.plan.md",
+ "sidecar_path": "docs/plans/2026-09-23.projectmaster.fx-step3.sidecar.json",
+ "plan_sha256": "a704410d8c2b636e7eb65c8daefad39056fba396e7fc65905581b52dffe3d6ab",
+ "sidecar_sha256": "d736ebacab01f4081b86fc1da45b887882f5fb58bd092a725a36c55bf2282fa6",
+ "target_slug": "file-explorer",
+ "started_at": "2026-09-23T08:57:30Z",
+ "last_updated_at": "2026-09-23T10:14:02Z",
+ "pm_version": "0.1",
+ "tasks": [
+  {
+   "task_id": "T-PH001-01",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T09:18:55Z",
+   "ended_at": "2026-09-23T09:18:55Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "fileTreeState 18 case red(이름별). 틀린 스텁 15종 각 의도 단언에서 실패. DR-09 '..' 는 path 없는 센티널",
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-001",
+    "FR-FEX-002",
+    "FR-FEX-011",
+    "SEC-FOP-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-02",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T09:24:34Z",
+   "ended_at": "2026-09-23T09:24:34Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "fileTreeState 18/18 green, 전체 1281/1282(REL-BGSTAB-012만), tsc 둘 다 0",
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-001",
+    "FR-FEX-002",
+    "FR-FEX-011",
+    "SEC-FOP-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-03",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T09:34:54Z",
+   "ended_at": "2026-09-23T09:34:54Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "fileListView 4 case red(이름별), 틀린 스텁 5종. 10000행 무절단(결정 22)",
+   "trace_req_ids": [
+    "FR-FEX-002"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-04",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T09:39:31Z",
+   "ended_at": "2026-09-23T09:39:31Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "fileListView 4/4 green, 전체 1285/1286(REL-BGSTAB-012만), tsc 0",
+   "trace_req_ids": [
+    "FR-FEX-002"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-05",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T09:48:59Z",
+   "ended_at": "2026-09-23T09:48:59Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "fileRowInteraction 12 case red(이름별). AC-7 가드는 T-PH003-04 까지 의도적 red. decideRowPointer/decideRowClick/resolveContextMenuTarget 포함",
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-002",
+    "FR-FEX-006",
+    "FR-FEX-011"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-06",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T09:56:36Z",
+   "ended_at": "2026-09-23T09:56:36Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "fileRowInteraction 11/12 + 의도된 AC-7 가드 1, tsc 0, 스위트 실패는 REL-BGSTAB-012 + AC-7 가드뿐",
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-002",
+    "FR-FEX-006",
+    "FR-FEX-011"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-07",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T10:05:45Z",
+   "ended_at": "2026-09-23T10:05:45Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "트리 컨트롤러·훅 14 case red(경합 7 포함), 틀린 스텁 9종 표적 단언에서만 실패",
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-001",
+    "SEC-FOP-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH001-08",
+   "phase_id": "PH-001",
+   "status": "done",
+   "tdd_exempted": false,
+   "started_at": "2026-09-23T10:14:02Z",
+   "ended_at": "2026-09-23T10:14:02Z",
+   "coder_run_id": "2026-09-23.projectmaster.fx-step3",
+   "result_summary": "컨트롤러·훅 14/14 green, 전체 1310/1312(예상 실패 2), tsc 둘 다 0. 리뷰 MEDIUM 2·LOW 3 수정",
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-001",
+    "SEC-FOP-001"
+   ],
+   "questions": [],
+   "attempts": 1
+  },
+  {
+   "task_id": "T-PH002-01",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-003",
+    "FR-FEX-010"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-02",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-003",
+    "FR-FEX-010"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-03",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-002",
+    "FR-FEX-003"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-04",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-002",
+    "FR-FEX-003"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-05",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-010"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-06",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-010"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-07",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-002",
+    "FR-FEX-003",
+    "FR-FEX-010",
+    "FR-FEX-011",
+    "SEC-FOP-001"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-08",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "CON-ARCH-001"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-09",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "CON-ARCH-001",
+    "FR-FEX-002",
+    "FR-FEX-003",
+    "FR-FEX-011",
+    "SEC-FOP-001"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH002-10",
+   "phase_id": "PH-002",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-003",
+    "FR-FEX-010"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-01",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-002",
+    "FR-FEX-005"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-02",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-002",
+    "FR-FEX-005"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-03",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-006",
+    "FR-FEX-011"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-04",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-005",
+    "FR-FEX-006",
+    "FR-FEX-011"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-05",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-001",
+    "FR-FEX-005"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-06",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-001",
+    "FR-FEX-005"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-07",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-001",
+    "FR-FEX-003",
+    "FR-FEX-005",
+    "FR-FEX-006"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-08",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": false,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "CON-FEX-001",
+    "FR-FEX-001",
+    "FR-FEX-003",
+    "FR-FEX-005",
+    "FR-FEX-006"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-09",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": true,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "FR-FEX-002",
+    "FR-FEX-003",
+    "FR-FEX-005",
+    "FR-FEX-006",
+    "FR-FEX-010",
+    "FR-FEX-011",
+    "SEC-FOP-001"
+   ],
+   "questions": [],
+   "attempts": 0
+  },
+  {
+   "task_id": "T-PH003-10",
+   "phase_id": "PH-003",
+   "status": "pending",
+   "tdd_exempted": true,
+   "started_at": null,
+   "ended_at": null,
+   "coder_run_id": null,
+   "result_summary": null,
+   "trace_req_ids": [
+    "CON-ARCH-001",
+    "CON-FEX-001",
+    "FR-FEX-001",
+    "FR-FEX-002",
+    "FR-FEX-003",
+    "FR-FEX-005",
+    "FR-FEX-006",
+    "FR-FEX-010",
+    "FR-FEX-011",
+    "SEC-FOP-001"
+   ],
+   "questions": [],
+   "attempts": 0
+  }
+ ],
+ "stats": {
+  "total": 28,
+  "done": 8,
+  "running": 0,
+  "pending": 20,
+  "failed": 0,
+  "blocked": 0,
+  "skipped": 0
+ },
+ "last_question": null,
+ "last_error": null,
+ "lifecycle_gate_state": {
+  "evaluated_at": "2026-09-23T08:57:30Z",
+  "blocked_req_ids": [],
+  "stability_snapshot": {
+   "CON-ARCH-001": "evolving",
+   "CON-FEX-001": "evolving",
+   "FR-FEX-001": "evolving",
+   "FR-FEX-002": "evolving",
+   "FR-FEX-003": "evolving",
+   "FR-FEX-005": "evolving",
+   "FR-FEX-006": "evolving",
+   "FR-FEX-010": "evolving",
+   "FR-FEX-011": "evolving",
+   "SEC-FOP-001": "evolving"
+  },
+  "status_snapshot": {
+   "CON-ARCH-001": "in_progress",
+   "CON-FEX-001": "planned",
+   "FR-FEX-001": "planned",
+   "FR-FEX-002": "planned",
+   "FR-FEX-003": "planned",
+   "FR-FEX-005": "planned",
+   "FR-FEX-006": "planned",
+   "FR-FEX-010": "planned",
+   "FR-FEX-011": "planned",
+   "SEC-FOP-001": "planned"
+  }
+ },
+ "req_coverage": {},
+ "final_mutations": [],
+ "pending_mutations": [],
+ "report_path": null,
+ "doculight_viewer_id": null
+}

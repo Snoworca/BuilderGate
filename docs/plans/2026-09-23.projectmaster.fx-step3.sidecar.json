@@ -309,7 +309,12 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileTreeState.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 18 / pass 0 / fail 18 — every case fails by name with Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/fileExplorer/fileTreeState.ts' (dynamic import inside each test body)",
+     "timestamp": "2026-09-23T09:06:56Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -620,7 +625,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileTreeState.test.ts",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T09:23:02Z"
+    }
    },
    "trace_links": [
     {
@@ -774,7 +783,12 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileListView.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 4, pass 0, fail 4. Each of the 4 tests fails with Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/fileExplorer/fileListView.ts' (dynamic import inside each test body)",
+     "timestamp": "2026-09-23T09:34:21Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -888,7 +902,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileListView.test.ts",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T09:37:55.791Z"
+    }
    },
    "trace_links": [
     {
@@ -1080,7 +1098,12 @@
       "kind": "unit"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileRowInteraction.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 12 / pass 0 / fail 12. 11 cases fail by name with Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../frontend/src/components/fileExplorer/fileRowInteraction.ts' (dynamic import inside each test body). The AC-7 source guard fails independently with AssertionError: copy/move/delete sources must exist before they can be checked; missing: fileExplorerClipboard.ts, fileExplorerContextMenu.ts - intentionally red until T-PH003-04 (T-PH003-02 creates the clipboard file). Bite check with temporary stubs (deleted): wrong stub A 9 fail, wrong stub B 7 fail, wrong stub C (copied extension literal / menu importing isOpenableFile) caught by AC-6/AC-7 guards, correct stub 11 pass + AC-7 red; with clean clipboard/menu stubs 12/12 pass.",
+     "timestamp": "2026-09-23T09:44:34Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -1309,7 +1332,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileRowInteraction.test.ts",
+     "exit_code": 1,
+     "timestamp": "2026-09-23T09:53:38Z"
+    }
    },
    "trace_links": [
     {
@@ -1474,9 +1501,94 @@
       "test_file": "frontend/tests/unit/fileTreeController.test.ts",
       "test_symbol": "뿌리 조회 응답의 '..' 가 rootHasParent 로만 들어가고 childrenByPath 에는 없다",
       "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-001-AC5-04",
+      "req_id": "FR-FEX-001",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileTreeController.test.ts",
+      "test_symbol": "늦게 도착한 옛 조회 응답은 버려지고 캐시는 마지막 요청의 목록을 유지한다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-001-AC6-04",
+      "req_id": "FR-FEX-001",
+      "ac_refs": [
+       "AC-6"
+      ],
+      "test_file": "frontend/tests/unit/fileTreeController.test.ts",
+      "test_symbol": "applyJobDone 재조회 중 늦게 온 작업 전 응답이 새 목록을 덮지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-001-AC1-04",
+      "req_id": "FR-FEX-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileTreeController.test.ts",
+      "test_symbol": "goUp 대기 중 setRoot 와 다음 goUp 이 끼면 늦게 온 첫 goUp 의 성공·실패는 무시된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-001-AC1-05",
+      "req_id": "FR-FEX-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileTreeController.test.ts",
+      "test_symbol": "goUp 을 연달아 두 번 눌러도 뿌리는 한 단계만 올라간다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-001-AC5-05",
+      "req_id": "FR-FEX-001",
+      "ac_refs": [
+       "AC-5"
+      ],
+      "test_file": "frontend/tests/unit/fileTreeController.test.ts",
+      "test_symbol": "뿌리 키 정규화: 끝 구분자와 / 표기의 같은 경로는 캐시를 다시 쓰고 조회하지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-SEC-FOP-001-AC4-03",
+      "req_id": "SEC-FOP-001",
+      "ac_refs": [
+       "AC-4"
+      ],
+      "test_file": "frontend/tests/unit/fileTreeController.test.ts",
+      "test_symbol": "드라이브 루트에서 goUp 은 canGoUp=false 이므로 요청을 만들지 않는다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-001-AC1-06",
+      "req_id": "FR-FEX-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileTreeController.test.ts",
+      "test_symbol": "뿌리가 바뀌면 보이지 않게 된 선택은 정리된다",
+      "kind": "unit"
+     },
+     {
+      "id": "TC-REQ-FR-FEX-001-AC1-07",
+      "req_id": "FR-FEX-001",
+      "ac_refs": [
+       "AC-1"
+      ],
+      "test_file": "frontend/tests/unit/fileTreeController.test.ts",
+      "test_symbol": "주석 제거 후 소스: useFileTree 는 useReducer(fileTreeReducer)·createFileTreeController·fileApi.listDirectory 로 배선하고 useFileBrowser 를 참조하지 않으며, 컨트롤러는 react 를 import 하지 않는다",
+      "kind": "contract"
      }
     ],
-    "red_evidence": null,
+    "red_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileTreeController.test.ts",
+     "exit_code": 1,
+     "captured_failure": "tests 14 / pass 0 / fail 14 — 13 cases: Error [ERR_MODULE_NOT_FOUND]: Cannot find module .../src/components/fileExplorer/fileTreeController.ts; hook source guard: AssertionError: frontend/src/hooks/useFileTree.ts must exist",
+     "timestamp": "2026-09-23T10:04:23Z"
+    },
     "green_evidence": null
    },
    "trace_links": [
@@ -1650,7 +1762,11 @@
      }
     ],
     "red_evidence": null,
-    "green_evidence": null
+    "green_evidence": {
+     "command": "cd frontend && node --experimental-strip-types --test tests/unit/fileTreeController.test.ts",
+     "exit_code": 0,
+     "timestamp": "2026-09-23T10:13:26Z"
+    }
    },
    "trace_links": [
     {

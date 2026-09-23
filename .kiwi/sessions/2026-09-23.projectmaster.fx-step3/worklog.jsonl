@@ -1,0 +1,8 @@
+{"ts": "2026-09-23T09:18:55Z", "event": "task_done", "task_id": "T-PH001-01", "summary": "fileTreeState 18 case red(이름별). 틀린 스텁 15종 각 의도 단언에서 실패. DR-09 '..' 는 path 없는 센티널"}
+{"ts": "2026-09-23T09:24:34Z", "event": "task_done", "task_id": "T-PH001-02", "summary": "fileTreeState 18/18 green, 전체 1281/1282(REL-BGSTAB-012만), tsc 둘 다 0"}
+{"ts": "2026-09-23T09:34:54Z", "event": "task_done", "task_id": "T-PH001-03", "summary": "fileListView 4 case red(이름별), 틀린 스텁 5종. 10000행 무절단(결정 22)"}
+{"ts": "2026-09-23T09:39:31Z", "event": "task_done", "task_id": "T-PH001-04", "summary": "fileListView 4/4 green, 전체 1285/1286(REL-BGSTAB-012만), tsc 0"}
+{"ts": "2026-09-23T09:48:59Z", "event": "task_done", "task_id": "T-PH001-05", "summary": "fileRowInteraction 12 case red(이름별). AC-7 가드는 T-PH003-04 까지 의도적 red. decideRowPointer/decideRowClick/resolveContextMenuTarget 포함"}
+{"ts": "2026-09-23T09:56:36Z", "event": "task_done", "task_id": "T-PH001-06", "summary": "fileRowInteraction 11/12 + 의도된 AC-7 가드 1, tsc 0, 스위트 실패는 REL-BGSTAB-012 + AC-7 가드뿐"}
+{"ts": "2026-09-23T10:05:45Z", "event": "task_done", "task_id": "T-PH001-07", "summary": "트리 컨트롤러·훅 14 case red(경합 7 포함), 틀린 스텁 9종 표적 단언에서만 실패"}
+{"ts": "2026-09-23T10:14:02Z", "event": "task_done", "task_id": "T-PH001-08", "summary": "컨트롤러·훅 14/14 green, 전체 1310/1312(예상 실패 2), tsc 둘 다 0. 리뷰 MEDIUM 2·LOW 3 수정"}
