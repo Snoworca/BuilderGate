@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { requireTestPassword } from './testPassword.js';
+import { requireTestPassword } from './testPassword.ts';
 
 test.describe('Settings resource limits', () => {
   test('renders selected Wave6 fields and saves minimal nested resourceLimits patch', async ({ page }) => {

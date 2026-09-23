@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import type { TerminalInputTransportOverride } from '../../src/types/ws-protocol';
-import { requireTestPassword } from './testPassword.js';
+import { requireTestPassword } from './testPassword.ts';
 
 interface RecoveryOptionPayload {
   command: string;

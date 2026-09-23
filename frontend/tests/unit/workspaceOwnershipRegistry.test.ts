@@ -7,6 +7,10 @@ import { spawn } from 'node:child_process';
 import { test } from 'node:test';
 import * as guard from '../e2e/workspaceLeakGuard.ts';
 
+// #57 removed the E2E password fallback. These tests never reach a real login -- they stub
+// fetch -- but the leak guard reads the password before calling it, so the process needs one.
+process.env.BUILDERGATE_PASSWORD ??= 'test-only-password';
+
 // REL-BGSTAB-001 / B2: actual guard exports, isolated fetch and real Temp files.
 type Options = { registryPath: string; runId: string; baseUrl: string; fetch: typeof fetch };
 type Proof = { url: string; method: string; status: number; body: unknown };

@@ -2,7 +2,7 @@ import { link } from 'node:fs';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { requireTestPassword } from './testPassword.js';
+import { requireTestPassword } from './testPassword.ts';
 
 // REL-BGSTAB-001: list differences and workspace names never grant ownership.
 export interface RegistryOptions {

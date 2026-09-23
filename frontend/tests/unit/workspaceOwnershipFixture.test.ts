@@ -10,6 +10,10 @@ import { test } from 'node:test';
 import ts from 'typescript';
 import * as core from '../e2e/workspaceLeakGuard.ts';
 
+// #57 removed the E2E password fallback. These tests never reach a real login -- they stub
+// fetch -- but the leak guard reads the password before calling it, so the process needs one.
+process.env.BUILDERGATE_PASSWORD ??= 'test-only-password';
+
 // REL-BGSTAB-001: transpile and execute the entire actual thin fixture module.
 // Only Playwright registration/context/network ports are inert; core and FS are real.
 const modulePath = new URL('../e2e/workspaceOwnershipFixture.ts', import.meta.url);

@@ -2,7 +2,7 @@ import type { CapturedWsMessage } from './workspaceWsCaptureTypes';
 import { expect, type Page } from '@playwright/test';
 import { test } from './workspaceOwnershipFixture';
 import { login } from './helpers';
-import { requireTestPassword } from './testPassword.js';
+import { requireTestPassword } from './testPassword.ts';
 
 type WorkspaceSetup = {
   workspaceId: string;
