@@ -149,6 +149,13 @@ function comparablePath(path: string): { key: string; separator: string } {
 // folder into itself before the request is sent; the server still judges
 // whether either path may be touched.
 // @req FR-FEX-005
+/** One directory spelled two ways ('C:\\Users\\beom' and 'c:\\users\\beom\\') is the same place. */
+export function isSamePath(left: string, right: string): boolean {
+  const l = comparablePath(left);
+  const r = comparablePath(right);
+  return l.separator === r.separator && l.key === r.key;
+}
+
 export function isSameOrUnderPath(candidate: string, ancestor: string): boolean {
   const a = comparablePath(ancestor);
   const c = comparablePath(candidate);

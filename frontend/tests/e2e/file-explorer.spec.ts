@@ -763,4 +763,40 @@ test.describe('file explorer (browser-only acceptance criteria)', () => {
     await expect(rowNamed(page, 'alpha.md')).toBeVisible();
     await screenshot(page, 'up-refused');
   });
+
+  // FR-FEX-010 AC-7: one window per workspace, but each terminal opens its own directory.
+  test('두 번째 터미널에서 열면 그 터미널의 cwd 탭이 생기고, 첫 터미널로 돌아와 열면 그 탭이 앞으로 온다', async ({ page, request }) => {
+    const workRoot = record.root!;
+    const baseRoot = await sessionCwd(request, record.token!, record.baseSessionId!);
+    expect(baseRoot, 'the two terminals are in different directories').not.toBe(workRoot);
+    const tabs = explorerWindow(page).locator('.fx-tab[role="tab"]');
+    const pathLabel = activePanel(page).locator('.fx-path');
+    const header = page.locator('button.header-action-button[aria-label="파일 탐색기"]');
+
+    await openExplorerFromHeader(page, workRoot);
+    await expect(tabs).toHaveCount(1);
+
+    // The window sits over the workspace tab bar; minimize it to reach the other
+    // terminal, as a user would. Opening again restores and raises it.
+    const minimize = explorerWindow(page).locator('.fx-window-actions button[aria-label="최소화"]');
+    await minimize.click();
+    await expect(explorerWindow(page)).toHaveCount(0);
+
+    // The other terminal: the open window must gain a tab rooted where it is.
+    await selectTab(page, `${TAB_NAME_PREFIX}-base`);
+    await header.click();
+    await expect(tabs).toHaveCount(2, { timeout: 15000 });
+    await expect(pathLabel).toHaveAttribute('title', baseRoot, { timeout: 15000 });
+    await expect(explorerWindow(page).locator('.fx-tab[aria-selected="true"]')).toHaveAttribute('title', baseRoot);
+
+    // Back to the first terminal: its tab comes forward, no duplicate.
+    await minimize.click();
+    await expect(explorerWindow(page)).toHaveCount(0);
+    await selectTab(page, record.workTabName!);
+    await header.click();
+    await expect(pathLabel).toHaveAttribute('title', workRoot, { timeout: 15000 });
+    await expect(tabs).toHaveCount(2);
+    await expect(rowNamed(page, 'alpha.md')).toBeVisible();
+    await screenshot(page, 'second-terminal-own-tab');
+  });
 });

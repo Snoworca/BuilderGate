@@ -19,6 +19,7 @@ import { decideOpenFileExplorer, fileExplorerDialogId } from '../components/file
 import {
   closeTab as closeExplorerTab,
   dropWindowsOfRemovedWorkspaces,
+  focusOrOpenSessionTab,
   openInNewTab,
   removedWorkspaceIds,
   restoreFileExplorerTabs,
@@ -178,21 +179,29 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     ];
     const decision = decideOpenFileExplorer({ registeredDialogIds, workspaceId });
 
-    if (decision.action === 'raise') {
-      setWindows((current) => {
-        const existing = current[workspaceId];
-        if (existing === undefined) return current;
-        return { ...current, [workspaceId]: { ...existing, minimized: false } };
-      });
-      raiseDialogById(decision.dialogId, 'modeless');
-      return;
-    }
-
     const lookup = lookupRef.current;
     const activeTabSessionOf = (id: string): string =>
       lookup.resolveTabSession(lookup.workspaces.find((ws) => ws.id === id)?.activeTabId ?? '') ?? '';
     const sessionCwd = (sessionId: string): string =>
       lookup.tabs.find((tab) => tab.sessionId === sessionId)?.cwd ?? '';
+    // The terminal the request came from, and the directory it is in now: the
+    // window shows that directory whether it is created or only raised.
+    const originSessionId = lookup.resolveTabSession(originTabId) ?? activeTabSessionOf(workspaceId);
+    const originRoot = sessionCwd(originSessionId);
+    const originTarget = originSessionId !== '' && originRoot !== ''
+      ? { sessionId: originSessionId, path: originRoot, originTabId }
+      : null;
+
+    if (decision.action === 'raise') {
+      setWindows((current) => {
+        const existing = current[workspaceId];
+        if (existing === undefined) return current;
+        const tabs = originTarget === null ? existing : focusOrOpenSessionTab(existing, originTarget);
+        return { ...current, [workspaceId]: { ...existing, tabs: tabs.tabs, activeTabId: tabs.activeTabId, minimized: false } };
+      });
+      raiseDialogById(decision.dialogId, 'modeless');
+      return;
+    }
 
     // A stored tab whose terminal tab is gone is re-bound to the workspace's
     // active terminal rather than left without a session.
@@ -215,14 +224,10 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
         : (reboundTabs[0]?.id ?? null),
     };
 
-    let initial: FileExplorerTabs = restored;
-    if (restored.tabs.length === 0) {
-      const sessionId = lookup.resolveTabSession(originTabId) ?? activeTabSessionOf(workspaceId);
-      const root = sessionCwd(sessionId);
-      // Nothing to list without a session or a directory to start in.
-      if (sessionId === '' || root === '') return;
-      initial = openInNewTab(restored, { sessionId, path: root, originTabId });
-    }
+    // Nothing to list without a session or a directory to start in, unless
+    // stored tabs have their own.
+    if (originTarget === null && restored.tabs.length === 0) return;
+    const initial: FileExplorerTabs = originTarget === null ? restored : focusOrOpenSessionTab(restored, originTarget);
 
     // A window created by an earlier request of the same tick is kept: the
     // registered-id check above could not see it before its commit.

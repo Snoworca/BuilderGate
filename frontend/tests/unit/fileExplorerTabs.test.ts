@@ -573,3 +573,40 @@ test('FX3-010 사라진 워크스페이스의 창 기록은 빠지고 그 저장
   assert.equal(storage.getItem(store.getFileExplorerStateStorageKey(WS_B)), null);
   assert.notEqual(storage.getItem(store.getFileExplorerStateStorageKey(WS_A)), null, "another workspace's key was removed");
 });
+
+/** @req FR-FEX-010 */
+test('FR-FEX-010 AC-7 다른 세션에서 열면 그 세션의 cwd 탭을 새로 열고, 같은 세션·같은 뿌리의 탭이 있으면 그것을 활성화한다', async () => {
+  const m = await import('../../src/components/fileExplorer/fileExplorerTabsState.ts') as typeof TabsModule;
+  const empty = { tabs: [], activeTabId: null };
+  const first = m.focusOrOpenSessionTab(empty, { sessionId: 's-home', path: 'C:\\Users\\beom', originTabId: 't-home' });
+  assert.equal(first.tabs.length, 1);
+
+  // A second terminal in another directory: the window must gain a tab rooted there.
+  const second = m.focusOrOpenSessionTab(first, { sessionId: 's-b', path: 'B:\\', originTabId: 't-b' });
+  assert.equal(second.tabs.length, 2, 'opening from another session adds a tab for that session');
+  const bTab = second.tabs.find((tab) => tab.sessionId === 's-b');
+  assert.ok(bTab);
+  assert.equal(bTab.tree.root, 'B:\\');
+  assert.equal(second.activeTabId, bTab.id, 'the new tab is the active one');
+
+  // Back to the first terminal: its tab already exists, so it is activated, not duplicated.
+  const again = m.focusOrOpenSessionTab(second, { sessionId: 's-home', path: 'C:\\Users\\beom\\', originTabId: 't-home' });
+  assert.equal(again.tabs.length, 2, 'the same session and root does not open a second tab');
+  assert.equal(again.activeTabId, first.activeTabId);
+
+  // The same terminal after a cd: its current directory gets its own tab.
+  const moved = m.focusOrOpenSessionTab(again, { sessionId: 's-home', path: 'C:\\work', originTabId: 't-home' });
+  assert.equal(moved.tabs.length, 3);
+  assert.equal(moved.tabs.find((tab) => tab.id === moved.activeTabId)?.tree.root, 'C:\\work');
+});
+
+/** @req FR-FEX-010 */
+test('FR-FEX-010 AC-7 openFileExplorer 는 창을 새로 만들 때도, 이미 떠 있어 끌어올릴 때도 요청한 세션의 탭을 focusOrOpenSessionTab 으로 맞춘다', () => {
+  const hook = readFileSync(new URL('../../src/hooks/useFileExplorerWindows.ts', import.meta.url), 'utf8');
+  const body = hook.slice(hook.indexOf('const openFileExplorer = useCallback('), hook.indexOf('const closeFileExplorer = useCallback('));
+  assert.ok(body.length > 0, 'openFileExplorer not found');
+  const raise = body.slice(body.indexOf("if (decision.action === 'raise')"));
+  const raiseEnd = raise.indexOf('return;');
+  assert.match(raise.slice(0, raiseEnd), /focusOrOpenSessionTab\(/, 'raising an open window must bring the requesting session\'s tab forward');
+  assert.match(body.slice(body.indexOf('const initial')), /focusOrOpenSessionTab\(/, 'a window restored from storage must still show the requesting session');
+});

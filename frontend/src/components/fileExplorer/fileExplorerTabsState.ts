@@ -11,6 +11,7 @@ import {
   type FileTreeAction,
   type FileTreeMode,
   type FileTreeState,
+  isSamePath,
 } from './fileTreeState.ts';
 import type { ListSort } from './fileListView.ts';
 import type { PersistedFileExplorerState } from '../../hooks/windowStateStorage.ts';
@@ -80,6 +81,20 @@ export function openInNewTab(
     origin: 'opened',
   };
   return { tabs: [...state.tabs, tab], activeTabId: tab.id };
+}
+
+// An entry point names a terminal, and the explorer shows that terminal's
+// current directory: its existing tab for the same session and root is brought
+// forward, and otherwise that directory opens in a new tab. The window is one
+// per workspace, so without this a second terminal's request only raised the
+// window on whatever the first terminal had opened.
+export function focusOrOpenSessionTab(
+  state: FileExplorerTabs,
+  target: { sessionId: string; path: string; originTabId?: string },
+): FileExplorerTabs {
+  const existing = state.tabs.find((tab) => tab.sessionId === target.sessionId && isSamePath(tab.tree.root, target.path));
+  if (existing !== undefined) return setActiveTab(state, existing.id);
+  return openInNewTab(state, target);
 }
 
 // Closing the active tab activates its right neighbour, or the left one when it
