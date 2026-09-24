@@ -263,11 +263,27 @@ test('행 글자·날짜·크기·화살표는 가장 흐린 색(--fg-faint)을 
 test('트리 모드는 파인더처럼 이름·수정한 날짜·크기 머리글과 행마다 날짜·크기 열을 그리고, 좁으면 열을 숨긴다', () => {
   const tree = readFileSync(new URL('../../src/components/fileExplorer/FileTreeView.tsx', import.meta.url), 'utf8');
   assert.match(tree, /className="fx-tree-head"/, 'a header row');
-  for (const label of ['이름', '수정한 날짜', '크기']) assert.ok(tree.includes(`>${label}<`), `header label ${label}`);
+  assert.match(tree, /LIST_COLUMNS\.map\(/, 'one header cell per list column');
+  assert.match(tree, /\{COLUMN_LABELS\[column\]\}/, 'the same labels as list mode');
   assert.match(tree, /className="fx-meta fx-col-modified">\{formatEntryModified\(/, 'a date column per row');
   assert.match(tree, /className="fx-meta fx-col-size">\{formatEntrySize\(/, 'a size column per row');
   assert.match(tree, /indexEntriesByPath\(/, 'rows find their entry through the path index, not a per-row search');
   const css = readFileSync(new URL('../../src/components/fileExplorer/FileExplorer.css', import.meta.url), 'utf8');
   assert.match(css, /container-type:\s*inline-size/, 'the tree is a size container');
   assert.match(css, /@container[^{]*max-width[^{]*\{[^@]*\.fx-tree[^{]*\.fx-col-modified/, 'narrow trees hide the columns');
+});
+
+test('트리 머리글도 누르면 정렬된다 — 목록과 같은 nextSort·sortEntries, 탭의 sort 를 공유한다', async () => {
+  const m = await import(MODULE_PATH) as typeof FileListViewModule;
+  assert.deepEqual(m.nextSort(null, 'name'), { key: 'name', dir: 'asc' });
+  assert.deepEqual(m.nextSort({ key: 'name', dir: 'asc' }, 'name'), { key: 'name', dir: 'desc' });
+  assert.deepEqual(m.nextSort({ key: 'name', dir: 'desc' }, 'size'), { key: 'size', dir: 'asc' });
+  const tree = readFileSync(new URL('../../src/components/fileExplorer/FileTreeView.tsx', import.meta.url), 'utf8');
+  assert.match(tree, /onClick=\{\(\) => onSortChange\?*\.?\(nextSort\(sort, column\)\)\}/, 'header cells sort on click');
+  assert.match(tree, /aria-sort=/, 'header cells announce the sort');
+  assert.match(tree, /selectVisibleRows\(tree\.state, [^;]*orderEntries\(/, 'rows follow the sort at every level');
+  assert.match(tree, /sortEntries\(entries, sort\)/, 'the order is the list mode\'s sortEntries');
+  const win = readFileSync(new URL('../../src/components/fileExplorer/FileExplorerWindow.tsx', import.meta.url), 'utf8');
+  assert.match(win, /<FileTreeView[^>]*sort=\{tab\.sort\}[^>]*onSortChange=\{handleSortChange\}/, 'the tree uses the tab\'s stored sort, shared with list mode');
+  assert.doesNotMatch(win, /mode === 'list' \? tab\.sort : null/, 'scroll restore reads the same order the tree draws');
 });

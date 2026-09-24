@@ -505,3 +505,17 @@ test('indexEntriesByPath: 펼쳐 읽은 모든 디렉터리의 항목을 전체 
   assert.equal(index.get('C:\\r\\sub\\b.json')?.size, 7);
   assert.equal(index.size, 3);
 });
+
+test('selectVisibleRows 는 순서 함수를 받으면 모든 펼친 단계를 그 순서로 그린다(서버 순서 대신)', async () => {
+  const m = await import('../../src/components/fileExplorer/fileTreeState.ts');
+  const listing = (path: string, entries: unknown[]) => ({ cwd: path, path, entries, totalEntries: entries.length });
+  const e = (name: string, type: 'file' | 'directory' = 'file') => ({ name, type, size: 1, modified: '2026-09-24T00:00:00.000Z' });
+  let state = m.createInitialFileTreeState({ root: '/r', mode: 'tree' });
+  state = m.fileTreeReducer(state, { type: 'CHILDREN_LOADED', path: '/r', listing: listing('/r', [e('b.md'), e('sub', 'directory'), e('a.md')]) } as never);
+  state = m.fileTreeReducer(state, { type: 'CHILDREN_LOADED', path: '/r/sub', listing: listing('/r/sub', [e('y.md'), e('x.md')]) } as never);
+  state = m.fileTreeReducer(state, { type: 'TOGGLE_EXPAND', path: '/r/sub' } as never);
+  const names = (rows: ReturnType<typeof m.selectVisibleRows>) => rows.flatMap((row) => (row.kind === 'node' ? [row.name] : []));
+  assert.deepEqual(names(m.selectVisibleRows(state)), ['b.md', 'sub', 'y.md', 'x.md', 'a.md'], 'without an order: server order');
+  const reverseByName = (entries: readonly { name: string }[]) => entries.slice().sort((p, q) => q.name.localeCompare(p.name));
+  assert.deepEqual(names(m.selectVisibleRows(state, reverseByName as never)), ['sub', 'y.md', 'x.md', 'b.md', 'a.md'], 'each level, children included, in the given order');
+});

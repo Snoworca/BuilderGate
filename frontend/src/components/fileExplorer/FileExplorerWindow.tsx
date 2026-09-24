@@ -254,9 +254,9 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     longPress.onTouchStart(event);
   };
 
-  // The listing in the order it is drawn: the list's sort in list mode, the
-  // server's order for the tree's first level.
-  const sort = state.mode === 'list' ? tab.sort : null;
+  // The listing in the order it is drawn: the tab's sort, which both modes share
+  // (the tree's header sorts its first level the same way).
+  const sort = tab.sort;
   // Re-sorted only when the root's listing entry or the sort changes, not on
   // every selection click; a listing entry is replaced, never mutated.
   const rootListing = state.childrenByPath.get(state.root);
@@ -381,7 +381,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
               renaming={ops.rowRename}
             />
           )
-          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} />}
+          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} />}
       </div>
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
       {isMobile && (

@@ -17,6 +17,24 @@ export interface ListSort {
   dir: ListSortDir;
 }
 
+export const COLUMN_LABELS: Readonly<Record<ListColumn, string>> = {
+  name: '이름',
+  modified: '수정한 날짜',
+  size: '크기',
+};
+
+// Same column again flips the direction; another column starts ascending.
+export function nextSort(current: ListSort | null, key: ListColumn): ListSort {
+  if (current !== null && current.key === key) return { key, dir: current.dir === 'asc' ? 'desc' : 'asc' };
+  return { key, dir: 'asc' };
+}
+
+/** The header's arrow for a column: ▲ ascending, ▼ descending, nothing when unsorted. */
+export function sortIndicator(sort: ListSort | null, key: ListColumn): string {
+  if (sort?.key !== key) return '';
+  return sort.dir === 'asc' ? ' ▲' : ' ▼';
+}
+
 export type ListRow = Pick<DirectoryEntry, ListColumn>;
 
 // Built field by field so a new DirectoryEntry field never becomes a cell without

@@ -14,7 +14,7 @@ import {
   type ExplorerClipboard,
   type NodeRow,
 } from './fileRowInteraction.ts';
-import { LIST_COLUMNS, entryIcon, formatEntryModified, formatEntrySize, selectListRows, type ListColumn, type ListSort } from './fileListView.ts';
+import { COLUMN_LABELS, LIST_COLUMNS, entryIcon, formatEntryModified, formatEntrySize, nextSort, selectListRows, sortIndicator, type ListSort } from './fileListView.ts';
 import { canGoUp, selectVisibleRows } from './fileTreeState.ts';
 import type { FileExplorerMenuRequest, FileRowRename } from './FileTreeView.tsx';
 
@@ -27,18 +27,6 @@ export interface FileListViewProps {
   onOpenFile: (filePath: string) => void;
   onOpenMenu?: (request: FileExplorerMenuRequest) => void;
   renaming?: FileRowRename | null;
-}
-
-const COLUMN_LABELS: Record<ListColumn, string> = {
-  name: '이름',
-  modified: '수정한 날짜',
-  size: '크기',
-};
-
-// Same column again flips the direction; another column starts ascending.
-function nextSort(current: ListSort | null, key: ListColumn): ListSort {
-  if (current !== null && current.key === key) return { key, dir: current.dir === 'asc' ? 'desc' : 'asc' };
-  return { key, dir: 'asc' };
 }
 
 // @req FR-FEX-002
@@ -138,7 +126,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
             onClick={() => onSortChange(nextSort(sort, column))}
           >
             {COLUMN_LABELS[column]}
-            {sort?.key === column ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+            {sortIndicator(sort, column)}
           </button>
         ))}
       </div>

@@ -197,14 +197,21 @@ export function indexEntriesByPath(state: FileTreeState): Map<string, DirectoryE
   return index;
 }
 
-export function selectVisibleRows(state: FileTreeState): VisibleRow[] {
+/**
+ * `order`, when given, arranges each directory's entries before they are drawn,
+ * at every expanded level (the header sort). Without it the server's order is kept.
+ */
+export function selectVisibleRows(
+  state: FileTreeState,
+  order?: (entries: readonly DirectoryEntry[]) => readonly DirectoryEntry[],
+): VisibleRow[] {
   const rows: VisibleRow[] = [];
   if (state.rootHasParent) rows.push({ kind: 'up' });
 
   const walk = (dirPath: string, depth: number): void => {
     const child = state.childrenByPath.get(dirPath);
     if (child?.status !== 'loaded') return;
-    for (const entry of child.entries) {
+    for (const entry of order === undefined ? child.entries : order(child.entries)) {
       const path = joinChildPath(dirPath, entry.name);
       rows.push({ kind: 'node', path, name: entry.name, type: entry.type, depth });
       // Descend only through open, loaded directories — an expanded directory

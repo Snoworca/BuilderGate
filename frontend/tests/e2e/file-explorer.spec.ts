@@ -812,4 +812,26 @@ test.describe('file explorer (browser-only acceptance criteria)', () => {
     await expect(rowNamed(page, 'alpha.md')).toBeVisible();
     await screenshot(page, 'second-terminal-own-tab');
   });
+
+  // Tree mode sorts by its header like list mode: folders stay first, the order flips on a second click.
+  test('트리 머리글 이름을 누르면 정렬되고 다시 누르면 뒤집히며 폴더는 항상 위에 있다', async ({ page }) => {
+    await openExplorerFromHeader(page, record.root!);
+    const nameHeader = activePanel(page).locator('.fx-tree-head button', { hasText: '이름' });
+    const topLevel = activePanel(page).locator('.fx-row[data-depth="0"]');
+    const names = async () => topLevel.evaluateAll(rows => rows.map(row => row.getAttribute('data-name') ?? ''));
+
+    await nameHeader.click();
+    await expect(nameHeader).toHaveAttribute('aria-sort', 'ascending');
+    const ascending = await names();
+    await nameHeader.click();
+    await expect(nameHeader).toHaveAttribute('aria-sort', 'descending');
+    await expect.poll(names).not.toEqual(ascending);
+    const descending = await names();
+
+    expect(ascending[0], 'the folder comes first when ascending').toBe('bulk');
+    expect(descending[0], 'and still first when descending').toBe('bulk');
+    expect(descending.slice(1), 'the files flip order').toEqual(ascending.slice(1).reverse());
+    expect(ascending.slice(1).sort(), 'the same files either way').toEqual(['CLAUDE.md', 'alpha.md', 'beta.md', 'blob.dat'].sort());
+    await screenshot(page, 'tree-sorted-by-name');
+  });
 });

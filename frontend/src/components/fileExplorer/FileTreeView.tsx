@@ -8,6 +8,7 @@
 // selection in decideContextMenuSelection. This component only turns events
 // into their inputs.
 import { useMemo, type MouseEvent } from 'react';
+import type { DirectoryEntry } from '../../types/index.ts';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
 import type { UseInlineRenameReturn } from '../../hooks/useInlineRename.ts';
 import { decideContextMenuSelection } from './fileExplorerContextMenu.ts';
@@ -21,7 +22,17 @@ import {
   type NodeRow,
 } from './fileRowInteraction.ts';
 import { canGoUp, indexEntriesByPath, selectVisibleRows } from './fileTreeState.ts';
-import { entryIcon, formatEntryModified, formatEntrySize } from './fileListView.ts';
+import {
+  COLUMN_LABELS,
+  LIST_COLUMNS,
+  entryIcon,
+  formatEntryModified,
+  formatEntrySize,
+  nextSort,
+  sortEntries,
+  sortIndicator,
+  type ListSort,
+} from './fileListView.ts';
 
 /** Where a right click (or a long press) asked for the menu, after the selection settled. */
 export interface FileExplorerMenuRequest {
@@ -45,12 +56,29 @@ export interface FileTreeViewProps {
   onOpenFile: (filePath: string) => void;
   onOpenMenu?: (request: FileExplorerMenuRequest) => void;
   renaming?: FileRowRename | null;
+  /** The header sort, shared with list mode through the tab; null keeps the server's order. */
+  sort?: ListSort | null;
+  onSortChange?: (sort: ListSort) => void;
 }
 
 // @req FR-FEX-002
 // @req FR-FEX-011
-export function FileTreeView({ tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null }: FileTreeViewProps) {
-  const rows = selectVisibleRows(tree.state);
+export function FileTreeView({
+  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange,
+}: FileTreeViewProps) {
+  // Each directory's listing is sorted once per sort, not on every selection
+  // click: a listing is replaced on reload, never mutated, so it keys the cache.
+  const sortedListings = useMemo(() => new WeakMap<readonly DirectoryEntry[], readonly DirectoryEntry[]>(), [sort]);
+  const orderEntries = (entries: readonly DirectoryEntry[]): readonly DirectoryEntry[] => {
+    if (sort === null) return entries;
+    const cached = sortedListings.get(entries);
+    if (cached !== undefined) return cached;
+    const sorted = sortEntries(entries, sort);
+    sortedListings.set(entries, sorted);
+    return sorted;
+  };
+  // The header sort orders every expanded level; without one the server's order stands.
+  const rows = selectVisibleRows(tree.state, sort === null ? undefined : (entries) => orderEntries(entries));
   // Dates and sizes for the Finder-style columns. The index changes only when a
   // listing loads, not on each selection click.
   const entriesByPath = useMemo(() => indexEntriesByPath(tree.state), [tree.state.childrenByPath]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -141,9 +169,18 @@ export function FileTreeView({ tree, clipboard = null, onOpenFile, onOpenMenu, r
       {/* Column headings as in Finder's list view. Not a row: no data-path, so
           right-clicking it is blank space. */}
       <div className="fx-tree-head" role="presentation">
-        <span className="fx-tree-head-cell fx-tree-head-name">이름</span>
-        <span className="fx-tree-head-cell fx-col-modified">수정한 날짜</span>
-        <span className="fx-tree-head-cell fx-col-size">크기</span>
+        {LIST_COLUMNS.map((column) => (
+          <button
+            key={column}
+            type="button"
+            className={`fx-tree-head-cell ${column === 'name' ? 'fx-tree-head-name' : `fx-col-${column}`}`}
+            aria-sort={sort?.key === column ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            onClick={() => onSortChange?.(nextSort(sort, column))}
+          >
+            {COLUMN_LABELS[column]}
+            {sortIndicator(sort, column)}
+          </button>
+        ))}
       </div>
       {canGoUp(tree.state) && (
         <div className="fx-row fx-up-row" data-up="true">

@@ -301,6 +301,26 @@
   font-size: 11.5px;
 }
 
+.fx-tree-head-cell {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.fx-tree-head-cell:hover {
+  color: var(--fg-strong);
+}
+
+.fx-tree-head-cell.fx-col-size {
+  justify-content: flex-end;
+}
+
 .fx-tree-head-name {
   flex: 1 1 auto;
   min-width: 0;

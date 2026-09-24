@@ -29,6 +29,7 @@ import { normalizeTreePath } from '../fileExplorer/fileTreeController.ts';
 // The rows, the confirm row and the modal are the explorer's; their rules live
 // in its stylesheet and read the paper tokens this pane's root selects.
 import '../fileExplorer/FileExplorer.css';
+import type { ListSort } from '../fileExplorer/fileListView.ts';
 import { getFileExplorerClipboard, subscribeFileExplorerClipboard } from '../fileExplorer/fileExplorerClipboard.ts';
 import { FileExplorerConfirmBar, useFileExplorerConfirmBar } from '../fileExplorer/FileExplorerConfirmBar.tsx';
 import { FileExplorerWindowModal, useFileExplorerWindowModal } from '../fileExplorer/FileExplorerWindowModal.tsx';
@@ -71,6 +72,8 @@ export function EditorFileTreePane({
   onClose,
   onOpenFile,
 }: EditorFileTreePaneProps) {
+  // The pane's own header sort (not stored): the explorer window's tabs keep theirs.
+  const [sort, setSort] = useState<ListSort | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // The root the user last had on screen, and in which session. A root moved
@@ -148,7 +151,7 @@ export function EditorFileTreePane({
         <IconButton icon="close" label="닫기" onClick={() => onClose()} />
       </div>
       <div className="fx-scroll">
-        <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={onOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} />
+        <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={onOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={sort} onSortChange={setSort} />
       </div>
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
       <FileExplorerWindowModal modal={paneModal} />
