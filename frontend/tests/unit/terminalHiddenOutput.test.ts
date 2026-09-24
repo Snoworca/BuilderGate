@@ -151,8 +151,34 @@ test('hidden output snapshot recovery clear criteria rejects fallback placeholde
   }), true);
 });
 
-test('REL-BGSTAB-012 settles ledger and holds stale view through drain', () => {
-  const signature = 'REL-BGSTAB-012 AC-5/AC-6: hidden delivery needs a pending dataGap ledger and cannot clear its restore barrier before checkpoint drain acknowledgement';
+/**
+ * This test's first assertion used to read `nextState.dataGapPending`, a field
+ * that has never existed in src/utils/terminalHiddenOutput.ts — not at the
+ * commit that introduced the test (c25d761) and not since. It was red from the
+ * day it landed and asserted a client-side ledger that the design does not put
+ * here.
+ *
+ * REL-BGSTAB-012 AC-2 puts the ordered dataGap latch on the SERVER, and that is
+ * where it is implemented (`visibility.dataGapLatched` in
+ * server/src/ws/WsRouter.ts, emitting `kind: 'dataGap'`) and where it is
+ * covered: 'REL-BGSTAB-012 rejects stale visibility and latches ordered
+ * dataGap' in server/src/ws/WsRouterSendPriority.test.ts.
+ *
+ * The second assertion was wrong the same way, and had never run because the
+ * first one threw first. It required finishHiddenOutputReplay to refuse to
+ * release the restore barrier before the drain ACK, but this function is a
+ * state transition and the drain-ACK ordering is enforced by its callers in
+ * TerminalContainer.tsx — 'compatibility-post-ack-tail' only fires after
+ * authoritative-snapshot-tail-drained, and the local-snapshot path returns
+ * early while an authoritative resync is active. AC-6's real contract is
+ * covered by 'REL-BGSTAB-012 blocks ready and input until matching checkpoint
+ * drain ACK' in tests/unit/terminalCheckpointRuntime.test.ts.
+ *
+ * So this test now asserts what this module does own: the client-side skip
+ * latch, and which replay owns the restore barrier.
+ */
+test('REL-BGSTAB-012 latches the hidden skip and holds stale view through drain', () => {
+  const signature = 'REL-BGSTAB-012 AC-2/AC-6: the first hidden skip must latch, and the restore barrier cannot clear before checkpoint drain acknowledgement';
   const hidden = resolveHiddenOutput(createHiddenOutputState(), {
     isVisible: false,
     byteLength: 9,
@@ -160,16 +186,29 @@ test('REL-BGSTAB-012 settles ledger and holds stale view through drain', () => {
     hiddenOutputPolicy: 'snapshot-restore',
   });
 
+  assert.equal(hidden.action, 'skip', signature);
+  assert.equal(hidden.nextState.skipped, true, signature);
+  assert.equal(hidden.nextState.skippedBytes, 9, signature);
+
+  // Barrier ownership. A replay that raised the restore barrier owns it and
+  // releases it on finish; a replay that found the barrier already up leaves it
+  // to whoever raised it.
+  const raisedHere = beginHiddenOutputReplay(createHiddenOutputReplayState(), false);
+  assert.equal(raisedHere.replayState.restoreBarrierOwned, true, signature);
+  assert.equal(raisedHere.initialRestorePending, true, signature);
   assert.equal(
-    (hidden.nextState as Record<string, unknown>).dataGapPending,
-    true,
+    finishHiddenOutputReplay(raisedHere.replayState, raisedHere.initialRestorePending)
+      .initialRestorePending,
+    false,
     signature,
   );
 
-  const replay = beginHiddenOutputReplay(createHiddenOutputReplayState(), false);
-  const beforeDrainAcknowledgement = finishHiddenOutputReplay(
-    replay.replayState,
-    replay.initialRestorePending,
+  const raisedElsewhere = beginHiddenOutputReplay(createHiddenOutputReplayState(), true);
+  assert.equal(raisedElsewhere.replayState.restoreBarrierOwned, false, signature);
+  assert.equal(
+    finishHiddenOutputReplay(raisedElsewhere.replayState, raisedElsewhere.initialRestorePending)
+      .initialRestorePending,
+    true,
+    signature,
   );
-  assert.equal(beforeDrainAcknowledgement.initialRestorePending, true, signature);
 });
