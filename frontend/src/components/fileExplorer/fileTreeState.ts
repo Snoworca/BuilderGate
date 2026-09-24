@@ -183,6 +183,20 @@ function rootHasParentFrom(childrenByPath: ReadonlyMap<string, ChildState>, path
   return child?.status === 'loaded' ? child.hasParent : false;
 }
 
+/**
+ * Every loaded entry by its full path, built once per render so a tree row finds
+ * its date and size without searching its parent's listing (O(1) per row even
+ * at maxDirectoryEntries).
+ */
+export function indexEntriesByPath(state: FileTreeState): Map<string, DirectoryEntry> {
+  const index = new Map<string, DirectoryEntry>();
+  for (const [dirPath, child] of state.childrenByPath) {
+    if (child.status !== 'loaded') continue;
+    for (const entry of child.entries) index.set(joinChildPath(dirPath, entry.name), entry);
+  }
+  return index;
+}
+
 export function selectVisibleRows(state: FileTreeState): VisibleRow[] {
   const rows: VisibleRow[] = [];
   if (state.rootHasParent) rows.push({ kind: 'up' });

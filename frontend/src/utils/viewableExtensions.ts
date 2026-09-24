@@ -1,6 +1,8 @@
 const VIEWABLE_EXTENSIONS = new Set([
   // Markdown
   '.md', '.markdown', '.mdx',
+  // Plain text
+  '.txt',
   // Code (matches EXTENSION_MAP in CodeViewer)
   '.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx',
   '.py', '.java', '.c', '.h', '.cpp', '.cc', '.hpp',

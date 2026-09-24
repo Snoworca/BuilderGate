@@ -487,3 +487,21 @@ test('NAVIGATE_UP 은 pending 만 세우고, 실패하면 root 유지+error, 성
   top = m.fileTreeReducer(top, { type: 'NAVIGATE_COMMITTED', path: DRIVE });
   assert.equal(m.canGoUp(top), false);
 });
+
+test('indexEntriesByPath: 펼쳐 읽은 모든 디렉터리의 항목을 전체 경로로 찾는다', async () => {
+  const m = await import('../../src/components/fileExplorer/fileTreeState.ts');
+  let state = m.createInitialFileTreeState({ root: 'C:\\r', mode: 'tree' });
+  const listing = (path: string, entries: unknown[]) => ({ cwd: path, path, entries, totalEntries: entries.length });
+  state = m.fileTreeReducer(state, { type: 'CHILDREN_LOADED', path: 'C:\\r', listing: listing('C:\\r', [
+    { name: 'a.md', type: 'file', size: 5, modified: '2026-09-24T00:00:00.000Z' },
+    { name: 'sub', type: 'directory', size: 0, modified: '2026-09-24T00:00:00.000Z' },
+  ]) } as never);
+  state = m.fileTreeReducer(state, { type: 'CHILDREN_LOADED', path: 'C:\\r\\sub', listing: listing('C:\\r\\sub', [
+    { name: 'b.json', type: 'file', size: 7, modified: '2026-09-24T00:00:00.000Z' },
+  ]) } as never);
+  const index = m.indexEntriesByPath(state);
+  assert.equal(index.get('C:\\r\\a.md')?.size, 5);
+  assert.equal(index.get('C:\\r\\sub')?.type, 'directory');
+  assert.equal(index.get('C:\\r\\sub\\b.json')?.size, 7);
+  assert.equal(index.size, 3);
+});

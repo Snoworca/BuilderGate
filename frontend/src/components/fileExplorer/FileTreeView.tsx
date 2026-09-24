@@ -7,7 +7,7 @@
 // rowRenderClass, the right-click target in resolveContextMenuTarget and its
 // selection in decideContextMenuSelection. This component only turns events
 // into their inputs.
-import type { MouseEvent } from 'react';
+import { useMemo, type MouseEvent } from 'react';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
 import type { UseInlineRenameReturn } from '../../hooks/useInlineRename.ts';
 import { decideContextMenuSelection } from './fileExplorerContextMenu.ts';
@@ -20,8 +20,8 @@ import {
   type ExplorerClipboard,
   type NodeRow,
 } from './fileRowInteraction.ts';
-import { canGoUp, selectVisibleRows } from './fileTreeState.ts';
-import { entryIcon } from './fileListView.ts';
+import { canGoUp, indexEntriesByPath, selectVisibleRows } from './fileTreeState.ts';
+import { entryIcon, formatEntryModified, formatEntrySize } from './fileListView.ts';
 
 /** Where a right click (or a long press) asked for the menu, after the selection settled. */
 export interface FileExplorerMenuRequest {
@@ -51,6 +51,9 @@ export interface FileTreeViewProps {
 // @req FR-FEX-011
 export function FileTreeView({ tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null }: FileTreeViewProps) {
   const rows = selectVisibleRows(tree.state);
+  // Dates and sizes for the Finder-style columns. The index changes only when a
+  // listing loads, not on each selection click.
+  const entriesByPath = useMemo(() => indexEntriesByPath(tree.state), [tree.state.childrenByPath]); // eslint-disable-line react-hooks/exhaustive-deps
   // Shift-range selection walks exactly the rows drawn here, in this order.
   const nodePaths = rows.flatMap((row) => (row.kind === 'node' ? [row.path] : []));
 
@@ -134,7 +137,14 @@ export function FileTreeView({ tree, clipboard = null, onOpenFile, onOpenMenu, r
   };
 
   return (
-    <div className="fx-rows" role="tree" onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}>
+    <div className="fx-rows fx-tree" role="tree" onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}>
+      {/* Column headings as in Finder's list view. Not a row: no data-path, so
+          right-clicking it is blank space. */}
+      <div className="fx-tree-head" role="presentation">
+        <span className="fx-tree-head-cell fx-tree-head-name">이름</span>
+        <span className="fx-tree-head-cell fx-col-modified">수정한 날짜</span>
+        <span className="fx-tree-head-cell fx-col-size">크기</span>
+      </div>
       {canGoUp(tree.state) && (
         <div className="fx-row fx-up-row" data-up="true">
           <span className="fx-expander fx-leaf" />
@@ -157,18 +167,13 @@ export function FileTreeView({ tree, clipboard = null, onOpenFile, onOpenMenu, r
             data-path={row.path}
             data-name={row.name}
             data-depth={row.depth}
-            style={{ paddingLeft: `calc(${row.depth} * 16px + 4px)` }}
             onClick={(event) => handleRowClick(event, row)}
           >
-            {/* One vertical guide per ancestor, under that ancestor's expander, so an
-                opened folder's children hang from a visible line (as in Obsidian). */}
+            {/* One 16px cell per ancestor with a line down its middle, under that
+                ancestor's expander: the cells are the indent, and an opened folder's
+                children hang from a visible line (as in Obsidian). */}
             {Array.from({ length: row.depth }, (_, level) => (
-              <span
-                key={level}
-                className="fx-guide"
-                aria-hidden="true"
-                style={{ left: `calc(${level} * 16px + 12px)` }}
-              />
+              <span key={level} className="fx-guide" aria-hidden="true" />
             ))}
             <span
               className={`fx-expander${isDir ? '' : ' fx-leaf'}${expanded ? ' fx-open' : ''}`}
@@ -176,7 +181,7 @@ export function FileTreeView({ tree, clipboard = null, onOpenFile, onOpenMenu, r
             >
               {isDir ? '›' : ''}
             </span>
-            <span className="fx-icon">{entryIcon({ isDirectory: isDir, expanded })}</span>
+            <span className="fx-icon">{entryIcon({ name: row.name, isDirectory: isDir, expanded })}</span>
             {renaming?.path === row.path ? (
               <input
                 className="fx-rename-input"
@@ -193,6 +198,8 @@ export function FileTreeView({ tree, clipboard = null, onOpenFile, onOpenMenu, r
             )}
             {child?.status === 'loading' && <span className="fx-meta">…</span>}
             {child?.status === 'error' && <span className="fx-meta fx-error-text">{child.error}</span>}
+            <span className="fx-meta fx-col-modified">{formatEntryModified(entriesByPath.get(row.path)?.modified ?? '')}</span>
+            <span className="fx-meta fx-col-size">{formatEntrySize(entriesByPath.get(row.path) ?? { type: row.type, size: 0 })}</span>
           </div>
         );
       })}

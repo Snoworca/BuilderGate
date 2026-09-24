@@ -21,10 +21,52 @@ export type ListRow = Pick<DirectoryEntry, ListColumn>;
 
 // Built field by field so a new DirectoryEntry field never becomes a cell without
 // a column to draw it in.
-/** The row's icon: a folder that shows whether it is open, and a quiet dot for a file. */
-export function entryIcon(entry: { isDirectory: boolean; expanded: boolean }): string {
-  if (!entry.isDirectory) return '·';
-  return entry.expanded ? '📂' : '📁';
+// Openable formats each get their own icon so they read at a glance; the rest
+// are grouped by kind, and anything unknown is a plain page.
+const FILE_ICON_BY_EXTENSION: Readonly<Record<string, string>> = (() => {
+  const groups: ReadonlyArray<readonly [string, readonly string[]]> = [
+    ['📝', ['md', 'markdown', 'mdx']],
+    ['📃', ['txt']],
+    ['🧾', ['json', 'json5']],
+    ['🏷️', ['xml', 'html', 'htm', 'svg']],
+    ['⚙️', ['yml', 'yaml', 'toml', 'ini']],
+    ['🎨', ['css', 'scss']],
+    ['💻', ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'h', 'cpp', 'cc', 'hpp', 'go', 'rs', 'sql']],
+    ['🐚', ['sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd']],
+    ['🖼️', ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico']],
+    ['📕', ['pdf']],
+    ['📦', ['zip', 'tar', 'gz', 'tgz', '7z', 'rar']],
+    ['🎵', ['mp3', 'wav', 'flac', 'ogg', 'm4a']],
+    ['🎬', ['mp4', 'mov', 'avi', 'mkv', 'webm']],
+    ['🔩', ['exe', 'dll', 'so', 'bin', 'msi']],
+  ];
+  const map: Record<string, string> = {};
+  for (const [icon, extensions] of groups) for (const extension of extensions) map[extension] = icon;
+  return map;
+})();
+
+const GENERIC_FILE_ICON = '📄';
+
+/** The row's icon: a folder that shows whether it is open, or the file's kind. */
+export function entryIcon(entry: { name: string; isDirectory: boolean; expanded: boolean }): string {
+  if (entry.isDirectory) return entry.expanded ? '📂' : '📁';
+  const dot = entry.name.lastIndexOf('.');
+  // A leading dot is a hidden file's name ('.gitignore'), not an extension.
+  if (dot <= 0) return GENERIC_FILE_ICON;
+  return FILE_ICON_BY_EXTENSION[entry.name.slice(dot + 1).toLowerCase()] ?? GENERIC_FILE_ICON;
+}
+
+/** Size column text. A folder shows -- as Finder does: its size is not the entry's. */
+export function formatEntrySize(entry: Pick<DirectoryEntry, 'type' | 'size'>): string {
+  if (entry.type === 'directory') return '--';
+  if (entry.size < 1024) return `${entry.size} B`;
+  if (entry.size < 1024 * 1024) return `${(entry.size / 1024).toFixed(1)} KB`;
+  return `${(entry.size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function formatEntryModified(modified: string): string {
+  const date = new Date(modified);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
 }
 
 export function toListRow(entry: DirectoryEntry): ListRow {

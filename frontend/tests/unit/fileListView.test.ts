@@ -182,34 +182,72 @@ test('selectListRows 가 10000 항목 fixture 에서 10000 행을 돌려준다 �
   assert.equal(sorted[count - 1].name, 'f00001.txt');
 });
 
-test('디렉터리 아이콘은 폴더 이모지다 — 닫히면 📁, 펼치면 📂, 파일은 · 그대로', async () => {
+test('아이콘: 폴더는 📁/📂, 열 수 있는 형식은 형식마다 다른 이모지, 그 밖은 종류별 또는 📄', async () => {
   const m = await import(MODULE_PATH) as typeof FileListViewModule;
-  assert.equal(m.entryIcon({ isDirectory: true, expanded: false }), '📁');
-  assert.equal(m.entryIcon({ isDirectory: true, expanded: true }), '📂');
-  assert.equal(m.entryIcon({ isDirectory: false, expanded: false }), '·');
-  // A file is never "open": expanded is ignored for it.
-  assert.equal(m.entryIcon({ isDirectory: false, expanded: true }), '·');
+  const icon = (name: string, isDirectory = false, expanded = false) => m.entryIcon({ name, isDirectory, expanded });
+  assert.equal(icon('docs', true, false), '📁');
+  assert.equal(icon('docs', true, true), '📂');
+  // Openable formats the user named each get their own icon.
+  const md = icon('README.md');
+  const txt = icon('notes.txt');
+  const json = icon('package.json');
+  const xml = icon('pom.xml');
+  assert.equal(md, '📝');
+  assert.equal(txt, '📃');
+  assert.equal(json, '🧾');
+  assert.equal(xml, '🏷️');
+  assert.equal(new Set([md, txt, json, xml, icon('unknown.zzz')]).size, 5, 'md, txt, json, xml and a generic file are all distinct');
+  // Case does not matter, and a name without an extension is a generic file.
+  assert.equal(icon('CHANGELOG.MD'), '📝');
+  assert.equal(icon('Makefile'), '📄');
+  assert.equal(icon('.gitignore'), '📄');
+  // A few non-openable kinds are recognisable too.
+  assert.equal(icon('photo.PNG'), '🖼️');
+  assert.equal(icon('bundle.zip'), '📦');
+  assert.equal(icon('setup.exe'), '🔩');
+  // expanded means nothing for a file.
+  assert.equal(icon('README.md', false, true), '📝');
+});
+
+test('.txt 는 편집기로 열 수 있는 형식이다(viewableExtensions)', async () => {
+  const v = await import('../../src/utils/viewableExtensions.ts');
+  assert.equal(v.isViewableExtension('notes.txt'), true);
+  assert.equal(v.isViewableExtension('NOTES.TXT'), true);
+  assert.equal(v.isViewableExtension('blob.dat'), false, 'unknown formats stay unopenable');
+});
+
+test('날짜·크기 형식: 폴더 크기는 파인더처럼 --, 파일은 B/KB/MB, 날짜가 깨졌으면 빈 칸', async () => {
+  const m = await import(MODULE_PATH) as typeof FileListViewModule;
+  assert.equal(m.formatEntrySize({ type: 'directory', size: 4096 }), '--');
+  assert.equal(m.formatEntrySize({ type: 'file', size: 12 }), '12 B');
+  assert.equal(m.formatEntrySize({ type: 'file', size: 2048 }), '2.0 KB');
+  assert.equal(m.formatEntrySize({ type: 'file', size: 3 * 1024 * 1024 }), '3.0 MB');
+  assert.equal(m.formatEntryModified('not a date'), '');
+  assert.notEqual(m.formatEntryModified('2026-09-24T10:00:00.000Z'), '');
 });
 
 test('트리와 목록 뷰가 아이콘을 entryIcon 으로 그린다(파란 삼각형 ▸ 를 쓰지 않는다)', () => {
   for (const file of ['FileTreeView.tsx', 'FileListView.tsx']) {
     const source = readFileSync(new URL(`../../src/components/fileExplorer/${file}`, import.meta.url), 'utf8');
-    assert.match(source, /className="fx-icon">\{entryIcon\(/, `${file} must draw the row icon with entryIcon`);
+    assert.match(source, /className="fx-icon">\{entryIcon\(\{[^}]*name:/, `${file} must draw the row icon with entryIcon, by name`);
     assert.doesNotMatch(source, /'▸'/, `${file} still draws the triangle`);
   }
 });
 
-test('트리 뷰는 행마다 깊이만큼 세로 안내선(fx-guide)을 부모 펼침 화살표 중심에 긋는다', () => {
+test('트리 뷰는 행마다 깊이만큼 세로 안내선(fx-guide)을 긋고, 안내선 칸이 들여쓰기를 맡는다(행을 positioned 로 만들지 않는다)', () => {
   const tree = readFileSync(new URL('../../src/components/fileExplorer/FileTreeView.tsx', import.meta.url), 'utf8');
   assert.match(tree, /Array\.from\(\{ length: row\.depth \}/, 'one guide per ancestor level');
   assert.match(tree, /className="fx-guide"/, 'the guide element');
+  assert.doesNotMatch(tree, /depth\} \* 16px/, 'indentation comes from the guide cells, not a computed padding');
   const css = readFileSync(new URL('../../src/components/fileExplorer/FileExplorer.css', import.meta.url), 'utf8');
   const guide = /\.fx-guide\s*\{([^}]*)\}/.exec(css);
   assert.ok(guide, '.fx-guide rule');
-  assert.match(guide[1], /position:\s*absolute/);
-  assert.match(guide[1], /width:\s*1px/);
-  assert.match(guide[1], /background:\s*var\(--line-strong\)/, 'a token colour, visible on both surfaces');
-  assert.match(css, /\.fx-row\s*\{[^}]*position:\s*relative/, 'guides are placed against the row');
+  assert.match(guide[1], /flex:\s*0 0 16px/, 'a 16px cell per level, the same step as the old indent');
+  assert.match(guide[1], /align-self:\s*stretch/, 'full row height so consecutive rows join into one line');
+  assert.match(guide[1], /var\(--line-strong\)/, 'a token colour, visible on both surfaces');
+  // A positioned row would paint over the sticky column header, and the explorer
+  // may not use z-index (stacking belongs to the dialog stack).
+  assert.doesNotMatch(/\.fx-row\s*\{([^}]*)\}/.exec(css)![1], /position:\s*relative/, 'rows stay unpositioned');
 });
 
 test('행 글자·날짜·크기·화살표는 가장 흐린 색(--fg-faint)을 쓰지 않는다', () => {
@@ -220,4 +258,16 @@ test('행 글자·날짜·크기·화살표는 가장 흐린 색(--fg-faint)을 
     assert.doesNotMatch(rule[1], /--fg-faint/, `${selector} is too faint to read`);
   }
   assert.match(/\.fx-name\s*\{([^}]*)\}/.exec(css)![1], /color:\s*var\(--fg-strong\)/, 'names read at full strength');
+});
+
+test('트리 모드는 파인더처럼 이름·수정한 날짜·크기 머리글과 행마다 날짜·크기 열을 그리고, 좁으면 열을 숨긴다', () => {
+  const tree = readFileSync(new URL('../../src/components/fileExplorer/FileTreeView.tsx', import.meta.url), 'utf8');
+  assert.match(tree, /className="fx-tree-head"/, 'a header row');
+  for (const label of ['이름', '수정한 날짜', '크기']) assert.ok(tree.includes(`>${label}<`), `header label ${label}`);
+  assert.match(tree, /className="fx-meta fx-col-modified">\{formatEntryModified\(/, 'a date column per row');
+  assert.match(tree, /className="fx-meta fx-col-size">\{formatEntrySize\(/, 'a size column per row');
+  assert.match(tree, /indexEntriesByPath\(/, 'rows find their entry through the path index, not a per-row search');
+  const css = readFileSync(new URL('../../src/components/fileExplorer/FileExplorer.css', import.meta.url), 'utf8');
+  assert.match(css, /container-type:\s*inline-size/, 'the tree is a size container');
+  assert.match(css, /@container[^{]*max-width[^{]*\{[^@]*\.fx-tree[^{]*\.fx-col-modified/, 'narrow trees hide the columns');
 });

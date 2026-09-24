@@ -14,7 +14,7 @@ import {
   type ExplorerClipboard,
   type NodeRow,
 } from './fileRowInteraction.ts';
-import { LIST_COLUMNS, entryIcon, selectListRows, type ListColumn, type ListSort } from './fileListView.ts';
+import { LIST_COLUMNS, entryIcon, formatEntryModified, formatEntrySize, selectListRows, type ListColumn, type ListSort } from './fileListView.ts';
 import { canGoUp, selectVisibleRows } from './fileTreeState.ts';
 import type { FileExplorerMenuRequest, FileRowRename } from './FileTreeView.tsx';
 
@@ -39,18 +39,6 @@ const COLUMN_LABELS: Record<ListColumn, string> = {
 function nextSort(current: ListSort | null, key: ListColumn): ListSort {
   if (current !== null && current.key === key) return { key, dir: current.dir === 'asc' ? 'desc' : 'asc' };
   return { key, dir: 'asc' };
-}
-
-function formatSize(entry: DirectoryEntry): string {
-  if (entry.type === 'directory') return '';
-  if (entry.size < 1024) return `${entry.size} B`;
-  if (entry.size < 1024 * 1024) return `${(entry.size / 1024).toFixed(1)} KB`;
-  return `${(entry.size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatModified(modified: string): string {
-  const date = new Date(modified);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
 }
 
 // @req FR-FEX-002
@@ -174,7 +162,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
               onClick={(event) => handleRowClick(event, row)}
             >
               <span className="fx-name fx-col-name">
-                <span className="fx-icon">{entryIcon({ isDirectory: entry.type === 'directory', expanded: false })}</span>
+                <span className="fx-icon">{entryIcon({ name: entry.name, isDirectory: entry.type === 'directory', expanded: false })}</span>
                 {renaming?.path === row.path ? (
                   <input
                     className="fx-rename-input"
@@ -188,8 +176,8 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
                   />
                 ) : entry.name}
               </span>
-              <span className="fx-meta fx-col-modified">{formatModified(entry.modified)}</span>
-              <span className="fx-meta fx-col-size">{formatSize(entry)}</span>
+              <span className="fx-meta fx-col-modified">{formatEntryModified(entry.modified)}</span>
+              <span className="fx-meta fx-col-size">{formatEntrySize(entry)}</span>
             </div>
           );
         })}
