@@ -21,6 +21,7 @@ import {
   type NodeRow,
 } from './fileRowInteraction.ts';
 import { canGoUp, selectVisibleRows } from './fileTreeState.ts';
+import { entryIcon } from './fileListView.ts';
 
 /** Where a right click (or a long press) asked for the menu, after the selection settled. */
 export interface FileExplorerMenuRequest {
@@ -159,13 +160,23 @@ export function FileTreeView({ tree, clipboard = null, onOpenFile, onOpenMenu, r
             style={{ paddingLeft: `calc(${row.depth} * 16px + 4px)` }}
             onClick={(event) => handleRowClick(event, row)}
           >
+            {/* One vertical guide per ancestor, under that ancestor's expander, so an
+                opened folder's children hang from a visible line (as in Obsidian). */}
+            {Array.from({ length: row.depth }, (_, level) => (
+              <span
+                key={level}
+                className="fx-guide"
+                aria-hidden="true"
+                style={{ left: `calc(${level} * 16px + 12px)` }}
+              />
+            ))}
             <span
               className={`fx-expander${isDir ? '' : ' fx-leaf'}${expanded ? ' fx-open' : ''}`}
               onClick={(event) => handleExpanderClick(event, row)}
             >
               {isDir ? '›' : ''}
             </span>
-            <span className="fx-icon">{isDir ? '▸' : '·'}</span>
+            <span className="fx-icon">{entryIcon({ isDirectory: isDir, expanded })}</span>
             {renaming?.path === row.path ? (
               <input
                 className="fx-rename-input"

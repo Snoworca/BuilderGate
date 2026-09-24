@@ -14,7 +14,7 @@ import {
   type ExplorerClipboard,
   type NodeRow,
 } from './fileRowInteraction.ts';
-import { LIST_COLUMNS, selectListRows, type ListColumn, type ListSort } from './fileListView.ts';
+import { LIST_COLUMNS, entryIcon, selectListRows, type ListColumn, type ListSort } from './fileListView.ts';
 import { canGoUp, selectVisibleRows } from './fileTreeState.ts';
 import type { FileExplorerMenuRequest, FileRowRename } from './FileTreeView.tsx';
 
@@ -174,7 +174,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
               onClick={(event) => handleRowClick(event, row)}
             >
               <span className="fx-name fx-col-name">
-                <span className="fx-icon">{entry.type === 'directory' ? '▸' : '·'}</span>
+                <span className="fx-icon">{entryIcon({ isDirectory: entry.type === 'directory', expanded: false })}</span>
                 {renaming?.path === row.path ? (
                   <input
                     className="fx-rename-input"

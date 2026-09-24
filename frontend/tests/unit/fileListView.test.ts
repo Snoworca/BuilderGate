@@ -181,3 +181,43 @@ test('selectListRows 가 10000 항목 fixture 에서 10000 행을 돌려준다 �
   assert.equal(sorted[1].name, `f${String(count - 1).padStart(5, '0')}.txt`);
   assert.equal(sorted[count - 1].name, 'f00001.txt');
 });
+
+test('디렉터리 아이콘은 폴더 이모지다 — 닫히면 📁, 펼치면 📂, 파일은 · 그대로', async () => {
+  const m = await import(MODULE_PATH) as typeof FileListViewModule;
+  assert.equal(m.entryIcon({ isDirectory: true, expanded: false }), '📁');
+  assert.equal(m.entryIcon({ isDirectory: true, expanded: true }), '📂');
+  assert.equal(m.entryIcon({ isDirectory: false, expanded: false }), '·');
+  // A file is never "open": expanded is ignored for it.
+  assert.equal(m.entryIcon({ isDirectory: false, expanded: true }), '·');
+});
+
+test('트리와 목록 뷰가 아이콘을 entryIcon 으로 그린다(파란 삼각형 ▸ 를 쓰지 않는다)', () => {
+  for (const file of ['FileTreeView.tsx', 'FileListView.tsx']) {
+    const source = readFileSync(new URL(`../../src/components/fileExplorer/${file}`, import.meta.url), 'utf8');
+    assert.match(source, /className="fx-icon">\{entryIcon\(/, `${file} must draw the row icon with entryIcon`);
+    assert.doesNotMatch(source, /'▸'/, `${file} still draws the triangle`);
+  }
+});
+
+test('트리 뷰는 행마다 깊이만큼 세로 안내선(fx-guide)을 부모 펼침 화살표 중심에 긋는다', () => {
+  const tree = readFileSync(new URL('../../src/components/fileExplorer/FileTreeView.tsx', import.meta.url), 'utf8');
+  assert.match(tree, /Array\.from\(\{ length: row\.depth \}/, 'one guide per ancestor level');
+  assert.match(tree, /className="fx-guide"/, 'the guide element');
+  const css = readFileSync(new URL('../../src/components/fileExplorer/FileExplorer.css', import.meta.url), 'utf8');
+  const guide = /\.fx-guide\s*\{([^}]*)\}/.exec(css);
+  assert.ok(guide, '.fx-guide rule');
+  assert.match(guide[1], /position:\s*absolute/);
+  assert.match(guide[1], /width:\s*1px/);
+  assert.match(guide[1], /background:\s*var\(--line-strong\)/, 'a token colour, visible on both surfaces');
+  assert.match(css, /\.fx-row\s*\{[^}]*position:\s*relative/, 'guides are placed against the row');
+});
+
+test('행 글자·날짜·크기·화살표는 가장 흐린 색(--fg-faint)을 쓰지 않는다', () => {
+  const css = readFileSync(new URL('../../src/components/fileExplorer/FileExplorer.css', import.meta.url), 'utf8');
+  for (const selector of ['.fx-meta', '.fx-expander', '.fx-name']) {
+    const rule = new RegExp(`\\${selector}\\s*\\{([^}]*)\\}`).exec(css);
+    assert.ok(rule, `${selector} rule`);
+    assert.doesNotMatch(rule[1], /--fg-faint/, `${selector} is too faint to read`);
+  }
+  assert.match(/\.fx-name\s*\{([^}]*)\}/.exec(css)![1], /color:\s*var\(--fg-strong\)/, 'names read at full strength');
+});

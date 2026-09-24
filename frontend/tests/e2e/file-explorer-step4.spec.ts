@@ -279,6 +279,18 @@ async function tearDownFixture(
 // Locators and actions
 // ---------------------------------------------------------------------------
 
+/**
+ * A drawn terminal is not a ready shell: keystrokes sent before the shell prints
+ * its prompt are dropped, which showed up as typed markers never reaching the
+ * screen when many sessions start back to back. The prompt names the work
+ * folder, so seeing it means the shell is taking input. Only the cases that type
+ * into the terminal need this.
+ */
+async function waitForShellPrompt(page: Page, folder: string): Promise<void> {
+  const folderName = folder.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? folder;
+  await expect(page.locator('.xterm-screen:visible').first()).toContainText(folderName, { timeout: 60000 });
+}
+
 function explorerWindow(page: Page): Locator {
   return page.locator('.window-dialog-surface.fx-window:visible');
 }
@@ -564,6 +576,7 @@ test.describe('file explorer step 4 (browser-only acceptance criteria)', () => {
 
   // TC-REQ-FR-FEX-007-AC4-09
   test('모달이 떠 있는 동안 터미널이 키 입력을 받는다', async ({ page, request }) => {
+    await waitForShellPrompt(page, record.root!);
     await openExplorerFromHeader(page, record.root!);
     const namesBefore = await listedNames(request, record, record.root!);
     const modal = await startInPlaceConflict(page);

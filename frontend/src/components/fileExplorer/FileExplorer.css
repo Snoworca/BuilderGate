@@ -180,6 +180,7 @@
 }
 
 .fx-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -213,7 +214,7 @@
   flex: 0 0 16px;
   width: 16px;
   height: 16px;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   cursor: pointer;
   transition: transform 0.12s ease;
 }
@@ -226,17 +227,20 @@
   visibility: hidden;
 }
 
+/* A folder emoji for directories and a dot for files, in one fixed-width slot so
+ * names line up whichever the row holds. The emoji keeps its own colours. */
 .fx-icon {
-  flex: 0 0 auto;
+  flex: 0 0 16px;
+  width: 16px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
   color: var(--fg-muted);
-}
-
-.fx-dir .fx-icon {
-  color: var(--accent);
 }
 
 .fx-name {
   font-size: 12.5px;
+  color: var(--fg-strong);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -244,8 +248,8 @@
 .fx-meta {
   margin-left: auto;
   padding-left: 16px;
-  font-size: 11px;
-  color: var(--fg-faint);
+  font-size: 11.5px;
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -256,7 +260,18 @@
 /* Files the editor cannot open, and entries on the clipboard to be moved. */
 .fx-row.unopenable .fx-name,
 .fx-row.unopenable .fx-icon {
-  opacity: 0.45;
+  opacity: 0.6;
+}
+
+/* Indent guides: a 1px line per ancestor level, drawn from the row's top to
+ * its bottom so consecutive rows join into one line down the subtree. */
+.fx-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-strong);
+  pointer-events: none;
 }
 
 .fx-row.cut {
@@ -287,7 +302,7 @@
   padding: 0 4px;
   border: 0;
   background: transparent;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   font: inherit;
   font-size: 11.5px;
   text-align: left;

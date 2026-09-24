@@ -21,6 +21,12 @@ export type ListRow = Pick<DirectoryEntry, ListColumn>;
 
 // Built field by field so a new DirectoryEntry field never becomes a cell without
 // a column to draw it in.
+/** The row's icon: a folder that shows whether it is open, and a quiet dot for a file. */
+export function entryIcon(entry: { isDirectory: boolean; expanded: boolean }): string {
+  if (!entry.isDirectory) return '·';
+  return entry.expanded ? '📂' : '📁';
+}
+
 export function toListRow(entry: DirectoryEntry): ListRow {
   return { name: entry.name, modified: entry.modified, size: entry.size };
 }
