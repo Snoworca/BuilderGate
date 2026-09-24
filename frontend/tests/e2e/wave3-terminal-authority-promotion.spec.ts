@@ -49,7 +49,6 @@ interface LiveTerminal {
 
 const QUERY_DA1 = '\u001b[c';
 const REPLY_DA1 = '\u001b[?1;2c';
-const REPLY_DA1_CONPTY = '\u001b[?61;4c';
 const BROWSER_NATIVE_QUERY_PARITY_CASES = Object.freeze([
   {
     label: 'osc4-16',
@@ -358,28 +357,6 @@ function sameResponderIdentity(actual: unknown, expected: unknown): boolean {
   const actualRecord = actual as Record<string, unknown>;
   const expectedRecord = expected as Record<string, unknown>;
   return RESPONDER_IDENTITY_KEYS.every(key => actualRecord[key] === expectedRecord[key]);
-}
-
-async function waitForSnapshot(
-  harness: RoutedWebSocketHarness,
-  sessionId: string,
-  minimumGeneration = 1,
-): Promise<{ generation: number; snapshot: JsonFrame }> {
-  await expect.poll(() => harness.latest(
-    'server-to-page',
-    message => message.type === 'screen-snapshot' && message.sessionId === sessionId,
-  )?.generation ?? 0, {
-    message: 'E2E precondition failed: live server screen snapshot was not observed',
-    timeout: 20_000,
-  }).toBeGreaterThanOrEqual(minimumGeneration);
-  const frame = harness.latest(
-    'server-to-page',
-    message => message.type === 'screen-snapshot' && message.sessionId === sessionId,
-  );
-  if (!frame?.message) {
-    throw new Error('E2E precondition failed: live server screen snapshot disappeared');
-  }
-  return { generation: frame.generation, snapshot: frame.message };
 }
 
 async function waitForSessionReady(
