@@ -424,7 +424,8 @@ export function selectStatusBarView(state: FileJobStoreState): FileJobStatusBarV
     ? null
     : { workspaceId: waiting.workspaceId, jobId: waiting.jobId, label: AWAITING_LABEL };
   if (jobs.length === 1) {
-    const path = only.progress?.currentPath ?? null;
+    // Before any progress arrives, a job stopped on a question is about that file.
+    const path = only.progress?.currentPath ?? only.pending?.detail.path ?? null;
     return {
       kind: 'single',
       jobId: only.jobId,

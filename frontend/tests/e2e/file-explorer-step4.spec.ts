@@ -229,15 +229,40 @@ async function tearDownFixture(
   request: APIRequestContext, ownerId: string, record: FixtureRecord, apiCreationStarted: boolean,
 ): Promise<void> {
   const failures: unknown[] = [];
-  // The folder first: it is removed through the base session, which the
-  // workspace deletion ends. Exact absolute path only, never a pattern.
+  // Every tab of the owned workspace except the base one goes first: the work
+  // tab's shell has its cwd inside the test folder, and Windows refuses to
+  // remove a directory a live process sits in. Only tabs of the workspace this
+  // test created are touched.
+  if (record.token && record.workspaceId && record.baseSessionId) {
+    try {
+      const state = await readState(request, record.token);
+      const doomed = state.tabs.filter(tab =>
+        tab.workspaceId === record.workspaceId && tab.sessionId !== record.baseSessionId);
+      for (const tab of doomed) {
+        const response = await request.delete(
+          `${ORIGIN}/api/workspaces/${record.workspaceId}/tabs/${tab.id}`,
+          { headers: authHeaders(record.token) },
+        );
+        if (response.status() !== 200) throw new Error(`owned tab ${tab.id} delete returned ${response.status()}`);
+      }
+    } catch (error) { failures.push(error); }
+  }
+  // Then the folder, through the base session, which the workspace deletion
+  // ends. Exact absolute path only, never a pattern. The shell of a just-closed
+  // tab can take a moment to exit, so the same exact delete is retried briefly.
   if (record.token && record.baseSessionId && record.folder) {
     try {
-      const response = await request.delete(
-        `${ORIGIN}/api/sessions/${record.baseSessionId}/files?path=${encodeURIComponent(record.folder)}`,
-        { headers: authHeaders(record.token) },
-      );
-      if (response.status() !== 200) throw new Error(`test folder delete returned ${response.status()}`);
+      const statuses: number[] = [];
+      const deadline = Date.now() + 20000;
+      for (;;) {
+        const response = await request.delete(`${ORIGIN}/api/sessions/${record.baseSessionId}/files?path=${encodeURIComponent(record.folder)}`, { headers: authHeaders(record.token) });
+        statuses.push(response.status());
+        if (response.status() === 200) break;
+        if (Date.now() > deadline) {
+          throw new Error(`test folder delete of ${record.folder} kept failing: ${statuses.join(',')} ${await response.text()}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     } catch (error) { failures.push(error); }
   }
   if (apiCreationStarted) {
@@ -319,7 +344,26 @@ async function ensureMode(page: Page, mode: 'list' | 'tree'): Promise<void> {
   await expect(toggle).toHaveAttribute('aria-label', labelWhenInMode);
 }
 
+/**
+ * A right click delivered to `target` itself at a viewport point. Built in the
+ * page as a real MouseEvent: Playwright's locator.dispatchEvent has no mapping
+ * for 'contextmenu' and sends a bare Event, whose clientX/clientY are undefined,
+ * so the menu got NaN coordinates and was drawn outside the viewport.
+ */
+async function dispatchContextMenu(target: Locator, clientX: number, clientY: number): Promise<void> {
+  await target.evaluate((element, point) => {
+    element.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true, cancelable: true, button: 2, buttons: 2, clientX: point.x, clientY: point.y,
+    }));
+  }, { x: clientX, y: clientY });
+}
+
 async function closeContextMenu(page: Page): Promise<void> {
+  // The menu takes focus one frame after it is drawn. A synthetic right click
+  // never moves focus on its own, so an Escape pressed before that frame still
+  // lands in the terminal, whose xterm stops the key before the menu sees it.
+  await expect.poll(async () => page.evaluate(() =>
+    document.activeElement?.closest('.context-menu') !== null), { timeout: 5000 }).toBe(true);
   await page.keyboard.press('Escape');
   await expect(contextMenu(page)).toHaveCount(0);
 }
@@ -328,10 +372,7 @@ async function closeContextMenu(page: Page): Promise<void> {
 async function openEmptySpaceMenuOn(page: Page, rows: Locator): Promise<void> {
   const box = await rows.boundingBox();
   if (!box) throw new Error('rows container has no bounding box');
-  await rows.dispatchEvent('contextmenu', {
-    bubbles: true, cancelable: true, button: 2,
-    clientX: box.x + box.width / 2, clientY: box.y + box.height - 2,
-  });
+  await dispatchContextMenu(rows, box.x + box.width / 2, box.y + box.height - 2);
   await expect(contextMenu(page)).toBeVisible({ timeout: 5000 });
 }
 
@@ -411,10 +452,7 @@ async function openEditorWithPane(page: Page): Promise<void> {
   const host = editorWindow(page).locator('.editor-tab-bar-host');
   const box = await host.boundingBox();
   if (!box) throw new Error('editor tab bar host has no bounding box');
-  await host.dispatchEvent('contextmenu', {
-    bubbles: true, cancelable: true, button: 2,
-    clientX: box.x + box.width - 4, clientY: box.y + box.height / 2,
-  });
+  await dispatchContextMenu(host, box.x + box.width - 4, box.y + box.height / 2);
   await expect(contextMenu(page)).toBeVisible({ timeout: 5000 });
   await menuItem(page, '파일 트리').click();
   await expect(treePane(page)).toBeVisible({ timeout: 15000 });
@@ -610,7 +648,7 @@ test.describe('file explorer step 4 (browser-only acceptance criteria)', () => {
     const payload = 'x'.repeat(BIG_FILE_BYTES);
     const bigNames: string[] = [];
     for (let index = 0; index < BIG_COUNT; index += 1) {
-      const name = `big-${String(index).padStart(3, '0')}.bin`;
+      const name = `big-${String(index).padStart(3, '0')}.dat`;
       bigNames.push(name);
       await writeFile(request, token, baseSession, joinPath(big, name), payload);
     }
@@ -664,7 +702,10 @@ test.describe('file explorer step 4 (browser-only acceptance criteria)', () => {
     await expect(statusBar(page)).toBeVisible({ timeout: 15000 });
     const layersBefore = await page.locator('.window-dialog-layer').count();
 
-    await statusBar(page).locator('.fx-job-text').click();
+    // The bar itself, left of everything in it: while the job waits on a question
+    // no byte has moved, so the file-name span is empty (no height) and cannot
+    // take a click, and the awaiting button would open the window instead.
+    await statusBar(page).click({ position: { x: 3, y: 3 } });
     const popover = jobPopover(page);
     await expect(popover).toBeVisible({ timeout: 5000 });
     await expect(statusBar(page)).toHaveAttribute('aria-expanded', 'true');

@@ -201,6 +201,12 @@ test("TC-REQ-FR-FEX-008-AC4-01 selectStatusBarView: 1개는 {kind:'single', frac
   assert.ok(nullView.kind === 'single');
   assert.equal(nullView.currentFile, null);
 
+  // A job stopped on a question before any progress still names a file: the conflicting one.
+  const waiting = run(m, [started('w', WS_A), decision('w')]);
+  const waitingView = m.selectStatusBarView(waiting);
+  assert.ok(waitingView.kind === 'single');
+  assert.equal(waitingView.currentFile, 'a.txt', 'a job waiting on a question shows the file it asks about');
+
   // Counted across windows: the status bar is app-wide.
   const two = run(m, [started('job-2', WS_B)], one);
   const multiple = m.selectStatusBarView(two);
