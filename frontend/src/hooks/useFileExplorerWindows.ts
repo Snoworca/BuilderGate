@@ -64,6 +64,8 @@ const NEW_WINDOW_STATE: EditorWindowHidingState = {
  */
 export interface FileExplorerTabView extends FileExplorerTab {
   fallbackRoot: string;
+  /** The origin terminal tab's current name, '' when that tab is gone (#120). */
+  sessionTabName: string;
 }
 
 /** One window as the layer renders it. */
@@ -101,7 +103,7 @@ export interface FileExplorerWindowActions {
 
 export interface UseFileExplorerWindowsInput {
   workspaces: readonly Pick<Workspace, 'id' | 'activeTabId'>[];
-  tabs: readonly Pick<WorkspaceTabRuntime, 'id' | 'workspaceId' | 'sessionId' | 'cwd'>[];
+  tabs: readonly Pick<WorkspaceTabRuntime, 'id' | 'workspaceId' | 'sessionId' | 'cwd' | 'name'>[];
   resolveTabSession: (tabId: string) => string | undefined;
   screen: EditorWindowScreen;
   activeWorkspaceId: string | null;
@@ -394,11 +396,14 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     tabs: record.tabs.map((tab): FileExplorerTabView => {
       const sessionId = resolveTabSession(tab.originTabId) ?? tab.sessionId;
       const fallbackRoot = tabs.find((terminal) => terminal.sessionId === sessionId)?.cwd ?? '';
+      // Read live too: a terminal tab is renamed by the user or by its title.
+      const sessionTabName = tabs.find((terminal) => terminal.id === tab.originTabId)?.name ?? '';
       // The same object while nothing about this tab changed, so a memoized
       // panel of one tab does not re-render when another tab scrolls.
       const cached = viewCacheRef.current.get(tab);
-      if (cached !== undefined && cached.sessionId === sessionId && cached.fallbackRoot === fallbackRoot) return cached;
-      const view = { ...tab, sessionId, fallbackRoot };
+      if (cached !== undefined && cached.sessionId === sessionId && cached.fallbackRoot === fallbackRoot
+        && cached.sessionTabName === sessionTabName) return cached;
+      const view = { ...tab, sessionId, fallbackRoot, sessionTabName };
       viewCacheRef.current.set(tab, view);
       return view;
     }),

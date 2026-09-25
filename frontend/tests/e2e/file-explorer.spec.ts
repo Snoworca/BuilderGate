@@ -810,6 +810,8 @@ test.describe('file explorer (browser-only acceptance criteria)', () => {
     await expect(pathLabel).toHaveAttribute('title', workRoot, { timeout: 15000 });
     await expect(tabs).toHaveCount(2);
     await expect(rowNamed(page, 'alpha.md')).toBeVisible();
+    // #120: each explorer tab is named after the terminal tab it came from.
+    await expect(explorerWindow(page).locator('.fx-tab-label')).toHaveText([record.workTabName!, `${TAB_NAME_PREFIX}-base`]);
     await screenshot(page, 'second-terminal-own-tab');
   });
 

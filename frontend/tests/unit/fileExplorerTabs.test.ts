@@ -610,3 +610,31 @@ test('FR-FEX-010 AC-7 openFileExplorer 는 창을 새로 만들 때도, 이미 �
   assert.match(raise.slice(0, raiseEnd), /focusOrOpenSessionTab\(/, 'raising an open window must bring the requesting session\'s tab forward');
   assert.match(body.slice(body.indexOf('const initial')), /focusOrOpenSessionTab\(/, 'a window restored from storage must still show the requesting session');
 });
+
+/** @req FR-FEX-003 (#120) */
+test('#120 탐색기 탭 이름은 원래 터미널 탭 이름이고, 모르면 폴더 이름, 겹치면 이름 · 폴더', async () => {
+  const m = await import('../../src/components/fileExplorer/fileExplorerPathBarModel.ts');
+  assert.deepEqual(m.explorerTabLabels([
+    { sessionTabName: 'server', root: 'C:\\work\\api' },
+    { sessionTabName: 'docs', root: 'B:\\' },
+  ]), ['server', 'docs'], 'each tab takes its terminal tab name');
+  assert.deepEqual(m.explorerTabLabels([
+    { sessionTabName: '', root: 'C:\\work\\api' },
+    { sessionTabName: '   ', root: '/home/u/proj' },
+  ]), ['api', 'proj'], 'no terminal name: the folder name, as before');
+  assert.deepEqual(m.explorerTabLabels([
+    { sessionTabName: 'server', root: 'C:\\work\\api' },
+    { sessionTabName: 'server', root: 'C:\\work\\web' },
+    { sessionTabName: 'docs', root: 'B:\\' },
+  ]), ['server · api', 'server · web', 'docs'], 'the same terminal twice (after a cd) is told apart by folder');
+});
+
+/** @req FR-FEX-003 (#120) */
+test('#120 탭 막대는 explorerTabLabels 로 이름을 그리고, 창은 원래 터미널 탭 이름을 넘긴다', () => {
+  const bar = readFileSync(new URL('../../src/components/fileExplorer/FileExplorerTabBar.tsx', import.meta.url), 'utf8');
+  assert.match(bar, /explorerTabLabels\(/, 'labels come from explorerTabLabels');
+  assert.doesNotMatch(bar, /\{rootLabel\(root\)\}/, 'the folder name is no longer the label by itself');
+  const hook = readFileSync(new URL('../../src/hooks/useFileExplorerWindows.ts', import.meta.url), 'utf8');
+  assert.match(hook, /sessionTabName/, 'each tab view carries its terminal tab name');
+  assert.match(hook, /'id' \| 'workspaceId' \| 'sessionId' \| 'cwd' \| 'name'/, 'the hook reads terminal tab names');
+});

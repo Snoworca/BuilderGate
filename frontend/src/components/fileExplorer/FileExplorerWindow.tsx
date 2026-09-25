@@ -622,6 +622,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
           tabs={tabs}
           activeTabId={activeTab?.id ?? null}
           rootOf={(tab) => tab.tree.root}
+          sessionNameOf={(tab) => (tab as FileExplorerTabView).sessionTabName ?? ''}
           onSelect={(tabId) => {
             flushActiveAnchor();
             actions.selectTab(workspaceId, tabId);
