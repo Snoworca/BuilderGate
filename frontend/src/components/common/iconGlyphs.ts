@@ -15,7 +15,8 @@ export type IconName =
   | 'restore'
   | 'minimize'
   | 'document'
-  | 'close';
+  | 'close'
+  | 'sidebar';
 
 export interface IconGlyph {
   /** SVG path data on the 24x24 viewBox, drawn in order. */
@@ -78,6 +79,13 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
     paths: [
       'M6 6l12 12',
       'M18 6L6 18',
+    ],
+  },
+  // A window with a panel down its left side: the editor's file tree pane.
+  sidebar: {
+    paths: [
+      'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
+      'M9 3v18',
     ],
   },
 };

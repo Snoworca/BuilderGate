@@ -539,6 +539,16 @@ export function EditorWindow({
         disabled={activeTabClosed || activeTab === null}
         onClick={saveActive}
       />
+      {/* The file tree pane, also on the window menu (FR-MDE-012 AC-2/AC-3). The
+          menu alone was too hard to find. Disabled, with the reason as its
+          tooltip, when this document's terminal has no session or folder. */}
+      <IconToggleButton
+        pressed={paneMounted && !paneCollapsed}
+        icons={{ on: 'sidebar', off: 'sidebar' }}
+        label={paneMounted ? '파일 트리' : '파일 트리 — 이 문서의 터미널 세션을 찾을 수 없습니다'}
+        disabled={!paneMounted}
+        onToggle={() => setPaneOpen(paneCollapsed)}
+      />
       {/* One control for an axis with two ends, so the drawing says which end
           the window is at. Two separate buttons would have left that to the
           user to work out from the window itself. */}

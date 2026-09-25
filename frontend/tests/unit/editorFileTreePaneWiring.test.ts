@@ -1010,7 +1010,7 @@ test('TC-REQ-FR-MDE-012-AC4-02 창 메뉴가 buildEditorWindowContextMenu({paneO
 // AC-3 — closing
 // ---------------------------------------------------------------------------
 
-test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고 titlebarActions 에 패널 토글이 없다', () => {
+test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고, 제목 표시줄에 파일 트리 토글이 하나 있다(메뉴와 같은 동작)', () => {
   const { win, pane } = loadSide();
   const closers = openingTags(pane, 'IconButton').filter(tag => /닫기/.test(attrValue(pane, tag, 'label')?.code ?? ''));
   assert.equal(closers.length, 1, `${pane.path}: the pane head needs one IconButton labelled 닫기, found ${closers.length}`);
@@ -1019,14 +1019,25 @@ test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고 tit
   const tree = openingTags(pane, 'FileTreeView')[0];
   assert.ok(tree === undefined || closers[0].start < tree.start, `${where(pane, closers[0].start)}: the close button belongs to the head, above the tree`);
 
+  // AC-3 (changed 2026-09-25 at the user's request): the context menu alone was
+  // too hard to find, so the titlebar also carries a pane toggle. It does what the
+  // menu item does and is disabled, with its reason, when the pane cannot open.
   const actions = definitionOf(win, 'titlebarActions');
   assert.ok(actions !== null, `${win.path}: titlebarActions is gone`);
   const body = slice(win, actions);
-  assert.doesNotMatch(body.bare, /[A-Za-z_$]*(?:[Pp]ane|[Tt]ree)[\w$]*/, `${where(win, actions.start)}: the titlebar must not toggle the pane (AC-3)`);
   const icons = [...body.code.matchAll(/\bicon\s*=\s*['"]([\w-]+)['"]/g)].map(m => m[1]).sort();
-  assert.deepEqual(icons, ['minimize', 'save'], `${where(win, actions.start)}: the titlebar keeps save·maximize·minimize and nothing more`);
-  assert.equal(openingTags(win, 'IconToggleButton').filter(t => actions.start <= t.start && t.start < actions.end).length, 1,
-    `${where(win, actions.start)}: the only toggle in the titlebar is maximize`);
+  assert.deepEqual(icons, ['minimize', 'save'], `${where(win, actions.start)}: plain buttons stay save·minimize`);
+  const toggles = openingTags(win, 'IconToggleButton').filter(t => actions.start <= t.start && t.start < actions.end);
+  assert.equal(toggles.length, 2, `${where(win, actions.start)}: two toggles in the titlebar — the file tree and maximize`);
+  const paneToggle = toggles.filter(tag => /파일 트리/.test(attrValue(win, tag, 'label')?.code ?? ''));
+  assert.equal(paneToggle.length, 1, `${where(win, actions.start)}: one IconToggleButton labelled 파일 트리`);
+  const pressed = attrValue(win, paneToggle[0], 'pressed');
+  assert.ok(pressed !== null && /paneMounted/.test(pressed.bare) && /paneCollapsed/.test(pressed.bare),
+    `${where(win, paneToggle[0].start)}: it shows whether the pane is open, like the menu's check mark`);
+  const onToggle = handlersOnTag(win, paneToggle[0], 'onToggle');
+  assert.ok(onToggle !== null && /setPaneOpen\(/.test(onToggle.bare), `${where(win, paneToggle[0].start)}: it opens and closes through setPaneOpen, as the menu does`);
+  const disabled = attrValue(win, paneToggle[0], 'disabled');
+  assert.ok(disabled !== null && /paneMounted/.test(disabled.bare), `${where(win, paneToggle[0].start)}: disabled when the pane cannot open, instead of doing nothing`);
 });
 
 // ---------------------------------------------------------------------------

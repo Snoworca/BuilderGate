@@ -862,4 +862,33 @@ test.describe('file explorer step 4 (browser-only acceptance criteria)', () => {
     await openEmptySpaceMenuOn(page, paneRows);
     await expect(menuItem(page, '붙여넣기')).toHaveAttribute('aria-disabled', 'false');
   });
+  // FR-MDE-012 AC-2/AC-3 (2026-09-25): the titlebar toggle opens and closes the pane,
+  // and the window menu shows the same state.
+  test('제목 표시줄의 파일 트리 버튼으로 패널을 열고 닫고, 창 메뉴의 체크와 같은 상태다', async ({ page }) => {
+    await chooseFromSessionPathMenu(page, 'CLAUDE.md');
+    await expect(editorWindow(page)).toHaveCount(1, { timeout: 15000 });
+    await expect(editorContent(page)).toContainText('fixture body', { timeout: 15000 });
+    const toggle = editorWindow(page).locator('.editor-window-actions button[aria-label="파일 트리"]');
+    await expect(toggle).toBeEnabled();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(treePane(page)).toHaveCount(0);
+
+    await toggle.click();
+    await expect(treePane(page)).toBeVisible({ timeout: 15000 });
+    await expect(paneRow(page, 'alpha.md')).toBeVisible({ timeout: 15000 });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    // The window menu reads the same state: its item carries the check mark now.
+    const host = editorWindow(page).locator('.editor-tab-bar-host');
+    const box = await host.boundingBox();
+    if (!box) throw new Error('editor tab bar host has no bounding box');
+    await dispatchContextMenu(host, box.x + box.width - 4, box.y + box.height / 2);
+    await expect(menuItem(page, '파일 트리')).toContainText('✓');
+    await page.keyboard.press('Escape');
+
+    await toggle.click();
+    await expect(treePane(page)).toBeHidden();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await screenshot(page, 'titlebar-pane-toggle');
+  });
 });
