@@ -53,6 +53,8 @@ export interface EditorFileTreePaneProps {
   isMobile: boolean;
   /** The width the window decided to draw it at. */
   style: CSSProperties;
+  /** Files open in the editor, drawn bold (openFileKeys). */
+  openFileKeys?: ReadonlySet<string>;
   onClose: () => void;
   onOpenFile: (filePath: string) => void;
 }
@@ -71,6 +73,7 @@ export function EditorFileTreePane({
   style,
   onClose,
   onOpenFile,
+  openFileKeys,
 }: EditorFileTreePaneProps) {
   // The pane's own header sort (not stored): the explorer window's tabs keep theirs.
   const [sort, setSort] = useState<ListSort | null>(null);
@@ -151,7 +154,7 @@ export function EditorFileTreePane({
         <IconButton icon="close" label="닫기" onClick={() => onClose()} />
       </div>
       <div className="fx-scroll">
-        <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={onOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={sort} onSortChange={setSort} />
+        <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={onOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={sort} onSortChange={setSort} openFileKeys={openFileKeys} />
       </div>
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
       <FileExplorerWindowModal modal={paneModal} />

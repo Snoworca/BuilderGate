@@ -877,6 +877,11 @@ test.describe('file explorer step 4 (browser-only acceptance criteria)', () => {
     await expect(treePane(page)).toBeVisible({ timeout: 15000 });
     await expect(paneRow(page, 'alpha.md')).toBeVisible({ timeout: 15000 });
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    // The document open in this editor is drawn bold in the pane; the others are not.
+    await expect(paneRow(page, 'CLAUDE.md')).toHaveClass(/\bis-open\b/);
+    await expect(paneRow(page, 'alpha.md')).not.toHaveClass(/\bis-open\b/);
+    const weight = await paneRow(page, 'CLAUDE.md').locator('.fx-name').evaluate(element => getComputedStyle(element).fontWeight);
+    expect(Number(weight), 'the open file reads bold').toBeGreaterThanOrEqual(600);
     // Open the bulk folder so the pane scrolls: its scrollbar should match the white pane.
     await paneRow(page, 'bulk').dblclick();
     await expect(treePane(page).locator('.fx-row[data-depth="1"]').first()).toBeVisible({ timeout: 15000 });

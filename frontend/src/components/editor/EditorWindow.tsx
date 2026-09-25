@@ -176,6 +176,8 @@ export interface EditorWindowProps {
    * @req FR-MDE-012
    */
   onOpenFile: (filePath: string, tabId: string) => void;
+  /** Files open in the editor, which the file tree pane draws bold. */
+  openFileKeys?: ReadonlySet<string>;
 }
 
 /** A drag of the pane's splitter, from pointerdown to its end. */
@@ -217,6 +219,7 @@ export function EditorWindow({
   onDirtyChange,
   resolveTabCwd,
   onOpenFile,
+  openFileKeys,
 }: EditorWindowProps) {
   const actionsRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
@@ -599,6 +602,7 @@ export function EditorWindow({
             style={{ width: paneRenderWidth }}
             onClose={closePane}
             onOpenFile={handlePaneOpenFile}
+            openFileKeys={openFileKeys}
           />
         )}
         {paneMounted && !paneCollapsed && !isMobile && (

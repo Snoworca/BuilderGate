@@ -309,3 +309,26 @@ test('decideRowClick: targetPart \'expander\' → toggle-expand 만(선택 변�
   assert.deepEqual(decideRowClick({ targetPart: 'row', mode: 'tree', isDir: false, mods: { ctrl: true, shift: false } }), { type: 'select', mods: { ctrl: true, shift: false } });
   assert.deepEqual(decideRowClick({ targetPart: 'row', mode: 'list', isDir: true, mods: { ctrl: false, shift: true } }), { type: 'select', mods: { ctrl: false, shift: true } });
 });
+
+test('편집기에 열린 파일은 is-open — 경로 표기(구분자·끝 슬래시·Windows 대소문자)가 달라도 같은 파일이다', async () => {
+  const m = await import('../../src/components/fileExplorer/fileRowInteraction.ts');
+  const s = await import('../../src/components/fileExplorer/fileTreeState.ts');
+  const open = s.openFileKeys(['C:\\work\\docs\\README.md', '/home/u/notes.md']);
+  const row = (path: string, type: 'file' | 'directory' = 'file') => ({ kind: 'node' as const, path, name: path.split(/[\\/]/).pop()!, type, depth: 0 });
+  assert.equal(m.openRowClass(row('C:\\work\\docs\\README.md'), open), ' is-open');
+  assert.equal(m.openRowClass(row('c:/work/docs/readme.md'), open), ' is-open', 'Windows paths compare case-insensitively, either separator');
+  assert.equal(m.openRowClass(row('/home/u/notes.md'), open), ' is-open');
+  assert.equal(m.openRowClass(row('/home/u/Notes.md'), open), '', 'POSIX paths are case-sensitive');
+  assert.equal(m.openRowClass(row('C:\\work\\docs\\other.md'), open), '');
+  assert.equal(m.openRowClass(row('C:\\work\\docs', 'directory'), open), '', 'a folder is never an open document');
+  assert.equal(m.openRowClass(row('C:\\work\\docs\\README.md'), undefined), '', 'no set, nothing marked');
+});
+
+test('두 뷰가 행 className 에 openRowClass 를 붙이고 CSS 가 열린 파일 이름을 굵게 그린다', () => {
+  for (const file of ['FileTreeView.tsx', 'FileListView.tsx']) {
+    const source = readFileSync(new URL(`../../src/components/fileExplorer/${file}`, import.meta.url), 'utf8');
+    assert.match(source, /rowRenderClass\(row, clipboard\)\}\$\{openRowClass\(/, `${file}: rows carry openRowClass`);
+  }
+  const css = readFileSync(new URL('../../src/components/fileExplorer/FileExplorer.css', import.meta.url), 'utf8');
+  assert.match(css, /\.fx-row\.is-open \.fx-name\s*\{[^}]*font-weight:\s*(?:600|700|bold)/, 'open files are bold');
+});

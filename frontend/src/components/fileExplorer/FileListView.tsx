@@ -11,6 +11,7 @@ import {
   decideRowPointer,
   resolveContextMenuTarget,
   rowRenderClass,
+  openRowClass,
   type ExplorerClipboard,
   type NodeRow,
 } from './fileRowInteraction.ts';
@@ -27,11 +28,13 @@ export interface FileListViewProps {
   onOpenFile: (filePath: string) => void;
   onOpenMenu?: (request: FileExplorerMenuRequest) => void;
   renaming?: FileRowRename | null;
+  /** Files open in the editor (openFileKeys), drawn bold. */
+  openFileKeys?: ReadonlySet<string>;
 }
 
 // @req FR-FEX-002
 // @req FR-FEX-011
-export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null }: FileListViewProps) {
+export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null, openFileKeys }: FileListViewProps) {
   // Sorting a large directory on every render (each selection click, each
   // clipboard change) is the cost this saves. The rows depend only on the
   // root's listing entry and the sort, and a listing entry is replaced, never
@@ -141,7 +144,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
           return (
             <div
               key={row.path}
-              className={`fx-row fx-list-row ${entry.type === 'directory' ? 'fx-dir' : 'fx-file'} ${rowRenderClass(row, clipboard)}`}
+              className={`fx-row fx-list-row ${entry.type === 'directory' ? 'fx-dir' : 'fx-file'} ${rowRenderClass(row, clipboard)}${openRowClass(row, openFileKeys)}`}
               role="row"
               aria-selected={tree.state.selectedPaths.has(row.path)}
               data-path={row.path}

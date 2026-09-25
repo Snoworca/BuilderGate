@@ -42,6 +42,7 @@ import {
   listFileExplorerTrayEntries,
 } from './components/fileExplorer/fileExplorerTrayModel';
 import { FileJobStatusBar } from './components/fileExplorer/FileJobStatusBar';
+import { openFileKeys } from './components/fileExplorer/fileTreeState';
 import { useFileJobStoreSync } from './hooks/useFileJobStoreSync';
 import type { ContextMenuItem } from './components/ContextMenu/ContextMenu';
 import { useWindowState } from './hooks/useWindowState';
@@ -659,6 +660,12 @@ function AppContent() {
     windowState,
     onOpenFileExplorer: openTabFileExplorer,
   });
+  // Files open in the editor, which the explorer and the editor's tree pane draw
+  // bold. A new set only when a document opens or closes.
+  const openEditorFileKeys = useMemo(
+    () => openFileKeys(editor.documents.map((document) => document.filePath)),
+    [editor.documents],
+  );
 
   // The header tray lists explorer windows after the editor's documents, one row
   // per window, so a minimized explorer has a way back. The list is keyed on the
@@ -885,6 +892,7 @@ function AppContent() {
                         onDirtyChange={editor.setWindowDirty}
                         resolveTabCwd={resolveTabCwd}
                         onOpenFile={editor.openDocument}
+                        openFileKeys={openEditorFileKeys}
                       />
                     )}
                   />
@@ -900,6 +908,7 @@ function AppContent() {
                       placement={explorerWindow.placement}
                       actions={explorer.actions}
                       onOpenFile={editor.openDocument}
+                      openFileKeys={openEditorFileKeys}
                     />
                   ))}
                 </TerminalRuntimeProvider>

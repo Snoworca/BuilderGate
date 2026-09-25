@@ -278,6 +278,11 @@
   text-overflow: ellipsis;
 }
 
+/* A file open in the editor reads bold in the tree and the list. */
+.fx-row.is-open .fx-name {
+  font-weight: 600;
+}
+
 .fx-meta {
   margin-left: auto;
   padding-left: 16px;

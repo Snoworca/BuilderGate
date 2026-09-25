@@ -18,6 +18,7 @@ import {
   decideRowPointer,
   resolveContextMenuTarget,
   rowRenderClass,
+  openRowClass,
   type ExplorerClipboard,
   type NodeRow,
 } from './fileRowInteraction.ts';
@@ -59,12 +60,14 @@ export interface FileTreeViewProps {
   /** The header sort, shared with list mode through the tab; null keeps the server's order. */
   sort?: ListSort | null;
   onSortChange?: (sort: ListSort) => void;
+  /** Files open in the editor (openFileKeys), drawn bold. */
+  openFileKeys?: ReadonlySet<string>;
 }
 
 // @req FR-FEX-002
 // @req FR-FEX-011
 export function FileTreeView({
-  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange,
+  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange, openFileKeys,
 }: FileTreeViewProps) {
   // Each directory's listing is sorted once per sort, not on every selection
   // click: a listing is replaced on reload, never mutated, so it keys the cache.
@@ -197,7 +200,7 @@ export function FileTreeView({
         return (
           <div
             key={row.path}
-            className={`fx-row ${isDir ? 'fx-dir' : 'fx-file'} ${rowRenderClass(row, clipboard)}`}
+            className={`fx-row ${isDir ? 'fx-dir' : 'fx-file'} ${rowRenderClass(row, clipboard)}${openRowClass(row, openFileKeys)}`}
             role="treeitem"
             aria-selected={tree.state.selectedPaths.has(row.path)}
             aria-expanded={isDir ? expanded : undefined}

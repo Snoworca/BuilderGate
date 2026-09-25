@@ -119,6 +119,8 @@ export interface FileExplorerWindowProps {
    * the editor opens it, bound to the terminal tab the explorer tab came from.
    */
   onOpenFile: (filePath: string, tabId: string) => void;
+  /** Files open in the editor, drawn bold (openFileKeys). */
+  openFileKeys?: ReadonlySet<string>;
 }
 
 interface FileExplorerTabPanelProps {
@@ -132,9 +134,10 @@ interface FileExplorerTabPanelProps {
   registerCommands: RegisterPanelCommands;
   /** The window's one modal: every tab asks its delete and job questions here. */
   windowModal: FileExplorerWindowModalState;
+  openFileKeys?: ReadonlySet<string>;
 }
 
-const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, tab, active, hidden, actions, onOpenFile, registerCommands, windowModal }: FileExplorerTabPanelProps) {
+const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, tab, active, hidden, actions, onOpenFile, registerCommands, windowModal, openFileKeys }: FileExplorerTabPanelProps) {
   // The root the tree lists from. It follows navigation, so a session change
   // (a terminal restart rebuilds the tree's controller, which lists this root
   // again) keeps the directory the user is in rather than the one the tab
@@ -379,9 +382,10 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
               onOpenFile={handleOpenFile}
               onOpenMenu={setMenu}
               renaming={ops.rowRename}
+              openFileKeys={openFileKeys}
             />
           )
-          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} />}
+          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} openFileKeys={openFileKeys} />}
       </div>
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
       {isMobile && (
@@ -428,7 +432,7 @@ function useStageRect(active: boolean): DialogRect | null {
 }
 
 // @req FR-FEX-003
-export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, placement, actions, onOpenFile }: FileExplorerWindowProps) {
+export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, placement, actions, onOpenFile, openFileKeys }: FileExplorerWindowProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const maximized = placement === 'stage';
   const stageRect = useStageRect(maximized && !hidden);
@@ -644,6 +648,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
             onOpenFile={onOpenFile}
             registerCommands={registerPanelCommands}
             windowModal={windowModal}
+            openFileKeys={openFileKeys}
           />
         ))}
         <FileExplorerProgressRow workspaceId={workspaceId} />

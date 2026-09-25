@@ -137,6 +137,18 @@ function isWindowsPathSyntax(path: string): boolean {
 
 // Windows paths compare with one separator and case-folded (NTFS is
 // case-insensitive for the user); POSIX paths compare as spelled.
+/** One spelling per file: separators and a trailing slash unified, Windows paths case-folded. */
+export function pathKey(path: string): string {
+  return comparablePath(path).key;
+}
+
+/** The files open in the editor, keyed for a per-row lookup in the explorer. */
+export function openFileKeys(paths: Iterable<string>): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const path of paths) keys.add(pathKey(path));
+  return keys;
+}
+
 function comparablePath(path: string): { key: string; separator: string } {
   if (isWindowsPathSyntax(path)) {
     return { key: stripTrailingSeparators(path.replace(/\//g, '\\')).toLowerCase(), separator: '\\' };

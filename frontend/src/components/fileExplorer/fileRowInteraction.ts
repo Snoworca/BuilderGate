@@ -4,7 +4,7 @@
 // the components only translate events into these inputs and dispatch the result.
 import { isViewableExtension } from '../../utils/viewableExtensions.ts';
 import { cutPathsOf } from './fileExplorerClipboard.ts';
-import type { FileTreeMode, RowClickModifiers, VisibleRow } from './fileTreeState.ts';
+import { pathKey, type FileTreeMode, type RowClickModifiers, type VisibleRow } from './fileTreeState.ts';
 
 export type NodeRow = Extract<VisibleRow, { kind: 'node' }>;
 
@@ -60,6 +60,12 @@ export function decideDoubleClick(row: NodeRow, mode: FileTreeMode): DoubleClick
     return mode === 'list' ? { type: 'enter', path: row.path } : { type: 'toggle-expand', path: row.path };
   }
   return isOpenableFile(row.name) ? { type: 'open-editor', path: row.path } : { type: 'noop' };
+}
+
+/** ' is-open' when the row's file is open in the editor, so its name is drawn bold. */
+export function openRowClass(row: NodeRow, openKeys: ReadonlySet<string> | undefined): string {
+  if (row.type !== 'file' || openKeys === undefined || openKeys.size === 0) return '';
+  return openKeys.has(pathKey(row.path)) ? ' is-open' : '';
 }
 
 export function rowRenderClass(row: NodeRow, clipboard: ExplorerClipboard | null): string {
