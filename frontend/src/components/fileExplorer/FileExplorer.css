@@ -179,6 +179,40 @@
   user-select: none;
 }
 
+/* Scrollbars take the surface's own line colour, so the editor's white pane
+ * gets a light grey bar and the dark explorer window a dark grey one, and stay
+ * thin. The ::-webkit-scrollbar family states the thickness: in Chromium the
+ * standard scrollbar-color would switch those styles off (see EditorWindow.css),
+ * so the standard pair is only for browsers without it. */
+.fx-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.fx-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fx-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--r-sm);
+}
+
+.fx-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-faint);
+}
+
+.fx-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .fx-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
 .fx-row {
   display: flex;
   align-items: center;

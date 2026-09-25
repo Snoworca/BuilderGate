@@ -287,3 +287,20 @@ test('트리 머리글도 누르면 정렬된다 — 목록과 같은 nextSort·
   assert.match(win, /<FileTreeView[^>]*sort=\{tab\.sort\}[^>]*onSortChange=\{handleSortChange\}/, 'the tree uses the tab\'s stored sort, shared with list mode');
   assert.doesNotMatch(win, /mode === 'list' \? tab\.sort : null/, 'scroll restore reads the same order the tree draws');
 });
+
+test('탐색기 스크롤바는 표면 토큰 색을 따르고 6px 이하로 얇다(흰 패널에 검은 스크롤바가 붙지 않는다)', () => {
+  const css = readFileSync(new URL('../../src/components/fileExplorer/FileExplorer.css', import.meta.url), 'utf8');
+  const rule = (selector: string) => {
+    const match = new RegExp(`\\.fx-scroll::-webkit-scrollbar${selector}\\s*\\{([^}]*)\\}`).exec(css);
+    assert.ok(match, `.fx-scroll::-webkit-scrollbar${selector} rule`);
+    return match[1];
+  };
+  const bar = rule('');
+  const width = /width:\s*(\d+)px/.exec(bar);
+  assert.ok(width && Number(width[1]) <= 6, 'thin: 6px or less');
+  assert.match(bar, /height:\s*\d+px/, 'the horizontal bar is as thin');
+  assert.match(rule('-thumb'), /background:\s*var\(--line-strong\)/, 'the thumb takes the surface\'s own line colour (light on paper, dark on chrome)');
+  assert.match(rule('-track'), /background:\s*transparent/, 'no dark track behind a white pane');
+  // Browsers without ::-webkit-scrollbar (Firefox) get the standard properties.
+  assert.match(css, /@supports not selector\(::-webkit-scrollbar\)\s*\{[^@]*\.fx-scroll\s*\{[^}]*scrollbar-width:\s*thin[^}]*scrollbar-color:\s*var\(--line-strong\) transparent/);
+});
