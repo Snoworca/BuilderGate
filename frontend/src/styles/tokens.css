@@ -71,6 +71,68 @@
   /* Density. 28px is what a finger can land on; the requirement that the file
    * explorer work on a phone is what sets it. */
   --row-h: 28px;
+
+  /* ---- CON-UIDS-001: the scales every component draws from ---- */
+
+  /* Type. Six whole-pixel steps; a half pixel blurs at 100% on Windows. 13px is
+   * the body size. */
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 18px;
+  --fw-regular: 400;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --font-sans: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --font-mono: 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+
+  /* Spacing, on a 4px grid. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* Control heights: rows and small buttons, inputs and icon buttons, dialog
+   * buttons, and the least a finger may be given on a phone. */
+  --ctl-sm: 28px;
+  --ctl-md: 32px;
+  --ctl-lg: 36px;
+  --ctl-touch: 44px;
+
+  /* Icon edges. One stroke width (2) for all of them. */
+  --icon-sm: 16px;
+  --icon-md: 18px;
+  --icon-lg: 20px;
+
+  /* The fourth radius: fully round ends for chips and pills. */
+  --r-pill: 999px;
+
+  /* ---- NFR-UIDS-001 AC-5: meaning colours for text on the dark chrome ----
+   * Measured 2026-09-26 on #2b2b2b: accent-text 6.6:1, ok-text 6.4:1,
+   * warn-text 7.3:1, danger-text 6.0:1. --danger itself is 3.95:1 and is not
+   * used for small text; white on --danger-fill is 4.6:1. */
+  --accent-hover: #106ebe;
+  --accent-text: #6cb6ff;
+  --accent-tint: rgba(0, 120, 212, 0.18);
+  --ok-text: #4cc38a;
+  --ok-tint: rgba(76, 195, 138, 0.14);
+  --warn-text: #e2b451;
+  --warn-tint: rgba(216, 165, 52, 0.14);
+  --danger-text: #ec8f8f;
+  --danger-fill: #c94a4a;
+  --danger-fill-hover: #b33b3b;
+  --danger-tint: rgba(224, 92, 92, 0.14);
+
+  /* Sunken wells (inputs, code) and the overlay a dialog floats on. */
+  --bg-sunken: #1e1e1e;
+  --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.55);
+  --shadow-popover: 0 10px 28px rgba(0, 0, 0, 0.5);
+  --focus-ring: 0 0 0 2px var(--accent);
 }
 
 /* For people who would rather see more rows than hit them accurately. */
@@ -95,4 +157,12 @@
   --line: #e3e3e3;
   --line-strong: #cdcdcd;
   --shadow-overlay: 2px 0 8px rgba(0, 0, 0, 0.18);
+
+  /* Meaning colours for text on white: the dark-surface values fall under
+   * 3:1 here, so each is re-bound darker (all at or above 4.5:1 on #fbfbfb). */
+  --accent-text: #0a5ea8;
+  --ok-text: #1b7a50;
+  --warn-text: #8a5d00;
+  --danger-text: #b3261e;
+  --bg-sunken: #ffffff;
 }

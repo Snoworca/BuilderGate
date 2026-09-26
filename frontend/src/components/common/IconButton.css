@@ -1,22 +1,32 @@
-/* The shared look of an icon-faced button. Sized so the 16px glyph sits on a
- * square target rather than inheriting whatever line box surrounds it. */
+/* The shared look of an icon-faced button (FR-UIDS-001, FR-UIDS-002).
+ * Sized so the glyph sits on a square target rather than inheriting whatever
+ * line box surrounds it. The compact 22px face stays for dense title bars; the
+ * header and toolbars use `.icon-button-md` (--ctl-md). */
 .icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 22px;
   height: 22px;
   padding: 0;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   cursor: pointer;
   line-height: 0;
 }
 
+.icon-button-md {
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  color: var(--fg-muted);
+}
+
 .icon-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--bg-hover);
+  color: var(--fg-strong);
 }
 
 .icon-button:disabled {
@@ -25,11 +35,13 @@
 }
 
 .icon-button:focus-visible {
-  outline: 2px solid var(--accent, #4a9eff);
-  outline-offset: 1px;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* A pressed toggle reads as held down rather than merely hovered. */
-.icon-toggle-button.is-pressed {
-  background: rgba(255, 255, 255, 0.18);
+.icon-toggle-button.is-pressed,
+.icon-button.is-active {
+  background: var(--bg-active);
+  color: var(--fg-strong);
 }
