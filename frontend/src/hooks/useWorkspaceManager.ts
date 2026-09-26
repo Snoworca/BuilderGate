@@ -11,12 +11,7 @@ import {
   suppressMosaicLayoutSaveForWorkspace,
 } from './mosaicLayoutStorage';
 import { resolveActiveWorkspaceAfterRemoval } from './workspaceActiveSelection';
-import {
-  restoreRemovedGridLayouts,
-  restoreRemovedTabs,
-  restoreRemovedWorkspace,
-  snapshotWorkspaceRemoval,
-} from './workspaceRemoval';
+import { isWorkspaceAlreadyDeletedError } from '../components/Workspace/workspaceDeleteFlow';
 import {
   applyMoveTabResultToTabs,
   applyTabReorderResultToTabs,
@@ -143,6 +138,13 @@ function getErrorMessage(error: unknown): string {
 // Hook Return Type
 // ============================================================================
 
+export interface DeleteWorkspaceOptions {
+  /** The removal waits for this too (the dialog's minimum loading time). */
+  holdUntil?: Promise<unknown>;
+  /** Called in the same synchronous block as the removal, so both land in one commit. */
+  onRemoved?: () => void;
+}
+
 export interface UseWorkspaceManagerReturn {
   // State
   limits: WorkspaceLimits;
@@ -161,7 +163,8 @@ export interface UseWorkspaceManagerReturn {
   setActiveWorkspaceId: (id: string) => void;
   createWorkspace: (name?: string) => Promise<void>;
   updateWorkspace: (id: string, updates: Partial<Workspace>) => Promise<void>;
-  deleteWorkspace: (id: string) => Promise<void>;
+  /** Resolves once the workspace is off the screen; rejects with the server's error. */
+  deleteWorkspace: (id: string, options?: DeleteWorkspaceOptions) => Promise<void>;
   reorderWorkspaces: (workspaceIds: string[]) => Promise<void>;
 
   // Tab CRUD
@@ -428,12 +431,21 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     }
   }, []);
 
-  const deleteWorkspace = useCallback(async (id: string) => {
-    // PERF-BGSTAB-015 AC-2/AC-3: the workspace leaves the screen at once, since
-    // the server takes seconds to close its terminals, and comes back as it was
-    // if the server refuses.
-    const removal = snapshotWorkspaceRemoval(workspaces, tabs, gridLayouts, id, activeWorkspaceIdRef.current);
+  const deleteWorkspace = useCallback(async (id: string, options?: DeleteWorkspaceOptions) => {
+    // FR-UIDS-006 AC-2: nothing leaves the screen until the server answered;
+    // a failure goes to the dialog.
     suppressMosaicLayoutSaveForWorkspace(id);
+    try {
+      await workspaceApi.delete(id);
+    } catch (err: unknown) {
+      if (!isWorkspaceAlreadyDeletedError(err)) {
+        releaseMosaicLayoutSaveSuppression(id);
+        throw err;
+      }
+    }
+    await options?.holdUntil;
+    const removedTabs = tabsRef.current.filter(t => t.workspaceId === id);
+    clearMosaicLayoutForWorkspace(id);
     setWorkspaces(prev => {
       const next = prev.filter(w => w.id !== id);
       const nextActiveWorkspaceId = resolveActiveWorkspaceAfterRemoval(
@@ -448,21 +460,9 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     });
     setTabs(prev => prev.filter(t => t.workspaceId !== id));
     setGridLayouts(prev => prev.filter(g => g.workspaceId !== id));
-    try {
-      await workspaceApi.delete(id);
-      clearMosaicLayoutForWorkspace(id);
-      clearWorkspaceSnapshots(removal.tabs, id);
-    } catch (err: unknown) {
-      releaseMosaicLayoutSaveSuppression(id);
-      setWorkspaces(prev => restoreRemovedWorkspace(prev, removal));
-      setTabs(prev => restoreRemovedTabs(prev, removal));
-      setGridLayouts(prev => restoreRemovedGridLayouts(prev, removal));
-      if (removal.wasActive) {
-        setActiveWorkspaceIdAndPersist(id);
-      }
-      setError(getErrorMessage(err));
-    }
-  }, [gridLayouts, setActiveWorkspaceIdAndPersist, tabs, workspaces]);
+    clearWorkspaceSnapshots(removedTabs, id);
+    options?.onRemoved?.();
+  }, [setActiveWorkspaceIdAndPersist]);
 
   const reorderWorkspaces = useCallback(async (workspaceIds: string[]) => {
     try {

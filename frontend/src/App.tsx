@@ -26,6 +26,17 @@ import {
   DisconnectedOverlay,
   WorkspaceMoveDialog,
 } from './components/Workspace';
+import {
+  WORKSPACE_DELETE_MIN_BUSY_MS,
+  WORKSPACE_DELETE_SLOW_AFTER_MS,
+  canDismissWorkspaceDelete,
+  failWorkspaceDelete,
+  markWorkspaceDeleteSlow,
+  openWorkspaceDelete,
+  startWorkspaceDelete,
+  workspaceDeleteDialogProps,
+  type WorkspaceDeleteState,
+} from './components/Workspace/workspaceDeleteFlow';
 import { MosaicContainer } from './components/Grid';
 import { MetadataRow } from './components/MetadataBar/MetadataRow';
 import { EditorWindowLayer, EDITOR_WINDOW_WAITING_RECT } from './components/editor/EditorWindowLayer';
@@ -196,7 +207,11 @@ function AppContent() {
   // ============================================================================
   // Confirm modal state
   // ============================================================================
-  const [pendingDeleteWorkspace, setPendingDeleteWorkspace] = useState<string | null>(null);
+  // FR-UIDS-006: the delete confirmation and its loading/error states.
+  const [workspaceDelete, setWorkspaceDelete] = useState<WorkspaceDeleteState | null>(null);
+  const workspaceDeleteRef = useRef<WorkspaceDeleteState | null>(null);
+  workspaceDeleteRef.current = workspaceDelete;
+  const workspaceDeleteInFlightRef = useRef(false);
   const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
   const [pendingWorkspaceMove, setPendingWorkspaceMove] = useState<{
     sourceWorkspaceId: string;
@@ -214,21 +229,44 @@ function AppContent() {
   }, [isMobile, closeSidebar]);
 
   const handleDeleteWorkspace = useCallback((id: string) => {
-    const tabs = wmRef.current.tabs.filter(t => t.workspaceId === id);
-    if (tabs.length > 0) {
-      setPendingDeleteWorkspace(id);
-    } else {
-      wmRef.current.deleteWorkspace(id);
+    const tabCount = wmRef.current.tabs.filter(t => t.workspaceId === id).length;
+    if (tabCount > 0) {
+      setWorkspaceDelete(openWorkspaceDelete(id, tabCount));
+      return;
     }
+    // No terminals to close, so no dialog; a failure still has to show.
+    if (workspaceDeleteInFlightRef.current) return;
+    workspaceDeleteInFlightRef.current = true;
+    wmRef.current.deleteWorkspace(id)
+      .catch((err: unknown) => setWorkspaceDelete(failWorkspaceDelete(openWorkspaceDelete(id, 0), err)))
+      .finally(() => { workspaceDeleteInFlightRef.current = false; });
   }, []);
 
-  const handleConfirmDeleteWorkspace = useCallback(() => {
-    if (!pendingDeleteWorkspace) return;
-    // PERF-BGSTAB-015 AC-2: the dialog closes at once; the workspace leaves the
-    // screen before the server has closed its terminals.
-    setPendingDeleteWorkspace(null);
-    void wmRef.current.deleteWorkspace(pendingDeleteWorkspace);
-  }, [pendingDeleteWorkspace]);
+  const handleConfirmDeleteWorkspace = useCallback(async () => {
+    const current = workspaceDeleteRef.current;
+    if (!current || workspaceDeleteInFlightRef.current) return;
+    const next = startWorkspaceDelete(current);
+    if (!next) return;
+    workspaceDeleteInFlightRef.current = true;
+    workspaceDeleteRef.current = next;
+    setWorkspaceDelete(next);
+    const hold = new Promise<void>(resolve => window.setTimeout(resolve, WORKSPACE_DELETE_MIN_BUSY_MS));
+    const slowTimer = window.setTimeout(
+      () => setWorkspaceDelete(state => (state ? markWorkspaceDeleteSlow(state) : state)),
+      WORKSPACE_DELETE_SLOW_AFTER_MS,
+    );
+    try {
+      await wmRef.current.deleteWorkspace(next.workspaceId, {
+        holdUntil: hold,
+        onRemoved: () => setWorkspaceDelete(null),
+      });
+    } catch (err: unknown) {
+      setWorkspaceDelete(state => (state ? failWorkspaceDelete(state, err) : state));
+    } finally {
+      window.clearTimeout(slowTimer);
+      workspaceDeleteInFlightRef.current = false;
+    }
+  }, []);
 
   const handleRenameWorkspace = useCallback((id: string, name: string) => {
     wmRef.current.updateWorkspace(id, { name });
@@ -638,13 +676,6 @@ function AppContent() {
       />
     );
   }, []);
-
-  // ============================================================================
-  // Pending delete info
-  // ============================================================================
-  const pendingDeleteTabCount = pendingDeleteWorkspace
-    ? wm.tabs.filter(t => t.workspaceId === pendingDeleteWorkspace).length
-    : 0;
 
   // ============================================================================
   // Render
@@ -1071,14 +1102,13 @@ function AppContent() {
       )}
 
       {/* Confirm delete workspace */}
-      {pendingDeleteWorkspace && (
+      {workspaceDelete && (
         <ConfirmModal
-          title="Workspace 삭제"
-          message={`터미널 ${pendingDeleteTabCount}개가 모두 종료됩니다. 이 Workspace를 삭제할까요?`}
-          confirmLabel="모두 삭제"
+          {...workspaceDeleteDialogProps(workspaceDelete)}
           destructive
-          onConfirm={handleConfirmDeleteWorkspace}
-          onCancel={() => setPendingDeleteWorkspace(null)}
+          initialFocus="cancel"
+          onConfirm={() => { void handleConfirmDeleteWorkspace(); }}
+          onCancel={() => { if (canDismissWorkspaceDelete(workspaceDelete)) setWorkspaceDelete(null); }}
         />
       )}
     </div>

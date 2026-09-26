@@ -16,6 +16,7 @@ export {
 export { DialogHeader, DialogBody, DialogFooter, type DialogHeaderProps, type DialogFooterProps } from './DialogParts.tsx';
 export { SelectableRow, type SelectableRowProps } from './SelectableRow.tsx';
 export { ProgressBar, Spinner, type ProgressBarProps } from './ProgressBar.tsx';
+export { BusyLabel, type BusyLabelProps } from './BusyLabel.tsx';
 export { Banner, type BannerProps } from './Banner.tsx';
 export { Tooltip, type TooltipProps } from './Tooltip.tsx';
 export * from './uiClasses.ts';

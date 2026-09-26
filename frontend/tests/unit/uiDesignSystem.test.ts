@@ -143,6 +143,7 @@ export const MIGRATED: readonly string[] = [
   'components/ui/SelectableRow.tsx',
   'components/ui/ProgressBar.tsx',
   'components/ui/Banner.tsx',
+  'components/ui/BusyLabel.tsx',
   'components/common/IconButton.css',
   'App.tsx',
   'components/Auth/Auth.css',

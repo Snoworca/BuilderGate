@@ -34,7 +34,8 @@ test('useWorkspaceManager updates persisted active workspace from websocket and 
 
   const directDeletedIndex = source.indexOf('const deleteWorkspace = useCallback');
   assert.notEqual(directDeletedIndex, -1);
-  const directDeletedChunk = source.slice(directDeletedIndex, directDeletedIndex + 900);
+  // The whole function: FR-UIDS-006 put the server wait ahead of the removal.
+  const directDeletedChunk = source.slice(directDeletedIndex, source.indexOf('const reorderWorkspaces = useCallback', directDeletedIndex));
   assert.match(directDeletedChunk, /resolveActiveWorkspaceAfterRemoval/);
   assert.match(directDeletedChunk, /setActiveWorkspaceIdAndPersist\(nextActiveWorkspaceId\)/);
 });

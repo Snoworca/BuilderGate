@@ -168,6 +168,22 @@
 
 .ui-spinner { width: 16px; height: 16px; box-sizing: border-box; flex-shrink: 0; border: 2px solid var(--line); border-top-color: var(--accent-text); border-radius: var(--r-pill); animation: ui-spin 0.8s linear infinite; }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
+/* On a filled button: the arc in the button's text colour, no grey track. */
+.ui-spinner-on-fill { border-color: transparent; border-top-color: currentColor; border-right-color: currentColor; }
+
+/* ---------- Busy label (FR-UIDS-006) ---------- */
+.ui-busy-label { display: inline-grid; }
+.ui-busy-label > span { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); }
+.ui-busy-label-busy { visibility: hidden; }
+.ui-busy-label[data-busy='true'] .ui-busy-label-idle { visibility: hidden; }
+.ui-busy-label[data-busy='true'] .ui-busy-label-busy { visibility: visible; }
+.ui-busy-label:not([data-busy='true']) .ui-spinner { animation: none; }
+
+/* ---------- Inline alert (FR-UIDS-006) ---------- */
+.ui-inline-alert { display: flex; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); margin: 0 0 var(--sp-4); border-radius: var(--r-sm); background: var(--danger-tint); color: var(--danger-text); font-size: var(--fs-xs); line-height: 1.45; }
+.ui-inline-alert-icon { flex-shrink: 0; margin-top: 1px; }
+.ui-inline-alert-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ui-inline-alert-detail { color: var(--fg-muted); overflow-wrap: anywhere; }
 
 /* ---------- Banner ---------- */
 .ui-banner { display: flex; align-items: center; gap: 14px; min-height: 58px; box-sizing: border-box; padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); }

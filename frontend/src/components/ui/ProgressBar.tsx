@@ -33,6 +33,13 @@ export function ProgressBar({ label, value, max, tone = 'accent' }: ProgressBarP
   );
 }
 
-export function Spinner({ label }: { label?: string }) {
-  return <span className="ui-spinner" role={label ? 'status' : undefined} aria-label={label} />;
+/** `on-fill` draws the arc in the text colour, for a filled button (FR-UIDS-006). */
+export function Spinner({ label, tone = 'default' }: { label?: string; tone?: 'default' | 'on-fill' }) {
+  return (
+    <span
+      className={joinClassNames('ui-spinner', tone === 'on-fill' && 'ui-spinner-on-fill')}
+      role={label ? 'status' : undefined}
+      aria-label={label}
+    />
+  );
 }

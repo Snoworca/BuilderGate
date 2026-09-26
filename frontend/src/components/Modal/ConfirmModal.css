@@ -17,6 +17,16 @@
   color: var(--accent-fg) !important;
 }
 
-.btn-destructive:hover:not(:disabled) {
+.btn-destructive:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--danger-fill-hover) !important;
+}
+
+/* FR-UIDS-006: a running confirm keeps its fill and full opacity; it is busy,
+ * not unavailable. */
+.btn-submit[aria-disabled='true'] {
+  cursor: progress;
+}
+
+.btn-submit:not(.btn-destructive)[aria-disabled='true']:hover {
+  background: var(--accent);
 }
