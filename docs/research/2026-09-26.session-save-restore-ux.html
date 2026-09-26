@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세션 저장 · 복구 UX</title>
+<style>
+:root {
+  --mono: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  --sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #141414; color: #dcdcdc; font-family: var(--sans); }
+.page { max-width: 1500px; margin: 0 auto; padding: 36px 24px 96px; }
+.page-head h1 { margin: 0; font-size: 28px; font-weight: 700; color: #f5f5f5; }
+.page-head p { margin: 10px 0 0; max-width: 900px; font-size: 14.5px; line-height: 1.65; color: #b0b0b0; }
+.toc { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+.toc a { height: 32px; display: inline-flex; align-items: center; padding: 0 12px; border: 1px solid #333; border-radius: 16px; color: #cfcfcf; font-size: 13px; text-decoration: none; }
+.toc a:hover { border-color: #0078d4; color: #fff; }
+.screen { margin-top: 64px; scroll-margin-top: 24px; }
+.screen .kicker { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: #6cb6ff; }
+.screen h2 { margin: 6px 0 0; font-size: 21px; font-weight: 700; color: #f5f5f5; }
+.screen .lead { margin: 8px 0 0; max-width: 920px; font-size: 14px; line-height: 1.65; color: #b0b0b0; }
+.screen ul.notes { margin: 12px 0 0; padding-left: 20px; max-width: 920px; font-size: 13.5px; line-height: 1.7; color: #bdbdbd; }
+.screen ul.notes b { color: #f0f0f0; font-weight: 600; }
+.hint { display: inline-block; margin-top: 10px; padding: 4px 10px; border-radius: 12px; background: rgba(0,120,212,.16); color: #8cc6ff; font-size: 12.5px; }
+.frame-wrap { margin-top: 18px; width: 100%; overflow: hidden; border-radius: 10px; border: 1px solid #2e2e2e; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+.frame { position: relative; overflow: hidden; transform-origin: 0 0; }
+.split { display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap; }
+.split .frame-wrap.phone { width: 390px; flex-shrink: 0; border-radius: 22px; }
+
+/* ---------- app shell ---------- */
+.app { width: 1440px; height: 900px; display: flex; flex-direction: column; overflow: hidden; background: #202020; color: #dcdcdc; font-family: var(--sans); }
+.hdr { position: relative; z-index: 4; height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 0 12px; background: #2b2b2b; border-bottom: 1px solid #3a3a3a; }
+.hdr-left { width: 216px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+.logo { width: 24px; height: 24px; border-radius: 6px; background: #0078d4; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.brand { font-size: 15px; font-weight: 600; color: #f5f5f5; }
+.hdr-center { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.hdr-center b { font-size: 13px; font-weight: 600; color: #f5f5f5; }
+.hdr-center span { font-size: 11.5px; color: #a0a0a0; font-family: var(--mono); }
+.hdr-right { flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
+.ib { position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #a0a0a0; cursor: pointer; }
+.ib:hover { background: rgba(255,255,255,.055); color: #dcdcdc; }
+.ib.spot { background: rgba(0,120,212,.22); color: #fff; box-shadow: 0 0 0 2px #0078d4; }
+.ib.faint { color: #5f5f5f; cursor: default; }
+.badge { position: absolute; top: 0; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #4a4a4a; border: 1px solid #2b2b2b; color: #f5f5f5; font-size: 10px; font-weight: 700; line-height: 14px; text-align: center; }
+.pill { height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.pill.saved { border: 1px solid rgba(76,195,138,.5); background: rgba(76,195,138,.12); color: #4cc38a; }
+.pill.pending { border: 0; background: #0078d4; color: #fff; padding: 0 7px 0 10px; }
+.pill .cnt { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: rgba(255,255,255,.24); font-size: 11px; line-height: 18px; text-align: center; }
+.divider { width: 1px; height: 20px; background: #3a3a3a; margin: 0 6px; }
+.savewrap { position: relative; display: flex; align-items: center; margin-left: 2px; }
+.tip { position: absolute; top: 42px; right: -10px; width: 304px; padding: 12px 14px; background: #333; border: 1px solid #4a4a4a; border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.5); display: flex; flex-direction: column; gap: 6px; }
+.tip b { font-size: 13px; color: #f5f5f5; }
+.tip p { margin: 0; font-size: 12.5px; line-height: 1.5; color: #cfcfcf; }
+.tip small { font-size: 11.5px; color: #a0a0a0; }
+.body { flex-grow: 1; min-height: 0; display: flex; }
+.side { width: 240px; flex-shrink: 0; padding: 12px 8px; background: #272727; border-right: 1px solid #3a3a3a; display: flex; flex-direction: column; gap: 2px; }
+.side .lbl { padding: 4px 10px 8px; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: #a0a0a0; }
+.wsi { height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: #dcdcdc; font-size: 13px; font-family: inherit; text-align: left; }
+.wsi.on { background: rgba(0,120,212,.2); color: #f5f5f5; }
+.wsi .dot { width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; }
+.wsi .nm { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wsi .ct { font-size: 11.5px; color: #a0a0a0; }
+.grid { flex-grow: 1; min-width: 0; padding: 6px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.grid.withbanner { padding-top: 64px; }
+.tile { min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; border: 1px solid #3a3a3a; border-radius: 6px; }
+.meta { height: 28px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding-right: 10px; background: #2b2b2b; border-bottom: 1px solid #3a3a3a; }
+.meta .bar { width: 3px; align-self: stretch; }
+.meta .nm { font-size: 12.5px; font-weight: 600; color: #fff; white-space: nowrap; }
+.meta .cwd { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 11.5px; color: #c8c8c8; text-decoration: underline; text-decoration-color: #666; text-underline-offset: 3px; }
+.meta .el { flex-shrink: 0; font-size: 11px; color: #a0a0a0; }
+.chip { height: 18px; display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; border-radius: 9px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.agent { height: 18px; display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; border-radius: 9px; background: rgba(255,255,255,.06); color: #cfcfcf; font-size: 11px; white-space: nowrap; }
+.agent i { width: 6px; height: 6px; border-radius: 3px; display: inline-block; }
+.agent.l { height: 20px; padding: 0 8px; border-radius: 10px; font-size: 11.5px; border: 1px solid #3a3a3a; }
+.agent.l i { width: 7px; height: 7px; border-radius: 4px; }
+.term { flex-grow: 1; min-height: 0; padding: 10px 12px; overflow: hidden; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; white-space: pre; }
+.term div { overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- banner ---------- */
+.banner { position: absolute; left: 240px; top: 48px; width: 1200px; height: 58px; z-index: 3; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 16px; background: #1d2a36; border-bottom: 1px solid #2c4a66; }
+.banner .ic { width: 32px; height: 32px; flex-shrink: 0; border-radius: 16px; display: flex; align-items: center; justify-content: center; background: rgba(0,120,212,.28); color: #8cc6ff; }
+.banner .tx { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.banner .tx b { font-size: 13.5px; font-weight: 600; color: #f5f5f5; }
+.banner .tx span { font-size: 12px; color: #a9bccf; }
+.banner .btn { height: 34px; }
+.btn.bghost { border: 1px solid #3d5a75; background: transparent; color: #cfe0f0; }
+
+/* ---------- dialogs ---------- */
+.scrim { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); }
+.dlg { width: 680px; display: flex; flex-direction: column; overflow: hidden; background: #2b2b2b; border: 1px solid #4a4a4a; border-radius: 10px; box-shadow: 0 24px 64px rgba(0,0,0,.55); }
+.dlg.wide { width: 760px; }
+.dlg-h { display: flex; align-items: flex-start; gap: 14px; padding: 20px 20px 16px 24px; }
+.dlg-ic { width: 36px; height: 36px; flex-shrink: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.dlg-ic.blue { background: rgba(0,120,212,.18); color: #6cb6ff; }
+.dlg-ic.green { background: rgba(76,195,138,.16); color: #4cc38a; }
+.dlg-h .tt { flex-grow: 1; min-width: 0; }
+.dlg-h h3 { margin: 0; font-size: 17px; font-weight: 600; color: #f5f5f5; }
+.dlg-h p { margin: 6px 0 0; font-size: 13px; line-height: 1.55; color: #b8b8b8; }
+.dlg-b { padding: 0 24px; display: flex; flex-direction: column; gap: 14px; }
+.all { height: 38px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 8px; background: #252525; font-size: 13px; color: #f5f5f5; cursor: pointer; }
+.all .lb { flex-grow: 1; font-weight: 600; }
+.all .ct { font-size: 12px; color: #a0a0a0; }
+.prog { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 8px; background: #252525; }
+.prog .top { display: flex; justify-content: space-between; font-size: 12.5px; }
+.prog .top b { color: #f5f5f5; }
+.prog .top span { color: #a0a0a0; }
+.track { height: 6px; border-radius: 3px; background: #3a3a3a; overflow: hidden; }
+.fill { height: 6px; border-radius: 3px; transition: width .3s ease; }
+.grp { display: flex; flex-direction: column; gap: 4px; }
+.grp-h { display: flex; align-items: center; gap: 6px; padding: 0 4px 2px; font-size: 11.5px; font-weight: 600; color: #a0a0a0; }
+.grp-h span:last-child { font-weight: 400; }
+.row { min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; background: #262626; border: 1px solid #363636; cursor: pointer; }
+.row.hot { background: rgba(0,120,212,.08); border-color: rgba(0,120,212,.4); }
+.ctl { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: #0078d4; cursor: pointer; }
+.mid { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mid .t { display: flex; align-items: center; gap: 8px; }
+.mid .n { font-size: 13.5px; font-weight: 600; color: #f5f5f5; }
+.path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 11.5px; color: #a0a0a0; }
+code.cmd { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 8px; border-radius: 6px; background: #1e1e1e; border: 1px solid #363636; font-family: var(--mono); font-size: 11.5px; color: #cfcfcf; }
+.st { flex-shrink: 0; max-width: 250px; text-align: right; font-size: 12px; }
+.st.w110 { width: 120px; }
+.busy { height: 22px; flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border-radius: 11px; background: rgba(216,165,52,.14); color: #e2b451; font-size: 11.5px; font-weight: 600; }
+.spin { width: 16px; height: 16px; border-radius: 8px; border: 2px solid #3a3a3a; border-top-color: #6cb6ff; animation: spin .8s linear infinite; }
+.spin.sm { width: 10px; height: 10px; border-color: rgba(216,165,52,.35); border-top-color: #e2b451; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.waitdot { width: 10px; height: 10px; border-radius: 5px; border: 2px solid #5a5a5a; }
+.dash { width: 10px; height: 2px; border-radius: 1px; background: #6a6a6a; }
+.conf { height: 20px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.conf.ok { background: rgba(76,195,138,.13); color: #4cc38a; }
+.conf.warn { background: rgba(216,165,52,.14); color: #e2b451; }
+.dlg-f { margin-top: 18px; min-height: 64px; display: flex; align-items: center; gap: 10px; padding: 12px 20px 12px 24px; background: #282828; border-top: 1px solid #3a3a3a; }
+.dlg-f .note { flex-grow: 1; font-size: 12.5px; line-height: 1.45; color: #a0a0a0; }
+.dlg-f .note.warn { color: #e2b451; }
+.btn { height: 36px; padding: 0 14px; border-radius: 6px; font-size: 13px; font-family: inherit; cursor: pointer; }
+.btn.ghost { border: 1px solid #4a4a4a; background: transparent; color: #dcdcdc; }
+.btn.primary { border: 0; background: #0078d4; color: #fff; font-weight: 600; padding: 0 16px; }
+.btn.primary:disabled { background: #3a3a3a; color: #a0a0a0; cursor: default; }
+.btn.danger { border: 0; background: transparent; color: #ec8f8f; padding: 0 10px; }
+.x { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #a0a0a0; cursor: pointer; }
+
+/* ---------- states strip ---------- */
+.states { width: 1120px; height: 250px; padding: 24px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; background: #202020; }
+.stc { display: flex; flex-direction: column; gap: 12px; }
+.stc .bar { height: 56px; display: flex; align-items: center; justify-content: center; gap: 4px; border-radius: 8px; background: #2b2b2b; border: 1px solid #3a3a3a; }
+.stc b { font-size: 13px; font-weight: 600; color: #f5f5f5; }
+.stc p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: #a0a0a0; }
+
+/* ---------- phone ---------- */
+.phone-app { position: relative; width: 390px; height: 844px; overflow: hidden; background: #202020; color: #dcdcdc; font-family: var(--sans); }
+.m-hdr { height: 52px; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 4px; background: #2b2b2b; border-bottom: 1px solid #3a3a3a; }
+.m-hdr .menu { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; color: #a0a0a0; }
+.m-hdr .tt { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; }
+.m-hdr .tt b { font-size: 14px; color: #f5f5f5; }
+.m-hdr .tt span { font-size: 11px; color: #a0a0a0; }
+.m-hdr .pill { height: 36px; border-radius: 8px; }
+.m-term { padding: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+.m-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+.sheet { position: absolute; left: 0; bottom: 0; width: 390px; height: 660px; display: flex; flex-direction: column; background: #2b2b2b; border-top: 1px solid #4a4a4a; border-radius: 16px 16px 0 0; }
+.sheet .handle { display: flex; justify-content: center; padding: 10px 0 4px; }
+.sheet .handle span { width: 36px; height: 4px; border-radius: 2px; background: #555; }
+.sheet .sh { padding: 8px 20px 12px; }
+.sheet .sh h3 { margin: 0; font-size: 18px; font-weight: 600; color: #f5f5f5; }
+.sheet .sh p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: #b8b8b8; }
+.sheet .list { flex-grow: 1; min-height: 0; overflow: auto; padding: 0 12px; display: flex; flex-direction: column; gap: 6px; }
+.mrow { min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 4px; border-radius: 10px; background: #262626; border: 1px solid #363636; cursor: pointer; }
+.mrow.hot { background: rgba(0,120,212,.1); border-color: rgba(0,120,212,.4); }
+.mrow .cb { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.mrow .cb input { width: 20px; height: 20px; }
+.mrow .mid .n { font-size: 14px; }
+.mrow .sub { font-size: 12px; color: #a0a0a0; }
+.mrow .sub.warn { color: #e2b451; }
+.sheet .sf { padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #3a3a3a; background: #282828; }
+.sheet .sf .btn { height: 48px; border-radius: 10px; font-size: 15px; }
+.sheet .sf .btn.ghost { height: 44px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <h1>세션 저장 · 복구 UX</h1>
+    <p>BuilderGate를 재시작하기 전에 AI 에이전트 세션을 저장하고, 재시작한 뒤 확인을 거쳐 정확히 그 세션으로 이어하는 흐름입니다. 저장할 때 각 에이전트를 정상 종료하고, 종료할 때 에이전트가 찍는 공식 재개 명령에서 세션 ID를 읽습니다. 색과 글꼴은 BuilderGate의 실제 토큰을 따랐고, 세션 이름·경로·ID는 예시입니다.</p>
+    <nav class="toc" aria-label="목차">
+      <a href="#s1">① 헤더 버튼</a>
+      <a href="#s2">버튼 상태 4가지</a>
+      <a href="#s3">② 저장 창</a>
+      <a href="#s4">③ 재시작 직후 배너</a>
+      <a href="#s5">④ 이어하기 창</a>
+      <a href="#s6">모바일</a>
+      <a href="#s7">저장본 기록</a>
+    </nav>
+  </header>
+
+  <section class="screen" id="s1">
+    <div class="kicker">재시작 전</div>
+    <h2>① 헤더의 세션 저장 버튼</h2>
+    <p class="lead">헤더 오른쪽, 보기 전환 버튼과 도구·설정 사이에 아이콘 버튼 하나를 둡니다. 배지는 실행 중인 AI 세션 수입니다.</p>
+    <ul class="notes">
+      <li><b>도구 메뉴에 넣지 않는다.</b> 자주 누르지는 않지만 재시작 직전에 바로 찾아야 하는 버튼이다.</li>
+      <li><b>누르기 전에 설명한다.</b> 마우스를 올리거나 키보드 초점이 가면 툴팁으로 "정상 종료 + 이어하기 ID 기록"을 알린다.</li>
+      <li><b>한 자리에서 저장과 복구를 모두 한다.</b> 저장 뒤와 재시작 뒤에는 같은 버튼이 상태를 바꿔 보여 준다(아래 상태표).</li>
+    </ul>
+    <div class="frame-wrap"><div class="frame" data-w="1440" data-h="900" id="f-header"></div></div>
+  </section>
+
+  <section class="screen" id="s2">
+    <h2>버튼 상태 4가지</h2>
+    <p class="lead">저장과 이어하기를 같은 자리에서 찾게 합니다.</p>
+    <div class="frame-wrap" style="max-width: 1120px"><div class="frame" data-w="1120" data-h="250" id="f-states"></div></div>
+  </section>
+
+  <section class="screen" id="s3">
+    <div class="kicker">재시작 전</div>
+    <h2>② 저장 창 — 고르기 → 종료 → 완료</h2>
+    <p class="lead">AI 세션을 워크스페이스별로 묶어 보여 주고, 체크한 세션만 정상 종료하며 ID를 받습니다.</p>
+    <ul class="notes">
+      <li><b>끊기는 것을 미리 말한다.</b> 응답을 쓰고 있는 세션에는 "응답 작성 중" 표시를 붙이고, 아래쪽에 "쓰던 응답이 끊기지만 대화 기록은 남는다"고 알린다.</li>
+      <li><b>세션마다 결과를 보여 준다.</b> 대기 → 종료하는 중 → "ID 확인 · 7c1e0b52…". ID를 받지 못하면 "복구 때 최근 세션으로"라고 미리 알린다.</li>
+      <li><b>탭에 증거가 남는다.</b> 완료 뒤 각 탭에는 에이전트가 찍은 재개 명령이 그대로 보인다. 버튼이 없어도 사용자가 직접 확인할 수 있다.</li>
+    </ul>
+    <span class="hint">체크박스를 바꾸고 "저장하고 에이전트 종료"를 눌러 보세요. "확인"을 누르면 처음으로 돌아갑니다.</span>
+    <div class="frame-wrap"><div class="frame" data-w="1440" data-h="900" id="f-save"></div></div>
+  </section>
+
+  <section class="screen" id="s4">
+    <div class="kicker">재시작 후</div>
+    <h2>③ 재시작 직후 — 이어하기 배너</h2>
+    <p class="lead">에이전트를 자동으로 띄우지 않습니다. 탭은 셸로 먼저 열어 두고, 저장본이 있다는 사실을 배너로 알립니다.</p>
+    <ul class="notes">
+      <li><b>막지 않는다.</b> 모달이 아니라 배너라서 바로 셸을 쓸 수 있다.</li>
+      <li><b>"나중에"는 배너만 닫는다.</b> 헤더의 파란 "이어하기" 버튼은 저장본을 처리할 때까지 남는다.</li>
+      <li><b>탭마다 표시한다.</b> 세션 줄에 "↻ 이어하기 대기" 칩이 붙는다.</li>
+    </ul>
+    <div class="frame-wrap"><div class="frame" data-w="1440" data-h="900" id="f-banner"></div></div>
+  </section>
+
+  <section class="screen" id="s5">
+    <div class="kicker">재시작 후</div>
+    <h2>④ 이어하기 창 — 고르기 → 이어하기 → 결과</h2>
+    <p class="lead">세션마다 실제로 보낼 명령과 신뢰도를 보여 주고, 사용자가 고른 것만 이어합니다.</p>
+    <ul class="notes">
+      <li><b>기본 체크는 정확한 ID를 받은 세션만.</b> ID가 없는 세션은 체크를 해제해 두고, 체크하면 최근 세션으로 이어간다고 미리 보여 준다.</li>
+      <li><b>명령을 그대로 보여 준다.</b> <code>claude --resume …</code>처럼 셸에 보낼 명령이 보이니 무엇이 일어날지 예측할 수 있다.</li>
+      <li><b>한 번만 묻는다.</b> 처리 결과(restored · skipped · failed)를 저장본에 기록해 다음 시작 때 다시 묻지 않는다.</li>
+    </ul>
+    <span class="hint">체크를 바꾸고 "선택한 N개 이어하기"를 눌러 보세요. 뒤의 탭 화면도 결과에 맞게 바뀝니다.</span>
+    <div class="frame-wrap"><div class="frame" data-w="1440" data-h="900" id="f-restore"></div></div>
+  </section>
+
+  <section class="screen" id="s6">
+    <h2>모바일 — 이어하기 시트</h2>
+    <div class="split">
+      <div class="frame-wrap phone"><div class="frame" data-w="390" data-h="844" id="f-mobile"></div></div>
+      <div style="flex: 1; min-width: 280px">
+        <p class="lead">원격에서 휴대폰으로 재시작을 확인하는 경우를 위해, 같은 결정을 하단 시트로 합니다.</p>
+        <ul class="notes">
+          <li><b>누를 수 있는 영역을 44px 이상으로 한다.</b> 체크박스는 44px 칸 안에 있고, 행 전체를 눌러도 바뀐다.</li>
+          <li><b>헤더의 파란 버튼은 아이콘과 숫자만 둔다.</b> 좁은 화면에서도 같은 자리에 있다.</li>
+          <li><b>저장 버튼은 워크스페이스 메뉴(드로어)에 둔다.</b> 모바일 헤더에는 공간이 없다.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="s7">
+    <h2>저장본 기록</h2>
+    <ul class="notes">
+      <li><b>한 줄에 탭 하나:</b> tabId · agent · sessionId · 얻은 방법(종료 문구 | 대체) · savedAt · restore(pending → restored | skipped | failed) · 처리 시각</li>
+      <li><b>저장본이 남아 있는 동안</b> 헤더 버튼은 파란 "이어하기"로 남고, 모든 항목이 처리되면 기본 버튼으로 돌아간다.</li>
+      <li><b>버튼 없이 재시작하면</b>(크래시 등) 저장본이 없으므로 지금처럼 <code>--continue</code> / <code>resume --last</code>로 복구한다.</li>
+      <li><b>명령에 들어가는 ID는 형식을 검사한다.</b> Claude·Codex는 UUID, Hermes는 <code>YYYYMMDD_HHMMSS_hex6</code>, OpenCode는 <code>ses_…</code>이다.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function () {
+  const I = {
+    menu: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
+    folder: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+    folderSm: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+    doc: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>',
+    grid: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>',
+    save: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>',
+    save20: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>',
+    check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+    check20: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+    restore: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>',
+    restore20: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>',
+    wrench: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.6-3.6a3.5 3.5 0 0 1-4.6 4.6L7.5 19.5a2.1 2.1 0 0 1-3-3l9.2-9.2a3.5 3.5 0 0 1 4.6-4.6z"/></svg>',
+    gear: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>',
+    power: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 7a8 8 0 1 0 11.4 0"/></svg>',
+    close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    okCircle: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4cc38a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>',
+    alert: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d8a534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>',
+  };
+
+  const T = '#dcdcdc', DIM = '#8f8f8f', OK = '#8fd18f';
+  const S = [
+    { id: 'a', ws: 'orchestrationgrid', name: 'api-server', agent: 'Claude', dot: '#d97757', bar: '#d97757', el: '1h 12m', busy: false, exact: true, sid: '7c1e0b52',
+      cwd: 'C:\\Work\\git\\orchestrationgrid\\server-java', prompt: 'PS C:\\Work\\git\\orchestrationgrid\\server-java>',
+      cmd: 'claude --resume 7c1e0b52-4a0e-4f7b-9d61-2b8e5f0c3a19', hint: ' Resume this session with: claude --resume 7c1e0b52-4a0e-4f7b-9d61-2b8e5f0c3a19',
+      live: [['> 서비스 계층 테스트 돌려줘', T], ['● 테스트 42개 통과 · 3.8s', OK], ['', T], ['> █', T]] },
+    { id: 'b', ws: 'orchestrationgrid', name: 'web-ui', agent: 'Codex', dot: '#d4d4d4', bar: '#6c8ebf', el: '48m', busy: false, exact: true, sid: '01a0e3c9',
+      cwd: 'C:\\Work\\git\\orchestrationgrid\\frontend-ts', prompt: 'PS C:\\Work\\git\\orchestrationgrid\\frontend-ts>',
+      cmd: 'codex resume 01a0e3c9-5b21-7d40-9f1e-3a6b8c2d4e10', hint: 'To continue this session, run: codex resume 01a0e3c9-5b21-7d40-9f1e-3a6b8c2d4e10',
+      live: [['› 라우터 타입 정리해줘', T], ['• Edited src/router.ts (+12 −4)', OK], ['', T], ['› █', T]] },
+    { id: 'c', ws: 'orchestrationgrid', name: 'migration', agent: 'Hermes', dot: '#b48ead', bar: '#b48ead', el: '2h 03m', busy: false, exact: false, sid: '',
+      cwd: '/home/dev/og-migration', prompt: 'dev@wsl:~/og-migration$',
+      cmd: 'hermes --continue', hint: '(종료 문구 없음)',
+      live: [['❯ 마이그레이션 스크립트 점검', T], ['  스크립트 7개 확인 · 문제 없음', OK], ['', T], ['❯ █', T]] },
+    { id: 'd', ws: 'orchestrationgrid', name: 'docs', agent: 'OpenCode', dot: '#5fb3b3', bar: '#5fb3b3', el: '21m', busy: false, exact: true, sid: 'ses_2b4d91c0',
+      cwd: 'C:\\Work\\git\\orchestrationgrid\\docs', prompt: 'PS C:\\Work\\git\\orchestrationgrid\\docs>',
+      cmd: 'opencode --session ses_2b4d91c0affe7Kq2xR8mNcPz3L', hint: 'Continue  opencode -s ses_2b4d91c0affe7Kq2xR8mNcPz3L',
+      live: [['> 문서 목차 갱신', T], ['  README.md 목차 9개 항목 갱신', OK], ['', T], ['> █', T]] },
+    { id: 'e', ws: 'CLIPreport6HQ', name: 'engine', agent: 'Claude', dot: '#d97757', busy: true, exact: true, sid: '4f9a2d17',
+      cwd: 'C:\\Work\\git\\CLIPreport6HQ\\engine', cmd: 'claude --resume 4f9a2d17-8c3b-4e21-a6f0-91d7c5b2e8a4' },
+    { id: 'f', ws: 'CLIPreport6HQ', name: 'report-api', agent: 'Codex', dot: '#d4d4d4', busy: false, exact: true, sid: '01a0e4f2',
+      cwd: 'C:\\Work\\git\\CLIPreport6HQ\\report-api', cmd: 'codex resume 01a0e4f2-7d13-7a9b-8c02-5e4f6a1b3c27' },
+  ];
+  const WS = ['orchestrationgrid', 'CLIPreport6HQ'];
+
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const agentChip = (s, large) => `<span class="agent${large ? ' l' : ''}"><i style="background:${s.dot}"></i>${esc(s.agent)}</span>`;
+
+  function tile(t, mode) {
+    let lines = t.live, chip = '';
+    const mk = (text, fg, bg) => `<span class="chip" style="color:${fg};background:${bg}">${text}</span>`;
+    if (mode === 'saved') {
+      lines = [[t.hint, DIM], [t.prompt + ' █', T]];
+      chip = t.exact ? mk('저장됨', '#4cc38a', 'rgba(76,195,138,.14)') : mk('ID 없음', '#d8a534', 'rgba(216,165,52,.14)');
+    } else if (mode === 'pending') {
+      lines = [[t.prompt + ' █', T]];
+      chip = mk('↻ 이어하기 대기', '#6cb6ff', 'rgba(0,120,212,.2)');
+    } else if (mode === 'restored') {
+      if (t.restored) {
+        lines = [[t.prompt + ' ' + t.cmd, DIM], t.live[0], t.live[1], ['', T], t.live[3]];
+        chip = mk('이어함', '#4cc38a', 'rgba(76,195,138,.14)');
+      } else {
+        lines = [[t.prompt + ' █', T]];
+        chip = mk('건너뜀', '#a0a0a0', 'rgba(255,255,255,.07)');
+      }
+    }
+    const body = lines.map(([tx, c]) => `<div style="color:${c}">${tx === '' ? '&nbsp;' : esc(tx)}</div>`).join('');
+    return `<section class="tile"><div class="meta"><div class="bar" style="background:${t.bar}"></div>${chip}<span class="nm">${esc(t.name)}</span>${agentChip(t)}<span class="cwd">${esc(t.cwd)}</span><span class="el">${t.el}</span></div><div class="term">${body}</div></section>`;
+  }
+
+  function shell(mode, o) {
+    o = o || {};
+    const running = mode === 'normal' || mode === 'restored';
+    let save;
+    if (mode === 'saved') save = `<button class="pill saved" aria-label="세션 저장됨 · 저장 내용 보기">${I.check}저장됨</button>`;
+    else if (mode === 'pending') save = `<button class="pill pending" aria-label="저장된 세션 6개 이어하기">${I.restore}이어하기<span class="cnt">6</span></button>`;
+    else save = `<button class="ib${o.spotlight ? ' spot' : ''}" aria-label="세션 저장 · 재시작 준비 (AI 세션 6개)" title="세션 저장 · 재시작 준비">${I.save}<span class="badge">6</span></button>`;
+    const tip = o.spotlight ? `<div class="tip"><b>세션 저장 · 재시작 준비</b><p>실행 중인 AI 세션 6개를 정상 종료하고, 각 에이전트가 알려 주는 이어하기 ID를 기록합니다. BuilderGate를 재시작하기 전에 누르세요.</p><small>Claude 2 · Codex 2 · Hermes 1 · OpenCode 1</small></div>` : '';
+    const wsList = [['orchestrationgrid', '4', true], ['CLIPreport6HQ', '2'], ['DocuLight2.0', '1'], ['AgentKernelX', '1']]
+      .map(([n, c, on]) => `<button class="wsi${on ? ' on' : ''}"><span class="dot" style="background:${running && n !== 'DocuLight2.0' ? '#4cc38a' : '#5a5a5a'}"></span><span class="nm">${n}</span><span class="ct">${c}</span></button>`).join('');
+    const tiles = S.slice(0, 4).map((t) => tile(Object.assign({}, t, { restored: o.restored ? !!o.restored[t.id] : false }), mode)).join('');
+    return `<div class="app">
+      <header class="hdr">
+        <div class="hdr-left"><button class="ib" aria-label="사이드바 메뉴">${I.menu}</button><div class="logo">B</div><span class="brand">BuilderGate</span></div>
+        <div class="hdr-center"><b>orchestrationgrid</b><span>C:\\Work\\git\\orchestrationgrid\\server-java</span></div>
+        <div class="hdr-right">
+          <button class="ib" aria-label="파일 탐색기" title="파일 탐색기">${I.folder}</button>
+          <button class="ib" aria-label="편집기 창" title="편집기 창">${I.doc}</button>
+          <button class="ib" aria-label="탭 보기로 전환" title="탭 보기로 전환">${I.grid}</button>
+          <div class="savewrap">${save}${tip}</div>
+          <div class="divider"></div>
+          <button class="ib" aria-label="도구" title="도구">${I.wrench}</button>
+          <button class="ib" aria-label="설정" title="설정">${I.gear}</button>
+          <button class="ib" aria-label="로그아웃" title="로그아웃">${I.power}</button>
+        </div>
+      </header>
+      <div class="body">
+        <nav class="side" aria-label="워크스페이스"><span class="lbl">WORKSPACES</span>${wsList}</nav>
+        <main class="grid${o.banner ? ' withbanner' : ''}">${tiles}</main>
+      </div>
+    </div>`;
+  }
+
+  /* ---------- static frames ---------- */
+  document.getElementById('f-header').innerHTML = shell('normal', { spotlight: true });
+
+  document.getElementById('f-banner').innerHTML = shell('pending', { banner: true }) +
+    `<div class="banner" role="status">
+      <div class="ic">${I.restore}</div>
+      <div class="tx"><b>지난번 저장한 AI 세션 6개를 이어할 수 있습니다</b><span>9월 26일 13:40 저장 · 정확한 ID 5개 · ID 없음 1개 · 탭은 셸로 먼저 열어 두었습니다</span></div>
+      <button class="btn primary"><a href="#s5" style="color:inherit;text-decoration:none">검토하고 이어하기</a></button>
+      <button class="btn bghost">나중에</button>
+    </div>`;
+
+  const faint = (svg) => `<span class="ib faint">${svg}</span>`;
+  document.getElementById('f-states').innerHTML = `<div class="states">
+    <div class="stc"><div class="bar">${faint(I.grid)}<button class="ib" aria-label="세션 저장 · 재시작 준비">${I.save}<span class="badge">6</span></button><span class="divider"></span>${faint(I.wrench)}</div>
+      <div><b>기본</b><p>실행 중인 AI 세션 수를 배지로 보여 준다. AI 세션이 없으면 배지 없이 흐리게 두고 누를 수 없다.</p></div></div>
+    <div class="stc"><div class="bar">${faint(I.grid)}<button class="ib spot" aria-label="세션 저장 · 재시작 준비">${I.save}<span class="badge">6</span></button><span class="divider"></span>${faint(I.wrench)}</div>
+      <div><b>마우스 올림 · 키보드 초점</b><p>누르기 전에 툴팁으로 하는 일을 먼저 알린다: 정상 종료하고 이어하기 ID를 기록한다.</p></div></div>
+    <div class="stc"><div class="bar">${faint(I.grid)}<button class="pill saved">${I.check}저장됨</button><span class="divider"></span>${faint(I.wrench)}</div>
+      <div><b>저장 완료 · 재시작 전</b><p>재시작해도 된다는 신호. 누르면 저장한 목록을 다시 보여 주고, 저장본을 버릴 수도 있다.</p></div></div>
+    <div class="stc"><div class="bar">${faint(I.grid)}<button class="pill pending">${I.restore}이어하기<span class="cnt">6</span></button><span class="divider"></span>${faint(I.wrench)}</div>
+      <div><b>재시작 후 · 이어하기 대기</b><p>처리하지 않은 저장본이 있는 동안 파란 버튼으로 남는다. 배너를 닫아도 여기서 다시 연다.</p></div></div>
+  </div>`;
+
+  /* ---------- shared list rendering ---------- */
+  function statusCtl(st) {
+    if (st === 'wait') return '<span class="waitdot"></span>';
+    if (st === 'active' || st === 'prep' || st === 'resume') return '<span class="spin"></span>';
+    if (st === 'done') return I.okCircle;
+    if (st === 'warn') return I.alert;
+    if (st === 'skip') return '<span class="dash"></span>';
+    return '';
+  }
+
+  /* ---------- save dialog ---------- */
+  function SaveFlow(el) {
+    const st = { step: 'select', picked: { a: 1, b: 1, c: 1, d: 1, e: 1, f: 1 }, status: {}, timers: [] };
+    const clear = () => { st.timers.forEach(clearTimeout); st.timers = []; };
+    const later = (ms, fn) => st.timers.push(setTimeout(() => { fn(); render(); }, ms));
+    function start() {
+      const order = S.map((s) => s.id).filter((id) => st.picked[id]);
+      if (!order.length) return;
+      st.step = 'saving'; st.status = {};
+      order.forEach((id, i) => {
+        const at = 300 + i * 850;
+        later(at, () => { st.status[id] = 'active'; });
+        later(at + 650, () => { st.status[id] = id === 'c' ? 'warn' : 'done'; });
+      });
+      later(300 + order.length * 850 + 350, () => { st.step = 'done'; });
+    }
+    function reset() { clear(); st.step = 'select'; st.status = {}; }
+    function render() {
+      const sel = st.step === 'select', saving = st.step === 'saving', done = st.step === 'done';
+      const picked = S.filter((s) => st.picked[s.id]);
+      const total = picked.length;
+      const fin = picked.filter((s) => st.status[s.id] === 'done' || st.status[s.id] === 'warn').length;
+      const exact = picked.filter((s) => st.status[s.id] === 'done').length;
+      const warn = picked.filter((s) => st.status[s.id] === 'warn').length;
+      const busyPicked = picked.filter((s) => s.busy).length;
+      const statusOf = (s) => sel ? 'none' : (!st.picked[s.id] ? 'skip' : (st.status[s.id] || 'wait'));
+      const label = (s, k) => ({ wait: ['대기', '#a0a0a0'], active: ['종료하는 중…', '#6cb6ff'], done: ['ID 확인 · ' + s.sid + '…', '#4cc38a'], warn: ['종료 문구 없음 · 복구 때 최근 세션으로', '#e2b451'], skip: ['저장 안 함', '#a0a0a0'] }[k] || ['', '#a0a0a0']);
+      const groups = WS.map((ws) => {
+        const rows = S.filter((s) => s.ws === ws).map((s) => {
+          const k = statusOf(s);
+          const hot = (sel && st.picked[s.id]) || k === 'active';
+          const [tx, fg] = label(s, k);
+          const ctl = sel ? `<input type="checkbox" data-act="toggle" data-id="${s.id}" ${st.picked[s.id] ? 'checked' : ''} aria-label="${esc(s.name)} 저장">` : statusCtl(k);
+          const right = sel ? (s.busy ? '<span class="busy"><span class="spin sm"></span>응답 작성 중</span>' : '') : `<span class="st" style="color:${fg}">${tx}</span>`;
+          return `<label class="row${hot ? ' hot' : ''}"><div class="ctl">${ctl}</div><div class="mid"><div class="t"><span class="n">${esc(s.name)}</span>${agentChip(s, true)}</div><span class="path">${esc(s.cwd)}</span></div>${right}</label>`;
+        }).join('');
+        return `<div class="grp"><div class="grp-h">${I.folderSm}<span>${ws}</span><span>${S.filter((s) => s.ws === ws).length}개</span></div>${rows}</div>`;
+      }).join('');
+      const all = total === S.length;
+      const top = sel
+        ? `<label class="all"><input type="checkbox" data-act="all" ${all ? 'checked' : ''}><span class="lb">AI 세션 전체</span><span class="ct">${total} / ${S.length} 선택</span></label>`
+        : `<div class="prog"><div class="top"><b>${done ? `정확한 ID ${exact}개 · ID 없음 ${warn}개` : '에이전트 종료 중'}</b><span>${fin} / ${total}</span></div><div class="track"><div class="fill" style="width:${total ? Math.round(fin / total * 100) : 0}%;background:${done ? '#4cc38a' : '#0078d4'}"></div></div></div>`;
+      const title = done ? `세션 ${total}개를 저장했습니다` : (saving ? '세션 저장 중' : '세션 저장 · 재시작 준비');
+      const desc = done ? '이제 BuilderGate를 재시작해도 됩니다. 각 탭에는 에이전트가 남긴 이어하기 명령이 그대로 보입니다.'
+        : (saving ? '각 에이전트를 정상 종료하고, 종료할 때 찍히는 이어하기 명령에서 세션 ID를 읽습니다.'
+          : '재시작하기 전에 누르세요. 실행 중인 AI 에이전트를 정상 종료하고 각 세션의 이어하기 ID를 저장해, 재시작 뒤 정확히 그 대화로 돌아올 수 있게 합니다.');
+      let foot;
+      if (sel) {
+        const note = busyPicked ? `<span class="note warn">응답을 쓰고 있는 세션 ${busyPicked}개는 지금 쓰던 응답이 끊깁니다. 대화 기록은 남습니다.</span>` : '<span class="note">고른 에이전트를 정상 종료하고, 종료할 때 알려 주는 이어하기 ID를 기록합니다.</span>';
+        foot = `${note}<button class="btn ghost" data-act="reset">취소</button><button class="btn primary" data-act="start" ${total ? '' : 'disabled'}>${total ? '저장하고 에이전트 종료' : '저장할 세션을 고르세요'}</button>`;
+      } else if (saving) {
+        foot = '<span class="note">에이전트를 하나씩 정상 종료하고 있습니다. 창을 닫아도 계속 진행됩니다.</span><button class="btn primary" disabled>저장하는 중…</button>';
+      } else {
+        foot = '<span class="note">재시작하면 이어할 세션을 고르는 창이 뜹니다. 재시작하지 않으면 저장본은 다음 재시작까지 그대로 남습니다.</span><button class="btn primary" data-act="reset">확인</button>';
+      }
+      el.innerHTML = shell(done ? 'saved' : 'normal') + `<div class="scrim"><section class="dlg" role="dialog" aria-modal="true" aria-label="${title}">
+        <div class="dlg-h"><div class="dlg-ic ${done ? 'green' : 'blue'}">${done ? I.check20 : I.save20}</div><div class="tt"><h3>${title}</h3><p>${desc}</p></div><button class="x" data-act="reset" aria-label="닫기">${I.close}</button></div>
+        <div class="dlg-b">${top}${groups}</div>
+        <div class="dlg-f">${foot}</div>
+      </section></div>`;
+    }
+    el.addEventListener('change', (e) => {
+      const a = e.target.dataset.act;
+      if (a === 'toggle') { st.picked[e.target.dataset.id] = e.target.checked ? 1 : 0; render(); }
+      if (a === 'all') { const v = e.target.checked ? 1 : 0; S.forEach((s) => { st.picked[s.id] = v; }); render(); }
+    });
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-act]');
+      if (!b) return;
+      if (b.dataset.act === 'start') { start(); render(); }
+      if (b.dataset.act === 'reset') { reset(); render(); }
+    });
+    render();
+  }
+
+  /* ---------- restore dialog ---------- */
+  function RestoreFlow(el) {
+    const init = () => ({ a: 1, b: 1, c: 0, d: 1, e: 1, f: 1 });
+    const st = { step: 'select', picked: init(), status: {}, timers: [] };
+    const clear = () => { st.timers.forEach(clearTimeout); st.timers = []; };
+    const later = (ms, fn) => st.timers.push(setTimeout(() => { fn(); render(); }, ms));
+    function start() {
+      const order = S.map((s) => s.id).filter((id) => st.picked[id]);
+      if (!order.length) return;
+      st.step = 'working'; st.status = {};
+      order.forEach((id, i) => {
+        const at = 300 + i * 700;
+        later(at, () => { st.status[id] = 'prep'; });
+        later(at + 350, () => { st.status[id] = 'resume'; });
+        later(at + 700, () => { st.status[id] = 'done'; });
+      });
+      later(300 + order.length * 700 + 450, () => { st.step = 'done'; });
+    }
+    function reset() { clear(); st.step = 'select'; st.status = {}; st.picked = init(); }
+    function render() {
+      const sel = st.step === 'select', working = st.step === 'working', done = st.step === 'done';
+      const picked = S.filter((s) => st.picked[s.id]);
+      const total = picked.length;
+      const fin = picked.filter((s) => st.status[s.id] === 'done').length;
+      const skipped = S.length - total;
+      const statusOf = (s) => sel ? 'none' : (!st.picked[s.id] ? 'skip' : (st.status[s.id] || 'wait'));
+      const label = (k) => ({ wait: ['대기', '#a0a0a0'], prep: ['셸 준비 중…', '#6cb6ff'], resume: ['이어하는 중…', '#6cb6ff'], done: ['이어함', '#4cc38a'], skip: ['건너뜀 · 셸만 둠', '#a0a0a0'] }[k] || ['', '#a0a0a0']);
+      const groups = WS.map((ws) => {
+        const rows = S.filter((s) => s.ws === ws).map((s) => {
+          const k = statusOf(s);
+          const hot = (sel && st.picked[s.id]) || k === 'prep' || k === 'resume';
+          const [tx, fg] = label(k);
+          const ctl = sel ? `<input type="checkbox" data-act="toggle" data-id="${s.id}" ${st.picked[s.id] ? 'checked' : ''} aria-label="${esc(s.name)} 이어하기">` : statusCtl(k);
+          const conf = s.exact ? '<span class="conf ok">정확한 ID</span>' : '<span class="conf warn">ID 없음 · 최근 세션으로</span>';
+          const right = sel ? '' : `<span class="st w110" style="color:${fg}">${tx}</span>`;
+          return `<label class="row${hot ? ' hot' : ''}"><div class="ctl">${ctl}</div><div class="mid" style="gap:6px"><div class="t"><span class="n">${esc(s.name)}</span>${agentChip(s, true)}${conf}</div><code class="cmd">${esc(s.cmd)}</code></div>${right}</label>`;
+        }).join('');
+        return `<div class="grp"><div class="grp-h">${I.folderSm}<span>${ws}</span><span>${S.filter((s) => s.ws === ws).length}개</span></div>${rows}</div>`;
+      }).join('');
+      const all = total === S.length;
+      const top = sel
+        ? `<label class="all"><input type="checkbox" data-act="all" ${all ? 'checked' : ''}><span class="lb">저장된 세션 전체</span><span class="ct">${total} / ${S.length} 선택</span></label>`
+        : `<div class="prog"><div class="top"><b>${done ? `이어함 ${fin}개 · 건너뜀 ${skipped}개` : '세션 이어하는 중'}</b><span>${fin} / ${total}</span></div><div class="track"><div class="fill" style="width:${total ? Math.round(fin / total * 100) : 0}%;background:${done ? '#4cc38a' : '#0078d4'}"></div></div></div>`;
+      const title = done ? `세션 ${total}개를 이어했습니다` : (working ? '세션 이어하는 중' : '저장된 세션 이어하기');
+      const desc = done ? (skipped ? `${skipped}개는 건너뛰어 셸만 열어 두었습니다.` : '저장한 세션을 모두 이어했습니다.')
+        : (working ? '고른 탭마다 셸이 준비되면 저장된 이어하기 명령을 보냅니다.'
+          : '9월 26일 13:40에 저장한 AI 세션 6개가 있습니다. 이어할 세션을 고르세요. 고르지 않은 탭은 셸만 열린 채로 둡니다.');
+      let foot;
+      if (sel) {
+        foot = `<button class="btn danger">저장본 버리기</button><span style="flex-grow:1"></span><button class="btn ghost" data-act="reset">나중에</button><button class="btn primary" data-act="start" ${total ? '' : 'disabled'}>${total ? `선택한 ${total}개 이어하기` : '이어할 세션을 고르세요'}</button>`;
+      } else if (working) {
+        foot = '<span class="note">탭마다 셸이 준비되면 이어하기 명령을 보냅니다.</span><button class="btn primary" disabled>이어하는 중…</button>';
+      } else {
+        foot = '<span class="note">결과를 저장본에 기록했습니다. 다음에 시작할 때 다시 묻지 않습니다.</span><button class="btn primary" data-act="reset">닫기</button>';
+      }
+      const restored = {};
+      S.forEach((s) => { restored[s.id] = !!st.picked[s.id]; });
+      el.innerHTML = shell(done ? 'restored' : 'pending', { restored }) + `<div class="scrim"><section class="dlg wide" role="dialog" aria-modal="true" aria-label="${title}">
+        <div class="dlg-h"><div class="dlg-ic ${done ? 'green' : 'blue'}">${done ? I.check20 : I.restore20}</div><div class="tt"><h3>${title}</h3><p>${desc}</p></div><button class="x" data-act="reset" aria-label="나중에">${I.close}</button></div>
+        <div class="dlg-b">${top}${groups}</div>
+        <div class="dlg-f">${foot}</div>
+      </section></div>`;
+    }
+    el.addEventListener('change', (e) => {
+      const a = e.target.dataset.act;
+      if (a === 'toggle') { st.picked[e.target.dataset.id] = e.target.checked ? 1 : 0; render(); }
+      if (a === 'all') { const v = e.target.checked ? 1 : 0; S.forEach((s) => { st.picked[s.id] = v; }); render(); }
+    });
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-act]');
+      if (!b) return;
+      if (b.dataset.act === 'start') { start(); render(); }
+      if (b.dataset.act === 'reset') { reset(); render(); }
+    });
+    render();
+  }
+
+  /* ---------- mobile sheet ---------- */
+  function MobileFlow(el) {
+    const picked = { a: 1, b: 1, c: 0, d: 1, e: 1, f: 1 };
+    function render() {
+      const total = S.filter((s) => picked[s.id]).length;
+      const rows = S.map((s) => `<label class="mrow${picked[s.id] ? ' hot' : ''}"><span class="cb"><input type="checkbox" data-id="${s.id}" ${picked[s.id] ? 'checked' : ''} aria-label="${esc(s.name)} 이어하기"></span><span class="mid"><span class="t"><span class="n">${esc(s.name)}</span>${agentChip(s, true)}</span><span class="sub${s.exact ? '' : ' warn'}">${s.ws} · ${s.exact ? '정확한 ID' : 'ID 없음 · 최근 세션으로'}</span></span></label>`).join('');
+      el.innerHTML = `<div class="phone-app">
+        <header class="m-hdr"><button class="menu" aria-label="워크스페이스 메뉴">${I.menu}</button><div class="tt"><b>orchestrationgrid</b><span>api-server · 셸</span></div><button class="pill pending" aria-label="저장된 세션 6개 이어하기">${I.restore}<span class="cnt">6</span></button></header>
+        <div class="m-term">PS C:\\Work\\git\\orchestrationgrid\\server-java&gt; █</div>
+        <div class="m-scrim"></div>
+        <section class="sheet" role="dialog" aria-modal="true" aria-label="저장된 세션 이어하기">
+          <div class="handle"><span></span></div>
+          <div class="sh"><h3>저장된 세션 이어하기</h3><p>9월 26일 13:40에 저장한 6개. 고르지 않은 탭은 셸만 열어 둡니다.</p></div>
+          <div class="list">${rows}</div>
+          <div class="sf"><button class="btn primary" ${total ? '' : 'disabled'}>${total ? `선택한 ${total}개 이어하기` : '이어할 세션을 고르세요'}</button><button class="btn ghost">나중에</button></div>
+        </section>
+      </div>`;
+    }
+    el.addEventListener('change', (e) => {
+      if (e.target.dataset.id) { picked[e.target.dataset.id] = e.target.checked ? 1 : 0; render(); }
+    });
+    render();
+  }
+
+  SaveFlow(document.getElementById('f-save'));
+  RestoreFlow(document.getElementById('f-restore'));
+  MobileFlow(document.getElementById('f-mobile'));
+
+  /* ---------- scale frames to fit ---------- */
+  function fit() {
+    document.querySelectorAll('.frame').forEach((f) => {
+      const w = +f.dataset.w, h = +f.dataset.h;
+      const wrap = f.parentElement;
+      const s = Math.min(1, wrap.clientWidth / w);
+      f.style.width = w + 'px';
+      f.style.height = h + 'px';
+      f.style.transform = 'scale(' + s + ')';
+      wrap.style.height = Math.round(h * s) + 'px';
+    });
+  }
+  window.addEventListener('resize', fit);
+  fit();
+})();
+</script>
+</body>
+</html>
