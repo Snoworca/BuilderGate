@@ -65,6 +65,7 @@ import {
   SessionRestoreBanner,
   SessionRestoreDialog,
   SessionSaveDialog,
+  aiTabSignature,
   saveButtonState,
   useSessionSnapshot,
 } from './components/SessionSave';
@@ -182,6 +183,13 @@ function AppContent() {
   );
 
   const wm = useWorkspaceManager();
+  // FR-AITUI-009 AC-6: a tab that just became an AI tab is on the save button at
+  // once, not on the next 15 s poll.
+  const sessionAiTabs = useMemo(() => aiTabSignature(wm.tabs), [wm.tabs]);
+  const refreshSessionCandidates = sessionSnapshot.refresh;
+  useEffect(() => {
+    void refreshSessionCandidates();
+  }, [sessionAiTabs, refreshSessionCandidates]);
   // Stable ref to avoid re-creating callbacks on every render
   const wmRef = useRef(wm);
   wmRef.current = wm;

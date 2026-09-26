@@ -349,10 +349,12 @@ export function parseWindowsProcessIdentityOutput(pid: number, raw: string): Pro
  * returned the querying agent and the shell while the real descendants were two
  * other PIDs -- so relying on it would leak processes silently.
  */
-export function buildWindowsProcessTreeKillScript(rootPid: number): string {
-  if (!Number.isInteger(rootPid) || rootPid <= 0) {
-    // This string is handed to a shell interpreter. Nothing but an integer.
-    throw new Error(`Refusing to build a process tree kill script for a non-PID value: ${String(rootPid)}`);
+export function buildWindowsProcessTreeKillScript(rootPid: number, protectedPids: readonly number[] = []): string {
+  for (const pid of [rootPid, ...protectedPids]) {
+    if (!Number.isInteger(pid) || pid <= 0) {
+      // This string is handed to a shell interpreter. Nothing but an integer.
+      throw new Error(`Refusing to build a process tree kill script for a non-PID value: ${String(pid)}`);
+    }
   }
   const csharp = [
     'using System;',
@@ -397,16 +399,34 @@ export function buildWindowsProcessTreeKillScript(rootPid: number): string {
     '  if (-not $byParent.ContainsKey($parent)) { $byParent[$parent] = New-Object "System.Collections.Generic.List[int]" }',
     '  [void]$byParent[$parent].Add([int]$row[0])',
     '}',
+    // REL-BGSTAB-022: never the server, never this script.
+    '$protected = @{}',
+    ...protectedPids.map(pid => `$protected[${pid}] = $true`),
+    '$protected[$PID] = $true',
+    // REL-BGSTAB-022: Windows keeps a parent PID after the parent dies and hands
+    // the number out again, so a parent-PID link alone can adopt an unrelated,
+    // older process (observed: the server itself, under a tab shell that reused
+    // its launcher's PID). A real child is created after its parent.
+    'function Get-StartTicks([int]$id) { try { return [System.Diagnostics.Process]::GetProcessById($id).StartTime.ToUniversalTime().Ticks } catch { return $null } }',
+    '$startOf = @{}',
+    '$startOf[$root] = Get-StartTicks $root',
     '$order = New-Object "System.Collections.Generic.List[int]"',
     '$pending = New-Object "System.Collections.Generic.Queue[int]"',
     '$seen = @{}',
+    '$skipped = New-Object "System.Collections.Generic.List[int]"',
     '$seen[$root] = $true',
     '$pending.Enqueue($root)',
     'while ($pending.Count -gt 0) {',
     '  $parent = $pending.Dequeue()',
     '  if ($byParent.ContainsKey($parent)) {',
     '    foreach ($child in $byParent[$parent]) {',
-    '      if (-not $seen.ContainsKey($child)) { $seen[$child] = $true; [void]$order.Add($child); $pending.Enqueue($child) }',
+    '      if ($seen.ContainsKey($child)) { continue }',
+    '      if ($protected.ContainsKey($child)) { $seen[$child] = $true; [void]$skipped.Add($child); continue }',
+    '      $seen[$child] = $true',
+    '      $childStart = Get-StartTicks $child',
+    '      $parentStart = $startOf[$parent]',
+    '      if ($null -eq $childStart -or ($null -ne $parentStart -and $childStart -lt $parentStart)) { [void]$skipped.Add($child); continue }',
+    '      $startOf[$child] = $childStart; [void]$order.Add($child); $pending.Enqueue($child)',
     '    }',
     '  }',
     '}',
@@ -416,8 +436,8 @@ export function buildWindowsProcessTreeKillScript(rootPid: number): string {
     'for ($i = $order.Count - 1; $i -ge 0; $i--) {',
     '  try { [System.Diagnostics.Process]::GetProcessById($order[$i]).Kill(); [void]$killed.Add($order[$i]) } catch { }',
     '}',
-    'try { [System.Diagnostics.Process]::GetProcessById($root).Kill(); [void]$killed.Add($root) } catch { }',
-    'Write-Output ("descendants=" + ($order -join ",") + " killed=" + ($killed -join ","))',
+    'if (-not $protected.ContainsKey($root)) { try { [System.Diagnostics.Process]::GetProcessById($root).Kill(); [void]$killed.Add($root) } catch { } }',
+    'Write-Output ("descendants=" + ($order -join ",") + " killed=" + ($killed -join ",") + " skipped=" + ($skipped -join ","))',
   ].join(String.fromCharCode(10));
 }
 
@@ -790,7 +810,7 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
     const stdout = await new Promise<string>((resolve, reject) => {
       this.execFileFn(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-Command', buildWindowsProcessTreeKillScript(rootPid)],
+        ['-NoProfile', '-NonInteractive', '-Command', buildWindowsProcessTreeKillScript(rootPid, [process.pid])],
         { windowsHide: true, shell: false, timeout: DEFAULT_PROCESS_INFO_TIMEOUT_MS },
         (error, out) => {
           if (error) {
@@ -801,6 +821,12 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
         },
       );
     });
+    // REL-BGSTAB-022: say so when the walk refused a linked process; that is
+    // the PID-reuse case the guard exists for.
+    const skipped = /skipped=([\d,]+)/.exec(stdout)?.[1];
+    if (skipped) {
+      console.warn(`[processTreeTerminator] root ${rootPid}: left alone processes linked by a reused or protected pid: ${skipped}`);
+    }
     return parseWindowsKilledPids(stdout);
   }
 

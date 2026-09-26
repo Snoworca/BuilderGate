@@ -48,6 +48,7 @@ import { VALIDATION_LIMITS } from '../utils/constants.js';
 import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import { advanceTerminalPartialEscapeTail } from '../utils/terminalPartialEscapeTail.js';
 import { TerminalTitleDetector } from '../utils/terminalTitle.js';
+import { guardPtyConsoleKill } from '../utils/ptyConsoleKillGuard.js';
 import { getRecoveryExecutableToken, normalizeRecoveryExecutable, type RecoveryRestoreShell } from '../utils/recoveryCommand.js';
 import type { WsRouter } from '../ws/WsRouter.js';
 import type { TerminalResourcePolicyLeaseAuthority } from './TerminalResourcePolicyCanary.js';
@@ -317,6 +318,15 @@ const INPUT_ECHO_TIME_THRESHOLD_MS = 50;
 const BARE_ECHO_CONFIRMATION_DELAY_MS = 80;
 const AI_TUI_SUBMITTED_ECHO_THRESHOLD_MS = 1000;
 const AI_TUI_DECORATIVE_FRAME_RE = /^[\s─╰╯│┃┆┄┈┊·•]+$/;
+// FR-AITUI-010: how long a running AI TUI may stay silent before it is idle.
+// Claude Code 2.1.281 moves its spinner glyph on a 2 s cosine cycle (the end
+// frames stay up ~0.4 s) and its elapsed timer once a second, which is all the
+// screen does while a subagent works; the 200 ms idleDelayMs lapsed in between.
+const AI_TUI_BUSY_GRACE_MS = 1500;
+// A repaint keeps a running AI TUI running only this long after its last busy
+// output. The spinner writes a busy frame (not the · end frame) every 2 s; a
+// status line refreshing on its own after the work is done does not.
+const AI_TUI_REPAINT_KEEPALIVE_WINDOW_MS = 3000;
 const AI_TUI_CURSOR_MOTION_RE = /\x1b\[[0-9;?]*[ABCDHJKfhlmnpsu]/;
 const SHELL_INTEGRATION_ROOT_ENV_KEY = 'BUILDERGATE_SHELL_INTEGRATION_ROOT';
 
@@ -926,6 +936,8 @@ interface SessionData {
   inputBuffer: string;
   pendingForegroundAppHint?: ForegroundAppId;
   aiTuiLaunchAttempt?: AiTuiLaunchAttempt;
+  /** FR-AITUI-010: when the AI TUI last wrote something that was not a mere repaint. */
+  lastAiTuiBusyOutputAt?: number;
   expectShellPromptAfterAiTuiFailure?: boolean;
   lastSubmittedCommand?: string;
   foregroundStartedAt?: number;
@@ -1370,6 +1382,10 @@ export class SessionManager {
       // Windows PTY backend (ConPTY vs winpty)
       useConpty: backendResolution.useConpty,
     });
+    // REL-BGSTAB-022 AC-4: node-pty's ConPTY kill must never reach the server.
+    guardPtyConsoleKill(ptyProcess, [process.pid, process.ppid], (dropped) => {
+      console.warn(`[SessionManager] node-pty console kill list held the server process (${dropped.join(', ')}); dropped for session ${id}`);
+    });
     const processMetadata = this.createSessionProcessMetadata(
       ptyProcess,
       shellCmd,
@@ -1580,9 +1596,12 @@ export class SessionManager {
               const isLaunchEcho = this.isEchoOutput(sData, statusData)
                 || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand, getNormalizedStatusData());
               const signal = this.classifyAiTuiOutputSignal(sData, statusData, getNormalizedStatusData());
-              if (signal === 'waiting_input' || signal === 'repaint_only') {
+              if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'osc133')) {
+                // FR-AITUI-010 AC-1: spinner/timer repaints of a running AI TUI.
+              } else if (signal === 'waiting_input' || signal === 'repaint_only') {
                 this.beginForegroundActivity(id, signal, `osc133_ai_tui_${signal}`);
               } else {
+                sData.lastAiTuiBusyOutputAt = Date.now();
                 this.scheduleRunningTransition(id, 'osc133_ai_tui_unclassified_output');
               }
               if (!isLaunchEcho) {
@@ -1638,9 +1657,12 @@ export class SessionManager {
                     const isLaunchEcho = this.isEchoOutput(sData, statusData)
                       || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand, getNormalizedStatusData());
                     const signal = this.classifyAiTuiOutputSignal(sData, statusData, getNormalizedStatusData());
-                    if (signal === 'waiting_input' || signal === 'repaint_only') {
+                    if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'heuristic')) {
+                      // FR-AITUI-010 AC-1: spinner/timer repaints of a running AI TUI.
+                    } else if (signal === 'waiting_input' || signal === 'repaint_only') {
                       this.beginForegroundActivity(id, signal, `heuristic_ai_tui_${signal}`);
                     } else {
+                      sData.lastAiTuiBusyOutputAt = Date.now();
                       this.scheduleRunningTransition(id, 'heuristic_ai_tui_unclassified_output');
                     }
                     if (!isLaunchEcho) {
@@ -1771,7 +1793,32 @@ export class SessionManager {
 
     data.idleTimer = setTimeout(() => {
       this.updateStatus(id, 'idle', 'idle_delay_elapsed');
-    }, this.runtimeSessionConfig.idleDelayMs);
+    }, this.idleDelayFor(data));
+  }
+
+  /** FR-AITUI-010 AC-2: a busy AI TUI gets the longer grace; a plain shell does not. */
+  private idleDelayFor(data: SessionData): number {
+    const base = this.runtimeSessionConfig.idleDelayMs;
+    const state = data.derivedState;
+    const aiBusy = state?.ownership === 'foreground_app'
+      && state.activity === 'busy'
+      && isInteractiveAiAppId(state.foregroundAppId);
+    return aiBusy ? Math.max(base, AI_TUI_BUSY_GRACE_MS) : base;
+  }
+
+  /**
+   * FR-AITUI-010 AC-1/AC-3: a repaint of an AI TUI that is already running,
+   * shortly after its last busy output, is the spinner turning, so it pushes
+   * the idle timer back. It never starts running on its own, and it leaves the
+   * derived activity alone.
+   */
+  private keepAiTuiBusyAlive(id: string, data: SessionData, mode: string): boolean {
+    if (data.session.status !== 'running') return false;
+    const sinceBusy = Date.now() - (data.lastAiTuiBusyOutputAt ?? 0);
+    if (sinceBusy > AI_TUI_REPAINT_KEEPALIVE_WINDOW_MS) return false;
+    this.captureDebugEvent(id, 'detector', 'ai_tui_busy_keepalive', { mode });
+    this.scheduleIdleTransition(id);
+    return true;
   }
 
   private cancelPendingRunningTransition(data: SessionData): void {

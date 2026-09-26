@@ -125,6 +125,14 @@ export type SaveButtonState =
   | { kind: 'pending'; count: number };
 
 /** FR-AITUI-009 AC-1: one header button, three faces. */
+/**
+ * FR-AITUI-009 AC-6: what the save button offers changes when a tab gains or
+ * loses its AI command, so this is the key to read the candidates again on.
+ */
+export function aiTabSignature(tabs: ReadonlyArray<{ id: string; recoveryCommand?: string }>): string {
+  return tabs.map(tab => `${tab.id}:${tab.recoveryCommand ?? ''}`).join('|');
+}
+
 export function saveButtonState(input: { candidateCount: number; status: SnapshotStatus | null; now?: Date }): SaveButtonState {
   const status = input.status;
   if (status && status.restorable && status.pendingCount > 0) {
