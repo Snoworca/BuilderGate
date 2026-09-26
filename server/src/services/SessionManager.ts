@@ -123,6 +123,8 @@ import {
   type StreamEpochBumpReason,
 } from '../ws/terminalStreamEpoch.js';
 import { HermesForegroundDetector } from './HermesForegroundDetector.js';
+import { AgentOutputHintTracker } from './agentSession/agentOutputHints.js';
+import type { AgentOutputHint } from './agentSession/agentSessionResolver.js';
 
 interface EchoTracker {
   /** writeInput이 호출된 시각 (ms, Date.now) */
@@ -315,7 +317,7 @@ const AI_TUI_DECORATIVE_FRAME_RE = /^[\s─╰╯│┃┆┄┈┊·•]+$/;
 const AI_TUI_CURSOR_MOTION_RE = /\x1b\[[0-9;?]*[ABCDHJKfhlmnpsu]/;
 const SHELL_INTEGRATION_ROOT_ENV_KEY = 'BUILDERGATE_SHELL_INTEGRATION_ROOT';
 
-type ForegroundAppId = 'hermes' | 'codex' | 'claude';
+type ForegroundAppId = 'hermes' | 'codex' | 'claude' | 'opencode';
 
 interface AiTuiLaunchAttempt {
   appId: ForegroundAppId;
@@ -1189,6 +1191,8 @@ export function stripHostAgentIdentity(source: NodeJS.ProcessEnv): Record<string
 
 export class SessionManager {
   private sessions: Map<string, SessionData> = new Map();
+  // FR-AITUI-006 AC-5: session ids agents print on screen, per session.
+  private readonly agentOutputHints = new AgentOutputHintTracker();
   private sessionCounter: number = 0;
   private debugCaptureCounter = 0;
   private debugCaptureBySession: Map<string, SessionDebugCaptureEvent[]> = new Map();
@@ -1535,6 +1539,7 @@ export class SessionManager {
       }
 
       sData.terminalTitleDetector.process(rawData);
+      this.agentOutputHints.observe(id, rawData);
       const outputData = sData.detectionMode === 'osc133' ? stripped : rawData;
       sData.terminalTitleSignalDetector.process(outputData);
       const statusData = sData.terminalTitleSignalDetector.getSignalData();
@@ -3740,6 +3745,33 @@ export class SessionManager {
     return true;
   }
 
+
+  /**
+   * FR-AITUI-006: what the session save needs to find a tab's agent — the
+   * foreground app BuilderGate detected, when it was launched, the PTY pid
+   * and the last session id the agent printed.
+   */
+  getAgentRuntimeInfo(sessionId: string): {
+    foregroundAppId: ForegroundAppId | null;
+    foregroundStartedAt?: number;
+    ptyPid: number | null;
+    outputHint: AgentOutputHint | null;
+    cwd: string | null;
+  } | null {
+    const data = this.sessions.get(sessionId);
+    if (!data) return null;
+    const derived = this.ensureDerivedState(data);
+    const appId = isInteractiveAiAppId(derived.foregroundAppId) && derived.ownership === 'foreground_app'
+      ? derived.foregroundAppId
+      : null;
+    return {
+      foregroundAppId: appId,
+      ...(appId && data.foregroundStartedAt !== undefined ? { foregroundStartedAt: data.foregroundStartedAt } : {}),
+      ptyPid: data.pty.pid ?? null,
+      outputHint: this.agentOutputHints.get(sessionId),
+      cwd: data.lastCwd ?? data.initialCwd ?? null,
+    };
+  }
 
   getPtyPid(sessionId: string): number | null {
     const data = this.sessions.get(sessionId);
@@ -6797,6 +6829,7 @@ export class SessionManager {
       }
     }
     this.sessions.delete(sessionId);
+    this.agentOutputHints.forget(sessionId);
     // The session is gone, so its epoch is too. Ids are uuidv4 and never
     // reused, so nothing can inherit the entry — it would only accumulate.
     this.forgetTerminalStreamEpoch(sessionId);
@@ -9026,7 +9059,7 @@ function sanitizeDebugValues(
 }
 
 function isInteractiveAiAppId(value: string | undefined | null): value is ForegroundAppId {
-  return value === 'hermes' || value === 'codex' || value === 'claude';
+  return value === 'hermes' || value === 'codex' || value === 'claude' || value === 'opencode';
 }
 
 // FR-BGSTAB-020: Codex TUI 의 초당 다수 repaint(스피너/텍스트 반짝임) 발생원을 줄이기 위한
@@ -9059,6 +9092,9 @@ function detectForegroundAppHint(command: string): ForegroundAppId | null {
   }
   if (executable === 'claude' || executable === 'claude-code') {
     return 'claude';
+  }
+  if (executable === 'opencode') {
+    return 'opencode';
   }
 
   return null;

@@ -22,6 +22,10 @@ import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
 import { createRecoveryOptionRoutes } from './routes/recoveryOptionRoutes.js';
+import { createSessionSnapshotRoutes } from './routes/sessionSnapshotRoutes.js';
+import { SessionSnapshotService } from './services/SessionSnapshotService.js';
+import { listProcesses } from './services/agentSession/processList.js';
+import { agentRootsForCwd } from './services/agentSession/agentRoots.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
@@ -163,6 +167,7 @@ let commandPresetService: CommandPresetService;
 let terminalShortcutService: TerminalShortcutService;
 let recoveryOptionService: RecoveryOptionService;
 let workspaceService: WorkspaceService;
+let sessionSnapshotService: SessionSnapshotService;
 let mcpListenerControllerInstance: StringRecord | null = null;
 let mcpControlService: StringRecord | null = null;
 let webhookInvocationService: StringRecord | null = null;
@@ -654,6 +659,8 @@ function setupRoutes(): void {
     onOptionDeleted: (id) => workspaceService.clearRecoveryMetadataForOption(id),
   });
   app.use('/api/recovery-options', authMiddleware, recoveryOptionRoutes);
+  // FR-AITUI-007 / FR-AITUI-008: session save and resume after restart.
+  app.use('/api/session-snapshot', authMiddleware, createSessionSnapshotRoutes(sessionSnapshotService));
 
   app.all('/webhook/agent', async (req, res) => {
     try {
@@ -1116,6 +1123,21 @@ async function startServer(): Promise<void> {
     // ========================================================================
     workspaceService = new WorkspaceService(sessionManager, { recoveryOptionService });
     await workspaceService.initialize();
+    // FR-AITUI-007/008: load the saved sessions before orphan recovery so the
+    // tabs waiting to be resumed come back as shells instead of auto-recovering.
+    sessionSnapshotService = new SessionSnapshotService({
+      listTabs: () => {
+        const state = workspaceService.getState();
+        const names = new Map(state.workspaces.map((workspace) => [workspace.id, workspace.name]));
+        return state.tabs.map((tab) => ({ workspaceId: tab.workspaceId, workspaceName: names.get(tab.workspaceId) ?? '', tab }));
+      },
+      getRuntime: (sessionId) => sessionManager.getAgentRuntimeInfo(sessionId),
+      scheduleResume: (tabId, command, args) => workspaceService.scheduleAgentResume(tabId, command, args),
+      listProcesses,
+      rootsFor: (cwd) => agentRootsForCwd(cwd),
+    });
+    await sessionSnapshotService.initialize();
+    workspaceService.setAgentResumePendingChecker((tabId) => sessionSnapshotService.hasPendingForTab(tabId));
     const orphanTabs = await workspaceService.checkOrphanTabs();
     if (orphanTabs.length > 0) {
       console.log(`[Workspace] ${orphanTabs.length} orphan tab(s) recovered with saved CWD`);

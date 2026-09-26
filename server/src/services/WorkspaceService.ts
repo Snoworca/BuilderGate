@@ -1370,7 +1370,8 @@ export class WorkspaceService {
     return executable === 'hermes'
       || executable === 'codex'
       || executable === 'claude'
-      || executable === 'claude-code';
+      || executable === 'claude-code'
+      || executable === 'opencode';
   }
 
   private async scheduleRecoveryRestoreForTab(tab: WorkspaceTab, sessionId: string): Promise<void> {
@@ -1418,6 +1419,43 @@ export class WorkspaceService {
       delayMs: this.restoreInputDelayMs,
       guard: () => this.state.tabs.some(current => current.id === tab.id && current.sessionId === sessionId),
     });
+  }
+
+  private agentResumePending: ((tabId: string) => boolean) | null = null;
+
+  /** FR-AITUI-008 AC-1: set before checkOrphanTabs so saved tabs are not auto-recovered. */
+  setAgentResumePendingChecker(checker: ((tabId: string) => boolean) | null): void {
+    this.agentResumePending = checker;
+  }
+
+  /**
+   * FR-AITUI-008 AC-2/AC-4: types one resume command into a tab once its shell
+   * is ready, quoted for that shell like a recovery restore.
+   */
+  scheduleAgentResume(tabId: string, command: string, args: string[]): boolean {
+    const tab = this.state.tabs.find(current => current.id === tabId);
+    if (!tab || !this.sessionManager.hasSession(tab.sessionId)) {
+      return false;
+    }
+    let input: string;
+    try {
+      input = buildRecoveryRestoreInput(this.resolveRecoveryRestoreShell(tab.sessionId, tab.shellType), command, args);
+    } catch (error) {
+      console.warn('[WorkspaceService] Failed to build agent resume input:', error);
+      return false;
+    }
+    const scheduler = (this.sessionManager as SessionManager & {
+      scheduleRestoreInput?: (sessionId: string, input: string, options?: { delayMs?: number; guard?: () => boolean }) => void;
+    }).scheduleRestoreInput;
+    if (typeof scheduler !== 'function') {
+      return false;
+    }
+    const sessionId = tab.sessionId;
+    scheduler.call(this.sessionManager, sessionId, input, {
+      delayMs: this.restoreInputDelayMs,
+      guard: () => this.state.tabs.some(current => current.id === tabId && current.sessionId === sessionId),
+    });
+    return true;
   }
 
   private resolveRecoveryRestoreShell(sessionId: string, fallbackShellType: ShellType): RecoveryRestoreShell {
@@ -1786,6 +1824,11 @@ export class WorkspaceService {
     if (orphanTabIds.length > 0) {
       await this.save(true); // immediate save with new sessionIds
       for (const restored of restoredSessions) {
+        // FR-AITUI-008 AC-1: a tab with a saved session waiting to be resumed
+        // comes back as a shell; the user decides whether to resume it.
+        if (this.agentResumePending?.(restored.tab.id)) {
+          continue;
+        }
         await this.scheduleRecoveryRestoreForTab(restored.tab, restored.sessionId);
       }
     }
