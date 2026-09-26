@@ -189,7 +189,6 @@ export const MIGRATED: readonly string[] = [
   'components/Workspace/WorkspaceSidebar.tsx',
   'components/Workspace/WorkspaceTabBar.css',
   'components/Workspace/WorkspaceTabBar.tsx',
-  'components/Workspace/breathing.css',
   'components/dialog/MessageBox.css',
   'components/dialog/MessageBox.tsx',
   'components/dialog/WindowDialog.css',
@@ -221,6 +220,9 @@ const FROZEN_TERMINAL_AREA: readonly string[] = [
   'components/Grid/MosaicTile.tsx',
   'components/Grid/MosaicOverrides.css',
   'components/MetadataBar/MetadataRow.tsx',
+  // The terminal tiles' focus and output borders (white, and the green used
+  // when a tab has no colour of its own).
+  'components/Workspace/breathing.css',
 ];
 
 /**
