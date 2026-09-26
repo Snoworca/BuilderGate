@@ -21,6 +21,8 @@ import { getActiveSessionId, login } from './helpers';
 
 /** The three items the menu offers. AC-1 states the set, not an order. */
 const INSTRUCTION_FILES = ['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md'] as const;
+// buildEditorFileMenuItems puts the explorer entry above the files.
+const EXPLORER_ITEM = '파일 탐색기';
 
 /** Names the spec gives the tabs it creates, so cleanup can find its own. */
 const TAB_NAME_PREFIX = 'e2e-mde-entry';
@@ -332,11 +334,13 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
     const cwd = await awaitReportedCwd(page, workdir);
 
     const menu = await openPathMenu(page);
-    await expect(menu.locator('.context-menu-item')).toHaveCount(INSTRUCTION_FILES.length);
+    // The file explorer entry (FR-FEX, added above the files) rides in the same
+    // menu, so the three files plus that one entry.
+    await expect(menu.locator('.context-menu-item')).toHaveCount(INSTRUCTION_FILES.length + 1);
     // The AC states a set, so membership is what is asserted; the order the
     // builder happens to emit is not part of the contract.
     const labels = await menu.locator('.context-menu-label').allInnerTexts();
-    expect([...labels].sort()).toEqual([...INSTRUCTION_FILES].sort());
+    expect([...labels].sort()).toEqual([...INSTRUCTION_FILES, EXPLORER_ITEM].sort());
     await page.keyboard.press('Escape');
     await expect(page.locator('.context-menu[role="menu"]')).toHaveCount(0);
 
@@ -362,9 +366,9 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
     await expect(tile).toBeVisible({ timeout: 15000 });
 
     const menu = await openPathMenu(page, tile);
-    await expect(menu.locator('.context-menu-item')).toHaveCount(INSTRUCTION_FILES.length);
+    await expect(menu.locator('.context-menu-item')).toHaveCount(INSTRUCTION_FILES.length + 1);
     const labels = await menu.locator('.context-menu-label').allInnerTexts();
-    expect([...labels].sort()).toEqual([...INSTRUCTION_FILES].sort());
+    expect([...labels].sort()).toEqual([...INSTRUCTION_FILES, EXPLORER_ITEM].sort());
     await page.keyboard.press('Escape');
   });
 

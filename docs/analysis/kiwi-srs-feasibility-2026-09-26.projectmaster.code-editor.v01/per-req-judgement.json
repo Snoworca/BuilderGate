@@ -1,0 +1,179 @@
+{
+  "run_id": "2026-09-26.projectmaster.code-editor.v01",
+  "target": "code-editor",
+  "policy": ".kiwi/feasibility-policy.yaml",
+  "judgements": [
+    {
+      "req_id": "FR-MDE-013",
+      "score": 85,
+      "feasibility": "high",
+      "axes": {
+        "implementability": 25,
+        "evidence_strength": 18,
+        "dependency_health": 13,
+        "ac_verifiability": 10,
+        "scope_fit": 9,
+        "product_fit": 10
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "FR-MDE-014",
+      "score": 88,
+      "feasibility": "high",
+      "axes": {
+        "implementability": 26,
+        "evidence_strength": 17,
+        "dependency_health": 14,
+        "ac_verifiability": 12,
+        "scope_fit": 9,
+        "product_fit": 10
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "FR-MDE-015",
+      "score": 87,
+      "feasibility": "high",
+      "axes": {
+        "implementability": 25,
+        "evidence_strength": 19,
+        "dependency_health": 12,
+        "ac_verifiability": 12,
+        "scope_fit": 9,
+        "product_fit": 10
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "IR-MDE-002",
+      "score": 98,
+      "feasibility": "high",
+      "axes": {
+        "implementability": 29,
+        "evidence_strength": 20,
+        "dependency_health": 15,
+        "ac_verifiability": 15,
+        "scope_fit": 10,
+        "product_fit": 9
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "FR-MDE-016",
+      "score": 89,
+      "feasibility": "high",
+      "axes": {
+        "implementability": 26,
+        "evidence_strength": 15,
+        "dependency_health": 15,
+        "ac_verifiability": 14,
+        "scope_fit": 10,
+        "product_fit": 9
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "FR-MDE-017",
+      "score": 81,
+      "feasibility": "high",
+      "axes": {
+        "implementability": 25,
+        "evidence_strength": 12,
+        "dependency_health": 14,
+        "ac_verifiability": 13,
+        "scope_fit": 9,
+        "product_fit": 8
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "IR-MDE-003",
+      "score": 89,
+      "feasibility": "high",
+      "axes": {
+        "implementability": 26,
+        "evidence_strength": 19,
+        "dependency_health": 12,
+        "ac_verifiability": 14,
+        "scope_fit": 9,
+        "product_fit": 9
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "FR-MDE-018",
+      "score": 77,
+      "feasibility": "medium",
+      "axes": {
+        "implementability": 21,
+        "evidence_strength": 15,
+        "dependency_health": 13,
+        "ac_verifiability": 11,
+        "scope_fit": 8,
+        "product_fit": 9
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "FR-MDE-019",
+      "score": 76,
+      "feasibility": "medium",
+      "axes": {
+        "implementability": 22,
+        "evidence_strength": 10,
+        "dependency_health": 14,
+        "ac_verifiability": 13,
+        "scope_fit": 9,
+        "product_fit": 8
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    },
+    {
+      "req_id": "SEC-MDE-001",
+      "score": 84,
+      "feasibility": "high",
+      "axes": {
+        "implementability": 27,
+        "evidence_strength": 12,
+        "dependency_health": 12,
+        "ac_verifiability": 14,
+        "scope_fit": 10,
+        "product_fit": 9
+      },
+      "blockers": [],
+      "has_verification": false,
+      "current_stability": "evolving",
+      "current_status": "planned"
+    }
+  ],
+  "dependency_cycles": [],
+  "target_verdict": "conditionally-ready"
+}

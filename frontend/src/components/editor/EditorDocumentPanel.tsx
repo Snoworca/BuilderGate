@@ -9,6 +9,11 @@
 // session would destroy and recreate the EditorView and take the unsaved body
 // with it. `extensions` is captured at mount too, so its reference is pinned.
 //
+// The body the save controller holds is never doc.toString(): that joins lines
+// with "\n" and would rewrite every CRLF on save. The editor is told the file's
+// own line ending, the save body is read with state.sliceDoc() by a listener
+// among the extensions, and the BOM the file opened with is put back.
+//
 // A panel is never unmounted to hide it. Several documents are open in one
 // window and only one is on screen; the others keep their editor instances and
 // whatever the user has typed into them, and are hidden with `display: none`.
@@ -17,6 +22,14 @@
 // @req FR-MDE-005
 // @req FR-MDE-006
 // @req CON-MDE-002
+// @req FR-MDE-015
+// @req FR-MDE-016
+//
+// The file's editor mode is fixed at mount from its path: markdown files get
+// the vendored editor, source and data files the sibling CodeFileEditor. Both
+// take the same mount-time props, handle and save controller, so save, dirty,
+// close prompts, line endings and read-only behave the same in either mode.
+// @req FR-MDE-014
 
 import {
   useCallback,
@@ -25,9 +38,35 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
 } from 'react';
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { AtomicCodeMirrorEditor, doculightExtensions } from '../../editor';
 import type { AtomicCodeMirrorEditorHandle } from '../../editor';
+import { analyzeText, encodeForSave, normalizeInsertedLineBreaks } from '../../editor/lineEndings.ts';
+import { resolveEditorMode } from '../../editor/editorMode.ts';
+import { CodeFileEditor } from './CodeFileEditor.tsx';
+import { ImageFileViewer } from './ImageFileViewer.tsx';
+import { SvgFileTab } from './SvgFileTab.tsx';
+import { createSvgSourceSession, type SvgSource, type SvgSourceSession } from './svgTabModel.ts';
+import { documentSaveBinding, type ImageDocumentState } from '../../hooks/editorDocumentLoad.ts';
+import { readWrapPreference, writeWrapPreference } from './codeEditorExtensions.ts';
+import { EditorDocumentToolbar } from './EditorDocumentToolbar.tsx';
+import { useEditorTheme } from './useEditorTheme.ts';
+import {
+  buildEditorEditMenuItems,
+  editorViewFromContent,
+  hasEditorSelection,
+  runEditorEditCommand,
+  type EditorEditCommand,
+} from './editorEditMenu.ts';
+import { ContextMenu } from '../ContextMenu/ContextMenu';
+import { useLongPress } from '../../hooks/useLongPress.ts';
+import type { EditorPaneToggle } from './EditorDocumentToolbar.tsx';
+import { effectiveDocumentComponent, selectDocumentComponent } from './editorDocumentMode.ts';
+import { dataFileKindFor } from './dataFileLint.ts';
+import { columnDelimiterFor } from './csvColumns.ts';
 import { ConfirmModal } from '../Modal/ConfirmModal';
 import '../Modal/ConfirmModal.css';
 // The three-choice prompt below is drawn here rather than by ConfirmModal, and
@@ -41,6 +80,11 @@ import {
   createEditorWindowSaveController,
   type EditorWindowSaveController,
 } from './editorWindowSave.ts';
+import {
+  decideDocumentAccess,
+  lineEndingLabel,
+  type DocumentEncoding,
+} from './editorDocumentAccess.ts';
 import {
   decideEditorWindowClosePrompt,
   resolveEditorWindowCloseChoice,
@@ -58,6 +102,31 @@ const BODY_STYLE: CSSProperties = {
 
 const HIDDEN_BODY_STYLE: CSSProperties = { ...BODY_STYLE, display: 'none' };
 
+// The read-only notice and the line-ending line draw from the window's own
+// theme tokens (`EditorWindow.css`), so neither introduces a colour.
+// @req FR-MDE-016
+const NOTICE_STYLE: CSSProperties = {
+  padding: '6px 10px',
+  background: 'var(--bg-raised)',
+  color: 'var(--fg)',
+  borderBottom: '1px solid var(--line)',
+  fontSize: '12px',
+  flex: '0 0 auto',
+};
+
+// @req FR-MDE-015
+const STATUS_STYLE: CSSProperties = {
+  padding: '2px 10px',
+  color: 'var(--fg-muted)',
+  borderTop: '1px solid var(--line)',
+  fontSize: '11px',
+  textAlign: 'right',
+  flex: '0 0 auto',
+};
+
+// Tells every mounted panel that the global wrap preference changed.
+const WRAP_CHANGE_EVENT = 'buildergate:code-editor-wrap-change';
+
 const BANNER_STYLE: CSSProperties = {
   padding: '6px 10px',
   background: '#5a1f1f',
@@ -74,6 +143,15 @@ const EDITOR_HOST_STYLE: CSSProperties = {
   flex: '0 1 95%',
   minHeight: 0,
   marginBlock: 'auto',
+  overflow: 'auto',
+};
+
+// Everything that is not markdown fills the editing area rather than sitting
+// in a centred column (FR-MDE-020 AC-1).
+// @req FR-MDE-020
+const FULL_HOST_STYLE: CSSProperties = {
+  flex: '1 1 auto',
+  minHeight: 0,
   overflow: 'auto',
 };
 
@@ -196,6 +274,12 @@ export interface EditorDocumentHandle {
   requestClose: () => void;
   /** Whether the document differs from the file it was read from. */
   isDirty: () => boolean;
+  /**
+   * Saves for a batch close (FR-MDE-021 AC-5): resolves true when the document
+   * may now close -- saved, or nothing to save -- and false when the save
+   * failed, whose error the panel shows.
+   */
+  saveForClose: () => Promise<boolean>;
 }
 
 export interface EditorDocumentPanelProps {
@@ -205,6 +289,17 @@ export interface EditorDocumentPanelProps {
   tabId: string;
   /** The content read from disk when the document opened. Read once, at mount. */
   bodyAtOpen: string;
+  /**
+   * What the read reported, read once at mount like the body. `unknown` makes
+   * the document read-only.
+   * @req FR-MDE-016
+   */
+  encoding: DocumentEncoding;
+  /**
+   * An image tab's bytes or read failure, read at mount; null for text.
+   * @req FR-MDE-018
+   */
+  image?: ImageDocumentState | null;
   /**
    * This document is not the one on screen: its tab is not active, or the
    * window itself is hidden. The subtree stays mounted either way.
@@ -231,22 +326,29 @@ export interface EditorDocumentPanelProps {
    * holds the body, and the window needs to drive it from a title bar it owns.
    */
   onRegisterHandle: (filePath: string, handle: EditorDocumentHandle | null) => void;
+  /** The window's file tree toggle, drawn in this document's toolbar (FR-MDE-020 AC-8). */
+  paneToggle?: EditorPaneToggle;
 }
 
 /**
  * @req FR-MDE-005
  * @req FR-MDE-006
+ * @req FR-MDE-015
+ * @req FR-MDE-016
  */
 export function EditorDocumentPanel({
   filePath,
   tabId,
   bodyAtOpen,
+  encoding,
+  image = null,
   hidden,
   resolveTabSession,
   writeFile,
   onDirtyChange,
   onClose,
   onRegisterHandle,
+  paneToggle,
 }: EditorDocumentPanelProps) {
   const editorHandleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
 
@@ -263,11 +365,82 @@ export function EditorDocumentPanel({
   });
   const [closePrompt, setClosePrompt] = useState<EditorWindowClosePrompt>({ kind: 'none' });
 
+  // `bodyAtOpen` is read once, like the editor's `markdownSource`, so its line
+  // ending and BOM are fixed for the life of the panel. The editor gets the
+  // body without the BOM; the controller keeps the bytes as they are on disk,
+  // so the dirty basis and every saved body are in the same, encoded, form.
+  // @req FR-MDE-015
+  const layoutRef = useRef<ReturnType<typeof analyzeText> | null>(null);
+  if (layoutRef.current === null) {
+    layoutRef.current = analyzeText(bodyAtOpen);
+  }
+  const layout = layoutRef.current;
+
+  // Fixed at mount with the body it describes: the encoding belongs to the
+  // bytes that were read, and those do not change while the panel lives.
+  // @req FR-MDE-016
+  const accessRef = useRef<ReturnType<typeof decideDocumentAccess> | null>(null);
+  if (accessRef.current === null) {
+    accessRef.current = decideDocumentAccess(encoding);
+  }
+  const access = accessRef.current;
+
+  // The path does not change while the panel lives, so neither does the mode.
+  // @req FR-MDE-014
+  const modeRef = useRef<ReturnType<typeof resolveEditorMode> | null>(null);
+  if (modeRef.current === null) {
+    modeRef.current = resolveEditorMode(filePath);
+  }
+  const mode = modeRef.current;
+  const component = selectDocumentComponent(mode.kind);
+
+  // A markdown document can be shown as raw source in the code editor
+  // (FR-MDE-023). `view` is what is drawn; `component` stays the file's kind.
+  // Switching remounts the editor with the text being edited, which the save
+  // listener keeps in liveBodyRef; the one save controller carries dirty and
+  // the save across the switch.
+  // @req FR-MDE-023
+  const [raw, setRaw] = useState(false);
+  const view = effectiveDocumentComponent(component, raw);
+  const shown = component === 'markdown' && raw ? 'markdown-raw' : component;
+  const liveBodyRef = useRef(layout.body);
+  const [mountBody, setMountBody] = useState(layout.body);
+  const toggleRaw = useCallback(() => {
+    setMountBody(liveBodyRef.current);
+    setRaw(current => !current);
+  }, []);
+
+  // Global user preference, not part of the document (FR-MDE-014 AC-3).
+  // @req FR-MDE-014
+  // Every open code document follows a toggle made in any of them.
+  // @req FR-MDE-014
+  const [wrap, setWrap] = useState<boolean>(() => readWrapPreference());
+  useEffect(() => {
+    const onWrapChange = (event: Event) => {
+      setWrap((event as CustomEvent<boolean>).detail);
+    };
+    window.addEventListener(WRAP_CHANGE_EVENT, onWrapChange);
+    return () => window.removeEventListener(WRAP_CHANGE_EVENT, onWrapChange);
+  }, []);
+  const toggleWrap = useCallback(() => {
+    const next = !wrap;
+    writeWrapPreference(next);
+    window.dispatchEvent(new CustomEvent<boolean>(WRAP_CHANGE_EVENT, { detail: next }));
+  }, [wrap]);
+
+  // The light/dark choice is global and stored like the wrap preference, and
+  // every open document follows a toggle made in any of them.
+  // @req FR-MDE-020
+  const [theme, toggleTheme] = useEditorTheme();
+
   const controllerRef = useRef<EditorWindowSaveController | null>(null);
   if (controllerRef.current === null) {
     controllerRef.current = createEditorWindowSaveController({
-      binding: { tabId, filePath },
-      bodyAtOpen,
+      // An image tab is view-only: it never turns dirty and its save writes
+      // nothing, through the same controller the title bar and Ctrl+S call.
+      // @req FR-MDE-018
+      binding: documentSaveBinding({ tabId, filePath, kind: component === 'image' ? 'image' : 'text', encoding }),
+      bodyAtOpen: encodeForSave(layout.body, layout),
       deps: {
         resolveTabSession: (id) => resolveTabSessionRef.current(id),
         writeFile: (sessionId, path, content) => writeFileRef.current(sessionId, path, content),
@@ -281,10 +454,56 @@ export function EditorDocumentPanel({
   }
   const controller = controllerRef.current;
 
+  // An SVG tab can switch to its XML source (FR-MDE-019). That source has its
+  // own controller -- bound as text, on the code-mode save path -- and once it
+  // exists the title bar, Ctrl+S, dirty and the close prompt all follow it.
+  // @req FR-MDE-019
+  const isSvg = component === 'image' && filePath.toLowerCase().endsWith('.svg');
+  const svgSessionRef = useRef<SvgSourceSession | null>(null);
+  const activeController = useCallback(
+    (): EditorWindowSaveController => svgSessionRef.current?.controller ?? controller,
+    [controller],
+  );
+  const openSvgSession = useCallback((source: SvgSource): SvgSourceSession => {
+    if (svgSessionRef.current !== null) return svgSessionRef.current;
+    const session = createSvgSourceSession({
+      tabId,
+      filePath,
+      source,
+      deps: {
+        resolveTabSession: (id) => resolveTabSessionRef.current(id),
+        writeFile: (sessionId, path, content) => writeFileRef.current(sessionId, path, content),
+      },
+      onStateChange: () => {
+        const svgController = svgSessionRef.current?.controller;
+        if (svgController === undefined) return;
+        setSaveState({ dirty: svgController.isDirty(), error: svgController.getError() });
+      },
+    });
+    svgSessionRef.current = session;
+    return session;
+  }, [filePath, tabId]);
+
   // Captured at mount by the editor, so the reference is pinned. The five
   // callbacks of doculightExtensions are left unpassed: attachment upload and
   // wiki links stay inert, which is the intended state for this scope.
-  const extensions = useMemo(() => doculightExtensions(), []);
+  //
+  // The line separator and the save listener ride here too, so the vendor
+  // editor is extended rather than edited. The listener is the only source of
+  // the save body: sliceDoc() joins lines with the file's own ending. Code mode
+  // takes the same two without the markdown extensions (FR-MDE-014 AC-2).
+  // @req FR-MDE-015
+  // @req FR-MDE-014
+  const extensions = useMemo(() => [
+    ...(view === 'markdown' ? doculightExtensions() : []),
+    EditorState.lineSeparator.of(layout.eol),
+    normalizeInsertedLineBreaks(layout.eol),
+    EditorView.updateListener.of((update) => {
+      if (!update.docChanged) return;
+      liveBodyRef.current = update.state.sliceDoc();
+      controllerRef.current?.handleEditorChange(encodeForSave(liveBodyRef.current, layout));
+    }),
+  ], [view, layout]);
 
   // The three mount-time props in one object, so the editor and the probe read
   // the same value rather than each restating the same three expressions.
@@ -296,9 +515,9 @@ export function EditorDocumentPanel({
   // @req FR-MDE-005
   const editorMountProps = useMemo(() => ({
     documentId: filePath,
-    markdownSource: bodyAtOpen,
+    markdownSource: mountBody,
     extensions,
-  }), [bodyAtOpen, extensions, filePath]);
+  }), [extensions, filePath, mountBody]);
 
   // Publishes what this panel is handing the editor, for a caller outside React
   // that has to read it. The three values are the ones the render below passes,
@@ -333,6 +552,38 @@ export function EditorDocumentPanel({
     };
   }, [editorMountProps, filePath]);
 
+  // The document body's own menu (FR-MDE-022): 모두 선택 · 복사 · 잘라내기 ·
+  // 붙여넣기, on right click and, on a phone, on a long press. Only a click that
+  // lands in a CodeMirror editor opens it -- the image viewer keeps the default.
+  // @req FR-MDE-022
+  const [editMenu, setEditMenu] = useState<{ x: number; y: number; view: EditorView } | null>(null);
+  const openEditMenuAt = useCallback((target: EventTarget | null, x: number, y: number): boolean => {
+    const editor = target instanceof Element ? target.closest('.cm-editor') : null;
+    const view = editorViewFromContent(editor?.querySelector<HTMLElement>('.cm-content') ?? null);
+    if (view === null) return false;
+    setEditMenu({ x, y, view });
+    return true;
+  }, []);
+  const openEditMenu = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (openEditMenuAt(event.target, event.clientX, event.clientY)) event.preventDefault();
+  }, [openEditMenuAt]);
+  const editLongPress = useLongPress((point) => {
+    openEditMenuAt(document.elementFromPoint(point.clientX, point.clientY), point.clientX, point.clientY);
+  });
+  const runEdit = useCallback((command: EditorEditCommand) => {
+    const view = editMenu?.view;
+    if (view === undefined) return;
+    void runEditorEditCommand(view, command, navigator.clipboard);
+  }, [editMenu]);
+  const editMenuItems = editMenu === null ? [] : buildEditorEditMenuItems({
+    hasSelection: hasEditorSelection(editMenu.view.state),
+    readOnly: editMenu.view.state.readOnly,
+    onSelectAll: () => runEdit('selectAll'),
+    onCopy: () => runEdit('copy'),
+    onCut: () => runEdit('cut'),
+    onPaste: () => runEdit('paste'),
+  });
+
   // The flag travels out on every change of its value and on no other render.
   //
   // The callback is reached through a ref rather than depended on: the render
@@ -348,12 +599,12 @@ export function EditorDocumentPanel({
   }, [saveState.dirty]);
 
   const save = useCallback(() => {
-    void controller.save();
-  }, [controller]);
+    void activeController().save();
+  }, [activeController]);
 
   const requestClose = useCallback(() => {
     const prompt = decideEditorWindowClosePrompt({
-      dirty: controller.isDirty(),
+      dirty: activeController().isDirty(),
       tabClosed: resolveTabSessionRef.current(tabId) === undefined,
     });
     if (prompt.kind === 'none') {
@@ -361,7 +612,7 @@ export function EditorDocumentPanel({
       return;
     }
     setClosePrompt(prompt);
-  }, [controller, onClose, tabId]);
+  }, [activeController, onClose, tabId]);
 
   const answerClose = useCallback((choice: EditorWindowCloseChoice) => {
     const action = resolveEditorWindowCloseChoice(closePrompt, choice);
@@ -372,13 +623,13 @@ export function EditorDocumentPanel({
       return;
     }
     if (action.kind === 'save-then-close') {
-      void controller.save().then((outcome) => {
+      void activeController().save().then((outcome) => {
         if (resolveEditorWindowSaveOnClose(outcome).kind === 'close') {
           onClose();
         }
       });
     }
-  }, [closePrompt, controller, onClose]);
+  }, [activeController, closePrompt, onClose]);
 
   // The window drives this panel through the handle rather than through props
   // of its own, so the title bar acts on whichever document is active without
@@ -393,11 +644,14 @@ export function EditorDocumentPanel({
     onRegisterHandleRef.current(filePath, {
       save,
       requestClose,
-      isDirty: () => controller.isDirty(),
+      isDirty: () => activeController().isDirty(),
+      saveForClose: () => activeController().save().then(
+        (outcome) => resolveEditorWindowSaveOnClose(outcome).kind === 'close',
+      ),
     });
 
     return () => onRegisterHandleRef.current(filePath, null);
-  }, [controller, filePath, requestClose, save]);
+  }, [activeController, filePath, requestClose, save]);
 
   // A document that just opened holds no focus -- the editor does not take it
   // on mount -- so the save shortcut would be dead until the user clicked into
@@ -441,24 +695,95 @@ export function EditorDocumentPanel({
         style={hidden ? HIDDEN_BODY_STYLE : BODY_STYLE}
         className="editor-document-panel"
         data-document-id={filePath}
+        data-editor-theme={theme}
+        data-surface={theme === 'light' ? 'paper' : undefined}
       >
+        {/* @req FR-MDE-020 -- path, light/dark toggle, and (code only) wrap toggle. */}
+        <EditorDocumentToolbar
+          filePath={filePath}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          wrap={wrap}
+          onToggleWrap={view === 'code' ? toggleWrap : undefined}
+          paneToggle={paneToggle}
+          markdownView={component === 'markdown' ? { raw, onToggle: toggleRaw } : undefined}
+        />
         {saveState.error !== null && (
           <div style={BANNER_STYLE} role="alert" className="editor-window-error">
             {saveState.error}
           </div>
         )}
-        {/* The vendor editor ships a light palette behind this opt-in
-            (`vendor/atomic-editor/styles/inline-preview.css:767`). Setting it
-            here rather than restating the palette in our own sheet keeps one
-            copy of those colours. */}
-        <div className="editor-window-host" style={EDITOR_HOST_STYLE} data-theme="light">
-          <AtomicCodeMirrorEditor
-            {...editorMountProps}
-            editorHandleRef={editorHandleRef}
-            onMarkdownChange={controller.handleEditorChange}
-          />
+        {access.notice !== null && (
+          <div style={NOTICE_STYLE} role="status" className="editor-document-notice">
+            {access.notice}
+          </div>
+        )}
+        {/* The vendor editor ships a light palette behind the `light` opt-in
+            (`vendor/atomic-editor/styles/inline-preview.css:767`) and its dark
+            one as the default, so the theme is chosen here rather than by
+            restating either palette in our own sheet. */}
+        <div
+          className="editor-window-host"
+          style={view === 'markdown' ? EDITOR_HOST_STYLE : FULL_HOST_STYLE}
+          data-theme={theme}
+          onContextMenu={openEditMenu}
+          onTouchStart={editLongPress.onTouchStart}
+          onTouchMove={editLongPress.onTouchMove}
+          onTouchEnd={editLongPress.onTouchEnd}
+          data-editor-mode={view ?? 'none'}
+        >
+          {view === 'markdown' && (
+            <AtomicCodeMirrorEditor
+              {...editorMountProps}
+              readOnly={access.readOnly}
+              editorHandleRef={editorHandleRef}
+            />
+          )}
+          {view === 'code' && (
+            <CodeFileEditor
+              key={shown ?? 'code'}
+              {...editorMountProps}
+              language={shown === 'markdown-raw' ? 'markdown' : mode.language}
+              wrap={wrap}
+              readOnly={access.readOnly}
+              dataFile={dataFileKindFor(filePath)}
+              columnDelimiter={columnDelimiterFor(filePath)}
+              editorHandleRef={editorHandleRef}
+            />
+          )}
+          {/* @req FR-MDE-018 -- an image draws in the viewer; a non-editor
+              file opens nothing rather than binary text. */}
+          {/* @req FR-MDE-019 -- an SVG switches between viewer and source. */}
+          {isSvg && (
+            <SvgFileTab
+              filePath={filePath}
+              tabId={tabId}
+              image={image}
+              resolveTabSession={(id) => resolveTabSessionRef.current(id)}
+              openSession={openSvgSession}
+              wrap={wrap}
+              onToggleWrap={toggleWrap}
+              editorHandleRef={editorHandleRef}
+            />
+          )}
+          {component === 'image' && !isSvg && (
+            <ImageFileViewer
+              blob={image?.status === 'ready' ? image.blob : null}
+              size={image?.status === 'ready' ? image.size : 0}
+              error={image?.status === 'error' ? image.error : null}
+            />
+          )}
         </div>
+        {component !== 'image' && (
+          <div style={STATUS_STYLE} className="editor-document-status" data-line-ending={lineEndingLabel(layout.eol)}>
+            {lineEndingLabel(layout.eol)}
+          </div>
+        )}
       </div>
+
+      {editMenu !== null && (
+        <ContextMenu position={{ x: editMenu.x, y: editMenu.y }} items={editMenuItems} onClose={() => setEditMenu(null)} />
+      )}
 
       {closePrompt.kind === 'cannot-save' && (
         <ConfirmModal

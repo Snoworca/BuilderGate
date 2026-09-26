@@ -956,8 +956,11 @@ test('TC-REQ-FR-MDE-012-AC2-02 onContextMenu 가 탭 막대 빈 곳과 제목 �
   requireSources([T.window, T.pane, T.documentPanel]);
   const win = read(T.window);
   const doc = read(T.documentPanel);
+  // The tab menu (FR-MDE-021, 2026-09-26) is a different menu: it rides on
+  // <EditorTabBar> and each tab takes it, so it is left out of this check.
+  const onTabBar = (at: number) => nodeAt(win, at)?.name === 'EditorTabBar';
   const handlers: { at: number; code: string; bare: string }[] = [
-    ...handlerBodies(win, 'onContextMenu').map(h => ({ at: h.at, ...spansText(win, h.spans) })),
+    ...handlerBodies(win, 'onContextMenu').filter(h => !onTabBar(h.at)).map(h => ({ at: h.at, ...spansText(win, h.spans) })),
   ];
   // A titlebar the window does not render can only be reached with a native
   // listener; its handler is whatever is passed after the event name.
@@ -982,8 +985,11 @@ test('TC-REQ-FR-MDE-012-AC2-02 onContextMenu 가 탭 막대 빈 곳과 제목 �
     assert.ok(node.name !== 'EditorDocumentPanel' && !holds(node, 'EditorDocumentPanel'),
       `${where(win, h.at)}: onContextMenu must not sit on or around <EditorDocumentPanel>`);
   }
-  assert.doesNotMatch(doc.bare, /\bonContextMenu\b/, `${doc.path} must not take right clicks`);
-  assert.doesNotMatch(doc.code, /addEventListener\s*\(\s*['"]contextmenu['"]/, `${doc.path} must not take right clicks`);
+  // The document's own right click is now the edit menu of FR-MDE-022
+  // (2026-09-26), which replaced the browser menu there. It is the panel's, not
+  // the window menu: the panel never calls into the window menu.
+  assert.doesNotMatch(doc.bare, /\bbuildEditorWindowContextMenu\b|\bisEditorWindowMenuTarget\b/,
+    `${doc.path}: the document's right click must not open the window menu`);
 });
 
 test('TC-REQ-FR-MDE-012-AC4-02 창 메뉴가 buildEditorWindowContextMenu({paneOpen}) 로 만들어진다', () => {
@@ -1010,7 +1016,7 @@ test('TC-REQ-FR-MDE-012-AC4-02 창 메뉴가 buildEditorWindowContextMenu({paneO
 // AC-3 — closing
 // ---------------------------------------------------------------------------
 
-test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고, 제목 표시줄에 파일 트리 토글이 하나 있다(메뉴와 같은 동작)', () => {
+test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고, 문서 도구줄에 파일 트리 토글이 있다(메뉴와 같은 동작)', () => {
   const { win, pane } = loadSide();
   const closers = openingTags(pane, 'IconButton').filter(tag => /닫기/.test(attrValue(pane, tag, 'label')?.code ?? ''));
   assert.equal(closers.length, 1, `${pane.path}: the pane head needs one IconButton labelled 닫기, found ${closers.length}`);
@@ -1027,17 +1033,19 @@ test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고, �
   const body = slice(win, actions);
   const icons = [...body.code.matchAll(/\bicon\s*=\s*['"]([\w-]+)['"]/g)].map(m => m[1]).sort();
   assert.deepEqual(icons, ['minimize', 'save'], `${where(win, actions.start)}: plain buttons stay save·minimize`);
+  // Moved 2026-09-26 (FR-MDE-020 AC-8): the toggle now sits in each document's
+  // toolbar, left of the wrap toggle; the titlebar keeps only maximize as a toggle.
   const toggles = openingTags(win, 'IconToggleButton').filter(t => actions.start <= t.start && t.start < actions.end);
-  assert.equal(toggles.length, 2, `${where(win, actions.start)}: two toggles in the titlebar — the file tree and maximize`);
-  const paneToggle = toggles.filter(tag => /파일 트리/.test(attrValue(win, tag, 'label')?.code ?? ''));
-  assert.equal(paneToggle.length, 1, `${where(win, actions.start)}: one IconToggleButton labelled 파일 트리`);
-  const pressed = attrValue(win, paneToggle[0], 'pressed');
-  assert.ok(pressed !== null && /paneMounted/.test(pressed.bare) && /paneCollapsed/.test(pressed.bare),
-    `${where(win, paneToggle[0].start)}: it shows whether the pane is open, like the menu's check mark`);
-  const onToggle = handlersOnTag(win, paneToggle[0], 'onToggle');
-  assert.ok(onToggle !== null && /setPaneOpen\(/.test(onToggle.bare), `${where(win, paneToggle[0].start)}: it opens and closes through setPaneOpen, as the menu does`);
-  const disabled = attrValue(win, paneToggle[0], 'disabled');
-  assert.ok(disabled !== null && /paneMounted/.test(disabled.bare), `${where(win, paneToggle[0].start)}: disabled when the pane cannot open, instead of doing nothing`);
+  assert.equal(toggles.length, 1, `${where(win, actions.start)}: one toggle in the titlebar — maximize`);
+  assert.ok(!/파일 트리/.test(body.code), `${where(win, actions.start)}: the file tree toggle left the titlebar`);
+  // The window builds the toggle's state once and hands it to every document panel.
+  const toggleDef = definitionOf(win, 'paneToggle');
+  assert.ok(toggleDef !== null, `${win.path}: paneToggle is not built`);
+  const toggleCode = slice(win, toggleDef).code;
+  assert.ok(/paneMounted/.test(toggleCode) && /paneCollapsed/.test(toggleCode),
+    `${where(win, toggleDef.start)}: it shows whether the pane is open, like the menu's check mark, and is disabled when the pane cannot open`);
+  assert.ok(/setPaneOpen\(/.test(toggleCode), `${where(win, toggleDef.start)}: it opens and closes through setPaneOpen, as the menu does`);
+  assert.ok(/파일 트리/.test(toggleCode), `${where(win, toggleDef.start)}: labelled 파일 트리`);
 });
 
 // ---------------------------------------------------------------------------

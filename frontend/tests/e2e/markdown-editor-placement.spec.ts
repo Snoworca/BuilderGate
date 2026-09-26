@@ -321,6 +321,8 @@ test.describe('markdown editor placement and stacking', () => {
     await expect(surface.locator('button[aria-label="최대화"]')).toBeVisible();
     await expect(surface.locator('button[aria-label="최소화"]')).toBeVisible();
     await expect(surface.locator('button[aria-label="Close"]')).toBeVisible();
+    // The file tree toggle moved to the document toolbar (FR-MDE-020 AC-8).
+    await expect(surface.locator('.window-dialog-titlebar button[aria-label^="파일 트리"]')).toHaveCount(0);
 
     // Four in total, so a fifth control added back would fail here even under a
     // label this test does not name.

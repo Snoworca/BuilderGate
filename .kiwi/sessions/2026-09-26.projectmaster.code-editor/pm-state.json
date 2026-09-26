@@ -1,0 +1,655 @@
+{
+  "run_id": "2026-09-26.projectmaster.code-editor",
+  "plan_path": "docs/plans/2026-09-26.projectmaster.code-editor.plan.md",
+  "sidecar_path": "docs/plans/2026-09-26.projectmaster.code-editor.sidecar.json",
+  "plan_sha256": "ba016ff4e24bc74019e1257563e5079abd762d0de4535cca4f4108dc4cc2da1f",
+  "sidecar_sha256": "d94d9b2895a55283d454389756d7409e4c130e7bfe234d28514bb36531a85c2b",
+  "target_slug": "code-editor",
+  "started_at": "2026-09-25T18:08:12Z",
+  "last_updated_at": "2026-09-25T22:26:58Z",
+  "pm_version": "0.1",
+  "tasks": [
+    {
+      "task_id": "T-PH001-01",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T18:13:46Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "IR-MDE-002/FR-MDE-016 테스트 6건, unknown 2건 의도된 red",
+      "trace_req_ids": [
+        "IR-MDE-002",
+        "FR-MDE-016"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-02",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T18:18:31Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "readFile fatal TextDecoder encoding utf-8|unknown, 테스트 11/11",
+      "trace_req_ids": [
+        "IR-MDE-002",
+        "FR-MDE-016"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-03",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T18:23:50Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "editorLineEndings.test.ts 6건 red",
+      "trace_req_ids": [
+        "FR-MDE-015"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-04",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T18:35:11Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "lineEndings.ts + EditorDocumentPanel sliceDoc 저장 경로, unit 1570/1570",
+      "trace_req_ids": [
+        "FR-MDE-015"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-05",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T18:37:07Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "editorDocumentAccess/readOnly 저장 테스트 5건 red",
+      "trace_req_ids": [
+        "FR-MDE-015",
+        "FR-MDE-016"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH001-06",
+      "phase_id": "PH-001",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T18:45:11Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "editorDocumentAccess.ts, unknown→readOnly+안내, 줄바꿈 라벨, unit 1575/1575",
+      "trace_req_ids": [
+        "FR-MDE-015",
+        "FR-MDE-016"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-01",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T18:50:23Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "editorMode.test.ts 8건 red; cfg/conf 는 AC-4 따라 텍스트",
+      "trace_req_ids": [
+        "FR-MDE-013"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-02",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T19:01:18Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "editorMode.ts resolveEditorMode + languages.ts, unit 1583/1583",
+      "trace_req_ids": [
+        "FR-MDE-013"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-03",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T19:09:02Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "탐색기 열기/아이콘 판정 출처 테스트 3건 red",
+      "trace_req_ids": [
+        "FR-MDE-013"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH002-04",
+      "phase_id": "PH-002",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T19:13:12Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "탐색기 열기/아이콘을 resolveEditorMode 로, unit 1584/1584",
+      "trace_req_ids": [
+        "FR-MDE-013"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-01",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T19:16:53Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "codeEditorExtensions.test.ts 5건 red",
+      "trace_req_ids": [
+        "FR-MDE-014"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-02",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T19:40:00Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "codeEditorExtensions.ts + CodeFileEditor.tsx (미연결), unit 1589/1589, vite build OK",
+      "trace_req_ids": [
+        "FR-MDE-014"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-03",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T19:46:04Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "editorDocumentPanelMode.test.ts 4건 red",
+      "trace_req_ids": [
+        "FR-MDE-014"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH003-04",
+      "phase_id": "PH-003",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T19:55:02Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "문서 패널 코드 모드 분기 연결, unit 1593/1593",
+      "trace_req_ids": [
+        "FR-MDE-014"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-01",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T19:59:35Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "dataFileLint.test.ts 6건 red",
+      "trace_req_ids": [
+        "FR-MDE-017"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH004-02",
+      "phase_id": "PH-004",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T20:10:21Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "dataFileLint.ts/csvColumns.ts + @codemirror/lint 직접 의존, unit 1599/1599",
+      "trace_req_ids": [
+        "FR-MDE-017"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH005-01",
+      "phase_id": "PH-005",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T20:17:23Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "readImageFile/maxImageFileSize 테스트 5건 red",
+      "trace_req_ids": [
+        "IR-MDE-003"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH005-02",
+      "phase_id": "PH-005",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T20:25:25Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "readImageFile + maxImageFileSize 전 경로 전달, server tsc OK",
+      "trace_req_ids": [
+        "IR-MDE-003"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH005-03",
+      "phase_id": "PH-005",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T20:33:08Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "fileRoutes.imageRead.test.ts 5건 red",
+      "trace_req_ids": [
+        "IR-MDE-003",
+        "SEC-MDE-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH005-04",
+      "phase_id": "PH-005",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T20:38:58Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "GET /:id/files/read-image + img-src blob:, release-pipeline 13/13",
+      "trace_req_ids": [
+        "IR-MDE-003",
+        "SEC-MDE-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH005-05",
+      "phase_id": "PH-005",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T20:40:49Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "fileApiImageRead.test.ts 2건 red",
+      "trace_req_ids": [
+        "IR-MDE-003"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH005-06",
+      "phase_id": "PH-005",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T20:43:20Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "fileApi.readImage → Blob, unit 1601/1601",
+      "trace_req_ids": [
+        "IR-MDE-003"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH006-01",
+      "phase_id": "PH-006",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T20:50:05Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "imageViewerModel.test.ts 8건 red",
+      "trace_req_ids": [
+        "FR-MDE-018",
+        "SEC-MDE-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH006-02",
+      "phase_id": "PH-006",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T21:03:58Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "imageViewerModel.ts + ImageFileViewer.tsx/css (미연결), unit 1609/1609",
+      "trace_req_ids": [
+        "FR-MDE-018",
+        "SEC-MDE-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH006-03",
+      "phase_id": "PH-006",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T21:06:31Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "editorImageTab.test.ts 5건 red",
+      "trace_req_ids": [
+        "FR-MDE-018"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH006-04",
+      "phase_id": "PH-006",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T21:15:53Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "editorDocumentLoad.ts, 이미지 탭 열기/복원/뷰어 연결, unit 1614/1614",
+      "trace_req_ids": [
+        "FR-MDE-018"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH007-01",
+      "phase_id": "PH-007",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T21:19:56Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "svgTabModel.test.ts 7건 red",
+      "trace_req_ids": [
+        "FR-MDE-015",
+        "FR-MDE-016",
+        "FR-MDE-019",
+        "SEC-MDE-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH007-02",
+      "phase_id": "PH-007",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T21:31:52Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "svgTabModel.ts + SvgFileTab.tsx, unit 1621/1621",
+      "trace_req_ids": [
+        "FR-MDE-015",
+        "FR-MDE-016",
+        "FR-MDE-019",
+        "SEC-MDE-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH008-01",
+      "phase_id": "PH-008",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T21:53:56Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "code-editor-text.spec.ts 9/9 x2, 결함 2건 수정(JSON 오류 줄, 탭 x 닫기 확인), unit 1625/1625",
+      "trace_req_ids": [
+        "FR-MDE-013",
+        "FR-MDE-014",
+        "FR-MDE-015",
+        "FR-MDE-016",
+        "FR-MDE-017"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH008-02",
+      "phase_id": "PH-008",
+      "status": "done",
+      "tdd_exempted": false,
+      "started_at": null,
+      "ended_at": "2026-09-25T22:06:44Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "code-editor-image.spec.ts 7/7, 제품 결함 없음",
+      "trace_req_ids": [
+        "FR-MDE-018",
+        "FR-MDE-019",
+        "IR-MDE-003",
+        "SEC-MDE-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH008-03",
+      "phase_id": "PH-008",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": "2026-09-25T22:07:46Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "CLAUDE.md 편집기 설명 갱신 + worklog 1건",
+      "trace_req_ids": [
+        "FR-MDE-014",
+        "FR-MDE-018"
+      ],
+      "questions": [],
+      "attempts": 1
+    },
+    {
+      "task_id": "T-PH008-04",
+      "phase_id": "PH-008",
+      "status": "done",
+      "tdd_exempted": true,
+      "started_at": null,
+      "ended_at": "2026-09-25T22:21:06Z",
+      "coder_run_id": "2026-09-26.projectmaster.code-editor",
+      "result_summary": "회귀 unit 1630/1630, release-pipeline 13/13, E2E 16/16; 리뷰 HIGH 1(삽입 LF 정규화) 수정",
+      "trace_req_ids": [
+        "FR-MDE-013",
+        "FR-MDE-014",
+        "FR-MDE-015",
+        "FR-MDE-016",
+        "FR-MDE-017",
+        "FR-MDE-018",
+        "FR-MDE-019",
+        "IR-MDE-002",
+        "IR-MDE-003",
+        "SEC-MDE-001"
+      ],
+      "questions": [],
+      "attempts": 1
+    }
+  ],
+  "stats": {
+    "total": 32,
+    "done": 32,
+    "running": 0,
+    "pending": 0,
+    "failed": 0,
+    "blocked": 0,
+    "skipped": 0
+  },
+  "last_question": null,
+  "last_error": null,
+  "lifecycle_gate_state": {
+    "evaluated_at": "2026-09-25T18:08:12Z",
+    "blocked_req_ids": [],
+    "stability_snapshot": {
+      "FR-MDE-013": "evolving",
+      "FR-MDE-014": "evolving",
+      "FR-MDE-015": "evolving",
+      "IR-MDE-002": "evolving",
+      "FR-MDE-016": "evolving",
+      "FR-MDE-017": "evolving",
+      "IR-MDE-003": "evolving",
+      "FR-MDE-018": "evolving",
+      "FR-MDE-019": "evolving",
+      "SEC-MDE-001": "evolving"
+    },
+    "status_snapshot": {
+      "FR-MDE-013": "planned",
+      "FR-MDE-014": "planned",
+      "FR-MDE-015": "planned",
+      "IR-MDE-002": "planned",
+      "FR-MDE-016": "planned",
+      "FR-MDE-017": "planned",
+      "IR-MDE-003": "planned",
+      "FR-MDE-018": "planned",
+      "FR-MDE-019": "planned",
+      "SEC-MDE-001": "planned"
+    }
+  },
+  "req_coverage": {},
+  "final_mutations": [
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "FR-MDE-013",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "FR-MDE-014",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "FR-MDE-015",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "FR-MDE-016",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "FR-MDE-017",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "FR-MDE-018",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "FR-MDE-019",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "IR-MDE-002",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "IR-MDE-003",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "update_status",
+      "req_id": "SEC-MDE-001",
+      "from": "in_progress",
+      "to": "implemented",
+      "dry_run": false
+    },
+    {
+      "ts": "2026-09-25T22:26:58Z",
+      "kind": "add_completed_work_plan_summary",
+      "req_id": "FR-MDE-013,FR-MDE-014,FR-MDE-015,FR-MDE-016,FR-MDE-017,FR-MDE-018,FR-MDE-019,IR-MDE-002,IR-MDE-003,SEC-MDE-001",
+      "dry_run": false
+    }
+  ],
+  "pending_mutations": [],
+  "report_path": "docs/analysis/kiwi-pm-2026-09-26.projectmaster.code-editor/report.md",
+  "doculight_viewer_id": null
+}

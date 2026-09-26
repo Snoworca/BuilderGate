@@ -8,7 +8,8 @@
 //
 // @req FR-MDE-010
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
+import { useLongPress } from '../../hooks/useLongPress.ts';
 import { windowDialogTitleText } from '../dialog/windowDialogModel.ts';
 
 /** What the row needs of a document. */
@@ -24,6 +25,8 @@ export interface EditorTabBarProps {
   activeFilePath: string | null;
   onSelect: (filePath: string) => void;
   onClose: (filePath: string) => void;
+  /** Right click or a long press on a tab: the tab menu (FR-MDE-021). */
+  onContextMenu?: (filePath: string, point: { x: number; y: number }) => void;
 }
 
 function fileNameOf(filePath: string): string {
@@ -34,7 +37,7 @@ function fileNameOf(filePath: string): string {
 /**
  * @req FR-MDE-010
  */
-export function EditorTabBar({ tabs, activeFilePath, onSelect, onClose }: EditorTabBarProps) {
+export function EditorTabBar({ tabs, activeFilePath, onSelect, onClose, onContextMenu }: EditorTabBarProps) {
   const activeRef = useRef<HTMLButtonElement>(null);
 
   // A tab selected from somewhere other than this row -- the header tray, or
@@ -50,9 +53,11 @@ export function EditorTabBar({ tabs, activeFilePath, onSelect, onClose }: Editor
         const active = tab.filePath === activeFilePath;
 
         return (
-          <div
+          <EditorTabFrame
             key={tab.filePath}
             className={active ? 'editor-tab is-active' : 'editor-tab'}
+            filePath={tab.filePath}
+            onContextMenu={onContextMenu}
           >
             {/* The label and the close control are separate buttons rather than
                 one button with another inside it: nesting them is invalid, and
@@ -82,9 +87,45 @@ export function EditorTabBar({ tabs, activeFilePath, onSelect, onClose }: Editor
             >
               ×
             </button>
-          </div>
+          </EditorTabFrame>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * One tab's frame. Its own component so each tab has its own long-press
+ * timer: a phone raises no contextmenu for a held finger, so the same menu is
+ * reached by holding the tab (FR-MDE-021 AC-2).
+ * @req FR-MDE-021
+ */
+function EditorTabFrame({
+  className,
+  filePath,
+  onContextMenu,
+  children,
+}: {
+  className: string;
+  filePath: string;
+  onContextMenu?: (filePath: string, point: { x: number; y: number }) => void;
+  children: ReactNode;
+}) {
+  const longPress = useLongPress((point) => onContextMenu?.(filePath, { x: point.clientX, y: point.clientY }));
+  const openMenu = (event: MouseEvent<HTMLDivElement>) => {
+    if (onContextMenu === undefined) return;
+    event.preventDefault();
+    onContextMenu(filePath, { x: event.clientX, y: event.clientY });
+  };
+  return (
+    <div
+      className={className}
+      onContextMenu={openMenu}
+      onTouchStart={longPress.onTouchStart}
+      onTouchMove={longPress.onTouchMove}
+      onTouchEnd={longPress.onTouchEnd}
+    >
+      {children}
     </div>
   );
 }

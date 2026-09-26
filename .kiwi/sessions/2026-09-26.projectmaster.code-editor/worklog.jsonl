@@ -1,0 +1,40 @@
+{"ts": "2026-09-25T18:13:46Z", "event": "task_done", "task_id": "T-PH001-01", "summary": "IR-MDE-002/FR-MDE-016 테스트 6건, unknown 2건 의도된 red"}
+{"ts": "2026-09-25T18:18:31Z", "event": "task_done", "task_id": "T-PH001-02", "summary": "readFile fatal TextDecoder encoding utf-8|unknown, 테스트 11/11"}
+{"ts": "2026-09-25T18:23:50Z", "event": "task_done", "task_id": "T-PH001-03", "summary": "editorLineEndings.test.ts 6건 red"}
+{"ts": "2026-09-25T18:35:11Z", "event": "task_done", "task_id": "T-PH001-04", "summary": "lineEndings.ts + EditorDocumentPanel sliceDoc 저장 경로, unit 1570/1570"}
+{"ts": "2026-09-25T18:37:07Z", "event": "task_done", "task_id": "T-PH001-05", "summary": "editorDocumentAccess/readOnly 저장 테스트 5건 red"}
+{"ts": "2026-09-25T18:45:11Z", "event": "task_done", "task_id": "T-PH001-06", "summary": "editorDocumentAccess.ts, unknown→readOnly+안내, 줄바꿈 라벨, unit 1575/1575"}
+{"ts": "2026-09-25T18:50:23Z", "event": "task_done", "task_id": "T-PH002-01", "summary": "editorMode.test.ts 8건 red; cfg/conf 는 AC-4 따라 텍스트"}
+{"ts": "2026-09-25T19:01:18Z", "event": "task_done", "task_id": "T-PH002-02", "summary": "editorMode.ts resolveEditorMode + languages.ts, unit 1583/1583"}
+{"ts": "2026-09-25T19:09:02Z", "event": "task_done", "task_id": "T-PH002-03", "summary": "탐색기 열기/아이콘 판정 출처 테스트 3건 red"}
+{"ts": "2026-09-25T19:13:12Z", "event": "task_done", "task_id": "T-PH002-04", "summary": "탐색기 열기/아이콘을 resolveEditorMode 로, unit 1584/1584"}
+{"event":"tdd_red_confirmed","task_id":"T-PH003-01","exit_code":1,"test_case_ids":["TC-REQ-FR-MDE-014-AC1-01","TC-REQ-FR-MDE-014-AC2-01","TC-REQ-FR-MDE-014-AC3-01","TC-REQ-FR-MDE-014-AC4-01","TC-REQ-FR-MDE-014-AC5-01"],"at":"2026-09-25T19:16:44Z"}
+{"ts": "2026-09-25T19:16:53Z", "event": "task_done", "task_id": "T-PH003-01", "summary": "codeEditorExtensions.test.ts 5건 red"}
+{"event":"task_done","task_id":"T-PH003-02","ts":"2026-09-25T19:40:00Z"}
+{"ts": "2026-09-25T19:40:00Z", "event": "task_done", "task_id": "T-PH003-02", "summary": "codeEditorExtensions.ts + CodeFileEditor.tsx (미연결), unit 1589/1589, vite build OK"}
+{"ts": "2026-09-25T19:46:00Z", "event": "tdd_red_confirmed", "task_id": "T-PH003-03", "exit_code": 1, "test_case_ids": ["TC-REQ-FR-MDE-014-AC6-01", "TC-REQ-FR-MDE-014-AC7-01", "TC-REQ-FR-MDE-014-AC8-01", "TC-REQ-FR-MDE-014-AC6-02"]}
+{"ts": "2026-09-25T19:46:00Z", "event": "task_done", "task_id": "T-PH003-03", "summary": "editorDocumentPanelMode.test.ts 4 case red, tsconfig.test.json 등재"}
+{"ts": "2026-09-25T19:46:04Z", "event": "task_done", "task_id": "T-PH003-03", "summary": "editorDocumentPanelMode.test.ts 4건 red"}
+{"ts": "2026-09-25T19:55:02Z", "event": "task_done", "task_id": "T-PH003-04", "summary": "문서 패널 코드 모드 분기 연결, unit 1593/1593"}
+{"ts": "2026-09-25T19:59:35Z", "event": "task_done", "task_id": "T-PH004-01", "summary": "dataFileLint.test.ts 6건 red"}
+{"event":"task_done","task_id":"T-PH004-02","ts":"2026-09-25T20:12:00Z"}
+{"ts": "2026-09-25T20:10:21Z", "event": "task_done", "task_id": "T-PH004-02", "summary": "dataFileLint.ts/csvColumns.ts + @codemirror/lint 직접 의존, unit 1599/1599"}
+{"ts":"2026-09-25T20:17:12Z","event":"tdd_red_confirmed","task_id":"T-PH005-01","exit_code":1,"test_case_ids":["TC-REQ-IR-MDE-003-AC1-01","TC-REQ-IR-MDE-003-AC2-01","TC-REQ-IR-MDE-003-AC3-01","TC-REQ-IR-MDE-003-AC3-02","TC-REQ-IR-MDE-003-AC3-04"]}
+{"ts": "2026-09-25T20:17:23Z", "event": "task_done", "task_id": "T-PH005-01", "summary": "readImageFile/maxImageFileSize 테스트 5건 red"}
+{"ts": "2026-09-25T20:25:25Z", "event": "task_done", "task_id": "T-PH005-02", "summary": "readImageFile + maxImageFileSize 전 경로 전달, server tsc OK"}
+{"ts": "2026-09-25T20:33:08Z", "event": "task_done", "task_id": "T-PH005-03", "summary": "fileRoutes.imageRead.test.ts 5건 red"}
+{"ts": "2026-09-25T20:38:58Z", "event": "task_done", "task_id": "T-PH005-04", "summary": "GET /:id/files/read-image + img-src blob:, release-pipeline 13/13"}
+{"ts":"2026-09-25T20:40:36Z","event":"tdd_red_confirmed","task_id":"T-PH005-05","exit_code":1,"test_case_ids":["TC-REQ-IR-MDE-003-AC5-02","TC-REQ-IR-MDE-003-AC3-03"]}
+{"ts": "2026-09-25T20:40:49Z", "event": "task_done", "task_id": "T-PH005-05", "summary": "fileApiImageRead.test.ts 2건 red"}
+{"ts": "2026-09-25T20:43:20Z", "event": "task_done", "task_id": "T-PH005-06", "summary": "fileApi.readImage → Blob, unit 1601/1601"}
+{"ts": "2026-09-25T20:50:05Z", "event": "task_done", "task_id": "T-PH006-01", "summary": "imageViewerModel.test.ts 8건 red"}
+{"ts": "2026-09-25T21:03:58Z", "event": "task_done", "task_id": "T-PH006-02", "summary": "imageViewerModel.ts + ImageFileViewer.tsx/css (미연결), unit 1609/1609"}
+{"ts": "2026-09-25T21:06:31Z", "event": "task_done", "task_id": "T-PH006-03", "summary": "editorImageTab.test.ts 5건 red"}
+{"event":"task_done","task_id":"T-PH006-04","ts":"2026-09-25T21:12:02Z"}
+{"ts": "2026-09-25T21:15:53Z", "event": "task_done", "task_id": "T-PH006-04", "summary": "editorDocumentLoad.ts, 이미지 탭 열기/복원/뷰어 연결, unit 1614/1614"}
+{"ts": "2026-09-25T21:19:56Z", "event": "task_done", "task_id": "T-PH007-01", "summary": "svgTabModel.test.ts 7건 red"}
+{"ts": "2026-09-25T21:31:52Z", "event": "task_done", "task_id": "T-PH007-02", "summary": "svgTabModel.ts + SvgFileTab.tsx, unit 1621/1621"}
+{"ts": "2026-09-25T21:53:56Z", "event": "task_done", "task_id": "T-PH008-01", "summary": "code-editor-text.spec.ts 9/9 x2, 결함 2건 수정(JSON 오류 줄, 탭 x 닫기 확인), unit 1625/1625"}
+{"ts": "2026-09-25T22:06:44Z", "event": "task_done", "task_id": "T-PH008-02", "summary": "code-editor-image.spec.ts 7/7, 제품 결함 없음"}
+{"ts": "2026-09-25T22:07:46Z", "event": "task_done", "task_id": "T-PH008-03", "summary": "CLAUDE.md 편집기 설명 갱신 + worklog 1건"}
+{"ts": "2026-09-25T22:21:06Z", "event": "task_done", "task_id": "T-PH008-04", "summary": "회귀 unit 1630/1630, release-pipeline 13/13, E2E 16/16; 리뷰 HIGH 1(삽입 LF 정규화) 수정"}

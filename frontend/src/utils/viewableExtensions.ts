@@ -1,18 +1,7 @@
-const VIEWABLE_EXTENSIONS = new Set([
-  // Markdown
-  '.md', '.markdown', '.mdx',
-  // Plain text
-  '.txt',
-  // Code (matches EXTENSION_MAP in CodeViewer)
-  '.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx',
-  '.py', '.java', '.c', '.h', '.cpp', '.cc', '.hpp',
-  '.go', '.rs', '.sh', '.bash', '.zsh',
-  '.html', '.htm', '.css', '.scss',
-  '.json', '.json5', '.yml', '.yaml', '.xml', '.svg', '.sql',
-]);
+import { resolveEditorMode } from '../editor/editorMode.ts';
 
+// Kept only for the unmounted MdirPanel. The editor-mode table (FR-MDE-013) is
+// the single source of which files open; this holds no extension set of its own.
 export function isViewableExtension(filePath: string): boolean {
-  const dot = filePath.lastIndexOf('.');
-  if (dot < 0) return false;
-  return VIEWABLE_EXTENSIONS.has(filePath.slice(dot).toLowerCase());
+  return resolveEditorMode(filePath).kind !== 'none';
 }

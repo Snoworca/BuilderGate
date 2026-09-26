@@ -1,0 +1,342 @@
+{
+  "req_anchors": [
+    {
+      "req_id": "FR-MDE-013",
+      "files": [
+        {
+          "path": "frontend/src/utils/viewableExtensions.ts",
+          "line_range": "1-18",
+          "signature": "const VIEWABLE_EXTENSIONS = new Set([...]); export function isViewableExtension(filePath: string): boolean",
+          "note": "Current single extension allow-list (md/txt/code/svg/etc, no image-vs-code distinction). AC-8/AC-9 require this to be replaced or rewritten to delegate to the new mode-resolution table (resolveEditorMode / decideEditorMode) that ranks exact-name -> prefix -> markdown -> image -> language -> text -> none. isOpenableFile() and entryIcon() both currently key off this file's Set, so the new table must produce an equivalent boolean and 3-way mode for both call sites."
+        },
+        {
+          "path": "frontend/src/components/fileExplorer/fileRowInteraction.ts",
+          "line_range": "51-63",
+          "signature": "export function isOpenableFile(name: string): boolean { return isViewableExtension(name); } / export function decideDoubleClick(row, mode): DoubleClickDecision",
+          "note": "isOpenableFile is the explorer's single source for 'can this row be opened' (comment at line 51-52 explicitly says this must stay a delegate, never a copy). decideDoubleClick (line 57-63) calls it to decide open-editor vs noop on file rows. Must be repointed at the new mode table so image files also open (not just markdown/code) and unmatched names still resolve to noop."
+        },
+        {
+          "path": "frontend/src/components/fileExplorer/fileRowInteraction.ts",
+          "line_range": "71-82",
+          "signature": "export function rowRenderClass(row: NodeRow, clipboard): string",
+          "note": "Line 75: `if (row.type === 'file' && !isOpenableFile(row.name)) classes.push('unopenable');` -- AC-6 (dim + no double-click for unmatched names) flows through this same helper, so it needs no change once isOpenableFile is repointed, but is a direct consumer to verify against AC-6."
+        },
+        {
+          "path": "frontend/src/components/fileExplorer/fileListView.ts",
+          "line_range": "44-75",
+          "signature": "const FILE_ICON_BY_EXTENSION: Readonly<Record<string,string>> = (()=>{...})(); export function entryIcon(entry): string",
+          "note": "Icon lookup is a second, independently-maintained extension table (md/txt/json/xml/yaml/css/code/shell/image/pdf/archive/audio/video/binary groups), unrelated to viewableExtensions.ts. AC-8 requires the tray/tree icon to read the same single judgment table FR-MDE-013 introduces -- this function is one of the two render call sites (see next anchor) that must switch to it, at least for the code/markdown/image branch of the icon groups."
+        },
+        {
+          "path": "frontend/src/components/fileExplorer/FileListView.tsx",
+          "line_range": "156-156",
+          "signature": "<span className=\"fx-icon\">{entryIcon({ name: entry.name, isDirectory: entry.type === 'directory', expanded: false })}</span>",
+          "note": "List-mode row icon render call site."
+        },
+        {
+          "path": "frontend/src/components/fileExplorer/FileTreeView.tsx",
+          "line_range": "224-224",
+          "signature": "<span className=\"fx-icon\">{entryIcon({ name: row.name, isDirectory: isDir, expanded })}</span>",
+          "note": "Tree-mode row icon render call site (import block for entryIcon at line 29)."
+        },
+        {
+          "path": "frontend/tests/unit/fileRowInteraction.test.ts",
+          "line_range": "1-30",
+          "signature": "imports isViewableExtension from utils/viewableExtensions.ts and asserts (via source-text regex) that fileTreeState/fileExplorerClipboard/fileExplorerContextMenu do not re-declare the extension set",
+          "note": "This existing test enforces the OLD single-source rule (isViewableExtension as the sole authority) with a source-text assertion. It will need to be updated/replaced alongside the FR-MDE-013 implementation since AC-8 explicitly retires viewableExtensions.ts's separate set as the judgment source -- flagged so the planner schedules this test's rewrite as part of the same task, not left stale."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-MDE-014",
+      "files": [
+        {
+          "path": "frontend/src/components/editor/EditorDocumentPanel.tsx",
+          "line_range": "236-334",
+          "signature": "export function EditorDocumentPanel({ filePath, tabId, bodyAtOpen, hidden, resolveTabSession, writeFile, onDirtyChange, onClose, onRegisterHandle })",
+          "note": "Host component that currently always mounts <AtomicCodeMirrorEditor>. Needs a mode branch (resolveEditorMode(filePath)) to choose between the markdown editor and a new CodeFileEditor component. editorMountProps (line 297-301: documentId/markdownSource/extensions) is the exact mount-time contract (AC-7) the new code editor component must also honor -- same documentId identity, same 'initial body is not a controlled value' rule enforced by editorDocumentProbes (line 99-154) and extensionsTokenOf (line 108-123)."
+        },
+        {
+          "path": "frontend/src/components/editor/editorWindowSave.ts",
+          "line_range": "48-159",
+          "signature": "createEditorWindowSaveController({ binding, bodyAtOpen, deps, onStateChange }): EditorWindowSaveController",
+          "note": "Save/dirty controller is editor-agnostic (works purely on the body string via handleEditorChange). Confirms the code editor path can reuse this unmodified as required by AC-6 -- just needs to wire its own onMarkdownChange-equivalent callback to controller.handleEditorChange, same as AtomicCodeMirrorEditor's onMarkdownChange prop is wired at EditorDocumentPanel.tsx:458."
+        },
+        {
+          "path": "frontend/src/editor/vendor/atomic-editor/code-languages.ts",
+          "line_range": "1-139",
+          "signature": "export const ATOMIC_CODE_LANGUAGES: LanguageDescription[] = [...]",
+          "note": "Existing lazy-loaded LanguageDescription registry (JS/TS/Python/Go/Rust/Ruby/Java/C/C++/PHP/Swift/Shell/SQL/HTML/CSS/XML/JSON/YAML/TOML/Dockerfile/Markdown), built for fenced-code-block highlighting inside the markdown editor and never wired to any codeLanguages prop today (research doc 1.1). Research 3.4 recommends a NEW file frontend/src/editor/languages.ts rather than extending this vendor file, to keep the vendor copy diff-free and to add the ~30 extra languages/filenames FR-MDE-013's table needs (dotfiles, legacy-mode languages, etc)."
+        },
+        {
+          "path": "frontend/src/editor/vendor/atomic-editor/AtomicCodeMirrorEditor.tsx",
+          "line_range": "296-380",
+          "signature": "mount effect: new EditorView({ parent: root, state: EditorState.create({ doc: markdownSource, extensions: [...markdown-only extension list...] }) })",
+          "note": "Reference implementation for how a code-mode sibling component should assemble its own EditorState (own extension list per research 3.3: lineNumbers/foldGutter/bracketMatching/closeBrackets/autocompletion/search/lint, NOT markdown()/tables()/imageBlocks()/inlinePreview()/startAsteriskList/extendEmphasisPair/autoCloseCodeFence). AC-8 requires the new component to be a SEPARATE file (e.g. frontend/src/components/editor/CodeFileEditor.tsx per research 3.2), not a branch added inside this vendor file."
+        },
+        {
+          "path": "frontend/src/editor/vendor/atomic-editor/atomic-theme.ts",
+          "line_range": "1-208",
+          "signature": "export const atomicEditorTheme: Extension = EditorView.theme({...}, { dark: true }); export const atomicMarkdownHighlight = HighlightStyle.define([...]); export const atomicMarkdownSyntax = syntaxHighlighting(atomicMarkdownHighlight)",
+          "note": "AC-5 says reuse existing theme tokens, no new colors. The CSS custom-property tokens (--atomic-editor-fg, --atomic-editor-bg-surface, --atomic-editor-border, --atomic-editor-accent-bright, --atomic-editor-hl-*, etc.) are what to reuse. CAUTION for the planner: atomicEditorTheme itself sets `.cm-gutters { display: 'none' }` at line 76-78, which actively hides line numbers/fold gutters -- FR-MDE-014 AC-1 requires visible gutters in code mode, so the code editor cannot reuse this Extension object wholesale; it must build its own EditorView.theme() using the same custom-property tokens, or override .cm-gutters display back to visible in its own theme layer."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-MDE-015",
+      "files": [
+        {
+          "path": "frontend/src/editor/vendor/atomic-editor/AtomicCodeMirrorEditor.tsx",
+          "line_range": "361-363",
+          "signature": "EditorView.updateListener.of((update) => { if (!update.docChanged) return; onMarkdownChangeRef.current?.(update.state.doc.toString()); })",
+          "note": "Confirmed exact line for research doc's D1 defect: doc.toString() always joins with \\n regardless of the source file's original line separator, so every keystroke save on a CRLF file rewrites every line. This call site (and the handle below) is what must switch to state.sliceDoc(0, state.doc.length) plus an EditorState.lineSeparator compartment seeded from the detected separator of the opened file, per research 3.6."
+        },
+        {
+          "path": "frontend/src/editor/vendor/atomic-editor/AtomicCodeMirrorEditor.tsx",
+          "line_range": "472-472",
+          "signature": "getMarkdown: () => viewRef.current?.state.doc.toString() ?? ''",
+          "note": "Second and only other doc.toString() call site (the imperative handle used by save/getBody paths). Must be changed in lockstep with line 363's listener -- both currently serialize with \\n only, losing CRLF/CR and any BOM handling nuance around cursor math. BOM itself already round-trips as a literal character in the string (research doc 3.6.2), so no BOM-specific code exists yet to anchor -- this is a net-new concern for both markdown and code editors."
+        },
+        {
+          "path": "frontend/src/components/editor/EditorDocumentPanel.tsx",
+          "line_range": "260-282",
+          "signature": "controllerRef.current = createEditorWindowSaveController({ binding: { tabId, filePath }, bodyAtOpen, deps: {...}, onStateChange: ... })",
+          "note": "bodyAtOpen (the string read from disk) is what the line-separator/BOM detection must run against at open time, since this is the first point in the frontend where the raw file body is available before any CodeMirror normalization touches it. The detected separator needs to be threaded through to the AtomicCodeMirrorEditor/CodeFileEditor mount props (new prop, e.g. lineSeparator) and to a status display per AC-6."
+        }
+      ]
+    },
+    {
+      "req_id": "IR-MDE-002",
+      "files": [
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "258-297",
+          "signature": "async readFile(sessionId: string, filePath: string): Promise<FileContent> { ... const content = buffer.toString('utf-8'); ... return { path, content, size, encoding: 'utf-8', extension, mimeType }; }",
+          "note": "Exact read path: blockedExtensions check (265-267) -> stat/size check (269-278, unchanged per AC-3) -> isBinaryFile NUL-ratio check (280-284, unchanged) -> buffer.toString('utf-8') (line 286, unconditional decode, no validation) -> encoding field hardcoded to the literal 'utf-8' (line 293). AC-1/AC-2 require inserting a fatal-mode UTF-8 validation between the binary check and the toString/response, and making the encoding field conditional on that validation's result (utf-8 | unknown) instead of the current constant."
+        },
+        {
+          "path": "frontend/src/types/index.ts",
+          "line_range": "116-123",
+          "signature": "export interface FileContent { path: string; content: string; size: number; encoding: string; extension: string; mimeType: string; }",
+          "note": "Frontend mirror of the response shape; encoding is already typed as `string` (not a literal 'utf-8'), so no type change needed here -- FR-MDE-016 consumers just need to compare encoding === 'unknown'."
+        },
+        {
+          "path": "server/src/types/file.types.ts",
+          "line_range": "37-44",
+          "signature": "export interface FileContent { path: string; content: string; size: number; encoding: string; extension: string; mimeType: string; }",
+          "note": "Server-side counterpart of the same shape; also already `encoding: string`, so IR-MDE-002 is a behavior change inside FileService.readFile only, no interface edit required."
+        },
+        {
+          "path": "server/src/services/FileService.test.ts",
+          "line_range": "1-20",
+          "signature": "test('FileService.updateConfig applies new limits to later operations', ...) using node:test + a temp dir",
+          "note": "Existing pattern for FileService unit tests (node:test, mkdtemp, direct FileService construction with a stub sessionManager). No encoding-specific test exists yet (grep confirmed) -- new tests for IR-MDE-002 (e.g. a CP949-encoded temp file asserting encoding:'unknown', and a UTF-8 file with BOM asserting encoding:'utf-8') should follow this same harness style, likely in FileService.test.ts itself or a new FileServiceEncoding.test.ts sibling."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-MDE-016",
+      "files": [
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts",
+          "line_range": "542-559",
+          "signature": "const openWindow = useCallback(async (filePath: string, tabId: string) => { ...; const file = await fileApi.readFile(sessionId, filePath); addWindow(filePath, tabId, file.content); ... }, [addWindow, resolveTabSession]);",
+          "note": "Primary hand-open read path. `file` here is the full FileContent response including `encoding`, but only `file.content` is threaded into addWindow/EditorDocumentState today (EditorDocumentState only carries bodyAtOpen, no encoding field -- see EditorDocumentState type at line 83-86). FR-MDE-016 requires plumbing file.encoding through addWindow -> EditorDocumentState -> EditorDocumentPanel props -> the editor's readOnly prop/compartment (AtomicCodeMirrorEditor.tsx already has a full readOnly Compartment mechanism at lines 278-282, 366-371, 425-433, 474-482 that can be reused for this)."
+        },
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts",
+          "line_range": "866-882",
+          "signature": "const sessionId = resolveTabSessionRef.current(record.tabId); ...; const file = await fileApi.readFile(sessionId, record.filePath); restored.push({ filePath: record.filePath, tabId: record.tabId, workspaceId, dirty: false, bodyAtOpen: file.content });",
+          "note": "Second read call site, inside the FR-MDE-009 reload/restore effect. Must carry `file.encoding` through the same way as the hand-open path above so a restored non-UTF-8 document reopens read-only too, not just a freshly hand-opened one."
+        },
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts",
+          "line_range": "83-86",
+          "signature": "export type EditorDocumentState = EditorTrayWindow & { bodyAtOpen: string; };",
+          "note": "Document state type needs a new field (e.g. `encoding: string` or `readOnly: boolean`) added alongside bodyAtOpen so both read call sites above can attach it and EditorDocumentPanel can read it."
+        },
+        {
+          "path": "frontend/src/components/editor/EditorDocumentPanel.tsx",
+          "line_range": "201-234",
+          "signature": "export interface EditorDocumentPanelProps { filePath; tabId; bodyAtOpen; hidden; resolveTabSession; writeFile; onDirtyChange; onClose; onRegisterHandle; }",
+          "note": "Props interface needs a new field carrying the encoding/read-only flag from useEditorWindows down to this panel, which must then (a) pass readOnly=true into AtomicCodeMirrorEditor/CodeFileEditor's existing readOnly prop, (b) render the AC-3 'not UTF-8, opened read-only' banner (the panel already has a banner slot at line 445-449 for saveState.error, a parallel one is needed for this), and (c) make editorWindowSave.ts's save() a no-op per AC-2 (its controller has no innate read-only concept today, so the panel-level save()/requestClose() callbacks at lines 350-364 need a read-only guard)."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-MDE-017",
+      "files": [
+        {
+          "path": "frontend/package.json",
+          "line_range": "25-48",
+          "signature": "\"@codemirror/lang-json\": \"^6.0.2\" (present), \"@codemirror/lint\" NOT listed as a direct dependency",
+          "note": "@codemirror/lint 6.9.7 exists today only as a transitive dependency (confirmed via node_modules in the research doc). AC-6 requires adding it as a direct dependency entry in this file's dependencies block."
+        },
+        {
+          "path": "frontend/src/editor/vendor/atomic-editor/AtomicCodeMirrorEditor.tsx",
+          "line_range": "300-380",
+          "signature": "EditorState.create({ doc, extensions: [...] })",
+          "note": "Reference for where a `linter(...)` extension (from @codemirror/lint) would be added to the new code-mode component's own extension list -- jsonParseLinter() for .json, a per-line JSON.parse loop for .jsonl (AC-2 explicitly forbids feeding a whole JSONL file to jsonParseLinter), and a syntax-tree error-node walk over lang-yaml's parse for YAML (AC-3). None of this exists yet; this is the closest existing 'assemble an EditorState extension array' call site to model the new one on."
+        },
+        {
+          "path": "frontend/src/editor/vendor/atomic-editor/code-languages.ts",
+          "line_range": "111-121",
+          "signature": "LanguageDescription.of({ name: 'JSON', extensions: ['json'], load: () => import('@codemirror/lang-json').then((m) => m.json()) }); LanguageDescription.of({ name: 'YAML', ... load: () => import('@codemirror/lang-yaml').then((m) => m.yaml()) })",
+          "note": "Confirms @codemirror/lang-json and @codemirror/lang-yaml are already installed and lazy-loadable; the new code editor's JSON/YAML lint wiring can reuse the same dynamic-import pattern to pull jsonParseLinter and the yaml parse tree without adding new base dependencies beyond @codemirror/lint itself."
+        }
+      ]
+    },
+    {
+      "req_id": "IR-MDE-003",
+      "files": [
+        {
+          "path": "server/src/routes/fileRoutes.ts",
+          "line_range": "38-50",
+          "signature": "router.get('/:id/files/read', async (req, res) => { const filePath = req.query.path as string; ...; const content = await fileService.readFile(req.params.id, filePath); res.json(content); });",
+          "note": "Existing text-read endpoint pattern to mirror for the new binary image endpoint (e.g. GET /:id/files/read-image or similar) -- same req.params.id session binding, same query-param path extraction, same try/catch -> handleError(err, res) at line 128-141 for AppError mapping to status codes. AC-2 requires the new endpoint to share resolveAndValidate/blockedPaths/blockedExtensions behavior and error codes with this route."
+        },
+        {
+          "path": "server/src/services/FileService.ts",
+          "line_range": "258-297",
+          "signature": "async readFile(sessionId, filePath): Promise<FileContent>",
+          "note": "New image-read method should follow this method's validation order (assertSessionExists -> getCwd -> resolveAndValidate -> extension check -> stat -> size check -> fs.readFile) but return a raw Buffer instead of a decoded string, and gate the extension check against the image-mode set from FR-MDE-013 AC-5 rather than blockedExtensions alone (AC-1: only image extensions are served, everything else rejected)."
+        },
+        {
+          "path": "server/src/schemas/config.schema.ts",
+          "line_range": "244-250",
+          "signature": "export const fileManagerSchema = z.object({ maxFileSize: z.number().min(1024).max(104857600).default(1048576), maxDirectoryEntries: ..., blockedExtensions: ..., blockedPaths: ..., cwdCacheTtlMs: ... });",
+          "note": "AC-3 requires a new sibling field `maxImageFileSize` (default 20 MiB = 20971520, same 1 KiB-100 MiB range as maxFileSize i.e. z.number().min(1024).max(104857600).default(20971520)) added to this object, without touching the existing maxFileSize field or its default (AC-3: 'maxFileSize 는 바뀌지 않는다')."
+        },
+        {
+          "path": "server/src/middleware/securityHeaders.ts",
+          "line_range": "37-51",
+          "signature": "const defaultCspDirectives = { defaultSrc: [\"'self'\"], ..., imgSrc: [\"'self'\", 'data:'], ... };",
+          "note": "Production CSP img-src directive (line 42: `imgSrc: [\"'self'\", 'data:']`). AC-6 requires adding 'blob:' here: `imgSrc: [\"'self'\", 'data:', 'blob:']`."
+        },
+        {
+          "path": "server/src/index.ts",
+          "line_range": "455-475",
+          "signature": "const isDev = process.env.NODE_ENV !== 'production'; app.use(createSecurityHeadersMiddleware({ enableHSTS: true, ...(isDev && { cspDirectives: { ..., imgSrc: [\"'self'\", \"data:\"], ... } }) }));",
+          "note": "Development CSP override block (imgSrc at line 465). AC-6 requires the same 'blob:' addition here for the dev-mode CSP directives object, keeping every other directive (scriptSrc 'unsafe-inline', connectSrc wss/ws, workerSrc blob:, etc.) unchanged."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-MDE-018",
+      "files": [
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts",
+          "line_range": "549-554",
+          "signature": "const file = await fileApi.readFile(sessionId, filePath); addWindow(filePath, tabId, file.content);",
+          "note": "Traced by the requirement itself as the 'open by hand' path today (text-only, via readFile). For an image-mode path (per FR-MDE-013), this must branch to call the new IR-MDE-003 binary endpoint (a new fileApi method, e.g. fileApi.readImage(sessionId, filePath) returning a Blob/ArrayBuffer) instead of readFile/addWindow's text body, and construct a blob URL for the img tag rather than storing text as bodyAtOpen."
+        },
+        {
+          "path": "frontend/src/hooks/useEditorWindows.ts",
+          "line_range": "866-882",
+          "signature": "restore effect's per-record fileApi.readFile call",
+          "note": "AC-9 requires the FR-MDE-009 restore path to re-run FR-MDE-013's mode judgment on the recorded path and, for an image-mode path, re-open via IR-MDE-003 instead of the text readFile used here today; SVG explicitly restores to the viewer (not the XML source editor), per AC-9's last sentence."
+        },
+        {
+          "path": "frontend/src/components/fileExplorer/fileRowInteraction.ts",
+          "line_range": "53-63",
+          "signature": "isOpenableFile / decideDoubleClick",
+          "note": "Same double-click entry point as FR-MDE-013; an image-mode file must produce { type: 'open-editor', path } here exactly like a markdown/code file so it opens as a new tab in the editor window (AC-1), not a separate viewer surface."
+        },
+        {
+          "path": "server/src/routes/fileRoutes.ts",
+          "line_range": "38-50",
+          "signature": "GET /:id/files/read (text) as the sibling to model the new binary endpoint on",
+          "note": "See IR-MDE-003 anchor above -- this is the same file/route group the new image endpoint is added to."
+        }
+      ]
+    },
+    {
+      "req_id": "FR-MDE-019",
+      "files": [
+        {
+          "path": "frontend/src/components/editor/EditorDocumentPanel.tsx",
+          "line_range": "236-260",
+          "signature": "EditorDocumentPanel component body / tab host",
+          "note": "SVG's dual-mode (viewer <-> XML source) toggle within one tab needs new local state here (or in a new SvgTabPanel-style component) to switch which child renders (image viewer vs CodeFileEditor in XML mode) while keeping one EditorDocumentState/tab identity -- same filePath, same dirty/save controller. AC-2 requires the source-edit body to come from GET .../files/read (the existing text endpoint, fileRoutes.ts:38-50), not from the new binary IR-MDE-003 endpoint."
+        },
+        {
+          "path": "frontend/src/editor/vendor/atomic-editor/code-languages.ts",
+          "line_range": "106-110",
+          "signature": "LanguageDescription.of({ name: 'XML', extensions: ['xml'], load: () => import('@codemirror/lang-xml').then((m) => m.xml()) })",
+          "note": "XML language support is already registered and lazy-loadable; SVG's source-edit mode (AC-2, 'XML 코드 모드') can reuse this exact LanguageDescription once the new languages table (FR-MDE-014's code-languages registry) maps the .svg extension to it for source-edit purposes specifically (note FR-MDE-013 AC-5 classifies .svg itself as image mode by default -- the XML language association only applies inside the SVG viewer's source-edit sub-mode, not to the outer file-open judgment)."
+        }
+      ]
+    },
+    {
+      "req_id": "SEC-MDE-001",
+      "files": [
+        {
+          "path": "server/src/routes/fileRoutes.ts",
+          "line_range": "38-50",
+          "signature": "res.json(content) pattern to contrast with the new binary route's res.set()/res.send(buffer) pattern",
+          "note": "The new IR-MDE-003 image route (and by extension this SEC-MDE-001 requirement) must set the CSP header `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'` on its own response (AC-5) in addition to the image MIME Content-Type + X-Content-Type-Options: nosniff from IR-MDE-003 AC-4 -- this is a per-route header set via res.setHeader/res.set in this same route file, not a helmet/global CSP change (which stays scoped to img-src per IR-MDE-003 AC-6)."
+        },
+        {
+          "path": "frontend/src/components/editor/EditorDocumentPanel.tsx",
+          "line_range": "438-461",
+          "signature": "return (<>...<div className=\"editor-window-host\" ...><AtomicCodeMirrorEditor .../></div>...</>)",
+          "note": "Confirms the current render tree uses component-based rendering (no innerHTML/dangerouslySetInnerHTML anywhere in this file), which is the pattern the new SVG/image viewer component must follow: an <img src={blobUrl}> element only, never injecting SVG markup into the DOM (AC-1/AC-3). AC-4 (revoke blob URLs on tab close / preview swap) needs a new effect analogous to the probe cleanup effect at lines 312-334 of this file, which already demonstrates the disposal-on-unmount-with-identity-check pattern to follow."
+        }
+      ]
+    }
+  ],
+  "addition_sites": [
+    {
+      "path": "frontend/src/editor/editorMode.ts",
+      "reason": "FR-MDE-013's single judgment table (resolveEditorMode / decideEditorMode: exact-filename table -> .env prefix rule -> markdown extensions -> image extensions -> language extensions -> text extensions -> null). Must be importable by both frontend/src/components/fileExplorer/fileRowInteraction.ts (isOpenableFile/decideDoubleClick) and frontend/src/components/editor/EditorDocumentPanel.tsx (mode branch), so it belongs in a shared, framework-free location per research 3.1-3.2 rather than inside either consumer."
+    },
+    {
+      "path": "frontend/src/editor/languages.ts",
+      "reason": "Research 3.4's recommended new language registry (extends the ~20 languages in vendor code-languages.ts with dotfiles, legacy-modes languages, and file-name-based entries like Dockerfile/Makefile), kept separate from the vendor file so the vendored atomic-editor copy stays diff-free against upstream, per FR-MDE-014 AC-8's 'no mode branching inside vendor files' rule applied to the language table as well."
+    },
+    {
+      "path": "frontend/src/components/editor/CodeFileEditor.tsx",
+      "reason": "FR-MDE-014's new CodeMirror 6 code-mode component (AC-8: must be a separate component, not a branch inside src/editor/vendor/atomic-editor/AtomicCodeMirrorEditor.tsx). Must expose the same handle shape and mount-time contract as AtomicCodeMirrorEditorHandle / EditorDocumentPanel's editorMountProps (documentId identity, uncontrolled initial body) so EditorDocumentPanel.tsx's branch can swap it in with a one-line change per the research doc's design note."
+    },
+    {
+      "path": "frontend/src/components/editor/ImageFileViewer.tsx",
+      "reason": "FR-MDE-018's read-only image viewer tab content (fit/100%, wheel/pinch zoom, pan, dimensions+size display, checkerboard transparency). New component, mounted by EditorDocumentPanel.tsx's mode branch for image-mode documents; owns its own blob URL lifecycle per SEC-MDE-001 AC-4."
+    },
+    {
+      "path": "frontend/src/components/editor/SvgFileTab.tsx",
+      "reason": "FR-MDE-019's SVG dual-mode tab (viewer <-> XML source via CodeFileEditor), thin wrapper composing ImageFileViewer + CodeFileEditor with a local view-mode toggle and shared dirty/save state. Could alternatively be folded into EditorDocumentPanel.tsx directly if the planner prefers fewer files -- flagged as a design choice, not a hard requirement."
+    },
+    {
+      "path": "frontend/src/services/api.ts",
+      "reason": "IR-MDE-003 needs a new fileApi method (e.g. fileApi.readImageUrl(sessionId, path) or similar returning a Blob/blob URL) alongside the existing readFile/writeFile at lines 293-310, following the same authFetch + getAuthHeaders() + parseError(res) pattern already used by every other fileApi method in this file."
+    },
+    {
+      "path": "server/src/services/FileService.ts (new method, not new file)",
+      "reason": "IR-MDE-003 needs a new method (e.g. readImageFile) on the existing FileService class (server/src/services/FileService.ts) returning a raw Buffer + mimeType rather than a decoded string, reusing resolveAndValidate/isBlockedExtension/config.maxImageFileSize. Not a separate file -- listed here to flag the addition explicitly since no anchor line range exists for code that doesn't exist yet."
+    },
+    {
+      "path": "server/src/routes/fileRoutes.ts (new route, not new file)",
+      "reason": "IR-MDE-003's new GET endpoint (e.g. GET /:id/files/read-image) added inside the existing createFileRoutes() router alongside the /files/read route at lines 38-50, plus SEC-MDE-001 AC-5's CSP header on that route's response."
+    },
+    {
+      "path": "server/src/utils/*.ts (image MIME table)",
+      "reason": "IR-MDE-003 AC-4 needs an image-extension-to-MIME map (png/jpg/jpeg/gif/webp/bmp/ico/avif/svg per FR-MDE-013 AC-5). server/src/services/FileService.ts already has a MIME_TYPES table (lines 42-74) with only .svg as an image entry (image/svg+xml) -- the rest of FR-MDE-013 AC-5's image extensions (png/jpg/jpeg/gif/webp/bmp/ico/avif) are absent from that table today and must be added, either by extending MIME_TYPES in FileService.ts directly or a new small lookup used only by the image route."
+    }
+  ],
+  "test_infra": {
+    "frontend_unit_cmd": "cd frontend && node --experimental-strip-types --test tests/unit/<file>.test.ts   (run per file; confirmed working by executing frontend/tests/unit/fileRowInteraction.test.ts directly -- 14/14 pass, 227ms). There is NO single 'run all frontend unit tests' npm script in frontend/package.json -- existing scripts are per-feature allowlists, e.g. \"test:unit:command-management\": \"node --experimental-strip-types --test tests/unit/dialogGeometry.test.ts tests/unit/dialogStack.test.ts ...\" (see frontend/package.json). A new feature-scoped script (e.g. test:unit:code-editor) following that same pattern, or direct multi-file node --test invocation, is how this work's new tests would be run together.",
+    "frontend_unit_dir": "frontend/tests/unit/ (flat directory, one *.test.ts per concern, node:test + node:assert/strict, many use `import type * as Module from '<path>.ts'` + a runtime `await import()` inside an async load() helper so a missing/broken module fails a named test rather than crashing the whole runner before any test name is printed -- see frontend/tests/unit/fileRowInteraction.test.ts and frontend/tests/unit/editorWindowSave.test.ts for the pattern to follow for new editorMode.ts / CodeFileEditor.ts tests)",
+    "server_test_cmd_example": "cd server && npx tsx --test src/services/FileService.test.ts   (node:test + node:assert/strict, no supertest/http layer seen in FileService.test.ts -- direct class construction with a stub sessionManager object { getSession, getPtyPid, getInitialCwd, getCwdFilePath } and a real fs.mkdtemp temp directory; see server/src/services/FileService.test.ts:1-20 for the exact harness shape to copy for new IR-MDE-002/IR-MDE-003 tests). Full server suite discovery is scattered per CLAUDE.md's testing-rules section (server/src/test-runner.ts, per-file node:test, tools/daemon, tools/wave3, etc) -- out of scope for this analysis beyond confirming the FileService.test.ts pattern works standalone.",
+    "e2e_editor_specs": [
+      "frontend/tests/e2e/markdown-editor-appearance.spec.ts",
+      "frontend/tests/e2e/markdown-editor-entry.spec.ts",
+      "frontend/tests/e2e/markdown-editor-lifecycle.spec.ts",
+      "frontend/tests/e2e/markdown-editor-modal-regression.spec.ts",
+      "frontend/tests/e2e/markdown-editor-persistence.spec.ts",
+      "frontend/tests/e2e/markdown-editor-placement.spec.ts",
+      "frontend/tests/e2e/markdown-editor-save.spec.ts"
+    ]
+  },
+  "missing_anchors": [],
+  "external_paths_detected": []
+}

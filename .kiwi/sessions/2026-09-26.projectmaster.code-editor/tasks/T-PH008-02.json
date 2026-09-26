@@ -1,0 +1,14 @@
+{
+  "task_id": "T-PH008-02",
+  "completed_at": "2026-09-26T07:13:00+09:00",
+  "server": {"pid": 107488, "started": "2026-09-26T06:36:00+09:00", "head": "4df08467+worktree", "server_dist_mtime": "2026-09-26T06:34:51+09:00", "web_dist_mtime": "2026-09-26T06:48:09+09:00", "src_newer_than_dist": 0, "rebuilt": false},
+  "e2e": {"spec": "frontend/tests/e2e/code-editor-image.spec.ts", "runs": [{"passed": 6, "failed": 1, "note": "test-side: editor window covered explorer rows"}, {"passed": 6, "failed": 1, "note": "test-side: restored notes.txt not the active tab"}, {"passed": 7, "failed": 0, "retries": 0}]},
+  "defects_fixed": [],
+  "deviations": [
+    "AC-8 missing image: restore skips a failed image read (no tab), so the in-tab error is exercised by opening a stale explorer row after deleting the file; the restore half asserts no create prompt and no image tab",
+    "AC-4 pinch not driven in E2E (desktop wheel + drag only); pinch covered by imageViewerModel unit tests",
+    "sidecar files[] lists persistence spec / ownership fixture; neither needed changes — only the new test file was added"
+  ],
+  "screenshots": ".playwright-mcp/code-editor-image-*.png (9)",
+  "srs_evidence": ["FR-MDE-018", "FR-MDE-019", "SEC-MDE-001", "IR-MDE-003"]
+}

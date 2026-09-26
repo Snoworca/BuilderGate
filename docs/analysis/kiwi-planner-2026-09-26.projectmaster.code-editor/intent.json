@@ -1,0 +1,14 @@
+{
+ "target_intent": "마크다운 전용 편집기를 코드·데이터 파일 코드 모드 + 이미지 보기 전용 뷰어로 확장, 줄바꿈/BOM 보존, 비 UTF-8 읽기 전용",
+ "user_priorities": [
+  "FR-MDE-015",
+  "IR-MDE-002",
+  "FR-MDE-016 (현 마크다운 편집에서도 내용 손상)"
+ ],
+ "ambiguities": [],
+ "non_coding_signals": [
+  "CLAUDE.md 마크다운 편집기 설명 갱신",
+  "E2E 2222 검증",
+  "worklog 기록"
+ ]
+}

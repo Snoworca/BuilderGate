@@ -35,6 +35,7 @@ import {
 } from '../components/editor/editorWindowPlacement.ts';
 import {
   closeEditorTab,
+  closeEditorTabs,
   selectEditorTab,
 } from '../components/editor/editorWindowTabs.ts';
 import { raiseDialogById } from '../components/dialog/dialogStack.ts';
@@ -63,12 +64,17 @@ import {
 } from '../components/editor/editorTrayModel.ts';
 import {
   buildEditorFileMenuItems,
-  isMissingFileError,
   resolveEditorFilePath,
   selectEditorPathMenuTab,
   type EditorFileMenuSelection,
 } from '../utils/editorFileMenu.ts';
 import { fileApi } from '../services/api';
+import {
+  loadDocument,
+  planOpenDocument,
+  type LoadedDocument,
+  type OpenDocumentRecord,
+} from './editorDocumentLoad.ts';
 
 /**
  * One open document: a tab of its workspace's editor window.
@@ -80,9 +86,15 @@ import { fileApi } from '../services/api';
  * @req FR-MDE-007
  * @req FR-MDE-008
  */
-export type EditorDocumentState = EditorTrayWindow & {
-  /** The content read from disk when the document opened. Never fed back. */
-  bodyAtOpen: string;
+// An image is a document too: `kind` and `image` ride on the same record, so
+// the tab bar, the tray and the close path read it as they read any other.
+// @req FR-MDE-018
+export type EditorDocumentState = OpenDocumentRecord;
+
+/** The reads the open and restore paths go through. @req FR-MDE-018 */
+const documentLoadDeps = {
+  readFile: (sessionId: string, path: string) => fileApi.readFile(sessionId, path),
+  readImage: (sessionId: string, path: string) => fileApi.readImage(sessionId, path),
 };
 
 /**
@@ -282,6 +294,8 @@ export interface UseEditorWindowsResult {
   tabsOf: (workspaceId: string) => EditorDocumentState[];
   selectDocument: (filePath: string) => void;
   closeDocument: (filePath: string) => void;
+  /** Closes several documents in one update (FR-MDE-021). */
+  closeDocuments: (filePaths: readonly string[], keepActive?: string) => void;
   /** Whether the tray icon renders. Scoped exactly as the list is. */
   hasWindows: boolean;
   /** How many documents are open, which the tray icon carries as a badge. */
@@ -482,7 +496,11 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
    * was opened in, and that is the active one at this moment.
    * @req FR-MDE-007
    */
-  const addWindow = useCallback((filePath: string, tabId: string, bodyAtOpen: string) => {
+  const addWindow = useCallback((
+    filePath: string,
+    tabId: string,
+    loaded: LoadedDocument,
+  ) => {
     const workspaceId = activeWorkspaceId;
     if (workspaceId === null) return;
 
@@ -501,15 +519,9 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
         return current;
       }
 
-      return [...current, {
-        filePath,
-        tabId,
-        workspaceId,
-        // A document opens on the body it just read, so it starts clean. The
-        // panel reports every change to this through `setWindowDirty`.
-        dirty: false,
-        bodyAtOpen,
-      }];
+      // A document opens on the body it just read, so it starts clean. The
+      // panel reports every change to this through `setWindowDirty`.
+      return [...current, planOpenDocument({ filePath, tabId, workspaceId, document: loaded })];
     });
 
     setShells((current) => {
@@ -546,16 +558,20 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
       return;
     }
 
-    try {
-      const file = await fileApi.readFile(sessionId, filePath);
-      addWindow(filePath, tabId, file.content);
-    } catch (error) {
-      if (isMissingFileError(error)) {
-        setCreatePrompt({ filePath, tabId });
-        return;
-      }
-      setOpenError(error instanceof Error ? error.message : String(error));
+    // An image never answers `missing`: its read failure opens the tab with
+    // the reason inside it rather than asking to create the file.
+    // @req FR-MDE-018
+    const outcome = await loadDocument({ filePath, sessionId }, documentLoadDeps);
+    if (outcome.status === 'loaded') {
+      addWindow(filePath, tabId, outcome.document);
+      return;
     }
+    if (outcome.status === 'missing') {
+      setCreatePrompt({ filePath, tabId });
+      return;
+    }
+    const { error } = outcome;
+    setOpenError(error instanceof Error ? error.message : String(error));
   }, [addWindow, resolveTabSession]);
 
   /**
@@ -576,7 +592,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     }
 
     void fileApi.writeFile(sessionId, prompt.filePath, '')
-      .then(() => addWindow(prompt.filePath, prompt.tabId, ''))
+      .then(() => addWindow(prompt.filePath, prompt.tabId, { kind: 'text', bodyAtOpen: '', encoding: 'utf-8' }))
       .catch((error: unknown) => {
         setOpenError(error instanceof Error ? error.message : String(error));
       });
@@ -784,6 +800,37 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     });
   }, [activeWorkspaceId]);
 
+  /**
+   * Closes several documents in one update (the tab menu's 다른 탭 닫기 /
+   * 모든 탭 닫기), so no close reads a tab list another one already changed.
+   * `keepActive` becomes the active tab when it survives.
+   * @req FR-MDE-021
+   */
+  const closeDocuments = useCallback((filePaths: readonly string[], keepActive?: string) => {
+    if (filePaths.length === 0) return;
+    const workspaceId = activeWorkspaceId;
+    const closing = new Set(filePaths);
+    for (const filePath of filePaths) closedByUserRef.current.add(filePath);
+
+    setDocuments(current => current.filter(document => !closing.has(document.filePath)));
+
+    if (workspaceId === null) return;
+    setShells((current) => {
+      const shell = current[workspaceId];
+      if (shell === undefined) return current;
+
+      const own = documentsRef.current.filter(document => document.workspaceId === workspaceId);
+      const closed = closeEditorTabs({ tabs: own, activeFilePath: shell.activeFilePath }, filePaths, keepActive);
+
+      if (closed.tabs.length === 0) {
+        const { [workspaceId]: _removed, ...rest } = current;
+        return rest;
+      }
+
+      return { ...current, [workspaceId]: { ...shell, activeFilePath: closed.activeFilePath } };
+    });
+  }, [activeWorkspaceId]);
+
   /** Selects an already-open document's tab. */
   const selectDocument = useCallback((filePath: string) => {
     const workspaceId = activeWorkspaceId;
@@ -872,19 +919,21 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
         const sessionId = resolveTabSessionRef.current(record.tabId);
         if (sessionId === undefined) continue;
 
-        try {
-          const file = await fileApi.readFile(sessionId, record.filePath);
-          restored.push({
-            filePath: record.filePath,
-            tabId: record.tabId,
-            workspaceId,
-            dirty: false,
-            bodyAtOpen: file.content,
-          });
-        } catch {
-          // The file is gone or unreadable. The record stays pending, so the
-          // store keeps it and a later page load can try again.
-        }
+        // The path is judged again, so an image reopens through the image
+        // read and an SVG comes back in the viewer.
+        // @req FR-MDE-018
+        const outcome = await loadDocument({ filePath: record.filePath, sessionId }, documentLoadDeps);
+        // The file is gone or unreadable. The record stays pending, so the
+        // store keeps it and a later page load can try again. An image read
+        // that failed counts the same way here.
+        if (outcome.status !== 'loaded') continue;
+        if (outcome.document.kind === 'image' && outcome.document.image.status === 'error') continue;
+        restored.push(planOpenDocument({
+          filePath: record.filePath,
+          tabId: record.tabId,
+          workspaceId,
+          document: outcome.document,
+        }));
       }
 
       // A document the user opened by hand while the reads were in flight
@@ -996,6 +1045,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     tabsOf,
     selectDocument,
     closeDocument,
+    closeDocuments,
     hasWindows: hasEditorTrayWindows(documents),
     openCount: countEditorTrayWindows(documents),
     trayItems,

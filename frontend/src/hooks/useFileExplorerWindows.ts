@@ -18,6 +18,7 @@ import {
 import { decideOpenFileExplorer, fileExplorerDialogId } from '../components/fileExplorer/fileExplorerDialog.ts';
 import {
   closeTab as closeExplorerTab,
+  closeTabs as closeExplorerTabs,
   dropWindowsOfRemovedWorkspaces,
   focusOrOpenSessionTab,
   openInNewTab,
@@ -93,6 +94,8 @@ export interface FileExplorerWindowActions {
   toggleMaximizeFileExplorer: (workspaceId: string) => void;
   selectTab: (workspaceId: string, tabId: string) => void;
   closeTab: (workspaceId: string, tabId: string) => void;
+  /** Closes several tabs in one update; `keepActiveId` becomes active (FR-FEX-012). */
+  closeTabs: (workspaceId: string, tabIds: readonly string[], keepActiveId?: string) => void;
   /** Opens a tab on the active tab's current root and session. */
   addTab: (workspaceId: string, root: string) => void;
   setTabRoot: (workspaceId: string, tabId: string, root: string) => void;
@@ -308,6 +311,30 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     });
   }, []);
 
+  // The tab menu's 다른 탭 닫기 / 모든 탭 닫기: one state update for the whole
+  // batch, so no close reads a list another close already changed. When the
+  // batch empties the window, the emptied list is written here for the same
+  // reason closeTab writes it.
+  // @req FR-FEX-012
+  const closeTabs = useCallback((workspaceId: string, tabIds: readonly string[], keepActiveId?: string) => {
+    const committed = windowsRef.current[workspaceId];
+    if (committed !== undefined && closeExplorerTabs(committed, tabIds, keepActiveId).tabs.length === 0) {
+      saveFileExplorerStateForWorkspace(workspaceId, { tabs: [], activeTabId: null });
+    }
+    setWindows((current) => {
+      const record = current[workspaceId];
+      if (record === undefined) return current;
+      const next = closeExplorerTabs(record, tabIds, keepActiveId);
+      if (next === record) return current;
+      if (next.tabs.length === 0) {
+        const rest = { ...current };
+        delete rest[workspaceId];
+        return rest;
+      }
+      return { ...current, [workspaceId]: { ...record, ...next } };
+    });
+  }, []);
+
   const addTab = useCallback((workspaceId: string, root: string) => {
     updateWindow(workspaceId, (record) => {
       const active = record.tabs.find((tab) => tab.id === record.activeTabId) ?? record.tabs[0];
@@ -427,12 +454,13 @@ export function useFileExplorerWindows(input: UseFileExplorerWindowsInput): UseF
     toggleMaximizeFileExplorer,
     selectTab,
     closeTab,
+    closeTabs,
     addTab,
     setTabRoot,
     setTabMode,
     setTabSort,
     setTabAnchor,
-  }), [closeFileExplorer, minimizeFileExplorer, toggleMaximizeFileExplorer, selectTab, closeTab, addTab, setTabRoot, setTabMode, setTabSort, setTabAnchor]);
+  }), [closeFileExplorer, minimizeFileExplorer, toggleMaximizeFileExplorer, selectTab, closeTab, closeTabs, addTab, setTabRoot, setTabMode, setTabSort, setTabAnchor]);
 
   return useMemo(() => ({
     ...actions,

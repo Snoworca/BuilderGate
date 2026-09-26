@@ -210,6 +210,8 @@ export interface FileManagerConfig {
   blockedExtensions: string[];
   blockedPaths: string[];
   cwdCacheTtlMs: number;
+  /** Raw image read limit in bytes (IR-MDE-003). Absent means 20 MiB. */
+  maxImageFileSize?: number;
 }
 
 // ============================================================================

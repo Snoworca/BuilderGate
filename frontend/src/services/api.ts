@@ -298,6 +298,17 @@ export const fileApi = {
     return res.json();
   },
 
+  // @req IR-MDE-003
+  // Fetched with the Authorization header and handed back as a Blob for
+  // URL.createObjectURL — never put the token in an <img src> query.
+  readImage: async (sessionId: string, path: string): Promise<Blob> => {
+    const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/read-image?path=${encodeURIComponent(path)}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.blob();
+  },
+
   // @req IR-MDE-001
   writeFile: async (sessionId: string, path: string, content: string): Promise<{ success: boolean }> => {
     const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/write`, {

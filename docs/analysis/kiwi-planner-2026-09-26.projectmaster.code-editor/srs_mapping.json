@@ -1,0 +1,310 @@
+{
+ "req_inventory": [
+  {
+   "req_id": "FR-MDE-013",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 9,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9"
+   ],
+   "files_from_trace": [
+    "frontend/src/utils/viewableExtensions.ts:1-18",
+    "frontend/src/components/fileExplorer/fileRowInteraction.ts:53-62",
+    "frontend/src/components/fileExplorer/fileListView.ts:44-74"
+   ],
+   "depends_on": [
+    "FR-FEX-011"
+   ],
+   "feasibility_hint": "high"
+  },
+  {
+   "req_id": "FR-MDE-014",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 8,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8"
+   ],
+   "files_from_trace": [
+    "frontend/src/components/editor/EditorDocumentPanel.tsx:287-301",
+    "frontend/src/editor/vendor/atomic-editor/code-languages.ts:21"
+   ],
+   "depends_on": [
+    "FR-MDE-005",
+    "FR-MDE-006",
+    "FR-MDE-013",
+    "FR-MDE-011"
+   ],
+   "feasibility_hint": "high"
+  },
+  {
+   "req_id": "FR-MDE-015",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 6,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "files_from_trace": [
+    "frontend/src/editor/vendor/atomic-editor/AtomicCodeMirrorEditor.tsx:363",
+    "frontend/src/editor/vendor/atomic-editor/AtomicCodeMirrorEditor.tsx:472"
+   ],
+   "depends_on": [],
+   "feasibility_hint": "high"
+  },
+  {
+   "req_id": "IR-MDE-002",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 4,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4"
+   ],
+   "files_from_trace": [
+    "server/src/services/FileService.ts:258-296"
+   ],
+   "depends_on": [
+    "IR-MDE-001"
+   ],
+   "feasibility_hint": "high"
+  },
+  {
+   "req_id": "FR-MDE-016",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 5,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "files_from_trace": [
+    "frontend/src/hooks/useEditorWindows.ts:542-559",
+    "frontend/src/hooks/useEditorWindows.ts:866-882"
+   ],
+   "depends_on": [
+    "IR-MDE-002"
+   ],
+   "feasibility_hint": "high"
+  },
+  {
+   "req_id": "FR-MDE-017",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 6,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "files_from_trace": [
+    "frontend/src/components/editor/EditorDocumentPanel.tsx:287-301"
+   ],
+   "depends_on": [
+    "FR-MDE-014"
+   ],
+   "feasibility_hint": "high"
+  },
+  {
+   "req_id": "IR-MDE-003",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 6,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6"
+   ],
+   "files_from_trace": [
+    "server/src/routes/fileRoutes.ts:39-50",
+    "server/src/services/FileService.ts:258-283",
+    "server/src/middleware/securityHeaders.ts:42",
+    "server/src/index.ts:465",
+    "server/src/schemas/config.schema.ts:245"
+   ],
+   "depends_on": [
+    "FR-MDE-013"
+   ],
+   "feasibility_hint": "high"
+  },
+  {
+   "req_id": "FR-MDE-018",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 9,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5",
+    "AC-6",
+    "AC-7",
+    "AC-8",
+    "AC-9"
+   ],
+   "files_from_trace": [
+    "frontend/src/hooks/useEditorWindows.ts:549-554",
+    "frontend/src/hooks/useEditorWindows.ts:866-882"
+   ],
+   "depends_on": [
+    "IR-MDE-003",
+    "FR-MDE-010",
+    "FR-MDE-013",
+    "FR-MDE-007",
+    "FR-MDE-009",
+    "FR-MDE-011"
+   ],
+   "feasibility_hint": "medium"
+  },
+  {
+   "req_id": "FR-MDE-019",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 4,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4"
+   ],
+   "files_from_trace": [
+    "frontend/src/components/editor/EditorDocumentPanel.tsx:287-301"
+   ],
+   "depends_on": [
+    "FR-MDE-018",
+    "FR-MDE-014"
+   ],
+   "feasibility_hint": "medium"
+  },
+  {
+   "req_id": "SEC-MDE-001",
+   "stability": "evolving",
+   "status": "planned",
+   "ac_total": 5,
+   "ac_ids": [
+    "AC-1",
+    "AC-2",
+    "AC-3",
+    "AC-4",
+    "AC-5"
+   ],
+   "files_from_trace": [],
+   "depends_on": [
+    "FR-MDE-019",
+    "IR-MDE-003"
+   ],
+   "feasibility_hint": "high"
+  }
+ ],
+ "dependency_graph": [
+  {
+   "from": "FR-MDE-013",
+   "to": "FR-FEX-011"
+  },
+  {
+   "from": "FR-MDE-014",
+   "to": "FR-MDE-005"
+  },
+  {
+   "from": "FR-MDE-014",
+   "to": "FR-MDE-006"
+  },
+  {
+   "from": "FR-MDE-014",
+   "to": "FR-MDE-013"
+  },
+  {
+   "from": "FR-MDE-014",
+   "to": "FR-MDE-011"
+  },
+  {
+   "from": "IR-MDE-002",
+   "to": "IR-MDE-001"
+  },
+  {
+   "from": "FR-MDE-016",
+   "to": "IR-MDE-002"
+  },
+  {
+   "from": "FR-MDE-017",
+   "to": "FR-MDE-014"
+  },
+  {
+   "from": "IR-MDE-003",
+   "to": "FR-MDE-013"
+  },
+  {
+   "from": "FR-MDE-018",
+   "to": "IR-MDE-003"
+  },
+  {
+   "from": "FR-MDE-018",
+   "to": "FR-MDE-010"
+  },
+  {
+   "from": "FR-MDE-018",
+   "to": "FR-MDE-013"
+  },
+  {
+   "from": "FR-MDE-018",
+   "to": "FR-MDE-007"
+  },
+  {
+   "from": "FR-MDE-018",
+   "to": "FR-MDE-009"
+  },
+  {
+   "from": "FR-MDE-018",
+   "to": "FR-MDE-011"
+  },
+  {
+   "from": "FR-MDE-019",
+   "to": "FR-MDE-018"
+  },
+  {
+   "from": "FR-MDE-019",
+   "to": "FR-MDE-014"
+  },
+  {
+   "from": "SEC-MDE-001",
+   "to": "FR-MDE-019"
+  },
+  {
+   "from": "SEC-MDE-001",
+   "to": "IR-MDE-003"
+  }
+ ]
+}

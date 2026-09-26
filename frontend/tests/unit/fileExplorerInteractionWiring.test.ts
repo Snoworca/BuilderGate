@@ -711,6 +711,8 @@ test('TC-REQ-FR-FEX-006-AC9-01 메뉴 배선이 components/ContextMenu/ContextMe
       rendered += 1;
       const items = attrValue(f, tag, 'items');
       assert.ok(items !== null, `${where(f, tag.start)}: <ContextMenu> has no items`);
+      // The tab strip's own menu (FR-FEX-012) closes tabs, not files.
+      if (/\bbuildTabCloseMenuItems\s*\(/.test(items.bare)) { rendered -= 1; continue; }
       const direct = refersTo(f, items.bare, 'buildFileExplorerContextMenuItems');
       const fromOps = /\.\s*menuItems\b/.test(items.bare) && refersTo(f, items.bare, 'useFileTreeOperations');
       if (fromOps) {
@@ -988,7 +990,10 @@ test('TC-REQ-FR-FEX-006-AC1-02 행 onContextMenu 가 decideContextMenuSelection 
 test('TC-REQ-FR-FEX-006-AC2-03 길게 누르기 시작과 행 포인터 처리가 decideRowPointer 를 거친다 — 선택 변경 경로가 그 함수 밖에 없다', () => {
   requireSources(EXPLORER_TSX);
   const files = explorerTsxAll().map(read);
-  const presses = files.flatMap(f => callArgs(f, 'useLongPress').map(args => ({ f, args })));
+  // The tab strip's long press (FR-FEX-012) opens the tab menu and selects no row.
+  const presses = files
+    .filter(f => !f.path.endsWith('FileExplorerTabBar.tsx'))
+    .flatMap(f => callArgs(f, 'useLongPress').map(args => ({ f, args })));
   assert.ok(presses.length > 0, 'useLongPress is never called — a long press opens nothing');
   for (const { f, args } of presses) {
     const callback = firstArg(f, args);

@@ -1,0 +1,101 @@
+{
+  "plan": [
+    {
+      "req_id": "FR-MDE-013",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 1,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "FR-MDE-014",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 1,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "FR-MDE-015",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 1,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "IR-MDE-002",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 1,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "FR-MDE-016",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 1,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "FR-MDE-017",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 1,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "IR-MDE-003",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 1,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "FR-MDE-018",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 2,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "FR-MDE-019",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 2,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    },
+    {
+      "req_id": "SEC-MDE-001",
+      "current_stability": "evolving",
+      "proposed_stability": "evolving",
+      "matched_rule_index": 1,
+      "requires_user_confirm": false,
+      "applied": false,
+      "reason": "no-op: proposed equals current"
+    }
+  ],
+  "summary": {
+    "total_mutations": 0,
+    "auto_apply": 0,
+    "user_confirm_required": 0,
+    "no_op": 10,
+    "guard_blocked": 0
+  }
+}

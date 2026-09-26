@@ -879,6 +879,7 @@ function AppContent() {
                         activeFilePath={editorWindow.activeFilePath}
                         onSelectTab={editor.selectDocument}
                         onCloseTab={editor.closeDocument}
+                        onCloseTabs={editor.closeDocuments}
                         rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}
                         onRectChange={editor.updateWindowRect}
                         boundsElement={EDITOR_WINDOW_BOUNDS_SELECTOR}

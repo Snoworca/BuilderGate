@@ -371,3 +371,27 @@ test('FR-MDE-006 a failed write keeps the document dirty and produces a banner m
     'FR-MDE-006: 실패한 저장이 편집 중인 본문을 되돌리면 안 된다',
   );
 });
+
+// FR-MDE-016 AC-2 -- a document opened read-only (not UTF-8) never sends a
+// write. The title bar button and Ctrl+S both go through save(), so pinning
+// save() covers both entry points. The body is changed first on purpose: even
+// if a change reaches the controller, a read-only binding must not write it --
+// writing a non-UTF-8 file back as UTF-8 text is exactly the damage this blocks.
+test('readOnly 바인딩의 저장 컨트롤러는 save() 에서 writeFile 을 호출하지 않는다(Ctrl+S·버튼 공통 경로)', async () => {
+  const writer = recordingWriter();
+  const controller = createEditorWindowSaveController({
+    binding: { tabId: 'tab-1', filePath: '/repo/legacy-euckr.txt', readOnly: true },
+    bodyAtOpen: 'opened read-only\n',
+    deps: { resolveTabSession: () => 'S1', writeFile: writer.writeFile },
+  });
+
+  await controller.save();
+  controller.handleEditorChange('changed anyway\n');
+  await controller.save();
+
+  assert.deepEqual(
+    writer.writes,
+    [],
+    'FR-MDE-016 AC-2: 읽기 전용 문서의 save() 는 쓰기를 보내면 안 된다',
+  );
+});

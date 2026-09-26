@@ -117,7 +117,7 @@ export interface FileContent {
   path: string;
   content: string;
   size: number;
-  encoding: string;
+  encoding: 'utf-8' | 'unknown';
   extension: string;
   mimeType: string;
 }

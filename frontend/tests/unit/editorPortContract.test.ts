@@ -32,6 +32,10 @@ const UPSTREAM_NOTE_RELATIVE_PATH = 'vendor/UPSTREAM.md';
 // 이식 트리에 있으나 27파일 집계에 들지 않는 것들. 파일 수를 확장자와 무관한
 // 두 번째 경로로 다시 세기 위한 목록이며, 여기 없는 파일은 전부 집계 대상이어야 한다.
 const UNCOUNTED_FILES = [LICENSE_RELATIVE_PATH, UPSTREAM_NOTE_RELATIVE_PATH];
+// 이식본이 아니라 이 저장소가 src/editor 에 더한 모듈. 이식 완전성(파일 수·줄 수)
+// 집계 전에 트리에서 빼며, 결합 금지 스캔(AC-6)에는 그대로 든다.
+// FR-MDE-015 — 줄바꿈·BOM 보존.
+const LOCAL_MODULES = ['lineEndings.ts', 'editorMode.ts', 'languages.ts'];
 const BARREL_RELATIVE_PATH = 'index.ts';
 const REACT_EDITOR_COMPONENT = 'AtomicCodeMirrorEditor';
 
@@ -155,7 +159,10 @@ test('FR-MDE-005 ported tree holds 27 files, the MIT LICENSE and the entry barre
     `FR-MDE-005 AC-1: ${EDITOR_ROOT_MISSING} — 이식이 아직 수행되지 않았다`,
   );
 
-  const portedFiles = walkFiles(editorRoot).map(toEditorRelative).sort();
+  const portedFiles = walkFiles(editorRoot)
+    .map(toEditorRelative)
+    .filter((path) => !LOCAL_MODULES.includes(path))
+    .sort();
   const sourceFiles = portedFiles.filter(
     (path) => /\.(ts|tsx)$/.test(path) && !isInsideTestDirectory(path),
   );

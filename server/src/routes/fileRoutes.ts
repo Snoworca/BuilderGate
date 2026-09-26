@@ -11,6 +11,8 @@ import type { FileService } from '../services/FileService.js';
 import type { CopyRequest, MoveRequest, MkdirRequest, WriteRequest } from '../types/file.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
+const SVG_CONTENT_SECURITY_POLICY = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
+
 export function createFileRoutes(fileService: FileService): Router {
   const router = Router();
 
@@ -44,6 +46,32 @@ export function createFileRoutes(fileService: FileService): Router {
       }
       const content = await fileService.readFile(req.params.id, filePath);
       res.json(content);
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
+  // GET /api/sessions/:id/files/read-image
+  // Raw image bytes. nosniff is set here, not left to helmet, so the MIME type
+  // this route chose is the one the browser uses. SVG can carry script, so its
+  // response replaces the page CSP with a sandbox that runs nothing.
+  // @req IR-MDE-003
+  // @req SEC-MDE-001
+  router.get('/:id/files/read-image', async (req: Request, res: Response) => {
+    try {
+      const filePath = req.query.path as string;
+      if (!filePath) {
+        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'path query parameter is required' } });
+      }
+      const image = await fileService.readImageFile(req.params.id, filePath);
+      res.set('Content-Type', image.mimeType);
+      res.set('X-Content-Type-Options', 'nosniff');
+      // Session file bytes must not land in the browser disk cache.
+      res.set('Cache-Control', 'no-store');
+      if (image.mimeType === 'image/svg+xml') {
+        res.set('Content-Security-Policy', SVG_CONTENT_SECURITY_POLICY);
+      }
+      res.send(image.buffer);
     } catch (err) {
       handleError(err, res);
     }

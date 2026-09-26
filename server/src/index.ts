@@ -462,7 +462,7 @@ app.use(createSecurityHeadersMiddleware({
       styleSrc: ["'self'", "'unsafe-inline'"],
       connectSrc: ["'self'", "wss:", "ws:"],
       workerSrc: ["'self'", "blob:"],
-      imgSrc: ["'self'", "data:"],
+      imgSrc: ["'self'", "data:", "blob:"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'none'"],
@@ -529,6 +529,7 @@ const fileManagerConfig = config.fileManager || {
   blockedExtensions: ['.exe', '.dll', '.so', '.bin'],
   blockedPaths: ['.ssh', '.gnupg', '.aws'],
   cwdCacheTtlMs: 1000,
+  maxImageFileSize: 20971520,
 };
 
 // 파일 조작 작업의 경로 정책은 이 객체 하나다. 라우터(요청 시점 검증)와 관리자(러너가 만드는 경로

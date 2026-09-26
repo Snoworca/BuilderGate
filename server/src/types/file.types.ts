@@ -13,6 +13,8 @@ export interface FileManagerConfig {
   blockedExtensions: string[];
   blockedPaths: string[];
   cwdCacheTtlMs: number;
+  /** Raw image read limit in bytes (IR-MDE-003). Absent means 20 MiB. */
+  maxImageFileSize?: number;
 }
 
 // ============================================================================
@@ -38,7 +40,7 @@ export interface FileContent {
   path: string;
   content: string;
   size: number;
-  encoding: string;
+  encoding: 'utf-8' | 'unknown';
   extension: string;
   mimeType: string;
 }

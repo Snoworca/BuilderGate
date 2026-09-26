@@ -1,0 +1,11 @@
+{
+  "task_id": "T-PH008-01",
+  "completed_at": "2026-09-26T07:00:00+09:00",
+  "server": {"pid": 107488, "head": "4df08467+worktree", "server_dist_mtime": "2026-09-26T06:34:51+09:00", "web_staged": "2026-09-26T06:55+09:00", "cwd": "C:\\work\\git\\_Snoworca\\ProjectMaster\\server"},
+  "e2e": {"spec": "frontend/tests/e2e/code-editor-text.spec.ts", "runs": [{"passed": 2, "failed": 7, "note": "stale web bundle"}, {"passed": 6, "failed": 3}, {"passed": 9, "failed": 0}, {"passed": 9, "failed": 0}]},
+  "defects_fixed": [
+    "dataFileLint: V8 'Unexpected token' JSON errors carry no position; jsonParseLinter put them on line 1 -> relocated to lezer json error node",
+    "EditorWindow: tab row x closed a dirty document without the unsaved prompt -> requestCloseTab through panel handle"
+  ],
+  "unit": {"passed": 1625, "failed": 0}
+}

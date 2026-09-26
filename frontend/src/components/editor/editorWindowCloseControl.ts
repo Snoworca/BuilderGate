@@ -40,3 +40,22 @@ export function planEditorWindowCloseControl(
     ? { kind: 'nothing' }
     : { kind: 'close-tab', filePath: target.filePath };
 }
+
+/** What a press of one tab's `x` does before that tab's panel decides. */
+export interface EditorTabClosePlan {
+  /** Bring the tab forward first: a hidden panel cancels any prompt it raises. */
+  readonly select: boolean;
+}
+
+/**
+ * Resolves a press of a tab's own close control. The panel still decides
+ * whether to ask (FR-MDE-006); this only says whether it has to be put on
+ * screen first so that its question is not dropped.
+ * @req FR-MDE-011
+ */
+export function planEditorTabClose(input: {
+  readonly activeFilePath: string | null;
+  readonly filePath: string;
+}): EditorTabClosePlan {
+  return { select: input.filePath !== input.activeFilePath };
+}

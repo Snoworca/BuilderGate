@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { configSchema } from './config.schema.js';
+import { configSchema, fileManagerSchema } from './config.schema.js';
 
 function minimalConfig() {
   return {
@@ -382,4 +382,20 @@ test('realtime.terminalWireFormat is independent of wsTransportMode', () => {
 
   assert.equal(parsed.realtime.wsTransportMode, 'split');
   assert.equal(parsed.realtime.terminalWireFormat, 'binary-shadow');
+});
+
+// TC-REQ-IR-MDE-003-AC3-02 (IR-MDE-003 AC-3)
+test('fileManagerSchema.maxImageFileSize 기본 20971520, 1024 미만·104857600 초과 거절; maxFileSize 기본 불변', () => {
+  const defaults = fileManagerSchema.parse({});
+  assert.equal(Reflect.get(defaults, 'maxImageFileSize'), 20971520);
+  assert.equal(defaults.maxFileSize, 1048576, 'text maxFileSize default is unchanged');
+
+  assert.equal(Reflect.get(fileManagerSchema.parse({ maxImageFileSize: 1024 }), 'maxImageFileSize'), 1024);
+  assert.equal(Reflect.get(fileManagerSchema.parse({ maxImageFileSize: 104857600 }), 'maxImageFileSize'), 104857600);
+  assert.equal(fileManagerSchema.safeParse({ maxImageFileSize: 1023 }).success, false);
+  assert.equal(fileManagerSchema.safeParse({ maxImageFileSize: 104857601 }).success, false);
+
+  const parsed = configSchema.parse({ ...minimalConfig(), fileManager: { maxImageFileSize: 4096 } });
+  assert.equal(Reflect.get(parsed.fileManager ?? {}, 'maxImageFileSize'), 4096, 'the field survives the full config schema');
+  assert.equal(parsed.fileManager?.maxFileSize, 1048576);
 });

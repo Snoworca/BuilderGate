@@ -15,6 +15,13 @@
 export interface EditorWindowSaveBinding {
   tabId: string;
   filePath: string;
+  /**
+   * The file is not UTF-8 and was opened read-only. Nothing is ever written:
+   * the body the editor holds came through a lossy decode, and writing it back
+   * would replace the file's original bytes.
+   * @req FR-MDE-016
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -37,7 +44,9 @@ export interface EditorWindowSaveDeps {
 export type EditorWindowSaveOutcome =
   | { status: 'saved' }
   | { status: 'failed'; message: string }
-  | { status: 'no-session' };
+  | { status: 'no-session' }
+  /** The document is read-only, so the press wrote nothing. @req FR-MDE-016 */
+  | { status: 'read-only' };
 
 /**
  * The one save path. Both the title bar button and the focus-scoped `Ctrl+S`
@@ -101,6 +110,10 @@ export function createEditorWindowSaveController(
   };
 
   const handleEditorChange = (nextBody: string) => {
+    // A read-only document never becomes dirty: the editor refuses input, and
+    // a change that got here anyway is not something that can be saved.
+    // @req FR-MDE-016
+    if (binding.readOnly === true) return;
     body = nextBody;
     publish(true, error);
   };
@@ -143,6 +156,12 @@ export function createEditorWindowSaveController(
   // document is saved -- stale content on disk, presented as current.
   let queue: Promise<EditorWindowSaveOutcome> = Promise.resolve({ status: 'saved' });
   const save = (): Promise<EditorWindowSaveOutcome> => {
+    // Both the title bar button and Ctrl+S come through here, so this one
+    // check covers every way a write could be asked for.
+    // @req FR-MDE-016
+    if (binding.readOnly === true) {
+      return Promise.resolve({ status: 'read-only' });
+    }
     const written = body;
     const run = () => runSave(written);
     queue = queue.then(run, run);

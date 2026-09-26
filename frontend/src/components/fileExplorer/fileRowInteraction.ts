@@ -2,7 +2,7 @@
 // click do, which files open, how a row is drawn and where a right click lands.
 // Kept free of React and the DOM so every rule is testable without rendering;
 // the components only translate events into these inputs and dispatch the result.
-import { isViewableExtension } from '../../utils/viewableExtensions.ts';
+import { resolveEditorMode } from '../../editor/editorMode.ts';
 import { cutPathsOf } from './fileExplorerClipboard.ts';
 import { pathKey, type FileTreeMode, type RowClickModifiers, type VisibleRow } from './fileTreeState.ts';
 
@@ -48,10 +48,11 @@ export interface ContextMenuTargetLike {
 
 export type ContextMenuTarget = { kind: 'item'; path: string } | { kind: 'none' } | { kind: 'empty' };
 
-// Delegated, never copied: the editor's own openable set is the single source,
-// so a file the explorer offers to open is always one the editor can show.
+// Delegated, never copied: the editor-mode table (FR-MDE-013) is the single
+// source, so a file the explorer offers to open is always one the editor has a
+// mode for.
 export function isOpenableFile(name: string): boolean {
-  return isViewableExtension(name);
+  return resolveEditorMode(name).kind !== 'none';
 }
 
 export function decideDoubleClick(row: NodeRow, mode: FileTreeMode): DoubleClickDecision {

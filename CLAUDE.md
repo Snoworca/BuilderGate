@@ -10,7 +10,7 @@
 - MCP 통합 — 가동 중 (`McpControlDialog`, `McpControlService`)
 - 세션 간 에이전트 오케스트레이션 — 가동 중 (`AgentLifecycleService`, agent profile, webhook)
 - Mdir 스타일 파일 매니저 — 코드는 있으나 `App.tsx` 에 연결되어 있지 않음 (Project Structure 하단 주석 참조)
-- 마크다운 편집기 — 가동 중 (`components/editor/`, CodeMirror 6 기반 `src/editor/` 벤더링). 모달리스 창으로 뜨며 세션 경로 우클릭에서 `CLAUDE.md`·`CLAUDE.local.md`·`AGENTS.md` 를 연다. 요구사항은 `docs/spec/41.markdown-editor.srs.md`
+- 마크다운 편집기 — 가동 중 (`components/editor/`, CodeMirror 6 기반 `src/editor/` 벤더링). 모달리스 창으로 뜨며 세션 경로 우클릭에서 `CLAUDE.md`·`CLAUDE.local.md`·`AGENTS.md` 를 연다. 코드/데이터 파일은 코드 모드(문법 강조·줄바꿈 토글)로, 이미지·SVG 는 읽기 전용 뷰어로 열리며, 줄바꿈 방식과 BOM 은 저장 시 보존되고 비 UTF-8 파일은 읽기 전용이다. 요구사항은 `docs/spec/41.markdown-editor.srs.md`
 - 구 마크다운/코드 뷰어 — 커밋 `b37728a` 에서 제거됨. 잔존 배선 있음 (`hooks/useFileContent.ts`, `utils/viewableExtensions.ts`, `MdirPanel` 의 `onOpenViewer`) + 미사용 의존성 `react-markdown`/`mermaid`/`highlight.js`/`rehype-highlight`/`remark-gfm`
 - Task 관리자 — 예정
 

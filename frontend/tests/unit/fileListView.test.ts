@@ -5,6 +5,7 @@ import type * as FileListViewModule from '../../src/components/fileExplorer/file
 import { createInitialFileTreeState, fileTreeReducer } from '../../src/components/fileExplorer/fileTreeState.ts';
 import type { FileTreeState } from '../../src/components/fileExplorer/fileTreeState.ts';
 import type { DirectoryEntry, DirectoryListing } from '../../src/types/index.ts';
+import { EDITOR_LANGUAGE_IDS, resolveEditorMode } from '../../src/editor/editorMode.ts';
 
 // FR-FEX-002 AC-2·AC-3·AC-4·AC-8 — the pure view model behind list mode.
 //
@@ -197,16 +198,85 @@ test('아이콘: 폴더는 📁/📂, 열 수 있는 형식은 형식마다 다�
   assert.equal(json, '🧾');
   assert.equal(xml, '🏷️');
   assert.equal(new Set([md, txt, json, xml, icon('unknown.zzz')]).size, 5, 'md, txt, json, xml and a generic file are all distinct');
-  // Case does not matter, and a name without an extension is a generic file.
+  // Case does not matter, and a name the editor-mode table does not open — no
+  // extension outside the exact-name table, or an unknown dotfile — is a generic
+  // file. (Makefile and .gitignore used to be the examples here; FR-MDE-013 opens
+  // them as code, so their icons are pinned by the AC-8 case below.)
   assert.equal(icon('CHANGELOG.MD'), '📝');
-  assert.equal(icon('Makefile'), '📄');
-  assert.equal(icon('.gitignore'), '📄');
+  assert.equal(icon('NOEXT'), '📄');
+  assert.equal(icon('.hidden'), '📄');
   // A few non-openable kinds are recognisable too.
   assert.equal(icon('photo.PNG'), '🖼️');
   assert.equal(icon('bundle.zip'), '📦');
   assert.equal(icon('setup.exe'), '🔩');
   // expanded means nothing for a file.
   assert.equal(icon('README.md', false, true), '📝');
+});
+
+// Comments are stripped first so that a sentence naming an extension cannot
+// trip, or satisfy, a source guard.
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:\\])\/\/.*$/gm, '$1');
+}
+
+// TC-REQ-FR-MDE-013-AC8-02 (FR-MDE-013 AC-8): the row icon follows the
+// editor-mode table's kind — every markdown name one icon, every image name one
+// icon, plain-text code the text icon, language code a non-generic icon, and a
+// none-judged name never an openable kind's icon. The extensions the table opens
+// are not listed again in fileListView.ts; non-openable kinds (zip, exe, ...) may
+// keep their own icons because the table says nothing about them.
+test('entryIcon 이 판정표 kind 로 아이콘을 고른다(image·code·markdown·none); 소스 가드: fileListView.ts 에 별도 확장자 집합이 없다', async () => {
+  const m = await load();
+  const icon = (name: string) => m.entryIcon({ name, isDirectory: false, expanded: false });
+  const kindOf = (name: string) => resolveEditorMode(name).kind;
+
+  const markdown = ['README.md', 'guide.markdown', 'page.mdx', 'notes.mkd', 'CHANGELOG.MD'];
+  const image = ['a.png', 'a.jpg', 'a.jpeg', 'a.gif', 'a.webp', 'a.bmp', 'a.ico', 'a.avif', 'a.svg', 'PHOTO.PNG'];
+  const plainCode = ['notes.txt', 'app.log', 'yarn.lock', 'data.csv', 'data.tsv', 'a.conf', 'a.cfg', 'run.bat', '.gitignore', 'LICENSE'];
+  const languageCode = ['Makefile', 'Dockerfile', '.bashrc', '.env.local', 'app.ts', 'main.go', 'build.kt', 'package.json', 'pom.xml'];
+  const none = ['unknown.zzz', 'bundle.zip', 'setup.exe', 'NOEXT', '.hidden'];
+
+  // Fixture honesty: each group is what the table says it is.
+  for (const name of markdown) assert.equal(kindOf(name), 'markdown', `fixture ${name}`);
+  for (const name of image) assert.equal(kindOf(name), 'image', `fixture ${name}`);
+  for (const name of plainCode) assert.deepEqual(resolveEditorMode(name), { kind: 'code', language: null }, `fixture ${name}`);
+  for (const name of languageCode) {
+    assert.equal(kindOf(name), 'code', `fixture ${name}`);
+    assert.notEqual(resolveEditorMode(name).language, null, `fixture ${name} has a language`);
+  }
+  for (const name of none) assert.equal(kindOf(name), 'none', `fixture ${name}`);
+
+  for (const name of markdown) assert.equal(icon(name), '📝', name);
+  for (const name of image) assert.equal(icon(name), '🖼️', name);
+  // Plain-text code keeps the .txt icon it already had.
+  for (const name of plainCode) assert.equal(icon(name), '📃', name);
+  for (const name of languageCode) {
+    assert.ok(!['📄', '📝', '🖼️'].includes(icon(name)), `${name} is code but drew ${icon(name)}`);
+  }
+  for (const name of none) {
+    assert.ok(!['📝', '🖼️', '📃'].includes(icon(name)), `${name} opens nothing but drew an openable icon ${icon(name)}`);
+  }
+
+  const source = stripComments(readFileSync(new URL('../../src/components/fileExplorer/fileListView.ts', import.meta.url), 'utf8'));
+  assert.match(
+    source,
+    /import\s*\{[^}]*\bresolveEditorMode\b[^}]*\}\s*from\s*['"](?:\.\.\/)+editor\/editorMode(?:\.ts)?['"]/,
+    'fileListView.ts must import resolveEditorMode from editor/editorMode',
+  );
+  assert.match(source, /\bresolveEditorMode\s*\(/, 'resolveEditorMode is imported but never called');
+  // Any quoted token the table opens as an extension is a second copy of the set.
+  // One-letter tokens are skipped as too common to be evidence of a copy, and the
+  // table's own vocabulary — kind names and language ids ('markdown', 'json',
+  // 'xml' are both) — is what an icon keyed on the table's answer must compare
+  // against, so it is not evidence of a copy either.
+  const vocabulary = new Set<string>(['markdown', 'code', 'image', 'none', ...EDITOR_LANGUAGE_IDS]);
+  const quoted = [...new Set([...source.matchAll(/['"`]\.?([A-Za-z0-9]+)['"`]/g)].map((match) => match[1].toLowerCase()))];
+  const redeclared = quoted.filter(
+    (token) => token.length >= 2 && !vocabulary.has(token) && resolveEditorMode(`x.${token}`).kind !== 'none',
+  );
+  assert.deepEqual(redeclared, [], `fileListView.ts lists editor-mode extensions again: ${redeclared.join(', ')}`);
 });
 
 test('.txt 는 편집기로 열 수 있는 형식이다(viewableExtensions)', async () => {

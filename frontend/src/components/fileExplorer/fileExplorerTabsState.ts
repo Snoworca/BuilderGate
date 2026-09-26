@@ -109,6 +109,18 @@ export function closeTab(state: FileExplorerTabs, tabId: string): FileExplorerTa
   return { tabs, activeTabId: next === null ? null : next.id };
 }
 
+// Several tabs in one pass (the tab menu's 다른 탭 닫기 and 모든 탭 닫기); the
+// kept tab, when given and still open, becomes active.
+// @req FR-FEX-012
+export function closeTabs(state: FileExplorerTabs, tabIds: readonly string[], keepActiveId?: string): FileExplorerTabs {
+  let next = state;
+  for (const tabId of tabIds) next = closeTab(next, tabId);
+  if (keepActiveId !== undefined && next.tabs.some((tab) => tab.id === keepActiveId)) {
+    return { tabs: next.tabs, activeTabId: keepActiveId };
+  }
+  return next;
+}
+
 // @req FR-FEX-003
 export function setActiveTab(state: FileExplorerTabs, tabId: string): FileExplorerTabs {
   if (state.activeTabId === tabId || !state.tabs.some((tab) => tab.id === tabId)) return state;

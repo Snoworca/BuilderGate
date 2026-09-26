@@ -39,7 +39,7 @@ export function createSecurityHeadersMiddleware(
     scriptSrc: ["'self'"],
     styleSrc: ["'self'", "'unsafe-inline'"],  // xterm.js requires inline styles
     connectSrc: ["'self'"],                    // SSE connections
-    imgSrc: ["'self'", 'data:'],              // Allow data URIs for icons
+    imgSrc: ["'self'", 'data:', 'blob:'],     // data: icons, blob: image viewer
     fontSrc: ["'self'"],
     objectSrc: ["'none'"],
     mediaSrc: ["'none'"],

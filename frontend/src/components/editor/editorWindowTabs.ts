@@ -115,3 +115,24 @@ export function closeEditorTab<TTab extends EditorTabIdentity>(
   const successor = remaining[index] ?? remaining[remaining.length - 1];
   return { tabs: remaining, activeFilePath: successor.filePath };
 }
+
+/**
+ * Closes several documents in one pass (the tab menu's 다른 탭 닫기 and 모든 탭
+ * 닫기). Each goes through closeEditorTab, so the active tab moves the way a
+ * single close moves it; `keepActive`, when it survives, ends up active.
+ * @req FR-MDE-021
+ */
+export function closeEditorTabs<TTab extends EditorTabIdentity>(
+  set: EditorTabSet<TTab>,
+  filePaths: readonly string[],
+  keepActive?: string,
+): EditorTabSet<TTab> {
+  let next = set;
+  for (const filePath of filePaths) {
+    next = closeEditorTab(next, filePath);
+  }
+  if (keepActive !== undefined && next.tabs.some(tab => tab.filePath === keepActive)) {
+    return { tabs: next.tabs, activeFilePath: keepActive };
+  }
+  return next;
+}

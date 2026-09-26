@@ -666,6 +666,7 @@ function getFileManagerConfig(config: Config): FileManagerConfig {
     blockedExtensions: [...(config.fileManager?.blockedExtensions ?? ['.exe', '.dll', '.so', '.bin'])],
     blockedPaths: [...(config.fileManager?.blockedPaths ?? ['.ssh', '.gnupg', '.aws'])],
     cwdCacheTtlMs: config.fileManager?.cwdCacheTtlMs ?? 1000,
+    maxImageFileSize: config.fileManager?.maxImageFileSize ?? 20971520,
   };
 }
 

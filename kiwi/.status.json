@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-25T03:00:45.076Z",
+  "generatedAt": "2026-09-26T02:24:58.981Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "861e57dd99f312f7789fa63608f89341b975266cc4a8656d9dbe70a7476485b5",
+    "value": "8eb6db756c6294000a0b27bdbb12ba002d51d13fd8b6a55e30d928c1539bbfa7",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "0f1a66ab9ebf00025fe768c5ac4e7338f2e5c2685d68284bc81927e016272c81",
-        "size": 6774,
-        "mtimeMs": 1790098988342.629
+        "sha256": "f7d7a39dc7d2d481b48cd2ce4d4f40a7aa025305c6e015663c774f2782e58037",
+        "size": 7284,
+        "mtimeMs": 1790355946318.257
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -38,15 +38,15 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "6378ad59783beda898bf2571bb1c53f17f3616abd37174d42d5b38af7cc59f45",
-        "size": 222550,
-        "mtimeMs": 1790305236767.8064
+        "sha256": "0481ea3f7c003fac136f24f085e6d5375765d9652878aef8271d60367d2672c5",
+        "size": 281659,
+        "mtimeMs": 1790389491379.5312
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "f34245875ef61311bbfe41b3368d5a118442d87848b854bcf0fe832c03990efb",
-        "size": 84298,
-        "mtimeMs": 1790234640553.2537
+        "sha256": "1d7d9b06688c359d5da01dd9e87888b3fda7f436768eca8b37e3d9e62d5bf3ff",
+        "size": 87531,
+        "mtimeMs": 1790387214327.8015
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
@@ -68,8 +68,8 @@
       "AITUI": 5,
       "BGSTAB": 26,
       "MCP": 6,
-      "MDE": 12,
-      "FEX": 11,
+      "MDE": 23,
+      "FEX": 12,
       "FOP": 5
     },
     "constraint": {
@@ -81,6 +81,7 @@
     "security": {
       "AITUI": 2,
       "MCP": 3,
+      "MDE": 1,
       "FOP": 1
     },
     "reliability": {
@@ -104,7 +105,7 @@
     "interface": {
       "BGSTAB": 2,
       "MCP": 5,
-      "MDE": 1,
+      "MDE": 3,
       "FOP": 2
     }
   },

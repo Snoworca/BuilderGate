@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { planEditorWindowCloseControl } from '../../src/components/editor/editorWindowCloseControl.ts';
+import * as closeControl from '../../src/components/editor/editorWindowCloseControl.ts';
+
+const { planEditorWindowCloseControl } = closeControl;
 
 // FR-MDE-011 — the title bar close control closes one document per press.
 //
@@ -113,10 +115,40 @@ test('FR-MDE-011 AC-3/AC-4 the title bar press runs the active panel\'s own clos
   const window = code('../../src/components/editor/EditorWindow.tsx');
 
   assert.match(window, /planEditorWindowCloseControl\(/, 'the press must resolve through the plan');
+  // The press hands the planned document to requestCloseTab, the one path both
+  // close controls share, which looks the panel handle up.
   assert.match(
     window,
-    /handlesRef\.current\.get\(plan\.filePath\)/,
+    /requestCloseTab\(plan\.filePath\)/,
     'the press must reach the panel that owns the document',
   );
+  assert.match(window, /handlesRef\.current\.get\(filePath\)/, 'the shared path looks up the panel handle');
   assert.match(window, /\.requestClose\(\)/, 'the panel decides whether to prompt, not the window');
+});
+
+// Regression found by the E2E run of T-PH008-01 (code-editor-text.spec.ts): the
+// tab row's `x` was wired straight to the hook's close, so an unsaved document
+// closed with no prompt -- the comment above and FR-MDE-011 AC-4 said it went
+// through the panel handle, and it did not.
+
+test('FR-MDE-011 AC-4 a tab x press on a background tab brings it forward before its panel asks', () => {
+  // A panel behind another tab cancels any prompt it raises (it is hidden), so
+  // asking without selecting first would drop the question and keep the tab.
+  const plan = closeControl.planEditorTabClose({ activeFilePath: '/repo/a.md', filePath: '/repo/b.md' });
+  assert.deepEqual(plan, { select: true });
+  assert.deepEqual(
+    closeControl.planEditorTabClose({ activeFilePath: '/repo/b.md', filePath: '/repo/b.md' }),
+    { select: false },
+    'the active tab is already on screen',
+  );
+});
+
+test('FR-MDE-011 AC-4 the tab row x reaches the panel handle, not the hook close directly', () => {
+  const window = code('../../src/components/editor/EditorWindow.tsx');
+  const tabBar = window.match(/<EditorTabBar[\s\S]*?\/>/)?.[0] ?? '';
+  assert.ok(tabBar.length > 0, 'precondition: the tab bar is rendered');
+  assert.doesNotMatch(tabBar, /onClose=\{onCloseTab\}/, 'the x must not close the tab behind the panel\'s back');
+  assert.match(tabBar, /onClose=\{requestCloseTab\}/, 'the x goes through requestCloseTab');
+  assert.match(window, /handlesRef\.current\.get\(filePath\)/, 'requestCloseTab looks up the panel handle');
+  assert.match(window, /planEditorTabClose\(/, 'requestCloseTab decides selection through the plan');
 });

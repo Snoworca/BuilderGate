@@ -23,6 +23,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -41,7 +42,14 @@ import type { DialogRect, DialogSize } from '../dialog/types';
 // scoped to `.editor-window-surface`, which is this component's class.
 import './EditorWindow.css';
 import { EditorDocumentPanel, type EditorDocumentHandle } from './EditorDocumentPanel.tsx';
+import type { ImageDocumentState } from '../../hooks/editorDocumentLoad.ts';
+import type { DocumentEncoding } from './editorDocumentAccess.ts';
 import { EditorFileTreePane } from './EditorFileTreePane.tsx';
+import type { EditorPaneToggle } from './EditorDocumentToolbar.tsx';
+import { useEditorTheme } from './useEditorTheme.ts';
+import { buildTabCloseMenuItems, planBulkTabClose } from '../../utils/tabCloseMenu.ts';
+import '../Modal/RenameModal.css';
+import '../Modal/ConfirmModal.css';
 import {
   applyPaneDrag,
   buildEditorWindowContextMenu,
@@ -54,7 +62,7 @@ import {
   type EditorWindowMenuTarget,
 } from './editorFileTreePaneModel.ts';
 import { EditorTabBar } from './EditorTabBar.tsx';
-import { planEditorWindowCloseControl } from './editorWindowCloseControl.ts';
+import { planEditorTabClose, planEditorWindowCloseControl } from './editorWindowCloseControl.ts';
 import { createEditorWindowSaveShortcutHandler } from './editorWindowSaveShortcut.ts';
 
 /**
@@ -116,6 +124,10 @@ export interface EditorWindowTab {
   tabId: string;
   /** The content read from disk when the document opened. */
   bodyAtOpen: string;
+  /** What the read reported. `unknown` opens the document read-only. @req FR-MDE-016 */
+  encoding: DocumentEncoding;
+  /** An image tab's bytes or read failure; absent or null for text. @req FR-MDE-018 */
+  image?: ImageDocumentState | null;
   /** The document differs from the file, as the panel last reported it. */
   dirty: boolean;
 }
@@ -128,6 +140,8 @@ export interface EditorWindowProps {
   onSelectTab: (filePath: string) => void;
   /** The tab's close control was used. The panel may prompt before it goes. */
   onCloseTab: (filePath: string) => void;
+  /** Closes several tabs in one update, after any question was answered (FR-MDE-021). */
+  onCloseTabs?: (filePaths: readonly string[], keepActive?: string) => void;
   rect: DialogRect;
   onRectChange: (rect: DialogRect) => void;
   /** Drag boundary. The stage, whatever the placement. */
@@ -206,6 +220,7 @@ export function EditorWindow({
   activeFilePath,
   onSelectTab,
   onCloseTab,
+  onCloseTabs,
   rect,
   onRectChange,
   boundsElement,
@@ -514,20 +529,114 @@ export function EditorWindow({
    * what closing the last tab produces.
    * @req FR-MDE-011
    */
+  /**
+   * Closes one document through its own panel, so the dirty branches of
+   * FR-MDE-006 decide whether anything is asked. Both the tab's `x` and the
+   * title bar control come here. A background tab is brought forward first:
+   * its panel is hidden, and a hidden panel cancels the prompt it raises.
+   * @req FR-MDE-011
+   */
+  const requestCloseTab = useCallback((filePath: string) => {
+    const handle = handlesRef.current.get(filePath);
+    // A tab whose panel has not registered yet has no unsaved body to lose,
+    // so closing it directly is the same answer the panel would have given.
+    if (handle === undefined) {
+      onCloseTab(filePath);
+      return;
+    }
+
+    if (planEditorTabClose({ activeFilePath, filePath }).select) {
+      onSelectTab(filePath);
+    }
+    handle.requestClose();
+  }, [activeFilePath, onCloseTab, onSelectTab]);
+
   const requestCloseActiveTab = useCallback(() => {
     const plan = planEditorWindowCloseControl({ tabs, activeFilePath });
     if (plan.kind === 'nothing') return;
 
-    const handle = handlesRef.current.get(plan.filePath);
-    // A tab whose panel has not registered yet has no unsaved body to lose,
-    // so closing it directly is the same answer the panel would have given.
-    if (handle === undefined) {
-      onCloseTab(plan.filePath);
+    requestCloseTab(plan.filePath);
+  }, [activeFilePath, requestCloseTab, tabs]);
+
+  // The tab menu: 이 탭 닫기 · 다른 탭 닫기 · 모든 탭 닫기 (FR-MDE-021).
+  // 이 탭 닫기 is the tab's own x. The two batch closes ask one question when
+  // any target has unsaved changes, then close in one update.
+  // @req FR-MDE-021
+  const [tabMenu, setTabMenu] = useState<{ x: number; y: number; filePath: string } | null>(null);
+  const [bulkClosePrompt, setBulkClosePrompt] = useState<{
+    targets: string[];
+    dirty: string[];
+    keep?: string;
+  } | null>(null);
+
+  const closeBatch = useCallback((filePaths: readonly string[], keep?: string) => {
+    if (filePaths.length === 0) return;
+    if (onCloseTabs !== undefined) {
+      onCloseTabs(filePaths, keep);
       return;
     }
+    for (const filePath of filePaths) onCloseTab(filePath);
+  }, [onCloseTab, onCloseTabs]);
 
-    handle.requestClose();
-  }, [activeFilePath, onCloseTab, tabs]);
+  const requestBulkClose = useCallback((keep: string | null) => {
+    const plan = planBulkTabClose(tabs.map(tab => ({ id: tab.filePath, dirty: tab.dirty })), keep);
+    if (plan.dirty.length === 0) {
+      closeBatch(plan.targets, keep ?? undefined);
+      return;
+    }
+    setBulkClosePrompt({ targets: plan.targets, dirty: plan.dirty, keep: keep ?? undefined });
+  }, [closeBatch, tabs]);
+
+  const answerBulkClose = useCallback(async (choice: 'save' | 'discard' | 'cancel') => {
+    const prompt = bulkClosePrompt;
+    setBulkClosePrompt(null);
+    if (prompt === null || choice === 'cancel') return;
+    if (choice === 'discard') {
+      closeBatch(prompt.targets, prompt.keep);
+      return;
+    }
+    // Save each dirty document; one that fails stays open with its own error.
+    const failed = new Set<string>();
+    for (const filePath of prompt.dirty) {
+      const handle = handlesRef.current.get(filePath);
+      const saved = handle === undefined ? false : await handle.saveForClose();
+      if (!saved) failed.add(filePath);
+    }
+    closeBatch(prompt.targets.filter(filePath => !failed.has(filePath)), prompt.keep);
+  }, [bulkClosePrompt, closeBatch]);
+
+  const tabMenuItems = tabMenu === null ? [] : buildTabCloseMenuItems({
+    tabCount: tabs.length,
+    onCloseThis: () => requestCloseTab(tabMenu.filePath),
+    onCloseOthers: () => requestBulkClose(tabMenu.filePath),
+    onCloseAll: () => requestBulkClose(null),
+  });
+
+  // Escape answers the question with cancel, as the single-document prompt does.
+  useEffect(() => {
+    if (bulkClosePrompt === null) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') void answerBulkClose('cancel');
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [answerBulkClose, bulkClosePrompt]);
+
+  // The file tree pane, also on the window menu (FR-MDE-012 AC-2/AC-3). The
+  // menu alone was too hard to find, so each document's toolbar carries a
+  // toggle, left of the wrap toggle (FR-MDE-020 AC-8). Disabled, with the
+  // reason as its tooltip, when this document's terminal has no session or folder.
+  // @req FR-MDE-020
+  const paneToggle = useMemo<EditorPaneToggle>(() => ({
+    pressed: paneMounted && !paneCollapsed,
+    disabled: !paneMounted,
+    label: paneMounted ? '파일 트리' : '파일 트리 — 이 문서의 터미널 세션을 찾을 수 없습니다',
+    onToggle: () => setPaneOpen(paneCollapsed),
+  }), [paneCollapsed, paneMounted, setPaneOpen]);
+
+  // Dark mode reaches the tab bar and the tree pane too (FR-MDE-020 AC-9).
+  const [theme] = useEditorTheme();
+  const paneSurface = theme === 'light' ? 'paper' : undefined;
 
   const titlebarActions = (
     <div ref={actionsRef} style={ACTIONS_STYLE} className="editor-window-actions">
@@ -541,16 +650,6 @@ export function EditorWindow({
         label="저장"
         disabled={activeTabClosed || activeTab === null}
         onClick={saveActive}
-      />
-      {/* The file tree pane, also on the window menu (FR-MDE-012 AC-2/AC-3). The
-          menu alone was too hard to find. Disabled, with the reason as its
-          tooltip, when this document's terminal has no session or folder. */}
-      <IconToggleButton
-        pressed={paneMounted && !paneCollapsed}
-        icons={{ on: 'sidebar', off: 'sidebar' }}
-        label={paneMounted ? '파일 트리' : '파일 트리 — 이 문서의 터미널 세션을 찾을 수 없습니다'}
-        disabled={!paneMounted}
-        onToggle={() => setPaneOpen(paneCollapsed)}
       />
       {/* One control for an axis with two ends, so the drawing says which end
           the window is at. Two separate buttons would have left that to the
@@ -590,7 +689,7 @@ export function EditorWindow({
     >
       {/* The pane sits left of the tab bar rather than under it: the tabs
           belong to the documents, the tree to the whole window (design 9.1). */}
-      <div className="editor-window-row">
+      <div className="editor-window-row" data-editor-theme={theme}>
         {paneMounted && paneEverOpened && activeTab !== null && (
           <EditorFileTreePane
             workspaceId={workspaceId}
@@ -602,13 +701,14 @@ export function EditorWindow({
             style={{ width: paneRenderWidth }}
             onClose={closePane}
             onOpenFile={handlePaneOpenFile}
+            theme={theme}
             openFileKeys={openFileKeys}
           />
         )}
         {paneMounted && !paneCollapsed && !isMobile && (
           <div
             className="editor-tree-splitter"
-            data-surface="paper"
+            data-surface={paneSurface}
             role="separator"
             aria-orientation="vertical"
             aria-label="파일 트리 폭"
@@ -633,7 +733,8 @@ export function EditorWindow({
               tabs={tabs}
               activeFilePath={activeFilePath}
               onSelect={onSelectTab}
-              onClose={onCloseTab}
+              onClose={requestCloseTab}
+              onContextMenu={(filePath, point) => setTabMenu({ ...point, filePath })}
             />
           </div>
           {tabs.map(tab => (
@@ -642,17 +743,44 @@ export function EditorWindow({
               filePath={tab.filePath}
               tabId={tab.tabId}
               bodyAtOpen={tab.bodyAtOpen}
+              encoding={tab.encoding}
+              image={tab.image ?? null}
               hidden={tab.filePath !== activeFilePath}
               resolveTabSession={resolveTabSession}
               writeFile={writeFile}
               onDirtyChange={(dirty) => onDirtyChange(tab.filePath, dirty)}
               onClose={() => onCloseTab(tab.filePath)}
               onRegisterHandle={registerHandle}
+              paneToggle={paneToggle}
             />
           ))}
         </div>
         {windowMenu !== null && (
           <ContextMenu position={windowMenu} items={windowMenuItems} onClose={() => setWindowMenu(null)} />
+        )}
+        {tabMenu !== null && (
+          <ContextMenu position={{ x: tabMenu.x, y: tabMenu.y }} items={tabMenuItems} onClose={() => setTabMenu(null)} />
+        )}
+        {bulkClosePrompt !== null && (
+          <div className="modal-overlay editor-bulk-close-prompt" onClick={() => void answerBulkClose('cancel')}>
+            <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+              <h2 className="modal-title">저장하지 않은 변경</h2>
+              <p className="confirm-message">
+                {`저장하지 않은 문서가 ${bulkClosePrompt.dirty.length}개 있습니다. 저장하시겠습니까?`}
+              </p>
+              <div className="modal-actions">
+                <button type="button" className="btn-cancel" onClick={() => void answerBulkClose('cancel')}>
+                  취소
+                </button>
+                <button type="button" className="btn-cancel btn-destructive" onClick={() => void answerBulkClose('discard')}>
+                  저장 안 함
+                </button>
+                <button type="button" className="btn-submit" onClick={() => void answerBulkClose('save')}>
+                  모두 저장
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </WindowDialog>

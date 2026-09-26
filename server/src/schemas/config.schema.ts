@@ -247,6 +247,8 @@ export const fileManagerSchema = z.object({
   blockedExtensions: z.array(z.string()).default(['.exe', '.dll', '.so', '.bin']),
   blockedPaths: z.array(z.string()).default(['.ssh', '.gnupg', '.aws']),
   cwdCacheTtlMs: z.number().min(100).max(60000).default(1000),
+  // IR-MDE-003: raw image reads have their own limit; maxFileSize stays the text limit.
+  maxImageFileSize: z.number().min(1024).max(104857600).default(20971520),
 });
 
 // ============================================================================

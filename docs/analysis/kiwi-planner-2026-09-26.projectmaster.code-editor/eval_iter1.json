@@ -1,0 +1,38 @@
+{
+  "findings": [
+    {
+      "axis": "A8",
+      "severity": "HIGH",
+      "req_id": "IR-MDE-003",
+      "task_id": "T-PH005-02",
+      "evidence": "AC-3 needs fileManager.maxImageFileSize to reach FileService at runtime. The plan's files[] cover only FileService.ts:42-74/258-297 and config.schema.ts. But the field is dropped at several points: (1) FileManagerConfig has fixed fields in server/src/types/file.types.ts:10-16 and config.types.ts:207-213; (2) cloneFileManagerConfig (FileService.ts:616-624), which the constructor and updateConfig use, copies only the five existing fields; (3) SettingsService.getFileManagerConfig (~SettingsService.ts:664) and RuntimeConfigStore.ts:1310-1316 rebuild fileManager field by field, so every settings save calls fileService.updateConfig (SettingsService.ts:286) without the field; (4) the index.ts:527 fallback object lacks it. Result: the limit is undefined after any settings change, and `stat.size > undefined` is false, so there is no size limit at all. The service-level unit test cannot detect this.",
+      "fix": "Add to T-PH005-01/02 files[]: file.types.ts:10-16, config.types.ts:207-213, FileService.ts:616-624 (clone), SettingsService.ts (getFileManagerConfig), RuntimeConfigStore.ts:1310-1316 and index.ts:527. Have readImageFile fall back to 20971520 when the field is absent. Add a test case: after updateConfig(getFileManagerConfig(nextConfig)) runs, a file larger than maxImageFileSize is still rejected with FILE_TOO_LARGE."
+    },
+    {
+      "axis": "A4",
+      "severity": "MEDIUM",
+      "req_id": "FR-MDE-015",
+      "task_id": "T-PH007-02",
+      "evidence": "FR-MDE-015 (EOL/BOM preservation) and FR-MDE-016 (read-only when encoding is unknown) apply to every code-mode edit. SVG source editing is XML code mode. T-PH007-02 has SvgFileTab embed CodeFileEditor directly and load the body lazily through fileApi.readFile. This bypasses the analyzeText/encodeForSave/decideDocumentAccess wiring that PH-001/T-PH003-04 put in EditorDocumentPanel. So a CRLF or BOM SVG edited in source view would be rewritten on save, and a non-UTF-8 SVG would be writable. No svgTabModel test case covers this.",
+      "fix": "In T-PH007-01/02, route the SVG source body through analyzeText, lineSeparator, encodeForSave and decideDocumentAccess(file.encoding), the same as the code mode in EditorDocumentPanel. Add svgTabModel cases: a CRLF+BOM SVG round-trips byte-identical, and an encoding=unknown SVG source view is readOnly with no write."
+    },
+    {
+      "axis": "A12",
+      "severity": "MEDIUM",
+      "req_id": "FR-MDE-015",
+      "task_id": "T-PH001-04",
+      "evidence": "AC-2/3/4 (CR-only, mixed, BOM) are tested only on the pure lineEndings module. The integration risk named in R-01 is not tested. The vendor still calls onMarkdownChange(update.state.doc.toString()) (AtomicCodeMirrorEditor.tsx:363), which always joins with \\n, and EditorDocumentPanel.tsx:458 binds that to controller.handleEditorChange. The action adds a consumer updateListener using sliceDoc but does not say to stop feeding the controller from the vendor callback. Correctness then depends on listener order. Only E2E TC-REQ-FR-MDE-015-AC1-81 (CRLF) checks the wired path. BOM and mixed-EOL on-disk bytes are never checked end-to-end.",
+      "fix": "In the T-PH001-04 action, state that the controller body comes only from the consumer sliceDoc listener, via encodeForSave, and that onMarkdownChange no longer feeds the controller. Extend TC-REQ-FR-MDE-015-AC1-81, or add one E2E case, to save a BOM + mixed-EOL fixture and assert byte identity apart from the edited character."
+    }
+  ],
+  "summary": {
+    "reqs_evaluated": 10,
+    "acs_evaluated": 62,
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 0,
+    "notes": "Every AC is mapped to at least one task and test_case. Red->green ordering is correct inside each pair. The EditorDocumentPanel edit chain is serialized (T-PH001-04 -> T-PH001-06 -> T-PH003-04 -> T-PH006-04 -> T-PH007-02). Cited files and line ranges checked in source: FileService readFile 258-297, MIME_TYPES 42-74, CSP securityHeaders.ts:37-51 and index.ts:455-475, fileRoutes read 38-50, useEditorWindows open 542-559 and restore 866-882, fileListView entryIcon 44-75, fileRowInteraction 51-63 (isOpenableFile also feeds useFileTreeOperations.ts:233, which delegation covers). The research doc sections 3.1/3.4 exist. @codemirror/lang-yaml, lang-json and legacy-modes are installed."
+  },
+  "pass": false
+}

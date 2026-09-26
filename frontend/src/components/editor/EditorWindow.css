@@ -20,7 +20,13 @@
    *
    * 기본 95%, 상한 1200px. 벤더 기본값은 `70ch` 였는데, 그것은 창을 넓혀도
    * 열이 따라 넓어지지 않아 좌우가 크게 비는 원인이었다. 백분율은
-   * `.cm-content` 의 포함 블록(스크롤러의 내용 폭)에 대해 풀린다. */
+   * `.cm-content` 의 포함 블록(스크롤러의 내용 폭)에 대해 풀린다.
+   *
+   * 야간 테마(FR-MDE-020)에서도 같은 열 폭이어야 하므로 이 변수만은 테마와
+   * 무관한 아래 규칙이 정한다. */
+}
+
+.editor-window-surface .atomic-cm-editor {
   --atomic-editor-measure: min(95%, 1200px);
 }
 
@@ -235,4 +241,146 @@
 
 .editor-window-surface .editor-tree-splitter:hover {
   background: var(--accent);
+}
+
+/* 마크다운이 아닌 코드 문서는 가운데 읽기 열 대신 편집 영역 전체 폭을 쓴다
+ * (FR-MDE-020 AC-1). 벤더가 `.cm-content` 의 `max-width` 로 쓰는 변수를 풀어
+ * 주는 것만으로 가운데 정렬도 함께 사라진다. SVG 소스 편집도 같다. */
+.editor-window-surface [data-editor-mode='code'] .atomic-cm-editor,
+.editor-window-surface .svg-file-tab-source .atomic-cm-editor {
+  --atomic-editor-measure: none;
+}
+
+/* 야간 테마(FR-MDE-020). 편집기 본문은 벤더의 기본(다크) 팔레트가 그리고,
+ * 여기서는 그 밖의 흰 종이와 스크롤바 트랙만 어둡게 맞춘다. 문서 패널이
+ * data-surface 를 떼므로 도구줄·상태줄은 chrome 토큰을 읽는다. */
+/* 문서 패널의 바탕 한 가지를 변수로 둔다. 편집기 자체는 투명하므로
+ * 줄 번호 거터(sticky)도 이 값으로 칠해야 가로 스크롤한 글자가 비치지 않는다. */
+.editor-window-surface .editor-document-panel {
+  --editor-doc-bg: var(--bg-paper);
+  background: var(--editor-doc-bg);
+}
+
+.editor-window-surface .editor-document-panel[data-editor-theme='dark'] {
+  --editor-doc-bg: var(--bg-surface);
+  color: var(--fg);
+}
+
+.editor-window-surface .editor-document-panel[data-editor-theme='dark'] .cm-scroller::-webkit-scrollbar-track,
+.editor-window-surface .editor-document-panel[data-editor-theme='dark'] .cm-scroller::-webkit-scrollbar-corner {
+  background: var(--bg-raised);
+}
+
+.editor-window-surface .editor-document-toolbar button:hover {
+  background: var(--bg-hover);
+}
+
+/* 야간 테마의 창 크롬(FR-MDE-020 AC-9). 행 전체를 어두운 표면으로 깔고
+ * 탭 막대와 탭을 chrome 토큰으로 다시 칠한다. 트리 패널과 폭 조절 막대는
+ * data-surface 를 떼어 같은 토큰을 읽는다. */
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] {
+  background: var(--bg-surface);
+  color: var(--fg);
+}
+
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] .editor-tab-bar {
+  background: var(--bg-chrome);
+  border-bottom-color: var(--line);
+}
+
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] .editor-tab-bar::-webkit-scrollbar-track {
+  background: var(--bg-chrome);
+}
+
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] .editor-tab {
+  background: var(--bg-raised);
+  border-color: var(--line);
+}
+
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] .editor-tab.is-active {
+  background: var(--bg-surface);
+}
+
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] .editor-tab-label {
+  color: var(--fg);
+}
+
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] .editor-tab-close {
+  color: var(--fg-muted);
+}
+
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] .editor-tab-close:hover {
+  color: var(--fg-strong);
+}
+
+.editor-window-surface .editor-window-row[data-editor-theme='dark'] .editor-tree-pane .fx-scroll::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+
+/* Ctrl+F 찾기 패널(FR-MDE-020 AC-10). CodeMirror 기본 패널은 밝은 그라데이션
+ * 버튼과 브라우저 기본 체크박스라 야간에서 튄다. 문서 패널의 표면 토큰을
+ * 읽게 해 주간은 paper, 야간은 chrome 값으로 그려진다. */
+.editor-window-surface .editor-document-panel .cm-panels {
+  background: var(--bg-raised);
+  color: var(--fg);
+  border-color: var(--line);
+}
+
+.editor-window-surface .editor-document-panel .cm-panel.cm-search {
+  font-size: 12px;
+}
+
+.editor-window-surface .editor-document-panel .cm-panel.cm-search .cm-button {
+  background-image: none;
+  background: var(--bg-surface);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+
+.editor-window-surface .editor-document-panel .cm-panel.cm-search .cm-button:hover {
+  background: var(--bg-hover);
+}
+
+.editor-window-surface .editor-document-panel .cm-panel.cm-search .cm-button:active {
+  background: var(--bg-active);
+}
+
+.editor-window-surface .editor-document-panel .cm-panel.cm-search .cm-textfield {
+  background: var(--bg-surface);
+  color: var(--fg);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+}
+
+.editor-window-surface .editor-document-panel .cm-panel.cm-search .cm-textfield:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.editor-window-surface .editor-document-panel .cm-panel.cm-search input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+.editor-window-surface .editor-document-panel[data-editor-theme='dark'] .cm-panel.cm-search input[type='checkbox'] {
+  color-scheme: dark;
+}
+
+.editor-window-surface .editor-document-panel .cm-panel.cm-search button[name='close'] {
+  color: var(--fg-muted);
+}
+
+/* 줄바꿈 토글이 꺼진 코드 문서는 줄을 접지 않는다(FR-MDE-014 AC-3).
+ * 벤더가 `.cm-content` 에 준 `text-wrap: pretty` 는 Chromium 에서
+ * text-wrap-mode 까지 wrap 으로 바꿔 CodeMirror 의 `white-space: pre` 를
+ * 이긴다. 토글이 켜지면 붙는 cm-lineWrapping 이 없을 때만 되돌린다. */
+.editor-window-surface [data-editor-mode='code'] .atomic-cm-editor .cm-content:not(.cm-lineWrapping),
+.editor-window-surface .svg-file-tab-source .atomic-cm-editor .cm-content:not(.cm-lineWrapping) {
+  text-wrap-mode: nowrap;
+}
+
+/* 마크다운 본문도 위아래가 모서리에 붙지 않게 한다(2026-09-26 요청). 좌우는
+ * 가운데 읽기 열과 벤더의 padding-inline 이 이미 띄운다. */
+.editor-window-surface [data-editor-mode='markdown'] .atomic-cm-editor .cm-content {
+  padding-top: 12px;
 }

@@ -5,6 +5,7 @@
 // the renderer: the server already caps a listing (maxDirectoryEntries), so a
 // second cap here would silently hide entries the user asked to see.
 import type { DirectoryEntry } from '../../types/index.ts';
+import { resolveEditorMode } from '../../editor/editorMode.ts';
 import type { FileTreeState } from './fileTreeState.ts';
 
 // No type column: the extension is already part of the name.
@@ -39,19 +40,34 @@ export type ListRow = Pick<DirectoryEntry, ListColumn>;
 
 // Built field by field so a new DirectoryEntry field never becomes a cell without
 // a column to draw it in.
-// Openable formats each get their own icon so they read at a glance; the rest
-// are grouped by kind, and anything unknown is a plain page.
-const FILE_ICON_BY_EXTENSION: Readonly<Record<string, string>> = (() => {
+// Openable files take their icon from the editor-mode table (FR-MDE-013 AC-8),
+// so the icon never promises a mode the editor does not have. Code files are
+// grouped by language; plain-text code keeps the text icon.
+const CODE_ICON_BY_LANGUAGE: Readonly<Record<string, string>> = {
+  json: '🧾',
+  xml: '🏷️',
+  html: '🏷️',
+  yaml: '⚙️',
+  toml: '⚙️',
+  properties: '⚙️',
+  css: '🎨',
+  scss: '🎨',
+  less: '🎨',
+  sass: '🎨',
+  stylus: '🎨',
+  shell: '🐚',
+  powershell: '🐚',
+};
+
+const MARKDOWN_ICON = '📝';
+const IMAGE_ICON = '🖼️';
+const TEXT_ICON = '📃';
+const CODE_ICON = '💻';
+
+// Files the table does not open are still grouped by kind so they read at a
+// glance. None of these extensions has an editor mode.
+const UNOPENABLE_ICON_BY_EXTENSION: Readonly<Record<string, string>> = (() => {
   const groups: ReadonlyArray<readonly [string, readonly string[]]> = [
-    ['📝', ['md', 'markdown', 'mdx']],
-    ['📃', ['txt']],
-    ['🧾', ['json', 'json5']],
-    ['🏷️', ['xml', 'html', 'htm', 'svg']],
-    ['⚙️', ['yml', 'yaml', 'toml', 'ini']],
-    ['🎨', ['css', 'scss']],
-    ['💻', ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'h', 'cpp', 'cc', 'hpp', 'go', 'rs', 'sql']],
-    ['🐚', ['sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd']],
-    ['🖼️', ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico']],
     ['📕', ['pdf']],
     ['📦', ['zip', 'tar', 'gz', 'tgz', '7z', 'rar']],
     ['🎵', ['mp3', 'wav', 'flac', 'ogg', 'm4a']],
@@ -68,10 +84,21 @@ const GENERIC_FILE_ICON = '📄';
 /** The row's icon: a folder that shows whether it is open, or the file's kind. */
 export function entryIcon(entry: { name: string; isDirectory: boolean; expanded: boolean }): string {
   if (entry.isDirectory) return entry.expanded ? '📂' : '📁';
-  const dot = entry.name.lastIndexOf('.');
-  // A leading dot is a hidden file's name ('.gitignore'), not an extension.
-  if (dot <= 0) return GENERIC_FILE_ICON;
-  return FILE_ICON_BY_EXTENSION[entry.name.slice(dot + 1).toLowerCase()] ?? GENERIC_FILE_ICON;
+  const mode = resolveEditorMode(entry.name);
+  switch (mode.kind) {
+    case 'markdown':
+      return MARKDOWN_ICON;
+    case 'image':
+      return IMAGE_ICON;
+    case 'code':
+      return mode.language === null ? TEXT_ICON : (CODE_ICON_BY_LANGUAGE[mode.language] ?? CODE_ICON);
+    case 'none': {
+      const dot = entry.name.lastIndexOf('.');
+      // A leading dot is a hidden file's name ('.hidden'), not an extension.
+      if (dot <= 0) return GENERIC_FILE_ICON;
+      return UNOPENABLE_ICON_BY_EXTENSION[entry.name.slice(dot + 1).toLowerCase()] ?? GENERIC_FILE_ICON;
+    }
+  }
 }
 
 /** Size column text. A folder shows -- as Finder does: its size is not the entry's. */

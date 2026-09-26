@@ -34,6 +34,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
 import { IconButton, IconToggleButton } from '../common';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
+import { buildTabCloseMenuItems } from '../../utils/tabCloseMenu.ts';
 import { WindowDialog } from '../dialog/WindowDialog';
 import type { DialogRect, DialogSize } from '../dialog/types';
 import { EDITOR_WINDOW_BOUNDS_SELECTOR } from '../editor/editorWindowBounds.ts';
@@ -507,6 +508,8 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
   // A POST that failed leaves the question unanswered on the server, so it is
   // asked again; this counter re-runs the asking effect for it.
   const [reaskTick, setReaskTick] = useState(0);
+  // The tab menu (FR-FEX-012): 이 탭 닫기 · 다른 탭 닫기 · 모든 탭 닫기.
+  const [tabMenu, setTabMenu] = useState<{ x: number; y: number; tabId: string } | null>(null);
 
   const askDecision = useCallback((route: FileJobDecideRoute) => {
     askedDecisionsRef.current.set(route.jobId, route.decisionId);
@@ -632,6 +635,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
             actions.selectTab(workspaceId, tabId);
           }}
           onClose={(tabId) => actions.closeTab(workspaceId, tabId)}
+          onContextMenu={(tabId, point) => setTabMenu({ ...point, tabId })}
           onAdd={() => {
             flushActiveAnchor();
             if (activeTab !== undefined) actions.addTab(workspaceId, activeTab.tree.root);
@@ -653,6 +657,22 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
         ))}
         <FileExplorerProgressRow workspaceId={workspaceId} />
         <FileExplorerWindowModal modal={windowModal} />
+        {tabMenu !== null && (
+          <ContextMenu
+            position={{ x: tabMenu.x, y: tabMenu.y }}
+            items={buildTabCloseMenuItems({
+              tabCount: tabs.length,
+              onCloseThis: () => actions.closeTab(workspaceId, tabMenu.tabId),
+              onCloseOthers: () => actions.closeTabs(
+                workspaceId,
+                tabs.filter((tab) => tab.id !== tabMenu.tabId).map((tab) => tab.id),
+                tabMenu.tabId,
+              ),
+              onCloseAll: () => actions.closeTabs(workspaceId, tabs.map((tab) => tab.id)),
+            })}
+            onClose={() => setTabMenu(null)}
+          />
+        )}
       </div>
     </WindowDialog>
   );

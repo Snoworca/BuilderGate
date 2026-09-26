@@ -66,12 +66,35 @@ const MIME_TYPES: Record<string, string> = {
   '.sql': 'text/x-sql',
   '.csv': 'text/csv',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.ico': 'image/x-icon',
+  '.avif': 'image/avif',
   '.toml': 'text/toml',
   '.ini': 'text/ini',
   '.cfg': 'text/plain',
   '.log': 'text/plain',
   '.env': 'text/plain',
 };
+
+// Extensions served as raw image bytes. Same set as the editor's image mode
+// (FR-MDE-013 AC-5); anything else is refused by readImageFile.
+const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.avif', '.svg',
+]);
+
+/** Image size limit used when the configuration carries no maxImageFileSize. */
+export const DEFAULT_MAX_IMAGE_FILE_SIZE = 20 * 1024 * 1024;
+
+export interface ImageFileContent {
+  buffer: Buffer;
+  mimeType: string;
+  size: number;
+}
 
 // SessionManager type - we only need a subset of its interface
 interface SessionManagerLike {
@@ -285,14 +308,64 @@ export class FileService {
 
     const content = buffer.toString('utf-8');
     const mimeType = MIME_TYPES[ext] || 'text/plain';
+    // Content is still decoded leniently above; the flag only reports whether
+    // the bytes were valid UTF-8 so the client can refuse to save them.
+    let encoding: FileContent['encoding'] = 'utf-8';
+    try {
+      new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+    } catch {
+      encoding = 'unknown';
+    }
 
     return {
       path: resolved,
       content,
       size: stat.size,
-      encoding: 'utf-8',
+      encoding,
       extension: ext,
       mimeType,
+    };
+  }
+
+  /**
+   * Read an image file's raw bytes. Path resolution, blocked paths and blocked
+   * extensions follow readFile exactly; the size limit is maxImageFileSize
+   * rather than the text limit, and there is no binary or encoding check.
+   *
+   * @req IR-MDE-003
+   */
+  async readImageFile(sessionId: string, filePath: string): Promise<ImageFileContent> {
+    this.assertSessionExists(sessionId);
+
+    const cwd = await this.getCwd(sessionId);
+    const resolved = await resolveAndValidate(cwd, filePath, this.config.blockedPaths);
+    const ext = path.extname(resolved).toLowerCase();
+
+    if (isBlockedExtension(ext, this.config.blockedExtensions)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
+    }
+
+    if (!IMAGE_EXTENSIONS.has(ext)) {
+      throw new AppError(ErrorCode.INVALID_INPUT, 'Not an image file');
+    }
+
+    let stat;
+    try {
+      stat = await fs.stat(resolved);
+    } catch {
+      throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    }
+
+    const limit = this.config.maxImageFileSize ?? DEFAULT_MAX_IMAGE_FILE_SIZE;
+    if (stat.size > limit) {
+      throw new AppError(ErrorCode.FILE_TOO_LARGE);
+    }
+
+    const buffer = await fs.readFile(resolved);
+    return {
+      buffer,
+      mimeType: MIME_TYPES[ext] ?? 'application/octet-stream',
+      size: stat.size,
     };
   }
 
@@ -620,5 +693,6 @@ function cloneFileManagerConfig(config: FileManagerConfig): FileManagerConfig {
     blockedExtensions: [...config.blockedExtensions],
     blockedPaths: [...config.blockedPaths],
     cwdCacheTtlMs: config.cwdCacheTtlMs,
+    maxImageFileSize: config.maxImageFileSize ?? DEFAULT_MAX_IMAGE_FILE_SIZE,
   };
 }

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import type * as FileRowInteractionModule from '../../src/components/fileExplorer/fileRowInteraction.ts';
 import type { VisibleRow } from '../../src/components/fileExplorer/fileTreeState.ts';
-import { isViewableExtension } from '../../src/utils/viewableExtensions.ts';
+import { EDITOR_LANGUAGE_IDS, resolveEditorMode } from '../../src/editor/editorMode.ts';
 
 // CON-FEX-001 AC-3 / FR-FEX-002 AC-5 / FR-FEX-006 AC-2·AC-3 / FR-FEX-011 AC-2~AC-7
 // — the pure decisions behind a row: what a click, a double click and a pointer
@@ -46,7 +46,7 @@ function classesOf(className: string): string[] {
 test('decideDoubleClick: 파일 행은 두 모드 모두 open-editor', async () => {
   const { decideDoubleClick } = await load();
   // Uppercase extension on purpose: the openable check must fold case the way
-  // isViewableExtension does, or 'README.MD' would silently refuse to open.
+  // resolveEditorMode does, or 'README.MD' would silently refuse to open.
   for (const path of ['/r/notes.md', '/r/src/app.ts', '/r/README.MD']) {
     for (const mode of MODES) {
       assert.deepEqual(decideDoubleClick(fileRow(path), mode), { type: 'open-editor', path }, `${mode} ${path}`);
@@ -61,20 +61,36 @@ test('decideDoubleClick: 디렉터리는 tree=toggle-expand, list=enter', async 
   assert.deepEqual(decideDoubleClick(row, 'list'), { type: 'enter', path: '/r/src' });
 });
 
-test('열 수 없는 파일은 noop 이고 rowRenderClass 에 \'unopenable\'', async () => {
+// TC-REQ-FR-MDE-013-AC6-02 (FR-MDE-013 AC-6): a name no rule of the editor-mode
+// table matches is still dimmed and ignores a double click, and a name the old
+// viewable set refused but the table opens (image, exact file name, dotfile) is
+// neither. This replaces the FR-FEX-011 AC-6 judgement source (FR-MDE-013 AC-8).
+test('decideDoubleClick: none 판정 파일은 noop, rowRenderClass 는 흐림 클래스 유지', async () => {
   const { decideDoubleClick, rowRenderClass } = await load();
-  // No extension, a binary extension and a dotfile: the three ways a name falls
-  // outside the viewable set.
-  for (const path of ['/r/logo.png', '/r/Makefile', '/r/.bashrc']) {
+  // Unknown extension, archive, no extension outside the exact-name table, and a
+  // dotfile outside it: the ways a name falls through every rule.
+  const unopenable = ['/r/blob.dat', '/r/bundle.zip', '/r/NOEXT', '/r/.hidden'];
+  for (const path of unopenable) {
+    // Fixture honesty: the case is about none-judged names, so each must be one.
+    assert.equal(resolveEditorMode(path).kind, 'none', `fixture ${path} must be judged none`);
     const row = fileRow(path);
     for (const mode of MODES) {
       assert.equal(decideDoubleClick(row, mode).type, 'noop', `${mode} ${path}`);
     }
     assert.ok(classesOf(rowRenderClass(row, null)).includes('unopenable'), `${path} must render dimmed`);
   }
-  // The cheap way to pass the loop above is to dim every row. An openable file
-  // and a directory — which has no extension either — must stay undimmed.
-  assert.ok(!classesOf(rowRenderClass(fileRow('/r/notes.md'), null)).includes('unopenable'), 'openable file dimmed');
+  // The cheap way to pass the loop above is to dim every row, or to keep the old
+  // viewable set. Files the table opens — including image, exact-name and dotfile
+  // rows the old set refused — and a directory must open and stay undimmed.
+  const openable = ['/r/notes.md', '/r/logo.png', '/r/photo.AVIF', '/r/Makefile', '/r/.bashrc', '/r/.env.local', '/r/app.log'];
+  for (const path of openable) {
+    assert.notEqual(resolveEditorMode(path).kind, 'none', `fixture ${path} must be openable in the table`);
+    const row = fileRow(path);
+    for (const mode of MODES) {
+      assert.deepEqual(decideDoubleClick(row, mode), { type: 'open-editor', path }, `${mode} ${path}`);
+    }
+    assert.ok(!classesOf(rowRenderClass(row, null)).includes('unopenable'), `${path} dimmed`);
+  }
   assert.ok(!classesOf(rowRenderClass(dirRow('/r/assets'), null)).includes('unopenable'), 'directory dimmed');
 });
 
@@ -90,11 +106,12 @@ test('목록 모드 디렉터리 더블클릭은 enter(뿌리 변경)이고 펼�
 });
 
 // ---------------------------------------------------------------------------
-// Openable-file judgement is borrowed, not copied (FR-FEX-011 AC-6·AC-7)
+// Openable-file judgement is borrowed, not copied (FR-FEX-011 AC-7,
+// judgement source replaced by FR-MDE-013 AC-8)
 // ---------------------------------------------------------------------------
 
 const FILE_EXPLORER_DIR = new URL('../../src/components/fileExplorer/', import.meta.url);
-const VIEWABLE_SOURCE_URL = new URL('../../src/utils/viewableExtensions.ts', import.meta.url);
+const EDITOR_MODE_SOURCE_URL = new URL('../../src/editor/editorMode.ts', import.meta.url);
 
 // Comments are stripped first so that a sentence like "do not import
 // viewableExtensions here" cannot trip, or satisfy, a source guard.
@@ -112,33 +129,56 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-test('주석 제거 후 소스: isViewableExtension 을 utils/viewableExtensions.ts 에서 import 하고 확장자 집합을 다시 선언하지 않는다', async () => {
+// Every extension the editor-mode table opens, read from its source rather than
+// listed here, so a copy of the table is caught even after the table grows.
+// Quoted tokens that the table judges none drop out; one-letter tokens ('c',
+// 'h', 'm') are skipped because they are too common to be evidence of a copy,
+// and so is the table's own vocabulary (kind names, language ids such as 'json'
+// that are also extensions), which a caller of the table legitimately compares.
+function openableExtensionsFromTable(): string[] {
+  const vocabulary = new Set<string>(['markdown', 'code', 'image', 'none', ...EDITOR_LANGUAGE_IDS]);
+  const tokens = [...readStripped(EDITOR_MODE_SOURCE_URL).matchAll(/['"]([a-z0-9]+)['"]/g)].map((m) => m[1]);
+  return [...new Set(tokens)].filter(
+    (token) => token.length >= 2 && !vocabulary.has(token) && resolveEditorMode(`x.${token}`).kind !== 'none',
+  );
+}
+
+// TC-REQ-FR-MDE-013-AC8-01 (FR-MDE-013 AC-8): the explorer reads the editor-mode
+// table and nothing else, so a file it offers to open is one the editor has a
+// mode for, and no second extension set can drift from the table.
+test('isOpenableFile 는 resolveEditorMode(name).kind !== "none" 과 같다(png 열림 포함); 소스 가드: fileRowInteraction.ts 가 viewableExtensions 를 import 하지 않는다', async () => {
   const mod = await load();
   const source = readStripped(new URL('fileRowInteraction.ts', FILE_EXPLORER_DIR));
 
+  assert.doesNotMatch(source, /\bviewableExtensions\b/, 'fileRowInteraction.ts still references utils/viewableExtensions');
+  assert.doesNotMatch(source, /\bisViewableExtension\b/, 'fileRowInteraction.ts still uses isViewableExtension');
   assert.match(
     source,
-    /import\s*\{[^}]*\bisViewableExtension\b[^}]*\}\s*from\s*['"](?:\.\.\/)+utils\/viewableExtensions(?:\.ts)?['"]/,
-    'fileRowInteraction.ts must import isViewableExtension from utils/viewableExtensions',
+    /import\s*\{[^}]*\bresolveEditorMode\b[^}]*\}\s*from\s*['"](?:\.\.\/)+editor\/editorMode(?:\.ts)?['"]/,
+    'fileRowInteraction.ts must import resolveEditorMode from editor/editorMode',
   );
   // Importing without calling would leave a private copy doing the real work.
-  assert.match(source, /\bisViewableExtension\s*\(/, 'isViewableExtension is imported but never called');
+  assert.match(source, /\bresolveEditorMode\s*\(/, 'resolveEditorMode is imported but never called');
 
-  // Every extension the shared set knows, read from its source rather than
-  // listed here, so a copy of the set is caught even after the set grows.
-  const extensions = [...readStripped(VIEWABLE_SOURCE_URL).matchAll(/['"](\.[a-z0-9]+)['"]/g)].map((m) => m[1]);
-  assert.ok(extensions.length > 10, `expected the viewable set to be readable, got ${extensions.length} entries`);
-  const redeclared = extensions.filter((ext) => {
-    const bare = ext.slice(1);
-    const forms = bare.length >= 2 ? [ext, bare] : [ext];
-    return forms.some((form) => new RegExp(`['"\`]${escapeRegExp(form)}['"\`]`).test(source));
-  });
-  assert.deepEqual(redeclared, [], 'fileRowInteraction.ts redeclares viewable extensions');
+  const extensions = openableExtensionsFromTable();
+  assert.ok(extensions.length > 50, `expected the editor-mode table to be readable, got ${extensions.length} extensions`);
+  const redeclared = extensions.filter((ext) => new RegExp(`['"\`]\\.?${escapeRegExp(ext)}['"\`]`).test(source));
+  assert.deepEqual(redeclared, [], 'fileRowInteraction.ts redeclares editor-mode extensions');
 
-  // Behaviour agrees with the shared predicate on names that expose a naive
-  // re-implementation: case, no extension, dotfile, double extension.
-  for (const name of ['a.md', 'README.MD', 'Makefile', '.bashrc', 'archive.tar.gz', 'x.config.ts', 'logo.png']) {
-    assert.equal(mod.isOpenableFile(name), isViewableExtension(name), name);
+  // png is the name the old viewable set refused and the table opens as an image.
+  assert.equal(mod.isOpenableFile('logo.png'), true, 'logo.png must be openable (image mode)');
+  // Behaviour agrees with the table on names that expose a naive re-implementation:
+  // case, no extension, exact name, dotfile, .env prefix, double extension, and
+  // every extension the old viewable set held (FR-MDE-013 AC-9 keeps them open).
+  const names = [
+    'a.md', 'README.MD', 'Makefile', 'Dockerfile', 'NOEXT', '.bashrc', '.hidden', '.env', '.env.local',
+    'archive.tar.gz', 'x.config.ts', 'logo.png', 'photo.AVIF', 'icon.svg', 'blob.dat', 'app.log', 'setup.exe',
+    ...['md', 'markdown', 'mdx', 'txt', 'js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'py', 'java', 'c', 'h', 'cpp', 'cc',
+      'hpp', 'go', 'rs', 'sh', 'bash', 'zsh', 'html', 'htm', 'css', 'scss', 'json', 'json5', 'yml', 'yaml', 'xml',
+      'svg', 'sql'].map((ext) => `f.${ext}`),
+  ];
+  for (const name of names) {
+    assert.equal(mod.isOpenableFile(name), resolveEditorMode(name).kind !== 'none', name);
   }
 });
 

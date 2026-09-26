@@ -317,13 +317,17 @@ test.describe('markdown editor appearance', () => {
 
     const bodyBox = await boxOf(body);
     const hostBox = await boxOf(host);
+    // The document toolbar (FR-MDE-020) is chrome above the reading area, like
+    // the tab row, so the 95% is taken against the panel below it.
+    const toolbarBox = await boxOf(surface.locator('.editor-document-toolbar'));
+    const readingHeight = bodyBox.height - toolbarBox.height;
 
     // The tab row really is between them, so the change of basis above is not a
     // way of ignoring a regression in the body.
     await expect(surface.locator('.editor-tab-bar')).toBeVisible();
 
-    expect(hostBox.height / bodyBox.height).toBeGreaterThan(HOST_HEIGHT_RATIO - RATIO_TOLERANCE);
-    expect(hostBox.height / bodyBox.height).toBeLessThan(HOST_HEIGHT_RATIO + RATIO_TOLERANCE);
+    expect(hostBox.height / readingHeight).toBeGreaterThan(HOST_HEIGHT_RATIO - RATIO_TOLERANCE);
+    expect(hostBox.height / readingHeight).toBeLessThan(HOST_HEIGHT_RATIO + RATIO_TOLERANCE);
   });
 
   test('the title bar controls sit against its right edge', async ({ page }) => {

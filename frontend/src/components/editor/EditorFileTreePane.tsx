@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { IconButton } from '../common';
+import type { EditorTheme } from './editorTheme.ts';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import { useFileTree } from '../../hooks/useFileTree.ts';
@@ -57,6 +58,8 @@ export interface EditorFileTreePaneProps {
   openFileKeys?: ReadonlySet<string>;
   onClose: () => void;
   onOpenFile: (filePath: string) => void;
+  /** Light draws on the paper surface; dark keeps the chrome tokens (FR-MDE-020 AC-9). */
+  theme?: EditorTheme;
 }
 
 /**
@@ -74,6 +77,7 @@ export function EditorFileTreePane({
   onClose,
   onOpenFile,
   openFileKeys,
+  theme = 'light',
 }: EditorFileTreePaneProps) {
   // The pane's own header sort (not stored): the explorer window's tabs keep theirs.
   const [sort, setSort] = useState<ListSort | null>(null);
@@ -144,7 +148,7 @@ export function EditorFileTreePane({
     <div
       ref={rootRef}
       className={`editor-tree-pane${isMobile ? ' editor-tree-pane-overlay' : ''}`}
-      data-surface="paper"
+      data-surface={theme === 'light' ? 'paper' : undefined}
       style={hidden ? { ...style, display: 'none' } : style}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
