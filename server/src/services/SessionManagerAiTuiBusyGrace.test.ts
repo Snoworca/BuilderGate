@@ -157,6 +157,77 @@ test('FR-AITUI-010 AC-1: repaints alone cannot hold running for long once the su
   }
 });
 
+test('FR-AITUI-010 AC-5: an agent known only through its recovery option (claudep) gets the same grace', async () => {
+  // The recovery option names the command the user actually types, e.g. an
+  // alias like `claudep`; the built-in detector only knows exact names.
+  const harness = createHarness();
+  try {
+    harness.manager.writeInput(harness.id, 'claudep\r');
+    harness.manager.markRecoveryCommandForeground(harness.id, 'claudep');
+    harness.emit('⏺ Task(Research the codebase)\r\n  ⎿  Read(src/index.ts)\r\n');
+    await waitForRunning(harness, 'precondition: substantive output from claudep runs');
+    const samples: string[] = [];
+    for (let tick = 0; tick < 6; tick += 1) {
+      harness.emit(tick % 2 === 0 ? SPINNER_DOT_FRAME : '\x1b[20;1H\u2736');
+      await delay(400);
+      samples.push(String(harness.status()));
+    }
+    console.log(`[ai-busy] claudep samples=${samples.join(',')}`);
+    assert.deepEqual(samples, Array(6).fill('running'));
+  } finally {
+    harness.cleanup();
+  }
+});
+
+test('FR-AITUI-010 AC-6: a ticking elapsed timer keeps Codex running through a long quiet wait', async () => {
+  // BuilderGate starts Codex with tui.animations=false, so during a long tool
+  // call or subagent wait the only change is the seconds digit of
+  // "Working (Ns • esc to interrupt)", once a second.
+  const harness = createHarness();
+  try {
+    harness.manager.writeInput(harness.id, 'codex\r');
+    harness.emit('• Ran npm test -- --runInBand\r\n  └ waiting for the test run\r\n');
+    await waitForRunning(harness, 'precondition: substantive Codex output runs');
+    const samples: string[] = [];
+    for (let second = 1; second <= 6; second += 1) {
+      await delay(1000);
+      harness.emit(`\x1b[4;12H${second}`);
+      await delay(20);
+      samples.push(String(harness.status()));
+    }
+    console.log(`[ai-busy] codex samples=${samples.join(',')}`);
+    assert.deepEqual(samples, Array(6).fill('running'));
+    await delay(AI_BUSY_GRACE_MS + 300);
+    assert.equal(harness.status(), 'idle', 'once the timer stops, the grace runs out');
+  } finally {
+    harness.cleanup();
+  }
+});
+
+test('FR-AITUI-010 AC-7: a Hermes status repaint keeps a running Hermes session running', async () => {
+  // Hermes redraws "  (◔_◔) pondering...  ( 5.2s)" about once a second; when
+  // only the whole-seconds digit changes, its detector reports repaint_only.
+  const harness = createHarness();
+  try {
+    harness.manager.writeInput(harness.id, 'hermes\r');
+    harness.emit('Welcome to Hermes Agent! Type your message or /help for commands.\r\n');
+    await delay(50);
+    harness.emit('┊ ⚙ terminal: npm test -- --runInBand\r\n┊ running the test suite\r\n');
+    await waitForRunning(harness, 'precondition: substantive Hermes output runs');
+    const samples: string[] = [];
+    for (let second = 1; second <= 6; second += 1) {
+      await delay(1000);
+      harness.emit(`\x1b[6;30H${second}`);
+      await delay(20);
+      samples.push(String(harness.status()));
+    }
+    console.log(`[ai-busy] hermes samples=${samples.join(',')}`);
+    assert.deepEqual(samples, Array(6).fill('running'));
+  } finally {
+    harness.cleanup();
+  }
+});
+
 test('FR-AITUI-010 AC-2: a plain shell keeps the short idleDelayMs', async () => {
   const harness = createHarness();
   try {

@@ -327,6 +327,9 @@ const AI_TUI_BUSY_GRACE_MS = 1500;
 // output. The spinner writes a busy frame (not the · end frame) every 2 s; a
 // status line refreshing on its own after the work is done does not.
 const AI_TUI_REPAINT_KEEPALIVE_WINDOW_MS = 3000;
+// An elapsed timer redrawn in place ("12s", " 5.2s", "01m05s", "3:07"): all of
+// Claude Code, Codex (animations off) and Hermes show one only while working.
+const AI_TUI_ELAPSED_TICK_RE = /^(?:\d+(?:\.\d+)?[smh]?|\d{1,2}:\d{2}(?::\d{2})?|\d+m ?\d{1,2}s)$/;
 const AI_TUI_CURSOR_MOTION_RE = /\x1b\[[0-9;?]*[ABCDHJKfhlmnpsu]/;
 const SHELL_INTEGRATION_ROOT_ENV_KEY = 'BUILDERGATE_SHELL_INTEGRATION_ROOT';
 
@@ -1572,7 +1575,13 @@ export class SessionManager {
         const getNormalizedStatusData = (): string =>
           (sharedNormalizedStatusData ??= this.normalizeTerminalStatusDataForClassification(sData, statusData));
         const observation = this.inspectForegroundAppOutput(id, sData, statusData);
-        if (observation) {
+        // FR-AITUI-010 AC-7: a detector's status repaint (Hermes' ticking
+        // timer) keeps a running session running like any other AI repaint.
+        const observationKeptAlive = observation !== null
+          && observation.activity === 'repaint_only'
+          && isInteractiveAiAppId(observation.appId)
+          && this.keepAiTuiBusyAlive(id, sData, 'detector', isAiTuiElapsedTick(statusData, getNormalizedStatusData()));
+        if (observation && !observationKeptAlive) {
           this.applyForegroundObservation(id, observation);
         }
 
@@ -1596,7 +1605,7 @@ export class SessionManager {
               const isLaunchEcho = this.isEchoOutput(sData, statusData)
                 || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand, getNormalizedStatusData());
               const signal = this.classifyAiTuiOutputSignal(sData, statusData, getNormalizedStatusData());
-              if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'osc133')) {
+              if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'osc133', isAiTuiElapsedTick(statusData, getNormalizedStatusData()))) {
                 // FR-AITUI-010 AC-1: spinner/timer repaints of a running AI TUI.
               } else if (signal === 'waiting_input' || signal === 'repaint_only') {
                 this.beginForegroundActivity(id, signal, `osc133_ai_tui_${signal}`);
@@ -1657,7 +1666,7 @@ export class SessionManager {
                     const isLaunchEcho = this.isEchoOutput(sData, statusData)
                       || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand, getNormalizedStatusData());
                     const signal = this.classifyAiTuiOutputSignal(sData, statusData, getNormalizedStatusData());
-                    if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'heuristic')) {
+                    if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'heuristic', isAiTuiElapsedTick(statusData, getNormalizedStatusData()))) {
                       // FR-AITUI-010 AC-1: spinner/timer repaints of a running AI TUI.
                     } else if (signal === 'waiting_input' || signal === 'repaint_only') {
                       this.beginForegroundActivity(id, signal, `heuristic_ai_tui_${signal}`);
@@ -1800,9 +1809,11 @@ export class SessionManager {
   private idleDelayFor(data: SessionData): number {
     const base = this.runtimeSessionConfig.idleDelayMs;
     const state = data.derivedState;
+    // AC-5: an agent known only through its recovery option (e.g. `claudep`)
+    // counts too, as it does for isInteractiveForeground.
     const aiBusy = state?.ownership === 'foreground_app'
       && state.activity === 'busy'
-      && isInteractiveAiAppId(state.foregroundAppId);
+      && (isInteractiveAiAppId(state.foregroundAppId) || Boolean(data.recoveryForegroundCommand));
     return aiBusy ? Math.max(base, AI_TUI_BUSY_GRACE_MS) : base;
   }
 
@@ -1812,8 +1823,10 @@ export class SessionManager {
    * the idle timer back. It never starts running on its own, and it leaves the
    * derived activity alone.
    */
-  private keepAiTuiBusyAlive(id: string, data: SessionData, mode: string): boolean {
+  private keepAiTuiBusyAlive(id: string, data: SessionData, mode: string, elapsedTick = false): boolean {
     if (data.session.status !== 'running') return false;
+    // AC-6: a ticking elapsed timer is work in progress, not a mere repaint.
+    if (elapsedTick) data.lastAiTuiBusyOutputAt = Date.now();
     const sinceBusy = Date.now() - (data.lastAiTuiBusyOutputAt ?? 0);
     if (sinceBusy > AI_TUI_REPAINT_KEEPALIVE_WINDOW_MS) return false;
     this.captureDebugEvent(id, 'detector', 'ai_tui_busy_keepalive', { mode });
@@ -2161,6 +2174,7 @@ export class SessionManager {
     });
 
     if (data && isInteractiveAiAppId(observation.appId) && observation.activity === 'busy') {
+      data.lastAiTuiBusyOutputAt = now;
       const currentState = this.ensureDerivedState(data);
       const alreadyRunning = data.session.status === 'running' || currentState.activity === 'busy';
       this.updateDerivedState(id, alreadyRunning ? `detector_${observation.reason}` : `detector_${observation.reason}_pending_running`, (state) => {
@@ -9428,6 +9442,14 @@ function isControlInterruptTuiPromptRepaint(output: string): boolean {
 // @req MIG-BGSTAB-002
 function isTerminalCursorVisibilityRepaint(output: string): boolean {
   return /^(?:\x1b\[(?:0)?m)*\x1b\[\?25[hl]$/u.test(output);
+}
+
+function isAiTuiElapsedTick(raw: string, normalized: string): boolean {
+  const trimmed = normalized.trim();
+  return trimmed.length > 0
+    && trimmed.length <= 10
+    && containsAiTuiTerminalMotion(raw)
+    && AI_TUI_ELAPSED_TICK_RE.test(trimmed);
 }
 
 function containsAiTuiTerminalMotion(raw: string): boolean {
