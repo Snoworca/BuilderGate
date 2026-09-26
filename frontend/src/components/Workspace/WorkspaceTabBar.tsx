@@ -3,6 +3,7 @@ import { useDragReorder } from '../../hooks/useDragReorder';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useLongPress } from '../../hooks/useLongPress';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
+import { Icon, IconButton } from '../common';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { getRecoveryIconLabel } from '../../types/recoveryOption';
@@ -73,7 +74,11 @@ export function WorkspaceTabBar({
   };
 
   const isAddDisabled = tabs.length >= maxTabs || totalSessionCount >= maxSessions;
-  const addTooltip = tabs.length >= maxTabs ? `Maximum ${maxTabs} tabs` : totalSessionCount >= maxSessions ? `Maximum ${maxSessions} sessions` : '';
+  const addTooltip = tabs.length >= maxTabs
+    ? `탭은 최대 ${maxTabs}개까지 열 수 있습니다`
+    : totalSessionCount >= maxSessions
+      ? `세션은 최대 ${maxSessions}개까지 열 수 있습니다`
+      : '';
 
   const longPress = useLongPress(
     useCallback((e: { clientX: number; clientY: number }) => {
@@ -106,31 +111,23 @@ export function WorkspaceTabBar({
             onDoubleClick={() => { setEditName(tab.name); setEditingTabId(tab.id); }}
             onContextMenu={(e) => { e.preventDefault(); ctx.open(e.clientX, e.clientY, tab.id); }}
             {...drag.getTabHandlers(index)}
+            className={[
+              'workspace-tab',
+              isActive ? 'is-active' : '',
+              drag.dragIndex === index ? 'is-dragging' : '',
+              drag.dropTargetIndex === index ? 'is-drop-target' : '',
+            ].filter(Boolean).join(' ')}
+            // The tab's colour is the tab's own data; the stylesheet decides
+            // where it shows (the top rule, the drop outline, the rename edge).
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 8px',
-              borderTop: `2px solid ${isActive ? color : color + '55'}`,
-              backgroundColor: isActive ? '#2a2d3e' : '#1a1a2a',
-              borderRadius: '4px 4px 0 0',
-              cursor: 'pointer',
-              minWidth: '60px',
-              flexShrink: 0,
-              opacity: drag.dragIndex === index ? 0.4 : 1,
-              outline: drag.dropTargetIndex === index ? `2px dashed ${color}` : 'none',
-              borderBottom: isActive ? '1px solid #2a2d3e' : '1px solid #333',
-            }}
+              '--tab-color': color,
+              '--tab-color-dim': `${color}55`,
+            } as React.CSSProperties}
           >
             {recoveryIconLabel && (
               <span
-                title={tab.recoveryCommand ? `Recovery: ${tab.recoveryCommand}` : 'Recovery'}
-                style={{
-                  color: isActive ? '#d7d7d7' : '#777',
-                  fontSize: '11px',
-                  lineHeight: 1,
-                  flexShrink: 0,
-                }}
+                className="workspace-tab-recovery"
+                title={tab.recoveryCommand ? `복구 명령: ${tab.recoveryCommand}` : '복구 옵션'}
               >
                 {recoveryIconLabel}
               </span>
@@ -138,6 +135,7 @@ export function WorkspaceTabBar({
             {isEditing ? (
               <input
                 ref={inputRef}
+                className="workspace-tab-rename"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onBlur={() => handleRenameConfirm(tab.id)}
@@ -147,41 +145,19 @@ export function WorkspaceTabBar({
                 }}
                 onClick={(e) => e.stopPropagation()}
                 maxLength={32}
-                style={{
-                  background: '#1e1e2e',
-                  color: '#fff',
-                  border: `1px solid ${color}`,
-                  borderRadius: '2px',
-                  padding: '1px 4px',
-                  fontSize: '12px',
-                  width: '80px',
-                  outline: 'none',
-                }}
               />
             ) : (
-              <span style={{
-                fontSize: '12px',
-                color: isActive ? '#fff' : '#666',
-                whiteSpace: 'nowrap',
-              }}>
+              <span className="workspace-tab-name">
                 {tab.name}
               </span>
             )}
-            <button
+            <IconButton
+              icon="close"
+              label="탭 닫기"
+              iconSize={14}
+              className="workspace-tab-close"
               onClick={(e) => { e.stopPropagation(); onCloseTab(tab.id); }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#888',
-                cursor: 'pointer',
-                fontSize: '14px',
-                lineHeight: 1,
-                padding: '0 2px',
-                flexShrink: 0,
-              }}
-            >
-              ×
-            </button>
+            />
           </div>
         );
       })}
@@ -196,36 +172,22 @@ export function WorkspaceTabBar({
         onPointerUp={longPress.onPointerUp}
         onPointerMove={longPress.onPointerMove}
         disabled={isAddDisabled}
-        title={addTooltip || 'Add Terminal'}
-        style={{
-          background: 'none',
-          border: '1px solid #555',
-          color: isAddDisabled ? '#444' : '#aaa',
-          borderRadius: '4px',
-          padding: '2px 8px',
-          cursor: isAddDisabled ? 'not-allowed' : 'pointer',
-          fontSize: '14px',
-          flexShrink: 0,
-          marginLeft: '4px',
-        }}
+        className="workspace-tabbar-add"
+        aria-label="터미널 추가"
+        title={addTooltip || '터미널 추가'}
       >
-        +
+        <Icon name="plus" size={16} />
       </button>
 
       {/* Drag Ghost */}
       {drag.dragIndex !== null && drag.ghostStyle && (
-        <div style={{
-          ...drag.ghostStyle,
-          opacity: 0.6,
-          backgroundColor: '#2a2d3e',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          color: '#fff',
-          pointerEvents: 'none',
-          zIndex: 9999,
-          borderTop: `2px solid ${TAB_COLORS[sorted[drag.dragIndex]?.colorIndex ?? 0]}`,
-        }}>
+        <div
+          className="workspace-tab-ghost"
+          style={{
+            ...drag.ghostStyle,
+            '--tab-color': TAB_COLORS[sorted[drag.dragIndex]?.colorIndex ?? 0],
+          } as React.CSSProperties}
+        >
           {sorted[drag.dragIndex]?.name}
         </div>
       )}
@@ -236,11 +198,11 @@ export function WorkspaceTabBar({
           position={ctx.position}
           onClose={ctx.close}
           items={[
-            { label: 'Rename', onClick: () => {
+            { label: '이름 바꾸기', onClick: () => {
               const tab = sorted.find(t => t.id === ctx.targetId);
               if (tab) { setEditName(tab.name); setEditingTabId(tab.id); }
             }},
-            { label: 'Close', destructive: true, onClick: () => { if (ctx.targetId) onCloseTab(ctx.targetId); }},
+            { label: '닫기', destructive: true, onClick: () => { if (ctx.targetId) onCloseTab(ctx.targetId); }},
           ]}
         />
       )}

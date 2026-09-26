@@ -34,21 +34,21 @@ export async function waitForTerminal(page: Page) {
 
 /** Open the command preset manager through the header tools menu */
 export async function openCommandPresetDialog(page: Page): Promise<void> {
-  await page.locator('button[title="Tools"]').click();
+  await page.locator('button[title="도구"]').click();
   await page.locator('.context-menu-item:has-text("명령줄 관리")').click();
   await expect(page.getByTestId('command-preset-dialog')).toBeVisible({ timeout: 10000 });
 }
 
 /** Open the terminal shortcut manager through the header tools menu */
 export async function openTerminalShortcutDialog(page: Page): Promise<void> {
-  await page.locator('button[title="Tools"]').click();
+  await page.locator('button[title="도구"]').click();
   await page.locator('.context-menu-item:has-text("터미널 키보드")').click();
   await expect(page.getByTestId('terminal-shortcut-dialog')).toBeVisible({ timeout: 10000 });
 }
 
 /** Open the recovery option manager through the header tools menu */
 export async function openRecoveryOptionDialog(page: Page): Promise<void> {
-  await page.locator('button[title="Tools"]').click();
+  await page.locator('button[title="도구"]').click();
   await page.locator('.context-menu-item:has-text("복구 옵션")').click();
   await expect(page.getByTestId('recovery-option-dialog')).toBeVisible({ timeout: 10000 });
 }

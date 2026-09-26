@@ -1,0 +1,67 @@
+/* The floating layout toolbar at the top left of each grid tile. Every value
+ * comes from tokens.css (CON-UIDS-001). It sits over terminal output, so its
+ * face is a translucent --bg-raised rather than a solid one. The selectors are
+ * scoped under .mosaic-toolbar so they outrank the shared .icon-button face. */
+
+.mosaic-toolbar {
+  position: absolute;
+  top: var(--sp-1);
+  left: var(--sp-1);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--ctl-sm);
+}
+
+.mosaic-toolbar-modes {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  pointer-events: auto;
+}
+
+.mosaic-toolbar .mosaic-toolbar-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: var(--ctl-sm);
+  height: var(--ctl-sm);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: rgba(47, 47, 47, 0.9);
+  color: var(--fg-muted);
+  line-height: 0;
+}
+
+.mosaic-toolbar .mosaic-toolbar-button {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.mosaic-toolbar .mosaic-toolbar-button:hover:not(:disabled) {
+  background: var(--bg-raised);
+  color: var(--fg-strong);
+}
+
+.mosaic-toolbar .mosaic-toolbar-button.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* The move handle only shows while the pointer is over the toolbar. */
+.mosaic-toolbar .mosaic-toolbar-move {
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.mosaic-toolbar .mosaic-toolbar-move.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}

@@ -133,6 +133,13 @@
   --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.55);
   --shadow-popover: 0 10px 28px rgba(0, 0, 0, 0.5);
   --focus-ring: 0 0 0 2px var(--accent);
+
+  /* Agent marks (FR-AITUI-009): the dot beside an agent's name. Told apart by
+   * lightness as well as hue, and always shown next to the agent's name. */
+  --agent-claude: #d97757;
+  --agent-codex: #d4d4d4;
+  --agent-hermes: #b48ead;
+  --agent-opencode: #5fb3b3;
 }
 
 /* For people who would rather see more rows than hit them accurately. */

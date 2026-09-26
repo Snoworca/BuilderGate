@@ -7,6 +7,7 @@ import { tokenStorage } from './tokenStorage.ts';
 import { parseApiErrorPayload } from './apiError.ts';
 export { parseApiErrorPayload } from './apiError.ts';
 import { createFileJobClient } from '../components/fileExplorer/fileJobClient.ts';
+import { createSessionSnapshotClient } from '../components/SessionSave/sessionSnapshotClient.ts';
 
 import type {
   Session,
@@ -362,6 +363,8 @@ export const fileApi = {
 
 // File jobs (copy/move/delete with progress and decisions) -- FR-FEX-005
 export const fileJobApi = createFileJobClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
+// FR-AITUI-007 / FR-AITUI-008: session save and resume after restart.
+export const sessionSnapshotApi = createSessionSnapshotClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
 
 // ============================================================================
 // Workspace API (Step 7)

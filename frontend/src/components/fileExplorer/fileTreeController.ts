@@ -67,7 +67,7 @@ export function normalizeTreePath(path: string): string {
 
 function errorMessage(reason: unknown): string {
   if (reason instanceof Error && reason.message) return reason.message;
-  return typeof reason === 'string' && reason ? reason : 'Failed to list directory';
+  return typeof reason === 'string' && reason ? reason : '폴더 목록을 읽지 못했습니다.';
 }
 
 export function createFileTreeController(deps: FileTreeControllerDeps): FileTreeController {

@@ -1,5 +1,6 @@
 .message-box-dialog .window-dialog-body {
   display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
@@ -8,77 +9,69 @@
   flex: 1;
   min-height: 0;
   flex-direction: column;
-  padding: 18px;
-  gap: 12px;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4) var(--sp-6);
+  overflow: auto;
+}
+
+.message-box-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.message-box-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+}
+
+.message-box-icon-primary {
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.message-box-icon-danger {
+  background: var(--danger-tint);
+  color: var(--danger-text);
 }
 
 .message-box-message {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
-  color: #e6e6e6;
-  font-size: 13px;
-  line-height: 1.5;
+  padding-top: var(--sp-2);
+  color: var(--fg);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
   white-space: pre-wrap;
 }
 
 .message-box-error {
-  padding: 8px 10px;
-  background: #3b2525;
-  border: 1px solid #6f3a3a;
-  border-radius: 4px;
-  color: #ffb4b4;
-  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--sp-2) 10px;
+  background: var(--danger-tint);
+  border-radius: var(--r-sm);
+  color: var(--danger-text);
+  font-size: var(--fs-xs);
   line-height: 1.4;
 }
 
+.message-box-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 .message-box-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: auto;
-  gap: 8px;
+  flex-shrink: 0;
 }
 
 .message-box-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-width: 76px;
-  height: 32px;
-  padding: 0 12px;
-  background: transparent;
-  border: 1px solid #4c4c4c;
-  border-radius: 4px;
-  color: #d4d4d4;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.message-box-button:hover:not(:disabled) {
-  background: #3c3c3c;
-  border-color: #5c5c5c;
-  color: #ffffff;
-}
-
-.message-box-button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
-.message-box-ok-button-primary {
-  background: #365f42;
-  border-color: #4b815c;
-  color: #ffffff;
-}
-
-.message-box-ok-button-primary:hover:not(:disabled) {
-  background: #40714e;
-}
-
-.message-box-ok-button-danger {
-  background: #713536;
-  border-color: #9a4a4c;
-  color: #ffffff;
-}
-
-.message-box-ok-button-danger:hover:not(:disabled) {
-  background: #823f40;
 }

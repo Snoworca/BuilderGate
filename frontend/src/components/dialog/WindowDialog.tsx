@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Rnd } from 'react-rnd';
+import { IconButton } from '../common/IconButton';
 import {
   clampDialogRect,
   readDialogGeometry,
@@ -94,7 +95,6 @@ export function WindowDialog({
   });
   const layerRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const rectRef = useRef(rect);
 
   const commitRect = useCallback((nextRect: DialogRect) => {
@@ -212,8 +212,11 @@ export function WindowDialog({
         return;
       }
 
+      // The close button is found rather than held by a ref: it is the shared
+      // IconButton, which does not forward one.
       const firstFocusable = getFocusableElements(surface)[0];
-      (firstFocusable ?? closeButtonRef.current ?? surface).focus();
+      const closeButton = surface.querySelector<HTMLElement>('.window-dialog-close');
+      (firstFocusable ?? closeButton ?? surface).focus();
     };
 
     const animationFrame = requestAnimationFrame(focusFirstDialogElement);
@@ -390,15 +393,12 @@ export function WindowDialog({
             </h2>
             {titlebarActions}
             {behavior.showCloseButton && (
-              <button
-                ref={closeButtonRef}
-                type="button"
+              <IconButton
+                icon="close"
+                label="닫기"
                 className="window-dialog-close"
-                aria-label="Close"
                 onClick={handleClose}
-              >
-                x
-              </button>
+              />
             )}
           </div>
           <div className="window-dialog-body">

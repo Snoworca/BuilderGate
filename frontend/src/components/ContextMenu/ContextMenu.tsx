@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } fr
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useResponsive } from '../../hooks/useResponsive';
+import { Icon, isIconName } from '../common';
 import {
   createContextMenuChildPage,
   createContextMenuRootPage,
@@ -23,6 +24,11 @@ export interface ContextMenuActionItem {
    * for `.context-menu-item`, which would repaint every menu in the application.
    */
   className?: string;
+  /**
+   * A glyph name from the shared icon set draws that icon (FR-UIDS-001). Any
+   * other string is caller data -- a shell's own mark, say -- and is shown as
+   * text, never interpreted as markup.
+   */
   icon?: string;
   onClick?: () => void;
   disabled?: boolean;
@@ -43,6 +49,22 @@ interface Props {
   onClose: () => void;
   items: ContextMenuItem[];
   restoreFocusElement?: Element | null;
+}
+
+function MenuItemIcon({ icon }: { icon: string }) {
+  return (
+    <span className="context-menu-icon">
+      {isIconName(icon) ? <Icon name={icon} size={16} /> : icon}
+    </span>
+  );
+}
+
+function SubmenuArrow() {
+  return (
+    <span className="context-menu-arrow">
+      <Icon name="chevron-right" size={14} />
+    </span>
+  );
 }
 
 function getEnabledMenuItems(menu: HTMLElement): HTMLElement[] {
@@ -352,10 +374,10 @@ function MenuItemRow({ item, onClose, onNavigateBack }: MenuItemRowProps) {
       aria-expanded={hasChildren ? submenuOpen : undefined}
       tabIndex={item.disabled ? -1 : 0}
     >
-      {item.icon && <span className="context-menu-icon">{item.icon}</span>}
+      {item.icon && <MenuItemIcon icon={item.icon} />}
       <span className="context-menu-label">{item.label}</span>
       {item.shortcut && <span className="context-menu-shortcut">{item.shortcut}</span>}
-      {hasChildren && <span className="context-menu-arrow">▶</span>}
+      {hasChildren && <SubmenuArrow />}
 
       {/* Submenu portal */}
       {hasChildren && submenuOpen && submenuAnchorRect && (
@@ -636,8 +658,9 @@ function MobileContextMenuDialog({
             className="context-menu-dialog-close"
             onClick={closeWithHistory}
             aria-label="닫기"
+            title="닫기"
           >
-            ×
+            <Icon name="close" size={18} />
           </button>
         </div>
         <div className="context-menu-dialog-list">
@@ -661,10 +684,10 @@ function MobileContextMenuDialog({
                 disabled={item.disabled}
                 aria-haspopup={hasChildren ? 'menu' : undefined}
               >
-                {item.icon && <span className="context-menu-icon">{item.icon}</span>}
+                {item.icon && <MenuItemIcon icon={item.icon} />}
                 <span className="context-menu-label">{item.label}</span>
                 {item.shortcut && <span className="context-menu-shortcut">{item.shortcut}</span>}
-                {hasChildren && <span className="context-menu-arrow">▶</span>}
+                {hasChildren && <SubmenuArrow />}
               </button>
             );
           })}

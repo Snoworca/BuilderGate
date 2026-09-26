@@ -29,10 +29,10 @@ export function RenameModal({ currentName, onSubmit, onCancel }: Props) {
   }, [onCancel]);
 
   const validate = (value: string): string | null => {
-    if (value.length === 0) return 'Name cannot be empty';
-    if (value.length > MAX_NAME_LENGTH) return `Name too long (max ${MAX_NAME_LENGTH} characters)`;
+    if (value.length === 0) return '이름을 입력하세요';
+    if (value.length > MAX_NAME_LENGTH) return `이름은 ${MAX_NAME_LENGTH}자 이하로 입력하세요`;
     if (!VALID_NAME_REGEX.test(value)) {
-      return 'Only letters, numbers, spaces, hyphens, and underscores allowed';
+      return '이름에는 글자, 숫자, 공백, 하이픈(-), 밑줄(_)만 쓸 수 있습니다';
     }
     return null;
   };
@@ -51,7 +51,7 @@ export function RenameModal({ currentName, onSubmit, onCancel }: Props) {
     try {
       await onSubmit(trimmed);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to rename session');
+      setError(err instanceof Error ? err.message : '세션 이름을 바꾸지 못했습니다');
       setIsSubmitting(false);
     }
   };
@@ -59,7 +59,7 @@ export function RenameModal({ currentName, onSubmit, onCancel }: Props) {
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2 className="modal-title">Rename Session</h2>
+        <h2 className="modal-title">세션 이름 바꾸기</h2>
         <form onSubmit={handleSubmit}>
           <input
             ref={inputRef}
@@ -72,15 +72,16 @@ export function RenameModal({ currentName, onSubmit, onCancel }: Props) {
             autoFocus
             maxLength={MAX_NAME_LENGTH}
             className={error ? 'input-error' : ''}
-            placeholder="Session name"
+            placeholder="세션 이름"
+            aria-invalid={error ? true : undefined}
           />
-          {error && <div className="error-message">{error}</div>}
+          {error && <div className="error-message" role="alert">{error}</div>}
           <div className="modal-actions">
             <button type="button" className="btn-cancel" onClick={onCancel} disabled={isSubmitting}>
-              Cancel
+              취소
             </button>
             <button type="submit" className="btn-submit" disabled={isSubmitting || name.trim() === currentName}>
-              {isSubmitting ? 'Renaming...' : 'Rename'}
+              {isSubmitting ? '바꾸는 중…' : '이름 바꾸기'}
             </button>
           </div>
         </form>

@@ -158,9 +158,9 @@ async function listedNames(
 }
 
 async function ensureTabMode(page: Page): Promise<void> {
-  const toTabs = page.locator('button[title="Switch to Tabs"]');
+  const toTabs = page.locator('button[title="탭 보기로 전환"]');
   if (await toTabs.count()) await toTabs.click();
-  await expect(page.locator('button[title="Switch to Grid"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('button[title="그리드 보기로 전환"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function selectWorkspace(page: Page, name: string): Promise<void> {
@@ -754,7 +754,7 @@ test.describe('file explorer step 4 (browser-only acceptance criteria)', () => {
     const namesBefore = await listedNames(request, record, record.root!);
     await startInPlaceConflict(page);
 
-    await explorerWindow(page).locator('.window-dialog-close[aria-label="Close"]').click();
+    await explorerWindow(page).locator('.window-dialog-close[aria-label="닫기"]').click();
     await expect(explorerWindow(page)).toHaveCount(0, { timeout: 5000 });
     const awaiting = statusBar(page).locator('button.fx-job-awaiting');
     await expect(awaiting).toHaveText('응답 대기 중', { timeout: 15000 });

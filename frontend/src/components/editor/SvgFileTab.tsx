@@ -21,7 +21,7 @@ import { fileApi } from '../../services/api';
 import type { ImageDocumentState } from '../../hooks/editorDocumentLoad.ts';
 import { CodeFileEditor } from './CodeFileEditor.tsx';
 import { ImageFileViewer } from './ImageFileViewer.tsx';
-import { ICON_BUTTON_PRESSED_STYLE, ICON_BUTTON_STYLE, WrapIcon } from './EditorDocumentToolbar.tsx';
+import { WrapIcon } from './EditorDocumentToolbar.tsx';
 import { lineEndingLabel } from './editorDocumentAccess.ts';
 import { normalizeInsertedLineBreaks } from '../../editor/lineEndings.ts';
 import type { BlobUrlSlot } from './imageViewerModel.ts';
@@ -60,45 +60,10 @@ const FILL_STYLE: CSSProperties = {
 
 const HIDDEN_STYLE: CSSProperties = { ...FILL_STYLE, display: 'none' };
 
-const TOOLBAR_STYLE: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'flex-end',
-  alignItems: 'center',
-  gap: '6px',
-  padding: '2px 8px',
-  borderBottom: '1px solid var(--line)',
-  flex: '0 0 auto',
-};
-
-const BUTTON_STYLE: CSSProperties = {
-  background: 'transparent',
-  color: 'var(--fg-muted)',
-  border: '1px solid var(--line)',
-  borderRadius: '3px',
-  fontSize: '11px',
-  padding: '1px 8px',
-  cursor: 'pointer',
-};
-
-const NOTICE_STYLE: CSSProperties = {
-  padding: '6px 10px',
-  background: 'var(--bg-raised)',
-  color: 'var(--fg)',
-  borderBottom: '1px solid var(--line)',
-  fontSize: '12px',
-  flex: '0 0 auto',
-};
-
+// The source toolbar, the notice and the line-ending line are drawn by the
+// editor window's classes (EditorWindow.css), the same ones the document panel
+// uses, so an SVG's source view looks like any other code document.
 const EDITOR_STYLE: CSSProperties = { flex: '1 1 auto', minHeight: 0, overflow: 'auto' };
-
-const STATUS_STYLE: CSSProperties = {
-  padding: '2px 10px',
-  color: 'var(--fg-muted)',
-  borderTop: '1px solid var(--line)',
-  fontSize: '11px',
-  textAlign: 'right',
-  flex: '0 0 auto',
-};
 
 const SOURCE_READ_FAILED = 'SVG 소스를 읽지 못했습니다.';
 
@@ -192,7 +157,7 @@ export function SvgFileTab({
   return (
     <div style={FILL_STYLE} className="svg-file-tab" data-svg-view={tabState.view}>
       {sourceError !== null && (
-        <div style={NOTICE_STYLE} role="alert" className="svg-file-tab-error">
+        <div role="alert" className="svg-file-tab-error">
           {sourceError}
         </div>
       )}
@@ -206,11 +171,10 @@ export function SvgFileTab({
       </div>
       {session !== null && (
         <div style={inSource ? FILL_STYLE : HIDDEN_STYLE} className="svg-file-tab-source">
-          <div style={TOOLBAR_STYLE} className="editor-code-toolbar">
+          <div className="editor-code-toolbar">
             <button
               type="button"
-              style={wrap ? ICON_BUTTON_PRESSED_STYLE : ICON_BUTTON_STYLE}
-              className="editor-code-wrap-toggle"
+              className="editor-toolbar-button editor-code-wrap-toggle"
               aria-pressed={wrap}
               title={wrap ? '줄 바꿈 끄기' : '줄 바꿈 켜기'}
               aria-label="줄 바꿈"
@@ -221,15 +185,14 @@ export function SvgFileTab({
             </button>
             <button
               type="button"
-              style={BUTTON_STYLE}
-              className="svg-file-tab-preview"
+              className="editor-text-button svg-file-tab-preview"
               onClick={showPreview}
             >
               미리보기
             </button>
           </div>
           {session.access.notice !== null && (
-            <div style={NOTICE_STYLE} role="status" className="editor-document-notice">
+            <div role="status" className="editor-document-notice">
               {session.access.notice}
             </div>
           )}
@@ -245,7 +208,6 @@ export function SvgFileTab({
             />
           </div>
           <div
-            style={STATUS_STYLE}
             className="editor-document-status"
             data-line-ending={lineEndingLabel(session.layout.eol)}
           >

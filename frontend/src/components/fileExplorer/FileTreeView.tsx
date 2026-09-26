@@ -8,6 +8,7 @@
 // selection in decideContextMenuSelection. This component only turns events
 // into their inputs.
 import { useMemo, type MouseEvent } from 'react';
+import { Icon } from '../common';
 import type { DirectoryEntry } from '../../types/index.ts';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
 import type { UseInlineRenameReturn } from '../../hooks/useInlineRename.ts';
@@ -30,10 +31,21 @@ import {
   formatEntryModified,
   formatEntrySize,
   nextSort,
+  sortDirectionOf,
   sortEntries,
-  sortIndicator,
   type ListSort,
+  type ListSortDir,
 } from './fileListView.ts';
+
+/**
+ * A column header's sort arrow: the chevron points down for descending and is
+ * turned over for ascending. aria-sort on the header already says the same to
+ * assistive technology, so the drawing is decoration. Shared with list mode.
+ */
+export function SortGlyph({ dir }: { dir: ListSortDir | null }) {
+  if (dir === null) return null;
+  return <Icon name="chevron-down" className={dir === 'asc' ? 'fx-sort-glyph fx-sort-asc' : 'fx-sort-glyph'} />;
+}
 
 /** Where a right click (or a long press) asked for the menu, after the selection settled. */
 export interface FileExplorerMenuRequest {
@@ -181,7 +193,7 @@ export function FileTreeView({
             onClick={() => onSortChange?.(nextSort(sort, column))}
           >
             {COLUMN_LABELS[column]}
-            {sortIndicator(sort, column)}
+            <SortGlyph dir={sortDirectionOf(sort, column)} />
           </button>
         ))}
       </div>
@@ -219,7 +231,7 @@ export function FileTreeView({
               className={`fx-expander${isDir ? '' : ' fx-leaf'}${expanded ? ' fx-open' : ''}`}
               onClick={(event) => handleExpanderClick(event, row)}
             >
-              {isDir ? '›' : ''}
+              {isDir && <Icon name="chevron-right" />}
             </span>
             <span className="fx-icon">{entryIcon({ name: row.name, isDirectory: isDir, expanded })}</span>
             {renaming?.path === row.path ? (

@@ -55,9 +55,9 @@ function makeWorkdir(): string {
 }
 
 async function ensureTabMode(page: Page): Promise<void> {
-  const toTabs = page.locator('button[title="Switch to Tabs"]');
+  const toTabs = page.locator('button[title="탭 보기로 전환"]');
   if (await toTabs.count()) await toTabs.click();
-  await expect(page.locator('button[title="Switch to Grid"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('button[title="그리드 보기로 전환"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function activeWorkspaceId(page: Page): Promise<string> {
@@ -149,7 +149,7 @@ const WHITE = 'rgb(255, 255, 255)';
 const BLACK = 'rgb(0, 0, 0)';
 /** The accent Windows paints a selection in. */
 const SELECTION_BLUE = 'rgb(0, 120, 212)';
-const PALE_TRACK = 'rgb(238, 238, 238)';
+const PALE_TRACK = 'rgb(241, 241, 241)';
 
 test.describe('markdown editor appearance', () => {
   let workspaceId: string | null = null;
@@ -342,7 +342,7 @@ test.describe('markdown editor appearance', () => {
 
     const titlebar = surface.locator('.window-dialog-titlebar');
     const actions = surface.locator('.editor-window-actions');
-    const close = surface.locator('.window-dialog-titlebar button[aria-label="Close"]');
+    const close = surface.locator('.window-dialog-titlebar button[aria-label="닫기"]');
     await expect(actions).toBeVisible();
     await expect(close).toBeVisible();
 

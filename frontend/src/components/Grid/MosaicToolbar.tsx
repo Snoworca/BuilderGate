@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback, useEffect, useContext } from 'react';
-import type { CSSProperties } from 'react';
 import { MosaicWindowContext } from 'react-mosaic-component';
 import type { LayoutMode } from '../../hooks/useMosaicLayout';
 import type { EqualLayoutPreset } from '../../hooks/mosaicLayoutStorage';
+import { Icon, IconButton, type IconName } from '../common';
+import './MosaicToolbar.css';
 
 interface MosaicToolbarProps {
   layoutMode: LayoutMode;
@@ -14,50 +15,26 @@ interface MosaicToolbarProps {
 interface ToolbarButtonProps {
   mode?: Exclude<LayoutMode, 'none'>;
   command?: string;
+  icon: IconName;
+  /** What the button does. Becomes both the accessible name and the tooltip. */
   label: string;
-  title: string;
   active: boolean;
   onClick: () => void;
 }
 
-const CONTROL_SIZE = 28;
-
-const controlStyle: CSSProperties = {
-  width: `${CONTROL_SIZE}px`,
-  height: `${CONTROL_SIZE}px`,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'rgba(60,60,60,0.85)',
-  border: '1px solid transparent',
-  borderRadius: '4px',
-  color: 'rgba(255,255,255,0.8)',
-  flexShrink: 0,
-};
-
-function ToolbarButton({ mode, command, label, title, active, onClick }: ToolbarButtonProps) {
+function ToolbarButton({ mode, command, icon, label, active, onClick }: ToolbarButtonProps) {
   return (
-    <button
-      type="button"
+    <IconButton
+      icon={icon}
+      label={label}
+      iconSize={16}
       data-layout-mode-button={mode}
       data-layout-command={command}
-      title={title}
+      aria-pressed={active}
       onClick={onClick}
       draggable={false}
-      style={{
-        ...controlStyle,
-        background: active ? 'rgba(80,160,255,0.8)' : controlStyle.background,
-        border: active ? '1px solid rgba(120,180,255,0.6)' : controlStyle.border,
-        cursor: 'pointer',
-        fontSize: '16px',
-        color: active ? '#fff' : 'rgba(255,255,255,0.5)',
-        padding: 0,
-        lineHeight: 1,
-        pointerEvents: 'auto',
-      }}
-    >
-      {label}
-    </button>
+      className={`mosaic-toolbar-control mosaic-toolbar-button${active ? ' is-active' : ''}`}
+    />
   );
 }
 
@@ -104,23 +81,10 @@ export function MosaicToolbar({
     <div
       data-grid-drag-handle="true"
       data-grid-move-button="true"
-      title="Drag to move"
-      style={{
-        ...controlStyle,
-        cursor: 'grab',
-        opacity: controlsVisible ? 1 : 0,
-        transition: 'opacity 0.15s ease, background-color 0.2s ease, border-color 0.2s ease',
-        pointerEvents: controlsVisible ? 'auto' : 'none',
-      }}
+      title="끌어서 옮기기"
+      className={`mosaic-toolbar-control mosaic-toolbar-move${controlsVisible ? ' is-visible' : ''}`}
     >
-      <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden="true">
-        <polygon points="10,2 7,7 13,7" />
-        <polygon points="10,18 7,13 13,13" />
-        <polygon points="2,10 7,7 7,13" />
-        <polygon points="18,10 13,7 13,13" />
-        <rect x="9" y="7" width="2" height="6" />
-        <rect x="7" y="9" width="6" height="2" />
-      </svg>
+      <Icon name="menu" size={16} />
     </div>
   );
 
@@ -129,16 +93,7 @@ export function MosaicToolbar({
   return (
     <div
       data-grid-toolbar="true"
-      style={{
-        position: 'absolute',
-        top: 4,
-        left: 4,
-        zIndex: 10,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        height: `${CONTROL_SIZE}px`,
-      }}
+      className="mosaic-toolbar"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -148,38 +103,33 @@ export function MosaicToolbar({
         <div
           data-grid-mode-controls="true"
           draggable={false}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            pointerEvents: 'auto',
-          }}
+          className="mosaic-toolbar-modes"
         >
           <ToolbarButton
             mode="equal"
-            label="⊞"
-            title="균등 분할 (Equal)"
+            icon="grid"
+            label="균등 분할"
             active={layoutMode === 'equal' && equalPreset !== 'columns'}
             onClick={() => onLayoutModeChange('equal')}
           />
           <ToolbarButton
             command="columns"
-            label="||||"
-            title="세로 정렬"
+            icon="sidebar"
+            label="세로 정렬"
             active={layoutMode === 'equal' && equalPreset === 'columns'}
             onClick={onColumnsLayout}
           />
           <ToolbarButton
             mode="focus"
-            label="⊡"
-            title="포커스 모드 (Focus)"
+            icon="maximize"
+            label="포커스 모드"
             active={layoutMode === 'focus'}
             onClick={() => onLayoutModeChange('focus')}
           />
           <ToolbarButton
             mode="auto"
-            label="⟳"
-            title="자동 모드 (Auto)"
+            icon="refresh"
+            label="자동 모드"
             active={layoutMode === 'auto'}
             onClick={() => onLayoutModeChange('auto')}
           />

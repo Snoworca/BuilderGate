@@ -85,7 +85,7 @@ function diagnoseYaml(doc: Text): RangeDiagnostic[] {
       const lineNumber = doc.lineAt(node.from).number;
       if (seenLines.has(lineNumber)) return;
       seenLines.add(lineNumber);
-      out.push({ from: node.from, to: node.to, message: 'YAML syntax error' });
+      out.push({ from: node.from, to: node.to, message: 'YAML 문법 오류' });
     },
   });
   return out;

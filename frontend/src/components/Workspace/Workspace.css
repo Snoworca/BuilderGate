@@ -1,0 +1,224 @@
+/* Workspace chrome: the workspace list, its rows, the phone drawer it sits in,
+ * and the two states a workspace screen can show instead of a terminal. Every
+ * value comes from tokens.css (CON-UIDS-001). */
+
+/* ---------- Workspace list ---------- */
+.workspace-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg-surface);
+  border-right: 1px solid var(--line);
+}
+
+.workspace-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace-sidebar-title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+
+.workspace-sidebar-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--ctl-sm);
+  height: var(--ctl-sm);
+  padding: 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.workspace-sidebar-add:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg-strong);
+}
+
+.workspace-sidebar-add:disabled {
+  color: var(--fg-faint);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.workspace-sidebar-add:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.workspace-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* The copy of a row that follows the pointer while it is dragged. Position and
+ * size come from the drag hook inline. */
+.workspace-item-ghost {
+  opacity: 0.6;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background-color: var(--bg-raised);
+  color: var(--fg-strong);
+  font-size: var(--fs-sm);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ---------- One workspace row ---------- */
+.workspace-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+
+.workspace-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.workspace-item.active {
+  background-color: var(--bg-active);
+  border-left-color: var(--sel-bar);
+}
+
+.workspace-item.drag-target {
+  border-bottom: 2px dashed var(--accent);
+}
+
+.workspace-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  color: var(--fg);
+}
+
+.workspace-item.active .workspace-item-name {
+  color: var(--fg-strong);
+}
+
+.workspace-item-rename {
+  width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  outline: none;
+  background: var(--bg-sunken);
+  color: var(--fg-strong);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+}
+
+/* How many of the workspace's terminals are running. Amber rather than green:
+ * green is the colour of a finished, healthy state, and this count means the
+ * workspace is busy. The face is .ui-badge; only the tone is set here. */
+.workspace-item .workspace-item-running {
+  flex-shrink: 0;
+  margin-left: var(--sp-2);
+  background: var(--warn);
+  color: var(--bg-app);
+}
+
+/* ---------- Phone drawer ---------- */
+.mobile-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+
+.mobile-drawer-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mobile-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 80vw;
+  max-width: 320px;
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-overlay);
+  z-index: 999;
+  transform: translateX(-100%);
+  transition: transform 200ms ease-out;
+  overflow-y: auto;
+  outline: none;
+}
+
+.mobile-drawer.is-open {
+  transform: translateX(0);
+}
+
+/* Phone widths: rows and the add button take a whole fingertip. */
+@media (max-width: 767px) {
+  .workspace-item {
+    min-height: var(--ctl-touch);
+  }
+
+  .workspace-sidebar-add {
+    width: var(--ctl-touch);
+    height: var(--ctl-touch);
+  }
+}
+
+/* ---------- No terminal yet ---------- */
+.workspace-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--sp-4);
+  color: var(--fg-muted);
+}
+
+.workspace-empty-state-icon {
+  color: var(--fg-faint);
+}
+
+.workspace-empty-state-text {
+  font-size: var(--fs-lg);
+}
+
+/* ---------- The session ended ---------- */
+.disconnected-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 10;
+}
+
+.disconnected-overlay-icon {
+  color: var(--danger-text);
+  line-height: 0;
+}
+
+.disconnected-overlay-text {
+  font-size: var(--fs-md);
+  color: var(--fg);
+}

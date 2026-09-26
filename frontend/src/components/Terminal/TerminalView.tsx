@@ -3157,7 +3157,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.open(terminalRef.current);
       const helperTextarea = getHelperTextarea();
       if (helperTextarea) {
-        helperTextarea.setAttribute('aria-label', 'Terminal input');
+        helperTextarea.setAttribute('aria-label', '터미널 입력');
         helperTextarea.disabled = true;
         helperTextarea.readOnly = false;
       }

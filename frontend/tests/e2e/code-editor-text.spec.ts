@@ -172,9 +172,9 @@ async function listDirectory(
 }
 
 async function ensureTabMode(page: Page): Promise<void> {
-  const toTabs = page.locator('button[title="Switch to Tabs"]');
+  const toTabs = page.locator('button[title="탭 보기로 전환"]');
   if (await toTabs.count()) await toTabs.click();
-  await expect(page.locator('button[title="Switch to Grid"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('button[title="그리드 보기로 전환"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function selectWorkspace(page: Page, name: string): Promise<void> {
@@ -345,7 +345,7 @@ async function openExplorer(page: Page, root: string): Promise<void> {
 
 async function closeExplorer(page: Page): Promise<void> {
   if (await explorerWindow(page).count() === 0) return;
-  await explorerWindow(page).locator('button[aria-label="Close"]').first().click();
+  await explorerWindow(page).locator('button[aria-label="닫기"]').first().click();
   await expect(explorerWindow(page)).toHaveCount(0, { timeout: 10000 });
 }
 
@@ -633,11 +633,11 @@ test.describe('code editor: text and code editing', () => {
     await expect(after.locator('.editor-window-host')).toHaveAttribute('data-theme', 'light');
 
     // AC-7: clicking the path copies the whole path and says so.
-    // Like the session path at the bottom: the label reads '✓ Copied', then the path returns.
+    // Like the session path at the bottom: the label reads '✓ 복사됨', then the path returns.
     await after.locator('.editor-document-path').click();
-    await expect(after.locator('.editor-document-path')).toHaveText('✓ Copied');
+    await expect(after.locator('.editor-document-path')).toHaveText('✓ 복사됨');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(fullPath);
-    await expect(after.locator('.editor-document-path')).not.toHaveText('✓ Copied', { timeout: 5000 });
+    await expect(after.locator('.editor-document-path')).not.toHaveText('✓ 복사됨', { timeout: 5000 });
     await screenshot(page, 'toolbar-light');
   });
 

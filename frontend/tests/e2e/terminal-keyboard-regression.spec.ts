@@ -171,7 +171,7 @@ async function dispatchAutoRepeatSpace(page: Page, repeatCount = 2) {
 }
 
 async function focusTerminalInput(page: Page) {
-  const input = page.getByRole('textbox', { name: 'Terminal input' }).first();
+  const input = page.getByRole('textbox', { name: '터미널 입력' }).first();
   await input.click();
 }
 
@@ -352,7 +352,7 @@ test.describe('Terminal Keyboard Regressions', () => {
       return await getActiveElementInfo(page);
     }, { timeout: 5000 }).toMatchObject({
       tagName: 'TEXTAREA',
-      ariaLabel: 'Terminal input',
+      ariaLabel: '터미널 입력',
       className: expect.stringContaining('xterm-helper-textarea'),
     });
 

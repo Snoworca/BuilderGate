@@ -155,7 +155,7 @@ export function EditorFileTreePane({
     >
       <div className="editor-tree-pane-head">
         <span className="editor-tree-pane-root" title={state.root}>{state.root}</span>
-        <IconButton icon="close" label="닫기" onClick={() => onClose()} />
+        <IconButton icon="close" label="파일 트리 닫기" onClick={() => onClose()} />
       </div>
       <div className="fx-scroll">
         <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={onOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={sort} onSortChange={setSort} openFileKeys={openFileKeys} />

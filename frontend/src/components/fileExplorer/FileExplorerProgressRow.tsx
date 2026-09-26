@@ -8,6 +8,7 @@
 // @req FR-FEX-008
 
 import { useMemo, useSyncExternalStore } from 'react';
+import { IconButton } from '../common';
 import { fileJobApi } from '../../services/api.ts';
 import { openFileJobPopover } from './fileJobPopoverState.ts';
 import { getFileJobSnapshot, selectProgressRowView, selectWindowJobs, subscribeFileJobs } from './fileJobStore.ts';
@@ -48,15 +49,7 @@ export function FileExplorerProgressRow({ workspaceId }: FileExplorerProgressRow
           {`외 ${view.moreCount}개`}
         </button>
       )}
-      <button
-        type="button"
-        className="fx-job-cancel"
-        aria-label="취소"
-        title="취소"
-        onClick={() => cancelFileJob(view.jobId)}
-      >
-        ×
-      </button>
+      <IconButton icon="close" className="fx-job-cancel" label="작업 취소" onClick={() => cancelFileJob(view.jobId)} />
     </div>
   );
 }

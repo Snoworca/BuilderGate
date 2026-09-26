@@ -87,7 +87,7 @@ async function getDebugEvents(page: Page, sessionId: string): Promise<TerminalDe
 }
 
 async function focusHelperTextarea(page: Page) {
-  const input = page.getByRole('textbox', { name: 'Terminal input' }).first();
+  const input = page.getByRole('textbox', { name: '터미널 입력' }).first();
   await input.click();
 }
 

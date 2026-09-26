@@ -4,12 +4,17 @@ import type {
   EditableSettingsKey,
   EditableSettingsValues,
   FieldApplyScope,
+  FieldCapability,
   SettingsApplySummary,
   SettingsSnapshot,
   TOTPQRInfo,
 } from '../../types';
 import { authApi, settingsApi } from '../../services/api';
 import { ConfirmModal } from '../Modal';
+import { Icon } from '../common/Icon';
+import type { IconName } from '../common/iconGlyphs';
+import { Button, Checkbox, Chip, Field, NumberInput, Select, Spinner, TextInput } from '../ui';
+import type { ChipTone } from '../ui';
 import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 import { reloadRuntimeConfig } from '../../utils/inputReliabilityMode';
@@ -20,8 +25,10 @@ import {
   getResourceLimitValue,
   parseResourceLimitInput,
   resourceLimitTestId,
+  resourceLimitUnitLabel,
   setResourceLimitValue,
   validateWave6ResourceLimitDraft,
+  validateWave6ResourceLimitField,
 } from './settingsDraftHelpers';
 import './SettingsPage.css';
 
@@ -40,6 +47,23 @@ const EMPTY_SECRETS: SecretDraft = {
   currentPassword: '',
   newPassword: '',
   confirmPassword: '',
+};
+
+/** Shown when a request fails without an Error to describe it. */
+const UNKNOWN_CAUSE = '원인을 알 수 없습니다.';
+const WINPTY_UNAVAILABLE = '이 호스트에서는 winpty를 쓸 수 없습니다. "ConPTY 사용"을 켠 뒤 저장하세요.';
+const PASSWORD_MISMATCH = '새 비밀번호와 다시 입력한 비밀번호가 다릅니다.';
+const PASSWORD_INCOMPLETE = '비밀번호를 바꾸려면 이 칸도 채우세요.';
+
+/** Option values stay what config.json5 holds; only the plain-word ones get Korean. */
+const SHELL_OPTION_LABELS: Record<string, string> = {
+  auto: '자동',
+  powershell: 'PowerShell',
+  wsl: 'WSL',
+};
+const POWERSHELL_BACKEND_LABELS: Record<string, string> = {
+  inherit: '"ConPTY 사용" 설정 따름',
+  conpty: 'ConPTY',
 };
 
 export function SettingsPage({ visible, onBack }: Props) {
@@ -98,7 +122,7 @@ export function SettingsPage({ visible, onBack }: Props) {
     } catch (error) {
       if (!isActive()) return;
       setTotpQR(null);
-      setTotpQRError(error instanceof Error ? error.message : 'Failed to load QR code');
+      setTotpQRError(error instanceof Error ? error.message : UNKNOWN_CAUSE);
     } finally {
       if (isActive()) setTotpQRLoading(false);
     }
@@ -128,7 +152,7 @@ export function SettingsPage({ visible, onBack }: Props) {
       })
       .catch((error) => {
         if (!active) return;
-        setLoadError(error instanceof Error ? error.message : 'Failed to load settings');
+        setLoadError(error instanceof Error ? error.message : UNKNOWN_CAUSE);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -147,7 +171,7 @@ export function SettingsPage({ visible, onBack }: Props) {
       })
       .catch((error) => {
         if (!active) return;
-        setTotpQRError(error instanceof Error ? error.message : 'Failed to load QR code');
+        setTotpQRError(error instanceof Error ? error.message : UNKNOWN_CAUSE);
       })
       .finally(() => {
         if (active) setTotpQRLoading(false);
@@ -158,10 +182,13 @@ export function SettingsPage({ visible, onBack }: Props) {
     };
   }, [visible]);
 
-  const validationErrors = useMemo(() => {
-    if (!draft || !snapshot) return [];
-
+  // The list feeds the banner above the cards; fieldErrors puts the same
+  // problem beside the field it belongs to (FR-UIDS-002 AC-7).
+  const validation = useMemo(() => {
     const errors: string[] = [];
+    const fieldErrors: Record<string, string> = {};
+    if (!draft || !snapshot) return { errors, fieldErrors };
+
     const passwordRequested = Boolean(secrets.currentPassword || secrets.newPassword || secrets.confirmPassword);
     const allowedPowerShellBackends = new Set(
       snapshot.capabilities['pty.windowsPowerShellBackend']?.options ?? ['inherit', 'conpty', 'winpty'],
@@ -170,41 +197,59 @@ export function SettingsPage({ visible, onBack }: Props) {
 
     if (passwordRequested) {
       if (!secrets.currentPassword || !secrets.newPassword || !secrets.confirmPassword) {
-        errors.push('Password rotation requires current, new, and confirm password.');
+        errors.push('비밀번호를 바꾸려면 현재 비밀번호, 새 비밀번호, 새 비밀번호 다시 입력을 모두 채우세요.');
+        if (!secrets.currentPassword) fieldErrors.currentPassword = PASSWORD_INCOMPLETE;
+        if (!secrets.newPassword) fieldErrors.newPassword = PASSWORD_INCOMPLETE;
+        if (!secrets.confirmPassword) fieldErrors.confirmPassword = PASSWORD_INCOMPLETE;
       }
       if (secrets.newPassword) {
         const passwordPolicy = validatePasswordPolicy(secrets.newPassword);
         if (!passwordPolicy.valid && passwordPolicy.message) {
           errors.push(passwordPolicy.message);
+          fieldErrors.newPassword = passwordPolicy.message;
         }
       }
       if (secrets.newPassword !== secrets.confirmPassword) {
-        errors.push('New password confirmation does not match.');
+        errors.push(PASSWORD_MISMATCH);
+        if (secrets.confirmPassword) fieldErrors.confirmPassword = PASSWORD_MISMATCH;
       }
     }
 
-    for (const origin of draft.security.cors.allowedOrigins) {
-      if (!isValidOrigin(origin)) {
-        errors.push(`Invalid CORS origin: ${origin}`);
-      }
+    const invalidOrigins = draft.security.cors.allowedOrigins.filter((origin) => !isValidOrigin(origin));
+    for (const origin of invalidOrigins) {
+      errors.push(`CORS 허용 출처는 https://example.com처럼 경로 없이 적어야 합니다. 지금 값은 ${origin}입니다.`);
+    }
+    if (invalidOrigins.length > 0) {
+      fieldErrors.allowedOrigins = `http:// 또는 https://로 시작하고 경로 없이 적어야 합니다. 맞지 않는 값: ${invalidOrigins.join(', ')}`;
     }
 
-    for (const ext of draft.fileManager.blockedExtensions) {
-      if (!ext.startsWith('.')) errors.push(`Blocked extension must start with ".": ${ext}`);
+    const invalidExtensions = draft.fileManager.blockedExtensions.filter((ext) => !ext.startsWith('.'));
+    for (const ext of invalidExtensions) {
+      errors.push(`차단할 확장자는 "."으로 시작해야 합니다. 지금 값은 ${ext}입니다.`);
+    }
+    if (invalidExtensions.length > 0) {
+      fieldErrors.blockedExtensions = `"."으로 시작해야 합니다. 맞지 않는 값: ${invalidExtensions.join(', ')}`;
     }
 
-    for (const item of draft.fileManager.blockedPaths) {
-      if (/\s/.test(item)) errors.push(`Blocked path cannot contain whitespace: ${item}`);
+    const invalidPaths = draft.fileManager.blockedPaths.filter((item) => /\s/.test(item));
+    for (const item of invalidPaths) {
+      errors.push(`차단할 경로에는 공백을 넣을 수 없습니다. 지금 값은 "${item}"입니다.`);
+    }
+    if (invalidPaths.length > 0) {
+      fieldErrors.blockedPaths = `공백을 넣을 수 없습니다. 맞지 않는 값: ${invalidPaths.map((item) => `"${item}"`).join(', ')}`;
     }
 
     if (winptyUnavailable && !draft.pty.useConpty) {
-      errors.push('winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.');
+      errors.push(WINPTY_UNAVAILABLE);
+      fieldErrors.useConpty = WINPTY_UNAVAILABLE;
     }
 
     errors.push(...validateWave6ResourceLimitDraft(draft, snapshot.capabilities));
 
-    return errors;
+    return { errors, fieldErrors };
   }, [draft, secrets, snapshot]);
+  const validationErrors = validation.errors;
+  const fieldErrors = validation.fieldErrors;
 
   const isDirty = useMemo(() => {
     if (!snapshot || !draft) return false;
@@ -217,11 +262,11 @@ export function SettingsPage({ visible, onBack }: Props) {
     const allowsWinpty = (snapshot.capabilities['pty.windowsPowerShellBackend']?.options ?? ['inherit', 'conpty', 'winpty']).includes('winpty');
     const baseHint = draft.pty.windowsPowerShellBackend === 'inherit'
       ? (!draft.pty.useConpty && !allowsWinpty
-          ? 'winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.'
-          : `PowerShell inherits ${draft.pty.useConpty ? 'ConPTY' : 'winpty'} from "Use ConPTY".`)
+          ? WINPTY_UNAVAILABLE
+          : `PowerShell도 "ConPTY 사용" 설정을 따라 ${draft.pty.useConpty ? 'ConPTY' : 'winpty'}로 열립니다.`)
       : (!draft.pty.useConpty && !allowsWinpty
-          ? 'winpty is unavailable on this host. Enable "Use ConPTY" before saving terminal settings.'
-          : `New PowerShell sessions will force ${draft.pty.windowsPowerShellBackend}.`);
+          ? WINPTY_UNAVAILABLE
+          : `새 PowerShell 세션은 "ConPTY 사용" 설정과 관계없이 ${draft.pty.windowsPowerShellBackend}로 열립니다.`);
     return capabilityReason ? `${baseHint} ${capabilityReason}` : baseHint;
   }, [draft, snapshot]);
 
@@ -280,7 +325,7 @@ export function SettingsPage({ visible, onBack }: Props) {
         }
       }
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save settings');
+      setSaveError(error instanceof Error ? error.message : UNKNOWN_CAUSE);
       try {
         const nextSnapshot = await settingsApi.getSettings();
         setSnapshot(nextSnapshot);
@@ -312,134 +357,213 @@ export function SettingsPage({ visible, onBack }: Props) {
   return (
     <section className="settings-page">
       <div className="settings-toolbar">
-        <div>
-          <h2>Runtime Settings</h2>
-          <p>Only the runtime-safe subset of `config.json5` is exposed here.</p>
+        <div className="settings-toolbar-heading">
+          <h2>설정</h2>
+          <p>서버를 다시 시작하지 않고 바꿀 수 있는 설정입니다. 나머지는 config.json5에서 고칩니다.</p>
         </div>
         <div className="settings-toolbar-actions">
-          <button className="settings-secondary-button" onClick={requestBack}>Back</button>
-          <button className="settings-primary-button" data-testid="settings-save-button" onClick={save} disabled={!isDirty || saving || loading || validationErrors.length > 0}>
-            {saving ? 'Saving...' : 'Save Settings'}
-          </button>
+          <Button variant="secondary" onClick={requestBack}>닫기</Button>
+          <Button variant="primary" icon="save" data-testid="settings-save-button" onClick={save} disabled={!isDirty || saving || loading || validationErrors.length > 0}>
+            {saving ? '저장 중…' : '설정 저장'}
+          </Button>
         </div>
       </div>
 
-      {loading && <div className="settings-state-card">Loading settings...</div>}
-      {loadError && <div className="settings-state-card settings-error-card">{loadError}</div>}
+      {loading && (
+        <div className="settings-state-card" role="status">
+          <Spinner />
+          설정을 불러오는 중…
+        </div>
+      )}
+      {loadError && (
+        <div className="settings-state-card settings-error-card" role="alert">
+          <Icon name="alert" />
+          <span>설정을 불러오지 못했습니다. {loadError}</span>
+        </div>
+      )}
 
       {!loading && !loadError && snapshot && draft && (
         <div className="settings-scroll">
-          {saveError && <div className="settings-banner settings-banner-error">{saveError}</div>}
+          {saveError && (
+            <div className="settings-banner settings-banner-error" role="alert">
+              <Icon name="alert" />
+              <div className="settings-banner-body">설정을 저장하지 못했습니다. {saveError}</div>
+            </div>
+          )}
           {validationErrors.length > 0 && (
             <div className="settings-banner settings-banner-error">
-              {validationErrors.map((error) => <div key={error}>{error}</div>)}
+              <Icon name="alert" />
+              <div className="settings-banner-body">
+                <strong>아래 항목을 고쳐야 저장할 수 있습니다.</strong>
+                {validationErrors.map((error) => <div key={error}>{error}</div>)}
+              </div>
             </div>
           )}
           {summary && (
-            <div className="settings-banner settings-banner-success">
-              Immediate {summary.immediate.length}, next login {summary.new_logins.length}, new terminal sessions {summary.new_sessions.length}
+            <div className="settings-banner settings-banner-success" role="status">
+              <Icon name="check-circle" />
+              <div className="settings-banner-body">
+                저장했습니다. 바로 적용 {summary.immediate.length}개 · 다음 로그인부터 {summary.new_logins.length}개 · 새 세션부터 {summary.new_sessions.length}개
+              </div>
             </div>
           )}
           {summary?.warnings.length ? (
             <div className="settings-banner settings-banner-warning">
-              {summary.warnings.map((warning) => <div key={warning}>{warning}</div>)}
+              <Icon name="alert" />
+              <div className="settings-banner-body">
+                {summary.warnings.map((warning) => <div key={warning}>{warning}</div>)}
+              </div>
             </div>
           ) : null}
 
           <div className="settings-grid">
-            <Card title="Authentication">
-              <Field label="Session duration (ms)" scope={scope(snapshot, 'auth.durationMs')}>
-                <input type="number" value={draft.auth.durationMs} onChange={(e) => updateDraft((next) => { next.auth.durationMs = Number(e.target.value || draft.auth.durationMs); })} />
-              </Field>
-              <Field label="Current password" scope={scope(snapshot, 'auth.password')} hint={snapshot.secretState.authPasswordConfigured ? 'Configured' : 'Not configured'}>
-                <input type="password" value={secrets.currentPassword} onChange={(e) => updateSecrets((current) => ({ ...current, currentPassword: e.target.value }))} />
-              </Field>
-              <Field label="New password" scope={scope(snapshot, 'auth.password')}>
-                <input type="password" value={secrets.newPassword} onChange={(e) => updateSecrets((current) => ({ ...current, newPassword: e.target.value }))} />
-              </Field>
-              <Field label="Confirm password" scope={scope(snapshot, 'auth.password')}>
-                <input type="password" value={secrets.confirmPassword} onChange={(e) => updateSecrets((current) => ({ ...current, confirmPassword: e.target.value }))} />
-              </Field>
+            <Card title="인증" icon="lock">
+              <SettingField htmlFor="settings-auth-duration" label="세션 유지 시간" scope={scope(snapshot, 'auth.durationMs')} help="로그인한 뒤 이 시간이 지나면 다시 로그인해야 합니다.">
+                <NumberInput id="settings-auth-duration" unit="ms" value={draft.auth.durationMs} onChange={(e) => updateDraft((next) => { next.auth.durationMs = Number(e.target.value || draft.auth.durationMs); })} />
+              </SettingField>
+              <SettingField
+                htmlFor="settings-auth-current-password"
+                label="현재 비밀번호"
+                scope={scope(snapshot, 'auth.password')}
+                help={`비밀번호를 바꿀 때만 입력합니다. ${snapshot.secretState.authPasswordConfigured ? '지금 비밀번호가 설정되어 있습니다.' : '지금은 설정된 비밀번호가 없습니다.'}`}
+                error={fieldErrors.currentPassword}
+              >
+                <TextInput id="settings-auth-current-password" type="password" aria-invalid={fieldErrors.currentPassword ? true : undefined} value={secrets.currentPassword} onChange={(e) => updateSecrets((current) => ({ ...current, currentPassword: e.target.value }))} />
+              </SettingField>
+              <SettingField htmlFor="settings-auth-new-password" label="새 비밀번호" scope={scope(snapshot, 'auth.password')} error={fieldErrors.newPassword}>
+                <TextInput id="settings-auth-new-password" type="password" aria-invalid={fieldErrors.newPassword ? true : undefined} value={secrets.newPassword} onChange={(e) => updateSecrets((current) => ({ ...current, newPassword: e.target.value }))} />
+              </SettingField>
+              <SettingField htmlFor="settings-auth-confirm-password" label="새 비밀번호 다시 입력" scope={scope(snapshot, 'auth.password')} error={fieldErrors.confirmPassword}>
+                <TextInput id="settings-auth-confirm-password" type="password" aria-invalid={fieldErrors.confirmPassword ? true : undefined} value={secrets.confirmPassword} onChange={(e) => updateSecrets((current) => ({ ...current, confirmPassword: e.target.value }))} />
+              </SettingField>
             </Card>
 
-            <Card title="Two-Factor Authentication">
-              <Field label="Enabled" scope={scope(snapshot, 'twoFactor.enabled')} hint="TOTP (Google Authenticator)">
-                <input data-testid="twofactor-enabled" type="checkbox" checked={draft.twoFactor.enabled} onChange={(e) => updateDraft((next) => { next.twoFactor.enabled = e.target.checked; })} />
-              </Field>
-              <Field label="External only" scope={scope(snapshot, 'twoFactor.externalOnly')} hint="localhost 접속 시 2FA 건너뜀">
-                <input type="checkbox" checked={draft.twoFactor.externalOnly} onChange={(e) => updateDraft((next) => { next.twoFactor.externalOnly = e.target.checked; })} />
-              </Field>
-              <Field label="Issuer" scope={scope(snapshot, 'twoFactor.issuer')} hint="App name shown in authenticator">
-                <input data-testid="twofactor-issuer" type="text" value={draft.twoFactor.issuer} onChange={(e) => updateDraft((next) => { next.twoFactor.issuer = e.target.value; })} />
-              </Field>
-              <Field label="Account name" scope={scope(snapshot, 'twoFactor.accountName')} hint="Username shown in authenticator">
-                <input data-testid="twofactor-account-name" type="text" value={draft.twoFactor.accountName} onChange={(e) => updateDraft((next) => { next.twoFactor.accountName = e.target.value; })} />
-              </Field>
+            <Card title="2단계 인증" icon="check-circle" description="로그인할 때 비밀번호 다음에 인증 앱의 6자리 코드를 한 번 더 묻습니다.">
+              <CheckField
+                testId="twofactor-enabled"
+                label="2단계 인증 사용"
+                scope={scope(snapshot, 'twoFactor.enabled')}
+                help="Google Authenticator 같은 TOTP 앱을 씁니다."
+                checked={draft.twoFactor.enabled}
+                onChange={(checked) => updateDraft((next) => { next.twoFactor.enabled = checked; })}
+              />
+              <CheckField
+                label="외부 접속에만 요구"
+                scope={scope(snapshot, 'twoFactor.externalOnly')}
+                help="localhost에서 접속하면 2단계 인증을 건너뜁니다."
+                checked={draft.twoFactor.externalOnly}
+                onChange={(checked) => updateDraft((next) => { next.twoFactor.externalOnly = checked; })}
+              />
+              <SettingField htmlFor="settings-twofactor-issuer" label="발급자 이름" scope={scope(snapshot, 'twoFactor.issuer')} help="인증 앱 목록에 보이는 서비스 이름입니다.">
+                <TextInput id="settings-twofactor-issuer" data-testid="twofactor-issuer" value={draft.twoFactor.issuer} onChange={(e) => updateDraft((next) => { next.twoFactor.issuer = e.target.value; })} />
+              </SettingField>
+              <SettingField htmlFor="settings-twofactor-account-name" label="계정 이름" scope={scope(snapshot, 'twoFactor.accountName')} help="인증 앱에서 서비스 이름과 함께 보이는 사용자 이름입니다.">
+                <TextInput id="settings-twofactor-account-name" data-testid="twofactor-account-name" value={draft.twoFactor.accountName} onChange={(e) => updateDraft((next) => { next.twoFactor.accountName = e.target.value; })} />
+              </SettingField>
 
-              {/* QR Code section */}
-              <div className="settings-field-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                <div className="settings-field-label">
-                  <span>QR Code</span>
-                  <span className="settings-field-hint">Scan with Google Authenticator to register</span>
-                </div>
-                {totpQRLoading && <span className="settings-field-hint">Loading QR code...</span>}
-                {totpQRError && <span className="settings-field-hint" style={{ color: 'var(--error-color, #e57373)' }}>{totpQRError}</span>}
-                {totpQR && totpQR.registered && totpQR.dataUrl && (
-                  <div data-testid="totp-qr-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                    <img
-                      data-testid="totp-qr-image"
-                      src={totpQR.dataUrl}
-                      alt="TOTP QR Code"
-                      style={{ width: 180, height: 180, imageRendering: 'pixelated', border: '2px solid var(--border-color, #444)', borderRadius: 4, background: '#fff' }}
-                    />
-                    <span data-testid="totp-qr-uri" className="settings-field-hint" style={{ wordBreak: 'break-all', maxWidth: 320, fontSize: 11 }}>
-                      {totpQR.uri}
+              <SettingField label="등록 QR 코드" help="인증 앱으로 스캔하면 이 서버가 등록됩니다.">
+                <div className="settings-qr">
+                  {totpQRLoading && (
+                    <span className="settings-qr-status" role="status"><Spinner />QR 코드를 불러오는 중…</span>
+                  )}
+                  {totpQRError && (
+                    <span className="settings-qr-status settings-qr-error" role="alert">
+                      <Icon name="alert" size={14} />
+                      QR 코드를 불러오지 못했습니다. {totpQRError}
                     </span>
-                  </div>
-                )}
-                {totpQR && !totpQR.registered && (
-                  <span data-testid="totp-qr-unregistered" className="settings-field-hint">TOTP is enabled but secret is not registered. Restart the server to generate a new secret.</span>
-                )}
-                {!totpQRLoading && !totpQR && !totpQRError && (
-                  <span data-testid="totp-qr-disabled" className="settings-field-hint">TOTP is not enabled on this server.</span>
-                )}
-              </div>
+                  )}
+                  {totpQR && totpQR.registered && totpQR.dataUrl && (
+                    <div data-testid="totp-qr-section" className="settings-qr-section">
+                      <img
+                        data-testid="totp-qr-image"
+                        className="settings-qr-image"
+                        src={totpQR.dataUrl}
+                        alt="TOTP 등록 QR 코드"
+                      />
+                      <span data-testid="totp-qr-uri" className="settings-qr-uri">
+                        {totpQR.uri}
+                      </span>
+                    </div>
+                  )}
+                  {totpQR && !totpQR.registered && (
+                    <span data-testid="totp-qr-unregistered" className="settings-qr-status">2단계 인증은 켜져 있지만 비밀 키가 등록되지 않았습니다. 서버를 다시 시작하면 새 비밀 키가 만들어집니다.</span>
+                  )}
+                  {!totpQRLoading && !totpQR && !totpQRError && (
+                    <span data-testid="totp-qr-disabled" className="settings-qr-status">2단계 인증이 꺼져 있어 QR 코드가 없습니다. 켜고 저장하면 여기에 나타납니다.</span>
+                  )}
+                </div>
+              </SettingField>
             </Card>
 
-            <Card title="CORS">
-              <Field label="Allowed origins" scope={scope(snapshot, 'security.cors.allowedOrigins')}><textarea value={draft.security.cors.allowedOrigins.join('\n')} onChange={(e) => updateDraft((next) => { next.security.cors.allowedOrigins = parseList(e.target.value); })} /></Field>
-              <Field label="Credentials" scope={scope(snapshot, 'security.cors.credentials')}><input type="checkbox" checked={draft.security.cors.credentials} onChange={(e) => updateDraft((next) => { next.security.cors.credentials = e.target.checked; })} /></Field>
-              <Field label="Max age" scope={scope(snapshot, 'security.cors.maxAge')}><input type="number" value={draft.security.cors.maxAge} onChange={(e) => updateDraft((next) => { next.security.cors.maxAge = Number(e.target.value || draft.security.cors.maxAge); })} /></Field>
+            <Card title="CORS" icon="plug" description="다른 출처의 웹 페이지가 이 서버의 API를 부를 수 있는지 정합니다.">
+              <SettingField htmlFor="settings-cors-origins" label="허용 출처" scope={scope(snapshot, 'security.cors.allowedOrigins')} help="한 줄에 하나씩 적습니다. 예: https://example.com" error={fieldErrors.allowedOrigins}>
+                <textarea id="settings-cors-origins" className="ui-input ui-input-mono settings-textarea" aria-invalid={fieldErrors.allowedOrigins ? true : undefined} value={draft.security.cors.allowedOrigins.join('\n')} onChange={(e) => updateDraft((next) => { next.security.cors.allowedOrigins = parseList(e.target.value); })} />
+              </SettingField>
+              <CheckField
+                label="로그인 정보 허용"
+                scope={scope(snapshot, 'security.cors.credentials')}
+                help="허용한 출처의 요청이 쿠키와 인증 헤더를 함께 보낼 수 있습니다."
+                checked={draft.security.cors.credentials}
+                onChange={(checked) => updateDraft((next) => { next.security.cors.credentials = checked; })}
+              />
+              <SettingField htmlFor="settings-cors-max-age" label="사전 요청 캐시 시간" scope={scope(snapshot, 'security.cors.maxAge')} help="브라우저가 CORS 사전 요청 결과를 다시 묻지 않고 쓰는 시간입니다.">
+                <NumberInput id="settings-cors-max-age" unit="초" value={draft.security.cors.maxAge} onChange={(e) => updateDraft((next) => { next.security.cors.maxAge = Number(e.target.value || draft.security.cors.maxAge); })} />
+              </SettingField>
             </Card>
 
-            <Card title="Terminal Defaults">
-              <Field label="TERM name" scope={scope(snapshot, 'pty.termName')}><input type="text" value={draft.pty.termName} onChange={(e) => updateDraft((next) => { next.pty.termName = e.target.value; })} /></Field>
-              <Field label="Default cols" scope={scope(snapshot, 'pty.defaultCols')}><input type="number" value={draft.pty.defaultCols} onChange={(e) => updateDraft((next) => { next.pty.defaultCols = Number(e.target.value || draft.pty.defaultCols); })} /></Field>
-              <Field label="Default rows" scope={scope(snapshot, 'pty.defaultRows')}><input type="number" value={draft.pty.defaultRows} onChange={(e) => updateDraft((next) => { next.pty.defaultRows = Number(e.target.value || draft.pty.defaultRows); })} /></Field>
-              <Field label="Shell" scope={scope(snapshot, 'pty.shell')}>
-                <select value={draft.pty.shell} onChange={(e) => updateDraft((next) => { next.pty.shell = e.target.value as EditableSettingsValues['pty']['shell']; })}>
-                  {(snapshot.capabilities['pty.shell'].options ?? ['auto']).map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </Field>
+            <Card title="터미널 기본값" icon="terminal" description="새로 여는 세션에 쓰는 값입니다. 이미 열린 세션은 바뀌지 않습니다.">
+              <SettingField htmlFor="settings-pty-term-name" label="TERM 이름" scope={scope(snapshot, 'pty.termName')} help="새 세션의 TERM 환경 변수 값입니다.">
+                <TextInput id="settings-pty-term-name" mono value={draft.pty.termName} onChange={(e) => updateDraft((next) => { next.pty.termName = e.target.value; })} />
+              </SettingField>
+              <SettingField htmlFor="settings-pty-default-cols" label="기본 열 수" scope={scope(snapshot, 'pty.defaultCols')}>
+                <NumberInput id="settings-pty-default-cols" unit="칸" value={draft.pty.defaultCols} onChange={(e) => updateDraft((next) => { next.pty.defaultCols = Number(e.target.value || draft.pty.defaultCols); })} />
+              </SettingField>
+              <SettingField htmlFor="settings-pty-default-rows" label="기본 행 수" scope={scope(snapshot, 'pty.defaultRows')}>
+                <NumberInput id="settings-pty-default-rows" unit="줄" value={draft.pty.defaultRows} onChange={(e) => updateDraft((next) => { next.pty.defaultRows = Number(e.target.value || draft.pty.defaultRows); })} />
+              </SettingField>
+              <SettingField htmlFor="settings-pty-shell" label="셸" scope={scope(snapshot, 'pty.shell')} help="새로 여는 세션이 쓰는 셸입니다.">
+                <Select id="settings-pty-shell" value={draft.pty.shell} onChange={(e) => updateDraft((next) => { next.pty.shell = e.target.value as EditableSettingsValues['pty']['shell']; })}>
+                  {(snapshot.capabilities['pty.shell'].options ?? ['auto']).map((item) => <option key={item} value={item}>{SHELL_OPTION_LABELS[item] ?? item}</option>)}
+                </Select>
+              </SettingField>
               {snapshot.capabilities['pty.useConpty'].available && (
-                <Field label="Use ConPTY" scope={scope(snapshot, 'pty.useConpty')}><input type="checkbox" checked={draft.pty.useConpty} onChange={(e) => updateDraft((next) => { next.pty.useConpty = e.target.checked; })} /></Field>
+                <CheckField
+                  label="ConPTY 사용"
+                  scope={scope(snapshot, 'pty.useConpty')}
+                  help="Windows 10 1809 이상에서 터미널 호환성이 좋아집니다."
+                  error={fieldErrors.useConpty}
+                  checked={draft.pty.useConpty}
+                  onChange={(checked) => updateDraft((next) => { next.pty.useConpty = checked; })}
+                />
               )}
               {snapshot.capabilities['pty.windowsPowerShellBackend']?.available && (
-                <Field label="PowerShell backend" scope={scope(snapshot, 'pty.windowsPowerShellBackend')} hint={powerShellBackendHint}>
-                  <select value={draft.pty.windowsPowerShellBackend} onChange={(e) => updateDraft((next) => { next.pty.windowsPowerShellBackend = e.target.value as EditableSettingsValues['pty']['windowsPowerShellBackend']; })}>
-                    {(snapshot.capabilities['pty.windowsPowerShellBackend'].options ?? ['inherit']).map((item) => <option key={item} value={item}>{item}</option>)}
-                  </select>
-                </Field>
+                <SettingField htmlFor="settings-pty-powershell-backend" label="PowerShell 백엔드" scope={scope(snapshot, 'pty.windowsPowerShellBackend')} help={powerShellBackendHint}>
+                  <Select id="settings-pty-powershell-backend" value={draft.pty.windowsPowerShellBackend} onChange={(e) => updateDraft((next) => { next.pty.windowsPowerShellBackend = e.target.value as EditableSettingsValues['pty']['windowsPowerShellBackend']; })}>
+                    {(snapshot.capabilities['pty.windowsPowerShellBackend'].options ?? ['inherit']).map((item) => <option key={item} value={item}>{POWERSHELL_BACKEND_LABELS[item] ?? item}</option>)}
+                  </Select>
+                </SettingField>
               )}
             </Card>
 
-            <Card title="Session And File Manager">
-              <Field label="Idle delay (ms)" scope={scope(snapshot, 'session.idleDelayMs')}><input type="number" value={draft.session.idleDelayMs} onChange={(e) => updateDraft((next) => { next.session.idleDelayMs = Number(e.target.value || draft.session.idleDelayMs); })} /></Field>
-              <Field label="Max file size" scope={scope(snapshot, 'fileManager.maxFileSize')}><input type="number" value={draft.fileManager.maxFileSize} onChange={(e) => updateDraft((next) => { next.fileManager.maxFileSize = Number(e.target.value || draft.fileManager.maxFileSize); })} /></Field>
-              <Field label="Max directory entries" scope={scope(snapshot, 'fileManager.maxDirectoryEntries')}><input type="number" value={draft.fileManager.maxDirectoryEntries} onChange={(e) => updateDraft((next) => { next.fileManager.maxDirectoryEntries = Number(e.target.value || draft.fileManager.maxDirectoryEntries); })} /></Field>
-              <Field label="Blocked extensions" scope={scope(snapshot, 'fileManager.blockedExtensions')}><textarea value={draft.fileManager.blockedExtensions.join('\n')} onChange={(e) => updateDraft((next) => { next.fileManager.blockedExtensions = parseList(e.target.value); })} /></Field>
-              <Field label="Blocked paths" scope={scope(snapshot, 'fileManager.blockedPaths')}><textarea value={draft.fileManager.blockedPaths.join('\n')} onChange={(e) => updateDraft((next) => { next.fileManager.blockedPaths = parseList(e.target.value); })} /></Field>
-              <Field label="CWD cache TTL (ms)" scope={scope(snapshot, 'fileManager.cwdCacheTtlMs')}><input type="number" value={draft.fileManager.cwdCacheTtlMs} onChange={(e) => updateDraft((next) => { next.fileManager.cwdCacheTtlMs = Number(e.target.value || draft.fileManager.cwdCacheTtlMs); })} /></Field>
+            <Card title="세션·파일 관리" icon="folder">
+              <SettingField htmlFor="settings-session-idle-delay" label="유휴 판정 지연" scope={scope(snapshot, 'session.idleDelayMs')} help="출력이 이 시간 동안 없으면 실행 중 표시를 끕니다.">
+                <NumberInput id="settings-session-idle-delay" unit="ms" value={draft.session.idleDelayMs} onChange={(e) => updateDraft((next) => { next.session.idleDelayMs = Number(e.target.value || draft.session.idleDelayMs); })} />
+              </SettingField>
+              <SettingField htmlFor="settings-files-max-file-size" label="최대 파일 크기" scope={scope(snapshot, 'fileManager.maxFileSize')} help="이보다 큰 텍스트 파일은 읽지 않습니다.">
+                <NumberInput id="settings-files-max-file-size" unit="바이트" value={draft.fileManager.maxFileSize} onChange={(e) => updateDraft((next) => { next.fileManager.maxFileSize = Number(e.target.value || draft.fileManager.maxFileSize); })} />
+              </SettingField>
+              <SettingField htmlFor="settings-files-max-entries" label="폴더당 최대 항목 수" scope={scope(snapshot, 'fileManager.maxDirectoryEntries')} help="폴더를 열 때 이 개수까지만 목록에 보입니다.">
+                <NumberInput id="settings-files-max-entries" unit="개" value={draft.fileManager.maxDirectoryEntries} onChange={(e) => updateDraft((next) => { next.fileManager.maxDirectoryEntries = Number(e.target.value || draft.fileManager.maxDirectoryEntries); })} />
+              </SettingField>
+              <SettingField htmlFor="settings-files-blocked-extensions" label="차단할 확장자" scope={scope(snapshot, 'fileManager.blockedExtensions')} help="한 줄에 하나씩, 점으로 시작해 적습니다. 예: .exe" error={fieldErrors.blockedExtensions}>
+                <textarea id="settings-files-blocked-extensions" className="ui-input ui-input-mono settings-textarea" aria-invalid={fieldErrors.blockedExtensions ? true : undefined} value={draft.fileManager.blockedExtensions.join('\n')} onChange={(e) => updateDraft((next) => { next.fileManager.blockedExtensions = parseList(e.target.value); })} />
+              </SettingField>
+              <SettingField htmlFor="settings-files-blocked-paths" label="차단할 경로" scope={scope(snapshot, 'fileManager.blockedPaths')} help="한 줄에 하나씩 적습니다. 공백은 넣을 수 없습니다." error={fieldErrors.blockedPaths}>
+                <textarea id="settings-files-blocked-paths" className="ui-input ui-input-mono settings-textarea" aria-invalid={fieldErrors.blockedPaths ? true : undefined} value={draft.fileManager.blockedPaths.join('\n')} onChange={(e) => updateDraft((next) => { next.fileManager.blockedPaths = parseList(e.target.value); })} />
+              </SettingField>
+              <SettingField htmlFor="settings-files-cwd-cache-ttl" label="작업 폴더 캐시 유지 시간" scope={scope(snapshot, 'fileManager.cwdCacheTtlMs')} help="세션의 현재 폴더를 다시 묻기 전까지 기억하는 시간입니다.">
+                <NumberInput id="settings-files-cwd-cache-ttl" unit="ms" value={draft.fileManager.cwdCacheTtlMs} onChange={(e) => updateDraft((next) => { next.fileManager.cwdCacheTtlMs = Number(e.target.value || draft.fileManager.cwdCacheTtlMs); })} />
+              </SettingField>
             </Card>
 
             {WAVE6_RESOURCE_LIMIT_GROUPS.map((group) => {
@@ -447,28 +571,41 @@ export function SettingsPage({ visible, onBack }: Props) {
               if (visibleFields.length === 0) return null;
 
               return (
-                <Card key={group.title} title={group.title}>
+                <Card key={group.title} title={group.title} icon="tools">
                   {visibleFields.map((field) => {
                     const capability = snapshot.capabilities[field.key];
                     const value = getResourceLimitValue(draft, field.key);
                     const constraints = capability.constraints;
+                    const inputId = resourceLimitTestId(field.key);
+                    const problems = validateWave6ResourceLimitField(field, value, capability);
+                    const error = problems.length > 0 ? problems.join(' ') : undefined;
 
                     return (
-                      <Field key={field.key} label={field.label} scope={scope(snapshot, field.key)} hint={formatConstraintHint(capability.reason, constraints?.unit)}>
+                      <SettingField
+                        key={field.key}
+                        htmlFor={inputId}
+                        label={field.label}
+                        scope={scope(snapshot, field.key)}
+                        help={formatConstraintHint(capability.reason, constraints)}
+                        error={error}
+                      >
                         {field.control === 'select' ? (
-                          <select
-                            data-testid={resourceLimitTestId(field.key)}
+                          <Select
+                            id={inputId}
+                            data-testid={inputId}
                             value={String(value)}
                             onChange={(e) => updateDraft((next) => {
                               setResourceLimitValue(next, field.key, e.target.value);
                             })}
                           >
                             {(capability.options ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
-                          </select>
+                          </Select>
                         ) : (
-                          <input
-                            data-testid={resourceLimitTestId(field.key)}
-                            type="number"
+                          <NumberInput
+                            id={inputId}
+                            data-testid={inputId}
+                            unit={resourceLimitUnitLabel(constraints?.unit) || undefined}
+                            aria-invalid={error ? true : undefined}
                             min={constraints?.min}
                             max={constraints?.max}
                             step={constraints?.step ?? 1}
@@ -478,51 +615,48 @@ export function SettingsPage({ visible, onBack }: Props) {
                             })}
                           />
                         )}
-                      </Field>
+                      </SettingField>
                     );
                   })}
                 </Card>
               );
             })}
 
-            <Card title="Grid Layout">
-              <label className="settings-field-row">
-                <div className="settings-field-label">
-                  <span>Auto mode idle focus ratio</span>
-                  <span className="settings-local-badge">Local</span>
-                  <span className="settings-field-hint">idle 세션이 running 대비 몇 배 큰지 (1.0 ~ 3.0)</span>
-                </div>
-                <input
-                  type="number"
+            <Card title="그리드 배치" icon="grid" description="이 브라우저에만 저장하고 바로 적용합니다. 설정 저장을 누르지 않아도 됩니다.">
+              <SettingField htmlFor="settings-grid-auto-focus-ratio" label="자동 모드 유휴 세션 배율" local help="자동 모드에서 유휴 세션을 실행 중 세션보다 몇 배 크게 보일지 정합니다. 1.0~3.0 사이로 적습니다.">
+                <NumberInput
+                  id="settings-grid-auto-focus-ratio"
+                  unit="배"
                   min="1"
                   max="3"
                   step="0.1"
                   value={autoFocusRatio}
                   onChange={(e) => handleAutoFocusRatioChange(parseFloat(e.target.value) || AUTO_FOCUS_RATIO_DEFAULT)}
                 />
-              </label>
-              <label className="settings-field-row">
-                <div className="settings-field-label">
-                  <span>Focus mode ratio</span>
-                  <span className="settings-local-badge">Local</span>
-                  <span className="settings-field-hint">선택한 세션이 차지하는 비율 (0.1 ~ 0.9)</span>
-                </div>
-                <input
-                  type="number"
+              </SettingField>
+              <SettingField htmlFor="settings-grid-focus-ratio" label="포커스 모드 비율" local help="포커스 모드에서 선택한 세션이 차지하는 비율입니다. 0.1~0.9 사이로 적습니다.">
+                <NumberInput
+                  id="settings-grid-focus-ratio"
                   min="0.1"
                   max="0.9"
                   step="0.05"
                   value={focusRatio}
                   onChange={(e) => handleFocusRatioChange(parseFloat(e.target.value) || FOCUS_RATIO_DEFAULT)}
                 />
-              </label>
+              </SettingField>
             </Card>
           </div>
 
           <section className="settings-info-card">
-            <h3>Excluded settings</h3>
+            <div className="settings-card-header">
+              <span className="settings-card-icon"><Icon name="info" size={18} /></span>
+              <div className="settings-card-heading">
+                <h3>여기서 바꿀 수 없는 설정</h3>
+                <p>아래 항목은 config.json5에서 직접 고칩니다.</p>
+              </div>
+            </div>
             <div className="settings-chip-list">
-              {snapshot.excludedSections.map((item) => <span key={item} className="settings-chip">{item}</span>)}
+              {snapshot.excludedSections.map((item) => <Chip key={item} className="settings-chip">{item}</Chip>)}
             </div>
           </section>
         </div>
@@ -530,9 +664,10 @@ export function SettingsPage({ visible, onBack }: Props) {
 
       {showDiscardConfirm && (
         <ConfirmModal
-          title="Discard changes?"
-          message="You have unsaved changes. Leave settings and discard them?"
-          confirmLabel="Discard"
+          title="저장하지 않은 변경을 버릴까요?"
+          message="설정 화면을 닫으면 저장하지 않은 변경이 사라집니다. 이미 저장한 설정은 그대로 남습니다."
+          confirmLabel="변경 버리고 닫기"
+          cancelLabel="계속 편집"
           destructive
           onConfirm={() => {
             setShowDiscardConfirm(false);
@@ -545,52 +680,132 @@ export function SettingsPage({ visible, onBack }: Props) {
   );
 }
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
+function Card({
+  title,
+  icon,
+  description,
+  children,
+}: {
+  title: string;
+  icon: IconName;
+  description?: string;
+  children: ReactNode;
+}) {
   return (
     <section className="settings-card">
-      <div className="settings-card-header"><h3>{title}</h3></div>
-      {children}
+      <div className="settings-card-header">
+        <span className="settings-card-icon"><Icon name={icon} size={18} /></span>
+        <div className="settings-card-heading">
+          <h3>{title}</h3>
+          {description && <p>{description}</p>}
+        </div>
+      </div>
+      <div className="settings-card-body">{children}</div>
     </section>
   );
 }
 
-function Field({
+/** A form row: label and apply-scope chip above, the input, then error and help (FR-UIDS-002 AC-7). */
+function SettingField({
   label,
+  htmlFor,
   scope,
-  hint,
+  local,
+  help,
+  error,
   children,
 }: {
   label: string;
-  scope: FieldApplyScope;
-  hint?: string;
+  htmlFor?: string;
+  scope?: FieldApplyScope;
+  local?: boolean;
+  help?: ReactNode;
+  error?: string;
   children: ReactNode;
 }) {
   return (
-    <label className="settings-field-row">
-      <div className="settings-field-label">
-        <span>{label}</span>
-        <ScopeBadge scope={scope} />
-        {hint && <span className="settings-field-hint">{hint}</span>}
-      </div>
+    <Field
+      className="settings-field-row"
+      htmlFor={htmlFor}
+      label={(
+        <>
+          {label}
+          {scope && <>{' '}<ScopeChip scope={scope} /></>}
+          {local && <>{' '}<Chip className="settings-local-badge">이 브라우저에만</Chip></>}
+        </>
+      )}
+      help={help}
+      error={error}
+    >
       {children}
-    </label>
+    </Field>
   );
 }
 
-function ScopeBadge({ scope }: { scope: FieldApplyScope }) {
-  const text = scope === 'immediate' ? 'Immediate' : scope === 'new_logins' ? 'Next login' : 'New terminal sessions';
-  return <span className={`settings-scope-badge scope-${scope}`}>{text}</span>;
+/**
+ * An on/off setting. The page saves on demand, so the control is a checkbox,
+ * not a switch, and the checkbox's own words are its label.
+ */
+function CheckField({
+  label,
+  scope,
+  help,
+  error,
+  checked,
+  onChange,
+  testId,
+}: {
+  label: string;
+  scope: FieldApplyScope;
+  help?: ReactNode;
+  error?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  testId?: string;
+}) {
+  return (
+    <Field
+      className="settings-field-row settings-check-row"
+      label={(
+        <>
+          <Checkbox data-testid={testId} checked={checked} onChange={(e) => onChange(e.target.checked)}>{label}</Checkbox>
+          {' '}
+          <ScopeChip scope={scope} />
+        </>
+      )}
+      help={help}
+      error={error}
+    >
+      {null}
+    </Field>
+  );
+}
+
+const SCOPE_CHIPS: Record<FieldApplyScope, { tone: ChipTone; text: string }> = {
+  immediate: { tone: 'ok', text: '바로 적용' },
+  new_logins: { tone: 'warn', text: '다음 로그인부터' },
+  new_sessions: { tone: 'accent', text: '새 세션부터' },
+};
+
+function ScopeChip({ scope }: { scope: FieldApplyScope }) {
+  const chip = SCOPE_CHIPS[scope] ?? SCOPE_CHIPS.new_sessions;
+  return <Chip tone={chip.tone} className={`settings-scope-badge scope-${scope}`}>{chip.text}</Chip>;
 }
 
 function scope(snapshot: SettingsSnapshot, key: EditableSettingsKey): FieldApplyScope {
   return snapshot.capabilities[key]?.applyScope ?? 'immediate';
 }
 
-function formatConstraintHint(reason: string | undefined, unit: string | undefined): string | undefined {
-  if (reason && unit) return `${reason} Unit: ${unit}`;
-  if (reason) return reason;
-  if (unit) return `Unit: ${unit}`;
-  return undefined;
+function formatConstraintHint(
+  reason: string | undefined,
+  constraints: FieldCapability['constraints'],
+): string | undefined {
+  const unit = resourceLimitUnitLabel(constraints?.unit);
+  const range = constraints?.min !== undefined && constraints.max !== undefined
+    ? `허용 범위: ${constraints.min}~${constraints.max}${unit}`
+    : undefined;
+  const parts = [range, reason].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
 function parseList(value: string): string[] {

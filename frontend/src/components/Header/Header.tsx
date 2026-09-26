@@ -5,10 +5,11 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Icon } from '../common';
+import { Icon, IconButton } from '../common';
 import { ContextMenu } from '../ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { truncatePathLeft } from '../../utils/pathUtils';
+import { SessionSaveButton, type SaveButtonState } from '../SessionSave';
 import './Header.css';
 
 interface HeaderProps {
@@ -46,6 +47,13 @@ interface HeaderProps {
    * @req FR-FEX-010
    */
   onOpenFileExplorer?: () => void;
+  /**
+   * The session save button's face: save, saved, or resume. Absent until the
+   * first status read, and then the button is not drawn.
+   * @req FR-AITUI-009
+   */
+  sessionSaveState?: SaveButtonState;
+  onSessionSave?: () => void;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -72,6 +80,8 @@ export function Header({
   editorTrayItems,
   editorTrayOpenCount = 0,
   onOpenFileExplorer,
+  sessionSaveState,
+  onSessionSave,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [editorTrayPosition, setEditorTrayPosition] = useState<{ x: number; y: number } | null>(null);
@@ -104,17 +114,13 @@ export function Header({
     <header className="header">
       <div className="header-left">
         {isMobile && (
-          <button
-            className="hamburger-button"
+          <IconButton
+            icon="menu"
+            label="메뉴 열기"
+            iconSize={20}
+            className="icon-button-md hamburger-button"
             onClick={onMenuClick}
-            aria-label="Toggle sidebar menu"
-          >
-            <span className="hamburger-icon">
-              <span />
-              <span />
-              <span />
-            </span>
-          </button>
+          />
         )}
         <img src="/logo.svg" alt="BuilderGate" className="header-logo" width="28" height="28" />
         <span className="header-title">BuilderGate</span>
@@ -135,35 +141,28 @@ export function Header({
         </div>
       )}
 
-      {(onOpenSettings || onLogout || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && (
+      {(onOpenSettings || onLogout || onSessionSave || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && (
+        // Every button here is a design-system icon button (FR-UIDS-001):
+        // `icon-button-md` gives the face, and `header-action-button` stays
+        // because selectors outside this file find the header's buttons by it.
         <div className="header-right">
           {onOpenFileExplorer && (
             // Open or raise only. A toggle would make a second press close a
             // window the user may have just lost behind another one.
-            <button
-              className="header-action-button"
+            <IconButton
+              icon="folder"
+              label="파일 탐색기"
+              iconSize={18}
+              className="icon-button-md header-action-button"
               onClick={onOpenFileExplorer}
-              aria-label="파일 탐색기"
-              title="파일 탐색기"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ position: 'relative', top: '2px' }}
-              >
-                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              </svg>
-            </button>
+            />
           )}
           {hasEditorWindows && (
+            // A plain button rather than IconButton: the badge is a second
+            // child, and IconButton's face is the glyph alone.
             <button
-              className="header-action-button header-editor-tray-button"
+              type="button"
+              className="icon-button icon-button-md header-action-button header-editor-tray-button"
               onClick={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect();
                 setEditorTrayPosition({ x: rect.left, y: rect.bottom + 4 });
@@ -180,7 +179,7 @@ export function Header({
               <Icon name="document" size={18} className="header-editor-tray-icon" />
               {editorTrayOpenCount > 0 && (
                 <span
-                  className="header-editor-tray-badge"
+                  className="ui-badge ui-badge-accent header-editor-tray-badge"
                   role="status"
                   aria-label={`열린 문서 ${editorTrayOpenCount}개`}
                 >
@@ -190,67 +189,52 @@ export function Header({
             </button>
           )}
           {onToggleViewMode && !isMobile && (
-            <button
-              className="header-action-button"
+            // The drawing and the name say where the press goes, not where the
+            // view is now.
+            <IconButton
+              icon={viewMode === 'tab' ? 'grid' : 'tabs'}
+              label={viewMode === 'tab' ? '그리드 보기로 전환' : '탭 보기로 전환'}
+              iconSize={18}
+              className="icon-button-md header-action-button header-view-toggle-button"
               onClick={onToggleViewMode}
-              title={viewMode === 'tab' ? 'Switch to Grid' : 'Switch to Tabs'}
-            >
-              {viewMode === 'tab' ? '⊞' : '☰'}
-            </button>
+            />
+          )}
+          {sessionSaveState && onSessionSave && (
+            // Between the view toggle and the tools: it acts on every AI tab,
+            // not on the tab in front (FR-AITUI-009 AC-1).
+            <SessionSaveButton state={sessionSaveState} onClick={onSessionSave} />
           )}
           {(onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && !isMobile && (
-            <button
-              className="header-action-button header-tools-button"
+            <IconButton
+              icon="tools"
+              label="도구"
+              iconSize={18}
+              className="icon-button-md header-action-button header-tools-button"
               onClick={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect();
                 setToolsMenuPosition({ x: rect.left, y: rect.bottom + 4 });
               }}
               aria-haspopup="menu"
               aria-expanded={toolsMenuPosition !== null}
-              aria-label="Tools"
-              title="Tools"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ position: 'relative', top: '2px' }}
-              >
-                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.6-3.6a3.5 3.5 0 0 1-4.6 4.6L7.5 19.5a2.1 2.1 0 0 1-3-3l9.2-9.2a3.5 3.5 0 0 1 4.6-4.6z" />
-              </svg>
-            </button>
+            />
           )}
           {onOpenSettings && (
-            <button
-              className={`header-action-button${isSettingsActive ? ' is-active' : ''}`}
+            <IconButton
+              icon="settings"
+              label="설정"
+              iconSize={18}
+              className={`icon-button-md header-action-button header-settings-button${isSettingsActive ? ' is-active' : ''}`}
               onClick={onOpenSettings}
               aria-pressed={isSettingsActive}
-              title="Settings"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ position: 'relative', top: '2px' }}
-              >
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-              </svg>
-            </button>
+            />
           )}
-          <button className="logout-button" onClick={onLogout}>
-            Logout
-          </button>
+          <IconButton
+            icon="power"
+            label="로그아웃"
+            iconSize={18}
+            className="icon-button-md header-action-button logout-button"
+            onClick={onLogout}
+          />
           {toolsMenuPosition && (
             <ContextMenu
               position={toolsMenuPosition}

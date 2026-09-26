@@ -36,27 +36,6 @@ const ROOT_STYLE: CSSProperties = {
   height: '100%',
 };
 
-const TOOLBAR_STYLE: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '6px',
-  padding: '2px 8px',
-  borderBottom: '1px solid var(--line)',
-  flex: '0 0 auto',
-  color: 'var(--fg-muted)',
-  fontSize: '11px',
-};
-
-const BUTTON_STYLE: CSSProperties = {
-  background: 'transparent',
-  color: 'var(--fg-muted)',
-  border: '1px solid var(--line)',
-  borderRadius: '3px',
-  fontSize: '11px',
-  padding: '1px 8px',
-  cursor: 'pointer',
-};
-
 const MESSAGE_STYLE: CSSProperties = {
   position: 'absolute',
   inset: 0,
@@ -217,11 +196,10 @@ export function ImageFileViewer({ blob, size, error, onEditSource }: ImageFileVi
 
   return (
     <div className="image-viewer" style={ROOT_STYLE}>
-      <div className="image-viewer-toolbar" style={TOOLBAR_STYLE}>
+      <div className="image-viewer-toolbar">
         <button
           type="button"
-          style={BUTTON_STYLE}
-          className="image-viewer-fit"
+          className="editor-text-button image-viewer-fit"
           aria-pressed={view.mode === 'fit'}
           disabled={natural === null}
           onClick={fit}
@@ -230,8 +208,7 @@ export function ImageFileViewer({ blob, size, error, onEditSource }: ImageFileVi
         </button>
         <button
           type="button"
-          style={BUTTON_STYLE}
-          className="image-viewer-actual"
+          className="editor-text-button image-viewer-actual"
           aria-pressed={view.mode === 'actual'}
           disabled={natural === null}
           onClick={actualSize}
@@ -239,14 +216,13 @@ export function ImageFileViewer({ blob, size, error, onEditSource }: ImageFileVi
           100%
         </button>
         <span className="image-viewer-zoom">{Math.round(view.scale * 100)}%</span>
-        <span className="image-viewer-info" style={{ marginLeft: 'auto' }}>
+        <span className="image-viewer-info">
           {natural !== null ? formatImageInfo(natural.width, natural.height, size) : ''}
         </span>
         {onEditSource !== undefined && (
           <button
             type="button"
-            style={BUTTON_STYLE}
-            className="image-viewer-edit-source"
+            className="editor-text-button image-viewer-edit-source"
             onClick={onEditSource}
           >
             소스 편집

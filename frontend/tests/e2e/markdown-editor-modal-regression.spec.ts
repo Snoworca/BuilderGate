@@ -108,7 +108,7 @@ const MODAL_CASES: ModalCase[] = [
     dialogId: 'mcp-control-manager',
     stackDepth: 1,
     open: async (page) => {
-      await page.locator('button[title="Tools"]').click();
+      await page.locator('button[title="도구"]').click();
       await page.getByRole('menuitem', { name: 'MCP 설정', exact: true }).click();
       const dialog = page.getByTestId('mcp-control-dialog');
       await expect(dialog).toBeVisible({ timeout: 10000 });
@@ -245,7 +245,7 @@ test.describe('Markdown editor modal regression (FR-MDE-003 AC-7)', () => {
       // Closing the newest hands the band, and the focus, back to the dialog
       // that raised it.
       await page.getByRole('alertdialog', { name: '삭제 확인' })
-        .getByRole('button', { name: 'Cancel' })
+        .getByRole('button', { name: '취소', exact: true })
         .click();
       await expect(page.getByRole('alertdialog', { name: '삭제 확인' })).toHaveCount(0);
 
@@ -288,7 +288,7 @@ async function ensureTerminal(page: Page): Promise<void> {
   });
 
   if (!hasTab) {
-    await page.getByRole('button', { name: '+ Add Terminal' }).first().click();
+    await page.getByRole('button', { name: '터미널 추가', exact: true }).first().click();
   }
   await waitForTerminal(page);
 }

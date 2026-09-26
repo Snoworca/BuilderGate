@@ -976,11 +976,15 @@ test('TC-REQ-FR-FEX-010-AC5-01 Header.tsx 의 aria-label "파일 탐색기" 버�
   requireSources([T.header]);
   const header = read(T.header);
   assert.match(header.bare, /\bonOpenFileExplorer\s*\??\s*:/, `${header.path} must declare an onOpenFileExplorer prop`);
-  const buttons = openingTags(header, 'button').filter((tag) => {
-    const label = attrValue(header, tag, 'aria-label');
-    return label !== null && /['"]\s*파일 탐색기\s*['"]/.test(label.code);
-  });
-  assert.equal(buttons.length, 1, `${header.path}: expected one <button aria-label="파일 탐색기">, found ${buttons.length}`);
+  // A plain <button aria-label> or the design-system <IconButton label>, which
+  // renders the same <button> with that label as its aria-label (FR-UIDS-001).
+  const buttons = [
+    ...openingTags(header, 'button').map((tag) => ({ tag, label: attrValue(header, tag, 'aria-label') })),
+    ...openingTags(header, 'IconButton').map((tag) => ({ tag, label: attrValue(header, tag, 'label') })),
+  ]
+    .filter(({ label }) => label !== null && /['"]\s*파일 탐색기\s*['"]/.test(label.code))
+    .map(({ tag }) => tag);
+  assert.equal(buttons.length, 1, `${header.path}: expected one button labelled "파일 탐색기", found ${buttons.length}`);
   const tag = buttons[0];
   const cls = attrValue(header, tag, 'className');
   assert.ok(cls && /header-action-button/.test(cls.code), `${where(header, tag.start)}: the button must use header-action-button`);

@@ -79,9 +79,10 @@ test('validates local numeric capability constraints without clamping values', (
 
   const errors = validateWave6ResourceLimitDraft(draft, capabilities);
 
-  assert.ok(errors.some((error) => error.includes('Headless pending output bytes') && error.includes('finite integer')));
-  assert.ok(errors.some((error) => error.includes('Snapshot max entries') && error.includes('at least 1')));
-  assert.ok(errors.some((error) => error.includes('Live workspaces') && error.includes('at most 10')));
+  // FR-UIDS-003: the message names the field, the rule it breaks and the value it holds now.
+  assert.ok(errors.includes('헤드리스 대기 출력 크기: 정수를 입력하세요. 지금 값은 비어 있습니다.'), errors.join('\n'));
+  assert.ok(errors.includes('스냅샷 최대 개수: 1개 이상이어야 합니다. 지금 값은 0개입니다.'), errors.join('\n'));
+  assert.ok(errors.includes('동시에 유지할 워크스페이스 수: 10개 이하여야 합니다. 지금 값은 11개입니다.'), errors.join('\n'));
   assert.equal(draft.resourceLimits.snapshots.maxEntries, 0);
 });
 
@@ -93,7 +94,7 @@ test('validates select values against capability options', () => {
 
   const errors = validateWave6ResourceLimitDraft(draft, capabilities);
 
-  assert.ok(errors.some((error) => error.includes('Hidden output policy') && error.includes('supported option')));
+  assert.ok(errors.includes('숨긴 세션 출력 처리 방식: 목록에 있는 값만 고를 수 있습니다. 지금 값은 drop-hidden입니다.'), errors.join('\n'));
 });
 
 function createCapabilities(): Record<EditableSettingsKey, FieldCapability> {

@@ -20,11 +20,11 @@ test.describe('Terminal context menu registered item paste', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await waitForTerminal(page);
-    const startedInGridMode = await page.getByTitle('Switch to Tabs').isVisible();
+    const startedInGridMode = await page.getByTitle('탭 보기로 전환').isVisible();
     initialGridModeByPage.set(page, startedInGridMode);
     if (startedInGridMode) {
-      await page.getByTitle('Switch to Tabs').click();
-      await expect(page.getByTitle('Switch to Grid')).toBeVisible();
+      await page.getByTitle('탭 보기로 전환').click();
+      await expect(page.getByTitle('그리드 보기로 전환')).toBeVisible();
       await expect(page.locator('.workspace-tabbar [role="tab"][aria-selected="true"]')).toBeVisible();
     }
     await clearCommandPresets(page);
@@ -644,20 +644,20 @@ async function isActiveElementInsideDialog(page: Page): Promise<boolean> {
 }
 
 async function switchToGridMode(page: Page): Promise<void> {
-  const switchToGrid = page.getByTitle('Switch to Grid');
+  const switchToGrid = page.getByTitle('그리드 보기로 전환');
   if (await switchToGrid.isVisible()) {
     await switchToGrid.click();
   }
-  await expect(page.getByTitle('Switch to Tabs')).toBeVisible();
+  await expect(page.getByTitle('탭 보기로 전환')).toBeVisible();
   await expect(page.locator('.grid-cell .xterm-screen:visible').first()).toBeVisible({ timeout: 15000 });
 }
 
 async function switchToTabMode(page: Page): Promise<void> {
-  const switchToTabs = page.getByTitle('Switch to Tabs');
+  const switchToTabs = page.getByTitle('탭 보기로 전환');
   if (await switchToTabs.isVisible()) {
     await switchToTabs.click();
   }
-  await expect(page.getByTitle('Switch to Grid')).toBeVisible();
+  await expect(page.getByTitle('그리드 보기로 전환')).toBeVisible();
   await expect(page.locator('.workspace-tabbar [role="tab"][aria-selected="true"]')).toBeVisible();
 }
 

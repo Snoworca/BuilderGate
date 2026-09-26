@@ -41,7 +41,7 @@ test.describe('MCP Control Dialog', () => {
     await expect(dialog.getByRole('textbox', { name: '신뢰 프록시' })).toBeVisible();
     await expect(dialog.getByLabel('허용 오리진')).toBeVisible();
     await expect(dialog.getByLabel('웹훅 헤더')).toBeVisible();
-    await expect(dialog.getByLabel('웹훅 요청 제한 시간(초)')).toBeVisible();
+    await expect(dialog.getByLabel('웹훅 요청 제한 시간')).toBeVisible();
     await expect(dialog.getByLabel('웹훅 순간 요청 한도')).toBeVisible();
 
     await dialog.getByRole('tab', { name: '에이전트 프로필' }).click();

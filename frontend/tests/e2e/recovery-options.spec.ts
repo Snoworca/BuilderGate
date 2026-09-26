@@ -37,7 +37,7 @@ test.describe('Recovery Options Dialog', () => {
   test('opens from desktop Tools menu and validates a blank add form', async ({ page }) => {
     expect(new URL(page.url()).origin).toBe(new URL(RECOVERY_OPTIONS_BASE_URL).origin);
 
-    await page.locator('button[title="Tools"]').click();
+    await page.locator('button[title="도구"]').click();
     await expect(page.locator('.context-menu-item:has-text("복구 옵션")')).toBeVisible();
     await page.locator('.context-menu-item:has-text("복구 옵션")').click();
 
@@ -74,7 +74,7 @@ test.describe('Recovery Options Dialog', () => {
       expect(options.some(option => option.command === defaultCommand), `expected ${defaultCommand} default recovery option`).toBe(true);
 
       await dialog.getByLabel(`${defaultCommand} 삭제`, { exact: true }).click();
-      await page.getByRole('button', { name: 'OK' }).click();
+      await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '삭제', exact: true }).click();
       await expect(dialog.getByRole('heading', { name: defaultCommand, exact: true })).toHaveCount(0);
       expect((await readRecoveryOptionsViaApi(page)).some(option => option.command === defaultCommand)).toBe(false);
     }

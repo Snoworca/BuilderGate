@@ -3,6 +3,7 @@ import type { Workspace } from '../../types/workspace';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
+import './Workspace.css';
 
 interface Props {
   workspace: Workspace;
@@ -42,10 +43,10 @@ export function WorkspaceItem({
   };
 
   const menuItems: ContextMenuItem[] = [
-    { label: 'Rename', onClick: () => { setEditName(workspace.name); setEditing(true); } },
-    ...(!isLast ? [{ label: 'Delete', destructive: true, onClick: () => onDelete(workspace.id) }] : []),
+    { label: '이름 바꾸기', onClick: () => { setEditName(workspace.name); setEditing(true); } },
+    ...(!isLast ? [{ label: '삭제', destructive: true, onClick: () => onDelete(workspace.id) }] : []),
     { separator: true },
-    { label: 'Add Terminal', onClick: () => onAddTab(workspace.id, ctx.position), disabled: tabCount >= maxTabs },
+    { label: '터미널 추가', onClick: () => onAddTab(workspace.id, ctx.position), disabled: tabCount >= maxTabs },
   ];
 
   return (
@@ -58,16 +59,6 @@ export function WorkspaceItem({
         onContextMenu={(e) => { e.preventDefault(); ctx.open(e.clientX, e.clientY, workspace.id); }}
         onDoubleClick={() => { setEditName(workspace.name); setEditing(true); }}
         {...dragHandlers}
-        style={{
-          padding: '8px 12px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          backgroundColor: isActive ? '#2a2d3e' : 'transparent',
-          borderLeft: isActive ? '3px solid #3b82f6' : '3px solid transparent',
-          borderBottom: isDragTarget ? '2px dashed #3b82f6' : 'none',
-        }}
       >
         {editing ? (
           <input
@@ -82,35 +73,15 @@ export function WorkspaceItem({
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             maxLength={32}
-            style={{
-              background: '#1e1e2e',
-              color: '#fff',
-              border: '1px solid #3b82f6',
-              borderRadius: '3px',
-              padding: '2px 6px',
-              fontSize: '13px',
-              width: '100%',
-              outline: 'none',
-            }}
+            className="workspace-item-rename"
           />
         ) : (
-          <span style={{ fontSize: '13px', color: '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span className="workspace-item-name">
             {workspace.name}
           </span>
         )}
         {runningCount > 0 && (
-          <span style={{
-            backgroundColor: '#f97316',
-            color: '#fff',
-            borderRadius: '10px',
-            padding: '1px 6px',
-            fontSize: '11px',
-            fontWeight: 600,
-            minWidth: '18px',
-            textAlign: 'center',
-            flexShrink: 0,
-            marginLeft: '8px',
-          }}>
+          <span className="ui-badge workspace-item-running">
             {runningCount}
           </span>
         )}

@@ -1,9 +1,13 @@
+/* The workspace's terminal tab strip. Every value comes from tokens.css
+ * (CON-UIDS-001); the only colour that is not a token is the tab's own, which
+ * the component hands over as --tab-color / --tab-color-dim. */
+
 .workspace-tabbar {
   display: flex;
   align-items: center;
-  background-color: #1e1e2e;
-  border-bottom: 1px solid #333;
-  padding: 0 4px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--line);
+  padding: 0 var(--sp-1);
   height: 36px;
   gap: 2px;
   overflow-x: auto;
@@ -19,12 +23,12 @@
 }
 
 .workspace-tabbar::-webkit-scrollbar-thumb {
-  background: #555;
-  border-radius: 2px;
+  background: var(--line-strong);
+  border-radius: var(--r-pill);
 }
 
 .workspace-tabbar::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--fg-faint);
 }
 
 /* Override globals.css mobile min-height: 44px to prevent
@@ -32,4 +36,132 @@
    which causes borderTop color bar to be clipped */
 .workspace-tabbar button {
   min-height: auto;
+}
+
+/* One tab. The top rule carries the tab's colour at full strength when the tab
+ * is the one on screen and dimmed otherwise. */
+.workspace-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-2);
+  border-top: 2px solid var(--tab-color-dim, var(--line-strong));
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background-color: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.workspace-tab:hover {
+  background-color: var(--bg-hover);
+}
+
+/* The tab on screen takes the terminal's own shade, so it reads as the top of
+ * the terminal below it. */
+.workspace-tab.is-active {
+  border-top-color: var(--tab-color, var(--accent));
+  border-bottom-color: var(--bg-sunken);
+  background-color: var(--bg-sunken);
+  color: var(--fg-strong);
+}
+
+.workspace-tab.is-dragging {
+  opacity: 0.4;
+}
+
+.workspace-tab.is-drop-target {
+  outline: 2px dashed var(--tab-color, var(--accent));
+}
+
+.workspace-tab-recovery {
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  flex-shrink: 0;
+  color: var(--fg-faint);
+}
+
+.workspace-tab.is-active .workspace-tab-recovery {
+  color: var(--fg);
+}
+
+.workspace-tab-name {
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.workspace-tab-rename {
+  width: 80px;
+  padding: 1px var(--sp-1);
+  border: 1px solid var(--tab-color, var(--accent));
+  border-radius: var(--r-sm);
+  outline: none;
+  background: var(--bg-sunken);
+  color: var(--fg-strong);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+}
+
+/* The close glyph stays quiet until the pointer is on it. */
+.workspace-tabbar .workspace-tab-close {
+  width: 20px;
+  height: 20px;
+  color: var(--fg-faint);
+}
+
+.workspace-tab.is-active .workspace-tab-close {
+  color: var(--fg-muted);
+}
+
+.workspace-tabbar .workspace-tab-close:hover {
+  color: var(--fg-strong);
+}
+
+.workspace-tabbar-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--ctl-sm);
+  height: var(--ctl-sm);
+  margin-left: var(--sp-1);
+  padding: 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.workspace-tabbar-add:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg-strong);
+}
+
+.workspace-tabbar-add:disabled {
+  color: var(--fg-faint);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.workspace-tabbar-add:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The copy of a tab that follows the pointer while it is dragged. Position and
+ * size come from the drag hook inline. */
+.workspace-tab-ghost {
+  opacity: 0.6;
+  padding: var(--sp-1) var(--sp-2);
+  border-top: 2px solid var(--tab-color, var(--accent));
+  border-radius: var(--r-sm);
+  background-color: var(--bg-raised);
+  color: var(--fg-strong);
+  font-size: var(--fs-xs);
+  pointer-events: none;
+  z-index: 9999;
 }

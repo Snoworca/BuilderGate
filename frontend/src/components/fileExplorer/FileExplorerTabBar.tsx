@@ -1,6 +1,7 @@
 // The explorer's tab strip. Each tab is one root in one session; the label is
 // the root's last segment, the full path is its tooltip.
 import type { MouseEvent, ReactNode } from 'react';
+import { IconButton } from '../common';
 import type { FileExplorerTab } from './fileExplorerTabsState.ts';
 import { useLongPress } from '../../hooks/useLongPress.ts';
 import { explorerTabLabels } from './fileExplorerPathBarModel.ts';
@@ -10,7 +11,7 @@ export interface FileExplorerTabBarProps {
   activeTabId: string | null;
   /** The root each tab shows now, which moves as the user navigates. */
   rootOf: (tab: FileExplorerTab) => string;
-  /** The terminal tab's name the explorer tab came from; '' when it is gone (#120). */
+  /** The terminal tab's name the explorer tab came from; '' when it is gone (issue 120). */
   sessionNameOf: (tab: FileExplorerTab) => string;
   onSelect: (tabId: string) => void;
   onClose: (tabId: string) => void;
@@ -36,25 +37,20 @@ export function FileExplorerTabBar({ tabs, activeTabId, rootOf, sessionNameOf, o
             onContextMenu={onContextMenu}
           >
             <span className="fx-tab-label">{labels[index]}</span>
-            <button
-              type="button"
+            <IconButton
+              icon="close"
               className="fx-tab-close"
-              aria-label="탭 닫기"
-              title="탭 닫기"
+              label="탭 닫기"
               onClick={(event) => {
                 // Closing must not first select the tab it is closing.
                 event.stopPropagation();
                 onClose(tab.id);
               }}
-            >
-              ×
-            </button>
+            />
           </ExplorerTabFrame>
         );
       })}
-      <button type="button" className="fx-tab-add" aria-label="새 탭" title="새 탭" onClick={onAdd}>
-        +
-      </button>
+      <IconButton icon="plus" className="fx-tab-add" label="새 탭" onClick={onAdd} />
     </div>
   );
 }

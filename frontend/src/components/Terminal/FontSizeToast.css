@@ -1,3 +1,7 @@
+/* The font size readout over the terminal while zooming. Terminal/ keeps its
+ * look (FR-UIDS-004 AC-6), so each value below is the one it had: the tokens
+ * name the same numbers, and the 24px display size and the white-on-scrim pair
+ * stay literal because the scales hold no equal of either. */
 .font-size-toast {
   position: absolute;
   top: 50%;
@@ -5,10 +9,10 @@
   transform: translate(-50%, -50%);
   background-color: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 16px 24px;
-  border-radius: 8px;
+  padding: var(--sp-4) var(--sp-6);
+  border-radius: var(--r-md);
   font-size: 24px;
-  font-weight: bold;
+  font-weight: var(--fw-bold);
   pointer-events: none;
   z-index: 100;
 }

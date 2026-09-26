@@ -85,9 +85,9 @@ function geometryKeyFor(filePath: string): string {
 }
 
 async function ensureTabMode(page: Page): Promise<void> {
-  const toTabs = page.locator('button[title="Switch to Tabs"]');
+  const toTabs = page.locator('button[title="탭 보기로 전환"]');
   if (await toTabs.count()) await toTabs.click();
-  await expect(page.locator('button[title="Switch to Grid"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('button[title="그리드 보기로 전환"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function activeWorkspaceId(page: Page): Promise<string> {
@@ -320,7 +320,7 @@ test.describe('markdown editor placement and stacking', () => {
     await expect(surface.locator('button[aria-label="저장"]')).toBeVisible();
     await expect(surface.locator('button[aria-label="최대화"]')).toBeVisible();
     await expect(surface.locator('button[aria-label="최소화"]')).toBeVisible();
-    await expect(surface.locator('button[aria-label="Close"]')).toBeVisible();
+    await expect(surface.locator('button[aria-label="닫기"]')).toBeVisible();
     // The file tree toggle moved to the document toolbar (FR-MDE-020 AC-8).
     await expect(surface.locator('.window-dialog-titlebar button[aria-label^="파일 트리"]')).toHaveCount(0);
 
@@ -430,7 +430,7 @@ test.describe('markdown editor placement and stacking', () => {
     // and open one again. The
     // window comes back where it was dragged to rather than at its opening
     // placement -- which the first box above is, so the two are distinguishable.
-    await surface.locator('button[aria-label="Close"]').click();
+    await surface.locator('button[aria-label="닫기"]').click();
     await expect(editorWindow(page)).toHaveCount(0, { timeout: 10000 });
 
     await openWindows(page, ['CLAUDE.md']);
@@ -576,7 +576,7 @@ test.describe('markdown editor placement and stacking', () => {
     await awaitReportedCwd(page, workdir);
     await openWindows(page, ['CLAUDE.md', 'CLAUDE.local.md']);
 
-    await page.locator('button[title="Tools"]').click();
+    await page.locator('button[title="도구"]').click();
     await page.locator('.context-menu-item:has-text("명령줄 관리")').click();
     const dialog = page.getByTestId('command-preset-dialog');
     await expect(dialog).toBeVisible({ timeout: 10000 });
@@ -621,7 +621,7 @@ test.describe('markdown editor placement and stacking', () => {
 
     // Closing through the control that does close it, so the modal does not
     // outlive the test and the documents are observed to survive it.
-    await page.locator('.window-dialog-layer-modal button[aria-label="Close"]').first().click();
+    await page.locator('.window-dialog-layer-modal button[aria-label="닫기"]').first().click();
     await expect(dialog).toHaveCount(0);
     await expect(editorTabs(page)).toHaveCount(2);
   });
@@ -644,7 +644,7 @@ test.describe('markdown editor placement and stacking', () => {
     }, PRESET_LABEL_PREFIX);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
-    await page.locator('button[title="Tools"]').click();
+    await page.locator('button[title="도구"]').click();
     await page.locator('.context-menu-item:has-text("명령줄 관리")').click();
     await expect(page.getByTestId('command-preset-dialog')).toBeVisible({ timeout: 10000 });
 
@@ -687,7 +687,7 @@ test.describe('markdown editor placement and stacking', () => {
 
     const topmostEditorZ = await layerZOf(page);
 
-    await page.locator('button[title="Tools"]').click();
+    await page.locator('button[title="도구"]').click();
     await page.locator('.context-menu-item:has-text("명령줄 관리")').click();
     const dialog = page.getByTestId('command-preset-dialog');
     await expect(dialog).toBeVisible({ timeout: 10000 });
@@ -713,7 +713,7 @@ test.describe('markdown editor placement and stacking', () => {
     // Closing the modal gives them back. The close button rather than Escape:
     // this modal ignores Escape by design, and the criterion asks only what
     // happens once the modal closes, not how it was closed.
-    await page.locator('.window-dialog-layer-modal button[aria-label="Close"]').first().click();
+    await page.locator('.window-dialog-layer-modal button[aria-label="닫기"]').first().click();
     await expect(dialog).toHaveCount(0);
     await expect(layer).not.toHaveAttribute('inert', '');
     await expect(layer).not.toHaveAttribute('aria-hidden', 'true');

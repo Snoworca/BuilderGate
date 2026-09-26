@@ -78,7 +78,7 @@ test('B2 actual UI/API ownership preserves independent resources and rejects quo
       const url = new URL(response.url());
       return url.origin === origin && url.pathname === '/api/workspaces' && response.request().method() === 'POST';
     });
-    await page.getByTitle('New Workspace', { exact: true }).click();
+    await page.getByTitle('워크스페이스 추가', { exact: true }).click();
     const response = await pending;
     expect(response.status()).toBe(201);
     const body = await response.json() as { id: string };

@@ -149,7 +149,7 @@ test('T-PH005-02 recovery option icon value field uses compact icon label', () =
 
   expectSource(
     dialogSource,
-    /iconLabel=["']icon["']/,
+    /iconLabel=["']아이콘["']/,
     'Recovery option icon value field must use the compact icon label',
   );
   assert.doesNotMatch(

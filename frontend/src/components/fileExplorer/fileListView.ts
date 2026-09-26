@@ -30,10 +30,9 @@ export function nextSort(current: ListSort | null, key: ListColumn): ListSort {
   return { key, dir: 'asc' };
 }
 
-/** The header's arrow for a column: ▲ ascending, ▼ descending, nothing when unsorted. */
-export function sortIndicator(sort: ListSort | null, key: ListColumn): string {
-  if (sort?.key !== key) return '';
-  return sort.dir === 'asc' ? ' ▲' : ' ▼';
+/** Which way a column's header points: its direction when it is the sort key, null when unsorted. */
+export function sortDirectionOf(sort: ListSort | null, key: ListColumn): ListSortDir | null {
+  return sort?.key === key ? sort.dir : null;
 }
 
 export type ListRow = Pick<DirectoryEntry, ListColumn>;

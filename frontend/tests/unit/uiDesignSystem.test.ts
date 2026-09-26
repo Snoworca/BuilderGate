@@ -144,7 +144,100 @@ export const MIGRATED: readonly string[] = [
   'components/ui/ProgressBar.tsx',
   'components/ui/Banner.tsx',
   'components/common/IconButton.css',
+  'App.tsx',
+  'components/Auth/Auth.css',
+  'components/Auth/AuthGuard.tsx',
+  'components/Auth/BootstrapPasswordForm.tsx',
+  'components/Auth/LoginForm.tsx',
+  'components/Auth/TwoFactorForm.tsx',
+  'components/CommandPresetManager/CommandPresetDialog.css',
+  'components/CommandPresetManager/CommandPresetDialog.tsx',
+  'components/ContextMenu/ContextMenu.css',
+  'components/ContextMenu/ContextMenu.tsx',
+  'components/Grid/MosaicContainer.tsx',
+  'components/Grid/MosaicToolbar.css',
+  'components/Grid/MosaicToolbar.tsx',
+  'components/Header/Header.css',
+  'components/Header/Header.tsx',
+  'components/McpControlManager/McpControlDialog.css',
+  'components/McpControlManager/McpControlDialog.tsx',
+  'components/Modal/ConfirmModal.css',
+  'components/Modal/ConfirmModal.tsx',
+  'components/Modal/RenameModal.css',
+  'components/Modal/RenameModal.tsx',
+  'components/RecoveryOptionManager/RecoveryOptionDialog.tsx',
+  'components/SessionSave/AgentMark.tsx',
+  'components/SessionSave/SessionRestoreBanner.tsx',
+  'components/SessionSave/SessionRestoreDialog.tsx',
+  'components/SessionSave/SessionSave.css',
+  'components/SessionSave/SessionSaveButton.tsx',
+  'components/SessionSave/SessionSaveDialog.tsx',
+  'components/Settings/SettingsPage.css',
+  'components/Settings/SettingsPage.tsx',
+  'components/TerminalShortcutManager/ShortcutActionEditor.tsx',
+  'components/TerminalShortcutManager/ShortcutBindingList.tsx',
+  'components/TerminalShortcutManager/ShortcutCapturePanel.tsx',
+  'components/TerminalShortcutManager/TerminalShortcutDialog.css',
+  'components/TerminalShortcutManager/TerminalShortcutDialog.tsx',
+  'components/Workspace/DisconnectedOverlay.tsx',
+  'components/Workspace/EmptyState.tsx',
+  'components/Workspace/MobileDrawer.tsx',
+  'components/Workspace/Workspace.css',
+  'components/Workspace/WorkspaceItem.tsx',
+  'components/Workspace/WorkspaceMoveDialog.css',
+  'components/Workspace/WorkspaceMoveDialog.tsx',
+  'components/Workspace/WorkspaceSidebar.tsx',
+  'components/Workspace/WorkspaceTabBar.css',
+  'components/Workspace/WorkspaceTabBar.tsx',
+  'components/Workspace/breathing.css',
+  'components/dialog/MessageBox.css',
+  'components/dialog/MessageBox.tsx',
+  'components/dialog/WindowDialog.css',
+  'components/dialog/WindowDialog.tsx',
+  'components/editor/EditorDocumentPanel.tsx',
+  'components/editor/EditorDocumentToolbar.tsx',
+  'components/editor/EditorFileTreePane.tsx',
+  'components/editor/EditorTabBar.tsx',
+  'components/editor/EditorWindow.css',
+  'components/editor/EditorWindow.tsx',
+  'components/editor/ImageFileViewer.css',
+  'components/editor/ImageFileViewer.tsx',
+  'components/editor/SvgFileTab.tsx',
+  'components/fileExplorer/FileExplorer.css',
+  'components/fileExplorer/FileExplorerPathBar.tsx',
+  'components/fileExplorer/FileExplorerProgressRow.tsx',
+  'components/fileExplorer/FileExplorerTabBar.tsx',
+  'components/fileExplorer/FileJobPopover.tsx',
+  'components/fileExplorer/FileJobStatus.css',
+  'components/fileExplorer/FileListView.tsx',
+  'components/fileExplorer/FileTreeView.tsx',
 ];
+
+/**
+ * FR-UIDS-004 AC-6: the session terminal area keeps its look, so these stay off
+ * the list. They were given Korean text and equal-value tokens only.
+ */
+const FROZEN_TERMINAL_AREA: readonly string[] = [
+  'components/Grid/MosaicTile.tsx',
+  'components/Grid/MosaicOverrides.css',
+  'components/MetadataBar/MetadataRow.tsx',
+];
+
+/**
+ * Narrow exemptions, each with the reason it is not an icon or a colour choice
+ * of this layer. Anything else in these files is still checked.
+ */
+const GLYPH_EXEMPT: Readonly<Record<string, string>> = {
+  // The built-in recovery icons are values a user picks and the server stores;
+  // recoveryOptionIcon.test.ts (SEC-AITUI-002 AC-2) pins those literals.
+  'components/RecoveryOptionManager/RecoveryOptionDialog.tsx': 'user-data emoji',
+};
+
+/** `✓ 복사됨`: a text mark in front of Korean copy, kept for the copy feedback E2E reads. */
+const TEXT_MARK = /✓(?= [\uac00-\ud7a3])/gu;
+
+/** The editor window re-binds the vendored editor's own palette, which is not ours to tokenize. */
+const VENDORED_PALETTE = /--atomic-editor-[a-z0-9-]+\s*:\s*#[0-9a-fA-F]{3,8}\b/g;
 
 /** Proper nouns, commands and paths that stay as written (FR-UIDS-003 AC-1). */
 const ENGLISH_ALLOWED = /^(BuilderGate|Claude|Codex|Hermes|OpenCode|MCP|ConPTY|TERM|CORS|PowerShell|cmd|bash|zsh|WSL|JWT|TOTP|OTP|IP|URL|HTTP|HTTPS|SSH|PTY|ID|OK|AI|CLI|API|UUID|Ctrl|Shift|Alt|Enter|Esc|Tab|x|X|\s|[0-9.:/_\\+\-()[\]{}%·,|…])+$/;
@@ -159,9 +252,15 @@ test('guard: every migrated file exists', () => {
   }
 });
 
+test('guard FR-UIDS-004 AC-6: the session terminal area is not on the list', () => {
+  for (const file of MIGRATED) {
+    assert.equal(FROZEN_TERMINAL_AREA.includes(file) || file.startsWith('components/Terminal/'), false, `${file} is in the frozen terminal area`);
+  }
+});
+
 test('guard CON-UIDS-001 AC-8: migrated files hold no hex colour, raw font size or raw radius', () => {
   for (const file of MIGRATED) {
-    const text = file.endsWith('.css') ? stripCssComments(src(file)) : src(file).replace(/\/\/.*$/gm, '');
+    const text = (file.endsWith('.css') ? stripCssComments(src(file)) : src(file).replace(/\/\/.*$/gm, '')).replace(VENDORED_PALETTE, '');
     assert.doesNotMatch(text, /#[0-9a-fA-F]{3,8}\b/, `${file} has a hex colour`);
     assert.doesNotMatch(text, /font-?[sS]ize['"]?\s*:\s*['"]?\d/, `${file} has a raw font size`);
     assert.doesNotMatch(text, /border-?[rR]adius['"]?\s*:\s*['"]?[1-9]\d*px/, `${file} has a raw radius`);
@@ -169,8 +268,8 @@ test('guard CON-UIDS-001 AC-8: migrated files hold no hex colour, raw font size 
 });
 
 test('guard FR-UIDS-001 AC-2: migrated files draw no letter or emoji icons', () => {
-  for (const file of MIGRATED.filter((f) => f.endsWith('.tsx'))) {
-    assert.doesNotMatch(src(file), /[⊞☰✕✓×▶◀▲▼⟳↻★☆✎⋯]|\p{Extended_Pictographic}/u, `${file} uses a glyph as an icon`);
+  for (const file of MIGRATED.filter((f) => f.endsWith('.tsx') && !(f in GLYPH_EXEMPT))) {
+    assert.doesNotMatch(src(file).replace(TEXT_MARK, ''), /[⊞☰✕✓×▶◀▲▼⟳↻★☆✎⋯]|\p{Extended_Pictographic}/u, `${file} uses a glyph as an icon`);
   }
 });
 
@@ -181,7 +280,8 @@ test('guard FR-UIDS-003 AC-1: user-facing strings in migrated files are Korean',
       const value = m[1];
       assert.ok(containsHangul(value) || ENGLISH_ALLOWED.test(value), `${file}: "${value}" is not Korean`);
     }
-    for (const m of text.matchAll(/>\s*([A-Za-z][A-Za-z ,.'!?-]{2,})\s*</g)) {
+    // `=>` and `->` are code, not the end of a tag: `=> Promise<void>` is a type.
+    for (const m of text.matchAll(/(?<![=\-])>\s*([A-Za-z][A-Za-z ,.'!?-]{2,})\s*</g)) {
       assert.ok(ENGLISH_ALLOWED.test(m[1]), `${file}: text "${m[1]}" is not Korean`);
     }
   }

@@ -47,6 +47,8 @@ export function actionLabel(action: TerminalShortcutAction): string {
   if (action.type === 'pass-through') return '통과';
   if (action.type === 'block') return '차단';
   if (isCodexNewlineAction(action)) return `${CODEX_NEWLINE_ACTION_LABEL} 전송`;
+  // CUSTOM is the stored tag of a user string, not a name to show.
+  if (action.label === 'CUSTOM') return `사용자 문자열 ${Array.from(action.data).length}자 전송`;
   if (action.label) return `${action.label} 전송`;
   if (action.data === '\n') return 'LF 전송';
   if (action.data === '\r') return 'CR 전송';

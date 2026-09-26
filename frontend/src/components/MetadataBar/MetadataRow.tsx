@@ -110,7 +110,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
       {/* Session name — 더블클릭 시 인라인 편집 */}
       {recoveryIconLabel && (
         <span
-          title={tab.recoveryCommand ? `Recovery: ${tab.recoveryCommand}` : 'Recovery'}
+          title={tab.recoveryCommand ? `복구: ${tab.recoveryCommand}` : '복구'}
           style={{
             color: '#d7d7d7',
             marginLeft: '8px',
@@ -166,7 +166,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
           className="metadata-cwd-path"
           onClick={handleCopy}
           onContextMenu={handlePathContextMenu}
-          title={copied ? 'Copied!' : (tab.cwd || '')}
+          title={copied ? '복사됨' : (tab.cwd || '')}
           style={{
             color: copied ? '#22c55e' : '#e0e0e0',
             marginLeft: 'auto',
@@ -185,7 +185,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
             minWidth: 0,
           }}
         >
-          {copied ? '✓ Copied' : displayPath}
+          {copied ? '✓ 복사됨' : displayPath}
         </span>
       )}
 

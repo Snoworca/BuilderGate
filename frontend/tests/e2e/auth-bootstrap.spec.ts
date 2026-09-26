@@ -71,16 +71,16 @@ test.describe('Initial password bootstrap', () => {
 
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Initial Admin Password' })).toBeVisible();
-    await expect(page.getByText('Set the administrator password for this BuilderGate instance.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '관리자 비밀번호 설정' })).toBeVisible();
+    await expect(page.getByText('이 BuilderGate에 로그인할 때 쓸 관리자 비밀번호를 정합니다.')).toBeVisible();
 
     await page.fill('#bootstrap-password', 'boot');
     await page.fill('#bootstrap-password-confirm', 'different');
-    await expect(page.getByRole('button', { name: 'Set Password' })).toBeDisabled();
-    await expect(page.getByRole('alert')).toContainText('Password confirmation does not match.');
+    await expect(page.getByRole('button', { name: '비밀번호 설정' })).toBeDisabled();
+    await expect(page.getByRole('alert')).toContainText('두 비밀번호가 다릅니다.');
 
     await page.fill('#bootstrap-password-confirm', 'boot');
-    await expect(page.getByRole('button', { name: 'Set Password' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '비밀번호 설정' })).toBeEnabled();
 
     await page.click('button[type="submit"]');
     await expect(page.locator('.workspace-screen')).toBeVisible({ timeout: 10000 });
@@ -123,29 +123,29 @@ test.describe('Initial password bootstrap', () => {
 
     await page.fill('#bootstrap-password', 'abc');
     await page.fill('#bootstrap-password-confirm', 'abc');
-    await expect(page.getByRole('button', { name: 'Set Password' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '비밀번호 설정' })).toBeDisabled();
     await expect(page.getByRole('alert')).toContainText('Password must be 4 to 128 characters');
 
     await page.fill('#bootstrap-password', 'abcd ');
     await page.fill('#bootstrap-password-confirm', 'abcd ');
-    await expect(page.getByRole('button', { name: 'Set Password' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '비밀번호 설정' })).toBeDisabled();
     await expect(page.getByRole('alert')).toContainText('may only contain English letters');
 
     await page.fill('#bootstrap-password', 'Password?1');
     await page.fill('#bootstrap-password-confirm', 'Password?1');
-    await expect(page.getByRole('button', { name: 'Set Password' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '비밀번호 설정' })).toBeDisabled();
     await expect(page.getByRole('alert')).toContainText('may only contain English letters');
 
     await page.fill('#bootstrap-password', 'A'.repeat(129));
     await page.fill('#bootstrap-password-confirm', 'A'.repeat(129));
-    await expect(page.getByRole('button', { name: 'Set Password' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '비밀번호 설정' })).toBeDisabled();
     await expect(page.getByRole('alert')).toContainText('Password must be 4 to 128 characters');
     expect(submittedBody).toBeNull();
 
     const longPassword = 'Aa1!'.repeat(32);
     await page.fill('#bootstrap-password', longPassword);
     await page.fill('#bootstrap-password-confirm', longPassword);
-    await expect(page.getByRole('button', { name: 'Set Password' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '비밀번호 설정' })).toBeEnabled();
 
     await page.click('button[type="submit"]');
     await expect(page.locator('.workspace-screen')).toBeVisible({ timeout: 10000 });
@@ -294,8 +294,8 @@ test.describe('Initial password bootstrap', () => {
 
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Initial Setup Restricted' })).toBeVisible();
-    await expect(page.getByText('Initial password setup is only allowed from localhost or an explicitly allowed IP address.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '이 위치에서는 초기 설정을 할 수 없습니다' })).toBeVisible();
+    await expect(page.getByText('처음 비밀번호는 localhost나 허용 목록에 있는 IP에서만 설정할 수 있습니다.')).toBeVisible();
     await expect(page.locator('#bootstrap-password')).toHaveCount(0);
   });
 
@@ -316,7 +316,7 @@ test.describe('Initial password bootstrap', () => {
 
     await expect(page.getByRole('heading', { name: 'BuilderGate' })).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeVisible();
   });
 
   test('TC-2304: stale local token is cleared when the server returns setup-required again', async ({ page }) => {
@@ -339,7 +339,7 @@ test.describe('Initial password bootstrap', () => {
 
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Initial Admin Password' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '관리자 비밀번호 설정' })).toBeVisible();
 
     const storedToken = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
     expect(storedToken).toBeNull();

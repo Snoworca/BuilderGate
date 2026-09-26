@@ -1,4 +1,6 @@
 import type { JSX } from 'react';
+import { Icon } from '../common/Icon';
+import { Button, DialogFooter } from '../ui';
 import { WindowDialog } from './WindowDialog';
 import { createMessageBoxViewModel } from './messageBoxModel';
 import type { MessageBoxProps } from './types';
@@ -23,14 +25,15 @@ export function MessageBox({
     busy,
   });
   const messageId = `${dialogId}-message`;
+  const isDanger = viewModel.okVariant === 'danger';
 
   return (
     <WindowDialog
       dialogId={dialogId}
       title={title}
       mode="modal"
-      defaultRect={{ x: 180, y: 120, width: 420, height: 220 }}
-      minSize={{ width: 360, height: 180 }}
+      defaultRect={{ x: 180, y: 120, width: 440, height: 240 }}
+      minSize={{ width: 360, height: 200 }}
       onClose={onCancel}
       role={viewModel.role}
       ariaDescribedBy={messageId}
@@ -40,34 +43,40 @@ export function MessageBox({
       surfaceClassName="message-box-dialog"
     >
       <div className="message-box-content">
-        <p id={messageId} className="message-box-message">
-          {message}
-        </p>
+        <div className="message-box-main">
+          <span className={`message-box-icon message-box-icon-${viewModel.okVariant}`}>
+            <Icon name={isDanger ? 'alert' : 'info'} size={20} />
+          </span>
+          <p id={messageId} className="message-box-message">
+            {message}
+          </p>
+        </div>
         {error && (
           <div className="message-box-error" role="alert">
-            {error}
+            <Icon name="alert" size={14} />
+            <span>{error}</span>
           </div>
         )}
-        <div className="message-box-actions">
-          <button
-            type="button"
-            className="message-box-button message-box-cancel-button"
-            onClick={onCancel}
-            disabled={viewModel.isBusy}
-            autoFocus
-          >
-            {viewModel.cancelLabel}
-          </button>
-          <button
-            type="button"
-            className={`message-box-button message-box-ok-button message-box-ok-button-${viewModel.okVariant}`}
-            onClick={onOk}
-            disabled={viewModel.isBusy}
-          >
-            {viewModel.okLabel}
-          </button>
-        </div>
       </div>
+      <DialogFooter className="message-box-actions">
+        <Button
+          variant="secondary"
+          className="message-box-button message-box-cancel-button"
+          onClick={onCancel}
+          disabled={viewModel.isBusy}
+          autoFocus
+        >
+          {viewModel.cancelLabel}
+        </Button>
+        <Button
+          variant={isDanger ? 'danger' : 'primary'}
+          className={`message-box-button message-box-ok-button message-box-ok-button-${viewModel.okVariant}`}
+          onClick={onOk}
+          disabled={viewModel.isBusy}
+        >
+          {viewModel.okLabel}
+        </Button>
+      </DialogFooter>
     </WindowDialog>
   );
 }

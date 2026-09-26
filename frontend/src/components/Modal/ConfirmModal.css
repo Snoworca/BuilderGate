@@ -1,14 +1,22 @@
+/* The confirm prompt's message and its destructive button. The editor's close
+ * prompts draw these classes too. Every value comes from tokens.css
+ * (CON-UIDS-001). */
+
 .confirm-message {
-  color: #ccc;
-  font-size: 14px;
-  margin: 0 0 16px;
+  color: var(--fg);
+  font-size: var(--fs-md);
+  margin: 0 0 var(--sp-4);
   line-height: 1.5;
 }
 
+/* Also applied on top of .btn-cancel in the editor's three-choice prompt, so
+ * the text and edge are set here as well as the fill. */
 .btn-destructive {
-  background: #dc2626 !important;
+  background: var(--danger-fill) !important;
+  border-color: transparent !important;
+  color: var(--accent-fg) !important;
 }
 
 .btn-destructive:hover:not(:disabled) {
-  background: #ef4444 !important;
+  background: var(--danger-fill-hover) !important;
 }

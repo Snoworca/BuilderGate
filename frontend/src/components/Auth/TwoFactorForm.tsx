@@ -6,6 +6,8 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { Icon } from '../common/Icon';
+import { Button, Field, Spinner, TextInput } from '../ui';
 import './Auth.css';
 
 export function TwoFactorForm() {
@@ -34,18 +36,16 @@ export function TwoFactorForm() {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-logo">
-          <span className="auth-logo-icon">&#x1F510;</span>
-          <h1>Authenticator Code</h1>
+          <span className="auth-logo-icon auth-logo-tile"><Icon name="lock" size={32} /></span>
+          <h1>인증 코드 입력</h1>
         </div>
 
-        <p className="auth-info">Enter the 6-digit code from your authenticator app.</p>
+        <p className="auth-info">인증 앱에 보이는 6자리 코드를 입력하세요. 6자리를 모두 넣으면 바로 확인합니다.</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="otp">6-Digit Code</label>
-            <input
+          <Field label="인증 코드" htmlFor="otp">
+            <TextInput
               id="otp"
-              type="text"
               value={otpCode}
               onChange={handleChange}
               placeholder="000000"
@@ -56,37 +56,39 @@ export function TwoFactorForm() {
               className="otp-input"
               autoComplete="one-time-code"
             />
-          </div>
+          </Field>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
             className="auth-button"
             disabled={isLoading || otpCode.length !== 6}
           >
             {isLoading ? (
               <>
-                <span className="spinner"></span>
-                Verifying...
+                <Spinner />
+                확인하는 중…
               </>
             ) : (
-              'Verify'
+              '코드 확인'
             )}
-          </button>
+          </Button>
 
           {error && (
             <div className="auth-error" role="alert">
-              {error}
+              <Icon name="alert" />
+              <span>{error}</span>
             </div>
           )}
 
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             className="auth-link"
             onClick={logout}
             disabled={isLoading}
           >
-            Cancel and return to login
-          </button>
+            취소하고 로그인 화면으로
+          </Button>
         </form>
       </div>
     </div>

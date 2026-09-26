@@ -103,19 +103,19 @@ function writesFor(traffic: FileTraffic, filePath: string): { url: string; body:
 }
 
 async function ensureTabMode(page: Page): Promise<void> {
-  const toTabs = page.locator('button[title="Switch to Tabs"]');
+  const toTabs = page.locator('button[title="탭 보기로 전환"]');
   if (await toTabs.count()) {
     await toTabs.click();
   }
-  await expect(page.locator('button[title="Switch to Grid"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('button[title="그리드 보기로 전환"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function ensureGridMode(page: Page): Promise<void> {
-  const toGrid = page.locator('button[title="Switch to Grid"]');
+  const toGrid = page.locator('button[title="그리드 보기로 전환"]');
   if (await toGrid.count()) {
     await toGrid.click();
   }
-  await expect(page.locator('button[title="Switch to Tabs"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('button[title="탭 보기로 전환"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function activeWorkspaceId(page: Page): Promise<string> {
@@ -347,7 +347,7 @@ test.describe('FR-MDE-007 session path context menu entry point', () => {
     // The copy handler is unchanged by the addition: a plain left click still
     // puts the full cwd on the clipboard and flips the label while it does.
     await page.locator('.metadata-cwd-path:visible').first().click();
-    await expect(page.locator('.metadata-cwd-path:visible').first()).toHaveText('✓ Copied');
+    await expect(page.locator('.metadata-cwd-path:visible').first()).toHaveText('✓ 복사됨');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(cwd);
   });
 

@@ -579,20 +579,20 @@ async function clickPasteMenuItem(page: Page): Promise<void> {
 }
 
 async function switchToGridMode(page: Page): Promise<void> {
-  const switchButton = page.getByTitle('Switch to Grid');
+  const switchButton = page.getByTitle('그리드 보기로 전환');
   if (await switchButton.isVisible()) {
     await switchButton.click();
   }
-  await expect(page.getByTitle('Switch to Tabs')).toBeVisible();
+  await expect(page.getByTitle('탭 보기로 전환')).toBeVisible();
   await expect(page.locator('.grid-cell .xterm-screen:visible').first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function switchToTabMode(page: Page): Promise<void> {
-  const switchButton = page.getByTitle('Switch to Tabs');
+  const switchButton = page.getByTitle('탭 보기로 전환');
   if (await switchButton.isVisible()) {
     await switchButton.click();
   }
-  await expect(page.getByTitle('Switch to Grid')).toBeVisible();
+  await expect(page.getByTitle('그리드 보기로 전환')).toBeVisible();
   await expect(page.locator('.workspace-tabbar [role="tab"][aria-selected="true"]')).toBeVisible();
 }
 

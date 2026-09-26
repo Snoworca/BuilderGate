@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { MessageBox, WindowDialog } from '../dialog';
+import { Icon } from '../common/Icon';
+import { IconButton } from '../common/IconButton';
+import type { IconName } from '../common/iconGlyphs';
+import { Button, Field, TextInput } from '../ui';
 import { buildTerminalInput } from './commandPresetExecution';
 import { buildCommandPresetPasteInput } from './commandPresetPaste';
 import { useCommandPresets } from './useCommandPresets';
@@ -50,7 +54,7 @@ async function copyTextToClipboard(text: string): Promise<void> {
     const copied = document.execCommand('copy');
     document.body.removeChild(textarea);
     if (!copied) {
-      throw new Error('Clipboard copy failed');
+      throw new Error('클립보드에 복사하지 못했습니다.');
     }
   }
 }
@@ -337,42 +341,57 @@ export function CommandPresetDialog({
           </div>
 
           <form className={`command-preset-form${isPrompt ? ' command-preset-form-prompt' : ''}`} onSubmit={handleSubmit}>
-            <label className="command-preset-field">
-              <span>라벨</span>
-              <input
+            <Field label="라벨" htmlFor="command-preset-new-label" className="command-preset-field">
+              <TextInput
+                id="command-preset-new-label"
                 value={label}
                 maxLength={80}
                 onChange={(event) => setLabel(event.target.value)}
                 placeholder={`${activeTabLabel} 라벨`}
               />
-            </label>
-            <label className="command-preset-field command-preset-value-field">
-              <span>{activeTabLabel}</span>
+            </Field>
+            <Field
+              label={activeTabLabel}
+              htmlFor="command-preset-new-value"
+              className="command-preset-field command-preset-value-field"
+            >
               {isPrompt ? (
                 <textarea
+                  id="command-preset-new-value"
+                  className="ui-input command-preset-textarea"
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
-                  placeholder="프롬프트"
+                  placeholder="보낼 프롬프트"
                   rows={5}
                 />
               ) : (
-                <input
+                <TextInput
+                  id="command-preset-new-value"
+                  mono
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
-                  placeholder={activeKind === 'directory' ? '디렉토리 경로' : '커맨드 라인'}
+                  placeholder={activeKind === 'directory' ? '디렉토리 경로' : '실행할 커맨드 라인'}
                 />
               )}
-            </label>
+            </Field>
             <div className="command-preset-form-actions">
-              <button type="submit" className="command-preset-primary-button" disabled={saving}>
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                icon="plus"
+                className="command-preset-primary-button"
+                disabled={saving}
+              >
                 등록
-              </button>
+              </Button>
             </div>
           </form>
 
           {(localError || error) && (
             <div className="command-preset-error" role="alert">
-              {localError || error}
+              <Icon name="alert" size={14} />
+              <span>{localError || error}</span>
             </div>
           )}
 
@@ -380,7 +399,7 @@ export function CommandPresetDialog({
             {loading ? (
               <div className="command-preset-empty">불러오는 중...</div>
             ) : activePresets.length === 0 ? (
-              <div className="command-preset-empty">등록된 항목이 없습니다.</div>
+              <div className="command-preset-empty">등록된 항목이 없습니다. 위에서 라벨과 내용을 입력해 등록하세요.</div>
             ) : (
               activePresets.map((preset, index) => (
                 <PresetItem
@@ -407,9 +426,9 @@ export function CommandPresetDialog({
         <MessageBox
           dialogId={`command-preset-delete-confirm-${deleteTarget.id}`}
           title="삭제 확인"
-          message={`${getPresetKindLabel(deleteTarget.kind)} '${deleteTarget.label}' 항목을 삭제하시겠습니까?`}
-          okLabel="OK"
-          cancelLabel="Cancel"
+          message={`${getPresetKindLabel(deleteTarget.kind)} '${deleteTarget.label}' 항목이 목록에서 삭제됩니다. 이미 터미널에 보낸 내용은 그대로 남습니다.`}
+          okLabel="삭제"
+          cancelLabel="취소"
           okVariant="danger"
           busy={deleteBusy}
           error={deleteError}
@@ -417,7 +436,7 @@ export function CommandPresetDialog({
           onCancel={handleCancelDelete}
         />
       )}
-      {toast && <div className="command-preset-toast">{toast}</div>}
+      {toast && <div className="command-preset-toast" role="status">{toast}</div>}
     </>
   );
 }
@@ -457,13 +476,13 @@ function PresetItem({
   const actions = isEditing ? (
     <div className="command-preset-item-actions">
       <PresetActionButton
-        icon="save"
+        icon="check"
         label={`${preset.label} 저장`}
         onClick={() => onSaveEdit(preset)}
         disabled={editingDraft.saving}
       />
       <PresetActionButton
-        icon="cancel"
+        icon="close"
         label={`${preset.label} 취소`}
         onClick={onCancelEdit}
         disabled={editingDraft.saving}
@@ -472,21 +491,25 @@ function PresetItem({
   ) : (
     <div className="command-preset-item-actions">
       <PresetActionButton icon="copy" label={`${preset.label} 복사`} onClick={() => onCopy(preset)} />
+      {/* The set has no play or paste glyph; both actions hand the item to the
+          active terminal, so both draw the terminal. */}
       {preset.kind === 'prompt' ? (
-        <PresetActionButton icon="paste" label={`${preset.label} 적용`} onClick={() => onExecute(preset)} />
+        <PresetActionButton icon="terminal" label={`${preset.label} 적용`} onClick={() => onExecute(preset)} />
       ) : (
-        <PresetActionButton icon="play" label={`${preset.label} 실행`} onClick={() => onExecute(preset)} />
+        <PresetActionButton icon="terminal" label={`${preset.label} 실행`} onClick={() => onExecute(preset)} />
       )}
       <PresetActionButton icon="edit" label={`${preset.label} 수정`} onClick={() => onEdit(preset)} />
       <PresetActionButton icon="trash" label={`${preset.label} 삭제`} onClick={() => onDelete(preset)} />
+      {/* No chevron-up in the set: the up button turns chevron-down over. */}
       <PresetActionButton
-        icon="arrow-up"
+        icon="chevron-down"
         label={`${preset.label} 위로`}
         onClick={() => onMove(preset, 'up')}
         disabled={index === 0}
+        className="command-preset-move-up"
       />
       <PresetActionButton
-        icon="arrow-down"
+        icon="chevron-down"
         label={`${preset.label} 아래로`}
         onClick={() => onMove(preset, 'down')}
         disabled={index === count - 1}
@@ -496,7 +519,7 @@ function PresetItem({
   const valueControl = isEditing ? (
     preset.kind === 'prompt' ? (
       <textarea
-        className="command-preset-item-textarea"
+        className="ui-input command-preset-item-textarea"
         value={editingDraft.value}
         onChange={(event) => onEditDraftChange('value', event.target.value)}
         aria-label={`${preset.label} 프롬프트 수정`}
@@ -504,7 +527,8 @@ function PresetItem({
         rows={4}
       />
     ) : (
-      <input
+      <TextInput
+        mono
         value={editingDraft.value}
         onChange={(event) => onEditDraftChange('value', event.target.value)}
         aria-label={`${preset.label} 내용 수정`}
@@ -513,9 +537,9 @@ function PresetItem({
     )
   ) : (
     preset.kind === 'prompt' ? (
-      <textarea className="command-preset-item-textarea" value={preset.value} readOnly rows={4} />
+      <textarea className="ui-input command-preset-item-textarea" value={preset.value} readOnly rows={4} />
     ) : (
-      <input value={preset.value} readOnly />
+      <TextInput mono value={preset.value} readOnly />
     )
   );
 
@@ -523,7 +547,7 @@ function PresetItem({
     <article className={`command-preset-item command-preset-item-${preset.kind}`}>
       <div className="command-preset-item-header">
         {isEditing ? (
-          <input
+          <TextInput
             className="command-preset-item-label-input"
             value={editingDraft.label}
             maxLength={80}
@@ -542,7 +566,8 @@ function PresetItem({
           {valueControl}
           {editingDraft?.error && (
             <div className="command-preset-item-error" role="alert">
-              {editingDraft.error}
+              <Icon name="alert" size={14} />
+              <span>{editingDraft.error}</span>
             </div>
           )}
           <div className="command-preset-prompt-actions">
@@ -557,7 +582,8 @@ function PresetItem({
           </div>
           {editingDraft?.error && (
             <div className="command-preset-item-error" role="alert">
-              {editingDraft.error}
+              <Icon name="alert" size={14} />
+              <span>{editingDraft.error}</span>
             </div>
           )}
         </>
@@ -570,94 +596,22 @@ function PresetActionButton({
   icon,
   label,
   disabled,
+  className,
   onClick,
 }: {
-  icon: PresetActionIconName;
+  icon: IconName;
   label: string;
   disabled?: boolean;
+  className?: string;
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className="command-preset-icon-button"
+    <IconButton
+      icon={icon}
+      label={label}
+      className={['command-preset-icon-button', className].filter(Boolean).join(' ')}
       onClick={onClick}
       disabled={disabled}
-      aria-label={label}
-      title={label}
-    >
-      <PresetActionIcon name={icon} />
-    </button>
-  );
-}
-
-type PresetActionIconName = 'copy' | 'paste' | 'play' | 'edit' | 'trash' | 'arrow-up' | 'arrow-down' | 'save' | 'cancel';
-
-function PresetActionIcon({ name }: { name: PresetActionIconName }) {
-  return (
-    <svg
-      className="command-preset-action-icon"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      {name === 'copy' && (
-        <>
-          <rect x="9" y="9" width="11" height="11" rx="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </>
-      )}
-      {name === 'play' && <path d="M8 5v14l11-7z" />}
-      {name === 'paste' && (
-        <>
-          <path d="M8 4h8" />
-          <path d="M9 2h6l1 2H8z" />
-          <rect x="6" y="4" width="12" height="18" rx="2" />
-          <path d="M9 12h6" />
-          <path d="M12 9v6" />
-        </>
-      )}
-      {name === 'edit' && (
-        <>
-          <path d="M12 20h9" />
-          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-        </>
-      )}
-      {name === 'trash' && (
-        <>
-          <path d="M3 6h18" />
-          <path d="M8 6V4h8v2" />
-          <path d="M19 6l-1 14H6L5 6" />
-          <path d="M10 11v5" />
-          <path d="M14 11v5" />
-        </>
-      )}
-      {name === 'arrow-up' && (
-        <>
-          <path d="M12 19V5" />
-          <path d="M5 12l7-7 7 7" />
-        </>
-      )}
-      {name === 'arrow-down' && (
-        <>
-          <path d="M12 5v14" />
-          <path d="M19 12l-7 7-7-7" />
-        </>
-      )}
-      {name === 'save' && <path d="M20 6L9 17l-5-5" />}
-      {name === 'cancel' && (
-        <>
-          <path d="M18 6L6 18" />
-          <path d="M6 6l12 12" />
-        </>
-      )}
-    </svg>
+    />
   );
 }

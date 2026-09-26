@@ -1,9 +1,11 @@
 import { WindowDialog } from '../dialog';
+import { Button, DialogFooter } from '../ui';
 import type { Workspace, WorkspaceTabRuntime } from '../../types/workspace';
 import {
   buildWorkspaceMoveTargets,
   type WorkspaceMoveTarget,
 } from './workspaceMoveTargets';
+import './WorkspaceMoveDialog.css';
 
 interface WorkspaceMoveDialogProps {
   open: boolean;
@@ -19,7 +21,7 @@ interface WorkspaceMoveDialogProps {
 
 function reasonLabel(target: WorkspaceMoveTarget): string {
   if (target.reason === 'current') return '현재 워크스페이스';
-  if (target.reason === 'full') return '가득 참';
+  if (target.reason === 'full') return '탭이 가득 참';
   return '';
 }
 
@@ -50,71 +52,48 @@ export function WorkspaceMoveDialog({
       dialogId="workspace-move-dialog"
       title="워크스페이스 이동"
       mode="modal"
-      defaultRect={{ x: 240, y: 120, width: 420, height: 460 }}
+      defaultRect={{ x: 240, y: 120, width: 440, height: 460 }}
       minSize={{ width: 360, height: 320 }}
       onClose={moving ? () => undefined : onClose}
       showCloseButton={!moving}
       resizable={false}
       persistGeometry={false}
+      surfaceClassName="workspace-move-dialog-surface"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', height: '100%' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto' }}>
+      <div className="workspace-move-dialog">
+        <p className="workspace-move-description">
+          이 탭을 옮길 워크스페이스를 고르세요. 누르는 즉시 옮겨지며, 탭에서 실행 중인 세션은 그대로 이어집니다.
+        </p>
+        <div className="workspace-move-targets">
           {targets.map((target) => (
             <button
               key={target.workspace.id}
               type="button"
+              className="workspace-move-target"
               disabled={moving || target.disabled}
               onClick={() => onMove(target.workspace.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '6px',
-                background: 'rgba(255,255,255,0.04)',
-                color: '#e5e7eb',
-                cursor: moving || target.disabled ? 'not-allowed' : 'pointer',
-                opacity: target.disabled ? 0.45 : 1,
-                textAlign: 'left',
-              }}
             >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span className="workspace-move-target-name">
                 {target.workspace.name}
               </span>
-              <span style={{ color: '#9ca3af', fontSize: '12px', flexShrink: 0 }}>
-                {target.reason ? reasonLabel(target) : `${target.tabCount}/${maxTabsPerWorkspace}`}
+              <span className="workspace-move-target-meta">
+                {target.reason ? reasonLabel(target) : `탭 ${target.tabCount}/${maxTabsPerWorkspace}개`}
               </span>
             </button>
           ))}
         </div>
 
         {error && (
-          <div style={{ color: '#fca5a5', fontSize: '12px' }}>
+          <div className="workspace-move-error" role="alert">
             {error}
           </div>
         )}
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto' }}>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={moving}
-            style={{
-              padding: '6px 12px',
-              border: '1px solid rgba(255,255,255,0.16)',
-              borderRadius: '4px',
-              background: 'rgba(255,255,255,0.06)',
-              color: '#e5e7eb',
-              cursor: moving ? 'not-allowed' : 'pointer',
-            }}
-          >
-            취소
-          </button>
-        </div>
       </div>
+      <DialogFooter note={moving ? '옮기는 중입니다.' : undefined}>
+        <Button variant="secondary" onClick={onClose} disabled={moving}>
+          취소
+        </Button>
+      </DialogFooter>
     </WindowDialog>
   );
 }

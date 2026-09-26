@@ -370,5 +370,5 @@ test('두 뷰가 행 className 에 openRowClass 를 붙이고 CSS 가 열린 파
     assert.match(source, /rowRenderClass\(row, clipboard\)\}\$\{openRowClass\(/, `${file}: rows carry openRowClass`);
   }
   const css = readFileSync(new URL('../../src/components/fileExplorer/FileExplorer.css', import.meta.url), 'utf8');
-  assert.match(css, /\.fx-row\.is-open \.fx-name\s*\{[^}]*font-weight:\s*(?:600|700|bold)/, 'open files are bold');
+  assert.match(css, /\.fx-row\.is-open \.fx-name\s*\{[^}]*font-weight:\s*(?:600|700|bold|var\(--fw-(?:semibold|bold)\))/, 'open files are bold');
 });

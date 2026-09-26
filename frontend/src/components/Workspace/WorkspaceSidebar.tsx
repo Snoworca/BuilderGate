@@ -3,8 +3,10 @@ import { WorkspaceItem } from './WorkspaceItem';
 import { useDragReorder } from '../../hooks/useDragReorder';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
+import { Icon } from '../common';
 import type { Workspace, WorkspaceTabRuntime } from '../../types/workspace';
 import type { ShellInfo } from '../../types';
+import './Workspace.css';
 
 interface Props {
   workspaces: Workspace[];
@@ -76,34 +78,22 @@ export function WorkspaceSidebar({
   }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#1e1e2e' }}>
-      <div style={{
-        padding: '12px',
-        borderBottom: '1px solid #333',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}>
-        <span style={{ fontSize: '14px', fontWeight: 600, color: '#ccc' }}>Workspaces</span>
+    <div className="workspace-sidebar">
+      <div className="workspace-sidebar-header">
+        <span className="workspace-sidebar-title">워크스페이스</span>
         <button
+          type="button"
+          className="workspace-sidebar-add"
           onClick={onCreate}
           disabled={isLimitReached}
-          title={isLimitReached ? `Maximum ${maxWorkspaces} workspaces` : 'New Workspace'}
-          style={{
-            background: 'none',
-            border: '1px solid #555',
-            color: isLimitReached ? '#555' : '#ccc',
-            borderRadius: '4px',
-            padding: '2px 8px',
-            cursor: isLimitReached ? 'not-allowed' : 'pointer',
-            fontSize: '13px',
-          }}
+          aria-label="워크스페이스 추가"
+          title={isLimitReached ? `워크스페이스는 최대 ${maxWorkspaces}개까지 만들 수 있습니다` : '워크스페이스 추가'}
         >
-          +
+          <Icon name="plus" size={16} />
         </button>
       </div>
 
-      <div role="listbox" style={{ flex: 1, overflowY: 'auto' }}>
+      <div role="listbox" className="workspace-sidebar-list">
         {sorted.map((ws, index) => (
           <div key={ws.id} ref={(el) => { drag.tabRefs.current[index] = el; }}>
             <WorkspaceItem
@@ -125,17 +115,7 @@ export function WorkspaceSidebar({
       </div>
 
       {drag.dragIndex !== null && drag.ghostStyle && (
-        <div style={{
-          ...drag.ghostStyle,
-          opacity: 0.6,
-          backgroundColor: '#2a2d3e',
-          padding: '8px 12px',
-          borderRadius: '4px',
-          fontSize: '13px',
-          color: '#e0e0e0',
-          pointerEvents: 'none',
-          zIndex: 9999,
-        }}>
+        <div className="workspace-item-ghost" style={drag.ghostStyle}>
           {sorted[drag.dragIndex]?.name}
         </div>
       )}

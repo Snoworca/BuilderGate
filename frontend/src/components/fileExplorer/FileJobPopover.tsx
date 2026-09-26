@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
+import { IconButton } from '../common';
 import { fileJobApi } from '../../services/api.ts';
 import { closeFileJobPopover, isFileJobPopoverOpen, subscribeFileJobPopover } from './fileJobPopoverState.ts';
 import { AWAITING_LABEL, decidePopoverOutsideClose, getFileJobSnapshot, selectPopoverRows, subscribeFileJobs } from './fileJobStore.ts';
@@ -59,15 +60,7 @@ export function FileJobPopover({ statusBarRef }: FileJobPopoverProps) {
           <div className="fx-job-item-head">
             {/* A waiting job is marked in its row: the status bar's button names only one of them. */}
             <span className="fx-job-text">{row.awaiting ? `${row.label} · ${AWAITING_LABEL}` : row.label}</span>
-            <button
-              type="button"
-              className="fx-job-cancel"
-              aria-label="취소"
-              title="취소"
-              onClick={() => cancelFileJob(row.jobId)}
-            >
-              ×
-            </button>
+            <IconButton icon="close" className="fx-job-cancel" label="작업 취소" onClick={() => cancelFileJob(row.jobId)} />
           </div>
           {row.indeterminate ? (
             <span className="fx-job-spinner" aria-hidden="true" />

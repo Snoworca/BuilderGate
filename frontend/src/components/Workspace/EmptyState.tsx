@@ -1,7 +1,10 @@
 import { useState, useCallback } from 'react';
 import { useLongPress } from '../../hooks/useLongPress';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
+import { Icon } from '../common';
+import { Button } from '../ui';
 import type { ShellInfo } from '../../types';
+import './Workspace.css';
 
 interface Props {
   onAddTab: (shell?: string) => void;
@@ -22,18 +25,12 @@ export function EmptyState({ onAddTab, availableShells }: Props) {
   );
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100%',
-      gap: '16px',
-      color: '#888',
-    }}>
-      <span style={{ fontSize: '48px' }}>⌨</span>
-      <span style={{ fontSize: '16px' }}>터미널을 추가하세요</span>
-      <button
+    <div className="workspace-empty-state">
+      <Icon name="terminal" size={40} className="workspace-empty-state-icon" />
+      <span className="workspace-empty-state-text">터미널을 추가하세요</span>
+      <Button
+        variant="primary"
+        icon="plus"
         onClick={() => {
           if (longPress.wasLongPress()) return;
           onAddTab();
@@ -41,18 +38,9 @@ export function EmptyState({ onAddTab, availableShells }: Props) {
         onPointerDown={longPress.onPointerDown}
         onPointerUp={longPress.onPointerUp}
         onPointerMove={longPress.onPointerMove}
-        style={{
-          backgroundColor: '#3b82f6',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '6px',
-          padding: '8px 20px',
-          cursor: 'pointer',
-          fontSize: '14px',
-        }}
       >
-        + Add Terminal
-      </button>
+        터미널 추가
+      </Button>
 
       {shellMenuOpen && availableShells && (
         <ContextMenu

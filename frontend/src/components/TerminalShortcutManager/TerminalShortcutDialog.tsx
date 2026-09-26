@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MessageBox, WindowDialog } from '../dialog';
+import { Icon } from '../common/Icon';
+import { Button, Field, Select, Spinner } from '../ui';
 import type {
   TerminalShortcutAction,
   TerminalShortcutBinding,
@@ -377,7 +379,10 @@ export function TerminalShortcutDialog({
           </div>
 
           {shortcuts.loading && (
-            <div className="terminal-shortcut-loading" role="status">불러오는 중</div>
+            <div className="terminal-shortcut-loading" role="status">
+              <Spinner />
+              불러오는 중
+            </div>
           )}
 
           <section
@@ -416,8 +421,18 @@ export function TerminalShortcutDialog({
             hidden={activeTab !== 'bindings'}
             className="terminal-shortcut-panel"
           >
-            {currentError && <div className="terminal-shortcut-error" role="alert">{currentError}</div>}
-            {lastTestResult && <div className="terminal-shortcut-toast" role="status">{lastTestResult}</div>}
+            {currentError && (
+              <div className="terminal-shortcut-error" role="alert">
+                <Icon name="alert" size={14} />
+                <span>{currentError}</span>
+              </div>
+            )}
+            {lastTestResult && (
+              <div className="terminal-shortcut-toast" role="status">
+                <Icon name="check-circle" size={14} />
+                <span>{lastTestResult}</span>
+              </div>
+            )}
             <ShortcutBindingList
               bindings={visibleBindings}
               busyId={busyId}
@@ -442,9 +457,9 @@ export function TerminalShortcutDialog({
               현재 적용: {profileLabel(activeProfile)}
             </div>
             <div className="terminal-shortcut-form-grid">
-              <label className="terminal-shortcut-field">
-                <span>범위</span>
-                <select
+              <Field label="범위" htmlFor="terminal-shortcut-profile-scope" className="terminal-shortcut-field">
+                <Select
+                  id="terminal-shortcut-profile-scope"
                   value={profileScope}
                   onChange={(event) => setProfileScope(event.target.value as TerminalShortcutScope)}
                   aria-label="프로필 적용 범위"
@@ -458,11 +473,11 @@ export function TerminalShortcutDialog({
                       {option.label}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label className="terminal-shortcut-field">
-                <span>프로필</span>
-                <select
+                </Select>
+              </Field>
+              <Field label="프로필" htmlFor="terminal-shortcut-profile" className="terminal-shortcut-field">
+                <Select
+                  id="terminal-shortcut-profile"
                   value={profileDraft}
                   onChange={(event) => setProfileDraft(event.target.value as TerminalShortcutProfile)}
                   aria-label="터미널 키보드 프로필"
@@ -472,20 +487,31 @@ export function TerminalShortcutDialog({
                       {option.label}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </Field>
             </div>
-            {currentError && <div className="terminal-shortcut-error" role="alert">{currentError}</div>}
-            {lastTestResult && <div className="terminal-shortcut-toast" role="status">{lastTestResult}</div>}
+            {currentError && (
+              <div className="terminal-shortcut-error" role="alert">
+                <Icon name="alert" size={14} />
+                <span>{currentError}</span>
+              </div>
+            )}
+            {lastTestResult && (
+              <div className="terminal-shortcut-toast" role="status">
+                <Icon name="check-circle" size={14} />
+                <span>{lastTestResult}</span>
+              </div>
+            )}
             <div className="terminal-shortcut-actions">
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="md"
                 className="terminal-shortcut-primary-button"
                 onClick={handleApplyProfile}
                 disabled={saving}
               >
-                적용
-              </button>
+                프로필 적용
+              </Button>
             </div>
           </section>
         </div>
@@ -495,9 +521,9 @@ export function TerminalShortcutDialog({
         <MessageBox
           dialogId="terminal-shortcut-delete-confirm"
           title="삭제 확인"
-          message={`${bindingKeyLabel(deleteTarget)} 단축키를 삭제합니다.`}
-          okLabel="OK"
-          cancelLabel="Cancel"
+          message={`${bindingKeyLabel(deleteTarget)} 단축키 등록이 삭제됩니다. 다른 단축키와 프로필 설정은 그대로입니다.`}
+          okLabel="삭제"
+          cancelLabel="취소"
           okVariant="danger"
           busy={busyId === deleteTarget.id}
           error={deleteError}
@@ -513,10 +539,10 @@ export function TerminalShortcutDialog({
       {confirmCustomSave && (
         <MessageBox
           dialogId="terminal-shortcut-custom-confirm"
-          title="커스텀 전송 확인"
-          message="제어 문자가 포함된 사용자 전송 문자열을 저장합니다."
-          okLabel="OK"
-          cancelLabel="Cancel"
+          title="사용자 전송 문자열 확인"
+          message="제어 문자가 들어 있는 문자열이 저장되어, 이 단축키를 누를 때마다 터미널로 전송됩니다."
+          okLabel="저장"
+          cancelLabel="취소"
           busy={saving}
           error={localError}
           onOk={() => void runSave()}

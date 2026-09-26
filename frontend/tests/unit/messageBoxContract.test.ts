@@ -6,8 +6,8 @@ test('message box contract supplies default labels and primary OK variant', () =
   assert.deepEqual(
     createMessageBoxViewModel({}),
     {
-      okLabel: 'OK',
-      cancelLabel: 'Cancel',
+      okLabel: '확인',
+      cancelLabel: '취소',
       okVariant: 'primary',
       isBusy: false,
       role: 'alertdialog',
@@ -24,12 +24,12 @@ test('message box contract exposes busy state for disabled buttons', () => {
 
 test('message box contract preserves danger variant and custom labels', () => {
   const model = createMessageBoxViewModel({
-    okLabel: 'Delete',
-    cancelLabel: 'Keep',
+    okLabel: '항목 삭제',
+    cancelLabel: '남겨두기',
     okVariant: 'danger',
   });
 
-  assert.equal(model.okLabel, 'Delete');
-  assert.equal(model.cancelLabel, 'Keep');
+  assert.equal(model.okLabel, '항목 삭제');
+  assert.equal(model.cancelLabel, '남겨두기');
   assert.equal(model.okVariant, 'danger');
 });

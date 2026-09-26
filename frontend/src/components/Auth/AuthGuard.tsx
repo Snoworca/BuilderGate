@@ -7,6 +7,8 @@
 
 import type { ReactNode } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { Icon } from '../common/Icon';
+import { Spinner } from '../ui';
 import { BootstrapPasswordForm } from './BootstrapPasswordForm';
 import { LoginForm } from './LoginForm';
 import { TwoFactorForm } from './TwoFactorForm';
@@ -22,9 +24,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
   if (isLoading) {
     return (
       <div className="auth-container">
-        <div className="auth-loading">
-          <span className="spinner large"></span>
-          <p>Checking authentication...</p>
+        <div className="auth-loading" role="status">
+          <span className="auth-spinner-large"><Spinner /></span>
+          <p>로그인 상태를 확인하는 중…</p>
         </div>
       </div>
     );
@@ -43,17 +45,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
           <div className="auth-card">
             <div className="auth-logo">
               <img src="/logo.svg" alt="BuilderGate" className="auth-logo-icon" width="64" height="64" />
-              <h1>Initial Setup Restricted</h1>
+              <h1>이 위치에서는 초기 설정을 할 수 없습니다</h1>
             </div>
             <p className="auth-info">
-              This BuilderGate instance does not yet have an administrator password.
+              이 BuilderGate에는 아직 관리자 비밀번호가 없습니다.
             </p>
             <div className="auth-warning" role="alert">
-              Initial password setup is only allowed from localhost or an explicitly allowed IP address.
+              <Icon name="alert" />
+              <span>처음 비밀번호는 localhost나 허용 목록에 있는 IP에서만 설정할 수 있습니다.</span>
             </div>
             {bootstrapError && (
               <div className="auth-error" role="alert">
-                {bootstrapError}
+                <Icon name="alert" />
+                <span>{bootstrapError}</span>
               </div>
             )}
           </div>

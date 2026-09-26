@@ -15,9 +15,9 @@ import {
   type ExplorerClipboard,
   type NodeRow,
 } from './fileRowInteraction.ts';
-import { COLUMN_LABELS, LIST_COLUMNS, entryIcon, formatEntryModified, formatEntrySize, nextSort, selectListRows, sortIndicator, type ListSort } from './fileListView.ts';
+import { COLUMN_LABELS, LIST_COLUMNS, entryIcon, formatEntryModified, formatEntrySize, nextSort, selectListRows, sortDirectionOf, type ListSort } from './fileListView.ts';
 import { canGoUp, selectVisibleRows } from './fileTreeState.ts';
-import type { FileExplorerMenuRequest, FileRowRename } from './FileTreeView.tsx';
+import { SortGlyph, type FileExplorerMenuRequest, type FileRowRename } from './FileTreeView.tsx';
 
 export interface FileListViewProps {
   tree: UseFileTreeResult;
@@ -129,7 +129,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
             onClick={() => onSortChange(nextSort(sort, column))}
           >
             {COLUMN_LABELS[column]}
-            {sortIndicator(sort, column)}
+            <SortGlyph dir={sortDirectionOf(sort, column)} />
           </button>
         ))}
       </div>

@@ -102,38 +102,12 @@ const BODY_STYLE: CSSProperties = {
 
 const HIDDEN_BODY_STYLE: CSSProperties = { ...BODY_STYLE, display: 'none' };
 
-// The read-only notice and the line-ending line draw from the window's own
-// theme tokens (`EditorWindow.css`), so neither introduces a colour.
-// @req FR-MDE-016
-const NOTICE_STYLE: CSSProperties = {
-  padding: '6px 10px',
-  background: 'var(--bg-raised)',
-  color: 'var(--fg)',
-  borderBottom: '1px solid var(--line)',
-  fontSize: '12px',
-  flex: '0 0 auto',
-};
-
-// @req FR-MDE-015
-const STATUS_STYLE: CSSProperties = {
-  padding: '2px 10px',
-  color: 'var(--fg-muted)',
-  borderTop: '1px solid var(--line)',
-  fontSize: '11px',
-  textAlign: 'right',
-  flex: '0 0 auto',
-};
+// The read-only notice (FR-MDE-016), the line-ending line (FR-MDE-015) and the
+// save error banner are drawn by classes in `EditorWindow.css` that read the
+// surface tokens, so none of them introduces a colour or a size of its own.
 
 // Tells every mounted panel that the global wrap preference changed.
 const WRAP_CHANGE_EVENT = 'buildergate:code-editor-wrap-change';
-
-const BANNER_STYLE: CSSProperties = {
-  padding: '6px 10px',
-  background: '#5a1f1f',
-  color: '#ffd7d7',
-  fontSize: '12px',
-  flex: '0 0 auto',
-};
 
 // The height is expressed as a flex basis rather than as `height: 95%` because
 // a percentage height would resolve against the body while the banner above it
@@ -709,12 +683,12 @@ export function EditorDocumentPanel({
           markdownView={component === 'markdown' ? { raw, onToggle: toggleRaw } : undefined}
         />
         {saveState.error !== null && (
-          <div style={BANNER_STYLE} role="alert" className="editor-window-error">
+          <div role="alert" className="editor-window-error">
             {saveState.error}
           </div>
         )}
         {access.notice !== null && (
-          <div style={NOTICE_STYLE} role="status" className="editor-document-notice">
+          <div role="status" className="editor-document-notice">
             {access.notice}
           </div>
         )}
@@ -775,7 +749,7 @@ export function EditorDocumentPanel({
           )}
         </div>
         {component !== 'image' && (
-          <div style={STATUS_STYLE} className="editor-document-status" data-line-ending={lineEndingLabel(layout.eol)}>
+          <div className="editor-document-status" data-line-ending={lineEndingLabel(layout.eol)}>
             {lineEndingLabel(layout.eol)}
           </div>
         )}

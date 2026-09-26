@@ -52,13 +52,19 @@ function elements(tree: React.ReactNode, type: string): Array<React.ReactElement
 }
 const buttons = (tree: React.ReactNode) => elements(tree, 'button');
 const noop = () => {};
+// The tab bar's creation button is found by its accessible name; its face is a
+// drawn plus glyph (FR-UIDS-001), not a '+' character.
+const isAddTerminalButton = (button: React.ReactElement) =>
+  (button.props as { 'aria-label'?: string })['aria-label'] === '터미널 추가';
 const sidebar = component('../../src/components/Workspace/WorkspaceSidebar.tsx', 'WorkspaceSidebar', {
   useState: (initial: unknown) => [initial, noop], useCallback: (callback: unknown) => callback,
   useDragReorder: () => ({ getTabHandlers: () => ({}), dropTargetIndex: null, dragIndex: null, ghostStyle: null, tabRefs: { current: [] } }),
-  WorkspaceItem: 'workspace-item', ContextMenu: 'context-menu',
+  WorkspaceItem: 'workspace-item', ContextMenu: 'context-menu', Icon: 'icon',
 });
+// The shared Button stands in as a plain 'button' element, which is what it
+// renders, so the cancellation control is still counted below.
 const moveDialog = component('../../src/components/Workspace/WorkspaceMoveDialog.tsx', 'WorkspaceMoveDialog', {
-  WindowDialog: 'window-dialog', buildWorkspaceMoveTargets,
+  WindowDialog: 'window-dialog', buildWorkspaceMoveTargets, Button: 'button', DialogFooter: 'dialog-footer',
 }, 'reasonLabel');
 const workspace = (id: string, sortOrder = 0) => ({ id, name: id, sortOrder, viewMode: 'tab', activeTabId: null, createdAt: 1 });
 
@@ -105,7 +111,7 @@ const tabBar = component('../../src/components/Workspace/WorkspaceTabBar.tsx', '
   useContextMenu: () => ({ isOpen: false, targetId: null, open: noop, close: noop }),
   useLongPress: () => ({ wasLongPress: () => false, onPointerDown: noop, onPointerUp: noop, onPointerMove: noop }),
   useDragReorder: () => ({ getTabHandlers: () => ({}), dropTargetIndex: null, dragIndex: null, ghostStyle: null, tabRefs: { current: [] } }),
-  TAB_COLORS, getRecoveryIconLabel, ContextMenu: 'context-menu',
+  TAB_COLORS, getRecoveryIconLabel, ContextMenu: 'context-menu', Icon: 'icon', IconButton: 'icon-button',
 }, 'getSafeRecoveryIconLabel');
 const workspaceItem = component('../../src/components/Workspace/WorkspaceItem.tsx', 'WorkspaceItem', {
   useState: (initial: unknown) => [initial, noop], useRef: (initial: unknown) => ({ current: initial }), useEffect: noop,
@@ -130,7 +136,7 @@ for (const limit of [8, 2, 12, 4.5]) {
         tabs: capacityTabs(count), activeTabId: null, totalSessionCount: count, maxTabs, maxSessions,
         onAddTab: () => { created += 1; }, onSelectTab: noop, onCloseTab: noop, onRenameTab: noop, onReorderTabs: noop,
       });
-      const add = buttons(tree).filter(button => String(button.props.children).trim() === '+');
+      const add = buttons(tree).filter(isAddTerminalButton);
       assert.equal(add.length, 1, 'render the actual tab creation button');
       assert.equal(add[0].props.disabled, count >= limit);
       add[0].props.onClick!();
@@ -157,8 +163,8 @@ for (const limit of [8, 2, 12, 4.5]) {
       assert.equal(menus.length, 1);
       const menuItems = (menus[0].props as { items?: Array<{ label?: string; disabled?: boolean; onClick?: () => void }> }).items;
       assert.ok(menuItems);
-      const add = menuItems.filter(item => item.label === 'Add Terminal');
-      assert.equal(add.length, 1, 'the actual WorkspaceItem must supply its existing Add Terminal menu entry');
+      const add = menuItems.filter(item => item.label === '터미널 추가');
+      assert.equal(add.length, 1, 'the actual WorkspaceItem must supply its existing 터미널 추가 menu entry');
       assert.equal(add[0].disabled, count >= limit);
       if (!add[0].disabled) add[0].onClick!();
       assert.deepEqual(created, count >= limit ? [] : ['target']);
@@ -177,7 +183,7 @@ test('FR-BGSTAB-026 CAP-07 TabBar keeps the independent 32-session creation guar
       maxTabs: appLimit('WorkspaceTabBar', 'maxTabs', limits), maxSessions,
       onAddTab: () => { created += 1; }, onSelectTab: noop, onCloseTab: noop, onRenameTab: noop, onReorderTabs: noop,
     });
-    const add = buttons(tree).filter(button => String(button.props.children).trim() === '+');
+    const add = buttons(tree).filter(isAddTerminalButton);
     assert.equal(add.length, 1);
     assert.equal(add[0].props.disabled, totalSessionCount >= 32);
     add[0].props.onClick!();

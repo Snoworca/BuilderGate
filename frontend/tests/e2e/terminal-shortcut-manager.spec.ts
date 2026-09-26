@@ -65,7 +65,7 @@ test.describe('Terminal Shortcut Manager', () => {
 
     await dialog.getByLabel('Escape 삭제').click();
     await expect(page.getByRole('alertdialog', { name: '삭제 확인' })).toBeVisible();
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '취소', exact: true }).click();
     await expect(dialog.locator('.terminal-shortcut-binding-item', { hasText: 'Escape' })).toBeVisible();
   });
 
@@ -218,7 +218,7 @@ async function getTerminalDebugEvents(page: Page) {
 }
 
 async function focusTerminalInput(page: Page): Promise<void> {
-  await page.getByRole('textbox', { name: 'Terminal input' }).first().click();
+  await page.getByRole('textbox', { name: '터미널 입력' }).first().click();
 }
 
 async function expectActiveSessionStatus(page: Page, expected: 'idle' | 'running'): Promise<void> {

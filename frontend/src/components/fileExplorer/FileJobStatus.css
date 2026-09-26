@@ -11,7 +11,7 @@
   padding: 0 10px;
   background: var(--bg-chrome);
   border-top: 1px solid var(--line);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
   cursor: pointer;
   user-select: none;
@@ -78,7 +78,7 @@
   border: 1px solid var(--warn);
   border-radius: var(--r-sm);
   background: transparent;
-  color: var(--warn);
+  color: var(--warn-text);
   font: inherit;
   cursor: pointer;
 }
@@ -117,12 +117,12 @@
 .fx-job-popover-title {
   margin: 0;
   padding: 9px 12px;
-  font-size: 11px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--fg-faint);
+  color: var(--fg-muted);
   border-bottom: 1px solid var(--line);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .fx-job-item {
@@ -140,7 +140,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--fg);
 }
 
@@ -149,23 +149,22 @@
   height: 4px;
 }
 
-.fx-job-cancel {
-  flex: 0 0 auto;
+/* The shared IconButton (`.icon-button`), made 20px; the compound selector
+ * outranks its own face whichever stylesheet loads first. */
+.icon-button.fx-job-cancel {
   width: 20px;
   height: 20px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
   color: var(--fg-faint);
-  font: inherit;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
 }
 
-.fx-job-cancel:hover {
+.icon-button.fx-job-cancel:hover:not(:disabled) {
   background: var(--bg-hover);
-  color: var(--danger);
+  color: var(--danger-text);
+}
+
+.fx-job-cancel svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .fx-job-row {
@@ -177,7 +176,7 @@
   padding: 0 8px;
   border-top: 1px solid var(--line);
   background: var(--bg-chrome);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
 }
 
@@ -197,7 +196,7 @@
   border: 0;
   border-radius: var(--r-sm);
   background: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
   font: inherit;
   cursor: pointer;
 }

@@ -29,7 +29,7 @@ export function useCommandPresets(): {
     try {
       setPresets(await commandPresetApi.getAll());
     } catch (reloadError) {
-      setError(reloadError instanceof Error ? reloadError.message : 'Failed to load command presets');
+      setError(reloadError instanceof Error ? reloadError.message : '명령줄 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }

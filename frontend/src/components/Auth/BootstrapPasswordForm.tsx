@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
+import { Icon } from '../common/Icon';
+import { Button, Field, Spinner, TextInput } from '../ui';
 import './Auth.css';
 
 export function BootstrapPasswordForm() {
@@ -22,7 +24,7 @@ export function BootstrapPasswordForm() {
     }
 
     if (confirmPassword && password !== confirmPassword) {
-      return 'Password confirmation does not match.';
+      return '두 비밀번호가 다릅니다. 같은 비밀번호를 다시 입력하세요.';
     }
 
     return null;
@@ -47,67 +49,68 @@ export function BootstrapPasswordForm() {
       <div className="auth-card">
         <div className="auth-logo">
           <img src="/logo.svg" alt="BuilderGate" className="auth-logo-icon" width="64" height="64" />
-          <h1>Initial Admin Password</h1>
+          <h1>관리자 비밀번호 설정</h1>
         </div>
 
         <p className="auth-info">
-          Set the administrator password for this BuilderGate instance.
+          이 BuilderGate에 로그인할 때 쓸 관리자 비밀번호를 정합니다.
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="bootstrap-password">Password</label>
-            <input
+          <Field label="비밀번호" htmlFor="bootstrap-password">
+            <TextInput
               id="bootstrap-password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter a new password"
+              placeholder="새 비밀번호 입력"
               disabled={isLoading}
               autoFocus
               autoComplete="new-password"
             />
-          </div>
+          </Field>
 
-          <div className="form-group">
-            <label htmlFor="bootstrap-password-confirm">Confirm Password</label>
-            <input
+          <Field label="비밀번호 확인" htmlFor="bootstrap-password-confirm">
+            <TextInput
               id="bootstrap-password-confirm"
               type="password"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Confirm the password"
+              placeholder="비밀번호 다시 입력"
               disabled={isLoading}
               autoComplete="new-password"
             />
-          </div>
+          </Field>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
             className="auth-button"
             disabled={isLoading || !canSubmit}
           >
             {isLoading ? (
               <>
-                <span className="spinner"></span>
-                Saving...
+                <Spinner />
+                설정하는 중…
               </>
             ) : (
-              'Set Password'
+              '비밀번호 설정'
             )}
-          </button>
+          </Button>
 
           {validationMessage && (
             <div className="auth-error" role="alert">
-              {validationMessage}
+              <Icon name="alert" />
+              <span>{validationMessage}</span>
             </div>
           )}
 
           {!validationMessage && error && (
             <div className="auth-error" role="alert">
-              {error}
+              <Icon name="alert" />
+              <span>{error}</span>
             </div>
           )}
         </form>

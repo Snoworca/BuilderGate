@@ -1,4 +1,5 @@
 import type { TerminalShortcutAction } from '../../types';
+import { Field, Select, TextInput } from '../ui';
 import {
   CODEX_NEWLINE_ACTION_LABEL,
   createCodexNewlineAction,
@@ -52,9 +53,9 @@ export function ShortcutActionEditor({ action, disabled, onChange }: ShortcutAct
 
   return (
     <div className="terminal-shortcut-action-editor">
-      <label className="terminal-shortcut-field">
-        <span>동작</span>
-        <select
+      <Field label="동작" htmlFor="terminal-shortcut-action" className="terminal-shortcut-field">
+        <Select
+          id="terminal-shortcut-action"
           value={preset}
           disabled={disabled}
           onChange={(event) => onChange(actionFromPreset(event.target.value as ActionPreset, action))}
@@ -68,18 +69,23 @@ export function ShortcutActionEditor({ action, disabled, onChange }: ShortcutAct
           <option value="block">차단</option>
           <option value="pass-through">통과</option>
           <option value="custom">사용자 문자열</option>
-        </select>
-      </label>
+        </Select>
+      </Field>
       {preset === 'custom' && (
-        <label className="terminal-shortcut-field terminal-shortcut-custom-data">
-          <span>문자열</span>
-          <input
+        <Field
+          label="문자열"
+          htmlFor="terminal-shortcut-custom-data"
+          className="terminal-shortcut-field terminal-shortcut-custom-data"
+        >
+          <TextInput
+            id="terminal-shortcut-custom-data"
+            mono
             value={customValue}
             disabled={disabled}
             onChange={(event) => onChange({ type: 'send', data: event.target.value, label: 'CUSTOM' })}
             aria-label="사용자 전송 문자열"
           />
-        </label>
+        </Field>
       )}
     </div>
   );

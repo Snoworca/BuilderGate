@@ -1,0 +1,108 @@
+/* FR-AITUI-009 — session save and resume screens. Tokens only. */
+
+.session-save-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--ctl-md);
+  padding: 0 var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.session-save-pill:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.session-save-pill-saved { border-color: var(--ok); background: var(--ok-tint); color: var(--ok-text); }
+.session-save-pill-saved:hover { background: var(--ok-tint); border-color: var(--ok-text); }
+.session-save-pill-pending { background: var(--accent); color: var(--accent-fg); padding-right: 7px; }
+.session-save-pill-pending:hover { background: var(--accent-hover); }
+.session-save-pill-count {
+  min-width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--bg-hover);
+  font-size: var(--fs-2xs);
+  line-height: 18px;
+  text-align: center;
+}
+.session-save-button { position: relative; }
+.session-save-button .ui-badge { position: absolute; top: 0; right: -2px; }
+
+.session-save-dialog { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.session-save-body { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-4) var(--sp-6) var(--sp-5); }
+.session-save-lead { margin: 0; font-size: var(--fs-sm); line-height: 1.55; color: var(--fg-muted); }
+.session-save-lead strong { color: var(--fg-strong); font-weight: var(--fw-semibold); }
+.session-save-all {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: 38px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  font-size: var(--fs-sm);
+  color: var(--fg-strong);
+  cursor: pointer;
+}
+.session-save-all input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.session-save-all-label { flex: 1 1 auto; font-weight: var(--fw-semibold); }
+.session-save-all-count { font-size: var(--fs-xs); color: var(--fg-muted); }
+.session-save-group { display: flex; flex-direction: column; gap: var(--sp-1); }
+.session-save-empty { padding: var(--sp-6) var(--sp-4); border: 1px dashed var(--line-strong); border-radius: var(--r-md); text-align: center; font-size: var(--fs-sm); color: var(--fg-muted); }
+.session-save-status-exact { color: var(--ok-text); }
+.session-save-status-estimated { color: var(--warn-text); }
+.session-save-status-missing { color: var(--fg-muted); }
+.session-save-status-active { color: var(--accent-text); }
+.session-save-command {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 5px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--fg);
+}
+.session-save-trailing { max-width: 260px; }
+
+.agent-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--bg-hover);
+  font-size: var(--fs-2xs);
+  color: var(--fg);
+  white-space: nowrap;
+}
+.agent-mark-dot { width: 7px; height: 7px; border-radius: var(--r-pill); }
+.agent-mark-claude .agent-mark-dot { background: var(--agent-claude); }
+.agent-mark-codex .agent-mark-dot { background: var(--agent-codex); }
+.agent-mark-hermes .agent-mark-dot { background: var(--agent-hermes); }
+.agent-mark-opencode .agent-mark-dot { background: var(--agent-opencode); }
+
+.session-restore-banner { position: relative; z-index: 3; }
+
+@media (max-width: 768px) {
+  .session-save-body { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+  .session-save-pill { height: var(--ctl-touch); }
+  .session-save-dialog .ui-row { min-height: var(--ctl-touch); }
+}
+
+.session-restore-banner { flex-shrink: 0; }
+@media (max-width: 768px) {
+  .session-restore-banner { flex-wrap: wrap; }
+  .session-restore-banner .ui-banner-actions { width: 100%; justify-content: flex-end; }
+}

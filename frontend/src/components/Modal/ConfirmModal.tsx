@@ -14,8 +14,8 @@ interface Props {
 export function ConfirmModal({
   title,
   message,
-  confirmLabel = 'Yes',
-  cancelLabel = 'No',
+  confirmLabel = '확인',
+  cancelLabel = '취소',
   destructive = false,
   onConfirm,
   onCancel,
@@ -34,10 +34,11 @@ export function ConfirmModal({
         <h2 className="modal-title">{title}</h2>
         <p className="confirm-message">{message}</p>
         <div className="modal-actions">
-          <button className="btn-cancel" onClick={onCancel}>
+          <button type="button" className="btn-cancel" onClick={onCancel}>
             {cancelLabel}
           </button>
           <button
+            type="button"
             className={`btn-submit${destructive ? ' btn-destructive' : ''}`}
             onClick={onConfirm}
           >

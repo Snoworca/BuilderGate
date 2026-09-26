@@ -74,9 +74,9 @@ function writesFor(writes: readonly WriteRecord[], filePath: string): WriteRecor
 }
 
 async function ensureTabMode(page: Page): Promise<void> {
-  const toTabs = page.locator('button[title="Switch to Tabs"]');
+  const toTabs = page.locator('button[title="탭 보기로 전환"]');
   if (await toTabs.count()) await toTabs.click();
-  await expect(page.locator('button[title="Switch to Grid"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('button[title="그리드 보기로 전환"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function activeWorkspaceId(page: Page): Promise<string> {
@@ -697,7 +697,7 @@ test.describe('markdown editor save flow and tab binding', () => {
     await expect(surface.locator('span', { hasText: '저장 불가' })).toBeVisible({ timeout: 15000 });
 
     const writesBefore = writes.length;
-    await surface.locator('button[aria-label="Close"]').click();
+    await surface.locator('button[aria-label="닫기"]').click();
 
     // The cannot-save prompt offers two answers. The ordinary unsaved prompt
     // offers three, and offering three here would be offering to save. The
@@ -826,8 +826,8 @@ test.describe('markdown editor save flow and tab binding', () => {
       const trayIndex = children.findIndex(child =>
         child.classList.contains('header-editor-tray-button'));
       const toggleIndex = children.findIndex(child =>
-        child.getAttribute('title') === 'Switch to Grid'
-        || child.getAttribute('title') === 'Switch to Tabs');
+        child.getAttribute('title') === '그리드 보기로 전환'
+        || child.getAttribute('title') === '탭 보기로 전환');
       return { found: true, trayIndex, toggleIndex };
     });
     expect(adjacency.found).toBe(true);

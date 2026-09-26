@@ -2,16 +2,20 @@
  * Header Styles
  * Phase 7: Frontend Security - Logout button styles added
  * Phase 1-Step3: Mobile responsive - Hamburger styles added
+ *
+ * Every value comes from tokens.css (CON-UIDS-001). The buttons on the right
+ * are design-system icon buttons (FR-UIDS-001); their face lives in
+ * common/IconButton.css and only the header's own arrangement is here.
  */
 
 .header {
-  background-color: #323233;
-  padding: 0 16px;
+  background-color: var(--bg-chrome);
+  padding: 0 var(--sp-4);
   height: 58px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #3c3c3c;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
@@ -24,13 +28,13 @@
 .header-logo {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 
 .header-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #ffffff;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-strong);
   margin: 0;
 }
 
@@ -41,7 +45,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
   gap: 2px;
 }
 
@@ -54,119 +58,46 @@
 }
 
 .header-center-title {
-  font-size: 14px;
+  font-size: var(--fs-md);
   line-height: 1.1;
-  font-weight: 400;
-  color: #ffffff;
+  font-weight: var(--fw-regular);
+  color: var(--fg-strong);
 }
 
 .header-center-subtitle {
-  font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   line-height: 1;
-  color: #9d9d9d;
+  color: var(--fg-muted);
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-1);
 }
 
-.header-action-button,
-.logout-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  height: 36px;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid #4c4c4c;
-  border-radius: 4px;
-  color: #9d9d9d;
-  font-size: 0.875rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: all 0.2s;
+/* The anchor for the tray badge, and the positioning context any other
+ * decoration on a header button would need. */
+.header-action-button {
+  position: relative;
 }
 
-.header-action-button.is-active {
-  background: #3f5b3f;
-  color: #d7f2d7;
-  border-color: #507850;
-}
-
-.header-action-button:hover,
-.logout-button:hover {
-  background: #3c3c3c;
-  color: #fff;
-  border-color: #5c5c5c;
-}
-
-.header-tools-button {
-  width: 52px;
-  min-width: 52px;
-}
-
-/* Hamburger button (mobile only, controlled by React) */
-.hamburger-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.hamburger-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.hamburger-icon {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: 20px;
-  height: 14px;
-}
-
-.hamburger-icon span {
-  display: block;
-  height: 2px;
-  background: #d4d4d4;
-  border-radius: 1px;
-}
-
-/* 편집기 트레이 아이콘과 그 위의 최소화 개수 배지.
- *
- * 배지는 버튼을 기준으로 절대 배치하므로 버튼이 위치 기준이 되어야 한다.
+/* 편집기 트레이 아이콘 위의 열린 문서 개수 배지. 모양은 ui.css 의 .ui-badge 가
+ * 정하고, 여기서는 버튼 모서리에 올려놓기만 한다.
  * @req FR-MDE-008 */
-.header-editor-tray-button {
-  position: relative;
-}
-
-.header-editor-tray-icon {
-  position: relative;
-  top: 2px;
-}
-
 .header-editor-tray-badge {
   position: absolute;
-  top: 2px;
+  top: 0;
   right: 0;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: 7px;
-  background: #d13438;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 14px;
-  text-align: center;
   pointer-events: none;
+}
+
+/* Phone widths: every header button gets a whole fingertip (--ctl-touch). The
+ * header is 58px tall, so the larger face still fits. */
+@media (max-width: 767px) {
+  .header .icon-button-md {
+    width: var(--ctl-touch);
+    height: var(--ctl-touch);
+  }
 }

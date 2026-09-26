@@ -33,7 +33,7 @@ export function useRecoveryOptions(): UseRecoveryOptionsResult {
     try {
       setOptions(await recoveryOptionApi.getAll());
     } catch (reloadError) {
-      setError(reloadError instanceof Error ? reloadError.message : 'Failed to load recovery options');
+      setError(reloadError instanceof Error ? reloadError.message : '복구 옵션을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }

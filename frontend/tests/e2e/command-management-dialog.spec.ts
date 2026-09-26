@@ -22,12 +22,19 @@ test.describe('Command Management Dialog', () => {
   });
 
   test('opens from tools menu, blocks background, ignores overlay and Escape, and restores geometry', async ({ page }) => {
-    const headerButtons = page.locator('.header-right > button');
-    await expect(headerButtons).toHaveCount(4);
-    await expect(headerButtons.nth(0)).toHaveAttribute('title', /Switch to (Grid|Tabs)/);
-    await expect(headerButtons.nth(1)).toHaveAttribute('title', 'Tools');
-    await expect(headerButtons.nth(2)).toHaveAttribute('title', 'Settings');
-    await expect(headerButtons.nth(3)).toHaveText('Logout');
+    // Order, not count: the session save button (FR-AITUI-009 AC-1) sits
+    // between the view toggle and the tools, and changes face with the snapshot.
+    const labels = await page.locator('.header-right button').evaluateAll(
+      (buttons) => buttons.map((button) => button.getAttribute('aria-label') ?? ''),
+    );
+    const at = (pattern: RegExp) => labels.findIndex((label) => pattern.test(label));
+    const toggle = at(/^(그리드|탭) 보기로 전환$/);
+    const save = at(/^세션 저장 · |^저장됨 · |^저장된 세션 /);
+    expect(toggle, labels.join(' | ')).toBeGreaterThanOrEqual(0);
+    expect(save, labels.join(' | ')).toBe(toggle + 1);
+    expect(at(/^도구$/), labels.join(' | ')).toBe(save + 1);
+    expect(at(/^설정$/), labels.join(' | ')).toBe(save + 2);
+    expect(at(/^로그아웃$/), labels.join(' | ')).toBe(save + 3);
 
     await openCommandPresetDialog(page);
 
@@ -40,7 +47,7 @@ test.describe('Command Management Dialog', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('command-preset-dialog')).toBeVisible();
 
-    const settingsButton = page.locator('button[title="Settings"]');
+    const settingsButton = page.locator('button[title="설정"]');
     const settingsBox = await settingsButton.boundingBox();
     if (settingsBox) {
       await page.mouse.click(settingsBox.x + settingsBox.width / 2, settingsBox.y + settingsBox.height / 2);
@@ -170,14 +177,14 @@ test.describe('Command Management Dialog', () => {
     await expect(page.getByRole('alertdialog', { name: '삭제 확인' })).toBeVisible();
     await expect(page.getByTestId('command-preset-dialog')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '취소', exact: true }).click();
     await expect(page.getByText(commandLabel)).toBeVisible();
     expect(await readDialogGeometryStorage(page, cancelMessageBoxId)).toBeNull();
     expect(deleteRequestCount).toBe(0);
 
     await page.getByLabel(`${commandLabel} 삭제`).click();
     await expectDeleteMessageBox(page, commandLabel);
-    await page.getByRole('button', { name: 'OK' }).click();
+    await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '삭제', exact: true }).click();
     await expect(page.getByText(commandLabel)).toHaveCount(0);
     await expect(page.getByText('삭제되었습니다.')).toBeVisible();
     expect(deleteRequestCount).toBe(1);
@@ -185,13 +192,13 @@ test.describe('Command Management Dialog', () => {
     await page.getByRole('tab', { name: '디렉토리' }).click();
     await page.getByLabel(`${directoryLabel} 삭제`).click();
     await expectDeleteMessageBox(page, directoryLabel);
-    await page.getByRole('button', { name: 'OK' }).click();
+    await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '삭제', exact: true }).click();
     await expect(page.getByText(directoryLabel)).toHaveCount(0);
 
     await page.getByRole('tab', { name: '프롬프트' }).click();
     await page.getByLabel(`${promptLabel} 삭제`).click();
     await expectDeleteMessageBox(page, promptLabel);
-    await page.getByRole('button', { name: 'OK' }).click();
+    await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '삭제', exact: true }).click();
     await expect(page.getByText(promptLabel)).toHaveCount(0);
     await page.unroute('**/api/command-presets/**');
   });
@@ -218,7 +225,7 @@ test.describe('Command Management Dialog', () => {
     try {
       await page.getByLabel(`${commandLabel} 삭제`).click();
       await expectDeleteMessageBox(page, commandLabel);
-      await page.getByRole('button', { name: 'OK' }).click();
+      await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '삭제', exact: true }).click();
       const messageBox = page.getByRole('alertdialog', { name: '삭제 확인' });
       await expect(messageBox).toBeVisible();
       await expect(messageBox.getByRole('alert')).toContainText(/Request failed|delete failed|삭제/);
@@ -227,7 +234,7 @@ test.describe('Command Management Dialog', () => {
       await page.unroute('**/api/command-presets/**', failDelete);
     }
 
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '취소', exact: true }).click();
   });
 });
 
@@ -240,8 +247,8 @@ async function expectDeleteMessageBox(page: Page, label: string): Promise<string
   expect(descriptionId).toBeTruthy();
   await expect(page.locator(`[id="${descriptionId}"]`)).toContainText(label);
   await expect(page.locator(`[id="${descriptionId}"]`)).toContainText('삭제');
-  await expect(messageBox.getByRole('button', { name: 'Cancel' })).toBeVisible();
-  await expect(messageBox.getByRole('button', { name: 'OK' })).toBeVisible();
+  await expect(messageBox.getByRole('button', { name: '취소', exact: true })).toBeVisible();
+  await expect(messageBox.getByRole('button', { name: '삭제', exact: true })).toBeVisible();
   return labelledBy!.replace(/-title$/, '');
 }
 
@@ -264,7 +271,7 @@ async function expectMessageBoxDialogContract(page: Page): Promise<void> {
 
 async function expectTopmostMessageBoxFocusTrap(page: Page): Promise<void> {
   const messageBox = page.getByRole('alertdialog', { name: '삭제 확인' });
-  await messageBox.getByRole('button', { name: 'Cancel' }).focus();
+  await messageBox.getByRole('button', { name: '취소', exact: true }).focus();
 
   for (let index = 0; index < 4; index += 1) {
     await page.keyboard.press('Tab');

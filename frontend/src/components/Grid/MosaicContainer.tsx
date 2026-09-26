@@ -893,8 +893,8 @@ export function MosaicContainer({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--text-muted, #666)',
-            fontSize: '14px',
+            color: 'var(--fg-muted)',
+            fontSize: 'var(--fs-md)',
           }}
         >
           세션이 없습니다. 새 세션을 시작하세요.

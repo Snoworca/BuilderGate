@@ -5,68 +5,119 @@
 .mcp-control-dialog {
   display: flex;
   min-height: 100%;
+  box-sizing: border-box;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  background: #252526;
-  color: #d4d4d4;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--bg-chrome);
+  color: var(--fg);
 }
 
 .mcp-control-tabs {
   display: flex;
   flex-shrink: 0;
-  gap: 6px;
-  border-bottom: 1px solid #3c3c3c;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--line);
 }
 
 .mcp-control-tab {
-  height: 34px;
-  padding: 0 12px;
+  height: var(--ctl-md);
+  margin-bottom: -1px;
+  padding: 0 var(--sp-3);
   background: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-  color: #aeb0b3;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--fg-muted);
   cursor: pointer;
-  font-size: 13px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
 }
 
-.mcp-control-tab:hover,
-.mcp-control-tab.is-active {
-  background: #303032;
-  color: #ffffff;
+.mcp-control-tab:hover {
+  color: var(--fg-strong);
 }
 
 .mcp-control-tab.is-active {
-  border-color: #4c4c4c;
+  border-bottom-color: var(--accent);
+  color: var(--fg-strong);
+  font-weight: var(--fw-semibold);
+}
+
+.mcp-control-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .mcp-control-loading {
+  display: flex;
   flex-shrink: 0;
-  color: #aeb0b3;
-  font-size: 12px;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
 }
 
 .mcp-control-error,
-.mcp-control-toast,
-.mcp-control-credential {
+.mcp-control-toast {
+  display: flex;
   flex-shrink: 0;
-  padding: 8px 10px;
-  border-radius: 4px;
-  font-size: 13px;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--sp-2) 10px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+
+.mcp-control-error svg,
+.mcp-control-toast svg {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .mcp-control-error {
-  background: #3b2525;
-  border: 1px solid #6f3a3a;
-  color: #ffb4b4;
+  background: var(--danger-tint);
+  color: var(--danger-text);
 }
 
-.mcp-control-toast,
+.mcp-control-toast {
+  background: var(--ok-tint);
+  color: var(--ok-text);
+}
+
+/* A surface that holds a one-time secret or the key controls. */
 .mcp-control-credential {
-  background: #253528;
-  border: 1px solid #45634a;
-  color: #c8f0cf;
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.mcp-control-access-key-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+}
+
+.mcp-control-access-key-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  border-radius: var(--r-md);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.mcp-control-access-key-head .mcp-control-item-main {
+  flex: 1 1 auto;
 }
 
 .mcp-control-panel {
@@ -83,7 +134,7 @@
   display: flex;
   min-height: 100%;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .mcp-control-form-grid,
@@ -91,7 +142,7 @@
 .mcp-control-session-search {
   display: grid;
   grid-template-columns: repeat(3, minmax(160px, 1fr));
-  gap: 10px;
+  gap: var(--sp-3);
   align-items: end;
 }
 
@@ -104,51 +155,25 @@
 }
 
 .mcp-control-field {
-  display: flex;
   min-width: 0;
-  flex-direction: column;
-  gap: 5px;
-  color: #bdbdbd;
-  font-size: 12px;
 }
 
 .mcp-control-checkbox-field {
-  min-height: 34px;
-  flex-direction: row;
+  display: flex;
+  min-height: var(--ctl-md);
   align-items: center;
-  gap: 8px;
 }
 
-.mcp-control-field input,
-.mcp-control-field select,
-.mcp-control-field textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  background: #1e1e1e;
-  border: 1px solid #4c4c4c;
-  border-radius: 4px;
-  color: #ffffff;
-  font: inherit;
-}
-
-.mcp-control-field input,
-.mcp-control-field select {
-  height: 34px;
-  padding: 0 9px;
-}
-
-.mcp-control-field textarea {
+/* A textarea wears the shared input face but grows with its rows. The element
+   in the selector is what lets this outrank the fixed .ui-input height. */
+textarea.mcp-control-textarea {
+  height: auto;
   min-height: 72px;
-  padding: 8px 9px;
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
   resize: vertical;
-}
-
-.mcp-control-checkbox-field input {
-  width: 16px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0;
 }
 
 .mcp-control-actions,
@@ -165,55 +190,14 @@
   gap: 6px;
 }
 
-.mcp-control-primary-button,
-.mcp-control-secondary-button,
-.mcp-control-item-actions button {
-  display: inline-flex;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  background: transparent;
-  border: 1px solid #4c4c4c;
-  border-radius: 4px;
-  color: #d4d4d4;
-  cursor: pointer;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.mcp-control-primary-button {
-  background: #365f42;
-  border-color: #4b815c;
-  color: #ffffff;
-}
-
-.mcp-control-primary-button:hover {
-  background: #40714e;
-}
-
-.mcp-control-secondary-button:hover,
-.mcp-control-item-actions button:hover {
-  background: #3c3c3c;
-  border-color: #5c5c5c;
-  color: #ffffff;
-}
-
-.mcp-control-primary-button:disabled,
-.mcp-control-secondary-button:disabled,
-.mcp-control-item-actions button:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
 .mcp-control-status-strip,
 .mcp-control-item-meta {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
-  gap: 8px;
-  color: #9d9d9d;
-  font-size: 12px;
+  gap: var(--sp-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
 }
 
 .mcp-control-list {
@@ -221,69 +205,86 @@
   flex: 1;
   min-height: 0;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--sp-2);
   overflow: auto;
 }
 
 .mcp-control-empty {
-  padding: 24px 10px;
-  color: #9d9d9d;
-  font-size: 13px;
+  padding: var(--sp-6) 10px;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
   text-align: center;
 }
 
 .mcp-control-item {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
-  gap: 10px;
+  gap: var(--sp-3);
   align-items: center;
-  padding: 10px;
-  background: #2a2a2a;
-  border: 1px solid #3f3f3f;
-  border-radius: 6px;
+  padding: var(--sp-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }
 
 .mcp-control-session-item {
   align-items: start;
 }
 
+.mcp-control-session-item .mcp-control-field {
+  margin-top: var(--sp-2);
+}
+
 .mcp-control-item-main {
   min-width: 0;
 }
 
+.mcp-control-item-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  margin-bottom: 6px;
+}
+
 .mcp-control-item-main h3 {
   min-width: 0;
-  margin: 0 0 6px;
+  margin: 0;
   overflow: hidden;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 600;
+  color: var(--fg-strong);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mcp-control-access-key-head .mcp-control-item-main h3 {
+  margin-bottom: 6px;
 }
 
 .mcp-control-status-grid {
   display: grid;
   grid-template-columns: minmax(140px, 200px) minmax(220px, 1fr);
-  gap: 8px 12px;
+  gap: var(--sp-2) var(--sp-3);
   margin: 0;
-  padding: 10px;
-  background: #1f1f20;
-  border: 1px solid #3f3f3f;
-  border-radius: 6px;
+  padding: var(--sp-3) 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }
 
 .mcp-control-status-grid dt {
-  color: #aeb0b3;
-  font-size: 12px;
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
 }
 
 .mcp-control-status-grid dd {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-  color: #ffffff;
-  font-size: 12px;
+  color: var(--fg-strong);
+  font-size: var(--fs-xs);
 }
 
 .mcp-control-audit-list {
@@ -295,21 +296,16 @@
 }
 
 .mcp-control-audit-item {
-  padding: 7px 9px;
+  padding: 7px 10px;
   overflow: hidden;
-  background: #2a2a2a;
-  border: 1px solid #3f3f3f;
-  border-radius: 4px;
-  color: #bdbdbd;
-  font-size: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.mcp-control-credential {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
 }
 
 @media (max-width: 760px) {

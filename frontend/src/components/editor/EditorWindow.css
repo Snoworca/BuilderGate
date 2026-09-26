@@ -31,10 +31,12 @@
 }
 
 /* 편집기가 놓이는 본문. 창 테두리와 제목 표시줄은 다른 창들과 같은 어두운
- * 계열로 남기고, 문서가 놓이는 자리만 흰 종이가 된다. */
+ * 계열로 남기고, 문서가 놓이는 자리만 흰 종이가 된다. 글자색은 본문이 정하지
+ * 않는다: 본문 자체는 paper 표면이 아니어서 토큰으로 검은 글자를 말할 수 없고,
+ * 그 안의 탭 막대·트리 패널·문서 패널이 주간에 각자 paper 표면을 달고 자기
+ * 글자색을 읽는다. */
 .editor-window-surface .window-dialog-body {
-  background: #ffffff;
-  color: #000000;
+  background: var(--bg-paper);
 }
 
 /* 문서의 세로 스크롤바.
@@ -52,23 +54,25 @@
   height: 10px;
 }
 
+/* 트랙은 문서 패널의 표면 토큰을 읽는다: 주간은 paper 의 옅은 회색, 야간은
+ * chrome 의 어두운 회색. 손잡이 모서리는 알약 토큰이라 10px 막대에서 반원이 된다. */
 .editor-window-surface .cm-scroller::-webkit-scrollbar-track {
-  background: #eeeeee;
+  background: var(--bg-raised);
 }
 
 .editor-window-surface .cm-scroller::-webkit-scrollbar-thumb {
-  background: #0078d4;
-  border-radius: 5px;
+  background: var(--accent);
+  border-radius: var(--r-pill);
 }
 
 .editor-window-surface .cm-scroller::-webkit-scrollbar-thumb:hover {
-  background: #106ebe;
+  background: var(--accent-hover);
 }
 
 /* 세로와 가로가 만나는 모서리. 두지 않으면 그 자리만 흰색으로 남아 트랙이
  * 끊겨 보인다. */
 .editor-window-surface .cm-scroller::-webkit-scrollbar-corner {
-  background: #eeeeee;
+  background: var(--bg-raised);
 }
 
 /* The document tab row.
@@ -78,6 +82,11 @@
  * is the thickness the requirement names, which `scrollbar-width` cannot
  * express -- it offers `auto`, `thin` and `none` and no way to keep the bar on
  * screen -- so the ::-webkit-scrollbar family is what states it.
+ *
+ * Colours are surface tokens. In light the host (`.editor-tab-bar-host`)
+ * carries data-surface="paper", so these rules resolve to the light greys
+ * beside the white document; the dark rules further down re-paint the row
+ * with the chrome values.
  */
 .editor-window-surface .editor-tab-bar {
   display: flex;
@@ -87,8 +96,8 @@
   padding: 4px 6px 0;
   overflow-x: auto;
   overflow-y: hidden;
-  background: #f3f3f3;
-  border-bottom: 1px solid #d0d0d0;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line-strong);
 }
 
 .editor-window-surface .editor-tab-bar::-webkit-scrollbar {
@@ -96,27 +105,30 @@
 }
 
 .editor-window-surface .editor-tab-bar::-webkit-scrollbar-track {
-  background: #eeeeee;
+  background: var(--bg-raised);
 }
 
 .editor-window-surface .editor-tab-bar::-webkit-scrollbar-thumb {
-  background: #0078d4;
-  border-radius: 2px;
+  background: var(--accent);
+  border-radius: var(--r-pill);
 }
 
+/* An inactive tab sits one step below the bar: on paper that is the line
+ * grey, which is what the tab face was before it became a token. */
 .editor-window-surface .editor-tab {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
   max-width: 220px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--line-strong);
   border-bottom: none;
-  border-radius: 4px 4px 0 0;
-  background: #e4e4e4;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: var(--line);
 }
 
+/* The active tab is the document's own white, so it runs into the page. */
 .editor-window-surface .editor-tab.is-active {
-  background: #ffffff;
+  background: var(--bg-paper);
 }
 
 .editor-window-surface .editor-tab-label {
@@ -125,27 +137,29 @@
   padding: 4px 2px 4px 8px;
   border: none;
   background: none;
-  color: #000000;
-  font-size: 12px;
+  color: var(--fg-strong);
+  font-size: var(--fs-xs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
 }
 
+/* The shared IconButton's face (`.icon-button`), sized to fit inside the tab. */
 .editor-window-surface .editor-tab-close {
-  flex: 0 0 auto;
-  padding: 0 6px;
-  border: none;
-  background: none;
-  color: #555555;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  margin-right: 2px;
+  color: var(--fg-muted);
+}
+
+.editor-window-surface .editor-tab-close svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .editor-window-surface .editor-tab-close:hover {
-  color: #000000;
+  color: var(--fg-strong);
 }
 
 /* The body: the file-tree pane on the left, the documents on the right
@@ -170,8 +184,8 @@
   min-height: 0;
 }
 
-/* The wrapper only exists to take the tab bar's right click; the bar inside
- * keeps its own layout. */
+/* The wrapper takes the tab bar's right click and, in light, carries
+ * data-surface="paper" for the bar inside; the bar keeps its own layout. */
 .editor-window-surface .editor-tab-bar-host {
   display: flex;
   flex-direction: column;
@@ -189,7 +203,7 @@
   flex: 0 0 auto;
   min-height: 0;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   background: var(--bg-surface);
   color: var(--fg);
   border-right: 1px solid var(--line);
@@ -215,7 +229,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
 }
 
@@ -252,13 +266,14 @@
 }
 
 /* 야간 테마(FR-MDE-020). 편집기 본문은 벤더의 기본(다크) 팔레트가 그리고,
- * 여기서는 그 밖의 흰 종이와 스크롤바 트랙만 어둡게 맞춘다. 문서 패널이
- * data-surface 를 떼므로 도구줄·상태줄은 chrome 토큰을 읽는다. */
+ * 여기서는 그 밖의 흰 종이만 어둡게 맞춘다. 문서 패널이 data-surface 를 떼므로
+ * 도구줄·상태줄·스크롤바 트랙은 같은 규칙 그대로 chrome 토큰을 읽는다. */
 /* 문서 패널의 바탕 한 가지를 변수로 둔다. 편집기 자체는 투명하므로
  * 줄 번호 거터(sticky)도 이 값으로 칠해야 가로 스크롤한 글자가 비치지 않는다. */
 .editor-window-surface .editor-document-panel {
   --editor-doc-bg: var(--bg-paper);
   background: var(--editor-doc-bg);
+  color: var(--fg);
 }
 
 .editor-window-surface .editor-document-panel[data-editor-theme='dark'] {
@@ -266,13 +281,178 @@
   color: var(--fg);
 }
 
-.editor-window-surface .editor-document-panel[data-editor-theme='dark'] .cm-scroller::-webkit-scrollbar-track,
-.editor-window-surface .editor-document-panel[data-editor-theme='dark'] .cm-scroller::-webkit-scrollbar-corner {
-  background: var(--bg-raised);
+/* The one-line document toolbar (FR-MDE-020): the path on the left, icon
+ * toggles on the right. */
+.editor-window-surface .editor-document-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 2px 6px 2px 8px;
+  border-bottom: 1px solid var(--line);
 }
 
-.editor-window-surface .editor-document-toolbar button:hover {
+.editor-window-surface .editor-document-path-box {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* The button and its hidden measuring copy share one size, or the fit test
+ * would compare two different widths. */
+.editor-window-surface .editor-document-path,
+.editor-window-surface .editor-document-path-measure {
+  padding: 1px 2px;
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.editor-window-surface .editor-document-path {
+  display: block;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: copy;
+}
+
+.editor-window-surface .editor-document-path:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.editor-window-surface .editor-document-path-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* An icon toggle in the document toolbar and the SVG source toolbar. Kept
+ * compact so the bar stays one short line; the glyph edge is --icon-sm. */
+.editor-window-surface .editor-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.editor-window-surface .editor-toolbar-button svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.editor-window-surface .editor-toolbar-button:not([aria-pressed='true']):hover:not(:disabled) {
   background: var(--bg-hover);
+  color: var(--fg-strong);
+}
+
+.editor-window-surface .editor-toolbar-button[aria-pressed='true'] {
+  border-color: var(--line-strong);
+  background: var(--bg-active);
+  color: var(--fg);
+}
+
+.editor-window-surface .editor-toolbar-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.editor-window-surface .editor-toolbar-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* A small text button: the image viewer's fit / 100% / source edit and the
+ * SVG source view's preview. */
+.editor-window-surface .editor-text-button {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: inherit;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+
+.editor-window-surface .editor-text-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg-strong);
+}
+
+.editor-window-surface .editor-text-button[aria-pressed='true'] {
+  border-color: var(--line-strong);
+  background: var(--bg-active);
+  color: var(--fg);
+}
+
+.editor-window-surface .editor-text-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.editor-window-surface .editor-text-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The SVG source view's own toolbar: the wrap toggle and the preview button,
+ * at the right end. */
+.editor-window-surface .editor-code-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* The read-only notice (FR-MDE-016) and the SVG source read failure, which
+ * has always worn the notice's look. */
+.editor-window-surface .editor-document-notice,
+.editor-window-surface .svg-file-tab-error {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-size: var(--fs-xs);
+}
+
+/* A save that failed. The tint and the text colour re-bind on paper, so the
+ * banner reads on the white document and on the dark one alike. */
+.editor-window-surface .editor-window-error {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--danger-tint);
+  color: var(--danger-text);
+  font-size: var(--fs-xs);
+}
+
+/* The line-ending line under the document (FR-MDE-015). */
+.editor-window-surface .editor-document-status {
+  flex: 0 0 auto;
+  padding: 2px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--fg-muted);
+  font-size: var(--fs-2xs);
+  text-align: right;
 }
 
 /* 야간 테마의 창 크롬(FR-MDE-020 AC-9). 행 전체를 어두운 표면으로 깔고
@@ -327,7 +507,7 @@
 }
 
 .editor-window-surface .editor-document-panel .cm-panel.cm-search {
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .editor-window-surface .editor-document-panel .cm-panel.cm-search .cm-button {
@@ -335,7 +515,7 @@
   background: var(--bg-surface);
   color: var(--fg);
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 .editor-window-surface .editor-document-panel .cm-panel.cm-search .cm-button:hover {
@@ -350,7 +530,7 @@
   background: var(--bg-surface);
   color: var(--fg);
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 
 .editor-window-surface .editor-document-panel .cm-panel.cm-search .cm-textfield:focus {

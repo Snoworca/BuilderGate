@@ -50,6 +50,13 @@ import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
 import { RecoveryOptionDialog } from './components/RecoveryOptionManager';
 import { McpControlDialog } from './components/McpControlManager';
+import {
+  SessionRestoreBanner,
+  SessionRestoreDialog,
+  SessionSaveDialog,
+  saveButtonState,
+  useSessionSnapshot,
+} from './components/SessionSave';
 import { buildCommandPresetPasteInput } from './components/CommandPresetManager/commandPresetPaste';
 import {
   TerminalShortcutDialog,
@@ -145,6 +152,23 @@ function AppContent() {
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
   const [showRecoveryOptionDialog, setShowRecoveryOptionDialog] = useState(false);
   const [showMcpControlDialog, setShowMcpControlDialog] = useState(false);
+  // FR-AITUI-009: the session save button, the restore banner and their dialogs.
+  const sessionSnapshot = useSessionSnapshot(true);
+  const [sessionDialog, setSessionDialog] = useState<'save' | 'restore' | null>(null);
+  const [restoreBannerDismissed, setRestoreBannerDismissed] = useState(false);
+  const sessionSaveState = useMemo(
+    () => saveButtonState({ candidateCount: sessionSnapshot.candidates.length, status: sessionSnapshot.status }),
+    [sessionSnapshot.candidates.length, sessionSnapshot.status],
+  );
+  const handleSessionSaveClick = useCallback(async () => {
+    const next = sessionSaveState.kind === 'pending' ? 'restore' : 'save';
+    // Read again first: the list the dialog opens with is the list it saves.
+    await sessionSnapshot.refresh();
+    setSessionDialog(next);
+  }, [sessionSaveState.kind, sessionSnapshot]);
+  const showRestoreBanner = Boolean(
+    sessionSnapshot.status?.restorable && sessionSnapshot.status.pendingCount > 0 && !restoreBannerDismissed && sessionDialog !== 'restore',
+  );
 
   const wm = useWorkspaceManager();
   // Stable ref to avoid re-creating callbacks on every render
@@ -160,7 +184,7 @@ function AppContent() {
 
   useHeartbeat({
     onSessionExpired: () => {
-      alert('Session expired. Please login again.');
+      alert('로그인이 만료되었습니다. 다시 로그인하세요.');
     }
   });
 
@@ -726,7 +750,16 @@ function AppContent() {
         editorTrayItems={headerTrayItems}
         editorTrayOpenCount={editor.openCount}
         onOpenFileExplorer={activeTab ? () => openTabFileExplorer(activeTab.id) : undefined}
+        sessionSaveState={sessionSnapshot.status ? sessionSaveState : undefined}
+        onSessionSave={() => { void handleSessionSaveClick(); }}
       />
+      {showRestoreBanner && sessionSnapshot.status && (
+        <SessionRestoreBanner
+          status={sessionSnapshot.status}
+          onReview={() => setSessionDialog('restore')}
+          onLater={() => setRestoreBannerDismissed(true)}
+        />
+      )}
       <div className="main">
         {/* Desktop sidebar */}
         {!isMobile && (
@@ -1002,6 +1035,27 @@ function AppContent() {
         />
       )}
 
+      {sessionDialog === 'save' && (
+        <SessionSaveDialog
+          candidates={sessionSnapshot.candidates}
+          onClose={() => setSessionDialog(null)}
+          onSave={sessionSnapshot.save}
+        />
+      )}
+
+      {sessionDialog === 'restore' && sessionSnapshot.status && (
+        <SessionRestoreDialog
+          status={sessionSnapshot.status}
+          onClose={() => {
+            setSessionDialog(null);
+            // Closing the review is the same answer as the banner's 나중에.
+            setRestoreBannerDismissed(true);
+          }}
+          onRestore={sessionSnapshot.restore}
+          onDiscard={sessionSnapshot.discard}
+        />
+      )}
+
       {/* Confirm close tab */}
       {pendingCloseTabId && (
         <ConfirmModal
@@ -1018,9 +1072,9 @@ function AppContent() {
       {/* Confirm delete workspace */}
       {pendingDeleteWorkspace && (
         <ConfirmModal
-          title="Delete Workspace"
-          message={`This workspace has ${pendingDeleteTabCount} terminal(s). All will be terminated. Continue?`}
-          confirmLabel="Delete All"
+          title="워크스페이스 삭제"
+          message={`터미널 ${pendingDeleteTabCount}개가 모두 종료됩니다. 이 워크스페이스를 삭제할까요?`}
+          confirmLabel="모두 삭제"
           destructive
           onConfirm={handleConfirmDeleteWorkspace}
           onCancel={() => setPendingDeleteWorkspace(null)}

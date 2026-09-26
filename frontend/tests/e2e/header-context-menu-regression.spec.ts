@@ -178,17 +178,17 @@ async function dispatchEmptyFallbackSnapshot(page: Page, sessionId: string, cols
 }
 
 async function ensureTabMode(page: Page) {
-  const switchToTabs = page.locator('button[title="Switch to Tabs"]');
+  const switchToTabs = page.locator('button[title="탭 보기로 전환"]');
   if (await switchToTabs.count()) {
     await switchToTabs.click();
   }
 
-  await expect(page.locator('button[title="Add Terminal"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('button[title="터미널 추가"]')).toBeVisible({ timeout: 15000 });
 }
 
 async function ensureAtLeastTwoTabs(page: Page) {
   const tabs = page.locator('[role="tab"]:visible');
-  const addButton = page.locator('button[title="Add Terminal"]');
+  const addButton = page.locator('button[title="터미널 추가"]');
 
   if (await tabs.count() >= 2) return;
 
@@ -486,9 +486,9 @@ test.describe('Header And Context Menu Regressions', () => {
     await tabs.nth(secondTab.index).click();
     await expect(headerCwd).toHaveAttribute('title', secondTab.cwd);
 
-    const switchToGrid = page.locator('button[title="Switch to Grid"]');
+    const switchToGrid = page.locator('button[title="그리드 보기로 전환"]');
     await switchToGrid.click();
-    await expect(page.locator('button[title="Switch to Tabs"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('button[title="탭 보기로 전환"]')).toBeVisible({ timeout: 15000 });
 
     const gridCells = page.locator('.grid-cell');
     await expect.poll(async () => gridCells.count()).toBeGreaterThanOrEqual(2);
@@ -542,7 +542,7 @@ test.describe('Header And Context Menu Regressions', () => {
   test('TC-7003: closing a tab should not resurrect its deleted terminal snapshot', async ({ page }) => {
     await ensureTabMode(page);
     const tabs = page.locator('[role="tab"]:visible');
-    const addButton = page.locator('button[title="Add Terminal"]');
+    const addButton = page.locator('button[title="터미널 추가"]');
     const initialTabCount = await tabs.count();
     await addButton.click();
     await expect.poll(async () => tabs.count(), { timeout: 15000 }).toBe(initialTabCount + 1);

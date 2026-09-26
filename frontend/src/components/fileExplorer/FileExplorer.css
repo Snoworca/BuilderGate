@@ -24,7 +24,7 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   background: var(--bg-surface);
   color: var(--fg);
 }
@@ -48,7 +48,7 @@
   gap: 6px;
   padding: 0 6px 0 10px;
   height: 28px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
   cursor: pointer;
   white-space: nowrap;
@@ -68,29 +68,28 @@
   border-color: var(--line);
 }
 
-.fx-tab-close,
-.fx-tab-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
+/* Both are the shared IconButton (`.icon-button`); the compound selector
+ * outranks its 22px face whichever stylesheet loads first. */
+.icon-button.fx-tab-close,
+.icon-button.fx-tab-add {
+  width: 18px;
   height: 18px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
   color: var(--fg-faint);
-  cursor: pointer;
-  font: inherit;
 }
 
-.fx-tab-add {
+.fx-tab-close svg,
+.fx-tab-add svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.icon-button.fx-tab-add {
   align-self: center;
   margin-left: 2px;
 }
 
-.fx-tab-close:hover,
-.fx-tab-add:hover {
+.icon-button.fx-tab-close:hover:not(:disabled),
+.icon-button.fx-tab-add:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--fg-strong);
 }
@@ -128,7 +127,7 @@
   flex: 1 1 auto;
   min-width: 0;
   font-family: var(--fx-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -137,35 +136,34 @@
   text-align: left;
 }
 
-.fx-bar-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
+/* The path bar's icon buttons are the shared IconButton, made the bar's 26px
+ * square. The glyph edge is the toolbar size (FR-UIDS-001 AC-4). */
+.icon-button.fx-bar-button {
   width: 26px;
   height: 26px;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  background: transparent;
   color: var(--fg-muted);
-  cursor: pointer;
-  font: inherit;
 }
 
-.fx-bar-button:hover:not(:disabled) {
+.fx-bar-button svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.icon-button.fx-bar-button:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--fg-strong);
 }
 
-.fx-bar-button:disabled {
-  opacity: 0.4;
-  cursor: default;
+/* '상위 폴더' has no glyph of its own in the shared set; the downward chevron
+ * turned over reads as "up". */
+.fx-up-button svg {
+  transform: rotate(180deg);
 }
 
 .fx-pathbar-error {
   padding: 4px 10px 6px;
-  font-size: 12px;
-  color: var(--danger);
+  font-size: var(--fs-xs);
+  color: var(--danger-text);
 }
 
 /* Scroll area and rows */
@@ -256,6 +254,11 @@
   transform: rotate(90deg);
 }
 
+.fx-expander svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
 .fx-expander.fx-leaf {
   visibility: hidden;
 }
@@ -266,13 +269,13 @@
   flex: 0 0 16px;
   width: 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 1;
   color: var(--fg-muted);
 }
 
 .fx-name {
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--fg-strong);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -280,19 +283,19 @@
 
 /* A file open in the editor reads bold in the tree and the list. */
 .fx-row.is-open .fx-name {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .fx-meta {
   margin-left: auto;
   padding-left: 16px;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .fx-error-text {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* Files the editor cannot open, and entries on the clipboard to be moved. */
@@ -337,7 +340,7 @@
   border-bottom: 1px solid var(--line);
   background: var(--bg-surface);
   color: var(--fg-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
 }
 
 .fx-tree-head-cell {
@@ -358,6 +361,18 @@
 
 .fx-tree-head-cell.fx-col-size {
   justify-content: flex-end;
+}
+
+/* The sort arrow beside a header label (SortGlyph). */
+.fx-sort-glyph {
+  flex: 0 0 auto;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-left: 2px;
+}
+
+.fx-sort-glyph.fx-sort-asc {
+  transform: rotate(180deg);
 }
 
 .fx-tree-head-name {
@@ -407,7 +422,7 @@
   background: transparent;
   color: var(--fg-muted);
   font: inherit;
-  font-size: 11.5px;
+  font-size: var(--fs-xs);
   text-align: left;
   cursor: pointer;
 }
@@ -468,7 +483,7 @@
   background: var(--bg-surface);
   color: var(--fg-strong);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   outline: none;
 }
 
@@ -488,7 +503,7 @@
   gap: 6px;
   min-height: 36px;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .fx-confirm-row + .fx-confirm-row {
@@ -505,7 +520,7 @@
 }
 
 .fx-confirm-error .fx-confirm-text {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .fx-confirm-check {
@@ -555,7 +570,7 @@
 
 .fx-confirm-button.fx-danger {
   border-color: var(--danger);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* Mobile button row: stands in for the shortcuts on a phone. */
@@ -579,7 +594,7 @@
   background: var(--bg-surface);
   color: var(--fg);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-xs);
 }
 
 .fx-mobile-button:disabled {
@@ -617,7 +632,7 @@
 }
 
 .fx-window-modal-title {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .fx-window-modal-message {

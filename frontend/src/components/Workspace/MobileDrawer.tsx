@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import './Workspace.css';
 
 interface Props {
   isOpen: boolean;
@@ -45,15 +46,7 @@ export function MobileDrawer({ isOpen, onClose, children }: Props) {
       {/* Overlay */}
       <div
         onClick={onClose}
-        style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          zIndex: 998,
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? 'auto' : 'none',
-          transition: 'opacity 200ms ease-out',
-        }}
+        className={`mobile-drawer-overlay${isOpen ? ' is-open' : ''}`}
       />
       {/* Drawer */}
       <div
@@ -61,20 +54,7 @@ export function MobileDrawer({ isOpen, onClose, children }: Props) {
         tabIndex={-1}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          width: '80vw',
-          maxWidth: '320px',
-          backgroundColor: '#1e1e2e',
-          zIndex: 999,
-          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 200ms ease-out',
-          overflowY: 'auto',
-          outline: 'none',
-        }}
+        className={`mobile-drawer${isOpen ? ' is-open' : ''}`}
       >
         {children}
       </div>

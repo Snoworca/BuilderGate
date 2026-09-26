@@ -9,6 +9,7 @@
 // @req FR-MDE-010
 
 import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
+import { IconButton } from '../common';
 import { useLongPress } from '../../hooks/useLongPress.ts';
 import { windowDialogTitleText } from '../dialog/windowDialogModel.ts';
 
@@ -78,15 +79,12 @@ export function EditorTabBar({ tabs, activeFilePath, onSelect, onClose, onContex
                   side in the other. */}
               {windowDialogTitleText(fileNameOf(tab.filePath), tab.dirty)}
             </button>
-            <button
-              type="button"
+            <IconButton
+              icon="close"
               className="editor-tab-close"
-              aria-label={`${fileNameOf(tab.filePath)} 닫기`}
-              title="닫기"
+              label={`${fileNameOf(tab.filePath)} 닫기`}
               onClick={() => onClose(tab.filePath)}
-            >
-              ×
-            </button>
+            />
           </EditorTabFrame>
         );
       })}

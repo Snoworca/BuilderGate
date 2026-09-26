@@ -32,7 +32,7 @@ export function useTerminalShortcuts(): UseTerminalShortcutsResult {
     try {
       setState(await terminalShortcutApi.getState());
     } catch (reloadError) {
-      setError(reloadError instanceof Error ? reloadError.message : 'Failed to load terminal shortcuts');
+      setError(reloadError instanceof Error ? reloadError.message : '터미널 단축키를 불러오지 못했습니다.');
       setState(null);
     } finally {
       setLoading(false);

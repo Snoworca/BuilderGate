@@ -188,11 +188,11 @@ test.describe('Settings password policy', () => {
     await page.click('button[type="submit"]');
     await expect(page.locator('.workspace-screen')).toBeVisible({ timeout: 10000 });
 
-    await page.getByTitle('Settings').click();
-    await expect(page.getByRole('heading', { name: 'Runtime Settings' })).toBeVisible();
+    await page.getByTitle('설정', { exact: true }).click();
+    await expect(page.getByRole('heading', { name: '설정', exact: true })).toBeVisible();
 
     const authenticationCard = page.locator('.settings-card').filter({
-      has: page.getByRole('heading', { name: 'Authentication' }),
+      has: page.getByRole('heading', { name: '인증', exact: true }),
     });
     const passwordInputs = authenticationCard.locator('input[type="password"]');
     const currentPassword = passwordInputs.nth(0);
@@ -218,7 +218,7 @@ test.describe('Settings password policy', () => {
     await expect(saveButton).toBeEnabled();
 
     await saveButton.click();
-    await expect(page.locator('.settings-banner-success')).toContainText('next login 1');
+    await expect(page.locator('.settings-banner-success')).toContainText('다음 로그인부터 1개');
 
     expect(submittedPatch?.auth?.currentPassword).toBe(requireTestPassword());
     expect(submittedPatch?.auth?.newPassword).toBe(maxLengthPassword);

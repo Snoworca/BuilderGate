@@ -61,8 +61,8 @@ test.describe('Settings resource limits', () => {
       () => (window as unknown as { __runtimeConfigFetchCount: number }).__runtimeConfigFetchCount,
     );
 
-    await expect(page.getByRole('heading', { name: 'Server Backpressure' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Browser Queues' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '서버 출력 조절' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '브라우저 대기열' })).toBeVisible();
     await expect(page.getByTestId('settings-resourceLimits-headless-pendingOutputMaxBytes')).toBeVisible();
     await expect(page.getByTestId('settings-resourceLimits-clientWs-inputBackpressureBytes')).toBeVisible();
     await expect(page.getByTestId('settings-resourceLimits-terminal-visibleOutputQueueMaxBytes')).toHaveCount(0);
@@ -82,7 +82,7 @@ test.describe('Settings resource limits', () => {
         },
       },
     });
-    await expect(page.locator('.settings-banner-success')).toContainText('Immediate 1, next login 0, new terminal sessions 1');
+    await expect(page.locator('.settings-banner-success')).toContainText('바로 적용 1개 · 다음 로그인부터 0개 · 새 세션부터 1개');
     await expect
       .poll(() => page.evaluate(() => (window as unknown as { __runtimeConfigFetchCount: number }).__runtimeConfigFetchCount))
       .toBeGreaterThan(fetchesBeforeSave);
@@ -148,7 +148,7 @@ test.describe('Settings resource limits', () => {
 
     await page.getByTestId('settings-resourceLimits-headless-pendingOutputMaxBytes').fill('2000000');
     await page.getByTestId('settings-save-button').click();
-    await expect(page.locator('.settings-banner-success')).toContainText('new terminal sessions 1');
+    await expect(page.locator('.settings-banner-success')).toContainText('새 세션부터 1개');
 
     await page.getByTestId('settings-resourceLimits-clientWs-inputBackpressureBytes').fill('5000000');
     await page.getByTestId('settings-save-button').click();
@@ -180,11 +180,11 @@ test.describe('Settings resource limits', () => {
 
     await page.getByTestId('settings-resourceLimits-headless-pendingOutputMaxBytes').fill('2000000');
     await page.getByTestId('settings-save-button').click();
-    await expect(page.locator('.settings-banner-success')).toContainText('new terminal sessions 1');
+    await expect(page.locator('.settings-banner-success')).toContainText('새 세션부터 1개');
 
     await page.getByTestId('settings-resourceLimits-headless-pendingOutputMaxBytes').fill('1');
 
-    await expect(page.locator('.settings-banner-error')).toContainText('Headless pending output bytes must be at least 1024.');
+    await expect(page.locator('.settings-banner-error')).toContainText('헤드리스 대기 출력 크기: 1024바이트 이상이어야 합니다.');
     await expect(page.getByTestId('settings-save-button')).toBeDisabled();
     await expect(page.locator('.settings-banner-success')).toHaveCount(0);
   });
@@ -195,8 +195,8 @@ async function loginAndOpenSettings(page: Page): Promise<void> {
   await page.fill('input[type=\"password\"]', requireTestPassword());
   await page.click('button[type="submit"]');
   await expect(page.locator('.workspace-screen')).toBeVisible({ timeout: 10000 });
-  await page.getByTitle('Settings').click();
-  await expect(page.getByRole('heading', { name: 'Runtime Settings' })).toBeVisible();
+  await page.getByTitle('설정', { exact: true }).click();
+  await expect(page.getByRole('heading', { name: '설정', exact: true })).toBeVisible();
 }
 
 async function mockAuthenticatedSettingsApp(

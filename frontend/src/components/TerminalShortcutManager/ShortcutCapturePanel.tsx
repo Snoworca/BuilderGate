@@ -3,6 +3,8 @@ import type {
   TerminalShortcutKeyDescriptor,
   TerminalShortcutScope,
 } from '../../types';
+import { Icon } from '../common/Icon';
+import { Button, Field, Select, TextInput } from '../ui';
 import { ShortcutActionEditor } from './ShortcutActionEditor';
 import {
   TERMINAL_SHORTCUT_SCOPE_OPTIONS,
@@ -30,6 +32,15 @@ interface ShortcutCapturePanelProps {
   onCancelEdit?: () => void;
 }
 
+// KeyboardEvent.location, named: the same key code can come from either side
+// of the keyboard or from the numeric keypad.
+function keyLocationLabel(location: number): string {
+  if (location === 1) return '왼쪽 키';
+  if (location === 2) return '오른쪽 키';
+  if (location === 3) return '숫자 키패드';
+  return '기본 위치';
+}
+
 export function ShortcutCapturePanel({
   captureStatus,
   capturedDescriptor,
@@ -51,9 +62,9 @@ export function ShortcutCapturePanel({
   onCancelEdit,
 }: ShortcutCapturePanelProps) {
   const statusText = captureStatus === 'waiting'
-    ? '입력 대기 중'
+    ? '등록할 키를 누르세요'
     : captureStatus === 'timeout'
-      ? '감지되지 않음'
+      ? '제한 시간 안에 누른 키가 없습니다'
       : capturedDescriptor
         ? descriptorLabel(capturedDescriptor)
         : '아직 없음';
@@ -61,21 +72,21 @@ export function ShortcutCapturePanel({
   return (
     <div className="terminal-shortcut-capture-panel">
       <div className={`terminal-shortcut-capture-box is-${captureStatus}`} aria-live="polite">
-        <div className="terminal-shortcut-capture-label">{editingLabel ? '수정' : '감지'}</div>
+        <div className="terminal-shortcut-capture-label">{editingLabel ? '수정할 단축키' : '감지한 키'}</div>
         <div className="terminal-shortcut-capture-value">{statusText}</div>
         {editingLabel && <div className="terminal-shortcut-capture-meta"><span>{editingLabel}</span></div>}
         {capturedDescriptor && (
           <div className="terminal-shortcut-capture-meta">
             <span>{capturedDescriptor.code}</span>
-            <span>location {capturedDescriptor.location}</span>
+            <span>{keyLocationLabel(capturedDescriptor.location)}</span>
           </div>
         )}
       </div>
 
       <div className="terminal-shortcut-form-grid">
-        <label className="terminal-shortcut-field">
-          <span>범위</span>
-          <select
+        <Field label="범위" htmlFor="terminal-shortcut-scope" className="terminal-shortcut-field">
+          <Select
+            id="terminal-shortcut-scope"
             value={scope}
             onChange={(event) => onScopeChange(event.target.value as TerminalShortcutScope)}
             aria-label="단축키 범위"
@@ -89,53 +100,68 @@ export function ShortcutCapturePanel({
                 {option.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="terminal-shortcut-field">
-          <span>설명</span>
-          <input
+        <Field label="설명" htmlFor="terminal-shortcut-description" className="terminal-shortcut-field">
+          <TextInput
+            id="terminal-shortcut-description"
             value={description}
             onChange={(event) => onDescriptionChange(event.target.value)}
             aria-label="단축키 설명"
             maxLength={160}
           />
-        </label>
+        </Field>
 
         <ShortcutActionEditor action={action} onChange={onActionChange} />
       </div>
 
       {(error || lastTestResult) && (
         <div className={error ? 'terminal-shortcut-error' : 'terminal-shortcut-toast'} role={error ? 'alert' : 'status'}>
-          {error ?? lastTestResult}
+          <Icon name={error ? 'alert' : 'check-circle'} size={14} />
+          <span>{error ?? lastTestResult}</span>
         </div>
       )}
 
       <div className="terminal-shortcut-actions">
-        <button type="button" className="terminal-shortcut-secondary-button" onClick={onStartCapture}>
+        <Button
+          variant="secondary"
+          size="md"
+          icon="keyboard"
+          className="terminal-shortcut-secondary-button"
+          onClick={onStartCapture}
+        >
           감지 시작
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
+          size="md"
           className="terminal-shortcut-secondary-button"
           onClick={onTestSend}
           disabled={action.type !== 'send' || saving}
         >
           테스트 전송
-        </button>
-        <button
-          type="button"
+        </Button>
+        {editingLabel && onCancelEdit && (
+          <Button
+            variant="secondary"
+            size="md"
+            className="terminal-shortcut-secondary-button"
+            onClick={onCancelEdit}
+            disabled={saving}
+          >
+            취소
+          </Button>
+        )}
+        <Button
+          variant="primary"
+          size="md"
           className="terminal-shortcut-primary-button"
           onClick={onSave}
           disabled={!capturedDescriptor || saving}
         >
           {saving ? '저장 중' : '저장'}
-        </button>
-        {editingLabel && onCancelEdit && (
-          <button type="button" className="terminal-shortcut-secondary-button" onClick={onCancelEdit} disabled={saving}>
-            취소
-          </button>
-        )}
+        </Button>
       </div>
     </div>
   );

@@ -6,6 +6,8 @@
 import { useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { Icon } from '../common/Icon';
+import { Button, Field, Spinner, TextInput } from '../ui';
 import './Auth.css';
 
 export function LoginForm() {
@@ -33,39 +35,40 @@ export function LoginForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
+          <Field label="비밀번호" htmlFor="password">
+            <TextInput
               id="password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter password"
+              placeholder="비밀번호 입력"
               disabled={isLoading}
               autoFocus
               autoComplete="current-password"
             />
-          </div>
+          </Field>
 
-          <button
+          <Button
             type="submit"
+            variant="primary"
             className="auth-button"
             disabled={isLoading || !password.trim()}
           >
             {isLoading ? (
               <>
-                <span className="spinner"></span>
-                Logging in...
+                <Spinner />
+                로그인하는 중…
               </>
             ) : (
-              'Login'
+              '로그인'
             )}
-          </button>
+          </Button>
 
           {(error || bootstrapError) && (
             <div className="auth-error" role="alert">
-              {error || bootstrapError}
+              <Icon name="alert" />
+              <span>{error || bootstrapError}</span>
             </div>
           )}
         </form>

@@ -32,6 +32,7 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from 'react';
 import { IconButton, IconToggleButton } from '../common';
+import { Chip } from '../ui';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { WindowDialog } from '../dialog/WindowDialog';
 import { readEditorTreePaneState, saveEditorTreePaneState } from '../../hooks/windowStateStorage.ts';
@@ -85,15 +86,6 @@ const ACTIONS_STYLE: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '4px',
-};
-
-const BADGE_STYLE: CSSProperties = {
-  padding: '1px 6px',
-  borderRadius: '3px',
-  background: '#4a3a12',
-  color: '#f0d9a0',
-  fontSize: '11px',
-  whiteSpace: 'nowrap',
 };
 
 /**
@@ -634,16 +626,18 @@ export function EditorWindow({
     onToggle: () => setPaneOpen(paneCollapsed),
   }), [paneCollapsed, paneMounted, setPaneOpen]);
 
-  // Dark mode reaches the tab bar and the tree pane too (FR-MDE-020 AC-9).
+  // Dark mode reaches the tab bar and the tree pane too (FR-MDE-020 AC-9):
+  // in light the tab bar, the splitter and the pane stand on the paper surface
+  // beside the white document, and in dark they keep the chrome tokens.
   const [theme] = useEditorTheme();
   const paneSurface = theme === 'light' ? 'paper' : undefined;
 
   const titlebarActions = (
     <div ref={actionsRef} style={ACTIONS_STYLE} className="editor-window-actions">
       {activeTabClosed && (
-        <span style={BADGE_STYLE} title="결속된 탭이 닫혀 저장할 수 없습니다">
+        <Chip tone="warn" title="결속된 탭이 닫혀 저장할 수 없습니다">
           저장 불가
-        </span>
+        </Chip>
       )}
       <IconButton
         icon="save"
@@ -723,6 +717,7 @@ export function EditorWindow({
         <div className="editor-window-documents">
           <div
             className="editor-tab-bar-host"
+            data-surface={paneSurface}
             onContextMenu={handleTabBarContextMenu}
             onTouchStart={handleTabBarTouchStart}
             onTouchMove={moveWindowMenuLongPress}

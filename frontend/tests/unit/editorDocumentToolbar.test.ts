@@ -137,14 +137,18 @@ test('TC-REQ-FR-MDE-020-AC7-01: clicking the path copies the full path and shows
   const src = read('EditorDocumentToolbar.tsx');
   assert.match(src, /clipboard\??\.writeText\(filePath\)/);
   assert.match(src, /editor-document-path/);
-  assert.match(src, /title=\{copied \? 'Copied!' : filePath\}/);
+  assert.match(src, /title=\{copied \? COPIED_TITLE : filePath\}/);
   // Same as the session path at the bottom (MetadataRow): the label itself
-  // reads '✓ Copied' for 1.5s, then the path comes back.
-  assert.match(src, /'✓ Copied'/);
+  // reads '✓ 복사됨' for 1.5s, then the path comes back; the tooltip reads
+  // '복사됨' meanwhile (FR-UIDS-003 AC-1 moved both off 'Copied').
+  assert.match(src, /COPIED_LABEL = '✓ 복사됨'/);
+  assert.match(src, /COPIED_TITLE = '복사됨'/);
   assert.match(src, /1500/);
-  assert.doesNotMatch(src, /복사됨/);
+  assert.doesNotMatch(src, /'✓ Copied'|'Copied!'/);
   const metadata = readFileSync(resolve(testDir, '../../src/components/MetadataBar/MetadataRow.tsx'), 'utf8');
-  assert.match(metadata, /'✓ Copied'/, 'the session path still uses the same label');
+  assert.match(metadata, /'✓ 복사됨'/, 'the session path uses the same label');
+  assert.match(metadata, /title=\{copied \? '복사됨'/, 'the session path uses the same tooltip');
+  assert.doesNotMatch(metadata, /'✓ Copied'|'Copied!'/);
 });
 
 // TC-REQ-FR-MDE-020-AC8-01

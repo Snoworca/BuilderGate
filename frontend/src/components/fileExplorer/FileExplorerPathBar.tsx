@@ -4,6 +4,7 @@
 // '↑' is enabled by canGoUp alone — whether the server listed a '..' — and a
 // refused listing is reported here, never corrected: the root stays where it
 // was and the server's message is shown (SEC-FOP-001 AC-5).
+import { IconButton } from '../common';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
 import type { FileTreeMode } from './fileTreeState.ts';
 import { canGoUp } from './fileTreeState.ts';
@@ -28,18 +29,17 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
         {PATH_BAR_CONTROLS.map((control) => {
           switch (control) {
             case 'up':
+              // The shared set has no upward glyph, so the downward chevron is
+              // drawn turned over (.fx-up-button in FileExplorer.css).
               return (
-                <button
+                <IconButton
                   key={control}
-                  type="button"
-                  className="fx-bar-button"
-                  aria-label="상위 폴더"
-                  title="상위 폴더"
+                  icon="chevron-down"
+                  className="fx-bar-button fx-up-button"
+                  label="상위 폴더"
                   disabled={!canGoUp(state) || state.pendingRoot !== null}
                   onClick={() => void tree.goUp()}
-                >
-                  ↑
-                </button>
+                />
               );
             case 'path':
               return (
@@ -48,44 +48,37 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
                 </span>
               );
             case 'mode':
+              // The drawing is the view the button switches to: rules for the
+              // list, a folder for the tree.
               return (
-                <button
+                <IconButton
                   key={control}
-                  type="button"
+                  icon={nextMode === 'list' ? 'menu' : 'folder'}
                   className="fx-bar-button fx-mode-toggle"
-                  aria-label={nextMode === 'list' ? '목록으로 보기' : '트리로 보기'}
-                  title={nextMode === 'list' ? '목록으로 보기' : '트리로 보기'}
+                  label={nextMode === 'list' ? '목록으로 보기' : '트리로 보기'}
                   onClick={() => setMode(nextMode)}
-                >
-                  {nextMode === 'list' ? '☰' : '⊢'}
-                </button>
+                />
               );
             case 'refresh':
               return (
-                <button
+                <IconButton
                   key={control}
-                  type="button"
+                  icon="refresh"
                   className="fx-bar-button"
-                  aria-label="새로 읽기"
-                  title="새로 읽기"
+                  label="새로 읽기"
                   onClick={() => void tree.refresh(state.root)}
-                >
-                  ⟳
-                </button>
+                />
               );
             case 'newdir':
               return (
-                <button
+                <IconButton
                   key={control}
-                  type="button"
+                  icon="plus"
                   className="fx-bar-button"
-                  aria-label="새 폴더"
-                  title="새 폴더"
+                  label="새 폴더"
                   disabled={onNewDirectory === undefined}
                   onClick={onNewDirectory}
-                >
-                  +
-                </button>
+                />
               );
           }
         })}

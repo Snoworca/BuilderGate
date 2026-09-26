@@ -5,8 +5,8 @@ test.describe('Settings 2FA QR refresh', () => {
   test('TC-7301: saving account name should refresh the TOTP QR URI immediately', async ({ page }) => {
     await login(page);
 
-    await page.getByTitle('Settings').click();
-    await expect(page.getByRole('heading', { name: 'Runtime Settings' })).toBeVisible();
+    await page.getByTitle('설정', { exact: true }).click();
+    await expect(page.getByRole('heading', { name: '설정', exact: true })).toBeVisible();
 
     const saveButton = page.getByTestId('settings-save-button');
     const enabledCheckbox = page.getByTestId('twofactor-enabled');
@@ -44,7 +44,7 @@ test.describe('Settings 2FA QR refresh', () => {
           if (restorable) {
             await saveButton.click();
             await expect(saveButton).toBeDisabled({ timeout: 5000 });
-            await expect(saveButton).toHaveText('Save Settings', { timeout: 15000 });
+            await expect(saveButton).toHaveText('설정 저장', { timeout: 15000 });
             if (originalEnabled) {
               await expect(qrUri).toContainText(originalAccountName, { timeout: 15000 });
             } else {
