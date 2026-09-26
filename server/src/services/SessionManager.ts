@@ -329,6 +329,14 @@ const AI_TUI_BUSY_GRACE_MS = 1500;
 const AI_TUI_REPAINT_KEEPALIVE_WINDOW_MS = 3000;
 // An elapsed timer redrawn in place ("12s", " 5.2s", "01m05s", "3:07"): all of
 // Claude Code, Codex (animations off) and Hermes show one only while working.
+// FR-AITUI-010 AC-9/AC-10, the rule Orca applies when it has no hook for a pane
+// (orca src/shared/agent-title-core.ts): a braille or quarter-circle glyph in
+// the title means working (Claude Code 2.1.228+ animates ◐◑◒◓, Codex braille),
+// a title starting with ✳ means Claude Code is idle. A working title stays
+// evidence for this long (Orca's stale-working-title timeout).
+const AI_TUI_TITLE_WORKING_RE = /[\u2800-\u28ff\u25d0-\u25d3]/;
+const AI_TUI_TITLE_IDLE_RE = /^\s*\u2733/;
+const AI_TUI_TITLE_WORKING_FRESH_MS = 3000;
 const AI_TUI_ELAPSED_TICK_RE = /^(?:\d+(?:\.\d+)?[smh]?|\d{1,2}:\d{2}(?::\d{2})?|\d+m ?\d{1,2}s)$/;
 const AI_TUI_CURSOR_MOTION_RE = /\x1b\[[0-9;?]*[ABCDHJKfhlmnpsu]/;
 const SHELL_INTEGRATION_ROOT_ENV_KEY = 'BUILDERGATE_SHELL_INTEGRATION_ROOT';
@@ -941,6 +949,9 @@ interface SessionData {
   aiTuiLaunchAttempt?: AiTuiLaunchAttempt;
   /** FR-AITUI-010: when the AI TUI last wrote something that was not a mere repaint. */
   lastAiTuiBusyOutputAt?: number;
+  /** FR-AITUI-010 AC-9/AC-10: what the AI TUI's window title last said. */
+  aiTuiTitleState?: 'working' | 'idle';
+  lastAiTuiTitleWorkingAt?: number;
   expectShellPromptAfterAiTuiFailure?: boolean;
   lastSubmittedCommand?: string;
   foregroundStartedAt?: number;
@@ -1525,7 +1536,9 @@ export class SessionManager {
 
     terminalTitleDetector.setCallback((event) => {
       const current = this.sessions.get(id);
-      if (current !== sessionData || sessionData.lastReportedTerminalTitle === event.title) return;
+      if (current !== sessionData) return;
+      this.observeAiTuiTitle(id, sessionData, event.rawTitle);
+      if (sessionData.lastReportedTerminalTitle === event.title) return;
       sessionData.lastReportedTerminalTitle = event.title;
       this.terminalTitleChangeCallback?.(id, event.title);
     });
@@ -1580,7 +1593,8 @@ export class SessionManager {
         const observationKeptAlive = observation !== null
           && observation.activity === 'repaint_only'
           && isInteractiveAiAppId(observation.appId)
-          && this.keepAiTuiBusyAlive(id, sData, 'detector', isAiTuiElapsedTick(statusData, getNormalizedStatusData()));
+          && (getNormalizedStatusData().trim() === ''
+            || this.keepAiTuiBusyAlive(id, sData, 'detector', isAiTuiElapsedTick(statusData, getNormalizedStatusData())));
         if (observation && !observationKeptAlive) {
           this.applyForegroundObservation(id, observation);
         }
@@ -1605,7 +1619,11 @@ export class SessionManager {
               const isLaunchEcho = this.isEchoOutput(sData, statusData)
                 || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand, getNormalizedStatusData());
               const signal = this.classifyAiTuiOutputSignal(sData, statusData, getNormalizedStatusData());
-              if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'osc133', isAiTuiElapsedTick(statusData, getNormalizedStatusData()))) {
+              if (getNormalizedStatusData().trim() === '') {
+                // FR-AITUI-010 AC-8: nothing printable (Claude Code sends a bare colour
+                // reset after every frame) says nothing about the agent; it used to
+                // cancel the pending running transition before it could fire.
+              } else if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'osc133', isAiTuiElapsedTick(statusData, getNormalizedStatusData()))) {
                 // FR-AITUI-010 AC-1: spinner/timer repaints of a running AI TUI.
               } else if (signal === 'waiting_input' || signal === 'repaint_only') {
                 this.beginForegroundActivity(id, signal, `osc133_ai_tui_${signal}`);
@@ -1666,7 +1684,11 @@ export class SessionManager {
                     const isLaunchEcho = this.isEchoOutput(sData, statusData)
                       || isLikelyCommandEchoOutput(statusData, sData.lastSubmittedCommand, getNormalizedStatusData());
                     const signal = this.classifyAiTuiOutputSignal(sData, statusData, getNormalizedStatusData());
-                    if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'heuristic', isAiTuiElapsedTick(statusData, getNormalizedStatusData()))) {
+                    if (getNormalizedStatusData().trim() === '') {
+                      // FR-AITUI-010 AC-8: nothing printable (Claude Code sends a bare colour
+                      // reset after every frame) says nothing about the agent; it used to
+                      // cancel the pending running transition before it could fire.
+                    } else if (signal === 'repaint_only' && this.keepAiTuiBusyAlive(id, sData, 'heuristic', isAiTuiElapsedTick(statusData, getNormalizedStatusData()))) {
                       // FR-AITUI-010 AC-1: spinner/timer repaints of a running AI TUI.
                     } else if (signal === 'waiting_input' || signal === 'repaint_only') {
                       this.beginForegroundActivity(id, signal, `heuristic_ai_tui_${signal}`);
@@ -1808,6 +1830,14 @@ export class SessionManager {
   /** FR-AITUI-010 AC-2: a busy AI TUI gets the longer grace; a plain shell does not. */
   private idleDelayFor(data: SessionData): number {
     const base = this.runtimeSessionConfig.idleDelayMs;
+    // AC-10: the title already says idle; do not hold on.
+    if (data.aiTuiTitleState === 'idle') return base;
+    // AC-9: a fresh working title holds for Orca's 3 s; the title changes about
+    // once a second while the agent works, pushing this back each time.
+    if (data.aiTuiTitleState === 'working'
+      && Date.now() - (data.lastAiTuiTitleWorkingAt ?? 0) < AI_TUI_TITLE_WORKING_FRESH_MS) {
+      return Math.max(base, AI_TUI_TITLE_WORKING_FRESH_MS);
+    }
     const state = data.derivedState;
     // AC-5: an agent known only through its recovery option (e.g. `claudep`)
     // counts too, as it does for isInteractiveForeground.
@@ -1818,6 +1848,37 @@ export class SessionManager {
   }
 
   /**
+   * FR-AITUI-010 AC-9/AC-10: the AI TUI's window title. A spinner glyph starts
+   * or keeps running at once; ✳ lets it go idle after the short idleDelayMs,
+   * which a working title arriving in the meantime cancels (Claude Code shows
+   * ✳ for a few ms between steps). Only for a session already known to be an
+   * AI screen, so a shell tool's spinner title changes nothing.
+   */
+  private observeAiTuiTitle(id: string, data: SessionData, rawTitle: string): void {
+    const state = AI_TUI_TITLE_IDLE_RE.test(rawTitle)
+      ? 'idle'
+      : AI_TUI_TITLE_WORKING_RE.test(rawTitle) ? 'working' : null;
+    if (!state) return;
+    const derived = this.ensureDerivedState(data);
+    if (!this.isInteractiveForeground(data, derived)) return;
+    data.aiTuiTitleState = state;
+    this.captureDebugEvent(id, 'detector', `ai_tui_title_${state}`, {});
+    if (state === 'working') {
+      const now = Date.now();
+      data.lastAiTuiTitleWorkingAt = now;
+      data.lastAiTuiBusyOutputAt = now;
+      if (data.session.status !== 'running' || derived.activity !== 'busy') {
+        this.cancelPendingRunningTransition(data);
+        this.updateDerivedState(id, 'ai_tui_title_working', (next) => {
+          next.ownership = 'foreground_app';
+          next.activity = 'busy';
+        });
+      }
+    }
+    this.scheduleIdleTransition(id);
+  }
+
+  /**
    * FR-AITUI-010 AC-1/AC-3: a repaint of an AI TUI that is already running,
    * shortly after its last busy output, is the spinner turning, so it pushes
    * the idle timer back. It never starts running on its own, and it leaves the
@@ -1825,6 +1886,7 @@ export class SessionManager {
    */
   private keepAiTuiBusyAlive(id: string, data: SessionData, mode: string, elapsedTick = false): boolean {
     if (data.session.status !== 'running') return false;
+    if (data.aiTuiTitleState === 'idle') return false;
     // AC-6: a ticking elapsed timer is work in progress, not a mere repaint.
     if (elapsedTick) data.lastAiTuiBusyOutputAt = Date.now();
     const sinceBusy = Date.now() - (data.lastAiTuiBusyOutputAt ?? 0);
@@ -2128,6 +2190,8 @@ export class SessionManager {
     delete data.expectShellPromptAfterAiTuiFailure;
     delete data.lastSubmittedCommand;
     delete data.recoveryForegroundCommand;
+    delete data.aiTuiTitleState;
+    delete data.lastAiTuiTitleWorkingAt;
     data.foregroundStartedAt = undefined;
     this.cancelPendingRunningTransition(data);
     this.ensureForegroundDetectorRegistry(data).reset();

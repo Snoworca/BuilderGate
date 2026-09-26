@@ -228,6 +228,104 @@ test('FR-AITUI-010 AC-7: a Hermes status repaint keeps a running Hermes session 
   }
 });
 
+/**
+ * Captured 2026-09-27 from a real Claude Code (claudep alias) session on 2222
+ * with the server's debug capture: every ~110 ms a spinner frame, and ~20 ms
+ * later a separate 3-byte chunk that only resets the colour. That empty chunk
+ * was classified repaint_only and cancelled the pending running transition, so
+ * a session that was visibly working never became running.
+ */
+const REAL_CLAUDE_FRAMES = [
+  '\x1b[?25l\x1b[38;2;215;119;87m\x1b[87;1H\u2736\x1b[38;2;153;153;153m\x1b[21C9\x1b[91;3H\x1b[?25h',
+  '\x1b[?25l\x1b[38;2;215;119;87m\x1b[87;1H\u273B\x1b[38;2;235;159;127m\x1b[8Cg\x1b[38;2;153;153;153m\x1b[3C8\x1b[7C21\x1b[91;3H\x1b[?25h',
+  '\x1b[?25l\x1b[38;2;153;153;153m\x1b[87;23H2\x1b[91;3H\x1b[?25h',
+  '\x1b[?25l\x1b[38;2;215;119;87m\x1b[87;1H\u273D\x1b[38;2;235;159;127m\x1b[7Cn\x1b[38;2;153;153;153m\x1b[13C4\x1b[91;3H\x1b[?25h',
+  '\x1b[?25l\x1b[38;2;235;159;127m\x1b[87;8Hi\x1b[38;2;215;119;87m\x1b[2C\u2026\x1b[38;2;153;153;153m\x1b[10C35\x1b[91;3H\x1b[?25h',
+  '\x1b[?25l\x1b[38;2;215;119;87m\x1b[87;1H\u00B7\x1b[38;2;235;159;127m\x1b[2Cn\x1b[38;2;215;119;87m\x1b[2Cs\x1b[38;2;153;153;153m\x1b[15C2\x1b[91;3H\x1b[?25h',
+];
+const SGR_RESET = '\x1b[m';
+
+test('FR-AITUI-010 AC-8: the real Claude Code frame stream, each frame followed by a colour reset, reaches and holds running', async () => {
+  const harness = createHarness();
+  try {
+    harness.manager.writeInput(harness.id, 'claudep\r');
+    harness.manager.markRecoveryCommandForeground(harness.id, 'claudep');
+    await delay(60);
+    const samples: string[] = [];
+    for (let frame = 0; frame < 30; frame += 1) {
+      harness.emit(REAL_CLAUDE_FRAMES[frame % REAL_CLAUDE_FRAMES.length]);
+      await delay(20);
+      harness.emit(SGR_RESET);
+      await delay(90);
+      if (frame >= 6) samples.push(String(harness.status()));
+    }
+    console.log(`[ai-busy] real claude stream samples=${samples.join(',')}`);
+    assert.deepEqual(samples, Array(samples.length).fill('running'), 'running within ~0.7 s and held while frames keep coming');
+  } finally {
+    harness.cleanup();
+  }
+});
+
+const TITLE = (text: string) => `\x1b]0;${text}\x07`;
+
+test('FR-AITUI-010 AC-9: a spinner in the terminal title keeps an AI session running with no other output', async () => {
+  // Claude Code 2.1.228+ animates ◐◑◒◓ in the window title while it works (seen
+  // on 2222: ◐/◑ alternating about once a second) and shows ✳ when idle; Orca
+  // reads the same glyphs when it has no hook for the pane.
+  const harness = createHarness();
+  try {
+    harness.manager.writeInput(harness.id, 'claudep\r');
+    harness.manager.markRecoveryCommandForeground(harness.id, 'claudep');
+    await delay(60);
+    const samples: string[] = [];
+    for (let second = 0; second < 5; second += 1) {
+      harness.emit(TITLE(`${second % 2 === 0 ? '\u25D0' : '\u25D1'} 프로젝트 목적 확인`));
+      await delay(950);
+      samples.push(String(harness.status()));
+    }
+    console.log(`[ai-busy] title spinner samples=${samples.join(',')}`);
+    assert.deepEqual(samples, Array(5).fill('running'));
+  } finally {
+    harness.cleanup();
+  }
+});
+
+test('FR-AITUI-010 AC-10: an idle title (✳) ends running promptly, and a brief ✳ between working titles does not', async () => {
+  const harness = createHarness();
+  try {
+    harness.manager.writeInput(harness.id, 'claudep\r');
+    harness.manager.markRecoveryCommandForeground(harness.id, 'claudep');
+    harness.emit(TITLE('\u25D0 task'));
+    await delay(50);
+    assert.equal(harness.status(), 'running');
+    // Seen on 2222: ✳ for ~13 ms, then the spinner again.
+    harness.emit(TITLE('\u2733 task'));
+    await delay(15);
+    harness.emit(TITLE('\u25D1 task'));
+    await delay(400);
+    assert.equal(harness.status(), 'running', 'a flicker of ✳ mid-work is not the end');
+    harness.emit(TITLE('\u2733 task'));
+    await delay(400);
+    assert.equal(harness.status(), 'idle', 'the idle title ends running without waiting out the grace');
+  } finally {
+    harness.cleanup();
+  }
+});
+
+test('FR-AITUI-010 AC-9: a spinner title in a plain shell does not make it running', async () => {
+  const harness = createHarness();
+  try {
+    harness.manager.writeInput(harness.id, 'npm install\r');
+    await delay(100);
+    const before = harness.status();
+    harness.emit(TITLE('\u280B npm install'));
+    await delay(300);
+    assert.equal(harness.status(), before, 'titles only count for an AI screen');
+  } finally {
+    harness.cleanup();
+  }
+});
+
 test('FR-AITUI-010 AC-2: a plain shell keeps the short idleDelayMs', async () => {
   const harness = createHarness();
   try {
