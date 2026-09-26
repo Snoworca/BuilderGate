@@ -222,11 +222,12 @@ function AppContent() {
     }
   }, []);
 
-  const handleConfirmDeleteWorkspace = useCallback(async () => {
-    if (pendingDeleteWorkspace) {
-      await wmRef.current.deleteWorkspace(pendingDeleteWorkspace);
-      setPendingDeleteWorkspace(null);
-    }
+  const handleConfirmDeleteWorkspace = useCallback(() => {
+    if (!pendingDeleteWorkspace) return;
+    // PERF-BGSTAB-015 AC-2: the dialog closes at once; the workspace leaves the
+    // screen before the server has closed its terminals.
+    setPendingDeleteWorkspace(null);
+    void wmRef.current.deleteWorkspace(pendingDeleteWorkspace);
   }, [pendingDeleteWorkspace]);
 
   const handleRenameWorkspace = useCallback((id: string, name: string) => {

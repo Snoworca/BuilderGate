@@ -7,8 +7,16 @@ import {
   clearMosaicLayoutForWorkspace,
   pruneMosaicLayoutForDeletedTab,
   pruneMosaicLayoutForMovedTab,
+  releaseMosaicLayoutSaveSuppression,
+  suppressMosaicLayoutSaveForWorkspace,
 } from './mosaicLayoutStorage';
 import { resolveActiveWorkspaceAfterRemoval } from './workspaceActiveSelection';
+import {
+  restoreRemovedGridLayouts,
+  restoreRemovedTabs,
+  restoreRemovedWorkspace,
+  snapshotWorkspaceRemoval,
+} from './workspaceRemoval';
 import {
   applyMoveTabResultToTabs,
   applyTabReorderResultToTabs,
@@ -421,29 +429,40 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   }, []);
 
   const deleteWorkspace = useCallback(async (id: string) => {
+    // PERF-BGSTAB-015 AC-2/AC-3: the workspace leaves the screen at once, since
+    // the server takes seconds to close its terminals, and comes back as it was
+    // if the server refuses.
+    const removal = snapshotWorkspaceRemoval(workspaces, tabs, gridLayouts, id, activeWorkspaceIdRef.current);
+    suppressMosaicLayoutSaveForWorkspace(id);
+    setWorkspaces(prev => {
+      const next = prev.filter(w => w.id !== id);
+      const nextActiveWorkspaceId = resolveActiveWorkspaceAfterRemoval(
+        activeWorkspaceIdRef.current,
+        id,
+        next,
+      );
+      if (nextActiveWorkspaceId !== undefined) {
+        setActiveWorkspaceIdAndPersist(nextActiveWorkspaceId);
+      }
+      return next;
+    });
+    setTabs(prev => prev.filter(t => t.workspaceId !== id));
+    setGridLayouts(prev => prev.filter(g => g.workspaceId !== id));
     try {
-      const removedTabs = tabs.filter(t => t.workspaceId === id);
       await workspaceApi.delete(id);
       clearMosaicLayoutForWorkspace(id);
-      setWorkspaces(prev => {
-        const next = prev.filter(w => w.id !== id);
-        const nextActiveWorkspaceId = resolveActiveWorkspaceAfterRemoval(
-          activeWorkspaceIdRef.current,
-          id,
-          next,
-        );
-        if (nextActiveWorkspaceId !== undefined) {
-          setActiveWorkspaceIdAndPersist(nextActiveWorkspaceId);
-        }
-        return next;
-      });
-      setTabs(prev => prev.filter(t => t.workspaceId !== id));
-      setGridLayouts(prev => prev.filter(g => g.workspaceId !== id));
-      clearWorkspaceSnapshots(removedTabs, id);
+      clearWorkspaceSnapshots(removal.tabs, id);
     } catch (err: unknown) {
+      releaseMosaicLayoutSaveSuppression(id);
+      setWorkspaces(prev => restoreRemovedWorkspace(prev, removal));
+      setTabs(prev => restoreRemovedTabs(prev, removal));
+      setGridLayouts(prev => restoreRemovedGridLayouts(prev, removal));
+      if (removal.wasActive) {
+        setActiveWorkspaceIdAndPersist(id);
+      }
       setError(getErrorMessage(err));
     }
-  }, [setActiveWorkspaceIdAndPersist, tabs]);
+  }, [gridLayouts, setActiveWorkspaceIdAndPersist, tabs, workspaces]);
 
   const reorderWorkspaces = useCallback(async (workspaceIds: string[]) => {
     try {

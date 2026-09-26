@@ -270,6 +270,9 @@ const SCREEN_REPAIR_HEADLESS_POLL_INTERVAL_MS = 10;
 const DEFAULT_RUNNING_DELAY_MS = 250;
 const CLEANUP_RECENT_RESULTS_LIMIT = 64;
 const CLEANUP_DEDUP_SESSION_LIMIT = 4096;
+// PERF-BGSTAB-015: a whole default workspace (maxTabsPerWorkspace 8) at once;
+// shutdown of many workspaces still starts no more than eight PowerShells.
+const SESSION_BATCH_TERMINATION_CONCURRENCY = 8;
 const RETAINED_SHADOW_COMPARISON_DEBOUNCE_MS = 16;
 const RETAINED_SHADOW_COMPARISON_BUSY_RETRY_MS = 50;
 const RETAINED_SHADOW_COMPARISON_MIN_INTERVAL_MS = 5_000;
@@ -4372,26 +4375,51 @@ export class SessionManager {
       waitMs?: number;
     },
   ): Promise<SessionBatchTerminationResult> {
+    // PERF-BGSTAB-015 AC-1: the terminations share nothing, and on Windows each
+    // one costs about two seconds of PowerShell, so running them one after
+    // another made a workspace delete wait once per tab. Outcomes are kept by
+    // input index so the result does not follow completion order.
+    const outcomes: Array<{ ok: boolean; verified: number; unverified: number }> = new Array(ids.length);
+    let next = 0;
+    const worker = async (): Promise<void> => {
+      while (next < ids.length) {
+        const index = next;
+        next += 1;
+        const id = ids[index];
+        const ok = await this.terminateSession(id, options);
+        let verified = 0;
+        let unverified = 0;
+        if (ok) {
+          // Read straight after this session's own finalize: at most
+          // SESSION_BATCH_TERMINATION_CONCURRENCY - 1 other results can land in
+          // between, far below CLEANUP_RECENT_RESULTS_LIMIT.
+          for (let at = this.cleanupTelemetry.recentResults.length - 1; at >= 0; at -= 1) {
+            const result = this.cleanupTelemetry.recentResults[at];
+            if (result.sessionId === id) {
+              verified = normalizeRemainingDescendants(result.verifiedRemainingDescendants);
+              unverified = normalizeRemainingDescendants(result.unverifiedRemainingDescendants);
+              break;
+            }
+          }
+        }
+        outcomes[index] = { ok, verified, unverified };
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(SESSION_BATCH_TERMINATION_CONCURRENCY, ids.length) }, worker));
+
     let terminated = 0;
     let remainingVerifiedDescendants = 0;
     let remainingUnverifiedDescendants = 0;
     const missing: string[] = [];
-    for (const id of ids) {
-      const ok = await this.terminateSession(id, options);
-      if (ok) {
+    outcomes.forEach((outcome, index) => {
+      if (outcome.ok) {
         terminated += 1;
-        for (let index = this.cleanupTelemetry.recentResults.length - 1; index >= 0; index -= 1) {
-          const result = this.cleanupTelemetry.recentResults[index];
-          if (result.sessionId === id) {
-            remainingVerifiedDescendants += normalizeRemainingDescendants(result.verifiedRemainingDescendants);
-            remainingUnverifiedDescendants += normalizeRemainingDescendants(result.unverifiedRemainingDescendants);
-            break;
-          }
-        }
+        remainingVerifiedDescendants += outcome.verified;
+        remainingUnverifiedDescendants += outcome.unverified;
       } else {
-        missing.push(id);
+        missing.push(ids[index]);
       }
-    }
+    });
     return {
       attempted: ids.length,
       terminated,
