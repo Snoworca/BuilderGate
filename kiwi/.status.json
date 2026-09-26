@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-26T02:24:58.981Z",
+  "generatedAt": "2026-09-26T06:48:08.764Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "8eb6db756c6294000a0b27bdbb12ba002d51d13fd8b6a55e30d928c1539bbfa7",
+    "value": "dd93233a09533e6ed714f205fb9da597af1a185aaa63ae329ee6a51ea60de011",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "f7d7a39dc7d2d481b48cd2ce4d4f40a7aa025305c6e015663c774f2782e58037",
-        "size": 7284,
-        "mtimeMs": 1790355946318.257
+        "sha256": "20f96278a2b5a987f51055fe41641502734e50e32b6d6a726587480717ffd790",
+        "size": 8050,
+        "mtimeMs": 1790402780444.252
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -55,6 +55,12 @@
         "mtimeMs": 1790208164472.549
       },
       {
+        "path": "docs/spec/44.ui-design-system.srs.md",
+        "sha256": "d8e7e5ad0c16a9378457a3d7e2c3dd276b2d7728c6bfbfe424b9d19e5be74dfb",
+        "size": 16324,
+        "mtimeMs": 1790405281372.8015
+      },
+      {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
@@ -70,13 +76,15 @@
       "MCP": 6,
       "MDE": 23,
       "FEX": 12,
-      "FOP": 5
+      "FOP": 5,
+      "UIDS": 4
     },
     "constraint": {
       "ARCH": 1,
       "BGSTAB": 1,
       "MDE": 2,
-      "FEX": 1
+      "FEX": 1,
+      "UIDS": 1
     },
     "security": {
       "AITUI": 2,
@@ -107,6 +115,9 @@
       "MCP": 5,
       "MDE": 3,
       "FOP": 2
+    },
+    "non_functional": {
+      "UIDS": 1
     }
   },
   "lock": {
