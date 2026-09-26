@@ -1,0 +1,19 @@
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-024 the production WsRouter construction withholds the configured transport mode (4.008872ms)
+✔ REL-BGSTAB-024 the existing test-runner assertion that pins the omission is still present (8.21633ms)
+✔ REL-BGSTAB-024 the configured transport mode still reaches production on two non-routing paths (6.259678ms)
+✔ REL-BGSTAB-024 a router built the way production builds it resolves to unified (2.428432ms)
+✔ REL-BGSTAB-024 split survives as a standalone capability when the router is constructed with it (0.323395ms)
+✔ REL-BGSTAB-024 the browser and the server disagree on the transport query parameter name (8.680551ms)
+✔ REL-BGSTAB-024 the canonical transport parser is absent from the production upgrade path (4.981431ms)
+✔ REL-BGSTAB-024 the binary wire format is eligible only on the unified transport (0.247633ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1743.618801

@@ -1,0 +1,9 @@
+CONTROL  checkpoint-open: begin={"accepted":true}
+CONTROL  accepted=0 firstReject=checkpoint-authority-conflict  (cap would fire at chunks>1024 or bytes>1048576 i.e. ~256 writes)
+CONTROL  FIRED=true
+SUBJECT  rollback={"accepted":true} state={"viewGeneration":8,"ready":false,"disposed":false,"writeInFlight":false,"pendingCommands":0,"pendingInputs":0,"pendingInputBytes":0,"settlementLedgerEntries":0,"inputSettlementLedgerEntries":0,"recoveryRequired":false,"compatibilityRecoveryPending":true,"runtimeRecreationRequired":false}
+SUBJECT  AC-12(i) live-before-snapshot={"accepted":false,"reason":"settlement-ledger-overflow"} events=["recovery:settlement-ledger-overflow"]
+SUBJECT  accepted=0 firstReject=recovery-required
+SUBJECT  pendingCommands=0 writeInFlight=false adapterWriteCalls=0
+SUBJECT  retainedBytes=0 (=0.0 MiB) vs declared byte cap 1048576 and chunk cap 1024
+SUBJECT  CAP_FIRED=true

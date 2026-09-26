@@ -1,0 +1,1 @@
+{ "git": true, "gh_needed": false, "regression_env": "node:test via npx tsx --test, cwd=server/", "halted": false }

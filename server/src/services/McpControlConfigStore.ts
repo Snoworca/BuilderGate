@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { publishStoreAtomically } from '../utils/atomicStoreWrite.js';
 import {
   isMcpFixedAccessKeyHash,
   validateMcpSecurityConfig,
@@ -64,14 +65,16 @@ export function createMcpControlConfigFileStore(options: McpControlConfigStoreOp
         if (validation.ok === false) {
           return validation;
         }
-        await fs.mkdir(path.dirname(dataFilePath), { recursive: true });
-        const tempPath = `${dataFilePath}.${process.pid}.${Date.now()}.tmp`;
-        await fs.writeFile(tempPath, JSON.stringify({
+        // @req REL-BGSTAB-022 — this store already named its temp file per
+        // instance, which is why it never produced issue #24's crash. What it
+        // did not have is the retry for destination contention, which a private
+        // temp name does not prevent. It has never written a backup and does not
+        // start now.
+        await publishStoreAtomically(dataFilePath, JSON.stringify({
           version: 1,
           config: sanitized,
           updatedAt: new Date().toISOString(),
-        }, null, 2), { encoding: 'utf-8', mode: 0o600 });
-        await fs.rename(tempPath, dataFilePath);
+        }, null, 2), { writeBackup: false, ensureDirectory: true });
         return { ok: true, path: dataFilePath, config: sanitized };
       });
       saveQueue = operation.then(() => undefined, () => undefined);

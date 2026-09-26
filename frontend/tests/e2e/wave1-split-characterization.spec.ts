@@ -385,7 +385,7 @@ test.describe('Wave 1 split characterization RED contracts', () => {
     });
 
     page.on('websocket', (socket: PlaywrightWebSocket) => {
-      const captured = {
+      const captured: CapturedProductionSocket = {
         url: socket.url(),
         connectedClientId: null,
         pongCount: 0,

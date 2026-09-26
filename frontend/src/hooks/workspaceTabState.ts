@@ -112,3 +112,59 @@ export function applyMoveTabResultToTabs(
     return tab;
   });
 }
+
+/**
+ * Issue #108: whether a tab that arrived over `tab:added` should become the workspace's active
+ * tab.
+ *
+ * The local creation path sets `activeTabId` itself; the broadcast handler did not, so a tab
+ * created out of band -- by another client, by the API, by an agent orchestrating sessions --
+ * appeared in the tab bar while the workspace still had no active tab, and no terminal host was
+ * mounted for it. Measured: twelve seconds with every `.terminal-view` at 0x0, a tab button
+ * drawn, a live session behind it, and nothing on screen. Selecting the tab mounted it at once.
+ *
+ * Adoption is deliberately narrow. Taking over whenever a tab arrives would move a user who is
+ * working in another tab of that workspace, which is worse than the defect. It adopts only when
+ * the workspace has nothing active to lose: no active tab at all, or an active tab that is not
+ * among the tabs that exist.
+ */
+export function shouldAdoptRemoteTabAsActive(
+  workspace: { activeTabId?: string | null } | undefined,
+  tabsInWorkspace: readonly { id: string }[],
+): boolean {
+  if (!workspace) return false;
+  const activeTabId = workspace.activeTabId;
+  if (!activeTabId) return true;
+  return !tabsInWorkspace.some(tab => tab.id === activeTabId);
+}
+
+/**
+ * Issue #108: merge a freshly fetched tab list into the runtime tabs the client already holds.
+ *
+ * The client loads workspace state once on mount and then relies entirely on broadcasts. A
+ * broadcast that arrives while the socket is not open -- during the first connect, or across a
+ * reconnect -- is not queued anywhere, so the client's view silently diverges from the server
+ * until someone reloads the page. Measured: a workspace created over the API never appeared in
+ * the sidebar within 30 seconds, and a tab created the same way appeared without a terminal.
+ *
+ * Resyncing needs the server's list to win on membership while the runtime fields the server
+ * does not know about -- live status, the cwd the terminal reported -- survive for tabs that are
+ * still there. Dropping those would blank a running terminal's header on every reconnect, which
+ * is a worse defect than the one being fixed.
+ */
+export function mergeFetchedTabsIntoRuntime<
+  TStatus extends string,
+  TFetched extends { id: string; lastCwd?: string | null },
+  TRuntime extends { id: string; status: TStatus; cwd: string },
+>(fetched: readonly TFetched[], current: readonly TRuntime[]): Array<TFetched & { status: TStatus; cwd: string }> {
+  const byId = new Map(current.map(tab => [tab.id, tab]));
+  return fetched.map(tab => {
+    const existing = byId.get(tab.id);
+    return {
+      ...tab,
+      status: existing?.status ?? ('idle' as TStatus),
+      // The reported cwd outlives a reconnect; `lastCwd` is the server's persisted fallback.
+      cwd: existing?.cwd || tab.lastCwd || '',
+    };
+  });
+}

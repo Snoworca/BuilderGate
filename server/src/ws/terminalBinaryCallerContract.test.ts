@@ -5,7 +5,7 @@ import { test } from 'node:test';
 /**
  * SDS-AC-8 (FR-BGSTAB-024 AC-1, IR-BGSTAB-001 AC-4): static caller contract.
  * Comments are blanked first — a guard that reads prose as code fired twice on
- * 2026-09-21 (OPS-BGSTAB-011); the same discipline applies here.
+ * 2026-09-21 (OPS-BGSTAB-018); the same discipline applies here.
  */
 function blankComments(src: string): string {
   let out = '', st: string = 'code';

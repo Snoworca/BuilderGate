@@ -1,0 +1,12 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# command: npx tsc -p tsconfig.test.json --noEmit
+# note: tsc prints nothing on success, so the exit line below is the whole result
+# exit=0
+# command: npx eslint tests/e2e/wave2-screen-repair-resync.spec.ts playwright.external-server.config.ts
+# note: eslint prints nothing when there are 0 errors and 0 warnings
+# exit=0
+# command: npx tsc -p tsconfig.test.json --listFiles | grep wave2-screen-repair-resync.spec.ts
+/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts
+# exit=0
+# command: npx tsc -b
+# exit=0

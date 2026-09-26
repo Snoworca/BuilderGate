@@ -1,0 +1,77 @@
+# release gate with server/dist ABSENT — shows the pre-existing dist dependency
+# dist is moved aside and restored inside this script; git status is checked after
+dist moved aside
+
+> buildergate@0.5.4 test:release-pipeline
+> node --test tools/build-portable-runtime-evidence.test.mjs server/tools/canonical-authority-line-endings.test.mjs server/tools/owned-http-test-pipe-guard.test.cjs && npm --prefix server run test:authority-pin && npm --prefix server run test:retired-settings-residue
+
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (430.451758ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (104.064029ms)
+✔ OPS-BGSTAB-008 the bundle writer completes on this working tree (4157.305537ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (214.263656ms)
+✔ B0 listen guard self-check passes with the exact corpus it claims (69.463012ms)
+✔ the self-check actually drives the guard, counted from the guard own log (70.370248ms)
+✔ the self-check covers the platform branch this lane does not take (65.276592ms)
+✔ B0 listen guard refuses to load a kind that is not a regex literal (41.172042ms)
+✔ OPS-BGSTAB-009 accepts the bundle layout the evidence writer produces (49.34149ms)
+✔ OPS-BGSTAB-009 still runs the runtime canary against the artifact policy (49.402759ms)
+✔ OPS-BGSTAB-009 rejects a bundle the runtime canary refuses (46.451761ms)
+✔ OPS-BGSTAB-009 still requires exactly 15 raw evidence sidecars (19.852948ms)
+✔ OPS-BGSTAB-009 rejects a bundle with any required file removed (45.26786ms)
+✔ OPS-BGSTAB-009 rejects declared paths that resolve outside the evidence root (49.958708ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4998.516368
+
+> buildergate-server@0.1.0 test:authority-pin
+> tsx --test src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts
+
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OPS-BGSTAB-010 the published generation pins the sources on disk (33.807922ms)
+✖ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy (3.794741ms)
+✔ OPS-BGSTAB-010 altering one pinned byte breaks the digest equality (53.515926ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2612.71143
+
+✖ failing tests:
+
+test at src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts:1:2490
+✖ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy (3.794741ms)
+  AssertionError [ERR_ASSERTION]: server build must emit the compiled canary before this assertion means anything
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts:76:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+EXIT=1
+dist restored
+# git status --porcelain after restore:
+ M docs/analysis/2026-09-17.rg06-regression/00.decision-table.md
+ M docs/analysis/2026-09-17.rg06-regression/guard-mutation-battery.mjs
+ M docs/report/2026-09-17.rg06-full-server-regression.md
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-current-20260917T000220Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/release-pipeline-gate-nodist-20260917T000229Z.log

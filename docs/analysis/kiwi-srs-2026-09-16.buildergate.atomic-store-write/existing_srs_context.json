@@ -1,0 +1,90 @@
+{
+  "candidate_matches": [
+    {
+      "id": "REL-BGSTAB-020",
+      "scope": "docs/spec/30.buildergate-stability.srs.md",
+      "title": "Workspace store flush serializes across immediate, debounced and shutdown paths",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.75,
+      "why": "It fixes the exact same failure signature (ENOENT: rename 'workspaces.json.tmp' -> 'workspaces.json' from two writers sharing one fixed tmp path) but its serialization is an in-process promise chain inside flushToDisk/WorkspaceService, which cannot coordinate two separate OS processes sharing one checkout, so the new requirement's cross-process EPERM/ENOENT/interleave scenario is explicitly out of what this requirement's mechanism covers even though the requirement text never says so."
+    },
+    {
+      "id": "REL-BGSTAB-021",
+      "scope": "docs/spec/30.buildergate-stability.srs.md",
+      "title": "A rejected store write rolls back the session and the tab that addTab created",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.2,
+      "why": "This is about addTab's in-memory rollback behavior when a store write is rejected for any reason, not about the write mechanism itself or tmp-file naming/collision, so it is adjacent (same WorkspaceService, same store-write failure trigger) but does not touch atomicity or multi-instance concerns."
+    },
+    {
+      "id": "FR-AITUI-002",
+      "scope": "docs/spec/20.ai-tui-recovery.srs.md",
+      "title": "Recovery option persistence and validation",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.15,
+      "why": "Its AC-6 requires concurrent mutations to leave valid JSON with each mutation reflected exactly once, and its trace links explicitly cite CommandPresetService.ts:216-290 as the 'serialized mutation and atomic write pattern' to reuse, corroborating that the same fixed-tmp-path, per-process atomic-write pattern exists in a second store beyond workspaces.json, but it does not itself require or cover cross-instance safety."
+    }
+  ],
+  "relevant_scopes": [
+    "docs/spec/30.buildergate-stability.srs.md",
+    "docs/spec/20.ai-tui-recovery.srs.md"
+  ],
+  "no_match_reason": null,
+  "scope_boundary_items": [
+    {
+      "section": "§2 Out of Scope",
+      "text": "Making split WebSocket the default socket topology. This exclusion covers socket topology only and does not restrict the terminal data plane wire format, which is in scope.",
+      "collides": false
+    },
+    {
+      "section": "§2 Out of Scope",
+      "text": "Replacing xterm.js or the terminal rendering engine.",
+      "collides": false
+    },
+    {
+      "section": "§2 Out of Scope",
+      "text": "Changing AI TUI idle/running semantic invariants.",
+      "collides": false
+    },
+    {
+      "section": "§2 Out of Scope",
+      "text": "Using `https://localhost:2002` for agent-run validation.",
+      "collides": true
+    },
+    {
+      "section": "§2 Out of Scope",
+      "text": "Terminating all `node.exe` processes during validation.",
+      "collides": true
+    },
+    {
+      "section": "§3 Constraints",
+      "text": "The default WebSocket transport mode remains `unified`.",
+      "collides": false
+    },
+    {
+      "section": "§3 Constraints",
+      "text": "The terminal data plane wire format is controlled by `realtime.terminalWireFormat`, which is independent of `wsTransportMode`; the control plane stays JSON in every mode.",
+      "collides": false
+    },
+    {
+      "section": "§3 Constraints",
+      "text": "Split WebSocket is a feature-flagged transport mode and must remain rollback-safe.",
+      "collides": false
+    },
+    {
+      "section": "§3 Constraints",
+      "text": "Browser main-thread rendering stalls are mitigated by visible output scheduling; split WebSocket alone is not sufficient.",
+      "collides": false
+    },
+    {
+      "section": "§3 Constraints",
+      "text": "Agent-run live validation must use `https://localhost:2222`; health checks use `http://localhost:2221/health`.",
+      "collides": true
+    },
+    {
+      "section": "§3 Constraints",
+      "text": "Raw terminal input must not be written to debug logs when backpressure or reconnect handling occurs.",
+      "collides": false
+    }
+  ]
+}

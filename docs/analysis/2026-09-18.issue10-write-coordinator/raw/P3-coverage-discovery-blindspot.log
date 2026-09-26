@@ -1,0 +1,33 @@
+# Coverage-discovery blind spot: name-keyed enumeration misses the coordinator's own suite
+# HEAD=2d32b18  date=2026-09-18
+
+## the re-export
+2:  createTerminalWriteCoordinator,
+11:} from './terminalWriteCoordinator.ts';
+
+## occurrences of the string 'terminalWriteCoordinator' inside its own primary suite
+0
+## how that suite obtains the factory
+function requireCoordinatorFactory(signature: string): CoordinatorFactory {
+  const factory = (terminalOutputSchedulerModule as Record<string, unknown>)
+    .createTerminalWriteCoordinator;
+  assert.equal(typeof factory, 'function', signature);
+  return factory as CoordinatorFactory;
+}
+
+## test files reaching the coordinator ONLY via the scheduler re-export (invisible to a name-keyed search)
+tests/unit/terminalOutputAckCompletion.test.ts
+tests/unit/terminalOutputBytesAccounting.test.ts
+tests/unit/terminalOutputScheduler.test.ts
+tests/unit/terminalOutputSchedulerBytesIngress.test.ts
+tests/unit/terminalOutputSliceAlignment.test.ts
+tests/unit/terminalRestoreBufferBytes.test.ts
+tests/unit/terminalWriteCoordinator.test.ts
+
+## enumeration anchor (must be non-zero, else the sweep proves nothing)
+files matching the name: 12
+
+## calibration controls: dispatch-site counts for commands known to be covered
+dispose: 8
+rollback-to-compatibility: 8
+supersede: 8

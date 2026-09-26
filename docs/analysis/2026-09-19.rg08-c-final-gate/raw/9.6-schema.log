@@ -1,0 +1,43 @@
+✔ FR-BGSTAB-025 removes logging.level from effective legacy configuration (10.214083ms)
+✔ FR-BGSTAB-025 removes logging.audit from effective legacy configuration (0.930052ms)
+✔ FR-BGSTAB-025 removes logging.directory from effective legacy configuration (0.53469ms)
+✔ FR-BGSTAB-025 removes logging.maxSize from effective legacy configuration (0.46898ms)
+✔ FR-BGSTAB-025 removes logging.maxFiles from effective legacy configuration (0.403399ms)
+✔ FR-BGSTAB-025 removes bruteForce.rateLimit.windowMs from effective legacy configuration (0.809093ms)
+✔ FR-BGSTAB-025 removes bruteForce.rateLimit.maxRequests from effective legacy configuration (0.548402ms)
+✔ FR-BGSTAB-025 removes bruteForce.lockout.maxAttempts from effective legacy configuration (0.315509ms)
+✔ FR-BGSTAB-025 removes bruteForce.lockout.lockoutDurationMs from effective legacy configuration (1.03697ms)
+✔ FR-BGSTAB-025 removes bruteForce.lockout.progressiveDelay from effective legacy configuration (1.679231ms)
+✔ FR-BGSTAB-025 removes auth.maxDurationMs from effective legacy configuration (0.652912ms)
+✔ FR-BGSTAB-025 removes fileManager.maxCodeFileSize from effective legacy configuration (0.460411ms)
+✔ FR-BGSTAB-025 removes resourceLimits.telemetry.sampleIntervalMs from effective legacy configuration (0.262528ms)
+✔ FR-BGSTAB-025 known retired telemetry key does not allow other unknown or invalid active keys (2.413117ms)
+✔ FR-BGSTAB-026 workspace timing uses defaults when omitted (0.974704ms)
+✔ FR-BGSTAB-026 workspace timing preserves explicit and boundary values (0.73902ms)
+✔ FR-BGSTAB-026 workspace timing rejects invalid values instead of discarding them (8.261939ms)
+✔ configSchema applies resourceLimits defaults to legacy config files (0.377555ms)
+✔ configSchema applies session processCleanup observe-mode defaults (0.329901ms)
+✔ configSchema validates session processCleanup strictly (2.723079ms)
+✔ configSchema validates unsafe resourceLimits values instead of silently stripping them (0.417679ms)
+✔ configSchema rejects misspelled resourceLimits keys instead of defaulting around them (0.384792ms)
+✔ configSchema rejects explicit null resourceLimits sections instead of treating them as omitted (0.627942ms)
+✔ configSchema rejects inconsistent resourceLimits relationships (1.120056ms)
+✔ configSchema rejects zero output coalesce window (0.37413ms)
+✔ configSchema rejects headless overflow policies that are not implemented (0.58544ms)
+✔ configSchema validates stabilityModes strictly (0.867309ms)
+✔ realtime.terminalWireFormat defaults to json (0.194137ms)
+✔ realtime.terminalWireFormat accepts every rung of the ladder (0.322655ms)
+✔ realtime.terminalWireFormat rejects a value outside the ladder (0.264999ms)
+✔ realtime.terminalWireFormat is independent of wsTransportMode (0.189627ms)
+✔ SEC-BGSTAB-001 AC-2 OSC52 writes are allowed by default (0.133413ms)
+✔ SEC-BGSTAB-001 AC-2 a hardened deployment can turn OSC52 writes off (0.460329ms)
+✔ SEC-BGSTAB-001 AC-1 no setting can enable OSC52 reads, at any stability (1.018695ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2115.345915
+EXIT=0

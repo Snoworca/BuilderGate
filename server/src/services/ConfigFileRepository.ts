@@ -1,4 +1,5 @@
 import JSON5 from 'json5';
+import { recordRawConfigSnapshot } from '../utils/rawConfigSnapshot.js';
 import { copyFileSync, readFileSync, writeFileSync } from 'fs';
 import type {
   Config,
@@ -155,6 +156,15 @@ export class ConfigFileRepository {
     try {
       copyFileSync(this.configPath, result.backupPath);
       writeFileSync(this.configPath, result.renderedContent, 'utf-8');
+      // OPS-BGSTAB-012: the raw snapshot behind `explicit` is refreshed HERE, on the one
+      // path that actually rewrites the file, rather than alongside the runtime apply.
+      // Updating the raw view and the runtime view from two places is how they drift, and
+      // the drift is silent: `explicit` would keep describing the boot-time file while the
+      // effective values described the patched runtime, and both halves would look right.
+      // The re-parse is of the rendered text that was just written, NOT of the parsed
+      // Config -- a parsed config has zod's defaults filled in and would report every key
+      // as declared.
+      recordRawConfigSnapshot(JSON5.parse(result.renderedContent));
     } catch (error) {
       throw new AppError(
         ErrorCode.CONFIG_PERSIST_FAILED,
@@ -208,10 +218,15 @@ function applyEditableValues(
   if (shouldApply('resourceLimits.clientWs.hardReconnectBytes')) setPath(rawConfig, ['resourceLimits', 'clientWs', 'hardReconnectBytes'], resourceLimits.clientWs.hardReconnectBytes);
   if (shouldApply('resourceLimits.terminal.visibleOutputQueueMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleOutputQueueMaxBytes'], resourceLimits.terminal.visibleOutputQueueMaxBytes);
   if (shouldApply('resourceLimits.terminal.visibleOutputMaxChunks')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleOutputMaxChunks'], resourceLimits.terminal.visibleOutputMaxChunks);
+  if (shouldApply('resourceLimits.terminal.checkpointMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'checkpointMaxBytes'], resourceLimits.terminal.checkpointMaxBytes);
   if (shouldApply('resourceLimits.terminal.visibleFlushBudgetBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleFlushBudgetBytes'], resourceLimits.terminal.visibleFlushBudgetBytes);
+  if (shouldApply('resourceLimits.terminal.visibleFlushFrameBudgetMs')) setPath(rawConfig, ['resourceLimits', 'terminal', 'visibleFlushFrameBudgetMs'], resourceLimits.terminal.visibleFlushFrameBudgetMs);
   if (shouldApply('resourceLimits.terminal.hiddenOutputPolicy')) setPath(rawConfig, ['resourceLimits', 'terminal', 'hiddenOutputPolicy'], resourceLimits.terminal.hiddenOutputPolicy);
   if (shouldApply('resourceLimits.terminal.hiddenOutputTailBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'hiddenOutputTailBytes'], resourceLimits.terminal.hiddenOutputTailBytes);
   if (shouldApply('resourceLimits.terminal.inputQueueMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueMaxBytes'], resourceLimits.terminal.inputQueueMaxBytes);
+  if (shouldApply('resourceLimits.terminal.checkpointChunkBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'checkpointChunkBytes'], resourceLimits.terminal.checkpointChunkBytes);
+  if (shouldApply('resourceLimits.terminal.checkpointMaxChunks')) setPath(rawConfig, ['resourceLimits', 'terminal', 'checkpointMaxChunks'], resourceLimits.terminal.checkpointMaxChunks);
+  if (shouldApply('resourceLimits.terminal.inputQueueMaxCount')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueMaxCount'], resourceLimits.terminal.inputQueueMaxCount);
   if (shouldApply('resourceLimits.terminal.inputQueueTtlMs')) setPath(rawConfig, ['resourceLimits', 'terminal', 'inputQueueTtlMs'], resourceLimits.terminal.inputQueueTtlMs);
   if (shouldApply('resourceLimits.terminal.transportOutboxMaxBytes')) setPath(rawConfig, ['resourceLimits', 'terminal', 'transportOutboxMaxBytes'], resourceLimits.terminal.transportOutboxMaxBytes);
   if (shouldApply('resourceLimits.terminal.transportOutboxTtlMs')) setPath(rawConfig, ['resourceLimits', 'terminal', 'transportOutboxTtlMs'], resourceLimits.terminal.transportOutboxTtlMs);
@@ -292,10 +307,15 @@ function renderPatchedConfig(
   if (shouldRender('resourceLimits.clientWs.hardReconnectBytes')) replacements.set('resourceLimits.clientWs.hardReconnectBytes', renderJson5Value(resourceLimits.clientWs.hardReconnectBytes));
   if (shouldRender('resourceLimits.terminal.visibleOutputQueueMaxBytes')) replacements.set('resourceLimits.terminal.visibleOutputQueueMaxBytes', renderJson5Value(resourceLimits.terminal.visibleOutputQueueMaxBytes));
   if (shouldRender('resourceLimits.terminal.visibleOutputMaxChunks')) replacements.set('resourceLimits.terminal.visibleOutputMaxChunks', renderJson5Value(resourceLimits.terminal.visibleOutputMaxChunks));
+  if (shouldRender('resourceLimits.terminal.checkpointMaxBytes')) replacements.set('resourceLimits.terminal.checkpointMaxBytes', renderJson5Value(resourceLimits.terminal.checkpointMaxBytes));
   if (shouldRender('resourceLimits.terminal.visibleFlushBudgetBytes')) replacements.set('resourceLimits.terminal.visibleFlushBudgetBytes', renderJson5Value(resourceLimits.terminal.visibleFlushBudgetBytes));
+  if (shouldRender('resourceLimits.terminal.visibleFlushFrameBudgetMs')) replacements.set('resourceLimits.terminal.visibleFlushFrameBudgetMs', renderJson5Value(resourceLimits.terminal.visibleFlushFrameBudgetMs));
   if (shouldRender('resourceLimits.terminal.hiddenOutputPolicy')) replacements.set('resourceLimits.terminal.hiddenOutputPolicy', renderJson5Value(resourceLimits.terminal.hiddenOutputPolicy));
   if (shouldRender('resourceLimits.terminal.hiddenOutputTailBytes')) replacements.set('resourceLimits.terminal.hiddenOutputTailBytes', renderJson5Value(resourceLimits.terminal.hiddenOutputTailBytes));
   if (shouldRender('resourceLimits.terminal.inputQueueMaxBytes')) replacements.set('resourceLimits.terminal.inputQueueMaxBytes', renderJson5Value(resourceLimits.terminal.inputQueueMaxBytes));
+  if (shouldRender('resourceLimits.terminal.checkpointChunkBytes')) replacements.set('resourceLimits.terminal.checkpointChunkBytes', renderJson5Value(resourceLimits.terminal.checkpointChunkBytes));
+  if (shouldRender('resourceLimits.terminal.checkpointMaxChunks')) replacements.set('resourceLimits.terminal.checkpointMaxChunks', renderJson5Value(resourceLimits.terminal.checkpointMaxChunks));
+  if (shouldRender('resourceLimits.terminal.inputQueueMaxCount')) replacements.set('resourceLimits.terminal.inputQueueMaxCount', renderJson5Value(resourceLimits.terminal.inputQueueMaxCount));
   if (shouldRender('resourceLimits.terminal.inputQueueTtlMs')) replacements.set('resourceLimits.terminal.inputQueueTtlMs', renderJson5Value(resourceLimits.terminal.inputQueueTtlMs));
   if (shouldRender('resourceLimits.terminal.transportOutboxMaxBytes')) replacements.set('resourceLimits.terminal.transportOutboxMaxBytes', renderJson5Value(resourceLimits.terminal.transportOutboxMaxBytes));
   if (shouldRender('resourceLimits.terminal.transportOutboxTtlMs')) replacements.set('resourceLimits.terminal.transportOutboxTtlMs', renderJson5Value(resourceLimits.terminal.transportOutboxTtlMs));
@@ -511,11 +531,36 @@ function renderResourceLimitsRootBody(resourceLimits: ResourceLimitsConfig): str
   ]);
 }
 
+function isNestedConfigRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * SEC-BGSTAB-001: resourceLimits 의 leaf 가 전부 스칼라라는 가정은 더 이상 참이 아니다.
+ *
+ * renderJson5Value 의 마지막 줄은 String(value) 이므로 중첩 객체는 조용히
+ * `[object Object]` 가 되고, 호출자가 곧바로 수행하는 JSON5.parse 가 거기서 터진다.
+ * 증상은 '설정 저장 실패' 로 나타나며 원인은 이 한 줄이다. terminal.osc52 가 이
+ * 스키마의 첫 중첩 leaf 이고, 앞으로 생길 것들도 같은 경로를 탄다.
+ */
+function renderResourceLimitEntry(key: string, value: unknown): string[] {
+  if (isNestedConfigRecord(value)) {
+    return [
+      `${key}: {`,
+      ...Object.entries(value)
+        .flatMap(([nestedKey, nestedValue]) => renderResourceLimitEntry(nestedKey, nestedValue))
+        .map((line) => `  ${line}`),
+      '},',
+    ];
+  }
+  return [`${key}: ${renderJson5Value(value)},`];
+}
+
 function renderResourceLimitSectionBody(
   sectionName: ResourceLimitSectionName,
   section: ResourceLimitsConfig[ResourceLimitSectionName],
 ): string[] {
-  return Object.entries(section).map(([key, value]) => `${key}: ${renderJson5Value(value)},`);
+  return Object.entries(section).flatMap(([key, value]) => renderResourceLimitEntry(key, value));
 }
 
 function renderStabilityModesBody(stabilityModes: StabilityModesConfig): string[] {

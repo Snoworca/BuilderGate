@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
-import { existsSync, writeFileSync as fsSyncWriteFile } from 'fs';
+import { existsSync, statSync, writeFileSync as fsSyncWriteFile } from 'fs';
 import http from 'node:http';
 import https from 'node:https';
 import type net from 'node:net';
@@ -490,7 +490,7 @@ async function main(): Promise<void> {
     { name: 'WsRouter reports replay observability counters', run: testWsRouterObservabilityCounters },
     { name: 'WsRouter still emits a replay start for degraded sessions', run: testWsRouterDegradedReplayStart },
     { name: 'WsRouter still emits a replay start for oversized snapshots', run: testWsRouterOversizedSnapshotReplayStart },
-    { name: 'WsRouter sends viewport-only snapshots on subscribe and resubscribe', run: testWsRouterViewportOnlySnapshotReplayStart },
+    { name: 'WsRouter sends retained-range snapshots on subscribe and resubscribe', run: testWsRouterViewportOnlySnapshotReplayStart },
     { name: 'WsRouter duplicate subscribe does not replay screen snapshot twice', run: testWsRouterDuplicateSubscribeIdempotent },
     { name: 'WsRouter ignores stale replay tokens', run: testWsRouterIgnoresStaleReplayTokens },
     { name: 'WsRouter refreshes replay snapshots on resize while pending', run: testWsRouterRefreshesReplaySnapshotsOnResize },
@@ -649,6 +649,7 @@ async function main(): Promise<void> {
     { name: 'authRoutes FR-802: stage mismatch returns 400 (Phase 4)', run: testAuthRoutesStageMismatch },
     { name: 'authRoutes COMBO-1: 2FA disabled returns JWT directly (Phase 4)', run: testAuthRoutesCombo1 },
     { name: 'authRoutes localhostPasswordOnly: localhost bypass returns JWT (Phase 4)', run: testAuthRoutesLocalhostBypass },
+    { name: 'authRoutes loopback login helper is reusable within one process (#48)', run: testLoopbackLoginHelperIsReusableWithinOneProcess },
     { name: 'authRoutes twoFactor.externalOnly: localhost bypass skips TOTP (bugfix)', run: testAuthRoutesExternalOnlyBypass },
     { name: 'authRoutes twoFactor.externalOnly=false: external-only disabled still requires TOTP', run: testAuthRoutesExternalOnlyDisabled },
     { name: 'authRoutes TOTP verify success issues JWT (Phase 4)', run: testAuthRoutesTOTPVerifySuccess },
@@ -1297,6 +1298,8 @@ function testConfigBootstrapAppliesPlatformPtyDefaults(): void {
   },
 }`;
 
+  // CON-BGSTAB-002: Windows defaults to ConPTY, and PowerShell inherits it
+  // rather than being carved out, so the pair is true/inherit.
   const windows = applyBootstrapPtyDefaultsToConfigText(example, 'win32');
   assert.match(windows, /useConpty:\s*true,/);
   assert.match(windows, /windowsPowerShellBackend:\s*"inherit",/);
@@ -3263,7 +3266,7 @@ async function testProcessTreeTerminatorReportsSurvivingSampledChildAfterRootExi
     killFn: (pid: number, signal?: NodeJS.Signals | number) => {
       killCalls.push({ pid, signal });
     },
-    // PERF-BGSTAB-012 AC-3: post-kill descendant liveness no longer goes
+    // PERF-BGSTAB-016 AC-3: post-kill descendant liveness no longer goes
     // through processInfoProvider, so the surviving child is declared here.
     processLivenessProbe: (pid: number) => pid === 200,
     processInfoProvider: async (pid: number) => {
@@ -4560,12 +4563,61 @@ async function testSessionManagerOrdinaryBashCommandKeepsLegacyFlow(): Promise<v
   }
 }
 
+// #64: the Hermes foreground tests waited a fixed 20ms or 1200ms for a transition and then
+// asserted on whatever state happened to exist. Whether the transition had landed depended on
+// how busy the machine was, so the same tree gave PASS and FAIL on different runs -- and a
+// flake inside the monolithic runner weakens every "the FAIL count did not grow" claim made
+// about it, because a real regression can be masked by a flake that happens to pass.
+//
+// Binding to the transition itself removes the dependence in both directions: the wait ends
+// when the state the test is about is observed, and the bound only decides how long to keep
+// looking before calling it a failure.
+// #64: SessionManager re-stamps foregroundStartedAt on every foreground activity update, so a
+// single "is it set yet" wait can still be overtaken by a later stamp. Waiting for the stamp to
+// stop moving is what actually establishes the ordering the stale-refresh guard cares about.
+async function waitForStableValue(
+  read: () => unknown,
+  description: string,
+  settleMs = 150,
+  timeoutMs = 8000,
+): Promise<unknown> {
+  const deadline = Date.now() + timeoutMs;
+  let previous = read();
+  while (Date.now() < deadline) {
+    await delay(settleMs);
+    const current = read();
+    if (current === previous && current !== undefined) return current;
+    previous = current;
+  }
+  assert.fail(`${description} never settled within ${timeoutMs}ms (last=${String(previous)})`);
+}
+
+async function waitForObservedState(
+  read: () => unknown,
+  expected: unknown,
+  description: string,
+  timeoutMs = 8000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let observed = read();
+  while (observed !== expected && Date.now() < deadline) {
+    await delay(20);
+    observed = read();
+  }
+  assert.equal(observed, expected, `${description} (waited up to ${timeoutMs}ms)`);
+}
+
 async function testSessionManagerHermesZshSubmitStaysIdle(): Promise<void> {
   const harness = createForegroundSessionHarness('zsh');
 
   try {
     harness.manager.writeInput(harness.session.id, 'hermes\r');
-    await delay(20);
+    // Wait for the transition this case is about, not for a fixed slice of wall clock.
+    await waitForObservedState(
+      () => harness.sessionData?.derivedState?.foregroundAppId,
+      'hermes',
+      'zsh submit must put Hermes in the foreground',
+    );
 
     const status = harness.manager.getSession(harness.session.id)?.status;
     const derivedState = harness.sessionData?.derivedState;
@@ -4588,6 +4640,14 @@ async function testSessionManagerIgnoresStaleCwdPromptRefreshDuringHermesLaunch(
     await fs.writeFile(cwdFilePath, process.cwd(), 'utf8');
 
     harness.manager.writeInput(harness.session.id, 'hermes\r');
+    // The launch has to be observed before the negative below means anything: asserting that a
+    // stale refresh did not take the foreground away is vacuous while the foreground has not
+    // been taken yet. The fixed window that follows is the refresh's chance to act wrongly.
+    await waitForObservedState(
+      () => harness.sessionData?.derivedState?.foregroundAppId,
+      'hermes',
+      'the Hermes foreground launch must be observed before the stale refresh window',
+    );
     await delay(1200);
 
     const status = harness.manager.getSession(harness.session.id)?.status;
@@ -4605,13 +4665,42 @@ async function testSessionManagerHermesZshPromptReturnRestoresShellPrompt(): Pro
 
   try {
     harness.manager.writeInput(harness.session.id, 'hermes\r');
-    await delay(20);
+    await waitForObservedState(
+      () => harness.sessionData?.derivedState?.foregroundAppId,
+      'hermes',
+      'Hermes must hold the foreground before the prompt can return from it',
+    );
+    // foregroundAppId lands one statement BEFORE foregroundStartedAt is stamped, and every later
+    // foreground activity update re-stamps it. Waiting for the stamp to settle is what puts the
+    // refresh after the launch, which is what separates a genuine prompt return from the stale
+    // refresh the guard suppresses.
+    await waitForStableValue(
+      () => harness.sessionData?.foregroundStartedAt,
+      'the Hermes foreground launch stamp',
+    );
     const cwdFilePath = harness.sessionData?.cwdFilePath;
     if (!cwdFilePath) {
       throw new Error('Expected cwdFilePath to be registered');
     }
     await fs.writeFile(cwdFilePath, process.cwd(), 'utf8');
-    await delay(1200);
+    // The scenario only exists when the refresh is NOT the stale one the launch suppresses:
+    // SessionManager ignores a cwd write whose mtime is within 5ms of foregroundStartedAt.
+    // The old form wrote 20ms after the keystroke and hoped the launch had been stamped first,
+    // which is the coin flip this test was losing about half the time. State the precondition
+    // and report both clocks when it does not hold, instead of failing later for a reason the
+    // message cannot name.
+    const foregroundStartedAt = harness.sessionData?.foregroundStartedAt;
+    const refreshMtime = statSync(cwdFilePath).mtimeMs;
+    assert.ok(
+      foregroundStartedAt !== undefined && refreshMtime > foregroundStartedAt + 5,
+      `the prompt refresh must be newer than the foreground launch to count as a return: `
+      + `mtime=${refreshMtime} foregroundStartedAt=${String(foregroundStartedAt)}`,
+    );
+    await waitForObservedState(
+      () => harness.sessionData?.derivedState?.ownership,
+      'shell_prompt',
+      'the prompt refresh must return ownership to the shell',
+    );
 
     const status = harness.manager.getSession(harness.session.id)?.status;
     const derivedState = harness.sessionData?.derivedState;
@@ -4643,6 +4732,12 @@ async function testSessionManagerPowerShellPromptRedrawStaysIdle(): Promise<void
   }, {
     execFileSyncFn: (() => Buffer.from('')) as any,
     platform: 'win32',
+    // Issue #102: this test pins platform 'win32' and hands createSession a
+    // Windows cwd. Without this the real existsSync runs against the host, so on
+    // Linux the fixture path is missing, resolveSpawnCwd silently falls back to
+    // $HOME, and the test fails on its first assertion for a reason that has
+    // nothing to do with prompt redraw. The probe belongs to the platform pin.
+    existsSyncFn: (path: string) => path === 'C:\\Users\\beom',
     spawnPty: ((_: string, __: string[], options: { cols?: number; rows?: number; useConpty?: boolean }) => {
       return {
         pid: 1,
@@ -5874,6 +5969,13 @@ function testSessionManagerPowerShellBootstrapArgs(): void {
     session: {
       idleDelayMs: 200,
     },
+  }, {
+    // Issue #102: this asserts how the PowerShell argv is built, which is a
+    // win32-only code path. Without the pin, normalizeShellForPlatform
+    // downgrades 'powershell' to 'auto' on a non-Windows host and the test
+    // fails on `'bash' !== 'powershell.exe'` before reaching anything it means
+    // to measure.
+    platform: 'win32',
   });
 
   const resolved = (manager as any).resolveShell('powershell', 'C:\\temp\\buildergate-cwd.txt');
@@ -8020,9 +8122,20 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
     let tlsDispatchCount = 0;
     try {
       process.env.BUILDERGATE_SERVER_ROOT = tlsRoot;
+      // #42: this bound port 2222 and asserted it, calling it "the exclusive test port".
+      // 2222 is the project's ONLY verification port and CLAUDE.md requires a server to be
+      // running on it, so the two requirements contradict each other: whenever verification
+      // was set up, this test failed with EADDRINUSE, and the failure has been carried as a
+      // "known pre-existing" one ever since. Measured 2026-09-19: it is the sole failure in
+      // the monolithic runner, and it is the only thing keeping RG-08's section 9.1 from
+      // being literally green.
+      //
+      // The subject here is that a direct-TLS listener serves MCP over HTTPS. Which port it
+      // lands on is not part of that claim, so it takes an ephemeral one and the assertion
+      // below checks what the handle actually reports.
       tlsHandle = await createMcpNodeHttpListener({
         bindHost: '127.0.0.1',
-        port: 2222,
+        port: 0,
         transportSecurity: 'direct_tls',
       }, async (request) => {
         tlsDispatchCount += 1;
@@ -8039,7 +8152,10 @@ const mcpTransportAndToolRedTests: Record<string, () => Promise<void>> = {
         };
       }, { sslConfig: { certPath: '', keyPath: '', caPath: '' } });
       const directTlsPort = Number(asRecord(tlsHandle, 'direct TLS listener handle').port);
-      assert.equal(directTlsPort, 2222, 'direct TLS listener must use the exclusive test port');
+      assert.ok(
+        Number.isInteger(directTlsPort) && directTlsPort > 0 && directTlsPort !== 2222,
+        `direct TLS listener must report the ephemeral port it actually bound, got ${directTlsPort}`,
+      );
       const directTlsResponseBody = await new Promise<string>((resolve, reject) => {
         const payload = JSON.stringify({ jsonrpc: '2.0', id: 'direct-tls', method: 'ping' });
         const req = https.request({
@@ -14214,8 +14330,16 @@ function testWorkspaceCapacityMetadata(): void {
     const state = workspaceService.getState();
     const before = JSON.stringify(state);
     const limits = readWorkspaceCapacity(workspaceService);
-    const expected = configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 };
-    assert.deepEqual(limits, expected, 'only the two configured capacity fields may be exposed');
+    // #66: maxTotalSessions joined the published capacity. The browser was hardcoding 32 for
+    // it while the server enforced the configured value, so two of the three limits travelled
+    // and the third did not. This guard fired on that change, which is what it is for -- the
+    // contract is now three fields, and it is still a deepEqual, so a FOURTH field added
+    // without argument still reddens.
+    const expected = {
+      ...(configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 }),
+      maxTotalSessions: 32,
+    };
+    assert.deepEqual(limits, expected, 'only the three configured capacity fields may be exposed');
     Reflect.set(limits, 'maxWorkspaces', 49);
     Reflect.set(limits, 'maxTabsPerWorkspace', 15);
     assert.deepEqual(readWorkspaceCapacity(workspaceService), expected);
@@ -14228,7 +14352,8 @@ function testWorkspaceCapacityMetadata(): void {
 }
 
 async function testWorkspaceCapacityGetRoute(): Promise<void> {
-  const expected = { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5 };
+  // #66: three-field capacity contract; see the note at the CAP-01 site.
+  const expected = { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5, maxTotalSessions: 32 };
   const { workspaceService, calls } = createWorkspaceCapacityHarness(expected);
   const workspace = await workspaceService.createWorkspace('Capacity route fixture');
   await workspaceService.addTab(workspace.id, 'bash', 'Existing tab');
@@ -14279,7 +14404,10 @@ async function testWorkspaceCapacityAuthRegistration(): Promise<void> {
 async function testWorkspaceCapacityEnforcement(configured?: CapacityLimits): Promise<void> {
   const { workspaceService, calls } = createWorkspaceCapacityHarness(configured);
   const limits = readWorkspaceCapacity(workspaceService);
-  assert.deepEqual(limits, configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 });
+  assert.deepEqual(limits, {
+    ...(configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 }),
+    maxTotalSessions: 32,
+  });
   const expected = { ...limits };
   Reflect.set(limits, 'maxWorkspaces', 49);
   Reflect.set(limits, 'maxTabsPerWorkspace', 15);
@@ -14396,7 +14524,21 @@ async function testHeadlessSnapshotResize(): Promise<void> {
       assert.ok(before.data.length > 0);
       assert.ok(after.data.length > 0);
       assert.deepEqual(beforeLines, ['abcdefghij', '12345', '']);
-      assert.deepEqual(afterLines, ['abcde', 'fghij', '12345', '']);
+
+      // Issue #114 moved reflowCursorLine from true to false here, so the logical
+      // line the cursor sits on is no longer rewrapped on a narrow and its
+      // overflow ('fghij') is dropped instead. That looks like content loss and
+      // is not one in production: this harness has no shell, and a shell reprints
+      // its prompt line on SIGWINCH. Measured in a real browser against a live
+      // PTY — frontend/tests/e2e/terminal-width-policy-browser.spec.ts — a
+      // 190-character typed command is still on screen in full after narrowing
+      // the window from 1400px to 520px with this option off.
+      //
+      // The reason it is off is that the browser terminal has always been off,
+      // and this replica exists to reproduce what the browser shows. With the
+      // option on, the replica rewrapped a line the browser had truncated, so a
+      // restore handed the user a screen they had not been looking at.
+      assert.deepEqual(afterLines, ['abcde', '12345', '', '']);
       assert.deepEqual(readHeadlessLines(restored, 4), afterLines);
     } finally {
       restored.dispose();
@@ -15055,6 +15197,17 @@ function createWsRouterHarness(options?: {
       calls.writeInput.push({ sessionId, data, metadata });
       return true;
     },
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- mirror the same behavior (including the simulated-throw option) so
+    // tests exercising this stub still reach the write path instead of hitting a
+    // TypeError on a mock that predates the split.
+    writeInputDetailed: (sessionId: string, data: string, metadata?: unknown) => {
+      if (options?.writeInputThrows) {
+        throw new Error('simulated write failure');
+      }
+      calls.writeInput.push({ sessionId, data, metadata });
+      return { ok: true };
+    },
     resize: () => true,
     ...(options?.getAtomicRestoreSnapshot
       ? { getAtomicRestoreSnapshot: options.getAtomicRestoreSnapshot }
@@ -15623,6 +15776,12 @@ function testWsRouterPreservesInputQueueAcrossReplayRefresh(): void {
       calls.writeInput.push({ sessionId, data, metadata });
       return true;
     },
+    // #112: same reason as createWsRouterHarness above -- the router now calls
+    // writeInputDetailed() for the websocket input path.
+    writeInputDetailed: (sessionId: string, data: string, metadata?: unknown) => {
+      calls.writeInput.push({ sessionId, data, metadata });
+      return { ok: true };
+    },
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16075,8 +16234,22 @@ function testWsRouterDegradedReplayStart(): void {
   router.destroy();
 }
 
-function assertViewportOnlySnapshotPayload(payload: string, oldMarker: string, latestMarker: string): void {
-  assert.doesNotMatch(payload, new RegExp(oldMarker));
+/**
+ * REL-BGSTAB-007 AC-3, 2026-09-20: flipped from viewport-only to retained-range.
+ *
+ * This asserted the OPPOSITE until today -- that the oldest marker was ABSENT from a
+ * subscribe snapshot -- and it passed, because `getAtomicRestoreSnapshot` served
+ * `serializeHeadlessTerminal`'s `{ scrollback: 0 }` default. That is the behaviour five
+ * measured rounds recorded as a 700-line producer reloading to 28 lines, and AC-3 requires
+ * the authoritative retained range to survive a refresh instead.
+ *
+ * Checked before flipping: no requirement designates this as a current-behaviour record the
+ * way OBS-BGSTAB-009 AC-4 designates TC-7004, and nothing in docs/spec references it. So it
+ * is a characterization of the defect rather than a pinned record, and it moves with the
+ * contract rather than being scoped around it.
+ */
+function assertRetainedRangeSnapshotPayload(payload: string, oldMarker: string, latestMarker: string): void {
+  assert.match(payload, new RegExp(oldMarker));
   assert.match(payload, new RegExp(latestMarker));
 }
 
@@ -16123,7 +16296,7 @@ async function testWsRouterViewportOnlySnapshotReplayStart(): Promise<void> {
     const firstSnapshot = sent.find((message) => message.type === 'screen-snapshot');
     assert.equal(firstSnapshot?.type, 'screen-snapshot');
     assert.equal(firstSnapshot?.mode, 'authoritative');
-    assertViewportOnlySnapshotPayload(String(firstSnapshot?.data), oldMarker, latestMarker);
+    assertRetainedRangeSnapshotPayload(String(firstSnapshot?.data), oldMarker, latestMarker);
 
     (router as any).handleUnsubscribe(ws, [harness.sessionId]);
     (router as any).handleSubscribe(ws, [harness.sessionId]);
@@ -16132,7 +16305,7 @@ async function testWsRouterViewportOnlySnapshotReplayStart(): Promise<void> {
       .at(-1);
     assert.equal(secondSnapshot?.type, 'screen-snapshot');
     assert.equal(secondSnapshot?.mode, 'authoritative');
-    assertViewportOnlySnapshotPayload(String(secondSnapshot?.data), oldMarker, latestMarker);
+    assertRetainedRangeSnapshotPayload(String(secondSnapshot?.data), oldMarker, latestMarker);
   } finally {
     router.destroy();
     harness.dispose();
@@ -16200,6 +16373,10 @@ function testWsRouterRefreshesReplaySnapshotsOnResize(): void {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16272,6 +16449,10 @@ function testWsRouterPreservesQueuedOutputAcrossFallbackReplayRefresh(): void {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16363,6 +16544,10 @@ function testWsRouterFlushesSnapshotCoveredOutputOnRefreshTimeout(): void {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16435,6 +16620,10 @@ function createMutableSnapshotWsRouterHarness(snapshotState: {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => options?.replayQueueLimit ?? 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -16694,6 +16883,10 @@ function testWsRouterSuppressesUnchangedEmptyFallbackReplayRefresh(): void {
     getScreenSnapshot: () => snapshotState,
     getReplayQueueLimit: () => 64,
     writeInput: () => true,
+    // #112: WsRouter's websocket input path now calls writeInputDetailed(), not
+    // writeInput() -- keep this stub answering both so a future call into the write
+    // path does not throw TypeError on a mock that predates the split.
+    writeInputDetailed: () => ({ ok: true }),
     resize: () => true,
   } as unknown as SessionManager;
   const authServiceStub = {
@@ -20936,6 +21129,7 @@ function createConfigFixture(): Config {
       idleDelayMs: 200,
     },
     security: {
+      osc52: { allowWrite: true },
       cors: {
         allowedOrigins: ['https://example.com'],
         credentials: true,
@@ -21382,7 +21576,7 @@ async function testTOTPInitializeGeneratesSecretWithoutGlobalWebCrypto(): Promis
       { enabled: true, issuer: 'PkgRuntime', accountName: 'admin' },
       crypto,
       secretFile,
-      { suppressConsoleQr: true },
+      { printConsoleQr: true },
     );
 
     service.initialize();
@@ -21463,7 +21657,10 @@ async function testTOTPInitializeSuppressesConsoleQr(): Promise<void> {
         { enabled: true, issuer: 'Suppressed', accountName: 'admin' },
         crypto,
         secretFile,
-        { suppressConsoleQr: true },
+        // #80: this test is named for SUPPRESSION, and the flag was inverted -- what used to be
+        // suppressConsoleQr: true is printConsoleQr: false. Left as `true` it would have asserted
+        // suppression while asking to print, and passed only because nothing printed the secret.
+        { printConsoleQr: false },
       );
       service.initialize();
       return service.generateQRDataUrl();
@@ -21492,6 +21689,10 @@ async function testTOTPInitializeQrRenderingFailureThrows(): Promise<void> {
       crypto,
       secretFile,
       {
+        // #80: printing is opt-in now, and this test is ABOUT the renderer failing, so it has
+        // to ask for the renderer to run. Without this the writer is never called and the
+        // test passes for the wrong reason -- a startup failure it no longer provokes.
+        printConsoleQr: true,
         qrCodeWriter: () => {
           throw new Error('QR renderer unavailable');
         },
@@ -21510,6 +21711,10 @@ async function testTOTPInitializeQrRenderingFailureThrows(): Promise<void> {
       crypto,
       secretFile,
       {
+        // #80: same reason as the first construction -- printing is opt-in, and this asserts
+        // that a FAILING renderer fails startup. Without asking for the renderer there is no
+        // renderer to fail.
+        printConsoleQr: true,
         qrCodeWriter: () => {
           throw new Error('QR renderer unavailable on existing secret');
         },
@@ -21609,6 +21814,10 @@ async function testReconcileTotpRuntimeUsesDaemonEnvSecretPathAndSuppressesQr():
 
   try {
     process.env.BUILDERGATE_TOTP_SECRET_PATH = secretFile;
+    delete process.env.BUILDERGATE_PRINT_TOTP_QR; // #80: printing is now opt-in; absence is the safe state
+    // The daemon still sets the legacy SUPPRESS=1 on its app child. It must not be
+    // read as a request to print: the fallback once did exactly that, and the test
+    // only passed where the variable happened to be unset.
     process.env.BUILDERGATE_SUPPRESS_TOTP_QR = '1';
 
     const captured = await captureConsoleLog(() => reconcileTotpRuntime({
@@ -21684,7 +21893,7 @@ async function testDaemonTotpPreflightPrintsQrAndManualKey(): Promise<void> {
       { enabled: true, issuer: 'PreflightIssuer', accountName: 'preflight-admin' },
       crypto,
       secretFile,
-      { suppressConsoleQr: true },
+      { printConsoleQr: true },
     );
     seedService.initialize();
     seedService.destroy();
@@ -21708,8 +21917,13 @@ async function testDaemonTotpPreflightPrintsQrAndManualKey(): Promise<void> {
     assert.equal(captured.result.enabled, true);
     assert.equal(captured.result.secretFilePath, path.resolve(secretFile));
     assert.ok(captured.logs.some((line) => /Google Authenticator QR Code/u.test(line)));
-    assert.ok(captured.logs.some((line) => /Manual entry key: [A-Z2-7=]+/u.test(line)));
-    assert.ok(captured.logs.some((line) => /Issuer: PreflightIssuer \| Account: preflight-admin/u.test(line)));
+    // #80: the manual key assertion is INVERTED, not deleted. The preflight prints the QR
+    // because that is the enrolment moment, but the secret itself must not reach any log --
+    // a log reader who has it can mint valid codes forever. Asserting its absence here keeps
+    // the guard pointed at the thing that changed instead of quietly dropping it.
+    assert.ok(!captured.logs.some((line) => /Manual entry key/u.test(line)),
+      'the TOTP secret must never be printed, not even during enrolment');
+    assert.ok(captured.logs.some((line) => /Account: preflight-admin/u.test(line)));
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
@@ -21725,7 +21939,7 @@ async function testDaemonTotpPreflightSuppressesQrForSentinelRestart(): Promise<
       { enabled: true, issuer: 'SentinelIssuer', accountName: 'sentinel-admin' },
       crypto,
       secretFile,
-      { suppressConsoleQr: true },
+      { printConsoleQr: true },
     );
     seedService.initialize();
     seedService.destroy();
@@ -21743,7 +21957,9 @@ async function testDaemonTotpPreflightSuppressesQrForSentinelRestart(): Promise<
       {
         cryptoService: crypto,
         secretFilePath: secretFile,
-        suppressConsoleQr: true,
+        // #80: flag inverted. This test asserts SUPPRESSION for sentinel restarts, so it must
+        // pass false; `true` now means "print", which is the opposite of what it checks.
+        printConsoleQr: false,
       },
     ));
 
@@ -21820,26 +22036,48 @@ async function invokeLoopbackLoginOverTcp(
   body: Record<string, unknown>,
   ip = '192.168.1.1',
 ): Promise<{ status: number; body: Record<string, unknown> }> {
+  // This helper speaks real TCP on purpose: the localhost-bypass branch reads the peer address
+  // off the socket, which a unix-socket fixture cannot provide. Everything else about it is
+  // ordinary, and used not to be.
+  //
+  // Issue #84 removed the hardcoded port 2222 -- the port CLAUDE.md reserves for the app under
+  // verification -- which the helper bound while ALREADY reading the assigned port back, so the
+  // hardcode only ever created a collision. #48 is the rest of it: the response handler called
+  // server.close() and resolved in the same breath, so the caller continued while the listener
+  // and its sockets were still coming down. Close is awaited here, open sockets are tracked and
+  // destroyed, and the request carries a timeout, so a second call in the same process starts
+  // from a clean slate instead of from whatever the first one left running.
   const app = createAuthTestApp(accessors);
-  return new Promise((resolve, reject) => {
-    const server = http.createServer(app);
-    server.listen(2222, () => {
-      const port = (server.address() as net.AddressInfo).port;
+  const server = http.createServer(app);
+  const sockets = new Set<import('node:net').Socket>();
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
+  });
+  try {
+    const port = await new Promise<number>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', () => {
+        server.off('error', reject);
+        resolve((server.address() as net.AddressInfo).port);
+      });
+    });
+    return await new Promise((resolve, reject) => {
       const postBody = JSON.stringify(body);
-      const options = {
+      const request = http.request({
         hostname: '127.0.0.1', port, method: 'POST',
         path: '/api/auth/login',
+        agent: false,
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postBody),
           'x-test-remote-addr': ip,
         },
-      };
-      const request = http.request(options, (res) => {
+      }, (res) => {
         const chunks: Buffer[] = [];
         res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.once('error', reject);
         res.on('end', () => {
-          server.close();
           try {
             const json = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
             resolve({ status: res.statusCode ?? 0, body: json });
@@ -21848,11 +22086,43 @@ async function invokeLoopbackLoginOverTcp(
           }
         });
       });
-      request.on('error', (e: Error) => { server.close(); reject(e); });
+      request.once('error', reject);
+      request.setTimeout(5000, () => request.destroy(new Error('loopback login request timed out')));
       request.write(postBody);
       request.end();
     });
+  } finally {
+    for (const socket of sockets) socket.destroy();
+    if (server.listening) {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('loopback login server cleanup timed out')), 5000);
+        server.close((error) => {
+          clearTimeout(timer);
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  }
+}
+
+// #48: the defect was only visible when the helper ran twice in ONE process -- each test on its
+// own passed, so per-test green said nothing about it. This runs it repeatedly in one process,
+// which is the shape that failed, and would fail again the moment the listener stops being torn
+// down before the next call.
+async function testLoopbackLoginHelperIsReusableWithinOneProcess(): Promise<void> {
+  const { accessors, authService } = makeAuthHarness({
+    withTotp: true, totpRegistered: true, localhostPasswordOnly: true,
   });
+  try {
+    for (let attempt = 1; attempt <= 6; attempt += 1) {
+      const result = await invokeLoopbackLoginOverTcp(accessors, { password: 'test-password' });
+      assert.equal(result.status, 200, `attempt ${attempt} of the reused loopback helper failed`);
+      assert.ok(typeof result.body.token === 'string', `attempt ${attempt} returned no token`);
+    }
+  } finally {
+    authService.destroy();
+  }
 }
 
 async function invokeVerify(

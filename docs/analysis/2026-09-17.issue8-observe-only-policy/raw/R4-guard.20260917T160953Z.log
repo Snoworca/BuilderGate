@@ -1,0 +1,23 @@
+{
+  "requirementId": "OBS-BGSTAB-005",
+  "schemaVersion": "terminal-resource-policy/v1",
+  "profileVersion": "legacy-effective/v1",
+  "exactConsumerTuples": 81,
+  "classifiedPaths": 27,
+  "resourceKeys": 30,
+  "focusedTests": 31,
+  "focusedPass": 31,
+  "claims": {
+    "actualConsumerByteParity": true,
+    "actualConsumerCoverage": true,
+    "runtimeProjectionParity": true,
+    "legacyOnlyApplied": true,
+    "unregisteredCandidateUnavailable": true,
+    "evidenceDoesNotClaimRuntimeApplication": true,
+    "getterReadOnly": true,
+    "observerSeparation": true,
+    "payloadFree": true
+  },
+  "activationEligible": false,
+  "manifestSha256": "85b77f858c96c4aec8718047c95f0c7fd14fc4e3cdfcf7f34d4347d961801e55"
+}

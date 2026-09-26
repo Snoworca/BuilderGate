@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "1.0.0",
+  "requirementId": "MIG-BGSTAB-005",
+  "evidenceKind": "refresh_authority_pr_decomposition",
+  "sourceIssue": "https://github.com/Snoworca/BuilderGate/issues/23",
+  "decisionBranch": {
+    "selected": "architectural-migration",
+    "selectedBy": "user",
+    "recordedIn": "docs/analysis/kiwi-planner-2026-07-15.projectmaster.wave1-baseline/g1-decision-record.json",
+    "recordSha256": "5a3d552a81a5f8ad7baa464ab3c008375b82f13e4496497974c8e44a5e7c0fc0",
+    "gateRequirement": "MIG-BGSTAB-001",
+    "reopened": false,
+    "note": "Verified at docs/spec/91.completed-work-log.md PH-004 G1 row. Not re-derived by issue #23."
+  },
+  "setsProductRetainedRows": false,
+  "authorizesDeletion": false,
+  "prs": [
+    {
+      "prId": "PR-A",
+      "issue": 10,
+      "title": "Browser TerminalWriteCoordinator and client snapshot fence",
+      "authorityRequirements": ["REL-BGSTAB-007"],
+      "entryGate": "FR-BGSTAB-017 recovery write gate contract is green and REL-BGSTAB-007 AC-4/AC-5 protocol tests pass.",
+      "rollbackGate": "Revert to the pre-fence write path in the same viewGeneration; no epoch change required because no authority moves.",
+      "reversible": true,
+      "dependsOn": []
+    },
+    {
+      "prId": "PR-B",
+      "issue": 11,
+      "title": "Server headless model authority shadow and driver lease",
+      "authorityRequirements": ["REL-BGSTAB-007", "REL-BGSTAB-026"],
+      "entryGate": "Shadow parity runs with local cache absent and poisoned (REL-BGSTAB-025 AC-2) and records no observed_loss inside retention per OBS-BGSTAB-009 AC-3.",
+      "rollbackGate": "Disable shadow admission; legacy stays authoritative throughout, so rollback is a flag flip with no epoch barrier.",
+      "reversible": true,
+      "dependsOn": ["PR-A"]
+    },
+    {
+      "prId": "PR-C",
+      "issue": 12,
+      "title": "Single-authority promotion pilot and rollback epoch",
+      "authorityRequirements": ["REL-BGSTAB-007", "MIG-BGSTAB-002"],
+      "entryGate": "MIG-BGSTAB-002 AC-1 parity gates pass on capability-confirmed limited sessions in a new streamEpoch.",
+      "rollbackGate": "MIG-BGSTAB-002 AC-5 ordered rollback: stop new admission, revoke lease, mark views stale, parser reset, discard ACK/backlog, new stream epoch, fresh compatibility checkpoint, post-snapshot output, re-enable legacy. Byte tails must not be concatenated.",
+      "reversible": true,
+      "dependsOn": ["PR-B"],
+      "openDefect": "Issue #69 questions MIG-BGSTAB-002 AC-4 above the 166-column checkpoint crossover measured in issue #26."
+    },
+    {
+      "prId": "PR-D",
+      "issue": 14,
+      "title": "Hidden delivery gate and authoritative snapshot recovery",
+      "authorityRequirements": ["REL-BGSTAB-007", "FR-BGSTAB-014"],
+      "entryGate": "Hidden and visible overflow paths converge to a fresh authoritative checkpoint rather than an empty success (REL-BGSTAB-007 AC-5).",
+      "rollbackGate": "Restore legacy hidden-output tail delivery; bounded by resourceLimits.terminal.hiddenOutputTailBytes, no authority change.",
+      "reversible": true,
+      "dependsOn": ["PR-C"]
+    },
+    {
+      "prId": "PR-E",
+      "issue": 22,
+      "title": "Physical removal of the unsafe legacy terminal path after two release soaks",
+      "authorityRequirements": ["REL-BGSTAB-025", "REL-BGSTAB-026"],
+      "entryGate": "All four REL-BGSTAB-025 AC-4 deletion conditions are satisfied with recorded evidence, REL-BGSTAB-026 is stable, and two release soaks have completed.",
+      "rollbackGate": "NOT REVERSIBLE by revert alone once legacy code is removed. Rollback requires restoring the deleted path from a tagged commit and a fresh compatibility checkpoint. This PR is therefore gated last and separately approved.",
+      "reversible": false,
+      "dependsOn": ["PR-D"]
+    }
+  ],
+  "notes": [
+    "Issue #21 (reversible default flip and rollback drill) supplies the rollback-drill evidence that REL-BGSTAB-025 AC-4 condition (3) requires; it is a prerequisite of PR-E but is not itself a refresh-authority PR.",
+    "This map authorizes no code deletion and no default-value change on its own."
+  ]
+}

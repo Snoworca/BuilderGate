@@ -8,6 +8,9 @@ import {
   buildTerminalContextMenuItems,
   type BuildTerminalMenuOptions,
 } from '../../src/utils/contextMenuBuilder.ts';
+import type { ContextMenuActionItem, ContextMenuItem } from '../../src/components/ContextMenu/ContextMenu.tsx';
+
+const isAction = (item: ContextMenuItem): item is ContextMenuActionItem => !item.separator;
 
 // FR-UIDS-005 — the terminal context menu draws shared icons, and each
 // workspace row carries a dot that says whether any of its sessions runs.
@@ -46,9 +49,9 @@ test('FR-UIDS-005 AC-1: the new-session submenu keeps the shells the server send
       { id: 'cmd', label: 'Command Prompt', icon: '⬛' },
     ] as BuildTerminalMenuOptions['availableShells'],
   });
-  const newSession = items.find((item) => !item.separator && item.label === '새 세션');
+  const newSession = items.filter(isAction).find((item) => item.label === '새 세션');
   assert.equal(newSession?.icon, 'plus');
-  const shellIcons = (newSession?.children ?? []).filter((child) => !child.separator).map((child) => child.icon);
+  const shellIcons = (newSession?.children ?? []).filter(isAction).map((child) => child.icon);
   assert.ok(shellIcons.includes('⬛'), 'a shell icon from the server is left as sent');
 });
 

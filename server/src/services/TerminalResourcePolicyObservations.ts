@@ -12,6 +12,9 @@ export interface RegisteredTerminalResourcePolicyObservationDecision {
 }
 
 const REGISTERED_OBSERVATION_DECISIONS = [
+  // #20: the binary data plane consumes the visible output queue bound to refuse a frame
+  // that cannot enter the queue. It was consuming it uncatalogued until this tracker.
+  ['browser.binary.frame-codec', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'consumed'],
   ['browser.hidden-output', 'resourceLimits.terminal.hiddenOutputPolicy', 'resourceLimits.terminal.hiddenOutputPolicy', 'consumed'],
   ['browser.hidden-output', 'resourceLimits.terminal.hiddenOutputTailBytes', 'resourceLimits.terminal.hiddenOutputTailBytes', 'consumed'],
   ['browser.runtime.residency', 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', 'consumed'],
@@ -23,7 +26,10 @@ const REGISTERED_OBSERVATION_DECISIONS = [
   ['browser.snapshot.persisted-storage', 'resourceLimits.snapshots.totalStorageBudgetChars', 'resourceLimits.snapshots.totalStorageBudgetChars', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.clientWs.hardReconnectBytes', 'resourceLimits.clientWs.hardReconnectBytes', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.clientWs.inputBackpressureBytes', 'resourceLimits.clientWs.inputBackpressureBytes', 'consumed'],
+  ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.checkpointMaxBytes', 'resourceLimits.terminal.checkpointMaxBytes', 'consumed'],
+  ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.checkpointMaxChunks', 'resourceLimits.terminal.checkpointMaxChunks', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.inputQueueMaxBytes', 'resourceLimits.terminal.inputQueueMaxBytes', 'consumed'],
+  ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.inputQueueMaxCount', 'resourceLimits.terminal.inputQueueMaxCount', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.inputQueueTtlMs', 'resourceLimits.terminal.inputQueueTtlMs', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.transportOutboxMaxBytes', 'resourceLimits.terminal.transportOutboxMaxBytes', 'consumed'],
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.transportOutboxTtlMs', 'resourceLimits.terminal.transportOutboxTtlMs', 'consumed'],
@@ -31,6 +37,7 @@ const REGISTERED_OBSERVATION_DECISIONS = [
   ['browser.terminal.recovery-scheduler', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'consumed'],
   ['browser.terminal.write-scheduler', 'resourceLimits.terminal.scrollbackLines', 'resourceLimits.terminal.scrollbackLines', 'consumed'],
   ['browser.terminal.write-scheduler', 'resourceLimits.terminal.visibleFlushBudgetBytes', 'resourceLimits.terminal.visibleFlushBudgetBytes', 'consumed'],
+  ['browser.terminal.write-scheduler', 'resourceLimits.terminal.visibleFlushFrameBudgetMs', 'resourceLimits.terminal.visibleFlushFrameBudgetMs', 'consumed'],
   ['browser.terminal.write-scheduler', 'resourceLimits.terminal.visibleOutputMaxChunks', 'resourceLimits.terminal.visibleOutputMaxChunks', 'consumed'],
   ['browser.terminal.write-scheduler', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'resourceLimits.terminal.visibleOutputQueueMaxBytes', 'consumed'],
   ['server.config.runtime-store', 'resourceLimits.headless.writeBatchMaxBytes', 'resourceLimits.headless.writeBatchMaxBytes', 'reserved-unapplied'],
@@ -38,6 +45,7 @@ const REGISTERED_OBSERVATION_DECISIONS = [
   ['server.pty.headless-model', 'resourceLimits.headless.overflowPolicy', 'resourceLimits.headless.overflowPolicy', 'consumed'],
   ['server.pty.headless-model', 'resourceLimits.headless.pendingOutputMaxBytes', 'resourceLimits.headless.pendingOutputMaxBytes', 'consumed'],
   ['server.pty.headless-model', 'resourceLimits.headless.pendingOutputMaxChunks', 'resourceLimits.headless.pendingOutputMaxChunks', 'consumed'],
+  ['server.pty.headless-model', 'resourceLimits.terminal.checkpointChunkBytes', 'resourceLimits.terminal.checkpointChunkBytes', 'consumed'],
   ['server.pty.headless-model', 'resourceLimits.terminal.scrollbackLines', 'resourceLimits.terminal.scrollbackLines', 'consumed'],
   ['server.snapshot.replay-repair', 'resourceLimits.headless.pendingOutputMaxChunks', 'resourceLimits.headless.pendingOutputMaxChunks', 'consumed'],
   ['server.ws.router', 'resourceLimits.ws.outputCoalesceWindowMs', 'resourceLimits.ws.outputCoalesceWindowMs', 'consumed'],

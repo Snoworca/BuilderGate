@@ -37,7 +37,15 @@ export const TERMINAL_RESOURCE_EVIDENCE_HASH_SCHEMA_VERSION = 'terminal-resource
 export interface TerminalResourcePathClassification {
   path: string;
   classification: 'schema-source' | 'settings-facade' | 'persistence-boundary'
-    | 'policy-projection' | 'consumer-adapter';
+    | 'policy-projection' | 'consumer-adapter'
+    // #20: the identifier matches a registered resource leaf but names something else
+    // entirely. A generic leaf name is not evidence of consumption, and a guard that
+    // treats it as such trains people to add exclusions until it stops meaning anything.
+    | 'name-collision'
+    // #20: a REAL consumer the inventory cannot describe. Its access resolves to no
+    // canonical key, so every evidenceRole yields roles=undefined and no row can match.
+    // Recorded as what it is rather than given a row that would be a lie shaped like a row.
+    | 'uncatalogueable';
   symbol: string;
   evidenceSignature: string;
   accessEvidenceSha256: string;
@@ -104,12 +112,15 @@ const CONSUMER_CATALOG: readonly CatalogEntry[] = [
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'screen-repair-recovery-generation', consumerPath: 'frontend/src/components/Terminal/TerminalContainer.tsx', consumerSymbol: 'TerminalContainer#handleScreenRepairRestoreNeeded', evidenceSignature: 'maxHeldChunks: terminalLimits.visibleOutputMaxChunks', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', applyBoundary: 'compatibility-post-ack-convergence', consumerPath: 'frontend/src/components/Terminal/TerminalContainer.tsx', consumerSymbol: 'TerminalContainer#handleScreenSnapshot', evidenceSignature: 'maxHeldBytes: terminalLimits.visibleOutputQueueMaxBytes', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'compatibility-post-ack-convergence', consumerPath: 'frontend/src/components/Terminal/TerminalContainer.tsx', consumerSymbol: 'TerminalContainer#handleScreenSnapshot', evidenceSignature: 'maxHeldChunks: terminalLimits.visibleOutputMaxChunks', state: 'consumed' }),
-  catalog({ evidenceRole: 'derived-control', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', applyBoundary: 'grace-output-admission', consumerPath: 'frontend/src/contexts/WebSocketContext.tsx', consumerSymbol: 'WebSocketProvider#bufferGraceMessage', evidenceSignature: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes', state: 'consumed' }),
-  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', applyBoundary: 'grace-output-overflow-observation', consumerPath: 'frontend/src/contexts/WebSocketContext.tsx', consumerSymbol: 'WebSocketProvider#bufferGraceMessage', evidenceSignature: 'maxBytes: limits.visibleOutputQueueMaxBytes', state: 'consumed' }),
-  catalog({ evidenceRole: 'derived-control', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'grace-output-admission', consumerPath: 'frontend/src/contexts/WebSocketContext.tsx', consumerSymbol: 'WebSocketProvider#bufferGraceMessage', evidenceSignature: 'current.output.length + 1 > limits.visibleOutputMaxChunks', state: 'consumed' }),
-  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'grace-output-overflow-observation', consumerPath: 'frontend/src/contexts/WebSocketContext.tsx', consumerSymbol: 'WebSocketProvider#bufferGraceMessage', evidenceSignature: 'maxChunks: limits.visibleOutputMaxChunks', state: 'consumed' }),
+  catalog({ evidenceRole: 'derived-control', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', applyBoundary: 'grace-output-admission', consumerPath: 'frontend/src/utils/terminalGraceBuffer.ts', consumerSymbol: 'applyGraceBufferedMessage', evidenceSignature: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes', state: 'consumed' }),
+  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', applyBoundary: 'grace-output-overflow-observation', consumerPath: 'frontend/src/utils/terminalGraceBuffer.ts', consumerSymbol: 'applyGraceBufferedMessage', evidenceSignature: 'maxBytes: limits.visibleOutputQueueMaxBytes', state: 'consumed' }),
+  catalog({ evidenceRole: 'derived-control', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'grace-output-admission', consumerPath: 'frontend/src/utils/terminalGraceBuffer.ts', consumerSymbol: 'applyGraceBufferedMessage', evidenceSignature: 'current.output.length + 1 > limits.visibleOutputMaxChunks', state: 'consumed' }),
+  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'grace-output-overflow-observation', consumerPath: 'frontend/src/utils/terminalGraceBuffer.ts', consumerSymbol: 'applyGraceBufferedMessage', evidenceSignature: 'maxChunks: limits.visibleOutputMaxChunks', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.write-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleFlushBudgetBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleFlushBudgetBytes', applyBoundary: 'browser-frame', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#getOutputScheduler', evidenceSignature: 'visibleFlushBudgetBytes: limits.visibleFlushBudgetBytes', state: 'consumed' }),
   catalog({ evidenceRole: 'call-input', consumerId: 'browser.terminal.write-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleFlushBudgetBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleFlushBudgetBytes', applyBoundary: 'browser-write-slice', consumerPath: 'frontend/src/utils/terminalOutputScheduler.ts', consumerSymbol: 'createTerminalOutputScheduler#drainFrame', evidenceSignature: 'config.visibleFlushBudgetBytes,', state: 'consumed' }),
+  // #101: the frame deadline reaches the same scheduler as its byte sibling above.
+  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.write-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleFlushFrameBudgetMs', unit: 'ms', source: 'resourceLimits.terminal.visibleFlushFrameBudgetMs', applyBoundary: 'browser-frame', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#getOutputScheduler', evidenceSignature: 'visibleFlushFrameBudgetMs: limits.visibleFlushFrameBudgetMs', state: 'consumed' }),
+  catalog({ evidenceRole: 'call-input', consumerId: 'browser.terminal.write-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleFlushFrameBudgetMs', unit: 'ms', source: 'resourceLimits.terminal.visibleFlushFrameBudgetMs', applyBoundary: 'browser-write-slice', consumerPath: 'frontend/src/utils/terminalOutputScheduler.ts', consumerSymbol: 'createTerminalOutputScheduler#flush', evidenceSignature: 'normalizeFrameBudgetMs(config.visibleFlushFrameBudgetMs)', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.hidden-output', category: 'browser-runtime-residency-hidden-output', resourceKey: 'resourceLimits.terminal.hiddenOutputPolicy', unit: 'enum', source: 'resourceLimits.terminal.hiddenOutputPolicy', applyBoundary: 'visibility-decision', consumerPath: 'frontend/src/components/Terminal/TerminalContainer.tsx', consumerSymbol: 'TerminalContainer#subscribeSessionRuntime#onOutput', evidenceSignature: 'hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy', state: 'consumed' }),
   catalog({ evidenceRole: 'control-guard', consumerId: 'browser.hidden-output', category: 'browser-runtime-residency-hidden-output', resourceKey: 'resourceLimits.terminal.hiddenOutputPolicy', unit: 'enum', source: 'resourceLimits.terminal.hiddenOutputPolicy', applyBoundary: 'visibility-enforcement', consumerPath: 'frontend/src/utils/terminalHiddenOutput.ts', consumerSymbol: 'resolveHiddenOutput', evidenceSignature: "hiddenOutputPolicy === 'write-hidden'", state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.hidden-output', category: 'browser-runtime-residency-hidden-output', resourceKey: 'resourceLimits.terminal.hiddenOutputTailBytes', unit: 'bytes', source: 'resourceLimits.terminal.hiddenOutputTailBytes', applyBoundary: 'visibility-decision', consumerPath: 'frontend/src/components/Terminal/TerminalContainer.tsx', consumerSymbol: 'TerminalContainer#subscribeSessionRuntime#onOutput', evidenceSignature: 'hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes', state: 'consumed' }),
@@ -117,11 +128,19 @@ const CONSUMER_CATALOG: readonly CatalogEntry[] = [
   catalog({ evidenceRole: 'control-guard', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', applyBoundary: 'recovery-held-output-cap', consumerPath: 'frontend/src/utils/visibleOutputRecovery.ts', consumerSymbol: 'createVisibleOutputRecoveryCoordinator#acceptOutput', evidenceSignature: 'record.state.heldOutputBytes + chunkBytes > maxHeldBytes', state: 'consumed' }),
   catalog({ evidenceRole: 'control-guard', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'recovery-held-chunk-cap', consumerPath: 'frontend/src/utils/visibleOutputRecovery.ts', consumerSymbol: 'createVisibleOutputRecoveryCoordinator#acceptOutput', evidenceSignature: 'record.state.heldChunks.length + 1 > maxHeldChunks', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.inputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.inputQueueMaxBytes', applyBoundary: 'recovery-generation', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'getInputQueueLimits', evidenceSignature: 'inputQueueMaxBytes: limits.inputQueueMaxBytes', state: 'consumed' }),
-  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.inputQueueTtlMs', unit: 'ms', source: 'resourceLimits.terminal.inputQueueTtlMs', applyBoundary: 'recovery-generation', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'getInputQueueLimits', evidenceSignature: 'inputQueueTtlMs: limits.inputQueueTtlMs', state: 'consumed' }),
+  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.inputQueueMaxCount', unit: 'count', source: 'resourceLimits.terminal.inputQueueMaxCount', applyBoundary: 'recovery-generation', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'getInputQueueLimits', evidenceSignature: 'inputQueueMaxCount: limits.inputQueueMaxCount', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', applyBoundary: 'checkpoint-write-coordinator', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#mountTerminalRuntime', evidenceSignature: 'postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'checkpoint-write-coordinator', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#mountTerminalRuntime', evidenceSignature: 'postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks', state: 'consumed' }),
-  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'checkpoint-input-count-cap', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#mountTerminalRuntime', evidenceSignature: 'pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks', state: 'consumed' }),
-  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.visibleOutputMaxChunks', unit: 'count', source: 'resourceLimits.terminal.visibleOutputMaxChunks', applyBoundary: 'checkpoint-settlement-ledger-cap', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#mountTerminalRuntime', evidenceSignature: 'settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks', state: 'consumed' }),
+  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.checkpointMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.checkpointMaxBytes', applyBoundary: 'checkpoint-write-coordinator', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#mountTerminalRuntime', evidenceSignature: 'checkpointMaxBytes: coordinatorLimits.checkpointMaxBytes', state: 'consumed' }),
+  // #70: the chunk half of the same budget, which production used to leave to the coordinator's
+  // `?? postCheckpointMaxChunks` fallback.
+  // #78: the server-side chunk size, consumed where the checkpoint of the headless model is
+  // serialized. It used to be the module constant TERMINAL_CHECKPOINT_CHUNK_BYTES, which is
+  // why the budget report called this axis unconfigured while the adapter chunked by it.
+  catalog({ evidenceRole: 'call-input', consumerId: 'server.pty.headless-model', category: 'pty-headless-model', resourceKey: 'resourceLimits.terminal.checkpointChunkBytes', unit: 'bytes', source: 'resourceLimits.terminal.checkpointChunkBytes', applyBoundary: 'checkpoint-chunk', consumerPath: 'server/src/services/TerminalAuthorityProductionAdapter.ts', consumerSymbol: 'attachProductionTerminalAuthorityInternal#createCheckpoint', evidenceSignature: 'encodeCheckpointChunks(data, manager.getTerminalCheckpointChunkBytes())', state: 'consumed' }),
+  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.checkpointMaxChunks', unit: 'count', source: 'resourceLimits.terminal.checkpointMaxChunks', applyBoundary: 'checkpoint-write-coordinator', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#mountTerminalRuntime', evidenceSignature: 'checkpointMaxChunks: coordinatorLimits.checkpointMaxChunks', state: 'consumed' }),
+  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.inputQueueMaxCount', unit: 'count', source: 'resourceLimits.terminal.inputQueueMaxCount', applyBoundary: 'checkpoint-input-count-cap', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#mountTerminalRuntime', evidenceSignature: 'pendingInputMaxCount: coordinatorInputLimits.inputQueueMaxCount', state: 'consumed' }),
+  catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.inputQueueMaxCount', unit: 'count', source: 'resourceLimits.terminal.inputQueueMaxCount', applyBoundary: 'checkpoint-settlement-ledger-cap', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'TerminalView#mountTerminalRuntime', evidenceSignature: 'settlementLedgerMaxEntries: coordinatorInputLimits.inputQueueMaxCount', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.transportOutboxMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.transportOutboxMaxBytes', applyBoundary: 'browser-transport-generation', consumerPath: 'frontend/src/components/Terminal/TerminalContainer.tsx', consumerSymbol: 'getTransportOutboxLimits', evidenceSignature: 'transportOutboxMaxBytes: limits.transportOutboxMaxBytes', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.transportOutboxTtlMs', unit: 'ms', source: 'resourceLimits.terminal.transportOutboxTtlMs', applyBoundary: 'browser-transport-generation', consumerPath: 'frontend/src/components/Terminal/TerminalContainer.tsx', consumerSymbol: 'getTransportOutboxLimits', evidenceSignature: 'transportOutboxTtlMs: limits.transportOutboxTtlMs', state: 'consumed' }),
   catalog({ evidenceRole: 'object-option-flow', consumerId: 'server.pty.headless-model', category: 'pty-headless-model', resourceKey: 'resourceLimits.terminal.scrollbackLines', unit: 'lines', source: 'resourceLimits.terminal.scrollbackLines', legacyAliases: ['pty.scrollbackLines'], applyBoundary: 'session-generation', consumerPath: 'server/src/services/SessionManager.ts', consumerSymbol: 'SessionManager.initializeHeadlessState', evidenceSignature: 'this.compiledTerminalResourcePolicy.legacyPolicy.terminal.scrollbackLines.value', state: 'consumed' }),
@@ -147,18 +166,57 @@ const CONSUMER_CATALOG: readonly CatalogEntry[] = [
   catalog({ evidenceRole: 'call-input', consumerId: 'browser.runtime.residency', category: 'browser-runtime-residency-hidden-output', resourceKey: 'resourceLimits.workspaceRuntime.maxLiveTerminals', unit: 'count', source: 'resourceLimits.workspaceRuntime.maxLiveTerminals', applyBoundary: 'runtime-residency', consumerPath: 'frontend/src/hooks/useTerminalRuntimeResidency.ts', consumerSymbol: 'resolveTerminalRuntimeResidency', evidenceSignature: 'input.limits.maxLiveTerminals', state: 'consumed' }),
   catalog({ evidenceRole: 'derived-control', consumerId: 'browser.runtime.residency', category: 'browser-runtime-residency-hidden-output', resourceKey: 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', unit: 'ms', source: 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', applyBoundary: 'runtime-residency-decision', consumerPath: 'frontend/src/hooks/useTerminalRuntimeResidency.ts', consumerSymbol: 'resolveTerminalRuntimeResidency', evidenceSignature: 'input.limits.hiddenRuntimeTtlMs', state: 'consumed' }),
   catalog({ evidenceRole: 'derived-control', consumerId: 'browser.runtime.residency', category: 'browser-runtime-residency-hidden-output', resourceKey: 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', unit: 'ms', source: 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', applyBoundary: 'runtime-residency-refresh', consumerPath: 'frontend/src/hooks/useTerminalRuntimeResidency.ts', consumerSymbol: 'getNextTerminalRuntimeResidencyRefreshDelay', evidenceSignature: 'input.limits.hiddenRuntimeTtlMs', state: 'consumed' }),
+  // --- #20: three consumers that were consuming policy without being catalogued ---------
+  //
+  // Found by scanning production for REGISTERED resource-key identifiers in code positions,
+  // a signal rooted in RESOURCE_DEFINITIONS rather than in this catalogue. The existing
+  // accessor-rooted scan could not see them: each receives its limit as a plain parameter,
+  // calling no trusted getter and never naming resourceLimits, which is the residual this
+  // file's own comment already described as out of reach.
+  // than at the enclosing property assignment.
+  // #20: expressible again. The const+ternary form resolved to no role under any of the
+  // five evidenceRole values; passed as a call argument it takes the same shape as
+  // terminalOutputScheduler's normalizeChunkLimit(config.visibleOutputMaxChunks).
+  catalog({ evidenceRole: 'call-input', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.inputQueueTtlMs', unit: 'ms', source: 'resourceLimits.terminal.inputQueueTtlMs', applyBoundary: 'recovery-generation', consumerPath: 'frontend/src/components/Terminal/TerminalView.tsx', consumerSymbol: 'getInputQueueLimits', evidenceSignature: 'limits.inputQueueTtlMs,', state: 'consumed' }),
+  catalog({ evidenceRole: 'derived-control', consumerId: 'browser.binary.frame-codec', category: 'browser-binary-frame-codec', resourceKey: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', unit: 'bytes', source: 'resourceLimits.terminal.visibleOutputQueueMaxBytes', applyBoundary: 'browser-frame-admission', consumerPath: 'frontend/src/utils/binaryFrameCodec.ts', consumerSymbol: 'deriveMaxBodyBytes', evidenceSignature: 'limits?.visibleOutputQueueMaxBytes', state: 'consumed' }),
+  // pendingInputExpiry.ts is catalogued here too, and it is the honest exception: NEITHER
+  // signal found it. Its only trace of inputQueueTtlMs is a doc comment, and comments must
+  // not count -- that rule is what makes the maxEntries collision tractable, and it is the
+  // same rule that hides this file. It was found by reading, it would not be found by the
+  // guard today, and it would not be found tomorrow. See the residual note on the scan.
+  catalog({ evidenceRole: 'control-guard', consumerId: 'browser.terminal.recovery-scheduler', category: 'terminal-write-recovery-scheduler', resourceKey: 'resourceLimits.terminal.inputQueueTtlMs', unit: 'ms', source: 'resourceLimits.terminal.inputQueueTtlMs', applyBoundary: 'pending-input-expiry', consumerPath: 'frontend/src/utils/pendingInputExpiry.ts', consumerSymbol: 'shouldExpirePendingInput', evidenceSignature: 'input.queuedMs <= input.ttlMs', state: 'consumed' }),
 ] as const;
 
+// 2026-09-20 (#21 follow-through): the RuntimeConfigStore and ConfigFileRepository pins moved.
+// Re-pinning is gated on purpose -- the pin fixes the occurrence multiset that buys a file a
+// blanket exemption from the unregistered-call-site scan, so moving it can hide a real consumer
+// added to that file. The scan itself cannot answer that question here, because these two files
+// are exactly the ones it is exempted from; a clean scan would be circular. So the argument is
+// from the diffs. OPS-BGSTAB-012 added one line to RuntimeConfigStore -- reading
+// resourceLimits.terminal.hiddenOutputPolicy inside getTerminalPathGateKeyValues() to REPORT the
+// configured value, not to act on it -- which is what 'policy-projection' already means; the key's
+// actual consumer is TerminalResourcePolicy.ts and is registered. OPS-BGSTAB-013 touched
+// ConfigFileRepository without adding any resource-limit access at all. Neither file gained a
+// consumer, so both classifications still hold and only their byte pins moved.
 const PATH_CLASSIFICATIONS: readonly TerminalResourcePathClassification[] = [
   { path: 'server/src/types/config.types.ts', classification: 'schema-source', symbol: 'ResourceLimitsConfig', evidenceSignature: 'export interface ResourceLimitsConfig', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Typed source; it does not make runtime decisions.' },
   { path: 'server/src/schemas/config.schema.ts', classification: 'schema-source', symbol: 'resourceLimitsSchema', evidenceSignature: 'export const resourceLimitsSchema', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Validation/default source; it does not make runtime decisions.' },
-  { path: 'server/src/services/RuntimeConfigStore.ts', classification: 'policy-projection', symbol: 'getTerminalResourcePolicyObservation', evidenceSignature: 'getTerminalResourcePolicyObservation', accessEvidenceSha256: 'f98f45d38dbe49427b6c59b6f0817a7c702d9967b0e1195027e078cbb61aaaa6', reason: 'Projects effective values and evidence without claiming consumer application.' },
+  { path: 'server/src/services/RuntimeConfigStore.ts', classification: 'policy-projection', symbol: 'getTerminalResourcePolicyObservation', evidenceSignature: 'getTerminalResourcePolicyObservation', accessEvidenceSha256: '78427023d0a139495e813d8d5fdde67f468708854da8eb7e93b527763c48b69c', reason: 'Projects effective values and evidence without claiming consumer application.' },
   { path: 'server/src/services/SettingsService.ts', classification: 'settings-facade', symbol: 'mergeEditablePatch', evidenceSignature: 'mergeEditablePatch', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Settings facade passes values to persistence/runtime boundaries.' },
-  { path: 'server/src/services/ConfigFileRepository.ts', classification: 'persistence-boundary', symbol: 'applyEditableValues', evidenceSignature: 'function applyEditableValues', accessEvidenceSha256: '99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39', reason: 'Persists configuration; it is not a terminal runtime consumer.' },
+  { path: 'server/src/services/ConfigFileRepository.ts', classification: 'persistence-boundary', symbol: 'applyEditableValues', evidenceSignature: 'function applyEditableValues', accessEvidenceSha256: '7a7822e6c551e7925d142cb80242000d9a25aacb32206c133c18d3bd90feb2b7', reason: 'Persists configuration; it is not a terminal runtime consumer.' },
   { path: 'frontend/src/utils/inputReliabilityMode.ts', classification: 'policy-projection', symbol: 'getTerminalResourceLimits', evidenceSignature: 'export function getTerminalResourceLimits', accessEvidenceSha256: '5c0e5934d04fe2a9efd6a69c26f23fc745c7e837b99305523ac7847c39ab6cb6', reason: 'Browser config projection plus tombstone cleanup consumer.' },
   { path: 'frontend/src/utils/terminalOutputHotPath.ts', classification: 'policy-projection', symbol: 'getTerminalOutputHotPathLimits', evidenceSignature: 'getTerminalResourceLimits()', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Caches browser terminal limits for downstream runtime consumers.' },
   { path: 'frontend/src/components/Settings/settingsDraftHelpers.ts', classification: 'settings-facade', symbol: 'mergeSettingsDraft', evidenceSignature: 'resourceLimits.headless.pendingOutputMaxBytes', accessEvidenceSha256: '37e29d7a9b35d8580277ec9cad6dacad0975a3b6648e190eb6b9bcc979e5701a', reason: 'Settings draft projection; it does not apply terminal runtime decisions.' },
   { path: 'frontend/src/types/settings.ts', classification: 'schema-source', symbol: 'EditableSettingsValues', evidenceSignature: 'resourceLimits.headless.pendingOutputMaxBytes', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Browser settings type source; it does not apply terminal runtime decisions.' },
+  // #20: `maxEntries` is a registered resource leaf (resourceLimits.snapshots.maxEntries) AND
+  // an unrelated MCP claim-code cap in these two files. Comment-exclusion does not help --
+  // both are real property accesses -- so the collision is stated as a checkable claim about
+  // what the identifier means here, which fails if the file changes, rather than as a
+  // standing exemption.
+  { path: 'server/src/index.ts', classification: 'name-collision', symbol: 'createMcpToolService', evidenceSignature: 'maxEntries: 256', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: "The maxEntries here caps MCP claim codes, not resourceLimits.snapshots.maxEntries. It is passed to McpToolService and never reaches a terminal resource decision." },
+  { path: 'server/src/services/McpToolService.ts', classification: 'name-collision', symbol: 'createMcpToolService', evidenceSignature: 'options.maxEntries ?? 256', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: "The maxEntries here is this module's own claim-code ring bound, defaulted locally to 256 and unrelated to resourceLimits.snapshots.maxEntries." },
+  // #20: a REAL consumer, recorded as uncatalogueable rather than given a row that cannot match.
+  { path: 'frontend/src/utils/terminalWriteCoordinator.ts', classification: 'uncatalogueable', symbol: 'createTerminalWriteCoordinator', evidenceSignature: 'options.checkpointMaxBytes', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: "Bounds on checkpointMaxBytes and checkpointMaxChunks received as plain options, so the access traces to no trusted getter and resolves to no canonical key. All five evidenceRole values yield roles=undefined; no catalogue row can describe it. Cataloguing requires the AST matcher to resolve delegated parameters." },
   { path: 'server/src/types/settings.types.ts', classification: 'schema-source', symbol: 'EditableSettingsKey', evidenceSignature: 'resourceLimits.headless.pendingOutputMaxBytes', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Server settings key source; it does not apply terminal runtime decisions.' },
 ];
 
@@ -182,6 +240,18 @@ export interface TerminalResourceInventory {
   tuples: TerminalResourceConsumerManifestEntry[];
   classifications: TerminalResourcePathClassification[];
   unregisteredCallSites: Array<{ path: string; symbol: string }>;
+  /**
+   * Issue #90. A classification entry whose pin does not equal the recomputed
+   * access evidence simply falls out of `exactlyClassifiedPaths`, and its
+   * accesses then resurface through `unregisteredCallSites`. That is a real
+   * signal, but it is the SAME signal a genuinely unregistered access produces,
+   * so the two are indistinguishable at the point of reading. The invalid
+   * `99ca442c` pin committed at 5918146 produced exactly this symptom and was
+   * read for months as "the pin went stale" rather than "the pin was never
+   * right": the correct value for that blob was 633123e7, which no commit ever
+   * held. Reported separately here so a wrong pin names itself.
+   */
+  classificationPinMismatches: Array<{ path: string; pinned: string; recomputed: string }>;
   evidenceHashSchemaVersion: string;
   typescriptVersion: string;
   evidenceSourcePaths: string[];
@@ -1019,6 +1089,64 @@ function predeclareAstScopeBindings(
   }
 }
 
+/**
+ * #20: the registered resource LEAF names, derived from TERMINAL_RESOURCE_KEYS.
+ *
+ * Deliberately NOT derived from CONSUMER_CATALOG. The accessor-rooted scan below can only
+ * resolve an access that traces back to a trusted getter or to a chain rooted at
+ * `resourceLimits`; a consumer that receives its limit as a plain parameter resolves to no
+ * key and is invisible to it. That residual is named in this file's own comments, and it let
+ * real consumers through -- binaryFrameCodec.ts took `visibleOutputQueueMaxBytes` as a
+ * parameter and bounded frame admission on it while being catalogued nowhere.
+ *
+ * Keying on the registered keys rather than on every config schema leaf is what keeps this
+ * scoped: `osc52.allowWrite` and `recentEventLimit` are schema leaves that are NOT registered
+ * resources, so they are excluded by construction rather than by an argued exemption that
+ * could rot.
+ */
+/** The accessors that hand out compiled limits. A file naming any of them belongs to the
+ *  accessor-rooted pass, not to the leaf-name signal. */
+const TRUSTED_GETTER_NAMES = [
+  'getTerminalResourceLimits',
+  'getCachedTerminalOutputResourceLimits',
+  'getClientWsResourceLimits',
+  'getSnapshotResourceLimits',
+  'getWorkspaceRuntimeResourceLimits',
+  'compileTerminalResourcePolicy',
+] as const;
+
+const REGISTERED_RESOURCE_LEAF_NAMES: ReadonlySet<string> = new Set(
+  TERMINAL_RESOURCE_KEYS.map((key) => key.slice(key.lastIndexOf('.') + 1)),
+);
+
+/**
+ * Identifier occurrences of a registered resource leaf, in CODE positions only.
+ *
+ * Comments and string literals do not count, via the same excluded-range machinery the
+ * accessor-rooted scan uses. That rule is what makes the `maxEntries` collision tractable --
+ * and it is the same rule that hides pendingInputExpiry.ts, whose only trace of
+ * `inputQueueTtlMs` is a doc comment. That is a genuine trade, not an oversight: see the
+ * residual note on unregisteredCallSites below.
+ */
+function discoverRegisteredLeafIdentifiers(
+  ts: TypescriptModule,
+  sourceFile: import('typescript').SourceFile,
+  excludedRanges: readonly { start: number; end: number }[],
+): Array<{ symbol: string; start: number }> {
+  const found: Array<{ symbol: string; start: number }> = [];
+  const visit = (node: import('typescript').Node): void => {
+    if (ts.isIdentifier(node) && REGISTERED_RESOURCE_LEAF_NAMES.has(node.text)) {
+      const start = node.getStart(sourceFile);
+      if (!isExcludedAstPosition(start, excludedRanges)) {
+        found.push({ symbol: node.text, start });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sourceFile, visit);
+  return found;
+}
+
 function discoverAstResourceAccesses(
   ts: TypescriptModule,
   sourceFile: import('typescript').SourceFile,
@@ -1178,9 +1306,24 @@ function toRepositoryPath(repositoryRoot: string, path: string): string {
   return absolute;
 }
 
+// #71: line endings are normalised at the single point where source text enters this module.
+// The seal used to be a hash of WORKING-TREE bytes, and 32 of the 35 hashed paths have no
+// .gitattributes eol setting, so git hands out CRLF on one platform and LF on another and the
+// seal changes with no edit. Two developers on different platforms invalidate each other's
+// seals forever, and a mismatch here throws during the evidence-bundle build step -- which
+// means every test command, local build, release build and CI job goes red for a reason that
+// has nothing to do with the code.
+//
+// Normalising here rather than only before hashing also takes the platform out of the AST
+// evidence: character offsets shift by one per preceding line under CRLF, so the evidence
+// digests had the same dependence.
+export function normaliseSourceLineEndings(source: string): string {
+  return source.replace(/\r\n/gu, '\n');
+}
+
 async function readRequiredSource(repositoryRoot: string, path: string): Promise<string> {
   try {
-    return await readFile(toRepositoryPath(repositoryRoot, path), 'utf8');
+    return normaliseSourceLineEndings(await readFile(toRepositoryPath(repositoryRoot, path), 'utf8'));
   } catch (error) {
     throw new Error(`required terminal resource source missing: ${path}`, { cause: error });
   }
@@ -1316,6 +1459,13 @@ export async function discoverTerminalResourceInventory(options: {
   const exactlyClassifiedPaths = new Set(PATH_CLASSIFICATIONS.filter(
     (entry) => classificationAccessEvidence.get(entry.path) === entry.accessEvidenceSha256,
   ).map((entry) => entry.path));
+  const classificationPinMismatches = PATH_CLASSIFICATIONS
+    .filter((entry) => classificationAccessEvidence.get(entry.path) !== entry.accessEvidenceSha256)
+    .map((entry) => ({
+      path: entry.path,
+      pinned: entry.accessEvidenceSha256,
+      recomputed: classificationAccessEvidence.get(entry.path) ?? '',
+    }));
 
   const productionFiles = [
     ...await listProductionSourceFiles(options.repositoryRoot, 'server/src'),
@@ -1328,7 +1478,8 @@ export async function discoverTerminalResourceInventory(options: {
       || path === 'server/src/services/TerminalResourcePolicyInventory.ts'
       || path === 'server/src/services/TerminalResourcePolicyObservations.ts'
     ) continue;
-    const source = sourceContents.get(path) ?? await readFile(toRepositoryPath(options.repositoryRoot, path), 'utf8');
+    const source = sourceContents.get(path)
+      ?? normaliseSourceLineEndings(await readFile(toRepositoryPath(options.repositoryRoot, path), 'utf8'));
     const sourceFile = parseSource(path, source);
     const accesses = discoverAstResourceAccesses(ts, sourceFile);
     const registeredMatches = evidenceMatches.filter((match) => match.entry.consumerPath === path);
@@ -1344,6 +1495,65 @@ export async function discoverTerminalResourceInventory(options: {
     });
     if (residual.length > 0) {
       const first = residual.sort((left, right) => left.start - right.start)[0];
+      unregisteredCallSites.push({ path, symbol: first.symbol });
+      continue;
+    }
+
+    // #20: second, independent signal into the SAME sink.
+    //
+    // One answer to "is every consumer registered", not two that can disagree -- two guards
+    // over one question drift, and when they disagree the losing one gets quietly relaxed.
+    //
+    // This catches what the accessor-rooted pass above structurally cannot: a consumer that
+    // receives its limit as a plain parameter, calling no trusted getter and never naming
+    // `resourceLimits`, so its access resolves to no canonical key. Measured 2026-09-19,
+    // binaryFrameCodec.ts was exactly that and had been consuming
+    // resourceLimits.terminal.visibleOutputQueueMaxBytes uncatalogued.
+    //
+    // RESIDUAL, stated here rather than only in a change note, because this is where the next
+    // person is reading: a consumer that renames the value on the way in is still invisible to
+    // BOTH signals -- no getter to root an access, and no leaf identifier to match. The two
+    // known instances are `server/src/ws/wsSendPolicy.ts` (catalogued; takes the coalesce
+    // window as `coalesceWindowMs`) and `frontend/src/utils/pendingInputExpiry.ts`
+    // (catalogued; takes the TTL as `ttlMs`, naming inputQueueTtlMs only in a doc comment).
+    // Both were found by reading. Neither would be found by this scan today or tomorrow.
+    //
+    // A THIRD case exists that this scan reports and the catalogue cannot absorb:
+    // `frontend/src/utils/terminalWriteCoordinator.ts` bounds on checkpointMaxBytes and
+    // checkpointMaxChunks via `options.` -- the access resolves to no canonical key, so an
+    // entry keyed on either can never match it and every evidenceRole yields roles=undefined.
+    // Cataloguing it requires the AST matcher to resolve delegated parameters. Until then it
+    // is classified rather than catalogued, because a row that cannot match is a lie shaped
+    // like a row.
+    if (exactlyClassifiedPaths.has(path) || registeredMatches.length > 0) continue;
+    // Benchmarks and fixtures construct limits objects as INPUT to a measurement; they do
+    // not make runtime decisions for a user. The accessor-rooted pass above never tripped on
+    // them because they build the objects rather than reading them from a getter, so this
+    // scoping restores the boundary that pass already had rather than inventing a new one.
+    // settingsInventory's own discovery excludes server/src/benchmarks for the same reason.
+    if (path.startsWith('server/src/benchmarks/') || path.endsWith('.fixture.ts')) continue;
+    // The two signals have DISJOINT domains, and this is the line that keeps them disjoint.
+    //
+    // If a file touches a trusted resource getter at all, the accessor-rooted pass above is
+    // authoritative for it: that pass can follow the value, and it knows the difference
+    // between reading the policy and reading a local that merely SHADOWS the same name. A
+    // leaf-name signal cannot. The repository's own negative fixtures prove the point --
+    // newShadowedTerminalAlias.ts and newShadowedGetterName.ts import the getter and then
+    // read `limits.hiddenOutputTailBytes` off a parameter, a local object literal and a catch
+    // binding, none of which is the policy; name-matching flags all three.
+    //
+    // So this signal claims only the files the other one structurally cannot see: those that
+    // never touch a getter and receive their limit as a plain parameter. All three consumers
+    // it found -- binaryFrameCodec, terminalWriteCoordinator, pendingInputExpiry -- have zero
+    // getter references, and every shadow fixture has at least one.
+    if (accesses.length > 0 || TRUSTED_GETTER_NAMES.some((name) => source.includes(name))) continue;
+    const leafIdentifiers = discoverRegisteredLeafIdentifiers(
+      ts,
+      sourceFile,
+      excludedRangesByPath.get(path) ?? [],
+    );
+    if (leafIdentifiers.length > 0) {
+      const first = leafIdentifiers.sort((left, right) => left.start - right.start)[0];
       unregisteredCallSites.push({ path, symbol: first.symbol });
     }
   }
@@ -1376,6 +1586,7 @@ export async function discoverTerminalResourceInventory(options: {
     tuples,
     classifications: PATH_CLASSIFICATIONS.map((entry) => ({ ...entry })),
     unregisteredCallSites,
+    classificationPinMismatches,
     evidenceHashSchemaVersion: TERMINAL_RESOURCE_EVIDENCE_HASH_SCHEMA_VERSION,
     typescriptVersion: ts.version,
     evidenceSourcePaths,
@@ -1500,4 +1711,176 @@ export function validateTerminalResourceConsumerManifest(
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+// @req REL-BGSTAB-010 AC-7
+//
+// The consumer registration contract, and the direction the inventory contract does not hold.
+//
+// validateTerminalResourceConsumerManifest enforces that every consumer the AST finds is
+// registered. It says nothing about a registered id that no consumer uses, so an id can be
+// added to TERMINAL_RESOURCE_POLICY_CONSUMER_IDS and never acquire a consumer without anything
+// going red. This validator holds that direction.
+//
+// An id that is registered and unused is admissible only as an explicit reservation carrying a
+// written reason and a named decision owner.
+//
+// What the manifest-tuple condition actually buys, measured rather than assumed. The consumer
+// manifest is GENERATED one tuple per catalog entry: discoverTerminalResourceInventory walks
+// CONSUMER_CATALOG and pushes exactly one discoveredTuples row per catalog entry. On a freshly
+// sealed manifest the manifest id set is therefore identical to the catalog id set -- measured
+// today at 81 catalog entries and 81 tuples over the same 10 distinct consumer ids. So for an id
+// that is not already `used`, the tuple condition cannot fire. It is a TRIPWIRE AGAINST A STALE
+// OR HAND-EDITED MANIFEST, not an independent check that a reserved consumer genuinely does not
+// consume.
+//
+// The residual, stated plainly: this guard cannot distinguish "registered and genuinely unused"
+// from "registered and consuming through a call site nobody catalogued". The manifest is derived
+// from the catalog, so both cases look identical to it, and a consumer id exists only in the
+// catalog in the first place. Separating them would need a signal the current inventory design
+// does not produce.
+
+export interface TerminalResourceConsumerRegistrationReservation {
+  consumerId: string;
+  reason: string;
+  decidedBy: string;
+}
+
+export interface TerminalResourceConsumerRegistrationResult {
+  ok: boolean;
+  checked: number;
+  errors: Array<{
+    code: 'unused-consumer-id' | 'reservation-without-reason'
+      | 'reservation-has-tuple' | 'reservation-not-registered'
+      | 'duplicate-reservation' | 'reservation-for-used-id'
+      | 'reservation-id-occurs-in-production';
+    reference: string;
+  }>;
+}
+
+// The single current reservation. `server.config.schema` has never been used as a consumerId
+// anywhere in this repository's history, and the schema-store area it was reserved for is served
+// by catalog entries carrying category 'server-config-schema-store' under the consumer id
+// 'server.config.runtime-store'.
+//
+// #20 step 0 DECIDED this, and the decision is not-applicable rather than missing. Three
+// measurements: the literal appears in production at exactly two sites, this reservation and the
+// registry array -- every other occurrence is in tests; config.schema.ts imports only zod and
+// never reads the compiled policy, so it is the SOURCE of the values rather than a consumer of
+// them; and the schema-adjacent consumption that does exist is already catalogued under
+// server.config.runtime-store. A file that validates and defaults raw config makes no runtime
+// decision, which is what a consumer id names.
+//
+// The entry is kept rather than deleted: an entry that makes the decision fail loudly here is
+// worth more than a document recording it.
+export const TERMINAL_RESOURCE_CONSUMER_REGISTRATION_RESERVATIONS:
+readonly TerminalResourceConsumerRegistrationReservation[] = Object.freeze([
+  Object.freeze({
+    consumerId: 'server.config.schema',
+    reason: 'Not applicable, not missing. Registered with no catalog entry and no manifest tuple; '
+      + 'config.schema.ts imports only zod and never reads the compiled policy, so it is the '
+      + 'source of the values rather than a consumer of them. The schema-store consumption that '
+      + 'does exist is catalogued under server.config.runtime-store with category '
+      + 'server-config-schema-store.',
+    decidedBy: 'wave4-wave5 consumer rollout step 0 (decided 2026-09-19: not-applicable)',
+  }),
+]);
+
+export function getTerminalResourceCatalogConsumerIds(): TerminalResourcePolicyConsumerId[] {
+  return CONSUMER_CATALOG.map(entry => entry.consumerId);
+}
+
+export function validateTerminalResourceConsumerRegistration(input: {
+  consumerIds: readonly string[];
+  catalogConsumerIds: readonly string[];
+  manifestConsumerIds: readonly string[];
+  reservations: readonly TerminalResourceConsumerRegistrationReservation[];
+  // Reserved consumer id -> how many times that id's literal appears in a PRODUCTION source
+  // other than the registry declaration itself. A reservation asserts the id has no consumer.
+  // If the literal is written anywhere in production outside the two declaration sites that
+  // have to name it, that assertion is falsifiable and false: something is passing the id.
+  // Optional ONLY because the negative-path fixture tests construct minimal inputs that have no
+  // production occurrence map to supply; the production contract row passes it, so this branch is
+  // live against real data and deleting it reddens that row.
+  //
+  // What this still does NOT cover, stated plainly: a consumer that consumes the resource
+  // without ever naming the id -- reached through a variable, a re-export or an alias. That
+  // residual stays genuinely unreachable from a literal scan, and it is the same residual the
+  // manifest-tuple condition cannot resolve.
+  reservedIdProductionOccurrences?: Readonly<Record<string, number>>;
+}): TerminalResourceConsumerRegistrationResult {
+  const errors: TerminalResourceConsumerRegistrationResult['errors'] = [];
+  const registered = new Set(input.consumerIds);
+  const used = new Set(input.catalogConsumerIds);
+  const withTuples = new Set(input.manifestConsumerIds);
+
+  // Duplicates have to be found before the map is built: `new Map(...)` keeps the last entry for
+  // a repeated key and drops the rest silently, so a second reservation for the same id could
+  // otherwise overwrite an argued one with an unargued one and leave no trace.
+  const reservationOccurrences = new Map<string, number>();
+  for (const reservation of input.reservations) {
+    reservationOccurrences.set(
+      reservation.consumerId,
+      (reservationOccurrences.get(reservation.consumerId) ?? 0) + 1,
+    );
+  }
+  const duplicatedReservationIds = new Set<string>();
+  for (const [consumerId, count] of reservationOccurrences) {
+    if (count > 1) {
+      duplicatedReservationIds.add(consumerId);
+      errors.push({ code: 'duplicate-reservation', reference: consumerId });
+    }
+  }
+  const reservedById = new Map(input.reservations.map(entry => [entry.consumerId, entry]));
+
+  for (const reservation of input.reservations) {
+    // One error per reservation, and for a duplicated id the other diagnostics are DEFERRED to
+    // the next run: the `continue` means a duplicated id never reaches the registered / reason /
+    // used / tuple / occurrence checks, so an id that is duplicated AND unregistered AND unargued
+    // reports only `duplicate-reservation`. That is diagnostic loss, not a correctness escape --
+    // `ok` is still false, and the remaining faults surface once the duplicate is removed.
+    if (duplicatedReservationIds.has(reservation.consumerId)) continue;
+    if (!registered.has(reservation.consumerId)) {
+      errors.push({ code: 'reservation-not-registered', reference: reservation.consumerId });
+      continue;
+    }
+    if (reservation.reason.trim().length === 0 || reservation.decidedBy.trim().length === 0) {
+      errors.push({ code: 'reservation-without-reason', reference: reservation.consumerId });
+      continue;
+    }
+    // A reservation is for an id nothing uses. Reserving one that IS in the catalog is a
+    // contradiction, and the loop below never examines it because it continues past used ids.
+    if (used.has(reservation.consumerId)) {
+      errors.push({ code: 'reservation-for-used-id', reference: reservation.consumerId });
+      continue;
+    }
+    // Reachable only against a stale or hand-edited manifest. The manifest is generated one tuple
+    // per catalog entry, so against a freshly sealed manifest its id set equals the catalog id set
+    // and an id that is not already `used` owns no tuple -- and a used id was rejected one branch
+    // above. The suite's freshness assertion rejects a stale seal earlier, so this is defence in
+    // depth rather than a live discriminator. Kept because the freshness assertion is a separate
+    // contract that could be relaxed independently.
+    if (withTuples.has(reservation.consumerId)) {
+      errors.push({ code: 'reservation-has-tuple', reference: reservation.consumerId });
+      continue;
+    }
+    if ((input.reservedIdProductionOccurrences?.[reservation.consumerId] ?? 0) > 0) {
+      errors.push({ code: 'reservation-id-occurs-in-production', reference: reservation.consumerId });
+    }
+  }
+
+  // `checked` counts the ids that actually reached the used/reserved decision -- that is, the
+  // registered ids absent from the catalog, for which a reservation lookup was performed.
+  // Incrementing at the top of the loop would make it a restatement of consumerIds.length.
+  let checked = 0;
+  for (const consumerId of input.consumerIds) {
+    if (used.has(consumerId)) continue;
+    checked += 1;
+    const reservation = reservedById.get(consumerId);
+    if (reservation === undefined) {
+      errors.push({ code: 'unused-consumer-id', reference: consumerId });
+    }
+  }
+
+  return { ok: errors.length === 0, checked, errors };
 }

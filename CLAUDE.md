@@ -72,6 +72,49 @@ frontend/src/
 - 환경 변수는 실행별로 확인하고 보호 guard/소유 경로 설정을 보존한다. 상속된 설정이 설치본을 가리키는지 확인하고, 필요한 변경은 검토된 child environment에만 적용한다. `BUILDERGATE_*` 일괄 삭제나 parent 환경 변경을 기본 절차로 사용하지 않는다. 실제 설정의 load/merge와 경로를 확인하며 비밀값을 출력하지 않는다.
 - 원본 dirty/untracked/config 파일을 다른 worktree에 복사해 baseline을 만들지 않는다. 깨끗한 전용 checkout에서 검토된 소유 fixture를 만들고 정확한 입력 hash와 HEAD를 기록한다.
 - 스크린샷은 `.playwright-mcp/`에 저장한다. UI는 요구된 editor 통합 외에 개인 판단으로 바꾸지 않는다. 연구·계획과 검증의 역할 분리 및 모델 선택은 현재 사용자/AGENTS 지시를 따른다.
+## 🚨 TCP 2002 는 지금 운영 중이다. 이 프로세스를 종료시키지 마라 (2026-09-21, 사용자 지시)
+
+**2002 는 이 시스템에 실제로 배포되어 서비스 중인 포트다. 어떤 이유로도, 어떤 우회로도
+그 프로세스를 죽이지 않는다.** 위 Rules 의 금지 조항은 그대로 유효하며, 이 절은 그것을
+**기계적으로 식별 가능하게** 만든다 — 규칙을 아는 것과 눈앞의 PID 가 그것인지 아는 것은
+다른 일이고, 사고는 항상 후자에서 난다.
+
+### 식별자: PID 가 아니라 명령줄로 가른다
+
+PID 는 재부팅마다 바뀌므로 외워 둘 수 없다. **명령줄이 판별자다.**
+
+| | 운영 데몬 — **절대 금지** | 이 체크아웃 — 소유 확인 후 그 PID 하나만 |
+|---|---|---|
+| 명령줄 | `C:\Work\agent-tools\builder-gate__\node\node.exe C:\Work\agent-tools\builder-gate__\server\dist\index.js` | `node dist/index.js` (상대 경로) |
+| 실행 파일 | 설치본 안의 `node.exe` | 시스템 node / nvm node |
+| 포트 | **2001 과 2002 를 한 PID 가 동시에** | 2222 |
+| cwd | `C:\Work\agent-tools\builder-gate__\server` | `.../ProjectMaster*/server` |
+
+즉 **절대 경로면 설치본, 상대 경로면 내 것**이다. 2026-09-21 실측 당시 데몬은 PID 30596
+이었고 2001·2002 를 함께 LISTENING 했다. **2001 을 내리는 것이 곧 2002 운영 중단이다.**
+
+종료 전에 반드시:
+
+```bash
+# WSL 에서도 Windows 리스너를 본다 (ss 로는 안 보인다)
+cmd.exe /c "netstat -ano" | tr -d '\r' | grep LISTENING | grep -E ":(2001|2002|2222)\s"
+# 대상 PID 의 명령줄을 눈으로 확인한다 — 절대 경로면 중단
+```
+
+그리고 작업 **뒤에도** 같은 명령으로 2001·2002 가 같은 PID 로 남아 있는지 본다.
+
+### 오늘 실제로 아슬아슬했던 세 가지
+
+1. **`pkill -f "<패턴>"` 은 자기 자신을 매치한다.** 2026-09-21 실측: `pkill -f "playwright test tests/e2e/issue113"` 가 그 문자열을 담은 **자기 셸**을 죽여 exit 144 로 끝났고 편집이 유실됐다. 패턴이 넓었다면 데몬을 잡았을 수 있다. → 종료는 `pgrep` 으로 **후보를 먼저 출력**하고, 각 PID 의 `/proc/<pid>/cmdline` 또는 `Win32_Process.CommandLine` 을 확인한 뒤 **PID 하나씩** 지목한다.
+2. **`taskkill /T` 는 트리를 지운다.** 부모를 잘못 고르면 자식까지 간다. 대상이 확정된 리프 프로세스면 `/T` 를 쓰지 않는다.
+3. **cmd.exe 는 설치본의 `BUILDERGATE_SHUTDOWN_TOKEN` 과 `BUILDERGATE_DAEMON_STATE_PATH` 를 상속한다.** 그 상태에서 내부 shutdown 엔드포인트나 `stop` 을 부르면 **대상은 2002 다.** WSL 셸에는 그 변수가 하나도 없어서 WSL 기준 경험이 그대로 옮겨지지 않는다(아래 cmd.exe 절 참조).
+
+### 2002 를 멈춰야만 진행되는 상황이면
+
+멈추지 말고 **그 사실을 보고하고 지시를 기다린다.** 우회로를 찾지 않는다. 검증이 필요하면
+데몬을 거치지 않고 이 체크아웃의 `server/dist/index.js` 를 `NODE_ENV=production PORT=2222`
+로 직접 띄운다 — 데몬 상태 파일을 건드리지 않는다.
+
 ## 테스트 규칙 (필수)
 
 아래 날짜별 수치와 실패 서술은 병합 전 관찰 기록이다. 현재 통합 결과로 재라벨링하지 않는다. 현재 admission은 exact20 자식과 no-kill observer 계약이며 canonical bbf59ed에서3회 통과했다; 통합 source에는 새 검증이 필요하다. split은15 ordinary PASS/13 TODO의 기록이며 완료가 아니다. 표의 명령은 실행 surface 안내이지 안전성 검토 면제가 아니다.
@@ -91,12 +134,20 @@ frontend/src/
 | wave3 증거 스크립트 | `tools/wave3/{authority-promotion-evidence, canary-admission-evidence, fair-scheduler-decision, retained-shadow-parity, terminal-resource-consumer-manifest}.test.mjs` (5개, **node:test 아님**) | `node tools/wave3/<파일>` (일부는 `--regenerate-green` 등 플래그를 받음) |
 | wave1 | `tools/wave1/g1-decision-gate.test.mjs` (1개) | `node --test tools/wave1/g1-decision-gate.test.mjs` — 스크립트 없음 |
 | server tools | `server/tools/*.test.{cjs,mjs}` (3개, node:test) | `node --test server/tools/<파일>` — 스크립트 없음 |
-| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts`, `server/src/utils/retiredSettingsResidue.test.ts` (15 케이스) | 루트 `npm run test:release-pipeline` — 넷을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것** |
+| 릴리즈 파이프라인 가드 | `tools/build-portable-runtime-evidence.test.mjs`, `server/tools/canonical-authority-line-endings.test.mjs`, `server/src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts`, `server/src/utils/retiredSettingsResidue.test.ts` (15 케이스), `tools/wave3/terminal-resource-consumer-manifest.test.mjs` | 루트 `npm run test:release-pipeline` — 다섯을 한 번에 돈다. **릴리즈 빌드를 세 번 깨뜨린 것들을 지키는 가드이므로 릴리즈 전에 반드시 돌릴 것.** 소비자 매니페스트는 2026-09-21 에 체인에 들어왔다(그 전에는 어떤 스크립트도 그것을 부르지 않아 봉인이 조용히 낡았다 — 아래 절 참조) |
 
 주의할 것:
 
+- **저장소 전체를 감시하는 테스트가 있다. 자기 모듈이 아니라 *남의 파일* 때문에 빨개진다.** `server/src/services/TerminalResourcePolicy.test.ts` 는 `server/src` 와 `frontend/src` 전체를 AST 로 훑어 정책 자원에 접근하면서 인벤토리에 등재되지 않은 지점(`unregisteredCallSites`)을 찾는다. **프런트엔드 파일 한 줄을 고쳐서 이 서버 테스트를 빨갛게 만들 수 있다** — 그리고 그것이 이 파일의 목적이다.
+
+  그래서 "내가 건드린 파일의 테스트만 돌린다" 는 전략에 구조적으로 걸리지 않는다. 모놀리식 러너(`src/test-runner.ts`)는 `*.test.ts` 를 디스커버리하지 않으므로 **542/542 를 보고해도 이 파일은 한 번도 돌지 않았다.** 2026-09-19 실측: `acac5a68` 이 `TerminalView.tsx` 의 `getInputQueueLimits()` 에 `limits.inputQueueTtlMs` 읽기를 추가하면서 이 가드가 빨개졌고, **그 상태로 커밋·리뷰·푸시됐다.** 작성자도 리뷰어도 프런트 스위트·모놀리식 러너·release pipeline·타입체크·빌드를 전부 돌렸고, **그중 어느 것도 이 파일을 실행하지 않았다.** 가드는 첫 실행에서 정확히 지목했다 — 아무도 실행하지 않았을 뿐이다.
+
+  **정책 자원(`resourceLimits.*`)을 읽는 코드를 추가·수정했다면 이 파일을 직접 돌린다**: cwd=`server/` 에서 `npx tsx --test src/services/TerminalResourcePolicy.test.ts`.
+
 - **exit code 를 회귀 신호로 믿을 수 없는 파일이 있다.** `server/src/ws/WsRouterSplitHandshake.test.ts` 는 `fail 0` 으로 **exit 0** 을 반환하지만, 그 todo 들은 실제로 assertion 이 깨진 채 `✖ failing tests:` 에 찍힌다(`3 !== 1` 등, 전부 "Wave-1 production unified limitation characterization"). 나중에 진짜로 green 이 되어도 exit code 는 그대로 0 이다 → **todo 카운트와 `✖` 목록을 대조**해야 한다.
   - #77: 여기 있던 `pass 14 / todo 14` 를 지웠다. 그 숫자는 2026-08-19 실측이었고 오늘은 `pass 15 / todo 13` 이며, 이 문서를 고치는 동안에도 다시 움직인다. **대조해야 할 것은 어떤 숫자가 아니라 todo 카운트와 `✖` 목록이 서로 맞는지다.** 숫자를 적어두면 그 숫자가 기준처럼 읽히고, 틀린 기준은 없는 기준보다 나쁘다.
+- **프론트 단위 전수(`node --experimental-strip-types --test tests/unit/*.test.ts`)에서 빨간 파일이 전부 회귀는 아니다.** 실제 xterm 을 렌더하는 테스트는 module mock 과 asset stub 이 필요해 그 러너에서 반드시 실패하고, 전용 스크립트 `npm run test:unit:terminal-view-behavior` 에서 통과한다. **개수를 외우지 말고 목록을 도출할 것** — 그 스크립트의 파일 목록이 곧 "전수에서 실패해도 되는 집합" 이며, 둘이 어긋나면 그것이 신호다. 2026-09-19 실측: `terminalPasteUnifiedPath.test.ts`(#18 에서 신설)가 그 목록에 없어 전수가 3 fail 로 보였고, 같은 파일이 전용 러너에서는 10/10 이었다. 새로 만든 컴포넌트 렌더 테스트는 `tsconfig.test.json` 등록만으로 끝나지 않는다 — 이 스크립트에도 넣어야 한다.
+
 - **소스 텍스트를 읽어 계약을 단언하는 테스트는 `src/` 전용이다. `dist/` 로 돌리면 깨진다.** `new URL('./X.ts', import.meta.url)` 로 형제 원본을 읽는데 `dist/` 에는 `.d.ts` 만 있고 `.ts` 소스가 복사되지 않기 때문이다. 해당 파일은 `grep -rl "new URL('./" server/src --include=*.test.ts` 로 열거한다 — 알려진 것은 `TerminalAuthorityController.test.ts`, `TerminalResourcePolicyCanary.test.ts`, `benchmarks/terminalFairnessCharacterization.test.ts`, `TerminalAuthorityProductionRegression.test.ts` 이고 **닫힌 목록이 아니다**(#77: 넷이라고 적혀 있었으나 실측은 그보다 많다). 전부 위 표의 커맨드(`npx tsx --test src/…`)로 돌려야 한다. 오늘 빌드본으로 실측하면 `node --test dist/services/TerminalAuthorityController.test.js` 는 4건, `…/TerminalResourcePolicyCanary.test.js` 는 10건이 `ENOENT` 로 실패한다 (2026-09-02). `TerminalResourcePolicyCanary.test.ts:29` 는 아예 `.ts` 원본의 실재를 `assert.equal(MODULE_PRESENT, true, …)` 로 단언하므로 설계상 `src/` 를 전제한다.
 - **서버를 실제로 띄우는 테스트가 하나 있다.** `server/src/ws/terminalWireFormatBoot.test.ts` 는 임시 설정으로 `src/index.ts` 를 자식 프로세스로 부팅해 바이너리 협상 응답을 관측한다. 설정 파일에서 `config` 객체를 거쳐 라우터까지 이어지는 구간은 이 방식으로만 실행되며(`config` 가 모듈 최상위 `export const config = loadConfig()` 이고 `index.ts` 가 부트스트랩을 export 하지 않는다), 그 구간의 회귀는 `realtimeSchema` 가 `defaultObject` 라서 **에러 없이 조용히 `json` 으로 수렴한다**. 3케이스에 약 20초가 들고 케이스마다 인접한 두 포트(`PORT` 와 `PORT-1`)를 20000~40000 에서 잡는다. 저장소에는 아무것도 쓰지 않는데, **그것을 지키는 장치가 둘로 나뉘어 있다.** `server/data/` 아래 상태 파일들은 `process.cwd()` 기준 상대 경로이므로 `spawn` 의 `cwd` 가 지키고(`CommandPresetService.ts:18` 외 7곳), `server/certs/` 는 `BUILDERGATE_SERVER_ROOT` 가 가리키는 곳을 본다. 인증서가 이미 있고 유효하면 `SSLService.ts:123-137` 이 재사용만 하므로 변수를 빠뜨려도 당장은 쓰기가 없다(2026-09-03 실측). 인증서가 없으면 그 자리에 새로 쓰며(임시 루트에서 실측), 만료 시 동작은 `SSLService.ts:141-191` 의 코드 근거일 뿐 실측하지 않았다. **둘 중 하나만 챙기면 안 된다.**
 - **스위트가 서로를 spawn 한다. 격리돼 있지 않다.** (아래는 확인된 것이며 닫힌 목록이 아니다)
@@ -115,8 +166,17 @@ frontend/src/
   - build 파이프라인: `prebuild: ensure-node-pty-windows-hide.cjs` → `tsc` → `write-fair-scheduler-source-provenance.mjs` → `write-fair-scheduler-evidence-bundle.mjs` → `cpSync(src/shell-integration → dist/shell-integration)`. 산출물은 gitignored `server/dist/**` 이며 추적 파일을 바꾸지 않는다.
   - **봉인된 소스를 고치면 authority 를 재발행해야 한다. 도구는 `node tools/wave3/fair-scheduler-authority-publish.mjs` 다.** 여섯 개 핀 소스(`terminalFairnessCharacterization.ts`, `fairSchedulerAuthorityLocator.ts`, `wsSendPolicy.ts`, `WsRouter.ts`, `TerminalResourcePolicy.ts`, `TerminalResourcePolicyCanary.ts`) 중 하나라도 바뀌면 `test:release-pipeline` 이 빨개진다. 순서는 **build → publish → build → verify** 이고, publish 를 build 앞에 돌리면 **조용히 이전 generation 을 다시 발행한다**(실패하지 않는다). 2026-09-19 실측: 순서를 틀려 19/19 → 0/3 이 됐고, 되돌린 뒤 올바른 순서로 복구됐다.
   - **벤치마크를 `--output` 으로 직접 돌려 재발행하려 하지 않는다.** 그렇게 하면 kiwi-coder 트리에 publication 을 쓰고 authority 트리는 갱신하지 않는다 — 실패하지 않으므로 알아채기 어렵다. 배포 소유 트리를 건드리는 절차는 **플래그에서 진입점을 추론하지 말고 전용 도구를 먼저 찾는다.**
+
+  - **함정 3 (2026-09-19, #20 실측) — 재봉인은 조용한 창에서만 유효하다.** consumer 매니페스트는 카탈로그된 19개 소스 경로의 해시를 고정하는데, 그중 여럿은 다른 작업이 일상적으로 건드리는 파일이다. **봉인은 한 순간에만 유효하다** — 실측: 재봉인이 성공하고 몇 초 뒤 다른 레인이 `TerminalView.tsx` 를 편집해 곧바로 `source-hash-mismatch` 로 빨개졌다. 같은 날 두 번 있었다. 결함이 아니라 메커니즘의 성질이므로, **움직이는 파일에 다시 봉인하지 않는다** — 남의 반쯤 끝난 상태를 봉인하는 것은 모두가 볼 수 있는 빨간 해시보다 나쁘다. 시간 압박 아래 재봉인을 일정에 넣기 전에 알아둘 것.
+
+  - **함정 4 (2026-09-19, #20 실측) — `--accept-*` 플래그를 보면 그 플래그를 넘기지 말고 열거된 것을 읽어라.** dry run 은 제거와 추가를 **diff 가 아니라 각각의 줄로** 출력한다. 실측: 교체 행 하나가 기존 행의 `applyBoundary` 를 다른 값으로 발명했고, 그대로였다면 **기존 결정의 의미 재라벨링이 승인된 재봉인을 타고 통과**했을 것이다 — 승인한 사람도 실행한 사람도 그 차이를 몰랐다. 잡힌 이유는 도구가 **요약하기를 거부**했기 때문이다. "한 행 변경" 으로 렌더했다면 일상적인 이동으로 보였을 것이다. **경계할 모양은 제거 하나 + 추가 하나가 쌍으로 보이는 것이다 — 쌍은 이동처럼 보이고 이동은 일상적으로 보인다.** 그리고 "이 변경들은 의도된 것" 이라는 승인은 **명시된 변경만** 덮는다. 도구가 그 밖의 것을 열거하면 같은 의도의 일부로 흡수하지 말고 승인자에게 돌아간다.
+
+  - **함정 2 (2026-09-19, #112 실측)**: `tools/wave3/fair-scheduler-authority-publish.mjs` 는 **dist 산출물을 근거로 재현을 판정한다.** 봉인된 소스를 고친 뒤 **빌드 없이** 이 스크립트를 돌리면 stale dist 를 보고 "소스와 측정이 둘 다 재현됨" 이라 판단해 **같은 generation 을 그대로 둔 채 조용히 끝난다** — 아무 일도 안 했는데 성공처럼 보인다. 올바른 순서는 **build → publish → build** 두 번이다(두 번째 빌드가 증거 번들을 새 generation 으로 재동기화한다). 그래야 `OPS-BGSTAB-010` 의 compiled-canary 단언까지 green 이 된다.
+
   - **함정**: evidence-bundle 이 `docs/analysis/terminal-fairness-authority/` 의 sha256 매니페스트를 재검증하고 불일치 시 throw 한다 → **build 실패**. 그러면 위의 **테스트 명령·로컬 빌드·릴리스 빌드·CI 가 전부 깨진다.** 테스트 코드와 무관한 이유로 red 가 되므로, 테스트가 깨졌다고 진단하기 전에 build 로그를 먼저 볼 것.
   - 테스트만 돌릴 의도라면 cwd=`server/` 에서 `npx tsx src/test-runner.ts` (build 를 타지 않음). 단 이 러너는 `*.test.ts` 를 디스커버리하지 않으므로 이것만으로는 회귀 커버리지가 되지 않는다.
+
+- **모놀리식 러너의 `SEC-MCP-001 AC-6` 실패는 환경 탓이 아니었다 (2026-09-19, #42 에서 해소).** 이 테스트가 실제 TLS 리스너를 **2222 에 바인딩**하고 그 포트를 "the exclusive test port" 라고 단언하고 있었다. 2222 는 이 저장소의 유일한 검증 포트이고 이 문서가 거기 서버를 띄우라고 요구하므로, **두 요구가 서로 모순**이었다 — 검증 환경을 갖춘 기계에서는 반드시 `EADDRINUSE` 로 실패한다. 그래서 몇 주 동안 "알려진 선재 실패" 로 상속됐고, 그 라벨은 **증상에는 정확하고 원인에는 틀렸다.** 위 #89 절의 반대 방향 사례다. 리스너를 ephemeral 포트(0)로 바꾸고 핸들이 실제로 보고한 포트를 단언하도록 고쳐서 지금은 **542/542 exit 0** 이며, 2222 가 떠 있는 채로 통과한다. 교훈: **테스트가 고정된 well-known 포트를 점유한다면 그 테스트를 의심할 것.**
 
 **루트에는 `test` 스크립트가 없다** — `npm test` 는 루트에서 `Missing script` 로 실패한다. server 용은 `npm --prefix server test`. 루트의 test 스크립트 4개(`test:daemon`, `test:daemon:wave5`, `test:docs`, `test:integration:native-daemon`)는 전부 `tools/daemon/` 만 겨냥한다. 어느 한 명령을 돌리고 "테스트 통과"로 보고하지 말 것.
 
@@ -128,7 +188,7 @@ frontend/src/
 
 ### E2E 테스트
 
-- editor branch의 2026-09-03 관찰은 E2E37파일/651 project-expanded cases(Desktop217), unit92파일과 타입 미등재 사례를 기록했다. 이는 역사적 수치이며 현재 통합 수집 수/통과 증거가 아니다. 새 테스트는 실제 tsconfig 입력에 포함되는지 확인한다. frontend root tsc만으로 앱/테스트 타입 검증을 주장하지 않는다.
+- editor branch의 2026-09-03 관찰은 E2E37파일/651 project-expanded cases(Desktop217), unit92파일과 타입 미등재 사례를 기록했다. 이는 역사적 수치이며 현재 통합 수집 수/통과 증거가 아니다. 새 테스트는 실제 tsconfig 입력에 포함되는지 확인한다. frontend root tsc만으로 앱/테스트 타입 검증을 주장하지 않는다. **이유(2026-09-19 실측)**: `frontend/tsconfig.json`은 `"files": []`에 `tsconfig.app.json`/`tsconfig.editor.json`/`tsconfig.node.json`만 `references`로 얹은 solution 파일이다. `npx tsc --noEmit`(빌드 모드 `-b` 없이)은 이 파일 하나만 열고 파일이 0개이므로 참조된 프로젝트를 하나도 컴파일하지 않은 채 아무 진단 없이 exit 0 을 낸다 — "클린"과 "아무것도 안 검사함"이 출력만으로 구분되지 않는다. `tsconfig.e2e-ownership.json`은 root 의 `references`에도 없어 이 셋 중 어느 것을 돌려도 검사되지 않는다. 앱/테스트 타입을 실제로 검증하려면 `npx tsc -p tsconfig.app.json --noEmit`처럼 대상 프로젝트를 매번 명시해서 개별적으로 돌린다(현재 프로젝트: app, editor, node, e2e-ownership 넷 전부 별도 실행 필요).
 - 기존 editor spec과 `workspace-ownership-validation.spec.ts`, `workspaceOwnershipFixture.ts`를 먼저 읽는다. 성공한 생성 응답의 ID만 소유하며 사용자/다른 테스트 workspace를 prefix나 quota 회복 목적으로 삭제하지 않는다. 시드는 각 spec의 소유권/초기상태 계약에 맞춰 만든다.
 - 실제 브라우저는 검증된 외부 `https://localhost:2222`만 사용한다. 자동 webServer가 다른 인스턴스를 재사용하거나 시작하지 않게 검토하고, 앞뒤 health와 정확한 프로세스 정체성을 확인한다. 임의 포트로 우회하지 않는다.
 - editor branch는 장시간 실행에서 서버 소실과 초기 seed 의존성을 관찰했다. 현재 실패 원인이나 고정 수명으로 단정하지 않는다. 실패 케이스가 달라진다는 이유로 제품 결함을 배제하거나 서버를 재시작하지 않는다. 실제 원시 로그·소유 상태로 원인을 조사한다.
@@ -435,6 +495,72 @@ The Completed Work Log — inline in `docs/spec/00.index.md` §7 and its split h
 **심볼을 옮기거나 이름을 바꾸기 전에**, 그것을 import 가 아니라 **문자열로 지목하는 것**을 저장소 전체에서 찾는다 — 카탈로그·매니페스트·evidence signature·소스 텍스트 단언·CI glob·문서 앵커. 전부 컴파일러에도 동작 테스트에도 보이지 않는다. "토큰 동일" 은 **동작** 질문에 답하지 **정체성** 질문에 답하지 않는다.
 
 **변하지 않는 것**: TCP 2001/2002 운영 중단 금지, 프로세스 안전 규칙, `git add -A` 금지, 기록을 고쳐 쓰지 않고 승계하는 것.
+
+## 재봉인은 커밋 직전에, 마지막으로 한다 (2026-09-21)
+
+**봉인한 뒤에 소스를 한 줄이라도 더 고치면 그 봉인은 낡는다.** 하루에 두 번 그렇게
+했다 — `7dfff106` 과 `50fc673f` 둘 다 낡은 소비자 매니페스트와 함께 푸시됐다. 두 번 다
+같은 모양이다: 재봉인 → 리뷰하다 파일 하나 더 수정 → 커밋. 사이에 검증기를 돌리지 않았다.
+
+그 원인은 주의력이 아니라 구조였다. **어떤 npm 스크립트도 그 검증기를 부르지 않았다.**
+`test:release-pipeline` 도 덮지 않아서, 그 게이트가 19/19 통과하는 동안 매니페스트는
+빨갰다. 유일한 소비자인 `server/src/services/TerminalResourcePolicy.test.ts` 역시 어떤
+스크립트에도 없다(모놀리식 러너는 `*.test.ts` 를 디스커버리하지 않는다).
+
+2026-09-21 에 `npm run check:consumer-manifest` 를 만들고 **`test:release-pipeline`
+체인에 엮었다.** 스크립트를 만들기만 하고 아무도 부르지 않으면 표면은 실재하지 않는다 —
+이 저장소가 `server/tools/*.test.*` 에서 이미 배운 것이다(`docs/analysis/2026-09-17.rg06-regression/00.decision-table.md` §5.4).
+공허하지 않음을 실측했다: 봉인 해시 하나를 변조하면 앞 세 단계(14/3/2)가 전부 통과한 뒤
+`check:consumer-manifest` 단계에서 `AssertionError` 로 exit 1 이 된다.
+
+- **순서를 지킨다**: 소스 수정 → (전부 끝난 뒤) 재봉인 → 검증기 → 커밋.
+- 재봉인 뒤에 무언가를 고쳤다면 **다시 봉인한다.** dry-run 요약의
+  `exact consumer tuples`·`classifications` 가 `unchanged` 인지 매번 본다.
+- 이것은 `git add -A` 금지가 새 generation 디렉터리를 남기는 것과 같은 부류다 —
+  **안전 규칙의 옳은 적용이 그 다음 실패를 만든다.**
+
+## WSL 에서 맞던 절차가 cmd.exe 에서 맞지 않는다 (2026-09-20, FR-BGSTAB-030)
+
+**cmd.exe 는 설치본의 환경을 상속한다. WSL 은 상속하지 않는다.** 실측: Windows 환경에
+`BUILDERGATE_*` 가 **15개** 설정돼 있고 전부 설치본(`C:\Work\agent-tools\builder-gate__`)을
+가리킨다 — `CONFIG_PATH`, `WEB_ROOT`, `RUNTIME_ROOT`, `DAEMON_STATE_PATH`, `SHUTDOWN_TOKEN`,
+`TOTP_SECRET_PATH` 등. WSL 셸에는 **하나도 없다.**
+
+그래서 "`BUILDERGATE_*` 를 자식 환경에서 전부 제거한다" 를 WSL 에서 지키는 것은 공짜였고,
+cmd.exe 에서는 **이름을 아는 것만 지우면 지켜지지 않는다.** 실측으로 4개만 지우고 띄웠더니
+서버가 정상 기동했고 `/health` 는 200 이었으나 **서빙한 정적 자산과 읽은 config 가 설치본의
+것**이었다(`2FA: TOTP` 로 드러남 — 이 체크아웃은 `Disabled`).
+
+- 이름을 열거하지 말고 **있는 것을 전부** 지운다:
+  `for /f "delims==" %%v in ('set BUILDERGATE 2^>nul') do set "%%v="`
+- 비밀번호처럼 **남겨야 하는 값은 그 루프 뒤에** 설정한다. 루프 앞에 두면 같이 지워진다
+  (실측: 지워졌고, 서버는 비밀번호 없이 뜬 채 `INVALID_PASSWORD` 만 답했다).
+- `set BUILDERGATE` 로 확인하면 **NAME=VALUE 가 찍혀 비밀값이 로그에 남는다.** 이름만 찍는다.
+- `start.bat`/`start-runtime.js` 는 쓰지 않는다. 운영 데몬(2001/2002)이 떠 있으면 2222 로
+  뜨지 않고 데몬 상태 파일을 건드릴 수 있다. 이 파일 위쪽이 지정한 `dist\index.js` 직접 실행이
+  그 상황의 경로다.
+- **WSL 의 `localhost:2222` 는 Windows 리스너에 닿지 않는다.** WSL 에서는 기본 게이트웨이
+  IP(`ip route show default` 의 세 번째 필드)로 간다. E2E 스위트는 `localhost` 를 보므로
+  서버가 Windows 에 있으면 돌지 않는다.
+
+## 설정 암호화는 플랫폼에 묶여 있다 (2026-09-20, FR-BGSTAB-030)
+
+`machineId` 는 `${os.hostname()}-${os.platform()}-${os.arch()}` 다(`server/src/index.ts`).
+**같은 기계·같은 파일이라도 WSL(`linux`)에서 암호화한 `config.json5` 는 Windows(`win32`)에서
+복호화되지 않는다.** 키를 바꾸는 것은 기존 config 를 전부 무효화하므로 해법이 아니다.
+
+- 한 체크아웃을 두 플랫폼에서 띄우려면 **플랫폼별 config 를 따로 둔다.**
+  `BUILDERGATE_CONFIG_PATH` 로 지정하되 **이 체크아웃 안**을 가리킨다.
+- 평문 비밀번호를 넣으면 서버가 기동 시 자기 키로 암호화해 파일에 다시 쓴다
+  (`[Config] auth.password encrypted`). 평문은 첫 기동까지만 디스크에 있다.
+- **`BUILDERGATE_PASSWORD` 는 서버가 읽지 않는다.** `server/src` 참조 0건 — 테스트 하네스
+  전용이다. 서버 비밀번호는 `config.json5` 에서만 온다.
+
+**이제 이 둘은 제품이 말해 준다**(FR-BGSTAB-030): 해석된 루트가 실행 중인 코드의 체크아웃
+밖이면 기동 시 `[Provenance]` 경고가 변수와 경로를 지목하고, `/health` 가 `rootsForeign`
+과 `buildId` 를 함께 낸다. **`/health` 200 을 "내가 빌드한 서버" 로 읽지 말라는 이 파일의
+규칙이, 이제 기억이 아니라 필드로 확인된다.** 복호화 실패도 키 유도 근거의 불일치를 원인으로
+지목한다.
 
 ## 성능과 사용성 우선 (2026-09-18, 사용자 지시)
 

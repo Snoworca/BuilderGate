@@ -1,0 +1,30 @@
+{
+  "evaluator": "sonnet-B",
+  "iter": 2,
+  "findings": [
+    {
+      "category": "trace-links",
+      "severity": "MEDIUM",
+      "file": "docs/spec/30.buildergate-stability.srs.md",
+      "line": 6047,
+      "summary": "Body text cites TerminalShortcutService.ts:182-200 (recoverFromBackup) as reading the .bak this requirement makes atomic, but the Trace Links table omits a row for it while including the equivalent row for the other three services (CommandPresetService.ts:137-152, RecoveryOptionService.ts:192-203, WorkspaceService.ts:178-195).",
+      "failure_scenario": "A reader using only the Trace Links table (the SRS-MD 'source of truth' surface for code references) to audit which backup-read call sites this requirement obligates would miss TerminalShortcutService entirely, even though the body text and AC-7 both require it to hold.",
+      "short_summary": "TerminalShortcutService backup-read cited in body but missing from Trace Links"
+    },
+    {
+      "category": "srs-md-conformance",
+      "severity": "LOW",
+      "file": "docs/spec/30.buildergate-stability.srs.md",
+      "line": 6008,
+      "summary": "Tags field carries 'feasibility:high', a key:value token not used by any neighboring requirement (020/021 use '-') and not defined anywhere in SRS-MD-Rules-v2.5.0.md's Tags guidance ('comma-separated tags for search and classification').",
+      "failure_scenario": "Not a parsing hazard (Tags is free-form), but it is an ad hoc convention introduced in this one block that a tooling consumer expecting plain tags would not recognize as a Priority/Risk duplicate signal.",
+      "short_summary": "Non-standard 'feasibility:high' tag token"
+    }
+  ],
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 1,
+    "LOW": 1
+  }
+}

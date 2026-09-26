@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -36,6 +36,8 @@ const EXPECTED_CATEGORIES = [
   'browser-runtime-residency-hidden-output',
   'terminal-write-recovery-scheduler',
   'persisted-snapshot-storage',
+  // #20: the binary data plane's own category, added with browser.binary.frame-codec.
+  'browser-binary-frame-codec',
 ] as const;
 const EXPECTED_POLICY_CONSUMER_IDS = [
   'server.config.schema',
@@ -49,6 +51,7 @@ const EXPECTED_POLICY_CONSUMER_IDS = [
   'browser.terminal.write-scheduler',
   'browser.terminal.recovery-scheduler',
   'browser.snapshot.persisted-storage',
+  'browser.binary.frame-codec',
 ] as const;
 const EXPECTED_RESOURCE_KEYS = [
   'resourceLimits.clientWs.hardReconnectBytes',
@@ -62,14 +65,19 @@ const EXPECTED_RESOURCE_KEYS = [
   'resourceLimits.snapshots.perSnapshotMaxChars',
   'resourceLimits.snapshots.tombstoneTtlMs',
   'resourceLimits.snapshots.totalStorageBudgetChars',
+  'resourceLimits.terminal.checkpointChunkBytes',
+  'resourceLimits.terminal.checkpointMaxBytes',
+  'resourceLimits.terminal.checkpointMaxChunks',
   'resourceLimits.terminal.hiddenOutputPolicy',
   'resourceLimits.terminal.hiddenOutputTailBytes',
   'resourceLimits.terminal.inputQueueMaxBytes',
+  'resourceLimits.terminal.inputQueueMaxCount',
   'resourceLimits.terminal.inputQueueTtlMs',
   'resourceLimits.terminal.scrollbackLines',
   'resourceLimits.terminal.transportOutboxMaxBytes',
   'resourceLimits.terminal.transportOutboxTtlMs',
   'resourceLimits.terminal.visibleFlushBudgetBytes',
+  'resourceLimits.terminal.visibleFlushFrameBudgetMs',
   'resourceLimits.terminal.visibleOutputMaxChunks',
   'resourceLimits.terminal.visibleOutputQueueMaxBytes',
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs',
@@ -93,6 +101,13 @@ const EXPECTED_TRACE_PATHS = [
   'frontend/src/utils/terminalOutputScheduler.ts',
   'frontend/src/utils/terminalSnapshot.ts',
   'frontend/src/utils/visibleOutputRecovery.ts',
+  // #20: consumers that were consuming policy without being catalogued, found by scanning
+  // production for registered resource-key identifiers rather than by walking this catalogue.
+  'frontend/src/utils/binaryFrameCodec.ts',
+  'frontend/src/utils/pendingInputExpiry.ts',
+  // Classified rather than catalogued: its access resolves to no canonical key, so no row
+  // can describe it. Present here because classifications are trace paths too.
+  'frontend/src/utils/terminalWriteCoordinator.ts',
   'server/src/schemas/config.schema.ts',
   'server/src/services/ConfigFileRepository.ts',
   'server/src/services/RuntimeConfigStore.ts',
@@ -146,6 +161,28 @@ function stableHash(value: unknown): string {
 
 function assertSortedUnique(values: string[]): void {
   assert.deepEqual(values, [...new Set(values)].sort((left, right) => left.localeCompare(right)));
+}
+
+// AC-1 requires the manifest to name each key's REAL consumer path, and existsSync cannot tell the
+// difference between "the consuming expression lives here" and "it used to". That gap is not
+// hypothetical: REL-BGSTAB-009 moved the grace lane from WebSocketProvider#bufferGraceMessage into
+// terminalGraceBuffer#applyGraceBufferedMessage, and AC-1 stayed green over four entries pointing
+// at a file whose named symbol no longer consumes anything, because the file still existed. The
+// evidence signature is the consuming expression itself, so its absence at the named path is the
+// cheapest condition the mere presence of the file cannot satisfy.
+//
+// What this does NOT establish, deliberately: a textual hit does not prove the expression is owned
+// by the named symbol, is reachable, or is anything but a comment or an import. AC-6's AST scan is
+// what carries ownership and liveness. This is a second, independent condition on the same claim,
+// not a substitute for that one.
+function assertEvidenceSignaturePresentAt(path: string, evidenceSignature: string, consumerSymbol: string): number {
+  const source = readFileSync(resolve(REPOSITORY_ROOT, path), 'utf8');
+  const offset = source.indexOf(evidenceSignature);
+  assert.ok(
+    offset >= 0,
+    `manifest names ${path}#${consumerSymbol} as the consumer, but its evidence signature ${JSON.stringify(evidenceSignature)} does not occur in that file`,
+  );
+  return offset;
 }
 
 function assertRepositoryPath(path: string): void {
@@ -259,14 +296,26 @@ function expectedLegacyConsumerDecisions(store: RuntimeConfigStore): Record<stri
   };
 }
 
-function expectedAppliedPolicyIds(legacyPolicyId: string): Record<string, string> {
-  return Object.fromEntries(EXPECTED_POLICY_CONSUMER_IDS.map((consumerId) => [consumerId, legacyPolicyId]));
-}
+
+// #97: EXPECTED_POLICY_CONSUMER_IDS (declared above) is a hand-typed mirror of
+// TERMINAL_RESOURCE_POLICY_CONSUMER_IDS, and nothing in THIS file compares the two.
+// Its only reader used to be expectedAppliedPolicyIds(), which nothing ever called --
+// so while that dead function existed the array LOOKED verified and was not. The
+// function is deleted here. The array stays, because it is now genuinely verified from
+// outside: TerminalResourcePolicyConsumerRegistry.test.ts reads this file as text,
+// extracts the literal, asserts the extraction is non-empty BEFORE comparing, and
+// deep-equals it against the live registry in order.
+//
+// That sibling test is the ONLY thing keeping this array honest. Delete or weaken it and
+// the array silently reverts to an unverified duplicate. The note is placed here rather
+// than above the declaration on purpose: the registry suite anchors that site by line
+// number plus a sha256 over a three-line window, so a comment there would rot the anchor.
 
 test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1', async () => {
   const { loadTerminalResourceConsumerManifest } = await loadInventoryContract();
   const manifest = await loadTerminalResourceConsumerManifest({ manifestPath: MANIFEST_PATH });
   const categories = new Set(manifest.consumers.map((entry) => entry.category));
+  let signaturesChecked = 0;
 
   assert.equal(manifest.schemaVersion, SCHEMA_VERSION);
   assert.equal(manifest.profileVersion, PROFILE_VERSION);
@@ -281,7 +330,41 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
     assert.ok(Array.isArray(entry.legacyAliases));
     assert.ok(entry.applyBoundary.length > 0);
     assertRepositoryPath(entry.consumerPath);
+    // The returned offset is re-verified against the file HERE, independently of the helper. Two
+    // earlier forms of this counter were tautologies - `helper(...) ? 1 : 0` with return type
+    // `true`, then an unconditional `+= 1` inside a loop over the array it was compared against -
+    // and both stayed green with the helper's body deleted. Reading the file again and checking
+    // that the signature really sits at the returned offset is a claim a stub cannot satisfy: a
+    // `return 0` reddens unless the signature genuinely begins at byte 0.
+    const signatureOffset = assertEvidenceSignaturePresentAt(
+      entry.consumerPath,
+      entry.evidenceSignature,
+      entry.consumerSymbol,
+    );
+    // Checked HERE rather than inside the helper. An empty signature would make the slice check
+    // below true for any non-negative offset, and a guard against that is worthless while it sits
+    // in the component the caller is written to distrust.
+    assert.ok(
+      entry.evidenceSignature.length > 0,
+      `expected a non-empty evidence signature for ${entry.consumerPath}#${entry.consumerSymbol}`,
+    );
+    const consumerSource = readFileSync(resolve(REPOSITORY_ROOT, entry.consumerPath), 'utf8');
+    assert.equal(
+      consumerSource.slice(signatureOffset, signatureOffset + entry.evidenceSignature.length),
+      entry.evidenceSignature,
+      `${entry.consumerPath}#${entry.consumerSymbol}: the offset the signature check returned does not point at that signature`,
+    );
+    signaturesChecked += 1;
   }
+  // Kept as a loop-completion check only, and no longer carrying the coverage claim: incrementing
+  // unconditionally inside a loop over manifest.consumers and comparing to its length is provable
+  // by inspection. What actually establishes that every entry was examined is the per-entry offset
+  // re-verification above, which no stub satisfies.
+  assert.equal(
+    signaturesChecked,
+    manifest.consumers.length,
+    'AC-1 must check the evidence signature of every manifest entry',
+  );
 });
 
 test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2', async () => {
@@ -296,7 +379,7 @@ test('Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2',
   assert.deepEqual(compiledFirst, compiledSecond);
   assert.equal(compiledFirst.mode, 'observe');
   assert.equal(compiledFirst.appliedPolicyId, compiledFirst.legacyPolicy.policyId);
-  assert.equal(Object.keys(compiledFirst.legacyPolicy.resources).length, 29);
+  assert.equal(Object.keys(compiledFirst.legacyPolicy.resources).length, 34);
   assert.equal(observation.decisionEvidence.runtimeApplicationClaimed, false);
   assert.equal(observation.decisionStackHash, stableHash(observation.decisionStack));
   assert.equal(observation.decisionStack.scrollback.serverHeadless.source, 'resourceLimits.terminal.scrollbackLines');
@@ -742,7 +825,7 @@ test('OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized a
   }
 });
 
-test('OBS-BGSTAB-005 review regression — compiler owns all 29 typed resources and records real legacy divergence', async () => {
+test('OBS-BGSTAB-005 review regression — compiler owns all 34 typed resources and records real legacy divergence', async () => {
   const { TERMINAL_RESOURCE_KEYS, compileTerminalResourcePolicy } = await loadContract('AC-2');
   assert.deepEqual([...TERMINAL_RESOURCE_KEYS].sort(), [...EXPECTED_RESOURCE_KEYS]);
   const compiled = compileTerminalResourcePolicy({
@@ -1138,6 +1221,71 @@ test('OBS-BGSTAB-005 review regression — exact repository tuples validate bidi
   }
 });
 
+// Mutation fixtures locate their insertion point by a run of trimmed lines rather than by a
+// verbatim substring. A verbatim marker carries the checkout's line endings and the source file's
+// indentation, both of which drift without changing any behaviour this suite is about: the
+// reserved-copy-option-decoy marker pinned a CRLF that server/src/services/SessionManager.ts no
+// longer has, so the fixture could not pose its question at all and failed on its own setup. The
+// count assertion below is what keeps that from degrading into a silent no-op instead.
+// Fixture suffixes are authored with bare LF. Both write sites run them through this so a CRLF
+// target is not handed a mixed-ending file.
+function toSourceNewlines(text: string, source: string): string {
+  return text.replace(/\r?\n/g, source.includes('\r\n') ? '\r\n' : '\n');
+}
+
+// This suite rewrites whole files - insertBeforeMarkerLines rejoins every line - which would
+// silently normalise a mixed-ending target, and a target's own template literals carry whitespace as
+// content. So refuse mixed endings instead. `newlineCount` counts ALL newlines including the LF of
+// each CRLF, which is what the comparison needs: a pure CRLF file has crlfCount === newlineCount.
+// All current targets are pure LF.
+function assertUniformLineEndings(source: string, name: string, path: string): void {
+  const crlfCount = (source.match(/\r\n/g) ?? []).length;
+  const newlineCount = (source.match(/\n/g) ?? []).length;
+  assert.ok(
+    crlfCount === 0 || crlfCount === newlineCount,
+    `${name}: refusing to rewrite ${path}, which has mixed line endings (${crlfCount} CRLF of ${newlineCount} newlines)`,
+  );
+}
+
+function insertBeforeMarkerLines(source: string, marker: string, inserted: string, name: string): string {
+  assert.ok(marker.trim().length > 0, `${name}: marker must not be blank`);
+  // This function rejoins every line, so it defends itself rather than relying on its callers to
+  // have checked. Both current callers do check first, but a third added later would inherit
+  // nothing. It is idempotent and cheap.
+  assertUniformLineEndings(source, name, '<insertBeforeMarkerLines input>');
+  const newline = source.includes('\r\n') ? '\r\n' : '\n';
+  const lines = source.split(/\r?\n/);
+  const markerLines = marker.replace(/\r\n/g, '\n').split('\n').map((line) => line.trim());
+  const hits: number[] = [];
+  for (let index = 0; index + markerLines.length <= lines.length; index += 1) {
+    if (markerLines.every((expected, offset) => lines[index + offset].trim() === expected)) hits.push(index);
+  }
+  assert.equal(
+    hits.length,
+    1,
+    `${name}: expected exactly one occurrence of the ${markerLines.length}-line marker ${JSON.stringify(markerLines)}, found ${hits.length}`,
+  );
+  const target = lines[hits[0]];
+  const indent = target.slice(0, target.length - target.trimStart().length);
+  const insertedLines = inserted
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .map((line) => `${indent}${line.trim()}`);
+  assert.ok(insertedLines.length > 0, `${name}: inserted text produced no lines`);
+  // Each inserted line is re-indented to the marker's indent. For JavaScript that is
+  // meaning-preserving - line breaks are kept, so ASI is unaffected, and only leading whitespace
+  // changes - with one exception: whitespace inside a template literal is content. Refuse those
+  // rather than rewrite them silently. Multi-line block inserts are fine and several fixtures use
+  // them, so this deliberately does NOT require each line to be a complete statement; an earlier
+  // draft did and false-reddened same-owner-dead-code-decoy, whose first line is `if (false) {`.
+  for (const line of insertedLines) {
+    assert.doesNotMatch(line, /`/, `${name}: inserted lines must not contain a template literal, because they are re-indented`);
+  }
+  lines.splice(hits[0], 0, ...insertedLines);
+  return lines.join(newline);
+}
+
 test('OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope', async () => {
   const {
     discoverTerminalResourceInventory,
@@ -1205,6 +1353,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'unchanged-guard-after-constant-return',
+      driftMechanism: 'seal-only' as const,
       path: 'frontend/src/utils/terminalOutputScheduler.ts',
       from: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
       to: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
@@ -1215,6 +1364,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'unchanged-guard-after-try-finally-return',
+      driftMechanism: 'seal-only' as const,
       path: 'frontend/src/utils/terminalOutputScheduler.ts',
       from: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
       to: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
@@ -1234,6 +1384,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'object-option-noop-callee-decoy',
+      driftMechanism: 'tuple' as const,
       path: 'server/src/services/SessionManager.ts',
       from: 'maxBytes: limits.pendingOutputMaxBytes',
       to: 'maxBytes: Number.MAX_SAFE_INTEGER',
@@ -1262,6 +1413,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'call-input-noop-callee-decoy',
+      driftMechanism: 'tuple' as const,
       path: 'frontend/src/utils/terminalOutputScheduler.ts',
       from: 'config.visibleFlushBudgetBytes,',
       to: 'Number.MAX_SAFE_INTEGER,',
@@ -1272,7 +1424,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-direct-guard-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1290,6 +1442,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'control-guard-wrong-return-decoy',
+      driftMechanism: 'tuple' as const,
       path: 'frontend/src/utils/terminalOutputScheduler.ts',
       from: 'queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes',
       to: 'Number.MAX_SAFE_INTEGER > config.visibleOutputQueueMaxBytes',
@@ -1309,7 +1462,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-shadowed-use-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1318,7 +1471,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-noop-guard-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1327,7 +1480,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-call-input-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1336,7 +1489,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-return-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1345,7 +1498,7 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
     },
     {
       name: 'derived-control-for-of-shadow-decoy',
-      path: 'frontend/src/contexts/WebSocketContext.tsx',
+      path: 'frontend/src/utils/terminalGraceBuffer.ts',
       from: 'current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes',
       to: 'false',
       suffix: '',
@@ -1358,37 +1511,169 @@ test('OBS-BGSTAB-005 third review regression — catalog evidence must be execut
       from: 'limits.serverBufferedHighWaterBytes',
       to: 'Number.MAX_SAFE_INTEGER',
       suffix: '',
-      replaceCount: 2,
+      // 3, one per occurrence: two in WsRouter.sendTransportMessage and one in
+      // WsRouter.flushTransportQueue. It was 2 when the file held two, and stayed 2 when a third
+      // was added, so the tail occurrence stopped being mutated.
+      //
+      // RESIDUAL, and it is larger than the count fix suggests: discovery throws on the FIRST
+      // catalog entry with a missing signature, and the catalog lists sendTransportMessage before
+      // flushTransportQueue, so this fixture rejects on the first owner whether the second is
+      // mutated or not. It therefore proves the first owner must carry evidence and CANNOT observe
+      // the second at all - it does not prove what its name says, that one owner's evidence is not
+      // counted for the other. Doing that needs two fixtures each mutating one owner's occurrences
+      // by offset and asserting the throw names that owner's consumerSymbol, which this harness
+      // cannot express. What replaceCount 3 plus the exact-count assertion buys is a tripwire: the
+      // next time the occurrence count moves, this goes red instead of quietly narrowing.
+      replaceCount: 3,
     },
   ] as const;
+  // The partition is pinned, because nothing else pins it. The cheapest green for a future
+  // "declared tuple drift, but the decoy changed no tuple" red is a one-word demotion to
+  // 'seal-only' - exactly the AST regression AC-6 exists to catch, silently reclassified - and that
+  // demotion has already happened once in this suite's own history.
+  const manifestDriftFixtures = mutations.filter((entry) => 'manifestDrift' in entry && entry.manifestDrift);
+  // MEMBERSHIP, not cardinality. Pinning three counts left a rename, a wholesale substitution, or a
+  // paired swap free; one deepEqual over name:mechanism closes all of those and makes any
+  // reclassification an explicit edit to this list. It is also what makes declaration mandatory at
+  // RUNTIME: a fixture that omitted driftMechanism renders as `name:undeclared` and reddens under
+  // `npx tsx --test`, which strips types, rather than only under `npm run build`.
+  assert.deepEqual(
+    manifestDriftFixtures
+      .map((entry) => `${entry.name}:${'driftMechanism' in entry ? entry.driftMechanism : 'undeclared'}`)
+      .sort(),
+    [
+      'call-input-noop-callee-decoy:tuple',
+      'control-guard-wrong-return-decoy:tuple',
+      'object-option-noop-callee-decoy:tuple',
+      'unchanged-guard-after-constant-return:seal-only',
+      'unchanged-guard-after-try-finally-return:seal-only',
+    ],
+    "the manifestDrift fixture set and each fixture's declared mechanism; demoting a 'tuple' fixture to 'seal-only' is the cheapest green for the AST regression AC-6 exists to catch, so it has to be an edit here that someone argues for",
+  );
   for (const mutation of mutations) {
     const targetRoot = await mkdtemp(join(tmpdir(), `buildergate-policy-${mutation.name}-`));
     try {
       await copyInventorySources(requiredPaths, targetRoot);
       const targetPath = join(targetRoot, mutation.path);
       const source = await readFile(targetPath, 'utf8');
-      assert.ok(source.includes(mutation.from));
+      // Hoisted out of insertBeforeMarkerLines so it covers all fixtures, not only the ones with an
+      // insertBefore, and checked before anything is written: the write below appends
+      // `mutation.suffix`, whose newlines are bare LF, so on a CRLF target the fixture would
+      // manufacture the mixed-ending file this check exists to refuse.
+      assertUniformLineEndings(source, mutation.name, mutation.path);
+      const replacements = 'replaceCount' in mutation ? mutation.replaceCount : 1;
+      const available = source.split(mutation.from).length - 1;
+      // Exact, not >=. String.replace takes the first match each iteration, so a fixture whose
+      // target gains an occurrence quietly stops mutating the tail of its own target set: with
+      // `>=`, split-owner-does-not-share-evidence kept replaceCount 2 after WsRouter.ts grew a
+      // third occurrence, so both replacements landed in sendTransportMessage and
+      // flushTransportQueue was never mutated at all - while the fixture stayed green.
+      assert.equal(
+        available,
+        replacements,
+        `${mutation.name}: expected exactly ${replacements} occurrence(s) of ${JSON.stringify(mutation.from)} in ${mutation.path}, found ${available}`,
+      );
       let mutatedSource = source;
-      for (let index = 0; index < ('replaceCount' in mutation ? mutation.replaceCount : 1); index += 1) {
+      for (let index = 0; index < replacements; index += 1) {
         mutatedSource = mutatedSource.replace(mutation.from, mutation.to);
       }
       if ('insertBefore' in mutation) {
-        assert.ok(mutatedSource.includes(mutation.insertBefore), mutation.name);
-        mutatedSource = mutatedSource.replace(
-          mutation.insertBefore,
-          `${mutation.inserted}${mutation.insertBefore}`,
-        );
+        mutatedSource = insertBeforeMarkerLines(mutatedSource, mutation.insertBefore, mutation.inserted, mutation.name);
       }
-      await writeFile(targetPath, `${mutatedSource}${mutation.suffix}`, 'utf8');
+      // The suffix's newlines are normalised to the target's. assertUniformLineEndings refuses an
+      // already-mixed file but accepts a pure-CRLF one, so appending a bare-LF suffix to it would
+      // manufacture exactly the mixed-ending file the check exists to prevent - the detector was
+      // hoisted for that reason but the cause lives here.
+      await writeFile(targetPath, `${mutatedSource}${toSourceNewlines(mutation.suffix, mutatedSource)}`, 'utf8');
       if ('manifestDrift' in mutation && mutation.manifestDrift) {
+        // Redundant defence in depth, and labelled as such rather than justified by a reason that
+        // is no longer true: the membership pin above already reddens on an undeclared mechanism
+        // under the runner, so this cannot fire while that assertion stands.
+        assert.ok(
+          'driftMechanism' in mutation,
+          `${mutation.name}: a manifestDrift fixture must declare driftMechanism`,
+        );
         const mutatedInventory = await discoverTerminalResourceInventory({ repositoryRoot: targetRoot });
         const result = validateTerminalResourceConsumerManifest(manifest, mutatedInventory);
         assert.equal(result.ok, false, mutation.name);
-        assert.ok(result.errors.some((error) => (
-          error.code === 'missing-tuple'
-          || error.code === 'orphan-tuple'
-          || error.code === 'source-hash-mismatch'
-        )), mutation.name);
+        // The old form accepted missing-tuple OR orphan-tuple OR source-hash-mismatch. Every mutated
+        // file is in evidenceSourcePaths, so source-hash-mismatch is emitted for ANY byte-level
+        // change - a stray space satisfies it - which means the disjunction could not tell a
+        // discriminated decoy from an undiscriminated one, and reported both as the same pass.
+        //
+        // Measured, rather than assumed: three of these five fixtures produce tuple drift and so do
+        // not need the seal at all; the other two produce source errors only. Those two are the
+        // `unchanged-guard-after-*` pair, which matches what PH-001 declared about them - inserting
+        // `if (true) return` ahead of an unchanged guard is caught by the coarse source seal, not by
+        // the AST losing the tuple. So the mechanism is declared per fixture and asserted, instead
+        // of one disjunction covering both and hiding which is which.
+        const tupleDrift = result.errors.filter((error) => (
+          error.code === 'missing-tuple' || error.code === 'orphan-tuple'
+        ));
+        const codes = JSON.stringify(result.errors.map((error) => error.code));
+        // Printed, not just asserted. The 3-tuple/2-seal-only split is a measurement that overrode
+        // an external review finding, and a measurement whose only artifact is prose is one nobody
+        // can re-derive. Emitting it here means every run of this suite is its own evidence.
+        console.log(`driftMechanism ${mutation.driftMechanism} ${mutation.name} ${codes}`);
+        if (mutation.driftMechanism === 'tuple') {
+          assert.ok(
+            tupleDrift.length > 0,
+            `${mutation.name}: declared tuple drift, but the decoy changed no tuple; got ${codes}`,
+          );
+        } else {
+          // Seal-only, and that is a weaker thing to be: this fixture cannot distinguish its named
+          // decoy from a stray whitespace edit, because both trip the same source hash. Asserting
+          // the absence of tuple drift keeps the label honest - if the AST ever learns to see this
+          // decoy, this reddens and the fixture gets promoted rather than silently staying in the
+          // weaker class.
+          assert.equal(
+            tupleDrift.length,
+            0,
+            `${mutation.name}: declared seal-only, but the decoy now produces tuple drift; promote it to driftMechanism 'tuple'. Got ${codes}`,
+          );
+          assert.ok(
+            result.errors.some((error) => error.code === 'source-hash-mismatch'),
+            `${mutation.name}: declared seal-only but produced no source-hash-mismatch; got ${codes}`,
+          );
+          // And the vacuity is MEASURED rather than described. An inert comment, carrying none of
+          // the fixture's decoy, is inserted at the same place in a separate tree; if its error set
+          // is identical then this fixture's decoy demonstrably contributes nothing and the pass
+          // rests entirely on the coarse seal. Asserting that equality is what stops the seal-only
+          // label from being a claim someone has to take on trust - and it reddens if the decoy
+          // ever starts to matter, which is the same signal as the tuple assertion above.
+          // The inert tree skips the from->to replacement and inserts only a comment, so it is a
+          // fair control ONLY while that replacement is a no-op. Both current seal-only fixtures
+          // declare from and to identically; nothing else pins that, and a future seal-only fixture
+          // given a real replacement would silently turn this into "replacement plus decoy matches
+          // comment alone" - which any byte change satisfies, so it would pass while measuring
+          // nothing. Masking, not noise, so it is asserted.
+          assert.equal(
+            mutation.from,
+            mutation.to,
+            `${mutation.name}: the seal-only control omits the from->to replacement, so it is only a fair comparison when that replacement is a no-op`,
+          );
+          const inertRoot = await mkdtemp(join(tmpdir(), `buildergate-policy-${mutation.name}-inert-`));
+          try {
+            await copyInventorySources(requiredPaths, inertRoot);
+            const inertPath = join(inertRoot, mutation.path);
+            const inertSource = await readFile(inertPath, 'utf8');
+            assertUniformLineEndings(inertSource, `${mutation.name}-inert`, mutation.path);
+            await writeFile(
+              inertPath,
+              `${insertBeforeMarkerLines(inertSource, mutation.insertBefore, '// inert control, carries no decoy\n', `${mutation.name}-inert`)}${toSourceNewlines(mutation.suffix, inertSource)}`,
+              'utf8',
+            );
+            const inertInventory = await discoverTerminalResourceInventory({ repositoryRoot: inertRoot });
+            const inertResult = validateTerminalResourceConsumerManifest(manifest, inertInventory);
+            assert.deepEqual(
+              inertResult.errors.map((error) => error.code).sort(),
+              result.errors.map((error) => error.code).sort(),
+              `${mutation.name}: declared seal-only, so an inert comment must produce the same error set as the decoy; if these differ the decoy is load-bearing and the fixture belongs in driftMechanism 'tuple'`,
+            );
+          } finally {
+            await rm(inertRoot, { recursive: true, force: true });
+          }
+        }
       } else {
         await assert.rejects(
           () => discoverTerminalResourceInventory({ repositoryRoot: targetRoot }),
@@ -1474,10 +1759,31 @@ test('OBS-BGSTAB-005 second review regression — production observe mode seeds 
 test('OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers', () => {
   const cliPath = join(REPOSITORY_ROOT, 'server/node_modules/tsx/dist/cli.mjs');
   const scriptPath = join(REPOSITORY_ROOT, 'tools/wave3/terminal-resource-policy-differential.ts');
-  const output = execFileSync(process.execPath, [cliPath, scriptPath], {
-    cwd: REPOSITORY_ROOT,
-    encoding: 'utf8',
-  });
+  // #59: this case was red in one sweep and green in the next with no change between them,
+  // and the gate read that as a fix. The script itself has no clock in it, so a red here is
+  // the CHILD failing, not the comparison failing -- and execFileSync threw with nothing but
+  // an exit status, which is why the red could not be attributed and was read as load. The
+  // child's own output is carried into the failure instead, and the bounds are stated rather
+  // than inherited: a child that hangs or floods now says so in its own words.
+  let output: string;
+  try {
+    output = execFileSync(process.execPath, [cliPath, scriptPath], {
+      cwd: REPOSITORY_ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+  } catch (error) {
+    const failure = error as NodeJS.ErrnoException & {
+      status?: number | null; signal?: string | null; stdout?: string; stderr?: string;
+    };
+    throw new Error(
+      `the differential child did not complete: status=${failure.status ?? 'none'} `
+      + `signal=${failure.signal ?? 'none'} code=${failure.code ?? 'none'}\n`
+      + `stderr:\n${(failure.stderr ?? '').slice(-4000)}\n`
+      + `stdout:\n${(failure.stdout ?? '').slice(-4000)}`,
+    );
+  }
   const jsonStart = output.lastIndexOf('\n{');
   const parsed = JSON.parse(output.slice(jsonStart >= 0 ? jsonStart + 1 : 0)) as {
     actualConsumers?: {
@@ -1621,5 +1927,38 @@ test('PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed
       queueMaxBytes: 'resourceLimits.ws.perClientOutputQueueMaxBytes',
     },
     signature,
+  );
+});
+
+// Issue #90. The pin committed for ConfigFileRepository.ts at 5918146,
+// 99ca442c..., matched no blob of that file at any commit -- it was invalid from
+// birth rather than gone stale. Recomputed against the blob it was committed
+// against, the correct value was 633123e7..., which no commit ever held; the
+// value correct today, d5ee2b5e..., was already correct at bc94bea.
+//
+// It went unread not because it produced no signal, but because the signal it
+// produced was the SAME one a genuinely unregistered access produces: a
+// mismatched pin drops its path out of exactlyClassifiedPaths, and its accesses
+// then reappear in unregisteredCallSites. Measured by restoring 99ca442c today:
+// ConfigFileRepository's @resource-limits-root.[dynamic] returns to
+// unregisteredCallSites -- the exact symptom the record read as staleness.
+//
+// So this asserts what the two states must NOT share: a wrong pin now names
+// itself, with the pinned and the recomputed value, instead of being laundered
+// into a generic unregistered-access report.
+test('OBS-BGSTAB-005 a classification pin that does not match its recomputed evidence names itself', async () => {
+  const { discoverTerminalResourceInventory } = await loadInventoryContract();
+  const inventory = await discoverTerminalResourceInventory({ repositoryRoot: REPOSITORY_ROOT });
+
+  assert.deepEqual(
+    inventory.classificationPinMismatches,
+    [],
+    'every classification pin equals the access evidence recomputed from its own file',
+  );
+
+  // Non-vacuity: an empty-set claim is also what a never-populated field yields.
+  assert.ok(
+    inventory.classifications.length >= 10,
+    `expected the classification set to be populated; got ${inventory.classifications.length}`,
   );
 });

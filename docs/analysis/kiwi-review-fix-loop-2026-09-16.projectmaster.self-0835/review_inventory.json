@@ -1,0 +1,12 @@
+{"round":1,"reviewer":"independent prickly reviewer (Opus subagent), read-only, tree frozen at 229ed9f",
+ "summary":{"total":11,"by_severity":{"CRITICAL":0,"HIGH":2,"MEDIUM":3,"LOW":6},
+             "by_axis":{"P1":0,"P2":0,"P3":1,"P4":7,"P5":0,"P6":1,"P7":2}},
+ "reviewer_confirmed_correct":[
+   "premise claim (Status=planned, 12/12 unchecked, :4300 is REL-BGSTAB-017)",
+   "AC-8 vacuity (verified against git show HEAD~2)",
+   "AC-3/AC-10 non-vacuity — reviewer independently re-ran PROBE-A and reproduced red",
+   "factual corrections (a) wsCheckpointProtocol.test.ts:131-153 and (b) SessionManagerTerminalAuthorityRuntimePorts.test.ts:701",
+   "regression claim 148/136/12 vs baseline 147/135/12, failing-name sets byte-identical",
+   "P2: all 3 nullary implementors remain assignable; ProductionRegression 38/38",
+   "P5: no Status/Stability mutation, nothing promoted to verified"],
+ "findings":["FND-001..FND-011 — see classified_findings.json"]}

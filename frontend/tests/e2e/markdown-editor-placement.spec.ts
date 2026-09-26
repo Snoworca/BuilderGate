@@ -31,20 +31,18 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 
 import { login } from './helpers';
 
-declare global {
-  interface Window {
-    /**
-     * Read-only view of the terminal host registry, for the criteria that ask
-     * what the registry holds rather than what the screen shows.
-     */
-    __buildergateEditorWindowDebug?: {
-      readTerminalHost(tabId: string): {
-        isVisible: boolean;
-        rect: { left: number; top: number; width: number; height: number };
-      } | undefined;
-    };
-  }
-}
+/**
+ * The authoritative declaration of `window.__buildergateEditorWindowDebug` lives
+ * beside the code that installs it, in src/components/editor/EditorWindowLayer.tsx,
+ * and reaches this spec through the `"include": ["src"]` of tsconfig.test.json.
+ *
+ * Issue #115: this spec used to carry its own narrowed copy. Four specs each had
+ * one, all different, and none of them was ever compiled next to another — the
+ * specs were in no tsconfig at all. Registering them put the copies in one
+ * program, where they are TS2717 conflicts. A narrowed copy of a global is the
+ * same defect the tsconfig comment warns about: it type-checks against a shape
+ * that is not the one production installs.
+ */
 
 const TAB_NAME_PREFIX = 'e2e-mde-place';
 
@@ -71,17 +69,6 @@ function makeWorkdir(): string {
   writeFileSync(join(dir, 'CLAUDE.local.md'), '# beta beta beta beta beta beta\n', 'utf-8');
   createdDirs.push(dir);
   return dir;
-}
-
-function resolveAgainst(cwd: string, fileName: string): string {
-  const separator = /^[A-Za-z]:/.test(cwd) || cwd.includes('\\') ? '\\' : '/';
-  const base = cwd.replace(/[\\/]+/g, separator).replace(/[\\/]+$/, '');
-  return `${base}${separator}${fileName}`;
-}
-
-/** The key `dialogGeometry` writes under, for the dialog id the window uses. */
-function geometryKeyFor(filePath: string): string {
-  return `buildergate.dialog.editor-window:${filePath}.geometry`;
 }
 
 async function ensureTabMode(page: Page): Promise<void> {
@@ -135,7 +122,7 @@ async function deleteTab(page: Page, workspaceId: string, tabId: string): Promis
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   await page.evaluate(async ({ workspaceId, prefix }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/workspaces', { headers });
     if (!res.ok) return;
     const state = await res.json();
@@ -157,7 +144,7 @@ async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
 async function removeOwnPresets(page: Page): Promise<void> {
   await page.evaluate(async (prefix) => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch('/api/command-presets', { headers });
     if (!res.ok) return;
     const data = await res.json();
@@ -243,24 +230,6 @@ function editorModelessLayer(page: Page): Locator {
 async function layerZOf(page: Page): Promise<number> {
   return editorModelessLayer(page)
     .evaluate(element => Number.parseInt(getComputedStyle(element).zIndex, 10));
-}
-
-/**
- * A point inside `back` that `front` does not cover, so a real press there is
- * one a user could make. Falls back to the top-left corner when the two boxes
- * do not overlap at all.
- */
-function exposedPoint(
-  back: { x: number; y: number; width: number; height: number },
-  front: { x: number; y: number; width: number; height: number },
-): { x: number; y: number } {
-  if (front.x > back.x) {
-    return { x: back.x + (front.x - back.x) / 2, y: back.y + 6 };
-  }
-  if (front.y > back.y) {
-    return { x: back.x + back.width / 2, y: back.y + (front.y - back.y) / 2 };
-  }
-  return { x: back.x + 4, y: back.y + 4 };
 }
 
 /** Opens one window per file on the tab that is on screen. */

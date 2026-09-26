@@ -5,7 +5,9 @@ import { TOTPService } from './TOTPService.js';
 import path from 'path';
 
 const TOTP_SECRET_PATH_ENV_KEY = 'BUILDERGATE_TOTP_SECRET_PATH';
-const SUPPRESS_TOTP_QR_ENV_KEY = 'BUILDERGATE_SUPPRESS_TOTP_QR';
+// #80: printing is opt-IN. The legacy BUILDERGATE_SUPPRESS_TOTP_QR the daemon still
+// sets is deliberately not read — it was read here as "print", inverted.
+const PRINT_TOTP_QR_ENV_KEY = 'BUILDERGATE_PRINT_TOTP_QR';
 
 interface ReconcileTotpRuntimeArgs {
   currentService?: TOTPService;
@@ -13,7 +15,7 @@ interface ReconcileTotpRuntimeArgs {
   cryptoService: CryptoService;
   changedKeys?: EditableSettingsKey[];
   secretFilePath?: string;
-  suppressConsoleQr?: boolean;
+  printConsoleQr?: boolean;
   initialStartup?: boolean;
 }
 
@@ -28,7 +30,7 @@ export function reconcileTotpRuntime({
   cryptoService,
   changedKeys = [],
   secretFilePath,
-  suppressConsoleQr,
+  printConsoleQr,
   initialStartup = false,
 }: ReconcileTotpRuntimeArgs): ReconcileTotpRuntimeResult {
   if (!nextConfig.twoFactor?.enabled) {
@@ -42,7 +44,7 @@ export function reconcileTotpRuntime({
     cryptoService,
     resolvedSecretFilePath,
     {
-      suppressConsoleQr: suppressConsoleQr ?? process.env[SUPPRESS_TOTP_QR_ENV_KEY] === '1',
+      printConsoleQr: printConsoleQr ?? process.env[PRINT_TOTP_QR_ENV_KEY] === '1',
     },
   );
   const warnings: string[] = [];

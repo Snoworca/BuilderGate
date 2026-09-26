@@ -7,7 +7,7 @@
 ## 테스트 준비
 
 1. BuilderGate HTTPS 서버를 `https://localhost:2002`에서 실행한다.
-2. local test password는 `1234`.
+2. local test password는 `$BUILDERGATE_PASSWORD`.
 3. Chrome/Edge에서 한국어 IME를 활성화한다.
 4. debug capture를 켤 수 있는 localhost 환경이어야 한다.
 

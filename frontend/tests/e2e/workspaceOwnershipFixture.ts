@@ -16,6 +16,17 @@ export interface WorkspaceOwnershipTracker {
 }
 const trackers = new WeakMap<BrowserContext, WorkspaceOwnershipTracker>();
 
+// Chromium reports an IPv6 peer through CDP as the bracketed literal '[::1]', while
+// isLoopbackIp() is written for Node's socket.remoteAddress form, which is bare '::1'.
+// Strip one complete bracket pair and nothing else, so the accepted set grows by exactly
+// the bracketed spellings of the loopback literals isLoopbackIp already accepts. A
+// truncated bracket is left untouched and a doubly bracketed value keeps an inner pair,
+// so both still fail; an empty bracket is rejected by isLoopbackIp either way, with or
+// without the length guard below.
+function peerAddress(ip: string | undefined): string | undefined {
+  return ip !== undefined && ip.length > 2 && ip.startsWith('[') && ip.endsWith(']') ? ip.slice(1, -1) : ip;
+}
+
 function successfulCleanup(result: WorkspaceCleanupResult): WorkspaceCleanupResult {
   if (result.failed.length) throw Error(`Owned workspace cleanup failed: ${JSON.stringify(result.failed)}`);
   return result;
@@ -49,7 +60,7 @@ export function attachWorkspaceOwnership(context: BrowserContext, registry: Regi
     const write = (async () => {
       if (response.status() !== 201) throw Error(`Workspace creation returned ${response.status()}`);
       const address = await response.serverAddr();
-      if (response.fromServiceWorker() || !address || address.port !== 2222 || !isLoopbackIp(address.ipAddress)) {
+      if (response.fromServiceWorker() || !address || address.port !== 2222 || !isLoopbackIp(peerAddress(address.ipAddress))) {
         throw Error('Workspace creation response is not proven live loopback traffic');
       }
       const body: unknown = await response.json();

@@ -1,0 +1,109 @@
+{
+  "corpus": {
+    "requirements": 135,
+    "ac_rows": 913,
+    "files": [
+      "docs/spec/10.product-architecture.srs.md",
+      "docs/spec/20.ai-tui-recovery.srs.md",
+      "docs/spec/30.buildergate-stability.srs.md",
+      "docs/spec/40.mcp-session-orchestration.srs.md",
+      "docs/spec/41.markdown-editor.srs.md"
+    ]
+  },
+  "corpus_check": "Counted via '^### [A-Z]+-[A-Z0-9]+-[0-9]+' heading match (135, deduped) and '^\\s*-\\s*\\[[ xX]\\]\\s*AC-[0-9]+' row match (913) across the 5 srs.md files. Both match the task's expected ~913/~135 exactly - no discrepancy to report.",
+  "candidate_matches": [
+    {
+      "id": "MIG-BGSTAB-002",
+      "scope": "BGSTAB",
+      "title": "Single-authority promotion pilot and rollback epoch",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.55,
+      "ac_quoted": [
+        "AC-3: 한 epoch에는 snapshot/query/side-effect authority가 하나만 활성화되어야 하고 legacy model은 promotion 뒤 passive comparer/fallback으로만 남아 duplicate reply와 fact를 생성해서는 안 된다.",
+        "AC-5: Rollback은 new admission 중지, new responder와 lease revoke, affected view stale, parser reset, 기존 ACK/backlog 폐기, 새 streamEpoch의 fresh compatibility checkpoint와 post-snapshot output, legacy responder enable 순서로 수행해야 한다."
+      ],
+      "checked_state": { "AC-3": true, "AC-5": true }
+    },
+    {
+      "id": "REL-BGSTAB-007",
+      "scope": "BGSTAB",
+      "title": "Configured retained-state server authority and refresh equivalence",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.5,
+      "ac_quoted": [
+        "AC-9: Authoritative model과 source sequence는 session별 하나이고 checkpoint/delivery ledger는 client·viewGeneration별로 분리한다. Input, resize와 terminal-query side effect는 한 시점에 하나의 explicit driver lease만 변경할 수 있으며 owner, handoff, rejection과 generation을 관측 가능하게 해야 한다. Slow/non-driver client는 model commit, PTY 또는 다른 client를 block할 수 없다.",
+        "AC-12: Migration은 capability-negotiated shadow, no-local-cache canary, limited promotion 순서로 진행하고 같은 generation에서 legacy/new authority를 혼합하지 않는다. Rollback은 new admission 중지, view stale, 기존 ACK/backlog 폐기, 새 stream epoch, fresh compatibility snapshot, post-snapshot output 순서로 수행하며 byte tail을 임의 연결하지 않는다."
+      ],
+      "checked_state": { "AC-9": false, "AC-12": false }
+    },
+    {
+      "id": "REL-BGSTAB-011",
+      "scope": "BGSTAB",
+      "title": "Retained server model authority shadow and driver lease",
+      "relation_hint": "potential-conflict",
+      "similarity_score": 0.6,
+      "ac_quoted": [
+        "AC-5: Title, cwd, bell, status와 terminal query side effect는 streamEpoch, sourceSeq와 record-local ordinal identity로 exactly-once commit되거나 관측 가능한 rejection으로 종결되어야 한다.",
+        "AC-9: PTY natural exit, explicit stop/delete, session generation replacement와 terminal close는 model admission을 먼저 닫고 driver lease를 revoke한 뒤 fact/dedup/checkpoint ledger와 timers를 정확히 한 번 정산해야 하며 종료 generation의 late output, input, resize, query reply와 callback을 거부하고 session-terminated를 관측 가능하게 남겨야 한다."
+      ],
+      "checked_state": { "AC-5": true, "AC-9": true }
+    },
+    {
+      "id": "MIG-BGSTAB-004",
+      "scope": "BGSTAB",
+      "title": "바이너리 데이터 평면 기본값 전환과 되돌릴 수 있는 롤백",
+      "relation_hint": "potential-update",
+      "similarity_score": 0.4,
+      "ac_quoted": [
+        "AC-3: 롤백은 MIG-BGSTAB-002 AC-5 의 순서(new admission 중지, new responder/lease revoke, affected view stale, parser reset, 기존 ACK/backlog 폐기, 새 streamEpoch 의 fresh checkpoint, post-snapshot output, legacy responder enable)를 그대로 따라야 하며 byte tail 을 임의로 연결해서는 안 된다. 이 순서는 IR-BGSTAB-001 AC-4 가 규정한 단일 롤백 함수 안에서 수행되어야 하며, 기본값 전환을 위해 별도 롤백 경로를 신설해서는 안 된다."
+      ],
+      "checked_state": { "AC-3": false }
+    },
+    {
+      "id": "IR-BGSTAB-001",
+      "scope": "BGSTAB",
+      "title": "터미널 데이터 평면 바이너리 와이어 포맷과 능력 협상",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.2,
+      "ac_quoted": [
+        "AC-4: 협상 실패, 클라이언트 미지원, 디코드 실패와 rollback 은 새 streamEpoch 와 fresh checkpoint 로 JSON 데이터 평면에 복귀해야 하며, byte tail 을 임의로 이어붙이거나 silent tail 로 수렴해서는 안 된다. 롤백 트리거 4종은 각자 롤백을 구현하지 않고 단일 롤백 함수 하나로 수렴해야 한다."
+      ],
+      "checked_state": { "AC-4": false }
+    },
+    {
+      "id": "REL-BGSTAB-027",
+      "scope": "BGSTAB",
+      "title": "Post-rollback compatibility writer stays bounded by its own byte and chunk caps",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.25,
+      "ac_quoted": [
+        "AC-3: Given settlement ledger entry 상한을 실질적 무한대로 올린 조건, when 위 두 cap 을 초과시키면, then 거부는 여전히 byte 또는 chunk cap 사유로 발생해야 하고 settlement-ledger-overflow 로 발생해서는 안 된다.",
+        "AC-4: Given rollback 직후 fresh authoritative snapshot 이 아직 수렴하지 않은 상태, when 새 authoritative output(live 또는 repair)을 제출하면, then 거부되어야 한다."
+      ],
+      "checked_state": { "AC-3": false, "AC-4": false }
+    },
+    {
+      "id": "MIG-BGSTAB-005",
+      "scope": "BGSTAB",
+      "title": "Refresh authority implementation PR decomposition and rollback gate map",
+      "relation_hint": "unrelated",
+      "similarity_score": 0.1,
+      "ac_quoted": [],
+      "checked_state": {}
+    }
+  ],
+  "controls": [
+    { "term": "rollback", "hits": 126, "requirements_spanned": null, "purpose": "control", "file": "30.buildergate-stability.srs.md" },
+    { "term": "streamEpoch", "hits": 13, "requirements_spanned": null, "purpose": "control", "file": "30.buildergate-stability.srs.md" },
+    { "term": "exactly-once", "hits": 15, "requirements_spanned": null, "purpose": "control", "file": "all srs.md" },
+    { "term": "responder", "hits": 8, "requirements_spanned": 3, "purpose": "subject (topic 3)", "note": "every hit is an ORDERING statement ('old responder disabled, ... new responder enabled' as a sequence step) - none states an absence-over-interval / 'never simultaneously active' invariant" },
+    { "term": "ledger.*rollback OR rollback.*ledger", "hits": 0, "requirements_spanned": 0, "purpose": "subject (topic 1)" },
+    { "term": "dedup.*key OR key.*dedup (literal phrase)", "hits": 0, "requirements_spanned": 0, "purpose": "subject (topic 2)" },
+    { "term": "valueHash", "hits": 0, "requirements_spanned": 0, "purpose": "subject (topic 2)" },
+    { "term": "factType", "hits": 0, "requirements_spanned": 0, "purpose": "subject (topic 2)" },
+    { "term": "simultaneously active / never simultaneous", "hits": 0, "requirements_spanned": 0, "purpose": "subject (topic 3)" },
+    { "term": "fact/dedup/checkpoint ledger (as compound noun, REL-BGSTAB-011 AC-9)", "hits": 1, "requirements_spanned": 1, "purpose": "subject (topic 1) - closest existing text, but only mandates one-time settlement AT SESSION TERMINATION, not retention ACROSS a rollback nor the purpose of that retention" }
+  ],
+  "relevant_scopes": ["BGSTAB"],
+  "no_match_reason": null
+}

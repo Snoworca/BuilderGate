@@ -36,7 +36,7 @@ const MAX_PENDING_AUTH = 100;
 export type ConsoleQrWriter = (uri: string, options: { small: boolean }) => void;
 
 export interface TOTPServiceOptions {
-  suppressConsoleQr?: boolean;
+  printConsoleQr?: boolean;
   qrCodeWriter?: ConsoleQrWriter;
 }
 
@@ -59,7 +59,9 @@ function ensureWebCryptoGetRandomValues(): void {
 export class TOTPService {
   private secret: string | null = null;
   private registered: boolean = false;
-  private readonly suppressConsoleQr: boolean;
+  // #80: renamed and inverted. The old name defaulted to printing, so the safe state was the
+  // one you had to ask for. Now printing is the state you ask for.
+  private readonly printConsoleQr: boolean;
   private readonly qrCodeWriter: ConsoleQrWriter;
   private readonly otpStore = new Map<string, OTPData>();
   // ⚠️ lastUsedStep은 TOTPService 멤버가 아님 — OTPData.totpLastUsedStep 필드로 관리 (NFR-105)
@@ -71,7 +73,7 @@ export class TOTPService {
     private readonly secretFilePath: string = DEFAULT_SECRET_FILE_PATH,
     options: TOTPServiceOptions = {},
   ) {
-    this.suppressConsoleQr = options.suppressConsoleQr ?? false;
+    this.printConsoleQr = options.printConsoleQr ?? false;
     this.qrCodeWriter = options.qrCodeWriter ?? DEFAULT_CONSOLE_QR_WRITER;
   }
 
@@ -110,9 +112,30 @@ export class TOTPService {
     }
 
     const encrypted = this.cryptoService.encrypt(newSecret);
-    fs.writeFileSync(this.secretFilePath, encrypted, 'utf-8');
+    // #58: mode is set AT CREATION, not after the write. chmod-after-write leaves the file at
+    // the umask default in between -- 0644 under a common umask 022 -- so another user on the
+    // same machine can read an encrypted credential during that window. Passing mode to the
+    // create call closes it because the kernel applies it before any bytes exist.
+    //
+    // Written through a temp file in the same directory and renamed, so a crash mid-write
+    // cannot leave a half-file that looks like a credential. The temp carries the same 0600
+    // from creation for the same reason -- a temp file holding a credential is a credential.
+    //
+    // NOT addressed here, and stated rather than implied: two processes bootstrapping an
+    // empty checkout concurrently still generate two different secrets, and the loser keeps an
+    // in-memory secret that no longer matches the file. Atomic publication does not decide
+    // WHICH secret wins or how the loser reloads; that is a separate decision and #58 says so.
+    const tempPath = `${this.secretFilePath}.${process.pid}.tmp`;
+    try {
+      fs.writeFileSync(tempPath, encrypted, { encoding: 'utf-8', mode: 0o600 });
+      fs.renameSync(tempPath, this.secretFilePath);
+    } catch (error) {
+      try { fs.rmSync(tempPath, { force: true }); } catch { /* the original error is the one to raise */ }
+      throw error;
+    }
 
-    // FR-203: restrict file permissions on Linux/Mac
+    // rename preserves the destination inode's mode when it already existed, so an older file
+    // created before this fix keeps its old permissions. Re-assert them.
     if (process.platform !== 'win32') {
       fs.chmodSync(this.secretFilePath, 0o600);
     }
@@ -143,17 +166,41 @@ export class TOTPService {
    */
   printQRCode(): void {
     if (!this.secret) return;
-    if (this.suppressConsoleQr) return;
 
     const issuer = this.config.issuer ?? 'BuilderGate';
     const accountName = this.config.accountName ?? 'admin';
     // otplib v12: generateURI uses 'label' not 'accountName', format is "issuer:label"
     const uri = generateURI({ secret: this.secret, issuer, label: `${issuer}:${accountName}` });
 
+    // #80: the secret itself is NEVER printed, under any flag. A TOTP secret is the whole of
+    // the second factor -- anyone who can read the log can mint valid codes forever, which
+    // defeats the thing 2FA exists to do after a password leak. The exposure surface is wide:
+    // every test and CI run that boots the server, redirected log files, the daemon's rotated
+    // logs, and evidence bundles (#40 collected four such logs and had to redact them).
+    //
+    // The QR is equally sensitive -- it encodes the same secret and is scannable straight off
+    // a screenshot -- so it is now opt-IN. It used to be opt-out via BUILDERGATE_SUPPRESS_TOTP_QR,
+    // which meant the safe behaviour required someone to have set an environment variable.
+    // A secret that leaks unless you remember a flag is a secret that leaks.
+    console.log(`[TOTP] Two-factor is configured for ${issuer} | Account: ${accountName}`);
+
+    // The QR encodes the secret and is scannable straight off a screenshot, so it prints only
+    // when someone asked for it -- the daemon preflight, which exists to be scanned, or an
+    // explicit BUILDERGATE_PRINT_TOTP_QR=1. It used to be opt-OUT, which made the safe state
+    // the one you had to remember. A secret that leaks unless you remember a flag is a secret
+    // that leaks.
+    if (!this.printConsoleQr) {
+      console.log('[TOTP] The enrolment QR is not written to this log. '
+        + 'Set BUILDERGATE_PRINT_TOTP_QR=1 to print it, or read it from the settings UI.');
+      return;
+    }
+
     console.log('[TOTP] Google Authenticator QR Code:');
     this.qrCodeWriter(uri, { small: true });
-    console.log(`[TOTP] Manual entry key: ${this.secret}`);
-    console.log(`[TOTP] Issuer: ${issuer} | Account: ${accountName}`);
+    // The SECRET is never printed, under any flag. The QR is a credential the operator is
+    // actively scanning; the manual key is a credential sitting in a log forever, and anyone
+    // who can read it can mint valid codes indefinitely -- which is the thing 2FA exists to
+    // prevent after a password leak. #40 collected four such logs and had to redact them.
   }
 
   /**

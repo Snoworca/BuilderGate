@@ -19,7 +19,11 @@ async function loadStatistics(failureSignature: string): Promise<StatisticsContr
 
 function createManifest(): Record<string, unknown> {
   return {
-    schemaVersion: 1,
+    // @req PERF-BGSTAB-012
+    // schemaVersion 2: the three PERF-BGSTAB-012 fields below belong to that
+    // version and are rejected on a schemaVersion 1 manifest, which is the
+    // sealed Wave-1 shape.
+    schemaVersion: 2,
     runId: 'wave1-benchmark-contract',
     randomSeed: 7008,
     payload: {
@@ -48,6 +52,48 @@ function createManifest(): Record<string, unknown> {
       unit: 'ms',
       intervalDelta: false,
     }],
+    // @req PERF-BGSTAB-012 AC-1 AC-2 AC-3
+    // These three became required when PERF-BGSTAB-012 contracted them. The
+    // fixture gains them rather than the validator losing them: the checks below
+    // assert each is enforced, so dropping them here would be the weakening this
+    // fixture exists to detect.
+    outlierPolicy: {
+      rule: 'retain-all',
+      rationale: 'fixture',
+      parameters: {},
+      excludedSampleIds: [],
+    },
+    execution: {
+      // The arm sequence in `order` is the sequence in `plannedOrder`; the run
+      // adds a completion timestamp per unit and nothing else. The literal says
+      // that rather than claiming the sequence itself was discovered.
+      derivedFrom: 'planned-sequence-with-observed-completions',
+      interleaved: true,
+      strategy: 'fixture',
+      // Two steps, which the interleave rule accepts because no two consecutive
+      // steps share a mode. The four-step form this used to carry existed only
+      // to clear the old `longestRun < length / distinctModes` threshold, which
+      // rejected a perfectly alternating pair.
+      plannedOrder: [
+        { sequence: 0, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-1' },
+        { sequence: 1, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-1' },
+      ],
+      // The plan and the observation are separate arrays. The observation
+      // carries a strictly increasing completion timestamp, which is the field
+      // the plan cannot supply and which the validator therefore requires.
+      order: [
+        { sequence: 0, mode: 'NO_ANALYZER', workloadIndex: 0, trialId: 'trial-1', observedAtMs: 1 },
+        { sequence: 1, mode: 'NO_RENDER', workloadIndex: 0, trialId: 'trial-1', observedAtMs: 2 },
+      ],
+      // Both readings above advanced on their own, so nothing was nudged.
+      tieBrokenCount: 0,
+    },
+    visibilityFactor: {
+      levels: ['single-active', 'all-active'],
+      structurallyUnreachable: [
+        { sessions: 1, clients: 1, reason: 'fixture' },
+      ],
+    },
   };
 }
 
@@ -295,4 +341,57 @@ test('PERF-BGSTAB-008 AC-5 GREEN contract', async () => {
 test('PERF-BGSTAB-008 AC-7 GREEN contract', async () => {
   const contract = await loadStatistics('PERF-BGSTAB-008 AC-7 contract not implemented');
   assertNoProductPromotion(contract);
+});
+
+// @req PERF-BGSTAB-012 AC-2
+//
+// `tieBrokenCount` was only checked as a non-negative integer, with no upper
+// bound and no cross-check against `order`. A producer whose clock never
+// advanced could nudge every reading by one ULP, satisfy the
+// strictly-increasing check on wholly synthetic timings, and write 0. The
+// disclosure was forgeable in the one direction that matters.
+test('PERF-BGSTAB-012 AC-2 tieBrokenCount may not understate the nudges the timings show', async () => {
+  const contract = await loadStatistics('benchmarkStatistics must expose validateExecutionManifest');
+
+  // A tie-broken reading is exactly the next representable double after its
+  // predecessor, so this is what a nudged pair looks like on the wire.
+  const nudged = createManifest();
+  const execution = nudged.execution as Record<string, unknown>;
+  const order = execution.order as Array<Record<string, unknown>>;
+  const base = order[0].observedAtMs as number;
+  order[1].observedAtMs = base + Number.EPSILON * base;
+  assert.ok(
+    (order[1].observedAtMs as number) > base,
+    'the fixture must still advance in time, or it would fail the earlier check instead',
+  );
+
+  execution.tieBrokenCount = 0;
+  assert.throws(
+    () => contract.validateExecutionManifest(nudged),
+    /tieBrokenCount is 0 but 1 consecutive execution\.order readings are one ULP apart/u,
+    'a run that nudged a reading and disclosed none must be rejected',
+  );
+
+  // The floor is a floor, not an equality: the check must not reject an honest
+  // run that discloses a nudge whose spacing is no longer visible.
+  execution.tieBrokenCount = 1;
+  assert.doesNotThrow(() => contract.validateExecutionManifest(nudged));
+  execution.tieBrokenCount = 2;
+  assert.doesNotThrow(
+    () => contract.validateExecutionManifest(nudged),
+    'over-disclosure up to the number of readings taken is not the failure this guards',
+  );
+
+  // But no more readings can have been nudged than were taken.
+  execution.tieBrokenCount = 3;
+  assert.throws(
+    () => contract.validateExecutionManifest(nudged),
+    /execution\.order holds only 2 readings/u,
+    'a count above the length of the observed order must be rejected',
+  );
+
+  // The unnudged fixture still passes with a zero disclosure, so the new check
+  // did not simply make every manifest fail.
+  const honest = createManifest();
+  assert.doesNotThrow(() => contract.validateExecutionManifest(honest));
 });

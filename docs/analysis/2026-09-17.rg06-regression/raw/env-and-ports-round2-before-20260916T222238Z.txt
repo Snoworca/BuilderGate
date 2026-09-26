@@ -1,0 +1,18 @@
+# RG-06 round-2 environment, 20260916T222238Z
+node=v24.21.0
+platform=Linux 6.6.87.2-microsoft-standard-WSL2+
+cwd_for_server_runs=/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server
+HEAD=c5276beb55335ef5fa4a7bce97eddf09be2defa3
+inherited BUILDERGATE_* count=0
+inherited BUILDERGATE_* names:
+NODE_ENV=<unset>
+# netstat.exe -ano | grep LISTENING, filtered to 2001|2002|2222 (filter disclosed)
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596
+# ss -ltn (WSL side, unfiltered)
+State  Recv-Q Send-Q  Local Address:Port Peer Address:PortProcess
+LISTEN 0      1000   10.255.255.254:53        0.0.0.0:*          
+LISTEN 0      4096    127.0.0.53%lo:53        0.0.0.0:*          
+LISTEN 0      4096       127.0.0.54:53        0.0.0.0:*          

@@ -1,0 +1,22 @@
+{
+  "platform": "linux",
+  "node": "v24.21.0",
+  "peer": {},
+  "publisher": {
+    "published": 4000,
+    "renameErr": 0,
+    "publishedUnparseable": 598,
+    "samples": [
+      {
+        "len": 60023,
+        "head": "{\"writer\":\"A\",\"pad\":\"AAAAAAAAAAAAAAAAAAA",
+        "tail": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\"}"
+      },
+      {
+        "len": 60023,
+        "head": "{\"writer\":\"A\",\"pad\":\"AAAAAAAAAAAAAAAAAAA",
+        "tail": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\"}"
+      }
+    ]
+  }
+}

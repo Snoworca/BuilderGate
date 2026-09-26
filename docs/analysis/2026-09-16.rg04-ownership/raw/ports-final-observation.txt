@@ -1,0 +1,13 @@
+# Captured 2026-09-15T21:01:12Z UTC, after all RG-04 runtimes were stopped.
+# Tool: netstat.exe -ano (Windows view). Filter: LISTENING on 2001, 2002, 2222.
+# NOTE ON PID NAMESPACES: the PID column here is a WINDOWS pid.
+#   - 30596 is the protected production process (Windows-native, C:\\Work\\agent-tools\\builder-gate__).
+#   - A server started inside WSL appears under the WSL relay's Windows pid (26080 in this session),
+#     NOT under its WSL pid. The RG-04 runtimes' WSL pids were 24553 (run 1) and 30194 (run 2);
+#     neither can ever appear in this column. See 00.decision-table.md 3.1.
+# Expectation: 2001/2002 present under 30596; 2222 absent (all RG-04 runtimes stopped).
+
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596

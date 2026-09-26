@@ -1,0 +1,135 @@
+(node:440959) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+  ✘  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:406:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (15.8s)
+  ✘  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:406:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (retry #1) (15.9s)
+  ✘  3 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:551:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (15.7s)
+  ✘  4 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:551:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (retry #1) (15.9s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+
+  1) [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:406:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 
+
+    TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.xterm-screen:visible') to be visible[22m
+
+
+       at helpers.ts:31
+
+      29 | /** Wait for xterm.js terminal to render */
+      30 | export async function waitForTerminal(page: Page) {
+    > 31 |   await page.waitForSelector('.xterm-screen:visible', { timeout: 15000 });
+         |              ^
+      32 | }
+      33 |
+      34 | /** Open the command preset manager through the header tools menu */
+        at waitForTerminal (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/helpers.ts:31:14)
+        at establishTerminalHarness (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:138:9)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:410:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.xterm-screen:visible') to be visible[22m
+
+
+       at helpers.ts:31
+
+      29 | /** Wait for xterm.js terminal to render */
+      30 | export async function waitForTerminal(page: Page) {
+    > 31 |   await page.waitForSelector('.xterm-screen:visible', { timeout: 15000 });
+         |              ^
+      32 | }
+      33 |
+      34 | /** Open the command preset manager through the header tools menu */
+        at waitForTerminal (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/helpers.ts:31:14)
+        at establishTerminalHarness (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:138:9)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:410:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/wave2-screen-repair-resync-8f4f9-esync-barrier-RED-계약-—-AC-4-Desktop-Chrome-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:551:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 
+
+    TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.xterm-screen:visible') to be visible[22m
+
+
+       at helpers.ts:31
+
+      29 | /** Wait for xterm.js terminal to render */
+      30 | export async function waitForTerminal(page: Page) {
+    > 31 |   await page.waitForSelector('.xterm-screen:visible', { timeout: 15000 });
+         |              ^
+      32 | }
+      33 |
+      34 | /** Open the command preset manager through the header tools menu */
+        at waitForTerminal (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/helpers.ts:31:14)
+        at establishTerminalHarness (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:138:9)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:555:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.xterm-screen:visible') to be visible[22m
+
+
+       at helpers.ts:31
+
+      29 | /** Wait for xterm.js terminal to render */
+      30 | export async function waitForTerminal(page: Page) {
+    > 31 |   await page.waitForSelector('.xterm-screen:visible', { timeout: 15000 });
+         |              ^
+      32 | }
+      33 |
+      34 | /** Open the command preset manager through the header tools menu */
+        at waitForTerminal (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/helpers.ts:31:14)
+        at establishTerminalHarness (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:138:9)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/wave2-screen-repair-resync.spec.ts:555:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome-retry1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/wave2-screen-repair-resync-1dcfc-esync-barrier-RED-계약-—-AC-8-Desktop-Chrome-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:406:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 
+    [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:551:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 

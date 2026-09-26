@@ -1,0 +1,6909 @@
+{
+  "floodCount": 15000,
+  "sessionId": "dfc6c87c-6d87-4444-a0cf-06f37dbca1ea",
+  "floodConfirmedAtSec": 10.73,
+  "probeSentAtSec": 12.85,
+  "probeConfirmed": false,
+  "gateSamples": [
+    {
+      "tSec": 0,
+      "label": "baseline-before-flood",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "restore-pending",
+        "closedReason": "none",
+        "restorePending": true,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 4.88,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 5.2,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 5.51,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 5.82,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 6.12,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 6.43,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 6.74,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 7.04,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 7.34,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 7.65,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 7.96,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 8.26,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 8.57,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 8.88,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 9.19,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 9.5,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 9.81,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 10.12,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 10.43,
+      "label": "poll",
+      "gate": {
+        "inputReady": true,
+        "captureState": "open",
+        "barrierReason": "none",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": true
+      }
+    },
+    {
+      "tSec": 10.73,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "ws-reconnecting-short",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 11.03,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "ws-reconnecting-short",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 11.34,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "ws-reconnecting-short",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 11.64,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "ws-reconnecting-short",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 11.94,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 12.24,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 12.55,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 12.85,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 43.33,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 43.63,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 43.94,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 44.24,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 44.54,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 44.85,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 45.15,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 45.45,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 45.76,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 46.06,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 46.36,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 46.66,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 46.97,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 47.27,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 47.57,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 47.87,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 48.18,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 48.48,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 48.78,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 49.09,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 49.39,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 49.69,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 49.99,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 50.3,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 50.6,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 50.9,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 51.2,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 51.51,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 51.81,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 52.11,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 52.42,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 52.72,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 53.02,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 53.32,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 53.63,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 53.93,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 54.23,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 54.54,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 54.84,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 55.14,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 55.45,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 55.75,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 56.05,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 56.36,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 56.66,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 56.97,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 57.27,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 57.57,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 57.88,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 58.18,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 58.48,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 58.79,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 59.09,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 59.4,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 59.7,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 60,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 60.31,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 60.61,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 60.91,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 61.22,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 61.52,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 61.83,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 62.13,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 62.44,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 62.74,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 63.05,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 63.35,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 63.65,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 63.96,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 64.26,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 64.56,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    },
+    {
+      "tSec": 64.87,
+      "label": "poll",
+      "gate": {
+        "inputReady": false,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "restorePending": false,
+        "geometryReady": true,
+        "serverReady": false
+      }
+    }
+  ],
+  "relevantEvents": [
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_rejected",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 126,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": true,
+        "reason": "timeout-enter-safety",
+        "detailReason": "timeout-enter-safety",
+        "barrierReason": "visible-output-recovery",
+        "source": "xterm",
+        "queuedMs": 1501,
+        "queuedSessionGeneration": 2,
+        "currentSessionGeneration": 2
+      }
+    }
+  ],
+  "kindCounts": {
+    "input_gate_synced": 1,
+    "input_transport_state_synced": 1,
+    "session_ready_received": 1,
+    "terminal_input_queued": 25,
+    "key_event_observed": 2,
+    "key_delegated_to_xterm": 1,
+    "helper_keydown": 6,
+    "helper_beforeinput": 6,
+    "helper_input": 6,
+    "terminal_input_held_for_barrier": 350,
+    "terminal_input_rejected": 1
+  },
+  "allEvents": [
+    {
+      "tSec": 16.24,
+      "kind": "input_gate_synced",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "reason": "transport-state",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "reconnectState": "connected",
+        "sessionGeneration": 2,
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "disableStdin": false,
+        "imeState": "idle",
+        "compositionSeq": null
+      }
+    },
+    {
+      "tSec": 16.24,
+      "kind": "input_transport_state_synced",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "reason": "session-ready",
+        "serverReady": false,
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "reconnectState": "connected",
+        "sessionGeneration": 2
+      }
+    },
+    {
+      "tSec": 16.24,
+      "kind": "session_ready_received",
+      "details": {
+        "inputReliabilityMode": "queue"
+      }
+    },
+    {
+      "tSec": 43,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 84,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 1,
+        "pendingQueueBytes": 1
+      }
+    },
+    {
+      "tSec": 43,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 85,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 2,
+        "pendingQueueBytes": 2
+      }
+    },
+    {
+      "tSec": 43,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 86,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 3,
+        "pendingQueueBytes": 3
+      }
+    },
+    {
+      "tSec": 43,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 87,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 4,
+        "pendingQueueBytes": 4
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "key_event_observed",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "safeKeyName": null,
+        "keyCategory": "space",
+        "repeat": false,
+        "inputReady": false,
+        "restorePending": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "key_delegated_to_xterm",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "safeKeyName": null,
+        "keyCategory": "space",
+        "repeat": false,
+        "delegatedToXterm": true
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_keydown",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 88,
+        "eventType": "keydown",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "keyCategory": "space",
+        "keyUtf8ByteLength": 1,
+        "keyHasHangul": false,
+        "keyHasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 89,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 1,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "safe-control",
+        "containsPrintable": true,
+        "safePreview": true,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 5,
+        "pendingQueueBytes": 5
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_beforeinput",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 90,
+        "eventType": "beforeinput",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_input",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 91,
+        "eventType": "input",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_keydown",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 92,
+        "eventType": "keydown",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "keyCategory": "printable",
+        "keyUtf8ByteLength": 1,
+        "keyHasHangul": false,
+        "keyHasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 93,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 6,
+        "pendingQueueBytes": 6
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_beforeinput",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 94,
+        "eventType": "beforeinput",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_input",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 95,
+        "eventType": "input",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_keydown",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 96,
+        "eventType": "keydown",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "keyCategory": "printable",
+        "keyUtf8ByteLength": 1,
+        "keyHasHangul": false,
+        "keyHasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 97,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 7,
+        "pendingQueueBytes": 7
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_beforeinput",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 98,
+        "eventType": "beforeinput",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_input",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 99,
+        "eventType": "input",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_keydown",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 100,
+        "eventType": "keydown",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "keyCategory": "printable",
+        "keyUtf8ByteLength": 1,
+        "keyHasHangul": false,
+        "keyHasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 101,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 8,
+        "pendingQueueBytes": 8
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_beforeinput",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 102,
+        "eventType": "beforeinput",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_input",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 103,
+        "eventType": "input",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_keydown",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 104,
+        "eventType": "keydown",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "keyCategory": "printable",
+        "keyUtf8ByteLength": 1,
+        "keyHasHangul": false,
+        "keyHasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 105,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 9,
+        "pendingQueueBytes": 9
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_beforeinput",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 106,
+        "eventType": "beforeinput",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_input",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 107,
+        "eventType": "input",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_keydown",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 108,
+        "eventType": "keydown",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "keyCategory": "printable",
+        "keyUtf8ByteLength": 1,
+        "keyHasHangul": false,
+        "keyHasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 109,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 10,
+        "pendingQueueBytes": 10
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_beforeinput",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 110,
+        "eventType": "beforeinput",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "helper_input",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 111,
+        "eventType": "input",
+        "inputReady": false,
+        "transportReady": false,
+        "captureAllowed": true,
+        "captureState": "transient-blocked",
+        "barrierReason": "visible-output-recovery",
+        "closedReason": "none",
+        "serverReady": false,
+        "geometryReady": true,
+        "restorePending": false,
+        "visible": true,
+        "helperDisabled": false,
+        "helperReadOnly": false,
+        "isComposingRef": false,
+        "imeState": "idle",
+        "activeCompositionSeq": null,
+        "activeElementIsHelper": true,
+        "inputType": "insertText",
+        "dataLength": 1,
+        "dataByteLength": 1,
+        "hasHangul": false,
+        "hasCjk": false
+      }
+    },
+    {
+      "tSec": 43.01,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 112,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 11,
+        "pendingQueueBytes": 11
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 113,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 12,
+        "pendingQueueBytes": 12
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 114,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 13,
+        "pendingQueueBytes": 13
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 115,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 14,
+        "pendingQueueBytes": 14
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 116,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 15,
+        "pendingQueueBytes": 15
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 117,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 16,
+        "pendingQueueBytes": 16
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 118,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 17,
+        "pendingQueueBytes": 17
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 119,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 18,
+        "pendingQueueBytes": 18
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 120,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 19,
+        "pendingQueueBytes": 19
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 121,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 20,
+        "pendingQueueBytes": 20
+      }
+    },
+    {
+      "tSec": 43.02,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 122,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 21,
+        "pendingQueueBytes": 21
+      }
+    },
+    {
+      "tSec": 43.03,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 123,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 22,
+        "pendingQueueBytes": 22
+      }
+    },
+    {
+      "tSec": 43.03,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 124,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 23,
+        "pendingQueueBytes": 23
+      }
+    },
+    {
+      "tSec": 43.03,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 125,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": false,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 0,
+        "escapeCount": 0,
+        "controlCount": 0,
+        "printableCount": 1,
+        "inputClass": "printable",
+        "containsPrintable": true,
+        "safePreview": false,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 24,
+        "pendingQueueBytes": 24
+      }
+    },
+    {
+      "tSec": 43.03,
+      "kind": "key_event_observed",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "safeKeyName": "Enter",
+        "keyCategory": "control-navigation",
+        "repeat": false,
+        "inputReady": false,
+        "restorePending": false
+      }
+    },
+    {
+      "tSec": 43.03,
+      "kind": "terminal_input_queued",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 126,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": true,
+        "spaceCount": 0,
+        "backspaceCount": 0,
+        "enterCount": 1,
+        "escapeCount": 0,
+        "controlCount": 1,
+        "printableCount": 0,
+        "inputClass": "safe-control",
+        "containsPrintable": false,
+        "safePreview": true,
+        "source": "xterm",
+        "barrierReason": "visible-output-recovery",
+        "sessionGeneration": 2,
+        "pendingQueueDepth": 25,
+        "pendingQueueBytes": 25
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 21,
+        "oldestQueuedMs": 1526,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 22,
+        "oldestQueuedMs": 1527,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 22,
+        "oldestQueuedMs": 1528,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 23,
+        "oldestQueuedMs": 1529,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_rejected",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "captureSeq": 126,
+        "byteLength": 1,
+        "codePointCount": 1,
+        "graphemeCount": 1,
+        "graphemeApproximate": false,
+        "hasHangul": false,
+        "hasCjk": false,
+        "hasEnter": true,
+        "reason": "timeout-enter-safety",
+        "detailReason": "timeout-enter-safety",
+        "barrierReason": "visible-output-recovery",
+        "source": "xterm",
+        "queuedMs": 1501,
+        "queuedSessionGeneration": 2,
+        "currentSessionGeneration": 2
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1531,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1532,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1534,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.53,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1535,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.54,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1537,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.54,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1538,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.54,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1540,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.54,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1541,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.54,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1542,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.54,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1543,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.54,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1544,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1545,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1546,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1547,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1548,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1549,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1550,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1551,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1553,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1554,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 44.55,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 1555,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.05,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3051,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.05,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3052,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.05,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3053,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.05,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3054,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.06,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3056,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.06,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3057,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.06,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3059,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.06,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3061,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.06,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3062,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.06,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3063,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.06,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3065,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3066,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3067,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3068,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3069,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3070,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3071,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3072,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3073,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.07,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3074,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.08,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3075,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.08,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3076,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.08,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3078,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.08,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3079,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 46.08,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 3080,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.58,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4576,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.58,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4577,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.58,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4578,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.58,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4580,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.58,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4581,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.58,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4582,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.58,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4584,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4586,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4587,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4588,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4590,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4591,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4592,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4593,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4594,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.59,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4595,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4596,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4597,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4598,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4599,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4600,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4601,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4603,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4604,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 47.6,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 4605,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.1,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6102,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.1,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6102,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.1,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6103,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.1,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6105,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.11,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6106,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.11,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6108,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.11,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6109,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.11,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6111,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.11,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6112,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.11,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6114,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6115,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6116,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6117,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6118,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6119,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6120,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6121,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6122,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6123,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.12,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6124,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.13,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6125,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.13,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6127,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.13,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6128,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.13,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6129,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 49.13,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 6130,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.63,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7627,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.63,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7627,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.63,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7629,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.63,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7630,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.63,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7631,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.63,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7633,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.63,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7634,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.64,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7636,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.64,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7637,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.64,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7639,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.64,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7640,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.64,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7641,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.64,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7642,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.64,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7643,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.64,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7644,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7645,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7646,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7648,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7649,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7650,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7651,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7652,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7653,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.65,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7654,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 50.66,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 7656,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.15,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9152,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.15,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9152,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.15,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9154,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.16,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9155,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.16,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9156,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.16,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9158,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.16,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9160,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.16,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9161,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.16,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9162,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.16,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9164,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.16,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9165,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9166,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9167,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9168,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9169,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9171,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9172,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9173,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9174,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.17,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9175,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.18,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9176,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.18,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9177,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.18,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9178,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.18,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9179,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 52.18,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 9181,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.68,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10677,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.68,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10678,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.68,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10679,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.68,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10680,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.68,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10681,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.68,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10683,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.69,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10685,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.69,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10686,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.69,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10688,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.69,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10689,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.69,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10690,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.69,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10691,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.69,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10692,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.69,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10693,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10695,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10696,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10697,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10698,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10699,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10700,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10701,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10702,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10703,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.7,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10704,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 53.71,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 10706,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.2,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12202,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.2,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12203,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.2,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12204,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.2,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12205,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.21,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12207,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.21,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12208,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.21,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12210,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.21,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12211,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.21,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12213,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.21,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12214,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12215,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12217,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12218,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12219,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12220,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12221,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12222,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12223,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.22,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12224,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.23,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12225,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.24,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12236,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.24,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12236,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.24,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12236,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.24,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12236,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 55.24,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 12236,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.73,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13728,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.73,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13728,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.73,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13729,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.73,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13730,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.73,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13732,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.73,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13733,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.73,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13735,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.74,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13737,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.74,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13738,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.74,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13739,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.74,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13741,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.74,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13742,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.74,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13743,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.74,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13744,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.74,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13745,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.75,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13746,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.75,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13747,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.75,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13748,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.75,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13749,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.75,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13750,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.76,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13761,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.76,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13761,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.76,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13761,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.76,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13761,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 56.76,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 13761,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.25,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15253,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.25,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15253,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.25,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15254,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.26,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15256,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.26,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15257,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.26,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15258,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.26,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15260,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.26,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15262,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.26,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15263,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15265,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15266,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15267,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15268,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15269,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15270,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15271,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15272,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15273,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15274,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.27,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15275,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.29,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15286,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.29,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15286,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.29,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15286,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.29,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15286,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 58.29,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 15286,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.78,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16778,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.78,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16778,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.78,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16780,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.78,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16781,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.78,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16782,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.78,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16783,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.78,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16785,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.79,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16787,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.79,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16788,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.79,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16790,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.79,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16791,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.79,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16792,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.79,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16793,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.79,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16794,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.8,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16795,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.8,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16796,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.8,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16797,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.8,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16799,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.8,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16800,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.8,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16800,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.81,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16811,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.81,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16811,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.81,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16812,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.81,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16812,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 59.81,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 16812,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.3,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18304,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.3,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18304,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.3,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18305,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.31,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18306,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.31,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18307,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.31,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18309,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.31,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18311,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.31,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18312,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.31,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18313,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.31,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18315,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.32,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18316,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.32,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18317,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.32,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18318,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.32,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18319,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.32,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18320,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.32,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18322,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.32,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18322,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.32,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18324,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.33,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18325,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.33,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18326,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.34,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18337,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.34,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18337,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.34,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18337,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.34,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18337,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 61.34,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 18337,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.83,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19829,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.83,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19829,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.83,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19830,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.83,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19831,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.83,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19832,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.83,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19834,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.84,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19836,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.84,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19837,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.84,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19838,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.84,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19840,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.84,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19841,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.84,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19842,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.84,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19843,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.84,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19844,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.85,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19846,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.85,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19847,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.85,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19848,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.85,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19849,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.85,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19850,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.85,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19851,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.86,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19862,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.86,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19862,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.86,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19862,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.86,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19862,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 62.86,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 19862,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.35,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21354,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.35,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21354,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.36,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21355,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.36,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21356,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.36,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21358,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.36,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21359,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.36,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21361,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.36,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21362,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.36,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21363,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.36,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21365,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.37,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21366,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.37,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21367,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.37,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21368,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.37,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21369,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.37,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21371,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.37,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21372,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.37,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21373,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.37,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21374,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.38,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21375,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.38,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21376,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.39,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21387,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.39,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21387,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.39,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21387,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.39,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21387,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    },
+    {
+      "tSec": 64.39,
+      "kind": "terminal_input_held_for_barrier",
+      "details": {
+        "inputReliabilityMode": "queue",
+        "heldEntries": 24,
+        "oldestQueuedMs": 21387,
+        "ttlMs": 1500,
+        "barrierReason": "visible-output-recovery",
+        "sources": "xterm"
+      }
+    }
+  ]
+}

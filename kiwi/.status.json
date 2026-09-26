@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-26T17:56:26.122Z",
+  "generatedAt": "2026-09-26T18:56:19.036Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "1c9b07c4b14ff13b036e74cfa575fbfc9d8db897cea823f5d2be7b6e3265caae",
+    "value": "6ee614bdbc642303d42cc4b351b20dad7039e68d856da4fe16269494ef5b37d9",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "44d3799bf021b770fb7670c236f87e1ca83fafc83e3fe62356ccec6d0ecdba39",
-        "size": 626929,
-        "mtimeMs": 1790433887738.6902
+        "sha256": "678ddd2a665c0ab59cc2c63303813b39bda7ee5290459b5a128925ef4fc33d5c",
+        "size": 1396087,
+        "mtimeMs": 1790448972357.652
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -38,9 +38,9 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "0481ea3f7c003fac136f24f085e6d5375765d9652878aef8271d60367d2672c5",
-        "size": 281659,
-        "mtimeMs": 1790389491379.5312
+        "sha256": "9faec525d6c49ac28997b0d4688146bf8e58c381ed6a4294f22bb240bd14437d",
+        "size": 285243,
+        "mtimeMs": 1790448426317.593
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
@@ -72,7 +72,7 @@
     "functional": {
       "ARCH": 6,
       "AITUI": 10,
-      "BGSTAB": 26,
+      "BGSTAB": 30,
       "MCP": 6,
       "MDE": 23,
       "FEX": 12,
@@ -81,34 +81,35 @@
     },
     "constraint": {
       "ARCH": 1,
-      "BGSTAB": 1,
-      "MDE": 2,
+      "BGSTAB": 2,
+      "MDE": 3,
       "FEX": 1,
       "UIDS": 1
     },
     "security": {
       "AITUI": 2,
+      "BGSTAB": 1,
       "MCP": 3,
       "MDE": 1,
       "FOP": 1
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 22,
+      "BGSTAB": 29,
       "MCP": 1
     },
     "observability": {
-      "BGSTAB": 8,
+      "BGSTAB": 10,
       "MCP": 1
     },
     "performance": {
-      "BGSTAB": 15
+      "BGSTAB": 17
     },
     "migration": {
-      "BGSTAB": 4
+      "BGSTAB": 5
     },
     "operational": {
-      "BGSTAB": 11
+      "BGSTAB": 18
     },
     "interface": {
       "BGSTAB": 2,

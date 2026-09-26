@@ -1,0 +1,72 @@
+# git status --porcelain BEFORE
+ M server/tools/require-owned-http-test-pipe.cjs
+ M server/tools/test-owned-http-test-pipe.cjs
+?? docs/analysis/2026-09-17.rg06-regression/raw/T1b-monolithic-guard-final-20260916T222555Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/T2c-nodetest-prefixguard-clean-20260916T222239Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/T2d-nodetest-guardfinal-20260916T222642Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/T5c-servertools-serial-20260916T223033Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/env-and-ports-round2-before-20260916T222238Z.txt
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-20260916T222238Z.log
+?? server/tools/owned-http-test-pipe-guard.test.cjs
+# collected files:
+server/tools/canonical-authority-line-endings.test.mjs
+server/tools/ensure-node-pty-windows-hide.test.cjs
+server/tools/fair-scheduler-checkout-provenance.test.mjs
+server/tools/owned-http-test-pipe-guard.test.cjs
+server/tools/write-fair-scheduler-evidence-bundle.test.mjs
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (373.318838ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (103.716752ms)
+✔ OPS-BGSTAB-008 the bundle writer completes on this working tree (5309.012939ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (215.225966ms)
+✔ node-pty runtime patches are idempotent and fail closed on target drift (15.512615ms)
+▶ fair scheduler pinned sources retain raw-byte provenance through Git checkout
+  ✔ src/benchmarks/terminalFairnessCharacterization.ts (196.195998ms)
+  ✔ src/benchmarks/fairSchedulerAuthorityLocator.ts (186.117967ms)
+  ✔ src/ws/wsSendPolicy.ts (196.485821ms)
+  ✔ src/ws/WsRouter.ts (219.583522ms)
+  ✔ src/services/TerminalResourcePolicy.ts (191.67245ms)
+  ✔ src/services/TerminalResourcePolicyCanary.ts (210.082856ms)
+✔ fair scheduler pinned sources retain raw-byte provenance through Git checkout (1206.662236ms)
+▶ fair scheduler current authority JSON retains raw-byte hashes through Git checkout
+  ✔ current.json (203.388137ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/fair-scheduler-decision.json (214.433906ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/provenance.json (215.383896ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-0.json (205.670184ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-1.json (218.831288ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-2.json (213.030999ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-3.json (219.970022ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-4.json (217.685822ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-0.json (213.384528ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-1.json (208.947742ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-2.json (205.087915ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-3.json (206.002193ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-4.json (211.275774ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-0.json (216.695776ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-1.json (218.50124ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-2.json (212.077316ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-3.json (218.561445ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-4.json (206.83475ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/manifest.json (207.747987ms)
+✔ fair scheduler current authority JSON retains raw-byte hashes through Git checkout (4066.491291ms)
+✔ B0 listen guard self-check passes and reports only measured fields (68.224665ms)
+✔ B0 listen guard refuses to load a kind that is not a regex literal (38.667796ms)
+✔ PERF-BGSTAB-010 canonical bundle writer rejects source-root override and copies only current immutable generation (5899.512346ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 35
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17682.4649
+EXIT=0
+# git status --porcelain AFTER
+ M server/tools/require-owned-http-test-pipe.cjs
+ M server/tools/test-owned-http-test-pipe.cjs
+?? docs/analysis/2026-09-17.rg06-regression/raw/T1b-monolithic-guard-final-20260916T222555Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/T2c-nodetest-prefixguard-clean-20260916T222239Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/T2d-nodetest-guardfinal-20260916T222642Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/T5c-servertools-serial-20260916T223033Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/env-and-ports-round2-before-20260916T222238Z.txt
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-20260916T222238Z.log
+?? server/tools/owned-http-test-pipe-guard.test.cjs

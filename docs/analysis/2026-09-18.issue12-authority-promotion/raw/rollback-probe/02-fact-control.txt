@@ -1,0 +1,2 @@
+exit=0 services/RetainedTerminalAuthority.test.ts facts= rollbacks=0
+exit=1 services/TerminalAuthorityController.test.ts facts= rollbacks=4

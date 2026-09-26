@@ -1,0 +1,13 @@
+✔ FR-BGSTAB-027 AC-1 indexed SGR palette slots 0..15 survive the checkpoint round trip (237.746541ms)
+✔ FR-BGSTAB-027 AC-4 an SGR-dense scrollback keeps every principal comparer axis matching (882.384968ms)
+✔ FR-BGSTAB-027 AC-2 P16 short form and P256 indexed form of one palette slot hash alike (70.7595ms)
+✔ FR-BGSTAB-027 AC-3 palette normalization still distinguishes genuinely different attributes (23.087063ms)
+✔ BOUNDARY CONTROL — indexed slots at or above 16 were already round-trip stable (25.000801ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2230.953484

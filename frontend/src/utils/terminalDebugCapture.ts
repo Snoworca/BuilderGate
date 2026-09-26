@@ -86,6 +86,76 @@ export interface TerminalInputGateDebugSnapshot {
   serverReady: boolean;
 }
 
+// #16: under the WebGL renderer a selection is painted on canvas with no DOM
+// representation at all -- no `.xterm-selection` element, and the browser's own
+// Selection API never reflects it either. A spec cannot tell "no selection" from
+// "selection exists but is unobservable through the DOM" without reading xterm's
+// own model directly, which is what this exposes.
+export interface TerminalSelectionDebugSnapshot {
+  hasSelection: boolean;
+  text: string;
+}
+
+/**
+ * #16 item 6: the retained-state evidence walks `buffer.active` only, so a short capture
+ * cannot say whether the normal buffer is short or merely inactive -- an alternate buffer
+ * has no scrollback and its length is exactly `rows`. This reports both lengths so one
+ * measurement discriminates instead of narrowing.
+ */
+export interface TerminalBufferLengthsDebugSnapshot {
+  activeType: 'normal' | 'alternate';
+  normalLength: number;
+  alternateLength: number;
+  rows: number;
+  cols: number;
+}
+
+/**
+ * #114. What the LIVE terminal ended up with, as opposed to what the source
+ * says it was constructed with.
+ *
+ * The unit guards read both source trees as text and both engines in bare Node.
+ * Neither can answer whether the width addon actually activated in a shipped
+ * browser bundle: an addon can be dropped by a bundler, and
+ * `Unicode11Addon.activate()` throws outright when `allowProposedApi` is absent,
+ * which the source text alone cannot tell you happened. This reads the running
+ * object so the answer comes from the terminal the user is looking at.
+ */
+export interface TerminalWidthPolicyDebugSnapshot {
+  /** `term.unicode.activeVersion`, or null when reading it threw. */
+  unicodeActiveVersion: string | null;
+  /** Versions the running terminal offers; '11' only appears once the addon registered. */
+  unicodeVersions: string[];
+  allowProposedApi: boolean | undefined;
+  reflowCursorLine: boolean | undefined;
+}
+
+/**
+ * #113. A CHEAP content-bearing read of the normal buffer.
+ *
+ * The only instrument that could say whether a particular line is back after
+ * a reload was `captureRetainedState`, and it hashes the entire retained state
+ * with fnv1a64 over a canonical JSON serialisation — two BigInt operations per
+ * byte. Profiled 2026-09-20 during a reload of a 700-line session, that hash
+ * and its stringifier were the top self-time entries in the whole page, and
+ * the spec measuring restore latency was calling it every 200ms. The
+ * instrument was a material share of the thing it was measuring.
+ *
+ * `captureTerminalText` is not a substitute: it reads `term.rows` rows from
+ * `viewportY`, so it cannot see scrollback at all, and a restore that has not
+ * happened looks the same as one that has.
+ *
+ * This reads named lines out of the NORMAL buffer with one translateToString
+ * each. It is content-bearing, so it is not the single-number conflation
+ * `normalLength` suffers from, and it costs nothing measurable.
+ */
+export interface TerminalScrollbackProbeDebugSnapshot {
+  normalLength: number;
+  rows: number;
+  /** Text of the requested normal-buffer rows, in the order requested. */
+  lines: { index: number; text: string }[];
+}
+
 interface TerminalDebugStore {
   events: TerminalClientDebugEvent[];
   enabledAll: boolean;
@@ -103,6 +173,22 @@ interface TerminalDebugStore {
   readInputGateSnapshot: (sessionId: string) => TerminalInputGateDebugSnapshot | null;
   setNextWebSocketInputSendFailure: (override: DebugWebSocketSendFailureOverride | null) => boolean;
   requestRepairLayout: (sessionId: string, reason?: string) => Promise<boolean>;
+  // #39: the visible terminal draws through the WebGL addon since #15, and while that is
+  // attached the text is not in the DOM at all -- `.xterm-rows` is absent, not late. Specs
+  // that assert on what the terminal shows had no way to read it. This reads the buffer
+  // itself, so it answers the same under either renderer.
+  captureTerminalText: (sessionId: string) => string | null;
+  // #16: renderer-independent selection read, see TerminalSelectionDebugSnapshot.
+  captureTerminalSelection: (sessionId: string) => TerminalSelectionDebugSnapshot | null;
+  // #16 item 6: see TerminalBufferLengthsDebugSnapshot.
+  captureTerminalBufferLengths: (sessionId: string) => TerminalBufferLengthsDebugSnapshot | null;
+  // #114: see TerminalWidthPolicyDebugSnapshot.
+  captureTerminalWidthPolicy: (sessionId: string) => TerminalWidthPolicyDebugSnapshot | null;
+  // #113: see TerminalScrollbackProbeDebugSnapshot.
+  captureTerminalScrollbackProbe: (
+    sessionId: string,
+    indices: readonly number[],
+  ) => TerminalScrollbackProbeDebugSnapshot | null;
   captureRetainedState: (sessionId: string) => TerminalRetainedStateEvidence | null;
   captureRetainedStateStreaming: (
     sessionId: string,
@@ -112,6 +198,14 @@ interface TerminalDebugStore {
   inputGateSnapshotReaders: Map<string, () => TerminalInputGateDebugSnapshot>;
   webSocketSendFailureHandlers: Set<(override: DebugWebSocketSendFailureOverride | null) => void>;
   repairLayoutHandlers: Map<string, (reason: string) => Promise<boolean>>;
+  terminalTextCaptureHandlers: Map<string, () => string>;
+  selectionCaptureHandlers: Map<string, () => TerminalSelectionDebugSnapshot>;
+  bufferLengthsCaptureHandlers: Map<string, () => TerminalBufferLengthsDebugSnapshot>;
+  widthPolicyCaptureHandlers: Map<string, () => TerminalWidthPolicyDebugSnapshot>;
+  scrollbackProbeCaptureHandlers: Map<
+    string,
+    (indices: readonly number[]) => TerminalScrollbackProbeDebugSnapshot
+  >;
   retainedStateCaptureHandlers: Map<string, () => TerminalRetainedStateEvidence>;
   retainedStateStreamingCaptureHandlers: Map<
     string,
@@ -253,6 +347,36 @@ function getStore(): TerminalDebugStore | null {
         }
         return await handler(reason);
       },
+      captureTerminalText(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.terminalTextCaptureHandlers.get(sessionId)?.() ?? null;
+      },
+      captureTerminalSelection(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.selectionCaptureHandlers.get(sessionId)?.() ?? null;
+      },
+      captureTerminalBufferLengths(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.bufferLengthsCaptureHandlers.get(sessionId)?.() ?? null;
+      },
+      captureTerminalWidthPolicy(sessionId: string) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.widthPolicyCaptureHandlers.get(sessionId)?.() ?? null;
+      },
+      captureTerminalScrollbackProbe(sessionId: string, indices: readonly number[]) {
+        if (!isLocalTestHost()) {
+          return null;
+        }
+        return this.scrollbackProbeCaptureHandlers.get(sessionId)?.(indices) ?? null;
+      },
       captureRetainedState(sessionId: string) {
         if (!isLocalTestHost()) {
           return null;
@@ -269,6 +393,14 @@ function getStore(): TerminalDebugStore | null {
       inputGateSnapshotReaders: new Map<string, () => TerminalInputGateDebugSnapshot>(),
       webSocketSendFailureHandlers: new Set<(override: DebugWebSocketSendFailureOverride | null) => void>(),
       repairLayoutHandlers: new Map<string, (reason: string) => Promise<boolean>>(),
+      terminalTextCaptureHandlers: new Map<string, () => string>(),
+      selectionCaptureHandlers: new Map<string, () => TerminalSelectionDebugSnapshot>(),
+      bufferLengthsCaptureHandlers: new Map<string, () => TerminalBufferLengthsDebugSnapshot>(),
+      widthPolicyCaptureHandlers: new Map<string, () => TerminalWidthPolicyDebugSnapshot>(),
+      scrollbackProbeCaptureHandlers: new Map<
+        string,
+        (indices: readonly number[]) => TerminalScrollbackProbeDebugSnapshot
+      >(),
       retainedStateCaptureHandlers: new Map<string, () => TerminalRetainedStateEvidence>(),
       retainedStateStreamingCaptureHandlers: new Map<
         string,
@@ -343,6 +475,109 @@ export function registerTerminalRepairLayoutHandler(
     const current = store.repairLayoutHandlers.get(sessionId);
     if (current === handler) {
       store.repairLayoutHandlers.delete(sessionId);
+    }
+  };
+}
+
+// #39: reading the visible terminal's text does not work through the DOM while the WebGL
+// renderer is attached, and every renderer keeps the same buffer. Test-host gated like its
+// neighbours, so nothing is exposed in ordinary use.
+export function registerTerminalTextCaptureHandler(
+  sessionId: string,
+  handler: () => string,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.terminalTextCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.terminalTextCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.terminalTextCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
+// #16: same precedent as registerTerminalTextCaptureHandler -- xterm's own selection
+// model is the only thing that answers "is there a selection" under the WebGL
+// renderer, since neither `.xterm-selection` nor the browser's Selection API exist
+// there. Test-host gated like its neighbours, so nothing is exposed in ordinary use.
+export function registerTerminalBufferLengthsCaptureHandler(
+  sessionId: string,
+  handler: () => TerminalBufferLengthsDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.bufferLengthsCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.bufferLengthsCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.bufferLengthsCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
+// #114: same test-host gating as its neighbours, so nothing is exposed in
+// ordinary use. See TerminalWidthPolicyDebugSnapshot for why source text cannot
+// answer this question.
+export function registerTerminalWidthPolicyCaptureHandler(
+  sessionId: string,
+  handler: () => TerminalWidthPolicyDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.widthPolicyCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.widthPolicyCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.widthPolicyCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
+// #113: test-host gated like its neighbours. See
+// TerminalScrollbackProbeDebugSnapshot for why the existing instruments could
+// not answer this question without distorting it.
+export function registerTerminalScrollbackProbeCaptureHandler(
+  sessionId: string,
+  handler: (indices: readonly number[]) => TerminalScrollbackProbeDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.scrollbackProbeCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.scrollbackProbeCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.scrollbackProbeCaptureHandlers.delete(sessionId);
+    }
+  };
+}
+
+export function registerTerminalSelectionCaptureHandler(
+  sessionId: string,
+  handler: () => TerminalSelectionDebugSnapshot,
+): () => void {
+  const store = getStore();
+  if (!store || !isLocalTestHost()) {
+    return () => {};
+  }
+
+  store.selectionCaptureHandlers.set(sessionId, handler);
+  return () => {
+    const current = store.selectionCaptureHandlers.get(sessionId);
+    if (current === handler) {
+      store.selectionCaptureHandlers.delete(sessionId);
     }
   };
 }

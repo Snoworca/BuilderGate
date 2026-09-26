@@ -7,6 +7,24 @@ import {
   requireLocalDebugCapture,
 } from '../middleware/debugCaptureGuards.js';
 import { SessionManager } from './SessionManager.js';
+
+/**
+ * Issue #105: eleven tests in this file pin `platform: 'win32'` so they can
+ * exercise the PowerShell paths, but did not stub execFileSync. On win32 the
+ * manager verifies the winpty backend by spawning a real node subprocess that
+ * starts powershell.exe, which on a Linux host cannot succeed — it burns its
+ * 1.5s budget and then throws CONFIG_ERROR out of
+ * assertPowerShellWinptyAvailable, so the test dies at session creation with a
+ * timeout instead of measuring the invariant it names.
+ *
+ * The probe is host-capability detection, not the behaviour under test, so stub
+ * it and let the tests actually run here rather than skipping them. Six of the
+ * eleven are issue #12's AC-10 invariants, which would otherwise be
+ * unmeasurable on this platform.
+ */
+const STUB_WINPTY_PROBE = (() => Buffer.from('')) as unknown as NonNullable<
+  ConstructorParameters<typeof SessionManager>[1]
+>['execFileSyncFn'];
 import {
   createHeadlessTerminalState,
   writeHeadlessTerminal,
@@ -471,7 +489,8 @@ class AuthorityIntegrationFakePty {
 }
 
 interface SessionManagerAuthorityIntegrationData {
-  headless: HeadlessTerminalState;
+  headless: HeadlessTerminalState | null;
+  headlessHealth: 'healthy' | 'degraded';
   headlessWriteChain: Promise<void>;
   nextTerminalAuthoritySourceSeq: bigint;
   terminalQueryResponder?: {
@@ -481,7 +500,7 @@ interface SessionManagerAuthorityIntegrationData {
   terminalAuthorityController?: TerminalAuthorityController;
 }
 
-test('MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps', async () => {
+test('MIG-BGSTAB-002 a reserved ordinal gap refuses promotion at the parity gate and keeps the model', async () => {
   const productionModule = await loadProductionIntegration('MIG-AC-5');
   const fakePty = new AuthorityIntegrationFakePty();
   const integration = createProductionIntegrationFixture(productionModule, 'split', fakePty);
@@ -495,21 +514,129 @@ test('MIG-BGSTAB-002 checkpoint identity follows the committed authority source 
     fakePty.emitData('committed-after-reserved-gap');
     await sessionData.headlessWriteChain;
 
+    // EXPECTATION SUPERSEDED, not deleted (issue #106, option 2).
+    //
+    // This test was written to assert that a checkpoint covering the committed
+    // model uses the controller authority ordinal rather than a lagging ledger
+    // ordinal, and it was red because the product did not have that property.
+    // Under option 2 the disposition changed: a reserved-ordinal gap now rejects
+    // the record instead of degrading the session, so the session keeps its
+    // authoritative model — but the rejected record fails the fact-parity gate
+    // and promotion is refused. The original assertion is therefore no longer
+    // REACHABLE in this scenario: there is no authoritative checkpoint to
+    // compare, because promotion never happens.
+    //
+    // So this now characterises what the scenario actually does. The original
+    // property is NOT thereby verified and is NOT abandoned — it needs a
+    // scenario that reaches promotion, which a reserved-ordinal gap no longer
+    // does. Recorded in MIG-BGSTAB-002 VE-6.
     const router = integration.wsRouter as unknown as ExecutableWsRouterApi;
     const view = await connectProductionView(router, 'split', 11);
-    await promoteProductionViews(integration, [view]);
-    const boundary = view.output.sentFrames.find(frame => (
-      frame.type === 'terminal-authority:responder-disable-boundary'
-    ));
-    const checkpoint = view.output.sentFrames.find(frame => (
-      frame.type === 'terminal-checkpoint:start' && frame.mode === 'authoritative'
-    ));
-    assert.ok(boundary);
-    assert.ok(checkpoint);
+    let promotionRefusal: string | null = null;
+    try {
+      await promoteProductionViews(integration, [view]);
+    } catch (error) {
+      promotionRefusal = error instanceof Error ? error.message : String(error);
+    }
+    assert.match(
+      promotionRefusal ?? '',
+      /factParity-gate-failed/,
+      'a reserved-ordinal gap must refuse promotion at the fact-parity gate rather than '
+        + 'degrading the session; if promotion succeeds here, the checkpoint-identity '
+        + 'assertion this test originally carried becomes reachable again and should be restored',
+    );
+    assert.notEqual(
+      (manager as unknown as SessionManagerAuthorityIntegrationApi).sessions.get(SESSION_ID)?.headless,
+      null,
+      'the authoritative headless model must survive the gap - this is what option 2 delivers',
+    );
+  } finally {
+    integration.destroy();
+  }
+});
+
+/**
+ * Issue #106, option 2: a reservation/commit ordinal mismatch is a RECORD-scope
+ * rejection, not a MODEL-scope degradation.
+ *
+ * Before this, one mismatch threw out of commitRetainedTerminalOutput, the write
+ * chain's catch called markHeadlessDegraded, the headless terminal was disposed
+ * and set to null, and every later recovery snapshot fell back for the rest of
+ * the session. A record-scope accounting error took a model-scope disposition
+ * that could not be undone.
+ *
+ * The enumeration in MIG-BGSTAB-002 VE-5 says this is not reachable from the
+ * public surface. That is why the fix is not urgent; it is not why it is
+ * unnecessary. The failure mode is permanent destruction of a session's
+ * authoritative model, and the fix costs no extra accounting.
+ */
+test('MIG-BGSTAB-002 an ordinal mismatch rejects the record without destroying the model', async () => {
+  const signature = 'issue #106: a record-scope accounting mismatch must not take a model-scope disposition';
+  const productionModule = await loadProductionIntegration('MIG-AC-5');
+  const fakePty = new AuthorityIntegrationFakePty();
+  const integration = createProductionIntegrationFixture(productionModule, 'split', fakePty);
+  const manager = integration.sessionManager;
+  (manager as unknown as { isCommandAvailable(command: string): boolean }).isCommandAvailable = () => true;
+  try {
+    manager.createSession('issue-106 ordinal mismatch', 'bash', undefined, { sessionId: SESSION_ID });
+    const sessionData = (manager as unknown as SessionManagerAuthorityIntegrationApi).sessions.get(SESSION_ID);
+    assert.ok(sessionData);
+
+    // Desynchronise the reservation counter exactly as the sibling gap test does.
+    sessionData.nextTerminalAuthoritySourceSeq += 1n;
+    fakePty.emitData('output-that-mismatches');
+    await sessionData.headlessWriteChain;
+
     assert.equal(
-      checkpoint.sourceSeq,
-      boundary.boundarySourceSeq,
-      'a checkpoint covering the committed model must use the controller authority ordinal, not a lagging ledger ordinal',
+      sessionData.headlessHealth,
+      'healthy',
+      `${signature} - the session must not be degraded by the mismatch`,
+    );
+    assert.notEqual(
+      sessionData.headless,
+      null,
+      `${signature} - the authoritative headless model must not be disposed`,
+    );
+
+    // And the session must recover: the next write has to commit, or a single
+    // mismatch would merely trade permanent degradation for permanent rejection.
+    fakePty.emitData('output-after-realignment');
+    await sessionData.headlessWriteChain;
+    assert.equal(
+      sessionData.headlessHealth,
+      'healthy',
+      `${signature} - a following write must commit rather than mismatch again`,
+    );
+    assert.notEqual(sessionData.headless, null, signature);
+
+    // RESIDUAL, asserted rather than left implicit: option 2 removes the model
+    // destruction, NOT the promotion block. One genuinely rejected record still
+    // fails the fact-parity gate, and it keeps failing after realignment and
+    // further successful writes. Measured 2026-09-18. Whether promotion should
+    // recover from a rejected record is a separate requirements question; this
+    // assertion exists so that if it ever does recover, the change is noticed
+    // rather than silently absorbed.
+    for (let i = 0; i < 3; i += 1) {
+      fakePty.emitData(`settle-${i}`);
+      await sessionData.headlessWriteChain;
+    }
+    const router = integration.wsRouter as unknown as ExecutableWsRouterApi;
+    const view = await connectProductionView(router, 'split', 21);
+    let promotionBlocked = false;
+    try {
+      await promoteProductionViews(integration, [view]);
+    } catch (error) {
+      promotionBlocked = /factParity-gate-failed/.test(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    assert.equal(
+      promotionBlocked,
+      true,
+      `${signature} - RESIDUAL: promotion is still refused by the fact-parity gate after a `
+        + 'rejected record. The model survives, which is what this fix delivers, but the session '
+        + 'is not promotable. If this assertion starts failing, promotion recovered and the '
+        + 'residual should be re-characterised rather than the assertion relaxed.',
     );
   } finally {
     integration.destroy();
@@ -1261,6 +1388,33 @@ interface Harness {
   }>;
   committedLegacyIdentities: Array<Record<string, unknown>>;
   quorumReceiptPromise: Promise<boolean> | null;
+  // REL-BGSTAB-007 AC-8: records every argument the authoritative recovery port
+  // was called with, so a test can prove the absent/poisoned contrast actually
+  // reached the authority boundary instead of being dropped by the controller.
+  recoveryLoads: Array<RecoverViewInput | undefined>;
+}
+
+type RecoverViewInput = {
+  connectionId: string;
+  viewGeneration: number;
+  cacheState: 'absent' | 'poisoned';
+};
+
+// REL-BGSTAB-007 AC-8. Promotion itself loads authoritative recovery with no
+// browser context. Clear the recorded loads so a test's later assertions describe
+// its own recoverView calls only, while pinning that nothing recorded up to this
+// point carried a browser cache state. The assertion deliberately does not pin the
+// number of promotion-time loads — only that none of them is cache-sensitive.
+// Asserted through a temporary: assert.deepEqual narrows its first argument, and
+// narrowing harness.recoveryLoads to undefined[] would make the
+// cacheState/connectionId assertions at the call sites unreachable at the type level.
+function dropPromotionRecoveryLoad(harness: Pick<Harness, 'recoveryLoads'>): void {
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.cacheState).filter(cacheState => cacheState !== undefined),
+    [],
+    'promotion must load authoritative recovery without browser context',
+  );
+  harness.recoveryLoads.length = 0;
 }
 
 function compatibilityDrainKey(input: {
@@ -1289,7 +1443,13 @@ function compatibilityDrainKey(input: {
 
 function createHarness(
   contract: ContractModule,
-  options: Readonly<{ quorumReceiptPromise?: Promise<boolean> }> = {},
+  options: Readonly<{
+    quorumReceiptPromise?: Promise<boolean>;
+    // REL-BGSTAB-007 AC-8 negative control. When set, the authoritative
+    // recovery port becomes sensitive to the browser's local cache state,
+    // which is exactly what AC-8 forbids. The parity assertion must go red.
+    poisonAuthoritativeRecoveryOnCacheState?: boolean;
+  }> = {},
 ): Harness {
   const harness = {
     events: [] as AuthorityEvent[],
@@ -1310,6 +1470,7 @@ function createHarness(
     transferredLegacyQueries: [] as Harness['transferredLegacyQueries'],
     committedLegacyIdentities: [] as Harness['committedLegacyIdentities'],
     quorumReceiptPromise: options.quorumReceiptPromise ?? null,
+    recoveryLoads: [] as Array<RecoverViewInput | undefined>,
   };
   const controller = contract.createTerminalAuthorityController({
     initial: {
@@ -1337,13 +1498,20 @@ function createHarness(
         harness.effectTimeline.push(event.type);
       }
     },
-    loadAuthoritativeRecovery: () => ({
-      retainedStateHash: 'sha256:configured-retained-range',
-      checkpointEpoch: '8001',
-      snapshotSeq: BOUNDARY_SOURCE_SEQ,
-      checkpointMessages: AUTHORITATIVE_CHECKPOINT_MESSAGES,
-      postSnapshotOutput: ['tail-42', 'tail-43'],
-    }),
+    loadAuthoritativeRecovery: (input?: RecoverViewInput) => {
+      harness.recoveryLoads.push(input ? { ...input } : undefined);
+      const tainted = options.poisonAuthoritativeRecoveryOnCacheState === true
+        && input?.cacheState === 'poisoned';
+      return {
+        retainedStateHash: tainted
+          ? 'sha256:local-cache-tainted'
+          : 'sha256:configured-retained-range',
+        checkpointEpoch: '8001',
+        snapshotSeq: BOUNDARY_SOURCE_SEQ,
+        checkpointMessages: AUTHORITATIVE_CHECKPOINT_MESSAGES,
+        postSnapshotOutput: tainted ? ['tail-42'] : ['tail-42', 'tail-43'],
+      };
+    },
     loadCompatibilityRecovery: input => {
       assert.deepEqual(input, {
         transitionEpoch: '9',
@@ -2050,7 +2218,7 @@ test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-
     assert.equal(headlessWriteGates.length, 1, 'the allowed write seam must observe the queued prefix');
     assert.equal(headlessWriteGates[0]?.state, integrationSession.headless);
     assert.equal(
-      integrationSession.headless.terminal.buffer.active.cursorX,
+      integrationSession.headless!.terminal.buffer.active.cursorX,
       0,
       'PTY onData must not mutate the authoritative model before the deferred headless write commits',
     );
@@ -2071,7 +2239,7 @@ test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-
     assert.equal(actualPromotion.ok, true, 'production adapter must execute promotion through its default controller');
     assert.equal(actualPromotion.boundarySourceSeq, '40');
     assert.equal(actualPromotion.requiredResponderCount, 2);
-    assert.equal(integrationSession.headless.terminal.buffer.active.cursorX, 3);
+    assert.equal(integrationSession.headless!.terminal.buffer.active.cursorX, 3);
     const firstBoundary = firstView.output.sentFrames.find(frame => (
       frame.type === 'terminal-authority:responder-disable-boundary'
     ));
@@ -7806,6 +7974,7 @@ test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-
   const contract = await loadContract('MIG-AC-4');
   const harness = createHarness(contract);
   await promoteAllViews(harness.controller);
+  dropPromotionRecoveryLoad(harness);
   const absent = await harness.controller.recoverView({ connectionId: 'reload-absent', viewGeneration: 1, cacheState: 'absent' });
   const poisoned = await harness.controller.recoverView({ connectionId: 'reload-poisoned', viewGeneration: 2, cacheState: 'poisoned' });
   for (const result of [absent, poisoned]) {
@@ -7816,7 +7985,55 @@ test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-
     assert.equal(result.snapshotSeq, BOUNDARY_SOURCE_SEQ);
     assert.deepEqual(result.postSnapshotOutput, ['tail-42', 'tail-43']);
   }
+  // REL-BGSTAB-007 AC-8. Without this assertion the parity check below is
+  // vacuous: recoverView() used to take no parameters at all, so `absent` and
+  // `poisoned` were two invocations of the same nullary function and
+  // deepEqual(absent, poisoned) could not fail for any input. Pin that the
+  // contrast actually reaches the authoritative recovery boundary.
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.cacheState),
+    ['absent', 'poisoned'],
+    'recoverView must forward the browser cache state to the authority boundary, '
+      + 'otherwise the absent/poisoned parity assertion tests nothing',
+  );
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.connectionId),
+    ['reload-absent', 'reload-poisoned'],
+    'recoverView must forward the requesting browser identity to the authority boundary',
+  );
   assert.deepEqual(absent, poisoned, 'cache state and browser identity cannot alter authoritative recovery bytes');
+});
+
+// REL-BGSTAB-007 AC-8 negative control. This is the proof that the parity
+// assertion in the test above has teeth. The harness is built with an
+// authoritative recovery port that honours the browser's local cache state —
+// precisely the defect AC-8 forbids ("Cache absent/poisoned에서도 parity가
+// 통과해야 한다"). The parity comparison must detect it. If this test ever
+// starts reporting that the two recoveries agree, the parity assertion above
+// has gone vacuous again and must be repaired before it is trusted.
+test('Cache-poisoned authoritative recovery parity is failure-capable — REL-BGSTAB-007 AC-8', async () => {
+  const contract = await loadContract('MIG-AC-4');
+  const harness = createHarness(contract, { poisonAuthoritativeRecoveryOnCacheState: true });
+  await promoteAllViews(harness.controller);
+  dropPromotionRecoveryLoad(harness);
+  const absent = await harness.controller.recoverView({ connectionId: 'reload-absent', viewGeneration: 1, cacheState: 'absent' });
+  const poisoned = await harness.controller.recoverView({ connectionId: 'reload-poisoned', viewGeneration: 2, cacheState: 'poisoned' });
+
+  assert.deepEqual(
+    harness.recoveryLoads.map(load => load?.cacheState),
+    ['absent', 'poisoned'],
+    'precondition: the injected fault can only act if the cache state reaches the port',
+  );
+  assert.notDeepEqual(
+    absent,
+    poisoned,
+    'the injected cache-sensitive recovery must be observable, otherwise the parity '
+      + 'assertion in the MIG-BGSTAB-002 AC-4 contract cannot fail either',
+  );
+  assert.equal(absent.retainedStateHash, 'sha256:configured-retained-range');
+  assert.equal(poisoned.retainedStateHash, 'sha256:local-cache-tainted');
+  assert.deepEqual(absent.postSnapshotOutput, ['tail-42', 'tail-43']);
+  assert.deepEqual(poisoned.postSnapshotOutput, ['tail-42']);
 });
 
 test('Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-5', async () => {
@@ -9210,6 +9427,7 @@ test('MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later C
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9249,6 +9467,7 @@ test('MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft thro
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9295,6 +9514,7 @@ test('MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mas
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9324,6 +9544,7 @@ test('MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft un
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9370,6 +9591,7 @@ test('MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal pro
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9399,6 +9621,7 @@ test('MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo p
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9440,6 +9663,7 @@ test('MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatch
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9472,6 +9696,7 @@ test('MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Code
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9505,6 +9730,7 @@ test('MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -9837,6 +10063,7 @@ test('MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candid
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });
@@ -10488,6 +10715,7 @@ test('MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw 
   const pty = new AuthorityIntegrationFakePty();
   const manager = new SessionManager(undefined, {
     platform: 'win32',
+    execFileSyncFn: STUB_WINPTY_PROBE,
     spawnPty: (() => pty) as NonNullable<ConstructorParameters<typeof SessionManager>[1]>['spawnPty'],
     readProcessStartIdentityFn: async () => null,
   });

@@ -1,0 +1,2 @@
+# The repository root .gitignore excludes *.log; this bundle keeps its raw runs.
+!raw/*.log

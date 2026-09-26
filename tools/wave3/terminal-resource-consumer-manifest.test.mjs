@@ -29,6 +29,10 @@ const expectedCategories = [
   'browser-runtime-residency-hidden-output',
   'terminal-write-recovery-scheduler',
   'persisted-snapshot-storage',
+  // #20 (8bf50e2a): the binary frame codec is its own category rather than a member of an
+  // existing one. Folding it into the write/recovery lane would have made two different
+  // enforcement boundaries answer to one name, which is the shape this tracker exists to stop.
+  'browser-binary-frame-codec',
 ];
 const expectedResourceKeys = [
   'resourceLimits.clientWs.hardReconnectBytes',
@@ -42,14 +46,19 @@ const expectedResourceKeys = [
   'resourceLimits.snapshots.perSnapshotMaxChars',
   'resourceLimits.snapshots.tombstoneTtlMs',
   'resourceLimits.snapshots.totalStorageBudgetChars',
+  'resourceLimits.terminal.checkpointChunkBytes',
+  'resourceLimits.terminal.checkpointMaxBytes',
+  'resourceLimits.terminal.checkpointMaxChunks',
   'resourceLimits.terminal.hiddenOutputPolicy',
   'resourceLimits.terminal.hiddenOutputTailBytes',
   'resourceLimits.terminal.inputQueueMaxBytes',
+  'resourceLimits.terminal.inputQueueMaxCount',
   'resourceLimits.terminal.inputQueueTtlMs',
   'resourceLimits.terminal.scrollbackLines',
   'resourceLimits.terminal.transportOutboxMaxBytes',
   'resourceLimits.terminal.transportOutboxTtlMs',
   'resourceLimits.terminal.visibleFlushBudgetBytes',
+  'resourceLimits.terminal.visibleFlushFrameBudgetMs',
   'resourceLimits.terminal.visibleOutputMaxChunks',
   'resourceLimits.terminal.visibleOutputQueueMaxBytes',
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs',
@@ -434,8 +443,31 @@ assert.deepEqual(manifest.evidence.consumerAstFingerprint, {
   schemaVersion: 'terminal-resource-evidence-ast/v1',
   typescriptVersion: '5.9.3',
 });
-assert.equal(manifest.consumers.length, 80);
-assert.equal(manifest.classifications.length, 10);
+// 83, not the sealed historical 80: REL-BGSTAB-023 registered
+// resourceLimits.terminal.checkpointMaxBytes with its TerminalView consumer (81), and #101
+// registered resourceLimits.terminal.visibleFlushFrameBudgetMs with two consumers -- the
+// TerminalView option flow and the scheduler's own frame deadline (83). #70 added the
+// checkpoint chunk budget as its own consumer (84); #72 repointed two existing consumers
+// from the output chunk cap to the new input count key and added the getInputQueueLimits
+// projection that carries it (85).
+// The historical
+// seals asserted above stay at 80 — they record the PH-001 run, not today's inventory.
+// 88, not 86: #20 (8bf50e2a) joined a second, key-rooted detection signal into the same sink
+// as the accessor-rooted one, and it saw two consumers the catalog had never named —
+// browser.terminal.recovery-scheduler and browser.binary.frame-codec (87, 88). That commit
+// regenerated the manifest but left this pin at 86, so the guard has been red ever since.
+// That is the guard working: a new queue must not enter the inventory without the count
+// being restated by hand. Restating it is the registration.
+assert.equal(manifest.consumers.length, 88);
+// 13, not 10: the same #20 signal that found the two consumers above also had to say why it
+// was NOT counting three other sites it walked past. Two are name collisions — `maxEntries`
+// in server/src/index.ts and McpToolService.ts bounds that module's own claim-code ring
+// (locally defaulted to 256) and has nothing to do with resourceLimits.snapshots.maxEntries.
+// The third is the detector's own stated limit: terminalWriteCoordinator takes
+// checkpointMaxBytes/checkpointMaxChunks as plain options, so accessor-rooted tracing
+// resolves them to no canonical key and the site is uncatalogueable rather than unregistered.
+// Recording a refusal is what keeps it from reading as an oversight later.
+assert.equal(manifest.classifications.length, 13);
 const consumerEvidenceAstMutation = {
   ...manifest,
   consumers: manifest.consumers.map((entry, index) => (index === 0
@@ -460,10 +492,25 @@ assert.notDeepEqual(
 );
 assert.equal(manifest.schemaVersion, legacyManifest.schemaVersion);
 assert.equal(manifest.profileVersion, legacyManifest.profileVersion);
+// A classification's accessEvidenceSha256 pins the occurrence multiset that buys its file an
+// exemption from consumer registration, so it has to move whenever that file's resource accesses
+// legitimately change. Held strictly equal to the immutable historical seal it is unsatisfiable,
+// not safe - it went red here the moment resourceLimits.telemetry.sampleIntervalMs was retired
+// from ConfigFileRepository. Enumerated drift keeps the property the strict form was reaching for:
+// the verifier accepts exactly the classification identities the sealed lineage names, and the
+// re-seal tool refuses to write a moved pin without --accept-classification-change, the same
+// operator gate the decision axis already had. Both halves are needed: enumeration alone would let
+// a re-pin ride along with a routine re-seal, and a pin is a blanket exemption from the
+// unregistered-call-site scan, so hiding a real consumer behind one is exactly the abuse.
+const classificationDrift = multisetDrift(
+  legacyManifest.classifications,
+  manifest.classifications,
+  canonicalClassificationIdentity,
+);
 assert.deepEqual(
-  semanticInventory(manifest).classificationIdentities,
-  semanticInventory(legacyManifest).classificationIdentities,
-  'classification identity must not drift from the sealed historical inventory',
+  classificationDrift,
+  lineage.semanticInventory?.divergence?.classificationDrift,
+  'every classification exemption pin that drifts from the sealed historical inventory must be enumerated in the sealed lineage record',
 );
 const decisionDrift = multisetDrift(legacyManifest.consumers, manifest.consumers, decisionIdentity);
 assert.deepEqual(
@@ -474,6 +521,7 @@ assert.deepEqual(
 const currentSemanticDivergence = {
   reason: lineage.semanticInventory?.divergence?.reason,
   decisionDrift,
+  classificationDrift,
   relocatedEvidence: relocatedEvidence(legacyManifest.consumers, manifest.consumers),
   evidenceHashOnlyChangedTuples: evidenceHashOnlyChangedTuples(legacyManifest.consumers, manifest.consumers),
 };
@@ -539,7 +587,20 @@ assert.deepEqual(lineage, {
 assert.equal(Object.hasOwn(lineage.ph002RuntimeAnchor, 'sourcePath'), false);
 assert.notEqual(manifestSha256, lineage.ph002RuntimeAnchor.sha256);
 assert.notEqual(legacyManifestSha256, lineage.ph002RuntimeAnchor.sha256);
-assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 35);
+// 37, not 35: REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage
+// into terminalGraceBuffer#applyGraceBufferedMessage, so that file is now a consumer path and
+// enters the evidence source set (36). WebSocketContext.tsx stays in the set - it still owns
+// WebSocketProvider#send - so this is an addition, not a relocation of the source count. #78
+// then registered the server-side checkpoint chunk size, whose consumer lives in
+// TerminalAuthorityProductionAdapter.ts, adding that file to the set (37).
+// 42, not 37: #20's key-rooted signal widened the walk, and every file it now has an opinion
+// about enters the evidence source set — whether the opinion was "consumer" or "not one".
+// Two arrive as consumers (frontend/src/utils/binaryFrameCodec.ts,
+// frontend/src/utils/pendingInputExpiry.ts) and three as recorded refusals
+// (frontend/src/utils/terminalWriteCoordinator.ts uncatalogueable; server/src/index.ts and
+// server/src/services/McpToolService.ts name-collision). Nothing left the set, so this is
+// five additions and not a relocation.
+assert.equal(Object.keys(manifest.evidence.sourceHashes).length, 42);
 assert.ok(Array.isArray(manifest.consumers));
 assert.ok(Array.isArray(manifest.classifications));
 assert.deepEqual(sortedUnique(manifest.consumers.map((entry) => entry.category)), sortedUnique(expectedCategories));
@@ -646,9 +707,127 @@ const focused = run(
 if (process.argv.includes('--write-focused-evidence')) {
   writeFileSync(focusedEvidencePath, focused.replace(/\r\n/g, '\n'), 'utf8');
 }
-assert.match(focused, /pass 24/);
-assert.match(focused, /fail 0/);
-assert.match(readFileSync(focusedEvidencePath, 'utf8'), /pass 24/);
+// These two assertions used to share one number, and that is unsatisfiable rather than strict.
+// focusedEvidencePath is the PH-001 GREEN artifact: it records that run, and line 654 above pins
+// its bytes by sha256, so it says `pass 24` permanently. The live run is today's, over two suites
+// that later lanes legitimately added cases to, and it says `pass 31`. Requiring one regex to
+// match both leaves only two exits - forge the sealed artifact, or freeze the two suites - and the
+// conflict stayed invisible because this file goes red earlier whenever the inventory is red,
+// which it was from the moment REL-BGSTAB-009 relocated the grace lane.
+//
+// So they are separated by what each one is evidence OF. `fail 0` carries the green claim; the
+// live count is here so that tests DISAPPEARING is red too, which `fail 0` alone permits.
+//
+// Do NOT run --write-focused-evidence to reconcile these: it overwrites the sealed artifact and
+// line 654 goes red, because the re-seal tool deliberately copies rawGreenEvidence hashes verbatim
+// rather than re-deriving them.
+// Normalised first: `$` in a JS multiline regex matches before \n and never before \r, and this
+// child's output can carry CRLF - the --write-focused-evidence branch below already strips it. An
+// anchored parse against the raw text would red on a Windows checkout for a reason unrelated to the
+// suite. `fail 0` is anchored for the same reason it is load-bearing: unanchored it also matches
+// "fail 0" inside a longer number or a test title.
+const focusedNormalised = focused.replace(/\r\n/g, '\n');
+const focusedPassMatch = /^\u2139 pass (\d+)$/m.exec(focusedNormalised);
+const focusedTestsMatch = /^\u2139 tests (\d+)$/m.exec(focusedNormalised);
+assert.ok(focusedPassMatch, 'the focused run must emit a parseable pass count');
+assert.ok(focusedTestsMatch, 'the focused run must emit a parseable test count');
+const focusedPassCount = Number(focusedPassMatch[1]);
+const focusedTestCount = Number(focusedTestsMatch[1]);
+// The pins here were the literals 31/31, sitting directly under a comment warning that
+// a hardcoded count is how the 24 drifted. Retyping 31 -> 32 when a lane adds a case
+// would have made that comment false in the same edit that proved it true.
+//
+// But a count derived from these two files would have been WORSE than the literal, and
+// that is the point. The count was carrying two properties: `fail 0` makes the green
+// claim, and the count is what makes a test DISAPPEARING red, which `fail 0` alone
+// permits. Any count recomputed from the same two files moves with them -- delete a
+// test and both the expectation and the observation drop together, so the guard keeps
+// passing while the thing it guards is gone. Derivation would have preserved the
+// appearance of the check and removed half of what it checks.
+//
+// So the count is replaced by the corpus it was standing in for, following the
+// precedent of canary-admission-evidence.test.mjs, which replaced its own exactTests
+// 42/133 pins with an enumerated registry. Names are semantic where a number is not: a
+// renamed or deleted test is a real change that must be looked at, while a lane adding
+// a case is not, and now costs nobody a retype.
+//
+// Captured from a real run, not transcribed.
+const requiredFocusedTestNames = Object.freeze([
+  'FR-BGSTAB-015 recentEventLimit capability is available with truthful constraints',
+  'FR-BGSTAB-015 recentEventLimit rejects invalid values without clamping or changing observer state',
+  // #94 audit note: these two titles are COMPOSED AT RUNTIME --
+  //   RuntimeConfigStore.test.ts:208 builds them as
+  //   test(`FR-BGSTAB-015 ${replacement} applies recentEventLimit ...`)
+  // so `git grep -F` on either string finds nothing but log artifacts, and a name-based
+  // source audit concludes they are phantom registrations. They are not; they are real and
+  // they run. This is a second blind spot in name-based lookup, distinct from the one #94
+  // names (a title that omits its requirement prefix): a title that exists only at runtime.
+  // Verify by executing, never by grepping the source.
+  'FR-BGSTAB-015 replaceFromConfig applies recentEventLimit to the existing observer immediately',
+  'FR-BGSTAB-015 replaceValues applies recentEventLimit to the existing observer immediately',
+  'FR-BGSTAB-025 runtime snapshot and capabilities contain no retired leaves',
+  'IR-BGSTAB-001 AC-8 publishes terminalWireFormat and nothing else beyond the existing allowlist',
+  'IR-BGSTAB-001 AC-8 republishes terminalWireFormat after a runtime config reload',
+  'OBS-BGSTAB-005 a classification pin that does not match its recomputed evidence names itself',
+  'OBS-BGSTAB-005 review regression — ConfigFileRepository previous/next provenance survives settings reload and rollback',
+  'OBS-BGSTAB-005 review regression — compiler owns all 34 typed resources and records real legacy divergence',
+  'OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites',
+  'OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized and never silently falls through',
+  'OBS-BGSTAB-005 review regression — no candidate profile is available without a registered stable contract',
+  'OBS-BGSTAB-005 review regression — observer differential preserves actual serialized legacy paths',
+  'OBS-BGSTAB-005 review regression — raw provenance survives production loaders and replacements',
+  'OBS-BGSTAB-005 review regression — telemetry is allowlisted, payload-free, bounded, and read-only on snapshot',
+  'OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers',
+  'OBS-BGSTAB-005 second review regression — explicit non-scrollback keys retain truthful loader provenance',
+  'OBS-BGSTAB-005 second review regression — production observe mode seeds bounded decisions on every config generation',
+  'OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-3',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-4',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-5',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6',
+  'Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-7',
+  'PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed WS resource limits',
+  'RuntimeConfigStore builds a redacted editable snapshot',
+  'RuntimeConfigStore exposes Wave6 resource capabilities without leaking server-only runtime config',
+  'RuntimeConfigStore marks platform-specific capabilities and merges editable patches',
+  'RuntimeConfigStore validates Wave 0 resource limit patches after merging',
+]);
+
+// Property 1: nothing is failing, skipped or todo. `pass === tests` catches the case the
+// old comment named -- one todo makes `tests` exceed `pass` while `fail 0` still holds.
+assert.equal(
+  focusedPassCount, focusedTestCount,
+  `focused run has non-passing cases: pass ${focusedPassCount} of tests ${focusedTestCount}`,
+);
+
+// Property 2: every required case is still THERE. This is what the literal was really
+// for, and it now fails by name instead of by arithmetic.
+const observedFocusedNames = new Set(
+  [...focusedNormalised.matchAll(/^\u2714 (.+?)(?: \([\d.]+ms\))?$/gm)].map((m) => m[1]),
+);
+const missingFocusedNames = requiredFocusedTestNames.filter((name) => !observedFocusedNames.has(name));
+assert.deepEqual(
+  missingFocusedNames, [],
+  `focused run no longer contains ${missingFocusedNames.length} required case(s); a renamed or deleted test must be reviewed, not re-pinned`,
+);
+// Non-vacuity: the name parse must actually have found cases. Without this, a change to
+// the runner's output format would empty `observedFocusedNames`, and an empty required
+// list would then be trivially satisfied -- the exact shape of defect this file exists to
+// catch elsewhere.
+assert.ok(requiredFocusedTestNames.length > 0, 'the required focused corpus is empty');
+assert.ok(
+  observedFocusedNames.size >= requiredFocusedTestNames.length,
+  `parsed only ${observedFocusedNames.size} case names from the focused run; the output format likely changed`,
+);
+assert.match(focusedNormalised, /^\u2139 fail 0$/m);
+// Anchored and normalised for the same reason as the live assertions three lines up. These are the
+// two that matter most: the sealed artifact is the input an operator can regenerate or hand-edit,
+// and unanchored `/pass 24/` also matches `pass 240` or a test title containing that text.
+const sealedFocused = readFileSync(focusedEvidencePath, 'utf8').replace(/\r\n/g, '\n');
+assert.match(sealedFocused, /^\u2139 pass 24$/m);
+assert.match(sealedFocused, /^\u2139 fail 0$/m);
 
 const differentialOutput = run(
   process.execPath,
@@ -679,6 +858,26 @@ const claims = {
 };
 assert.ok(Object.values(claims).every(Boolean), `executed differential claims failed: ${JSON.stringify(claims)}`);
 
+// activationEligible was the literal `false`. Nothing computed it, and it was true of both
+// the healthy state and the defective one: if enforcement ever became eligible, the line
+// would keep reporting false. That is the vacuous-assertion class, but inside an evidence
+// artifact rather than a test, which is worse -- VE rows cite it.
+//
+// The real gate lives in a sibling bundle (canary-admission-evidence's evaluateActivation)
+// and takes inputs this verifier does not have. Importing it would couple two bundles for
+// one boolean. But the executed differential already carries the gate's actual answer, from
+// the same issue() call every claim above derives from, so that is the source used here.
+//
+// Non-vacuity matters and it fails in the dangerous direction: `undefined !== 'unavailable'`
+// is true, so a missing field would silently report ELIGIBLE. Assert the field's presence
+// before reading it.
+assert.equal(
+  typeof executedDifferential.candidate.status, 'string',
+  'candidate.status is missing; activationEligible would silently report eligible',
+);
+const activationEligible = executedDifferential.candidate.status !== 'unavailable';
+const activationReason = activationEligible ? null : executedDifferential.candidate.reason;
+
 process.stdout.write(`${JSON.stringify({
   requirementId: 'OBS-BGSTAB-005',
   schemaVersion: manifest.schemaVersion,
@@ -686,8 +885,14 @@ process.stdout.write(`${JSON.stringify({
   exactConsumerTuples: manifest.consumers.length,
   classifiedPaths: classifiedPaths.length,
   resourceKeys: expectedResourceKeys.length,
-  focusedTests: 24,
+  focusedTests: focusedTestCount,
+  focusedPass: focusedPassCount,
   claims,
-  activationEligible: false,
+  activationEligible,
+  activationReason,
+  // Every field above this line is measured. `requirementId` is the one declaration in the
+  // report -- an identifier, not an observation. Stated so that a declaration cannot be read
+  // as a measurement, which is the defect this field itself used to be.
+  declaredFields: ['requirementId'],
     manifestSha256,
 }, null, 2)}\n`);

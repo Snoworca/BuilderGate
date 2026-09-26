@@ -19,9 +19,27 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { test, expect, deleteOwnedWorkspaceForContext, type Locator, type Page } from './workspaceOwnershipFixture';
+import { type Locator, type Page } from '@playwright/test';
 
+// #53: `test` comes from the ownership fixture, not from @playwright/test. The fixture is
+// auto-attached, so every POST /api/workspaces this spec makes -- including the ones made
+// from inside the page -- is registered as owned, and deletion goes through the registry
+// instead of a raw DELETE that no guard can see.
 import { login } from './helpers';
+import { test, expect, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
+
+/**
+ * The authoritative declaration of `window.__buildergateEditorWindowDebug` lives
+ * beside the code that installs it, in src/components/editor/EditorWindowLayer.tsx,
+ * and reaches this spec through the `"include": ["src"]` of tsconfig.test.json.
+ *
+ * Issue #115: this spec used to carry its own narrowed copy. Four specs each had
+ * one, all different, and none of them was ever compiled next to another — the
+ * specs were in no tsconfig at all. Registering them put the copies in one
+ * program, where they are TS2717 conflicts. A narrowed copy of a global is the
+ * same defect the tsconfig comment warns about: it type-checks against a shape
+ * that is not the one production installs.
+ */
 
 const TAB_NAME_PREFIX = 'e2e-mde-save';
 const FILE_BODY = '# save fixture\n\nalpha\n';
@@ -153,6 +171,10 @@ async function createWorkspace(page: Page, name: string): Promise<string> {
     const workspace = await res.json();
     return workspace.id as string;
   }, name);
+}
+
+async function deleteWorkspace(page: Page, workspaceId: string): Promise<void> {
+  await deleteOwnedWorkspaceForContext(page.context(), workspaceId);
 }
 
 async function workspaceNameOf(page: Page, workspaceId: string): Promise<string> {
@@ -360,7 +382,7 @@ test.describe('markdown editor save flow and tab binding', () => {
       await page.unrouteAll({ behavior: 'ignoreErrors' });
       await removeOwnTabs(page, workspaceId);
       for (const owned of ownedWorkspaceIds) {
-        await deleteOwnedWorkspaceForContext(page.context(), owned);
+        await deleteWorkspace(page, owned);
       }
       ownedWorkspaceIds = [];
     } catch (error) {

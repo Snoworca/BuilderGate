@@ -61,14 +61,14 @@ test('선택이 있으면 복사 항목이 활성화된다', () => {
   const items = buildTerminalContextMenuItems(terminalMenuBase({ hasSelection: true }));
   const copy = findMenuItem(items, '복사');
   assert.ok(copy, '복사 항목이 없다');
-  assert.notEqual(copy.disabled, true, '선택이 있는데 복사가 비활성화되었다');
+  assert.notEqual(Reflect.get(copy, 'disabled'), true, '선택이 있는데 복사가 비활성화되었다');
 });
 
 test('선택이 없으면 복사 항목은 비활성화되되 사라지지는 않는다', () => {
   const items = buildTerminalContextMenuItems(terminalMenuBase({ hasSelection: false }));
   const copy = findMenuItem(items, '복사');
   assert.ok(copy, '복사 항목이 없다');
-  assert.equal(copy.disabled, true, '선택이 없는데 복사가 활성화되었다');
+  assert.equal(Reflect.get(copy, 'disabled'), true, '선택이 없는데 복사가 활성화되었다');
   assert.ok(hasMenuLabel(items, '붙여넣기'), '붙여넣기는 선택과 무관하게 유지되어야 한다');
 });
 

@@ -1,0 +1,2 @@
+{ "mcp": true, "cli": true, "cliVersion": "3.0.0", "mode": "cli-mutation-forced", "halted": false,
+  "note": "speckiwi MCP mutation tools ignore per-call workspaceRoot and write to the origin checkout; per orchestrator brief all mutations go through the CLI with --root pointed at this worktree. MCP reads are permitted." }

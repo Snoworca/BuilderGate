@@ -1,0 +1,16 @@
+{
+  "mode": "live",
+  "applied": [ { "req_id": "REL-BGSTAB-022", "from": "draft", "to": "evolving",
+    "reason": "Feasibility=high (score 87). No blockers. Run: 2026-09-16.buildergate.bgstab022.v01",
+    "matched_rule": "project policy .kiwi/feasibility-policy.yaml rule 2 (feasibility=high, has_verification=false)",
+    "requires_user_confirm": false, "dryrun_guard_verdict": "ok", "ok": true } ],
+  "skipped": [], "guard_blocked": [], "user_rejected": [], "system_failed": [],
+  "summary": { "applied_count": 1, "skipped_count": 0, "guard_blocked_count": 0, "user_rejected_count": 0, "system_failed_count": 0 },
+  "sync_check": { "req_id": "REL-BGSTAB-022", "cli_value": "evolving", "md_value": "evolving", "label": "pass", "retry_count": 0 },
+  "validate_spec": { "errors": 0, "warnings": 0 },
+  "procedure_deviations": [
+    "Phase 2.0 prescreen skipped: N=1, below the N>=7 threshold.",
+    "Phase 2.5 research not run: --enable-research was not passed.",
+    "Phase 5 evaluator subagent not run for this mapping. The evaluator axes that carry judgement (trace existence, AC verifiability, blocker substantiation, internal coherence) were already exercised against this requirement by four independent evaluator rounds during kiwi-srs, and the remaining work here is mechanical: the axis scores sum to 87 (26+19+14+11+8+9), 87 lands in the high band (>=80), and high with has_verification=false maps to evolving by policy rule 2 with no user confirmation. Recorded as a deviation rather than claimed as a passed gate."
+  ]
+}

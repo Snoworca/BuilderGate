@@ -2,6 +2,11 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { test, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
 import { login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "creates a session with shell: 'powershell'");
+
 async function fetchWorkspaceState(page: Page) {
   return page.evaluate(async () => {
     const token = localStorage.getItem('cws_auth_token');

@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { IPty } from 'node-pty';
 import { config } from '../utils/config.js';
 import { writeHeadlessTerminal } from '../utils/headlessTerminal.js';
+import type { WsRouter } from '../ws/WsRouter.js';
 import {
   SessionManager,
   type TerminalAuthorityRuntimeFactory,
@@ -90,6 +91,28 @@ function createHarness(options: {
     pty,
     close: () => manager.deleteSession(SESSION_ID),
   };
+}
+
+// #112: a minimal WsRouter stub for tests that need to observe
+// notifyRetainedTerminalDriverLeaseRevoked(). Every other method SessionManager calls on
+// wsRouter (during normal output routing and, notably, session cleanup in harness.close())
+// must exist as a no-op or the call site's optional chaining still throws on a missing
+// method -- it only skips a null/undefined wsRouter, not a partial one.
+function createNotifyingWsRouterStub(
+  notifications: Array<{ sessionId: string; clientId: string; reason: string }>,
+): WsRouter {
+  return {
+    notifyRetainedTerminalDriverLeaseRevoked: (sessionId: string, clientId: string, reason: string) => {
+      notifications.push({ sessionId, clientId, reason });
+    },
+    clearReplayEvents: () => {},
+    clearSessionState: () => {},
+    disableDebugReplayCapture: () => {},
+    recordReplayEvent: () => {},
+    refreshReplaySnapshots: () => {},
+    routeSessionOutput: () => {},
+    sendSessionEvent: () => {},
+  } as unknown as WsRouter;
 }
 
 test('MIG-BGSTAB-002 screen repair waits for an accepted retained resize before checking geometry', async t => {
@@ -451,6 +474,119 @@ test('MIG-BGSTAB-002 headless degradation settles the owned authority runtime wi
   assert.equal(data.terminalQueryResponder, undefined);
 });
 
+// #112: measured 2026-09-19 against a live 15,000-line flood -- markHeadlessDegraded's
+// disposal of the (query-only, legacy-mode) authority controller cascaded into
+// detachTerminalAuthorityRuntime revoking the completely unrelated LEGACY browser driver
+// lease (retained.driverLease: 'active' -> 'revoked'), even though nothing about the
+// browser's identity had changed (authorityEpoch and viewGeneration both still matched).
+// The headless shadow-PTY -- a server-only side channel that exists purely for
+// reconnect-recovery -- overflowing its output queue is not a reason to stop accepting the
+// user's live keystrokes into the PRIMARY pty. Degrading the replay capability and revoking
+// write authority are two different concerns that happened to share disposeTerminalAuthorityRuntimeForSession.
+test('#112 headless degradation in legacy admission must not revoke the browser driver lease', t => {
+  const harness = createHarness();
+  t.after(harness.close);
+  const { manager } = harness;
+  manager.setTerminalAuthorityRuntimeFactory(input => ({
+    controller: {
+      dispose: () => {},
+    } as unknown as TerminalAuthoritySessionRuntime['controller'],
+    queryResponder: {
+      attachedHeadlessState: input.headlessState,
+      detach: () => {},
+    } as unknown as TerminalAuthoritySessionRuntime['queryResponder'],
+    dispose: () => {},
+  }));
+
+  const lease = manager.establishRetainedTerminalMutationLease(SESSION_ID, 'typing-client', 1);
+  assert.equal(lease.ok, true);
+
+  const internal = manager as unknown as {
+    sessions: Map<string, {
+      retainedTerminal: {
+        driverLease: { state: string; ownerClientId: string | null };
+        driverViewGeneration: number | null;
+      };
+    }>;
+    markHeadlessDegraded(sessionId: string, data: unknown, phase: 'write', error: Error): void;
+  };
+  const data = internal.sessions.get(SESSION_ID);
+  assert.ok(data);
+  assert.equal(data.retainedTerminal.driverLease.state, 'active', 'precondition: lease must be live before degrading');
+  assert.equal(data.retainedTerminal.driverLease.ownerClientId, 'typing-client');
+
+  internal.markHeadlessDegraded(SESSION_ID, data, 'write', new Error('injected-headless-degradation'));
+
+  assert.equal(
+    data.retainedTerminal.driverLease.state,
+    'active',
+    '#112: a headless replay-capability degradation must not revoke the write authority the browser already holds',
+  );
+  assert.equal(data.retainedTerminal.driverLease.ownerClientId, 'typing-client');
+  assert.equal(data.retainedTerminal.driverViewGeneration, 1);
+});
+
+// #112: when the controller being detached WAS the genuine server-headless driver (unlike
+// the case above), revoking the browser's suspended legacy lease is still correct -- the
+// fail-closed comment on detachTerminalAuthorityRuntime describes a real risk in that case.
+// What must change is that the browser is now TOLD, so it renegotiates instead of retyping
+// into a wall forever.
+//
+// This calls detachTerminalAuthorityRuntime() directly rather than through
+// markHeadlessDegraded(): that caller unconditionally nulls runtime.driver.active BEFORE
+// disposing the runtime, so the fail-closed branch can never fire via that specific path
+// (confirmed by running this scenario through markHeadlessDegraded first: the lease survived
+// there too, for that reason -- not because the branch was reached and did nothing).
+// detachTerminalAuthorityRuntime is itself a public method with other real callers (session
+// finalization, factory-registration rollback) that do not pre-null driver.active, so this
+// is not a synthetic-only scenario.
+test('#112 a genuine server-headless authority detach still notifies the client whose lease was revoked', t => {
+  const harness = createHarness();
+  t.after(harness.close);
+  const { manager } = harness;
+
+  const notifications: Array<{ sessionId: string; clientId: string; reason: string }> = [];
+  manager.setWsRouter(createNotifyingWsRouterStub(notifications));
+
+  let controller!: TerminalAuthoritySessionRuntime['controller'];
+  manager.setTerminalAuthorityRuntimeFactory(input => {
+    controller = { dispose: () => {} } as unknown as TerminalAuthoritySessionRuntime['controller'];
+    return {
+      controller,
+      queryResponder: {
+        attachedHeadlessState: input.headlessState,
+        detach: () => {},
+      } as unknown as TerminalAuthoritySessionRuntime['queryResponder'],
+      dispose: () => {},
+    };
+  });
+
+  const lease = manager.establishRetainedTerminalMutationLease(SESSION_ID, 'typing-client', 1);
+  assert.equal(lease.ok, true);
+
+  const internal = manager as unknown as {
+    sessions: Map<string, unknown>;
+    ensureRetainedTerminalSessionState(data: unknown): { driverLease: { state: string } };
+    ensureTerminalAuthorityRuntimePortState(retained: unknown): { driver: { active: string | null } };
+  };
+  const data = internal.sessions.get(SESSION_ID);
+  assert.ok(data);
+  // Force genuine server-headless driver mode without walking the full multi-step admission
+  // sequence (bindTerminalAuthorityServerDriverLease etc., covered by its own tests) -- this
+  // test isolates detachTerminalAuthorityRuntime's notification behavior specifically.
+  const retained = internal.ensureRetainedTerminalSessionState(data);
+  const runtime = internal.ensureTerminalAuthorityRuntimePortState(retained);
+  runtime.driver.active = 'server-headless';
+
+  const detached = manager.detachTerminalAuthorityRuntime(SESSION_ID, controller);
+
+  assert.equal(detached, true);
+  assert.equal(retained.driverLease.state, 'revoked', 'precondition: this IS the fail-closed case');
+  assert.deepEqual(notifications, [
+    { sessionId: SESSION_ID, clientId: 'typing-client', reason: 'authority-runtime-detached' },
+  ]);
+});
+
 test('MIG-BGSTAB-002 session finalization disposes a factory-owned authority runtime', () => {
   const harness = createHarness();
   const { manager } = harness;
@@ -806,4 +942,31 @@ test('MIG-BGSTAB-002 reconnect cleanup revokes runtime leases and invalidates pr
     blockedReconnectAdmission.ok ? undefined : blockedReconnectAdmission.reason,
     'authority-admission-closed',
   );
+});
+
+// #112: revokeTerminalAuthorityDriverLease() (the MIG-BGSTAB-002 admin-triggered revocation,
+// separate from the headless-degradation path fixed above) also used to leave the browser
+// with no wire signal that its lease was gone. This is a legitimate revocation -- the fix
+// here is only to notify, not to change whether the revocation happens.
+test('#112 revokeTerminalAuthorityDriverLease notifies the client whose lease was revoked', t => {
+  const harness = createHarness();
+  t.after(harness.close);
+  const { manager } = harness;
+
+  const notifications: Array<{ sessionId: string; clientId: string; reason: string }> = [];
+  manager.setWsRouter(createNotifyingWsRouterStub(notifications));
+
+  const lease = manager.establishRetainedTerminalMutationLease(SESSION_ID, 'typing-client', 1);
+  assert.equal(lease.ok, true);
+  const state = manager.getTerminalAuthorityRuntimePortState(SESSION_ID);
+  assert.ok(state?.driver.activeLeaseId);
+
+  assert.deepEqual(
+    manager.revokeTerminalAuthorityDriverLease(SESSION_ID, { driverLeaseId: state!.driver.activeLeaseId! }),
+    { ok: true },
+  );
+
+  assert.deepEqual(notifications, [
+    { sessionId: SESSION_ID, clientId: 'typing-client', reason: 'driver-lease-revoked' },
+  ]);
 });

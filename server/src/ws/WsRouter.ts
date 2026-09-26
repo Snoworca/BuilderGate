@@ -88,7 +88,10 @@ import {
   type SubscribedChannelFields,
   type TerminalBinaryGroupSession,
 } from './terminalBinaryGroupSession.js';
-import type { TerminalBinaryCapabilityOffer } from './terminalBinaryNegotiation.js';
+import type {
+  TerminalBinaryCapabilityOffer,
+  TerminalBinaryRejected,
+} from './terminalBinaryNegotiation.js';
 import type { TerminalWireFormat } from './terminalWireFormat.js';
 import {
   DATA_PLANE_OPCODE,
@@ -103,6 +106,9 @@ import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 import {
   createSessionInputGateway,
   INPUT_REJECTED_REPLAY_PENDING,
+  INPUT_REJECTED_ENTER_POLICY,
+  TARGET_SESSION_GONE,
+  TARGET_MUTATION_IDENTITY_STALE,
 } from '../services/SessionInputGateway.js';
 import type {
   TerminalResourcePolicyCanaryTarget,
@@ -134,6 +140,32 @@ function restoreAuthorityRetryDelayMs(attempt: number): number {
 }
 const SCREEN_REPAIR_ACK_TIMEOUT_MS = 5_000;
 const MAX_RECENT_REPLAY_EVENTS = 256;
+const MAX_RECENT_HANDSHAKE_REJECTIONS = 128;
+
+/**
+ * OPS-BGSTAB-014 — what a capability handshake refusal leaves behind.
+ *
+ * Deliberately NOT a `ReplayTelemetryEvent`: that type requires `sessionId: string`, and a
+ * capability handshake is connection- or group-scoped, so fitting it there would mean
+ * inventing a session id for a rejection that has none. A sentinel in a required field
+ * looks like a session id, reads like a session id, and means "there wasn't one" -- the
+ * reading whose meaning depends on context the reading does not carry (AC-2).
+ *
+ * `sessionId: null` says the absence outright instead.
+ */
+export interface HandshakeRejectionRecord {
+  readonly recordId: number;
+  readonly recordedAt: string;
+  readonly handshake: 'binary' | 'checkpoint';
+  readonly reason: string;
+  readonly phase?: string;
+  /** Null when the rejection carried no session identity. Never a placeholder. */
+  readonly sessionId: string | null;
+  /** Null when the socket had no registered client, which is itself a rejection cause. */
+  readonly clientId: string | null;
+  /** Whether the peer was told. A refusal that answers nothing is a defect, not a record. */
+  readonly answered: boolean;
+}
 const MAX_REPLAY_QUEUED_INPUT_BYTES = 64 * 1024;
 const MAX_REPLAY_QUEUED_INPUT_AGE_MS = 3_000;
 const MAX_INPUT_SEQUENCE_SPAN = 1024;
@@ -170,12 +202,16 @@ interface RuntimeSendPolicyConfig {
   limits: ServerWsResourceLimitsConfig;
 }
 
+import { createTerminalInputLedger, type TerminalInputLedger } from './terminalInputLedger.js';
+
 type InputValidationResult =
   | {
       ok: true;
       sessionId: string;
       data: string;
       metadata?: InputDebugMetadata;
+      inputOperationId?: string;
+      inputSequencerEpoch?: number;
       inputSeqStart?: number;
       inputSeqEnd?: number;
       retainedIdentity?: RetainedTerminalWireMutationIdentity;
@@ -332,6 +368,8 @@ interface TerminalAuthorityConnectionContext {
   channelRole: 'control' | 'output';
   clientGroupId?: string;
   pairToken?: string;
+  /** #111 / #18 criterion 11: the browser's per-tab identity, stable across reconnects. */
+  logicalClientId?: string;
 }
 
 interface SplitClientGroup {
@@ -609,7 +647,25 @@ export class WsRouter {
     timers: new Set<string>(),
   };
   private terminalResourcePolicyPrunedLedgerCount = 0;
-  private readonly inFlightTransportMessages = new Map<WebSocket, WsTransportMessage>();
+  /**
+   * In-flight tracked transport messages per socket.
+   *
+   * This was `Map<WebSocket, WsTransportMessage>` -- one slot -- until 2026-09-20. A second
+   * tracked send overwrote the first, and when the first `ws.send` callback fired it found a
+   * different message in the slot and returned WITHOUT settling, so its `onSettled` never
+   * ran and its promise lost its only resolver. Every other exit in that callback settles;
+   * only displacement did not, precisely because the slot could not hold two.
+   *
+   * A set makes the structure match what the surrounding code already believes. It also
+   * fixes two defects the single slot caused on its own: the rollback boundary silently
+   * omitted a displaced message, and policy-generation lookups answered false while a
+   * message of that generation was still in flight.
+   *
+   * Deliberately NOT fixed here: tracking and serialisation are still gated on different
+   * predicates (`onSettled` present vs. a transport queue state existing). This removes the
+   * instance, not the class.
+   */
+  private readonly inFlightTransportMessages = new Map<WebSocket, Set<WsTransportMessage>>();
   private readonly policyRollbackDrainSockets = new Set<WebSocket>();
   private readonly terminalResourcePolicyAdmissionDrainSockets = new Set<WebSocket>();
   private transportPolicyGeneration = 0;
@@ -1603,8 +1659,16 @@ export class WsRouter {
     }
 
     this.wss.handleUpgrade(req, socket, head, (ws) => {
+      // #76: the query parameter is the CLIENT speaking, and it used to be taken at face value.
+      // A client could put its own connection into split on a server the operator configured as
+      // unified, and because the wire-format gate keys off the connection's mode, that silently
+      // took binary negotiation away from it. The configured mode is the ceiling: a request is
+      // honoured only when it matches the configuration or asks for plain unified, which is the
+      // conservative side and affects nothing but the asking connection. Anything else falls
+      // back to the configured mode rather than being refused, so a stale client keeps working
+      // on a reconfigured server instead of failing its upgrade.
       const requested = url.searchParams.get('wsTransportMode');
-      const requestedMode = requested === 'split' || requested === 'split-shadow' || requested === 'unified'
+      const requestedMode = requested === this.wsTransportMode || requested === 'unified'
         ? requested
         : this.wsTransportMode;
       const channel = url.searchParams.get('channel');
@@ -1618,6 +1682,13 @@ export class WsRouter {
           : {}),
         ...(url.searchParams.get('pairToken')
           ? { pairToken: url.searchParams.get('pairToken') ?? undefined }
+          : {}),
+        // #111: trimmed and length-bounded before it becomes a ledger key. An unbounded
+        // client-supplied string would let one connection allocate an arbitrarily large
+        // key, and a blank one would silently merge every such client into one namespace.
+        ...(((url.searchParams.get('logicalClientId') ?? '').trim().length > 0
+          && (url.searchParams.get('logicalClientId') ?? '').length <= 128)
+          ? { logicalClientId: (url.searchParams.get('logicalClientId') ?? '').trim() }
           : {}),
       };
       this.wss.emit('connection', ws, req, result.payload, connectionContext);
@@ -1733,6 +1804,11 @@ export class WsRouter {
       const meta: WsClientMeta = {
         clientId,
         connectionId,
+        // #111: absent for legacy clients, which then stay connection-scoped exactly as
+        // before rather than sharing a namespace they never asked for.
+        ...(requestedContext?.logicalClientId
+          ? { logicalClientId: requestedContext.logicalClientId }
+          : {}),
         clientGroupId,
         channelRole: 'control',
         wsTransportMode: requestedMode,
@@ -2294,13 +2370,47 @@ export class WsRouter {
   // `01 §2.2`
   private handleTerminalBinaryCapability(ws: WebSocket, rawMessage: unknown): void {
     const group = this.ensureTerminalBinaryGroup(ws);
-    if (!group) return;
+    if (!group) {
+      // OPS-BGSTAB-014 AC-3. `ensureTerminalBinaryGroup` yields undefined on exactly one
+      // condition -- no registered client for this socket -- and the checkpoint handler
+      // answers that same condition with `invalid-message`. Returning silently here left
+      // an offer with no reply, no record, and nothing to find afterwards. No new reason
+      // is introduced: this is the one the adjacent handler already uses (AC-4).
+      const rejection: TerminalBinaryRejected = {
+        type: 'terminal-binary:rejected',
+        supportedFrameVersions: [],
+        phase: 'offer',
+        reason: 'invalid-message',
+      };
+      this.sendTo(ws, rejection);
+      this.recordHandshakeRejection({
+        handshake: 'binary',
+        reason: rejection.reason,
+        phase: rejection.phase,
+        sessionId: null,
+        clientId: null,
+        answered: true,
+      });
+      return;
+    }
     const result = group.negotiate(rawMessage as TerminalBinaryCapabilityOffer);
     if (result.type !== 'terminal-binary:capability') {
       this.sendTo(ws, result);
+      if (result.type === 'terminal-binary:rejected') {
+        // Was `console.warn` on the client and nothing on the server. A record that cannot
+        // be read afterwards has the same value as no record (AC-1). A binary handshake is
+        // group-scoped, so there is no session to name and the record says so.
+        this.recordHandshakeRejection({
+          handshake: 'binary',
+          reason: result.reason,
+          phase: result.phase,
+          sessionId: null,
+          clientId: this.clients.get(ws)?.clientId ?? null,
+          answered: true,
+        });
+      }
       return;
     }
-
     // Sessions subscribed before the handshake have no channel: `openChannel`
     // refuses before negotiation, correctly, because there is no agreement yet
     // that the client can read a frame. Nothing used to go back for them, so
@@ -2661,6 +2771,15 @@ export class WsRouter {
         viewGeneration: number;
         leaseGeneration: string;
       }> = [];
+      // @req REL-BGSTAB-011
+      // A refused lease used to be dropped on the floor: the view was still registered and
+      // the capability still sent, with mutationLeases filtered to empty. The browser could
+      // not distinguish that from a negotiation still in flight and held input forever.
+      const mutationLeaseRefusals: Array<{
+        sessionId: string;
+        viewGeneration: number;
+        reason: string;
+      }> = [];
       for (const view of parsed.message.views ?? []) {
         meta.retainedTerminalMutationLeases?.delete(view.sessionId);
         const previousViewGeneration = previousViewGenerations.get(view.sessionId);
@@ -2802,7 +2921,14 @@ export class WsRouter {
           meta.clientId,
           view.viewGeneration,
         );
-        if (!lease.ok) continue;
+        if (!lease.ok) {
+          mutationLeaseRefusals.push({
+            sessionId: view.sessionId,
+            viewGeneration: view.viewGeneration,
+            reason: lease.reason,
+          });
+          continue;
+        }
         meta.retainedTerminalMutationLeases ??= new Map();
         meta.retainedTerminalMutationLeases.set(view.sessionId, {
           authorityEpoch: lease.authorityEpoch,
@@ -2835,6 +2961,10 @@ export class WsRouter {
           const authorityMode = authorityView
             ? this.terminalAuthorityViewModeReader?.(authorityView) ?? 'legacy'
             : 'legacy';
+          const viewRefusals = mutationLeaseRefusals.filter(refusal => (
+            refusal.sessionId === registeredView.sessionId
+            && refusal.viewGeneration === registeredView.viewGeneration
+          ));
           this.sendTo(ws, {
             type: 'terminal-checkpoint:capability',
             protocolVersion: TERMINAL_CHECKPOINT_PROTOCOL_VERSION,
@@ -2848,6 +2978,7 @@ export class WsRouter {
               lease.sessionId === registeredView.sessionId
               && lease.viewGeneration === registeredView.viewGeneration
             )),
+            ...(viewRefusals.length > 0 ? { mutationLeaseRefusals: viewRefusals } : {}),
           });
         }
       }
@@ -2997,6 +3128,17 @@ export class WsRouter {
       reason,
       ...(sessionId ? { sessionId } : {}),
       ...(rejectedMessageType ? { rejectedMessageType } : {}),
+    });
+    // Recorded with whatever identity exists. The rejections least likely to carry a
+    // sessionId -- `invalid-message` for a payload malformed enough to lose it -- are the
+    // ones a reader most wants, so the record must not be conditional on having one.
+    this.recordHandshakeRejection({
+      handshake: 'checkpoint',
+      reason,
+      phase,
+      sessionId: sessionId ?? null,
+      clientId: this.clients.get(ws)?.clientId ?? null,
+      answered: true,
     });
   }
 
@@ -3334,6 +3476,13 @@ export class WsRouter {
     });
   }
 
+  /**
+   * REL-BGSTAB-028: remembers which input operations have already been written
+   * to a PTY, keyed by connection epoch and session, so a retried send does not
+   * execute the command twice.
+   */
+  private readonly inputLedger: TerminalInputLedger = createTerminalInputLedger();
+
   private handleInput(ws: WebSocket, rawMessage: unknown): void {
     if (this.handleTerminalQueryReplyInput(ws, rawMessage)) {
       return;
@@ -3364,18 +3513,33 @@ export class WsRouter {
       return;
     }
 
-    const retainedIdentity = input.retainedIdentity
+    let retainedIdentity = input.retainedIdentity
       ?? meta?.retainedTerminalMutationLeases?.get(input.sessionId);
-    if (meta?.retainedTerminalViews?.has(input.sessionId) && !retainedIdentity) {
-      this.rejectInput(ws, {
-        sessionId: input.sessionId,
-        data: input.data,
-        metadata: input.metadata,
-        inputSeqStart: input.inputSeqStart,
-        inputSeqEnd: input.inputSeqEnd,
-        reason: 'invalid-payload',
-      });
-      return;
+    const registeredViewGeneration = meta?.retainedTerminalViews?.get(input.sessionId);
+    if (meta && registeredViewGeneration !== undefined && !retainedIdentity) {
+      // @req REL-BGSTAB-011 AC-6
+      // Writing is the signal that decides who drives. This view is registered and the user is
+      // typing into it, so it takes the lease from whoever holds it rather than having the write
+      // discarded. Measured 2026-09-19: the previous holder was a background tab with a live
+      // socket, so waiting for it to disconnect would have meant waiting forever.
+      const adopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, input.sessionId, registeredViewGeneration);
+      if (!adopted.ok) {
+        this.rejectInput(ws, {
+          sessionId: input.sessionId,
+          data: input.data,
+          metadata: input.metadata,
+          inputSeqStart: input.inputSeqStart,
+          inputSeqEnd: input.inputSeqEnd,
+          // #18 criterion 7: staleness and contention are different facts. The first means
+          // "resync your view"; the second means "someone else is driving, try again".
+          reason: adopted.reason === 'stale-view-generation'
+            ? 'stale-target-generation'
+            : 'driver-lease-unavailable',
+        });
+        return;
+      }
+      retainedIdentity = adopted.lease;
+      this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, adopted.lease);
     }
 
     if (pending) {
@@ -3407,6 +3571,47 @@ export class WsRouter {
       return;
     }
 
+    // REL-BGSTAB-028: refuse a second write of an operation already applied.
+    // Duplicates are reported rather than silently dropped, and input without an
+    // operation id is admitted and counted as undeduplicated rather than being
+    // treated as if exactly-once held for it.
+    const admission = this.inputLedger.admit({
+      // #111: the LOGICAL client, so the record survives a reconnect. Falling back to
+      // connectionId keeps legacy clients working exactly as before rather than sharing
+      // a namespace they never asked for.
+      logicalClientId: meta?.logicalClientId ?? meta?.connectionId ?? 'unknown-connection',
+      sessionId: input.sessionId,
+      ...(input.inputOperationId === undefined ? {} : { operationId: input.inputOperationId }),
+      // #18 criterion 6: ordering, so a retry the ledger has fully forgotten is refused as
+      // `unknown` instead of being re-executed. Both halves are required -- without them
+      // the ledger keeps the previous behaviour rather than guessing.
+      ...(input.inputSequencerEpoch === undefined || input.inputSeqStart === undefined
+        ? {}
+        : { sequence: { epoch: input.inputSequencerEpoch, start: input.inputSeqStart } }),
+      payload: input.data,
+    });
+    if (!admission.write) {
+      // REL-BGSTAB-028 AC-5: every refusal used to be reported as 'duplicate-operation',
+      // which was true for one of three outcomes. An expired operation and a reused
+      // identifier are different facts about the client's state and it can act on them --
+      // the first means the retry window has passed, the second means its ids collided.
+      this.rejectInput(ws, {
+        sessionId: input.sessionId,
+        data: input.data,
+        metadata: input.metadata,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+        reason: admission.outcome === 'expired'
+          ? 'expired-operation'
+          : admission.outcome === 'payload-mismatch'
+            ? 'payload-mismatch'
+            : admission.outcome === 'unknown'
+              ? 'unknown-operation'
+              : 'duplicate-operation',
+      });
+      return;
+    }
+
     let gatewayResult: WebSocketInputGatewayResult = { accepted: false, reason: 'server-error' };
     try {
       gatewayResult = this.submitWebSocketInputThroughGateway({
@@ -3428,6 +3633,35 @@ export class WsRouter {
         reason: 'server-error',
       });
       return;
+    }
+
+    if (!gatewayResult.accepted
+      && !input.retainedIdentity
+      && registeredViewGeneration !== undefined
+      && meta?.retainedTerminalMutationLeases?.has(input.sessionId) === true) {
+      // @req REL-BGSTAB-011 AC-6
+      // The identity came from this connection's cache, not from the client, and the write was
+      // refused. The usual cause is that another view adopted the lease and this one's generation
+      // is superseded. Re-adopt once and retry, so losing the lease costs a round trip rather than
+      // making this window read-only for the rest of the session. Bounded to one retry: if the
+      // second attempt fails the original rejection stands.
+      meta.retainedTerminalMutationLeases.delete(input.sessionId);
+      const readopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, input.sessionId, registeredViewGeneration);
+      if (readopted.ok) {
+        this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, readopted.lease);
+        try {
+          gatewayResult = this.submitWebSocketInputThroughGateway({
+            sessionId: input.sessionId,
+            data: input.data,
+            metadata: input.metadata,
+            inputSeqStart: input.inputSeqStart,
+            inputSeqEnd: input.inputSeqEnd,
+            retainedIdentity: readopted.lease,
+          }, meta);
+        } catch (error) {
+          console.error('[WS] PTY input write failed after lease re-adoption:', error);
+        }
+      }
     }
 
     if (!gatewayResult.accepted) {
@@ -3864,6 +4098,23 @@ export class WsRouter {
     this.clearTransportQueueState(ws);
     this.terminalDeliveryVisibilityBySocket.delete(ws);
     this.terminalDeliveryCheckpointLedgers.delete(ws);
+    // #111 / #18 criterion 11: the input ledger is NOT freed here any more.
+    //
+    // It used to be, keyed by this connection's id, on the reasoning quoted below that
+    // holding it past disconnect would grow without bound. The bound was real; the
+    // conclusion was not. Dropping the record on socket loss meant a reconnecting client
+    // met an empty ledger and its resent input was written to the PTY a SECOND time --
+    // the duplicate execution this ledger exists to prevent. Growth is now bounded by the
+    // record's own TTL and entry cap instead, and the record is released by logical client
+    // retirement or session close. Connection-owned state (waiters, timeouts) still
+    // settles here, which is what criterion 11 asks for and what the lines above do.
+    //
+    // A client that sends no logical id is still connection-scoped, so for it the old
+    // reasoning still holds and its ledger is still freed here.
+    const disconnectingMeta = this.clients.get(ws);
+    if (disconnectingMeta && !disconnectingMeta.logicalClientId && disconnectingMeta.connectionId) {
+      this.inputLedger.releaseLogicalClient(disconnectingMeta.connectionId);
+    }
     this.settleTerminalResourcePolicyTargetOnTransportClose(ws);
     this.clients.delete(ws);
   }
@@ -4992,16 +5243,30 @@ export class WsRouter {
     retainedIdentity?: RetainedTerminalWireMutationIdentity;
   }, meta?: WsClientMeta): WebSocketInputGatewayResult {
     const gateway = createSessionInputGateway({
-      writeInput: (write) => this.sessionManager.writeInput(
-        String(write.sessionId ?? ''),
-        String(write.data ?? ''),
-        write.metadata as InputDebugMetadata | undefined,
-        {
-          inputSeqStart: typeof write.inputSeqStart === 'number' ? write.inputSeqStart : undefined,
-          inputSeqEnd: typeof write.inputSeqEnd === 'number' ? write.inputSeqEnd : undefined,
-        },
-        this.toRetainedTerminalMutationIdentity(meta, input.retainedIdentity),
-      ),
+      // #112: writeInputDetailed() (not the boolean writeInput()) so the gateway -- and from
+      // there mapSessionInputGatewayDenialToRejectedReason() -- can tell a dead session from a
+      // stale mutation identity instead of both arriving as a bare `false`.
+      writeInput: (write) => {
+        const detailed = this.sessionManager.writeInputDetailed(
+          String(write.sessionId ?? ''),
+          String(write.data ?? ''),
+          write.metadata as InputDebugMetadata | undefined,
+          {
+            inputSeqStart: typeof write.inputSeqStart === 'number' ? write.inputSeqStart : undefined,
+            inputSeqEnd: typeof write.inputSeqEnd === 'number' ? write.inputSeqEnd : undefined,
+          },
+          this.toRetainedTerminalMutationIdentity(meta, input.retainedIdentity),
+        );
+        if (detailed.ok) return true;
+        return {
+          ok: false,
+          code: detailed.denialReason === 'session-gone'
+            ? TARGET_SESSION_GONE
+            : detailed.denialReason === 'mutation-identity-stale'
+              ? TARGET_MUTATION_IDENTITY_STALE
+              : 'TARGET_NOT_LIVE',
+        };
+      },
       resolveTarget: () => this.resolveWebSocketGatewayTarget(input.sessionId),
       readReplayState: () => ({
         replayPending: meta?.replayPendingSessions.has(input.sessionId) === true,
@@ -5026,8 +5291,49 @@ export class WsRouter {
     }
     return {
       accepted: false,
-      reason: result.code === INPUT_REJECTED_REPLAY_PENDING ? 'context-changed' : 'server-error',
+      reason: this.mapSessionInputGatewayDenialToRejectedReason(result.code),
     };
+  }
+
+  /**
+   * #112: this used to be `result.code === INPUT_REJECTED_REPLAY_PENDING ? 'context-changed'
+   * : 'server-error'` -- one code named, every other denial the gateway can return flattened
+   * into the same opaque label as a genuinely unexpected exception. Measured 2026-09-19: a
+   * write that SessionInputGateway explicitly refused (TARGET_NOT_LIVE, the write never
+   * reached the PTY) was indistinguishable on the wire from a thrown error, which is why the
+   * live flood investigation had to trace server console output to find out what actually
+   * happened. Named here instead, so the client (and the debug log) gets the fact the
+   * gateway already computed.
+   *
+   * TARGET_NOT_FOUND and INPUT_REJECTED_ENTER_POLICY are not reachable from the plain
+   * websocket path this method serves today (WsRouter always supplies a resolveTarget, and
+   * evaluateEnterPolicy only fires for MCP/agent sources) -- mapped anyway so a future caller
+   * of this same gateway does not fall back into the generic label by omission.
+   *
+   * #112 follow-up: TARGET_NOT_LIVE itself used to be the end of the trail -- re-measuring
+   * after the fix above still could not tell "the flood killed the session" from "the session
+   * is alive but this client's mutation identity went stale mid-flood" apart, because
+   * SessionManager.writeInput() collapsed both into the same `false`. writeInputDetailed()
+   * (see submitWebSocketInputThroughGateway below) now names which one happened, and these two
+   * cases carry that fact out to the wire instead of re-flattening it into target-not-live.
+   */
+  private mapSessionInputGatewayDenialToRejectedReason(code: unknown): InputRejectedReason {
+    switch (code) {
+      case INPUT_REJECTED_REPLAY_PENDING:
+        return 'context-changed';
+      case TARGET_SESSION_GONE:
+        return 'target-session-gone';
+      case TARGET_MUTATION_IDENTITY_STALE:
+        return 'target-identity-stale';
+      case 'TARGET_NOT_LIVE':
+        return 'target-not-live';
+      case 'TARGET_NOT_FOUND':
+        return 'target-not-found';
+      case INPUT_REJECTED_ENTER_POLICY:
+        return 'enter-policy-rejected';
+      default:
+        return 'server-error';
+    }
   }
 
   // @req FR-MCP-002
@@ -5066,6 +5372,66 @@ export class WsRouter {
         snapshotSeq: pending.snapshotSeq,
       });
     }
+  }
+
+  // @req REL-BGSTAB-011 AC-6
+  private adoptRetainedTerminalMutationLeaseForWrite(
+    meta: WsClientMeta,
+    sessionId: string,
+    viewGeneration: number,
+  ): { ok: true; lease: RetainedTerminalWireMutationIdentity } | { ok: false; reason?: string } {
+    const adopter = this.sessionManager as unknown as {
+      adoptRetainedTerminalMutationLease?: (
+        sessionId: string,
+        clientId: string,
+        viewGeneration: number,
+      ) => { ok: true; authorityEpoch: string; viewGeneration: number; leaseGeneration: string } | { ok: false; reason: string };
+    };
+    const adopted = adopter.adoptRetainedTerminalMutationLease?.(sessionId, meta.clientId, viewGeneration);
+    if (!adopted || !adopted.ok) {
+      // #18 criterion 7: the refusal reason used to be discarded here, so a stale view
+      // generation reached the client as `driver-lease-unavailable` -- an answer that
+      // invites a retry which can never succeed. SessionManager already distinguishes the
+      // two; only this return threw the distinction away.
+      return { ok: false, reason: adopted?.reason };
+    }
+    const lease: RetainedTerminalWireMutationIdentity = {
+      authorityEpoch: adopted.authorityEpoch,
+      viewGeneration: adopted.viewGeneration,
+      leaseGeneration: adopted.leaseGeneration,
+    };
+    meta.retainedTerminalMutationLeases ??= new Map();
+    meta.retainedTerminalMutationLeases.set(sessionId, lease);
+    return { ok: true, lease };
+  }
+
+  // @req REL-BGSTAB-011 AC-6
+  // The client raised its mutation-lease barrier on a capability that carried no lease. Tell it
+  // the lease is now its own, so the next keystroke is not gated on a refusal that no longer holds.
+  private sendAdoptedMutationLeaseCapability(
+    ws: WebSocket,
+    meta: WsClientMeta,
+    sessionId: string,
+    viewGeneration: number,
+    lease: RetainedTerminalWireMutationIdentity,
+  ): void {
+    const registration = meta.terminalAuthorityViewRegistrations?.get(sessionId);
+    this.sendTo(ws, {
+      type: 'terminal-checkpoint:capability',
+      protocolVersion: TERMINAL_CHECKPOINT_PROTOCOL_VERSION,
+      accepted: true,
+      authorityMode: 'legacy',
+      checkpointDeliveryActive: false,
+      ordinalEncoding: 'canonical-uint64-decimal',
+      digestAlgorithms: ['sha256'],
+      registeredViews: [registration ?? { sessionId, viewGeneration }],
+      mutationLeases: [{
+        sessionId,
+        authorityEpoch: lease.authorityEpoch,
+        viewGeneration: lease.viewGeneration,
+        leaseGeneration: lease.leaseGeneration,
+      }],
+    });
   }
 
   private rejectInput(
@@ -5131,6 +5497,19 @@ export class WsRouter {
       : undefined;
     const inputSeqEnd = typeof message.inputSeqEnd === 'number' && Number.isSafeInteger(message.inputSeqEnd)
       ? message.inputSeqEnd
+      : undefined;
+    const inputOperationId = typeof message.inputOperationId === 'string'
+      && message.inputOperationId.length > 0
+      && message.inputOperationId.length <= 128
+      ? message.inputOperationId
+      : undefined;
+    // #18 criterion 6: ordering for the dedup ledger's forgotten-watermark. A client that
+    // omits it, or sends something that is not a positive integer, simply gets the previous
+    // behaviour -- the watermark cannot fire and nothing is refused on a guess.
+    const inputSequencerEpoch = typeof message.inputSequencerEpoch === 'number'
+      && Number.isSafeInteger(message.inputSequencerEpoch)
+      && message.inputSequencerEpoch > 0
+      ? message.inputSequencerEpoch
       : undefined;
     const retainedIdentity = this.parseRetainedTerminalWireMutationIdentity(message.retainedIdentity);
 
@@ -5225,6 +5604,8 @@ export class WsRouter {
       sessionId,
       data,
       metadata,
+      ...(inputOperationId === undefined ? {} : { inputOperationId }),
+      ...(inputSequencerEpoch === undefined ? {} : { inputSequencerEpoch }),
       inputSeqStart,
       inputSeqEnd,
       retainedIdentity,
@@ -5452,9 +5833,67 @@ export class WsRouter {
       }
 
       const meta = this.clients.get(ws);
-      if (audience === 'legacy-unnegotiated'
-        && meta?.terminalAuthorityViewRegistrations?.has(sessionId)) {
-        continue;
+      if (audience === 'legacy-unnegotiated') {
+        // #110. Every caller passing this audience is a FALLBACK: the authority path could not
+        // or did not deliver the chunk, and one of them says so outright -- "deliver this chunk
+        // so the user still sees it". The filter therefore has to name the views the authority
+        // path actually delivered to, which is the ones in checkpoint mode. It used to name
+        // every view that had merely negotiated, and a negotiated view still in legacy mode is
+        // exactly the common case: measured 2026-09-19, a session echoed `codex`, emitted its
+        // startup queries and a 928-byte paint, and the browser was sent none of it while the
+        // registration sat there with authorityStreamEpoch "3" and no active checkpoint ledger.
+        // Having negotiated is not having been delivered to.
+        const registration = meta?.terminalAuthorityViewRegistrations?.get(sessionId);
+        // 2026-09-20. Two corrections, in order.
+        //
+        // (1) #110 narrowed this from "has a registration" to "is in checkpoint mode",
+        // because a registered LEGACY view was measurably receiving nothing. That was taken
+        // on 2026-09-19 while the in-flight transport slot orphaned settlements, so the
+        // authority chain stalled after its first displaced send and legacy views genuinely
+        // were not delivered to. The narrowing compensated for that bug; once it was fixed
+        // the compensation over-delivered, and a 700-line producer left the browser holding
+        // ~1409 lines until a promotion replaced the buffer.
+        //
+        // (2) Widening it back to "has a registration" was ALSO wrong, and worse. The
+        // disposition that gates this whole branch is session-level; a registration is not.
+        // `getTerminalAuthorityResponderViews` requires the registration AND matching
+        // capabilities AND three agreeing generations AND being the newest open control
+        // socket with a ready terminal lane. A connection failing any of those is not
+        // delivered to, and skipping it on the registration alone turned duplicate delivery
+        // into MISSING delivery -- the failure #110 existed to prevent, by another route.
+        //
+        // So the predicate is now the delivery set itself rather than a proxy for it. Two
+        // independent expressions of "which views does the authority path serve" is the same
+        // mismatch recorded as the residual on the in-flight set: mechanisms that must agree,
+        // computed separately, with nothing asserting they do.
+        const deliveredConnectionIds = new Set(
+          this.getTerminalAuthorityResponderViews(sessionId).map(view => view.connectionId),
+        );
+        const viewMode = registration !== undefined
+          ? (this.terminalAuthorityViewModeReader?.({
+            ...registration,
+            sessionId,
+            clientId: meta!.clientId,
+            connectionId: meta!.connectionId ?? meta!.clientId,
+          } as TerminalAuthorityViewRegistration) ?? 'legacy')
+          : undefined;
+        const deliveredByAuthority = meta !== undefined
+          && deliveredConnectionIds.has(meta.connectionId ?? meta.clientId);
+        if (deliveredByAuthority) {
+          // Not silent any more. A dropped chunk that leaves no trace is how this cost a day.
+          this.recordReplayEvent({
+            kind: 'output_skipped_delivered_by_authority',
+            sessionId,
+            details: {
+              reason: viewMode === 'checkpoint'
+                ? 'delivered-by-checkpoint-authority'
+                : 'delivered-by-legacy-authority-responder',
+              outputBytes: utf8ByteLength(data),
+              viewGeneration: registration?.viewGeneration ?? -1,
+            },
+          });
+          continue;
+        }
       }
       const pending = meta?.replayPendingSessions.get(sessionId);
       if (pending) {
@@ -5530,6 +5969,18 @@ export class WsRouter {
         ? connectionFairScheduler
         : undefined;
       if (visibility && !visibility.isVisible && fairScheduler) {
+        // #110: the data gap below latches once, so every later chunk vanished without a trace.
+        // 8 of 10 chunks of a codex launch went this way and the only symptom was a blank
+        // terminal. Record each one.
+        this.recordReplayEvent({
+          kind: 'output_withheld_view_hidden',
+          sessionId,
+          details: {
+            outputBytes: utf8ByteLength(data),
+            visibilityGeneration: visibility.visibilityGenerationWire,
+            dataGapLatched: visibility.dataGapLatched,
+          },
+        });
         const connectionId = meta?.connectionId ?? meta?.clientId;
         const registration = connectionId && meta
           ? this.getTerminalAuthorityNegotiatedView(
@@ -5993,8 +6444,31 @@ export class WsRouter {
           ? this.splitSocketGroups.get(ws)?.control
           : ws;
         if (control) this.terminateFairDeliverySession(control, sessionId);
+        // #111 / #18 criterion 11: session close is one of the three release points for
+        // the dedup record, now that socket loss is no longer one of them. Without this
+        // the record would linger for its whole TTL after the PTY it describes is gone.
+        const owner = this.clients.get(ws);
+        const logicalClientId = owner?.logicalClientId ?? owner?.connectionId;
+        if (logicalClientId) {
+          this.inputLedger.release({ logicalClientId, sessionId });
+        }
       }
       this.sendTo(ws, { type: event, sessionId, ...payload });
+    }
+  }
+
+  // #112: a driver lease can be revoked for reasons that have nothing to do with the
+  // browser's identity (a headless side-channel degrading, an authority mode transition) --
+  // measured 2026-09-19: it used to happen with no wire signal at all, so the browser kept
+  // attaching a retainedIdentity built from a lease that no longer existed and every
+  // keystroke was refused forever. This targets the one connection that actually held the
+  // lease (a session can have other subscribers who were never the driver and do not need
+  // to hear about this), not every subscriber of the session the way sendSessionEvent does.
+  notifyRetainedTerminalDriverLeaseRevoked(sessionId: string, clientId: string, reason: string): void {
+    for (const [ws, meta] of this.clients) {
+      if (meta.clientId === clientId && ws.readyState === WebSocket.OPEN) {
+        this.sendTo(ws, { type: 'terminal-checkpoint:lease-revoked', sessionId, reason });
+      }
     }
   }
 
@@ -6120,6 +6594,44 @@ export class WsRouter {
       transportOutputCoalesceCount: this.transportOutputCoalesceCount,
       recentReplayEvents: [...this.recentReplayEvents],
     };
+  }
+
+  /**
+   * Bounded, connection-scoped, and written before any debug gate -- a rejection must be
+   * findable whether or not someone thought to switch capture on beforehand, because the
+   * question is always asked afterwards (AC-1).
+   */
+  private readonly recentHandshakeRejections: HandshakeRejectionRecord[] = [];
+  private handshakeRejectionCounter = 0;
+
+  private recordHandshakeRejection(input: {
+    handshake: 'binary' | 'checkpoint';
+    reason: string;
+    phase?: string;
+    sessionId?: string | null;
+    clientId?: string | null;
+    answered: boolean;
+  }): void {
+    this.recentHandshakeRejections.push({
+      recordId: ++this.handshakeRejectionCounter,
+      recordedAt: new Date().toISOString(),
+      handshake: input.handshake,
+      reason: input.reason,
+      ...(input.phase === undefined ? {} : { phase: input.phase }),
+      sessionId: input.sessionId ?? null,
+      clientId: input.clientId ?? null,
+      answered: input.answered,
+    });
+    if (this.recentHandshakeRejections.length > MAX_RECENT_HANDSHAKE_REJECTIONS) {
+      this.recentHandshakeRejections.splice(
+        0,
+        this.recentHandshakeRejections.length - MAX_RECENT_HANDSHAKE_REJECTIONS,
+      );
+    }
+  }
+
+  getHandshakeRejections(limit = MAX_RECENT_HANDSHAKE_REJECTIONS): readonly HandshakeRejectionRecord[] {
+    return this.recentHandshakeRejections.slice(-Math.max(1, limit));
   }
 
   recordReplayEvent(event: ReplayTelemetryEventInput): void {
@@ -6419,7 +6931,11 @@ export class WsRouter {
   private hasPendingPolicyGeneration(target: WsCanaryTarget, generation: number): boolean {
     const ws = this.findSocketForCanaryTarget(target);
     if (!ws) return false;
-    if (this.inFlightTransportMessages.get(ws)?.policyGeneration === generation) return true;
+    const inFlightForGeneration = this.inFlightTransportMessages.get(ws);
+    if (inFlightForGeneration
+      && [...inFlightForGeneration].some(message => message.policyGeneration === generation)) {
+      return true;
+    }
     const queue = this.transportQueues.get(ws);
     return queue ? getTransportMessagesInPriorityOrder(queue)
       .some(message => message.policyGeneration === generation) : false;
@@ -6429,8 +6945,7 @@ export class WsRouter {
     const boundary = new Set<WsTransportMessage>();
     const ws = this.findSocketForCanaryTarget(target);
     if (!ws) return boundary;
-    const inFlight = this.inFlightTransportMessages.get(ws);
-    if (inFlight) boundary.add(inFlight);
+    for (const inFlight of this.inFlightTransportMessages.get(ws) ?? []) boundary.add(inFlight);
     const queue = this.transportQueues.get(ws);
     if (queue) {
       for (const message of getTransportMessagesInPriorityOrder(queue)) boundary.add(message);
@@ -6444,7 +6959,7 @@ export class WsRouter {
     const ws = this.findSocketForCanaryTarget(target);
     if (!ws) return false;
     const inFlight = this.inFlightTransportMessages.get(ws);
-    if (inFlight && boundary.has(inFlight)) return true;
+    if (inFlight && [...inFlight].some(message => boundary.has(message))) return true;
     const queue = this.transportQueues.get(ws);
     return queue ? getTransportMessagesInPriorityOrder(queue).some(message => boundary.has(message)) : false;
   }
@@ -6763,14 +7278,18 @@ export class WsRouter {
     }
 
     const tracksSettlement = state !== undefined || message.onSettled !== undefined;
-    if (tracksSettlement) this.inFlightTransportMessages.set(ws, message);
+    if (tracksSettlement) {
+      const tracked = this.inFlightTransportMessages.get(ws) ?? new Set<WsTransportMessage>();
+      tracked.add(message);
+      this.inFlightTransportMessages.set(ws, tracked);
+    }
 
     try {
       const onSent = (error?: Error) => {
-        if (tracksSettlement && this.inFlightTransportMessages.get(ws) !== message) {
+        if (tracksSettlement && !this.inFlightTransportMessages.get(ws)?.has(message)) {
           return;
         }
-        if (tracksSettlement) this.inFlightTransportMessages.delete(ws);
+        if (tracksSettlement) this.forgetInFlightTransportMessage(ws, message);
         if (state) {
           state.sending = false;
         }
@@ -6843,9 +7362,7 @@ export class WsRouter {
       const canaryFailure = this.isCurrentCandidateTransportMessage(ws, message)
         || this.isWsRollbackBoundaryMessage(ws, message);
       const fairDeliveryFailure = this.isFairTerminalDeliveryTransportMessage(message);
-      if (this.inFlightTransportMessages.get(ws) === message) {
-        this.inFlightTransportMessages.delete(ws);
-      }
+      this.forgetInFlightTransportMessage(ws, message);
       if (state) {
         state.sending = false;
       }
@@ -6890,6 +7407,14 @@ export class WsRouter {
       : control;
     return target === ws
       && this.getTerminalAuthorityTransportBindingId(target) === expected.bindingId;
+  }
+
+  /** Removes one tracked message, dropping the socket's entry once nothing is in flight. */
+  private forgetInFlightTransportMessage(ws: WebSocket, message: WsTransportMessage): void {
+    const tracked = this.inFlightTransportMessages.get(ws);
+    if (!tracked) return;
+    tracked.delete(message);
+    if (tracked.size === 0) this.inFlightTransportMessages.delete(ws);
   }
 
   private settleTransportMessage(message: WsTransportMessage, error?: Error): void {
@@ -7033,7 +7558,9 @@ export class WsRouter {
     const state = this.transportQueues.get(ws);
     const inFlight = this.inFlightTransportMessages.get(ws);
     if (inFlight) {
-      this.settleTransportMessage(inFlight, new Error('terminal-authority-transport-closed'));
+      for (const message of inFlight) {
+        this.settleTransportMessage(message, new Error('terminal-authority-transport-closed'));
+      }
       this.inFlightTransportMessages.delete(ws);
     }
     if (!state) {

@@ -21,6 +21,7 @@ import {
 } from './ptyPlatformPolicy.js';
 import { renderBootstrapConfigTemplate } from './configTemplate.js';
 import { loadConfigFromPathStrict } from './configStrictLoader.js';
+import { warnUnknownConfigKeys } from '../schemas/unknownConfigKeys.js';
 
 export { loadConfigFromPathStrict };
 
@@ -216,6 +217,8 @@ function readNormalizedRawConfig(configPath: string): Record<string, unknown> {
  * Uses Zod schema for validation and default values
  * Automatically encrypts plaintext passwords
  */
+import { recordRawConfigSnapshot } from './rawConfigSnapshot.js';
+
 export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform = process.platform): Config {
   try {
     ensureConfigExists(configPath, platform);
@@ -234,6 +237,7 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
       // Validate and apply defaults using Zod schema
       const validatedConfig = configSchema.parse(updatedRawConfig);
       console.log('[Config] Configuration loaded successfully');
+      recordRawConfigSnapshot(updatedRawConfig);
       return registerTerminalResourceConfigProvenance(
         validatedConfig as Config,
         updatedRawConfig,
@@ -244,10 +248,18 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
     }
 
     // Validate and apply defaults using Zod schema
-    const validatedConfig = configSchema.parse(normalizeRawConfigForPlatform(rawConfig, platform));
+    const normalizedForPlatform = normalizeRawConfigForPlatform(rawConfig, platform);
+
+    // #62: say what was dropped. zod strips unknown keys silently unless a block is .strict(),
+    // and only the resourceLimits and stabilityModes subtrees are -- so a typo anywhere else
+    // produced a server that started normally and a setting that did nothing.
+    warnUnknownConfigKeys(normalizedForPlatform);
+
+    const validatedConfig = configSchema.parse(normalizedForPlatform);
 
     console.log('[Config] Configuration loaded successfully');
 
+    recordRawConfigSnapshot(rawConfig);
     return registerTerminalResourceConfigProvenance(
       validatedConfig as Config,
       rawConfig,
@@ -269,6 +281,7 @@ export function loadConfigFromPath(configPath: string, platform: NodeJS.Platform
 
     // Return validated defaults
     const fallbackConfig = configSchema.parse({}) as Config;
+    recordRawConfigSnapshot({});
     return registerTerminalResourceConfigProvenance(fallbackConfig, {}, 'fallback-defaults');
   }
 }

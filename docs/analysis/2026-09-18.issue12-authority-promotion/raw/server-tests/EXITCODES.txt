@@ -1,0 +1,11 @@
+exit=1 services/TerminalAuthorityController.test.ts
+exit=0 services/TerminalAuthorityProductionRegression.test.ts
+exit=0 services/TerminalAuthorityDebugService.test.ts
+exit=0 services/SessionManagerTerminalAuthorityRuntimePorts.test.ts
+exit=0 services/SessionManagerTerminalAuthorityDebugIsolation.test.ts
+exit=0 services/RetainedTerminalAuthority.test.ts
+exit=0 services/TerminalCheckpointMintSizeAdmission.test.ts
+exit=0 ws/WsRouterCheckpointProtocol.test.ts
+exit=0 ws/productionTransportBoundary.test.ts
+exit=0 types/wsCheckpointProtocol.test.ts
+exit=0 utils/terminalQueryResponder.test.ts

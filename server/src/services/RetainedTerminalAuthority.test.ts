@@ -938,6 +938,22 @@ function readConsumerLogicalLines(
   return lines;
 }
 
+// The surrounding consumer-hash helper independently re-derives the token
+// layout, arity, field selection and hashing discipline rather than importing
+// them, and that part stays a genuine independent baseline. This palette
+// canonicalization rule, by contrast, is deliberately mirrored: it is part of
+// the shared retained-attribute contract, so this copy restates the rule rather
+// than double-checking it. The rule itself is covered by
+// `server/src/utils/retainedCheckpointSgrParity.test.ts`.
+// The rule: a palette slot below 16 is one attribute whether it arrived as
+// `ESC[33m` (P16) or `ESC[38;5;3m` (P256); the serializer only ever re-emits
+// the short form.
+// @req FR-BGSTAB-027 AC-2
+function canonicalPaletteColorToken(mode: number, color: number): [number, number] {
+  const isShortFormPalette = mode === 0x01000000 && color >= 0 && color <= 15;
+  return isShortFormPalette ? [0x02000000, color] : [mode, color];
+}
+
 function hashConsumerBuffer(
   state: HeadlessTerminalState,
   bufferType: 'normal' | 'alternate',
@@ -957,7 +973,8 @@ function hashConsumerBuffer(
         ? [x, current.getChars(), current.getCode(), current.getWidth()]
         : [
             x,
-            current.getFgColorMode(), current.getFgColor(), current.getBgColorMode(), current.getBgColor(),
+            ...canonicalPaletteColorToken(current.getFgColorMode(), current.getFgColor()),
+            ...canonicalPaletteColorToken(current.getBgColorMode(), current.getBgColor()),
             current.isBold(), current.isDim(), current.isItalic(), current.isUnderline(), current.isBlink(),
             current.isInverse(), current.isInvisible(), current.isStrikethrough(), current.isOverline(),
           ]);
@@ -1190,12 +1207,19 @@ test('Retained server model shadow and driver lease RED contract — REL-BGSTAB-
       signature,
     );
     assert.equal(new Set(Object.values(state.budgets).map(budget => budget.key)).size, 6, signature);
+    // #78: the chunk axis is configured now. The aggregate-model-memory axis stays unbudgeted --
+    // nothing enforces it, and an unenforced resource setting is worse than none -- but its
+    // source says that instead of implying an unfinished implementation.
     assert.equal(state.budgets.aggregateModelMemory.configured, false, signature);
-    assert.equal(state.budgets.aggregateModelMemory.source, 'unconfigured', signature);
-    assert.equal(state.budgets.checkpointChunk.configured, false, signature);
-    assert.equal(state.budgets.checkpointChunk.source, 'unconfigured', signature);
+    assert.equal(state.budgets.aggregateModelMemory.source, 'not-budgeted', signature);
+    assert.equal(state.budgets.checkpointChunk.configured, true, signature);
+    assert.equal(state.budgets.checkpointChunk.source, 'resourceLimits.terminal.checkpointChunkBytes', signature);
     assert.equal(state.budgets.aggregateModelMemory.value, null, signature);
-    assert.equal(state.budgets.checkpointChunk.value, null, signature);
+    assert.equal(
+      state.budgets.checkpointChunk.value,
+      config.resourceLimits!.terminal.checkpointChunkBytes,
+      signature,
+    );
     assert.equal(
       state.budgets.perClientInflight.value,
       config.resourceLimits!.ws.perClientOutputQueueMaxBytes,
@@ -1788,8 +1812,8 @@ test('Retained server model shadow and driver lease RED contract — REL-BGSTAB-
       Object.values(state.budgets).map(budget => [budget.key, budget.unit, budget.source, budget.configured]),
       [
         ['retention', 'lines', 'resourceLimits.terminal.scrollbackLines', true],
-        ['aggregate-model-memory', 'bytes', 'unconfigured', false],
-        ['checkpoint-chunk', 'bytes', 'unconfigured', false],
+        ['aggregate-model-memory', 'bytes', 'not-budgeted', false],
+        ['checkpoint-chunk', 'bytes', 'resourceLimits.terminal.checkpointChunkBytes', true],
         ['per-client-inflight', 'bytes', 'resourceLimits.ws.perClientOutputQueueMaxBytes', true],
         ['socket-gate', 'bytes', 'resourceLimits.ws.serverBufferedHighWaterBytes', true],
         ['browser-write-slice', 'bytes', 'resourceLimits.terminal.visibleFlushBudgetBytes', true],
@@ -1797,7 +1821,11 @@ test('Retained server model shadow and driver lease RED contract — REL-BGSTAB-
       signature,
     );
     assert.equal(state.budgets.aggregateModelMemory.value, null, signature);
-    assert.equal(state.budgets.checkpointChunk.value, null, signature);
+    assert.equal(
+      state.budgets.checkpointChunk.value,
+      config.resourceLimits!.terminal.checkpointChunkBytes,
+      signature,
+    );
     assert.equal(
       state.budgets.perClientInflight.value,
       config.resourceLimits!.ws.perClientOutputQueueMaxBytes,
@@ -1987,6 +2015,57 @@ test('REL_BGSTAB_007_AC10_pty_exit_is_session_terminated', async () => {
       assert.deepEqual(availability.driverLease, { state: 'revoked', ownerClientId: null }, signature);
     }
     assert.equal(harness.finalized.length, 1, signature);
+  } finally {
+    harness.manager.stopAllCwdWatching();
+  }
+});
+
+/*
+ * REL-BGSTAB-026 AC-2 — the two tests above assert the POSITIVE half: a restart is
+ * classified `authority-unavailable` and a PTY exit is classified `session-terminated`.
+ * AC-2 also forbids something, and a classification being correct does not by itself
+ * establish that nothing else claims parity. These two assert the prohibition.
+ *
+ * They are kept as separate tests from each other, and from the live-server coverage
+ * elsewhere in this file, because AC-4 requires the restart scope and the live-refresh
+ * scope to be verified separately so that one passing cannot be cited for the other.
+ */
+
+test('REL-BGSTAB-026 AC-2 — a restarted server claims no retained-state parity', () => {
+  const signature = 'a restarted server still exposed retained-state parity';
+  const harness = createHarness({ sessionId: 'server-restart-claims-no-parity' });
+  harness.close();
+
+  // A restart is a fresh process with no memory of the session.
+  const restarted = new SessionManager();
+  try {
+    const api = restarted as unknown as RetainedTerminalAuthorityApi;
+    assert.deepEqual(
+      api.getRetainedTerminalAuthorityAvailability?.(harness.sessionId),
+      { availability: 'authority-unavailable', reason: 'server-restart-or-session-missing' },
+      signature,
+    );
+    // The prohibition: no parity is reported, not even a negative one. There is no
+    // authority state to compare against, so any parity verdict would be manufactured.
+    assert.equal(api.getRetainedTerminalAuthorityState?.(harness.sessionId), undefined, signature);
+  } finally {
+    restarted.stopAllCwdWatching();
+  }
+});
+
+test('REL-BGSTAB-026 AC-2 — a terminated PTY claims no retained-state parity', async () => {
+  const signature = 'a terminated PTY still exposed retained-state parity';
+  const harness = createHarness({ sessionId: 'pty-exit-claims-no-parity' });
+  try {
+    await harness.emit('before-exit\r\n');
+    harness.pty.emitExit(0);
+
+    assert.equal(
+      harness.api.getRetainedTerminalAuthorityAvailability?.(harness.sessionId)?.availability,
+      'session-terminated',
+      signature,
+    );
+    assert.equal(harness.api.getRetainedTerminalAuthorityState?.(harness.sessionId), undefined, signature);
   } finally {
     harness.manager.stopAllCwdWatching();
   }
@@ -2292,7 +2371,7 @@ test('RED reviewer — retained operation and fact evidence ledgers stay policy-
       recordsEvicted: true,
       factsEvicted: true,
       aggregateConfigured: false,
-      checkpointChunkConfigured: false,
+      checkpointChunkConfigured: true, // #78: the chunk size is a config key now
       ledgerEncodedBytesBounded: true,
       ledgerEncodedBytesExact: true,
       oversizedSemanticKeyCanonicalized: true,
@@ -2372,9 +2451,27 @@ test('RED reviewer — newline-free soft-wrap and reflow eviction advance exact 
   const harness = createHarness({ sessionId: 'soft-wrap-reflow-eviction', retainedScrollbackLines: 2 });
   try {
     assert.equal(harness.manager.resize(harness.sessionId, 4, 2), true, signature);
-    // Four ASCII cells fill one physical row without relying on a Unicode-width
-    // provider that is not yet shared by the server and browser runtimes.
+    // Four ASCII cells fill one physical row. ASCII rather than a wide character
+    // so the row count is arithmetic rather than a width-table reading; both
+    // runtimes do now share a width table (#114 loads @xterm/addon-unicode11 on
+    // both sides), but this test is about eviction attribution, not width.
     for (let index = 0; index < 6; index += 1) await harness.emit('abcd');
+
+    // Issue #114 set reflowCursorLine to false on this replica, matching the
+    // browser. The option governs exactly one thing: whether the logical line the
+    // CURSOR is on gets rewrapped by a resize. Without this newline the cursor
+    // sits on the soft-wrapped line built above, so narrowing rewraps nothing,
+    // no additional rows are evicted, and the attribution claim below becomes
+    // vacuous — it would be asserting that an eviction that never happened was
+    // attributed correctly.
+    //
+    // This is a SCOPE change, not a weakening. The subject of the test is AC-7's
+    // attribution of soft-wrap/reflow eviction to the oldest retained source, and
+    // committing the line keeps a soft-wrapped logical line in the retained range
+    // for the resize to rewrap while moving the cursor off it. Measured: eviction
+    // still advances (2 -> 3 rows before the resize, and further after it) and
+    // every attribution field is unchanged.
+    await harness.emit('\r\n');
     const beforeReflow = harness.readState();
     const outputRecords = beforeReflow.records.filter(record => record.kind === 'output');
     const expectedOldestSourceSeq = outputRecords.at(-4)?.sourceSeq;
@@ -2392,7 +2489,7 @@ test('RED reviewer — newline-free soft-wrap and reflow eviction advance exact 
       reflowDidNotRegressOldest: BigInt(afterReflow.oldestRetainedSeq) >= BigInt(beforeReflow.oldestRetainedSeq),
       dataGapRequired: afterReflow.eviction.dataGapRequired,
     }, {
-      evictedRows: 2,
+      evictedRows: 3,
       oldestRetainedSeq: expectedOldestSourceSeq,
       expectedOldestSourceSeq,
       completeLogicalRowBoundary: false,
@@ -2919,6 +3016,215 @@ test('RED reviewer — headless write failure settles failed and later queued se
     }, signature);
   } finally {
     rejectWrite(new Error('cleanup'));
+    harness.close();
+  }
+});
+
+// Named owner for issue #11 AC-9 / REL-BGSTAB-011 AC-4's second clause.
+//
+// Before this test the property was *covered but unowned*: injecting a
+// one-byte delivery change gated on shadow mode was caught only by tests named
+// for PERF-BGSTAB-011 reservation routing and ACK-16 source identity, so
+// rewriting either of those for its own stated reason would have unguarded this
+// silently. The test that carries the AC-9 assertions today —
+// `… RED contract — REL-BGSTAB-011 AC-7` — stayed green under that injection,
+// because `deliveries.some(entry => entry.data.includes(...))` is true of the
+// correct payload and of one whose tail the shadow has eaten.
+//
+// The predicate here is the one this repository already trusts for exactly this
+// question: ACK-01's "routes each reservation tuple unchanged after commit",
+// pointed at renderer delivery instead of at the reservation ledger.
+test('REL-BGSTAB-011 AC-4/AC-9 — the shadow changes neither the delivered bytes nor the authority decision', async () => {
+  const signature = 'REL-BGSTAB-011 AC-4/AC-9 shadow presence altered renderer delivery or the authority decision';
+  const payload = 'ac9-delivery-integrity-一二三-é-🙂 tail\r\nsecond line\r\n';
+
+  const runArm = async (retainedShadowEnabled: boolean) => {
+    const harness = createHarness({
+      sessionId: `ac9-delivery-${retainedShadowEnabled ? 'shadow' : 'disabled'}`,
+      retainedShadowEnabled,
+    });
+    try {
+      await harness.emit(payload);
+      const own = harness.deliveries.filter(entry => entry.sessionId === harness.sessionId);
+      return {
+        mode: harness.readState().mode,
+        deliveredChunks: own.map(entry => entry.data),
+        deliveredJoined: own.map(entry => entry.data).join(''),
+        authorityRevisions: own.map(entry => entry.authority?.authorityRevision),
+        screenSeqs: own.map(entry => entry.screenSeq),
+      };
+    } finally {
+      harness.close();
+    }
+  };
+
+  const shadow = await runArm(true);
+  const disabled = await runArm(false);
+
+  // Preconditions first, so this test goes false rather than vacuous if the two
+  // arms ever stop being different experiments, or if delivery stops happening
+  // at all. A universal claim over an empty delivery list is true.
+  assert.equal(shadow.mode, 'shadow', `${signature} (precondition: shadow arm must be in shadow mode)`);
+  assert.equal(disabled.mode, 'disabled', `${signature} (precondition: control arm must have the shadow off)`);
+  assert.equal(shadow.deliveredChunks.length, 1, `${signature} (precondition: shadow arm must deliver exactly one chunk)`);
+  assert.equal(disabled.deliveredChunks.length, 1, `${signature} (precondition: control arm must deliver exactly one chunk)`);
+
+  // The property. Equality, not `includes` — a substring predicate cannot see a
+  // tail the shadow has removed, which is how this went unguarded.
+  assert.deepEqual(shadow.deliveredChunks, disabled.deliveredChunks, signature);
+  assert.equal(shadow.deliveredJoined, payload, signature);
+  assert.equal(disabled.deliveredJoined, payload, signature);
+
+  // …and the authority decision, which is the other half of the AC.
+  assert.deepEqual(shadow.authorityRevisions, disabled.authorityRevisions, signature);
+  assert.deepEqual(shadow.authorityRevisions, [1], signature);
+  assert.deepEqual(shadow.screenSeqs, disabled.screenSeqs, signature);
+});
+
+// Named owner for issue #11 AC-5's second half.
+//
+// `… RED contract — REL-BGSTAB-011 AC-3` already owns the *empty* success: it
+// asserts `serializedData.length > 0` on the over-cap arm, and that assertion
+// does redden when the retained serializer is made to return an empty payload.
+// But `> 0` is a lower bound, and it is true of the correct state and of a
+// checkpoint silently truncated to its first few bytes. Injecting exactly that
+// left the whole 52-test suite green.
+//
+// The other assertion in that test, `checkpoint.truncated === false`, cannot
+// help: `RetainedHeadlessCheckpoint.truncated` is declared as the literal type
+// `false` and the producer hardcodes it, so the field admits one value across
+// every path that reaches it.
+test('REL-BGSTAB-011 AC-3 — an over-cap retained checkpoint converges without a silent tail', async () => {
+  const signature = 'REL-BGSTAB-011 AC-3 over-cap retained checkpoint lost payload as a silent tail';
+  const legacyCapBytes = 16;
+  const emittedLines = 24;
+  const harness = createHarness({
+    sessionId: 'ac3-over-cap-no-silent-tail',
+    maxSnapshotBytes: legacyCapBytes,
+    retainedScrollbackLines: 64,
+  });
+  try {
+    for (let index = 0; index < emittedLines; index += 1) {
+      await harness.emit(`over-cap-line-${index}-padding-padding-padding\r\n`);
+    }
+    const state = requireRetainedState(harness, signature);
+    const rehydrateBytes = Buffer.byteLength(state.checkpoint.rehydrateAnsi, 'utf8');
+
+    // Precondition: the arm under test must genuinely exceed the legacy
+    // compatibility cap. Asserting the property on an under-cap payload would
+    // pass for the wrong reason.
+    assert.ok(
+      rehydrateBytes > legacyCapBytes,
+      `${signature} (precondition: payload must exceed the legacy cap; was ${rehydrateBytes} bytes)`,
+    );
+
+    // The property: the retained checkpoint converges to the whole model, not to
+    // an empty success and not to a truncated one.
+    assert.equal(state.checkpoint.serializedData, state.checkpoint.rehydrateAnsi, signature);
+    assert.equal(
+      Buffer.byteLength(state.checkpoint.serializedData, 'utf8'),
+      rehydrateBytes,
+      signature,
+    );
+    assert.equal(state.checkpoint.normal.logicalLines.length, emittedLines, signature);
+    assert.ok(
+      state.checkpoint.serializedData.includes(`over-cap-line-${emittedLines - 1}`),
+      `${signature} (the newest line must survive)`,
+    );
+    assert.ok(
+      state.checkpoint.serializedData.includes('over-cap-line-0'),
+      `${signature} (the oldest retained line must survive)`,
+    );
+  } finally {
+    harness.close();
+  }
+});
+
+type MutationLeaseAdoption =
+  | { ok: true; sessionId: string; authorityEpoch: string; clientId: string; viewGeneration: number; leaseGeneration: string }
+  | { ok: false; reason: string };
+
+function adopt(harness: Harness, clientId: string, viewGeneration: number): MutationLeaseAdoption {
+  return (harness.api as unknown as {
+    adoptRetainedTerminalMutationLease(
+      sessionId: string, clientId: string, viewGeneration: number,
+    ): MutationLeaseAdoption;
+  }).adoptRetainedTerminalMutationLease(harness.sessionId, clientId, viewGeneration);
+}
+
+// @req REL-BGSTAB-011
+test('REL-BGSTAB-011 AC-6 the client that actually types adopts the driver lease from a live holder', () => {
+  // Measured 2026-09-19 on https://localhost:2222 with a server-side probe at the refusal site:
+  //   reason "driver-owned-by-other-client", driverLease.ownerClientId a client that was STILL
+  //   in connectedClients. A background view that merely subscribed first became the sole driver
+  //   and the view the user was typing in was refused forever. establishRetainedTerminalMutationLease
+  //   cannot fix that: it refuses whenever anyone else owns the lease, live or not.
+  const signature = 'a registered view that writes must be able to take the driver lease';
+  const harness = createHarness();
+  try {
+    assert.equal(harness.api.registerRetainedTerminalClientView(harness.sessionId, 'background-tab', 1).ok, true, signature);
+    assert.equal(harness.api.claimRetainedTerminalDriverLease(harness.sessionId, 'background-tab', 1).ok, true, signature);
+    assert.equal(harness.api.registerRetainedTerminalClientView(harness.sessionId, 'typing-tab', 1).ok, true, signature);
+
+    assert.deepEqual(
+      harness.api.establishRetainedTerminalMutationLease(harness.sessionId, 'typing-tab', 1),
+      { ok: false, reason: 'driver-owned-by-other-client' },
+      'precondition: the existing path refuses while another client holds the lease',
+    );
+
+    const adopted = adopt(harness, 'typing-tab', 1);
+    assert.equal(adopted.ok, true, signature);
+    assert.equal(adopted.ok === true && adopted.clientId, 'typing-tab', signature);
+    assert.equal(adopted.ok === true && adopted.viewGeneration, 1, signature);
+
+    // The old holder must no longer be able to mutate under its stale lease identity.
+    assert.equal(
+      harness.api.observeRetainedTerminalDriverMutation(harness.sessionId, 'background-tab', 1, '1', 'input').accepted,
+      false,
+      'the superseded holder must not keep driving',
+    );
+    assert.equal(
+      harness.api.observeRetainedTerminalDriverMutation(
+        harness.sessionId, 'typing-tab', 1,
+        adopted.ok === true ? adopted.leaseGeneration : '',
+        'input',
+      ).accepted,
+      true,
+      signature,
+    );
+  } finally {
+    harness.close();
+  }
+});
+
+// @req REL-BGSTAB-011
+test('REL-BGSTAB-011 AC-6 adoption is idempotent for the client that already holds the lease', () => {
+  const harness = createHarness();
+  try {
+    harness.api.registerRetainedTerminalClientView(harness.sessionId, 'only-tab', 1);
+    const first = adopt(harness, 'only-tab', 1);
+    assert.equal(first.ok, true);
+    const second = adopt(harness, 'only-tab', 1);
+    assert.equal(second.ok, true);
+    assert.equal(
+      second.ok === true && first.ok === true && second.leaseGeneration,
+      first.ok === true ? first.leaseGeneration : '',
+      're-adopting must not churn the lease generation out from under an in-flight write',
+    );
+  } finally {
+    harness.close();
+  }
+});
+
+// @req REL-BGSTAB-011
+test('REL-BGSTAB-011 AC-6 a view that was never registered cannot adopt the lease', () => {
+  const harness = createHarness();
+  try {
+    harness.api.registerRetainedTerminalClientView(harness.sessionId, 'owner', 1);
+    harness.api.claimRetainedTerminalDriverLease(harness.sessionId, 'owner', 1);
+    assert.deepEqual(adopt(harness, 'stranger', 1), { ok: false, reason: 'client-view-missing' });
+    assert.deepEqual(adopt(harness, 'owner', 9), { ok: false, reason: 'client-view-missing' });
+  } finally {
     harness.close();
   }
 });

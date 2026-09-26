@@ -81,6 +81,18 @@ export const TERMINAL_RESOURCE_POLICY_CONSUMER_IDS = [
   'browser.terminal.write-scheduler',
   'browser.terminal.recovery-scheduler',
   'browser.snapshot.persisted-storage',
+  // #20: the binary data plane's own consumer. Appended rather than inserted because
+  // RESERVED_ID_DECLARATION_SITES pins the reserved id at the head of this array to a
+  // fixed line, and inserting above it would move that anchor. (The id is deliberately not
+  // written here: naming it in a comment would itself count as a production occurrence.)
+  //
+  // It gets its own id rather than folding onto its caller (WebSocketContext, which is
+  // browser.terminal.recovery-scheduler) for the same reason server.ws.send-policy has one:
+  // it is a delegated policy decision that owns its own bound. deriveMaxBodyBytes takes
+  // visibleOutputQueueMaxBytes and refuses a frame that cannot enter the queue. Folding it
+  // in would also have left #18's sibling tracker row for the binary plane with no consumer
+  // behind it, which is the same hole as a consumer with no row seen from the other side.
+  'browser.binary.frame-codec',
 ] as const;
 
 export type TerminalResourcePolicyConsumerId = typeof TERMINAL_RESOURCE_POLICY_CONSUMER_IDS[number];
@@ -105,6 +117,10 @@ const RESOURCE_DEFINITIONS = {
   'resourceLimits.snapshots.perSnapshotMaxChars': { path: ['snapshots', 'perSnapshotMaxChars'], unit: 'chars', applyBoundary: 'snapshot-read-write' },
   'resourceLimits.snapshots.tombstoneTtlMs': { path: ['snapshots', 'tombstoneTtlMs'], unit: 'ms', applyBoundary: 'snapshot-cleanup' },
   'resourceLimits.snapshots.totalStorageBudgetChars': { path: ['snapshots', 'totalStorageBudgetChars'], unit: 'chars', applyBoundary: 'snapshot-eviction' },
+  'resourceLimits.terminal.checkpointMaxBytes': { path: ['terminal', 'checkpointMaxBytes'], unit: 'bytes', applyBoundary: 'checkpoint-write-coordinator' },
+  'resourceLimits.terminal.checkpointChunkBytes': { path: ['terminal', 'checkpointChunkBytes'], unit: 'bytes', applyBoundary: 'checkpoint-chunk' },
+  'resourceLimits.terminal.checkpointMaxChunks': { path: ['terminal', 'checkpointMaxChunks'], unit: 'count', applyBoundary: 'checkpoint-write-coordinator' },
+  'resourceLimits.terminal.inputQueueMaxCount': { path: ['terminal', 'inputQueueMaxCount'], unit: 'count', applyBoundary: 'checkpoint-input-count-cap' },
   'resourceLimits.terminal.hiddenOutputPolicy': { path: ['terminal', 'hiddenOutputPolicy'], unit: 'enum', applyBoundary: 'visibility-decision' },
   'resourceLimits.terminal.hiddenOutputTailBytes': { path: ['terminal', 'hiddenOutputTailBytes'], unit: 'bytes', applyBoundary: 'visibility-decision' },
   'resourceLimits.terminal.inputQueueMaxBytes': { path: ['terminal', 'inputQueueMaxBytes'], unit: 'bytes', applyBoundary: 'recovery-generation' },
@@ -113,6 +129,7 @@ const RESOURCE_DEFINITIONS = {
   'resourceLimits.terminal.transportOutboxMaxBytes': { path: ['terminal', 'transportOutboxMaxBytes'], unit: 'bytes', applyBoundary: 'browser-transport-generation' },
   'resourceLimits.terminal.transportOutboxTtlMs': { path: ['terminal', 'transportOutboxTtlMs'], unit: 'ms', applyBoundary: 'browser-transport-generation' },
   'resourceLimits.terminal.visibleFlushBudgetBytes': { path: ['terminal', 'visibleFlushBudgetBytes'], unit: 'bytes', applyBoundary: 'browser-frame' },
+  'resourceLimits.terminal.visibleFlushFrameBudgetMs': { path: ['terminal', 'visibleFlushFrameBudgetMs'], unit: 'ms', applyBoundary: 'browser-frame' },
   'resourceLimits.terminal.visibleOutputMaxChunks': { path: ['terminal', 'visibleOutputMaxChunks'], unit: 'count', applyBoundary: 'browser-output-generation' },
   'resourceLimits.terminal.visibleOutputQueueMaxBytes': { path: ['terminal', 'visibleOutputQueueMaxBytes'], unit: 'bytes', applyBoundary: 'browser-output-generation' },
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs': { path: ['workspaceRuntime', 'hiddenRuntimeTtlMs'], unit: 'ms', applyBoundary: 'runtime-residency' },

@@ -1,0 +1,41 @@
+=== r3 static reruns; utc=2026-09-16T02:53:55Z ===
+tree: HEAD=c442948 plus the uncommitted review-round changes listed below; the next commit freezes exactly this content.
+uncommitted files at capture time:
+ M docs/analysis/2026-09-16.issue34-capacity-ratify/README.md
+ M docs/report/2026-09-16.issue34-workspace-tab-capacity-ratification.md
+ M docs/spec/30.buildergate-stability.srs.md
+ M docs/worklog/2026-09-16.jsonl
+ M frontend/tests/e2e/issue34-capacity-ratify.spec.ts
+ M kiwi/.status.json
+?? docs/analysis/2026-09-16.issue34-capacity-ratify/raw/r3-config-4-3-server.log
+?? docs/analysis/2026-09-16.issue34-capacity-ratify/raw/r3-config-4-3.log
+?? docs/analysis/2026-09-16.issue34-capacity-ratify/raw/r3-config-6-2-server.log
+?? docs/analysis/2026-09-16.issue34-capacity-ratify/raw/r3-config-6-2.log
+?? docs/analysis/2026-09-16.issue34-capacity-ratify/raw/r3-final-ports.txt
+?? docs/analysis/2026-09-16.issue34-capacity-ratify/raw/r3-guard-controls.log
+?? docs/analysis/2026-09-16.issue34-capacity-ratify/raw/r3-static-reruns.log
+?? docs/analysis/kiwi-review-fix-loop-2026-09-16.buildergate.self-0157/README.md
+
+--- capacity unit tests (drive the real App at non-default capacities) ---
+✔ FR-BGSTAB-026 CAP-07 App through Sidebar to actual Item menu applies creation capacity 4.5 (17.894313ms)
+✔ FR-BGSTAB-026 CAP-07 TabBar keeps the independent 32-session creation guard (18.040079ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 682.303605
+--- e2e ownership typecheck guard ---
+✔ REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors (7864.918279ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8275.659455
+--- tsc --noEmit -p tsconfig.e2e-ownership.json ---
+tsc exit: 0

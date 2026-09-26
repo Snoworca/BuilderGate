@@ -1,0 +1,49 @@
+# Issue #10 AC-4 (b) — checkpoint lane pacing, implemented under the gate
+# 2026-09-18
+
+## RED, before any production change
+tests/unit/terminalCheckpointLanePacing.test.ts: 3 tests, 1 pass, 2 fail.
+The pass is the NEGATIVE CONTROL — with neither a budget nor a yield configured
+the lane must be unchanged. Without it the two subjects would be satisfied by an
+implementation that defers unconditionally, which would change behaviour for
+every caller that opts into nothing.
+The two failures were for the right reason:
+  "nothing was deferred, so the budget was never consulted"
+
+## GREEN
+3 tests, 3 pass. Both subjects now defer AND resume; the control still shows an
+unconfigured coordinator behaving exactly as before.
+
+## Shape of the change
+frameBudgetMs and shouldYield are OPT-IN options on the coordinator. Absent, the
+lane behaves as it always has. Deferral SCHEDULES its continuation through the
+existing setTimer seam, because a yield that schedules nothing is the hang this
+change risks — guarded by the liveness test, which reddens with
+"ready never opened — the lane stalled".
+The frame deadline is cleared when the frame is deferred rather than when it
+resumes, so a throwing scheduler cannot leave a spent deadline behind.
+
+## Production wiring
+TerminalView passes frameBudgetMs: DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS — the
+scheduler's already-exported constant, NOT a second literal — and
+shouldYield: hasPendingBrowserInput, the same predicate it already passes to the
+scheduler. No new configuration key, no change to stored config shape or the
+public runtime payload, no product default introduced.
+
+## LIMIT OF VERIFICATION, stated rather than left implicit
+That the wiring reaches the lane AT RUNTIME is established by typecheck and by
+reading the call site, NOT by execution. This is the same distinction #95 drew
+for #101: present-in-source and applied-at-runtime are different claims. The
+coordinator-level behaviour IS executed (the three pacing tests drive the real
+factory), but the TerminalView construction site is not exercised by any test in
+this lane. Browser-level confirmation belongs to the Playwright step.
+
+## Regression
+frontend unit: 1331 tests, 1328 pass, 3 fail — the same three measured
+pre-existing failures, unchanged in name and count.
+Coordinator neighbours all green: terminalWriteCoordinator 63/63,
+terminalCheckpointRuntime 106/106, terminalSnapshotLiveHandoverIntegrity 2/2,
+terminalRollbackWriterBounds 5/5, terminalWriteInterleaving 5/5,
+terminalCheckpointBudgetSeparation 7/7, terminalDisposeAndEpochGuards 3/3,
+terminalOutputScheduler 60/60.
+tsc -b exit 0; tsc -p tsconfig.test.json --noEmit exit 0.

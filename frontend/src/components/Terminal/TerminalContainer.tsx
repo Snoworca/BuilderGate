@@ -17,6 +17,7 @@ import {
   getTerminalResourceLimits,
   getWsTransportMode,
 } from '../../utils/inputReliabilityMode';
+import { publishInputDiscard, shouldShowInputDiscardFeedback } from '../../utils/inputDiscardFeedback';
 import {
   getCachedTerminalOutputResourceLimits,
   getOutputUtf8ByteLength as getUtf8ByteLength,
@@ -67,6 +68,7 @@ import {
   TerminalInputSequencer,
   type SequencedTerminalInput,
 } from '../../utils/terminalInputSequencer';
+import { buildTerminalInputIdentityFields } from '../../utils/terminalInputOperationId';
 import { resolveStaleSocketReconnectDecision } from '../../utils/terminalTransportQueueDecision';
 import type {
   InputDebugMetadata,
@@ -298,6 +300,8 @@ export const TerminalContainer = memo(
     const transportOutboxExpiryTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
     const deliverSequencedInputRef = useRef<(input: SequencedTerminalInput, reason: string) => void>(() => {});
     const inputSequencerRef = useRef<TerminalInputSequencer | null>(null);
+    // Bumped with every sequencer reset so a restarted sequence cannot reuse an operation id.
+    const inputSequencerEpochRef = useRef(1);
     const reconnectStartedAtRef = useRef<number | null>(null);
     const reconnectTtlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const {
@@ -781,6 +785,13 @@ export const TerminalContainer = memo(
     ) => {
       const mode = getInputReliabilityMode();
       if (mode === 'observe') {
+        // REL-BGSTAB-016 (#109): the transport half of the same silence. AC-2 records why the
+        // predicate differs in name only -- classifyTransportQueueDecision has already rejected
+        // the invisible, closed and missing-token cases before a call reaches here with
+        // action 'queue'.
+        if (shouldShowInputDiscardFeedback({ site: 'transport-queue', mode, state: decision.action })) {
+          publishInputDiscard(sessionId);
+        }
         recordTransportInputQueueEvent('transport_input_would_queue', input, {
           reason: 'mode-observe-only',
           source,
@@ -883,6 +894,12 @@ export const TerminalContainer = memo(
     ): SendResult => {
       const debugInput = resolveInputDebugPayload(input.data, input.metadata, sessionId);
       const metadata = input.metadata ?? buildClientInputDebugMetadata(debugInput.details);
+      const identity = buildTerminalInputIdentityFields({
+        sequencerEpoch: inputSequencerEpochRef.current,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+      });
+      const inputOperationId = identity.inputOperationId ?? null;
       const result = send({
         type: 'input',
         sessionId,
@@ -890,11 +907,15 @@ export const TerminalContainer = memo(
         inputSeqStart: input.inputSeqStart,
         inputSeqEnd: input.inputSeqEnd,
         metadata,
+        // #18 criterion 6: id and ordering are one fact in two fields, so they are built
+        // together and spread together. buildTerminalInputIdentityFields owns the pairing.
+        ...identity,
       });
 
       if (result.ok) {
         recordTerminalDebugEvent(sessionId, 'ws_input_sent', {
           ...debugInput.details,
+          inputOperationId: inputOperationId ?? 'none',
           inputSeqStart: input.inputSeqStart,
           inputSeqEnd: input.inputSeqEnd,
           logicalChunkCount: input.logicalChunkCount,
@@ -1160,6 +1181,7 @@ export const TerminalContainer = memo(
       lastSentResizeRef.current = null;
       lastStatusRef.current = null;
       inputSequencerRef.current?.reset(1);
+      inputSequencerEpochRef.current += 1;
       supersededVisibleOutputResyncKeysRef.current.clear();
       visibleOutputResyncEpochRef.current += 1;
       visibleOutputMutationFenceRef.current?.invalidateSpeculative();
@@ -1198,12 +1220,19 @@ export const TerminalContainer = memo(
       recordTerminalDebugEvent(sessionId, 'visibility_changed', {
         visible: isVisible,
       });
+      // #110: this used to be `isVisible && isGridSurface`, and isGridSurface is
+      // `host.className.includes('grid-cell')` -- a presentation detail kept for middle-click
+      // paste. Terminals in the workspace tab surface are not grid cells, so every one of them
+      // reported itself permanently invisible and the server withheld their output. Measured
+      // 2026-09-19: every visibility message in a whole run was {isVisible:false, generation:1},
+      // and `true` was never sent. isVisible already means displayed with non-zero area, which
+      // is exactly what delivery interest asks.
       publishTerminalDeliveryVisibility({
         sessionId,
-        isVisible: isVisible && isGridSurface,
+        isVisible,
         deliveryInterestRefCount: 1,
       });
-    }, [isGridSurface, isVisible, publishTerminalDeliveryVisibility, sessionId]);
+    }, [isVisible, publishTerminalDeliveryVisibility, sessionId]);
 
     const sendResizeIfNeeded = useCallback((cols: number, rows: number, reason: string) => {
       const lastSent = lastSentResizeRef.current;

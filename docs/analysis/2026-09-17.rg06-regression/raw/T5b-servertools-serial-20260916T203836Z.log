@@ -1,0 +1,44 @@
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (251.633409ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (60.29513ms)
+✔ OPS-BGSTAB-008 the bundle writer completes on this working tree (3957.133822ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (167.28349ms)
+✔ node-pty runtime patches are idempotent and fail closed on target drift (14.886361ms)
+▶ fair scheduler pinned sources retain raw-byte provenance through Git checkout
+  ✔ src/benchmarks/terminalFairnessCharacterization.ts (132.832805ms)
+  ✔ src/benchmarks/fairSchedulerAuthorityLocator.ts (130.271341ms)
+  ✔ src/ws/wsSendPolicy.ts (142.218513ms)
+  ✔ src/ws/WsRouter.ts (135.129705ms)
+  ✔ src/services/TerminalResourcePolicy.ts (130.563182ms)
+  ✔ src/services/TerminalResourcePolicyCanary.ts (131.013211ms)
+✔ fair scheduler pinned sources retain raw-byte provenance through Git checkout (806.291062ms)
+▶ fair scheduler current authority JSON retains raw-byte hashes through Git checkout
+  ✔ current.json (128.073033ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/fair-scheduler-decision.json (132.505922ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/provenance.json (132.103602ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-0.json (148.372977ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-1.json (140.84501ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-2.json (139.1216ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-3.json (142.702683ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-4.json (144.123214ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-0.json (142.985126ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-1.json (142.127047ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-2.json (146.912254ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-3.json (141.800994ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-4.json (140.692699ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-0.json (146.147571ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-1.json (151.921913ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-2.json (151.391751ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-3.json (155.393829ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-4.json (153.379647ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/manifest.json (139.079675ms)
+✔ fair scheduler current authority JSON retains raw-byte hashes through Git checkout (2739.929187ms)
+✔ PERF-BGSTAB-010 canonical bundle writer rejects source-root override and copies only current immutable generation (4251.862056ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12469.154188
+EXIT=0

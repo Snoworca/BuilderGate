@@ -144,3 +144,37 @@ function createLegacyConfigContent(): string {
   },
 }`;
 }
+
+test('SEC-BGSTAB-001 a nested resourceLimits leaf survives being written into legacy config text', async () => {
+  // 이 렌더러는 resourceLimits 의 모든 leaf 가 스칼라라고 가정하고 있었다.
+  // renderJson5Value 의 마지막 줄이 String(value) 라서 중첩 객체는 조용히
+  // `[object Object]` 가 되고, 그 다음 줄의 JSON5.parse 가 터진다 -- 즉 설정을
+  // 저장하는 것 자체가 실패한다. terminal.osc52 가 이 스키마의 첫 중첩 leaf 다.
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-nested-resource-limits-'));
+  const configPath = path.join(tempDir, 'config.json5');
+  await fs.writeFile(configPath, createLegacyConfigContent(), 'utf-8');
+
+  const parsedConfig = configSchema.parse(JSON5.parse(createLegacyConfigContent())) as Config;
+  const values = new RuntimeConfigStore(parsedConfig, 'linux').mergeEditablePatch({
+    resourceLimits: { headless: { pendingOutputMaxBytes: 2097152 } },
+  });
+  const repository = new ConfigFileRepository(configPath, 'linux');
+
+  try {
+    // 이 호출은 내부에서 렌더 결과를 다시 JSON5.parse 하므로, 렌더가 깨지면 여기서 던진다.
+    const result = repository.persistEditableValues(values, {}, {
+      dryRun: true,
+      changedKeys: ['resourceLimits.headless.pendingOutputMaxBytes'],
+    });
+
+    assert.doesNotMatch(
+      result.renderedContent,
+      /\[object Object\]/,
+      'a nested leaf must be rendered as a JSON5 block, not stringified',
+    );
+    const reparsed = JSON5.parse(result.renderedContent);
+    assert.equal(reparsed.resourceLimits.terminal.osc52.allowWrite, true);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});

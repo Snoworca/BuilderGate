@@ -1,0 +1,87 @@
+# git status --porcelain BEFORE
+ M docs/analysis/2026-09-17.rg06-regression/guard-mutation-battery.mjs
+ M package.json
+ M server/tools/owned-http-test-pipe-guard.test.cjs
+ M server/tools/test-owned-http-test-pipe.cjs
+?? docs/analysis/2026-09-17.rg06-regression/raw/GREEN4-guard-selfcheck-final-20260916T234657Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/RED4-guard-selfcheck-vs-a6c7edc-20260916T234658Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/T5f-servertools-testtools-script-20260916T234731Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/env-and-ports-round5-before-20260916T234657Z.txt
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-current-20260916T234658Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-nodetestcontext-20260916T234707Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-selfcheck-839db2a-20260916T234723Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-selfcheck-9845ea7-20260916T234727Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-selfcheck-a6c7edc-20260916T234717Z.log
+# collected files:
+server/tools/canonical-authority-line-endings.test.mjs
+server/tools/ensure-node-pty-windows-hide.test.cjs
+server/tools/fair-scheduler-checkout-provenance.test.mjs
+server/tools/owned-http-test-pipe-guard.test.cjs
+server/tools/write-fair-scheduler-evidence-bundle.test.mjs
+# npm --prefix server run test:tools (script body runs with cwd=server/)
+
+> buildergate-server@0.1.0 test:tools
+> node --test --test-concurrency=1 tools/*.test.*
+
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (396.313601ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (99.875681ms)
+✔ OPS-BGSTAB-008 the bundle writer completes on this working tree (5697.284123ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (212.393949ms)
+✔ node-pty runtime patches are idempotent and fail closed on target drift (15.000715ms)
+▶ fair scheduler pinned sources retain raw-byte provenance through Git checkout
+  ✔ src/benchmarks/terminalFairnessCharacterization.ts (170.848991ms)
+  ✔ src/benchmarks/fairSchedulerAuthorityLocator.ts (179.451692ms)
+  ✔ src/ws/wsSendPolicy.ts (180.8ms)
+  ✔ src/ws/WsRouter.ts (178.348567ms)
+  ✔ src/services/TerminalResourcePolicy.ts (184.061765ms)
+  ✔ src/services/TerminalResourcePolicyCanary.ts (190.666629ms)
+✔ fair scheduler pinned sources retain raw-byte provenance through Git checkout (1089.365323ms)
+▶ fair scheduler current authority JSON retains raw-byte hashes through Git checkout
+  ✔ current.json (183.350962ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/fair-scheduler-decision.json (198.315507ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/provenance.json (201.837398ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-0.json (210.916509ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-1.json (212.1606ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-2.json (210.368973ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-3.json (196.976373ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-4.json (207.820053ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-0.json (210.793595ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-1.json (195.898591ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-2.json (207.593642ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-3.json (205.07799ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-4.json (215.114655ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-0.json (201.560671ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-1.json (205.816672ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-2.json (203.198853ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-3.json (212.823275ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-4.json (217.0123ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/manifest.json (200.277617ms)
+✔ fair scheduler current authority JSON retains raw-byte hashes through Git checkout (3927.638232ms)
+✔ B0 listen guard self-check passes with the exact corpus it claims (50.316579ms)
+✔ the self-check actually drives the guard, counted from the guard own log (57.50215ms)
+✔ the self-check covers the platform branch this lane does not take (57.07936ms)
+✔ B0 listen guard refuses to load a kind that is not a regex literal (27.947149ms)
+✔ PERF-BGSTAB-010 canonical bundle writer rejects source-root override and copies only current immutable generation (5838.627518ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17772.231319
+EXIT=0
+# git status --porcelain AFTER
+ M docs/analysis/2026-09-17.rg06-regression/guard-mutation-battery.mjs
+ M package.json
+ M server/tools/owned-http-test-pipe-guard.test.cjs
+ M server/tools/test-owned-http-test-pipe.cjs
+?? docs/analysis/2026-09-17.rg06-regression/raw/GREEN4-guard-selfcheck-final-20260916T234657Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/RED4-guard-selfcheck-vs-a6c7edc-20260916T234658Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/T5f-servertools-testtools-script-20260916T234731Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/env-and-ports-round5-before-20260916T234657Z.txt
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-current-20260916T234658Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-nodetestcontext-20260916T234707Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-selfcheck-839db2a-20260916T234723Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-selfcheck-9845ea7-20260916T234727Z.log
+?? docs/analysis/2026-09-17.rg06-regression/raw/guard-mutation-battery-selfcheck-a6c7edc-20260916T234717Z.log

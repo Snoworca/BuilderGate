@@ -1,0 +1,25 @@
+# Mutation testing of the AC-11 / AC-6(i) guards — 2026-09-18
+# Production was already correct for all three clauses; these tests are guards, not fixes.
+# Each mutation was applied to src/utils/terminalWriteCoordinator.ts, the suite re-run,
+# then the file restored byte-identically (verified by sha256 each time).
+
+CAUGHT (the guard is real):
+  M1 dispose skips clearWriteTimeout()                 -> fail=1  CAUGHT
+  M2 dispose skips settling the in-flight token        -> fail=1  CAUGHT
+  M3 stale-stream-epoch rejection removed              -> fail=1  CAUGHT
+
+SURVIVED (the test cannot detect it):
+  M4 onWritten fence drops the 'disposed' term         -> fail=0  SURVIVED
+  M5 'activeMutation !== mutation' early return weakened-> fail=0  SURVIVED
+  MG BOTH late-callback guards deleted as a group      -> fail=0  SURVIVED
+
+MG is the decisive one. One-at-a-time deletion cannot tell 'nothing verifies this'
+from 'a redundant sibling enforces it'; the group deletion rules the second out.
+Cause: dispose drains the queue, nulls activeMutation and settles every token, so a
+late callback has nothing left to disturb — settleOnce is idempotent and pump()
+returns early on a disposed coordinator. AC-11(iv) is not falsifiable through the
+public surface on the dispose path.
+
+Disposition: the late-callback test is renamed to say it is a non-discriminating
+characterization and carries this measurement in its own comment. It is NOT counted
+as coverage. The other two tests are guards and are counted.

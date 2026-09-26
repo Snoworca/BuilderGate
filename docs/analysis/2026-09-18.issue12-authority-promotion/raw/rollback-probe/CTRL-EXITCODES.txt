@@ -1,0 +1,2 @@
+exit=0 services/SessionManagerTerminalAuthorityDebugIsolation.test.ts
+exit=0 services/TerminalAuthorityDebugService.test.ts

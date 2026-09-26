@@ -1,0 +1,113 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-1 (134.669114ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-2 (4.959579ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-3 (3.702804ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-4 (2.125779ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-5 (2.495064ms)
+✖ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6 (3833.988208ms)
+✔ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-7 (4.035561ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OBS-BGSTAB-005 review regression — raw provenance survives production loaders and replacements (92.23148ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OBS-BGSTAB-005 second review regression — explicit non-scrollback keys retain truthful loader provenance (13.03422ms)
+✔ OBS-BGSTAB-005 review regression — ConfigFileRepository previous/next provenance survives settings reload and rollback (4.280116ms)
+[Config] All passwords already encrypted
+[Config] Passwords encryption skipped: ZodError: [
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "resourceLimits",
+      "terminal",
+      "scrollbackLines"
+    ],
+    "message": "Invalid input: expected number, received string"
+  }
+]
+    at loadConfigFromPath (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/config.ts:235:44)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicy.test.ts:736:13)
+    at getActual (node:assert:611:5)
+    at strict.throws (node:assert:759:24)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicy.test.ts:735:12)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[Config] Configuration validation failed:
+[
+  {
+    "expected": "number",
+    "code": "invalid_type",
+    "path": [
+      "resourceLimits",
+      "terminal",
+      "scrollbackLines"
+    ],
+    "message": "Invalid input: expected number, received string"
+  }
+]
+✔ OBS-BGSTAB-005 review regression — invalid raw provenance is sanitized and never silently falls through (15.387717ms)
+✔ OBS-BGSTAB-005 review regression — compiler owns all 30 typed resources and records real legacy divergence (2.458487ms)
+✔ OBS-BGSTAB-005 review regression — no candidate profile is available without a registered stable contract (1.814636ms)
+✔ OBS-BGSTAB-005 review regression — telemetry is allowlisted, payload-free, bounded, and read-only on snapshot (1.945042ms)
+✖ OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites (1590.438175ms)
+✔ OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope (7591.402062ms)
+✔ OBS-BGSTAB-005 second review regression — production observe mode seeds bounded decisions on every config generation (4.289908ms)
+✔ OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers (1947.137716ms)
+✔ OBS-BGSTAB-005 review regression — observer differential preserves actual serialized legacy paths (2.382646ms)
+✔ PERF-BGSTAB-010 AC-4 fair delivery policy projection is derived from typed WS resource limits (2.051418ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 18
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16966.072103
+
+✖ failing tests:
+
+test at src/services/TerminalResourcePolicy.test.ts:1:16278
+✖ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6 (3833.988208ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicy.test.ts:458:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/TerminalResourcePolicy.test.ts:3:2737
+✖ OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites (1590.438175ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicy.test.ts:931:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

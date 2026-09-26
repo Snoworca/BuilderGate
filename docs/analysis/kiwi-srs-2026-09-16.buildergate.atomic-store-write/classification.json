@@ -1,0 +1,26 @@
+{
+  "target": "0.5.5-buildergate-stability",
+  "classification": "new-feature",
+  "rationale": "SCOPE was supplied (BGSTAB), so per kiwi-srs §6.3 only conflict/update were candidates. The Phase 1 existing-SRS analyst read REL-BGSTAB-020 in full and found it fixes the same failure signature by a mechanism that is per-process state (a promise chain on flushToDisk), which cannot observe a second process. It is correct and implemented for its own narrower scope, so it is neither contradicted (conflict) nor replaced (update). The cross-process case is therefore additive: new-feature carrying an `extends` trace link to REL-BGSTAB-020.",
+  "evidence_paths": [
+    "server/src/services/CommandPresetService.ts:270-289",
+    "server/src/services/WorkspaceService.ts:1709-1753",
+    "server/src/services/TerminalShortcutService.ts:528-552",
+    "server/src/services/RecoveryOptionService.ts:410-437",
+    "server/src/services/McpControlConfigStore.ts:68",
+    "server/src/services/WebhookInvocationService.ts:430",
+    "server/src/index.ts:1028-1041",
+    "server/src/index.ts:1654-1657"
+  ],
+  "affected_existing_reqs": [
+    { "id": "REL-BGSTAB-020", "relation": "extends", "diff_summary": "REL-BGSTAB-020 serializes flushToDisk within one process. This requirement covers the case its mechanism cannot reach: two processes in one checkout. Its status and stability are unchanged." }
+  ],
+  "proposed_scope": "BGSTAB (existing)",
+  "proposed_prefix": "BGSTAB",
+  "proposed_type": "reliability",
+  "confidence": "high",
+  "scope_boundary_impact": null,
+  "external_module_impact": null,
+  "scope_boundary_note": "The Phase 1 SRS analyst flagged the scope's Out-of-Scope items about port 2002 and about terminating node processes as things a two-instance reproduction would collide with. This requirement's verification is unit-level — two service instances inside one node:test process, plus fault injection at the fs boundary — and starts no server, so no boundary item is touched and no §0.G4 gate fires.",
+  "multi_aspect_note": "Kept as one requirement rather than split per store. The four writers share one code shape and the fix is one shared helper; splitting would produce four requirements with identical statements and identical evidence. AC-7 carries the all-four-stores obligation so the merge does not lose it."
+}

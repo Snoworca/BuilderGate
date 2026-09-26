@@ -1,0 +1,42 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: REL-BGSTAB-010 appears in an unregistered test source or a registered source disappeared
++ actual - expected
+
+  [
+    'frontend/tests/unit/terminalContainerRecoveryContract.test.ts',
++   'frontend/tests/unit/terminalOutputAckCompletion.test.ts',
+    'frontend/tests/unit/terminalOutputScheduler.test.ts',
+    'frontend/tests/unit/terminalViewRecoveryContract.test.ts',
+    'server/src/services/TerminalResourcePolicyCanary.test.ts',
+    'server/src/ws/WsRouterSendPriority.test.ts'
+  ]
+
+    at file:///tmp/claude-1000/-mnt-c-work-git--Snoworca-ProjectMaster/ec00ba72-13d0-4af2-bf07-d053d0c579e6/scratchpad/issue8/baseline-bc94bea/tools/wave3/canary-admission-evidence.test.mjs:439:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [
+    'frontend/tests/unit/terminalContainerRecoveryContract.test.ts',
+    'frontend/tests/unit/terminalOutputAckCompletion.test.ts',
+    'frontend/tests/unit/terminalOutputScheduler.test.ts',
+    'frontend/tests/unit/terminalViewRecoveryContract.test.ts',
+    'server/src/services/TerminalResourcePolicyCanary.test.ts',
+    'server/src/ws/WsRouterSendPriority.test.ts'
+  ],
+  expected: [
+    'frontend/tests/unit/terminalContainerRecoveryContract.test.ts',
+    'frontend/tests/unit/terminalOutputScheduler.test.ts',
+    'frontend/tests/unit/terminalViewRecoveryContract.test.ts',
+    'server/src/services/TerminalResourcePolicyCanary.test.ts',
+    'server/src/ws/WsRouterSendPriority.test.ts'
+  ],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.21.0

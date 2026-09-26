@@ -32,6 +32,32 @@ export async function waitForTerminal(page: Page) {
   await page.waitForSelector('.xterm-screen:visible', { timeout: 15000 });
 }
 
+/**
+ * Issue #81: `waitForTerminal` answers "is SOME terminal visible", which is the right question
+ * only when the page is expected to hold exactly one. A caller that has just created a terminal
+ * is asking a different question, and gets the old terminal's readiness as an answer -- the
+ * wait returns immediately and the spec proceeds against a terminal that is not the one it
+ * made. That is the shape of the "precondition" failures #81 recorded, and it does not depend
+ * on the platform.
+ *
+ * These two express the question the creating caller actually has. They are additive: the 72
+ * existing `waitForTerminal` calls keep their meaning, which is correct wherever the page holds
+ * one terminal.
+ */
+export async function waitForTerminalCount(page: Page, expected: number, timeout = 30000): Promise<void> {
+  await page.waitForFunction(
+    (count) => document.querySelectorAll('.xterm-screen').length >= count,
+    expected,
+    { timeout },
+  );
+}
+
+/** Waits for the terminal that appeared after `before`, and for that one to be visible. */
+export async function waitForFreshTerminal(page: Page, before: number, timeout = 30000): Promise<void> {
+  await waitForTerminalCount(page, before + 1, timeout);
+  await page.locator('.xterm-screen').nth(before).waitFor({ state: 'visible', timeout });
+}
+
 /** Open the command preset manager through the header tools menu */
 export async function openCommandPresetDialog(page: Page): Promise<void> {
   await page.locator('button[title="도구"]').click();
@@ -560,11 +586,71 @@ export async function getServerSessionCount(page: Page): Promise<number> {
  * without a prior click to focus, both negative, while `keyboard.type()` was
  * positive. A spec that used `fill()` therefore asserted against a terminal it
  * had never driven.
+ *
+ * `options.sessionId`, when given, scopes the target to the terminal owned by that
+ * session (`[data-session-id]`, set by `TerminalRuntimeLayer.tsx`) instead of "the first
+ * visible terminal". Without this, a caller that had just switched workspaces could type
+ * into whichever terminal happened to be first in DOM order -- during a switch there is a
+ * transient window where the outgoing session's terminal is still mounted and visible while
+ * the incoming one mounts, so `.first()` can resolve to the wrong one. Measured 2026-09-19:
+ * this produced an intermittent, session-crossing failure (typing into a workspace the
+ * caller did not create) rather than a consistent one, which is what made it hard to see.
+ * Callers that don't know or care which session they mean keep the old, unscoped behaviour.
  */
-export async function sendVisibleTerminalCommand(page: Page, command: string): Promise<void> {
-  const input = page.locator('.terminal-view:visible .xterm-helper-textarea').first();
-  await input.click();
-  await page.waitForTimeout(300);
+export async function sendVisibleTerminalCommand(
+  page: Page,
+  command: string,
+  options: { sessionId?: string } = {},
+): Promise<void> {
+  // #39: this clicked `.xterm-helper-textarea`, which xterm keeps off-screen on purpose --
+  // Playwright reports it as "element is not visible" and the click never lands. Focus the way
+  // a user does, by clicking the terminal screen, and then wait for the helper textarea to
+  // actually hold focus rather than for a fixed 300ms.
+  const screen = options.sessionId
+    ? page.locator(`[data-session-id="${options.sessionId}"] .xterm-screen`)
+    : page.locator('.terminal-view:visible .xterm-screen').first();
+  if (options.sessionId) {
+    await expect(
+      screen,
+      `E2E precondition failed: terminal for session "${options.sessionId}" did not resolve to exactly one element`,
+    ).toHaveCount(1, { timeout: 30000 });
+  }
+  await screen.waitFor({ state: 'visible', timeout: 30000 });
+  await screen.click();
+  await page.waitForFunction(() => {
+    const active = document.activeElement;
+    return active instanceof HTMLTextAreaElement && active.classList.contains('xterm-helper-textarea');
+  }, undefined, { timeout: 10000 });
+  // Focus is not readiness. Measured 2026-09-19 against https://localhost:2222: on a freshly
+  // attached session the input gate sat at `restore-pending` for 4.3 seconds while the shell
+  // started, and the pending-input TTL is 1500ms -- so a command typed the moment the terminal
+  // element appeared had its Enter dropped as `timeout-enter-safety` at 1505ms and its five
+  // remaining characters dropped as `timeout` at 4331ms, the instant the gate finally opened.
+  // Nothing reached the shell, and the failure read as "the agent never started".
+  //
+  // This is the product behaving as designed -- queue mode holds input for a bounded time and
+  // then discards it rather than injecting stale keystrokes into a shell that has since come
+  // alive -- so the test has to do what a user does and wait for the terminal to be ready.
+  await waitForTerminalInputReady(page);
   await page.keyboard.type(command);
   await page.keyboard.press('Enter');
+}
+
+/**
+ * Waits until the terminal will actually accept input. Falls through after the timeout rather
+ * than throwing, so a caller on a build without the debug hook behaves as it did before.
+ */
+export async function waitForTerminalInputReady(page: Page, timeout = 30000): Promise<boolean> {
+  const sessionId = await getActiveSessionId(page);
+  if (!sessionId) return false;
+  try {
+    await page.waitForFunction(
+      (id) => window.__buildergateTerminalDebug?.readInputGateSnapshot?.(id)?.inputReady === true,
+      sessionId,
+      { timeout },
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }

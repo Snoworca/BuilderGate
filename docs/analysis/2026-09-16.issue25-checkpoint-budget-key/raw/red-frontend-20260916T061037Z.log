@@ -1,0 +1,111 @@
+✖ REL_BGSTAB_023_AC3_runtime_config_carries_an_independent_checkpoint_byte_budget (18.624446ms)
+✖ REL_BGSTAB_023_AC3_absent_checkpoint_budget_falls_back_to_its_own_default_not_the_hold_budget (0.391365ms)
+✖ REL_BGSTAB_023_AC3_an_out_of_range_checkpoint_budget_does_not_silently_coerce (0.368451ms)
+✖ REL_BGSTAB_023_AC5_shipped_defaults_keep_the_effective_checkpoint_budget_unchanged (0.372154ms)
+✖ REL_BGSTAB_023_AC2_the_only_production_call_site_passes_the_checkpoint_budget_separately (3.728901ms)
+✔ REL_BGSTAB_023_AC6_the_chunk_budget_deliberately_still_converges_on_the_hold_budget (2.556865ms)
+✔ REL_BGSTAB_023_AC2_checkpoint_admission_and_post_checkpoint_hold_are_governed_separately (2.256046ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 167.42379
+
+✖ failing tests:
+
+test at tests/unit/terminalCheckpointBudgetSeparation.test.ts:45:1
+✖ REL_BGSTAB_023_AC3_runtime_config_carries_an_independent_checkpoint_byte_budget (18.624446ms)
+  AssertionError [ERR_ASSERTION]: a configured checkpointMaxBytes distinct from visibleOutputQueueMaxBytes did not survive runtime-config resolution
+  + actual - expected
+  
+  + undefined
+  - 8388608
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalCheckpointBudgetSeparation.test.ts:52:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 8388608,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/terminalCheckpointBudgetSeparation.test.ts:61:1
+✖ REL_BGSTAB_023_AC3_absent_checkpoint_budget_falls_back_to_its_own_default_not_the_hold_budget (0.391365ms)
+  AssertionError [ERR_ASSERTION]: an absent checkpointMaxBytes inherited the hold budget instead of its own default
+  + actual - expected
+  
+  + undefined
+  - 4194304
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalCheckpointBudgetSeparation.test.ts:66:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 4194304,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/terminalCheckpointBudgetSeparation.test.ts:70:1
+✖ REL_BGSTAB_023_AC3_an_out_of_range_checkpoint_budget_does_not_silently_coerce (0.368451ms)
+  AssertionError [ERR_ASSERTION]: an out-of-range checkpointMaxBytes was silently coerced instead of falling back with its block
+  + actual - expected
+  
+  + undefined
+  - 4194304
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalCheckpointBudgetSeparation.test.ts:76:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 4194304,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/terminalCheckpointBudgetSeparation.test.ts:84:1
+✖ REL_BGSTAB_023_AC5_shipped_defaults_keep_the_effective_checkpoint_budget_unchanged (0.372154ms)
+  AssertionError [ERR_ASSERTION]: introducing the key changed the effective default checkpoint budget
+  + actual - expected
+  
+  + undefined
+  - 4194304
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalCheckpointBudgetSeparation.test.ts:88:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 4194304,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/terminalCheckpointBudgetSeparation.test.ts:93:1
+✖ REL_BGSTAB_023_AC2_the_only_production_call_site_passes_the_checkpoint_budget_separately (3.728901ms)
+  AssertionError [ERR_ASSERTION]: TerminalView still lets the checkpoint budget default to the post-checkpoint hold budget; it must pass checkpointMaxBytes: coordinatorLimits.checkpointMaxBytes
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalCheckpointBudgetSeparation.test.ts:111:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: -1,
+    expected: -1,
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }

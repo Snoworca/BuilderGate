@@ -1,0 +1,5 @@
+run 0: baselineP95=399.637 candidateP95=3.549 passes=true
+run 1: baselineP95=323.198 candidateP95=13.289 passes=true
+run 2: baselineP95=290.672 candidateP95=2.559 passes=true
+run 3: baselineP95=354.877 candidateP95=5.573 passes=true
+run 4: baselineP95=399.116 candidateP95=5.200 passes=true

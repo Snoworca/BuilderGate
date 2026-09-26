@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { publishStoreAtomically } from '../utils/atomicStoreWrite.js';
 import {
   createWebhookCredential,
   evaluateMcpRequestGuard,
@@ -426,14 +427,13 @@ export function createWebhookRecordFileStore(options: { dataPath?: string } = {}
       const webhooks = (Array.isArray(records) ? records : [])
         .map(asRecord)
         .map(record => sanitizeWebhookRecord(record));
-      await fs.mkdir(path.dirname(dataFilePath), { recursive: true });
-      const tempPath = `${dataFilePath}.${process.pid}.${Date.now()}.tmp`;
-      await fs.writeFile(tempPath, JSON.stringify({
+      // @req REL-BGSTAB-022 — as with McpControlConfigStore: already private
+      // temp naming, gains the retry, keeps having no backup.
+      await publishStoreAtomically(dataFilePath, JSON.stringify({
         version: 1,
         webhooks,
         updatedAt: new Date().toISOString(),
-      }, null, 2), { encoding: 'utf-8', mode: 0o600 });
-      await fs.rename(tempPath, dataFilePath);
+      }, null, 2), { writeBackup: false, ensureDirectory: true });
       return { ok: true, path: dataFilePath, count: webhooks.length };
     },
   };

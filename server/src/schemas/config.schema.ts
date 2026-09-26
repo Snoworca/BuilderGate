@@ -25,8 +25,30 @@ export const corsSchema = z.object({
   maxAge: z.number().min(0).max(86400).default(86400)
 });
 
+// Hoisted above securitySchema: that schema now nests an osc52 block that uses it.
+const defaultObject = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((value) => value === undefined ? {} : value, schema);
+
 export const securitySchema = z.object({
-  cors: corsSchema
+  cors: corsSchema,
+  /**
+   * SEC-BGSTAB-001: OSC52 clipboard 정책.
+   *
+   * #20 에서 `resourceLimits.terminal.osc52` 로부터 옮겨 왔다. 원래 자리는 AC-2 의
+   * "기존 terminal 블록" 이라는 지시를 그대로 읽은 결과였지만, `resourceLimits` 는
+   * **유계 자원** 의 namespace 다. 단위도 없고, 무엇이 admission 되지도 drain 되지도
+   * 않으며, 상한을 줄여 조용히 절단될 것도 없는 boolean 이 거기 있으면 두 가지가
+   * 잘못된다. 자원 스캐너가 정책 소비자로 오인하고(#20 에서 실제로 두 번 걸렸다),
+   * 더 중요하게는 namespace 이름이 미래의 작성자에게 "이건 낮춰도 되는 수치" 라고
+   * 말하게 된다. 지금 그것을 낮추는 코드가 없다는 사실은 구조가 아니라 우연이다.
+   *
+   * 옮기는 비용이 0 인 이유: 이 키는 오늘 추가됐고 릴리스된 적이 없다.
+   *
+   * 읽기 스위치는 여기에도 없다. 읽기는 영구 금지이며 .strict() 가 그것을 강제한다.
+   */
+  osc52: defaultObject(z.object({
+    allowWrite: z.boolean().default(true),
+  }).strict()),
 });
 
 // ============================================================================
@@ -37,8 +59,6 @@ export const serverSchema = z.object({
   port: z.number().min(1).max(65535).default(2002)
 });
 
-const defaultObject = <T extends z.ZodType>(schema: T) =>
-  z.preprocess((value) => value === undefined ? {} : value, schema);
 
 export const realtimeSchema = defaultObject(z.object({
   wsTransportMode: z.enum(['unified', 'split-shadow', 'split']).default('unified'),
@@ -148,9 +168,26 @@ export const terminalResourceLimitsSchema = defaultObject(z.object({
   visibleOutputQueueMaxBytes: bytesLimit(1024, 268435456, 4194304),
   visibleOutputMaxChunks: countLimit(1, 65536, 512),
   visibleFlushBudgetBytes: bytesLimit(1024, 16777216, 262144),
+  // #101: the frame deadline the visible flush loop enforces. Its byte sibling above was
+  // operator-tunable and this was not, so the 7ms default could not be moved at all.
+  visibleFlushFrameBudgetMs: durationLimit(1, 100, 7),
+  checkpointMaxBytes: bytesLimit(1024, 268435456, 4194304),
+  // #70: the chunk half of the checkpoint budget. It used to resolve to the post-checkpoint
+  // hold cap because the only production caller passed just that one, which is the same shape
+  // REL-BGSTAB-023 fixed on the byte axis. The default is what it used to inherit.
+  checkpointMaxChunks: countLimit(1, 65536, 512),
+  // #78: the size of one checkpoint chunk. It was the hardcoded constant
+  // TERMINAL_CHECKPOINT_CHUNK_BYTES, and #26 measured checkpoints crossing the browser's
+  // acceptance limit on wide terminals with no way to adjust it. The default is that constant.
+  checkpointChunkBytes: bytesLimit(1024, 16777216, 65536),
   hiddenOutputPolicy: z.enum(['write-hidden', 'snapshot-restore', 'debug-tail']).default('snapshot-restore'),
   hiddenOutputTailBytes: bytesLimit(0, 16777216, 262144),
   inputQueueMaxBytes: bytesLimit(1024, 16777216, 65536),
+  // #72: input scope had bytes and a TTL but no COUNT, so the pending-input cap and the
+  // settlement ledger cap borrowed the OUTPUT chunk cap -- an operator tuning output chunking
+  // downward silently lowered how many inputs may be pending. The default is what they used
+  // to inherit.
+  inputQueueMaxCount: countLimit(1, 65536, 512),
   inputQueueTtlMs: durationLimit(1, 60000, 1500),
   transportOutboxMaxBytes: bytesLimit(1024, 16777216, 65536),
   transportOutboxTtlMs: durationLimit(1, 60000, 1500),

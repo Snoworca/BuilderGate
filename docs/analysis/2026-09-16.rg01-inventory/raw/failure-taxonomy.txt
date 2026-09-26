@@ -1,0 +1,100 @@
+RG-01 R2 failure taxonomy — classified by the ACTUAL error text of each failure
+source: raw/nodetest-server.log ; summary: ℹ tests 1117
+note: 'evidence' quotes the recap text; where a block prints a '+ actual / - expected' diff,
+      the diff payload is appended after '||' in compressed form (a reconstruction, not verbatim).
+method: ONLY the authoritative recap section (after the '✖ failing tests:' marker) is parsed.
+        Within each block only INDENTED lines are read, so interleaved un-indented child stdout
+        from the streamed section cannot be attributed to the wrong test.
+====================================================================================================
+
+### PLATFORM  (11)
+  - MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate
+      evidence: Error: PowerShell winpty backend is unavailable
+  - MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle
+      evidence: Error: PowerShell winpty backend is unavailable
+
+### PRECONDITION-frontend  (7)
+  - PERF-BGSTAB-008 AC-2 RED contract
+      evidence: Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript' imported from … (surfaced through the parent's "Command failed" wrapper)
+  - PERF-BGSTAB-008 AC-4 RED contract
+      evidence: Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript' imported from … (surfaced through the parent's "Command failed" wrapper)
+  - PERF-BGSTAB-008 AC-6 RED contract
+      evidence: Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript' imported from … (surfaced through the parent's "Command failed" wrapper)
+  - PERF-BGSTAB-008 AC-2 GREEN contract
+      evidence: Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript' imported from … (surfaced through the parent's "Command failed" wrapper)
+  - PERF-BGSTAB-008 AC-4 GREEN contract
+      evidence: Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript' imported from … (surfaced through the parent's "Command failed" wrapper)
+  - PERF-BGSTAB-008 AC-6 GREEN contract
+      evidence: Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'typescript' imported from … (surfaced through the parent's "Command failed" wrapper)
+  - OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers
+      evidence: Error: Cannot find module 'react' (surfaced through the parent's "Command failed" wrapper)
+
+### PRECONDITION-dist  (5)
+  - PERF-BGSTAB-010 runtime policy profile default admission uses current authority identity
+      evidence: AssertionError [ERR_ASSERTION]: PERF-BGSTAB-010 compiled default admission must bind the effective RuntimeConfigStore WebSocket profile / false !== true
+      note: manual reclassification — FairSchedulerSourceProvenanceRuntime.test.ts:106 asserts existsSync(manifestPath)
+            where :15 defines manifestPath = resolve(serverRoot,'dist/benchmarks/fair-scheduler-source-provenance.json'),
+            so the assertion is server/dist absence even though the message does not say so.
+  - PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle and rejects escaped references
+      evidence: Error: ENOENT … lstat '…/server/dist'
+  - PERF-BGSTAB-010 portable compiled Canary accepts fresh canonical authority
+      evidence: Error: ENOENT … lstat '…/server/dist'
+  - PERF-BGSTAB-010 one-field authority identity drift rejects default admission
+      evidence: Error: Cannot find module '…/server/dist/…'
+  - PERF-BGSTAB-010 source-dist canonical authority parity fails closed
+      evidence: Error: ENOENT … lstat '…/server/dist'
+
+### PRECONDITION-build  (2)
+  - OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy
+      evidence: AssertionError: server build must emit the compiled canary before this assertion means anything
+  - PERF-BGSTAB-010 compiled runtime validates the published artifact through build provenance
+      evidence: AssertionError: server build must emit the compiled fair-scheduler source provenance manifest
+
+### GUARD  (3)
+  - server RED — real output sequence and ready authority tokens
+      evidence: Error: B0_FORBIDDEN_TCP_LISTEN: HTTP fixtures must use their owned local endpoint
+  - server fresh replay request is token-fenced and supersedes the pending snapshot
+      evidence: Error: B0_FORBIDDEN_TCP_LISTEN: HTTP fixtures must use their owned local endpoint
+  - server recovery refresh requires both replay and repair ownership tokens
+      evidence: Error: B0_FORBIDDEN_TCP_LISTEN: HTTP fixtures must use their owned local endpoint
+
+### UNCLASSIFIED  (6)
+  - SEC-MCP-003 the OSC 133 BASH_ENV injection survives the filter
+      evidence: AssertionError [ERR_ASSERTION]: the OSC 133 script path is gone || + actual - expected + 'undefined' - 'string'
+  - MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps
+      evidence: AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: || + actual - expected + 'fallback' - 'authoritative'
+  - Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6
+      evidence: AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal: || + actual - expected + [ +   { +     path: 'server/src/services/ConfigFileRepository.ts', +     symbol: '@resource-limits-root.[dynamic]' +   }
+  - OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites
+      evidence: AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal: || + actual - expected + [ +   { +     path: 'server/src/services/ConfigFileRepository.ts', +     symbol: '@resource-limits-root.[dynamic]' +   }
+  - OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope
+      evidence: AssertionError [ERR_ASSERTION]: reserved-copy-option-decoy
+  - S1 sidecar — output wire message keeps the recovery ordering metadata
+      evidence: AssertionError [ERR_ASSERTION]: S1 관측 동작 불변: output 재구성 경로는 그대로다 || + actual - expected +   sourceSeq: undefined, +   streamEpoch: undefined,
+
+====================================================================================================
+ 11  PLATFORM
+  7  PRECONDITION-frontend
+  5  PRECONDITION-dist
+  2  PRECONDITION-build
+  3  GUARD
+  6  UNCLASSIFIED
+ 34  TOTAL (must equal fail 34)

@@ -1,0 +1,21 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ OPS-BGSTAB-010 the published generation pins the sources on disk (26.569934ms)
+✔ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy (4070.121027ms)
+✔ OPS-BGSTAB-010 altering one pinned byte breaks the digest equality (35.140361ms)
+✔ REL-BGSTAB-023 AC-1 the checkpoint byte budget is its own canonical schema key (1.961318ms)
+✔ REL-BGSTAB-023 AC-5 the shipped default leaves the effective budget unchanged (0.132855ms)
+✔ REL-BGSTAB-023 AC-1 the checkpoint byte budget shares the range it was split from (0.953278ms)
+✔ REL-BGSTAB-023 AC-1 the terminal block stays strict about unknown keys (0.27066ms)
+✔ REL-BGSTAB-023 AC-4 the checkpoint byte budget is registered as a terminal resource key (0.145247ms)
+✔ the retained checkpoint declares truncated:false as a literal type (15.482693ms)
+✔ issue #26: at default limits, per-token SGR at >=200 columns mints a checkpoint the browser must reject (2508.598854ms)
+✔ issue #26: the same per-token density at 80 columns still fits (965.327138ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5359.526805

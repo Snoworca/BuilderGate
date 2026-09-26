@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   TERMINAL_SNAPSHOT_MAX_CONTENT_LENGTH,
   TERMINAL_SNAPSHOT_PAYLOAD_KIND,
@@ -271,4 +273,85 @@ test('cleanupExpiredTerminalSnapshotTombstones removes malformed tombstones', ()
 
   assert.deepEqual(result.removedKeys, [getTerminalSnapshotRemovalKey('session-bad')]);
   assert.equal(storage.getItem(getTerminalSnapshotRemovalKey('session-bad')), null);
+});
+
+/**
+ * REL-BGSTAB-007 AC-8: the browser local snapshot must carry `provisional=true` and a
+ * separate generation. The grammatical subject of that clause is the snapshot, so it is a
+ * statement about the stored artifact, not about the runtime transaction that restores it.
+ *
+ * Measured 2026-09-19: the stored payload carried `schemaVersion` and `payloadKind` and no
+ * generation of any kind, keyed by `sessionId` alone. The compensating mechanism does not
+ * cover the gap — every `clearTerminalSnapshot` call site in useWorkspaceManager.ts fires on
+ * workspace delete, tab close or tab replacement, all events where the sessionId itself goes
+ * away. A session that SURVIVES while its generation changes keeps its sessionId, keeps its
+ * stored snapshot, and had nothing in that payload to mark it superseded. `cols`/`rows`
+ * equality is geometry, not identity.
+ *
+ * The schema version is deliberately NOT bumped: TC-7004 in header-context-menu-regression
+ * and wave1-retained-state-characterization both pin `schemaVersion: 2`, and TC-7004 is a
+ * designated current-behaviour record (OBS-BGSTAB-009 AC-4). So the generation is an
+ * optional field, enforced only when a caller states which generation it expects — which
+ * makes the check fail closed exactly where it matters and leaves every other caller alone.
+ */
+
+test('REL-BGSTAB-007 AC-8 rejects a snapshot from a superseded session generation', () => {
+  const stored = snapshot({ generation: 'gen-a' } as Partial<TerminalViewportSnapshotPayload>);
+  assert.equal(
+    parseTerminalViewportSnapshot(JSON.stringify(stored), 'session-1', { expectedGeneration: 'gen-b' }),
+    null,
+    'a snapshot carrying a different generation must not be restored into this one',
+  );
+});
+
+test('REL-BGSTAB-007 AC-8 rejects a generation-less snapshot when a generation is expected', () => {
+  assert.equal(
+    parseTerminalViewportSnapshot(JSON.stringify(snapshot()), 'session-1', { expectedGeneration: 'gen-b' }),
+    null,
+    'a snapshot that cannot prove its generation must not be restored when one is expected',
+  );
+});
+
+test('REL-BGSTAB-007 AC-8 accepts a matching generation, and leaves generation-less callers alone', () => {
+  const stored = snapshot({ generation: 'gen-a' } as Partial<TerminalViewportSnapshotPayload>);
+  assert.notEqual(
+    parseTerminalViewportSnapshot(JSON.stringify(stored), 'session-1', { expectedGeneration: 'gen-a' }),
+    null,
+    'a matching generation must still restore',
+  );
+  // Back-compat control: a caller that states no expectation is unaffected, which is what
+  // keeps the three specs pinning schemaVersion 2 green.
+  assert.notEqual(
+    parseTerminalViewportSnapshot(JSON.stringify(snapshot()), 'session-1'),
+    null,
+    'a caller with no generation expectation must behave exactly as before',
+  );
+});
+
+/**
+ * The three tests above cover the function. They do not show that TerminalView uses it, and
+ * an unused check is the failure mode this repository keeps finding. This asserts the wiring
+ * on both sides: the payload is written WITH a generation, and every read of a stored payload
+ * states which generation it expects. Mutation-checked -- dropping either side turns it red.
+ */
+test('REL-BGSTAB-007 AC-8 the terminal view writes and checks the snapshot generation', () => {
+  const view = readFileSync(
+    fileURLToPath(new URL('../../src/components/Terminal/TerminalView.tsx', import.meta.url)),
+    'utf8',
+  );
+
+  assert.match(
+    view,
+    /generation:\s*String\(sessionGenerationRef\.current\)/u,
+    'the saved snapshot payload must carry the session generation',
+  );
+
+  const reads = [...view.matchAll(/parseTerminalViewportSnapshot\(/gu)].length;
+  const guarded = [...view.matchAll(/expectedGeneration:\s*String\(sessionGenerationRef\.current\)/gu)].length;
+  assert.notEqual(reads, 0, 'expected TerminalView to read stored snapshots at all');
+  assert.equal(
+    guarded,
+    reads,
+    `every stored-snapshot read must state an expected generation; ${reads} read(s), ${guarded} guarded`,
+  );
 });

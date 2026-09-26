@@ -1,6 +1,11 @@
 import { test, expect, type Page } from './workspaceOwnershipFixture';
 import { login, waitForTerminal } from './helpers';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "creates a session with shell: 'powershell'");
+
 type TerminalDebugEvent = {
   kind: string;
   details?: Record<string, unknown>;

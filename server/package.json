@@ -9,11 +9,16 @@
     "build": "tsc && node tools/write-fair-scheduler-source-provenance.mjs && node tools/write-fair-scheduler-evidence-bundle.mjs && node -e \"require('fs').cpSync('src/shell-integration', 'dist/shell-integration', {recursive:true})\"",
     "start": "node dist/index.js",
     "test:authority-pin": "tsx --test src/benchmarks/FairSchedulerAuthorityGenerationPin.test.ts",
+    "test:retired-settings-residue": "tsx --test src/utils/retiredSettingsResidue.test.ts",
+    "test:tools": "node --test --test-concurrency=1 tools/*.test.*",
+    "test:checkpoint-mint-size": "tsx --test src/services/TerminalCheckpointMintSizeAdmission.test.ts",
+    "test:snapshot-recovery-golden": "tsx --test src/utils/terminalSnapshotRecoveryGolden.test.ts",
     "test": "npm run build && node dist/test-runner.js"
   },
   "dependencies": {
     "@types/qrcode": "^1.5.6",
     "@xterm/addon-serialize": "^0.14.0",
+    "@xterm/addon-unicode11": "^0.9.0",
     "@xterm/headless": "^6.0.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",

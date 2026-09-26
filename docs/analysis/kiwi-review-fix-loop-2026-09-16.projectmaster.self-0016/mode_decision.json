@@ -1,0 +1,2 @@
+{"mode":"self","pr_url":null,"pr_number":null,
+ "self_scope":{"source":"base-head","base":"ca11844","head":"6db303d","files":["README.md","server/src/utils/constants.ts","server/src/utils/retiredSettingsResidue.test.ts","docs/spec/30.buildergate-stability.srs.md","docs/report/2026-09-16.issue-32-dead-settings.md"],"commit_range":"ca11844..6db303d"}}

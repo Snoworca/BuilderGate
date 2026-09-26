@@ -1,0 +1,15 @@
+✔ IR-BGSTAB-001 a configured binary-optin wire format reaches the running server (8047.079802ms)
+✔ IR-BGSTAB-001 a configured json wire format leaves binary negotiation closed (8936.294273ms)
+✔ IR-BGSTAB-001 a config with no realtime block still negotiates to an answer (8625.490613ms)
+✔ IR-BGSTAB-001 a split transport mode refuses binary negotiation without a query parameter (8534.619107ms)
+✔ IR-BGSTAB-001 a split-shadow transport mode also refuses binary negotiation (8731.701723ms)
+✔ IR-BGSTAB-001 a client asking for split cannot negotiate binary on a unified server (9231.060507ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57750.408581
+EXIT=0

@@ -1,0 +1,16 @@
+✔ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (10.238784ms)
+✔ REL-BGSTAB-010 AC-7 reservation membership is pinned so a new exemption costs an argued edit (0.341383ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.147365ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation with no reason or no decision owner (0.215265ms)
+✔ REL-BGSTAB-010 AC-7 registration guard refuses a reservation for an id that still owns manifest tuples (0.194556ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id outside the registry (0.215672ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects the same consumer id reserved twice (0.17944ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id the catalog uses (0.163228ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 791.280002

@@ -1,0 +1,4 @@
+# baseline-latency-samples.json is deliberately NOT listed: it carries wall-clock
+# and cannot be byte-stable. See OBS-BGSTAB-009 AC-6 and report section 6.
+0cc94d60b227dd3c0d3b78947cf14c283ecd4fe2c439bc1aa18607d4ea39dff8  refresh-truncation-boundary.json
+235f9b582a0817bba08fe4895f0fc1360866330f6c2407efebddc619b9e15a70  pr-decomposition-and-rollback-gates.json

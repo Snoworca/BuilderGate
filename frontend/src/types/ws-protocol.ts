@@ -227,6 +227,16 @@ export type TerminalCheckpointClientMessage =
   | TerminalCheckpointReadyMessage
   | TerminalCheckpointContinuityRebindMessage;
 
+// @req REL-BGSTAB-011
+// A view the server registered but refused a mutation lease for, and why. Without this
+// the client receives a lease-less capability and cannot tell refusal from an unfinished
+// negotiation; measured 2026-09-19, it then held input indefinitely.
+export interface TerminalCheckpointMutationLeaseRefusal {
+  sessionId: string;
+  viewGeneration: number;
+  reason: string;
+}
+
 export interface TerminalCheckpointCapabilityMessage {
   type: 'terminal-checkpoint:capability';
   protocolVersion: TerminalCheckpointProtocolVersion;
@@ -239,6 +249,7 @@ export interface TerminalCheckpointCapabilityMessage {
   digestAlgorithms: readonly ['sha256'];
   registeredViews?: readonly TerminalCheckpointRegisteredView[];
   mutationLeases?: readonly RetainedTerminalMutationLease[];
+  mutationLeaseRefusals?: readonly TerminalCheckpointMutationLeaseRefusal[];
 }
 
 export type TerminalCheckpointRejectedReason =
@@ -265,9 +276,22 @@ export interface TerminalCheckpointRejectedMessage {
   rejectedMessageType?: 'resize';
 }
 
+// #112: measured 2026-09-19 -- a driver lease used to be revoked (a headless side-channel
+// degrading, an authority mode transition) with no wire signal at all. The browser kept
+// attaching a retainedIdentity built from a lease that no longer existed, and every
+// keystroke was refused forever because nothing told it to stop and renegotiate. Sent to
+// the one connection that actually held the lease, not broadcast to every subscriber of
+// the session.
+export interface TerminalCheckpointLeaseRevokedMessage {
+  type: 'terminal-checkpoint:lease-revoked';
+  sessionId: string;
+  reason: string;
+}
+
 export type TerminalCheckpointServerMessage =
   | TerminalCheckpointCapabilityMessage
   | TerminalCheckpointRejectedMessage
+  | TerminalCheckpointLeaseRevokedMessage
   | TerminalCheckpointStartMessage
   | TerminalCheckpointChunkMessage
   | TerminalCheckpointCommitMessage
@@ -502,7 +526,114 @@ export type InputRejectedReason =
   | 'transport-closed'
   | 'invalid-sequence'
   | 'invalid-payload'
-  | 'mode-observe-only';
+  | 'mode-observe-only'
+  /**
+   * REL-BGSTAB-028: this exact input operation was already written to the PTY.
+   * The command was not run a second time. Distinct from a failure - the
+   * client's earlier send succeeded and this retry is redundant.
+   */
+  | 'duplicate-operation'
+  /**
+   * REL-BGSTAB-028 AC-5: this operation was applied and has since fallen out of the ledger's
+   * retry window. The server can no longer prove the result, so it refuses rather than
+   * running the command a second time. Distinct from 'duplicate-operation', where the
+   * earlier application is still on record.
+   */
+  | 'expired-operation'
+  /**
+   * REL-BGSTAB-028: this operation id was already used for different bytes. Neither
+   * deduplicating nor admitting is safe -- the first would drop a command the user typed,
+   * the second would run one id twice -- so the client is told its identifiers collided.
+   */
+  | 'payload-mismatch'
+  /**
+   * REL-BGSTAB-011 AC-6: the payload was well formed, but this view does not hold the
+   * retained driver lease and could not take it. Distinct from 'invalid-payload', which
+   * blamed the client for a message that was never malformed.
+   */
+  | 'driver-lease-unavailable'
+  /**
+   * #18 criterion 6: the ledger cannot account for this operation -- it predates
+   * everything still remembered, so the server can neither prove it was applied nor
+   * prove it was not. Refusing is the only safe answer; admitting would re-execute a
+   * command that may already have run, which is the failure the ledger exists to stop.
+   *
+   * Distinct from 'expired-operation', which is a POSITIVE record ("it happened and the
+   * result was evicted"). This one is the absence of a record plus proof that a record
+   * could have been dropped. A client seeing this should resynchronise rather than retry:
+   * retrying the same identifier will keep producing the same answer.
+   */
+  | 'unknown-operation'
+  /**
+   * #18 criterion 7: the view this input was written from is older than the one the
+   * server has registered for the session. Previously reported as
+   * 'driver-lease-unavailable', which invited a retry that could never succeed --
+   * SessionManager had already computed 'stale-view-generation' internally and the
+   * router discarded it. The client should resync its view generation, not retry.
+   */
+  | 'stale-target-generation'
+  /**
+   * #18 criterion 8: the paste exceeded the size cap and was refused locally.
+   *
+   * The cap is the server's own MAX_REPLAY_QUEUED_INPUT_BYTES, so this is not a new
+   * restriction -- it is the same refusal with a reason the user can act on. Previously
+   * the server answered `invalid-payload`, which blamed the client for a message that
+   * was never malformed. Refused whole rather than truncated: a half-pasted command is
+   * a command, and running half of one is worse than running none.
+   */
+  | 'paste-too-large'
+  /**
+   * #112: SessionInputGateway's TARGET_NOT_LIVE, previously flattened to 'server-error'
+   * along with everything else the gateway could deny except INPUT_REJECTED_REPLAY_PENDING.
+   * Means the write did not reach the PTY -- either the session binding could not be
+   * resolved, or the low-level write itself was refused. Measured 2026-09-19 against a
+   * live 15,000-line flood: the input gate stayed open (inputReady: true) and
+   * ws_input_sent fired the whole time, so the browser did send the keystrokes; the
+   * server answered input:rejected 20ms later with the old opaque 'server-error', which
+   * is indistinguishable from a thrown exception on a malformed payload. This name is the
+   * fact the server already had and was discarding.
+   *
+   * #112 follow-up: re-measuring after the above still could not explain WHY the write did
+   * not reach the PTY -- SessionManager.writeInput() collapsed a gone session and a stale
+   * mutation identity into the same `false`. Those two now have their own reasons below
+   * ('target-session-gone', 'target-identity-stale'); this one remains the fallback for a
+   * PTY write that threw, or any caller of the gateway that still returns a bare boolean.
+   */
+  | 'target-not-live'
+  /**
+   * #112: SessionManager.writeInputDetailed()'s 'session-gone' -- the session existed when
+   * the router resolved the target, but SessionManager.sessions no longer had it by the time
+   * the write itself ran (a narrow TOCTOU window, e.g. the session was destroyed mid-flight).
+   * Distinct from 'target-identity-stale': the session is not merely refusing this client,
+   * it is gone.
+   */
+  | 'target-session-gone'
+  /**
+   * #112: SessionManager.writeInputDetailed()'s 'mutation-identity-stale' --
+   * acceptRetainedTerminalMutationIdentity() refused the write because the session is a
+   * retained-terminal shadow session and the caller's authorityEpoch/viewGeneration/
+   * leaseGeneration no longer match what the session has on record (e.g. a generation bump
+   * happened mid-flood). The session is alive; this specific client's identity is not
+   * current.
+   */
+  | 'target-identity-stale'
+  /**
+   * #112: SessionInputGateway's TARGET_NOT_FOUND -- resolveTarget produced no binding at
+   * all for this session, as opposed to 'target-not-live' where a binding existed but
+   * would not accept the write. Not currently reachable from the plain websocket input
+   * path (WsRouter always supplies a resolveTarget), but mapped here rather than left to
+   * fall into 'server-error' so the gateway's own vocabulary is not silently narrowed for
+   * whichever caller does trigger it.
+   */
+  | 'target-not-found'
+  /**
+   * #112: SessionInputGateway's INPUT_REJECTED_ENTER_POLICY -- a submit-carrying send
+   * arrived without the actor scope required to press Enter on someone else's behalf.
+   * Not reachable from the plain websocket input path today (evaluateEnterPolicy only
+   * applies to MCP/agent sources), mapped for the same reason as 'target-not-found': the
+   * generic fallback must not become the answer for a code the gateway already named.
+   */
+  | 'enter-policy-rejected';
 
 // terminal-delivery-ack-contract:start
 export type TerminalDeliveryAckIdentity =
@@ -627,6 +758,22 @@ export type ClientWsMessage =
       type: 'input';
       sessionId: string;
       data: string;
+      /**
+       * REL-BGSTAB-028: names this input operation so the server can tell a
+       * retry from a new command. Absent on legacy clients, which the server
+       * admits and reports as undeduplicated rather than assuming exactly-once.
+       */
+      inputOperationId?: string;
+      /**
+       * #18 criterion 6: the sequencer epoch the ordinals below belong to.
+       *
+       * Sent as its own field rather than parsed out of `inputOperationId`, which the
+       * server treats as opaque. TerminalInputSequencer restarts numbering at 1 on every
+       * session attach, so `inputSeqStart` is monotonic only within one sequencer epoch;
+       * without this the server cannot tell a re-attach's first keystroke from a retry of
+       * something it has forgotten.
+       */
+      inputSequencerEpoch?: number;
       inputSeqStart?: number;
       inputSeqEnd?: number;
       metadata?: InputDebugMetadata;
@@ -1137,6 +1284,18 @@ function isRetainedTerminalMutationLeases(
   ));
 }
 
+// @req REL-BGSTAB-011
+function isTerminalCheckpointMutationLeaseRefusals(
+  value: unknown,
+): value is readonly TerminalCheckpointMutationLeaseRefusal[] {
+  return Array.isArray(value) && value.every((entry) => (
+    isProtocolRecord(entry)
+    && isNonEmptyProtocolString(entry.sessionId)
+    && isNonNegativeSafeInteger(entry.viewGeneration)
+    && isNonEmptyProtocolString(entry.reason)
+  ));
+}
+
 function isCheckpointDeliveryPreparation(
   value: unknown,
   registeredViews: unknown,
@@ -1202,6 +1361,10 @@ export function parseTerminalCheckpointServerMessage(
         || isRetainedTerminalMutationLeases(value.mutationLeases)
       )
       && (
+        value.mutationLeaseRefusals === undefined
+        || isTerminalCheckpointMutationLeaseRefusals(value.mutationLeaseRefusals)
+      )
+      && (
         value.checkpointDeliveryPreparation === undefined
         || (
           value.authorityMode === 'checkpoint'
@@ -1227,6 +1390,12 @@ export function parseTerminalCheckpointServerMessage(
       )
     ) {
       return { ok: true, message: value as unknown as TerminalCheckpointCapabilityMessage };
+    }
+    return validationFailure(value);
+  }
+  if (value.type === 'terminal-checkpoint:lease-revoked') {
+    if (isNonEmptyProtocolString(value.sessionId) && typeof value.reason === 'string') {
+      return { ok: true, message: value as unknown as TerminalCheckpointLeaseRevokedMessage };
     }
     return validationFailure(value);
   }

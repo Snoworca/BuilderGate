@@ -1,0 +1,110 @@
+[CommandPresetService] Flush failed: ENOENT: no such file or directory, rename '/tmp/bgstab022-ac1-Pv5nWB/command-presets.json.tmp' -> '/tmp/bgstab022-ac1-Pv5nWB/command-presets.json'
+✖ REL-BGSTAB-022 AC-1: two instances publishing concurrently both resolve (10.623321ms)
+✖ REL-BGSTAB-022 AC-2: a resolved publish holds the document it wrote (2.779728ms)
+✖ REL-BGSTAB-022 AC-3: a shorter peer overlay leaves no foreign tail (3.335936ms)
+[CommandPresetService] Flush failed: injected rename failure
+✖ REL-BGSTAB-022 AC-4: failure cleanup removes only the caller's own temp file (2.26155ms)
+✖ REL-BGSTAB-022 AC-7: the backup parses whole under an interposed peer overlay (3.620231ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 782.956711
+
+✖ failing tests:
+
+test at src/services/StorePublishCrossInstance.test.ts:1:1486
+✖ REL-BGSTAB-022 AC-1: two instances publishing concurrently both resolve (10.623321ms)
+  AssertionError [ERR_ASSERTION]: this publish rejected because the peer consumed the temp file it was going to rename: Error: Failed to persist command presets
+  + actual - expected
+  
+  + AppError: Failed to persist command presets
+  +     at CommandPresetService.flushToDisk (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/CommandPresetService.ts:288:13)
+  +     at async withPatchedFs (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:39:12)
+  +     at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:97:18)
+  +     at async Test.run (node:internal/test_runner/test:1409:7)
+  +     at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+  +   code: 'CONFIG_PERSIST_FAILED',
+  +   details: undefined,
+  +   statusCode: 500,
+  +   timestamp: '2026-09-15T22:16:19.448Z'
+  + }
+  - 'resolved'
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:109:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: Error: Failed to persist command presets
+        at CommandPresetService.flushToDisk (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/CommandPresetService.ts:288:13)
+        at async withPatchedFs (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:39:12)
+        at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:97:18)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3),
+    expected: 'resolved',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/StorePublishCrossInstance.test.ts:1:2285
+✖ REL-BGSTAB-022 AC-2: a resolved publish holds the document it wrote (2.779728ms)
+  AssertionError [ERR_ASSERTION]: this publish resolved having moved the peer's document into place; its own change was lost and its caller was told the write succeeded
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:143:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'peer',
+    expected: 'peer',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/StorePublishCrossInstance.test.ts:1:3226
+✖ REL-BGSTAB-022 AC-3: a shorter peer overlay leaves no foreign tail (3.335936ms)
+  AssertionError [ERR_ASSERTION]: the publish moved a partially written document into place (60091 bytes, ends "PPPPPPPPPPP\"\n    }\n  ]\n}"): Unexpected non-whitespace character after JSON at position 2120 (line 24 column 2)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:201:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }
+
+test at src/services/StorePublishCrossInstance.test.ts:1:4392
+✖ REL-BGSTAB-022 AC-4: failure cleanup removes only the caller's own temp file (2.26155ms)
+  AssertionError [ERR_ASSERTION]: the failing publish deleted a peer publish's in-flight temp file, because both derive the same fixed temp path from the destination
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:238:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/StorePublishCrossInstance.test.ts:1:5232
+✖ REL-BGSTAB-022 AC-7: the backup parses whole under an interposed peer overlay (3.620231ms)
+  AssertionError [ERR_ASSERTION]: the backup this publish left behind does not parse (60091 bytes): Unexpected non-whitespace character after JSON at position 40932 (line 189 column 2)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/StorePublishCrossInstance.test.ts:315:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }

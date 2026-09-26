@@ -237,7 +237,6 @@ Ctrl+C
   auth: {
     password: "",
     durationMs: 1800000,
-    maxDurationMs: 86400000,
     jwtSecret: "",
     localhostPasswordOnly: false,
   },

@@ -1,0 +1,107 @@
+{
+  "evaluator": "opus-A",
+  "iter": 1,
+  "findings": [
+    {
+      "id": "F-01",
+      "severity": "CRITICAL",
+      "axis": "a11_test_first_ordering",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH002-01",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:§3.PH-002.T-PH002-01",
+      "description": "Two of the three assertions T-PH002-01 declares RED would already pass against the code state it is measured against. Its baseline is the helper as left by T-PH001-02, which the plan itself describes as renaming once with no retry. (a) TC-REQ-REL-BGSTAB-022-AC5-03 'ENOSPC rejects on the first attempt without consuming the budget' — a helper with no retry rejects ENOSPC on attempt 1 and consumes no budget, so the assertion holds; its declared expected_failure_signature 'expected 1' is the value the pre-green helper actually produces. (b) TC-REQ-REL-BGSTAB-022-AC5-02 'an exhausted budget rejects and leaves the destination intact' — with injected EPERM the no-retry helper rejects on the first attempt and leaves the pre-existing destination unchanged and parseable, so this assertion also holds unless it additionally asserts the attempt count, which the task text does not say it does; its declared expected_failure_signature 'expected .* to reject' describes a non-rejection that the pre-green helper does not produce. Only TC-AC5-01 (five attempts + wait schedule) is a genuine RED. The task dod 'The attempt-count, exhaustion and selectivity assertions fail before T-PH002-02' is therefore false as written, and the file-level acceptance_test (expected_exit 1) hides it because TC-AC5-01 alone makes the file red.",
+      "suggested_action": "Either fold the attempt-count assertion into the exhaustion and selectivity cases (assert attempts===5 for the exhausted EPERM case and attempts===1 AND zero delay calls for ENOSPC, where the ENOSPC case is only meaningful once a budget exists), or move TC-AC5-02/TC-AC5-03 out of the RED set and label them boundary controls authored against the seam, as RISK-02 already does for the wait schedule. Replace the two expected_failure_signature values with signatures the pre-green helper can actually emit, or drop them."
+    },
+    {
+      "id": "F-02",
+      "severity": "CRITICAL",
+      "axis": "a4_ac_coverage",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH003-02",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:§3.PH-003",
+      "description": "T-PH003-01 asserts 'AC-1 through AC-6 against each' of the seven stores, and in this plan's own numbering AC-6 is the backup-atomicity criterion ('the backup parses whole under an interposed peer write'). But T-PH003-02 explicitly does not give McpControlConfigStore or WebhookInvocationService a backup: 'McpControlConfigStore and WebhookInvocationService keep their per-instance temp naming and gain the retry.' Verified against the source: McpControlConfigStore.ts:67-74 and WebhookInvocationService.ts:429-436 write a private temp file and rename, with no copyFile and no .bak at all. So the backup row of the table for those two stores cannot go green after T-PH003-02, and T-PH003-02's dod 'All seven stores pass the table-driven case.' is unreachable as specified. The plan inherits an unresolved tension in the SRS itself — AC-8 demands 'AC-1 through AC-7 are evaluated against it, then each holds' for all seven, while the statement says those two 'need the retry and nothing else' — and resolves it silently in the green task while the red task asserts the opposite.",
+      "suggested_action": "Decide explicitly and write the decision into both tasks: either (i) the backup criterion is evaluated only for stores whose publish sequence includes a backup, and the table marks McpControlConfigStore and WebhookInvocationService as backup-exempt with the statement sentence as the justification, or (ii) T-PH003-02 also gives those two a backup. Option (i) also needs a note that AC-8's literal 'AC-1 through AC-7' reading is narrowed, so the SRS and the plan do not disagree."
+    },
+    {
+      "id": "F-03",
+      "severity": "HIGH",
+      "axis": "a4_ac_coverage",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH001-01",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.sidecar.json:coverage.ac_test_map",
+      "description": "The sidecar's ac_refs do not use the SRS's AC numbering, so three ACs are covered by a test that decides a different criterion. SRS AC-6 is 'a non-transient code such as ENOSPC rejects on the first attempt without consuming the retry budget'; the sidecar maps AC-6 to TC-REQ-REL-BGSTAB-022-AC6-01/02, test_symbol 'the backup parses whole under an interposed peer write', which is SRS AC-7. SRS AC-7 is the backup criterion; the sidecar maps AC-7 to TC-AC7-01/02, test_symbol 'each of the seven stores satisfies AC-1 through AC-6', which is SRS AC-8. The ENOSPC content is instead filed under AC-5 (TC-AC5-03/06), and SRS AC-8 is filed under AC-7 plus a narrower agent-profile case under AC-8. The plan .md prose repeats the shift ('asserting AC-1 through AC-6 against each and so satisfying AC-7'). No AC's substance is missing, but every ac_refs label in the AC-5..AC-8 band points at the wrong criterion, so a coder following the sidecar will write ac_refs that are wrong, and add_verification_evidence against AC-6 will cite a backup test rather than the ENOSPC test.",
+      "suggested_action": "Renumber the test_case ac_refs and the plan prose to the SRS numbering: ENOSPC -> AC-6 (its own test_case, not a TC-AC5-* id), backup -> AC-7, all-seven-stores -> AC-8, and keep the agent-profile case as an additional AC-8 test_case. Re-run the validator so the ac_test_map arithmetic tracks the corrected ids."
+    },
+    {
+      "id": "F-04",
+      "severity": "HIGH",
+      "axis": "a11_test_first_ordering",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH001-01",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:§3.PH-001.T-PH001-01",
+      "description": "The torn-publish fixture is specified in a way that cannot produce the defect it targets. T-PH001-01 says 'Interpose a peer write on the temp path deterministically by patching fs/promises.writeFile for one call' and then claims AC-3 (shorter peer document leaves a foreign tail) and the backup case fail at HEAD with expected_failure_signature 'Unexpected (token|non-whitespace)' — a JSON parse error. A peer write performed with fs.writeFile opens with O_TRUNC, so a shorter peer document replaces the longer one entirely and the destination holds a whole, parseable document. The foreign tail the SRS measured arises from an offset-zero write into a file that was not truncated (the SRS calls it 'the shorter document's bytes at the head and the longer one's tail beyond them'). With the fixture as described, no parse error occurs, so the declared failure signature is unreachable and AC-3 degrades into a second copy of AC-2 ('the destination holds someone else's whole document'). The same applies to the backup case, whose declared signature is also a parse error.",
+      "suggested_action": "State in the action that the interposed peer write is a non-truncating overlay — open the temp path (and the .bak path) with 'r+' and write the shorter document at offset 0 without truncating — and that AC-3 asserts both that the destination parses and that it holds the caller's own document. Keep fs.writeFile patching only as the interposition hook, not as the peer write itself."
+    },
+    {
+      "id": "F-05",
+      "severity": "HIGH",
+      "axis": "a10_dod_specificity",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH004-01",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:§3.PH-004.T-PH004-01",
+      "description": "The regression task's acceptance_test is {kind: shell, cmd: 'npx tsx src/test-runner.ts', expected_exit: 1}. Pinning the regression run to a non-zero exit makes the gate unable to detect a regression: a run that fails only for the pre-existing Linux/WSL2 baseline reasons and a run that additionally fails because PH-003 broke a store both exit 1 and both satisfy the acceptance test. The dod 'Known baseline failures are named with their cause, not omitted' states the intent but is not machine-checkable and does not compare the post-change failure set to a recorded pre-change one.",
+      "suggested_action": "Capture the baseline failure set before PH-001 (a named file under the evidence directory) and make the acceptance a comparison rather than an exit code: the post-change failing-test set must equal the recorded baseline set. If that comparison cannot be scripted, at minimum make the dod require the two failure lists be diffed in the report and state that the diff is empty."
+    },
+    {
+      "id": "F-06",
+      "severity": "MEDIUM",
+      "axis": "a11_test_first_ordering",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH002-01",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:§5.1 RISK-02",
+      "description": "RISK-02 is honestly disclosed — it does not hide the ordering and it explicitly refuses to loosen AC-5 to 'bounded' to manufacture a RED, which is the right call — but its technical premise is wrong. It argues the wait-schedule assertion 'cannot be RED-first' because 'there is no clock to intercept until the helper introduces the injectable delay in T-PH002-02'. A test can be authored against the intended seam before it exists: passing a recording delay function through the helper's options and asserting the recorded waits equal [10,20,40,80] fails against the post-PH-001 helper, which never calls it, leaving the recorder empty. That is a normal RED against a not-yet-existing API, and it is exactly what TC-AC5-01 will look like after T-PH002-02. So the implementation-first ordering is avoidable rather than forced. The resulting test is not weak — it still pins the exact schedule — so this is an ordering defect, not a coverage defect.",
+      "suggested_action": "Rewrite TC-AC5-01 as RED-first against the option shape T-PH002-02 will implement (helper called with an injected delay recorder; assert the recorded waits are exactly [10,20,40,80] and the attempt count is 5), and reduce RISK-02 to what is genuinely irreducible: the EPERM/EACCES/EBUSY codes themselves are Windows semantics injected at the fs boundary and are not natively reproduced on this host."
+    },
+    {
+      "id": "F-07",
+      "severity": "MEDIUM",
+      "axis": "a6_type_fit",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH004-01",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.sidecar.json:tasks[T-PH004-01].tdd.test_cases",
+      "description": "T-PH004-01 is an evidence-capture task (type: infra) whose md covers_ac is empty, but the sidecar attaches TC-REQ-REL-BGSTAB-022-AC9-03 to it with ac_refs ['AC-9'], test_file server/src/services/StorePublishCrossInstance.test.ts and test_symbol 'the regression baseline is reproduced rather than assumed'. That string is not a test symbol in that file — the file's AC-9 symbol is 'overlapping publishes through one instance each reach disk' — and no task creates a test by that name. AC-9's coverage is not damaged (TC-AC9-01/02 are real), but this third entry is a label attached to a documentation-and-evidence step, and it contradicts the task's own covers_ac: [].",
+      "suggested_action": "Delete TC-AC9-03 from T-PH004-01's test_cases and leave the task with covers_ac: [] and its file_state acceptance, or re-point it at a real symbol in a real file if a third AC-9 case is actually intended."
+    },
+    {
+      "id": "F-08",
+      "severity": "MEDIUM",
+      "axis": "a8_files_grounding",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH001-01",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:§3.PH-001.T-PH001-01",
+      "description": "All production line ranges check out against the source (CommandPresetService.ts flushToDisk 264-290, WorkspaceService.ts writeStateToDisk 1726-1754, TerminalShortcutService.ts flushToDisk 528-553, RecoveryOptionService.ts flushToDisk 410-437, AgentLifecycleService.ts flush 106-113, McpControlConfigStore.ts saveConfig 57-79, WebhookInvocationService.ts saveRecords 425-438), so the grounding is sound. The defect is the opposite one: the two RED tasks list only production files and omit the files they actually create. T-PH001-01 lists CommandPresetService.ts:261-290 while its own dod says 'No production file is modified by this task', and does not list server/src/services/StorePublishCrossInstance.test.ts, which it creates. T-PH003-01 lists six production services and not the test file it extends. T-PH002-01 lists the helper source rather than server/src/utils/atomicStoreWrite.test.ts. A files[] existence check at regression time will therefore not see the artifacts these tasks produce.",
+      "suggested_action": "Add the test file to each RED task's files[] as its primary entry and keep the production paths as read-only context, or annotate them as such so the distinction between 'writes here' and 'reads here' survives into the coder handoff."
+    },
+    {
+      "id": "F-09",
+      "severity": "MEDIUM",
+      "axis": "a3_req_coverage",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH001-02",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:§3.PH-001.T-PH001-02",
+      "description": "T-PH001-02's dod includes 'CommandPresetService still rejects with AppError(CONFIG_PERSIST_FAILED) on a genuine write failure', and T-PH003-02's action requires WorkspaceService, TerminalShortcutService and RecoveryOptionService to 'keep their existing error mapping' — where WorkspaceService.writeStateToDisk rethrows the raw error (WorkspaceService.ts:1753) while the other three wrap it in AppError(CONFIG_PERSIST_FAILED). No test_case in the sidecar asserts any of this, and neither task's acceptance_tests exercise it; the only commands are the cross-instance suite, which is about publish semantics. Routing five different call sites through one helper is precisely the change that silently homogenises error types, and nothing in the plan would catch it.",
+      "suggested_action": "Add one test_case per task asserting the rejected error type and code for a failing publish through each converted store — AppError(CONFIG_PERSIST_FAILED) for CommandPreset, TerminalShortcut and RecoveryOption, and the raw errno error for WorkspaceService — and reference it from the dod so the claim is decidable."
+    },
+    {
+      "id": "F-10",
+      "severity": "MEDIUM",
+      "axis": "a10_dod_specificity",
+      "req_id": "REL-BGSTAB-022",
+      "task_id": "T-PH004-02",
+      "evidence_path": "docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:§3.PH-004.T-PH004-02",
+      "description": "The dod entry 'The report exists and covers every required section.' is not decidable — the plan never enumerates the required sections. The action does list them informally (issue, decision and rejected alternatives, RED evidence, commands with cwd and env, raw paths with SHA256, the platform limitation), and the acceptance checklist names three of them, but the dod references a set that is defined nowhere, so a reviewer cannot say whether it holds.",
+      "suggested_action": "Replace the phrase with the explicit list from the action, or point the dod at the checklist items in acceptance_tests so the two agree on one enumerated set."
+    }
+  ],
+  "summary": { "CRITICAL": 2, "HIGH": 3, "MEDIUM": 5, "LOW": 0 }
+}

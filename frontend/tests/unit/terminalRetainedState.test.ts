@@ -422,10 +422,12 @@ test('OBS-BGSTAB-004 AC-4/6 compact live fingerprint repair RED contract', async
 
   const rebasedEvidence = contract.createTerminalRetainedStateEvidence({
     ...pre,
-    lines: pre.lines.map((line) => ({
+    // `contract` is a dynamic import, so `pre` is untyped here; annotate the
+    // callback params rather than widen the whole fixture.
+    lines: (pre.lines as { index: number; cells: unknown[] }[]).map((line) => ({
       ...line,
       index: line.index + 100,
-      cells: line.cells.map((cell) => ({ ...cell })),
+      cells: line.cells.map((cell) => ({ ...(cell as object) })),
     })),
   });
   assert.equal(

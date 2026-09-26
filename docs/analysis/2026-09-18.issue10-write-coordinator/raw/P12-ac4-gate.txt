@@ -1,0 +1,38 @@
+# Issue #10 AC-4 (b) — the orchestrator's gate: can the failure mode be observed?
+# 2026-09-18. Gate: before changing checkpoint pacing, land a test that observes a HUNG or
+# TORN terminal, not merely an unpaced one. If it cannot be built, defer (b) to its own issue.
+
+## Result: GATE SATISFIED
+tests/unit/terminalSnapshotLiveHandoverIntegrity.test.ts now carries a liveness guard,
+'FR-BGSTAB-022 AC-5 — a checkpoint drains to ready and releases held input, in order'.
+
+It observes a STALL through three terminal-state assertions after a full drain:
+  ready === true            (a yield that never resumes leaves the barrier closed)
+  pendingCommands === 0     (un-drained writes)
+  pendingInputs === 0       (typed-ahead input parked forever)
+and a TEAR through write-kind ordering: the post-snapshot live write must follow the parser
+tail, and nothing but body slices may precede it.
+
+It also asserts its own PRECONDITION — ready must be CLOSED before the drain — so that
+'it converged' cannot be satisfied by a coordinator that never held anything.
+
+## Verified against a real stall
+Injection: a yield that schedules no resumption — the checkpoint slice completion path stops
+re-entering pump(). Observable flow collapses from twelve events to three:
+    reset / modes / write:checkpoint   (and nothing further)
+Guard result: 2 tests, 0 pass, 2 FAIL, first message:
+    'ready never opened — the lane stalled'
+
+## A dead mutation, and how it was distinguished from a weak test
+The FIRST stall injection targeted the two pump() calls at lines 990 and 1044. It
+SURVIVED — and that looked exactly like a weak guard. It was not: those two sites do not
+govern the checkpoint slice loop. The tell was that the observable event log was BYTE
+IDENTICAL to the un-mutated run, which a real stall cannot be. The actual resume point is
+the pump() at ~line 1031, inside the lifecycleCanContinue block of the checkpoint slice
+completion handler. Re-injected there, the flow changes and the guard reddens.
+
+A surviving mutation has two causes — the test is weak, or the mutation never reached the
+path. They are distinguished by checking that the mutation changed the observable behaviour
+at all before concluding anything about the test. A dead mutation is a dead control.
+
+Production restored byte-identically after every injection (sha256 verified each time).

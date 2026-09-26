@@ -1,0 +1,2 @@
+# Root .gitignore excludes *.log; these raw run logs are the evidence this bundle exists for.
+!raw/*.log

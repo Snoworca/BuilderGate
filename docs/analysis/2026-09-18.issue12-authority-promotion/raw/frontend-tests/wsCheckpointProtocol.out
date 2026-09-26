@@ -1,0 +1,21 @@
+✔ checkpoint server contract accepts canonical start/chunk/commit frames (1.660982ms)
+✔ frontend and server expose the exact same checkpoint wire declarations (5.119436ms)
+✔ MIG-BGSTAB-002 checkpoint ACK rejections reject malformed identity correlation metadata (0.241822ms)
+✔ WebSocket ingress validates every checkpoint-prefixed frame before routing or mutation (2.551267ms)
+✔ checkpoint server contract rejects JSON numbers and every noncanonical Ordinal64 form (0.362857ms)
+✔ checkpoint server contract rejects malformed transaction metadata before dispatch (0.306352ms)
+✔ checkpoint capability response is explicit and cannot silently activate authority (0.269695ms)
+✔ MIG-BGSTAB-002 compatibility recovery role is narrowly scoped to passive legacy snapshots (0.198881ms)
+✔ MIG-BGSTAB-002 server responder grant carries one canonical authority generation (0.296904ms)
+✔ future active checkpoint capability is explicit while the current server default remains passive (3.859769ms)
+✔ MIG-BGSTAB-002 prepared checkpoint delivery capability is bound to its registered server view (0.266069ms)
+✔ RED reviewer — negotiated mutation lease is attached only to matching input and resize frames (0.440102ms)
+✔ RED reviewer — dispatcher cleanup removes its lease before listing remaining views for renegotiation (2.305685ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 156.701037

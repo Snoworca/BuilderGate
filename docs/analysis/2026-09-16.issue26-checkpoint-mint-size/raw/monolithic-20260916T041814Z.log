@@ -1,0 +1,1166 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+PASS Config bootstrap applies OS-aware PTY defaults when creating config text
+PASS Config normalization neutralizes stale Windows PTY fields on non-Windows
+PASS Config normalization preserves invalid PTY shapes for schema validation
+[Config] config.json5 not found — created from built-in bootstrap template
+[Config] Initial administrator password must be configured in the browser bootstrap flow.
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+PASS Config loader bootstraps missing config files with platform-aware PTY defaults
+[Config] config.json5 not found — created from built-in bootstrap template
+[Config] Initial administrator password must be configured in the browser bootstrap flow.
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+PASS Config loader bootstraps missing config files without copying config.json5.example
+[Config] Backup created: /tmp/buildergate-config-legacy-conpty-oBXXFo/config-win.json5.bak
+[Config] auth.password encrypted
+[Config] Passwords encrypted and saved to config file
+[Config] Configuration loaded successfully
+[Config] Backup created: /tmp/buildergate-config-legacy-conpty-oBXXFo/config-linux.json5.bak
+[Config] auth.password encrypted
+[Config] Passwords encrypted and saved to config file
+[Config] Configuration loaded successfully
+PASS Config loader defaults legacy Windows configs without useConpty to ConPTY
+[Config] Backup created: /tmp/buildergate-config-native-perf-bFYaZB/config.json5.bak
+[Config] auth.password encrypted
+[Config] Passwords encrypted and saved to config file
+[Config] Configuration loaded successfully
+PASS Config loader resolves enforce cleanup and visible flush budget overrides without changing schema defaults
+[Config] All passwords already encrypted
+[Config] Passwords encryption skipped: ZodError: [
+  {
+    "expected": "object",
+    "code": "invalid_type",
+    "path": [
+      "pty"
+    ],
+    "message": "Invalid input: expected object, received array"
+  }
+]
+    at loadConfigFromPath (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/config.ts:235:44)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:1473:13)
+    at getActual (node:assert:611:5)
+    at strict.throws (node:assert:759:24)
+    at Object.testLoadConfigFromPathRejectsInvalidPtyShape (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:1472:12)
+    at async main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:7)
+[Config] Configuration validation failed:
+[
+  {
+    "expected": "object",
+    "code": "invalid_type",
+    "path": [
+      "pty"
+    ],
+    "message": "Invalid input: expected object, received array"
+  }
+]
+PASS Config loader rejects invalid PTY section shapes
+[Config] Backup created: /tmp/buildergate-config-normalize-13Yqjv/config.json5.bak
+[Config] auth.password encrypted
+[Config] Passwords encrypted and saved to config file
+[Config] Configuration loaded successfully
+PASS Config loader normalizes stale Windows PTY fields on non-Windows hosts
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+PASS Config loader canonicalizes empty-password bootstrap state from null or missing input
+[Config] Backup created: /tmp/buildergate-config-password-encrypt-ImNuA4/config.json5.bak
+[Config] auth.password encrypted
+[Config] Passwords encrypted and saved to config file
+[Config] Configuration loaded successfully
+PASS Config loader still encrypts non-empty plaintext passwords on load
+PASS Config path honors BUILDERGATE_CONFIG_PATH for packaged launchers
+PASS Input reliability mode defaults to observe and warns on unsupported env values
+PASS Strict config loader rejects invalid existing config without defaults
+[Config] config.json5 not found — created from built-in bootstrap template
+[Config] Initial administrator password must be configured in the browser bootstrap flow.
+PASS Strict config loader bootstraps missing config without fallback defaults
+PASS RuntimeConfigStore builds a redacted editable snapshot
+PASS RuntimeConfigStore marks platform capabilities and merges patches
+PASS RuntimeConfigStore normalizes platform-specific PTY values in editable snapshots
+PASS RuntimeConfigStore marks selected Wave6 resource limits as settings-applied
+PASS server startup wires Wave4 limits into WsRouter construction
+PASS server startup passes the configured terminal wire format into WsRouter construction
+PASS BoundedByteDeque enforces UTF-8 byte caps
+PASS BoundedByteDeque enforces chunk caps
+PASS BoundedByteDeque preserves FIFO dequeue without hot-path array copying
+PASS HeadlessOutputQueue reports overflow telemetry and degrade decisions
+PASS SessionManager consumes headless queue limits without flipping defaults
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+PASS WsRouter consumes send limits without flipping defaults
+PASS SessionManager resolves PowerShell backend override without changing non-PowerShell behavior
+PASS SessionManager rejects explicit winpty runtime config when probe fails
+PASS SessionManager retries winpty probe after a previous failure
+PASS SessionManager.createSession uses resolved backend for PowerShell sessions
+PASS SessionManager.createSession normalizes Windows-only shells on non-Windows hosts
+PASS SessionManager.createSession falls back when a configured host shell is unavailable
+PASS SessionManager snapshot metadata stays truthful across backend combinations
+PASS SessionManager non-Windows runtime validation matches the settings contract
+PASS Password policy enforces FR-AUTH-015 length and character contract
+[Auth] AuthService initialized
+PASS SettingsService hides winpty option after capability probe failure
+[Auth] AuthService initialized
+PASS SettingsService rejects winpty saves immediately after capability probe failure
+[Auth] AuthService initialized
+PASS SettingsService rejects useConpty=false saves immediately when winpty is unavailable
+[Auth] AuthService initialized
+[Auth] Token issued: jti=35924536-856a-4ce0-b05a-9a14c14529c5
+PASS AuthService.updateRuntimeConfig updates password validation and token duration
+[Auth] AuthService initialized
+PASS SettingsService rejects unsupported settings keys
+[Auth] AuthService initialized
+PASS SettingsService shell options follow detected host capabilities
+[Auth] AuthService initialized
+PASS SettingsService shell options include WSL-backed bash and sh on Windows hosts
+[Auth] AuthService initialized
+PASS SettingsService persists editable values and applies runtime updates
+[Auth] AuthService initialized
+PASS SettingsService applies Wave4 headless runtime settings for later sessions
+[Auth] AuthService initialized
+[WS] WebSocket router initialized
+PASS SettingsService applies Wave4 WebSocket runtime settings to the live router
+[Auth] AuthService initialized
+PASS SettingsService persists editable values against a legacy pty.maxBufferSize config
+PASS ConfigFileRepository can insert useConpty into legacy config text
+PASS ConfigFileRepository can insert missing PTY section for legacy config text
+PASS ConfigFileRepository persists generated JWT secrets
+[Auth] AuthService initialized
+PASS SettingsService preserves hidden Windows PTY values on non-Windows unrelated saves
+[Auth] AuthService initialized
+PASS SettingsService reconfigures TOTP runtime and returns warnings on hot apply
+[Auth] AuthService initialized
+PASS SettingsService does not reconfigure TOTP runtime when config persistence fails
+[Auth] AuthService initialized
+[SettingsService] TOTP runtime refresh failed after save: Error: simulated runtime callback failure
+    at Object.updateTwoFactorRuntime (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:2074:13)
+    at SettingsService.applyTwoFactorRuntime (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SettingsService.ts:344:24)
+    at SettingsService.savePatch (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SettingsService.ts:249:34)
+    at Object.testSettingsServiceTwoFactorRuntimeCallbackFailureWarning (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:2079:44)
+    at async main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:7)
+PASS SettingsService converts post-save TOTP runtime callback throws into warnings
+[Auth] AuthService initialized
+PASS SettingsService blocks password rotation without current password
+[Auth] AuthService initialized
+PASS SettingsService rotates password for later logins and persists encrypted secret
+[Auth] AuthService initialized
+PASS SettingsService rolls back runtime state when apply fails
+PASS SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots
+PASS SessionManager WSL shell preserves default bootstrap args
+PASS SessionManager bash shell env keeps BASH_ENV bootstrap on Windows hosts
+PASS bash OSC133 hook stays BASH_ENV based and avoids rcfile bootstrap
+PASS SessionManager records observe-mode cleanup telemetry on delete
+PASS SessionManager finalizes natural process exit once
+PASS SessionManager finalizer is idempotent across delete and late process-exit
+PASS SessionManager default cleanup inspector skips unverified observations
+PASS SessionManager records unverified cleanup skips without extra kills
+PASS SessionManager bounds recent cleanup telemetry results
+PASS ProcessTreeTerminator skips termination without root identity
+PASS ProcessTreeTerminator rejects PID start identity mismatch
+PASS ProcessTreeTerminator skips POSIX termination when cwd is unavailable
+PASS ProcessTreeTerminator skips POSIX termination when cwd mismatches
+PASS ProcessTreeTerminator uses Windows taskkill by PID without shell
+PASS ProcessTreeTerminator reports failed Windows taskkill without throwing
+PASS ProcessTreeTerminator skips WSL backend without Linux process identity
+PASS ProcessTreeTerminator avoids POSIX process-group kill when PGID is unverified
+PASS ProcessTreeTerminator does not use POSIX process-group kill with root PGID alone
+PASS ProcessTreeTerminator force-kills only verified remaining POSIX root
+PASS ProcessTreeTerminator reports sampled child that survives root exit
+PASS SessionManager terminateSession awaits enforce process-tree termination
+PASS SessionManager terminateSession merges process exit race into explicit cleanup
+[SessionManager] CWD does not exist: C:\work\git\_Snoworca\ProjectMaster-issue2-20260916\server, falling back to /home/beom
+PASS SessionManager.createSession does not synchronously read process start identity on Windows
+PASS SessionManager ignores rejected asynchronous process start identity capture
+PASS SessionManager retries asynchronous process start identity capture after a transient failure
+PASS readProcessStartIdentity returns null when Windows process identity probe times out
+PASS SessionManager stores asynchronous process start identity when capture resolves
+PASS SessionManager treats termination before async start identity capture as unverified cleanup
+PASS SessionManager updates process metadata cwd from verified cwd hook
+[SessionManager] Process-tree termination failed: Error: terminator failed
+    at Object.terminate (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:3654:13)
+    at SessionManager.terminateSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:3286:57)
+    at Object.testSessionManagerTerminateSessionFinalizesWhenTerminatorThrows (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:3665:40)
+    at main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:22)
+PASS SessionManager terminateSession finalizes when enforce terminator throws
+PASS SessionManager terminateMultipleSessions reports mixed missing sessions
+PASS SessionManager terminateAllSessions reports deterministic batch result
+PASS SessionManager terminateAllSessions records enforce override when runtime cleanup is legacy
+PASS SessionManager keeps Hermes submit idle in bash heuristic mode
+PASS SessionManager keeps Codex submit idle in bash heuristic mode
+PASS SessionManager injects Codex tui suppression flags when config enabled (FR-BGSTAB-020 AC-1)
+PASS SessionManager gates Codex tui suppression injection by config (FR-BGSTAB-020 AC-2)
+PASS SessionManager positions Codex tui suppression flags and guards partial keystrokes (FR-BGSTAB-020)
+PASS SessionManager keeps Claude submit idle in bash heuristic mode
+PASS SessionManager keeps Codex typing idle after a prior running misclassification
+PASS SessionManager keeps delayed Codex draft redraw idle when prompt prefixes the local echo
+PASS SessionManager marks substantive Codex output running while draft input is pending
+PASS SessionManager keeps a delayed Codex draft echo idle
+PASS SessionManager marks delayed short Codex output running after a stale Ctrl+C repaint window
+PASS SessionManager marks substantive shell output running while draft input is pending
+PASS SessionManager marks delayed short shell output running while draft input is pending
+PASS SessionManager keeps delayed prompt-prefixed shell draft echo idle
+PASS SessionManager keeps immediate shell Ctrl+C repaint idle
+PASS SessionManager keeps delayed shell Ctrl+C prompt return idle
+PASS SessionManager keeps delayed PowerShell-shaped Ctrl+C prompt return idle when shell metadata is stale
+PASS SessionManager marks substantive shell output running after a stale Ctrl+C repaint window
+PASS SessionManager keeps Codex foreground when internal submit resembles AI command
+PASS SessionManager keeps custom recovery foreground input idle
+[PTY] Failed to write input to session 6ee05b6c-26db-4ed2-858a-b10bd09b8d65: Error: simulated write failure
+    at Object.testSessionManagerCommandSubmittedCallbackRequiresSuccessfulWrite (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:4269:17)
+    at main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:22)
+PASS SessionManager does not emit submitted command callback when PTY input write fails
+PASS SessionManager queues restore input until shell startup readiness
+[SessionManager] Recovery restore input skipped for session 79e5c40a-c7dc-4eb5-bf36-e2069fb651db: restore_guard_cancelled
+PASS SessionManager cancels scheduled restore input when guard fails
+PASS SessionManager delays Codex semantic output before promoting to running
+PASS SessionManager treats prompt-prefixed Codex semantic output as running candidate
+PASS SessionManager returns idle and clears hints after Codex launch failure
+PASS SessionManager does not treat later Codex file-not-found output as launch failure
+PASS SessionManager keeps idle when split shell prompt follows Codex launch failure
+PASS SessionManager returns to shell prompt after Codex exits before ordinary command
+PASS SessionManager keeps echoed Hermes command idle while bootstrapping in bash heuristic mode
+PASS SessionManager keeps Hermes bootstrap output idle in bash heuristic mode
+PASS SessionManager delays Hermes detector semantic output before promoting to running
+PASS SessionManager returns idle and clears hints when Hermes launch fails in bash heuristic mode
+PASS SessionManager keeps ordinary bash commands on the existing running to idle path
+PASS SessionManager keeps Hermes submit idle in zsh heuristic mode
+PASS SessionManager ignores stale cwd prompt refresh while Hermes foreground launch is active
+PASS SessionManager returns to shell prompt idle after Hermes zsh session completes
+PASS PERF-BGSTAB-005 non-target foreground detector inspect returns null before string processing
+PASS PERF-BGSTAB-005 hermes attach decision is unchanged by a non-target appHint prelude
+PASS PERF-BGSTAB-006 raw output debug details are skipped when debug capture is disabled
+PASS PERF-BGSTAB-006 raw output debug capture is unchanged when debug capture is enabled
+PASS PERF-BGSTAB-007 AI TUI output classification identity is preserved across strip sharing
+PASS PERF-BGSTAB-007 AI TUI classifiers use the shared precomputed strip result
+[SessionManager] CWD does not exist: C:\Users\beom, falling back to /home/beom
+FAIL SessionManager keeps PowerShell prompt redraw idle in heuristic mode
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+'running' !== 'idle'
+
+    at Object.testSessionManagerPowerShellPromptRedrawStaysIdle (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:4673:12)
+    at async main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:7) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'running',
+  expected: 'idle',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+PASS SessionManager no-op resize skips PTY resize and replay refresh
+PASS SessionManager resize replay refresh fires after sustained pending output settles
+PASS SessionManager resize replay refresh waits for quiet window before settling headless writes
+PASS SessionManager resize replay refresh waits for headless drain after noisy redraw deadline
+PASS SessionManager resize replay refresh clamps near-deadline rearm to the remaining deadline window
+PASS SessionManager resize replay refresh shortens post-deadline rearm to drain cadence
+PASS SessionManager returns cached authoritative snapshots
+PASS SessionManager reports snapshot observability counters
+PASS OBS-BGSTAB-003 red: telemetry exposes event loop delay, CPU%, headless write metrics
+PASS OBS-BGSTAB-003 red: telemetry metrics distinguish loop saturation from CPU headroom
+PASS OBS-BGSTAB-003 impl: telemetry exposes event loop delay, CPU%, headless write metrics
+PASS OBS-BGSTAB-003 impl: telemetry metrics distinguish loop saturation from CPU headroom
+FAIL SessionManager powershell shell bootstrap avoids delayed prompt-hook injection
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'bash'
+- 'powershell.exe'
+
+    at Object.testSessionManagerPowerShellBootstrapArgs (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:5873:10)
+    at main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:22) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'bash',
+  expected: 'powershell.exe',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+PASS SessionManager input debug capture records safe metadata without leaking printable input
+PASS debug capture localhost guard rejects non-loopback requests
+PASS debug capture missing-session guard returns 404
+PASS internal shutdown route is disabled outside production daemon app child
+PASS internal shutdown route rejects missing token and forwarded-loopback spoofing
+PASS internal shutdown route flushes and returns structured shutdown result
+[Shutdown] Internal shutdown failed: flush failed
+PASS internal shutdown route returns 500 when graceful shutdown fails
+PASS MCP security contract SEC-MCP-001 AC-1: defaults bind loopback and reject non-loopback dispatch
+PASS MCP security contract SEC-MCP-001 AC-2: whitelist requires TLS or trusted TLS proxy
+PASS MCP security contract SEC-MCP-001 AC-3: forwarded IP is trusted only from HTTPS trusted proxies
+PASS MCP security contract SEC-MCP-001 AC-4: denials expose stable code and audit id without secrets
+PASS MCP security contract SEC-MCP-001 AC-5: listener rebind swaps MCP listener without app restart
+PASS MCP security contract SEC-MCP-001 AC-6: failed rebind rolls back listener and persisted config
+PASS MCP security contract SEC-MCP-002 AC-1: scoped session token claims and rejection cases
+PASS MCP security contract SEC-MCP-002 AC-2: default session actor scopes are least privilege
+PASS MCP security contract SEC-MCP-002 AC-3: close-self and close-other grants stay distinct
+PASS MCP security contract SEC-MCP-002 AC-4: browser JWT is rejected as MCP or webhook credential
+PASS MCP security contract SEC-MCP-002 AC-5: Origin policy composes with transport and credential checks
+PASS MCP security contract SEC-MCP-002 AC-6: empty whitelist mode is rejected
+PASS MCP security contract SEC-MCP-002 AC-7: webhook secrets use entropy, hashes, and one-time exposure
+PASS MCP security contract SEC-MCP-002 AC-8: webhook bindings constrain target, profile, mode, and scope
+PASS MCP security contract SEC-MCP-002 AC-9: policy denials use stable MCP codes
+PASS MCP security contract SEC-MCP-002 AC-10: fixed access key is hashed and least-privilege
+PASS MCP fixed access key Bearer resolves to a limited non-session actor
+PASS MCP HTTP initialize authenticates fixed keys and rejects browser or missing credentials
+PASS MCP fixed access key hash persists across config updates without plaintext
+PASS MCP claim code issuance expires and prunes bounded records
+PASS MCP security contract IR-MCP-005 AC-1: whitelist empty and nonmatch codes take precedence
+PASS MCP security contract IR-MCP-005 AC-2: promptPreview is redacted, normalized, and bounded
+PASS MCP security contract IR-MCP-005 AC-3: recent audit status is bounded and redacted
+PASS MCP security contract IR-MCP-005 AC-4: forbidden webhook header names are rejected
+PASS MCP security contract IR-MCP-005 AC-5: webhook full secret exposure is create-or-rotate only
+PASS MCP security contract IR-MCP-005 AC-6: agentStatus wire enum rejects arbitrary values
+PASS MCP security contract IR-MCP-005 AC-7: bindingLifecycle wire enum rejects legacy active value
+PASS MCP security contract IR-MCP-005 AC-8: replay pending denial code is not substituted
+PASS MCP security contract IR-MCP-005 AC-9: close confirmation shape is mandatory
+PASS MCP security contract IR-MCP-005 AC-10: non-create webhook surfaces remain masked
+PASS MCP registry contract FR-MCP-001 AC-1: creates stable sessionKey with UUID currentSessionId
+PASS MCP registry contract FR-MCP-001 AC-2: updates currentSessionId generation without changing sessionKey
+PASS MCP registry contract FR-MCP-001 AC-3: rejects stale sessionId targets
+PASS MCP registry contract FR-MCP-001 AC-4: accepts current sessionId targets
+PASS MCP registry contract FR-MCP-001 AC-5: preserves sessionKey through restart recovery
+PASS MCP registry contract FR-MCP-001 AC-6: startup reconcile indexes live workspace tabs
+PASS MCP registry contract FR-MCP-001 AC-7: backfills legacy workspace tabs
+PASS MCP registry contract FR-MCP-006 AC-6: reconcile repairs duplicate session keys
+PASS MCP alias contract FR-MCP-006 AC-1: list excludes self by default
+PASS MCP alias contract FR-MCP-006 AC-2: list includes self when includeSelf is true
+PASS MCP alias contract FR-MCP-006 AC-3: list surfaces user alias and current session binding
+PASS MCP alias contract FR-MCP-006 AC-4: exact alias search ranks before partial matches
+PASS MCP alias contract FR-MCP-001 AC-7: search ranks user aliases before weaker fields
+PASS MCP alias contract FR-MCP-001 AC-7: search matches session keys and ids
+PASS MCP alias contract FR-MCP-001 AC-7: search reports zero and ambiguous matches
+PASS MCP alias contract FR-MCP-006 AC-5: alias update persists WorkspaceTab user name
+PASS MCP alias contract FR-MCP-006 AC-6: alias update broadcasts tab metadata
+PASS MCP input gateway FR-MCP-002 AC-1: all ingress paths route through SessionInputGateway
+PASS MCP input gateway FR-MCP-002 AC-2: replay pending rejection uses stable code
+PASS MCP input gateway FR-MCP-002 AC-3: paste-only delivery rejects submit and newlines without scope
+PASS MCP input gateway FR-MCP-002 AC-4: stale or non-live targets reject before PTY write
+PASS MCP input gateway FR-MCP-002 AC-5: AI TUI user/input repaint events preserve idle
+PASS MCP input gateway FR-MCP-002 AC-6: reply_to_leader resolves live leader or preserves follower
+PASS MCP input gateway IR-MCP-004 AC-1: webhook create/rotate secret material stays out of input audit
+PASS MCP input gateway IR-MCP-004 AC-2: webhook header credentials share redacted gateway path
+PASS MCP input gateway IR-MCP-004 AC-3: webhook rate limit denies before PTY write
+PASS MCP input gateway IR-MCP-004 AC-4: webhook stable denial codes precede dispatch
+PASS MCP input gateway IR-MCP-004 AC-5: revoked webhook keys do not reactivate delivery
+PASS MCP input gateway IR-MCP-004 AC-6: session list self targeting defaults remain explicit
+PASS MCP input gateway IR-MCP-004 AC-7: alias target ambiguity rejects before PTY write
+PASS MCP input gateway IR-MCP-004 AC-8: close_self failure notification uses gateway
+PASS MCP input gateway IR-MCP-004 AC-9: replay code is INPUT_REJECTED_REPLAY_PENDING
+PASS MCP input gateway IR-MCP-004 AC-10: close confirmation rejects before side effects
+PASS MCP input gateway IR-MCP-005 AC-1: whitelist denial precedence blocks dispatch
+PASS MCP input gateway IR-MCP-005 AC-2: prompt preview redaction precedes audit/status
+PASS MCP input gateway IR-MCP-005 AC-3: recent audit events are bounded and redacted
+PASS MCP input gateway IR-MCP-005 AC-4: forbidden webhook headers reject before gateway write
+PASS MCP input gateway IR-MCP-005 AC-5: webhook create or rotate is the only full-secret surface
+PASS MCP input gateway IR-MCP-005 AC-6: invalid agentStatus rejects before delivery
+PASS MCP input gateway IR-MCP-005 AC-7: legacy bindingLifecycle cannot reach delivery
+PASS MCP input gateway IR-MCP-005 AC-8: final replay precedence uses exact stable code
+PASS MCP input gateway IR-MCP-005 AC-9: final close confirmation shape precedes lifecycle
+PASS MCP input gateway IR-MCP-005 AC-10: non-create webhook surfaces remain masked
+PASS MCP transport/tool IR-MCP-001 AC-1: tools/list exposes stable ASCII schemas
+PASS MCP transport/tool IR-MCP-001 AC-2: whoami returns current session binding
+PASS MCP transport/tool IR-MCP-001 AC-3: claim mints token once and rejects reuse
+PASS MCP transport/tool IR-MCP-001 AC-4: validation and policy failures use stable codes
+PASS MCP transport/tool IR-MCP-001 AC-5: Streamable HTTP JSON stays UTF-8 with ASCII tool names
+PASS MCP Claude Code compatibility: bootstrap session claims before protected tools
+PASS MCP transport/tool OBS-MCP-001 AC-1: tool calls emit redacted audit events
+PASS MCP transport/tool OBS-MCP-001 AC-2: logs and status omit secrets and raw prompts
+PASS MCP transport/tool OBS-MCP-001 AC-3: listener status exposes health and reject counters
+PASS MCP transport/tool OBS-MCP-001 AC-4: live session status omits secret tokens
+PASS MCP transport/tool OBS-MCP-001 AC-5: assignment status remains queryable
+PASS MCP transport/tool OBS-MCP-001 AC-6: coverage manifest names required verification lanes
+PASS MCP transport/tool OBS-MCP-001 AC-7: skipped validation is explicit
+PASS MCP transport/tool SEC-MCP-001 AC-1: default listener is loopback only
+PASS MCP transport/tool SEC-MCP-001 AC-2: whitelist mode requires TLS
+PASS MCP transport/tool SEC-MCP-001 AC-3: forwarded IP trust requires HTTPS trusted proxy
+PASS MCP transport/tool SEC-MCP-001 AC-4: denied requests include redacted error and audit id
+PASS MCP transport/tool SEC-MCP-001 AC-5: successful rebind swaps only MCP listener
+[SSL] No certificate configured, generating self-signed certificate...
+[SSL] Generated self-signed certificate:
+  - Certificate: /tmp/buildergate-mcp-direct-tls-rkXmp0/certs/self-signed.crt
+  - Private key: /tmp/buildergate-mcp-direct-tls-rkXmp0/certs/self-signed.key
+  - Valid for: 365 days
+  - SAN: localhost, 127.0.0.1, ::1
+PASS MCP transport/tool SEC-MCP-001 AC-6: failed rebind rolls back listener and config
+PASS MCP agent lifecycle FR-MCP-003 AC-1: profiles use dedicated store
+PASS MCP agent lifecycle FR-MCP-003 AC-2: open_agent preallocates binding before tab spawn
+PASS MCP agent lifecycle FR-MCP-003 AC-3: spawn-time MCP config is injected
+PASS MCP agent lifecycle FR-MCP-003 AC-4: manual mode exposes claim code
+PASS MCP agent lifecycle FR-MCP-003 AC-5: agent command uses SessionInputGateway
+PASS MCP agent lifecycle FR-MCP-003 AC-6: readiness gates kickoff prompt
+PASS MCP agent lifecycle FR-MCP-003 AC-7: update_status refreshes live registry
+PASS MCP agent lifecycle REL-MCP-001 AC-1: pre-tab launch failure compensates
+PASS MCP agent lifecycle REL-MCP-001 AC-2: post-tab launch failure deletes tab once
+PASS MCP agent lifecycle REL-MCP-001 AC-3: readiness timeout leaves session open
+PASS MCP agent lifecycle REL-MCP-001 AC-4: close uses WorkspaceService.deleteTab
+PASS MCP agent lifecycle REL-MCP-001 AC-5: close_self denies sessions without leader
+PASS MCP agent lifecycle REL-MCP-001 AC-6: close_self is deferred after response
+PASS MCP agent lifecycle REL-MCP-001 AC-7: close outcomes remain observable
+PASS MCP agent lifecycle regression: PH-005 tools require scopes before delegation
+PASS MCP agent lifecycle regression: gateway rejection triggers launch cleanup
+PASS MCP agent lifecycle regression: close_self resolves leader from registry
+PASS MCP agent lifecycle regression: env mode does not create secret config file
+[WebhookInvocationService] Failed to persist webhook usage metadata: Error: persist failed
+    at Object.persistWebhookRecords (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:10329:15)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/WebhookInvocationService.ts:62:18)
+[WebhookInvocationService] Failed to persist webhook usage metadata: Error: persist failed
+    at Object.persistWebhookRecords (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:10329:15)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/WebhookInvocationService.ts:62:18)
+PASS MCP webhook/control FR-MCP-004 AC-1: create exposes full key once and stores hash only
+PASS MCP webhook/control FR-MCP-004 AC-2: query prompt limit rejects oversized GET
+PASS MCP webhook/control FR-MCP-004 AC-3: invalid webhook rejects before side effects
+PASS MCP webhook/control FR-MCP-004 AC-4: webhook assignment records source 0
+PASS MCP webhook/control FR-MCP-004 AC-5: target alias uses MCP search semantics
+PASS MCP webhook/control FR-MCP-004 AC-6: no target uses enabled default agent
+[WebhookInvocationService] Failed to persist webhook usage metadata: Error: persist failed
+    at Object.persistWebhookRecords (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:10329:15)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/WebhookInvocationService.ts:62:18)
+PASS MCP webhook/control FR-MCP-004 AC-7: webhook audit and list redacts secrets
+PASS MCP webhook/control IR-MCP-002 AC-1: config REST is UI-auth only
+PASS MCP webhook/control IR-MCP-002 AC-2: agent REST schema is stable
+PASS MCP webhook/control IR-MCP-002 AC-3: agent validation returns field errors
+PASS MCP webhook/control IR-MCP-002 AC-4: webhook create rotate delete mask correctly
+PASS MCP webhook/control IR-MCP-002 AC-5: live session list and alias are redacted
+PASS MCP webhook/control IR-MCP-002 AC-6: reply and close reuse MCP policy services
+PASS MCP webhook/control IR-MCP-002 AC-7: REST errors are stable and redacted
+PASS MCP webhook/control IR-MCP-002 AC-8: one-time webhook URL is not retained
+PASS MCP webhook/control IR-MCP-003 AC-1: sessions query uses MCP search semantics
+PASS MCP webhook/control IR-MCP-003 AC-2: search-test is read-only
+PASS MCP webhook/control IR-MCP-003 AC-3: reply-test routes through SessionInputGateway
+PASS MCP webhook/control IR-MCP-003 AC-4: close endpoint requires confirmation
+PASS MCP webhook/control IR-MCP-003 AC-5: webhook list is masked
+PASS MCP webhook/control IR-MCP-003 AC-6: displayName validation permits duplicate labels by id
+PASS MCP webhook/control IR-MCP-003 AC-7: profile validation redacts secret material
+PASS MCP webhook/control IR-MCP-003 AC-8: header-only webhook key is accepted
+PASS MCP webhook/control IR-MCP-003 AC-9: query/header key conflict rejects
+PASS MCP webhook/control IR-MCP-003 AC-10: agentStatus enum is consistent
+PASS MCP manual client claim code is UI-auth only and bound to a live session
+PASS MCP fixed access key rotation is UI-auth only and one-time
+PASS MCP webhook/control IR-MCP-004 AC-1: create/rotate are only full secret surfaces
+PASS MCP webhook/control IR-MCP-004 AC-2: webhook header defaults and custom names validate
+PASS MCP webhook/control IR-MCP-004 AC-3: rate limit is per key and client IP
+PASS MCP webhook/control IR-MCP-004 AC-4: webhook denials use stable codes
+PASS MCP webhook/control IR-MCP-004 AC-5: revoke is durable and idempotent
+PASS MCP webhook/control IR-MCP-004 AC-6: session list includeSelf defaults true
+PASS MCP webhook/control IR-MCP-004 AC-7: session search covers extended fields
+PASS MCP webhook/control IR-MCP-004 AC-8: deferred close_self failure notifies leader
+PASS MCP webhook/control IR-MCP-004 AC-9: webhook replay denial uses stable code
+PASS MCP webhook/control IR-MCP-004 AC-10: close confirmation shape precedes side effects
+PASS performGracefulShutdown flushes workspace JSON lastUpdated and tab lastCwd
+PASS performGracefulShutdown terminates sessions after first workspace flush and final flushes
+PASS performGracefulShutdown degrades timed out session cleanup and still final flushes
+PASS sessionRoutes accepts shells surfaced by GET /api/sessions/shells
+[SessionManager] Headless terminal degraded (serialize) for session session-00mnngezt9res: serialize failed
+PASS SessionManager marks sessions degraded when snapshot serialization fails
+[SessionManager] Headless terminal degraded (serialize) for session session-ejc2s8mpyi7: serialize failed
+PASS SessionManager preserves unsnapshotted healthy output when degrading
+[SessionManager] Headless terminal degraded (resize) for session session-4i54v3zncc6: resize failed
+PASS SessionManager preserves queued output when degradation happens before headless writes flush
+[SessionManager] Headless terminal degraded (resize) for session session-kegz5yc1co: resize failed
+PASS SessionManager does not duplicate flushed output when later queued output is still pending at degradation time
+[SessionManager] Headless terminal degraded (write) for session session-1hef7c3qcli: write failed
+PASS SessionManager does not duplicate queued output on direct write failure
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-8u7cuv9vrss: Headless output queue overflow (bounded): chunk-limit
+PASS SessionManager bounded headless queue degrades on delayed chunk cap overflow
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-kwdti8ew4k: Headless output queue overflow (bounded): byte-limit
+PASS SessionManager bounded headless queue degrades on delayed byte cap overflow
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-ozsh9sl74n9: Headless output queue overflow (bounded): byte-limit
+PASS SessionManager bounded headless queue counts multibyte output as UTF-8 bytes
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-d7fqnk75k: Headless output queue overflow (bounded): byte-limit
+PASS SessionManager bounded headless overflow clears queue telemetry
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-6q4k2qlt9jf: Headless output queue overflow (observe): byte-limit
+PASS SessionManager observe headless queue overflow degrades without unbounded pending output
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-7tweprvh3mj: Headless output queue overflow (observe): byte-limit
+PASS SessionManager observe headless queue preserves bounded pending output on degradation
+[WS] WebSocket router initialized
+[SessionManager] Headless terminal degraded (queue-overflow) for session session-2fj9cy15typ: Headless output queue overflow (bounded): byte-limit
+[WS] Client disconnected: client-1
+PASS SessionManager degraded overflow starts ready-subscriber fallback recovery
+PASS SessionManager routes bounded output only after headless write commit
+PASS SessionManager bounded headless implementation removes pendingOutputChunks hot paths
+PASS SessionManager rejects oversized authoritative snapshots without unbounded growth
+PASS SessionManager authoritative snapshot preserves current alt-screen state
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS SessionManager sends recoverable degraded fallback output
+PASS Headless snapshot serialization is deterministic for a normal screen
+PASS Headless snapshot serialization reflects resize geometry
+PASS Headless snapshot serialization preserves alternate-screen state and exit restore
+PASS Headless snapshot serialization handles an empty screen
+PASS Headless snapshot serialization refuses truncated authoritative payloads
+PASS Headless snapshot serialization is viewport-only and byte-bounded
+PASS Headless screen repair serializes viewport only
+PASS Headless screen repair preserves SGR and cursor metadata
+PASS Headless screen repair preserves hidden cursor state
+PASS SessionManager screen repair debug byteLength uses UTF-8 bytes
+PASS SessionManager screen repair follows a moving headless write tail until quiescent
+PASS SessionManager screen repair bounds a permanently stuck headless tail
+PASS SessionManager screen repair allows a queued headless write tail
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter keeps a transiently busy screen repair on the current connection
+PASS SessionManager screen repair reports degradation while draining
+PASS SessionManager screen repair rejects alternate buffer mismatch
+PASS SessionManager screen repair rejects degraded headless
+PASS Terminal payload truncation skips partial CSI sequences
+PASS Terminal payload truncation skips partial OSC sequences
+PASS Terminal payload truncation drops incomplete trailing CSI sequences
+PASS Terminal payload truncation drops incomplete trailing OSC sequences
+PASS Terminal payload truncation removes incomplete trailing escape suffixes
+PASS Terminal payload truncation enforces UTF-8 byte caps
+PASS TerminalTitleDetector emits OSC 0 and OSC 2 titles
+PASS TerminalTitleDetector ignores unsupported and empty titles
+PASS TerminalTitleDetector handles chunk-split title sequences
+PASS TerminalTitleDetector sanitizes and bounds titles
+PASS TerminalTitleDetector identifies absolute path titles
+PASS TerminalTitleDetector caps unterminated payloads and recovers
+PASS TerminalTitleDetector releases normal output after an over-cap sequence terminates
+PASS SessionManager emits terminal title events without changing status
+PASS SessionManager detects terminal titles from raw OSC133-mode output
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter sends screen snapshot before flushing queued live output
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter queues input while replay is pending and flushes after ACK
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter observe mode queues replay-pending input and flushes after ACK
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter fences input and output while atomic restore authority retries
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter rejects fenced input and reconnects when restore authority stays unavailable
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter does not revive provisional restore after queue overflow reconnect
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter routes screen-repair input barriers through SessionInputGateway
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter preserves queued input across replay refresh
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter does not flush queued input for stale ACK
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter rejects expired replay input on ACK
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter rejects expired replay input on timeout
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter rejects Enter input on replay timeout
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter rejects safe input on replay timeout without ready
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter exposes replay input queue overflow
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter rejects invalid input payload
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter rejects invalid input sequence range
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter sanitizes client input metadata
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter emits input:rejected for server reject scenarios
+[WS] WebSocket router initialized
+[WS] PTY input write failed: Error: simulated write failure
+    at Object.writeInput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:15045:15)
+    at Object.writeInput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:4689:50)
+    at writeLowLevelInput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionInputGateway.ts:213:23)
+    at submitInputThroughGateway (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionInputGateway.ts:145:16)
+    at Object.submitInput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionInputGateway.ts:75:40)
+    at WsRouter.submitWebSocketInputThroughGateway (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:4708:28)
+    at WsRouter.handleInput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:3106:28)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:15967:21)
+    at getActual (node:assert:611:5)
+    at strict.doesNotThrow (node:assert:779:32)
+[WS] Client disconnected: client-1
+PASS WsRouter converts PTY input write failures into server-error rejects
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter exposes per-session replay state for MCP input gateway
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter reports replay observability counters
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter still emits a replay start for degraded sessions
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter still emits a replay start for oversized snapshots
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter sends viewport-only snapshots on subscribe and resubscribe
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter duplicate subscribe does not replay screen snapshot twice
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter ignores stale replay tokens
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter refreshes replay snapshots on resize while pending
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter preserves queued output across fallback replay refresh
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter discards queued output and reconnects on replay ACK timeout
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter discards snapshot-covered output on refresh timeout
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter does not treat fallback substring matches as covered output
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter does not duplicate fallback-covered output on ACK
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter preserves fallback-covered output across repeated refresh ACK
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter discards fallback-covered output on refresh timeout
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter replay timeout fails closed after UTF-8 bounded queue accounting
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter suppresses unchanged empty fallback replay refresh
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send enforce queues output over high-water
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send retry timer drains queued output
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send enforce closes hard-limit slow clients
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send closes on send callback errors
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send prioritizes independent control over output backlog
+PASS WsRouter screen repair transport cancellation preserves unrelated order and byte counters
+PASS WsRouter recovery transport cancellation matches the exact replay token
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send drops a superseded replay tail without losing normal live output
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send drops a superseded direct repair tail by exact repair token
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send queues output on projected high-water pressure
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send closes clients on projected hard-limit pressure
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send preserves output queued during in-flight send
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send preserves same-session lifecycle ordering
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: simulated direct send failure
+    at Object.testWsRouterDirectSendCallbackErrorDoesNotClose (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:17301:27)
+    at main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:22)
+[WS] Client disconnected: client-1
+PASS WsRouter direct send callback errors do not enforce close
+[WS] WebSocket router initialized
+[WS] WebSocket send callback failed: Error: simulated observe send failure
+    at Object.testWsRouterObserveSendCallbackErrorDoesNotClose (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:17320:27)
+    at main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:22)
+[WS] Client disconnected: client-1
+PASS WsRouter observe send callback errors do not enforce close
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send rollback flushes queued output without enforce close
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send coalesces queued output
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send preserves exact-once output identity boundaries
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send respects output coalesce window
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send closes instead of dropping control messages
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send observe records pressure without queueing
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send preserves replay flush ordering under pressure
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send preserves fallback replay flush ordering under pressure
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter safe-send preserves screen repair flush ordering under pressure
+PASS SessionManager broadcasts through WsRouter send policy
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter sends screen repair and queues output until ACK
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter screen repair sent telemetry byteLength uses UTF-8 bytes
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter queues output while screen repair is generating
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter ignores stale screen repair generation after unsubscribe
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter flushes output newer than screen repair snapshot seq
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter ignores stale screen repair token
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter rejects screen repair during replay pending
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter allows multibyte screen repair output within byte cap
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS Repair queue·protocol RED 계약 — AC-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS Repair queue·protocol RED 계약 — AC-3
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] Client disconnected: client-1
+[WS] Client disconnected: client-1
+[WS] Client disconnected: client-1
+[WS] Client disconnected: client-1
+[WS] Client disconnected: client-1
+PASS Repair queue·protocol RED 계약 — AC-5
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] Client disconnected: client-2
+PASS Repair queue·protocol RED 계약 — AC-7
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+[WS] WebSocket router initialized
+[WS] Client connected: e7e054c6-88c2-4c9a-a1e5-4890ff517cce
+[WS] Client disconnected: client-1
+[WS] Client disconnected: e7e054c6-88c2-4c9a-a1e5-4890ff517cce
+PASS Repair queue·protocol RED 계약 — AC-10
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter starts repair replay without geometry change
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter queues output during repair replay until ACK
+[WS] WebSocket router initialized
+[SessionManager] Headless terminal degraded (resize) for session session-oly97xmfysd: resize failed
+[WS] Client disconnected: client-1
+PASS WsRouter does not duplicate deferred degraded payload after fallback snapshot ack
+[WS] WebSocket router initialized
+[WS] Client disconnected: client-1
+PASS WsRouter clears replay state when a session is removed
+PASS WorkspaceService restartTab invalidates old session lineage and preserves lastCwd
+PASS WorkspaceService restartTab persists replacement lifecycle before deleting old session
+PASS WorkspaceService restartTab preserves old session when replacement save fails
+PASS WorkspaceService restartTab preserves the old session when replacement creation fails
+PASS WorkspaceService deleteWorkspace clears workspace sessions in bulk
+PASS WorkspaceService deleteWorkspace pre-marks tabs non-recoverable before session cleanup
+PASS WorkspaceService deleteWorkspace does not terminate sessions when pre-delete save fails
+PASS WorkspaceService deleteTab ignores tab-delete finalizer callback after pre-marking
+PASS WorkspaceService deleteTab does not terminate session when pre-delete save fails
+PASS WorkspaceService moveTab preserves live session and reindexes source and target
+PASS WorkspaceService moveTab appends moved tab to target workspace
+PASS WorkspaceService moveTab rejects full target and ended sessions
+PASS WorkspaceService moveTab restores state when save fails
+PASS WorkspaceService rejects invalid reorder payloads
+PASS WorkspaceService passes session cleanup reasons
+[Workspace] Orphan tab "Terminal 1" recovered: orphan-session → session-1 (cwd: /saved-cwd)
+PASS WorkspaceService orphan recovery recreates fresh session ids with saved cwd
+PASS WorkspaceService orphan recovery skips stopped or non-recoverable tabs
+PASS WorkspaceService MCP registry excludes active tabs without live runtime sessions
+[WorkspaceService] Duplicate MCP sessionKey detected for tab tab-2; regenerated stable key
+PASS WorkspaceService MCP registry regenerates duplicate persisted session keys
+PASS WorkspaceService MCP search preserves zero and ambiguous result metadata
+PASS WorkspaceService stores recovery metadata when shell submits codex
+PASS WorkspaceService stores custom recovery metadata when enabled option exists
+PASS WorkspaceService marks matched recovery command as foreground
+PASS WorkspaceService clears recovery metadata when shell command has no enabled option
+PASS WorkspaceService restartTab schedules codex resume restore after save
+PASS WorkspaceService restart uses resolved shell for restore quoting
+[Workspace] Orphan tab "Terminal-1" recovered: orphan-session → session-1 (cwd: C:\repo)
+PASS WorkspaceService orphan recovery schedules claude continue restore after final save
+PASS WorkspaceService restart skips and clears disabled recovery option
+PASS WorkspaceService restart skips and clears deleted recovery option
+[Workspace] Orphan tab "Terminal-1" recovered: orphan-session → session-1 (cwd: C:\repo)
+PASS WorkspaceService orphan recovery skips disabled recovery option
+PASS WorkspaceService restart does not schedule restore when replacement save fails
+PASS sessionRoutes direct delete marks workspace-owned tab stopped non-recoverable
+[SessionRoutes] Failed to delete session: Error: persist failed
+    at WorkspaceService.workspaceService.save (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:19919:11)
+    at WorkspaceService.markSessionLifecycleStopped (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/WorkspaceService.ts:1177:18)
+    at WorkspaceService.markSessionStoppedByDirectDelete (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/WorkspaceService.ts:837:17)
+    at Object.onSessionDeleting (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:19937:58)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/routes/sessionRoutes.ts:69:21)
+    at Layer.handle [as handle_request] (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/node_modules/express/lib/router/layer.js:95:5)
+    at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/node_modules/express/lib/router/index.js:284:15
+PASS sessionRoutes direct delete does not terminate session when pre-delete workspace save fails
+PASS WorkspaceService infers tab name source for default and legacy names
+PASS WorkspaceService applies terminal titles and broadcasts tab metadata changes
+PASS WorkspaceService ignores absolute path terminal titles
+PASS WorkspaceService preserves user tab names from terminal titles
+PASS WorkspaceService debounces rapid terminal titles to the final value
+PASS FR-BGSTAB-026 WorkspaceService applies parsed title timing and option precedence
+PASS FR-BGSTAB-026 WorkspaceService applies parsed restore timing and option precedence
+PASS FR-BGSTAB-026 capacity CAP-01 exposes detached limits without changing state
+PASS FR-BGSTAB-026 capacity CAP-02 GET returns service limits without persistence
+PASS FR-BGSTAB-026 capacity CAP-02 retains authenticated route registration
+PASS FR-BGSTAB-026 capacity CAP-06 enforces default limits
+PASS FR-BGSTAB-026 capacity CAP-06 enforces lower limits
+PASS FR-BGSTAB-026 capacity CAP-06 enforces higher limits
+PASS FR-BGSTAB-026 capacity CAP-06 preserves fractional limits
+PASS WorkspaceService absolute path terminal title cancels pending debounce
+PASS WorkspaceService manual rename cancels pending terminal title updates
+PASS WorkspaceService restart cancels pending old-session terminal titles
+PASS workspace tab rename route broadcasts normalized tab metadata
+PASS workspace tab move route broadcasts moved tab state
+PASS CommandPresetService persists CRUD operations and per-kind reorder
+PASS CommandPresetService serializes concurrent mutations
+PASS command preset routes expose CRUD and reject invalid order payloads
+PASS RecoveryOptionService seeds Claude and Codex defaults once
+PASS RecoveryOptionService finds enabled option by submitted command
+PASS recoveryCommand extracts executable through env assignments and paths
+PASS recoveryCommand quotes restore arguments per shell
+[Auth] AuthService initialized
+[Auth] Token issued: jti=e2d210b0-4767-4cea-8869-6aa6534aa5a4
+PASS recovery option routes expose authenticated CRUD and reject unauthenticated requests
+[TerminalShortcutService] Failed to load terminal-shortcuts.json: Expected property name or '}' in JSON at position 2 (line 1 column 3)
+[TerminalShortcutService] Recovered from backup
+PASS TerminalShortcutService persists CRUD operations and validates reserved shortcuts
+PASS TerminalShortcutService serializes concurrent binding creates
+[Auth] AuthService initialized
+[Auth] Token issued: jti=dea8780e-0f26-46d2-97b1-3616df743f0c
+PASS terminal shortcut routes expose authenticated CRUD and reject unauthenticated requests
+PASS FileService.updateConfig applies new limits to later operations
+PASS twoFactorSchema accepts TOTP-only config
+PASS twoFactorSchema accepts disabled 2FA with no methods configured
+PASS authSchema applies localhostPasswordOnly default false
+PASS TOTPService.verifyTOTP rejects unregistered service
+PASS TOTPService.verifyTOTP rejects after 3 attempts
+PASS TOTPService.verifyTOTP accepts valid code
+[TOTP] Code replay detected or invalid
+PASS TOTPService.verifyTOTP rejects replayed code (NFR-105)
+PASS TOTPService.isRegistered returns false before initialize
+PASS TOTPService.verifyTOTP increments attempts on invalid code (NFR-104)
+PASS TOTPService.createPendingAuth returns tempToken (Phase 3)
+PASS TOTPService.getOTPData returns stored data (Phase 3)
+PASS TOTPService.invalidatePendingAuth removes entry (Phase 3)
+[Auth] AuthService initialized
+PASS AuthService.getLocalhostPasswordOnly defaults false (Phase 3)
+[TOTP] No secret file found. Generating new secret...
+[TOTP] New secret generated and saved.
+[TOTP] Google Authenticator QR Code:
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▄▄████▀ ▄█▄█ ▄  ▄▀▀█ █ ▄▄▄▄▄ █
+█ █   █ █ ▀█ ▄▄▄▄▀▀▀▀▄█▄█▄  ▀██ █   █ █
+█ █▄▄▄█ █▄ ▄▄▀▄▀██ ▀▀█▀ █▀██▄▄█ █▄▄▄█ █
+█▄▄▄▄▄▄▄█▄▀▄▀▄▀ █▄▀▄▀ █ █▄█ ▀▄█▄▄▄▄▄▄▄█
+█▄▄▄▄▀█▄█ ████▄▄▀    ▄▀█▀ █▄█▀ █▀▄▄▄▀▄█
+█▀▄▀ ▀ ▄█ ▀▄▀▀▀  █▄▀▀█▄█ ▄▀▀▀▄██ █▀▀▀██
+█ ▀▀▀██▄▄███ █▀██▄ ▀▄█▄ ██▄▄▀▄█   ▄ ▄ █
+█▄▄█▀ ▀▄ ▄▀▀█ ▀▄▀█▄█▄  ▀██▄▄▀ █▄▀█▀▄ ▀█
+█▀█▄  ▄▄ ▀█▄▄▀▀████ ███ █▀▄ ▀▄▀███▄▄▄▀█
+█▀▄ ▄█▄▄▀██ ▄ ██▀▀  █▄██▀██▄ ▄ ▄▀▀▄▄ ▄█
+█▀ ▄ ▄ ▄▀▄  ▄  ▀ ▄▄▄█▀█▀▄█▄ █▀▄█▀██▀▀██
+█▀▄▄ ██▄  ▄▄▄▄▄███▄ █ ██   ▄█▄▀█▄▀▄ ███
+██▄▀ ▄▀▄▄  ▀▀ █    ██▄▄▄███▄ ▀▄ █   ▄ █
+█▀▄▀▄▄█▄▄▀██ █▄▀███▄ ▄ █▀▄▄▄▀ ▀█▄█▄█ ██
+███▄█▄█▄█▀▀▄█▄█ ▀▄█ ▀▀█▄█▀█▀▀ ▄▄▄   █ █
+█ ▄▄▄▄▄ ██▀█▀█  ▄  ▄▀███▀▀█▀▀ █▄█  █▄▄█
+█ █   █ █▀█ ██▄▄█  █ ▄██▄█ ▄▀     █▀▀▀█
+█ █▄▄▄█ █ ▀▀▀▀▀ ██▄ ██▄█▄▀▀▀▀▄▀▄ ▄  ███
+█▄▄▄▄▄▄▄█▄█▄▄███▄▄████▄▄██▄█▄██▄▄██▄▄▄█
+
+[TOTP] Manual entry key: RTXM4MO7IL33443CWBYFRKC6SVM5I2NB
+[TOTP] Issuer: Test | Account: test
+PASS TOTPService.initialize() generates secret on first start (FR-201)
+[TOTP] No secret file found. Generating new secret...
+[TOTP] New secret generated and saved.
+PASS TOTPService.initialize() generates secret when Web Crypto global is absent
+[TOTP] No secret file found. Generating new secret...
+[TOTP] New secret generated and saved.
+[TOTP] Google Authenticator QR Code:
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▄▄▄ ▀▄▀█▀▀▄ █▄▀██ ▄███ ▄▄▄▄▄ █
+█ █   █ ██▄▀ ▀ ▄  ████  █▀ ▄▄▀█ █   █ █
+█ █▄▄▄█ ██▀▄ ▄▀██  ▄███▄▀▀▀██ █ █▄▄▄█ █
+█▄▄▄▄▄▄▄█ ▀▄█▄▀▄▀ █ ▀▄█ ▀ ▀ █ █▄▄▄▄▄▄▄█
+█▄▄▀  ▀▄██ ▀▀▄█▄  ▀█  ▄█▀█▄ ▀▄█▄▀▀▀▀▀▄█
+█▄▀▄█▄ ▄▄▄▄▀ ▄█▀ █ ▄█ ██▄▀▄▀▄ ▀▀▄  ▀█ █
+█▀██▄▄▄▄▀▀▄█ █▀▀ █ █▀▄▄▀ ▄▀▀▀ █▄▄▀▄▀▀▄█
+██ █ ▄█▄ ▀▄ █▀▄▄ ▀▄ ▄ ▄███▄█▄█▄ ▀▀▄   █
+█▄ ▀▄██▄▄██▄▄▄▄▀▄▄ ▀▄ ▄▄▄▄▄▀ ▄▀▄ ██▄ ▄█
+██ ▀ ██▄▄ ▀  █▀ ▄▀█▀▄█▄▀ ▀ ▀ ▄▀  ▀▄██ █
+█▀▄▀▀ ▄▄█ ▄██▄▀█▄██▀▄▄ ▀▀██ ▄▄ ▄ ▀ █▀▄█
+█▄▄█▀▄▄▄▄█▄▄▄ █▀ ▀▀█▀▄█▄▄██▀ ▀ ▄ ▀█ ▀ █
+█ ██ ▀ ▄▄ █▀ █ ▀ █▄█▀█▄▀▀▀█▄▀██  ▀ ▀▀▄█
+█ ▄█ █▄▄ ██ ███▀▄█▄▀▄ █▀▀▄█▀▄█ ▄▄▀▀▀ ▄█
+█▄█▄███▄▄▀ ▄▄▄▄▀▄▄▀▄▄▀ ▄█▄▄█▄ ▄▄▄ ▀ ▀██
+█ ▄▄▄▄▄ ██ ▀▄▄ █▄▄█▀  █▄▄▀ ▄▀ █▄█  ▄▀▄█
+█ █   █ █ ▀▄▀▄▀ ▄██▀█▄▄█ ▄█ ▄    ▄ █▄▄█
+█ █▄▄▄█ █▀▄█ ▄█    ▄█▀██ ███▀█ ▀▄▄▀ ▀ █
+█▄▄▄▄▄▄▄█▄▄██▄██▄█▄█▄▄▄██▄███▄█▄█▄███▄█
+
+[TOTP] Manual entry key: SUUOVZSEXYZWIL4SODYZFGV6ASPU2US6
+[TOTP] Issuer: BuilderGate | Account: admin
+[TOTP] Google Authenticator QR Code:
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▄▄▄ ▀▄▀█▀▀▄ █▄▀██ ▄███ ▄▄▄▄▄ █
+█ █   █ ██▄▀ ▀ ▄  ████  █▀ ▄▄▀█ █   █ █
+█ █▄▄▄█ ██▀▄ ▄▀██  ▄███▄▀▀▀██ █ █▄▄▄█ █
+█▄▄▄▄▄▄▄█ ▀▄█▄▀▄▀ █ ▀▄█ ▀ ▀ █ █▄▄▄▄▄▄▄█
+█▄▄▀  ▀▄██ ▀▀▄█▄  ▀█  ▄█▀█▄ ▀▄█▄▀▀▀▀▀▄█
+█▄▀▄█▄ ▄▄▄▄▀ ▄█▀ █ ▄█ ██▄▀▄▀▄ ▀▀▄  ▀█ █
+█▀██▄▄▄▄▀▀▄█ █▀▀ █ █▀▄▄▀ ▄▀▀▀ █▄▄▀▄▀▀▄█
+██ █ ▄█▄ ▀▄ █▀▄▄ ▀▄ ▄ ▄███▄█▄█▄ ▀▀▄   █
+█▄ ▀▄██▄▄██▄▄▄▄▀▄▄ ▀▄ ▄▄▄▄▄▀ ▄▀▄ ██▄ ▄█
+██ ▀ ██▄▄ ▀  █▀ ▄▀█▀▄█▄▀ ▀ ▀ ▄▀  ▀▄██ █
+█▀▄▀▀ ▄▄█ ▄██▄▀█▄██▀▄▄ ▀▀██ ▄▄ ▄ ▀ █▀▄█
+█▄▄█▀▄▄▄▄█▄▄▄ █▀ ▀▀█▀▄█▄▄██▀ ▀ ▄ ▀█ ▀ █
+█ ██ ▀ ▄▄ █▀ █ ▀ █▄█▀█▄▀▀▀█▄▀██  ▀ ▀▀▄█
+█ ▄█ █▄▄ ██ ███▀▄█▄▀▄ █▀▀▄█▀▄█ ▄▄▀▀▀ ▄█
+█▄█▄███▄▄▀ ▄▄▄▄▀▄▄▀▄▄▀ ▄█▄▄█▄ ▄▄▄ ▀ ▀██
+█ ▄▄▄▄▄ ██ ▀▄▄ █▄▄█▀  █▄▄▀ ▄▀ █▄█  ▄▀▄█
+█ █   █ █ ▀▄▀▄▀ ▄██▀█▄▄█ ▄█ ▄    ▄ █▄▄█
+█ █▄▄▄█ █▀▄█ ▄█    ▄█▀██ ███▀█ ▀▄▄▀ ▀ █
+█▄▄▄▄▄▄▄█▄▄██▄██▄█▄█▄▄▄██▄███▄█▄█▄███▄█
+
+[TOTP] Manual entry key: SUUOVZSEXYZWIL4SODYZFGV6ASPU2US6
+[TOTP] Issuer: BuilderGate | Account: admin
+PASS TOTPService.initialize() loads existing secret from file (FR-202)
+[TOTP] TOTP secret file is corrupted or cannot be decrypted.
+[TOTP] Delete data/totp.secret and restart to re-register.
+PASS TOTPService.initialize() throws on corrupted secret file (FR-204)
+PASS TOTPService.initialize() suppresses console QR while preserving secret and QR API
+[TOTP] No secret file found. Generating new secret...
+[TOTP] New secret generated and saved.
+[TOTP] Google Authenticator QR Code:
+[TOTP] Google Authenticator QR Code:
+PASS TOTPService.initialize() surfaces QR rendering failures as startup failures
+[TOTP] No secret file found. Generating new secret...
+[TOTP] New secret generated and saved.
+[TOTP] Google Authenticator QR Code:
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▄▀ ▀  ▄▄▀█ █▄▀█▀████ █ ▄▄▄▄▄ █
+█ █   █ █   █▀█▀▀▄█▄ █▀ ▀▀    █ █   █ █
+█ █▄▄▄█ █▄█▀ ▄▀▄▀ ▄ ▀█▄ ▄ █▄▄▄█ █▄▄▄█ █
+█▄▄▄▄▄▄▄█▄█ █ █▄▀ ▀ █▄█▄█▄█▄▀ █▄▄▄▄▄▄▄█
+█ ▄  ██▄▀ ▀ ▄  ▀ █▄▀ ▄  █▄█ ▄█ █▀▄▄▄▀▄█
+█▀▀▄▄█▄▄█ ▄▀▄▄▄██ █▄▀█▄  █ ▄▀███▄▀▀▀▀██
+█ █▄ █▀▄  █▀▀ █ ▄▀▄███ ▄ ▀▄ ▀▀█ ▀ ▄ ▄ █
+█ ▀█▀▀ ▄▄▀ ▄ █▄▀▄ ██▄▄▀▄█ ▄ ▀██▄▀ ▀▄ ▀█
+██▄ █ ▄▄▄▀▀ █▄█ ▄▀█   ▀ ▄▀ ▀ █████▄▄▄▀█
+█ ▀█▄▀▀▄ ▄█▀▀█  ▄▀  █ ██▀▀█ ▄ ▀ █ ▄▄ ▄█
+█▄█▄█▄▄▄▄▄█▀██▄▄█▀▄▄█▀███▄▀▀▄ ▄█ ██▀▀██
+█▄▄▄▀█▀▄  █ ▀▀▀ ▀▄█▀█▄██ ▀▀▀██▀ ▄▀▄ ███
+██ ▀█▀▀▄ ▄   █▀█▀▀ ▀▄▄█▀  █▄ ▀  █   ▄ █
+█▀▄▀  ▄▄▄▄▀▀█ ▀▄█▀█▄ ▄  ▀▄█ ▀█ ▄▄█▄█ ██
+████▄█▄▄▄ ▀▀▄▀▀█ ██▄  ▄█▄▀▀██ ▄▄▄   █ █
+█ ▄▄▄▄▄ ███▄▄ ██ █▀▀▀▄▄▄▀▀█▄▀ █▄█  █  █
+█ █   █ █▀▄ ▄  ▀▀ ▄▄▄ █▀▀  ▄▀     █▀▀▀█
+█ █▄▄▄█ █  ▀▄▄▄██▄██▀▀▄▀▄▀ ▀▀▄▀▄ ▄  ███
+█▄▄▄▄▄▄▄█▄▄██▄█▄█▄▄▄██▄▄█▄█▄▄██▄▄██▄▄▄█
+
+[TOTP] Manual entry key: WEOD5GNUAZSHJX6HJI34ZEWKZIIA4IGU
+[TOTP] Issuer: Boot | Account: admin
+[TOTP] Google Authenticator QR Code:
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+█ ▄▄▄▄▄ █▄▀ ▀  ▄▄▀█ █▄▀█▀████ █ ▄▄▄▄▄ █
+█ █   █ █   █▀█▀▀▄█▄ █▀ ▀▀    █ █   █ █
+█ █▄▄▄█ █▄█▀ ▄▀▄▀ ▄ ▀█▄ ▄ █▄▄▄█ █▄▄▄█ █
+█▄▄▄▄▄▄▄█▄█ █ █▄▀ ▀ █▄█▄█▄█▄▀ █▄▄▄▄▄▄▄█
+█ ▄  ██▄▀ ▀ ▄  ▀ █▄▀ ▄  █▄█ ▄█ █▀▄▄▄▀▄█
+█▀▀▄▄█▄▄█ ▄▀▄▄▄██ █▄▀█▄  █ ▄▀███▄▀▀▀▀██
+█ █▄ █▀▄  █▀▀ █ ▄▀▄███ ▄ ▀▄ ▀▀█ ▀ ▄ ▄ █
+█ ▀█▀▀ ▄▄▀ ▄ █▄▀▄ ██▄▄▀▄█ ▄ ▀██▄▀ ▀▄ ▀█
+██▄ █ ▄▄▄▀▀ █▄█ ▄▀█   ▀ ▄▀ ▀ █████▄▄▄▀█
+█ ▀█▄▀▀▄ ▄█▀▀█  ▄▀  █ ██▀▀█ ▄ ▀ █ ▄▄ ▄█
+█▄█▄█▄▄▄▄▄█▀██▄▄█▀▄▄█▀███▄▀▀▄ ▄█ ██▀▀██
+█▄▄▄▀█▀▄  █ ▀▀▀ ▀▄█▀█▄██ ▀▀▀██▀ ▄▀▄ ███
+██ ▀█▀▀▄ ▄   █▀█▀▀ ▀▄▄█▀  █▄ ▀  █   ▄ █
+█▀▄▀  ▄▄▄▄▀▀█ ▀▄█▀█▄ ▄  ▀▄█ ▀█ ▄▄█▄█ ██
+████▄█▄▄▄ ▀▀▄▀▀█ ██▄  ▄█▄▀▀██ ▄▄▄   █ █
+█ ▄▄▄▄▄ ███▄▄ ██ █▀▀▀▄▄▄▀▀█▄▀ █▄█  █  █
+█ █   █ █▀▄ ▄  ▀▀ ▄▄▄ █▀▀  ▄▀     █▀▀▀█
+█ █▄▄▄█ █  ▀▄▄▄██▄██▀▀▄▀▄▀ ▀▀▄▀▄ ▄  ███
+█▄▄▄▄▄▄▄█▄▄██▄█▄█▄▄▄██▄▄█▄█▄▄██▄▄██▄▄▄█
+
+[TOTP] Manual entry key: WEOD5GNUAZSHJX6HJI34ZEWKZIIA4IGU
+[TOTP] Issuer: Boot | Account: admin
+PASS reconcileTotpRuntime initializes TOTP on startup when 2FA is enabled
+[TOTP] TOTP secret file is corrupted or cannot be decrypted.
+[TOTP] Delete data/totp.secret and restart to re-register.
+[TOTP] Failed to initialize TOTPService: AppError: Decryption failed: Invalid encrypted format
+    at CryptoService.decrypt (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/CryptoService.ts:135:13)
+    at TOTPService.loadSecret (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TOTPService.ts:131:42)
+    at TOTPService.initialize (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TOTPService.ts:90:14)
+    at reconcileTotpRuntime (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/twoFactorRuntime.ts:51:17)
+    at Object.testReconcileTotpRuntimeKeepsPreviousService (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:21563:20)
+    at async main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:7) {
+  code: 'DECRYPTION_ERROR',
+  statusCode: 500,
+  details: undefined,
+  timestamp: '2026-09-16T04:18:50.228Z'
+}
+PASS reconcileTotpRuntime keeps the previous registered service on hot-apply failure
+PASS reconcileTotpRuntime uses daemon env secret path and suppresses app child QR output
+[TOTP] TOTP secret file is corrupted or cannot be decrypted.
+[TOTP] Delete data/totp.secret and restart to re-register.
+[TOTP] Failed to initialize TOTPService: AppError: Decryption failed: Invalid encrypted format
+    at CryptoService.decrypt (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/CryptoService.ts:135:13)
+    at TOTPService.loadSecret (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TOTPService.ts:131:42)
+    at TOTPService.initialize (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TOTPService.ts:90:14)
+    at reconcileTotpRuntime (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/twoFactorRuntime.ts:51:17)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:21640:13)
+    at getActual (node:assert:611:5)
+    at strict.throws (node:assert:759:24)
+    at Object.testReconcileTotpRuntimeInitialStartupFailureThrows (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:21639:12)
+    at async main (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/test-runner.ts:674:7) {
+  code: 'DECRYPTION_ERROR',
+  statusCode: 500,
+  details: undefined,
+  timestamp: '2026-09-16T04:18:50.264Z'
+}
+PASS reconcileTotpRuntime throws on initial startup TOTP failure
+[TOTP] No secret file found. Generating new secret...
+[TOTP] New secret generated and saved.
+PASS daemon TOTP preflight prints QR and manual key before detach
+[TOTP] No secret file found. Generating new secret...
+[TOTP] New secret generated and saved.
+PASS daemon TOTP preflight can suppress QR output for sentinel restarts
+[TOTP] TOTP secret file is corrupted or cannot be decrypted.
+[TOTP] Delete data/totp.secret and restart to re-register.
+[TOTP] TOTP secret file is corrupted or cannot be decrypted.
+[TOTP] Delete data/totp.secret and restart to re-register.
+PASS daemon TOTP preflight fails on corrupted and invalid BASE32 secrets
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+PASS authRoutes bootstrap-status returns setup-required for localhost when password is missing
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+PASS authRoutes bootstrap-status denies remote IPs by default
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+PASS authRoutes bootstrap-status allows remote IPs from env allowlist
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+PASS authRoutes bootstrap-status normalizes IPv4-mapped IPv6 request addresses against allowlists
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+[Auth] Token issued: jti=c8c6fb12-c137-4ffd-86cf-7b766b77bdb3
+[Bootstrap] Initial administrator password configured from ::ffff:127.0.0.1 (localhost)
+PASS authRoutes bootstrap-password persists encrypted password and issues JWT
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+[Auth] Bootstrap password rejected from ::ffff:127.0.0.1: VALIDATION_ERROR
+[Auth] Bootstrap password rejected from ::ffff:127.0.0.1: VALIDATION_ERROR
+[Auth] Bootstrap password rejected from ::ffff:127.0.0.1: VALIDATION_ERROR
+[Auth] Bootstrap password rejected from ::ffff:127.0.0.1: VALIDATION_ERROR
+[Auth] Bootstrap password rejected from ::ffff:127.0.0.1: VALIDATION_ERROR
+[Auth] Bootstrap password rejected from ::ffff:127.0.0.1: VALIDATION_ERROR
+[Auth] Token issued: jti=1805ba12-bb90-4061-a7e6-eada62fa48a0
+[Bootstrap] Initial administrator password configured from ::ffff:127.0.0.1 (localhost)
+PASS authRoutes bootstrap-password enforces FR-AUTH-015 policy and preserves exact max input
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+[Auth] Token issued: jti=32a9b6af-a1f6-418f-b182-d214c53392a1
+[Bootstrap] Initial administrator password configured from ::ffff:127.0.0.1 (localhost)
+PASS authRoutes bootstrap-password inserts an auth section when legacy config omits it
+[Auth] No password configured - authentication will fail
+[Auth] AuthService initialized
+[Auth] Token issued: jti=c989b6f7-1a29-4894-be0e-d089aa8a1dab
+[Bootstrap] Initial administrator password configured from ::ffff:127.0.0.1 (localhost)
+[Bootstrap] Rejected password bootstrap from ::ffff:127.0.0.1: already configured
+[Auth] Bootstrap password rejected from ::ffff:127.0.0.1: BOOTSTRAP_NOT_REQUIRED
+PASS authRoutes bootstrap-password closes once a password is configured
+[Auth] AuthService initialized
+[Auth] TOTP login initiated
+PASS authRoutes COMBO-3: TOTP-only login returns 202 with nextStage totp (Phase 4)
+[Auth] AuthService initialized
+[TOTP] Login blocked: TOTP is enabled but secret is not registered.
+PASS authRoutes FR-401: TOTP enabled but unregistered returns 503 (Phase 4)
+[Auth] AuthService initialized
+PASS authRoutes FR-802: stage mismatch returns 400 (Phase 4)
+[Auth] AuthService initialized
+[Auth] Token issued: jti=42e12497-9277-4bcd-8c32-85a8d6c30fde
+[Auth] Login successful from undefined
+PASS authRoutes COMBO-1: 2FA disabled returns JWT directly (Phase 4)
+[Auth] AuthService initialized
+[Auth] Token issued: jti=1452a8a2-b881-4f46-b651-e9a21b4f21bd
+[Auth] Login successful (localhostPasswordOnly) from ::ffff:127.0.0.1
+PASS authRoutes localhostPasswordOnly: localhost bypass returns JWT (Phase 4)
+[Auth] AuthService initialized
+FAIL authRoutes twoFactor.externalOnly: localhost bypass skips TOTP (bugfix)
+Error: socket hang up
+    at Socket.socketOnEnd (node:_http_client:790:25)
+    at Socket.emit (node:events:526:24)
+    at endReadableNT (node:internal/streams/readable:1764:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'ECONNRESET'
+}
+[Auth] AuthService initialized
+[Auth] TOTP login initiated
+PASS authRoutes twoFactor.externalOnly=false: external-only disabled still requires TOTP
+[Auth] AuthService initialized
+[Auth] TOTP login initiated
+[Auth] Token issued: jti=08057d05-3f54-416e-a56b-b33b3c969262
+[Auth] TOTP verification successful from undefined
+PASS authRoutes TOTP verify success issues JWT (Phase 4)
+[Auth] AuthService initialized
+[Auth] TOTP login initiated
+PASS authRoutes TOTP max attempts returns attemptsRemaining 0 (Phase 4)
+[Auth] AuthService initialized
+[Auth] Token issued: jti=ce8e2368-b0e2-40e3-a91a-e7999709b43a
+PASS authRoutes totp-qr reads the latest TOTP runtime instance
+
+3 test(s) failed

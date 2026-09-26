@@ -7,9 +7,16 @@
     "lib": ["ES2022", "ES2023.Array", "DOM", "DOM.Iterable"],
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e-ownership.tsbuildinfo"
   },
+  // src/editor 는 tsconfig.editor.json 이 검사한다. references 는 extends 로
+  // 상속되지 않으므로 tsconfig.test.json 과 마찬가지로 여기에 다시 적는다 —
+  // 없으면 벤더링된 편집기 소스가 이 프로그램으로 끌려와 TS1294 가 난다.
+  "references": [{ "path": "./tsconfig.editor.json" }],
   "files": [
     "playwright.ownership-validation.config.ts",
     "playwright.file-explorer.config.ts",
+    "playwright.issue34-capacity.config.ts",
+    "playwright.issue34-raise.config.ts",
+    "playwright.issue7-clipboard.config.ts",
     "tests/e2e/busy-agent-workspace-bounce.spec.ts",
     "tests/e2e/grid-equal-mode.spec.ts",
     "tests/e2e/terminal-authority.spec.ts",
@@ -18,18 +25,71 @@
     "tests/e2e/terminal-mobile-scroll.spec.ts",
     "tests/e2e/terminal-title-auto-tab-name.spec.ts",
     "tests/e2e/terminal-clipboard.spec.ts",
+    "tests/e2e/terminal-selection-eviction.spec.ts",
+    "tests/e2e/terminal-selection-renderer-lifecycle.spec.ts",
+    "tests/e2e/retained-range-refresh-characterization.spec.ts",
+    "tests/e2e/retained-history-select-copy.spec.ts",
     "tests/e2e/header-context-menu-regression.spec.ts",
     "tests/e2e/terminal-shortcut-manager.spec.ts",
     "tests/e2e/wave1-retained-state-characterization.spec.ts",
     "tests/e2e/wave3-terminal-authority-promotion.spec.ts",
     "tests/e2e/wave3-terminal-authority-fairness.spec.ts",
     "tests/e2e/workspace-ownership-validation.spec.ts",
+    "tests/e2e/issue34-capacity-ratify.spec.ts",
+    "tests/e2e/issue34-capacity-raise.spec.ts",
+
+    // Issue #115: these 26 arrived together. Until then they were in no
+    // tsconfig at all, so `tsc -p` exiting 0 was a statement about the other
+    // 22 and said nothing about these. Registering them turned up 42 real
+    // type errors across 13 files, including four specs that each carried a
+    // different narrowed copy of the same `declare global`. Membership is now
+    // enforced by tests/unit/e2eSpecTsconfigMembership.test.ts — a new spec
+    // that nobody lists is red, not invisible.
+    "tests/e2e/auth-bootstrap.spec.ts",
+    "tests/e2e/command-management-dialog.spec.ts",
+    "tests/e2e/input-discard-feedback.spec.ts",
+    "tests/e2e/markdown-editor-appearance.spec.ts",
+    "tests/e2e/markdown-editor-entry.spec.ts",
+    "tests/e2e/markdown-editor-lifecycle.spec.ts",
+    "tests/e2e/markdown-editor-modal-regression.spec.ts",
     "tests/e2e/markdown-editor-persistence.spec.ts",
+    "tests/e2e/markdown-editor-placement.spec.ts",
     "tests/e2e/markdown-editor-save.spec.ts",
+    "tests/e2e/mcp-control-dialog.spec.ts",
+    "tests/e2e/pane-keyboard.spec.ts",
+    "tests/e2e/pane-persistence.spec.ts",
+    "tests/e2e/pane-split.spec.ts",
+    "tests/e2e/perf-bgstab-010-ac6-server-ack-fault.spec.ts",
+    "tests/e2e/perf-bgstab-010-ac9-isolated.spec.ts",
+    "tests/e2e/recovery-options.spec.ts",
+    "tests/e2e/session-env-isolation.spec.ts",
+    "tests/e2e/settings-2fa-qr.spec.ts",
+    "tests/e2e/settings-password-policy.spec.ts",
+    "tests/e2e/settings-resource-limits.spec.ts",
+    "tests/e2e/terminal-context-menu-registered-items.spec.ts",
+    "tests/e2e/terminal-paste.spec.ts",
+    "tests/e2e/terminal-right-click-policy.spec.ts",
+    "tests/e2e/wave1-split-characterization.spec.ts",
+    "tests/e2e/wave2-terminal-restore.spec.ts",
+
+    // Issue #114.
+    "tests/e2e/terminal-width-policy-browser.spec.ts",
+
+    // Issue #113 probe.
+    "tests/e2e/issue113-restore-latency-probe.spec.ts",
+
+    // Merged from the file explorer work.
     "tests/e2e/file-explorer.spec.ts",
-    "tests/e2e/file-explorer-step4.spec.ts"
-  ],
-  // references 는 extends 로 상속되지 않는다. 없으면 편집기 호스트가 배럴을 import 하는
-  // 순간 vendored 편집기 소스가 이 프로그램으로 끌려와 TS1294 가 난다(tsconfig.test.json 과 같은 이유).
-  "references": [{ "path": "./tsconfig.editor.json" }]
+    "tests/e2e/file-explorer-step4.spec.ts",
+    "tests/e2e/ai-tui-busy-status.spec.ts",
+    "tests/e2e/binary-data-plane.spec.ts",
+    "tests/e2e/code-editor-image.spec.ts",
+    "tests/e2e/code-editor-text.spec.ts",
+    "tests/e2e/session-restore.spec.ts",
+    "tests/e2e/session-save.spec.ts",
+    "tests/e2e/wave2-screen-repair-resync.spec.ts",
+    "tests/e2e/webgl-dom-fallback.spec.ts",
+    "tests/e2e/workspace-delete-loading.spec.ts",
+    "tests/e2e/workspace-dot-menu-icons.spec.ts"
+  ]
 }

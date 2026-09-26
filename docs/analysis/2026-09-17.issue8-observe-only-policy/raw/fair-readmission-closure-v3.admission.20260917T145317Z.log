@@ -1,0 +1,12 @@
+✔ SDS-AC-1 keeps protected ingress private and rejects every caller authority before filesystem or probe work (19.943166ms)
+✔ SDS-AC-2 rejects an 8 KiB-plus singleton before an injected custom batch probe (0.494563ms)
+✔ SDS-AC-3 collector-owned lexical parsing retains TerminalResourcePolicyInventory literal dynamic and type imports (16.412281ms)
+✔ SDS-AC-3 fails closed instead of omitting a nonliteral dynamic import (0.812876ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 102.550361

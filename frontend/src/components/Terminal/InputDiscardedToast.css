@@ -1,0 +1,28 @@
+/*
+ * REL-BGSTAB-016 AC-6: the placement and style conventions are the existing toast's, not a new
+ * display system. It differs where it must -- it sits below centre so it does not cover the
+ * cursor row the user is typing at, and it is wide enough for a sentence rather than a number.
+ */
+.input-discarded-toast {
+  position: absolute;
+  top: 66%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 100;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.input-discarded-toast__count {
+  font-weight: normal;
+  opacity: 0.85;
+}

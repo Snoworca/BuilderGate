@@ -54,9 +54,9 @@ function plan(overrides: Partial<TabClosePlan> = {}): TabClosePlan {
   };
 }
 
-// --- PERF-BGSTAB-012 AC-1 ------------------------------------------------
+// --- PERF-BGSTAB-016 AC-1 ------------------------------------------------
 
-test('PERF-BGSTAB-012 AC-1 runTabClose removes the tab before the delete request settles', async () => {
+test('PERF-BGSTAB-016 AC-1 runTabClose removes the tab before the delete request settles', async () => {
   const calls: string[] = [];
   let releaseDelete: (() => void) | null = null;
   const deletePending = new Promise<void>(resolve => { releaseDelete = resolve; });
@@ -87,7 +87,7 @@ test('PERF-BGSTAB-012 AC-1 runTabClose removes the tab before the delete request
   assert.deepEqual(calls, ['applyLocalClose', 'requestDelete']);
 });
 
-test('PERF-BGSTAB-012 AC-1 planTabClose activates the right adjacent tab, then the left one', () => {
+test('PERF-BGSTAB-016 AC-1 planTabClose activates the right adjacent tab, then the left one', () => {
   const tabs = [tab('tab-1', 'ws-1', 0), tab('tab-2', 'ws-1', 1), tab('tab-3', 'ws-1', 2)];
   assert.equal(planTabClose(tabs, [workspace('ws-1', 'tab-2')], 'ws-1', 'tab-2').nextActiveTabId, 'tab-3');
   assert.equal(planTabClose(tabs, [workspace('ws-1', 'tab-3')], 'ws-1', 'tab-3').nextActiveTabId, 'tab-2');
@@ -97,7 +97,7 @@ test('PERF-BGSTAB-012 AC-1 planTabClose activates the right adjacent tab, then t
   );
 });
 
-test('PERF-BGSTAB-012 AC-1 planTabClose leaves the active tab alone when another tab closes', () => {
+test('PERF-BGSTAB-016 AC-1 planTabClose leaves the active tab alone when another tab closes', () => {
   const tabs = [tab('tab-1', 'ws-1', 0), tab('tab-2', 'ws-1', 1)];
   const result = planTabClose(tabs, [workspace('ws-1', 'tab-1')], 'ws-1', 'tab-2');
   assert.equal(result.nextActiveTabId, 'tab-1');
@@ -106,7 +106,7 @@ test('PERF-BGSTAB-012 AC-1 planTabClose leaves the active tab alone when another
   assert.equal(result.tab?.id, 'tab-2');
 });
 
-test('PERF-BGSTAB-012 AC-1 useWorkspaceManager.closeTab does not await the delete before removing the tab', () => {
+test('PERF-BGSTAB-016 AC-1 useWorkspaceManager.closeTab does not await the delete before removing the tab', () => {
   const start = hookSource.indexOf('const closeTab = useCallback');
   assert.notEqual(start, -1, 'closeTab must still exist in useWorkspaceManager');
   const end = hookSource.indexOf('const updateTab = useCallback', start);
@@ -121,9 +121,9 @@ test('PERF-BGSTAB-012 AC-1 useWorkspaceManager.closeTab does not await the delet
   );
 });
 
-// --- PERF-BGSTAB-012 AC-2 ------------------------------------------------
+// --- PERF-BGSTAB-016 AC-2 ------------------------------------------------
 
-test('PERF-BGSTAB-012 AC-2 runTabClose restores the tab and reports when the delete is rejected', async () => {
+test('PERF-BGSTAB-016 AC-2 runTabClose restores the tab and reports when the delete is rejected', async () => {
   const calls: string[] = [];
   const failure = new Error('tab not found');
   let reported: unknown = null;
@@ -139,7 +139,7 @@ test('PERF-BGSTAB-012 AC-2 runTabClose restores the tab and reports when the del
   assert.equal(reported, failure);
 });
 
-test('PERF-BGSTAB-012 AC-2 runTabClose does not restore the tab when the delete succeeds', async () => {
+test('PERF-BGSTAB-016 AC-2 runTabClose does not restore the tab when the delete succeeds', async () => {
   // Control for the test above: an unconditional revert would satisfy it too.
   const calls: string[] = [];
   await runTabClose(plan(), {
@@ -151,7 +151,7 @@ test('PERF-BGSTAB-012 AC-2 runTabClose does not restore the tab when the delete 
   assert.deepEqual(calls, ['applyLocalClose', 'requestDelete']);
 });
 
-test('PERF-BGSTAB-012 AC-2 restoreTabToList puts the tab back at its original index', () => {
+test('PERF-BGSTAB-016 AC-2 restoreTabToList puts the tab back at its original index', () => {
   const tabs = [tab('tab-1', 'ws-1', 0), tab('tab-2', 'ws-1', 1), tab('tab-3', 'ws-2', 0)];
   const removed = removeTabFromList(tabs, 'tab-2');
   assert.deepEqual(removed.map(t => t.id), ['tab-1', 'tab-3']);
@@ -160,12 +160,12 @@ test('PERF-BGSTAB-012 AC-2 restoreTabToList puts the tab back at its original in
   assert.deepEqual(restored.map(t => t.id), ['tab-1', 'tab-2', 'tab-3']);
 });
 
-test('PERF-BGSTAB-012 AC-2 restoreTabToList is a no-op when the tab is already back', () => {
+test('PERF-BGSTAB-016 AC-2 restoreTabToList is a no-op when the tab is already back', () => {
   const tabs = [tab('tab-1', 'ws-1', 0), tab('tab-2', 'ws-1', 1)];
   assert.deepEqual(restoreTabToList(tabs, tabs[1], 1).map(t => t.id), ['tab-1', 'tab-2']);
 });
 
-test('PERF-BGSTAB-012 AC-2 applyActiveTabId only touches the named workspace', () => {
+test('PERF-BGSTAB-016 AC-2 applyActiveTabId only touches the named workspace', () => {
   const workspaces = [workspace('ws-1', 'tab-2'), workspace('ws-2', 'tab-9')];
   const next = applyActiveTabId(workspaces, 'ws-1', 'tab-3');
   assert.equal(next[0].activeTabId, 'tab-3');

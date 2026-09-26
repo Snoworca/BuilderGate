@@ -71,9 +71,14 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
       visibleOutputQueueMaxBytes: 4194304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262144,
+      visibleFlushFrameBudgetMs: 7,
+      checkpointMaxBytes: 4194304,
+      checkpointMaxChunks: 512,
+      checkpointChunkBytes: 65536,
       hiddenOutputPolicy: "snapshot-restore",
       hiddenOutputTailBytes: 262144,
       inputQueueMaxBytes: 65536,
+      inputQueueMaxCount: 512,
       inputQueueTtlMs: 1500,
       transportOutboxMaxBytes: 65536,
       transportOutboxTtlMs: 1500,
@@ -108,6 +113,13 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
   },
 
   security: {
+    // SEC-BGSTAB-001: OSC52 clipboard policy. Writes are allowed by default; set false to
+    // harden a deployment. There is deliberately no read switch -- OSC52 reads are denied
+    // unconditionally and no setting can enable them. Not editable from Settings: AC-2 makes
+    // this a deployment decision, not a runtime one.
+    osc52: {
+      allowWrite: true,
+    },
     cors: {
       allowedOrigins: [],
       credentials: true,
@@ -140,6 +152,8 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
     maxTabsPerWorkspace: 8,
     maxTotalSessions: 32,
     flushDebounceMs: 5000,
+    terminalTitleDebounceMs: 250,
+    restoreInputDelayMs: 600,
   },
 
   twoFactor: {

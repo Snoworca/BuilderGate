@@ -1,0 +1,225 @@
+{
+  "capturedAt": "2026-09-15T23:21:14.866Z",
+  "files": 33,
+  "fileList": [
+    "src/services/AuthService.test.ts",
+    "src/services/ConfigFileRepository.resourceLimits.test.ts",
+    "src/services/FileService.test.ts",
+    "src/services/FileServiceWrite.test.ts",
+    "src/services/RetainedTerminalAuthority.test.ts",
+    "src/services/RuntimeConfigScrollbackParity.test.ts",
+    "src/services/RuntimeConfigStore.test.ts",
+    "src/services/SessionManager.test.ts",
+    "src/services/SessionManagerBusyResize.test.ts",
+    "src/services/SessionManagerBusySnapshot.test.ts",
+    "src/services/SessionManagerEnvIsolation.test.ts",
+    "src/services/SessionManagerPartialEscapeTail.test.ts",
+    "src/services/SessionManagerResizeBounds.test.ts",
+    "src/services/SessionManagerStreamEpoch.test.ts",
+    "src/services/SessionManagerTerminalAuthorityDebugIsolation.test.ts",
+    "src/services/SessionManagerTerminalAuthorityRuntimePorts.test.ts",
+    "src/services/SettingsService.resourceLimits.test.ts",
+    "src/services/StorePublishCrossInstance.test.ts",
+    "src/services/TerminalAuthorityController.test.ts",
+    "src/services/TerminalAuthorityDebugService.test.ts",
+    "src/services/TerminalAuthorityProductionRegression.test.ts",
+    "src/services/TerminalResourcePolicy.test.ts",
+    "src/services/TerminalResourcePolicyCanary.test.ts",
+    "src/services/TerminalResourcePolicyCanaryPublicFixture.test.ts",
+    "src/services/WorkspaceServiceAddTabRollback.test.ts",
+    "src/services/WorkspaceServiceFlushConcurrency.test.ts",
+    "src/services/retainedStateDigest.test.ts",
+    "src/utils/atomicStoreWrite.test.ts",
+    "src/utils/configTemplate.test.ts",
+    "src/utils/fatalErrorPolicy.test.ts",
+    "src/utils/headlessTerminal.test.ts",
+    "src/utils/processInfoQueryTimeout.test.ts",
+    "src/utils/terminalQueryResponder.test.ts"
+  ],
+  "failing": [
+    "src/services/SessionManagerEnvIsolation.test.ts :: SEC-MCP-003 the OSC 133 BASH_ENV injection survives the filter",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps",
+    "src/services/TerminalAuthorityController.test.ts :: MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw",
+    "src/services/TerminalResourcePolicy.test.ts :: OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites",
+    "src/services/TerminalResourcePolicy.test.ts :: OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope",
+    "src/services/TerminalResourcePolicy.test.ts :: Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6"
+  ],
+  "perFileCounts": {
+    "src/services/AuthService.test.ts": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "src/services/ConfigFileRepository.resourceLimits.test.ts": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0
+    },
+    "src/services/FileService.test.ts": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "src/services/FileServiceWrite.test.ts": {
+      "tests": 16,
+      "pass": 16,
+      "fail": 0
+    },
+    "src/services/RetainedTerminalAuthority.test.ts": {
+      "tests": 52,
+      "pass": 52,
+      "fail": 0
+    },
+    "src/services/RuntimeConfigScrollbackParity.test.ts": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0
+    },
+    "src/services/RuntimeConfigStore.test.ts": {
+      "tests": 11,
+      "pass": 11,
+      "fail": 0
+    },
+    "src/services/SessionManager.test.ts": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "src/services/SessionManagerBusyResize.test.ts": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0
+    },
+    "src/services/SessionManagerBusySnapshot.test.ts": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0
+    },
+    "src/services/SessionManagerEnvIsolation.test.ts": {
+      "tests": 8,
+      "pass": 7,
+      "fail": 1
+    },
+    "src/services/SessionManagerPartialEscapeTail.test.ts": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0
+    },
+    "src/services/SessionManagerResizeBounds.test.ts": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0
+    },
+    "src/services/SessionManagerStreamEpoch.test.ts": {
+      "tests": 20,
+      "pass": 20,
+      "fail": 0
+    },
+    "src/services/SessionManagerTerminalAuthorityDebugIsolation.test.ts": {
+      "tests": 12,
+      "pass": 12,
+      "fail": 0
+    },
+    "src/services/SessionManagerTerminalAuthorityRuntimePorts.test.ts": {
+      "tests": 12,
+      "pass": 12,
+      "fail": 0
+    },
+    "src/services/SettingsService.resourceLimits.test.ts": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0
+    },
+    "src/services/StorePublishCrossInstance.test.ts": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0
+    },
+    "src/services/TerminalAuthorityController.test.ts": {
+      "tests": 147,
+      "pass": 135,
+      "fail": 12
+    },
+    "src/services/TerminalAuthorityDebugService.test.ts": {
+      "tests": 47,
+      "pass": 47,
+      "fail": 0
+    },
+    "src/services/TerminalAuthorityProductionRegression.test.ts": {
+      "tests": 38,
+      "pass": 38,
+      "fail": 0
+    },
+    "src/services/TerminalResourcePolicy.test.ts": {
+      "tests": 20,
+      "pass": 17,
+      "fail": 3
+    },
+    "src/services/TerminalResourcePolicyCanary.test.ts": {
+      "tests": 26,
+      "pass": 26,
+      "fail": 0
+    },
+    "src/services/TerminalResourcePolicyCanaryPublicFixture.test.ts": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "src/services/WorkspaceServiceAddTabRollback.test.ts": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0
+    },
+    "src/services/WorkspaceServiceFlushConcurrency.test.ts": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0
+    },
+    "src/services/retainedStateDigest.test.ts": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0
+    },
+    "src/utils/atomicStoreWrite.test.ts": {
+      "tests": 10,
+      "pass": 10,
+      "fail": 0
+    },
+    "src/utils/configTemplate.test.ts": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0
+    },
+    "src/utils/fatalErrorPolicy.test.ts": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0
+    },
+    "src/utils/headlessTerminal.test.ts": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0
+    },
+    "src/utils/processInfoQueryTimeout.test.ts": {
+      "tests": 5,
+      "pass": 3,
+      "fail": 0
+    },
+    "src/utils/terminalQueryResponder.test.ts": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    }
+  },
+  "harnessErrors": []
+}

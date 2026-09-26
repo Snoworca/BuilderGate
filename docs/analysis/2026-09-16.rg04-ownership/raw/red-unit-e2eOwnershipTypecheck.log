@@ -1,0 +1,118 @@
+✖ REL-BGSTAB-001 AC-3: the ownership E2E project references the vendored editor project (2.262227ms)
+✖ REL-BGSTAB-001 AC-3: the promotion spec declares no never-read DA1/snapshot helpers (3.91894ms)
+✖ REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors (10690.678534ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10792.827839
+
+✖ failing tests:
+
+test at tests/unit/e2eOwnershipTypecheck.test.ts:41:1
+✖ REL-BGSTAB-001 AC-3: the ownership E2E project references the vendored editor project (2.262227ms)
+  AssertionError [ERR_ASSERTION]: tsconfig.e2e-ownership.json must declare its own "references": project references are not inherited through "extends", so without this the vendored src/editor tree enters the program and reports TS1294
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/e2eOwnershipTypecheck.test.ts:44:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/unit/e2eOwnershipTypecheck.test.ts:56:1
+✖ REL-BGSTAB-001 AC-3: the promotion spec declares no never-read DA1/snapshot helpers (3.91894ms)
+  AssertionError [ERR_ASSERTION]: REPLY_DA1_CONPTY must be absent from the promotion spec: it has never been read since c25d761 introduced it, and a lone declaration fails noUnusedLocals (TS6133). Observed 1 occurrence(s); 1 means the declaration is still there and still unread.
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/e2eOwnershipTypecheck.test.ts:60:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/e2eOwnershipTypecheck.test.ts:70:1
+✖ REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors (10690.678534ms)
+  AssertionError [ERR_ASSERTION]: tsconfig.e2e-ownership.json must report no diagnostics, got:
+  src/editor/core/code-blocks.ts(69,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/core/code-blocks.ts(70,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/core/math-decoration.ts(17,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/core/math-decoration.ts(18,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/core/mermaid-blocks.ts(89,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/core/mermaid-blocks.ts(90,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/core/tag-decoration.ts(23,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/core/tag-decoration.ts(24,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/image-blocks.ts(52,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/image-blocks.ts(52,37): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/inline-preview.ts(167,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/inline-preview.ts(270,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/table-widget.ts(657,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/table-widget.ts(657,43): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/wiki-links.ts(66,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/wiki-links.ts(67,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/wiki-links.ts(68,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/wiki-links.ts(95,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/wiki-links.ts(96,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/wiki-links.ts(97,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  src/editor/vendor/atomic-editor/wiki-links.ts(313,19): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+  tests/e2e/wave3-terminal-authority-promotion.spec.ts(52,7): error TS6133: 'REPLY_DA1_CONPTY' is declared but its value is never read.
+  tests/e2e/wave3-terminal-authority-promotion.spec.ts(363,16): error TS6133: 'waitForSnapshot' is declared but its value is never read.
+  + actual - expected
+  
+  + "src/editor/core/code-blocks.ts(69,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/core/code-blocks.ts(70,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/core/math-decoration.ts(17,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/core/math-decoration.ts(18,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/core/mermaid-blocks.ts(89,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/core/mermaid-blocks.ts(90,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/core/tag-decoration.ts(23,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/core/tag-decoration.ts(24,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/image-blocks.ts(52,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/image-blocks.ts(52,37): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/inline-preview.ts(167,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/inline-preview.ts(270,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/table-widget.ts(657,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/table-widget.ts(657,43): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/wiki-links.ts(66,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/wiki-links.ts(67,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/wiki-links.ts(68,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/wiki-links.ts(95,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/wiki-links.ts(96,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/wiki-links.ts(97,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "src/editor/vendor/atomic-editor/wiki-links.ts(313,19): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\n" +
+  +   "tests/e2e/wave3-terminal-authority-promotion.spec.ts(52,7): error TS6133: 'REPLY_DA1_CONPTY' is declared but its value is never read.\n" +
+  +   "tests/e2e/wave3-terminal-authority-promotion.spec.ts(363,16): error TS6133: 'waitForSnapshot' is declared but its value is never read."
+  - ''
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/e2eOwnershipTypecheck.test.ts:88:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: "src/editor/core/code-blocks.ts(69,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/core/code-blocks.ts(70,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/core/math-decoration.ts(17,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/core/math-decoration.ts(18,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/core/mermaid-blocks.ts(89,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/core/mermaid-blocks.ts(90,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/core/tag-decoration.ts(23,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/core/tag-decoration.ts(24,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/image-blocks.ts(52,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/image-blocks.ts(52,37): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/inline-preview.ts(167,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/inline-preview.ts(270,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/table-widget.ts(657,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/table-widget.ts(657,43): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/wiki-links.ts(66,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/wiki-links.ts(67,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/wiki-links.ts(68,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/wiki-links.ts(95,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/wiki-links.ts(96,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/wiki-links.ts(97,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\nsrc/editor/vendor/atomic-editor/wiki-links.ts(313,19): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.\ntests/e2e/wave3-terminal-authority-promotion.spec.ts(52,7): error TS6133: 'REPLY_DA1_CONPTY' is declared but its value is never read.\ntests/e2e/wave3-terminal-authority-promotion.spec.ts(363,16): error TS6133: 'waitForSnapshot' is declared but its value is never read.",
+    expected: '',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

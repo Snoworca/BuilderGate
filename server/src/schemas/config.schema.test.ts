@@ -347,12 +347,13 @@ test('configSchema validates stabilityModes strictly', () => {
   );
 });
 
-test('realtime.terminalWireFormat defaults to json', () => {
+test('realtime.terminalWireFormat is left unset so the published evidence decides', () => {
   const parsed = configSchema.parse(minimalConfig());
 
-  // The default is what keeps an untouched deployment on exactly today's wire
-  // no matter how much binary machinery exists behind it (05 §8.2).
-  assert.equal(parsed.realtime.terminalWireFormat, 'json');
+  // MIG-BGSTAB-004 AC-1: the default is resolved from the evidence at runtime
+  // (ws/terminalWireFormatDefault.ts), falling back to json. A zod default here
+  // would make "not configured" and "chose json" indistinguishable.
+  assert.equal(parsed.realtime.terminalWireFormat, undefined);
 });
 
 test('realtime.terminalWireFormat accepts every rung of the ladder', () => {
@@ -398,4 +399,58 @@ test('fileManagerSchema.maxImageFileSize 기본 20971520, 1024 미만·104857600
   const parsed = configSchema.parse({ ...minimalConfig(), fileManager: { maxImageFileSize: 4096 } });
   assert.equal(Reflect.get(parsed.fileManager ?? {}, 'maxImageFileSize'), 4096, 'the field survives the full config schema');
   assert.equal(parsed.fileManager?.maxFileSize, 1048576);
+});
+
+// --- SEC-BGSTAB-001: the OSC52 policy switch -------------------------------------
+//
+// 실측 2026-09-19 (병합 전): osc52 / allowWrite 는 이 스키마 어디에도 없었다. 오늘의
+// 안전은 결정이 아니라 사고였다 -- xterm 번들이 OSC 52 핸들러를 등록하지 않고
+// @xterm/addon-clipboard 가 설치되어 있지 않아서 조용히 버려지고 있었을 뿐이다.
+// 아래 세 테스트가 그것을 결정으로 만든다.
+
+test('SEC-BGSTAB-001 AC-2 OSC52 writes default to allowed once the security block exists', () => {
+  // `security` is optional at the top level, so the schema default materialises only when the
+  // section is present. The effective default for a config with NO security block is supplied
+  // by RuntimeConfigStore's single documented fallback -- fail-open by design, per AC-2 -- and
+  // is pinned by the runtime-config transport tests rather than here.
+  const parsed = configSchema.parse({
+    ...minimalConfig(),
+    security: { cors: { allowedOrigins: [], credentials: true, maxAge: 86400 } },
+  });
+
+  assert.equal(parsed.security?.osc52.allowWrite, true);
+});
+
+test('SEC-BGSTAB-001 AC-2 an absent security block leaves the switch to the runtime fallback', () => {
+  // Stated rather than assumed: nothing in the parsed config asserts a value here, so anyone
+  // reading config.security?.osc52 directly must supply the default themselves. There is
+  // exactly one such reader (RuntimeConfigStore.getPublicRuntimeConfig).
+  const parsed = configSchema.parse(minimalConfig());
+
+  assert.equal(parsed.security, undefined);
+});
+
+test('SEC-BGSTAB-001 AC-2 a hardened deployment can turn OSC52 writes off', () => {
+  const parsed = configSchema.parse({
+    ...minimalConfig(),
+    security: { cors: { allowedOrigins: [], credentials: true, maxAge: 86400 }, osc52: { allowWrite: false } },
+  });
+
+  assert.equal(parsed.security?.osc52.allowWrite, false);
+});
+
+test('SEC-BGSTAB-001 AC-1 no setting can enable OSC52 reads, at any stability', () => {
+  // 읽기는 기본값이 꺼져 있는 것이 아니라 존재하지 않는다. 설정으로 두면 에이전트가
+  // 켜도록 설득당할 수 있고, 읽기 응답은 PTY 의 input 채널로 주입되므로 사용자가
+  // 마지막으로 복사한 것에 대한 직접적인 유출수단이 된다.
+  for (const readish of ['allowRead', 'allow_read', 'read', 'allowReads']) {
+    assert.throws(
+      () => configSchema.parse({
+        ...minimalConfig(),
+        security: { cors: { allowedOrigins: [], credentials: true, maxAge: 86400 }, osc52: { [readish]: true } },
+      }),
+      /unrecognized|Unrecognized/i,
+      `${readish} must be rejected, not silently ignored`,
+    );
+  }
 });

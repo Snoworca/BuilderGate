@@ -387,6 +387,26 @@ type ReadProcessStartIdentity = typeof readProcessStartIdentity;
 interface SessionManagerDeps {
   execFileFn?: typeof execFile;
   execFileSyncFn?: typeof execFileSync;
+  /**
+   * Issue #102: resolveSpawnCwd probes the filesystem. Tests that pin
+   * `platform: 'win32'` also pass Windows fixture paths, which do not exist on
+   * a Linux host, so the real existsSync sent them down the fallback branch and
+   * they failed on their first assertion for a reason unrelated to what they
+   * were measuring. Injecting the probe keeps the platform pin honest.
+   */
+  existsSyncFn?: (path: string) => boolean;
+  /**
+   * Issue #89: the same defect class as `existsSyncFn` above, one layer over.
+   * `isCommandAvailable` branches on `this.platform`, so a test pinning
+   * `platform: 'win32'` makes it shell out to `where`, which does not exist on a
+   * Linux host. Every availability probe then answers false no matter what is
+   * installed -- measurably wrong here, where `which wsl.exe` finds
+   * /mnt/c/WINDOWS/system32/wsl.exe while `where wsl.exe` cannot run at all. A
+   * bash request then falls through resolveAutoShell to powershell, and
+   * buildShellEnv deliberately sets no BASH_ENV for powershell. Injecting the
+   * probe keeps the platform pin honest.
+   */
+  isCommandAvailableFn?: (cmd: string) => boolean;
   platform?: NodeJS.Platform;
   spawnPty?: typeof pty.spawn;
   processInspector?: SessionProcessInspector;
@@ -449,6 +469,22 @@ interface RetainedOrdinalPosition {
 
 // Reservation and model commit use the same ordinal transition. Projection has
 // no ledger/model side effects; only the eventual commit adopts a new epoch.
+/**
+ * Issue #106: a reservation/commit ordinal mismatch is an accounting error about
+ * ONE record. It used to be thrown as a plain Error, which the write chain could
+ * only treat like any other write failure - so it degraded the session, disposed
+ * the authoritative headless model and made every later recovery fall back, for
+ * the rest of the session. Marking the error lets the record-scope disposition
+ * be told apart from a genuine write failure without matching on message text.
+ */
+class TerminalAuthorityReservationCommitMismatchError extends Error {
+  readonly reservationCommitMismatch = true;
+}
+
+function isReservationCommitMismatch(error: unknown): boolean {
+  return error instanceof TerminalAuthorityReservationCommitMismatchError;
+}
+
 function advanceRetainedOrdinalPosition(
   position: RetainedOrdinalPosition,
   operation: 'output' | 'resize' | 'rejection',
@@ -799,6 +835,19 @@ export interface RetainedTerminalMutationIdentity {
   clientId: string;
   viewGeneration: number;
   leaseGeneration: string;
+}
+
+// #112: writeInput() used to collapse three different facts into one `false`. A flood
+// measurement (docs/analysis/2026-09-19.issue-112-flood-input-rejection/) could not tell
+// "the session is gone" from "the session is alive but this client's mutation identity is
+// stale" because both left the same boolean behind. writeInputDetailed() below names which
+// one happened; writeInput() stays a thin boolean wrapper so its ~50 existing callers are
+// unaffected.
+export type WriteInputDenialReason = 'session-gone' | 'mutation-identity-stale' | 'write-failed';
+
+export interface WriteInputDetailedResult {
+  ok: boolean;
+  denialReason?: WriteInputDenialReason;
 }
 
 interface RetainedTerminalAuthorityState {
@@ -1241,6 +1290,8 @@ export class SessionManager {
   private runtimeHeadlessQueueConfig: RuntimeHeadlessQueueConfig;
   private readonly execFileFn: typeof execFile;
   private readonly execFileSyncFn: typeof execFileSync;
+  private readonly existsSyncFn: (path: string) => boolean;
+  private readonly injectedIsCommandAvailable: ((cmd: string) => boolean) | null;
   private readonly platform: NodeJS.Platform;
   private readonly spawnPty: typeof pty.spawn;
   private readonly processInspector: SessionProcessInspector;
@@ -1342,6 +1393,8 @@ export class SessionManager {
     this.cleanupTelemetry = createInitialCleanupTelemetry(this.runtimeSessionConfig.processCleanup.mode);
     this.execFileFn = deps.execFileFn ?? execFile;
     this.execFileSyncFn = deps.execFileSyncFn ?? execFileSync;
+    this.existsSyncFn = deps.existsSyncFn ?? existsSync;
+    this.injectedIsCommandAvailable = deps.isCommandAvailableFn ?? null;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
     this.processInspector = deps.processInspector ?? inspectSessionProcessBestEffort;
     this.processTreeTerminator = deps.processTreeTerminator ?? new DefaultProcessTreeTerminator({ platform: this.platform });
@@ -1396,7 +1449,7 @@ export class SessionManager {
       // Windows PTY backend (ConPTY vs winpty)
       useConpty: backendResolution.useConpty,
     });
-    // REL-BGSTAB-022 AC-4: node-pty's ConPTY kill must never reach the server.
+    // REL-BGSTAB-029 AC-4: node-pty's ConPTY kill must never reach the server.
     guardPtyConsoleKill(ptyProcess, [process.pid, process.ppid], (dropped) => {
       console.warn(`[SessionManager] node-pty console kill list held the server process (${dropped.join(', ')}); dropped for session ${id}`);
     });
@@ -2321,6 +2374,12 @@ export class SessionManager {
   }
 
   // @req REL-BGSTAB-011, REL-BGSTAB-007
+  // #78: the checkpoint chunk size used to be a constant with no configuration path, so the
+  // budget below reported it as unconfigured while the adapter chunked by it anyway.
+  getTerminalCheckpointChunkBytes(): number {
+    return this.effectiveResourceLimits.terminal.checkpointChunkBytes;
+  }
+
   getRetainedTerminalAuthorityState(sessionId: string): RetainedTerminalAuthorityState | undefined {
     const data = this.sessions.get(sessionId);
     if (!data) return undefined;
@@ -2530,6 +2589,79 @@ export class SessionManager {
       clientId,
       viewGeneration,
       leaseGeneration: lease.generation,
+    };
+  }
+
+  // @req REL-BGSTAB-011 AC-6
+  // The driver lease as first claimed goes to whichever view subscribed first, which is not
+  // necessarily the view the user is typing in. Measured 2026-09-19 on https://localhost:2222
+  // with a probe at the refusal site: a background browser tab held the lease with its socket
+  // still open, and every write from the focused tab was refused with
+  // `driver-owned-by-other-client` for the life of the session. The user saw a terminal that
+  // ate keystrokes. establishRetainedTerminalMutationLease cannot resolve that -- it refuses
+  // the moment anyone else owns the lease -- so writing is the signal that decides ownership:
+  // the view that mutates takes the lease, and the previous holder becomes an observer.
+  //
+  // Only the exactly-registered view of a live session under browser admission may adopt, and
+  // the handoff goes through handoffRetainedTerminalDriverLease so the superseded owner's
+  // lease generation is invalidated rather than left to race the new one.
+  adoptRetainedTerminalMutationLease(
+    sessionId: string,
+    clientId: string,
+    viewGeneration: number,
+  ):
+    | {
+        ok: true;
+        sessionId: string;
+        authorityEpoch: string;
+        clientId: string;
+        viewGeneration: number;
+        leaseGeneration: string;
+      }
+    | { ok: false; reason: string } {
+    const data = this.sessions.get(sessionId);
+    if (!data) return { ok: false, reason: 'authority-unavailable' };
+    const retained = data.retainedTerminal;
+    if (retained.mode !== 'shadow') return { ok: false, reason: 'authority-unavailable' };
+    const client = retained.clients.get(clientId);
+    if (!client || client.viewGeneration !== viewGeneration) {
+      return { ok: false, reason: 'client-view-missing' };
+    }
+    const runtime = this.ensureTerminalAuthorityRuntimePortState(retained);
+    if (runtime.admission.mode === 'server') {
+      // Server headless owns the driver here; a browser view must not take it by typing.
+      return { ok: false, reason: 'authority-admission-closed' };
+    }
+    const owner = retained.driverLease.ownerClientId;
+    if (owner !== null && owner !== clientId) {
+      const handoff = this.handoffRetainedTerminalDriverLease(
+        sessionId,
+        owner,
+        retained.driverViewGeneration ?? viewGeneration,
+        clientId,
+        viewGeneration,
+        retained.driverLease.generation,
+      );
+      if (!handoff.ok) return { ok: false, reason: handoff.reason ?? 'driver-lease-failure' };
+      this.maybeOpenTerminalAuthorityCompatibilityAdmission(runtime);
+      return {
+        ok: true,
+        sessionId,
+        authorityEpoch: data.authorityEpoch,
+        clientId,
+        viewGeneration,
+        leaseGeneration: handoff.generation,
+      };
+    }
+    const claimed = this.claimRetainedTerminalDriverLease(sessionId, clientId, viewGeneration);
+    if (!claimed.ok) return { ok: false, reason: claimed.reason ?? 'driver-lease-failure' };
+    return {
+      ok: true,
+      sessionId,
+      authorityEpoch: data.authorityEpoch,
+      clientId,
+      viewGeneration,
+      leaseGeneration: claimed.generation,
     };
   }
 
@@ -2891,12 +3023,23 @@ export class SessionManager {
     }
     runtime.driver.revokedLeaseIds.add(input.driverLeaseId);
     if (runtime.driver.active === 'legacy-browser') {
+      // #112: a legitimate revocation of the browser's own driver lease -- tell the
+      // affected client so it renegotiates instead of continuing to attach an identity
+      // that will be refused forever.
+      const revokedOwnerClientId = retained.driverLease.ownerClientId;
       retained.driverLease = {
         ownerClientId: null,
         generation: retained.driverLease.generation,
         state: 'revoked',
       };
       retained.driverViewGeneration = null;
+      if (revokedOwnerClientId) {
+        this.wsRouter?.notifyRetainedTerminalDriverLeaseRevoked(
+          sessionId,
+          revokedOwnerClientId,
+          'driver-lease-revoked',
+        );
+      }
     }
     runtime.driver.active = null;
     runtime.driver.activeLeaseId = null;
@@ -3275,7 +3418,21 @@ export class SessionManager {
       // mutation must still prove the exact browser binding that was suspended
       // at the positional handoff.
       retained.blockers.add('mutation-identity-missing');
-      return runtime.admission.mode !== 'server';
+      const rejectedByAdmission = runtime.admission.mode === 'server';
+      // #112 root-cause instrumentation: a plain browser client never attaches
+      // retainedIdentity unless it holds a mutation lease (attachRetainedMutationLease
+      // in the frontend). If admission has moved to 'server' this rejects every keystroke
+      // from a client that never re-acquired a lease -- distinct from the field-mismatch
+      // case captured below.
+      if (rejectedByAdmission && this.isDebugCaptureEnabled(data.session.id)) {
+        this.captureDebugEvent(data.session.id, 'pty', 'mutation_identity_rejected', {
+          cause: 'identity-missing',
+          admissionMode: runtime.admission.mode,
+          driverActive: String(runtime.driver.active),
+          responderActive: String(runtime.responder.active),
+        });
+      }
+      return !rejectedByAdmission;
     }
     if (identity.authorityEpoch !== data.authorityEpoch) {
       this.recordRetainedTerminalLateMessage(data.session.id, identity.authorityEpoch, 'stale-mutation');
@@ -3298,7 +3455,32 @@ export class SessionManager {
       && retained.driverViewGeneration === identity.viewGeneration
       && retained.driverLease.generation === identity.leaseGeneration;
     const accepted = exactRegisteredView && (serverAuthorityUserMutation || legacyDriverMutation);
-    if (!accepted) retained.blockers.add('driver-lease-failure');
+    if (!accepted) {
+      retained.blockers.add('driver-lease-failure');
+      // #112 root-cause instrumentation: names which comparison failed instead of leaving
+      // "the identity did not match" as the only fact. Never includes authorityEpoch/
+      // leaseGeneration values themselves (opaque uuid/counter tokens, not secrets, but no
+      // reason to widen what a debug capture exposes beyond a match/mismatch boolean).
+      if (this.isDebugCaptureEnabled(data.session.id)) {
+        this.captureDebugEvent(data.session.id, 'pty', 'mutation_identity_rejected', {
+          cause: 'field-mismatch',
+          admissionMode: runtime.admission.mode,
+          driverActive: String(runtime.driver.active),
+          responderActive: String(runtime.responder.active),
+          authorityEpochMatch: identity.authorityEpoch === data.authorityEpoch,
+          clientRegistered: client !== undefined,
+          clientViewGenerationMatch: client?.viewGeneration === identity.viewGeneration,
+          hasSuspendedBrowserDriver: suspended !== null,
+          suspendedIdentityMatch: suspended?.clientId === identity.clientId
+            && suspended.viewGeneration === identity.viewGeneration
+            && suspended.leaseGeneration === identity.leaseGeneration,
+          legacyDriverLeaseActive: retained.driverLease.state === 'active',
+          legacyDriverIdentityMatch: retained.driverLease.ownerClientId === identity.clientId
+            && retained.driverViewGeneration === identity.viewGeneration
+            && retained.driverLease.generation === identity.leaseGeneration,
+        });
+      }
+    }
     return accepted;
   }
 
@@ -3312,8 +3494,9 @@ export class SessionManager {
         retained.blockers.delete('shadow-disabled');
         retained.blockers.add('independent-baseline-unavailable');
         retained.blockers.add('retained-authority-delivery-inactive');
-        retained.blockers.add('aggregate-model-memory-budget-unavailable');
-        retained.blockers.add('checkpoint-chunk-budget-unavailable');
+        // #78: the chunk axis is configured now, so only the unbudgeted axis remains -- and its
+        // blocker says it is not budgeted rather than that its budget could not be found.
+        retained.blockers.add('aggregate-model-memory-not-budgeted');
         retained.shadowSettlement = {
           admissionOpen: true,
           settled: false,
@@ -3474,6 +3657,9 @@ export class SessionManager {
     this.debugCaptureBySession.delete(sessionId);
   }
 
+  // #112: thin wrapper kept for the ~50 existing call sites (test-runner.ts, restore-path
+  // gateway) that only ever needed a boolean. New callers that must distinguish denial
+  // reasons should call writeInputDetailed() directly.
   writeInput(
     id: string,
     input: string,
@@ -3481,12 +3667,24 @@ export class SessionManager {
     inputSequence?: { inputSeqStart?: number; inputSeqEnd?: number },
     retainedIdentity?: RetainedTerminalMutationIdentity,
   ): boolean {
+    return this.writeInputDetailed(id, input, clientMetadata, inputSequence, retainedIdentity).ok;
+  }
+
+  writeInputDetailed(
+    id: string,
+    input: string,
+    clientMetadata?: InputDebugMetadata,
+    inputSequence?: { inputSeqStart?: number; inputSeqEnd?: number },
+    retainedIdentity?: RetainedTerminalMutationIdentity,
+  ): WriteInputDetailedResult {
     const data = this.sessions.get(id);
     if (!data) {
       this.recordRetainedTerminalLateMessage(id);
-      return false;
+      return { ok: false, denialReason: 'session-gone' };
     }
-    if (!this.acceptRetainedTerminalMutationIdentity(data, retainedIdentity)) return false;
+    if (!this.acceptRetainedTerminalMutationIdentity(data, retainedIdentity)) {
+      return { ok: false, denialReason: 'mutation-identity-stale' };
+    }
     const inputDebugDetails: Record<string, InputDebugValue> = {
       ...buildInputDebugDetails(input, clientMetadata),
       ...(typeof inputSequence?.inputSeqStart === 'number' ? { inputSeqStart: inputSequence.inputSeqStart } : {}),
@@ -3611,10 +3809,10 @@ export class SessionManager {
         error: error instanceof Error ? error.message : String(error),
       });
       console.error(`[PTY] Failed to write input to session ${id}:`, error);
-      return false;
+      return { ok: false, denialReason: 'write-failed' };
     }
     data.session.lastActiveAt = new Date();
-    return true;
+    return { ok: true };
   }
 
   /**
@@ -4210,6 +4408,9 @@ export class SessionManager {
   }
 
   private isCommandAvailable(cmd: string): boolean {
+    if (this.injectedIsCommandAvailable) {
+      return this.injectedIsCommandAvailable(cmd);
+    }
     try {
       if (this.platform === 'win32') {
         execSync(`where ${cmd}`, { stdio: 'ignore', windowsHide: true });
@@ -4404,7 +4605,7 @@ export class SessionManager {
     }
 
     // Verify directory exists; fall back to home if not
-    if (!existsSync(resolved)) {
+    if (!this.existsSyncFn(resolved)) {
       console.warn(`[SessionManager] CWD does not exist: ${resolved}, falling back to ${fallback}`);
       return fallback;
     }
@@ -4822,6 +5023,21 @@ export class SessionManager {
       })
       .catch((error) => {
         if (!this.isActiveSession(sessionId, sessionData)) return;
+        // Issue #106, option 2. The record has already been rejected and
+        // recorded as such by commitRetainedTerminalOutput's caller. Realign the
+        // counters so the next write commits, deliver this chunk so the user
+        // still sees it, and leave the model alone: the session stays healthy
+        // and promotable. Only a genuine write failure degrades.
+        if (isReservationCommitMismatch(error)) {
+          this.realignTerminalAuthorityReservation(sessionData);
+          if (data.length > 0) {
+            this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq, {
+              authorityEpoch: sessionData.authorityEpoch,
+              authorityRevision: sessionData.authorityRevision,
+            }, 'legacy-unnegotiated');
+          }
+          return;
+        }
         this.markHeadlessDegraded(sessionId, sessionData, 'write', error);
         if (data.length > 0) {
           this.wsRouter?.routeSessionOutput(sessionId, data, sessionData.screenSeq, {
@@ -5307,6 +5523,22 @@ export class SessionManager {
     }
   }
 
+  /**
+   * Issue #106: pull the reservation counters back onto the committed position.
+   *
+   * synchronizeTerminalAuthoritySourceOrdinal deliberately repairs only a
+   * LAGGING counter and leaves a leading one alone, so without this a single
+   * mismatch would repeat on every subsequent write - trading permanent
+   * degradation for permanent rejection, which is no better. This is what makes
+   * the record-scope disposition self-healing rather than merely quieter.
+   */
+  private realignTerminalAuthorityReservation(data: SessionData): void {
+    const retained = this.ensureRetainedTerminalSessionState(data);
+    data.nextTerminalAuthorityStreamEpoch = retained.streamEpoch;
+    data.nextTerminalAuthoritySourceSeq = BigInt(retained.sourceSeq);
+    data.nextTerminalAuthoritySnapshotSeq = retained.snapshotSeq;
+  }
+
   private reserveTerminalAuthorityOrdinal(data: SessionData, operation: 'output' | 'resize' | 'rejection'): RetainedOrdinalPosition {
     const reserved = advanceRetainedOrdinalPosition({
       streamEpoch: data.nextTerminalAuthorityStreamEpoch!,
@@ -5451,6 +5683,21 @@ export class SessionManager {
     const retained = this.ensureRetainedTerminalSessionState(data);
     const runtime = this.ensureTerminalAuthorityRuntimePortState(retained);
 
+    // #112: whether detaching this controller can leave an ORPHANED SERVER-HEADLESS
+    // authority -- the risk the fail-closed revocation below exists for -- depends on
+    // whether the controller now being detached was actually driving via server-headless
+    // admission. When it was not (runtime.driver.active is 'legacy-browser' or null), the
+    // browser's legacy driver lease is a separate authority arm this controller never held
+    // and never suspended, so there is no handoff to fail closed against. Measured
+    // 2026-09-19: a headless shadow-PTY queue overflow (a server-only reconnect-recovery
+    // side channel) disposed a query-only, legacy-admission controller through this path
+    // and it silently revoked the typing browser's own live driver lease as a side effect --
+    // the identity the browser kept sending afterward still matched exactly
+    // (authorityEpoch, viewGeneration, clientId), it was simply refused forever because the
+    // lease backing it no longer existed. Degrading the side channel is not a reason to
+    // revoke write authority that channel never held.
+    const wasServerHeadlessDriver = runtime.driver.active === 'server-headless';
+
     // The controller identity above is the ownership fence for this detach.
     // Revoke every concrete server lease before removing the responder/controller
     // references so a caller-owned live session cannot be left with an orphaned
@@ -5471,13 +5718,27 @@ export class SessionManager {
     runtime.responder.legacyEnabled = false;
     runtime.responder.serverEnabled = false;
     runtime.admission = { mode: 'none', transitionEpoch: null };
-    retained.driverLease = {
-      ownerClientId: null,
-      generation: retained.driverLease.generation,
-      state: 'revoked',
-    };
-    retained.driverViewGeneration = null;
-    runtime.suspendedBrowserDriver = null;
+    if (wasServerHeadlessDriver) {
+      // #112: this revocation is genuine (the browser's driver role really was suspended
+      // in favor of server-headless authority that is now being torn down) -- tell the
+      // client so it can renegotiate instead of continuing to send an identity that will
+      // be refused forever.
+      const revokedOwnerClientId = retained.driverLease.ownerClientId;
+      retained.driverLease = {
+        ownerClientId: null,
+        generation: retained.driverLease.generation,
+        state: 'revoked',
+      };
+      retained.driverViewGeneration = null;
+      runtime.suspendedBrowserDriver = null;
+      if (revokedOwnerClientId) {
+        this.wsRouter?.notifyRetainedTerminalDriverLeaseRevoked(
+          sessionId,
+          revokedOwnerClientId,
+          'authority-runtime-detached',
+        );
+      }
+    }
     runtime.serverRecoveryAcks.clear();
     runtime.noLocalCacheEvidence = null;
     runtime.limitedSessionSelected = false;
@@ -6391,6 +6652,37 @@ export class SessionManager {
    *
    * @req REL-BGSTAB-009
    */
+  /**
+   * REL-BGSTAB-007 AC-3: the reload restore must carry the authoritative retained range, not
+   * one viewport. `serializeHeadlessTerminal` defaults to `{ scrollback: 0 }`, which is why a
+   * 700-line producer reloaded to 28 lines across five measured rounds under both legacy and
+   * server authority.
+   *
+   * AC-6 constrains how: over `maxSnapshotBytes` that serializer returns `data: ''` with
+   * `truncated: true` -- an EMPTY payload reported as success -- and AC-6 bars that cap from
+   * acting as "retained history를 empty로 만드는 authority cap". So the retained width is
+   * halved until it fits rather than passed through to an empty result, and the viewport is
+   * the floor: this can restore less than the full range, never less than today's behaviour,
+   * and never a blank screen.
+   *
+   * The retention width is read from the same policy value the headless terminal was created
+   * with (`initializeHeadlessState`), so there is one expression of "how much is retained"
+   * rather than two that can disagree.
+   */
+  private serializeRetainedRestoreSnapshot(
+    headless: HeadlessTerminalState,
+  ): ReturnType<typeof serializeHeadlessTerminal> {
+    const maxSnapshotBytes = this.runtimePtyConfig.maxSnapshotBytes;
+    const retained = this.compiledTerminalResourcePolicy.legacyPolicy.terminal.scrollbackLines.value;
+
+    for (let scrollback = retained; scrollback >= 1; scrollback = Math.floor(scrollback / 2)) {
+      const candidate = serializeHeadlessTerminal(headless, maxSnapshotBytes, { scrollback });
+      if (!candidate.truncated) return candidate;
+    }
+    // Viewport-only is the floor, and it is what the reload was served before AC-3.
+    return serializeHeadlessTerminal(headless, maxSnapshotBytes);
+  }
+
   getAtomicRestoreSnapshot(sessionId: string): AtomicRestoreSnapshotResult {
     const data = this.sessions.get(sessionId);
     if (!data || data.headlessHealth !== 'healthy' || !data.headless) {
@@ -6410,7 +6702,7 @@ export class SessionManager {
       const parserComplete = data.parserComplete;
       const pendingEscapeTailAnsi = data.pendingEscapeTailAnsi;
       try {
-        const serialized = serializeHeadlessTerminal(headless, this.runtimePtyConfig.maxSnapshotBytes);
+        const serialized = this.serializeRetainedRestoreSnapshot(headless);
         if (
           this.sessions.get(sessionId) !== data
           || data.headless !== headless
@@ -7584,8 +7876,7 @@ export class SessionManager {
         ? [
             'independent-baseline-unavailable',
             'retained-authority-delivery-inactive',
-            'aggregate-model-memory-budget-unavailable',
-            'checkpoint-chunk-budget-unavailable',
+            'aggregate-model-memory-not-budgeted',
           ]
         : ['shadow-disabled']),
       comparer: {
@@ -7801,13 +8092,18 @@ export class SessionManager {
       checkpoint,
       budgets: {
         retention: { key: 'retention', unit: 'lines', value: scrollback.value, source: scrollback.source, configured: true },
+        // #78: this axis has no enforcement anywhere, so it gets no configuration key. An
+        // unenforced resource setting is worse than none -- an operator reading it believes
+        // they are protected -- which is the same finding that removed the brute-force keys in
+        // #32. The source says that rather than implying an unfinished implementation.
         aggregateModelMemory: {
           key: 'aggregate-model-memory', unit: 'bytes', value: null,
-          source: 'unconfigured', configured: false,
+          source: 'not-budgeted', configured: false,
         },
         checkpointChunk: {
-          key: 'checkpoint-chunk', unit: 'bytes', value: null,
-          source: 'unconfigured', configured: false,
+          key: 'checkpoint-chunk', unit: 'bytes',
+          value: this.effectiveResourceLimits.terminal.checkpointChunkBytes,
+          source: 'resourceLimits.terminal.checkpointChunkBytes', configured: true,
         },
         perClientInflight: {
           key: 'per-client-inflight', unit: 'bytes',
@@ -8281,7 +8577,7 @@ export class SessionManager {
     }
     if (reservation?.reservedSourceSeq !== undefined
       && (projected.streamEpoch !== reservation.reservedStreamEpoch || projected.sourceSeq !== reservation.reservedSourceSeq)) {
-      throw new Error(`terminal-authority-reservation-commit-mismatch: reserved=${reservation.reservedStreamEpoch}/${reservation.reservedSourceSeq}, commit=${projected.streamEpoch}/${projected.sourceSeq}`);
+      throw new TerminalAuthorityReservationCommitMismatchError(`terminal-authority-reservation-commit-mismatch: reserved=${reservation.reservedStreamEpoch}/${reservation.reservedSourceSeq}, commit=${projected.streamEpoch}/${projected.sourceSeq}`);
     }
     this.advanceRetainedTerminalSourceOrdinal(sessionId, retained, true, reservation?.reservedStreamEpoch);
     // Ordinals identify actual model writes even while shadow collection is

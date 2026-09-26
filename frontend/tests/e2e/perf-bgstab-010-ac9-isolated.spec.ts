@@ -3,6 +3,11 @@ import { expect, test, type Locator, type Page, type WebSocketRoute } from '@pla
 
 import { getActiveSessionId, login, waitForTerminal } from './helpers';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "discovers workspaces whose active tab has shellType 'powershell'");
+
 type JsonFrame = Record<string, unknown> & {
   type?: string;
   channel?: string;
@@ -147,7 +152,7 @@ interface ReusableWave3Workspace {
 async function listReusableWave3Workspaces(page: Page): Promise<ReusableWave3Workspace[]> {
   return page.evaluate(async () => {
     const token = localStorage.getItem('cws_auth_token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await fetch('/api/workspaces', { headers });
     if (!response.ok) {
       throw new Error(`isolated AC-9 workspace read returned ${response.status}`);
@@ -290,7 +295,7 @@ test.describe('PERF-BGSTAB-010 AC-9 isolated browser evidence', () => {
     const snapshot = relay.latestSnapshot(reusable.sessionId);
     if (!snapshot) throw new Error('isolated AC-9 routed snapshot disappeared');
     const snapshotSeq = snapshot.frame.seq;
-    if (!Number.isSafeInteger(snapshotSeq) || snapshotSeq < 0) {
+    if (typeof snapshotSeq !== 'number' || !Number.isSafeInteger(snapshotSeq) || snapshotSeq < 0) {
       throw new Error('isolated AC-9 snapshot sequence is invalid');
     }
     const replayToken = snapshot.frame.replayToken;

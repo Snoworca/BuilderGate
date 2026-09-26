@@ -1,0 +1,195 @@
+{
+  "host": {
+    "node": "v24.21.0",
+    "arch": "x64",
+    "platform": "linux"
+  },
+  "repetitions": 5,
+  "runs": [
+    {
+      "repetition": 0,
+      "summary": {
+        "baselineP95Ms": 399.6365430000003,
+        "candidateP95Ms": 3.549003999999968,
+        "pairedP95UpperDeltaMs": -308.47721400000046,
+        "toleranceMs": 19.981827150000015,
+        "toleranceRatio": 0.05,
+        "toleranceClassification": "measurement-noise-regression-tolerance",
+        "productSlo": false,
+        "passes": true,
+        "bootstrap": {
+          "method": "paired-bootstrap-p95-delta",
+          "confidenceLevel": 0.95,
+          "iterations": 512,
+          "randomSeed": 7008
+        }
+      },
+      "exactGates": {
+        "outputDigestParity": true,
+        "mixedByteLength": 110,
+        "mixedControlInvocations": 1,
+        "mixedObservationInvocations": 1,
+        "boundaryByteLength": 65542,
+        "boundaryControlInvocations": 2,
+        "boundaryObservationInvocations": 2,
+        "baselineAcceptedIngressCount": 2,
+        "baselineEncoderResultAllocationCount": 65640,
+        "baselinePrefixLoopEncodeCount": 65638,
+        "baselinePrefixTemporaryAllocationCount": 65638,
+        "candidateAcceptedIngressCount": 2,
+        "candidateEncoderResultAllocationCount": 2,
+        "candidateAcceptedIngressMaxEncodeCount": 1,
+        "candidatePrefixLoopEncodeCount": 0,
+        "candidatePrefixTemporaryAllocationCount": 0
+      }
+    },
+    {
+      "repetition": 1,
+      "summary": {
+        "baselineP95Ms": 323.19757800000025,
+        "candidateP95Ms": 13.289329999999609,
+        "pairedP95UpperDeltaMs": -309.90824800000064,
+        "toleranceMs": 16.159878900000013,
+        "toleranceRatio": 0.05,
+        "toleranceClassification": "measurement-noise-regression-tolerance",
+        "productSlo": false,
+        "passes": true,
+        "bootstrap": {
+          "method": "paired-bootstrap-p95-delta",
+          "confidenceLevel": 0.95,
+          "iterations": 512,
+          "randomSeed": 7008
+        }
+      },
+      "exactGates": {
+        "outputDigestParity": true,
+        "mixedByteLength": 110,
+        "mixedControlInvocations": 1,
+        "mixedObservationInvocations": 1,
+        "boundaryByteLength": 65542,
+        "boundaryControlInvocations": 2,
+        "boundaryObservationInvocations": 2,
+        "baselineAcceptedIngressCount": 2,
+        "baselineEncoderResultAllocationCount": 65640,
+        "baselinePrefixLoopEncodeCount": 65638,
+        "baselinePrefixTemporaryAllocationCount": 65638,
+        "candidateAcceptedIngressCount": 2,
+        "candidateEncoderResultAllocationCount": 2,
+        "candidateAcceptedIngressMaxEncodeCount": 1,
+        "candidatePrefixLoopEncodeCount": 0,
+        "candidatePrefixTemporaryAllocationCount": 0
+      }
+    },
+    {
+      "repetition": 2,
+      "summary": {
+        "baselineP95Ms": 290.67180200000075,
+        "candidateP95Ms": 2.5588889999999083,
+        "pairedP95UpperDeltaMs": -244.50418399999944,
+        "toleranceMs": 14.533590100000039,
+        "toleranceRatio": 0.05,
+        "toleranceClassification": "measurement-noise-regression-tolerance",
+        "productSlo": false,
+        "passes": true,
+        "bootstrap": {
+          "method": "paired-bootstrap-p95-delta",
+          "confidenceLevel": 0.95,
+          "iterations": 512,
+          "randomSeed": 7008
+        }
+      },
+      "exactGates": {
+        "outputDigestParity": true,
+        "mixedByteLength": 110,
+        "mixedControlInvocations": 1,
+        "mixedObservationInvocations": 1,
+        "boundaryByteLength": 65542,
+        "boundaryControlInvocations": 2,
+        "boundaryObservationInvocations": 2,
+        "baselineAcceptedIngressCount": 2,
+        "baselineEncoderResultAllocationCount": 65640,
+        "baselinePrefixLoopEncodeCount": 65638,
+        "baselinePrefixTemporaryAllocationCount": 65638,
+        "candidateAcceptedIngressCount": 2,
+        "candidateEncoderResultAllocationCount": 2,
+        "candidateAcceptedIngressMaxEncodeCount": 1,
+        "candidatePrefixLoopEncodeCount": 0,
+        "candidatePrefixTemporaryAllocationCount": 0
+      }
+    },
+    {
+      "repetition": 3,
+      "summary": {
+        "baselineP95Ms": 354.8772600000011,
+        "candidateP95Ms": 5.573406999999861,
+        "pairedP95UpperDeltaMs": -307.4864269999998,
+        "toleranceMs": 17.743863000000058,
+        "toleranceRatio": 0.05,
+        "toleranceClassification": "measurement-noise-regression-tolerance",
+        "productSlo": false,
+        "passes": true,
+        "bootstrap": {
+          "method": "paired-bootstrap-p95-delta",
+          "confidenceLevel": 0.95,
+          "iterations": 512,
+          "randomSeed": 7008
+        }
+      },
+      "exactGates": {
+        "outputDigestParity": true,
+        "mixedByteLength": 110,
+        "mixedControlInvocations": 1,
+        "mixedObservationInvocations": 1,
+        "boundaryByteLength": 65542,
+        "boundaryControlInvocations": 2,
+        "boundaryObservationInvocations": 2,
+        "baselineAcceptedIngressCount": 2,
+        "baselineEncoderResultAllocationCount": 65640,
+        "baselinePrefixLoopEncodeCount": 65638,
+        "baselinePrefixTemporaryAllocationCount": 65638,
+        "candidateAcceptedIngressCount": 2,
+        "candidateEncoderResultAllocationCount": 2,
+        "candidateAcceptedIngressMaxEncodeCount": 1,
+        "candidatePrefixLoopEncodeCount": 0,
+        "candidatePrefixTemporaryAllocationCount": 0
+      }
+    },
+    {
+      "repetition": 4,
+      "summary": {
+        "baselineP95Ms": 399.11584199999925,
+        "candidateP95Ms": 5.200232999999571,
+        "pairedP95UpperDeltaMs": -361.8460190000005,
+        "toleranceMs": 19.955792099999965,
+        "toleranceRatio": 0.05,
+        "toleranceClassification": "measurement-noise-regression-tolerance",
+        "productSlo": false,
+        "passes": true,
+        "bootstrap": {
+          "method": "paired-bootstrap-p95-delta",
+          "confidenceLevel": 0.95,
+          "iterations": 512,
+          "randomSeed": 7008
+        }
+      },
+      "exactGates": {
+        "outputDigestParity": true,
+        "mixedByteLength": 110,
+        "mixedControlInvocations": 1,
+        "mixedObservationInvocations": 1,
+        "boundaryByteLength": 65542,
+        "boundaryControlInvocations": 2,
+        "boundaryObservationInvocations": 2,
+        "baselineAcceptedIngressCount": 2,
+        "baselineEncoderResultAllocationCount": 65640,
+        "baselinePrefixLoopEncodeCount": 65638,
+        "baselinePrefixTemporaryAllocationCount": 65638,
+        "candidateAcceptedIngressCount": 2,
+        "candidateEncoderResultAllocationCount": 2,
+        "candidateAcceptedIngressMaxEncodeCount": 1,
+        "candidatePrefixLoopEncodeCount": 0,
+        "candidatePrefixTemporaryAllocationCount": 0
+      }
+    }
+  ]
+}

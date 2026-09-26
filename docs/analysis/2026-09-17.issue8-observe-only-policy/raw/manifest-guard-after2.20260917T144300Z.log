@@ -1,0 +1,316 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+... Skipped lines
+
+  {
+    current: {
+      classifications: 10,
+      exactConsumerTuples: 81,
+      path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json',
+...
+      divergence: {
++       classificationDrift: {
++         introduced: [
++           '{"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"d5ee2b5e94dd56507a37f8df3f06e44f6c7b38d3a0f73a64218ec82a2d3e5678","reason":"Persists configuration; it is not a terminal runtime consumer."}'
++         ],
++         retired: [
++           '{"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39","reason":"Persists configuration; it is not a terminal runtime consumer."}'
++         ]
++       },
+        decisionDrift: {
+          introduced: [
+            '{"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.checkpointMaxBytes","unit":"bytes","source":"resourceLimits.terminal.checkpointMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"checkpoint-write-coordinator","state":"consumed"}',
+            '{"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"terminal-runtime-construction","state":"consumed"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"consumed"}',
+
+    at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/terminal-resource-consumer-manifest.test.mjs:499:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: {
+    schemaVersion: 'terminal-resource-consumer-manifest-lineage/v1',
+    historical: {
+      path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json',
+      sha256: '1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155',
+      sourceSetSha256: '84d05c72ed8ca2ba8045c0a66d4f167f471c51cce473b0c84d8294d54dcdc4b3'
+    },
+    current: {
+      path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json',
+      sha256: 'a6de6ad7b59bd89bfe600c884460a21e8479e39d65fa152865213abc899ee1a6',
+      sourceCount: 36,
+      sourceSetSha256: 'ef6fe4fa249318c88b5037617e9bfaf230232561f16e12a3915a10dd60f5c76c',
+      exactConsumerTuples: 81,
+      classifications: 10
+    },
+    semanticInventory: {
+      sha256: '624f5d33f07257369013c1a90514cb46bf876cf8c9d78f35a0e515bfab031f9b',
+      historicalEqualsCurrent: false,
+      divergence: {
+        reason: 'evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source; REL-BGSTAB-023 registered resourceLimits.terminal.checkpointMaxBytes, adding one decision to browser.terminal.recovery-scheduler at the checkpoint-write-coordinator boundary; and REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage into terminalGraceBuffer#applyGraceBufferedMessage with an identical body, relocating the four visibleOutputQueueMaxBytes/visibleOutputMaxChunks grace tuples without changing any decision',
+        decisionDrift: {
+          retired: [
+            '{"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"TerminalView:xterm-constructor-hardcoded","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"terminal-runtime-construction","state":"divergent-legacy"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"pty.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"divergent-legacy"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"pty.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"session-generation","state":"divergent-legacy"}'
+          ],
+          introduced: [
+            '{"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.checkpointMaxBytes","unit":"bytes","source":"resourceLimits.terminal.checkpointMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"checkpoint-write-coordinator","state":"consumed"}',
+            '{"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"terminal-runtime-construction","state":"consumed"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"consumed"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"session-generation","state":"consumed"}'
+          ]
+        },
+        classificationDrift: {
+          retired: [
+            '{"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39","reason":"Persists configuration; it is not a terminal runtime consumer."}'
+          ],
+          introduced: [
+            '{"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"d5ee2b5e94dd56507a37f8df3f06e44f6c7b38d3a0f73a64218ec82a2d3e5678","reason":"Persists configuration; it is not a terminal runtime consumer."}'
+          ]
+        },
+        relocatedEvidence: [
+          {
+            decision: 'browser.hidden-output|resourceLimits.terminal.hiddenOutputPolicy|visibility-decision|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.hidden-output|resourceLimits.terminal.hiddenOutputTailBytes|visibility-decision|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.snapshot.persisted-storage|resourceLimits.snapshots.tombstoneTtlMs|terminal-dispose-tombstone-check|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-input-count-cap|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-settlement-ledger-cap|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-write-coordinator|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-admission|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-overflow-observation|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|checkpoint-write-coordinator|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-admission|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-overflow-observation|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.write-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|browser-output-admission|consumed',
+            retired: [Array],
+            introduced: [Array]
+          }
+        ],
+        evidenceHashOnlyChangedTuples: 6
+      }
+    },
+    currentSlice: {
+      requirementId: 'OBS-BGSTAB-005',
+      scope: 'canonical semantic identity seals consumer evidenceAstSha256 and classification accessEvidenceSha256',
+      red: {
+        command: 'node tools/wave3/terminal-resource-consumer-manifest.test.mjs',
+        exitCode: 1,
+        result: 'semantic equality must fail when only consumer evidenceAstSha256 changes'
+      },
+      green: {
+        guard: {
+          command: 'node tools/wave3/terminal-resource-consumer-manifest.test.mjs',
+          exitCode: 0,
+          result: 'consumer and classification evidence-hash mutation assertions pass'
+        },
+        focusedTerminalResourcePolicy: {
+          command: 'npx.cmd tsx --test src/services/TerminalResourcePolicy.test.ts',
+          exitCode: 0,
+          result: 'all focused TerminalResourcePolicy tests pass'
+        }
+      }
+    },
+    ph002RuntimeAnchor: {
+      sha256: '2dfec602f8e22db0569e5ff67f75bceada37d1959af38ecdb52441ebca7b3b57',
+      sourceStatus: 'unavailable',
+      revalidationStatus: 'not-revalidated',
+      authority: 'non-authoritative'
+    },
+    historicalEvidenceCorrection: {
+      path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/green-evidence-correction.json',
+      relation: 'reconciles-preserved-raw-green-nested-summary-with-sealed-historical-manifest',
+      redEvidence: {
+        path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/historical-evidence-correction-red-evidence.json',
+        relation: 'records-the-original-missing-historical-report-seal-red-result'
+      }
+    }
+  },
+  expected: {
+    schemaVersion: 'terminal-resource-consumer-manifest-lineage/v1',
+    historical: {
+      path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json',
+      sha256: '1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155',
+      sourceSetSha256: '84d05c72ed8ca2ba8045c0a66d4f167f471c51cce473b0c84d8294d54dcdc4b3'
+    },
+    current: {
+      path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json',
+      sha256: 'a6de6ad7b59bd89bfe600c884460a21e8479e39d65fa152865213abc899ee1a6',
+      sourceCount: 36,
+      sourceSetSha256: 'ef6fe4fa249318c88b5037617e9bfaf230232561f16e12a3915a10dd60f5c76c',
+      exactConsumerTuples: 81,
+      classifications: 10
+    },
+    semanticInventory: {
+      sha256: '624f5d33f07257369013c1a90514cb46bf876cf8c9d78f35a0e515bfab031f9b',
+      historicalEqualsCurrent: false,
+      divergence: {
+        reason: 'evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source; REL-BGSTAB-023 registered resourceLimits.terminal.checkpointMaxBytes, adding one decision to browser.terminal.recovery-scheduler at the checkpoint-write-coordinator boundary; and REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage into terminalGraceBuffer#applyGraceBufferedMessage with an identical body, relocating the four visibleOutputQueueMaxBytes/visibleOutputMaxChunks grace tuples without changing any decision',
+        decisionDrift: {
+          retired: [
+            '{"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"TerminalView:xterm-constructor-hardcoded","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"terminal-runtime-construction","state":"divergent-legacy"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"pty.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"divergent-legacy"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"pty.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"session-generation","state":"divergent-legacy"}'
+          ],
+          introduced: [
+            '{"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.checkpointMaxBytes","unit":"bytes","source":"resourceLimits.terminal.checkpointMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"checkpoint-write-coordinator","state":"consumed"}',
+            '{"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"terminal-runtime-construction","state":"consumed"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"consumed"}',
+            '{"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"session-generation","state":"consumed"}'
+          ]
+        },
+        relocatedEvidence: [
+          {
+            decision: 'browser.hidden-output|resourceLimits.terminal.hiddenOutputPolicy|visibility-decision|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.hidden-output|resourceLimits.terminal.hiddenOutputTailBytes|visibility-decision|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.snapshot.persisted-storage|resourceLimits.snapshots.tombstoneTtlMs|terminal-dispose-tombstone-check|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-input-count-cap|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-settlement-ledger-cap|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-write-coordinator|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-admission|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-overflow-observation|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|checkpoint-write-coordinator|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-admission|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-overflow-observation|consumed',
+            retired: [Array],
+            introduced: [Array]
+          },
+          {
+            decision: 'browser.terminal.write-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|browser-output-admission|consumed',
+            retired: [Array],
+            introduced: [Array]
+          }
+        ],
+        evidenceHashOnlyChangedTuples: 6
+      }
+    },
+    currentSlice: {
+      requirementId: 'OBS-BGSTAB-005',
+      scope: 'canonical semantic identity seals consumer evidenceAstSha256 and classification accessEvidenceSha256',
+      red: {
+        command: 'node tools/wave3/terminal-resource-consumer-manifest.test.mjs',
+        exitCode: 1,
+        result: 'semantic equality must fail when only consumer evidenceAstSha256 changes'
+      },
+      green: {
+        guard: {
+          command: 'node tools/wave3/terminal-resource-consumer-manifest.test.mjs',
+          exitCode: 0,
+          result: 'consumer and classification evidence-hash mutation assertions pass'
+        },
+        focusedTerminalResourcePolicy: {
+          command: 'npx.cmd tsx --test src/services/TerminalResourcePolicy.test.ts',
+          exitCode: 0,
+          result: 'all focused TerminalResourcePolicy tests pass'
+        }
+      }
+    },
+    ph002RuntimeAnchor: {
+      sha256: '2dfec602f8e22db0569e5ff67f75bceada37d1959af38ecdb52441ebca7b3b57',
+      sourceStatus: 'unavailable',
+      revalidationStatus: 'not-revalidated',
+      authority: 'non-authoritative'
+    },
+    historicalEvidenceCorrection: {
+      path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/green-evidence-correction.json',
+      relation: 'reconciles-preserved-raw-green-nested-summary-with-sealed-historical-manifest',
+      redEvidence: {
+        path: 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/historical-evidence-correction-red-evidence.json',
+        relation: 'records-the-original-missing-historical-report-seal-red-result'
+      }
+    }
+  },
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.21.0

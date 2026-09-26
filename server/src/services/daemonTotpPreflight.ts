@@ -12,7 +12,7 @@ export interface DaemonTotpPreflightOptions {
   config?: Config;
   cryptoService?: CryptoService;
   qrCodeWriter?: ConsoleQrWriter;
-  suppressConsoleQr?: boolean;
+  printConsoleQr?: boolean;
 }
 
 export interface DaemonTotpPreflightResult {
@@ -56,7 +56,11 @@ export async function runDaemonTotpPreflightForConfig(
     options.cryptoService ?? createDaemonCryptoService(),
     secretFilePath,
     {
-      suppressConsoleQr: options.suppressConsoleQr ?? false,
+      // #80: the daemon preflight IS the enrolment moment -- it runs before detach precisely so
+      // an operator can scan the code. That is the one place printing the QR is the point, so it
+      // defaults ON here while the process-wide default stays OFF. The SECRET is never printed
+      // from anywhere; that is enforced in TOTPService, not by this flag.
+      printConsoleQr: options.printConsoleQr ?? true,
       qrCodeWriter: options.qrCodeWriter,
     },
   );

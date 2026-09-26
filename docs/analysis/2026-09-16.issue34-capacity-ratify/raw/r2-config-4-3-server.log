@@ -1,0 +1,76 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Crypto] CryptoService initialized
+[Auth] AuthService initialized
+[TOTP] TOTP is disabled
+[CommandPreset] CommandPresetService initialized
+[TerminalShortcut] TerminalShortcutService initialized
+[RecoveryOption] RecoveryOptionService initialized
+[Workspace] WorkspaceService initialized
+[Routes] API routes configured
+  - GET  /health (public)
+  - POST /api/auth/login (public)
+  - POST /api/auth/logout (protected)
+  - POST /api/auth/refresh (protected)
+  - GET  /api/auth/status (protected)
+  - GET  /api/settings (protected)
+  - PATCH /api/settings (protected)
+  - /api/command-presets/* (protected)
+  - /api/terminal-shortcuts/* (protected)
+  - /api/sessions/* (protected)
+  - /api/sessions/:id/cwd (protected, File API)
+  - /api/sessions/:id/files (protected, File API)
+[Static] Production assets served from /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/dist/public
+[SSL] No certificate configured, generating self-signed certificate...
+[SSL] Using existing self-signed certificate
+[WS] WebSocket router initialized
+[PTY] Global Windows backend default: winpty
+[PTY] Effective PowerShell backend default: winpty (policy: inherit)
+
+╔════════════════════════════════════════════════════════════════╗
+║           BuilderGate Server (HTTPS)                             ║
+╠════════════════════════════════════════════════════════════════╣
+║  HTTPS Server: https://localhost:2222                        ║
+║  Health Check: https://localhost:2222/health                 ║
+║  Login:        POST https://localhost:2222/api/auth/login    ║
+║  Global PTY:   winpty                                       ║
+║  TLS Version:  1.2 - 1.3                                       ║
+║  Auth:         JWT (HS256)                                     ║
+║  2FA:          Disabled                           ║
+╚════════════════════════════════════════════════════════════════╝
+
+[HTTP] Redirect server running on http://localhost:2221
+[HTTP] All requests redirected to HTTPS
+[Auth] Token issued: jti=ae3efcdf-bb44-4472-bd8c-f7ae7cb65844
+[Auth] Login successful from ::1
+[Auth] Token issued: jti=4e4a2427-2285-498e-bcea-167a6d4fb8e0
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=6da3e1d4-1831-4830-b1fd-23fc2ba0a922
+[Auth] Login successful from ::1
+[WS] Client connected: 8acbf924-0d65-471b-a104-2da239864513
+[WS] Client disconnected: 8acbf924-0d65-471b-a104-2da239864513
+[WS] Client connected: fdacef65-b34e-4e6c-8b44-b41a95bbc366
+[Auth] Token issued: jti=3f03ff88-c131-4c3f-bf27-b3238807cce8
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=1bb6a9ab-c596-4d7d-ab5f-4ae2a3b440ca
+[Auth] Login successful from ::ffff:127.0.0.1
+[WS] Client disconnected: fdacef65-b34e-4e6c-8b44-b41a95bbc366
+[Auth] Token issued: jti=362d1bfe-5f99-4ba0-b717-d50e0d9b5661
+[Auth] Login successful from ::1
+[WS] Client connected: c7d21985-7dfa-48da-a4b5-2a0b8bcfa2f8
+[WS] Client disconnected: c7d21985-7dfa-48da-a4b5-2a0b8bcfa2f8
+[WS] Client connected: f0a79089-266c-4f83-a583-e12f921b2cf5
+[SessionManager] Shell startup readiness fallback used for session 27defb2f-2aa5-40de-982f-7d35a7aca780
+[SessionManager] Shell startup readiness fallback used for session 6eadfdd4-5774-40d3-a06f-d62f189627c1
+[SessionManager] Shell startup readiness fallback used for session d4b12b42-bf3f-4a8b-af69-86ca9d68d1b6
+[Auth] Token issued: jti=e2f11bc2-24a7-490a-831e-9c115a764f4c
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=fd05b030-82bc-4584-a89a-009c60908f67
+[Auth] Login successful from ::ffff:127.0.0.1
+[WS] Client disconnected: f0a79089-266c-4f83-a583-e12f921b2cf5
+[Auth] Token issued: jti=b9d022b4-50d7-49b5-9d44-81e056423868
+[Auth] Login successful from ::ffff:127.0.0.1
+[Shutdown] SIGTERM received, saving session CWDs...
+[SessionManager] All CWD watchers stopped
+[Shutdown] Workspace state + CWDs saved
+[Shutdown] Session cleanup attempted=0 completed=0 degraded=0 skippedUnverified=0 remainingVerifiedDescendants=0

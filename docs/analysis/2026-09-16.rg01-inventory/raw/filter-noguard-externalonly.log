@@ -1,0 +1,17 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Auth] AuthService initialized
+[Auth] Token issued: jti=c107fd71-c196-4264-91bb-ae6a8d2bd599
+[Auth] Login successful (twoFactor.externalOnly) from ::ffff:127.0.0.1
+PASS authRoutes twoFactor.externalOnly: localhost bypass skips TOTP (bugfix)
+[Auth] AuthService initialized
+FAIL authRoutes twoFactor.externalOnly=false: external-only disabled still requires TOTP
+Error: socket hang up
+    at Socket.socketOnEnd (node:_http_client:790:25)
+    at Socket.emit (node:events:526:24)
+    at endReadableNT (node:internal/streams/readable:1764:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'ECONNRESET'
+}
+
+1 test(s) failed

@@ -1,0 +1,97 @@
+✖ REL-BGSTAB-023 AC-1 the checkpoint byte budget is its own canonical schema key (1.858093ms)
+✖ REL-BGSTAB-023 AC-5 the shipped default leaves the effective budget unchanged (1.427653ms)
+✖ REL-BGSTAB-023 AC-1 the checkpoint byte budget shares the range it was split from (0.165655ms)
+✔ REL-BGSTAB-023 AC-1 the terminal block stays strict about unknown keys (0.270964ms)
+✖ REL-BGSTAB-023 AC-4 the checkpoint byte budget is registered as a terminal resource key (0.229176ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1433.447958
+
+✖ failing tests:
+
+test at src/schemas/terminalCheckpointBudgetSchema.test.ts:1:310
+✖ REL-BGSTAB-023 AC-1 the checkpoint byte budget is its own canonical schema key (1.858093ms)
+  ZodError: [
+    {
+      "code": "unrecognized_keys",
+      "keys": [
+        "checkpointMaxBytes"
+      ],
+      "path": [],
+      "message": "Unrecognized key: \"checkpointMaxBytes\""
+    }
+  ]
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/schemas/terminalCheckpointBudgetSchema.test.ts:16:47)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at src/schemas/terminalCheckpointBudgetSchema.test.ts:1:756
+✖ REL-BGSTAB-023 AC-5 the shipped default leaves the effective budget unchanged (1.427653ms)
+  AssertionError [ERR_ASSERTION]: the shipped default must equal the value the coupled fallback produced, so no behaviour changes
+  + actual - expected
+  
+  + undefined
+  - 4194304
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/schemas/terminalCheckpointBudgetSchema.test.ts:31:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 4194304,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/schemas/terminalCheckpointBudgetSchema.test.ts:1:1144
+✖ REL-BGSTAB-023 AC-1 the checkpoint byte budget shares the range it was split from (0.165655ms)
+  ZodError: [
+    {
+      "code": "unrecognized_keys",
+      "keys": [
+        "checkpointMaxBytes"
+      ],
+      "path": [],
+      "message": "Unrecognized key: \"checkpointMaxBytes\""
+    }
+  ]
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/schemas/terminalCheckpointBudgetSchema.test.ts:42:45)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at src/schemas/terminalCheckpointBudgetSchema.test.ts:1:1926
+✖ REL-BGSTAB-023 AC-4 the checkpoint byte budget is registered as a terminal resource key (0.229176ms)
+  AssertionError [ERR_ASSERTION]: resourceLimits.terminal.checkpointMaxBytes must be registered in TerminalResourcePolicy, otherwise the static inventory contract test (OBS-BGSTAB-005 AC-6) cannot see it
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/schemas/terminalCheckpointBudgetSchema.test.ts:63:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

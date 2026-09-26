@@ -1,0 +1,16 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# command: npx playwright test tests/e2e/wave2-screen-repair-resync.spec.ts --config playwright.external-server.config.ts --project "Desktop Chrome"
+# precondition: workspace emptied of terminals (empty state showing) so the spec's own seeding branch runs
+# target: https://localhost:2222 (externally owned listener, server PID 447639)
+# started: 2026-09-17T06:18:40Z
+(node:448150) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:463:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (4.7s)
+  ✓  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:610:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (12.7s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+  2 passed (25.4s)
+# exit=0

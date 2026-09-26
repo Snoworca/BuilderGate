@@ -1,0 +1,10 @@
+(node:446562) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+  ✓  1 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:447:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-4 (1.1s)
+  ✓  2 [Desktop Chrome] › tests/e2e/wave2-screen-repair-resync.spec.ts:594:3 › REL-BGSTAB-008 frontend stale/resync RED › Frontend stale/resync barrier RED 계약 — AC-8 (17.8s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+  2 passed (32.2s)

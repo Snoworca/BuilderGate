@@ -249,6 +249,17 @@ test('RED reviewer — negotiated retained lease fences actual websocket input a
       mutationCalls.push({ kind: 'input', sessionId, data, identity });
       return true;
     },
+    // #112: the router's websocket input path calls writeInputDetailed(), not writeInput().
+    writeInputDetailed: (
+      sessionId: string,
+      data: string,
+      _metadata: unknown,
+      _sequence: unknown,
+      identity: unknown,
+    ) => {
+      mutationCalls.push({ kind: 'input', sessionId, data, identity });
+      return { ok: true };
+    },
     resize: (sessionId: string, cols: number, rows: number, identity: unknown) => {
       mutationCalls.push({ kind: 'resize', sessionId, cols, rows, identity });
       return true;
@@ -975,6 +986,17 @@ test('MIG-BGSTAB-002 same-view checkpoint renegotiation projects its existing se
       inputCalls.push({ sessionId, data, identity });
       return true;
     },
+    // #112: the router's websocket input path calls writeInputDetailed(), not writeInput().
+    writeInputDetailed: (
+      sessionId: string,
+      data: string,
+      _metadata: unknown,
+      _sequence: unknown,
+      identity: unknown,
+    ) => {
+      inputCalls.push({ sessionId, data, identity });
+      return { ok: true };
+    },
     getRetainedTerminalAuthorityState: () => ({ streamEpoch: '8' }),
     unregisterRetainedTerminalClientView: () => ({ ok: true, reason: 'unregistered' }),
   };
@@ -1174,6 +1196,17 @@ test('RED reviewer — negotiated observer stays registered, cannot mutate, and 
     ) => {
       mutations.push({ kind: 'input', clientId: identity?.clientId ?? null });
       return true;
+    },
+    // #112: the router's websocket input path calls writeInputDetailed(), not writeInput().
+    writeInputDetailed: (
+      _sessionId: string,
+      _data: string,
+      _metadata: unknown,
+      _sequence: unknown,
+      identity: { clientId?: string } | undefined,
+    ) => {
+      mutations.push({ kind: 'input', clientId: identity?.clientId ?? null });
+      return { ok: true };
     },
     resize: (
       _sessionId: string,

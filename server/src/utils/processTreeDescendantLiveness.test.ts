@@ -5,7 +5,7 @@ import { DefaultProcessTreeTerminator } from './processTreeTerminator.js';
 import type { SessionProcessMetadata } from '../types/ws-protocol.js';
 
 /**
- * PERF-BGSTAB-012 AC-3/AC-4.
+ * PERF-BGSTAB-016 AC-3/AC-4.
  *
  * The post-kill verification asks whether each sampled descendant is still
  * alive. It used to ask that through `processInfoProvider`, whose Windows
@@ -72,7 +72,7 @@ function windowsTerminator(
 
 const OPTIONS = { gracefulWaitMs: 0, forceWaitMs: 0, descendantSampleLimit: 64 };
 
-test('PERF-BGSTAB-012 AC-3 full process enumerations do not scale with the sampled descendant count', async () => {
+test('PERF-BGSTAB-016 AC-3 full process enumerations do not scale with the sampled descendant count', async () => {
   const one = windowsTerminator([201], new Set<number>());
   await one.terminator.terminate(metadata(), OPTIONS);
 
@@ -89,7 +89,7 @@ test('PERF-BGSTAB-012 AC-3 full process enumerations do not scale with the sampl
   assert.deepEqual(many.probeCalls, [201, 202, 203, 204, 205, 206, 207, 208]);
 });
 
-test('PERF-BGSTAB-012 AC-4 a sampled descendant that outlives the root is still reported unverified', async () => {
+test('PERF-BGSTAB-016 AC-4 a sampled descendant that outlives the root is still reported unverified', async () => {
   const { terminator, probeCalls } = windowsTerminator([201, 202], new Set([202]));
   const result = await terminator.terminate(metadata(), OPTIONS);
 
@@ -98,7 +98,7 @@ test('PERF-BGSTAB-012 AC-4 a sampled descendant that outlives the root is still 
   assert.deepEqual(probeCalls, [201, 202]);
 });
 
-test('PERF-BGSTAB-012 AC-4 control: cleanup completes when every sampled descendant is gone', async () => {
+test('PERF-BGSTAB-016 AC-4 control: cleanup completes when every sampled descendant is gone', async () => {
   const { terminator } = windowsTerminator([201, 202], new Set<number>());
   const result = await terminator.terminate(metadata(), OPTIONS);
 
@@ -107,7 +107,7 @@ test('PERF-BGSTAB-012 AC-4 control: cleanup completes when every sampled descend
   assert.deepEqual(result.remainingPids, []);
 });
 
-test('PERF-BGSTAB-012 AC-4 a probe that throws is treated as a possible survivor', async () => {
+test('PERF-BGSTAB-016 AC-4 a probe that throws is treated as a possible survivor', async () => {
   const { terminator, probeCalls } = windowsTerminator([201], new Set<number>(), () => {
     throw new Error('probe failed');
   });

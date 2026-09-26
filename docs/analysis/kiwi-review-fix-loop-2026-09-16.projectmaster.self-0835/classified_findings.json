@@ -1,0 +1,16 @@
+{"immediate_fix":[
+ {"id":"FND-001","severity":"HIGH","axis":"P4","title":"ref sweep understated: 15 refs / 5 named branches, not 2","status":"fixed"},
+ {"id":"FND-002","severity":"HIGH","axis":"P4","title":"Change Note cites pre-shift line numbers (+93)","status":"fixed via appended correction note"},
+ {"id":"FND-003","severity":"MEDIUM","axis":"P4","title":"nullary implementor count 4 -> 3","status":"fixed"},
+ {"id":"FND-004","severity":"MEDIUM","axis":"P7","title":"production adapter still nullary; AC-8 parity is controller-level only","status":"fixed — disclosed and folded into gate G1"},
+ {"id":"FND-005","severity":"MEDIUM","axis":"P7","title":"monolithic runner count unreproducible and unartifacted","status":"fixed — re-measured 538 PASS / 3 FAIL x4 runs, artifacts added for both arms"},
+ {"id":"FND-007","severity":"LOW","axis":"P4","title":"failing-set artifacts carry a banner line (13 not 12)","status":"fixed — regenerated, SHA256SUMS recomputed"},
+ {"id":"FND-008","severity":"LOW","axis":"P4","title":"kiwi/.status.json missing from changed-file records","status":"fixed"},
+ {"id":"FND-009","severity":"LOW","axis":"P4","title":"self-falsifying 0-occurrence claim","status":"fixed — frame-marked to a395550"},
+ {"id":"FND-010","severity":"LOW","axis":"P4","title":"branch contrast misrepresents codex branch as unremediated","status":"fixed"},
+ {"id":"FND-011","severity":"LOW","axis":"P6","title":"duplicated over-specified promotion-load assertion","status":"fixed — helper extracted, assertion relaxed off exact call count"}],
+ "discussion_needed":[],
+ "rejected":[
+ {"id":"FND-006","severity":"LOW","axis":"P3","rejection_category":"already_intended",
+  "rationale":"Reviewer confirmed the negative-control test IS failure-capable (reverting recoverView to nullary turns it red) and could not make it pass for a wrong reason. Its redundancy with the inline guard is deliberate: the orchestrator required a permanent, named guard proving the parity assertion cannot silently go vacuous again. The inline guard protects the forwarding; the named test states the obligation and is the artifact a future reader greps for. Keeping both is the point, not an oversight. The reviewer's alternative suggestion — extend it to the production adapter path — is real but is the FND-004 gap, which is now recorded as gate G1 rather than built here (out of scope per orchestrator)."}],
+ "policy_note":"--auto was applied to progress gates only. Per the lane brief, record-accuracy findings were NOT auto-rejected at LOW severity: all six LOW findings were examined and five were fixed. The single rejection is reasoned and recorded above, not an --auto sweep."}

@@ -138,6 +138,16 @@ function setup(): { manager: SessionManager; calls: SpawnCall[] } {
     session: { idleDelayMs: 200 },
   }, {
     platform: 'win32',
+    // Issue #89. This harness pins win32 on a Linux host, which sends
+    // isCommandAvailable through `where` instead of `which`. `where` does not
+    // exist here, so every probe answered false regardless of what is installed:
+    // `which wsl.exe` finds /mnt/c/WINDOWS/system32/wsl.exe while `where wsl.exe`
+    // cannot run at all. resolveShell('bash') then fell through resolveAutoShell
+    // to powershell, and buildShellEnv sets no BASH_ENV for powershell -- so the
+    // OSC 133 case failed on the platform pin rather than on the injection it
+    // names. It was carried for days as a pre-existing failure needing a product
+    // decision; the measured cause is this line's absence.
+    isCommandAvailableFn: () => true,
     spawnPty: ((_file: string, _args: string[], options: { env: Record<string, string> }) => {
       calls.push({ env: options.env });
       return {

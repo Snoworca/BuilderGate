@@ -1,0 +1,44 @@
+# Issue #10 AC-9(ii) — loss / duplicate / reorder, measured by mutation not by search
+# 2026-09-18
+
+## Correction: 'no test asserts zero loss' was WRONG
+That claim was search-derived (delegated, then repeated by this lane). Falsified by
+execution: injecting a real loss defect reddens committed tests.
+  loss mode 1 — drop post-checkpoint held output:
+    full frontend unit went 3 failures -> 7. The four new ones:
+      FR_BGSTAB_022_AC3_checkpoint_applied_waits_for_contiguous_source_watermark_then_drains_before_ready
+      FR_BGSTAB_022_AC3_checkpoint_commit_waits_for_post_commit_contiguous_source_watermark
+      FR_BGSTAB_022_AC4_post_commit_watermark_allows_monotonic_reserved_sequence_gaps
+      FR_BGSTAB_022_AC4_checkpoint_applied_callback_failure_stops_tail_drain
+  loss mode 2 — truncate each snapshot body slice by one byte:
+    3 failures -> 4. The single new one:
+      MIG-BGSTAB-002 large checkpoint body is parse-paced in bounded physical slices
+
+## The accurate statement
+Loss IS covered for both modes tried, but ONLY INCIDENTALLY — every catching test is
+named for another property (watermark/drain semantics, or pacing). The loss property had
+no named owner, so rewriting the pacing test would have silently unguarded snapshot-body
+loss and nothing would have flagged it. Two modes is not all modes; other loss shapes are
+unmeasured.
+
+## What was added
+tests/unit/terminalSnapshotLiveHandoverIntegrity.test.ts asserts all three properties of
+ONE byte stream at once — the AC's actual claim — rather than in the separate lanes where
+ordering and duplication were already covered. An ordering assertion does not cover
+duplication and a duplication assertion does not cover loss.
+
+## Mutation verification of the new guard
+FIRST DRAFT was green and exercised the WRONG PATH. It dispatched the live writes after
+checkpoint-commit, by which point the transaction is finalized, so they went to the normal
+queue and never entered the post-checkpoint hold the test names. Three of four mutations
+survived and only the body-truncation one was caught:
+  L1 drop post-checkpoint held output       SURVIVED
+  L2 truncate each body slice by one byte   CAUGHT
+  D1 enqueue each live write twice          SURVIVED
+  R1 reverse the post-checkpoint drain order SURVIVED
+Moving the live dispatches to BEFORE checkpoint-commit puts them in the hold path. Re-run:
+  L1 CAUGHT   L2 CAUGHT   D1 CAUGHT   R1 CAUGHT
+Production was restored byte-identically after every mutation (sha256 verified).
+
+Without mutation testing this lane would have shipped a green test that asserted nothing
+about the handover in its own name.

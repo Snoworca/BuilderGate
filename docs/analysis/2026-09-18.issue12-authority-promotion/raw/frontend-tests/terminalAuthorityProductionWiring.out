@@ -1,0 +1,16 @@
+✔ MIG-BGSTAB-002 production parser accepts full disable and rollback boundaries only (1.296746ms)
+✔ MIG-BGSTAB-002 production wiring preserves user-input order and generation ownership (9.96784ms)
+✔ MIG-BGSTAB-002 rollback preserves focus before closing the checkpoint input barrier (3.663075ms)
+✔ MIG-BGSTAB-002 browser capability declaration never authors authority generations (7.202729ms)
+✔ MIG-BGSTAB-002 E2E same-view renegotiation recognizes the already accepted attribute identity (4.554688ms)
+✔ MIG-BGSTAB-002 rollback query parity uses the live input-gate diagnostic (5.165126ms)
+✔ MIG-BGSTAB-002 WebSocket status changes do not replace the terminal send callback (2.679106ms)
+✔ MIG-BGSTAB-002 replacement connection retargets output policy without replacing xterm callbacks (5.616606ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 152.418719

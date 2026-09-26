@@ -1,0 +1,1140 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[WS] WebSocket router initialized
+[ISSUE12-DEG] sid=session-ph005 phase=write err=Error: terminal-authority-reservation-commit-mismatch: reserved=7/2, commit=7/1
+    at SessionManager.commitRetainedTerminalOutput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8099:13)
+    at SessionManager.applyHeadlessOutput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:7965:14)
+    at async <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4631:9)
+    at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:496:5)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+[SessionManager] Headless terminal degraded (write) for session session-ph005: terminal-authority-reservation-commit-mismatch: reserved=7/2, commit=7/1
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=degraded hasHeadless=false inFlight=0 tailOverflow=false
+[WS] Client connected: 51db35f8-0fea-49b7-9456-9966e1bf89bd
+[ISSUE12] site=A5053 mode=fallback health=degraded truncated=false dataLen=0
+[WS] Client disconnected: 51db35f8-0fea-49b7-9456-9966e1bf89bd
+[WS] Client disconnected: 51db35f8-0fea-49b7-9456-9966e1bf89bd
+[WS] WebSocket router initialized
+[WS] Client connected: 2aedc8ad-e2a0-4c94-81e8-873f3aa690fb
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✖ MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps (187.163816ms)
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-1 (5.353164ms)
+[WS] Client connected: fab4a491-1273-49ec-886c-c7a4167ab829
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: ddce5e0e-d9da-49e6-9ece-48ffc7e5f041
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 2aedc8ad-e2a0-4c94-81e8-873f3aa690fb
+[WS] Client disconnected: 2aedc8ad-e2a0-4c94-81e8-873f3aa690fb
+[WS] Client disconnected: fab4a491-1273-49ec-886c-c7a4167ab829
+[WS] Client disconnected: fab4a491-1273-49ec-886c-c7a4167ab829
+[WS] Client disconnected: ddce5e0e-d9da-49e6-9ece-48ffc7e5f041
+[WS] Client disconnected: ddce5e0e-d9da-49e6-9ece-48ffc7e5f041
+[WS] WebSocket router initialized
+[WS] Client connected: 6a43755c-387e-4e77-a433-0ed40224a5fa
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: f606ae45-1910-494c-aeac-fa249ba68a5f
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 6a43755c-387e-4e77-a433-0ed40224a5fa
+[WS] Client disconnected: 6a43755c-387e-4e77-a433-0ed40224a5fa
+[WS] Client disconnected: f606ae45-1910-494c-aeac-fa249ba68a5f
+[WS] Client disconnected: f606ae45-1910-494c-aeac-fa249ba68a5f
+[WS] WebSocket router initialized
+[WS] Client connected: b4dc0624-6453-4473-8bbd-46ef6f7e9e02
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: c1668575-b599-4d6d-897e-ea9cb8deb1a6
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: b4dc0624-6453-4473-8bbd-46ef6f7e9e02
+[WS] Client disconnected: b4dc0624-6453-4473-8bbd-46ef6f7e9e02
+[WS] Client disconnected: c1668575-b599-4d6d-897e-ea9cb8deb1a6
+[WS] Client disconnected: c1668575-b599-4d6d-897e-ea9cb8deb1a6
+[WS] WebSocket router initialized
+[WS] Client connected: 81a4103d-5d80-4f84-bfc2-1ae1dbf4e033
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: d951c7f2-6c34-49a2-a11d-aff5c3a358cb
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 81a4103d-5d80-4f84-bfc2-1ae1dbf4e033
+[WS] Client disconnected: 81a4103d-5d80-4f84-bfc2-1ae1dbf4e033
+[WS] Client disconnected: d951c7f2-6c34-49a2-a11d-aff5c3a358cb
+[WS] Client disconnected: d951c7f2-6c34-49a2-a11d-aff5c3a358cb
+[WS] WebSocket router initialized
+[WS] Client connected: 27cbbeb2-5b87-4995-b833-fb4083d57cc3
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-2 (397.385443ms)
+✔ MIG-BGSTAB-002 promotion admission fence owns output queued while the legacy prefix is unresolved (2.455369ms)
+✔ MIG-BGSTAB-002 promotion admission fence rejects a concurrent begin transaction (1.788804ms)
+✔ MIG-BGSTAB-002 promotion revalidates the frozen responder topology after its legacy prefix drains (1.906881ms)
+[WS] Client connected: 00ace926-f6ed-47ec-9bd8-c7adc30e7be7
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 27cbbeb2-5b87-4995-b833-fb4083d57cc3
+[WS] Client disconnected: 27cbbeb2-5b87-4995-b833-fb4083d57cc3
+[WS] Client disconnected: 00ace926-f6ed-47ec-9bd8-c7adc30e7be7
+[WS] Client disconnected: 00ace926-f6ed-47ec-9bd8-c7adc30e7be7
+[WS] WebSocket router initialized
+[WS] Client connected: a5843527-1c63-40b8-a2fc-430f13be1661
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-3 (115.571294ms)
+[WS] Client disconnected: a5843527-1c63-40b8-a2fc-430f13be1661
+[WS] Client disconnected: a5843527-1c63-40b8-a2fc-430f13be1661
+[WS] WebSocket router initialized
+[WS] Client connected: 73be1703-7e21-410a-b13b-807ae4b9a9a5
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 checkpoint pump waits for each physical send settlement before admitting the next chunk (90.095844ms)
+[WS] WebSocket send callback failed: Error: terminal-authority-transport-binding-replaced
+    at onSent (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6474:13)
+    at ExecutableAuthoritySocket.releaseNextSend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:601:34)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:2408:17)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: 73be1703-7e21-410a-b13b-807ae4b9a9a5
+[WS] Client disconnected: 73be1703-7e21-410a-b13b-807ae4b9a9a5
+[WS] Client disconnected: 73be1703-7e21-410a-b13b-807ae4b9a9a5
+[WS] WebSocket router initialized
+[WS] Client connected: 2e3fbd41-f1a2-4df1-9ca5-4695c17d005c
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 checkpoint pump cannot deliver queued stale frames to a successor socket with the same logical connection (107.795173ms)
+[WS] WebSocket send callback failed: Error: terminal-authority-transport-binding-replaced
+    at onSent (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6474:13)
+    at ExecutableAuthoritySocket.releaseNextSend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:601:34)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:2492:17)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: 2e3fbd41-f1a2-4df1-9ca5-4695c17d005c
+[WS] Client disconnected: 2e3fbd41-f1a2-4df1-9ca5-4695c17d005c
+[WS] Client disconnected: 2e3fbd41-f1a2-4df1-9ca5-4695c17d005c
+[WS] Client disconnected: 2e3fbd41-f1a2-4df1-9ca5-4695c17d005c
+[WS] WebSocket router initialized
+[WS] Client connected: 223e137d-44d0-42b9-b408-c81281d5cc9b
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 binding replacement recovers an active checkpoint live-output settlement failure (99.603389ms)
+[WS] Client disconnected: 223e137d-44d0-42b9-b408-c81281d5cc9b
+[WS] Client disconnected: 223e137d-44d0-42b9-b408-c81281d5cc9b
+[WS] WebSocket router initialized
+[WS] Client connected: cf599c32-7b99-4613-a0f7-462f5659b100
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 promotion begin accepts a boundary ACK that wins the send-callback race (88.62889ms)
+[WS] WebSocket send callback failed: Error: injected-checkpoint-send-failure
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:2621:33)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+    at ExecutableAuthoritySocket.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:591:18)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6527:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6275:12)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7003:25)
+    at WsRouter.sendTerminalAuthorityFrameToConnection (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1170:23)
+    at drain (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1262:31)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1297:24)
+    at new Promise (<anonymous>)
+    at enqueueSettledViewFrame (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1295:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1602:26)
+[WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+    at ExecutableAuthoritySocket.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:591:18)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6527:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6275:12)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7003:25)
+    at WsRouter.sendTerminalAuthorityFrameToConnection (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1170:23)
+    at drain (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1262:31)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1297:24)
+    at new Promise (<anonymous>)
+    at enqueueSettledViewFrame (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1295:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1602:26)
+[WS] Client disconnected: cf599c32-7b99-4613-a0f7-462f5659b100
+[WS] Client disconnected: cf599c32-7b99-4613-a0f7-462f5659b100
+[WS] WebSocket router initialized
+[WS] Client connected: 5f65afab-7bbf-49a8-9d38-f5b8a92a69b5
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 checkpoint send callback failure revokes server authority and starts fresh rollback (255.348016ms)
+[WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+    at ExecutableAuthoritySocket.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:591:18)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6527:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6275:12)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7003:25)
+    at WsRouter.sendTerminalAuthorityFrameToConnection (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1170:23)
+    at drain (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1262:31)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1297:24)
+    at new Promise (<anonymous>)
+    at enqueueSettledViewFrame (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1295:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1602:26)
+[WS] Client disconnected: 5f65afab-7bbf-49a8-9d38-f5b8a92a69b5
+[WS] Client disconnected: 5f65afab-7bbf-49a8-9d38-f5b8a92a69b5
+[WS] WebSocket router initialized
+[WS] Client connected: befef4cf-596b-46ed-8891-73979b3d9faf
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 retries a single failed authority-send rollback without another callback (116.833789ms)
+[WS] Client disconnected: befef4cf-596b-46ed-8891-73979b3d9faf
+[WS] Client disconnected: befef4cf-596b-46ed-8891-73979b3d9faf
+[WS] WebSocket router initialized
+[WS] Client connected: 6d1c6bac-d44b-4d82-be5b-ec28381a6160
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 hard reload waits for exact control-lane readiness before its atomic checkpoint batch and PTY tail (94.015701ms)
+[WS] Client disconnected: 6d1c6bac-d44b-4d82-be5b-ec28381a6160
+[WS] Client disconnected: 6d1c6bac-d44b-4d82-be5b-ec28381a6160
+[WS] WebSocket router initialized
+[WS] Client connected: a8635970-f184-4cdc-94c2-6b5390b5b82c
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 unready checkpoint preparation expires without admitting an authoritative checkpoint (175.437978ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: a8635970-f184-4cdc-94c2-6b5390b5b82c
+[WS] Client disconnected: a8635970-f184-4cdc-94c2-6b5390b5b82c
+[WS] WebSocket router initialized
+[WS] Client connected: 32833b83-2498-4c3b-9ee7-8761f0289cdc
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 exhausted checkpoint-ready retries roll back the unready server authority (263.959535ms)
+[WS] Client disconnected: 32833b83-2498-4c3b-9ee7-8761f0289cdc
+[WS] Client disconnected: 32833b83-2498-4c3b-9ee7-8761f0289cdc
+[WS] WebSocket router initialized
+[WS] Client connected: 089c3069-b777-4bcd-b11c-a2c2cef2b672
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 rollback cancels a pending checkpoint-ready deadline before it can retry (173.665787ms)
+[WS] Client disconnected: 089c3069-b777-4bcd-b11c-a2c2cef2b672
+[WS] Client disconnected: 089c3069-b777-4bcd-b11c-a2c2cef2b672
+[WS] WebSocket router initialized
+[WS] Client connected: 3cf9b806-9d98-4835-89bc-413ef4ede545
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 bounds checkpoint-ready retries for an unresponsive current view (219.692209ms)
+[WS] Client disconnected: 3cf9b806-9d98-4835-89bc-413ef4ede545
+[WS] Client disconnected: 3cf9b806-9d98-4835-89bc-413ef4ede545
+[WS] WebSocket router initialized
+[WS] Client connected: 13cf3903-79c8-4f21-97c8-ff5c5c3399e4
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 checkpoint-ready deadline begins only after the control preparation settles (247.780352ms)
+[WS] Client connected: e6db9a5d-bcee-45a5-a69c-215d52190bd2
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 13cf3903-79c8-4f21-97c8-ff5c5c3399e4
+[WS] Client disconnected: 13cf3903-79c8-4f21-97c8-ff5c5c3399e4
+[WS] Client disconnected: e6db9a5d-bcee-45a5-a69c-215d52190bd2
+[WS] Client disconnected: e6db9a5d-bcee-45a5-a69c-215d52190bd2
+[WS] WebSocket router initialized
+[WS] Client connected: 84ffce74-7f88-4065-b126-de13a0233892
+✔ MIG-BGSTAB-002 same-generation hard reload replaces the live server-authority view (90.596613ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 84ffce74-7f88-4065-b126-de13a0233892
+[WS] Client disconnected: 84ffce74-7f88-4065-b126-de13a0233892
+[WS] WebSocket router initialized
+[WS] Client connected: a9cf54e5-8691-4dd3-90c4-a71c676bea43
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 authority-ready recovery retries after transient empty router projection (1666.241903ms)
+[WS] Client connected: d873f5bf-b811-44dd-8950-9dc5b71f159f
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: a9cf54e5-8691-4dd3-90c4-a71c676bea43
+[WS] Client disconnected: d873f5bf-b811-44dd-8950-9dc5b71f159f
+[WS] Client disconnected: d873f5bf-b811-44dd-8950-9dc5b71f159f
+[WS] WebSocket router initialized
+[WS] Client connected: f899a98c-41c5-4380-a646-83c91cde32f0
+✔ MIG-BGSTAB-002 stale hard-reload checkpoint settlement cannot roll back a live replacement view (97.254775ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: dd7d9695-9f68-4f41-9600-ce2db32695eb
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: f899a98c-41c5-4380-a646-83c91cde32f0
+[WS] Client disconnected: f899a98c-41c5-4380-a646-83c91cde32f0
+[WS] Client disconnected: dd7d9695-9f68-4f41-9600-ce2db32695eb
+[WS] Client disconnected: dd7d9695-9f68-4f41-9600-ce2db32695eb
+[WS] WebSocket router initialized
+[WS] Client connected: 4a08b34e-aaee-4a3e-8c84-73942fc7fe4b
+✔ MIG-BGSTAB-002 replacement view supersedes a stale checkpoint-ready preparation before stale disconnect (93.349484ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: d3b588d0-4dad-4e97-83e8-d2633c4719aa
+[WS] Client disconnected: 4a08b34e-aaee-4a3e-8c84-73942fc7fe4b
+[WS] Client disconnected: d3b588d0-4dad-4e97-83e8-d2633c4719aa
+[WS] Client disconnected: d3b588d0-4dad-4e97-83e8-d2633c4719aa
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] WebSocket send callback failed: Error: callback-before-close
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:3381:38)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket router initialized
+[WS] Client connected: b5080065-ca99-4e17-b581-be8289fcd43a
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 send failure waits for same-turn hard-reload topology settlement (90.881161ms)
+[WS] Client disconnected: b5080065-ca99-4e17-b581-be8289fcd43a
+[WS] Client connected: dbb3e524-f25a-4af8-a99e-e600e5d589e5
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=52
+[WS] Client disconnected: dbb3e524-f25a-4af8-a99e-e600e5d589e5
+[WS] Client disconnected: dbb3e524-f25a-4af8-a99e-e600e5d589e5
+[WS] WebSocket router initialized
+[WS] Client connected: ded2c703-fa99-44d8-8f3e-6456b0d4d2ad
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 zero-view hard reload retains PTY output for the replacement checkpoint (95.258092ms)
+[WS] Client disconnected: ded2c703-fa99-44d8-8f3e-6456b0d4d2ad
+[WS] Client connected: 07b05fc0-2561-4d85-8f3b-0614a5374fd8
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 07b05fc0-2561-4d85-8f3b-0614a5374fd8
+[WS] Client disconnected: 07b05fc0-2561-4d85-8f3b-0614a5374fd8
+[WS] WebSocket router initialized
+[WS] Client connected: 20a8c048-f6fb-4f0d-b191-8a59226d03a5
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 explicit rollback refreshes the authority-ready view after a zero-view reconnect (95.681702ms)
+[WS] Client disconnected: 20a8c048-f6fb-4f0d-b191-8a59226d03a5
+[WS] Client disconnected: 20a8c048-f6fb-4f0d-b191-8a59226d03a5
+[WS] WebSocket router initialized
+[WS] Client connected: 652915c6-7dbd-4bb8-a48d-efd95b1f401f
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 rollback cannot interleave or reactivate an in-flight hard-reload checkpoint (97.690794ms)
+[WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+    at ExecutableAuthoritySocket.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:591:18)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6527:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6275:12)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7003:25)
+    at WsRouter.sendTerminalAuthorityFrameToConnection (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1170:23)
+    at drain (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1262:31)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1297:24)
+    at new Promise (<anonymous>)
+    at enqueueSettledViewFrame (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1295:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1602:26)
+[WS] Client disconnected: 652915c6-7dbd-4bb8-a48d-efd95b1f401f
+[WS] Client disconnected: 652915c6-7dbd-4bb8-a48d-efd95b1f401f
+[WS] WebSocket router initialized
+[WS] Client connected: c489ba4e-4b6d-4ea7-9124-e451ad4bd1c1
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 production rollback overflow coalesces one fresh compatibility recovery (118.481905ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: c489ba4e-4b6d-4ea7-9124-e451ad4bd1c1-rebound
+[WS] Client disconnected: c489ba4e-4b6d-4ea7-9124-e451ad4bd1c1
+[WS] WebSocket router initialized
+[WS] Client connected: a271a8e6-6e0e-4b01-9504-290c3ccbf882
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 topology replacement during rollback does not reset the fresh parser again (163.529699ms)
+[WS] Client disconnected: a271a8e6-6e0e-4b01-9504-290c3ccbf882
+[WS] Client connected: 71793920-46ee-4bc3-a6f5-bb07ee24266a
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 71793920-46ee-4bc3-a6f5-bb07ee24266a
+[WS] Client disconnected: 71793920-46ee-4bc3-a6f5-bb07ee24266a
+[WS] WebSocket router initialized
+[WS] Client connected: 339d7e81-a243-4b44-bf37-bb2dd3fc6734
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 zero-view rollback recovery wakes when a replacement view becomes authority-ready (228.736706ms)
+[WS] Client connected: 3a920800-afb6-41e6-bc9a-2daa15f46e20
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=24
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=24
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=24
+[WS] Client disconnected: 339d7e81-a243-4b44-bf37-bb2dd3fc6734
+[WS] Client disconnected: 339d7e81-a243-4b44-bf37-bb2dd3fc6734
+[WS] Client disconnected: 3a920800-afb6-41e6-bc9a-2daa15f46e20
+[WS] Client disconnected: 3a920800-afb6-41e6-bc9a-2daa15f46e20
+[WS] WebSocket router initialized
+[WS] Client connected: 16e99347-4793-4ab2-9840-414da56d6ea7
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 rollback lease renewal on the same responder identity does not restart recovery (161.302558ms)
+[WS] Client disconnected: 16e99347-4793-4ab2-9840-414da56d6ea7
+[WS] Client disconnected: 16e99347-4793-4ab2-9840-414da56d6ea7
+[WS] WebSocket router initialized
+[WS] Client connected: 17421b8f-6be8-4cf9-ab98-b62d23b73b7f
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 rollback topology rejects a projected generation outside the active stream epoch (116.110922ms)
+[WS] Client connected: f8553eb2-0f68-4aae-9f82-62c67e85a420
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 17421b8f-6be8-4cf9-ab98-b62d23b73b7f
+[WS] Client disconnected: f8553eb2-0f68-4aae-9f82-62c67e85a420
+[WS] WebSocket router initialized
+[WS] Client connected: c10ccb1e-2e18-40e1-b270-a72d8059271c
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 legacy driver ownership transfers to the remaining capable view after disconnect (82.083601ms)
+[WS] Client connected: f57e5111-0501-4f3d-86f5-eb120ad2986f
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: c10ccb1e-2e18-40e1-b270-a72d8059271c
+[WS] Client disconnected: f57e5111-0501-4f3d-86f5-eb120ad2986f
+[WS] WebSocket router initialized
+[WS] Client connected: 9d2d4580-fe10-4690-8c90-bdffff41bd96
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 legacy capability refresh follows the suspended browser driver instead of view order (86.258906ms)
+[WS] Client disconnected: 9d2d4580-fe10-4690-8c90-bdffff41bd96
+[WS] Client disconnected: 9d2d4580-fe10-4690-8c90-bdffff41bd96
+[WS] WebSocket router initialized
+[WS] Client connected: 9a127444-718a-4843-b557-c6b862f59318
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 explicit legacy capability refresh waits for a transient empty responder topology (80.958785ms)
+[WS] Client disconnected: 9a127444-718a-4843-b557-c6b862f59318
+[WS] WebSocket router initialized
+[WS] Client connected: 610611e9-3ff1-4d56-84a1-291f24dadc15
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 pending view-attributes handshake stays pending without a reply then fails at its deadline (331.440049ms)
+[WS] Client disconnected: 610611e9-3ff1-4d56-84a1-291f24dadc15
+[WS] WebSocket router initialized
+[WS] Client connected: 522a02f9-a4e6-4e12-9c01-1002376292b0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 stale driver attributes rotate once and only the fresh exact identity settles true (79.861903ms)
+[WS] Client disconnected: 522a02f9-a4e6-4e12-9c01-1002376292b0
+[WS] WebSocket router initialized
+[WS] Client connected: 0d76e7d3-d3fd-4465-b469-8ee690b355fa
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 pending handshake does not amplify a capability into a blind retry queue (172.408709ms)
+[WS] Client connected: b05a2647-b434-4e5a-a67e-a3e106e6e00a
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 0d76e7d3-d3fd-4465-b469-8ee690b355fa
+[WS] Client disconnected: b05a2647-b434-4e5a-a67e-a3e106e6e00a
+[WS] WebSocket router initialized
+[WS] Client connected: d7ef9a7b-5099-4f9a-9a02-79210f9a5f42
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 follower response is reject-only and cannot rotate the owner handshake (105.030001ms)
+[WS] WebSocket send callback failed: Error: accepted-ack-send-failed
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:4893:32)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: d7ef9a7b-5099-4f9a-9a02-79210f9a5f42
+[WS] WebSocket router initialized
+[WS] Client connected: 0fe5a576-b717-49a3-8129-3c98aec92785
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 refresh resolves only after manager acceptance and accepted ACK settlement (79.921704ms)
+[WS] Client connected: a446ac36-9ba2-414d-af79-f5673ec48701
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 0fe5a576-b717-49a3-8129-3c98aec92785
+[WS] Client disconnected: a446ac36-9ba2-414d-af79-f5673ec48701
+[WS] WebSocket router initialized
+[WS] Client connected: 937ac790-a187-42fd-83c0-ed551adc513b
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 accepted ACK retries one fresh owner when manager identity changes before settlement (84.733104ms)
+[WS] Client connected: 92c4aa6f-24a6-46d4-8b82-d8cbb0ce69f1
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 937ac790-a187-42fd-83c0-ed551adc513b
+[WS] Client disconnected: 92c4aa6f-24a6-46d4-8b82-d8cbb0ce69f1
+[WS] WebSocket router initialized
+[WS] Client connected: e6df70a3-ce16-4dca-b1b7-59b2677d5242
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 generation retarget does not consume the later manager-identity recovery (81.990633ms)
+[WS] Client connected: 28932b87-2dd9-4a26-89a5-08d0631402bd
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: e6df70a3-ce16-4dca-b1b7-59b2677d5242
+[WS] Client disconnected: 28932b87-2dd9-4a26-89a5-08d0631402bd
+[WS] WebSocket router initialized
+[WS] Client connected: ab094b3f-6d9d-4442-a9c4-65aa388dd3d7
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 replacement challenge reply after the original deadline cannot revive readiness (234.040497ms)
+[WS] WebSocket send callback failed: Error: rejected-ack-settlement
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:5284:34)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: ab094b3f-6d9d-4442-a9c4-65aa388dd3d7
+[WS] WebSocket router initialized
+[WS] Client connected: d73fb000-5255-4649-897d-b9a1acea8657
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 rejected ACK settlement invalidates its challenge before a late duplicate (80.375148ms)
+[WS] Client disconnected: d73fb000-5255-4649-897d-b9a1acea8657-replacement
+[WS] WebSocket router initialized
+[WS] Client connected: dadb513f-1855-41c3-9d8b-bd79be1f3bb8
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 pending challenge rejects a same-view client identity replacement (80.926319ms)
+[WS] Client disconnected: dadb513f-1855-41c3-9d8b-bd79be1f3bb8
+[WS] WebSocket router initialized
+[WS] Client connected: 196ea8f7-327f-49b3-b033-63fa36b7556c
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 pending challenge rejects a same-view driver lease identity replacement (79.804573ms)
+[WS] Client disconnected: 196ea8f7-327f-49b3-b033-63fa36b7556c
+[WS] WebSocket router initialized
+[WS] Client connected: 42c95565-d2b7-4a0f-a1cb-73bfa21e7d59
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 ACK success released after deadline cannot revive accepted readiness (110.116895ms)
+[WS] Client disconnected: 42c95565-d2b7-4a0f-a1cb-73bfa21e7d59
+[WS] Client disconnected: 42c95565-d2b7-4a0f-a1cb-73bfa21e7d59
+[WS] WebSocket router initialized
+[WS] Client connected: bf8ed397-51b4-4811-8dbf-9ccf72af58b2
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 split output close invalidates pending handshake and re-pair requires a fresh exact identity (80.074941ms)
+[WS] Client connected: 5ec61d8c-e071-46e8-9310-58adb85447d0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: bf8ed397-51b4-4811-8dbf-9ccf72af58b2
+[WS] Client disconnected: bf8ed397-51b4-4811-8dbf-9ccf72af58b2
+[WS] Client disconnected: 5ec61d8c-e071-46e8-9310-58adb85447d0
+[WS] Client disconnected: 5ec61d8c-e071-46e8-9310-58adb85447d0
+[WS] WebSocket router initialized
+[WS] Client connected: 31a5934b-fd74-40c9-8e58-9c35745518fb
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 follower split lane replacement and unpair preserve the exact owner handshake (80.037172ms)
+[WS] Client disconnected: 31a5934b-fd74-40c9-8e58-9c35745518fb
+[WS] WebSocket router initialized
+[WS] Client connected: e87b831f-2170-4984-9104-a97b80a88aa0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 same-view runtime recreation rejects the old challenge before accepting the replacement (87.59111ms)
+[WS] Client disconnected: e87b831f-2170-4984-9104-a97b80a88aa0
+[WS] Client disconnected: e87b831f-2170-4984-9104-a97b80a88aa0
+[WS] WebSocket router initialized
+[WS] Client connected: 66feba18-8ef3-41c5-9825-13dd4921ded6
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 overlapping legacy capability refreshes do not piggyback an older challenge (83.775625ms)
+[WS] Client disconnected: 66feba18-8ef3-41c5-9825-13dd4921ded6
+[WS] Client disconnected: 66feba18-8ef3-41c5-9825-13dd4921ded6
+[WS] WebSocket router initialized
+[WS] Client connected: b56af5ee-4d17-4b13-a81b-2f17bef1d7a1
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 explicit refresh retargets one successor challenge across view-generation churn (80.211818ms)
+[WS] Client connected: 468bced4-8fe9-4b7a-9bb4-be8f0a08ead7
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: b56af5ee-4d17-4b13-a81b-2f17bef1d7a1
+[WS] Client disconnected: b56af5ee-4d17-4b13-a81b-2f17bef1d7a1
+[WS] Client disconnected: 468bced4-8fe9-4b7a-9bb4-be8f0a08ead7
+[WS] Client disconnected: 468bced4-8fe9-4b7a-9bb4-be8f0a08ead7
+[WS] WebSocket router initialized
+[WS] Client connected: 83c7be86-1075-4c97-88a4-182abe5e6a18
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 generation retarget preserves the immutable driver client anchor (89.089731ms)
+[WS] Client disconnected: 83c7be86-1075-4c97-88a4-182abe5e6a18
+[WS] Client disconnected: 83c7be86-1075-4c97-88a4-182abe5e6a18
+[WS] WebSocket router initialized
+[WS] Client connected: e0bbe71c-b885-4810-8c99-4d4919725d7e
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: e0bbe71c-b885-4810-8c99-4d4919725d7e
+[WS] Client disconnected: e0bbe71c-b885-4810-8c99-4d4919725d7e
+[WS] WebSocket router initialized
+[WS] Client connected: 463bb3bd-dc7b-4fbf-a05f-fd71c03773d3
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 destructive split output change fences a generation-retargeted refresh (164.211688ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: bec687c4-8808-45e4-8565-28b897c0b2ee
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 463bb3bd-dc7b-4fbf-a05f-fd71c03773d3
+[WS] Client disconnected: 463bb3bd-dc7b-4fbf-a05f-fd71c03773d3
+[WS] Client disconnected: bec687c4-8808-45e4-8565-28b897c0b2ee
+[WS] Client disconnected: bec687c4-8808-45e4-8565-28b897c0b2ee
+[WS] WebSocket router initialized
+[WS] Client connected: b9b30c87-ace0-4c8d-9164-fdb6dbb4bae2
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 output-unpaired fences the initially selected owner during a held legacy rebind (197.497936ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: 952709ee-faf4-4775-a892-10c23d23b407
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: b9b30c87-ace0-4c8d-9164-fdb6dbb4bae2
+[WS] Client disconnected: b9b30c87-ace0-4c8d-9164-fdb6dbb4bae2
+[WS] Client disconnected: 952709ee-faf4-4775-a892-10c23d23b407
+[WS] Client disconnected: 952709ee-faf4-4775-a892-10c23d23b407
+[WS] WebSocket router initialized
+[WS] Client connected: f8c7e522-38cc-4527-b063-08271c504a46
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 output-replaced fences the initially selected owner during a held legacy rebind (195.965127ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: f8c7e522-38cc-4527-b063-08271c504a46
+[WS] WebSocket router initialized
+[WS] Client connected: bbba3272-26e7-48d4-992f-64d7b6e678c8
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 held successor rebind resumes the latest generation with one bounded wake (96.812835ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: e7dc0179-933e-4199-9c4e-329aa864ed4e
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: bbba3272-26e7-48d4-992f-64d7b6e678c8
+[WS] Client disconnected: e7dc0179-933e-4199-9c4e-329aa864ed4e
+[WS] WebSocket router initialized
+[WS] Client connected: 87d16307-884c-473f-80cb-b95740f7a134
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 explicit refresh waits for a held identity-changed rebind before fresh capability enqueue (126.49063ms)
+[WS] Client disconnected: 87d16307-884c-473f-80cb-b95740f7a134
+[WS] Client disconnected: 87d16307-884c-473f-80cb-b95740f7a134
+[WS] WebSocket router initialized
+[WS] Client connected: 2d4d8975-323b-4166-b02e-83b4bf153063
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 explicit legacy capability refresh fails closed after a bounded permanent topology gap (142.334477ms)
+[WS] Client disconnected: 2d4d8975-323b-4166-b02e-83b4bf153063
+[WS] Client disconnected: 2d4d8975-323b-4166-b02e-83b4bf153063
+[WS] WebSocket router initialized
+[WS] Client connected: cfe2339e-6db5-4b30-9861-aaff6bfc80b9
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: cfe2339e-6db5-4b30-9861-aaff6bfc80b9
+[WS] WebSocket router initialized
+[WS] Client connected: 88af6d44-aab4-4c40-81eb-d4d9804e0d1e
+✔ MIG-BGSTAB-002 runtime recreation invalidates an old pending refresh before a new runtime refresh succeeds (86.405215ms)
+✔ MIG-BGSTAB-002 split control advertises view attributes only after its output lane pairs (82.386075ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 88af6d44-aab4-4c40-81eb-d4d9804e0d1e
+[WS] WebSocket router initialized
+[WS] Client connected: 529771b8-cf2b-42d5-b3be-b4b3379fed2f
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 headless runtime recreation restores a fresh legacy browser mutation lease (280.879061ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=60
+[WS] Client disconnected: 529771b8-cf2b-42d5-b3be-b4b3379fed2f
+[WS] Client disconnected: 529771b8-cf2b-42d5-b3be-b4b3379fed2f
+[WS] WebSocket router initialized
+[WS] Client connected: 17660c70-908a-4f49-862c-64543edfc0e2
+✔ MIG-BGSTAB-002 configured corpus recreation refreshes the replacement runtime before promotion (96.307353ms)
+✔ MIG-BGSTAB-002 stale promotion deadline cannot roll back a replacement authority runtime (2.076248ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 17660c70-908a-4f49-862c-64543edfc0e2
+[WS] Client disconnected: 17660c70-908a-4f49-862c-64543edfc0e2
+[WS] WebSocket router initialized
+[WS] Client connected: eef2a6f0-227f-4734-8eb1-deec3f240b9a
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 explicit recovery resumes an existing rollback with the current compatibility view (174.886686ms)
+[WS] Client disconnected: eef2a6f0-227f-4734-8eb1-deec3f240b9a
+[WS] Client disconnected: eef2a6f0-227f-4734-8eb1-deec3f240b9a
+[WS] WebSocket router initialized
+[WS] Client connected: 41d95a69-28dc-41f6-a5a1-2c70d1e768aa
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 session finalization disposes authority timer and settles queued delivery exactly once (1141.094697ms)
+[WS] Client disconnected: 41d95a69-28dc-41f6-a5a1-2c70d1e768aa
+[WS] Client disconnected: 41d95a69-28dc-41f6-a5a1-2c70d1e768aa
+[WS] WebSocket router initialized
+[WS] Client connected: aa8f2594-6a9c-4cd8-95e5-4185ab62edbe
+✔ MIG-BGSTAB-002 production promotion deadline follows the configured browser ACK contract exactly once (500.943099ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[WS] Client disconnected: aa8f2594-6a9c-4cd8-95e5-4185ab62edbe
+[WS] Client disconnected: aa8f2594-6a9c-4cd8-95e5-4185ab62edbe
+[WS] WebSocket router initialized
+[WS] Client connected: 54604a1a-a7b3-4a01-b0b4-ee96b756b9ac
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 recovery ACK miss preserves bootstrap replay until the refreshed model is acknowledged (85.091858ms)
+[WS] Client disconnected: 54604a1a-a7b3-4a01-b0b4-ee96b756b9ac
+[WS] Client disconnected: 54604a1a-a7b3-4a01-b0b4-ee96b756b9ac
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client connected: fd445866-7006-41d5-bfcf-00bc0f508dfb
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ MIG-BGSTAB-002 attachment destroy detaches active authority runtime and clears its owned factory (88.788451ms)
+✔ MIG-BGSTAB-002 production destroy all-settles runtime map and factory ownership after responder detach failure (78.895718ms)
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-4 (2.180237ms)
+✔ Cache-poisoned authoritative recovery parity is failure-capable — REL-BGSTAB-007 AC-8 (1.962954ms)
+[WS] Client connected: 9b1ef829-7586-40f9-a90d-5253a04ede16
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=40
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=40
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=40
+[WS] Client disconnected: fd445866-7006-41d5-bfcf-00bc0f508dfb
+[WS] Client disconnected: fd445866-7006-41d5-bfcf-00bc0f508dfb
+[WS] Client disconnected: 9b1ef829-7586-40f9-a90d-5253a04ede16
+[WS] Client disconnected: 9b1ef829-7586-40f9-a90d-5253a04ede16
+[WS] WebSocket router initialized
+[WS] Client connected: f8a58cd2-ba6b-4ded-80ec-b72fe34eb6f4
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client connected: c8e81c28-096a-4a3c-9721-0016cd33e092
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=40
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=40
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=40
+[WS] Client disconnected: f8a58cd2-ba6b-4ded-80ec-b72fe34eb6f4
+[WS] Client disconnected: c8e81c28-096a-4a3c-9721-0016cd33e092
+[WS] WebSocket router initialized
+[WS] Client connected: d98217c5-b723-413c-9f25-891bfae185f5
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=0
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: d98217c5-b723-413c-9f25-891bfae185f5
+[WS] WebSocket router initialized
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-5 (285.989376ms)
+✔ MIG-BGSTAB-002 rollback query hold ledger fails closed at the configured chunk bound (2.762857ms)
+✔ MIG-BGSTAB-002 failed compatibility query transfer keeps rollback retryable and uncommitted (2.196399ms)
+✔ MIG-BGSTAB-002 AC-5 locks the first proven compatibility drain target while PTY output continues (1.849884ms)
+✔ MIG-BGSTAB-002 legacy compatibility responder identity rebinds to a replacement view (1.90091ms)
+✔ MIG-BGSTAB-002 legacy output with no authority-capable view does not enter an epochless rollback (78.267852ms)
+✔ MIG-BGSTAB-002 delayed Ctrl+C clear-line › prompt repaint stays idle when foreground detection is stale (490.866335ms)
+✔ MIG-BGSTAB-002 delayed Ctrl+C semantic output remains running when foreground detection is stale (489.513695ms)
+✔ MIG-BGSTAB-002 delayed local-input cursor visibility repaint stays idle when foreground detection is stale (486.980892ms)
+✔ MIG-BGSTAB-002 delayed local-input semantic output remains running when foreground detection is stale (486.844339ms)
+✔ MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the pending input buffer is cleared (487.473313ms)
+✔ MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the debug correlation window expires (585.901511ms)
+✔ MIG-BGSTAB-002 semantic output clears delayed local-echo correlation (506.443659ms)
+✔ MIG-BGSTAB-002 replacement local input invalidates the prior delayed local-echo correlation (137.696159ms)
+✔ MIG-BGSTAB-002 Ctrl+C settles one already-pending delayed local echo before later semantic output (140.444823ms)
+✔ MIG-BGSTAB-002 Enter clears delayed local-echo correlation (82.45411ms)
+✔ MIG-BGSTAB-002 delayed ANSI echo of a backspace-edited local draft stays idle after a prompt redraw (589.824648ms)
+✔ MIG-BGSTAB-002 delayed ANSI echo of a superseded pre-edit draft remains running (589.25074ms)
+✔ MIG-BGSTAB-002 semantic output before a prompt-prefixed local draft remains running (135.06194ms)
+✔ MIG-BGSTAB-002 Ctrl+C prompt-return suppression is consumed before later semantic prompt output (486.248399ms)
+✔ MIG-BGSTAB-002 delayed Ctrl+C clear-line and cursor repaint stays idle when foreground detection is stale (485.575331ms)
+✖ MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection (1624.928585ms)
+✖ MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw (1621.167531ms)
+✖ MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output (1620.183462ms)
+✖ MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles (1623.900381ms)
+✖ MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior (1626.835093ms)
+✖ MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix (1621.284587ms)
+✖ MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output (1622.001602ms)
+✖ MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session (1622.214788ms)
+✖ MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session (1619.681473ms)
+✔ MIG-BGSTAB-002 delayed active-draft echo prefix survives an intervening control-only repaint (134.403567ms)
+✔ MIG-BGSTAB-002 interrupted-draft echo prefix survives an intervening control-only repaint (91.190231ms)
+✔ MIG-BGSTAB-002 unadorned substantive draft prefix remains observable as running output (275.579882ms)
+✔ MIG-BGSTAB-002 bare split local echo remains idle when its matching suffix arrives (133.862418ms)
+✔ MIG-BGSTAB-002 a replacement draft cancels a deferred bare echo candidate (255.950272ms)
+✔ MIG-BGSTAB-002 Ctrl+C cancels a deferred bare echo candidate (254.68565ms)
+✔ MIG-BGSTAB-002 session teardown safely discards a deferred bare echo candidate (257.904146ms)
+✔ MIG-BGSTAB-002 session teardown cancels the deferred bare echo timer (134.632965ms)
+✔ MIG-BGSTAB-002 a control-only repaint does not cancel the bounded bare echo deadline (251.974189ms)
+✖ MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate (1649.535802ms)
+✔ MIG-BGSTAB-002 Ctrl+C retains an already-observed bare echo prefix for its matching suffix (134.457212ms)
+✔ MIG-BGSTAB-002 repeated ambiguous bare chunks do not rearm the deferred echo deadline (134.184954ms)
+✔ MIG-BGSTAB-002 SGR-only split local echo remains idle when its matching suffix arrives (133.947237ms)
+✔ MIG-BGSTAB-002 a CSI-split SGR local echo remains idle across PTY chunks (133.73467ms)
+✔ MIG-BGSTAB-002 an active Codex CSI-split local echo stays idle across PTY chunks (154.851501ms)
+✔ MIG-BGSTAB-002 an active Codex bare draft prefix times out to running without a suffix (278.475443ms)
+✔ MIG-BGSTAB-002 an active Codex bare prefix with a nonmatching suffix runs immediately (176.172808ms)
+✔ MIG-BGSTAB-002 an OSC-133 active Codex delayed exact echo stays idle (154.8361ms)
+✔ MIG-BGSTAB-002 an OSC-133 active Codex bare prefix with a nonmatching suffix runs and clears its candidate (172.893645ms)
+✔ MIG-BGSTAB-002 an OSC-133 active Codex bare prefix deadline runs and clears its candidate (275.212861ms)
+✔ MIG-BGSTAB-002 a bare draft prefix with a nonmatching suffix runs immediately (136.313727ms)
+✔ MIG-BGSTAB-002 CRLF-terminated substantive draft prefix remains observable as running output (136.97835ms)
+✔ MIG-BGSTAB-002 ANSI-colored substantive draft prefix remains observable as running output (274.797878ms)
+✔ MIG-BGSTAB-002 unadorned exact delayed draft echo remains idle (136.389617ms)
+✔ MIG-BGSTAB-002 an observed exact local echo is not revived as an interrupted draft (135.614048ms)
+✔ MIG-BGSTAB-002 Ctrl+C prompt return expires an unmatched interrupted draft correlation (73.646329ms)
+✔ MIG-BGSTAB-002 immediate semantic output after unsent printable input remains running (74.61621ms)
+✔ MIG-BGSTAB-002 immediate semantic output after Ctrl+C remains running (74.48266ms)
+✔ MIG-BGSTAB-002 immediate Ctrl+C SGR-reset and cursor-hide repaint stays idle (75.085509ms)
+✔ MIG-BGSTAB-002 Ctrl+C cursor-only repaint does not suppress later semantic shell output (74.886635ms)
+✖ MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle (1619.408758ms)
+✔ MIG-BGSTAB-002 Ctrl+C prompt-only shell return remains idle (83.154778ms)
+✔ MIG-BGSTAB-002 immediate Ctrl+C prompt repaint consumes its allowance before later semantic prompt output (141.984103ms)
+✔ MIG-BGSTAB-002 delayed ANSI local echo split across PTY chunks stays idle until its matching suffix arrives (590.329076ms)
+✔ MIG-BGSTAB-002 delayed ANSI-colored nonmatching output remains running after the pending input buffer is cleared (489.790226ms)
+[WS] WebSocket router initialized
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-6 (28.389596ms)
+✔ Single-authority promotion and rollback epoch RED contract — REL-BGSTAB-007 AC-12 (2.368062ms)
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client connected: 325c8a16-2c43-4d1a-b2da-112625f9ed28
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=33
+[WS] WebSocket router initialized
+[WS] Client connected: 478734be-db39-41c2-b5d6-125ab263fad4
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ REL-BGSTAB-007 applies configured retained policy before delivery (373.844029ms)
+[WS] Client disconnected: 478734be-db39-41c2-b5d6-125ab263fad4
+[WS] Client disconnected: 478734be-db39-41c2-b5d6-125ab263fad4
+[WS] WebSocket router initialized
+[WS] Client connected: eda6dd46-61ae-4095-885d-732ceb31d92a
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ REL-BGSTAB-007 invalidates a settled delivery proof when split output re-pairs on the same view generation (99.675903ms)
+[WS] Client disconnected: eda6dd46-61ae-4095-885d-732ceb31d92a
+[WS] Client disconnected: eda6dd46-61ae-4095-885d-732ceb31d92a
+[WS] Client disconnected: eda6dd46-61ae-4095-885d-732ceb31d92a
+[WS] WebSocket router initialized
+[WS] Client connected: d9982af0-19af-42f0-8662-5839ed81dd6d
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+✔ REL-BGSTAB-007 invalidates a settled delivery proof synchronously when split output is replaced (91.215793ms)
+[WS] Client connected: a6826e8a-ac3e-4f29-aea7-43682cdf2cc8
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: d9982af0-19af-42f0-8662-5839ed81dd6d
+[WS] Client disconnected: a6826e8a-ac3e-4f29-aea7-43682cdf2cc8
+[WS] Client disconnected: a6826e8a-ac3e-4f29-aea7-43682cdf2cc8
+[WS] Client disconnected: d9982af0-19af-42f0-8662-5839ed81dd6d
+[WS] WebSocket router initialized
+[WS] Client connected: 3e918206-0213-4cd8-9f89-d7518859e19c
+✔ REL-BGSTAB-007 preserves unaffected settled view proof across another split output re-pair (97.887006ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 3e918206-0213-4cd8-9f89-d7518859e19c
+[WS] Client disconnected: 3e918206-0213-4cd8-9f89-d7518859e19c
+[WS] WebSocket router initialized
+[WS] Client connected: 5ab89446-c08f-4527-8826-a2c01b600580
+✔ REL-BGSTAB-007 fences active server recovery at an Ordinal64 retained-stream rollover until a fresh checkpoint settles (99.071712ms)
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=0
+[WS] Client disconnected: 5ab89446-c08f-4527-8826-a2c01b600580
+[WS] Client disconnected: 5ab89446-c08f-4527-8826-a2c01b600580
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-007 rekeys active server authority for every retained-stream rollover (100.443191ms)
+[WS] Client connected: 2b4e0b5c-f2a2-4d2a-a88f-bd53e7b20d1a
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=35
+[WS] Client disconnected: 2b4e0b5c-f2a2-4d2a-a88f-bd53e7b20d1a
+[WS] Client disconnected: 2b4e0b5c-f2a2-4d2a-a88f-bd53e7b20d1a
+[WS] WebSocket router initialized
+[WS] Client connected: c3a2074a-8daf-47e6-a988-e3b9d0feac02
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=58
+[WS] Client disconnected: c3a2074a-8daf-47e6-a988-e3b9d0feac02
+[WS] Client disconnected: c3a2074a-8daf-47e6-a988-e3b9d0feac02
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain (189.954252ms)
+[WS] Client connected: 9eb53824-388e-4b10-af05-89e9e35cffe5
+[WS] Client connected: cf15ba77-efa6-4a03-bf73-8d95f0dd181d
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=28
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=28
+[ISSUE12-SM] atomic sid=session-ph005 hasData=true health=healthy hasHeadless=true inFlight=0 tailOverflow=false
+[ISSUE12] site=B5362 mode=authoritative health=healthy truncated=false dataLen=28
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=28
+[ISSUE12] site=A5053 mode=authoritative health=healthy truncated=false dataLen=28
+[WS] Client disconnected: 9eb53824-388e-4b10-af05-89e9e35cffe5
+[WS] Client disconnected: 9eb53824-388e-4b10-af05-89e9e35cffe5
+[WS] Client disconnected: cf15ba77-efa6-4a03-bf73-8d95f0dd181d
+[WS] Client disconnected: cf15ba77-efa6-4a03-bf73-8d95f0dd181d
+✔ REL-BGSTAB-007 isolates driver lease ledger and rollback epoch (100.185297ms)
+✔ REL-BGSTAB-012 preserves retained authority across peer disconnect and recovery rollback (2.454708ms)
+ℹ tests 148
+ℹ suites 0
+ℹ pass 136
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 46227.061024
+
+✖ failing tests:
+
+test at src/services/TerminalAuthorityController.test.ts:1:1399
+✖ MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps (187.163816ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'fallback'
+  - 'authoritative'
+  
+      at connectProductionView (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:798:10)
+      at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:499:18)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'fallback',
+    expected: 'authoritative',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:2206
+✖ MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection (1624.928585ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9311:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:34.571Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:3400
+✖ MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw (1621.167531ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9350:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:36.193Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:4892
+✖ MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output (1620.183462ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9395:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:39.684Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:5815
+✖ MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles (1623.900381ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9425:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:41.308Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:7247
+✖ MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior (1626.835093ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9470:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:42.935Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:8111
+✖ MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix (1621.284587ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9501:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:44.556Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:9654
+✖ MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output (1622.001602ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9540:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:46.178Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:10835
+✖ MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session (1622.214788ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9571:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:47.801Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:11961
+✖ MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session (1619.681473ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9605:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:49.420Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:22949
+✖ MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate (1649.535802ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9937:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:52.861Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:44434
+✖ MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle (1619.408758ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:10589:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-18T00:37:57.423Z'
+  }

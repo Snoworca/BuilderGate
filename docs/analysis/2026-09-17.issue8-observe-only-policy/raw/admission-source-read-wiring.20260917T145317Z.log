@@ -1,0 +1,209 @@
+✖ AC5 lexical actual source reads use module checkout while parser paths remain relative under foreign cwd (26.590445ms)
+✖ AC5 trust actual Inventory source read is module-bound without changing parser identity (9.067718ms)
+✖ AC5 admission actual Inventory source read is module-bound without changing parser identity (6.127534ms)
+✖ AC5 base actual root construction is module-bound for validateFrozenContract (6.866577ms)
+✖ AC5 strict actual root construction is module-bound for resolveFixturePath (10.336193ms)
+✖ AC5 boundary actual root construction is module-bound for resolveAdmittedRelativeSpecifier (5.866271ms)
+✖ AC5 ingress actual root construction is module-bound for resolveFixturePath (4.998984ms)
+✖ AC5 manifest-race actual root construction is module-bound for collector.captureFrozenProvenance (5.384683ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 0
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 344.343751
+
+✖ failing tests:
+
+test at tools/wave3/admission-source-read-wiring.test.mjs:50:1
+✖ AC5 lexical actual source reads use module checkout while parser paths remain relative under foreign cwd (26.590445ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '\\C:\\virtual-checkout\\server\\src\\ws\\FairTerminalDeliveryScheduler.test.ts'
+  - 'C:\\virtual-checkout\\server\\src\\ws\\FairTerminalDeliveryScheduler.test.ts'
+  
+      at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:42:12
+      at eval (eval at executeReadSite (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:37:15), <anonymous>:3:182)
+      at executeReadSite (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:39:18)
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:51:193)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '\\C:\\virtual-checkout\\server\\src\\ws\\FairTerminalDeliveryScheduler.test.ts',
+    expected: 'C:\\virtual-checkout\\server\\src\\ws\\FairTerminalDeliveryScheduler.test.ts',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tools/wave3/admission-source-read-wiring.test.mjs:53:1
+✖ AC5 trust actual Inventory source read is module-bound without changing parser identity (9.067718ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '\\C:\\virtual-checkout\\server\\src\\services\\TerminalResourcePolicyInventory.ts'
+  - 'C:\\virtual-checkout\\server\\src\\services\\TerminalResourcePolicyInventory.ts'
+  
+      at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:42:12
+      at eval (eval at executeReadSite (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:37:15), <anonymous>:3:185)
+      at executeReadSite (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:39:18)
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:53:103)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '\\C:\\virtual-checkout\\server\\src\\services\\TerminalResourcePolicyInventory.ts',
+    expected: 'C:\\virtual-checkout\\server\\src\\services\\TerminalResourcePolicyInventory.ts',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tools/wave3/admission-source-read-wiring.test.mjs:54:1
+✖ AC5 admission actual Inventory source read is module-bound without changing parser identity (6.127534ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '\\C:\\virtual-checkout\\server\\src\\services\\TerminalResourcePolicyInventory.ts'
+  - 'C:\\virtual-checkout\\server\\src\\services\\TerminalResourcePolicyInventory.ts'
+  
+      at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:42:12
+      at eval (eval at executeReadSite (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:37:15), <anonymous>:3:187)
+      at executeReadSite (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:39:18)
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:54:107)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '\\C:\\virtual-checkout\\server\\src\\services\\TerminalResourcePolicyInventory.ts',
+    expected: 'C:\\virtual-checkout\\server\\src\\services\\TerminalResourcePolicyInventory.ts',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tools/wave3/admission-source-read-wiring.test.mjs:61:3
+✖ AC5 base actual root construction is module-bound for validateFrozenContract (6.866577ms)
+  AssertionError [ERR_ASSERTION]: real API root follows its module checkout, independent of process cwd
+  + actual - expected
+  
+  + '\\C:\\virtual-checkout'
+  - 'C:\\virtual-checkout'
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:80:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '\\C:\\virtual-checkout',
+    expected: 'C:\\virtual-checkout',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tools/wave3/admission-source-read-wiring.test.mjs:61:3
+✖ AC5 strict actual root construction is module-bound for resolveFixturePath (10.336193ms)
+  AssertionError [ERR_ASSERTION]: real API root follows its module checkout, independent of process cwd
+  + actual - expected
+  
+  + '\\C:\\virtual-checkout'
+  - 'C:\\virtual-checkout'
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:80:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '\\C:\\virtual-checkout',
+    expected: 'C:\\virtual-checkout',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tools/wave3/admission-source-read-wiring.test.mjs:61:3
+✖ AC5 boundary actual root construction is module-bound for resolveAdmittedRelativeSpecifier (5.866271ms)
+  AssertionError [ERR_ASSERTION]: real API root follows its module checkout, independent of process cwd
+  + actual - expected
+  
+  + '\\C:\\virtual-checkout'
+  - 'C:\\virtual-checkout'
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:80:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '\\C:\\virtual-checkout',
+    expected: 'C:\\virtual-checkout',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tools/wave3/admission-source-read-wiring.test.mjs:61:3
+✖ AC5 ingress actual root construction is module-bound for resolveFixturePath (4.998984ms)
+  AssertionError [ERR_ASSERTION]: real API root follows its module checkout, independent of process cwd
+  + actual - expected
+  
+  + '\\C:\\virtual-checkout'
+  - 'C:\\virtual-checkout'
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:80:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '\\C:\\virtual-checkout',
+    expected: 'C:\\virtual-checkout',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tools/wave3/admission-source-read-wiring.test.mjs:61:3
+✖ AC5 manifest-race actual root construction is module-bound for collector.captureFrozenProvenance (5.384683ms)
+  AssertionError [ERR_ASSERTION]: real API root follows its module checkout, independent of process cwd
+  + actual - expected
+  
+  + '\\C:\\virtual-checkout'
+  - 'C:\\virtual-checkout'
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/tools/wave3/admission-source-read-wiring.test.mjs:80:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '\\C:\\virtual-checkout',
+    expected: 'C:\\virtual-checkout',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

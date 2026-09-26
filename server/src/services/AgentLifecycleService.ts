@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { publishStoreAtomically } from '../utils/atomicStoreWrite.js';
 import {
   getDefaultMcpSessionScopes,
   mintMcpCapabilityToken,
@@ -104,12 +105,14 @@ export function createAgentCommandProfileService(options: { dataPath?: string } 
   };
 
   const flush = async (): Promise<void> => {
-    await fs.mkdir(path.dirname(dataFilePath), { recursive: true });
-    await fs.writeFile(dataFilePath, JSON.stringify({
+    // @req REL-BGSTAB-022 — this store used to be written straight onto its
+    // destination, with no temp file, no rename and no backup, so a reader could
+    // see a half-written document and a process dying mid-write destroyed it.
+    await publishStoreAtomically(dataFilePath, JSON.stringify({
       version: 1,
       profiles,
       updatedAt: new Date().toISOString(),
-    }, null, 2), 'utf-8');
+    }, null, 2), { ensureDirectory: true });
   };
 
   const runMutation = async <T>(operation: () => Promise<T>): Promise<T> => {

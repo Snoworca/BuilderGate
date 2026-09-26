@@ -1,0 +1,161 @@
+{
+  "review": {
+    "repo": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916",
+    "head": "9c37cf4",
+    "range": "e50931b^..HEAD",
+    "reviewer": "independent-harsh",
+    "date": "2026-09-16",
+    "mode": "read-only"
+  },
+  "verified_correct": [
+    "All four screenshot SHA256 in docs/evidence/2026-09-16-issue34/README.md:70-73 match the on-disk .playwright-mcp/*.png byte-for-byte.",
+    "No secrets in any committed log. Only opaque jti UUIDs, WS client UUIDs and session UUIDs appear; the E2E password '1234' and no bearer/JWT value appears anywhere.",
+    "The .log files ARE tracked despite root .gitignore:12 '*.log', via docs/evidence/2026-09-16-issue34/.gitignore '!*.log'. Confirmed with git ls-files (8 logs/txt tracked).",
+    "Claim that the two limits are absent from RuntimeConfigStore is accurate: zero matches for maxWorkspaces/maxTabsPerWorkspace/maxTotalSessions in server/src/services/RuntimeConfigStore.ts; /api/runtime-config (server/src/index.ts:553) serves getPublicRuntimeConfig only.",
+    "Line citations verified accurate: App.tsx:606,:607,:662,:842; WorkspaceService.ts:454,:560,:726; workspaceRoutes.ts:36; useWorkspaceManager.ts:175,:211; root .gitignore:82.",
+    "No product code changed. git diff --stat over the range touches only tests, playwright/tsconfig inputs, docs and kiwi/.status.json.",
+    "playwright.issue34-capacity.config.ts sets webServer: undefined and pins the origin; it cannot start or stop a server.",
+    "TCP 2001/2002 LISTENING under PID 30596 in both the pre and post netstat captures; production was not touched, and stop.bat was not used.",
+    "The finally-block cleanup cannot delete a workspace the run did not create: cleanupRegistry filters by ownerId over registry records, and registerWorkspaceCreation only accepts a 201 POST /api/workspaces body id from the approved origin.",
+    "SRS discipline is correct: VE-5 appended, VE-1..VE-4 untouched, Status/Stability/AC unchanged (diff is exactly two added lines).",
+    "The e2eOwnershipTypecheck 15/15 count is structurally consistent (1 references test + 1 promotion-spec test + 12 REFERENCE_CASES + 1 tsc --noEmit test).",
+    "The newly reported maxSessions defect is real in substance: App.tsx hardcodes maxSessions={32} while WorkspaceService.ts:564 enforces this.config.maxTotalSessions (config.json5:126 default 32, config.schema.ts:255 range 1-128)."
+  ],
+  "findings": [
+    {
+      "id": "F1",
+      "axis": "P4",
+      "severity": "HIGH",
+      "title": "The ratification spec is permanently skipped: no script, no CI, and it needs a non-default server config",
+      "file": "frontend/tests/e2e/issue34-capacity-ratify.spec.ts:23",
+      "description": "The file-scope test.skip gate requires ISSUE34_MAX_WORKSPACES and ISSUE34_MAX_TABS. Nothing in the repository ever sets them: grep for 'issue34' in frontend/package.json and package.json finds no script, and playwright.issue34-capacity.config.ts is not referenced by any script either (the sibling playwright.ownership-validation.config.ts at least has npm wiring precedent). Beyond the env vars, a meaningful run also requires an operator to edit server/config.json5 and restart the server twice - a procedure that exists only as prose in the evidence README, not as a committed runner. So in every default suite run this spec contributes exactly '2 skipped' forever and can never catch a re-hardcoding regression. It is a record of a past manual run, not a guard.",
+      "is_behavioral": false,
+      "tags": ["test-quality", "dead-test", "ci", "reproducibility"]
+    },
+    {
+      "id": "F2",
+      "axis": "P2",
+      "severity": "HIGH",
+      "title": "The anti-constant property lives in the manual procedure, not in the committed spec: run it at the shipped defaults and it passes vacuously",
+      "file": "frontend/tests/e2e/issue34-capacity-ratify.spec.ts:16",
+      "description": "The spec's header comment claims 'a passing assertion cannot be satisfied by a constant', but the spec itself accepts whatever pair the runner types. server/config.json5:124-125 ships maxWorkspaces=10 / maxTabsPerWorkspace=8, which are exactly the removed hardcoded constants AND the pre-snapshot defaults at useWorkspaceManager.ts:175. A future engineer who runs the spec the obvious way - untouched config, ISSUE34_MAX_WORKSPACES=10 ISSUE34_MAX_TABS=8 - gets '2 passed' even against an App.tsx that has re-hardcoded 10/8, because line 39 reads the server, and lines 53/88 would see 'Maximum 10 workspaces' / 'Maximum 8 tabs' from the hardcoded props. Nothing in the spec, the config, or a test rejects the degenerate 10/8 pair. The falsifiability the report leans on (runs B and C at 4/3 and 5/2) is a property of an uncommitted procedure.",
+      "is_behavioral": false,
+      "tags": ["evidence-integrity", "vacuous-assertion", "test-quality"]
+    },
+    {
+      "id": "F3",
+      "axis": "P2",
+      "severity": "MEDIUM",
+      "title": "The two load-bearing pass logs record no configured pair and no env values; the run-to-config binding is filename and prose only",
+      "file": "docs/evidence/2026-09-16-issue34/final-run-a-4-3-20260916T0205Z.log:1",
+      "description": "README.md:45-56 calls runs B and C 'the load-bearing pair'. Both logs are 12 lines of TLS warnings plus two green checkmarks and '2 passed'. Neither the env pair, the server config, nor the observed UI titles appear. Nothing inside final-run-a-4-3-*.log states that the server was at 4/3 - only the filename does. The only in-repo corroboration I could find is indirect: the server logs' 'Shell startup readiness fallback' count (3 in final-server-a-4-3, 2 in final-server-b-5-2) matches the two tab limits, and the negative-control log's assertion diff pins the server at maxWorkspaces=5/maxTabsPerWorkspace=2 for run D. So the tab limits and run C's workspace limit are corroborated; run B's maxWorkspaces=4 has none. The screenshots that would show it are under .playwright-mcp/, excluded by root .gitignore:82, so a future reader cannot check them once the working tree is cleaned. A 3-line echo of the env pair and the server config block into each run log would have closed this.",
+      "is_behavioral": false,
+      "tags": ["evidence-integrity", "traceability"]
+    },
+    {
+      "id": "F4",
+      "axis": "P2",
+      "severity": "MEDIUM",
+      "title": "Wrong line number on the newly reported maxSessions defect, propagated into the worklog",
+      "file": "docs/report/2026-09-16.issue34-workspace-tab-capacity-ratification.md:80",
+      "description": "The report states 'frontend/src/App.tsx:660 이 전체 세션 한도를 하드코딩하는데'. App.tsx:660 is 'activeTabId={wm.activeWorkspace.activeTabId}'. The maxSessions={32} prop is at line 663. The same wrong citation is repeated verbatim in docs/worklog/2026-09-16.jsonl (last record, solution field). This is the one claim in the change destined to be filed upstream as a new defect, so a wrong anchor is worse here than elsewhere. The substance is correct and I verified it independently: App.tsx:663 hardcodes 32 while WorkspaceService.ts:564 enforces this.config.maxTotalSessions, default 32 at config.json5:126, schema range 1-128 at server/src/schemas/config.schema.ts:255.",
+      "is_behavioral": false,
+      "tags": ["evidence-integrity", "citation-accuracy"]
+    },
+    {
+      "id": "F5",
+      "axis": "P4",
+      "severity": "MEDIUM",
+      "title": "expect() inside finally can replace and hide the real capacity failure",
+      "file": "frontend/tests/e2e/issue34-capacity-ratify.spec.ts:60",
+      "description": "Both tests end with 'finally { const released = await cleanupOwnedWorkspaces(...); expect(released.failed).toEqual([]); }' (lines 57-61 and 92-95). An exception thrown from finally replaces the exception propagating out of try. If the capacity assertion at line 53/88 fails AND any DELETE in cleanup returns non-OK, the reported failure is the cleanup assertion and the actual regression is silently discarded. The repo's own fixture solves exactly this at workspaceOwnershipFixture.ts:152-157, which collects failures into an array and throws an AggregateError when there is more than one. The new spec deviates from that established pattern for no stated reason.",
+      "is_behavioral": false,
+      "tags": ["test-quality", "error-masking", "convention-deviation"]
+    },
+    {
+      "id": "F6",
+      "axis": "P2",
+      "severity": "MEDIUM",
+      "title": "VE-5 asserts three static reruns with no committed artifact, inside an evidence bundle whose stated purpose is raw logs",
+      "file": "docs/spec/30.buildergate-stability.srs.md:5463",
+      "description": "VE-5 and README.md:79-83 claim 'workspaceCapacity{Api,Hook,Ui} 26/26', 'e2eOwnershipTypecheck 15/15' and 'tsc --noEmit -p tsconfig.e2e-ownership.json exit 0'. The directory's own .gitignore comment says 'Raw evidence logs are the point of this directory', yet these three runs have no log. I could structurally corroborate only 15/15 (1 references test + 1 promotion-spec test + 12 REFERENCE_CASES + 1 tsc test in e2eOwnershipTypecheck.test.ts). The 26/26 (12 top-level test() calls across the three files, so it depends on subtests) and the tsc exit code are unverifiable from the repository. Given the requirement's own history - the #33 round-3 note added VE-4 specifically because VE-3 cited numbers from a pre-final tree - unlogged numbers in a verification row are the exact failure mode this requirement has already been bitten by.",
+      "is_behavioral": false,
+      "tags": ["evidence-integrity", "srs", "unlogged-claim"]
+    },
+    {
+      "id": "F7",
+      "axis": "P3",
+      "severity": "MEDIUM",
+      "title": "The process-safety claims that carry the risk are the ones with no captured artifact",
+      "file": "docs/evidence/2026-09-16-issue34/README.md:93",
+      "description": "README.md:38-43 and :93-102 claim: every inherited BUILDERGATE_* stripped, verified as 0 matches in /proc/<pid>/environ; teardown killed only the PID whose /proc/<pid>/cmdline was 'node dist/index.js' and whose /proc/<pid>/cwd was this checkout's server/; and 'ss -ltn showed 2221/2222 free after each teardown'. None of those three has a captured file. What was captured is Windows netstat.exe output, and the README itself explains that its PID column cannot identify a WSL-hosted listener's owner - so the captured artifact is precisely the one that cannot substantiate the identity check. The 2001/2002-untouched claim IS substantiated (PID 30596 LISTENING in both captures, unchanged). Capturing /proc/<pid>/cmdline, cwd and an environ grep count before the kill costs three lines and is what CLAUDE.md's ownership rule actually asks to be demonstrated.",
+      "is_behavioral": false,
+      "tags": ["process-safety", "evidence-gap", "claude-md"]
+    },
+    {
+      "id": "F8",
+      "axis": "P4",
+      "severity": "LOW",
+      "title": "A malformed env value skips silently and is indistinguishable from 'not configured'",
+      "file": "frontend/tests/e2e/issue34-capacity-ratify.spec.ts:23",
+      "description": "ISSUE34_MAX_WORKSPACES=4x yields Number(...)=NaN, !Number.isInteger(NaN) is true, and the file skips. The run reports '2 skipped', the same output as no configuration at all. Someone who typoed an env var, or exported it in the wrong shell, gets a green-looking run and no signal. A throw on a value that is set but unparseable would separate 'deliberately not configured' from 'misconfigured'.",
+      "is_behavioral": false,
+      "tags": ["test-quality", "silent-skip"]
+    },
+    {
+      "id": "F9",
+      "axis": "P4",
+      "severity": "LOW",
+      "title": "AC-7 drops the token assertion AC-3 has, so a null token surfaces as a misleading limit failure",
+      "file": "frontend/tests/e2e/issue34-capacity-ratify.spec.ts:71",
+      "description": "AC-3 asserts expect(typeof token).toBe('string') at line 35 before building the Authorization header. AC-7 reads the same localStorage key at line 71 and goes straight to 'Bearer ${token}' at line 72 with no guard. If login or the storage key changes, AC-7 fails at line 79 with 'tab 1 is within the configured limit / Received: 401', which points at the capacity contract rather than at the broken auth. Two adjacent tests with different defensiveness against the same failure.",
+      "is_behavioral": false,
+      "tags": ["test-quality", "diagnosability", "inconsistency"]
+    },
+    {
+      "id": "F10",
+      "axis": "P7",
+      "severity": "LOW",
+      "title": "docs/evidence/ is a brand-new top-level docs directory that forks an existing convention",
+      "file": "docs/evidence/2026-09-16-issue34/README.md:1",
+      "description": "git log --diff-filter=A over docs/evidence/* returns only e50931b, so this commit created the directory. The repo already has a home for raw evidence bundles: docs/analysis/<date>.<slug>/ with raw/ and a local .gitignore - see docs/analysis/2026-09-16.rg01-inventory/ and docs/analysis/2026-09-16.rg04-ownership/, both from this same work stream days earlier. CLAUDE.md mandates only docs/report/ and docs/worklog/. Introducing a fifteenth top-level docs directory for the same purpose as an existing one makes the next reader search two trees.",
+      "is_behavioral": false,
+      "tags": ["conventions", "repo-structure", "claude-md"]
+    },
+    {
+      "id": "F11",
+      "axis": "P2",
+      "severity": "LOW",
+      "title": "Report anchors itself to a stale HEAD",
+      "file": "docs/report/2026-09-16.issue34-workspace-tab-capacity-ratification.md:17",
+      "description": "The report says '현재 HEAD 08fb66d 에서' but 08fb66d is the parent of the commit that introduces the report. The ratified tree is e50931b (and now 9c37cf4). Minor, but it is the same class of self-reference staleness that forced VE-4 to be added on this very requirement three commits earlier.",
+      "is_behavioral": false,
+      "tags": ["evidence-integrity", "citation-accuracy"]
+    },
+    {
+      "id": "F12",
+      "axis": "P2",
+      "severity": "LOW",
+      "title": "api.ts citation range starts two lines early",
+      "file": "docs/evidence/2026-09-16-issue34/README.md:21",
+      "description": "README cites 'frontend/src/services/api.ts:354-375' for the invalid-workspace-limits validation. Line 354 is blank and 355 is 'export const workspaceApi = {'; the validation actually runs 356-375 (the throw is at 373). Same range repeated in the report at line 25. Trivial, but this bundle's whole value proposition is that its citations are checkable.",
+      "is_behavioral": false,
+      "tags": ["citation-accuracy"]
+    },
+    {
+      "id": "F13",
+      "axis": "P7",
+      "severity": "LOW",
+      "title": "AC-7 try-block body is unindented, unlike its sibling",
+      "file": "frontend/tests/e2e/issue34-capacity-ratify.spec.ts:76",
+      "description": "Lines 76-91 sit inside 'try {' at column 2 with no indentation, so the block structure is invisible on read; AC-3 (lines 46-56) indents correctly. Cosmetic, but it is in the one file this change exists to add.",
+      "is_behavioral": false,
+      "tags": ["style", "readability"]
+    }
+  ],
+  "summary": {
+    "total": 13,
+    "by_severity": { "CRITICAL": 0, "HIGH": 2, "MEDIUM": 5, "LOW": 6 },
+    "by_axis": { "P1": 0, "P2": 6, "P3": 1, "P4": 4, "P5": 0, "P6": 0, "P7": 2 }
+  }
+}

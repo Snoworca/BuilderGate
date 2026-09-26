@@ -5,7 +5,7 @@ import test from 'node:test';
 import { guardPtyConsoleKill } from './ptyConsoleKillGuard.js';
 
 /**
- * REL-BGSTAB-022 AC-4 — node-pty's ConPTY kill() must not take the server.
+ * REL-BGSTAB-029 AC-4 — node-pty's ConPTY kill() must not take the server.
  *
  * node-pty 1.1.0 kills a ConPTY session by forking an agent that attaches to
  * the console of the shell PID and returns every process on it, then calls
@@ -27,7 +27,7 @@ function fakePty(list: number[]) {
   };
 }
 
-test('REL-BGSTAB-022 AC-4: the server and its parent are dropped from the console kill list', async () => {
+test('REL-BGSTAB-029 AC-4: the server and its parent are dropped from the console kill list', async () => {
   const pty = fakePty([process.pid, 777, process.ppid]);
   const dropped: number[][] = [];
   assert.equal(guardPtyConsoleKill(pty, [process.pid, process.ppid], pids => dropped.push(pids)), true);
@@ -36,7 +36,7 @@ test('REL-BGSTAB-022 AC-4: the server and its parent are dropped from the consol
   assert.deepEqual(dropped, [[process.pid, process.ppid]]);
 });
 
-test('REL-BGSTAB-022 AC-4: a list without the server passes through unchanged and logs nothing', async () => {
+test('REL-BGSTAB-029 AC-4: a list without the server passes through unchanged and logs nothing', async () => {
   const pty = fakePty([777]);
   let calls = 0;
   guardPtyConsoleKill(pty, [process.pid], () => { calls += 1; });
@@ -44,13 +44,13 @@ test('REL-BGSTAB-022 AC-4: a list without the server passes through unchanged an
   assert.equal(calls, 0);
 });
 
-test('REL-BGSTAB-022 AC-4: a PTY without the ConPTY agent is left alone', () => {
+test('REL-BGSTAB-029 AC-4: a PTY without the ConPTY agent is left alone', () => {
   assert.equal(guardPtyConsoleKill({}, [process.pid]), false);
   assert.equal(guardPtyConsoleKill(null, [process.pid]), false);
   assert.equal(guardPtyConsoleKill({ _agent: {} }, [process.pid]), false);
 });
 
-test('REL-BGSTAB-022 AC-4: every PTY the session manager spawns is guarded', () => {
+test('REL-BGSTAB-029 AC-4: every PTY the session manager spawns is guarded', () => {
   const source = readFileSync(new URL('../services/SessionManager.ts', import.meta.url), 'utf8');
   const spawnAt = source.indexOf('const ptyProcess = this.spawnPty(');
   assert.notEqual(spawnAt, -1);

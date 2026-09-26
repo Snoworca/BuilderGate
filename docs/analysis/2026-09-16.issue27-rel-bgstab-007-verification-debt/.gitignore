@@ -1,0 +1,2 @@
+# Root .gitignore:12 excludes *.log; keep the raw run logs.
+!raw/*.log

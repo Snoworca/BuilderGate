@@ -1,0 +1,83 @@
+# run 2, default concurrency
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (306.432891ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (65.81724ms)
+✖ OPS-BGSTAB-008 the bundle writer completes on this working tree (643.108845ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (141.929895ms)
+✔ node-pty runtime patches are idempotent and fail closed on target drift (5.651483ms)
+▶ fair scheduler pinned sources retain raw-byte provenance through Git checkout
+  ✔ src/benchmarks/terminalFairnessCharacterization.ts (146.300245ms)
+  ✔ src/benchmarks/fairSchedulerAuthorityLocator.ts (160.692009ms)
+  ✔ src/ws/wsSendPolicy.ts (207.035967ms)
+  ✔ src/ws/WsRouter.ts (206.860825ms)
+  ✔ src/services/TerminalResourcePolicy.ts (199.318605ms)
+  ✔ src/services/TerminalResourcePolicyCanary.ts (202.837286ms)
+✔ fair scheduler pinned sources retain raw-byte provenance through Git checkout (1128.561775ms)
+▶ fair scheduler current authority JSON retains raw-byte hashes through Git checkout
+  ✔ current.json (187.630014ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/fair-scheduler-decision.json (190.806184ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/provenance.json (200.402076ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-0.json (217.511701ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-1.json (200.872896ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-2.json (208.168684ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-3.json (206.616812ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-4.json (210.892014ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-0.json (209.434511ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-1.json (210.985773ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-2.json (243.357748ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-3.json (219.143302ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-4.json (231.742498ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-0.json (214.575885ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-1.json (230.695757ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-2.json (224.456823ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-3.json (235.234072ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-4.json (234.428849ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/manifest.json (233.832449ms)
+✔ fair scheduler current authority JSON retains raw-byte hashes through Git checkout (4137.422368ms)
+✔ B0 listen guard self-check passes with the exact corpus it claims (69.434053ms)
+✔ the self-check actually drives the guard, counted from the guard own log (53.230127ms)
+✔ the self-check covers the platform branch this lane does not take (47.914158ms)
+✔ B0 listen guard refuses to load a kind that is not a regex literal (33.189231ms)
+✔ PERF-BGSTAB-010 canonical bundle writer rejects source-root override and copies only current immutable generation (5712.738658ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 36
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5803.091011
+
+✖ failing tests:
+
+test at server/tools/canonical-authority-line-endings.test.mjs:89:1
+✖ OPS-BGSTAB-008 the bundle writer completes on this working tree (643.108845ms)
+  AssertionError [ERR_ASSERTION]: the bundle writer exited 1: file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:240
+      if (error?.code === 'EEXIST') throw new Error('canonical authority publication lock exists');
+                                          ^
+  
+  Error: canonical authority publication lock exists
+      at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:240:41
+      at async acquirePublishLock (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:239:18)
+      at async writeFairSchedulerEvidenceBundle (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:255:16)
+      at async file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:303:18
+  
+  Node.js v24.21.0
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/canonical-authority-line-endings.test.mjs:94:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+EXIT=1

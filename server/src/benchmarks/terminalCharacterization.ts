@@ -11,9 +11,12 @@ import {
   BENCHMARK_MODES,
   canonicalJson,
   type BenchmarkExecutionManifest,
+  type BenchmarkExecutionStep,
+  type BenchmarkObservedExecutionStep,
   type BenchmarkMode,
   type BenchmarkModeDescriptor,
   type BenchmarkRawSample,
+  type BenchmarkVisibilityFactor,
   type BenchmarkWorkload,
   validateExecutionManifest,
 } from './benchmarkStatistics.js';
@@ -200,7 +203,12 @@ const METRIC_SOURCES = [
   },
 ] as const;
 
-const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+// OPS-BGSTAB-017: `import.meta` is an empty object once this is bundled to CJS.
+// `resolve` normalises either form, and every use below goes through `resolve`
+// or `cwd`, so the trailing-separator difference is not observable.
+const PROJECT_ROOT = typeof __dirname === 'string'
+  ? resolve(__dirname, '../../..')
+  : fileURLToPath(new URL('../../../', import.meta.url));
 const DEFAULT_RANDOM_SEED = 7008;
 const DEFAULT_TRIAL_COUNT = 3;
 const DEFAULT_TRIAL_DURATION_MS = 250;
@@ -215,19 +223,136 @@ export function getTerminalCharacterizationModes(): BenchmarkModeDescriptor[] {
   }));
 }
 
+const SESSION_COUNTS = [1, 8, 32, 54] as const;
+const CLIENT_COUNTS = [1, 2, 8] as const;
+
+/**
+ * The two visibility levels the corpus varies.
+ *
+ * `single-active` is what the Wave-1 corpus measured and the only level it had:
+ * one visible session with the rest hidden. `all-active` is its complement, every
+ * session visible. Those are the two extremes of the factor, so measuring both
+ * brackets the range rather than sampling one arbitrary point inside it.
+ */
+const VISIBILITY_LEVELS = ['single-active', 'all-active'] as const;
+
+/**
+ * @req PERF-BGSTAB-012 AC-3
+ *
+ * Bumped from `-v1` when visibility became an independently varied factor and
+ * the corpus grew from twelve cells to twenty-one. The sealed Wave-1 artifact
+ * keeps `-v1`; two materially different corpora sharing one identifier would
+ * make a sample's `workloadManifestRef` ambiguous, which is the whole reason
+ * the reference exists.
+ */
+const TERMINAL_WORKLOAD_CORPUS_ID = 'wave1-terminal-workload-corpus-v2';
+
 // @req PERF-BGSTAB-008
+// @req PERF-BGSTAB-012 AC-3
 export function createTerminalWorkloadCorpus(): BenchmarkWorkload[] {
   const workloads: BenchmarkWorkload[] = [];
-  for (const sessions of [1, 8, 32, 54] as const) {
-    for (const clients of [1, 2, 8] as const) {
+  for (const sessions of SESSION_COUNTS) {
+    for (const clients of CLIENT_COUNTS) {
+      // single-active: the Wave-1 shape, kept identical so the previously
+      // measured cells stay comparable with the sealed run.
       workloads.push({
         sessions,
         clients,
         viewMix: { active: 1, hidden: sessions - 1 },
       });
+      // all-active is the same workload with nothing hidden. At one session the
+      // two levels are the same point, so emitting it twice would double the
+      // cost and report a varied factor where none exists; that cell is recorded
+      // as structurally unreachable instead (see visibilityFactor below).
+      if (sessions === 1) continue;
+      workloads.push({
+        sessions,
+        clients,
+        viewMix: { active: sessions, hidden: 0 },
+      });
     }
   }
   return workloads;
+}
+
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * The order the measurement loop will walk.
+ *
+ * This is a pure function of the selection so that the manifest can carry the
+ * order before the run and a reader can reproduce it. The runner walks exactly
+ * this array, so the executed arm sequence is this sequence; what the run adds
+ * is a completion timestamp per unit.
+ *
+ * Trial-major, then workload, then mode, with the mode sequence rotated by trial
+ * index. Rotating matters because a fixed mode order gives the first mode of each
+ * group a consistently colder cache than the last.
+ *
+ * The rotation stops at two arms, and that is not a special case for its own
+ * sake. Each group is one full pass over the arms, so the step after a group is
+ * the rotation's first arm and the step before it is the rotation's last. With a
+ * per-trial rotation of one, those two are `r + n - 1` and `r + 1`, which differ
+ * modulo `n` for every `n` except 2 — at two arms a rotating plan produces
+ * `A B | B A`, a same-arm pair across the trial boundary. Two arms cannot both
+ * alternate and rotate, and alternation is the property `assertInterleaved`
+ * enforces and the one that matters, so with two arms the order is fixed. With
+ * three or more, rotating keeps alternation at every group and trial boundary.
+ */
+export function planExecutionOrder(
+  modes: readonly BenchmarkMode[],
+  workloadCount: number,
+  trialCount: number,
+): BenchmarkExecutionStep[] {
+  const order: BenchmarkExecutionStep[] = [];
+  const rotateByTrial = modes.length > 2;
+  for (let trial = 1; trial <= trialCount; trial += 1) {
+    const rotation = rotateByTrial ? trial - 1 : 0;
+    for (let workloadIndex = 0; workloadIndex < workloadCount; workloadIndex += 1) {
+      for (let offset = 0; offset < modes.length; offset += 1) {
+        const mode = modes[(offset + rotation) % modes.length];
+        order.push({
+          sequence: order.length,
+          mode,
+          workloadIndex,
+          trialId: `trial-${trial}`,
+        });
+      }
+    }
+  }
+  return order;
+}
+
+// @req PERF-BGSTAB-012 AC-3
+function createVisibilityFactor(): BenchmarkVisibilityFactor {
+  return {
+    levels: [...VISIBILITY_LEVELS],
+    structurallyUnreachable: CLIENT_COUNTS.map(clients => ({
+      sessions: 1,
+      clients,
+      reason: 'A single session is either visible or hidden, so single-active and all-active are the same point; there is no second visibility level to measure.',
+    })),
+  };
+}
+
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * What `execution.strategy` says, derived from the selection rather than fixed.
+ *
+ * The builder takes a caller-chosen mode selection and `planExecutionOrder`
+ * rotates only above two arms, so a single sentence claiming a per-trial
+ * rotation would describe a rotation a two-mode manifest never performed. The
+ * sentence is therefore built from the same condition the planner branches on.
+ */
+function describeExecutionStrategy(modeCount: number): string {
+  const ordering = 'Measurement is ordered trial-major, then workload, then mode';
+  const drift = 'Consecutive units therefore differ in mode, so drift in machine state over the run is spread across the arms instead of landing on whichever arm ran last.';
+  if (modeCount > 2) {
+    return `${ordering}, with the mode sequence rotated by trial index. ${drift}`;
+  }
+  if (modeCount === 2) {
+    return `${ordering}. The mode sequence is not rotated by trial index: with two arms a per-trial rotation would place the same arm on both sides of a trial boundary, so the order is fixed and the two arms simply alternate. ${drift}`;
+  }
+  return `${ordering}. Only one arm was selected, so there is no mode sequence to rotate and no interleaving to perform; every unit runs the same arm and drift over the run lands on it.`;
 }
 
 // @req PERF-BGSTAB-008
@@ -239,9 +364,12 @@ export function createTerminalCharacterizationManifest(
   const payload = generateTerminalPayload(randomSeed);
   const commit = readGitCommit();
   const cpuList = cpus();
+  const selectedModeIds = getTerminalCharacterizationModes()
+    .filter(mode => modeIds.includes(mode.id))
+    .map(mode => mode.id);
   const manifest: BenchmarkExecutionManifest = {
-    schemaVersion: 1,
-    runId: `wave1-terminal-characterization-${randomSeed}`,
+    schemaVersion: 2,
+    runId: `${TERMINAL_WORKLOAD_CORPUS_ID}-characterization-${randomSeed}`,
     randomSeed,
     payload: {
       generator: 'seeded-terminal-mixed-v1',
@@ -275,7 +403,7 @@ export function createTerminalCharacterizationManifest(
         'missing-frontend-runtime-config',
       ),
     },
-    workloadManifestId: 'wave1-terminal-workload-corpus-v1',
+    workloadManifestId: TERMINAL_WORKLOAD_CORPUS_ID,
     workloads: workloads.map(workload => ({
       ...workload,
       viewMix: { ...workload.viewMix },
@@ -286,8 +414,35 @@ export function createTerminalCharacterizationManifest(
       durationMs: DEFAULT_TRIAL_DURATION_MS,
       deltaSemantics: 'after-minus-before for cumulative metrics; interval statistic for mean/p99/CPU',
     },
+    // @req PERF-BGSTAB-012 AC-1
+    outlierPolicy: {
+      rule: 'retain-all',
+      rationale: 'Each summary group aggregates one sample per trial across three trials. Discarding an observation would leave two, too few to bootstrap a median confidence interval from, so every sample is retained and this field records that as a decision rather than leaving it to be inferred from the absence of an exclusion list. One caveat is recorded here rather than left to be discovered: the two client delivery-count metrics are measured once per mode and workload during the case pass and the same counts are replicated across all three trials, so those groups hold replicated values rather than three independent observations and their confidence intervals are degenerate by construction. Retaining them is still correct; reading their intervals as sampling variation is not.',
+      parameters: {},
+      excludedSampleIds: [],
+    },
+    // @req PERF-BGSTAB-012 AC-2
+    // The builder emits only the plan. `order` stays empty until
+    // runTerminalCharacterization has actually walked it, because an order this
+    // function could fill in would be a declaration wearing an observed label.
+    execution: {
+      derivedFrom: 'planned-sequence-with-observed-completions',
+      interleaved: selectedModeIds.length > 1,
+      strategy: describeExecutionStrategy(selectedModeIds.length),
+      plannedOrder: planExecutionOrder(
+        selectedModeIds,
+        workloads.length,
+        DEFAULT_TRIAL_COUNT,
+      ),
+      order: [],
+      // No unit has run, so no timestamp has been taken and none has been
+      // tie-broken. The runner overwrites this with the count it observed.
+      tieBrokenCount: 0,
+    },
+    // @req PERF-BGSTAB-012 AC-3
+    visibilityFactor: createVisibilityFactor(),
   };
-  validateExecutionManifest(manifest);
+  validateExecutionManifest(manifest, { requireObservedOrder: false });
   return manifest;
 }
 
@@ -318,23 +473,57 @@ export async function runTerminalCharacterization(
     : [];
   const noRenderEvidence = fixtureEvidence[0];
 
+  // Case observations describe what each mode replaces or disables; they are
+  // setup, not measurement, so they stay grouped and do not enter the interleave.
+  const caseByKey = new Map<string, TerminalCharacterizationCase>();
   for (const mode of selectedModes) {
-    for (const workload of manifest.workloads) {
+    for (const [workloadIndex, workload] of manifest.workloads.entries()) {
       const caseObservation = await executeTerminalCase(mode, workload, payload, noRenderEvidence);
       cases.push(caseObservation);
-      for (let trial = 1; trial <= manifest.trials.count; trial += 1) {
-        const metricInterval = deterministicMetricSampler
-          ? createDeterministicMetricInterval(deterministicMetricSampler, manifest.trials.durationMs)
-          : await runActualSessionMetricInterval(mode, workload, payload, manifest.trials.durationMs);
-        rawSamples.push(...createMetricSamples(
-          manifest,
-          caseObservation,
-          `trial-${trial}`,
-          metricInterval,
-        ));
-      }
+      caseByKey.set(`${mode}:${workloadIndex}`, caseObservation);
     }
   }
+
+  // @req PERF-BGSTAB-012 AC-2
+  // Measurement walks the planned order and records each unit as it completes.
+  const executedOrder: BenchmarkObservedExecutionStep[] = [];
+  let previousObservedAtMs = -Infinity;
+  let tieBrokenCount = 0;
+  for (const step of manifest.execution.plannedOrder) {
+    const workload = manifest.workloads[step.workloadIndex];
+    const caseObservation = caseByKey.get(`${step.mode}:${step.workloadIndex}`);
+    if (!workload || !caseObservation) {
+      throw new Error(`execution step ${step.sequence} refers to a workload or case that does not exist`);
+    }
+    const metricInterval = deterministicMetricSampler
+      ? createDeterministicMetricInterval(deterministicMetricSampler, manifest.trials.durationMs)
+      : await runActualSessionMetricInterval(step.mode, workload, payload, manifest.trials.durationMs);
+    rawSamples.push(...createMetricSamples(
+      manifest,
+      caseObservation,
+      step.trialId,
+      metricInterval,
+    ));
+    // `mode`, `workloadIndex` and `trialId` are the planned values. This loop
+    // has no branch that could walk anything other than `plannedOrder`, so the
+    // executed arm sequence is the planned one; the timestamp below is the part
+    // the plan cannot supply.
+    const observed = nextObservedTimestamp(previousObservedAtMs);
+    if (observed.tieBroken) tieBrokenCount += 1;
+    previousObservedAtMs = observed.value;
+    executedOrder.push({
+      sequence: executedOrder.length,
+      mode: caseObservation.mode,
+      workloadIndex: manifest.workloads.indexOf(workload),
+      trialId: step.trialId,
+      observedAtMs: observed.value,
+    });
+  }
+
+  assertExecutedOrderMatchesPlan(manifest.execution.plannedOrder, executedOrder);
+  manifest.execution.order = executedOrder;
+  manifest.execution.tieBrokenCount = tieBrokenCount;
+  validateExecutionManifest(manifest);
 
   return {
     manifest,
@@ -343,6 +532,74 @@ export async function runTerminalCharacterization(
     fixtureEvidence,
     executionOrder: ['manifest', 'raw-samples'],
   };
+}
+
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * `performance.now()` at the moment a unit of measurement completed.
+ *
+ * The clock is monotonic but not strictly increasing: two units that complete
+ * inside the same tick can read the same value. The recorded order has to be a
+ * total order for the timestamps to witness a sequence at all, so a tie is
+ * broken by the smallest representable step above the previous reading. That
+ * nudge is bounded by clock resolution and never moves a step past the next one.
+ *
+ * `tieBroken` says which of the two happened, because the nudge is a fabricated
+ * value. On a host whose clock does not advance at all, every reading after the
+ * first would be `previous + ulp` and the validator's strictly-increasing check
+ * would pass on a ramp nothing measured. The caller counts these into
+ * `execution.tieBrokenCount` so that run is distinguishable from a healthy one.
+ */
+function nextObservedTimestamp(previous: number): { value: number; tieBroken: boolean } {
+  const now = performance.now();
+  if (!Number.isFinite(previous)) {
+    return { value: now, tieBroken: false };
+  }
+  return now > previous
+    ? { value: now, tieBroken: false }
+    : { value: nextAfter(previous), tieBroken: true };
+}
+
+function nextAfter(value: number): number {
+  let step = Number.EPSILON * Math.max(1, Math.abs(value));
+  let next = value + step;
+  while (next === value) {
+    step *= 2;
+    next = value + step;
+  }
+  return next;
+}
+
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * A cheap structural guard on the walk, and no more than that.
+ *
+ * It does NOT detect reordering. The runner iterates `plannedOrder` directly and
+ * copies each step's `mode`, `workloadIndex` and `trialId`, so those fields
+ * cannot differ from the plan and comparing them proves nothing. What the length
+ * check does catch is a walk that ended early or ran long — a `break` or a
+ * duplicated push — which would otherwise publish a partial run under a full
+ * plan. The per-field loop is kept as a guard against a future refactor that
+ * stops copying, at which point it would start doing real work.
+ */
+function assertExecutedOrderMatchesPlan(
+  planned: readonly BenchmarkExecutionStep[],
+  executed: readonly BenchmarkExecutionStep[],
+): void {
+  if (planned.length !== executed.length) {
+    throw new Error(
+      `execution order length mismatch: planned ${planned.length}, executed ${executed.length}`,
+    );
+  }
+  for (const [index, plannedStep] of planned.entries()) {
+    const executedStep = executed[index];
+    if (plannedStep.mode !== executedStep.mode
+      || plannedStep.workloadIndex !== executedStep.workloadIndex
+      || plannedStep.trialId !== executedStep.trialId
+      || plannedStep.sequence !== executedStep.sequence) {
+      throw new Error(`execution order diverged from the plan at step ${index}`);
+    }
+  }
 }
 
 // @req PERF-BGSTAB-008
@@ -873,6 +1130,22 @@ function createWorkloadExecutionId(
 }
 
 // @req PERF-BGSTAB-008
+// @req PERF-BGSTAB-012 AC-3
+/**
+ * The visibility segment of a sample ID.
+ *
+ * Sample IDs used to be `MODE:s{sessions}:c{clients}:{trial}:{metric}:{role}`.
+ * That was unique only while viewMix was a function of the session count. Once
+ * visibility became an independent factor, two workloads shared a cell and the
+ * ids collided — `aggregateBenchmarkSamples` caught it with "Duplicate raw
+ * sample ID". Encoding the mix keeps ids unique and keeps them readable, so a
+ * reader can tell the two visibility levels apart without joining back to the
+ * workload.
+ */
+function viewMixSegment(viewMix: { active: number; hidden: number }): string {
+  return `v${viewMix.active}-${viewMix.hidden}`;
+}
+
 function createMetricSamples(
   manifest: BenchmarkExecutionManifest,
   caseObservation: TerminalCharacterizationCase,
@@ -918,6 +1191,7 @@ function createMetricSamples(
           caseObservation.mode,
           `s${caseObservation.sessionCount}`,
           `c${caseObservation.clientCount}`,
+          viewMixSegment(caseObservation.viewMix),
           trialId,
           item.metric.metricName,
           roleSuffix || 'aggregate',
@@ -970,6 +1244,7 @@ function createMetricSamples(
             caseObservation.mode,
             `s${caseObservation.sessionCount}`,
             `c${caseObservation.clientCount}`,
+            viewMixSegment(caseObservation.viewMix),
             trialId,
             delivery.metric.metricName,
             comparator.clientId,

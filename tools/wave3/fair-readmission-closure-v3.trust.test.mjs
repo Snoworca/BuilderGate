@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createOwnedAnalysisLeaf } from './admission-fixture-ownership.mjs';
 import * as path from 'node:path';
 import test from 'node:test';
+import { windowsOnly } from './windowsOnlyGate.mjs';
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const inventoryPath = 'server/src/services/TerminalResourcePolicyInventory.ts';
@@ -58,7 +59,7 @@ function ownedNativeCaptureManifestPath() {
   return createOwnedAnalysisLeaf('trust-native-capture').manifestPath;
 }
 
-test('SDS-AC-1 rejects every caller-provided protected ingress authority before native capture I/O', async () => {
+test('SDS-AC-1 rejects every caller-provided protected ingress authority before native capture I/O', windowsOnly('native reparse-point capture through PowerShell'), async () => {
   const collector = await loadCollector();
   const cases = [
     ['counterfeit admission', { admission: Object.freeze({ token: 'counterfeit-admission' }) }],
@@ -94,7 +95,7 @@ test('SDS-AC-1 rejects every caller-provided protected ingress authority before 
   }
 });
 
-test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript and retains literal inventory imports', async () => {
+test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript and retains literal inventory imports', windowsOnly('collector-owned lexical parsing over a Windows-rooted workspace'), async () => {
   const {
     captureFrozenProvenance,
     parseAdmittedImportSpecifiers,
@@ -172,7 +173,7 @@ test('SDS-AC-2 uses collector-owned lexical parsing without executing TypeScript
   }
 });
 
-test('SDS-AC-3 rejects real directory leaves before native probing or writing and keeps special-role simulation private', async () => {
+test('SDS-AC-3 rejects real directory leaves before native probing or writing and keeps special-role simulation private', windowsOnly('real directory leaf probing before native writes'), async () => {
   const { captureFrozenProvenance } = await loadCollector();
   const leaf = createOwnedAnalysisLeaf('trust-directory-role');
   const directoryLeaf = leaf.manifestPath;

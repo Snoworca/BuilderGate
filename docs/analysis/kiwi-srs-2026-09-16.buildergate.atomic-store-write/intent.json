@@ -1,0 +1,40 @@
+{
+  "summary": "Four JSON-store services (CommandPresetService, WorkspaceService, TerminalShortcutService, RecoveryOptionService) use a fixed .tmp path for write-then-rename, so concurrent dev instances sharing a worktree collide (EPERM/ENOENT/torn writes) and can crash the process on boot; fix with a shared atomic-write helper (unique tmp name, atomically-published .bak, bounded rename retry, own-tmp-only cleanup).",
+  "intent_type_hint": "update",
+  "key_entities": [
+    "server/src/services/CommandPresetService.ts:270-289 (flushToDisk)",
+    "server/src/services/WorkspaceService.ts:1726-1753 (writeStateToDisk)",
+    "server/src/services/TerminalShortcutService.ts:528-552 (flushToDisk)",
+    "server/src/services/RecoveryOptionService.ts:410-437 (flushToDisk)",
+    "server/src/services/McpControlConfigStore.ts:68 (existing unique-tmp precedent)",
+    "server/src/services/WebhookInvocationService.ts:430 (existing unique-tmp precedent)",
+    "server/data/command-presets.json.tmp (the colliding fixed path)",
+    "index.ts:1028-1029 / 175-186 (unguarded flushToDisk -> uncaught AppError -> process.exit(1))",
+    "REL-BGSTAB-020 (prior in-process serialization fix, scoped to a single process's promise chain)",
+    "docs/spec/30.buildergate-stability.srs.md (BGSTAB scope)",
+    "Target 0.5.5-buildergate-stability",
+    "server/src/services/WorkspaceServiceFlushConcurrency.test.ts (proven large-fixture TDD technique to reuse)"
+  ],
+  "ambiguities": [
+    "Whether this should land as a new BGSTAB requirement or as an amendment/extension to REL-BGSTAB-020's existing text (brief only says the in-process fix left the cross-process case untouched, not how the requirement graph should represent that).",
+    "Concrete bounded-retry parameters (max attempt count, backoff delay/curve) for the rename-on-EPERM/EACCES/EBUSY path are unspecified.",
+    "Whether the four services must call one single shared helper module/function, or four independent implementations that merely follow the same pattern (brief says 'shared atomic-write helper' but does not name/locate it or specify its signature).",
+    "Final behavior when bounded retries are exhausted is unspecified: brief says the current unguarded crash-on-init behavior is the problem, but does not state whether after retries fail the service should throw (and if so, whether index.ts's uncaught-exception-crash path is intended to remain) or degrade gracefully.",
+    "Whether the same unique-tmp + atomic-publish treatment for the .bak copy must also get its own bounded retry on rename failure, or only the primary destination rename does."
+  ],
+  "implied_requirements": [
+    "A failed write must never delete or otherwise disturb a peer process's own in-flight tmp file (cleanup must be scoped strictly to the tmp path this write created).",
+    "Under concurrent cross-process writes, the destination file must never observably contain partially-written (torn) JSON at any point another process could read it.",
+    "If all retries are exhausted, the pre-existing last-known-good destination file must be left intact rather than being replaced by corrupt or partial content.",
+    "The fix must not regress or duplicate the already-serialized in-process concurrency behavior established by REL-BGSTAB-020 for WorkspaceService.",
+    "The four target services must end up behaving consistently (same collision-avoidance semantics), implying some form of shared/reusable implementation rather than four divergent bespoke fixes.",
+    "Test evidence and requirement text must record the Linux/WSL2 manifestation (ENOENT / torn tmp) actually observed, and must not claim to reproduce or verify the Windows EPERM case natively.",
+    "The RED test must exercise two independent service instances against one shared data file with a payload large enough to span multiple event-loop ticks, per the WorkspaceServiceFlushConcurrency.test.ts technique — an empty/small fixture is explicitly called out as insufficient to expose the defect."
+  ],
+  "semantic_equivalences": [
+    "'atomic write' == the existing writeFile(dest+'.tmp') -> copyFile(dest, dest+'.bak') -> rename(dest+'.tmp', dest) pattern, made collision-safe.",
+    "'cross-process write race' (this issue) != the 'in-process concurrent flush' race already fixed by REL-BGSTAB-020's promise-chain serialization — same symptom family (rename failure / corruption), different root cause and different process boundary.",
+    "Windows 'EPERM on rename' and Linux/WSL2 'ENOENT / torn tmp content' are treated as the same underlying shared-tmp-path collision surfacing differently per OS, not two separate bugs.",
+    "'unique tmp name per write' (pid+random) removes the shared-tmp collision and the torn-tmp hazard, but is explicitly NOT a substitute for bounded rename retry, which addresses a separate residual hazard (two instances still rename onto the same destination)."
+  ]
+}

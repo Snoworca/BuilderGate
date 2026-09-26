@@ -63,7 +63,7 @@ interface ProcessTreeTerminatorDeps {
   /**
    * Answers "is this one PID still alive" for post-kill verification.
    *
-   * PERF-BGSTAB-012 AC-3: this used to go through `processInfoProvider`, whose
+   * PERF-BGSTAB-016 AC-3: this used to go through `processInfoProvider`, whose
    * Windows implementation enumerates every process on the machine. Measured on
    * a 1289-process host that enumeration costs 3.0-3.6s, and the verification
    * ran one per sampled descendant, so a session close reached 16.8s for three
@@ -399,11 +399,11 @@ export function buildWindowsProcessTreeKillScript(rootPid: number, protectedPids
     '  if (-not $byParent.ContainsKey($parent)) { $byParent[$parent] = New-Object "System.Collections.Generic.List[int]" }',
     '  [void]$byParent[$parent].Add([int]$row[0])',
     '}',
-    // REL-BGSTAB-022: never the server, never this script.
+    // REL-BGSTAB-029: never the server, never this script.
     '$protected = @{}',
     ...protectedPids.map(pid => `$protected[${pid}] = $true`),
     '$protected[$PID] = $true',
-    // REL-BGSTAB-022: Windows keeps a parent PID after the parent dies and hands
+    // REL-BGSTAB-029: Windows keeps a parent PID after the parent dies and hands
     // the number out again, so a parent-PID link alone can adopt an unrelated,
     // older process (observed: the server itself, under a tab shell that reused
     // its launcher's PID). A real child is created after its parent.
@@ -821,7 +821,7 @@ export class DefaultProcessTreeTerminator implements ProcessTreeTerminator {
         },
       );
     });
-    // REL-BGSTAB-022: say so when the walk refused a linked process; that is
+    // REL-BGSTAB-029: say so when the walk refused a linked process; that is
     // the PID-reuse case the guard exists for.
     const skipped = /skipped=([\d,]+)/.exec(stdout)?.[1];
     if (skipped) {

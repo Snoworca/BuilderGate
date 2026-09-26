@@ -23,7 +23,6 @@ import type {
   RetainedTerminalMutationLease,
   TerminalCheckpointClientMessage,
   TerminalDeliveryDataGapMessage,
-  TerminalOutputMessage,
   TerminalCheckpointCapabilityMessage,
   TerminalCheckpointViewRegistration,
   TerminalAuthorityRollbackStartMessage,
@@ -58,7 +57,6 @@ import {
 import {
   getClientWsResourceLimits,
   getWsTransportMode,
-  getTerminalResourceLimits,
   initializeInputReliabilityMode,
 } from '../utils/inputReliabilityMode';
 import {
@@ -66,11 +64,11 @@ import {
   buildSplitOutputWebSocketUrl,
   createWebSocketConnectAttemptFence,
 } from '../utils/webSocketUrl';
-import {
-  getCachedTerminalOutputResourceLimits,
-  getOutputUtf8ByteLength,
-} from '../utils/terminalOutputHotPath';
+import { getCachedTerminalOutputResourceLimits } from '../utils/terminalOutputHotPath';
 import { classifyWsFrame } from '../utils/wsFrameDispatch';
+import { publishInputDiscard } from '../utils/inputDiscardFeedback';
+import { shouldSurfaceInputRejection } from '../utils/inputRejectionSurface';
+import { resolveLogicalClientId } from '../utils/logicalClientIdentity';
 import { deriveMaxBodyBytes } from '../utils/binaryFrameCodec';
 import { intakeBinaryFrames } from '../utils/binaryFrameIntake';
 import {
@@ -89,9 +87,11 @@ import type { TerminalOutputDelivery } from '../utils/terminalOutputDelivery';
 import { sendOpenBrowserWebSocketMessage } from '../utils/webSocketBackpressure';
 import { respondToTerminalAuthorityViewAttributeCapability } from '../utils/terminalViewAttributes';
 import {
-  hasSameRestoreNeededAuthorityProof,
-  matchesRestoreNeededSnapshotAuthorityProof,
-} from '../utils/visibleOutputRecovery';
+  applyGraceBufferedMessage,
+  createGraceBufferedSessionState,
+  flushGraceBufferedSession,
+  type GraceBufferedSessionState,
+} from '../utils/terminalGraceBuffer';
 import {
   buildTerminalInputDebugPayload,
   registerWebSocketSendFailureHandler,
@@ -152,21 +152,6 @@ export interface SessionHandlers {
   onStatus?: (status: string) => void;
   onError?: (message: string) => void;
   onCwd?: (cwd: string) => void;
-}
-
-interface GraceBufferedSessionState {
-  snapshot?: ScreenSnapshotMessage;
-  output: TerminalOutputMessage[];
-  outputBytes: number;
-  outputOverflowReason?: 'byte-cap-exceeded' | 'chunk-cap-exceeded';
-  authorityProofMismatch?: boolean;
-  restoreNeeded?: ScreenRepairRestoreNeededMessage;
-  reconnectRequired?: ScreenRepairReconnectRequiredMessage;
-  subscribedInfo?: { status: string; cwd?: string; ready: boolean };
-  ready?: TerminalSessionReadyMessage;
-  status?: string;
-  cwd?: string;
-  error?: string;
 }
 
 export type WorkspaceEventHandler = (data: unknown) => void;
@@ -312,6 +297,9 @@ function getWsUrl(): string {
     token,
     location: window.location,
     transportMode: getWsTransportMode(),
+    // #111: the per-tab identity the server keys its dedup record by, so a resent input
+    // is still recognised after a reconnect instead of running a second time.
+    logicalClientId: resolveLogicalClientId(window.sessionStorage),
   });
 }
 
@@ -385,223 +373,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
 
   const bufferGraceMessage = useCallback((sessionId: string, msg: ServerWsMessage) => {
-    const current = graceBufferedSessionsRef.current.get(sessionId) ?? { output: [], outputBytes: 0 };
-
-    switch (msg.type) {
-      case 'screen-snapshot':
-        if (current.reconnectRequired || current.authorityProofMismatch) {
-          recordTerminalDebugEvent(sessionId, 'websocket_grace_snapshot_after_reconnect_ignored', {
-            replayToken: msg.replayToken,
-            snapshotSeq: msg.seq,
-          });
-          break;
-        }
-        if (
-          current.restoreNeeded
-          && (
-            !matchesRestoreNeededSnapshotAuthorityProof(current.restoreNeeded, msg)
-          )
-        ) {
-          recordTerminalDebugEvent(sessionId, 'websocket_grace_snapshot_generation_mismatch', {
-            replayToken: msg.replayToken,
-            snapshotSeq: msg.seq,
-            expectedReplayToken: current.restoreNeeded.replayToken,
-            expectedSnapshotSeq: current.restoreNeeded.snapshotSeq,
-          });
-          current.authorityProofMismatch = true;
-          current.snapshot = undefined;
-          current.ready = undefined;
-          current.output = [];
-          current.outputBytes = 0;
-          break;
-        }
-        current.snapshot = msg;
-        // A ready frame can only complete the snapshot generation that was
-        // already observed. Snapshot replacement therefore invalidates any
-        // older grace-buffered ready token.
-        current.ready = undefined;
-        if (!current.restoreNeeded) {
-          current.output = [];
-          current.outputBytes = 0;
-          current.outputOverflowReason = undefined;
-        }
-        break;
-      case 'screen-repair':
-      case 'screen-repair:rejected':
-        recordTerminalDebugEvent(sessionId, 'screen_repair_grace_buffer_skipped', {
-          type: msg.type,
-          reason: msg.type === 'screen-repair:rejected' ? msg.reason : null,
-        });
-        break;
-      case 'screen-repair:restore-needed':
-        if (current.reconnectRequired) {
-          recordTerminalDebugEvent(sessionId, 'screen_repair_restore_after_reconnect_ignored', {
-            repairToken: msg.repairToken,
-            replayToken: msg.replayToken,
-            snapshotSeq: msg.snapshotSeq,
-          });
-          break;
-        }
-        if (!hasSameRestoreNeededAuthorityProof(msg, msg)) {
-          recordTerminalDebugEvent(sessionId, 'screen_repair_restore_grace_invalid_proof_ignored', {
-            repairToken: msg.repairToken,
-            replayToken: msg.replayToken,
-            snapshotSeq: msg.snapshotSeq,
-          });
-          current.authorityProofMismatch = true;
-          current.restoreNeeded = undefined;
-          current.snapshot = undefined;
-          current.ready = undefined;
-          current.output = [];
-          current.outputBytes = 0;
-          break;
-        }
-        if (
-          current.restoreNeeded?.repairToken === msg.repairToken
-          && current.restoreNeeded.replayToken === msg.replayToken
-          && current.restoreNeeded.snapshotSeq === msg.snapshotSeq
-        ) {
-          if (!hasSameRestoreNeededAuthorityProof(current.restoreNeeded, msg)) {
-            recordTerminalDebugEvent(sessionId, 'screen_repair_restore_grace_proof_mismatch_ignored', {
-              repairToken: msg.repairToken,
-              replayToken: msg.replayToken,
-              snapshotSeq: msg.snapshotSeq,
-            });
-            current.authorityProofMismatch = true;
-            current.restoreNeeded = undefined;
-            current.snapshot = undefined;
-            current.ready = undefined;
-            current.output = [];
-            current.outputBytes = 0;
-            break;
-          }
-          recordTerminalDebugEvent(sessionId, 'screen_repair_restore_grace_duplicate_ignored', {
-            repairToken: msg.repairToken,
-            replayToken: msg.replayToken,
-            snapshotSeq: msg.snapshotSeq,
-          });
-          break;
-        }
-        current.restoreNeeded = msg;
-        current.authorityProofMismatch = false;
-        current.reconnectRequired = undefined;
-        current.snapshot = undefined;
-        current.ready = undefined;
-        current.output = [];
-        current.outputBytes = 0;
-        current.outputOverflowReason = undefined;
-        break;
-      case 'screen-repair:reconnect-required':
-        current.reconnectRequired = msg;
-        current.restoreNeeded = undefined;
-        current.snapshot = undefined;
-        current.ready = undefined;
-        current.output = [];
-        current.outputBytes = 0;
-        current.outputOverflowReason = undefined;
-        break;
-      case 'output':
-        {
-          if (current.reconnectRequired) {
-            break;
-          }
-          if (
-            current.restoreNeeded
-            && msg.replayToken !== current.restoreNeeded.replayToken
-          ) {
-            recordTerminalDebugEvent(sessionId, 'websocket_grace_output_generation_mismatch', {
-              replayToken: msg.replayToken ?? null,
-              expectedReplayToken: current.restoreNeeded.replayToken,
-              screenSeq: msg.screenSeq ?? null,
-            });
-            break;
-          }
-          if (current.outputOverflowReason) {
-            break;
-          }
-          const limits = getTerminalResourceLimits();
-          const messageBytes = getOutputUtf8ByteLength(msg.data);
-          const byteOverflow = current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes;
-          const chunkOverflow = current.output.length + 1 > limits.visibleOutputMaxChunks;
-          if (byteOverflow || chunkOverflow) {
-            current.output = [];
-            current.outputBytes = 0;
-            current.outputOverflowReason = byteOverflow
-              ? 'byte-cap-exceeded'
-              : 'chunk-cap-exceeded';
-            recordTerminalDebugEvent(sessionId, 'websocket_grace_output_overflow', {
-              reason: current.outputOverflowReason,
-              messageBytes,
-              maxBytes: limits.visibleOutputQueueMaxBytes,
-              maxChunks: limits.visibleOutputMaxChunks,
-            });
-            break;
-          }
-          current.output.push(msg);
-          current.outputBytes += messageBytes;
-        }
-        break;
-      case 'status':
-        current.status = msg.status;
-        break;
-      case 'session:ready':
-        if (current.reconnectRequired) {
-          break;
-        }
-        if (
-          current.restoreNeeded
-          && (
-            !current.snapshot
-            || msg.replayToken !== current.restoreNeeded.replayToken
-            || msg.snapshotSeq !== current.restoreNeeded.snapshotSeq
-          )
-        ) {
-          recordTerminalDebugEvent(sessionId, 'websocket_grace_ready_generation_mismatch', {
-            replayToken: msg.replayToken ?? null,
-            snapshotSeq: msg.snapshotSeq ?? null,
-            expectedReplayToken: current.restoreNeeded.replayToken,
-            expectedSnapshotSeq: current.restoreNeeded.snapshotSeq,
-          });
-          break;
-        }
-        if (
-          current.snapshot
-          && !current.restoreNeeded
-          && (
-            msg.replayToken !== current.snapshot.replayToken
-            || msg.snapshotSeq !== current.snapshot.seq
-          )
-        ) {
-          recordTerminalDebugEvent(sessionId, 'websocket_grace_ready_snapshot_mismatch', {
-            replayToken: msg.replayToken ?? null,
-            snapshotSeq: msg.snapshotSeq ?? null,
-            expectedReplayToken: current.snapshot.replayToken,
-            expectedSnapshotSeq: current.snapshot.seq,
-          });
-          break;
-        }
-        current.ready = msg;
-        break;
-      case 'input:rejected':
-        recordTerminalDebugEvent(msg.sessionId, 'server_input_rejected', {
-          reason: msg.reason,
-          inputSeqStart: msg.inputSeqStart ?? null,
-          inputSeqEnd: msg.inputSeqEnd ?? null,
-          buffered: true,
-        });
-        break;
-      case 'cwd':
-        current.cwd = msg.cwd;
-        break;
-      case 'session:error':
-        current.error = msg.message;
-        break;
-      case 'session:exited':
-        current.error = `Shell exited with code ${msg.exitCode}`;
-        break;
-    }
-
-    graceBufferedSessionsRef.current.set(sessionId, current);
+    const current = graceBufferedSessionsRef.current.get(sessionId) ?? createGraceBufferedSessionState();
+    graceBufferedSessionsRef.current.set(sessionId, applyGraceBufferedMessage(current, sessionId, msg));
   }, []);
 
   const flushGraceBuffer = useCallback((sessionId: string, handlers: SessionHandlers) => {
@@ -611,47 +384,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
 
     graceBufferedSessionsRef.current.delete(sessionId);
-    const recoveryTerminal = Boolean(buffered.reconnectRequired) || Boolean(buffered.authorityProofMismatch);
-    const recoveryBlocked = recoveryTerminal || Boolean(buffered.outputOverflowReason) || Boolean(buffered.restoreNeeded);
-    const recoverySnapshotReady = !buffered.restoreNeeded || Boolean(buffered.snapshot);
-    if (!recoveryTerminal && buffered.restoreNeeded) {
-      handlers.onScreenRepairRestoreNeeded?.(buffered.restoreNeeded);
-    }
-    if (buffered.reconnectRequired) {
-      handlers.onScreenRepairReconnectRequired?.(buffered.reconnectRequired);
-    }
-    if (buffered.outputOverflowReason) {
-      handlers.onGraceOutputOverflow?.(buffered.outputOverflowReason);
-    }
-    if (buffered.authorityProofMismatch) {
-      handlers.onGraceAuthorityProofMismatch?.();
-    }
-    if (buffered.subscribedInfo) {
-      handlers.onSubscribed?.({
-        ...buffered.subscribedInfo,
-        ready: recoveryBlocked ? false : buffered.subscribedInfo.ready,
-      });
-    }
-    if (!recoveryTerminal && !buffered.outputOverflowReason && buffered.snapshot) {
-      handlers.onScreenSnapshot?.(buffered.snapshot);
-    }
-    if (buffered.status) {
-      handlers.onStatus?.(buffered.status);
-    }
-    if (buffered.cwd) {
-      handlers.onCwd?.(buffered.cwd);
-    }
-    if (!recoveryTerminal && recoverySnapshotReady) {
-      for (const output of buffered.output) {
-        handlers.onOutput?.(fromJsonOutputMessage(output.data, output));
-      }
-    }
-    if (!recoveryTerminal && recoverySnapshotReady && !buffered.outputOverflowReason && buffered.ready) {
-      handlers.onSessionReady?.(buffered.ready);
-    }
-    if (buffered.error) {
-      handlers.onError?.(buffered.error);
-    }
+    flushGraceBufferedSession(buffered, handlers);
   }, []);
 
   const listNegotiatedTerminalCheckpointViews = useCallback((): readonly TerminalCheckpointViewRegistration[] => (
@@ -1001,6 +734,19 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
+      if (checkpoint.type === 'terminal-checkpoint:lease-revoked') {
+        // #112: the server just told us our mutation lease is gone for a reason that has
+        // nothing to do with our identity being wrong (it was correct all along) --
+        // continuing to attach it to every keystroke would be refused forever. Clear the
+        // stale cache entry and re-negotiate now instead of waiting for the next
+        // session-ready or reconnect to happen to fix it.
+        retainedMutationLeasesRef.current.delete(checkpoint.sessionId);
+        recordTerminalDebugEvent(checkpoint.sessionId, 'terminal_checkpoint_lease_revoked', {
+          reason: checkpoint.reason,
+        });
+        requestCurrentTerminalCheckpointCapability();
+        return;
+      }
       if (checkpoint.type === 'terminal-checkpoint:rejected') {
         if (checkpoint.sessionId) {
           recordTerminalDebugEvent(checkpoint.sessionId, 'terminal_checkpoint_server_rejected', {
@@ -1160,7 +906,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             activeSubscriptionsRef.current.has(info.sessionId) &&
             pendingUnsubscribeTimersRef.current.has(info.sessionId)
           ) {
-            const current = graceBufferedSessionsRef.current.get(info.sessionId) ?? { output: [], outputBytes: 0 };
+            const current = graceBufferedSessionsRef.current.get(info.sessionId) ?? createGraceBufferedSessionState();
             current.subscribedInfo = { status: info.status, cwd: info.cwd, ready: info.ready };
             if (info.cwd) {
               current.cwd = info.cwd;
@@ -1233,6 +979,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           inputSeqStart: msg.inputSeqStart ?? null,
           inputSeqEnd: msg.inputSeqEnd ?? null,
         });
+        // @req REL-BGSTAB-016 @req REL-BGSTAB-011
+        // The user typed and the server refused. Recording it in the debug ring is not telling
+        // anyone -- measured 2026-09-19, two refusals went by with nothing on screen.
+        // Which refusals owe a warning is decided by shouldSurfaceInputRejection: the rule is
+        // whether the write reached the PTY, and it used to be spelled here as a single
+        // exclusion whose comment was wrong about expired-operation.
+        if (shouldSurfaceInputRejection(msg.reason)) {
+          publishInputDiscard(sessionId);
+        }
       }
       const handlers = sessionHandlersRef.current.get(sessionId);
       if (!handlers) {
@@ -1296,6 +1051,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           requestCurrentTerminalCheckpointCapability();
           break;
         case 'input:rejected':
+          // Surfaced above, before handler lookup, so a refusal is reported even for a session
+          // whose handlers are not mounted.
           break;
         case 'cwd':
           handlers.onCwd?.(msg.cwd);

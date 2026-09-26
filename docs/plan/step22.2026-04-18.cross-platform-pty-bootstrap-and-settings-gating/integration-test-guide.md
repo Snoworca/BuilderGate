@@ -9,7 +9,7 @@
 ## 공통 환경
 
 - 검증 URL: `https://localhost:2002`
-- 로컬 테스트 비밀번호: `1234`
+- 로컬 테스트 비밀번호: `$BUILDERGATE_PASSWORD`
 - 저장소 루트: `C:\Work\git\_Snoworca\ProjectMaster`
 
 ## 서버 회귀 테스트

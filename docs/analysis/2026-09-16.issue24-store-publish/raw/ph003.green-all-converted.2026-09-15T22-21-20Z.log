@@ -1,0 +1,23 @@
+✔ REL-BGSTAB-022 AC-1: two instances publishing concurrently both resolve (19.085105ms)
+✔ REL-BGSTAB-022 AC-2: a resolved publish holds the document it wrote (2.23386ms)
+✔ REL-BGSTAB-022 AC-3: a shorter peer overlay leaves no foreign tail (3.27657ms)
+[CommandPresetService] Flush failed: injected rename failure
+✔ REL-BGSTAB-022 AC-4: failure cleanup removes only the caller's own temp file (2.467461ms)
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+✔ REL-BGSTAB-022 AC-7: the backup parses whole under an interposed peer overlay (4.796919ms)
+✔ REL-BGSTAB-022 AC-8: each of the seven in-scope stores publishes through a private temp path (1023.935941ms)
+[CommandPresetService] Flush failed: injected rename failure
+[WorkspaceService] Flush failed: injected rename failure
+[TerminalShortcutService] Flush failed: injected rename failure
+[RecoveryOptionService] Flush failed: injected rename failure
+✔ REL-BGSTAB-022 AC-8: each converted store preserves the error type it rejected with before (20.755275ms)
+✔ REL-BGSTAB-022 AC-9: overlapping publishes through one instance each reach disk (2.899235ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1832.194497

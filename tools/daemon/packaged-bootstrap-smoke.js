@@ -17,7 +17,10 @@ const DEFAULT_PROFILE = process.platform === 'darwin'
 function parseArgs(argv) {
   const options = {
     runtimeDir: path.join(ROOT, 'dist', 'bin', `${DEFAULT_PROFILE}-${PACKAGE_VERSION}`),
-    port: 2002,
+    // 2222 is the validation port. This used to default to 2002, which is the
+    // port the deployed daemon listens on: running this script with no
+    // arguments aimed it at production.
+    port: 2222,
     timeoutMs: 45_000,
   };
 

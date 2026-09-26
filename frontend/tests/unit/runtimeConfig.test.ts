@@ -6,6 +6,7 @@ import {
   getFrontendRuntimeResidencyMode,
   getRuntimeConfigVersion,
   getSnapshotResourceLimits,
+  getOsc52AllowWrite,
   getTerminalResourceLimits,
   getWsTransportMode,
   getWorkspaceRuntimeResourceLimits,
@@ -13,6 +14,7 @@ import {
   reloadRuntimeConfig,
   subscribeRuntimeConfigChanges,
 } from '../../src/utils/inputReliabilityMode.ts';
+import { evaluateOsc52Request } from '../../src/utils/terminalOsc52.ts';
 import * as terminalViewAttributesModule from '../../src/utils/terminalViewAttributes.ts';
 import {
   createHiddenOutputState,
@@ -97,6 +99,11 @@ const settingsSnapshotCapabilities = {
   'resourceLimits.terminal.visibleOutputQueueMaxBytes': defaultCapability,
   'resourceLimits.terminal.visibleOutputMaxChunks': defaultCapability,
   'resourceLimits.terminal.visibleFlushBudgetBytes': defaultCapability,
+  'resourceLimits.terminal.visibleFlushFrameBudgetMs': defaultCapability,
+  'resourceLimits.terminal.checkpointMaxBytes': defaultCapability,
+  'resourceLimits.terminal.checkpointChunkBytes': defaultCapability,
+  'resourceLimits.terminal.checkpointMaxChunks': defaultCapability,
+  'resourceLimits.terminal.inputQueueMaxCount': defaultCapability,
   'resourceLimits.terminal.hiddenOutputPolicy': defaultCapability,
   'resourceLimits.terminal.hiddenOutputTailBytes': defaultCapability,
   'resourceLimits.terminal.inputQueueMaxBytes': defaultCapability,
@@ -111,7 +118,6 @@ const settingsSnapshotCapabilities = {
   'resourceLimits.workspaceRuntime.maxLiveWorkspaces': defaultCapability,
   'resourceLimits.workspaceRuntime.maxLiveTerminals': defaultCapability,
   'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs': defaultCapability,
-  'resourceLimits.telemetry.sampleIntervalMs': defaultCapability,
   'resourceLimits.telemetry.recentEventLimit': defaultCapability,
   'stabilityModes.headlessQueueMode': defaultCapability,
   'stabilityModes.wsSendMode': defaultCapability,
@@ -175,9 +181,14 @@ const settingsSnapshotWithWriteHiddenPolicy = {
         visibleOutputQueueMaxBytes: 1_048_576,
         visibleOutputMaxChunks: 1024,
         visibleFlushBudgetBytes: 65_536,
+        visibleFlushFrameBudgetMs: 7,
+        checkpointMaxBytes: 4_194_304,
+        checkpointMaxChunks: 512,
+        checkpointChunkBytes: 65_536,
         hiddenOutputPolicy: 'write-hidden',
         hiddenOutputTailBytes: 262_144,
         inputQueueMaxBytes: 65_536,
+        inputQueueMaxCount: 512,
         inputQueueTtlMs: 5_000,
         transportOutboxMaxBytes: 65_536,
         transportOutboxTtlMs: 5_000,
@@ -195,7 +206,8 @@ const settingsSnapshotWithWriteHiddenPolicy = {
         hiddenRuntimeTtlMs: 300_000,
       },
       telemetry: {
-        sampleIntervalMs: 30_000,
+        // Retired leaf: still present in on-disk configs, absent from the type.
+        ...{ sampleIntervalMs: 30_000 },
         recentEventLimit: 200,
       },
     },
@@ -258,9 +270,14 @@ test('runtime config loads terminal hidden output limits from public payload', a
       visibleOutputQueueMaxBytes: 4_194_304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262_144,
+      visibleFlushFrameBudgetMs: 7,
+      checkpointMaxBytes: 4_194_304,
+      checkpointMaxChunks: 512,
+      checkpointChunkBytes: 65_536,
       hiddenOutputPolicy: 'debug-tail',
       hiddenOutputTailBytes: 4096,
       inputQueueMaxBytes: 65_536,
+      inputQueueMaxCount: 512,
       inputQueueTtlMs: 1500,
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
@@ -295,9 +312,14 @@ test('runtime config loads all public resource limit sections from public payloa
         visibleOutputQueueMaxBytes: 9_000_000,
         visibleOutputMaxChunks: 1024,
         visibleFlushBudgetBytes: 512_000,
+        visibleFlushFrameBudgetMs: 21, // #101: NOT the 7ms default -- a fixture at the default cannot tell applied from defaulted
+        checkpointMaxBytes: 9_000_000,
+        checkpointMaxChunks: 512,
+        checkpointChunkBytes: 65_536,
         hiddenOutputPolicy: 'debug-tail',
         hiddenOutputTailBytes: 4096,
         inputQueueMaxBytes: 128_000,
+        inputQueueMaxCount: 512,
         inputQueueTtlMs: 2500,
         transportOutboxMaxBytes: 256_000,
         transportOutboxTtlMs: 3500,
@@ -331,9 +353,14 @@ test('runtime config loads all public resource limit sections from public payloa
       visibleOutputQueueMaxBytes: 9_000_000,
       visibleOutputMaxChunks: 1024,
       visibleFlushBudgetBytes: 512_000,
+      visibleFlushFrameBudgetMs: 21, // #101: NOT the 7ms default -- a fixture at the default cannot tell applied from defaulted
+      checkpointMaxBytes: 9_000_000,
+      checkpointMaxChunks: 512,
+      checkpointChunkBytes: 65_536,
       hiddenOutputPolicy: 'debug-tail',
       hiddenOutputTailBytes: 4096,
       inputQueueMaxBytes: 128_000,
+      inputQueueMaxCount: 512,
       inputQueueTtlMs: 2500,
       transportOutboxMaxBytes: 256_000,
       transportOutboxTtlMs: 3500,
@@ -504,9 +531,14 @@ test('runtime config falls back to Wave7 hidden output defaults for invalid term
       visibleOutputQueueMaxBytes: 4_194_304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262_144,
+      visibleFlushFrameBudgetMs: 7,
+      checkpointMaxBytes: 4_194_304,
+      checkpointMaxChunks: 512,
+      checkpointChunkBytes: 65_536,
       hiddenOutputPolicy: 'snapshot-restore',
       hiddenOutputTailBytes: 262_144,
       inputQueueMaxBytes: 65_536,
+      inputQueueMaxCount: 512,
       inputQueueTtlMs: 1500,
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
@@ -530,6 +562,8 @@ test('runtime config falls back to defaults for invalid resource limit sections'
         visibleOutputQueueMaxBytes: -1,
         visibleOutputMaxChunks: 0,
         visibleFlushBudgetBytes: 1.5,
+        visibleFlushFrameBudgetMs: 7,
+        checkpointMaxBytes: -1,
         hiddenOutputPolicy: 'write-hidden',
         hiddenOutputTailBytes: -1,
         inputQueueMaxBytes: Number.POSITIVE_INFINITY,
@@ -564,9 +598,14 @@ test('runtime config falls back to defaults for invalid resource limit sections'
       visibleOutputQueueMaxBytes: 4_194_304,
       visibleOutputMaxChunks: 512,
       visibleFlushBudgetBytes: 262_144,
+      visibleFlushFrameBudgetMs: 7,
+      checkpointMaxBytes: 4_194_304,
+      checkpointMaxChunks: 512,
+      checkpointChunkBytes: 65_536,
       hiddenOutputPolicy: 'snapshot-restore',
       hiddenOutputTailBytes: 262_144,
       inputQueueMaxBytes: 65_536,
+      inputQueueMaxCount: 512,
       inputQueueTtlMs: 1500,
       transportOutboxMaxBytes: 65_536,
       transportOutboxTtlMs: 1500,
@@ -615,6 +654,96 @@ test('runtime config accepts split websocket transport mode', async () => {
     await initializeInputReliabilityMode();
 
     assert.equal(getWsTransportMode(), 'split');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+// --- SEC-BGSTAB-001 AC-2: the OSC52 switch must survive the transport ------------
+//
+// THE LOAD-BEARING DIRECTION IS `false`, NOT THE DEFAULT.
+//
+// A test that only checks the default is satisfied by a transport that publishes nothing at
+// all -- which was literally the state before #20 rehomed this key, and it would have passed.
+// The dangerous case is the other one: an operator hardens a deployment with
+// allowWrite: false, the publish path drops it or the parser ignores it, and the browser
+// allows OSC52 writes anyway. The server honours the switch, the page does not, and nothing
+// goes red. That is a security control failing open with no signal.
+
+function securityPayloadResponse(security: unknown): () => Promise<Response> {
+  return async () => new Response(JSON.stringify({
+    inputReliabilityMode: 'queue',
+    security,
+  }), { status: 200 });
+}
+
+test('SEC-BGSTAB-001 AC-2 a hardened allowWrite:false survives the runtime-config transport', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = securityPayloadResponse({ osc52: { allowWrite: false } });
+
+  try {
+    await initializeInputReliabilityMode();
+    assert.equal(getOsc52AllowWrite(), false, 'a hardened deployment must reach the browser');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('SEC-BGSTAB-001 AC-2 a hardened false actually refuses an OSC52 write end to end', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = securityPayloadResponse({ osc52: { allowWrite: false } });
+
+  try {
+    await initializeInputReliabilityMode();
+    // The switch is only worth transporting if the policy honours it. This is the assertion
+    // that would have caught "the server refuses, the browser allows".
+    const decision = evaluateOsc52Request(`c;${Buffer.from('x', 'utf-8').toString('base64')}`, {
+      allowWrite: getOsc52AllowWrite(),
+    });
+    assert.equal(decision.kind, 'deny-write-disabled');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('SEC-BGSTAB-001 AC-2 an absent security section leaves writes allowed', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = securityPayloadResponse(undefined);
+
+  try {
+    await initializeInputReliabilityMode();
+    // Fail-open by design, per AC-2: writes are allowed unless a deployment turns them off.
+    assert.equal(getOsc52AllowWrite(), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('SEC-BGSTAB-001 AC-2 a non-boolean allowWrite does not silently disable writes', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = securityPayloadResponse({ osc52: { allowWrite: 'false' } });
+
+  try {
+    await initializeInputReliabilityMode();
+    // Boundary: the string 'false' is not a boolean. Coercing it would let a malformed
+    // payload disable a feature; only an explicit boolean false turns writes off.
+    assert.equal(getOsc52AllowWrite(), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('SEC-BGSTAB-001 AC-1 no read switch arrives over the transport', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = securityPayloadResponse({ osc52: { allowWrite: true, allowRead: true } });
+
+  try {
+    await initializeInputReliabilityMode();
+    // The server schema rejects such a key, but even if one arrived there is no parser path
+    // that could carry it: the browser exposes one boolean and nothing else.
+    assert.equal(getOsc52AllowWrite(), true);
+    assert.equal(evaluateOsc52Request('c;?', { allowWrite: true }).kind, 'deny-read');
   } finally {
     globalThis.fetch = originalFetch;
   }

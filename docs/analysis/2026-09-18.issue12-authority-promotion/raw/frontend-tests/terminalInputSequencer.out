@@ -1,0 +1,16 @@
+✔ same-session xterm recreation retains pending input while session lifetime cleanup settles it once (7.183964ms)
+✔ TerminalInputSequencer splits printable runs at the server sequence span limit (4.277555ms)
+✔ TerminalInputSequencer keeps control input as an ordered boundary after printable coalescing (0.261815ms)
+✔ TerminalInputSequencer reuses provided client-observed metadata when coalescing printable input (0.323717ms)
+✔ terminal input debug payload reuses module codec singletons and can skip high-cost details when capture is disabled (1.004831ms)
+✔ TerminalInputSequencer preserves debug-disabled metadata without recomputing expensive metrics (0.674884ms)
+✔ terminal input debug payload resolver does not rebuild when client metadata already exists (0.325747ms)
+✔ query reply input kind bypasses user sequencer and outbox and rejects stale responder identity (1.260195ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 168.546532

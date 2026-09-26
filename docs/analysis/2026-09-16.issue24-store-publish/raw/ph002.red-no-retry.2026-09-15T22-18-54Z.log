@@ -1,0 +1,98 @@
+✖ REL-BGSTAB-022 AC-5: EPERM on the destination rename is retried to five attempts (6.964297ms)
+✖ REL-BGSTAB-022 AC-5: EACCES on the destination rename is retried to five attempts (5.416885ms)
+✖ REL-BGSTAB-022 AC-5: EBUSY on the destination rename is retried to five attempts (15.782569ms)
+✖ REL-BGSTAB-022 AC-5: the recorded waits are exactly 10, 20, 40 and 80 ms (1.938883ms)
+✖ REL-BGSTAB-022 AC-5: an exhausted budget rejects after five attempts and leaves the destination intact (3.693694ms)
+✔ REL-BGSTAB-022 AC-6: ENOSPC rejects on the first attempt with zero recorded waits (2.215947ms)
+✔ REL-BGSTAB-022 AC-5: a failed publish leaves no temp file behind (1.880942ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 733.705091
+
+✖ failing tests:
+
+test at src/utils/atomicStoreWrite.test.ts:1:1350
+✖ REL-BGSTAB-022 AC-5: EPERM on the destination rename is retried to five attempts (6.964297ms)
+  Error: injected EPERM
+      at errno (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:44:17)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:76:68)
+      at Object.replacement (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:62:21)
+      at renameWithRetry (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.ts:87:16)
+      at publishStoreAtomically (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.ts:146:11)
+      at async <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:79:7)
+      at async withPatchedRename (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:32:12)
+      at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:78:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    code: 'EPERM'
+  }
+
+test at src/utils/atomicStoreWrite.test.ts:1:1350
+✖ REL-BGSTAB-022 AC-5: EACCES on the destination rename is retried to five attempts (5.416885ms)
+  Error: injected EACCES
+      at errno (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:44:17)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:76:68)
+      at Object.replacement (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:62:21)
+      at renameWithRetry (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.ts:87:16)
+      at publishStoreAtomically (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.ts:146:11)
+      at async <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:79:7)
+      at async withPatchedRename (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:32:12)
+      at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:78:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'EACCES'
+  }
+
+test at src/utils/atomicStoreWrite.test.ts:1:1350
+✖ REL-BGSTAB-022 AC-5: EBUSY on the destination rename is retried to five attempts (15.782569ms)
+  Error: injected EBUSY
+      at errno (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:44:17)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:76:68)
+      at Object.replacement (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:62:21)
+      at renameWithRetry (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.ts:87:16)
+      at publishStoreAtomically (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.ts:146:11)
+      at async <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:79:7)
+      at async withPatchedRename (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:32:12)
+      at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:78:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'EBUSY'
+  }
+
+test at src/utils/atomicStoreWrite.test.ts:1:1900
+✖ REL-BGSTAB-022 AC-5: the recorded waits are exactly 10, 20, 40 and 80 ms (1.938883ms)
+  Error: injected EPERM
+      at errno (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:44:17)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:93:66)
+      at Object.replacement (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:62:21)
+      at renameWithRetry (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.ts:87:16)
+      at publishStoreAtomically (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.ts:146:11)
+      at async <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:96:5)
+      at async withPatchedRename (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:32:12)
+      at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:95:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'EPERM'
+  }
+
+test at src/utils/atomicStoreWrite.test.ts:1:2474
+✖ REL-BGSTAB-022 AC-5: an exhausted budget rejects after five attempts and leaves the destination intact (3.693694ms)
+  AssertionError [ERR_ASSERTION]: the budget is one initial attempt plus four retries
+  
+  1 !== 5
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/utils/atomicStoreWrite.test.ts:122:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 5,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

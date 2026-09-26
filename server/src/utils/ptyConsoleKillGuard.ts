@@ -1,4 +1,4 @@
-// REL-BGSTAB-022 AC-4: node-pty 1.1.0 kills a ConPTY session by forking an
+// REL-BGSTAB-029 AC-4: node-pty 1.1.0 kills a ConPTY session by forking an
 // agent that attaches to the console of the shell PID and lists every process
 // on it, then calls process.kill on each one from the server. The verified tree
 // kill has usually taken the shell already, and Windows may have handed its PID

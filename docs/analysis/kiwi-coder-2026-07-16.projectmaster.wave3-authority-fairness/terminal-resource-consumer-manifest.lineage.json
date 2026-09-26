@@ -7,27 +7,52 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "8f0c6c851a32c94f90b1cfe4a96251dcab37e26b04ec988b692f89d2fefeb168",
-    "sourceCount": 35,
-    "sourceSetSha256": "a9cfd583ff5a6a2f27e7941dfdf0425dff246dc5102152273b8a15b9eddfa117",
-    "exactConsumerTuples": 80,
-    "classifications": 10
+    "sha256": "3bb4082380bd4b9944e4a357d912a790d749c312ed0a8097eb11dc3ab1ecdd6f",
+    "sourceCount": 42,
+    "sourceSetSha256": "c3b0a8deeb4fc29ad28387a5173cdc5a681b76aea7750975c68f95558dc6c504",
+    "exactConsumerTuples": 88,
+    "classifications": 13
   },
   "semanticInventory": {
-    "sha256": "f0e119fbc30adef1091084adc82028870f8c8bf3578fdf72c864d1b54601c023",
+    "sha256": "671615b0183b31bee5abcfdec061afa5b1495ebd25a2d7a08a6cd10ba7c41147",
     "historicalEqualsCurrent": false,
     "divergence": {
-      "reason": "evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source",
+      "reason": "evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source; REL-BGSTAB-023 registered resourceLimits.terminal.checkpointMaxBytes, adding one decision to browser.terminal.recovery-scheduler at the checkpoint-write-coordinator boundary; and REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage into terminalGraceBuffer#applyGraceBufferedMessage with an identical body, relocating the four visibleOutputQueueMaxBytes/visibleOutputMaxChunks grace tuples without changing any decision",
       "decisionDrift": {
         "retired": [
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.visibleOutputMaxChunks\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.visibleOutputMaxChunks\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-input-count-cap\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.visibleOutputMaxChunks\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.visibleOutputMaxChunks\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-settlement-ledger-cap\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"TerminalView:xterm-constructor-hardcoded\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"terminal-runtime-construction\",\"state\":\"divergent-legacy\"}",
           "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"pty.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"headless-terminal-construction\",\"state\":\"divergent-legacy\"}",
           "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"pty.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"session-generation\",\"state\":\"divergent-legacy\"}"
         ],
         "introduced": [
+          "{\"consumerId\":\"browser.binary.frame-codec\",\"category\":\"browser-binary-frame-codec\",\"resourceKey\":\"resourceLimits.terminal.visibleOutputQueueMaxBytes\",\"unit\":\"bytes\",\"source\":\"resourceLimits.terminal.visibleOutputQueueMaxBytes\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"browser-frame-admission\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.checkpointMaxBytes\",\"unit\":\"bytes\",\"source\":\"resourceLimits.terminal.checkpointMaxBytes\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-write-coordinator\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.checkpointMaxChunks\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.checkpointMaxChunks\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-write-coordinator\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.inputQueueMaxCount\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.inputQueueMaxCount\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-input-count-cap\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.inputQueueMaxCount\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.inputQueueMaxCount\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-settlement-ledger-cap\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.inputQueueMaxCount\",\"unit\":\"count\",\"source\":\"resourceLimits.terminal.inputQueueMaxCount\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"recovery-generation\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.recovery-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.inputQueueTtlMs\",\"unit\":\"ms\",\"source\":\"resourceLimits.terminal.inputQueueTtlMs\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"pending-input-expiry\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"terminal-runtime-construction\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.visibleFlushFrameBudgetMs\",\"unit\":\"ms\",\"source\":\"resourceLimits.terminal.visibleFlushFrameBudgetMs\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"browser-frame\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"browser.terminal.write-scheduler\",\"category\":\"terminal-write-recovery-scheduler\",\"resourceKey\":\"resourceLimits.terminal.visibleFlushFrameBudgetMs\",\"unit\":\"ms\",\"source\":\"resourceLimits.terminal.visibleFlushFrameBudgetMs\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"browser-write-slice\",\"state\":\"consumed\"}",
+          "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.checkpointChunkBytes\",\"unit\":\"bytes\",\"source\":\"resourceLimits.terminal.checkpointChunkBytes\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[],\"applyBoundary\":\"checkpoint-chunk\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"headless-terminal-construction\",\"state\":\"consumed\"}",
           "{\"consumerId\":\"server.pty.headless-model\",\"category\":\"pty-headless-model\",\"resourceKey\":\"resourceLimits.terminal.scrollbackLines\",\"unit\":\"lines\",\"source\":\"resourceLimits.terminal.scrollbackLines\",\"schemaVersion\":\"terminal-resource-policy/v1\",\"profileVersion\":\"legacy-effective/v1\",\"legacyAliases\":[\"pty.scrollbackLines\"],\"applyBoundary\":\"session-generation\",\"state\":\"consumed\"}"
+        ]
+      },
+      "classificationDrift": {
+        "retired": [
+          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}",
+          "{\"path\":\"server/src/services/RuntimeConfigStore.ts\",\"classification\":\"policy-projection\",\"symbol\":\"getTerminalResourcePolicyObservation\",\"evidenceSignature\":\"getTerminalResourcePolicyObservation\",\"accessEvidenceSha256\":\"f98f45d38dbe49427b6c59b6f0817a7c702d9967b0e1195027e078cbb61aaaa6\",\"reason\":\"Projects effective values and evidence without claiming consumer application.\"}"
+        ],
+        "introduced": [
+          "{\"path\":\"frontend/src/utils/terminalWriteCoordinator.ts\",\"classification\":\"uncatalogueable\",\"symbol\":\"createTerminalWriteCoordinator\",\"evidenceSignature\":\"options.checkpointMaxBytes\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"Bounds on checkpointMaxBytes and checkpointMaxChunks received as plain options, so the access traces to no trusted getter and resolves to no canonical key. All five evidenceRole values yield roles=undefined; no catalogue row can describe it. Cataloguing requires the AST matcher to resolve delegated parameters.\"}",
+          "{\"path\":\"server/src/index.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"maxEntries: 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here caps MCP claim codes, not resourceLimits.snapshots.maxEntries. It is passed to McpToolService and never reaches a terminal resource decision.\"}",
+          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"7a7822e6c551e7925d142cb80242000d9a25aacb32206c133c18d3bd90feb2b7\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}",
+          "{\"path\":\"server/src/services/McpToolService.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"options.maxEntries ?? 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here is this module's own claim-code ring bound, defaulted locally to 256 and unrelated to resourceLimits.snapshots.maxEntries.\"}",
+          "{\"path\":\"server/src/services/RuntimeConfigStore.ts\",\"classification\":\"policy-projection\",\"symbol\":\"getTerminalResourcePolicyObservation\",\"evidenceSignature\":\"getTerminalResourcePolicyObservation\",\"accessEvidenceSha256\":\"78427023d0a139495e813d8d5fdde67f468708854da8eb7e93b527763c48b69c\",\"reason\":\"Projects effective values and evidence without claiming consumer application.\"}"
         ]
       },
       "relocatedEvidence": [
@@ -59,21 +84,12 @@
           ]
         },
         {
-          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-input-count-cap|consumed",
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.inputQueueTtlMs|recovery-generation|consumed",
           "retired": [
-            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
+            "frontend/src/components/Terminal/TerminalView.tsx#getInputQueueLimits :: inputQueueTtlMs: limits.inputQueueTtlMs :: object-option-flow"
           ],
           "introduced": [
-            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
-          ]
-        },
-        {
-          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-settlement-ledger-cap|consumed",
-          "retired": [
-            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
-          ],
-          "introduced": [
-            "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow"
+            "frontend/src/components/Terminal/TerminalView.tsx#getInputQueueLimits :: limits.inputQueueTtlMs, :: call-input"
           ]
         },
         {
@@ -86,12 +102,48 @@
           ]
         },
         {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-admission|consumed",
+          "retired": [
+            "frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: current.output.length + 1 > limits.visibleOutputMaxChunks :: derived-control"
+          ],
+          "introduced": [
+            "frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: current.output.length + 1 > limits.visibleOutputMaxChunks :: derived-control"
+          ]
+        },
+        {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-overflow-observation|consumed",
+          "retired": [
+            "frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: maxChunks: limits.visibleOutputMaxChunks :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: maxChunks: limits.visibleOutputMaxChunks :: object-option-flow"
+          ]
+        },
+        {
           "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|checkpoint-write-coordinator|consumed",
           "retired": [
             "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow"
           ],
           "introduced": [
             "frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow"
+          ]
+        },
+        {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-admission|consumed",
+          "retired": [
+            "frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes :: derived-control"
+          ],
+          "introduced": [
+            "frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes :: derived-control"
+          ]
+        },
+        {
+          "decision": "browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-overflow-observation|consumed",
+          "retired": [
+            "frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: maxBytes: limits.visibleOutputQueueMaxBytes :: object-option-flow"
+          ],
+          "introduced": [
+            "frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: maxBytes: limits.visibleOutputQueueMaxBytes :: object-option-flow"
           ]
         },
         {
@@ -104,7 +156,7 @@
           ]
         }
       ],
-      "evidenceHashOnlyChangedTuples": 6
+      "evidenceHashOnlyChangedTuples": 12
     }
   },
   "currentSlice": {

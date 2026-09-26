@@ -1,0 +1,55 @@
+[WS] WebSocket router initialized
+[WS] Client disconnected: checkpoint-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: reloaded-browser
+[WS] WebSocket router initialized
+[WS] Client disconnected: checkpoint-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: checkpoint-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: destroy-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: browser-1
+[WS] Client disconnected: browser-2
+[WS] WebSocket router initialized
+[WS] Client disconnected: browser-reconnected
+[WS] WebSocket router initialized
+[WS] Client disconnected: browser-recovery
+[WS] WebSocket router initialized
+[WS] Client disconnected: browser-recovery-race
+[WS] WebSocket router initialized
+[WS] Client disconnected: browser-reconnected
+[WS] WebSocket router initialized
+[WS] Client disconnected: browser-recovery-without-challenge
+[WS] WebSocket router initialized
+[WS] Client disconnected: driver-client
+[WS] Client disconnected: observer-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: mixed-session-browser
+[WS] WebSocket router initialized
+[WS] Client disconnected: checkpoint-client
+[WS] WebSocket router initialized
+[WS] Client disconnected: checkpoint-client
+✔ checkpoint negotiation is request-only and keeps legacy authority inactive (5.597264ms)
+✔ MIG-BGSTAB-002 subscribe re-announces a previously negotiated view after it becomes an authority candidate (1.800174ms)
+✔ RED reviewer — negotiated retained lease fences actual websocket input and resize mutations (1.668329ms)
+✔ RED reviewer — view removal renegotiates release and resize lease rejection is observable (0.742341ms)
+✔ RED reviewer — router destroy unregisters retained views before terminating sockets (0.558165ms)
+✔ MIG-BGSTAB-002 rejects client-authored responder generations and grants both browser views from server stream state (0.98691ms)
+✔ MIG-BGSTAB-002 reconnect generation emits one fresh authority-ready hook for the replacement view (0.650216ms)
+✔ MIG-BGSTAB-002 authoritative snapshot acknowledgement re-arms its exact checkpoint responder view (0.864993ms)
+✔ MIG-BGSTAB-002 acknowledged authoritative recovery re-arms after checkpoint mode becomes available (0.706095ms)
+✔ MIG-BGSTAB-002 same-view checkpoint renegotiation projects its existing server-authority lease (2.291037ms)
+✔ MIG-BGSTAB-002 checkpoint recovery readiness does not depend on a legacy attributes challenge (0.480249ms)
+✔ RED reviewer — negotiated observer stays registered, cannot mutate, and rebinds after driver disconnect (3.328477ms)
+✔ MIG-BGSTAB-002 negotiation scopes mixed authority modes per session (0.574956ms)
+✔ REL-BGSTAB-012 rebinds bounded continuity or requires fresh checkpoint (0.470395ms)
+✔ REL-BGSTAB-012 rebinds bounded continuity or requires an authoritative fresh checkpoint (1.42053ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1691.716702

@@ -1,0 +1,6 @@
+# RG-01 port occupancy observation (read-only), 2026-09-16T03:25:42+09:00
+# command: netstat.exe -ano | grep LISTENING | grep -E ':(2001|2002|2222|3333)'
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596

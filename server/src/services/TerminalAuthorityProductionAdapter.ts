@@ -127,6 +127,17 @@ export interface ProductionTerminalAuthorityIntegration {
   }): Promise<{ ok: boolean; reason?: string }>;
   getState(sessionId: string): TerminalAuthorityState | undefined;
   getAuthorityState(sessionId: string): TerminalAuthorityState | undefined;
+  /**
+   * Diagnostic only: per-view frame pump state, so a stalled terminal delivery can be
+   * described rather than counted. Optional because it exists to answer one investigation.
+   */
+  getFramePumpState?(sessionId: string): readonly {
+    viewKey: string;
+    sending: boolean;
+    failed: boolean;
+    queuedFrames: number;
+    hasInFlight: boolean;
+  }[] | undefined;
   getAudit(sessionId: string): readonly TerminalAuthorityEvent[];
   getAuthorityAuditTrail(sessionId: string, limit?: number): readonly TerminalAuthorityEvent[];
   getWiring(sessionId?: string): ProductionTerminalAuthorityWiringEvidence;
@@ -299,7 +310,10 @@ interface TerminalAuthorityCheckpointIdentity {
   authoritativeModelInstanceId: string;
 }
 
-const TERMINAL_CHECKPOINT_CHUNK_BYTES = 64 * 1024;
+// #78: the shipped default for resourceLimits.terminal.checkpointChunkBytes. It stays exported
+// because the truncation-boundary benchmark imports it rather than copying the number, and it
+// is the fallback when no effective configuration is reachable.
+export const TERMINAL_CHECKPOINT_CHUNK_BYTES = 64 * 1024;
 const TERMINAL_AUTHORITY_AUDIT_MAX_ENTRIES = 2_048;
 
 function appendTerminalAuthorityAudit(
@@ -374,6 +388,9 @@ type ProductionTerminalAuthorityRuntimeFactory = (input: {
 };
 
 interface SessionManagerAuthorityApi {
+  // #78: the effective checkpoint chunk size. It used to be a module constant here, which is
+  // why the budget report called the axis unconfigured while this adapter chunked by it.
+  getTerminalCheckpointChunkBytes(): number;
   addSessionFinalizedListener(listener: (event: { sessionId: string }) => void): () => void;
   setTerminalAuthorityRuntimeFactory(factory: ProductionTerminalAuthorityRuntimeFactory | null): void;
   clearTerminalAuthorityRuntimeFactory(factory: ProductionTerminalAuthorityRuntimeFactory): boolean;
@@ -885,18 +902,23 @@ function encodeCheckpointPayload(data: string): {
   };
 }
 
-function encodeCheckpointChunks(data: string): ReadonlyArray<{
+function encodeCheckpointChunks(data: string, chunkBytes: number = TERMINAL_CHECKPOINT_CHUNK_BYTES): ReadonlyArray<{
   encoding: 'base64';
   data: string;
   encodedBytes: number;
 }> {
+  // #78: an out-of-range size would silently produce one chunk per byte or an infinite loop, so
+  // an unusable value falls back to the shipped default rather than being trusted.
+  const size = Number.isSafeInteger(chunkBytes) && chunkBytes >= 1024
+    ? chunkBytes
+    : TERMINAL_CHECKPOINT_CHUNK_BYTES;
   const bytes = Buffer.from(data, 'utf8');
   if (bytes.byteLength === 0) {
     return [{ encoding: 'base64', data: '', encodedBytes: 0 }];
   }
   const chunks: Array<{ encoding: 'base64'; data: string; encodedBytes: number }> = [];
-  for (let offset = 0; offset < bytes.byteLength; offset += TERMINAL_CHECKPOINT_CHUNK_BYTES) {
-    const chunk = bytes.subarray(offset, Math.min(bytes.byteLength, offset + TERMINAL_CHECKPOINT_CHUNK_BYTES));
+  for (let offset = 0; offset < bytes.byteLength; offset += size) {
+    const chunk = bytes.subarray(offset, Math.min(bytes.byteLength, offset + size));
     chunks.push({
       encoding: 'base64',
       data: chunk.toString('base64'),
@@ -1658,7 +1680,7 @@ function attachProductionTerminalAuthorityInternal(
     const retained = manager.getRetainedTerminalAuthorityState(sessionId);
     if (!retained) throw new Error('retained-terminal-authority-unavailable');
     const data = retained.checkpoint.serializedData;
-    const encodedChunks = encodeCheckpointChunks(data);
+    const encodedChunks = encodeCheckpointChunks(data, manager.getTerminalCheckpointChunkBytes());
     const parserTail = encodeCheckpointPayload(retained.checkpoint.pendingEscapeTailAnsi ?? '');
     runtime.wiring.checkpointDigestAdapterCallCount += 1;
     const digestHex = createHash('sha256').update(data, 'utf8').digest('hex');
@@ -3382,8 +3404,32 @@ function attachProductionTerminalAuthorityInternal(
         // topology change would repeatedly invalidate the active checkpoint.
         return;
       }
+      // #16 item 6: this gate decides whether a registering view is elected for a fresh
+      // authoritative checkpoint, and it used to return silently. Every neighbouring branch
+      // records -- view-recovery-view-rebind-rejected, view-recovery-checkpoint-failed,
+      // checkpoint-delivery-ready-rejected -- so a reload rejected HERE produced an audit
+      // trail byte-identical to one where the cascade was never reached, and the two were
+      // indistinguishable after the fact. Measured 2026-09-20: a reload on a session
+      // reporting server mode appended nothing to the ring at all, and that null could not
+      // be read. Same reason #110 added output_skipped_delivered_by_authority: a decision
+      // that leaves no trace costs a day to re-derive.
       if (state.mode !== 'server'
-        || registration.authorityStreamEpoch !== state.streamEpoch) return;
+        || registration.authorityStreamEpoch !== state.streamEpoch) {
+        appendTerminalAuthorityAudit(runtime.audit, {
+          type: 'view-recovery-election-skipped',
+          kind: state.mode !== 'server'
+            ? 'authority-mode-not-server'
+            : 'registration-stream-epoch-mismatch',
+          sessionId: registration.sessionId,
+          connectionId: registration.connectionId,
+          viewGeneration: registration.viewGeneration,
+          // Both values, so a mismatch says WHICH pair disagreed rather than only that one did.
+          authorityMode: state.mode,
+          registrationStreamEpoch: registration.authorityStreamEpoch,
+          authorityStreamEpoch: state.streamEpoch,
+        } as never);
+        return;
+      }
       const registrationKey = viewKey(registration);
       if (!runtime.activeCheckpointsByView.has(registrationKey)
         && !runtime.reservedCheckpointsByView.has(registrationKey)) {
@@ -4640,6 +4686,23 @@ function attachProductionTerminalAuthorityInternal(
     getAuthorityState(sessionId) {
       return runtimes.get(sessionId)?.controller.getState();
     },
+    /**
+     * Diagnostic: the per-view frame pumps, so a stalled terminal delivery can be described
+     * rather than counted. A delivery settles on `Promise.all` over per-view sends, and each
+     * send resolves from the WS callback in `enqueueSettledViewFrame`; this reports the
+     * pump state those callbacks act on.
+     */
+    getFramePumpState(sessionId) {
+      const runtime = runtimes.get(sessionId);
+      if (!runtime) return undefined;
+      return [...runtime.checkpointPumpsByView.entries()].map(([viewKey, pump]) => ({
+        viewKey,
+        sending: pump.sending,
+        failed: pump.failed,
+        queuedFrames: pump.frames.length,
+        hasInFlight: pump.inFlight !== undefined && pump.inFlight !== null,
+      }));
+    },
     getAudit(sessionId) {
       return runtimes.get(sessionId)?.audit.map(event => ({ ...event })) ?? [];
     },
@@ -4824,3 +4887,7 @@ function attachProductionTerminalAuthorityInternal(
     },
   };
 }
+
+// #78: the chunker is internal to this module but its size argument is a configuration
+// surface now, so it is reachable for test without exporting it into the production API.
+export const __testing = { encodeCheckpointChunks };

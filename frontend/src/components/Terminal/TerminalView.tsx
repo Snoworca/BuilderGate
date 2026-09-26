@@ -2,9 +2,23 @@ import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useLay
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { shouldExpirePendingInput } from '../../utils/pendingInputExpiry';
+import {
+  publishInputDiscard,
+  shouldShowInputDiscardFeedback,
+  subscribeToInputDiscards,
+} from '../../utils/inputDiscardFeedback';
+import { WebglAddon } from '@xterm/addon-webgl';
+import {
+  createTerminalWebglRenderer,
+  type TerminalWebglRenderer,
+  type WebglAddonLike,
+} from '../../utils/terminalWebglRenderer';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FontSizeToast } from './FontSizeToast';
+import { InputDiscardedToast } from './InputDiscardedToast';
 import {
   clearTerminalSnapshotRemovalRequest,
   getTerminalSnapshotKey,
@@ -25,13 +39,19 @@ import {
   registerInputGateSnapshotReader,
   registerInputTransportOverrideHandler,
   registerTerminalRepairLayoutHandler,
+  registerTerminalBufferLengthsCaptureHandler,
+  registerTerminalWidthPolicyCaptureHandler,
+  registerTerminalScrollbackProbeCaptureHandler,
   registerTerminalRetainedStateCaptureHandler,
+  registerTerminalTextCaptureHandler,
+  registerTerminalSelectionCaptureHandler,
   registerTerminalRetainedStateStreamingCaptureHandler,
   recordTerminalDebugEvent,
 } from '../../utils/terminalDebugCapture';
 import {
   getInputReliabilityMode,
   getSnapshotResourceLimits,
+  getOsc52AllowWrite,
   getTerminalResourceLimits,
 } from '../../utils/inputReliabilityMode';
 import {
@@ -62,6 +82,19 @@ import {
   type TerminalClipboardSource,
   type TerminalClipboardTarget,
 } from '../../utils/terminalClipboardCoordinator';
+import {
+  captureSelectionAnchor,
+  disposeSelectionAnchor,
+  verifySelectionAnchor,
+  type SelectionAnchor,
+} from '../../utils/terminalSelectionAnchor';
+import { sanitizeTerminalPasteText } from '../../utils/terminalPasteSanitizer';
+import { evaluateOsc52Request } from '../../utils/terminalOsc52';
+import {
+  TERMINAL_PASTE_MAX_BYTES,
+  measurePasteBytes,
+  resolveEffectiveInputQueueTtlMs,
+} from '../../utils/terminalPasteLimits';
 import {
   resolveTerminalXtermOptions,
   TERMINAL_XTERM_THEME,
@@ -103,7 +136,7 @@ import {
 import {
   createTerminalCheckpointRuntime,
   createTerminalResponderHandoffRuntime,
-  isTerminalCheckpointMutationLeaseReady,
+  resolveTerminalCheckpointMutationLeaseBarrier,
   resolveTerminalCheckpointInputRoute,
   type TerminalCheckpointRuntime,
   type TerminalResponderHandoffRuntime,
@@ -112,6 +145,7 @@ import {
   createTerminalInputKindRouter,
   disposeTerminalPendingInputQueueLifetime,
 } from '../../utils/terminalInputSequencer';
+import { DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS } from '../../utils/terminalOutputScheduler';
 import { isTerminalQueryReply } from '../../utils/terminalQueryReply';
 import {
   createTerminalWriteCoordinatorAdapter,
@@ -162,6 +196,9 @@ type InputRejectedReason =
   | 'queue-overflow'
   | 'context-changed'
   | 'unsupported-multiline-paste'
+  // #18 criterion 8: refused locally for size. Kept beside the multiline refusal because
+  // both are local paste policy, decided before anything reaches the transport.
+  | 'paste-too-large'
   | 'session-missing'
   | 'session-closed'
   | 'server-error'
@@ -217,11 +254,23 @@ function getTerminalBufferType(term: Terminal): TerminalViewportSnapshotBufferTy
   return term.buffer.active.type === 'alternate' ? 'alternate' : 'normal';
 }
 
-function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueTtlMs: number } {
+function getInputQueueLimits(): { inputQueueMaxBytes: number; inputQueueMaxCount: number; inputQueueTtlMs: number } {
   const limits = getTerminalResourceLimits();
   return {
     inputQueueMaxBytes: limits.inputQueueMaxBytes,
-    inputQueueTtlMs: limits.inputQueueTtlMs,
+    // #72: input scope owns its own count now. These used to read the OUTPUT chunk cap.
+    inputQueueMaxCount: limits.inputQueueMaxCount,
+    // #18 criterion 8: one timeout cannot be right for loopback and for a WAN link at
+    // once. The configured value stays authoritative when an operator has moved it; the
+    // local/WAN split only decides the DEFAULT, so a tuned deployment is not overridden.
+    // #20: the local/WAN decision lives behind a name rather than as an inline ternary here.
+    // Passing the policy value as a call argument is also the one shape the consumer-inventory
+    // matcher can describe -- the `const` + ternary form resolved to no role under any of the
+    // five, so no catalogue row could cover this site at all.
+    inputQueueTtlMs: resolveEffectiveInputQueueTtlMs(
+      limits.inputQueueTtlMs,
+      typeof location === 'undefined' ? undefined : location.hostname,
+    ),
   };
 }
 
@@ -377,9 +426,19 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const savedRightClickSelRef = useRef<string>('');
     const savedRightClickSelGenerationRef = useRef(0);
     const savedRightClickSelXtermGenerationRef = useRef(0);
+    // Issue #16 item 3/4: lazily maintained anchor for the CURRENT live
+    // selection, keyed to the rangeKey it was captured for so a later
+    // recompute (the clipboard coordinator's "check" step) reuses the same
+    // markers instead of registering a fresh pair every call. See
+    // frontend/src/utils/terminalSelectionAnchor.ts for what this verifies
+    // and why (measured, not assumed).
+    const activeSelectionAnchorRef = useRef<{ rangeKey: string; anchor: SelectionAnchor } | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const serializeAddonRef = useRef<SerializeAddon | null>(null);
     const [toastFontSize, setToastFontSize] = useState<number | null>(null);
+    // REL-BGSTAB-016 (#109): discards coalesce into one count rather than one surface each.
+    const [discardedInputCount, setDiscardedInputCount] = useState(0);
+    const discardToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [terminalRuntimeRevision, setTerminalRuntimeRevision] = useState(0);
     const runtimeRecreationRecoveryReasonRef = useRef<{
       sessionId: string;
@@ -420,6 +479,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const terminalRestoreAdapterRef = useRef<BoundTerminalRestoreAdapter | null>(null);
     const replayInputGuardRef = useRef(createTerminalReplayInputGuard());
     const pendingFocusRestoreRef = useRef(false);
+    const webglRendererRef = useRef<TerminalWebglRenderer | null>(null);
     const isVisibleRef = useRef(isVisible);
     const workspaceIdRef = useRef(workspaceId);
     const terminalShortcutStateRef = useRef<TerminalShortcutState | null>(terminalShortcutState);
@@ -742,21 +802,72 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const expirePendingInputQueue = useCallback(() => {
       const now = Date.now();
       const { inputQueueTtlMs } = getInputQueueLimits();
+      // #109: a barrier that is still in progress is not a stuck queue. The TTL is 1500ms by
+      // default and a restore on a session with large retained scrollback was measured holding
+      // the gate for about ten seconds, so every character typed during the restore expired
+      // before it could be sent -- silently.
+      const barrierActive = captureStateRef.current === 'transient-blocked'
+        && transportBarrierReasonRef.current !== 'none';
       const remaining: PendingTerminalInput[] = [];
       let remainingBytes = 0;
+      let held = 0;
+      let oldestHeldMs = 0;
+      const heldSources = new Set<string>();
 
       for (const entry of pendingInputQueueRef.current) {
-        if (now - entry.queuedAt > inputQueueTtlMs) {
+        const queuedMs = now - entry.queuedAt;
+        if (shouldExpirePendingInput({
+          queuedMs,
+          containsEnter: entry.containsEnter,
+          ttlMs: inputQueueTtlMs,
+          barrierActive,
+        })) {
           rejectQueuedInput(entry, entry.containsEnter ? 'timeout-enter-safety' : 'timeout');
           continue;
+        }
+        if (queuedMs > inputQueueTtlMs) {
+          held += 1;
+          oldestHeldMs = Math.max(oldestHeldMs, queuedMs);
+          heldSources.add(entry.source);
         }
         remaining.push(entry);
         remainingBytes += entry.byteLength;
       }
 
+      if (held > 0) {
+        // Held past its TTL on purpose. Recorded so the hold is observable rather than a gap
+        // in the event stream that has to be inferred.
+        //
+        // One event per drain pass, not one per entry. Measured 2026-09-19 while investigating
+        // #39: the per-entry form re-recorded every held keystroke on every retry tick, and a
+        // terminal held for fifty seconds filled the whole 400-event client ring with nothing
+        // but this kind. The events that would have said WHY input was held had all been
+        // evicted -- the flood destroyed exactly the evidence anyone reading it came for.
+        recordTerminalDebugEvent(sessionId, 'terminal_input_held_for_barrier', {
+          heldEntries: held,
+          oldestQueuedMs: oldestHeldMs,
+          ttlMs: inputQueueTtlMs,
+          barrierReason: transportBarrierReasonRef.current,
+          sources: [...heldSources].join(","),
+        });
+      }
+
       pendingInputQueueRef.current = remaining;
       pendingInputQueueBytesRef.current = remainingBytes;
-    }, [rejectQueuedInput]);
+
+      // #109: a held entry must be looked at again. The original pass is scheduled once, at
+      // TTL+25ms, so without this an entry held through a barrier would never be reconsidered
+      // if the barrier lifted without a flush -- it would sit in the queue instead of expiring.
+      if (held > 0) {
+        const timer = setTimeout(() => {
+          inputQueueExpiryTimersRef.current.delete(timer);
+          expirePendingInputQueueRef.current?.();
+        }, inputQueueTtlMs + 25);
+        inputQueueExpiryTimersRef.current.add(timer);
+      }
+    }, [rejectQueuedInput, sessionId]);
+    const expirePendingInputQueueRef = useRef<(() => void) | null>(null);
+    expirePendingInputQueueRef.current = expirePendingInputQueue;
 
     const scheduleInputQueueExpiry = useCallback(() => {
       const { inputQueueTtlMs } = getInputQueueLimits();
@@ -915,6 +1026,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const mode = getInputReliabilityMode();
       if (captureAllowedRef.current && captureStateRef.current === 'transient-blocked') {
         if (mode === 'observe') {
+          // REL-BGSTAB-016 (#109): this branch used to record a debug event and return, and
+          // nothing on screen changed -- the user's characters were simply not there.
+          if (shouldShowInputDiscardFeedback({
+            site: 'capture-gate',
+            mode,
+            state: captureStateRef.current,
+          })) {
+            publishInputDiscard(sessionId);
+          }
           recordTerminalDebugEvent(sessionId, 'terminal_input_would_queue', {
             ...debugInput.details,
             reason: 'mode-observe-only',
@@ -1237,6 +1357,25 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       }
     }, [requestViewportSync]);
 
+    // REL-BGSTAB-016 (#109): both discard sites publish here; the surface lives in this view.
+    useEffect(() => {
+      const unsubscribe = subscribeToInputDiscards(sessionId, () => {
+        setDiscardedInputCount(previous => previous + 1);
+        if (discardToastTimerRef.current) clearTimeout(discardToastTimerRef.current);
+        discardToastTimerRef.current = setTimeout(() => {
+          setDiscardedInputCount(0);
+          discardToastTimerRef.current = null;
+        }, 1200);
+      });
+      return () => {
+        unsubscribe();
+        if (discardToastTimerRef.current) {
+          clearTimeout(discardToastTimerRef.current);
+          discardToastTimerRef.current = null;
+        }
+      };
+    }, [sessionId]);
+
     const { handleTouchStart, handleTouchMove, handleTouchEnd, getInitialFontSize } = usePinchZoom({
       minSize: FONT_MIN,
       maxSize: FONT_MAX,
@@ -1413,8 +1552,13 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const snapshotLimits = getSnapshotResourceLimits();
       try {
         const raw = localStorage.getItem(getTerminalSnapshotKey(sessionId));
+        // REL-BGSTAB-007 AC-8: a snapshot that cannot show it belongs to THIS session
+        // generation is refused rather than restored. sessionGenerationRef is the value
+        // this component already uses to discard stale-generation buffered entries, so a
+        // surviving session whose generation moved no longer restores a superseded screen.
         const snapshot = parseTerminalViewportSnapshot(raw, sessionId, {
           maxContentLength: snapshotLimits.perSnapshotMaxChars,
+          expectedGeneration: String(sessionGenerationRef.current),
         });
         if (!snapshot) {
           clearStoredSnapshot();
@@ -1446,7 +1590,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const storedSnapshot = parseTerminalViewportSnapshot(
           localStorage.getItem(getTerminalSnapshotKey(sessionId)),
           sessionId,
-          { maxContentLength: snapshotLimits.perSnapshotMaxChars },
+          {
+            maxContentLength: snapshotLimits.perSnapshotMaxChars,
+            expectedGeneration: String(sessionGenerationRef.current),
+          },
         );
         const bufferType = getTerminalBufferType(term);
         if (
@@ -1462,6 +1609,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const snapshot: TerminalViewportSnapshotPayload = {
           schemaVersion: TERMINAL_SNAPSHOT_SCHEMA_VERSION,
           payloadKind: TERMINAL_SNAPSHOT_PAYLOAD_KIND,
+          generation: String(sessionGenerationRef.current),
           sessionId,
           content,
           cols: term.cols,
@@ -1586,6 +1734,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           visibleOutputQueueMaxBytes: limits.visibleOutputQueueMaxBytes,
           visibleOutputMaxChunks: limits.visibleOutputMaxChunks,
           visibleFlushBudgetBytes: limits.visibleFlushBudgetBytes,
+          visibleFlushFrameBudgetMs: limits.visibleFlushFrameBudgetMs,
           write: (chunk, onWritten, onRejected) => writeOutputDirect(term, chunk, onWritten, onRejected),
           shouldYield: hasPendingBrowserInput,
           canaryTarget: outputPolicyRuntime.target,
@@ -1633,6 +1782,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         visibleOutputQueueMaxBytes: limits.visibleOutputQueueMaxBytes,
         visibleOutputMaxChunks: limits.visibleOutputMaxChunks,
         visibleFlushBudgetBytes: limits.visibleFlushBudgetBytes,
+        visibleFlushFrameBudgetMs: limits.visibleFlushFrameBudgetMs,
       });
       return outputSchedulerRef.current;
     }, [
@@ -2776,8 +2926,46 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           closedReason: transportClosedReasonRef.current,
         };
       }
-      if (hasLineBreak(data) && !term.modes.bracketedPasteMode) {
-        const debugInput = buildTerminalInputDebugPayload(data, {
+      // #18: 다섯 입력 경로가 공유하는 단 하나의 sanitize 지점. 키보드 Ctrl+V 도
+      // onPasteCapture 에서 이 함수로 들어오므로 여기만 지키면 전부 균일해진다.
+      // 아래의 여러 줄 가드와 term.paste() 는 반드시 sanitize 된 텍스트를 봐야 한다 —
+      // 원문을 보면 제거될 마커가 줄 수를 바꿔 가드 판정을 흔든다.
+      const sanitized = sanitizeTerminalPasteText(data);
+      if (sanitized.removedControlCount > 0 || sanitized.removedBracketedPasteMarkers > 0) {
+        recordTerminalDebugEvent(sessionId, 'terminal_paste_sanitized', {
+          source,
+          removedControlCount: sanitized.removedControlCount,
+          removedBracketedPasteMarkers: sanitized.removedBracketedPasteMarkers,
+          bracketedPasteMode: term.modes.bracketedPasteMode,
+        });
+      }
+      const pasteText = sanitized.text;
+
+      // #18 criterion 8: refuse oversize here rather than letting the server answer
+      // `invalid-payload`, which blames the client for a message that was never malformed.
+      // The cap is the server's own MAX_REPLAY_QUEUED_INPUT_BYTES, so this changes what the
+      // user is TOLD, not what succeeds. Bytes, not characters -- a paste of three-byte
+      // characters is well under the cap by length and well over it by size.
+      const pasteBytes = measurePasteBytes(pasteText);
+      if (pasteBytes > TERMINAL_PASTE_MAX_BYTES) {
+        recordTerminalDebugEvent(sessionId, 'terminal_input_rejected', {
+          reason: 'paste-too-large',
+          source,
+          byteLength: pasteBytes,
+          byteBudget: TERMINAL_PASTE_MAX_BYTES,
+        });
+        return {
+          ok: false,
+          reason: 'paste-too-large',
+          source,
+          captureState: captureStateRef.current,
+          barrierReason: transportBarrierReasonRef.current,
+          closedReason: transportClosedReasonRef.current,
+        };
+      }
+
+      if (hasLineBreak(pasteText) && !term.modes.bracketedPasteMode) {
+        const debugInput = buildTerminalInputDebugPayload(pasteText, {
           captureSeq: nextCaptureSeq(),
         }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
         recordTerminalDebugEvent(sessionId, 'terminal_input_rejected', {
@@ -2805,7 +2993,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       };
       programmaticPasteRef.current = pendingPaste;
       try {
-        term.paste(data);
+        term.paste(pasteText);
       } finally {
         if (programmaticPasteRef.current === pendingPaste) {
           programmaticPasteRef.current = null;
@@ -2844,6 +3032,32 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       && clipboardViewGenerationRef.current === target.viewGeneration
     ), [sessionId]);
 
+    // Issue #16 item 3: keep the anchor for the CURRENT live selection in sync
+    // with `rangeKey`/`viewGeneration`, so a later call for the SAME
+    // still-live selection reuses the same two markers instead of
+    // registering a fresh pair (and leaking the old ones' onTrim/onInsert/
+    // onDelete listeners) every time captureClipboardSelection runs. A
+    // mismatch on either key means the selection or the terminal instance
+    // has moved on, so the stale anchor is disposed before a new one (if any)
+    // replaces it.
+    const refreshSelectionAnchor = useCallback((
+      term: Terminal,
+      viewGeneration: number,
+      rangeKey: string,
+      position: { start: { x: number; y: number }; end: { x: number; y: number } },
+    ): void => {
+      const cached = activeSelectionAnchorRef.current;
+      if (cached && cached.rangeKey === rangeKey && cached.anchor.viewGeneration === viewGeneration) {
+        return;
+      }
+      if (cached) {
+        disposeSelectionAnchor(cached.anchor);
+        activeSelectionAnchorRef.current = null;
+      }
+      const anchor = captureSelectionAnchor(term, viewGeneration, position);
+      activeSelectionAnchorRef.current = anchor ? { rangeKey, anchor } : null;
+    }, []);
+
     const captureClipboardSelection = useCallback((
       target: TerminalClipboardTarget,
     ): TerminalClipboardSelection | null => {
@@ -2857,12 +3071,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const liveText = term.getSelection();
       if (liveText.length > 0) {
         const position = term.getSelectionPosition();
-        return {
-          text: liveText,
-          rangeKey: position
-            ? `${position.start.x}:${position.start.y}-${position.end.x}:${position.end.y}`
-            : `live:${liveText.length}`,
-        };
+        const rangeKey = position
+          ? `${position.start.x}:${position.start.y}-${position.end.x}:${position.end.y}`
+          : `live:${liveText.length}`;
+        // Only a real position can anchor an identity. Its absence here is
+        // expected only outside real usage (a test double that models
+        // selection text without modelling buffer/marker mechanics) -- in
+        // this app's real xterm, getSelectionPosition() is reliable whenever
+        // getSelection() is non-empty, since both read the same selection
+        // service. When it IS absent, isSelectionCurrent below has no anchor
+        // to check and falls back to the pre-existing text/rangeKey
+        // comparison rather than treating unavailability as staleness.
+        if (position) {
+          refreshSelectionAnchor(term, target.viewGeneration, rangeKey, position);
+        }
+        return { text: liveText, rangeKey };
       }
       const savedText = savedRightClickSelRef.current;
       return (
@@ -2874,7 +3097,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             rangeKey: `saved:${savedRightClickSelGenerationRef.current}`,
           }
         : null;
-    }, [isClipboardTargetCurrent]);
+    }, [isClipboardTargetCurrent, refreshSelectionAnchor]);
 
     const clipboardCoordinator = useMemo(() => createTerminalClipboardCoordinator({
       captureTarget: captureClipboardTarget,
@@ -2882,7 +3105,41 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       captureSelection: captureClipboardSelection,
       isSelectionCurrent: (target, selection) => {
         const current = captureClipboardSelection(target);
-        return current?.text === selection.text && current.rangeKey === selection.rangeKey;
+        if (current?.text !== selection.text || current.rangeKey !== selection.rangeKey) {
+          return false;
+        }
+        // Issue #16 item 4: same-epoch+geometry (the check above) is not
+        // enough on its own -- it is what let a marker-less "same
+        // coordinates" comparison call something current that no longer
+        // was. When a real anchor exists for this exact selection, verify
+        // it: markers survive trim/insert/delete/reflow but not a terminal
+        // instance swap, and content is re-read rather than trusted, which
+        // is what catches term.reset() leaving a marker undisposed over
+        // now-empty content (measured; see terminalSelectionAnchor.ts).
+        //
+        // A column resize that reflows is a separate, measured gap markers
+        // alone cannot see: xterm's own selection stays pinned to its old
+        // coordinates while the marker correctly follows the real content to
+        // its new row, so a copy reads the SELECTION (stale) not the marker
+        // (correct). getSelectionPosition() here is the live position the
+        // check needs to catch that divergence.
+        const cached = activeSelectionAnchorRef.current;
+        const term = xtermRef.current;
+        if (cached && term && cached.rangeKey === selection.rangeKey) {
+          const verdict = verifySelectionAnchor(
+            cached.anchor,
+            term,
+            clipboardViewGenerationRef.current,
+            term.getSelectionPosition(),
+          );
+          if (!verdict.valid) {
+            recordTerminalDebugEvent(sessionId, 'terminal_selection_anchor_stale', {
+              reason: verdict.reason,
+            });
+            return false;
+          }
+        }
+        return true;
       },
       readClipboardText: () => navigator.clipboard.readText(),
       writeClipboardText: (text) => navigator.clipboard.writeText(text),
@@ -2901,6 +3158,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         savedRightClickSelRef.current = '';
         savedRightClickSelGenerationRef.current += 1;
         savedRightClickSelXtermGenerationRef.current = 0;
+        disposeSelectionAnchor(activeSelectionAnchorRef.current?.anchor);
+        activeSelectionAnchorRef.current = null;
       },
       focus: () => focusTerminalInput('clipboard-coordinator'),
       observe: (event) => {
@@ -3008,6 +3267,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         savedRightClickSelRef.current = '';
         savedRightClickSelGenerationRef.current += 1;
         savedRightClickSelXtermGenerationRef.current = 0;
+        disposeSelectionAnchor(activeSelectionAnchorRef.current?.anchor);
+        activeSelectionAnchorRef.current = null;
       },
       copySelection: (source = 'keyboard') => clipboardCoordinator.copySelection(source),
       pasteClipboard: (source = 'command-preset') => clipboardCoordinator.pasteClipboard(source),
@@ -3148,13 +3409,49 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         ...resolveTerminalXtermOptions(getTerminalResourceLimits()),
         convertEol: false,
         disableStdin: true,
+        // Issue #114. Both stated rather than inherited so this terminal and the
+        // server replica move together; see the notes on DEFAULT_TERMINAL_OPTIONS
+        // and UNICODE_WIDTH_VERSION in server/src/utils/headlessTerminal.ts.
+        //
+        // allowProposedApi is not optional here: xterm throws from
+        // Unicode11Addon.activate() without it, so the loadAddon call below would
+        // fail for every terminal this component creates.
+        allowProposedApi: true,
+        reflowCursorLine: false,
       });
+
+      // Issue #114. The unicode width table, loaded here and on the server's
+      // retained replica, never on one alone — see the note on
+      // UNICODE_WIDTH_VERSION in server/src/utils/headlessTerminal.ts for the
+      // measurement and for why one side alone shifts recovered output.
+      term.loadAddon(new Unicode11Addon());
+      term.unicode.activeVersion = '11';
 
       const fitAddon = new FitAddon();
       const serializeAddon = new SerializeAddon();
       term.loadAddon(fitAddon);
       term.loadAddon(serializeAddon);
       term.open(terminalRef.current);
+
+      // Issue #15. WebGL is attached only while this terminal is visible, so
+      // hidden tabs do not hold contexts the browser would otherwise reclaim
+      // from a terminal the user is looking at. On context loss the addon is
+      // disposed, which drops xterm back to its DOM renderer; refresh() forces
+      // the DOM frame so the fallback is a repaint rather than a blank screen.
+      webglRendererRef.current = createTerminalWebglRenderer({
+        createAddon: () => new WebglAddon() as unknown as WebglAddonLike,
+        loadAddon: (addon) => { term.loadAddon(addon as unknown as WebglAddon); },
+        onFallback: (reason) => {
+          recordTerminalDebugEvent(sessionId, 'terminal_webgl_fallback', { reason });
+          try {
+            term.refresh(0, term.rows - 1);
+          } catch {
+            // A terminal disposed between the loss and this repaint has nothing
+            // left to draw; the DOM renderer is already what remains.
+          }
+        },
+      });
+      webglRendererRef.current.sync(isVisibleRef.current);
       const helperTextarea = getHelperTextarea();
       if (helperTextarea) {
         helperTextarea.setAttribute('aria-label', '터미널 입력');
@@ -3256,7 +3553,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           refreshTerminalCheckpointRegistration();
         },
         onCapabilityRegistration: (capability) => {
-          checkpointMutationLeaseBarrierRef.current = !isTerminalCheckpointMutationLeaseReady(capability, sessionId, xtermGenerationRef.current);
+          // @req REL-BGSTAB-011
+          const leaseBarrier = resolveTerminalCheckpointMutationLeaseBarrier(
+            capability,
+            sessionId,
+            xtermGenerationRef.current,
+          );
+          checkpointMutationLeaseBarrierRef.current = leaseBarrier.held;
+          if (leaseBarrier.reason === 'lease-refused') {
+            recordTerminalDebugEvent(sessionId, 'terminal_checkpoint_mutation_lease_refused', {
+              viewGeneration: xtermGenerationRef.current,
+              authorityMode: capability.authorityMode,
+              refusalReason: leaseBarrier.refusalReason ?? 'unreported',
+            });
+          }
           syncInputReadiness('terminal-checkpoint-mutation-lease');
           // @req MIG-BGSTAB-002 AC-3
           // A replacement browser runtime can join after the original responder
@@ -3518,13 +3828,21 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         digestBytes: digestTerminalBytes,
         timeoutMs: TERMINAL_RECOVERY_WRITE_COMPLETION_TIMEOUT_MS,
         postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes,
+        checkpointMaxBytes: coordinatorLimits.checkpointMaxBytes,
         postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks,
+        checkpointMaxChunks: coordinatorLimits.checkpointMaxChunks,
         pendingInputMaxBytes: coordinatorInputLimits.inputQueueMaxBytes,
-        pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks,
+        pendingInputMaxCount: coordinatorInputLimits.inputQueueMaxCount,
         pendingInputTtlMs: coordinatorInputLimits.inputQueueTtlMs,
-        settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks,
+        settlementLedgerMaxEntries: coordinatorInputLimits.inputQueueMaxCount,
         inputSettlementLedgerMaxEntries: INPUT_SETTLEMENT_LEDGER_MAX_ENTRIES,
         settlementLedgerTtlMs: coordinatorInputLimits.inputQueueTtlMs,
+        // Issue #10 AC-4: the frame CPU budget and the input yield apply to the
+        // checkpoint lane too, not only to the live visible-output lane. The
+        // budget reuses the scheduler's exported default rather than a second
+        // literal, and no new configuration key is introduced.
+        frameBudgetMs: DEFAULT_VISIBLE_FLUSH_FRAME_BUDGET_MS,
+        shouldYield: hasPendingBrowserInput,
       });
       checkpointMutationLeaseBarrierRef.current = true;
       const unregisterCheckpointDispatcher = registerTerminalCheckpointDispatcher(
@@ -3913,6 +4231,36 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         });
       });
 
+      // SEC-BGSTAB-001: OSC52 clipboard 정책.
+      //
+      // 실측 2026-09-19 (이 변경 전): xterm 6.0.0 번들은 OSC 0,1,2,4,8,10,11,12,104,
+      // 110,111,112 만 등록하고 52 는 등록하지 않으며 @xterm/addon-clipboard 도 설치되어
+      // 있지 않다. 즉 OSC52 는 '거부되고' 있던 것이 아니라 **아무도 배선하지 않아서**
+      // 조용히 버려지고 있었다. 누군가 그 addon 을 추가하는 순간 읽기와 쓰기가 한꺼번에,
+      // 프롬프트도 상한도 base64 검증도 없이 켜진다. 여기서 직접 등록해 그 창을 닫는다.
+      //
+      // 핸들러는 어떤 경우에도 true 를 돌려준다 = '처리했다'. 읽기 요청에 대해 false 를
+      // 돌려 다른 처리기로 흘려보내면 언젠가 응답을 만들어 내는 경로가 생길 수 있고,
+      // 그 응답은 PTY 의 input 채널로 주입된다. 읽기는 거부가 아니라 '소비 후 침묵' 이다.
+      term.parser.registerOscHandler(52, (data: string) => {
+        const decision = evaluateOsc52Request(data, {
+          allowWrite: getOsc52AllowWrite(),
+        });
+        // AC-6: 네 결과 전부 관측 가능해야 한다. payload 원문은 어떤 필드에도 담지 않는다 --
+        // 크기와 판정만 남긴다.
+        recordTerminalDebugEvent(sessionId, 'terminal_osc52', {
+          outcome: decision.kind,
+          decodedBytes: 'decodedBytes' in decision ? decision.decodedBytes : null,
+          malformedDetail: decision.kind === 'refuse-malformed' ? decision.detail : null,
+        });
+        if (decision.kind === 'allow-write') {
+          // AC-5: coordinator 를 거쳐야 generation guard 와 관측 채널을 상속한다.
+          // AC-7: 확인 프롬프트는 없다.
+          void clipboardCoordinator.copyText(decision.text, 'osc52');
+        }
+        return true;
+      });
+
       term.onData((data) => {
         if (data.length === 0) return;
         if (data === '\x1b[I' || data === '\x1b[O') return;
@@ -4026,9 +4374,35 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       // xterm의 _inputEvent 핸들러가 두 번째 triggerDataEvent를 호출해 이중 붙여넣기가 발생한다.
       // capture 단계에서 preventDefault를 호출하면 브라우저 삽입 동작만 막고
       // xterm 내부 paste 핸들러(clipboardData 읽기)는 그대로 실행된다.
+      //
+      // #18: 여기서 clipboardData 를 직접 읽어 coordinator 로 넘긴다.
+      // 그 전까지 이 리스너는 preventDefault 만 했고 실제 클립보드 읽기는 xterm 의
+      // Clipboard.handlePasteEvent 안에서 일어났다. 그 경로는 term.paste() 로 직행해
+      // submitProgrammaticPaste 를 통째로 우회하므로 sanitize 도, 여러 줄 가드도,
+      // generation guard 도, 관측 기록도 적용되지 않았다 — 다섯 경로 중 이것 하나만
+      // 무방비였고 onData 에서는 평범한 타이핑과 구분조차 되지 않았다.
+      //
+      // xterm 은 paste 를 element 와 textarea 양쪽에 **버블** 단계로 건다(실측
+      // CoreBrowserTerminal.ts:342-344). 둘 다 termEl 의 자손이므로 capture 단계인
+      // 이 리스너가 먼저 돈다. stopPropagation 으로 그 두 핸들러를 차단해야 이중
+      // 붙여넣기가 나지 않는다 — preventDefault 만으로는 xterm 핸들러가 그대로 돈다.
       const onPasteCapture = (e: Event) => {
         markUserXtermDataProvenance();
         e.preventDefault();
+        e.stopPropagation();
+
+        const clipboardData = (e as ClipboardEvent).clipboardData;
+        if (!clipboardData) {
+          // 클립보드를 읽을 수 없으면 아무것도 보내지 않는다. xterm 경로는 이미
+          // 막혔으므로 여기서 조용히 통과시키면 붙여넣기가 누락된 채 끝나는데,
+          // sanitize 를 건너뛴 입력을 PTY 로 흘리는 것보다 낫다.
+          recordTerminalDebugEvent(sessionId, 'terminal_paste_rejected', {
+            source: 'keyboard-paste',
+            reason: 'clipboard-data-unavailable',
+          });
+          return;
+        }
+        clipboardCoordinator.pasteText(clipboardData.getData('text/plain'), 'keyboard');
       };
       termEl.addEventListener('paste', onPasteCapture, { capture: true });
 
@@ -4103,9 +4477,76 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       const unregisterRepairLayoutHandler = registerTerminalRepairLayoutHandler(sessionId, (reason) => {
         return repairLayoutAfterIme(reason);
       });
+      // #39: the on-screen text, read from the buffer rather than the DOM, because the WebGL
+      // renderer draws to a canvas and leaves no `.xterm-rows` for a spec to read.
+      const unregisterTerminalTextCaptureHandler = registerTerminalTextCaptureHandler(
+        sessionId,
+        () => {
+          const lines: string[] = [];
+          const buffer = term.buffer.active;
+          for (let row = 0; row < term.rows; row += 1) {
+            lines.push(buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? '');
+          }
+          return lines.join('\n');
+        },
+      );
+      // #16: under the WebGL renderer, selection is painted on canvas with no DOM
+      // representation -- no `.xterm-selection` element, and the browser's Selection
+      // API never reflects it. Read xterm's own model directly instead.
+      const unregisterTerminalSelectionCaptureHandler = registerTerminalSelectionCaptureHandler(
+        sessionId,
+        () => ({ hasSelection: term.hasSelection(), text: term.getSelection() }),
+      );
       const unregisterRetainedStateCaptureHandler = registerTerminalRetainedStateCaptureHandler(
         sessionId,
         () => createTerminalRetainedStateEvidence(captureTerminalRetainedState(term)),
+      );
+      const unregisterBufferLengthsCaptureHandler = registerTerminalBufferLengthsCaptureHandler(
+        sessionId,
+        () => ({
+          activeType: term.buffer.active.type,
+          normalLength: term.buffer.normal.length,
+          alternateLength: term.buffer.alternate.length,
+          rows: term.rows,
+          cols: term.cols,
+        }),
+      );
+      const unregisterScrollbackProbeCaptureHandler = registerTerminalScrollbackProbeCaptureHandler(
+        sessionId,
+        (indices) => {
+          const normal = term.buffer.normal;
+          return {
+            normalLength: normal.length,
+            rows: term.rows,
+            lines: indices.map((index) => ({
+              index,
+              text: normal.getLine(index)?.translateToString(true) ?? '',
+            })),
+          };
+        },
+      );
+      const unregisterWidthPolicyCaptureHandler = registerTerminalWidthPolicyCaptureHandler(
+        sessionId,
+        () => {
+          // `term.unicode` is proposed API and throws when allowProposedApi is
+          // absent. Reporting that as null rather than letting it escape keeps a
+          // misconfigured build readable instead of turning the probe into a crash.
+          let unicodeActiveVersion: string | null = null;
+          let unicodeVersions: string[] = [];
+          try {
+            unicodeActiveVersion = term.unicode.activeVersion;
+            unicodeVersions = [...term.unicode.versions];
+          } catch {
+            unicodeActiveVersion = null;
+            unicodeVersions = [];
+          }
+          return {
+            unicodeActiveVersion,
+            unicodeVersions,
+            allowProposedApi: term.options.allowProposedApi,
+            reflowCursorLine: term.options.reflowCursorLine,
+          };
+        },
       );
       const unregisterRetainedStateStreamingCaptureHandler =
         registerTerminalRetainedStateStreamingCaptureHandler(
@@ -4177,7 +4618,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         unregisterInputTransportOverride();
         unregisterInputGateSnapshotReader();
         unregisterRepairLayoutHandler();
+        unregisterTerminalTextCaptureHandler();
+        unregisterTerminalSelectionCaptureHandler();
         unregisterRetainedStateCaptureHandler();
+        unregisterBufferLengthsCaptureHandler();
+        unregisterWidthPolicyCaptureHandler();
+        unregisterScrollbackProbeCaptureHandler();
         unregisterRetainedStateStreamingCaptureHandler();
         if (helperTextarea) {
           helperTextarea.removeEventListener('keydown', onHelperKeyDown);
@@ -4270,6 +4716,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         legacyAuthorityReadySyncPendingRef.current = false;
         inFlightOutputRef.current = [];
         clearBufferedOutput();
+        webglRendererRef.current?.dispose();
+        webglRendererRef.current = null;
         recordTerminalDebugEvent(sessionId, 'terminal_disposed');
         term.dispose();
       };
@@ -4323,6 +4771,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (wasVisible === isVisible) {
         return;
       }
+
+      // Issue #15: release the GPU context while hidden, retake it on reveal.
+      webglRendererRef.current?.sync(isVisible);
 
       if (!isVisible) {
         syncInputReadiness('hidden');
@@ -4461,6 +4912,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       >
         <div ref={terminalRef} className="terminal-container" data-terminal-container="true" />
         <FontSizeToast fontSize={toastFontSize} />
+        <InputDiscardedToast discardedCount={discardedInputCount} />
       </div>
     );
   }

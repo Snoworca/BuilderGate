@@ -27,7 +27,7 @@ twoFactor: { enabled: false }
 ```bash
 curl -k -X POST https://localhost:4242/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"password": "1234"}'
+  -d '{"password": "$BUILDERGATE_PASSWORD"}'
 # 기대: 200 OK, { success: true, token: "...", expiresIn: ... }
 ```
 
@@ -44,7 +44,7 @@ twoFactor: { enabled: true, totp: { enabled: false }, smtp: { ... } }
 ```bash
 # Step 1: 로그인
 curl -k -X POST https://localhost:4242/api/auth/login \
-  -d '{"password": "1234"}'
+  -d '{"password": "$BUILDERGATE_PASSWORD"}'
 # 기대: 202, { requires2FA: true, tempToken: "...", maskedEmail: "...", nextStage: "email" }
 
 # Step 2: OTP 검증
@@ -67,7 +67,7 @@ twoFactor: { enabled: true, totp: { enabled: true } }
 ```bash
 # Step 1: 로그인
 curl -k -X POST https://localhost:4242/api/auth/login \
-  -d '{"password": "1234"}'
+  -d '{"password": "$BUILDERGATE_PASSWORD"}'
 # 기대: 202, { requires2FA: true, tempToken: "...", nextStage: "totp" }
 
 # Step 2: TOTP 검증 (Google Authenticator 앱에서 코드 확인)
@@ -89,7 +89,7 @@ twoFactor: { enabled: true, totp: { enabled: true }, smtp: { ... } }
 ```bash
 # Step 1: 로그인
 curl -k -X POST https://localhost:4242/api/auth/login \
-  -d '{"password": "1234"}'
+  -d '{"password": "$BUILDERGATE_PASSWORD"}'
 # 기대: 202, { nextStage: "email", maskedEmail: "...", ... }
 
 # Step 2: 이메일 OTP 검증
@@ -115,7 +115,7 @@ rm data/totp.secret
 
 # config: totp.enabled = true
 # 로그인 시도
-curl -k -X POST https://localhost:4242/api/auth/login -d '{"password":"1234"}'
+curl -k -X POST https://localhost:4242/api/auth/login -d '{"password":"$BUILDERGATE_PASSWORD"}'
 # 기대: 503, { success: false, message: "TOTP is enabled but not configured..." }
 ```
 
@@ -124,7 +124,7 @@ curl -k -X POST https://localhost:4242/api/auth/login -d '{"password":"1234"}'
 ```bash
 # config: auth.localhostPasswordOnly = true
 # 서버를 localhost에서 접속하면 2FA 건너뜀
-curl -k -X POST https://localhost:4242/api/auth/login -d '{"password":"1234"}'
+curl -k -X POST https://localhost:4242/api/auth/login -d '{"password":"$BUILDERGATE_PASSWORD"}'
 # 기대: 200, { success: true, token: "..." } (2FA 없이 즉시 JWT)
 ```
 
@@ -164,7 +164,7 @@ curl -k -X POST https://localhost:4242/api/auth/verify \
 # NFR-201: 로그인 응답 < 200ms 검증
 time curl -k -X POST https://localhost:4242/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"password": "1234"}'
+  -d '{"password": "$BUILDERGATE_PASSWORD"}'
 # real 시간이 0.200s 미만이어야 함
 
 # NFR-202: OTP 검증 응답 < 100ms 검증

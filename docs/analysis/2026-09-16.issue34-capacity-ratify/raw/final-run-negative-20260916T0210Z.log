@@ -1,0 +1,70 @@
+(node:104480) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:104493) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:27:1 › issue34 AC-3: the workspace create control reports the configured maxWorkspaces (4.1s)
+(node:104588) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:64:1 › issue34 AC-7: the add-terminal control reports the configured maxTabsPerWorkspace (4.1s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+
+  1) [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:27:1 › issue34 AC-3: the workspace create control reports the configured maxWorkspaces 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 2[39m
+    [31m+ Received  + 2[39m
+
+    [2m  Object {[22m
+    [32m-   "maxTabsPerWorkspace": 3,[39m
+    [32m-   "maxWorkspaces": 4,[39m
+    [31m+   "maxTabsPerWorkspace": 2,[39m
+    [31m+   "maxWorkspaces": 5,[39m
+    [2m  }[22m
+
+      37 |
+      38 |   const state = await (await request.get(origin + '/api/workspaces', { headers })).json();
+    > 39 |   expect(state.limits).toEqual({ maxWorkspaces: CONFIGURED_MAX_WORKSPACES, maxTabsPerWorkspace: CONFIGURED_MAX_TABS });
+         |                        ^
+      40 |
+      41 |   // Before the quota is full the control is enabled and carries no limit text.
+      42 |   await expect(page.getByTitle('New Workspace', { exact: true })).toBeEnabled();
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:39:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/issue34-capacity-ratify-is-4866f-he-configured-maxWorkspaces-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/issue34-capacity-ratify-is-4866f-he-configured-maxWorkspaces-Desktop-Chrome/error-context.md
+
+  2) [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:64:1 › issue34 AC-7: the add-terminal control reports the configured maxTabsPerWorkspace 
+
+    Error: tab 3 is within the configured limit
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: < [32m400[39m
+    Received:   [31m409[39m
+
+      77 |   for (let i = 0; i < CONFIGURED_MAX_TABS; i += 1) {
+      78 |     const res = await request.post(`${origin}/api/workspaces/${ws.id}/tabs`, { headers, data: {} });
+    > 79 |     expect(res.status(), `tab ${i + 1} is within the configured limit`).toBeLessThan(400);
+         |                                                                         ^
+      80 |   }
+      81 |   // The server enforces the same configured number, one past it.
+      82 |   const overflow = await request.post(`${origin}/api/workspaces/${ws.id}/tabs`, { headers, data: {} });
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:79:73
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/issue34-capacity-ratify-is-d7390-figured-maxTabsPerWorkspace-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/issue34-capacity-ratify-is-d7390-figured-maxTabsPerWorkspace-Desktop-Chrome/error-context.md
+
+  2 failed
+    [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:27:1 › issue34 AC-3: the workspace create control reports the configured maxWorkspaces 
+    [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:64:1 › issue34 AC-7: the add-terminal control reports the configured maxTabsPerWorkspace 

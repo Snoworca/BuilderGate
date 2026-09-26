@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "1.0.0",
+  "requirementId": "OBS-BGSTAB-009",
+  "evidenceKind": "baseline_serialize_latency_samples",
+  "sealed": false,
+  "method": "single-shot, unwarmed, one measurement per seed",
+  "setsPerformanceBudget": false,
+  "samples": [
+    {
+      "cols": 80,
+      "rows": 24,
+      "scrollbackLines": 100,
+      "logicalLines": 24,
+      "retainedSerializeMs": 0.6587589999980992,
+      "legacySerializeMs": 0.06788000000233296
+    },
+    {
+      "cols": 80,
+      "rows": 24,
+      "scrollbackLines": 100,
+      "logicalLines": 25,
+      "retainedSerializeMs": 0.7385849999991478,
+      "legacySerializeMs": 0.05376799999794457
+    },
+    {
+      "cols": 80,
+      "rows": 24,
+      "scrollbackLines": 1000,
+      "logicalLines": 999,
+      "retainedSerializeMs": 26.12576099999569,
+      "legacySerializeMs": 0.06289100000140024
+    },
+    {
+      "cols": 80,
+      "rows": 24,
+      "scrollbackLines": 1000,
+      "logicalLines": 1000,
+      "retainedSerializeMs": 26.15643299999647,
+      "legacySerializeMs": 0.060725000003003515
+    },
+    {
+      "cols": 80,
+      "rows": 24,
+      "scrollbackLines": 1000,
+      "logicalLines": 1001,
+      "retainedSerializeMs": 28.597168000000238,
+      "legacySerializeMs": 0.06455100000312086
+    },
+    {
+      "cols": 80,
+      "rows": 24,
+      "scrollbackLines": 10000,
+      "logicalLines": 9999,
+      "retainedSerializeMs": 374.0085659999895,
+      "legacySerializeMs": 0.16575400000147056
+    },
+    {
+      "cols": 80,
+      "rows": 24,
+      "scrollbackLines": 10000,
+      "logicalLines": 10000,
+      "retainedSerializeMs": 346.7513809999946,
+      "legacySerializeMs": 0.14748299999337178
+    },
+    {
+      "cols": 80,
+      "rows": 24,
+      "scrollbackLines": 10000,
+      "logicalLines": 10001,
+      "retainedSerializeMs": 340.93808100000024,
+      "legacySerializeMs": 0.08099799999035895
+    }
+  ]
+}

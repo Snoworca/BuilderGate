@@ -1,0 +1,15 @@
+✔ MIG-BGSTAB-002 streaming capture compacts xterm default-color blanks and preserves absolute DECSC cursor (17.144725ms)
+✔ MIG-BGSTAB-002 streaming capture proves the exact retained overlap without absolute line indexes (1.574841ms)
+✔ OBS-BGSTAB-004 AC-4 canonical retained-state hash RED contract (4.163129ms)
+✔ OBS-BGSTAB-004 AC-6 eviction and observed loss RED contract (0.791961ms)
+✔ OBS-BGSTAB-004 AC-4 read-only xterm capture repair RED contract (0.622291ms)
+✔ OBS-BGSTAB-004 AC-4/6 compact live fingerprint repair RED contract (1.399858ms)
+✔ OBS-BGSTAB-004 AC-4/6 retained-range ordered evidence repair RED contract (4.339342ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 131.935793

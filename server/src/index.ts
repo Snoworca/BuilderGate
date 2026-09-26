@@ -9,11 +9,12 @@ import express from 'express';
 import cors from 'cors';
 import https from 'https';
 import http, { type ServerResponse } from 'http';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import crypto from 'node:crypto';
 import os from 'os';
 import httpProxy from 'http-proxy';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import { createSessionRoutes } from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
@@ -29,8 +30,19 @@ import { agentRootsForCwd } from './services/agentSession/agentRoots.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
-import { config, getServerRoot } from './utils/config.js';
+import { config, getConfigPath, getServerRoot } from './utils/config.js';
 import { getDefaultTerminalWireFormat } from './ws/terminalWireFormatDefault.js';
+import {
+  describeRuntimeProvenance,
+  formatForeignRootWarning,
+} from './utils/runtimeProvenance.js';
+import { describeGlobalPtyBackend } from './utils/ptyPlatformPolicy.js';
+import { getRawConfigSnapshot, getRawConfigSnapshotCapturedAt } from './utils/rawConfigSnapshot.js';
+import {
+  buildTerminalPathGateKeyBackup,
+  collectTerminalPathGateKeyState,
+  createTerminalPathGateKeySchemaShapeId,
+} from './schemas/terminalPathGateKeyBackup.js';
 import { inputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { FileService } from './services/FileService.js';
 import { FileJobManager } from './services/fileJobs/fileJobManager.js';
@@ -147,7 +159,9 @@ const HTTP_PORT = Number(PORT) - 1; // HTTP redirect port
 const DAEMON_START_ATTEMPT_ID = process.env.BUILDERGATE_DAEMON_START_ID ?? null;
 const DAEMON_STATE_GENERATION = Number.parseInt(process.env.BUILDERGATE_DAEMON_STATE_GENERATION ?? '', 10);
 const TOTP_SECRET_FILE_PATH = process.env.BUILDERGATE_TOTP_SECRET_PATH;
-const SUPPRESS_TOTP_QR = process.env.BUILDERGATE_SUPPRESS_TOTP_QR === '1';
+// #80: opt-IN. The old BUILDERGATE_SUPPRESS_TOTP_QR made the safe state the one you had to
+// remember to ask for, so every run that forgot it wrote a scannable second factor to stdout.
+const PRINT_TOTP_QR = process.env.BUILDERGATE_PRINT_TOTP_QR === '1';
 const SHUTDOWN_TOKEN = process.env.BUILDERGATE_SHUTDOWN_TOKEN;
 const WEB_ROOT_ENV_KEY = 'BUILDERGATE_WEB_ROOT';
 let fatalErrorLoggingInstalled = false;
@@ -182,6 +196,66 @@ const PRODUCTION_PUBLIC_DIR = process.env[WEB_ROOT_ENV_KEY]?.trim()
   ? path.resolve(process.env[WEB_ROOT_ENV_KEY]!)
   : path.join(getServerRoot(), 'dist', 'public');
 const PRODUCTION_INDEX_HTML = path.join(PRODUCTION_PUBLIC_DIR, 'index.html');
+
+/**
+ * FR-BGSTAB-030. Which checkout is this process actually serving?
+ *
+ * Measured 2026-09-20: started from cmd.exe, this checkout's dist inherited
+ * fifteen BUILDERGATE_* variables from the Windows environment, all pointing at
+ * the installed deployment. It started, /health answered 200, and the assets and
+ * config were the installed deployment's. Nothing in the running system said so.
+ */
+/**
+ * The running module's own directory — the one thing no environment variable
+ * can move. `dist/index.js` sits in exactly one checkout whatever the
+ * environment claims, which is what makes the question below decidable.
+ *
+ * The `typeof __dirname` arm is not decoration (OPS-BGSTAB-017). The packaged
+ * build bundles this file to CJS, where `import.meta` does not exist; esbuild
+ * substitutes an empty object, so the bare form evaluates
+ * `fileURLToPath(undefined)` and throws before the server has done anything.
+ * The build still succeeds, so the only symptom is an executable that will not
+ * start.
+ */
+const RUNTIME_MODULE_DIR = typeof __dirname === 'string'
+  ? __dirname
+  : path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Set only when this runtime is a packaged single executable. Inside pkg the
+ * module above is loaded from a virtual `/snapshot/...` path, which is not a
+ * tree anything else resolves into — so the executable's own directory is what
+ * plays the anchor's role there. See OPS-BGSTAB-017.
+ */
+const PACKAGED_EXECUTABLE_DIR = (process as NodeJS.Process & { pkg?: unknown }).pkg
+  ? path.dirname(process.execPath)
+  : null;
+
+const RUNTIME_PROVENANCE = describeRuntimeProvenance({
+  moduleDir: RUNTIME_MODULE_DIR,
+  packagedExecutableDir: PACKAGED_EXECUTABLE_DIR,
+  serverRoot: getServerRoot(),
+  configPath: getConfigPath(),
+  webRoot: PRODUCTION_PUBLIC_DIR,
+});
+
+/**
+ * A short digest of the served bundle entry point, so a caller can tell one
+ * build from another without being handed a filesystem path. Null when there is
+ * no bundle to hash, which is an honest answer rather than an invented id.
+ */
+function readServedBuildId(): string | null {
+  try {
+    return crypto.createHash('sha256')
+      .update(readFileSync(PRODUCTION_INDEX_HTML))
+      .digest('hex')
+      .slice(0, 12);
+  } catch {
+    return null;
+  }
+}
+
+const SERVED_BUILD_ID = readServedBuildId();
 
 function setupFatalErrorLogging(): void {
   if (fatalErrorLoggingInstalled) {
@@ -235,7 +309,7 @@ function applyTwoFactorRuntime(
     cryptoService,
     changedKeys,
     secretFilePath: TOTP_SECRET_FILE_PATH,
-    suppressConsoleQr: SUPPRESS_TOTP_QR,
+    printConsoleQr: PRINT_TOTP_QR,
     initialStartup: options.initialStartup ?? false,
   });
   totpService = result.service;
@@ -623,7 +697,12 @@ function setupRoutes(): void {
       authenticated: false,
       pid: process.pid,
       startAttemptId: DAEMON_START_ATTEMPT_ID,
-      stateGeneration: Number.isInteger(DAEMON_STATE_GENERATION) ? DAEMON_STATE_GENERATION : null
+      stateGeneration: Number.isInteger(DAEMON_STATE_GENERATION) ? DAEMON_STATE_GENERATION : null,
+      // FR-BGSTAB-030 AC-2. A 200 says a server is up; it has never said WHICH.
+      // These two fields are what a scripted preflight needs to tell this build
+      // from another one, and they are deliberately a verdict and a digest
+      // rather than paths: /health takes no auth.
+      ...RUNTIME_PROVENANCE.toHealthView(SERVED_BUILD_ID),
     });
   });
 
@@ -952,6 +1031,38 @@ function setupRoutes(): void {
     handleRollback: invokeTerminalAuthorityDebugHandler('handleRollback') as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['handleRollback'],
     handleFault: invokeTerminalAuthorityDebugHandler('handleFault') as unknown as Parameters<typeof registerTerminalAuthorityDebugRoutes>[0]['handleFault'],
   });
+  /**
+   * OPS-BGSTAB-012 — the terminal-path gate key backup.
+   *
+   * Behind the same guard as the other debug reads: authenticated AND loopback-only. That
+   * is the trust boundary this artifact wants -- readable by someone on the host running a
+   * rollback drill, not published. AC-7 declined to widen `/api/runtime-config`, and this
+   * is why it did not need to: two of the six keys have no public surface and are read
+   * here from the store in-process.
+   *
+   * Read-only by construction: it reports, and there is no route that applies one back.
+   */
+  app.get('/api/debug/gate-key-backup', authMiddleware, requireLocalDebugCapture, (_req, res) => {
+    const state = collectTerminalPathGateKeyState({
+      effectiveValues: runtimeConfigStore.getTerminalPathGateKeyValues(),
+      rawConfig: getRawConfigSnapshot(),
+      // The router took this from module-top-level `config` at boot, while the store
+      // reassigns its own copy on reload. Where they differ the artifact records both.
+      consumerValues: { terminalWireFormat: config.realtime?.terminalWireFormat },
+    });
+
+    res.json(buildTerminalPathGateKeyBackup(
+      state,
+      {
+        serverBuild: `node-${process.version}`,
+        configSourcePath: getConfigPath(),
+        schemaShapeId: createTerminalPathGateKeySchemaShapeId(),
+        rawConfigCapturedAt: getRawConfigSnapshotCapturedAt(),
+      },
+      new Date(),
+    ));
+  });
+
   app.get('/api/sessions/debug-capture/:id', authMiddleware, requireLocalDebugCapture, requireExistingDebugSession, (req, res) => {
     const wsRouter = app.get('wsRouter') as WsRouter | undefined;
     const sessionId = req.params.id;
@@ -1045,12 +1156,26 @@ app.use((err: Error, req: express.Request, res: express.Response, _next: express
 
 async function startServer(): Promise<void> {
   try {
+    // ====================================================================
+    // FR-BGSTAB-030 AC-1. Say it FIRST, before anything that might fail.
+    //
+    // The decryption failure that a foreign config produces is thrown from
+    // inside AuthService a few lines below, and measured 2026-09-20 that is
+    // the only thing the operator sees. Printing the provenance after it
+    // would mean the one message that explains the crash never appears.
+    // ====================================================================
+    for (const line of formatForeignRootWarning(RUNTIME_PROVENANCE)) {
+      console.warn(line);
+    }
+
     // ========================================================================
     // Initialize Crypto Service (Phase 2)
     // ========================================================================
     // Use machine ID + hostname as master key source for consistency
     const machineId = `${os.hostname()}-${os.platform()}-${os.arch()}`;
-    cryptoService = new CryptoService(machineId);
+    // FR-BGSTAB-030 AC-3. The label is what turns a failed GCM auth tag into
+    // "this file was written by a different platform on this machine".
+    cryptoService = new CryptoService(machineId, { keySourceLabel: machineId });
     console.log('[Crypto] CryptoService initialized');
 
     // ========================================================================
@@ -1691,12 +1816,19 @@ async function startServer(): Promise<void> {
 
     // Start HTTPS server
     httpsServer.listen(PORT, () => {
-      const powerShellBackend = config.pty.windowsPowerShellBackend ?? 'inherit';
-      const effectivePowerShellBackend = powerShellBackend === 'inherit'
-        ? (config.pty.useConpty ? 'conpty' : 'winpty')
-        : powerShellBackend;
-      console.log(`[PTY] Global Windows backend default: ${config.pty.useConpty ? 'conpty' : 'winpty'}`);
-      console.log(`[PTY] Effective PowerShell backend default: ${effectivePowerShellBackend} (policy: ${powerShellBackend})`);
+      // CON-BGSTAB-002 AC-5. Windows backend selection is only a thing on
+      // Windows. These two lines used to print everywhere, so a Linux start
+      // announced "Global Windows backend default: winpty" on a host that has no
+      // winpty — Unix uses its own pseudo-terminal and node-pty goes straight to
+      // it. The banner line below says what IS in use on every platform.
+      if (process.platform === 'win32') {
+        const powerShellBackend = config.pty.windowsPowerShellBackend ?? 'inherit';
+        const effectivePowerShellBackend = powerShellBackend === 'inherit'
+          ? (config.pty.useConpty ? 'conpty' : 'winpty')
+          : powerShellBackend;
+        console.log(`[PTY] Global Windows backend default: ${config.pty.useConpty ? 'conpty' : 'winpty'}`);
+        console.log(`[PTY] Effective PowerShell backend default: ${effectivePowerShellBackend} (policy: ${powerShellBackend})`);
+      }
       const twoFAStatus = (() => {
         const totpEnabled = config.twoFactor?.enabled ?? false;
         if (!totpEnabled) return 'Disabled';
@@ -1710,7 +1842,7 @@ async function startServer(): Promise<void> {
       console.log(`║  HTTPS Server: https://localhost:${PORT}                        ║`);
       console.log(`║  Health Check: https://localhost:${PORT}/health                 ║`);
       console.log(`║  Login:        POST https://localhost:${PORT}/api/auth/login    ║`);
-      console.log(`║  Global PTY:   ${config.pty.useConpty ? 'ConPTY' : 'winpty'}                                       ║`);
+      console.log(`║  Global PTY:   ${describeGlobalPtyBackend(process.platform, config.pty.useConpty).padEnd(38)}║`);
       console.log('║  TLS Version:  1.2 - 1.3                                       ║');
       console.log('║  Auth:         JWT (HS256)                                     ║');
       console.log(`║  2FA:          ${twoFAStatus.padEnd(30)}     ║`);

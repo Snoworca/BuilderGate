@@ -24,7 +24,7 @@ test('PERF-BGSTAB-010 AC-6 ACK rejection debug event records only protocol ident
       getItem: () => null,
       removeItem: () => undefined,
       setItem: () => undefined,
-    } as Storage,
+    } as unknown as Storage,
     writable: true,
   });
 

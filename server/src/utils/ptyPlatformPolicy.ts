@@ -15,6 +15,21 @@ export function getBootstrapPtyDefaults(
 ): Pick<PTYConfig, 'useConpty' | 'windowsPowerShellBackend' | 'shell'> {
   if (platform === 'win32') {
     return {
+      // CON-BGSTAB-002. The platform's NATIVE pseudo-terminal, on every OS.
+      //
+      // Linux and macOS have had real PTYs for decades and node-pty goes
+      // straight to them. Windows had none until ConPTY, which is why winpty
+      // exists at all: it is a shim that drives a hidden console window and
+      // scrapes it. ConPTY is the Windows member of the same family as the Unix
+      // PTY, so "native pseudo-terminal everywhere" means ConPTY here.
+      //
+      // `useConpty: true` selects it for every shell. `windowsPowerShellBackend`
+      // stays `inherit` so PowerShell follows that choice rather than being
+      // carved out: an explicit `winpty` here would make a working winpty a
+      // precondition for PowerShell on a fresh install, because
+      // resolveWindowsPtyBackend then calls assertPowerShellWinptyAvailable(),
+      // which spawns PowerShell under winpty and throws CONFIG_ERROR if it
+      // cannot. Leaving it inherited also skips that probe entirely.
       useConpty: true,
       windowsPowerShellBackend: 'inherit',
       shell: 'auto',
@@ -26,6 +41,29 @@ export function getBootstrapPtyDefaults(
     windowsPowerShellBackend: 'inherit',
     shell: 'auto',
   };
+}
+
+/**
+ * CON-BGSTAB-002 AC-5. What to call the PTY backend in operator-facing output.
+ *
+ * The startup banner used to be `useConpty ? 'ConPTY' : 'winpty'` — a two-way
+ * choice between two WINDOWS backends, printed on every platform. Off Windows
+ * `useConpty` is forced false, so the banner said `Global PTY: winpty` on hosts
+ * that have no winpty: it is a Windows shim that drives a hidden console and
+ * scrapes it, written because Windows had no pseudo-terminal. Unix has had real
+ * PTYs for decades and node-pty uses them directly there, so neither Windows
+ * name applies.
+ *
+ * Measured 2026-09-21: a WSL start in this session printed that line, and it was
+ * read back as if it described the backend in use.
+ */
+export function describeGlobalPtyBackend(platform: NodeJS.Platform, useConpty: boolean): string {
+  if (platform !== 'win32') {
+    // `useConpty` is deliberately ignored rather than asserted false: it names a
+    // Windows backend, so it has no say here whatever it happens to hold.
+    return 'pty (native)';
+  }
+  return useConpty ? 'ConPTY' : 'winpty';
 }
 
 export function getSettingsShellOptions(platform: NodeJS.Platform): ShellType[] {

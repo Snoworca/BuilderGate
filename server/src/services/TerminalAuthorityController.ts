@@ -67,6 +67,26 @@ export interface TerminalAuthorityState {
   frozenRequiredResponderCount: number;
   acceptedDisableAckCount: number;
   heldPostBoundaryCount: number;
+  /**
+   * Outstanding pending outputs owned by `legacy-browser` -- the exact set
+   * `beginPromotion` drains before it can settle. Reported so a session that will hang a
+   * promotion is observable BEFORE one is attempted: a record stranded by a failed apply
+   * never settles, and no later output clears it, so buffer quiescence cannot see it.
+   * Computed at read time from `pendingOutputs` rather than tracked, so it cannot drift
+   * away from the set the drain actually awaits.
+   */
+  // Optional on the interface, always populated by this controller's getState(): other
+  // implementations of TerminalAuthorityState (test stubs) predate the field and are not
+  // required to invent a number for a queue they do not have.
+  pendingLegacyBrowserOutputCount?: number;
+  /**
+   * Deliveries queued on the serialised terminal-delivery chain that have not settled, and
+   * the age of the oldest. Depth alone cannot separate a busy chain from a stalled one;
+   * the age is what makes "stalled" measurable rather than inferred. Both are optional for
+   * the same reason as the count above: other implementations have no such chain.
+   */
+  pendingTerminalDeliveryCount?: number;
+  oldestPendingTerminalDeliveryAgeMs?: number | null;
   pendingDeliveryBytes: number;
   pendingDeliveryChunks: number;
   restartRequired: boolean;
@@ -94,6 +114,17 @@ export interface TerminalAuthorityEvent {
   data?: string;
   outputDataSha256?: string;
   outputByteLength?: number;
+}
+
+// @req REL-BGSTAB-007 AC-8
+// What a browser asks for when it re-attaches after a refresh/reconnect/remount.
+// `cacheState` reports whether that browser still holds a local snapshot and
+// whether it is intact; AC-8 requires authoritative recovery to be identical in
+// both cases, so this value must be observable at the recovery boundary.
+export interface TerminalAuthorityRecoverViewRequest {
+  connectionId: string;
+  viewGeneration: number;
+  cacheState: 'absent' | 'poisoned';
 }
 
 export interface TerminalAuthorityControllerOptions {
@@ -127,7 +158,13 @@ export interface TerminalAuthorityControllerOptions {
   onOrderedCompatibilityRecoveryRequired: (reason: string) => void;
   enqueueTerminalMessage: (message: object) => boolean | Promise<boolean>;
   emit: (event: TerminalAuthorityEvent) => void;
-  loadAuthoritativeRecovery: () => {
+  // @req REL-BGSTAB-007 AC-8
+  // The request is optional because promotion also loads authoritative
+  // recovery with no browser context. Existing nullary implementations stay
+  // assignable; passing the request is what makes "cache absent/poisoned must
+  // not alter authoritative recovery bytes" a falsifiable claim instead of a
+  // comparison of one nullary function against itself.
+  loadAuthoritativeRecovery: (request?: TerminalAuthorityRecoverViewRequest) => {
     retainedStateHash: string;
     checkpointEpoch: string;
     snapshotSeq: string;
@@ -235,11 +272,7 @@ export interface TerminalAuthorityController {
     transitionEpoch: string;
     parserTail: string;
   }): Promise<{ accepted: false; reason: string }>;
-  recoverView(input: {
-    connectionId: string;
-    viewGeneration: number;
-    cacheState: 'absent' | 'poisoned';
-  }): Promise<{
+  recoverView(input: TerminalAuthorityRecoverViewRequest): Promise<{
     ok: boolean;
     source: 'server-checkpoint';
     localCacheUsed: false;
@@ -478,6 +511,17 @@ export function createTerminalAuthorityController(
   let recoveryRequested = false;
   let serverAuthorityLeasesInstalled = false;
   let terminalDeliverySettlementChain: Promise<void> = Promise.resolve();
+  /**
+   * Every terminal delivery on this session is serialised onto the chain above, so a
+   * delivery that never settles blocks everything queued behind it -- including the
+   * responder-disable boundary `beginPromotion` awaits after the output drain. That stall
+   * holds no output record, so `pendingLegacyBrowserOutputCount` reports zero through it.
+   *
+   * Entries are added on enqueue and removed when the delivery settles either way. An entry
+   * that outlives its delivery is the thing being looked for, so this deliberately does not
+   * clean up on any other signal.
+   */
+  const pendingTerminalDeliveries = new Set<{ enqueuedAt: number }>();
   let promotionCommitTransaction: Promise<AckResult> | null = null;
   let promotionCommitToken: symbol | null = null;
   let compatibilityCommitTransaction: Promise<AckResult & { completed: boolean }> | null = null;
@@ -689,7 +733,11 @@ export function createTerminalAuthorityController(
         return false;
       }
     };
+    const deliveryEntry = { enqueuedAt: options.now() };
+    pendingTerminalDeliveries.add(deliveryEntry);
     const result = terminalDeliverySettlementChain.then(settle, settle);
+    const forget = (): void => { pendingTerminalDeliveries.delete(deliveryEntry); };
+    result.then(forget, forget);
     terminalDeliverySettlementChain = result.then(() => undefined, () => undefined);
     return result;
   };
@@ -1354,8 +1402,8 @@ export function createTerminalAuthorityController(
       return { accepted: false, reason: 'browser-parser-tail-transfer-forbidden' };
     },
 
-    async recoverView() {
-      const recovery = options.loadAuthoritativeRecovery();
+    async recoverView(input) {
+      const recovery = options.loadAuthoritativeRecovery(input);
       return {
         ok: state.mode === 'server',
         source: 'server-checkpoint',
@@ -1985,7 +2033,24 @@ export function createTerminalAuthorityController(
     },
 
     getState() {
-      return { ...state };
+      // The same predicate beginPromotion filters on, deliberately duplicated rather than
+      // shared: if the drain's filter changes, this count must be updated with it, and a
+      // shared helper would let them silently diverge in meaning while still agreeing.
+      const pendingLegacyBrowserOutputCount = [...pendingOutputs.values()]
+        .filter(output => output.ingestOwnerToken === 'legacy-browser')
+        .length;
+      const deliveries = [...pendingTerminalDeliveries];
+      const oldestEnqueuedAt = deliveries.reduce<number | null>(
+        (oldest, entry) => (oldest === null || entry.enqueuedAt < oldest ? entry.enqueuedAt : oldest),
+        null,
+      );
+      return {
+        ...state,
+        pendingLegacyBrowserOutputCount,
+        pendingTerminalDeliveryCount: deliveries.length,
+        oldestPendingTerminalDeliveryAgeMs:
+          oldestEnqueuedAt === null ? null : options.now() - oldestEnqueuedAt,
+      };
     },
   };
 

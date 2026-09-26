@@ -1,0 +1,34 @@
+✖ MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session
+✖ MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles
+✖ MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior
+✖ MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle
+✖ MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix
+✖ MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection
+✖ MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session
+✖ MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output
+✖ MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate
+✖ MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output
+✖ MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps
+✖ MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw
+✖ OBS-BGSTAB-005 review regression — exact repository tuples validate bidirectionally and detect new callsites
+✖ OBS-BGSTAB-005 second review regression — differential executes actual server and browser consumer helpers
+✖ OBS-BGSTAB-005 third review regression — catalog evidence must be executable and remain in the intended symbol scope
+✖ OPS-BGSTAB-010 the compiled canary accepts the bundled artifact policy
+✖ Observe-only TerminalResourcePolicy RED contract — OBS-BGSTAB-005 AC-6
+✖ PERF-BGSTAB-008 AC-2 GREEN contract
+✖ PERF-BGSTAB-008 AC-2 RED contract
+✖ PERF-BGSTAB-008 AC-4 GREEN contract
+✖ PERF-BGSTAB-008 AC-4 RED contract
+✖ PERF-BGSTAB-008 AC-6 GREEN contract
+✖ PERF-BGSTAB-008 AC-6 RED contract
+✖ PERF-BGSTAB-010 compiled runtime resolves only its staged evidence bundle and rejects escaped references
+✖ PERF-BGSTAB-010 compiled runtime validates the published artifact through build provenance
+✖ PERF-BGSTAB-010 one-field authority identity drift rejects default admission
+✖ PERF-BGSTAB-010 portable compiled Canary accepts fresh canonical authority
+✖ PERF-BGSTAB-010 runtime policy profile default admission uses current authority identity
+✖ PERF-BGSTAB-010 source-dist canonical authority parity fails closed
+✖ S1 sidecar — output wire message keeps the recovery ordering metadata
+✖ SEC-MCP-003 the OSC 133 BASH_ENV injection survives the filter
+✖ server RED — real output sequence and ready authority tokens
+✖ server fresh replay request is token-fenced and supersedes the pending snapshot
+✖ server recovery refresh requires both replay and repair ownership tokens

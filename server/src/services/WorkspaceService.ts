@@ -17,6 +17,7 @@ import type { RecoveryOption, RecoveryOptionIcon } from '../types/recoveryOption
 import type { ShellType } from '../types/index.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { config } from '../utils/config.js';
+import { publishStoreAtomically } from '../utils/atomicStoreWrite.js';
 import { isDefaultTerminalTabName, isSystemAbsolutePathTerminalTitle, sanitizeTerminalTitle } from '../utils/terminalTitle.js';
 import { buildRecoveryRestoreInput, getRecoveryExecutableToken, normalizeRecoveryExecutable, type RecoveryRestoreShell } from '../utils/recoveryCommand.js';
 import type { SessionCommandSubmittedEvent, SessionFinalizedEvent, SessionManager } from './SessionManager.js';
@@ -228,10 +229,15 @@ export class WorkspaceService {
     return this.state;
   }
 
-  getLimits(): Pick<WorkspaceConfig, 'maxWorkspaces' | 'maxTabsPerWorkspace'> {
+  // #66: maxTotalSessions is published alongside the other two because the browser was
+  // hardcoding 32 for it while the server enforced the configured value at :564. Two of the
+  // three limits travelled; the third did not, so a deployment that lowered the cap kept
+  // offering the old one in the UI and the refusal arrived from the server instead.
+  getLimits(): Pick<WorkspaceConfig, 'maxWorkspaces' | 'maxTabsPerWorkspace' | 'maxTotalSessions'> {
     return {
       maxWorkspaces: this.config.maxWorkspaces,
       maxTabsPerWorkspace: this.config.maxTabsPerWorkspace,
+      maxTotalSessions: this.config.maxTotalSessions,
     };
   }
 
@@ -1768,26 +1774,13 @@ export class WorkspaceService {
       state: this.state,
     };
 
-    const tmpPath = this.dataFilePath + '.tmp';
-    const bakPath = this.dataFilePath + '.bak';
-
+    // @req REL-BGSTAB-022 — the temp path is private to this call, so a second
+    // process sharing the checkout cannot consume or overwrite it. The raw error
+    // is still what reaches the caller here; REL-BGSTAB-021's rollback reads it.
     try {
-      // Step 1: Write to temp file
-      await fs.writeFile(tmpPath, JSON.stringify(file, null, 2), { encoding: 'utf-8', mode: 0o600 });
-
-      // Step 2: Backup existing file
-      try {
-        await fs.copyFile(this.dataFilePath, bakPath);
-      } catch {
-        // No existing file to backup — OK on first run
-      }
-
-      // Step 3: Atomic rename (same directory = same partition on Windows)
-      await fs.rename(tmpPath, this.dataFilePath);
+      await publishStoreAtomically(this.dataFilePath, JSON.stringify(file, null, 2));
     } catch (err: any) {
       console.error('[WorkspaceService] Flush failed:', err.message);
-      // Clean up tmp file if it exists
-      try { await fs.unlink(tmpPath); } catch { /* ignore */ }
       throw err;
     }
   }

@@ -1,0 +1,113 @@
+✖ IR-BGSTAB-001 a configured binary-optin wire format reaches the running server (1.128279ms)
+✖ IR-BGSTAB-001 a configured json wire format leaves binary negotiation closed (0.151086ms)
+✖ IR-BGSTAB-001 a config with no realtime block still negotiates to an answer (0.130694ms)
+✖ IR-BGSTAB-001 a split transport mode refuses binary negotiation without a query parameter (0.115751ms)
+✖ IR-BGSTAB-001 a split-shadow transport mode also refuses binary negotiation (0.173403ms)
+✖ IR-BGSTAB-001 a client asking for split cannot negotiate binary on a unified server (0.127019ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 0
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 774.204264
+
+✖ failing tests:
+
+test at src/ws/terminalWireFormatBoot.test.ts:14:225
+✖ IR-BGSTAB-001 a configured binary-optin wire format reaches the running server (1.128279ms)
+  Error: B0_FORBIDDEN_TCP_LISTEN: test fixtures must listen on their owned local endpoint (buildergate-<kind>-<pid>-<uuid>)
+      at net.Server.listen (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/require-owned-http-test-pipe.cjs:34:19)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:59:12)
+      at new Promise (<anonymous>)
+      at tryBind (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:53:10)
+      at reserveAdjacentPortPair (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:73:25)
+      at negotiateWithServerConfigured (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:192:22)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:303:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17) {
+    code: 'B0_FORBIDDEN_TCP_LISTEN'
+  }
+
+test at src/ws/terminalWireFormatBoot.test.ts:14:592
+✖ IR-BGSTAB-001 a configured json wire format leaves binary negotiation closed (0.151086ms)
+  Error: B0_FORBIDDEN_TCP_LISTEN: test fixtures must listen on their owned local endpoint (buildergate-<kind>-<pid>-<uuid>)
+      at net.Server.listen (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/require-owned-http-test-pipe.cjs:34:19)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:59:12)
+      at new Promise (<anonymous>)
+      at tryBind (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:53:10)
+      at reserveAdjacentPortPair (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:73:25)
+      at negotiateWithServerConfigured (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:192:22)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:314:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    code: 'B0_FORBIDDEN_TCP_LISTEN'
+  }
+
+test at src/ws/terminalWireFormatBoot.test.ts:14:877
+✖ IR-BGSTAB-001 a config with no realtime block still negotiates to an answer (0.130694ms)
+  Error: B0_FORBIDDEN_TCP_LISTEN: test fixtures must listen on their owned local endpoint (buildergate-<kind>-<pid>-<uuid>)
+      at net.Server.listen (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/require-owned-http-test-pipe.cjs:34:19)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:59:12)
+      at new Promise (<anonymous>)
+      at tryBind (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:53:10)
+      at reserveAdjacentPortPair (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:73:25)
+      at negotiateWithServerConfigured (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:192:22)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:328:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    code: 'B0_FORBIDDEN_TCP_LISTEN'
+  }
+
+test at src/ws/terminalWireFormatBoot.test.ts:14:1184
+✖ IR-BGSTAB-001 a split transport mode refuses binary negotiation without a query parameter (0.115751ms)
+  Error: B0_FORBIDDEN_TCP_LISTEN: test fixtures must listen on their owned local endpoint (buildergate-<kind>-<pid>-<uuid>)
+      at net.Server.listen (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/require-owned-http-test-pipe.cjs:34:19)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:59:12)
+      at new Promise (<anonymous>)
+      at tryBind (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:53:10)
+      at reserveAdjacentPortPair (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:73:25)
+      at negotiateWithServerConfigured (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:192:22)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:342:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    code: 'B0_FORBIDDEN_TCP_LISTEN'
+  }
+
+test at src/ws/terminalWireFormatBoot.test.ts:14:1516
+✖ IR-BGSTAB-001 a split-shadow transport mode also refuses binary negotiation (0.173403ms)
+  Error: B0_FORBIDDEN_TCP_LISTEN: test fixtures must listen on their owned local endpoint (buildergate-<kind>-<pid>-<uuid>)
+      at net.Server.listen (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/require-owned-http-test-pipe.cjs:34:19)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:59:12)
+      at new Promise (<anonymous>)
+      at tryBind (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:53:10)
+      at reserveAdjacentPortPair (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:73:25)
+      at negotiateWithServerConfigured (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:192:22)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:354:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    code: 'B0_FORBIDDEN_TCP_LISTEN'
+  }
+
+test at src/ws/terminalWireFormatBoot.test.ts:14:1841
+✖ IR-BGSTAB-001 a client asking for split cannot negotiate binary on a unified server (0.127019ms)
+  Error: B0_FORBIDDEN_TCP_LISTEN: test fixtures must listen on their owned local endpoint (buildergate-<kind>-<pid>-<uuid>)
+      at net.Server.listen (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/require-owned-http-test-pipe.cjs:34:19)
+      at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:59:12)
+      at new Promise (<anonymous>)
+      at tryBind (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:53:10)
+      at reserveAdjacentPortPair (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:73:25)
+      at negotiateWithServerConfigured (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:192:22)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/terminalWireFormatBoot.test.ts:366:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18) {
+    code: 'B0_FORBIDDEN_TCP_LISTEN'
+  }
+EXIT=1

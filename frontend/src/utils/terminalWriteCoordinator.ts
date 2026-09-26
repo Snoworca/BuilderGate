@@ -64,6 +64,15 @@ export interface TerminalWriteCoordinatorOptions {
   pendingInputMaxBytes?: number;
   pendingInputMaxCount?: number;
   pendingInputTtlMs?: number;
+  /**
+   * Frame CPU budget for the checkpoint write lane, in milliseconds. Absent
+   * means unpaced, which is the pre-existing behaviour for every caller that
+   * does not opt in (issue #10 AC-4; REL-BGSTAB-007 AC-6 keeps this a separate
+   * unit from the retention and chunk budgets).
+   */
+  frameBudgetMs?: number;
+  /** Returns true while browser input is pending, so the lane can yield to it. */
+  shouldYield?: () => boolean;
   settlementLedgerMaxEntries?: number;
   inputSettlementLedgerMaxEntries?: number;
   settlementLedgerTtlMs?: number;
@@ -252,6 +261,8 @@ interface PendingCompatibilityWrite {
   readonly generation: number;
   readonly kind: TerminalWriteKind;
   readonly data: string | Uint8Array;
+  /** Encoded size, computed once at admission so the budget scan never re-encodes. */
+  readonly encodedBytes: number;
   readonly onWritten?: () => void;
   readonly onRejected?: (reason: string) => void;
 }
@@ -387,6 +398,7 @@ export function createTerminalWriteCoordinator(
   let checkpointTransaction: CheckpointTransaction | null = null;
   let recoveryRequired = false;
   let compatibilityRecoveryPending = false;
+  let checkpointFrameDeadline: number | null = null;
   let compatibilityRecoveryResetApplied = false;
   let compatibilityRecoveryCompletionInProgress = false;
   let runtimeRecreationRequired = false;
@@ -396,6 +408,81 @@ export function createTerminalWriteCoordinator(
   let latestSourceSeq: ParsedOrdinal64 | null = null;
   let latestCheckpointEpoch: ParsedOrdinal64 | null = null;
   const queue: PendingMutation[] = [];
+  const checkpointPacingEnabled = (): boolean =>
+    typeof options.frameBudgetMs === 'number' || typeof options.shouldYield === 'function';
+
+  const shouldDeferCheckpointFrame = (): boolean => {
+    if (!checkpointPacingEnabled()) return false;
+    // Caller-supplied and untrusted: the production predicate reaches into
+    // `navigator.scheduling.isInputPending`. A throw here escapes the write
+    // callback, where the enclosing catch cannot help because `callbackSettled`
+    // is already true, and the lane is left with work queued, nothing in flight
+    // and nothing scheduled. Treat a throwing predicate as "do not yield".
+    let yieldRequested = false;
+    try {
+      yieldRequested = options.shouldYield?.() === true;
+    } catch {
+      yieldRequested = false;
+    }
+    if (yieldRequested) return true;
+    if (typeof options.frameBudgetMs !== 'number' || !(options.frameBudgetMs > 0)) return false;
+    if (checkpointFrameDeadline === null) {
+      checkpointFrameDeadline = now() + options.frameBudgetMs;
+      return false;
+    }
+    return now() >= checkpointFrameDeadline;
+  };
+
+  const deferCheckpointFrame = (): void => {
+    // A new frame begins when the continuation runs, so the deadline is cleared
+    // here rather than on resume — if scheduling throws, the next synchronous
+    // pass recomputes it instead of inheriting a spent one.
+    checkpointFrameDeadline = null;
+    try {
+      setTimer(() => {
+        if (disposed) return;
+        pump();
+      }, 0);
+    } catch {
+      // A scheduler that cannot schedule must not strand the lane: the deadline
+      // is already cleared, so continuing synchronously costs one unpaced frame
+      // and keeps the checkpoint converging. Stranding it would hang the
+      // terminal with no recovery latch.
+      pump();
+    }
+  };
+
+  // Retention of the COMPATIBILITY lane only — the lane the post-checkpoint
+  // budget governs. Deliberately excludes the checkpoint entry, whose body is
+  // bounded by the separate `checkpointMaxBytes` (REL-BGSTAB-007 AC-6 keeps
+  // those units apart), and excludes live/repair writes, which finalize pushes
+  // in already bounded by the post-checkpoint hold. An earlier version of this
+  // guard summed all three against one budget and fired on states that were
+  // inside every declared budget — and it latched a recovery, tearing down a
+  // healthy view rather than merely rejecting.
+  const isCompatibilityMutation = (pending: PendingMutation): boolean =>
+    pending.type !== 'write' && pending.type !== 'checkpoint';
+
+  const compatibilityRetention = (): { chunks: number; bytes: number } => {
+    let chunks = 0;
+    let bytes = 0;
+    const count = (pending: PendingMutation | null): boolean => {
+      if (pending === null || !isCompatibilityMutation(pending)) return true;
+      chunks += 1;
+      if (pending.type === 'compatibility-write') bytes += pending.encodedBytes;
+      // Once either cap is already exceeded the exact totals cannot change the
+      // decision, so stop walking. Without this the scan is O(queue), and the
+      // queue length is no longer bounded by the chunk cap now that
+      // non-compatibility entries do not count toward it.
+      return chunks <= postCheckpointMaxChunks && bytes <= postCheckpointMaxBytes;
+    };
+    // The in-flight mutation has left the queue but is still retained.
+    if (!count(activeMutation)) return { chunks, bytes };
+    for (const pending of queue) {
+      if (!count(pending)) break;
+    }
+    return { chunks, bytes };
+  };
   const pendingInputs: PendingInput[] = [];
   let pendingInputBytes = 0;
   const settlementLedger = new Map<string, SettlementLedgerEntry>();
@@ -1008,7 +1095,20 @@ export function createTerminalWriteCoordinator(
         && !disposed
         && !recoveryRequired
       ) {
-        pump();
+        // Issue #10 AC-4: the checkpoint lane honours the frame CPU budget and
+        // the input yield, not just the live lane. Deferring must SCHEDULE the
+        // continuation — a yield that schedules nothing is the hang this change
+        // risks. The guard for THAT is terminalCheckpointLanePacing, whose arms
+        // assert `pendingCommands === 0` after quiescence including when the
+        // yield predicate or the scheduler throws. (An earlier comment here
+        // named terminalSnapshotLiveHandoverIntegrity; that file builds its
+        // coordinator with no budget and no yield, so it never enters this
+        // branch. It guards the unpaced lane, which is a different claim.)
+        if (mutation.type === 'checkpoint' && shouldDeferCheckpointFrame()) {
+          deferCheckpointFrame();
+        } else {
+          pump();
+        }
       }
     };
 
@@ -1183,6 +1283,11 @@ export function createTerminalWriteCoordinator(
       drained: false,
       lastDrainedSourceSeq: null,
     };
+    // A checkpoint's drain starts here, so this is where its frame budget starts.
+    // Clearing it at `checkpoint-begin` instead would reset the budget of a
+    // PREVIOUS checkpoint still draining — begin is admissible while the earlier
+    // one is mid-drain — and hand that drain a fresh frame it had not earned.
+    checkpointFrameDeadline = null;
     queue.push({
       type: 'checkpoint',
       generation: viewGeneration,
@@ -1616,6 +1721,19 @@ export function createTerminalWriteCoordinator(
       return rejected('fresh-checkpoint-required');
     }
 
+    // REL-BGSTAB-027 AC-4 (REL-BGSTAB-007 AC-12): rollback must stop new
+    // authoritative admission, output as well as input. The guard above fires on
+    // `recoveryInstallation`, which `rollback-to-compatibility` clears, so
+    // without this arm the rollback path silently loses the fence that
+    // `install-recovery-generation` has and admits live output before a fresh
+    // authoritative snapshot has converged.
+    if (
+      compatibilityRecoveryPending
+      && (command.type === 'live' || command.type === 'repair')
+    ) {
+      return rejected('compatibility-snapshot-required');
+    }
+
     if (command.type === 'queue-input') {
       if (
         typeof command.data !== 'string'
@@ -1974,11 +2092,15 @@ export function createTerminalWriteCoordinator(
       if (typeof command.data !== 'string' && !(command.data instanceof Uint8Array)) {
         return rejectCommand('invalid-compatibility-write');
       }
+      const payload = typeof command.data === 'string' ? command.data : command.data.slice();
       mutation = {
         type: 'compatibility-write',
         generation: viewGeneration,
         kind: command.kind,
-        data: typeof command.data === 'string' ? command.data : command.data.slice(),
+        data: payload,
+        encodedBytes: typeof payload === 'string'
+          ? inputEncoder.encode(payload).byteLength
+          : payload.byteLength,
         onWritten: command.onWritten,
         onRejected: command.onRejected,
       };
@@ -2010,10 +2132,10 @@ export function createTerminalWriteCoordinator(
         onRejected: command.onRejected,
       };
     }
+    // Already computed once when the mutation was constructed; re-encoding here
+    // was the other half of the cost the caching was meant to remove.
     const compatibilityWriteBytes = mutation.type === 'compatibility-write'
-      ? typeof mutation.data === 'string'
-        ? inputEncoder.encode(mutation.data).byteLength
-        : mutation.data.byteLength
+      ? mutation.encodedBytes
       : 0;
     const conflictsWithCheckpointAuthority = (
       mutation.type === 'compatibility-reset'
@@ -2039,6 +2161,20 @@ export function createTerminalWriteCoordinator(
       checkpointTransaction.postCheckpointBytes = nextHeldBytes;
       checkpointTransaction.postCheckpointMutations.push(mutation);
       return ACCEPTED;
+    }
+    // REL-BGSTAB-027 AC-1/AC-2: the caps above hang off `checkpointTransaction`,
+    // and `rollback-to-compatibility` sets it to null. Every state without a
+    // transaction — which is every state after a rollback — therefore used to
+    // fall through to an unbounded `queue.push`. Measured before this guard:
+    // 20,000 4 KiB writes all accepted, 78.1 MiB retained against a 1 MiB cap,
+    // zero recovery requests.
+    const retained = compatibilityRetention();
+    if (
+      retained.chunks + 1 > postCheckpointMaxChunks
+      || retained.bytes + compatibilityWriteBytes > postCheckpointMaxBytes
+    ) {
+      requestRecovery('compatibility-queue-overflow');
+      return rejectCommand('compatibility-queue-overflow');
     }
     queue.push(mutation);
     pump();

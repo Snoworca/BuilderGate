@@ -1,0 +1,12 @@
+✔ REL-BGSTAB-011 AC-2 same-line source identities use one bounded retained marker range (17.851381ms)
+✔ REL-BGSTAB-011 AC-2 source range eviction preserves the truthful oldest retained boundary (8.272255ms)
+✔ the retained cursor can exceed uint16, so the wire field cannot shrink to one (285.752961ms)
+✔ BOUNDARY CONTROL — a terminal within uint16 keeps its cursor within uint16 (8.969244ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1120.131429

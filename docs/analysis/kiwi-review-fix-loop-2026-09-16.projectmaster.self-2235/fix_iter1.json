@@ -1,0 +1,116 @@
+{
+  "iteration": 1,
+  "worktree": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916",
+  "head_at_start": "99fb015",
+  "committed": false,
+  "requirement": "REL-BGSTAB-022",
+  "findings": [
+    {
+      "id": "FND-001",
+      "severity": "CRITICAL",
+      "title": "A failed backup aborted the primary publish",
+      "verdict": "confirmed and fixed",
+      "files_changed": [
+        { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "113-124", "change": "new releaseOwnedTemp() helper — removes an owned temp path by value rather than by position" },
+        { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "134-138", "change": "publishStoreAtomically doc comment records that the backup is best-effort by design" },
+        { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "171-203", "change": "backup writeFile + renameWithRetry wrapped in try/catch: on failure the backup temp is released from ownedTemps and unlinked, a console.warn names destination, errno and message, and the primary rename still runs" },
+        { "file": "server/src/utils/atomicStoreWrite.test.ts", "line_range": "163-289", "change": "three new tests (backup write fails, backup rename fails, published backup survives a later primary failure) plus a withPatchedFsFns helper" }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_messages": [
+          "✖ REL-BGSTAB-022 AC-7: a backup whose write fails does not abort the primary publish — Error: injected backup write failure { code: 'EPERM' } at publishStoreAtomically (server/src/utils/atomicStoreWrite.ts:155:18)",
+          "✖ REL-BGSTAB-022 AC-7: a backup whose rename fails does not abort the primary publish — Error: injected backup rename failure { code: 'EIO' } at renameWithRetry (server/src/utils/atomicStoreWrite.ts:100:16) / publishStoreAtomically (server/src/utils/atomicStoreWrite.ts:156:15)"
+        ],
+        "red_summary": "tests 10 / pass 8 / fail 2 before the fix; tests 10 / pass 10 / fail 0 after"
+      },
+      "rationale": "Before the helper existed every store did `try { await fs.copyFile(dest, bak); } catch {}`, so a backup failure could never stop the primary write. In the helper the backup's writeFile and renameWithRetry both propagated out of publishStoreAtomically, so an optional backup could abort a required publish and lose the caller's change — on Windows a peer holding the .bak open in its recoverFromBackup() is exactly that case. The old silence covered only `previous === null` (nothing to back up), which is a different event from an attempted backup that failed, so the failure is logged at warn level instead of discarded. The backup temp is removed from ownedTemps on both the success and the failure path so that a later primary failure cannot unlink a path this call no longer owns; removal is by value because position is not a safe assumption."
+    },
+    {
+      "id": "FND-002",
+      "severity": "CRITICAL",
+      "title": "The issue #24 regression gate could be falsely green",
+      "verdict": "confirmed and fixed",
+      "files_changed": [
+        { "file": "tools/issue24-capture-failing.mjs", "line_range": "1-92 (rewritten)", "change": "exported describeChildFailure(error) classifies a child by killed/signal/non-numeric status/empty output rather than by empty output alone; exported enumerateFiles(); the capture writes fileList alongside files; main() now runs only when the script is the entry point, so the module can be imported by a test" },
+        { "file": "tools/issue24-regression-diff.mjs", "line_range": "1-80 (rewritten)", "change": "reads the whole capture on both sides; refuses the comparison (GATE UNUSABLE, exit 1) when either side has harnessErrors, when either side recorded no fileList, or when the two fileLists differ — naming the files on each side" },
+        { "file": "tools/issue24-regression-diff.test.mjs", "line_range": "1-147 (new)", "change": "nine node:test cases over constructed capture documents plus the capture's pure classifier; the real capture is never run" }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_messages": [
+          "✖ issue #24 gate: a harness error on the after side fails the gate — AssertionError: a file that did not run cannot be reported as \"no new failures\" (actual 0, expected 0, operator notStrictEqual)",
+          "✖ issue #24 gate: a harness error on the baseline side fails the gate — AssertionError: a baseline with a file that did not run cannot anchor the comparison",
+          "✖ issue #24 gate: captures that enumerated different files fail the gate — AssertionError: a file deleted and another added must not cancel out",
+          "✖ issue #24 gate: a capture that recorded no file list fails the gate — AssertionError: a capture that cannot say which files it ran cannot be compared",
+          "✖ issue #24 capture: a child killed by the timeout is recorded as errored even with partial output — TypeError: describeChildFailure is not a function",
+          "✖ issue #24 capture: an ordinary failing run is not recorded as a harness error — TypeError: describeChildFailure is not a function",
+          "✖ issue #24 capture: a child that produced no output at all is recorded as errored — TypeError: describeChildFailure is not a function"
+        ],
+        "red_summary": "tests 9 / pass 2 / fail 7 before the fix; tests 9 / pass 9 / fail 0 after. The RED run also took 16.2s inside the first describeChildFailure case because importing the capture script executed its top-level main() — evidence for the entry-point guard."
+      },
+      "rationale": "execFileSync throws for an ordinary non-zero exit as well as for a hang, so 'did the child complete normally' has to be read from killed/signal/status, not from whether output was empty. A partially-output hang failed the old `if (!out.trim())` check and was recorded nowhere. On the diff side, set equality over failing names is necessary but not sufficient: a file that never ran contributes no names, so a deadlock read as 'no new failures'. Both captures must therefore have run every file they enumerated, and must have enumerated the same files, before the name comparison means anything.",
+      "side_effect_reported_not_fixed": "The recorded evidence captures docs/analysis/2026-09-16.issue24-store-publish/raw/{baseline,after}.json predate fileList and enumerated 31 vs 33 files, so the strengthened gate now exits 1 on them with 'GATE UNUSABLE (2)'. That is the gate working: the old tool compared a 31-file baseline against a 33-file after run and reported green. The plan's acceptance command (docs/plans/2026-09-16.projectmaster.bgstab022.plan.md:182, expected_exit 0) will need a re-capture with the current capture script. Not re-captured here: the real capture runs every service and util suite and takes minutes."
+    },
+    {
+      "id": "FND-003",
+      "severity": "HIGH",
+      "title": "The error-type assertion was weaker than its title",
+      "verdict": "confirmed and fixed; every claim in the finding checked true of the current code",
+      "files_changed": [
+        { "file": "server/src/services/StorePublishCrossInstance.test.ts", "line_range": "565-634", "change": "imports AppError/ErrorCode; captures the destination before the failing publish; AppError rows assert `instanceof AppError` and `.code === ErrorCode.CONFIG_PERSIST_FAILED`; raw rows assert `.code === 'EIO'`, the exact injected message, and not-an-AppError; every row asserts the destination is byte-identical to what it was before" }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_messages": [
+          "No assertion failure — the RED here is that the old assertion cannot fail. Measured by replacing the injected `Error{code:'EIO'}` with `new TypeError('an unrelated fixture bug, not the store rejecting as it used to')` in the fixture and re-running at HEAD: `✔ REL-BGSTAB-022 AC-8: each converted store preserves the error type it rejected with before (18.03ms)`, whole file `tests 8 / pass 8 / fail 0`. Every row — including the AppError rows, which wrap whatever they catch — stayed green while no store rejected with the error it used to. The fixture mutation was reverted before the fix."
+        ]
+      },
+      "claims_verified": [
+        "command-presets, terminal-shortcuts, recovery-options wrap into AppError(ErrorCode.CONFIG_PERSIST_FAILED) — CommandPresetService.ts:277, TerminalShortcutService.ts:539, RecoveryOptionService.ts:426. TRUE.",
+        "workspaces rethrows the raw error (WorkspaceService.ts:1740 `throw err`); agent-command-profiles, mcp-control-config and mcp-webhook-records do not catch at all. The injected EIO and its message reach the caller unchanged. TRUE.",
+        "the destination is unchanged for all seven rows (it does not exist before or after, since the rename onto it is what is injected to fail). TRUE."
+      ],
+      "rationale": "`assert.notEqual(name, 'AppError')` is satisfied by any unexpected throw, and a constructor-name check on the AppError rows says nothing about which failure the caller is told about. Asserting the concrete class, the ErrorCode, and the injected errno/message makes the assertion mean what the test's title claims."
+    },
+    {
+      "id": "FND-004",
+      "severity": "HIGH",
+      "title": "Nothing asserted that a backup is written",
+      "verdict": "confirmed and fixed",
+      "files_changed": [
+        { "file": "server/src/services/StorePublishCrossInstance.test.ts", "line_range": "343-348", "change": "AC-8 header comment updated to describe what the rows now assert" },
+        { "file": "server/src/services/StorePublishCrossInstance.test.ts", "line_range": "463-498", "change": "each writesBackup store is seeded by a first publish through its own code path, and an fs.rename patch records the destination content immediately before each rename onto it" },
+        { "file": "server/src/services/StorePublishCrossInstance.test.ts", "line_range": "527-556", "change": "`void backupExists` replaced: writesBackup rows assert the .bak exists, parses, and is byte-identical to the document the final publish replaced; backup-less rows assert absence as before" }
+      ],
+      "tdd": {
+        "test_written_first": true,
+        "red_observed": true,
+        "red_messages": [
+          "✖ REL-BGSTAB-022 AC-8: each of the seven in-scope stores publishes through a private temp path — AssertionError: command-presets: publishes over an existing store and must leave a backup of what it replaced. Produced by temporarily forcing `writeBackup = false` inside publishStoreAtomically; whole file went to `tests 8 / pass 6 / fail 2`. The old `void backupExists;` row stayed green under the same mutation. The mutation was reverted before the final run."
+        ]
+      },
+      "rationale": "A first publish into an empty directory has nothing to copy aside, so the fixture seeds a previous document by running the store's own publish path once before the assertion — a fixture-invented document could be one the store rejects on load. Several stores publish more than once inside one publish() call (TerminalShortcutService.initialize() flushes, then the caller flushes), so the expected backup is recorded from the destination as it stood immediately before the last rename onto it, rather than assumed to be the seeded document. AgentLifecycleService keeps its backup per the decision already taken (its profiles hold displayName, command, args, aliases, flags and a kickoff prompt — no credentials) and REL-BGSTAB-022 AC-8 requires it to acquire the full publish sequence."
+    }
+  ],
+  "verification": {
+    "npx tsx --test src/utils/atomicStoreWrite.test.ts (cwd=server)": "tests 10 / suites 0 / pass 10 / fail 0 / cancelled 0 / skipped 0 / todo 0 / duration_ms 647.38",
+    "npx tsx --test src/services/StorePublishCrossInstance.test.ts (cwd=server)": "tests 8 / suites 0 / pass 8 / fail 0 / cancelled 0 / skipped 0 / todo 0 / duration_ms 1801.16",
+    "node --test tools/issue24-regression-diff.test.mjs (cwd=repo root)": "tests 9 / pass 9 / fail 0",
+    "npx tsc --noEmit -p tsconfig.json (cwd=server)": "exit 0, no diagnostics",
+    "regression spot-checks": {
+      "npx tsx --test src/services/WorkspaceServiceAddTabRollback.test.ts": "tests 8 / pass 8 / fail 0",
+      "npx tsx --test src/services/WorkspaceServiceFlushConcurrency.test.ts": "tests 5 / pass 5 / fail 0"
+    }
+  },
+  "constraints_observed": [
+    "all work inside /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916; the origin checkout was not touched",
+    "no server started; ports 2222, 2001, 2002 untouched",
+    "no existing assertion weakened",
+    "no AI signature or tool identifier added to code, comments or commits",
+    "nothing committed; changes left in the working tree"
+  ]
+}

@@ -1,0 +1,42 @@
+# B0 guard mutation battery
+# generated_at    2026-09-16T22:58:05.385Z
+# node            v24.21.0  platform=linux
+# guard           server/tools/require-owned-http-test-pipe.cjs
+# self_check      server/tools/test-owned-http-test-pipe.cjs
+# wrapper         server/tools/owned-http-test-pipe-guard.test.cjs
+#
+# killed   = the surface failed, so it covers this invariant
+# SURVIVED = the surface passed against a defective guard, so it does NOT
+# n/a      = the surface could not run at all against this mutant
+# equivalent mutants change no observable behaviour; surviving them is expected
+#
+# mutant                     self-check wrapper    description
+  anchor-start               killed     killed     drop the ^ anchor on the name pattern
+  anchor-end                 killed     killed     drop the $ anchor on the name pattern
+  kind-open                  killed     killed     open the kind set to .*
+  kind-metachar              killed     killed     add a metacharacter kind
+  kind-shrink                killed     killed     revert the kind set to http only
+  kind-template-widen        killed     killed     widen the alternation in the pattern template, bypassing the kind check
+  pid-separator-optional     killed     killed     make the kind/pid separator optional
+  pid-any                    killed     killed     drop the pid binding
+  uuid-any                   killed     killed     relax the uuid shape to .+
+  kind-validation-removed    SURVIVED   killed     delete the load-time kind literal check
+  dir-exact-to-prefix        killed     killed     accept any directory whose path starts with tmpdir
+  dir-dropped                killed     killed     drop the owned-directory clause
+  suffix-dropped             killed     killed     drop the .sock suffix clause
+  suffix-split-first-dot     killed     killed     strip from the first dot instead of a fixed five characters
+  absolute-dropped           SURVIVED   SURVIVED   [equivalent] drop the isAbsolute clause
+  win32-prefix-dropped       SURVIVED   killed     drop the named-pipe prefix clause
+  win32-allow-all            SURVIVED   killed     accept everything on the win32 branch
+  posix-allow-all            killed     killed     accept every string on the posix branch
+  string-check-dropped       killed     killed     accept non-string first arguments
+  guard-disabled             killed     killed     forward every listen call
+  error-code-changed         killed     killed     change the thrown error code
+  CONTROL (unmutated)        SURVIVED   SURVIVED   both surfaces must SURVIVE here
+#
+# mutants=21 anchor_missing=0 non_equivalent_survived_on_both_surfaces=0
+# a mutant killed on one surface and surviving on the other is covered: the two
+# surfaces are complementary, the wrapper reaching what the self-check cannot.
+# control_self_check=SURVIVED control_wrapper=SURVIVED
+# result=PASS
+EXIT=0

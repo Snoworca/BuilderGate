@@ -1,0 +1,64 @@
+✖ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (94.186223ms)
+✔ REL-BGSTAB-010 AC-7 reservation membership is pinned so a new exemption costs an argued edit (0.799028ms)
+✖ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.37294ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation with no reason or no decision owner (0.208569ms)
+✔ REL-BGSTAB-010 AC-7 registration guard refuses a reservation for an id that still owns manifest tuples (0.190453ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id outside the registry (0.299604ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects the same consumer id reserved twice (0.14244ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id the catalog uses (0.187196ms)
+✔ REL-BGSTAB-010 AC-7 no reserved consumer id is written into production outside its declaration (828.183418ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation whose id is used in production (0.356301ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 8
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1724.994349
+
+✖ failing tests:
+
+test at src/services/TerminalResourcePolicyConsumerRegistry.test.ts:1:872
+✖ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (94.186223ms)
+  AssertionError [ERR_ASSERTION]: sealed manifest is stale for server/src/services/TerminalResourcePolicyInventory.ts; its tuple ids cannot be trusted
+  + actual - expected
+  
+  + [
+  +   'server/src/services/TerminalResourcePolicyInventory.ts'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts:104:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'server/src/services/TerminalResourcePolicyInventory.ts' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/TerminalResourcePolicyConsumerRegistry.test.ts:1:3334
+✖ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.37294ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts:132:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+----STDERR----

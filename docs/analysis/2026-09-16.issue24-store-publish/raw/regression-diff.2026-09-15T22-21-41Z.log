@@ -1,0 +1,11 @@
+baseline failing: 16
+after failing:    24
+NEW FAILURES (8):
+  src/services/WorkspaceServiceAddTabRollback.test.ts :: a cleanup failure does not mask the store failure
+  src/services/WorkspaceServiceAddTabRollback.test.ts :: a rejected store write leaves no pending title for the dropped session
+  src/services/WorkspaceServiceAddTabRollback.test.ts :: a rejected store write leaves no session behind
+  src/services/WorkspaceServiceAddTabRollback.test.ts :: a rejected store write leaves no tab in memory
+  src/services/WorkspaceServiceAddTabRollback.test.ts :: a rejected store write leaves the other tabs and sessions alone
+  src/services/WorkspaceServiceAddTabRollback.test.ts :: the store failure still reaches the caller
+  src/services/WorkspaceServiceFlushConcurrency.test.ts :: a failed flush does not wedge every later flush
+  src/services/WorkspaceServiceFlushConcurrency.test.ts :: a real write failure still propagates to the caller

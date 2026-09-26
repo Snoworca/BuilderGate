@@ -1,0 +1,11 @@
+
+
+ProcessId       : 30596
+ParentProcessId : 41236
+Name            : node.exe
+ExecutablePath  : C:\Work\agent-tools\builder-gate__\node\node.exe
+CommandLine     : C:\Work\agent-tools\builder-gate__\node\node.exe C:\Work\agent-tools\builder-gate__\server\dist\index
+                  .js
+
+
+

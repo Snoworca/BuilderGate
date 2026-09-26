@@ -26,12 +26,26 @@ import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { test, expect, type Locator, type Page } from './workspaceOwnershipFixture';
+import { type Locator, type Page } from '@playwright/test';
 
+// #53: `test` comes from the ownership fixture, not from @playwright/test -- see the note on
+// removeOwnWorkspaces below.
 import { login } from './helpers';
+import { test, expect, deleteOwnedWorkspaceForContext } from './workspaceOwnershipFixture';
 
-// __buildergateEditorWindowDebug is declared once, by the layer that installs it
-// (EditorWindowLayer.tsx). A copy here drifted from it and stopped compiling.
+/**
+ * The authoritative declaration of `window.__buildergateEditorWindowDebug` lives
+ * beside the code that installs it, in src/components/editor/EditorWindowLayer.tsx,
+ * and reaches this spec through the `"include": ["src"]` of tsconfig.test.json.
+ *
+ * Issue #115: this spec used to carry its own narrowed copy. Four specs each had
+ * one, all different, and none of them was ever compiled next to another — the
+ * specs were in no tsconfig at all. Registering them put the copies in one
+ * program, where they are TS2717 conflicts. A narrowed copy of a global is the
+ * same defect the tsconfig comment warns about: it type-checks against a shape
+ * that is not the one production installs.
+ */
+
 declare global {
   interface Window {
     /** Keys this page read from `localStorage` since the recorder was armed. */
@@ -109,8 +123,14 @@ async function addTabAt(page: Page, workspaceId: string, cwd: string, name: stri
   }, { workspaceId, cwd, name });
 }
 
+// #53: every workspace this spec creates is recorded here, and teardown deletes exactly these.
+// It used to sweep by NAME PREFIX, which CLAUDE.md forbids outright -- a prefix match cannot
+// tell this run's workspace from a user's, and the boundary that rule protects is real user
+// data.
+const createdWorkspaceIds: string[] = [];
+
 async function createWorkspace(page: Page, name: string): Promise<string> {
-  return page.evaluate(async (name) => {
+  const created = await page.evaluate(async (name) => {
     const token = localStorage.getItem('cws_auth_token');
     const res = await fetch('/api/workspaces', {
       method: 'POST',
@@ -124,6 +144,8 @@ async function createWorkspace(page: Page, name: string): Promise<string> {
     const workspace = await res.json();
     return workspace.id as string;
   }, name);
+  createdWorkspaceIds.push(created);
+  return created;
 }
 
 async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
@@ -143,12 +165,28 @@ async function removeOwnTabs(page: Page, workspaceId: string): Promise<void> {
   }, { workspaceId, prefix: TAB_NAME_PREFIX });
 }
 
-// Workspaces a test creates are removed by the owned fixture's teardown, which deletes only
-// the IDs this context's own create responses returned. A name-prefix sweep used to live here;
-// it could delete a workspace that merely looked like a test's (CLAUDE.md, E2E 절).
+async function removeOwnWorkspaces(page: Page): Promise<void> {
+  // #53: deletes ONLY the ids this run created, through the ownership registry. The previous
+  // form listed every workspace and deleted any whose NAME started with the test prefix -- a
+  // user workspace that happened to share the prefix would have been destroyed, and the
+  // registry could not have told the difference either.
+  const ids = createdWorkspaceIds.splice(0);
+  for (const workspaceId of ids) {
+    await deleteOwnedWorkspaceForContext(page.context(), workspaceId);
+  }
+}
+
 
 async function selectTab(page: Page, name: string): Promise<void> {
-  await page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first().click();
+  // #81: the tabs this spec selects were created through the API, and the tab bar learns about
+  // them asynchronously. Clicking straight away made the click's own 10s auto-wait the whole
+  // budget, and a run that lost that race failed with `locator.click: Timeout` naming only the
+  // selector -- the "first attempt fails, the retry passes" shape #81 records. Waiting for the
+  // tab to be present first binds this to the transition and, when the tab genuinely never
+  // arrives, says which tab and that it was never rendered rather than that a click timed out.
+  const tab = page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first();
+  await tab.waitFor({ state: 'visible', timeout: 30000 });
+  await tab.click();
 }
 
 async function selectWorkspace(page: Page, name: string): Promise<void> {
@@ -196,6 +234,16 @@ function editorWindows(page: Page): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface');
 }
 
+/**
+ * The window whose titlebar names `fileName`.
+ *
+ * The dirty marker is absorbed by the match rather than excluded from it: an
+ * unsaved window is titled `CLAUDE.md*`, and a locator pinned to the bare name
+ * finds nothing at all from the first keystroke onwards -- which `toBeHidden`
+ * reports as a hidden window rather than as a missed one, so the assertion
+ * would pass while measuring nothing. Anchored at both ends, so the name of one
+ * file never matches the window of another.
+ */
 /** The workspace's one editor window. */
 function editorWindow(page: Page): Locator {
   return page.locator('.window-dialog-surface.editor-window-surface');
@@ -332,11 +380,10 @@ async function editorBodyText(page: Page, fileName: string): Promise<string> {
   return (await content.textContent()) ?? '';
 }
 
-/** Types into the window open on `fileName`, leaving the document unsaved. */
-async function typeIntoEditor(page: Page, fileName: string, text: string): Promise<void> {
-  // The panel that holds fileName, which is what editorBodyText reads back. The window's
-  // first .cm-content in DOM order can belong to a hidden tab once a second document opens.
-  await editorPanelFor(page, fileName).locator('.cm-content').first().click();
+/** Types into the open editor window, leaving the document unsaved. */
+async function typeIntoEditor(page: Page, text: string): Promise<void> {
+  const surface = editorWindow(page).first();
+  await surface.locator('.cm-content').first().click();
   await page.keyboard.type(text);
 }
 
@@ -355,6 +402,7 @@ test.describe('markdown editor persistence', () => {
     if (testInfo.project.name !== 'Desktop Chrome' || workspaceId === null) return;
     try {
       await removeOwnTabs(page, workspaceId);
+      await removeOwnWorkspaces(page);
       await page.evaluate((key) => localStorage.removeItem(key), windowStateKey(workspaceId));
     } catch {
       // A teardown that cannot reach the server is not a test result.
@@ -449,7 +497,7 @@ test.describe('markdown editor persistence', () => {
     const filePath = `${cwd.replace(/[\\/]+$/, '')}${cwd.includes('\\') ? '\\' : '/'}CLAUDE.md`;
 
     const unsaved = 'AC6-UNSAVED-SENTINEL';
-    await typeIntoEditor(page, 'CLAUDE.md', unsaved);
+    await typeIntoEditor(page, unsaved);
     await expect.poll(
       async () => editorBodyText(page, 'CLAUDE.md'),
       { timeout: 15000, message: 'the typed text never reached the editor' },

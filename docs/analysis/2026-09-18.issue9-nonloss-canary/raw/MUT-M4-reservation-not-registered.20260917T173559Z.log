@@ -1,0 +1,39 @@
+✔ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (7.227272ms)
+✔ REL-BGSTAB-010 AC-7 reservation membership is pinned so a new exemption costs an argued edit (0.315998ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.145523ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation with no reason or no decision owner (0.164745ms)
+✔ REL-BGSTAB-010 AC-7 registration guard refuses a reservation for an id that still owns manifest tuples (0.156519ms)
+✖ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id outside the registry (1.783759ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 739.044343
+
+✖ failing tests:
+
+test at src/services/TerminalResourcePolicyConsumerRegistry.test.ts:1:3917
+✖ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id outside the registry (1.783759ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts:134:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+----STDERR----

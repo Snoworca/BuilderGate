@@ -1,0 +1,2 @@
+{"mcp": true, "cli": true, "halted": false, "mode": "cli-mutation",
+ "note": "speckiwi 3.0.0 at /usr/bin/speckiwi. MCP reads are used, but ALL mutations go through the CLI with --root pointing at the worktree, because speckiwi MCP mutation tools ignore per-call workspaceRoot and write to the original checkout."}

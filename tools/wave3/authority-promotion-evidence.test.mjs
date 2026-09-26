@@ -27,8 +27,9 @@ const analysisRoot = 'docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-au
 const artifactPath = `${analysisRoot}/authority-promotion-decision.json`;
 const rawExecutionRoot = `${analysisRoot}/authority-promotion-raw`;
 const retainedShadowBaselinePath = `${analysisRoot}/retained-shadow-parity.json`;
-const retainedShadowBaselineExpectedSha256 =
-  '9914e22418e315184ef7cdc315b95b57d693efbe6ad6f84da144ac59a248e265';
+// #107: retainedShadowBaselineExpectedSha256 was deleted, not left unused. A pinned constant
+// whose only reader is gone is the #97 defect -- it makes the thing it names look guarded when
+// nothing compares it. See verifyRedProductionUnchanged for why the whole-file pin went.
 const evidenceToolPath = 'tools/wave3/authority-promotion-evidence.test.mjs';
 const daemonStatePath = 'runtime/buildergate.daemon.json';
 const redTestSourceManifestPath = 'tools/wave3/authority-promotion-red-test-sources.json';
@@ -144,22 +145,9 @@ const redAdditionalServerSourceBaseline = Object.freeze({
   'server/src/index.ts': 'c01462baf96394d5c11dc125f8f34822abe6c53531f4ffa5780d2d12c94bcdf9',
 });
 
-const redExpectedProductionGitStatusLines = Object.freeze([
-  ' M frontend/src/components/Terminal/TerminalContainer.tsx',
-  ' M frontend/src/components/Terminal/TerminalView.tsx',
-  ' M frontend/src/contexts/WebSocketContext.tsx',
-  ' M frontend/src/types/ws-protocol.ts',
-  ' M frontend/src/utils/terminalDebugCapture.ts',
-  ' M frontend/src/utils/visibleOutputRecovery.ts',
-  ' M server/src/services/SessionManager.ts',
-  ' M server/src/index.ts',
-  ' M server/src/types/ws-protocol.ts',
-  ' M server/src/utils/headlessTerminal.ts',
-  ' M server/src/ws/WsRouter.ts',
-  '?? frontend/src/utils/terminalCheckpointRuntime.ts',
-  '?? frontend/src/utils/terminalRetainedState.ts',
-  '?? frontend/src/utils/terminalWriteCoordinatorRuntime.ts',
-]);
+// #107: redExpectedProductionGitStatusLines was deleted with its only reader. It pinned a
+// git-status snapshot as a proxy for 'production unchanged'; the byte-hash manifests measure
+// that property exactly, and the proxy failed on changes the property did not have.
 
 const serverCommand = Object.freeze({
   cwd: 'server',
@@ -779,11 +767,21 @@ function readProductionGitStatus() {
 function verifyRedProductionUnchanged() {
   const retainedBaselineBytes = readBytes(retainedShadowBaselinePath);
   const retainedShadowBaselineSha256 = sha256(retainedBaselineBytes);
-  assert.equal(
-    retainedShadowBaselineSha256,
-    retainedShadowBaselineExpectedSha256,
-    'PH004 retained-shadow parity artifact identity changed',
-  );
+  // #107: this used to assert retainedShadowBaselineSha256 against a pinned whole-file hash.
+  // That pin could not be satisfied by RUNNING the producer -- three runs on an unchanged tree
+  // produce three different hashes, because the artifact records capturedAt, a stdout hash that
+  // carries per-test timings, and the sha256 of docs/spec/30.buildergate-stability.srs.md, which
+  // moves whenever any VE row is added anywhere. The artifact records the SRS as an input and is
+  // committed into the same repository as that SRS, so no state exists in which it is both
+  // committed and accurate.
+  //
+  // A seal that is satisfied only by NOT re-running the thing it seals measures "nobody re-ran
+  // this", not "this is still true". That is how this artifact could be wrong about the tree on
+  // four of four production paths while agreeing with its own pin.
+  //
+  // Replaced by the claim-bearing fields below: the baseline's production path identity and the
+  // per-file hash manifest. Those are what the RED contract actually asserts, they are stable
+  // under unrelated edits, and they fail for the reason they name.
   const retainedBaseline = JSON.parse(retainedBaselineBytes.toString('utf8').replace(/^\uFEFF/u, ''));
   const retainedFiles = retainedBaseline?.productionSourceHashes?.files;
   assert.equal(retainedFiles !== null && typeof retainedFiles === 'object', true,
@@ -813,11 +811,21 @@ function verifyRedProductionUnchanged() {
   const unexpectedlyPresent = newProductionPathsExpectedAbsentInRed
     .filter(path => existsSync(absolute(path)));
   assert.deepEqual(unexpectedlyPresent, [], 'PH005 RED found a new production module');
+  // #107: the git-status deepEqual is removed. It was a PROXY for "production is unchanged",
+  // and the proxy is broader than the property: adding a test file -- which changes no
+  // production byte -- made this fail while all four byte-hash manifests above passed. The
+  // pin that measures the property exactly passed; the pin that stands in for it failed.
+  //
+  // The byte hashes are kept and are the measurement. git status is still READ, because an
+  // untracked new production module is a real finding the hashes cannot see (a file absent
+  // from every baseline has no hash to compare), and newProductionPathsExpectedAbsentInRed
+  // above covers only the paths someone thought to enumerate.
   const gitStatusLines = readProductionGitStatus();
+  const untrackedProduction = gitStatusLines.filter(line => line.startsWith('??'));
   assert.deepEqual(
-    gitStatusLines,
-    sorted(redExpectedProductionGitStatusLines),
-    'PH005 RED production git status differs from the admission baseline',
+    untrackedProduction, [],
+    'PH005 RED found an untracked production file; the byte-hash baselines cannot see a path '
+    + 'that is in no baseline, so this is the axis they do not cover',
   );
   return Object.freeze({
     retainedShadowBaselinePath,

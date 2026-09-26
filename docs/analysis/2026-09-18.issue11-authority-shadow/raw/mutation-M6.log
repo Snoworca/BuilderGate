@@ -1,0 +1,229 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 reserves ordinary source tuples before headless commit (121.499891ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 PERF-BGSTAB-011 routes each ordinary reservation tuple unchanged after commit (84.582137ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 reserves rollover source tuples before headless commit (85.670707ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 PERF-BGSTAB-011 routes each rollover reservation tuple unchanged after commit (75.996618ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 1 snapshot-only resize(s) (77.778429ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 2 snapshot-only resize(s) (76.084384ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 preserves pending reservations across an interleaved snapshot rollover (77.637613ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-15 resize preserves queued source identities at snapshot 40 (79.713791ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] Headless terminal degraded (write) for session retained-authority-41011: ACK-16 injected first headless write failure
+[SessionManager] All CWD watchers stopped
+✔ ACK-15 resize preserves queued source identities at snapshot 18446744073709551613 (77.772266ms)
+✔ ACK-16 failed writes and headless recreation discard projected snapshot reservations (75.406986ms)
+[SessionManager] All CWD watchers stopped
+✔ ACK-16 enabling shadow after disabled output preserves committed source identity (77.255989ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-1 (230.074216ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — populated Ordinal64 rollover keeps oldest retained marker epoch-qualified (73.494826ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2 (87.174988ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-3 (76.036122ms)
+[SessionManager] All CWD watchers stopped
+[Session retained-authority-41020] Idle detection upgraded to osc133 mode
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-4 (91.678977ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-5 (76.326036ms)
+[M6-FIRED] disabling session-owned model on disconnect of client-b
+[SessionManager] All CWD watchers stopped
+[M6-FIRED] disabling session-owned model on disconnect of fresh-contender
+[SessionManager] All CWD watchers stopped
+✖ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6 (83.570058ms)
+✖ RED reviewer — failed competing mutation lease rolls back only its newly registered view (74.871684ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-7 (158.789149ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-8 (88.722033ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-9 (298.840766ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-1 (151.485239ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-2 (87.042255ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-3 (84.086202ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-6 (80.176801ms)
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-7 (90.092359ms)
+[M6-FIRED] disabling session-owned model on disconnect of client-7
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-9 (81.484678ms)
+[M6-FIRED] disabling session-owned model on disconnect of browser-a
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✖ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-10 (77.468153ms)
+✔ REL_BGSTAB_007_AC10_server_restart_is_authority_unavailable (153.039647ms)
+[SessionManager] All CWD watchers stopped
+✔ REL_BGSTAB_007_AC10_pty_exit_is_session_terminated (74.62795ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — production comparer requires an independent roundtrip baseline before principal-axis match (108.759807ms)
+[SessionManager] All CWD watchers stopped
+[Session pure-osc133-retained-record] Idle detection upgraded to osc133 mode
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — split semantic facts preserve record-local OSC BEL/ST, DSR, and repeated BEL occurrences (113.758204ms)
+✔ RED reviewer — pure OSC 133 status is retained as a semantic-only source record (73.276842ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — sampled shadow comparer never blocks legacy delivery or mutates a replacement generation (118.79354ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — shadow comparer samples only at global headless idle and enforces a low-duty interval (357.70079ms)
+[SessionManager] All CWD watchers stopped
+✔ MIG-BGSTAB-002 promotion evidence comparison is not starved by an unrelated busy session (78.553001ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — retained operation and fact evidence ledgers stay policy-bounded (253.322404ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — retained ledger byte accounting never rescans the full evidence arrays on commit (218.539993ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — parser-tail and eviction comparer axes fail closed without an independent baseline (94.123688ms)
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — newline-free soft-wrap and reflow eviction advance exact oldest retained source (86.11683ms)
+✔ RED reviewer — actual input, resize, and query paths reject stale lease identity for two clients (76.466797ms)
+✔ RED reviewer — actual input path rejects every stale lease identity with eight clients (73.507195ms)
+✔ RED reviewer — missing actual mutation identity stays legacy-compatible but blocks shadow canary (75.809588ms)
+✔ RED reviewer — old authority identity cannot mutate replacement PTY through actual paths (76.570653ms)
+✔ lazy test-created SessionData keeps legacy resize compatibility without retained state (74.063796ms)
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — resize advances snapshot identity without consuming PTY source sequence (82.074313ms)
+[SessionManager] Headless terminal degraded (write) for session actual-headless-write-degradation: forced actual retained write degradation
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-already-degraded] Idle detection upgraded to osc133 mode
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-queue-overflow] Idle detection upgraded to osc133 mode
+[SessionManager] Headless terminal degraded (queue-overflow) for session semantic-only-queue-overflow: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-commit-failure] Idle detection upgraded to osc133 mode
+[SessionManager] Headless terminal degraded (write) for session semantic-only-commit-failure: forced semantic-only commit failure
+[SessionManager] All CWD watchers stopped
+[Session pending-semantic-overflow-settlement] Idle detection upgraded to osc133 mode
+✔ RED reviewer — actual headless write degradation is typed and blocks authority canary (77.816515ms)
+✔ RED reviewer — degraded, overflow, and commit-failure OSC status records reject facts without empty delivery (221.426648ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session pending-semantic-overflow-settlement: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session throwing-policy-settler-isolated] Idle detection upgraded to osc133 mode
+✔ RED reviewer — queue overflow settles every previously accepted semantic record in ingest order (82.588255ms)
+[SessionManager] Headless policy failure settler threw for session throwing-policy-settler-isolated, output 0: Error: forced first settler failure
+    at settleFailure (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2856:34)
+    at SessionManager.settleRetainedTerminalPendingOutputsBeforeDegrade (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8702:69)
+    at SessionManager.markHeadlessDegraded (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8652:10)
+    at SessionManager.queueHeadlessOutput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:7864:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1729:14)
+    at FakePty.emitData (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:306:48)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2873:25)
+    at getActual (node:assert:611:5)
+    at strict.doesNotThrow (node:assert:779:32)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2872:12)
+[SessionManager] Headless terminal degraded (queue-overflow) for session throwing-policy-settler-isolated: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session pending-semantic-write-settlement] Idle detection upgraded to osc133 mode
+✔ RED reviewer — throwing policy settler cannot abort degradation settlement or current legacy delivery (93.001161ms)
+[SessionManager] Headless terminal degraded (write) for session pending-semantic-write-settlement: forced queued semantic settlement failure
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — headless write failure settles failed and later queued semantic records exactly once (82.851523ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 49
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8208.981241
+
+✖ failing tests:
+
+test at src/services/RetainedTerminalAuthority.test.ts:2:9316
+✖ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6 (83.570058ms)
+  AssertionError [ERR_ASSERTION]: REL-BGSTAB-011 AC-6 Retained server model shadow and driver lease 계약 부재 때문에 실패
+  + actual - expected
+  
+    {
+  +   ok: false,
+  +   reason: 'shadow-disabled'
+  -   ok: true,
+  -   reason: 'registered'
+    }
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:1365:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { ok: false, reason: 'shadow-disabled' },
+    expected: { ok: true, reason: 'registered' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/RetainedTerminalAuthority.test.ts:2:11936
+✖ RED reviewer — failed competing mutation lease rolls back only its newly registered view (74.871684ms)
+  AssertionError [ERR_ASSERTION]: REL-BGSTAB-011 AC-6 failed competing lease leaked a client view or removed a pre-existing view
+  + actual - expected
+  
+    {
+  +   ok: false,
+  +   reason: 'shadow-disabled'
+  -   ok: true,
+  -   reason: 'registered'
+    }
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:1414:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { ok: false, reason: 'shadow-disabled' },
+    expected: { ok: true, reason: 'registered' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/RetainedTerminalAuthority.test.ts:3:3404
+✖ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-10 (77.468153ms)
+  AssertionError [ERR_ASSERTION]: REL-BGSTAB-007 AC-10 Retained server model shadow and driver lease 계약 부재 때문에 실패
+  + actual - expected
+  
+    {
+  +   ok: false,
+  +   reason: 'shadow-disabled'
+  -   ok: true,
+  -   reason: 'registered'
+    }
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:1950:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { ok: false, reason: 'shadow-disabled' },
+    expected: { ok: true, reason: 'registered' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

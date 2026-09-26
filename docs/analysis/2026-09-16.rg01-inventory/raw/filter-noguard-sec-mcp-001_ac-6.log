@@ -1,0 +1,12 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+PASS MCP security contract SEC-MCP-001 AC-6: failed rebind rolls back listener and persisted config
+[SSL] No certificate configured, generating self-signed certificate...
+[SSL] Generated self-signed certificate:
+  - Certificate: /tmp/buildergate-mcp-direct-tls-TlN1K4/certs/self-signed.crt
+  - Private key: /tmp/buildergate-mcp-direct-tls-TlN1K4/certs/self-signed.key
+  - Valid for: 365 days
+  - SAN: localhost, 127.0.0.1, ::1
+PASS MCP transport/tool SEC-MCP-001 AC-6: failed rebind rolls back listener and config
+
+2 test(s) passed

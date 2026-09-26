@@ -6,6 +6,11 @@ import { build } from 'esbuild';
 import { getActiveSessionId, login, setTerminalInputTransportOverride, waitForTerminal } from './helpers';
 import { collectTerminalSoleWriterInventory } from '../support/terminalSoleWriterInventory.ts';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "creates sessions with shell: 'powershell'");
+
 type JsonFrame = Record<string, unknown> & {
   type?: string;
   sessionId?: string;

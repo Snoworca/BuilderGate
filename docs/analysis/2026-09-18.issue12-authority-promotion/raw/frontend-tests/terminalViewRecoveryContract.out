@@ -1,0 +1,33 @@
+✔ TerminalView allows screen repair readiness while visible output recovery barrier is active (0.88097ms)
+✔ TerminalView uses runtime terminal limits for input queue budget and TTL (0.247606ms)
+✔ TerminalView uses runtime-configured input queue limits (0.139544ms)
+✔ TerminalView visible output scheduler uses cached runtime output limits (0.143696ms)
+✔ TerminalView plain Space and Backspace delegation does not rebuild input debug payload (0.193547ms)
+✔ TerminalView compatibility recovery delegates to the full recovery owner without manual repair (0.124855ms)
+✔ TerminalView runtime recreation also requests bounded fresh snapshot recovery (0.24638ms)
+✔ TerminalView hands legacy recovery across bounded reconnect runtime replacement (0.224973ms)
+✔ TerminalView emits legacy authority readiness once after compatibility recovery fully converges (0.218958ms)
+✔ TerminalView compatibility tail write reports coordinator rejection as physical failure (0.247191ms)
+✔ TerminalView bounds restore-pending output and drains segmented chunks without join (0.174614ms)
+✔ TerminalView propagates restore-buffer failure as FAILED_HELD without allowing live-output overtake (0.710379ms)
+✔ TerminalView refuses FAILED_HELD convergence when coverage identity is unproven (0.152202ms)
+✔ TerminalView leaves FAILED_HELD ownership untouched on reset throw or sole-writer rejection (0.196011ms)
+✔ MIG-BGSTAB-002 authoritative snapshot replacement reports the exact rejected fence (0.146436ms)
+✔ MIG-BGSTAB-002 reports an in-flight checkpoint takeover without treating every replacement rejection as ready (0.969518ms)
+✔ TerminalView restore replay is fenced by exact attempt epoch and xterm identity (0.232281ms)
+✔ TerminalView resets scheduler and ingress retry ownership on terminal identity change and cleanup (0.255384ms)
+✔ MIG-BGSTAB-002 snapshot replacement body shares the checkpoint sole-writer deque (0.23062ms)
+✔ TerminalView non-authoritative replay writes use a bounded same-xterm FIFO probe before releasing the lease (5.54077ms)
+✔ TerminalView live output idle uses a bounded FIFO fallback and retires the proven scheduler write (0.260339ms)
+✔ TerminalView suppresses parser replies during replay without silently dropping user onData (0.211198ms)
+✔ Remount adapter RED — grace authority barrier (2.05937ms)
+✔ Remount adapter RED — null-ref dispose ownership (0.356297ms)
+✔ Remount adapter RED — normal path compatibility (0.333728ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 151.081735

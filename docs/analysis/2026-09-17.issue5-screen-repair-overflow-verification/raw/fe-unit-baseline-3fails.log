@@ -1,0 +1,201 @@
+✔ visible terminal output is written without marking replay recovery (1.231545ms)
+✔ hidden terminal output is skipped and counted instead of being buffered (0.158299ms)
+✔ omitted hidden output policy uses snapshot restore skip by default (0.111241ms)
+✔ write-hidden policy keeps legacy hidden output writes enabled (0.111826ms)
+✔ visible live output stays paused until hidden output recovery clears (0.153386ms)
+✔ hidden output recovery state clears only after snapshot recovery succeeds (0.12519ms)
+✔ debug-tail policy keeps only a bounded UTF-8 tail (0.174394ms)
+✔ hidden output replay owns and releases a newly created restore barrier (0.154674ms)
+✔ hidden output replay does not release a restore barrier owned by another replay (0.938318ms)
+✔ hidden output snapshot recovery clear criteria rejects fallback placeholders (0.212842ms)
+✖ REL-BGSTAB-012 settles ledger and holds stale view through drain (0.810558ms)
+✔ B2 scanner finds direct, aliased, nested and literal-computed workspace API methods (7.222919ms)
+✔ B2 scanner retains unresolved direct API mutations as explicit review entries (0.816473ms)
+✔ B2 scanner records the exact reviewed quota observer forwarders explicitly (31.953752ms)
+✔ B2 scanner does not exempt identical receiver calls outside the reviewed Proxy (9.945098ms)
+✔ B2 scanner does not transfer the reviewed Proxy exemption to another file (6.340573ms)
+✔ B2 scanner requires review again when the quota Proxy body changes (8.667139ms)
+✔ B2 scanner rejects renamed observers and altered forwarding arguments (8.297035ms)
+✔ B2 source inventory preserves owned workspace mutation boundaries: auth-bootstrap.spec.ts (15.084726ms)
+ℹ {"file":"auth-bootstrap.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: busy-agent-workspace-bounce.spec.ts (9.054185ms)
+ℹ {"file":"busy-agent-workspace-bounce.spec.ts","calls":[{"line":45,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":61,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: command-management-dialog.spec.ts (8.030015ms)
+ℹ {"file":"command-management-dialog.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: grid-equal-mode.spec.ts (25.455503ms)
+ℹ {"file":"grid-equal-mode.spec.ts","calls":[{"line":210,"method":"POST","path":"/api/workspaces","callee":"request","kind":"workspace-create","directApiMethod":false},{"line":225,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"request","kind":"tab-operation","directApiMethod":false},{"line":279,"method":"POST","path":"/api/workspaces","callee":"request","kind":"workspace-create","directApiMethod":false},{"line":1116,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":1141,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: header-context-menu-regression.spec.ts (10.997119ms)
+ℹ {"file":"header-context-menu-regression.spec.ts","calls":[{"line":267,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":331,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":338,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: issue34-capacity-raise.spec.ts (5.210395ms)
+ℹ {"file":"issue34-capacity-raise.spec.ts","calls":[{"line":168,"method":"POST","path":"{}/api/workspaces/{}/tabs","callee":"request.post","kind":"tab-operation","directApiMethod":true},{"line":183,"method":"POST","path":"{}/api/workspaces/{}/tabs","callee":"request.post","kind":"tab-operation","directApiMethod":true},{"line":186,"method":"POST","path":"{}/api/workspaces/{}/tabs","callee":"request.post","kind":"tab-operation","directApiMethod":true}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: issue34-capacity-ratify.spec.ts (3.874949ms)
+ℹ {"file":"issue34-capacity-ratify.spec.ts","calls":[{"line":144,"method":"POST","path":"{}/api/workspaces/{}/tabs","callee":"request.post","kind":"tab-operation","directApiMethod":true},{"line":148,"method":"POST","path":"{}/api/workspaces/{}/tabs","callee":"request.post","kind":"tab-operation","directApiMethod":true}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-appearance.spec.ts (5.525745ms)
+ℹ {"file":"markdown-editor-appearance.spec.ts","calls":[{"line":81,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":107,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-entry.spec.ts (6.513529ms)
+ℹ {"file":"markdown-editor-entry.spec.ts","calls":[{"line":157,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":188,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-lifecycle.spec.ts (6.517379ms)
+ℹ {"file":"markdown-editor-lifecycle.spec.ts","calls":[{"line":105,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":131,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":158,"method":"POST","path":"/api/workspaces/{}/tabs/{}/restart","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-modal-regression.spec.ts (5.248427ms)
+ℹ {"file":"markdown-editor-modal-regression.spec.ts","calls":[]}
+✖ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-persistence.spec.ts (7.902985ms)
+ℹ {"file":"markdown-editor-persistence.spec.ts","calls":[{"line":107,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":124,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":150,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":165,"method":"DELETE","path":"/api/workspaces/{}","callee":"fetch","kind":"workspace-delete","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-placement.spec.ts (6.916915ms)
+ℹ {"file":"markdown-editor-placement.spec.ts","calls":[{"line":111,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":128,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":147,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":167,"method":"DELETE","path":"/api/command-presets/{}","callee":"fetch","kind":"other-api-or-nonworkspace-call","directApiMethod":false},{"line":632,"method":"POST","path":"/api/command-presets","callee":"fetch","kind":"other-api-or-nonworkspace-call","directApiMethod":false}]}
+✖ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-save.spec.ts (9.1168ms)
+ℹ {"file":"markdown-editor-save.spec.ts","calls":[{"line":117,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":134,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":145,"method":"DELETE","path":"/api/sessions/{}","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":161,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":184,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":201,"method":"DELETE","path":"/api/workspaces/{}","callee":"fetch","kind":"workspace-delete","directApiMethod":false},{"line":255,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":276,"method":"POST","path":"/api/workspaces/{}/tabs/{}/restart","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: mcp-control-dialog.spec.ts (4.107326ms)
+ℹ {"file":"mcp-control-dialog.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: pane-keyboard.spec.ts (2.56975ms)
+ℹ {"file":"pane-keyboard.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: pane-persistence.spec.ts (2.481173ms)
+ℹ {"file":"pane-persistence.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: pane-split.spec.ts (2.31191ms)
+ℹ {"file":"pane-split.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: perf-bgstab-010-ac6-server-ack-fault.spec.ts (2.366308ms)
+ℹ {"file":"perf-bgstab-010-ac6-server-ack-fault.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: perf-bgstab-010-ac9-isolated.spec.ts (5.285744ms)
+ℹ {"file":"perf-bgstab-010-ac9-isolated.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: recovery-options.spec.ts (3.711638ms)
+ℹ {"file":"recovery-options.spec.ts","calls":[{"line":122,"method":"POST","path":"/api/recovery-options","callee":"fetch","kind":"other-api-or-nonworkspace-call","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: session-env-isolation.spec.ts (3.367676ms)
+ℹ {"file":"session-env-isolation.spec.ts","calls":[{"line":50,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":67,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: settings-2fa-qr.spec.ts (2.782695ms)
+ℹ {"file":"settings-2fa-qr.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: settings-password-policy.spec.ts (2.87923ms)
+ℹ {"file":"settings-password-policy.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: settings-resource-limits.spec.ts (6.294411ms)
+ℹ {"file":"settings-resource-limits.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-authority.spec.ts (5.896755ms)
+ℹ {"file":"terminal-authority.spec.ts","calls":[{"line":32,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":48,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":64,"method":"POST","path":"/api/workspaces/{}/tabs/{}/restart","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-clipboard.spec.ts (7.018458ms)
+ℹ {"file":"terminal-clipboard.spec.ts","calls":[{"line":629,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":640,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":681,"method":"POST","path":"/api/workspaces/{}/tabs/{}/restart","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":698,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-context-menu-registered-items.spec.ts (9.708019ms)
+ℹ {"file":"terminal-context-menu-registered-items.spec.ts","calls":[{"line":49,"method":"DELETE","callee":"initialGridModeByPage.delete","kind":"collection-delete","directApiMethod":true}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-keyboard-regression.spec.ts (9.428303ms)
+ℹ {"file":"terminal-keyboard-regression.spec.ts","calls":[{"line":10,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":28,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-korean-ime.spec.ts (7.105705ms)
+ℹ {"file":"terminal-korean-ime.spec.ts","calls":[{"line":14,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":24,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-mobile-scroll.spec.ts (4.999387ms)
+ℹ {"file":"terminal-mobile-scroll.spec.ts","calls":[{"line":29,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":45,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-paste.spec.ts (3.357467ms)
+ℹ {"file":"terminal-paste.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-right-click-policy.spec.ts (2.987781ms)
+ℹ {"file":"terminal-right-click-policy.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-shortcut-manager.spec.ts (4.027171ms)
+ℹ {"file":"terminal-shortcut-manager.spec.ts","calls":[{"line":112,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":122,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":138,"method":"POST","path":"/api/terminal-shortcuts/reset","callee":"fetch","kind":"other-api-or-nonworkspace-call","directApiMethod":false},{"line":181,"method":"POST","path":"/api/terminal-shortcuts/bindings","callee":"fetch","kind":"other-api-or-nonworkspace-call","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: terminal-title-auto-tab-name.spec.ts (4.185718ms)
+ℹ {"file":"terminal-title-auto-tab-name.spec.ts","calls":[{"line":15,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":30,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: wave1-retained-state-characterization.spec.ts (22.395651ms)
+ℹ {"file":"wave1-retained-state-characterization.spec.ts","calls":[{"line":283,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":294,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: wave1-split-characterization.spec.ts (7.532666ms)
+ℹ {"file":"wave1-split-characterization.spec.ts","calls":[{"line":260,"method":"DELETE","path":"token","callee":"parsed.searchParams.delete","kind":"other-api-or-nonworkspace-call","directApiMethod":true}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: wave2-screen-repair-resync.spec.ts (6.815159ms)
+ℹ {"file":"wave2-screen-repair-resync.spec.ts","calls":[{"line":256,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":359,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: wave2-terminal-restore.spec.ts (4.245536ms)
+ℹ {"file":"wave2-terminal-restore.spec.ts","calls":[]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: wave3-terminal-authority-fairness.spec.ts (29.4783ms)
+ℹ {"file":"wave3-terminal-authority-fairness.spec.ts","calls":[{"line":136,"method":"DELETE","callee":"this.pageToServerBlockers.delete","kind":"collection-delete","directApiMethod":true},{"line":141,"method":"DELETE","callee":"this.serverToPageBlockers.delete","kind":"collection-delete","directApiMethod":true},{"line":246,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":258,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":507,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":520,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":568,"method":"DELETE","path":"/api/workspaces/{}/tabs/{}","callee":"fetch","kind":"tab-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: wave3-terminal-authority-promotion.spec.ts (70.768776ms)
+ℹ {"file":"wave3-terminal-authority-promotion.spec.ts","calls":[{"line":192,"method":"DELETE","callee":"this.pageToServerBlockers.delete","kind":"collection-delete","directApiMethod":true},{"line":1246,"method":"POST","path":"/api/workspaces","callee":"fetch","kind":"workspace-create","directApiMethod":false},{"line":1261,"method":"POST","path":"/api/workspaces/{}/tabs","callee":"fetch","kind":"tab-operation","directApiMethod":false},{"line":1284,"method":"DELETE","callee":"ownedAuthorityWorkspaces.delete","kind":"collection-delete","directApiMethod":true},{"line":1296,"method":"POST","path":"/api/sessions","callee":"fetch","kind":"other-api-or-nonworkspace-call","directApiMethod":false},{"line":1318,"method":"DELETE","path":"/api/sessions/{}","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":3344,"method":"POST","path":"/api/sessions/debug-capture/{}/enable","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":3387,"method":"DELETE","path":"/api/sessions/debug-capture/{}","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":3404,"method":"POST","path":"/api/sessions/debug-capture/{}/terminal-authority-fault","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":3431,"method":"POST","path":"/api/sessions/debug-capture/{}/terminal-authority-rollback","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":3463,"method":"POST","path":"/api/sessions/debug-capture/{}/terminal-authority-test-isolation","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":3519,"method":"POST","path":"/api/sessions/debug-capture/{}/terminal-authority-test-isolation","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":3571,"method":"POST","path":"/api/sessions/debug-capture/{}/terminal-authority-test-isolation","callee":"page.request.post","kind":"session-or-debug-operation","directApiMethod":true},{"line":3926,"method":"POST","path":"/api/sessions/debug-capture/{}/terminal-authority-test-isolation","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":3948,"method":"POST","path":"{}/api/sessions/debug-capture/{}/terminal-authority-test-isolation","callee":"page.request.post","kind":"session-or-debug-operation","directApiMethod":true},{"line":3991,"method":"POST","path":"/api/sessions/debug-capture/{}/terminal-authority-test-isolation","callee":"httpsRequest","kind":"session-or-debug-operation","directApiMethod":false},{"line":4063,"method":"POST","path":"/api/sessions/debug-capture/ph005-guard-probe/terminal-authority-rollback","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false},{"line":4068,"method":"POST","path":"/api/sessions/debug-capture/ph005-missing-{}/terminal-authority-test-isolation","callee":"fetch","kind":"session-or-debug-operation","directApiMethod":false}]}
+✔ B2 source inventory preserves owned workspace mutation boundaries: workspace-ownership-validation.spec.ts (6.035628ms)
+ℹ {"file":"workspace-ownership-validation.spec.ts","calls":[{"line":132,"method":"POST","callee":"target.post","kind":"observed-api-forward","directApiMethod":true},{"line":135,"method":"DELETE","callee":"target.delete","kind":"observed-api-forward","directApiMethod":true}]}
+✔ B2 quota handling cannot retain prefix eviction or unowned shortcut reset loops (217.958191ms)
+✔ B2 actual busy-bounce setup preserves an unowned test-looking workspace (20.259093ms)
+ℹ tests 62
+ℹ suites 0
+ℹ pass 59
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1018.538564
+
+✖ failing tests:
+
+test at tests/unit/terminalHiddenOutput.test.ts:154:1
+✖ REL-BGSTAB-012 settles ledger and holds stale view through drain (0.810558ms)
+  AssertionError [ERR_ASSERTION]: REL-BGSTAB-012 AC-5/AC-6: hidden delivery needs a pending dataGap ledger and cannot clear its restore barrier before checkpoint drain acknowledgement
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/terminalHiddenOutput.test.ts:163:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/workspaceOwnershipMigration.test.ts:194:3
+✖ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-persistence.spec.ts (7.902985ms)
+  AssertionError [ERR_ASSERTION]: live workspace DELETE must delegate to the owner-checked single-ID helper
+  + actual - expected
+  
+  + [
+  +   {
+  +     callee: 'fetch',
+  +     directApiMethod: false,
+  +     kind: 'workspace-delete',
+  +     line: 165,
+  +     method: 'DELETE',
+  +     path: '/api/workspaces/{}'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/workspaceOwnershipMigration.test.ts:205:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { line: 165, method: 'DELETE', path: '/api/workspaces/{}', callee: 'fetch', kind: 'workspace-delete', directApiMethod: false } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/workspaceOwnershipMigration.test.ts:194:3
+✖ B2 source inventory preserves owned workspace mutation boundaries: markdown-editor-save.spec.ts (9.1168ms)
+  AssertionError [ERR_ASSERTION]: live workspace DELETE must delegate to the owner-checked single-ID helper
+  + actual - expected
+  
+  + [
+  +   {
+  +     callee: 'fetch',
+  +     directApiMethod: false,
+  +     kind: 'workspace-delete',
+  +     line: 201,
+  +     method: 'DELETE',
+  +     path: '/api/workspaces/{}'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/workspaceOwnershipMigration.test.ts:205:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { line: 201, method: 'DELETE', path: '/api/workspaces/{}', callee: 'fetch', kind: 'workspace-delete', directApiMethod: false } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

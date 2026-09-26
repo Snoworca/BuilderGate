@@ -3,7 +3,7 @@ import type { Workspace, WorkspaceTabRuntime } from '../types/workspace';
 /**
  * What a tab close needs to know before anything is removed.
  *
- * PERF-BGSTAB-012: the close is applied locally first and the server call is
+ * PERF-BGSTAB-016: the close is applied locally first and the server call is
  * awaited afterwards, so the rollback data has to be captured up front —
  * once `tabs` has been filtered the removed tab and its position are gone.
  */
@@ -103,7 +103,7 @@ export interface TabCloseEffects {
 /**
  * Close a tab without waiting for the server.
  *
- * PERF-BGSTAB-012 AC-1/AC-2: verified process-tree termination costs seconds on
+ * PERF-BGSTAB-016 AC-1/AC-2: verified process-tree termination costs seconds on
  * Windows (one `Get-CimInstance Win32_Process` enumeration measured at 3.0-3.6s
  * on a 1289-process host, and `deleteTab` awaits two of them plus a 750ms
  * graceful wait). Holding the tab on screen for that long reads as a hang, so

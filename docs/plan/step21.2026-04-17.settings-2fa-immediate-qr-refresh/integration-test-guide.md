@@ -9,7 +9,7 @@
 ## 공통 환경
 
 - 검증 URL: `https://localhost:2002`
-- 테스트 계정 비밀번호: `1234`
+- 테스트 계정 비밀번호: `$BUILDERGATE_PASSWORD`
 - 브라우저는 인증된 상태로 Settings 페이지에 진입한다
 
 ## 서버 회귀 테스트

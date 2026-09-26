@@ -1,0 +1,842 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[WS] WebSocket router initialized
+[SessionManager] Headless terminal degraded (write) for session session-ph005: terminal-authority-reservation-commit-mismatch: reserved=7/2, commit=7/1
+[WS] Client connected: e4c85a53-f9e1-4e49-a22f-ccdb9deb8438
+[WS] Client disconnected: e4c85a53-f9e1-4e49-a22f-ccdb9deb8438
+[WS] Client disconnected: e4c85a53-f9e1-4e49-a22f-ccdb9deb8438
+[WS] WebSocket router initialized
+[WS] Client connected: 40f051ca-2739-4356-8f17-949668c481be
+✖ MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps (185.969625ms)
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-1 (5.744213ms)
+[WS] Client connected: 1f829b41-45ea-4564-a2e9-d62a1535643e
+[WS] Client connected: 4b3e7391-d309-4252-ac60-cd80fdb781d1
+[WS] Client disconnected: 40f051ca-2739-4356-8f17-949668c481be
+[WS] Client disconnected: 40f051ca-2739-4356-8f17-949668c481be
+[WS] Client disconnected: 1f829b41-45ea-4564-a2e9-d62a1535643e
+[WS] Client disconnected: 1f829b41-45ea-4564-a2e9-d62a1535643e
+[WS] Client disconnected: 4b3e7391-d309-4252-ac60-cd80fdb781d1
+[WS] Client disconnected: 4b3e7391-d309-4252-ac60-cd80fdb781d1
+[WS] WebSocket router initialized
+[WS] Client connected: 454d5758-0213-409f-a8fb-080f57da26a9
+[WS] Client connected: a7341f2d-d633-42e6-8434-29ef4a86c53d
+[WS] Client disconnected: 454d5758-0213-409f-a8fb-080f57da26a9
+[WS] Client disconnected: 454d5758-0213-409f-a8fb-080f57da26a9
+[WS] Client disconnected: a7341f2d-d633-42e6-8434-29ef4a86c53d
+[WS] Client disconnected: a7341f2d-d633-42e6-8434-29ef4a86c53d
+[WS] WebSocket router initialized
+[WS] Client connected: 166ba463-0ad0-45cc-9719-691b3de9b4eb
+[WS] Client connected: 91d759b7-a314-48c5-93f1-6457913a0051
+[WS] Client disconnected: 166ba463-0ad0-45cc-9719-691b3de9b4eb
+[WS] Client disconnected: 166ba463-0ad0-45cc-9719-691b3de9b4eb
+[WS] Client disconnected: 91d759b7-a314-48c5-93f1-6457913a0051
+[WS] Client disconnected: 91d759b7-a314-48c5-93f1-6457913a0051
+[WS] WebSocket router initialized
+[WS] Client connected: 73e45f17-1b1a-48ab-b592-9c744d0ab8b3
+[WS] Client connected: 02e4217e-9e86-4b89-8add-8c9bbdad0c3a
+[WS] Client disconnected: 73e45f17-1b1a-48ab-b592-9c744d0ab8b3
+[WS] Client disconnected: 73e45f17-1b1a-48ab-b592-9c744d0ab8b3
+[WS] Client disconnected: 02e4217e-9e86-4b89-8add-8c9bbdad0c3a
+[WS] Client disconnected: 02e4217e-9e86-4b89-8add-8c9bbdad0c3a
+[WS] WebSocket router initialized
+[WS] Client connected: e7e8efbc-0908-48a2-9d69-ab3c42fee1f0
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-2 (421.080148ms)
+✔ MIG-BGSTAB-002 promotion admission fence owns output queued while the legacy prefix is unresolved (2.739983ms)
+✔ MIG-BGSTAB-002 promotion admission fence rejects a concurrent begin transaction (1.941456ms)
+✔ MIG-BGSTAB-002 promotion revalidates the frozen responder topology after its legacy prefix drains (2.150732ms)
+[WS] Client connected: 1054a137-56b4-4b85-bfeb-3e66d9b3eca5
+[WS] Client disconnected: e7e8efbc-0908-48a2-9d69-ab3c42fee1f0
+[WS] Client disconnected: e7e8efbc-0908-48a2-9d69-ab3c42fee1f0
+[WS] Client disconnected: 1054a137-56b4-4b85-bfeb-3e66d9b3eca5
+[WS] Client disconnected: 1054a137-56b4-4b85-bfeb-3e66d9b3eca5
+[WS] WebSocket router initialized
+[WS] Client connected: 0722da71-df86-4290-be17-e9cac9f39c5b
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-3 (125.557707ms)
+[WS] Client disconnected: 0722da71-df86-4290-be17-e9cac9f39c5b
+[WS] Client disconnected: 0722da71-df86-4290-be17-e9cac9f39c5b
+[WS] WebSocket router initialized
+[WS] Client connected: efb9bda4-36ab-425e-8197-c4bc2f35c429
+✔ MIG-BGSTAB-002 checkpoint pump waits for each physical send settlement before admitting the next chunk (98.533511ms)
+[WS] WebSocket send callback failed: Error: terminal-authority-transport-binding-replaced
+    at onSent (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6472:13)
+    at ExecutableAuthoritySocket.releaseNextSend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:601:34)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:2391:17)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: efb9bda4-36ab-425e-8197-c4bc2f35c429
+[WS] Client disconnected: efb9bda4-36ab-425e-8197-c4bc2f35c429
+[WS] Client disconnected: efb9bda4-36ab-425e-8197-c4bc2f35c429
+[WS] WebSocket router initialized
+[WS] Client connected: bd1f25e4-2c04-4e52-b6cf-5ec2cb3c7403
+✔ MIG-BGSTAB-002 checkpoint pump cannot deliver queued stale frames to a successor socket with the same logical connection (111.556485ms)
+[WS] WebSocket send callback failed: Error: terminal-authority-transport-binding-replaced
+    at onSent (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6472:13)
+    at ExecutableAuthoritySocket.releaseNextSend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:601:34)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:2475:17)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: bd1f25e4-2c04-4e52-b6cf-5ec2cb3c7403
+[WS] Client disconnected: bd1f25e4-2c04-4e52-b6cf-5ec2cb3c7403
+[WS] Client disconnected: bd1f25e4-2c04-4e52-b6cf-5ec2cb3c7403
+[WS] Client disconnected: bd1f25e4-2c04-4e52-b6cf-5ec2cb3c7403
+[WS] WebSocket router initialized
+[WS] Client connected: 01d55d5c-1178-4e80-80fd-d6603a00bb15
+✔ MIG-BGSTAB-002 binding replacement recovers an active checkpoint live-output settlement failure (110.091836ms)
+[WS] Client disconnected: 01d55d5c-1178-4e80-80fd-d6603a00bb15
+[WS] Client disconnected: 01d55d5c-1178-4e80-80fd-d6603a00bb15
+[WS] WebSocket router initialized
+[WS] Client connected: 858ec819-6fa8-4276-bc5b-b8a1da432c16
+✔ MIG-BGSTAB-002 promotion begin accepts a boundary ACK that wins the send-callback race (95.816374ms)
+[WS] WebSocket send callback failed: Error: injected-checkpoint-send-failure
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:2604:33)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+    at ExecutableAuthoritySocket.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:591:18)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6273:12)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7001:25)
+    at WsRouter.sendTerminalAuthorityFrameToConnection (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1170:23)
+    at drain (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1262:31)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1297:24)
+    at new Promise (<anonymous>)
+    at enqueueSettledViewFrame (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1295:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1602:26)
+[WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+    at ExecutableAuthoritySocket.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:591:18)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6273:12)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7001:25)
+    at WsRouter.sendTerminalAuthorityFrameToConnection (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1170:23)
+    at drain (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1262:31)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1297:24)
+    at new Promise (<anonymous>)
+    at enqueueSettledViewFrame (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1295:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1602:26)
+[WS] Client disconnected: 858ec819-6fa8-4276-bc5b-b8a1da432c16
+[WS] Client disconnected: 858ec819-6fa8-4276-bc5b-b8a1da432c16
+[WS] WebSocket router initialized
+[WS] Client connected: dd5e6d6d-99cd-4027-bb57-7dc32b84410d
+✔ MIG-BGSTAB-002 checkpoint send callback failure revokes server authority and starts fresh rollback (260.593758ms)
+[WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+    at ExecutableAuthoritySocket.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:591:18)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6273:12)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7001:25)
+    at WsRouter.sendTerminalAuthorityFrameToConnection (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1170:23)
+    at drain (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1262:31)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1297:24)
+    at new Promise (<anonymous>)
+    at enqueueSettledViewFrame (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1295:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1602:26)
+[WS] Client disconnected: dd5e6d6d-99cd-4027-bb57-7dc32b84410d
+[WS] Client disconnected: dd5e6d6d-99cd-4027-bb57-7dc32b84410d
+[WS] WebSocket router initialized
+[WS] Client connected: 75b7b554-7b78-49cc-8cc1-8a7d2f76c965
+✔ MIG-BGSTAB-002 retries a single failed authority-send rollback without another callback (122.508997ms)
+[WS] Client disconnected: 75b7b554-7b78-49cc-8cc1-8a7d2f76c965
+[WS] Client disconnected: 75b7b554-7b78-49cc-8cc1-8a7d2f76c965
+[WS] WebSocket router initialized
+[WS] Client connected: e57b7ccb-6b2d-43e6-a4e4-bea580ad90f9
+✔ MIG-BGSTAB-002 hard reload waits for exact control-lane readiness before its atomic checkpoint batch and PTY tail (106.719695ms)
+[WS] Client disconnected: e57b7ccb-6b2d-43e6-a4e4-bea580ad90f9
+[WS] Client disconnected: e57b7ccb-6b2d-43e6-a4e4-bea580ad90f9
+[WS] WebSocket router initialized
+[WS] Client connected: 9fe6b683-3f58-4458-bd69-7e72ec453b90
+✔ MIG-BGSTAB-002 unready checkpoint preparation expires without admitting an authoritative checkpoint (182.571138ms)
+[WS] Client disconnected: 9fe6b683-3f58-4458-bd69-7e72ec453b90
+[WS] Client disconnected: 9fe6b683-3f58-4458-bd69-7e72ec453b90
+[WS] WebSocket router initialized
+[WS] Client connected: 74b4bca1-b775-469c-95b3-98cc93d28629
+✔ MIG-BGSTAB-002 exhausted checkpoint-ready retries roll back the unready server authority (281.600174ms)
+[WS] Client disconnected: 74b4bca1-b775-469c-95b3-98cc93d28629
+[WS] Client disconnected: 74b4bca1-b775-469c-95b3-98cc93d28629
+[WS] WebSocket router initialized
+[WS] Client connected: 4635b919-ecad-480d-b00c-77d47b48f736
+✔ MIG-BGSTAB-002 rollback cancels a pending checkpoint-ready deadline before it can retry (187.285057ms)
+[WS] Client disconnected: 4635b919-ecad-480d-b00c-77d47b48f736
+[WS] Client disconnected: 4635b919-ecad-480d-b00c-77d47b48f736
+[WS] WebSocket router initialized
+[WS] Client connected: 7898170c-7bf2-4dd8-a898-491aad5c438d
+✔ MIG-BGSTAB-002 bounds checkpoint-ready retries for an unresponsive current view (231.569477ms)
+[WS] Client disconnected: 7898170c-7bf2-4dd8-a898-491aad5c438d
+[WS] Client disconnected: 7898170c-7bf2-4dd8-a898-491aad5c438d
+[WS] WebSocket router initialized
+[WS] Client connected: b7afacc1-c86d-4142-8edf-f6d919726b04
+✔ MIG-BGSTAB-002 checkpoint-ready deadline begins only after the control preparation settles (259.624123ms)
+[WS] Client connected: 45a3e7f5-7d54-45db-82d3-10b0ab1614b7
+[WS] Client disconnected: b7afacc1-c86d-4142-8edf-f6d919726b04
+[WS] Client disconnected: b7afacc1-c86d-4142-8edf-f6d919726b04
+[WS] Client disconnected: 45a3e7f5-7d54-45db-82d3-10b0ab1614b7
+[WS] Client disconnected: 45a3e7f5-7d54-45db-82d3-10b0ab1614b7
+[WS] WebSocket router initialized
+[WS] Client connected: 51be975f-bc57-4d0e-90a2-4f031b8afef4
+✔ MIG-BGSTAB-002 same-generation hard reload replaces the live server-authority view (100.200566ms)
+[WS] Client disconnected: 51be975f-bc57-4d0e-90a2-4f031b8afef4
+[WS] Client disconnected: 51be975f-bc57-4d0e-90a2-4f031b8afef4
+[WS] WebSocket router initialized
+[WS] Client connected: c8faeaba-5cbf-4a66-a1af-601ecce431a4
+✔ MIG-BGSTAB-002 authority-ready recovery retries after transient empty router projection (1665.702065ms)
+[WS] Client connected: 1c975e08-455f-469f-a57e-4d151a52b243
+[WS] Client disconnected: c8faeaba-5cbf-4a66-a1af-601ecce431a4
+[WS] Client disconnected: 1c975e08-455f-469f-a57e-4d151a52b243
+[WS] Client disconnected: 1c975e08-455f-469f-a57e-4d151a52b243
+[WS] WebSocket router initialized
+[WS] Client connected: 76b36ff4-9c60-47b1-a987-4c4d7c01ff7f
+✔ MIG-BGSTAB-002 stale hard-reload checkpoint settlement cannot roll back a live replacement view (97.812608ms)
+[WS] Client connected: 99b3a73e-352b-46ce-a3d3-a7ebdc36ebcd
+[WS] Client disconnected: 76b36ff4-9c60-47b1-a987-4c4d7c01ff7f
+[WS] Client disconnected: 76b36ff4-9c60-47b1-a987-4c4d7c01ff7f
+[WS] Client disconnected: 99b3a73e-352b-46ce-a3d3-a7ebdc36ebcd
+[WS] Client disconnected: 99b3a73e-352b-46ce-a3d3-a7ebdc36ebcd
+[WS] WebSocket router initialized
+[WS] Client connected: 86f3b6c0-84e1-487c-964e-8e2d689601e1
+✔ MIG-BGSTAB-002 replacement view supersedes a stale checkpoint-ready preparation before stale disconnect (96.262154ms)
+[WS] Client connected: 5081d76b-3956-4013-aee7-2d9f98d1ded7
+[WS] WebSocket send callback failed: Error: callback-before-close
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:3364:38)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: 86f3b6c0-84e1-487c-964e-8e2d689601e1
+[WS] Client disconnected: 5081d76b-3956-4013-aee7-2d9f98d1ded7
+[WS] Client disconnected: 5081d76b-3956-4013-aee7-2d9f98d1ded7
+[WS] WebSocket router initialized
+[WS] Client connected: 681a9b9d-f819-48f1-8cad-dbf64a0bd265
+✔ MIG-BGSTAB-002 send failure waits for same-turn hard-reload topology settlement (97.299503ms)
+[WS] Client disconnected: 681a9b9d-f819-48f1-8cad-dbf64a0bd265
+[WS] Client connected: d9c857f8-8d5b-42be-a4f1-a5f839a179ed
+[WS] Client disconnected: d9c857f8-8d5b-42be-a4f1-a5f839a179ed
+[WS] Client disconnected: d9c857f8-8d5b-42be-a4f1-a5f839a179ed
+[WS] WebSocket router initialized
+[WS] Client connected: 62ce60d7-5248-4da0-9982-fd9c3147765b
+✔ MIG-BGSTAB-002 zero-view hard reload retains PTY output for the replacement checkpoint (102.065958ms)
+[WS] Client disconnected: 62ce60d7-5248-4da0-9982-fd9c3147765b
+[WS] Client connected: a892d5a6-ac64-402f-ac0e-b654a1c0222e
+[WS] Client disconnected: a892d5a6-ac64-402f-ac0e-b654a1c0222e
+[WS] Client disconnected: a892d5a6-ac64-402f-ac0e-b654a1c0222e
+[WS] WebSocket router initialized
+[WS] Client connected: 750d7ebc-dbe3-4a4e-a96e-6d661a1c5984
+✔ MIG-BGSTAB-002 explicit rollback refreshes the authority-ready view after a zero-view reconnect (99.690077ms)
+[WS] Client disconnected: 750d7ebc-dbe3-4a4e-a96e-6d661a1c5984
+[WS] Client disconnected: 750d7ebc-dbe3-4a4e-a96e-6d661a1c5984
+[WS] WebSocket router initialized
+[WS] Client connected: 46176364-8962-4bcf-b546-c4c32a073c2f
+✔ MIG-BGSTAB-002 rollback cannot interleave or reactivate an in-flight hard-reload checkpoint (101.932072ms)
+[WS] WebSocket send callback failed: Error: injected-persistent-send-failure
+    at ExecutableAuthoritySocket.send (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:591:18)
+    at WsRouter.sendRawTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6525:12)
+    at WsRouter.sendTransportMessage (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:6273:12)
+    at WsRouter.sendTo (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:7001:25)
+    at WsRouter.sendTerminalAuthorityFrameToConnection (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/ws/WsRouter.ts:1170:23)
+    at drain (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1262:31)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1297:24)
+    at new Promise (<anonymous>)
+    at enqueueSettledViewFrame (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1295:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityProductionAdapter.ts:1602:26)
+[WS] Client disconnected: 46176364-8962-4bcf-b546-c4c32a073c2f
+[WS] Client disconnected: 46176364-8962-4bcf-b546-c4c32a073c2f
+[WS] WebSocket router initialized
+[WS] Client connected: 9052df53-7f58-4891-9c30-916aded99940
+✔ MIG-BGSTAB-002 production rollback overflow coalesces one fresh compatibility recovery (126.491512ms)
+[WS] Client disconnected: 9052df53-7f58-4891-9c30-916aded99940-rebound
+[WS] Client disconnected: 9052df53-7f58-4891-9c30-916aded99940
+[WS] WebSocket router initialized
+[WS] Client connected: 5434cbd3-0d0e-49b7-af33-1fc1a70ef391
+✔ MIG-BGSTAB-002 topology replacement during rollback does not reset the fresh parser again (169.958995ms)
+[WS] Client disconnected: 5434cbd3-0d0e-49b7-af33-1fc1a70ef391
+[WS] Client connected: f32b6731-bc23-4d5a-b6eb-16f2a2eb5c0f
+[WS] Client disconnected: f32b6731-bc23-4d5a-b6eb-16f2a2eb5c0f
+[WS] Client disconnected: f32b6731-bc23-4d5a-b6eb-16f2a2eb5c0f
+[WS] WebSocket router initialized
+[WS] Client connected: fe33414c-2ffc-43c2-a0f1-f5875df7c14d
+✔ MIG-BGSTAB-002 zero-view rollback recovery wakes when a replacement view becomes authority-ready (232.710763ms)
+[WS] Client connected: 704f1548-6ec9-4ffd-864b-8621b6e10996
+[WS] Client disconnected: fe33414c-2ffc-43c2-a0f1-f5875df7c14d
+[WS] Client disconnected: fe33414c-2ffc-43c2-a0f1-f5875df7c14d
+[WS] Client disconnected: 704f1548-6ec9-4ffd-864b-8621b6e10996
+[WS] Client disconnected: 704f1548-6ec9-4ffd-864b-8621b6e10996
+[WS] WebSocket router initialized
+[WS] Client connected: 27d4c39b-1179-456e-9f38-c0ffd8e06b30
+✔ MIG-BGSTAB-002 rollback lease renewal on the same responder identity does not restart recovery (173.841593ms)
+[WS] Client disconnected: 27d4c39b-1179-456e-9f38-c0ffd8e06b30
+[WS] Client disconnected: 27d4c39b-1179-456e-9f38-c0ffd8e06b30
+[WS] WebSocket router initialized
+[WS] Client connected: 0fa734d5-6e8e-4f94-8bb6-2927a7030042
+✔ MIG-BGSTAB-002 rollback topology rejects a projected generation outside the active stream epoch (125.876669ms)
+[WS] Client connected: 26c20dd6-d6fc-4e20-8a9c-64137b4b051e
+[WS] Client disconnected: 0fa734d5-6e8e-4f94-8bb6-2927a7030042
+[WS] Client disconnected: 26c20dd6-d6fc-4e20-8a9c-64137b4b051e
+[WS] WebSocket router initialized
+[WS] Client connected: 2e9d4ad9-c9b3-4bb3-a5e2-d85cd9b0f220
+✔ MIG-BGSTAB-002 legacy driver ownership transfers to the remaining capable view after disconnect (86.956751ms)
+[WS] Client connected: 4904bfd1-f304-4c8d-94e6-69601efb65ad
+[WS] Client disconnected: 2e9d4ad9-c9b3-4bb3-a5e2-d85cd9b0f220
+[WS] Client disconnected: 4904bfd1-f304-4c8d-94e6-69601efb65ad
+[WS] WebSocket router initialized
+[WS] Client connected: fc3e34f7-0561-47e4-9737-e84d1028e3ba
+✔ MIG-BGSTAB-002 legacy capability refresh follows the suspended browser driver instead of view order (90.037925ms)
+[WS] Client disconnected: fc3e34f7-0561-47e4-9737-e84d1028e3ba
+[WS] Client disconnected: fc3e34f7-0561-47e4-9737-e84d1028e3ba
+[WS] WebSocket router initialized
+[WS] Client connected: cd30b37f-6bd7-4cb4-b1fd-ad2506d0249a
+✔ MIG-BGSTAB-002 explicit legacy capability refresh waits for a transient empty responder topology (90.317747ms)
+[WS] Client disconnected: cd30b37f-6bd7-4cb4-b1fd-ad2506d0249a
+[WS] WebSocket router initialized
+[WS] Client connected: 4e58b627-0d1f-418c-a590-5ca50b628ea2
+✔ MIG-BGSTAB-002 pending view-attributes handshake stays pending without a reply then fails at its deadline (340.682672ms)
+[WS] Client disconnected: 4e58b627-0d1f-418c-a590-5ca50b628ea2
+[WS] WebSocket router initialized
+[WS] Client connected: 7285d4c8-14a7-407d-b20a-7931a087822e
+✔ MIG-BGSTAB-002 stale driver attributes rotate once and only the fresh exact identity settles true (92.982694ms)
+[WS] Client disconnected: 7285d4c8-14a7-407d-b20a-7931a087822e
+[WS] WebSocket router initialized
+[WS] Client connected: e1755f19-7483-4fe7-9b4e-8e99d843627c
+✔ MIG-BGSTAB-002 pending handshake does not amplify a capability into a blind retry queue (182.188655ms)
+[WS] Client connected: 9853c23c-13a3-4383-a020-233dd73fc5b7
+[WS] Client disconnected: e1755f19-7483-4fe7-9b4e-8e99d843627c
+[WS] Client disconnected: 9853c23c-13a3-4383-a020-233dd73fc5b7
+[WS] WebSocket router initialized
+[WS] Client connected: 311ed52a-01a9-4bc1-9e28-1edd00db0652
+✔ MIG-BGSTAB-002 follower response is reject-only and cannot rotate the owner handshake (114.828986ms)
+[WS] WebSocket send callback failed: Error: accepted-ack-send-failed
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:4876:32)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: 311ed52a-01a9-4bc1-9e28-1edd00db0652
+[WS] WebSocket router initialized
+[WS] Client connected: 5e24ce75-5841-4b92-b8cc-30581ec6399a
+✔ MIG-BGSTAB-002 refresh resolves only after manager acceptance and accepted ACK settlement (98.76953ms)
+[WS] Client connected: 3006c09b-4fc9-4208-9a99-f01b624e5a12
+[WS] Client disconnected: 5e24ce75-5841-4b92-b8cc-30581ec6399a
+[WS] Client disconnected: 3006c09b-4fc9-4208-9a99-f01b624e5a12
+[WS] WebSocket router initialized
+[WS] Client connected: ba31cbe1-bf70-4485-9e15-58f76efd2650
+✔ MIG-BGSTAB-002 accepted ACK retries one fresh owner when manager identity changes before settlement (90.349576ms)
+[WS] Client connected: 8fcd5743-acf9-485a-865b-d6850949cc97
+[WS] Client disconnected: ba31cbe1-bf70-4485-9e15-58f76efd2650
+[WS] Client disconnected: 8fcd5743-acf9-485a-865b-d6850949cc97
+[WS] WebSocket router initialized
+[WS] Client connected: 9944c7c5-8363-436f-bf6a-330e80cab1a1
+✔ MIG-BGSTAB-002 generation retarget does not consume the later manager-identity recovery (88.453885ms)
+[WS] Client connected: 6a269e4a-c8df-47fc-9137-f7690aafc755
+[WS] Client disconnected: 9944c7c5-8363-436f-bf6a-330e80cab1a1
+[WS] Client disconnected: 6a269e4a-c8df-47fc-9137-f7690aafc755
+[WS] WebSocket router initialized
+[WS] Client connected: 3b676847-981c-4fff-ae0b-8a5f3f2c7666
+✔ MIG-BGSTAB-002 replacement challenge reply after the original deadline cannot revive readiness (238.368937ms)
+[WS] WebSocket send callback failed: Error: rejected-ack-settlement
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:5267:34)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[WS] Client disconnected: 3b676847-981c-4fff-ae0b-8a5f3f2c7666
+[WS] WebSocket router initialized
+[WS] Client connected: 06bd1955-6540-49a6-8a4d-1b7f808ec381
+✔ MIG-BGSTAB-002 rejected ACK settlement invalidates its challenge before a late duplicate (88.107047ms)
+[WS] Client disconnected: 06bd1955-6540-49a6-8a4d-1b7f808ec381-replacement
+[WS] WebSocket router initialized
+[WS] Client connected: fde7dd86-aff5-4aa9-9ae7-4cddabc095cd
+✔ MIG-BGSTAB-002 pending challenge rejects a same-view client identity replacement (85.073101ms)
+[WS] Client disconnected: fde7dd86-aff5-4aa9-9ae7-4cddabc095cd
+[WS] WebSocket router initialized
+[WS] Client connected: 975569b2-4f1d-4d96-a8b8-de210401c957
+✔ MIG-BGSTAB-002 pending challenge rejects a same-view driver lease identity replacement (88.200533ms)
+[WS] Client disconnected: 975569b2-4f1d-4d96-a8b8-de210401c957
+[WS] WebSocket router initialized
+[WS] Client connected: da7feceb-8a28-4b07-b59c-a75e70e340b1
+✔ MIG-BGSTAB-002 ACK success released after deadline cannot revive accepted readiness (118.895614ms)
+[WS] Client disconnected: da7feceb-8a28-4b07-b59c-a75e70e340b1
+[WS] Client disconnected: da7feceb-8a28-4b07-b59c-a75e70e340b1
+[WS] WebSocket router initialized
+[WS] Client connected: 8c02af76-b74f-450f-89c7-e77240b7b4c7
+✔ MIG-BGSTAB-002 split output close invalidates pending handshake and re-pair requires a fresh exact identity (91.307332ms)
+[WS] Client connected: c31c5d35-5f23-4ef4-8de2-15daf0b7c458
+[WS] Client disconnected: 8c02af76-b74f-450f-89c7-e77240b7b4c7
+[WS] Client disconnected: 8c02af76-b74f-450f-89c7-e77240b7b4c7
+[WS] Client disconnected: c31c5d35-5f23-4ef4-8de2-15daf0b7c458
+[WS] Client disconnected: c31c5d35-5f23-4ef4-8de2-15daf0b7c458
+[WS] WebSocket router initialized
+[WS] Client connected: 68884a61-2ac3-4e1b-a4a7-b560d88ccf4a
+✔ MIG-BGSTAB-002 follower split lane replacement and unpair preserve the exact owner handshake (90.332662ms)
+[WS] Client disconnected: 68884a61-2ac3-4e1b-a4a7-b560d88ccf4a
+[WS] WebSocket router initialized
+[WS] Client connected: d456bf59-e8fa-4d98-97d9-5651a0756ca7
+✔ MIG-BGSTAB-002 same-view runtime recreation rejects the old challenge before accepting the replacement (101.865687ms)
+[WS] Client disconnected: d456bf59-e8fa-4d98-97d9-5651a0756ca7
+[WS] Client disconnected: d456bf59-e8fa-4d98-97d9-5651a0756ca7
+[WS] WebSocket router initialized
+[WS] Client connected: b645b2bd-388b-4012-b161-8c30067bb9ac
+✔ MIG-BGSTAB-002 overlapping legacy capability refreshes do not piggyback an older challenge (90.863794ms)
+[WS] Client disconnected: b645b2bd-388b-4012-b161-8c30067bb9ac
+[WS] Client disconnected: b645b2bd-388b-4012-b161-8c30067bb9ac
+[WS] WebSocket router initialized
+[WS] Client connected: 624f8a49-a564-4b39-a49c-f4eb9f394c02
+✔ MIG-BGSTAB-002 explicit refresh retargets one successor challenge across view-generation churn (91.776714ms)
+[WS] Client connected: 6a247d11-c8c6-4725-b14b-f54da0b59b14
+[WS] Client disconnected: 624f8a49-a564-4b39-a49c-f4eb9f394c02
+[WS] Client disconnected: 624f8a49-a564-4b39-a49c-f4eb9f394c02
+[WS] Client disconnected: 6a247d11-c8c6-4725-b14b-f54da0b59b14
+[WS] Client disconnected: 6a247d11-c8c6-4725-b14b-f54da0b59b14
+[WS] WebSocket router initialized
+[WS] Client connected: 50ce910b-ded9-44c9-bb1c-4af7f86e2090
+✔ MIG-BGSTAB-002 generation retarget preserves the immutable driver client anchor (95.648169ms)
+[WS] Client disconnected: 50ce910b-ded9-44c9-bb1c-4af7f86e2090
+[WS] Client disconnected: 50ce910b-ded9-44c9-bb1c-4af7f86e2090
+[WS] WebSocket router initialized
+[WS] Client connected: 5a84733b-ff79-4e67-963e-9663c0a9135f
+[WS] Client disconnected: 5a84733b-ff79-4e67-963e-9663c0a9135f
+[WS] Client disconnected: 5a84733b-ff79-4e67-963e-9663c0a9135f
+[WS] WebSocket router initialized
+[WS] Client connected: 6cf73258-15ca-4f29-bc4b-ac2d941bb546
+✔ MIG-BGSTAB-002 destructive split output change fences a generation-retargeted refresh (170.512371ms)
+[WS] Client connected: 3934529d-c1e4-4cf2-a246-3d8b4b3d01e6
+[WS] Client disconnected: 6cf73258-15ca-4f29-bc4b-ac2d941bb546
+[WS] Client disconnected: 6cf73258-15ca-4f29-bc4b-ac2d941bb546
+[WS] Client disconnected: 3934529d-c1e4-4cf2-a246-3d8b4b3d01e6
+[WS] Client disconnected: 3934529d-c1e4-4cf2-a246-3d8b4b3d01e6
+[WS] WebSocket router initialized
+[WS] Client connected: 9e4075f9-fd07-4de5-ba8e-8991f27b9b62
+✔ MIG-BGSTAB-002 output-unpaired fences the initially selected owner during a held legacy rebind (202.267288ms)
+[WS] Client connected: 9c0f588f-b1e2-4c14-9ebe-174ad323a043
+[WS] Client disconnected: 9e4075f9-fd07-4de5-ba8e-8991f27b9b62
+[WS] Client disconnected: 9e4075f9-fd07-4de5-ba8e-8991f27b9b62
+[WS] Client disconnected: 9c0f588f-b1e2-4c14-9ebe-174ad323a043
+[WS] Client disconnected: 9c0f588f-b1e2-4c14-9ebe-174ad323a043
+[WS] WebSocket router initialized
+[WS] Client connected: 5e7b7611-812e-4ede-a803-990bb6d5e575
+✔ MIG-BGSTAB-002 output-replaced fences the initially selected owner during a held legacy rebind (204.230045ms)
+[WS] Client disconnected: 5e7b7611-812e-4ede-a803-990bb6d5e575
+[WS] WebSocket router initialized
+[WS] Client connected: 551eeb5a-ec9b-403a-a779-c7cd77b8d5c4
+✔ MIG-BGSTAB-002 held successor rebind resumes the latest generation with one bounded wake (106.165647ms)
+[WS] Client connected: 1cf82d22-19de-4f73-898a-318c44a03ac9
+[WS] Client disconnected: 551eeb5a-ec9b-403a-a779-c7cd77b8d5c4
+[WS] Client disconnected: 1cf82d22-19de-4f73-898a-318c44a03ac9
+[WS] WebSocket router initialized
+[WS] Client connected: f7dd2e29-f255-4faf-bb01-23c7543142f3
+✔ MIG-BGSTAB-002 explicit refresh waits for a held identity-changed rebind before fresh capability enqueue (130.19494ms)
+[WS] Client disconnected: f7dd2e29-f255-4faf-bb01-23c7543142f3
+[WS] Client disconnected: f7dd2e29-f255-4faf-bb01-23c7543142f3
+[WS] WebSocket router initialized
+[WS] Client connected: 56fbd0a7-577b-40d6-804d-0c78a918f071
+✔ MIG-BGSTAB-002 explicit legacy capability refresh fails closed after a bounded permanent topology gap (146.566195ms)
+[WS] Client disconnected: 56fbd0a7-577b-40d6-804d-0c78a918f071
+[WS] Client disconnected: 56fbd0a7-577b-40d6-804d-0c78a918f071
+[WS] WebSocket router initialized
+[WS] Client connected: f4f302c9-9f3c-4895-ba43-c237a291ef27
+[WS] Client disconnected: f4f302c9-9f3c-4895-ba43-c237a291ef27
+[WS] WebSocket router initialized
+[WS] Client connected: 2b9ecc97-f608-43cc-9e00-224e823636a6
+✔ MIG-BGSTAB-002 runtime recreation invalidates an old pending refresh before a new runtime refresh succeeds (94.965783ms)
+✔ MIG-BGSTAB-002 split control advertises view attributes only after its output lane pairs (93.122524ms)
+[WS] Client disconnected: 2b9ecc97-f608-43cc-9e00-224e823636a6
+[WS] WebSocket router initialized
+[WS] Client connected: ff2ba5fe-6465-476f-83ae-ce140fff3c99
+✔ MIG-BGSTAB-002 headless runtime recreation restores a fresh legacy browser mutation lease (297.544302ms)
+[WS] Client disconnected: ff2ba5fe-6465-476f-83ae-ce140fff3c99
+[WS] Client disconnected: ff2ba5fe-6465-476f-83ae-ce140fff3c99
+[WS] WebSocket router initialized
+[WS] Client connected: 5778e628-1605-4afb-be12-92cd2591d8bc
+✔ MIG-BGSTAB-002 configured corpus recreation refreshes the replacement runtime before promotion (108.374188ms)
+✔ MIG-BGSTAB-002 stale promotion deadline cannot roll back a replacement authority runtime (2.531149ms)
+[WS] Client disconnected: 5778e628-1605-4afb-be12-92cd2591d8bc
+[WS] Client disconnected: 5778e628-1605-4afb-be12-92cd2591d8bc
+[WS] WebSocket router initialized
+[WS] Client connected: f22e38c8-4a17-4f25-8358-aeb580f5b127
+✔ MIG-BGSTAB-002 explicit recovery resumes an existing rollback with the current compatibility view (190.646281ms)
+[WS] Client disconnected: f22e38c8-4a17-4f25-8358-aeb580f5b127
+[WS] Client disconnected: f22e38c8-4a17-4f25-8358-aeb580f5b127
+[WS] WebSocket router initialized
+[WS] Client connected: 1175f9d0-d340-41d3-9c90-8e85a13e8e55
+✔ MIG-BGSTAB-002 session finalization disposes authority timer and settles queued delivery exactly once (1153.599776ms)
+[WS] Client disconnected: 1175f9d0-d340-41d3-9c90-8e85a13e8e55
+[WS] Client disconnected: 1175f9d0-d340-41d3-9c90-8e85a13e8e55
+[WS] WebSocket router initialized
+[WS] Client connected: de2aa74b-ba28-4302-bcb6-265d812ecbff
+✔ MIG-BGSTAB-002 production promotion deadline follows the configured browser ACK contract exactly once (502.463103ms)
+[WS] Client disconnected: de2aa74b-ba28-4302-bcb6-265d812ecbff
+[WS] Client disconnected: de2aa74b-ba28-4302-bcb6-265d812ecbff
+[WS] WebSocket router initialized
+[WS] Client connected: c0ff0f00-918f-4793-92f2-bf1313b9d2d7
+✔ MIG-BGSTAB-002 recovery ACK miss preserves bootstrap replay until the refreshed model is acknowledged (91.093785ms)
+[WS] Client disconnected: c0ff0f00-918f-4793-92f2-bf1313b9d2d7
+[WS] Client disconnected: c0ff0f00-918f-4793-92f2-bf1313b9d2d7
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client connected: 4afe376d-4c14-4795-8aa3-077be2036a89
+✔ MIG-BGSTAB-002 attachment destroy detaches active authority runtime and clears its owned factory (107.089617ms)
+✔ MIG-BGSTAB-002 production destroy all-settles runtime map and factory ownership after responder detach failure (91.192545ms)
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-4 (2.491329ms)
+✔ Cache-poisoned authoritative recovery parity is failure-capable — REL-BGSTAB-007 AC-8 (2.109615ms)
+[WS] Client connected: db046e16-a9c7-4c71-a39f-a879be8e10f9
+[WS] Client disconnected: 4afe376d-4c14-4795-8aa3-077be2036a89
+[WS] Client disconnected: 4afe376d-4c14-4795-8aa3-077be2036a89
+[WS] Client disconnected: db046e16-a9c7-4c71-a39f-a879be8e10f9
+[WS] Client disconnected: db046e16-a9c7-4c71-a39f-a879be8e10f9
+[WS] WebSocket router initialized
+[WS] Client connected: f581a59b-f4eb-4a07-af50-ac03d0f39eae
+[WS] Client connected: 5720ac63-75f2-4a09-8091-3af25a49f116
+[WS] Client disconnected: f581a59b-f4eb-4a07-af50-ac03d0f39eae
+[WS] Client disconnected: 5720ac63-75f2-4a09-8091-3af25a49f116
+[WS] WebSocket router initialized
+[WS] Client connected: 2a43ada7-ebfc-477b-a013-006b40c18e5d
+[WS] Client disconnected: 2a43ada7-ebfc-477b-a013-006b40c18e5d
+[WS] WebSocket router initialized
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-5 (332.357819ms)
+✔ MIG-BGSTAB-002 rollback query hold ledger fails closed at the configured chunk bound (3.28273ms)
+✔ MIG-BGSTAB-002 failed compatibility query transfer keeps rollback retryable and uncommitted (2.678497ms)
+✔ MIG-BGSTAB-002 AC-5 locks the first proven compatibility drain target while PTY output continues (2.632627ms)
+✔ MIG-BGSTAB-002 legacy compatibility responder identity rebinds to a replacement view (2.654659ms)
+✔ MIG-BGSTAB-002 legacy output with no authority-capable view does not enter an epochless rollback (92.473791ms)
+✔ MIG-BGSTAB-002 delayed Ctrl+C clear-line › prompt repaint stays idle when foreground detection is stale (503.266725ms)
+✔ MIG-BGSTAB-002 delayed Ctrl+C semantic output remains running when foreground detection is stale (496.434751ms)
+✔ MIG-BGSTAB-002 delayed local-input cursor visibility repaint stays idle when foreground detection is stale (495.380039ms)
+✔ MIG-BGSTAB-002 delayed local-input semantic output remains running when foreground detection is stale (506.432415ms)
+✔ MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the pending input buffer is cleared (496.519016ms)
+✔ MIG-BGSTAB-002 delayed ANSI-colored local echo stays idle after the debug correlation window expires (602.346995ms)
+✔ MIG-BGSTAB-002 semantic output clears delayed local-echo correlation (530.180359ms)
+✔ MIG-BGSTAB-002 replacement local input invalidates the prior delayed local-echo correlation (155.921981ms)
+✔ MIG-BGSTAB-002 Ctrl+C settles one already-pending delayed local echo before later semantic output (161.636219ms)
+✔ MIG-BGSTAB-002 Enter clears delayed local-echo correlation (101.554997ms)
+✔ MIG-BGSTAB-002 delayed ANSI echo of a backspace-edited local draft stays idle after a prompt redraw (605.790306ms)
+✔ MIG-BGSTAB-002 delayed ANSI echo of a superseded pre-edit draft remains running (605.951379ms)
+✔ MIG-BGSTAB-002 semantic output before a prompt-prefixed local draft remains running (156.951476ms)
+✔ MIG-BGSTAB-002 Ctrl+C prompt-return suppression is consumed before later semantic prompt output (507.182073ms)
+✔ MIG-BGSTAB-002 delayed Ctrl+C clear-line and cursor repaint stays idle when foreground detection is stale (502.376807ms)
+✖ MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection (1644.450253ms)
+✖ MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw (1649.425603ms)
+✖ MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output (1636.609868ms)
+✖ MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles (1658.684389ms)
+✖ MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior (1651.391858ms)
+✖ MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix (1648.875988ms)
+✖ MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output (1649.537354ms)
+✖ MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session (1665.331756ms)
+✖ MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session (1652.58636ms)
+✔ MIG-BGSTAB-002 delayed active-draft echo prefix survives an intervening control-only repaint (146.762436ms)
+✔ MIG-BGSTAB-002 interrupted-draft echo prefix survives an intervening control-only repaint (88.067335ms)
+✔ MIG-BGSTAB-002 unadorned substantive draft prefix remains observable as running output (290.587918ms)
+✔ MIG-BGSTAB-002 bare split local echo remains idle when its matching suffix arrives (154.928756ms)
+✔ MIG-BGSTAB-002 a replacement draft cancels a deferred bare echo candidate (275.140822ms)
+✔ MIG-BGSTAB-002 Ctrl+C cancels a deferred bare echo candidate (270.587284ms)
+✔ MIG-BGSTAB-002 session teardown safely discards a deferred bare echo candidate (272.183373ms)
+✔ MIG-BGSTAB-002 session teardown cancels the deferred bare echo timer (145.583946ms)
+✔ MIG-BGSTAB-002 a control-only repaint does not cancel the bounded bare echo deadline (266.28721ms)
+✖ MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate (1632.594647ms)
+✔ MIG-BGSTAB-002 Ctrl+C retains an already-observed bare echo prefix for its matching suffix (148.448316ms)
+✔ MIG-BGSTAB-002 repeated ambiguous bare chunks do not rearm the deferred echo deadline (153.502557ms)
+✔ MIG-BGSTAB-002 SGR-only split local echo remains idle when its matching suffix arrives (154.84945ms)
+✔ MIG-BGSTAB-002 a CSI-split SGR local echo remains idle across PTY chunks (149.864712ms)
+✔ MIG-BGSTAB-002 an active Codex CSI-split local echo stays idle across PTY chunks (161.94504ms)
+✔ MIG-BGSTAB-002 an active Codex bare draft prefix times out to running without a suffix (285.820389ms)
+✔ MIG-BGSTAB-002 an active Codex bare prefix with a nonmatching suffix runs immediately (190.513308ms)
+✔ MIG-BGSTAB-002 an OSC-133 active Codex delayed exact echo stays idle (172.526317ms)
+✔ MIG-BGSTAB-002 an OSC-133 active Codex bare prefix with a nonmatching suffix runs and clears its candidate (195.564119ms)
+✔ MIG-BGSTAB-002 an OSC-133 active Codex bare prefix deadline runs and clears its candidate (295.373427ms)
+✔ MIG-BGSTAB-002 a bare draft prefix with a nonmatching suffix runs immediately (149.499895ms)
+✔ MIG-BGSTAB-002 CRLF-terminated substantive draft prefix remains observable as running output (142.463539ms)
+✔ MIG-BGSTAB-002 ANSI-colored substantive draft prefix remains observable as running output (287.151899ms)
+✔ MIG-BGSTAB-002 unadorned exact delayed draft echo remains idle (149.4279ms)
+✔ MIG-BGSTAB-002 an observed exact local echo is not revived as an interrupted draft (149.347178ms)
+✔ MIG-BGSTAB-002 Ctrl+C prompt return expires an unmatched interrupted draft correlation (93.484857ms)
+✔ MIG-BGSTAB-002 immediate semantic output after unsent printable input remains running (95.663631ms)
+✔ MIG-BGSTAB-002 immediate semantic output after Ctrl+C remains running (99.454582ms)
+✔ MIG-BGSTAB-002 immediate Ctrl+C SGR-reset and cursor-hide repaint stays idle (99.747178ms)
+✔ MIG-BGSTAB-002 Ctrl+C cursor-only repaint does not suppress later semantic shell output (102.888985ms)
+✖ MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle (1657.499348ms)
+✔ MIG-BGSTAB-002 Ctrl+C prompt-only shell return remains idle (96.865386ms)
+✔ MIG-BGSTAB-002 immediate Ctrl+C prompt repaint consumes its allowance before later semantic prompt output (156.165119ms)
+✔ MIG-BGSTAB-002 delayed ANSI local echo split across PTY chunks stays idle until its matching suffix arrives (603.428969ms)
+✔ MIG-BGSTAB-002 delayed ANSI-colored nonmatching output remains running after the pending input buffer is cleared (495.273656ms)
+[WS] WebSocket router initialized
+✔ Single-authority promotion and rollback epoch RED contract — MIG-BGSTAB-002 AC-6 (14.758574ms)
+✔ Single-authority promotion and rollback epoch RED contract — REL-BGSTAB-007 AC-12 (2.73972ms)
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] WebSocket router initialized
+[WS] Client connected: 78205eee-703b-4a9d-8f58-84a3f3f850ff
+[WS] WebSocket router initialized
+[WS] Client connected: 930cc672-1961-434d-b31a-263e0cbb74d5
+✔ REL-BGSTAB-007 applies configured retained policy before delivery (397.32768ms)
+[WS] Client disconnected: 930cc672-1961-434d-b31a-263e0cbb74d5
+[WS] Client disconnected: 930cc672-1961-434d-b31a-263e0cbb74d5
+[WS] WebSocket router initialized
+[WS] Client connected: 8a6194da-fad9-4dff-9bf2-2b8e6bc718a0
+✔ REL-BGSTAB-007 invalidates a settled delivery proof when split output re-pairs on the same view generation (122.237911ms)
+[WS] Client disconnected: 8a6194da-fad9-4dff-9bf2-2b8e6bc718a0
+[WS] Client disconnected: 8a6194da-fad9-4dff-9bf2-2b8e6bc718a0
+[WS] Client disconnected: 8a6194da-fad9-4dff-9bf2-2b8e6bc718a0
+[WS] WebSocket router initialized
+[WS] Client connected: 269f9806-ba13-449f-b74a-029e4cafad68
+✔ REL-BGSTAB-007 invalidates a settled delivery proof synchronously when split output is replaced (111.917641ms)
+[WS] Client connected: a09c4430-48ef-4a75-b89b-3a61983ee3ee
+[WS] Client disconnected: 269f9806-ba13-449f-b74a-029e4cafad68
+[WS] Client disconnected: a09c4430-48ef-4a75-b89b-3a61983ee3ee
+[WS] Client disconnected: a09c4430-48ef-4a75-b89b-3a61983ee3ee
+[WS] Client disconnected: 269f9806-ba13-449f-b74a-029e4cafad68
+[WS] WebSocket router initialized
+[WS] Client connected: 32c5c1c5-a5b2-4a28-a2a7-867e4a6de6f3
+✔ REL-BGSTAB-007 preserves unaffected settled view proof across another split output re-pair (120.621472ms)
+[WS] Client disconnected: 32c5c1c5-a5b2-4a28-a2a7-867e4a6de6f3
+[WS] Client disconnected: 32c5c1c5-a5b2-4a28-a2a7-867e4a6de6f3
+[WS] WebSocket router initialized
+[WS] Client connected: 6e8dd681-94be-4fd9-8ef9-d30ac4b542eb
+✔ REL-BGSTAB-007 fences active server recovery at an Ordinal64 retained-stream rollover until a fresh checkpoint settles (110.403443ms)
+[WS] Client disconnected: 6e8dd681-94be-4fd9-8ef9-d30ac4b542eb
+[WS] Client disconnected: 6e8dd681-94be-4fd9-8ef9-d30ac4b542eb
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-007 rekeys active server authority for every retained-stream rollover (117.468811ms)
+[WS] Client connected: 9ffd8692-ffd6-41a8-886e-1fedb2b92f32
+[WS] Client disconnected: 9ffd8692-ffd6-41a8-886e-1fedb2b92f32
+[WS] Client disconnected: 9ffd8692-ffd6-41a8-886e-1fedb2b92f32
+[WS] WebSocket router initialized
+[WS] Client connected: f0fc284e-3fc6-45c1-84a9-5be989aef983
+[WS] Client disconnected: f0fc284e-3fc6-45c1-84a9-5be989aef983
+[WS] Client disconnected: f0fc284e-3fc6-45c1-84a9-5be989aef983
+[WS] WebSocket router initialized
+✔ REL-BGSTAB-007 validates Ordinal64 checkpoint apply and drain (200.089823ms)
+[WS] Client connected: 5aecf8ab-e686-4af3-aec4-2be881ea999e
+[WS] Client connected: 19d6f853-ff9e-4c75-beb3-9137797734be
+[WS] Client disconnected: 5aecf8ab-e686-4af3-aec4-2be881ea999e
+[WS] Client disconnected: 5aecf8ab-e686-4af3-aec4-2be881ea999e
+[WS] Client disconnected: 19d6f853-ff9e-4c75-beb3-9137797734be
+[WS] Client disconnected: 19d6f853-ff9e-4c75-beb3-9137797734be
+✔ REL-BGSTAB-007 isolates driver lease ledger and rollback epoch (105.875429ms)
+✔ REL-BGSTAB-012 preserves retained authority across peer disconnect and recovery rollback (2.617621ms)
+ℹ tests 148
+ℹ suites 0
+ℹ pass 136
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48143.673607
+
+✖ failing tests:
+
+test at src/services/TerminalAuthorityController.test.ts:1:1399
+✖ MIG-BGSTAB-002 checkpoint identity follows the committed authority source across reserved ordinal gaps (185.969625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'fallback'
+  - 'authoritative'
+  
+      at connectProductionView (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:798:10)
+      at async TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:499:18)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'fallback',
+    expected: 'authoritative',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:2206
+✖ MIG-BGSTAB-002 PowerShell redraw retains the unsubmitted draft for later Codex detection (1644.450253ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9300:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:33.976Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:3400
+✖ MIG-BGSTAB-002 stale bare PowerShell prompt preserves an unsent draft through a split PSReadLine redraw (1649.425603ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9339:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:35.626Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:4892
+✖ MIG-BGSTAB-002 bare PowerShell prompt without an active draft does not mask later substantive output (1636.609868ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9384:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:37.262Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:5815
+✖ MIG-BGSTAB-002 CWD prompt refresh preserves an active unsubmitted draft until its delayed echo settles (1658.684389ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9414:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:38.921Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:7247
+✖ MIG-BGSTAB-002 CWD prompt refresh without an active draft keeps normal prompt reset behavior (1651.391858ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9459:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:40.573Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:8111
+✖ MIG-BGSTAB-002 PSReadLine rewrite replaces an earlier partial local-echo prefix with a longer current draft prefix (1648.875988ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9490:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:42.222Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:9654
+✖ MIG-BGSTAB-002 a PSReadLine partial echo prefix does not suppress nonmatching semantic output (1649.537354ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9529:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:43.871Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:10835
+✖ MIG-BGSTAB-002 ANSI-only PowerShell repaint does not demote an active Codex foreground session (1665.331756ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9560:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:45.537Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:11961
+✖ MIG-BGSTAB-002 PowerShell-shaped semantic output does not demote an active Codex foreground session (1652.58636ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9594:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:47.190Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:22949
+✖ MIG-BGSTAB-002 a shell prompt redraw cancels an in-flight bare echo candidate (1632.594647ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:9926:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:50.733Z'
+  }
+
+test at src/services/TerminalAuthorityController.test.ts:2:44434
+✖ MIG-BGSTAB-002 Ctrl+C cursor-positioned echo and PowerShell prompt redraw stays idle (1657.499348ms)
+  Error: PowerShell winpty backend is unavailable: winpty probe timed out while starting PowerShell
+      at SessionManager.assertPowerShellWinptyAvailable (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4875:13)
+      at SessionManager.resolveWindowsPtyBackend (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:4169:12)
+      at SessionManager.createSession (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1346:36)
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalAuthorityController.test.ts:10578:13)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    code: 'CONFIG_ERROR',
+    statusCode: 500,
+    details: { requestedBackend: 'winpty', reason: 'winpty probe timed out while starting PowerShell' },
+    timestamp: '2026-09-16T08:23:55.669Z'
+  }

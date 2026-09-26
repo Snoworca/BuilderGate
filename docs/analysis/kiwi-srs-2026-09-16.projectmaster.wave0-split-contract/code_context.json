@@ -1,0 +1,20 @@
+{
+  "relevant_files": [
+    {"path": "server/src/index.ts", "symbol": "new WsRouter(...) construction", "relevance": "passes only realtime.terminalWireFormat; withholds config.realtime.wsTransportMode, so the router defaults to unified in production"},
+    {"path": "server/src/test-runner.ts", "symbol": "assert.doesNotMatch(construction, /wsTransportMode/u)", "relevance": "green assertion that PINS the omission above"},
+    {"path": "server/src/ws/WsRouter.ts", "symbol": "handleUpgrade requestedMode computation", "relevance": "reads query param 'wsTransportMode' and accepts split without consulting the configured mode"},
+    {"path": "server/src/ws/wsTransportMode.ts", "symbol": "parseWsTransportRequest", "relevance": "canonical parser returning split-disabled 400 when configured is unified; NOT called on the production upgrade path"},
+    {"path": "frontend/src/utils/webSocketUrl.ts", "symbol": "buildControlWebSocketUrl", "relevance": "emits mode=split&channel=control, a different parameter name than the server reads"},
+    {"path": "server/src/ws/terminalWireFormat.ts", "symbol": "isTransportEligible", "relevance": "binary data plane is gated to transportMode === 'unified'; split and binary are mutually exclusive as built"},
+    {"path": "server/src/ws/WsRouterSplitHandshake.test.ts", "symbol": "28 tests, 13 todo", "relevance": "measured 15 pass / 13 todo / exit 0; 12 todos self-labelled 'Wave-1 production unified limitation characterization'"},
+    {"path": "server/src/schemas/config.schema.ts", "symbol": "realtimeSchema, configSchema", "relevance": "81 input leaves across 13 top-level sections; realtime defaults unified/json via defaultObject"},
+    {"path": "server/src/utils/retiredSettingsResidue.test.ts", "symbol": "RETIRED_LEAF_PATHS, SHIPPED_SURFACE_ROOTS", "relevance": "existing 13-key retired-settings scanner over a 381-file shipped surface; to be REUSED"},
+    {"path": "server/src/services/TerminalResourcePolicyInventory.ts", "symbol": "TerminalResourceConsumerManifestEntry", "relevance": "existing consumer manifest for 28 terminal resource keys; to be REUSED"},
+    {"path": "server/src/services/RuntimeConfigStore.ts", "symbol": "FIELD_SCOPES, RESERVED_WAVE6_SETTING_KEYS, EXCLUDED_SECTIONS", "relevance": "existing machine-readable user-visible/reserved split; to be REUSED"},
+    {"path": "server/src/benchmarks/terminalCharacterization.ts", "symbol": "createTerminalWorkloadCorpus, createTerminalCharacterizationManifest", "relevance": "hardcodes viewMix {active:1, hidden:sessions-1}; manifest carries no outlier policy and no execution interleave"},
+    {"path": "server/src/benchmarks/benchmarkStatistics.ts", "symbol": "BenchmarkExecutionManifest, aggregateBenchmarkSamples, bootstrapMedianInterval", "relevance": "manifest schema and p50/p95/p99 + seeded bootstrap CI"}
+  ],
+  "related_modules": ["server/src/ws", "server/src/benchmarks", "server/src/schemas", "server/src/services"],
+  "missing_evidence": [],
+  "external_paths_detected": []
+}

@@ -124,7 +124,13 @@ export async function writeLegacyServerSnapshotBoundaryArtifact(
   return evidence;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+// OPS-BGSTAB-017: `import.meta` is an empty object once this is bundled to CJS,
+// so read the module path through `__filename` where that exists.
+const MODULE_URL = typeof __filename === 'string'
+  ? pathToFileURL(__filename).href
+  : import.meta.url;
+
+if (process.argv[1] && MODULE_URL === pathToFileURL(resolve(process.argv[1])).href) {
   const evidence = await writeLegacyServerSnapshotBoundaryArtifact();
   process.stdout.write(`${evidence.contentDigest.value}\n`);
 }

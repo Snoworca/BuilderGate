@@ -1,0 +1,11 @@
+# RG-06 round-3 closing observation, 20260916T230504Z
+# netstat.exe -ano | grep LISTENING, filtered to 2001|2002|2222 (filter disclosed)
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596
+# ss -ltn (WSL side, unfiltered)
+State  Recv-Q Send-Q  Local Address:Port Peer Address:PortProcess
+LISTEN 0      1000   10.255.255.254:53        0.0.0.0:*          
+LISTEN 0      4096    127.0.0.53%lo:53        0.0.0.0:*          
+LISTEN 0      4096       127.0.0.54:53        0.0.0.0:*          

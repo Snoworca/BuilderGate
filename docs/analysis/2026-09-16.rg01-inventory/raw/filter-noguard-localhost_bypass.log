@@ -1,0 +1,17 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Auth] AuthService initialized
+[Auth] Token issued: jti=97b63ebc-f688-48db-8d51-3c0ceb1f9617
+[Auth] Login successful (localhostPasswordOnly) from ::ffff:127.0.0.1
+PASS authRoutes localhostPasswordOnly: localhost bypass returns JWT (Phase 4)
+[Auth] AuthService initialized
+FAIL authRoutes twoFactor.externalOnly: localhost bypass skips TOTP (bugfix)
+Error: socket hang up
+    at Socket.socketOnEnd (node:_http_client:790:25)
+    at Socket.emit (node:events:526:24)
+    at endReadableNT (node:internal/streams/readable:1764:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'ECONNRESET'
+}
+
+1 test(s) failed

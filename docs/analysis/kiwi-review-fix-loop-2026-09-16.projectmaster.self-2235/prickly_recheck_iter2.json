@@ -1,0 +1,146 @@
+{
+  "resolved_findings": ["FND-101", "FND-102"],
+  "unresolved": ["FND-103"],
+  "verification_runs": [
+    { "command": "node --test tools/issue24-regression-diff.test.mjs", "cwd": "repo root", "result": "tests 24 / pass 24 / fail 0 / todo 0, exit 0" },
+    { "command": "npx tsx --test src/utils/atomicStoreWrite.test.ts", "cwd": "server", "result": "tests 10 / pass 10 / fail 0 / todo 0, exit 0" },
+    { "command": "npx tsx --test src/services/StorePublishCrossInstance.test.ts", "cwd": "server", "result": "tests 8 / pass 8 / fail 0 / todo 0, exit 0" },
+    { "command": "npx tsc --noEmit -p tsconfig.json", "cwd": "server", "result": "exit 0, no diagnostics" },
+    { "command": "node tools/issue24-regression-diff.mjs --baseline .../baseline.v3.json --after .../after.v3.json", "cwd": "repo root", "result": "EXIT=0. baseline files 31 / after files 33 / baseline failing 17 / after failing 16 / 'no longer failing (1)' / 'files added since the baseline (2, not a problem)' / 'no new failures'. No UNVERIFIED DIMENSION banner: both v3 captures carry perFileCounts for all enumerated files, 0 nulls, 0 zero-test files, 0 harnessErrors, so the strict count-carrying path ran." }
+  ],
+  "verdicts": [
+    {
+      "id": "FND-101",
+      "verdict": "resolved",
+      "judged_from": [
+        "tools/issue24-regression-diff.mjs:45-55 — the per-capture preflight loop now requires `failing` AND `harnessErrors` to be arrays on both sides and pushes a problem naming the field and the value found",
+        "tools/issue24-regression-diff.mjs:56 — harnessErrors read through Array.isArray, no `?? []` default",
+        "tools/issue24-regression-diff.mjs:143-144 — the compared sets are built through Array.isArray, so a missing field can no longer masquerade as an empty set",
+        "tools/issue24-regression-diff.mjs:154-162 — any recorded problem prints GATE UNUSABLE and exits 1",
+        "tools/issue24-regression-diff.test.mjs:184-217 — four cases (failing missing, failing non-array, harnessErrors missing, harnessErrors non-array), all asserting GATE UNUSABLE; :190 also asserts `no new failures` is absent"
+      ],
+      "note": "The hole is closed in both directions and on both captures, and the tests pin the output rather than only the exit status."
+    },
+    {
+      "id": "FND-102",
+      "verdict": "resolved",
+      "judged_from": [
+        "tools/issue24-capture-failing.mjs:60-73 — parseFileSummary returns the last node:test summary block's tests/pass/fail and deliberately returns null, never zero, when any of the three is absent",
+        "tools/issue24-capture-failing.mjs:105-108 — the per-file count is recorded even when null, so 'enumerated and produced no summary' is a distinct fact from 'not enumerated'",
+        "tools/issue24-regression-diff.mjs:68-90 — a capture carrying perFileCounts gets no leniency: an enumerated file with no entry, or with an unparseable summary, is a GATE UNUSABLE problem",
+        "tools/issue24-regression-diff.mjs:107-118 — a shared file whose test count fell below the baseline is a problem",
+        "tools/issue24-regression-diff.test.mjs:238-311 — the parse, the null-not-zero contract, the count drop, the null count, the missing entry, and the two accepted directions (count rose, file new)"
+      ],
+      "empirical_check": "Reproduced the trap on node v24.21.0: `NODE_TEST_CONTEXT=child-v8 node --test <file>` emits only 'Warning: node:test run() is being called recursively within a test file. skipping running files.' and exits 0 with empty stdout. parseFileSummary('') and parseFileSummary('skipping running files\\n') both return null, which the gate refuses. Also confirmed a file that registers no tests still prints `tests 1` (node counts the file itself), and a file that throws at import time prints a full `tests 1 / fail 1` summary plus a matched `✖ <file>` failure line — so neither legitimate shape is misread.",
+      "note": "The falsely-green property is closed at the gate. Residual is FND-202: the capture tool neither filters NODE_TEST_* from its children nor exits non-zero when every file came back without a summary."
+    },
+    {
+      "id": "FND-103",
+      "verdict": "not resolved",
+      "judged_from": ["git status — tools/issue24-regression-diff.test.mjs is still listed under `??` (untracked)"],
+      "note": "Carried forward from iteration 1. The file guarding the gate is still not part of the change it guards; it will not reach CI or a reviewer of the commit."
+    }
+  ],
+  "findings": [
+    {
+      "id": "FND-201",
+      "axis": "test-quality",
+      "severity": "HIGH",
+      "title": "One gate test passes even when the gate is replaced by an immediate crash, and it is the only cover for the missing-fileList refusal",
+      "location": { "file": "tools/issue24-regression-diff.test.mjs", "line_range": "108-113" },
+      "description": "`runDiff` (46-56) collapses every non-zero outcome into `{status: error.status}`, so a crash in the diff tool — an unparseable capture file, a ReferenceError, an uncaught throw — is indistinguishable from a deliberate refusal. Thirteen of the fourteen gate cases compensate by also asserting on the output (`GATE UNUSABLE`, `did not enumerate`, a file name). The case at 108-113, 'a capture that recorded no file list fails the gate', asserts only `assert.notEqual(result.status, 0)` and nothing about the output. Measured 2026-09-16 in a scratch copy: replacing tools/issue24-regression-diff.mjs with `throw new Error('gate replaced by a crash')` leaves `tests 24 / pass 7 / fail 17`, and the seven survivors are the six pure-function cases plus exactly this one. It is also the only case covering the missing-fileList refusal, so that branch of the preflight currently has no assertion that can distinguish a working refusal from a broken tool.",
+      "suggested_fix": "Add `assert.match(result.output, /GATE UNUSABLE/)` and `assert.match(result.output, /recorded no fileList/)` to the case at 108-113, matching its thirteen siblings. Optionally make runDiff itself refuse a status it cannot attribute — e.g. assert the output contains one of the gate's own banners before returning — so no future case can be crash-insensitive by omission.",
+      "is_behavioral": false,
+      "tags": ["vacuous-test", "FND-101-adjacent"]
+    },
+    {
+      "id": "FND-202",
+      "axis": "correctness",
+      "severity": "MEDIUM",
+      "title": "The capture does not filter NODE_TEST_* from its children and exits 0 when every file came back without a summary",
+      "location": { "file": "tools/issue24-capture-failing.mjs", "line_range": "95-129" },
+      "description": "`execFileSync('npx', ['tsx', '--test', file], { cwd, encoding, stdio, timeout })` at 98-99 passes no `env`, so the child inherits the parent's environment whole. If this capture is ever invoked from inside a `node --test` process — which is how several suites in this repository already call each other, and the trap CLAUDE.md documents by name — `NODE_TEST_CONTEXT` reaches every child, node's recursion guard fires, and every file returns an empty stdout at exit 0. CLAUDE.md records `tools/wave3/fair-readmission-closure-v3.admission-gate.test.mjs:62` carrying an explicit env filter for exactly this reason, and records that without that one line the gate verifies nothing. Round 2 makes the diff *detect* the outcome (every perFileCounts entry null -> GATE UNUSABLE), which is the important half; but `main()` still exits 0 after printing `no summary 31`, so the capture is written to disk and the invoking script's `&&` chain proceeds as if the capture were sound. Detection at the far end of the pipeline is weaker than prevention at the near end, and it produces a stored artifact that looks like evidence.",
+      "suggested_fix": "Pass an explicitly filtered env to the child (drop every NODE_TEST_* key, as admission-gate:62 does), and make main() exit non-zero when `unparsed === FILES.length` — or when `unparsed > 0` at all, since a file with no summary makes the capture unusable as a baseline anyway.",
+      "is_behavioral": true,
+      "tags": ["FND-102-residual", "NODE_TEST_CONTEXT"]
+    },
+    {
+      "id": "FND-203",
+      "axis": "correctness",
+      "severity": "MEDIUM",
+      "title": "parseFileSummary reads each label independently, so two partial summary blocks compose a record belonging to no single run",
+      "location": { "file": "tools/issue24-capture-failing.mjs", "line_range": "60-73" },
+      "description": "`read(label)` takes the last match of that label anywhere in the output, independently for `tests`, `pass` and `fail`. The doc comment justifies last-wins ('the run summary is printed at the end of the output'), which is correct for whole blocks, but nothing ties the three reads to the same block. Measured 2026-09-16: parseFileSummary('ℹ tests 5\\nℹ pass 5\\nℹ fail 3\\nℹ tests 9\\nℹ pass 8') returns {tests: 9, pass: 8, fail: 3} — a record whose `fail` comes from the first block and whose `tests`/`pass` come from the second. The symmetric case matters more: if the trailing block is truncated before `tests` (a child killed mid-print, a suite whose output interleaves with a spawned child's), `tests` silently comes from an earlier block, and `tests` is the one field the count-drop rule at issue24-regression-diff.mjs:107-118 consumes. Today this is contained — a killed child is separately recorded as a harnessError, and the suites under src/services and src/utils each produce one block — so it is not reachable as a false green, but the function's contract ('the per-file summary node:test prints at the end of a run') is not what it implements.",
+      "suggested_fix": "Match the block, not the labels: find the last `ℹ tests N` and read `pass`/`fail` only from the lines after it, or regex the contiguous summary run once and require all three to come out of the same match. Also add a case to the test file pinning that two blocks do not interleave.",
+      "is_behavioral": false,
+      "tags": ["parse"]
+    },
+    {
+      "id": "FND-204",
+      "axis": "design",
+      "severity": "MEDIUM",
+      "title": "The count-drop rule fires on a legitimate test-file split and tells the operator nothing about what to do",
+      "location": { "file": "tools/issue24-regression-diff.mjs", "line_range": "107-118" },
+      "description": "The rule compares per-file `tests` counts only, so a change that splits one test file into two — the normal shape of a refactor, and one this repository's suites invite given their size — reports the original file as having 'registered fewer tests' and fails the gate, even though the total rose and the new file was correctly accepted by the set-difference rule at 130-140 as 'files added since the baseline (not a problem)'. A deliberate reduction of parameterised cases trips it the same way. Failing closed is the right default for a gate and I am not arguing against it; two things about the reporting are wrong. First the message ('N file(s) registered fewer tests than the baseline, so cases that used to run no longer do') states a conclusion the tool cannot know and offers no next step: the operator is not told that a split is the expected benign cause, nor how to proceed (confirm the moved cases appear under the new file, then re-take the baseline). Second it is filed under the banner `GATE UNUSABLE`, which is the same banner used for a capture that is structurally broken; here the captures are fine and the gate worked. Two different operator responses share one label.",
+      "suggested_fix": "Report the count drop under its own banner (e.g. `COUNT REGRESSION`) separate from `GATE UNUSABLE`, and extend the message with the benign cause and the action: name the total across all files before and after, and say that if the cases moved to a file listed under 'files added since the baseline' the baseline must be re-taken rather than the gate overridden.",
+      "is_behavioral": false,
+      "tags": ["operability", "false-positive"]
+    },
+    {
+      "id": "FND-205",
+      "axis": "test-coverage",
+      "severity": "LOW",
+      "title": "The three headline gate cases run down the legacy (lenient) path, and nothing asserts the UNVERIFIED banner is absent when counts are present",
+      "location": { "file": "tools/issue24-regression-diff.test.mjs", "line_range": "27-36,58-71,153-164" },
+      "description": "`capture()` builds a document with no `perFileCounts`, so 'two clean, identical captures pass' (58), 'a genuinely new failure still fails the gate' (64) and 'an after run that adds files but drops none is accepted' (153) all take the legacy branch at issue24-regression-diff.mjs:68-69 and print UNVERIFIED DIMENSION. The count-carrying path does have its own accepted cases (285, 296), but neither asserts `doesNotMatch(output, /UNVERIFIED DIMENSION/)`, so nothing pins that a capture pair with full counts is NOT announced as unverified. If a future change widened the legacy predicate the whole suite would stay green.",
+      "suggested_fix": "Give `capture()` a default `perFileCounts` derived from `fileList`, keep an explicit `legacyCapture()` helper for the 313 case, and add `assert.doesNotMatch(result.output, /UNVERIFIED DIMENSION/)` to the two accepted count-carrying cases.",
+      "is_behavioral": false,
+      "tags": ["coverage"]
+    },
+    {
+      "id": "FND-206",
+      "axis": "test-quality",
+      "severity": "LOW",
+      "title": "The new 'destination unchanged' assertion compares null to null in every row",
+      "location": { "file": "server/src/services/StorePublishCrossInstance.test.ts", "line_range": "573,604-608" },
+      "description": "`before` is read from a path inside a freshly created mkdtemp, so it is `null` for all seven rows, and the patched rename at 576-583 refuses every rename onto `dataFile`, so `after` cannot be anything but `null` either. The assertion therefore reduces to `null === null` on every row. It is not worthless — it would catch a store that wrote the destination directly instead of through a rename — but the comment ('capturing it rather than hard-coding the absence keeps the assertion honest if that ever changes') claims more than the fixture can deliver, because the fixture is what guarantees the absence.",
+      "suggested_fix": "Seed the destination through the store's own publish path first (as the AC-8 table test at 463-475 now does) so `before` is a real document, then assert the failed publish left exactly that document.",
+      "is_behavioral": false,
+      "tags": ["weak-assertion"]
+    },
+    {
+      "id": "FND-207",
+      "axis": "hygiene",
+      "severity": "LOW",
+      "title": "The gate test leaks one temp directory per run and parses `pass`/`fail` that nothing consumes",
+      "location": { "file": "tools/issue24-regression-diff.test.mjs", "line_range": "38-44" },
+      "description": "`tmp ??= fs.mkdtempSync(...)` is never removed, so every run leaves a directory of 30 capture documents in os.tmpdir(). Separately, parseFileSummary returns `pass` and `fail` (issue24-capture-failing.mjs:68-72) and the capture stores them, but the diff consumes only `.tests`; the two extra fields are recorded evidence that no rule reads. Neither is a defect. The shared tmp dir is safe as written — all 30 file names are distinct and no case reads another's file — so there is no cross-test state dependency.",
+      "suggested_fix": "Add an `after` hook removing the directory recursively. Either use pass/fail in a rule (a file whose `fail` dropped while `tests` held constant is another shape worth noticing) or drop them from the record.",
+      "is_behavioral": false,
+      "tags": ["cleanup"]
+    }
+  ],
+  "server_src_review": {
+    "scope": "server/src/utils/atomicStoreWrite.ts, atomicStoreWrite.test.ts, services/StorePublishCrossInstance.test.ts",
+    "new_findings_at_critical_or_high": 0,
+    "notes": [
+      "atomicStoreWrite.ts:118-123 releaseOwnedTemp is correct and behaviour-preserving against the ownedTemps.pop() it replaced (backupTemp was the last element in both call sites), and the by-value form removes the positional assumption.",
+      "atomicStoreWrite.ts:182-203 — on the success path the published `.bak` is released from ownedTemps before the primary rename, so the outer cleanup at 209-215 cannot unlink it; pinned by the test at atomicStoreWrite.test.ts:262-289, which is non-vacuous (it asserts the .bak holds the exact previous document after an EIO on the primary rename). On the failure path the temp is released and unlinked locally, so the outer cleanup cannot unlink a path already dealt with.",
+      "atomicStoreWrite.ts:198-202 — the console.warn is a new, unasserted output. The two new tests assert `backupAttempted` and the destination contents but not that anything was reported. FND-104 from iteration 1 asked for the report to exist; it exists but is still unpinned. Left at note level rather than raised again because the observable contract (primary publish survives) is asserted.",
+      "The semantic change (a backup failure no longer aborts the primary publish) restores the pre-issue-24 `try { copyFile } catch {}` contract exactly and is covered by two red-first tests. The consequence — a stale `.bak` alongside an advanced destination — is named in the warn text, and recoverFromBackup is only reached when the primary will not parse (CommandPresetService.ts:52, TerminalShortcutService.ts:72, RecoveryOptionService.ts:67), so a stale backup is still strictly better than the alternative. Not a regression.",
+      "StorePublishCrossInstance.test.ts:476-483,528-552 — beforeEachRename makes the AC-8 backup assertion non-vacuous and is guarded against both null backup and null replaced-document, so it cannot pass by comparing two absences. The error-type rows at 588-603 are genuinely strengthened: instanceof AppError plus ErrorCode.CONFIG_PERSIST_FAILED on one side, errno EIO plus the exact message plus not-an-AppError on the other."
+    ]
+  },
+  "ai_signature_scan": {
+    "result": "clean",
+    "method": "grep -rniE 'claude|anthropic|copilot|gpt|generated with|co-authored|🤖|AI-generated' over the six changed/added files",
+    "hits": [
+      "tools/issue24-capture-failing.mjs:48 and tools/issue24-regression-diff.test.mjs:220 both cite CLAUDE.md as the repository document recording the NODE_TEST_CONTEXT trap. That is a reference to a tracked project file, not an authorship marker."
+    ]
+  },
+  "summary": {
+    "total": 7,
+    "by_severity": { "CRITICAL": 0, "HIGH": 1, "MEDIUM": 3, "LOW": 3 },
+    "gate": "NOT PASSED — CRITICAL=0 but HIGH=1 (FND-201). FND-103 also remains open from iteration 1."
+  }
+}

@@ -1,0 +1,1 @@
+{"phaseId":"PH-004","taskIds":["T-PH004-03","T-PH004-04"],"focused":{"total":82,"passed":82,"failed":0},"coverageAxes":42,"activationGate":{"eligible":false,"reason":"no-local-cache-retained-authority-unproven"},"artifactPath":"docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/retained-shadow-parity.json","verdict":"PASS_FAIL_CLOSED"}

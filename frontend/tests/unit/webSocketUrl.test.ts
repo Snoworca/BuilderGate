@@ -77,3 +77,42 @@ test('MIG-BGSTAB-002 async connect fence invalidates StrictMode predecessors and
   assert.equal(fence.isCurrent(currentMount), false);
 });
 
+
+// --- #111 / #18 criterion 11: the connect URL carries the logical client -----------
+
+test('#111 the control URL carries the logical client id so dedup can survive a reconnect', () => {
+  const url = buildControlWebSocketUrl({
+    token: 'jwt-token',
+    location: { protocol: 'https:', host: 'localhost:2222' },
+    transportMode: 'unified',
+    logicalClientId: 'tab-abc',
+  });
+
+  // Before this the URL carried only token/mode/channel, so the server had nothing stable
+  // to key a dedup record by and keyed it by the connection instead -- which is why a
+  // resent input ran twice after a reconnect.
+  assert.equal(new URL(url).searchParams.get('logicalClientId'), 'tab-abc');
+});
+
+test('#111 omitting the logical client id leaves the parameter off entirely', () => {
+  const url = buildControlWebSocketUrl({
+    token: 'jwt-token',
+    location: { protocol: 'https:', host: 'localhost:2222' },
+    transportMode: 'unified',
+  });
+
+  // An empty parameter would be a claim of identity the client cannot back. Absent means
+  // absent, and the server falls back to the connection-scoped behaviour.
+  assert.equal(new URL(url).searchParams.has('logicalClientId'), false);
+});
+
+test('#111 a blank logical client id is treated as absent, not sent as empty', () => {
+  const url = buildControlWebSocketUrl({
+    token: 'jwt-token',
+    location: { protocol: 'https:', host: 'localhost:2222' },
+    transportMode: 'unified',
+    logicalClientId: '   ',
+  });
+
+  assert.equal(new URL(url).searchParams.has('logicalClientId'), false);
+});

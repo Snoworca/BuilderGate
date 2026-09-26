@@ -33,7 +33,14 @@ export interface BenchmarkModeDescriptor {
 }
 
 export interface BenchmarkExecutionManifest {
-  schemaVersion: 1;
+  /**
+   * `1` is the sealed Wave-1 shape, which predates PERF-BGSTAB-012 and carries
+   * none of `outlierPolicy`, `execution` or `visibilityFactor`. `2` is the shape
+   * that carries all three. The version is what decides which of the two is
+   * legal: making the new fields required without a version bump would have
+   * retroactively invalidated the sealed artifact against its own schema.
+   */
+  schemaVersion: 1 | 2;
   runId: string;
   randomSeed: number;
   payload: {
@@ -82,6 +89,133 @@ export interface BenchmarkExecutionManifest {
     durationMs: number;
     deltaSemantics: string;
   };
+  // @req PERF-BGSTAB-012 AC-1
+  outlierPolicy: BenchmarkOutlierPolicy;
+  // @req PERF-BGSTAB-012 AC-2
+  execution: BenchmarkExecutionRecord;
+  // @req PERF-BGSTAB-012 AC-3
+  visibilityFactor: BenchmarkVisibilityFactor;
+}
+
+/**
+ * What the run did about outliers. PERF-BGSTAB-012 AC-1 requires this to be
+ * stated rather than implied: a manifest with no policy field is indistinguishable
+ * from one whose author never considered the question, and the Wave-1 manifest
+ * was exactly that.
+ *
+ * `retain-all` is a real policy, not a placeholder. This harness aggregates three
+ * trials per group, so discarding any of them would leave too few observations to
+ * bootstrap a confidence interval from; keeping all three and saying so is the
+ * honest answer at this sample size.
+ */
+export interface BenchmarkOutlierPolicy {
+  /** The rule applied, e.g. `retain-all`. */
+  rule: string;
+  /** Why that rule, in terms a later reader can re-evaluate. */
+  rationale: string;
+  /** Rule parameters, empty when the rule takes none. */
+  parameters: Record<string, number | string>;
+  /** Samples the rule removed before aggregation; empty under `retain-all`. */
+  excludedSampleIds: string[];
+}
+
+/** One unit of measured work, as planned. */
+export interface BenchmarkExecutionStep {
+  /** Dense, ascending from zero, so a partial record cannot look complete. */
+  sequence: number;
+  mode: BenchmarkMode;
+  /** Index into `manifest.workloads`. */
+  workloadIndex: number;
+  trialId: string;
+}
+
+/**
+ * One unit of measured work, as it actually ran.
+ *
+ * `mode`, `workloadIndex` and `trialId` are the planned values: the runner is a
+ * single deterministic loop over `plannedOrder` with no branching, so the arm
+ * sequence it walks is the planned sequence by construction. The one field the
+ * plan cannot supply is `observedAtMs`, a reading taken when the measurement
+ * returned. That is what is genuinely observed here — that each unit completed,
+ * and when.
+ */
+export interface BenchmarkObservedExecutionStep extends BenchmarkExecutionStep {
+  /**
+   * A monotonic `performance.now()` reading taken when this unit of measurement
+   * completed. Strictly increasing across `order`.
+   */
+  observedAtMs: number;
+}
+
+/**
+ * PERF-BGSTAB-012 AC-2. The Wave-1 manifest carried an `executionOrder` of
+ * `["manifest","raw-samples"]`, which is the order the artifacts were emitted in
+ * and says nothing about the order the arms ran in. This records the latter.
+ *
+ * What it does and does not claim, plainly. The arm sequence in `order` is the
+ * sequence in `plannedOrder`: the runner is one deterministic loop over the plan
+ * with no branching, so it cannot deviate from it, and comparing the two cannot
+ * detect a reordering that the code has no way to produce. What is observed is
+ * the per-unit completion timestamp on each entry of `order`. And the interleave
+ * guarantee is enforced structurally, by `assertInterleaved` recomputing the
+ * longest same-arm run over the arrays themselves — not by trusting any string
+ * in this record.
+ */
+export interface BenchmarkExecutionRecord {
+  /**
+   * Names exactly what `order` is: the planned arm sequence, carrying a
+   * completion timestamp measured per unit. Not a claim that the sequence itself
+   * was discovered by watching the run.
+   */
+  derivedFrom: 'planned-sequence-with-observed-completions';
+  /** Whether arms alternate rather than running as contiguous blocks. */
+  interleaved: boolean;
+  /** How the interleave was produced, for a reader reproducing the run. */
+  strategy: string;
+  /** The order the runner intended to walk. Declared before the run. */
+  plannedOrder: BenchmarkExecutionStep[];
+  /**
+   * The order the runner actually walked, each entry timestamped on completion.
+   * Empty only in a manifest that has not been run yet.
+   */
+  order: BenchmarkObservedExecutionStep[];
+  /**
+   * How many `observedAtMs` readings were not measured but derived, because the
+   * clock had not advanced since the previous unit and the value had to be
+   * nudged to the next representable double to keep `order` a total order.
+   *
+   * On a coarse-clock host this can reach the length of `order`, at which point
+   * the strictly-increasing check passes on wholly synthetic timings. Recording
+   * the count makes that visible instead of silent; zero is the healthy case.
+   *
+   * The validator holds this to a floor rather than an exact value. A nudged
+   * reading is exactly the next representable double after its predecessor, so
+   * consecutive `order` pairs one ULP apart are counted and this field may not
+   * fall below that count: an understated disclosure is rejected. It may exceed
+   * it, because a genuinely coarse clock can produce a nudge whose successor was
+   * later overwritten, and because over-disclosure is not the failure this field
+   * guards against. It may never exceed `order.length`, since there are only
+   * that many readings to nudge.
+   */
+  tieBrokenCount: number;
+}
+
+/** A cell whose second visibility level cannot exist. */
+export interface BenchmarkVisibilityExclusion {
+  sessions: number;
+  clients: number;
+  reason: string;
+}
+
+/**
+ * PERF-BGSTAB-012 AC-3. Visibility used to be derived from the session count, so
+ * half the matrix never existed and nothing said so. This records both the levels
+ * that were varied and the cells where a second level is impossible.
+ */
+export interface BenchmarkVisibilityFactor {
+  /** The named levels the corpus varies, e.g. `single-active` and `all-active`. */
+  levels: string[];
+  structurallyUnreachable: BenchmarkVisibilityExclusion[];
 }
 
 export interface BenchmarkRawSample {
@@ -170,8 +304,25 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(sortJsonValue(value));
 }
 
+/** Options for {@link validateExecutionManifest}. */
+export interface ValidateExecutionManifestOptions {
+  /**
+   * Whether `execution.order` must be a non-empty, timestamped observation.
+   *
+   * Defaults to true, which is the contract every persisted artifact must meet.
+   * The builder passes false because it cannot know the observed order: it emits
+   * `plannedOrder` and an empty `order`, and the runner fills the latter in and
+   * revalidates with the default before anything is written.
+   */
+  requireObservedOrder?: boolean;
+}
+
 // @req PERF-BGSTAB-008
-export function validateExecutionManifest(value: unknown): asserts value is BenchmarkExecutionManifest {
+export function validateExecutionManifest(
+  value: unknown,
+  options: ValidateExecutionManifestOptions = {},
+): asserts value is BenchmarkExecutionManifest {
+  const requireObservedOrder = options.requireObservedOrder ?? true;
   assertNoPromotionFields(value, '$');
   const manifest = requireRecord(value, 'manifest');
   assertAllowedKeys(manifest, [
@@ -189,8 +340,15 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
     'metricSources',
     'modes',
     'sampleInterval',
+    'outlierPolicy',
+    'execution',
+    'visibilityFactor',
   ], 'manifest');
-  requireInteger(manifest.schemaVersion, 'schemaVersion', 1);
+  requireInteger(manifest.schemaVersion, 'schemaVersion');
+  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) {
+    throw new Error('schemaVersion must be 1 (sealed Wave-1 shape) or 2 (PERF-BGSTAB-012 shape)');
+  }
+  const schemaVersion = manifest.schemaVersion as 1 | 2;
   requireNonEmptyString(manifest.runId, 'runId');
   requireInteger(manifest.randomSeed, 'randomSeed');
 
@@ -301,6 +459,235 @@ export function validateExecutionManifest(value: unknown): asserts value is Benc
     assertAllowedKeys(interval, ['durationMs', 'deltaSemantics'], 'sampleInterval');
     requirePositiveNumber(interval.durationMs, 'sampleInterval.durationMs');
     requireNonEmptyString(interval.deltaSemantics, 'sampleInterval.deltaSemantics');
+  }
+
+  // @req PERF-BGSTAB-012
+  // The three PERF-BGSTAB-012 fields belong to schemaVersion 2 and only to it.
+  // A v1 manifest that carried them would be claiming a contract its version
+  // does not describe, so they are rejected there rather than merely ignored.
+  if (schemaVersion === 1) {
+    for (const key of ['outlierPolicy', 'execution', 'visibilityFactor'] as const) {
+      if (manifest[key] !== undefined) {
+        throw new Error(
+          `${key} requires schemaVersion 2; a schemaVersion 1 manifest predates PERF-BGSTAB-012`,
+        );
+      }
+    }
+    return;
+  }
+
+  // @req PERF-BGSTAB-012 AC-1
+  // Required, not optional. An optional outlier policy would leave the Wave-1
+  // shape valid, and the whole point of AC-1 is that that shape is not.
+  const outlierPolicy = requireRecord(manifest.outlierPolicy, 'outlierPolicy');
+  assertAllowedKeys(
+    outlierPolicy,
+    ['rule', 'rationale', 'parameters', 'excludedSampleIds'],
+    'outlierPolicy',
+  );
+  requireNonEmptyString(outlierPolicy.rule, 'outlierPolicy.rule');
+  requireNonEmptyString(outlierPolicy.rationale, 'outlierPolicy.rationale');
+  requireRecord(outlierPolicy.parameters, 'outlierPolicy.parameters');
+  requireStringArray(outlierPolicy.excludedSampleIds, 'outlierPolicy.excludedSampleIds');
+  if (outlierPolicy.rule === 'retain-all'
+    && (outlierPolicy.excludedSampleIds as string[]).length > 0) {
+    throw new Error('outlierPolicy.rule retain-all cannot exclude samples');
+  }
+
+  // @req PERF-BGSTAB-012 AC-2
+  const execution = requireRecord(manifest.execution, 'execution');
+  assertAllowedKeys(
+    execution,
+    ['derivedFrom', 'interleaved', 'strategy', 'plannedOrder', 'order', 'tieBrokenCount'],
+    'execution',
+  );
+  // `derivedFrom` is a string a producer can simply write, so it is required to
+  // be the one value that honestly describes what `order` holds: the planned arm
+  // sequence with a measured completion timestamp per unit. It is a label, not
+  // evidence. The checkable parts are `observedAtMs` on every entry, the
+  // strictly-increasing check below, `tieBrokenCount` for how many of those
+  // readings were derived rather than measured, and `assertInterleaved`.
+  if (execution.derivedFrom !== 'planned-sequence-with-observed-completions') {
+    throw new Error(
+      'execution.derivedFrom must be planned-sequence-with-observed-completions; the arm sequence is the planned one and only the completion timestamps are observed',
+    );
+  }
+  requireNonNegativeInteger(execution.tieBrokenCount, 'execution.tieBrokenCount');
+  if (typeof execution.interleaved !== 'boolean') {
+    throw new Error('execution.interleaved must be boolean');
+  }
+  requireNonEmptyString(execution.strategy, 'execution.strategy');
+
+  if (!Array.isArray(execution.plannedOrder) || execution.plannedOrder.length === 0) {
+    throw new Error('execution.plannedOrder must contain at least one step');
+  }
+  for (const [index, stepValue] of execution.plannedOrder.entries()) {
+    validateExecutionStep(stepValue, `execution.plannedOrder[${index}]`, index, manifest, false);
+  }
+
+  if (!Array.isArray(execution.order)) {
+    throw new Error('execution.order must be an array');
+  }
+  if (requireObservedOrder && execution.order.length === 0) {
+    throw new Error('execution.order must contain at least one observed step');
+  }
+  for (const [index, stepValue] of execution.order.entries()) {
+    validateExecutionStep(stepValue, `execution.order[${index}]`, index, manifest, true);
+  }
+  // A nudged reading is exactly `nextUp(previous)`, so the pairs that carry one
+  // are recomputable from `order` itself. Counting them turns `tieBrokenCount`
+  // from a number the producer asserts into one it can only round up: a run that
+  // nudged every reading and then wrote 0 is rejected here.
+  let oneUlpPairs = 0;
+  for (let index = 1; index < execution.order.length; index += 1) {
+    const previous = (execution.order[index - 1] as Record<string, unknown>).observedAtMs as number;
+    const current = (execution.order[index] as Record<string, unknown>).observedAtMs as number;
+    if (!(current > previous)) {
+      throw new Error(
+        `execution.order[${index}].observedAtMs must be greater than the previous step's; an order that does not advance in time was not observed`,
+      );
+    }
+    if (current === nextUp(previous)) oneUlpPairs += 1;
+  }
+  // A floor, not an equality: this stays a disclosure, so an honest run on a
+  // coarse clock that reports more nudges than the spacing still shows is
+  // accepted. Only understating is impossible.
+  if ((execution.tieBrokenCount as number) < oneUlpPairs) {
+    throw new Error(
+      `execution.tieBrokenCount is ${String(execution.tieBrokenCount)} but ${oneUlpPairs} consecutive execution.order readings are one ULP apart, which is what a tie-broken reading looks like; the disclosure may not understate the nudges the timings themselves show`,
+    );
+  }
+  if ((execution.tieBrokenCount as number) > execution.order.length) {
+    throw new Error(
+      `execution.tieBrokenCount is ${String(execution.tieBrokenCount)} but execution.order holds only ${execution.order.length} readings; no more readings can have been nudged than were taken`,
+    );
+  }
+
+  // @req PERF-BGSTAB-012 AC-2
+  // `interleaved` is a producer literal, so it is recomputed rather than
+  // believed. A claim of interleaving means consecutive units differ in mode,
+  // which no contiguous block of an arm can satisfy at any length.
+  if (execution.interleaved === true) {
+    assertInterleaved(execution.plannedOrder as Array<Record<string, unknown>>, 'execution.plannedOrder');
+    if (execution.order.length > 0) {
+      assertInterleaved(execution.order as Array<Record<string, unknown>>, 'execution.order');
+    }
+  }
+
+  // @req PERF-BGSTAB-012 AC-3
+  const visibilityFactor = requireRecord(manifest.visibilityFactor, 'visibilityFactor');
+  assertAllowedKeys(visibilityFactor, ['levels', 'structurallyUnreachable'], 'visibilityFactor');
+  requireStringArray(visibilityFactor.levels, 'visibilityFactor.levels');
+  if ((visibilityFactor.levels as string[]).length < 2) {
+    throw new Error('visibilityFactor.levels must name at least two levels to be a varied factor');
+  }
+  if (!Array.isArray(visibilityFactor.structurallyUnreachable)) {
+    throw new Error('visibilityFactor.structurallyUnreachable must be an array');
+  }
+  for (const [index, exclusionValue] of visibilityFactor.structurallyUnreachable.entries()) {
+    const exclusion = requireRecord(exclusionValue, `visibilityFactor.structurallyUnreachable[${index}]`);
+    assertAllowedKeys(
+      exclusion,
+      ['sessions', 'clients', 'reason'],
+      `visibilityFactor.structurallyUnreachable[${index}]`,
+    );
+    requirePositiveInteger(exclusion.sessions, `visibilityFactor.structurallyUnreachable[${index}].sessions`);
+    requirePositiveInteger(exclusion.clients, `visibilityFactor.structurallyUnreachable[${index}].clients`);
+    requireNonEmptyString(exclusion.reason, `visibilityFactor.structurallyUnreachable[${index}].reason`);
+  }
+}
+
+// @req PERF-BGSTAB-012 AC-2
+function validateExecutionStep(
+  stepValue: unknown,
+  path: string,
+  index: number,
+  manifest: Record<string, unknown>,
+  observed: boolean,
+): void {
+  const step = requireRecord(stepValue, path);
+  assertAllowedKeys(
+    step,
+    observed
+      ? ['sequence', 'mode', 'workloadIndex', 'trialId', 'observedAtMs']
+      : ['sequence', 'mode', 'workloadIndex', 'trialId'],
+    path,
+  );
+  if (step.sequence !== index) {
+    throw new Error(`${path}.sequence must equal ${index}`);
+  }
+  if (!BENCHMARK_MODES.includes(step.mode as BenchmarkMode)) {
+    throw new Error(`${path}.mode is unsupported`);
+  }
+  requireInteger(step.workloadIndex, `${path}.workloadIndex`);
+  requireNonNegativeNumber(step.workloadIndex, `${path}.workloadIndex`);
+  // Bounding against the declared workloads is what makes the index mean
+  // something; an unbounded integer would let a step point at nothing.
+  if ((step.workloadIndex as number) >= (manifest.workloads as unknown[]).length) {
+    throw new Error(`${path}.workloadIndex is outside the declared workloads`);
+  }
+  requireNonEmptyString(step.trialId, `${path}.trialId`);
+  if (observed) {
+    requireFiniteNumber(step.observedAtMs, `${path}.observedAtMs`);
+    requireNonNegativeNumber(step.observedAtMs, `${path}.observedAtMs`);
+  }
+}
+
+/**
+ * The next representable double above `value`.
+ *
+ * This is the exact operation the runner performs when the clock has not
+ * advanced: it nudges the reading by one ULP so `order` stays a total order.
+ * Recomputing it here is what lets `tieBrokenCount` be checked against the data
+ * instead of taken on the producer's word.
+ */
+const NEXT_UP_VIEW = new ArrayBuffer(8);
+const NEXT_UP_F64 = new Float64Array(NEXT_UP_VIEW);
+const NEXT_UP_U64 = new BigUint64Array(NEXT_UP_VIEW);
+
+function nextUp(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  if (value === 0) {
+    NEXT_UP_U64[0] = 1n;
+    return NEXT_UP_F64[0];
+  }
+  NEXT_UP_F64[0] = value;
+  NEXT_UP_U64[0] += value > 0 ? 1n : -1n;
+  return NEXT_UP_F64[0];
+}
+
+// @req PERF-BGSTAB-012 AC-2
+/**
+ * The rule `execution.strategy` actually claims: consecutive units differ in
+ * mode.
+ *
+ * The earlier formulation compared the longest same-arm run against
+ * `length / distinctModes` — the arm's fair share of the run — and was wrong at
+ * both ends. Too weak, because a 252-step order of
+ * `[125×NO_ANALYZER, NO_RENDER, 125×NO_ANALYZER, NO_RENDER]` has a longest run
+ * of 125 against a fair share of 126 and was accepted, which is exactly the
+ * block concentration the check exists to reject: all the machine drift over 125
+ * consecutive units lands on one arm. Too strict, because a perfectly
+ * interleaved `[A, B]` has a longest run of 1 against a fair share of 1 and was
+ * rejected, so a legitimately alternating two-step order could not be expressed.
+ *
+ * Requiring the longest same-arm run to be exactly 1 has neither pathology: no
+ * block order can satisfy it at any length, and there is no minimum length below
+ * which a true interleave fails.
+ */
+function assertInterleaved(order: Array<Record<string, unknown>>, path: string): void {
+  const distinctModes = new Set(order.map(step => step.mode as string));
+  if (distinctModes.size < 2) {
+    throw new Error(`${path} claims interleaving but names only one arm`);
+  }
+  for (let index = 1; index < order.length; index += 1) {
+    const previousMode = order[index - 1].mode as string;
+    const currentMode = order[index].mode as string;
+    if (previousMode === currentMode) {
+      throw new Error(
+        `${path} is not interleaved: step ${index - 1} ran ${previousMode} and step ${index} ran ${currentMode}, so consecutive units did not alternate arms`,
+      );
+    }
   }
 }
 

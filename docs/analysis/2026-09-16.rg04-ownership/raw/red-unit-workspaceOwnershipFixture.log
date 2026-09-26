@@ -1,0 +1,53 @@
+✔ REL001 actual fixture tracks UI and page-fetch responses and isolates sibling contexts/retries (117.710934ms)
+✔ REL001 unrelated origin method and path cannot be adopted by live observer (24.76102ms)
+✔ REL001 matching failed response never owns and remains observable (22.616226ms)
+✔ REL001 matching malformed response never owns and remains observable (17.408508ms)
+✔ REL001 matching service-worker response never owns and remains observable (18.496061ms)
+✔ REL001 matching route-fulfilled response never owns and remains observable (12.648845ms)
+✔ REL001 matching non-loopback response never owns and remains observable (12.779344ms)
+✔ REL001 matching wrong-port response never owns and remains observable (15.832361ms)
+✖ REL001 bracketed and bare loopback peer [::1] proves live traffic (13.594566ms)
+✔ REL001 bracketed and bare loopback peer ::1 proves live traffic (15.166174ms)
+✔ REL001 bracketed and bare loopback peer ::ffff:127.0.0.1 proves live traffic (16.160921ms)
+✔ REL001 bracketed and bare loopback peer 127.0.0.1 proves live traffic (15.679348ms)
+✔ REL001 bracketed non-loopback peer [2001:db8::1] never owns (13.424633ms)
+✔ REL001 bracketed non-loopback peer [::ffff:192.0.2.1] never owns (15.966246ms)
+✔ REL001 bracketed non-loopback peer [] never owns (11.377645ms)
+✔ REL001 bracketed non-loopback peer [::1 never owns (10.786461ms)
+✔ REL001 bracketed non-loopback peer ::1] never owns (11.956063ms)
+✔ REL001 cleanup and dispose await in-flight request response body and actual registry publication (14.362392ms)
+✔ REL001 request failure is observable and never turns unknown creation into an owned ID (14.969048ms)
+✔ REL001 actual API adapter publishes POST ID before returning and subsequent tab failure retains cleanup ownership (12.219317ms)
+✔ REL001 API adapter rejects quota failure without adopting list IDs or evicting user workspaces (10.362018ms)
+✔ REL001 API adapter validates registry run and owner before any POST (10.350384ms)
+✔ REL001 automatic fixture rejects mismatched run metadata before user test execution (10.844883ms)
+✔ REL001 captured actual base.extend auto fixture installs before use and cleans/disposes after failed test body (17.046537ms)
+✔ REL001 mock-only workspace specs remain on base fixture and cannot collect synthetic ownership (5.744487ms)
+✔ REL001 IPv6 loopback response is live and selected deletion preserves another workspace of the same owner (14.626615ms)
+✔ REL001 automatic fixture exposes cleanup503 with body failure false and retains records (12.092151ms)
+✔ REL001 automatic fixture exposes cleanup503 with body failure true and retains records (11.787051ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 27
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 816.988436
+
+✖ failing tests:
+
+test at tests/unit/workspaceOwnershipFixture.test.ts:121:3
+✖ REL001 bracketed and bare loopback peer [::1] proves live traffic (13.594566ms)
+  Error [AggregateError]: Workspace ownership tracking failed
+      at Object.drain (eval at load (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/workspaceOwnershipFixture.test.ts:34:3), <anonymous>:106:19)
+      at async file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/workspaceOwnershipFixture.test.ts:126:7
+      at async setup (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/workspaceOwnershipFixture.test.ts:71:48)
+      at async TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/workspaceOwnershipFixture.test.ts:123:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    [errors]: [
+      Error: Workspace creation response is not proven live loopback traffic
+          at eval (eval at load (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/unit/workspaceOwnershipFixture.test.ts:34:3), <anonymous>:72:23)
+    ]
+  }

@@ -595,7 +595,11 @@ function runScheduler(
     const decision = scheduler.enqueue(ingress[index]);
     activeIngressIndex = -1;
     if (!decision.ok) {
-      throw new Error(`NO_RENDER fixture overflowed by ${decision.droppedBytes} bytes`);
+      throw new Error(
+        decision.reason === 'visible-output-overflow'
+          ? `NO_RENDER fixture overflowed by ${decision.droppedBytes} bytes`
+          : `NO_RENDER fixture rejected ${decision.rejectedBytes} bytes (${decision.reason})`,
+      );
     }
   }
   while (scheduled.length > 0) {

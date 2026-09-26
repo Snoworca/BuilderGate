@@ -1,0 +1,14 @@
+resolved terminal limit keys (11):
+  checkpointMaxBytes
+  hiddenOutputPolicy
+  hiddenOutputTailBytes
+  inputQueueMaxBytes
+  inputQueueTtlMs
+  scrollbackLines
+  transportOutboxMaxBytes
+  transportOutboxTtlMs
+  visibleFlushBudgetBytes
+  visibleOutputMaxChunks
+  visibleOutputQueueMaxBytes
+CONTROL visibleFlushBudgetBytes present = true (value 262144)
+SUBJECT visibleFlushFrameBudgetMs present = false

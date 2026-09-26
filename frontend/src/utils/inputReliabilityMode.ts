@@ -18,9 +18,14 @@ export interface TerminalResourceLimitsRuntimeConfig {
   visibleOutputQueueMaxBytes: number;
   visibleOutputMaxChunks: number;
   visibleFlushBudgetBytes: number;
+  visibleFlushFrameBudgetMs: number;
+  checkpointMaxBytes: number;
+  checkpointMaxChunks: number;
+  checkpointChunkBytes: number;
   hiddenOutputPolicy: HiddenOutputPolicy;
   hiddenOutputTailBytes: number;
   inputQueueMaxBytes: number;
+  inputQueueMaxCount: number;
   inputQueueTtlMs: number;
   transportOutboxMaxBytes: number;
   transportOutboxTtlMs: number;
@@ -49,6 +54,7 @@ interface BrowserResourceLimitsRuntimeConfig {
 
 interface RuntimeConfigPayload {
   inputReliabilityMode?: unknown;
+  security?: { osc52?: unknown };
   wsTransportMode?: unknown;
   stabilityModes?: {
     frontendRuntimeResidency?: unknown;
@@ -70,9 +76,14 @@ const DEFAULT_TERMINAL_LIMITS: TerminalResourceLimitsRuntimeConfig = {
   visibleOutputQueueMaxBytes: 4_194_304,
   visibleOutputMaxChunks: 512,
   visibleFlushBudgetBytes: 262_144,
+  visibleFlushFrameBudgetMs: 7,
+  checkpointMaxBytes: 4_194_304,
+  checkpointMaxChunks: 512,
+  checkpointChunkBytes: 65_536,
   hiddenOutputPolicy: 'snapshot-restore',
   hiddenOutputTailBytes: 262_144,
   inputQueueMaxBytes: 65_536,
+  inputQueueMaxCount: 512,
   inputQueueTtlMs: 1500,
   transportOutboxMaxBytes: 65_536,
   transportOutboxTtlMs: 1500,
@@ -98,7 +109,21 @@ let runtimeConfigVersion = 0;
 let wsTransportMode: WsTransportMode = 'unified';
 let frontendRuntimeResidency: FrontendRuntimeResidencyMode = 'bounded';
 let resourceLimits: BrowserResourceLimitsRuntimeConfig = createDefaultResourceLimits();
+/**
+ * SEC-BGSTAB-001 AC-2: the OSC52 write switch, published as its own narrow projection.
+ *
+ * It used to ride inside resourceLimits.terminal because the key was filed under
+ * resourceLimits; #20 rehomed it to `security`, which is the namespace that describes what
+ * it is. Defaulting to true here matches AC-2 -- writes are allowed unless a deployment
+ * turns them off -- and the DANGEROUS direction is a hardened `false` being dropped in
+ * transit, which is what osc52AllowWrite's transport test asserts end to end.
+ */
+let osc52AllowWrite = true;
 const runtimeConfigSubscribers = new Set<() => void>();
+
+export function getOsc52AllowWrite(): boolean {
+  return osc52AllowWrite;
+}
 
 export function getInputReliabilityMode(): InputReliabilityMode {
   return getLocalOverride() ?? runtimeMode;
@@ -124,6 +149,11 @@ export async function initializeInputReliabilityMode(): Promise<InputReliability
     wsTransportMode = parseWsTransportMode(payload.wsTransportMode);
     frontendRuntimeResidency = parseFrontendRuntimeResidency(payload.stabilityModes?.frontendRuntimeResidency);
     resourceLimits = parseResourceLimits(payload.resourceLimits);
+    // SEC-BGSTAB-001 AC-2. Only an explicit boolean false turns writes off; anything else --
+    // absent section, wrong type, server that predates the key -- leaves the documented
+    // default. That is fail-open by design, matching AC-2, and it is why the load-bearing
+    // test asserts the FALSE direction survives the wire rather than asserting the default.
+    osc52AllowWrite = parseOsc52AllowWrite(payload.security?.osc52);
     cleanupTerminalSnapshotTombstonesFromRuntimeConfig();
     runtimeModeLoaded = true;
     publishRuntimeConfigChange();
@@ -260,6 +290,11 @@ function parseClientWsLimits(value: unknown): ClientWsResourceLimitsRuntimeConfi
   return parsed;
 }
 
+function parseOsc52AllowWrite(value: unknown): boolean {
+  if (isPlainObject(value) && typeof value.allowWrite === 'boolean') return value.allowWrite;
+  return true;
+}
+
 function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfig {
   if (!isPlainObject(value)) {
     return { ...DEFAULT_TERMINAL_LIMITS };
@@ -269,8 +304,13 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
     visibleOutputQueueMaxBytes: DEFAULT_TERMINAL_LIMITS.visibleOutputQueueMaxBytes,
     visibleOutputMaxChunks: DEFAULT_TERMINAL_LIMITS.visibleOutputMaxChunks,
     visibleFlushBudgetBytes: DEFAULT_TERMINAL_LIMITS.visibleFlushBudgetBytes,
+    visibleFlushFrameBudgetMs: DEFAULT_TERMINAL_LIMITS.visibleFlushFrameBudgetMs,
+    checkpointMaxBytes: DEFAULT_TERMINAL_LIMITS.checkpointMaxBytes,
+    checkpointMaxChunks: DEFAULT_TERMINAL_LIMITS.checkpointMaxChunks,
+    checkpointChunkBytes: DEFAULT_TERMINAL_LIMITS.checkpointChunkBytes,
     hiddenOutputTailBytes: DEFAULT_TERMINAL_LIMITS.hiddenOutputTailBytes,
     inputQueueMaxBytes: DEFAULT_TERMINAL_LIMITS.inputQueueMaxBytes,
+    inputQueueMaxCount: DEFAULT_TERMINAL_LIMITS.inputQueueMaxCount,
     inputQueueTtlMs: DEFAULT_TERMINAL_LIMITS.inputQueueTtlMs,
     transportOutboxMaxBytes: DEFAULT_TERMINAL_LIMITS.transportOutboxMaxBytes,
     transportOutboxTtlMs: DEFAULT_TERMINAL_LIMITS.transportOutboxTtlMs,
@@ -279,8 +319,13 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
     visibleOutputQueueMaxBytes: [1024, 268_435_456],
     visibleOutputMaxChunks: [1, 65_536],
     visibleFlushBudgetBytes: [1024, 16_777_216],
+    visibleFlushFrameBudgetMs: [1, 100],
+    checkpointMaxBytes: [1024, 268_435_456],
+    checkpointMaxChunks: [1, 65_536],
+    checkpointChunkBytes: [1024, 16_777_216],
     hiddenOutputTailBytes: [0, 16_777_216],
     inputQueueMaxBytes: [1024, 16_777_216],
+    inputQueueMaxCount: [1, 65_536],
     inputQueueTtlMs: [1, 60_000],
     transportOutboxMaxBytes: [1024, 16_777_216],
     transportOutboxTtlMs: [1, 60_000],
@@ -296,6 +341,7 @@ function parseTerminalLimits(value: unknown): TerminalResourceLimitsRuntimeConfi
   if (!hiddenOutputPolicy) {
     return { ...DEFAULT_TERMINAL_LIMITS };
   }
+
 
   return {
     ...parsedNumbers,

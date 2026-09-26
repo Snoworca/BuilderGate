@@ -29,6 +29,16 @@ const visibleOutputRecoverySource = readFileSync(
   new URL('../../src/utils/visibleOutputRecovery.ts', import.meta.url),
   'utf8',
 );
+// The grace lane moved out of `WebSocketContext` into its own module so its
+// order and its caps could be executed rather than pattern-matched. These
+// regex gates are kept, retargeted at the new home: they pin the guard shapes,
+// but they cannot see behaviour — swapping the snapshot block and the held-tail
+// loop leaves every one of them green. The executable contract is
+// `tests/unit/terminalGraceBuffer.test.ts`.
+const terminalGraceBufferSource = readFileSync(
+  new URL('../../src/utils/terminalGraceBuffer.ts', import.meta.url),
+  'utf8',
+);
 
 function normalOutputHandlerSource(): string {
   const startAnchor = 'onOutput: (delivery: TerminalOutputDelivery)';
@@ -128,13 +138,19 @@ test('PERF-BGSTAB-010 AC-6 browser records ACK rejection without delivery or sta
   );
 });
 
-test('MIG-BGSTAB-002 TerminalView queues checkpoint-authority input until its exact mutation lease arrives', () => {
-  const signature = 'checkpoint authority without a current mutation lease must not emit bare input';
-  assert.match(terminalViewSource, /isTerminalCheckpointMutationLeaseReady/, signature);
+test('MIG-BGSTAB-002 TerminalView queues checkpoint-authority input until the server answers for its view', () => {
+  // @req REL-BGSTAB-011
+  // Superseded 2026-09-19: the barrier used to be `!isTerminalCheckpointMutationLeaseReady(...)`,
+  // which held input forever whenever the server registered the view and refused the lease.
+  // The decision now comes from resolveTerminalCheckpointMutationLeaseBarrier, which holds
+  // only while the server has not answered for this view at all.
+  const signature = 'checkpoint authority input must stay fenced until the server answers for this view';
+  assert.match(terminalViewSource, /resolveTerminalCheckpointMutationLeaseBarrier/, signature);
   assert.match(terminalViewSource, /checkpointMutationLeaseBarrierRef/, signature);
+  assert.doesNotMatch(terminalViewSource, /isTerminalCheckpointMutationLeaseReady/, signature);
   assert.match(
     terminalViewSource,
-    /checkpointMutationLeaseBarrierRef\.current = !isTerminalCheckpointMutationLeaseReady\(capability, sessionId, xtermGenerationRef\.current\)/,
+    /const leaseBarrier = resolveTerminalCheckpointMutationLeaseBarrier\(\s*capability,\s*sessionId,\s*xtermGenerationRef\.current,\s*\);\s*checkpointMutationLeaseBarrierRef\.current = leaseBarrier\.held;/u,
     signature,
   );
   assert.match(
@@ -937,42 +953,42 @@ test('TerminalContainer leaves provisional fallback unacked for bounded server r
 });
 
 test('WebSocket grace installs restore barrier before subscribed-ready and preserves duplicate chunks', () => {
-  const flushIndex = webSocketContextSource.indexOf('const flushGraceBuffer = useCallback');
-  const flushChunk = webSocketContextSource.slice(flushIndex, flushIndex + 1800);
+  const flushIndex = terminalGraceBufferSource.indexOf('export function flushGraceBufferedSession(');
+  const flushChunk = terminalGraceBufferSource.slice(flushIndex, flushIndex + 1800);
   assert.notEqual(flushIndex, -1);
   assert.ok(
     flushChunk.indexOf('onScreenRepairRestoreNeeded') < flushChunk.indexOf('onSubscribed'),
   );
 
-  const bufferIndex = webSocketContextSource.indexOf("case 'screen-repair:restore-needed':");
-  const bufferChunk = webSocketContextSource.slice(bufferIndex, bufferIndex + 2200);
+  const bufferIndex = terminalGraceBufferSource.indexOf("case 'screen-repair:restore-needed':");
+  const bufferChunk = terminalGraceBufferSource.slice(bufferIndex, bufferIndex + 2200);
   assert.notEqual(bufferIndex, -1);
   assert.match(bufferChunk, /screen_repair_restore_grace_duplicate_ignored/);
   assert.match(bufferChunk, /hasSameRestoreNeededAuthorityProof\(current\.restoreNeeded, msg\)/);
   assert.match(bufferChunk, /screen_repair_restore_grace_proof_mismatch_ignored/);
   assert.match(bufferChunk, /current\.authorityProofMismatch = true/);
   assert.ok(bufferChunk.indexOf('break;') < bufferChunk.indexOf('current.output = [];'));
-  assert.match(webSocketContextSource, /handlers\.onGraceAuthorityProofMismatch\?\.\(\)/);
+  assert.match(terminalGraceBufferSource, /handlers\.onGraceAuthorityProofMismatch\?\.\(\)/);
   assert.match(source, /onGraceAuthorityProofMismatch:[\s\S]*requestBoundedVisibleRecoveryReconnect\('websocket-grace-authority-proof-mismatch'\)/u);
 });
 
 test('WebSocket grace fences replay generations and makes reconnect terminal', () => {
-  const snapshotIndex = webSocketContextSource.indexOf("case 'screen-snapshot':");
-  const restoreIndex = webSocketContextSource.indexOf("case 'screen-repair:restore-needed':");
-  const reconnectIndex = webSocketContextSource.indexOf("case 'screen-repair:reconnect-required':");
-  const readyIndex = webSocketContextSource.indexOf("case 'session:ready':");
-  const flushIndex = webSocketContextSource.indexOf('const flushGraceBuffer = useCallback');
+  const snapshotIndex = terminalGraceBufferSource.indexOf("case 'screen-snapshot':");
+  const restoreIndex = terminalGraceBufferSource.indexOf("case 'screen-repair:restore-needed':");
+  const reconnectIndex = terminalGraceBufferSource.indexOf("case 'screen-repair:reconnect-required':");
+  const readyIndex = terminalGraceBufferSource.indexOf("case 'session:ready':");
+  const flushIndex = terminalGraceBufferSource.indexOf('export function flushGraceBufferedSession(');
   assert.notEqual(snapshotIndex, -1);
   assert.notEqual(restoreIndex, -1);
   assert.notEqual(reconnectIndex, -1);
   assert.notEqual(readyIndex, -1);
   assert.notEqual(flushIndex, -1);
 
-  const snapshotChunk = webSocketContextSource.slice(snapshotIndex, restoreIndex);
-  const restoreChunk = webSocketContextSource.slice(restoreIndex, reconnectIndex);
-  const reconnectChunk = webSocketContextSource.slice(reconnectIndex, reconnectIndex + 650);
-  const readyChunk = webSocketContextSource.slice(readyIndex, readyIndex + 650);
-  const flushChunk = webSocketContextSource.slice(flushIndex, flushIndex + 2200);
+  const snapshotChunk = terminalGraceBufferSource.slice(snapshotIndex, restoreIndex);
+  const restoreChunk = terminalGraceBufferSource.slice(restoreIndex, reconnectIndex);
+  const reconnectChunk = terminalGraceBufferSource.slice(reconnectIndex, reconnectIndex + 650);
+  const readyChunk = terminalGraceBufferSource.slice(readyIndex, readyIndex + 650);
+  const flushChunk = terminalGraceBufferSource.slice(flushIndex, flushIndex + 2200);
 
   assert.match(snapshotChunk, /current\.reconnectRequired/);
   assert.match(snapshotChunk, /matchesRestoreNeededSnapshotAuthorityProof\(current\.restoreNeeded, msg\)/);

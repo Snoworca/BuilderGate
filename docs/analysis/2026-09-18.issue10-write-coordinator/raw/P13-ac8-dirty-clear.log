@@ -1,0 +1,6 @@
+before: {"skipped":true,"skippedBytes":4096,"debugTail":"abc"}
+after : {"skipped":false,"skippedBytes":0,"debugTail":""}
+CONTROL input was dirty                       = true
+SUBJECT dirty flag cleared with no ACK        = true
+SUBJECT skipped bytes discarded with no ACK   = true
+NEGATIVE CONTROL clean state passes through identically = true

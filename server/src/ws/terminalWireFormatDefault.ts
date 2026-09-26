@@ -117,7 +117,11 @@ export function loadPublishedDecisionArtifact(evidenceRoot?: string): unknown {
  * how the process had been started rather than on the evidence.
  */
 function findEvidenceRoot(): string | undefined {
-  const here = dirname(fileURLToPath(import.meta.url));
+  // A packaged single executable is CJS, where import.meta.url is undefined
+  // (OPS-BGSTAB-017 AC-4); __dirname is the answer there.
+  const here = typeof __dirname === 'string'
+    ? __dirname
+    : dirname(fileURLToPath(import.meta.url));
   const candidates = [
     resolve(here, '../benchmarks/fair-scheduler-evidence'),
     resolve(here, '../../dist/benchmarks/fair-scheduler-evidence'),

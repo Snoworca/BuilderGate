@@ -1,0 +1,9 @@
+# RG-01 config.ts import side-effect probe, 2026-09-16T03:25:47+09:00
+# BUILDERGATE_CONFIG_PATH set to an owned fixture; only an import is performed.
+EXISTS_BEFORE_IMPORT=false
+[Config] config.json5 not found — created from built-in bootstrap template
+[Config] Initial administrator password must be configured in the browser bootstrap flow.
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+EXISTS_AFTER_IMPORT=true
+SIZE=2901

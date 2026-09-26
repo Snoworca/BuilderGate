@@ -19,6 +19,7 @@ import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 import { reloadRuntimeConfig } from '../../utils/inputReliabilityMode';
 import {
+  TERMINAL_BACKEND_OPTIONS,
   WAVE6_RESOURCE_LIMIT_GROUPS,
   buildSettingsPatch,
   formatResourceLimitInput,
@@ -27,6 +28,8 @@ import {
   resourceLimitTestId,
   resourceLimitUnitLabel,
   setResourceLimitValue,
+  terminalBackendFromUseConpty,
+  useConptyFromTerminalBackend,
   validateWave6ResourceLimitDraft,
   validateWave6ResourceLimitField,
 } from './settingsDraftHelpers';
@@ -51,7 +54,7 @@ const EMPTY_SECRETS: SecretDraft = {
 
 /** Shown when a request fails without an Error to describe it. */
 const UNKNOWN_CAUSE = '원인을 알 수 없습니다.';
-const WINPTY_UNAVAILABLE = '이 호스트에서는 winpty를 쓸 수 없습니다. "ConPTY 사용"을 켠 뒤 저장하세요.';
+const WINPTY_UNAVAILABLE = '이 호스트에서는 winpty를 쓸 수 없습니다. "터미널 백엔드"를 conpty로 바꾼 뒤 저장하세요.';
 const PASSWORD_MISMATCH = '새 비밀번호와 다시 입력한 비밀번호가 다릅니다.';
 const PASSWORD_INCOMPLETE = '비밀번호를 바꾸려면 이 칸도 채우세요.';
 
@@ -62,7 +65,7 @@ const SHELL_OPTION_LABELS: Record<string, string> = {
   wsl: 'WSL',
 };
 const POWERSHELL_BACKEND_LABELS: Record<string, string> = {
-  inherit: '"ConPTY 사용" 설정 따름',
+  inherit: '"터미널 백엔드" 설정 따름',
   conpty: 'ConPTY',
 };
 
@@ -256,6 +259,10 @@ export function SettingsPage({ visible, onBack }: Props) {
     return JSON.stringify(snapshot.values) !== JSON.stringify(draft) || JSON.stringify(secrets) !== JSON.stringify(EMPTY_SECRETS);
   }, [draft, secrets, snapshot]);
 
+  // 이슈 117. Names the relationship the two controls have, which the old checkbox
+  // plus select could not show: this one is the default every shell inherits.
+  const terminalBackendHint = '아래에서 셸별로 따로 정하지 않으면 모든 셸이 이 백엔드를 씁니다.';
+
   const powerShellBackendHint = useMemo(() => {
     if (!draft || !snapshot) return '';
     const capabilityReason = snapshot.capabilities['pty.windowsPowerShellBackend']?.reason;
@@ -263,10 +270,10 @@ export function SettingsPage({ visible, onBack }: Props) {
     const baseHint = draft.pty.windowsPowerShellBackend === 'inherit'
       ? (!draft.pty.useConpty && !allowsWinpty
           ? WINPTY_UNAVAILABLE
-          : `PowerShell도 "ConPTY 사용" 설정을 따라 ${draft.pty.useConpty ? 'ConPTY' : 'winpty'}로 열립니다.`)
+          : `PowerShell도 "터미널 백엔드" 설정을 따라 ${draft.pty.useConpty ? 'conpty' : 'winpty'}로 열립니다.`)
       : (!draft.pty.useConpty && !allowsWinpty
           ? WINPTY_UNAVAILABLE
-          : `새 PowerShell 세션은 "ConPTY 사용" 설정과 관계없이 ${draft.pty.windowsPowerShellBackend}로 열립니다.`);
+          : `새 PowerShell 세션은 "터미널 백엔드" 설정과 관계없이 ${draft.pty.windowsPowerShellBackend}로 열립니다.`);
     return capabilityReason ? `${baseHint} ${capabilityReason}` : baseHint;
   }, [draft, snapshot]);
 
@@ -526,15 +533,21 @@ export function SettingsPage({ visible, onBack }: Props) {
                   {(snapshot.capabilities['pty.shell'].options ?? ['auto']).map((item) => <option key={item} value={item}>{SHELL_OPTION_LABELS[item] ?? item}</option>)}
                 </Select>
               </SettingField>
+              {/* 이슈 117: a select in the SAME vocabulary as the PowerShell override
+                  below, so the two read as parent and child. The stored value is
+                  still the boolean node-pty expects, so nothing migrates. */}
               {snapshot.capabilities['pty.useConpty'].available && (
-                <CheckField
-                  label="ConPTY 사용"
-                  scope={scope(snapshot, 'pty.useConpty')}
-                  help="Windows 10 1809 이상에서 터미널 호환성이 좋아집니다."
-                  error={fieldErrors.useConpty}
-                  checked={draft.pty.useConpty}
-                  onChange={(checked) => updateDraft((next) => { next.pty.useConpty = checked; })}
-                />
+                <SettingField htmlFor="settings-pty-terminal-backend" label="터미널 백엔드" scope={scope(snapshot, 'pty.useConpty')} help={terminalBackendHint} error={fieldErrors.useConpty}>
+                  <Select
+                    id="settings-pty-terminal-backend"
+                    value={terminalBackendFromUseConpty(draft.pty.useConpty)}
+                    onChange={(e) => updateDraft((next) => {
+                      next.pty.useConpty = useConptyFromTerminalBackend(e.target.value, next.pty.useConpty);
+                    })}
+                  >
+                    {TERMINAL_BACKEND_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </Select>
+                </SettingField>
               )}
               {snapshot.capabilities['pty.windowsPowerShellBackend']?.available && (
                 <SettingField htmlFor="settings-pty-powershell-backend" label="PowerShell 백엔드" scope={scope(snapshot, 'pty.windowsPowerShellBackend')} help={powerShellBackendHint}>

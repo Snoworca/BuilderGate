@@ -1,0 +1,60 @@
+✖ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (8.978218ms)
+✔ REL-BGSTAB-010 AC-7 reservation membership is pinned so a new exemption costs an argued edit (1.023752ms)
+✖ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.351716ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation with no reason or no decision owner (0.161368ms)
+✔ REL-BGSTAB-010 AC-7 registration guard refuses a reservation for an id that still owns manifest tuples (0.152163ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id outside the registry (0.215899ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects the same consumer id reserved twice (0.159824ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation for an id the catalog uses (0.112481ms)
+✔ REL-BGSTAB-010 AC-7 no reserved consumer id is written into production outside its declaration (810.518122ms)
+✔ REL-BGSTAB-010 AC-7 registration guard rejects a reservation whose id is used in production (0.320208ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 8
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1572.06323
+
+✖ failing tests:
+
+test at src/services/TerminalResourcePolicyConsumerRegistry.test.ts:1:872
+✖ REL-BGSTAB-010 AC-7 every registered consumer id is used by the catalog or carries a recorded reservation (8.978218ms)
+  AssertionError [ERR_ASSERTION]: checked must equal the number of registered consumer ids absent from the catalog
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts:75:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at src/services/TerminalResourcePolicyConsumerRegistry.test.ts:1:3334
+✖ REL-BGSTAB-010 AC-7 registration guard rejects a registered consumer id that nothing uses (0.351716ms)
+  AssertionError [ERR_ASSERTION]: checked counts registered ids absent from the catalog
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/TerminalResourcePolicyConsumerRegistry.test.ts:130:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+----STDERR----

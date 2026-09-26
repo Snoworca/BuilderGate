@@ -43,6 +43,8 @@ export interface CORSConfig {
 
 export interface SecurityConfig {
   cors: CORSConfig;
+  /** SEC-BGSTAB-001: OSC52 clipboard policy. Writes default to allowed; reads have no switch. */
+  osc52: { allowWrite: boolean };
 }
 
 // ============================================================================
@@ -131,10 +133,15 @@ export interface ClientWsResourceLimitsConfig {
 export interface TerminalResourceLimitsConfig {
   visibleOutputQueueMaxBytes: number;
   visibleOutputMaxChunks: number;
+  checkpointMaxBytes: number;
+  checkpointMaxChunks: number;
+  checkpointChunkBytes: number;
   visibleFlushBudgetBytes: number;
+  visibleFlushFrameBudgetMs: number;
   hiddenOutputPolicy: 'write-hidden' | 'snapshot-restore' | 'debug-tail';
   hiddenOutputTailBytes: number;
   inputQueueMaxBytes: number;
+  inputQueueMaxCount: number;
   inputQueueTtlMs: number;
   transportOutboxMaxBytes: number;
   transportOutboxTtlMs: number;

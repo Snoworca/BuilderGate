@@ -1,0 +1,144 @@
+=== guard control runs (full, untruncated); utc=2026-09-16T02:18:10Z ===
+server config in force:
+  workspace: {
+    dataPath: "./data/workspaces.json",
+    maxWorkspaces: 6,
+    maxTabsPerWorkspace: 2,
+    maxTotalSessions: 32,
+    flushDebounceMs: 5000,
+  },
+listener identity: cmdline=node dist/index.js  cwd=/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server exe=/home/beom/.nvm/versions/node/v24.21.0/bin/node inherited_BUILDERGATE=0
+
+--- [C1 anti-constant guard: shipped defaults 10/8 must be REFUSED, not skipped] env: ISSUE34_MAX_WORKSPACES=10 ISSUE34_MAX_TABS=8 ---
+Error: Issue #34 ratification cannot use the removed hardcoded pair: configure the server to a maxWorkspaces other than 10 and a maxTabsPerWorkspace other than 8 (got 10 / 8). At those two values a passing assertion is satisfied by the constant the fix removed.
+
+   at issue34-capacity-ratify.spec.ts:56
+
+  54 | // destroys the evidence.
+  55 | if (!UNCONFIGURED && (CONFIGURED_MAX_WORKSPACES === 10 || CONFIGURED_MAX_TABS === 8)) {
+> 56 |   throw new Error(
+     |         ^
+  57 |     'Issue #34 ratification cannot use the removed hardcoded pair: configure the server to a'
+  58 |     + ` maxWorkspaces other than 10 and a maxTabsPerWorkspace other than 8 (got ${CONFIGURED_MAX_WORKSPACES} / ${CONFIGURED_MAX_TABS}).`
+  59 |     + ' At those two values a passing assertion is satisfied by the constant the fix removed.',
+    at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:56:9
+Error: No tests found
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+[exit: 1]
+
+--- [C2 malformed env must FAIL, not skip] env: ISSUE34_MAX_WORKSPACES=4x ISSUE34_MAX_TABS=3 ---
+Error: ISSUE34_MAX_WORKSPACES must be a positive integer matching the server's configured limit, got "4x"
+
+   at issue34-capacity-ratify.spec.ts:37
+
+  35 |   const value = Number(raw);
+  36 |   if (!Number.isInteger(value) || value < 1) {
+> 37 |     throw new Error(`${name} must be a positive integer matching the server's configured limit, got ${JSON.stringify(raw)}`);
+     |           ^
+  38 |   }
+  39 |   return value;
+  40 | }
+    at readLimit (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:37:11)
+    at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:45:54
+Error: No tests found
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+[exit: 1]
+
+--- [C3 half-configured must FAIL, not skip] env: ISSUE34_MAX_WORKSPACES=6 ---
+Error: ISSUE34_MAX_TABS must be a positive integer matching the server's configured limit, got undefined
+
+   at issue34-capacity-ratify.spec.ts:37
+
+  35 |   const value = Number(raw);
+  36 |   if (!Number.isInteger(value) || value < 1) {
+> 37 |     throw new Error(`${name} must be a positive integer matching the server's configured limit, got ${JSON.stringify(raw)}`);
+     |           ^
+  38 |   }
+  39 |   return value;
+  40 | }
+    at readLimit (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:37:11)
+    at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:46:48
+Error: No tests found
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+[exit: 1]
+
+--- [C4 unconfigured must SKIP] env: <none> ---
+
+Running 2 tests using 1 worker
+
+  -  1 [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:68:1 › issue34 AC-3: the workspace create control reports the configured maxWorkspaces
+  -  2 [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:112:1 › issue34 AC-7: the add-terminal control reports the configured maxTabsPerWorkspace
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+  2 skipped
+[exit: 0]
+
+--- [C5 negative control: server is 6/2, assert 4/3 -> must FAIL] env: ISSUE34_MAX_WORKSPACES=4 ISSUE34_MAX_TABS=3 ---
+
+Running 2 tests using 1 worker
+
+  ✘  1 [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:68:1 › issue34 AC-3: the workspace create control reports the configured maxWorkspaces (4.7s)
+  ✘  2 [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:112:1 › issue34 AC-7: the add-terminal control reports the configured maxTabsPerWorkspace (4.3s)
+[e2e] workspaces: deleted=0, absent=0, failed=0
+
+
+  1) [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:68:1 › issue34 AC-3: the workspace create control reports the configured maxWorkspaces 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 2[39m
+    [31m+ Received  + 2[39m
+
+    [2m  Object {[22m
+    [32m-   "maxTabsPerWorkspace": 3,[39m
+    [32m-   "maxWorkspaces": 4,[39m
+    [31m+   "maxTabsPerWorkspace": 2,[39m
+    [31m+   "maxWorkspaces": 6,[39m
+    [2m  }[22m
+
+      78 |
+      79 |   const state = await (await request.get(origin + '/api/workspaces', { headers })).json();
+    > 80 |   expect(state.limits).toEqual({ maxWorkspaces: CONFIGURED_MAX_WORKSPACES, maxTabsPerWorkspace: CONFIGURED_MAX_TABS });
+         |                        ^
+      81 |
+      82 |   // Before the quota is full the control is enabled and carries no limit text.
+      83 |   await expect(page.getByTitle('New Workspace', { exact: true })).toBeEnabled();
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:80:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/issue34-capacity-ratify-is-4866f-he-configured-maxWorkspaces-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/issue34-capacity-ratify-is-4866f-he-configured-maxWorkspaces-Desktop-Chrome/error-context.md
+
+  2) [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:112:1 › issue34 AC-7: the add-terminal control reports the configured maxTabsPerWorkspace 
+
+    Error: tab 3 is within the configured limit
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: < [32m400[39m
+    Received:   [31m409[39m
+
+      129 |     for (let i = 0; i < CONFIGURED_MAX_TABS; i += 1) {
+      130 |       const res = await request.post(`${origin}/api/workspaces/${ws.id}/tabs`, { headers, data: {} });
+    > 131 |       expect(res.status(), `tab ${i + 1} is within the configured limit`).toBeLessThan(400);
+          |                                                                           ^
+      132 |     }
+      133 |     // The server enforces the same configured number, one past it.
+      134 |     const overflow = await request.post(`${origin}/api/workspaces/${ws.id}/tabs`, { headers, data: {} });
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/issue34-capacity-ratify.spec.ts:131:75
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/issue34-capacity-ratify-is-d7390-figured-maxTabsPerWorkspace-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/issue34-capacity-ratify-is-d7390-figured-maxTabsPerWorkspace-Desktop-Chrome/error-context.md
+
+  2 failed
+    [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:68:1 › issue34 AC-3: the workspace create control reports the configured maxWorkspaces 
+    [Desktop Chrome] › tests/e2e/issue34-capacity-ratify.spec.ts:112:1 › issue34 AC-7: the add-terminal control reports the configured maxTabsPerWorkspace 
+[exit: 1]

@@ -1,0 +1,2 @@
+exit=0 services/SessionManagerTerminalAuthorityRuntimePorts.test.ts ℹ tests 12 ℹ pass 12 ℹ fail 0 
+exit=0 services/SessionManagerTerminalAuthorityDebugIsolation.test.ts ℹ tests 12 ℹ pass 12 ℹ fail 0 

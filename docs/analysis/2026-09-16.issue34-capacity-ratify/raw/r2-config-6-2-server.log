@@ -1,0 +1,75 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[Crypto] CryptoService initialized
+[Auth] AuthService initialized
+[TOTP] TOTP is disabled
+[CommandPreset] CommandPresetService initialized
+[TerminalShortcut] TerminalShortcutService initialized
+[RecoveryOption] RecoveryOptionService initialized
+[Workspace] WorkspaceService initialized
+[Routes] API routes configured
+  - GET  /health (public)
+  - POST /api/auth/login (public)
+  - POST /api/auth/logout (protected)
+  - POST /api/auth/refresh (protected)
+  - GET  /api/auth/status (protected)
+  - GET  /api/settings (protected)
+  - PATCH /api/settings (protected)
+  - /api/command-presets/* (protected)
+  - /api/terminal-shortcuts/* (protected)
+  - /api/sessions/* (protected)
+  - /api/sessions/:id/cwd (protected, File API)
+  - /api/sessions/:id/files (protected, File API)
+[Static] Production assets served from /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/dist/public
+[SSL] No certificate configured, generating self-signed certificate...
+[SSL] Using existing self-signed certificate
+[WS] WebSocket router initialized
+[PTY] Global Windows backend default: winpty
+[PTY] Effective PowerShell backend default: winpty (policy: inherit)
+
+╔════════════════════════════════════════════════════════════════╗
+║           BuilderGate Server (HTTPS)                             ║
+╠════════════════════════════════════════════════════════════════╣
+║  HTTPS Server: https://localhost:2222                        ║
+║  Health Check: https://localhost:2222/health                 ║
+║  Login:        POST https://localhost:2222/api/auth/login    ║
+║  Global PTY:   winpty                                       ║
+║  TLS Version:  1.2 - 1.3                                       ║
+║  Auth:         JWT (HS256)                                     ║
+║  2FA:          Disabled                           ║
+╚════════════════════════════════════════════════════════════════╝
+
+[HTTP] Redirect server running on http://localhost:2221
+[HTTP] All requests redirected to HTTPS
+[Auth] Token issued: jti=5be0e470-b66d-434c-8fec-ac178e7c7361
+[Auth] Login successful from ::1
+[Auth] Token issued: jti=d398f390-877a-46e0-b400-8ada4907270c
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=6a5b400f-1e7f-464f-a296-eabf5cd8b579
+[Auth] Login successful from ::1
+[WS] Client connected: b3365ea5-a91e-4909-9b1e-1445a49ebeda
+[WS] Client disconnected: b3365ea5-a91e-4909-9b1e-1445a49ebeda
+[WS] Client connected: c55c447b-e988-42d1-90a4-3bb9457fa594
+[Auth] Token issued: jti=672401de-3897-483d-8646-5f76c6c963fe
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=a44cf7c4-59b4-43b1-8e19-7285b45879e3
+[Auth] Login successful from ::ffff:127.0.0.1
+[WS] Client disconnected: c55c447b-e988-42d1-90a4-3bb9457fa594
+[Auth] Token issued: jti=b8109ae1-2227-4bd3-ae09-fecea39c6b18
+[Auth] Login successful from ::1
+[WS] Client connected: 35546f2d-95ff-4381-ba1b-8ecd937f388e
+[WS] Client disconnected: 35546f2d-95ff-4381-ba1b-8ecd937f388e
+[WS] Client connected: 0cde4869-30ca-48d3-aaee-b7635ce62343
+[SessionManager] Shell startup readiness fallback used for session b609153d-fbed-4872-a91f-8b4962007a39
+[SessionManager] Shell startup readiness fallback used for session 228be9b3-fb84-4891-8e39-ac5fb033141f
+[Auth] Token issued: jti=1d0ea5a9-c196-4bbc-aa5e-707c024ad44f
+[Auth] Login successful from ::ffff:127.0.0.1
+[Auth] Token issued: jti=6c794c86-9002-457c-91c3-f2f019f2fa53
+[Auth] Login successful from ::ffff:127.0.0.1
+[WS] Client disconnected: 0cde4869-30ca-48d3-aaee-b7635ce62343
+[Auth] Token issued: jti=7ed1a28e-84e7-4926-b569-83a02508577a
+[Auth] Login successful from ::ffff:127.0.0.1
+[Shutdown] SIGTERM received, saving session CWDs...
+[SessionManager] All CWD watchers stopped
+[Shutdown] Workspace state + CWDs saved
+[Shutdown] Session cleanup attempted=0 completed=0 degraded=0 skippedUnverified=0 remainingVerifiedDescendants=0

@@ -1,0 +1,74 @@
+(node:924339) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 4 tests using 1 worker
+
+[1A[2K[1/4] [Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:413:3 › markdown editor persistence › FR-MDE-009 a restored window is placed and shown whatever tab is active
+[1A[2K[Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:413:3 › markdown editor persistence › FR-MDE-009 a restored window is placed and shown whatever tab is active
+(node:924353) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K  1) [Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:413:3 › markdown editor persistence › FR-MDE-009 a restored window is placed and shown whatever tab is active 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.workspace-tabbar [role="tab"]').filter({ hasText: 'e2e-mde-persist-ac4-host' }).first()[22m
+
+
+      177 |
+      178 | async function selectTab(page: Page, name: string): Promise<void> {
+    > 179 |   await page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first().click();
+          |                                                                                   ^
+      180 | }
+      181 |
+      182 | async function selectWorkspace(page: Page, name: string): Promise<void> {
+        at selectTab (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/markdown-editor-persistence.spec.ts:179:83)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/markdown-editor-persistence.spec.ts:425:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/markdown-editor-persistenc-48d54-hown-whatever-tab-is-active-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/markdown-editor-persistenc-48d54-hown-whatever-tab-is-active-Desktop-Chrome/error-context.md
+
+
+[1A[2K[2/4] [Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:473:3 › markdown editor persistence › FR-MDE-009 a workspace round trip keeps the editor instance and reads no stored value
+[1A[2K[Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:473:3 › markdown editor persistence › FR-MDE-009 a workspace round trip keeps the editor instance and reads no stored value
+(node:924779) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[3/4] [Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:542:3 › markdown editor persistence › FR-MDE-009 a stored entry whose file is gone drops that window alone and restores the rest
+[1A[2K  2) [Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:542:3 › markdown editor persistence › FR-MDE-009 a stored entry whose file is gone drops that window alone and restores the rest 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.workspace-tabbar [role="tab"]').filter({ hasText: 'e2e-mde-persist-ac10' }).first()[22m
+
+
+      177 |
+      178 | async function selectTab(page: Page, name: string): Promise<void> {
+    > 179 |   await page.locator('.workspace-tabbar [role="tab"]', { hasText: name }).first().click();
+          |                                                                                   ^
+      180 | }
+      181 |
+      182 | async function selectWorkspace(page: Page, name: string): Promise<void> {
+        at selectTab (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/markdown-editor-persistence.spec.ts:179:83)
+        at /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/markdown-editor-persistence.spec.ts:546:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/markdown-editor-persistenc-2b126-alone-and-restores-the-rest-Desktop-Chrome/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/markdown-editor-persistenc-2b126-alone-and-restores-the-rest-Desktop-Chrome/error-context.md
+
+
+[1A[2K[4/4] [Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:578:3 › markdown editor persistence › FR-MDE-009 a reload brings the window back where the user dragged it
+[1A[2K[Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:578:3 › markdown editor persistence › FR-MDE-009 a reload brings the window back where the user dragged it
+(node:925394) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[e2e] workspaces: deleted=0, absent=0, failed=0
+[1A[2K  2 failed
+    [Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:413:3 › markdown editor persistence › FR-MDE-009 a restored window is placed and shown whatever tab is active 
+    [Desktop Chrome] › tests/e2e/markdown-editor-persistence.spec.ts:542:3 › markdown editor persistence › FR-MDE-009 a stored entry whose file is gone drops that window alone and restores the rest 
+  2 passed (1.6m)

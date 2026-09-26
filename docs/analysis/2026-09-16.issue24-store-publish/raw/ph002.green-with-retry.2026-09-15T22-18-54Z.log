@@ -1,0 +1,15 @@
+✔ REL-BGSTAB-022 AC-5: EPERM on the destination rename is retried to five attempts (16.835075ms)
+✔ REL-BGSTAB-022 AC-5: EACCES on the destination rename is retried to five attempts (1.97939ms)
+✔ REL-BGSTAB-022 AC-5: EBUSY on the destination rename is retried to five attempts (2.10927ms)
+✔ REL-BGSTAB-022 AC-5: the recorded waits are exactly 10, 20, 40 and 80 ms (1.416143ms)
+✔ REL-BGSTAB-022 AC-5: an exhausted budget rejects after five attempts and leaves the destination intact (2.824603ms)
+✔ REL-BGSTAB-022 AC-6: ENOSPC rejects on the first attempt with zero recorded waits (1.218355ms)
+✔ REL-BGSTAB-022 AC-5: a failed publish leaves no temp file behind (1.557361ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 640.639134

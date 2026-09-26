@@ -1,0 +1,39 @@
+{
+  "evaluator": "sonnet-B",
+  "iter": 3,
+  "findings": [
+    {
+      "category": "ac-decidability",
+      "severity": "MEDIUM",
+      "file": "docs/spec/30.buildergate-stability.srs.md",
+      "line": 6146,
+      "summary": "AC-3's acceptance text embeds a specific historical measurement ('which was measured at 539/4000 and 598/4000 publishes on 2026-09-16') inside the criterion itself, even though the Verification Method states the AC is actually decided deterministically (a single interposed peer-overwrite, not a statistical race), so the criterion does not literally require reproducing the rate.",
+      "failure_scenario": "A test author who reads only the AC text, not the Verification Method paragraph, could believe AC-3 requires reproducing a specific corruption rate (539/4000, 598/4000) rather than the deterministic single-interposition case the Verification Method actually specifies, and could write a flaky statistical test chasing that number instead of the intended deterministic one.",
+      "short_summary": "AC-3 embeds a rate figure that reads like part of the pass condition"
+    },
+    {
+      "category": "trace-links",
+      "severity": "LOW",
+      "file": "docs/spec/30.buildergate-stability.srs.md",
+      "line": 6154,
+      "summary": "The WorkspaceService.ts:1726-1753 trace citation (and the identical range used in the body text) stops at the `throw err;` statement inside the catch block; the method's actual closing braces are at :1754 (catch) and :1755 (method). The three sibling citations for the same publish-sequence shape (CommandPresetService.ts:270-289, TerminalShortcutService.ts:528-552, RecoveryOptionService.ts:410-437) all end exactly on the method's closing brace.",
+      "failure_scenario": "Not a mismatch in substance -- the cited range does contain the full publish sequence described -- but the off-by-two end line is an inconsistency with the other three otherwise-identical citations that a line-range diff tool would flag as a discrepancy between four rows that should be structurally parallel.",
+      "short_summary": "WorkspaceService trace range ends 2 lines short of sibling convention"
+    },
+    {
+      "category": "factual-accuracy",
+      "severity": "LOW",
+      "file": "docs/spec/30.buildergate-stability.srs.md",
+      "line": 6046,
+      "summary": "The statement's per-instance-destination paragraph says 'index.ts:1028-1042 passes no override, so every process in a checkout resolves the same absolute path' as a blanket claim covering all five in-scope stores, but AgentLifecycleService (via createAgentCommandProfileService()) is actually constructed at index.ts:1049, seven lines outside the cited 1028-1042 range. Verified: index.ts:1049 calls createAgentCommandProfileService() with no arguments, so the no-override conclusion is still true for it -- only the cited line range is imprecise, not the conclusion.",
+      "failure_scenario": "A reader checking the claim strictly against the cited line range 1028-1042 would not find AgentLifecycleService's construction there and could wrongly conclude the claim was not verified for that store, even though it independently holds at :1049.",
+      "short_summary": "Cited index.ts range omits AgentLifecycleService's actual construction line"
+    }
+  ],
+  "summary": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 1,
+    "LOW": 2
+  }
+}

@@ -36,7 +36,16 @@ function executeReadSite(suite, variable, relativePath, expected) {
   const reads = [], parses = [];
   const run = new Function('path', 'fileURLToPath', 'process', 'readFileSync', 'parseAdmittedImportSpecifiers', 'expected', 'inventoryPath',
     `${rootDeclaration ? `const workspaceRoot = ${transform(rootDeclaration.initializer)};` : ''} const ${variable} = ${transform(candidates[0].initializer)}; return ${transform(parsers[0])};`);
-  const result = run(path.win32, fileURLToPath, { cwd: () => foreignCwd }, (requested, encoding) => {
+  // Issue #92. The harness injects path.win32 so the subject resolves Windows
+  // paths, but it used to inject the HOST's fileURLToPath, which keeps posix
+  // semantics: file:///C:/virtual-checkout/... became /C:/virtual-checkout/...
+  // on Linux and C:\virtual-checkout\... on Windows. The subject then produced a
+  // leading separator ('\C:\virtual-checkout\...') and every case failed on a
+  // platform difference in the instrument rather than on anything it measures.
+  // Pinning the conversion to Windows semantics makes the win32 pin complete, so
+  // the suite now asserts the same thing on either host.
+  const winFileURLToPath = url => fileURLToPath(url, { windows: true });
+  const result = run(path.win32, winFileURLToPath, { cwd: () => foreignCwd }, (requested, encoding) => {
     reads.push(requested); assert.equal(encoding, 'utf8');
     assert.equal(path.win32.isAbsolute(requested), true, 'actual read must not resolve against foreign process.cwd');
     assert.equal(path.win32.normalize(requested), path.win32.join(virtualRoot, relativePath));
@@ -76,7 +85,8 @@ for (const [suffix, api] of [
       return ts.visitNode(node, visit);
     }]);
     const expression = ts.createPrinter().printNode(ts.EmitHint.Expression, transformed.transformed[0], ast);
-    const observed = new Function('path', 'fileURLToPath', 'process', `return ${expression};`)(path.win32, fileURLToPath, { cwd: () => foreignCwd });
+    // Issue #92: same platform-neutrality fix as executeReadSite above.
+    const observed = new Function('path', 'fileURLToPath', 'process', `return ${expression};`)(path.win32, url => fileURLToPath(url, { windows: true }), { cwd: () => foreignCwd });
     assert.equal(path.win32.resolve(observed), virtualRoot, 'real API root follows its module checkout, independent of process cwd');
   });
 }

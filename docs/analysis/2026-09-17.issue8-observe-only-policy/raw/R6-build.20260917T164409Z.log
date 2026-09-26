@@ -1,0 +1,10 @@
+
+> buildergate-server@0.1.0 prebuild
+> node tools/ensure-node-pty-windows-hide.cjs
+
+[prebuild] node-pty Windows runtime patches already applied.
+
+> buildergate-server@0.1.0 build
+> tsc && node tools/write-fair-scheduler-source-provenance.mjs && node tools/write-fair-scheduler-evidence-bundle.mjs && node -e "require('fs').cpSync('src/shell-integration', 'dist/shell-integration', {recursive:true})"
+
+{"evidenceRoot":"dist/benchmarks/fair-scheduler-evidence","fileCount":19,"generationId":"d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5"}

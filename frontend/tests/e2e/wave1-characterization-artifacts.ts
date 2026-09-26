@@ -250,7 +250,7 @@ export function createMismatchRow(input: Record<string, unknown>): MismatchRow {
 }
 
 export function summarizeMismatchVerdicts(
-  rows: readonly Record<string, unknown>[],
+  rows: readonly (MismatchRow | Record<string, unknown>)[],
 ): MismatchVerdictSummary {
   const summary: MismatchVerdictSummary = {
     match: 0,
@@ -259,7 +259,7 @@ export function summarizeMismatchVerdicts(
   };
 
   for (const candidate of rows) {
-    const row = createMismatchRow(candidate);
+    const row = createMismatchRow({ ...candidate });
     summary[row.verdict] += 1;
   }
 

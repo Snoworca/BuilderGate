@@ -1,0 +1,117 @@
+{
+  "config": {
+    "configFile": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/playwright.ownership-validation.config.ts",
+    "rootDir": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/workspaceLeakGuard.ts",
+    "globalTeardown": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e/workspaceTeardown.ts",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "Desktop Chrome",
+        "name": "Desktop Chrome",
+        "testDir": "/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "workspace-ownership-validation.spec.ts"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "workspace-ownership-validation.spec.ts",
+      "file": "workspace-ownership-validation.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "B2 actual UI/API ownership preserves independent resources and rejects quota without eviction",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "Desktop Chrome",
+              "projectName": "Desktop Chrome",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5051,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [
+                    {
+                      "text": "(node:30248) Warning: Setting the NODE_TLS_REJECT_UNAUTHORIZED environment variable to '0' makes TLS connections and HTTPS requests insecure by disabling certificate verification.\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+                    }
+                  ],
+                  "retry": 0,
+                  "startTime": "2026-09-15T20:46:48.514Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "workspace-ownership-control",
+                      "contentType": "application/json",
+                      "body": "eyJ1aVJlc3BvbnNlTWV0YWRhdGEiOlt7ImlkIjoiNGY2Zjg4NzAtOTNjNS00YTNmLWJiYzQtNDgyMWMxYTUzODE2Iiwic3RhdHVzIjoyMDEsImZyb21TZXJ2aWNlV29ya2VyIjpmYWxzZSwic2VydmVyQWRkciI6eyJpcEFkZHJlc3MiOiJbOjoxXSIsInBvcnQiOjIyMjJ9fSx7ImlkIjoiY2U5MWE5OTQtMDlhNi00MzVlLTgzN2QtNzQzM2YyZmRmNGQwIiwic3RhdHVzIjoyMDEsImZyb21TZXJ2aWNlV29ya2VyIjpmYWxzZSwic2VydmVyQWRkciI6eyJpcEFkZHJlc3MiOiJbOjoxXSIsInBvcnQiOjIyMjJ9fV0sIm9ic2VydmVkV29ya3NwYWNlRGVsZXRlcyI6WyIvYXBpL3dvcmtzcGFjZXMvNGY2Zjg4NzAtOTNjNS00YTNmLWJiYzQtNDgyMWMxYTUzODE2IiwiL2FwaS93b3Jrc3BhY2VzL2NlOTFhOTk0LTA5YTYtNDM1ZS04MzdkLTc0MzNmMmZkZjRkMCIsIi9hcGkvd29ya3NwYWNlcy8xYjU3ODE0ZC0xNzQ4LTRjY2QtYjZlYy0zMDM4OTc0NDY0ZjkiLCIvYXBpL3dvcmtzcGFjZXMvZGM4ZTAzZDgtMTc0OC00YWE5LTgwNjItYTE3Y2U2ZjgyMjBiIiwiL2FwaS93b3Jrc3BhY2VzLzZjOGExMzIzLWY1OGYtNGRlYy1hY2Q5LTIzNmNjNTgwN2U4OSIsIi9hcGkvd29ya3NwYWNlcy9lNGE0ZDVmYi0yY2NlLTQ4MzUtYjM2NC0yZDZjN2Q3YWUxZTAiLCIvYXBpL3dvcmtzcGFjZXMvZTE3MjUxYzYtNWQ3ZS00NzFkLTg4ZGYtNWUyM2QzMTU0MTQ5IiwiL2FwaS93b3Jrc3BhY2VzL2NjZmJlN2M0LTFiYjAtNDNkMC05YTNhLWI0OTQyODUxZjdiZCIsIi9hcGkvd29ya3NwYWNlcy83Njk5Y2I4Yy05ODAzLTQzYWMtODEwMi0yZTFhNTg1ZDE4YjQiLCIvYXBpL3dvcmtzcGFjZXMvYWYyMGNkOTUtZDg3YS00OGY5LTgyMjMtMGNmYzQwNmU2M2YxIl0sImNyZWF0ZWRBcGlJZHMiOlsiZTE3MjUxYzYtNWQ3ZS00NzFkLTg4ZGYtNWUyM2QzMTU0MTQ5IiwiYWYyMGNkOTUtZDg3YS00OGY5LTgyMjMtMGNmYzQwNmU2M2YxIiwiY2NmYmU3YzQtMWJiMC00M2QwLTlhM2EtYjQ5NDI4NTFmN2JkIiwiZTRhNGQ1ZmItMmNjZS00ODM1LWIzNjQtMmQ2YzdkN2FlMWUwIiwiMWI1NzgxNGQtMTc0OC00Y2NkLWI2ZWMtMzAzODk3NDQ2NGY5IiwiZGM4ZTAzZDgtMTc0OC00YWE5LTgwNjItYTE3Y2U2ZjgyMjBiIiwiNzY5OWNiOGMtOTgwMy00M2FjLTgxMDItMmUxYTU4NWQxOGI0IiwiNmM4YTEzMjMtZjU4Zi00ZGVjLWFjZDktMjM2Y2M1ODA3ZTg5Il0sInByZXNlcnZlZElkcyI6WyJmZjgxZWI2Mi00OTFkLTQxMGItYTc5OS0wZjE5NmE5YTEzYTkiXSwiZmluYWxJZHMiOlsiZmY4MWViNjItNDkxZC00MTBiLWE3OTktMGYxOTZhOWExM2E5Il0sImVycm9yQ291bnQiOjB9"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2f99a63c175057a46a80-526717ebb2e556925fe9",
+          "file": "workspace-ownership-validation.spec.ts",
+          "line": 25,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-09-15T20:46:39.464Z",
+    "duration": 12698.151000000002,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Config } from '../types/config.types.js';
 import { RuntimeConfigStore } from './RuntimeConfigStore.js';
+import { getDefaultTerminalWireFormat } from '../ws/terminalWireFormatDefault.js';
 
 function createConfigFixture(): Config {
   return {
@@ -21,6 +22,7 @@ function createConfigFixture(): Config {
       idleDelayMs: 200,
     },
     security: {
+      osc52: { allowWrite: true },
       cors: {
         allowedOrigins: ['https://example.com'],
         credentials: true,
@@ -167,13 +169,25 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
         visibleOutputQueueMaxBytes: 4194304,
         visibleOutputMaxChunks: 512,
         visibleFlushBudgetBytes: 262144,
+        visibleFlushFrameBudgetMs: 7,
+        checkpointMaxBytes: 4194304,
+        checkpointMaxChunks: 512,
+        checkpointChunkBytes: 65536,
         hiddenOutputPolicy: 'snapshot-restore',
         hiddenOutputTailBytes: 262144,
         inputQueueMaxBytes: 65536,
+        inputQueueMaxCount: 512,
         inputQueueTtlMs: 1500,
         transportOutboxMaxBytes: 65536,
         transportOutboxTtlMs: 1500,
         scrollbackLines: 10000,
+        // #95: provenance for the value on the line above. This deep-equal is the guard
+        // that stops server-only config leaking into the public payload, and it fired on
+        // this change, which is what it is for. These three are config KEY NAMES and a
+        // boolean -- no value, no secret -- and the value they describe was already public.
+        scrollbackSource: 'resourceLimits.terminal.scrollbackLines',
+        scrollbackLegacyAlias: undefined,
+        scrollbackSourceConflict: false,
       },
       snapshots: {
         perSnapshotMaxChars: 2000000,
@@ -187,7 +201,12 @@ test('RuntimeConfigStore exposes Wave6 resource capabilities without leaking ser
         hiddenRuntimeTtlMs: 600000,
       },
     },
+    // SEC-BGSTAB-001: one boolean, published deliberately. The browser must see a hardened
+    // allowWrite:false or the control fails OPEN -- server refuses, page allows, nothing red.
+    security: { osc52: { allowWrite: true } },
   });
+  // The narrowness is the point: CORS config stays server-only.
+  assert.equal('cors' in publicConfig.security, false);
   assert.equal('headless' in publicConfig.resourceLimits, false);
   assert.equal('ws' in publicConfig.resourceLimits, false);
   assert.equal('telemetry' in publicConfig.resourceLimits, false);
@@ -273,14 +292,19 @@ test('RuntimeConfigStore validates Wave 0 resource limit patches after merging',
 test('IR-BGSTAB-001 AC-8 publishes terminalWireFormat and nothing else beyond the existing allowlist', () => {
   const withoutRealtime = new RuntimeConfigStore(createConfigFixture(), 'linux');
   const published = withoutRealtime.getPublicRuntimeConfig('queue');
-  // realtime 블록이 없으면 스키마 기본값인 json 으로 수렴해야 한다.
-  assert.equal(published.terminalWireFormat, 'json');
+  // realtime 블록이 없으면 발행 증거가 정한 기본값으로 수렴해야 한다 (MIG-BGSTAB-004 AC-1).
+  assert.equal(published.terminalWireFormat, getDefaultTerminalWireFormat());
 
   // AC-8 은 기존 공개 값에 이 한 필드만 더하도록 규정한다. 최상위 키가 그 이상으로
   // 늘면 비공개 값이 새어 나간 것이다.
   assert.deepEqual(
     Object.keys(published).sort(),
-    ['inputReliabilityMode', 'resourceLimits', 'stabilityModes', 'terminalWireFormat', 'wsTransportMode'],
+    // SEC-BGSTAB-001: 'security' is a deliberate addition, not a widening of convenience.
+    // It carries ONE boolean -- security.osc52.allowWrite -- because a hardened deployment
+    // that the browser never learns about fails OPEN: the server refuses OSC52 writes while
+    // the page keeps allowing them, with nothing going red. The projection is narrow on
+    // purpose; publishing the security subtree would newly expose CORS config to the page.
+    ['inputReliabilityMode', 'resourceLimits', 'security', 'stabilityModes', 'terminalWireFormat', 'wsTransportMode'],
   );
 
   // 사다리 네 값이 모두 그대로 실려야 한다.
@@ -309,5 +333,5 @@ test('IR-BGSTAB-001 AC-8 republishes terminalWireFormat after a runtime config r
 
   store.replaceFromConfig(createConfigFixture());
   // realtime 을 통째로 뺀 설정으로 재적재하면 기본값으로 돌아와야 한다.
-  assert.equal(store.getPublicRuntimeConfig('queue').terminalWireFormat, 'json');
+  assert.equal(store.getPublicRuntimeConfig('queue').terminalWireFormat, getDefaultTerminalWireFormat());
 });

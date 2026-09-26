@@ -13,6 +13,15 @@ type TerminalSnapshotEntryKind = 'snapshot' | 'removal';
 export type TerminalViewportSnapshotBufferType = 'normal' | 'alternate';
 
 export interface TerminalViewportSnapshotPayload {
+  /**
+   * REL-BGSTAB-007 AC-8: the generation this snapshot belongs to, so a payload from a
+   * superseded session generation is identifiable as stale. Optional because the schema
+   * version is deliberately not bumped -- TC-7004 and wave1-retained-state-characterization
+   * pin `schemaVersion: 2`, and TC-7004 is a designated current-behaviour record. A payload
+   * written before this field existed simply cannot prove its generation, which is why
+   * `expectedGeneration` treats absence as a mismatch rather than as a pass.
+   */
+  generation?: string;
   schemaVersion: typeof TERMINAL_SNAPSHOT_SCHEMA_VERSION;
   payloadKind: typeof TERMINAL_SNAPSHOT_PAYLOAD_KIND;
   sessionId: string;
@@ -109,7 +118,17 @@ function hasValidSavedAt(value: unknown): value is string {
 export function parseTerminalViewportSnapshot(
   raw: string | null,
   sessionId: string,
-  options: { maxContentLength?: number; maxRowsMultiplier?: number } = {},
+  options: {
+    maxContentLength?: number;
+    maxRowsMultiplier?: number;
+    /**
+     * When supplied, the payload must carry exactly this generation. A payload with a
+     * different generation, or with none at all, is refused: neither can show it belongs
+     * to the generation being restored into. Callers that state no expectation are
+     * unaffected, which is what keeps the existing pinned specs green.
+     */
+    expectedGeneration?: string;
+  } = {},
 ): TerminalViewportSnapshotPayload | null {
   if (!raw) return null;
 
@@ -125,6 +144,10 @@ export function parseTerminalViewportSnapshot(
   }
 
   const candidate = parsed as Record<string, unknown>;
+  if (options.expectedGeneration !== undefined
+    && candidate.generation !== options.expectedGeneration) {
+    return null;
+  }
   if (
     candidate.schemaVersion !== TERMINAL_SNAPSHOT_SCHEMA_VERSION ||
     candidate.payloadKind !== TERMINAL_SNAPSHOT_PAYLOAD_KIND ||

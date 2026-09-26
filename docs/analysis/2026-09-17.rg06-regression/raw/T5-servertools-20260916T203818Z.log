@@ -1,0 +1,78 @@
+✔ OPS-BGSTAB-008 the canonical authority path is pinned to -text so checkout converts no line endings (222.410292ms)
+✔ OPS-BGSTAB-008 working-tree bytes match every digest recorded in current.json (46.653918ms)
+✖ OPS-BGSTAB-008 the bundle writer completes on this working tree (493.095318ms)
+✔ OPS-BGSTAB-008 boundary control: the writer still rejects a digest-covered file whose content changed (110.556645ms)
+✔ node-pty runtime patches are idempotent and fail closed on target drift (15.628935ms)
+▶ fair scheduler pinned sources retain raw-byte provenance through Git checkout
+  ✔ src/benchmarks/terminalFairnessCharacterization.ts (114.537813ms)
+  ✔ src/benchmarks/fairSchedulerAuthorityLocator.ts (118.169246ms)
+  ✔ src/ws/wsSendPolicy.ts (158.051947ms)
+  ✔ src/ws/WsRouter.ts (164.276481ms)
+  ✔ src/services/TerminalResourcePolicy.ts (154.804265ms)
+  ✔ src/services/TerminalResourcePolicyCanary.ts (151.115094ms)
+✔ fair scheduler pinned sources retain raw-byte provenance through Git checkout (865.238715ms)
+▶ fair scheduler current authority JSON retains raw-byte hashes through Git checkout
+  ✔ current.json (142.729198ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/fair-scheduler-decision.json (147.772392ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/provenance.json (148.353335ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-0.json (155.851842ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-1.json (155.552366ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-2.json (160.675512ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-3.json (159.983242ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-1/trial-4.json (161.412989ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-0.json (161.731571ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-1.json (162.492234ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-2.json (162.149722ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-3.json (163.855215ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-2/trial-4.json (163.06989ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-0.json (165.718229ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-1.json (162.434501ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-2.json (201.532444ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-3.json (166.549219ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/fair-scheduler-raw/clients-8/trial-4.json (164.603327ms)
+  ✔ generations/d5127c0af817460c7b7b088f1c5417381d9dc33198dec7c06435e4865ec583b5/raw/manifest.json (152.651831ms)
+✔ fair scheduler current authority JSON retains raw-byte hashes through Git checkout (3087.055588ms)
+✔ PERF-BGSTAB-010 canonical bundle writer rejects source-root override and copies only current immutable generation (4208.32268ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 32
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4275.92524
+
+✖ failing tests:
+
+test at server/tools/canonical-authority-line-endings.test.mjs:89:1
+✖ OPS-BGSTAB-008 the bundle writer completes on this working tree (493.095318ms)
+  AssertionError [ERR_ASSERTION]: the bundle writer exited 1: file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:240
+      if (error?.code === 'EEXIST') throw new Error('canonical authority publication lock exists');
+                                          ^
+  
+  Error: canonical authority publication lock exists
+      at file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:240:41
+      at async acquirePublishLock (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:239:18)
+      at async writeFairSchedulerEvidenceBundle (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:255:16)
+      at async file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/write-fair-scheduler-evidence-bundle.mjs:303:18
+  
+  Node.js v24.21.0
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/tools/canonical-authority-line-endings.test.mjs:94:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+EXIT=1

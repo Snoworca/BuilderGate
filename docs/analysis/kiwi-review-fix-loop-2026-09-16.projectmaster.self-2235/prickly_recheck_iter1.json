@@ -1,0 +1,87 @@
+{
+  "resolved_findings": ["FND-001", "FND-002", "FND-003", "FND-004"],
+  "unresolved": [],
+  "findings": [
+    {
+      "id": "FND-101",
+      "axis": "correctness",
+      "severity": "HIGH",
+      "title": "The gate schema-guards fileList but trusts `failing`, so an after capture missing that field is falsely green",
+      "location": { "file": "tools/issue24-regression-diff.mjs", "line_range": "29-45,68-69" },
+      "description": "The new preflight explicitly refuses a capture that has no `fileList` ('recorded no fileList ... re-capture with the current tools'), because a field that cannot be trusted makes the comparison meaningless. The very field the comparison is over, `failing`, gets no such guard: line 69 does `new Set(after.failing ?? [])`. An after capture whose `failing` key is absent, null, or a non-array therefore reads as zero failures and the gate exits 0. Measured 2026-09-16 against the tool as committed: baseline with one failing name, after with `failing` deleted and everything else intact -> 'baseline failing: 1 / after failing: 0 / no longer failing (1) / no new failures', EXIT=0. The 'no longer failing' line is printed but does not affect the exit status, and the gate's whole contract is that the exit status is the verdict. This is the same class of defect FND-002 raised (a missing observation read as an absence of failures), just moved from the capture to the diff.",
+      "suggested_fix": "Extend the per-capture preflight loop at line 31: alongside the fileList check, push a problem when `!Array.isArray(capture.failing)` or `!Array.isArray(capture.harnessErrors)` with the same 're-capture' wording, and read the sets from the validated values rather than with `?? []`. Add a diff test case that deletes `failing` from the after capture and asserts a non-zero exit.",
+      "is_behavioral": true,
+      "tags": ["gate", "falsely-green", "schema-validation"]
+    },
+    {
+      "id": "FND-102",
+      "axis": "correctness",
+      "severity": "HIGH",
+      "title": "A child that exits 0 having run zero tests is still indistinguishable from a file that passed",
+      "location": { "file": "tools/issue24-capture-failing.mjs", "line_range": "25-52,63-82" },
+      "description": "FND-002's fix closes the killed/hung/spawn-failed shapes, all of which reach the catch branch. It does not close the shape where the child completes with status 0 having executed no tests: `describeChildFailure` is only consulted from the catch, and `execFileSync` does not throw for a zero exit. Measured 2026-09-16 on node v24.21.0: `node --test` on a file registering no tests exits 0. The capture records only `files`, `fileList`, `failing` and `harnessErrors` — no test/pass/fail counts — so a change that makes a suite register zero tests (an import-time guard, a conditional describe, a renamed registration, or the NODE_TEST_CONTEXT recursion guard this repo's CLAUDE.md documents as producing 'skipping running files' plus 0 executed and exit 0) contributes no failure names, raises no harness error, keeps the file set identical, and the gate reports 'no new failures'. That is precisely the verdict FND-002 said the gate must never be able to give for a suite that stopped running. Note this is residual rather than newly introduced — the pre-fix tool had the same hole — but it survives the fix that was supposed to close this class.",
+      "suggested_fix": "Parse node:test's summary block from each child's output ('# tests N' / 'ℹ tests N' plus pass/fail/todo) and record per-file counts in the capture. Have the diff treat a file whose test count dropped, or whose count could not be parsed, as a problem in the same way it treats a harness error. Add a diff test case for a file whose test count goes from N to 0.",
+      "is_behavioral": true,
+      "tags": ["gate", "falsely-green", "residual"]
+    },
+    {
+      "id": "FND-103",
+      "axis": "process",
+      "severity": "MEDIUM",
+      "title": "The test that guards the gate is untracked, so it is not part of the change it guards",
+      "location": { "file": "tools/issue24-regression-diff.test.mjs", "line_range": "1-11" },
+      "description": "`git status --porcelain -- server/src tools` reports the five fixed files as ' M' and `tools/issue24-regression-diff.test.mjs` as '??'. It has no git history (`git log -- tools/issue24-regression-diff.test.mjs` is empty). The eleven cases in it are the only thing pinning the shapes FND-002's fix refuses, and they are absent from `git diff 99fb015 -- server/src tools` for that reason. A `git commit -a` would ship the loosened/strengthened tools without the test that proves the gate still refuses a hang, leaving the reviewed evidence unreproducible from the commit.",
+      "suggested_fix": "`git add tools/issue24-regression-diff.test.mjs` before committing, and register it on a runnable surface (it currently has no npm script, matching the repo's documented wave1/wave3 pattern of orphan suites).",
+      "is_behavioral": false,
+      "tags": ["provenance", "test-coverage"]
+    },
+    {
+      "id": "FND-104",
+      "axis": "test-coverage",
+      "severity": "MEDIUM",
+      "title": "The 'a failed backup is reported' half of FND-001's fix has no assertion",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "178-202" },
+      "description": "The helper's comment states the contract explicitly: 'What the old code's silence covered was \"there is no file to back up\" ... A backup that was attempted and failed is a different event and is reported.' The three new tests (atomicStoreWrite.test.ts:194, :226, :259) assert only that the primary publish still lands and no temp leaks. None captures console.warn. Deleting the `console.warn` call at line 198 leaves all ten cases in that file green, so the swallow is pinned and the reporting is not — the fix would silently degrade back into the unconditional silence FND-001 objected to in the opposite direction. Verified by inspection: no test in the changed files references console.warn or a logger spy.",
+      "suggested_fix": "In the two backup-failure tests, swap console.warn for a recorder for the duration of the call and assert one warning was emitted naming the destination and the errno, restoring it in a finally.",
+      "is_behavioral": false,
+      "tags": ["observability", "unasserted-contract"]
+    },
+    {
+      "id": "FND-105",
+      "axis": "correctness",
+      "severity": "LOW",
+      "title": "`error.killed` is a discriminator node never sets on an execFileSync error, and the test fixture fabricates it",
+      "location": { "file": "tools/issue24-capture-failing.mjs", "line_range": "27-29" },
+      "description": "Measured 2026-09-16 on node v24.21.0 by probing the real shapes: a `timeout` kill yields `{killed: undefined, signal: 'SIGTERM', status: null, code: 'ETIMEDOUT'}`; a self-SIGKILL yields `{killed: undefined, signal: 'SIGKILL', status: null}`; a spawn failure yields `{killed: undefined, signal: null, status: null, code: 'ENOENT'}`. `spawnSync`'s result object has no `killed` field and `execFileSync` builds its error by copying that object, so the branch at line 27 is unreachable in production. Classification is nonetheless correct for every measured shape, because the `error.signal` branch (line 30) catches both kills and the `typeof error.status !== 'number'` branch (line 33) catches the spawn failure, and an ordinary failing run (`status: 1, signal: null`, output present) correctly returns null. The cost is that the unit test at issue24-regression-diff.test.mjs:115 asserts against a hand-built error carrying `killed: true`, so it does not exercise the shape node actually produces — it would pass either way, via the signal branch.",
+      "suggested_fix": "Drop the `killed` branch, or keep it and make the timeout fixture match the measured shape (`killed` absent, `code: 'ETIMEDOUT'`), so the test pins the branch that really fires.",
+      "is_behavioral": false,
+      "tags": ["dead-code", "fixture-fidelity"]
+    },
+    {
+      "id": "FND-106",
+      "axis": "test-quality",
+      "severity": "LOW",
+      "title": "The AC-8 anti-vacuity guard uses notEqual(null) against a value that is `undefined` in the case it guards",
+      "location": { "file": "server/src/services/StorePublishCrossInstance.test.ts", "line_range": "541-546" },
+      "description": "`replaced` is `beforeEachRename[beforeEachRename.length - 1]`. The case the guard names — 'the final publish replaced nothing' — reaches this line with an empty array, so `replaced` is `undefined`, and under `node:assert/strict` `assert.notEqual(undefined, null)` passes. The guard therefore cannot fire for its own stated case; the failure would instead surface one line later as `assert.equal(backup, undefined)` with a message about the backup not matching, or earlier at :529 if no backup exists at all. Harmless today — every row leaves at least one recorded rename and the suite is green — but the guard reads stronger than it is.",
+      "suggested_fix": "Assert on the array instead: `assert.ok(beforeEachRename.length > 0, ...)` followed by `assert.notEqual(replaced, null, ...)`.",
+      "is_behavioral": false,
+      "tags": ["assertion-strength"]
+    },
+    {
+      "id": "FND-107",
+      "axis": "robustness",
+      "severity": "LOW",
+      "title": "The backup catch swallows its own cleanup failure and any non-I/O error alike",
+      "location": { "file": "server/src/utils/atomicStoreWrite.ts", "line_range": "188-202" },
+      "description": "Two narrow consequences of the new catch. (1) `fs.unlink(backupTemp)` at line 194 has a bare `catch {}` whose comment says 'Never created, or already gone', but on Windows it can also fail EPERM/EBUSY when a peer holds the file — exactly the contention scenario the surrounding comment invokes — and the path has already been released from `ownedTemps`, so nothing else will retry it and the temp leaks. (2) The catch is untyped, so a programming error inside the backup block (a TypeError, a bad mode) is downgraded to a warn and the publish proceeds, where before this round it propagated. Both are strictly better than aborting the primary publish, so this is a note on the shape of the fix rather than a reason to change the contract. Owned-temp bookkeeping itself is correct: release-by-value handles both exit paths, the published `.bak` destination is never in the list, and after a backup failure followed by a primary rename failure the destination is untouched, the payload temp is unlinked, the backup temp is unlinked, and `.bak` retains whatever it held before — confirmed by atomicStoreWrite.test.ts:259 and by tracing all four branches.",
+      "suggested_fix": "Include the unlink failure in the warn message rather than discarding it, so a leaked temp is at least attributable; optionally rethrow non-ErrnoException errors from the backup block.",
+      "is_behavioral": false,
+      "tags": ["cleanup", "error-handling"]
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "by_severity": { "CRITICAL": 0, "HIGH": 2, "MEDIUM": 2, "LOW": 3 }
+  }
+}

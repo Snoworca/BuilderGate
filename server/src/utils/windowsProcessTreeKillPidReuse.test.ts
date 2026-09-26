@@ -9,7 +9,7 @@ import {
 import type { SessionProcessMetadata } from '../types/ws-protocol.js';
 
 /**
- * REL-BGSTAB-022 — the Windows tree kill must not take processes that only
+ * REL-BGSTAB-029 — the Windows tree kill must not take processes that only
  * look like descendants because a PID was reused.
  *
  * The walk links processes by parent PID alone, and Windows keeps a process's
@@ -24,7 +24,7 @@ import type { SessionProcessMetadata } from '../types/ws-protocol.js';
 
 const isWindows = process.platform === 'win32';
 
-test('REL-BGSTAB-022 AC-1: a process created before its linked parent is neither killed nor walked', () => {
+test('REL-BGSTAB-029 AC-1: a process created before its linked parent is neither killed nor walked', () => {
   const script = buildWindowsProcessTreeKillScript(4321);
   assert.match(script, /StartTime/, 'the walk reads start times');
   assert.match(script, /\$childStart -lt \$parentStart/, 'a child older than its parent is skipped');
@@ -33,7 +33,7 @@ test('REL-BGSTAB-022 AC-1: a process created before its linked parent is neither
   assert.ok(walk.indexOf('$childStart -lt $parentStart') < walk.indexOf('$order.Add($child)'), 'the check comes before the child joins the kill list');
 });
 
-test('REL-BGSTAB-022 AC-2: protected pids are bare integers, never killed or walked', () => {
+test('REL-BGSTAB-029 AC-2: protected pids are bare integers, never killed or walked', () => {
   const script = buildWindowsProcessTreeKillScript(4321, [100, 200]);
   assert.match(script, /\$protected = @\{\}/);
   assert.match(script, /\$protected\[100\] = \$true/);
@@ -44,7 +44,7 @@ test('REL-BGSTAB-022 AC-2: protected pids are bare integers, never killed or wal
   assert.throws(() => buildWindowsProcessTreeKillScript(4321, [-5]));
 });
 
-test('REL-BGSTAB-022 AC-2: the terminator protects the server process in every kill', async () => {
+test('REL-BGSTAB-029 AC-2: the terminator protects the server process in every kill', async () => {
   const scripts: string[] = [];
   let killed = false;
   const execFileFn = ((_file: string, args: readonly string[], _options: unknown, callback: (e: Error | null, out: string, err: string) => void) => {
@@ -102,7 +102,7 @@ async function startTree(): Promise<{ root: number; child: number }> {
   throw new Error('ping.exe did not appear under cmd.exe');
 }
 
-test('REL-BGSTAB-022 AC-3: a real tree is still killed, root and child', { skip: !isWindows && 'Windows only' }, async () => {
+test('REL-BGSTAB-029 AC-3: a real tree is still killed, root and child', { skip: !isWindows && 'Windows only' }, async () => {
   const { root, child } = await startTree();
   const out = await runPowerShell(buildWindowsProcessTreeKillScript(root, [process.pid]));
   console.log(`[pid-reuse] kill output: ${out.trim()}`);
@@ -112,7 +112,7 @@ test('REL-BGSTAB-022 AC-3: a real tree is still killed, root and child', { skip:
   assert.equal(isAlive(process.pid), true);
 });
 
-test('REL-BGSTAB-022 AC-3: a descendant named as protected survives', { skip: !isWindows && 'Windows only' }, async () => {
+test('REL-BGSTAB-029 AC-3: a descendant named as protected survives', { skip: !isWindows && 'Windows only' }, async () => {
   const { root, child } = await startTree();
   try {
     await runPowerShell(buildWindowsProcessTreeKillScript(root, [process.pid, child]));

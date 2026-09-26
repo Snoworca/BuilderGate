@@ -1,0 +1,8 @@
+# cwd: /mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/frontend
+# command: node ./issue5-teardown-terminal.mjs   (source: docs/analysis/2026-09-17.issue5-screen-repair-overflow-verification/tools/issue5-teardown-terminal.mjs)
+# purpose: empty the workspace so the next E2E run must take the spec's own seeding branch
+# target: https://localhost:2222 (externally owned listener, server PID 451255)
+tabs 1 closers on first tab 1
+modal buttons ["취소","닫기"]
+empty state present: true tabs left: 0
+# exit=0

@@ -1,0 +1,23 @@
+{
+  "classification": "new-feature",
+  "mode": "live",
+  "mutation_channel": "speckiwi CLI 3.0.0 with --root pointed at this worktree; MCP mutation tools were not used because they ignore per-call workspaceRoot and write to the origin checkout",
+  "added_ids": ["REL-BGSTAB-022"],
+  "demoted_ids": [],
+  "discarded_ids": [],
+  "validate_spec_result": { "ok": true, "errors": 0, "warnings": 0 },
+  "evaluation_rounds": 4,
+  "gate": { "mode": "normal", "criterion": "CRITICAL=0 AND HIGH=0", "result": "PASS at iter4" },
+  "findings_resolved": [
+    "iter1 CRITICAL: statement claimed every bootstrap path flushes unguarded — false for WorkspaceService and RecoveryOptionService; narrowed, then corrected again at iter3 because the narrowing over-exculpated WorkspaceService (it does write on a successful load when tab metadata changed)",
+    "iter1 CRITICAL: statement claimed fs.writeFile splits into several writes and tears the temp file — refuted for payloads below Node's 512 KiB chunk threshold; the claim was withdrawn and then RE-ESTABLISHED at iter3 with the correct mechanism (O_TRUNC plus writes from offset zero) after the withdrawal was itself found to rest on an in-process probe that never raced",
+    "iter1 CRITICAL: statement claimed all four services accept a dataPath constructor option — WorkspaceService does not; corrected and the config-file route documented",
+    "iter1 HIGH: a fifth store (AgentLifecycleService) writes directly onto its destination with no temp file; brought into scope",
+    "iter2 HIGH: the lost-update statistic was confounded by a non-atomic read-back; removed, leaving the deterministic reproduction",
+    "iter2 HIGH: a sixth same-class writer (TOTPService) was unaccounted for; added to the inventory and explicitly declared out of scope with a reason and a reopen condition",
+    "iter2 HIGH: the retry budget was unspecified and AC-4 therefore undecidable; a concrete budget was fixed (five attempts, 10/20/40/80 ms)",
+    "iter3 HIGH: calling the two per-instance-temp-name stores 'already safe' contradicted the shall-sentence and the retry rationale, since neither retries its rename; scope widened to all seven JSON stores"
+  ],
+  "residual_findings": { "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 1 },
+  "residual_low": "Tags carries feasibility:high, which neighbouring requirements do not use. It is mandated by the kiwi-srs procedure and is left in place."
+}

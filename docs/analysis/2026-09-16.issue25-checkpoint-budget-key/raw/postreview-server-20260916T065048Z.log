@@ -1,0 +1,16 @@
+✔ REL-BGSTAB-023 AC-1 the checkpoint byte budget is its own canonical schema key (2.236218ms)
+✔ REL-BGSTAB-023 AC-5 the shipped default leaves the effective budget unchanged (0.173404ms)
+✔ REL-BGSTAB-023 AC-1 the checkpoint byte budget shares the range it was split from (1.08564ms)
+✔ REL-BGSTAB-023 AC-1 the terminal block stays strict about unknown keys (0.286079ms)
+✔ REL-BGSTAB-023 AC-4 the checkpoint byte budget is registered as a terminal resource key (0.15093ms)
+✔ the retained checkpoint declares truncated:false as a literal type (21.950269ms)
+✔ issue #26: at default limits, per-token SGR at >=200 columns mints a checkpoint the browser must reject (2753.329707ms)
+✔ issue #26: the same per-token density at 80 columns still fits (986.755156ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5262.003146

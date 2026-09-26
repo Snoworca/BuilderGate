@@ -1,0 +1,439 @@
+[Config] All passwords already encrypted
+[Config] Configuration loaded successfully
+[M3-PROBE] sessionId=ack-reservation-ordinary mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-reservation-ordinary-sibling mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-reservation-ordinary mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-reservation-ordinary mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 reserves ordinary source tuples before headless commit (139.828912ms)
+[M3-PROBE] sessionId=ack-route-ordinary mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-route-ordinary mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-route-ordinary mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 PERF-BGSTAB-011 routes each ordinary reservation tuple unchanged after commit (103.543715ms)
+[M3-PROBE] sessionId=ack-reservation-rollover mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-reservation-rollover-sibling mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-reservation-rollover mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-reservation-rollover mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 reserves rollover source tuples before headless commit (106.127012ms)
+[M3-PROBE] sessionId=ack-route-rollover mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-route-rollover mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-route-rollover mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 PERF-BGSTAB-011 routes each rollover reservation tuple unchanged after commit (96.093005ms)
+[M3-PROBE] sessionId=ack-snapshot-rollover-1 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-snapshot-rollover-1 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 1 snapshot-only resize(s) (97.358303ms)
+[M3-PROBE] sessionId=ack-snapshot-rollover-2 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-snapshot-rollover-2 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 keeps reservation commit and router identity equal after 2 snapshot-only resize(s) (97.542227ms)
+[M3-PROBE] sessionId=ack-pending-snapshot-rollover mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-pending-snapshot-rollover mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=ack-pending-snapshot-rollover mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-01 REL-BGSTAB-011 preserves pending reservations across an interleaved snapshot rollover (101.140231ms)
+[M3-PROBE] sessionId=retained-authority-41009 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41009 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41009 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-15 resize preserves queued source identities at snapshot 40 (102.134274ms)
+[M3-PROBE] sessionId=retained-authority-41010 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41010 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41010 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[SessionManager] Headless terminal degraded (write) for session retained-authority-41011: ACK-16 injected first headless write failure
+[M3-PROBE] sessionId=retained-authority-41011 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41011 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-15 resize preserves queued source identities at snapshot 18446744073709551613 (104.113991ms)
+✔ ACK-16 failed writes and headless recreation discard projected snapshot reservations (97.290922ms)
+[M3-PROBE] sessionId=retained-authority-41012 mode=disabled comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41012 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ ACK-16 enabling shadow after disabled output preserves committed source identity (101.621914ms)
+[M3-PROBE] sessionId=retained-authority-41013 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41013 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41013 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[M3-PROBE] sessionId=retained-ordinal-rollover mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[M3-PROBE] sessionId=retained-headless-write-gate mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-1 (296.242566ms)
+[M3-PROBE] sessionId=populated-retained-ordinal-rollover mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=populated-retained-ordinal-rollover mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — populated Ordinal64 rollover keeps oldest retained marker epoch-qualified (103.747341ms)
+[M3-PROBE] sessionId=retained-authority-41017 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41017 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41017 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-2 (118.428268ms)
+[M3-PROBE] sessionId=retained-authority-41018 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-3 (100.422325ms)
+[M3-PROBE] sessionId=retained-authority-41019 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[Session retained-authority-41020] Idle detection upgraded to osc133 mode
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-4 (114.480073ms)
+[M3-PROBE] sessionId=retained-authority-41020 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-5 (99.847655ms)
+[M3-PROBE] sessionId=retained-authority-41021 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-6 (95.406193ms)
+✔ RED reviewer — failed competing mutation lease rolls back only its newly registered view (91.715426ms)
+[M3-PROBE] sessionId=shadow-mismatch-session mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=shadow-healthy-sibling mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[M3-PROBE] sessionId=retained-shadow-disabled mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-shadow-disabled mode=disabled comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-7 (204.709529ms)
+[M3-PROBE] sessionId=retained-authority-41026 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41026 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41026 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41026 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41026 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-8 (108.66358ms)
+[M3-PROBE] sessionId=cleanup-delete-session mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[M3-PROBE] sessionId=cleanup-explicit-stop mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[M3-PROBE] sessionId=cleanup-generation-replace mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=cleanup-generation-replace mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-011 AC-9 (369.863092ms)
+[M3-PROBE] sessionId=retained-authority-41032 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[M3-PROBE] sessionId=retained-authority-41033 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-1 (183.215904ms)
+[M3-PROBE] sessionId=retained-authority-41034 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41034 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41034 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-2 (95.989758ms)
+[M3-PROBE] sessionId=retained-authority-41035 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41035 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-3 (90.243486ms)
+[M3-PROBE] sessionId=retained-authority-41036 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-6 (84.337ms)
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=retained-authority-41037 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-7 (95.125543ms)
+[M3-PROBE] sessionId=retained-authority-41038 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-9 (86.949636ms)
+[M3-PROBE] sessionId=retained-authority-41039 mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ Retained server model shadow and driver lease RED contract — REL-BGSTAB-007 AC-10 (84.471546ms)
+✔ REL_BGSTAB_007_AC10_server_restart_is_authority_unavailable (171.615588ms)
+[M3-PROBE] sessionId=natural-pty-exit-authority mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ REL_BGSTAB_007_AC10_pty_exit_is_session_terminated (88.747652ms)
+[M3-PROBE] sessionId=independent-roundtrip-baseline mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — production comparer requires an independent roundtrip baseline before principal-axis match (110.415501ms)
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=split-semantic-facts mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[Session pure-osc133-retained-record] Idle detection upgraded to osc133 mode
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — split semantic facts preserve record-local OSC BEL/ST, DSR, and repeated BEL occurrences (125.055151ms)
+✔ RED reviewer — pure OSC 133 status is retained as a semantic-only source record (93.476058ms)
+[M3-PROBE] sessionId=nonblocking-shadow-comparer mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — sampled shadow comparer never blocks legacy delivery or mutates a replacement generation (143.363683ms)
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=idle-sampled-shadow-comparer mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — shadow comparer samples only at global headless idle and enforces a low-duty interval (381.018016ms)
+[M3-PROBE] sessionId=promotion-evidence-busy-sibling mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ MIG-BGSTAB-002 promotion evidence comparison is not starved by an unrelated busy session (85.25411ms)
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=bounded-retained-ledgers mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — retained operation and fact evidence ledgers stay policy-bounded (297.316271ms)
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=incremental-retained-ledger-accounting mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — retained ledger byte accounting never rescans the full evidence arrays on commit (257.767147ms)
+[M3-PROBE] sessionId=external-comparer-axes-fail-closed mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — parser-tail and eviction comparer axes fail closed without an independent baseline (108.481506ms)
+[M3-PROBE] sessionId=soft-wrap-reflow-eviction mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=soft-wrap-reflow-eviction mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=soft-wrap-reflow-eviction mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=soft-wrap-reflow-eviction mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=soft-wrap-reflow-eviction mode=shadow comparerResult=unavailable
+[M3-PROBE] sessionId=soft-wrap-reflow-eviction mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — newline-free soft-wrap and reflow eviction advance exact oldest retained source (97.001111ms)
+✔ RED reviewer — actual input, resize, and query paths reject stale lease identity for two clients (86.176873ms)
+✔ RED reviewer — actual input path rejects every stale lease identity with eight clients (83.506069ms)
+✔ RED reviewer — missing actual mutation identity stays legacy-compatible but blocks shadow canary (79.14688ms)
+✔ RED reviewer — old authority identity cannot mutate replacement PTY through actual paths (77.628149ms)
+✔ lazy test-created SessionData keeps legacy resize compatibility without retained state (83.427845ms)
+[M3-PROBE] sessionId=resize-snapshot-identity mode=shadow comparerResult=unavailable
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — resize advances snapshot identity without consuming PTY source sequence (91.085532ms)
+[SessionManager] Headless terminal degraded (write) for session actual-headless-write-degradation: forced actual retained write degradation
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-already-degraded] Idle detection upgraded to osc133 mode
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-queue-overflow] Idle detection upgraded to osc133 mode
+[SessionManager] Headless terminal degraded (queue-overflow) for session semantic-only-queue-overflow: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session semantic-only-commit-failure] Idle detection upgraded to osc133 mode
+[SessionManager] Headless terminal degraded (write) for session semantic-only-commit-failure: forced semantic-only commit failure
+[SessionManager] All CWD watchers stopped
+[Session pending-semantic-overflow-settlement] Idle detection upgraded to osc133 mode
+✔ RED reviewer — actual headless write degradation is typed and blocks authority canary (90.349869ms)
+✔ RED reviewer — degraded, overflow, and commit-failure OSC status records reject facts without empty delivery (273.637802ms)
+[SessionManager] Headless terminal degraded (queue-overflow) for session pending-semantic-overflow-settlement: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session throwing-policy-settler-isolated] Idle detection upgraded to osc133 mode
+✔ RED reviewer — queue overflow settles every previously accepted semantic record in ingest order (80.49378ms)
+[SessionManager] Headless policy failure settler threw for session throwing-policy-settler-isolated, output 0: Error: forced first settler failure
+    at settleFailure (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2856:34)
+    at SessionManager.settleRetainedTerminalPendingOutputsBeforeDegrade (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8707:69)
+    at SessionManager.markHeadlessDegraded (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:8657:10)
+    at SessionManager.queueHeadlessOutput (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:7859:12)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/SessionManager.ts:1729:14)
+    at FakePty.emitData (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:306:48)
+    at <anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2873:25)
+    at getActual (node:assert:611:5)
+    at strict.doesNotThrow (node:assert:779:32)
+    at TestContext.<anonymous> (/mnt/c/work/git/_Snoworca/ProjectMaster-issue2-20260916/server/src/services/RetainedTerminalAuthority.test.ts:2872:12)
+[SessionManager] Headless terminal degraded (queue-overflow) for session throwing-policy-settler-isolated: Headless output queue overflow (observe): chunk-limit
+[SessionManager] All CWD watchers stopped
+[Session pending-semantic-write-settlement] Idle detection upgraded to osc133 mode
+✔ RED reviewer — throwing policy settler cannot abort degradation settlement or current legacy delivery (108.677827ms)
+[SessionManager] Headless terminal degraded (write) for session pending-semantic-write-settlement: forced queued semantic settlement failure
+[SessionManager] All CWD watchers stopped
+✔ RED reviewer — headless write failure settles failed and later queued semantic records exactly once (84.067493ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 52
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9625.925767

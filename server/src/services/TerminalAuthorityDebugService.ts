@@ -63,6 +63,18 @@ export interface TerminalAuthorityDebugProductionAdapter {
   beginPromotion(sessionId: string): MaybePromise<{ ok: boolean; reason?: string }>;
   beginRollback(sessionId: string, reason?: string): MaybePromise<{ ok: boolean; reason?: string }>;
   getAuthorityState?(sessionId: string): TerminalAuthorityState | undefined;
+  /**
+   * Diagnostic only. The per-view frame pumps a stalled terminal delivery is waiting on:
+   * `pendingTerminalDeliveryCount` says a delivery is stuck, this says WHAT it is stuck on.
+   * Optional so implementations without frame pumps are unaffected.
+   */
+  getFramePumpState?(sessionId: string): readonly {
+    viewKey: string;
+    sending: boolean;
+    failed: boolean;
+    queuedFrames: number;
+    hasInFlight: boolean;
+  }[] | undefined;
   getState?(sessionId: string): TerminalAuthorityState | undefined;
   getAuthorityAuditTrail?(sessionId: string, limit?: number): unknown;
   getAudit?(sessionId: string): unknown;
@@ -281,7 +293,33 @@ export function createProductionTerminalAuthorityDebugRuntime(
               authorityState: {
                 mode: authorityState.mode,
                 heldPostBoundaryCount: authorityState.heldPostBoundaryCount,
+                // The quantity beginPromotion's drain awaits. Non-zero here means a
+                // promotion attempt on this session will block until those records settle.
+                // Omitted rather than reported as undefined when the authority does not
+                // supply it, so the pinned inventory shape is unchanged for callers that
+                // predate the field.
+                ...(typeof authorityState.pendingLegacyBrowserOutputCount === 'number'
+                  ? { pendingLegacyBrowserOutputCount: authorityState.pendingLegacyBrowserOutputCount }
+                  : {}),
+                // The other thing beginPromotion waits on: its responder-disable boundary is
+                // queued on the serialised terminal-delivery chain, behind everything already
+                // there. Depth says how many are ahead; age says whether the head is stuck.
+                ...(typeof authorityState.pendingTerminalDeliveryCount === 'number'
+                  ? { pendingTerminalDeliveryCount: authorityState.pendingTerminalDeliveryCount }
+                  : {}),
+                ...(authorityState.oldestPendingTerminalDeliveryAgeMs !== undefined
+                  ? { oldestPendingTerminalDeliveryAgeMs: authorityState.oldestPendingTerminalDeliveryAgeMs }
+                  : {}),
               },
+            } : {}),
+            ...(options.authority.getFramePumpState ? {
+              // What the stalled delivery is actually waiting on, rather than another count
+              // of how long it has waited. `sending` with `hasInFlight` means a send callback
+              // that never fired; `failed` means the pump is dead and the queue behind it is
+              // orphaned; an empty array while deliveries pend means the pump was removed or
+              // replaced while a frame was in flight -- the one exit in enqueueSettledViewFrame
+              // that returns without resolving.
+              framePumps: options.authority.getFramePumpState(sessionId) ?? [],
             } : {}),
             ...(options.router ? {
               attachedResponderViewCount:

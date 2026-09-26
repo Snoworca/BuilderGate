@@ -1,0 +1,15 @@
+✔ REL_BGSTAB_023_AC3_runtime_config_carries_an_independent_checkpoint_byte_budget (19.00961ms)
+✔ REL_BGSTAB_023_AC3_absent_checkpoint_budget_falls_back_to_its_own_default_not_the_hold_budget (0.32913ms)
+✔ REL_BGSTAB_023_AC3_an_out_of_range_checkpoint_budget_does_not_silently_coerce (0.502119ms)
+✔ REL_BGSTAB_023_AC5_shipped_defaults_keep_the_effective_checkpoint_budget_unchanged (0.309815ms)
+✔ REL_BGSTAB_023_AC2_the_only_production_call_site_passes_the_checkpoint_budget_separately (3.633563ms)
+✔ REL_BGSTAB_023_AC6_the_chunk_budget_deliberately_still_converges_on_the_hold_budget (2.604309ms)
+✔ REL_BGSTAB_023_AC2_checkpoint_admission_and_post_checkpoint_hold_are_governed_separately (2.097568ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 166.841023

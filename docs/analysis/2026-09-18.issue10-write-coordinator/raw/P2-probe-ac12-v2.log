@@ -1,0 +1,10 @@
+CONTROL accepted=256 reason=post-checkpoint-hold-overflow
+CONTROL CAP_FIRED_BY_NAME=true  (expected at ~256 writes)
+SUBJECT[compatibility-write] rollback={"accepted":true}
+SUBJECT[compatibility-write] accepted=20000 firstReject=undefined pendingCommands=20000 writeInFlight=true adapterWriteCalls=1 recoveries=[]
+SUBJECT[compatibility-write] retained=78.1 MiB vs byte cap 1 MiB, chunks 20000 vs chunk cap 1024
+SUBJECT[compatibility-write] BOUNDED=false
+SUBJECT[live-dispatch] rollback={"accepted":true}
+SUBJECT[live-dispatch] accepted=1024 firstReject=settlement-ledger-overflow pendingCommands=1024 writeInFlight=true adapterWriteCalls=1 recoveries=["settlement-ledger-overflow"]
+SUBJECT[live-dispatch] retained=4.0 MiB vs byte cap 1 MiB, chunks 1024 vs chunk cap 1024
+SUBJECT[live-dispatch] BOUNDED=true

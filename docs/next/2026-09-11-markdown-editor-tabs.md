@@ -223,7 +223,7 @@ npx playwright test tests/e2e/markdown-editor-appearance.spec.ts tests/e2e/markd
 E2E 를 돌리기 전에 **고아 워크스페이스를 정리한다.** 이름이 같은 워크스페이스가 쌓이면 `selectWorkspace` 가 `.first()` 로 엉뚱한 것을 골라 테스트가 죽는다.
 
 ```bash
-TOKEN=$(curl -sk -X POST https://localhost:2222/api/auth/login -H 'Content-Type: application/json' -d '{"password":"1234"}' | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).token))")
+TOKEN=$(curl -sk -X POST https://localhost:2222/api/auth/login -H 'Content-Type: application/json' -d '{"password":"$BUILDERGATE_PASSWORD"}' | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).token))")
 curl -sk https://localhost:2222/api/workspaces -H "Authorization: Bearer $TOKEN"
 ```
 

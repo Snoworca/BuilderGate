@@ -5,7 +5,7 @@
 - target app: `https://localhost:2002`
 - redirect helper: `http://localhost:2001`
 - Vite dev server: `http://localhost:2003`
-- login password: `1234`
+- login password: `$BUILDERGATE_PASSWORD`
 
 ## Automated Coverage Goals
 

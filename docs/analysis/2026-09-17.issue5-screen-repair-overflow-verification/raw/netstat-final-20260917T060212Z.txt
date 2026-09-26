@@ -1,0 +1,6 @@
+  TCP    0.0.0.0:2001           0.0.0.0:0              LISTENING       30596
+  TCP    0.0.0.0:2002           0.0.0.0:0              LISTENING       30596
+  TCP    [::]:2001              [::]:0                 LISTENING       30596
+  TCP    [::]:2002              [::]:0                 LISTENING       30596
+  TCP    [::1]:2002             [::1]:59124            ESTABLISHED     30596
+  TCP    [::1]:59124            [::1]:2002             ESTABLISHED     84860

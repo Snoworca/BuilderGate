@@ -150,8 +150,15 @@ test.describe('Initial password bootstrap', () => {
     await page.click('button[type="submit"]');
     await expect(page.locator('.workspace-screen')).toBeVisible({ timeout: 10000 });
 
-    expect(submittedBody?.password).toBe(longPassword);
-    expect(submittedBody?.confirmPassword).toBe(longPassword);
+    // The route callback above is the only writer, and TypeScript's flow
+    // analysis does not enter it, so `submittedBody` is still narrowed to
+    // its `null` initializer here. Read it back at its declared type.
+    // An annotation cannot undo this: TypeScript intersects the declared type
+    // with the narrowed initializer, so the const would be `never` too.
+    const captured = submittedBody as unknown as
+      { password?: string; confirmPassword?: string } | null;
+    expect(captured?.password).toBe(longPassword);
+    expect(captured?.confirmPassword).toBe(longPassword);
   });
 
   test('TC-2306: bootstrap token storage evicts old terminal snapshots after quota failure', async ({ page }) => {

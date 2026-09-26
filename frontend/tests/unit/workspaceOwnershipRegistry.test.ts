@@ -11,6 +11,7 @@ import * as guard from '../e2e/workspaceLeakGuard.ts';
 // fetch -- but the leak guard reads the password before calling it, so the process needs one.
 process.env.BUILDERGATE_PASSWORD ??= 'test-only-password';
 
+
 // REL-BGSTAB-001 / B2: actual guard exports, isolated fetch and real Temp files.
 type Options = { registryPath: string; runId: string; baseUrl: string; fetch: typeof fetch };
 type Proof = { url: string; method: string; status: number; body: unknown };

@@ -147,7 +147,7 @@ test('TC-REQ-FR-MDE-020-AC7-01: clicking the path copies the full path and shows
   assert.doesNotMatch(src, /'✓ Copied'|'Copied!'/);
   const metadata = readFileSync(resolve(testDir, '../../src/components/MetadataBar/MetadataRow.tsx'), 'utf8');
   assert.match(metadata, /'✓ 복사됨'/, 'the session path uses the same label');
-  assert.match(metadata, /title=\{copied \? '복사됨'/, 'the session path uses the same tooltip');
+  assert.match(metadata, /title=\{copyOutcome === 'copied' \? '복사됨'/, 'the session path uses the same tooltip');
   assert.doesNotMatch(metadata, /'✓ Copied'|'Copied!'/);
 });
 

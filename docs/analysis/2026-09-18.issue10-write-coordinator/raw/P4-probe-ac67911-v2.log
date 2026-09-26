@@ -1,0 +1,14 @@
+AC-6(i)  control same-epoch={"accepted":true}  subject older-epoch={"accepted":false,"reason":"stale-stream-epoch"}
+AC-6(i)  DISCARDED_NOT_APPLIED=true  reason=stale-stream-epoch
+AC-6(ii) sourceSeq==snapshotSeq -> {"accepted":false,"reason":"invalid-post-checkpoint-order"}
+AC-6(ii) recoveries=["invalid-post-checkpoint-order"]  writes-to-terminal=[]
+AC-6(ii) IS_DISCARD(no recovery)=false  IS_TRANSACTION_FAILURE=true
+AC-7    first={"accepted":true} nested={"accepted":false,"reason":"checkpoint-already-open"}
+AC-7    recoveries=["checkpoint-already-open"] terminalEvents=[]
+AC-7    COALESCED=false  BOTH_DESTROYED=true
+AC-11   before dispose: pendingCommands=3 writeInFlight=true timersCreated=1 timersCleared=0
+AC-11   dispose={"accepted":true} after: pendingCommands=0 disposed=true timersCleared=1
+AC-11   settlements=[{"t":"queued-1","o":"disposed","lane":"write"},{"t":"queued-2","o":"disposed","lane":"write"},{"t":"in-flight","o":"disposed","lane":"write"}]
+AC-11(i)   QUEUED_SETTLED=true
+AC-11(iii) IN_FLIGHT_SETTLED=true
+AC-11(iv)  late callback after dispose added 0 settlements (0 = no-op)

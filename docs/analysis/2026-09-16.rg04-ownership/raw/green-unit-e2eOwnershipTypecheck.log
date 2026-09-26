@@ -1,0 +1,11 @@
+✔ REL-BGSTAB-001 AC-3: the ownership E2E project references the vendored editor project (1.946365ms)
+✔ REL-BGSTAB-001 AC-3: the promotion spec declares no never-read DA1/snapshot helpers (3.635608ms)
+✔ REL-BGSTAB-001 AC-3: tsconfig.e2e-ownership.json typechecks with zero errors (7739.765537ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7831.57504

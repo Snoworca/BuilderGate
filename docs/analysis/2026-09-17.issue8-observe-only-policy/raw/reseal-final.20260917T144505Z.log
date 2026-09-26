@@ -1,0 +1,70 @@
+terminal resource consumer manifest re-seal
+  mode: WRITE (--reseal)
+  typescript: 5.9.3
+  unregistered call sites: 0
+docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json
+  sha256: a6de6ad7b59bd89bfe600c884460a21e8479e39d65fa152865213abc899ee1a6 -> e80cc457d4c30cf6d4f6b2d0c633e41018790cb7035856a6f5db8b154ed89df0
+  consumers: 81 -> 81
+  classifications: 10 -> 10
+  exact consumer tuples: unchanged
+  classifications: unchanged
+  evidence source hashes: -2 / +2
+    - server/src/services/TerminalResourcePolicy.test.ts:04dcd1f2fa7afedf3ee144505cc9fc3c03b836dfe88b24f85a2d8f796afe235f
+    - tools/wave3/terminal-resource-consumer-manifest.test.mjs:8edaabef341a2b0fca16e862bc3ded15bf458c34a3af08b2c45f66685fbd1d7b
+    + server/src/services/TerminalResourcePolicy.test.ts:0ede5a7efa89c7bb256cdfe1b33eed542c227b0953320c5fc48f629e9e14244c
+    + tools/wave3/terminal-resource-consumer-manifest.test.mjs:f43b131ae3dc4c1db23a2b9cd00e697e59fd0975b863bab93694cf17b7b2d500
+  sourceSetSha256: ef6fe4fa249318c88b5037617e9bfaf230232561f16e12a3915a10dd60f5c76c -> f87231fc438c8e95ef7eebe763566d2d5f8c6db9dc657ae1a5172bef7aac3577
+docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.lineage.json
+  semanticInventory.sha256: 624f5d33f07257369013c1a90514cb46bf876cf8c9d78f35a0e515bfab031f9b -> 624f5d33f07257369013c1a90514cb46bf876cf8c9d78f35a0e515bfab031f9b
+  semanticInventory.historicalEqualsCurrent: false -> false
+  resource decisions changed against the sealed historical manifest: -3 / +4
+    - {"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"TerminalView:xterm-constructor-hardcoded","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"terminal-runtime-construction","state":"divergent-legacy"}
+    - {"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"pty.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"divergent-legacy"}
+    - {"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"pty.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"session-generation","state":"divergent-legacy"}
+    + {"consumerId":"browser.terminal.recovery-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.checkpointMaxBytes","unit":"bytes","source":"resourceLimits.terminal.checkpointMaxBytes","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":[],"applyBoundary":"checkpoint-write-coordinator","state":"consumed"}
+    + {"consumerId":"browser.terminal.write-scheduler","category":"terminal-write-recovery-scheduler","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"terminal-runtime-construction","state":"consumed"}
+    + {"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"headless-terminal-construction","state":"consumed"}
+    + {"consumerId":"server.pty.headless-model","category":"pty-headless-model","resourceKey":"resourceLimits.terminal.scrollbackLines","unit":"lines","source":"resourceLimits.terminal.scrollbackLines","schemaVersion":"terminal-resource-policy/v1","profileVersion":"legacy-effective/v1","legacyAliases":["pty.scrollbackLines"],"applyBoundary":"session-generation","state":"consumed"}
+  classification exemption pins changed against the sealed historical manifest: -1 / +1
+    - {"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"99ca442cae983de0925938267e2a74856eba8b0587e8dccdda8381d04111dd39","reason":"Persists configuration; it is not a terminal runtime consumer."}
+    + {"path":"server/src/services/ConfigFileRepository.ts","classification":"persistence-boundary","symbol":"applyEditableValues","evidenceSignature":"function applyEditableValues","accessEvidenceSha256":"d5ee2b5e94dd56507a37f8df3f06e44f6c7b38d3a0f73a64218ec82a2d3e5678","reason":"Persists configuration; it is not a terminal runtime consumer."}
+  evidence relocated away from the sealed historical manifest: 12 decision(s)
+    browser.hidden-output|resourceLimits.terminal.hiddenOutputPolicy|visibility-decision|consumed
+      - frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#$callback:useEffect:0@127825#onOutput :: hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy :: object-option-flow
+      + frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#subscribeSessionRuntime#onOutput :: hiddenOutputPolicy: terminalLimits.hiddenOutputPolicy :: object-option-flow
+    browser.hidden-output|resourceLimits.terminal.hiddenOutputTailBytes|visibility-decision|consumed
+      - frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#$callback:useEffect:0@127825#onOutput :: hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes :: object-option-flow
+      + frontend/src/components/Terminal/TerminalContainer.tsx#TerminalContainer#subscribeSessionRuntime#onOutput :: hiddenOutputTailBytes: terminalLimits.hiddenOutputTailBytes :: object-option-flow
+    browser.snapshot.persisted-storage|resourceLimits.snapshots.tombstoneTtlMs|terminal-dispose-tombstone-check|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057#$anonymous@169494 :: tombstoneTtlMs: snapshotLimits.tombstoneTtlMs :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime#disposeTerminalRuntime :: tombstoneTtlMs: snapshotLimits.tombstoneTtlMs :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-input-count-cap|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: pendingInputMaxCount: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-settlement-ledger-cap|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: settlementLedgerMaxEntries: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|checkpoint-write-coordinator|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: postCheckpointMaxChunks: coordinatorLimits.visibleOutputMaxChunks :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-admission|consumed
+      - frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: current.output.length + 1 > limits.visibleOutputMaxChunks :: derived-control
+      + frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: current.output.length + 1 > limits.visibleOutputMaxChunks :: derived-control
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputMaxChunks|grace-output-overflow-observation|consumed
+      - frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: maxChunks: limits.visibleOutputMaxChunks :: object-option-flow
+      + frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: maxChunks: limits.visibleOutputMaxChunks :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|checkpoint-write-coordinator|consumed
+      - frontend/src/components/Terminal/TerminalView.tsx#TerminalView#$callback:useEffect:0@121057 :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow
+      + frontend/src/components/Terminal/TerminalView.tsx#TerminalView#mountTerminalRuntime :: postCheckpointMaxBytes: coordinatorLimits.visibleOutputQueueMaxBytes :: object-option-flow
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-admission|consumed
+      - frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes :: derived-control
+      + frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: current.outputBytes + messageBytes > limits.visibleOutputQueueMaxBytes :: derived-control
+    browser.terminal.recovery-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|grace-output-overflow-observation|consumed
+      - frontend/src/contexts/WebSocketContext.tsx#WebSocketProvider#bufferGraceMessage :: maxBytes: limits.visibleOutputQueueMaxBytes :: object-option-flow
+      + frontend/src/utils/terminalGraceBuffer.ts#applyGraceBufferedMessage :: maxBytes: limits.visibleOutputQueueMaxBytes :: object-option-flow
+    browser.terminal.write-scheduler|resourceLimits.terminal.visibleOutputQueueMaxBytes|browser-output-admission|consumed
+      - frontend/src/utils/terminalOutputScheduler.ts#createTerminalOutputScheduler#enqueueLegacy :: queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes :: control-guard
+      + frontend/src/utils/terminalOutputScheduler.ts#createTerminalOutputScheduler#enqueueBytesLegacy :: queuedBytes + bytes.byteLength > config.visibleOutputQueueMaxBytes :: control-guard
+  tuples whose evidence stayed put but whose AST hash moved: 6
+
+wrote both seals.

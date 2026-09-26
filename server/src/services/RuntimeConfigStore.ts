@@ -42,6 +42,7 @@ import {
   type TerminalResourcePolicyConsumerId,
   type TerminalResourcePolicyDifferenceReason,
 } from './TerminalResourcePolicy.js';
+import type { TerminalPathGateKeyName } from '../schemas/terminalPathGateKeys.js';
 import type {
   SessionManager,
   TerminalResourcePolicyHeadlessDrainBoundary,
@@ -107,10 +108,15 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'resourceLimits.clientWs.hardReconnectBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 536870912) },
   'resourceLimits.terminal.visibleOutputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.terminal.visibleOutputMaxChunks': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 65536) },
+  'resourceLimits.terminal.checkpointMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 268435456) },
   'resourceLimits.terminal.visibleFlushBudgetBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.terminal.visibleFlushFrameBudgetMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1, 100) },
   'resourceLimits.terminal.hiddenOutputPolicy': { applyScope: 'immediate', writeOnly: false },
   'resourceLimits.terminal.hiddenOutputTailBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(0, 16777216) },
   'resourceLimits.terminal.inputQueueMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.terminal.checkpointChunkBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
+  'resourceLimits.terminal.checkpointMaxChunks': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 65536) },
+  'resourceLimits.terminal.inputQueueMaxCount': { applyScope: 'immediate', writeOnly: false, constraints: count(1, 65536) },
   'resourceLimits.terminal.inputQueueTtlMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1, 60000) },
   'resourceLimits.terminal.transportOutboxMaxBytes': { applyScope: 'immediate', writeOnly: false, constraints: bytes(1024, 16777216) },
   'resourceLimits.terminal.transportOutboxTtlMs': { applyScope: 'immediate', writeOnly: false, constraints: ms(1, 60000) },
@@ -129,7 +135,16 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
 };
 
 const RESERVED_WAVE6_SETTING_REASON = 'Reserved outside the selected Wave6 Settings field set';
-const RESERVED_WAVE6_SETTING_KEYS = new Set<EditableSettingsKey>([
+
+// @req OPS-BGSTAB-011 AC-5
+// The editable Settings key set, derived from FIELD_SCOPES so the two cannot
+// diverge. Exported for the same reason as RESERVED_WAVE6_SETTING_KEYS.
+export const EDITABLE_SETTINGS_KEYS: readonly EditableSettingsKey[] =
+  Object.freeze(Object.keys(FIELD_SCOPES) as EditableSettingsKey[]);
+// @req OPS-BGSTAB-011 AC-5
+// The module-internal source of truth. Mutable only because a Set has no frozen
+// form; it never leaves this module.
+const RESERVED_WAVE6_SETTING_KEY_LIST: readonly EditableSettingsKey[] = Object.freeze([
   'stabilityModes.headlessQueueMode',
   'stabilityModes.wsSendMode',
   'stabilityModes.frontendRuntimeResidency',
@@ -140,11 +155,54 @@ const RESERVED_WAVE6_SETTING_KEYS = new Set<EditableSettingsKey>([
   'resourceLimits.ws.outputCoalesceWindowMs',
   'resourceLimits.terminal.visibleOutputQueueMaxBytes',
   'resourceLimits.terminal.visibleOutputMaxChunks',
+  'resourceLimits.terminal.checkpointMaxBytes',
   'resourceLimits.terminal.visibleFlushBudgetBytes',
   'resourceLimits.terminal.scrollbackLines',
-]);
+] as EditableSettingsKey[]);
+const RESERVED_WAVE6_SETTING_KEY_SET = new Set<EditableSettingsKey>(RESERVED_WAVE6_SETTING_KEY_LIST);
+
+// @req OPS-BGSTAB-011 AC-5
+// Exported so the settings inventory reconciles against the live table instead
+// of a transcription of it.
+//
+// A `ReadonlySet` is a compile-time promise only: a caller who casts the export
+// back to `Set` can `.add()` a key and permanently change which Settings fields
+// report unavailable, from any module, for the process lifetime. The export is
+// therefore a frozen view over the internal set rather than the set itself, so
+// the read-only claim survives the cast. `EDITABLE_SETTINGS_KEYS` beside it is
+// already frozen; this makes the pair consistent.
+//
+// The trade-off that buys: this object is not a `Set`. `instanceof Set` is false
+// for it, and it implements only the members `ReadonlySet` declares under the
+// current TypeScript `lib`. If that `lib` is raised to one where `ReadonlySet`
+// also declares the ES2025 composition methods (`union`, `intersection`,
+// `difference`, `isSubsetOf`, …), this cast stops type-checking and a caller
+// reaching for one of them would fail at run time today. The fix at that point
+// is to add the missing members here, not to hand out the real Set.
+export const RESERVED_WAVE6_SETTING_KEYS: ReadonlySet<EditableSettingsKey> = Object.freeze({
+  get size() {
+    return RESERVED_WAVE6_SETTING_KEY_SET.size;
+  },
+  has: (key: EditableSettingsKey) => RESERVED_WAVE6_SETTING_KEY_SET.has(key),
+  keys: () => RESERVED_WAVE6_SETTING_KEY_LIST[Symbol.iterator](),
+  values: () => RESERVED_WAVE6_SETTING_KEY_LIST[Symbol.iterator](),
+  entries: function* entries(): SetIterator<[EditableSettingsKey, EditableSettingsKey]> {
+    for (const key of RESERVED_WAVE6_SETTING_KEY_LIST) {
+      yield [key, key];
+    }
+  },
+  forEach: (
+    callback: (value: EditableSettingsKey, value2: EditableSettingsKey, set: ReadonlySet<EditableSettingsKey>) => void,
+    thisArg?: unknown,
+  ) => {
+    for (const key of RESERVED_WAVE6_SETTING_KEY_LIST) {
+      callback.call(thisArg, key, key, RESERVED_WAVE6_SETTING_KEYS);
+    }
+  },
+  [Symbol.iterator]: () => RESERVED_WAVE6_SETTING_KEY_LIST[Symbol.iterator](),
+}) as ReadonlySet<EditableSettingsKey>;
 const RESERVED_WAVE6_SETTING_REASONS = new Map<EditableSettingsKey, string>(
-  [...RESERVED_WAVE6_SETTING_KEYS].map((key) => [key, RESERVED_WAVE6_SETTING_REASON]),
+  RESERVED_WAVE6_SETTING_KEY_LIST.map((key) => [key, RESERVED_WAVE6_SETTING_REASON]),
 );
 const DEFAULT_WS_TRANSPORT_MODE: WsTransportMode = 'unified';
 /**
@@ -159,6 +217,13 @@ export interface PublicRuntimeConfig {
   terminalWireFormat: TerminalWireFormat;
   stabilityModes: Pick<StabilityModesConfig, 'frontendRuntimeResidency'>;
   resourceLimits: Pick<ResourceLimitsConfig, 'clientWs' | 'terminal' | 'snapshots' | 'workspaceRuntime'>;
+  /**
+   * SEC-BGSTAB-001: a NARROW projection, not the security subtree.
+   *
+   * Only the one switch the browser needs is published. Sending `security` wholesale would
+   * newly expose CORS configuration to the page for no reason other than convenience.
+   */
+  security: { osc52: { allowWrite: boolean } };
 }
 
 export interface RuntimeConfigStoreOptions {
@@ -270,6 +335,29 @@ export class RuntimeConfigStore {
     return structuredClone(this.capabilities);
   }
 
+  /**
+   * The effective value of every terminal-path gate key, read from this store's own live
+   * state. Two of the six have no public read-back surface -- `/api/runtime-config`
+   * publishes only `frontendRuntimeResidency` under `stabilityModes` -- and
+   * OPS-BGSTAB-012 AC-7 deliberately does not widen it, so the backup artifact reads them
+   * here instead.
+   *
+   * Declaration presence is NOT answerable from here: these values are post-parse, and zod
+   * has already filled defaults in. The caller supplies the raw config for that.
+   *
+   * @req OPS-BGSTAB-012 AC-2, AC-7
+   */
+  getTerminalPathGateKeyValues(): Record<TerminalPathGateKeyName, string> {
+    return {
+      wsTransportMode: this.wsTransportMode,
+      terminalWireFormat: this.terminalWireFormat,
+      headlessQueueMode: this.values.stabilityModes.headlessQueueMode,
+      wsSendMode: this.values.stabilityModes.wsSendMode,
+      frontendRuntimeResidency: this.values.stabilityModes.frontendRuntimeResidency,
+      hiddenOutputPolicy: this.values.resourceLimits.terminal.hiddenOutputPolicy,
+    };
+  }
+
   getPublicRuntimeConfig(inputReliabilityMode: InputReliabilityMode): PublicRuntimeConfig {
     return {
       inputReliabilityMode,
@@ -284,6 +372,18 @@ export class RuntimeConfigStore {
         snapshots: structuredClone(this.values.resourceLimits.snapshots),
         workspaceRuntime: structuredClone(this.values.resourceLimits.workspaceRuntime),
       },
+      // SEC-BGSTAB-001 AC-2: the browser must see this or a hardened deployment fails OPEN --
+      // the server would refuse OSC52 writes while the page kept allowing them, with nothing
+      // going red. Until #20 this rode along inside resourceLimits.terminal's structuredClone;
+      // now it is published deliberately.
+      // Read from the parsed source config, NOT from editable values: this switch is
+      // deliberately not Settings-editable (AC-2 says config.json5), so it has no editable
+      // entry. `security` is optional at the raw-config level, and the `?? true` is the one
+      // code-level fallback -- FAIL-OPEN BY DESIGN, matching AC-2's "writes are allowed by
+      // default". An operator who hardens a deployment writes the section explicitly.
+      security: {
+        osc52: { allowWrite: this.sourceConfig.security?.osc52.allowWrite ?? true },
+      },
     };
   }
 
@@ -297,10 +397,30 @@ export class RuntimeConfigStore {
    * server cannot recover, which REL-BGSTAB-007 AC-2 forbids.
    */
   private publicTerminalResourceLimits() {
+    const compiled = this.compileTerminalResourcePolicy();
+    const scrollback = compiled.legacyPolicy.terminal.scrollbackLines;
     const terminal = structuredClone(this.values.resourceLimits.terminal);
-    terminal.scrollbackLines = this.compileTerminalResourcePolicy()
-      .legacyPolicy.terminal.scrollbackLines.value;
-    return terminal;
+    terminal.scrollbackLines = scrollback.value;
+    // #95: the three facts an operator needs and could not previously reach.
+    //
+    // The value above has always been published; which key produced it has not, so a
+    // deployment that set only pty.scrollbackLines saw a number it could not explain and
+    // no warning that two keys disagreed. That is the incident this method's own comment
+    // describes, and it was diagnosable only by reading source.
+    //
+    // Deliberately NOT the observation object. getTerminalResourcePolicyObservation()
+    // is a pure function of config -- recordTerminalResourcePolicyDecision has zero
+    // production callers, so recentObservations is a hardcoded 34-row table re-derived at
+    // construction, and decisionStack/decisionEvidence/observationMode are literals.
+    // Publishing that under observation vocabulary would invite an operator to reason from
+    // it during an incident while it looks identical whether every consumer honours its
+    // limit or none do.
+    return {
+      ...terminal,
+      scrollbackSource: scrollback.source,
+      scrollbackLegacyAlias: scrollback.legacyAlias,
+      scrollbackSourceConflict: compiled.diagnostics.some((d) => d.code === 'source-conflict'),
+    };
   }
 
   getTerminalResourcePolicyObservation() {

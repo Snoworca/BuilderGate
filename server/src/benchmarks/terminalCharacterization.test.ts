@@ -268,7 +268,15 @@ async function assertWorkloadContract(contract: CharacterizationContract): Promi
   const result = await contract.runTerminalCharacterization({ deterministicMetrics: true });
   assert.deepEqual([...new Set(corpus.map(item => item.sessions))].sort((a, b) => a - b), [1, 8, 32, 54]);
   assert.deepEqual([...new Set(corpus.map(item => item.clients))].sort((a, b) => a - b), [1, 2, 8]);
-  assert.equal(corpus.length, 12);
+  // @req PERF-BGSTAB-012 AC-3
+  // Was 12 while visibility was derived from the session count. Now 21: the
+  // twelve single-active cells are unchanged, and nine all-active cells are
+  // added for the session counts above one. One session admits only one
+  // visibility level, so those three cells have no all-active counterpart.
+  const singleActiveCells = 4 * 3;
+  const allActiveCells = 3 * 3;
+  assert.equal(corpus.length, singleActiveCells + allActiveCells);
+  assert.equal(corpus.length, 21);
   assert.equal(corpus.every(item => item.viewMix.active + item.viewMix.hidden === item.sessions), true);
   assert.equal(result.rawSamples.every(sample => sample.workloadManifestRef === result.manifest.workloadManifestId), true);
   const slowSamples = result.rawSamples.filter(sample => sample.mode === 'ONE_CLIENT_SLOW');

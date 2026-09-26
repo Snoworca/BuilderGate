@@ -1,0 +1,9 @@
+ M docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/retained-shadow-parity.json
+ M tools/wave3/retained-shadow-parity.test.mjs
+?? docs/analysis/2026-09-18.issue11-authority-shadow/08.parity-guard-discrimination.md
+?? docs/analysis/2026-09-18.issue12-authority-promotion/
+b68df22c4400363362a80494c95bba8348522aee38dc1431e95b76185002b772  docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/retained-shadow-parity.json
+05eb51c5640fddb621760e6eef1019af8d315ca02a3865197814dd56d2a91b1b  server/src/services/RetainedTerminalAuthority.test.ts
+41286128acbfc5a6b135dace0c0ec2dde932d15b3ec2a02aca90a9a9037fe34c  tools/wave3/retained-shadow-parity.test.mjs
+ M docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/retained-shadow-parity.json
+?? docs/analysis/2026-09-18.issue12-authority-promotion/

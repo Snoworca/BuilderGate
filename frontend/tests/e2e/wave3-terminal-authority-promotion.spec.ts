@@ -17,6 +17,11 @@ import {
   runCleanupAttemptSequence,
 } from '../support/terminalAuthorityDiagnostics.ts';
 
+import { requiresWindowsShell } from './windowsShellGate';
+
+// Issue #85: this spec cannot produce evidence off win32.
+requiresWindowsShell(test, "creates sessions with shell: 'powershell'");
+
 const AUTHORITY_WORKSPACE_PREFIX = `PH5A-${Date.now().toString(36)}-`;
 // Reuse only this page's successful creation; cleanup authority stays in the registry.
 const ownedAuthorityWorkspaces = new WeakMap<Page, { id: string; name: string }>();
