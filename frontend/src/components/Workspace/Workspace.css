@@ -100,6 +100,8 @@
 }
 
 .workspace-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -121,6 +123,21 @@
   color: var(--fg-strong);
   font-family: inherit;
   font-size: var(--fs-sm);
+}
+
+/* FR-UIDS-005 AC-2: the activity dot left of the name. Grey while every
+ * session waits, green (--ok) while any of them runs. */
+.workspace-item-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--fg-faint);
+}
+
+.workspace-item-dot.is-running {
+  background: var(--ok);
 }
 
 /* How many of the workspace's terminals are running. Amber rather than green:

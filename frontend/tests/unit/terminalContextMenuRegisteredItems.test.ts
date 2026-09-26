@@ -187,7 +187,7 @@ test('terminal context menu exposes move-to-workspace item and preserves disable
     },
   });
 
-  const moveItem = enabledItems.find(item => !item.separator && item.label === '워크스페이스 이동');
+  const moveItem = enabledItems.find(item => !item.separator && item.label === 'Workspace 이동');
   assert.ok(moveItem && !moveItem.separator);
   assert.equal(moveItem.disabled, false);
   moveItem.onClick?.();
@@ -210,7 +210,7 @@ test('terminal context menu exposes move-to-workspace item and preserves disable
     },
   });
 
-  const disabledMoveItem = disabledItems.find(item => !item.separator && item.label === '워크스페이스 이동');
+  const disabledMoveItem = disabledItems.find(item => !item.separator && item.label === 'Workspace 이동');
   assert.ok(disabledMoveItem && !disabledMoveItem.separator);
   assert.equal(disabledMoveItem.disabled, true);
   assert.equal(typeof disabledMoveItem.onClick, 'function');

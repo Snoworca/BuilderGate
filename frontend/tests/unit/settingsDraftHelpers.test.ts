@@ -82,7 +82,7 @@ test('validates local numeric capability constraints without clamping values', (
   // FR-UIDS-003: the message names the field, the rule it breaks and the value it holds now.
   assert.ok(errors.includes('헤드리스 대기 출력 크기: 정수를 입력하세요. 지금 값은 비어 있습니다.'), errors.join('\n'));
   assert.ok(errors.includes('스냅샷 최대 개수: 1개 이상이어야 합니다. 지금 값은 0개입니다.'), errors.join('\n'));
-  assert.ok(errors.includes('동시에 유지할 워크스페이스 수: 10개 이하여야 합니다. 지금 값은 11개입니다.'), errors.join('\n'));
+  assert.ok(errors.includes('동시에 유지할 Workspace 수: 10개 이하여야 합니다. 지금 값은 11개입니다.'), errors.join('\n'));
   assert.equal(draft.resourceLimits.snapshots.maxEntries, 0);
 });
 

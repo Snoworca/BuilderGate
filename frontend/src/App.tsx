@@ -1072,8 +1072,8 @@ function AppContent() {
       {/* Confirm delete workspace */}
       {pendingDeleteWorkspace && (
         <ConfirmModal
-          title="워크스페이스 삭제"
-          message={`터미널 ${pendingDeleteTabCount}개가 모두 종료됩니다. 이 워크스페이스를 삭제할까요?`}
+          title="Workspace 삭제"
+          message={`터미널 ${pendingDeleteTabCount}개가 모두 종료됩니다. 이 Workspace를 삭제할까요?`}
           confirmLabel="모두 삭제"
           destructive
           onConfirm={handleConfirmDeleteWorkspace}

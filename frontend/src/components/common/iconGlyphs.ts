@@ -46,7 +46,9 @@ export type IconName =
   | 'plug'
   | 'external'
   | 'download'
-  | 'command';
+  | 'command'
+  | 'swap'
+  | 'clipboard';
 
 export interface IconGlyph {
   /** SVG path data on the 24x24 viewBox, drawn in order. */
@@ -345,6 +347,22 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
     paths: [
       'M5 7l5 5-5 5',
       'M13 17h6',
+    ],
+  },
+  // Two arrows passing each other: move something across to another place.
+  swap: {
+    paths: [
+      'M4 8h14',
+      'M15 5l3 3-3 3',
+      'M20 16H6',
+      'M9 13l-3 3 3 3',
+    ],
+  },
+  // A clipboard with its clip: paste.
+  clipboard: {
+    paths: [
+      'M9 5H7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2V7a2 2 0 0 0 -2 -2h-2',
+      'M10 3h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1V4a1 1 0 0 1 1 -1z',
     ],
   },
 };

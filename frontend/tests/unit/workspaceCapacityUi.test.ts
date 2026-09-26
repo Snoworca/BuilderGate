@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { buildWorkspaceMoveTargets } from '../../src/components/Workspace/workspaceMoveTargets.ts';
 import { TAB_COLORS } from '../../src/types/workspace.ts';
 import { getRecoveryIconLabel } from '../../src/types/recoveryOption.ts';
+import { workspaceActivity } from '../../src/components/Workspace/workspaceActivity.ts';
 
 // Execute existing component render logic with real React elements and inert
 // unrelated hooks. This verifies capacity-dependent props, not browser layout.
@@ -116,7 +117,7 @@ const tabBar = component('../../src/components/Workspace/WorkspaceTabBar.tsx', '
 const workspaceItem = component('../../src/components/Workspace/WorkspaceItem.tsx', 'WorkspaceItem', {
   useState: (initial: unknown) => [initial, noop], useRef: (initial: unknown) => ({ current: initial }), useEffect: noop,
   useContextMenu: () => ({ isOpen: true, targetId: 'target', position: { x: 10, y: 20 }, open: noop, close: noop }),
-  ContextMenu: 'context-menu',
+  ContextMenu: 'context-menu', workspaceActivity,
 });
 const capacityTabs = (count: number) => Array.from({ length: count }, (_, index) => ({
   id: `tab-${index}`, sessionId: `session-${index}`, workspaceId: 'target', name: `Terminal ${index}`,

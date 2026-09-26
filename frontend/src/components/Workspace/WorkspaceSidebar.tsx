@@ -80,14 +80,14 @@ export function WorkspaceSidebar({
   return (
     <div className="workspace-sidebar">
       <div className="workspace-sidebar-header">
-        <span className="workspace-sidebar-title">워크스페이스</span>
+        <span className="workspace-sidebar-title">Workspaces</span>
         <button
           type="button"
           className="workspace-sidebar-add"
           onClick={onCreate}
           disabled={isLimitReached}
-          aria-label="워크스페이스 추가"
-          title={isLimitReached ? `워크스페이스는 최대 ${maxWorkspaces}개까지 만들 수 있습니다` : '워크스페이스 추가'}
+          aria-label="Workspace 추가"
+          title={isLimitReached ? `Workspace는 최대 ${maxWorkspaces}개까지 만들 수 있습니다` : 'Workspace 추가'}
         >
           <Icon name="plus" size={16} />
         </button>

@@ -3,6 +3,7 @@ import type { Workspace } from '../../types/workspace';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
+import { workspaceActivity } from './workspaceActivity.ts';
 import './Workspace.css';
 
 interface Props {
@@ -29,6 +30,7 @@ export function WorkspaceItem({
   const [editName, setEditName] = useState(workspace.name);
   const inputRef = useRef<HTMLInputElement>(null);
   const ctx = useContextMenu();
+  const activity = workspaceActivity(runningCount);
 
   useEffect(() => {
     if (editing) inputRef.current?.focus();
@@ -60,6 +62,13 @@ export function WorkspaceItem({
         onDoubleClick={() => { setEditName(workspace.name); setEditing(true); }}
         {...dragHandlers}
       >
+        {/* FR-UIDS-005 AC-2: green while any of its sessions runs, grey otherwise. */}
+        <span
+          className={`workspace-item-dot${activity.running ? ' is-running' : ''}`}
+          role="img"
+          aria-label={activity.label}
+          title={activity.label}
+        />
         {editing ? (
           <input
             ref={inputRef}

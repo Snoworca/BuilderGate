@@ -20,7 +20,7 @@ interface WorkspaceMoveDialogProps {
 }
 
 function reasonLabel(target: WorkspaceMoveTarget): string {
-  if (target.reason === 'current') return '현재 워크스페이스';
+  if (target.reason === 'current') return '현재 Workspace';
   if (target.reason === 'full') return '탭이 가득 참';
   return '';
 }
@@ -50,7 +50,7 @@ export function WorkspaceMoveDialog({
   return (
     <WindowDialog
       dialogId="workspace-move-dialog"
-      title="워크스페이스 이동"
+      title="Workspace 이동"
       mode="modal"
       defaultRect={{ x: 240, y: 120, width: 440, height: 460 }}
       minSize={{ width: 360, height: 320 }}
@@ -62,7 +62,7 @@ export function WorkspaceMoveDialog({
     >
       <div className="workspace-move-dialog">
         <p className="workspace-move-description">
-          이 탭을 옮길 워크스페이스를 고르세요. 누르는 즉시 옮겨지며, 탭에서 실행 중인 세션은 그대로 이어집니다.
+          이 탭을 옮길 Workspace를 고르세요. 누르는 즉시 옮겨지며, 탭에서 실행 중인 세션은 그대로 이어집니다.
         </p>
         <div className="workspace-move-targets">
           {targets.map((target) => (

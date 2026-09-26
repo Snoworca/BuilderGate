@@ -62,7 +62,7 @@ export function buildTerminalContextMenuItems(
     availableShells && availableShells.length > 1
       ? {
           label: '새 세션',
-          icon: '+',
+          icon: 'plus',
           disabled: tabs.length >= maxTabs,
           children: [
             {
@@ -86,7 +86,7 @@ export function buildTerminalContextMenuItems(
         }
       : {
           label: '새 세션',
-          icon: '+',
+          icon: 'plus',
           disabled: tabs.length >= maxTabs,
           onClick: () => onAddTab(tab?.cwd),
         };
@@ -95,15 +95,15 @@ export function buildTerminalContextMenuItems(
     newSessionItem,
     {
       label: '세션 닫기',
-      icon: '✕',
+      icon: 'close',
       destructive: true,
       onClick: onCloseTab,
     },
     ...(moveWorkspace
       ? [
           {
-            label: '워크스페이스 이동',
-            icon: '⇄',
+            label: 'Workspace 이동',
+            icon: 'swap',
             disabled: moveWorkspace.disabled,
             onClick: () => {
               if (!moveWorkspace.disabled) {
@@ -117,6 +117,7 @@ export function buildTerminalContextMenuItems(
       ? [
           {
             label: '파일 탐색기 열기',
+            icon: 'folder',
             onClick: onOpenFileExplorer,
           } satisfies ContextMenuItem,
         ]
@@ -124,7 +125,7 @@ export function buildTerminalContextMenuItems(
     { separator: true },
     {
       label: '복사',
-      icon: '⎘',
+      icon: 'copy',
       disabled: !hasSelection,
       onClick: () => {
         void onCopy();
@@ -132,7 +133,7 @@ export function buildTerminalContextMenuItems(
     },
     {
       label: '붙여넣기',
-      icon: '⎗',
+      icon: 'clipboard',
       onClick: () => {
         void onPaste();
       },
@@ -178,6 +179,7 @@ export function buildRegisteredPresetContextMenuItem(
 
   return {
     label: '등록 항목 붙여넣기',
+    icon: 'command',
     children: categoryItems,
   };
 }

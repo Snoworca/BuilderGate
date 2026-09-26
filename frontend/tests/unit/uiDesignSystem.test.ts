@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { ICON_GLYPHS, isIconName } from '../../src/components/common/iconGlyphs.ts';
 import {
@@ -242,7 +242,7 @@ const TEXT_MARK = /✓(?= [\uac00-\ud7a3])/gu;
 const VENDORED_PALETTE = /--atomic-editor-[a-z0-9-]+\s*:\s*#[0-9a-fA-F]{3,8}\b/g;
 
 /** Proper nouns, commands and paths that stay as written (FR-UIDS-003 AC-1). */
-const ENGLISH_ALLOWED = /^(BuilderGate|Claude|Codex|Hermes|OpenCode|MCP|ConPTY|TERM|CORS|PowerShell|cmd|bash|zsh|WSL|JWT|TOTP|OTP|IP|URL|HTTP|HTTPS|SSH|PTY|ID|OK|AI|CLI|API|UUID|Ctrl|Shift|Alt|Enter|Esc|Tab|x|X|\s|[0-9.:/_\\+\-()[\]{}%·,|…])+$/;
+const ENGLISH_ALLOWED = /^(BuilderGate|Workspaces?|Claude|Codex|Hermes|OpenCode|MCP|ConPTY|TERM|CORS|PowerShell|cmd|bash|zsh|WSL|JWT|TOTP|OTP|IP|URL|HTTP|HTTPS|SSH|PTY|ID|OK|AI|CLI|API|UUID|Ctrl|Shift|Alt|Enter|Esc|Tab|x|X|\s|[0-9.:/_\\+\-()[\]{}%·,|…])+$/;
 
 function src(relativePath: string): string {
   return readFileSync(new URL(`../../src/${relativePath}`, import.meta.url), 'utf8');
@@ -287,4 +287,21 @@ test('guard FR-UIDS-003 AC-1: user-facing strings in migrated files are Korean',
       assert.ok(ENGLISH_ALLOWED.test(m[1]), `${file}: text "${m[1]}" is not Korean`);
     }
   }
+});
+
+test('guard FR-UIDS-003 AC-1: the product term Workspace is written in English, not transliterated', () => {
+  const root = new URL('../../src/', import.meta.url);
+  const offenders: string[] = [];
+  for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || !/\.tsx?$/.test(entry.name)) continue;
+    const dir = (entry as unknown as { parentPath?: string; path?: string }).parentPath
+      ?? (entry as unknown as { path: string }).path;
+    const file = `${dir}/${entry.name}`.replace(/\/+/g, '/');
+    // Comments may say 워크스페이스; only what reaches the screen is checked.
+    const code = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    code.split('\n').forEach((line, index) => {
+      if (line.includes('워크스페이스')) offenders.push(`${file.slice(file.indexOf('/src/') + 5)}:${index + 1}`);
+    });
+  }
+  assert.deepEqual(offenders, [], `워크스페이스 still shown in: ${offenders.join(', ')}`);
 });

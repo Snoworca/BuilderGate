@@ -1,35 +1,36 @@
 // FR-AITUI-008 / FR-AITUI-009 — resuming a saved agent session after BuilderGate
 // restarts.
 //
-// A restart cannot happen inside one Playwright run, so this spec has two phases
-// and runs only when BUILDERGATE_E2E_RESTORE_PHASE names one of them:
+// The restart happens in the middle of this one test, and the operator makes it,
+// never the test: after the save the test prints a line and waits until /health
+// reports a different server pid. One run keeps the workspace inside that run's
+// ownership registry, so it is created and removed by the owned-workspace helpers
+// like any other spec's (B2 ownership inventory); a workspace cannot be handed
+// from one run to the next, by design.
 //
-//   1. BUILDERGATE_E2E_RESTORE_PHASE=prepare  — make an AI tab, save its session
-//   2. restart the 2222 server (the operator does this, never the test)
-//   3. BUILDERGATE_E2E_RESTORE_PHASE=resume   — banner, review, resume, clean up
+// It runs only with BUILDERGATE_E2E_RESTORE_WITH_RESTART=1, so an ordinary run
+// never sits waiting for a restart that is not coming. The wait is
+// BUILDERGATE_E2E_RESTART_WAIT_MS (10 minutes by default).
 //
-// Without the variable both tests skip, so an ordinary run never leaves state
-// behind for a restart that is not coming.
+// As in session-save.spec.ts no real agent runs: a recovery option whose command
+// contains `claude` makes the tab an AI tab, and the Claude session record the
+// save reads is written into the fixture home the server was started with
+// (BUILDERGATE_AGENT_CLAUDE_HOME). The server started after the restart does not
+// need it: resuming reads only the saved snapshot.
 //
-// As in session-save.spec.ts no real agent runs: a recovery option whose
-// command contains `claude` makes the tab an AI tab, and the Claude session
-// record the save reads is written into the fixture home the server was started
-// with (BUILDERGATE_AGENT_CLAUDE_HOME).
-//
-// Fixture, owned by id and handed from the first phase to the second through
-// <agent home>/restore-state.json:
-//   * one workspace, created by a direct POST and deleted by that response's id
-//     in the resume phase. It is not put in the run registry on purpose: the
-//     run teardown would delete it before the restart.
-//   * one recovery option e2e-recovery-claude-<stamp>, removed in resume
-//   * the server's session snapshot — a save replaces it — discarded in resume
+// Fixture:
+//   * one workspace created through createOwnedWorkspaceViaApi and removed by id
+//   * one recovery option named e2e-recovery-claude-<stamp>, removed afterwards
+//   * one file <agent home>/claude/sessions/<pid>.json, removed after the save
+//   * the server's session snapshot — a save replaces it — discarded afterwards
 
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { test, expect, type APIRequestContext } from './workspaceOwnershipFixture';
+import { test, expect, createOwnedWorkspaceViaApi, type APIRequestContext } from './workspaceOwnershipFixture';
+import { cleanupOwnedWorkspaces, type RegistryOptions } from './workspaceLeakGuard';
 import {
   clearRecoveryOptionsForE2E,
   createRecoveryOptionViaApi,
@@ -40,17 +41,13 @@ import {
 } from './helpers';
 
 const ORIGIN = 'https://localhost:2222';
-const PHASE = process.env.BUILDERGATE_E2E_RESTORE_PHASE ?? '';
+const RESTART_ENABLED = process.env.BUILDERGATE_E2E_RESTORE_WITH_RESTART === '1';
+const RESTART_WAIT_MS = Number(process.env.BUILDERGATE_E2E_RESTART_WAIT_MS ?? 600_000);
 const AGENT_HOME = process.env.BUILDERGATE_E2E_AGENT_HOME ?? path.join(os.tmpdir(), 'buildergate-e2e-agents');
 const CLAUDE_SESSIONS = path.join(AGENT_HOME, 'claude', 'sessions');
-const STATE_FILE = path.join(AGENT_HOME, 'restore-state.json');
 
-interface RestoreState {
-  workspaceId: string;
-  workspaceName: string;
-  tabId: string;
-  sessionId: string;
-  optionCommand: string;
+function registryOptions(): RegistryOptions {
+  return { registryPath: process.env.BUILDERGATE_E2E_RUN_DIR ?? '', runId: process.env.BUILDERGATE_E2E_RUN_ID ?? '', baseUrl: ORIGIN };
 }
 
 function authHeaders(token: string): Record<string, string> {
@@ -69,41 +66,35 @@ async function tabRecord(request: APIRequestContext, token: string, tabId: strin
   return body.tabs.find((item) => item.id === tabId);
 }
 
-async function deleteWorkspaceById(request: APIRequestContext, token: string, workspaceId: string): Promise<void> {
-  // Tabs first: on Windows a workspace delete can race its own PTY teardown.
-  const response = await request.get(`${ORIGIN}/api/workspaces`, { headers: authHeaders(token) });
-  const body = await response.json() as { tabs: Array<{ id: string; workspaceId: string }> };
-  for (const tab of body.tabs.filter((item) => item.workspaceId === workspaceId)) {
-    await request.delete(`${ORIGIN}/api/workspaces/${workspaceId}/tabs/${tab.id}`, { headers: authHeaders(token) });
-  }
-  const deleted = await request.delete(`${ORIGIN}/api/workspaces/${workspaceId}`, { headers: authHeaders(token) });
-  expect([200, 204, 404]).toContain(deleted.status());
+async function serverPid(request: APIRequestContext): Promise<number | null> {
+  const response = await request.get(`${ORIGIN}/health`).catch(() => null);
+  if (!response || !response.ok()) return null;
+  const body = await response.json() as { pid?: unknown };
+  return typeof body.pid === 'number' ? body.pid : null;
 }
 
 test.describe('세션 이어하기 (재시작 사이)', () => {
   test.use({ baseURL: ORIGIN, ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 }, isMobile: false });
 
-  test('준비: AI 탭의 세션을 저장한다', async ({ page, request }, testInfo) => {
-    test.skip(PHASE !== 'prepare', 'set BUILDERGATE_E2E_RESTORE_PHASE=prepare');
+  test('재시작 뒤 배너에서 검토하고 저장한 세션을 이어한다', async ({ page, request }, testInfo) => {
+    test.skip(!RESTART_ENABLED, 'set BUILDERGATE_E2E_RESTORE_WITH_RESTART=1 and restart the 2222 server when the test asks');
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop project only');
-    test.setTimeout(120000);
-    expect(existsSync(STATE_FILE), `${STATE_FILE} is left from an earlier prepare; run the resume phase first`).toBe(false);
+    test.setTimeout(RESTART_WAIT_MS + 180_000);
 
-    const stamp = Date.now();
-    const optionCommand = `e2e-recovery-claude-${stamp}`;
+    const ownerId = `session-restore/${testInfo.testId}/${testInfo.retry}/${randomUUID()}`;
+    const optionCommand = `e2e-recovery-claude-${Date.now()}`;
     const sessionId = randomUUID();
     const recordFile = path.join(CLAUDE_SESSIONS, `${process.pid}.json`);
 
     await login(page);
-    const token = await readToken(page);
+    let token = await readToken(page);
     const workspaceName = `e2e-restore-${randomUUID().slice(0, 8)}`;
-    const createdWorkspace = await request.post(`${ORIGIN}/api/workspaces`, { headers: authHeaders(token), data: { name: workspaceName } });
-    expect(createdWorkspace.status()).toBe(201);
-    const workspaceId = (await createdWorkspace.json() as { id: string }).id;
-    let handedOver = false;
+    const workspace = await createOwnedWorkspaceViaApi(request, registryOptions(), ownerId, {
+      headers: authHeaders(token), data: { name: workspaceName },
+    });
 
     try {
-      const createdTab = await request.post(`${ORIGIN}/api/workspaces/${workspaceId}/tabs`, {
+      const createdTab = await request.post(`${ORIGIN}/api/workspaces/${workspace.id}/tabs`, {
         headers: authHeaders(token), data: { name: 'e2e-restore-agent' },
       });
       expect(createdTab.status()).toBe(201);
@@ -122,7 +113,6 @@ test.describe('세션 이어하기 (재시작 사이)', () => {
       const cwd = (await cwdResponse.json() as { cwd: string }).cwd;
       mkdirSync(CLAUDE_SESSIONS, { recursive: true });
       writeFileSync(recordFile, JSON.stringify({ pid: process.pid, sessionId, cwd, startedAt: Date.now(), kind: 'interactive' }));
-
       try {
         const saved = await request.post(`${ORIGIN}/api/session-snapshot`, { headers: authHeaders(token), data: { tabIds: [tabId] } });
         expect(saved.status()).toBe(200);
@@ -132,41 +122,35 @@ test.describe('세션 이어하기 (재시작 사이)', () => {
         rmSync(recordFile, { force: true });
       }
 
-      const state: RestoreState = { workspaceId, workspaceName, tabId, sessionId, optionCommand };
-      writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-      handedOver = true;
-    } finally {
-      if (!handedOver) {
-        await request.delete(`${ORIGIN}/api/session-snapshot`, { headers: authHeaders(token) });
-        await clearRecoveryOptionsForE2E(page);
-        await ensureDefaultRecoveryOptionsForE2E(page);
-        await deleteWorkspaceById(request, token, workspaceId);
-      }
-    }
-  });
+      // The operator restarts the server here.
+      const before = await serverPid(request);
+      expect(before, '/health reports the server pid').not.toBeNull();
+      console.log(`[session-restore] snapshot saved; restart the 2222 server now (pid ${before})`);
+      await expect.poll(async () => {
+        const pid = await serverPid(request);
+        return pid !== null && pid !== before;
+      }, { timeout: RESTART_WAIT_MS, intervals: [2000] }).toBe(true);
 
-  test('이어하기: 재시작 뒤 배너에서 검토하고 저장한 세션을 이어한다', async ({ page, request }, testInfo) => {
-    test.skip(PHASE !== 'resume', 'set BUILDERGATE_E2E_RESTORE_PHASE=resume after restarting the server');
-    test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop project only');
-    test.setTimeout(120000);
-    const state = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as RestoreState;
+      // A token may or may not outlive the restart; take whichever screen comes.
+      await page.goto('/');
+      const passwordInput = page.locator('input[type="password"]');
+      await expect(passwordInput.or(page.locator('.workspace-screen'))).toBeVisible({ timeout: 30000 });
+      if (await passwordInput.isVisible()) await login(page);
+      token = await readToken(page);
 
-    await login(page);
-    const token = await readToken(page);
-    try {
       // AC-3: saved sessions wait behind a banner, the shells are already open.
       const banner = page.locator('.session-restore-banner');
       await expect(banner).toContainText('지난번 저장한 AI 세션', { timeout: 20000 });
       await expect(page.getByRole('button', { name: /^저장된 세션 \d+개 이어하기$/ })).toBeVisible();
-      const before = await request.get(`${ORIGIN}/api/session-snapshot`, { headers: authHeaders(token) });
-      const beforeBody = await before.json() as { restorable: boolean; snapshot: { entries: Array<{ tabId: string; restore: string }> } };
-      expect(beforeBody.restorable).toBe(true);
-      expect(beforeBody.snapshot.entries.find((entry) => entry.tabId === state.tabId)?.restore).toBe('pending');
+      const pending = await request.get(`${ORIGIN}/api/session-snapshot`, { headers: authHeaders(token) });
+      const pendingBody = await pending.json() as { restorable: boolean; snapshot: { entries: Array<{ tabId: string; restore: string }> } };
+      expect(pendingBody.restorable, 'a snapshot from before the restart is offered').toBe(true);
+      expect(pendingBody.snapshot.entries.find((entry) => entry.tabId === tabId)?.restore).toBe('pending');
 
-      // The auto recovery command did not run over the pending tab (FR-AITUI-008 AC-3).
-      await page.locator('.sidebar [role="option"]', { hasText: state.workspaceName }).first().click();
+      // The auto recovery command did not run over the pending tab (FR-AITUI-008 AC-1).
+      await page.locator('.sidebar [role="option"]', { hasText: workspaceName }).first().click();
       await waitForTerminal(page);
-      await expect(page.locator('.xterm-screen:visible').first()).not.toContainText(`${state.optionCommand} --continue`);
+      await expect(page.locator('.xterm-screen:visible').first()).not.toContainText(`${optionCommand} --continue`);
 
       await banner.getByRole('button', { name: '검토하고 이어하기' }).click();
       const dialog = page.locator('.window-dialog').filter({ has: page.locator('.session-save-dialog') });
@@ -174,30 +158,30 @@ test.describe('세션 이어하기 (재시작 사이)', () => {
       // AC-4: the exact id is checked by default and the command is shown before it runs.
       const row = dialog.locator('.ui-row', { hasText: 'e2e-restore-agent' });
       await expect(row).toContainText('정확한 ID');
-      await expect(row).toContainText(`${state.optionCommand} --resume ${state.sessionId}`);
+      await expect(row).toContainText(`${optionCommand} --resume ${sessionId}`);
       await expect(row.getByRole('checkbox')).toBeChecked();
       await page.screenshot({ path: '../.playwright-mcp/session-restore-review.png' });
 
-      // A save replaces the snapshot, so the prepare phase left this tab as its only entry.
+      // A save replaces the snapshot, so this tab is its only entry.
       await dialog.getByRole('button', { name: /^선택한 1개 이어하기$/ }).click();
       await expect(row).toContainText('이어함', { timeout: 20000 });
-
       const after = await request.get(`${ORIGIN}/api/session-snapshot`, { headers: authHeaders(token) });
       const afterBody = await after.json() as { snapshot: { entries: Array<{ tabId: string; restore: string }> } };
-      expect(afterBody.snapshot.entries.find((entry) => entry.tabId === state.tabId)?.restore).toBe('restored');
+      expect(afterBody.snapshot.entries.find((entry) => entry.tabId === tabId)?.restore).toBe('restored');
 
       // The resume command reaches the tab's shell (FR-AITUI-008 AC-4). PowerShell
       // gets each argument quoted ('--resume' '<id>'), a POSIX shell does not.
       await dialog.locator('.ui-dialog-footer').getByRole('button', { name: '닫기' }).click();
       await expect(page.locator('.xterm-screen:visible').first())
-        .toContainText(new RegExp(`${state.optionCommand} '?--resume'? '?${state.sessionId}`), { timeout: 20000 });
+        .toContainText(new RegExp(`${optionCommand} '?--resume'? '?${sessionId}`), { timeout: 20000 });
       await page.screenshot({ path: '../.playwright-mcp/session-restore-resumed.png' });
     } finally {
+      rmSync(recordFile, { force: true });
       await request.delete(`${ORIGIN}/api/session-snapshot`, { headers: authHeaders(token) });
       await clearRecoveryOptionsForE2E(page);
       await ensureDefaultRecoveryOptionsForE2E(page);
-      await deleteWorkspaceById(request, token, state.workspaceId);
-      rmSync(STATE_FILE, { force: true });
+      const cleanup = await cleanupOwnedWorkspaces({ ...registryOptions(), ownerId });
+      if (cleanup.failed.length) throw new Error(`owned workspace cleanup failed: ${JSON.stringify(cleanup.failed)}`);
     }
   });
 });

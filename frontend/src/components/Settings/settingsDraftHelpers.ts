@@ -76,7 +76,7 @@ export const WAVE6_RESOURCE_LIMIT_GROUPS: ResourceLimitGroupDefinition[] = [
   {
     title: '실행 유지 한도',
     fields: [
-      { key: 'resourceLimits.workspaceRuntime.maxLiveWorkspaces', label: '동시에 유지할 워크스페이스 수', control: 'number' },
+      { key: 'resourceLimits.workspaceRuntime.maxLiveWorkspaces', label: '동시에 유지할 Workspace 수', control: 'number' },
       { key: 'resourceLimits.workspaceRuntime.maxLiveTerminals', label: '동시에 유지할 터미널 수', control: 'number' },
       { key: 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', label: '숨긴 런타임 유지 시간', control: 'number' },
     ],

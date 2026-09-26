@@ -122,7 +122,7 @@ const MODAL_CASES: ModalCase[] = [
     stackDepth: 1,
     open: async (page) => {
       await openTerminalContextMenu(page);
-      await page.locator('.context-menu-item:has-text("워크스페이스 이동")').first().click();
+      await page.locator('.context-menu-item:has-text("Workspace 이동")').first().click();
       await expect(surfaceOf(page, 'workspace-move-dialog')).toBeVisible({ timeout: 10000 });
     },
   },

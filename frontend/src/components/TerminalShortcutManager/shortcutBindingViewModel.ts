@@ -14,7 +14,7 @@ import {
 } from '../../utils/terminalShortcutBindings';
 
 export const TERMINAL_SHORTCUT_SCOPE_OPTIONS: Array<{ scope: TerminalShortcutScope; label: string }> = [
-  { scope: 'workspace', label: '워크스페이스' },
+  { scope: 'workspace', label: 'Workspace' },
   { scope: 'global', label: '전체' },
   { scope: 'session', label: '현재 세션' },
 ];

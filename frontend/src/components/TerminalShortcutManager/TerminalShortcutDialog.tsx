@@ -192,7 +192,7 @@ export function TerminalShortcutDialog({
       }
     }
     if (targetScope === 'workspace') {
-      if (!activeWorkspaceId) throw new Error('활성 워크스페이스가 없습니다.');
+      if (!activeWorkspaceId) throw new Error('활성 Workspace가 없습니다.');
       return { scope: targetScope, workspaceId: activeWorkspaceId };
     }
     if (targetScope === 'session') {
