@@ -3,6 +3,7 @@
  * Workspace-based multi-terminal management
  */
 
+import { createStatusHysteresis } from './utils/statusHysteresis';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { t } from './i18n/i18n.ts';
@@ -523,8 +524,14 @@ function AppContent() {
   // ============================================================================
   // Terminal status/CWD updates
   // ============================================================================
+  // REL-BGSTAB-035: hold the running badge briefly so bursty agent work does not pulse it.
+  const statusHysteresisRef = useRef<ReturnType<typeof createStatusHysteresis> | null>(null);
+  if (statusHysteresisRef.current === null) {
+    statusHysteresisRef.current = createStatusHysteresis((id, status) => wmRef.current.updateTabStatus(id, status));
+  }
+  useEffect(() => () => statusHysteresisRef.current?.dispose(), []);
   const handleTerminalStatusChange = useCallback((sessionId: string, status: WorkspaceTabRuntime['status']) => {
-    wmRef.current.updateTabStatus(sessionId, status);
+    statusHysteresisRef.current?.update(sessionId, status);
   }, []);
 
   const handleCwdChange = useCallback((sessionId: string, cwd: string) => {
