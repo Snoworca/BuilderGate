@@ -27,7 +27,10 @@ const SCOPE_RANK = new Map([
 ]);
 
 export const CODEX_NEWLINE_SEND_DATA = '\x1b\r';
-export const CODEX_NEWLINE_ACTION_LABEL = 'Codex 줄바꿈';
+// A stored tag like 'CUSTOM' or 'LF', not display text: the screen shows
+// shortcut.action.sendCodexNewline via isCodexNewlineAction, which matches by
+// data — so bindings saved earlier with the old Korean label still match.
+export const CODEX_NEWLINE_ACTION_LABEL = 'CODEX_NEWLINE';
 
 export function createCodexNewlineAction(): TerminalShortcutAction {
   return { type: 'send', data: CODEX_NEWLINE_SEND_DATA, label: CODEX_NEWLINE_ACTION_LABEL };

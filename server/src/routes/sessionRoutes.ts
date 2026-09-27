@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { sessionManager } from '../services/SessionManager.js';
 import { CreateSessionRequest, UpdateSessionRequest, ShellType } from '../types/index.js';
 import type { SessionCleanupReason } from '../types/ws-protocol.js';
-import { AppError } from '../utils/errors.js';
+import { AppError, ErrorCode } from '../utils/errors.js';
 
 interface SessionRoutesOptions {
   onSessionDeleting?: (sessionId: string, reason: SessionCleanupReason) => unknown | Promise<unknown>;
@@ -32,7 +32,7 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
     if (shell !== undefined) {
       const validShells = new Set<ShellType>(['auto', ...sessionManager.getAvailableShells().map((entry) => entry.id)]);
       if (!validShells.has(shell)) {
-        return res.status(400).json({ error: `Invalid shell type: ${shell}` });
+        return res.status(400).json({ error: { code: ErrorCode.INVALID_INPUT, message: `Invalid shell type: ${shell}` } });
       }
     }
 
@@ -43,7 +43,7 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
       if (error instanceof AppError) {
         return res.status(error.statusCode).json(error.toJSON());
       }
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: { code: ErrorCode.INTERNAL_ERROR, message: 'Internal server error' } });
     }
   });
 
@@ -53,7 +53,7 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
     if (session) {
       res.json(session);
     } else {
-      res.status(404).json({ error: 'Session not found' });
+      res.status(404).json({ error: { code: ErrorCode.SESSION_NOT_FOUND, message: 'Session not found' } });
     }
   });
 
@@ -61,7 +61,7 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
   router.delete('/:id', async (req: Request, res: Response) => {
     const reason: SessionCleanupReason = 'direct-session-delete';
     if (!sessionManager.hasSession(req.params.id)) {
-      res.status(404).json({ error: 'Session not found' });
+      res.status(404).json({ error: { code: ErrorCode.SESSION_NOT_FOUND, message: 'Session not found' } });
       return;
     }
 
@@ -72,14 +72,14 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
         await options.onSessionDeleted?.(req.params.id, reason);
         res.status(204).send();
       } else {
-        res.status(404).json({ error: 'Session not found' });
+        res.status(404).json({ error: { code: ErrorCode.SESSION_NOT_FOUND, message: 'Session not found' } });
       }
     } catch (error) {
       if (error instanceof AppError) {
         return res.status(error.statusCode).json(error.toJSON());
       }
       console.warn('[SessionRoutes] Failed to delete session:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: { code: ErrorCode.INTERNAL_ERROR, message: 'Internal server error' } });
     }
   });
 
@@ -89,34 +89,34 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
 
     if (updates.name !== undefined) {
       if (typeof updates.name !== 'string' || updates.name.length === 0) {
-        return res.status(400).json({ error: 'Name cannot be empty' });
+        return res.status(400).json({ error: { code: ErrorCode.NAME_REQUIRED, message: 'Name cannot be empty' } });
       }
       if (updates.name.length > 50) {
-        return res.status(400).json({ error: 'Name too long (max 50 characters)' });
+        return res.status(400).json({ error: { code: ErrorCode.NAME_TOO_LONG, message: 'Name too long (max 50 characters)' } });
       }
       const validNameRegex = /^[\p{L}\p{N}\s\-_]+$/u;
       if (!validNameRegex.test(updates.name)) {
-        return res.status(400).json({ error: 'Name contains invalid characters' });
+        return res.status(400).json({ error: { code: ErrorCode.INVALID_NAME, message: 'Name contains invalid characters' } });
       }
     }
 
     if (updates.sortOrder !== undefined) {
       if (!Number.isInteger(updates.sortOrder) || updates.sortOrder < 0) {
-        return res.status(400).json({ error: 'Invalid sortOrder' });
+        return res.status(400).json({ error: { code: ErrorCode.INVALID_INPUT, message: 'Invalid sortOrder' } });
       }
     }
 
     try {
       const session = sessionManager.updateSession(req.params.id, updates);
       if (!session) {
-        return res.status(404).json({ error: 'Session not found' });
+        return res.status(404).json({ error: { code: ErrorCode.SESSION_NOT_FOUND, message: 'Session not found' } });
       }
       res.json(session);
     } catch (error) {
       if (error instanceof AppError) {
         return res.status(error.statusCode).json(error.toJSON());
       }
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ error: { code: ErrorCode.INTERNAL_ERROR, message: 'Internal server error' } });
     }
   });
 
@@ -125,12 +125,12 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
     const { direction } = req.body;
 
     if (!['up', 'down'].includes(direction)) {
-      return res.status(400).json({ error: 'Invalid direction (must be "up" or "down")' });
+      return res.status(400).json({ error: { code: ErrorCode.INVALID_INPUT, message: 'Invalid direction (must be "up" or "down")' } });
     }
 
     const success = sessionManager.reorderSessions(req.params.id, direction as 'up' | 'down');
     if (!success) {
-      return res.status(404).json({ error: 'Session not found' });
+      return res.status(404).json({ error: { code: ErrorCode.SESSION_NOT_FOUND, message: 'Session not found' } });
     }
     res.status(204).send();
   });

@@ -97,11 +97,8 @@ test('guard 3 (FR-I18N-003 AC-1): no Hangul in string, template, JSX text or reg
       else if (ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) text = n.text;
       else if (ts.isRegularExpressionLiteral(n)) text = n.text;
       if (text === undefined || !HANGUL.test(text)) return;
-      // Allowed by name: the Hangul detector itself, and the label persisted in
-      // saved shortcut bindings (changing it would change stored data; the
-      // screen shows shortcut.action.codexNewline instead).
+      // The one allowed range: the Hangul detector itself.
       if (rel === 'src/components/ui/uiClasses.ts' && ts.isRegularExpressionLiteral(n)) return;
-      if (rel === 'src/utils/terminalShortcutBindings.ts' && text === 'Codex 줄바꿈') return;
       found.push(`${where(sf, n, rel)} ${text.trim().slice(0, 40)}`);
     });
   }

@@ -2,7 +2,7 @@ import { resolveCwd } from './shell.ts';
 import type { WorkspaceTabRuntime } from '../types/workspace';
 import type { ContextMenuItem } from '../components/ContextMenu/ContextMenu';
 import type { CommandPreset, CommandPresetKind, ShellInfo } from '../types';
-import { t, type MessageKey } from '../i18n/i18n.ts';
+import { activeLanguage, t, type MessageKey } from '../i18n/i18n.ts';
 
 const REGISTERED_PRESET_CATEGORY_LABELS: ReadonlyArray<{ kind: CommandPresetKind; labelKey: MessageKey }> = [
   { kind: 'command', labelKey: 'contextMenu.preset.command' },
@@ -189,5 +189,5 @@ function compareCommandPresetMenuItems(a: CommandPreset, b: CommandPreset): numb
   if (a.sortOrder !== b.sortOrder) {
     return a.sortOrder - b.sortOrder;
   }
-  return a.label.localeCompare(b.label, 'ko');
+  return a.label.localeCompare(b.label, activeLanguage());
 }

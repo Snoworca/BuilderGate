@@ -1,15 +1,24 @@
+import { t } from '../i18n/i18n.ts';
+import { localizeApiError } from './apiErrorMessages.ts';
+
 export function parseApiErrorPayload(status: number, statusText: string, data: unknown): string {
   const root = asApiRecord(data);
   const nested = asApiRecord(root?.error);
   const details = asApiRecord(root?.details) ?? asApiRecord(nested?.details);
-  const message = asApiString(nested?.message) ?? asApiString(root?.message);
   const code = asApiString(nested?.code) ?? asApiString(root?.code);
+  // FR-I18N-007: a known code is shown in the active language; the server's own
+  // (English, often more specific) message stays in the details (IR-MCP-004).
+  const serverMessage = asApiString(nested?.message) ?? asApiString(root?.message);
+  const message = localizeApiError(code, serverMessage);
   const auditId = asApiString(root?.auditId) ?? asApiString(nested?.auditId) ?? asApiString(details?.auditId);
   const fieldErrors = asApiRecord(root?.fieldErrors) ?? asApiRecord(nested?.fieldErrors);
   const rollbackErrors = asApiArray(root?.rollbackErrors)
     ?? asApiArray(details?.rollbackErrors)
     ?? asApiArray(nested?.rollbackErrors);
   const detailParts: string[] = [];
+  if (serverMessage && message !== serverMessage) {
+    detailParts.push(serverMessage);
+  }
 
   if (code && message !== code) {
     detailParts.push(code);
@@ -35,7 +44,7 @@ export function parseApiErrorPayload(status: number, statusText: string, data: u
   if (detailParts.length > 0) {
     return detailParts.join('; ');
   }
-  return `HTTP ${status}: ${statusText || 'Request failed'}`;
+  return t('apiError.httpFallback', { status, statusText });
 }
 
 function asApiRecord(value: unknown): Record<string, unknown> | null {

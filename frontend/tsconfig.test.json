@@ -22,6 +22,7 @@
   },
   "include": ["src"],
   "files": [
+    "./tests/unit/apiErrorMessages.test.ts",
     "./tests/unit/i18nTestSetup.ts",
     "./tests/unit/i18nGuards.test.ts",
     "./tests/unit/i18nRuntime.test.ts",

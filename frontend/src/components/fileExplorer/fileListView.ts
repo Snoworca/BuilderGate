@@ -4,7 +4,7 @@
 // The list shows every direct child of the root at once and leaves windowing to
 // the renderer: the server already caps a listing (maxDirectoryEntries), so a
 // second cap here would silently hide entries the user asked to see.
-import type { MessageKey } from '../../i18n/i18n.ts';
+import { activeLanguage, type MessageKey } from '../../i18n/i18n.ts';
 import type { DirectoryEntry } from '../../types/index.ts';
 import { resolveEditorMode } from '../../editor/editorMode.ts';
 import type { FileTreeState } from './fileTreeState.ts';
@@ -111,23 +111,33 @@ export function formatEntrySize(entry: Pick<DirectoryEntry, 'type' | 'size'>): s
 
 export function formatEntryModified(modified: string): string {
   const date = new Date(modified);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(activeLanguage());
 }
 
 export function toListRow(entry: DirectoryEntry): ListRow {
   return { name: entry.name, modified: entry.modified, size: entry.size };
 }
 
-// 'ko' collation so Hangul names and case-mixed Latin names order the way a
-// Korean user reads them, independent of the browser's default locale. One
-// collator for the module: localeCompare with a locale argument builds one per
-// comparison, which dominates sorting a large directory.
-const NAME_COLLATOR = new Intl.Collator('ko');
+// Collation in the active UI language (FR-I18N-008), independent of the
+// browser's default locale. One collator per language, built on first use —
+// not at module load, where the catalog is not installed yet — because
+// localeCompare with a locale argument builds one per comparison, which
+// dominates sorting a large directory.
+const nameCollators = new Map<string, Intl.Collator>();
+function nameCollator(): Intl.Collator {
+  const lang = activeLanguage();
+  let collator = nameCollators.get(lang);
+  if (!collator) {
+    collator = new Intl.Collator(lang);
+    nameCollators.set(lang, collator);
+  }
+  return collator;
+}
 
 function compareByKey(a: DirectoryEntry, b: DirectoryEntry, key: ListColumn): number {
   switch (key) {
     case 'name':
-      return NAME_COLLATOR.compare(a.name, b.name);
+      return nameCollator().compare(a.name, b.name);
     // ISO-8601 strings from the server compare chronologically as plain strings.
     case 'modified':
       return a.modified < b.modified ? -1 : a.modified > b.modified ? 1 : 0;

@@ -109,7 +109,9 @@ function runConsumerCorpus(store: RuntimeConfigStore): Record<string, unknown> {
 
   const first = createWsTransportMessage({ type: 'output', sessionId: 's1', data: 'A한', screenSeq: 1, chunkId: 'c1' }, 1_000);
   const second = createWsTransportMessage({ type: 'output', sessionId: 's1', data: '🙂', screenSeq: 2, chunkId: 'c2' }, 1_001);
-  const coalesced = tryCoalesceOutputMessage(first, second, editable.resourceLimits.ws.outputCoalesceWindowMs);
+  // Both messages are JSON (no codec), so the merged one is rebuilt as JSON too — the
+  // behaviour this snapshot recorded before tryCoalesceOutputMessage took codecFor.
+  const coalesced = tryCoalesceOutputMessage(first, second, editable.resourceLimits.ws.outputCoalesceWindowMs, () => undefined);
   if (!coalesced) throw new Error('expected deterministic WS coalescing');
   const control = createWsTransportMessage({ type: 'pong', value: 7 }, 1_002);
   const wsQueue = createWsTransportQueueState();

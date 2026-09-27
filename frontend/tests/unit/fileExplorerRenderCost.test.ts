@@ -76,7 +76,9 @@ test('FX3-004 목록 행은 루트 목록 항목과 정렬로만 다시 계산�
   }
   const listView = source('components/fileExplorer/fileListView.ts');
   assert.doesNotMatch(listView, /\blocaleCompare\s*\(/, 'localeCompare with a locale builds a collator per comparison');
-  assert.match(listView, /^const\s+\w+\s*=\s*new\s+Intl\.Collator\s*\(\s*['"]ko['"]/m, 'one module-level Intl.Collator("ko") sorts names');
+  // FR-I18N-008: one cached collator per UI language (built on first use, not per comparison).
+  assert.match(listView, /^const\s+\w+\s*=\s*new\s+Map<string,\s*Intl\.Collator>/m, 'collators are cached per language');
+  assert.equal((listView.match(/new\s+Intl\.Collator\(/g) ?? []).length, 1, 'a collator is constructed in exactly one place');
 });
 
 test('FX3-009 스크롤 이벤트마다 행 위치를 읽지 않는다 — 기준 행 탐색은 디바운스 타이머 안에서 한 번', () => {

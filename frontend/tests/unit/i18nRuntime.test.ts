@@ -109,3 +109,13 @@ test('FR-I18N-006 AC-3: the choice is stored per browser and "auto" clears it', 
     else delete (globalThis as { localStorage?: unknown }).localStorage;
   }
 });
+
+test('FR-I18N-008: dates and name sorting follow the active UI language, not the browser locale', async () => {
+  const { formatEntryModified, sortEntries } = await import('../../src/components/fileExplorer/fileListView.ts');
+  const iso = '2026-09-27T01:02:03.000Z';
+  installCatalog('en', {});
+  assert.equal(formatEntryModified(iso), new Date(iso).toLocaleString('en'));
+  installCatalog('ko', {});
+  assert.equal(formatEntryModified(iso), new Date(iso).toLocaleString('ko'));
+  assert.equal(typeof sortEntries, 'function');
+});

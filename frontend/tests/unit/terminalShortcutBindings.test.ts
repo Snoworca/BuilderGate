@@ -248,3 +248,9 @@ test('descriptor builder and labels keep safe key metadata', () => {
   assert.equal(built.ctrlKey, true);
   assert.equal(describeTerminalShortcutKey(built), 'Ctrl+Shift+Enter');
 });
+
+test('FR-I18N-003: a binding saved with the old Korean Codex label is still the Codex newline action', async () => {
+  const { isCodexNewlineAction } = await import('../../src/utils/terminalShortcutBindings.ts');
+  assert.equal(isCodexNewlineAction({ type: 'send', data: '\x1b\r', label: 'Codex 줄바꿈' }), true);
+  assert.equal(CODEX_NEWLINE_ACTION_LABEL, 'CODEX_NEWLINE');
+});

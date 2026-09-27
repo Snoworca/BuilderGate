@@ -452,7 +452,8 @@ test('T-PH007-01 IR-MCP-004 MCP control API flat errors keep message, code, and 
         message: 'control rollback failed',
       }],
     }),
-    'persist failed (MCP_CONTROL_CONFIG_PERSIST_FAILED; rollbackErrors: control:CONTROL_RESTORE_FAILED:control rollback failed)',
+    // FR-I18N-007: ko headline first; the server message, code and details all stay.
+    'MCP 설정을 저장하지 못했습니다. (persist failed; MCP_CONTROL_CONFIG_PERSIST_FAILED; rollbackErrors: control:CONTROL_RESTORE_FAILED:control rollback failed)',
   );
 
   assert.equal(
@@ -466,7 +467,7 @@ test('T-PH007-01 IR-MCP-004 MCP control API flat errors keep message, code, and 
         allowedOrigins: ['Origin must not include a path'],
       },
     }),
-    'Invalid MCP config (VALIDATION_ERROR; auditId: audit-config-1; externalWhitelist: CIDR is invalid, allowedOrigins: Origin must not include a path)',
+    '입력값 검증에 실패했습니다. (Invalid MCP config; VALIDATION_ERROR; auditId: audit-config-1; externalWhitelist: CIDR is invalid, allowedOrigins: Origin must not include a path)',
   );
 
   assert.equal(

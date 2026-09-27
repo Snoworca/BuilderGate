@@ -1147,7 +1147,7 @@ app.use((err: Error, req: express.Request, res: express.Response, _next: express
   if (respondIfRequestEntityTooLarge(err, res)) {
     return;
   }
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
 });
 
 // ============================================================================

@@ -74,7 +74,12 @@ export enum ErrorCode {
   INVALID_WORKSPACE_MOVE = 'INVALID_WORKSPACE_MOVE',
   SESSION_NOT_MOVABLE = 'SESSION_NOT_MOVABLE',
   INVALID_REORDER_PAYLOAD = 'INVALID_REORDER_PAYLOAD',
-  INVALID_NAME = 'INVALID_NAME'
+  INVALID_NAME = 'INVALID_NAME',
+
+  // Codes for responses that used to carry only a string (FR-I18N-007)
+  NAME_REQUIRED = 'NAME_REQUIRED',
+  NAME_TOO_LONG = 'NAME_TOO_LONG',
+  REQUEST_BODY_TOO_LARGE = 'REQUEST_BODY_TOO_LARGE'
 }
 
 // ============================================================================
@@ -140,7 +145,10 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVALID_WORKSPACE_MOVE]: 'Invalid workspace move',
   [ErrorCode.SESSION_NOT_MOVABLE]: 'Session cannot be moved',
   [ErrorCode.INVALID_REORDER_PAYLOAD]: 'Invalid reorder payload',
-  [ErrorCode.INVALID_NAME]: 'Invalid name'
+  [ErrorCode.INVALID_NAME]: 'Invalid name',
+  [ErrorCode.NAME_REQUIRED]: 'Name cannot be empty',
+  [ErrorCode.NAME_TOO_LONG]: 'Name too long (max 50 characters)',
+  [ErrorCode.REQUEST_BODY_TOO_LARGE]: 'Request body too large'
 };
 
 // ============================================================================
@@ -206,7 +214,10 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.INVALID_WORKSPACE_MOVE]: 400,
   [ErrorCode.SESSION_NOT_MOVABLE]: 409,
   [ErrorCode.INVALID_REORDER_PAYLOAD]: 400,
-  [ErrorCode.INVALID_NAME]: 400
+  [ErrorCode.INVALID_NAME]: 400,
+  [ErrorCode.NAME_REQUIRED]: 400,
+  [ErrorCode.NAME_TOO_LONG]: 400,
+  [ErrorCode.REQUEST_BODY_TOO_LARGE]: 413
 };
 
 // ============================================================================

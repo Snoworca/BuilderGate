@@ -7,14 +7,14 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "3bb4082380bd4b9944e4a357d912a790d749c312ed0a8097eb11dc3ab1ecdd6f",
+    "sha256": "921e7bbf072b3a26bef62a365c1dd12dc9b2d1924f58ea13826868a639dcd4c4",
     "sourceCount": 42,
-    "sourceSetSha256": "c3b0a8deeb4fc29ad28387a5173cdc5a681b76aea7750975c68f95558dc6c504",
+    "sourceSetSha256": "bac1d7516c220cc22da9dc4f60cce72e3bcb0aa39f3b92fd794d215ebc4d0c0c",
     "exactConsumerTuples": 88,
     "classifications": 13
   },
   "semanticInventory": {
-    "sha256": "671615b0183b31bee5abcfdec061afa5b1495ebd25a2d7a08a6cd10ba7c41147",
+    "sha256": "5af43d2a47e892f326f4552f2d7679a05da526f373dbae559b30416b88e32ce4",
     "historicalEqualsCurrent": false,
     "divergence": {
       "reason": "evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source; REL-BGSTAB-023 registered resourceLimits.terminal.checkpointMaxBytes, adding one decision to browser.terminal.recovery-scheduler at the checkpoint-write-coordinator boundary; and REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage into terminalGraceBuffer#applyGraceBufferedMessage with an identical body, relocating the four visibleOutputQueueMaxBytes/visibleOutputMaxChunks grace tuples without changing any decision",
@@ -156,7 +156,7 @@
           ]
         }
       ],
-      "evidenceHashOnlyChangedTuples": 12
+      "evidenceHashOnlyChangedTuples": 14
     }
   },
   "currentSlice": {

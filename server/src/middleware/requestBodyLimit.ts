@@ -88,6 +88,6 @@ export function respondIfRequestEntityTooLarge(err: unknown, res: Response): boo
   if ((err as { type?: string } | null)?.type !== 'entity.too.large') {
     return false;
   }
-  res.status(413).json({ error: 'Request body too large' });
+  res.status(413).json({ error: { code: 'REQUEST_BODY_TOO_LARGE', message: 'Request body too large' } });
   return true;
 }

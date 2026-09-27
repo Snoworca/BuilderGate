@@ -5,6 +5,7 @@
 
 import { tokenStorage } from './tokenStorage.ts';
 import { parseApiErrorPayload } from './apiError.ts';
+import { t } from '../i18n/i18n.ts';
 export { parseApiErrorPayload } from './apiError.ts';
 import { createFileJobClient } from '../components/fileExplorer/fileJobClient.ts';
 import { createSessionSnapshotClient } from '../components/SessionSave/sessionSnapshotClient.ts';
@@ -82,7 +83,7 @@ async function parseError(res: Response): Promise<Error> {
     const data: unknown = await res.json();
     return new Error(parseApiErrorPayload(res.status, res.statusText, data));
   } catch {
-    return new Error(`HTTP ${res.status}: ${res.statusText}`);
+    return new Error(t('apiError.httpFallback', { status: res.status, statusText: res.statusText }));
   }
 }
 
@@ -199,7 +200,7 @@ export const sessionApi = {
       keepalive: true,
       headers: getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Failed to fetch sessions');
+    if (!res.ok) throw new Error(t('api.fetchSessionsFailed'));
     return res.json();
   },
 
@@ -212,7 +213,7 @@ export const sessionApi = {
       },
       body: JSON.stringify({ name, shell, cwd }),
     });
-    if (!res.ok) throw new Error('Failed to create session');
+    if (!res.ok) throw new Error(t('api.createSessionFailed'));
     return res.json();
   },
 
@@ -220,7 +221,7 @@ export const sessionApi = {
     const res = await authFetch(`${API_BASE}/sessions/shells`, {
       headers: getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Failed to fetch shells');
+    if (!res.ok) throw new Error(t('api.fetchShellsFailed'));
     return res.json();
   },
 
@@ -228,7 +229,7 @@ export const sessionApi = {
     const res = await authFetch(`${API_BASE}/sessions/${id}`, {
       headers: getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Failed to get session');
+    if (!res.ok) throw new Error(t('api.getSessionFailed'));
     return res.json();
   },
 
@@ -237,7 +238,7 @@ export const sessionApi = {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Failed to delete session');
+    if (!res.ok) throw new Error(t('api.deleteSessionFailed'));
   },
 
   // NOTE: sendInput and resize removed — now handled via WebSocket (Step 8)
