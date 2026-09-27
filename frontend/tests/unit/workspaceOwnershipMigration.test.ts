@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import ts from 'typescript';
@@ -37,23 +36,6 @@ function hasOwnedTestImport(ast: ts.SourceFile): boolean {
     && node.importClause.namedBindings.elements.some(item => (item.propertyName ?? item.name).text === 'test'));
 }
 function calls(ast: ts.SourceFile) {
-  // Independently reviewed B2 quota observation only. Any initializer change
-  // requires a new review; the forwarded requests still appear in inventory.
-  let observedProxy: ts.NewExpression | undefined;
-  if (ast.fileName.split(/[\\/]/).at(-1) === 'workspace-ownership-validation.spec.ts') {
-    const declarations: ts.VariableDeclaration[] = [];
-    walk(ast, node => {
-      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === 'quotaRequest') declarations.push(node);
-    });
-    const initializer = declarations.length === 1 ? declarations[0].initializer : undefined;
-    if (initializer && ts.isNewExpression(initializer)) {
-      const printed = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed })
-        .printNode(ts.EmitHint.Expression, initializer, ast);
-      if (createHash('sha256').update(printed).digest('hex') === '1d0a9cfb713b52aa08c839d4084b878c38217dbbf8b56d940d1e69b23675afae') {
-        observedProxy = initializer;
-      }
-    }
-  }
   const rows: Array<{ line: number; method: string; path?: string; callee: string; kind: string; directApiMethod: boolean }> = [];
   walk(ast, node => {
     if (!ts.isCallExpression(node)) return;
@@ -104,14 +86,7 @@ function calls(ast: ts.SourceFile) {
       });
       knownCollection = collections.length === 1;
     }
-    let ancestor: ts.Node | undefined = node.parent;
-    while (ancestor && ancestor !== observedProxy) ancestor = ancestor.parent;
-    const observedForward = observedProxy !== undefined && ancestor === observedProxy
-      && (callee === 'target.post' || callee === 'target.delete') && node.arguments.length === 1
-      && ts.isSpreadElement(node.arguments[0]) && ts.isIdentifier(node.arguments[0].expression)
-      && node.arguments[0].expression.text === 'args';
-    const kind = observedForward ? 'observed-api-forward'
-      : url?.endsWith('/api/workspaces') ? 'workspace-create'
+    const kind = url?.endsWith('/api/workspaces') ? 'workspace-create'
       : /\/api\/workspaces\/[^/]+$/.test(url ?? '') ? 'workspace-delete'
         : /\/api\/workspaces\/[^/]+\/tabs(?:\/|$)/.test(url ?? '') ? 'tab-operation'
           : url?.includes('/api/sessions/') ? 'session-or-debug-operation'
@@ -143,52 +118,8 @@ test('B2 scanner retains unresolved direct API mutations as explicit review entr
   ]);
 });
 
-// The reviewed quota observer is an exact adapter forwarding site, not an
-// exemption for a file or a receiver name. Exercise the real initializer and
-// nearby adversarial variants without evaluating any browser/API code.
-function quotaObserverSource(): string {
-  const ast = read('workspace-ownership-validation.spec.ts');
-  const declarations: ts.VariableDeclaration[] = [];
-  walk(ast, node => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === 'quotaRequest') declarations.push(node);
-  });
-  assert.equal(declarations.length, 1);
-  assert.ok(declarations[0].initializer && ts.isNewExpression(declarations[0].initializer));
-  return `const ${declarations[0].getText(ast)};`;
-}
-function observerRows(source: string, filename = 'workspace-ownership-validation.spec.ts') {
-  return calls(ts.createSourceFile(filename, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS));
-}
-test('B2 scanner records the exact reviewed quota observer forwarders explicitly', () => {
-  const rows = calls(read('workspace-ownership-validation.spec.ts')).filter(row => row.callee === 'target.post' || row.callee === 'target.delete');
-  assert.deepEqual(rows.map(row => [row.callee, row.kind]), [
-    ['target.post', 'observed-api-forward'], ['target.delete', 'observed-api-forward'],
-  ]);
-});
-test('B2 scanner does not exempt identical receiver calls outside the reviewed Proxy', () => {
-  const rows = observerRows(`${quotaObserverSource()}\ntarget.post(...args); target.delete(...args);`);
-  assert.deepEqual(rows.slice(-2).map(row => row.kind), ['dynamic-path-needs-review', 'dynamic-path-needs-review']);
-});
-test('B2 scanner does not transfer the reviewed Proxy exemption to another file', () => {
-  assert.deepEqual(observerRows(quotaObserverSource(), 'other.spec.ts').map(row => row.kind),
-    ['dynamic-path-needs-review', 'dynamic-path-needs-review']);
-});
-test('B2 scanner requires review again when the quota Proxy body changes', () => {
-  const original = quotaObserverSource();
-  const changed = original.replace('quotaStatus = response.status()', 'quotaStatus = 409');
-  assert.notEqual(changed, original);
-  assert.deepEqual(observerRows(changed).map(row => row.kind), ['dynamic-path-needs-review', 'dynamic-path-needs-review']);
-});
-test('B2 scanner rejects renamed observers and altered forwarding arguments', () => {
-  const original = quotaObserverSource();
-  for (const changed of [original.replace('const quotaRequest', 'const unrelatedRequest'),
-    original.replace('target.post(...args)', "target.post('/api/workspaces')")]) {
-    assert.notEqual(changed, original);
-    const rows = observerRows(changed);
-    assert.equal(rows.some(row => row.kind === 'observed-api-forward'), false);
-    assert.ok(rows.some(row => row.kind === 'dynamic-path-needs-review' || row.kind === 'workspace-create'));
-  }
-});
+// The quota-observer Proxy exemption and its tests were removed with the Workspace-count cap:
+// workspace-ownership-validation.spec.ts no longer has a quota phase.
 
 for (const name of files) {
   test(`B2 source inventory preserves owned workspace mutation boundaries: ${name}`, t => {

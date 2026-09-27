@@ -75,7 +75,6 @@
   "apiError.RATE_LIMITED": "요청이 너무 많습니다. 잠시 후 다시 시도하세요.",
   "apiError.REQUEST_BODY_TOO_LARGE": "요청 본문이 너무 큽니다.",
   "apiError.SELF_CLOSE_DENIED_NO_LEADER": "리더 세션이 없어 스스로 닫을 수 없습니다.",
-  "apiError.SESSION_LIMIT_EXCEEDED": "전체 세션 수 한도를 넘었습니다.",
   "apiError.SESSION_NOT_FOUND": "세션을 찾을 수 없습니다.",
   "apiError.SESSION_NOT_MOVABLE": "이 세션은 옮길 수 없습니다.",
   "apiError.SESSION_UNAUTHORIZED": "이 세션에 접근할 권한이 없습니다.",
@@ -95,7 +94,6 @@
   "apiError.WEBHOOK_METADATA_PERSIST_FAILED": "웹훅 정보를 저장하지 못했습니다.",
   "apiError.WEBHOOK_RATE_LIMITED": "웹훅 요청이 너무 많습니다.",
   "apiError.WEBHOOK_RATE_LIMIT_INVALID": "웹훅 요청 한도 설정이 올바르지 않습니다.",
-  "apiError.WORKSPACE_LIMIT_EXCEEDED": "Workspace 수 한도를 넘었습니다.",
   "apiError.WORKSPACE_NOT_FOUND": "Workspace 를 찾을 수 없습니다.",
   "apiError.httpFallback": "요청이 실패했습니다 (HTTP {status}).",
   "app.alert.loginExpired": "로그인이 만료되었습니다. 다시 로그인하세요.",
@@ -950,10 +948,8 @@
   "workspace.move.tabCount": "탭 {count}/{max}개",
   "workspace.move.title": "Workspace 이동",
   "workspace.sidebar.add": "Workspace 추가",
-  "workspace.sidebar.limit.other": "Workspace는 최대 {count}개까지 만들 수 있습니다",
   "workspace.tabBar.closeTab": "탭 닫기",
   "workspace.tabBar.recoveryCommand": "복구 명령: {command}",
   "workspace.tabBar.recoveryOptions": "복구 옵션",
-  "workspace.tabBar.sessionLimit.other": "세션은 최대 {count}개까지 열 수 있습니다",
   "workspace.tabBar.tabLimit.other": "탭은 최대 {count}개까지 열 수 있습니다"
 }

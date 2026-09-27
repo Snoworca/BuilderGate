@@ -1405,39 +1405,6 @@
       "safetyBound": "Hard cap on tabs per workspace; bounds session fan-out."
     },
     {
-      "path": "workspace.maxTotalSessions",
-      "classification": "safety-only",
-      "reason": "Exists to bound or deny rather than to tune. Not offered in Settings.",
-      "editableInSettings": false,
-      "consumers": [
-        {
-          "module": "server/src/services/WorkspaceService.ts",
-          "symbol": "WorkspaceConfig",
-          "match": "dotted-path"
-        }
-      ],
-      "safetyBound": "Hard cap on total sessions; bounds PTY process count."
-    },
-    {
-      "path": "workspace.maxWorkspaces",
-      "classification": "safety-only",
-      "reason": "Exists to bound or deny rather than to tune. Not offered in Settings.",
-      "editableInSettings": false,
-      "consumers": [
-        {
-          "module": "frontend/src/App.tsx",
-          "symbol": "sidebarContent",
-          "match": "dotted-path"
-        },
-        {
-          "module": "server/src/services/WorkspaceService.ts",
-          "symbol": "WorkspaceConfig",
-          "match": "dotted-path"
-        }
-      ],
-      "safetyBound": "Hard cap on persisted workspaces; bounds unbounded growth of the workspace store."
-    },
-    {
       "path": "workspace.restoreInputDelayMs",
       "classification": "reserved",
       "reason": "Has a runtime consumer but is deliberately absent from the Settings surface; it is operator-file configuration rather than a user-tunable value.",

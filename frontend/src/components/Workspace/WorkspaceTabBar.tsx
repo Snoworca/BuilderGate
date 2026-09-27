@@ -14,9 +14,7 @@ import { t, tn } from '../../i18n/i18n.ts';
 interface Props {
   tabs: WorkspaceTabRuntime[];
   activeTabId: string | null;
-  totalSessionCount: number;
   maxTabs: number;
-  maxSessions: number;
   onSelectTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onRenameTab: (tabId: string, name: string) => void;
@@ -38,7 +36,7 @@ function getSafeRecoveryIconLabel(recoveryIcon: WorkspaceTabRuntime['recoveryIco
 
 export function WorkspaceTabBar({
   tabs, activeTabId,
-  totalSessionCount, maxTabs, maxSessions,
+  maxTabs,
   onSelectTab, onCloseTab, onRenameTab, onAddTab,
   onReorderTabs, availableShells,
 }: Props) {
@@ -74,12 +72,9 @@ export function WorkspaceTabBar({
     setEditingTabId(null);
   };
 
-  const isAddDisabled = tabs.length >= maxTabs || totalSessionCount >= maxSessions;
-  const addTooltip = tabs.length >= maxTabs
-    ? tn('workspace.tabBar.tabLimit', maxTabs)
-    : totalSessionCount >= maxSessions
-      ? tn('workspace.tabBar.sessionLimit', maxSessions)
-      : '';
+  // FR-BGSTAB-031: only the per-Workspace tab limit applies; there is no total-session cap.
+  const isAddDisabled = tabs.length >= maxTabs;
+  const addTooltip = isAddDisabled ? tn('workspace.tabBar.tabLimit', maxTabs) : '';
 
   const longPress = useLongPress(
     useCallback((e: { clientX: number; clientY: number }) => {

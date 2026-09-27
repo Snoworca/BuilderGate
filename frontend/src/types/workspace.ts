@@ -87,10 +87,9 @@ export interface WorkspaceState {
   gridLayouts: GridLayout[];
 }
 
+/** FR-BGSTAB-031: the per-Workspace tab limit is the only persistent capacity limit. */
 export interface WorkspaceLimits {
-  maxWorkspaces: number;
   maxTabsPerWorkspace: number;
-  maxTotalSessions: number;
 }
 
 export type WorkspaceStateResponse = WorkspaceState & { limits: WorkspaceLimits };

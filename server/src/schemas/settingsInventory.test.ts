@@ -356,7 +356,7 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
 });
 
 // @req OPS-BGSTAB-011 AC-1
-test('OPS-BGSTAB-011 the configuration schema still has exactly 87 leaves', () => {
+test('OPS-BGSTAB-011 the configuration schema still has exactly 85 leaves', () => {
   // The pin the inventory is sized against. It is asserted separately from the
   // coverage test so that a change in the schema's shape is distinguishable
   // from a change in the inventory.
@@ -372,5 +372,8 @@ test('OPS-BGSTAB-011 the configuration schema still has exactly 87 leaves', () =
   // 86 -> 87 on 2026-09-27: fileManager.maxImageFileSize arrived with the editor's
   // image viewer (merge of work/issue-2 into the editor line) and is classified
   // safety-only.
-  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 87);
+  //
+  // 87 -> 85 on 2026-09-27: workspace.maxWorkspaces and workspace.maxTotalSessions were
+  // removed (FR-BGSTAB-031, user decision: no Workspace-count or total-session cap).
+  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 85);
 });

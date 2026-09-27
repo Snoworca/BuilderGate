@@ -73,25 +73,25 @@ const moveDialog = component('../../src/components/Workspace/WorkspaceMoveDialog
 }, 'reasonLabel');
 const workspace = (id: string, sortOrder = 0) => ({ id, name: id, sortOrder, viewMode: 'tab', activeTabId: null, createdAt: 1 });
 
-for (const limit of [3, 20, 3.5, 10]) {
-  test(`FR-BGSTAB-026 App to actual Sidebar applies workspace capacity ${limit}`, () => {
-    const maxWorkspaces = appLimit('WorkspaceSidebar', 'maxWorkspaces', { maxWorkspaces: limit, maxTabsPerWorkspace: 8 });
-    assert.equal(maxWorkspaces, limit);
-    for (const count of [Math.ceil(limit) - 1, Math.ceil(limit), Math.ceil(limit) + 1]) {
-      const onCreate = noop;
-      const tree = sidebar({
-        workspaces: Array.from({ length: count }, (_, i) => workspace(`w${i}`, i)), tabs: [], activeWorkspaceId: null,
-        maxWorkspaces, onCreate, onSelect: noop, onRename: noop, onDelete: noop, onAddTab: noop, onReorder: noop,
-      });
-      const create = buttons(tree).filter(button => button.props.onClick === onCreate);
-      assert.equal(create.length, 1, 'actual creation control must be rendered');
-      assert.equal(create[0].props.disabled, count >= limit);
-    }
-  });
-}
+// The Workspace-count cap was removed: App no longer forwards one, and the creation
+// control stays enabled at any count.
+test('App no longer forwards a Workspace-count cap and Sidebar create is never disabled by count', () => {
+  const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(app, /maxWorkspaces|maxSessions|maxTotalSessions|totalSessionCount/u);
+  for (const count of [0, 1, 10, 11, 50, 51]) {
+    const onCreate = noop;
+    const tree = sidebar({
+      workspaces: Array.from({ length: count }, (_, i) => workspace(`w${i}`, i)), tabs: [], activeWorkspaceId: null,
+      onCreate, onSelect: noop, onRename: noop, onDelete: noop, onAddTab: noop, onReorder: noop,
+    });
+    const create = buttons(tree).filter(button => button.props.onClick === onCreate);
+    assert.equal(create.length, 1, 'actual creation control must be rendered');
+    assert.ok(!create[0].props.disabled, `create must stay enabled at ${count} workspaces`);
+  }
+});
 for (const limit of [2, 12, 4.5, 8]) {
   test(`FR-BGSTAB-026 App to actual MoveDialog applies tab capacity ${limit}`, () => {
-    const maxTabsPerWorkspace = appLimit('WorkspaceMoveDialog', 'maxTabsPerWorkspace', { maxWorkspaces: 10, maxTabsPerWorkspace: limit });
+    const maxTabsPerWorkspace = appLimit('WorkspaceMoveDialog', 'maxTabsPerWorkspace', { maxTabsPerWorkspace: limit });
     assert.equal(maxTabsPerWorkspace, limit);
     for (const count of [Math.ceil(limit) - 1, Math.ceil(limit), Math.ceil(limit) + 1]) {
       const moves: string[] = [];
@@ -130,15 +130,13 @@ const capacityTabs = (count: number) => Array.from({ length: count }, (_, index)
 
 for (const limit of [8, 2, 12, 4.5]) {
   test(`FR-BGSTAB-026 CAP-07 App to actual TabBar applies creation capacity ${limit}`, () => {
-    const limits = { maxWorkspaces: 10, maxTabsPerWorkspace: limit, maxTotalSessions: 32 };
+    const limits = { maxTabsPerWorkspace: limit };
     const maxTabs = appLimit('WorkspaceTabBar', 'maxTabs', limits);
-    const maxSessions = appLimit('WorkspaceTabBar', 'maxSessions', limits);
     assert.equal(maxTabs, limit);
-    assert.equal(maxSessions, limits.maxTotalSessions);
     for (const count of [Math.ceil(limit) - 1, Math.ceil(limit), Math.ceil(limit) + 1]) {
       let created = 0;
       const tree = tabBar({
-        tabs: capacityTabs(count), activeTabId: null, totalSessionCount: count, maxTabs, maxSessions,
+        tabs: capacityTabs(count), activeTabId: null, maxTabs,
         onAddTab: () => { created += 1; }, onSelectTab: noop, onCloseTab: noop, onRenameTab: noop, onReorderTabs: noop,
       });
       const add = buttons(tree).filter(isAddTerminalButton);
@@ -150,14 +148,14 @@ for (const limit of [8, 2, 12, 4.5]) {
   });
 
   test(`FR-BGSTAB-026 CAP-07 App through Sidebar to actual Item menu applies creation capacity ${limit}`, () => {
-    const limits = { maxWorkspaces: 10, maxTabsPerWorkspace: limit };
+    const limits = { maxTabsPerWorkspace: limit };
     const maxTabsPerWorkspace = appLimit('WorkspaceSidebar', 'maxTabsPerWorkspace', limits);
     assert.equal(maxTabsPerWorkspace, limit);
     for (const count of [Math.ceil(limit) - 1, Math.ceil(limit), Math.ceil(limit) + 1]) {
       const created: string[] = [];
       const tree = sidebar({
         workspaces: [workspace('target')], tabs: capacityTabs(count), activeWorkspaceId: null,
-        maxWorkspaces: appLimit('WorkspaceSidebar', 'maxWorkspaces', limits), maxTabsPerWorkspace,
+        maxTabsPerWorkspace,
         onCreate: noop, onSelect: noop, onRename: noop, onDelete: noop, onReorder: noop,
         onAddTab: (id: string) => created.push(id),
       });
@@ -177,26 +175,17 @@ for (const limit of [8, 2, 12, 4.5]) {
   });
 }
 
-// #41: the session guard is no longer an independent literal in App -- it is forwarded from
-// limits.maxTotalSessions, so the limit is exercised at two different values. A test that
-// only ever asserted 32 could not tell a forwarded limit from a hardcoded one.
-for (const sessionLimit of [32, 40]) {
-  test(`FR-BGSTAB-026 CAP-07 TabBar applies the forwarded ${sessionLimit}-session creation guard`, () => {
-    const limits = { maxWorkspaces: 20, maxTabsPerWorkspace: 12, maxTotalSessions: sessionLimit };
-    const maxSessions = appLimit('WorkspaceTabBar', 'maxSessions', limits);
-    assert.equal(maxSessions, sessionLimit);
-    for (const totalSessionCount of [sessionLimit - 1, sessionLimit, sessionLimit + 1]) {
-      let created = 0;
-      const tree = tabBar({
-        tabs: capacityTabs(1), activeTabId: null, totalSessionCount,
-        maxTabs: appLimit('WorkspaceTabBar', 'maxTabs', limits), maxSessions,
-        onAddTab: () => { created += 1; }, onSelectTab: noop, onCloseTab: noop, onRenameTab: noop, onReorderTabs: noop,
-      });
-      const add = buttons(tree).filter(isAddTerminalButton);
-      assert.equal(add.length, 1);
-      assert.equal(add[0].props.disabled, totalSessionCount >= sessionLimit);
-      add[0].props.onClick!();
-      assert.equal(created, totalSessionCount >= sessionLimit ? 0 : 1);
-    }
+// The total-session cap was removed: below the per-Workspace tab limit the add button is
+// enabled regardless of how many sessions exist elsewhere.
+test('TabBar add is disabled only by the per-Workspace tab limit, not a total-session count', () => {
+  let created = 0;
+  const tree = tabBar({
+    tabs: capacityTabs(1), activeTabId: null, maxTabs: 8, totalSessionCount: 1000, maxSessions: 1,
+    onAddTab: () => { created += 1; }, onSelectTab: noop, onCloseTab: noop, onRenameTab: noop, onReorderTabs: noop,
   });
-}
+  const add = buttons(tree).filter(isAddTerminalButton);
+  assert.equal(add.length, 1);
+  assert.ok(!add[0].props.disabled);
+  add[0].props.onClick!();
+  assert.equal(created, 1);
+});

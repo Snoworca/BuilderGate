@@ -7,13 +7,12 @@ import { Icon } from '../common';
 import type { Workspace, WorkspaceTabRuntime } from '../../types/workspace';
 import type { ShellInfo } from '../../types';
 import './Workspace.css';
-import { t, tn } from '../../i18n/i18n.ts';
+import { t } from '../../i18n/i18n.ts';
 
 interface Props {
   workspaces: Workspace[];
   tabs: WorkspaceTabRuntime[];
   activeWorkspaceId: string | null;
-  maxWorkspaces: number;
   maxTabsPerWorkspace: number;
   availableShells?: ShellInfo[];
   onSelect: (id: string) => void;
@@ -25,7 +24,7 @@ interface Props {
 }
 
 export function WorkspaceSidebar({
-  workspaces, tabs, activeWorkspaceId, maxWorkspaces, maxTabsPerWorkspace,
+  workspaces, tabs, activeWorkspaceId, maxTabsPerWorkspace,
   availableShells,
   onSelect, onCreate, onRename, onDelete, onAddTab, onReorder,
 }: Props) {
@@ -51,8 +50,6 @@ export function WorkspaceSidebar({
 
   const getRunningCount = (wsId: string) =>
     tabs.filter(t => t.workspaceId === wsId && t.status === 'running').length;
-
-  const isLimitReached = workspaces.length >= maxWorkspaces;
 
   const handleAddTabWithShell = useCallback((wsId: string, anchorPosition?: { x: number; y: number }) => {
     if (!availableShells || availableShells.length <= 1) {
@@ -86,9 +83,8 @@ export function WorkspaceSidebar({
           type="button"
           className="workspace-sidebar-add"
           onClick={onCreate}
-          disabled={isLimitReached}
           aria-label={t('workspace.sidebar.add')}
-          title={isLimitReached ? tn('workspace.sidebar.limit', maxWorkspaces) : t('workspace.sidebar.add')}
+          title={t('workspace.sidebar.add')}
         >
           <Icon name="plus" size={16} />
         </button>

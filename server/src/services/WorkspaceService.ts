@@ -34,9 +34,7 @@ import {
 
 interface WorkspaceConfig {
   dataPath: string;
-  maxWorkspaces: number;
   maxTabsPerWorkspace: number;
-  maxTotalSessions: number;
   flushDebounceMs: number;
   terminalTitleDebounceMs: number;
 }
@@ -114,9 +112,7 @@ export class WorkspaceService {
     const wsConfig = (config as any).workspace;
     this.config = {
       dataPath: wsConfig?.dataPath ?? './data/workspaces.json',
-      maxWorkspaces: wsConfig?.maxWorkspaces ?? 10,
       maxTabsPerWorkspace: wsConfig?.maxTabsPerWorkspace ?? 8,
-      maxTotalSessions: wsConfig?.maxTotalSessions ?? 32,
       flushDebounceMs: wsConfig?.flushDebounceMs ?? 5000,
       terminalTitleDebounceMs: options.terminalTitleDebounceMs ?? wsConfig?.terminalTitleDebounceMs ?? 250,
     };
@@ -229,15 +225,11 @@ export class WorkspaceService {
     return this.state;
   }
 
-  // #66: maxTotalSessions is published alongside the other two because the browser was
-  // hardcoding 32 for it while the server enforced the configured value at :564. Two of the
-  // three limits travelled; the third did not, so a deployment that lowered the cap kept
-  // offering the old one in the UI and the refusal arrived from the server instead.
-  getLimits(): Pick<WorkspaceConfig, 'maxWorkspaces' | 'maxTabsPerWorkspace' | 'maxTotalSessions'> {
+  // FR-BGSTAB-031: the per-Workspace tab limit is the only persistent capacity limit. The
+  // Workspace-count and total-session caps were removed (user decision 2026-09-27).
+  getLimits(): Pick<WorkspaceConfig, 'maxTabsPerWorkspace'> {
     return {
-      maxWorkspaces: this.config.maxWorkspaces,
       maxTabsPerWorkspace: this.config.maxTabsPerWorkspace,
-      maxTotalSessions: this.config.maxTotalSessions,
     };
   }
 
@@ -456,10 +448,6 @@ export class WorkspaceService {
   // ============================================================================
 
   async createWorkspace(name?: string): Promise<Workspace> {
-    if (this.state.workspaces.length >= this.config.maxWorkspaces) {
-      throw new AppError(ErrorCode.WORKSPACE_LIMIT_EXCEEDED);
-    }
-
     const trimmedName = (name || `Workspace-${this.state.workspaces.length + 1}`).trim();
     if (!trimmedName || trimmedName.length > 32) {
       throw new AppError(ErrorCode.INVALID_NAME);
@@ -564,10 +552,6 @@ export class WorkspaceService {
 
     if (wsTabs.length >= this.config.maxTabsPerWorkspace) {
       throw new AppError(ErrorCode.TAB_LIMIT_EXCEEDED);
-    }
-
-    if (this.state.tabs.length >= this.config.maxTotalSessions) {
-      throw new AppError(ErrorCode.SESSION_LIMIT_EXCEEDED);
     }
 
     // Create PTY session

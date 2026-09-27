@@ -63,14 +63,14 @@ function harness() {
 const flush = () => new Promise<void>(resolve => setImmediate(resolve));
 // #41: the declared default is read out of the hook instead of being copied here. A literal
 // copy rots silently the first time production adds a limit key -- which is exactly what
-// happened when maxTotalSessions joined the default and left this file red without anyone
+// happened when a limit key joined the default and left this file red without anyone
 // noticing. Comparing state against the freshly parsed declaration still fails if the effect
 // clobbers the limits before a response arrives, which is what these cases are about.
 const limitsBinding = states.find(binding => binding.name === 'limits');
 assert.ok(limitsBinding, 'the hook must hold the workspace limits in state');
 const defaults = new Function(`return (${limitsBinding.initial});`)() as Record<string, unknown>;
 const defaultKeys = Object.keys(defaults);
-assert.ok(defaultKeys.length >= 2 && defaultKeys.every(key => typeof defaults[key] === 'number'),
+assert.ok(defaultKeys.length >= 1 && defaultKeys.every(key => typeof defaults[key] === 'number'),
   'the declared default must be an object of numeric limits');
 
 test('FR-BGSTAB-026 CAP-04 initial effect retains default limits before receipt and exposes them', () => {
@@ -84,8 +84,8 @@ test('FR-BGSTAB-026 CAP-04 initial effect retains default limits before receipt 
   } finally { h.cleanup(); }
 });
 
-for (const limits of [{ maxWorkspaces: 3, maxTabsPerWorkspace: 4 }, { maxWorkspaces: 20, maxTabsPerWorkspace: 12 }, { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5 }]) {
-  test(`FR-BGSTAB-026 CAP-04 initial effect applies received ${limits.maxWorkspaces}/${limits.maxTabsPerWorkspace} limits and existing data`, async () => {
+for (const limits of [{ maxTabsPerWorkspace: 4 }, { maxTabsPerWorkspace: 12 }, { maxTabsPerWorkspace: 4.5 }]) {
+  test(`FR-BGSTAB-026 CAP-04 initial effect applies received ${limits.maxTabsPerWorkspace} limits and existing data`, async () => {
     const h = harness();
     const body = { workspaces: [{ id: 'saved-workspace' }], tabs: [{ id: 'saved-tab', workspaceId: 'saved-workspace', lastCwd: '/kept' }], gridLayouts: [], limits };
     h.resolve(body);
@@ -115,7 +115,7 @@ test('FR-BGSTAB-026 CAP-04 unmounted initial effect cannot apply a late response
   const h = harness();
   const before = structuredClone(h.state);
   h.cleanup();
-  h.resolve({ workspaces: [{ id: 'late' }], tabs: [], gridLayouts: [], limits: { maxWorkspaces: 3, maxTabsPerWorkspace: 4 } });
+  h.resolve({ workspaces: [{ id: 'late' }], tabs: [], gridLayouts: [], limits: { maxTabsPerWorkspace: 4 } });
   await flush();
   assert.deepEqual(h.state, before);
 });

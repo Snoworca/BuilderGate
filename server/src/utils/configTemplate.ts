@@ -148,9 +148,7 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
 
   workspace: {
     dataPath: "./data/workspaces.json",
-    maxWorkspaces: 10,
     maxTabsPerWorkspace: 8,
-    maxTotalSessions: 32,
     flushDebounceMs: 5000,
     terminalTitleDebounceMs: 250,
     restoreInputDelayMs: 600,

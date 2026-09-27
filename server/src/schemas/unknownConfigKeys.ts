@@ -48,6 +48,17 @@ function shapeOf(schema: z.ZodTypeAny): Record<string, z.ZodTypeAny> | null {
   return null;
 }
 
+/**
+ * Keys a released config may still carry after the setting was removed on purpose. They are
+ * ignored like any unknown key, but not reported: the operator did nothing wrong, and a warning
+ * on every upgraded deployment would teach people to ignore this report.
+ * FR-BGSTAB-031: the Workspace-count and total-session caps were removed (2026-09-27).
+ */
+export const RETIRED_CONFIG_KEYS: ReadonlySet<string> = new Set([
+  'workspace.maxWorkspaces',
+  'workspace.maxTotalSessions',
+]);
+
 export function findUnknownConfigKeys(
   rawConfig: unknown,
   schema: z.ZodTypeAny = configSchema,
@@ -62,7 +73,7 @@ export function findUnknownConfigKeys(
   for (const [key, value] of Object.entries(rawConfig as Record<string, unknown>)) {
     const path = prefix ? `${prefix}.${key}` : key;
     if (!Object.prototype.hasOwnProperty.call(shape, key)) {
-      found.push({ path, knownSiblings: known });
+      if (!RETIRED_CONFIG_KEYS.has(path)) found.push({ path, knownSiblings: known });
       continue;
     }
     found.push(...findUnknownConfigKeys(value, shape[key], path));

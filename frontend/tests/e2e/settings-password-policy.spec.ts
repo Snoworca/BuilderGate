@@ -85,6 +85,15 @@ function createSettingsSnapshot() {
 async function mockAuthenticatedSettingsApp(page: Page, onSettingsPatch: (body: unknown) => void) {
   const settingsSnapshot = createSettingsSnapshot();
 
+  // Registered first, so every specific route below wins over it. This app is
+  // fully mocked and logs in with a fake token: any API request left unmocked
+  // (runtime-config, session-snapshot, terminal-shortcuts, ... — the header
+  // grows new ones) would reach the real server, get 401, and log the page out
+  // mid-test. Unmocked requests get a harmless 404 instead.
+  await page.route('**/api/**', async (route) => {
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+  });
+
   await page.route('**/api/auth/bootstrap-status', async (route) => {
     await route.fulfill({
       status: 200,

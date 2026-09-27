@@ -759,7 +759,6 @@ function AppContent() {
       workspaces={wm.workspaces}
       tabs={wm.tabs}
       activeWorkspaceId={wm.activeWorkspaceId}
-      maxWorkspaces={wm.limits.maxWorkspaces}
       maxTabsPerWorkspace={wm.limits.maxTabsPerWorkspace}
       availableShells={availableShells}
       onSelect={handleSelectWorkspace}
@@ -824,9 +823,7 @@ function AppContent() {
                 {wm.activeWorkspaceTabs.length > 0 && (viewMode === 'tab' || isMobile) && <WorkspaceTabBar
                   tabs={wm.activeWorkspaceTabs}
                   activeTabId={wm.activeWorkspace.activeTabId}
-                  totalSessionCount={wm.totalSessionCount}
                   maxTabs={wm.limits.maxTabsPerWorkspace}
-                  maxSessions={wm.limits.maxTotalSessions}
                   onSelectTab={handleSelectTab}
                   onCloseTab={handleCloseTab}
                   onRenameTab={handleRenameTab}

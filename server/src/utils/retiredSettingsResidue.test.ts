@@ -27,6 +27,8 @@ const RETIRED_LEAF_PATHS = [
   'bruteForce.rateLimit.windowMs', 'bruteForce.rateLimit.maxRequests',
   'bruteForce.lockout.maxAttempts', 'bruteForce.lockout.lockoutDurationMs', 'bruteForce.lockout.progressiveDelay',
   'auth.maxDurationMs', 'fileManager.maxCodeFileSize', 'resourceLimits.telemetry.sampleIntervalMs',
+  // FR-BGSTAB-031
+  'workspace.maxWorkspaces', 'workspace.maxTotalSessions',
 ] as const;
 
 // Leaf names unique enough that any occurrence in a shipped surface is a config reference.
@@ -143,6 +145,8 @@ const SHIPPED_SURFACE_EXCLUSIONS = [
   ':!server/src/test-runner.ts',
   ':!**/*.test.ts', ':!**/*.test.tsx', ':!**/*.test.mjs', ':!**/*.test.cjs', ':!**/*.test.js',
   ':!frontend/src/editor/**',
+  // FR-BGSTAB-031: the retired-key list itself must name the keys it retires.
+  ':!server/src/schemas/unknownConfigKeys.ts',
 ] as const;
 
 function shippedSurfaceFiles(): string[] {

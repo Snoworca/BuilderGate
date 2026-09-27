@@ -120,8 +120,8 @@ export async function recordWorkspaceBaseline(input?: RegistryOptions): Promise<
 /**
  * #67: validate the creation proof and say WHY it failed.
  *
- * This used to be one inline condition throwing one message, so a quota refusal
- * (409 WORKSPACE_LIMIT_EXCEEDED), a name over the 32-character limit, an auth failure and a
+ * This used to be one inline condition throwing one message, so a conflict refusal
+ * (409), a name over the 32-character limit, an auth failure and a
  * malformed body were indistinguishable -- and that ambiguity produced a real misdiagnosis.
  *
  * Extracted rather than fixed in place so it can be tested without standing up an ownership

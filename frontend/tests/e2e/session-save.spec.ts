@@ -107,7 +107,13 @@ test.describe('세션 저장', () => {
       await dialog.getByText('AI 세션 전체').click();
       await dialog.getByRole('checkbox', { name: 'e2e-save-agent 저장' }).check();
       await dialog.getByRole('button', { name: '세션 저장', exact: true }).click();
-      await expect(dialog.getByText(`ID 확인 · ${sessionId.slice(0, 12)}…`)).toBeVisible({ timeout: 30000 });
+      // Precondition, not a product check: the 2222 server must read agent records from this
+      // run's fixture home. Without it the save still succeeds but finds no ID, and the bare
+      // timeout below used to hide why.
+      await expect(
+        dialog.getByText(`ID 확인 · ${sessionId.slice(0, 12)}…`),
+        `no exact ID: is 2222 running with BUILDERGATE_AGENT_CLAUDE_HOME=${path.join(AGENT_HOME, 'claude')}?`,
+      ).toBeVisible({ timeout: 30000 });
       await page.screenshot({ path: '../.playwright-mcp/session-save-result.png' });
 
       const status = await request.get(`${ORIGIN}/api/session-snapshot`, { headers: authHeaders(token) });

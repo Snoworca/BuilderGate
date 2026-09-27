@@ -589,9 +589,10 @@ async function main(): Promise<void> {
     { name: 'FR-BGSTAB-026 capacity CAP-02 GET returns service limits without persistence', run: testWorkspaceCapacityGetRoute },
     { name: 'FR-BGSTAB-026 capacity CAP-02 retains authenticated route registration', run: testWorkspaceCapacityAuthRegistration },
     { name: 'FR-BGSTAB-026 capacity CAP-06 enforces default limits', run: () => testWorkspaceCapacityEnforcement() },
-    { name: 'FR-BGSTAB-026 capacity CAP-06 enforces lower limits', run: () => testWorkspaceCapacityEnforcement({ maxWorkspaces: 3, maxTabsPerWorkspace: 4 }) },
-    { name: 'FR-BGSTAB-026 capacity CAP-06 enforces higher limits', run: () => testWorkspaceCapacityEnforcement({ maxWorkspaces: 20, maxTabsPerWorkspace: 12 }) },
-    { name: 'FR-BGSTAB-026 capacity CAP-06 preserves fractional limits', run: () => testWorkspaceCapacityEnforcement({ maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5 }) },
+    { name: 'FR-BGSTAB-031 capacity CAP-06 enforces a lower per-Workspace tab limit', run: () => testWorkspaceCapacityEnforcement({ maxTabsPerWorkspace: 4 }) },
+    { name: 'FR-BGSTAB-031 capacity CAP-06 enforces a higher per-Workspace tab limit', run: () => testWorkspaceCapacityEnforcement({ maxTabsPerWorkspace: 12 }) },
+    { name: 'FR-BGSTAB-031 capacity CAP-06 preserves a fractional per-Workspace tab limit', run: () => testWorkspaceCapacityEnforcement({ maxTabsPerWorkspace: 4.5 }) },
+    { name: 'FR-BGSTAB-031 no Workspace-count or total-session cap', run: testWorkspaceCountAndTotalSessionsUncapped },
     { name: 'WorkspaceService absolute path terminal title cancels pending debounce', run: testWorkspaceServiceAbsolutePathTitleCancelsPendingDebounce },
     { name: 'WorkspaceService manual rename cancels pending terminal title updates', run: testWorkspaceServiceManualRenameCancelsPendingTitle },
     { name: 'WorkspaceService restart cancels pending old-session terminal titles', run: testWorkspaceServiceRestartCancelsPendingTitle },
@@ -14302,7 +14303,7 @@ function createWorkspaceServiceHarness(options: {
   return { workspaceService, calls, emitCommandSubmitted };
 }
 
-type CapacityLimits = { maxWorkspaces: number; maxTabsPerWorkspace: number };
+type CapacityLimits = { maxTabsPerWorkspace: number };
 
 function createWorkspaceCapacityHarness(limits?: CapacityLimits) {
   const mutableConfig = runtimeConfig as Config & { workspace?: unknown };
@@ -14324,23 +14325,17 @@ function readWorkspaceCapacity(service: WorkspaceService): CapacityLimits {
 }
 
 function testWorkspaceCapacityMetadata(): void {
-  for (const configured of [undefined, { maxWorkspaces: 3, maxTabsPerWorkspace: 4 },
-    { maxWorkspaces: 20, maxTabsPerWorkspace: 12 }, { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5 }]) {
+  for (const configured of [undefined, { maxTabsPerWorkspace: 4 },
+    { maxTabsPerWorkspace: 12 }, { maxTabsPerWorkspace: 4.5 }]) {
     const { workspaceService, calls } = createWorkspaceCapacityHarness(configured);
     const state = workspaceService.getState();
     const before = JSON.stringify(state);
     const limits = readWorkspaceCapacity(workspaceService);
-    // #66: maxTotalSessions joined the published capacity. The browser was hardcoding 32 for
-    // it while the server enforced the configured value, so two of the three limits travelled
-    // and the third did not. This guard fired on that change, which is what it is for -- the
-    // contract is now three fields, and it is still a deepEqual, so a FOURTH field added
-    // without argument still reddens.
-    const expected = {
-      ...(configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 }),
-      maxTotalSessions: 32,
-    };
-    assert.deepEqual(limits, expected, 'only the three configured capacity fields may be exposed');
-    Reflect.set(limits, 'maxWorkspaces', 49);
+    // FR-BGSTAB-031: the Workspace-count and total-session caps were removed, so the
+    // published capacity is the per-Workspace tab limit alone. Still a deepEqual, so a field
+    // added without argument reddens.
+    const expected = configured ?? { maxTabsPerWorkspace: 8 };
+    assert.deepEqual(limits, expected, 'only the per-Workspace tab limit may be exposed');
     Reflect.set(limits, 'maxTabsPerWorkspace', 15);
     assert.deepEqual(readWorkspaceCapacity(workspaceService), expected);
     assert.notEqual(readWorkspaceCapacity(workspaceService), limits, 'each getter result must be detached');
@@ -14352,8 +14347,8 @@ function testWorkspaceCapacityMetadata(): void {
 }
 
 async function testWorkspaceCapacityGetRoute(): Promise<void> {
-  // #66: three-field capacity contract; see the note at the CAP-01 site.
-  const expected = { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5, maxTotalSessions: 32 };
+  // FR-BGSTAB-031: one-field capacity contract; see the note at the CAP-01 site.
+  const expected = { maxTabsPerWorkspace: 4.5 };
   const { workspaceService, calls } = createWorkspaceCapacityHarness(expected);
   const workspace = await workspaceService.createWorkspace('Capacity route fixture');
   await workspaceService.addTab(workspace.id, 'bash', 'Existing tab');
@@ -14401,24 +14396,33 @@ async function testWorkspaceCapacityAuthRegistration(): Promise<void> {
     'capacity metadata must retain the existing authenticated route boundary');
 }
 
+// FR-BGSTAB-031 AC-1: past the old defaults (10 Workspaces, 32 sessions in total) creation
+// still succeeds; only the per-Workspace tab limit refuses.
+async function testWorkspaceCountAndTotalSessionsUncapped(): Promise<void> {
+  const { workspaceService } = createWorkspaceCapacityHarness({ maxTabsPerWorkspace: 3 });
+  const workspaces: Array<{ id: string }> = [];
+  for (let index = 0; index < 12; index += 1) {
+    workspaces.push(await workspaceService.createWorkspace(`Uncapped ${index}`));
+  }
+  for (const workspace of workspaces) {
+    for (let index = 0; index < 3; index += 1) await workspaceService.addTab(workspace.id, 'bash', `Tab ${index}`);
+  }
+  assert.equal(workspaceService.getState().workspaces.length >= 12, true);
+  assert.equal(workspaceService.getState().tabs.length >= 36, true, 'more than the old 32-session total');
+  await assert.rejects(() => workspaceService.addTab(workspaces[0]!.id, 'bash', 'Fourth'),
+    (error: unknown) => error instanceof AppError && error.code === ErrorCode.TAB_LIMIT_EXCEEDED);
+}
+
 async function testWorkspaceCapacityEnforcement(configured?: CapacityLimits): Promise<void> {
   const { workspaceService, calls } = createWorkspaceCapacityHarness(configured);
   const limits = readWorkspaceCapacity(workspaceService);
-  assert.deepEqual(limits, {
-    ...(configured ?? { maxWorkspaces: 10, maxTabsPerWorkspace: 8 }),
-    maxTotalSessions: 32,
-  });
+  assert.deepEqual(limits, configured ?? { maxTabsPerWorkspace: 8 });
   const expected = { ...limits };
-  Reflect.set(limits, 'maxWorkspaces', 49);
   Reflect.set(limits, 'maxTabsPerWorkspace', 15);
   const workspaces = [];
-  for (let index = 0; index < expected.maxWorkspaces; index += 1) {
+  for (let index = 0; index < 2; index += 1) {
     workspaces.push(await workspaceService.createWorkspace(`Capacity ${index}`));
   }
-  const beforeRejectedWorkspace = JSON.stringify(workspaceService.getState());
-  await assert.rejects(() => workspaceService.createWorkspace('Beyond capacity'),
-    (error: unknown) => error instanceof AppError && error.code === ErrorCode.WORKSPACE_LIMIT_EXCEEDED);
-  assert.equal(JSON.stringify(workspaceService.getState()), beforeRejectedWorkspace);
   const source = workspaces[0];
   const target = workspaces[1];
   for (let index = 0; index < Math.ceil(expected.maxTabsPerWorkspace) - 1; index += 1) {

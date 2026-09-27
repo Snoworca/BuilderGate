@@ -31,7 +31,7 @@ test('#62 a fully valid config reports nothing', () => {
     server: { port: 4242 },
     resourceLimits: { terminal: { scrollbackLines: 1000 } },
     stabilityModes: { headlessQueueMode: 'observe' },
-    workspace: { maxWorkspaces: 10 },
+    workspace: { maxTabsPerWorkspace: 8 },
     twoFactor: { enabled: false },
   });
   assert.deepEqual(found, [], 'known keys must never be reported');
@@ -47,4 +47,9 @@ test('#62 the walk descends through optional and defaulted blocks', () => {
   assert.deepEqual(
     findUnknownConfigKeys({ workspace: { maxWorkspacez: 3 } }).map(e => e.path),
     ['workspace.maxWorkspacez']);
+});
+
+test('FR-BGSTAB-031 the retired Workspace-count and total-session keys are ignored without a report', () => {
+  assert.deepEqual(findUnknownConfigKeys({ workspace: { maxWorkspaces: 10, maxTotalSessions: 32, maxTabsPerWorkspace: 8 } }), []);
+  assert.deepEqual(findUnknownConfigKeys({ workspace: { maxWorkspacez: 3 } }).map(e => e.path), ['workspace.maxWorkspacez']);
 });

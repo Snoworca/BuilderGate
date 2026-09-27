@@ -43,16 +43,13 @@ function harness(body: unknown, status = 200) {
 }
 
 test('FR-BGSTAB-026 CAP-03 actual getAll retains authenticated fetch and exact valid capacity values', async () => {
-  // #66 added maxTotalSessions to what the server publishes, and these fixtures kept the
-  // two-key shape -- so this file was green while the real payload was being rejected and the
-  // browser showed an empty sidebar, tab bar and terminal. The fixtures are what the server
-  // sends.
+  // The server publishes exactly the per-Workspace tab limit.
   for (const limits of [
-    { maxWorkspaces: 3, maxTabsPerWorkspace: 4, maxTotalSessions: 32 },
-    { maxWorkspaces: 20, maxTabsPerWorkspace: 12, maxTotalSessions: 8 },
-    { maxWorkspaces: 3.5, maxTabsPerWorkspace: 4.5, maxTotalSessions: 4.5 },
-    { maxWorkspaces: 1, maxTabsPerWorkspace: 16, maxTotalSessions: 1 },
-    { maxWorkspaces: 50, maxTabsPerWorkspace: 1, maxTotalSessions: 128 },
+    { maxTabsPerWorkspace: 4 },
+    { maxTabsPerWorkspace: 12 },
+    { maxTabsPerWorkspace: 4.5 },
+    { maxTabsPerWorkspace: 16 },
+    { maxTabsPerWorkspace: 1 },
   ]) {
     const body = { workspaces: [{ id: 'existing' }], tabs: [], gridLayouts: [], limits };
     const before = structuredClone(body);
@@ -66,16 +63,14 @@ test('FR-BGSTAB-026 CAP-03 actual getAll retains authenticated fetch and exact v
 });
 
 test('FR-BGSTAB-026 CAP-03 actual getAll warns once and rejects malformed limits without leaking the response', async () => {
-  const valid = { maxWorkspaces: 10, maxTabsPerWorkspace: 8, maxTotalSessions: 32 };
-  const malformed: unknown[] = [undefined, null, [], {}, { maxWorkspaces: 10 }, { maxTabsPerWorkspace: 8 },
-    // The pre-#66 two-key payload is now the malformed one: a server that stopped sending the
-    // session cap would put the browser back to hardcoding it.
+  const valid = { maxTabsPerWorkspace: 8 };
+  const malformed: unknown[] = [undefined, null, [], {},
+    // The removed caps are no longer accepted: the payload carries exactly one key.
     { maxWorkspaces: 10, maxTabsPerWorkspace: 8 },
-    // An unknown fourth key still fails, which is what the exact count is for.
+    { maxTabsPerWorkspace: 8, maxTotalSessions: 32 },
+    { maxWorkspaces: 10 },
     { ...valid, maxSomethingNew: 1 },
-    ...['10', null, NaN, Infinity, 0, 51].map(maxWorkspaces => ({ ...valid, maxWorkspaces })),
     ...['8', null, NaN, -Infinity, 0, 17].map(maxTabsPerWorkspace => ({ ...valid, maxTabsPerWorkspace })),
-    ...['32', null, NaN, Infinity, 0, 129].map(maxTotalSessions => ({ ...valid, maxTotalSessions })),
   ];
   for (const limits of malformed) {
     const body = { workspaces: [], tabs: [], gridLayouts: [], sensitiveFixture: 'DO_NOT_LOG_RESPONSE',

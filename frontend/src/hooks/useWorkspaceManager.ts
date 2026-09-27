@@ -156,7 +156,6 @@ export interface UseWorkspaceManagerReturn {
   activeWorkspaceId: string | null;
   activeWorkspace: Workspace | null;
   activeWorkspaceTabs: WorkspaceTabRuntime[];
-  totalSessionCount: number;
   loading: boolean;
   error: string | null;
   clientId: string | null;
@@ -192,7 +191,7 @@ export interface UseWorkspaceManagerReturn {
 // ============================================================================
 
 export function useWorkspaceManager(): UseWorkspaceManagerReturn {
-  const [limits, setLimits] = useState<WorkspaceLimits>({ maxWorkspaces: 10, maxTabsPerWorkspace: 8, maxTotalSessions: 32 });
+  const [limits, setLimits] = useState<WorkspaceLimits>({ maxTabsPerWorkspace: 8 });
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [tabs, setTabs] = useState<WorkspaceTabRuntime[]>([]);
   const [gridLayouts, setGridLayouts] = useState<GridLayout[]>([]);
@@ -446,7 +445,6 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     [tabs, activeWorkspaceId]
   );
 
-  const totalSessionCount = useMemo(() => tabs.length, [tabs]);
 
   // ============================================================================
   // Workspace Actions
@@ -692,7 +690,6 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     activeWorkspaceId,
     activeWorkspace,
     activeWorkspaceTabs,
-    totalSessionCount,
     loading,
     error,
     clientId,
