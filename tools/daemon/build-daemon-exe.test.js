@@ -316,7 +316,10 @@ test('OPS-BGSTAB-017 AC-6 the per-target pkg config keeps the script list and sw
   // carry the scripts too; dropping them would silently leave the daemon
   // entrypoints out of the snapshot.
   assert.deepEqual(config.scripts, packageJson.pkg.scripts);
-  assert.deepEqual(config.assets, resolveNodePtyAssetGlobs('win32', 'x64'));
+  assert.deepEqual(config.assets, [
+    ...resolveNodePtyAssetGlobs('win32', 'x64'),
+    'server/dist/benchmarks/fair-scheduler-evidence/**/*',
+  ]);
 });
 
 test('packaged server bundle contract has one CJS runtime and two CJS preflight entries', () => {
@@ -940,7 +943,7 @@ test('OPS-BGSTAB-017 the packaged build names the entry and a per-target config'
   assert.deepEqual(args.slice(args.indexOf('--config'), args.indexOf('--config') + 2), ['--config', configPath]);
 
   const written = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  assert.deepEqual(written.assets, resolveNodePtyAssetGlobs('linux', 'x64'));
+  assert.deepEqual(written.assets, [...resolveNodePtyAssetGlobs('linux', 'x64'), 'server/dist/benchmarks/fair-scheduler-evidence/**/*']);
   assert.equal(written.assets.some((glob) => glob.includes('win32')), false);
 });
 
@@ -982,7 +985,7 @@ test('OPS-BGSTAB-017 the per-target config exists while pkg runs and is gone aft
 
   // pkg reads the file while it runs, so it has to be there then...
   assert.equal(presentDuringBuild, true);
-  assert.deepEqual(contentsDuringBuild.assets, resolveNodePtyAssetGlobs('linux', 'x64'));
+  assert.deepEqual(contentsDuringBuild.assets, [...resolveNodePtyAssetGlobs('linux', 'x64'), 'server/dist/benchmarks/fair-scheduler-evidence/**/*']);
   // ...and it is a build artifact at the project root, so it must not survive.
   assert.equal(fs.existsSync(configPath), false);
 });

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { resolveDefaultTerminalWireFormat } from './terminalWireFormatDefault.js';
+import { resolve } from 'node:path';
+import { evidenceRootCandidates, resolveDefaultTerminalWireFormat } from './terminalWireFormatDefault.js';
 
 /**
  * MIG-BGSTAB-004 AC-1/AC-2/AC-4: the default is binary only while the evidence
@@ -85,4 +86,19 @@ test('MIG-BGSTAB-004 AC-4 resolution is a pure read and never throws on hostile 
   for (const artifact of hostile) {
     assert.equal(resolveDefaultTerminalWireFormat({ artifact }), 'json');
   }
+});
+
+// MIG-BGSTAB-006: the packaged exe runs the bundled CJS from `server/dist-pkg`, where neither
+// the compiled (`dist/ws`) nor the source (`src/ws`) layout matches, so the evidence was never
+// found and every exe fell back to json (the browser saw `group-not-eligible`).
+test('MIG-BGSTAB-006 AC-1 the packaged layout (server/dist-pkg) looks for the bundle in server/dist/benchmarks', () => {
+  const server = resolve('/opt/app/server');
+  const candidates = evidenceRootCandidates(resolve(server, 'dist-pkg'));
+  assert.ok(candidates.includes(resolve(server, 'dist/benchmarks/fair-scheduler-evidence')), candidates.join(' | '));
+});
+
+test('MIG-BGSTAB-006 AC-2 the compiled and source layouts keep their existing candidates', () => {
+  const server = resolve('/opt/app/server');
+  assert.ok(evidenceRootCandidates(resolve(server, 'dist/ws')).includes(resolve(server, 'dist/benchmarks/fair-scheduler-evidence')));
+  assert.ok(evidenceRootCandidates(resolve(server, 'src/ws')).includes(resolve(server, 'dist/benchmarks/fair-scheduler-evidence')));
 });

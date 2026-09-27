@@ -168,10 +168,14 @@ function resolvePkgConfigPath(target, root = ROOT) {
  * `--config` pkg stops reading package.json entirely, so leaving them out would
  * quietly drop the daemon entrypoints and the node-pty JS from the snapshot.
  */
+const PKG_EVIDENCE_ASSET_GLOB = 'server/dist/benchmarks/fair-scheduler-evidence/**/*';
+
 function resolvePkgBuildConfig(profile) {
   return {
     scripts: ROOT_PACKAGE.pkg.scripts,
-    assets: resolveNodePtyAssetGlobs(profile.platform, profile.arch),
+    // MIG-BGSTAB-006: the wire-format default is read from the evidence bundle;
+    // without it in the snapshot the packaged server silently falls back to json.
+    assets: [...resolveNodePtyAssetGlobs(profile.platform, profile.arch), PKG_EVIDENCE_ASSET_GLOB],
   };
 }
 

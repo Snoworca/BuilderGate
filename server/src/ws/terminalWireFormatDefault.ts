@@ -122,11 +122,20 @@ function findEvidenceRoot(): string | undefined {
   const here = typeof __dirname === 'string'
     ? __dirname
     : dirname(fileURLToPath(import.meta.url));
-  const candidates = [
+  return evidenceRootCandidates(here).find(candidate => existsSync(resolve(candidate, 'current.json')));
+}
+
+/**
+ * Candidate bundle locations for a module directory. Three layouts: compiled `dist/ws`, source
+ * `src/ws` (tsx), and the packaged exe's bundled `dist-pkg` (MIG-BGSTAB-006), whose sibling
+ * `dist/benchmarks` is where the build puts the bundle and the exe embeds it.
+ */
+export function evidenceRootCandidates(here: string): string[] {
+  return [
     resolve(here, '../benchmarks/fair-scheduler-evidence'),
     resolve(here, '../../dist/benchmarks/fair-scheduler-evidence'),
+    resolve(here, '../dist/benchmarks/fair-scheduler-evidence'),
   ];
-  return candidates.find(candidate => existsSync(resolve(candidate, 'current.json')));
 }
 
 let cached: TerminalWireFormat | undefined;
