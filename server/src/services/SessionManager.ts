@@ -4466,6 +4466,18 @@ export class SessionManager {
   private buildShellEnv(shellType: 'powershell' | 'bash' | 'zsh' | 'sh' | 'cmd'): Record<string, string> {
     const baseEnv = stripHostAgentIdentity(process.env);
 
+    // REL-BGSTAB-034: xterm.js renders 24-bit colour; say so, or TUIs (Codex) fall back to a
+    // dim/bold approximation. On Windows the value is also forwarded into WSL sessions.
+    if (!baseEnv['COLORTERM']) {
+      baseEnv['COLORTERM'] = 'truecolor';
+    }
+    if (this.platform === 'win32') {
+      const wslEnv = (baseEnv['WSLENV'] ?? '').split(':').filter(Boolean);
+      if (!wslEnv.some((entry) => entry.split('/')[0] === 'COLORTERM')) {
+        baseEnv['WSLENV'] = [...wslEnv, 'COLORTERM'].join(':');
+      }
+    }
+
     if (shellType === 'bash') {
       // bash: BASH_ENV로 스크립트 자동 로드
       const scriptPath = this.getShellIntegrationPath('bash-osc133.sh');
