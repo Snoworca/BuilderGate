@@ -297,8 +297,21 @@ export function createHeadlessTerminalState(options: {
   return state;
 }
 
+/**
+ * PERF-BGSTAB-019: xterm's WriteBuffer defers a write to a `setTimeout` tick unless it follows
+ * user input. On Windows a tick is ~15.6 ms, which capped the serialized headless queue near
+ * 64 chunks/s per session. Flagging the write as user-input-adjacent makes xterm parse it in the
+ * same call through its normal (async-handler safe) path; only the timer wait is removed.
+ */
+function processHeadlessWriteImmediately(terminal: Terminal): void {
+  const writeBuffer = (terminal as unknown as { _core?: { _writeBuffer?: { handleUserInput?: () => void } } })
+    ._core?._writeBuffer;
+  writeBuffer?.handleUserInput?.();
+}
+
 export function writeHeadlessTerminal(state: HeadlessTerminalState, data: string): Promise<void> {
   return new Promise((resolve) => {
+    processHeadlessWriteImmediately(state.terminal);
     state.terminal.write(data, () => {
       updateCursorVisibilityState(state, data);
       updateSavedCursorState(state, data);

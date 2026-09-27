@@ -176,3 +176,27 @@ test('PERF-BGSTAB-018 AC-2: keeping metrics current costs the viewport, not the 
     disposeHeadlessTerminal(state);
   }
 });
+
+// PERF-BGSTAB-019: xterm defers each write to a timer tick, and on Windows a tick is ~15.6 ms, so
+// the serialized headless queue capped a session near 64 chunks/s. Codex's ~54 chunks/s shimmer
+// backlogged the queue until restore snapshots failed and the socket reconnect-looped.
+test('PERF-BGSTAB-019 AC-1 a headless write is applied before writeHeadlessTerminal returns', () => {
+  const state = createHeadlessTerminalState({ cols: 20, rows: 5, scrollbackLines: 100 });
+  try {
+    void writeHeadlessTerminal(state, 'Q');
+    const line = state.terminal.buffer.active.getLine(0)?.translateToString(true);
+    assert.equal(line, 'Q');
+  } finally {
+    disposeHeadlessTerminal(state);
+  }
+});
+
+test('PERF-BGSTAB-019 AC-2 consecutive writes keep their order', async () => {
+  const state = createHeadlessTerminalState({ cols: 20, rows: 5, scrollbackLines: 100 });
+  try {
+    await Promise.all(['a', 'b', 'c'].map((ch) => writeHeadlessTerminal(state, ch)));
+    assert.equal(state.terminal.buffer.active.getLine(0)?.translateToString(true), 'abc');
+  } finally {
+    disposeHeadlessTerminal(state);
+  }
+});
