@@ -672,7 +672,7 @@ const SEARCH_ICON_CLOSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 function defaultSearchPanel(view: EditorView): Panel {
   const dom = document.createElement('div');
   dom.className = 'cm-search';
-  dom.setAttribute('aria-label', 'Find');
+  dom.setAttribute('aria-label', view.state.phrase('Find'));
 
   const form = document.createElement('form');
   form.autocomplete = 'off';
@@ -687,11 +687,11 @@ function defaultSearchPanel(view: EditorView): Panel {
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
-  searchInput.placeholder = 'Search';
+  searchInput.placeholder = view.state.phrase('Search');
   searchInput.value = initial.search;
   searchInput.className = 'cm-atomic-search-input';
   searchInput.setAttribute('main-field', 'true');
-  searchInput.setAttribute('aria-label', 'Search');
+  searchInput.setAttribute('aria-label', view.state.phrase('Search'));
 
   const count = document.createElement('span');
   count.className = 'cm-atomic-search-count';
@@ -699,17 +699,17 @@ function defaultSearchPanel(view: EditorView): Panel {
 
   const prevBtn = makeIconButton(
     SEARCH_ICON_PREV,
-    'Previous match',
+    view.state.phrase('Previous match'),
     () => findPrevious(view),
   );
   const nextBtn = makeIconButton(
     SEARCH_ICON_NEXT,
-    'Next match',
+    view.state.phrase('Next match'),
     () => findNext(view),
   );
   const closeBtn = makeIconButton(
     SEARCH_ICON_CLOSE,
-    'Close',
+    view.state.phrase('Close'),
     () => closeSearchPanel(view),
   );
 
@@ -741,12 +741,12 @@ function defaultSearchPanel(view: EditorView): Panel {
         }
       }
       count.textContent = capped
-        ? '9999+ matches'
+        ? view.state.phrase('9999+ matches')
         : n === 0
-          ? 'No matches'
+          ? view.state.phrase('No matches')
           : n === 1
-            ? '1 match'
-            : `${n} matches`;
+            ? view.state.phrase('1 match')
+            : view.state.phrase('$ matches', n);
     } catch {
       // Regex compile failure — leave the counter blank; user will
       // see the input lacks its "valid" state via the container class.

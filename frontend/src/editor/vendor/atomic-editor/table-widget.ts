@@ -1022,7 +1022,7 @@ function openCellMenu(
 
   if (!isHeader) {
     items.push({
-      label: 'Insert row above',
+      label: view.state.phrase('Insert row above'),
       action: () => {
         const m = readModelFromDom(wrap);
         m.rows.splice(row, 0, m.header.map(() => ''));
@@ -1030,7 +1030,7 @@ function openCellMenu(
       },
     });
     items.push({
-      label: 'Insert row below',
+      label: view.state.phrase('Insert row below'),
       action: () => {
         const m = readModelFromDom(wrap);
         m.rows.splice(row + 1, 0, m.header.map(() => ''));
@@ -1038,7 +1038,7 @@ function openCellMenu(
       },
     });
     items.push({
-      label: 'Delete row',
+      label: view.state.phrase('Delete row'),
       action: () => {
         const m = readModelFromDom(wrap);
         if (row >= 0 && row < m.rows.length) m.rows.splice(row, 1);
@@ -1049,7 +1049,7 @@ function openCellMenu(
   }
 
   items.push({
-    label: 'Insert column left',
+    label: view.state.phrase('Insert column left'),
     action: () => {
       const m = readModelFromDom(wrap);
       m.header.splice(col, 0, '');
@@ -1058,7 +1058,7 @@ function openCellMenu(
     },
   });
   items.push({
-    label: 'Insert column right',
+    label: view.state.phrase('Insert column right'),
     action: () => {
       const m = readModelFromDom(wrap);
       m.header.splice(col + 1, 0, '');
@@ -1067,7 +1067,7 @@ function openCellMenu(
     },
   });
   items.push({
-    label: 'Delete column',
+    label: view.state.phrase('Delete column'),
     action: () => {
       const m = readModelFromDom(wrap);
       // Guard: don't leave the table with zero columns — lezer

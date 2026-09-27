@@ -43,7 +43,7 @@ upstream 이 활발히 개발 중이므로(2026-04 시작, 8월까지 73커밋),
 
 | # | 커밋 | 대상 파일 | 사유 |
 |---|---|---|---|
-| — | — | — | (아직 없음) |
+| 1 | (이 행을 넣은 커밋) | `atomic-editor/AtomicCodeMirrorEditor.tsx` (검색 패널 문구 10곳), `atomic-editor/table-widget.ts` (표 메뉴 6곳) | FR-I18N-003 AC-3: 영어 리터럴을 같은 줄에서 `view.state.phrase('<원문>')` 로 바꿔 호스트의 `EditorState.phrases` 로 번역되게 한다. 줄 수 불변(FR-MDE-005 AC-1). 원문을 그대로 phrase 키로 쓰므로 phrases 가 없으면 이전과 같은 영어가 나온다 |
 
 > 계층 C 패치를 넣을 때마다 이 표에 한 줄 추가하십시오.
 
