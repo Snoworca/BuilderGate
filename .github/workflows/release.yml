@@ -117,6 +117,12 @@ jobs:
             npm_script: build:macos-arm64
             archive: zip
     steps:
+      # The evidence tree under docs/analysis has paths longer than Windows' 260-character
+      # limit; without this the Windows checkout fails with "Filename too long".
+      - name: Enable long paths (Windows)
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
       - name: Checkout release tag
         uses: actions/checkout@v4
         with:
