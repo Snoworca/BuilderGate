@@ -409,6 +409,11 @@ interface SessionManagerDeps {
   isCommandAvailableFn?: (cmd: string) => boolean;
   platform?: NodeJS.Platform;
   spawnPty?: typeof pty.spawn;
+  /**
+   * REL-BGSTAB-030: true in the pkg-built executable. There process.execPath is BuilderGate.exe,
+   * and `execPath -e <script>` boots a second full server instead of running the script.
+   */
+  isPackagedFn?: () => boolean;
   processInspector?: SessionProcessInspector;
   processTreeTerminator?: ProcessTreeTerminator;
   readProcessStartIdentityFn?: ReadProcessStartIdentity;
@@ -1294,6 +1299,7 @@ export class SessionManager {
   private readonly injectedIsCommandAvailable: ((cmd: string) => boolean) | null;
   private readonly platform: NodeJS.Platform;
   private readonly spawnPty: typeof pty.spawn;
+  private readonly isPackaged: () => boolean;
   private readonly processInspector: SessionProcessInspector;
   private readonly processTreeTerminator: ProcessTreeTerminator;
   private readonly readProcessStartIdentityFn: ReadProcessStartIdentity;
@@ -1396,6 +1402,7 @@ export class SessionManager {
     this.existsSyncFn = deps.existsSyncFn ?? existsSync;
     this.injectedIsCommandAvailable = deps.isCommandAvailableFn ?? null;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
+    this.isPackaged = deps.isPackagedFn ?? (() => Boolean((process as NodeJS.Process & { pkg?: unknown }).pkg));
     this.processInspector = deps.processInspector ?? inspectSessionProcessBestEffort;
     this.processTreeTerminator = deps.processTreeTerminator ?? new DefaultProcessTreeTerminator({ platform: this.platform });
     this.readProcessStartIdentityFn = deps.readProcessStartIdentityFn ?? readProcessStartIdentity;
@@ -5224,6 +5231,12 @@ export class SessionManager {
       return Promise.resolve();
     }
 
+    if (this.isPackaged()) {
+      return this.probeWinptyInProcess().then((result) => {
+        this.powerShellWinptyProbe = { checked: true, ...result };
+      });
+    }
+
     return new Promise((resolve) => {
       this.execFileFn(process.execPath, ['-e', this.buildWinptyProbeScript()], {
         timeout: 3000,
@@ -5263,6 +5276,20 @@ export class SessionManager {
       return;
     }
 
+    // REL-BGSTAB-030: a packaged runtime answers from the in-process warm probe only; spawning
+    // process.execPath there would start another BuilderGate server.
+    if (this.isPackaged()) {
+      const reason = this.powerShellWinptyProbe.checked
+        ? this.powerShellWinptyProbe.reason ?? 'winpty probe failed'
+        : 'winpty probe has not run yet';
+      this.powerShellWinptyProbe = { checked: this.powerShellWinptyProbe.checked, available: false, reason };
+      throw new AppError(
+        ErrorCode.CONFIG_ERROR,
+        `PowerShell winpty backend is unavailable: ${reason}`,
+        { requestedBackend: 'winpty', reason },
+      );
+    }
+
     try {
       this.execFileSyncFn(process.execPath, ['-e', this.buildWinptyProbeScript()], {
         stdio: 'pipe',
@@ -5279,6 +5306,36 @@ export class SessionManager {
         { requestedBackend: 'winpty', reason },
       );
     }
+  }
+
+  /** Spawns `powershell -Command exit` over winpty in this process and waits for it to exit. */
+  private probeWinptyInProcess(): Promise<{ available: boolean; reason?: string }> {
+    return new Promise((resolve) => {
+      let settled = false;
+      let child: pty.IPty | null = null;
+      const finish = (result: { available: boolean; reason?: string }) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try { child?.kill(); } catch { /* already gone */ }
+        resolve(result);
+      };
+      const timer = setTimeout(() => finish({ available: false, reason: 'winpty probe timed out' }), 3000);
+      try {
+        child = this.spawnPty('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', 'exit'], {
+          name: this.runtimePtyConfig.termName,
+          cols: 80,
+          rows: 24,
+          cwd: process.cwd(),
+          env: process.env as Record<string, string>,
+          useConpty: false,
+        });
+        child.onData(() => {});
+        child.onExit(() => finish({ available: true }));
+      } catch (error) {
+        finish({ available: false, reason: error instanceof Error ? error.message : String(error) });
+      }
+    });
   }
 
   private buildWinptyProbeScript(): string {

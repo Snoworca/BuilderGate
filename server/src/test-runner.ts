@@ -418,6 +418,8 @@ async function main(): Promise<void> {
     { name: 'performGracefulShutdown terminates sessions after first workspace flush and final flushes', run: testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush },
     { name: 'performGracefulShutdown degrades timed out session cleanup and still final flushes', run: testPerformGracefulShutdownSessionCleanupTimeoutDegradesAndFinalFlushes },
     { name: 'sessionRoutes accepts shells surfaced by GET /api/sessions/shells', run: testSessionRoutesAcceptSurfacedShells },
+    { name: 'REL-BGSTAB-030 packaged winpty probe runs in-process, never spawning process.execPath', run: testPackagedWinptyProbeNeverSpawnsTheExecutable },
+    { name: 'REL-BGSTAB-030 packaged winpty probe failure is cached and never spawns', run: testPackagedWinptyProbeFailureIsCachedNotSpawned },
     { name: 'SessionManager marks sessions degraded when snapshot serialization fails', run: testSessionManagerDegradedSnapshot },
     { name: 'SessionManager preserves unsnapshotted healthy output when degrading', run: testSessionManagerDirtyCacheDegradedRecovery },
     { name: 'SessionManager preserves queued output when degradation happens before headless writes flush', run: testSessionManagerQueuedOutputDegradedRace },
@@ -5096,6 +5098,65 @@ function testSessionManagerCreateSessionFallsBackWhenConfiguredShellMissing(): v
   assert.ok(observedShell === 'bash' || observedShell === 'sh');
   assert.equal(manager.deleteSession(session.id), true);
   assert.equal(killCalled, true);
+}
+
+// REL-BGSTAB-030: in a packaged runtime process.execPath is BuilderGate.exe, not node. Running
+// `process.execPath -e <probe>` there does not run the probe: the exe boots its packaged entry,
+// inherits BUILDERGATE_INTERNAL_MODE=app and starts a SECOND full server (measured on the 0.10.0
+// exe: EADDRINUSE fatals, orphan-tab recovery rewriting workspace data, the app exiting under
+// the sentinel, "input was not delivered" and sessions ending). The probe must stay in-process.
+async function testPackagedWinptyProbeNeverSpawnsTheExecutable(): Promise<void> {
+  const fixture = createConfigFixture();
+  const spawnedFiles: string[] = [];
+  const probeSpawns: Array<{ file: string; options: any }> = [];
+  const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session }, {
+    execFileFn: ((file: string, _args: any, _options: any, callback: any) => {
+      spawnedFiles.push(file);
+      callback(null, '', '');
+      return {} as any;
+    }) as any,
+    execFileSyncFn: ((file: string) => { spawnedFiles.push(file); return Buffer.from(''); }) as any,
+    spawnPty: ((file: string, _args: string[], options: any) => {
+      probeSpawns.push({ file, options });
+      const exitHandlers: Array<() => void> = [];
+      setTimeout(() => exitHandlers.forEach((handler) => handler()), 5);
+      return { onData: () => ({ dispose() {} }), onExit: (handler: () => void) => { exitHandlers.push(handler); return { dispose() {} }; }, kill: () => {} } as any;
+    }) as any,
+    isPackagedFn: () => true,
+    platform: 'win32',
+  });
+  await sessionManager.warmPowerShellWinptyCapability();
+  assert.deepEqual(spawnedFiles, [], 'a packaged runtime must not spawn process.execPath for the probe');
+  assert.equal(probeSpawns.length, 1, 'the probe runs in-process through the PTY layer');
+  assert.equal(probeSpawns[0]!.file, 'powershell.exe');
+  assert.equal(probeSpawns[0]!.options.useConpty, false);
+  assert.deepEqual(sessionManager.getPowerShellWinptyCapability(), { checked: true, available: true });
+}
+
+async function testPackagedWinptyProbeFailureIsCachedNotSpawned(): Promise<void> {
+  const fixture = createConfigFixture();
+  const spawnedFiles: string[] = [];
+  const sessionManager = new SessionManager({ pty: fixture.pty, session: fixture.session }, {
+    execFileFn: ((file: string) => { spawnedFiles.push(file); return {} as any; }) as any,
+    execFileSyncFn: ((file: string) => { spawnedFiles.push(file); return Buffer.from(''); }) as any,
+    spawnPty: (() => { throw new Error('winpty-agent missing'); }) as any,
+    isPackagedFn: () => true,
+    platform: 'win32',
+  });
+  await sessionManager.warmPowerShellWinptyCapability();
+  const capability = sessionManager.getPowerShellWinptyCapability();
+  assert.equal(capability.available, false);
+  assert.match(capability.reason ?? '', /winpty-agent missing/);
+  // The synchronous path, before any warm probe ran, must not spawn either.
+  const cold = new SessionManager({ pty: fixture.pty, session: fixture.session }, {
+    execFileFn: ((file: string) => { spawnedFiles.push(file); return {} as any; }) as any,
+    execFileSyncFn: ((file: string) => { spawnedFiles.push(file); return Buffer.from(''); }) as any,
+    isPackagedFn: () => true,
+    platform: 'win32',
+  });
+  cold.primePowerShellWinptyCapability();
+  assert.equal(cold.getPowerShellWinptyCapability().available, false);
+  assert.deepEqual(spawnedFiles, []);
 }
 
 async function testSettingsServiceWinptyCapabilitySurface(): Promise<void> {

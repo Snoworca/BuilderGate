@@ -608,3 +608,12 @@ test('runStrictConfigPreflight does not write daemon state for foreground invali
     restore();
   }
 });
+
+test('REL-BGSTAB-030 the packaged launcher refuses -e/--eval instead of booting a server', () => {
+  const { isRefusedPackagedEval } = require('../start-runtime');
+  assert.equal(isRefusedPackagedEval(['-e', "require('node-pty')"], true), true);
+  assert.equal(isRefusedPackagedEval(['--eval', 'x'], true), true);
+  assert.equal(isRefusedPackagedEval(['--eval=x'], true), true);
+  assert.equal(isRefusedPackagedEval(['-e', 'x'], false), false, 'source runs (node) are not affected');
+  assert.equal(isRefusedPackagedEval(['-p', '2222', '--foreground'], true), false);
+});

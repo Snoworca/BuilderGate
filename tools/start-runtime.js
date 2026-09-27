@@ -578,7 +578,22 @@ async function runInternalApp(paths = RUNTIME_PATHS) {
   await import(pathToFileURL(paths.serverEntry).href);
 }
 
+/**
+ * REL-BGSTAB-030: `BuilderGate.exe -e <script>` is what `process.execPath -e` becomes inside the
+ * packaged executable. It must not start anything: with the parent's environment it would boot a
+ * second full server (BUILDERGATE_INTERNAL_MODE=app is inherited), which is how the 0.10.0 exe
+ * lost its sessions.
+ */
+function isRefusedPackagedEval(argv, isPackaged) {
+  return Boolean(isPackaged) && argv.some((arg) => arg === '-e' || arg === '--eval' || arg.startsWith('--eval='));
+}
+
 async function main() {
+  if (isRefusedPackagedEval(process.argv.slice(2), process.pkg)) {
+    console.error('[start] BuilderGate.exe does not evaluate scripts (-e/--eval); refusing to start.');
+    process.exitCode = 2;
+    return;
+  }
   const parsedArgs = parseArgs(process.argv.slice(2));
   const isInternalApp = parsedArgs.internalApp || (process.pkg && process.env.BUILDERGATE_INTERNAL_MODE === 'app');
   const isInternalSentinel = process.env.BUILDERGATE_INTERNAL_MODE === 'sentinel' || parsedArgs.internalSentinel;
@@ -662,6 +677,7 @@ if (require.main === module) {
 
 module.exports = {
   APP_NAME,
+  isRefusedPackagedEval,
   CONFIG_ENV_KEY,
   DEFAULT_PORT,
   parseBootstrapAllowIps: daemonCli.parseBootstrapAllowIps,
