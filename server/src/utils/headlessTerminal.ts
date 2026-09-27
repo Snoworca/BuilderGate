@@ -303,7 +303,7 @@ export function createHeadlessTerminalState(options: {
  * 64 chunks/s per session. Flagging the write as user-input-adjacent makes xterm parse it in the
  * same call through its normal (async-handler safe) path; only the timer wait is removed.
  */
-function processHeadlessWriteImmediately(terminal: Terminal): void {
+function processHeadlessWriteImmediately(terminal: HeadlessTerminalState['terminal']): void {
   const writeBuffer = (terminal as unknown as { _core?: { _writeBuffer?: { handleUserInput?: () => void } } })
     ._core?._writeBuffer;
   writeBuffer?.handleUserInput?.();
