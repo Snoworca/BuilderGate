@@ -146,6 +146,13 @@ test('guard 4 (FR-I18N-002 AC-4): t()/tn() are never evaluated during module loa
   assert.deepEqual(found, []);
 });
 
+test('NFR-I18N-001: every catalog value is a non-empty string (a null renders as the key name)', () => {
+  for (const [lang, catalog] of catalogs) {
+    const bad = Object.entries(catalog).filter(([, v]) => typeof v !== 'string' || v.trim() === '').map(([k]) => k);
+    assert.deepEqual(bad, [], `${lang} has non-string or empty values`);
+  }
+});
+
 test('guard 5 (NFR-I18N-001 AC-4): no Hangul left in English values', () => {
   const korean = Object.entries(en).filter(([, v]) => HANGUL.test(v)).map(([k]) => k);
   assert.deepEqual(korean, []);
