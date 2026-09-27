@@ -82,6 +82,8 @@ const ptySchemaInput = z.object({
   defaultCols: z.number().min(20).max(500).default(80),
   defaultRows: z.number().min(5).max(200).default(24),
   useConpty: z.boolean().default(false),
+  /** REL-BGSTAB-033: ConPTY sessions load node-pty's bundled conpty.dll (falls back to inbox on failure). */
+  useConptyDll: z.boolean().default(true),
   windowsPowerShellBackend: z.enum(['inherit', 'conpty', 'winpty']).default('inherit'),
   scrollbackLines: z.number().int().min(0).max(50000).default(1000),
   maxSnapshotBytes: z.number().int().min(1024).max(268435456).optional(),
