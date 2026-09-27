@@ -98,3 +98,81 @@ test('BOUNDARY CONTROL — a terminal within uint16 keeps its cursor within uint
     disposeHeadlessTerminal(state);
   }
 });
+
+// PERF-BGSTAB-018: the retained row metrics used to re-walk the WHOLE scrollback on every
+// onScroll and on every output record (translateToString + byteLength per line). A full-screen
+// redraw storm (Codex's TUI) therefore cost lines-written x scrollback and pinned the server at
+// one core until it stopped answering (measured: /health timed out; 73% of CPU in
+// captureRetainedPhysicalRows). Rows above the viewport are immutable, so only the viewport
+// needs recomputing.
+
+function referenceMetrics(state: ReturnType<typeof createHeadlessTerminalState>) {
+  const buffer = state.terminal.buffer.normal;
+  const rows: Array<{ wrapped: boolean; utf8Bytes: number }> = [];
+  for (let y = 0; y < buffer.length; y += 1) {
+    const line = buffer.getLine(y);
+    rows.push({ wrapped: line?.isWrapped ?? false, utf8Bytes: Buffer.byteLength(line?.translateToString(true) ?? '', 'utf8') });
+  }
+  let logical = rows.length === 0 ? 0 : 1;
+  for (let i = 1; i < rows.length; i += 1) if (!rows[i]!.wrapped) logical += 1;
+  return {
+    currentPhysicalRows: rows.length,
+    currentLogicalRows: logical,
+    currentUtf8Bytes: rows.reduce((total, row) => total + row.utf8Bytes, 0),
+  };
+}
+
+test('PERF-BGSTAB-018 AC-1: incremental retained metrics equal a full recount through writes, redraws, wraps, trims and resize', async () => {
+  const state = createHeadlessTerminalState({ cols: 20, rows: 5, scrollbackLines: 30 });
+  try {
+    const steps = [
+      'hello\r\nworld\r\n',
+      'x'.repeat(55) + '\r\n',
+      '\x1b[H\x1b[2J' + 'redraw-1\r\nline\r\n',
+      Array.from({ length: 40 }, (_, i) => `row-${i}`).join('\r\n') + '\r\n',
+      '\x1b[3;1H' + '가나다라마바사'.repeat(4),
+      '\x1b[H\x1b[2J' + 'redraw-2 ' + 'y'.repeat(30) + '\r\n',
+    ];
+    for (const chunk of steps) {
+      await writeHeadlessTerminal(state, chunk);
+      const metrics = readRetainedHeadlessBufferMetrics(state);
+      const expected = referenceMetrics(state);
+      assert.equal(metrics.currentPhysicalRows, expected.currentPhysicalRows, `rows after ${JSON.stringify(chunk.slice(0, 12))}`);
+      assert.equal(metrics.currentLogicalRows, expected.currentLogicalRows);
+      assert.equal(metrics.currentUtf8Bytes, expected.currentUtf8Bytes);
+    }
+    resizeHeadlessTerminal(state, 11, 5);
+    await writeHeadlessTerminal(state, 'after-resize '.repeat(3) + '\r\n');
+    const metrics = readRetainedHeadlessBufferMetrics(state);
+    const expected = referenceMetrics(state);
+    assert.equal(metrics.currentPhysicalRows, expected.currentPhysicalRows);
+    assert.equal(metrics.currentUtf8Bytes, expected.currentUtf8Bytes);
+  } finally {
+    disposeHeadlessTerminal(state);
+  }
+});
+
+test('PERF-BGSTAB-018 AC-2: keeping metrics current costs the viewport, not the scrollback', async () => {
+  const state = createHeadlessTerminalState({ cols: 40, rows: 10, scrollbackLines: 5000 });
+  try {
+    await writeHeadlessTerminal(state, Array.from({ length: 4000 }, (_, i) => `seed-${i}`).join('\r\n') + '\r\n');
+    readRetainedHeadlessBufferMetrics(state);
+    const buffer = state.terminal.buffer.normal;
+    const proto = Object.getPrototypeOf(buffer) as { getLine: (y: number) => unknown };
+    const original = proto.getLine;
+    let calls = 0;
+    proto.getLine = function (this: unknown, y: number) { calls += 1; return original.call(this, y); };
+    try {
+      for (let frame = 0; frame < 20; frame += 1) {
+        await writeHeadlessTerminal(state, Array.from({ length: 10 }, (_, i) => `frame-${frame}-${i}`).join('\r\n') + '\r\n');
+        readRetainedHeadlessBufferMetrics(state);
+      }
+    } finally {
+      proto.getLine = original;
+    }
+    // 20 frames x 10 lines = 200 scrolls plus 20 reads. A full recount would be ~4000 lines each.
+    assert.ok(calls < 20_000, `getLine was called ${calls} times; the scrollback is being re-walked`);
+  } finally {
+    disposeHeadlessTerminal(state);
+  }
+});

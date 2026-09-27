@@ -1549,15 +1549,19 @@ function testInputReliabilityModeResolution(): void {
   const warnings: string[] = [];
   const warn = (message: string) => warnings.push(message);
 
-  assert.equal(resolveInputReliabilityMode(undefined, warn), 'observe');
-  assert.equal(resolveInputReliabilityMode('', warn), 'observe');
+  // REL-BGSTAB-032: the shipped default buffers input while the capture gate is transiently
+  // blocked (queue) instead of discarding it (observe). Under Codex's constant full-screen
+  // redraws the gate blocks often enough that observe discarded nearly every keystroke.
+  assert.equal(resolveInputReliabilityMode(undefined, warn), 'queue');
+  assert.equal(resolveInputReliabilityMode('', warn), 'queue');
+  assert.equal(resolveInputReliabilityMode('observe', warn), 'observe', 'observe stays available as an explicit opt-in');
   assert.equal(resolveInputReliabilityMode('queue', warn), 'queue');
   assert.equal(resolveInputReliabilityMode(' STRICT ', warn), 'strict');
-  assert.equal(resolveInputReliabilityMode('unsupported', warn), 'observe');
+  assert.equal(resolveInputReliabilityMode('unsupported', warn), 'queue');
 
   assert.equal(warnings.length, 1);
   assert.match(warnings[0] ?? '', /unsupported/);
-  assert.match(warnings[0] ?? '', /observe/);
+  assert.match(warnings[0] ?? '', /queue/);
 }
 
 async function testLoadConfigFromPathStrictRejectsInvalidExistingConfig(): Promise<void> {

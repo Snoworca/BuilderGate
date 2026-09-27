@@ -11,9 +11,23 @@ interface GraphemeCountResult {
   approximate: boolean;
 }
 
+/**
+ * REL-BGSTAB-031: false on a small-ICU Node build (the pkg base the packaged executable ships).
+ * It has no grapheme break data, and `Intl.Segmenter#segment()` there crashes the whole process
+ * (0xC0000005) instead of throwing — measured on the 0.10.0 exe at the first keystroke.
+ */
+export function canSegmentGraphemes(
+  config: { variables?: Record<string, unknown> } = process.config as unknown as { variables?: Record<string, unknown> },
+): boolean {
+  return config.variables?.icu_small !== true;
+}
+
+const SEGMENT_GRAPHEMES = canSegmentGraphemes();
+
 export function buildInputDebugDetails(
   raw: string,
   clientMetadata?: InputDebugMetadata,
+  options: { segmentGraphemes?: boolean } = {},
 ): Record<string, InputDebugValue> {
   const safePreview = formatSafeInputPreview(raw);
   const spaceCount = (raw.match(/ /g) ?? []).length;
@@ -23,7 +37,7 @@ export function buildInputDebugDetails(
   const controlCount = (raw.match(/[\x00-\x1f\x7f]/g) ?? []).length;
   const codePointCount = Array.from(raw).length;
   const printableCount = Math.max(0, codePointCount - controlCount);
-  const grapheme = countGraphemes(raw);
+  const grapheme = countGraphemes(raw, options.segmentGraphemes ?? SEGMENT_GRAPHEMES);
   const inputClass = classifyInput(safePreview !== null, controlCount, printableCount);
 
   return {
@@ -95,7 +109,10 @@ function classifyInput(hasSafePreview: boolean, controlCount: number, printableC
   return 'printable';
 }
 
-function countGraphemes(raw: string): GraphemeCountResult {
+function countGraphemes(raw: string, segmentGraphemes: boolean): GraphemeCountResult {
+  if (!segmentGraphemes) {
+    return { count: Array.from(raw).length, approximate: true };
+  }
   const segmenterCtor = (Intl as unknown as {
     Segmenter?: new (
       locale?: string,

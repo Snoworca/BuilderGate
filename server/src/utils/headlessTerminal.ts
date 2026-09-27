@@ -205,6 +205,12 @@ interface RetainedSourceMarker {
 
 interface RetainedHeadlessMetricsTracker {
   rows: RetainedPhysicalRowMetric[];
+  /**
+   * PERF-BGSTAB-018: how many leading rows of `rows` are known to be final. Rows above the
+   * viewport cannot be written any more, so a refresh recomputes only from here to the end.
+   * Resize (reflow) and a shrinking buffer (scrollback clear) reset it to 0.
+   */
+  stableRows: number;
   trimTrackingAvailable: boolean;
   evictedPhysicalRows: number;
   evictedLogicalRows: number;
@@ -492,7 +498,7 @@ export function readRetainedHeadlessBufferMetrics(
   state: HeadlessTerminalState,
 ): RetainedHeadlessBufferMetrics {
   const tracker = state.retainedMetricsTracker;
-  tracker.rows = captureRetainedPhysicalRows(state.terminal.buffer.normal);
+  refreshRetainedPhysicalRows(tracker, state.terminal);
   pruneDisposedSourceMarkers(tracker);
   const rows = tracker.rows;
   return {
@@ -597,6 +603,7 @@ function foldComparisonAxes(axes: RetainedHeadlessComparisonAxes): RetainedHeadl
 function createRetainedMetricsTracker(terminal: HeadlessTerminalType): RetainedHeadlessMetricsTracker {
   return {
     rows: captureRetainedPhysicalRows(terminal.buffer.normal),
+    stableRows: Math.max(0, terminal.buffer.normal.length - terminal.rows),
     trimTrackingAvailable: false,
     evictedPhysicalRows: 0,
     evictedLogicalRows: 0,
@@ -617,11 +624,38 @@ function attachRetainedMetricsTracker(state: HeadlessTerminalState): void {
     tracker.disposables.push(lineList.onTrim((amount) => consumeRetainedTrim(tracker, amount)));
   }
   tracker.disposables.push(state.terminal.onScroll(() => {
-    tracker.rows = captureRetainedPhysicalRows(state.terminal.buffer.normal);
+    refreshRetainedPhysicalRows(tracker, state.terminal);
   }));
   tracker.disposables.push(state.terminal.onResize(() => {
-    tracker.rows = captureRetainedPhysicalRows(state.terminal.buffer.normal);
+    // Reflow rewrites every row, so nothing is stable any more.
+    tracker.stableRows = 0;
+    refreshRetainedPhysicalRows(tracker, state.terminal);
   }));
+}
+
+/**
+ * PERF-BGSTAB-018: brings `tracker.rows` up to date by recomputing only the rows that can still
+ * change -- from the previous viewport top to the end -- instead of the whole scrollback.
+ */
+function refreshRetainedPhysicalRows(
+  tracker: RetainedHeadlessMetricsTracker,
+  terminal: { buffer: { normal: RetainedBufferView }; rows: number },
+): void {
+  const buffer = terminal.buffer.normal;
+  const length = buffer.length;
+  // A buffer shorter than what we believed final (e.g. a scrollback clear) invalidates it all.
+  const keep = length < tracker.stableRows ? 0 : Math.min(tracker.stableRows, tracker.rows.length, length);
+  const rows = keep === tracker.rows.length ? tracker.rows : tracker.rows.slice(0, keep);
+  for (let y = keep; y < length; y += 1) {
+    const line = buffer.getLine(y);
+    rows[y] = {
+      wrapped: line?.isWrapped ?? false,
+      utf8Bytes: Buffer.byteLength(line?.translateToString(true) ?? '', 'utf8'),
+    };
+  }
+  rows.length = length;
+  tracker.rows = rows;
+  tracker.stableRows = Math.max(0, length - terminal.rows);
 }
 
 function captureRetainedPhysicalRows(buffer: RetainedBufferView): RetainedPhysicalRowMetric[] {
@@ -653,6 +687,7 @@ function consumeRetainedTrim(tracker: RetainedHeadlessMetricsTracker, amount: nu
     tracker.completeLogicalRowBoundary = false;
   }
   tracker.rows = tracker.rows.slice(knownCount);
+  tracker.stableRows = Math.max(0, tracker.stableRows - knownCount);
 }
 
 function countRetainedLogicalRows(rows: readonly RetainedPhysicalRowMetric[]): number {

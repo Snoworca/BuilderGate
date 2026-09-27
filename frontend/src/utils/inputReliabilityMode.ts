@@ -103,7 +103,8 @@ const DEFAULT_WORKSPACE_RUNTIME_LIMITS: WorkspaceRuntimeResourceLimitsRuntimeCon
   hiddenRuntimeTtlMs: 600_000,
 };
 
-let runtimeMode: InputReliabilityMode = 'observe';
+// REL-BGSTAB-032: before /api/runtime-config answers, buffer rather than discard.
+let runtimeMode: InputReliabilityMode = 'queue';
 let runtimeModeLoaded = false;
 let runtimeConfigVersion = 0;
 let wsTransportMode: WsTransportMode = 'unified';
@@ -140,8 +141,8 @@ export async function initializeInputReliabilityMode(): Promise<InputReliability
     const payload = await response.json() as RuntimeConfigPayload;
     const mode = parseInputReliabilityMode(payload.inputReliabilityMode);
     if (!mode) {
-      console.warn('[RuntimeConfig] Server returned an unsupported inputReliabilityMode. Falling back to observe.');
-      runtimeMode = 'observe';
+      console.warn('[RuntimeConfig] Server returned an unsupported inputReliabilityMode. Falling back to queue.');
+      runtimeMode = 'queue';
     } else {
       runtimeMode = mode;
     }
