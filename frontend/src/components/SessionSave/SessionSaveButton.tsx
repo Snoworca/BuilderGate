@@ -3,6 +3,7 @@ import { Icon } from '../common/Icon.tsx';
 import { Badge, Tooltip } from '../ui/index.ts';
 import type { SaveButtonState } from './sessionSnapshotModel.ts';
 import './SessionSave.css';
+import { t, tn } from '../../i18n/i18n.ts';
 
 export interface SessionSaveButtonProps {
   state: SaveButtonState;
@@ -15,12 +16,12 @@ export function SessionSaveButton({ state, onClick }: SessionSaveButtonProps) {
       <button
         type="button"
         className="session-save-pill session-save-pill-pending"
-        aria-label={`저장된 세션 ${state.count}개 이어하기`}
-        title="저장된 세션 이어하기"
+        aria-label={tn('sessionSave.button.resumeAria', state.count)}
+        title={t('sessionSave.button.resumeTitle')}
         onClick={onClick}
       >
         <Icon name="resume" size={16} />
-        이어하기
+        {t('sessionSave.button.resume')}
         <span className="session-save-pill-count">{state.count}</span>
       </button>
     );
@@ -30,8 +31,8 @@ export function SessionSaveButton({ state, onClick }: SessionSaveButtonProps) {
       <button
         type="button"
         className="session-save-pill session-save-pill-saved"
-        aria-label={`${state.label}, 누르면 지금 상태로 다시 저장`}
-        title="세션을 저장했습니다. 누르면 지금 상태로 다시 저장합니다."
+        aria-label={t('sessionSave.button.savedAria', { label: state.label })}
+        title={t('sessionSave.button.savedTitle')}
         onClick={onClick}
       >
         <Icon name="bookmark-check" size={16} />
@@ -41,15 +42,15 @@ export function SessionSaveButton({ state, onClick }: SessionSaveButtonProps) {
   }
   return (
     <Tooltip
-      title="세션 저장 · 재시작 준비"
+      title={t('sessionSave.button.title')}
       content={state.disabled
-        ? '실행 중인 AI 세션이 없습니다.'
-        : `실행 중인 AI 세션 ${state.badge}개의 이어하기 ID를 저장합니다. 에이전트는 멈추지 않습니다. BuilderGate를 재시작하기 전에 누르세요.`}
+        ? t('sessionSave.button.noSessions')
+        : tn('sessionSave.button.hint', state.badge)}
     >
       <button
         type="button"
         className="icon-button icon-button-md session-save-button"
-        aria-label={`세션 저장 · 재시작 준비 (AI 세션 ${state.badge}개)`}
+        aria-label={tn('sessionSave.button.aria', state.badge)}
         disabled={state.disabled}
         onClick={onClick}
       >

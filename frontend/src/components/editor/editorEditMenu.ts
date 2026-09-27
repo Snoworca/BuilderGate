@@ -7,6 +7,7 @@
 // as an ordinary transaction, which is what the line-ending filter
 // (FR-MDE-015) rewrites.
 // @req FR-MDE-022
+import { t } from '../../i18n/i18n.ts';
 import { EditorView } from '@codemirror/view';
 import type { EditorState, TransactionSpec } from '@codemirror/state';
 import type { ContextMenuItem } from '../ContextMenu/index.ts';
@@ -24,11 +25,11 @@ export interface EditorEditMenuOptions {
 
 export function buildEditorEditMenuItems(options: EditorEditMenuOptions): ContextMenuItem[] {
   return [
-    { label: '모두 선택', shortcut: 'Ctrl+A', onClick: options.onSelectAll },
+    { label: t('editor.menu.selectAll'), shortcut: 'Ctrl+A', onClick: options.onSelectAll },
     { separator: true },
-    { label: '복사', shortcut: 'Ctrl+C', onClick: options.onCopy, disabled: !options.hasSelection },
-    { label: '잘라내기', shortcut: 'Ctrl+X', onClick: options.onCut, disabled: !options.hasSelection || options.readOnly },
-    { label: '붙여넣기', shortcut: 'Ctrl+V', onClick: options.onPaste, disabled: options.readOnly },
+    { label: t('common.copy'), shortcut: 'Ctrl+C', onClick: options.onCopy, disabled: !options.hasSelection },
+    { label: t('editor.menu.cut'), shortcut: 'Ctrl+X', onClick: options.onCut, disabled: !options.hasSelection || options.readOnly },
+    { label: t('common.paste'), shortcut: 'Ctrl+V', onClick: options.onPaste, disabled: options.readOnly },
   ];
 }
 

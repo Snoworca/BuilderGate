@@ -1,3 +1,4 @@
+import { t } from '../../i18n/i18n.ts';
 // Pure model for the image viewer tab (FR-MDE-018, SEC-MDE-001).
 //
 // Offsets are the image centre relative to the stage centre, in CSS px, so a
@@ -102,17 +103,17 @@ export function formatImageInfo(width: number, height: number, bytes: number): s
 // @req FR-MDE-018
 export function describeImageError(failure: ImageFailure): string {
   if (failure.kind === 'decode') {
-    return '이미지를 표시할 수 없습니다. 파일이 손상되었거나 지원하지 않는 형식입니다.';
+    return t('editor.image.decodeFailed');
   }
   const error = failure.error;
   const message = error instanceof Error ? error.message : String(error ?? '');
   if (/\bFILE_TOO_LARGE\b/.test(message)) {
-    return '이미지가 너무 커서 열 수 없습니다.';
+    return t('editor.image.tooLarge');
   }
   if (/\bPATH_NOT_FOUND\b/.test(message)) {
-    return '파일을 찾을 수 없습니다.';
+    return t('editor.image.notFound');
   }
-  return '서버가 이 이미지를 여는 것을 거절했습니다.';
+  return t('editor.image.refused');
 }
 
 // @req SEC-MDE-001

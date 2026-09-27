@@ -1,3 +1,4 @@
+import { t } from '../../i18n/i18n.ts';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../common';
 import type { EditorTheme } from './editorTheme.ts';
@@ -16,8 +17,6 @@ import { truncatedPathLabel } from './editorPathLabel.ts';
 
 // The session path at the bottom (MetadataRow) shows the same label for the
 // same time, so the two paths answer a click the same way.
-const COPIED_LABEL = '✓ 복사됨';
-const COPIED_TITLE = '복사됨';
 const COPIED_MS = 1500;
 
 function MoonIcon() {
@@ -141,13 +140,13 @@ export function EditorDocumentToolbar({
         <button
           type="button"
           className="editor-document-path"
-          title={copied ? COPIED_TITLE : filePath}
-          aria-label={`경로 복사: ${filePath}`}
+          title={copied ? t('editor.toolbar.copiedTitle') : filePath}
+          aria-label={t('editor.toolbar.copyPath', { path: filePath })}
           data-truncated={truncated ? 'true' : 'false'}
           data-copied={copied ? 'true' : 'false'}
           onClick={copyPath}
         >
-          {copied ? COPIED_LABEL : (truncated ? truncatedPathLabel(filePath) : filePath)}
+          {copied ? t('editor.toolbar.copiedLabel') : (truncated ? truncatedPathLabel(filePath) : filePath)}
         </button>
       </div>
       {markdownView !== undefined && (
@@ -155,8 +154,8 @@ export function EditorDocumentToolbar({
           type="button"
           className="editor-toolbar-button editor-markdown-view-toggle"
           aria-pressed={markdownView.raw}
-          title={markdownView.raw ? 'md 편집기 보기' : '원문 보기'}
-          aria-label={markdownView.raw ? 'md 편집기 보기' : '원문 보기'}
+          title={markdownView.raw ? t('editor.toolbar.showEditor') : t('editor.toolbar.showRaw')}
+          aria-label={markdownView.raw ? t('editor.toolbar.showEditor') : t('editor.toolbar.showRaw')}
           onClick={markdownView.onToggle}
         >
           {markdownView.raw ? <MarkdownIcon /> : <SourceIcon />}
@@ -166,8 +165,8 @@ export function EditorDocumentToolbar({
         type="button"
         className="editor-toolbar-button editor-theme-toggle"
         data-theme-state={theme}
-        title={theme === 'light' ? '야간 모드' : '주간 모드'}
-        aria-label={theme === 'light' ? '야간 모드로 전환' : '주간 모드로 전환'}
+        title={theme === 'light' ? t('editor.toolbar.darkMode') : t('editor.toolbar.lightMode')}
+        aria-label={theme === 'light' ? t('editor.toolbar.toDarkMode') : t('editor.toolbar.toLightMode')}
         onClick={onToggleTheme}
       >
         {theme === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -177,7 +176,7 @@ export function EditorDocumentToolbar({
           type="button"
           className="editor-toolbar-button editor-tree-toggle"
           aria-pressed={paneToggle.pressed}
-          aria-label="파일 트리"
+          aria-label={t('editor.fileTree.label')}
           title={paneToggle.label}
           disabled={paneToggle.disabled}
           onClick={paneToggle.onToggle}
@@ -190,8 +189,8 @@ export function EditorDocumentToolbar({
           type="button"
           className="editor-toolbar-button editor-code-wrap-toggle"
           aria-pressed={wrap}
-          title={wrap ? '줄 바꿈 끄기' : '줄 바꿈 켜기'}
-          aria-label="줄 바꿈"
+          title={wrap ? t('editor.toolbar.wrapOff') : t('editor.toolbar.wrapOn')}
+          aria-label={t('editor.toolbar.wrap')}
           onClick={onToggleWrap}
         >
           <WrapIcon />

@@ -7,6 +7,7 @@
 // has to place it.
 // @req FR-FEX-008
 
+import { t, tn } from '../../i18n/i18n.ts';
 import { useMemo, useSyncExternalStore } from 'react';
 import { IconButton } from '../common';
 import { fileJobApi } from '../../services/api.ts';
@@ -46,10 +47,10 @@ export function FileExplorerProgressRow({ workspaceId }: FileExplorerProgressRow
       <span className="fx-job-count">{`${view.processedEntries} / ${view.totalEntries}`}</span>
       {view.moreCount > 0 && (
         <button type="button" className="fx-job-more" onClick={() => openFileJobPopover()}>
-          {`외 ${view.moreCount}개`}
+          {tn('fileExplorer.progress.more', view.moreCount)}
         </button>
       )}
-      <IconButton icon="close" className="fx-job-cancel" label="작업 취소" onClick={() => cancelFileJob(view.jobId)} />
+      <IconButton icon="close" className="fx-job-cancel" label={t('fileExplorer.job.cancel')} onClick={() => cancelFileJob(view.jobId)} />
     </div>
   );
 }

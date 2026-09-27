@@ -1,3 +1,4 @@
+import { t } from '../../i18n/i18n.ts';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import {
@@ -204,7 +205,7 @@ export function ImageFileViewer({ blob, size, error, onEditSource }: ImageFileVi
           disabled={natural === null}
           onClick={fit}
         >
-          창 맞춤
+          {t('editor.image.fit')}
         </button>
         <button
           type="button"
@@ -225,7 +226,7 @@ export function ImageFileViewer({ blob, size, error, onEditSource }: ImageFileVi
             className="editor-text-button image-viewer-edit-source"
             onClick={onEditSource}
           >
-            소스 편집
+            {t('editor.image.editSource')}
           </button>
         )}
       </div>

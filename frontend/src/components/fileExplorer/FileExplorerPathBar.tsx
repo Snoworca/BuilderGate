@@ -4,6 +4,7 @@
 // '↑' is enabled by canGoUp alone — whether the server listed a '..' — and a
 // refused listing is reported here, never corrected: the root stays where it
 // was and the server's message is shown (SEC-FOP-001 AC-5).
+import { t } from '../../i18n/i18n.ts';
 import { IconButton } from '../common';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
 import type { FileTreeMode } from './fileTreeState.ts';
@@ -36,7 +37,7 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
                   key={control}
                   icon="chevron-down"
                   className="fx-bar-button fx-up-button"
-                  label="상위 폴더"
+                  label={t('fileExplorer.path.parent')}
                   disabled={!canGoUp(state) || state.pendingRoot !== null}
                   onClick={() => void tree.goUp()}
                 />
@@ -55,7 +56,7 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
                   key={control}
                   icon={nextMode === 'list' ? 'menu' : 'folder'}
                   className="fx-bar-button fx-mode-toggle"
-                  label={nextMode === 'list' ? '목록으로 보기' : '트리로 보기'}
+                  label={nextMode === 'list' ? t('fileExplorer.path.asList') : t('fileExplorer.path.asTree')}
                   onClick={() => setMode(nextMode)}
                 />
               );
@@ -65,7 +66,7 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
                   key={control}
                   icon="refresh"
                   className="fx-bar-button"
-                  label="새로 읽기"
+                  label={t('fileExplorer.path.reload')}
                   onClick={() => void tree.refresh(state.root)}
                 />
               );
@@ -75,7 +76,7 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
                   key={control}
                   icon="plus"
                   className="fx-bar-button"
-                  label="새 폴더"
+                  label={t('fileExplorer.path.newFolder')}
                   disabled={onNewDirectory === undefined}
                   onClick={onNewDirectory}
                 />

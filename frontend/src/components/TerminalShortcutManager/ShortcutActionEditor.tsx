@@ -1,7 +1,7 @@
 import type { TerminalShortcutAction } from '../../types';
 import { Field, Select, TextInput } from '../ui';
+import { t } from '../../i18n/i18n.ts';
 import {
-  CODEX_NEWLINE_ACTION_LABEL,
   createCodexNewlineAction,
   isCodexNewlineAction,
 } from '../../utils/terminalShortcutBindings';
@@ -53,27 +53,27 @@ export function ShortcutActionEditor({ action, disabled, onChange }: ShortcutAct
 
   return (
     <div className="terminal-shortcut-action-editor">
-      <Field label="동작" htmlFor="terminal-shortcut-action" className="terminal-shortcut-field">
+      <Field label={t('shortcut.action.field')} htmlFor="terminal-shortcut-action" className="terminal-shortcut-field">
         <Select
           id="terminal-shortcut-action"
           value={preset}
           disabled={disabled}
           onChange={(event) => onChange(actionFromPreset(event.target.value as ActionPreset, action))}
-          aria-label="단축키 동작"
+          aria-label={t('shortcut.action.aria')}
         >
-          <option value="send-codex-newline">{CODEX_NEWLINE_ACTION_LABEL}</option>
-          <option value="send-lf">LF 전송</option>
-          <option value="send-cr">CR 전송</option>
-          <option value="send-tab">Tab 전송</option>
-          <option value="send-esc">Esc 전송</option>
-          <option value="block">차단</option>
-          <option value="pass-through">통과</option>
-          <option value="custom">사용자 문자열</option>
+          <option value="send-codex-newline">{t('shortcut.action.codexNewline')}</option>
+          <option value="send-lf">{t('shortcut.action.sendLf')}</option>
+          <option value="send-cr">{t('shortcut.action.sendCr')}</option>
+          <option value="send-tab">{t('shortcut.action.sendTab')}</option>
+          <option value="send-esc">{t('shortcut.action.sendEsc')}</option>
+          <option value="block">{t('shortcut.action.block')}</option>
+          <option value="pass-through">{t('shortcut.action.passThrough')}</option>
+          <option value="custom">{t('shortcut.action.custom')}</option>
         </Select>
       </Field>
       {preset === 'custom' && (
         <Field
-          label="문자열"
+          label={t('shortcut.action.string')}
           htmlFor="terminal-shortcut-custom-data"
           className="terminal-shortcut-field terminal-shortcut-custom-data"
         >
@@ -83,7 +83,7 @@ export function ShortcutActionEditor({ action, disabled, onChange }: ShortcutAct
             value={customValue}
             disabled={disabled}
             onChange={(event) => onChange({ type: 'send', data: event.target.value, label: 'CUSTOM' })}
-            aria-label="사용자 전송 문자열"
+            aria-label={t('shortcut.action.customStringAria')}
           />
         </Field>
       )}

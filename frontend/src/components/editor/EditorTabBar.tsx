@@ -8,6 +8,7 @@
 //
 // @req FR-MDE-010
 
+import { t } from '../../i18n/i18n.ts';
 import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
 import { IconButton } from '../common';
 import { useLongPress } from '../../hooks/useLongPress.ts';
@@ -49,7 +50,7 @@ export function EditorTabBar({ tabs, activeFilePath, onSelect, onClose, onContex
   }, [activeFilePath]);
 
   return (
-    <div className="editor-tab-bar" role="tablist" aria-label="열린 문서">
+    <div className="editor-tab-bar" role="tablist" aria-label={t('editor.tabs.label')}>
       {tabs.map((tab) => {
         const active = tab.filePath === activeFilePath;
 
@@ -82,7 +83,7 @@ export function EditorTabBar({ tabs, activeFilePath, onSelect, onClose, onContex
             <IconButton
               icon="close"
               className="editor-tab-close"
-              label={`${fileNameOf(tab.filePath)} 닫기`}
+              label={t('editor.tabs.close', { name: fileNameOf(tab.filePath) })}
               onClick={() => onClose(tab.filePath)}
             />
           </EditorTabFrame>

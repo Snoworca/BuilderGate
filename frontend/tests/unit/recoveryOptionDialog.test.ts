@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { koCatalog } from './i18nTestSetup.ts';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(testDir, '../..');
@@ -14,6 +15,13 @@ function readSource(relativePath: string): string {
     `${relativePath} is missing: recovery option UI/API hook is not implemented`,
   );
   return readFileSync(absolutePath, 'utf8');
+}
+
+// Matches a source that shows `koText` either literally or through t('<key>') whose ko catalog value is koText.
+function koTextInSource(koText: string): RegExp {
+  const keys = Object.keys(koCatalog).filter(key => koCatalog[key] === koText);
+  const alternatives = [koText, ...keys.map(key => `t\\(\\s*['"]${key.replace(/\./g, '\\.')}['"]`)];
+  return new RegExp(alternatives.join('|'));
 }
 
 function expectSource(source: string, pattern: RegExp, message: string): void {
@@ -33,17 +41,19 @@ test('T-PH004-01 FR-AITUI-001 AC-1 desktop Tools menu opens 복구 옵션 dialog
   const dialogSource = readSource('src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx');
 
   expectSource(headerSource, /onOpenRecoveryOptionManager/, 'Header must expose a recovery option manager opener');
-  expectSource(headerSource, /복구 옵션/, 'Desktop Tools menu must include 복구 옵션');
+  expectSource(headerSource, koTextInSource('복구 옵션'), 'Desktop Tools menu must include 복구 옵션');
   expectSource(appSource, /RecoveryOptionDialog/, 'App must render the recovery option manager dialog');
   expectSource(appSource, /showRecoveryOptionDialog|recoveryOptionDialogOpen/, 'App must own dialog open state');
   expectSource(dialogSource, /data-testid=["']recovery-option-dialog["']/, 'Dialog must expose a stable test id');
-  expectSource(dialogSource, /title=["']복구 옵션["']|복구 옵션/, 'Dialog title must be 복구 옵션');
+  expectSource(dialogSource, /title=\{t\('recovery\.dialog\.title'\)\}/, 'Dialog title must be 복구 옵션');
+  assert.equal(koCatalog['recovery.dialog.title'], '복구 옵션');
 });
 
 test('T-PH004-01 FR-AITUI-001 AC-2 추가 creates a blank command draft', () => {
   const dialogSource = readSource('src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx');
 
-  expectSource(dialogSource, /추가/, 'Dialog must expose an add action');
+  expectSource(dialogSource, /t\('recovery\.action\.add'\)/, 'Dialog must expose an add action');
+  assert.equal(koCatalog['recovery.action.add'], '추가');
   expectAnySource(
     dialogSource,
     [
@@ -149,9 +159,10 @@ test('T-PH005-02 recovery option icon value field uses compact icon label', () =
 
   expectSource(
     dialogSource,
-    /iconLabel=["']아이콘["']/,
+    /iconLabel=\{t\('recovery\.field\.icon'\)\}/,
     'Recovery option icon value field must use the compact icon label',
   );
+  assert.equal(koCatalog['recovery.field.icon'], '아이콘');
   assert.doesNotMatch(
     dialogSource,
     /iconLabel=\{?\s*(?:`[^`]*(?:아이콘|icon)[^`]*수정`|["']아이콘\(icon\)["'])/,
@@ -196,7 +207,8 @@ test('T-PH004-01 FR-AITUI-001 AC-5 matched icon data reaches tab metadata displa
 test('T-PH004-01 FR-AITUI-001 AC-6 built-in Claude and Codex defaults delete like normal rows', () => {
   const dialogSource = readSource('src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx');
 
-  expectSource(dialogSource, /삭제/, 'Dialog must expose delete actions for recovery options');
+  expectSource(dialogSource, /t\('common\.delete'\)/, 'Dialog must expose delete actions for recovery options');
+  assert.equal(koCatalog['common.delete'], '삭제');
   expectSource(dialogSource, /deleteOption|removeOption|recoveryOptionApi\.delete/, 'Dialog must call the normal delete path');
   assert.doesNotMatch(
     dialogSource,

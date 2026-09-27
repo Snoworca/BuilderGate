@@ -31,6 +31,7 @@
 // close prompts, line endings and read-only behave the same in either mode.
 // @req FR-MDE-014
 
+import { editorPhrases } from '../../i18n/editorPhrases.ts';
 import {
   useCallback,
   useEffect,
@@ -470,6 +471,7 @@ export function EditorDocumentPanel({
   // @req FR-MDE-014
   const extensions = useMemo(() => [
     ...(view === 'markdown' ? doculightExtensions() : []),
+    editorPhrases(), // FR-I18N-003 AC-3: CodeMirror and vendor panel text from the catalog
     EditorState.lineSeparator.of(layout.eol),
     normalizeInsertedLineBreaks(layout.eol),
     EditorView.updateListener.of((update) => {

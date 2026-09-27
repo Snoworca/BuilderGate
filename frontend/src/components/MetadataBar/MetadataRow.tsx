@@ -6,6 +6,7 @@ import { getRecoveryIconLabel } from '../../types/recoveryOption';
 import { useInlineRename } from '../../hooks/useInlineRename';
 import { copyTextToClipboard, resolveCopyOutcome } from '../../utils/clipboardCopy';
 import { recordTerminalDebugEvent } from '../../utils/terminalDebugCapture';
+import { t } from '../../i18n/i18n.ts';
 
 interface Props {
   tab: WorkspaceTabRuntime;
@@ -123,7 +124,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
       {/* Session name — 더블클릭 시 인라인 편집 */}
       {recoveryIconLabel && (
         <span
-          title={tab.recoveryCommand ? `복구: ${tab.recoveryCommand}` : '복구'}
+          title={tab.recoveryCommand ? t('metadata.recoveryCommand', { command: tab.recoveryCommand }) : t('metadata.recovery')}
           style={{
             color: '#d7d7d7',
             marginLeft: '8px',
@@ -179,7 +180,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
           className="metadata-cwd-path"
           onClick={handleCopy}
           onContextMenu={handlePathContextMenu}
-          title={copyOutcome === 'copied' ? '복사됨' : copyOutcome === 'failed' ? '복사 실패' : (tab.cwd || '')}
+          title={copyOutcome === 'copied' ? t('metadata.copied') : copyOutcome === 'failed' ? t('metadata.copyFailed') : (tab.cwd || '')}
           style={{
             color: copyOutcome === 'copied' ? '#22c55e' : copyOutcome === 'failed' ? '#ef4444' : '#e0e0e0',
             marginLeft: 'auto',
@@ -198,7 +199,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
             minWidth: 0,
           }}
         >
-          {copyOutcome === 'copied' ? '✓ 복사됨' : copyOutcome === 'failed' ? '✗ 복사 실패' : displayPath}
+          {copyOutcome === 'copied' ? `✓ ${t('metadata.copied')}` : copyOutcome === 'failed' ? `✗ ${t('metadata.copyFailed')}` : displayPath}
         </span>
       )}
 

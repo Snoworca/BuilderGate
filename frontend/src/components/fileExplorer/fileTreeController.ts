@@ -9,6 +9,7 @@
 // - per navigation: the newest root intent (setRoot or goUp) owns the root, so a
 //   goUp overtaken by a later intent neither commits nor reports its failure.
 //   Comparing pendingRoot is not enough: a later goUp can target the same path.
+import { t } from '../../i18n/i18n.ts';
 import type { DirectoryListing } from '../../types/index.ts';
 import {
   canGoUp,
@@ -67,7 +68,7 @@ export function normalizeTreePath(path: string): string {
 
 function errorMessage(reason: unknown): string {
   if (reason instanceof Error && reason.message) return reason.message;
-  return typeof reason === 'string' && reason ? reason : '폴더 목록을 읽지 못했습니다.';
+  return typeof reason === 'string' && reason ? reason : t('fileExplorer.tree.readFailed');
 }
 
 export function createFileTreeController(deps: FileTreeControllerDeps): FileTreeController {

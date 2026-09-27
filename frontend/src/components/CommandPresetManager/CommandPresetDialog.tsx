@@ -10,6 +10,8 @@ import { buildCommandPresetPasteInput } from './commandPresetPaste';
 import { useCommandPresets } from './useCommandPresets';
 import type { CommandPreset, CommandPresetKind } from '../../types';
 import type { TerminalClipboardActionResult } from '../../utils/terminalClipboardCoordinator';
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import './CommandPresetDialog.css';
 
 export interface CommandPresetDialogProps {
@@ -22,10 +24,10 @@ export interface CommandPresetDialogProps {
 }
 
 const ACTIVE_TAB_STORAGE_KEY = 'buildergate.commandPresetManager.activeTab';
-const TAB_DEFINITIONS: Array<{ kind: CommandPresetKind; label: string }> = [
-  { kind: 'command', label: '커맨드 라인' },
-  { kind: 'directory', label: '디렉토리' },
-  { kind: 'prompt', label: '프롬프트' },
+const TAB_DEFINITIONS: Array<{ kind: CommandPresetKind; labelKey: MessageKey }> = [
+  { kind: 'command', labelKey: 'preset.kind.command' },
+  { kind: 'directory', labelKey: 'preset.kind.directory' },
+  { kind: 'prompt', labelKey: 'preset.kind.prompt' },
 ];
 
 interface EditingPresetDraft {
@@ -54,7 +56,7 @@ async function copyTextToClipboard(text: string): Promise<void> {
     const copied = document.execCommand('copy');
     document.body.removeChild(textarea);
     if (!copied) {
-      throw new Error('클립보드에 복사하지 못했습니다.');
+      throw new Error(t('preset.msg.clipboardFailed'));
     }
   }
 }
@@ -122,7 +124,8 @@ export function CommandPresetDialog({
       .sort((a, b) => a.sortOrder - b.sortOrder);
   }, [activeKind, presets]);
 
-  const activeTabLabel = TAB_DEFINITIONS.find(tab => tab.kind === activeKind)?.label ?? '';
+  const activeTabLabelKey = TAB_DEFINITIONS.find(tab => tab.kind === activeKind)?.labelKey;
+  const activeTabLabel = activeTabLabelKey ? t(activeTabLabelKey) : '';
   const isPrompt = activeKind === 'prompt';
 
   const showToast = useCallback((message: string) => {
@@ -149,11 +152,11 @@ export function CommandPresetDialog({
     event.preventDefault();
     const nextLabel = label.trim();
     if (!nextLabel) {
-      setLocalError('라벨을 입력하세요.');
+      setLocalError(t('preset.msg.enterLabel'));
       return;
     }
     if (!value.trim()) {
-      setLocalError('내용을 입력하세요.');
+      setLocalError(t('preset.msg.enterValue'));
       return;
     }
 
@@ -161,10 +164,10 @@ export function CommandPresetDialog({
     setLocalError(null);
     try {
       await createPreset({ kind: activeKind, label: nextLabel, value });
-      showToast('등록되었습니다.');
+      showToast(t('preset.msg.added'));
       resetForm();
     } catch (submitError) {
-      setLocalError(submitError instanceof Error ? submitError.message : '저장하지 못했습니다.');
+      setLocalError(submitError instanceof Error ? submitError.message : t('common.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -200,13 +203,13 @@ export function CommandPresetDialog({
     const nextLabel = draft.label.trim();
     if (!nextLabel) {
       setEditingDraft(current => current && current.id === preset.id
-        ? { ...current, error: '라벨을 입력하세요.' }
+        ? { ...current, error: t('preset.msg.enterLabel') }
         : current);
       return;
     }
     if (!draft.value.trim()) {
       setEditingDraft(current => current && current.id === preset.id
-        ? { ...current, error: '내용을 입력하세요.' }
+        ? { ...current, error: t('preset.msg.enterValue') }
         : current);
       return;
     }
@@ -217,13 +220,13 @@ export function CommandPresetDialog({
     try {
       await updatePreset(preset.id, { label: nextLabel, value: draft.value });
       setEditingDraft(current => current?.id === preset.id ? null : current);
-      showToast('수정되었습니다.');
+      showToast(t('preset.msg.updated'));
     } catch (saveError) {
       setEditingDraft(current => current && current.id === preset.id
         ? {
           ...current,
           saving: false,
-          error: saveError instanceof Error ? saveError.message : '저장하지 못했습니다.',
+          error: saveError instanceof Error ? saveError.message : t('common.saveFailed'),
         }
         : current);
     }
@@ -256,9 +259,9 @@ export function CommandPresetDialog({
         setEditingDraft(null);
       }
       setDeleteTarget(null);
-      showToast('삭제되었습니다.');
+      showToast(t('preset.msg.deleted'));
     } catch (deleteError) {
-      setDeleteError(deleteError instanceof Error ? deleteError.message : '삭제하지 못했습니다.');
+      setDeleteError(deleteError instanceof Error ? deleteError.message : t('preset.msg.deleteFailed'));
     } finally {
       setDeleteBusy(false);
     }
@@ -269,45 +272,45 @@ export function CommandPresetDialog({
     try {
       await movePreset(preset.id, direction);
     } catch (moveError) {
-      setLocalError(moveError instanceof Error ? moveError.message : '순서를 변경하지 못했습니다.');
+      setLocalError(moveError instanceof Error ? moveError.message : t('preset.msg.moveFailed'));
     }
   }, [movePreset]);
 
   const handleCopy = useCallback(async (preset: CommandPreset) => {
     try {
       await copyTextToClipboard(preset.value);
-      showToast('복사되었습니다.');
+      showToast(t('preset.msg.copied'));
     } catch {
-      showToast('복사하지 못했습니다.');
+      showToast(t('preset.msg.copyFailed'));
     }
   }, [showToast]);
 
   const handleExecute = useCallback((preset: CommandPreset) => {
     if (!activeTabId) {
-      showToast('활성 터미널이 없습니다.');
+      showToast(t('preset.msg.noTerminal'));
       return;
     }
 
     if (preset.kind === 'prompt') {
       const validation = buildCommandPresetPasteInput(preset);
       if (!validation.ok) {
-        showToast('붙여넣을 수 없습니다.');
+        showToast(t('preset.msg.cannotPaste'));
         return;
       }
 
       const result = onPasteTerminalInput(activeTabId, validation.data);
-      showToast(result.ok ? '붙여넣었습니다.' : '붙여넣지 못했습니다.');
+      showToast(result.ok ? t('preset.msg.pasted') : t('preset.msg.pasteFailed'));
       return;
     }
 
     const input = buildTerminalInput(preset.kind, preset.value, activeShellType);
     if (!input) {
-      showToast('실행할 내용이 없습니다.');
+      showToast(t('preset.msg.nothingToRun'));
       return;
     }
 
     onSendTerminalInput(activeTabId, input);
-    showToast('실행했습니다.');
+    showToast(t('preset.msg.ran'));
   }, [activeShellType, activeTabId, onPasteTerminalInput, onSendTerminalInput, showToast]);
 
   if (!open) {
@@ -318,14 +321,14 @@ export function CommandPresetDialog({
     <>
       <WindowDialog
         dialogId="command-preset-manager"
-        title="명령줄 관리"
+        title={t('preset.dialog.title')}
         mode="modal"
         defaultRect={{ x: 120, y: 80, width: 760, height: 560 }}
         minSize={{ width: 560, height: 420 }}
         onClose={onClose}
       >
         <div className="command-preset-dialog" data-testid="command-preset-dialog">
-          <div className="command-preset-tabs" role="tablist" aria-label="명령줄 관리 탭">
+          <div className="command-preset-tabs" role="tablist" aria-label={t('preset.dialog.tabsAria')}>
             {TAB_DEFINITIONS.map(tab => (
               <button
                 key={tab.kind}
@@ -335,19 +338,19 @@ export function CommandPresetDialog({
                 aria-selected={activeKind === tab.kind}
                 onClick={() => handleTabClick(tab.kind)}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             ))}
           </div>
 
           <form className={`command-preset-form${isPrompt ? ' command-preset-form-prompt' : ''}`} onSubmit={handleSubmit}>
-            <Field label="라벨" htmlFor="command-preset-new-label" className="command-preset-field">
+            <Field label={t('preset.field.label')} htmlFor="command-preset-new-label" className="command-preset-field">
               <TextInput
                 id="command-preset-new-label"
                 value={label}
                 maxLength={80}
                 onChange={(event) => setLabel(event.target.value)}
-                placeholder={`${activeTabLabel} 라벨`}
+                placeholder={t('preset.field.labelPlaceholder', { kind: activeTabLabel })}
               />
             </Field>
             <Field
@@ -361,7 +364,7 @@ export function CommandPresetDialog({
                   className="ui-input command-preset-textarea"
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
-                  placeholder="보낼 프롬프트"
+                  placeholder={t('preset.field.promptPlaceholder')}
                   rows={5}
                 />
               ) : (
@@ -370,7 +373,7 @@ export function CommandPresetDialog({
                   mono
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
-                  placeholder={activeKind === 'directory' ? '디렉토리 경로' : '실행할 커맨드 라인'}
+                  placeholder={activeKind === 'directory' ? t('preset.field.directoryPlaceholder') : t('preset.field.commandPlaceholder')}
                 />
               )}
             </Field>
@@ -383,7 +386,7 @@ export function CommandPresetDialog({
                 className="command-preset-primary-button"
                 disabled={saving}
               >
-                등록
+                {t('preset.action.add')}
               </Button>
             </div>
           </form>
@@ -395,11 +398,11 @@ export function CommandPresetDialog({
             </div>
           )}
 
-          <div className="command-preset-list" aria-label={`${activeTabLabel} 목록`}>
+          <div className="command-preset-list" aria-label={t('preset.list.aria', { kind: activeTabLabel })}>
             {loading ? (
-              <div className="command-preset-empty">불러오는 중...</div>
+              <div className="command-preset-empty">{t('preset.list.loading')}</div>
             ) : activePresets.length === 0 ? (
-              <div className="command-preset-empty">등록된 항목이 없습니다. 위에서 라벨과 내용을 입력해 등록하세요.</div>
+              <div className="command-preset-empty">{t('preset.list.empty')}</div>
             ) : (
               activePresets.map((preset, index) => (
                 <PresetItem
@@ -425,10 +428,10 @@ export function CommandPresetDialog({
       {deleteTarget && (
         <MessageBox
           dialogId={`command-preset-delete-confirm-${deleteTarget.id}`}
-          title="삭제 확인"
-          message={`${getPresetKindLabel(deleteTarget.kind)} '${deleteTarget.label}' 항목이 목록에서 삭제됩니다. 이미 터미널에 보낸 내용은 그대로 남습니다.`}
-          okLabel="삭제"
-          cancelLabel="취소"
+          title={t('common.deleteConfirm')}
+          message={t('preset.delete.message', { kind: getPresetKindLabel(deleteTarget.kind), label: deleteTarget.label })}
+          okLabel={t('common.delete')}
+          cancelLabel={t('common.cancel')}
           okVariant="danger"
           busy={deleteBusy}
           error={deleteError}
@@ -442,7 +445,8 @@ export function CommandPresetDialog({
 }
 
 function getPresetKindLabel(kind: CommandPresetKind): string {
-  return TAB_DEFINITIONS.find(tab => tab.kind === kind)?.label ?? '항목';
+  const labelKey = TAB_DEFINITIONS.find(tab => tab.kind === kind)?.labelKey;
+  return labelKey ? t(labelKey) : t('preset.kind.item');
 }
 
 function PresetItem({
@@ -477,40 +481,40 @@ function PresetItem({
     <div className="command-preset-item-actions">
       <PresetActionButton
         icon="check"
-        label={`${preset.label} 저장`}
+        label={t('preset.item.saveAria', { label: preset.label })}
         onClick={() => onSaveEdit(preset)}
         disabled={editingDraft.saving}
       />
       <PresetActionButton
         icon="close"
-        label={`${preset.label} 취소`}
+        label={t('preset.item.cancelAria', { label: preset.label })}
         onClick={onCancelEdit}
         disabled={editingDraft.saving}
       />
     </div>
   ) : (
     <div className="command-preset-item-actions">
-      <PresetActionButton icon="copy" label={`${preset.label} 복사`} onClick={() => onCopy(preset)} />
+      <PresetActionButton icon="copy" label={t('preset.item.copyAria', { label: preset.label })} onClick={() => onCopy(preset)} />
       {/* The set has no play or paste glyph; both actions hand the item to the
           active terminal, so both draw the terminal. */}
       {preset.kind === 'prompt' ? (
-        <PresetActionButton icon="terminal" label={`${preset.label} 적용`} onClick={() => onExecute(preset)} />
+        <PresetActionButton icon="terminal" label={t('preset.item.applyAria', { label: preset.label })} onClick={() => onExecute(preset)} />
       ) : (
-        <PresetActionButton icon="terminal" label={`${preset.label} 실행`} onClick={() => onExecute(preset)} />
+        <PresetActionButton icon="terminal" label={t('preset.item.runAria', { label: preset.label })} onClick={() => onExecute(preset)} />
       )}
-      <PresetActionButton icon="edit" label={`${preset.label} 수정`} onClick={() => onEdit(preset)} />
-      <PresetActionButton icon="trash" label={`${preset.label} 삭제`} onClick={() => onDelete(preset)} />
+      <PresetActionButton icon="edit" label={t('preset.item.editAria', { label: preset.label })} onClick={() => onEdit(preset)} />
+      <PresetActionButton icon="trash" label={t('preset.item.deleteAria', { label: preset.label })} onClick={() => onDelete(preset)} />
       {/* No chevron-up in the set: the up button turns chevron-down over. */}
       <PresetActionButton
         icon="chevron-down"
-        label={`${preset.label} 위로`}
+        label={t('preset.item.moveUpAria', { label: preset.label })}
         onClick={() => onMove(preset, 'up')}
         disabled={index === 0}
         className="command-preset-move-up"
       />
       <PresetActionButton
         icon="chevron-down"
-        label={`${preset.label} 아래로`}
+        label={t('preset.item.moveDownAria', { label: preset.label })}
         onClick={() => onMove(preset, 'down')}
         disabled={index === count - 1}
       />
@@ -522,7 +526,7 @@ function PresetItem({
         className="ui-input command-preset-item-textarea"
         value={editingDraft.value}
         onChange={(event) => onEditDraftChange('value', event.target.value)}
-        aria-label={`${preset.label} 프롬프트 수정`}
+        aria-label={t('preset.item.editPromptAria', { label: preset.label })}
         readOnly={editingDraft.saving}
         rows={4}
       />
@@ -531,7 +535,7 @@ function PresetItem({
         mono
         value={editingDraft.value}
         onChange={(event) => onEditDraftChange('value', event.target.value)}
-        aria-label={`${preset.label} 내용 수정`}
+        aria-label={t('preset.item.editValueAria', { label: preset.label })}
         readOnly={editingDraft.saving}
       />
     )
@@ -553,7 +557,7 @@ function PresetItem({
             maxLength={80}
             onChange={(event) => onEditDraftChange('label', event.target.value)}
             onFocus={(event) => event.currentTarget.select()}
-            aria-label={`${preset.label} 라벨 수정`}
+            aria-label={t('preset.item.editLabelAria', { label: preset.label })}
             readOnly={editingDraft.saving}
             autoFocus
           />

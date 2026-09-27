@@ -18,6 +18,8 @@
 // @req FR-FEX-008
 // @req FR-FEX-009
 
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import type { FileJobRoute } from './fileJobEvents.ts';
 import type { FileJobChoice, FileJobProgress } from './fileExplorerPorts.ts';
 
@@ -331,8 +333,8 @@ export function fileJobStoreReducer(state: FileJobStoreState, action: FileJobSto
 // Selectors
 // ---------------------------------------------------------------------------
 
-const OPERATION_LABEL: Record<FileJobOperation, string> = { copy: '복사', move: '이동', delete: '삭제' };
-export const AWAITING_LABEL = '응답 대기 중';
+const OPERATION_LABEL: Record<FileJobOperation, MessageKey> = { copy: 'common.copy', move: 'fileExplorer.job.opMove', delete: 'common.delete' };
+export const AWAITING_LABEL: MessageKey = 'fileExplorer.job.awaiting';
 
 export interface FileJobProgressRowView {
   jobId: string;
@@ -365,7 +367,7 @@ export interface FileJobPopoverRow {
 }
 
 /** A row whose operation is not known yet (a job only heard over the socket) still says what it is. */
-export const UNKNOWN_JOB_LABEL = '파일 작업';
+export const UNKNOWN_JOB_LABEL: MessageKey = 'common.fileJobs';
 
 // Display only: the last name in either separator style. Path policy stays on the server.
 function lastSegment(path: string): string {
@@ -386,7 +388,7 @@ function indeterminateOf(job: FileJobEntry): boolean {
 }
 
 function labelOf(job: FileJobEntry): string {
-  return job.operation === null ? '' : OPERATION_LABEL[job.operation];
+  return job.operation === null ? '' : t(OPERATION_LABEL[job.operation]);
 }
 
 function byRecency(jobs: Iterable<FileJobEntry>): FileJobEntry[] {
@@ -422,7 +424,7 @@ export function selectStatusBarView(state: FileJobStoreState): FileJobStatusBarV
   const waiting = jobs.find((job) => job.pending !== null && job.workspaceId !== null);
   const awaiting = waiting === undefined || waiting.workspaceId === null
     ? null
-    : { workspaceId: waiting.workspaceId, jobId: waiting.jobId, label: AWAITING_LABEL };
+    : { workspaceId: waiting.workspaceId, jobId: waiting.jobId, label: t(AWAITING_LABEL) };
   if (jobs.length === 1) {
     // Before any progress arrives, a job stopped on a question is about that file.
     const path = only.progress?.currentPath ?? only.pending?.detail.path ?? null;
@@ -442,7 +444,7 @@ export function selectStatusBarView(state: FileJobStoreState): FileJobStatusBarV
 export function selectPopoverRows(state: FileJobStoreState): FileJobPopoverRow[] {
   return byRecency(Object.values(state.jobs)).map((job) => ({
     jobId: job.jobId,
-    label: job.operation === null ? UNKNOWN_JOB_LABEL : labelOf(job),
+    label: job.operation === null ? t(UNKNOWN_JOB_LABEL) : labelOf(job),
     fraction: fractionOf(job),
     indeterminate: indeterminateOf(job),
     awaiting: job.pending !== null,

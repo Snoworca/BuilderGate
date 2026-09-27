@@ -2,11 +2,12 @@ import { resolveCwd } from './shell.ts';
 import type { WorkspaceTabRuntime } from '../types/workspace';
 import type { ContextMenuItem } from '../components/ContextMenu/ContextMenu';
 import type { CommandPreset, CommandPresetKind, ShellInfo } from '../types';
+import { t, type MessageKey } from '../i18n/i18n.ts';
 
-const REGISTERED_PRESET_CATEGORY_LABELS: Array<{ kind: CommandPresetKind; label: string }> = [
-  { kind: 'command', label: '커맨드 라인' },
-  { kind: 'directory', label: '디렉토리' },
-  { kind: 'prompt', label: '프롬프트' },
+const REGISTERED_PRESET_CATEGORY_LABELS: ReadonlyArray<{ kind: CommandPresetKind; labelKey: MessageKey }> = [
+  { kind: 'command', labelKey: 'contextMenu.preset.command' },
+  { kind: 'directory', labelKey: 'contextMenu.preset.directory' },
+  { kind: 'prompt', labelKey: 'contextMenu.preset.prompt' },
 ];
 
 export interface RegisteredPresetMenuOptions {
@@ -61,12 +62,12 @@ export function buildTerminalContextMenuItems(
   const newSessionItem: ContextMenuItem =
     availableShells && availableShells.length > 1
       ? {
-          label: '새 세션',
+          label: t('contextMenu.newSession'),
           icon: 'plus',
           disabled: tabs.length >= maxTabs,
           children: [
             {
-              label: availableShells.find(s => s.id === tab?.shellType)?.label ?? tab?.shellType ?? '현재 셸',
+              label: availableShells.find(s => s.id === tab?.shellType)?.label ?? tab?.shellType ?? t('contextMenu.currentShell'),
               icon: availableShells.find(s => s.id === tab?.shellType)?.icon ?? '🖥',
               onClick: () => onAddTab(tab?.cwd, tab?.shellType),
             },
@@ -85,7 +86,7 @@ export function buildTerminalContextMenuItems(
           ],
         }
       : {
-          label: '새 세션',
+          label: t('contextMenu.newSession'),
           icon: 'plus',
           disabled: tabs.length >= maxTabs,
           onClick: () => onAddTab(tab?.cwd),
@@ -94,7 +95,7 @@ export function buildTerminalContextMenuItems(
   const items: ContextMenuItem[] = [
     newSessionItem,
     {
-      label: '세션 닫기',
+      label: t('common.closeSession'),
       icon: 'close',
       destructive: true,
       onClick: onCloseTab,
@@ -102,7 +103,7 @@ export function buildTerminalContextMenuItems(
     ...(moveWorkspace
       ? [
           {
-            label: 'Workspace 이동',
+            label: t('contextMenu.moveWorkspace'),
             icon: 'swap',
             disabled: moveWorkspace.disabled,
             onClick: () => {
@@ -116,7 +117,7 @@ export function buildTerminalContextMenuItems(
     ...(onOpenFileExplorer
       ? [
           {
-            label: '파일 탐색기 열기',
+            label: t('contextMenu.openFileExplorer'),
             icon: 'folder',
             onClick: onOpenFileExplorer,
           } satisfies ContextMenuItem,
@@ -124,7 +125,7 @@ export function buildTerminalContextMenuItems(
       : []),
     { separator: true },
     {
-      label: '복사',
+      label: t('common.copy'),
       icon: 'copy',
       disabled: !hasSelection,
       onClick: () => {
@@ -132,7 +133,7 @@ export function buildTerminalContextMenuItems(
       },
     },
     {
-      label: '붙여넣기',
+      label: t('common.paste'),
       icon: 'clipboard',
       onClick: () => {
         void onPaste();
@@ -165,7 +166,7 @@ export function buildRegisteredPresetContextMenuItem(
     }
 
     categoryItems.push({
-      label: category.label,
+      label: t(category.labelKey),
       children: presets.map(preset => ({
         label: preset.label,
         onClick: () => options.onSelectPreset(preset),
@@ -178,7 +179,7 @@ export function buildRegisteredPresetContextMenuItem(
   }
 
   return {
-    label: '등록 항목 붙여넣기',
+    label: t('contextMenu.pastePreset'),
     icon: 'command',
     children: categoryItems,
   };

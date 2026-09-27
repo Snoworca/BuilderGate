@@ -1,3 +1,4 @@
+import { koCatalog } from './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { test } from 'node:test';
@@ -1018,7 +1019,8 @@ test('TC-REQ-FR-MDE-012-AC4-02 창 메뉴가 buildEditorWindowContextMenu({paneO
 
 test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고, 문서 도구줄에 파일 트리 토글이 있다(메뉴와 같은 동작)', () => {
   const { win, pane } = loadSide();
-  const closers = openingTags(pane, 'IconButton').filter(tag => /닫기/.test(attrValue(pane, tag, 'label')?.code ?? ''));
+  const closers = openingTags(pane, 'IconButton').filter(tag => /t\('editor\.fileTree\.close'\)/.test(attrValue(pane, tag, 'label')?.code ?? ''));
+  assert.match(koCatalog['editor.fileTree.close'], /닫기/);
   assert.equal(closers.length, 1, `${pane.path}: the pane head needs one IconButton labelled 닫기, found ${closers.length}`);
   const onClick = handlersOnTag(pane, closers[0], 'onClick');
   assert.ok(onClick !== null && /[\w$]\s*\(/.test(onClick.bare), `${where(pane, closers[0].start)}: the close button must do something on click`);
@@ -1037,7 +1039,7 @@ test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고, �
   // toolbar, left of the wrap toggle; the titlebar keeps only maximize as a toggle.
   const toggles = openingTags(win, 'IconToggleButton').filter(t => actions.start <= t.start && t.start < actions.end);
   assert.equal(toggles.length, 1, `${where(win, actions.start)}: one toggle in the titlebar — maximize`);
-  assert.ok(!/파일 트리/.test(body.code), `${where(win, actions.start)}: the file tree toggle left the titlebar`);
+  assert.ok(!/파일 트리|editor\.fileTree\.label/.test(body.code), `${where(win, actions.start)}: the file tree toggle left the titlebar`);
   // The window builds the toggle's state once and hands it to every document panel.
   const toggleDef = definitionOf(win, 'paneToggle');
   assert.ok(toggleDef !== null, `${win.path}: paneToggle is not built`);
@@ -1045,7 +1047,7 @@ test('TC-REQ-FR-MDE-012-AC3-01 패널 머리에 닫기 IconButton 이 있고, �
   assert.ok(/paneMounted/.test(toggleCode) && /paneCollapsed/.test(toggleCode),
     `${where(win, toggleDef.start)}: it shows whether the pane is open, like the menu's check mark, and is disabled when the pane cannot open`);
   assert.ok(/setPaneOpen\(/.test(toggleCode), `${where(win, toggleDef.start)}: it opens and closes through setPaneOpen, as the menu does`);
-  assert.ok(/파일 트리/.test(toggleCode), `${where(win, toggleDef.start)}: labelled 파일 트리`);
+  assert.ok(/t\('editor\.fileTree\.label'\)/.test(toggleCode) && koCatalog['editor.fileTree.label'] === '파일 트리', `${where(win, toggleDef.start)}: labelled 파일 트리`);
 });
 
 // ---------------------------------------------------------------------------

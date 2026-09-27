@@ -9,6 +9,7 @@ import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { getRecoveryIconLabel } from '../../types/recoveryOption';
 import type { ShellInfo } from '../../types';
 import './WorkspaceTabBar.css';
+import { t, tn } from '../../i18n/i18n.ts';
 
 interface Props {
   tabs: WorkspaceTabRuntime[];
@@ -75,9 +76,9 @@ export function WorkspaceTabBar({
 
   const isAddDisabled = tabs.length >= maxTabs || totalSessionCount >= maxSessions;
   const addTooltip = tabs.length >= maxTabs
-    ? `탭은 최대 ${maxTabs}개까지 열 수 있습니다`
+    ? tn('workspace.tabBar.tabLimit', maxTabs)
     : totalSessionCount >= maxSessions
-      ? `세션은 최대 ${maxSessions}개까지 열 수 있습니다`
+      ? tn('workspace.tabBar.sessionLimit', maxSessions)
       : '';
 
   const longPress = useLongPress(
@@ -127,7 +128,7 @@ export function WorkspaceTabBar({
             {recoveryIconLabel && (
               <span
                 className="workspace-tab-recovery"
-                title={tab.recoveryCommand ? `복구 명령: ${tab.recoveryCommand}` : '복구 옵션'}
+                title={tab.recoveryCommand ? t('workspace.tabBar.recoveryCommand', { command: tab.recoveryCommand }) : t('workspace.tabBar.recoveryOptions')}
               >
                 {recoveryIconLabel}
               </span>
@@ -153,7 +154,7 @@ export function WorkspaceTabBar({
             )}
             <IconButton
               icon="close"
-              label="탭 닫기"
+              label={t('workspace.tabBar.closeTab')}
               iconSize={14}
               className="workspace-tab-close"
               onClick={(e) => { e.stopPropagation(); onCloseTab(tab.id); }}
@@ -173,8 +174,8 @@ export function WorkspaceTabBar({
         onPointerMove={longPress.onPointerMove}
         disabled={isAddDisabled}
         className="workspace-tabbar-add"
-        aria-label="터미널 추가"
-        title={addTooltip || '터미널 추가'}
+        aria-label={t('common.addTerminal')}
+        title={addTooltip || t('common.addTerminal')}
       >
         <Icon name="plus" size={16} />
       </button>
@@ -198,11 +199,11 @@ export function WorkspaceTabBar({
           position={ctx.position}
           onClose={ctx.close}
           items={[
-            { label: '이름 바꾸기', onClick: () => {
+            { label: t('common.rename'), onClick: () => {
               const tab = sorted.find(t => t.id === ctx.targetId);
               if (tab) { setEditName(tab.name); setEditingTabId(tab.id); }
             }},
-            { label: '닫기', destructive: true, onClick: () => { if (ctx.targetId) onCloseTab(ctx.targetId); }},
+            { label: t('common.close'), destructive: true, onClick: () => { if (ctx.targetId) onCloseTab(ctx.targetId); }},
           ]}
         />
       )}

@@ -1,3 +1,4 @@
+import { koCatalog } from './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -142,8 +143,10 @@ test('TC-REQ-FR-MDE-021-AC2-01: the editor tab bar opens the tab menu on right c
 test('TC-REQ-FR-MDE-021-AC5-01: dirty targets raise one prompt with save-all, discard and cancel; save-all closes only what saved', () => {
   const win = src('components/editor/EditorWindow.tsx');
   assert.match(win, /bulkClosePrompt/);
-  assert.match(win, /모두 저장/);
-  assert.match(win, /저장 안 함/);
+  assert.match(win, /t\('editor\.close\.saveAll'\)/);
+  assert.match(win, /t\('editor\.close\.dontSave'\)/);
+  assert.equal(koCatalog['editor.close.saveAll'], '모두 저장');
+  assert.equal(koCatalog['editor.close.dontSave'], '저장 안 함');
   assert.match(win, /saveForClose\(\)/);
   const panel = src('components/editor/EditorDocumentPanel.tsx');
   assert.match(panel, /saveForClose:/);

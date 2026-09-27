@@ -8,6 +8,8 @@
 // resolves.
 // @req FR-MDE-008
 
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import { truncatePathLeft } from '../../utils/pathUtils.ts';
 import { windowDialogTitleText } from '../dialog/windowDialogModel.ts';
 
@@ -56,8 +58,8 @@ const TRAY_PATH_MAX_LENGTH = 56;
 /** What a row shows where a name is gone. Filled in rather than left blank: a
  * row with an empty segment reads as a row for nothing, and the row is still
  * how the document is reached. */
-export const MISSING_WORKSPACE_NAME = '(이름 없음)';
-const MISSING_TAB_NAME = '(닫힌 탭)';
+export const MISSING_WORKSPACE_NAME: MessageKey = 'editor.tray.missingWorkspace';
+const MISSING_TAB_NAME: MessageKey = 'editor.tray.missingTab';
 
 /**
  * Whether the tray icon is rendered. This is the icon's own condition, and it is
@@ -117,9 +119,9 @@ export function listEditorTrayEntries(
     workspaceId: editorWindow.workspaceId,
     label: windowDialogTitleText(
       [
-        editorWindow.workspaceName ?? MISSING_WORKSPACE_NAME,
+        editorWindow.workspaceName ?? t(MISSING_WORKSPACE_NAME),
         ' / ',
-        editorWindow.tabName ?? MISSING_TAB_NAME,
+        editorWindow.tabName ?? t(MISSING_TAB_NAME),
         ' | ',
         truncatePathLeft(editorWindow.filePath, TRAY_PATH_MAX_LENGTH),
       ].join(''),

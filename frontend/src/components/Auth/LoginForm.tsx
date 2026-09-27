@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { t } from '../../i18n/i18n.ts';
 import { Icon } from '../common/Icon';
 import { Button, Field, Spinner, TextInput } from '../ui';
 import './Auth.css';
@@ -35,14 +36,14 @@ export function LoginForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <Field label="비밀번호" htmlFor="password">
+          <Field label={t('auth.field.password')} htmlFor="password">
             <TextInput
               id="password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="비밀번호 입력"
+              placeholder={t('auth.login.passwordPlaceholder')}
               disabled={isLoading}
               autoFocus
               autoComplete="current-password"
@@ -58,10 +59,10 @@ export function LoginForm() {
             {isLoading ? (
               <>
                 <Spinner />
-                로그인하는 중…
+                {t('auth.login.submitting')}
               </>
             ) : (
-              '로그인'
+              t('auth.login.submit')
             )}
           </Button>
 

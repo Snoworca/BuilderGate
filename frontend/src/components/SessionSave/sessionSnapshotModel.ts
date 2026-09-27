@@ -1,3 +1,5 @@
+import { t } from '../../i18n/i18n.ts';
+
 // FR-AITUI-009 — the rules the session save and resume screens apply, kept
 // apart from the components so they can be judged without a DOM.
 
@@ -111,12 +113,13 @@ function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-export function formatSavedAt(iso: string, now: Date = new Date()): string {
+export function formatSavedAt(iso: string, now: Date = new Date(), options: { omitToday?: boolean } = {}): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
   const time = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
   const sameDay = at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth() && at.getDate() === now.getDate();
-  return sameDay ? `오늘 ${time}` : `${at.getMonth() + 1}월 ${at.getDate()}일 ${time}`;
+  if (sameDay) return options.omitToday ? time : t('sessionSave.savedAt.today', { time });
+  return t('sessionSave.savedAt.date', { month: at.getMonth() + 1, day: at.getDate(), time });
 }
 
 export type SaveButtonState =
@@ -139,8 +142,8 @@ export function saveButtonState(input: { candidateCount: number; status: Snapsho
     return { kind: 'pending', count: status.pendingCount };
   }
   if (status?.snapshot && status.pendingCount > 0) {
-    const label = formatSavedAt(status.snapshot.savedAt, input.now ?? new Date()).replace(/^오늘 /, '');
-    return { kind: 'saved', label: `저장됨 · ${label}`, badge: input.candidateCount };
+    const label = formatSavedAt(status.snapshot.savedAt, input.now ?? new Date(), { omitToday: true });
+    return { kind: 'saved', label: t('sessionSave.button.savedLabel', { time: label }), badge: input.candidateCount };
   }
   return { kind: 'save', badge: input.candidateCount, disabled: input.candidateCount === 0 };
 }

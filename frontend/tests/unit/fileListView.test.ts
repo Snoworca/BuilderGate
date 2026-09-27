@@ -1,3 +1,4 @@
+import './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
@@ -334,7 +335,7 @@ test('트리 모드는 파인더처럼 이름·수정한 날짜·크기 머리�
   const tree = readFileSync(new URL('../../src/components/fileExplorer/FileTreeView.tsx', import.meta.url), 'utf8');
   assert.match(tree, /className="fx-tree-head"/, 'a header row');
   assert.match(tree, /LIST_COLUMNS\.map\(/, 'one header cell per list column');
-  assert.match(tree, /\{COLUMN_LABELS\[column\]\}/, 'the same labels as list mode');
+  assert.match(tree, /\{t\(COLUMN_LABELS\[column\]\)\}/, 'the same labels as list mode');
   assert.match(tree, /className="fx-meta fx-col-modified">\{formatEntryModified\(/, 'a date column per row');
   assert.match(tree, /className="fx-meta fx-col-size">\{formatEntrySize\(/, 'a size column per row');
   assert.match(tree, /indexEntriesByPath\(/, 'rows find their entry through the path index, not a per-row search');

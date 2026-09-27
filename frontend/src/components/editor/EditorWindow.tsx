@@ -19,6 +19,7 @@
 // @req FR-MDE-011
 // @req FR-MDE-012
 
+import { t, tn } from '../../i18n/i18n.ts';
 import {
   useCallback,
   useEffect,
@@ -622,7 +623,7 @@ export function EditorWindow({
   const paneToggle = useMemo<EditorPaneToggle>(() => ({
     pressed: paneMounted && !paneCollapsed,
     disabled: !paneMounted,
-    label: paneMounted ? '파일 트리' : '파일 트리 — 이 문서의 터미널 세션을 찾을 수 없습니다',
+    label: paneMounted ? t('editor.fileTree.label') : t('editor.fileTree.noSession'),
     onToggle: () => setPaneOpen(paneCollapsed),
   }), [paneCollapsed, paneMounted, setPaneOpen]);
 
@@ -635,13 +636,13 @@ export function EditorWindow({
   const titlebarActions = (
     <div ref={actionsRef} style={ACTIONS_STYLE} className="editor-window-actions">
       {activeTabClosed && (
-        <Chip tone="warn" title="결속된 탭이 닫혀 저장할 수 없습니다">
-          저장 불가
+        <Chip tone="warn" title={t('editor.window.tabClosedTitle')}>
+          {t('editor.window.cannotSave')}
         </Chip>
       )}
       <IconButton
         icon="save"
-        label="저장"
+        label={t('common.save')}
         disabled={activeTabClosed || activeTab === null}
         onClick={saveActive}
       />
@@ -651,12 +652,12 @@ export function EditorWindow({
       <IconToggleButton
         pressed={maximized}
         icons={{ on: 'restore', off: 'maximize' }}
-        label="최대화"
+        label={t('editor.window.maximize')}
         onToggle={onToggleMaximize}
       />
       <IconButton
         icon="minimize"
-        label="최소화"
+        label={t('editor.window.minimize')}
         onClick={onMinimize}
       />
     </div>
@@ -665,7 +666,7 @@ export function EditorWindow({
   return (
     <WindowDialog
       dialogId={editorWindowDialogId(workspaceId)}
-      title={activeTab === null ? '편집기' : fileNameOf(activeTab.filePath)}
+      title={activeTab === null ? t('editor.window.title') : fileNameOf(activeTab.filePath)}
       mode="modeless"
       defaultRect={SUPERSEDED_DEFAULT_RECT}
       minSize={EDITOR_WINDOW_MIN_SIZE}
@@ -705,7 +706,7 @@ export function EditorWindow({
             data-surface={paneSurface}
             role="separator"
             aria-orientation="vertical"
-            aria-label="파일 트리 폭"
+            aria-label={t('editor.fileTree.width')}
             onPointerDown={startPaneDrag}
             onPointerMove={movePaneDrag}
             onPointerUp={endPaneDrag}
@@ -759,19 +760,19 @@ export function EditorWindow({
         {bulkClosePrompt !== null && (
           <div className="modal-overlay editor-bulk-close-prompt" onClick={() => void answerBulkClose('cancel')}>
             <div className="modal-content" onClick={(event) => event.stopPropagation()}>
-              <h2 className="modal-title">저장하지 않은 변경</h2>
+              <h2 className="modal-title">{t('editor.close.unsavedTitle')}</h2>
               <p className="confirm-message">
-                {`저장하지 않은 문서가 ${bulkClosePrompt.dirty.length}개 있습니다. 저장하시겠습니까?`}
+                {tn('editor.close.bulkMessage', bulkClosePrompt.dirty.length)}
               </p>
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => void answerBulkClose('cancel')}>
-                  취소
+                  {t('common.cancel')}
                 </button>
                 <button type="button" className="btn-cancel btn-destructive" onClick={() => void answerBulkClose('discard')}>
-                  저장 안 함
+                  {t('editor.close.dontSave')}
                 </button>
                 <button type="button" className="btn-submit" onClick={() => void answerBulkClose('save')}>
-                  모두 저장
+                  {t('editor.close.saveAll')}
                 </button>
               </div>
             </div>

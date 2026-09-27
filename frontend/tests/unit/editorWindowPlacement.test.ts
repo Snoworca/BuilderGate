@@ -1,3 +1,4 @@
+import { koCatalog } from './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
@@ -159,7 +160,7 @@ test('FR-MDE-001 the title bar offers save, maximize and minimize', () => {
   assert.notEqual(actionsEnd, -1, 'the actions block is still closed');
 
   const actions = WINDOW_SOURCE.slice(actionsStart, actionsEnd);
-  const labels = Array.from(actions.matchAll(/\blabel="([^"]+)"/g), (match) => match[1]);
+  const labels = Array.from(actions.matchAll(/\blabel=\{t\('([^']+)'\)\}/g), (match) => koCatalog[match[1]]);
 
   // Three here plus the close button `WindowDialog` draws for every dialog, which
   // is the four the title bar carries. `터미널 채움` was the fifth.

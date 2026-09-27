@@ -1,0 +1,961 @@
+file	line	kind	context	text
+frontend/src/App.tsx	206	string	alert	로그인이 만료되었습니다. 다시 로그인하세요.
+frontend/src/App.tsx	1102	jsx-ui-attr	title	세션 닫기
+frontend/src/App.tsx	1103	jsx-attr	message	이 세션을 종료하시겠습니까?
+frontend/src/App.tsx	1104	jsx-attr	confirmLabel	닫기
+frontend/src/App.tsx	1105	jsx-attr	cancelLabel	취소
+frontend/src/components/Auth/AuthGuard.tsx	29	jsx-text		로그인 상태를 확인하는 중…
+frontend/src/components/Auth/AuthGuard.tsx	48	jsx-text		이 위치에서는 초기 설정을 할 수 없습니다
+frontend/src/components/Auth/AuthGuard.tsx	51	jsx-text		이 BuilderGate에는 아직 관리자 비밀번호가 없습니다.
+frontend/src/components/Auth/AuthGuard.tsx	55	jsx-text		처음 비밀번호는 localhost나 허용 목록에 있는 IP에서만 설정할 수 있습니다.
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	27	string		두 비밀번호가 다릅니다. 같은 비밀번호를 다시 입력하세요.
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	52	jsx-text		관리자 비밀번호 설정
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	56	jsx-text		이 BuilderGate에 로그인할 때 쓸 관리자 비밀번호를 정합니다.
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	60	jsx-ui-attr	label	비밀번호
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	67	jsx-ui-attr	placeholder	새 비밀번호 입력
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	74	jsx-ui-attr	label	비밀번호 확인
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	81	jsx-ui-attr	placeholder	비밀번호 다시 입력
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	96	jsx-text		설정하는 중…
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	99	string		비밀번호 설정
+frontend/src/components/Auth/LoginForm.tsx	38	jsx-ui-attr	label	비밀번호
+frontend/src/components/Auth/LoginForm.tsx	45	jsx-ui-attr	placeholder	비밀번호 입력
+frontend/src/components/Auth/LoginForm.tsx	61	jsx-text		로그인하는 중…
+frontend/src/components/Auth/LoginForm.tsx	64	string		로그인
+frontend/src/components/Auth/TwoFactorForm.tsx	40	jsx-text		인증 코드 입력
+frontend/src/components/Auth/TwoFactorForm.tsx	43	jsx-text		인증 앱에 보이는 6자리 코드를 입력하세요. 6자리를 모두 넣으면 바로 확인합니다.
+frontend/src/components/Auth/TwoFactorForm.tsx	46	jsx-ui-attr	label	인증 코드
+frontend/src/components/Auth/TwoFactorForm.tsx	70	jsx-text		확인하는 중…
+frontend/src/components/Auth/TwoFactorForm.tsx	73	string		코드 확인
+frontend/src/components/Auth/TwoFactorForm.tsx	90	jsx-text		취소하고 로그인 화면으로
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	26	ui-prop	label	커맨드 라인
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	27	ui-prop	label	디렉토리
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	28	ui-prop	label	프롬프트
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	57	error	Error	클립보드에 복사하지 못했습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	152	error	setLocalError	라벨을 입력하세요.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	156	error	setLocalError	내용을 입력하세요.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	164	string	showToast	등록되었습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	167	error	setLocalError	저장하지 못했습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	203	prop	error	라벨을 입력하세요.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	209	prop	error	내용을 입력하세요.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	220	string	showToast	수정되었습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	226	string	setEditingDraft	저장하지 못했습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	259	string	showToast	삭제되었습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	261	error	setDeleteError	삭제하지 못했습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	272	error	setLocalError	순서를 변경하지 못했습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	279	string	showToast	복사되었습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	281	string	showToast	복사하지 못했습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	287	string	showToast	활성 터미널이 없습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	294	string	showToast	붙여넣을 수 없습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	299	string	showToast	붙여넣었습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	299	string	showToast	붙여넣지 못했습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	305	string	showToast	실행할 내용이 없습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	310	string	showToast	실행했습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	321	jsx-ui-attr	title	명령줄 관리
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	328	jsx-ui-attr	aria-label	명령줄 관리 탭
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	344	jsx-ui-attr	label	라벨
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	350	jsx-ui-attr	placeholder	{0} 라벨
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	364	jsx-ui-attr	placeholder	보낼 프롬프트
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	373	string		디렉토리 경로
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	373	string		실행할 커맨드 라인
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	386	jsx-text		등록
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	398	jsx-ui-attr	aria-label	{0} 목록
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	400	jsx-text		불러오는 중...
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	402	jsx-text		등록된 항목이 없습니다. 위에서 라벨과 내용을 입력해 등록하세요.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	428	jsx-ui-attr	title	삭제 확인
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	429	jsx-attr	message	{0} '{1}' 항목이 목록에서 삭제됩니다. 이미 터미널에 보낸 내용은 그대로 남습니다.
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	430	jsx-attr	okLabel	삭제
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	431	jsx-attr	cancelLabel	취소
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	445	string		항목
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	480	jsx-ui-attr	label	{0} 저장
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	486	jsx-ui-attr	label	{0} 취소
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	493	jsx-ui-attr	label	{0} 복사
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	497	jsx-ui-attr	label	{0} 적용
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	499	jsx-ui-attr	label	{0} 실행
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	501	jsx-ui-attr	label	{0} 수정
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	502	jsx-ui-attr	label	{0} 삭제
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	506	jsx-ui-attr	label	{0} 위로
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	513	jsx-ui-attr	label	{0} 아래로
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	525	jsx-ui-attr	aria-label	{0} 프롬프트 수정
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	534	jsx-ui-attr	aria-label	{0} 내용 수정
+frontend/src/components/CommandPresetManager/CommandPresetDialog.tsx	556	jsx-ui-attr	aria-label	{0} 라벨 수정
+frontend/src/components/CommandPresetManager/useCommandPresets.ts	32	error	setError	명령줄 목록을 불러오지 못했습니다.
+frontend/src/components/ContextMenu/ContextMenu.tsx	651	jsx-text		뒤로가기
+frontend/src/components/ContextMenu/ContextMenu.tsx	660	jsx-ui-attr	aria-label	닫기
+frontend/src/components/ContextMenu/ContextMenu.tsx	661	jsx-ui-attr	title	닫기
+frontend/src/components/ContextMenu/contextMenuNavigation.ts	10	string		메뉴
+frontend/src/components/Grid/MosaicContainer.tsx	900	jsx-text		세션이 없습니다. 새 세션을 시작하세요.
+frontend/src/components/Grid/MosaicContainer.tsx	927	jsx-ui-attr	title	세션 닫기
+frontend/src/components/Grid/MosaicContainer.tsx	928	jsx-attr	message	이 세션을 종료하시겠습니까?
+frontend/src/components/Grid/MosaicContainer.tsx	929	jsx-attr	confirmLabel	닫기
+frontend/src/components/Grid/MosaicContainer.tsx	930	jsx-attr	cancelLabel	취소
+frontend/src/components/Grid/MosaicToolbar.tsx	84	jsx-ui-attr	title	끌어서 옮기기
+frontend/src/components/Grid/MosaicToolbar.tsx	111	jsx-ui-attr	label	균등 분할
+frontend/src/components/Grid/MosaicToolbar.tsx	118	jsx-ui-attr	label	세로 정렬
+frontend/src/components/Grid/MosaicToolbar.tsx	125	jsx-ui-attr	label	포커스 모드
+frontend/src/components/Grid/MosaicToolbar.tsx	132	jsx-ui-attr	label	자동 모드
+frontend/src/components/Header/Header.tsx	96	ui-prop	label	명령줄 관리
+frontend/src/components/Header/Header.tsx	100	ui-prop	label	터미널 키보드
+frontend/src/components/Header/Header.tsx	104	ui-prop	label	복구 옵션
+frontend/src/components/Header/Header.tsx	108	ui-prop	label	MCP 설정
+frontend/src/components/Header/Header.tsx	119	jsx-ui-attr	label	메뉴 열기
+frontend/src/components/Header/Header.tsx	154	jsx-ui-attr	label	파일 탐색기
+frontend/src/components/Header/Header.tsx	176	jsx-ui-attr	aria-label	편집기 창
+frontend/src/components/Header/Header.tsx	177	jsx-ui-attr	title	편집기 창
+frontend/src/components/Header/Header.tsx	184	jsx-ui-attr	aria-label	열린 문서 {0}개
+frontend/src/components/Header/Header.tsx	196	string		그리드 보기로 전환
+frontend/src/components/Header/Header.tsx	196	string		탭 보기로 전환
+frontend/src/components/Header/Header.tsx	210	jsx-ui-attr	label	도구
+frontend/src/components/Header/Header.tsx	224	jsx-ui-attr	label	설정
+frontend/src/components/Header/Header.tsx	233	jsx-ui-attr	label	로그아웃
+frontend/src/components/McpControlManager/McpControlDialog.tsx	68	ui-prop	label	보안
+frontend/src/components/McpControlManager/McpControlDialog.tsx	69	ui-prop	label	에이전트 프로필
+frontend/src/components/McpControlManager/McpControlDialog.tsx	70	ui-prop	label	웹훅
+frontend/src/components/McpControlManager/McpControlDialog.tsx	71	ui-prop	label	세션
+frontend/src/components/McpControlManager/McpControlDialog.tsx	72	ui-prop	label	감사/상태
+frontend/src/components/McpControlManager/McpControlDialog.tsx	76	prop	loopback	로컬 호스트 전용
+frontend/src/components/McpControlManager/McpControlDialog.tsx	77	prop	whitelist	허용 목록 사용
+frontend/src/components/McpControlManager/McpControlDialog.tsx	81	prop	none	보안 사용 안 함
+frontend/src/components/McpControlManager/McpControlDialog.tsx	82	prop	direct_tls	직접 TLS
+frontend/src/components/McpControlManager/McpControlDialog.tsx	83	prop	trusted_tls_proxy	신뢰 프록시 TLS
+frontend/src/components/McpControlManager/McpControlDialog.tsx	87	prop	generated-file	생성 파일
+frontend/src/components/McpControlManager/McpControlDialog.tsx	88	prop	env	환경 변수
+frontend/src/components/McpControlManager/McpControlDialog.tsx	89	prop	manual	수동 설정
+frontend/src/components/McpControlManager/McpControlDialog.tsx	93	prop	ok	성공
+frontend/src/components/McpControlManager/McpControlDialog.tsx	94	prop	code	코드
+frontend/src/components/McpControlManager/McpControlDialog.tsx	95	prop	status	상태
+frontend/src/components/McpControlManager/McpControlDialog.tsx	96	ui-prop	message	메시지
+frontend/src/components/McpControlManager/McpControlDialog.tsx	97	prop	changedFields	변경 항목
+frontend/src/components/McpControlManager/McpControlDialog.tsx	274	string	setStatusMessage	MCP 보안 설정을 저장했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	314	string	setStatusMessage	고정 인증키를 재생성했습니다. 지금 복사해 안전한 곳에 보관하세요.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	315	string	setStatusMessage	고정 인증키를 생성했습니다. 지금 복사해 안전한 곳에 보관하세요.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	347	string	setStatusMessage	고정 인증키를 클립보드에 복사했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	374	string	setStatusMessage	에이전트 프로필을 저장했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	374	string	setStatusMessage	에이전트 프로필을 추가했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	428	string	setStatusMessage	에이전트 프로필을 삭제했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	459	string	setStatusMessage	웹훅 키를 생성했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	475	string	setStatusMessage	웹훅 키를 교체했습니다. 이전 키는 더 이상 쓸 수 없습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	490	string	setStatusMessage	웹훅 키를 폐기했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	522	string	setStatusMessage	검색 결과 {0}건
+frontend/src/components/McpControlManager/McpControlDialog.tsx	536	string	setStatusMessage	세션 별칭을 저장했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	551	string	setStatusMessage	일회성 연결 코드를 발급했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	562	error	setError	전달 테스트 프롬프트가 필요합니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	570	string	setStatusMessage	메시지 전달 테스트를 접수했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	570	string	setStatusMessage	전달 테스트 거부: {0}
+frontend/src/components/McpControlManager/McpControlDialog.tsx	570	string	setStatusMessage	알 수 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	581	error	setError	이 세션에는 닫기 확인 토큰이 없습니다. 세션 목록을 다시 조회하십시오.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	585	string	window.confirm	{0} 세션을 닫습니까?
+frontend/src/components/McpControlManager/McpControlDialog.tsx	597	string	setStatusMessage	세션 닫기 요청을 접수했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	597	string	setStatusMessage	세션 닫기 거부: {0}
+frontend/src/components/McpControlManager/McpControlDialog.tsx	597	string	setStatusMessage	알 수 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	614	jsx-ui-attr	title	MCP 관리
+frontend/src/components/McpControlManager/McpControlDialog.tsx	622	jsx-ui-attr	aria-label	MCP 관리 탭
+frontend/src/components/McpControlManager/McpControlDialog.tsx	643	jsx-text		불러오는 중
+frontend/src/components/McpControlManager/McpControlDialog.tsx	763	string		고정 인증키 재생성
+frontend/src/components/McpControlManager/McpControlDialog.tsx	763	string		고정 인증키 생성
+frontend/src/components/McpControlManager/McpControlDialog.tsx	765	string		정말로 재생성하시겠습니까? 현재 고정 인증키는 즉시 사용할 수 없게 됩니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	766	string		새 고정 인증키를 생성하시겠습니까? 생성된 키는 이번 응답에서만 표시됩니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	767	string		재생성
+frontend/src/components/McpControlManager/McpControlDialog.tsx	767	string		생성
+frontend/src/components/McpControlManager/McpControlDialog.tsx	768	jsx-attr	cancelLabel	취소
+frontend/src/components/McpControlManager/McpControlDialog.tsx	809	jsx-text		MCP 설정을 불러오지 못했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	820	jsx-text		MCP 엔드포인트 사용
+frontend/src/components/McpControlManager/McpControlDialog.tsx	824	jsx-ui-attr	label	바인드 모드
+frontend/src/components/McpControlManager/McpControlDialog.tsx	835	jsx-ui-attr	label	호스트 주소
+frontend/src/components/McpControlManager/McpControlDialog.tsx	845	jsx-ui-attr	label	포트
+frontend/src/components/McpControlManager/McpControlDialog.tsx	855	jsx-ui-attr	label	전송 보안
+frontend/src/components/McpControlManager/McpControlDialog.tsx	867	jsx-ui-attr	label	웹훅 헤더
+frontend/src/components/McpControlManager/McpControlDialog.tsx	877	jsx-ui-attr	label	웹훅 요청 제한 시간
+frontend/src/components/McpControlManager/McpControlDialog.tsx	885	jsx-text		초
+frontend/src/components/McpControlManager/McpControlDialog.tsx	889	jsx-ui-attr	label	웹훅 순간 요청 한도
+frontend/src/components/McpControlManager/McpControlDialog.tsx	897	jsx-text		회
+frontend/src/components/McpControlManager/McpControlDialog.tsx	904	jsx-ui-attr	label	외부 IP/CIDR 허용 목록
+frontend/src/components/McpControlManager/McpControlDialog.tsx	906	jsx-attr	help	한 줄에 하나씩, 또는 쉼표로 나눠 적습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	919	jsx-ui-attr	label	신뢰 프록시
+frontend/src/components/McpControlManager/McpControlDialog.tsx	930	jsx-ui-attr	label	허용 오리진
+frontend/src/components/McpControlManager/McpControlDialog.tsx	946	jsx-text		고정 인증키
+frontend/src/components/McpControlManager/McpControlDialog.tsx	948	jsx-text		외부 MCP 클라이언트의 Bearer 인증에 사용합니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	949	jsx-text		세션 목록, 검색, 메시지 전달 권한만 부여합니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	960	string		고정 인증키 재생성
+frontend/src/components/McpControlManager/McpControlDialog.tsx	960	string		고정 인증키 생성
+frontend/src/components/McpControlManager/McpControlDialog.tsx	965	jsx-ui-attr	label	새 고정 인증키
+frontend/src/components/McpControlManager/McpControlDialog.tsx	967	jsx-attr	help	이 창을 닫거나 다른 탭으로 옮기면 다시 볼 수 없습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	986	jsx-text		복사
+frontend/src/components/McpControlManager/McpControlDialog.tsx	994	jsx-text		상태:
+frontend/src/components/McpControlManager/McpControlDialog.tsx	995	jsx-text		최근 재바인드:
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1007	jsx-text		새로고침
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1010	jsx-text		저장
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1045	jsx-ui-attr	label	프로필 이름
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1052	jsx-ui-attr	label	실행 명령
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1061	jsx-ui-attr	label	설정 방식
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1077	jsx-text		사용
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1085	jsx-text		기본 프로필
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1090	jsx-ui-attr	label	실행 인수
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1090	jsx-attr	help	한 줄에 인수 하나씩 적습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1099	jsx-ui-attr	label	별칭
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1099	jsx-attr	help	한 줄에 별칭 하나씩 적습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1108	jsx-ui-attr	label	시작 프롬프트
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1127	jsx-text		새로고침
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1131	jsx-text		취소
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1135	string		프로필 저장
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1135	string		프로필 추가
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1138	jsx-ui-attr	aria-label	에이전트 프로필 목록
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1140	jsx-text		등록된 에이전트 프로필이 없습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1146	jsx-text		기본 프로필
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1147	jsx-text		사용 안 함
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1152	jsx-text		별칭:
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1157	jsx-text		수정
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1160	string		끄기
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1160	string		켜기
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1163	jsx-text		삭제
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1199	jsx-ui-attr	label	대상 세션
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1207	jsx-ui-attr	label	프로필 ID
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1215	jsx-ui-attr	label	전달 방식
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1222	jsx-ui-attr	label	만료 시각
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1231	jsx-ui-attr	label	권한 범위
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1242	jsx-ui-attr	label	전체 키
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1245	jsx-ui-attr	label	전체 URL
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1250	jsx-text		숨기기
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1264	jsx-text		새로고침
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1267	jsx-text		웹훅 키 생성
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1270	jsx-ui-attr	aria-label	웹훅 목록
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1272	jsx-text		등록된 웹훅 키가 없습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1278	string		폐기됨
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1278	string		사용 중
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1281	string		세션 대상 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1287	jsx-text		키 교체
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1290	jsx-text		폐기
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1338	jsx-ui-attr	label	검색
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1350	jsx-text		조회
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1353	jsx-text		검색 테스트
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1357	jsx-ui-attr	label	전달 테스트 프롬프트
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1366	jsx-ui-attr	label	세션 키
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1369	jsx-ui-attr	label	일회성 연결 코드
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1374	jsx-text		숨기기
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1379	jsx-ui-attr	aria-label	세션 목록
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1381	jsx-text		조회된 세션이 없습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1388	string		MCP 연결됨
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1388	string		MCP 연결 끊김
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1390	jsx-text		리더
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1393	jsx-text		세션 키:
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1394	jsx-text		세션 ID:
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1394	string		알 수 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1396	jsx-text		현재 세션 ID:
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1400	jsx-text		마지막 확인:
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1403	jsx-ui-attr	label	별칭
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1415	jsx-text		별칭 저장
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1416	jsx-text		연결 코드 발급
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1417	jsx-text		전달 테스트
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1423	string		세션 닫기
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1423	string		목록 조회에서 발급된 닫기 확인 토큰이 필요합니다
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1425	jsx-text		세션 닫기
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1452	jsx-text		사용 여부
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1454	jsx-text		바인드
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1455	string		알 수 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1456	jsx-text		전송 보안
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1458	jsx-text		상태
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1460	jsx-text		최근 오류
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1462	jsx-text		최근 재바인드
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1464	jsx-text		감사 기록
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1465	string		최근 비식별화된 감사 기록 {0}건
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1465	string		최근 감사 기록이 없습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1466	jsx-text		에이전트 프로필
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1467	jsx-text		개
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1468	jsx-text		웹훅 키
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1469	jsx-text		개
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1470	jsx-text		세션
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1471	jsx-text		개
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1474	jsx-ui-attr	aria-label	최근 감사 기록
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1484	jsx-text		새로고침
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1493	string		알 수 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1495	string		사용
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1495	string		사용 안 함
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1508	string		알 수 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1510	string		알 수 없음: {0}
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1517	string		{0} {1} {2} 대상={3}
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1517	string		시간 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1540	error	Error	클립보드에 복사하지 못했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1552	string		MCP 제어 요청을 처리하지 못했습니다.
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1557	string		없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1563	string		예
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1563	string		아니오
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1573	string		객체
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1575	string		알 수 없음
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1583	string		예
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1583	string		아니오
+frontend/src/components/McpControlManager/McpControlDialog.tsx	1588	string		객체
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	48	prop	unknown	알 수 없음
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	49	prop	listening	수신 대기
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	50	prop	stopped	중지됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	51	prop	starting	시작 중
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	52	prop	ready	준비됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	53	prop	running	실행 중
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	54	prop	active	활성
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	55	prop	inactive	비활성
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	56	prop	enabled	사용
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	57	prop	disabled	사용 안 함
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	58	prop	failed	실패
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	59	prop	error	오류
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	62	prop	buildergate.session.whoami	내 세션 정보 조회
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	63	prop	buildergate.session.claim	세션 등록
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	64	prop	buildergate.session.list	세션 목록 조회
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	65	prop	buildergate.session.search	세션 검색
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	66	prop	buildergate.session.set_alias	세션 별칭 설정
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	67	prop	buildergate.session.update_status	세션 상태 갱신
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	68	prop	buildergate.session.open_agent	에이전트 열기
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	69	prop	buildergate.session.close	세션 닫기
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	70	prop	buildergate.session.close_self	내 세션 닫기
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	71	prop	buildergate.message.send	메시지 전달
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	72	prop	buildergate.message.reply_to_leader	리더에게 응답 전달
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	73	prop	mcp.listener.rebind	MCP 리스너 재바인드
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	74	prop	mcp.request.denied	MCP 요청 거부
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	75	prop	input-gateway	입력 게이트웨이
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	78	prop	ok	성공
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	79	prop	accepted	접수됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	80	prop	delivered	전달됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	81	prop	denied	거부됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	82	prop	rollback	되돌림
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	83	prop	failed	실패
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	84	prop	closed	닫힘
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	85	prop	closing-failed	닫기 실패
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	86	prop	TOKEN_REVOKED	폐기된 토큰
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	87	prop	MCP_PORT_REBIND_FAILED	MCP 포트 재바인드 실패
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	88	prop	MCP_ORIGIN_DENIED	허용되지 않은 오리진
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	89	prop	CREDENTIAL_BOUNDARY_VIOLATION	자격 증명 경계 위반
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	90	prop	INVALID_TOKEN	유효하지 않은 토큰
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	91	prop	DELIVERY_FAILED	전달 실패
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	92	prop	INVALID_SCOPE	권한 범위가 유효하지 않음
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	95	prop	paste	붙여넣기
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	96	prop	send-only	전송 전용
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	97	prop	submit	전송 후 엔터
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	100	prop	unknown	알 수 없음
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	101	prop	starting	시작 중
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	102	prop	ready	준비됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	103	prop	busy	작업 중
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	104	prop	waiting_input	입력 대기
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	105	prop	completed	완료됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	106	prop	failed	실패
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	109	prop	live	활성
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	110	prop	closing	종료 중
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	111	prop	closed	종료됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	112	prop	retired	해제됨
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	113	prop	failed	실패
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	114	prop	closing-failed	종료 실패
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	130	string		알 수 없음
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	133	string		알 수 없는 상태: {0}
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	138	string		감사
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	141	string		작업 코드: {0}
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	146	string		성공
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	149	string		결과 코드: {0}
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	183	string		포트는 1-65535 범위의 정수여야 합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	187	string		로컬 전용 모드는 127.0.0.0/8 또는 ::1 호스트만 사용할 수 있습니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	192	string		허용 목록 모드는 외부 IP/CIDR 허용 목록이 필요합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	196	string		0.0.0.0/0 또는 ::/0 같은 전체 허용 목록은 사용할 수 없습니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	200	string		허용 목록은 IPv4 또는 IPv4/CIDR 형식이어야 합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	205	string		신뢰 프록시는 IPv4 또는 IPv4/CIDR 형식이어야 합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	213	string		허용 목록 모드는 직접 TLS 또는 신뢰 프록시 TLS 전송 보안이 필요합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	217	string		신뢰 프록시 TLS 전송 보안은 신뢰 프록시 설정이 필요합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	222	string		허용 오리진은 http 또는 https URL 오리진 형식이어야 합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	227	string		웹훅 헤더 이름은 HTTP 헤더 이름 형식이어야 합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	231	string		Authorization/Cookie 계열 헤더는 웹훅 키 헤더로 사용할 수 없습니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	237	string		웹훅 요청 제한값은 1 이상의 정수여야 합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	263	string		웹훅 키는 대상 세션 또는 에이전트 프로필이 필요합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	267	string		웹훅 키는 하나 이상의 권한 범위가 필요합니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	277	string		에이전트 프로필 이름은 1-80자이며 제어 문자를 포함할 수 없습니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	281	string		에이전트 프로필 실행 명령이 필요하며 제어 문자를 포함할 수 없습니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	285	string		에이전트 프로필 설정 방식 값이 올바르지 않습니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	290	string		에이전트 프로필 별칭에는 중복 값을 사용할 수 없습니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	294	string		에이전트 프로필 시작 프롬프트가 너무 깁니다.
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	318	string		알 수 없음
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	320	string		알 수 없는 상태: {0}
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	328	string		수명 주기 정보 없음
+frontend/src/components/McpControlManager/mcpControlDialogModel.ts	330	string		알 수 없는 수명 주기: {0}
+frontend/src/components/MetadataBar/MetadataRow.tsx	126	string		복구: {0}
+frontend/src/components/MetadataBar/MetadataRow.tsx	126	string		복구
+frontend/src/components/MetadataBar/MetadataRow.tsx	182	string		복사됨
+frontend/src/components/MetadataBar/MetadataRow.tsx	182	string		복사 실패
+frontend/src/components/MetadataBar/MetadataRow.tsx	201	string		✓ 복사됨
+frontend/src/components/MetadataBar/MetadataRow.tsx	201	string		✗ 복사 실패
+frontend/src/components/Modal/ConfirmModal.tsx	33	string		확인
+frontend/src/components/Modal/ConfirmModal.tsx	34	string		취소
+frontend/src/components/Modal/ConfirmModal.tsx	37	string		처리하는 중…
+frontend/src/components/Modal/RenameModal.tsx	32	string		이름을 입력하세요
+frontend/src/components/Modal/RenameModal.tsx	33	string		이름은 {0}자 이하로 입력하세요
+frontend/src/components/Modal/RenameModal.tsx	35	string		이름에는 글자, 숫자, 공백, 하이픈(-), 밑줄(_)만 쓸 수 있습니다
+frontend/src/components/Modal/RenameModal.tsx	54	error	setError	세션 이름을 바꾸지 못했습니다
+frontend/src/components/Modal/RenameModal.tsx	62	jsx-text		세션 이름 바꾸기
+frontend/src/components/Modal/RenameModal.tsx	75	jsx-ui-attr	placeholder	세션 이름
+frontend/src/components/Modal/RenameModal.tsx	81	jsx-text		취소
+frontend/src/components/Modal/RenameModal.tsx	84	string		바꾸는 중…
+frontend/src/components/Modal/RenameModal.tsx	84	string		이름 바꾸기
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	39	string		아이콘에 스크립트·스타일·마크업·URL 을 넣으면 저장이 거부됩니다.
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	146	string		명령을 입력하세요.
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	173	string		복구 옵션을 저장하지 못했습니다.
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	219	error	setDeleteError	복구 옵션을 삭제하지 못했습니다.
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	230	error	setLocalError	순서를 변경하지 못했습니다.
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	244	jsx-ui-attr	title	복구 옵션
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	254	jsx-text		추가
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	264	jsx-attr	commandLabel	명령
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	265	jsx-attr	argumentsLabel	인수
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	266	jsx-attr	iconLabel	아이콘
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	276	jsx-text		등록
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	285	jsx-text		취소
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	298	jsx-ui-attr	aria-label	복구 옵션 목록
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	300	jsx-text		불러오는 중...
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	302	jsx-text		등록된 복구 옵션이 없습니다. 추가를 눌러 명령을 등록하세요.
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	327	jsx-ui-attr	title	삭제 확인
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	328	jsx-attr	message	'{0}' 복구 옵션이 목록에서 삭제됩니다. 실행 중인 세션은 종료되지 않습니다.
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	329	jsx-attr	okLabel	삭제
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	330	jsx-attr	cancelLabel	취소
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	367	jsx-ui-attr	placeholder	예: claude
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	378	jsx-ui-attr	placeholder	--continue "작업 폴더 경로"
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	382	jsx-ui-attr	label	표시 유형
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	398	jsx-text		없음
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	399	jsx-text		텍스트
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	400	jsx-text		기본
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	483	jsx-attr	commandLabel	{0} 명령 수정
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	484	jsx-attr	argumentsLabel	{0} 인수 수정
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	485	jsx-attr	iconLabel	아이콘
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	493	jsx-ui-attr	aria-label	{0} 저장
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	495	jsx-text		저장
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	502	jsx-ui-attr	aria-label	{0} 취소
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	504	jsx-text		취소
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	526	jsx-ui-attr	aria-label	{0} 인수
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	527	jsx-ui-attr	placeholder	인수 없음
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	531	jsx-ui-attr	aria-label	{0} 수정
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	532	jsx-text		수정
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	534	jsx-ui-attr	aria-label	{0} 삭제
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	535	jsx-text		삭제
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	542	jsx-ui-attr	aria-label	{0} 위로
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	544	jsx-text		위로
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	551	jsx-ui-attr	aria-label	{0} 아래로
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	553	jsx-text		아래로
+frontend/src/components/RecoveryOptionManager/useRecoveryOptions.ts	36	error	setError	복구 옵션을 불러오지 못했습니다.
+frontend/src/components/SessionSave/SessionRestoreBanner.tsx	23	jsx-ui-attr	title	지난번 저장한 AI 세션 {0}개를 이어할 수 있습니다
+frontend/src/components/SessionSave/SessionRestoreBanner.tsx	25	string	[ savedAt ? `${savedAt} 저장` : null, `정확한 ID ${exact}개`, estimated > 0 ? `추정 ${estimated}개` : null, '탭은 셸로 먼저 열어 두었습니다', ].filter	{0} 저장
+frontend/src/components/SessionSave/SessionRestoreBanner.tsx	26	string	[ savedAt ? `${savedAt} 저장` : null, `정확한 ID ${exact}개`, estimated > 0 ? `추정 ${estimated}개` : null, '탭은 셸로 먼저 열어 두었습니다', ].filter	정확한 ID {0}개
+frontend/src/components/SessionSave/SessionRestoreBanner.tsx	27	string	[ savedAt ? `${savedAt} 저장` : null, `정확한 ID ${exact}개`, estimated > 0 ? `추정 ${estimated}개` : null, '탭은 셸로 먼저 열어 두었습니다', ].filter	추정 {0}개
+frontend/src/components/SessionSave/SessionRestoreBanner.tsx	28	string	[ savedAt ? `${savedAt} 저장` : null, `정확한 ID ${exact}개`, estimated > 0 ? `추정 ${estimated}개` : null, '탭은 셸로 먼저 열어 두었습니다', ].filter	탭은 셸로 먼저 열어 두었습니다
+frontend/src/components/SessionSave/SessionRestoreBanner.tsx	32	jsx-text		검토하고 이어하기
+frontend/src/components/SessionSave/SessionRestoreBanner.tsx	33	jsx-text		나중에
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	38	jsx-text		이어함
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	40	jsx-text		건너뜀 · 셸만 둠
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	42	jsx-text		이어하지 못함 · 탭이 없음
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	87	string		세션 {0}개를 이어했습니다
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	87	string		저장된 세션 이어하기
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	99	string		{0}개는 셸만 열어 두었습니다. 결과를 저장본에 기록했으니 다음에 다시 묻지 않습니다.
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	99	string		저장한 세션을 모두 이어했습니다.
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	100	string		{0}저장한 AI 세션 {1}개가 있습니다. 이어할 세션을 고르세요. 고르지 않은 탭은 셸만 열린 채로 둡니다.
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	100	string		{0}에
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	109	jsx-text		저장된 세션 전체
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	110	jsx-text		선택
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	114	jsx-ui-attr	label	이어함 {0}개 · 건너뜀 {1}개
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	118	jsx-text		개
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	125	jsx-attr	checkboxLabel	{0} 이어하기
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	132	jsx-text		정확한 ID
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	133	jsx-ui-attr	title	시각과 경로로 맞춘 값입니다. 명령을 확인하고 고르세요.
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	133	jsx-text		추정한 ID · 확인 필요
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	140	jsx-text		이어하는 중…
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	149	jsx-text		저장본 버리기
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	150	jsx-text		나중에
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	152	string		이어할 세션을 고르세요
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	152	string		선택한 {0}개 이어하기
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	157	jsx-attr	note	탭마다 셸이 준비되면 이어하기 명령을 보냅니다.
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	158	jsx-text		이어하는 중…
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	162	jsx-attr	note	결과를 저장본에 기록했습니다. 다음에 시작할 때 다시 묻지 않습니다.
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	163	jsx-text		닫기
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	167	jsx-attr	note	이어하지 못했습니다: {0}
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	168	jsx-text		닫기
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	169	jsx-text		다시 시도
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	177	jsx-ui-attr	title	저장본을 버릴까요?
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	178	jsx-attr	message	저장한 세션 ID {0}개가 지워집니다. 탭과 셸은 그대로 남고, 에이전트 대화 기록도 지워지지 않습니다.
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	179	jsx-attr	okLabel	저장본 버리기
+frontend/src/components/SessionSave/SessionRestoreDialog.tsx	180	jsx-attr	cancelLabel	취소
+frontend/src/components/SessionSave/SessionSaveButton.tsx	18	jsx-ui-attr	aria-label	저장된 세션 {0}개 이어하기
+frontend/src/components/SessionSave/SessionSaveButton.tsx	19	jsx-ui-attr	title	저장된 세션 이어하기
+frontend/src/components/SessionSave/SessionSaveButton.tsx	23	jsx-text		이어하기
+frontend/src/components/SessionSave/SessionSaveButton.tsx	33	jsx-ui-attr	aria-label	{0}, 누르면 지금 상태로 다시 저장
+frontend/src/components/SessionSave/SessionSaveButton.tsx	34	jsx-ui-attr	title	세션을 저장했습니다. 누르면 지금 상태로 다시 저장합니다.
+frontend/src/components/SessionSave/SessionSaveButton.tsx	44	jsx-ui-attr	title	세션 저장 · 재시작 준비
+frontend/src/components/SessionSave/SessionSaveButton.tsx	46	string		실행 중인 AI 세션이 없습니다.
+frontend/src/components/SessionSave/SessionSaveButton.tsx	47	string		실행 중인 AI 세션 {0}개의 이어하기 ID를 저장합니다. 에이전트는 멈추지 않습니다. BuilderGate를 재시작하기 전에 누르세요.
+frontend/src/components/SessionSave/SessionSaveButton.tsx	52	jsx-ui-attr	aria-label	세션 저장 · 재시작 준비 (AI 세션 {0}개)
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	27	jsx-text		찾지 못함
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	30	jsx-text		ID 확인 ·
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	31	jsx-text		추정 ·
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	76	string		세션 {0}개를 저장했습니다
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	76	string		세션 저장
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	88	string		이제 BuilderGate를 재시작해도 됩니다. 에이전트는 계속 실행 중이니 그대로 작업하셔도 됩니다.
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	89	jsx-text		지금 실행 중인 AI 세션의 이어하기 ID를 저장합니다.
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	89	jsx-text		에이전트는 멈추지 않습니다.
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	89	jsx-text		BuilderGate를 재시작해도 저장한 대화로 돌아올 수 있습니다.
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	98	jsx-text		AI 세션 전체
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	99	jsx-text		선택
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	104	jsx-ui-attr	label	정확한 ID {0}개 · 추정 {1}개 · 찾지 못함 {2}개
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	111	jsx-text		실행 중인 AI 세션이 없습니다. Claude, Codex, Hermes, OpenCode를 실행한 탭이 여기에 나옵니다.
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	115	jsx-text		개
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	120	jsx-attr	checkboxLabel	{0} 저장
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	128	jsx-text		찾는 중…
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	136	jsx-attr	note	에이전트는 계속 실행됩니다. 저장은 몇 초 안에 끝납니다.
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	137	jsx-text		취소
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	139	string		저장할 세션을 고르세요
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	139	string		세션 저장
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	144	jsx-attr	note	에이전트가 남긴 기록에서 지금 쓰는 세션 ID를 찾고 있습니다.
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	145	jsx-text		저장하는 중…
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	149	jsx-attr	note	재시작하면 이어할 세션을 고르는 창이 뜹니다. 세션을 새로 시작했다면(/clear, /new) 다시 저장하세요.
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	150	jsx-text		확인
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	154	jsx-attr	note	저장하지 못했습니다: {0}
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	155	jsx-text		닫기
+frontend/src/components/SessionSave/SessionSaveDialog.tsx	156	jsx-text		다시 시도
+frontend/src/components/SessionSave/sessionSnapshotModel.ts	119	string		오늘 {0}
+frontend/src/components/SessionSave/sessionSnapshotModel.ts	119	string		{0}월 {1}일 {2}
+frontend/src/components/SessionSave/sessionSnapshotModel.ts	142	regex		/^오늘 /
+frontend/src/components/SessionSave/sessionSnapshotModel.ts	143	ui-prop	label	저장됨 · {0}
+frontend/src/components/Settings/SettingsPage.tsx	56	string		원인을 알 수 없습니다.
+frontend/src/components/Settings/SettingsPage.tsx	57	string		이 호스트에서는 winpty를 쓸 수 없습니다. "터미널 백엔드"를 conpty로 바꾼 뒤 저장하세요.
+frontend/src/components/Settings/SettingsPage.tsx	58	string		새 비밀번호와 다시 입력한 비밀번호가 다릅니다.
+frontend/src/components/Settings/SettingsPage.tsx	59	string		비밀번호를 바꾸려면 이 칸도 채우세요.
+frontend/src/components/Settings/SettingsPage.tsx	63	prop	auto	자동
+frontend/src/components/Settings/SettingsPage.tsx	68	prop	inherit	"터미널 백엔드" 설정 따름
+frontend/src/components/Settings/SettingsPage.tsx	203	string	errors.push	비밀번호를 바꾸려면 현재 비밀번호, 새 비밀번호, 새 비밀번호 다시 입력을 모두 채우세요.
+frontend/src/components/Settings/SettingsPage.tsx	223	string	errors.push	CORS 허용 출처는 https://example.com처럼 경로 없이 적어야 합니다. 지금 값은 {0}입니다.
+frontend/src/components/Settings/SettingsPage.tsx	226	string		http:// 또는 https://로 시작하고 경로 없이 적어야 합니다. 맞지 않는 값: {0}
+frontend/src/components/Settings/SettingsPage.tsx	231	string	errors.push	차단할 확장자는 "."으로 시작해야 합니다. 지금 값은 {0}입니다.
+frontend/src/components/Settings/SettingsPage.tsx	234	string		"."으로 시작해야 합니다. 맞지 않는 값: {0}
+frontend/src/components/Settings/SettingsPage.tsx	239	string	errors.push	차단할 경로에는 공백을 넣을 수 없습니다. 지금 값은 "{0}"입니다.
+frontend/src/components/Settings/SettingsPage.tsx	242	string		공백을 넣을 수 없습니다. 맞지 않는 값: {0}
+frontend/src/components/Settings/SettingsPage.tsx	264	string		아래에서 셸별로 따로 정하지 않으면 모든 셸이 이 백엔드를 씁니다.
+frontend/src/components/Settings/SettingsPage.tsx	273	string		PowerShell도 "터미널 백엔드" 설정을 따라 {0}로 열립니다.
+frontend/src/components/Settings/SettingsPage.tsx	276	string		새 PowerShell 세션은 "터미널 백엔드" 설정과 관계없이 {0}로 열립니다.
+frontend/src/components/Settings/SettingsPage.tsx	368	jsx-text		설정
+frontend/src/components/Settings/SettingsPage.tsx	369	jsx-text		서버를 다시 시작하지 않고 바꿀 수 있는 설정입니다. 나머지는 config.json5에서 고칩니다.
+frontend/src/components/Settings/SettingsPage.tsx	372	jsx-text		닫기
+frontend/src/components/Settings/SettingsPage.tsx	374	string		저장 중…
+frontend/src/components/Settings/SettingsPage.tsx	374	string		설정 저장
+frontend/src/components/Settings/SettingsPage.tsx	382	jsx-text		설정을 불러오는 중…
+frontend/src/components/Settings/SettingsPage.tsx	388	jsx-text		설정을 불러오지 못했습니다.
+frontend/src/components/Settings/SettingsPage.tsx	397	jsx-text		설정을 저장하지 못했습니다.
+frontend/src/components/Settings/SettingsPage.tsx	404	jsx-text		아래 항목을 고쳐야 저장할 수 있습니다.
+frontend/src/components/Settings/SettingsPage.tsx	413	jsx-text		저장했습니다. 바로 적용
+frontend/src/components/Settings/SettingsPage.tsx	413	jsx-text		개 · 다음 로그인부터
+frontend/src/components/Settings/SettingsPage.tsx	413	jsx-text		개 · 새 세션부터
+frontend/src/components/Settings/SettingsPage.tsx	413	jsx-text		개
+frontend/src/components/Settings/SettingsPage.tsx	427	jsx-ui-attr	title	인증
+frontend/src/components/Settings/SettingsPage.tsx	428	jsx-ui-attr	label	세션 유지 시간
+frontend/src/components/Settings/SettingsPage.tsx	428	jsx-attr	help	로그인한 뒤 이 시간이 지나면 다시 로그인해야 합니다.
+frontend/src/components/Settings/SettingsPage.tsx	433	jsx-ui-attr	label	현재 비밀번호
+frontend/src/components/Settings/SettingsPage.tsx	435	jsx-attr	help	비밀번호를 바꿀 때만 입력합니다. {0}
+frontend/src/components/Settings/SettingsPage.tsx	435	string		지금 비밀번호가 설정되어 있습니다.
+frontend/src/components/Settings/SettingsPage.tsx	435	string		지금은 설정된 비밀번호가 없습니다.
+frontend/src/components/Settings/SettingsPage.tsx	440	jsx-ui-attr	label	새 비밀번호
+frontend/src/components/Settings/SettingsPage.tsx	443	jsx-ui-attr	label	새 비밀번호 다시 입력
+frontend/src/components/Settings/SettingsPage.tsx	448	jsx-ui-attr	title	2단계 인증
+frontend/src/components/Settings/SettingsPage.tsx	448	jsx-attr	description	로그인할 때 비밀번호 다음에 인증 앱의 6자리 코드를 한 번 더 묻습니다.
+frontend/src/components/Settings/SettingsPage.tsx	451	jsx-ui-attr	label	2단계 인증 사용
+frontend/src/components/Settings/SettingsPage.tsx	453	jsx-attr	help	Google Authenticator 같은 TOTP 앱을 씁니다.
+frontend/src/components/Settings/SettingsPage.tsx	458	jsx-ui-attr	label	외부 접속에만 요구
+frontend/src/components/Settings/SettingsPage.tsx	460	jsx-attr	help	localhost에서 접속하면 2단계 인증을 건너뜁니다.
+frontend/src/components/Settings/SettingsPage.tsx	464	jsx-ui-attr	label	발급자 이름
+frontend/src/components/Settings/SettingsPage.tsx	464	jsx-attr	help	인증 앱 목록에 보이는 서비스 이름입니다.
+frontend/src/components/Settings/SettingsPage.tsx	467	jsx-ui-attr	label	계정 이름
+frontend/src/components/Settings/SettingsPage.tsx	467	jsx-attr	help	인증 앱에서 서비스 이름과 함께 보이는 사용자 이름입니다.
+frontend/src/components/Settings/SettingsPage.tsx	471	jsx-ui-attr	label	등록 QR 코드
+frontend/src/components/Settings/SettingsPage.tsx	471	jsx-attr	help	인증 앱으로 스캔하면 이 서버가 등록됩니다.
+frontend/src/components/Settings/SettingsPage.tsx	474	jsx-text		QR 코드를 불러오는 중…
+frontend/src/components/Settings/SettingsPage.tsx	479	jsx-text		QR 코드를 불러오지 못했습니다.
+frontend/src/components/Settings/SettingsPage.tsx	488	jsx-ui-attr	alt	TOTP 등록 QR 코드
+frontend/src/components/Settings/SettingsPage.tsx	496	jsx-text		2단계 인증은 켜져 있지만 비밀 키가 등록되지 않았습니다. 서버를 다시 시작하면 새 비밀 키가 만들어집니다.
+frontend/src/components/Settings/SettingsPage.tsx	499	jsx-text		2단계 인증이 꺼져 있어 QR 코드가 없습니다. 켜고 저장하면 여기에 나타납니다.
+frontend/src/components/Settings/SettingsPage.tsx	505	jsx-attr	description	다른 출처의 웹 페이지가 이 서버의 API를 부를 수 있는지 정합니다.
+frontend/src/components/Settings/SettingsPage.tsx	506	jsx-ui-attr	label	허용 출처
+frontend/src/components/Settings/SettingsPage.tsx	506	jsx-attr	help	한 줄에 하나씩 적습니다. 예: https://example.com
+frontend/src/components/Settings/SettingsPage.tsx	510	jsx-ui-attr	label	로그인 정보 허용
+frontend/src/components/Settings/SettingsPage.tsx	512	jsx-attr	help	허용한 출처의 요청이 쿠키와 인증 헤더를 함께 보낼 수 있습니다.
+frontend/src/components/Settings/SettingsPage.tsx	516	jsx-ui-attr	label	사전 요청 캐시 시간
+frontend/src/components/Settings/SettingsPage.tsx	516	jsx-attr	help	브라우저가 CORS 사전 요청 결과를 다시 묻지 않고 쓰는 시간입니다.
+frontend/src/components/Settings/SettingsPage.tsx	517	jsx-attr	unit	초
+frontend/src/components/Settings/SettingsPage.tsx	521	jsx-ui-attr	title	터미널 기본값
+frontend/src/components/Settings/SettingsPage.tsx	521	jsx-attr	description	새로 여는 세션에 쓰는 값입니다. 이미 열린 세션은 바뀌지 않습니다.
+frontend/src/components/Settings/SettingsPage.tsx	522	jsx-ui-attr	label	TERM 이름
+frontend/src/components/Settings/SettingsPage.tsx	522	jsx-attr	help	새 세션의 TERM 환경 변수 값입니다.
+frontend/src/components/Settings/SettingsPage.tsx	525	jsx-ui-attr	label	기본 열 수
+frontend/src/components/Settings/SettingsPage.tsx	526	jsx-attr	unit	칸
+frontend/src/components/Settings/SettingsPage.tsx	528	jsx-ui-attr	label	기본 행 수
+frontend/src/components/Settings/SettingsPage.tsx	529	jsx-attr	unit	줄
+frontend/src/components/Settings/SettingsPage.tsx	531	jsx-ui-attr	label	셸
+frontend/src/components/Settings/SettingsPage.tsx	531	jsx-attr	help	새로 여는 세션이 쓰는 셸입니다.
+frontend/src/components/Settings/SettingsPage.tsx	540	jsx-ui-attr	label	터미널 백엔드
+frontend/src/components/Settings/SettingsPage.tsx	553	jsx-ui-attr	label	PowerShell 백엔드
+frontend/src/components/Settings/SettingsPage.tsx	561	jsx-ui-attr	title	세션·파일 관리
+frontend/src/components/Settings/SettingsPage.tsx	562	jsx-ui-attr	label	유휴 판정 지연
+frontend/src/components/Settings/SettingsPage.tsx	562	jsx-attr	help	출력이 이 시간 동안 없으면 실행 중 표시를 끕니다.
+frontend/src/components/Settings/SettingsPage.tsx	565	jsx-ui-attr	label	최대 파일 크기
+frontend/src/components/Settings/SettingsPage.tsx	565	jsx-attr	help	이보다 큰 텍스트 파일은 읽지 않습니다.
+frontend/src/components/Settings/SettingsPage.tsx	566	jsx-attr	unit	바이트
+frontend/src/components/Settings/SettingsPage.tsx	568	jsx-ui-attr	label	폴더당 최대 항목 수
+frontend/src/components/Settings/SettingsPage.tsx	568	jsx-attr	help	폴더를 열 때 이 개수까지만 목록에 보입니다.
+frontend/src/components/Settings/SettingsPage.tsx	569	jsx-attr	unit	개
+frontend/src/components/Settings/SettingsPage.tsx	571	jsx-ui-attr	label	차단할 확장자
+frontend/src/components/Settings/SettingsPage.tsx	571	jsx-attr	help	한 줄에 하나씩, 점으로 시작해 적습니다. 예: .exe
+frontend/src/components/Settings/SettingsPage.tsx	574	jsx-ui-attr	label	차단할 경로
+frontend/src/components/Settings/SettingsPage.tsx	574	jsx-attr	help	한 줄에 하나씩 적습니다. 공백은 넣을 수 없습니다.
+frontend/src/components/Settings/SettingsPage.tsx	577	jsx-ui-attr	label	작업 폴더 캐시 유지 시간
+frontend/src/components/Settings/SettingsPage.tsx	577	jsx-attr	help	세션의 현재 폴더를 다시 묻기 전까지 기억하는 시간입니다.
+frontend/src/components/Settings/SettingsPage.tsx	638	jsx-ui-attr	title	그리드 배치
+frontend/src/components/Settings/SettingsPage.tsx	638	jsx-attr	description	이 브라우저에만 저장하고 바로 적용합니다. 설정 저장을 누르지 않아도 됩니다.
+frontend/src/components/Settings/SettingsPage.tsx	639	jsx-ui-attr	label	자동 모드 유휴 세션 배율
+frontend/src/components/Settings/SettingsPage.tsx	639	jsx-attr	help	자동 모드에서 유휴 세션을 실행 중 세션보다 몇 배 크게 보일지 정합니다. 1.0~3.0 사이로 적습니다.
+frontend/src/components/Settings/SettingsPage.tsx	642	jsx-attr	unit	배
+frontend/src/components/Settings/SettingsPage.tsx	650	jsx-ui-attr	label	포커스 모드 비율
+frontend/src/components/Settings/SettingsPage.tsx	650	jsx-attr	help	포커스 모드에서 선택한 세션이 차지하는 비율입니다. 0.1~0.9 사이로 적습니다.
+frontend/src/components/Settings/SettingsPage.tsx	667	jsx-text		여기서 바꿀 수 없는 설정
+frontend/src/components/Settings/SettingsPage.tsx	668	jsx-text		아래 항목은 config.json5에서 직접 고칩니다.
+frontend/src/components/Settings/SettingsPage.tsx	680	jsx-ui-attr	title	저장하지 않은 변경을 버릴까요?
+frontend/src/components/Settings/SettingsPage.tsx	681	jsx-attr	message	설정 화면을 닫으면 저장하지 않은 변경이 사라집니다. 이미 저장한 설정은 그대로 남습니다.
+frontend/src/components/Settings/SettingsPage.tsx	682	jsx-attr	confirmLabel	변경 버리고 닫기
+frontend/src/components/Settings/SettingsPage.tsx	683	jsx-attr	cancelLabel	계속 편집
+frontend/src/components/Settings/SettingsPage.tsx	747	jsx-text		이 브라우저에만
+frontend/src/components/Settings/SettingsPage.tsx	798	ui-prop	text	바로 적용
+frontend/src/components/Settings/SettingsPage.tsx	799	ui-prop	text	다음 로그인부터
+frontend/src/components/Settings/SettingsPage.tsx	800	ui-prop	text	새 세션부터
+frontend/src/components/Settings/SettingsPage.tsx	818	string		허용 범위: {0}~{1}{2}
+frontend/src/components/Settings/settingsDraftHelpers.ts	56	ui-prop	title	서버 출력 조절
+frontend/src/components/Settings/settingsDraftHelpers.ts	58	ui-prop	label	헤드리스 대기 출력 크기
+frontend/src/components/Settings/settingsDraftHelpers.ts	59	ui-prop	label	헤드리스 대기 출력 조각 수
+frontend/src/components/Settings/settingsDraftHelpers.ts	60	ui-prop	label	서버 WebSocket 경고 수위
+frontend/src/components/Settings/settingsDraftHelpers.ts	61	ui-prop	label	서버 WebSocket 최대 버퍼
+frontend/src/components/Settings/settingsDraftHelpers.ts	62	ui-prop	label	클라이언트별 출력 대기열 크기
+frontend/src/components/Settings/settingsDraftHelpers.ts	66	ui-prop	title	브라우저 대기열
+frontend/src/components/Settings/settingsDraftHelpers.ts	68	ui-prop	label	입력 조절 시작 크기
+frontend/src/components/Settings/settingsDraftHelpers.ts	69	ui-prop	label	강제 재연결 크기
+frontend/src/components/Settings/settingsDraftHelpers.ts	70	ui-prop	label	터미널 입력 대기열 크기
+frontend/src/components/Settings/settingsDraftHelpers.ts	71	ui-prop	label	터미널 입력 대기열 유지 시간
+frontend/src/components/Settings/settingsDraftHelpers.ts	72	ui-prop	label	전송 대기함 크기
+frontend/src/components/Settings/settingsDraftHelpers.ts	73	ui-prop	label	전송 대기함 유지 시간
+frontend/src/components/Settings/settingsDraftHelpers.ts	77	ui-prop	title	실행 유지 한도
+frontend/src/components/Settings/settingsDraftHelpers.ts	79	ui-prop	label	동시에 유지할 Workspace 수
+frontend/src/components/Settings/settingsDraftHelpers.ts	80	ui-prop	label	동시에 유지할 터미널 수
+frontend/src/components/Settings/settingsDraftHelpers.ts	81	ui-prop	label	숨긴 런타임 유지 시간
+frontend/src/components/Settings/settingsDraftHelpers.ts	85	ui-prop	title	스냅샷
+frontend/src/components/Settings/settingsDraftHelpers.ts	87	ui-prop	label	스냅샷 1개 최대 글자 수
+frontend/src/components/Settings/settingsDraftHelpers.ts	88	ui-prop	label	스냅샷 전체 글자 수 한도
+frontend/src/components/Settings/settingsDraftHelpers.ts	89	ui-prop	label	스냅샷 최대 개수
+frontend/src/components/Settings/settingsDraftHelpers.ts	90	ui-prop	label	삭제된 스냅샷 기록 유지 시간
+frontend/src/components/Settings/settingsDraftHelpers.ts	94	ui-prop	title	숨긴 세션 출력
+frontend/src/components/Settings/settingsDraftHelpers.ts	96	ui-prop	label	숨긴 세션 출력 처리 방식
+frontend/src/components/Settings/settingsDraftHelpers.ts	97	ui-prop	label	숨긴 세션 출력 보관 크기
+frontend/src/components/Settings/settingsDraftHelpers.ts	269	string		목록에 있는 값만 고를 수 있습니다. 지금 값은 {0}입니다.
+frontend/src/components/Settings/settingsDraftHelpers.ts	275	string		비어 있습니다
+frontend/src/components/Settings/settingsDraftHelpers.ts	275	string		{0}입니다
+frontend/src/components/Settings/settingsDraftHelpers.ts	276	string		정수를 입력하세요. 지금 값은 {0}.
+frontend/src/components/Settings/settingsDraftHelpers.ts	282	string		지금 값은 {0}{1}입니다.
+frontend/src/components/Settings/settingsDraftHelpers.ts	284	string	problems.push	{0}{1} 이상이어야 합니다. {2}
+frontend/src/components/Settings/settingsDraftHelpers.ts	287	string	problems.push	{0}{1} 이하여야 합니다. {2}
+frontend/src/components/Settings/settingsDraftHelpers.ts	293	string	problems.push	{0}{1} 단위로 입력하세요. {2}
+frontend/src/components/Settings/settingsDraftHelpers.ts	300	prop	bytes	바이트
+frontend/src/components/Settings/settingsDraftHelpers.ts	302	prop	count	개
+frontend/src/components/Settings/settingsDraftHelpers.ts	303	prop	chars	자
+frontend/src/components/Terminal/InputDiscardedToast.tsx	27	jsx-text		입력이 전달되지 않았습니다
+frontend/src/components/Terminal/InputDiscardedToast.tsx	29	jsx-text		건
+frontend/src/components/Terminal/TerminalView.tsx	3457	string	helperTextarea.setAttribute	터미널 입력
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	56	jsx-ui-attr	label	동작
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	62	jsx-ui-attr	aria-label	단축키 동작
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	65	jsx-text		LF 전송
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	66	jsx-text		CR 전송
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	67	jsx-text		Tab 전송
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	68	jsx-text		Esc 전송
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	69	jsx-text		차단
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	70	jsx-text		통과
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	71	jsx-text		사용자 문자열
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	76	jsx-ui-attr	label	문자열
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	86	jsx-ui-attr	aria-label	사용자 전송 문자열
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	30	jsx-text		등록된 단축키가 없습니다. 캡처 탭에서 키를 감지해 등록하세요.
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	43	jsx-text		꺼짐
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	58	string		비활성화
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	58	string		활성화
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	60	string		끄기
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	60	string		켜기
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	68	jsx-ui-attr	aria-label	{0} 수정
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	70	jsx-text		수정
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	78	jsx-ui-attr	aria-label	{0} 테스트 전송
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	80	jsx-text		테스트 전송
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	88	jsx-ui-attr	aria-label	{0} 삭제
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	90	jsx-text		삭제
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	38	string		왼쪽 키
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	39	string		오른쪽 키
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	40	string		숫자 키패드
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	41	string		기본 위치
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	65	string		등록할 키를 누르세요
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	67	string		제한 시간 안에 누른 키가 없습니다
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	70	string		아직 없음
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	75	string		수정할 단축키
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	75	string		감지한 키
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	87	jsx-ui-attr	label	범위
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	92	jsx-ui-attr	aria-label	단축키 범위
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	106	jsx-ui-attr	label	설명
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	111	jsx-ui-attr	aria-label	단축키 설명
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	134	jsx-text		감지 시작
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	143	jsx-text		테스트 전송
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	153	jsx-text		취소
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	163	string		저장 중
+frontend/src/components/TerminalShortcutManager/ShortcutCapturePanel.tsx	163	string		저장
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	47	ui-prop	label	캡처
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	48	ui-prop	label	등록 목록
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	49	ui-prop	label	프로필
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	195	error	Error	활성 Workspace가 없습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	199	error	Error	활성 세션이 없습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	207	error	setLocalError	먼저 단축키를 감지하세요.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	211	error	setLocalError	전송할 문자열을 입력하세요.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	233	string	setLastTestResult	수정되었습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	233	string	setLastTestResult	저장되었습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	236	error	setLocalError	저장하지 못했습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	255	error	setLocalError	활성 터미널이 없습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	260	string	setLastTestResult	{0} 완료
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	269	error	setLocalError	상태를 바꾸지 못했습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	313	error	setDeleteError	삭제하지 못했습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	327	string	setLastTestResult	{0} 프로필이 {1}로 변경되었습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	329	error	setLocalError	프로필을 저장하지 못했습니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	343	jsx-ui-attr	title	터미널 키보드
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	358	jsx-ui-attr	aria-label	터미널 키보드 설정
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	384	jsx-text		불러오는 중
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	457	jsx-text		현재 적용:
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	460	jsx-ui-attr	label	범위
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	465	jsx-ui-attr	aria-label	프로필 적용 범위
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	478	jsx-ui-attr	label	프로필
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	483	jsx-ui-attr	aria-label	터미널 키보드 프로필
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	513	jsx-text		프로필 적용
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	523	jsx-ui-attr	title	삭제 확인
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	524	jsx-attr	message	{0} 단축키 등록이 삭제됩니다. 다른 단축키와 프로필 설정은 그대로입니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	525	jsx-attr	okLabel	삭제
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	526	jsx-attr	cancelLabel	취소
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	542	jsx-ui-attr	title	사용자 전송 문자열 확인
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	543	jsx-attr	message	제어 문자가 들어 있는 문자열이 저장되어, 이 단축키를 누를 때마다 터미널로 전송됩니다.
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	544	jsx-attr	okLabel	저장
+frontend/src/components/TerminalShortcutManager/TerminalShortcutDialog.tsx	545	jsx-attr	cancelLabel	취소
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	18	ui-prop	label	전체
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	19	ui-prop	label	현재 세션
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	23	ui-prop	label	xterm 기본
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	24	ui-prop	label	AI TUI 호환
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	25	ui-prop	label	사용자 지정
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	47	string		통과
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	48	string		차단
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	49	string		{0} 전송
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	51	string		사용자 문자열 {0}자 전송
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	52	string		{0} 전송
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	53	string		LF 전송
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	54	string		CR 전송
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	55	string		Tab 전송
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	56	string		Esc 전송
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	57	string		문자열 {0}자 전송
+frontend/src/components/TerminalShortcutManager/useTerminalShortcuts.ts	35	error	setError	터미널 단축키를 불러오지 못했습니다.
+frontend/src/components/Workspace/DisconnectedOverlay.tsx	15	jsx-text		세션이 종료되었습니다
+frontend/src/components/Workspace/DisconnectedOverlay.tsx	17	jsx-text		재시작
+frontend/src/components/Workspace/EmptyState.tsx	30	jsx-text		터미널을 추가하세요
+frontend/src/components/Workspace/EmptyState.tsx	42	jsx-text		터미널 추가
+frontend/src/components/Workspace/WorkspaceItem.tsx	48	ui-prop	label	이름 바꾸기
+frontend/src/components/Workspace/WorkspaceItem.tsx	49	ui-prop	label	삭제
+frontend/src/components/Workspace/WorkspaceItem.tsx	51	ui-prop	label	터미널 추가
+frontend/src/components/Workspace/WorkspaceMoveDialog.tsx	23	string		현재 Workspace
+frontend/src/components/Workspace/WorkspaceMoveDialog.tsx	24	string		탭이 가득 참
+frontend/src/components/Workspace/WorkspaceMoveDialog.tsx	53	jsx-ui-attr	title	Workspace 이동
+frontend/src/components/Workspace/WorkspaceMoveDialog.tsx	65	jsx-text		이 탭을 옮길 Workspace를 고르세요. 누르는 즉시 옮겨지며, 탭에서 실행 중인 세션은 그대로 이어집니다.
+frontend/src/components/Workspace/WorkspaceMoveDialog.tsx	80	string		탭 {0}/{1}개
+frontend/src/components/Workspace/WorkspaceMoveDialog.tsx	92	string		옮기는 중입니다.
+frontend/src/components/Workspace/WorkspaceMoveDialog.tsx	94	jsx-text		취소
+frontend/src/components/Workspace/WorkspaceSidebar.tsx	89	jsx-ui-attr	aria-label	Workspace 추가
+frontend/src/components/Workspace/WorkspaceSidebar.tsx	90	string		Workspace는 최대 {0}개까지 만들 수 있습니다
+frontend/src/components/Workspace/WorkspaceSidebar.tsx	90	string		Workspace 추가
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	78	string		탭은 최대 {0}개까지 열 수 있습니다
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	80	string		세션은 최대 {0}개까지 열 수 있습니다
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	130	string		복구 명령: {0}
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	130	string		복구 옵션
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	156	jsx-ui-attr	label	탭 닫기
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	176	jsx-ui-attr	aria-label	터미널 추가
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	177	string		터미널 추가
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	201	ui-prop	label	이름 바꾸기
+frontend/src/components/Workspace/WorkspaceTabBar.tsx	205	ui-prop	label	닫기
+frontend/src/components/Workspace/workspaceActivity.ts	12	ui-prop	label	실행 중
+frontend/src/components/Workspace/workspaceActivity.ts	12	ui-prop	label	대기
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	51	ui-prop	message	마지막 Workspace는 삭제할 수 없습니다.
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	55	ui-prop	message	Workspace를 삭제하지 못했습니다. 일부 터미널은 이미 종료되었을 수 있습니다.
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	56	ui-prop	detail	원인: {0}
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	90	string		터미널 {0}개가 모두 종료됩니다. 이 Workspace를 삭제할까요?
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	91	string		열린 터미널이 없는 Workspace입니다. 이 Workspace를 삭제할까요?
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	95	string		예상보다 오래 걸리고 있습니다. 터미널이 모두 종료되면 이 창이 저절로 닫힙니다.
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	97	string		터미널 {0}개를 종료하고 있습니다. 보통 몇 초 안에 끝납니다.
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	98	string		Workspace를 삭제하고 있습니다.
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	105	ui-prop	title	Workspace 삭제
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	107	string		다시 시도
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	107	string		모두 삭제
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	108	string		닫기
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	108	string		취소
+frontend/src/components/Workspace/workspaceDeleteFlow.ts	110	prop	busyLabel	삭제하는 중…
+frontend/src/components/dialog/WindowDialog.tsx	398	jsx-ui-attr	label	닫기
+frontend/src/components/dialog/messageBoxModel.ts	9	string		확인
+frontend/src/components/dialog/messageBoxModel.ts	10	string		취소
+frontend/src/components/editor/EditorDocumentToolbar.tsx	19	string		✓ 복사됨
+frontend/src/components/editor/EditorDocumentToolbar.tsx	20	string		복사됨
+frontend/src/components/editor/EditorDocumentToolbar.tsx	145	jsx-ui-attr	aria-label	경로 복사: {0}
+frontend/src/components/editor/EditorDocumentToolbar.tsx	158	string		md 편집기 보기
+frontend/src/components/editor/EditorDocumentToolbar.tsx	158	string		원문 보기
+frontend/src/components/editor/EditorDocumentToolbar.tsx	159	string		md 편집기 보기
+frontend/src/components/editor/EditorDocumentToolbar.tsx	159	string		원문 보기
+frontend/src/components/editor/EditorDocumentToolbar.tsx	169	string		야간 모드
+frontend/src/components/editor/EditorDocumentToolbar.tsx	169	string		주간 모드
+frontend/src/components/editor/EditorDocumentToolbar.tsx	170	string		야간 모드로 전환
+frontend/src/components/editor/EditorDocumentToolbar.tsx	170	string		주간 모드로 전환
+frontend/src/components/editor/EditorDocumentToolbar.tsx	180	jsx-ui-attr	aria-label	파일 트리
+frontend/src/components/editor/EditorDocumentToolbar.tsx	193	string		줄 바꿈 끄기
+frontend/src/components/editor/EditorDocumentToolbar.tsx	193	string		줄 바꿈 켜기
+frontend/src/components/editor/EditorDocumentToolbar.tsx	194	jsx-ui-attr	aria-label	줄 바꿈
+frontend/src/components/editor/EditorFileTreePane.tsx	158	jsx-ui-attr	label	파일 트리 닫기
+frontend/src/components/editor/EditorTabBar.tsx	52	jsx-ui-attr	aria-label	열린 문서
+frontend/src/components/editor/EditorTabBar.tsx	85	jsx-ui-attr	label	{0} 닫기
+frontend/src/components/editor/EditorWindow.tsx	625	string	useMemo	파일 트리
+frontend/src/components/editor/EditorWindow.tsx	625	string	useMemo	파일 트리 — 이 문서의 터미널 세션을 찾을 수 없습니다
+frontend/src/components/editor/EditorWindow.tsx	638	jsx-ui-attr	title	결속된 탭이 닫혀 저장할 수 없습니다
+frontend/src/components/editor/EditorWindow.tsx	639	jsx-text		저장 불가
+frontend/src/components/editor/EditorWindow.tsx	644	jsx-ui-attr	label	저장
+frontend/src/components/editor/EditorWindow.tsx	654	jsx-ui-attr	label	최대화
+frontend/src/components/editor/EditorWindow.tsx	659	jsx-ui-attr	label	최소화
+frontend/src/components/editor/EditorWindow.tsx	668	string		편집기
+frontend/src/components/editor/EditorWindow.tsx	708	jsx-ui-attr	aria-label	파일 트리 폭
+frontend/src/components/editor/EditorWindow.tsx	762	jsx-text		저장하지 않은 변경
+frontend/src/components/editor/EditorWindow.tsx	764	string		저장하지 않은 문서가 {0}개 있습니다. 저장하시겠습니까?
+frontend/src/components/editor/EditorWindow.tsx	768	jsx-text		취소
+frontend/src/components/editor/EditorWindow.tsx	771	jsx-text		저장 안 함
+frontend/src/components/editor/EditorWindow.tsx	774	jsx-text		모두 저장
+frontend/src/components/editor/EditorWindowLayer.tsx	293	jsx-ui-attr	title	파일 만들기
+frontend/src/components/editor/EditorWindowLayer.tsx	294	jsx-attr	message	{0} 파일이 없습니다. 새로 만들까요?
+frontend/src/components/editor/EditorWindowLayer.tsx	295	jsx-attr	confirmLabel	만들기
+frontend/src/components/editor/EditorWindowLayer.tsx	296	jsx-attr	cancelLabel	취소
+frontend/src/components/editor/EditorWindowLayer.tsx	305	jsx-ui-attr	title	파일을 열지 못했습니다
+frontend/src/components/editor/EditorWindowLayer.tsx	307	jsx-attr	okLabel	확인
+frontend/src/components/editor/EditorWindowLayer.tsx	308	jsx-attr	cancelLabel	닫기
+frontend/src/components/editor/ImageFileViewer.tsx	207	jsx-text		창 맞춤
+frontend/src/components/editor/ImageFileViewer.tsx	228	jsx-text		소스 편집
+frontend/src/components/editor/SvgFileTab.tsx	68	string		SVG 소스를 읽지 못했습니다.
+frontend/src/components/editor/SvgFileTab.tsx	179	string		줄 바꿈 끄기
+frontend/src/components/editor/SvgFileTab.tsx	179	string		줄 바꿈 켜기
+frontend/src/components/editor/SvgFileTab.tsx	180	jsx-ui-attr	aria-label	줄 바꿈
+frontend/src/components/editor/SvgFileTab.tsx	191	jsx-text		미리보기
+frontend/src/components/editor/dataFileLint.ts	88	ui-prop	message	YAML 문법 오류
+frontend/src/components/editor/editorDocumentAccess.ts	23	string		UTF-8 이 아니라서 읽기 전용으로 열었습니다. 저장하면 원래 바이트가 손상되므로 저장할 수 없습니다.
+frontend/src/components/editor/editorEditMenu.ts	27	ui-prop	label	모두 선택
+frontend/src/components/editor/editorEditMenu.ts	29	ui-prop	label	복사
+frontend/src/components/editor/editorEditMenu.ts	30	ui-prop	label	잘라내기
+frontend/src/components/editor/editorEditMenu.ts	31	ui-prop	label	붙여넣기
+frontend/src/components/editor/editorFileTreePaneModel.ts	108	ui-prop	label	파일 트리
+frontend/src/components/editor/editorTrayModel.ts	59	string		(이름 없음)
+frontend/src/components/editor/editorTrayModel.ts	60	string		(닫힌 탭)
+frontend/src/components/editor/editorWindowClose.ts	41	prop	save	저장
+frontend/src/components/editor/editorWindowClose.ts	42	prop	discard	저장 안 함
+frontend/src/components/editor/editorWindowClose.ts	43	prop	cancel	취소
+frontend/src/components/editor/editorWindowClose.ts	47	prop	save	저장
+frontend/src/components/editor/editorWindowClose.ts	48	prop	discard	닫기
+frontend/src/components/editor/editorWindowClose.ts	49	prop	cancel	취소
+frontend/src/components/editor/editorWindowClose.ts	68	ui-prop	title	저장할 수 없음
+frontend/src/components/editor/editorWindowClose.ts	69	ui-prop	message	저장할 수 없습니다. 그래도 닫으시겠습니까?
+frontend/src/components/editor/editorWindowClose.ts	77	ui-prop	title	저장하지 않은 변경
+frontend/src/components/editor/editorWindowClose.ts	78	ui-prop	message	저장하시겠습니까?
+frontend/src/components/editor/editorWindowSave.ts	82	string		결속된 탭이 닫혀 저장할 수 없습니다.
+frontend/src/components/editor/editorWindowSave.ts	83	string		서버가 저장을 받아들이지 않았습니다.
+frontend/src/components/editor/editorWindowSave.ts	90	string		파일을 저장하지 못했습니다.
+frontend/src/components/editor/imageViewerModel.ts	105	string		이미지를 표시할 수 없습니다. 파일이 손상되었거나 지원하지 않는 형식입니다.
+frontend/src/components/editor/imageViewerModel.ts	110	string		이미지가 너무 커서 열 수 없습니다.
+frontend/src/components/editor/imageViewerModel.ts	113	string		파일을 찾을 수 없습니다.
+frontend/src/components/editor/imageViewerModel.ts	115	string		서버가 이 이미지를 여는 것을 거절했습니다.
+frontend/src/components/fileExplorer/FileExplorerConfirmBar.tsx	86	jsx-text		닫기
+frontend/src/components/fileExplorer/FileExplorerConfirmBar.tsx	122	jsx-text		만들기
+frontend/src/components/fileExplorer/FileExplorerConfirmBar.tsx	123	jsx-text		취소
+frontend/src/components/fileExplorer/FileExplorerMobileBar.tsx	17	jsx-ui-attr	aria-label	파일 작업
+frontend/src/components/fileExplorer/FileExplorerPathBar.tsx	39	jsx-ui-attr	label	상위 폴더
+frontend/src/components/fileExplorer/FileExplorerPathBar.tsx	58	string		목록으로 보기
+frontend/src/components/fileExplorer/FileExplorerPathBar.tsx	58	string		트리로 보기
+frontend/src/components/fileExplorer/FileExplorerPathBar.tsx	68	jsx-ui-attr	label	새로 읽기
+frontend/src/components/fileExplorer/FileExplorerPathBar.tsx	78	jsx-ui-attr	label	새 폴더
+frontend/src/components/fileExplorer/FileExplorerProgressRow.tsx	49	string		외 {0}개
+frontend/src/components/fileExplorer/FileExplorerProgressRow.tsx	52	jsx-ui-attr	label	작업 취소
+frontend/src/components/fileExplorer/FileExplorerTabBar.tsx	43	jsx-ui-attr	label	탭 닫기
+frontend/src/components/fileExplorer/FileExplorerTabBar.tsx	53	jsx-ui-attr	label	새 탭
+frontend/src/components/fileExplorer/FileExplorerWindow.tsx	538	error	showJobError	결정을 보내지 못했습니다: {0}
+frontend/src/components/fileExplorer/FileExplorerWindow.tsx	567	error	showJobError	파일 작업이 실패했습니다{0}
+frontend/src/components/fileExplorer/FileExplorerWindow.tsx	599	jsx-ui-attr	label	최대화
+frontend/src/components/fileExplorer/FileExplorerWindow.tsx	602	jsx-ui-attr	label	최소화
+frontend/src/components/fileExplorer/FileExplorerWindow.tsx	609	jsx-ui-attr	title	파일 탐색기
+frontend/src/components/fileExplorer/FileJobPopover.tsx	56	jsx-ui-attr	aria-label	파일 작업
+frontend/src/components/fileExplorer/FileJobPopover.tsx	57	jsx-text		파일 작업
+frontend/src/components/fileExplorer/FileJobPopover.tsx	63	jsx-ui-attr	label	작업 취소
+frontend/src/components/fileExplorer/FileJobStatusBar.tsx	76	string		{0}개 작업 진행 중
+frontend/src/components/fileExplorer/FileListView.tsx	160	jsx-ui-attr	aria-label	새 이름
+frontend/src/components/fileExplorer/FileTreeView.tsx	240	jsx-ui-attr	aria-label	새 이름
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	33	prop	open	편집기로 열기
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	34	prop	newtab	새 탭에서 열기
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	35	prop	copy	복사
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	36	prop	cut	잘라내기
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	37	prop	paste	붙여넣기
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	38	prop	rename	이름 바꾸기
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	39	prop	delete	삭제
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	40	prop	newdir	새 폴더
+frontend/src/components/fileExplorer/fileExplorerContextMenu.ts	41	prop	refresh	새로 읽기
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	29	string		더 이상 묻지 않기
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	36	prop	skip	무시
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	36	prop	retry	재시도
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	38	prop	overwrite	덮어쓰기
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	39	prop	rename	이름 바꾸기
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	40	prop	skip	복사하지 않기
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	64	ui-prop	label	취소
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	66	string		처리하지 못한 항목
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	66	string		이미 있는 항목
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	81	string		'{0}' 을(를) 삭제할까요?
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	82	string		{0}개 항목을 삭제할까요?
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	84	ui-prop	title	삭제 확인
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	87	ui-prop	label	삭제
+frontend/src/components/fileExplorer/fileExplorerModalModel.ts	88	ui-prop	label	취소
+frontend/src/components/fileExplorer/fileExplorerTrayModel.ts	71	ui-prop	label	파일 탐색기 — {0}
+frontend/src/components/fileExplorer/fileJobClient.ts	148	error	Error	폴더를 그 자신 안으로 옮길 수 없습니다
+frontend/src/components/fileExplorer/fileJobStore.ts	334	prop	copy	복사
+frontend/src/components/fileExplorer/fileJobStore.ts	334	prop	move	이동
+frontend/src/components/fileExplorer/fileJobStore.ts	334	prop	delete	삭제
+frontend/src/components/fileExplorer/fileJobStore.ts	335	string		응답 대기 중
+frontend/src/components/fileExplorer/fileJobStore.ts	368	string		파일 작업
+frontend/src/components/fileExplorer/fileListView.ts	22	ui-prop	name	이름
+frontend/src/components/fileExplorer/fileListView.ts	23	prop	modified	수정한 날짜
+frontend/src/components/fileExplorer/fileListView.ts	24	prop	size	크기
+frontend/src/components/fileExplorer/fileTreeController.ts	70	string		폴더 목록을 읽지 못했습니다.
+frontend/src/components/ui/DialogParts.tsx	27	string		닫기
+frontend/src/components/ui/uiClasses.ts	29	regex		/[ㄱ-ㆎ가-힣]/
+frontend/src/contexts/AuthContext.tsx	61	string		초기 설정 상태를 확인하지 못했습니다.
+frontend/src/contexts/AuthContext.tsx	139	prop	error	로그인 시간이 끝났습니다. 다시 로그인하세요.
+frontend/src/contexts/AuthContext.tsx	186	error	Error	서버 응답이 올바르지 않아 로그인하지 못했습니다.
+frontend/src/contexts/AuthContext.tsx	188	string		로그인하지 못했습니다.
+frontend/src/contexts/AuthContext.tsx	214	string		관리자 비밀번호를 설정하지 못했습니다.
+frontend/src/contexts/AuthContext.tsx	223	prop	error	진행 중인 2단계 인증 요청이 없습니다. 다시 로그인하세요.
+frontend/src/contexts/AuthContext.tsx	258	error	Error	인증 코드를 확인하지 못했습니다.
+frontend/src/contexts/AuthContext.tsx	260	string		인증 코드를 확인하지 못했습니다.
+frontend/src/hooks/useEditorWindows.ts	557	error	setOpenError	세션을 찾을 수 없어 파일을 열지 못했습니다.
+frontend/src/hooks/useEditorWindows.ts	590	error	setOpenError	세션을 찾을 수 없어 파일을 만들지 못했습니다.
+frontend/src/hooks/useFileTreeOperations.ts	129	error	showError	이름에 경로 구분자를 쓸 수 없습니다
+frontend/src/hooks/useFileTreeOperations.ts	137	error	showError	이름을 바꾸지 못했습니다: {0}
+frontend/src/hooks/useFileTreeOperations.ts	171	string	askName	새 폴더 이름
+frontend/src/hooks/useFileTreeOperations.ts	171	string	askName	새 폴더
+frontend/src/hooks/useFileTreeOperations.ts	174	error	showError	이름에 경로 구분자를 쓸 수 없습니다
+frontend/src/hooks/useFileTreeOperations.ts	181	error	showError	폴더를 만들지 못했습니다: {0}
+frontend/src/hooks/useFileTreeOperations.ts	209	error	showError	붙여넣지 못했습니다: {0}
+frontend/src/hooks/useFileTreeOperations.ts	220	error	showError	삭제하지 못했습니다: {0}
+frontend/src/utils/contextMenuBuilder.ts	7	ui-prop	label	커맨드 라인
+frontend/src/utils/contextMenuBuilder.ts	8	ui-prop	label	디렉토리
+frontend/src/utils/contextMenuBuilder.ts	9	ui-prop	label	프롬프트
+frontend/src/utils/contextMenuBuilder.ts	64	ui-prop	label	새 세션
+frontend/src/utils/contextMenuBuilder.ts	69	string		현재 셸
+frontend/src/utils/contextMenuBuilder.ts	88	ui-prop	label	새 세션
+frontend/src/utils/contextMenuBuilder.ts	97	ui-prop	label	세션 닫기
+frontend/src/utils/contextMenuBuilder.ts	105	ui-prop	label	Workspace 이동
+frontend/src/utils/contextMenuBuilder.ts	119	ui-prop	label	파일 탐색기 열기
+frontend/src/utils/contextMenuBuilder.ts	127	ui-prop	label	복사
+frontend/src/utils/contextMenuBuilder.ts	135	ui-prop	label	붙여넣기
+frontend/src/utils/contextMenuBuilder.ts	181	ui-prop	label	등록 항목 붙여넣기
+frontend/src/utils/editorFileMenu.ts	178	ui-prop	label	파일 탐색기
+frontend/src/utils/tabCloseMenu.ts	17	ui-prop	label	이 탭 닫기
+frontend/src/utils/tabCloseMenu.ts	18	ui-prop	label	다른 탭 닫기
+frontend/src/utils/tabCloseMenu.ts	20	ui-prop	label	모든 탭 닫기
+frontend/src/utils/terminalShortcutBindings.ts	30	string		Codex 줄바꿈

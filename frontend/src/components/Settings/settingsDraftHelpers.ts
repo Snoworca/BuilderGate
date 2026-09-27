@@ -6,6 +6,8 @@ import type {
   ResourceLimitsSettings,
   SettingsPatchRequest,
 } from '../../types';
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 
 export type Wave6ResourceLimitKey =
   | 'resourceLimits.headless.pendingOutputMaxBytes'
@@ -35,13 +37,13 @@ type ResourceLimitValue = number | string;
 
 export interface ResourceLimitFieldDefinition {
   key: Wave6ResourceLimitKey;
-  label: string;
+  labelKey: MessageKey;
   control: 'number' | 'select';
   hint?: string;
 }
 
 export interface ResourceLimitGroupDefinition {
-  title: string;
+  titleKey: MessageKey;
   fields: ResourceLimitFieldDefinition[];
 }
 
@@ -53,48 +55,48 @@ export interface SecretPatchDraft {
 
 export const WAVE6_RESOURCE_LIMIT_GROUPS: ResourceLimitGroupDefinition[] = [
   {
-    title: '서버 출력 조절',
+    titleKey: 'settings.resourceGroup.serverOutput',
     fields: [
-      { key: 'resourceLimits.headless.pendingOutputMaxBytes', label: '헤드리스 대기 출력 크기', control: 'number' },
-      { key: 'resourceLimits.headless.pendingOutputMaxChunks', label: '헤드리스 대기 출력 조각 수', control: 'number' },
-      { key: 'resourceLimits.ws.serverBufferedHighWaterBytes', label: '서버 WebSocket 경고 수위', control: 'number' },
-      { key: 'resourceLimits.ws.serverBufferedHardLimitBytes', label: '서버 WebSocket 최대 버퍼', control: 'number' },
-      { key: 'resourceLimits.ws.perClientOutputQueueMaxBytes', label: '클라이언트별 출력 대기열 크기', control: 'number' },
+      { key: 'resourceLimits.headless.pendingOutputMaxBytes', labelKey: 'settings.resourceLimit.pendingOutputMaxBytes', control: 'number' },
+      { key: 'resourceLimits.headless.pendingOutputMaxChunks', labelKey: 'settings.resourceLimit.pendingOutputMaxChunks', control: 'number' },
+      { key: 'resourceLimits.ws.serverBufferedHighWaterBytes', labelKey: 'settings.resourceLimit.serverBufferedHighWaterBytes', control: 'number' },
+      { key: 'resourceLimits.ws.serverBufferedHardLimitBytes', labelKey: 'settings.resourceLimit.serverBufferedHardLimitBytes', control: 'number' },
+      { key: 'resourceLimits.ws.perClientOutputQueueMaxBytes', labelKey: 'settings.resourceLimit.perClientOutputQueueMaxBytes', control: 'number' },
     ],
   },
   {
-    title: '브라우저 대기열',
+    titleKey: 'settings.resourceGroup.browserQueue',
     fields: [
-      { key: 'resourceLimits.clientWs.inputBackpressureBytes', label: '입력 조절 시작 크기', control: 'number' },
-      { key: 'resourceLimits.clientWs.hardReconnectBytes', label: '강제 재연결 크기', control: 'number' },
-      { key: 'resourceLimits.terminal.inputQueueMaxBytes', label: '터미널 입력 대기열 크기', control: 'number' },
-      { key: 'resourceLimits.terminal.inputQueueTtlMs', label: '터미널 입력 대기열 유지 시간', control: 'number' },
-      { key: 'resourceLimits.terminal.transportOutboxMaxBytes', label: '전송 대기함 크기', control: 'number' },
-      { key: 'resourceLimits.terminal.transportOutboxTtlMs', label: '전송 대기함 유지 시간', control: 'number' },
+      { key: 'resourceLimits.clientWs.inputBackpressureBytes', labelKey: 'settings.resourceLimit.inputBackpressureBytes', control: 'number' },
+      { key: 'resourceLimits.clientWs.hardReconnectBytes', labelKey: 'settings.resourceLimit.hardReconnectBytes', control: 'number' },
+      { key: 'resourceLimits.terminal.inputQueueMaxBytes', labelKey: 'settings.resourceLimit.inputQueueMaxBytes', control: 'number' },
+      { key: 'resourceLimits.terminal.inputQueueTtlMs', labelKey: 'settings.resourceLimit.inputQueueTtlMs', control: 'number' },
+      { key: 'resourceLimits.terminal.transportOutboxMaxBytes', labelKey: 'settings.resourceLimit.transportOutboxMaxBytes', control: 'number' },
+      { key: 'resourceLimits.terminal.transportOutboxTtlMs', labelKey: 'settings.resourceLimit.transportOutboxTtlMs', control: 'number' },
     ],
   },
   {
-    title: '실행 유지 한도',
+    titleKey: 'settings.resourceGroup.runtimeLimits',
     fields: [
-      { key: 'resourceLimits.workspaceRuntime.maxLiveWorkspaces', label: '동시에 유지할 Workspace 수', control: 'number' },
-      { key: 'resourceLimits.workspaceRuntime.maxLiveTerminals', label: '동시에 유지할 터미널 수', control: 'number' },
-      { key: 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', label: '숨긴 런타임 유지 시간', control: 'number' },
+      { key: 'resourceLimits.workspaceRuntime.maxLiveWorkspaces', labelKey: 'settings.resourceLimit.maxLiveWorkspaces', control: 'number' },
+      { key: 'resourceLimits.workspaceRuntime.maxLiveTerminals', labelKey: 'settings.resourceLimit.maxLiveTerminals', control: 'number' },
+      { key: 'resourceLimits.workspaceRuntime.hiddenRuntimeTtlMs', labelKey: 'settings.resourceLimit.hiddenRuntimeTtlMs', control: 'number' },
     ],
   },
   {
-    title: '스냅샷',
+    titleKey: 'settings.resourceGroup.snapshots',
     fields: [
-      { key: 'resourceLimits.snapshots.perSnapshotMaxChars', label: '스냅샷 1개 최대 글자 수', control: 'number' },
-      { key: 'resourceLimits.snapshots.totalStorageBudgetChars', label: '스냅샷 전체 글자 수 한도', control: 'number' },
-      { key: 'resourceLimits.snapshots.maxEntries', label: '스냅샷 최대 개수', control: 'number' },
-      { key: 'resourceLimits.snapshots.tombstoneTtlMs', label: '삭제된 스냅샷 기록 유지 시간', control: 'number' },
+      { key: 'resourceLimits.snapshots.perSnapshotMaxChars', labelKey: 'settings.resourceLimit.perSnapshotMaxChars', control: 'number' },
+      { key: 'resourceLimits.snapshots.totalStorageBudgetChars', labelKey: 'settings.resourceLimit.totalStorageBudgetChars', control: 'number' },
+      { key: 'resourceLimits.snapshots.maxEntries', labelKey: 'settings.resourceLimit.maxEntries', control: 'number' },
+      { key: 'resourceLimits.snapshots.tombstoneTtlMs', labelKey: 'settings.resourceLimit.tombstoneTtlMs', control: 'number' },
     ],
   },
   {
-    title: '숨긴 세션 출력',
+    titleKey: 'settings.resourceGroup.hiddenOutput',
     fields: [
-      { key: 'resourceLimits.terminal.hiddenOutputPolicy', label: '숨긴 세션 출력 처리 방식', control: 'select' },
-      { key: 'resourceLimits.terminal.hiddenOutputTailBytes', label: '숨긴 세션 출력 보관 크기', control: 'number' },
+      { key: 'resourceLimits.terminal.hiddenOutputPolicy', labelKey: 'settings.resourceLimit.hiddenOutputPolicy', control: 'select' },
+      { key: 'resourceLimits.terminal.hiddenOutputTailBytes', labelKey: 'settings.resourceLimit.hiddenOutputTailBytes', control: 'number' },
     ],
   },
 ];
@@ -245,7 +247,7 @@ export function validateWave6ResourceLimitDraft(
 
       const value = getResourceLimitValue(draft, field.key);
       for (const problem of validateWave6ResourceLimitField(field, value, capability)) {
-        errors.push(`${field.label}: ${problem}`);
+        errors.push(`${t(field.labelKey)}: ${problem}`);
       }
     }
   }
@@ -266,46 +268,49 @@ export function validateWave6ResourceLimitField(
   if (field.control === 'select') {
     const options = capability.options ?? [];
     if (options.length > 0 && !options.includes(String(value))) {
-      return [`목록에 있는 값만 고를 수 있습니다. 지금 값은 ${String(value)}입니다.`];
+      return [t('settings.validation.notInList', { value: String(value) })];
     }
     return [];
   }
 
   if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
-    const current = typeof value === 'number' && Number.isNaN(value) ? '비어 있습니다' : `${String(value)}입니다`;
-    return [`정수를 입력하세요. 지금 값은 ${current}.`];
+    return [typeof value === 'number' && Number.isNaN(value)
+      ? t('settings.validation.integerEmpty')
+      : t('settings.validation.integerInvalid', { value: String(value) })];
   }
 
   const problems: string[] = [];
   const constraints = capability.constraints;
   const unit = resourceLimitUnitLabel(constraints?.unit);
-  const current = `지금 값은 ${value}${unit}입니다.`;
+  const current = t('settings.validation.currentValue', { value, unit });
   if (constraints?.min !== undefined && value < constraints.min) {
-    problems.push(`${constraints.min}${unit} 이상이어야 합니다. ${current}`);
+    problems.push(t('settings.validation.min', { min: constraints.min, unit, current }));
   }
   if (constraints?.max !== undefined && value > constraints.max) {
-    problems.push(`${constraints.max}${unit} 이하여야 합니다. ${current}`);
+    problems.push(t('settings.validation.max', { max: constraints.max, unit, current }));
   }
   if (constraints?.step !== undefined && constraints.step > 0) {
     const base = constraints.min ?? 0;
     const distance = (value - base) / constraints.step;
     if (!Number.isInteger(distance)) {
-      problems.push(`${constraints.step}${unit} 단위로 입력하세요. ${current}`);
+      problems.push(t('settings.validation.step', { step: constraints.step, unit, current }));
     }
   }
   return problems;
 }
 
-const RESOURCE_LIMIT_UNIT_LABELS: Record<NonNullable<ResourceLimitUnit>, string> = {
-  bytes: '바이트',
-  ms: 'ms',
-  count: '개',
-  chars: '자',
+const RESOURCE_LIMIT_UNIT_LABELS: Record<NonNullable<ResourceLimitUnit>, MessageKey | null> = {
+  bytes: 'settings.unit.bytes',
+  ms: null,
+  count: 'settings.unit.count',
+  chars: 'settings.unit.chars',
 };
 
 /** The unit a resource-limit value is shown with, beside the input rather than in its label. */
 export function resourceLimitUnitLabel(unit: ResourceLimitUnit): string {
-  return unit === undefined ? '' : RESOURCE_LIMIT_UNIT_LABELS[unit] ?? unit;
+  if (unit === undefined) return '';
+  const key = RESOURCE_LIMIT_UNIT_LABELS[unit];
+  return key ? t(key) : unit;
 }
 
 export function getResourceLimitValue(values: EditableSettingsValues, key: Wave6ResourceLimitKey): ResourceLimitValue {

@@ -8,6 +8,7 @@
 // @req FR-MDE-012
 // @req FR-FEX-005
 
+import { t } from '../../i18n/i18n.ts';
 import type { ContextMenuItem } from '../ContextMenu/index.ts';
 
 /** Width of a pane the user never resized, and what a double click restores. */
@@ -105,7 +106,7 @@ export function buildEditorWindowContextMenu(input: {
 }): ContextMenuItem[] {
   return [
     {
-      label: '파일 트리',
+      label: t('editor.fileTree.label'),
       onClick: input.onTogglePane,
       ...(input.paneOpen ? { icon: '✓' } : {}),
     },

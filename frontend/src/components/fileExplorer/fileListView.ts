@@ -4,6 +4,7 @@
 // The list shows every direct child of the root at once and leaves windowing to
 // the renderer: the server already caps a listing (maxDirectoryEntries), so a
 // second cap here would silently hide entries the user asked to see.
+import type { MessageKey } from '../../i18n/i18n.ts';
 import type { DirectoryEntry } from '../../types/index.ts';
 import { resolveEditorMode } from '../../editor/editorMode.ts';
 import type { FileTreeState } from './fileTreeState.ts';
@@ -18,10 +19,10 @@ export interface ListSort {
   dir: ListSortDir;
 }
 
-export const COLUMN_LABELS: Readonly<Record<ListColumn, string>> = {
-  name: '이름',
-  modified: '수정한 날짜',
-  size: '크기',
+export const COLUMN_LABELS: Readonly<Record<ListColumn, MessageKey>> = {
+  name: 'fileExplorer.column.name',
+  modified: 'fileExplorer.column.modified',
+  size: 'fileExplorer.column.size',
 };
 
 // Same column again flips the direction; another column starts ascending.

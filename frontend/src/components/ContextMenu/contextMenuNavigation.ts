@@ -1,4 +1,5 @@
 import type { ContextMenuActionItem, ContextMenuItem } from './ContextMenu';
+import { t } from '../../i18n/i18n.ts';
 
 export interface ContextMenuNavigationPage {
   path: string[];
@@ -7,7 +8,7 @@ export interface ContextMenuNavigationPage {
 
 export function createContextMenuRootPage(
   items: ContextMenuItem[],
-  rootLabel = '메뉴',
+  rootLabel: string = t('contextMenu.root'),
 ): ContextMenuNavigationPage {
   return {
     path: [rootLabel],

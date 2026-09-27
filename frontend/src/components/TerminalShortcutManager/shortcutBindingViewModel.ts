@@ -5,32 +5,33 @@ import type {
   TerminalShortcutProfile,
   TerminalShortcutScope,
 } from '../../types';
+import { t, tn } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import {
-  CODEX_NEWLINE_ACTION_LABEL,
   createCodexNewlineAction,
   describeTerminalShortcutKey,
   isCodexNewlineAction,
   isCodexNewlineShortcutDescriptor,
 } from '../../utils/terminalShortcutBindings';
 
-export const TERMINAL_SHORTCUT_SCOPE_OPTIONS: Array<{ scope: TerminalShortcutScope; label: string }> = [
-  { scope: 'workspace', label: 'Workspace' },
-  { scope: 'global', label: '전체' },
-  { scope: 'session', label: '현재 세션' },
+export const TERMINAL_SHORTCUT_SCOPE_OPTIONS: Array<{ scope: TerminalShortcutScope; labelKey: MessageKey }> = [
+  { scope: 'workspace', labelKey: 'shortcut.scope.workspace' },
+  { scope: 'global', labelKey: 'shortcut.scope.global' },
+  { scope: 'session', labelKey: 'shortcut.scope.session' },
 ];
 
-export const TERMINAL_SHORTCUT_PROFILE_OPTIONS: Array<{ profile: TerminalShortcutProfile; label: string }> = [
-  { profile: 'xterm-default', label: 'xterm 기본' },
-  { profile: 'ai-tui-compat', label: 'AI TUI 호환' },
-  { profile: 'custom', label: '사용자 지정' },
+export const TERMINAL_SHORTCUT_PROFILE_OPTIONS: Array<{ profile: TerminalShortcutProfile; labelKey: MessageKey }> = [
+  { profile: 'xterm-default', labelKey: 'shortcut.profile.xtermDefault' },
+  { profile: 'ai-tui-compat', labelKey: 'shortcut.profile.aiTuiCompat' },
+  { profile: 'custom', labelKey: 'shortcut.profile.custom' },
 ];
 
 export function profileLabel(profile: TerminalShortcutProfile): string {
-  return TERMINAL_SHORTCUT_PROFILE_OPTIONS.find(option => option.profile === profile)?.label ?? profile;
+  const found = TERMINAL_SHORTCUT_PROFILE_OPTIONS.find(option => option.profile === profile)?.labelKey; return found ? t(found) : profile;
 }
 
 export function scopeLabel(scope: TerminalShortcutScope): string {
-  return TERMINAL_SHORTCUT_SCOPE_OPTIONS.find(option => option.scope === scope)?.label ?? scope;
+  const found = TERMINAL_SHORTCUT_SCOPE_OPTIONS.find(option => option.scope === scope)?.labelKey; return found ? t(found) : scope;
 }
 
 export function bindingScopeLabel(binding: Pick<TerminalShortcutBinding, 'scope' | 'workspaceId' | 'sessionId'>): string {
@@ -44,17 +45,17 @@ export function bindingScopeLabel(binding: Pick<TerminalShortcutBinding, 'scope'
 }
 
 export function actionLabel(action: TerminalShortcutAction): string {
-  if (action.type === 'pass-through') return '통과';
-  if (action.type === 'block') return '차단';
-  if (isCodexNewlineAction(action)) return `${CODEX_NEWLINE_ACTION_LABEL} 전송`;
+  if (action.type === 'pass-through') return t('shortcut.action.passThrough');
+  if (action.type === 'block') return t('shortcut.action.block');
+  if (isCodexNewlineAction(action)) return t('shortcut.action.sendCodexNewline');
   // CUSTOM is the stored tag of a user string, not a name to show.
-  if (action.label === 'CUSTOM') return `사용자 문자열 ${Array.from(action.data).length}자 전송`;
-  if (action.label) return `${action.label} 전송`;
-  if (action.data === '\n') return 'LF 전송';
-  if (action.data === '\r') return 'CR 전송';
-  if (action.data === '\t') return 'Tab 전송';
-  if (action.data === '\x1b') return 'Esc 전송';
-  return `문자열 ${Array.from(action.data).length}자 전송`;
+  if (action.label === 'CUSTOM') return tn('shortcut.action.sendCustomChars', Array.from(action.data).length);
+  if (action.label) return t('shortcut.action.sendLabeled', { label: action.label });
+  if (action.data === '\n') return t('shortcut.action.sendLf');
+  if (action.data === '\r') return t('shortcut.action.sendCr');
+  if (action.data === '\t') return t('shortcut.action.sendTab');
+  if (action.data === '\x1b') return t('shortcut.action.sendEsc');
+  return tn('shortcut.action.sendStringChars', Array.from(action.data).length);
 }
 
 export function descriptorLabel(descriptor: TerminalShortcutKeyDescriptor): string {

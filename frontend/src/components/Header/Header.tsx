@@ -11,6 +11,7 @@ import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { truncatePathLeft } from '../../utils/pathUtils';
 import { SessionSaveButton, type SaveButtonState } from '../SessionSave';
 import './Header.css';
+import { t, tn } from '../../i18n/i18n.ts';
 
 interface HeaderProps {
   onLogout?: () => void;
@@ -93,19 +94,19 @@ export function Header({
     : null;
   const toolsMenuItems = useMemo(() => [
     ...(onOpenCommandPresetManager ? [{
-      label: '명령줄 관리',
+      label: t('header.tools.commandPresets'),
       onClick: () => onOpenCommandPresetManager?.(),
     }] : []),
     ...(onOpenTerminalShortcutManager ? [{
-      label: '터미널 키보드',
+      label: t('header.tools.terminalKeyboard'),
       onClick: () => onOpenTerminalShortcutManager?.(),
     }] : []),
     ...(onOpenRecoveryOptionManager ? [{
-      label: '복구 옵션',
+      label: t('header.tools.recoveryOptions'),
       onClick: () => onOpenRecoveryOptionManager?.(),
     }] : []),
     ...(onOpenMcpControlManager ? [{
-      label: 'MCP 설정',
+      label: t('header.tools.mcp'),
       onClick: () => onOpenMcpControlManager?.(),
     }] : []),
   ], [onOpenCommandPresetManager, onOpenMcpControlManager, onOpenRecoveryOptionManager, onOpenTerminalShortcutManager]);
@@ -116,7 +117,7 @@ export function Header({
         {isMobile && (
           <IconButton
             icon="menu"
-            label="메뉴 열기"
+            label={t('header.menu.open')}
             iconSize={20}
             className="icon-button-md hamburger-button"
             onClick={onMenuClick}
@@ -151,7 +152,7 @@ export function Header({
             // window the user may have just lost behind another one.
             <IconButton
               icon="folder"
-              label="파일 탐색기"
+              label={t('header.fileExplorer')}
               iconSize={18}
               className="icon-button-md header-action-button"
               onClick={onOpenFileExplorer}
@@ -173,15 +174,15 @@ export function Header({
               // into it would make the button a different element to anything
               // selecting it by name, and the count is already announced by the
               // badge below.
-              aria-label="편집기 창"
-              title="편집기 창"
+              aria-label={t('header.editorWindows')}
+              title={t('header.editorWindows')}
             >
               <Icon name="document" size={18} className="header-editor-tray-icon" />
               {editorTrayOpenCount > 0 && (
                 <span
                   className="ui-badge ui-badge-accent header-editor-tray-badge"
                   role="status"
-                  aria-label={`열린 문서 ${editorTrayOpenCount}개`}
+                  aria-label={tn('header.editorWindows.openCount', editorTrayOpenCount)}
                 >
                   {editorTrayOpenCount}
                 </span>
@@ -193,7 +194,7 @@ export function Header({
             // view is now.
             <IconButton
               icon={viewMode === 'tab' ? 'grid' : 'tabs'}
-              label={viewMode === 'tab' ? '그리드 보기로 전환' : '탭 보기로 전환'}
+              label={viewMode === 'tab' ? t('header.view.toGrid') : t('header.view.toTab')}
               iconSize={18}
               className="icon-button-md header-action-button header-view-toggle-button"
               onClick={onToggleViewMode}
@@ -207,7 +208,7 @@ export function Header({
           {(onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && !isMobile && (
             <IconButton
               icon="tools"
-              label="도구"
+              label={t('header.tools')}
               iconSize={18}
               className="icon-button-md header-action-button header-tools-button"
               onClick={(event) => {
@@ -221,7 +222,7 @@ export function Header({
           {onOpenSettings && (
             <IconButton
               icon="settings"
-              label="설정"
+              label={t('header.settings')}
               iconSize={18}
               className={`icon-button-md header-action-button header-settings-button${isSettingsActive ? ' is-active' : ''}`}
               onClick={onOpenSettings}
@@ -230,7 +231,7 @@ export function Header({
           )}
           <IconButton
             icon="power"
-            label="로그아웃"
+            label={t('header.logout')}
             iconSize={18}
             className="icon-button-md header-action-button logout-button"
             onClick={onLogout}

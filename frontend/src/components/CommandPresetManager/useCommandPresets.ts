@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { commandPresetApi } from '../../services/api';
+import { t } from '../../i18n/i18n.ts';
 import type { CommandPreset, CommandPresetKind } from '../../types';
 
 export function useCommandPresets(): {
@@ -29,7 +30,7 @@ export function useCommandPresets(): {
     try {
       setPresets(await commandPresetApi.getAll());
     } catch (reloadError) {
-      setError(reloadError instanceof Error ? reloadError.message : '명령줄 목록을 불러오지 못했습니다.');
+      setError(reloadError instanceof Error ? reloadError.message : t('preset.load.failed'));
     } finally {
       setLoading(false);
     }

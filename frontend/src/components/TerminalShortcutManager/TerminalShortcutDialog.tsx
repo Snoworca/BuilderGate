@@ -27,6 +27,8 @@ import {
   profileLabel,
   scopeLabel,
 } from './shortcutBindingViewModel';
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import './TerminalShortcutDialog.css';
 
 export interface TerminalShortcutDialogProps {
@@ -43,10 +45,10 @@ type CaptureStatus = 'idle' | 'waiting' | 'captured' | 'timeout';
 
 const ACTIVE_TAB_STORAGE_KEY = 'buildergate.terminalShortcutManager.activeTab';
 const CAPTURE_TIMEOUT_MS = 5000;
-const TAB_DEFINITIONS: Array<{ id: TerminalShortcutTab; label: string }> = [
-  { id: 'capture', label: '캡처' },
-  { id: 'bindings', label: '등록 목록' },
-  { id: 'profiles', label: '프로필' },
+const TAB_DEFINITIONS: Array<{ id: TerminalShortcutTab; labelKey: MessageKey }> = [
+  { id: 'capture', labelKey: 'shortcut.tab.capture' },
+  { id: 'bindings', labelKey: 'shortcut.tab.bindings' },
+  { id: 'profiles', labelKey: 'shortcut.tab.profiles' },
 ];
 
 function readStoredTab(): TerminalShortcutTab {
@@ -192,11 +194,11 @@ export function TerminalShortcutDialog({
       }
     }
     if (targetScope === 'workspace') {
-      if (!activeWorkspaceId) throw new Error('활성 Workspace가 없습니다.');
+      if (!activeWorkspaceId) throw new Error(t('shortcut.msg.noWorkspace'));
       return { scope: targetScope, workspaceId: activeWorkspaceId };
     }
     if (targetScope === 'session') {
-      if (!activeSessionId) throw new Error('활성 세션이 없습니다.');
+      if (!activeSessionId) throw new Error(t('shortcut.msg.noSession'));
       return { scope: targetScope, sessionId: activeSessionId };
     }
     return { scope: targetScope };
@@ -204,11 +206,11 @@ export function TerminalShortcutDialog({
 
   const runSave = useCallback(async () => {
     if (!capturedDescriptor) {
-      setLocalError('먼저 단축키를 감지하세요.');
+      setLocalError(t('shortcut.msg.detectFirst'));
       return;
     }
     if (action.type === 'send' && action.data.length === 0) {
-      setLocalError('전송할 문자열을 입력하세요.');
+      setLocalError(t('shortcut.msg.enterString'));
       return;
     }
 
@@ -230,10 +232,10 @@ export function TerminalShortcutDialog({
       setCapturedDescriptor(null);
       setDescription('');
       setEditingTarget(null);
-      setLastTestResult(editingTarget ? '수정되었습니다.' : '저장되었습니다.');
+      setLastTestResult(editingTarget ? t('shortcut.msg.updated') : t('shortcut.msg.saved'));
       setActiveTab('bindings');
     } catch (saveError) {
-      setLocalError(saveError instanceof Error ? saveError.message : '저장하지 못했습니다.');
+      setLocalError(saveError instanceof Error ? saveError.message : t('common.saveFailed'));
     } finally {
       setSaving(false);
       setConfirmCustomSave(false);
@@ -252,12 +254,12 @@ export function TerminalShortcutDialog({
     if (nextAction.type !== 'send') return;
     if (!activeTabId) {
       setLastTestResult(null);
-      setLocalError('활성 터미널이 없습니다.');
+      setLocalError(t('shortcut.msg.noTerminal'));
       return;
     }
     onSendTerminalInput(activeTabId, nextAction.data);
     setLocalError(null);
-    setLastTestResult(`${actionLabel(nextAction)} 완료`);
+    setLastTestResult(t('shortcut.msg.actionDone', { action: actionLabel(nextAction) }));
   }, [action, activeTabId, onSendTerminalInput]);
 
   const handleToggleBinding = useCallback(async (binding: TerminalShortcutBinding) => {
@@ -266,7 +268,7 @@ export function TerminalShortcutDialog({
     try {
       await shortcuts.updateBinding(binding.id, { enabled: !binding.enabled });
     } catch (toggleError) {
-      setLocalError(toggleError instanceof Error ? toggleError.message : '상태를 바꾸지 못했습니다.');
+      setLocalError(toggleError instanceof Error ? toggleError.message : t('shortcut.msg.toggleFailed'));
     } finally {
       setBusyId(null);
     }
@@ -310,7 +312,7 @@ export function TerminalShortcutDialog({
       await shortcuts.deleteBinding(deleteTarget.id);
       setDeleteTarget(null);
     } catch (deleteFailure) {
-      setDeleteError(deleteFailure instanceof Error ? deleteFailure.message : '삭제하지 못했습니다.');
+      setDeleteError(deleteFailure instanceof Error ? deleteFailure.message : t('shortcut.msg.deleteFailed'));
     } finally {
       setBusyId(null);
     }
@@ -324,9 +326,9 @@ export function TerminalShortcutDialog({
         ...buildScopeTarget(profileScope),
         profile: profileDraft,
       });
-      setLastTestResult(`${scopeLabel(profileScope)} 프로필이 ${profileLabel(profileDraft)}로 변경되었습니다.`);
+      setLastTestResult(t('shortcut.msg.profileChanged', { scope: scopeLabel(profileScope), profile: profileLabel(profileDraft) }));
     } catch (profileError) {
-      setLocalError(profileError instanceof Error ? profileError.message : '프로필을 저장하지 못했습니다.');
+      setLocalError(profileError instanceof Error ? profileError.message : t('shortcut.msg.profileSaveFailed'));
     } finally {
       setSaving(false);
     }
@@ -340,7 +342,7 @@ export function TerminalShortcutDialog({
     <>
       <WindowDialog
         dialogId="terminal-shortcut-manager"
-        title="터미널 키보드"
+        title={t('shortcut.dialog.title')}
         mode="modal"
         defaultRect={{ x: 180, y: 96, width: 760, height: 560 }}
         minSize={{ width: 580, height: 420 }}
@@ -355,7 +357,7 @@ export function TerminalShortcutDialog({
           <div
             className="terminal-shortcut-tabs"
             role="tablist"
-            aria-label="터미널 키보드 설정"
+            aria-label={t('shortcut.dialog.tabsAria')}
             onKeyDown={handleTabKeyDown}
           >
             {TAB_DEFINITIONS.map(tab => (
@@ -373,7 +375,7 @@ export function TerminalShortcutDialog({
                 className={`terminal-shortcut-tab${activeTab === tab.id ? ' is-active' : ''}`}
                 onClick={() => changeActiveTab(tab.id)}
               >
-                {tab.label}
+                {t(tab.labelKey)}
               </button>
             ))}
           </div>
@@ -381,7 +383,7 @@ export function TerminalShortcutDialog({
           {shortcuts.loading && (
             <div className="terminal-shortcut-loading" role="status">
               <Spinner />
-              불러오는 중
+              {t('shortcut.dialog.loading')}
             </div>
           )}
 
@@ -454,15 +456,15 @@ export function TerminalShortcutDialog({
             className="terminal-shortcut-panel terminal-shortcut-profile-panel"
           >
             <div className="terminal-shortcut-profile-current">
-              현재 적용: {profileLabel(activeProfile)}
+              {t('shortcut.profile.current', { profile: profileLabel(activeProfile) })}
             </div>
             <div className="terminal-shortcut-form-grid">
-              <Field label="범위" htmlFor="terminal-shortcut-profile-scope" className="terminal-shortcut-field">
+              <Field label={t('shortcut.capture.scope')} htmlFor="terminal-shortcut-profile-scope" className="terminal-shortcut-field">
                 <Select
                   id="terminal-shortcut-profile-scope"
                   value={profileScope}
                   onChange={(event) => setProfileScope(event.target.value as TerminalShortcutScope)}
-                  aria-label="프로필 적용 범위"
+                  aria-label={t('shortcut.profile.scopeAria')}
                 >
                   {TERMINAL_SHORTCUT_SCOPE_OPTIONS.map(option => (
                     <option
@@ -470,21 +472,21 @@ export function TerminalShortcutDialog({
                       value={option.scope}
                       disabled={(option.scope === 'workspace' && !canUseWorkspaceScope) || (option.scope === 'session' && !canUseSessionScope)}
                     >
-                      {option.label}
+                      {t(option.labelKey)}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Field label="프로필" htmlFor="terminal-shortcut-profile" className="terminal-shortcut-field">
+              <Field label={t('shortcut.profile.field')} htmlFor="terminal-shortcut-profile" className="terminal-shortcut-field">
                 <Select
                   id="terminal-shortcut-profile"
                   value={profileDraft}
                   onChange={(event) => setProfileDraft(event.target.value as TerminalShortcutProfile)}
-                  aria-label="터미널 키보드 프로필"
+                  aria-label={t('shortcut.profile.aria')}
                 >
                   {TERMINAL_SHORTCUT_PROFILE_OPTIONS.map(option => (
                     <option key={option.profile} value={option.profile}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </option>
                   ))}
                 </Select>
@@ -510,7 +512,7 @@ export function TerminalShortcutDialog({
                 onClick={handleApplyProfile}
                 disabled={saving}
               >
-                프로필 적용
+                {t('shortcut.profile.apply')}
               </Button>
             </div>
           </section>
@@ -520,10 +522,10 @@ export function TerminalShortcutDialog({
       {deleteTarget && (
         <MessageBox
           dialogId="terminal-shortcut-delete-confirm"
-          title="삭제 확인"
-          message={`${bindingKeyLabel(deleteTarget)} 단축키 등록이 삭제됩니다. 다른 단축키와 프로필 설정은 그대로입니다.`}
-          okLabel="삭제"
-          cancelLabel="취소"
+          title={t('common.deleteConfirm')}
+          message={t('shortcut.delete.message', { key: bindingKeyLabel(deleteTarget) })}
+          okLabel={t('common.delete')}
+          cancelLabel={t('common.cancel')}
           okVariant="danger"
           busy={busyId === deleteTarget.id}
           error={deleteError}
@@ -539,10 +541,10 @@ export function TerminalShortcutDialog({
       {confirmCustomSave && (
         <MessageBox
           dialogId="terminal-shortcut-custom-confirm"
-          title="사용자 전송 문자열 확인"
-          message="제어 문자가 들어 있는 문자열이 저장되어, 이 단축키를 누를 때마다 터미널로 전송됩니다."
-          okLabel="저장"
-          cancelLabel="취소"
+          title={t('shortcut.customConfirm.title')}
+          message={t('shortcut.customConfirm.message')}
+          okLabel={t('common.save')}
+          cancelLabel={t('common.cancel')}
           busy={saving}
           error={localError}
           onOk={() => void runSave()}

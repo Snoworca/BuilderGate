@@ -12,6 +12,8 @@
 // @req FR-MDE-006
 // @req CON-MDE-002
 
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import type { EditorWindowSaveOutcome } from './editorWindowSave.ts';
 
 export type EditorWindowCloseChoice = 'save' | 'discard' | 'cancel';
@@ -37,17 +39,21 @@ export type EditorWindowCloseAction =
   | { kind: 'stay' }
   | { kind: 'save-then-close' };
 
-const CHOICE_LABELS: Record<EditorWindowCloseChoice, string> = {
-  save: '저장',
-  discard: '저장 안 함',
-  cancel: '취소',
-};
+const CHOICE_LABELS = {
+  save: 'common.save',
+  discard: 'editor.close.dontSave',
+  cancel: 'common.cancel',
+} as const satisfies Record<EditorWindowCloseChoice, MessageKey>;
 
-const DISCARD_LABELS: Record<EditorWindowCloseChoice, string> = {
-  save: '저장',
-  discard: '닫기',
-  cancel: '취소',
-};
+const DISCARD_LABELS = {
+  save: 'common.save',
+  discard: 'common.close',
+  cancel: 'common.cancel',
+} as const satisfies Record<EditorWindowCloseChoice, MessageKey>;
+
+function translateLabels(keys: Record<EditorWindowCloseChoice, MessageKey>): Record<EditorWindowCloseChoice, string> {
+  return { save: t(keys.save), discard: t(keys.discard), cancel: t(keys.cancel) };
+}
 
 /**
  * Reads the branch off the two facts that decide it. Whether the bound tab is
@@ -65,19 +71,19 @@ export function decideEditorWindowClosePrompt(
   if (input.tabClosed) {
     return {
       kind: 'cannot-save',
-      title: '저장할 수 없음',
-      message: '저장할 수 없습니다. 그래도 닫으시겠습니까?',
+      title: t('editor.close.cannotSaveTitle'),
+      message: t('editor.close.cannotSaveMessage'),
       choices: ['discard', 'cancel'],
-      labels: DISCARD_LABELS,
+      labels: translateLabels(DISCARD_LABELS),
     };
   }
 
   return {
     kind: 'unsaved-changes',
-    title: '저장하지 않은 변경',
-    message: '저장하시겠습니까?',
+    title: t('editor.close.unsavedTitle'),
+    message: t('editor.close.saveQuestion'),
     choices: ['save', 'discard', 'cancel'],
-    labels: CHOICE_LABELS,
+    labels: translateLabels(CHOICE_LABELS),
   };
 }
 

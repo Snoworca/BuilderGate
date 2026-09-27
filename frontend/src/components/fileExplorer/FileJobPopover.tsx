@@ -5,6 +5,7 @@
 // toggles the popover itself and would otherwise close and reopen it.
 // @req FR-FEX-008
 
+import { t } from '../../i18n/i18n.ts';
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
 import { IconButton } from '../common';
@@ -53,14 +54,14 @@ export function FileJobPopover({ statusBarRef }: FileJobPopoverProps) {
   if (!open || rows.length === 0) return null;
 
   return (
-    <div ref={popoverRef} className="fx-job-popover" role="dialog" aria-label="파일 작업">
-      <h6 className="fx-job-popover-title">파일 작업</h6>
+    <div ref={popoverRef} className="fx-job-popover" role="dialog" aria-label={t('common.fileJobs')}>
+      <h6 className="fx-job-popover-title">{t('common.fileJobs')}</h6>
       {rows.map((row) => (
         <div key={row.jobId} className="fx-job-item">
           <div className="fx-job-item-head">
             {/* A waiting job is marked in its row: the status bar's button names only one of them. */}
-            <span className="fx-job-text">{row.awaiting ? `${row.label} · ${AWAITING_LABEL}` : row.label}</span>
-            <IconButton icon="close" className="fx-job-cancel" label="작업 취소" onClick={() => cancelFileJob(row.jobId)} />
+            <span className="fx-job-text">{row.awaiting ? `${row.label} · ${t(AWAITING_LABEL)}` : row.label}</span>
+            <IconButton icon="close" className="fx-job-cancel" label={t('fileExplorer.job.cancel')} onClick={() => cancelFileJob(row.jobId)} />
           </div>
           {row.indeterminate ? (
             <span className="fx-job-spinner" aria-hidden="true" />

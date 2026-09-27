@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import { Icon } from '../common/Icon';
 import { BusyLabel } from '../ui';
 import './ConfirmModal.css';
+import { t } from '../../i18n/i18n.ts';
 
 interface Props {
   title: string;
@@ -30,11 +31,11 @@ interface Props {
 export function ConfirmModal({
   title,
   message,
-  confirmLabel = '확인',
-  cancelLabel = '취소',
+  confirmLabel = t('common.confirm'),
+  cancelLabel = t('common.cancel'),
   destructive = false,
   busy: busyProp,
-  busyLabel = '처리하는 중…',
+  busyLabel = t('modal.confirm.busy'),
   error = null,
   hideConfirm = false,
   initialFocus,

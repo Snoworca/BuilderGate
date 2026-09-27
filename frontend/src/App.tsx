@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
+import { t } from './i18n/i18n.ts';
 import { useHeartbeat } from './hooks/useHeartbeat';
 import { useResponsive } from './hooks/useResponsive';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
@@ -203,7 +204,7 @@ function AppContent() {
 
   useHeartbeat({
     onSessionExpired: () => {
-      alert('로그인이 만료되었습니다. 다시 로그인하세요.');
+      alert(t('app.alert.loginExpired'));
     }
   });
 
@@ -1099,10 +1100,10 @@ function AppContent() {
       {/* Confirm close tab */}
       {pendingCloseTabId && (
         <ConfirmModal
-          title="세션 닫기"
-          message="이 세션을 종료하시겠습니까?"
-          confirmLabel="닫기"
-          cancelLabel="취소"
+          title={t('common.closeSession')}
+          message={t('app.closeSession.message')}
+          confirmLabel={t('common.close')}
+          cancelLabel={t('common.cancel')}
           destructive
           onConfirm={handleConfirmCloseTab}
           onCancel={() => setPendingCloseTabId(null)}

@@ -13,6 +13,7 @@
 // @req FR-MDE-012
 // @req FR-FEX-005
 
+import { t } from '../i18n/i18n.ts';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   copySelection,
@@ -126,7 +127,7 @@ export function useFileTreeOperations({
     setRenamingPath(null);
     if (source === null || name === lastSegment(source)) return;
     if (/[\\/]/.test(name)) {
-      showError('이름에 경로 구분자를 쓸 수 없습니다');
+      showError(t('fileOps.error.separator'));
       return;
     }
     const parent = parentPathOf(source);
@@ -134,7 +135,7 @@ export function useFileTreeOperations({
       await fileApi.moveFile(sessionId, source, childPath(parent, name));
       await applyJobDone([parent]);
     } catch (error) {
-      showError(`이름을 바꾸지 못했습니다: ${messageOf(error)}`);
+      showError(t('fileOps.error.rename', { message: messageOf(error) }));
     }
   }, [applyJobDone, showError, sessionId]);
 
@@ -168,17 +169,17 @@ export function useFileTreeOperations({
     : null;
 
   const createDirectoryIn = async (directory: string) => {
-    const name = await askName('새 폴더 이름', '새 폴더');
+    const name = await askName(t('fileOps.newFolder.prompt'), t('fileOps.newFolder.default'));
     if (name === null) return;
     if (/[\\/]/.test(name)) {
-      showError('이름에 경로 구분자를 쓸 수 없습니다');
+      showError(t('fileOps.error.separator'));
       return;
     }
     try {
       await fileApi.createDirectory(sessionId, directory, name);
       await applyJobDone([directory]);
     } catch (error) {
-      showError(`폴더를 만들지 못했습니다: ${messageOf(error)}`);
+      showError(t('fileOps.error.mkdir', { message: messageOf(error) }));
     }
   };
 
@@ -206,7 +207,7 @@ export function useFileTreeOperations({
       // A second paste of the same clipboard while this one is in flight -- from
       // this surface or any other -- is refused inside pasteFromClipboard.
       pasteFromClipboard({ client: jobClient, target: { destSessionId: sessionId, destPath: targetDirectory } })
-        .catch((error: unknown) => showError(`붙여넣지 못했습니다: ${messageOf(error)}`));
+        .catch((error: unknown) => showError(t('fileOps.error.paste', { message: messageOf(error) })));
     },
     rename: () => {
       const paths = selectedPaths();
@@ -217,7 +218,7 @@ export function useFileTreeOperations({
       // Delete or a copy cannot act on the same paths again, while a refused
       // POST leaves the files selected for a retry.
       requestDelete({ client: jobClient, confirm, selection: { sessionId, paths: selectedPaths() }, onAccepted: deselect })
-        .catch((error: unknown) => showError(`삭제하지 못했습니다: ${messageOf(error)}`));
+        .catch((error: unknown) => showError(t('fileOps.error.delete', { message: messageOf(error) })));
     },
     newdir: () => {
       void createDirectoryIn(targetDirectory);

@@ -1,3 +1,4 @@
+import './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -21,6 +22,7 @@ import {
   validateMcpSecurityDraft,
 } from '../../src/components/McpControlManager/mcpControlDialogModel.ts';
 import { parseApiErrorPayload } from '../../src/services/apiError.ts';
+import { koCatalog } from './i18nTestSetup.ts';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(testDir, '../..');
@@ -38,6 +40,13 @@ function expectSource(source: string, pattern: RegExp, message: string): void {
   assert.match(source, pattern, `${message}: MCP Tools dialog UI is not implemented`);
 }
 
+// The dialog renders Korean through catalog keys: assert a key whose ko value is the label is used in source.
+function expectKoLabel(source: string, korean: string, message: string): void {
+  const keys = Object.keys(koCatalog).filter(key => (key.startsWith('mcp.') || key.startsWith('common.')) && koCatalog[key] === korean);
+  assert.ok(keys.length > 0, `${message}: no mcp.*/common.* catalog key has ko value "${korean}"`);
+  assert.ok(keys.some(key => source.includes(`'${key}'`)), `${message}: none of [${keys.join(', ')}] is used in source`);
+}
+
 test('T-PH007-01 FR-MCP-005 desktop Tools menu exposes MCP settings dialog outside generic Settings', () => {
   const headerSource = readSource('src/components/Header/Header.tsx');
   const appSource = readSource('src/App.tsx');
@@ -45,11 +54,12 @@ test('T-PH007-01 FR-MCP-005 desktop Tools menu exposes MCP settings dialog outsi
   const settingsSource = readSource('src/components/Settings/SettingsPage.tsx');
 
   expectSource(headerSource, /onOpenMcpControlManager/, 'Header must expose an MCP control manager opener');
-  expectSource(headerSource, /MCP 설정|MCP 관리/, 'Desktop Tools menu must include an MCP settings entry');
+  expectSource(headerSource, /t\('header\.tools\.mcp'\)/, 'Desktop Tools menu must include an MCP settings entry');
+  assert.match(koCatalog['header.tools.mcp'] ?? '', /MCP 설정|MCP 관리/, 'Desktop Tools MCP entry must read MCP 설정/관리 in Korean');
   expectSource(appSource, /McpControlDialog/, 'App must render the MCP control dialog');
   expectSource(appSource, /showMcpControlDialog|mcpControlDialogOpen/, 'App must own MCP dialog open state');
   expectSource(dialogSource, /data-testid=["']mcp-control-dialog["']/, 'Dialog must expose a stable test id');
-  expectSource(dialogSource, /title=["']MCP 관리["']|MCP 관리/, 'Dialog title must be MCP 관리');
+  expectKoLabel(dialogSource, 'MCP 관리', 'Dialog title must be MCP 관리');
   assert.doesNotMatch(
     settingsSource,
     /externalWhitelist|MCP 설정|MCP 관리/,
@@ -61,7 +71,7 @@ test('T-PH007-01 FR-MCP-005 MCP settings dialog exposes Korean tabs and security
   const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
 
   for (const label of ['보안', '에이전트 프로필', '웹훅', '세션', '감사/상태']) {
-    expectSource(dialogSource, new RegExp(label.replace('/', '\\/')), `Dialog must expose ${label} tab`);
+    expectKoLabel(dialogSource, label, `Dialog must expose ${label} tab`);
   }
 
   expectSource(dialogSource, /externalWhitelist/, 'Security tab must edit external whitelist');
@@ -87,7 +97,7 @@ test('MCP settings dialog uses Korean labels for every visible configuration pan
   ];
 
   for (const label of koreanLabels) {
-    expectSource(dialogSource, new RegExp(label.replace(/[()]/g, '\\$&')), `Dialog must expose Korean label ${label}`);
+    expectKoLabel(dialogSource, label, `Dialog must expose Korean label ${label}`);
   }
 
   for (const englishLabel of [
@@ -129,7 +139,7 @@ test('T-PH007-01 IR-MCP-004 sessions panel exposes nonce-backed close confirmati
   expectSource(dialogSource, /mcpControlApi\.closeSession/, 'Sessions panel must call the MCP closeSession API');
   expectSource(dialogSource, /confirmClose\s*:\s*true/, 'Close request must send an explicit confirmClose true flag');
   expectSource(dialogSource, /expectedSessionKey\s*:\s*session\.sessionKey/, 'Close request must echo the expected target session key');
-  expectSource(dialogSource, /닫기|Close/, 'Sessions panel must expose a close action label');
+  expectKoLabel(dialogSource, '세션 닫기', 'Sessions panel must expose a close action label');
 });
 
 test('T-PH007-01 FR-MCP-001 sessions panel exposes runtime UUID session ids and status fields', () => {
@@ -153,8 +163,8 @@ test('MCP settings session panel issues a one-time Claude Code connection claim'
 
   expectSource(dialogSource, /handleCreateSessionClaimCode/, 'Sessions panel must create a session claim code');
   expectSource(dialogSource, /mcpControlApi\.createSessionClaimCode/, 'Sessions panel must call the claim-code API');
-  expectSource(dialogSource, /일회성 연결 코드/, 'Sessions panel must label the one-time connection code in Korean');
-  expectSource(dialogSource, /연결 코드 발급/, 'Sessions panel must expose a claim-code action');
+  expectKoLabel(dialogSource, '일회성 연결 코드', 'Sessions panel must label the one-time connection code in Korean');
+  expectKoLabel(dialogSource, '연결 코드 발급', 'Sessions panel must expose a claim-code action');
   expectSource(apiSource, /createSessionClaimCode[\s\S]*\/claim-code/, 'MCP control API must call the claim-code route');
   expectSource(typeSource, /McpSessionClaimCode/, 'MCP control types must expose a one-time claim code response');
 });
@@ -167,9 +177,9 @@ test('MCP security panel rotates a fixed access key only after confirmation and 
   expectSource(dialogSource, /MessageBox/, 'Fixed access-key rotation must use the shared confirmation dialog');
   expectSource(dialogSource, /handleRequestFixedAccessKeyRotation/, 'Security panel must request fixed access-key rotation');
   expectSource(dialogSource, /mcpControlApi\.rotateFixedAccessKey/, 'Security panel must call the fixed access-key API');
-  expectSource(dialogSource, /고정 인증키 재생성/, 'Security panel must label fixed access-key regeneration in Korean');
-  expectSource(dialogSource, /정말로 재생성하시겠습니까\?/, 'Fixed access-key regeneration must require explicit confirmation');
-  expectSource(dialogSource, /복사/, 'Generated fixed access key must expose a Korean copy action');
+  expectKoLabel(dialogSource, '고정 인증키 재생성', 'Security panel must label fixed access-key regeneration in Korean');
+  expectKoLabel(dialogSource, '정말로 재생성하시겠습니까? 현재 고정 인증키는 즉시 사용할 수 없게 됩니다.', 'Fixed access-key regeneration must require explicit confirmation');
+  expectKoLabel(dialogSource, '복사', 'Generated fixed access key must expose a Korean copy action');
   expectSource(dialogSource, /navigator\.clipboard\.writeText/, 'Fixed access key copy action must use the clipboard API');
   expectSource(apiSource, /rotateFixedAccessKey[\s\S]*\/access-key\/rotate/, 'MCP control API must call the fixed access-key rotation route');
   expectSource(typeSource, /McpFixedAccessKeyRotation/, 'MCP control types must expose the one-time fixed access-key response');

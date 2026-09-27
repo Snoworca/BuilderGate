@@ -1,3 +1,4 @@
+import './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type * as ModalModelModule from '../../src/components/fileExplorer/fileExplorerModalModel.ts';

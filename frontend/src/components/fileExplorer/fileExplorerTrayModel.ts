@@ -8,6 +8,7 @@
 // and the dialog id it raises -- is decided here.
 // @req FR-FEX-004
 
+import { t } from '../../i18n/i18n.ts';
 import { MISSING_WORKSPACE_NAME } from '../editor/editorTrayModel.ts';
 import {
   minimizeEditorWindow,
@@ -68,7 +69,7 @@ export function listFileExplorerTrayEntries<W extends { workspaceId: string }>(
 ): FileExplorerTrayEntry[] {
   return windows.map((explorerWindow) => ({
     workspaceId: explorerWindow.workspaceId,
-    label: `파일 탐색기 — ${workspaceNameOf(explorerWindow.workspaceId) ?? MISSING_WORKSPACE_NAME}`,
+    label: t('fileExplorer.tray.label', { name: workspaceNameOf(explorerWindow.workspaceId) ?? t(MISSING_WORKSPACE_NAME) }),
   }));
 }
 

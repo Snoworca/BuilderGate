@@ -1,5 +1,6 @@
 import type { TerminalShortcutBinding } from '../../types';
 import { Button, Chip } from '../ui';
+import { t } from '../../i18n/i18n.ts';
 import {
   actionLabel,
   bindingKeyLabel,
@@ -27,7 +28,7 @@ export function ShortcutBindingList({
   const sortedBindings = sortBindingsForDisplay(bindings);
 
   if (sortedBindings.length === 0) {
-    return <div className="terminal-shortcut-empty">등록된 단축키가 없습니다. 캡처 탭에서 키를 감지해 등록하세요.</div>;
+    return <div className="terminal-shortcut-empty">{t('shortcut.list.empty')}</div>;
   }
 
   return (
@@ -40,7 +41,7 @@ export function ShortcutBindingList({
           <div className="terminal-shortcut-binding-main">
             <div className="terminal-shortcut-binding-title">
               <h3>{bindingKeyLabel(binding)}</h3>
-              {!binding.enabled && <Chip tone="neutral">꺼짐</Chip>}
+              {!binding.enabled && <Chip tone="neutral">{t('shortcut.list.off')}</Chip>}
             </div>
             <div className="terminal-shortcut-binding-sub">
               <span>{bindingScopeLabel(binding)}</span>
@@ -55,9 +56,9 @@ export function ShortcutBindingList({
               className="terminal-shortcut-secondary-button"
               onClick={() => onToggle(binding)}
               disabled={busyId === binding.id}
-              aria-label={`${bindingKeyLabel(binding)} ${binding.enabled ? '비활성화' : '활성화'}`}
+              aria-label={binding.enabled ? t('shortcut.list.disableAria', { key: bindingKeyLabel(binding) }) : t('shortcut.list.enableAria', { key: bindingKeyLabel(binding) })}
             >
-              {binding.enabled ? '끄기' : '켜기'}
+              {binding.enabled ? t('shortcut.list.turnOff') : t('shortcut.list.turnOn')}
             </Button>
             <Button
               variant="secondary"
@@ -65,9 +66,9 @@ export function ShortcutBindingList({
               className="terminal-shortcut-secondary-button"
               onClick={() => onEdit(binding)}
               disabled={busyId === binding.id}
-              aria-label={`${bindingKeyLabel(binding)} 수정`}
+              aria-label={t('shortcut.list.editAria', { key: bindingKeyLabel(binding) })}
             >
-              수정
+              {t('shortcut.list.edit')}
             </Button>
             <Button
               variant="secondary"
@@ -75,9 +76,9 @@ export function ShortcutBindingList({
               className="terminal-shortcut-secondary-button"
               onClick={() => onTest(binding)}
               disabled={binding.action.type !== 'send'}
-              aria-label={`${bindingKeyLabel(binding)} 테스트 전송`}
+              aria-label={t('shortcut.list.testSendAria', { key: bindingKeyLabel(binding) })}
             >
-              테스트 전송
+              {t('shortcut.list.testSend')}
             </Button>
             <Button
               variant="danger-text"
@@ -85,9 +86,9 @@ export function ShortcutBindingList({
               className="terminal-shortcut-secondary-button"
               onClick={() => onDelete(binding)}
               disabled={busyId === binding.id}
-              aria-label={`${bindingKeyLabel(binding)} 삭제`}
+              aria-label={t('shortcut.list.deleteAria', { key: bindingKeyLabel(binding) })}
             >
-              삭제
+              {t('common.delete')}
             </Button>
           </div>
         </article>

@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent, ChangeEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { t } from '../../i18n/i18n.ts';
 import { Icon } from '../common/Icon';
 import { Button, Field, Spinner, TextInput } from '../ui';
 import './Auth.css';
@@ -37,13 +38,13 @@ export function TwoFactorForm() {
       <div className="auth-card">
         <div className="auth-logo">
           <span className="auth-logo-icon auth-logo-tile"><Icon name="lock" size={32} /></span>
-          <h1>인증 코드 입력</h1>
+          <h1>{t('auth.twoFactor.title')}</h1>
         </div>
 
-        <p className="auth-info">인증 앱에 보이는 6자리 코드를 입력하세요. 6자리를 모두 넣으면 바로 확인합니다.</p>
+        <p className="auth-info">{t('auth.twoFactor.info')}</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <Field label="인증 코드" htmlFor="otp">
+          <Field label={t('auth.twoFactor.code')} htmlFor="otp">
             <TextInput
               id="otp"
               value={otpCode}
@@ -67,10 +68,10 @@ export function TwoFactorForm() {
             {isLoading ? (
               <>
                 <Spinner />
-                확인하는 중…
+                {t('auth.twoFactor.verifying')}
               </>
             ) : (
-              '코드 확인'
+              t('auth.twoFactor.submit')
             )}
           </Button>
 
@@ -87,7 +88,7 @@ export function TwoFactorForm() {
             onClick={logout}
             disabled={isLoading}
           >
-            취소하고 로그인 화면으로
+            {t('auth.twoFactor.cancel')}
           </Button>
         </form>
       </div>

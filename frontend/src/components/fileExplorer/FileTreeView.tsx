@@ -7,6 +7,7 @@
 // rowRenderClass, the right-click target in resolveContextMenuTarget and its
 // selection in decideContextMenuSelection. This component only turns events
 // into their inputs.
+import { t } from '../../i18n/i18n.ts';
 import { useMemo, type MouseEvent } from 'react';
 import { Icon } from '../common';
 import type { DirectoryEntry } from '../../types/index.ts';
@@ -192,7 +193,7 @@ export function FileTreeView({
             aria-sort={sort?.key === column ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
             onClick={() => onSortChange?.(nextSort(sort, column))}
           >
-            {COLUMN_LABELS[column]}
+            {t(COLUMN_LABELS[column])}
             <SortGlyph dir={sortDirectionOf(sort, column)} />
           </button>
         ))}
@@ -237,7 +238,7 @@ export function FileTreeView({
             {renaming?.path === row.path ? (
               <input
                 className="fx-rename-input"
-                aria-label="새 이름"
+                aria-label={t('fileExplorer.rename.label')}
                 ref={renaming.inputRef}
                 value={renaming.editName}
                 onChange={renaming.handleChange}

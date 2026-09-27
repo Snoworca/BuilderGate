@@ -3,6 +3,7 @@
 import { Button, Banner } from '../ui/index.ts';
 import { formatSavedAt, pendingEntries, type SnapshotStatus } from './sessionSnapshotModel.ts';
 import './SessionSave.css';
+import { tn, t } from '../../i18n/i18n.ts';
 
 export interface SessionRestoreBannerProps {
   status: SnapshotStatus;
@@ -20,17 +21,17 @@ export function SessionRestoreBanner({ status, onReview, onLater }: SessionResto
       className="session-restore-banner"
       tone="info"
       icon="resume"
-      title={`지난번 저장한 AI 세션 ${entries.length}개를 이어할 수 있습니다`}
+      title={tn('sessionSave.banner.title', entries.length)}
       description={[
-        savedAt ? `${savedAt} 저장` : null,
-        `정확한 ID ${exact}개`,
-        estimated > 0 ? `추정 ${estimated}개` : null,
-        '탭은 셸로 먼저 열어 두었습니다',
+        savedAt ? t('sessionSave.banner.savedAt', { savedAt }) : null,
+        tn('sessionSave.banner.exactCount', exact),
+        estimated > 0 ? tn('sessionSave.banner.estimatedCount', estimated) : null,
+        t('sessionSave.banner.shellsOpened'),
       ].filter(Boolean).join(' · ')}
       actions={(
         <>
-          <Button variant="primary" size="md" onClick={onReview}>검토하고 이어하기</Button>
-          <Button variant="secondary" size="md" onClick={onLater}>나중에</Button>
+          <Button variant="primary" size="md" onClick={onReview}>{t('sessionSave.banner.review')}</Button>
+          <Button variant="secondary" size="md" onClick={onLater}>{t('sessionSave.action.later')}</Button>
         </>
       )}
     />

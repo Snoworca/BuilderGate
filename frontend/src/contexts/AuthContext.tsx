@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { tokenStorage } from '../services/tokenStorage';
 import { authApi } from '../services/api';
 import type { AuthState, BootstrapStatusResponse } from '../types';
+import { t } from '../i18n/i18n.ts';
 
 // ============================================================================
 // Context Type
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       return {
         bootstrapStatus: null,
-        bootstrapError: error instanceof Error ? error.message : '초기 설정 상태를 확인하지 못했습니다.',
+        bootstrapError: error instanceof Error ? error.message : t('auth.error.bootstrapStatus'),
       };
     }
   }, []);
@@ -136,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState({
           isAuthenticated: false,
           isLoading: false,
-          error: '로그인 시간이 끝났습니다. 다시 로그인하세요.',
+          error: t('auth.error.sessionExpired'),
           requires2FA: false,
           tempToken: null,
           nextStage: null,
@@ -183,9 +184,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
-      throw new Error('서버 응답이 올바르지 않아 로그인하지 못했습니다.');
+      throw new Error(t('auth.error.invalidResponse'));
     } catch (err) {
-      const message = err instanceof Error ? err.message : '로그인하지 못했습니다.';
+      const message = err instanceof Error ? err.message : t('auth.error.loginFailed');
       setState(s => ({ ...s, isLoading: false, error: message }));
       return false;
     }
@@ -211,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }));
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : '관리자 비밀번호를 설정하지 못했습니다.';
+      const message = err instanceof Error ? err.message : t('auth.error.bootstrapFailed');
       setState(s => ({ ...s, isLoading: false, error: message }));
       return false;
     }
@@ -220,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 2FA verification handler
   const verify2FA = useCallback(async (otpCode: string): Promise<boolean> => {
     if (!state.tempToken) {
-      setState(s => ({ ...s, error: '진행 중인 2단계 인증 요청이 없습니다. 다시 로그인하세요.' }));
+      setState(s => ({ ...s, error: t('auth.error.noPendingTwoFactor') }));
       return false;
     }
 
@@ -255,9 +256,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       }
 
-      throw new Error(response.message || '인증 코드를 확인하지 못했습니다.');
+      throw new Error(response.message || t('auth.error.verifyFailed'));
     } catch (err) {
-      const message = err instanceof Error ? err.message : '인증 코드를 확인하지 못했습니다.';
+      const message = err instanceof Error ? err.message : t('auth.error.verifyFailed');
       setState(s => ({ ...s, isLoading: false, error: message }));
       return false;
     }

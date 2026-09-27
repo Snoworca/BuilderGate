@@ -3,6 +3,7 @@
 // decided by the same predicates as the context menu, never re-judged here.
 // @req FR-FEX-005
 
+import { t } from '../../i18n/i18n.ts';
 import { buildMobileActionButtons, type FileExplorerMenuHandlers, type MobileActionId } from './fileExplorerContextMenu.ts';
 
 export interface FileExplorerMobileBarProps {
@@ -14,7 +15,7 @@ export interface FileExplorerMobileBarProps {
 // @req FR-FEX-005
 export function FileExplorerMobileBar({ selectionCount, clipboardEmpty, handlers }: FileExplorerMobileBarProps) {
   return (
-    <div className="fx-mobile-bar" role="toolbar" aria-label="파일 작업">
+    <div className="fx-mobile-bar" role="toolbar" aria-label={t('common.fileJobs')}>
       {buildMobileActionButtons({ count: selectionCount, clipboardEmpty }, handlers).map((action) => (
         <button
           key={action.id}

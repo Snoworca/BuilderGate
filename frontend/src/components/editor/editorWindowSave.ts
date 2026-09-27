@@ -1,3 +1,5 @@
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 // The body of an open editor window, its dirty flag, and the one function that
 // writes it back.
 //
@@ -79,15 +81,15 @@ export interface EditorWindowSaveInput {
  * showing an empty banner.
  * @req FR-MDE-006
  */
-const TAB_CLOSED_MESSAGE = '결속된 탭이 닫혀 저장할 수 없습니다.';
-const WRITE_REJECTED_MESSAGE = '서버가 저장을 받아들이지 않았습니다.';
+const TAB_CLOSED_MESSAGE: MessageKey = 'editor.save.tabClosed';
+const WRITE_REJECTED_MESSAGE: MessageKey = 'editor.save.rejected';
 
 function describeWriteFailure(cause: unknown): string {
   if (cause instanceof Error && cause.message.length > 0) {
     return cause.message;
   }
   const described = String(cause);
-  return described.length > 0 ? described : '파일을 저장하지 못했습니다.';
+  return described.length > 0 ? described : t('editor.save.failed');
 }
 
 /**
@@ -127,7 +129,7 @@ export function createEditorWindowSaveController(
     if (sessionId === undefined) {
       // The window is still on screen, so this failure gets a banner like every
       // other one. Returning silently would leave a press with no trace at all.
-      publish(dirty, TAB_CLOSED_MESSAGE);
+      publish(dirty, t(TAB_CLOSED_MESSAGE));
       return { status: 'no-session' };
     }
 
@@ -143,8 +145,8 @@ export function createEditorWindowSaveController(
     }
 
     if (accepted?.success !== true) {
-      publish(dirty, WRITE_REJECTED_MESSAGE);
-      return { status: 'failed', message: WRITE_REJECTED_MESSAGE };
+      publish(dirty, t(WRITE_REJECTED_MESSAGE));
+      return { status: 'failed', message: t(WRITE_REJECTED_MESSAGE) };
     }
 
     publish(body !== written, null);

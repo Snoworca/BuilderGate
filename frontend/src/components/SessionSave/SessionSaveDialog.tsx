@@ -7,6 +7,7 @@ import { Button, DialogFooter, ProgressBar, SelectableRow, Spinner } from '../ui
 import { AgentMark } from './AgentMark.tsx';
 import { groupByWorkspace, summarizeSaveResults, type AgentTabCandidate, type SaveResultItem } from './sessionSnapshotModel.ts';
 import './SessionSave.css';
+import { t, tn } from '../../i18n/i18n.ts';
 
 export interface SessionSaveDialogProps {
   candidates: AgentTabCandidate[];
@@ -24,11 +25,11 @@ function centeredRect(width: number, height: number) {
 
 function resultTrailing(result: SaveResultItem | undefined) {
   if (!result) return null;
-  if (result.status !== 'found') return <span className="session-save-status-missing">찾지 못함</span>;
+  if (result.status !== 'found') return <span className="session-save-status-missing">{t('sessionSave.save.status.notFound')}</span>;
   const short = `${(result.sessionId ?? '').slice(0, 12)}…`;
   return result.confidence === 'exact'
-    ? <span className="session-save-status-exact">ID 확인 · {short}</span>
-    : <span className="session-save-status-estimated">추정 · {short}</span>;
+    ? <span className="session-save-status-exact">{t('sessionSave.save.status.exact', { id: short })}</span>
+    : <span className="session-save-status-estimated">{t('sessionSave.save.status.estimated', { id: short })}</span>;
 }
 
 function resultControl(result: SaveResultItem | undefined) {
@@ -73,7 +74,7 @@ export function SessionSaveDialog({ candidates, onClose, onSave }: SessionSaveDi
   return (
     <WindowDialog
       dialogId="session-save-dialog"
-      title={step === 'done' ? `세션 ${summary.exact + summary.estimated}개를 저장했습니다` : '세션 저장'}
+      title={step === 'done' ? tn('sessionSave.save.doneTitle', summary.exact + summary.estimated) : t('sessionSave.save.title')}
       mode="modal"
       defaultRect={centeredRect(680, 600)}
       minSize={{ width: 420, height: 360 }}
@@ -85,8 +86,8 @@ export function SessionSaveDialog({ candidates, onClose, onSave }: SessionSaveDi
         <div className="session-save-body">
           <p className="session-save-lead">
             {step === 'done'
-              ? '이제 BuilderGate를 재시작해도 됩니다. 에이전트는 계속 실행 중이니 그대로 작업하셔도 됩니다.'
-              : <>지금 실행 중인 AI 세션의 이어하기 ID를 저장합니다. <strong>에이전트는 멈추지 않습니다.</strong> BuilderGate를 재시작해도 저장한 대화로 돌아올 수 있습니다.</>}
+              ? t('sessionSave.save.doneBody')
+              : <>{t('sessionSave.save.introLead')} <strong>{t('sessionSave.save.introStrong')}</strong> {t('sessionSave.save.introTail')}</>}
           </p>
           {step === 'select' && candidates.length > 0 && (
             <label className="session-save-all">
@@ -95,29 +96,29 @@ export function SessionSaveDialog({ candidates, onClose, onSave }: SessionSaveDi
                 checked={allChecked}
                 onChange={(event) => setPicked(event.target.checked ? new Set(candidates.map((c) => c.tabId)) : new Set())}
               />
-              <span className="session-save-all-label">AI 세션 전체</span>
-              <span className="session-save-all-count">{picked.size} / {candidates.length} 선택</span>
+              <span className="session-save-all-label">{t('sessionSave.save.all')}</span>
+              <span className="session-save-all-count">{t('sessionSave.list.selected', { picked: picked.size, total: candidates.length })}</span>
             </label>
           )}
           {step === 'done' && (
             <ProgressBar
-              label={`정확한 ID ${summary.exact}개 · 추정 ${summary.estimated}개 · 찾지 못함 ${summary.notFound}개`}
+              label={t('sessionSave.save.progress', { exact: summary.exact, estimated: summary.estimated, notFound: summary.notFound })}
               value={results.length}
               max={results.length}
               tone="ok"
             />
           )}
           {candidates.length === 0 && (
-            <div className="session-save-empty">실행 중인 AI 세션이 없습니다. Claude, Codex, Hermes, OpenCode를 실행한 탭이 여기에 나옵니다.</div>
+            <div className="session-save-empty">{t('sessionSave.save.empty')}</div>
           )}
           {groupByWorkspace(visible).map((group) => (
             <div className="session-save-group" key={group.workspaceId}>
-              <div className="ui-group-heading"><Icon name="folder" size={13} /><span>{group.workspaceName}</span><span>{group.items.length}개</span></div>
+              <div className="ui-group-heading"><Icon name="folder" size={13} /><span>{group.workspaceName}</span><span>{tn('sessionSave.list.groupCount', group.items.length)}</span></div>
               {group.items.map((candidate) => (
                 <SelectableRow
                   key={candidate.tabId}
                   name={candidate.tabName}
-                  checkboxLabel={`${candidate.tabName} 저장`}
+                  checkboxLabel={t('sessionSave.save.rowAria', { name: candidate.tabName })}
                   checked={picked.has(candidate.tabId)}
                   onToggle={(checked) => toggle(candidate.tabId, checked)}
                   badges={<AgentMark agent={candidate.agent} />}
@@ -125,7 +126,7 @@ export function SessionSaveDialog({ candidates, onClose, onSave }: SessionSaveDi
                   control={step === 'saving' ? <Spinner /> : step === 'done' ? resultControl(byTab.get(candidate.tabId)) : undefined}
                   highlighted={step === 'select' ? picked.has(candidate.tabId) : false}
                   trailing={step === 'saving'
-                    ? <span className="session-save-status-active">찾는 중…</span>
+                    ? <span className="session-save-status-active">{t('sessionSave.save.finding')}</span>
                     : step === 'done' ? <span className="session-save-trailing">{resultTrailing(byTab.get(candidate.tabId))}</span> : undefined}
                 />
               ))}
@@ -133,27 +134,27 @@ export function SessionSaveDialog({ candidates, onClose, onSave }: SessionSaveDi
           ))}
         </div>
         {step === 'select' && (
-          <DialogFooter note="에이전트는 계속 실행됩니다. 저장은 몇 초 안에 끝납니다.">
-            <Button variant="secondary" onClick={onClose}>취소</Button>
+          <DialogFooter note={t('sessionSave.save.pickNote')}>
+            <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
             <Button variant="primary" icon="bookmark-plus" disabled={picked.size === 0} onClick={() => { void save(); }}>
-              {picked.size === 0 ? '저장할 세션을 고르세요' : '세션 저장'}
+              {picked.size === 0 ? t('sessionSave.save.pickPrompt') : t('sessionSave.save.title')}
             </Button>
           </DialogFooter>
         )}
         {step === 'saving' && (
-          <DialogFooter note="에이전트가 남긴 기록에서 지금 쓰는 세션 ID를 찾고 있습니다.">
-            <Button variant="primary" disabled>저장하는 중…</Button>
+          <DialogFooter note={t('sessionSave.save.runningNote')}>
+            <Button variant="primary" disabled>{t('sessionSave.save.saving')}</Button>
           </DialogFooter>
         )}
         {step === 'done' && (
-          <DialogFooter note="재시작하면 이어할 세션을 고르는 창이 뜹니다. 세션을 새로 시작했다면(/clear, /new) 다시 저장하세요.">
-            <Button variant="primary" onClick={onClose}>확인</Button>
+          <DialogFooter note={t('sessionSave.save.doneNote')}>
+            <Button variant="primary" onClick={onClose}>{t('common.confirm')}</Button>
           </DialogFooter>
         )}
         {step === 'error' && (
-          <DialogFooter note={`저장하지 못했습니다: ${error ?? ''}`} noteTone="warn">
-            <Button variant="secondary" onClick={onClose}>닫기</Button>
-            <Button variant="primary" onClick={() => { void save(); }}>다시 시도</Button>
+          <DialogFooter note={t('sessionSave.save.error', { error: error ?? '' })} noteTone="warn">
+            <Button variant="secondary" onClick={onClose}>{t('common.close')}</Button>
+            <Button variant="primary" onClick={() => { void save(); }}>{t('sessionSave.action.retry')}</Button>
           </DialogFooter>
         )}
       </div>

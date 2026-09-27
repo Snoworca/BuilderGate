@@ -5,6 +5,7 @@ import { Icon } from '../common';
 import { Button } from '../ui';
 import type { ShellInfo } from '../../types';
 import './Workspace.css';
+import { t } from '../../i18n/i18n.ts';
 
 interface Props {
   onAddTab: (shell?: string) => void;
@@ -27,7 +28,7 @@ export function EmptyState({ onAddTab, availableShells }: Props) {
   return (
     <div className="workspace-empty-state">
       <Icon name="terminal" size={40} className="workspace-empty-state-icon" />
-      <span className="workspace-empty-state-text">터미널을 추가하세요</span>
+      <span className="workspace-empty-state-text">{t('workspace.empty.prompt')}</span>
       <Button
         variant="primary"
         icon="plus"
@@ -39,7 +40,7 @@ export function EmptyState({ onAddTab, availableShells }: Props) {
         onPointerUp={longPress.onPointerUp}
         onPointerMove={longPress.onPointerMove}
       >
-        터미널 추가
+        {t('common.addTerminal')}
       </Button>
 
       {shellMenuOpen && availableShells && (

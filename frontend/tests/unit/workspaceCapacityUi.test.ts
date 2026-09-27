@@ -1,3 +1,4 @@
+import './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
@@ -7,6 +8,7 @@ import { buildWorkspaceMoveTargets } from '../../src/components/Workspace/worksp
 import { TAB_COLORS } from '../../src/types/workspace.ts';
 import { getRecoveryIconLabel } from '../../src/types/recoveryOption.ts';
 import { workspaceActivity } from '../../src/components/Workspace/workspaceActivity.ts';
+import { t, tn } from '../../src/i18n/i18n.ts';
 
 // Execute existing component render logic with real React elements and inert
 // unrelated hooks. This verifies capacity-dependent props, not browser layout.
@@ -21,6 +23,8 @@ function component(path: string, name: string, dependencies: Record<string, unkn
   assert.equal(selected.filter(node => node.name?.text === name).length, 1);
   if (helper) assert.equal(selected.filter(node => node.name?.text === helper).length, 1);
   const code = selected.map(node => node.getText(ast).replace(/^export\s+/u, '')).join('\n');
+  // The components translate through t()/tn(); inject them like any other import.
+  dependencies = { t, tn, ...dependencies };
   const output = ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React } }).outputText;
   return new Function('React', ...Object.keys(dependencies), `${output}\nreturn ${name};`)(React, ...Object.values(dependencies)) as (props: Record<string, unknown>) => React.ReactNode;
 }

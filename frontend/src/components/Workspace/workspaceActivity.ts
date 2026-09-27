@@ -1,3 +1,5 @@
+import { t } from '../../i18n/i18n.ts';
+
 // FR-UIDS-005 AC-2/AC-3 — what a workspace row's dot says. A value rather than a
 // branch in the row, so the rule is readable and testable without a DOM.
 
@@ -9,5 +11,5 @@ export interface WorkspaceActivity {
 }
 
 export function workspaceActivity(runningCount: number): WorkspaceActivity {
-  return runningCount > 0 ? { running: true, label: '실행 중' } : { running: false, label: '대기' };
+  return runningCount > 0 ? { running: true, label: t('workspace.activity.running') } : { running: false, label: t('workspace.activity.idle') };
 }

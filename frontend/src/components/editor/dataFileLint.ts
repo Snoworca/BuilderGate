@@ -8,6 +8,7 @@
 //
 // @req FR-MDE-017
 
+import { t } from '../../i18n/i18n.ts';
 import { jsonLanguage, jsonParseLinter } from '@codemirror/lang-json';
 import { yamlLanguage } from '@codemirror/lang-yaml';
 import { lintGutter, linter, type Diagnostic } from '@codemirror/lint';
@@ -85,7 +86,7 @@ function diagnoseYaml(doc: Text): RangeDiagnostic[] {
       const lineNumber = doc.lineAt(node.from).number;
       if (seenLines.has(lineNumber)) return;
       seenLines.add(lineNumber);
-      out.push({ from: node.from, to: node.to, message: 'YAML 문법 오류' });
+      out.push({ from: node.from, to: node.to, message: t('editor.lint.yamlSyntax') });
     },
   });
   return out;

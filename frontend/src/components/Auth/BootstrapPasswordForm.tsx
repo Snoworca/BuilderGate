@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { t } from '../../i18n/i18n.ts';
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 import { Icon } from '../common/Icon';
 import { Button, Field, Spinner, TextInput } from '../ui';
@@ -24,7 +25,7 @@ export function BootstrapPasswordForm() {
     }
 
     if (confirmPassword && password !== confirmPassword) {
-      return '두 비밀번호가 다릅니다. 같은 비밀번호를 다시 입력하세요.';
+      return t('auth.bootstrap.mismatch');
     }
 
     return null;
@@ -49,36 +50,36 @@ export function BootstrapPasswordForm() {
       <div className="auth-card">
         <div className="auth-logo">
           <img src="/logo.svg" alt="BuilderGate" className="auth-logo-icon" width="64" height="64" />
-          <h1>관리자 비밀번호 설정</h1>
+          <h1>{t('auth.bootstrap.title')}</h1>
         </div>
 
         <p className="auth-info">
-          이 BuilderGate에 로그인할 때 쓸 관리자 비밀번호를 정합니다.
+          {t('auth.bootstrap.info')}
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <Field label="비밀번호" htmlFor="bootstrap-password">
+          <Field label={t('auth.field.password')} htmlFor="bootstrap-password">
             <TextInput
               id="bootstrap-password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="새 비밀번호 입력"
+              placeholder={t('auth.bootstrap.passwordPlaceholder')}
               disabled={isLoading}
               autoFocus
               autoComplete="new-password"
             />
           </Field>
 
-          <Field label="비밀번호 확인" htmlFor="bootstrap-password-confirm">
+          <Field label={t('auth.bootstrap.confirm')} htmlFor="bootstrap-password-confirm">
             <TextInput
               id="bootstrap-password-confirm"
               type="password"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="비밀번호 다시 입력"
+              placeholder={t('auth.bootstrap.confirmPlaceholder')}
               disabled={isLoading}
               autoComplete="new-password"
             />
@@ -93,10 +94,10 @@ export function BootstrapPasswordForm() {
             {isLoading ? (
               <>
                 <Spinner />
-                설정하는 중…
+                {t('auth.bootstrap.submitting')}
               </>
             ) : (
-              '비밀번호 설정'
+              t('auth.bootstrap.submit')
             )}
           </Button>
 

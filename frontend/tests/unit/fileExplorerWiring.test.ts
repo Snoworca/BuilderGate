@@ -1,3 +1,4 @@
+import { koCatalog } from './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { test } from 'node:test';
@@ -982,7 +983,7 @@ test('TC-REQ-FR-FEX-010-AC5-01 Header.tsx 의 aria-label "파일 탐색기" 버�
     ...openingTags(header, 'button').map((tag) => ({ tag, label: attrValue(header, tag, 'aria-label') })),
     ...openingTags(header, 'IconButton').map((tag) => ({ tag, label: attrValue(header, tag, 'label') })),
   ]
-    .filter(({ label }) => label !== null && /['"]\s*파일 탐색기\s*['"]/.test(label.code))
+    .filter(({ label }) => label !== null && (/['"]\s*파일 탐색기\s*['"]/.test(label.code) || (/t\('header\.fileExplorer'\)/.test(label.code) && koCatalog['header.fileExplorer'] === '파일 탐색기')))
     .map(({ tag }) => tag);
   assert.equal(buttons.length, 1, `${header.path}: expected one button labelled "파일 탐색기", found ${buttons.length}`);
   const tag = buttons[0];

@@ -1,3 +1,5 @@
+import { t, tn } from '../../i18n/i18n.ts';
+
 // FR-UIDS-006: the workspace delete confirmation. It stays open in a locked
 // loading state until the server answers, then closes as the workspace leaves
 // the list; a failure keeps it open with the reason and a retry.
@@ -48,12 +50,12 @@ export function isWorkspaceAlreadyDeletedError(err: unknown): boolean {
 
 export function describeWorkspaceDeleteError(err: unknown): WorkspaceDeleteError {
   if (hasErrorCode(err, 'LAST_WORKSPACE')) {
-    return { message: '마지막 Workspace는 삭제할 수 없습니다.', retryable: false };
+    return { message: t('workspace.delete.lastBlocked'), retryable: false };
   }
   const reason = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
   return {
-    message: 'Workspace를 삭제하지 못했습니다. 일부 터미널은 이미 종료되었을 수 있습니다.',
-    ...(reason ? { detail: `원인: ${reason}` } : {}),
+    message: t('workspace.delete.failed'),
+    ...(reason ? { detail: t('workspace.delete.cause', { reason }) } : {}),
     retryable: true,
   };
 }
@@ -87,27 +89,27 @@ export function remainingMinBusyMs(startedAt: number, now: number): number {
 
 function askMessage(tabCount: number): string {
   return tabCount > 0
-    ? `터미널 ${tabCount}개가 모두 종료됩니다. 이 Workspace를 삭제할까요?`
-    : '열린 터미널이 없는 Workspace입니다. 이 Workspace를 삭제할까요?';
+    ? tn('workspace.delete.confirmTabs', tabCount)
+    : t('workspace.delete.confirmEmpty');
 }
 
 function progressMessage(state: WorkspaceDeleteState): string {
-  if (state.slow) return '예상보다 오래 걸리고 있습니다. 터미널이 모두 종료되면 이 창이 저절로 닫힙니다.';
+  if (state.slow) return t('workspace.delete.slow');
   return state.tabCount > 0
-    ? `터미널 ${state.tabCount}개를 종료하고 있습니다. 보통 몇 초 안에 끝납니다.`
-    : 'Workspace를 삭제하고 있습니다.';
+    ? tn('workspace.delete.endingTabs', state.tabCount)
+    : t('workspace.delete.deleting');
 }
 
 export function workspaceDeleteDialogProps(state: WorkspaceDeleteState): WorkspaceDeleteDialogProps {
   const failed = state.phase === 'error';
   const { error } = state;
   return {
-    title: 'Workspace 삭제',
+    title: t('workspace.delete.title'),
     message: state.phase === 'deleting' ? progressMessage(state) : askMessage(state.tabCount),
-    confirmLabel: failed ? '다시 시도' : '모두 삭제',
-    cancelLabel: failed ? '닫기' : '취소',
+    confirmLabel: failed ? t('workspace.delete.retry') : t('workspace.delete.deleteAll'),
+    cancelLabel: failed ? t('common.close') : t('common.cancel'),
     busy: state.phase === 'deleting',
-    busyLabel: '삭제하는 중…',
+    busyLabel: t('workspace.delete.busy'),
     error: failed && error ? { message: error.message, ...(error.detail ? { detail: error.detail } : {}) } : null,
     hideConfirm: failed && !!error && !error.retryable,
   };

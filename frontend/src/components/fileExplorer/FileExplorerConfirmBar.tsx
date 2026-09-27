@@ -8,6 +8,7 @@
 // neither the terminal nor any other window (DR-12).
 // @req FR-FEX-005
 
+import { t } from '../../i18n/i18n.ts';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { decidePromptRowKey } from './fileExplorerShortcuts.ts';
@@ -83,7 +84,7 @@ export function FileExplorerConfirmBar({ prompt, error, onDismissError }: FileEx
       {error !== null && (
         <div className="fx-confirm-row fx-confirm-error" role="alert">
           <span className="fx-confirm-text">{error}</span>
-          <button type="button" className="fx-confirm-button" onClick={onDismissError}>닫기</button>
+          <button type="button" className="fx-confirm-button" onClick={onDismissError}>{t('common.close')}</button>
         </div>
       )}
     </div>
@@ -119,8 +120,8 @@ function PromptRow({ prompt }: { prompt: FileExplorerPrompt }) {
           if (event.key === 'Enter') submit();
         }}
       />
-      <button type="button" className="fx-confirm-button" disabled={name.trim() === ''} onClick={submit}>만들기</button>
-      <button type="button" className="fx-confirm-button" onClick={() => prompt.resolve(null)}>취소</button>
+      <button type="button" className="fx-confirm-button" disabled={name.trim() === ''} onClick={submit}>{t('fileExplorer.confirm.create')}</button>
+      <button type="button" className="fx-confirm-button" onClick={() => prompt.resolve(null)}>{t('common.cancel')}</button>
     </div>
   );
 }

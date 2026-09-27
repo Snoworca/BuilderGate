@@ -5,6 +5,7 @@ import { ContextMenu } from '../ContextMenu/ContextMenu';
 import type { ContextMenuItem } from '../ContextMenu/ContextMenu';
 import { workspaceActivity } from './workspaceActivity.ts';
 import './Workspace.css';
+import { t } from '../../i18n/i18n.ts';
 
 interface Props {
   workspace: Workspace;
@@ -45,10 +46,10 @@ export function WorkspaceItem({
   };
 
   const menuItems: ContextMenuItem[] = [
-    { label: '이름 바꾸기', onClick: () => { setEditName(workspace.name); setEditing(true); } },
-    ...(!isLast ? [{ label: '삭제', destructive: true, onClick: () => onDelete(workspace.id) }] : []),
+    { label: t('common.rename'), onClick: () => { setEditName(workspace.name); setEditing(true); } },
+    ...(!isLast ? [{ label: t('common.delete'), destructive: true, onClick: () => onDelete(workspace.id) }] : []),
     { separator: true },
-    { label: '터미널 추가', onClick: () => onAddTab(workspace.id, ctx.position), disabled: tabCount >= maxTabs },
+    { label: t('common.addTerminal'), onClick: () => onAddTab(workspace.id, ctx.position), disabled: tabCount >= maxTabs },
   ];
 
   return (

@@ -4,6 +4,8 @@
 // and its order are decided in one place a unit test can reach.
 // @req FR-FEX-007
 
+import { t, tn } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import type { DecideAnswer, DecideDetail, FileJobChoice } from './fileExplorerPorts.ts';
 
 /** The one choice that is not a server choice: it ends the whole job. */
@@ -26,19 +28,23 @@ export interface WindowModalModel {
   applyToAllLabel?: string;
 }
 
-const APPLY_TO_ALL_LABEL = '더 이상 묻지 않기';
+const APPLY_TO_ALL_LABEL: MessageKey = 'fileExplorer.modal.applyToAll';
 
 // Screen order is the AC's, not the wire's: the server may send the same set
 // in any order, and a button that moves between questions gets misclicked.
 const ERROR_ORDER: readonly FileJobChoice[] = ['skip', 'retry'];
 const CONFLICT_ORDER: readonly FileJobChoice[] = ['overwrite', 'rename', 'skip'];
 
-const ERROR_LABELS: Partial<Record<FileJobChoice, string>> = { skip: '무시', retry: '재시도' };
-const CONFLICT_LABELS: Partial<Record<FileJobChoice, string>> = {
-  overwrite: '덮어쓰기',
-  rename: '이름 바꾸기',
-  skip: '복사하지 않기',
+const ERROR_LABELS: Partial<Record<FileJobChoice, MessageKey>> = { skip: 'fileExplorer.modal.ignore', retry: 'fileExplorer.modal.retry' };
+const CONFLICT_LABELS: Partial<Record<FileJobChoice, MessageKey>> = {
+  overwrite: 'fileExplorer.modal.overwrite',
+  rename: 'common.rename',
+  skip: 'fileExplorer.modal.dontCopy',
 };
+
+function labelFor(key: MessageKey | undefined, fallback: string): string {
+  return key === undefined ? fallback : t(key);
+}
 
 // Display only: the name shown in a question, never a path decision.
 function lastSegment(path: string): string {
@@ -60,14 +66,14 @@ export function buildDecisionModal(detail: DecideDetail): WindowModalModel {
   const labels = isError ? ERROR_LABELS : CONFLICT_LABELS;
   const choices: WindowModalChoice[] = order
     .filter((choice) => offered.has(choice))
-    .map((choice) => ({ id: choice, label: labels[choice] ?? choice }));
-  if (isError) choices.push({ id: 'cancel', label: '취소' });
+    .map((choice) => ({ id: choice, label: labelFor(labels[choice], choice) }));
+  if (isError) choices.push({ id: 'cancel', label: t('common.cancel') });
   return {
-    title: isError ? '처리하지 못한 항목' : '이미 있는 항목',
+    title: isError ? t('fileExplorer.modal.errorTitle') : t('fileExplorer.modal.conflictTitle'),
     message: detail.path,
     choices,
     showApplyToAll: true,
-    applyToAllLabel: APPLY_TO_ALL_LABEL,
+    applyToAllLabel: t(APPLY_TO_ALL_LABEL),
   };
 }
 
@@ -78,14 +84,14 @@ export function buildDecisionModal(detail: DecideDetail): WindowModalModel {
  */
 export function buildDeleteConfirmModal(paths: readonly string[]): WindowModalModel {
   const message = paths.length === 1
-    ? `'${lastSegment(paths[0])}' 을(를) 삭제할까요?`
-    : `${paths.length}개 항목을 삭제할까요?`;
+    ? t('fileExplorer.modal.deleteOne', { name: lastSegment(paths[0]) })
+    : tn('fileExplorer.modal.deleteMany', paths.length);
   return {
-    title: '삭제 확인',
+    title: t('common.deleteConfirm'),
     message,
     choices: [
-      { id: 'confirm', label: '삭제', danger: true },
-      { id: 'cancel', label: '취소' },
+      { id: 'confirm', label: t('common.delete'), danger: true },
+      { id: 'cancel', label: t('common.cancel') },
     ],
     showApplyToAll: false,
   };

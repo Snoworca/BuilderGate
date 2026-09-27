@@ -1,4 +1,5 @@
 import './InputDiscardedToast.css';
+import { tn, t } from '../../i18n/i18n.ts';
 
 interface Props {
   /** How many inputs have been discarded in the current run. `0` renders nothing. */
@@ -24,9 +25,9 @@ export function InputDiscardedToast({ discardedCount }: Props) {
 
   return (
     <div className="input-discarded-toast" role="status" data-testid="input-discarded-toast">
-      입력이 전달되지 않았습니다
+      {t('terminal.inputDiscarded')}
       <span className="input-discarded-toast__count" data-testid="input-discarded-count">
-        {discardedCount}건
+        {tn('terminal.inputDiscarded.count', discardedCount)}
       </span>
     </div>
   );

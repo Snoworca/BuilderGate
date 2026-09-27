@@ -9,6 +9,7 @@
 // and read none of its inputs.
 // @req FR-MDE-007
 
+import { t } from '../i18n/i18n.ts';
 import type { ContextMenuItem } from '../components/ContextMenu/ContextMenu';
 
 /**
@@ -175,7 +176,7 @@ export function buildEditorFileMenuItems(options: EditorFileMenuOptions): Contex
   // entry placed under it would drift down each time; the top stays put. It
   // opens for the right-clicked tab, which in grid mode is often not the active one.
   return [
-    { label: '파일 탐색기', onClick: () => onOpenFileExplorer(options.tabId) },
+    { label: t('editor.menu.fileExplorer'), onClick: () => onOpenFileExplorer(options.tabId) },
     { separator: true },
     ...fileItems,
   ];

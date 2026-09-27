@@ -13,6 +13,7 @@ import { createWindowDialogBehaviorModel, selectGeometryToPersist, windowDialogT
 import { isDialogRectMoved } from './dialogDragCommit';
 import type { DialogRect, DialogSize, WindowDialogProps } from './types';
 import './WindowDialog.css';
+import { t } from '../../i18n/i18n.ts';
 
 function getViewportSize(): DialogSize {
   return {
@@ -395,7 +396,7 @@ export function WindowDialog({
             {behavior.showCloseButton && (
               <IconButton
                 icon="close"
-                label="닫기"
+                label={t('common.close')}
                 className="window-dialog-close"
                 onClick={handleClose}
               />

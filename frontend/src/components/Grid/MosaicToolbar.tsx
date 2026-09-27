@@ -4,6 +4,7 @@ import type { LayoutMode } from '../../hooks/useMosaicLayout';
 import type { EqualLayoutPreset } from '../../hooks/mosaicLayoutStorage';
 import { Icon, IconButton, type IconName } from '../common';
 import './MosaicToolbar.css';
+import { t } from '../../i18n/i18n.ts';
 
 interface MosaicToolbarProps {
   layoutMode: LayoutMode;
@@ -81,7 +82,7 @@ export function MosaicToolbar({
     <div
       data-grid-drag-handle="true"
       data-grid-move-button="true"
-      title="끌어서 옮기기"
+      title={t('grid.toolbar.dragToMove')}
       className={`mosaic-toolbar-control mosaic-toolbar-move${controlsVisible ? ' is-visible' : ''}`}
     >
       <Icon name="menu" size={16} />
@@ -108,28 +109,28 @@ export function MosaicToolbar({
           <ToolbarButton
             mode="equal"
             icon="grid"
-            label="균등 분할"
+            label={t('grid.toolbar.equal')}
             active={layoutMode === 'equal' && equalPreset !== 'columns'}
             onClick={() => onLayoutModeChange('equal')}
           />
           <ToolbarButton
             command="columns"
             icon="sidebar"
-            label="세로 정렬"
+            label={t('grid.toolbar.vertical')}
             active={layoutMode === 'equal' && equalPreset === 'columns'}
             onClick={onColumnsLayout}
           />
           <ToolbarButton
             mode="focus"
             icon="maximize"
-            label="포커스 모드"
+            label={t('grid.toolbar.focus')}
             active={layoutMode === 'focus'}
             onClick={() => onLayoutModeChange('focus')}
           />
           <ToolbarButton
             mode="auto"
             icon="refresh"
-            label="자동 모드"
+            label={t('grid.toolbar.auto')}
             active={layoutMode === 'auto'}
             onClick={() => onLayoutModeChange('auto')}
           />

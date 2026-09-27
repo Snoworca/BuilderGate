@@ -30,6 +30,7 @@
 // @req FR-FEX-008
 // @req FR-FEX-009
 
+import { t } from '../../i18n/i18n.ts';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
 import { IconButton, IconToggleButton } from '../common';
@@ -535,7 +536,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
         dispatchFileJob({ type: 'DECISION_ANSWERED', jobId: route.jobId, decisionId: route.decisionId });
       })
       .catch((error: unknown) => {
-        showJobError(`결정을 보내지 못했습니다: ${messageOf(error)}`);
+        showJobError(t('fileExplorer.job.decisionFailed', { message: messageOf(error) }));
         // The store still holds the question. Forgetting that it was asked lets
         // the effect put it up again; a job that is gone withdraws it on done.
         const asked = askedDecisionsRef.current;
@@ -564,7 +565,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
   // panel actually showed it.
   useEffect(() => {
     for (const failure of jobFailures) {
-      const shown = showJobError(`파일 작업이 실패했습니다${failure.errorCode ? ` (${failure.errorCode})` : ''}`, failure.tabId);
+      const shown = showJobError(failure.errorCode ? t('fileExplorer.job.failedWithCode', { code: failure.errorCode }) : t('fileExplorer.job.failed'), failure.tabId);
       if (shown) dispatchFileJob({ type: 'FAILURE_SHOWN', jobId: failure.jobId });
     }
   }, [jobFailures, showJobError]);
@@ -596,17 +597,17 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
       <IconToggleButton
         pressed={maximized}
         icons={{ on: 'restore', off: 'maximize' }}
-        label="최대화"
+        label={t('fileExplorer.window.maximize')}
         onToggle={() => actions.toggleMaximizeFileExplorer(workspaceId)}
       />
-      <IconButton icon="minimize" label="최소화" onClick={() => actions.minimizeFileExplorer(workspaceId)} />
+      <IconButton icon="minimize" label={t('fileExplorer.window.minimize')} onClick={() => actions.minimizeFileExplorer(workspaceId)} />
     </div>
   );
 
   return (
     <WindowDialog
       dialogId={fileExplorerDialogId(workspaceId)}
-      title="파일 탐색기"
+      title={t('fileExplorer.window.title')}
       mode="modeless"
       defaultRect={FILE_EXPLORER_DEFAULT_RECT}
       minSize={FILE_EXPLORER_MIN_SIZE}

@@ -6,6 +6,7 @@ import {
   type WorkspaceMoveTarget,
 } from './workspaceMoveTargets';
 import './WorkspaceMoveDialog.css';
+import { t } from '../../i18n/i18n.ts';
 
 interface WorkspaceMoveDialogProps {
   open: boolean;
@@ -20,8 +21,8 @@ interface WorkspaceMoveDialogProps {
 }
 
 function reasonLabel(target: WorkspaceMoveTarget): string {
-  if (target.reason === 'current') return '현재 Workspace';
-  if (target.reason === 'full') return '탭이 가득 참';
+  if (target.reason === 'current') return t('workspace.move.reason.current');
+  if (target.reason === 'full') return t('workspace.move.reason.full');
   return '';
 }
 
@@ -50,7 +51,7 @@ export function WorkspaceMoveDialog({
   return (
     <WindowDialog
       dialogId="workspace-move-dialog"
-      title="Workspace 이동"
+      title={t('workspace.move.title')}
       mode="modal"
       defaultRect={{ x: 240, y: 120, width: 440, height: 460 }}
       minSize={{ width: 360, height: 320 }}
@@ -62,7 +63,7 @@ export function WorkspaceMoveDialog({
     >
       <div className="workspace-move-dialog">
         <p className="workspace-move-description">
-          이 탭을 옮길 Workspace를 고르세요. 누르는 즉시 옮겨지며, 탭에서 실행 중인 세션은 그대로 이어집니다.
+          {t('workspace.move.intro')}
         </p>
         <div className="workspace-move-targets">
           {targets.map((target) => (
@@ -77,7 +78,7 @@ export function WorkspaceMoveDialog({
                 {target.workspace.name}
               </span>
               <span className="workspace-move-target-meta">
-                {target.reason ? reasonLabel(target) : `탭 ${target.tabCount}/${maxTabsPerWorkspace}개`}
+                {target.reason ? reasonLabel(target) : t('workspace.move.tabCount', { count: target.tabCount, max: maxTabsPerWorkspace })}
               </span>
             </button>
           ))}
@@ -89,9 +90,9 @@ export function WorkspaceMoveDialog({
           </div>
         )}
       </div>
-      <DialogFooter note={moving ? '옮기는 중입니다.' : undefined}>
+      <DialogFooter note={moving ? t('workspace.move.moving') : undefined}>
         <Button variant="secondary" onClick={onClose} disabled={moving}>
-          취소
+          {t('common.cancel')}
         </Button>
       </DialogFooter>
     </WindowDialog>

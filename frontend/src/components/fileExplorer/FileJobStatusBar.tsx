@@ -10,6 +10,7 @@
 // @req FR-FEX-008
 // @req FR-FEX-009
 
+import { t, tn } from '../../i18n/i18n.ts';
 import { useMemo, useRef, useSyncExternalStore } from 'react';
 import type { KeyboardEvent } from 'react';
 import { FileJobPopover } from './FileJobPopover.tsx';
@@ -73,7 +74,7 @@ export function FileJobStatusBar({ onRevive }: FileJobStatusBarProps) {
         ) : view.kind === 'multiple' ? (
           <>
             <span className="fx-job-spinner" aria-hidden="true" />
-            <span className="fx-job-text">{`${view.count}개 작업 진행 중`}</span>
+            <span className="fx-job-text">{tn('fileExplorer.job.runningCount', view.count)}</span>
           </>
         ) : null}
         {awaiting !== null && (
@@ -87,7 +88,7 @@ export function FileJobStatusBar({ onRevive }: FileJobStatusBarProps) {
             }}
           >
             <span className="fx-job-awaiting-dot" aria-hidden="true" />
-            {AWAITING_LABEL}
+            {t(AWAITING_LABEL)}
           </button>
         )}
       </div>

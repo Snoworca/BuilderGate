@@ -3,6 +3,7 @@
 // @req FR-MDE-021
 // @req FR-FEX-012
 import type { ContextMenuItem } from '../components/ContextMenu/index.ts';
+import { t } from '../i18n/i18n.ts';
 
 export interface TabCloseMenuOptions {
   /** How many tabs the window holds; with one there is no "other" tab. */
@@ -14,10 +15,10 @@ export interface TabCloseMenuOptions {
 
 export function buildTabCloseMenuItems(options: TabCloseMenuOptions): ContextMenuItem[] {
   return [
-    { label: '이 탭 닫기', onClick: options.onCloseThis },
-    { label: '다른 탭 닫기', onClick: options.onCloseOthers, disabled: options.tabCount <= 1 },
+    { label: t('tabMenu.closeThis'), onClick: options.onCloseThis },
+    { label: t('tabMenu.closeOthers'), onClick: options.onCloseOthers, disabled: options.tabCount <= 1 },
     { separator: true },
-    { label: '모든 탭 닫기', onClick: options.onCloseAll },
+    { label: t('tabMenu.closeAll'), onClick: options.onCloseAll },
   ];
 }
 

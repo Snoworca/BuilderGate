@@ -9,6 +9,7 @@
 // @req FR-MDE-015
 // @req FR-MDE-016
 
+import { t } from '../../i18n/i18n.ts';
 import type { LineEnding } from '../../editor/lineEndings.ts';
 
 /** The encoding the read endpoint reported for the file. */
@@ -20,7 +21,6 @@ export interface DocumentAccess {
   notice: string | null;
 }
 
-const NOT_UTF8_NOTICE = 'UTF-8 이 아니라서 읽기 전용으로 열었습니다. 저장하면 원래 바이트가 손상되므로 저장할 수 없습니다.';
 
 /**
  * A UTF-8 file behaves exactly as before; anything else is read-only.
@@ -30,7 +30,7 @@ export function decideDocumentAccess(encoding: DocumentEncoding): DocumentAccess
   if (encoding === 'utf-8') {
     return { readOnly: false, notice: null };
   }
-  return { readOnly: true, notice: NOT_UTF8_NOTICE };
+  return { readOnly: true, notice: t('editor.access.notUtf8') };
 }
 
 const LINE_ENDING_LABELS: Record<LineEnding, 'CRLF' | 'LF' | 'CR'> = {

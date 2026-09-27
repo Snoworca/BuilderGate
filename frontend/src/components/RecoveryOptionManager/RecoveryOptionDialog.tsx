@@ -10,6 +10,7 @@ import {
   parseRecoveryDraftArguments,
 } from '../../utils/recoveryOptionArguments';
 import { useRecoveryOptions } from './useRecoveryOptions';
+import { t } from '../../i18n/i18n.ts';
 import '../CommandPresetManager/CommandPresetDialog.css';
 
 export interface RecoveryOptionDialogProps {
@@ -36,7 +37,6 @@ const BUILTIN_ICON_OPTIONS = [
   { key: 'sparkles', label: '✨' },
 ];
 
-const UNSAFE_ICON_HELP_TEXT = '아이콘에 스크립트·스타일·마크업·URL 을 넣으면 저장이 거부됩니다.';
 
 // @req FR-AITUI-001
 function createBlankDraft(): RecoveryOptionDraft {
@@ -143,7 +143,7 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
 
   const handleSaveDraft = useCallback(async (draft: RecoveryOptionDraft) => {
     if (!draft.command.trim()) {
-      const message = '명령을 입력하세요.';
+      const message = t('recovery.msg.enterCommand');
       if (draft.id) {
         setEditingDraft(current => current?.id === draft.id ? { ...current, error: message } : current);
       } else {
@@ -170,7 +170,7 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
         setCreateDraft(null);
       }
     } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : '복구 옵션을 저장하지 못했습니다.';
+      const message = saveError instanceof Error ? saveError.message : t('recovery.msg.saveFailed');
       setLocalError(message);
       if (draft.id) {
         setEditingDraft(current => current?.id === draft.id ? { ...current, saving: false, error: message } : current);
@@ -216,7 +216,7 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
       }
       setDeleteTarget(null);
     } catch (deleteFailure) {
-      setDeleteError(deleteFailure instanceof Error ? deleteFailure.message : '복구 옵션을 삭제하지 못했습니다.');
+      setDeleteError(deleteFailure instanceof Error ? deleteFailure.message : t('recovery.msg.deleteFailed'));
     } finally {
       setDeleteBusy(false);
     }
@@ -227,7 +227,7 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
     try {
       await moveOption(option.id, direction);
     } catch (moveError) {
-      setLocalError(moveError instanceof Error ? moveError.message : '순서를 변경하지 못했습니다.');
+      setLocalError(moveError instanceof Error ? moveError.message : t('recovery.msg.moveFailed'));
     }
   }, [moveOption]);
 
@@ -241,7 +241,7 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
     <>
       <WindowDialog
         dialogId="recovery-option-manager"
-        title="복구 옵션"
+        title={t('recovery.dialog.title')}
         mode="modal"
         defaultRect={{ x: 140, y: 90, width: 800, height: 560 }}
         minSize={{ width: 580, height: 420 }}
@@ -249,9 +249,9 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
       >
         <div className="command-preset-dialog" data-testid="recovery-option-dialog">
           <div className="recovery-option-toolbar">
-            <span className="recovery-option-help">{UNSAFE_ICON_HELP_TEXT}</span>
+            <span className="recovery-option-help">{t('recovery.icon.unsafeHelp')}</span>
             <Button variant="primary" size="md" icon="plus" className="command-preset-primary-button" onClick={handleAdd}>
-              추가
+              {t('recovery.action.add')}
             </Button>
           </div>
 
@@ -261,9 +261,9 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
                 idPrefix="recovery-option-new"
                 draft={createDraft}
                 onChange={handleCreateDraftChange}
-                commandLabel="명령"
-                argumentsLabel="인수"
-                iconLabel="아이콘"
+                commandLabel={t('recovery.field.command')}
+                argumentsLabel={t('recovery.field.arguments')}
+                iconLabel={t('recovery.field.icon')}
               />
               <div className="command-preset-form-actions">
                 <Button
@@ -273,7 +273,7 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
                   className="command-preset-primary-button"
                   disabled={createDraft.saving}
                 >
-                  등록
+                  {t('recovery.action.register')}
                 </Button>
                 <Button
                   variant="secondary"
@@ -282,7 +282,7 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
                   onClick={handleCancelDraft}
                   disabled={createDraft.saving}
                 >
-                  취소
+                  {t('common.cancel')}
                 </Button>
               </div>
             </form>
@@ -295,11 +295,11 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
             </div>
           )}
 
-          <div className="command-preset-list" aria-label="복구 옵션 목록">
+          <div className="command-preset-list" aria-label={t('recovery.list.aria')}>
             {loading ? (
-              <div className="command-preset-empty">불러오는 중...</div>
+              <div className="command-preset-empty">{t('recovery.list.loading')}</div>
             ) : sortedOptions.length === 0 ? (
-              <div className="command-preset-empty">등록된 복구 옵션이 없습니다. 추가를 눌러 명령을 등록하세요.</div>
+              <div className="command-preset-empty">{t('recovery.list.empty')}</div>
             ) : (
               sortedOptions.map((option, index) => (
                 <RecoveryOptionRow
@@ -324,10 +324,10 @@ export function RecoveryOptionDialog({ open, onClose }: RecoveryOptionDialogProp
       {deleteTarget && (
         <MessageBox
           dialogId={`recovery-option-delete-confirm-${deleteTarget.id}`}
-          title="삭제 확인"
-          message={`'${deleteTarget.command}' 복구 옵션이 목록에서 삭제됩니다. 실행 중인 세션은 종료되지 않습니다.`}
-          okLabel="삭제"
-          cancelLabel="취소"
+          title={t('common.deleteConfirm')}
+          message={t('recovery.delete.message', { command: deleteTarget.command })}
+          okLabel={t('common.delete')}
+          cancelLabel={t('common.cancel')}
           okVariant="danger"
           busy={deleteBusy}
           error={deleteError}
@@ -364,7 +364,7 @@ function RecoveryOptionDraftFields({
           value={draft.command}
           maxLength={120}
           onChange={(event) => onChange({ ...draft, command: event.target.value, error: null })}
-          placeholder="예: claude"
+          placeholder={t('recovery.field.commandPlaceholder')}
           readOnly={draft.saving}
         />
       </Field>
@@ -375,11 +375,11 @@ function RecoveryOptionDraftFields({
           mono
           value={draft.argumentsText}
           onChange={(event) => onChange({ ...draft, argumentsText: event.target.value, error: null })}
-          placeholder={'--continue "작업 폴더 경로"'}
+          placeholder={t('recovery.field.argumentsPlaceholder')}
           readOnly={draft.saving}
         />
       </Field>
-      <Field label="표시 유형" htmlFor={`${idPrefix}-icon-mode`} className="command-preset-field">
+      <Field label={t('recovery.field.iconMode')} htmlFor={`${idPrefix}-icon-mode`} className="command-preset-field">
         <Select
           id={`${idPrefix}-icon-mode`}
           className="recovery-option-mode-select"
@@ -395,9 +395,9 @@ function RecoveryOptionDraftFields({
           }}
           disabled={draft.saving}
         >
-          <option value="none">없음</option>
-          <option value="text">텍스트</option>
-          <option value="builtin">기본</option>
+          <option value="none">{t('recovery.iconMode.none')}</option>
+          <option value="text">{t('recovery.iconMode.text')}</option>
+          <option value="builtin">{t('recovery.iconMode.builtin')}</option>
         </Select>
       </Field>
       <Field label={iconLabel} htmlFor={`${idPrefix}-icon`} className="command-preset-field recovery-option-icon-field">
@@ -480,9 +480,9 @@ function RecoveryOptionRow({
             idPrefix={`recovery-option-edit-${option.id}`}
             draft={editingDraft}
             onChange={onDraftChange}
-            commandLabel={`${option.command} 명령 수정`}
-            argumentsLabel={`${option.command} 인수 수정`}
-            iconLabel="아이콘"
+            commandLabel={t('recovery.item.editCommandAria', { command: option.command })}
+            argumentsLabel={t('recovery.item.editArgumentsAria', { command: option.command })}
+            iconLabel={t('recovery.field.icon')}
           />
           <div className="command-preset-item-actions">
             <Button
@@ -490,18 +490,18 @@ function RecoveryOptionRow({
               size="md"
               onClick={() => onSaveDraft(editingDraft)}
               disabled={editingDraft.saving}
-              aria-label={`${option.command} 저장`}
+              aria-label={t('recovery.item.saveAria', { command: option.command })}
             >
-              저장
+              {t('common.save')}
             </Button>
             <Button
               variant="secondary"
               size="md"
               onClick={onCancelDraft}
               disabled={editingDraft.saving}
-              aria-label={`${option.command} 취소`}
+              aria-label={t('recovery.item.cancelAria', { command: option.command })}
             >
-              취소
+              {t('common.cancel')}
             </Button>
           </div>
         </div>
@@ -523,34 +523,34 @@ function RecoveryOptionRow({
               mono
               value={formatRecoveryDraftArguments(option.arguments)}
               readOnly
-              aria-label={`${option.command} 인수`}
-              placeholder="인수 없음"
+              aria-label={t('recovery.item.argumentsAria', { command: option.command })}
+              placeholder={t('recovery.item.noArguments')}
               title={formatRecoveryDraftArguments(option.arguments)}
             />
             <div className="command-preset-item-actions">
-              <Button variant="secondary" size="md" onClick={() => onEdit(option)} aria-label={`${option.command} 수정`}>
-                수정
+              <Button variant="secondary" size="md" onClick={() => onEdit(option)} aria-label={t('recovery.item.editAria', { command: option.command })}>
+                {t('recovery.item.edit')}
               </Button>
-              <Button variant="danger-text" size="md" onClick={() => onDelete(option)} aria-label={`${option.command} 삭제`}>
-                삭제
+              <Button variant="danger-text" size="md" onClick={() => onDelete(option)} aria-label={t('recovery.item.deleteAria', { command: option.command })}>
+                {t('common.delete')}
               </Button>
               <Button
                 variant="secondary"
                 size="md"
                 onClick={() => onMove(option, 'up')}
                 disabled={index === 0}
-                aria-label={`${option.command} 위로`}
+                aria-label={t('recovery.item.moveUpAria', { command: option.command })}
               >
-                위로
+                {t('recovery.item.moveUp')}
               </Button>
               <Button
                 variant="secondary"
                 size="md"
                 onClick={() => onMove(option, 'down')}
                 disabled={index === count - 1}
-                aria-label={`${option.command} 아래로`}
+                aria-label={t('recovery.item.moveDownAria', { command: option.command })}
               >
-                아래로
+                {t('recovery.item.moveDown')}
               </Button>
             </div>
           </div>

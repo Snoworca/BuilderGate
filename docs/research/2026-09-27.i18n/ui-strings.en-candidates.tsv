@@ -1,0 +1,281 @@
+file	line	kind	context	text
+frontend/src/App.tsx	97	ui-prop	reason	context-changed
+frontend/src/App.tsx	338	ui-prop	reason	context-changed
+frontend/src/components/Auth/AuthGuard.tsx	47	jsx-ui-attr	alt	BuilderGate
+frontend/src/components/Auth/BootstrapPasswordForm.tsx	51	jsx-ui-attr	alt	BuilderGate
+frontend/src/components/Auth/LoginForm.tsx	33	jsx-ui-attr	alt	BuilderGate
+frontend/src/components/Auth/LoginForm.tsx	34	jsx-text		BuilderGate
+frontend/src/components/Auth/TwoFactorForm.tsx	51	jsx-ui-attr	placeholder	000000
+frontend/src/components/CommandPresetManager/commandPresetPaste.ts	18	ui-prop	reason	empty-value
+frontend/src/components/CommandPresetManager/commandPresetPaste.ts	26	ui-prop	reason	control-character
+frontend/src/components/Grid/MosaicContainer.tsx	92	ui-prop	reason	context-changed
+frontend/src/components/Header/Header.tsx	125	jsx-ui-attr	alt	BuilderGate
+frontend/src/components/Header/Header.tsx	126	jsx-text		BuilderGate
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	32	ui-prop	label	🤖
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	33	ui-prop	label	💻
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	34	ui-prop	label	🧠
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	35	ui-prop	label	🧩
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	36	ui-prop	label	✨
+frontend/src/components/RecoveryOptionManager/RecoveryOptionDialog.tsx	428	jsx-ui-attr	placeholder	AI
+frontend/src/components/Settings/SettingsPage.tsx	505	jsx-ui-attr	title	CORS
+frontend/src/components/Terminal/FontSizeToast.tsx	10	jsx-text		px
+frontend/src/components/Terminal/TerminalContainer.tsx	208	ui-prop	reason	context-changed
+frontend/src/components/Terminal/TerminalContainer.tsx	796	ui-prop	reason	mode-observe-only
+frontend/src/components/Terminal/TerminalContainer.tsx	828	ui-prop	reason	queue-overflow
+frontend/src/components/Terminal/TerminalContainer.tsx	858	ui-prop	reason	queue-overflow
+frontend/src/components/Terminal/TerminalContainer.tsx	1007	ui-prop	reason	flush-deferred
+frontend/src/components/Terminal/TerminalContainer.tsx	1657	ui-prop	reason	parser-reset-failed
+frontend/src/components/Terminal/TerminalContainer.tsx	1876	ui-prop	reason	transport-mode-limitation
+frontend/src/components/Terminal/TerminalContainer.tsx	1902	ui-prop	reason	parser-reset-failed
+frontend/src/components/Terminal/TerminalContainer.tsx	2182	ui-prop	reason	context-changed
+frontend/src/components/Terminal/TerminalContainer.tsx	2188	ui-prop	reason	context-changed
+frontend/src/components/Terminal/TerminalContainer.tsx	2194	ui-prop	reason	context-changed
+frontend/src/components/Terminal/TerminalContainer.tsx	2205	ui-prop	reason	not-ready
+frontend/src/components/Terminal/TerminalContainer.tsx	2206	ui-prop	reason	not-ready
+frontend/src/components/Terminal/TerminalContainer.tsx	2348	ui-prop	reason	terminal-failed
+frontend/src/components/Terminal/TerminalContainer.tsx	2646	ui-prop	reason	ime-wait-cancelled-or-terminal-missing
+frontend/src/components/Terminal/TerminalContainer.tsx	2667	ui-prop	reason	fallback-placeholder-not-applied
+frontend/src/components/Terminal/TerminalContainer.tsx	2771	ui-prop	reason	parser-reset-failed
+frontend/src/components/Terminal/TerminalContainer.tsx	2841	ui-prop	reason	parser-reset-failed
+frontend/src/components/Terminal/TerminalContainer.tsx	2854	ui-prop	reason	ime-wait-cancelled-or-terminal-missing
+frontend/src/components/Terminal/TerminalContainer.tsx	3332	ui-prop	reason	replay-token-mismatch
+frontend/src/components/Terminal/TerminalContainer.tsx	3414	ui-prop	reason	stale-generation
+frontend/src/components/Terminal/TerminalContainer.tsx	3443	ui-prop	reason	stale-or-incomplete-output-identity
+frontend/src/components/Terminal/TerminalContainer.tsx	3513	ui-prop	reason	stale-generation
+frontend/src/components/Terminal/TerminalContainer.tsx	3699	ui-prop	reason	parser-reset-failed
+frontend/src/components/Terminal/TerminalRuntimeContext.tsx	168	error	Error	useTerminalRuntimeContext must be used within TerminalRuntimeProvider
+frontend/src/components/Terminal/TerminalView.tsx	961	ui-prop	reason	queue-overflow
+frontend/src/components/Terminal/TerminalView.tsx	970	ui-prop	reason	queue-overflow
+frontend/src/components/Terminal/TerminalView.tsx	987	ui-prop	reason	queue-overflow
+frontend/src/components/Terminal/TerminalView.tsx	1040	ui-prop	reason	mode-observe-only
+frontend/src/components/Terminal/TerminalView.tsx	1047	ui-prop	reason	mode-observe-only
+frontend/src/components/Terminal/TerminalView.tsx	1108	ui-prop	reason	checkpoint-recovery-required
+frontend/src/components/Terminal/TerminalView.tsx	1730	error	Error	Terminal output policy runtime was not initialized for the active connection target
+frontend/src/components/Terminal/TerminalView.tsx	1803	error	Error	Terminal output ingress retry queue was not initialized with the output scheduler
+frontend/src/components/Terminal/TerminalView.tsx	1813	ui-prop	reason	canary-admission-rejected
+frontend/src/components/Terminal/TerminalView.tsx	1932	ui-prop	reason	visible-output-overflow
+frontend/src/components/Terminal/TerminalView.tsx	2084	ui-prop	reason	query-responder-identity-unavailable
+frontend/src/components/Terminal/TerminalView.tsx	2098	ui-prop	reason	pending-user-input-not-drained
+frontend/src/components/Terminal/TerminalView.tsx	2205	error	Error	terminal-write-coordinator-unavailable
+frontend/src/components/Terminal/TerminalView.tsx	2214	error	Error	terminal-replay-write-rejected
+frontend/src/components/Terminal/TerminalView.tsx	2291	ui-prop	reason	restore-pending-output-admission-rejected
+frontend/src/components/Terminal/TerminalView.tsx	2732	ui-prop	reason	ime-idle-wait-rejected
+frontend/src/components/Terminal/TerminalView.tsx	2738	ui-prop	reason	authority-fence-rejected-before-replacement
+frontend/src/components/Terminal/TerminalView.tsx	2750	ui-prop	reason	not-ready
+frontend/src/components/Terminal/TerminalView.tsx	2755	ui-prop	reason	ime-active
+frontend/src/components/Terminal/TerminalView.tsx	2769	ui-prop	reason	input-active
+frontend/src/components/Terminal/TerminalView.tsx	2781	ui-prop	reason	user-scrolled
+frontend/src/components/Terminal/TerminalView.tsx	2801	ui-prop	reason	ime-active
+frontend/src/components/Terminal/TerminalView.tsx	2806	ui-prop	reason	not-ready
+frontend/src/components/Terminal/TerminalView.tsx	2820	ui-prop	reason	geometry-mismatch
+frontend/src/components/Terminal/TerminalView.tsx	2828	ui-prop	reason	geometry-mismatch
+frontend/src/components/Terminal/TerminalView.tsx	2832	ui-prop	reason	buffer-mismatch
+frontend/src/components/Terminal/TerminalView.tsx	2838	ui-prop	reason	buffer-mismatch
+frontend/src/components/Terminal/TerminalView.tsx	2857	ui-prop	reason	write-callback-or-fifo-probe-timeout
+frontend/src/components/Terminal/TerminalView.tsx	2859	ui-prop	reason	write-failed
+frontend/src/components/Terminal/TerminalView.tsx	2864	ui-prop	reason	buffer-mismatch
+frontend/src/components/Terminal/TerminalView.tsx	2867	ui-prop	reason	user-scrolled
+frontend/src/components/Terminal/TerminalView.tsx	2922	ui-prop	reason	context-changed
+frontend/src/components/Terminal/TerminalView.tsx	2952	ui-prop	reason	paste-too-large
+frontend/src/components/Terminal/TerminalView.tsx	2959	ui-prop	reason	paste-too-large
+frontend/src/components/Terminal/TerminalView.tsx	2973	ui-prop	reason	unsupported-multiline-paste
+frontend/src/components/Terminal/TerminalView.tsx	2981	ui-prop	reason	unsupported-multiline-paste
+frontend/src/components/Terminal/TerminalView.tsx	3005	ui-prop	reason	context-changed
+frontend/src/components/Terminal/TerminalView.tsx	3148	ui-prop	reason	context-changed
+frontend/src/components/Terminal/TerminalView.tsx	3527	ui-prop	reason	terminal-authority-recovery:{0}
+frontend/src/components/Terminal/TerminalView.tsx	3628	ui-prop	reason	pending-user-input-not-drained
+frontend/src/components/Terminal/TerminalView.tsx	3760	error	Error	checkpoint-input-release-rejected:{0}
+frontend/src/components/Terminal/TerminalView.tsx	3805	error	Error	checkpoint-apply-ack-failed
+frontend/src/components/Terminal/TerminalView.tsx	3811	error	Error	checkpoint-drain-ack-failed
+frontend/src/components/Terminal/TerminalView.tsx	4083	ui-prop	reason	reserved
+frontend/src/components/Terminal/TerminalView.tsx	4211	ui-prop	reason	initial
+frontend/src/components/Terminal/TerminalView.tsx	4219	ui-prop	reason	initial
+frontend/src/components/Terminal/TerminalView.tsx	4365	ui-prop	reason	external-pointer
+frontend/src/components/Terminal/TerminalView.tsx	4401	ui-prop	reason	clipboard-data-unavailable
+frontend/src/components/Terminal/TerminalView.tsx	4595	ui-prop	reason	resize-observer
+frontend/src/components/Terminal/TerminalView.tsx	4676	ui-prop	reason	bounded-reconnect-runtime-replacement
+frontend/src/components/Terminal/TerminalView.tsx	4789	ui-prop	reason	visible
+frontend/src/components/Terminal/TerminalView.tsx	4798	ui-prop	reason	visible
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	33	ui-prop	label	LF
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	35	ui-prop	label	CR
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	37	ui-prop	label	TAB
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	39	ui-prop	label	ESC
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	46	ui-prop	label	CUSTOM
+frontend/src/components/TerminalShortcutManager/ShortcutActionEditor.tsx	85	ui-prop	label	CUSTOM
+frontend/src/components/TerminalShortcutManager/ShortcutBindingList.tsx	58	jsx-ui-attr	aria-label	{0} {1}
+frontend/src/components/TerminalShortcutManager/TerminalShortcutContext.tsx	22	error	Error	useTerminalShortcutContext must be used inside TerminalShortcutProvider
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	17	ui-prop	label	Workspace
+frontend/src/components/TerminalShortcutManager/shortcutBindingViewModel.ts	83	ui-prop	label	LF
+frontend/src/components/Workspace/WorkspaceSidebar.tsx	83	jsx-text		Workspaces
+frontend/src/components/fileExplorer/FileExplorerWindow.tsx	567	error	showJobError	({0})
+frontend/src/components/fileExplorer/fileJobClient.ts	56	error	Error	file job paths must be absolute: {0}
+frontend/src/contexts/AuthContext.tsx	318	error	Error	useAuth must be used within AuthProvider
+frontend/src/contexts/WebSocketContext.tsx	364	ui-prop	reason	control-socket-not-open
+frontend/src/contexts/WebSocketContext.tsx	812	ui-prop	reason	apply-failed
+frontend/src/contexts/WebSocketContext.tsx	924	error	handlers.onError	Session not found
+frontend/src/contexts/WebSocketContext.tsx	1064	error	handlers.onError	Shell exited with code {0}
+frontend/src/contexts/WebSocketContext.tsx	1272	ui-prop	reason	missing-token
+frontend/src/contexts/WebSocketContext.tsx	1341	ui-prop	reason	control-socket-not-open
+frontend/src/contexts/WebSocketContext.tsx	1360	ui-prop	reason	control-socket-not-open
+frontend/src/contexts/WebSocketContext.tsx	1367	ui-prop	reason	control-socket-mismatch
+frontend/src/contexts/WebSocketContext.tsx	1379	ui-prop	reason	control-socket-enqueue-order-regression
+frontend/src/contexts/WebSocketContext.tsx	1394	ui-prop	reason	missing-token
+frontend/src/contexts/WebSocketContext.tsx	1625	error	Error	useWebSocketState must be used within WebSocketProvider
+frontend/src/contexts/WebSocketContext.tsx	1631	error	Error	useWebSocketActions must be used within WebSocketProvider
+frontend/src/services/api.ts	85	error	Error	HTTP {0}: {1}
+frontend/src/services/api.ts	202	error	Error	Failed to fetch sessions
+frontend/src/services/api.ts	215	error	Error	Failed to create session
+frontend/src/services/api.ts	223	error	Error	Failed to fetch shells
+frontend/src/services/api.ts	231	error	Error	Failed to get session
+frontend/src/services/api.ts	240	error	Error	Failed to delete session
+frontend/src/services/api.ts	403	error	Error	invalid-workspace-limits
+frontend/src/types/ws-protocol.ts	693	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	694	ui-prop	reason	invalid-message-type
+frontend/src/types/ws-protocol.ts	726	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	734	ui-prop	reason	invalid-visibility
+frontend/src/types/ws-protocol.ts	742	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	743	ui-prop	reason	invalid-message-type
+frontend/src/types/ws-protocol.ts	746	ui-prop	reason	invalid-reason
+frontend/src/types/ws-protocol.ts	1341	ui-prop	reason	not-checkpoint-message
+frontend/src/types/ws-protocol.ts	1416	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	1446	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	1461	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	1475	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	1545	ui-prop	reason	not-responder-handoff-message
+frontend/src/types/ws-protocol.ts	1562	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	1582	ui-prop	reason	invalid-message
+frontend/src/types/ws-protocol.ts	1585	ui-prop	reason	not-responder-handoff-message
+frontend/src/types/ws-protocol.ts	1591	ui-prop	reason	invalid-message
+frontend/src/utils/binaryFrameCodec.ts	127	error	RangeError	unknown rejection code: {0}
+frontend/src/utils/binaryFrameCodec.ts	156	error	RangeError	visibleOutputQueueMaxBytes must be a positive safe integer
+frontend/src/utils/binaryFrameCodec.ts	167	error	RangeError	maxBodyBytes must be a positive safe integer
+frontend/src/utils/clipboardCopy.ts	62	error	Error	clipboard-copy-failed
+frontend/src/utils/mosaic.ts	44	error	Error	Cannot build tree from empty ids
+frontend/src/utils/mosaic.ts	62	error	Error	Cannot build tree from empty nodes
+frontend/src/utils/mosaic.ts	193	error	Error	Equal grid band count must be positive
+frontend/src/utils/mosaic.ts	200	error	Error	Equal grid band counts do not match tab count
+frontend/src/utils/mosaic.ts	245	error	Error	Cannot build tree from empty ids
+frontend/src/utils/mosaic.ts	291	error	Error	Cannot select Equal grid candidate
+frontend/src/utils/mosaic.ts	339	error	Error	Cannot build tree from empty ids
+frontend/src/utils/mosaic.ts	343	error	Error	Equal grid band counts must match ids length
+frontend/src/utils/mosaic.ts	350	error	Error	Equal grid band count must be positive
+frontend/src/utils/mosaic.ts	374	error	Error	Cannot build tree from empty ids
+frontend/src/utils/mosaic.ts	390	error	Error	Cannot build tree from empty ids
+frontend/src/utils/mosaic.ts	401	error	Error	Cannot build tree from empty ids
+frontend/src/utils/terminalCheckpointRuntime.ts	320	ui-prop	reason	lease-granted
+frontend/src/utils/terminalCheckpointRuntime.ts	326	ui-prop	reason	view-not-registered
+frontend/src/utils/terminalCheckpointRuntime.ts	332	ui-prop	reason	lease-refused
+frontend/src/utils/terminalCheckpointRuntime.ts	333	ui-prop	reason	lease-refused
+frontend/src/utils/terminalCheckpointRuntime.ts	473	error	TypeError	terminal checkpoint encoded byte length mismatch
+frontend/src/utils/terminalCheckpointRuntime.ts	558	ui-prop	reason	unknown-digest-version
+frontend/src/utils/terminalCheckpointRuntime.ts	567	ui-prop	reason	digest-mismatch
+frontend/src/utils/terminalCheckpointRuntime.ts	571	ui-prop	reason	digest-mismatch
+frontend/src/utils/terminalCheckpointRuntime.ts	837	ui-prop	reason	control-socket-enqueue-order-regression
+frontend/src/utils/terminalCheckpointRuntime.ts	980	error	AggregateError	Hidden gap notification and recovery failed
+frontend/src/utils/terminalCheckpointRuntime.ts	1105	ui-prop	reason	terminal-authority-rollback-start
+frontend/src/utils/terminalCheckpointRuntime.ts	1882	ui-prop	reason	checkpoint-not-session-frame
+frontend/src/utils/terminalCheckpointRuntime.ts	1886	ui-prop	reason	checkpoint-session-unavailable
+frontend/src/utils/terminalCheckpointRuntime.ts	1891	ui-prop	reason	checkpoint-delivery-inactive
+frontend/src/utils/terminalCheckpointRuntime.ts	1896	ui-prop	reason	checkpoint-dispatcher-unavailable
+frontend/src/utils/terminalCheckpointRuntime.ts	1919	ui-prop	reason	checkpoint-delivery-inactive
+frontend/src/utils/terminalCheckpointRuntime.ts	1923	ui-prop	reason	checkpoint-dispatcher-unavailable
+frontend/src/utils/terminalCheckpointRuntime.ts	1927	ui-prop	reason	checkpoint-delivery-inactive
+frontend/src/utils/terminalCheckpointRuntime.ts	2486	ui-prop	reason	legacy-responder-selection-mismatch
+frontend/src/utils/terminalCheckpointRuntime.ts	2512	ui-prop	reason	legacy-responder-view-unavailable
+frontend/src/utils/terminalDebugCapture.ts	675	error	Error	debug capture toggle failed: {0}
+frontend/src/utils/terminalOsc52.ts	69	ui-prop	detail	syntax
+frontend/src/utils/terminalOsc52.ts	87	ui-prop	detail	base64
+frontend/src/utils/terminalOsc52.ts	97	ui-prop	detail	base64
+frontend/src/utils/terminalOsc52.ts	106	ui-prop	detail	utf8
+frontend/src/utils/terminalOutputDelivery.ts	146	error	RangeError	{0} {1} is outside the safe integer range
+frontend/src/utils/terminalOutputScheduler.ts	366	ui-prop	reason	candidate-not-trusted
+frontend/src/utils/terminalOutputScheduler.ts	373	ui-prop	reason	candidate-decision-mismatch
+frontend/src/utils/terminalOutputScheduler.ts	386	ui-prop	reason	candidate-selected
+frontend/src/utils/terminalOutputScheduler.ts	855	ui-prop	reason	ingress-hard-bound
+frontend/src/utils/terminalOutputScheduler.ts	1039	ui-prop	reason	legacy-default
+frontend/src/utils/terminalOutputScheduler.ts	1085	ui-prop	reason	rollback-closed
+frontend/src/utils/terminalOutputScheduler.ts	1097	ui-prop	reason	rollback-closed
+frontend/src/utils/terminalOutputScheduler.ts	1132	ui-prop	reason	legacy-default
+frontend/src/utils/terminalOutputScheduler.ts	1147	ui-prop	reason	candidate-admission-accepted
+frontend/src/utils/terminalOutputScheduler.ts	1158	ui-prop	reason	candidate-cap-exceeded-fallback
+frontend/src/utils/terminalOutputScheduler.ts	1230	ui-prop	reason	visible-output-overflow
+frontend/src/utils/terminalOutputScheduler.ts	1411	ui-prop	reason	visible-output-overflow
+frontend/src/utils/terminalOutputScheduler.ts	1439	ui-prop	reason	canary-admission-rejected
+frontend/src/utils/terminalOutputScheduler.ts	1471	ui-prop	reason	candidate-chunk-limit-fenced
+frontend/src/utils/terminalOutputScheduler.ts	1475	ui-prop	reason	canary-admission-rejected
+frontend/src/utils/terminalOutputScheduler.ts	1508	ui-prop	reason	visible-output-overflow
+frontend/src/utils/terminalOutputScheduler.ts	1523	ui-prop	reason	target-local-legacy-fallback
+frontend/src/utils/terminalOutputScheduler.ts	1535	ui-prop	reason	target-local-legacy-fallback
+frontend/src/utils/terminalOutputScheduler.ts	1542	ui-prop	reason	canary-admission-rejected
+frontend/src/utils/terminalOutputScheduler.ts	1562	ui-prop	reason	canary-admission-rejected
+frontend/src/utils/terminalOutputScheduler.ts	1572	ui-prop	reason	visible-output-overflow
+frontend/src/utils/terminalOutputScheduler.ts	1582	ui-prop	reason	canary-admission-rejected
+frontend/src/utils/terminalOutputScheduler.ts	1591	ui-prop	reason	canary-admission-rejected
+frontend/src/utils/terminalOutputScheduler.ts	1607	ui-prop	reason	visible-output-overflow
+frontend/src/utils/terminalOutputScheduler.ts	1614	ui-prop	reason	canary-admission-rejected
+frontend/src/utils/terminalOutputScheduler.ts	1618	ui-prop	reason	canary-admission-rejected
+frontend/src/utils/terminalOutputScheduler.ts	1741	ui-prop	reason	invalid-policy-lease
+frontend/src/utils/terminalOutputScheduler.ts	1755	ui-prop	reason	stale-target-lease
+frontend/src/utils/terminalOutputScheduler.ts	1760	ui-prop	reason	stale-target-lease
+frontend/src/utils/terminalOutputScheduler.ts	1774	ui-prop	reason	stale-policy-generation
+frontend/src/utils/terminalOutputScheduler.ts	1779	ui-prop	reason	stale-policy-generation
+frontend/src/utils/terminalOutputScheduler.ts	1792	ui-prop	reason	rollback-draining
+frontend/src/utils/terminalOutputScheduler.ts	1797	ui-prop	reason	rollback-draining
+frontend/src/utils/terminalOutputScheduler.ts	1812	ui-prop	reason	candidate-selected
+frontend/src/utils/terminalOutputScheduler.ts	1817	ui-prop	reason	retained-entry-exceeds-candidate
+frontend/src/utils/terminalOutputScheduler.ts	1845	ui-prop	reason	invalid-policy-lease
+frontend/src/utils/terminalOutputScheduler.ts	1853	ui-prop	reason	stale-policy-generation
+frontend/src/utils/terminalOutputScheduler.ts	1868	ui-prop	reason	rollback-draining
+frontend/src/utils/terminalOutputScheduler.ts	1879	ui-prop	reason	rollback-requested
+frontend/src/utils/terminalOutputScheduler.ts	1890	ui-prop	reason	rollback-draining
+frontend/src/utils/terminalOutputScheduler.ts	2105	error	TypeError	terminal output scheduler: {0} accepts text; use enqueueBytes for byte input
+frontend/src/utils/terminalRawMutationAdapter.ts	51	error	TypeError	unsupported terminal checkpoint mode: {0}
+frontend/src/utils/terminalRawMutationAdapter.ts	51	error	TypeError	invalid-mode-record
+frontend/src/utils/terminalRawMutationAdapter.ts	56	error	TypeError	terminal checkpoint mode preflight drift
+frontend/src/utils/terminalRetainedState.ts	327	error	Error	sha256 accumulator is already finalized
+frontend/src/utils/terminalRetainedState.ts	347	error	Error	sha256 accumulator is already finalized
+frontend/src/utils/terminalRetainedState.ts	411	error	TypeError	{0} must be a non-negative integer
+frontend/src/utils/terminalRetainedState.ts	425	error	TypeError	retained-state values must be finite
+frontend/src/utils/terminalRetainedState.ts	438	error	TypeError	retained-state values must be JSON-serializable
+frontend/src/utils/terminalRetainedState.ts	456	error	TypeError	cell.chars must be a string
+frontend/src/utils/terminalRetainedState.ts	482	error	TypeError	line.text must be a string
+frontend/src/utils/terminalRetainedState.ts	486	error	TypeError	line cells must have unique columns
+frontend/src/utils/terminalRetainedState.ts	509	error	TypeError	unsupported retained-state schema version
+frontend/src/utils/terminalRetainedState.ts	512	error	TypeError	unsupported terminal buffer type
+frontend/src/utils/terminalRetainedState.ts	519	error	TypeError	retained lines must have unique indexes
+frontend/src/utils/terminalRetainedState.ts	738	error	TypeError	unsupported retained-state streaming contract
+frontend/src/utils/terminalRetainedState.ts	800	error	Error	terminal retained-state streaming capture requires at least one line
+frontend/src/utils/terminalRetainedState.ts	917	error	TypeError	serializedPayloadBoundary.unit must be bytes or characters
+frontend/src/utils/terminalRetainedState.ts	920	error	TypeError	serializedPayloadBoundary.provenance is required
+frontend/src/utils/terminalRetainedState.ts	923	error	TypeError	retainedLineEnd must not precede retainedLineStart
+frontend/src/utils/terminalRetainedState.ts	931	error	TypeError	unsupported retained-state cause kind
+frontend/src/utils/terminalRetainedState.ts	934	error	TypeError	unsupported retained-state cause status
+frontend/src/utils/terminalRetainedState.ts	937	error	TypeError	cause signals require raw evidence references
+frontend/src/utils/terminalSelectionAnchor.ts	159	ui-prop	reason	generation-mismatch
+frontend/src/utils/terminalSelectionAnchor.ts	163	ui-prop	reason	markers-disposed
+frontend/src/utils/terminalSelectionAnchor.ts	167	ui-prop	reason	no-live-selection
+frontend/src/utils/terminalSelectionAnchor.ts	180	ui-prop	reason	selection-repositioned
+frontend/src/utils/terminalSelectionAnchor.ts	193	ui-prop	reason	content-mismatch
+frontend/src/utils/terminalShortcutBindings.ts	104	ui-prop	reason	ime-active
+frontend/src/utils/terminalShortcutBindings.ts	107	ui-prop	reason	reserved
+frontend/src/utils/terminalShortcutBindings.ts	110	ui-prop	reason	not-loaded
+frontend/src/utils/terminalShortcutBindings.ts	119	ui-prop	reason	disabled
+frontend/src/utils/terminalShortcutBindings.ts	122	ui-prop	reason	repeat-disabled
+frontend/src/utils/terminalShortcutBindings.ts	130	ui-prop	reason	repeat-disabled
+frontend/src/utils/terminalShortcutBindings.ts	135	ui-prop	reason	no-match
+frontend/src/utils/terminalShortcutBindings.ts	167	ui-prop	description	Shift+Enter -> Codex newline
+frontend/src/utils/terminalShortcutBindings.ts	180	ui-prop	description	Ctrl+J -> Codex newline
+frontend/src/utils/terminalShortcutBindings.ts	193	ui-prop	description	Enter passthrough
+frontend/src/utils/terminalShortcutBindings.ts	255	ui-prop	reason	action-pass-through
+frontend/src/utils/terminalSnapshot.ts	386	error	Error	Terminal snapshot storage budget exceeded
+frontend/src/utils/terminalSnapshot.ts	413	error	Error	Terminal snapshot storage budget exceeded
+frontend/src/utils/terminalWriteCoordinator.ts	389	error	TypeError	viewGeneration must be a non-negative safe integer
+frontend/src/utils/terminalWriteCoordinator.ts	1179	error	Error	unsupported terminal mutation
+frontend/src/utils/visibleOutputRecovery.ts	755	error	TypeError	timeoutMs must be a positive finite number
+frontend/src/utils/visibleOutputRecovery.ts	1131	ui-prop	reason	split-activation-disabled
+frontend/src/utils/visibleOutputRecovery.ts	1684	ui-prop	reason	queued-input-cap-exceeded
+frontend/src/utils/visibleOutputRecovery.ts	1708	ui-prop	reason	restore-replay-guard
+frontend/src/utils/webSocketBackpressure.ts	94	ui-prop	reason	client-hard-backpressure
+frontend/src/utils/webSocketBackpressure.ts	106	ui-prop	reason	client-backpressure
+frontend/src/utils/webSocketBackpressure.ts	118	ui-prop	reason	not-open
+frontend/src/utils/webSocketBackpressure.ts	151	ui-prop	reason	send-failed

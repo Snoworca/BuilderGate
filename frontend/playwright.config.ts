@@ -27,6 +27,10 @@ export default defineConfig({
     trace: 'on-first-retry',
     ignoreHTTPSErrors: true,
     actionTimeout: 10000,
+    // CON-I18N-001: the UI language follows navigator.language and the specs
+    // select by Korean copy; Playwright's default locale is en-US. The six
+    // derived configs spread this `use`, so this one line pins all seven.
+    locale: 'ko-KR',
   },
   projects: [
     {

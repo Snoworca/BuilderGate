@@ -18,6 +18,7 @@
 // @req FR-MDE-007
 // @req FR-MDE-008
 
+import { t } from '../i18n/i18n.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ContextMenuItem } from '../components/ContextMenu/ContextMenu';
 import type { DialogRect } from '../components/dialog/types';
@@ -554,7 +555,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   const openWindow = useCallback(async (filePath: string, tabId: string) => {
     const sessionId = resolveTabSession(tabId);
     if (sessionId === undefined) {
-      setOpenError('세션을 찾을 수 없어 파일을 열지 못했습니다.');
+      setOpenError(t('editor.open.noSessionOpen'));
       return;
     }
 
@@ -587,7 +588,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
 
     const sessionId = resolveTabSession(prompt.tabId);
     if (sessionId === undefined) {
-      setOpenError('세션을 찾을 수 없어 파일을 만들지 못했습니다.');
+      setOpenError(t('editor.open.noSessionCreate'));
       return;
     }
 

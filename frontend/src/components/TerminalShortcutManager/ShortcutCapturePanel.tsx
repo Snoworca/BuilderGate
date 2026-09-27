@@ -5,6 +5,7 @@ import type {
 } from '../../types';
 import { Icon } from '../common/Icon';
 import { Button, Field, Select, TextInput } from '../ui';
+import { t } from '../../i18n/i18n.ts';
 import { ShortcutActionEditor } from './ShortcutActionEditor';
 import {
   TERMINAL_SHORTCUT_SCOPE_OPTIONS,
@@ -35,10 +36,10 @@ interface ShortcutCapturePanelProps {
 // KeyboardEvent.location, named: the same key code can come from either side
 // of the keyboard or from the numeric keypad.
 function keyLocationLabel(location: number): string {
-  if (location === 1) return '왼쪽 키';
-  if (location === 2) return '오른쪽 키';
-  if (location === 3) return '숫자 키패드';
-  return '기본 위치';
+  if (location === 1) return t('shortcut.location.left');
+  if (location === 2) return t('shortcut.location.right');
+  if (location === 3) return t('shortcut.location.numpad');
+  return t('shortcut.location.standard');
 }
 
 export function ShortcutCapturePanel({
@@ -62,17 +63,17 @@ export function ShortcutCapturePanel({
   onCancelEdit,
 }: ShortcutCapturePanelProps) {
   const statusText = captureStatus === 'waiting'
-    ? '등록할 키를 누르세요'
+    ? t('shortcut.capture.waiting')
     : captureStatus === 'timeout'
-      ? '제한 시간 안에 누른 키가 없습니다'
+      ? t('shortcut.capture.timeout')
       : capturedDescriptor
         ? descriptorLabel(capturedDescriptor)
-        : '아직 없음';
+        : t('shortcut.capture.none');
 
   return (
     <div className="terminal-shortcut-capture-panel">
       <div className={`terminal-shortcut-capture-box is-${captureStatus}`} aria-live="polite">
-        <div className="terminal-shortcut-capture-label">{editingLabel ? '수정할 단축키' : '감지한 키'}</div>
+        <div className="terminal-shortcut-capture-label">{editingLabel ? t('shortcut.capture.editing') : t('shortcut.capture.detected')}</div>
         <div className="terminal-shortcut-capture-value">{statusText}</div>
         {editingLabel && <div className="terminal-shortcut-capture-meta"><span>{editingLabel}</span></div>}
         {capturedDescriptor && (
@@ -84,12 +85,12 @@ export function ShortcutCapturePanel({
       </div>
 
       <div className="terminal-shortcut-form-grid">
-        <Field label="범위" htmlFor="terminal-shortcut-scope" className="terminal-shortcut-field">
+        <Field label={t('shortcut.capture.scope')} htmlFor="terminal-shortcut-scope" className="terminal-shortcut-field">
           <Select
             id="terminal-shortcut-scope"
             value={scope}
             onChange={(event) => onScopeChange(event.target.value as TerminalShortcutScope)}
-            aria-label="단축키 범위"
+            aria-label={t('shortcut.capture.scopeAria')}
           >
             {TERMINAL_SHORTCUT_SCOPE_OPTIONS.map(option => (
               <option
@@ -97,18 +98,18 @@ export function ShortcutCapturePanel({
                 value={option.scope}
                 disabled={(option.scope === 'workspace' && !canUseWorkspaceScope) || (option.scope === 'session' && !canUseSessionScope)}
               >
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </Select>
         </Field>
 
-        <Field label="설명" htmlFor="terminal-shortcut-description" className="terminal-shortcut-field">
+        <Field label={t('shortcut.capture.description')} htmlFor="terminal-shortcut-description" className="terminal-shortcut-field">
           <TextInput
             id="terminal-shortcut-description"
             value={description}
             onChange={(event) => onDescriptionChange(event.target.value)}
-            aria-label="단축키 설명"
+            aria-label={t('shortcut.capture.descriptionAria')}
             maxLength={160}
           />
         </Field>
@@ -131,7 +132,7 @@ export function ShortcutCapturePanel({
           className="terminal-shortcut-secondary-button"
           onClick={onStartCapture}
         >
-          감지 시작
+          {t('shortcut.capture.start')}
         </Button>
         <Button
           variant="secondary"
@@ -140,7 +141,7 @@ export function ShortcutCapturePanel({
           onClick={onTestSend}
           disabled={action.type !== 'send' || saving}
         >
-          테스트 전송
+          {t('shortcut.list.testSend')}
         </Button>
         {editingLabel && onCancelEdit && (
           <Button
@@ -150,7 +151,7 @@ export function ShortcutCapturePanel({
             onClick={onCancelEdit}
             disabled={saving}
           >
-            취소
+            {t('common.cancel')}
           </Button>
         )}
         <Button
@@ -160,7 +161,7 @@ export function ShortcutCapturePanel({
           onClick={onSave}
           disabled={!capturedDescriptor || saving}
         >
-          {saving ? '저장 중' : '저장'}
+          {saving ? t('shortcut.capture.saving') : t('common.save')}
         </Button>
       </div>
     </div>

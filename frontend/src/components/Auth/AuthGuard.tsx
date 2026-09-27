@@ -7,6 +7,7 @@
 
 import type { ReactNode } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { t } from '../../i18n/i18n.ts';
 import { Icon } from '../common/Icon';
 import { Spinner } from '../ui';
 import { BootstrapPasswordForm } from './BootstrapPasswordForm';
@@ -26,7 +27,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
       <div className="auth-container">
         <div className="auth-loading" role="status">
           <span className="auth-spinner-large"><Spinner /></span>
-          <p>로그인 상태를 확인하는 중…</p>
+          <p>{t('auth.guard.checking')}</p>
         </div>
       </div>
     );
@@ -45,14 +46,14 @@ export function AuthGuard({ children }: AuthGuardProps) {
           <div className="auth-card">
             <div className="auth-logo">
               <img src="/logo.svg" alt="BuilderGate" className="auth-logo-icon" width="64" height="64" />
-              <h1>이 위치에서는 초기 설정을 할 수 없습니다</h1>
+              <h1>{t('auth.guard.bootstrapBlockedTitle')}</h1>
             </div>
             <p className="auth-info">
-              이 BuilderGate에는 아직 관리자 비밀번호가 없습니다.
+              {t('auth.guard.noPassword')}
             </p>
             <div className="auth-warning" role="alert">
               <Icon name="alert" />
-              <span>처음 비밀번호는 localhost나 허용 목록에 있는 IP에서만 설정할 수 있습니다.</span>
+              <span>{t('auth.guard.bootstrapLocalOnly')}</span>
             </div>
             {bootstrapError && (
               <div className="auth-error" role="alert">

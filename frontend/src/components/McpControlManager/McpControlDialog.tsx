@@ -32,6 +32,8 @@ import {
   validateMcpSecurityDraft,
   type McpSecurityDraft,
 } from './mcpControlDialogModel';
+import { t, tn } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import './McpControlDialog.css';
 
 export interface McpControlDialogProps {
@@ -64,37 +66,37 @@ interface WebhookDraft {
   expiresAt: string;
 }
 
-const TAB_DEFINITIONS: Array<{ id: McpControlTab; label: string }> = [
-  { id: 'security', label: '보안' },
-  { id: 'agents', label: '에이전트 프로필' },
-  { id: 'webhooks', label: '웹훅' },
-  { id: 'sessions', label: '세션' },
-  { id: 'status', label: '감사/상태' },
+const TAB_DEFINITIONS: Array<{ id: McpControlTab; labelKey: MessageKey }> = [
+  { id: 'security', labelKey: 'mcp.tab.security' },
+  { id: 'agents', labelKey: 'mcp.tab.agents' },
+  { id: 'webhooks', labelKey: 'mcp.tab.webhooks' },
+  { id: 'sessions', labelKey: 'mcp.tab.sessions' },
+  { id: 'status', labelKey: 'mcp.tab.status' },
 ];
 
-const MCP_BIND_MODE_LABELS: Record<string, string> = {
-  loopback: '로컬 호스트 전용',
-  whitelist: '허용 목록 사용',
+const MCP_BIND_MODE_LABELS: Record<string, MessageKey> = {
+  loopback: 'mcp.bindMode.loopback',
+  whitelist: 'mcp.bindMode.whitelist',
 };
 
-const MCP_TRANSPORT_SECURITY_LABELS: Record<string, string> = {
-  none: '보안 사용 안 함',
-  direct_tls: '직접 TLS',
-  trusted_tls_proxy: '신뢰 프록시 TLS',
+const MCP_TRANSPORT_SECURITY_LABELS: Record<string, MessageKey> = {
+  none: 'mcp.transport.none',
+  direct_tls: 'mcp.transport.directTls',
+  trusted_tls_proxy: 'mcp.transport.trustedTlsProxy',
 };
 
-const MCP_CLIENT_CONFIG_MODE_LABELS: Record<McpClientConfigMode, string> = {
-  'generated-file': '생성 파일',
-  env: '환경 변수',
-  manual: '수동 설정',
+const MCP_CLIENT_CONFIG_MODE_LABELS: Record<McpClientConfigMode, MessageKey> = {
+  'generated-file': 'mcp.configMode.generatedFile',
+  env: 'mcp.configMode.env',
+  manual: 'mcp.configMode.manual',
 };
 
-const AUDIT_RECORD_FIELD_LABELS: Record<string, string> = {
-  ok: '성공',
-  code: '코드',
-  status: '상태',
-  message: '메시지',
-  changedFields: '변경 항목',
+const AUDIT_RECORD_FIELD_LABELS: Record<string, MessageKey> = {
+  ok: 'mcp.auditField.ok',
+  code: 'mcp.auditField.code',
+  status: 'mcp.auditField.status',
+  message: 'mcp.auditField.message',
+  changedFields: 'mcp.auditField.changedFields',
 };
 
 const DEFAULT_AGENT_DRAFT: AgentDraft = {
@@ -108,13 +110,17 @@ const DEFAULT_AGENT_DRAFT: AgentDraft = {
   mcpClientConfigMode: 'generated-file',
 };
 
-const DEFAULT_WEBHOOK_DRAFT: WebhookDraft = {
-  targetSessionKey: '',
-  profileId: '',
-  mode: formatMcpWebhookMode('paste'),
-  scopesText: 'mcp:webhook.invoke',
-  expiresAt: '',
-};
+// A function, not a constant: the mode label is translated, so it must not be
+// evaluated during module load (FR-I18N-002 AC-4).
+function createDefaultWebhookDraft(): WebhookDraft {
+  return {
+    targetSessionKey: '',
+    profileId: '',
+    mode: formatMcpWebhookMode('paste'),
+    scopesText: 'mcp:webhook.invoke',
+    expiresAt: '',
+  };
+}
 
 const DEFAULT_REPLY_TEST_PROMPT = 'Hello, World!';
 
@@ -127,7 +133,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
   const [sessions, setSessions] = useState<McpSessionRecord[]>([]);
   const [agentDraft, setAgentDraft] = useState<AgentDraft>(DEFAULT_AGENT_DRAFT);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
-  const [webhookDraft, setWebhookDraft] = useState<WebhookDraft>(DEFAULT_WEBHOOK_DRAFT);
+  const [webhookDraft, setWebhookDraft] = useState<WebhookDraft>(createDefaultWebhookDraft);
   const [webhookCredential, setWebhookCredential] = useState<McpWebhookCreateResponse | null>(null);
   const [fixedAccessKey, setFixedAccessKey] = useState<McpFixedAccessKeyRotation | null>(null);
   const [fixedAccessKeyOperation, setFixedAccessKeyOperation] = useState<FixedAccessKeyOperation>('generate');
@@ -271,7 +277,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       const nextConfig = await mcpControlApi.patchConfig(buildMcpControlConfigPatch(securityDraft));
       setConfig(nextConfig);
       setSecurityDraft(createMcpSecurityDraft(nextConfig));
-      setStatusMessage('MCP 보안 설정을 저장했습니다.');
+      setStatusMessage(t('mcp.security.saved'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -311,8 +317,8 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       setConfig(current => current ? { ...current, fixedAccessKeyConfigured: true } : current);
       setFixedAccessKeyRotationConfirmOpen(false);
       setStatusMessage(fixedAccessKeyOperation === 'regenerate'
-        ? '고정 인증키를 재생성했습니다. 지금 복사해 안전한 곳에 보관하세요.'
-        : '고정 인증키를 생성했습니다. 지금 복사해 안전한 곳에 보관하세요.');
+        ? t('mcp.fixedKey.regenerated')
+        : t('mcp.fixedKey.generated'));
     } catch (nextError) {
       if (operationEpoch !== fixedAccessKeyEpochRef.current || abortController.signal.aborted) {
         return;
@@ -344,7 +350,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     setError(null);
     try {
       await copyTextToClipboard(fixedAccessKey.accessKey);
-      setStatusMessage('고정 인증키를 클립보드에 복사했습니다.');
+      setStatusMessage(t('mcp.fixedKey.copied'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     }
@@ -371,7 +377,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       setAgentDraft(DEFAULT_AGENT_DRAFT);
       setEditingAgentId(null);
       await loadAgents();
-      setStatusMessage(editingAgentId ? '에이전트 프로필을 저장했습니다.' : '에이전트 프로필을 추가했습니다.');
+      setStatusMessage(editingAgentId ? t('mcp.agent.saved') : t('mcp.agent.added'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -425,7 +431,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
         setAgentDraft(DEFAULT_AGENT_DRAFT);
       }
       await loadAgents();
-      setStatusMessage('에이전트 프로필을 삭제했습니다.');
+      setStatusMessage(t('mcp.agent.deleted'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -454,9 +460,9 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
         expiresAt: webhookDraft.expiresAt.trim() || undefined,
       });
       setWebhookCredential(response);
-      setWebhookDraft(DEFAULT_WEBHOOK_DRAFT);
+      setWebhookDraft(createDefaultWebhookDraft());
       await loadWebhooks();
-      setStatusMessage('웹훅 키를 생성했습니다.');
+      setStatusMessage(t('mcp.webhook.created'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -472,7 +478,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       const response = await mcpControlApi.rotateWebhook(getWebhookId(webhook));
       setWebhookCredential(response);
       await loadWebhooks();
-      setStatusMessage('웹훅 키를 교체했습니다. 이전 키는 더 이상 쓸 수 없습니다.');
+      setStatusMessage(t('mcp.webhook.rotated'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -487,7 +493,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     try {
       await mcpControlApi.revokeWebhook(getWebhookId(webhook));
       await loadWebhooks();
-      setStatusMessage('웹훅 키를 폐기했습니다.');
+      setStatusMessage(t('mcp.webhook.revoked'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -519,7 +525,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       const result = await mcpControlApi.searchTest(sessionQuery);
       setSessions(result.matches);
       updateAliasDrafts(result.matches);
-      setStatusMessage(`검색 결과 ${result.matches.length}건`);
+      setStatusMessage(tn('mcp.session.searchResults', result.matches.length));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -533,7 +539,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     try {
       await mcpControlApi.setSessionAlias(session.sessionKey, aliasDrafts[session.sessionKey] ?? '');
       await loadSessions(sessionQuery);
-      setStatusMessage('세션 별칭을 저장했습니다.');
+      setStatusMessage(t('mcp.session.aliasSaved'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -548,7 +554,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     try {
       const response = await mcpControlApi.createSessionClaimCode(session.sessionKey);
       setSessionClaimCode(response);
-      setStatusMessage('일회성 연결 코드를 발급했습니다.');
+      setStatusMessage(t('mcp.session.claimCodeIssued'));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -559,7 +565,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
   const handleReplyTest = useCallback(async (session: McpSessionRecord) => {
     const prompt = replyPrompt.trim();
     if (!prompt) {
-      setError('전달 테스트 프롬프트가 필요합니다.');
+      setError(t('mcp.session.replyPromptRequired'));
       return;
     }
 
@@ -567,7 +573,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     setError(null);
     try {
       const result = await mcpControlApi.replyTest(session.sessionKey, prompt);
-      setStatusMessage(result.accepted ? '메시지 전달 테스트를 접수했습니다.' : `전달 테스트 거부: ${result.code ?? '알 수 없음'}`);
+      setStatusMessage(result.accepted ? t('mcp.session.replyAccepted') : t('mcp.session.replyRejected', { code: result.code ?? t('common.unknown') }));
     } catch (nextError) {
       setError(getErrorMessage(nextError));
     } finally {
@@ -578,11 +584,11 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
   const handleCloseSession = useCallback(async (session: McpSessionRecord) => {
     const confirmationNonce = session.closeConfirmationNonce;
     if (!confirmationNonce) {
-      setError('이 세션에는 닫기 확인 토큰이 없습니다. 세션 목록을 다시 조회하십시오.');
+      setError(t('mcp.session.noCloseToken'));
       return;
     }
 
-    if (!window.confirm(`${session.alias || session.name || session.sessionKey} 세션을 닫습니까?`)) {
+    if (!window.confirm(t('mcp.session.closeConfirm', { name: session.alias || session.name || session.sessionKey }))) {
       return;
     }
 
@@ -594,7 +600,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
         expectedSessionKey: session.sessionKey,
         confirmationNonce,
       });
-      setStatusMessage(result.ok ? '세션 닫기 요청을 접수했습니다.' : `세션 닫기 거부: ${result.code ?? result.status ?? '알 수 없음'}`);
+      setStatusMessage(result.ok ? t('mcp.session.closeAccepted') : t('mcp.session.closeRejected', { code: result.code ?? result.status ?? t('common.unknown') }));
       await loadSessions(sessionQuery);
     } catch (nextError) {
       setError(getErrorMessage(nextError));
@@ -611,7 +617,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     <>
       <WindowDialog
       dialogId="mcp-control-manager"
-      title="MCP 관리"
+      title={t('mcp.dialog.title')}
       mode="modal"
       defaultRect={{ x: 160, y: 88, width: 860, height: 620 }}
       minSize={{ width: 680, height: 480 }}
@@ -619,7 +625,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       surfaceClassName="mcp-control-dialog-surface"
     >
       <div className="mcp-control-dialog" data-testid="mcp-control-dialog">
-        <div className="mcp-control-tabs" role="tablist" aria-label="MCP 관리 탭">
+        <div className="mcp-control-tabs" role="tablist" aria-label={t('mcp.dialog.tabsLabel')}>
           {visibleTabs.map(tab => (
             <button
               key={tab.id}
@@ -632,7 +638,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
               className={`mcp-control-tab${activeTab === tab.id ? ' is-active' : ''}`}
               onClick={() => handleTabChange(tab.id)}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -640,7 +646,7 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
         {loading && (
           <div className="mcp-control-loading" role="status">
             <Spinner />
-            불러오는 중
+            {t('mcp.dialog.loading')}
           </div>
         )}
         {error && (
@@ -760,12 +766,12 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       {fixedAccessKeyRotationConfirmOpen && (
         <MessageBox
           dialogId="mcp-fixed-access-key-rotate-confirm"
-          title={fixedAccessKeyOperation === 'regenerate' ? '고정 인증키 재생성' : '고정 인증키 생성'}
+          title={fixedAccessKeyOperation === 'regenerate' ? t('mcp.fixedKey.regenerate') : t('mcp.fixedKey.generate')}
           message={fixedAccessKeyOperation === 'regenerate'
-            ? '정말로 재생성하시겠습니까? 현재 고정 인증키는 즉시 사용할 수 없게 됩니다.'
-            : '새 고정 인증키를 생성하시겠습니까? 생성된 키는 이번 응답에서만 표시됩니다.'}
-          okLabel={fixedAccessKeyOperation === 'regenerate' ? '재생성' : '생성'}
-          cancelLabel="취소"
+            ? t('mcp.fixedKey.regenerateConfirm')
+            : t('mcp.fixedKey.generateConfirm')}
+          okLabel={fixedAccessKeyOperation === 'regenerate' ? t('mcp.fixedKey.regenerateOk') : t('mcp.fixedKey.generateOk')}
+          cancelLabel={t('common.cancel')}
           okVariant="danger"
           busy={saving}
           error={fixedAccessKeyRotationError}
@@ -806,7 +812,7 @@ function renderSecurityPanel({
   onCopyFixedAccessKey: () => void;
 }) {
   if (!draft) {
-    return <div className="mcp-control-empty">MCP 설정을 불러오지 못했습니다.</div>;
+    return <div className="mcp-control-empty">{t('mcp.security.loadFailed')}</div>;
   }
 
   return (
@@ -817,22 +823,22 @@ function renderSecurityPanel({
             checked={draft.enabled}
             onChange={(event) => onDraftChange('enabled', event.target.checked)}
           >
-            MCP 엔드포인트 사용
+            {t('mcp.security.enabled')}
           </Switch>
         </div>
 
-        <Field label="바인드 모드" htmlFor="mcp-security-bind-mode" className="mcp-control-field">
+        <Field label={t('mcp.security.bindMode')} htmlFor="mcp-security-bind-mode" className="mcp-control-field">
           <Select
             id="mcp-security-bind-mode"
             value={draft.bindMode}
             onChange={(event) => onDraftChange('bindMode', event.target.value)}
           >
-            <option value="loopback">{MCP_BIND_MODE_LABELS.loopback}</option>
-            <option value="whitelist">{MCP_BIND_MODE_LABELS.whitelist}</option>
+            <option value="loopback">{t(MCP_BIND_MODE_LABELS.loopback)}</option>
+            <option value="whitelist">{t(MCP_BIND_MODE_LABELS.whitelist)}</option>
           </Select>
         </Field>
 
-        <Field label="호스트 주소" htmlFor="mcp-security-host" className="mcp-control-field">
+        <Field label={t('mcp.security.host')} htmlFor="mcp-security-host" className="mcp-control-field">
           <TextInput
             id="mcp-security-host"
             mono
@@ -842,7 +848,7 @@ function renderSecurityPanel({
           />
         </Field>
 
-        <Field label="포트" htmlFor="mcp-security-port" className="mcp-control-field">
+        <Field label={t('mcp.security.port')} htmlFor="mcp-security-port" className="mcp-control-field">
           <TextInput
             id="mcp-security-port"
             mono
@@ -852,19 +858,19 @@ function renderSecurityPanel({
           />
         </Field>
 
-        <Field label="전송 보안" htmlFor="mcp-security-transport" className="mcp-control-field">
+        <Field label={t('mcp.security.transport')} htmlFor="mcp-security-transport" className="mcp-control-field">
           <Select
             id="mcp-security-transport"
             value={draft.transportSecurity}
             onChange={(event) => onDraftChange('transportSecurity', event.target.value)}
           >
-            <option value="none">{MCP_TRANSPORT_SECURITY_LABELS.none}</option>
-            <option value="direct_tls">{MCP_TRANSPORT_SECURITY_LABELS.direct_tls}</option>
-            <option value="trusted_tls_proxy">{MCP_TRANSPORT_SECURITY_LABELS.trusted_tls_proxy}</option>
+            <option value="none">{t(MCP_TRANSPORT_SECURITY_LABELS.none)}</option>
+            <option value="direct_tls">{t(MCP_TRANSPORT_SECURITY_LABELS.direct_tls)}</option>
+            <option value="trusted_tls_proxy">{t(MCP_TRANSPORT_SECURITY_LABELS.trusted_tls_proxy)}</option>
           </Select>
         </Field>
 
-        <Field label="웹훅 헤더" htmlFor="mcp-security-webhook-header" className="mcp-control-field">
+        <Field label={t('mcp.security.webhookHeader')} htmlFor="mcp-security-webhook-header" className="mcp-control-field">
           <TextInput
             id="mcp-security-webhook-header"
             mono
@@ -874,7 +880,7 @@ function renderSecurityPanel({
           />
         </Field>
 
-        <Field label="웹훅 요청 제한 시간" htmlFor="mcp-security-rate-window" className="mcp-control-field">
+        <Field label={t('mcp.security.rateWindow')} htmlFor="mcp-security-rate-window" className="mcp-control-field">
           <span className="ui-unit-wrap">
             <TextInput
               id="mcp-security-rate-window"
@@ -882,11 +888,11 @@ function renderSecurityPanel({
               inputMode="numeric"
               onChange={(event) => onDraftChange('webhookRateLimitWindowSecondsText', event.target.value)}
             />
-            <span className="ui-unit" aria-hidden="true">초</span>
+            <span className="ui-unit" aria-hidden="true">{t('mcp.security.unitSeconds')}</span>
           </span>
         </Field>
 
-        <Field label="웹훅 순간 요청 한도" htmlFor="mcp-security-rate-burst" className="mcp-control-field">
+        <Field label={t('mcp.security.rateBurst')} htmlFor="mcp-security-rate-burst" className="mcp-control-field">
           <span className="ui-unit-wrap">
             <TextInput
               id="mcp-security-rate-burst"
@@ -894,16 +900,16 @@ function renderSecurityPanel({
               inputMode="numeric"
               onChange={(event) => onDraftChange('webhookRateLimitBurstLimitText', event.target.value)}
             />
-            <span className="ui-unit" aria-hidden="true">회</span>
+            <span className="ui-unit" aria-hidden="true">{t('mcp.security.unitTimes')}</span>
           </span>
         </Field>
       </div>
 
       <div className="mcp-control-textarea-grid">
         <Field
-          label="외부 IP/CIDR 허용 목록"
+          label={t('mcp.security.externalWhitelist')}
           htmlFor="mcp-security-external-whitelist"
-          help="한 줄에 하나씩, 또는 쉼표로 나눠 적습니다."
+          help={t('mcp.security.listHelp')}
           className="mcp-control-field"
         >
           <textarea
@@ -916,7 +922,7 @@ function renderSecurityPanel({
           />
         </Field>
 
-        <Field label="신뢰 프록시" htmlFor="mcp-security-trusted-proxies" className="mcp-control-field">
+        <Field label={t('mcp.security.trustedProxies')} htmlFor="mcp-security-trusted-proxies" className="mcp-control-field">
           <textarea
             id="mcp-security-trusted-proxies"
             className="ui-input mcp-control-textarea"
@@ -927,7 +933,7 @@ function renderSecurityPanel({
           />
         </Field>
 
-        <Field label="허용 오리진" htmlFor="mcp-security-allowed-origins" className="mcp-control-field">
+        <Field label={t('mcp.security.allowedOrigins')} htmlFor="mcp-security-allowed-origins" className="mcp-control-field">
           <textarea
             id="mcp-security-allowed-origins"
             className="ui-input mcp-control-textarea"
@@ -943,10 +949,10 @@ function renderSecurityPanel({
         <div className="mcp-control-access-key-head">
           <span className="mcp-control-access-key-icon"><Icon name="lock" size={18} /></span>
           <div className="mcp-control-item-main">
-            <h3>고정 인증키</h3>
+            <h3>{t('mcp.fixedKey.heading')}</h3>
             <div className="mcp-control-item-meta">
-              <span>외부 MCP 클라이언트의 Bearer 인증에 사용합니다.</span>
-              <span>세션 목록, 검색, 메시지 전달 권한만 부여합니다.</span>
+              <span>{t('mcp.fixedKey.descBearer')}</span>
+              <span>{t('mcp.fixedKey.descScope')}</span>
             </div>
           </div>
           <Button
@@ -957,14 +963,14 @@ function renderSecurityPanel({
             onClick={onRequestFixedAccessKeyRotation}
             disabled={saving}
           >
-            {config?.fixedAccessKeyConfigured ? '고정 인증키 재생성' : '고정 인증키 생성'}
+            {config?.fixedAccessKeyConfigured ? t('mcp.fixedKey.regenerate') : t('mcp.fixedKey.generate')}
           </Button>
         </div>
         {fixedAccessKey && (
           <Field
-            label="새 고정 인증키"
+            label={t('mcp.fixedKey.newKey')}
             htmlFor="mcp-security-new-access-key"
-            help="이 창을 닫거나 다른 탭으로 옮기면 다시 볼 수 없습니다."
+            help={t('mcp.fixedKey.newKeyHelp')}
             className="mcp-control-field"
           >
             <div className="mcp-control-secret-value">
@@ -983,7 +989,7 @@ function renderSecurityPanel({
                 className="mcp-control-secondary-button"
                 onClick={onCopyFixedAccessKey}
               >
-                복사
+                {t('common.copy')}
               </Button>
             </div>
           </Field>
@@ -991,8 +997,8 @@ function renderSecurityPanel({
       </div>
 
       <div className="mcp-control-status-strip">
-        <span>상태: {formatMcpControlStatus(config?.status)}</span>
-        <span>최근 재바인드: {summarizeUnknown(config?.lastRebindResult)}</span>
+        <span>{t('mcp.security.statusLine', { status: formatMcpControlStatus(config?.status) })}</span>
+        <span>{t('mcp.security.lastRebindLine', { result: summarizeUnknown(config?.lastRebindResult) })}</span>
       </div>
 
       <div className="mcp-control-actions">
@@ -1004,10 +1010,10 @@ function renderSecurityPanel({
           onClick={onReload}
           disabled={saving}
         >
-          새로고침
+          {t('common.refresh')}
         </Button>
         <Button variant="primary" size="md" className="mcp-control-primary-button" onClick={onSave} disabled={saving}>
-          저장
+          {t('common.save')}
         </Button>
       </div>
     </div>
@@ -1042,14 +1048,14 @@ function renderAgentsPanel({
   return (
     <div className="mcp-control-section">
       <div className="mcp-control-form-grid">
-        <Field label="프로필 이름" htmlFor="mcp-agent-display-name" className="mcp-control-field">
+        <Field label={t('mcp.agent.displayName')} htmlFor="mcp-agent-display-name" className="mcp-control-field">
           <TextInput
             id="mcp-agent-display-name"
             value={draft.displayName}
             onChange={(event) => onDraftChange({ ...draft, displayName: event.target.value })}
           />
         </Field>
-        <Field label="실행 명령" htmlFor="mcp-agent-command" className="mcp-control-field">
+        <Field label={t('mcp.agent.command')} htmlFor="mcp-agent-command" className="mcp-control-field">
           <TextInput
             id="mcp-agent-command"
             mono
@@ -1058,15 +1064,15 @@ function renderAgentsPanel({
             spellCheck={false}
           />
         </Field>
-        <Field label="설정 방식" htmlFor="mcp-agent-config-mode" className="mcp-control-field">
+        <Field label={t('mcp.agent.configMode')} htmlFor="mcp-agent-config-mode" className="mcp-control-field">
           <Select
             id="mcp-agent-config-mode"
             value={draft.mcpClientConfigMode}
             onChange={(event) => onDraftChange({ ...draft, mcpClientConfigMode: event.target.value as McpClientConfigMode })}
           >
-            <option value="generated-file">{MCP_CLIENT_CONFIG_MODE_LABELS['generated-file']}</option>
-            <option value="env">{MCP_CLIENT_CONFIG_MODE_LABELS.env}</option>
-            <option value="manual">{MCP_CLIENT_CONFIG_MODE_LABELS.manual}</option>
+            <option value="generated-file">{t(MCP_CLIENT_CONFIG_MODE_LABELS['generated-file'])}</option>
+            <option value="env">{t(MCP_CLIENT_CONFIG_MODE_LABELS.env)}</option>
+            <option value="manual">{t(MCP_CLIENT_CONFIG_MODE_LABELS.manual)}</option>
           </Select>
         </Field>
         <div className="mcp-control-checkbox-field">
@@ -1074,7 +1080,7 @@ function renderAgentsPanel({
             checked={draft.enabled}
             onChange={(event) => onDraftChange({ ...draft, enabled: event.target.checked })}
           >
-            사용
+            {t('mcp.agent.enabled')}
           </Checkbox>
         </div>
         <div className="mcp-control-checkbox-field">
@@ -1082,12 +1088,12 @@ function renderAgentsPanel({
             checked={draft.isDefault}
             onChange={(event) => onDraftChange({ ...draft, isDefault: event.target.checked })}
           >
-            기본 프로필
+            {t('mcp.agent.default')}
           </Checkbox>
         </div>
       </div>
       <div className="mcp-control-textarea-grid">
-        <Field label="실행 인수" htmlFor="mcp-agent-args" help="한 줄에 인수 하나씩 적습니다." className="mcp-control-field">
+        <Field label={t('mcp.agent.args')} htmlFor="mcp-agent-args" help={t('mcp.agent.argsHelp')} className="mcp-control-field">
           <textarea
             id="mcp-agent-args"
             className="ui-input mcp-control-textarea"
@@ -1096,7 +1102,7 @@ function renderAgentsPanel({
             onChange={(event) => onDraftChange({ ...draft, argsText: event.target.value })}
           />
         </Field>
-        <Field label="별칭" htmlFor="mcp-agent-aliases" help="한 줄에 별칭 하나씩 적습니다." className="mcp-control-field">
+        <Field label={t('mcp.agent.aliases')} htmlFor="mcp-agent-aliases" help={t('mcp.agent.aliasesHelp')} className="mcp-control-field">
           <textarea
             id="mcp-agent-aliases"
             className="ui-input mcp-control-textarea"
@@ -1105,7 +1111,7 @@ function renderAgentsPanel({
             onChange={(event) => onDraftChange({ ...draft, aliasesText: event.target.value })}
           />
         </Field>
-        <Field label="시작 프롬프트" htmlFor="mcp-agent-kickoff-prompt" className="mcp-control-field">
+        <Field label={t('mcp.agent.kickoffPrompt')} htmlFor="mcp-agent-kickoff-prompt" className="mcp-control-field">
           <textarea
             id="mcp-agent-kickoff-prompt"
             className="ui-input mcp-control-textarea"
@@ -1124,43 +1130,43 @@ function renderAgentsPanel({
           onClick={onReload}
           disabled={saving}
         >
-          새로고침
+          {t('common.refresh')}
         </Button>
         {editingAgentId && (
           <Button variant="secondary" size="md" className="mcp-control-secondary-button" onClick={onCancelEdit} disabled={saving}>
-            취소
+            {t('common.cancel')}
           </Button>
         )}
         <Button variant="primary" size="md" className="mcp-control-primary-button" onClick={onSave} disabled={saving}>
-          {editingAgentId ? '프로필 저장' : '프로필 추가'}
+          {editingAgentId ? t('mcp.agent.save') : t('mcp.agent.add')}
         </Button>
       </div>
-      <div className="mcp-control-list" aria-label="에이전트 프로필 목록">
+      <div className="mcp-control-list" aria-label={t('mcp.agent.listLabel')}>
         {agents.length === 0 ? (
-          <div className="mcp-control-empty">등록된 에이전트 프로필이 없습니다.</div>
+          <div className="mcp-control-empty">{t('mcp.agent.empty')}</div>
         ) : agents.map(agent => (
           <div key={agent.id} className="mcp-control-item">
             <div className="mcp-control-item-main">
               <div className="mcp-control-item-title">
                 <h3>{agent.displayName}</h3>
-                {agent.isDefault && <Chip tone="accent">기본 프로필</Chip>}
-                {!agent.enabled && <Chip tone="neutral">사용 안 함</Chip>}
+                {agent.isDefault && <Chip tone="accent">{t('mcp.agent.default')}</Chip>}
+                {!agent.enabled && <Chip tone="neutral">{t('mcp.agent.disabled')}</Chip>}
               </div>
               <div className="mcp-control-item-meta">
                 <span>{agent.commandSummary ?? [agent.command, ...agent.args].join(' ')}</span>
-                <span>{MCP_CLIENT_CONFIG_MODE_LABELS[agent.mcpClientConfigMode]}</span>
-                {agent.aliases.length > 0 && <span>별칭: {agent.aliases.join(', ')}</span>}
+                <span>{t(MCP_CLIENT_CONFIG_MODE_LABELS[agent.mcpClientConfigMode])}</span>
+                {agent.aliases.length > 0 && <span>{t('mcp.agent.aliasesLine', { aliases: agent.aliases.join(', ') })}</span>}
               </div>
             </div>
             <div className="mcp-control-item-actions">
               <Button variant="secondary" size="md" onClick={() => onEdit(agent)} disabled={saving}>
-                수정
+                {t('mcp.agent.edit')}
               </Button>
               <Button variant="secondary" size="md" onClick={() => onToggle(agent)} disabled={saving}>
-                {agent.enabled ? '끄기' : '켜기'}
+                {agent.enabled ? t('mcp.agent.turnOff') : t('mcp.agent.turnOn')}
               </Button>
               <Button variant="danger-text" size="md" onClick={() => onDelete(agent)} disabled={saving}>
-                삭제
+                {t('common.delete')}
               </Button>
             </div>
           </div>
@@ -1196,7 +1202,7 @@ function renderWebhooksPanel({
   return (
     <div className="mcp-control-section">
       <div className="mcp-control-form-grid">
-        <Field label="대상 세션" htmlFor="mcp-webhook-target-session" className="mcp-control-field">
+        <Field label={t('mcp.webhook.targetSession')} htmlFor="mcp-webhook-target-session" className="mcp-control-field">
           <TextInput
             id="mcp-webhook-target-session"
             mono
@@ -1204,7 +1210,7 @@ function renderWebhooksPanel({
             onChange={(event) => onDraftChange({ ...draft, targetSessionKey: event.target.value })}
           />
         </Field>
-        <Field label="프로필 ID" htmlFor="mcp-webhook-profile-id" className="mcp-control-field">
+        <Field label={t('mcp.webhook.profileId')} htmlFor="mcp-webhook-profile-id" className="mcp-control-field">
           <TextInput
             id="mcp-webhook-profile-id"
             mono
@@ -1212,14 +1218,14 @@ function renderWebhooksPanel({
             onChange={(event) => onDraftChange({ ...draft, profileId: event.target.value })}
           />
         </Field>
-        <Field label="전달 방식" htmlFor="mcp-webhook-mode" className="mcp-control-field">
+        <Field label={t('mcp.webhook.mode')} htmlFor="mcp-webhook-mode" className="mcp-control-field">
           <TextInput
             id="mcp-webhook-mode"
             value={draft.mode}
             onChange={(event) => onDraftChange({ ...draft, mode: event.target.value })}
           />
         </Field>
-        <Field label="만료 시각" htmlFor="mcp-webhook-expires-at" className="mcp-control-field">
+        <Field label={t('mcp.webhook.expiresAt')} htmlFor="mcp-webhook-expires-at" className="mcp-control-field">
           <TextInput
             id="mcp-webhook-expires-at"
             mono
@@ -1228,7 +1234,7 @@ function renderWebhooksPanel({
           />
         </Field>
       </div>
-      <Field label="권한 범위" htmlFor="mcp-webhook-scopes" className="mcp-control-field">
+      <Field label={t('mcp.webhook.scopes')} htmlFor="mcp-webhook-scopes" className="mcp-control-field">
         <textarea
           id="mcp-webhook-scopes"
           className="ui-input mcp-control-textarea"
@@ -1239,15 +1245,15 @@ function renderWebhooksPanel({
       </Field>
       {credential && (
         <div className="mcp-control-credential" role="status">
-          <Field label="전체 키" htmlFor="mcp-webhook-full-key" className="mcp-control-field">
+          <Field label={t('mcp.webhook.fullKey')} htmlFor="mcp-webhook-full-key" className="mcp-control-field">
             <TextInput id="mcp-webhook-full-key" mono value={credential.fullKey} readOnly autoComplete="off" />
           </Field>
-          <Field label="전체 URL" htmlFor="mcp-webhook-full-url" className="mcp-control-field">
+          <Field label={t('mcp.webhook.fullUrl')} htmlFor="mcp-webhook-full-url" className="mcp-control-field">
             <TextInput id="mcp-webhook-full-url" mono value={credential.fullUrl} readOnly autoComplete="off" />
           </Field>
           <div className="mcp-control-actions">
             <Button variant="secondary" size="md" className="mcp-control-secondary-button" onClick={onDismissCredential}>
-              숨기기
+              {t('mcp.common.hide')}
             </Button>
           </div>
         </div>
@@ -1261,33 +1267,33 @@ function renderWebhooksPanel({
           onClick={onReload}
           disabled={saving}
         >
-          새로고침
+          {t('common.refresh')}
         </Button>
         <Button variant="primary" size="md" icon="plus" className="mcp-control-primary-button" onClick={onCreate} disabled={saving}>
-          웹훅 키 생성
+          {t('mcp.webhook.create')}
         </Button>
       </div>
-      <div className="mcp-control-list" aria-label="웹훅 목록">
+      <div className="mcp-control-list" aria-label={t('mcp.webhook.listLabel')}>
         {webhooks.length === 0 ? (
-          <div className="mcp-control-empty">등록된 웹훅 키가 없습니다.</div>
+          <div className="mcp-control-empty">{t('mcp.webhook.empty')}</div>
         ) : webhooks.map(webhook => (
           <div key={getWebhookId(webhook)} className="mcp-control-item">
             <div className="mcp-control-item-main">
               <div className="mcp-control-item-title">
                 <h3>{webhook.maskedKey || getWebhookId(webhook)}</h3>
-                <Chip tone={webhook.revoked ? 'neutral' : 'ok'}>{webhook.revoked ? '폐기됨' : '사용 중'}</Chip>
+                <Chip tone={webhook.revoked ? 'neutral' : 'ok'}>{webhook.revoked ? t('mcp.webhook.revokedChip') : t('mcp.webhook.activeChip')}</Chip>
               </div>
               <div className="mcp-control-item-meta">
-                <span>{webhook.targetSessionKey ?? '세션 대상 없음'}</span>
+                <span>{webhook.targetSessionKey ?? t('mcp.webhook.noTarget')}</span>
                 <span>{webhook.scopes.join(', ')}</span>
               </div>
             </div>
             <div className="mcp-control-item-actions">
               <Button variant="secondary" size="md" onClick={() => onRotate(webhook)} disabled={saving || webhook.revoked}>
-                키 교체
+                {t('mcp.webhook.rotate')}
               </Button>
               <Button variant="danger-text" size="md" onClick={() => onRevoke(webhook)} disabled={saving || webhook.revoked}>
-                폐기
+                {t('mcp.webhook.revoke')}
               </Button>
             </div>
           </div>
@@ -1335,7 +1341,7 @@ function renderSessionsPanel({
   return (
     <div className="mcp-control-section">
       <div className="mcp-control-session-search">
-        <Field label="검색" htmlFor="mcp-session-query" className="mcp-control-field">
+        <Field label={t('mcp.session.query')} htmlFor="mcp-session-query" className="mcp-control-field">
           <TextInput id="mcp-session-query" value={query} onChange={(event) => onQueryChange(event.target.value)} />
         </Field>
         <div className="mcp-control-actions">
@@ -1347,14 +1353,14 @@ function renderSessionsPanel({
             onClick={onSearch}
             disabled={saving}
           >
-            조회
+            {t('mcp.session.list')}
           </Button>
           <Button variant="secondary" size="md" className="mcp-control-secondary-button" onClick={onSearchTest} disabled={saving}>
-            검색 테스트
+            {t('mcp.session.searchTest')}
           </Button>
         </div>
       </div>
-      <Field label="전달 테스트 프롬프트" htmlFor="mcp-session-reply-prompt" className="mcp-control-field">
+      <Field label={t('mcp.session.replyPrompt')} htmlFor="mcp-session-reply-prompt" className="mcp-control-field">
         <TextInput
           id="mcp-session-reply-prompt"
           value={replyPrompt}
@@ -1363,44 +1369,44 @@ function renderSessionsPanel({
       </Field>
       {claimCode && (
         <div className="mcp-control-credential" role="status">
-          <Field label="세션 키" htmlFor="mcp-session-claim-key" className="mcp-control-field">
+          <Field label={t('mcp.session.claimKey')} htmlFor="mcp-session-claim-key" className="mcp-control-field">
             <TextInput id="mcp-session-claim-key" mono value={claimCode.sessionKey} readOnly autoComplete="off" />
           </Field>
-          <Field label="일회성 연결 코드" htmlFor="mcp-session-claim-code" className="mcp-control-field">
+          <Field label={t('mcp.session.claimCode')} htmlFor="mcp-session-claim-code" className="mcp-control-field">
             <TextInput id="mcp-session-claim-code" mono value={claimCode.claimCode} readOnly autoComplete="off" />
           </Field>
           <div className="mcp-control-actions">
             <Button variant="secondary" size="md" className="mcp-control-secondary-button" onClick={onDismissClaimCode}>
-              숨기기
+              {t('mcp.common.hide')}
             </Button>
           </div>
         </div>
       )}
-      <div className="mcp-control-list" aria-label="세션 목록">
+      <div className="mcp-control-list" aria-label={t('mcp.session.listLabel')}>
         {sessions.length === 0 ? (
-          <div className="mcp-control-empty">조회된 세션이 없습니다.</div>
+          <div className="mcp-control-empty">{t('mcp.session.empty')}</div>
         ) : sessions.map((session, index) => (
           <div key={session.sessionKey} className="mcp-control-item mcp-control-session-item">
             <div className="mcp-control-item-main">
               <div className="mcp-control-item-title">
                 <h3>{session.alias || session.name || session.sessionKey}</h3>
                 <Chip tone={session.mcpConnected ? 'ok' : 'neutral'}>
-                  {session.mcpConnected ? 'MCP 연결됨' : 'MCP 연결 끊김'}
+                  {session.mcpConnected ? t('mcp.session.connected') : t('mcp.session.disconnected')}
                 </Chip>
-                {session.leader && <Chip tone="accent">리더</Chip>}
+                {session.leader && <Chip tone="accent">{t('mcp.session.leader')}</Chip>}
               </div>
               <div className="mcp-control-item-meta">
-                <span>세션 키: {session.sessionKey}</span>
-                <span>세션 ID: {session.sessionId ?? session.currentSessionId ?? '알 수 없음'}</span>
+                <span>{t('mcp.session.keyLine', { key: session.sessionKey })}</span>
+                <span>{t('mcp.session.idLine', { id: session.sessionId ?? session.currentSessionId ?? t('common.unknown') })}</span>
                 {session.currentSessionId && session.currentSessionId !== session.sessionId && (
-                  <span>현재 세션 ID: {session.currentSessionId}</span>
+                  <span>{t('mcp.session.currentIdLine', { id: session.currentSessionId })}</span>
                 )}
                 <span>{formatMcpAgentStatus(session.agentStatus ?? session.status)}</span>
                 <span>{formatMcpBindingLifecycle(session.bindingLifecycle)}</span>
-                {session.lastSeenAt && <span>마지막 확인: {session.lastSeenAt}</span>}
+                {session.lastSeenAt && <span>{t('mcp.session.lastSeenLine', { time: session.lastSeenAt })}</span>}
                 <span>{session.cwd ?? ''}</span>
               </div>
-              <Field label="별칭" htmlFor={`mcp-session-alias-${index}`} className="mcp-control-field">
+              <Field label={t('mcp.session.alias')} htmlFor={`mcp-session-alias-${index}`} className="mcp-control-field">
                 <TextInput
                   id={`mcp-session-alias-${index}`}
                   value={aliasDrafts[session.sessionKey] ?? ''}
@@ -1412,17 +1418,17 @@ function renderSessionsPanel({
               </Field>
             </div>
             <div className="mcp-control-item-actions">
-              <Button variant="secondary" size="md" onClick={() => onSaveAlias(session)} disabled={saving}>별칭 저장</Button>
-              <Button variant="secondary" size="md" onClick={() => onCreateClaimCode(session)} disabled={saving}>연결 코드 발급</Button>
-              <Button variant="secondary" size="md" onClick={() => onReplyTest(session)} disabled={saving}>전달 테스트</Button>
+              <Button variant="secondary" size="md" onClick={() => onSaveAlias(session)} disabled={saving}>{t('mcp.session.saveAlias')}</Button>
+              <Button variant="secondary" size="md" onClick={() => onCreateClaimCode(session)} disabled={saving}>{t('mcp.session.issueClaimCode')}</Button>
+              <Button variant="secondary" size="md" onClick={() => onReplyTest(session)} disabled={saving}>{t('mcp.session.replyTest')}</Button>
               <Button
                 variant="danger-text"
                 size="md"
                 onClick={() => onCloseSession(session)}
                 disabled={saving || !session.closeConfirmationNonce}
-                title={session.closeConfirmationNonce ? '세션 닫기' : '목록 조회에서 발급된 닫기 확인 토큰이 필요합니다'}
+                title={session.closeConfirmationNonce ? t('common.closeSession') : t('mcp.session.closeTokenRequired')}
               >
-                세션 닫기
+                {t('common.closeSession')}
               </Button>
             </div>
           </div>
@@ -1449,29 +1455,29 @@ function renderStatusPanel({
   return (
     <div className="mcp-control-section">
       <dl className="mcp-control-status-grid">
-        <dt>사용 여부</dt>
+        <dt>{t('mcp.status.enabledLabel')}</dt>
         <dd>{formatMcpEnabled(config?.enabled)}</dd>
-        <dt>바인드</dt>
-        <dd>{config ? `${formatMcpBindMode(config.bindMode)} ${config.host}:${config.port}` : '알 수 없음'}</dd>
-        <dt>전송 보안</dt>
+        <dt>{t('mcp.status.bind')}</dt>
+        <dd>{config ? `${formatMcpBindMode(config.bindMode)} ${config.host}:${config.port}` : t('common.unknown')}</dd>
+        <dt>{t('mcp.status.transport')}</dt>
         <dd>{formatMcpTransportSecurity(config?.transportSecurity)}</dd>
-        <dt>상태</dt>
+        <dt>{t('mcp.status.statusLabel')}</dt>
         <dd>{formatMcpControlStatus(config?.status)}</dd>
-        <dt>최근 오류</dt>
+        <dt>{t('mcp.status.lastError')}</dt>
         <dd>{summarizeUnknown(config?.lastError)}</dd>
-        <dt>최근 재바인드</dt>
+        <dt>{t('mcp.status.lastRebind')}</dt>
         <dd>{summarizeUnknown(config?.lastRebindResult)}</dd>
-        <dt>감사 기록</dt>
-        <dd>{recentAuditEvents.length > 0 ? `최근 비식별화된 감사 기록 ${recentAuditEvents.length}건` : '최근 감사 기록이 없습니다.'}</dd>
-        <dt>에이전트 프로필</dt>
-        <dd>{agents.length}개</dd>
-        <dt>웹훅 키</dt>
-        <dd>{webhooks.length}개</dd>
-        <dt>세션</dt>
-        <dd>{sessions.length}개</dd>
+        <dt>{t('mcp.status.audit')}</dt>
+        <dd>{recentAuditEvents.length > 0 ? tn('mcp.status.auditCount', recentAuditEvents.length) : t('mcp.status.auditEmpty')}</dd>
+        <dt>{t('mcp.status.agents')}</dt>
+        <dd>{tn('mcp.status.agentCount', agents.length)}</dd>
+        <dt>{t('mcp.status.webhooks')}</dt>
+        <dd>{tn('mcp.status.webhookCount', webhooks.length)}</dd>
+        <dt>{t('mcp.status.sessions')}</dt>
+        <dd>{tn('mcp.status.sessionCount', sessions.length)}</dd>
       </dl>
       {recentAuditEvents.length > 0 && (
-        <div className="mcp-control-audit-list" aria-label="최근 감사 기록">
+        <div className="mcp-control-audit-list" aria-label={t('mcp.status.recentAudit')}>
           {recentAuditEvents.map((event, index) => (
             <div key={`${event.auditId ?? 'audit'}-${index}`} className="mcp-control-audit-item">
               {summarizeAuditEvent(event)}
@@ -1481,7 +1487,7 @@ function renderStatusPanel({
       )}
       <div className="mcp-control-actions">
         <Button variant="secondary" size="md" icon="refresh" className="mcp-control-secondary-button" onClick={onReload}>
-          새로고침
+          {t('common.refresh')}
         </Button>
       </div>
     </div>
@@ -1490,9 +1496,9 @@ function renderStatusPanel({
 
 function formatMcpEnabled(value: boolean | undefined): string {
   if (value === undefined) {
-    return '알 수 없음';
+    return t('common.unknown');
   }
-  return value ? '사용' : '사용 안 함';
+  return value ? t('mcp.status.enabled') : t('mcp.status.disabled');
 }
 
 function formatMcpBindMode(value: string | undefined): string {
@@ -1503,18 +1509,18 @@ function formatMcpTransportSecurity(value: string | undefined): string {
   return formatMcpControlValue(value, MCP_TRANSPORT_SECURITY_LABELS);
 }
 
-function formatMcpControlValue(value: string | undefined, labels: Record<string, string>): string {
+function formatMcpControlValue(value: string | undefined, labels: Record<string, MessageKey>): string {
   if (!value) {
-    return '알 수 없음';
+    return t('common.unknown');
   }
-  return labels[value] ?? `알 수 없음: ${value}`;
+  return labels[value] ? t(labels[value]) : t('mcp.common.unknownValue', { value });
 }
 
 function summarizeAuditEvent(event: McpRecentAuditEvent): string {
   const label = formatMcpAuditAction(event.action ?? event.category);
   const outcome = formatMcpAuditOutcome(event.result ?? event.code ?? event.reason);
   const target = summarizeUnknown(event.targetBinding ?? event.target);
-  return `${event.timestamp ?? '시간 없음'} ${label} ${outcome} 대상=${target}`;
+  return t('mcp.audit.summary', { time: event.timestamp ?? t('mcp.audit.noTime'), label, outcome, target });
 }
 
 function getWebhookId(webhook: McpWebhookKey): string {
@@ -1537,7 +1543,7 @@ async function copyTextToClipboard(text: string): Promise<void> {
     const copied = document.execCommand('copy');
     document.body.removeChild(textarea);
     if (!copied) {
-      throw new Error('클립보드에 복사하지 못했습니다.');
+      throw new Error(t('mcp.common.copyFailed'));
     }
   }
 }
@@ -1549,18 +1555,18 @@ function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') {
     return error;
   }
-  return 'MCP 제어 요청을 처리하지 못했습니다.';
+  return t('mcp.common.requestFailed');
 }
 
 function summarizeUnknown(value: unknown): string {
   if (value === null || value === undefined || value === '') {
-    return '없음';
+    return t('mcp.common.none');
   }
   if (typeof value === 'string') {
     return truncate(value, 180);
   }
   if (typeof value === 'boolean') {
-    return value ? '예' : '아니오';
+    return value ? t('mcp.common.yes') : t('mcp.common.no');
   }
   if (typeof value === 'number') {
     return String(value);
@@ -1569,10 +1575,10 @@ function summarizeUnknown(value: unknown): string {
     const record = value as Record<string, unknown>;
     const parts = ['ok', 'code', 'status', 'message', 'changedFields']
       .filter(key => record[key] !== undefined)
-      .map(key => `${AUDIT_RECORD_FIELD_LABELS[key]}=${formatRecordValue(record[key])}`);
-    return parts.length > 0 ? truncate(parts.join(' '), 220) : '객체';
+      .map(key => `${t(AUDIT_RECORD_FIELD_LABELS[key])}=${formatRecordValue(record[key])}`);
+    return parts.length > 0 ? truncate(parts.join(' '), 220) : t('mcp.common.object');
   }
-  return '알 수 없음';
+  return t('common.unknown');
 }
 
 function formatRecordValue(value: unknown): string {
@@ -1580,12 +1586,12 @@ function formatRecordValue(value: unknown): string {
     return value.join(',');
   }
   if (typeof value === 'boolean') {
-    return value ? '예' : '아니오';
+    return value ? t('mcp.common.yes') : t('mcp.common.no');
   }
   if (typeof value === 'string' || typeof value === 'number') {
     return String(value);
   }
-  return '객체';
+  return t('mcp.common.object');
 }
 
 function truncate(value: string, maxLength: number): string {

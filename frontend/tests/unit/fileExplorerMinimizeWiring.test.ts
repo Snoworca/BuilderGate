@@ -569,7 +569,7 @@ test('TC-REQ-FR-FEX-004-AC6-02 FileExplorerWindow 제목 표시줄에 최대화 
   const win = read(T.window);
   const hook = read(T.windowsHook);
 
-  const toggles = openingTags(win, 'IconToggleButton').filter(tag => /\slabel\s*=\s*["']최대화["']/.test(win.code.slice(tag.start, tag.end)));
+  const toggles = openingTags(win, 'IconToggleButton').filter(tag => /\slabel\s*=\s*\{t\('fileExplorer\.window\.maximize'\)\}/.test(win.code.slice(tag.start, tag.end)));
   assert.equal(toggles.length, 1, `${win.path}: expected one <IconToggleButton label="최대화">, found ${toggles.length}`);
   assert.ok(attrSpan(win, toggles[0], 'pressed'), `${where(win, toggles[0].start)}: the 최대화 toggle must say which end it is at (pressed=)`);
   const onToggle = attrSpan(win, toggles[0], 'onToggle');

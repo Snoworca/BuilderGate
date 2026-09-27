@@ -6,6 +6,7 @@ import { Icon } from '../common/Icon.tsx';
 import { IconButton } from '../common/IconButton.tsx';
 import type { IconName } from '../common/iconGlyphs.ts';
 import { joinClassNames } from './uiClasses.ts';
+import { t } from '../../i18n/i18n.ts';
 
 export interface DialogHeaderProps {
   icon?: IconName;
@@ -24,7 +25,7 @@ export function DialogHeader({
   titleId,
   description,
   onClose,
-  closeLabel = '닫기',
+  closeLabel = t('common.close'),
 }: DialogHeaderProps) {
   return (
     <div className="ui-dialog-header">

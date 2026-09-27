@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { terminalShortcutApi } from '../../services/api';
+import { t } from '../../i18n/i18n.ts';
 import type {
   CreateTerminalShortcutBindingRequest,
   ResetTerminalShortcutScopeRequest,
@@ -32,7 +33,7 @@ export function useTerminalShortcuts(): UseTerminalShortcutsResult {
     try {
       setState(await terminalShortcutApi.getState());
     } catch (reloadError) {
-      setError(reloadError instanceof Error ? reloadError.message : '터미널 단축키를 불러오지 못했습니다.');
+      setError(reloadError instanceof Error ? reloadError.message : t('shortcut.load.failed'));
       setState(null);
     } finally {
       setLoading(false);

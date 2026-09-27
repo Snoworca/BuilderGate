@@ -7,6 +7,8 @@
 // @req FR-FEX-006
 // @req FR-FEX-005
 
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import type { ContextMenuItem } from '../ContextMenu/index.ts';
 
 export type FileExplorerMenuActionId =
@@ -29,16 +31,16 @@ export const FILE_EXPLORER_MENU_ORDER: readonly FileExplorerMenuEntry[] = Object
   'newdir', 'refresh',
 ] as const);
 
-const LABELS: Record<FileExplorerMenuActionId, string> = {
-  open: '편집기로 열기',
-  newtab: '새 탭에서 열기',
-  copy: '복사',
-  cut: '잘라내기',
-  paste: '붙여넣기',
-  rename: '이름 바꾸기',
-  delete: '삭제',
-  newdir: '새 폴더',
-  refresh: '새로 읽기',
+const LABELS: Record<FileExplorerMenuActionId, MessageKey> = {
+  open: 'fileExplorer.menu.open',
+  newtab: 'fileExplorer.menu.newTab',
+  copy: 'common.copy',
+  cut: 'fileExplorer.menu.cut',
+  paste: 'common.paste',
+  rename: 'common.rename',
+  delete: 'common.delete',
+  newdir: 'fileExplorer.menu.newFolder',
+  refresh: 'fileExplorer.menu.reload',
 };
 
 const SHORTCUTS: Partial<Record<FileExplorerMenuActionId, string>> = {
@@ -143,7 +145,7 @@ export function buildFileExplorerContextMenuItems(
     if (entry === 'sep') return { separator: true };
     const shortcut = SHORTCUTS[entry];
     return {
-      label: LABELS[entry],
+      label: t(LABELS[entry]),
       onClick: handlers[entry],
       disabled: !isActionEnabled(entry, info),
       ...(shortcut !== undefined ? { shortcut } : {}),
@@ -183,7 +185,7 @@ export function buildMobileActionButtons(
   };
   return MOBILE_ACTION_ORDER.map(id => ({
     id,
-    label: LABELS[id],
+    label: t(LABELS[id]),
     disabled: !isActionEnabled(id, menuInfo),
     onClick: handlers[id],
   }));

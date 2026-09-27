@@ -13,6 +13,8 @@
 // @req FR-MDE-016
 // @req SEC-MDE-001
 
+import { t } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 import { useCallback, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -65,7 +67,7 @@ const HIDDEN_STYLE: CSSProperties = { ...FILL_STYLE, display: 'none' };
 // uses, so an SVG's source view looks like any other code document.
 const EDITOR_STYLE: CSSProperties = { flex: '1 1 auto', minHeight: 0, overflow: 'auto' };
 
-const SOURCE_READ_FAILED = 'SVG 소스를 읽지 못했습니다.';
+const SOURCE_READ_FAILED: MessageKey = 'editor.svg.readFailed';
 
 /**
  * ImageFileViewer owns the blob: URL of whatever Blob it is given, so the
@@ -110,7 +112,7 @@ export function SvgFileTab({
     if (loadingRef.current) return;
     const sessionId = resolveTabSession(tabId);
     if (sessionId === undefined && tabState.source === null) {
-      setSourceError(SOURCE_READ_FAILED);
+      setSourceError(t(SOURCE_READ_FAILED));
       return;
     }
     loadingRef.current = true;
@@ -122,7 +124,7 @@ export function SvgFileTab({
       setSourceError(null);
       setTabState(next);
     } catch (error) {
-      setSourceError(error instanceof Error && error.message.length > 0 ? error.message : SOURCE_READ_FAILED);
+      setSourceError(error instanceof Error && error.message.length > 0 ? error.message : t(SOURCE_READ_FAILED));
     } finally {
       loadingRef.current = false;
     }
@@ -176,8 +178,8 @@ export function SvgFileTab({
               type="button"
               className="editor-toolbar-button editor-code-wrap-toggle"
               aria-pressed={wrap}
-              title={wrap ? '줄 바꿈 끄기' : '줄 바꿈 켜기'}
-              aria-label="줄 바꿈"
+              title={wrap ? t('editor.toolbar.wrapOff') : t('editor.toolbar.wrapOn')}
+              aria-label={t('editor.toolbar.wrap')}
               onClick={onToggleWrap}
             >
               {/* @req FR-MDE-020 -- the same wrap icon as the document toolbar. */}
@@ -188,7 +190,7 @@ export function SvgFileTab({
               className="editor-text-button svg-file-tab-preview"
               onClick={showPreview}
             >
-              미리보기
+              {t('editor.svg.preview')}
             </button>
           </div>
           {session.access.notice !== null && (

@@ -25,6 +25,7 @@
 // @req FR-MDE-001
 // @req FR-MDE-007
 
+import { t } from '../../i18n/i18n.ts';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { useTerminalRuntimeContext } from '../Terminal/TerminalRuntimeContext';
 import { ConfirmModal } from '../Modal/ConfirmModal';
@@ -290,10 +291,10 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
           leaves none behind. */}
       {createPrompt !== null && (
         <ConfirmModal
-          title="파일 만들기"
-          message={`${fileNameOf(createPrompt.filePath)} 파일이 없습니다. 새로 만들까요?`}
-          confirmLabel="만들기"
-          cancelLabel="취소"
+          title={t('editor.create.title')}
+          message={t('editor.create.message', { name: fileNameOf(createPrompt.filePath) })}
+          confirmLabel={t('editor.create.confirm')}
+          cancelLabel={t('common.cancel')}
           onConfirm={onConfirmCreate}
           onCancel={onCancelCreate}
         />
@@ -302,10 +303,10 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
       {openError !== null && (
         <MessageBox
           dialogId="editor-open-error"
-          title="파일을 열지 못했습니다"
+          title={t('editor.open.failedTitle')}
           message={openError}
-          okLabel="확인"
-          cancelLabel="닫기"
+          okLabel={t('common.confirm')}
+          cancelLabel={t('common.close')}
           onOk={onDismissOpenError}
           onCancel={onDismissOpenError}
         />

@@ -18,6 +18,7 @@
 // @req FR-MDE-012
 // @req FR-FEX-005
 
+import { t } from '../../i18n/i18n.ts';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { IconButton } from '../common';
@@ -155,7 +156,7 @@ export function EditorFileTreePane({
     >
       <div className="editor-tree-pane-head">
         <span className="editor-tree-pane-root" title={state.root}>{state.root}</span>
-        <IconButton icon="close" label="파일 트리 닫기" onClick={() => onClose()} />
+        <IconButton icon="close" label={t('editor.fileTree.close')} onClick={() => onClose()} />
       </div>
       <div className="fx-scroll">
         <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={onOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={sort} onSortChange={setSort} openFileKeys={openFileKeys} />

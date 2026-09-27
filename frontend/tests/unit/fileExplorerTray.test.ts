@@ -1,3 +1,4 @@
+import { koCatalog } from './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
@@ -217,7 +218,7 @@ test("줄 라벨이 '파일 탐색기 — {워크스페이스 이름}', 이름�
   // The placeholder is the editor tray's, shared rather than retyped, so the
   // two kinds of row can never disagree about how a missing name reads.
   const editorTray = await import('../../src/components/editor/editorTrayModel.ts') as Record<string, unknown>;
-  assert.equal(editorTray.MISSING_WORKSPACE_NAME, '(이름 없음)', 'editorTrayModel.ts exports MISSING_WORKSPACE_NAME');
+  assert.equal(koCatalog[editorTray.MISSING_WORKSPACE_NAME as string], '(이름 없음)', 'editorTrayModel.ts exports MISSING_WORKSPACE_NAME');
   const source = modelSource();
   assert.ok(
     importsFrom(source, 'MISSING_WORKSPACE_NAME', 'editor/editorTrayModel'),

@@ -7,6 +7,7 @@ import { Icon } from '../common';
 import type { Workspace, WorkspaceTabRuntime } from '../../types/workspace';
 import type { ShellInfo } from '../../types';
 import './Workspace.css';
+import { t, tn } from '../../i18n/i18n.ts';
 
 interface Props {
   workspaces: Workspace[];
@@ -86,8 +87,8 @@ export function WorkspaceSidebar({
           className="workspace-sidebar-add"
           onClick={onCreate}
           disabled={isLimitReached}
-          aria-label="Workspace 추가"
-          title={isLimitReached ? `Workspace는 최대 ${maxWorkspaces}개까지 만들 수 있습니다` : 'Workspace 추가'}
+          aria-label={t('workspace.sidebar.add')}
+          title={isLimitReached ? tn('workspace.sidebar.limit', maxWorkspaces) : t('workspace.sidebar.add')}
         >
           <Icon name="plus" size={16} />
         </button>

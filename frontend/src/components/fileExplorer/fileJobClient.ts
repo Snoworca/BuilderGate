@@ -7,6 +7,7 @@
 // stays free of the app's token storage and can be exercised without a network.
 // @req FR-FEX-005
 
+import { t } from '../../i18n/i18n.ts';
 import {
   beginClipboardPaste,
   buildDeleteJobRequest,
@@ -145,7 +146,7 @@ export async function pasteFromClipboard(input: {
   // Said here rather than returned as a silent null: the user pressed paste and
   // should see why nothing happened.
   if (isMoveIntoOwnSource(clipboard, input.target)) {
-    throw new Error('폴더를 그 자신 안으로 옮길 수 없습니다');
+    throw new Error(t('fileExplorer.job.moveError'));
   }
   const request = buildPasteJobRequest(clipboard, input.target);
   if (!request) return null;

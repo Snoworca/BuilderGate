@@ -13,6 +13,7 @@ import { placeRootContextMenu, placeSubContextMenu } from './contextMenuGeometry
 import { normalizeContextMenuItems } from './contextMenuModel';
 import { useContextMenuHistory } from './useContextMenuHistory';
 import './ContextMenu.css';
+import { t } from '../../i18n/i18n.ts';
 
 export interface ContextMenuActionItem {
   label: string;
@@ -648,7 +649,7 @@ function MobileContextMenuDialog({
             onClick={backWithHistory}
             disabled={pageStack.length <= 1}
           >
-            뒤로가기
+            {t('contextMenu.back')}
           </button>
           <div className="context-menu-dialog-title">
             {formatContextMenuPath(currentPage.path)}
@@ -657,8 +658,8 @@ function MobileContextMenuDialog({
             type="button"
             className="context-menu-dialog-close"
             onClick={closeWithHistory}
-            aria-label="닫기"
-            title="닫기"
+            aria-label={t('common.close')}
+            title={t('common.close')}
           >
             <Icon name="close" size={18} />
           </button>

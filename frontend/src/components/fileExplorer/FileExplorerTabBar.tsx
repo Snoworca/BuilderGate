@@ -1,5 +1,6 @@
 // The explorer's tab strip. Each tab is one root in one session; the label is
 // the root's last segment, the full path is its tooltip.
+import { t } from '../../i18n/i18n.ts';
 import type { MouseEvent, ReactNode } from 'react';
 import { IconButton } from '../common';
 import type { FileExplorerTab } from './fileExplorerTabsState.ts';
@@ -40,7 +41,7 @@ export function FileExplorerTabBar({ tabs, activeTabId, rootOf, sessionNameOf, o
             <IconButton
               icon="close"
               className="fx-tab-close"
-              label="탭 닫기"
+              label={t('fileExplorer.tabs.close')}
               onClick={(event) => {
                 // Closing must not first select the tab it is closing.
                 event.stopPropagation();
@@ -50,7 +51,7 @@ export function FileExplorerTabBar({ tabs, activeTabId, rootOf, sessionNameOf, o
           </ExplorerTabFrame>
         );
       })}
-      <IconButton icon="plus" className="fx-tab-add" label="새 탭" onClick={onAdd} />
+      <IconButton icon="plus" className="fx-tab-add" label={t('fileExplorer.tabs.add')} onClick={onAdd} />
     </div>
   );
 }

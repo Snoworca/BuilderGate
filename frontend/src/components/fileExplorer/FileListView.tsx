@@ -1,6 +1,7 @@
 // The explorer's list mode: the root's direct children in three columns, every
 // one of them in the DOM (FR-FEX-002 AC-8). The column set and the sort rule
 // live in fileListView.ts; the row decisions in fileRowInteraction.ts.
+import { t } from '../../i18n/i18n.ts';
 import { useMemo } from 'react';
 import type { MouseEvent } from 'react';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
@@ -128,7 +129,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
             aria-sort={sort?.key === column ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
             onClick={() => onSortChange(nextSort(sort, column))}
           >
-            {COLUMN_LABELS[column]}
+            {t(COLUMN_LABELS[column])}
             <SortGlyph dir={sortDirectionOf(sort, column)} />
           </button>
         ))}
@@ -157,7 +158,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
                 {renaming?.path === row.path ? (
                   <input
                     className="fx-rename-input"
-                    aria-label="새 이름"
+                    aria-label={t('fileExplorer.rename.label')}
                     ref={renaming.inputRef}
                     value={renaming.editName}
                     onChange={renaming.handleChange}

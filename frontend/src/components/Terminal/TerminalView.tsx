@@ -179,6 +179,7 @@ import type {
 import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
+import { t } from '../../i18n/i18n.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -3454,7 +3455,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       webglRendererRef.current.sync(isVisibleRef.current);
       const helperTextarea = getHelperTextarea();
       if (helperTextarea) {
-        helperTextarea.setAttribute('aria-label', '터미널 입력');
+        helperTextarea.setAttribute('aria-label', t('terminal.inputAria'));
         helperTextarea.disabled = true;
         helperTextarea.readOnly = false;
       }

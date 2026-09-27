@@ -40,6 +40,7 @@ import type {
   TerminalClipboardActionResult,
   TerminalClipboardSource,
 } from '../../utils/terminalClipboardCoordinator';
+import { t } from '../../i18n/i18n.ts';
 
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
@@ -897,7 +898,7 @@ export function MosaicContainer({
             fontSize: 'var(--fs-md)',
           }}
         >
-          세션이 없습니다. 새 세션을 시작하세요.
+          {t('grid.empty')}
         </div>
       ) : (
         <Mosaic<string>
@@ -924,10 +925,10 @@ export function MosaicContainer({
       {/* Confirm close tab */}
       {pendingCloseTabId && (
         <ConfirmModal
-          title="세션 닫기"
-          message="이 세션을 종료하시겠습니까?"
-          confirmLabel="닫기"
-          cancelLabel="취소"
+          title={t('common.closeSession')}
+          message={t('grid.close.message')}
+          confirmLabel={t('common.close')}
+          cancelLabel={t('common.cancel')}
           destructive
           onConfirm={handleConfirmClose}
           onCancel={() => setPendingCloseTabId(null)}
