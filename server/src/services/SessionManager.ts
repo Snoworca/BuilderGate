@@ -1447,7 +1447,7 @@ export class SessionManager {
     const cols = this.runtimePtyConfig.defaultCols;
     const rows = this.runtimePtyConfig.defaultRows;
 
-    const ptyProcess = this.spawnSessionPty(id, shellCmd, shellArgs, {
+    const ptyProcess = this.spawnPty(shellCmd, shellArgs, {
       name: this.runtimePtyConfig.termName,
       cols,
       rows,
@@ -1871,23 +1871,6 @@ export class SessionManager {
     });
 
     return this.toDTO(session);
-  }
-
-  /**
-   * REL-BGSTAB-033: ConPTY sessions load node-pty's bundled conpty.dll. The inbox ConPTY held
-   * DEC 2026 synchronized redraws (Codex's timer) until the next input. If the bundled dll cannot
-   * load, the session still starts on the inbox ConPTY.
-   */
-  private spawnSessionPty(id: string, file: string, args: string[], options: pty.IWindowsPtyForkOptions): pty.IPty {
-    if (!options.useConpty || this.runtimePtyConfig.useConptyDll === false) {
-      return this.spawnPty(file, args, options);
-    }
-    try {
-      return this.spawnPty(file, args, { ...options, useConptyDll: true });
-    } catch (error) {
-      console.warn(`[SessionManager] bundled conpty.dll unavailable for session ${id}; using inbox ConPTY: ${error instanceof Error ? error.message : String(error)}`);
-      return this.spawnPty(file, args, options);
-    }
   }
 
   private scheduleIdleTransition(id: string): void {
@@ -9491,7 +9474,6 @@ function clonePtyConfig(source: PTYConfig): PTYConfig {
     defaultCols: source.defaultCols,
     defaultRows: source.defaultRows,
     useConpty: source.useConpty,
-    useConptyDll: source.useConptyDll ?? true,
     windowsPowerShellBackend: source.windowsPowerShellBackend ?? 'inherit',
     scrollbackLines: source.scrollbackLines,
     maxSnapshotBytes: source.maxSnapshotBytes,

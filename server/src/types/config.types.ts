@@ -78,8 +78,6 @@ export interface PTYConfig {
   defaultCols: number;
   defaultRows: number;
   useConpty: boolean;
-  /** REL-BGSTAB-033: use node-pty's bundled conpty.dll for ConPTY sessions (default true). */
-  useConptyDll?: boolean;
   windowsPowerShellBackend?: WindowsPowerShellBackend;
   scrollbackLines: number;
   maxSnapshotBytes: number;
