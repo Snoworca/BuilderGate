@@ -497,7 +497,7 @@ function refersTo(src: Lexed, text: string, id: string): boolean {
 // FR-FEX-002 — path bar and the two views
 // ---------------------------------------------------------------------------
 
-test('TC-REQ-FR-FEX-002-AC1-01 PATH_BAR_CONTROLS === [up, path, mode, refresh, newdir] (DR-18)', async () => {
+test('TC-REQ-FR-FEX-002-AC1-01 PATH_BAR_CONTROLS === [up, path, search, mode, refresh, newdir] (DR-18, FR-FEX-013)', async () => {
   // Loaded here, not imported at the top: a static import of a missing module
   // crashes the runner before any test is named. The specifier is a runtime
   // value, so tsc does not resolve it while the module is absent.
@@ -505,7 +505,7 @@ test('TC-REQ-FR-FEX-002-AC1-01 PATH_BAR_CONTROLS === [up, path, mode, refresh, n
   const mod = await import(specifier) as { PATH_BAR_CONTROLS?: unknown };
   // DR-18 is an order, and the order is a value: the component maps this array,
   // so asserting it here asserts what is drawn left to right.
-  assert.deepEqual(mod.PATH_BAR_CONTROLS, ['up', 'path', 'mode', 'refresh', 'newdir']);
+  assert.deepEqual(mod.PATH_BAR_CONTROLS, ['up', 'path', 'search', 'mode', 'refresh', 'newdir']);
 });
 
 test('TC-REQ-FR-FEX-002-AC1-02 FileExplorerPathBar 가 PATH_BAR_CONTROLS 를 map 해 그리고 mode 토글이 setMode 를 부른다', () => {

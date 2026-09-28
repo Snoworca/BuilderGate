@@ -3,7 +3,8 @@
 // pins the array pins what is on screen (design §9.2).
 
 // @req FR-FEX-002
-export const PATH_BAR_CONTROLS = ['up', 'path', 'mode', 'refresh', 'newdir'] as const;
+// FR-FEX-013: 'search' opens the name search (also Ctrl/Cmd+F).
+export const PATH_BAR_CONTROLS = ['up', 'path', 'search', 'mode', 'refresh', 'newdir'] as const;
 
 export type PathBarControl = (typeof PATH_BAR_CONTROLS)[number];
 

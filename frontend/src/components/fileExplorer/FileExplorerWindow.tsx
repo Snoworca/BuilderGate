@@ -32,6 +32,7 @@
 
 import { applyTypeFilterKey, type TypeFilterKey } from './fileExplorerTypeFilter.ts';
 import { FileInfoModal } from './FileInfoModal.tsx';
+import { FileExplorerSearch } from './FileExplorerSearch.tsx';
 import { t } from '../../i18n/i18n.ts';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
@@ -103,6 +104,8 @@ interface PanelCommands {
   showError: (message: string) => void;
   /** FR-FEX-014: offers a key to the type-to-filter; true when it was consumed. */
   typeFilterKey: (event: TypeFilterKey) => boolean;
+  /** FR-FEX-013: opens the name search (Ctrl/Cmd+F). */
+  openSearch: () => void;
 }
 
 type RegisterPanelCommands = (tabId: string, commands: RefObject<PanelCommands | null>) => () => void;
@@ -215,6 +218,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   const [menu, setMenu] = useState<FileExplorerMenuRequest | null>(null);
   // FR-FEX-018: the path whose information modal is open.
   const [infoPath, setInfoPath] = useState<string | null>(null);
+  // FR-FEX-013: the name search replaces the path bar and rows while open.
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Every finished job refreshes the directories it touched in this tab, whoever
   // started it: a failed or cancelled job may still have changed some files.
@@ -260,6 +265,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         if (next.handled) setFilterText(next.text);
         return next.handled;
       },
+      openSearch: () => setSearchOpen(true),
     };
   });
   useEffect(() => registerCommands(tab.id, commandsRef), [registerCommands, tab.id]);
@@ -387,8 +393,18 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
 
   return (
     <div className={`fx-tab-panel${active ? '' : ' fx-inactive'}`} role="tabpanel">
-      <FileExplorerPathBar tree={tree} setMode={setMode} onNewDirectory={() => void ops.createDirectoryIn(state.root)} filterText={filterText} onClearFilter={() => setFilterText('')} />
+      {searchOpen && (
+        <FileExplorerSearch
+          sessionId={tab.sessionId}
+          root={state.root}
+          onClose={() => setSearchOpen(false)}
+          onOpenDirectory={(path) => { setSearchOpen(false); void tree.setRoot(path); }}
+          onOpenFile={(path) => handleOpenFile(path)}
+        />
+      )}
+      {!searchOpen && <FileExplorerPathBar tree={tree} setMode={setMode} onNewDirectory={() => void ops.createDirectoryIn(state.root)} filterText={filterText} onClearFilter={() => setFilterText('')} onOpenSearch={() => setSearchOpen(true)} />}
       <div
+        hidden={searchOpen}
         className="fx-scroll"
         ref={scrollRef}
         onScroll={handleScroll}
@@ -604,6 +620,13 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
     if (!inField && !event.nativeEvent.isComposing) {
       const id = activeTabIdRef.current;
       const commands = id === null ? null : panelCommandsRef.current.get(id)?.current ?? null;
+      // FR-FEX-013 AC-1: Ctrl/Cmd+F opens the search instead of the browser's find bar.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'f' && commands !== null) {
+        event.preventDefault();
+        event.stopPropagation();
+        commands.openSearch();
+        return;
+      }
       if (commands?.typeFilterKey(event)) {
         event.preventDefault();
         event.stopPropagation();

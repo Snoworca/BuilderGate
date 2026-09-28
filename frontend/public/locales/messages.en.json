@@ -1009,5 +1009,16 @@
   "fileExplorer.info.copyAll": "Copy all",
   "fileExplorer.info.copied": "Copied",
   "fileExplorer.info.loading": "Reading…",
-  "fileExplorer.info.failed": "Could not read the information: {message}"
+  "fileExplorer.info.failed": "Could not read the information: {message}",
+  "fileExplorer.search.open": "Search (Ctrl+F)",
+  "fileExplorer.search.placeholder": "Search names under this folder",
+  "fileExplorer.search.includeIgnored": ".git · node_modules",
+  "fileExplorer.search.includeIgnoredHint": "Also search .git and node_modules",
+  "fileExplorer.search.close": "Close search (Esc)",
+  "fileExplorer.search.running": "Searching · {examined} checked · {found} found",
+  "fileExplorer.search.cancelled": "Search cancelled · {found} found",
+  "fileExplorer.search.truncated": "Stopped at {found} results — narrow the search",
+  "fileExplorer.search.failed": "Search failed: {message}",
+  "fileExplorer.search.done.one": "{count} result · {examined} checked",
+  "fileExplorer.search.done.other": "{count} results · {examined} checked"
 }

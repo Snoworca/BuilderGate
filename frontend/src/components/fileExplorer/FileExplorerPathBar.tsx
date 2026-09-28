@@ -19,11 +19,13 @@ export interface FileExplorerPathBarProps {
   /** FR-FEX-014: the type-to-filter text, shown as a chip while set. */
   filterText?: string;
   onClearFilter?: () => void;
+  /** FR-FEX-013: opens the name search. */
+  onOpenSearch?: () => void;
 }
 
 // @req FR-FEX-002
 // @req SEC-FOP-001
-export function FileExplorerPathBar({ tree, setMode, onNewDirectory, filterText = '', onClearFilter }: FileExplorerPathBarProps) {
+export function FileExplorerPathBar({ tree, setMode, onNewDirectory, filterText = '', onClearFilter, onOpenSearch }: FileExplorerPathBarProps) {
   const { state } = tree;
   const nextMode: FileTreeMode = state.mode === 'tree' ? 'list' : 'tree';
 
@@ -80,6 +82,17 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory, filterText 
                 </nav>
               );
             }
+            case 'search':
+              return (
+                <IconButton
+                  key={control}
+                  icon="search"
+                  className="fx-bar-button"
+                  label={t('fileExplorer.search.open')}
+                  disabled={onOpenSearch === undefined}
+                  onClick={onOpenSearch}
+                />
+              );
             case 'mode':
               // The drawing is the view the button switches to: rules for the
               // list, a folder for the tree.

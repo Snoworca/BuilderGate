@@ -45,9 +45,10 @@ async function withTempDir(body: (dir: string) => Promise<void>): Promise<void> 
 // The sequential algorithm as it stood before decision 24, kept as the oracle
 // for "observable behavior is identical". '..' is compared without its
 // modified field, which is the clock at call time in both versions.
-async function referenceListing(dirPath: string, maxDirectoryEntries: number): Promise<{ entries: DirectoryEntry[]; totalEntries: number }> {
+async function referenceListing(dirPath: string, maxDirectoryEntries: number, listsSessionRoot = true): Promise<{ entries: DirectoryEntry[]; totalEntries: number }> {
   const dirents = (await fs.readdir(dirPath, { withFileTypes: true })).filter(d => !isFileJobTempName(d.name));
-  const belowRoot = path.parse(dirPath).root !== dirPath;
+  // FR-FEX-017: every listing here is of the session root itself, which offers no '..'.
+  const belowRoot = path.parse(dirPath).root !== dirPath && !listsSessionRoot;
   const entries: DirectoryEntry[] = [];
   if (belowRoot) entries.push({ name: '..', type: 'directory', size: 0, modified: '' });
   for (const dirent of dirents.slice(0, maxDirectoryEntries)) {
@@ -106,7 +107,7 @@ test('listDirectory stats entries concurrently, never more than the cap at once'
 
     console.log(`entryStats=${entryStats} maxInFlight=${maxInFlight}`);
     assert.equal(entryStats, count, 'every entry is stat-ed exactly once');
-    assert.equal(listing.entries.length, count + 1);
+    assert.equal(listing.entries.length, count, 'the session root carries no .. (FR-FEX-017)');
     assert.ok(maxInFlight > 1, `stats ran one at a time (maxInFlight=${maxInFlight})`);
     assert.ok(maxInFlight <= MAX_ALLOWED_IN_FLIGHT, `stats were not bounded (maxInFlight=${maxInFlight})`);
   });
@@ -157,9 +158,9 @@ test('listDirectory skips an entry deleted between readdir and stat, and keeps t
 
     const listing = await listingService(dir).listDirectory('session-1', '.');
 
-    assert.deepEqual(listing.entries.map(e => e.name), ['..', 'a.txt', 'c.txt', 'd.txt']);
+    assert.deepEqual(listing.entries.map(e => e.name), ['a.txt', 'c.txt', 'd.txt']);
     // totalEntries is what readdir saw, the deleted entry included.
-    assert.equal(listing.totalEntries, 5);
+    assert.equal(listing.totalEntries, 4);
   });
 });
 
@@ -172,7 +173,7 @@ test('listDirectory truncates to maxDirectoryEntries after the temp-name filter,
     const reference = await referenceListing(dir, 4);
 
     assert.deepEqual(withoutParentClock(listing.entries), reference.entries);
-    assert.equal(listing.entries.length, 5, "'..' plus the four kept entries");
-    assert.equal(listing.totalEntries, 11, "ten files plus '..'; the temp file is not counted");
+    assert.equal(listing.entries.length, 4, 'the four kept entries; the session root has no ..');
+    assert.equal(listing.totalEntries, 10, 'ten files; the temp file is not counted');
   });
 });

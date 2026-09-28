@@ -6,6 +6,7 @@
  * and protected by authMiddleware.
  */
 
+import { FileSearchService } from '../services/FileSearchService.js';
 import { Router, Request, Response } from 'express';
 import type { FileService } from '../services/FileService.js';
 import type { CopyRequest, MoveRequest, MkdirRequest, WriteRequest } from '../types/file.types.js';
@@ -14,6 +15,19 @@ import { AppError, ErrorCode } from '../utils/errors.js';
 const SVG_CONTENT_SECURITY_POLICY = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
 
 export function createFileRoutes(fileService: FileService): Router {
+  // FR-FEX-013: one search service per router; searches are keyed by id and owned by a session.
+  const searchService = new FileSearchService({
+    resolveRoot: (sessionId, targetPath) => fileService.resolveSearchRoot(sessionId, targetPath),
+  });
+  const ownedSearch = (req: Request, res: Response): string | null => {
+    const searchId = req.params.searchId;
+    if (searchService.ownerOf(searchId) !== req.params.id) {
+      res.status(404).json({ error: { code: 'INVALID_INPUT', message: 'Unknown search' } });
+      return null;
+    }
+    return searchId;
+  };
+
   const router = Router();
 
   // GET /api/sessions/:id/cwd
@@ -35,6 +49,40 @@ export function createFileRoutes(fileService: FileService): Router {
     } catch (err) {
       handleError(err, res);
     }
+  });
+
+  // POST /api/sessions/:id/files/search — start a name search (FR-FEX-013)
+  router.post('/:id/files/search', async (req: Request, res: Response) => {
+    try {
+      const { path: targetPath = '', query, includeIgnored } = (req.body ?? {}) as { path?: string; query?: string; includeIgnored?: boolean };
+      if (typeof query !== 'string' || query.trim() === '') {
+        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'query is required' } });
+      }
+      const { id } = await searchService.start(req.params.id, { path: String(targetPath), query, includeIgnored: includeIgnored === true });
+      res.status(202).json({ searchId: id });
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
+  // GET /api/sessions/:id/files/search/:searchId?after=N — results found since `after`
+  router.get('/:id/files/search/:searchId', (req: Request, res: Response) => {
+    try {
+      const searchId = ownedSearch(req, res);
+      if (searchId === null) return;
+      const after = Number.parseInt(String(req.query.after ?? '0'), 10);
+      res.json(searchService.poll(searchId, Number.isFinite(after) ? after : 0));
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
+  // DELETE /api/sessions/:id/files/search/:searchId — cancel
+  router.delete('/:id/files/search/:searchId', (req: Request, res: Response) => {
+    const searchId = ownedSearch(req, res);
+    if (searchId === null) return;
+    searchService.cancel(searchId);
+    res.json({ success: true });
   });
 
   // GET /api/sessions/:id/files/stat — one path's attributes (FR-FEX-018)

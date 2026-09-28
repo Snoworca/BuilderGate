@@ -3,6 +3,7 @@
  * Phase 7: Frontend Security - Auth API added
  */
 
+import type { FileSearchPage } from '../components/fileExplorer/fileSearchController.ts';
 import { tokenStorage } from './tokenStorage.ts';
 import { parseApiErrorPayload } from './apiError.ts';
 import { t } from '../i18n/i18n.ts';
@@ -274,6 +275,32 @@ export const sessionApi = {
 // ============================================================================
 // File API (Phase 4)
 // ============================================================================
+
+// FR-FEX-013: asynchronous, cancellable name search.
+export const fileSearchApi = {
+  start: async (sessionId: string, input: { path: string; query: string; includeIgnored: boolean }): Promise<{ searchId: string }> => {
+    const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+  poll: async (sessionId: string, searchId: string, after: number): Promise<FileSearchPage> => {
+    const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/search/${encodeURIComponent(searchId)}?after=${after}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+  cancel: async (sessionId: string, searchId: string): Promise<void> => {
+    await authFetch(`${API_BASE}/sessions/${sessionId}/files/search/${encodeURIComponent(searchId)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+  },
+};
 
 export const fileApi = {
   getCwd: async (sessionId: string): Promise<{ cwd: string }> => {

@@ -979,5 +979,15 @@
   "fileExplorer.info.copyAll": "전체 복사",
   "fileExplorer.info.copied": "복사했습니다",
   "fileExplorer.info.loading": "읽는 중…",
-  "fileExplorer.info.failed": "정보를 읽지 못했습니다: {message}"
+  "fileExplorer.info.failed": "정보를 읽지 못했습니다: {message}",
+  "fileExplorer.search.open": "검색 (Ctrl+F)",
+  "fileExplorer.search.placeholder": "이 폴더 아래 이름 검색",
+  "fileExplorer.search.includeIgnored": ".git · node_modules",
+  "fileExplorer.search.includeIgnoredHint": ".git 과 node_modules 도 검색",
+  "fileExplorer.search.close": "검색 닫기 (Esc)",
+  "fileExplorer.search.running": "검색 중 · {examined}개 확인 · {found}개 발견",
+  "fileExplorer.search.cancelled": "검색 취소됨 · {found}개 발견",
+  "fileExplorer.search.truncated": "결과 {found}개에서 멈췄습니다 — 검색어를 좁혀 주세요",
+  "fileExplorer.search.failed": "검색 실패: {message}",
+  "fileExplorer.search.done.other": "결과 {count}개 · {examined}개 확인"
 }

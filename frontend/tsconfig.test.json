@@ -31,6 +31,7 @@
     "./tests/unit/fileTreeSingleChildChain.test.ts",
     "./tests/unit/fileExplorerTypeFilter.test.ts",
     "./tests/unit/fileInfoModal.test.ts",
+    "./tests/unit/fileSearchController.test.ts",
     "./tests/unit/terminalSavedSelectionDivergence.test.ts",
     "./tests/unit/jsdomEnvironment.ts",
     "./tests/unit/terminalViewHarness.ts",

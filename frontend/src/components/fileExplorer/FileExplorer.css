@@ -716,3 +716,29 @@
 }
 .fx-info-copy:hover { color: var(--accent-text); border-color: var(--accent); }
 .fx-info-copied { color: var(--ok-text); font-size: var(--fs-xs); margin-right: auto; }
+
+/* FR-FEX-013: name search. */
+.fx-search { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.fx-search-input {
+  flex: 1 1 auto; min-width: 0; height: 26px; padding: 0 8px;
+  border: 1px solid var(--accent); border-radius: var(--r-sm);
+  background: var(--bg-sunken); color: var(--fg-strong); font-size: var(--fs-sm);
+}
+.fx-search-input:focus { outline: none; }
+.fx-search-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--fg-muted); white-space: nowrap; }
+.fx-search-status {
+  display: flex; align-items: center; gap: 10px; padding: 4px 10px;
+  border-bottom: 1px solid var(--line); font-size: var(--fs-xs); color: var(--fg-muted);
+}
+.fx-search-track { position: relative; flex: 1 1 auto; height: 3px; background: var(--line); border-radius: var(--r-sm); overflow: hidden; }
+.fx-search-track i { position: absolute; top: 0; bottom: 0; width: 40%; background: var(--accent); animation: fx-search-indet 1.4s ease-in-out infinite; }
+@keyframes fx-search-indet { 0% { left: -40%; } 100% { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .fx-search-track i { animation: none; left: 0; } }
+.fx-search-current {
+  padding: 2px 10px; font-family: var(--fx-mono); font-size: var(--fs-xs); color: var(--fg-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.fx-search-results { flex: 1 1 auto; }
+.fx-search-row { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; gap: 10px; }
+.fx-search-rel { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }

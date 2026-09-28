@@ -280,6 +280,22 @@ export class FileService {
   /**
    * Read file contents with size and binary checks.
    */
+  // @req FR-FEX-013
+  /** The session root and a validated directory under it, for a search to start from. */
+  async resolveSearchRoot(sessionId: string, targetPath: string): Promise<{ sessionRoot: string; dir: string }> {
+    this.assertSessionExists(sessionId);
+    const cwd = await this.getCwd(sessionId);
+    const dir = targetPath ? await resolveAndValidate(cwd, targetPath, this.config.blockedPaths) : cwd;
+    let stat;
+    try {
+      stat = await fs.stat(dir);
+    } catch {
+      throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    }
+    if (!stat.isDirectory()) throw new AppError(ErrorCode.PATH_NOT_FOUND, 'Path is not a directory');
+    return { sessionRoot: cwd, dir };
+  }
+
   // @req FR-FEX-018
   async statPath(sessionId: string, targetPath: string): Promise<PathStat> {
     this.assertSessionExists(sessionId);
