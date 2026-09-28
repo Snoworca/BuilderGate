@@ -61,7 +61,7 @@ import type { ContextMenuItem } from './components/ContextMenu/ContextMenu';
 import { useWindowState } from './hooks/useWindowState';
 import { ContextMenu } from './components/ContextMenu';
 import { CommandPresetDialog } from './components/CommandPresetManager';
-import { RecoveryOptionDialog } from './components/RecoveryOptionManager';
+import { AgentAliasDialog } from './components/AgentAlias/AgentAliasDialog';
 import { McpControlDialog } from './components/McpControlManager';
 import {
   SessionRestoreBanner,
@@ -164,7 +164,7 @@ function AppContent() {
   const [availableShells, setAvailableShells] = useState<ShellInfo[]>([]);
   const [showCommandPresetDialog, setShowCommandPresetDialog] = useState(false);
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
-  const [showRecoveryOptionDialog, setShowRecoveryOptionDialog] = useState(false);
+  const [showAgentCommandDialog, setShowAgentCommandDialog] = useState(false);
   const [showMcpControlDialog, setShowMcpControlDialog] = useState(false);
   // FR-AITUI-009: the session save button, the restore banner and their dialogs.
   const sessionSnapshot = useSessionSnapshot(true);
@@ -791,7 +791,7 @@ function AppContent() {
         onToggleViewMode={wm.activeWorkspace ? handleToggleViewMode : undefined}
         onOpenCommandPresetManager={() => setShowCommandPresetDialog(true)}
         onOpenTerminalShortcutManager={() => setShowTerminalShortcutDialog(true)}
-        onOpenRecoveryOptionManager={() => setShowRecoveryOptionDialog(true)}
+        onOpenAgentCommandManager={() => setShowAgentCommandDialog(true)}
         onOpenMcpControlManager={() => setShowMcpControlDialog(true)}
         hasEditorWindows={hasHeaderTrayWindows(editor.openCount, explorer.windows.length)}
         editorTrayItems={headerTrayItems}
@@ -1066,12 +1066,7 @@ function AppContent() {
         />
       )}
 
-      {showRecoveryOptionDialog && (
-        <RecoveryOptionDialog
-          open={showRecoveryOptionDialog}
-          onClose={() => setShowRecoveryOptionDialog(false)}
-        />
-      )}
+      {showAgentCommandDialog && <AgentAliasDialog onClose={() => setShowAgentCommandDialog(false)} />}
 
       {showMcpControlDialog && (
         <McpControlDialog

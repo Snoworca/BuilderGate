@@ -2,21 +2,6 @@ import { type Page, expect } from '@playwright/test';
 import type { TerminalInputTransportOverride } from '../../src/types/ws-protocol';
 import { requireTestPassword } from './testPassword.ts';
 
-interface RecoveryOptionPayload {
-  command: string;
-  arguments?: string[];
-  enabled?: boolean;
-  icon?: { type: 'builtin'; key: string } | { type: 'text'; value: string } | null;
-}
-
-interface RecoveryOptionRecord extends Required<Omit<RecoveryOptionPayload, 'icon'>> {
-  id: string;
-  icon?: RecoveryOptionPayload['icon'];
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 /** Login with password from env or default */
 export async function login(page: Page) {
   const password = requireTestPassword();
@@ -72,86 +57,41 @@ export async function openTerminalShortcutDialog(page: Page): Promise<void> {
   await expect(page.getByTestId('terminal-shortcut-dialog')).toBeVisible({ timeout: 10000 });
 }
 
-/** Open the recovery option manager through the header tools menu */
-export async function openRecoveryOptionDialog(page: Page): Promise<void> {
+/** FR-AITUI-011: open the agent command editor through the header tools menu */
+export async function openAgentCommandDialog(page: Page): Promise<void> {
   await page.locator('button[title="도구"]').click();
-  await page.locator('.context-menu-item:has-text("복구 옵션")').click();
-  await expect(page.getByTestId('recovery-option-dialog')).toBeVisible({ timeout: 10000 });
+  await page.locator('.context-menu-item:has-text("에이전트 명령어")').click();
+  await expect(page.getByTestId('agent-alias-dialog')).toBeVisible({ timeout: 10000 });
 }
 
-/** Read recovery options directly through the API */
-export async function readRecoveryOptionsViaApi(page: Page): Promise<RecoveryOptionRecord[]> {
-  return page.evaluate(async () => {
+/** FR-AITUI-011: register an alias for an agent through the API (keeps the other aliases). */
+export async function addAgentAliasForE2E(page: Page, agent: 'claude' | 'codex', alias: string): Promise<void> {
+  await page.evaluate(async ({ agent, alias }) => {
     const token = localStorage.getItem('cws_auth_token');
-    const res = await fetch('/api/recovery-options', {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) {
-      throw new Error(`Failed to read recovery options: ${res.status}`);
-    }
-    const data = await res.json();
-    return Array.isArray(data.options) ? data.options : [];
-  });
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    const current = await (await fetch('/api/agent-aliases', { headers })).json();
+    const next = { claude: [...current.claude.aliases], codex: [...current.codex.aliases] };
+    if (!next[agent].includes(alias)) next[agent].push(alias);
+    const res = await fetch('/api/agent-aliases', { method: 'PUT', headers, body: JSON.stringify(next) });
+    if (!res.ok) throw new Error(`Failed to add agent alias: ${res.status} ${await res.text()}`);
+  }, { agent, alias });
 }
 
-/** Create a recovery option directly through the API */
-export async function createRecoveryOptionViaApi(page: Page, input: RecoveryOptionPayload): Promise<RecoveryOptionRecord> {
-  return page.evaluate(async (payload) => {
+/** FR-AITUI-011: remove only the aliases E2E tests registered (by prefix). */
+export async function clearAgentAliasesForE2E(page: Page, prefix = 'e2e-'): Promise<void> {
+  await page.evaluate(async (namePrefix) => {
     const token = localStorage.getItem('cws_auth_token');
-    const res = await fetch('/api/recovery-options', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      throw new Error(`Failed to create recovery option: ${res.status} ${await res.text()}`);
-    }
-    return await res.json();
-  }, input);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    const current = await (await fetch('/api/agent-aliases', { headers })).json();
+    const keep = (list: string[]) => list.filter((name) => !name.startsWith(namePrefix));
+    await fetch('/api/agent-aliases', { method: 'PUT', headers, body: JSON.stringify({ claude: keep(current.claude.aliases), codex: keep(current.codex.aliases) }) });
+  }, prefix);
 }
 
-/** Remove only recovery options created by E2E tests */
-export async function clearRecoveryOptionsForE2E(page: Page, prefixes = ['e2e-recovery-']): Promise<void> {
-  await page.evaluate(async (commandPrefixes) => {
-    const token = localStorage.getItem('cws_auth_token');
-    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch('/api/recovery-options', { headers });
-    if (!res.ok) return;
-    const data = await res.json();
-    const options = Array.isArray(data.options) ? data.options : [];
-    await Promise.all(options
-      .filter((option: { command?: string }) => commandPrefixes.some(prefix => option.command?.startsWith(prefix)))
-      .map((option: { id: string }) => fetch(`/api/recovery-options/${option.id}`, {
-        method: 'DELETE',
-        headers,
-      })));
-  }, prefixes);
-}
 
-/** Ensure Claude and Codex defaults exist for repeatable recovery option E2E runs */
-export async function ensureDefaultRecoveryOptionsForE2E(page: Page): Promise<void> {
-  const options = await readRecoveryOptionsViaApi(page);
-  const existingCommands = new Set(options.map(option => option.command));
-  if (!existingCommands.has('claude')) {
-    await createRecoveryOptionViaApi(page, {
-      command: 'claude',
-      arguments: ['--continue'],
-      enabled: true,
-      icon: { type: 'builtin', key: 'bot' },
-    });
-  }
-  if (!existingCommands.has('codex')) {
-    await createRecoveryOptionViaApi(page, {
-      command: 'codex',
-      arguments: ['resume', '--last'],
-      enabled: true,
-      icon: { type: 'builtin', key: 'terminal' },
-    });
-  }
-}
+
+
+
 
 /** Remove terminal shortcut E2E data from the server and local browser preferences */
 export async function clearTerminalShortcuts(page: Page): Promise<void> {

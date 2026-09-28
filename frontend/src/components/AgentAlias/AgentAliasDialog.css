@@ -1,0 +1,10 @@
+/* FR-AITUI-011: agent command editor. */
+.agent-alias-dialog { display: flex; flex-direction: column; gap: 14px; padding: 16px; height: 100%; overflow: auto; }
+.agent-alias-help { margin: 0; color: var(--fg-muted); font-size: var(--fs-sm); line-height: 1.5; }
+.agent-alias-section { display: flex; flex-direction: column; gap: 8px; }
+.agent-alias-title { margin: 0; font-size: var(--fs-sm); color: var(--fg-strong); }
+.agent-alias-builtin { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--fg-muted); }
+.agent-alias-chip { padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); color: var(--fg); }
+.agent-alias-error { color: var(--danger-text); font-size: var(--fs-sm); }
+.agent-alias-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: auto; }
+.agent-alias-saved { color: var(--ok-text); font-size: var(--fs-sm); margin-right: auto; }

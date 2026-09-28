@@ -22,6 +22,7 @@ import {
   type TabAgentContext,
 } from './agentSession/agentSessionResolver.js';
 import { buildResumeCommand } from './agentSession/resumeCommand.js';
+import { splitLaunchCommand } from '../utils/recoveryCommand.js';
 
 export type SnapshotRestoreState = 'pending' | 'restored' | 'skipped' | 'failed';
 
@@ -66,6 +67,8 @@ export interface SnapshotTabRuntime {
   ptyPid?: number | null;
   outputHint?: AgentOutputHint | null;
   cwd?: string | null;
+  /** FR-AITUI-011 AC-4: the command line the agent was launched with (alias and flags). */
+  launchCommand?: string | null;
 }
 
 export interface AgentTabCandidate {
@@ -232,6 +235,7 @@ export class SessionSnapshotService {
       }
     }
 
+    const runtime = (record: SnapshotTabRecord) => this.deps.getRuntime(record.tab.sessionId);
     const entries: SnapshotEntry[] = [];
     const results: SaveResultItem[] = [];
     for (const { record, ctx } of contexts) {
@@ -241,9 +245,11 @@ export class SessionSnapshotService {
         results.push({ tabId: record.tab.id, tabName: record.tab.name, workspaceName: record.workspaceName, agent, status: 'not-found' });
         continue;
       }
-      const option = record.tab.recoveryCommand
-        ? { command: record.tab.recoveryCommand, args: record.tab.recoveryArguments ?? [] }
-        : null;
+      // FR-AITUI-011 AC-4: the command the agent was actually launched with wins (claudep --model x);
+      // a legacy recovery option is the fallback for a tab this server run never saw start.
+      const launched = runtime(record)?.launchCommand ? splitLaunchCommand(runtime(record)!.launchCommand!) : null;
+      const option = launched
+        ?? (record.tab.recoveryCommand ? { command: record.tab.recoveryCommand, args: record.tab.recoveryArguments ?? [] } : null);
       const resume = buildResumeCommand(result.agent, result.sessionId, option);
       entries.push({
         tabId: record.tab.id,

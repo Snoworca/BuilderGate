@@ -986,6 +986,8 @@ interface SessionData {
   cwdFilePath?: string;  // Windows CWD tracking temp file path
   lastCwd?: string;      // Last known CWD for change detection
   recoveryForegroundCommand?: string;
+  /** FR-AITUI-011 AC-4: the command line the running agent was launched with. */
+  agentLaunchCommand?: string;
   startupReady: boolean;
   startupReadyTimer: NodeJS.Timeout | null;
   pendingRestoreInputs: PendingRestoreInput[];
@@ -2208,6 +2210,7 @@ export class SessionManager {
     delete data.pendingForegroundAppHint;
     delete data.aiTuiLaunchAttempt;
     delete data.lastSubmittedCommand;
+    delete data.agentLaunchCommand;
     data.foregroundStartedAt = undefined;
     data.expectShellPromptAfterAiTuiFailure = true;
     this.updateDerivedState(id, reason, (state) => {
@@ -2250,6 +2253,7 @@ export class SessionManager {
     delete data.expectShellPromptAfterAiTuiFailure;
     delete data.lastSubmittedCommand;
     delete data.recoveryForegroundCommand;
+    delete data.agentLaunchCommand;
     delete data.aiTuiTitleState;
     delete data.lastAiTuiTitleWorkingAt;
     data.foregroundStartedAt = undefined;
@@ -3715,12 +3719,13 @@ export class SessionManager {
     const submittedCommand = this.updateCommandInputBuffer(data, input);
     const derivedState = this.ensureDerivedState(data);
     const isAiForeground = this.isInteractiveForeground(data, derivedState);
-    const hintedAppId = submittedCommand && !isAiForeground ? detectForegroundAppHint(submittedCommand) : null;
+    const hintedAppId = submittedCommand && !isAiForeground ? detectForegroundAppHint(submittedCommand, this.agentAliasResolver) : null;
     if (submittedCommand) {
       data.lastSubmittedCommand = submittedCommand;
       if (!isAiForeground) {
         if (hintedAppId) {
           data.pendingForegroundAppHint = hintedAppId;
+          data.agentLaunchCommand = submittedCommand;
           data.aiTuiLaunchAttempt = {
             appId: hintedAppId,
             command: submittedCommand,
@@ -4090,6 +4095,8 @@ export class SessionManager {
     ptyPid: number | null;
     outputHint: AgentOutputHint | null;
     cwd: string | null;
+    /** FR-AITUI-011 AC-4: the agent's launch command line, when this server saw it. */
+    launchCommand: string | null;
   } | null {
     const data = this.sessions.get(sessionId);
     if (!data) return null;
@@ -4103,6 +4110,7 @@ export class SessionManager {
       ptyPid: data.pty.pid ?? null,
       outputHint: this.agentOutputHints.get(sessionId),
       cwd: data.lastCwd ?? data.initialCwd ?? null,
+      launchCommand: appId ? data.agentLaunchCommand ?? null : null,
     };
   }
 
@@ -4170,6 +4178,13 @@ export class SessionManager {
     this.commandSubmittedCallback = cb;
   }
 
+  // FR-AITUI-011: user aliases (claudep, codexp…) resolve to their agent.
+  private agentAliasResolver: AgentAliasResolver | undefined;
+
+  setAgentAliasResolver(resolver: AgentAliasResolver | undefined): void {
+    this.agentAliasResolver = resolver;
+  }
+
   markRecoveryCommandForeground(sessionId: string, command: string): void {
     const data = this.sessions.get(sessionId);
     if (!data) {
@@ -4180,13 +4195,14 @@ export class SessionManager {
       return;
     }
     data.recoveryForegroundCommand = executable;
+    data.agentLaunchCommand = command;
     delete data.pendingForegroundAppHint;
     delete data.aiTuiLaunchAttempt;
     this.cancelPendingRunningTransition(data);
     this.updateDerivedState(sessionId, 'recovery_command_foreground', (state) => {
       state.ownership = 'foreground_app';
       state.activity = 'waiting_input';
-      const builtInHint = detectForegroundAppHint(executable);
+      const builtInHint = detectForegroundAppHint(executable, this.agentAliasResolver);
       if (builtInHint) {
         state.foregroundAppId = builtInHint;
       } else {
@@ -9600,7 +9616,9 @@ function injectCodexTuiSuppressionFlags(command: string): string {
   return `${executable} ${CODEX_TUI_SUPPRESSION_FLAGS} ${rest}`;
 }
 
-function detectForegroundAppHint(command: string): ForegroundAppId | null {
+type AgentAliasResolver = (executable: string) => 'claude' | 'codex' | null;
+
+function detectForegroundAppHint(command: string, aliasResolver?: AgentAliasResolver): ForegroundAppId | null {
   const executable = getCommandExecutableToken(command);
   if (executable === 'hermes') {
     return 'hermes';
@@ -9615,7 +9633,7 @@ function detectForegroundAppHint(command: string): ForegroundAppId | null {
     return 'opencode';
   }
 
-  return null;
+  return executable && aliasResolver ? aliasResolver(executable) : null;
 }
 
 function getCommandExecutableToken(command: string): string | null {

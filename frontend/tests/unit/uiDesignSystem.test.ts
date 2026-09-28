@@ -166,7 +166,8 @@ export const MIGRATED: readonly string[] = [
   'components/Modal/ConfirmModal.tsx',
   'components/Modal/RenameModal.css',
   'components/Modal/RenameModal.tsx',
-  'components/RecoveryOptionManager/RecoveryOptionDialog.tsx',
+  'components/AgentAlias/AgentAliasDialog.tsx',
+  'components/AgentAlias/AgentAliasDialog.css',
   'components/SessionSave/AgentMark.tsx',
   'components/SessionSave/SessionRestoreBanner.tsx',
   'components/SessionSave/SessionRestoreDialog.tsx',
@@ -231,9 +232,6 @@ const FROZEN_TERMINAL_AREA: readonly string[] = [
  * of this layer. Anything else in these files is still checked.
  */
 const GLYPH_EXEMPT: Readonly<Record<string, string>> = {
-  // The built-in recovery icons are values a user picks and the server stores;
-  // recoveryOptionIcon.test.ts (SEC-AITUI-002 AC-2) pins those literals.
-  'components/RecoveryOptionManager/RecoveryOptionDialog.tsx': 'user-data emoji',
 };
 
 /** `✓ 복사됨`: a text mark in front of Korean copy, kept for the copy feedback E2E reads. */

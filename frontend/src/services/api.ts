@@ -40,10 +40,6 @@ import type {
   TerminalShortcutBinding,
   TerminalShortcutState,
   UpdateTerminalShortcutBindingRequest,
-  CreateRecoveryOptionRequest,
-  RecoveryOption,
-  RecoveryOptionListResponse,
-  UpdateRecoveryOptionRequest,
   McpAgentProfile,
   McpAgentProfileInput,
   McpControlConfig,
@@ -275,6 +271,27 @@ export const sessionApi = {
 // ============================================================================
 // File API (Phase 4)
 // ============================================================================
+
+// FR-AITUI-011: extra launch commands (aliases) for Claude and Codex.
+export interface AgentAliasList { builtIn: string[]; aliases: string[] }
+export type AgentAliasView = { claude: AgentAliasList; codex: AgentAliasList };
+
+export const agentAliasApi = {
+  get: async (): Promise<AgentAliasView> => {
+    const res = await authFetch(`${API_BASE}/agent-aliases`, { headers: getAuthHeaders() });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+  update: async (update: { claude: string[]; codex: string[] }): Promise<AgentAliasView> => {
+    const res = await authFetch(`${API_BASE}/agent-aliases`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(update),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+};
 
 // FR-FEX-013: asynchronous, cancellable name search.
 export const fileSearchApi = {
@@ -894,59 +911,3 @@ export const terminalShortcutApi = {
   },
 };
 
-export const recoveryOptionApi = {
-  getAll: async (): Promise<RecoveryOption[]> => {
-    const res = await authFetch(`${API_BASE}/recovery-options`, {
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw await parseError(res);
-    const data = await res.json() as RecoveryOptionListResponse;
-    return data.options;
-  },
-
-  create: async (input: CreateRecoveryOptionRequest): Promise<RecoveryOption> => {
-    const res = await authFetch(`${API_BASE}/recovery-options`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) throw await parseError(res);
-    return res.json();
-  },
-
-  update: async (id: string, input: UpdateRecoveryOptionRequest): Promise<RecoveryOption> => {
-    const res = await authFetch(`${API_BASE}/recovery-options/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify(input),
-    });
-    if (!res.ok) throw await parseError(res);
-    return res.json();
-  },
-
-  delete: async (id: string): Promise<void> => {
-    const res = await authFetch(`${API_BASE}/recovery-options/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
-    if (!res.ok) throw await parseError(res);
-  },
-
-  reorder: async (optionIds: string[]): Promise<void> => {
-    const res = await authFetch(`${API_BASE}/recovery-options/order`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify({ optionIds }),
-    });
-    if (!res.ok) throw await parseError(res);
-  },
-};

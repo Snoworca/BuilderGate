@@ -567,16 +567,6 @@ async function main(): Promise<void> {
     { name: 'WorkspaceService MCP registry excludes active tabs without live runtime sessions', run: testWorkspaceServiceMcpRegistryExcludesNonLiveTabs },
     { name: 'WorkspaceService MCP registry regenerates duplicate persisted session keys', run: testWorkspaceServiceMcpRegistryRegeneratesDuplicateSessionKeys },
     { name: 'WorkspaceService MCP search preserves zero and ambiguous result metadata', run: testWorkspaceServiceMcpSearchPreservesFailureMetadata },
-    { name: 'WorkspaceService stores recovery metadata when shell submits codex', run: testWorkspaceServiceStoresCodexRecoveryMetadata },
-    { name: 'WorkspaceService stores custom recovery metadata when enabled option exists', run: testWorkspaceServiceStoresCustomRecoveryMetadata },
-    { name: 'WorkspaceService marks matched recovery command as foreground', run: testWorkspaceServiceMarksRecoveryForegroundCommand },
-    { name: 'WorkspaceService clears recovery metadata when shell command has no enabled option', run: testWorkspaceServiceClearsUnmatchedRecoveryMetadata },
-    { name: 'WorkspaceService restartTab schedules codex resume restore after save', run: testWorkspaceServiceRestartSchedulesRecoveryRestore },
-    { name: 'WorkspaceService restart uses resolved shell for restore quoting', run: testWorkspaceServiceRestartRestoreUsesResolvedShell },
-    { name: 'WorkspaceService orphan recovery schedules claude continue restore after final save', run: testWorkspaceServiceOrphanRecoverySchedulesRestore },
-    { name: 'WorkspaceService restart skips and clears disabled recovery option', run: testWorkspaceServiceRestartClearsDisabledRecoveryOption },
-    { name: 'WorkspaceService restart skips and clears deleted recovery option', run: testWorkspaceServiceRestartClearsDeletedRecoveryOption },
-    { name: 'WorkspaceService orphan recovery skips disabled recovery option', run: testWorkspaceServiceOrphanClearsDisabledRecoveryOption },
     { name: 'WorkspaceService restart does not schedule restore when replacement save fails', run: testWorkspaceServiceRestartSaveFailureDoesNotScheduleRestore },
     { name: 'sessionRoutes direct delete marks workspace-owned tab stopped non-recoverable', run: testSessionRoutesDirectDeleteMarksWorkspaceTabStopped },
     { name: 'sessionRoutes direct delete does not terminate session when pre-delete workspace save fails', run: testSessionRoutesDirectDeleteSaveFailureDoesNotTerminate },
@@ -603,8 +593,6 @@ async function main(): Promise<void> {
     { name: 'CommandPresetService persists CRUD operations and per-kind reorder', run: testCommandPresetServiceCrudAndReorder },
     { name: 'CommandPresetService serializes concurrent mutations', run: testCommandPresetServiceConcurrentCreates },
     { name: 'command preset routes expose CRUD and reject invalid order payloads', run: testCommandPresetRoutesCrudAndValidation },
-    { name: 'RecoveryOptionService seeds Claude and Codex defaults once', run: testRecoveryOptionServiceSeedsDefaultsOnce },
-    { name: 'RecoveryOptionService finds enabled option by submitted command', run: testRecoveryOptionServiceFindsEnabledSubmittedCommand },
     { name: 'recoveryCommand extracts executable through env assignments and paths', run: testRecoveryCommandExecutableParsing },
     { name: 'recoveryCommand quotes restore arguments per shell', run: testRecoveryCommandRestoreQuoting },
     { name: 'recovery option routes expose authenticated CRUD and reject unauthenticated requests', run: testRecoveryOptionRoutesCrudAndAuth },
@@ -19806,8 +19794,8 @@ async function testWorkspaceServiceClearsUnmatchedRecoveryMetadata(): Promise<vo
 async function testWorkspaceServiceRestartSchedulesRecoveryRestore(): Promise<void> {
   const fixture = await createTempRecoveryOptionService();
   try {
-    const codexOption = fixture.service.getAll().find(option => option.command === 'codex');
-    assert.ok(codexOption);
+    // FR-AITUI-012: no seeded options any more; the tab carries legacy metadata only.
+    const codexOption = { id: 'legacy-codex' };
     const { workspaceService, calls } = createWorkspaceServiceHarness({
       recoveryOptionService: fixture.service,
       restoreInputDelayMs: 0,
@@ -19846,8 +19834,7 @@ async function testWorkspaceConfiguredRestoreTiming(): Promise<void> {
   const originalWorkspace = mutableConfig.workspace;
   const fixture = await createTempRecoveryOptionService();
   try {
-    const option = fixture.service.getAll().find(item => item.command === 'codex');
-    assert.ok(option);
+    // FR-AITUI-012: restarts type nothing now; the delay governs the user-chosen resume instead.
     for (const scenario of [
       { input: {}, override: undefined, expected: 600 },
       { input: { restoreInputDelayMs: 900 }, override: undefined, expected: 900 },
@@ -19858,14 +19845,11 @@ async function testWorkspaceConfiguredRestoreTiming(): Promise<void> {
         recoveryOptionService: fixture.service,
         restoreInputDelayMs: scenario.override,
       });
-      (workspaceService as any).state = createWorkspaceStateWithTab({
-        sessionId: 'old-session', shellType: 'bash', recoveryOptionId: option.id,
-        recoveryCommand: 'codex', recoveryArguments: ['resume', '--last'],
-      });
+      (workspaceService as any).state = createWorkspaceStateWithTab({ sessionId: 'old-session', shellType: 'bash' });
       calls.hasSession.add('old-session');
-      const tab = await workspaceService.restartTab('ws-1', 'tab-1');
+      assert.equal(workspaceService.scheduleAgentResume('tab-1', 'codex', ['resume', '0199a3f2-7b41-7c30-9e5d-4f2a8b1c6d70']), true);
       assert.equal(calls.scheduleRestoreInput.length, 1);
-      assert.equal(calls.scheduleRestoreInput[0].sessionId, tab.sessionId);
+      assert.equal(calls.scheduleRestoreInput[0].sessionId, 'old-session');
       assert.equal(calls.scheduleRestoreInput[0].delayMs, scenario.expected);
     }
   } finally {
@@ -20049,8 +20033,9 @@ async function testWorkspaceServiceOrphanClearsDisabledRecoveryOption(): Promise
 async function testWorkspaceServiceRestartSaveFailureDoesNotScheduleRestore(): Promise<void> {
   const fixture = await createTempRecoveryOptionService();
   try {
-    const codexOption = fixture.service.getAll().find(option => option.command === 'codex');
-    assert.ok(codexOption);
+    // FR-AITUI-012: no seeded options; the tab keeps legacy metadata only.
+    const codexOption = { id: 'legacy-codex' };
+
     const { workspaceService, calls } = createWorkspaceServiceHarness({
       recoveryOptionService: fixture.service,
       restoreInputDelayMs: 0,

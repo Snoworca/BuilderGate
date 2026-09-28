@@ -23,6 +23,8 @@ import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
 import { createTerminalShortcutRoutes } from './routes/terminalShortcutRoutes.js';
 import { createRecoveryOptionRoutes } from './routes/recoveryOptionRoutes.js';
+import { AgentAliasService } from './services/AgentAliasService.js';
+import { AppError } from './utils/errors.js';
 import { createSessionSnapshotRoutes } from './routes/sessionSnapshotRoutes.js';
 import { SessionSnapshotService } from './services/SessionSnapshotService.js';
 import { listProcesses } from './services/agentSession/processList.js';
@@ -180,6 +182,8 @@ let settingsService: SettingsService;
 let commandPresetService: CommandPresetService;
 let terminalShortcutService: TerminalShortcutService;
 let recoveryOptionService: RecoveryOptionService;
+// FR-AITUI-011: user aliases (claudep, codexp…) for Claude and Codex.
+let agentAliasService: AgentAliasService;
 let workspaceService: WorkspaceService;
 let sessionSnapshotService: SessionSnapshotService;
 let mcpListenerControllerInstance: StringRecord | null = null;
@@ -738,6 +742,20 @@ function setupRoutes(): void {
     onOptionDeleted: (id) => workspaceService.clearRecoveryMetadataForOption(id),
   });
   app.use('/api/recovery-options', authMiddleware, recoveryOptionRoutes);
+  // FR-AITUI-011: agent command aliases.
+  app.get('/api/agent-aliases', authMiddleware, (_req, res) => {
+    res.json(agentAliasService.getAll());
+  });
+  app.put('/api/agent-aliases', authMiddleware, async (req, res) => {
+    try {
+      const body = (req.body ?? {}) as { claude?: unknown; codex?: unknown };
+      const list = (value: unknown) => (Array.isArray(value) ? value.map(String) : undefined);
+      res.json(await agentAliasService.update({ claude: list(body.claude), codex: list(body.codex) }));
+    } catch (error) {
+      const status = error instanceof AppError ? 400 : 500;
+      res.status(status).json({ error: { code: error instanceof AppError ? error.code : 'INTERNAL_ERROR', message: error instanceof Error ? error.message : String(error) } });
+    }
+  });
   // FR-AITUI-007 / FR-AITUI-008: session save and resume after restart.
   app.use('/api/session-snapshot', authMiddleware, createSessionSnapshotRoutes(sessionSnapshotService));
 
@@ -1242,6 +1260,9 @@ async function startServer(): Promise<void> {
     recoveryOptionService = new RecoveryOptionService();
     await recoveryOptionService.initialize();
     console.log('[RecoveryOption] RecoveryOptionService initialized');
+    agentAliasService = new AgentAliasService();
+    await agentAliasService.initialize();
+    sessionManager.setAgentAliasResolver((executable) => agentAliasService.resolve(executable));
 
     // ========================================================================
     // Initialize Workspace Service (Step 7)

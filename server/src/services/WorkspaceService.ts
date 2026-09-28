@@ -20,7 +20,7 @@ import { config } from '../utils/config.js';
 import { publishStoreAtomically } from '../utils/atomicStoreWrite.js';
 import { isDefaultTerminalTabName, isSystemAbsolutePathTerminalTitle, sanitizeTerminalTitle } from '../utils/terminalTitle.js';
 import { buildRecoveryRestoreInput, getRecoveryExecutableToken, normalizeRecoveryExecutable, type RecoveryRestoreShell } from '../utils/recoveryCommand.js';
-import type { SessionCommandSubmittedEvent, SessionFinalizedEvent, SessionManager } from './SessionManager.js';
+import type { SessionFinalizedEvent, SessionManager } from './SessionManager.js';
 import type { RecoveryOptionService } from './RecoveryOptionService.js';
 import {
   createMcpSessionBinding,
@@ -143,16 +143,7 @@ export class WorkspaceService {
       });
     });
 
-    const commandSubmissionSource = this.sessionManager as SessionManager & {
-      onCommandSubmitted?: (cb: (event: SessionCommandSubmittedEvent) => void | Promise<void>) => void;
-    };
-    if (typeof commandSubmissionSource.onCommandSubmitted === 'function') {
-      commandSubmissionSource.onCommandSubmitted((event: SessionCommandSubmittedEvent) => {
-        this.applySubmittedRecoveryCommand(event).catch((error) => {
-          console.warn('[WorkspaceService] Failed to apply recovery command metadata:', error);
-        });
-      });
-    }
+    // FR-AITUI-012 AC-3: a submitted command no longer attaches recovery metadata to its tab.
   }
 
   async initialize(): Promise<void> {
@@ -807,7 +798,7 @@ export class WorkspaceService {
       }
       throw error;
     }
-    await this.scheduleRecoveryRestoreForTab(tab, sessionDTO.id);
+    // FR-AITUI-012 AC-1: a restarted tab comes back as a plain shell; nothing is typed into it.
     await this.sessionManager.terminateSession(oldSessionId, { reason: 'tab-restart' });
     return tab;
   }
@@ -840,32 +831,6 @@ export class WorkspaceService {
       exitCode: event.exitCode,
       recordedAt: event.recordedAt,
     });
-  }
-
-  async applySubmittedRecoveryCommand(event: SessionCommandSubmittedEvent): Promise<void> {
-    if (!this.recoveryOptionService) {
-      return;
-    }
-    const tab = this.state.tabs.find(t => t.sessionId === event.sessionId);
-    if (!tab) {
-      return;
-    }
-
-    const option = this.recoveryOptionService.findEnabledBySubmittedCommand(event.command);
-    if (!option) {
-      if (!this.hasRecoveryMetadata(tab)) {
-        return;
-      }
-      this.clearTabRecoveryMetadata(tab);
-      await this.save(true);
-      this.emitTabUpdated({ tab, changes: this.recoveryChanges(tab, true) });
-      return;
-    }
-
-    this.setTabRecoveryMetadata(tab, option);
-    this.markRecoveryForegroundCommand(event.sessionId, option.command);
-    await this.save(true);
-    this.emitTabUpdated({ tab, changes: this.recoveryChanges(tab) });
   }
 
   async applyRecoveryOptionToTabs(option: RecoveryOption): Promise<void> {
@@ -1364,53 +1329,6 @@ export class WorkspaceService {
       || executable === 'opencode';
   }
 
-  private async scheduleRecoveryRestoreForTab(tab: WorkspaceTab, sessionId: string): Promise<void> {
-    if (!this.recoveryOptionService || !tab.recoveryOptionId) {
-      return;
-    }
-
-    const option = this.recoveryOptionService.findEnabledById(tab.recoveryOptionId);
-    if (!option) {
-      this.clearTabRecoveryMetadata(tab);
-      try {
-        await this.save(true);
-        this.emitTabUpdated({ tab, changes: this.recoveryChanges(tab, true) });
-      } catch (error) {
-        console.warn('[WorkspaceService] Failed to persist stale recovery metadata cleanup:', error);
-      }
-      return;
-    }
-
-    let input: string;
-    try {
-      input = buildRecoveryRestoreInput(
-        this.resolveRecoveryRestoreShell(sessionId, tab.shellType),
-        option.command,
-        option.arguments,
-      );
-    } catch (error) {
-      console.warn('[WorkspaceService] Failed to build recovery restore input:', error);
-      return;
-    }
-
-    const scheduler = (this.sessionManager as SessionManager & {
-      scheduleRestoreInput?: (
-        sessionId: string,
-        input: string,
-        options?: { delayMs?: number; guard?: () => boolean },
-      ) => void;
-    }).scheduleRestoreInput;
-    if (typeof scheduler !== 'function') {
-      console.warn('[WorkspaceService] Recovery restore skipped because SessionManager does not support scheduled input');
-      return;
-    }
-
-    scheduler.call(this.sessionManager, sessionId, input, {
-      delayMs: this.restoreInputDelayMs,
-      guard: () => this.state.tabs.some(current => current.id === tab.id && current.sessionId === sessionId),
-    });
-  }
-
   private agentResumePending: ((tabId: string) => boolean) | null = null;
 
   /** FR-AITUI-008 AC-1: set before checkOrphanTabs so saved tabs are not auto-recovered. */
@@ -1800,14 +1718,8 @@ export class WorkspaceService {
     }
     if (orphanTabIds.length > 0) {
       await this.save(true); // immediate save with new sessionIds
-      for (const restored of restoredSessions) {
-        // FR-AITUI-008 AC-1: a tab with a saved session waiting to be resumed
-        // comes back as a shell; the user decides whether to resume it.
-        if (this.agentResumePending?.(restored.tab.id)) {
-          continue;
-        }
-        await this.scheduleRecoveryRestoreForTab(restored.tab, restored.sessionId);
-      }
+      // FR-AITUI-012 AC-1/AC-2: recovered tabs come back as shells. Resuming an agent is the
+      // user's choice in the session restore (FR-AITUI-008); no claude --continue here.
     }
     return orphanTabIds;
   }

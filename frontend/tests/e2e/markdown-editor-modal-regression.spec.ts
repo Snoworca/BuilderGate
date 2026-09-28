@@ -36,7 +36,7 @@ import {
   createCommandPresetViaApi,
   login,
   openCommandPresetDialog,
-  openRecoveryOptionDialog,
+  openAgentCommandDialog,
   openTerminalContextMenu,
   openTerminalShortcutDialog,
   waitForTerminal,
@@ -94,13 +94,12 @@ const MODAL_CASES: ModalCase[] = [
     },
   },
   {
-    name: 'RecoveryOptionDialog',
-    dialogId: 'recovery-option-manager',
+    name: 'AgentAliasDialog',
+    dialogId: 'agent-command-manager',
     stackDepth: 1,
     open: async (page) => {
-      await openRecoveryOptionDialog(page);
-      await expect(page.locator('.command-preset-list[aria-label="복구 옵션 목록"]'))
-        .toBeVisible();
+      await openAgentCommandDialog(page);
+      await expect(page.locator('#agent-alias-claude')).toBeVisible();
     },
   },
   {

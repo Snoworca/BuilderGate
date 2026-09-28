@@ -61,7 +61,6 @@
     "tests/e2e/pane-split.spec.ts",
     "tests/e2e/perf-bgstab-010-ac6-server-ack-fault.spec.ts",
     "tests/e2e/perf-bgstab-010-ac9-isolated.spec.ts",
-    "tests/e2e/recovery-options.spec.ts",
     "tests/e2e/session-env-isolation.spec.ts",
     "tests/e2e/settings-2fa-qr.spec.ts",
     "tests/e2e/settings-password-policy.spec.ts",

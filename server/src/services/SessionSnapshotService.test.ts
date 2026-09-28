@@ -41,7 +41,7 @@ function fixture() {
     { pid: 40, ppid: 20, name: 'claude.exe', createdAtMs: 1000 },
   ];
   const scheduled: Array<{ tabId: string; command: string; args: string[] }> = [];
-  const runtime: Record<string, { foregroundAppId: 'claude' | 'codex' | 'hermes' | 'opencode' | null; ptyPid: number; foregroundStartedAt?: number }> = {
+  const runtime: Record<string, { foregroundAppId: 'claude' | 'codex' | 'hermes' | 'opencode' | null; ptyPid: number; foregroundStartedAt?: number; launchCommand?: string | null }> = {
     s1: { foregroundAppId: null, ptyPid: 20 },
     s2: { foregroundAppId: 'codex', ptyPid: 21, foregroundStartedAt: 5000 },
     s3: { foregroundAppId: null, ptyPid: 22 },
@@ -62,7 +62,7 @@ function fixture() {
     rootsFor: async () => roots,
     now: () => new Date('2026-09-26T04:40:00.000Z'),
   });
-  return { dir, service, tabs, scheduled };
+  return { dir, service, tabs, scheduled, runtime };
 }
 
 test('FR-AITUI-007 AC-4: candidates are the tabs running an agent or matched to an AI recovery command', async () => {
@@ -180,6 +180,25 @@ test('a corrupt snapshot file is set aside rather than trusted', async () => {
     writeFileSync(file, JSON.stringify(tampered));
     await service.initialize();
     assert.equal(service.getStatus().pendingCount, 0, 'an entry whose id fails the format check is dropped');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// FR-AITUI-011 AC-4/AC-5: an alias-launched agent with no recovery option is a candidate, and
+// its resume command keeps the alias and the typed arguments, dropping --continue.
+test('FR-AITUI-011 AC-4/AC-5: the resume command is rebuilt from the launch command line', async () => {
+  const { dir, service, tabs, runtime } = fixture();
+  try {
+    delete tabs[0].tab.recoveryCommand;
+    delete tabs[0].tab.recoveryArguments;
+    runtime.s1 = { foregroundAppId: 'claude', ptyPid: 20, launchCommand: 'claudep --model opus --continue' };
+    await service.initialize();
+    assert.ok(service.getCandidates().some((c) => c.tabId === 't1' && c.agent === 'claude'));
+    const { snapshot } = await service.save(['t1']);
+    const entry = snapshot.entries[0];
+    assert.equal(entry.resumeCommand, 'claudep');
+    assert.deepEqual(entry.resumeArguments, ['--model', 'opus', '--resume', CLAUDE_ID]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

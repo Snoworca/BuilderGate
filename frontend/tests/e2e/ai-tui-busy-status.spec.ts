@@ -15,14 +15,14 @@ import { fileURLToPath } from 'node:url';
 
 import { test, expect, createOwnedWorkspaceViaApi } from './workspaceOwnershipFixture';
 import { cleanupOwnedWorkspaces, type RegistryOptions } from './workspaceLeakGuard';
-import { clearRecoveryOptionsForE2E, createRecoveryOptionViaApi, login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
+import { addAgentAliasForE2E, clearAgentAliasesForE2E, login, sendVisibleTerminalCommand, waitForTerminal } from './helpers';
 
 const ORIGIN = 'https://localhost:2222';
 const FAKE_TUI = fileURLToPath(new URL('./fixtures/fake-ai-tui-spinner.mjs', import.meta.url));
 const BUSY_MS = 9000;
 const IDLE_MS = 6000;
 
-// `alias` stands for a command known only through a recovery option, like the
+// `alias` stands for a command registered as an agent alias (FR-AITUI-011), like the
 // user's `claudep`; the built-in detector knows exact names only.
 const AGENTS = [
   { command: 'claude', mode: 'claude', onScreen: 'Task(Research the codebase)', alias: false },
@@ -39,7 +39,7 @@ test.describe('AI TUI 작업 중 상태', () => {
   test.use({ baseURL: ORIGIN, ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 }, isMobile: false });
 
   for (const agent of AGENTS) {
-    test(`${agent.alias ? '복구 옵션 별칭' : agent.command}: 작업 표시만 움직이는 동안에도 실행 중으로 보인다`, async ({ page, request }, testInfo) => {
+    test(`${agent.alias ? '에이전트 별칭' : agent.command}: 작업 표시만 움직이는 동안에도 실행 중으로 보인다`, async ({ page, request }, testInfo) => {
       test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop project only');
       test.setTimeout(90_000);
       const ownerId = `ai-tui-busy-status/${testInfo.testId}/${testInfo.retry}/${randomUUID()}`;
@@ -52,7 +52,7 @@ test.describe('AI TUI 작업 중 상태', () => {
       const workspace = await createOwnedWorkspaceViaApi(request, registryOptions(), ownerId, { headers, data: { name: workspaceName } });
 
       try {
-        if (agent.alias) await createRecoveryOptionViaApi(page, { command: agent.command, arguments: ['--continue'] });
+        if (agent.alias) await addAgentAliasForE2E(page, 'claude', agent.command);
         const createdTab = await request.post(`${ORIGIN}/api/workspaces/${workspace.id}/tabs`, { headers, data: { name: 'e2e-busy-tab' } });
         expect(createdTab.status()).toBe(201);
         await page.reload();
@@ -96,7 +96,7 @@ test.describe('AI TUI 작업 중 상태', () => {
         await expect(dot).toHaveAttribute('aria-label', '대기', { timeout: BUSY_MS + 3000 });
       } finally {
         // Only the e2e-recovery- options this spec made; the user's own stay.
-        if (agent.alias) await clearRecoveryOptionsForE2E(page);
+        if (agent.alias) await clearAgentAliasesForE2E(page);
         const cleanup = await cleanupOwnedWorkspaces({ ...registryOptions(), ownerId });
         if (cleanup.failed.length) throw new Error(`owned workspace cleanup failed: ${JSON.stringify(cleanup.failed)}`);
       }

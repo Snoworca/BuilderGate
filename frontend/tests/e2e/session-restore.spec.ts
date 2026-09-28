@@ -32,9 +32,8 @@ import path from 'node:path';
 import { test, expect, createOwnedWorkspaceViaApi, type APIRequestContext } from './workspaceOwnershipFixture';
 import { cleanupOwnedWorkspaces, type RegistryOptions } from './workspaceLeakGuard';
 import {
-  clearRecoveryOptionsForE2E,
-  createRecoveryOptionViaApi,
-  ensureDefaultRecoveryOptionsForE2E,
+  addAgentAliasForE2E,
+  clearAgentAliasesForE2E,
   login,
   sendVisibleTerminalCommand,
   waitForTerminal,
@@ -100,13 +99,17 @@ test.describe('세션 이어하기 (재시작 사이)', () => {
       expect(createdTab.status()).toBe(201);
       const tabId = (await createdTab.json() as { id: string }).id;
 
-      await createRecoveryOptionViaApi(page, { command: optionCommand, arguments: ['--continue'] });
+      await addAgentAliasForE2E(page, 'claude', optionCommand);
       await page.reload();
       await page.waitForSelector('.workspace-screen', { timeout: 15000 });
       await page.locator('.sidebar [role="option"]', { hasText: workspaceName }).first().click();
       await waitForTerminal(page);
       await sendVisibleTerminalCommand(page, `${optionCommand} --continue`);
-      await expect.poll(async () => (await tabRecord(request, token, tabId))?.recoveryCommand, { timeout: 15000 }).toBe(optionCommand);
+      // FR-AITUI-011 AC-5: the alias makes the tab a save candidate.
+      await expect.poll(async () => {
+        const res = await request.get(`${ORIGIN}/api/session-snapshot/candidates`, { headers: authHeaders(token) });
+        return ((await res.json()) as { candidates: Array<{ tabId: string }> }).candidates.some((c) => c.tabId === tabId);
+      }, { timeout: 15000 }).toBe(true);
 
       const tab = await tabRecord(request, token, tabId);
       const cwdResponse = await request.get(`${ORIGIN}/api/sessions/${String(tab?.sessionId)}/cwd`, { headers: authHeaders(token) });
@@ -178,8 +181,7 @@ test.describe('세션 이어하기 (재시작 사이)', () => {
     } finally {
       rmSync(recordFile, { force: true });
       await request.delete(`${ORIGIN}/api/session-snapshot`, { headers: authHeaders(token) });
-      await clearRecoveryOptionsForE2E(page);
-      await ensureDefaultRecoveryOptionsForE2E(page);
+      await clearAgentAliasesForE2E(page);
       const cleanup = await cleanupOwnedWorkspaces({ ...registryOptions(), ownerId });
       if (cleanup.failed.length) throw new Error(`owned workspace cleanup failed: ${JSON.stringify(cleanup.failed)}`);
     }

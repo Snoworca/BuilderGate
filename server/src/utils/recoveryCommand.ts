@@ -75,6 +75,25 @@ export function getRecoveryExecutableToken(commandLine: string): string | null {
   return executable ? normalizeRecoveryExecutable(executable) : null;
 }
 
+/**
+ * FR-AITUI-011 AC-4: a launch line split into the executable as typed and its arguments,
+ * skipping leading VAR= assignments and env/command wrappers. Null for an empty line.
+ */
+export function splitLaunchCommand(commandLine: string): { command: string; args: string[] } | null {
+  const tokens = tokenizeSubmittedCommand(commandLine);
+  let index = 0;
+  const skipAssignments = () => {
+    while (index < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=.*/.test(tokens[index])) index += 1;
+  };
+  skipAssignments();
+  while (index < tokens.length && (tokens[index] === 'env' || tokens[index] === 'command')) {
+    index += 1;
+    skipAssignments();
+  }
+  const command = tokens[index];
+  return command ? { command, args: tokens.slice(index + 1) } : null;
+}
+
 // @req FR-AITUI-004
 // @req SEC-AITUI-001
 export function buildRecoveryRestoreInput(shell: RecoveryRestoreShell, commandInput: string, argumentInput: string[]): string {

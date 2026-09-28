@@ -56,15 +56,23 @@ test('AC-1: a tab with a pending saved session is recovered as a shell only', as
   service.setAgentResumePendingChecker((tabId) => tabId === 't1');
   const recovered = await service.checkOrphanTabs();
   assert.deepEqual(recovered.sort(), ['t1', 't2'], 'both tabs get a new shell');
-  const t2Session = service.getTab('t2').sessionId;
-  assert.deepEqual(sessions.scheduled.map((s: any) => s.sessionId), [t2Session], 'only the unsaved tab gets its recovery command');
-  assert.match(sessions.scheduled[0].input, /claude\s+'?--continue'?/);
+  // FR-AITUI-012 AC-1: nothing is typed on its own, not even for the tab without a saved session.
+  assert.equal(sessions.scheduled.length, 0);
 });
 
-test('AC-1 boundary: without a checker, orphan recovery is unchanged', async () => {
+test('FR-AITUI-012 AC-1/AC-2: orphan recovery never types a recovery command such as claude --continue', async () => {
   const { service, sessions } = await makeService();
   await service.checkOrphanTabs();
-  assert.equal(sessions.scheduled.length, 2);
+  assert.equal(sessions.scheduled.length, 0);
+});
+
+test('FR-AITUI-012 AC-1: a tab restart types nothing into the new shell', async () => {
+  const { service, sessions } = await makeService();
+  sessions.terminateSession = async () => {};
+  sessions.getSessionCwd = () => '/work';
+  await service.checkOrphanTabs();
+  await service.restartTab('w1', 't1');
+  assert.equal(sessions.scheduled.length, 0);
 });
 
 test('AC-2/AC-4: scheduleAgentResume types the quoted resume command into the tab', async () => {

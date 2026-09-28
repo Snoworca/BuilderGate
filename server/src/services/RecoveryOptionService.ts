@@ -252,31 +252,10 @@ export class RecoveryOptionService {
     return sanitized;
   }
 
-  // @req FR-AITUI-005
+  // FR-AITUI-012 AC-2: no defaults. The old ones (claude --continue, codex resume --last)
+  // resumed the directory's latest conversation, which is wrong with several sessions per directory.
   private createDefaultOptions(): RecoveryOption[] {
-    const now = new Date().toISOString();
-    return [
-      {
-        id: uuidv4(),
-        command: 'claude',
-        arguments: ['--continue'],
-        enabled: true,
-        icon: { type: 'builtin', key: 'bot' },
-        sortOrder: 0,
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        id: uuidv4(),
-        command: 'codex',
-        arguments: ['resume', '--last'],
-        enabled: true,
-        icon: { type: 'builtin', key: 'terminal' },
-        sortOrder: 1,
-        createdAt: now,
-        updatedAt: now,
-      },
-    ];
+    return [];
   }
 
   // @req FR-AITUI-002

@@ -25,7 +25,7 @@ interface HeaderProps {
   onToggleViewMode?: () => void;
   onOpenCommandPresetManager?: () => void;
   onOpenTerminalShortcutManager?: () => void;
-  onOpenRecoveryOptionManager?: () => void;
+  onOpenAgentCommandManager?: () => void;
   onOpenMcpControlManager?: () => void;
   /** The current workspace holds at least one editor window. @req FR-MDE-008 */
   hasEditorWindows?: boolean;
@@ -75,7 +75,7 @@ export function Header({
   onToggleViewMode,
   onOpenCommandPresetManager,
   onOpenTerminalShortcutManager,
-  onOpenRecoveryOptionManager,
+  onOpenAgentCommandManager,
   onOpenMcpControlManager,
   hasEditorWindows,
   editorTrayItems,
@@ -101,15 +101,15 @@ export function Header({
       label: t('header.tools.terminalKeyboard'),
       onClick: () => onOpenTerminalShortcutManager?.(),
     }] : []),
-    ...(onOpenRecoveryOptionManager ? [{
-      label: t('header.tools.recoveryOptions'),
-      onClick: () => onOpenRecoveryOptionManager?.(),
+    ...(onOpenAgentCommandManager ? [{
+      label: t('header.tools.agentCommands'),
+      onClick: () => onOpenAgentCommandManager?.(),
     }] : []),
     ...(onOpenMcpControlManager ? [{
       label: t('header.tools.mcp'),
       onClick: () => onOpenMcpControlManager?.(),
     }] : []),
-  ], [onOpenCommandPresetManager, onOpenMcpControlManager, onOpenRecoveryOptionManager, onOpenTerminalShortcutManager]);
+  ], [onOpenCommandPresetManager, onOpenMcpControlManager, onOpenAgentCommandManager, onOpenTerminalShortcutManager]);
 
   return (
     <header className="header">
@@ -142,7 +142,7 @@ export function Header({
         </div>
       )}
 
-      {(onOpenSettings || onLogout || onSessionSave || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && (
+      {(onOpenSettings || onLogout || onSessionSave || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenAgentCommandManager || onOpenMcpControlManager) && (
         // Every button here is a design-system icon button (FR-UIDS-001):
         // `icon-button-md` gives the face, and `header-action-button` stays
         // because selectors outside this file find the header's buttons by it.
@@ -205,7 +205,7 @@ export function Header({
             // not on the tab in front (FR-AITUI-009 AC-1).
             <SessionSaveButton state={sessionSaveState} onClick={onSessionSave} />
           )}
-          {(onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenRecoveryOptionManager || onOpenMcpControlManager) && !isMobile && (
+          {(onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenAgentCommandManager || onOpenMcpControlManager) && !isMobile && (
             <IconButton
               icon="tools"
               label={t('header.tools')}
