@@ -37,6 +37,19 @@ export function createFileRoutes(fileService: FileService): Router {
     }
   });
 
+  // GET /api/sessions/:id/files/stat — one path's attributes (FR-FEX-018)
+  router.get('/:id/files/stat', async (req: Request, res: Response) => {
+    try {
+      const targetPath = req.query.path as string;
+      if (!targetPath) {
+        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'path query parameter is required' } });
+      }
+      res.json(await fileService.statPath(req.params.id, targetPath));
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
   // GET /api/sessions/:id/files/read
   router.get('/:id/files/read', async (req: Request, res: Response) => {
     try {

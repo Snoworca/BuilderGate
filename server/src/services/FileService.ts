@@ -10,7 +10,7 @@ import fs from 'fs/promises';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent } from '../types/file.types.js';
+import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent, PathStat } from '../types/file.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget } from '../utils/pathValidator.js';
 import { isFileJobTempName } from './fileJobs/fileJobRunner.js';
@@ -280,6 +280,60 @@ export class FileService {
   /**
    * Read file contents with size and binary checks.
    */
+  // @req FR-FEX-018
+  async statPath(sessionId: string, targetPath: string): Promise<PathStat> {
+    this.assertSessionExists(sessionId);
+    const cwd = await this.getCwd(sessionId);
+    const resolved = await resolveAndValidate(cwd, targetPath, this.config.blockedPaths);
+    let stat;
+    try {
+      stat = await fs.stat(resolved);
+    } catch {
+      throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    }
+    // The link itself, when the requested path named one (resolveAndValidate returns the target).
+    const requested = path.resolve(cwd, targetPath);
+    let linkTarget: string | undefined;
+    try {
+      if ((await fs.lstat(requested)).isSymbolicLink()) linkTarget = await fs.readlink(requested);
+    } catch {
+      // No link to report.
+    }
+    const kind: PathStat['kind'] = linkTarget !== undefined
+      ? 'symlink'
+      : stat.isDirectory() ? 'directory' : stat.isFile() ? 'file' : 'other';
+    let childCount: number | undefined;
+    if (stat.isDirectory()) {
+      try {
+        childCount = (await fs.readdir(resolved)).filter(name => !isFileJobTempName(name)).length;
+      } catch {
+        childCount = undefined;
+      }
+    }
+    const realCwd = await fs.realpath(cwd).catch(() => cwd);
+    const relative = path.relative(realCwd, resolved);
+    const permBits = stat.mode & 0o777;
+    const rwx = (bits: number) => `${bits & 4 ? 'r' : '-'}${bits & 2 ? 'w' : '-'}${bits & 1 ? 'x' : '-'}`;
+    const extension = stat.isFile() ? path.extname(resolved) : '';
+    return {
+      name: path.basename(linkTarget !== undefined ? requested : resolved),
+      path: linkTarget !== undefined ? requested : resolved,
+      relativePath: relative === '' ? '.' : relative,
+      kind,
+      size: stat.size,
+      ...(extension ? { extension } : {}),
+      modified: stat.mtime.toISOString(),
+      accessed: stat.atime.toISOString(),
+      changed: stat.ctime.toISOString(),
+      // birthtime is epoch 0 where the filesystem has no creation time.
+      ...(stat.birthtimeMs > 0 ? { created: stat.birthtime.toISOString() } : {}),
+      mode: `0${permBits.toString(8).padStart(3, '0')}`,
+      permissions: rwx(permBits >> 6) + rwx(permBits >> 3) + rwx(permBits),
+      ...(childCount !== undefined ? { childCount } : {}),
+      ...(linkTarget !== undefined ? { linkTarget } : {}),
+    };
+  }
+
   async readFile(sessionId: string, filePath: string): Promise<FileContent> {
     this.assertSessionExists(sessionId);
 

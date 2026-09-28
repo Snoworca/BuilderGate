@@ -106,6 +106,24 @@ export interface DirectoryEntry {
   modified: string;
 }
 
+/** FR-FEX-018: one path's attributes (GET /files/stat). */
+export interface PathStat {
+  name: string;
+  path: string;
+  relativePath: string;
+  kind: 'file' | 'directory' | 'symlink' | 'other';
+  size: number;
+  extension?: string;
+  modified: string;
+  accessed: string;
+  changed: string;
+  created?: string;
+  mode: string;
+  permissions: string;
+  childCount?: number;
+  linkTarget?: string;
+}
+
 export interface DirectoryListing {
   cwd: string;
   path: string;

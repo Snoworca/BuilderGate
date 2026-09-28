@@ -29,6 +29,31 @@ export interface DirectoryEntry {
   modified: string; // ISO 8601
 }
 
+/** FR-FEX-018: one path's attributes for the information modal. */
+export interface PathStat {
+  name: string;
+  /** Absolute path on the server. */
+  path: string;
+  /** Relative to the session root, '.' for the root itself. */
+  relativePath: string;
+  kind: 'file' | 'directory' | 'symlink' | 'other';
+  size: number;
+  extension?: string;
+  modified: string;
+  accessed: string;
+  changed: string;
+  /** Absent where the filesystem does not record it. */
+  created?: string;
+  /** Octal permission bits, e.g. '0644'. */
+  mode: string;
+  /** rwxr-xr-x form of `mode`. */
+  permissions: string;
+  /** Direct entries, for a directory. */
+  childCount?: number;
+  /** Where a symlink points, for a symlink. */
+  linkTarget?: string;
+}
+
 export interface DirectoryListing {
   cwd: string;
   path: string;

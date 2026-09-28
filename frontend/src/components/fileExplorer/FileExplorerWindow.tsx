@@ -31,6 +31,7 @@
 // @req FR-FEX-009
 
 import { applyTypeFilterKey, type TypeFilterKey } from './fileExplorerTypeFilter.ts';
+import { FileInfoModal } from './FileInfoModal.tsx';
 import { t } from '../../i18n/i18n.ts';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
@@ -212,6 +213,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   const { askName, showError } = confirmBar;
   const { confirm: confirmDelete } = windowModal;
   const [menu, setMenu] = useState<FileExplorerMenuRequest | null>(null);
+  // FR-FEX-018: the path whose information modal is open.
+  const [infoPath, setInfoPath] = useState<string | null>(null);
 
   // Every finished job refreshes the directories it touched in this tab, whoever
   // started it: a failed or cancelled job may still have changed some files.
@@ -236,6 +239,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     showError,
     onOpenFile: handleOpenFile,
     onNewTab: (path) => actions.addTab(workspaceId, path),
+    onShowInfo: (path) => setInfoPath(path),
     origin: { workspaceId, tabId: tab.id },
   });
   // FR-FEX-014: the type-to-filter text. It belongs to one directory view, so it clears
@@ -410,6 +414,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
           : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} openFileKeys={openFileKeys} filterText={filterText} />}
       </div>
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
+      {infoPath !== null && <FileInfoModal sessionId={tab.sessionId} path={infoPath} onClose={() => setInfoPath(null)} />}
       {isMobile && (
         <FileExplorerMobileBar selectionCount={state.selectedPaths.size} clipboardEmpty={clipboard === null} handlers={ops.menuHandlers} />
       )}

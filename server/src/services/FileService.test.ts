@@ -416,3 +416,50 @@ test('FR-FEX-017 AC-4 listing above the session root is still refused', async ()
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 });
+
+// FR-FEX-018: the information modal reads one path's attributes, inside the session root only.
+test('FR-FEX-018 AC-2 stat reports a file and a directory inside the session root', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'));
+  try {
+    await fs.mkdir(path.join(tempDir, 'dir'));
+    await fs.writeFile(path.join(tempDir, 'dir', 'x.txt'), 'x');
+    await fs.writeFile(path.join(tempDir, 'dir', 'y.txt'), 'yy');
+    await fs.writeFile(path.join(tempDir, 'note.md'), 'hello');
+    const service = listingService(tempDir);
+
+    const file = await service.statPath('session-1', 'note.md');
+    assert.equal(file.name, 'note.md');
+    assert.equal(file.kind, 'file');
+    assert.equal(file.size, 5);
+    assert.equal(file.extension, '.md');
+    assert.equal(file.relativePath, 'note.md');
+    assert.equal(path.basename(file.path), 'note.md');
+    for (const key of ['modified', 'accessed', 'changed'] as const) assert.ok(!Number.isNaN(Date.parse(file[key])), key);
+    assert.match(file.mode, /^0[0-7]{3}$/);
+    assert.match(file.permissions, /^[r-][w-][x-][r-][w-][x-][r-][w-][x-]$/);
+    assert.equal(file.childCount, undefined);
+
+    const dir = await service.statPath('session-1', 'dir');
+    assert.equal(dir.kind, 'directory');
+    assert.equal(dir.childCount, 2);
+    assert.equal(dir.relativePath, 'dir');
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('FR-FEX-018 AC-2 stat refuses a path outside the session root', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'));
+  try {
+    await assert.rejects(
+      () => listingService(tempDir).statPath('session-1', '..'),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.PATH_TRAVERSAL,
+    );
+    await assert.rejects(
+      () => listingService(tempDir).statPath('session-1', 'missing.txt'),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.PATH_NOT_FOUND,
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});

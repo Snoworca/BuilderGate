@@ -52,6 +52,8 @@ export interface UseFileTreeOperationsInput {
   onOpenFile: (filePath: string) => void;
   /** Only a surface with tabs can open a folder in a new one. */
   onNewTab?: (path: string) => void;
+  /** FR-FEX-018: open the information modal for a path. */
+  onShowInfo?: (path: string) => void;
   /** Where a submitted job belongs, so its window can ask its questions. */
   origin: { workspaceId: string; tabId: string };
 }
@@ -91,6 +93,7 @@ export function useFileTreeOperations({
   showError,
   onOpenFile,
   onNewTab,
+  onShowInfo,
   origin,
 }: UseFileTreeOperationsInput): FileTreeOperations {
   const { state } = tree;
@@ -225,6 +228,9 @@ export function useFileTreeOperations({
     },
     refresh: () => {
       void tree.refresh(targetDirectory);
+    },
+    info: () => {
+      if (menu?.path) onShowInfo?.(menu.path);
     },
   };
 

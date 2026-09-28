@@ -22,6 +22,7 @@ import type {
   TOTPQRInfo,
   DirectoryListing,
   FileContent,
+  PathStat,
   ShellInfo,
   ShellType,
   SettingsSnapshot,
@@ -286,6 +287,15 @@ export const fileApi = {
   listDirectory: async (sessionId: string, path?: string): Promise<DirectoryListing> => {
     const params = path ? `?path=${encodeURIComponent(path)}` : '';
     const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files${params}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
+  // FR-FEX-018: one path's attributes for the information modal.
+  statPath: async (sessionId: string, path: string): Promise<PathStat> => {
+    const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/stat?path=${encodeURIComponent(path)}`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw await parseError(res);

@@ -20,7 +20,8 @@ export type FileExplorerMenuActionId =
   | 'rename'
   | 'delete'
   | 'newdir'
-  | 'refresh';
+  | 'refresh'
+  | 'info';
 
 export type FileExplorerMenuEntry = FileExplorerMenuActionId | 'sep';
 
@@ -28,7 +29,9 @@ export const FILE_EXPLORER_MENU_ORDER: readonly FileExplorerMenuEntry[] = Object
   'open', 'newtab', 'sep',
   'copy', 'cut', 'paste', 'sep',
   'rename', 'delete', 'sep',
-  'newdir', 'refresh',
+  'newdir', 'refresh', 'sep',
+  // FR-FEX-018: always the last item of an entry's menu.
+  'info',
 ] as const);
 
 const LABELS: Record<FileExplorerMenuActionId, MessageKey> = {
@@ -41,6 +44,7 @@ const LABELS: Record<FileExplorerMenuActionId, MessageKey> = {
   delete: 'common.delete',
   newdir: 'fileExplorer.menu.newFolder',
   refresh: 'fileExplorer.menu.reload',
+  info: 'fileExplorer.menu.info',
 };
 
 const SHORTCUTS: Partial<Record<FileExplorerMenuActionId, string>> = {
@@ -111,6 +115,8 @@ function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInf
     case 'newdir':
     case 'refresh':
       return info.target === 'empty' || info.isDir;
+    case 'info':
+      return info.target === 'item';
   }
 }
 
@@ -120,6 +126,8 @@ function isActionShown(id: FileExplorerMenuActionId, info: FileExplorerMenuInfo)
   // The editor window's side panel has no tabs to open into (FR-MDE-012 AC-8):
   // removed rather than disabled, since it could never become usable there.
   if (id === 'newtab' && info.context === 'editor-panel') return false;
+  // FR-FEX-018: the modal lives in the explorer window; the editor side panel has no host for it.
+  if (id === 'info' && info.context === 'editor-panel') return false;
   return true;
 }
 

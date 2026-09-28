@@ -37,6 +37,7 @@ const LABEL_TO_ID: Record<string, string> = {
   '삭제': 'delete',
   '새 폴더': 'newdir',
   '새로 읽기': 'refresh',
+  '정보': 'info',
 };
 const ID_TO_LABEL: Record<string, string> = Object.fromEntries(
   Object.entries(LABEL_TO_ID).map(([label, id]) => [id, label]),
@@ -93,6 +94,7 @@ function recordingHandlers(calls: string[]): MenuHandlers {
   return {
     open: () => calls.push('open'),
     newtab: () => calls.push('newtab'),
+    info: () => calls.push('info'),
     copy: () => calls.push('copy'),
     cut: () => calls.push('cut'),
     paste: () => calls.push('paste'),
@@ -116,7 +118,7 @@ function itemInfo(overrides: Partial<MenuInfo> = {}): MenuInfo {
   };
 }
 
-const FULL_ORDER = ['open', 'newtab', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh'];
+const FULL_ORDER = ['open', 'newtab', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']; // FR-FEX-018: Info last
 
 // ---------------------------------------------------------------------------
 // Right click and selection (FR-FEX-006 AC-1·AC-2·AC-3)
@@ -265,7 +267,7 @@ test("mode 'list' 에서 '새 탭에서 열기' 만 빠지고 나머지 id 순�
     const tree = idsOf(buildFileExplorerContextMenuItems(itemInfo({ isDir, mode: 'tree' }), recordingHandlers([])));
     const list = idsOf(buildFileExplorerContextMenuItems(itemInfo({ isDir, mode: 'list' }), recordingHandlers([])));
     assert.deepEqual(list, tree.filter(id => id !== 'newtab'), `isDir=${isDir}`);
-    assert.deepEqual(list, ['open', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh']);
+    assert.deepEqual(list, ['open', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']);
   }
 });
 
@@ -281,6 +283,7 @@ test("buildFileExplorerContextMenuItems(context='editor-panel') 에 '새 탭에�
     );
     const ids = idsOf(items);
     assert.ok(!ids.includes('newtab'), `no '새 탭에서 열기' in the editor panel (isDir=${isDir}): ${ids.join(',')}`);
+    // FR-FEX-018: Info is explorer-window only; the editor panel has no host for its modal.
     assert.deepEqual(ids, ['open', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh'], `isDir=${isDir}`);
     for (const id of ['copy', 'cut', 'paste', 'rename', 'delete']) {
       assert.equal(isEnabled(items, id), true, `${id} is usable in the editor panel (isDir=${isDir})`);
