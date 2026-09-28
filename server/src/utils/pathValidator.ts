@@ -11,11 +11,26 @@ import fs from 'fs/promises';
 import { AppError, ErrorCode } from './errors.js';
 
 /**
+ * A WSL mount path (/mnt/<drive>/...) as the Windows path it names, on a
+ * Windows host. A WSL terminal reports its directory in that form and the
+ * client sends it back; resolved as is, '/mnt/c/work' would be read as
+ * '<base drive>:\mnt\c\work'. Anything else is returned unchanged.
+ *
+ * @req FR-FEX-019
+ */
+export function toHostPath(p: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform !== 'win32') return p;
+  const mount = /^\/mnt\/([a-zA-Z])(?:\/(.*))?$/.exec(p);
+  if (mount === null) return p;
+  return `${mount[1].toUpperCase()}:\\${(mount[2] ?? '').replace(/\//g, '\\')}`;
+}
+
+/**
  * Validate and resolve a target path against a base directory.
  * Throws PATH_TRAVERSAL if the resolved path escapes the base.
  */
 export function validatePath(basePath: string, targetPath: string): string {
-  const resolved = path.resolve(basePath, targetPath);
+  const resolved = path.resolve(basePath, toHostPath(targetPath));
   const relative = path.relative(basePath, resolved);
 
   // Path escapes base directory if relative starts with '..'

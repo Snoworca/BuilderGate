@@ -12,7 +12,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent, PathStat } from '../types/file.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
-import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget } from '../utils/pathValidator.js';
+import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget, toHostPath } from '../utils/pathValidator.js';
 import { isFileJobTempName } from './fileJobs/fileJobRunner.js';
 
 // Upper bound on fs.stat calls in flight for one directory listing. libuv runs
@@ -731,12 +731,8 @@ export class FileService {
     if (/^[A-Za-z]:[\\/]/.test(p)) return p;
 
     // WSL /mnt/<drive>/... → <DRIVE>:\...
-    const mntMatch = p.match(/^\/mnt\/([a-z])(\/.*)?$/);
-    if (mntMatch) {
-      const drive = mntMatch[1].toUpperCase();
-      const rest = (mntMatch[2] || '').replace(/\//g, '\\');
-      return `${drive}:${rest || '\\'}`;
-    }
+    const mounted = toHostPath(p);
+    if (mounted !== p) return mounted;
 
     // Other Linux paths (e.g., /home/user/...) — use wslpath to convert
     try {

@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-28T10:43:10.535Z",
+  "generatedAt": "2026-09-28T16:24:06.026Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "033819368b4ca714d9a05313fea4f518ad9777c4d3477634cd5363af0257d199",
+    "value": "7e635b7bdece26bddb06d00eb126b5dd64ea09019e6d08a2d86fd4502d3a2456",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "23f3b2313e4f0cd6056c26e130f037fe2544aacf0af714a3e8af680c84646259",
-        "size": 10054,
-        "mtimeMs": 1790590982106.3086
+        "sha256": "e6894274eb34712066dd4e0a80b3c5dbea174cef48b70ebc3124c19ed174b3b0",
+        "size": 11213,
+        "mtimeMs": 1790611273946.7825
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -20,15 +20,15 @@
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "f44c393ada936c98c4fdc313f43c40a99efc6c6a91b87b02e583c6a84fe49f4f",
-        "size": 63747,
-        "mtimeMs": 1790567922477.9978
+        "sha256": "4ed8723cb9ba2d4e45f9190669c821c3dbd8e640c1155363516901971d0c11db",
+        "size": 76194,
+        "mtimeMs": 1790603063035.4297
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "295414da4c5367017ff969ebb5cd62ca8240a99bb16f625e10a4637ab9aabdd5",
-        "size": 1418890,
-        "mtimeMs": 1790555314260.4885
+        "sha256": "9eeebaffb651634fd8c0a88e8997e48b731b72af830a20d45176fc7a54199802",
+        "size": 1425901,
+        "mtimeMs": 1790609677243.0525
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -44,9 +44,9 @@
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "cc863adae3f9ebd909cccf7e14fe55a0183505a7abd8dc04777e735f12d1998d",
-        "size": 100464,
-        "mtimeMs": 1790557152868.3457
+        "sha256": "ce9556a2fcffcc7abd41a869d637fa69949599c724a9412b3068e0ac664bdda4",
+        "size": 103067,
+        "mtimeMs": 1790611680706.634
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
@@ -77,11 +77,11 @@
   "idCounters": {
     "functional": {
       "ARCH": 6,
-      "AITUI": 12,
+      "AITUI": 15,
       "BGSTAB": 31,
       "MCP": 8,
       "MDE": 23,
-      "FEX": 18,
+      "FEX": 19,
       "FOP": 5,
       "UIDS": 7
     },
@@ -101,7 +101,7 @@
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 36,
+      "BGSTAB": 38,
       "MCP": 1
     },
     "observability": {
