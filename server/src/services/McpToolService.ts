@@ -1662,7 +1662,7 @@ async function initializeMcpHttpSession(
   return jsonRpcResult(readJsonRpcId(body), {
     protocolVersion,
     capabilities: { tools: { listChanged: false } },
-    serverInfo: { name: 'BuilderGate MCP Server', version: '0.10.1' },
+    serverInfo: { name: 'BuilderGate MCP Server', version: '0.10.2' },
   }, mcpSessionHeaders(sessionId));
 }
 
