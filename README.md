@@ -265,7 +265,7 @@ npm run build:linux-amd64
 npm run build:macos-arm64
 ```
 
-Output goes to `dist/bin/<target>-<version>/`, e.g. `dist/bin/win-amd64-0.10.2/BuilderGate.exe`. Pushing a `v*.*.*` tag runs the GitHub Actions release workflow, which builds every target and publishes the release.
+Output goes to `dist/bin/<target>-<version>/`, e.g. `dist/bin/win-amd64-0.10.3/BuilderGate.exe`. Pushing a `v*.*.*` tag runs the GitHub Actions release workflow, which builds every target and publishes the release.
 
 ### Development environment
 
@@ -560,7 +560,7 @@ npm run build:linux-amd64
 npm run build:macos-arm64
 ```
 
-결과는 `dist/bin/<target>-<version>/` 에 생깁니다(예: `dist/bin/win-amd64-0.10.2/BuilderGate.exe`). `v*.*.*` 태그를 푸시하면 GitHub Actions 릴리즈 워크플로가 모든 대상을 빌드해 릴리즈에 올립니다.
+결과는 `dist/bin/<target>-<version>/` 에 생깁니다(예: `dist/bin/win-amd64-0.10.3/BuilderGate.exe`). `v*.*.*` 태그를 푸시하면 GitHub Actions 릴리즈 워크플로가 모든 대상을 빌드해 릴리즈에 올립니다.
 
 ### 개발 환경
 
