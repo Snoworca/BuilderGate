@@ -1282,12 +1282,29 @@ async function startServer(): Promise<void> {
       scheduleResume: (tabId, command, args) => workspaceService.scheduleAgentResume(tabId, command, args),
       listProcesses,
       rootsFor: (cwd) => agentRootsForCwd(cwd),
+      // FR-AITUI-013 AC-2: the commands registered in Tools › Agent commands.
+      listLaunchers: () => {
+        const aliases = agentAliasService.getAll();
+        return {
+          claude: [...aliases.claude.builtIn, ...aliases.claude.aliases],
+          codex: [...aliases.codex.builtIn, ...aliases.codex.aliases],
+          hermes: ['hermes'],
+          opencode: ['opencode'],
+        };
+      },
     });
     await sessionSnapshotService.initialize();
     workspaceService.setAgentResumePendingChecker((tabId) => sessionSnapshotService.hasPendingForTab(tabId));
+    // FR-AITUI-014 AC-1: a saved tab reopens in the folder it was saved in.
+    workspaceService.setRestoreCwdResolver((tabId) => sessionSnapshotService.restoreCwdFor(tabId));
     const orphanTabs = await workspaceService.checkOrphanTabs();
     if (orphanTabs.length > 0) {
       console.log(`[Workspace] ${orphanTabs.length} orphan tab(s) recovered with saved CWD`);
+    }
+    // FR-AITUI-014 AC-2/AC-3: the saved agents and commands come back on their own, once.
+    const restoreReport = await sessionSnapshotService.autoRestore();
+    if (restoreReport.length > 0) {
+      console.log(`[SessionSnapshot] Auto-restore: ${restoreReport.map((item) => `${item.tabName}=${item.result}`).join(', ')}`);
     }
     console.log('[Workspace] WorkspaceService initialized');
 

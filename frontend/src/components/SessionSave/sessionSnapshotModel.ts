@@ -1,4 +1,5 @@
 import { t } from '../../i18n/i18n.ts';
+import type { RestoreReportItem } from './sessionSaveAllModel.ts';
 
 // FR-AITUI-009 — the rules the session save and resume screens apply, kept
 // apart from the components so they can be judged without a DOM.
@@ -22,10 +23,12 @@ export interface SnapshotEntry {
   workspaceName: string;
   tabName: string;
   cwd: string | null;
-  agent: AgentKind;
+  /** FR-AITUI-013 AC-4; absent on an entry from before modes existed. */
+  mode?: 'agent' | 'shell' | 'command';
+  agent: AgentKind | null;
   sessionId: string;
   method: string;
-  confidence: ResolveConfidence;
+  confidence: ResolveConfidence | 'manual';
   resumeCommand: string;
   resumeArguments: string[];
   restore: SnapshotRestoreState;
@@ -43,6 +46,8 @@ export interface SnapshotStatus {
   pendingCount: number;
   /** Pending entries carried over from before a restart — the ones to offer. */
   restorable: boolean;
+  /** FR-AITUI-014 AC-5: what this server run's automatic resume did. */
+  report?: RestoreReportItem[];
 }
 
 export interface SaveResultItem {
@@ -136,7 +141,7 @@ export function aiTabSignature(tabs: ReadonlyArray<{ id: string; recoveryCommand
   return tabs.map(tab => `${tab.id}:${tab.recoveryCommand ?? ''}`).join('|');
 }
 
-export function saveButtonState(input: { candidateCount: number; status: SnapshotStatus | null; now?: Date }): SaveButtonState {
+export function saveButtonState(input: { candidateCount: number; tabCount?: number; status: SnapshotStatus | null; now?: Date }): SaveButtonState {
   const status = input.status;
   if (status && status.restorable && status.pendingCount > 0) {
     return { kind: 'pending', count: status.pendingCount };
@@ -145,5 +150,7 @@ export function saveButtonState(input: { candidateCount: number; status: Snapsho
     const label = formatSavedAt(status.snapshot.savedAt, input.now ?? new Date(), { omitToday: true });
     return { kind: 'saved', label: t('sessionSave.button.savedLabel', { time: label }), badge: input.candidateCount };
   }
-  return { kind: 'save', badge: input.candidateCount, disabled: input.candidateCount === 0 };
+  // FR-AITUI-015 AC-5: every terminal is saved, so any terminal makes the button usable.
+  const saveable = input.tabCount ?? input.candidateCount;
+  return { kind: 'save', badge: input.candidateCount, disabled: saveable === 0 };
 }

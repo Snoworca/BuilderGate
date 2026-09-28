@@ -64,10 +64,11 @@ import { CommandPresetDialog } from './components/CommandPresetManager';
 import { AgentAliasDialog } from './components/AgentAlias/AgentAliasDialog';
 import { McpControlDialog } from './components/McpControlManager';
 import {
-  SessionRestoreBanner,
-  SessionRestoreDialog,
+  RestoreReportBanner,
+  RestoreReportDialog,
   SessionSaveDialog,
   aiTabSignature,
+  reportAutoDismissMs,
   saveButtonState,
   useSessionSnapshot,
 } from './components/SessionSave';
@@ -166,25 +167,29 @@ function AppContent() {
   const [showTerminalShortcutDialog, setShowTerminalShortcutDialog] = useState(false);
   const [showAgentCommandDialog, setShowAgentCommandDialog] = useState(false);
   const [showMcpControlDialog, setShowMcpControlDialog] = useState(false);
-  // FR-AITUI-009: the session save button, the restore banner and their dialogs.
+  // FR-AITUI-009 / FR-AITUI-015: the session save button, the restore report and their dialogs.
   const sessionSnapshot = useSessionSnapshot(true);
-  const [sessionDialog, setSessionDialog] = useState<'save' | 'restore' | null>(null);
+  const [sessionDialog, setSessionDialog] = useState<'save' | 'report' | null>(null);
   const [restoreBannerDismissed, setRestoreBannerDismissed] = useState(false);
-  const sessionSaveState = useMemo(
-    () => saveButtonState({ candidateCount: sessionSnapshot.candidates.length, status: sessionSnapshot.status }),
-    [sessionSnapshot.candidates.length, sessionSnapshot.status],
-  );
-  const handleSessionSaveClick = useCallback(async () => {
-    const next = sessionSaveState.kind === 'pending' ? 'restore' : 'save';
-    // Read again first: the list the dialog opens with is the list it saves.
-    await sessionSnapshot.refresh();
-    setSessionDialog(next);
-  }, [sessionSaveState.kind, sessionSnapshot]);
-  const showRestoreBanner = Boolean(
-    sessionSnapshot.status?.restorable && sessionSnapshot.status.pendingCount > 0 && !restoreBannerDismissed && sessionDialog !== 'restore',
-  );
-
   const wm = useWorkspaceManager();
+  const sessionSaveState = useMemo(
+    () => saveButtonState({ candidateCount: sessionSnapshot.candidates.length, tabCount: wm.tabs.length, status: sessionSnapshot.status }),
+    [sessionSnapshot.candidates.length, wm.tabs.length, sessionSnapshot.status],
+  );
+  // FR-AITUI-014: a saved snapshot is resumed on its own at start, so the button always saves.
+  const handleSessionSaveClick = useCallback(() => {
+    setSessionDialog('save');
+  }, []);
+  const restoreReport = useMemo(() => sessionSnapshot.status?.report ?? [], [sessionSnapshot.status]);
+  const showRestoreBanner = restoreReport.length > 0 && !restoreBannerDismissed && sessionDialog !== 'report';
+  // FR-AITUI-015 AC-6: a report with nothing to look at goes away on its own.
+  const restoreDismissMs = reportAutoDismissMs(restoreReport);
+  useEffect(() => {
+    if (!showRestoreBanner || restoreDismissMs === null) return undefined;
+    const timer = window.setTimeout(() => setRestoreBannerDismissed(true), restoreDismissMs);
+    return () => window.clearTimeout(timer);
+  }, [showRestoreBanner, restoreDismissMs]);
+
   // FR-AITUI-009 AC-6: a tab that just became an AI tab is on the save button at
   // once, not on the next 15 s poll.
   const sessionAiTabs = useMemo(() => aiTabSignature(wm.tabs), [wm.tabs]);
@@ -798,13 +803,13 @@ function AppContent() {
         editorTrayOpenCount={editor.openCount}
         onOpenFileExplorer={activeTab ? () => openTabFileExplorer(activeTab.id) : undefined}
         sessionSaveState={sessionSnapshot.status ? sessionSaveState : undefined}
-        onSessionSave={() => { void handleSessionSaveClick(); }}
+        onSessionSave={handleSessionSaveClick}
       />
-      {showRestoreBanner && sessionSnapshot.status && (
-        <SessionRestoreBanner
-          status={sessionSnapshot.status}
-          onReview={() => setSessionDialog('restore')}
-          onLater={() => setRestoreBannerDismissed(true)}
+      {showRestoreBanner && (
+        <RestoreReportBanner
+          report={restoreReport}
+          onOpen={() => setSessionDialog('report')}
+          onDismiss={() => setRestoreBannerDismissed(true)}
         />
       )}
       <div className="main">
@@ -1077,22 +1082,18 @@ function AppContent() {
 
       {sessionDialog === 'save' && (
         <SessionSaveDialog
-          candidates={sessionSnapshot.candidates}
+          loadPreview={sessionSnapshot.preview}
           onClose={() => setSessionDialog(null)}
-          onSave={sessionSnapshot.save}
+          onSave={sessionSnapshot.saveAll}
         />
       )}
 
-      {sessionDialog === 'restore' && sessionSnapshot.status && (
-        <SessionRestoreDialog
-          status={sessionSnapshot.status}
-          onClose={() => {
-            setSessionDialog(null);
-            // Closing the review is the same answer as the banner's 나중에.
-            setRestoreBannerDismissed(true);
-          }}
-          onRestore={sessionSnapshot.restore}
-          onDiscard={sessionSnapshot.discard}
+      {sessionDialog === 'report' && (
+        <RestoreReportDialog
+          report={restoreReport}
+          loadPreview={sessionSnapshot.preview}
+          onRetry={sessionSnapshot.retry}
+          onClose={() => setSessionDialog(null)}
         />
       )}
 

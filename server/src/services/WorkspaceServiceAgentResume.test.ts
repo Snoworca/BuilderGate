@@ -85,3 +85,18 @@ test('AC-2/AC-4: scheduleAgentResume types the quoted resume command into the ta
   assert.match(sessions.scheduled[0].input, /claude\s+'?--resume'?\s+'?7c1e0b52-4a0e-4f7b-9d61-2b8e5f0c3a19'?/);
   assert.equal(service.scheduleAgentResume('missing', 'claude', ['--resume', 'x']), false, 'a missing tab is reported, not thrown');
 });
+
+test('FR-AITUI-014 AC-1: a tab in the snapshot reopens in the saved folder, the others in their own', async () => {
+  const { service, sessions } = await makeService();
+  const cwds: Array<string | undefined> = [];
+  sessions.createSession = (_name: string, _shell: string, cwd?: string) => {
+    const id = `pty-cwd-${cwds.length}`;
+    cwds.push(cwd);
+    sessions.live.add(id);
+    return { id };
+  };
+  service.setRestoreCwdResolver((tabId) => (tabId === 't1' ? '/work/saved' : null));
+  await service.checkOrphanTabs();
+  assert.deepEqual(cwds, ['/work/saved', '/work']);
+  assert.equal(service.getTab('t1').lastCwd, '/work/saved', 'the tab remembers the folder it reopened in');
+});

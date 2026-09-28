@@ -42,13 +42,13 @@
       "frontend/src/utils/terminalWriteCoordinator.ts": "e9cc89993d03388524a6bb3204290b41bbd5a44d04f6f566ac2d28f4cf8a69aa",
       "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855",
       "frontend/src/utils/webSocketBackpressure.ts": "6b1267425a009da86ed03cccfe8caa80520dcd65b82fff63ffe5e6886e132f29",
-      "server/src/index.ts": "2dc44c025735ac84a2d55cd0f37e67fdc4b2cddabe17f61881de4ac295ba8a9f",
+      "server/src/index.ts": "af76a36d7b96285028d2c61538e693343fc28b0ef42fc4a56f3f984341e7f5c5",
       "server/src/schemas/config.schema.ts": "e74738eb9ba19f9d3da5df26d20032e92960e5a55c4c22eedce0431e5ed56db6",
       "server/src/services/ConfigFileRepository.ts": "26c76728f01a3b2b913feb95bac5e131a328da0e8e99ef946963e7b44ceb3132",
       "server/src/services/McpToolService.ts": "d92bfaee1035cd069b0109c7ec942b16337d0822ee47fd7b1a8a1dc59295a635",
       "server/src/services/RuntimeConfigStore.test.ts": "e61f4457e38b29be46dfec551c344d0d8efd967c5305ac0cdc27024614429d78",
       "server/src/services/RuntimeConfigStore.ts": "1f1e0c13cf2d58ea19d47179bbdbab2b91f52e17f1ac200a38e3eb4254e718ef",
-      "server/src/services/SessionManager.ts": "64b54febb4136fdde1d724066bbc72c1fa45da1d796414e18ed6b51dfffac2eb",
+      "server/src/services/SessionManager.ts": "10508478f0e24d977124a2404970707e117a34b7729d4ad8d22626cee6d273ed",
       "server/src/services/SettingsService.ts": "11cc5d2902b43b7fdd39d2ec723eab1f9c28631b954600401de03eb1a54f6c69",
       "server/src/services/TerminalAuthorityProductionAdapter.ts": "738965fcf503f8a64740e4e8e034c11ab718a3ecb26e8041761c16184f734cfe",
       "server/src/services/TerminalResourcePolicy.test.ts": "2a0a3226dda66d201a8fe1d28909d407774dbbf3fce1e0aed03be2b3ec1a9d91",
@@ -66,7 +66,7 @@
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "fd2ddb3243927cad1d5ce4daa7d985b6fa4fec73aea19aa933959eec622f38a5",
       "tools/wave3/terminal-resource-policy-differential.ts": "8b361e3593526d0e0ab8215af60d71ea3c0ca30bab4c3351ac8883c54c9736d2"
     },
-    "sourceSetSha256": "d004c64f31fa87f5204e64019e6160dea9f2b7605f4d5e623cbc118d6092ab26",
+    "sourceSetSha256": "bf001521441f69d85f7dda983f3d31f451d8cbe21df25c9c75a071f102630586",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "55c0fc9e31e53b1087ced80ea76b70513b7310ff17405820b346bb7d6c37ed13",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"

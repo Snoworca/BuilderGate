@@ -4098,6 +4098,8 @@ export class SessionManager {
     cwd: string | null;
     /** FR-AITUI-011 AC-4: the agent's launch command line, when this server saw it. */
     launchCommand: string | null;
+    /** FR-AITUI-013 AC-1: the last submitted command while the shell is not back at its prompt. */
+    runningCommand: string | null;
   } | null {
     const data = this.sessions.get(sessionId);
     if (!data) return null;
@@ -4112,6 +4114,7 @@ export class SessionManager {
       outputHint: this.agentOutputHints.get(sessionId),
       cwd: data.lastCwd ?? data.initialCwd ?? null,
       launchCommand: appId ? data.agentLaunchCommand ?? null : null,
+      runningCommand: data.lastSubmittedCommand ?? null,
     };
   }
 

@@ -78,3 +78,9 @@ test('AC-1: the header button is save, saved or resume', () => {
   const pending: SnapshotStatus = { ...saved, restorable: true };
   assert.deepEqual(saveButtonState({ candidateCount: 0, status: pending, now }), { kind: 'pending', count: 1 });
 });
+
+test('FR-AITUI-015 AC-5: the save button is usable whenever there is a terminal, agent or not', () => {
+  const now = new Date(2026, 8, 28, 15, 0, 0);
+  assert.deepEqual(saveButtonState({ candidateCount: 0, tabCount: 3, status: null, now }), { kind: 'save', badge: 0, disabled: false });
+  assert.deepEqual(saveButtonState({ candidateCount: 0, tabCount: 0, status: null, now }), { kind: 'save', badge: 0, disabled: true });
+});

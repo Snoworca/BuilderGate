@@ -1330,6 +1330,12 @@ export class WorkspaceService {
   }
 
   private agentResumePending: ((tabId: string) => boolean) | null = null;
+  private restoreCwdResolver: ((tabId: string) => string | null) | null = null;
+
+  /** FR-AITUI-014 AC-1: set before checkOrphanTabs so saved tabs reopen in their saved folder. */
+  setRestoreCwdResolver(resolver: ((tabId: string) => string | null) | null): void {
+    this.restoreCwdResolver = resolver;
+  }
 
   /** FR-AITUI-008 AC-1: set before checkOrphanTabs so saved tabs are not auto-recovered. */
   setAgentResumePendingChecker(checker: ((tabId: string) => boolean) | null): void {
@@ -1700,10 +1706,15 @@ export class WorkspaceService {
           continue;
         }
 
-        // Recreate session with saved CWD (or undefined → home directory fallback)
+        // Recreate session with saved CWD (or undefined → home directory fallback).
+        // FR-AITUI-014 AC-1: a tab in the session snapshot reopens in the folder it was saved in.
         try {
           const previousSessionId = tab.sessionId;
           this.cancelPendingTerminalTitle(previousSessionId);
+          const savedCwd = this.restoreCwdResolver?.(tab.id);
+          if (savedCwd && savedCwd.length <= 4096 && !/[\x00-\x1f]/.test(savedCwd)) {
+            tab.lastCwd = savedCwd;
+          }
           const sessionDTO = this.sessionManager.createSession(tab.name, tab.shellType, tab.lastCwd);
           tab.sessionId = sessionDTO.id;
           this.bindCurrentSessionId(tab, sessionDTO.id, previousSessionId);

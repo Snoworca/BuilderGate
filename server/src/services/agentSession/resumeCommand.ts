@@ -61,6 +61,11 @@ function stripCodexResume(args: readonly string[]): string[] {
   return out;
 }
 
+/** FR-AITUI-013 AC-2: the launch arguments without any session selector. */
+export function stripSessionSelectors(agent: AgentKind, args: readonly string[]): string[] {
+  return agent === 'codex' ? stripCodexResume(args) : stripSelectors(args, RULES[agent]);
+}
+
 export function buildResumeCommand(
   agent: AgentKind,
   sessionId: string,

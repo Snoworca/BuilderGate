@@ -432,6 +432,50 @@ async function resolveHermes(ctx: TabAgentContext, env: ResolveEnv): Promise<Res
 }
 
 // ---------------------------------------------------------------------------
+// FR-AITUI-013 AC-1: the other live sessions in a folder, for the user to pick
+// from when the answer above is a guess or missing. Claude and Codex keep a
+// per-session live record; Hermes and OpenCode do not, so they offer none.
+// ---------------------------------------------------------------------------
+
+export interface AgentSessionCandidate {
+  sessionId: string;
+  startedAtMs: number;
+}
+
+const MAX_CANDIDATES = 5;
+
+export function listAgentSessionCandidates(agent: AgentKind, cwd: string | null, env: ResolveEnv): AgentSessionCandidate[] {
+  if (!cwd) return [];
+  try {
+    if (agent === 'claude') {
+      const isAlive = env.isPidAlive ?? defaultIsPidAlive;
+      return readClaudeEntries(env.roots)
+        .filter((entry) => isValidAgentSessionId('claude', entry.sessionId) && sameCwd(entry.cwd, cwd) && isAlive(entry.pid))
+        .sort((a, b) => b.startedAt - a.startedAt)
+        .slice(0, MAX_CANDIDATES)
+        .map((entry) => ({ sessionId: entry.sessionId, startedAtMs: entry.startedAt }));
+    }
+    if (agent === 'codex') {
+      const isLocked = env.isFileLocked ?? defaultIsFileLocked;
+      const lockDir = path.join(env.roots.codexHome, 'thread-writer-locks');
+      const liveIds = safeReaddir(lockDir)
+        .map((file) => /^([0-9a-f-]{36})\.lock$/i.exec(file)?.[1])
+        .filter((id): id is string => typeof id === 'string' && UUID.test(id))
+        .filter((id) => isLocked(path.join(lockDir, `${id}.lock`)));
+      if (liveIds.length === 0) return [];
+      const rollouts = indexCodexRollouts(env.roots.codexHome, new Set(liveIds));
+      return liveIds
+        .map((id) => (rollouts.has(id) ? readCodexThread(id, rollouts.get(id) as string) : null))
+        .filter((thread): thread is CodexThread => thread !== null && sameCwd(thread.cwd, cwd))
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, MAX_CANDIDATES)
+        .map((thread) => ({ sessionId: thread.id, startedAtMs: thread.createdAt }));
+    }
+  } catch { /* unreadable roots: no candidates */ }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
 
 export async function resolveAgentSession(ctx: TabAgentContext, env: ResolveEnv): Promise<ResolvedAgentSession | null> {
   const tree = typeof ctx.ptyPid === 'number' && env.processes ? descendantsOf(ctx.ptyPid, env.processes) : null;

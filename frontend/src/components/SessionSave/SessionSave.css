@@ -106,3 +106,109 @@
   .session-restore-banner { flex-wrap: wrap; }
   .session-restore-banner .ui-banner-actions { width: 100%; justify-content: flex-end; }
 }
+
+/* FR-AITUI-015 — every terminal, its editor, and the restore report. Tokens only. */
+.session-save-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.session-save-filter { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-sunken); }
+.session-save-filter button {
+  display: inline-flex; align-items: center; gap: 6px; height: var(--ctl-sm); padding: 0 var(--sp-3);
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--fg-muted);
+  font-family: inherit; font-size: var(--fs-xs); cursor: pointer;
+}
+.session-save-filter button.is-active { background: var(--bg-raised); color: var(--fg-strong); }
+.session-save-filter button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.session-save-filter-count { min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: var(--r-pill); background: var(--bg-hover); font-size: var(--fs-2xs); line-height: 18px; text-align: center; }
+.session-save-filter-count.is-warn { background: var(--warn-tint); color: var(--warn-text); }
+.session-save-all-toggle { display: inline-flex; align-items: center; gap: var(--sp-2); margin-left: auto; font-size: var(--fs-xs); color: var(--fg-muted); cursor: pointer; }
+.session-save-all-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+
+.session-row { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-surface); }
+.session-row.is-review { border-color: var(--warn); }
+.session-row.is-invalid { border-color: var(--danger); }
+.session-row.is-unpicked { opacity: 0.55; }
+.session-row-main {
+  display: grid;
+  grid-template-columns: 18px minmax(140px, 1.1fr) minmax(170px, 1.5fr) minmax(180px, 1.3fr) var(--ctl-md);
+  align-items: center; gap: var(--sp-3); min-height: 52px; padding: var(--sp-2) var(--sp-3);
+}
+.session-row-main > input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.session-row-name, .session-row-command, .session-row-id { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.session-row-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--fg-strong); }
+.session-row-cwd, .session-row-idtext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--fg-muted); }
+.session-row-command code {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px var(--sp-2);
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-sunken);
+  font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--fg);
+}
+.session-row-none { font-size: var(--fs-xs); color: var(--fg-faint); }
+.session-row-agent { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.session-row-launcher { font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--fg-muted); }
+.agent-mark-shell { border-style: dashed; color: var(--fg-muted); width: fit-content; }
+.session-row-status { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+.session-row-status.is-exact { color: var(--ok-text); }
+.session-row-status.is-estimated { color: var(--warn-text); }
+.session-row-status.is-missing, .session-row-status.is-invalid { color: var(--danger-text); }
+.session-row-status.is-edited, .session-row-status.is-command { color: var(--accent-text); }
+.session-row-status.is-shell { color: var(--fg-muted); font-weight: var(--fw-regular); }
+.session-row .icon-button.is-active { background: var(--accent-tint); color: var(--accent-text); }
+
+.session-editor {
+  display: grid; grid-template-columns: minmax(160px, 200px) 1fr 1.2fr; gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) calc(var(--sp-3) + 18px + var(--sp-3));
+  border-top: 1px solid var(--line); background: var(--bg-sunken); border-radius: 0 0 var(--r-md) var(--r-md);
+}
+.session-editor-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.session-editor-wide { grid-column: 2 / -1; }
+.session-editor-label { font-size: var(--fs-2xs); font-weight: var(--fw-semibold); color: var(--fg-muted); }
+.session-editor-hint { min-height: 14px; font-size: var(--fs-2xs); color: var(--fg-faint); }
+.session-editor-hint.is-error { color: var(--danger-text); }
+.session-editor-note { font-size: var(--fs-xs); line-height: var(--ctl-md); color: var(--fg-muted); }
+.session-editor-link { padding: 0; border: 0; background: transparent; color: var(--accent-text); font-family: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.session-editor-combo { display: flex; gap: 6px; min-width: 0; }
+.session-editor-combo .ui-input { flex: 1 1 auto; width: auto; min-width: 0; }
+/* .ui-select is width: 100%; the candidate list is only its arrow until opened. */
+.session-editor-combo .ui-select.session-editor-candidates { flex: 0 0 44px; width: 44px; min-width: 44px; }
+.session-editor .ui-input.is-invalid { border-color: var(--danger); }
+.session-editor-preview { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.session-editor-preview > span { flex: 0 0 auto; font-size: var(--fs-2xs); color: var(--fg-muted); }
+.session-editor-preview code {
+  flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px var(--sp-2);
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-app);
+  font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--accent-text);
+}
+.session-editor-preview code.is-shell { color: var(--fg-muted); }
+
+.session-done-row { display: grid; grid-template-columns: 18px minmax(120px, 180px) 1fr; align-items: center; gap: var(--sp-2); padding: 5px var(--sp-2); border-radius: var(--r-sm); font-size: var(--fs-xs); }
+.session-done-row:hover { background: var(--bg-hover); }
+.session-done-mark { display: inline-flex; color: var(--ok-text); }
+.session-done-mark.is-shell { color: var(--fg-faint); }
+.session-done-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--fw-semibold); color: var(--fg-strong); }
+.session-done-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--fg); }
+.session-done-row code.is-shell { color: var(--fg-muted); }
+
+.session-report-body { gap: var(--sp-1); }
+.session-report-row { display: grid; grid-template-columns: 20px minmax(110px, 160px) 1fr auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2); border-radius: var(--r-sm); }
+.session-report-row:hover { background: var(--bg-hover); }
+.session-report-mark { display: inline-flex; justify-content: center; color: var(--fg-muted); }
+.session-report-mark.is-ok { color: var(--ok-text); }
+.session-report-mark.is-bad { color: var(--danger-text); }
+.session-report-mark.is-muted { color: var(--fg-faint); }
+.session-report-name, .session-report-detail { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.session-report-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--fg-strong); }
+.session-report-name span, .session-report-detail span { font-size: var(--fs-2xs); color: var(--fg-muted); }
+.session-report-detail span.is-error { color: var(--danger-text); }
+.session-report-detail code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--fg); }
+.session-report-editor { grid-column: 1 / -1; display: flex; flex-direction: column; gap: var(--sp-2); }
+.session-report-editor .session-editor { border: 1px solid var(--line); border-radius: var(--r-md); padding-left: var(--sp-3); }
+.session-report-editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
+.session-report-editor-actions .session-editor-hint { margin-right: auto; }
+
+@media (max-width: 820px) {
+  .session-row-main { grid-template-columns: 18px 1fr var(--ctl-md); }
+  .session-row-main .session-row-command, .session-row-main .session-row-id { grid-column: 2 / 3; }
+  .session-editor { grid-template-columns: 1fr; padding-left: var(--sp-3); }
+  .session-editor-wide { grid-column: 1; }
+  .session-report-row { grid-template-columns: 20px 1fr; }
+  .session-report-detail, .session-report-row > .ui-button { grid-column: 2; }
+  .session-save-all-toggle { margin-left: 0; }
+}
