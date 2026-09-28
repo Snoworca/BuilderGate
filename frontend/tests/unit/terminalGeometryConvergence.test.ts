@@ -37,7 +37,7 @@ function fakeTimers() {
     timers,
     setTimeout: (run: () => void, ms: number) => { const id = nextId++; timers.set(id, { at: now + ms, every: null, run }); return id; },
     setInterval: (run: () => void, ms: number) => { const id = nextId++; timers.set(id, { at: now + ms, every: ms, run }); return id; },
-    clear: (id: number) => { timers.delete(id); },
+    clear: (id: unknown) => { timers.delete(id as number); },
     advance(ms: number) {
       const end = now + ms;
       for (;;) {

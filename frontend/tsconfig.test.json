@@ -241,6 +241,7 @@
     "./tests/unit/sessionSnapshotModel.test.ts",
     "./tests/unit/sessionSaveAllModel.test.ts",
     "./tests/unit/terminalGeometryConvergence.test.ts",
+    "./tests/unit/terminalMouseEncoding.test.ts",
     "./tests/unit/uiDesignSystem.test.ts",
     "./tests/unit/workspaceActivityAndMenuIcons.test.ts",
     "./tests/unit/workspaceDeleteFlow.test.ts",

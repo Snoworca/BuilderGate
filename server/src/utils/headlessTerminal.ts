@@ -342,12 +342,37 @@ export function resizeHeadlessTerminal(state: HeadlessTerminalState, cols: numbe
   state.terminal.resize(cols, rows);
 }
 
+export type HeadlessMouseEncoding = 'DEFAULT' | 'SGR' | 'SGR_PIXELS';
+
+/**
+ * REL-BGSTAB-039: the mouse report encoding the application selected. The serialize addon
+ * restores the tracking mode (?1000/1002/1003h) but not the encoding (?1006h/?1016h), and xterm
+ * does not expose it publicly, so it is read from the core the same way the write buffer is.
+ * Resets (RIS, term.reset) are reflected because this is xterm's own state, not a copy.
+ */
+export function readHeadlessMouseEncoding(state: HeadlessTerminalState): HeadlessMouseEncoding | null {
+  const encoding = (state.terminal as unknown as { _core?: { coreMouseService?: { activeEncoding?: unknown } } })
+    ._core?.coreMouseService?.activeEncoding;
+  return encoding === 'DEFAULT' || encoding === 'SGR' || encoding === 'SGR_PIXELS' ? encoding : null;
+}
+
+/** The DECSET that re-selects `encoding` on a rehydrated terminal; nothing for the default. */
+export function mouseEncodingRestoreSequence(encoding: HeadlessMouseEncoding | null): string {
+  if (encoding === 'SGR') return '\x1b[?1006h';
+  if (encoding === 'SGR_PIXELS') return '\x1b[?1016h';
+  return '';
+}
+
+function serializeWithMouseEncoding(state: HeadlessTerminalState, options?: ISerializeOptions): string {
+  return state.serializeAddon.serialize(options) + mouseEncodingRestoreSequence(readHeadlessMouseEncoding(state));
+}
+
 export function serializeHeadlessTerminal(
   state: HeadlessTerminalState,
   maxSnapshotBytes: number,
   options?: ISerializeOptions,
 ): SerializedHeadlessSnapshot {
-  const serialized = state.serializeAddon.serialize(options ?? VIEWPORT_ONLY_SERIALIZE_OPTIONS);
+  const serialized = serializeWithMouseEncoding(state, options ?? VIEWPORT_ONLY_SERIALIZE_OPTIONS);
   if (Buffer.byteLength(serialized, 'utf8') > maxSnapshotBytes) {
     return {
       cols: state.terminal.cols,
@@ -388,7 +413,7 @@ export function serializeRetainedHeadlessCheckpoint(
   const savedCursor = state.savedCursorObserved
     ? savedCursors.normal ?? savedCursors.active
     : null;
-  const serialized = state.serializeAddon.serialize();
+  const serialized = serializeWithMouseEncoding(state);
   const rehydrateAnsi = state.savedCursorObserved
     ? injectSavedCursorState(serialized, activeBuffer, terminal, savedCursors)
     : serialized;

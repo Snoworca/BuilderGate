@@ -96,6 +96,11 @@ import {
   type GeometryConvergenceLoop,
 } from '../../utils/terminalGeometryConvergence';
 import {
+  decideBinaryMouseReport,
+  mouseEncodingRestoreSequence,
+  readTerminalMouseEncoding,
+} from '../../utils/terminalMouseEncoding';
+import {
   TERMINAL_PASTE_MAX_BYTES,
   measurePasteBytes,
   resolveEffectiveInputQueueTtlMs,
@@ -1591,7 +1596,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       if (isTerminalSnapshotRemovalRequested(sessionId, { tombstoneTtlMs: snapshotLimits.tombstoneTtlMs })) return;
 
       try {
-        const content = serializeAddon.serialize({ scrollback: 0 });
+        // REL-BGSTAB-039 AC-3: the serializer restores mouse tracking but not its encoding.
+        const content = serializeAddon.serialize({ scrollback: 0 }) + mouseEncodingRestoreSequence(readTerminalMouseEncoding(term));
         if (!content) return;
         if (content.length > snapshotLimits.perSnapshotMaxChars) {
           console.warn('[TerminalView] snapshot too large, keeping previous snapshot');
@@ -4335,6 +4341,23 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           programmaticPaste.result = result;
           programmaticPasteRef.current = null;
         }
+      });
+
+      // REL-BGSTAB-039 AC-4: xterm sends default-encoding mouse reports through onBinary, not
+      // onData. They come only from the pointer, so they skip the parser-reply guards above.
+      term.onBinary((data) => {
+        const decision = decideBinaryMouseReport(data);
+        if (!decision.forward) {
+          recordTerminalDebugEvent(sessionId, 'mouse_binary_report_dropped', {
+            reason: decision.reason,
+            byteLength: data.length,
+          });
+          return;
+        }
+        const debugInput = buildTerminalInputDebugPayload(decision.data, {
+          captureSeq: nextCaptureSeq(),
+        }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
+        submitCapturedInput(decision.data, debugInput, 'xterm-mouse');
       });
 
       // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)
