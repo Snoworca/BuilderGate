@@ -4,6 +4,7 @@
 // The list shows every direct child of the root at once and leaves windowing to
 // the renderer: the server already caps a listing (maxDirectoryEntries), so a
 // second cap here would silently hide entries the user asked to see.
+import { matchRange } from './fileExplorerTypeFilter.ts';
 import { activeLanguage, type MessageKey } from '../../i18n/i18n.ts';
 import type { DirectoryEntry } from '../../types/index.ts';
 import { resolveEditorMode } from '../../editor/editorMode.ts';
@@ -166,8 +167,10 @@ export function sortEntries(entries: readonly DirectoryEntry[], sort: ListSort |
 
 // Direct children of the root only, never descending into expanded folders. The
 // '↑' row is drawn by the renderer outside this list, so it is not a row here.
-export function selectListRows(state: FileTreeState, sort: ListSort | null): DirectoryEntry[] {
+export function selectListRows(state: FileTreeState, sort: ListSort | null, filterText = ''): DirectoryEntry[] {
   const child = state.childrenByPath.get(state.root);
   if (child === undefined || child.status !== 'loaded') return [];
-  return sortEntries(child.entries, sort);
+  const sorted = sortEntries(child.entries, sort);
+  // FR-FEX-014: type-to-filter over the entries already listed.
+  return filterText === '' ? sorted : sorted.filter((entry) => matchRange(entry.name, filterText) !== null);
 }

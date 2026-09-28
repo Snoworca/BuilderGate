@@ -16,11 +16,14 @@ export interface FileExplorerPathBarProps {
   setMode: (mode: FileTreeMode) => void;
   /** Absent until folder creation is wired; the button is then shown disabled. */
   onNewDirectory?: () => void;
+  /** FR-FEX-014: the type-to-filter text, shown as a chip while set. */
+  filterText?: string;
+  onClearFilter?: () => void;
 }
 
 // @req FR-FEX-002
 // @req SEC-FOP-001
-export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplorerPathBarProps) {
+export function FileExplorerPathBar({ tree, setMode, onNewDirectory, filterText = '', onClearFilter }: FileExplorerPathBarProps) {
   const { state } = tree;
   const nextMode: FileTreeMode = state.mode === 'tree' ? 'list' : 'tree';
 
@@ -112,6 +115,13 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
               );
           }
         })}
+        {filterText !== '' && (
+          <button type="button" className="fx-filter-chip" onClick={onClearFilter} title={t('fileExplorer.filter.clear')} aria-label={t('fileExplorer.filter.label', { text: filterText })}>
+            <span className="fx-filter-text">{filterText}</span>
+            <span className="fx-filter-caret" aria-hidden="true" />
+            <kbd>Esc</kbd>
+          </button>
+        )}
       </div>
       {state.error !== null && (
         <div role="alert" className="fx-pathbar-error">

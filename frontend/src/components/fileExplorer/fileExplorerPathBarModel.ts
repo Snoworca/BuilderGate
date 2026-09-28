@@ -47,7 +47,8 @@ export interface BreadcrumbSegment {
 
 export type BreadcrumbItem = BreadcrumbSegment | { kind: 'ellipsis'; title: string };
 
-const isWindowsStyle = (p: string) => /^[A-Za-z]:/.test(p) || p.includes('\\');
+// A backslash marks a Windows path; the server always reports one with it (C:\\…).
+const isWindowsStyle = (p: string) => p.includes('\\');
 const trimTrailing = (p: string) => p.replace(/[\\/]+$/, '') || p;
 
 /**

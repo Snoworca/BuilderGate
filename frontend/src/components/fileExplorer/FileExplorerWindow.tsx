@@ -30,6 +30,7 @@
 // @req FR-FEX-008
 // @req FR-FEX-009
 
+import { applyTypeFilterKey, type TypeFilterKey } from './fileExplorerTypeFilter.ts';
 import { t } from '../../i18n/i18n.ts';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
@@ -99,6 +100,8 @@ interface PanelCommands {
   flushAnchor: () => void;
   /** Puts a message on the panel's error line; the window uses it for its jobs' failures. */
   showError: (message: string) => void;
+  /** FR-FEX-014: offers a key to the type-to-filter; true when it was consumed. */
+  typeFilterKey: (event: TypeFilterKey) => boolean;
 }
 
 type RegisterPanelCommands = (tabId: string, commands: RefObject<PanelCommands | null>) => () => void;
@@ -235,9 +238,25 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     onNewTab: (path) => actions.addTab(workspaceId, path),
     origin: { workspaceId, tabId: tab.id },
   });
+  // FR-FEX-014: the type-to-filter text. It belongs to one directory view, so it clears
+  // whenever the listed root changes.
+  const [filterText, setFilterText] = useState('');
+  const filterTextRef = useRef(filterText);
+  filterTextRef.current = filterText;
+  useEffect(() => setFilterText(''), [state.root, state.mode]);
   const commandsRef = useRef<PanelCommands | null>(null);
   useLayoutEffect(() => {
-    commandsRef.current = { selectionCount: state.selectedPaths.size, run: ops.runShortcut, flushAnchor: commitPendingAnchor, showError };
+    commandsRef.current = {
+      selectionCount: state.selectedPaths.size,
+      run: ops.runShortcut,
+      flushAnchor: commitPendingAnchor,
+      showError,
+      typeFilterKey: (event) => {
+        const next = applyTypeFilterKey(filterTextRef.current, event);
+        if (next.handled) setFilterText(next.text);
+        return next.handled;
+      },
+    };
   });
   useEffect(() => registerCommands(tab.id, commandsRef), [registerCommands, tab.id]);
 
@@ -364,7 +383,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
 
   return (
     <div className={`fx-tab-panel${active ? '' : ' fx-inactive'}`} role="tabpanel">
-      <FileExplorerPathBar tree={tree} setMode={setMode} onNewDirectory={() => void ops.createDirectoryIn(state.root)} />
+      <FileExplorerPathBar tree={tree} setMode={setMode} onNewDirectory={() => void ops.createDirectoryIn(state.root)} filterText={filterText} onClearFilter={() => setFilterText('')} />
       <div
         className="fx-scroll"
         ref={scrollRef}
@@ -385,9 +404,10 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
               onOpenMenu={setMenu}
               renaming={ops.rowRename}
               openFileKeys={openFileKeys}
+              filterText={filterText}
             />
           )
-          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} openFileKeys={openFileKeys} />}
+          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} openFileKeys={openFileKeys} filterText={filterText} />}
       </div>
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
       {isMobile && (
@@ -572,7 +592,22 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
 
   // Focus is judged by containment in this surface, so a Ctrl+C typed in a
   // terminal never reaches the explorer (DR-16).
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => createFileExplorerShortcutHandler({
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // FR-FEX-014: plain typing over the rows filters them. Text fields keep their keys.
+    const target = event.target instanceof Element ? event.target : null;
+    const inField = target?.closest('input, textarea, select, [contenteditable="true"]') != null;
+    if (!inField && !event.nativeEvent.isComposing) {
+      const id = activeTabIdRef.current;
+      const commands = id === null ? null : panelCommandsRef.current.get(id)?.current ?? null;
+      if (commands?.typeFilterKey(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+    }
+    handleShortcutKeyDown(event);
+  };
+  const handleShortcutKeyDown = (event: KeyboardEvent<HTMLDivElement>) => createFileExplorerShortcutHandler({
     getContext: () => {
       const id = activeTabIdRef.current;
       const commands = id === null ? null : panelCommandsRef.current.get(id)?.current ?? null;

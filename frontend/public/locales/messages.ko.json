@@ -952,5 +952,7 @@
   "workspace.tabBar.closeTab": "탭 닫기",
   "workspace.tabBar.recoveryCommand": "복구 명령: {command}",
   "workspace.tabBar.recoveryOptions": "복구 옵션",
-  "workspace.tabBar.tabLimit.other": "탭은 최대 {count}개까지 열 수 있습니다"
+  "workspace.tabBar.tabLimit.other": "탭은 최대 {count}개까지 열 수 있습니다",
+  "fileExplorer.filter.clear": "필터 지우기 (Esc)",
+  "fileExplorer.filter.label": "필터: {text}"
 }

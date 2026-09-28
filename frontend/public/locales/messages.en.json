@@ -982,5 +982,7 @@
   "workspace.tabBar.recoveryCommand": "Recovery command: {command}",
   "workspace.tabBar.recoveryOptions": "Recovery options",
   "workspace.tabBar.tabLimit.one": "You can open up to {count} tab",
-  "workspace.tabBar.tabLimit.other": "You can open up to {count} tabs"
+  "workspace.tabBar.tabLimit.other": "You can open up to {count} tabs",
+  "fileExplorer.filter.clear": "Clear filter (Esc)",
+  "fileExplorer.filter.label": "Filter: {text}"
 }

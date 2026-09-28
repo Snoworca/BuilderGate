@@ -1,6 +1,7 @@
 // The explorer's list mode: the root's direct children in three columns, every
 // one of them in the DOM (FR-FEX-002 AC-8). The column set and the sort rule
 // live in fileListView.ts; the row decisions in fileRowInteraction.ts.
+import { HighlightedName } from './HighlightedName.tsx';
 import { t } from '../../i18n/i18n.ts';
 import { useMemo } from 'react';
 import type { MouseEvent } from 'react';
@@ -31,18 +32,20 @@ export interface FileListViewProps {
   renaming?: FileRowRename | null;
   /** Files open in the editor (openFileKeys), drawn bold. */
   openFileKeys?: ReadonlySet<string>;
+  /** FR-FEX-014: only entries whose names contain this are drawn. */
+  filterText?: string;
 }
 
 // @req FR-FEX-002
 // @req FR-FEX-011
-export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null, openFileKeys }: FileListViewProps) {
+export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null, openFileKeys, filterText = '' }: FileListViewProps) {
   // Sorting a large directory on every render (each selection click, each
   // clipboard change) is the cost this saves. The rows depend only on the
   // root's listing entry and the sort, and a listing entry is replaced, never
   // mutated, when it changes.
   const rootListing = tree.state.childrenByPath.get(tree.state.root);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the listing entry, not the whole state
-  const listRows = useMemo(() => selectListRows(tree.state, sort), [rootListing, sort]);
+  const listRows = useMemo(() => selectListRows(tree.state, sort, filterText), [rootListing, sort, filterText]);
   // Paths come from the tree's own rows, so a list row names the same path the
   // reducer checks a selection against.
   const pathByName = new Map(selectVisibleRows(tree.state).flatMap((row) => (row.kind === 'node' ? [[row.name, row.path] as const] : [])));
@@ -135,7 +138,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
         ))}
       </div>
       <div className="fx-rows" onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}>
-        {canGoUp(tree.state) && (
+        {canGoUp(tree.state) && filterText === '' && (
           <div className="fx-row fx-up-row" data-up="true" role="row">
             <span className="fx-name fx-col-name">..</span>
           </div>
@@ -166,7 +169,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
                     onBlur={renaming.handleBlur}
                     onClick={(event) => event.stopPropagation()}
                   />
-                ) : entry.name}
+                ) : <HighlightedName name={entry.name} text={filterText} />}
               </span>
               <span className="fx-meta fx-col-modified">{formatEntryModified(entry.modified)}</span>
               <span className="fx-meta fx-col-size">{formatEntrySize(entry)}</span>

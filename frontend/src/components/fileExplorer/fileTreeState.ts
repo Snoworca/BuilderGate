@@ -8,6 +8,7 @@
 // - The client holds no copy of the boundary rule (SEC-FOP-001). Whether '↑' is
 //   possible is read from the server's own listing (`rootHasParent`), never
 //   decided by comparing paths.
+import { filterTreeRows } from './fileExplorerTypeFilter.ts';
 import type { DirectoryEntry, DirectoryListing } from '../../types/index.ts';
 
 export type FileTreeMode = 'tree' | 'list';
@@ -218,6 +219,8 @@ export function indexEntriesByPath(state: FileTreeState): Map<string, DirectoryE
 export function selectVisibleRows(
   state: FileTreeState,
   order?: (entries: readonly DirectoryEntry[]) => readonly DirectoryEntry[],
+  /** FR-FEX-014: keep only matching rows and their visible ancestors. */
+  filterText = '',
 ): VisibleRow[] {
   const rows: VisibleRow[] = [];
   if (state.rootHasParent) rows.push({ kind: 'up' });
@@ -236,7 +239,7 @@ export function selectVisibleRows(
     }
   };
   walk(state.root, 0);
-  return rows;
+  return filterText === '' ? rows : filterTreeRows(rows, filterText);
 }
 
 // The action carries the display order (sorting and expansion are the renderer's),

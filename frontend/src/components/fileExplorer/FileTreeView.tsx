@@ -7,6 +7,7 @@
 // rowRenderClass, the right-click target in resolveContextMenuTarget and its
 // selection in decideContextMenuSelection. This component only turns events
 // into their inputs.
+import { HighlightedName } from './HighlightedName.tsx';
 import { t } from '../../i18n/i18n.ts';
 import { useMemo, type MouseEvent } from 'react';
 import { Icon } from '../common';
@@ -75,12 +76,14 @@ export interface FileTreeViewProps {
   onSortChange?: (sort: ListSort) => void;
   /** Files open in the editor (openFileKeys), drawn bold. */
   openFileKeys?: ReadonlySet<string>;
+  /** FR-FEX-014: only matching rows (and their visible ancestors) are drawn. */
+  filterText?: string;
 }
 
 // @req FR-FEX-002
 // @req FR-FEX-011
 export function FileTreeView({
-  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange, openFileKeys,
+  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange, openFileKeys, filterText = '',
 }: FileTreeViewProps) {
   // Each directory's listing is sorted once per sort, not on every selection
   // click: a listing is replaced on reload, never mutated, so it keys the cache.
@@ -94,7 +97,7 @@ export function FileTreeView({
     return sorted;
   };
   // The header sort orders every expanded level; without one the server's order stands.
-  const rows = selectVisibleRows(tree.state, sort === null ? undefined : (entries) => orderEntries(entries));
+  const rows = selectVisibleRows(tree.state, sort === null ? undefined : (entries) => orderEntries(entries), filterText);
   // Dates and sizes for the Finder-style columns. The index changes only when a
   // listing loads, not on each selection click.
   const entriesByPath = useMemo(() => indexEntriesByPath(tree.state), [tree.state.childrenByPath]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -198,7 +201,7 @@ export function FileTreeView({
           </button>
         ))}
       </div>
-      {canGoUp(tree.state) && (
+      {canGoUp(tree.state) && filterText === '' && (
         <div className="fx-row fx-up-row" data-up="true">
           <span className="fx-expander fx-leaf" />
           <span className="fx-name">..</span>
@@ -247,7 +250,7 @@ export function FileTreeView({
                 onClick={(event) => event.stopPropagation()}
               />
             ) : (
-              <span className="fx-name">{row.name}</span>
+              <span className="fx-name"><HighlightedName name={row.name} text={filterText} /></span>
             )}
             {child?.status === 'loading' && <span className="fx-meta">…</span>}
             {child?.status === 'error' && <span className="fx-meta fx-error-text">{child.error}</span>}
