@@ -6327,6 +6327,9 @@ const expectedDefaultMcpScopes = [
   'mcp:sessions.search',
   'mcp:message.paste',
   'mcp:status.write',
+  // SEC-MCP-004: read-only workspace/terminal listing.
+  'mcp:workspaces.read',
+  'mcp:terminals.read',
 ];
 
 const requiredMcpDenialCodes = [
@@ -12371,11 +12374,17 @@ async function testMcpSecuritySecMcp002Ac10(): Promise<void> {
   assert.equal(await callMcpSecurityContract('verifyMcpFixedAccessKey', `${accessKey}x`, keyHash), false);
 
   const scopes = await callMcpSecurityContract('getFixedMcpAccessKeyScopes');
+  // SEC-MCP-004 extends SEC-MCP-002 AC-10 with the management scopes.
   assert.deepEqual([...scopes as string[]].sort(), [
     'mcp:message.paste',
     'mcp:message.submit',
     'mcp:sessions.list',
     'mcp:sessions.search',
+    'mcp:terminals.exec',
+    'mcp:terminals.read',
+    'mcp:terminals.write',
+    'mcp:workspaces.read',
+    'mcp:workspaces.write',
   ]);
 }
 

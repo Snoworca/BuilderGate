@@ -89,12 +89,21 @@ const DEFAULT_MCP_SCOPES = [
   'mcp:sessions.search',
   'mcp:message.paste',
   'mcp:status.write',
+  // SEC-MCP-004: session agents may list workspaces and terminals but not change them.
+  'mcp:workspaces.read',
+  'mcp:terminals.read',
 ] as const;
 const FIXED_MCP_ACCESS_KEY_SCOPES = [
   'mcp:sessions.list',
   'mcp:sessions.search',
   'mcp:message.paste',
   'mcp:message.submit',
+  // SEC-MCP-004: workspace/terminal management and command execution are fixed-key only.
+  'mcp:workspaces.read',
+  'mcp:workspaces.write',
+  'mcp:terminals.read',
+  'mcp:terminals.write',
+  'mcp:terminals.exec',
 ] as const;
 
 const TOKEN_SIGNING_SECRET = crypto.randomBytes(32);

@@ -4,6 +4,7 @@ import {
   createHeadlessTerminalState,
   disposeHeadlessTerminal,
   markRetainedHeadlessSourceSequence,
+  readHeadlessTerminalText,
   readRetainedHeadlessBufferMetrics,
   resizeHeadlessTerminal,
   serializeRetainedHeadlessCheckpoint,
@@ -196,6 +197,19 @@ test('PERF-BGSTAB-019 AC-2 consecutive writes keep their order', async () => {
   try {
     await Promise.all(['a', 'b', 'c'].map((ch) => writeHeadlessTerminal(state, ch)));
     assert.equal(state.terminal.buffer.active.getLine(0)?.translateToString(true), 'abc');
+  } finally {
+    disposeHeadlessTerminal(state);
+  }
+});
+
+test('FR-MCP-008 AC-4: readHeadlessTerminalText returns the last lines as plain text', async () => {
+  const state = createHeadlessTerminalState({ cols: 10, rows: 4, scrollbackLines: 50 });
+  try {
+    await writeHeadlessTerminal(state, '\x1b[31mred\x1b[0m\r\none\r\ntwo\r\nabcdefghijKLM\r\n$ ');
+    // Wrapped rows join into one logical line, colors are dropped, trailing blanks trimmed.
+    assert.equal(readHeadlessTerminalText(state, 3), 'two\nabcdefghijKLM\n$');
+    assert.equal(readHeadlessTerminalText(state, 100), 'red\none\ntwo\nabcdefghijKLM\n$');
+    assert.equal(readHeadlessTerminalText(state, 0), '');
   } finally {
     disposeHeadlessTerminal(state);
   }

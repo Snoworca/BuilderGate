@@ -100,6 +100,7 @@ import {
   createMcpToolService,
   issueMcpClaimCode,
 } from './services/McpToolService.js';
+import { createWorkspaceServiceMcpControl } from './services/McpWorkspaceControl.js';
 import {
   closeMcpNodeHttpListener,
   createMcpNodeHttpListener,
@@ -1480,6 +1481,12 @@ async function startServer(): Promise<void> {
       setSessionAlias: (targetSessionKey, alias, actorSessionKey) => workspaceService.setMcpSessionAlias(targetSessionKey, alias, actorSessionKey),
       deliverMessage: createMcpGatewayDelivery(),
       agentLifecycle: mcpAgentLifecycleService,
+      workspaceControl: createWorkspaceServiceMcpControl({
+        workspaceService,
+        sessionManager,
+        broadcast: (event, data) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll(event, data),
+        deliver: createMcpGatewayDelivery(),
+      }),
       listener: () => {
         const getStatus = mcpListenerController.getStatus;
         return typeof getStatus === 'function' ? getStatus({}) : {};

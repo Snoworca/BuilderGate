@@ -37,6 +37,7 @@ import {
   type HeadlessTerminalState,
   type RetainedHeadlessCheckpoint,
   type RetainedHeadlessComparisonAxes,
+  readHeadlessTerminalText,
   writeHeadlessTerminal,
 } from '../utils/headlessTerminal.js';
 import {
@@ -6724,6 +6725,12 @@ export class SessionManager {
       data: snapshot.data,
       truncated: snapshot.truncated,
     };
+  }
+
+  // FR-MCP-008: plain text of the last lines of a session's screen, for MCP terminal.exec.
+  readTerminalText(sessionId: string, maxLines: number): string | null {
+    const headless = this.sessions.get(sessionId)?.headless;
+    return headless ? readHeadlessTerminalText(headless, maxLines) : null;
   }
 
   isSessionReady(sessionId: string): boolean {

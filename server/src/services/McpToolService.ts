@@ -8,6 +8,14 @@ import {
   validateMcpSecurityConfig,
   verifyMcpCapabilityToken,
 } from './McpSecurityContract.js';
+import {
+  MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
+  MCP_MANAGEMENT_TOOL_NAMES,
+  MCP_MANAGEMENT_TOOL_SCHEMAS,
+  callMcpManagementTool,
+  isMcpManagementTool,
+  type McpWorkspaceControl,
+} from './McpManagementTools.js';
 
 type StringRecord = Record<string, unknown>;
 
@@ -33,6 +41,9 @@ type McpToolServiceDeps = {
     closeSession?: (request: unknown) => unknown | Promise<unknown>;
     closeSelf?: (request: unknown) => unknown | Promise<unknown>;
   };
+  // FR-MCP-007 / FR-MCP-008
+  workspaceControl?: McpWorkspaceControl;
+  sleep?: (ms: number) => Promise<void>;
 };
 
 type McpToolServiceState = {
@@ -64,7 +75,22 @@ type McpHttpHandlerInput = {
 };
 
 const MCP_SESSION_HEADER = 'mcp-session-id';
+// IR-MCP-006: 2026-07-28 is served statelessly (per-request _meta); the legacy revisions keep the
+// initialize + Mcp-Session-Id flow. DEFAULT is the legacy answer to an unknown initialize version.
+const MODERN_MCP_PROTOCOL_VERSIONS: readonly string[] = ['2026-07-28'];
+const LEGACY_MCP_PROTOCOL_VERSIONS: readonly string[] = ['2025-11-25', '2025-06-18', '2025-03-26'];
+export const MCP_SUPPORTED_PROTOCOL_VERSIONS: readonly string[] = [...MODERN_MCP_PROTOCOL_VERSIONS, ...LEGACY_MCP_PROTOCOL_VERSIONS];
 const DEFAULT_MCP_PROTOCOL_VERSION = '2025-11-25';
+const META_PROTOCOL_VERSION = 'io.modelcontextprotocol/protocolVersion';
+const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
+const MCP_SERVER_INFO = { name: 'BuilderGate MCP Server', version: '0.10.2' };
+const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and workspaces. '
+  + 'List workspaces and terminals first; address a workspace by workspaceId or workspaceName and a terminal by terminalId or terminalName. '
+  + 'buildergate.terminal.exec types a command with Enter; pass waitMs to read the screen afterwards.';
+const MCP_HEADER_MISMATCH = -32020;
+const MCP_UNSUPPORTED_PROTOCOL_VERSION = -32022;
+const MODERN_NAMED_METHODS = new Set(['tools/call', 'resources/read', 'prompts/get']);
+const MODERN_CLAIM_BOOTSTRAP_OPERATIONS = new Set(['server/discover', 'tools/list', 'buildergate.session.claim']);
 const DEFAULT_MCP_HTTP_SESSION_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_MCP_HTTP_MAX_SESSIONS = 256;
 const CLAIM_BOOTSTRAP_OPERATIONS = new Set([
@@ -98,6 +124,7 @@ export const BUILDERGATE_MCP_TOOL_NAMES = [
   'buildergate.session.close_self',
   'buildergate.message.reply_to_leader',
   'buildergate.session.update_status',
+  ...MCP_MANAGEMENT_TOOL_NAMES,
 ] as const;
 
 const SECRET_FIELD_NAMES = new Set([
@@ -213,6 +240,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
     required: ['agentStatus'],
     additionalProperties: false,
   },
+  ...MCP_MANAGEMENT_TOOL_SCHEMAS,
 };
 
 // @req IR-MCP-001
@@ -615,7 +643,7 @@ export function evaluateMcpTransportRequest(input: unknown): StringRecord {
 // @req IR-MCP-001
 function listTools(): StringRecord {
   return {
-    tools: BUILDERGATE_MCP_TOOL_NAMES.map((name) => ({
+    tools: [...BUILDERGATE_MCP_TOOL_NAMES].sort().map((name) => ({
       name,
       description: toolDescription(name),
       inputSchema: TOOL_SCHEMAS[name],
@@ -666,6 +694,9 @@ async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, re
     case 'buildergate.message.reply_to_leader':
       return handleReplyToLeader(deps, state, actor, args, context);
     default:
+      if (isMcpManagementTool(name)) {
+        return withAudit(deps, state, name, actor, context, {}, await callMcpManagementTool(deps, name, actor, args));
+      }
       return {
         ok: false,
         code: 'UNKNOWN_TOOL',
@@ -1465,6 +1496,9 @@ async function handleMcpHttpRequest(
   const parsedBody = readRequestBodySafe(request);
   const body = parsedBody.ok ? parsedBody.body : {};
   const headers = normalizeHeaders(asRecord(request.headers));
+  if (parsedBody.ok && body.method !== 'initialize' && readModernProtocolVersion(body) !== undefined) {
+    return handleModernMcpRequest(input, request, body, headers);
+  }
   const now = input.now?.() ?? Date.now();
   pruneExpiredMcpHttpSessions(sessions, now, input.sessionTtlMs ?? DEFAULT_MCP_HTTP_SESSION_TTL_MS);
   const transportSessionId = asString(headers[MCP_SESSION_HEADER]);
@@ -1594,10 +1628,10 @@ async function handleMcpHttpRequest(
         transportSession.credential = { type: 'mcp-capability', token: actorToken };
         const boundResult = { ...result };
         delete boundResult.actorToken;
-        return jsonRpcResult(id, boundResult, responseHeaders);
+        return jsonRpcResult(id, toMcpToolResult(boundResult), responseHeaders);
       }
     }
-    return jsonRpcResult(id, result, responseHeaders);
+    return jsonRpcResult(id, toMcpToolResult(result), responseHeaders);
   }
   return jsonRpcResult(id, { ok: false, code: 'UNKNOWN_METHOD' }, responseHeaders);
 }
@@ -1655,15 +1689,182 @@ async function initializeMcpHttpSession(
   if (!bearerToken) {
     return jsonRpcTransportError(readJsonRpcId(body), { ok: false, code: 'INVALID_TOKEN', auditId: createAuditId() });
   }
-  const protocolVersion = asString(asRecord(body.params).protocolVersion) ?? DEFAULT_MCP_PROTOCOL_VERSION;
+  const requestedVersion = asString(asRecord(body.params).protocolVersion);
+  const protocolVersion = requestedVersion && LEGACY_MCP_PROTOCOL_VERSIONS.includes(requestedVersion)
+    ? requestedVersion
+    : DEFAULT_MCP_PROTOCOL_VERSION;
   const sessionId = crypto.randomUUID();
   enforceMcpHttpSessionLimit(sessions, Math.max(1, input.maxSessions ?? DEFAULT_MCP_HTTP_MAX_SESSIONS));
   sessions.set(sessionId, { protocolVersion, credential: sessionCredential, bearerToken, lastSeenAt: now });
   return jsonRpcResult(readJsonRpcId(body), {
     protocolVersion,
     capabilities: { tools: { listChanged: false } },
-    serverInfo: { name: 'BuilderGate MCP Server', version: '0.10.2' },
+    serverInfo: MCP_SERVER_INFO,
+    instructions: MCP_SERVER_INSTRUCTIONS,
   }, mcpSessionHeaders(sessionId));
+}
+
+function readModernProtocolVersion(body: StringRecord): string | undefined {
+  const meta = asRecord(asRecord(body.params)._meta);
+  return Object.prototype.hasOwnProperty.call(meta, META_PROTOCOL_VERSION)
+    ? String(meta[META_PROTOCOL_VERSION] ?? '')
+    : undefined;
+}
+
+// IR-MCP-006: one stateless 2026-07-28 request. No session is read, minted or echoed; the Bearer
+// on this request is the only credential.
+async function handleModernMcpRequest(
+  input: McpHttpHandlerInput,
+  request: StringRecord,
+  body: StringRecord,
+  headers: Record<string, string>,
+): Promise<StringRecord> {
+  const id = readJsonRpcId(body);
+  const method = asString(body.method) ?? '';
+  const params = asRecord(body.params);
+  if (body.id === undefined) {
+    // No client-to-server notifications are defined for this revision; accept and ignore.
+    return { status: 202, contentType: 'application/json; charset=utf-8', body: '' };
+  }
+  const requested = readModernProtocolVersion(body) ?? '';
+  const headerProblem = validateModernHeaders(method, params, headers, requested);
+  if (headerProblem) {
+    return modernJsonRpcError(id, 400, MCP_HEADER_MISMATCH, headerProblem);
+  }
+  if (!MODERN_MCP_PROTOCOL_VERSIONS.includes(requested)) {
+    return modernJsonRpcError(id, 400, MCP_UNSUPPORTED_PROTOCOL_VERSION, 'Unsupported protocol version', {
+      supported: [...MCP_SUPPORTED_PROTOCOL_VERSIONS],
+      requested,
+    });
+  }
+
+  const requestedToolName = method === 'tools/call' ? asString(params.name) : undefined;
+  const operation = requestedToolName ?? method;
+  let credential = asRecord(request.credential);
+  const transportRequest = { ...request, headers, body, requestedToolName, bootstrapOperation: operation };
+  let transport = await evaluateMcpHttpTransport(input, { ...transportRequest, credential });
+  if (credential.type === 'browser-jwt') {
+    return jsonRpcTransportError(id, transport.ok === false ? transport : {
+      ok: false,
+      code: 'CREDENTIAL_BOUNDARY_VIOLATION',
+      auditId: createAuditId(),
+    });
+  }
+  let isClaimBootstrap = false;
+  if (transport.ok === false && MODERN_CLAIM_BOOTSTRAP_OPERATIONS.has(operation)) {
+    const claimCode = asString(credential.token);
+    const claimValidation = claimCode
+      ? asRecord(await callMaybeAsync(input.service.validateClaimCode, { claimCode }))
+      : {};
+    if (claimValidation.ok === true) {
+      credential = { type: 'mcp-claim-bootstrap', claimCode };
+      isClaimBootstrap = true;
+      transport = await evaluateMcpHttpTransport(input, { ...transportRequest, credential, allowClaimBootstrap: true });
+    }
+  }
+  if (transport.ok === false) {
+    return jsonRpcTransportError(id, transport);
+  }
+
+  if (method === 'server/discover') {
+    return jsonRpcResult(id, modernResult({
+      supportedVersions: [...MCP_SUPPORTED_PROTOCOL_VERSIONS],
+      capabilities: { tools: {} },
+      instructions: MCP_SERVER_INSTRUCTIONS,
+      ttlMs: 60 * 60 * 1000,
+      cacheScope: 'public',
+    }));
+  }
+  if (method === 'tools/list') {
+    const listed = asRecord(await callMaybeAsync(input.service.listTools, params));
+    const tools = Array.isArray(listed.tools) ? listed.tools : [];
+    return jsonRpcResult(id, modernResult({
+      ...listed,
+      tools: isClaimBootstrap ? tools.filter(tool => asString(asRecord(tool).name) === 'buildergate.session.claim') : tools,
+      ttlMs: 5 * 60 * 1000,
+      cacheScope: 'private',
+    }));
+  }
+  if (method === 'tools/call') {
+    const args = asRecord(params.arguments);
+    if (isClaimBootstrap && (requestedToolName !== 'buildergate.session.claim' || asString(args.claimCode) !== asString(credential.claimCode))) {
+      return jsonRpcResult(id, modernResult(toMcpToolResult({ ok: false, code: 'CLAIM_CODE_INVALID' })));
+    }
+    const result = asRecord(await callMaybeAsync(input.service.callTool, {
+      name: requestedToolName,
+      arguments: args,
+      actor: transport.actor ?? request.credential,
+      requestId: String(id),
+      sourceIp: request.remoteAddress,
+    }));
+    // A claimed actorToken is returned: there is no session to keep it in, so the client sends
+    // it as its Bearer from the next request on.
+    return jsonRpcResult(id, modernResult(toMcpToolResult(result)));
+  }
+  return modernJsonRpcError(id, 404, -32601, 'Method not found');
+}
+
+function validateModernHeaders(
+  method: string,
+  params: StringRecord,
+  headers: Record<string, string>,
+  requested: string,
+): string | null {
+  const version = headers['mcp-protocol-version'];
+  if (!version) return 'Missing MCP-Protocol-Version header';
+  if (version !== requested) {
+    return `Header mismatch: MCP-Protocol-Version header value '${version}' does not match body value '${requested}'`;
+  }
+  const headerMethod = headers['mcp-method'];
+  if (!headerMethod) return 'Missing Mcp-Method header';
+  if (headerMethod !== method) {
+    return `Header mismatch: Mcp-Method header value '${headerMethod}' does not match body value '${method}'`;
+  }
+  if (MODERN_NAMED_METHODS.has(method)) {
+    const expected = asString(params.name) ?? asString(params.uri) ?? '';
+    const rawName = headers['mcp-name'];
+    if (!rawName) return 'Missing Mcp-Name header';
+    const name = decodeMcpHeaderValue(rawName);
+    if (name === null) return 'Malformed Mcp-Name header';
+    if (name !== expected) {
+      return `Header mismatch: Mcp-Name header value '${rawName}' does not match body value '${expected}'`;
+    }
+  }
+  return null;
+}
+
+// The 2026-07-28 Base64 sentinel: =?base64?<value>?=
+function decodeMcpHeaderValue(value: string): string | null {
+  const match = /^=\?base64\?([A-Za-z0-9+/]*={0,2})\?=$/u.exec(value);
+  if (!match) return value.startsWith('=?base64?') ? null : value;
+  return Buffer.from(match[1], 'base64').toString('utf8');
+}
+
+function modernResult(result: StringRecord): StringRecord {
+  return {
+    ...result,
+    resultType: 'complete',
+    _meta: { ...asRecord(result._meta), [META_SERVER_INFO]: MCP_SERVER_INFO },
+  };
+}
+
+function modernJsonRpcError(id: unknown, status: number, code: number, message: string, data?: StringRecord): StringRecord {
+  return {
+    status,
+    contentType: 'application/json; charset=utf-8',
+    body: { jsonrpc: '2.0', id, error: { code, message, ...(data ? { data } : {}) } },
+  };
+}
+
+// IR-MCP-006 AC-6: MCP clients read `content`; the raw fields stay for existing callers.
+function toMcpToolResult(result: StringRecord): StringRecord {
+  const text = JSON.stringify(result);
+  return {
+    ...result,
+    content: [{ type: 'text', text }],
+    structuredContent: JSON.parse(text) as StringRecord,
+    isError: isMcpToolFailure(result),
+  };
 }
 
 // @req IR-MCP-001
@@ -2080,11 +2281,12 @@ function toolDescription(name: string): string {
     'buildergate.session.search': 'Search live sessions by alias or key.',
     'buildergate.message.send': 'Send a paste or submit request to a session.',
     'buildergate.session.set_alias': 'Set a user alias for a session.',
-    'buildergate.session.open_agent': 'Placeholder for the PH-005 agent launch tool.',
-    'buildergate.session.close': 'Placeholder for the PH-005 close tool.',
-    'buildergate.session.close_self': 'Placeholder for the PH-005 self-close tool.',
+    'buildergate.session.open_agent': 'Launch a follower agent session from an agent profile.',
+    'buildergate.session.close': 'Close another session. Requires confirmation fields.',
+    'buildergate.session.close_self': 'Close this follower session.',
     'buildergate.message.reply_to_leader': 'Send a paste or submit request from a follower to its leader session.',
     'buildergate.session.update_status': 'Update MCP-visible agent status.',
+    ...MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
   };
   return descriptions[name] ?? name;
 }

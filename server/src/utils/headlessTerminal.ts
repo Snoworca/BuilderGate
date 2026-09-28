@@ -320,6 +320,24 @@ export function writeHeadlessTerminal(state: HeadlessTerminalState, data: string
   });
 }
 
+/**
+ * FR-MCP-008: the last `maxLines` logical lines of the active buffer as plain text. Wrapped rows
+ * are joined back into one line, attributes are dropped and trailing blank lines trimmed.
+ */
+export function readHeadlessTerminalText(state: HeadlessTerminalState, maxLines: number): string {
+  if (maxLines <= 0) return '';
+  const buffer = state.terminal.buffer.active;
+  const lines: string[] = [];
+  for (let y = 0; y < buffer.length; y += 1) {
+    const line = buffer.getLine(y);
+    const text = line?.translateToString(true) ?? '';
+    if (line?.isWrapped && lines.length > 0) lines[lines.length - 1] += text;
+    else lines.push(text);
+  }
+  while (lines.length > 0 && lines[lines.length - 1].trim() === '') lines.pop();
+  return lines.slice(-maxLines).map(line => line.trimEnd()).join('\n');
+}
+
 export function resizeHeadlessTerminal(state: HeadlessTerminalState, cols: number, rows: number): void {
   state.terminal.resize(cols, rows);
 }
