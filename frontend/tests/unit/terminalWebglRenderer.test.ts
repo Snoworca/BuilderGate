@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   createTerminalWebglRenderer,
+  createWebglContextPool,
+  type WebglContextPool,
   type WebglAddonLike,
 } from '../../src/utils/terminalWebglRenderer.ts';
 
@@ -19,9 +21,14 @@ interface Harness {
   loseContext: () => void;
 }
 
+// PERF-BGSTAB-020: the existing #15 cases run with a hidden time limit of 0, which is the
+// release-on-hide behaviour they were written for.
+const releaseOnHide = (): WebglContextPool => createWebglContextPool({ maxAttached: 12, hiddenTtlMs: 0 });
+
 function harness(options: {
   failOnActivate?: boolean;
   maxContextLossRetries?: number;
+  pool?: WebglContextPool;
 } = {}): Harness {
   const state = { created: 0, disposed: 0, fallbacks: [] as string[] };
   let contextLossHandler: (() => void) | null = null;
@@ -43,6 +50,7 @@ function harness(options: {
       }
     },
     onFallback: (reason) => { state.fallbacks.push(reason); },
+    pool: options.pool ?? releaseOnHide(),
     ...(options.maxContextLossRetries === undefined
       ? {}
       : { maxContextLossRetries: options.maxContextLossRetries }),
@@ -151,4 +159,87 @@ test('#15 dispose releases the context and stops responding to visibility', () =
 
   h.renderer.sync(true);
   assert.equal(h.created, 1, 'a disposed renderer must not re-attach');
+});
+
+// PERF-BGSTAB-020 — a hidden terminal keeps its WebGL context within a page-wide budget.
+
+function fakeClock() {
+  let now = 0; let nextId = 1;
+  const timers = new Map<number, { at: number; run: () => void }>();
+  return {
+    setTimeout: (run: () => void, ms: number) => { const id = nextId++; timers.set(id, { at: now + ms, run }); return id; },
+    clearTimeout: (id: unknown) => { timers.delete(id as number); },
+    advance(ms: number) {
+      now += ms;
+      for (const [id, t] of [...timers].sort((a, b) => a[1].at - b[1].at)) {
+        if (t.at <= now) { timers.delete(id); t.run(); }
+      }
+    },
+  };
+}
+
+test('PERF-BGSTAB-020 AC-1: hide then reveal within the time limit reuses the addon', () => {
+  const clock = fakeClock();
+  const pool = createWebglContextPool({ maxAttached: 12, hiddenTtlMs: 60_000, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
+  const h = harness({ pool });
+  h.renderer.sync(true);
+  h.renderer.sync(false);
+  assert.equal(h.disposed, 0, 'a just-hidden terminal keeps its context');
+  assert.equal(h.renderer.getState(), 'attached');
+  clock.advance(30_000);
+  h.renderer.sync(true);
+  assert.equal(h.created, 1, 'revealing reuses the kept addon');
+  clock.advance(120_000);
+  assert.equal(h.disposed, 0, 'a visible terminal is not released by the old hidden timer');
+});
+
+test('PERF-BGSTAB-020 AC-2: the hidden time limit releases the context', () => {
+  const clock = fakeClock();
+  const pool = createWebglContextPool({ maxAttached: 12, hiddenTtlMs: 60_000, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
+  const h = harness({ pool });
+  h.renderer.sync(true);
+  h.renderer.sync(false);
+  clock.advance(60_000);
+  assert.equal(h.disposed, 1);
+  assert.equal(h.renderer.getState(), 'detached');
+  h.renderer.sync(true);
+  assert.equal(h.created, 2, 'a released terminal re-attaches on reveal');
+});
+
+test('PERF-BGSTAB-020 AC-3: over budget, the least recently hidden context goes first and visible ones stay', () => {
+  const clock = fakeClock();
+  const pool = createWebglContextPool({ maxAttached: 3, hiddenTtlMs: 600_000, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
+  const [a, b, c, d] = [harness({ pool }), harness({ pool }), harness({ pool }), harness({ pool })];
+  a.renderer.sync(true); b.renderer.sync(true);
+  a.renderer.sync(false); b.renderer.sync(false); // two kept hidden, a older
+  c.renderer.sync(true); // 3 attached: within budget
+  assert.equal(a.disposed + b.disposed, 0);
+  d.renderer.sync(true); // 4 attached: over budget by one
+  assert.equal(a.disposed, 1, 'the least recently hidden context is released');
+  assert.equal(b.disposed, 0);
+  const e = harness({ pool });
+  e.renderer.sync(true); // over again: b goes, visible c/d/e stay even though still over
+  assert.equal(b.disposed, 1);
+  const f = harness({ pool });
+  f.renderer.sync(true);
+  assert.equal(c.disposed + d.disposed + e.disposed + f.disposed, 0, 'a visible context is never released for the budget');
+});
+
+test('PERF-BGSTAB-020 AC-4: dispose and context loss take a kept hidden context out of the pool', () => {
+  const clock = fakeClock();
+  const pool = createWebglContextPool({ maxAttached: 2, hiddenTtlMs: 600_000, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout });
+  const a = harness({ pool });
+  a.renderer.sync(true); a.renderer.sync(false);
+  a.loseContext();
+  assert.equal(a.disposed, 1);
+  assert.deepEqual(a.fallbacks, ['context-loss']);
+  const b = harness({ pool });
+  b.renderer.sync(true); b.renderer.sync(false);
+  b.renderer.dispose();
+  assert.equal(b.disposed, 1);
+  clock.advance(700_000);
+  assert.equal(a.disposed + b.disposed, 2, 'no double release from a stale timer');
+  const [c, d] = [harness({ pool }), harness({ pool })];
+  c.renderer.sync(true); d.renderer.sync(true);
+  assert.equal(c.disposed + d.disposed, 0, 'released entries no longer count against the budget');
 });
