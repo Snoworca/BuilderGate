@@ -701,7 +701,7 @@
   "settings.auth.currentPassword": "Current password",
   "settings.auth.currentPasswordHelp": "Enter only when changing the password.",
   "settings.auth.duration": "Session duration",
-  "settings.auth.durationHelp": "After this much time since login, you must log in again.",
+  "settings.auth.durationHelp": "After this long without using the page, you must log in again. Each use renews it (1 minute to 30 days).",
   "settings.auth.newPassword": "New password",
   "settings.auth.passwordConfigured": "A password is currently set.",
   "settings.auth.passwordNotConfigured": "No password is currently set.",

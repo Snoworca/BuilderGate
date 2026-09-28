@@ -57,10 +57,14 @@ export const SECURITY_HEADERS = {
 // ============================================================================
 
 export const AUTH_DEFAULTS = {
-  /** Default session duration in ms (30 minutes) */
-  SESSION_DURATION_MS: 1800000,
-  /** Maximum session duration in ms (24 hours) */
-  MAX_SESSION_DURATION_MS: 86400000,
+  /** REL-BGSTAB-037: default session duration in ms (7 days, renewed on every refresh) */
+  SESSION_DURATION_MS: 604800000,
+  /** The former 30-minute default; a config still holding it is read as the new default */
+  LEGACY_SESSION_DURATION_MS: 1800000,
+  /** Minimum session duration in ms (1 minute) */
+  MIN_SESSION_DURATION_MS: 60000,
+  /** Maximum session duration in ms (30 days) */
+  MAX_SESSION_DURATION_MS: 2592000000,
   /** JWT algorithm */
   JWT_ALGORITHM: 'HS256' as const,
   /** Token type */

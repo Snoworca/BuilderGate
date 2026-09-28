@@ -1,3 +1,4 @@
+import { AUTH_DEFAULTS } from './constants.js';
 import type { PTYConfig, WindowsPowerShellBackend } from '../types/config.types.js';
 import type { ShellType } from '../types/index.js';
 
@@ -108,11 +109,24 @@ export function normalizePtyConfigForPlatform(
   };
 }
 
+// REL-BGSTAB-037: configs written from the old example hold the former 30-minute default
+// verbatim. Every config parse goes through this normalizer, so the value is read as the new
+// seven-day default everywhere (startup and every settings re-parse) without rewriting the file.
+function migrateLegacyAuthDuration(rawConfig: Record<string, unknown>): void {
+  const auth = rawConfig.auth;
+  if (typeof auth !== 'object' || auth === null || Array.isArray(auth)) return;
+  const section = auth as Record<string, unknown>;
+  if (section.durationMs === AUTH_DEFAULTS.LEGACY_SESSION_DURATION_MS) {
+    section.durationMs = AUTH_DEFAULTS.SESSION_DURATION_MS;
+  }
+}
+
 export function normalizeRawConfigForPlatform(
   rawConfig: Record<string, unknown>,
   platform: NodeJS.Platform,
 ): Record<string, unknown> {
   const normalized = structuredClone(rawConfig);
+  migrateLegacyAuthDuration(normalized);
   if (normalized.pty === undefined) {
     normalized.pty = {};
   }

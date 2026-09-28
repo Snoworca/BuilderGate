@@ -169,8 +169,9 @@ export class AuthService {
       return null;
     }
 
-    // Revoke old token
-    this.revokeToken(result.payload.jti);
+    // Revoke old token for the rest of its own life (REL-BGSTAB-037 AC-2); the 24 h default
+    // would let a rotated 7-day token become valid again.
+    this.revokeToken(result.payload.jti, result.payload.exp);
 
     // Issue new token
     return this.issueToken();

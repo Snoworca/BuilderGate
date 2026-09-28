@@ -15,6 +15,7 @@ import { AuthService } from './AuthService.js';
 import { FileService } from './FileService.js';
 import { SessionManager } from './SessionManager.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { AUTH_DEFAULTS } from '../utils/constants.js';
 import {
   isWindowsOnlyShell,
   normalizePtyConfigForPlatform,
@@ -98,7 +99,7 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     currentPassword: z.string().min(1).optional(),
     newPassword: z.string().min(1).optional(),
     confirmPassword: z.string().min(1).optional(),
-    durationMs: z.number().min(60000).max(86400000).optional(),
+    durationMs: z.number().min(AUTH_DEFAULTS.MIN_SESSION_DURATION_MS).max(AUTH_DEFAULTS.MAX_SESSION_DURATION_MS).optional(),
   }).strict().optional(),
   twoFactor: z.object({
     enabled: z.boolean().optional(),
@@ -276,7 +277,7 @@ export class SettingsService {
       runtimeConfigStore.replaceFromConfig(nextConfig);
       authService.updateRuntimeConfig({
         password: nextConfig.auth?.password ?? '',
-        durationMs: nextConfig.auth?.durationMs ?? 1800000,
+        durationMs: nextConfig.auth?.durationMs ?? AUTH_DEFAULTS.SESSION_DURATION_MS,
       });
       sessionManager.updateRuntimeConfig({
         idleDelayMs: nextConfig.session.idleDelayMs,
@@ -301,7 +302,7 @@ export class SettingsService {
       try {
         authService.updateRuntimeConfig({
           password: previousConfig.auth?.password ?? '',
-          durationMs: previousConfig.auth?.durationMs ?? 1800000,
+          durationMs: previousConfig.auth?.durationMs ?? AUTH_DEFAULTS.SESSION_DURATION_MS,
         });
       } catch (rollbackError) {
         rollbackErrors.push(getErrorMessage(rollbackError));

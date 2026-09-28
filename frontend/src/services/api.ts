@@ -5,6 +5,7 @@
 
 import type { FileSearchPage } from '../components/fileExplorer/fileSearchController.ts';
 import { tokenStorage } from './tokenStorage.ts';
+import { authFetchWithRetry } from './authRetry.ts';
 import { parseApiErrorPayload } from './apiError.ts';
 import { t } from '../i18n/i18n.ts';
 export { parseApiErrorPayload } from './apiError.ts';
@@ -102,12 +103,15 @@ function getAuthHeaders(): HeadersInit {
  * this clears the stale token and notifies AuthContext via a custom event.
  */
 async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const res = await fetch(input, init);
-  if (res.status === 401) {
-    tokenStorage.clearToken();
-    window.dispatchEvent(new Event('auth-expired'));
-  }
-  return res;
+  // REL-BGSTAB-037 AC-4: a token another tab just rotated is retried, not treated as a logout.
+  return authFetchWithRetry({
+    fetch: (request, options) => fetch(request, options),
+    readToken: () => tokenStorage.getToken(),
+    onExpired: () => {
+      tokenStorage.clearToken();
+      window.dispatchEvent(new Event('auth-expired'));
+    },
+  }, input, init);
 }
 
 // ============================================================================

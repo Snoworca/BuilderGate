@@ -28,7 +28,7 @@
       "frontend/src/components/Terminal/TerminalView.tsx": "6f6c928fe19c62aedf0dbb07bf9771f1a79a2ae89197ef212006c53aaf9ee99a",
       "frontend/src/contexts/WebSocketContext.tsx": "8d792d04c8af6663f35ba1bdd7bdf70b17ef6c8877a28f86ad846311fb3a2d31",
       "frontend/src/hooks/useTerminalRuntimeResidency.ts": "839519d4c6fb58e3069aa5a2aff4f94e44e58675cb0aa4d47ad13913f0e8c415",
-      "frontend/src/services/tokenStorage.ts": "90241907e80a501e6cf423f8c26b97a3245291cccfada64f168798c4e93ed1d7",
+      "frontend/src/services/tokenStorage.ts": "18d79e2cb784ae23e986931bfecf081bd79057a41628915d4b0498556f596687",
       "frontend/src/types/settings.ts": "4a9b9a3fab89fccae63f80f81de3d43df410b2541b94eea9947332f96ddd27c7",
       "frontend/src/utils/binaryFrameCodec.ts": "b15553bd7830c2879f3aa63c944e07cbeecd5ed99b2068a42dc13dc6307f2f36",
       "frontend/src/utils/inputReliabilityMode.ts": "d305d8665f06f05d98fa430725425c0a8d3760e6b0505f88fe03f957d756ba00",
@@ -42,14 +42,14 @@
       "frontend/src/utils/terminalWriteCoordinator.ts": "e9cc89993d03388524a6bb3204290b41bbd5a44d04f6f566ac2d28f4cf8a69aa",
       "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855",
       "frontend/src/utils/webSocketBackpressure.ts": "6b1267425a009da86ed03cccfe8caa80520dcd65b82fff63ffe5e6886e132f29",
-      "server/src/index.ts": "20ed8fb48085477a5bdac87989702a0168f631b0f96db3cff1000b8be198b23d",
-      "server/src/schemas/config.schema.ts": "0c2ddc560340875a55885f3a35d7b4a0e49f3ba2c53277774aff53f60270f158",
+      "server/src/index.ts": "2dc44c025735ac84a2d55cd0f37e67fdc4b2cddabe17f61881de4ac295ba8a9f",
+      "server/src/schemas/config.schema.ts": "e74738eb9ba19f9d3da5df26d20032e92960e5a55c4c22eedce0431e5ed56db6",
       "server/src/services/ConfigFileRepository.ts": "26c76728f01a3b2b913feb95bac5e131a328da0e8e99ef946963e7b44ceb3132",
       "server/src/services/McpToolService.ts": "d92bfaee1035cd069b0109c7ec942b16337d0822ee47fd7b1a8a1dc59295a635",
       "server/src/services/RuntimeConfigStore.test.ts": "e61f4457e38b29be46dfec551c344d0d8efd967c5305ac0cdc27024614429d78",
       "server/src/services/RuntimeConfigStore.ts": "1f1e0c13cf2d58ea19d47179bbdbab2b91f52e17f1ac200a38e3eb4254e718ef",
       "server/src/services/SessionManager.ts": "64b54febb4136fdde1d724066bbc72c1fa45da1d796414e18ed6b51dfffac2eb",
-      "server/src/services/SettingsService.ts": "3721b1d0a343e1acb1b0e751e09b7e82c2579ba10af4f72f0c6706a7d63ce9db",
+      "server/src/services/SettingsService.ts": "11cc5d2902b43b7fdd39d2ec723eab1f9c28631b954600401de03eb1a54f6c69",
       "server/src/services/TerminalAuthorityProductionAdapter.ts": "738965fcf503f8a64740e4e8e034c11ab718a3ecb26e8041761c16184f734cfe",
       "server/src/services/TerminalResourcePolicy.test.ts": "2a0a3226dda66d201a8fe1d28909d407774dbbf3fce1e0aed03be2b3ec1a9d91",
       "server/src/services/TerminalResourcePolicy.ts": "b3fae39fa863bc2d860f383cf910a629e260796ae7f5aaf2b741aaacc08f37df",
@@ -66,9 +66,9 @@
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "fd2ddb3243927cad1d5ce4daa7d985b6fa4fec73aea19aa933959eec622f38a5",
       "tools/wave3/terminal-resource-policy-differential.ts": "8b361e3593526d0e0ab8215af60d71ea3c0ca30bab4c3351ac8883c54c9736d2"
     },
-    "sourceSetSha256": "359771bf3b7a5a6c7a01674ad8349f8ea6e6d3a91b798dae664e14092b9192ca",
+    "sourceSetSha256": "d004c64f31fa87f5204e64019e6160dea9f2b7605f4d5e623cbc118d6092ab26",
     "rawGreenEvidence": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "250a37f65cfe817d6c4d75945a33e613c44323a6598299bf099c6536df17d966",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "55c0fc9e31e53b1087ced80ea76b70513b7310ff17405820b346bb7d6c37ed13",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"
     },
     "consumerAstFingerprint": {

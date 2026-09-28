@@ -1273,7 +1273,7 @@ function testRuntimeConfigSnapshot(): void {
 
   assert.equal(store.isEditable('auth.durationMs'), true);
   assert.equal(store.isEditable('server.port'), false);
-  assert.equal(snapshot.values.auth.durationMs, 1800000);
+  assert.equal(snapshot.values.auth.durationMs, 3600000);
   assert.equal(snapshot.capabilities['auth.password'].writeOnly, true);
   assert.equal(snapshot.secretState.authPasswordConfigured, true);
   assert.ok(snapshot.excludedSections.includes('ssl.*'));
@@ -21201,7 +21201,7 @@ function createConfigFixture(): Config {
     },
     auth: {
       password: 'enc(secret)',
-      durationMs: 1800000,
+      durationMs: 3600000,
       jwtSecret: 'enc(jwt)',
     },
     bootstrap: {
@@ -21297,7 +21297,7 @@ function createConfigFixtureContent(): string {
   },
   auth: {
     password: "old-password",
-    durationMs: 1800000,
+    durationMs: 3600000,
     maxDurationMs: 86400000,
     jwtSecret: "jwt-secret",
   },

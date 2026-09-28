@@ -159,7 +159,7 @@
   // Authentication settings
   auth: {
     password: "",                    // 빈 값: 브라우저에서 초기 관리자 비밀번호 설정
-    durationMs: 1800000,             // 세션 유지 시간: 30분
+    durationMs: 604800000,           // 로그인 유지 시간: 마지막 사용 후 7일 (1분~30일)
     jwtSecret: "",                   // 빈 값이면 자동 생성
     localhostPasswordOnly: false,    // true: localhost 접근 시 2FA 건너뜀
   },

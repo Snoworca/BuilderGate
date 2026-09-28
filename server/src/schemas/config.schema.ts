@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { AUTH_DEFAULTS } from '../utils/constants.js';
 
 // ============================================================================
 // SSL Schema
@@ -269,7 +270,12 @@ export const authSchema = z.object({
     }
     return value;
   }, z.string()).default(''),
-  durationMs: z.number().min(60000).max(86400000).default(1800000),
+  // REL-BGSTAB-037: seven days by default (the former 30-minute default is migrated in
+  // normalizeRawConfigForPlatform, before this schema runs).
+  durationMs: z.number()
+    .min(AUTH_DEFAULTS.MIN_SESSION_DURATION_MS)
+    .max(AUTH_DEFAULTS.MAX_SESSION_DURATION_MS)
+    .default(AUTH_DEFAULTS.SESSION_DURATION_MS),
   jwtSecret: z.string().default(''),
   localhostPasswordOnly: z.boolean().default(false),
 });

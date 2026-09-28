@@ -27,6 +27,7 @@
     "./tests/unit/i18nGuards.test.ts",
     "./tests/unit/i18nRuntime.test.ts",
     "./tests/unit/statusHysteresis.test.ts",
+    "./tests/unit/authSessionKeepAlive.test.ts",
     "./tests/unit/fileExplorerBreadcrumb.test.ts",
     "./tests/unit/fileTreeSingleChildChain.test.ts",
     "./tests/unit/fileExplorerTypeFilter.test.ts",

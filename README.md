@@ -141,7 +141,7 @@ The executable reads `config.json5` next to it (`BUILDERGATE_CONFIG_PATH` overri
 ```json5
 {
   server: { port: 2002 },
-  auth: { password: "", durationMs: 1800000, jwtSecret: "" },
+  auth: { password: "", durationMs: 604800000, jwtSecret: "" },
   bootstrap: { allowedIps: [] },
   twoFactor: { enabled: false, externalOnly: false, issuer: "BuilderGate", accountName: "admin" },
   workspace: { maxTabsPerWorkspace: 8 },
@@ -438,7 +438,7 @@ BuilderGate.exe --reset-password
 ```json5
 {
   server: { port: 2002 },
-  auth: { password: "", durationMs: 1800000, jwtSecret: "" },
+  auth: { password: "", durationMs: 604800000, jwtSecret: "" },
   bootstrap: { allowedIps: [] },
   twoFactor: { enabled: false, externalOnly: false, issuer: "BuilderGate", accountName: "admin" },
   workspace: { maxTabsPerWorkspace: 8 },

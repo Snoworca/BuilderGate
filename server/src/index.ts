@@ -1215,7 +1215,7 @@ async function startServer(): Promise<void> {
     // ========================================================================
     const authConfig = config.auth || {
       password: '',
-      durationMs: 1800000,
+      durationMs: 604800000,
       jwtSecret: ''
     };
     authService = new AuthService(authConfig, cryptoService);

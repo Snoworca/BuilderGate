@@ -13,10 +13,13 @@ import { getSnapshotResourceLimits } from '../utils/inputReliabilityMode.ts';
 
 const TOKEN_KEY = 'cws_auth_token';
 const EXPIRES_KEY = 'cws_auth_expires';
+// REL-BGSTAB-037: the lifetime the server gave the token, so the refresh policy knows its age.
+const DURATION_KEY = 'cws_auth_duration';
 
-function writeTokenValues(token: string, expiresAt: number): void {
+function writeTokenValues(token: string, expiresAt: number, durationMs: number): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(EXPIRES_KEY, String(expiresAt));
+  localStorage.setItem(DURATION_KEY, String(durationMs));
 }
 
 export const tokenStorage = {
@@ -27,7 +30,7 @@ export const tokenStorage = {
   setToken(token: string, expiresIn: number): void {
     const expiresAt = Date.now() + expiresIn;
     try {
-      writeTokenValues(token, expiresAt);
+      writeTokenValues(token, expiresAt, expiresIn);
     } catch (error) {
       this.clearToken();
       if (!isQuotaExceededError(error)) {
@@ -46,7 +49,7 @@ export const tokenStorage = {
       });
 
       try {
-        writeTokenValues(token, expiresAt);
+        writeTokenValues(token, expiresAt, expiresIn);
       } catch (retryError) {
         this.clearToken();
         throw retryError;
@@ -57,6 +60,12 @@ export const tokenStorage = {
   clearToken(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(EXPIRES_KEY);
+    localStorage.removeItem(DURATION_KEY);
+  },
+
+  getDurationMs(): number | null {
+    const duration = Number.parseInt(localStorage.getItem(DURATION_KEY) ?? '', 10);
+    return Number.isFinite(duration) && duration > 0 ? duration : null;
   },
 
   isExpired(): boolean {

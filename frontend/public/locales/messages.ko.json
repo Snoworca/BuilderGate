@@ -677,7 +677,7 @@
   "settings.auth.currentPassword": "현재 비밀번호",
   "settings.auth.currentPasswordHelp": "비밀번호를 바꿀 때만 입력합니다.",
   "settings.auth.duration": "세션 유지 시간",
-  "settings.auth.durationHelp": "로그인한 뒤 이 시간이 지나면 다시 로그인해야 합니다.",
+  "settings.auth.durationHelp": "페이지를 이 시간 동안 사용하지 않으면 다시 로그인해야 합니다. 사용할 때마다 연장됩니다(1분~30일).",
   "settings.auth.newPassword": "새 비밀번호",
   "settings.auth.passwordConfigured": "지금 비밀번호가 설정되어 있습니다.",
   "settings.auth.passwordNotConfigured": "지금은 설정된 비밀번호가 없습니다.",
