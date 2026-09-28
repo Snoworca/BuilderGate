@@ -98,3 +98,18 @@ test('#18: the emitted epoch is the one the id was built from, not a separate re
   assert.equal(fields.inputOperationId, 'e4:1-1');
   assert.equal(fields.inputSequencerEpoch, 4);
 });
+
+// REL-BGSTAB-036: the epoch used to start at 1 on every mount while the logical client id
+// survives a reload (sessionStorage). After a reload the same (client, session, epoch) began
+// again at sequence 1, the server's forgotten-operation watermark from the previous page
+// covered it, and every keystroke was refused as `unknown-operation` ("input not delivered").
+test('REL-BGSTAB-036 AC-1 each mount gets an epoch no earlier mount of this client used', async () => {
+  const { createInputSequencerEpoch } = await import('../../src/utils/terminalInputOperationId.ts');
+  const a = createInputSequencerEpoch();
+  const b = createInputSequencerEpoch();
+  assert.ok(Number.isSafeInteger(a) && a > 0);
+  assert.ok(b > a, 'a later mount must not reuse an earlier epoch');
+  // A reload restarts the module; its first epoch must still be above anything the previous
+  // page could have reached with a small counter.
+  assert.ok(a > 1_000_000_000, 'the epoch is time-based, not a counter that restarts at 1');
+});

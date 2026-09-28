@@ -77,3 +77,19 @@ export function buildTerminalInputIdentityFields(
   }
   return { inputOperationId, inputSequencerEpoch: input.sequencerEpoch };
 }
+
+let lastInputSequencerEpoch = 0;
+
+/**
+ * REL-BGSTAB-036: a fresh sequencer epoch for each terminal mount.
+ *
+ * The logical client id survives a reload, so an epoch counter restarting at 1 put the new
+ * page's first operations under the previous page's forgotten-operation watermark and the
+ * server refused every keystroke as `unknown-operation`. Milliseconds since the epoch are
+ * above any counter a previous page reached, and the monotonic bump keeps two mounts in the
+ * same millisecond apart. Still a safe integer (~1.8e12 today).
+ */
+export function createInputSequencerEpoch(now: number = Date.now()): number {
+  lastInputSequencerEpoch = Math.max(lastInputSequencerEpoch + 1, Math.floor(now));
+  return lastInputSequencerEpoch;
+}

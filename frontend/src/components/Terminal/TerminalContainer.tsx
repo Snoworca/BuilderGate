@@ -68,7 +68,7 @@ import {
   TerminalInputSequencer,
   type SequencedTerminalInput,
 } from '../../utils/terminalInputSequencer';
-import { buildTerminalInputIdentityFields } from '../../utils/terminalInputOperationId';
+import { buildTerminalInputIdentityFields, createInputSequencerEpoch } from '../../utils/terminalInputOperationId';
 import { resolveStaleSocketReconnectDecision } from '../../utils/terminalTransportQueueDecision';
 import type {
   InputDebugMetadata,
@@ -301,7 +301,9 @@ export const TerminalContainer = memo(
     const deliverSequencedInputRef = useRef<(input: SequencedTerminalInput, reason: string) => void>(() => {});
     const inputSequencerRef = useRef<TerminalInputSequencer | null>(null);
     // Bumped with every sequencer reset so a restarted sequence cannot reuse an operation id.
-    const inputSequencerEpochRef = useRef(1);
+    // REL-BGSTAB-036: unique per mount; a counter restarting at 1 collided after a reload.
+    const inputSequencerEpochRef = useRef(0);
+    if (inputSequencerEpochRef.current === 0) inputSequencerEpochRef.current = createInputSequencerEpoch();
     const reconnectStartedAtRef = useRef<number | null>(null);
     const reconnectTtlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const {
@@ -1181,7 +1183,7 @@ export const TerminalContainer = memo(
       lastSentResizeRef.current = null;
       lastStatusRef.current = null;
       inputSequencerRef.current?.reset(1);
-      inputSequencerEpochRef.current += 1;
+      inputSequencerEpochRef.current = createInputSequencerEpoch();
       supersededVisibleOutputResyncKeysRef.current.clear();
       visibleOutputResyncEpochRef.current += 1;
       visibleOutputMutationFenceRef.current?.invalidateSpeculative();

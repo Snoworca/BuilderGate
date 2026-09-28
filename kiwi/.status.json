@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-27T23:16:41.601Z",
+  "generatedAt": "2026-09-28T00:28:34.818Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "5d6918f1f1fc05b2e0854123eaf9aac70bf57b00643c82222e27bcb6d385d0e1",
+    "value": "8dd46cb877a6d7da8df49b74c9dfcdcd550764b21d2db86e0202f08fcae68c61",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "dd4c54a0c8f7a17ea189ee2a0e58d39d7bada385c32eb999d012c40c4b8aaa2f",
-        "size": 8970,
-        "mtimeMs": 1790471485577.8188
+        "sha256": "23b5b3cd5ae5e8b1396e21aaa527443ff410a8e3eb76c0e72b4b2431d6a89db7",
+        "size": 9580,
+        "mtimeMs": 1790554675616.405
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "0aa39b2e035b3127d6a6050725875d6d37d3b94ac689d772f5286eafff81a026",
-        "size": 1417178,
-        "mtimeMs": 1790551000101.4902
+        "sha256": "295414da4c5367017ff969ebb5cd62ca8240a99bb16f625e10a4637ab9aabdd5",
+        "size": 1418890,
+        "mtimeMs": 1790555314260.4885
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -44,9 +44,9 @@
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "1d7d9b06688c359d5da01dd9e87888b3fda7f436768eca8b37e3d9e62d5bf3ff",
-        "size": 87531,
-        "mtimeMs": 1790387214327.8015
+        "sha256": "c1e946292eee012f990e9713ad2f2e89481e36561ba097d1f7898243a576dcd6",
+        "size": 97369,
+        "mtimeMs": 1790554739692.0862
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
@@ -81,7 +81,7 @@
       "BGSTAB": 31,
       "MCP": 6,
       "MDE": 23,
-      "FEX": 12,
+      "FEX": 18,
       "FOP": 5,
       "UIDS": 7
     },
@@ -101,7 +101,7 @@
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 35,
+      "BGSTAB": 36,
       "MCP": 1
     },
     "observability": {
