@@ -91,6 +91,11 @@ import {
 import { sanitizeTerminalPasteText } from '../../utils/terminalPasteSanitizer';
 import { evaluateOsc52Request } from '../../utils/terminalOsc52';
 import {
+  createGeometryConvergenceLoop,
+  decideGeometryConvergence,
+  type GeometryConvergenceLoop,
+} from '../../utils/terminalGeometryConvergence';
+import {
   TERMINAL_PASTE_MAX_BYTES,
   measurePasteBytes,
   resolveEffectiveInputQueueTtlMs,
@@ -457,6 +462,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const restoreReleaseSingleFlightRef = useRef(createTerminalRestoreReleaseSingleFlight());
     const inputReadyRef = useRef(false);
     const geometryReadyRef = useRef(false);
+    // REL-BGSTAB-038: the check that brings a visible terminal back to its container's size.
+    const geometryConvergenceLoopRef = useRef<GeometryConvergenceLoop | null>(null);
+    const geometryConvergenceFitPendingRef = useRef(false);
+    const checkGeometryConvergenceRef = useRef<() => void>(() => undefined);
     const serverReadyRef = useRef(false);
     const captureStateRef = useRef<TerminalCaptureState>('closed');
     const captureAllowedRef = useRef(false);
@@ -4576,6 +4585,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       let rafId: number | null = null;
       let resizeTimer: ReturnType<typeof setTimeout> | null = null;
       const resizeObserver = new ResizeObserver(() => {
+        // REL-BGSTAB-038: whatever happens to the fit below, check the geometry again shortly.
+        geometryConvergenceLoopRef.current?.kick();
         // 0-size 가드: display:none 상태(워크스페이스 비활성)에서는 fit 및 PTY resize 스킵
         const container = containerRef.current;
         if (!isVisibleRef.current || !container || container.offsetWidth === 0 || container.offsetHeight === 0) {
@@ -4758,6 +4769,81 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       workspaceIdRef.current = workspaceId;
       terminalShortcutStateRef.current = terminalShortcutState;
     }, [terminalShortcutState, workspaceId]);
+
+    // REL-BGSTAB-038 AC-1/AC-2: a fit that was skipped or refused is not the end of it. While
+    // the terminal is visible its size is compared with what the container holds, and a
+    // mismatch gets a fit and a resize, without waiting for another ResizeObserver event.
+    const checkGeometryConvergence = useCallback(() => {
+      const term = xtermRef.current;
+      const fitAddon = fitAddonRef.current;
+      const container = containerRef.current;
+      if (!term || !fitAddon || geometryConvergenceFitPendingRef.current) return;
+      let proposed: { cols?: number; rows?: number } | undefined;
+      try {
+        proposed = fitAddon.proposeDimensions();
+      } catch {
+        proposed = undefined;
+      }
+      const decision = decideGeometryConvergence({
+        visible: isVisibleRef.current,
+        width: container?.offsetWidth ?? 0,
+        height: container?.offsetHeight ?? 0,
+        proposed,
+        current: { cols: term.cols, rows: term.rows },
+      });
+      if (decision !== 'fit') return;
+      geometryConvergenceFitPendingRef.current = true;
+      recordTerminalDebugEvent(sessionId, 'geometry_convergence_fit_requested', {
+        cols: term.cols,
+        rows: term.rows,
+        proposedCols: proposed?.cols ?? 0,
+        proposedRows: proposed?.rows ?? 0,
+      });
+      const accepted = submitTerminalFit(term, () => {
+        geometryConvergenceFitPendingRef.current = false;
+        recordTerminalDebugEvent(sessionId, 'fit_completed', {
+          cols: term.cols,
+          rows: term.rows,
+          reason: 'geometry-convergence',
+        });
+        geometryReadyRef.current = true;
+        syncInputReadiness('geometry-convergence');
+        emitResize(term.cols, term.rows, 'geometry-convergence');
+      }, () => {
+        geometryConvergenceFitPendingRef.current = false;
+        recordTerminalDebugEvent(sessionId, 'geometry_convergence_fit_rejected', {});
+      });
+      if (!accepted) geometryConvergenceFitPendingRef.current = false;
+    }, [emitResize, sessionId, submitTerminalFit, syncInputReadiness]);
+
+    useEffect(() => {
+      checkGeometryConvergenceRef.current = checkGeometryConvergence;
+    }, [checkGeometryConvergence]);
+
+    useEffect(() => {
+      const loop = createGeometryConvergenceLoop({
+        intervalMs: 700,
+        kickDelaysMs: [60, 250, 700],
+        check: () => checkGeometryConvergenceRef.current(),
+      });
+      geometryConvergenceLoopRef.current = loop;
+      return () => {
+        loop.stop();
+        geometryConvergenceLoopRef.current = null;
+      };
+    }, []);
+
+    // AC-4: only while visible.
+    useEffect(() => {
+      const loop = geometryConvergenceLoopRef.current;
+      if (!loop) return;
+      if (isVisible) {
+        loop.start();
+        loop.kick();
+      } else {
+        loop.stop();
+      }
+    }, [isVisible]);
 
     useEffect(() => {
       const wasVisible = previousVisibilityRef.current;
