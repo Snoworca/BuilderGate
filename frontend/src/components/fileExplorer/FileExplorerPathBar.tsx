@@ -9,7 +9,7 @@ import { IconButton } from '../common';
 import type { UseFileTreeResult } from '../../hooks/useFileTree.ts';
 import type { FileTreeMode } from './fileTreeState.ts';
 import { canGoUp } from './fileTreeState.ts';
-import { PATH_BAR_CONTROLS } from './fileExplorerPathBarModel.ts';
+import { PATH_BAR_CONTROLS, buildBreadcrumb, collapseBreadcrumb } from './fileExplorerPathBarModel.ts';
 
 export interface FileExplorerPathBarProps {
   tree: UseFileTreeResult;
@@ -30,6 +30,8 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
         {PATH_BAR_CONTROLS.map((control) => {
           switch (control) {
             case 'up':
+              // FR-FEX-017 AC-2: at the session root there is nowhere to go, so no button.
+              if (!canGoUp(state)) return null;
               // The shared set has no upward glyph, so the downward chevron is
               // drawn turned over (.fx-up-button in FileExplorer.css).
               return (
@@ -38,16 +40,43 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory }: FileExplo
                   icon="chevron-down"
                   className="fx-bar-button fx-up-button"
                   label={t('fileExplorer.path.parent')}
-                  disabled={!canGoUp(state) || state.pendingRoot !== null}
+                  disabled={state.pendingRoot !== null}
                   onClick={() => void tree.goUp()}
                 />
               );
-            case 'path':
+            case 'path': {
+              // FR-FEX-016: list mode shows ./a/b/c from the session root, each segment clickable.
+              const crumbs = state.mode === 'list' ? buildBreadcrumb(state.root, state.sessionRoot ?? null) : null;
+              if (crumbs === null) {
+                return (
+                  <span key={control} className="fx-path" title={state.root}>
+                    {state.root}
+                  </span>
+                );
+              }
               return (
-                <span key={control} className="fx-path" title={state.root}>
-                  {state.root}
-                </span>
+                <nav key={control} className="fx-path fx-crumbs" title={state.root} aria-label={t('fileExplorer.path.breadcrumb')}>
+                  {collapseBreadcrumb(crumbs).map((item, index) => (
+                    <span key={index} className="fx-crumb-item">
+                      {index > 0 && <span className="fx-crumb-sep" aria-hidden="true">/</span>}
+                      {item.kind === 'ellipsis' ? (
+                        <span className="fx-crumb-ellipsis" title={item.title}>…</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`fx-crumb${item.action === 'refresh' ? ' fx-crumb-current' : ''}`}
+                          title={item.action === 'refresh' ? t('fileExplorer.path.reload') : item.path}
+                          onClick={() => void (item.action === 'refresh' ? tree.refresh(state.root) : tree.setRoot(item.path))}
+                        >
+                          {item.label}
+                        </button>
+                      )}
+                      {item.kind === 'root' && crumbs.length === 1 && <span className="fx-crumb-sep" aria-hidden="true">/</span>}
+                    </span>
+                  ))}
+                </nav>
               );
+            }
             case 'mode':
               // The drawing is the view the button switches to: rules for the
               // list, a folder for the tree.

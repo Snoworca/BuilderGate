@@ -136,6 +136,29 @@
   text-align: left;
 }
 
+/* FR-FEX-016: the list-mode breadcrumb. Left-to-right, unlike the plain path above. */
+.fx-crumbs {
+  direction: ltr;
+  display: flex;
+  align-items: center;
+  text-overflow: clip;
+}
+.fx-crumb-item { display: inline-flex; align-items: center; min-width: 0; }
+.fx-crumb {
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent-text);
+  padding: 1px 3px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fx-crumb:hover { background: var(--bg-hover); text-decoration: underline; }
+.fx-crumb:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.fx-crumb-current { color: var(--fg-strong); font-weight: 600; }
+.fx-crumb-sep, .fx-crumb-ellipsis { color: var(--fg-muted); }
+
 /* The path bar's icon buttons are the shared IconButton, made the bar's 26px
  * square. The glyph edge is the toolbar size (FR-UIDS-001 AC-4). */
 .icon-button.fx-bar-button {

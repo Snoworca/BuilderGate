@@ -80,6 +80,8 @@ export function useFileTree(sessionId: string, initialRoot: string, initialMode:
     goUp: controller.goUp,
     expand: controller.expand,
     collapse: controller.collapse,
+    enterChain: controller.enterChain,
+    expandChain: controller.expandChain,
     refresh: controller.refresh,
     setMode: controller.setMode,
     applyJobDone: controller.applyJobDone,

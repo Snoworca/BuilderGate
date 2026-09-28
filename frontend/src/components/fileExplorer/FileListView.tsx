@@ -83,7 +83,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
     if (entry === undefined) return;
     const decision = decideDoubleClick(nodeOf(entry), tree.state.mode);
     if (decision.type === 'open-editor') onOpenFile(decision.path);
-    else if (decision.type === 'enter') void tree.setRoot(decision.path);
+    else if (decision.type === 'enter') void tree.enterChain(decision.path);
   };
 
   // The selection is settled before the menu opens, so every menu action reads

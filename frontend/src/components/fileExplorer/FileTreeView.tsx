@@ -103,7 +103,7 @@ export function FileTreeView({
 
   const toggle = (path: string) => {
     if (tree.state.expandedPaths.has(path)) tree.collapse(path);
-    else void tree.expand(path);
+    else void tree.expandChain(path);
   };
 
   const handleRowClick = (event: MouseEvent<HTMLDivElement>, row: NodeRow) => {
@@ -146,7 +146,7 @@ export function FileTreeView({
     const decision = decideDoubleClick(row, tree.state.mode);
     if (decision.type === 'open-editor') onOpenFile(decision.path);
     else if (decision.type === 'toggle-expand') toggle(decision.path);
-    else if (decision.type === 'enter') void tree.setRoot(decision.path);
+    else if (decision.type === 'enter') void tree.enterChain(decision.path);
   };
 
   // The selection is settled before the menu opens, so every menu action reads

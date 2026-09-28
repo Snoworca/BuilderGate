@@ -80,9 +80,11 @@ test('FileService.listDirectory does not count a parent entry at a drive root', 
 test('FileService.listDirectory counts the parent entry below a root', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'));
   try {
-    await fs.writeFile(path.join(tempDir, 'a.txt'), 'a');
-    await fs.writeFile(path.join(tempDir, 'b.txt'), 'b');
-    const listing = await listingService(tempDir).listDirectory('session-1', '.');
+    // FR-FEX-017: listed below the session root, where a parent is still reachable.
+    await fs.mkdir(path.join(tempDir, 'sub'));
+    await fs.writeFile(path.join(tempDir, 'sub', 'a.txt'), 'a');
+    await fs.writeFile(path.join(tempDir, 'sub', 'b.txt'), 'b');
+    const listing = await listingService(tempDir).listDirectory('session-1', 'sub');
 
     assert.deepEqual(listing.entries.map(entry => entry.name), ['..', 'a.txt', 'b.txt']);
     assert.equal(listing.totalEntries, 3);
@@ -104,9 +106,9 @@ test('FileService.listDirectory hides file-job temp names and counts totalEntrie
 
     assert.deepEqual(
       listing.entries.map(entry => entry.name),
-      ['..', '.bg-part-0123456789abcdef0', '.bg-part-mine', 'a.txt'],
+      ['.bg-part-0123456789abcdef0', '.bg-part-mine', 'a.txt'],
     );
-    assert.equal(listing.totalEntries, 4);
+    assert.equal(listing.totalEntries, 3);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -384,4 +386,33 @@ test('updateConfig(maxImageFileSize=4096) 뒤 8KiB png 는 FILE_TOO_LARGE — �
     service.updateConfig(imageServiceConfig({ maxFileSize: 1024 * 1024 }));
     assert.equal((await service.readImageFile('session-1', 'eight.png')).size, 8 * 1024);
   }, { maxFileSize: 1024 * 1024 });
+});
+
+// FR-FEX-017: the session root used to carry a '..' row whose listing the server then refused
+// (PATH_TRAVERSAL), so the up action was offered only to fail.
+test('FR-FEX-017 AC-1 listing the session root offers no parent entry', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'));
+  try {
+    await fs.writeFile(path.join(tempDir, 'a.txt'), 'a');
+    const service = listingService(tempDir);
+    for (const target of [undefined, '.', tempDir]) {
+      const listing = await service.listDirectory('session-1', target);
+      assert.equal(listing.entries.some(entry => entry.name === '..'), false, `target ${String(target)}`);
+      assert.equal(listing.totalEntries, 1);
+    }
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('FR-FEX-017 AC-4 listing above the session root is still refused', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'));
+  try {
+    await assert.rejects(
+      () => listingService(tempDir).listDirectory('session-1', '..'),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.PATH_TRAVERSAL,
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
 });

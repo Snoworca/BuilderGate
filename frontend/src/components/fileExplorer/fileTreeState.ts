@@ -27,6 +27,8 @@ export interface FileTreeState {
   rootHasParent: boolean;
   pendingRoot: string | null;
   error: string | null;
+  /** FR-FEX-016: the session's base directory, as the server reported it with a listing. */
+  sessionRoot?: string | null;
 }
 
 export interface RowClickModifiers {
@@ -178,7 +180,7 @@ export function isSameOrUnderPath(candidate: string, ancestor: string): boolean 
 }
 
 // Children join with the parent's own separator and never double it ('C:\' + 'work').
-function joinChildPath(parent: string, name: string): string {
+export function joinChildPath(parent: string, name: string): string {
   if (isSeparator(parent[parent.length - 1])) return parent + name;
   const separator = parent.includes('\\') ? '\\' : '/';
   return parent + separator + name;
@@ -319,9 +321,10 @@ export function fileTreeReducer(state: FileTreeState, action: FileTreeAction): F
     case 'CHILDREN_LOADED': {
       const { entries, hasParent } = normalizeDirectoryEntries(action.listing.entries);
       const childrenByPath = withChild(state, action.path, { status: 'loaded', entries, hasParent });
+      const sessionRoot = action.listing.cwd || state.sessionRoot || null;
       return action.path === state.root
-        ? { ...state, childrenByPath, rootHasParent: hasParent }
-        : { ...state, childrenByPath };
+        ? { ...state, childrenByPath, rootHasParent: hasParent, sessionRoot }
+        : { ...state, childrenByPath, sessionRoot };
     }
 
     case 'CHILDREN_FAILED':

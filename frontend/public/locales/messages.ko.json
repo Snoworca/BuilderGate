@@ -275,6 +275,7 @@
   "fileExplorer.path.newFolder": "새 폴더",
   "fileExplorer.path.parent": "상위 폴더",
   "fileExplorer.path.reload": "새로 읽기",
+  "fileExplorer.path.breadcrumb": "세션 폴더부터의 경로",
   "fileExplorer.progress.more.other": "외 {count}개",
   "fileExplorer.rename.label": "새 이름",
   "fileExplorer.tabs.add": "새 탭",

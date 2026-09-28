@@ -278,6 +278,7 @@
   "fileExplorer.path.newFolder": "New folder",
   "fileExplorer.path.parent": "Parent folder",
   "fileExplorer.path.reload": "Reload",
+  "fileExplorer.path.breadcrumb": "Path from the session folder",
   "fileExplorer.progress.more.one": "+{count} more",
   "fileExplorer.progress.more.other": "+{count} more",
   "fileExplorer.rename.label": "New name",

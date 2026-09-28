@@ -13,6 +13,7 @@ import { t } from '../../i18n/i18n.ts';
 import type { DirectoryListing } from '../../types/index.ts';
 import {
   canGoUp,
+  joinChildPath,
   parentPathOf,
   selectVisibleRows,
   shouldFetchChildren,
@@ -33,6 +34,10 @@ export interface FileTreeController {
   goUp(): Promise<void>;
   expand(path: string): Promise<void>;
   collapse(path: string): void;
+  /** FR-FEX-015: list mode — enter `path`, then keep entering while the only child is a directory. */
+  enterChain(path: string): Promise<void>;
+  /** FR-FEX-015: tree mode — expand `path`, then keep expanding while the only child is a directory. */
+  expandChain(path: string): Promise<void>;
   refresh(path: string): Promise<void>;
   setMode(mode: FileTreeMode): void;
   applyJobDone(affectedDirectories: readonly string[]): Promise<void>;
@@ -135,7 +140,15 @@ export function createFileTreeController(deps: FileTreeControllerDeps): FileTree
     await request(key, true);
   };
 
-  return {
+  // FR-FEX-015: the child to continue into, or null when the chain ends here (not loaded,
+  // empty, two or more entries, or a single file).
+  const singleDirectoryChild = (key: string): string | null => {
+    const child = getState().childrenByPath.get(key);
+    if (child?.status !== 'loaded' || child.entries.length !== 1 || child.entries[0].type !== 'directory') return null;
+    return normalizeTreePath(joinChildPath(key, child.entries[0].name));
+  };
+
+  const controller: FileTreeController = {
     async setRoot(path) {
       const key = normalizeTreePath(path);
       // A new root is the newest intent: any goUp still out is abandoned.
@@ -180,6 +193,33 @@ export function createFileTreeController(deps: FileTreeControllerDeps): FileTree
       if (getState().expandedPaths.has(key)) dispatch({ type: 'TOGGLE_EXPAND', path: key });
     },
 
+    async enterChain(path) {
+      let key = normalizeTreePath(path);
+      await controller.setRoot(key);
+      for (let depth = 0; depth < SINGLE_CHILD_CHAIN_MAX_DEPTH; depth += 1) {
+        if (getState().root !== key) return; // superseded by another navigation
+        const next = singleDirectoryChild(key);
+        if (next === null) return;
+        // List before moving, so a failing level leaves the last good directory shown.
+        const outcome = await request(next, true);
+        if (outcome.kind === 'failed' || getState().root !== key) return;
+        await controller.setRoot(next);
+        key = next;
+      }
+    },
+
+    async expandChain(path) {
+      let key = normalizeTreePath(path);
+      await controller.expand(key);
+      for (let depth = 0; depth < SINGLE_CHILD_CHAIN_MAX_DEPTH; depth += 1) {
+        const next = singleDirectoryChild(key);
+        if (next === null) return;
+        await controller.expand(next);
+        if (getState().childrenByPath.get(next)?.status !== 'loaded') return;
+        key = next;
+      }
+    },
+
     async refresh(path) {
       await load(normalizeTreePath(path), true);
     },
@@ -202,4 +242,8 @@ export function createFileTreeController(deps: FileTreeControllerDeps): FileTree
       if (paths.length > 0) dispatch({ type: 'DESELECT_PATHS', paths: [...paths] });
     },
   };
+  return controller;
 }
+
+/** FR-FEX-015 AC-5: how far a single-child chain is followed. */
+const SINGLE_CHILD_CHAIN_MAX_DEPTH = 32;

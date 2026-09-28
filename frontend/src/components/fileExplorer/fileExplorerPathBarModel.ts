@@ -32,3 +32,57 @@ export function rootLabel(root: string): string {
   const last = segments[segments.length - 1];
   return last === undefined || last === '' ? root : last;
 }
+
+// ---------------------------------------------------------------------------
+// FR-FEX-016: the list-mode breadcrumb, ./{…}/{parent}/{current} from the session root.
+
+export interface BreadcrumbSegment {
+  kind: 'root' | 'segment';
+  label: string;
+  /** The directory this segment names. */
+  path: string;
+  /** The current directory refreshes; every other segment navigates. */
+  action: 'navigate' | 'refresh';
+}
+
+export type BreadcrumbItem = BreadcrumbSegment | { kind: 'ellipsis'; title: string };
+
+const isWindowsStyle = (p: string) => /^[A-Za-z]:/.test(p) || p.includes('\\');
+const trimTrailing = (p: string) => p.replace(/[\\/]+$/, '') || p;
+
+/**
+ * The segments from the session root to `root`, or null when either is unknown or `root` is
+ * not inside the session root (then the full path is shown). Windows paths compare
+ * case-insensitively.
+ */
+export function buildBreadcrumb(root: string, sessionRoot: string | null): BreadcrumbSegment[] | null {
+  if (!sessionRoot) return null;
+  const windows = isWindowsStyle(sessionRoot) || isWindowsStyle(root);
+  const sep = windows ? '\\' : '/';
+  const norm = (p: string) => trimTrailing(windows ? p.replace(/\//g, '\\') : p);
+  const base = norm(sessionRoot);
+  const current = norm(root);
+  const same = (a: string, b: string) => (windows ? a.toLowerCase() === b.toLowerCase() : a === b);
+  const segments: BreadcrumbSegment[] = [];
+  if (same(current, base)) {
+    return [{ kind: 'root', label: '.', path: base, action: 'refresh' }];
+  }
+  const prefix = base.endsWith(sep) ? base : base + sep;
+  if (!(windows ? current.toLowerCase().startsWith(prefix.toLowerCase()) : current.startsWith(prefix))) return null;
+  const parts = current.slice(prefix.length).split(sep).filter(Boolean);
+  segments.push({ kind: 'root', label: '.', path: base, action: 'navigate' });
+  let acc = base;
+  parts.forEach((part, index) => {
+    acc = acc.endsWith(sep) ? acc + part : acc + sep + part;
+    segments.push({ kind: 'segment', label: part, path: acc, action: index === parts.length - 1 ? 'refresh' : 'navigate' });
+  });
+  return segments;
+}
+
+/** Keeps the root and the last `max - 2` segments; the middle becomes one ellipsis item. */
+export function collapseBreadcrumb(segments: readonly BreadcrumbSegment[], max = 5): BreadcrumbItem[] {
+  if (segments.length <= max) return [...segments];
+  const tail = segments.slice(segments.length - (max - 2));
+  const hidden = segments.slice(1, segments.length - tail.length);
+  return [segments[0], { kind: 'ellipsis', title: hidden.map((s) => s.label).join('/') }, ...tail];
+}

@@ -206,7 +206,10 @@ export class FileService {
     // Read directory entries. A file job's in-progress temp file (and one left
     // behind by a crash) is not the user's file: it is hidden, and not counted.
     const dirents = (await fs.readdir(dirPath, { withFileTypes: true })).filter(dirent => !isFileJobTempName(dirent.name));
-    const totalEntries = dirents.length + (path.parse(dirPath).root !== dirPath ? 1 : 0); // ".." only below a root, as pushed below
+    // FR-FEX-017: ".." only below a filesystem root AND below the session root. At the session
+    // root the parent listing is refused (PATH_TRAVERSAL), so offering it only produced an error.
+    const hasParent = path.parse(dirPath).root !== dirPath && !(await isSamePath(dirPath, cwd));
+    const totalEntries = dirents.length + (hasParent ? 1 : 0);
 
     // Limit entries
     const limited = dirents.slice(0, this.config.maxDirectoryEntries);
@@ -214,9 +217,8 @@ export class FileService {
     // Build entry list with stats
     const entries: DirectoryEntry[] = [];
 
-    // Add ".." entry (unless at root)
-    const parsed = path.parse(dirPath);
-    if (parsed.root !== dirPath) {
+    // Add ".." entry (unless at a filesystem root or the session root)
+    if (hasParent) {
       entries.push({
         name: '..',
         type: 'directory',
@@ -695,4 +697,17 @@ function cloneFileManagerConfig(config: FileManagerConfig): FileManagerConfig {
     cwdCacheTtlMs: config.cwdCacheTtlMs,
     maxImageFileSize: config.maxImageFileSize ?? DEFAULT_MAX_IMAGE_FILE_SIZE,
   };
+}
+
+/** FR-FEX-017: the same directory, compared through realpath so symlinks and case agree. */
+async function isSamePath(a: string, b: string): Promise<boolean> {
+  const real = async (p: string) => {
+    try {
+      return await fs.realpath(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  const [ra, rb] = await Promise.all([real(a), real(b)]);
+  return process.platform === 'win32' ? ra.toLowerCase() === rb.toLowerCase() : ra === rb;
 }

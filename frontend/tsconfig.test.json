@@ -27,6 +27,8 @@
     "./tests/unit/i18nGuards.test.ts",
     "./tests/unit/i18nRuntime.test.ts",
     "./tests/unit/statusHysteresis.test.ts",
+    "./tests/unit/fileExplorerBreadcrumb.test.ts",
+    "./tests/unit/fileTreeSingleChildChain.test.ts",
     "./tests/unit/terminalSavedSelectionDivergence.test.ts",
     "./tests/unit/jsdomEnvironment.ts",
     "./tests/unit/terminalViewHarness.ts",
