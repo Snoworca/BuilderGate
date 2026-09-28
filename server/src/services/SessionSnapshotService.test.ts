@@ -203,3 +203,13 @@ test('FR-AITUI-011 AC-4/AC-5: the resume command is rebuilt from the launch comm
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('FR-AITUI-011 AC-4: a codex session started with resume <old id> is saved with the new id only', async () => {
+  const { buildResumeCommand } = await import('./agentSession/resumeCommand.js');
+  const { splitLaunchCommand } = await import('../utils/recoveryCommand.js');
+  const launched = splitLaunchCommand('codexp resume 01a0e618-5e46-7880-8896-159d8350b34d');
+  assert.ok(launched);
+  const resume = buildResumeCommand('codex', '0199a3f2-7b41-7c30-9e5d-4f2a8b1c6d70', launched);
+  assert.equal(resume.command, 'codexp');
+  assert.deepEqual(resume.args, ['resume', '0199a3f2-7b41-7c30-9e5d-4f2a8b1c6d70']);
+});

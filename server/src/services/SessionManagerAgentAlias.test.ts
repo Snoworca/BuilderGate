@@ -62,3 +62,23 @@ test('FR-AITUI-011 AC-3 boundary: without the alias registered, claudep is not a
     h.cleanup();
   }
 });
+
+test('FR-AITUI-011 AC-3/AC-4: codex resume <id> is detected, and its launch line is kept', async () => {
+  const h = createHarness();
+  try {
+    h.manager.setAgentAliasResolver((exe) => (exe === 'codexp' ? 'codex' : null));
+    for (const line of ['codex resume 01a0e618-5e46-7880-8896-159d8350b34d', 'codexp resume 01a0e618-5e46-7880-8896-159d8350b34d']) {
+      const run = createHarness();
+      try {
+        run.manager.setAgentAliasResolver((exe) => (exe === 'codexp' ? 'codex' : null));
+        await launch(run, line);
+        assert.equal(run.runtime()?.foregroundAppId, 'codex', line);
+        assert.equal(run.runtime()?.launchCommand, line);
+      } finally {
+        run.cleanup();
+      }
+    }
+  } finally {
+    h.cleanup();
+  }
+});
