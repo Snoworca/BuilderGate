@@ -695,11 +695,12 @@
 @keyframes fx-caret { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .fx-filter-caret { animation: none; } }
 .fx-hit {
-  background: var(--warn-tint);
-  box-shadow: inset 0 0 0 1px var(--warn);
-  color: var(--warn-text);
+  background: color-mix(in srgb, var(--warn) 55%, transparent);
+  color: var(--fg-strong);
   font-weight: 600;
   border-radius: var(--r-sm);
+  padding: 0;
+  line-height: inherit;
 }
 
 /* FR-FEX-018: the information modal. */
