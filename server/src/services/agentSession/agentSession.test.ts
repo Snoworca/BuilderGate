@@ -130,12 +130,12 @@ test('AC-2 Claude: dead pids are ignored', async () => {
   }
 });
 
-function writeCodexThread(roots: AgentRoots, id: string, cwd: string, createdMs: number, locked = true) {
+function writeCodexThread(roots: AgentRoots, id: string, cwd: string, createdMs: number, locked = true, extra: Record<string, unknown> = {}) {
   const day = path.join(roots.codexHome, 'sessions', '2026', '09', '26');
   mkdirSync(day, { recursive: true });
   const stamp = new Date(createdMs).toISOString().replace(/[:.]/g, '-').slice(0, 19);
   writeFileSync(path.join(day, `rollout-${stamp}-${id}.jsonl`), `${JSON.stringify({
-    timestamp: new Date(createdMs).toISOString(), type: 'session_meta', payload: { id, timestamp: new Date(createdMs).toISOString(), cwd: process.platform === 'win32' ? `\\\\?\\${cwd}` : cwd },
+    timestamp: new Date(createdMs).toISOString(), type: 'session_meta', payload: { id, timestamp: new Date(createdMs).toISOString(), cwd: process.platform === 'win32' ? `\\\\?\\${cwd}` : cwd, ...extra },
   })}\n{"type":"response_item"}\n`);
   if (locked) {
     mkdirSync(path.join(roots.codexHome, 'thread-writer-locks'), { recursive: true });
@@ -244,4 +244,34 @@ test('FR-AITUI-008 AC-3: resume commands keep the option command and swap the se
   assert.deepEqual(buildResumeCommand('hermes', 'h-id', { command: 'hermes', args: ['-c'] }), { command: 'hermes', args: ['--resume', 'h-id'] });
   assert.deepEqual(buildResumeCommand('opencode', 'ses_x', null), { command: 'opencode', args: ['--session', 'ses_x'] });
   assert.deepEqual(buildResumeCommand('codex', 'c-id', null), { command: 'codex', args: ['resume', 'c-id'] });
+});
+
+// FR-AITUI-006: a Codex subagent writes its own locked thread in the parent's cwd. It is not a
+// session the user can resume on its own, so it must not turn the parent into a guess.
+test('FR-AITUI-006 AC-3 Codex: subagent threads are ignored, so the parent session stays exact', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    const parent = '01a0bf9d-9ff5-73d3-aa12-b1663692c7b2';
+    writeCodexThread(roots, parent, CWD, 1_000_000, true, { source: 'cli' });
+    writeCodexThread(roots, '01a0e44d-5fee-7e90-997d-c007ca833826', CWD, 2_000_000, true, {
+      source: { subagent: { thread_spawn: { parent_thread_id: parent, depth: 1 } } },
+      parent_thread_id: parent,
+    });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', agentStartedAtMs: 1_999_000 }, { roots, isFileLocked: () => true });
+    assert.deepEqual(result, { agent: 'codex', sessionId: parent, method: 'codex-writer-lock', confidence: 'exact' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-006 AC-3 Codex: a terminal (cli) thread wins over an editor thread in the same folder', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, '01a0dcfa-2f10-7fe2-adb6-020d5c1dc5e7', CWD, 1_000_000, true, { source: 'vscode' });
+    writeCodexThread(roots, '01a0e618-5e46-7880-8896-159d8350b34d', CWD, 2_000_000, true, { source: 'cli' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', agentStartedAtMs: 1_000_100 }, { roots, isFileLocked: () => true });
+    assert.deepEqual(result, { agent: 'codex', sessionId: '01a0e618-5e46-7880-8896-159d8350b34d', method: 'codex-writer-lock', confidence: 'exact' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

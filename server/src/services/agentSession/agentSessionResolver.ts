@@ -277,7 +277,13 @@ function resolveClaude(ctx: TabAgentContext, env: ResolveEnv, treePids: Readonly
 // open; the thread's rollout starts with a session_meta line carrying its cwd.
 // ---------------------------------------------------------------------------
 
-interface CodexThread { id: string; cwd: string; createdAt: number }
+interface CodexThread {
+  id: string;
+  cwd: string;
+  createdAt: number;
+  /** 'cli' for a terminal launch; 'vscode' and others come from editor integrations. */
+  source?: string;
+}
 
 function indexCodexRollouts(codexHome: string, wanted: ReadonlySet<string>): Map<string, string> {
   const found = new Map<string, string>();
@@ -303,11 +309,20 @@ function readCodexThread(id: string, rolloutPath: string): CodexThread | null {
   const head = readHead(rolloutPath, 64 * 1024);
   const firstLine = head.split('\n', 1)[0] ?? '';
   try {
-    const record = JSON.parse(firstLine) as { timestamp?: string; payload?: { cwd?: string; timestamp?: string } };
+    const record = JSON.parse(firstLine) as {
+      timestamp?: string;
+      payload?: { cwd?: string; timestamp?: string; parent_thread_id?: unknown; source?: unknown };
+    };
     const cwd = record.payload?.cwd;
     if (typeof cwd !== 'string') return null;
+    // FR-AITUI-006: a subagent's thread (spawned by a session, locked in the same cwd) is not
+    // a session to resume on its own; counting it turned the parent into a guess.
+    const source = record.payload?.source;
+    const isSubagent = typeof record.payload?.parent_thread_id === 'string'
+      || (typeof source === 'object' && source !== null && 'subagent' in source);
+    if (isSubagent) return null;
     const createdAt = Date.parse(record.payload?.timestamp ?? record.timestamp ?? '') || 0;
-    return { id, cwd, createdAt };
+    return { id, cwd, createdAt, ...(typeof source === 'string' ? { source } : {}) };
   } catch {
     return null;
   }
@@ -326,7 +341,11 @@ function resolveCodex(ctx: TabAgentContext, env: ResolveEnv): ResolvedAgentSessi
   const threads = liveIds
     .map((id) => (rollouts.has(id) ? readCodexThread(id, rollouts.get(id) as string) : null))
     .filter((thread): thread is CodexThread => thread !== null);
-  const inCwd = threads.filter((thread) => sameCwd(thread.cwd, ctx.cwd));
+  const sameDir = threads.filter((thread) => sameCwd(thread.cwd, ctx.cwd));
+  // A BuilderGate tab is a terminal: when a terminal-launched thread is there, an editor
+  // integration's thread in the same folder (source 'vscode') is not this tab's.
+  const fromTerminal = sameDir.filter((thread) => thread.source === 'cli');
+  const inCwd = fromTerminal.length > 0 ? fromTerminal : sameDir;
   if (inCwd.length === 0) return null;
   if (inCwd.length === 1) return { agent: 'codex', sessionId: inCwd[0].id, method: 'codex-writer-lock', confidence: 'exact' };
   const best = pickNearest(inCwd, (thread) => thread.createdAt, ctx.agentStartedAtMs);
