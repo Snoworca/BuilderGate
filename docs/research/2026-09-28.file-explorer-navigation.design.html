@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>파일 탐색기 설계 시안</title>
+<style>
+:root {
+  --bg-app:#202020; --bg-chrome:#2b2b2b; --bg-surface:#272727; --bg-raised:#2f2f2f; --bg-sunken:#1e1e1e;
+  --bg-hover:rgba(255,255,255,.055); --bg-active:rgba(0,120,212,.2);
+  --fg:#d6d6d6; --fg-strong:#f3f3f3; --fg-muted:#9a9a9a; --line:#3a3a3a; --line-strong:#4a4a4a;
+  --accent:#0078d4; --accent-text:#6cb6ff; --accent-tint:rgba(0,120,212,.18);
+  --hit-bg:#b58b00; --hit-fg:#111; --danger:#e5484d;
+  --font-sans:'Segoe UI',system-ui,-apple-system,'Helvetica Neue',sans-serif;
+  --mono:ui-monospace,'Cascadia Mono',Consolas,'D2Coding','SF Mono',monospace;
+  --r:6px; --row:26px;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg-app:#f3f3f3; --bg-chrome:#e9e9e9; --bg-surface:#fbfbfb; --bg-raised:#f1f1f1; --bg-sunken:#fff;
+  --bg-hover:rgba(0,0,0,.05); --bg-active:rgba(0,120,212,.14);
+  --fg:#2b2b2b; --fg-strong:#111; --fg-muted:#6b6b6b; --line:#dcdcdc; --line-strong:#c8c8c8;
+  --accent-text:#0a5ea8; --accent-tint:rgba(0,120,212,.12); --hit-bg:#ffd54a; --hit-fg:#111;
+}}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg-app); color:var(--fg); font:14px/1.5 var(--font-sans); }
+header { padding:28px 24px 8px; max-width:1180px; margin:0 auto; }
+h1 { margin:0 0 4px; font-size:22px; color:var(--fg-strong); }
+header p { margin:0; color:var(--fg-muted); }
+main { max-width:1180px; margin:0 auto; padding:16px 24px 48px; display:grid; grid-template-columns:repeat(auto-fit,minmax(520px,1fr)); gap:20px; }
+@media (max-width:600px){ main{ grid-template-columns:1fr; padding:12px 16px 40px; } }
+section.card { background:var(--bg-chrome); border:1px solid var(--line); border-radius:10px; padding:16px; min-width:0; }
+.card h2 { margin:0 0 2px; font-size:15px; color:var(--fg-strong); display:flex; gap:8px; align-items:center; }
+.num { display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:12px; }
+.card .why { margin:0 0 12px; color:var(--fg-muted); font-size:12.5px; }
+.win { background:var(--bg-surface); border:1px solid var(--line-strong); border-radius:var(--r); overflow:hidden; }
+.bar { display:flex; align-items:center; gap:6px; padding:6px 8px; background:var(--bg-raised); border-bottom:1px solid var(--line); min-height:36px; }
+.ibtn { width:26px; height:26px; display:grid; place-items:center; border:1px solid transparent; border-radius:5px; background:none; color:var(--fg); cursor:pointer; font-size:14px; }
+.ibtn:hover { background:var(--bg-hover); border-color:var(--line); }
+.ibtn.on { background:var(--accent-tint); border-color:var(--accent); color:var(--accent-text); }
+.spacer { flex:1; }
+.crumbs { display:flex; align-items:center; gap:0; font:12.5px var(--mono); min-width:0; overflow:hidden; white-space:nowrap; }
+.crumbs button { background:none; border:0; color:var(--accent-text); font:inherit; padding:2px 3px; border-radius:4px; cursor:pointer; }
+.crumbs button:hover { background:var(--bg-hover); text-decoration:underline; }
+.crumbs button.cur { color:var(--fg-strong); font-weight:600; }
+.crumbs .sep { color:var(--fg-muted); }
+.rows { font:13px var(--mono); }
+.row { display:flex; align-items:center; gap:8px; height:var(--row); padding:0 10px; border-bottom:1px solid transparent; cursor:default; white-space:nowrap; }
+.row:hover { background:var(--bg-hover); }
+.row.sel { background:var(--bg-active); }
+.row .ic { width:16px; text-align:center; flex:none; }
+.row .nm { flex:1; overflow:hidden; text-overflow:ellipsis; }
+.row .mt { color:var(--fg-muted); font-size:11.5px; flex:none; }
+.row.up { color:var(--fg-muted); }
+.row.dim { opacity:.35; }
+mark { background:var(--hit-bg); color:var(--hit-fg); border-radius:2px; padding:0 1px; }
+.chip { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; background:var(--accent-tint); border:1px solid var(--accent); color:var(--accent-text); font:12.5px var(--mono); }
+.chip kbd { font:11px var(--font-sans); color:var(--fg-muted); }
+.caret { display:inline-block; width:1px; height:13px; background:var(--accent-text); animation:blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity:0; } }
+.search { display:flex; gap:6px; align-items:center; flex:1; }
+.search input { flex:1; min-width:0; height:26px; border:1px solid var(--accent); background:var(--bg-sunken); color:var(--fg-strong); border-radius:5px; padding:0 8px; font:13px var(--font-sans); }
+.btn { height:26px; padding:0 10px; border-radius:5px; border:1px solid var(--line-strong); background:var(--bg-surface); color:var(--fg); font:12.5px var(--font-sans); cursor:pointer; }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn.danger { border-color:var(--danger); color:var(--danger); }
+.prog { padding:6px 10px; border-bottom:1px solid var(--line); font-size:12px; color:var(--fg-muted); display:flex; gap:10px; align-items:center; }
+.prog .track { flex:1; height:3px; background:var(--line); border-radius:2px; overflow:hidden; position:relative; }
+.prog .track i { position:absolute; inset:0 60% 0 0; background:var(--accent); animation:indet 1.4s ease-in-out infinite; }
+@keyframes indet { 0%{ left:-40%; right:100%; } 100%{ left:100%; right:-40%; } }
+.row .rel { color:var(--fg-muted); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; max-width:45%; }
+.tw { display:inline-block; width:14px; color:var(--fg-muted); cursor:pointer; text-align:center; }
+.note { margin-top:10px; font-size:12px; color:var(--fg-muted); }
+.note b { color:var(--fg); font-weight:600; }
+.menu { position:absolute; right:14px; top:52px; width:190px; background:var(--bg-raised); border:1px solid var(--line-strong); border-radius:7px; box-shadow:0 8px 24px rgba(0,0,0,.4); padding:4px 0; font-size:13px; }
+.menu div { padding:5px 12px; display:flex; justify-content:space-between; }
+.menu div:hover { background:var(--bg-hover); }
+.menu hr { border:0; border-top:1px solid var(--line); margin:4px 0; }
+.menu .k { color:var(--fg-muted); font-size:11.5px; }
+.menu .new { color:var(--accent-text); font-weight:600; }
+.rel-wrap { position:relative; }
+.modal { background:var(--bg-surface); border:1px solid var(--line-strong); border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.45); overflow:hidden; }
+.modal .hd { display:flex; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--bg-raised); }
+.modal .hd b { flex:1; color:var(--fg-strong); }
+.kv { width:100%; border-collapse:collapse; font-size:12.5px; }
+.kv th { text-align:left; font-weight:500; color:var(--fg-muted); padding:6px 14px; width:118px; vertical-align:top; white-space:nowrap; }
+.kv td { padding:6px 4px; font-family:var(--mono); color:var(--fg-strong); word-break:break-all; }
+.kv td.c { width:34px; padding-right:10px; }
+.kv tr + tr th, .kv tr + tr td { border-top:1px solid var(--line); }
+.copy { width:26px; height:24px; border:1px solid var(--line); border-radius:5px; background:none; color:var(--fg-muted); cursor:pointer; }
+.copy:hover { color:var(--accent-text); border-color:var(--accent); }
+.modal .ft { display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:1px solid var(--line); }
+.toast { color:#46a758; font-size:12px; }
+.pill { font-size:10.5px; padding:1px 6px; border-radius:4px; border:1px solid var(--line-strong); color:var(--fg-muted); font-family:var(--font-sans); }
+.demo-hint { font-size:12px; color:var(--fg-muted); margin:8px 0 0; }
+.demo-hint kbd, .note kbd { font:11px var(--mono); border:1px solid var(--line-strong); border-bottom-width:2px; border-radius:4px; padding:0 4px; color:var(--fg); }
+.rows:focus { outline:2px solid var(--accent); outline-offset:-2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>파일 탐색기 — 설계 시안</h1>
+  <p>요구사항: <code>docs/research/2026-09-28.file-explorer-navigation.md</code> · 색·간격은 앱의 <code>tokens.css</code> 기준 · ②③ 은 실제로 조작해 볼 수 있습니다.</p>
+</header>
+<main>
+
+<!-- 1 검색 -->
+<section class="card">
+  <h2><span class="num">1</span>검색 — 버튼 + <kbd>Ctrl</kbd>+<kbd>F</kbd>, 비동기·취소 가능</h2>
+  <p class="why">경로 바 오른쪽 🔍 또는 Ctrl+F 로 검색 줄이 경로 바를 대체. 결과는 도착하는 대로 쌓이고, 취소(또는 Esc)로 서버 탐색까지 멈춥니다.</p>
+  <div class="win">
+    <div class="bar">
+      <div class="search"><span>🔍</span><input value="config" aria-label="검색어"><button class="btn danger">취소</button><button class="ibtn" title="닫기 (Esc)">✕</button></div>
+    </div>
+    <div class="prog"><span>탐색 중 · 12,480개 확인 · <b style="color:var(--fg)">7개</b> 발견</span><div class="track"><i></i></div></div>
+    <div class="prog" style="font-family:var(--mono);font-size:11.5px">server/src/services/fileJobs/…</div>
+    <div class="rows">
+      <div class="row"><span class="ic">📄</span><span class="nm"><mark>config</mark>.json5</span><span class="rel">server/</span></div>
+      <div class="row"><span class="ic">📄</span><span class="nm"><mark>config</mark>.schema.ts</span><span class="rel">server/src/schemas/</span></div>
+      <div class="row"><span class="ic">📁</span><span class="nm"><mark>config</mark></span><span class="rel">frontend/src/</span></div>
+      <div class="row"><span class="ic">📄</span><span class="nm">vite.<mark>config</mark>.ts</span><span class="rel">frontend/</span></div>
+      <div class="row dim"><span class="ic">⋯</span><span class="nm">계속 찾는 중…</span></div>
+    </div>
+  </div>
+  <p class="note">결과 행: <b>이름(강조) + 상대 경로</b>. 디렉토리 클릭 → 그 위치로 이동, 파일 → 편집기. <span class="pill">기본 제외: .git · node_modules</span> <span class="pill">상한 5,000건</span></p>
+</section>
+
+<!-- 2 타이핑 필터 -->
+<section class="card">
+  <h2><span class="num">2</span>타이핑 필터 — 보이는 항목만, 일치 부분 강조</h2>
+  <p class="why">목록에 포커스를 두고 글자를 치면 상단에 칩이 뜨고 포함하는 항목만 남습니다. 하위를 새로 탐색하지 않습니다. <kbd>Esc</kbd> 로 해제.</p>
+  <div class="win">
+    <div class="bar"><button class="ibtn">↑</button><div class="crumbs"><button>.</button><span class="sep">/</span><button class="cur">src</button></div><span class="spacer"></span><span class="chip" id="fchip" hidden><span id="ftext"></span><span class="caret"></span><kbd>Esc</kbd></span></div>
+    <div class="rows" id="frows" tabindex="0" aria-label="파일 목록 (여기를 클릭하고 입력)"></div>
+  </div>
+  <p class="demo-hint">▶ 목록을 클릭하고 <kbd>ts</kbd>, <kbd>ser</kbd> 같은 글자를 입력해 보세요. <kbd>Backspace</kbd> 로 지우기, <kbd>Esc</kbd> 로 해제.</p>
+</section>
+
+<!-- 3 자동 확장 -->
+<section class="card">
+  <h2><span class="num">3</span>단일 경로 자동 확장 — 열 때는 끝까지, 닫을 때는 하나씩</h2>
+  <p class="why">디렉토리 안에 디렉토리 하나뿐이면 계속 내려갑니다. 멈춤: 비었거나, 2개 이상이거나, 유일한 자식이 파일일 때.</p>
+  <div class="win">
+    <div class="bar"><span style="font-size:12px;color:var(--fg-muted)">트리 모드</span><span class="spacer"></span><button class="btn" id="treset">처음으로</button></div>
+    <div class="rows" id="trows"></div>
+  </div>
+  <p class="demo-hint">▶ <b>a</b> 의 ▸ 를 눌러 보세요 → a/b/c/d 까지 한 번에 펼쳐집니다. 닫기(▾)는 그 한 단계만 닫힙니다.</p>
+  <div class="win" style="margin-top:10px">
+    <div class="bar"><span style="font-size:12px;color:var(--fg-muted)">목록 모드 — a 더블클릭 후</span><span class="spacer"></span><div class="crumbs"><button>.</button><span class="sep">/</span><button>a</button><span class="sep">/</span><button>b</button><span class="sep">/</span><button>c</button><span class="sep">/</span><button class="cur">d</button></div></div>
+    <div class="rows">
+      <div class="row up"><span class="ic">↰</span><span class="nm">..</span><span class="mt">→ c (한 단계)</span></div>
+      <div class="row"><span class="ic">📄</span><span class="nm">main.ts</span></div>
+      <div class="row"><span class="ic">📄</span><span class="nm">util.ts</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 빵부스러기 -->
+<section class="card">
+  <h2><span class="num">4</span>경로 빵부스러기 (목록 모드)</h2>
+  <p class="why">세션 루트 기준 상대 경로. 세그먼트 클릭 = 이동, 현재 세그먼트 = 새로고침, <code>./</code> = 세션 기본 디렉토리.</p>
+  <div class="win">
+    <div class="bar"><button class="ibtn">↑</button>
+      <div class="crumbs">
+        <button title="세션 기본 디렉토리로">.</button><span class="sep">/</span>
+        <button title="이동">server</button><span class="sep">/</span>
+        <button title="이동">src</button><span class="sep">/</span>
+        <button class="cur" title="새로고침">services ⟳</button>
+      </div>
+      <span class="spacer"></span><button class="ibtn">🔍</button><button class="ibtn">☰</button>
+    </div>
+    <div class="rows"><div class="row up"><span class="ic">↰</span><span class="nm">..</span></div><div class="row"><span class="ic">📁</span><span class="nm">fileJobs</span></div><div class="row"><span class="ic">📄</span><span class="nm">FileService.ts</span><span class="mt">42 KB</span></div></div>
+  </div>
+  <p class="note">긴 경로: <span style="font-family:var(--mono)">./ … /fileJobs/<b>runner</b></span> — 가운데를 줄이고 전체 경로는 툴팁. 루트에 있을 땐 <span style="font-family:var(--mono)">./</span> 하나만 (현재 = 새로고침).</p>
+</section>
+
+<!-- 5 .. 숨김 -->
+<section class="card">
+  <h2><span class="num">5</span>세션 루트에서 <code>..</code> 숨김</h2>
+  <p class="why">지금은 세션 루트에서도 <code>..</code> 가 보이고, 누르면 PATH_TRAVERSAL 오류. 루트에서는 <code>..</code> 와 ↑ 버튼을 숨깁니다.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="win"><div class="bar"><span style="font-size:12px;color:var(--danger)">지금</span><span class="spacer"></span><button class="ibtn">↑</button></div>
+      <div class="rows"><div class="row up sel"><span class="ic">↰</span><span class="nm">..</span></div><div class="row"><span class="ic">📁</span><span class="nm">server</span></div></div>
+      <div class="prog" style="color:var(--danger);font-size:11.5px;border:0">허용되지 않은 경로 이동입니다. (PATH_TRAVERSAL)</div></div>
+    <div class="win"><div class="bar"><span style="font-size:12px;color:#46a758">변경 후</span><span class="spacer"></span><div class="crumbs"><button class="cur">./ ⟳</button></div></div>
+      <div class="rows"><div class="row"><span class="ic">📁</span><span class="nm">frontend</span></div><div class="row"><span class="ic">📁</span><span class="nm">server</span></div></div></div>
+  </div>
+</section>
+
+<!-- 6 정보 -->
+<section class="card">
+  <h2><span class="num">6</span>정보 메뉴 + 정보 모달 (복사 가능)</h2>
+  <p class="why">컨텍스트 메뉴 맨 아래 "정보". 모달에서 값마다 복사, "전체 복사"는 표 텍스트로.</p>
+  <div class="rel-wrap" style="display:grid;grid-template-columns:1fr;gap:12px">
+    <div class="win" style="position:relative;height:210px">
+      <div class="bar"><div class="crumbs"><button>.</button><span class="sep">/</span><button class="cur">server</button></div></div>
+      <div class="rows"><div class="row sel"><span class="ic">📄</span><span class="nm">config.json5</span><span class="mt">3.4 KB</span></div><div class="row"><span class="ic">📄</span><span class="nm">package.json</span></div></div>
+      <div class="menu">
+        <div>열기</div><div>새 탭에서 열기</div><hr>
+        <div>복사 <span class="k">Ctrl+C</span></div><div>잘라내기 <span class="k">Ctrl+X</span></div><hr>
+        <div>이름 바꾸기 <span class="k">F2</span></div><div>삭제 <span class="k">Del</span></div><hr>
+        <div class="new">ⓘ 정보 <span class="k">Alt+Enter</span></div>
+      </div>
+    </div>
+    <div class="modal">
+      <div class="hd"><b>ⓘ config.json5</b><button class="ibtn" title="닫기">✕</button></div>
+      <table class="kv">
+        <tr><th>이름</th><td>config.json5</td><td class="c"><button class="copy" title="복사">⧉</button></td></tr>
+        <tr><th>전체 경로</th><td>C:\Work\git\_Snoworca\ProjectMaster\server\config.json5</td><td class="c"><button class="copy">⧉</button></td></tr>
+        <tr><th>세션 기준 경로</th><td>./server/config.json5</td><td class="c"><button class="copy">⧉</button></td></tr>
+        <tr><th>종류</th><td>파일 (.json5)</td><td class="c"><button class="copy">⧉</button></td></tr>
+        <tr><th>크기</th><td>3.4 KB (3,458 bytes)</td><td class="c"><button class="copy">⧉</button></td></tr>
+        <tr><th>수정</th><td>2026-09-28 08:11:34 · 2026-09-27T23:11:34Z</td><td class="c"><button class="copy">⧉</button></td></tr>
+        <tr><th>마지막 접근</th><td>2026-09-28 09:02:10 · 2026-09-28T00:02:10Z</td><td class="c"><button class="copy">⧉</button></td></tr>
+        <tr><th>변경(ctime)</th><td>2026-09-28 08:11:34</td><td class="c"><button class="copy">⧉</button></td></tr>
+        <tr><th>생성</th><td>2026-09-02 06:19:42</td><td class="c"><button class="copy">⧉</button></td></tr>
+        <tr><th>권한</th><td>rw-r--r-- (0644)</td><td class="c"><button class="copy">⧉</button></td></tr>
+      </table>
+      <div class="ft"><span class="toast" id="toast" hidden>복사했습니다</span><span class="spacer"></span><button class="btn" id="copyall">전체 복사</button><button class="btn primary">닫기</button></div>
+    </div>
+  </div>
+  <p class="note">디렉토리면 <b>직계 항목 수</b>가 추가되고, 링크면 <b>대상 경로</b>가 추가됩니다. 알 수 없는 값(예: Windows 소유자)은 행을 숨깁니다.</p>
+</section>
+
+</main>
+<script>
+// ② type-to-filter demo
+const files = [['📁','components'],['📁','hooks'],['📁','services'],['📁','utils'],['📄','App.tsx'],['📄','main.tsx'],['📄','index.css'],['📄','serverApi.ts'],['📄','vite-env.d.ts']];
+const frows = document.getElementById('frows'), chip = document.getElementById('fchip'), ftext = document.getElementById('ftext');
+let q = '';
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function renderFilter() {
+  const lq = q.toLowerCase();
+  const shown = files.filter(([,n]) => !q || n.toLowerCase().includes(lq));
+  frows.innerHTML = '<div class="row up"><span class="ic">↰</span><span class="nm">..</span></div>' + (shown.length ? shown.map(([i,n]) => {
+    let html = esc(n);
+    if (q) { const k = n.toLowerCase().indexOf(lq); html = esc(n.slice(0,k)) + '<mark>' + esc(n.slice(k,k+q.length)) + '</mark>' + esc(n.slice(k+q.length)); }
+    return `<div class="row"><span class="ic">${i}</span><span class="nm">${html}</span></div>`;
+  }).join('') : '<div class="row dim"><span class="nm">일치하는 항목이 없습니다</span></div>');
+  chip.hidden = !q; ftext.textContent = q;
+}
+frows.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') { q = ''; } else if (e.key === 'Backspace') { q = q.slice(0,-1); } else if (e.key.length === 1) { q += e.key; } else return;
+  e.preventDefault(); renderFilter();
+});
+renderFilter();
+
+// ③ single-child auto-expand demo
+const tree = { a:{ b:{ c:{ d:{ 'main.ts':0, 'util.ts':0, 'types.ts':0 } } } }, docs:{ 'README.md':0, 'guide.md':0 }, 'package.json':0 };
+let open = new Set();
+const trows = document.getElementById('trows');
+function isDir(v){ return v && typeof v === 'object'; }
+function expandChain(path, node) {
+  open.add(path);
+  let cur = node, p = path;
+  for (let depth = 0; depth < 32; depth++) {
+    const keys = Object.keys(cur);
+    if (keys.length !== 1 || !isDir(cur[keys[0]])) break;
+    p = p + '/' + keys[0]; cur = cur[keys[0]]; open.add(p);
+  }
+}
+function renderTree() {
+  const out = [];
+  (function walk(node, prefix, depth) {
+    const keys = Object.keys(node).sort((x,y) => (isDir(node[y]) - isDir(node[x])) || x.localeCompare(y));
+    for (const k of keys) {
+      const p = prefix ? prefix + '/' + k : k, d = isDir(node[k]), o = open.has(p);
+      out.push(`<div class="row" style="padding-left:${10 + depth*16}px"><span class="tw" data-p="${p}">${d ? (o ? '▾' : '▸') : ''}</span><span class="ic">${d ? (o ? '📂' : '📁') : '📄'}</span><span class="nm">${k}</span></div>`);
+      if (d && o) walk(node[k], p, depth + 1);
+    }
+  })(tree, '', 0);
+  trows.innerHTML = out.join('');
+}
+function nodeAt(p){ return p.split('/').reduce((n,k) => n[k], tree); }
+trows.addEventListener('click', e => {
+  const t = e.target.closest('.tw'); if (!t || !t.textContent) return;
+  const p = t.dataset.p;
+  if (open.has(p)) open.delete(p); else expandChain(p, nodeAt(p));
+  renderTree();
+});
+document.getElementById('treset').onclick = () => { open = new Set(); renderTree(); };
+renderTree();
+
+// ⑥ copy demo
+function flash(){ const t = document.getElementById('toast'); t.hidden = false; clearTimeout(flash.h); flash.h = setTimeout(() => t.hidden = true, 1200); }
+document.querySelectorAll('.copy').forEach(b => b.onclick = () => { const v = b.closest('tr').children[1].textContent; navigator.clipboard?.writeText(v).catch(()=>{}); flash(); });
+document.getElementById('copyall').onclick = () => { const txt = [...document.querySelectorAll('.kv tr')].map(r => r.children[0].textContent + '\t' + r.children[1].textContent).join('\n'); navigator.clipboard?.writeText(txt).catch(()=>{}); flash(); };
+</script>
+</body>
+</html>
