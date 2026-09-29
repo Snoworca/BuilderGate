@@ -88,3 +88,10 @@ test('formatHelp documents daemon default, foreground aliases, stop, dist/bin, a
   assert.match(help, /dist[/\\]bin/);
   assert.match(help, /config\.json5 next to the executable/i);
 });
+
+test('FR-BGSTAB-032 AC-3: --open asks the launcher to open the page in the default browser', () => {
+  assert.equal(parseArgs([]).open, false);
+  assert.equal(parseArgs(['--open']).open, true);
+  assert.equal(parseArgs(['--open', '-p', '2005']).cliPort, 2005);
+  assert.match(formatHelp({ executableName: 'BuilderGate.exe', packaged: true }), /--open/);
+});

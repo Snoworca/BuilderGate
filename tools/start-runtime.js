@@ -6,6 +6,7 @@ const { pathToFileURL } = require('url');
 
 const daemonCli = require('./daemon/cli');
 const { preflightConfig } = require('./daemon/config-preflight');
+const firstRunSupport = require('./daemon/first-run');
 const daemonLauncher = require('./daemon/launcher');
 const { CONFIG_ENV_KEY, resolveRuntimePaths } = require('./daemon/runtime-paths');
 const { createFatalState, writeStateAtomic } = require('./daemon/state-store');
@@ -639,8 +640,13 @@ async function main() {
   const { cliPort, resetPassword, bootstrapAllowedIps } = parsedArgs;
 
   ensureDependenciesAndBuild();
+  // FR-BGSTAB-032: decided before preflight, which can itself write a fatal daemon state.
+  const firstRun = firstRunSupport.isFirstRun(RUNTIME_PATHS);
   const preflight = await runStrictConfigPreflight({ mode: parsedArgs.mode });
-  const { port, source } = resolvePort(cliPort, preflight.config.server.port);
+  const resolvedPort = resolvePort(cliPort, preflight.config.server.port);
+  const { port, source } = parsedArgs.mode === 'daemon'
+    ? await firstRunSupport.chooseStartPort({ ...resolvedPort, firstRun, configPath: RUNTIME_CONFIG_PATH })
+    : resolvedPort;
 
   if (parsedArgs.mode === 'foreground') {
     process.exitCode = process.pkg
@@ -657,6 +663,7 @@ async function main() {
       paths,
       config: preflight.config,
     }),
+    isPortFree: firstRunSupport.isPortFree,
   });
   process.exitCode = exitCode;
   if (exitCode !== 0) {
@@ -670,6 +677,22 @@ async function main() {
   console.log(`[start] HTTP redirect: http://localhost:${port - 1}`);
   if (bootstrapAllowedIps.length > 0) {
     console.log(`[start] Temporary bootstrap allowlist: ${bootstrapAllowedIps.join(', ')}`);
+  }
+
+  const openRequested = firstRunSupport.shouldOpenBrowser({
+    isPackaged: Boolean(process.pkg),
+    mode: parsedArgs.mode,
+    firstRun,
+    open: parsedArgs.open,
+  });
+  if (openRequested) {
+    const url = `https://localhost:${port}`;
+    if (firstRunSupport.hasDefaultBrowser()) {
+      console.log(`[start] Opening ${url} in the default browser.`);
+      firstRunSupport.openBrowser(url);
+    } else {
+      console.log(`[start] No default browser is registered; open ${url} yourself.`);
+    }
   }
 }
 

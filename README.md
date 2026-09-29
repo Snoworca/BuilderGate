@@ -109,12 +109,15 @@ curl -k https://localhost:2002/health
 | `stop` | Stop the running daemon (`BuilderGate.exe stop`, `./buildergate stop`) |
 | `-p <port>`, `--port <port>` | HTTPS port. Overrides `server.port` in `config.json5` |
 | `--foreground` | Run in the current console instead of daemon mode; stop with `Ctrl+C` |
+| `--open` | Open the page in the default browser once the daemon is running (the MSI Start Menu shortcut uses it) |
 | `--forground` | Legacy alias for `--foreground` |
 | `--reset-password` | Clear `auth.password` in `config.json5` before launch (stop the daemon first) |
 | `--bootstrap-allow-ip <ip[,ip]>` | Temporarily allow these IPs to set the first password remotely |
 | `-h`, `--help` | Show the options |
 
 Port priority: `-p` / `--port` → `server.port` in `config.json5` → default `2002`. The HTTP redirect port is one below the HTTPS port (2002 → 2001).
+
+**First run.** On the first start from a folder (no `runtime/buildergate.daemon.json` yet), if the configured port is already used by another program, BuilderGate takes the next free port above it and saves it as `server.port` in `config.json5`; later starts keep that port. On later starts a port taken by another program is refused with a message instead of being changed. The packaged executable also opens the page in the default browser on its first start. Set `BUILDERGATE_NO_BROWSER=1` to prevent that.
 
 `stop` only stops a daemon. A `--foreground` process is stopped with `Ctrl+C` in its own console.
 
@@ -412,12 +415,15 @@ curl -k https://localhost:2002/health
 | `stop` | 실행 중인 데몬 종료(`BuilderGate.exe stop`, `./buildergate stop`) |
 | `-p <port>`, `--port <port>` | HTTPS 포트. `config.json5` 의 `server.port` 보다 우선 |
 | `--foreground` | 데몬 대신 현재 콘솔에서 실행. `Ctrl+C` 로 종료 |
+| `--open` | 데몬이 뜬 뒤 기본 브라우저로 페이지를 엽니다(MSI 시작 메뉴 바로가기가 사용) |
 | `--forground` | `--foreground` 의 옛 오타 호환 별칭 |
 | `--reset-password` | 시작 전에 `config.json5` 의 `auth.password` 를 비움(먼저 데몬 종료) |
 | `--bootstrap-allow-ip <ip[,ip]>` | 최초 비밀번호를 원격에서 설정할 IP 를 임시로 허용 |
 | `-h`, `--help` | 옵션 출력 |
 
 포트 우선순위: `-p`/`--port` → `config.json5` 의 `server.port` → 기본값 `2002`. HTTP 리다이렉트 포트는 HTTPS 포트보다 1 작습니다(2002 → 2001).
+
+**첫 실행.** 그 폴더에서 처음 시작할 때(`runtime/buildergate.daemon.json` 이 아직 없을 때) 설정된 포트를 다른 프로그램이 쓰고 있으면, 그보다 큰 빈 포트를 골라 `config.json5` 의 `server.port` 에 저장하고 이후에도 그 포트를 씁니다. 두 번째 실행부터는 포트를 바꾸지 않고, 다른 프로그램이 쓰고 있으면 안내 메시지와 함께 시작을 거부합니다. 패키지 실행 파일은 첫 실행 때 기본 브라우저로 페이지도 엽니다. 원하지 않으면 `BUILDERGATE_NO_BROWSER=1` 을 설정하세요.
 
 `stop` 은 데몬만 종료합니다. `--foreground` 로 띄운 프로세스는 그 콘솔에서 `Ctrl+C` 로 종료합니다.
 

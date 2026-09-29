@@ -82,3 +82,8 @@ test('OPS-BGSTAB-020 AC-4: the MSI product version is the numeric core of the pa
   assert.equal(msiProductVersion('1.2.3+build.7'), '1.2.3');
   assert.throws(() => msiProductVersion('next'), /version/);
 });
+
+test('FR-BGSTAB-032 AC-4: the Start Menu shortcut starts BuilderGate with --open', () => {
+  const wxs = renderWixSource({ version: '0.10.4', stageDir: 'C:\\stage', arch: 'x64' });
+  assert.match(wxs, /<Shortcut Id="StartShortcut" [^>]*Arguments="--open"/);
+});

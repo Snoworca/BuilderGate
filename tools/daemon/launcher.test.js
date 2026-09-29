@@ -776,3 +776,28 @@ test('startDaemon readiness timeout cleans up only the children from the failed 
   assert.equal(state.fatalStage, 'app-startup');
   assert.match(state.fatalReason, /identity mismatch/);
 });
+
+test('FR-BGSTAB-032 AC-2: startDaemon refuses a port another program holds before writing state', async () => {
+  const paths = createFixturePaths('buildergate-daemon-port-taken-');
+  const spawns = [];
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args.join(' '));
+  let exitCode;
+  try {
+    exitCode = await startDaemon(2002, 'config', [], paths, {
+      spawnDetached: (launch) => { spawns.push(launch); return { pid: 1 }; },
+      waitForReadiness: async ({ state }) => ({ ok: true, identity: state }),
+      processExists: () => false,
+      isPortFree: async () => false,
+    });
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.equal(exitCode, 2);
+  assert.equal(spawns.length, 0);
+  assert.equal(fs.existsSync(paths.statePath), false);
+  assert.match(errors.join('\n'), /2002/);
+  assert.match(errors.join('\n'), /-p|server\.port/);
+});

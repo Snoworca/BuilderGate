@@ -85,7 +85,7 @@ function renderWixSource({ version, stageDir, arch }) {
     </ComponentGroup>
 
     <Component Id="StartMenuShortcuts" Directory="ShortcutFolder">
-      <Shortcut Id="StartShortcut" Name="BuilderGate" Description="Start BuilderGate" Target="[INSTALLFOLDER]${EXECUTABLE_NAME}" WorkingDirectory="INSTALLFOLDER" Icon="BuilderGateIcon" />
+      <Shortcut Id="StartShortcut" Name="BuilderGate" Description="Start BuilderGate and open it in the browser" Target="[INSTALLFOLDER]${EXECUTABLE_NAME}" Arguments="--open" WorkingDirectory="INSTALLFOLDER" Icon="BuilderGateIcon" />
       <Shortcut Id="StopShortcut" Name="Stop BuilderGate" Description="Stop BuilderGate" Target="[INSTALLFOLDER]${EXECUTABLE_NAME}" Arguments="stop" WorkingDirectory="INSTALLFOLDER" Icon="BuilderGateIcon" />
       <RemoveFolder Id="RemoveShortcutFolder" On="uninstall" />
       <RegistryValue Root="HKLM" Key="Software\\Snoworca\\BuilderGate" Name="StartMenuShortcuts" Type="integer" Value="1" KeyPath="yes" />

@@ -606,6 +606,14 @@ async function startDaemon(port, source, bootstrapAllowedIps = [], paths = resol
     return 2;
   }
 
+  // FR-BGSTAB-032 AC-2: this data root's own daemon is not running, so a listener on the port
+  // belongs to another program. Say so before writing state instead of failing at bind time.
+  if (options.isPortFree && !(await options.isPortFree(port))) {
+    console.error(`[start] Port ${port} is already in use by another program.`);
+    console.error(`[start] Start on another port with -p <port>, or change server.port in ${paths.configPath}.`);
+    return 2;
+  }
+
   if (previousState?.status === 'running' || previousState?.status === 'stopping') {
     appendLog(paths.logPath, `[daemon] stale ${previousState.status} state detected; starting a new daemon without killing old PIDs`);
   }

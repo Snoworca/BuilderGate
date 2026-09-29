@@ -42,6 +42,7 @@ function parseArgs(argv) {
     cliPort: null,
     port: null,
     resetPassword: false,
+    open: false,
     bootstrapAllowedIps: [],
     internalApp: false,
     internalSentinel: false,
@@ -110,6 +111,11 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (current === '--open') {
+      parsed.open = true;
+      continue;
+    }
+
     if (current === '--reset-password') {
       parsed.resetPassword = true;
       continue;
@@ -142,7 +148,7 @@ function formatHelp(options = {}) {
     : 'server/config.json5 unless BUILDERGATE_CONFIG_PATH overrides it';
 
   return [
-    `Usage: ${executableName} [stop] [--foreground|--forground] [-p <port>] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]`,
+    `Usage: ${executableName} [stop] [--foreground|--forground] [-p <port>] [--open] [--reset-password] [--bootstrap-allow-ip <ip[,ip]>]`,
     '',
     'BuilderGate default mode is daemon. Use --foreground or legacy --forground to run in the current console.',
     '',
@@ -150,6 +156,7 @@ function formatHelp(options = {}) {
     '  -p, --port                Override HTTPS port',
     '  --foreground             Run in the current console instead of daemon mode',
     '  --forground              Legacy alias for --foreground',
+    '  --open                    Open the page in the default browser once BuilderGate is running',
     '  --reset-password          Clear auth.password in config.json5 before launch',
     '  --bootstrap-allow-ip      Temporarily allow specific IP(s) for initial password bootstrap',
     '  -h, --help                Show this help',

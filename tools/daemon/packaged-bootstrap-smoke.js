@@ -110,6 +110,8 @@ function createSmokeEnv(baseEnv = process.env) {
       delete env[key];
     }
   }
+  // FR-BGSTAB-032: the smoke run is a first run; it must not open a browser.
+  env.BUILDERGATE_NO_BROWSER = '1';
   return env;
 }
 
