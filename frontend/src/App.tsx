@@ -858,6 +858,10 @@ function AppContent() {
                       <>
                   {viewMode === 'grid' && !isMobile ? (
                     <MosaicContainer
+                      // REL-BGSTAB-040: one instance per workspace. Kept across a grid-to-grid
+                      // switch, its first render held the previous workspace's tree with the new
+                      // tabs, and the stale-leaf safeguard rebuilt the new layout from the old mode.
+                      key={wm.activeWorkspaceId ?? 'none'}
                       tabs={wm.activeWorkspaceTabs}
                       activeTabId={wm.activeWorkspace?.activeTabId ?? null}
                       workspaceId={wm.activeWorkspaceId!}
