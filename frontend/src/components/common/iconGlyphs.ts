@@ -48,7 +48,9 @@ export type IconName =
   | 'download'
   | 'command'
   | 'swap'
-  | 'clipboard';
+  | 'clipboard'
+  | 'move'
+  | 'columns';
 
 export interface IconGlyph {
   /** SVG path data on the 24x24 viewBox, drawn in order. */
@@ -118,6 +120,25 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
     paths: [
       'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
       'M9 3v18',
+    ],
+  },
+  // FR-UIDS-008: a plus with an arrowhead at each end: move this in any direction.
+  move: {
+    paths: [
+      'M12 3v18',
+      'M3 12h18',
+      'M9 6l3-3 3 3',
+      'M9 18l3 3 3-3',
+      'M6 9l-3 3 3 3',
+      'M18 9l3 3-3 3',
+    ],
+  },
+  // FR-UIDS-008: three vertical bars (|||): panes side by side in columns.
+  columns: {
+    paths: [
+      'M6 4v16',
+      'M12 4v16',
+      'M18 4v16',
     ],
   },
   // Three rules: the sidebar menu.

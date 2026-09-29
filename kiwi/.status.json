@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-09-29T00:09:35.240Z",
+  "generatedAt": "2026-09-29T00:25:56.697Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "3d580a9166c8bba448a3b3672d65838548b2ca7b2698547bd70e45e217c90fec",
+    "value": "7d7883c0fe5a4b206c285ca5440d92cfdf19935e74133cca1b46160f060c3d6c",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "3a2802d37901ef0112450628a3a5c19b4dca1997b7de2891ff3280f814aa06f9",
-        "size": 11492,
-        "mtimeMs": 1790639160396.7666
+        "sha256": "d7607949bb3af352e14c725c1dd1c5f14fc10869b3cdc6df450fd4c42d843459",
+        "size": 11567,
+        "mtimeMs": 1790641372330.243
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -56,9 +56,9 @@
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "756693cdf544364225b8bc5a1f94081b83722e4a902415cba869550bf178cd77",
-        "size": 30312,
-        "mtimeMs": 1790471678409.5942
+        "sha256": "5d56ec9152b83ec6fc41210003a7c57d4905c7fa6813b2ccb17e54aeb3cb7965",
+        "size": 32375,
+        "mtimeMs": 1790641530080.6577
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
@@ -83,7 +83,7 @@
       "MDE": 23,
       "FEX": 19,
       "FOP": 5,
-      "UIDS": 7
+      "UIDS": 8
     },
     "constraint": {
       "ARCH": 1,

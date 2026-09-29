@@ -85,7 +85,7 @@ export function MosaicToolbar({
       title={t('grid.toolbar.dragToMove')}
       className={`mosaic-toolbar-control mosaic-toolbar-move${controlsVisible ? ' is-visible' : ''}`}
     >
-      <Icon name="menu" size={16} />
+      <Icon name="move" size={16} />
     </div>
   );
 
@@ -115,7 +115,7 @@ export function MosaicToolbar({
           />
           <ToolbarButton
             command="columns"
-            icon="sidebar"
+            icon="columns"
             label={t('grid.toolbar.vertical')}
             active={layoutMode === 'equal' && equalPreset === 'columns'}
             onClick={onColumnsLayout}

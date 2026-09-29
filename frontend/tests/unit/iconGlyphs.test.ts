@@ -49,3 +49,28 @@ test('an unknown name is refused rather than drawn empty', () => {
   assert.equal(isIconName('floppy'), false);
   assert.equal(isIconName(''), false);
 });
+
+// FR-UIDS-008 — the grid tile toolbar icons say what the controls do.
+
+test('FR-UIDS-008 AC-1: the move glyph is a plus with an arrowhead at each of its four ends', () => {
+  const paths = ICON_GLYPHS.move.paths;
+  assert.ok(paths.includes('M12 3v18'), 'vertical stroke');
+  assert.ok(paths.includes('M3 12h18'), 'horizontal stroke');
+  for (const head of ['M9 6l3-3 3 3', 'M9 18l3 3 3-3', 'M6 9l-3 3 3 3', 'M18 9l3 3-3 3']) {
+    assert.ok(paths.includes(head), `arrowhead ${head}`);
+  }
+});
+
+test('FR-UIDS-008 AC-2: the columns glyph is three vertical bars and nothing else', () => {
+  assert.deepEqual(ICON_GLYPHS.columns.paths, ['M6 4v16', 'M12 4v16', 'M18 4v16']);
+});
+
+test('FR-UIDS-008 AC-3: the grid toolbar draws move and columns, not menu and sidebar', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../../src/components/Grid/MosaicToolbar.tsx', import.meta.url), 'utf8');
+  assert.match(source, /<Icon name="move"/);
+  assert.match(source, /icon="columns"\s+label=\{t\('grid\.toolbar\.vertical'\)\}/);
+  assert.doesNotMatch(source, /name="menu"|icon="sidebar"/);
+  assert.notDeepEqual(ICON_GLYPHS.move.paths, ICON_GLYPHS.menu.paths);
+  assert.notDeepEqual(ICON_GLYPHS.columns.paths, ICON_GLYPHS.sidebar.paths);
+});
