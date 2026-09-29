@@ -83,7 +83,7 @@ export const MCP_SUPPORTED_PROTOCOL_VERSIONS: readonly string[] = [...MODERN_MCP
 const DEFAULT_MCP_PROTOCOL_VERSION = '2025-11-25';
 const META_PROTOCOL_VERSION = 'io.modelcontextprotocol/protocolVersion';
 const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
-const MCP_SERVER_INFO = { name: 'BuilderGate MCP Server', version: '0.10.3' };
+const MCP_SERVER_INFO = { name: 'BuilderGate MCP Server', version: '0.10.4' };
 const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and workspaces. '
   + 'List workspaces and terminals first; address a workspace by workspaceId or workspaceName and a terminal by terminalId or terminalName. '
   + 'buildergate.terminal.exec types a command with Enter; pass waitMs to read the screen afterwards.';
