@@ -1,3 +1,5 @@
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const CONFIG_ENV_KEY = 'BUILDERGATE_CONFIG_PATH';
@@ -8,6 +10,10 @@ const WEB_ROOT_ENV_KEY = 'BUILDERGATE_WEB_ROOT';
 const STATE_FILE_NAME = 'buildergate.daemon.json';
 const LOG_FILE_NAME = 'buildergate-daemon.log';
 const SENTINEL_LOG_FILE_NAME = 'buildergate-sentinel.log';
+// OPS-BGSTAB-020: the MSI installs this file beside BuilderGate.exe. The portable zip does not
+// carry it, so only an installed executable moves its user data to LocalAppData.
+const INSTALL_MARKER_FILE_NAME = 'buildergate-install.json';
+const INSTALLED_DATA_DIR_NAME = 'BuilderGate';
 
 function resolveRoot(options) {
   const env = options.env ?? process.env;
@@ -28,6 +34,24 @@ function resolvePackagedCodeRoot() {
 
 function isPortableRuntime(env, isPackaged) {
   return !isPackaged && Boolean(env[ROOT_ENV_KEY]);
+}
+
+// The marker is looked up beside the executable, not under BUILDERGATE_ROOT: the launcher hands
+// its children BUILDERGATE_ROOT, and parent and children must agree on where the data lives.
+function isInstalledRuntime(options, env, isPackaged) {
+  const platform = options.platform ?? process.platform;
+  if (!isPackaged || platform !== 'win32') {
+    return false;
+  }
+
+  const fileExists = options.fileExists ?? fs.existsSync;
+  const execPath = options.execPath ?? process.execPath;
+  return fileExists(path.join(path.dirname(execPath), INSTALL_MARKER_FILE_NAME));
+}
+
+function resolveInstalledDataRoot(env) {
+  const localAppData = env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+  return path.join(localAppData, INSTALLED_DATA_DIR_NAME);
 }
 
 function resolveConfigPath(root, serverDir, env, isPackaged, isPortable) {
@@ -55,9 +79,12 @@ function resolveRuntimePaths(options = {}) {
   const isPackaged = options.isPackaged ?? Boolean(process.pkg);
   const isPortable = isPortableRuntime(env, isPackaged);
   const root = resolveRoot({ ...options, env, isPackaged });
+  const isInstalled = isInstalledRuntime(options, env, isPackaged);
+  // Where config, data/, certs/ and runtime/ live. The install directory when portable.
+  const dataRoot = isInstalled ? resolveInstalledDataRoot(env) : root;
   const codeRoot = isPackaged ? resolvePackagedCodeRoot() : root;
   const serverDir = path.join(codeRoot, 'server');
-  const serverCwd = isPackaged ? root : serverDir;
+  const serverCwd = isPackaged ? dataRoot : serverDir;
   const serverDistDir = path.join(serverDir, 'dist');
   const serverDistPkgDir = path.join(serverDir, 'dist-pkg');
   const serverEntry = isPackaged
@@ -79,12 +106,14 @@ function resolveRuntimePaths(options = {}) {
     : isPackaged || isPortable
       ? path.join(root, 'shell-integration')
       : path.join(serverDistDir, 'shell-integration');
-  const configPath = resolveConfigPath(root, serverDir, env, isPackaged, isPortable);
-  const runtimeDir = path.join(root, 'runtime');
+  const configPath = resolveConfigPath(dataRoot, serverDir, env, isPackaged, isPortable);
+  const runtimeDir = path.join(dataRoot, 'runtime');
   const logDir = runtimeDir;
 
   return {
     root,
+    dataRoot,
+    isInstalled,
     codeRoot,
     frontendDir: path.join(root, 'frontend'),
     frontendDistDir: path.join(root, 'frontend', 'dist'),
@@ -117,6 +146,7 @@ function resolveRuntimePaths(options = {}) {
 
 module.exports = {
   CONFIG_ENV_KEY,
+  INSTALL_MARKER_FILE_NAME,
   LOG_FILE_NAME,
   ROOT_ENV_KEY,
   SERVER_ROOT_ENV_KEY,

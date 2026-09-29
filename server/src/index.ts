@@ -236,9 +236,22 @@ const PACKAGED_EXECUTABLE_DIR = (process as NodeJS.Process & { pkg?: unknown }).
   ? path.dirname(process.execPath)
   : null;
 
+/**
+ * OPS-BGSTAB-020. The MSI installs `buildergate-install.json` beside the
+ * executable, and `tools/daemon/runtime-paths.js` then keeps config and data in
+ * `%LOCALAPPDATA%\BuilderGate`. Same marker, same rule, so that layout is not
+ * reported as foreign.
+ */
+const INSTALLED_DATA_ROOT = PACKAGED_EXECUTABLE_DIR !== null
+  && process.platform === 'win32'
+  && existsSync(path.join(PACKAGED_EXECUTABLE_DIR, 'buildergate-install.json'))
+  ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'BuilderGate')
+  : null;
+
 const RUNTIME_PROVENANCE = describeRuntimeProvenance({
   moduleDir: RUNTIME_MODULE_DIR,
   packagedExecutableDir: PACKAGED_EXECUTABLE_DIR,
+  installedDataRoot: INSTALLED_DATA_ROOT,
   serverRoot: getServerRoot(),
   configPath: getConfigPath(),
   webRoot: PRODUCTION_PUBLIC_DIR,

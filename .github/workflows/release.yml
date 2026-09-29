@@ -245,6 +245,33 @@ jobs:
           Get-ChildItem -LiteralPath $sourceDir -Force | Copy-Item -Destination $packageDir -Recurse -Force
           Compress-Archive -LiteralPath $packageDir -DestinationPath $archivePath -Force
 
+      # OPS-BGSTAB-020: per-machine MSI (Program Files\BuilderGate). The installed exe keeps its
+      # config and data in %LOCALAPPDATA%\BuilderGate, so upgrades keep the user's settings.
+      - name: Set up .NET for WiX
+        if: runner.os == 'Windows'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build MSI installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          dotnet tool install --global wix --version 5.0.2
+          if ($LASTEXITCODE -ne 0) { throw "wix install failed" }
+
+          $version = '${{ needs.prepare.outputs.version }}'
+          $target = '${{ matrix.target }}'
+          $profile = '${{ matrix.profile }}'
+          $sourceDir = Join-Path 'dist/bin' "$profile-$version"
+          $msiPath = Join-Path 'release' "BuilderGate-$target-$version.msi"
+
+          node tools/build-msi.js --profile $profile --runtime-dir $sourceDir --output $msiPath
+          if ($LASTEXITCODE -ne 0) { throw "MSI build failed" }
+          if (-not (Test-Path -LiteralPath $msiPath -PathType Leaf)) { throw "MSI missing: $msiPath" }
+
       - name: Create tar archive
         if: matrix.archive == 'tar.gz'
         shell: bash
@@ -302,6 +329,7 @@ jobs:
           path: |
             release/*.zip
             release/*.tar.gz
+            release/*.msi
           if-no-files-found: error
           retention-days: 7
 
@@ -351,6 +379,7 @@ jobs:
           files: |
             release-assets/*.zip
             release-assets/*.tar.gz
+            release-assets/*.msi
           fail_on_unmatched_files: true
           overwrite_files: true
 
@@ -364,5 +393,6 @@ jobs:
           files: |
             release-assets/*.zip
             release-assets/*.tar.gz
+            release-assets/*.msi
           fail_on_unmatched_files: true
           overwrite_files: true

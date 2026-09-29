@@ -40,6 +40,13 @@ export interface RuntimeProvenanceInput {
    * from. Left unset for an ordinary checkout.
    */
   packagedExecutableDir?: string | null;
+  /**
+   * OPS-BGSTAB-020: an MSI-installed executable keeps its config and data
+   * (`serverRoot`, `configPath`) in `%LOCALAPPDATA%\BuilderGate`, outside the
+   * install directory. Set only when the install marker sits beside the
+   * executable. Web assets are never excused by it.
+   */
+  installedDataRoot?: string | null;
 }
 
 /**
@@ -101,7 +108,9 @@ export function describeRuntimeProvenance(input: RuntimeProvenanceInput): Runtim
     { name: 'webRoot', resolved: resolve(input.webRoot) },
   ];
 
-  const foreign = candidates.filter(entry => !contains(anchor, entry.resolved));
+  const dataRoot = input.installedDataRoot ? resolve(input.installedDataRoot) : null;
+  const foreign = candidates.filter(entry => !contains(anchor, entry.resolved)
+    && !(dataRoot !== null && entry.name !== 'webRoot' && contains(dataRoot, entry.resolved)));
 
   return {
     anchor,

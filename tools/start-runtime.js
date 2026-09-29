@@ -595,6 +595,11 @@ async function main() {
     return;
   }
   const parsedArgs = parseArgs(process.argv.slice(2));
+  // OPS-BGSTAB-020: an installed executable keeps its data in LocalAppData, which does not
+  // exist before the first run. The config loader writes the bootstrap config into it.
+  if (RUNTIME_PATHS.isInstalled) {
+    fs.mkdirSync(RUNTIME_PATHS.dataRoot, { recursive: true });
+  }
   const isInternalApp = parsedArgs.internalApp || (process.pkg && process.env.BUILDERGATE_INTERNAL_MODE === 'app');
   const isInternalSentinel = process.env.BUILDERGATE_INTERNAL_MODE === 'sentinel' || parsedArgs.internalSentinel;
 

@@ -61,6 +61,8 @@ Release assets (GitHub Releases) each contain one top-level folder. Keep the fol
 
 The folder contains the launcher, `config.json5` (runtime configuration), `web/` (frontend), `shell-integration/`, `runtime/` (daemon state, logs, TOTP secret, created on first run) and a copy of this README.
 
+**Windows installer (MSI).** `BuilderGate-win-amd64-<version>.msi` and `BuilderGate-win-arm64-<version>.msi` install to `C:\Program Files\BuilderGate` (administrator approval required) and add *BuilderGate* and *Stop BuilderGate* to the Start Menu. An installed BuilderGate keeps `config.json5`, `data/`, `certs/` and `runtime/` in `%LOCALAPPDATA%\BuilderGate`, so installing a newer MSI over an older one keeps your settings, workspaces and saved sessions. Uninstalling leaves that folder in place; delete it yourself to remove your data. The zip (portable) build never writes to AppData: it keeps everything in its own folder as described above.
+
 ### Run
 
 The default mode is the **native daemon**: the launcher starts the BuilderGate app process and a sentinel watchdog in the background and returns the console.
@@ -147,6 +149,8 @@ The executable reads `config.json5` next to it (`BUILDERGATE_CONFIG_PATH` overri
   workspace: { maxTabsPerWorkspace: 8 },
 }
 ```
+
+When installed from the MSI, this file and the paths below are under `%LOCALAPPDATA%\BuilderGate`.
 
 Useful paths: `runtime/buildergate-daemon.log`, `runtime/buildergate-sentinel.log`, `runtime/buildergate.daemon.json` (daemon state), `runtime/totp.secret`, `data/workspaces.json`.
 
@@ -267,6 +271,8 @@ npm run build:macos-arm64
 
 Output goes to `dist/bin/<target>-<version>/`, e.g. `dist/bin/win-amd64-0.10.3/BuilderGate.exe`. Pushing a `v*.*.*` tag runs the GitHub Actions release workflow, which builds every target and publishes the release.
 
+The Windows MSI is built from that folder with `node tools/build-msi.js --profile win-amd64` (or `win-arm64`) and lands in `dist/msi/`. It needs the WiX Toolset v5 CLI: `dotnet tool install --global wix --version 5.0.2`.
+
 ### Development environment
 
 - Node.js 22+, npm, Git. Windows: PowerShell; node-pty uses prebuilt binaries.
@@ -358,6 +364,8 @@ GitHub Release 의 각 파일에는 최상위 폴더 하나가 들어 있습니�
 
 폴더에는 런처, `config.json5`(실행 설정), `web/`(프런트엔드), `shell-integration/`, `runtime/`(데몬 상태·로그·TOTP secret, 첫 실행 때 생성), 이 README 복사본이 들어 있습니다.
 
+**Windows 설치 프로그램(MSI).** `BuilderGate-win-amd64-<version>.msi`, `BuilderGate-win-arm64-<version>.msi` 는 `C:\Program Files\BuilderGate` 에 설치되고(관리자 승인 필요) 시작 메뉴에 *BuilderGate*·*Stop BuilderGate* 를 추가합니다. 설치형은 `config.json5`, `data/`, `certs/`, `runtime/` 을 `%LOCALAPPDATA%\BuilderGate` 에 두므로, 새 버전 MSI 를 설치해도 설정·Workspace·저장한 세션이 그대로 남습니다. 제거해도 이 폴더는 지우지 않으니 데이터까지 지우려면 직접 삭제하세요. zip(포터블) 판은 AppData 에 쓰지 않고 위처럼 자기 폴더에 모두 둡니다.
+
 ### 실행
 
 기본 모드는 **네이티브 데몬**입니다. 런처가 BuilderGate 앱 프로세스와 sentinel watchdog 을 백그라운드로 띄우고 콘솔을 돌려줍니다.
@@ -444,6 +452,8 @@ BuilderGate.exe --reset-password
   workspace: { maxTabsPerWorkspace: 8 },
 }
 ```
+
+MSI 로 설치한 경우 이 파일과 아래 경로는 모두 `%LOCALAPPDATA%\BuilderGate` 아래에 있습니다.
 
 주요 경로: `runtime/buildergate-daemon.log`, `runtime/buildergate-sentinel.log`, `runtime/buildergate.daemon.json`(데몬 상태), `runtime/totp.secret`, `data/workspaces.json`.
 
@@ -561,6 +571,8 @@ npm run build:macos-arm64
 ```
 
 결과는 `dist/bin/<target>-<version>/` 에 생깁니다(예: `dist/bin/win-amd64-0.10.3/BuilderGate.exe`). `v*.*.*` 태그를 푸시하면 GitHub Actions 릴리즈 워크플로가 모든 대상을 빌드해 릴리즈에 올립니다.
+
+Windows MSI 는 그 폴더로 `node tools/build-msi.js --profile win-amd64`(또는 `win-arm64`)를 실행해 만들며 `dist/msi/` 에 생깁니다. WiX Toolset v5 CLI 가 필요합니다: `dotnet tool install --global wix --version 5.0.2`.
 
 ### 개발 환경
 

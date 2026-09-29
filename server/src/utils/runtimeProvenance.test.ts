@@ -191,3 +191,36 @@ test('OPS-BGSTAB-017 AC-5 an unpackaged runtime still anchors on its checkout', 
   assert.equal(provenance.anchor, '/home/u/checkout-a');
   assert.equal(provenance.hasForeignRoot, false);
 });
+
+// OPS-BGSTAB-020 AC-3 — an MSI-installed executable keeps config and data in LocalAppData.
+const INSTALLED_DATA_ROOT = '/home/u/AppData/Local/BuilderGate';
+
+test('OPS-BGSTAB-020 AC-3 an installed runtime reading config and data from its data root reports no foreign root', () => {
+  const provenance = describeRuntimeProvenance(packagedInput({
+    installedDataRoot: INSTALLED_DATA_ROOT,
+    serverRoot: INSTALLED_DATA_ROOT,
+    configPath: `${INSTALLED_DATA_ROOT}/config.json5`,
+  }));
+
+  assert.deepEqual(provenance.foreign, []);
+});
+
+test('OPS-BGSTAB-020 AC-3 the data root does not excuse web assets or another deployment', () => {
+  const provenance = describeRuntimeProvenance(packagedInput({
+    installedDataRoot: INSTALLED_DATA_ROOT,
+    serverRoot: INSTALLED_DATA_ROOT,
+    configPath: '/opt/installed/builder-gate/config.json5',
+    webRoot: `${INSTALLED_DATA_ROOT}/web`,
+  }));
+
+  assert.deepEqual(provenance.foreign.map(entry => entry.name), ['configPath', 'webRoot']);
+});
+
+test('OPS-BGSTAB-020 AC-3 without an installed data root, LocalAppData paths are still foreign', () => {
+  const provenance = describeRuntimeProvenance(packagedInput({
+    serverRoot: INSTALLED_DATA_ROOT,
+    configPath: `${INSTALLED_DATA_ROOT}/config.json5`,
+  }));
+
+  assert.deepEqual(provenance.foreign.map(entry => entry.name), ['serverRoot', 'configPath']);
+});
