@@ -2822,6 +2822,20 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         return { ok: false, reason: 'not-ready' };
       }
 
+      // The patch is the server's screen at `repair.seq`, which already contains every chunk
+      // sent before it. Chunks that arrived before the patch can still be waiting in the output
+      // scheduler; written after it they are applied twice and a TUI that redraws with relative
+      // cursor moves lands one row off until the page is reloaded.
+      const outputIdle = await awaitOutputIdleWithFifoProbe();
+      if (!outputIdle || xtermRef.current !== term) {
+        recordTerminalDebugEvent(sessionId, 'screen_repair_apply_rejected', {
+          reason: 'output-not-idle',
+          repairToken: repair.repairToken,
+          seq: repair.seq,
+        });
+        return { ok: false, reason: 'write-failed' };
+      }
+
       const readiness = getScreenRepairReadiness();
       if (!readiness.ok) {
         recordTerminalDebugEvent(sessionId, 'screen_repair_apply_rejected', {
@@ -2895,6 +2909,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         return { ok: true };
       });
     }, [
+      awaitOutputIdleWithFifoProbe,
       getScreenRepairReadiness,
       queueFocusRestoreIfFocused,
       restoreQueuedFocus,

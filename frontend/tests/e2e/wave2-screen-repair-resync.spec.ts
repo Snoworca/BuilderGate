@@ -45,8 +45,10 @@ const RED_SIGNATURES = {
 
 class RoutedWsFaultHarness {
   readonly frames: CapturedRoutedFrame[] = [];
+  readonly withheld: JsonFrame[] = [];
   private activeRoute: ActiveRoute | null = null;
   private nextConnectionGeneration = 0;
+  private serverFrameFilter: ((message: JsonFrame) => boolean) | null = null;
 
   async install(page: Page): Promise<void> {
     await page.routeWebSocket(/\/ws(?:\?|$)/, (pageRoute) => {
@@ -63,11 +65,16 @@ class RoutedWsFaultHarness {
         serverRoute.send(raw);
       });
       serverRoute.onMessage((raw) => {
+        const message = parseJsonFrame(raw);
         this.frames.push({
           direction: 'server-to-page',
           connectionGeneration,
-          message: parseJsonFrame(raw),
+          message,
         });
+        if (message && this.serverFrameFilter?.(message)) {
+          this.withheld.push(message);
+          return;
+        }
         pageRoute.send(raw);
       });
     });
@@ -94,6 +101,24 @@ class RoutedWsFaultHarness {
       }
     }
     return null;
+  }
+
+  /**
+   * The scripted frames below describe a screen that exists only in this page: the real
+   * shell never printed the markers. A real screen-snapshot or screen-repair for the same
+   * session is the server's actual screen, and when one lands after the script (the grid
+   * workspace repair the client itself requests mid-transaction) it correctly repaints
+   * over the markers, so the assertions measured the race rather than the contract.
+   * Measured on 2222: AC-4 failed 5/5 with a real `screen-repair` seq 26 applied after the
+   * scripted seq 30 had drained; AC-8 failed when a real authoritative snapshot seq 10
+   * answered a scripted restore-needed for seq 11.
+   */
+  withholdServerScreenRecovery(sessionId: string): void {
+    this.serverFrameFilter = (message) => (
+      message.sessionId === sessionId
+      && (message.type === 'session:ready'
+        || (typeof message.type === 'string' && message.type.startsWith('screen-')))
+    );
   }
 
   injectToPage(message: JsonFrame): void {
@@ -191,9 +216,20 @@ async function expectRestoreBarrier(
 }
 
 async function readVisibleTerminalText(page: Page): Promise<string> {
-  return page.locator('.terminal-view:visible .xterm-rows').first().textContent().then((value) => (
-    value ?? ''
-  )).then((value) => value.replace(/\u00a0/g, ' '));
+  // `.xterm-rows` exists only under the DOM renderer. With the WebGL addon attached the
+  // terminal draws to a canvas and the selector matches nothing, so the read timed out
+  // (same cause as #39). Read the buffer through the test-host debug hook in that case.
+  const rows = page.locator('.terminal-view:visible .xterm-rows').first();
+  if (await rows.count() > 0) {
+    return ((await rows.textContent()) ?? '').replace(/\u00a0/g, ' ');
+  }
+  const sessionId = await getActiveSessionId(page);
+  if (!sessionId) return '';
+  const text = await page.evaluate(
+    (id) => window.__buildergateTerminalDebug?.captureTerminalText?.(id) ?? '',
+    sessionId,
+  );
+  return text.replace(/\u00a0/g, ' ');
 }
 
 function countOccurrences(value: string, marker: string): number {
@@ -471,6 +507,7 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
     const replayToken = `e2e-resync-${Date.now()}`;
     const repairToken = `e2e-repair-${Date.now()}`;
 
+    harness.withholdServerScreenRecovery(sessionId);
     harness.injectToPage(buildRestoreNeeded(sessionId, repairToken, replayToken, snapshotSeq, authorityProof));
     await expectRestoreBarrier(page, sessionId, signature);
 
@@ -611,10 +648,6 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
         message: 'E2E precondition failed: initial authoritative screen snapshot was not observed',
         timeout: 15_000,
       }).not.toBeNull();
-      const initialSnapshot = harness.latestMessage(
-        'server-to-page',
-        (message) => isAuthoritativeSnapshot(message, sessionId),
-      )!;
       await expect.poll(async () => page.evaluate((targetSessionId) => (
         localStorage.getItem(`terminal_snapshot_${targetSessionId}`) !== null
       ), sessionId), {
@@ -653,6 +686,39 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
         timeout: 15_000,
       }).not.toBeNull();
 
+      // The subscribe that follows the reload gets the server's own authoritative snapshot.
+      // Applying it legitimately clears hidden dirty/skipped state, so it has to land before
+      // the hidden marker below, not after it -- and the scripted seq has to be newer than it.
+      // Measured on 2222: the marker was skipped, then the real snapshot (seq 78) arrived and
+      // finished hidden recovery, and the scripted restore-needed carried seq 77 from the
+      // snapshot taken before the reload.
+      await expect.poll(() => harness.latestMessage(
+        'server-to-page',
+        (message) => isAuthoritativeSnapshot(message, sessionId),
+        currentGeneration,
+      ), {
+        message: 'E2E precondition failed: reloaded generation received no authoritative snapshot',
+        timeout: 15_000,
+      }).not.toBeNull();
+      const baseSnapshot = harness.latestMessage(
+        'server-to-page',
+        (message) => isAuthoritativeSnapshot(message, sessionId),
+        currentGeneration,
+      )!;
+      await expect.poll(() => harness.latestMessage(
+        'page-to-server',
+        (message) => (
+          message.type === 'screen-snapshot:ready'
+          && message.sessionId === sessionId
+          && message.replayToken === baseSnapshot.replayToken
+        ),
+        currentGeneration,
+      ), {
+        message: 'E2E precondition failed: reloaded snapshot was not acknowledged',
+        timeout: 15_000,
+      }).not.toBeNull();
+      harness.withholdServerScreenRecovery(sessionId);
+
       const hiddenMarker = `hidden-dirty-${Date.now()}`;
       const hiddenMarkerBytes = new TextEncoder().encode(hiddenMarker).byteLength;
       harness.injectToPage({ type: 'output', sessionId, data: hiddenMarker });
@@ -667,8 +733,8 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
         timeout: 10_000,
       }).toBe(true);
 
-      const snapshotSeq = Number(initialSnapshot.seq ?? 0) + 1;
-      const authorityProof = resyncAuthorityProof(initialSnapshot, snapshotSeq);
+      const snapshotSeq = Number(baseSnapshot.seq ?? 0) + 1;
+      const authorityProof = resyncAuthorityProof(baseSnapshot, snapshotSeq);
       const replayToken = `e2e-provisional-${Date.now()}`;
       const repairToken = `e2e-provisional-repair-${Date.now()}`;
       harness.injectToPage(buildRestoreNeeded(sessionId, repairToken, replayToken, snapshotSeq, authorityProof));
@@ -679,7 +745,7 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
       ).click();
       await waitForTerminal(page);
       harness.injectToPage({
-        ...initialSnapshot,
+        ...baseSnapshot,
         type: 'screen-snapshot',
         sessionId,
         replayToken,
@@ -724,7 +790,7 @@ test.describe('REL-BGSTAB-008 frontend stale/resync RED', () => {
       // socket and would no longer model an in-flight stale server frame.
       const lateFailedAuthorityMarker = `late-failed-authority-${Date.now()}`;
       harness.injectToPage({
-        ...initialSnapshot,
+        ...baseSnapshot,
         type: 'screen-snapshot',
         sessionId,
         replayToken,
