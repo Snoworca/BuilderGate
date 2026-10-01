@@ -182,3 +182,28 @@ test('PERF-BGSTAB-023 output since the last snapshot is truncated in amortized s
     'a reader that truncates again sees the same tail',
   );
 });
+
+test('PERF-BGSTAB-023 the kept output is bounded in UTF-8 bytes, not characters', () => {
+  const maxSnapshotBytes = 3000;
+  const fakeThis = { runtimePtyConfig: { maxSnapshotBytes } };
+  const sessionData: { unsnapshottedOutput: string; unsnapshottedOutputTruncated: boolean; unsnapshottedOutputBytes?: number } = {
+    unsnapshottedOutput: '',
+    unsnapshottedOutputTruncated: false,
+  };
+  const append = (SessionManager.prototype as unknown as {
+    appendUnsnapshottedOutput(this: unknown, data: typeof sessionData, chunk: string): void;
+  }).appendUnsnapshottedOutput;
+  let all = '';
+  for (let index = 0; index < 400; index += 1) {
+    // Box drawing and Hangul are 3 bytes each in UTF-8.
+    const chunk = `│${'─'.repeat(10)}│ 한글 ${index}\r\n`;
+    all += chunk;
+    append.call(fakeThis, sessionData, chunk);
+    const bytes = Buffer.byteLength(sessionData.unsnapshottedOutput, 'utf8');
+    assert.ok(bytes <= maxSnapshotBytes * 1.25 + Buffer.byteLength(chunk, 'utf8'), `stored ${bytes} bytes`);
+  }
+  assert.equal(
+    truncateTerminalPayloadTail(sessionData.unsnapshottedOutput, maxSnapshotBytes).content,
+    truncateTerminalPayloadTail(all, maxSnapshotBytes).content,
+  );
+});

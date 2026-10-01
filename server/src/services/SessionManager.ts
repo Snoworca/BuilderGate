@@ -244,6 +244,21 @@ interface SessionManagerObservability {
   headlessWriteCumulativeMs: number;
   eventLoopDelay: EventLoopDelayObservability;
   processCpuPercentOfOneCore: number;
+  memory: SessionManagerMemoryObservability;
+}
+
+/** OBS-BGSTAB-011: where the server's memory goes, by process and by session. */
+interface SessionManagerMemoryObservability {
+  process: { rssMB: number; heapUsedMB: number; heapTotalMB: number; externalMB: number; arrayBuffersMB: number };
+  sessions: {
+    terminalBufferMB: number;
+    keptOutputMB: number;
+    snapshotCacheMB: number;
+    degradedReplayMB: number;
+    retainedRecords: number;
+    retainedFacts: number;
+  };
+  largestSessions: Array<{ sessionId: string; cols: number; bufferLines: number; estimatedMB: number }>;
 }
 
 type SessionDebugCaptureValue = string | number | boolean | null;
@@ -275,9 +290,14 @@ const CLEANUP_DEDUP_SESSION_LIMIT = 4096;
 // PERF-BGSTAB-015: a whole default workspace (maxTabsPerWorkspace 8) at once;
 // shutdown of many workspaces still starts no more than eight PowerShells.
 const SESSION_BATCH_TERMINATION_CONCURRENCY = 8;
-// PERF-BGSTAB-023: how far past maxSnapshotBytes (in UTF-16 units) unsnapshottedOutput may grow
+// PERF-BGSTAB-023: how far past maxSnapshotBytes (UTF-8 bytes) unsnapshottedOutput may grow
 // before it is truncated back to the cap.
 const UNSNAPSHOTTED_OUTPUT_SLACK = 1.25;
+
+/** A flat copy that keeps every UTF-16 code unit, lone surrogates included. */
+function copyFlatString(value: string): string {
+  return JSON.parse(JSON.stringify(value)) as string;
+}
 const RETAINED_SHADOW_COMPARISON_DEBOUNCE_MS = 16;
 const RETAINED_SHADOW_COMPARISON_BUSY_RETRY_MS = 50;
 const RETAINED_SHADOW_COMPARISON_MIN_INTERVAL_MS = 5_000;
@@ -988,6 +1008,8 @@ interface SessionData {
   pendingTerminalAuthorityQueryEffects: PendingTerminalAuthorityQueryEffect[];
   unsnapshottedOutput: string;
   unsnapshottedOutputTruncated: boolean;
+  /** PERF-BGSTAB-023: UTF-8 size of unsnapshottedOutput; recomputed when absent. */
+  unsnapshottedOutputBytes?: number;
   initialCwd: string;   // CWD at session creation
   cwdFilePath?: string;  // Windows CWD tracking temp file path
   lastCwd?: string;      // Last known CWD for change detection
@@ -1351,7 +1373,7 @@ export class SessionManager {
   private sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
   private readonly sessionFinalizedListeners = new Set<(event: SessionFinalizedEvent) => void>();
   private commandSubmittedCallback: ((event: SessionCommandSubmittedEvent) => void | Promise<void>) | null = null;
-  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'headlessOutput' | 'cleanup' | 'eventLoopDelay' | 'processCpuPercentOfOneCore'> = {
+  private observability: Omit<SessionManagerObservability, 'totalSessions' | 'healthySessions' | 'degradedSessions' | 'headlessOutput' | 'cleanup' | 'eventLoopDelay' | 'processCpuPercentOfOneCore' | 'memory'> = {
     snapshotRequests: 0,
     snapshotCacheHits: 0,
     snapshotSerializeFailures: 0,
@@ -5257,6 +5279,7 @@ export class SessionManager {
       if (data.unsnapshottedOutput.length > 0) {
         const pending = truncateTerminalPayloadTail(data.unsnapshottedOutput, this.runtimePtyConfig.maxSnapshotBytes);
         data.unsnapshottedOutput = pending.content;
+        data.unsnapshottedOutputBytes = undefined;
         data.unsnapshottedOutputTruncated = data.unsnapshottedOutputTruncated || pending.truncated;
       }
     }
@@ -6619,6 +6642,7 @@ export class SessionManager {
       throw new Error('terminal-authority-debug-parser-state-restore-mismatch');
     }
     data.unsnapshottedOutput = '';
+    data.unsnapshottedOutputBytes = 0;
     data.unsnapshottedOutputTruncated = false;
     data.snapshotCache = null;
     const retained = this.ensureRetainedTerminalSessionState(data);
@@ -6948,6 +6972,7 @@ export class SessionManager {
         this.observability.oversizedSnapshots += 1;
       }
       data.unsnapshottedOutput = '';
+      data.unsnapshottedOutputBytes = 0;
       data.unsnapshottedOutputTruncated = false;
       this.captureDebugEvent(sessionId, 'snapshot', 'snapshot_serialized', {
         seq: data.snapshotCache.seq,
@@ -7376,6 +7401,7 @@ export class SessionManager {
     data.pendingHeadlessWritesByPolicyGeneration.clear();
     data.headlessPolicyWriteFailureSettlers.clear();
     data.unsnapshottedOutput = '';
+    data.unsnapshottedOutputBytes = 0;
     data.unsnapshottedOutputTruncated = false;
 
     if (data.cwdFilePath) {
@@ -7587,6 +7613,58 @@ export class SessionManager {
     };
   }
 
+  /**
+   * OBS-BGSTAB-011: sizes only, never content -- string lengths and buffer dimensions -- so the
+   * 60 s status log stays cheap with many long sessions. Strings count 2 bytes per UTF-16 unit;
+   * a terminal buffer counts 12 bytes per cell (xterm keeps three 32-bit words per cell).
+   */
+  private sampleMemoryObservability(): SessionManagerMemoryObservability {
+    const mb = (bytes: number): number => Math.round(bytes / 1e3) / 1e3;
+    const usage = process.memoryUsage();
+    const totals = { terminalBuffer: 0, keptOutput: 0, snapshotCache: 0, degradedReplay: 0, records: 0, facts: 0 };
+    const perSession: Array<{ sessionId: string; cols: number; bufferLines: number; bytes: number }> = [];
+    for (const [sessionId, data] of this.sessions) {
+      const terminal = data.headless?.terminal;
+      const cols = terminal?.cols ?? 0;
+      const bufferLines = terminal ? terminal.buffer.normal.length + terminal.buffer.alternate.length : 0;
+      const bufferBytes = bufferLines * cols * 12;
+      const keptBytes = data.unsnapshottedOutput.length * 2;
+      const cacheBytes = (data.snapshotCache?.data.length ?? 0) * 2;
+      const degradedBytes = data.degradedReplayBuffer.length * 2;
+      totals.terminalBuffer += bufferBytes;
+      totals.keptOutput += keptBytes;
+      totals.snapshotCache += cacheBytes;
+      totals.degradedReplay += degradedBytes;
+      totals.records += data.retainedTerminal.records.length;
+      totals.facts += data.retainedTerminal.facts.length;
+      perSession.push({ sessionId: sessionId.slice(0, 8), cols, bufferLines, bytes: bufferBytes + keptBytes + cacheBytes + degradedBytes });
+    }
+    perSession.sort((left, right) => right.bytes - left.bytes);
+    return {
+      process: {
+        rssMB: mb(usage.rss),
+        heapUsedMB: mb(usage.heapUsed),
+        heapTotalMB: mb(usage.heapTotal),
+        externalMB: mb(usage.external),
+        arrayBuffersMB: mb(usage.arrayBuffers),
+      },
+      sessions: {
+        terminalBufferMB: mb(totals.terminalBuffer),
+        keptOutputMB: mb(totals.keptOutput),
+        snapshotCacheMB: mb(totals.snapshotCache),
+        degradedReplayMB: mb(totals.degradedReplay),
+        retainedRecords: totals.records,
+        retainedFacts: totals.facts,
+      },
+      largestSessions: perSession.slice(0, 5).map((entry) => ({
+        sessionId: entry.sessionId,
+        cols: entry.cols,
+        bufferLines: entry.bufferLines,
+        estimatedMB: mb(entry.bytes),
+      })),
+    };
+  }
+
   getObservabilitySnapshot(): SessionManagerObservability {
     let healthySessions = 0;
     let degradedSessions = 0;
@@ -7607,6 +7685,7 @@ export class SessionManager {
       eventLoopDelay: this.sampleEventLoopDelay(),
       processCpuPercentOfOneCore: this.sampleProcessCpuPercentOfOneCore(),
       ...this.observability,
+      memory: this.sampleMemoryObservability(),
       cleanup: this.getCleanupTelemetrySnapshot(),
     };
   }
@@ -9280,6 +9359,7 @@ export class SessionManager {
       sessionData.authorityRevision += 1;
     }
     sessionData.unsnapshottedOutput = '';
+    sessionData.unsnapshottedOutputBytes = 0;
     sessionData.unsnapshottedOutputTruncated = false;
     sessionData.headlessHealth = 'degraded';
     sessionData.headlessDegradedPhase = phase;
@@ -9422,18 +9502,26 @@ export class SessionManager {
   private appendUnsnapshottedOutput(sessionData: SessionData, data: string): void {
     const nextContent = `${sessionData.unsnapshottedOutput}${data}`;
     const maxBytes = this.runtimePtyConfig.maxSnapshotBytes;
+    const nextBytes = (sessionData.unsnapshottedOutputBytes ?? Buffer.byteLength(sessionData.unsnapshottedOutput, 'utf8'))
+      + Buffer.byteLength(data, 'utf8');
     // PERF-BGSTAB-023: a long session sits at the cap, and truncating there on every chunk
     // re-measured and re-cut a 2 MB string per chunk (30% of the main thread with 20 busy
-    // sessions). Every reader truncates again, so let it run 25% past the cap first: the
-    // cost becomes amortized and the stored string stays bounded.
-    if (maxBytes > 0 && nextContent.length <= maxBytes * UNSNAPSHOTTED_OUTPUT_SLACK) {
+    // sessions). Every reader truncates again, so let it run 25% past the cap first. The bound
+    // is in UTF-8 bytes like the cap: bounding characters let box-drawing output hold 3.7x more.
+    if (maxBytes > 0 && nextBytes <= maxBytes * UNSNAPSHOTTED_OUTPUT_SLACK) {
       sessionData.unsnapshottedOutput = nextContent;
+      sessionData.unsnapshottedOutputBytes = nextBytes;
       return;
     }
     const truncated = truncateTerminalPayloadTail(nextContent, maxBytes);
-    sessionData.unsnapshottedOutput = truncated.content;
+    // The tail is a slice, and a V8 sliced string keeps the whole concatenated parent alive.
+    // Copy it once per truncation so only the tail is retained.
+    const content = truncated.truncated ? copyFlatString(truncated.content) : truncated.content;
+    sessionData.unsnapshottedOutput = content;
+    sessionData.unsnapshottedOutputBytes = Buffer.byteLength(content, 'utf8');
     sessionData.unsnapshottedOutputTruncated = sessionData.unsnapshottedOutputTruncated || truncated.truncated;
   }
+
 
   private scheduleResizeReplayRefresh(sessionId: string, delayMs = 75): void {
     const existing = this.pendingResizeRefreshTimers.get(sessionId);

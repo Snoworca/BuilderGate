@@ -3305,3 +3305,36 @@ test('PERF-BGSTAB-022 the retained ordinal is read without serializing the scrol
     harness.close();
   }
 });
+
+test('OBS-BGSTAB-011 the observability snapshot breaks memory down by process and by session', async () => {
+  const signature = 'OBS-BGSTAB-011 memory breakdown missing from the observability snapshot';
+  const harness = createHarness({ sessionId: 'memory-breakdown-session' });
+  try {
+    harness.pty.emitData('some output for the breakdown\r\n'.repeat(20));
+    assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true, signature);
+    const memory = (harness.manager.getObservabilitySnapshot() as unknown as {
+      memory?: {
+        process: Record<string, number>;
+        sessions: Record<string, number>;
+        largestSessions: Array<{ sessionId: string; cols: number; bufferLines: number; estimatedMB: number }>;
+      };
+    }).memory;
+    assert.ok(memory, signature);
+    for (const key of ['rssMB', 'heapUsedMB', 'heapTotalMB', 'externalMB', 'arrayBuffersMB']) {
+      assert.equal(typeof memory.process[key], 'number', `${signature}: process.${key}`);
+    }
+    assert.ok(memory.process.rssMB > 0, signature);
+    for (const key of ['terminalBufferMB', 'keptOutputMB', 'snapshotCacheMB', 'degradedReplayMB', 'retainedRecords', 'retainedFacts']) {
+      assert.equal(typeof memory.sessions[key], 'number', `${signature}: sessions.${key}`);
+    }
+    assert.ok(memory.sessions.keptOutputMB > 0, `${signature}: the emitted output is not counted`);
+    assert.ok(memory.sessions.retainedRecords > 0, `${signature}: records are not counted`);
+    const largest = memory.largestSessions.find((entry) => harness.sessionId.startsWith(entry.sessionId));
+    assert.ok(largest, `${signature}: the session is not listed`);
+    assert.ok(largest.sessionId.length <= 8, `${signature}: the session id is not shortened`);
+    assert.ok(largest.cols > 0 && largest.bufferLines > 0 && largest.estimatedMB > 0, signature);
+    assert.ok(memory.largestSessions.length <= 5, signature);
+  } finally {
+    harness.close();
+  }
+});
