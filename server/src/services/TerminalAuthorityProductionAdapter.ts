@@ -175,6 +175,8 @@ export interface AttachProductionTerminalAuthorityOptions {
   };
   checkpointReadyHandshakeTimeoutMs?: number;
   viewAttributesHandshakeTimeoutMs?: number;
+  /** PERF-BGSTAB-021: configured `terminalAuthority.shadowComparison`. Left as is when omitted. */
+  shadowComparison?: boolean;
 }
 
 interface PendingViewAttributesHandshake {
@@ -550,6 +552,8 @@ interface SessionManagerAuthorityApi {
     sessionId: string,
     input: { responderLeaseId: string; clientId: string; viewGeneration: number; reply: string },
   ): boolean;
+  /** PERF-BGSTAB-022: the stream position without building the checkpoint. */
+  getRetainedTerminalAuthorityOrdinal(sessionId: string): { streamEpoch: string; sourceSeq: string } | undefined;
   getRetainedTerminalAuthorityState(sessionId: string): {
     streamEpoch: string;
     sourceSeq: string;
@@ -1006,6 +1010,9 @@ function attachProductionTerminalAuthorityInternal(
   // disabled. Promotion remains limited-session/canary gated; this only turns
   // on shadow collection and registration for those existing sessions.
   sessionManager.setRetainedTerminalShadowEnabled(true);
+  if (options.shadowComparison !== undefined) {
+    sessionManager.setRetainedTerminalShadowComparisonEnabled(options.shadowComparison);
+  }
   sessionManager.setWsRouter(wsRouter);
   const manager = sessionManager as unknown as SessionManagerAuthorityApi;
   const router = wsRouter as unknown as WsRouterAuthorityApi;
@@ -1552,7 +1559,9 @@ function attachProductionTerminalAuthorityInternal(
         const key = viewKey(view);
         const previousTailSourceSeq = runtime.checkpointTailSourceSeqByView.get(key)
           ?? activeCheckpoint.sourceSeq;
-        const retainedAuthority = manager.getRetainedTerminalAuthorityState(sessionId);
+        // PERF-BGSTAB-022: once per output frame, so only the ordinal -- the full state
+        // serializes and hashes the whole scrollback.
+        const retainedAuthority = manager.getRetainedTerminalAuthorityOrdinal(sessionId);
         const retainedSourceSeq = retainedAuthority?.sourceSeq;
         const retainedStreamAdvanced = isCanonicalOrdinal64(activeCheckpoint.streamEpoch)
           && isCanonicalOrdinal64(retainedAuthority?.streamEpoch)
@@ -2272,7 +2281,7 @@ function attachProductionTerminalAuthorityInternal(
         return readViews(input.sessionId, runtime.legacyResponderLeaseId);
       },
       readLastCommittedSourceSeq: () => (
-        manager.getRetainedTerminalAuthorityState(input.sessionId)?.sourceSeq
+        manager.getRetainedTerminalAuthorityOrdinal(input.sessionId)?.sourceSeq
         ?? initialOrdinal.sourceSeq
       ),
       readPromotionSafetyLimits: () => ({
@@ -3351,7 +3360,7 @@ function attachProductionTerminalAuthorityInternal(
     },
     readViewAuthorityStreamEpoch: sessionId => (
       runtimes.get(sessionId)?.controller.getState().streamEpoch
-      ?? manager.getRetainedTerminalAuthorityState(sessionId)?.streamEpoch
+      ?? manager.getRetainedTerminalAuthorityOrdinal(sessionId)?.streamEpoch
       ?? null
     ),
     readViewAttributesChallengeId: registration => {

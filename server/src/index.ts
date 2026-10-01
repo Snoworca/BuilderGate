@@ -1834,7 +1834,12 @@ async function startServer(): Promise<void> {
       sessionManager,
       wsRouter,
       transportMode: configuredWsTransportMode === 'split' ? 'split' : 'unified',
+      // PERF-BGSTAB-021: off unless the config file turns it on.
+      shadowComparison: config.terminalAuthority?.shadowComparison ?? false,
     });
+    if (config.terminalAuthority?.shadowComparison) {
+      console.log('[TerminalAuthority] shadow comparison enabled (terminalAuthority.shadowComparison)');
+    }
     app.set('terminalAuthorityIntegration', terminalAuthorityIntegration);
     const terminalAuthorityDebugRuntime = createProductionTerminalAuthorityDebugRuntime({
       sessionManager,

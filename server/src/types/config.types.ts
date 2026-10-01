@@ -181,6 +181,12 @@ export interface StabilityModesConfig {
   frontendRuntimeResidency: 'legacy' | 'bounded' | 'off';
 }
 
+/** PERF-BGSTAB-021: opt-in switches for the terminal-authority work. */
+export interface TerminalAuthorityConfig {
+  /** Retained-model shadow comparison (REL-BGSTAB-011 AC-4). Off by default. */
+  shadowComparison: boolean;
+}
+
 // ============================================================================
 // Two-Factor Authentication Configuration
 // ============================================================================
@@ -232,6 +238,7 @@ export interface Config {
   realtime?: RealtimeConfig;
   resourceLimits?: ResourceLimitsConfig;
   stabilityModes?: StabilityModesConfig;
+  terminalAuthority?: TerminalAuthorityConfig;
   ssl?: SSLConfig;
   security?: SecurityConfig;
   twoFactor?: TwoFactorConfig;

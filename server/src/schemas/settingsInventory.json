@@ -1288,6 +1288,19 @@
       ]
     },
     {
+      "path": "terminalAuthority.shadowComparison",
+      "classification": "reserved",
+      "reason": "PERF-BGSTAB-021: opt-in switch for the retained-model shadow comparison, off by default. Operator-file configuration for terminal-authority work, not a user-tunable value, so it is absent from Settings.",
+      "editableInSettings": false,
+      "consumers": [
+        {
+          "module": "server/src/index.ts",
+          "symbol": "terminalAuthorityIntegration",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
       "path": "twoFactor.accountName",
       "classification": "user-visible",
       "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow.",

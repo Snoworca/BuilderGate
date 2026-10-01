@@ -275,6 +275,9 @@ const CLEANUP_DEDUP_SESSION_LIMIT = 4096;
 // PERF-BGSTAB-015: a whole default workspace (maxTabsPerWorkspace 8) at once;
 // shutdown of many workspaces still starts no more than eight PowerShells.
 const SESSION_BATCH_TERMINATION_CONCURRENCY = 8;
+// PERF-BGSTAB-023: how far past maxSnapshotBytes (in UTF-16 units) unsnapshottedOutput may grow
+// before it is truncated back to the cap.
+const UNSNAPSHOTTED_OUTPUT_SLACK = 1.25;
 const RETAINED_SHADOW_COMPARISON_DEBOUNCE_MS = 16;
 const RETAINED_SHADOW_COMPARISON_BUSY_RETRY_MS = 50;
 const RETAINED_SHADOW_COMPARISON_MIN_INTERVAL_MS = 5_000;
@@ -420,6 +423,8 @@ interface SessionManagerDeps {
   readProcessStartIdentityFn?: ReadProcessStartIdentity;
   terminalResourcePolicyAuthority?: TerminalResourcePolicyLeaseAuthority;
   retainedTerminalShadowEnabled?: boolean;
+  /** PERF-BGSTAB-021: production passes the configured value (default off). */
+  retainedTerminalShadowComparisonEnabled?: boolean;
   retainedTerminalInitialOrdinal?: { streamEpoch: string; sourceSeq: string };
   createHeadlessTerminalStateFn?: typeof createHeadlessTerminalState;
   writeHeadlessTerminalFn?: typeof writeHeadlessTerminal;
@@ -1316,6 +1321,7 @@ export class SessionManager {
   private readonly compiledTerminalResourcePolicy: CompiledTerminalResourcePolicy;
   private readonly effectiveResourceLimits: ResourceLimitsConfig;
   private retainedTerminalShadowEnabled: boolean;
+  private retainedTerminalShadowComparisonEnabled: boolean;
   /**
    * `01:462` — the epoch belongs to the session. The process-wide counter this
    * replaced could only ever issue a first value; it had nowhere to record the
@@ -1418,6 +1424,7 @@ export class SessionManager {
     this.retainedTerminalModelFaultInjector = deps.retainedTerminalModelFaultInjector;
     this.retainedTerminalInitialOrdinal = deps.retainedTerminalInitialOrdinal;
     this.retainedTerminalShadowEnabled = deps.retainedTerminalShadowEnabled ?? false;
+    this.retainedTerminalShadowComparisonEnabled = deps.retainedTerminalShadowComparisonEnabled ?? true;
     // 서버 시작 시 한 번만 셸 감지 후 캐싱
     this.cachedAvailableShells = this.detectAvailableShells();
   }
@@ -2390,6 +2397,19 @@ export class SessionManager {
   // budget below reported it as unconfigured while the adapter chunked by it anyway.
   getTerminalCheckpointChunkBytes(): number {
     return this.effectiveResourceLimits.terminal.checkpointChunkBytes;
+  }
+
+  /**
+   * PERF-BGSTAB-022: the stream position alone. getRetainedTerminalAuthorityState builds the whole
+   * state, which serializes and hashes every cell of the scrollback; the output path asked for
+   * these two fields on every frame and spent most of the main thread doing it.
+   */
+  getRetainedTerminalAuthorityOrdinal(sessionId: string): { streamEpoch: string; sourceSeq: string } | undefined {
+    const data = this.sessions.get(sessionId);
+    if (!data) return undefined;
+    const retained = this.ensureRetainedTerminalSessionState(data);
+    if (!data.headless && !retained.lastCheckpoint) return undefined;
+    return { streamEpoch: retained.streamEpoch, sourceSeq: retained.sourceSeq };
   }
 
   getRetainedTerminalAuthorityState(sessionId: string): RetainedTerminalAuthorityState | undefined {
@@ -3494,6 +3514,23 @@ export class SessionManager {
       }
     }
     return accepted;
+  }
+
+  /**
+   * PERF-BGSTAB-021: the shadow comparison serializes and rehydrates the whole scrollback on the
+   * main thread (2.47 s at 10,000 lines). Off, no comparison is scheduled or started; shadow
+   * collection itself is unaffected, and the promotion gate keeps reporting its baseline as
+   * unavailable, which blocks promotion.
+   */
+  setRetainedTerminalShadowComparisonEnabled(enabled: boolean): void {
+    this.retainedTerminalShadowComparisonEnabled = enabled;
+    if (enabled) return;
+    for (const data of this.sessions.values()) {
+      const retained = data.retainedTerminal;
+      if (retained.comparisonTimer) clearTimeout(retained.comparisonTimer);
+      retained.comparisonTimer = null;
+      retained.comparisonPendingSourceSeq = null;
+    }
   }
 
   setRetainedTerminalShadowEnabled(enabled: boolean): boolean {
@@ -8887,6 +8924,7 @@ export class SessionManager {
     minimumDelayMs = RETAINED_SHADOW_COMPARISON_DEBOUNCE_MS,
   ): void {
     const retained = this.ensureRetainedTerminalSessionState(sessionData);
+    if (!this.retainedTerminalShadowComparisonEnabled) return;
     if (retained.mode !== 'shadow' || !retained.shadowSettlement.admissionOpen) return;
     retained.comparisonPendingSourceSeq = retained.sourceSeq;
     if (retained.comparisonTimer || retained.comparisonInFlight) return;
@@ -8909,7 +8947,8 @@ export class SessionManager {
     options: { allowBusySiblings?: boolean } = {},
   ): Promise<void> {
     const retained = this.ensureRetainedTerminalSessionState(sessionData);
-    if (!this.isActiveSession(sessionId, sessionData)
+    if (!this.retainedTerminalShadowComparisonEnabled
+      || !this.isActiveSession(sessionId, sessionData)
       || retained.mode !== 'shadow'
       || !retained.shadowSettlement.admissionOpen
       || !sessionData.headless) {
@@ -9382,7 +9421,16 @@ export class SessionManager {
 
   private appendUnsnapshottedOutput(sessionData: SessionData, data: string): void {
     const nextContent = `${sessionData.unsnapshottedOutput}${data}`;
-    const truncated = truncateTerminalPayloadTail(nextContent, this.runtimePtyConfig.maxSnapshotBytes);
+    const maxBytes = this.runtimePtyConfig.maxSnapshotBytes;
+    // PERF-BGSTAB-023: a long session sits at the cap, and truncating there on every chunk
+    // re-measured and re-cut a 2 MB string per chunk (30% of the main thread with 20 busy
+    // sessions). Every reader truncates again, so let it run 25% past the cap first: the
+    // cost becomes amortized and the stored string stays bounded.
+    if (maxBytes > 0 && nextContent.length <= maxBytes * UNSNAPSHOTTED_OUTPUT_SLACK) {
+      sessionData.unsnapshottedOutput = nextContent;
+      return;
+    }
+    const truncated = truncateTerminalPayloadTail(nextContent, maxBytes);
     sessionData.unsnapshottedOutput = truncated.content;
     sessionData.unsnapshottedOutputTruncated = sessionData.unsnapshottedOutputTruncated || truncated.truncated;
   }

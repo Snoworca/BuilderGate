@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { Session } from '../types/index.js';
 import { SessionManager } from './SessionManager.js';
+import { truncateTerminalPayloadTail } from '../utils/terminalPayload.js';
 
 test('SessionManager.updateRuntimeConfig affects later idle timers and cached snapshots', async (t) => {
   const manager = new SessionManager({
@@ -155,4 +156,29 @@ test('SessionManager.writeInputDetailed reports mutation-identity-stale distinct
 
   assert.equal(result.ok, false);
   assert.equal(result.denialReason, 'mutation-identity-stale');
+});
+
+test('PERF-BGSTAB-023 output since the last snapshot is truncated in amortized steps and keeps the same tail', () => {
+  const maxSnapshotBytes = 1000;
+  const fakeThis = { runtimePtyConfig: { maxSnapshotBytes } };
+  const sessionData = { unsnapshottedOutput: '', unsnapshottedOutputTruncated: false };
+  const append = (SessionManager.prototype as unknown as {
+    appendUnsnapshottedOutput(this: unknown, data: typeof sessionData, chunk: string): void;
+  }).appendUnsnapshottedOutput;
+  let all = '';
+  let sawAboveCap = false;
+  for (let index = 0; index < 400; index += 1) {
+    const chunk = `line-${String(index).padStart(4, '0')}\r\n`;
+    all += chunk;
+    append.call(fakeThis, sessionData, chunk);
+    if (sessionData.unsnapshottedOutput.length > maxSnapshotBytes) sawAboveCap = true;
+    assert.ok(sessionData.unsnapshottedOutput.length <= maxSnapshotBytes * 1.25 + chunk.length, 'stored output stays bounded');
+  }
+  assert.equal(sawAboveCap, true, 'truncation is amortized rather than run on every append');
+  assert.equal(sessionData.unsnapshottedOutputTruncated, true);
+  assert.equal(
+    truncateTerminalPayloadTail(sessionData.unsnapshottedOutput, maxSnapshotBytes).content,
+    truncateTerminalPayloadTail(all, maxSnapshotBytes).content,
+    'a reader that truncates again sees the same tail',
+  );
 });

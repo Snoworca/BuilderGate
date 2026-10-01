@@ -3228,3 +3228,80 @@ test('REL-BGSTAB-011 AC-6 a view that was never registered cannot adopt the leas
     harness.close();
   }
 });
+
+test('PERF-BGSTAB-021 AC-1/AC-2: the shadow comparison runs only while the switch is on', async () => {
+  const signature = 'PERF-BGSTAB-021 shadow comparison ignored terminalAuthority.shadowComparison';
+  let comparisonStarts = 0;
+  const harness = createHarness({
+    sessionId: 'shadow-comparison-switch',
+    retainedComparisonGate: Promise.resolve(),
+    onRetainedComparisonStarted: () => { comparisonStarts += 1; },
+  });
+  const manager = harness.manager as unknown as { setRetainedTerminalShadowComparisonEnabled(enabled: boolean): void };
+  try {
+    assert.equal(typeof manager.setRetainedTerminalShadowComparisonEnabled, 'function', `${signature}: no switch`);
+    manager.setRetainedTerminalShadowComparisonEnabled(false);
+    harness.pty.emitData('output while the comparison is off\r\n');
+    assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true, signature);
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.equal(comparisonStarts, 0, `${signature}: compared while off`);
+
+    manager.setRetainedTerminalShadowComparisonEnabled(true);
+    harness.pty.emitData('output after the comparison is turned on\r\n');
+    assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true, signature);
+    for (let attempt = 0; attempt < 100 && comparisonStarts === 0; attempt += 1) {
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    assert.equal(comparisonStarts, 1, `${signature}: did not compare once turned on`);
+  } finally {
+    harness.close();
+  }
+});
+
+test('PERF-BGSTAB-021: turning the switch off cancels a comparison that is already scheduled', async () => {
+  const signature = 'PERF-BGSTAB-021 a scheduled comparison still ran after the switch was turned off';
+  let comparisonStarts = 0;
+  const harness = createHarness({
+    sessionId: 'shadow-comparison-switch-pending',
+    retainedComparisonGate: Promise.resolve(),
+    onRetainedComparisonStarted: () => { comparisonStarts += 1; },
+  });
+  const manager = harness.manager as unknown as { setRetainedTerminalShadowComparisonEnabled(enabled: boolean): void };
+  try {
+    harness.pty.emitData('schedules a comparison\r\n');
+    manager.setRetainedTerminalShadowComparisonEnabled?.(false);
+    assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true, signature);
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.equal(comparisonStarts, 0, signature);
+  } finally {
+    harness.close();
+  }
+});
+
+test('PERF-BGSTAB-022 the retained ordinal is read without serializing the scrollback', async () => {
+  const signature = 'PERF-BGSTAB-022 reading the retained ordinal built a full checkpoint';
+  const harness = createHarness({ sessionId: 'retained-ordinal-read' });
+  const manager = harness.manager as unknown as {
+    getRetainedTerminalAuthorityOrdinal?(sessionId: string): { streamEpoch: string; sourceSeq: string } | undefined;
+    sessions: Map<string, { retainedTerminal: { lastCheckpoint: unknown } }>;
+  };
+  try {
+    harness.pty.emitData('line one\r\nline two\r\n');
+    assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true, signature);
+    assert.equal(typeof manager.getRetainedTerminalAuthorityOrdinal, 'function', `${signature}: no accessor`);
+
+    const full = harness.readState(harness.sessionId);
+    const retained = manager.sessions.get(harness.sessionId)!.retainedTerminal;
+    const checkpointBefore = retained.lastCheckpoint;
+    const ordinal = manager.getRetainedTerminalAuthorityOrdinal!(harness.sessionId);
+    assert.deepEqual(ordinal, { streamEpoch: full.streamEpoch, sourceSeq: full.sourceSeq }, signature);
+    assert.equal(retained.lastCheckpoint, checkpointBefore, `${signature}: the checkpoint was rebuilt`);
+
+    // Control: the full read does rebuild it, so the identity check above can fail.
+    harness.readState(harness.sessionId);
+    assert.notEqual(retained.lastCheckpoint, checkpointBefore, `${signature}: control did not rebuild`);
+    assert.equal(manager.getRetainedTerminalAuthorityOrdinal!('missing-session'), undefined, signature);
+  } finally {
+    harness.close();
+  }
+});

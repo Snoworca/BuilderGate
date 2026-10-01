@@ -356,7 +356,7 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
 });
 
 // @req OPS-BGSTAB-011 AC-1
-test('OPS-BGSTAB-011 the configuration schema still has exactly 85 leaves', () => {
+test('OPS-BGSTAB-011 the configuration schema still has exactly 86 leaves', () => {
   // The pin the inventory is sized against. It is asserted separately from the
   // coverage test so that a change in the schema's shape is distinguishable
   // from a change in the inventory.
@@ -375,5 +375,8 @@ test('OPS-BGSTAB-011 the configuration schema still has exactly 85 leaves', () =
   //
   // 87 -> 85 on 2026-09-27: workspace.maxWorkspaces and workspace.maxTotalSessions were
   // removed (FR-BGSTAB-031, user decision: no Workspace-count or total-session cap).
-  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 85);
+  //
+  // 85 -> 86 on 2026-10-01: terminalAuthority.shadowComparison (PERF-BGSTAB-021), the opt-in
+  // switch for the retained-model shadow comparison, classified reserved.
+  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 86);
 });

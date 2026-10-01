@@ -454,3 +454,16 @@ test('SEC-BGSTAB-001 AC-1 no setting can enable OSC52 reads, at any stability', 
     );
   }
 });
+
+test('PERF-BGSTAB-021 terminalAuthority.shadowComparison is off by default and can be turned on', () => {
+  const parsed = configSchema.parse(minimalConfig()) as { terminalAuthority?: { shadowComparison?: unknown } };
+  assert.equal(parsed.terminalAuthority?.shadowComparison, false);
+
+  const enabled = configSchema.parse({ ...minimalConfig(), terminalAuthority: { shadowComparison: true } }) as typeof parsed;
+  assert.equal(enabled.terminalAuthority?.shadowComparison, true);
+
+  const invalid = configSchema.safeParse({ ...minimalConfig(), terminalAuthority: { shadowComparison: 'yes' } });
+  assert.equal(invalid.success, false);
+  const unknownKey = configSchema.safeParse({ ...minimalConfig(), terminalAuthority: { shadowCompare: true } });
+  assert.equal(unknownKey.success, false);
+});

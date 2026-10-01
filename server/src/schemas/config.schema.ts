@@ -244,6 +244,12 @@ export const stabilityModesSchema = defaultObject(z.object({
   frontendRuntimeResidency: z.enum(['legacy', 'bounded', 'off']).default('bounded'),
 }).strict());
 
+// PERF-BGSTAB-021: the retained-model shadow comparison serializes and rehydrates the whole
+// scrollback synchronously on the main thread (2.47 s at 10,000 lines), so it is opt-in.
+export const terminalAuthoritySchema = defaultObject(z.object({
+  shadowComparison: z.boolean().default(false),
+}).strict());
+
 // ============================================================================
 // Two-Factor Authentication Schema (Phase 3)
 // ============================================================================
@@ -317,6 +323,7 @@ export const configSchema = z.object({
   realtime: realtimeSchema,
   resourceLimits: resourceLimitsSchema,
   stabilityModes: stabilityModesSchema,
+  terminalAuthority: terminalAuthoritySchema,
   ssl: sslSchema.optional(),
   security: securitySchema.optional(),
   twoFactor: twoFactorSchema.optional(),

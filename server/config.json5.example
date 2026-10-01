@@ -126,6 +126,14 @@
     frontendRuntimeResidency: "bounded",
   },
 
+  // Terminal-authority development switches
+  terminalAuthority: {
+    // Retained-model shadow comparison. Serializes and replays the whole scrollback of each
+    // busy session on the main thread (about 2.5 s at 10,000 lines), which slows input when
+    // many long sessions run. Only needed for terminal-authority promotion work.
+    shadowComparison: false,
+  },
+
   // SSL/TLS settings
   // Empty paths trigger auto-generation of self-signed certificate
   ssl: {

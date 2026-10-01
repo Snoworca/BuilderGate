@@ -92,6 +92,7 @@
     "tests/e2e/webgl-dom-fallback.spec.ts",
     "tests/e2e/workspace-delete-loading.spec.ts",
     "tests/e2e/workspace-dot-menu-icons.spec.ts",
-    "tests/e2e/terminal-screen-repair-output-order.spec.ts"
+    "tests/e2e/terminal-screen-repair-output-order.spec.ts",
+    "tests/e2e/input-latency-probe.spec.ts"
   ]
 }
