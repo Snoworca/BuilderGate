@@ -45,7 +45,9 @@ import { test } from 'node:test';
  * MUTATION-TESTED 2026-09-20 — see the note on each clause below.
  */
 
-const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+const REPO_ROOT_URL = new URL('../../..', import.meta.url);
+// Forward slashes on every platform, so the relative names below compare equal on Windows too.
+const REPO_ROOT = fileURLToPath(REPO_ROOT_URL).replace(/\\/g, '/');
 
 /**
  * xterm's two runtime width-table surfaces. `allowProposedApi` is deliberately
@@ -55,7 +57,9 @@ const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUNTIME_WIDTH_MUTATION = /unicode\s*\.\s*activeVersion\s*=|unicode\s*\.\s*register\s*\(/;
 
 function scanSources(relativeRoot: string): { file: string; text: string }[] {
-  const dir = new URL(relativeRoot, `file://${REPO_ROOT}`).pathname;
+  // fileURLToPath, not URL.pathname: on Windows the pathname is '/C:/...', which
+  // readdirSync resolves to 'C:\\C:\\...'.
+  const dir = fileURLToPath(new URL(relativeRoot, REPO_ROOT_URL)).replace(/\\/g, '/');
   const walk = (d: string): string[] =>
     readdirSync(d, { withFileTypes: true }).flatMap((entry) => {
       if (entry.name === 'node_modules' || entry.name === 'vendor') return [];

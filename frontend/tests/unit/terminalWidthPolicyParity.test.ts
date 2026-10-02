@@ -34,7 +34,9 @@ import { test } from 'node:test';
  * pin cannot see it, and that file is what noticed the divergence.
  */
 
-const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+const REPO_ROOT_URL = new URL('../../..', import.meta.url);
+// Forward slashes on every platform, so the relative names below compare equal on Windows too.
+const REPO_ROOT = fileURLToPath(REPO_ROOT_URL).replace(/\\/g, '/');
 
 const SERVER_TERMINAL = 'server/src/utils/headlessTerminal.ts';
 const BROWSER_TERMINAL = 'frontend/src/components/Terminal/TerminalView.tsx';
@@ -101,7 +103,7 @@ const RESOLVED_PARITY: ReadonlyMap<string, { value: string; note: string }> = ne
 const UNICODE_ADDON_PATTERN = /@xterm\/addon-unicode\d+|unicode\.activeVersion/;
 
 function read(relativePath: string): string {
-  return readFileSync(new URL(relativePath, `file://${REPO_ROOT}`), 'utf8');
+  return readFileSync(new URL(relativePath, REPO_ROOT_URL), 'utf8');
 }
 
 /**
@@ -110,8 +112,9 @@ function read(relativePath: string): string {
  * other module would have passed it silently. It now scans both source trees.
  */
 function scanSources(relativeRoot: string): { file: string; text: string }[] {
-  const root = new URL(relativeRoot, `file://${REPO_ROOT}`);
-  const dir = root.pathname;
+  // fileURLToPath, not URL.pathname: on Windows the pathname is '/C:/...', which
+  // readdirSync resolves to 'C:\\C:\\...'.
+  const dir = fileURLToPath(new URL(relativeRoot, REPO_ROOT_URL)).replace(/\\/g, '/');
   const walk = (d: string): string[] =>
     readdirSync(d, { withFileTypes: true }).flatMap((e) => {
       if (e.name === 'node_modules' || e.name === 'vendor') return [];

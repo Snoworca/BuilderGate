@@ -10,12 +10,15 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const FRONTEND_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const LOCK_DIR = join(FRONTEND_ROOT, 'node_modules', '.tmp', '.tsc-build.lock');
 const LOCK_MODULE = join(FRONTEND_ROOT, 'tools', 'tscBuildLock.mjs');
 const RUNNER = join(FRONTEND_ROOT, 'tools', 'with-tsc-build-lock.mjs');
+// A file:// URL, not the path: on Windows the ESM loader rejects 'C:\\...' as an unknown
+// scheme, the child dies before it reports anything, and the first case waited forever.
+const LOCK_MODULE_URL = pathToFileURL(LOCK_MODULE).href;
 
 function clearLock(): void {
   rmSync(LOCK_DIR, { recursive: true, force: true });
@@ -26,7 +29,7 @@ test('#55 a second holder cannot enter while the first holds the lock', async ()
   // The first process holds the lock until its stdin closes; the second is started while
   // that is true and must not report entry before the first reports release.
   const first = spawn(process.execPath, ['--input-type=module', '-e', `
-    import { acquireTscBuildLock } from ${JSON.stringify(LOCK_MODULE)};
+    import { acquireTscBuildLock } from ${JSON.stringify(LOCK_MODULE_URL)};
     const release = await acquireTscBuildLock({ label: 'first' });
     console.log('first:held');
     process.stdin.resume();
@@ -34,10 +37,15 @@ test('#55 a second holder cannot enter while the first holds the lock', async ()
   `], { cwd: FRONTEND_ROOT, stdio: ['pipe', 'pipe', 'inherit'] });
   const events: string[] = [];
   first.stdout.on('data', chunk => { for (const line of String(chunk).split('\n')) if (line.trim()) events.push(line.trim()); });
-  while (!events.includes('first:held')) await new Promise(resolve => setTimeout(resolve, 20));
+  let firstExit: number | null = null;
+  first.on('exit', code => { firstExit = code ?? -1; });
+  while (!events.includes('first:held')) {
+    assert.equal(firstExit, null, `the first holder exited (${firstExit}) before taking the lock`);
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
 
   const second = spawn(process.execPath, ['--input-type=module', '-e', `
-    import { acquireTscBuildLock } from ${JSON.stringify(LOCK_MODULE)};
+    import { acquireTscBuildLock } from ${JSON.stringify(LOCK_MODULE_URL)};
     const release = await acquireTscBuildLock({ label: 'second', timeoutMs: 30000 });
     console.log('second:held');
     release();
@@ -64,7 +72,7 @@ test('#55 a lock whose owner process is gone is stolen, not waited on', async ()
 
   const started = Date.now();
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
-    import { acquireTscBuildLock } from ${JSON.stringify(LOCK_MODULE)};
+    import { acquireTscBuildLock } from ${JSON.stringify(LOCK_MODULE_URL)};
     const release = await acquireTscBuildLock({ label: 'steal', timeoutMs: 5000 });
     console.log('held');
     release();
@@ -80,7 +88,7 @@ test('#55 waiting for a live lock times out with a message naming the lock', () 
   // This process is alive, so the lock is live and must be waited on, not stolen.
   writeFileSync(join(LOCK_DIR, 'owner.json'), JSON.stringify({ pid: process.pid, label: 'alive', since: Date.now() }));
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
-    import { acquireTscBuildLock } from ${JSON.stringify(LOCK_MODULE)};
+    import { acquireTscBuildLock } from ${JSON.stringify(LOCK_MODULE_URL)};
     await acquireTscBuildLock({ label: 'waiter', timeoutMs: 300 });
     console.log('held');
   `], { cwd: FRONTEND_ROOT, encoding: 'utf8' });

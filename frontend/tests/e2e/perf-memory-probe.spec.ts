@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, type CDPSession } from '@playwright/test';
 import { test, createOwnedWorkspaceViaApi } from './workspaceOwnershipFixture';
-import type { RegistryOptions } from './workspaceLeakGuard';
+import { deleteOwnedWorkspace, type RegistryOptions } from './workspaceLeakGuard';
 import { login, sendVisibleTerminalCommand } from './helpers';
 
 // Measurement, not a pass/fail test: CPU and memory of the browser and the server while many
@@ -139,7 +139,7 @@ test('measure: browser and server CPU and memory with many busy sessions', async
     await serverProbe(serverPid, 'snapshot', 0, 'heap.heapsnapshot');
     writeFileSync(`${OUT}\\server-heap-sampling.json.stop`, '');
     await serverHeap;
-    for (const grid of grids) await request.delete(`${ORIGIN}/api/workspaces/${grid.id}`, { headers });
+    for (const grid of grids) await deleteOwnedWorkspace({ ...registryOptions(), ownerId, workspaceId: grid.id });
     writeFileSync(`${OUT}\\marks.json`, JSON.stringify(marks, null, 2));
     return;
   }
@@ -156,7 +156,7 @@ test('measure: browser and server CPU and memory with many busy sessions', async
     }
     writeFileSync(`${OUT}\\server-heap-sampling.json.stop`, '');
     await serverHeap;
-    for (const grid of grids) await request.delete(`${ORIGIN}/api/workspaces/${grid.id}`, { headers });
+    for (const grid of grids) await deleteOwnedWorkspace({ ...registryOptions(), ownerId, workspaceId: grid.id });
     writeFileSync(`${OUT}\\marks.json`, JSON.stringify(marks, null, 2));
     return;
   }
@@ -188,7 +188,7 @@ test('measure: browser and server CPU and memory with many busy sessions', async
   await cdp.send('HeapProfiler.stopSampling');
 
   // Delete the load sessions and see whether memory comes back.
-  for (const grid of grids) await request.delete(`${ORIGIN}/api/workspaces/${grid.id}`, { headers });
+  for (const grid of grids) await deleteOwnedWorkspace({ ...registryOptions(), ownerId, workspaceId: grid.id });
   await page.waitForTimeout(20_000);
   await mark('after deleting the busy sessions');
   writeFileSync(`${OUT}\\marks.json`, JSON.stringify(marks, null, 2));
