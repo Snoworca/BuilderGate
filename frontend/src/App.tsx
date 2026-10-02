@@ -68,6 +68,8 @@ import {
   RestoreReportDialog,
   SessionSaveDialog,
   aiTabSignature,
+  isRestoreReportDismissed,
+  rememberRestoreReportDismissed,
   reportAutoDismissMs,
   saveButtonState,
   useSessionSnapshot,
@@ -181,14 +183,24 @@ function AppContent() {
     setSessionDialog('save');
   }, []);
   const restoreReport = useMemo(() => sessionSnapshot.status?.report ?? [], [sessionSnapshot.status]);
-  const showRestoreBanner = restoreReport.length > 0 && !restoreBannerDismissed && sessionDialog !== 'report';
+  const restoreReportId = sessionSnapshot.status?.reportId ?? null;
+  // FR-AITUI-015 AC-7: a report closed once (by hand or by its timer) stays closed after a reload.
+  const restoreReportPreviouslyDismissed = isRestoreReportDismissed(browserLocalStorage(), restoreReportId);
+  const dismissRestoreBanner = useCallback(() => {
+    setRestoreBannerDismissed(true);
+    rememberRestoreReportDismissed(browserLocalStorage(), restoreReportId);
+  }, [restoreReportId]);
+  const showRestoreBanner = restoreReport.length > 0
+    && !restoreBannerDismissed
+    && !restoreReportPreviouslyDismissed
+    && sessionDialog !== 'report';
   // FR-AITUI-015 AC-6: a report with nothing to look at goes away on its own.
   const restoreDismissMs = reportAutoDismissMs(restoreReport);
   useEffect(() => {
     if (!showRestoreBanner || restoreDismissMs === null) return undefined;
-    const timer = window.setTimeout(() => setRestoreBannerDismissed(true), restoreDismissMs);
+    const timer = window.setTimeout(dismissRestoreBanner, restoreDismissMs);
     return () => window.clearTimeout(timer);
-  }, [showRestoreBanner, restoreDismissMs]);
+  }, [showRestoreBanner, restoreDismissMs, dismissRestoreBanner]);
 
   // FR-AITUI-009 AC-6: a tab that just became an AI tab is on the save button at
   // once, not on the next 15 s poll.
@@ -809,7 +821,7 @@ function AppContent() {
         <RestoreReportBanner
           report={restoreReport}
           onOpen={() => setSessionDialog('report')}
-          onDismiss={() => setRestoreBannerDismissed(true)}
+          onDismiss={dismissRestoreBanner}
         />
       )}
       <div className="main">
@@ -1126,6 +1138,11 @@ function AppContent() {
       )}
     </div>
   );
+}
+
+/** localStorage, or null where it is unavailable or blocked. */
+function browserLocalStorage(): Storage | null {
+  try { return window.localStorage; } catch { return null; }
 }
 
 function App() {

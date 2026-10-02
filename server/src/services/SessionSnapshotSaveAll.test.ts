@@ -354,3 +354,31 @@ test('FR-AITUI-013 AC-1: the running command is shown without the shell quoting 
     assert.deepEqual(tabs[1].args, []);
   });
 });
+
+test('FR-AITUI-015 AC-7: each automatic restore gets its own report id, so a dismissed report stays dismissed', async () => {
+  await withFixture(async (f) => {
+    const first = f.make();
+    await first.initialize();
+    assert.equal(first.getStatus().reportId, null, 'no restore yet, nothing to dismiss');
+    await first.saveAll([{ tabId: 't3', mode: 'command', command: 'npm run dev' }]);
+    await first.autoRestore();
+    assert.equal(first.getStatus().reportId, null, 'a snapshot saved in this run is not restored, so there is no report');
+
+    const restarted = f.make();
+    await restarted.initialize();
+    await restarted.autoRestore();
+    const id = restarted.getStatus().reportId;
+    assert.equal(typeof id, 'string');
+    assert.ok(id);
+    assert.equal(restarted.getStatus().reportId, id, 'reading the status again (a page reload) returns the same id');
+
+    // The next restart restores a newer snapshot: a new report, a new id.
+    await restarted.saveAll([{ tabId: 't3', mode: 'command', command: 'npm run dev' }]);
+    const again = f.make();
+    await again.initialize();
+    await again.autoRestore();
+    const next = again.getStatus().reportId;
+    assert.ok(next);
+    assert.notEqual(next, id);
+  });
+});

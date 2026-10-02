@@ -3,4 +3,4 @@ export { SessionSaveDialog, type SessionSaveDialogProps } from './SessionSaveDia
 export { RestoreReportBanner, RestoreReportDialog, type RestoreReportBannerProps, type RestoreReportDialogProps } from './RestoreReport.tsx';
 export { useSessionSnapshot, type SessionSnapshotState } from './useSessionSnapshot.ts';
 export * from './sessionSnapshotModel.ts';
-export { reportAutoDismissMs } from './sessionSaveAllModel.ts';
+export { isRestoreReportDismissed, rememberRestoreReportDismissed, reportAutoDismissMs } from './sessionSaveAllModel.ts';

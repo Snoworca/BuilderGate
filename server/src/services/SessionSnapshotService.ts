@@ -6,6 +6,7 @@
 // shell in its saved folder and, once the shell is ready, gets its resume
 // command typed in without asking. The snapshot is used up by that one restart.
 
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -248,6 +249,11 @@ export class SessionSnapshotService {
   private savedInThisProcess = false;
   /** FR-AITUI-014 AC-5: what this server run's automatic resume did. */
   private report: RestoreReportItem[] = [];
+  /**
+   * FR-AITUI-015 AC-7: names this run's report, so a client that dismissed it can tell
+   * it apart from the next restart's. Not a time: two restores can share a timestamp.
+   */
+  private reportId: string | null = null;
   /** FR-AITUI-014 AC-4: resumed agents still being looked for, by tab. */
   private readonly waiting = new Map<string, { agent: AgentKind; deadline: number }>();
   private watchTimer: NodeJS.Timeout | null = null;
@@ -260,6 +266,7 @@ export class SessionSnapshotService {
     this.snapshot = null;
     this.savedInThisProcess = false;
     this.report = [];
+    this.reportId = null;
     if (!existsSync(this.dataPath)) return;
     try {
       const parsed = JSON.parse(readFileSync(this.dataPath, 'utf8')) as Partial<SessionSnapshot>;
@@ -421,13 +428,20 @@ export class SessionSnapshotService {
    * snapshot carried over from before a restart. A snapshot saved in this run
    * is still "saved" — its agents are running right now.
    */
-  getStatus(): { snapshot: SessionSnapshot | null; pendingCount: number; restorable: boolean; report: RestoreReportItem[] } {
+  getStatus(): {
+    snapshot: SessionSnapshot | null;
+    pendingCount: number;
+    restorable: boolean;
+    report: RestoreReportItem[];
+    reportId: string | null;
+  } {
     const pendingCount = this.snapshot?.entries.filter((entry) => entry.restore === 'pending').length ?? 0;
     return {
       snapshot: this.snapshot,
       pendingCount,
       restorable: pendingCount > 0 && !this.savedInThisProcess,
       report: this.report.map((item) => ({ ...item })),
+      reportId: this.reportId,
     };
   }
 
@@ -677,6 +691,7 @@ export class SessionSnapshotService {
     const tabIds = new Set(this.deps.listTabs().map((record) => record.tab.id));
     const processedAt = (this.deps.now ?? (() => new Date()))().toISOString();
     this.report = [];
+    this.reportId = randomUUID();
     for (const entry of pending) {
       const item = this.runEntry(entry, tabIds);
       entry.restore = item.result === 'failed' ? 'failed' : 'restored';

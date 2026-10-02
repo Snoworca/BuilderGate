@@ -48,6 +48,8 @@ export interface SnapshotStatus {
   restorable: boolean;
   /** FR-AITUI-014 AC-5: what this server run's automatic resume did. */
   report?: RestoreReportItem[];
+  /** FR-AITUI-015 AC-7: names this run's report; null when nothing was restored. */
+  reportId?: string | null;
 }
 
 export interface SaveResultItem {

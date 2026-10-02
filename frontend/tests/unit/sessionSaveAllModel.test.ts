@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   initialDraft,
+  isRestoreReportDismissed,
+  rememberRestoreReportDismissed,
   isValidSessionId,
   joinArgs,
   launcherOptions,
@@ -145,4 +147,27 @@ test('AC-2: the launcher a row already uses is always among the options, even be
   const options = launcherOptions({ claude: ['claude'], codex: ['codex'], hermes: ['hermes'], opencode: ['opencode'] }, { agent: 'codex', launcher: 'codexp' });
   assert.deepEqual(options.find((o) => o.agent === 'codex')?.launchers, ['codex', 'codexp']);
   assert.deepEqual(options.find((o) => o.agent === 'claude')?.launchers, ['claude']);
+});
+
+test('FR-AITUI-015 AC-7: a dismissed restore report stays dismissed across reloads, a new one shows', () => {
+  const store = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => { store.set(key, value); },
+  };
+  assert.equal(isRestoreReportDismissed(storage, 'run-1'), false, 'nothing dismissed yet');
+  rememberRestoreReportDismissed(storage, 'run-1');
+  assert.equal(isRestoreReportDismissed(storage, 'run-1'), true, 'the same report after a reload');
+  assert.equal(isRestoreReportDismissed(storage, 'run-2'), false, 'the next restart reports again');
+  assert.equal(isRestoreReportDismissed(storage, null), false, 'a server without report ids keeps the old behaviour');
+  rememberRestoreReportDismissed(storage, null);
+  assert.equal(store.size, 1, 'no id, nothing to remember');
+
+  const broken = {
+    getItem: () => { throw new Error('blocked'); },
+    setItem: () => { throw new Error('blocked'); },
+  };
+  assert.equal(isRestoreReportDismissed(broken, 'run-1'), false, 'blocked storage shows the banner instead of throwing');
+  rememberRestoreReportDismissed(broken, 'run-1');
+  assert.equal(isRestoreReportDismissed(null, 'run-1'), false);
 });
