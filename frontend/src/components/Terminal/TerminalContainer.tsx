@@ -3804,6 +3804,17 @@ export const TerminalContainer = memo(
           debugTailBytes: getUtf8ByteLength(hiddenOutputStateRef.current.debugTail),
         }, hiddenOutputStateRef.current.debugTail);
         terminalRef.current?.releasePending();
+        // Only the server can supply the screen now, so ask it directly. The screen
+        // repair below cannot: this replay holds the input barrier at 'replay-pending'
+        // until a snapshot arrives, and getScreenRepairReadiness refuses while it does,
+        // so the terminal stayed on its old screen and skipped live output until reload.
+        const snapshotRequest = send({ type: 'repair-replay', sessionId });
+        recordTerminalDebugEvent(sessionId, 'hidden_output_recovery_snapshot_requested', {
+          ok: snapshotRequest.ok,
+        });
+        if (!snapshotRequest.ok) {
+          finishHiddenOutputRecovery('restore-failed-snapshot-send-failed', false);
+        }
         if (isGridSurfaceRef.current) {
           runGridLayoutRepair('workspace');
         } else {
@@ -3820,6 +3831,7 @@ export const TerminalContainer = memo(
       recordVisibleOutputResyncState,
       requestScreenRepair,
       runGridLayoutRepair,
+      send,
       sessionId,
       syncInputTransportState,
     ]);

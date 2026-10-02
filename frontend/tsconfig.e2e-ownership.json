@@ -94,6 +94,10 @@
     "tests/e2e/workspace-dot-menu-icons.spec.ts",
     "tests/e2e/terminal-screen-repair-output-order.spec.ts",
     "tests/e2e/input-latency-probe.spec.ts",
-    "tests/e2e/perf-memory-probe.spec.ts"
+    "tests/e2e/perf-memory-probe.spec.ts",
+    "tests/e2e/pty-size-follows-view.spec.ts",
+    "tests/e2e/hidden-runtime-reveal-output.spec.ts",
+    "tests/e2e/hidden-reveal-restore-failed.spec.ts",
+    "tests/e2e/restore-report-dismiss.spec.ts"
   ]
 }
