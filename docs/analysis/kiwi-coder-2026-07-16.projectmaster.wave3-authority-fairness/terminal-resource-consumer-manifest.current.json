@@ -45,7 +45,7 @@
       "server/src/index.ts": "2f914c0c9a93e14518cee17550180538eb3d770da20b460e3303d46f65fcebcc",
       "server/src/schemas/config.schema.ts": "43f822a057541e86b753bb17dba55074103503f223c9c7e397bab5e5778d5ca9",
       "server/src/services/ConfigFileRepository.ts": "26c76728f01a3b2b913feb95bac5e131a328da0e8e99ef946963e7b44ceb3132",
-      "server/src/services/McpToolService.ts": "09335a041f77a818923c118e9c7af88e7c494497dff5a6e780d110ab1a5829be",
+      "server/src/services/McpToolService.ts": "c93030578d5e04d0c085885d2c08a3703c780e2ab35bbc7144bcd526d1ab19f0",
       "server/src/services/RuntimeConfigStore.test.ts": "e61f4457e38b29be46dfec551c344d0d8efd967c5305ac0cdc27024614429d78",
       "server/src/services/RuntimeConfigStore.ts": "1f1e0c13cf2d58ea19d47179bbdbab2b91f52e17f1ac200a38e3eb4254e718ef",
       "server/src/services/SessionManager.ts": "4f96550814e0dffa79728727c70c72a6c894e732342fd277e8fd81faea01b9f4",
@@ -66,7 +66,7 @@
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "1951ebfc4b7d5ff0917d115d8c2c04c71340d145c77a19ae10ddab04cf84ca70",
       "tools/wave3/terminal-resource-policy-differential.ts": "8b361e3593526d0e0ab8215af60d71ea3c0ca30bab4c3351ac8883c54c9736d2"
     },
-    "sourceSetSha256": "91320a1220aa4ee4e5fd85b7157300e72c99cbdf0d24cd11aff22963365fd6a2",
+    "sourceSetSha256": "6e48c8cdb54c954df48d073a5653b2a0b2286682604047202fb9bf5ec1f827d2",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "55c0fc9e31e53b1087ced80ea76b70513b7310ff17405820b346bb7d6c37ed13",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"
