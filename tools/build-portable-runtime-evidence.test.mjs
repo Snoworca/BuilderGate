@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -33,7 +33,9 @@ function generationRootOf(outputDir, generationId = GENERATION_ID) {
  * a current.json pointer at the evidence root plus an immutable generations/<id>/ tree.
  */
 function createBundleFixture(overrides = {}) {
-  const outputDir = mkdtempSync(join(tmpdir(), 'buildergate-portable-evidence-'));
+  // realpath: macOS's tmpdir is under /var -> /private/var, a symlinked ancestor
+  // the validator rightly rejects. The fixture is about the bundle, not the host.
+  const outputDir = mkdtempSync(join(realpathSync(tmpdir()), 'buildergate-portable-evidence-'));
   const canaryRecordPath = join(outputDir, 'canary-record.json');
   const generationId = overrides.generationId ?? GENERATION_ID;
   const rawEvidencePaths = overrides.rawEvidencePaths ?? SIDECAR_PATHS;

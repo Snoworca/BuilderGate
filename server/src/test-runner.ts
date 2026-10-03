@@ -5069,6 +5069,9 @@ function testSessionManagerCreateSessionFallsBackWhenConfiguredShellMissing(): v
   }, {
     execFileSyncFn: (() => Buffer.from('')) as any,
     platform: 'linux',
+    // The premise is "zsh is missing". Without this the probe runs the host's real
+    // `which zsh`, which succeeds on every macOS host (/bin/zsh), so the test failed there.
+    isCommandAvailableFn: (cmd: string) => cmd !== 'zsh',
     spawnPty: ((shell: string, _args: string[], options: { cols?: number; rows?: number; useConpty?: boolean }) => {
       observedShell = shell;
       return {

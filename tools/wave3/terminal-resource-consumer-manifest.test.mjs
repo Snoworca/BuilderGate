@@ -699,6 +699,10 @@ const focused = run(
   [
     join(repositoryRoot, 'server/node_modules/tsx/dist/cli.mjs'),
     '--test',
+    // The parse below reads spec-reporter lines. Node 22 picks TAP for a non-TTY stdout
+    // (spec only from Node 23), so without this the gate failed on a Node 22 host while
+    // the suites themselves passed.
+    '--test-reporter=spec',
     'src/services/TerminalResourcePolicy.test.ts',
     'src/services/RuntimeConfigStore.test.ts',
   ],

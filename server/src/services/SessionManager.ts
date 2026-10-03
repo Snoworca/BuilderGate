@@ -7,6 +7,7 @@ import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync, statSync 
 import { execFile, execFileSync, execSync } from 'child_process';
 import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
+import { installNodePtySpawnHelperGuard } from '../utils/nodePtySpawnHelper.js';
 import { Session, SessionDTO, SessionStatus, UpdateSessionRequest, ShellType, ShellInfo } from '../types/index.js';
 import type {
   HeadlessResourceLimitsConfig,
@@ -1433,6 +1434,16 @@ export class SessionManager {
     this.existsSyncFn = deps.existsSyncFn ?? existsSync;
     this.injectedIsCommandAvailable = deps.isCommandAvailableFn ?? null;
     this.spawnPty = deps.spawnPty ?? pty.spawn;
+    if (!deps.spawnPty) {
+      // OPS-BGSTAB-017 AC-7: node-pty's macOS spawn-helper is not executable as
+      // shipped (and lives in the pkg snapshot when packaged). Keyed to the real
+      // host, not this.platform; a no-op on Windows and Linux.
+      try {
+        installNodePtySpawnHelperGuard();
+      } catch (error) {
+        console.warn(`[SessionManager] node-pty spawn-helper guard not installed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     this.isPackaged = deps.isPackagedFn ?? (() => Boolean((process as NodeJS.Process & { pkg?: unknown }).pkg));
     this.processInspector = deps.processInspector ?? inspectSessionProcessBestEffort;
     this.processTreeTerminator = deps.processTreeTerminator ?? new DefaultProcessTreeTerminator({ platform: this.platform });
