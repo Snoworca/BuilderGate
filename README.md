@@ -272,7 +272,7 @@ npm run build:linux-amd64
 npm run build:macos-arm64
 ```
 
-Output goes to `dist/bin/<target>-<version>/`, e.g. `dist/bin/win-amd64-0.10.9/BuilderGate.exe`. Pushing a `v*.*.*` tag runs the GitHub Actions release workflow, which builds every target and publishes the release.
+Output goes to `dist/bin/<target>-<version>/`, e.g. `dist/bin/win-amd64-0.10.10/BuilderGate.exe`. Pushing a `v*.*.*` tag runs the GitHub Actions release workflow, which builds every target and publishes the release.
 
 The Windows MSI is built from that folder with `node tools/build-msi.js --profile win-amd64` (or `win-arm64`) and lands in `dist/msi/`. It needs the WiX Toolset v5 CLI: `dotnet tool install --global wix --version 5.0.2`.
 
@@ -576,7 +576,7 @@ npm run build:linux-amd64
 npm run build:macos-arm64
 ```
 
-결과는 `dist/bin/<target>-<version>/` 에 생깁니다(예: `dist/bin/win-amd64-0.10.9/BuilderGate.exe`). `v*.*.*` 태그를 푸시하면 GitHub Actions 릴리즈 워크플로가 모든 대상을 빌드해 릴리즈에 올립니다.
+결과는 `dist/bin/<target>-<version>/` 에 생깁니다(예: `dist/bin/win-amd64-0.10.10/BuilderGate.exe`). `v*.*.*` 태그를 푸시하면 GitHub Actions 릴리즈 워크플로가 모든 대상을 빌드해 릴리즈에 올립니다.
 
 Windows MSI 는 그 폴더로 `node tools/build-msi.js --profile win-amd64`(또는 `win-arm64`)를 실행해 만들며 `dist/msi/` 에 생깁니다. WiX Toolset v5 CLI 가 필요합니다: `dotnet tool install --global wix --version 5.0.2`.
 
