@@ -35,6 +35,7 @@ import {
 } from './settingsDraftHelpers';
 import { availableLanguages, readLanguagePreference, t, writeLanguagePreference } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
+import { APP_VERSION } from '../../utils/appVersion.ts';
 import './SettingsPage.css';
 
 interface SecretDraft {
@@ -369,6 +370,7 @@ export function SettingsPage({ visible, onBack }: Props) {
         <div className="settings-toolbar-heading">
           <h2>{t('settings.page.title')}</h2>
           <p>{t('settings.page.description')}</p>
+          <p className="settings-version">{t('settings.page.version', { version: APP_VERSION })}</p>
         </div>
         <div className="settings-toolbar-actions">
           <Button variant="secondary" onClick={requestBack}>{t('common.close')}</Button>

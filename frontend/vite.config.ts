@@ -5,15 +5,23 @@
 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'fs';
 import path from 'path';
 import { shouldInlineAsset } from './vite.assetInlining';
 
 const serverPort = parseInt(process.env.DEV_SERVER_PORT || '2002', 10);
 const frontendPort = parseInt(process.env.DEV_FRONTEND_PORT || '2003', 10);
 
+// FR-ARCH-007: the release version is the root package.json's (the release process bumps only
+// that one), baked into the bundle so the settings page shows what is actually running.
+const releaseVersion = (JSON.parse(readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')) as { version: string }).version;
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __BUILDERGATE_VERSION__: JSON.stringify(releaseVersion),
+  },
   build: {
     // Fonts must stay as files: the server's CSP is font-src 'self'. See vite.assetInlining.ts.
     assetsInlineLimit: (filePath: string) => shouldInlineAsset(filePath),

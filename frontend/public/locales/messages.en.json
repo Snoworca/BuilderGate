@@ -677,6 +677,7 @@
   "settings.language.label": "Display language",
   "settings.language.title": "Language",
   "settings.page.description": "Settings you can change without restarting the server. Edit the rest in config.json5.",
+  "settings.page.version": "BuilderGate v{version}",
   "settings.page.fixBeforeSave": "Fix the items below before saving.",
   "settings.page.loadFailed": "Could not load settings. {error}",
   "settings.page.loading": "Loading settings…",

@@ -664,6 +664,7 @@
   "settings.language.label": "표시 언어",
   "settings.language.title": "언어",
   "settings.page.description": "서버를 다시 시작하지 않고 바꿀 수 있는 설정입니다. 나머지는 config.json5에서 고칩니다.",
+  "settings.page.version": "BuilderGate v{version}",
   "settings.page.fixBeforeSave": "아래 항목을 고쳐야 저장할 수 있습니다.",
   "settings.page.loadFailed": "설정을 불러오지 못했습니다. {error}",
   "settings.page.loading": "설정을 불러오는 중…",
