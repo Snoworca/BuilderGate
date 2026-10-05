@@ -3762,6 +3762,38 @@ export const TerminalContainer = memo(
         debugTailBytes: getUtf8ByteLength(skippedBeforeRecovery.debugTail),
       }, skippedBeforeRecovery.debugTail);
 
+      // Only the server can supply the screen now, so ask it directly. The screen repair
+      // requested alongside cannot: this replay holds the input barrier at 'replay-pending'
+      // until a snapshot arrives, and getScreenRepairReadiness refuses while it does.
+      const requestServerScreen = (reason: string) => {
+        const snapshotRequest = send({ type: 'repair-replay', sessionId });
+        recordTerminalDebugEvent(sessionId, 'hidden_output_recovery_snapshot_requested', {
+          ok: snapshotRequest.ok,
+          reason,
+        });
+        if (!snapshotRequest.ok) {
+          finishHiddenOutputRecovery(`${reason}-snapshot-send-failed`, false);
+        }
+        if (isGridSurfaceRef.current) {
+          runGridLayoutRepair('workspace');
+        } else {
+          requestScreenRepair('workspace');
+        }
+      };
+
+      // REL-BGSTAB-044: the local snapshot was saved before the skipped output, so it
+      // brings back whatever that output changed — an application that exited while
+      // hidden came back with its alternate screen and mouse tracking on, and the shell
+      // then received every mouse move as typed text. The server's screen is current and
+      // carries the current modes. An active visible-output resync keeps its provisional
+      // local restore below; it fetches the authoritative screen itself.
+      if (activeVisibleOutputResyncRef.current === null) {
+        requestServerScreen('skipped-output');
+        return () => {
+          cancelled = true;
+        };
+      }
+
       const restoreMutation = visibleOutputMutationFenceRef.current!.runSpeculative(() => (
         terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false)
       ));
@@ -3804,22 +3836,7 @@ export const TerminalContainer = memo(
           debugTailBytes: getUtf8ByteLength(hiddenOutputStateRef.current.debugTail),
         }, hiddenOutputStateRef.current.debugTail);
         terminalRef.current?.releasePending();
-        // Only the server can supply the screen now, so ask it directly. The screen
-        // repair below cannot: this replay holds the input barrier at 'replay-pending'
-        // until a snapshot arrives, and getScreenRepairReadiness refuses while it does,
-        // so the terminal stayed on its old screen and skipped live output until reload.
-        const snapshotRequest = send({ type: 'repair-replay', sessionId });
-        recordTerminalDebugEvent(sessionId, 'hidden_output_recovery_snapshot_requested', {
-          ok: snapshotRequest.ok,
-        });
-        if (!snapshotRequest.ok) {
-          finishHiddenOutputRecovery('restore-failed-snapshot-send-failed', false);
-        }
-        if (isGridSurfaceRef.current) {
-          runGridLayoutRepair('workspace');
-        } else {
-          requestScreenRepair('workspace');
-        }
+        requestServerScreen('restore-failed');
       });
 
       return () => {
