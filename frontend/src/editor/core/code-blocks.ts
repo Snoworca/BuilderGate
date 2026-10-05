@@ -76,7 +76,7 @@ class CodeWidget extends WidgetType {
     return other.code === this.code && other.language === this.language;
   }
 
-  toDOM(): HTMLElement {
+  toDOM(view: EditorView): HTMLElement {
     const host = document.createElement('pre');
     host.className = 'dl-code';
     host.dataset.language = this.language;
@@ -89,7 +89,27 @@ class CodeWidget extends WidgetType {
       host.innerHTML = html;
     });
 
+    // FR-MDE-024: a click opens the block for editing. Left to CodeMirror, a click on a
+    // replaced block widget is ignored and the caret never enters, so a highlighted block
+    // could not be edited by clicking it. The caret goes to the first code line, which
+    // reveals the source (`buildDecorations` drops the widget once the selection touches it).
+    host.addEventListener('mousedown', (event) => {
+      if (view.state.readOnly) return;
+      event.preventDefault();
+      const pos = view.posAtDOM(host);
+      if (pos < 0) return;
+      const fence = view.state.doc.lineAt(pos);
+      const anchor = Math.min(fence.to + 1, view.state.doc.length);
+      view.focus();
+      view.dispatch({ selection: { anchor }, scrollIntoView: false });
+    });
+
     return host;
+  }
+
+  /** Our listener above decides where the caret goes; CodeMirror stays out of it. */
+  ignoreEvent(event: Event): boolean {
+    return event.type === 'mousedown' || event.type === 'click';
   }
 }
 

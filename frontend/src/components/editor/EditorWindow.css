@@ -8,10 +8,15 @@
  * 상류를 다시 들여올 때 한쪽만 움직여 조용히 어긋난다. opt-in 은
  * `EditorWindow.tsx` 의 편집기 호스트가 `data-theme="light"` 로 건다.
  *
- * 여기서 따로 정하는 것은 요구사항이 벤더 기본값과 다른 한 가지뿐이다. */
+ * 여기서 따로 정하는 것은 요구사항이 벤더 기본값과 다른 것뿐이다(본문 글자색, 코드 블록 배경). */
 .editor-window-surface [data-theme='light'] .atomic-cm-editor {
   /* 벤더의 밝은 테마는 본문을 #24292f 로 둔다. 요구사항이 지정한 것은 검은색이다. */
   --atomic-editor-fg: #000000;
+
+  /* FR-MDE-024: code blocks are grey. The vendor's light palette uses a faint lavender
+   * (#f3f1fb) that is nearly indistinguishable from the white page, with a violet rail. */
+  --atomic-editor-code-bg: #eef0f2;
+  --atomic-editor-code-rail: #c9ced4;
 
   /* 읽는 열의 폭. 벤더는 이 변수를 `.cm-content` 의 `max-width` 로만 쓰고
    * `margin-inline: auto` 로 가운데 정렬까지 이미 해 둔다

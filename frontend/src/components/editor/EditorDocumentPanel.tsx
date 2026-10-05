@@ -43,7 +43,7 @@ import {
 } from 'react';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { AtomicCodeMirrorEditor, doculightExtensions } from '../../editor';
+import { AtomicCodeMirrorEditor, CODE_BLOCK_LANGUAGES, doculightExtensions } from '../../editor';
 import type { AtomicCodeMirrorEditorHandle } from '../../editor';
 import { analyzeText, encodeForSave, normalizeInsertedLineBreaks } from '../../editor/lineEndings.ts';
 import { resolveEditorMode } from '../../editor/editorMode.ts';
@@ -711,6 +711,9 @@ export function EditorDocumentPanel({
           {view === 'markdown' && (
             <AtomicCodeMirrorEditor
               {...editorMountProps}
+              // FR-MDE-024 AC-3 / FR-MDE-026: without this the vendor editor highlights nothing
+              // inside a fence while the cursor is in it (its default is an empty language list).
+              codeLanguages={CODE_BLOCK_LANGUAGES}
               readOnly={access.readOnly}
               editorHandleRef={editorHandleRef}
             />

@@ -85,8 +85,41 @@
   padding: 1em 0;
 }
 
+/* FR-MDE-024: the highlighted block reads as a block — the same backdrop and rail as the
+ * fenced lines it replaces (`.cm-line.cm-atomic-fenced-code`), so moving the cursor in and
+ * out does not change how the block looks. */
+.dl-code {
+  padding: 0.75em 0.75rem;
+  background: var(--atomic-editor-code-bg, #f3f4f6);
+  box-shadow: inset 2px 0 0 var(--atomic-editor-code-rail, #d0d7de);
+  font-family: var(--atomic-editor-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.92em;
+  white-space: pre-wrap;
+}
+
 .dl-code > pre {
   margin: 0;
+}
+
+/* shiki paints its own page-white background; the block's backdrop is ours. */
+.dl-code pre.shiki {
+  background: transparent !important;
+  font: inherit;
+  white-space: inherit;
+}
+
+/* The dark editor theme (FR-MDE-020) switches to the dark palette shiki rendered alongside. */
+/* FR-MDE-026 AC-3: shiki token colours laid over a fence being edited
+ * (`core/code-edit-highlight.ts`). The vendor wraps fenced code text in its own span with a
+ * single accent colour, nested inside ours, so that span takes the token's colour instead. */
+.dl-shiki-token * {
+  color: inherit !important;
+}
+
+[data-editor-theme='dark'] .dl-code pre.shiki,
+[data-editor-theme='dark'] .dl-code pre.shiki span,
+[data-editor-theme='dark'] .dl-shiki-token {
+  color: var(--shiki-dark) !important;
 }
 
 /* 본문 태그 칩 (`core/tag-decoration.ts` 의 `TagWidget`).

@@ -1,7 +1,9 @@
 import type { Extension } from '@codemirror/state';
 
 import { highlightCode, isHighlightable } from './core/code-highlight.js';
+import { boldKeymap } from './core/bold-toggle.js';
 import { codeBlocks } from './core/code-blocks.js';
+import { codeEditHighlight } from './core/code-edit-highlight.ts';
 import { mathBlocks } from './core/math-decoration.js';
 import { pasteUploadExtension, type AttachUpload } from './core/paste-upload.js';
 import { mermaidBlocks } from './core/mermaid-blocks.js';
@@ -51,7 +53,11 @@ export function doculightExtensions(
     // 뚫려도 다이어그램이 이긴다.
     mermaidBlocks(),
     codeBlocks(),
+    // FR-MDE-026 AC-3: languages CodeMirror cannot parse are coloured from shiki tokens while edited.
+    codeEditHighlight(),
     mathBlocks(),
+    // FR-MDE-025: the vendored editor has no bold shortcut.
+    boldKeymap(),
     tagDecorations(options.onTagClick),
     // 후보를 받아 올 곳이 없어도 얹는다 — 입력·데코레이션은 후보와 무관하게
     // 동작해야 하고, 빼 두면 그 자리에서만 `[[` 가 평범한 글자가 된다.
