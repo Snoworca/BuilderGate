@@ -57,5 +57,8 @@
     "build:portable:linux-arm64": "node tools/build-portable-runtime.js --profile linux-arm64",
     "build:portable:macos-arm64": "node tools/build-portable-runtime.js --profile macos-arm64",
     "build:portable-all": "node tools/build-portable-runtime.js --all-supported"
+  },
+  "dependencies": {
+    "speckiwi": "^4.0.0"
   }
 }
