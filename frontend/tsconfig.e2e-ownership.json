@@ -99,6 +99,7 @@
     "tests/e2e/hidden-runtime-reveal-output.spec.ts",
     "tests/e2e/hidden-reveal-restore-failed.spec.ts",
     "tests/e2e/restore-report-dismiss.spec.ts",
-    "tests/e2e/markdown-editor-codeblock.spec.ts"
+    "tests/e2e/markdown-editor-codeblock.spec.ts",
+    "tests/e2e/mouse-mode-after-exit.spec.ts"
   ]
 }
