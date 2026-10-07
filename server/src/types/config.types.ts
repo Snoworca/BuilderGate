@@ -93,6 +93,15 @@ export interface SessionConfig {
   idleDelayMs: number;
   runningDelayMs?: number;
   processCleanup?: SessionProcessCleanupConfig;
+  /** FR-AITUI-019: the session auto save. */
+  autoSave?: SessionAutoSaveConfig;
+  /** FR-AITUI-019: how many manual saves are kept. */
+  snapshotRetention?: number;
+}
+
+export interface SessionAutoSaveConfig {
+  enabled: boolean;
+  intervalMinutes: number;
 }
 
 export type SessionProcessCleanupMode = 'legacy' | 'observe' | 'enforce';

@@ -239,6 +239,7 @@
     "./tests/unit/editorWindowCloseControl.test.ts",
     "./tests/unit/sessionCandidateRefresh.test.ts",
     "./tests/unit/sessionSnapshotModel.test.ts",
+    "./tests/unit/sessionRestoreModel.test.ts",
     "./tests/unit/sessionSaveAllModel.test.ts",
     "./tests/unit/terminalGeometryConvergence.test.ts",
     "./tests/unit/terminalMouseEncoding.test.ts",

@@ -153,7 +153,8 @@ test('FR-AITUI-013 AC-3/AC-4: saveAll writes agent, command and shell entries wi
     assert.equal(shell.resumeCommand, '');
     assert.equal(shell.cwd, CWD_B);
     assert.ok(snapshot.entries.every((entry) => entry.restore === 'pending'));
-    const onDisk = JSON.parse(readFileSync(f.dataPath, 'utf8'));
+    // FR-AITUI-017 AC-1/AC-2: a manual save is its own file in the list.
+    const onDisk = JSON.parse(readFileSync(path.join(path.dirname(f.dataPath), 'session-snapshots', `${snapshot.id}.json`), 'utf8'));
     assert.equal(onDisk.entries.length, 4);
   });
 });
@@ -263,11 +264,11 @@ test('FR-AITUI-014 AC-2/AC-3/AC-4: after a restart every entry is typed once and
     assert.equal(settled[0].sessionId, CLAUDE_ID);
     assert.equal(restarted.getStatus().pendingCount, 0, 'the snapshot is used up');
 
-    // AC-3: the next restart types nothing.
+    // AC-3 is superseded by FR-AITUI-018 AC-1 (2026-10-08): every start restores the newest save again.
     const again = f.make();
     await again.initialize();
-    assert.deepEqual(await again.autoRestore(), []);
-    assert.equal(f.scheduled.length, 3);
+    assert.equal((await again.autoRestore()).length, 4);
+    assert.equal(f.scheduled.length, 6);
   });
 });
 

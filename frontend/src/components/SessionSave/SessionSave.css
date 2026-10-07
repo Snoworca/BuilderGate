@@ -212,3 +212,95 @@
   .session-report-detail, .session-report-row > .ui-button { grid-column: 2; }
   .session-save-all-toggle { margin-left: 0; }
 }
+
+/* FR-AITUI-018 AC-4..AC-7 — the save | restore tabs and the restore tab.
+   Design: docs/research/2026-10-08.session-restore-tab-design.html */
+.session-save-tabs { display: flex; gap: var(--sp-1); padding: 0 var(--sp-6); border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+.session-save-tab {
+  height: var(--ctl-lg);
+  padding: 0 var(--sp-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.session-save-tab:hover { color: var(--fg); }
+.session-save-tab[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--fg-strong); font-weight: var(--fw-semibold); }
+.session-save-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.session-restore { flex: 1 1 auto; min-height: 0; display: flex; }
+.session-restore-side { width: 320px; flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+.session-restore-side-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--sp-4); }
+.session-restore-side-foot { padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line); }
+.session-restore-link { padding: 0; border: 0; background: none; font-family: inherit; font-size: var(--fs-xs); color: var(--accent-text); cursor: pointer; }
+.session-restore-link:hover { text-decoration: underline; }
+.session-restore-sec { display: flex; flex-direction: column; gap: var(--sp-2); }
+.session-restore-sec-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.session-restore-sec-title { font-size: var(--fs-2xs); font-weight: var(--fw-semibold); letter-spacing: 0.04em; color: var(--fg-muted); }
+.session-restore-sec-meta { font-size: var(--fs-2xs); color: var(--fg-faint); }
+.session-restore-none { font-size: var(--fs-xs); color: var(--fg-muted); padding: var(--sp-2) 0; }
+.session-restore-day { display: flex; flex-direction: column; gap: var(--sp-2); }
+.session-restore-day + .session-restore-day { margin-top: var(--sp-2); }
+.session-restore-date { font-size: var(--fs-xs); color: var(--fg-faint); padding: 2px 2px 0; }
+.session-restore-item { display: flex; align-items: stretch; gap: var(--sp-1); }
+.session-restore-card {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  padding: 10px var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.session-restore-card:hover { border-color: var(--line-strong); }
+.session-restore-card[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); }
+.session-restore-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.session-restore-card-top { display: flex; align-items: center; gap: var(--sp-2); width: 100%; flex-wrap: wrap; }
+.session-restore-card-time { font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--fg-strong); }
+.session-restore-card-sub { font-size: var(--fs-xs); color: var(--fg-muted); }
+.session-restore-pill { font-size: var(--fs-2xs); padding: 2px var(--sp-2); border-radius: var(--r-pill); white-space: nowrap; }
+.session-restore-pill.is-accent { background: var(--accent-tint); color: var(--accent-text); }
+.session-restore-pill.is-ok { background: var(--ok-tint); color: var(--ok-text); }
+.session-restore-pill.is-warn { background: var(--warn-tint); color: var(--warn-text); }
+
+.session-restore-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.session-restore-placeholder { margin: var(--sp-6); }
+.session-restore-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5) var(--sp-3); border-bottom: 1px solid var(--line); }
+.session-restore-head-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.session-restore-title { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--fg-strong); }
+.session-restore-rows { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--sp-1) 0 var(--sp-3); }
+.session-restore-grid { display: grid; grid-template-columns: 32px minmax(110px, 170px) 84px minmax(0, 1fr) 150px; gap: 0 var(--sp-3); }
+.session-restore-cols { padding: var(--sp-2) var(--sp-5); font-size: var(--fs-2xs); font-weight: var(--fw-semibold); color: var(--fg-faint); border-bottom: 1px solid var(--line); }
+.session-restore-ws { padding: var(--sp-3) var(--sp-5) var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--fg-muted); }
+.session-restore-row { align-items: start; padding: 10px var(--sp-5); border-bottom: 1px solid var(--line); }
+.session-restore-check { display: flex; padding-top: 1px; }
+.session-restore-check input, .session-restore-cmd input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.session-restore-name { color: var(--fg-strong); font-weight: var(--fw-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-restore-stack { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.session-restore-mono { font-family: var(--font-mono); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-restore-mono.is-muted { color: var(--fg-muted); }
+.session-restore-session { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.session-restore-command { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--warn-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-restore-cmd { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--fg-muted); cursor: pointer; min-width: 0; }
+.session-restore-target { font-size: var(--fs-xs); }
+.session-restore-target.is-ok { color: var(--ok-text); }
+.session-restore-target.is-new { color: var(--warn-text); }
+.session-restore-note { font-size: var(--fs-2xs); color: var(--fg-faint); }
+
+@media (max-width: 760px) {
+  .session-restore { flex-direction: column; overflow-y: auto; }
+  .session-restore-side { width: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+  .session-restore-grid { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .session-restore-grid > :nth-child(4), .session-restore-grid > :nth-child(5) { grid-column: 2 / -1; }
+  .session-restore-cols { display: none; }
+}

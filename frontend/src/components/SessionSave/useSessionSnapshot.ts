@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { sessionSnapshotApi } from '../../services/api.ts';
 import type { AgentTabCandidate, SnapshotStatus } from './sessionSnapshotModel.ts';
 import type { RestoreReportItem, SaveItem, SnapshotPreview } from './sessionSaveAllModel.ts';
+import type { HandRestoreItem, SnapshotDetail, SnapshotList } from './sessionRestoreModel.ts';
 
 const CANDIDATE_POLL_MS = 15_000;
 /** While a resumed agent is still being looked for, the report is read this often. */
@@ -17,6 +18,11 @@ export interface SessionSnapshotState {
   saveAll: (items: SaveItem[]) => Promise<void>;
   retry: (item: SaveItem) => Promise<RestoreReportItem>;
   discard: () => Promise<void>;
+  listSnapshots: () => Promise<SnapshotList>;
+  getSnapshot: (id: string) => Promise<SnapshotDetail>;
+  deleteSnapshot: (id: string) => Promise<void>;
+  restoreFrom: (id: string, items: HandRestoreItem[], activeWorkspaceId: string | null) => Promise<RestoreReportItem[]>;
+  acknowledgeReport: (reportId: string) => Promise<void>;
 }
 
 export function useSessionSnapshot(enabled: boolean): SessionSnapshotState {
@@ -72,5 +78,19 @@ export function useSessionSnapshot(enabled: boolean): SessionSnapshotState {
     await refresh();
   }, [refresh]);
 
-  return { status, candidates, refresh, preview, saveAll, retry, discard };
+  const listSnapshots = useCallback(() => sessionSnapshotApi.listSnapshots(), []);
+  const getSnapshot = useCallback((id: string) => sessionSnapshotApi.getSnapshot(id), []);
+  const deleteSnapshot = useCallback(async (id: string) => {
+    await sessionSnapshotApi.deleteSnapshot(id);
+    await refresh();
+  }, [refresh]);
+  const restoreFrom = useCallback(
+    (id: string, items: HandRestoreItem[], activeWorkspaceId: string | null) => sessionSnapshotApi.restoreFrom(id, items, activeWorkspaceId),
+    [],
+  );
+  const acknowledgeReport = useCallback(async (reportId: string) => {
+    await sessionSnapshotApi.acknowledgeReport(reportId);
+  }, []);
+
+  return { status, candidates, refresh, preview, saveAll, retry, discard, listSnapshots, getSnapshot, deleteSnapshot, restoreFrom, acknowledgeReport };
 }

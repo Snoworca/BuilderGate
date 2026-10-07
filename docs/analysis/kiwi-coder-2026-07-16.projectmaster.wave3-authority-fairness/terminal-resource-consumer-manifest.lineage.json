@@ -7,14 +7,14 @@
   },
   "current": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.current.json",
-    "sha256": "56f5b72ee41eb1cbfc9d3a22412adb79424f0e32c726bf7530a7d2e1eb1b8b30",
+    "sha256": "faa70eef2508f098f98a7aab2a6cdbad1c78a74de73dbf3e793d2aa7e693b1c6",
     "sourceCount": 42,
-    "sourceSetSha256": "ed170d9bd3d84e94657e73ef6c5f71a20d7e36f2b66e79727b2a5bfa3b0c017f",
+    "sourceSetSha256": "56cda1ac0c6f993515ebc85cf4b791cd1db3b66dcb25b24fb4d9b0a85a7a7eca",
     "exactConsumerTuples": 88,
     "classifications": 13
   },
   "semanticInventory": {
-    "sha256": "5af43d2a47e892f326f4552f2d7679a05da526f373dbae559b30416b88e32ce4",
+    "sha256": "54b462966be17b54fa9049e7f9ffd2d03f90662ac27eaaa4b4a1be183f6083c1",
     "historicalEqualsCurrent": false,
     "divergence": {
       "reason": "evidence moved: xterm option assembly extracted to terminalViewAttributes, the scheduler byte enqueue was renamed, and the terminal runtime callbacks were named so the catalog can pin symbols instead of useEffect source offsets. decisions changed: REL-BGSTAB-007 AC-1 retired the scrollbackLines divergence, so all three scrollback consumers now read the canonical resourceLimits.terminal.scrollbackLines decision instead of a legacy source; REL-BGSTAB-023 registered resourceLimits.terminal.checkpointMaxBytes, adding one decision to browser.terminal.recovery-scheduler at the checkpoint-write-coordinator boundary; and REL-BGSTAB-009 extracted the grace lane out of WebSocketProvider#bufferGraceMessage into terminalGraceBuffer#applyGraceBufferedMessage with an identical body, relocating the four visibleOutputQueueMaxBytes/visibleOutputMaxChunks grace tuples without changing any decision",
@@ -50,7 +50,7 @@
         "introduced": [
           "{\"path\":\"frontend/src/utils/terminalWriteCoordinator.ts\",\"classification\":\"uncatalogueable\",\"symbol\":\"createTerminalWriteCoordinator\",\"evidenceSignature\":\"options.checkpointMaxBytes\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"Bounds on checkpointMaxBytes and checkpointMaxChunks received as plain options, so the access traces to no trusted getter and resolves to no canonical key. All five evidenceRole values yield roles=undefined; no catalogue row can describe it. Cataloguing requires the AST matcher to resolve delegated parameters.\"}",
           "{\"path\":\"server/src/index.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"maxEntries: 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here caps MCP claim codes, not resourceLimits.snapshots.maxEntries. It is passed to McpToolService and never reaches a terminal resource decision.\"}",
-          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"7a7822e6c551e7925d142cb80242000d9a25aacb32206c133c18d3bd90feb2b7\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}",
+          "{\"path\":\"server/src/services/ConfigFileRepository.ts\",\"classification\":\"persistence-boundary\",\"symbol\":\"applyEditableValues\",\"evidenceSignature\":\"function applyEditableValues\",\"accessEvidenceSha256\":\"2c85409ae3f2afeb67f13cbd98fd850952196dca20d8737af010159796b982b0\",\"reason\":\"Persists configuration; it is not a terminal runtime consumer.\"}",
           "{\"path\":\"server/src/services/McpToolService.ts\",\"classification\":\"name-collision\",\"symbol\":\"createMcpToolService\",\"evidenceSignature\":\"options.maxEntries ?? 256\",\"accessEvidenceSha256\":\"4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945\",\"reason\":\"The maxEntries here is this module's own claim-code ring bound, defaulted locally to 256 and unrelated to resourceLimits.snapshots.maxEntries.\"}",
           "{\"path\":\"server/src/services/RuntimeConfigStore.ts\",\"classification\":\"policy-projection\",\"symbol\":\"getTerminalResourcePolicyObservation\",\"evidenceSignature\":\"getTerminalResourcePolicyObservation\",\"accessEvidenceSha256\":\"78427023d0a139495e813d8d5fdde67f468708854da8eb7e93b527763c48b69c\",\"reason\":\"Projects effective values and evidence without claiming consumer application.\"}"
         ]

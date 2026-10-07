@@ -1,8 +1,9 @@
 import { Router, type Request, type Response } from 'express';
-import type { SessionSnapshotService, SnapshotSaveItem } from '../services/SessionSnapshotService.js';
+import type { HandRestoreItem, SessionSnapshotService, SnapshotSaveItem } from '../services/SessionSnapshotService.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
 // FR-AITUI-007 / FR-AITUI-008 / FR-AITUI-013 / FR-AITUI-014 — mounted behind the auth middleware (AC-5).
+// FR-AITUI-017 / FR-AITUI-018 — the list of saves and restoring one by hand (FR-AITUI-017 AC-7: same auth).
 
 const MAX_TAB_IDS = 500;
 const MAX_ARGS = 64;
@@ -59,6 +60,26 @@ function readTabIds(body: unknown): string[] {
     throw new AppError(ErrorCode.INVALID_INPUT, 'tabIds must be an array of tab ids');
   }
   return [...new Set(tabIds as string[])];
+}
+
+/** FR-AITUI-018 AC-5: the entries the user picked in the restore tab. */
+function readRestoreItems(body: unknown): HandRestoreItem[] {
+  const { items } = (body ?? {}) as { items?: unknown };
+  if (!Array.isArray(items) || items.length > MAX_TAB_IDS) {
+    throw new AppError(ErrorCode.INVALID_INPUT, 'items must be an array');
+  }
+  return items.map((raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new AppError(ErrorCode.INVALID_INPUT, 'Each item must be an object');
+    const item = raw as Record<string, unknown>;
+    if (!isTabId(item.tabId)) throw new AppError(ErrorCode.INVALID_INPUT, 'Each item needs a tab id');
+    return { tabId: item.tabId, includeCommand: item.includeCommand === true };
+  });
+}
+
+function snapshotIdOf(req: Request): string {
+  const id = req.params.id;
+  if (typeof id !== 'string' || !/^[A-Za-z0-9-]{1,80}$/.test(id)) throw new AppError(ErrorCode.SNAPSHOT_NOT_FOUND);
+  return id;
 }
 
 function handleError(res: Response, error: unknown): void {
@@ -121,6 +142,57 @@ export function createSessionSnapshotRoutes(service: SessionSnapshotService): Ro
   router.post('/retry', async (req: Request, res: Response) => {
     try {
       res.json({ item: await service.retry(readSaveItem(req.body)) });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  router.get('/list', (_req: Request, res: Response) => {
+    try {
+      res.json(service.listSnapshots());
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  router.get('/list/:id', (req: Request, res: Response) => {
+    try {
+      res.json(service.getSnapshot(snapshotIdOf(req)));
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  router.delete('/list/:id', async (req: Request, res: Response) => {
+    try {
+      await service.deleteSnapshot(snapshotIdOf(req));
+      res.json({ success: true });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  router.post('/list/:id/restore', async (req: Request, res: Response) => {
+    try {
+      const id = snapshotIdOf(req);
+      const { activeWorkspaceId } = (req.body ?? {}) as { activeWorkspaceId?: unknown };
+      const fallbackWorkspaceId = typeof activeWorkspaceId === 'string' && activeWorkspaceId.length > 0 && activeWorkspaceId.length <= 200
+        ? activeWorkspaceId
+        : null;
+      res.json({ results: await service.restoreFrom(id, readRestoreItems(req.body), { fallbackWorkspaceId }) });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  router.post('/report/ack', async (req: Request, res: Response) => {
+    try {
+      const { reportId } = (req.body ?? {}) as { reportId?: unknown };
+      if (typeof reportId !== 'string' || reportId.length === 0 || reportId.length > 100) {
+        throw new AppError(ErrorCode.INVALID_INPUT, 'reportId is required');
+      }
+      await service.acknowledgeReport(reportId);
+      res.json({ success: true });
     } catch (error) {
       handleError(res, error);
     }

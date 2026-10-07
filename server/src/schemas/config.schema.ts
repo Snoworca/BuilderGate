@@ -113,6 +113,13 @@ export const sessionSchema = z.object({
   processCleanup: sessionProcessCleanupSchema,
   // FR-BGSTAB-020: Codex 감지 세션에 tui 억제 -c 설정 주입 여부 (기본 off — 감지 오탐 위험 완화).
   codexTuiSuppression: z.boolean().default(false),
+  // FR-AITUI-019 AC-1: the session auto save (FR-AITUI-016), on every 5 minutes by default.
+  autoSave: defaultObject(z.object({
+    enabled: z.boolean().default(true),
+    intervalMinutes: z.number().int().min(5).max(1440).default(5),
+  })),
+  // FR-AITUI-019 AC-1: how many manual saves the list keeps (FR-AITUI-017 AC-3).
+  snapshotRetention: z.number().int().min(1).max(100).default(10),
 });
 
 // ============================================================================

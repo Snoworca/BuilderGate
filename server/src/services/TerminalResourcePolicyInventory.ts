@@ -198,12 +198,19 @@ const CONSUMER_CATALOG: readonly CatalogEntry[] = [
 // actual consumer is TerminalResourcePolicy.ts and is registered. OPS-BGSTAB-013 touched
 // ConfigFileRepository without adding any resource-limit access at all. Neither file gained a
 // consumer, so both classifications still hold and only their byte pins moved.
+//
+// 2026-10-08 (FR-AITUI-019): the ConfigFileRepository pin moved again, for the same reason. The
+// session auto save keys were added to applyEditableValues and renderPatchedConfig, above
+// renderResourceLimitsRootBody, so the file's one resource-limit access -- resourceLimits[sectionName]
+// in that function's flatMap callback -- kept its key and evidence signature and only its owner
+// offset shifted (@34084 -> @37067, measured with discoverAstResourceAccesses on HEAD and on the
+// working tree). The occurrence multiset is otherwise identical: one access before, one after.
 const PATH_CLASSIFICATIONS: readonly TerminalResourcePathClassification[] = [
   { path: 'server/src/types/config.types.ts', classification: 'schema-source', symbol: 'ResourceLimitsConfig', evidenceSignature: 'export interface ResourceLimitsConfig', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Typed source; it does not make runtime decisions.' },
   { path: 'server/src/schemas/config.schema.ts', classification: 'schema-source', symbol: 'resourceLimitsSchema', evidenceSignature: 'export const resourceLimitsSchema', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Validation/default source; it does not make runtime decisions.' },
   { path: 'server/src/services/RuntimeConfigStore.ts', classification: 'policy-projection', symbol: 'getTerminalResourcePolicyObservation', evidenceSignature: 'getTerminalResourcePolicyObservation', accessEvidenceSha256: '78427023d0a139495e813d8d5fdde67f468708854da8eb7e93b527763c48b69c', reason: 'Projects effective values and evidence without claiming consumer application.' },
   { path: 'server/src/services/SettingsService.ts', classification: 'settings-facade', symbol: 'mergeEditablePatch', evidenceSignature: 'mergeEditablePatch', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Settings facade passes values to persistence/runtime boundaries.' },
-  { path: 'server/src/services/ConfigFileRepository.ts', classification: 'persistence-boundary', symbol: 'applyEditableValues', evidenceSignature: 'function applyEditableValues', accessEvidenceSha256: '7a7822e6c551e7925d142cb80242000d9a25aacb32206c133c18d3bd90feb2b7', reason: 'Persists configuration; it is not a terminal runtime consumer.' },
+  { path: 'server/src/services/ConfigFileRepository.ts', classification: 'persistence-boundary', symbol: 'applyEditableValues', evidenceSignature: 'function applyEditableValues', accessEvidenceSha256: '2c85409ae3f2afeb67f13cbd98fd850952196dca20d8737af010159796b982b0', reason: 'Persists configuration; it is not a terminal runtime consumer.' },
   { path: 'frontend/src/utils/inputReliabilityMode.ts', classification: 'policy-projection', symbol: 'getTerminalResourceLimits', evidenceSignature: 'export function getTerminalResourceLimits', accessEvidenceSha256: '5c0e5934d04fe2a9efd6a69c26f23fc745c7e837b99305523ac7847c39ab6cb6', reason: 'Browser config projection plus tombstone cleanup consumer.' },
   { path: 'frontend/src/utils/terminalOutputHotPath.ts', classification: 'policy-projection', symbol: 'getTerminalOutputHotPathLimits', evidenceSignature: 'getTerminalResourceLimits()', accessEvidenceSha256: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', reason: 'Caches browser terminal limits for downstream runtime consumers.' },
   { path: 'frontend/src/components/Settings/settingsDraftHelpers.ts', classification: 'settings-facade', symbol: 'mergeSettingsDraft', evidenceSignature: 'resourceLimits.headless.pendingOutputMaxBytes', accessEvidenceSha256: '37e29d7a9b35d8580277ec9cad6dacad0975a3b6648e190eb6b9bcc979e5701a', reason: 'Settings draft projection; it does not apply terminal runtime decisions.' },

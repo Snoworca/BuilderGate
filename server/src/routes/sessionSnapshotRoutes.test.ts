@@ -24,6 +24,20 @@ function fakeService() {
     retry: async (item: unknown) => { calls.push(['retry', item]); return { tabId: 't1', result: 'waiting' }; },
     restore: async () => ({ snapshot: null, results: [] }),
     discard: async () => undefined,
+    listSnapshots: () => ({ manual: [{ id: 'm1', origin: 'manual' }], auto: { id: 'auto', origin: 'auto' }, retention: 10 }),
+    getSnapshot: (id: string) => {
+      if (id !== 'm1' && id !== 'auto') throw new AppError(ErrorCode.SNAPSHOT_NOT_FOUND);
+      return { id, entries: [{ tabId: 't1', target: 'tab', targetReason: 'idle' }] };
+    },
+    deleteSnapshot: async (id: string) => {
+      calls.push(['deleteSnapshot', id]);
+      if (id !== 'm1') throw new AppError(ErrorCode.SNAPSHOT_NOT_FOUND);
+    },
+    restoreFrom: async (id: string, items: unknown, options: unknown) => {
+      calls.push(['restoreFrom', [id, items, options]]);
+      return [{ tabId: 't1', result: 'typed' }];
+    },
+    acknowledgeReport: async (reportId: string) => { calls.push(['acknowledgeReport', reportId]); },
   };
   return { service, calls };
 }
@@ -81,5 +95,47 @@ test('FR-AITUI-014 AC-5/AC-6: GET returns the restore report, POST /retry resume
     assert.equal(calls.at(-1)?.[0], 'retry');
     const noTab = await req('POST', '/api/session-snapshot/retry', { mode: 'shell' });
     assert.equal(noTab.status, 400);
+  });
+});
+
+test('FR-AITUI-017 AC-4/AC-5: GET /list lists the saves; DELETE /list/:id removes one, an unknown id is 404', async () => {
+  await withRoutes(async (req, calls) => {
+    const list = await req('GET', '/api/session-snapshot/list');
+    assert.equal(list.status, 200);
+    assert.deepEqual(list.json.manual.map((m: { id: string }) => m.id), ['m1']);
+    assert.equal(list.json.auto.id, 'auto');
+    const removed = await req('DELETE', '/api/session-snapshot/list/m1');
+    assert.equal(removed.status, 200);
+    assert.deepEqual(calls.at(-1), ['deleteSnapshot', 'm1']);
+    const missing = await req('DELETE', '/api/session-snapshot/list/zz');
+    assert.equal(missing.status, 404);
+    assert.equal(missing.json.error.code, 'SNAPSHOT_NOT_FOUND');
+  });
+});
+
+test('FR-AITUI-018 AC-5/AC-6: GET /list/:id shows where each entry goes; POST /list/:id/restore restores the picked ones', async () => {
+  await withRoutes(async (req, calls) => {
+    const detail = await req('GET', '/api/session-snapshot/list/auto');
+    assert.equal(detail.status, 200);
+    assert.deepEqual(detail.json.entries, [{ tabId: 't1', target: 'tab', targetReason: 'idle' }]);
+    assert.equal((await req('GET', '/api/session-snapshot/list/zz')).status, 404);
+    const restored = await req('POST', '/api/session-snapshot/list/auto/restore', {
+      items: [{ tabId: 't1', includeCommand: true }, { tabId: 't2' }],
+      activeWorkspaceId: 'w9',
+    });
+    assert.equal(restored.status, 200);
+    assert.deepEqual(restored.json.results, [{ tabId: 't1', result: 'typed' }]);
+    assert.deepEqual(calls.at(-1), ['restoreFrom', ['auto', [{ tabId: 't1', includeCommand: true }, { tabId: 't2', includeCommand: false }], { fallbackWorkspaceId: 'w9' }]]);
+    const bad = await req('POST', '/api/session-snapshot/list/auto/restore', { items: [{ includeCommand: true }] });
+    assert.equal(bad.status, 400, 'an item without a tab id is refused before the service');
+  });
+});
+
+test('FR-AITUI-018 AC-3: POST /report/ack records that the restore notice was shown', async () => {
+  await withRoutes(async (req, calls) => {
+    const ack = await req('POST', '/api/session-snapshot/report/ack', { reportId: 'r-1' });
+    assert.equal(ack.status, 200);
+    assert.deepEqual(calls.at(-1), ['acknowledgeReport', 'r-1']);
+    assert.equal((await req('POST', '/api/session-snapshot/report/ack', {})).status, 400);
   });
 });

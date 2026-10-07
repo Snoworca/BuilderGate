@@ -68,8 +68,7 @@ import {
   RestoreReportDialog,
   SessionSaveDialog,
   aiTabSignature,
-  isRestoreReportDismissed,
-  rememberRestoreReportDismissed,
+  claimsRestoreNotice,
   reportAutoDismissMs,
   saveButtonState,
   useSessionSnapshot,
@@ -184,15 +183,24 @@ function AppContent() {
   }, []);
   const restoreReport = useMemo(() => sessionSnapshot.status?.report ?? [], [sessionSnapshot.status]);
   const restoreReportId = sessionSnapshot.status?.reportId ?? null;
-  // FR-AITUI-015 AC-7: a report closed once (by hand or by its timer) stays closed after a reload.
-  const restoreReportPreviouslyDismissed = isRestoreReportDismissed(browserLocalStorage(), restoreReportId);
+  // FR-AITUI-018 AC-3: the first client to see a restore's report shows its notice and tells
+  // the server so; after that no reload, reconnect or other browser shows it again.
+  const [noticeReportId, setNoticeReportId] = useState<string | null>(null);
+  const { acknowledgeReport } = sessionSnapshot;
+  useEffect(() => {
+    const status = sessionSnapshot.status;
+    if (!claimsRestoreNotice(status, noticeReportId) || !status?.reportId) return;
+    const reportId = status.reportId;
+    setNoticeReportId(reportId);
+    acknowledgeReport(reportId).catch((error: unknown) => console.warn('[SessionSnapshot] restore notice not recorded', error));
+  }, [sessionSnapshot.status, noticeReportId, acknowledgeReport]);
   const dismissRestoreBanner = useCallback(() => {
     setRestoreBannerDismissed(true);
-    rememberRestoreReportDismissed(browserLocalStorage(), restoreReportId);
-  }, [restoreReportId]);
+  }, []);
   const showRestoreBanner = restoreReport.length > 0
+    && restoreReportId !== null
+    && noticeReportId === restoreReportId
     && !restoreBannerDismissed
-    && !restoreReportPreviouslyDismissed
     && sessionDialog !== 'report';
   // FR-AITUI-015 AC-6: a report with nothing to look at goes away on its own.
   const restoreDismissMs = reportAutoDismissMs(restoreReport);
@@ -820,6 +828,7 @@ function AppContent() {
       {showRestoreBanner && (
         <RestoreReportBanner
           report={restoreReport}
+          source={sessionSnapshot.status?.reportSource ?? null}
           onOpen={() => setSessionDialog('report')}
           onDismiss={dismissRestoreBanner}
         />
@@ -1101,12 +1110,21 @@ function AppContent() {
           loadPreview={sessionSnapshot.preview}
           onClose={() => setSessionDialog(null)}
           onSave={sessionSnapshot.saveAll}
+          restore={{
+            listSnapshots: sessionSnapshot.listSnapshots,
+            getSnapshot: sessionSnapshot.getSnapshot,
+            deleteSnapshot: sessionSnapshot.deleteSnapshot,
+            restoreFrom: (id, items) => sessionSnapshot.restoreFrom(id, items, wm.activeWorkspaceId ?? null),
+            autoSave: sessionSnapshot.status?.autoSave,
+            onOpenLastReport: restoreReport.length > 0 ? () => setSessionDialog('report') : undefined,
+          }}
         />
       )}
 
       {sessionDialog === 'report' && (
         <RestoreReportDialog
           report={restoreReport}
+          source={sessionSnapshot.status?.reportSource ?? null}
           loadPreview={sessionSnapshot.preview}
           onRetry={sessionSnapshot.retry}
           onClose={() => setSessionDialog(null)}
@@ -1138,11 +1156,6 @@ function AppContent() {
       )}
     </div>
   );
-}
-
-/** localStorage, or null where it is unavailable or blocked. */
-function browserLocalStorage(): Storage | null {
-  try { return window.localStorage; } catch { return null; }
 }
 
 function App() {

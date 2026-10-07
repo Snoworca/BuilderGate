@@ -10,6 +10,7 @@ import type { EditableSettingsKey, EditableSettingsValues } from '../types/setti
 import {
   configSchema,
   resourceLimitsSchema,
+  sessionSchema,
   stabilityModesSchema,
 } from '../schemas/config.schema.js';
 import { getConfigPath } from '../utils/config.js';
@@ -199,6 +200,9 @@ function applyEditableValues(
   if (shouldApply('pty.windowsPowerShellBackend')) setPath(rawConfig, ['pty', 'windowsPowerShellBackend'], values.pty.windowsPowerShellBackend);
   if (shouldApply('pty.shell')) setPath(rawConfig, ['pty', 'shell'], values.pty.shell);
   if (shouldApply('session.idleDelayMs')) setPath(rawConfig, ['session', 'idleDelayMs'], values.session.idleDelayMs);
+  if (shouldApply('session.autoSave.enabled')) setPath(rawConfig, ['session', 'autoSave', 'enabled'], values.session.autoSave.enabled);
+  if (shouldApply('session.autoSave.intervalMinutes')) setPath(rawConfig, ['session', 'autoSave', 'intervalMinutes'], values.session.autoSave.intervalMinutes);
+  if (shouldApply('session.snapshotRetention')) setPath(rawConfig, ['session', 'snapshotRetention'], values.session.snapshotRetention);
   if (shouldApply('fileManager.maxFileSize')) setPath(rawConfig, ['fileManager', 'maxFileSize'], values.fileManager.maxFileSize);
   if (shouldApply('fileManager.maxDirectoryEntries')) setPath(rawConfig, ['fileManager', 'maxDirectoryEntries'], values.fileManager.maxDirectoryEntries);
   if (shouldApply('fileManager.blockedExtensions')) setPath(rawConfig, ['fileManager', 'blockedExtensions'], values.fileManager.blockedExtensions);
@@ -288,6 +292,10 @@ function renderPatchedConfig(
   if (shouldRender('pty.windowsPowerShellBackend')) replacements.set('pty.windowsPowerShellBackend', renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit'));
   if (shouldRender('pty.shell')) replacements.set('pty.shell', renderJson5Value(config.pty.shell));
   if (shouldRender('session.idleDelayMs')) replacements.set('session.idleDelayMs', renderJson5Value(config.session.idleDelayMs));
+  const sessionSave = sessionSchema.parse(config.session);
+  if (shouldRender('session.autoSave.enabled')) replacements.set('session.autoSave.enabled', renderJson5Value(sessionSave.autoSave.enabled));
+  if (shouldRender('session.autoSave.intervalMinutes')) replacements.set('session.autoSave.intervalMinutes', renderJson5Value(sessionSave.autoSave.intervalMinutes));
+  if (shouldRender('session.snapshotRetention')) replacements.set('session.snapshotRetention', renderJson5Value(sessionSave.snapshotRetention));
   if (shouldRender('fileManager.maxFileSize')) replacements.set('fileManager.maxFileSize', renderJson5Value(config.fileManager?.maxFileSize ?? 1048576));
   if (shouldRender('fileManager.maxDirectoryEntries')) replacements.set('fileManager.maxDirectoryEntries', renderJson5Value(config.fileManager?.maxDirectoryEntries ?? 10000));
   if (shouldRender('fileManager.blockedExtensions')) replacements.set('fileManager.blockedExtensions', renderJson5Value(config.fileManager?.blockedExtensions ?? []));
@@ -356,6 +364,28 @@ function renderPatchedConfig(
           parentPath: 'pty',
           key: 'windowsPowerShellBackend',
           value: renderJson5Value(config.pty.windowsPowerShellBackend ?? 'inherit'),
+        }] as const]
+      : []),
+    // FR-AITUI-019: an older file lacks the session save keys; each goes in before its block closes.
+    ...(replacements.has('session.autoSave.enabled')
+      ? [['session.autoSave.enabled', {
+          parentPath: 'session.autoSave',
+          key: 'enabled',
+          value: renderJson5Value(sessionSchema.parse(config.session).autoSave.enabled),
+        }] as const]
+      : []),
+    ...(replacements.has('session.autoSave.intervalMinutes')
+      ? [['session.autoSave.intervalMinutes', {
+          parentPath: 'session.autoSave',
+          key: 'intervalMinutes',
+          value: renderJson5Value(sessionSchema.parse(config.session).autoSave.intervalMinutes),
+        }] as const]
+      : []),
+    ...(replacements.has('session.snapshotRetention')
+      ? [['session.snapshotRetention', {
+          parentPath: 'session',
+          key: 'snapshotRetention',
+          value: renderJson5Value(sessionSchema.parse(config.session).snapshotRetention),
         }] as const]
       : []),
     ...(replacements.has('auth.password')
@@ -498,6 +528,24 @@ function renderPatchedConfig(
     for (const path of missingStabilityModeReplacements) {
       replaced.add(path);
     }
+  }
+
+  // FR-AITUI-019: an older file has no session.autoSave block; it is added with both keys.
+  const missingAutoSave = [...replacements.keys()].filter((path) => path.startsWith('session.autoSave.') && !replaced.has(path));
+  if (missingAutoSave.length > 0) {
+    const autoSaveBody = [
+      `enabled: ${renderJson5Value(sessionSave.autoSave.enabled)},`,
+      `intervalMinutes: ${renderJson5Value(sessionSave.autoSave.intervalMinutes)},`,
+    ];
+    const inserted = insertNestedSection(renderedLines, 'session', 'autoSave', autoSaveBody)
+      || insertRootSection(renderedLines, 'session', ['autoSave: {', ...autoSaveBody.map((line) => `  ${line}`), '},']);
+    if (inserted) {
+      for (const path of missingAutoSave) replaced.add(path);
+    }
+  }
+  if (replacements.has('session.snapshotRetention') && !replaced.has('session.snapshotRetention')
+    && insertRootSection(renderedLines, 'session', [`snapshotRetention: ${renderJson5Value(sessionSave.snapshotRetention)},`])) {
+    replaced.add('session.snapshotRetention');
   }
 
   const stillMissingReplacements = [...replacements.keys()].filter((path) => !replaced.has(path));

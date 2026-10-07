@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세션 저장 복구 탭 시안</title>
+<!--
+  FR-AITUI-018 AC-4~AC-7 의 화면 시안 (2026-10-08 사용자 확정).
+  독립 실행 파일이다: 외부 의존 없이 브라우저로 열면 저장본 선택·체크박스가 동작한다.
+  탭 이름·경로·세션 id 는 예시 값이다. 색과 글꼴은 frontend/src/styles/tokens.css 의 어두운 테마 값이다.
+-->
+<style>
+  :root {
+    --bg-page: #141414; --bg-dialog: #262626; --bg-raised: #2f2f2f; --bg-sunken: #1e1e1e; --bg-footer: #222222;
+    --fg: #dcdcdc; --fg-strong: #f5f5f5; --fg-muted: #a0a0a0; --fg-faint: #8c8c8c;
+    --line: #3a3a3a; --line-soft: #2f2f2f; --accent: #0078d4; --accent-fill: #0067b8; --accent-text: #6cb6ff;
+    --ok-text: #4cc38a; --warn-text: #e2b451;
+    --font-sans: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    --font-mono: 'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg-page); color: var(--fg); font: 13px/1.45 var(--font-sans);
+         display: flex; align-items: center; justify-content: center; padding: 24px; }
+  button { font-family: inherit; }
+  input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+  .dialog { width: 1120px; max-width: 100%; height: 700px; background: var(--bg-dialog); border: 1px solid var(--line);
+            border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.5); }
+  .head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 0 20px; }
+  .head h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--fg-strong); }
+  .icon-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: none;
+              border: none; border-radius: 6px; color: var(--fg-muted); cursor: pointer; flex-shrink: 0; }
+  .icon-btn:hover { background: rgba(255,255,255,.055); color: var(--fg); }
+  .tabs { display: flex; gap: 4px; padding: 6px 20px 0; border-bottom: 1px solid var(--line); }
+  .tab { height: 36px; padding: 0 14px; background: none; border: none; border-bottom: 2px solid transparent;
+         color: var(--fg-muted); font-size: 13px; cursor: pointer; }
+  .tab[aria-selected=true] { border-bottom-color: var(--accent); color: var(--fg-strong); font-weight: 600; }
+  .body { display: flex; flex: 1; min-height: 0; }
+  .side { width: 320px; flex-shrink: 0; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .side-scroll { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+  .sec { display: flex; flex-direction: column; gap: 8px; }
+  .sec-head { display: flex; align-items: center; justify-content: space-between; }
+  .sec-title { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--fg-muted); }
+  .sec-meta { font-size: 11px; color: var(--fg-faint); }
+  .date { font-size: 12px; color: var(--fg-faint); padding: 2px 2px 0; }
+  .item { display: flex; align-items: stretch; gap: 4px; }
+  .card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; flex: 1; min-width: 0; padding: 10px 12px;
+          border-radius: 8px; text-align: left; cursor: pointer; background: var(--bg-sunken); border: 1px solid #333; color: inherit; }
+  .card[aria-pressed=true] { background: rgba(0,120,212,.14); border-color: var(--accent); }
+  .card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+  .card-time { font-size: 14px; font-weight: 600; color: var(--fg-strong); }
+  .card-sub { font-size: 12px; color: var(--fg-muted); }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .pill-accent { background: rgba(0,120,212,.18); color: var(--accent-text); }
+  .pill-ok { background: rgba(76,195,138,.14); color: var(--ok-text); }
+  .pill-warn { background: rgba(226,180,81,.14); color: var(--warn-text); }
+  .pill-claude { background: rgba(217,119,87,.16); color: #f0a284; }
+  .pill-codex { background: rgba(56,189,190,.14); color: #6fd3d4; }
+  .pill-shell { background: #333; color: #c8c8c8; }
+  .side-foot { padding: 12px 16px; border-top: 1px solid var(--line); }
+  .side-foot a { font-size: 12px; color: var(--accent-text); text-decoration: none; }
+  .side-foot a:hover { text-decoration: underline; }
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .detail-head { padding: 16px 20px 12px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+                 border-bottom: 1px solid var(--line); }
+  .detail-head .kind { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--fg-muted); }
+  .detail-head .title { font-size: 16px; font-weight: 600; color: var(--fg-strong); }
+  .check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .grid { display: grid; grid-template-columns: 40px 170px 80px minmax(0,1fr) 150px; gap: 0 12px; }
+  .cols { padding: 8px 20px; font-size: 11px; font-weight: 600; color: var(--fg-faint); border-bottom: 1px solid #333; }
+  .rows { flex: 1; overflow-y: auto; padding: 4px 0 12px; }
+  .ws { padding: 12px 20px 4px; font-size: 12px; font-weight: 600; color: var(--fg-muted); }
+  .row { align-items: start; padding: 10px 20px; border-bottom: 1px solid var(--line-soft); }
+  .row .name { color: var(--fg-strong); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .mono { font-family: var(--font-mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sess { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .cmd { font-size: 12px; color: var(--fg-muted); }
+  .cmd code { font-family: var(--font-mono); color: var(--warn-text); }
+  .target-ok { font-size: 12px; color: var(--ok-text); }
+  .target-new { font-size: 12px; color: var(--warn-text); }
+  .target-note { font-size: 11px; color: var(--fg-faint); }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px;
+          border-top: 1px solid var(--line); background: var(--bg-footer); }
+  .foot .hint { font-size: 12px; color: var(--fg-muted); }
+  .btn { height: 32px; padding: 0 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .btn-secondary { background: var(--bg-raised); border: 1px solid var(--line); color: var(--fg); }
+  .btn-primary { background: var(--accent-fill); border: 1px solid var(--accent-fill); color: #fff; font-weight: 600; padding: 0 16px; }
+  .btn-primary:disabled { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<div class="dialog" role="dialog" aria-label="세션 저장">
+  <div class="head">
+    <h2>세션 저장</h2>
+    <button type="button" class="icon-btn" aria-label="닫기">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+    </button>
+  </div>
+  <div class="tabs" role="tablist" aria-label="세션 저장 보기">
+    <button type="button" class="tab" role="tab" aria-selected="false">저장</button>
+    <button type="button" class="tab" role="tab" aria-selected="true">복구</button>
+  </div>
+  <div class="body">
+    <div class="side">
+      <div class="side-scroll">
+        <div class="sec">
+          <div class="sec-head"><span class="sec-title">자동 저장</span><span class="sec-meta">5분마다 덮어씀</span></div>
+          <div id="auto"></div>
+        </div>
+        <div class="sec">
+          <div class="sec-head"><span class="sec-title">직접 저장</span><span class="sec-meta" id="retention"></span></div>
+          <div id="manual" class="sec"></div>
+        </div>
+      </div>
+      <div class="side-foot"><a href="#">마지막 자동 복구 결과 보기 — 오늘 10:52</a></div>
+    </div>
+    <div class="main">
+      <div class="detail-head">
+        <div class="stack">
+          <span class="kind" id="d-kind"></span>
+          <span class="title" id="d-title"></span>
+          <span class="card-sub" id="d-sub"></span>
+        </div>
+        <label class="check"><input type="checkbox" id="all"> 모두 선택</label>
+      </div>
+      <div class="grid cols"><span></span><span>탭</span><span>종류</span><span>디렉터리 · 세션</span><span>복구 위치</span></div>
+      <div class="rows" id="rows"></div>
+    </div>
+  </div>
+  <div class="foot">
+    <span class="hint">에이전트가 실행 중이거나 없는 탭은 저장된 디렉터리에서 새 탭으로 엽니다.</span>
+    <span style="display:flex;gap:8px">
+      <button type="button" class="btn btn-secondary">닫기</button>
+      <button type="button" class="btn btn-primary" id="restore"></button>
+    </span>
+  </div>
+</div>
+<script>
+(function () {
+  var snaps = {
+    auto: { kind: '자동 저장본', title: '10월 8일 (목) 14:35', time: '14:35', tabs: 6, agents: 'Claude 2 · Codex 1' },
+    m1: { kind: '직접 저장', title: '10월 8일 (목) 14:02', time: '14:02', tabs: 5, agents: 'Claude 2 · Codex 1' },
+    m2: { kind: '직접 저장 · 지난 자동 복구에 사용', title: '10월 8일 (목) 10:47', time: '10:47', tabs: 5, agents: 'Claude 2 · Codex 1', used: true },
+    m3: { kind: '직접 저장', title: '10월 7일 (수) 18:20', time: '18:20', tabs: 4, agents: 'Claude 2' },
+    m4: { kind: '직접 저장', title: '10월 7일 (수) 09:15', time: '09:15', tabs: 3, agents: 'Claude 1 · Codex 1' },
+    m5: { kind: '직접 저장', title: '10월 5일 (월) 21:40', time: '21:40', tabs: 4, agents: 'Claude 1 · Codex 1' }
+  };
+  var groups = [
+    { label: '오늘 · 10월 8일 (목)', ids: ['m1', 'm2'] },
+    { label: '어제 · 10월 7일 (수)', ids: ['m3', 'm4'] },
+    { label: '10월 5일 (월)', ids: ['m5'] }
+  ];
+  var retention = 10;
+  var base = [
+    { ws: 'ProjectMaster', tab: 'claude-main', kind: 'Claude', cwd: 'C:\\Work\\git\\ProjectMaster', session: '3f2a9c1e-…-b71d', conf: 'exact', target: 'free' },
+    { ws: 'ProjectMaster', tab: 'codex-review', kind: 'Codex', cwd: 'C:\\Work\\git\\ProjectMaster\\server', session: '0199a4c2-…-e8f0', conf: 'estimated', target: 'busy' },
+    { ws: 'ProjectMaster', tab: 'dev-server', kind: '셸', cwd: 'C:\\Work\\git\\ProjectMaster\\frontend', command: 'npm run dev', target: 'free' },
+    { ws: 'docs', tab: 'claude-docs', kind: 'Claude', cwd: 'C:\\Work\\docs', session: '8be04d77-…-1a29', conf: 'exact', target: 'missing' },
+    { ws: 'docs', tab: 'shell-1', kind: '셸', cwd: 'C:\\Work\\docs\\drafts', target: 'free' },
+    { ws: 'docs', tab: 'claude-notes', kind: 'Claude', cwd: 'C:\\Work\\docs\\notes', session: '51c9e0aa-…-73b4', conf: 'estimated', target: 'free' }
+  ];
+  var targets = {
+    free: ['target-ok', '이 탭에 입력', '셸이 프롬프트 상태'],
+    busy: ['target-new', '새 탭으로 열기', '에이전트 실행 중'],
+    missing: ['target-new', '새 탭으로 열기', '탭이 닫힘']
+  };
+  var kindClass = { Claude: 'pill-claude', Codex: 'pill-codex', '셸': 'pill-shell' };
+  var state = { sel: 'auto', off: {}, cmdOn: {} };
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function rowsOf(id) { return base.slice(0, snaps[id].tabs); }
+
+  function card(id, extraPill) {
+    var s = snaps[id];
+    var pill = extraPill || (s.used ? '<span class="pill pill-ok">지난 자동 복구에 사용</span>' : '');
+    var sub = (id === 'auto' ? '오늘 · ' : '') + '탭 ' + s.tabs + '개 · ' + s.agents;
+    return '<button type="button" class="card" data-sel="' + id + '" aria-pressed="' + (state.sel === id) + '">' +
+      '<span class="card-top"><span class="card-time">' + s.time + '</span>' + pill + '</span>' +
+      '<span class="card-sub">' + esc(sub) + '</span></button>';
+  }
+
+  function render() {
+    document.getElementById('auto').innerHTML = card('auto', '<span class="pill pill-accent">재시작 시 복구 대상</span>');
+    var manualCount = 0;
+    document.getElementById('manual').innerHTML = groups.map(function (g) {
+      manualCount += g.ids.length;
+      return '<div class="sec"><span class="date">' + esc(g.label) + '</span>' + g.ids.map(function (id) {
+        return '<div class="item">' + card(id) +
+          '<button type="button" class="icon-btn" aria-label="이 저장본 지우기">' +
+          '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>' +
+          '</button></div>';
+      }).join('') + '</div>';
+    }).join('');
+    document.getElementById('retention').textContent = manualCount + ' / ' + retention + '개 보관';
+
+    var s = snaps[state.sel];
+    document.getElementById('d-kind').textContent = s.kind;
+    document.getElementById('d-title').textContent = s.title;
+    document.getElementById('d-sub').textContent = '탭 ' + s.tabs + '개 · ' + s.agents;
+
+    var rows = rowsOf(state.sel);
+    var selected = 0;
+    var html = '';
+    var lastWs = null;
+    rows.forEach(function (r) {
+      var checked = !state.off[r.tab];
+      if (checked) selected += 1;
+      if (r.ws !== lastWs) { html += '<div class="ws">' + esc(r.ws) + '</div>'; lastWs = r.ws; }
+      var t = targets[r.target];
+      var sess = r.session
+        ? '<span class="sess"><span class="mono" style="color:var(--fg-muted)">' + esc(r.session) + '</span>' +
+          '<span class="pill ' + (r.conf === 'exact' ? 'pill-ok">확실' : 'pill-warn">추정') + '</span></span>'
+        : '';
+      var cmd = r.command
+        ? '<label class="check cmd"><input type="checkbox" data-cmd="' + esc(r.tab) + '"' + (state.cmdOn[r.tab] ? ' checked' : '') + '>' +
+          '<span>실행 중이던 명령도 입력</span><code>' + esc(r.command) + '</code></label>'
+        : '';
+      html += '<div class="grid row">' +
+        '<span style="display:flex;padding-top:1px"><input type="checkbox" data-row="' + esc(r.tab) + '" aria-label="' + esc(r.tab) + ' 복구"' + (checked ? ' checked' : '') + '></span>' +
+        '<span class="name">' + esc(r.tab) + '</span>' +
+        '<span style="display:flex"><span class="pill ' + kindClass[r.kind] + '">' + esc(r.kind) + '</span></span>' +
+        '<span class="stack"><span class="mono">' + esc(r.cwd) + '</span>' + sess + cmd + '</span>' +
+        '<span class="stack" style="gap:2px"><span class="' + t[0] + '">' + t[1] + '</span><span class="target-note">' + t[2] + '</span></span>' +
+        '</div>';
+    });
+    document.getElementById('rows').innerHTML = html;
+    document.getElementById('all').checked = selected === rows.length;
+    var btn = document.getElementById('restore');
+    btn.textContent = '선택한 ' + selected + '개 복구';
+    btn.disabled = selected === 0;
+  }
+
+  document.addEventListener('click', function (e) {
+    var c = e.target.closest('[data-sel]');
+    if (c) { state = { sel: c.getAttribute('data-sel'), off: {}, cmdOn: {} }; render(); }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.id === 'all') {
+      var off = {};
+      if (!t.checked) rowsOf(state.sel).forEach(function (r) { off[r.tab] = true; });
+      state.off = off;
+    } else if (t.hasAttribute('data-row')) {
+      state.off[t.getAttribute('data-row')] = !t.checked;
+    } else if (t.hasAttribute('data-cmd')) {
+      state.cmdOn[t.getAttribute('data-cmd')] = t.checked;
+    } else {
+      return;
+    }
+    render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

@@ -89,6 +89,9 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'pty.windowsPowerShellBackend': { applyScope: 'new_sessions', writeOnly: false },
   'pty.shell': { applyScope: 'new_sessions', writeOnly: false },
   'session.idleDelayMs': { applyScope: 'immediate', writeOnly: false },
+  'session.autoSave.enabled': { applyScope: 'immediate', writeOnly: false },
+  'session.autoSave.intervalMinutes': { applyScope: 'immediate', writeOnly: false },
+  'session.snapshotRetention': { applyScope: 'immediate', writeOnly: false },
   'fileManager.maxFileSize': { applyScope: 'immediate', writeOnly: false },
   'fileManager.maxDirectoryEntries': { applyScope: 'immediate', writeOnly: false },
   'fileManager.blockedExtensions': { applyScope: 'immediate', writeOnly: false },
@@ -1331,6 +1334,15 @@ export class RuntimeConfigStore {
     if (patch.session?.idleDelayMs !== undefined) {
       next.session.idleDelayMs = patch.session.idleDelayMs;
     }
+    if (patch.session?.autoSave?.enabled !== undefined) {
+      next.session.autoSave.enabled = patch.session.autoSave.enabled;
+    }
+    if (patch.session?.autoSave?.intervalMinutes !== undefined) {
+      next.session.autoSave.intervalMinutes = patch.session.autoSave.intervalMinutes;
+    }
+    if (patch.session?.snapshotRetention !== undefined) {
+      next.session.snapshotRetention = patch.session.snapshotRetention;
+    }
 
     if (patch.fileManager?.maxFileSize !== undefined) {
       next.fileManager.maxFileSize = patch.fileManager.maxFileSize;
@@ -1426,6 +1438,11 @@ function buildEditableValues(source: Config, platform: NodeJS.Platform): Editabl
     },
     session: {
       idleDelayMs: source.session.idleDelayMs ?? sessionDefaults.idleDelayMs,
+      autoSave: {
+        enabled: source.session.autoSave?.enabled ?? sessionDefaults.autoSave.enabled,
+        intervalMinutes: source.session.autoSave?.intervalMinutes ?? sessionDefaults.autoSave.intervalMinutes,
+      },
+      snapshotRetention: source.session.snapshotRetention ?? sessionDefaults.snapshotRetention,
     },
     fileManager: {
       maxFileSize: source.fileManager?.maxFileSize ?? fileManagerDefaults.maxFileSize,

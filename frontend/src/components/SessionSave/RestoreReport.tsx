@@ -21,14 +21,30 @@ import {
 import type { MessageKey } from '../../i18n/i18n.ts';
 import './SessionSave.css';
 import { t, tn } from '../../i18n/i18n.ts';
+import { dayLabelOf, timeLabelOf } from './sessionRestoreModel.ts';
+
+/** FR-AITUI-018 AC-2: the save a start restored. */
+export interface RestoreReportSource {
+  origin: 'manual' | 'auto';
+  savedAt: string;
+}
+
+export function reportSourceText(source: RestoreReportSource | null | undefined): string | null {
+  if (!source) return null;
+  return t('sessionSave.report.source', {
+    kind: source.origin === 'auto' ? t('sessionSave.restore.kindAuto') : t('sessionSave.restore.kindManual'),
+    time: `${dayLabelOf(new Date(source.savedAt))} ${timeLabelOf(source.savedAt)}`,
+  });
+}
 
 export interface RestoreReportBannerProps {
   report: RestoreReportItem[];
+  source?: RestoreReportSource | null;
   onOpen: () => void;
   onDismiss: () => void;
 }
 
-export function RestoreReportBanner({ report, onOpen, onDismiss }: RestoreReportBannerProps) {
+export function RestoreReportBanner({ report, source, onOpen, onDismiss }: RestoreReportBannerProps) {
   const summary = summarizeReport(report);
   const title = summary.waiting > 0
     ? t('sessionSave.report.titleWaiting')
@@ -36,6 +52,7 @@ export function RestoreReportBanner({ report, onOpen, onDismiss }: RestoreReport
       ? tn('sessionSave.report.titleFailed', summary.failed)
       : tn('sessionSave.report.titleDone', report.length);
   const parts = [
+    reportSourceText(source),
     t('sessionSave.report.shellsOpened'),
     summary.resumed > 0 ? t('sessionSave.report.resumed', { count: summary.resumed }) : null,
     summary.failed > 0 ? t('sessionSave.report.failed', { count: summary.failed }) : null,
@@ -80,8 +97,26 @@ function resultMark(result: RestoreResult) {
   return <span className="session-report-mark is-muted"><Icon name="terminal" size={14} /></span>;
 }
 
+/** FR-AITUI-018 AC-7: one tab's result, as the report and a restore by hand show it. */
+export function ReportResult({ item }: { item: RestoreReportItem }) {
+  return (
+    <div className="session-report-row">
+      {resultMark(item.result)}
+      <span className="session-report-name" title={`${item.workspaceName} · ${item.tabName}`}>
+        <strong>{item.tabName}</strong>
+        <span>{item.workspaceName}</span>
+      </span>
+      <span className="session-report-detail">
+        <code title={item.commandLine}>{item.commandLine || t('sessionSave.editor.shellOnly')}</code>
+        <span className={item.result === 'failed' || item.result === 'unconfirmed' ? 'is-error' : undefined}>{resultText(item)}</span>
+      </span>
+    </div>
+  );
+}
+
 export interface RestoreReportDialogProps {
   report: RestoreReportItem[];
+  source?: RestoreReportSource | null;
   loadPreview: () => Promise<SnapshotPreview>;
   onRetry: (item: SaveItem) => Promise<RestoreReportItem>;
   onClose: () => void;
@@ -89,7 +124,7 @@ export interface RestoreReportDialogProps {
 
 const FALLBACK_LAUNCHERS: LauncherMap = { claude: ['claude'], codex: ['codex'], hermes: ['hermes'], opencode: ['opencode'] };
 
-export function RestoreReportDialog({ report, loadPreview, onRetry, onClose }: RestoreReportDialogProps) {
+export function RestoreReportDialog({ report, source, loadPreview, onRetry, onClose }: RestoreReportDialogProps) {
   const [launchers, setLaunchers] = useState<LauncherMap>(FALLBACK_LAUNCHERS);
   const [editing, setEditing] = useState<RowDraft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -130,6 +165,7 @@ export function RestoreReportDialog({ report, loadPreview, onRetry, onClose }: R
     >
       <div className="session-save-dialog">
         <div className="session-save-body session-report-body">
+          {source && <p className="session-save-lead">{reportSourceText(source)}</p>}
           {report.map((item) => (
             <div className="session-report-row" key={item.tabId}>
               {resultMark(item.result)}

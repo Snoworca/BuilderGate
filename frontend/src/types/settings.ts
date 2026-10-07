@@ -17,6 +17,9 @@ export type EditableSettingsKey =
   | 'pty.windowsPowerShellBackend'
   | 'pty.shell'
   | 'session.idleDelayMs'
+  | 'session.autoSave.enabled'
+  | 'session.autoSave.intervalMinutes'
+  | 'session.snapshotRetention'
   | 'fileManager.maxFileSize'
   | 'fileManager.maxDirectoryEntries'
   | 'fileManager.blockedExtensions'
@@ -162,6 +165,9 @@ export interface EditableSettingsValues {
   };
   session: {
     idleDelayMs: number;
+    /** FR-AITUI-019 */
+    autoSave: { enabled: boolean; intervalMinutes: number };
+    snapshotRetention: number;
   };
   fileManager: {
     maxFileSize: number;
@@ -218,6 +224,8 @@ export interface SettingsPatchRequest {
   };
   session?: {
     idleDelayMs?: number;
+    autoSave?: { enabled?: boolean; intervalMinutes?: number };
+    snapshotRetention?: number;
   };
   fileManager?: {
     maxFileSize?: number;
