@@ -307,7 +307,37 @@ test('FR-AITUI-016 AC-2: a tab running a command is looked up in the process lis
     await service.initialize();
     await service.autoSave();
     assert.equal(f.processCalls.count, 1);
+    assert.equal(entryOf(readAuto(f), 't1')?.mode, 'agent', 'the agent under the wrapper is saved as one');
   });
+});
+
+// Review 2026-10-12 (round 7): two agents of one folder are told apart by a guess only; the resume
+// this start typed into a tab and saw there knows which session that tab holds.
+test('FR-AITUI-016 AC-4: a resume confirmed in a tab is saved over a guess while that agent runs', async () => {
+  const CLAUDE_OTHER = '3f2a9c1e-5b7d-4c11-9a2e-0d6f81b4c7ab';
+  // [agent restarted there after the confirmation, the id the auto save records]
+  for (const [restartedLater, expected] of [[false, CLAUDE_OTHER], [true, undefined]] as const) {
+    await withFixture(async (f) => {
+      const first = f.make();
+      await first.initialize();
+      await first.saveAll([{ tabId: 't1', mode: 'agent', agent: 'claude', launcher: 'claude', sessionId: CLAUDE_OTHER }]);
+      const restarted = f.make();
+      await restarted.initialize();
+      f.runtime.s1.foregroundStartedAt = Date.now() - 1_000;
+      await restarted.autoRestore();
+      await sleep(40);
+      assert.equal(restarted.getStatus().report.find((item) => item.tabId === 't1')?.result, 'confirmed');
+      // Nothing on disk names the session any more: the resolver can only guess, or find nothing.
+      rmSync(path.join(f.dir, 'claude', 'sessions', '40.json'));
+      f.alive.clear();
+      // An agent that exited and started anew there is not the one the resume was confirmed with.
+      if (restartedLater) f.runtime.s1.foregroundStartedAt = Date.now() + 60_000;
+      f.clock.at += 300_000;
+      await restarted.autoSave();
+      const t1 = entryOf(readAuto(f), 't1');
+      assert.equal(t1?.mode === 'agent' ? t1.sessionId : undefined, expected, `restarted later: ${restartedLater}`);
+    });
+  }
 });
 
 test('FR-AITUI-016 AC-6: an overlapping cycle is skipped and one cycle lists processes once', async () => {
@@ -759,4 +789,15 @@ test('FR-AITUI-016 AC-4: a carried agent entry whose session another tab holds i
   assert.equal(t1.sessionId, '');
   assert.equal(t2.mode, 'agent');
   assert.equal(dropCarriedDuplicates([agent('t1', true)])[0].mode, 'agent', 'kept when no other tab holds it');
+});
+
+test('FR-AITUI-016 AC-4: an inherited agent entry whose session another tab holds for certain is saved as a shell', () => {
+  const agent = (tabId: string): SnapshotEntry => ({
+    tabId, workspaceId: 'w1', workspaceName: 'ProjectMaster', tabName: tabId, cwd: CWD_A, mode: 'agent', agent: 'claude',
+    sessionId: CLAUDE_ID, method: 'claude-pid-file', confidence: 'exact', resumeCommand: 'claude', resumeArguments: ['--resume', CLAUDE_ID],
+    restore: 'pending',
+  });
+  const inheritedOne = agent('t1');
+  const [t1, t5] = dropCarriedDuplicates([inheritedOne, agent('t5')], new Set([inheritedOne]));
+  assert.deepEqual([t1.mode, t5.mode], ['shell', 'agent']);
 });

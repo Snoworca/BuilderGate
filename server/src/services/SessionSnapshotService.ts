@@ -334,18 +334,26 @@ function freshEntry(entry: SnapshotEntry, over: Partial<SnapshotEntry>): Snapsho
 }
 
 /**
- * A carried agent entry whose session another tab now holds (resumed there by hand) goes back to
- * a shell entry: the next start would otherwise resume that one session in both tabs.
+ * An agent entry the save could only carry over or guess, whose session another tab holds for
+ * certain (found exactly there, e.g. resumed there by hand), goes back to a shell entry: the next
+ * start would otherwise resume that one session in both tabs.
  */
-export function dropCarriedDuplicates(entries: SnapshotEntry[]): SnapshotEntry[] {
-  const held = new Set(entries.filter((e) => e.mode === 'agent' && !e.carried).map((e) => `${e.agent}\u0000${e.sessionId}`));
+export function dropCarriedDuplicates(entries: SnapshotEntry[], inherited: ReadonlySet<SnapshotEntry> = new Set()): SnapshotEntry[] {
+  const key = (e: SnapshotEntry) => `${e.agent}\u0000${e.sessionId}`;
+  const certain = (e: SnapshotEntry) => e.mode === 'agent' && !e.carried && e.confidence === 'exact' && !inherited.has(e);
+  const held = new Set(entries.filter(certain).map(key));
   return entries.map((entry) => {
-    if (!entry.carried || entry.mode !== 'agent' || !held.has(`${entry.agent}\u0000${entry.sessionId}`)) return entry;
+    if (entry.mode !== 'agent' || certain(entry) || !held.has(key(entry))) return entry;
     return {
       tabId: entry.tabId, workspaceId: entry.workspaceId, workspaceName: entry.workspaceName, tabName: entry.tabName, cwd: entry.cwd,
       mode: 'shell', agent: null, sessionId: '', method: '', confidence: 'manual', resumeCommand: '', resumeArguments: [], restore: 'pending',
     };
   });
+}
+
+function mark<T>(set: Set<T>, value: T): T {
+  set.add(value);
+  return value;
 }
 
 /** Two folders compare equal past separators, a trailing one, and case on Windows. */
@@ -426,7 +434,12 @@ export class SessionSnapshotService {
   /** FR-AITUI-018 AC-3: the report whose notice a client already showed. */
   private noticeShownReportId: string | null = null;
   /** FR-AITUI-014 AC-4: resumed agents still being looked for, by tab. */
-  private readonly waiting = new Map<string, { agent: AgentKind; deadline: number }>();
+  private readonly waiting = new Map<string, { agent: AgentKind; deadline: number; entry: SnapshotEntry }>();
+  /**
+   * FR-AITUI-016 AC-4: the session a resume typed into a tab and then saw there, with when it was
+   * seen. A guess cannot tell two agents of one folder apart; this knows which tab got which.
+   */
+  private readonly confirmedResumes = new Map<string, { entry: SnapshotEntry; at: number }>();
   /** FR-AITUI-018 AC-7: what restores by hand did, by the tab they went into; settled like the report. */
   private readonly handReport = new Map<string, RestoreReportItem>();
   private watchTimer: NodeJS.Timeout | null = null;
@@ -872,22 +885,27 @@ export class SessionSnapshotService {
   // --------------------------------------------------------------------------
 
   /** AC-2/AC-4: one tab as the auto save records it. */
-  private autoEntryFor(record: SnapshotTabRecord, ctx: TabAgentContext, result: ResolvedAgentSession | null): SnapshotEntry {
+  private autoEntryFor(record: SnapshotTabRecord, ctx: TabAgentContext, result: ResolvedAgentSession | null, inherited: Set<SnapshotEntry>): SnapshotEntry {
     if (result?.confidence === 'exact') return this.agentEntry(record, ctx, result);
     const runtime = this.deps.getRuntime(record.tab.sessionId);
     const names = { workspaceId: record.workspaceId, workspaceName: record.workspaceName, tabName: record.tab.name };
     const agent = result?.agent ?? ctx.agent ?? agentFromCommand(record.tab.recoveryCommand);
     if (agent) {
+      // A resume confirmed in this tab knows its id better than a guess, while that agent still runs.
+      const resumed = this.confirmedResumes.get(record.tab.id);
+      if (resumed && resumed.entry.agent === agent && this.stillThatAgent(resumed, runtime)) {
+        return freshEntry(resumed.entry, { tabId: record.tab.id, ...names, cwd: ctx.cwd ?? resumed.entry.cwd });
+      }
       // AC-4: a manual save made after this agent started knows its id better than a guess.
       const newestManual = this.manual[0];
       const manualEntry = newestManual?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
       const startedAt = runtime?.foregroundStartedAt;
       if (newestManual && manualEntry && (startedAt === undefined || timeOf(newestManual) >= startedAt)) {
-        return freshEntry(manualEntry, { ...names, cwd: ctx.cwd ?? manualEntry.cwd });
+        return mark(inherited, freshEntry(manualEntry, { ...names, cwd: ctx.cwd ?? manualEntry.cwd }));
       }
       if (result) return this.agentEntry(record, ctx, result);
       const previous = this.auto?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
-      if (previous) return freshEntry(previous, { ...names, cwd: ctx.cwd ?? previous.cwd });
+      if (previous) return mark(inherited, freshEntry(previous, { ...names, cwd: ctx.cwd ?? previous.cwd }));
     }
     if (!agent && !runtime?.runningCommand) {
       // What this start restored but could not bring back: an agent it typed but never saw, or a
@@ -911,6 +929,16 @@ export class SessionSnapshotService {
       restore: 'pending',
       ...(running && running.length <= MAX_COMMAND_LINE_LENGTH && !/[\x00-\x1F\x7F]/.test(running) ? { runningCommand: running } : {}),
     };
+  }
+
+  /** The agent the resume was confirmed with is the one running now: not exited and started anew. */
+  private stillThatAgent(resumed: { entry: SnapshotEntry; at: number }, runtime: SnapshotTabRuntime | null): boolean {
+    if (!runtime) return false;
+    if (runtime.foregroundAppId === resumed.entry.agent) {
+      return runtime.foregroundStartedAt === undefined || runtime.foregroundStartedAt <= resumed.at;
+    }
+    // Confirmed through the process tree (an unregistered wrapper): its resume line still runs.
+    return Boolean(runtime.runningCommand?.includes(resumed.entry.sessionId));
   }
 
   /**
@@ -945,7 +973,11 @@ export class SessionSnapshotService {
       });
       const processes = agentish ? await this.processList() : undefined;
       const { contexts, resolved } = await this.resolveAll(records, processes, new Map());
-      const entries = dropCarriedDuplicates(contexts.map(({ record, ctx }) => this.autoEntryFor(record, ctx, resolved.get(ctx.tabId) ?? null)));
+      const inherited = new Set<SnapshotEntry>();
+      const entries = dropCarriedDuplicates(
+        contexts.map(({ record, ctx }) => this.autoEntryFor(record, ctx, resolved.get(ctx.tabId) ?? null, inherited)),
+        inherited,
+      );
       const snapshot: SessionSnapshot = {
         version: 1,
         id: AUTO_ID,
@@ -1199,12 +1231,14 @@ export class SessionSnapshotService {
     const scheduled = this.deps.scheduleResume(entry.tabId, entry.resumeCommand, entry.resumeArguments);
     if (!scheduled) return this.reportItemOf(entry, 'failed', 'input-not-scheduled');
     if (entry.mode !== 'agent' || !entry.agent) return this.reportItemOf(entry, 'typed');
-    this.waiting.set(entry.tabId, { agent: entry.agent, deadline: Date.now() + (this.deps.confirmTimeoutMs ?? DEFAULT_CONFIRM_TIMEOUT_MS) });
+    this.waiting.set(entry.tabId, { agent: entry.agent, deadline: Date.now() + (this.deps.confirmTimeoutMs ?? DEFAULT_CONFIRM_TIMEOUT_MS), entry });
     this.scheduleWatch();
     return this.reportItemOf(entry, 'waiting');
   }
 
   private settle(tabId: string, result: 'confirmed' | 'unconfirmed'): void {
+    const watched = this.waiting.get(tabId);
+    if (watched && result === 'confirmed') this.confirmedResumes.set(tabId, { entry: watched.entry, at: Date.now() });
     this.waiting.delete(tabId);
     for (const item of [this.report.find((current) => current.tabId === tabId), this.handReport.get(tabId)]) {
       if (item && item.result === 'waiting') {

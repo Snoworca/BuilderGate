@@ -1072,7 +1072,7 @@
   "settings.sessionSave.lastNone": "Not yet",
   "settings.sessionSave.lastSaved": "{time} · saved",
   "settings.sessionSave.lastFailed": "{time} · failed",
-  "settings.unit.minutes": "min",
+  "settings.unit.minutes": " min",
   "sessionSave.restore.deleteTitle": "Delete this save?",
   "sessionSave.restore.deleteMessage": "The save of {time} is deleted. This cannot be undone."
 }

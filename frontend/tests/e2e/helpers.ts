@@ -2,7 +2,6 @@ import { type Page, expect } from '@playwright/test';
 import type { TerminalInputTransportOverride } from '../../src/types/ws-protocol';
 import { requireTestPassword } from './testPassword.ts';
 
-/** Login with password from env or default */
 /**
  * Whether `needed` more manual saves fit in the server's list. A save past the retention
  * deletes the oldest one, which on the shared 2222 server is the user's; a spec that saves
@@ -21,6 +20,7 @@ export async function manualSaveListHasRoom(
   return (list.manual?.length ?? 0) + needed <= (list.retention ?? 10);
 }
 
+/** Login with password from env or default */
 export async function login(page: Page) {
   const password = requireTestPassword();
   await page.goto('/');
