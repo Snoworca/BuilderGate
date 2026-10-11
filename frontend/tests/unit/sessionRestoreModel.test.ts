@@ -72,3 +72,17 @@ test('FR-AITUI-018 AC-3: a client claims the restore notice only when the server
   assert.equal(claimsRestoreNotice({ report, reportId: null, reportNoticeShown: false }, null), false);
   assert.equal(claimsRestoreNotice(null, null), false);
 });
+
+// A server (or a test double) that answers without the expected fields must not take the whole
+// app down: App reads candidates.length on every render. Measured 2026-10-11: four mocked
+// Settings E2E specs answered {} and the page went blank on "reading 'length'".
+test('the session snapshot client reads a missing candidates list as empty', async () => {
+  const { createSessionSnapshotClient } = await import('../../src/components/SessionSave/sessionSnapshotClient.ts');
+  const client = createSessionSnapshotClient({
+    apiBase: '/api',
+    authFetch: async () => new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    getAuthHeaders: () => ({}),
+    parseError: async () => new Error('unexpected'),
+  });
+  assert.deepEqual(await client.getCandidates(), []);
+});

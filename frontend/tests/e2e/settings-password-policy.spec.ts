@@ -36,6 +36,9 @@ function createSettingsSnapshot() {
       },
       session: {
         idleDelayMs: 500,
+        // FR-AITUI-019: the session auto save keys the server always sends.
+        autoSave: { enabled: true, intervalMinutes: 5 },
+        snapshotRetention: 10,
       },
       fileManager: {
         maxFileSize: 1048576,
@@ -68,6 +71,9 @@ function createSettingsSnapshot() {
         options: ['auto', 'powershell', 'cmd'],
       },
       'session.idleDelayMs': newLoginCapability,
+      'session.autoSave.enabled': newLoginCapability,
+      'session.autoSave.intervalMinutes': newLoginCapability,
+      'session.snapshotRetention': newLoginCapability,
       'fileManager.maxFileSize': immediateCapability,
       'fileManager.maxDirectoryEntries': immediateCapability,
       'fileManager.blockedExtensions': immediateCapability,

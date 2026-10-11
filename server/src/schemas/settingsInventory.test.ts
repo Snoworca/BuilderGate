@@ -356,7 +356,7 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
 });
 
 // @req OPS-BGSTAB-011 AC-1
-test('OPS-BGSTAB-011 the configuration schema still has exactly 86 leaves', () => {
+test('OPS-BGSTAB-011 the configuration schema still has exactly 89 leaves', () => {
   // The pin the inventory is sized against. It is asserted separately from the
   // coverage test so that a change in the schema's shape is distinguishable
   // from a change in the inventory.
@@ -378,5 +378,8 @@ test('OPS-BGSTAB-011 the configuration schema still has exactly 86 leaves', () =
   //
   // 85 -> 86 on 2026-10-01: terminalAuthority.shadowComparison (PERF-BGSTAB-021), the opt-in
   // switch for the retained-model shadow comparison, classified reserved.
-  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 86);
+  //
+  // 86 -> 89 on 2026-10-08 (FR-AITUI-019): session.autoSave.enabled, session.autoSave.intervalMinutes
+  // and session.snapshotRetention, all three editable in Settings and classified user-visible.
+  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 89);
 });

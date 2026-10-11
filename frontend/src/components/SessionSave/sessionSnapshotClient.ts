@@ -44,9 +44,10 @@ export function createSessionSnapshotClient(deps: SessionSnapshotClientDeps): Se
   };
   return {
     getStatus: async () => read<SnapshotStatus>(await deps.authFetch(base, { headers: deps.getAuthHeaders() })),
-    getCandidates: async () => (await read<{ candidates: AgentTabCandidate[] }>(
+    // A reply without the list reads as none: App reads its length on every render.
+    getCandidates: async () => (await read<{ candidates?: AgentTabCandidate[] }>(
       await deps.authFetch(`${base}/candidates`, { headers: deps.getAuthHeaders() }),
-    )).candidates,
+    )).candidates ?? [],
     save: async (tabIds) => read(await deps.authFetch(base, json('POST', { tabIds }))),
     restore: async (tabIds) => read(await deps.authFetch(`${base}/restore`, json('POST', { tabIds }))),
     discard: async () => {
