@@ -22,6 +22,7 @@ export interface SessionSnapshotState {
   getSnapshot: (id: string) => Promise<SnapshotDetail>;
   deleteSnapshot: (id: string) => Promise<void>;
   restoreFrom: (id: string, items: HandRestoreItem[], activeWorkspaceId: string | null) => Promise<RestoreReportItem[]>;
+  restoreResults: (tabIds: string[]) => Promise<RestoreReportItem[]>;
   acknowledgeReport: (reportId: string) => Promise<void>;
 }
 
@@ -88,9 +89,10 @@ export function useSessionSnapshot(enabled: boolean): SessionSnapshotState {
     (id: string, items: HandRestoreItem[], activeWorkspaceId: string | null) => sessionSnapshotApi.restoreFrom(id, items, activeWorkspaceId),
     [],
   );
+  const restoreResults = useCallback((tabIds: string[]) => sessionSnapshotApi.restoreResults(tabIds), []);
   const acknowledgeReport = useCallback(async (reportId: string) => {
     await sessionSnapshotApi.acknowledgeReport(reportId);
   }, []);
 
-  return { status, candidates, refresh, preview, saveAll, retry, discard, listSnapshots, getSnapshot, deleteSnapshot, restoreFrom, acknowledgeReport };
+  return { status, candidates, refresh, preview, saveAll, retry, discard, listSnapshots, getSnapshot, deleteSnapshot, restoreFrom, restoreResults, acknowledgeReport };
 }

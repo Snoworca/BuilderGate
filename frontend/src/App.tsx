@@ -1115,6 +1115,7 @@ function AppContent() {
             getSnapshot: sessionSnapshot.getSnapshot,
             deleteSnapshot: sessionSnapshot.deleteSnapshot,
             restoreFrom: (id, items) => sessionSnapshot.restoreFrom(id, items, wm.activeWorkspaceId ?? null),
+            restoreResults: sessionSnapshot.restoreResults,
             autoSave: sessionSnapshot.status?.autoSave,
             onOpenLastReport: restoreReport.length > 0 ? () => setSessionDialog('report') : undefined,
           }}

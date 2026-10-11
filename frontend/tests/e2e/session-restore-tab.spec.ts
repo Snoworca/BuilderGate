@@ -90,7 +90,7 @@ test.describe('세션 복구 탭', () => {
 
       // FR-AITUI-018 AC-5/AC-7: only the picked entries are restored; the result row says what happened.
       await dialog.getByRole('button', { name: /^선택한 1개 복구$/ }).click();
-      await expect(dialog.locator('.session-report-row', { hasText: 'e2e-restore-tab' })).toContainText('입력', { timeout: 15000 });
+      await expect(dialog.locator('.session-report-row', { hasText: 'e2e-restore-tab' })).toContainText('명령 입력됨', { timeout: 15000 });
       await page.screenshot({ path: '../.playwright-mcp/session-restore-tab-result.png' });
       // The command really reached that tab's shell.
       await dialog.getByRole('button', { name: '닫기', exact: true }).last().click();

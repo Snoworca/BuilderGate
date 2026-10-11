@@ -86,3 +86,20 @@ test('the session snapshot client reads a missing candidates list as empty', asy
   });
   assert.deepEqual(await client.getCandidates(), []);
 });
+
+// Review 2026-10-12: the restore tab reads a hand-restored agent's result again until it settles.
+test('FR-AITUI-018 AC-7: the client reads the hand restore results for the given tabs', async () => {
+  const { createSessionSnapshotClient } = await import('../../src/components/SessionSave/sessionSnapshotClient.ts');
+  const seen: Array<{ url: string; body: unknown }> = [];
+  const client = createSessionSnapshotClient({
+    apiBase: '/api',
+    authFetch: async (input, init) => {
+      seen.push({ url: String(input), body: JSON.parse(String(init?.body)) });
+      return new Response(JSON.stringify({ results: [{ tabId: 'new-1', result: 'confirmed' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    },
+    getAuthHeaders: () => ({}),
+    parseError: async () => new Error('unexpected'),
+  });
+  assert.deepEqual(await client.restoreResults(['new-1']), [{ tabId: 'new-1', result: 'confirmed' }]);
+  assert.deepEqual(seen, [{ url: '/api/session-snapshot/restore-results', body: { tabIds: ['new-1'] } }]);
+});

@@ -245,6 +245,29 @@ test('FR-AITUI-016 AC-5: no auto save while resumed agents are still being looke
   });
 });
 
+// Review 2026-10-12: a restart whose resumed agent never came up must not cost the only copy of its
+// id. The next auto save overwrites the one auto file, and that file is the newest save next start.
+test('FR-AITUI-016 AC-4: an agent the restart resumed but never saw keeps its saved id in the next auto save', async () => {
+  await withFixture(async (f) => {
+    const first = f.make();
+    await first.initialize();
+    await first.autoSave();
+    const restarted = f.make();
+    await restarted.initialize();
+    f.runtime.s1.foregroundAppId = null;
+    f.runtime.s1.ptyPid = 99;
+    f.timing.confirmTimeoutMs = 40;
+    await restarted.autoRestore();
+    await sleep(120);
+    assert.equal(restarted.getStatus().report.find((item) => item.tabId === 't1')?.result, 'unconfirmed');
+    f.clock.at += 300_000;
+    assert.equal((await restarted.autoSave()).result, 'saved');
+    const t1 = entryOf(readAuto(f), 't1');
+    assert.equal(t1?.mode, 'agent');
+    assert.equal(t1?.sessionId, CLAUDE_ID);
+  });
+});
+
 test('FR-AITUI-016 AC-6: an overlapping cycle is skipped and one cycle lists processes once', async () => {
   await withFixture(async (f) => {
     const service = f.make();
@@ -366,6 +389,26 @@ test('FR-AITUI-017 AC-6: the snapshot file from before the list becomes one manu
   });
 });
 
+// Review 2026-10-12: the old code kept its one snapshot file after using it, entries marked done.
+test('FR-AITUI-017 AC-6: an old snapshot file that was already used joins the list but is not replayed', async () => {
+  await withFixture(async (f) => {
+    mkdirSync(f.dataDir, { recursive: true });
+    writeFileSync(path.join(f.dataDir, 'session-snapshot.json'), JSON.stringify({
+      version: 1, savedAt: '2026-10-01T00:00:00.000Z',
+      entries: [{
+        tabId: 't1', workspaceId: 'w1', workspaceName: 'ProjectMaster', tabName: 'build', cwd: CWD_A,
+        mode: 'agent', agent: 'claude', sessionId: CLAUDE_ID, method: 'claude-pid-file', confidence: 'exact',
+        resumeCommand: 'claude', resumeArguments: ['--resume', CLAUDE_ID], restore: 'restored',
+      }],
+    }));
+    const service = f.make();
+    await service.initialize();
+    assert.equal(service.listSnapshots().manual.length, 1, 'still in the list, for a hand restore');
+    assert.deepEqual(await service.autoRestore(), []);
+    assert.deepEqual(f.scheduled, [], 'nothing typed at start');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // FR-AITUI-018 — restored at start, and restored by hand
 // ---------------------------------------------------------------------------
@@ -457,6 +500,22 @@ test('FR-AITUI-018 AC-5/AC-6: a hand restore types into an idle tab and opens a 
   });
 });
 
+// Review 2026-10-12: a hand-restored agent's result settles like the start's report does.
+test('FR-AITUI-018 AC-7: a hand-restored agent settles to confirmed or unconfirmed', async () => {
+  await withFixture(async (f) => {
+    const service = f.make();
+    await service.initialize();
+    const saved = await service.saveAll([{ tabId: 't1', mode: 'agent', agent: 'claude', launcher: 'claude', sessionId: CLAUDE_ID }]);
+    const results = await service.restoreFrom(String(saved.snapshot.id), [{ tabId: 't1' }]);
+    assert.deepEqual(results.map((r) => [r.tabId, r.result]), [['new-1', 'waiting']]);
+    assert.deepEqual(service.handResults(['new-1']).map((r) => r.result), ['waiting']);
+    // new-1 never shows up among the tabs, so the agent is not seen there.
+    await sleep(150);
+    assert.deepEqual(service.handResults(['new-1', 'nope']).map((r) => [r.tabId, r.result]), [['new-1', 'unconfirmed']]);
+    assert.equal(service.getStatus().report.length, 0, 'the start report is not touched');
+  });
+});
+
 test('FR-AITUI-018 AC-5: a running command from the auto save is typed only when asked', async () => {
   await withFixture(async (f) => {
     const service = f.make();
@@ -528,6 +587,22 @@ test('FR-AITUI-019 AC-3: a new interval reschedules the next cycle at once', asy
     service.configureAutoSave({ enabled: true, intervalMinutes: 5 }); // 50 ms here
     await sleep(120);
     assert.ok(f.processCalls.count >= 1, 'the short interval took over without waiting out the long one');
+    service.stopAutoSave();
+  });
+});
+
+// Review 2026-10-12: every settings save calls configureAutoSave; an unchanged one must not
+// push the next cycle back, or frequent unrelated edits keep the auto save from ever running.
+test('FR-AITUI-019 AC-3: the same settings again do not push the next cycle back', async () => {
+  await withFixture(async (f) => {
+    const service = f.make();
+    await service.initialize();
+    service.configureAutoSave({ enabled: true, intervalMinutes: 5 }); // 50 ms here
+    for (let i = 0; i < 8; i += 1) {
+      await sleep(20);
+      service.configureAutoSave({ enabled: true, intervalMinutes: 5 });
+    }
+    assert.ok(f.processCalls.count >= 1, 'a cycle ran although the settings were saved every 20 ms');
     service.stopAutoSave();
   });
 });

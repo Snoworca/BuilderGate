@@ -126,6 +126,11 @@ export interface SessionSnapshot {
   savedAt: string;
   /** FR-AITUI-017 AC-4: when a server start last restored this save. */
   restoredAt?: string;
+  /**
+   * FR-AITUI-017 AC-6: false for an old snapshot file that its one restore had already used.
+   * It stays in the list for a hand restore, but no start replays it.
+   */
+  autoRestore?: false;
   entries: SnapshotEntry[];
 }
 
@@ -330,6 +335,7 @@ function sanitizeSnapshot(raw: unknown, origin: SnapshotOrigin, fallbackId: stri
     origin,
     savedAt,
     ...(typeof parsed.restoredAt === 'string' ? { restoredAt: parsed.restoredAt } : {}),
+    ...(parsed.autoRestore === false ? { autoRestore: false as const } : {}),
     entries,
   };
 }
@@ -383,6 +389,8 @@ export class SessionSnapshotService {
   private noticeShownReportId: string | null = null;
   /** FR-AITUI-014 AC-4: resumed agents still being looked for, by tab. */
   private readonly waiting = new Map<string, { agent: AgentKind; deadline: number }>();
+  /** FR-AITUI-018 AC-7: what restores by hand did, by the tab they went into; settled like the report. */
+  private readonly handReport = new Map<string, RestoreReportItem>();
   private watchTimer: NodeJS.Timeout | null = null;
   /** FR-AITUI-016 AC-6: one auto save at a time. */
   private autoSaving = false;
@@ -441,6 +449,8 @@ export class SessionSnapshotService {
       const migrated = raw === null ? null : sanitizeSnapshot(raw, 'manual', '');
       if (migrated) {
         migrated.id = newManualId(migrated.savedAt);
+        // The old code kept the file after its one restore, every entry marked done.
+        if (migrated.entries.length > 0 && migrated.entries.every((entry) => entry.restore !== 'pending')) migrated.autoRestore = false;
         try {
           mkdirSync(this.manualDir, { recursive: true });
           await writeJsonAtomic(path.join(this.manualDir, `${migrated.id}.json`), migrated);
@@ -463,7 +473,7 @@ export class SessionSnapshotService {
     }
 
     // FR-AITUI-018 AC-1: the newer of the newest manual save and the auto save; a tie goes to the manual one.
-    const newestManual = this.manual[0] ?? null;
+    const newestManual = this.manual.find((snapshot) => snapshot.autoRestore !== false) ?? null;
     if (newestManual && this.auto) {
       this.restoreSource = timeOf(newestManual) >= timeOf(this.auto) ? newestManual : this.auto;
     } else {
@@ -840,6 +850,12 @@ export class SessionSnapshotService {
       const previous = this.auto?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
       if (previous) return { ...previous, ...names, cwd: ctx.cwd ?? previous.cwd, restore: 'pending' };
     }
+    if (!agent && !runtime?.runningCommand) {
+      // A resume this start typed but never saw: the agent did not come back, so the saved id is
+      // still the only way back to it. Losing it here would lose it for the next start too.
+      const missed = this.missedResume(record.tab.id);
+      if (missed) return { ...missed, ...names, cwd: ctx.cwd ?? missed.cwd, restore: 'pending' };
+    }
     const running = agent ? null : runtime?.runningCommand ?? null;
     return {
       tabId: record.tab.id,
@@ -855,6 +871,13 @@ export class SessionSnapshotService {
       restore: 'pending',
       ...(running && running.length <= MAX_COMMAND_LINE_LENGTH && !/[\x00-\x1F\x7F]/.test(running) ? { runningCommand: running } : {}),
     };
+  }
+
+  /** The saved agent entry of a tab whose resume at this start was typed but not confirmed. */
+  private missedResume(tabId: string): SnapshotEntry | null {
+    const item = this.report.find((current) => current.tabId === tabId);
+    if (!item || item.mode !== 'agent' || (item.result !== 'unconfirmed' && item.result !== 'failed')) return null;
+    return this.restoreSource?.entries.find((entry) => entry.tabId === tabId && entry.mode === 'agent') ?? null;
   }
 
   /** One auto save cycle. AC-5: deferred while resumed agents are still looked for; AC-6: one at a time. */
@@ -896,6 +919,9 @@ export class SessionSnapshotService {
 
   /** FR-AITUI-019 AC-3: applied without a restart; turning it off cancels the next cycle. */
   configureAutoSave(config: AutoSaveConfig): void {
+    const same = config.enabled === this.autoSaveConfig.enabled && config.intervalMinutes === this.autoSaveConfig.intervalMinutes;
+    // Every settings save lands here; the same values keep the cycle already counting down.
+    if (same && (!config.enabled || this.autoSaveTimer || this.autoSaving)) return;
     this.autoSaveConfig = { enabled: config.enabled, intervalMinutes: config.intervalMinutes };
     if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
     this.autoSaveTimer = null;
@@ -1013,7 +1039,23 @@ export class SessionSnapshotService {
       }
       results.push(this.runEntry(placed, new Set([tabId])));
     }
+    for (const result of results) this.rememberHandResult(result);
     return results;
+  }
+
+  private rememberHandResult(item: RestoreReportItem): void {
+    this.handReport.delete(item.tabId);
+    this.handReport.set(item.tabId, { ...item });
+    // Bounded: only the latest few hundred are ever polled for.
+    while (this.handReport.size > 500) this.handReport.delete(this.handReport.keys().next().value as string);
+  }
+
+  /** FR-AITUI-018 AC-7: the current results of restores by hand into these tabs. */
+  handResults(tabIds: string[]): RestoreReportItem[] {
+    return tabIds.flatMap((tabId) => {
+      const item = this.handReport.get(tabId);
+      return item ? [{ ...item }] : [];
+    });
   }
 
   /** A saved command line typed into a tab; false when it is not a command line that may be typed. */
@@ -1076,10 +1118,11 @@ export class SessionSnapshotService {
 
   private settle(tabId: string, result: 'confirmed' | 'unconfirmed'): void {
     this.waiting.delete(tabId);
-    const item = this.report.find((current) => current.tabId === tabId);
-    if (item && item.result === 'waiting') {
-      item.result = result;
-      if (result === 'unconfirmed') item.reason = 'agent-not-detected';
+    for (const item of [this.report.find((current) => current.tabId === tabId), this.handReport.get(tabId)]) {
+      if (item && item.result === 'waiting') {
+        item.result = result;
+        if (result === 'unconfirmed') item.reason = 'agent-not-detected';
+      }
     }
   }
 
@@ -1153,7 +1196,8 @@ export class SessionSnapshotService {
 
   /** FR-AITUI-018 AC-3: a client showed this report's notice; no client shows it again. */
   async acknowledgeReport(reportId: string): Promise<void> {
-    if (!this.reportId || reportId !== this.reportId) return;
+    // Two windows open after a restart both acknowledge; the second has nothing to write.
+    if (!this.reportId || reportId !== this.reportId || this.noticeShownReportId === reportId) return;
     this.noticeShownReportId = reportId;
     await writeJsonAtomic(this.restoreStatePath, { noticeShownReportId: reportId, shownAt: this.now().toISOString() });
   }

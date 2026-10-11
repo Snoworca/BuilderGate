@@ -68,12 +68,15 @@ function readRestoreItems(body: unknown): HandRestoreItem[] {
   if (!Array.isArray(items) || items.length > MAX_TAB_IDS) {
     throw new AppError(ErrorCode.INVALID_INPUT, 'items must be an array');
   }
-  return items.map((raw) => {
+  // One restore per tab: a repeated tab id would open its tab, and type its command, twice.
+  const byTab = new Map<string, HandRestoreItem>();
+  for (const raw of items) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new AppError(ErrorCode.INVALID_INPUT, 'Each item must be an object');
     const item = raw as Record<string, unknown>;
     if (!isTabId(item.tabId)) throw new AppError(ErrorCode.INVALID_INPUT, 'Each item needs a tab id');
-    return { tabId: item.tabId, includeCommand: item.includeCommand === true };
-  });
+    if (!byTab.has(item.tabId)) byTab.set(item.tabId, { tabId: item.tabId, includeCommand: item.includeCommand === true });
+  }
+  return [...byTab.values()];
 }
 
 function snapshotIdOf(req: Request): string {
@@ -180,6 +183,15 @@ export function createSessionSnapshotRoutes(service: SessionSnapshotService): Ro
         ? activeWorkspaceId
         : null;
       res.json({ results: await service.restoreFrom(id, readRestoreItems(req.body), { fallbackWorkspaceId }) });
+    } catch (error) {
+      handleError(res, error);
+    }
+  });
+
+  // FR-AITUI-018 AC-7: the restore tab polls the agents it restored until they settle.
+  router.post('/restore-results', (req: Request, res: Response) => {
+    try {
+      res.json({ results: service.handResults(readTabIds(req.body)) });
     } catch (error) {
       handleError(res, error);
     }

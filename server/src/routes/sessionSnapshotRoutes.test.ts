@@ -38,6 +38,7 @@ function fakeService() {
       return [{ tabId: 't1', result: 'typed' }];
     },
     acknowledgeReport: async (reportId: string) => { calls.push(['acknowledgeReport', reportId]); },
+    handResults: (tabIds: string[]) => { calls.push(['handResults', tabIds]); return [{ tabId: 'new-1', result: 'confirmed' }]; },
   };
   return { service, calls };
 }
@@ -126,6 +127,8 @@ test('FR-AITUI-018 AC-5/AC-6: GET /list/:id shows where each entry goes; POST /l
     assert.equal(restored.status, 200);
     assert.deepEqual(restored.json.results, [{ tabId: 't1', result: 'typed' }]);
     assert.deepEqual(calls.at(-1), ['restoreFrom', ['auto', [{ tabId: 't1', includeCommand: true }, { tabId: 't2', includeCommand: false }], { fallbackWorkspaceId: 'w9' }]]);
+    await req('POST', '/api/session-snapshot/list/auto/restore', { items: [{ tabId: 't1', includeCommand: true }, { tabId: 't1' }] });
+    assert.deepEqual(calls.at(-1), ['restoreFrom', ['auto', [{ tabId: 't1', includeCommand: true }], { fallbackWorkspaceId: null }]], 'a repeated tab is restored once');
     const bad = await req('POST', '/api/session-snapshot/list/auto/restore', { items: [{ includeCommand: true }] });
     assert.equal(bad.status, 400, 'an item without a tab id is refused before the service');
   });
@@ -137,5 +140,15 @@ test('FR-AITUI-018 AC-3: POST /report/ack records that the restore notice was sh
     assert.equal(ack.status, 200);
     assert.deepEqual(calls.at(-1), ['acknowledgeReport', 'r-1']);
     assert.equal((await req('POST', '/api/session-snapshot/report/ack', {})).status, 400);
+  });
+});
+
+test('FR-AITUI-018 AC-7: POST /restore-results reads the current results of restores by hand', async () => {
+  await withRoutes(async (req, calls) => {
+    const read = await req('POST', '/api/session-snapshot/restore-results', { tabIds: ['new-1'] });
+    assert.equal(read.status, 200);
+    assert.deepEqual(read.json.results, [{ tabId: 'new-1', result: 'confirmed' }]);
+    assert.deepEqual(calls.at(-1), ['handResults', ['new-1']]);
+    assert.equal((await req('POST', '/api/session-snapshot/restore-results', {})).status, 400);
   });
 });

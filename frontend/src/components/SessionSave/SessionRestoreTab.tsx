@@ -28,6 +28,8 @@ export interface SessionRestoreTabProps {
   getSnapshot: (id: string) => Promise<SnapshotDetail>;
   deleteSnapshot: (id: string) => Promise<void>;
   restoreFrom: (id: string, items: HandRestoreItem[]) => Promise<RestoreReportItem[]>;
+  /** FR-AITUI-018 AC-7: read again while a restored agent is still being looked for. */
+  restoreResults?: (tabIds: string[]) => Promise<RestoreReportItem[]>;
   autoSave?: { enabled: boolean; intervalMinutes: number };
   /** Shown when this server start restored something (FR-AITUI-018 AC-7). */
   onOpenLastReport?: () => void;
@@ -35,6 +37,9 @@ export interface SessionRestoreTabProps {
 }
 
 type Step = 'pick' | 'restoring' | 'done' | 'error';
+
+/** While a restored agent is still being looked for, its result is read this often. */
+const RESULT_POLL_MS = 2_000;
 
 function summaryLine(item: SnapshotSummary): string {
   const agents = agentCountsText(item.agentCounts);
@@ -46,7 +51,7 @@ function kindMark(entry: PlannedEntry) {
   return <span className="agent-mark agent-mark-shell">{entry.mode === 'command' ? t('sessionSave.editor.custom') : t('sessionSave.editor.shellOnly')}</span>;
 }
 
-export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, restoreFrom, autoSave, onOpenLastReport, onClose }: SessionRestoreTabProps) {
+export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, restoreFrom, restoreResults, autoSave, onOpenLastReport, onClose }: SessionRestoreTabProps) {
   const [list, setList] = useState<SnapshotList | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -77,6 +82,8 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
   }, [listSnapshots]);
   useEffect(loadList, [loadList]);
 
+  // Bumped to read the save again: after a restore, where each entry goes has changed.
+  const [detailVersion, setDetailVersion] = useState(0);
   useEffect(() => {
     setDetail(null);
     setDetailError(null);
@@ -90,7 +97,22 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
       .then((next) => { if (live) setDetail(next); })
       .catch((err: unknown) => { if (live) setDetailError(err instanceof Error ? err.message : String(err)); });
     return () => { live = false; };
-  }, [selectedId, getSnapshot]);
+  }, [selectedId, getSnapshot, detailVersion]);
+
+  const waitingIds = step === 'done' ? results.filter((item) => item.result === 'waiting').map((item) => item.tabId).join('\n') : '';
+  useEffect(() => {
+    if (!waitingIds || !restoreResults) return undefined;
+    const tabIds = waitingIds.split('\n');
+    const timer = window.setInterval(() => {
+      restoreResults(tabIds)
+        .then((fresh) => {
+          const byTab = new Map(fresh.map((item) => [item.tabId, item]));
+          setResults((current) => current.map((item) => byTab.get(item.tabId) ?? item));
+        })
+        .catch(() => undefined);
+    }, RESULT_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [waitingIds, restoreResults]);
 
   const newestManual = list?.manual[0] ?? null;
   const nextStartId = list?.auto && (!newestManual || Date.parse(list.auto.savedAt) > Date.parse(newestManual.savedAt))
@@ -305,7 +327,7 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
 
       {step === 'done' ? (
         <DialogFooter>
-          <Button variant="secondary" onClick={() => { setStep('pick'); setResults([]); }}>{t('sessionSave.restore.back')}</Button>
+          <Button variant="secondary" onClick={() => setDetailVersion((version) => version + 1)}>{t('sessionSave.restore.back')}</Button>
           <Button variant="primary" onClick={onClose}>{t('common.close')}</Button>
         </DialogFooter>
       ) : (
