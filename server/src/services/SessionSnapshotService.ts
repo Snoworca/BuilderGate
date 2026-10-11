@@ -357,9 +357,22 @@ export function dropCarriedDuplicates(entries: SnapshotEntry[], inherited: Reado
  * The agent printed another session of its own after `since`: /resume or /new inside the same
  * process moved it on, which its start time cannot show.
  */
-function switchedSince(entry: SnapshotEntry, since: number, runtime: SnapshotTabRuntime | null): boolean {
-  const hint = runtime?.outputHint;
+function switchedSince(entry: SnapshotEntry, since: number, hint: AgentOutputHint | null | undefined): boolean {
   return Boolean(hint && hint.agent === entry.agent && hint.sessionId !== entry.sessionId && hint.atMs > since);
+}
+
+/**
+ * FR-AITUI-016 AC-2: what an agent printed counts only while that agent still runs in the tab.
+ * Its exit line ("claude --resume <id>") outlives it; read after it quit, it would make the shell
+ * left behind an agent tab -- and, in a folder with another live session, take that one's id.
+ */
+function liveHintOnly(ctx: TabAgentContext, processes: ProcessInfo[] | undefined): TabAgentContext {
+  const hint = ctx.outputHint;
+  if (!hint || ctx.agent) return ctx;
+  // Without a process list there is no telling; the hint stands as before.
+  if (!processes || typeof ctx.ptyPid !== 'number') return ctx;
+  const running = detectAgentFromProcesses(descendantsOf(ctx.ptyPid, processes))?.agent;
+  return running === hint.agent ? ctx : { ...ctx, outputHint: null };
 }
 
 function mark<T>(set: Set<T>, value: T): T {
@@ -598,8 +611,12 @@ export class SessionSnapshotService {
     records: SnapshotTabRecord[],
     processes: ProcessInfo[] | undefined,
     shared?: Map<string, AgentStateCache>,
+    adjust?: (ctx: TabAgentContext) => TabAgentContext,
   ): Promise<{ contexts: Array<{ record: SnapshotTabRecord; ctx: TabAgentContext }>; resolved: Map<string, ResolvedAgentSession | null> }> {
-    const contexts = records.map((record) => ({ record, ctx: this.contextOf(record) }));
+    const contexts = records.map((record) => {
+      const ctx = this.contextOf(record);
+      return { record, ctx: adjust ? adjust(ctx) : ctx };
+    });
     const cacheFor = async (roots: AgentRoots): Promise<AgentStateCache | undefined> => {
       if (!shared) return undefined;
       const key = `${roots.claudeHome}\u0000${roots.codexHome}`;
@@ -904,16 +921,25 @@ export class SessionSnapshotService {
     if (agent) {
       // A resume confirmed in this tab knows its id better than a guess, while that agent still runs.
       const resumed = this.confirmedResumes.get(record.tab.id);
-      if (resumed && resumed.entry.agent === agent && this.stillThatAgent(resumed, runtime)) {
+      if (resumed && resumed.entry.agent === agent && this.stillThatAgent(resumed, runtime, ctx.outputHint)) {
         return freshEntry(resumed.entry, { tabId: record.tab.id, ...names, cwd: ctx.cwd ?? resumed.entry.cwd });
       }
+      // The agent printed the session it moved to since: that one, not a guess.
+      const printed = ctx.outputHint && ctx.outputHint.agent === agent && isValidAgentSessionId(agent, ctx.outputHint.sessionId)
+        ? ctx.outputHint
+        : null;
       // AC-4: a manual save made after this agent started knows its id better than a guess.
       const newestManual = this.manual[0];
       const manualEntry = newestManual?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
       const startedAt = runtime?.agentStartedAt;
       if (newestManual && manualEntry && (startedAt === undefined || timeOf(newestManual) >= startedAt)
-        && !switchedSince(manualEntry, timeOf(newestManual), runtime)) {
+        && !switchedSince(manualEntry, timeOf(newestManual), ctx.outputHint)) {
         return mark(inherited, freshEntry(manualEntry, { ...names, cwd: ctx.cwd ?? manualEntry.cwd }));
+      }
+      const movedOn = (resumed && resumed.entry.agent === agent && switchedSince(resumed.entry, resumed.at, ctx.outputHint))
+        || (newestManual && manualEntry && switchedSince(manualEntry, timeOf(newestManual), ctx.outputHint));
+      if (printed && movedOn) {
+        return this.agentEntry(record, ctx, { agent, sessionId: printed.sessionId, method: printed.source, confidence: 'estimated' });
       }
       if (result) return this.agentEntry(record, ctx, result);
       const previous = this.auto?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
@@ -944,8 +970,8 @@ export class SessionSnapshotService {
   }
 
   /** The agent the resume was confirmed with is the one running now: not exited and started anew. */
-  private stillThatAgent(resumed: { entry: SnapshotEntry; at: number }, runtime: SnapshotTabRuntime | null): boolean {
-    if (!runtime || switchedSince(resumed.entry, resumed.at, runtime)) return false;
+  private stillThatAgent(resumed: { entry: SnapshotEntry; at: number }, runtime: SnapshotTabRuntime | null, hint: AgentOutputHint | null | undefined): boolean {
+    if (!runtime || switchedSince(resumed.entry, resumed.at, hint)) return false;
     if (runtime.foregroundAppId === resumed.entry.agent) {
       return runtime.agentStartedAt === undefined || runtime.agentStartedAt <= resumed.at;
     }
@@ -984,7 +1010,7 @@ export class SessionSnapshotService {
         return Boolean(runtime?.foregroundAppId || runtime?.outputHint || runtime?.runningCommand || agentFromCommand(record.tab.recoveryCommand));
       });
       const processes = agentish ? await this.processList() : undefined;
-      const { contexts, resolved } = await this.resolveAll(records, processes, new Map());
+      const { contexts, resolved } = await this.resolveAll(records, processes, new Map(), (ctx) => liveHintOnly(ctx, processes));
       const inherited = new Set<SnapshotEntry>();
       const entries = dropCarriedDuplicates(
         contexts.map(({ record, ctx }) => this.autoEntryFor(record, ctx, resolved.get(ctx.tabId) ?? null, inherited)),

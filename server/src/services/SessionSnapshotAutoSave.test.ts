@@ -222,7 +222,9 @@ test('FR-AITUI-016 AC-4: a manual save is not inherited past a session the agent
     f.clock.at += 60_000;
     f.runtime.s2.outputHint = { agent: 'codex', sessionId: CODEX_OLD, source: 'test', atMs: f.clock.at - 1000 };
     await service.autoSave();
-    assert.notEqual(entryOf(readAuto(f), 't2')?.sessionId, CODEX_ID);
+    // Review round 10: and the session it printed is the one saved, not a guess.
+    assert.equal(entryOf(readAuto(f), 't2')?.mode, 'agent');
+    assert.equal(entryOf(readAuto(f), 't2')?.sessionId, CODEX_OLD);
   });
 });
 
@@ -359,6 +361,24 @@ test('FR-AITUI-016 AC-4: a resume confirmed in a tab is saved over a guess while
       assert.equal(t1?.mode === 'agent' ? t1.sessionId : undefined, expected, after);
     });
   }
+});
+
+// Review 2026-10-12 (round 10): an agent's exit line ("claude --resume <id>") stays in the output
+// hint tracker after it quits. It must not make the shell left behind an agent tab -- least of all
+// one holding the other tab's live session of the same folder.
+test('FR-AITUI-016 AC-2: a tab whose agent exited is a shell entry, whatever its last output named', async () => {
+  await withFixture(async (f) => {
+    const EXITED = '3f2a9c1e-5b7d-4c11-9a2e-0d6f81b4c7bb';
+    // t4 sits in t1's folder; its claude has quit and left only the exit line.
+    f.runtime.s4 = { foregroundAppId: null, ptyPid: 23, cwd: CWD_A, outputHint: { agent: 'claude', sessionId: EXITED, source: 'claude-exit-hint', atMs: Date.now() - 1000 } };
+    f.tabs[3].tab.lastCwd = CWD_A;
+    const service = f.make();
+    await service.initialize();
+    await service.autoSave();
+    const saved = readAuto(f);
+    assert.equal(entryOf(saved, 't1')?.sessionId, CLAUDE_ID, 'the running claude keeps its session');
+    assert.equal(entryOf(saved, 't4')?.mode, 'shell', 'the exited one is a shell');
+  });
 });
 
 test('FR-AITUI-016 AC-6: an overlapping cycle is skipped and one cycle lists processes once', async () => {
