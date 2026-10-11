@@ -353,6 +353,15 @@ export function dropCarriedDuplicates(entries: SnapshotEntry[], inherited: Reado
   });
 }
 
+/**
+ * The agent printed another session of its own after `since`: /resume or /new inside the same
+ * process moved it on, which its start time cannot show.
+ */
+function switchedSince(entry: SnapshotEntry, since: number, runtime: SnapshotTabRuntime | null): boolean {
+  const hint = runtime?.outputHint;
+  return Boolean(hint && hint.agent === entry.agent && hint.sessionId !== entry.sessionId && hint.atMs > since);
+}
+
 function mark<T>(set: Set<T>, value: T): T {
   set.add(value);
   return value;
@@ -902,7 +911,8 @@ export class SessionSnapshotService {
       const newestManual = this.manual[0];
       const manualEntry = newestManual?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
       const startedAt = runtime?.agentStartedAt;
-      if (newestManual && manualEntry && (startedAt === undefined || timeOf(newestManual) >= startedAt)) {
+      if (newestManual && manualEntry && (startedAt === undefined || timeOf(newestManual) >= startedAt)
+        && !switchedSince(manualEntry, timeOf(newestManual), runtime)) {
         return mark(inherited, freshEntry(manualEntry, { ...names, cwd: ctx.cwd ?? manualEntry.cwd }));
       }
       if (result) return this.agentEntry(record, ctx, result);
@@ -935,7 +945,7 @@ export class SessionSnapshotService {
 
   /** The agent the resume was confirmed with is the one running now: not exited and started anew. */
   private stillThatAgent(resumed: { entry: SnapshotEntry; at: number }, runtime: SnapshotTabRuntime | null): boolean {
-    if (!runtime) return false;
+    if (!runtime || switchedSince(resumed.entry, resumed.at, runtime)) return false;
     if (runtime.foregroundAppId === resumed.entry.agent) {
       return runtime.agentStartedAt === undefined || runtime.agentStartedAt <= resumed.at;
     }

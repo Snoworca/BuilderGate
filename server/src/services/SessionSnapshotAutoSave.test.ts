@@ -213,6 +213,19 @@ test('FR-AITUI-016 AC-4: an id not found now comes from a manual save made after
   });
 });
 
+// Review 2026-10-12 (round 9): the same agent moved to another conversation after the save.
+test('FR-AITUI-016 AC-4: a manual save is not inherited past a session the agent printed after it', async () => {
+  await withFixture(async (f) => {
+    const service = f.make();
+    await service.initialize();
+    await service.saveAll([{ tabId: 't2', mode: 'agent', agent: 'codex', launcher: 'codex', sessionId: CODEX_ID }]);
+    f.clock.at += 60_000;
+    f.runtime.s2.outputHint = { agent: 'codex', sessionId: CODEX_OLD, source: 'test', atMs: f.clock.at - 1000 };
+    await service.autoSave();
+    assert.notEqual(entryOf(readAuto(f), 't2')?.sessionId, CODEX_ID);
+  });
+});
+
 test('FR-AITUI-016 AC-4: a manual save older than the running agent is not inherited', async () => {
   await withFixture(async (f) => {
     const service = f.make();
@@ -317,8 +330,10 @@ test('FR-AITUI-016 AC-2: a tab running a command is looked up in the process lis
 // this start typed into a tab and saw there knows which session that tab holds.
 test('FR-AITUI-016 AC-4: a resume confirmed in a tab is saved over a guess while that agent runs', async () => {
   const CLAUDE_OTHER = '3f2a9c1e-5b7d-4c11-9a2e-0d6f81b4c7ab';
-  // [agent restarted there after the confirmation, the id the auto save records]
-  for (const [restartedLater, expected] of [[false, CLAUDE_OTHER], [true, undefined]] as const) {
+  const CLAUDE_NEXT = '3f2a9c1e-5b7d-4c11-9a2e-0d6f81b4c7ac';
+  // [what happened after the confirmation, the id the auto save records]
+  for (const [after, expected] of [['typed', CLAUDE_OTHER], ['restarted', undefined], ['switched', CLAUDE_NEXT]] as const) {
+    const restartedLater = after === 'restarted';
     await withFixture(async (f) => {
       const first = f.make();
       await first.initialize();
@@ -336,10 +351,12 @@ test('FR-AITUI-016 AC-4: a resume confirmed in a tab is saved over a guess while
       if (restartedLater) f.runtime.s1.agentStartedAt = Date.now() + 60_000;
       // Review round 8: a prompt typed into the same agent moves only its activity time.
       else f.runtime.s1.foregroundStartedAt = Date.now() + 60_000;
+      // Review round 9: /resume inside the same agent prints the session it moved to.
+      if (after === 'switched') f.runtime.s1.outputHint = { agent: 'claude', sessionId: CLAUDE_NEXT, source: 'test', atMs: Date.now() + 1_000 };
       f.clock.at += 300_000;
       await restarted.autoSave();
       const t1 = entryOf(readAuto(f), 't1');
-      assert.equal(t1?.mode === 'agent' ? t1.sessionId : undefined, expected, `restarted later: ${restartedLater}`);
+      assert.equal(t1?.mode === 'agent' ? t1.sessionId : undefined, expected, after);
     });
   }
 });
