@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { SessionSnapshotService, type SnapshotTabRecord, type SnapshotTabRuntime } from './SessionSnapshotService.js';
+import { SessionSnapshotService, dropCarriedDuplicates, type SnapshotEntry, type SnapshotTabRecord, type SnapshotTabRuntime } from './SessionSnapshotService.js';
 import type { AgentRoots, ProcessInfo } from './agentSession/agentSessionResolver.js';
 import { AppError } from '../utils/errors.js';
 
@@ -294,6 +294,19 @@ test('FR-AITUI-016 AC-4: an agent the restart resumed but never saw keeps its sa
     f.clock.at += 300_000;
     assert.equal((await again.autoSave()).result, 'saved');
     assert.equal(entryOf(readAuto(f), 't1')?.mode, 'shell');
+  });
+});
+
+// Review 2026-10-12 (round 6): an agent started through an unregistered wrapper leaves no mark
+// but a running command; only the process list names it.
+test('FR-AITUI-016 AC-2: a tab running a command is looked up in the process list', async () => {
+  await withFixture(async (f) => {
+    for (const key of ['s1', 's2']) f.runtime[key].foregroundAppId = null;
+    f.runtime.s1.runningCommand = 'my-claude-wrapper';
+    const service = f.make();
+    await service.initialize();
+    await service.autoSave();
+    assert.equal(f.processCalls.count, 1);
   });
 });
 
@@ -614,11 +627,32 @@ test('FR-AITUI-018 AC-6: an agent already resumed by hand into an open tab count
     // Review round 5: an agent the process tree confirmed (an unregistered wrapper) leaves no
     // foreground mark, but its tab still runs a command.
     f.runtime.s9.foregroundAppId = null;
-    f.runtime.s9.runningCommand = 'my-claude-wrapper';
+    f.runtime.s9.runningCommand = `my-claude-wrapper --resume ${CLAUDE_ID}`;
     assert.equal(service.getSnapshot(id).entries[0].targetReason, 'agent-running');
+    // Review round 6: some other command run there after the agent exited is not the agent.
+    f.runtime.s9.runningCommand = 'npm run dev';
+    assert.equal(service.getSnapshot(id).entries[0].targetReason, 'missing');
     // Review round 4: once that agent exits, the entry may be restored again.
     f.runtime.s9.runningCommand = undefined;
     assert.equal(service.getSnapshot(id).entries[0].targetReason, 'missing');
+  });
+});
+
+// Review 2026-10-12 (round 6): the restart's own resume, still being looked for, is running.
+test('FR-AITUI-018 AC-6: an agent the restart resumed and is still looking for is not offered again', async () => {
+  await withFixture(async (f) => {
+    const first = f.make();
+    await first.initialize();
+    await first.autoSave();
+    const restarted = f.make();
+    await restarted.initialize();
+    f.runtime.s1.foregroundAppId = null;
+    f.runtime.s1.ptyPid = 99;
+    f.timing.confirmTimeoutMs = 10_000;
+    await restarted.autoRestore();
+    const t1 = restarted.getSnapshot('auto').entries.find((e) => e.tabId === 't1');
+    assert.deepEqual([t1?.target, t1?.targetReason], ['new-tab', 'agent-running']);
+    restarted.discard().catch(() => undefined);
   });
 });
 
@@ -711,4 +745,18 @@ test('FR-AITUI-019 AC-3: the same settings again do not push the next cycle back
     assert.ok(f.processCalls.count >= 1, 'a cycle ran although the settings were saved every 20 ms');
     service.stopAutoSave();
   });
+});
+
+// Review 2026-10-12 (round 6): a carried entry must not put one session in two tabs at the next start.
+test('FR-AITUI-016 AC-4: a carried agent entry whose session another tab holds is saved as a shell', () => {
+  const agent = (tabId: string, carried: boolean): SnapshotEntry => ({
+    tabId, workspaceId: 'w1', workspaceName: 'ProjectMaster', tabName: tabId, cwd: CWD_A, mode: 'agent', agent: 'claude',
+    sessionId: CLAUDE_ID, method: 'claude-pid-file', confidence: 'exact', resumeCommand: 'claude', resumeArguments: ['--resume', CLAUDE_ID],
+    restore: 'pending', ...(carried ? { carried: true as const } : {}),
+  });
+  const [t1, t2] = dropCarriedDuplicates([agent('t1', true), agent('t2', false)]);
+  assert.equal(t1.mode, 'shell');
+  assert.equal(t1.sessionId, '');
+  assert.equal(t2.mode, 'agent');
+  assert.equal(dropCarriedDuplicates([agent('t1', true)])[0].mode, 'agent', 'kept when no other tab holds it');
 });

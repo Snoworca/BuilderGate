@@ -117,10 +117,6 @@ export function restoreItems(
 }
 
 /**
- * FR-AITUI-018 AC-3: the restore notice is shown by the first client to see this
- * restore's report; once it says so, no reload or other browser shows it again.
- */
-/**
  * FR-AITUI-018 AC-3: whether this client shows the restore notice now. A dismissal holds for the
  * report it dismissed only: a later restart while the page stays open brings its own notice.
  */
@@ -138,6 +134,10 @@ export function showsRestoreNotice(args: {
     && !args.reportDialogOpen;
 }
 
+/**
+ * FR-AITUI-018 AC-3: the restore notice is shown by the first client to see this
+ * restore's report; once it says so, no reload or other browser shows it again.
+ */
 export function claimsRestoreNotice(status: SessionSaveStatusFields | null, claimedReportId: string | null): boolean {
   if (!status || !status.reportId) return false;
   if ((status.report?.length ?? 0) === 0) return false;

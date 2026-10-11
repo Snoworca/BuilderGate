@@ -333,6 +333,21 @@ function freshEntry(entry: SnapshotEntry, over: Partial<SnapshotEntry>): Snapsho
   return { ...rest, ...over, restore: 'pending' };
 }
 
+/**
+ * A carried agent entry whose session another tab now holds (resumed there by hand) goes back to
+ * a shell entry: the next start would otherwise resume that one session in both tabs.
+ */
+export function dropCarriedDuplicates(entries: SnapshotEntry[]): SnapshotEntry[] {
+  const held = new Set(entries.filter((e) => e.mode === 'agent' && !e.carried).map((e) => `${e.agent}\u0000${e.sessionId}`));
+  return entries.map((entry) => {
+    if (!entry.carried || entry.mode !== 'agent' || !held.has(`${entry.agent}\u0000${entry.sessionId}`)) return entry;
+    return {
+      tabId: entry.tabId, workspaceId: entry.workspaceId, workspaceName: entry.workspaceName, tabName: entry.tabName, cwd: entry.cwd,
+      mode: 'shell', agent: null, sessionId: '', method: '', confidence: 'manual', resumeCommand: '', resumeArguments: [], restore: 'pending',
+    };
+  });
+}
+
 /** Two folders compare equal past separators, a trailing one, and case on Windows. */
 function sameFolder(a: string, b: string): boolean {
   const norm = (value: string) => {
@@ -925,11 +940,12 @@ export class SessionSnapshotService {
       const records = this.deps.listTabs();
       const agentish = records.some((record) => {
         const runtime = this.deps.getRuntime(record.tab.sessionId);
-        return Boolean(runtime?.foregroundAppId || runtime?.outputHint || agentFromCommand(record.tab.recoveryCommand));
+        // A running command may be an agent behind an unregistered wrapper: only the process list names it.
+        return Boolean(runtime?.foregroundAppId || runtime?.outputHint || runtime?.runningCommand || agentFromCommand(record.tab.recoveryCommand));
       });
       const processes = agentish ? await this.processList() : undefined;
       const { contexts, resolved } = await this.resolveAll(records, processes, new Map());
-      const entries = contexts.map(({ record, ctx }) => this.autoEntryFor(record, ctx, resolved.get(ctx.tabId) ?? null));
+      const entries = dropCarriedDuplicates(contexts.map(({ record, ctx }) => this.autoEntryFor(record, ctx, resolved.get(ctx.tabId) ?? null)));
       const snapshot: SessionSnapshot = {
         version: 1,
         id: AUTO_ID,
@@ -1030,18 +1046,19 @@ export class SessionSnapshotService {
   // FR-AITUI-018: restoring a save by hand
   // --------------------------------------------------------------------------
 
-  /** This entry's session, already resumed by hand into a tab that is still open. */
+  /** This entry's session, already resumed — by this start or by hand — into a tab that is still open. */
   private resumedElsewhere(entry: SnapshotEntry, records: Map<string, SnapshotTabRecord>): boolean {
     if (entry.mode !== 'agent' || !entry.agent || !entry.sessionId) return false;
-    for (const item of this.handReport.values()) {
+    for (const item of [...this.report, ...this.handReport.values()]) {
       if (item.agent !== entry.agent || item.sessionId !== entry.sessionId) continue;
       const record = records.get(item.tabId);
       if (!record) continue;
       if (item.result === 'waiting') return true;
       // Confirmed once is not running now: the agent may have exited and left an idle shell. An
-      // agent confirmed through the process tree has no foreground mark, but its command runs.
+      // agent confirmed through the process tree has no foreground mark, but its resume line runs.
       const runtime = this.deps.getRuntime(record.tab.sessionId);
-      if (item.result === 'confirmed' && (runtime?.foregroundAppId === entry.agent || runtime?.runningCommand)) return true;
+      if (item.result === 'confirmed'
+        && (runtime?.foregroundAppId === entry.agent || Boolean(runtime?.runningCommand?.includes(entry.sessionId)))) return true;
     }
     return false;
   }
@@ -1057,7 +1074,8 @@ export class SessionSnapshotService {
     if (runtime && entry.mode === 'agent' && entry.agent && runtime.foregroundAppId === entry.agent) {
       return { target: 'new-tab', targetReason: 'agent-running' };
     }
-    if (!runtime || runtime.foregroundAppId || runtime.runningCommand) return { target: 'new-tab', targetReason: 'busy' };
+    // A resume still queued for this tab has not reached its shell yet.
+    if (!runtime || runtime.foregroundAppId || runtime.runningCommand || this.waiting.has(record.tab.id)) return { target: 'new-tab', targetReason: 'busy' };
     // An agent's sessions are kept per folder: typed elsewhere, the resume finds nothing.
     if (entry.cwd && runtime.cwd && !sameFolder(entry.cwd, runtime.cwd)) return { target: 'new-tab', targetReason: 'moved' };
     return { target: 'tab', targetReason: 'idle' };
@@ -1175,7 +1193,7 @@ export class SessionSnapshotService {
 
   /** Types the entry's command into its tab and starts watching for the agent. */
   private runEntry(entry: SnapshotEntry, tabIds: ReadonlySet<string>): RestoreReportItem {
-    this.waiting.delete(entry.tabId);
+    // An earlier wait on this tab stays until this one is typed: a failure here leaves it to settle.
     if (!tabIds.has(entry.tabId)) return this.reportItemOf(entry, 'failed', 'tab-missing');
     if (entry.mode === 'shell') return this.reportItemOf(entry, 'shell');
     const scheduled = this.deps.scheduleResume(entry.tabId, entry.resumeCommand, entry.resumeArguments);
