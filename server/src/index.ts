@@ -59,7 +59,7 @@ import {
 import { RuntimeConfigStore } from './services/RuntimeConfigStore.js';
 import { terminalResourcePolicyRuntimeAuthority } from './services/TerminalResourcePolicyRuntime.js';
 import { ConfigFileRepository } from './services/ConfigFileRepository.js';
-import { SettingsService } from './services/SettingsService.js';
+import { SettingsService, sessionSaveSettingsOf, type SessionSaveSettings } from './services/SettingsService.js';
 import { CommandPresetService } from './services/CommandPresetService.js';
 import { TerminalShortcutService } from './services/TerminalShortcutService.js';
 import { RecoveryOptionService } from './services/RecoveryOptionService.js';
@@ -187,6 +187,8 @@ let recoveryOptionService: RecoveryOptionService;
 let agentAliasService: AgentAliasService;
 let workspaceService: WorkspaceService;
 let sessionSnapshotService: SessionSnapshotService;
+/** FR-AITUI-019: the auto save switch, interval and manual save retention in force. */
+let sessionSaveSettings: SessionSaveSettings = sessionSaveSettingsOf(config);
 let mcpListenerControllerInstance: StringRecord | null = null;
 let mcpControlService: StringRecord | null = null;
 let webhookInvocationService: StringRecord | null = null;
@@ -1264,6 +1266,11 @@ async function startServer(): Promise<void> {
       sessionManager,
       getWsRouter: () => app.get('wsRouter') as WsRouter | undefined,
       updateTwoFactorRuntime: (nextConfig, changedKeys) => applyTwoFactorRuntime(nextConfig, changedKeys),
+      // FR-AITUI-019 AC-3: a changed auto save interval or retention applies without a restart.
+      onSessionSaveSettings: (settings) => {
+        sessionSaveSettings = settings;
+        sessionSnapshotService?.configureAutoSave(settings.autoSave);
+      },
     });
     commandPresetService = new CommandPresetService();
     await commandPresetService.initialize();
@@ -1293,6 +1300,18 @@ async function startServer(): Promise<void> {
       },
       getRuntime: (sessionId) => sessionManager.getAgentRuntimeInfo(sessionId),
       scheduleResume: (tabId, command, args) => workspaceService.scheduleAgentResume(tabId, command, args),
+      // FR-AITUI-018 AC-6: a busy or closed tab is restored into a new tab in its saved workspace and folder.
+      addTab: async (workspaceId, name, cwd, fallbackWorkspaceId) => {
+        const workspaces = workspaceService.getState().workspaces;
+        const target = [workspaceId, fallbackWorkspaceId]
+          .find((id) => id && workspaces.some((workspace) => workspace.id === id))
+          ?? [...workspaces].sort((a, b) => a.sortOrder - b.sortOrder)[0]?.id;
+        if (!target) return null;
+        const tab = await workspaceService.addTab(target, undefined, name, cwd ?? undefined);
+        return tab.id;
+      },
+      // FR-AITUI-019 AC-1: read on every manual save, so a changed retention applies at the next save.
+      retention: () => sessionSaveSettings.snapshotRetention,
       listProcesses,
       rootsFor: (cwd) => agentRootsForCwd(cwd),
       // FR-AITUI-013 AC-2: the commands registered in Tools › Agent commands.
@@ -1319,6 +1338,8 @@ async function startServer(): Promise<void> {
     if (restoreReport.length > 0) {
       console.log(`[SessionSnapshot] Auto-restore: ${restoreReport.map((item) => `${item.tabName}=${item.result}`).join(', ')}`);
     }
+    // FR-AITUI-016: the auto save timer, on unless the settings turned it off.
+    sessionSnapshotService.configureAutoSave(sessionSaveSettings.autoSave);
     console.log('[Workspace] WorkspaceService initialized');
 
     const agentProfileService = createAgentCommandProfileService();

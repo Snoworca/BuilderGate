@@ -67,6 +67,8 @@ export enum ErrorCode {
   // Workspace Errors (Step 7)
   WORKSPACE_NOT_FOUND = 'WORKSPACE_NOT_FOUND',
   TAB_NOT_FOUND = 'TAB_NOT_FOUND',
+  SNAPSHOT_NOT_FOUND = 'SNAPSHOT_NOT_FOUND',
+  SNAPSHOT_CHANGED = 'SNAPSHOT_CHANGED',
   TAB_LIMIT_EXCEEDED = 'TAB_LIMIT_EXCEEDED',
   LAST_WORKSPACE = 'LAST_WORKSPACE',
   INVALID_WORKSPACE_MOVE = 'INVALID_WORKSPACE_MOVE',
@@ -136,6 +138,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
 
   [ErrorCode.WORKSPACE_NOT_FOUND]: 'Workspace not found',
   [ErrorCode.TAB_NOT_FOUND]: 'Tab not found',
+  [ErrorCode.SNAPSHOT_NOT_FOUND]: 'Saved session not found',
+  [ErrorCode.SNAPSHOT_CHANGED]: 'The saved session changed since it was shown',
   [ErrorCode.TAB_LIMIT_EXCEEDED]: 'Maximum tabs per workspace exceeded',
   [ErrorCode.LAST_WORKSPACE]: 'Cannot delete the last workspace',
   [ErrorCode.INVALID_WORKSPACE_MOVE]: 'Invalid workspace move',
@@ -203,6 +207,8 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
 
   [ErrorCode.WORKSPACE_NOT_FOUND]: 404,
   [ErrorCode.TAB_NOT_FOUND]: 404,
+  [ErrorCode.SNAPSHOT_NOT_FOUND]: 404,
+  [ErrorCode.SNAPSHOT_CHANGED]: 409,
   [ErrorCode.TAB_LIMIT_EXCEEDED]: 409,
   [ErrorCode.LAST_WORKSPACE]: 409,
   [ErrorCode.INVALID_WORKSPACE_MOVE]: 400,

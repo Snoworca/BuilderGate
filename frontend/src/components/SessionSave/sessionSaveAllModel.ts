@@ -262,29 +262,5 @@ export function reportAutoDismissMs(report: readonly RestoreReportItem[]): numbe
   return summary.failed === 0 && summary.waiting === 0 ? 5000 : null;
 }
 
-const DISMISSED_REPORT_KEY = 'buildergate.restoreReport.dismissedId';
-
-type ReportDismissStorage = Pick<Storage, 'getItem' | 'setItem'>;
-
-/**
- * FR-AITUI-015 AC-7: the server keeps returning this run's report until the next restart,
- * so a dismissal kept only in component state came back on every reload. The report id
- * names one restore; a later restart has a new one and shows again.
- */
-export function isRestoreReportDismissed(storage: ReportDismissStorage | null, reportId: string | null | undefined): boolean {
-  if (!storage || !reportId) return false;
-  try {
-    return storage.getItem(DISMISSED_REPORT_KEY) === reportId;
-  } catch {
-    return false;
-  }
-}
-
-export function rememberRestoreReportDismissed(storage: ReportDismissStorage | null, reportId: string | null | undefined): void {
-  if (!storage || !reportId) return;
-  try {
-    storage.setItem(DISMISSED_REPORT_KEY, reportId);
-  } catch {
-    // Blocked storage: the banner comes back after a reload, as before.
-  }
-}
+// FR-AITUI-015 AC-7 (a dismissal kept in localStorage) is superseded by FR-AITUI-018 AC-3:
+// the server records that a restore's notice was shown (claimsRestoreNotice).

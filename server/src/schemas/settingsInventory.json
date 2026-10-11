@@ -1090,6 +1090,42 @@
       ]
     },
     {
+      "path": "session.autoSave.enabled",
+      "classification": "user-visible",
+      "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "SettingsPage",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/services/SettingsService.ts",
+          "symbol": "sessionSaveSettingsOf",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
+      "path": "session.autoSave.intervalMinutes",
+      "classification": "user-visible",
+      "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "SettingsPage",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/services/SettingsService.ts",
+          "symbol": "sessionSaveSettingsOf",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
       "path": "session.codexTuiSuppression",
       "classification": "reserved",
       "reason": "Has a runtime consumer but is deliberately absent from the Settings surface; it is operator-file configuration rather than a user-tunable value.",
@@ -1195,6 +1231,24 @@
         {
           "module": "server/src/services/SessionManager.ts",
           "symbol": "initialStabilityModes",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
+      "path": "session.snapshotRetention",
+      "classification": "user-visible",
+      "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "SettingsPage",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/services/SettingsService.ts",
+          "symbol": "sessionSaveSettingsOf",
           "match": "dotted-path"
         }
       ]

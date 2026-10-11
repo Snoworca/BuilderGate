@@ -9,7 +9,9 @@ import type {
   SettingsSnapshot,
   TOTPQRInfo,
 } from '../../types';
-import { authApi, settingsApi } from '../../services/api';
+import { authApi, sessionSnapshotApi, settingsApi } from '../../services/api';
+import { dayLabelOf, timeLabelOf } from '../SessionSave/sessionRestoreModel.ts';
+import type { SnapshotStatus } from '../SessionSave/sessionSnapshotModel.ts';
 import { ConfirmModal } from '../Modal';
 import { Icon } from '../common/Icon';
 import type { IconName } from '../common/iconGlyphs';
@@ -30,6 +32,7 @@ import {
   setResourceLimitValue,
   terminalBackendFromUseConpty,
   useConptyFromTerminalBackend,
+  validateSessionSaveDraft,
   validateWave6ResourceLimitDraft,
   validateWave6ResourceLimitField,
 } from './settingsDraftHelpers';
@@ -76,6 +79,8 @@ export function SettingsPage({ visible, onBack }: Props) {
   const isInteractiveRef = useRef(false);
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
   const [draft, setDraft] = useState<EditableSettingsValues | null>(null);
+  // FR-AITUI-019 AC-4: the last auto save, read with the settings.
+  const [autoSaveStatus, setAutoSaveStatus] = useState<SnapshotStatus['autoSave'] | null>(null);
   const [secrets, setSecrets] = useState<SecretDraft>(EMPTY_SECRETS);
   const [loading, setLoading] = useState(false);
   const [totpQR, setTotpQR] = useState<TOTPQRInfo | null>(null);
@@ -147,6 +152,10 @@ export function SettingsPage({ visible, onBack }: Props) {
     let active = true;
     setLoading(true);
     setLoadError(null);
+
+    sessionSnapshotApi.getStatus()
+      .then((status) => { if (active) setAutoSaveStatus(status.autoSave ?? null); })
+      .catch(() => undefined);
 
     settingsApi.getSettings()
       .then((nextSnapshot) => {
@@ -251,6 +260,17 @@ export function SettingsPage({ visible, onBack }: Props) {
     }
 
     errors.push(...validateWave6ResourceLimitDraft(draft, snapshot.capabilities));
+
+    // FR-AITUI-019 AC-2
+    const sessionSave = validateSessionSaveDraft(draft);
+    if (sessionSave.interval) {
+      errors.push(sessionSave.interval);
+      fieldErrors.autoSaveInterval = sessionSave.interval;
+    }
+    if (sessionSave.retention) {
+      errors.push(sessionSave.retention);
+      fieldErrors.snapshotRetention = sessionSave.retention;
+    }
 
     return { errors, fieldErrors };
   }, [draft, secrets, snapshot]);
@@ -600,6 +620,43 @@ export function SettingsPage({ visible, onBack }: Props) {
               </SettingField>
             </Card>
 
+            <Card title={t('settings.sessionSave.title')} icon="save">
+              <CheckField
+                label={t('settings.sessionSave.enabled')}
+                scope={scope(snapshot, 'session.autoSave.enabled')}
+                help={t('settings.sessionSave.enabledHelp')}
+                checked={draft.session.autoSave.enabled}
+                testId="settings-session-autosave-enabled"
+                onChange={(checked) => updateDraft((next) => { next.session.autoSave.enabled = checked; })}
+              />
+              <SettingField htmlFor="settings-session-autosave-interval" label={t('settings.sessionSave.interval')} scope={scope(snapshot, 'session.autoSave.intervalMinutes')} help={t('settings.sessionSave.intervalHelp')} error={fieldErrors.autoSaveInterval}>
+                <NumberInput
+                  id="settings-session-autosave-interval"
+                  unit={t('settings.unit.minutes')}
+                  min={5}
+                  max={1440}
+                  aria-invalid={fieldErrors.autoSaveInterval ? true : undefined}
+                  value={draft.session.autoSave.intervalMinutes}
+                  onChange={(e) => updateDraft((next) => { next.session.autoSave.intervalMinutes = e.target.value === '' ? 0 : Number(e.target.value); })}
+                />
+              </SettingField>
+              <SettingField htmlFor="settings-session-snapshot-retention" label={t('settings.sessionSave.retention')} scope={scope(snapshot, 'session.snapshotRetention')} help={t('settings.sessionSave.retentionHelp')} error={fieldErrors.snapshotRetention}>
+                <NumberInput
+                  id="settings-session-snapshot-retention"
+                  unit={t('settings.unit.items')}
+                  min={1}
+                  max={100}
+                  aria-invalid={fieldErrors.snapshotRetention ? true : undefined}
+                  value={draft.session.snapshotRetention}
+                  onChange={(e) => updateDraft((next) => { next.session.snapshotRetention = e.target.value === '' ? 0 : Number(e.target.value); })}
+                />
+              </SettingField>
+              <div className="settings-field-row settings-session-autosave-last" data-testid="settings-session-autosave-last">
+                <span className="ui-field-label">{t('settings.sessionSave.last')}</span>
+                <span>{autoSaveLastText(autoSaveStatus)}</span>
+              </div>
+            </Card>
+
             {WAVE6_RESOURCE_LIMIT_GROUPS.map((group) => {
               const visibleFields = group.fields.filter((field) => snapshot.capabilities[field.key]?.available);
               if (visibleFields.length === 0) return null;
@@ -853,4 +910,11 @@ function isValidOrigin(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** FR-AITUI-019 AC-4: when the last auto save ran and how it went. */
+function autoSaveLastText(status: SnapshotStatus['autoSave'] | null): string {
+  if (!status?.lastAt) return t('settings.sessionSave.lastNone');
+  const time = `${dayLabelOf(new Date(status.lastAt))} ${timeLabelOf(status.lastAt)}`;
+  return status.lastResult === 'failed' ? t('settings.sessionSave.lastFailed', { time }) : t('settings.sessionSave.lastSaved', { time });
 }

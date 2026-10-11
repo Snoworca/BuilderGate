@@ -6,6 +6,7 @@ import { Icon } from '../common/Icon.tsx';
 import { Button, DialogFooter, Spinner } from '../ui/index.ts';
 import { AgentMark } from './AgentMark.tsx';
 import { RestoreEditor } from './RestoreEditor.tsx';
+import { SessionRestoreTab, type SessionRestoreTabProps } from './SessionRestoreTab.tsx';
 import { groupByWorkspace } from './sessionSnapshotModel.ts';
 import {
   initialDraft,
@@ -29,7 +30,12 @@ export interface SessionSaveDialogProps {
   loadPreview: () => Promise<SnapshotPreview>;
   onClose: () => void;
   onSave: (items: SaveItem[]) => Promise<void>;
+  /** FR-AITUI-018 AC-4: the restore tab beside the save tab. */
+  restore?: Omit<SessionRestoreTabProps, 'onClose'>;
+  initialTab?: 'save' | 'restore';
 }
+
+type DialogTab = 'save' | 'restore';
 
 type Step = 'loading' | 'load-error' | 'select' | 'saving' | 'done' | 'error';
 
@@ -77,7 +83,8 @@ function agentLabel(draft: RowDraft) {
   return <span className="agent-mark agent-mark-shell">{draft.mode === 'command' ? t('sessionSave.editor.custom') : t('sessionSave.editor.shellOnly')}</span>;
 }
 
-export function SessionSaveDialog({ loadPreview, onClose, onSave }: SessionSaveDialogProps) {
+export function SessionSaveDialog({ loadPreview, onClose, onSave, restore, initialTab = 'save' }: SessionSaveDialogProps) {
+  const [tab, setTab] = useState<DialogTab>(restore ? initialTab : 'save');
   const [step, setStep] = useState<Step>('loading');
   const [preview, setPreview] = useState<SnapshotPreview | null>(null);
   const [drafts, setDrafts] = useState<Map<string, RowDraft>>(new Map());
@@ -215,15 +222,34 @@ export function SessionSaveDialog({ loadPreview, onClose, onSave }: SessionSaveD
   return (
     <WindowDialog
       dialogId="session-save-dialog"
-      title={step === 'done' ? tn('sessionSave.all.doneTitle', picked.length) : t('sessionSave.all.title')}
+      title={tab === 'save' && step === 'done' ? tn('sessionSave.all.doneTitle', picked.length) : t('sessionSave.all.title')}
       mode="modal"
-      defaultRect={centeredRect(940, 720)}
+      defaultRect={centeredRect(1120, 720)}
       minSize={{ width: 440, height: 380 }}
       onClose={step === 'saving' ? () => undefined : onClose}
       showCloseButton={step !== 'saving'}
       persistGeometry={false}
     >
       <div className="session-save-dialog">
+        {restore && (
+          <div className="session-save-tabs" role="tablist" aria-label={t('sessionSave.tab.aria')}>
+            {(['save', 'restore'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                className="session-save-tab"
+                aria-selected={tab === key}
+                disabled={step === 'saving'}
+                onClick={() => setTab(key)}
+              >
+                {t(key === 'save' ? 'sessionSave.tab.save' : 'sessionSave.tab.restore')}
+              </button>
+            ))}
+          </div>
+        )}
+        {tab === 'restore' && restore && <SessionRestoreTab {...restore} onClose={onClose} />}
+        {tab === 'save' && <>
         <div className="session-save-body">
           <p className="session-save-lead">{step === 'done' ? t('sessionSave.all.doneBody') : t('sessionSave.all.lead')}</p>
           {step === 'loading' && <div className="session-save-empty"><Spinner /> {t('sessionSave.all.loading')}</div>}
@@ -287,6 +313,7 @@ export function SessionSaveDialog({ loadPreview, onClose, onSave }: SessionSaveD
             <Button variant="primary" onClick={() => { void save(); }}>{t('sessionSave.action.retry')}</Button>
           </DialogFooter>
         )}
+        </>}
       </div>
     </WindowDialog>
   );

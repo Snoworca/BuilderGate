@@ -13,6 +13,7 @@ import {
   buildWave6ResourceLimitsPatch,
   setResourceLimitValue,
   useConptyFromTerminalBackend,
+  validateSessionSaveDraft,
   validateWave6ResourceLimitDraft,
 } from '../../src/components/Settings/settingsDraftHelpers.ts';
 
@@ -206,6 +207,8 @@ function createEditableValues(): EditableSettingsValues {
     },
     session: {
       idleDelayMs: 2_000,
+      autoSave: { enabled: true, intervalMinutes: 5 },
+      snapshotRetention: 10,
     },
     fileManager: {
       maxFileSize: 10_485_760,
@@ -293,6 +296,9 @@ const ALL_KEYS: EditableSettingsKey[] = [
   'pty.windowsPowerShellBackend',
   'pty.shell',
   'session.idleDelayMs',
+  'session.autoSave.enabled',
+  'session.autoSave.intervalMinutes',
+  'session.snapshotRetention',
   'fileManager.maxFileSize',
   'fileManager.maxDirectoryEntries',
   'fileManager.blockedExtensions',
@@ -333,3 +339,42 @@ const ALL_KEYS: EditableSettingsKey[] = [
   'stabilityModes.wsSendMode',
   'stabilityModes.frontendRuntimeResidency',
 ];
+
+test('FR-AITUI-019 AC-3: a changed auto save switch, interval or retention goes into the session patch', () => {
+  const initial = createEditableValues();
+  const draft = structuredClone(initial);
+  assert.equal(buildSettingsPatch(initial, draft, emptySecretsForSessionSave(), createCapabilities()).session, undefined);
+  draft.session.autoSave.intervalMinutes = 15;
+  draft.session.snapshotRetention = 3;
+  assert.deepEqual(buildSettingsPatch(initial, draft, emptySecretsForSessionSave(), createCapabilities()).session, {
+    autoSave: { intervalMinutes: 15 },
+    snapshotRetention: 3,
+  });
+  draft.session.autoSave.enabled = false;
+  draft.session.idleDelayMs = 300;
+  assert.deepEqual(buildSettingsPatch(initial, draft, emptySecretsForSessionSave(), createCapabilities()).session, {
+    idleDelayMs: 300,
+    autoSave: { enabled: false, intervalMinutes: 15 },
+    snapshotRetention: 3,
+  });
+});
+
+test('FR-AITUI-019 AC-2: the page names an interval under 5 or over 1440 minutes and a retention outside 1..100 before saving', () => {
+  const draft = createEditableValues();
+  assert.deepEqual(validateSessionSaveDraft(draft), {});
+  draft.session.autoSave.intervalMinutes = 4;
+  draft.session.snapshotRetention = 0;
+  const problems = validateSessionSaveDraft(draft);
+  assert.match(problems.interval ?? '', /5/);
+  assert.match(problems.retention ?? '', /1/);
+  draft.session.autoSave.intervalMinutes = 1441;
+  draft.session.snapshotRetention = 101;
+  assert.ok(validateSessionSaveDraft(draft).interval);
+  assert.ok(validateSessionSaveDraft(draft).retention);
+  draft.session.autoSave.intervalMinutes = 7.5;
+  assert.ok(validateSessionSaveDraft(draft).interval, 'whole minutes only');
+});
+
+function emptySecretsForSessionSave(): SecretPatchDraft {
+  return { currentPassword: '', newPassword: '', confirmPassword: '' } as SecretPatchDraft;
+}

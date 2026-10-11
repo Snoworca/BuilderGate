@@ -25,6 +25,9 @@ export type EditableSettingsKey =
   | 'pty.windowsPowerShellBackend'
   | 'pty.shell'
   | 'session.idleDelayMs'
+  | 'session.autoSave.enabled'
+  | 'session.autoSave.intervalMinutes'
+  | 'session.snapshotRetention'
   | 'fileManager.maxFileSize'
   | 'fileManager.maxDirectoryEntries'
   | 'fileManager.blockedExtensions'
@@ -111,7 +114,17 @@ export type EditablePtySettings = Pick<
   'termName' | 'defaultCols' | 'defaultRows' | 'useConpty' | 'windowsPowerShellBackend' | 'shell'
 >;
 
-export type EditableSessionSettings = Pick<SessionConfig, 'idleDelayMs'>;
+export interface EditableSessionSettings extends Pick<SessionConfig, 'idleDelayMs'> {
+  /** FR-AITUI-019 */
+  autoSave: { enabled: boolean; intervalMinutes: number };
+  snapshotRetention: number;
+}
+
+export interface SessionSettingsPatch {
+  idleDelayMs?: number;
+  autoSave?: Partial<EditableSessionSettings['autoSave']>;
+  snapshotRetention?: number;
+}
 
 export interface EditableFileManagerSettings {
   maxFileSize: number;
@@ -148,7 +161,7 @@ export interface SettingsPatchRequest {
     cors?: Partial<SecurityEditableSettings['cors']>;
   };
   pty?: Partial<EditablePtySettings>;
-  session?: Partial<EditableSessionSettings>;
+  session?: SessionSettingsPatch;
   fileManager?: Partial<EditableFileManagerSettings>;
   resourceLimits?: ResourceLimitsPatch;
   stabilityModes?: Partial<StabilityModesConfig>;

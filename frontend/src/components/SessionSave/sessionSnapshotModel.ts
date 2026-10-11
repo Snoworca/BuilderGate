@@ -50,6 +50,17 @@ export interface SnapshotStatus {
   report?: RestoreReportItem[];
   /** FR-AITUI-015 AC-7: names this run's report; null when nothing was restored. */
   reportId?: string | null;
+  /** FR-AITUI-018 AC-2: the save this start restored. */
+  reportSource?: { origin: 'manual' | 'auto'; id: string; savedAt: string } | null;
+  /** FR-AITUI-018 AC-3: a client already showed this report's notice. */
+  reportNoticeShown?: boolean;
+  /** FR-AITUI-016 AC-8 / FR-AITUI-019 AC-4. */
+  autoSave?: {
+    enabled: boolean;
+    intervalMinutes: number;
+    lastAt: string | null;
+    lastResult: 'saved' | 'skipped' | 'deferred' | 'failed' | null;
+  };
 }
 
 export interface SaveResultItem {

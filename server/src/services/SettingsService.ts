@@ -22,6 +22,7 @@ import {
 } from '../utils/ptyPlatformPolicy.js';
 import { validatePasswordPolicy } from '../utils/passwordPolicy.js';
 import type { WsRouter } from '../ws/WsRouter.js';
+import { sessionSchema } from '../schemas/config.schema.js';
 
 const originSchema = z.string().refine((value) => {
   try {
@@ -124,6 +125,12 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
   }).strict().optional(),
   session: z.object({
     idleDelayMs: z.number().int().min(50).max(5000).optional(),
+    // FR-AITUI-019 AC-2: the same bounds as the config schema.
+    autoSave: z.object({
+      enabled: z.boolean().optional(),
+      intervalMinutes: z.number().int().min(5).max(1440).optional(),
+    }).strict().optional(),
+    snapshotRetention: z.number().int().min(1).max(100).optional(),
   }).strict().optional(),
   fileManager: z.object({
     maxFileSize: z.number().int().min(1024).max(104857600).optional(),
@@ -145,6 +152,25 @@ interface SettingsServiceDeps {
   sessionManager: SessionManager;
   getWsRouter?: () => WsRouter | undefined;
   updateTwoFactorRuntime?: (config: Config, changedKeys: EditableSettingsKey[]) => string[];
+  /** FR-AITUI-019 AC-3: the session auto save and the manual save retention, applied without a restart. */
+  onSessionSaveSettings?: (settings: SessionSaveSettings) => void;
+}
+
+export interface SessionSaveSettings {
+  autoSave: { enabled: boolean; intervalMinutes: number };
+  snapshotRetention: number;
+}
+
+/** FR-AITUI-019 AC-1: the values in force, with the schema's defaults for keys the file lacks. */
+export function sessionSaveSettingsOf(config: Config): SessionSaveSettings {
+  const defaults = sessionSchema.parse({});
+  return {
+    autoSave: {
+      enabled: config.session.autoSave?.enabled ?? defaults.autoSave.enabled,
+      intervalMinutes: config.session.autoSave?.intervalMinutes ?? defaults.autoSave.intervalMinutes,
+    },
+    snapshotRetention: config.session.snapshotRetention ?? defaults.snapshotRetention,
+  };
 }
 
 export interface SaveActorContext {
@@ -290,6 +316,7 @@ export class SettingsService {
         stabilityModes: nextConfig.stabilityModes,
       });
       fileService.updateConfig(getFileManagerConfig(nextConfig));
+      this.deps.onSessionSaveSettings?.(sessionSaveSettingsOf(nextConfig));
     } catch (error) {
       const rollbackErrors: string[] = [];
 
@@ -325,6 +352,12 @@ export class SettingsService {
 
       try {
         fileService.updateConfig(getFileManagerConfig(previousConfig));
+      } catch (rollbackError) {
+        rollbackErrors.push(getErrorMessage(rollbackError));
+      }
+
+      try {
+        this.deps.onSessionSaveSettings?.(sessionSaveSettingsOf(previousConfig));
       } catch (rollbackError) {
         rollbackErrors.push(getErrorMessage(rollbackError));
       }
@@ -374,6 +407,9 @@ function extractPatchKeys(patch: SettingsPatchRequest): EditableSettingsKey[] {
   if (patch.pty?.windowsPowerShellBackend !== undefined) changed.add('pty.windowsPowerShellBackend');
   if (patch.pty?.shell !== undefined) changed.add('pty.shell');
   if (patch.session?.idleDelayMs !== undefined) changed.add('session.idleDelayMs');
+  if (patch.session?.autoSave?.enabled !== undefined) changed.add('session.autoSave.enabled');
+  if (patch.session?.autoSave?.intervalMinutes !== undefined) changed.add('session.autoSave.intervalMinutes');
+  if (patch.session?.snapshotRetention !== undefined) changed.add('session.snapshotRetention');
   if (patch.fileManager?.maxFileSize !== undefined) changed.add('fileManager.maxFileSize');
   if (patch.fileManager?.maxDirectoryEntries !== undefined) changed.add('fileManager.maxDirectoryEntries');
   if (patch.fileManager?.blockedExtensions !== undefined) changed.add('fileManager.blockedExtensions');

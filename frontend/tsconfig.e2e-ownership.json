@@ -88,6 +88,7 @@
     "tests/e2e/code-editor-text.spec.ts",
     "tests/e2e/session-restore.spec.ts",
     "tests/e2e/session-save.spec.ts",
+    "tests/e2e/session-restore-tab.spec.ts",
     "tests/e2e/wave2-screen-repair-resync.spec.ts",
     "tests/e2e/webgl-dom-fallback.spec.ts",
     "tests/e2e/workspace-delete-loading.spec.ts",

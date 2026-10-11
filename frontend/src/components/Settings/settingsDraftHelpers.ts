@@ -189,9 +189,17 @@ export function buildSettingsPatch(
     }
   }
 
-  if (initial.session.idleDelayMs !== draft.session.idleDelayMs) {
-    patch.session = { idleDelayMs: draft.session.idleDelayMs };
+  const sessionPatch: NonNullable<SettingsPatchRequest['session']> = {};
+  if (initial.session.idleDelayMs !== draft.session.idleDelayMs) sessionPatch.idleDelayMs = draft.session.idleDelayMs;
+  // FR-AITUI-019 AC-3
+  const autoSavePatch: NonNullable<NonNullable<SettingsPatchRequest['session']>['autoSave']> = {};
+  if (initial.session.autoSave.enabled !== draft.session.autoSave.enabled) autoSavePatch.enabled = draft.session.autoSave.enabled;
+  if (initial.session.autoSave.intervalMinutes !== draft.session.autoSave.intervalMinutes) {
+    autoSavePatch.intervalMinutes = draft.session.autoSave.intervalMinutes;
   }
+  if (Object.keys(autoSavePatch).length > 0) sessionPatch.autoSave = autoSavePatch;
+  if (initial.session.snapshotRetention !== draft.session.snapshotRetention) sessionPatch.snapshotRetention = draft.session.snapshotRetention;
+  if (Object.keys(sessionPatch).length > 0) patch.session = sessionPatch;
 
   if (JSON.stringify(initial.fileManager) !== JSON.stringify(draft.fileManager)) {
     patch.fileManager = { ...draft.fileManager };
@@ -348,4 +356,21 @@ function parseResourceLimitKey(key: Wave6ResourceLimitKey): { section: ResourceL
     section: section as ResourceLimitSection,
     field: rest.join('.'),
   };
+}
+
+/** FR-AITUI-019 AC-2: the session save fields, named before the page saves (the server refuses them too). */
+export function validateSessionSaveDraft(draft: EditableSettingsValues): { interval?: string; retention?: string } {
+  const problems: { interval?: string; retention?: string } = {};
+  const check = (value: number, min: number, max: number, unit: string): string | undefined => {
+    if (!Number.isInteger(value)) return t('settings.validation.integerInvalid', { value: String(value) });
+    const current = t('settings.validation.currentValue', { value, unit });
+    if (value < min) return t('settings.validation.min', { min, unit, current });
+    if (value > max) return t('settings.validation.max', { max, unit, current });
+    return undefined;
+  };
+  const interval = check(draft.session.autoSave.intervalMinutes, 5, 1440, t('settings.unit.minutes'));
+  const retention = check(draft.session.snapshotRetention, 1, 100, t('settings.unit.count'));
+  if (interval) problems.interval = interval;
+  if (retention) problems.retention = retention;
+  return problems;
 }

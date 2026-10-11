@@ -1,6 +1,7 @@
 // FR-AITUI-007 / FR-AITUI-008 / FR-AITUI-013 / FR-AITUI-014 — the client for /api/session-snapshot.
 import type { AgentTabCandidate, SaveResultItem, SessionSnapshot, SnapshotRestoreState, SnapshotStatus } from './sessionSnapshotModel.ts';
 import type { RestoreReportItem, SaveItem, SnapshotPreview } from './sessionSaveAllModel.ts';
+import type { HandRestoreItem, SnapshotDetail, SnapshotList } from './sessionRestoreModel.ts';
 
 export interface SessionSnapshotClientDeps {
   apiBase: string;
@@ -18,6 +19,18 @@ export interface SessionSnapshotClient {
   preview(): Promise<SnapshotPreview>;
   saveAll(items: SaveItem[]): Promise<{ snapshot: SessionSnapshot }>;
   retry(item: SaveItem): Promise<RestoreReportItem>;
+  /** FR-AITUI-017 AC-4 */
+  listSnapshots(): Promise<SnapshotList>;
+  /** FR-AITUI-018 AC-5/AC-6 */
+  getSnapshot(id: string): Promise<SnapshotDetail>;
+  /** FR-AITUI-017 AC-5 */
+  deleteSnapshot(id: string): Promise<void>;
+  /** FR-AITUI-018 AC-5..AC-7 */
+  restoreFrom(id: string, items: HandRestoreItem[], activeWorkspaceId: string | null, savedAt?: string): Promise<RestoreReportItem[]>;
+  /** FR-AITUI-018 AC-7: the current results of those restores, by the tabs they went into. */
+  restoreResults(tabIds: string[]): Promise<RestoreReportItem[]>;
+  /** FR-AITUI-018 AC-3 */
+  acknowledgeReport(reportId: string): Promise<void>;
 }
 
 export function createSessionSnapshotClient(deps: SessionSnapshotClientDeps): SessionSnapshotClient {
@@ -33,9 +46,10 @@ export function createSessionSnapshotClient(deps: SessionSnapshotClientDeps): Se
   };
   return {
     getStatus: async () => read<SnapshotStatus>(await deps.authFetch(base, { headers: deps.getAuthHeaders() })),
-    getCandidates: async () => (await read<{ candidates: AgentTabCandidate[] }>(
+    // A reply without the list reads as none: App reads its length on every render.
+    getCandidates: async () => (await read<{ candidates?: AgentTabCandidate[] }>(
       await deps.authFetch(`${base}/candidates`, { headers: deps.getAuthHeaders() }),
-    )).candidates,
+    )).candidates ?? [],
     save: async (tabIds) => read(await deps.authFetch(base, json('POST', { tabIds }))),
     restore: async (tabIds) => read(await deps.authFetch(`${base}/restore`, json('POST', { tabIds }))),
     discard: async () => {
@@ -44,5 +58,19 @@ export function createSessionSnapshotClient(deps: SessionSnapshotClientDeps): Se
     preview: async () => read<SnapshotPreview>(await deps.authFetch(`${base}/preview`, { headers: deps.getAuthHeaders() })),
     saveAll: async (items) => read(await deps.authFetch(base, json('POST', { items }))),
     retry: async (item) => (await read<{ item: RestoreReportItem }>(await deps.authFetch(`${base}/retry`, json('POST', item)))).item,
+    listSnapshots: async () => read<SnapshotList>(await deps.authFetch(`${base}/list`, { headers: deps.getAuthHeaders() })),
+    getSnapshot: async (id) => read<SnapshotDetail>(await deps.authFetch(`${base}/list/${encodeURIComponent(id)}`, { headers: deps.getAuthHeaders() })),
+    deleteSnapshot: async (id) => {
+      await read(await deps.authFetch(`${base}/list/${encodeURIComponent(id)}`, json('DELETE')));
+    },
+    restoreFrom: async (id, items, activeWorkspaceId, savedAt) => (await read<{ results: RestoreReportItem[] }>(
+      await deps.authFetch(`${base}/list/${encodeURIComponent(id)}/restore`, json('POST', { items, activeWorkspaceId, ...(savedAt ? { savedAt } : {}) })),
+    )).results,
+    restoreResults: async (tabIds) => (await read<{ results?: RestoreReportItem[] }>(
+      await deps.authFetch(`${base}/restore-results`, json('POST', { tabIds })),
+    )).results ?? [],
+    acknowledgeReport: async (reportId) => {
+      await read(await deps.authFetch(`${base}/report/ack`, json('POST', { reportId })));
+    },
   };
 }

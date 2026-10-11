@@ -79,6 +79,9 @@ const settingsSnapshotCapabilities = {
   'pty.windowsPowerShellBackend': defaultCapability,
   'pty.shell': defaultCapability,
   'session.idleDelayMs': defaultCapability,
+  'session.autoSave.enabled': defaultCapability,
+  'session.autoSave.intervalMinutes': defaultCapability,
+  'session.snapshotRetention': defaultCapability,
   'fileManager.maxFileSize': defaultCapability,
   'fileManager.maxDirectoryEntries': defaultCapability,
   'fileManager.blockedExtensions': defaultCapability,
@@ -150,6 +153,8 @@ const settingsSnapshotWithWriteHiddenPolicy = {
     },
     session: {
       idleDelayMs: 2_000,
+      autoSave: { enabled: true, intervalMinutes: 5 },
+      snapshotRetention: 10,
     },
     fileManager: {
       maxFileSize: 10_485_760,

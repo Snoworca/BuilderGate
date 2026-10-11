@@ -3,6 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import {
   clearCommandPresets,
   createCommandPreset,
+  getActiveSessionId,
   login,
   openCommandPresetDialog,
   waitForTerminal,
@@ -128,11 +129,11 @@ test.describe('Command Management Dialog', () => {
     await expect(page.getByText('복사되었습니다.')).toBeVisible();
 
     await page.getByLabel(`${commandLabel} 실행`).click();
-    await expect(page.locator('.xterm-screen:visible').first()).toContainText(commandMarker, { timeout: 15000 });
+    await expect.poll(() => activeTerminalText(page), { timeout: 15000 }).toContain(commandMarker);
 
     await createCommandPreset(page, 'directory', directoryLabel, '.');
     await page.getByLabel(`${directoryLabel} 실행`).click();
-    await expect(page.locator('.xterm-screen:visible').first()).toContainText('cd "."', { timeout: 15000 });
+    await expect.poll(() => activeTerminalText(page), { timeout: 15000 }).toContain('cd "."');
 
     await createCommandPreset(page, 'prompt', promptLabel, `${promptMarker}\nsecond line`);
     await page.getByLabel(`${promptLabel} 수정`).click();
@@ -142,7 +143,7 @@ test.describe('Command Management Dialog', () => {
     await expect(page.getByText('수정되었습니다.')).toBeVisible();
     await page.getByLabel(`${promptLabel} 적용`).click();
     await expect(page.getByText('붙여넣었습니다.')).toBeVisible();
-    await expect(page.locator('.xterm-screen:visible').first()).toContainText(`${promptMarker}-edited`, { timeout: 10000 });
+    await expect.poll(() => activeTerminalText(page), { timeout: 10000 }).toContain(`${promptMarker}-edited`);
     await page.getByLabel(`${promptLabel} 복사`).click();
     await expect(page.getByText('복사되었습니다.')).toBeVisible();
 
@@ -228,7 +229,8 @@ test.describe('Command Management Dialog', () => {
       await page.getByRole('alertdialog', { name: '삭제 확인' }).getByRole('button', { name: '삭제', exact: true }).click();
       const messageBox = page.getByRole('alertdialog', { name: '삭제 확인' });
       await expect(messageBox).toBeVisible();
-      await expect(messageBox.getByRole('alert')).toContainText(/Request failed|delete failed|삭제/);
+      // The Korean UI reports a failed request as '요청이 실패했습니다 (HTTP 500).' (apiError catalog).
+      await expect(messageBox.getByRole('alert')).toContainText(/Request failed|delete failed|삭제|요청이 실패했습니다/);
       await expect(page.locator('.command-preset-item-command h3', { hasText: commandLabel })).toBeVisible();
     } finally {
       await page.unroute('**/api/command-presets/**', failDelete);
@@ -297,4 +299,21 @@ async function readDialogGeometryStorage(page: Page, dialogId: string): Promise<
   return page.evaluate((id) => {
     return localStorage.getItem(`buildergate.dialog.${id}.geometry`);
   }, dialogId);
+}
+
+/**
+ * The active terminal's text. Under WebGL the DOM holds no glyphs (measured 2026-10-11: the old
+ * `.xterm-screen:visible` read was "" every time), so the buffer is read through the test-host
+ * debug hook; the DOM rows are used when the DOM renderer is in place.
+ */
+async function activeTerminalText(page: Page): Promise<string> {
+  const rows = page.locator('.terminal-view:visible .xterm-rows').first();
+  if (await rows.count() > 0) return (await rows.textContent()) ?? '';
+  const sessionId = await getActiveSessionId(page);
+  if (!sessionId) return '';
+  return await page.evaluate((id) => {
+    const hook = (window as unknown as { __buildergateTerminalDebug?: { captureTerminalText?: (sessionId: string) => string } })
+      .__buildergateTerminalDebug;
+    return hook?.captureTerminalText?.(id) ?? '';
+  }, sessionId);
 }

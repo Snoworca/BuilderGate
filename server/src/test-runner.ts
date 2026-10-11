@@ -2043,7 +2043,7 @@ async function testSettingsServiceTwoFactorRuntimeNotCalledOnPersistFailure(): P
         windowsPowerShellBackend: fixture.pty.windowsPowerShellBackend ?? 'inherit',
         shell: fixture.pty.shell as 'auto' | 'powershell' | 'wsl' | 'bash',
       },
-      session: { idleDelayMs: fixture.session.idleDelayMs },
+      session: { idleDelayMs: fixture.session.idleDelayMs, autoSave: { enabled: true, intervalMinutes: 5 }, snapshotRetention: 10 },
       fileManager: {
         maxFileSize: fixture.fileManager!.maxFileSize,
         maxDirectoryEntries: fixture.fileManager!.maxDirectoryEntries,
@@ -13980,7 +13980,7 @@ async function testConfigFileRepositoryInsertsMissingUseConpty(): Promise<void> 
         windowsPowerShellBackend: fixture.pty.windowsPowerShellBackend ?? 'inherit',
         shell: fixture.pty.shell,
       },
-      session: { idleDelayMs: fixture.session.idleDelayMs },
+      session: { idleDelayMs: fixture.session.idleDelayMs, autoSave: { enabled: true, intervalMinutes: 5 }, snapshotRetention: 10 },
       fileManager: {
         maxFileSize: fixture.fileManager!.maxFileSize,
         maxDirectoryEntries: fixture.fileManager!.maxDirectoryEntries,
@@ -14025,7 +14025,7 @@ async function testConfigFileRepositoryInsertsMissingPtySection(): Promise<void>
         windowsPowerShellBackend: 'inherit',
         shell: 'bash',
       },
-      session: { idleDelayMs: fixture.session.idleDelayMs },
+      session: { idleDelayMs: fixture.session.idleDelayMs, autoSave: { enabled: true, intervalMinutes: 5 }, snapshotRetention: 10 },
       fileManager: {
         maxFileSize: fixture.fileManager!.maxFileSize,
         maxDirectoryEntries: fixture.fileManager!.maxDirectoryEntries,

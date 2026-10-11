@@ -1,13 +1,17 @@
 // FR-AITUI-007 / FR-AITUI-008 / FR-AITUI-013 / FR-AITUI-014 — the saved sessions and resuming them.
+// FR-AITUI-016 / FR-AITUI-017 / FR-AITUI-018 — auto save, the list of manual saves, restore by hand.
 //
 // A save reads every terminal's folder, running command and agent session id
-// (FR-AITUI-006) without touching the agent, lets the user correct them, and
-// writes one snapshot file. After a restart each saved tab comes back as a
-// shell in its saved folder and, once the shell is ready, gets its resume
-// command typed in without asking. The snapshot is used up by that one restart.
+// (FR-AITUI-006) without touching the agent and writes it down. A manual save
+// (the save dialog) is added to a list under session-snapshots/; the auto save
+// overwrites one file, session-autosave.json. When the server starts, the newer
+// of the newest manual save and the auto save is restored: each saved tab comes
+// back as a shell in its saved folder and, once the shell is ready, gets its
+// resume command typed in without asking. Any save can also be restored by hand.
 
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   AGENT_KINDS,
@@ -16,9 +20,11 @@ import {
   detectAgentFromProcesses,
   isValidAgentSessionId,
   listAgentSessionCandidates,
+  loadAgentStateCache,
   resolveAgentSession,
   type AgentKind,
   type AgentSessionCandidate,
+  type AgentStateCache,
   type AgentOutputHint,
   type AgentRoots,
   type ProcessInfo,
@@ -38,6 +44,8 @@ import { AppError, ErrorCode } from '../utils/errors.js';
 export type SnapshotRestoreState = 'pending' | 'restored' | 'skipped' | 'failed';
 /** FR-AITUI-013 AC-4: resume an agent, type a command, or only reopen the shell. */
 export type SnapshotMode = 'agent' | 'shell' | 'command';
+/** FR-AITUI-016 / FR-AITUI-017: made by the save dialog, or by the timer. */
+export type SnapshotOrigin = 'manual' | 'auto';
 
 export interface SnapshotEntry {
   tabId: string;
@@ -57,6 +65,13 @@ export interface SnapshotEntry {
   resumeArguments: string[];
   restore: SnapshotRestoreState;
   processedAt?: string;
+  /** FR-AITUI-016 AC-3: what ran in a shell entry's tab; recorded, never typed at start. */
+  runningCommand?: string;
+  /**
+   * FR-AITUI-016 AC-4: kept by an auto save from a resume its start typed but never saw.
+   * Carried once: a start that resumes it and again sees nothing lets it go.
+   */
+  carried?: true;
 }
 
 /** FR-AITUI-013 AC-3: one tab's choice in the save dialog. */
@@ -110,8 +125,54 @@ export interface RestoreReportItem {
 
 export interface SessionSnapshot {
   version: 1;
+  /** FR-AITUI-017 AC-1: a manual save's own id; 'auto' for the auto save. */
+  id?: string;
+  origin?: SnapshotOrigin;
   savedAt: string;
+  /** FR-AITUI-017 AC-4: when a server start last restored this save. */
+  restoredAt?: string;
+  /**
+   * FR-AITUI-017 AC-6: false for an old snapshot file that its one restore had already used.
+   * It stays in the list for a hand restore, but no start replays it.
+   */
+  autoRestore?: false;
   entries: SnapshotEntry[];
+}
+
+/** FR-AITUI-017 AC-4: one line of the list. */
+export interface SnapshotSummary {
+  id: string;
+  origin: SnapshotOrigin;
+  savedAt: string;
+  tabCount: number;
+  agentCounts: Partial<Record<AgentKind, number>>;
+  /** True for the save the last server start restored. */
+  usedForRestore: boolean;
+  /** FR-AITUI-018 AC-1: the save a start would restore now. */
+  nextStart: boolean;
+}
+
+export type RestoreTarget = 'tab' | 'new-tab';
+export type RestoreTargetReason = 'idle' | 'busy' | 'missing' | 'agent-running' | 'moved';
+
+/** FR-AITUI-018 AC-6: where restoring this entry by hand would type its command. */
+export interface PlannedEntry extends SnapshotEntry {
+  target: RestoreTarget;
+  targetReason: RestoreTargetReason;
+}
+
+/** FR-AITUI-018 AC-5: one entry the user picked in the restore tab. */
+export interface HandRestoreItem {
+  tabId: string;
+  /** Type the shell entry's running command too. */
+  includeCommand?: boolean;
+}
+
+export type AutoSaveResult = 'saved' | 'skipped' | 'deferred' | 'failed';
+
+export interface AutoSaveConfig {
+  enabled: boolean;
+  intervalMinutes: number;
 }
 
 export interface SnapshotTabRecord {
@@ -130,6 +191,8 @@ export interface SnapshotTabRecord {
 export interface SnapshotTabRuntime {
   foregroundAppId: AgentKind | null;
   foregroundStartedAt?: number;
+  /** FR-AITUI-016 AC-4: when the foreground agent came up; foregroundStartedAt moves with its activity. */
+  agentStartedAt?: number;
   ptyPid?: number | null;
   outputHint?: AgentOutputHint | null;
   cwd?: string | null;
@@ -160,25 +223,45 @@ export interface SaveResultItem {
 }
 
 export interface SessionSnapshotDeps {
+  /**
+   * The snapshot file from before the list (FR-AITUI-017 AC-6). Its folder holds
+   * every save file: session-snapshots/, session-autosave.json and session-restore-state.json.
+   */
   dataPath?: string;
   listTabs: () => SnapshotTabRecord[];
   getRuntime: (sessionId: string) => SnapshotTabRuntime | null;
   scheduleResume: (tabId: string, command: string, args: string[]) => boolean;
+  /**
+   * FR-AITUI-018 AC-6: opens a tab in the saved workspace, or in `fallbackWorkspaceId` (the
+   * client's active one) when that is gone, in the saved folder; the new tab's id, or null.
+   */
+  addTab?: (workspaceId: string, name: string, cwd: string | null, fallbackWorkspaceId?: string | null) => Promise<string | null>;
   listProcesses?: () => Promise<ProcessInfo[]>;
   rootsFor?: (cwd: string | null) => Promise<AgentRoots>;
   /** FR-AITUI-013 AC-2: the commands each agent may be launched with (Tools › Agent commands). */
   listLaunchers?: () => LauncherMap;
   isPidAlive?: (pid: number) => boolean;
+  isFileLocked?: (filePath: string) => boolean;
+  /** FR-AITUI-019 AC-1: how many manual saves are kept. */
+  retention?: () => number;
   /** FR-AITUI-014 AC-4: how long a resumed agent has to appear in its tab. */
   confirmTimeoutMs?: number;
   confirmPollMs?: number;
+  /** One minute of the auto save interval; tests shorten it. */
+  minuteMs?: number;
   now?: () => Date;
 }
 
 const DEFAULT_DATA_PATH = './data/session-snapshot.json';
+const MANUAL_DIR = 'session-snapshots';
+const AUTO_FILE = 'session-autosave.json';
+const RESTORE_STATE_FILE = 'session-restore-state.json';
+const AUTO_ID = 'auto';
+const DEFAULT_RETENTION = 10;
 const DEFAULT_CONFIRM_TIMEOUT_MS = 20_000;
 const DEFAULT_CONFIRM_POLL_MS = 2_000;
 const MAX_COMMAND_LINE_LENGTH = 2000;
+const MANUAL_ID = /^[A-Za-z0-9-]{1,80}$/;
 
 export const DEFAULT_LAUNCHERS: LauncherMap = {
   claude: ['claude', 'claude-code'],
@@ -222,6 +305,10 @@ function sanitizeEntry(raw: unknown): SnapshotEntry | null {
   }
   if (mode !== 'shell' && e.resumeCommand.length === 0) return null;
   const restore: SnapshotRestoreState = e.restore === 'restored' || e.restore === 'skipped' || e.restore === 'failed' ? e.restore : 'pending';
+  const running = mode === 'shell' && typeof e.runningCommand === 'string' && e.runningCommand.length > 0
+    && e.runningCommand.length <= MAX_COMMAND_LINE_LENGTH && !/[\x00-\x1F\x7F]/.test(e.runningCommand)
+    ? e.runningCommand
+    : null;
   return {
     tabId: e.tabId,
     workspaceId: String(e.workspaceId ?? ''),
@@ -237,16 +324,129 @@ function sanitizeEntry(raw: unknown): SnapshotEntry | null {
     resumeArguments: mode === 'shell' ? [] : e.resumeArguments as string[],
     restore,
     ...(typeof e.processedAt === 'string' ? { processedAt: e.processedAt } : {}),
+    ...(running ? { runningCommand: running } : {}),
+    ...(e.carried === true ? { carried: true as const } : {}),
   };
+}
+
+/** The entry as a new save records it: not carried, not yet restored. */
+function freshEntry(entry: SnapshotEntry, over: Partial<SnapshotEntry>): SnapshotEntry {
+  const { carried: _carried, ...rest } = entry;
+  return { ...rest, ...over, restore: 'pending' };
+}
+
+/**
+ * An agent entry the save could only carry over or guess, whose session another tab holds for
+ * certain (found exactly there, e.g. resumed there by hand), goes back to a shell entry: the next
+ * start would otherwise resume that one session in both tabs.
+ */
+export function dropCarriedDuplicates(entries: SnapshotEntry[], inherited: ReadonlySet<SnapshotEntry> = new Set()): SnapshotEntry[] {
+  const key = (e: SnapshotEntry) => `${e.agent}\u0000${e.sessionId}`;
+  const certain = (e: SnapshotEntry) => e.mode === 'agent' && !e.carried && e.confidence === 'exact' && !inherited.has(e);
+  const held = new Set(entries.filter(certain).map(key));
+  return entries.map((entry) => {
+    if (entry.mode !== 'agent' || certain(entry) || !held.has(key(entry))) return entry;
+    return {
+      tabId: entry.tabId, workspaceId: entry.workspaceId, workspaceName: entry.workspaceName, tabName: entry.tabName, cwd: entry.cwd,
+      mode: 'shell', agent: null, sessionId: '', method: '', confidence: 'manual', resumeCommand: '', resumeArguments: [], restore: 'pending',
+    };
+  });
+}
+
+/**
+ * The agent printed another session of its own after `since`: /resume or /new inside the same
+ * process moved it on, which its start time cannot show.
+ */
+function switchedSince(entry: SnapshotEntry, since: number, hint: AgentOutputHint | null | undefined): boolean {
+  return Boolean(hint && hint.agent === entry.agent && hint.sessionId !== entry.sessionId && hint.atMs > since);
+}
+
+/**
+ * FR-AITUI-016 AC-2: what an agent printed counts only while that agent still runs in the tab.
+ * Its exit line ("claude --resume <id>") outlives it; read after it quit, it would make the shell
+ * left behind an agent tab -- and, in a folder with another live session, take that one's id.
+ */
+function liveHintOnly(ctx: TabAgentContext, processes: ProcessInfo[] | undefined): TabAgentContext {
+  const hint = ctx.outputHint;
+  if (!hint || ctx.agent) return ctx;
+  // Without a process list there is no telling; the hint stands as before.
+  if (!processes || typeof ctx.ptyPid !== 'number') return ctx;
+  const running = detectAgentFromProcesses(descendantsOf(ctx.ptyPid, processes))?.agent;
+  return running === hint.agent ? ctx : { ...ctx, outputHint: null };
+}
+
+function mark<T>(set: Set<T>, value: T): T {
+  set.add(value);
+  return value;
+}
+
+/** Two folders compare equal past separators, a trailing one, and case on Windows. */
+function sameFolder(a: string, b: string): boolean {
+  const norm = (value: string) => {
+    const unified = value.replace(/\\/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? unified.toLowerCase() : unified;
+  };
+  return norm(a) === norm(b);
+}
+
+/** A save file as read from disk; null when it is not one. */
+function sanitizeSnapshot(raw: unknown, origin: SnapshotOrigin, fallbackId: string): SessionSnapshot | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const parsed = raw as Partial<SessionSnapshot>;
+  const savedAt = String(parsed.savedAt ?? '');
+  if (Number.isNaN(Date.parse(savedAt))) return null;
+  const entries = Array.isArray(parsed.entries)
+    ? parsed.entries.map(sanitizeEntry).filter((entry): entry is SnapshotEntry => entry !== null)
+    : [];
+  const id = origin === 'auto' ? AUTO_ID : (typeof parsed.id === 'string' && MANUAL_ID.test(parsed.id) ? parsed.id : fallbackId);
+  return {
+    version: 1,
+    id,
+    origin,
+    savedAt,
+    ...(typeof parsed.restoredAt === 'string' ? { restoredAt: parsed.restoredAt } : {}),
+    ...(parsed.autoRestore === false ? { autoRestore: false as const } : {}),
+    entries,
+  };
+}
+
+function newManualId(savedAt: string): string {
+  return `${savedAt.replace(/[-:.]/g, '').replace('T', 't').replace('Z', 'z')}-${randomUUID().slice(0, 8)}`;
+}
+
+function timeOf(snapshot: SessionSnapshot): number {
+  return Date.parse(snapshot.savedAt) || 0;
+}
+
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+/** FR-AITUI-016 AC-7 / FR-AITUI-017 AC-2: a temporary file, then a rename; 0600. */
+async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  const tmp = `${filePath}.tmp-${process.pid}`;
+  try {
+    await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+    await rename(tmp, filePath);
+  } catch (error) {
+    await rm(tmp, { force: true }).catch(() => undefined);
+    throw error;
+  }
 }
 
 class EntryError extends Error {}
 
 export class SessionSnapshotService {
-  private readonly dataPath: string;
-  private snapshot: SessionSnapshot | null = null;
-  /** True once this server process wrote the snapshot; false for one loaded at start. */
-  private savedInThisProcess = false;
+  private readonly legacyPath: string;
+  private readonly dataDir: string;
+  private readonly manualDir: string;
+  private readonly autoPath: string;
+  private readonly restoreStatePath: string;
+  /** FR-AITUI-017: newest first. */
+  private manual: SessionSnapshot[] = [];
+  private auto: SessionSnapshot | null = null;
+  /** FR-AITUI-018 AC-1: the save this server start restores, chosen when it loads. */
+  private restoreSource: SessionSnapshot | null = null;
+  private restoreSourceDone = false;
   /** FR-AITUI-014 AC-5: what this server run's automatic resume did. */
   private report: RestoreReportItem[] = [];
   /**
@@ -254,33 +454,107 @@ export class SessionSnapshotService {
    * it apart from the next restart's. Not a time: two restores can share a timestamp.
    */
   private reportId: string | null = null;
+  private reportSource: { origin: SnapshotOrigin; id: string; savedAt: string } | null = null;
+  /** FR-AITUI-018 AC-3: the report whose notice a client already showed. */
+  private noticeShownReportId: string | null = null;
   /** FR-AITUI-014 AC-4: resumed agents still being looked for, by tab. */
-  private readonly waiting = new Map<string, { agent: AgentKind; deadline: number }>();
+  private readonly waiting = new Map<string, { agent: AgentKind; deadline: number; entry: SnapshotEntry }>();
+  /**
+   * FR-AITUI-016 AC-4: the session a resume typed into a tab and then saw there, with when it was
+   * seen. A guess cannot tell two agents of one folder apart; this knows which tab got which.
+   */
+  private readonly confirmedResumes = new Map<string, { entry: SnapshotEntry; at: number }>();
+  /** FR-AITUI-018 AC-7: what restores by hand did, by the tab they went into; settled like the report. */
+  private readonly handReport = new Map<string, RestoreReportItem>();
   private watchTimer: NodeJS.Timeout | null = null;
+  /** FR-AITUI-016 AC-6: one auto save at a time. */
+  private autoSaving = false;
+  private autoSaveStatus: { lastAt: string | null; lastResult: AutoSaveResult | null } = { lastAt: null, lastResult: null };
+  private autoSaveConfig: AutoSaveConfig = { enabled: false, intervalMinutes: 5 };
+  private autoSaveTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly deps: SessionSnapshotDeps) {
-    this.dataPath = path.resolve(deps.dataPath ?? DEFAULT_DATA_PATH);
+    this.legacyPath = path.resolve(deps.dataPath ?? DEFAULT_DATA_PATH);
+    this.dataDir = path.dirname(this.legacyPath);
+    this.manualDir = path.join(this.dataDir, MANUAL_DIR);
+    this.autoPath = path.join(this.dataDir, AUTO_FILE);
+    this.restoreStatePath = path.join(this.dataDir, RESTORE_STATE_FILE);
+  }
+
+  private now(): Date {
+    return (this.deps.now ?? (() => new Date()))();
+  }
+
+  // --------------------------------------------------------------------------
+  // Loading
+  // --------------------------------------------------------------------------
+
+  private readJson(filePath: string): unknown {
+    try {
+      return JSON.parse(readFileSync(filePath, 'utf8'));
+    } catch (error) {
+      console.warn('[SessionSnapshot] Unreadable save set aside:', filePath, error instanceof Error ? error.message : error);
+      try {
+        renameSync(filePath, `${filePath}.corrupt-${Date.now()}`);
+      } catch { /* leave it */ }
+      return null;
+    }
   }
 
   async initialize(): Promise<void> {
-    this.snapshot = null;
-    this.savedInThisProcess = false;
+    this.manual = [];
+    this.auto = null;
     this.report = [];
     this.reportId = null;
-    if (!existsSync(this.dataPath)) return;
-    try {
-      const parsed = JSON.parse(readFileSync(this.dataPath, 'utf8')) as Partial<SessionSnapshot>;
-      const entries = Array.isArray(parsed.entries)
-        ? parsed.entries.map(sanitizeEntry).filter((entry): entry is SnapshotEntry => entry !== null)
-        : [];
-      this.snapshot = { version: 1, savedAt: String(parsed.savedAt ?? ''), entries };
-    } catch (error) {
-      console.warn('[SessionSnapshot] Unreadable snapshot set aside:', error instanceof Error ? error.message : error);
-      try {
-        renameSync(this.dataPath, `${this.dataPath}.corrupt-${Date.now()}`);
-      } catch { /* leave it */ }
-      this.snapshot = null;
+    this.reportSource = null;
+    this.restoreSource = null;
+    this.restoreSourceDone = false;
+
+    if (existsSync(this.manualDir)) {
+      for (const name of readdirSync(this.manualDir)) {
+        if (!name.endsWith('.json')) continue;
+        const raw = this.readJson(path.join(this.manualDir, name));
+        const snapshot = raw === null ? null : sanitizeSnapshot(raw, 'manual', name.slice(0, -5));
+        if (snapshot) this.manual.push(snapshot);
+      }
     }
+    // FR-AITUI-017 AC-6: the one snapshot file from before the list joins it.
+    if (existsSync(this.legacyPath)) {
+      const raw = this.readJson(this.legacyPath);
+      const migrated = raw === null ? null : sanitizeSnapshot(raw, 'manual', '');
+      if (migrated) {
+        migrated.id = newManualId(migrated.savedAt);
+        // The old code kept the file after its one restore, every entry marked done.
+        if (migrated.entries.length > 0 && migrated.entries.every((entry) => entry.restore !== 'pending')) migrated.autoRestore = false;
+        try {
+          mkdirSync(this.manualDir, { recursive: true });
+          await writeJsonAtomic(path.join(this.manualDir, `${migrated.id}.json`), migrated);
+          renameSync(this.legacyPath, `${this.legacyPath}.migrated`);
+          this.manual.push(migrated);
+        } catch (error) {
+          console.warn('[SessionSnapshot] Could not move the old snapshot into the list:', error instanceof Error ? error.message : error);
+        }
+      }
+    }
+    this.manual.sort((a, b) => timeOf(b) - timeOf(a));
+
+    if (existsSync(this.autoPath)) {
+      const raw = this.readJson(this.autoPath);
+      this.auto = raw === null ? null : sanitizeSnapshot(raw, 'auto', AUTO_ID);
+    }
+    if (existsSync(this.restoreStatePath)) {
+      const raw = this.readJson(this.restoreStatePath) as { noticeShownReportId?: unknown } | null;
+      this.noticeShownReportId = typeof raw?.noticeShownReportId === 'string' ? raw.noticeShownReportId : null;
+    }
+
+    this.restoreSource = this.nextStartSource();
+  }
+
+  /** FR-AITUI-018 AC-1: the newer of the newest manual save and the auto save; a tie goes to the manual one. */
+  private nextStartSource(): SessionSnapshot | null {
+    const newestManual = this.manual.find((snapshot) => snapshot.autoRestore !== false) ?? null;
+    if (newestManual && this.auto) return timeOf(newestManual) >= timeOf(this.auto) ? newestManual : this.auto;
+    return newestManual ?? this.auto;
   }
 
   private agentOf(record: SnapshotTabRecord, runtime: SnapshotTabRuntime | null): AgentKind | null {
@@ -328,20 +602,43 @@ export class SessionSnapshotService {
     };
   }
 
-  /** Resolves every tab's session id; exact answers claim their ids before the guesses. */
+  /**
+   * Resolves every tab's session id; exact answers claim their ids before the guesses.
+   * With `shared`, the agents' records are read once per set of roots, without blocking
+   * (NFR-AITUI-001), and the event loop gets a turn between tabs.
+   */
   private async resolveAll(
     records: SnapshotTabRecord[],
     processes: ProcessInfo[] | undefined,
+    shared?: Map<string, AgentStateCache>,
+    adjust?: (ctx: TabAgentContext) => TabAgentContext,
   ): Promise<{ contexts: Array<{ record: SnapshotTabRecord; ctx: TabAgentContext }>; resolved: Map<string, ResolvedAgentSession | null> }> {
-    const contexts = records.map((record) => ({ record, ctx: this.contextOf(record) }));
+    const contexts = records.map((record) => {
+      const ctx = this.contextOf(record);
+      return { record, ctx: adjust ? adjust(ctx) : ctx };
+    });
+    const cacheFor = async (roots: AgentRoots): Promise<AgentStateCache | undefined> => {
+      if (!shared) return undefined;
+      const key = `${roots.claudeHome}\u0000${roots.codexHome}`;
+      let cache = shared.get(key);
+      if (!cache) {
+        cache = await loadAgentStateCache(roots, this.deps.isFileLocked ? { isFileLocked: this.deps.isFileLocked } : {});
+        shared.set(key, cache);
+      }
+      return cache;
+    };
     const resolveOne = async (ctx: TabAgentContext, claimed: Set<string>): Promise<ResolvedAgentSession | null> => {
       const roots = this.deps.rootsFor ? await this.deps.rootsFor(ctx.cwd) : undefined;
       if (!roots) return null;
+      const cache = await cacheFor(roots);
+      if (shared) await yieldToEventLoop();
       return resolveAgentSession(ctx, {
         roots,
         processes,
         claimedSessionIds: claimed,
+        ...(cache ? { cache } : {}),
         ...(this.deps.isPidAlive ? { isPidAlive: this.deps.isPidAlive } : {}),
+        ...(this.deps.isFileLocked ? { isFileLocked: this.deps.isFileLocked } : {}),
       });
     };
 
@@ -368,12 +665,59 @@ export class SessionSnapshotService {
     return { contexts, resolved };
   }
 
+  /** The agent entry for a resolved id, resumed with the command the agent was launched with. */
+  private agentEntry(record: SnapshotTabRecord, ctx: TabAgentContext, result: ResolvedAgentSession): SnapshotEntry {
+    const runtime = this.deps.getRuntime(record.tab.sessionId);
+    // FR-AITUI-011 AC-4: the command the agent was actually launched with wins (claudep --model x);
+    // a legacy recovery option is the fallback for a tab this server run never saw start.
+    const launched = runtime?.launchCommand ? splitLaunchCommand(runtime.launchCommand) : null;
+    const option = launched
+      ?? (record.tab.recoveryCommand ? { command: record.tab.recoveryCommand, args: record.tab.recoveryArguments ?? [] } : null);
+    const resume = buildResumeCommand(result.agent, result.sessionId, option);
+    return {
+      tabId: record.tab.id,
+      workspaceId: record.workspaceId,
+      workspaceName: record.workspaceName,
+      tabName: record.tab.name,
+      cwd: ctx.cwd,
+      mode: 'agent',
+      agent: result.agent,
+      sessionId: result.sessionId,
+      method: result.method,
+      confidence: result.confidence,
+      resumeCommand: resume.command,
+      resumeArguments: resume.args,
+      restore: 'pending',
+    };
+  }
+
+  /** Adds a manual save to the list and keeps the newest `retention` of them (FR-AITUI-017 AC-1..AC-3). */
+  private async addManual(entries: SnapshotEntry[]): Promise<SessionSnapshot> {
+    const savedAt = this.now().toISOString();
+    const snapshot: SessionSnapshot = { version: 1, id: newManualId(savedAt), origin: 'manual', savedAt, entries };
+    await writeJsonAtomic(path.join(this.manualDir, `${snapshot.id}.json`), snapshot);
+    this.manual = [snapshot, ...this.manual].sort((a, b) => timeOf(b) - timeOf(a));
+    const keep = Math.max(1, Math.floor(this.deps.retention?.() ?? DEFAULT_RETENTION));
+    const dropped = this.manual.slice(keep);
+    this.manual = this.manual.slice(0, keep);
+    for (const old of dropped) {
+      await rm(path.join(this.manualDir, `${old.id}.json`), { force: true }).catch((error: unknown) => {
+        console.warn('[SessionSnapshot] Could not remove an old save:', error instanceof Error ? error.message : error);
+      });
+    }
+    return snapshot;
+  }
+
+  private async persistSnapshot(snapshot: SessionSnapshot): Promise<void> {
+    const file = snapshot.origin === 'auto' ? this.autoPath : path.join(this.manualDir, `${snapshot.id}.json`);
+    await writeJsonAtomic(file, snapshot);
+  }
+
   async save(tabIds: string[]): Promise<{ snapshot: SessionSnapshot; results: SaveResultItem[] }> {
     const wanted = new Set(tabIds);
     const records = this.deps.listTabs().filter((record) => wanted.has(record.tab.id));
     const { contexts, resolved } = await this.resolveAll(records, await this.processList());
 
-    const runtime = (record: SnapshotTabRecord) => this.deps.getRuntime(record.tab.sessionId);
     const entries: SnapshotEntry[] = [];
     const results: SaveResultItem[] = [];
     for (const { record, ctx } of contexts) {
@@ -383,27 +727,7 @@ export class SessionSnapshotService {
         results.push({ tabId: record.tab.id, tabName: record.tab.name, workspaceName: record.workspaceName, agent, status: 'not-found' });
         continue;
       }
-      // FR-AITUI-011 AC-4: the command the agent was actually launched with wins (claudep --model x);
-      // a legacy recovery option is the fallback for a tab this server run never saw start.
-      const launched = runtime(record)?.launchCommand ? splitLaunchCommand(runtime(record)!.launchCommand!) : null;
-      const option = launched
-        ?? (record.tab.recoveryCommand ? { command: record.tab.recoveryCommand, args: record.tab.recoveryArguments ?? [] } : null);
-      const resume = buildResumeCommand(result.agent, result.sessionId, option);
-      entries.push({
-        tabId: record.tab.id,
-        workspaceId: record.workspaceId,
-        workspaceName: record.workspaceName,
-        tabName: record.tab.name,
-        cwd: ctx.cwd,
-        mode: 'agent',
-        agent: result.agent,
-        sessionId: result.sessionId,
-        method: result.method,
-        confidence: result.confidence,
-        resumeCommand: resume.command,
-        resumeArguments: resume.args,
-        restore: 'pending',
-      });
+      entries.push(this.agentEntry(record, ctx, result));
       results.push({
         tabId: record.tab.id,
         tabName: record.tab.name,
@@ -415,18 +739,13 @@ export class SessionSnapshotService {
         method: result.method,
       });
     }
-
-    const now = (this.deps.now ?? (() => new Date()))();
-    this.snapshot = { version: 1, savedAt: now.toISOString(), entries };
-    this.savedInThisProcess = true;
-    this.persist();
-    return { snapshot: this.snapshot, results };
+    const snapshot = await this.addManual(entries);
+    return { snapshot, results };
   }
 
   /**
-   * `restorable` is what the client offers to resume: pending entries in a
-   * snapshot carried over from before a restart. A snapshot saved in this run
-   * is still "saved" — its agents are running right now.
+   * `snapshot` is the newest manual save. `restorable` (FR-AITUI-008) stays false:
+   * since FR-AITUI-018 the newest save is restored at start without asking.
    */
   getStatus(): {
     snapshot: SessionSnapshot | null;
@@ -434,14 +753,20 @@ export class SessionSnapshotService {
     restorable: boolean;
     report: RestoreReportItem[];
     reportId: string | null;
+    reportSource: { origin: SnapshotOrigin; id: string; savedAt: string } | null;
+    reportNoticeShown: boolean;
+    autoSave: AutoSaveConfig & { lastAt: string | null; lastResult: AutoSaveResult | null };
   } {
-    const pendingCount = this.snapshot?.entries.filter((entry) => entry.restore === 'pending').length ?? 0;
+    const snapshot = this.manual[0] ?? null;
     return {
-      snapshot: this.snapshot,
-      pendingCount,
-      restorable: pendingCount > 0 && !this.savedInThisProcess,
+      snapshot,
+      pendingCount: snapshot?.entries.filter((entry) => entry.restore === 'pending').length ?? 0,
+      restorable: false,
       report: this.report.map((item) => ({ ...item })),
       reportId: this.reportId,
+      reportSource: this.reportSource ? { ...this.reportSource } : null,
+      reportNoticeShown: this.reportId !== null && this.noticeShownReportId === this.reportId,
+      autoSave: { ...this.autoSaveConfig, ...this.autoSaveStatus },
     };
   }
 
@@ -580,22 +905,336 @@ export class SessionSnapshotService {
     if (bad.length > 0) {
       throw new AppError(ErrorCode.INVALID_INPUT, 'Some terminals cannot be saved', { tabIds: bad, reasons });
     }
-    const now = (this.deps.now ?? (() => new Date()))();
-    this.snapshot = { version: 1, savedAt: now.toISOString(), entries };
-    this.savedInThisProcess = true;
-    this.persist();
-    return { snapshot: this.snapshot };
+    return { snapshot: await this.addManual(entries) };
   }
 
   // --------------------------------------------------------------------------
-  // FR-AITUI-014: the automatic resume after a restart
+  // FR-AITUI-016: auto save
   // --------------------------------------------------------------------------
 
-  /** AC-1: the folder a tab in an unprocessed snapshot reopens in. */
+  /** AC-2/AC-4: one tab as the auto save records it. */
+  private autoEntryFor(record: SnapshotTabRecord, ctx: TabAgentContext, result: ResolvedAgentSession | null, inherited: Set<SnapshotEntry>): SnapshotEntry {
+    if (result?.confidence === 'exact') return this.agentEntry(record, ctx, result);
+    const runtime = this.deps.getRuntime(record.tab.sessionId);
+    const names = { workspaceId: record.workspaceId, workspaceName: record.workspaceName, tabName: record.tab.name };
+    const agent = result?.agent ?? ctx.agent ?? agentFromCommand(record.tab.recoveryCommand);
+    if (agent) {
+      // A resume confirmed in this tab knows its id better than a guess, while that agent still runs.
+      const resumed = this.confirmedResumes.get(record.tab.id);
+      if (resumed && resumed.entry.agent === agent && this.stillThatAgent(resumed, runtime, ctx.outputHint)) {
+        return freshEntry(resumed.entry, { tabId: record.tab.id, ...names, cwd: ctx.cwd ?? resumed.entry.cwd });
+      }
+      // The agent printed the session it moved to since: that one, not a guess.
+      const printed = ctx.outputHint && ctx.outputHint.agent === agent && isValidAgentSessionId(agent, ctx.outputHint.sessionId)
+        ? ctx.outputHint
+        : null;
+      // AC-4: a manual save made after this agent started knows its id better than a guess.
+      const newestManual = this.manual[0];
+      const manualEntry = newestManual?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
+      const startedAt = runtime?.agentStartedAt;
+      if (newestManual && manualEntry && (startedAt === undefined || timeOf(newestManual) >= startedAt)
+        && !switchedSince(manualEntry, timeOf(newestManual), ctx.outputHint)) {
+        return mark(inherited, freshEntry(manualEntry, { ...names, cwd: ctx.cwd ?? manualEntry.cwd }));
+      }
+      const movedOn = (resumed && resumed.entry.agent === agent && switchedSince(resumed.entry, resumed.at, ctx.outputHint))
+        || (newestManual && manualEntry && switchedSince(manualEntry, timeOf(newestManual), ctx.outputHint));
+      if (printed && movedOn) {
+        return this.agentEntry(record, ctx, { agent, sessionId: printed.sessionId, method: printed.source, confidence: 'estimated' });
+      }
+      if (result) return this.agentEntry(record, ctx, result);
+      const previous = this.auto?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
+      if (previous) return mark(inherited, freshEntry(previous, { ...names, cwd: ctx.cwd ?? previous.cwd }));
+    }
+    if (!agent && !runtime?.runningCommand) {
+      // What this start restored but could not bring back: an agent it typed but never saw, or a
+      // command it does not type. The save is still the only record of it; losing it here would
+      // lose it for the next start too.
+      const missed = this.missedRestore(record.tab.id);
+      if (missed) return { ...freshEntry(missed, { ...names, cwd: ctx.cwd ?? missed.cwd }), carried: true };
+    }
+    const running = agent ? null : runtime?.runningCommand ?? null;
+    return {
+      tabId: record.tab.id,
+      ...names,
+      cwd: ctx.cwd,
+      mode: 'shell',
+      agent: null,
+      sessionId: '',
+      method: '',
+      confidence: 'manual',
+      resumeCommand: '',
+      resumeArguments: [],
+      restore: 'pending',
+      ...(running && running.length <= MAX_COMMAND_LINE_LENGTH && !/[\x00-\x1F\x7F]/.test(running) ? { runningCommand: running } : {}),
+    };
+  }
+
+  /** The agent the resume was confirmed with is the one running now: not exited and started anew. */
+  private stillThatAgent(resumed: { entry: SnapshotEntry; at: number }, runtime: SnapshotTabRuntime | null, hint: AgentOutputHint | null | undefined): boolean {
+    if (!runtime || switchedSince(resumed.entry, resumed.at, hint)) return false;
+    if (runtime.foregroundAppId === resumed.entry.agent) {
+      return runtime.agentStartedAt === undefined || runtime.agentStartedAt <= resumed.at;
+    }
+    // Confirmed through the process tree (an unregistered wrapper): its resume line still runs.
+    return Boolean(runtime.runningCommand?.includes(resumed.entry.sessionId));
+  }
+
+  /**
+   * The saved entry of a tab this start restored without bringing back what ran in it: an agent
+   * whose resume was typed but not confirmed, or a shell whose running command is never typed.
+   */
+  private missedRestore(tabId: string): SnapshotEntry | null {
+    const item = this.report.find((current) => current.tabId === tabId);
+    const entry = this.restoreSource?.entries.find((candidate) => candidate.tabId === tabId);
+    // Not twice: a start that restores a carried entry and again brings nothing back lets it go.
+    if (!item || !entry || entry.carried) return null;
+    if (entry.mode === 'agent') {
+      if (item.mode !== 'agent' || (item.result !== 'unconfirmed' && item.result !== 'failed')) return null;
+      // Not when a retry resumed some other id than the save held.
+      return entry.sessionId === item.sessionId ? entry : null;
+    }
+    return entry.mode === 'shell' && entry.runningCommand && item.result === 'shell' ? entry : null;
+  }
+
+  /** One auto save cycle. AC-5: deferred while resumed agents are still looked for; AC-6: one at a time. */
+  async autoSave(): Promise<{ result: AutoSaveResult; at: string }> {
+    const at = this.now().toISOString();
+    if (this.autoSaving) return { result: 'skipped', at };
+    if (this.waiting.size > 0) return { result: 'deferred', at };
+    this.autoSaving = true;
+    try {
+      const records = this.deps.listTabs();
+      const agentish = records.some((record) => {
+        const runtime = this.deps.getRuntime(record.tab.sessionId);
+        // A running command may be an agent behind an unregistered wrapper: only the process list names it.
+        return Boolean(runtime?.foregroundAppId || runtime?.outputHint || runtime?.runningCommand || agentFromCommand(record.tab.recoveryCommand));
+      });
+      const processes = agentish ? await this.processList() : undefined;
+      const { contexts, resolved } = await this.resolveAll(records, processes, new Map(), (ctx) => liveHintOnly(ctx, processes));
+      const inherited = new Set<SnapshotEntry>();
+      const entries = dropCarriedDuplicates(
+        contexts.map(({ record, ctx }) => this.autoEntryFor(record, ctx, resolved.get(ctx.tabId) ?? null, inherited)),
+        inherited,
+      );
+      const snapshot: SessionSnapshot = {
+        version: 1,
+        id: AUTO_ID,
+        origin: 'auto',
+        savedAt: this.now().toISOString(),
+        ...(this.auto?.restoredAt ? { restoredAt: this.auto.restoredAt } : {}),
+        entries,
+      };
+      await writeJsonAtomic(this.autoPath, snapshot);
+      this.auto = snapshot;
+      this.autoSaveStatus = { lastAt: snapshot.savedAt, lastResult: 'saved' };
+      return { result: 'saved', at: snapshot.savedAt };
+    } catch (error) {
+      // AC-7: the previous auto save stays; the next cycle tries again.
+      console.warn('[SessionSnapshot] Auto save failed:', error instanceof Error ? error.message : error);
+      this.autoSaveStatus = { lastAt: at, lastResult: 'failed' };
+      return { result: 'failed', at };
+    } finally {
+      this.autoSaving = false;
+    }
+  }
+
+  /** FR-AITUI-019 AC-3: applied without a restart; turning it off cancels the next cycle. */
+  configureAutoSave(config: AutoSaveConfig): void {
+    const same = config.enabled === this.autoSaveConfig.enabled && config.intervalMinutes === this.autoSaveConfig.intervalMinutes;
+    // Every settings save lands here; the same values keep the cycle already counting down.
+    if (same && (!config.enabled || this.autoSaveTimer || this.autoSaving)) return;
+    this.autoSaveConfig = { enabled: config.enabled, intervalMinutes: config.intervalMinutes };
+    if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
+    this.autoSaveTimer = null;
+    if (config.enabled) this.scheduleAutoSave();
+  }
+
+  private scheduleAutoSave(): void {
+    const delay = Math.max(1, this.autoSaveConfig.intervalMinutes) * (this.deps.minuteMs ?? 60_000);
+    this.autoSaveTimer = setTimeout(() => {
+      this.autoSaveTimer = null;
+      void this.autoSave().finally(() => {
+        if (this.autoSaveConfig.enabled && !this.autoSaveTimer) this.scheduleAutoSave();
+      });
+    }, delay);
+    this.autoSaveTimer.unref?.();
+  }
+
+  stopAutoSave(): void {
+    if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
+    this.autoSaveTimer = null;
+    this.autoSaveConfig = { ...this.autoSaveConfig, enabled: false };
+  }
+
+  // --------------------------------------------------------------------------
+  // FR-AITUI-017: the list
+  // --------------------------------------------------------------------------
+
+  private summaryOf(snapshot: SessionSnapshot, lastRestored: SessionSnapshot | null, next: SessionSnapshot | null): SnapshotSummary {
+    const agentCounts: Partial<Record<AgentKind, number>> = {};
+    for (const entry of snapshot.entries) {
+      if (entry.mode === 'agent' && entry.agent) agentCounts[entry.agent] = (agentCounts[entry.agent] ?? 0) + 1;
+    }
+    return {
+      id: String(snapshot.id),
+      origin: snapshot.origin ?? 'manual',
+      savedAt: snapshot.savedAt,
+      tabCount: snapshot.entries.length,
+      agentCounts,
+      usedForRestore: lastRestored === snapshot,
+      nextStart: next === snapshot,
+    };
+  }
+
+  listSnapshots(): { manual: SnapshotSummary[]; auto: SnapshotSummary | null; retention: number } {
+    const all = [...this.manual, ...(this.auto ? [this.auto] : [])];
+    const lastRestored = all
+      .filter((snapshot) => snapshot.restoredAt)
+      .sort((a, b) => Date.parse(b.restoredAt ?? '') - Date.parse(a.restoredAt ?? ''))[0] ?? null;
+    const next = this.nextStartSource();
+    return {
+      manual: this.manual.map((snapshot) => this.summaryOf(snapshot, lastRestored, next)),
+      auto: this.auto ? this.summaryOf(this.auto, lastRestored, next) : null,
+      retention: Math.max(1, Math.floor(this.deps.retention?.() ?? DEFAULT_RETENTION)),
+    };
+  }
+
+  private find(id: string): SessionSnapshot {
+    const snapshot = id === AUTO_ID ? this.auto : this.manual.find((candidate) => candidate.id === id);
+    if (!snapshot) throw new AppError(ErrorCode.SNAPSHOT_NOT_FOUND);
+    return snapshot;
+  }
+
+  async deleteSnapshot(id: string): Promise<void> {
+    const snapshot = this.manual.find((candidate) => candidate.id === id);
+    if (!snapshot) throw new AppError(ErrorCode.SNAPSHOT_NOT_FOUND);
+    await rm(path.join(this.manualDir, `${snapshot.id}.json`), { force: true });
+    this.manual = this.manual.filter((candidate) => candidate !== snapshot);
+  }
+
+  // --------------------------------------------------------------------------
+  // FR-AITUI-018: restoring a save by hand
+  // --------------------------------------------------------------------------
+
+  /** This entry's session, already resumed — by this start or by hand — into a tab that is still open. */
+  private resumedElsewhere(entry: SnapshotEntry, records: Map<string, SnapshotTabRecord>): boolean {
+    if (entry.mode !== 'agent' || !entry.agent || !entry.sessionId) return false;
+    for (const item of [...this.report, ...this.handReport.values()]) {
+      if (item.agent !== entry.agent || item.sessionId !== entry.sessionId) continue;
+      const record = records.get(item.tabId);
+      if (!record) continue;
+      if (item.result === 'waiting') return true;
+      // Confirmed once is not running now: the agent may have exited and left an idle shell. An
+      // agent confirmed through the process tree has no foreground mark, but its resume line runs.
+      const runtime = this.deps.getRuntime(record.tab.sessionId);
+      if (item.result === 'confirmed'
+        && (runtime?.foregroundAppId === entry.agent || Boolean(runtime?.runningCommand?.includes(entry.sessionId)))) return true;
+    }
+    return false;
+  }
+
+  /** AC-6: an idle tab (no agent, back at its prompt) takes the command; otherwise a new tab. */
+  private targetOf(entry: SnapshotEntry, records: Map<string, SnapshotTabRecord>): { target: RestoreTarget; targetReason: RestoreTargetReason } {
+    if (this.resumedElsewhere(entry, records)) return { target: 'new-tab', targetReason: 'agent-running' };
+    const record = records.get(entry.tabId);
+    if (!record) return { target: 'new-tab', targetReason: 'missing' };
+    const runtime = this.deps.getRuntime(record.tab.sessionId);
+    // The agent may well be this very session: resuming it again beside itself would put two
+    // processes on one session, so the restore tab leaves such a row unpicked.
+    if (runtime && entry.mode === 'agent' && entry.agent && runtime.foregroundAppId === entry.agent) {
+      return { target: 'new-tab', targetReason: 'agent-running' };
+    }
+    // A resume still queued for this tab has not reached its shell yet.
+    if (!runtime || runtime.foregroundAppId || runtime.runningCommand || this.waiting.has(record.tab.id)) return { target: 'new-tab', targetReason: 'busy' };
+    // An agent's sessions are kept per folder: typed elsewhere, the resume finds nothing.
+    if (entry.cwd && runtime.cwd && !sameFolder(entry.cwd, runtime.cwd)) return { target: 'new-tab', targetReason: 'moved' };
+    return { target: 'tab', targetReason: 'idle' };
+  }
+
+  getSnapshot(id: string): Omit<SessionSnapshot, 'entries'> & { entries: PlannedEntry[] } {
+    const snapshot = this.find(id);
+    const records = new Map(this.deps.listTabs().map((record) => [record.tab.id, record]));
+    return {
+      ...snapshot,
+      entries: snapshot.entries.map((entry) => ({ ...entry, ...this.targetOf(entry, records) })),
+    };
+  }
+
+  async restoreFrom(id: string, items: HandRestoreItem[], options: { fallbackWorkspaceId?: string | null; savedAt?: string } = {}): Promise<RestoreReportItem[]> {
+    const snapshot = this.find(id);
+    // The auto save is overwritten in place: restore only the one the user looked at.
+    if (options.savedAt !== undefined && options.savedAt !== snapshot.savedAt) throw new AppError(ErrorCode.SNAPSHOT_CHANGED);
+    const records = new Map(this.deps.listTabs().map((record) => [record.tab.id, record]));
+    const results: RestoreReportItem[] = [];
+    for (const item of items) {
+      const entry = snapshot.entries.find((candidate) => candidate.tabId === item.tabId);
+      if (!entry) continue;
+      const result = await this.restoreOne(entry, item, records, options.fallbackWorkspaceId ?? null);
+      // A failure may have no tab of its own; kept, it would stand over that tab's earlier result.
+      if (result.result !== 'failed') this.rememberHandResult(result);
+      results.push(result);
+    }
+    return results;
+  }
+
+  /** One picked entry; a failure stays with that entry, and the ones already typed stand. */
+  private async restoreOne(entry: SnapshotEntry, item: HandRestoreItem, records: Map<string, SnapshotTabRecord>, fallbackWorkspaceId: string | null): Promise<RestoreReportItem> {
+    const { target } = this.targetOf(entry, records);
+    let tabId = entry.tabId;
+    if (target === 'new-tab') {
+      let opened: string | null = null;
+      try {
+        opened = this.deps.addTab ? await this.deps.addTab(entry.workspaceId, entry.tabName, entry.cwd, fallbackWorkspaceId) : null;
+      } catch (error) {
+        // e.g. the workspace is at its tab limit.
+        console.warn('[SessionSnapshot] Could not open a tab to restore into:', error instanceof Error ? error.message : error);
+      }
+      if (!opened) return this.reportItemOf(entry, 'failed', 'tab-not-opened');
+      tabId = opened;
+    }
+    const placed: SnapshotEntry = { ...entry, tabId };
+    if (entry.mode === 'shell') {
+      const typed = item.includeCommand && entry.runningCommand ? this.typeCommandLine(tabId, entry.runningCommand) : null;
+      if (typed === false) return this.reportItemOf(placed, 'failed', 'command-invalid');
+      return this.reportItemOf(typed ? { ...placed, mode: 'command' } : placed, typed ? 'typed' : 'shell');
+    }
+    return this.runEntry(placed, new Set([tabId]));
+  }
+
+  private rememberHandResult(item: RestoreReportItem): void {
+    this.handReport.delete(item.tabId);
+    this.handReport.set(item.tabId, { ...item });
+    // Bounded: only the latest few hundred are ever polled for.
+    while (this.handReport.size > 500) this.handReport.delete(this.handReport.keys().next().value as string);
+  }
+
+  /** FR-AITUI-018 AC-7: the current results of restores by hand into these tabs. */
+  handResults(tabIds: string[]): RestoreReportItem[] {
+    return tabIds.flatMap((tabId) => {
+      const item = this.handReport.get(tabId);
+      return item ? [{ ...item }] : [];
+    });
+  }
+
+  /** A saved command line typed into a tab; false when it is not a command line that may be typed. */
+  private typeCommandLine(tabId: string, line: string): boolean {
+    const split = splitLaunchCommand(line);
+    if (!split) return false;
+    try {
+      return this.deps.scheduleResume(tabId, validateRecoveryCommand(split.command), validateRecoveryArguments(split.args));
+    } catch {
+      return false;
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // FR-AITUI-014 / FR-AITUI-018: the automatic resume after a restart
+  // --------------------------------------------------------------------------
+
+  /** FR-AITUI-014 AC-1: the folder a tab of the save being restored reopens in. */
   restoreCwdFor(tabId: string): string | null {
-    if (!this.snapshot || this.savedInThisProcess) return null;
-    const entry = this.snapshot.entries.find((candidate) => candidate.tabId === tabId && candidate.restore === 'pending');
-    return entry?.cwd ?? null;
+    if (!this.restoreSource || this.restoreSourceDone) return null;
+    return this.restoreSource.entries.find((candidate) => candidate.tabId === tabId)?.cwd ?? null;
   }
 
   private reportItemOf(entry: SnapshotEntry, result: RestoreResult, reason?: string): RestoreReportItem {
@@ -624,23 +1263,26 @@ export class SessionSnapshotService {
 
   /** Types the entry's command into its tab and starts watching for the agent. */
   private runEntry(entry: SnapshotEntry, tabIds: ReadonlySet<string>): RestoreReportItem {
-    this.waiting.delete(entry.tabId);
+    // An earlier wait on this tab stays until this one is typed: a failure here leaves it to settle.
     if (!tabIds.has(entry.tabId)) return this.reportItemOf(entry, 'failed', 'tab-missing');
     if (entry.mode === 'shell') return this.reportItemOf(entry, 'shell');
     const scheduled = this.deps.scheduleResume(entry.tabId, entry.resumeCommand, entry.resumeArguments);
     if (!scheduled) return this.reportItemOf(entry, 'failed', 'input-not-scheduled');
     if (entry.mode !== 'agent' || !entry.agent) return this.reportItemOf(entry, 'typed');
-    this.waiting.set(entry.tabId, { agent: entry.agent, deadline: Date.now() + (this.deps.confirmTimeoutMs ?? DEFAULT_CONFIRM_TIMEOUT_MS) });
+    this.waiting.set(entry.tabId, { agent: entry.agent, deadline: Date.now() + (this.deps.confirmTimeoutMs ?? DEFAULT_CONFIRM_TIMEOUT_MS), entry });
     this.scheduleWatch();
     return this.reportItemOf(entry, 'waiting');
   }
 
   private settle(tabId: string, result: 'confirmed' | 'unconfirmed'): void {
+    const watched = this.waiting.get(tabId);
+    if (watched && result === 'confirmed') this.confirmedResumes.set(tabId, { entry: watched.entry, at: Date.now() });
     this.waiting.delete(tabId);
-    const item = this.report.find((current) => current.tabId === tabId);
-    if (item && item.result === 'waiting') {
-      item.result = result;
-      if (result === 'unconfirmed') item.reason = 'agent-not-detected';
+    for (const item of [this.report.find((current) => current.tabId === tabId), this.handReport.get(tabId)]) {
+      if (item && item.result === 'waiting') {
+        item.result = result;
+        if (result === 'unconfirmed') item.reason = 'agent-not-detected';
+      }
     }
   }
 
@@ -683,23 +1325,41 @@ export class SessionSnapshotService {
     this.scheduleWatch();
   }
 
-  /** AC-2/AC-3: every pending entry of a snapshot carried over from before the restart, once. */
+  /**
+   * FR-AITUI-018 AC-1/AC-2: every entry of the save chosen at load, once per server start,
+   * even when an earlier start already used it. FR-AITUI-016 AC-3: a running command is not typed.
+   */
   async autoRestore(): Promise<RestoreReportItem[]> {
-    if (!this.snapshot || this.savedInThisProcess) return [];
-    const pending = this.snapshot.entries.filter((entry) => entry.restore === 'pending');
-    if (pending.length === 0) return [];
+    const source = this.restoreSource;
+    if (!source || this.restoreSourceDone) return [];
+    this.restoreSourceDone = true;
+    if (source.entries.length === 0) return [];
     const tabIds = new Set(this.deps.listTabs().map((record) => record.tab.id));
-    const processedAt = (this.deps.now ?? (() => new Date()))().toISOString();
+    const processedAt = this.now().toISOString();
     this.report = [];
     this.reportId = randomUUID();
-    for (const entry of pending) {
+    this.reportSource = { origin: source.origin ?? 'manual', id: String(source.id), savedAt: source.savedAt };
+    for (const entry of source.entries) {
       const item = this.runEntry(entry, tabIds);
       entry.restore = item.result === 'failed' ? 'failed' : 'restored';
       entry.processedAt = processedAt;
       this.report.push(item);
     }
-    this.persist();
-    return this.report.map((item) => ({ ...item }));
+    source.restoredAt = processedAt;
+    // The report as typed, taken before the write yields to the agent watch.
+    const typed = this.report.map((item) => ({ ...item }));
+    await this.persistSnapshot(source).catch((error: unknown) => {
+      console.warn('[SessionSnapshot] Could not record the restore:', error instanceof Error ? error.message : error);
+    });
+    return typed;
+  }
+
+  /** FR-AITUI-018 AC-3: a client showed this report's notice; no client shows it again. */
+  async acknowledgeReport(reportId: string): Promise<void> {
+    // Two windows open after a restart both acknowledge; the second has nothing to write.
+    if (!this.reportId || reportId !== this.reportId || this.noticeShownReportId === reportId) return;
+    this.noticeShownReportId = reportId;
+    await writeJsonAtomic(this.restoreStatePath, { noticeShownReportId: reportId, shownAt: this.now().toISOString() });
   }
 
   /** AC-6: one tab again, with what the user corrected. */
@@ -720,16 +1380,20 @@ export class SessionSnapshotService {
     return { ...result };
   }
 
+  /** FR-AITUI-008 AC-1: the tab is a saved one the start has not restored yet. */
   hasPendingForTab(tabId: string): boolean {
-    return this.snapshot?.entries.some((entry) => entry.tabId === tabId && entry.restore === 'pending') ?? false;
+    if (!this.restoreSource || this.restoreSourceDone) return false;
+    return this.restoreSource.entries.some((entry) => entry.tabId === tabId);
   }
 
+  /** FR-AITUI-008: the chosen tabs of the newest manual save, resumed on request. */
   async restore(tabIds: string[]): Promise<{ snapshot: SessionSnapshot | null; results: Array<{ tabId: string; restore: SnapshotRestoreState }> }> {
     const results: Array<{ tabId: string; restore: SnapshotRestoreState }> = [];
-    if (!this.snapshot) return { snapshot: null, results };
+    const snapshot = this.manual[0] ?? null;
+    if (!snapshot) return { snapshot: null, results };
     const selected = new Set(tabIds);
-    const processedAt = (this.deps.now ?? (() => new Date()))().toISOString();
-    for (const entry of this.snapshot.entries) {
+    const processedAt = this.now().toISOString();
+    for (const entry of snapshot.entries) {
       if (entry.restore !== 'pending') continue;
       if (!selected.has(entry.tabId)) {
         entry.restore = 'skipped';
@@ -744,24 +1408,17 @@ export class SessionSnapshotService {
       entry.processedAt = processedAt;
       results.push({ tabId: entry.tabId, restore: entry.restore });
     }
-    this.persist();
-    return { snapshot: this.snapshot, results };
+    await this.persistSnapshot(snapshot);
+    return { snapshot, results };
   }
 
+  /** FR-AITUI-007 AC-3: the newest manual save is thrown away. */
   async discard(): Promise<void> {
     if (this.watchTimer) clearTimeout(this.watchTimer);
     this.watchTimer = null;
     this.waiting.clear();
-    this.snapshot = null;
-    this.savedInThisProcess = false;
-    rmSync(this.dataPath, { force: true });
-  }
-
-  private persist(): void {
-    if (!this.snapshot) return;
-    mkdirSync(path.dirname(this.dataPath), { recursive: true });
-    const tmp = `${this.dataPath}.tmp-${process.pid}`;
-    writeFileSync(tmp, `${JSON.stringify(this.snapshot, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
-    renameSync(tmp, this.dataPath);
+    const newest = this.manual[0];
+    if (newest) await this.deleteSnapshot(String(newest.id));
+    rmSync(this.legacyPath, { force: true });
   }
 }

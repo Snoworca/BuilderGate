@@ -90,11 +90,12 @@ test('FR-AITUI-007 AC-1/AC-2: save resolves ids, writes the snapshot and reports
     assert.equal(entry.resumeCommand, 'claudep');
     assert.deepEqual(entry.resumeArguments, ['--dangerously-skip-permissions', '--resume', CLAUDE_ID]);
     assert.equal(snapshot.entries.length, 1, 'a tab without an id is not a resumable entry');
-    const onDisk = JSON.parse(readFileSync(path.join(dir, 'data', 'session-snapshot.json'), 'utf8'));
+    // FR-AITUI-017 AC-1/AC-2: a manual save is its own file in the list.
+    const onDisk = JSON.parse(readFileSync(path.join(dir, 'data', 'session-snapshots', `${snapshot.id}.json`), 'utf8'));
     assert.equal(onDisk.entries[0].sessionId, CLAUDE_ID);
     assert.equal(service.getStatus().pendingCount, 1);
     assert.equal(service.getStatus().restorable, false, 'a snapshot saved in this run is not offered for resuming yet');
-    assert.equal(service.hasPendingForTab('t1'), true);
+    assert.equal(service.hasPendingForTab('t1'), false, 'FR-AITUI-018 AC-1: a save of this run is restored by the next start, not this one');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -156,7 +157,8 @@ test('FR-AITUI-007 AC-3: the snapshot survives a restart and can be discarded', 
     });
     await other.initialize();
     assert.equal(other.getStatus().pendingCount, 1);
-    assert.equal(other.getStatus().restorable, true, 'a snapshot loaded after a restart is offered for resuming');
+    // FR-AITUI-018 AC-1 (2026-10-08): the newest save is restored at start without asking, so nothing is offered.
+    assert.equal(other.getStatus().restorable, false);
     assert.equal(other.hasPendingForTab('t1'), true);
     await other.discard();
     assert.equal(other.getStatus().snapshot, null);
