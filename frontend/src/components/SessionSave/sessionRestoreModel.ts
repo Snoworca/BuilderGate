@@ -15,6 +15,8 @@ export interface SnapshotSummary {
   agentCounts: Partial<Record<AgentKind, number>>;
   /** The save the last server start restored. */
   usedForRestore: boolean;
+  /** FR-AITUI-018 AC-1: the save a start would restore now, as the server picks it. */
+  nextStart?: boolean;
 }
 
 export interface SnapshotList {
@@ -28,7 +30,7 @@ export interface PlannedEntry extends SnapshotEntry {
   /** FR-AITUI-016 AC-3: what ran in a shell entry's tab. */
   runningCommand?: string;
   target: 'tab' | 'new-tab';
-  targetReason: 'idle' | 'busy' | 'missing';
+  targetReason: 'idle' | 'busy' | 'missing' | 'agent-running' | 'moved';
 }
 
 export interface SnapshotDetail {

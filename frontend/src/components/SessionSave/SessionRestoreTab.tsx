@@ -22,6 +22,7 @@ import {
 } from './sessionRestoreModel.ts';
 import type { RestoreReportItem } from './sessionSaveAllModel.ts';
 import { t, tn } from '../../i18n/i18n.ts';
+import type { MessageKey } from '../../i18n/i18n.ts';
 
 export interface SessionRestoreTabProps {
   listSnapshots: () => Promise<SnapshotList>;
@@ -40,6 +41,20 @@ type Step = 'pick' | 'restoring' | 'done' | 'error';
 
 /** While a restored agent is still being looked for, its result is read this often. */
 const RESULT_POLL_MS = 2_000;
+
+const REASON_KEYS = {
+  idle: 'sessionSave.restore.reason.idle',
+  busy: 'sessionSave.restore.reason.busy',
+  missing: 'sessionSave.restore.reason.missing',
+  'agent-running': 'sessionSave.restore.reason.agentRunning',
+  moved: 'sessionSave.restore.reason.moved',
+} as const satisfies Record<PlannedEntry['targetReason'], MessageKey>;
+
+/** The save the server says a start would restore now. */
+function nextStartOf(list: SnapshotList): string | null {
+  if (list.auto?.nextStart) return list.auto.id;
+  return list.manual.find((item) => item.nextStart)?.id ?? null;
+}
 
 function summaryLine(item: SnapshotSummary): string {
   const agents = agentCountsText(item.agentCounts);
@@ -73,9 +88,7 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
         // The save a restart would restore comes first: the newer of the auto save and the newest manual one.
         setSelectedId((current) => {
           if (current && (current === next.auto?.id || next.manual.some((m) => m.id === current))) return current;
-          const newestManual = next.manual[0];
-          if (next.auto && (!newestManual || Date.parse(next.auto.savedAt) > Date.parse(newestManual.savedAt))) return next.auto.id;
-          return newestManual?.id ?? next.auto?.id ?? null;
+          return nextStartOf(next) ?? next.manual[0]?.id ?? next.auto?.id ?? null;
         });
       })
       .catch((err: unknown) => setListError(err instanceof Error ? err.message : String(err)));
@@ -94,7 +107,12 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
     if (!selectedId) return;
     let live = true;
     getSnapshot(selectedId)
-      .then((next) => { if (live) setDetail(next); })
+      .then((next) => {
+        if (!live) return;
+        setDetail(next);
+        // A row whose agent already runs in its tab is left out unless picked by hand.
+        setUnpicked(new Set(next.entries.filter((entry) => entry.targetReason === 'agent-running').map((entry) => entry.tabId)));
+      })
       .catch((err: unknown) => { if (live) setDetailError(err instanceof Error ? err.message : String(err)); });
     return () => { live = false; };
   }, [selectedId, getSnapshot, detailVersion]);
@@ -107,17 +125,16 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
       restoreResults(tabIds)
         .then((fresh) => {
           const byTab = new Map(fresh.map((item) => [item.tabId, item]));
-          setResults((current) => current.map((item) => byTab.get(item.tabId) ?? item));
+          // A result the server no longer holds (it restarted) is not waited on forever.
+          setResults((current) => current.map((item) => byTab.get(item.tabId)
+            ?? (item.result === 'waiting' ? { ...item, result: 'unconfirmed', reason: 'agent-not-detected' } : item)));
         })
         .catch(() => undefined);
     }, RESULT_POLL_MS);
     return () => window.clearInterval(timer);
   }, [waitingIds, restoreResults]);
 
-  const newestManual = list?.manual[0] ?? null;
-  const nextStartId = list?.auto && (!newestManual || Date.parse(list.auto.savedAt) > Date.parse(newestManual.savedAt))
-    ? list.auto.id
-    : newestManual?.id ?? null;
+  const nextStartId = list ? nextStartOf(list) : null;
   const days = useMemo(() => groupManualByDay(list?.manual ?? []), [list]);
   const entries = useMemo(() => detail?.entries ?? [], [detail]);
   const groups = groupByWorkspace(entries);
@@ -162,6 +179,7 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
       type="button"
       className="session-restore-card"
       aria-pressed={selectedId === item.id}
+      disabled={step === 'restoring'}
       onClick={() => setSelectedId(item.id)}
     >
       <span className="session-restore-card-top">
@@ -174,10 +192,7 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
   );
 
   const targetText = (entry: PlannedEntry) => (entry.target === 'tab' ? t('sessionSave.restore.target.tab') : t('sessionSave.restore.target.newTab'));
-  const reasonText = (entry: PlannedEntry) => t(
-    entry.targetReason === 'idle' ? 'sessionSave.restore.reason.idle'
-      : entry.targetReason === 'busy' ? 'sessionSave.restore.reason.busy' : 'sessionSave.restore.reason.missing',
-  );
+  const reasonText = (entry: PlannedEntry) => t(REASON_KEYS[entry.targetReason]);
 
   return (
     <>

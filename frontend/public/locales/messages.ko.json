@@ -1016,6 +1016,8 @@
   "sessionSave.restore.reason.idle": "셸이 프롬프트 상태",
   "sessionSave.restore.reason.busy": "에이전트나 명령이 실행 중",
   "sessionSave.restore.reason.missing": "탭이 닫힘",
+  "sessionSave.restore.reason.agentRunning": "같은 에이전트가 실행 중",
+  "sessionSave.restore.reason.moved": "탭이 다른 폴더에 있음",
   "sessionSave.restore.includeCommand": "실행 중이던 명령도 입력",
   "sessionSave.restore.hint": "에이전트나 명령이 실행 중인 탭과 닫힌 탭은 저장된 디렉터리에서 새 탭으로 엽니다.",
   "sessionSave.restore.run": "선택한 {count}개 복구",

@@ -1043,6 +1043,8 @@
   "sessionSave.restore.reason.idle": "Shell at its prompt",
   "sessionSave.restore.reason.busy": "An agent or a command is running",
   "sessionSave.restore.reason.missing": "The tab was closed",
+  "sessionSave.restore.reason.agentRunning": "The same agent is running there",
+  "sessionSave.restore.reason.moved": "The tab is in another folder",
   "sessionSave.restore.includeCommand": "Type the running command too",
   "sessionSave.restore.hint": "A tab with an agent or a command running, or a closed tab, opens as a new tab in the saved folder.",
   "sessionSave.restore.run": "Restore {count} selected",

@@ -29,6 +29,8 @@ interface Fixture {
   processCalls: { count: number };
   alive: Set<number>;
   timing: { confirmTimeoutMs: number };
+  /** Opening a tab throws from this call on (1-based); 0 never. */
+  addTabThrowsFrom: { value: number };
   make: () => SessionSnapshotService;
 }
 
@@ -66,6 +68,7 @@ function fixture(): Fixture {
   const processCalls = { count: 0 };
   const alive = new Set<number>([40]);
   const timing = { confirmTimeoutMs: 60 };
+  const addTabThrowsFrom = { value: 0 };
   const dataDir = path.join(dir, 'data');
   const make = () => new SessionSnapshotService({
     dataPath: path.join(dataDir, 'session-snapshot.json'),
@@ -77,6 +80,7 @@ function fixture(): Fixture {
       return true;
     },
     addTab: async (workspaceId, name, cwd, fallbackWorkspaceId) => {
+      if (addTabThrowsFrom.value > 0 && added.length + 1 >= addTabThrowsFrom.value) throw new Error('TAB_LIMIT_EXCEEDED');
       const tabId = `new-${added.length + 1}`;
       added.push({ workspaceId, name, cwd, tabId, fallbackWorkspaceId: fallbackWorkspaceId ?? null });
       return tabId;
@@ -95,7 +99,7 @@ function fixture(): Fixture {
     // One "minute" of the auto save interval is 10 ms here.
     minuteMs: 10,
   });
-  return { dir, dataDir, tabs, runtime, scheduled, added, clock, retention, processCalls, alive, timing, make };
+  return { dir, dataDir, tabs, runtime, scheduled, added, clock, retention, processCalls, alive, timing, addTabThrowsFrom, make };
 }
 
 async function withFixture(run: (f: Fixture) => Promise<void>): Promise<void> {
@@ -265,6 +269,16 @@ test('FR-AITUI-016 AC-4: an agent the restart resumed but never saw keeps its sa
     const t1 = entryOf(readAuto(f), 't1');
     assert.equal(t1?.mode, 'agent');
     assert.equal(t1?.sessionId, CLAUDE_ID);
+
+    // Review 2026-10-12 (round 2): only once. A start that resumes the carried entry and again
+    // never sees the agent lets it go, or every start would type the same dead resume forever.
+    const again = f.make();
+    await again.initialize();
+    await again.autoRestore();
+    await sleep(120);
+    f.clock.at += 300_000;
+    assert.equal((await again.autoSave()).result, 'saved');
+    assert.equal(entryOf(readAuto(f), 't1')?.mode, 'shell');
   });
 });
 
@@ -355,6 +369,8 @@ test('FR-AITUI-017 AC-4: the list gives each save its time, tab count and whethe
     assert.equal(list.manual[0].usedForRestore, false);
     assert.equal(list.auto?.tabCount, 4);
     assert.equal(list.auto?.usedForRestore, true, 'the newer auto save was the one restored');
+    assert.equal(list.auto?.nextStart, true, 'and the one the next start would restore');
+    assert.equal(list.manual[0].nextStart, false);
   });
 });
 
@@ -406,6 +422,7 @@ test('FR-AITUI-017 AC-6: an old snapshot file that was already used joins the li
     assert.equal(service.listSnapshots().manual.length, 1, 'still in the list, for a hand restore');
     assert.deepEqual(await service.autoRestore(), []);
     assert.deepEqual(f.scheduled, [], 'nothing typed at start');
+    assert.equal(service.listSnapshots().manual[0].nextStart, false, 'the list does not name it for the next start');
   });
 });
 
@@ -491,7 +508,7 @@ test('FR-AITUI-018 AC-5/AC-6: a hand restore types into an idle tab and opens a 
     ]);
     await service.autoSave();
     const detail = service.getSnapshot(String(saved.snapshot.id));
-    assert.deepEqual(detail.entries.map((e) => [e.tabId, e.target, e.targetReason]), [['t1', 'new-tab', 'busy'], ['t4', 'tab', 'idle']]);
+    assert.deepEqual(detail.entries.map((e) => [e.tabId, e.target, e.targetReason]), [['t1', 'new-tab', 'agent-running'], ['t4', 'tab', 'idle']]);
 
     const results = await service.restoreFrom(String(saved.snapshot.id), [{ tabId: 't1' }, { tabId: 't4' }]);
     assert.deepEqual(f.added.map((a) => [a.workspaceId, a.name, a.cwd]), [['w1', 'build', CWD_A]]);
@@ -513,6 +530,36 @@ test('FR-AITUI-018 AC-7: a hand-restored agent settles to confirmed or unconfirm
     await sleep(150);
     assert.deepEqual(service.handResults(['new-1', 'nope']).map((r) => [r.tabId, r.result]), [['new-1', 'unconfirmed']]);
     assert.equal(service.getStatus().report.length, 0, 'the start report is not touched');
+  });
+});
+
+// Review 2026-10-12 (round 2): a tab that cannot be opened fails its own entry, not the request.
+test('FR-AITUI-018 AC-7: a tab that cannot be opened fails that entry; the ones before it stand', async () => {
+  await withFixture(async (f) => {
+    const service = f.make();
+    await service.initialize();
+    await service.autoSave();
+    f.tabs.splice(2, 2); // t3 and t4 closed: both reopen in new tabs
+    f.addTabThrowsFrom.value = 2;
+    const results = await service.restoreFrom('auto', [{ tabId: 't3' }, { tabId: 't4' }]);
+    assert.deepEqual(results.map((r) => [r.tabId, r.result, r.reason ?? null]), [['new-1', 'shell', null], ['t4', 'failed', 'tab-not-opened']]);
+  });
+});
+
+// Review 2026-10-12 (round 2): where a hand restore goes.
+test('FR-AITUI-018 AC-6: the same agent running in its tab, or the tab in another folder, sends the entry to a new tab', async () => {
+  await withFixture(async (f) => {
+    const service = f.make();
+    await service.initialize();
+    await service.autoSave();
+    f.runtime.s4.cwd = CWD_A; // t4 was saved in CWD_B
+    const detail = service.getSnapshot('auto');
+    const where = (tabId: string) => { const e = detail.entries.find((x) => x.tabId === tabId)!; return [e.target, e.targetReason]; };
+    assert.deepEqual(where('t1'), ['new-tab', 'agent-running']);
+    assert.deepEqual(where('t3'), ['new-tab', 'busy']);
+    assert.deepEqual(where('t4'), ['new-tab', 'moved']);
+    f.runtime.s4.cwd = CWD_B + (process.platform === 'win32' ? '\\' : '/');
+    assert.deepEqual(service.getSnapshot('auto').entries.find((x) => x.tabId === 't4')?.target, 'tab', 'a trailing separator is the same folder');
   });
 });
 

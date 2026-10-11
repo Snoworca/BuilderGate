@@ -67,6 +67,11 @@ export interface SnapshotEntry {
   processedAt?: string;
   /** FR-AITUI-016 AC-3: what ran in a shell entry's tab; recorded, never typed at start. */
   runningCommand?: string;
+  /**
+   * FR-AITUI-016 AC-4: kept by an auto save from a resume its start typed but never saw.
+   * Carried once: a start that resumes it and again sees nothing lets it go.
+   */
+  carried?: true;
 }
 
 /** FR-AITUI-013 AC-3: one tab's choice in the save dialog. */
@@ -143,10 +148,12 @@ export interface SnapshotSummary {
   agentCounts: Partial<Record<AgentKind, number>>;
   /** True for the save the last server start restored. */
   usedForRestore: boolean;
+  /** FR-AITUI-018 AC-1: the save a start would restore now. */
+  nextStart: boolean;
 }
 
 export type RestoreTarget = 'tab' | 'new-tab';
-export type RestoreTargetReason = 'idle' | 'busy' | 'missing';
+export type RestoreTargetReason = 'idle' | 'busy' | 'missing' | 'agent-running' | 'moved';
 
 /** FR-AITUI-018 AC-6: where restoring this entry by hand would type its command. */
 export interface PlannedEntry extends SnapshotEntry {
@@ -316,7 +323,23 @@ function sanitizeEntry(raw: unknown): SnapshotEntry | null {
     restore,
     ...(typeof e.processedAt === 'string' ? { processedAt: e.processedAt } : {}),
     ...(running ? { runningCommand: running } : {}),
+    ...(e.carried === true ? { carried: true as const } : {}),
   };
+}
+
+/** The entry as a new save records it: not carried, not yet restored. */
+function freshEntry(entry: SnapshotEntry, over: Partial<SnapshotEntry>): SnapshotEntry {
+  const { carried: _carried, ...rest } = entry;
+  return { ...rest, ...over, restore: 'pending' };
+}
+
+/** Two folders compare equal past separators, a trailing one, and case on Windows. */
+function sameFolder(a: string, b: string): boolean {
+  const norm = (value: string) => {
+    const unified = value.replace(/\\/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? unified.toLowerCase() : unified;
+  };
+  return norm(a) === norm(b);
 }
 
 /** A save file as read from disk; null when it is not one. */
@@ -472,13 +495,14 @@ export class SessionSnapshotService {
       this.noticeShownReportId = typeof raw?.noticeShownReportId === 'string' ? raw.noticeShownReportId : null;
     }
 
-    // FR-AITUI-018 AC-1: the newer of the newest manual save and the auto save; a tie goes to the manual one.
+    this.restoreSource = this.nextStartSource();
+  }
+
+  /** FR-AITUI-018 AC-1: the newer of the newest manual save and the auto save; a tie goes to the manual one. */
+  private nextStartSource(): SessionSnapshot | null {
     const newestManual = this.manual.find((snapshot) => snapshot.autoRestore !== false) ?? null;
-    if (newestManual && this.auto) {
-      this.restoreSource = timeOf(newestManual) >= timeOf(this.auto) ? newestManual : this.auto;
-    } else {
-      this.restoreSource = newestManual ?? this.auto;
-    }
+    if (newestManual && this.auto) return timeOf(newestManual) >= timeOf(this.auto) ? newestManual : this.auto;
+    return newestManual ?? this.auto;
   }
 
   private agentOf(record: SnapshotTabRecord, runtime: SnapshotTabRuntime | null): AgentKind | null {
@@ -844,17 +868,17 @@ export class SessionSnapshotService {
       const manualEntry = newestManual?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
       const startedAt = runtime?.foregroundStartedAt;
       if (newestManual && manualEntry && (startedAt === undefined || timeOf(newestManual) >= startedAt)) {
-        return { ...manualEntry, ...names, cwd: ctx.cwd ?? manualEntry.cwd, restore: 'pending' };
+        return freshEntry(manualEntry, { ...names, cwd: ctx.cwd ?? manualEntry.cwd });
       }
       if (result) return this.agentEntry(record, ctx, result);
       const previous = this.auto?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
-      if (previous) return { ...previous, ...names, cwd: ctx.cwd ?? previous.cwd, restore: 'pending' };
+      if (previous) return freshEntry(previous, { ...names, cwd: ctx.cwd ?? previous.cwd });
     }
     if (!agent && !runtime?.runningCommand) {
       // A resume this start typed but never saw: the agent did not come back, so the saved id is
       // still the only way back to it. Losing it here would lose it for the next start too.
       const missed = this.missedResume(record.tab.id);
-      if (missed) return { ...missed, ...names, cwd: ctx.cwd ?? missed.cwd, restore: 'pending' };
+      if (missed) return { ...freshEntry(missed, { ...names, cwd: ctx.cwd ?? missed.cwd }), carried: true };
     }
     const running = agent ? null : runtime?.runningCommand ?? null;
     return {
@@ -877,7 +901,10 @@ export class SessionSnapshotService {
   private missedResume(tabId: string): SnapshotEntry | null {
     const item = this.report.find((current) => current.tabId === tabId);
     if (!item || item.mode !== 'agent' || (item.result !== 'unconfirmed' && item.result !== 'failed')) return null;
-    return this.restoreSource?.entries.find((entry) => entry.tabId === tabId && entry.mode === 'agent') ?? null;
+    const entry = this.restoreSource?.entries.find((candidate) => candidate.tabId === tabId && candidate.mode === 'agent');
+    // Not twice, and not when a retry resumed some other id than the save held.
+    if (!entry || entry.carried || entry.sessionId !== item.sessionId) return null;
+    return entry;
   }
 
   /** One auto save cycle. AC-5: deferred while resumed agents are still looked for; AC-6: one at a time. */
@@ -949,7 +976,7 @@ export class SessionSnapshotService {
   // FR-AITUI-017: the list
   // --------------------------------------------------------------------------
 
-  private summaryOf(snapshot: SessionSnapshot, lastRestored: SessionSnapshot | null): SnapshotSummary {
+  private summaryOf(snapshot: SessionSnapshot, lastRestored: SessionSnapshot | null, next: SessionSnapshot | null): SnapshotSummary {
     const agentCounts: Partial<Record<AgentKind, number>> = {};
     for (const entry of snapshot.entries) {
       if (entry.mode === 'agent' && entry.agent) agentCounts[entry.agent] = (agentCounts[entry.agent] ?? 0) + 1;
@@ -961,6 +988,7 @@ export class SessionSnapshotService {
       tabCount: snapshot.entries.length,
       agentCounts,
       usedForRestore: lastRestored === snapshot,
+      nextStart: next === snapshot,
     };
   }
 
@@ -969,9 +997,10 @@ export class SessionSnapshotService {
     const lastRestored = all
       .filter((snapshot) => snapshot.restoredAt)
       .sort((a, b) => Date.parse(b.restoredAt ?? '') - Date.parse(a.restoredAt ?? ''))[0] ?? null;
+    const next = this.nextStartSource();
     return {
-      manual: this.manual.map((snapshot) => this.summaryOf(snapshot, lastRestored)),
-      auto: this.auto ? this.summaryOf(this.auto, lastRestored) : null,
+      manual: this.manual.map((snapshot) => this.summaryOf(snapshot, lastRestored, next)),
+      auto: this.auto ? this.summaryOf(this.auto, lastRestored, next) : null,
       retention: Math.max(1, Math.floor(this.deps.retention?.() ?? DEFAULT_RETENTION)),
     };
   }
@@ -998,7 +1027,14 @@ export class SessionSnapshotService {
     const record = records.get(entry.tabId);
     if (!record) return { target: 'new-tab', targetReason: 'missing' };
     const runtime = this.deps.getRuntime(record.tab.sessionId);
+    // The agent may well be this very session: resuming it again beside itself would put two
+    // processes on one session, so the restore tab leaves such a row unpicked.
+    if (runtime && entry.mode === 'agent' && entry.agent && runtime.foregroundAppId === entry.agent) {
+      return { target: 'new-tab', targetReason: 'agent-running' };
+    }
     if (!runtime || runtime.foregroundAppId || runtime.runningCommand) return { target: 'new-tab', targetReason: 'busy' };
+    // An agent's sessions are kept per folder: typed elsewhere, the resume finds nothing.
+    if (entry.cwd && runtime.cwd && !sameFolder(entry.cwd, runtime.cwd)) return { target: 'new-tab', targetReason: 'moved' };
     return { target: 'tab', targetReason: 'idle' };
   }
 
@@ -1018,29 +1054,35 @@ export class SessionSnapshotService {
     for (const item of items) {
       const entry = snapshot.entries.find((candidate) => candidate.tabId === item.tabId);
       if (!entry) continue;
-      const { target } = this.targetOf(entry, records);
-      let tabId = entry.tabId;
-      if (target === 'new-tab') {
-        const opened = this.deps.addTab
-          ? await this.deps.addTab(entry.workspaceId, entry.tabName, entry.cwd, options.fallbackWorkspaceId ?? null)
-          : null;
-        if (!opened) {
-          results.push(this.reportItemOf(entry, 'failed', 'tab-not-opened'));
-          continue;
-        }
-        tabId = opened;
-      }
-      const placed: SnapshotEntry = { ...entry, tabId };
-      if (entry.mode === 'shell') {
-        const typed = item.includeCommand && entry.runningCommand ? this.typeCommandLine(tabId, entry.runningCommand) : null;
-        if (typed === false) results.push(this.reportItemOf(placed, 'failed', 'command-invalid'));
-        else results.push(this.reportItemOf(typed ? { ...placed, mode: 'command' } : placed, typed ? 'typed' : 'shell'));
-        continue;
-      }
-      results.push(this.runEntry(placed, new Set([tabId])));
+      const result = await this.restoreOne(entry, item, records, options.fallbackWorkspaceId ?? null);
+      this.rememberHandResult(result);
+      results.push(result);
     }
-    for (const result of results) this.rememberHandResult(result);
     return results;
+  }
+
+  /** One picked entry; a failure stays with that entry, and the ones already typed stand. */
+  private async restoreOne(entry: SnapshotEntry, item: HandRestoreItem, records: Map<string, SnapshotTabRecord>, fallbackWorkspaceId: string | null): Promise<RestoreReportItem> {
+    const { target } = this.targetOf(entry, records);
+    let tabId = entry.tabId;
+    if (target === 'new-tab') {
+      let opened: string | null = null;
+      try {
+        opened = this.deps.addTab ? await this.deps.addTab(entry.workspaceId, entry.tabName, entry.cwd, fallbackWorkspaceId) : null;
+      } catch (error) {
+        // e.g. the workspace is at its tab limit.
+        console.warn('[SessionSnapshot] Could not open a tab to restore into:', error instanceof Error ? error.message : error);
+      }
+      if (!opened) return this.reportItemOf(entry, 'failed', 'tab-not-opened');
+      tabId = opened;
+    }
+    const placed: SnapshotEntry = { ...entry, tabId };
+    if (entry.mode === 'shell') {
+      const typed = item.includeCommand && entry.runningCommand ? this.typeCommandLine(tabId, entry.runningCommand) : null;
+      if (typed === false) return this.reportItemOf(placed, 'failed', 'command-invalid');
+      return this.reportItemOf(typed ? { ...placed, mode: 'command' } : placed, typed ? 'typed' : 'shell');
+    }
+    return this.runEntry(placed, new Set([tabId]));
   }
 
   private rememberHandResult(item: RestoreReportItem): void {
