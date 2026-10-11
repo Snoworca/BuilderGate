@@ -81,7 +81,9 @@ test.describe('세션 복구 탭', () => {
       await expect(dialog.getByText('직접 저장', { exact: true })).toBeVisible();
       await expect(dialog.getByText('자동 저장', { exact: true })).toBeVisible();
 
-      // Our save is the newest manual one; with no newer auto save it is picked and marked for the next start.
+      // Picked by its id: an auto save that ran meanwhile would be picked by default instead.
+      await dialog.locator(`[data-snapshot-id="${saveId}"]`).click();
+      await expect(dialog.locator(`[data-snapshot-id="${saveId}"]`)).toHaveAttribute('aria-pressed', 'true');
       const row = dialog.locator('.session-restore-row', { hasText: 'e2e-restore-tab' });
       await expect(row).toBeVisible({ timeout: 15000 });
       // FR-AITUI-018 AC-6: the tab is idle, so the command goes into it.

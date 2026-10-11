@@ -1026,8 +1026,12 @@ export class SessionSnapshotService {
   private resumedElsewhere(entry: SnapshotEntry, records: Map<string, SnapshotTabRecord>): boolean {
     if (entry.mode !== 'agent' || !entry.agent || !entry.sessionId) return false;
     for (const item of this.handReport.values()) {
-      if (item.agent === entry.agent && item.sessionId === entry.sessionId && (item.result === 'waiting' || item.result === 'confirmed')
-        && records.has(item.tabId)) return true;
+      if (item.agent !== entry.agent || item.sessionId !== entry.sessionId) continue;
+      const record = records.get(item.tabId);
+      if (!record) continue;
+      if (item.result === 'waiting') return true;
+      // Confirmed once is not running now: the agent may have exited and left an idle shell.
+      if (item.result === 'confirmed' && this.deps.getRuntime(record.tab.sessionId)?.foregroundAppId === entry.agent) return true;
     }
     return false;
   }

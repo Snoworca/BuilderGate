@@ -38,7 +38,7 @@ export interface SessionRestoreTabProps {
   onClose: () => void;
 }
 
-type Step = 'pick' | 'restoring' | 'done' | 'error';
+type Step = 'pick' | 'restoring' | 'done';
 
 /** While a restored agent is still being looked for, its result is read this often. */
 const RESULT_POLL_MS = 2_000;
@@ -77,6 +77,7 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
   const [commandOn, setCommandOn] = useState<Set<string>>(new Set());
   const [step, setStep] = useState<Step>('pick');
   const [results, setResults] = useState<RestoreReportItem[]>([]);
+  /** Why the last restore failed; stays in view while the save is read again and picked anew. */
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<SnapshotSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -163,10 +164,9 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
       setStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-      setStep('error');
-      // The save may have changed under the user (the auto save is overwritten in place):
-      // show what it holds now, keeping the error in view.
-      getSnapshot(detail.id).then((next) => setDetail(next)).catch(() => undefined);
+      // The save may have changed under the user (the auto save is overwritten in place): read
+      // it again through the selection effect, so its rows are picked by the same defaults.
+      setDetailVersion((version) => version + 1);
     }
   };
 
@@ -188,8 +188,9 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
       type="button"
       className="session-restore-card"
       aria-pressed={selectedId === item.id}
+      data-snapshot-id={item.id}
       disabled={step === 'restoring'}
-      onClick={() => setSelectedId(item.id)}
+      onClick={() => { setError(null); setSelectedId(item.id); }}
     >
       <span className="session-restore-card-top">
         <span className="session-restore-card-time">{heading}</span>
@@ -356,7 +357,7 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
           <Button variant="primary" onClick={onClose}>{t('common.close')}</Button>
         </DialogFooter>
       ) : (
-        <DialogFooter note={step === 'error' ? t('sessionSave.restore.error', { error: error ?? '' }) : t('sessionSave.restore.hint')} noteTone={step === 'error' ? 'warn' : undefined}>
+        <DialogFooter note={error !== null ? t('sessionSave.restore.error', { error }) : t('sessionSave.restore.hint')} noteTone={error !== null ? 'warn' : undefined}>
           <Button variant="secondary" onClick={onClose}>{t('common.close')}</Button>
           <Button variant="primary" icon="resume" disabled={!detail || items.length === 0 || step === 'restoring'} onClick={() => { void run(); }}>
             {step === 'restoring' ? t('sessionSave.restore.running') : t('sessionSave.restore.run', { count: items.length })}

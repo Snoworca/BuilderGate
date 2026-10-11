@@ -596,6 +596,9 @@ test('FR-AITUI-018 AC-6: an agent already resumed by hand into an open tab count
     await sleep(30);
     assert.equal(service.handResults([result.tabId])[0].result, 'confirmed');
     assert.equal(service.getSnapshot(id).entries[0].targetReason, 'agent-running');
+    // Review round 4: once that agent exits, the entry may be restored again.
+    f.runtime.s9.foregroundAppId = null;
+    assert.equal(service.getSnapshot(id).entries[0].targetReason, 'missing');
   });
 });
 
