@@ -875,9 +875,10 @@ export class SessionSnapshotService {
       if (previous) return freshEntry(previous, { ...names, cwd: ctx.cwd ?? previous.cwd });
     }
     if (!agent && !runtime?.runningCommand) {
-      // A resume this start typed but never saw: the agent did not come back, so the saved id is
-      // still the only way back to it. Losing it here would lose it for the next start too.
-      const missed = this.missedResume(record.tab.id);
+      // What this start restored but could not bring back: an agent it typed but never saw, or a
+      // command it does not type. The save is still the only record of it; losing it here would
+      // lose it for the next start too.
+      const missed = this.missedRestore(record.tab.id);
       if (missed) return { ...freshEntry(missed, { ...names, cwd: ctx.cwd ?? missed.cwd }), carried: true };
     }
     const running = agent ? null : runtime?.runningCommand ?? null;
@@ -897,14 +898,21 @@ export class SessionSnapshotService {
     };
   }
 
-  /** The saved agent entry of a tab whose resume at this start was typed but not confirmed. */
-  private missedResume(tabId: string): SnapshotEntry | null {
+  /**
+   * The saved entry of a tab this start restored without bringing back what ran in it: an agent
+   * whose resume was typed but not confirmed, or a shell whose running command is never typed.
+   */
+  private missedRestore(tabId: string): SnapshotEntry | null {
     const item = this.report.find((current) => current.tabId === tabId);
-    if (!item || item.mode !== 'agent' || (item.result !== 'unconfirmed' && item.result !== 'failed')) return null;
-    const entry = this.restoreSource?.entries.find((candidate) => candidate.tabId === tabId && candidate.mode === 'agent');
-    // Not twice, and not when a retry resumed some other id than the save held.
-    if (!entry || entry.carried || entry.sessionId !== item.sessionId) return null;
-    return entry;
+    const entry = this.restoreSource?.entries.find((candidate) => candidate.tabId === tabId);
+    // Not twice: a start that restores a carried entry and again brings nothing back lets it go.
+    if (!item || !entry || entry.carried) return null;
+    if (entry.mode === 'agent') {
+      if (item.mode !== 'agent' || (item.result !== 'unconfirmed' && item.result !== 'failed')) return null;
+      // Not when a retry resumed some other id than the save held.
+      return entry.sessionId === item.sessionId ? entry : null;
+    }
+    return entry.mode === 'shell' && entry.runningCommand && item.result === 'shell' ? entry : null;
   }
 
   /** One auto save cycle. AC-5: deferred while resumed agents are still looked for; AC-6: one at a time. */
@@ -1030,8 +1038,10 @@ export class SessionSnapshotService {
       const record = records.get(item.tabId);
       if (!record) continue;
       if (item.result === 'waiting') return true;
-      // Confirmed once is not running now: the agent may have exited and left an idle shell.
-      if (item.result === 'confirmed' && this.deps.getRuntime(record.tab.sessionId)?.foregroundAppId === entry.agent) return true;
+      // Confirmed once is not running now: the agent may have exited and left an idle shell. An
+      // agent confirmed through the process tree has no foreground mark, but its command runs.
+      const runtime = this.deps.getRuntime(record.tab.sessionId);
+      if (item.result === 'confirmed' && (runtime?.foregroundAppId === entry.agent || runtime?.runningCommand)) return true;
     }
     return false;
   }
@@ -1072,7 +1082,8 @@ export class SessionSnapshotService {
       const entry = snapshot.entries.find((candidate) => candidate.tabId === item.tabId);
       if (!entry) continue;
       const result = await this.restoreOne(entry, item, records, options.fallbackWorkspaceId ?? null);
-      this.rememberHandResult(result);
+      // A failure may have no tab of its own; kept, it would stand over that tab's earlier result.
+      if (result.result !== 'failed') this.rememberHandResult(result);
       results.push(result);
     }
     return results;

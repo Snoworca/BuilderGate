@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   agentCountsText,
   claimsRestoreNotice,
+  showsRestoreNotice,
   dayLabelOf,
   groupManualByDay,
   restoreItems,
@@ -102,4 +103,16 @@ test('FR-AITUI-018 AC-7: the client reads the hand restore results for the given
   });
   assert.deepEqual(await client.restoreResults(['new-1']), [{ tabId: 'new-1', result: 'confirmed' }]);
   assert.deepEqual(seen, [{ url: '/api/session-snapshot/restore-results', body: { tabIds: ['new-1'] } }]);
+});
+
+// Review 2026-10-12 (round 5): the dismissal was one boolean, so a restart while the page stayed
+// open claimed (and recorded as shown) a notice this client then never showed.
+test('FR-AITUI-018 AC-3: a dismissal hides only the report it dismissed', () => {
+  const base = { reportLength: 1, reportId: 'r2', claimedReportId: 'r2', dismissedReportId: null, reportDialogOpen: false };
+  assert.equal(showsRestoreNotice(base), true);
+  assert.equal(showsRestoreNotice({ ...base, dismissedReportId: 'r1' }), true, 'the last restart\'s dismissal does not hide this one');
+  assert.equal(showsRestoreNotice({ ...base, dismissedReportId: 'r2' }), false);
+  assert.equal(showsRestoreNotice({ ...base, claimedReportId: 'r1' }), false, 'not claimed by this client');
+  assert.equal(showsRestoreNotice({ ...base, reportDialogOpen: true }), false);
+  assert.equal(showsRestoreNotice({ ...base, reportLength: 0 }), false);
 });

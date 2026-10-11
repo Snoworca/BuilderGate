@@ -69,6 +69,7 @@ import {
   SessionSaveDialog,
   aiTabSignature,
   claimsRestoreNotice,
+  showsRestoreNotice,
   reportAutoDismissMs,
   saveButtonState,
   useSessionSnapshot,
@@ -171,7 +172,7 @@ function AppContent() {
   // FR-AITUI-009 / FR-AITUI-015: the session save button, the restore report and their dialogs.
   const sessionSnapshot = useSessionSnapshot(true);
   const [sessionDialog, setSessionDialog] = useState<'save' | 'report' | null>(null);
-  const [restoreBannerDismissed, setRestoreBannerDismissed] = useState(false);
+  const [dismissedReportId, setDismissedReportId] = useState<string | null>(null);
   const wm = useWorkspaceManager();
   const sessionSaveState = useMemo(
     () => saveButtonState({ candidateCount: sessionSnapshot.candidates.length, tabCount: wm.tabs.length, status: sessionSnapshot.status }),
@@ -195,13 +196,15 @@ function AppContent() {
     acknowledgeReport(reportId).catch((error: unknown) => console.warn('[SessionSnapshot] restore notice not recorded', error));
   }, [sessionSnapshot.status, noticeReportId, acknowledgeReport]);
   const dismissRestoreBanner = useCallback(() => {
-    setRestoreBannerDismissed(true);
-  }, []);
-  const showRestoreBanner = restoreReport.length > 0
-    && restoreReportId !== null
-    && noticeReportId === restoreReportId
-    && !restoreBannerDismissed
-    && sessionDialog !== 'report';
+    setDismissedReportId(restoreReportId);
+  }, [restoreReportId]);
+  const showRestoreBanner = showsRestoreNotice({
+    reportLength: restoreReport.length,
+    reportId: restoreReportId,
+    claimedReportId: noticeReportId,
+    dismissedReportId,
+    reportDialogOpen: sessionDialog === 'report',
+  });
   // FR-AITUI-015 AC-6: a report with nothing to look at goes away on its own.
   const restoreDismissMs = reportAutoDismissMs(restoreReport);
   useEffect(() => {

@@ -179,6 +179,21 @@ test('FR-AITUI-016 AC-3: a running command is recorded on a shell entry and neve
     await restarted.initialize();
     await restarted.autoRestore();
     assert.deepEqual(f.scheduled.map((s) => s.tabId), ['t1'], 'only the agent is typed, not npm run dev');
+
+    // Review round 5: the tab reopened idle, so the next auto save sees nothing running. The
+    // command is kept once, or it is gone before the user opens the restore tab.
+    f.runtime.s3.runningCommand = undefined;
+    f.clock.at += 300_000;
+    await sleep(100); // the resumed claude settles
+    assert.equal((await restarted.autoSave()).result, 'saved');
+    assert.equal(entryOf(readAuto(f), 't3')?.runningCommand, 'npm run dev');
+    const again = f.make();
+    await again.initialize();
+    await again.autoRestore();
+    f.clock.at += 300_000;
+    await sleep(100);
+    await again.autoSave();
+    assert.equal(entryOf(readAuto(f), 't3')?.runningCommand, undefined, 'once: a second idle start lets it go');
   });
 });
 
@@ -596,8 +611,13 @@ test('FR-AITUI-018 AC-6: an agent already resumed by hand into an open tab count
     await sleep(30);
     assert.equal(service.handResults([result.tabId])[0].result, 'confirmed');
     assert.equal(service.getSnapshot(id).entries[0].targetReason, 'agent-running');
-    // Review round 4: once that agent exits, the entry may be restored again.
+    // Review round 5: an agent the process tree confirmed (an unregistered wrapper) leaves no
+    // foreground mark, but its tab still runs a command.
     f.runtime.s9.foregroundAppId = null;
+    f.runtime.s9.runningCommand = 'my-claude-wrapper';
+    assert.equal(service.getSnapshot(id).entries[0].targetReason, 'agent-running');
+    // Review round 4: once that agent exits, the entry may be restored again.
+    f.runtime.s9.runningCommand = undefined;
     assert.equal(service.getSnapshot(id).entries[0].targetReason, 'missing');
   });
 });

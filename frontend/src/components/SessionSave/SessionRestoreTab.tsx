@@ -167,6 +167,8 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
       // The save may have changed under the user (the auto save is overwritten in place): read
       // it again through the selection effect, so its rows are picked by the same defaults.
       setDetailVersion((version) => version + 1);
+      // The list may be stale too: the auto save's time, or a save deleted elsewhere.
+      loadList();
     }
   };
 
