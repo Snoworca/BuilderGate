@@ -1022,8 +1022,19 @@ export class SessionSnapshotService {
   // FR-AITUI-018: restoring a save by hand
   // --------------------------------------------------------------------------
 
+  /** This entry's session, already resumed by hand into a tab that is still open. */
+  private resumedElsewhere(entry: SnapshotEntry, records: Map<string, SnapshotTabRecord>): boolean {
+    if (entry.mode !== 'agent' || !entry.agent || !entry.sessionId) return false;
+    for (const item of this.handReport.values()) {
+      if (item.agent === entry.agent && item.sessionId === entry.sessionId && (item.result === 'waiting' || item.result === 'confirmed')
+        && records.has(item.tabId)) return true;
+    }
+    return false;
+  }
+
   /** AC-6: an idle tab (no agent, back at its prompt) takes the command; otherwise a new tab. */
   private targetOf(entry: SnapshotEntry, records: Map<string, SnapshotTabRecord>): { target: RestoreTarget; targetReason: RestoreTargetReason } {
+    if (this.resumedElsewhere(entry, records)) return { target: 'new-tab', targetReason: 'agent-running' };
     const record = records.get(entry.tabId);
     if (!record) return { target: 'new-tab', targetReason: 'missing' };
     const runtime = this.deps.getRuntime(record.tab.sessionId);
@@ -1047,8 +1058,10 @@ export class SessionSnapshotService {
     };
   }
 
-  async restoreFrom(id: string, items: HandRestoreItem[], options: { fallbackWorkspaceId?: string | null } = {}): Promise<RestoreReportItem[]> {
+  async restoreFrom(id: string, items: HandRestoreItem[], options: { fallbackWorkspaceId?: string | null; savedAt?: string } = {}): Promise<RestoreReportItem[]> {
     const snapshot = this.find(id);
+    // The auto save is overwritten in place: restore only the one the user looked at.
+    if (options.savedAt !== undefined && options.savedAt !== snapshot.savedAt) throw new AppError(ErrorCode.SNAPSHOT_CHANGED);
     const records = new Map(this.deps.listTabs().map((record) => [record.tab.id, record]));
     const results: RestoreReportItem[] = [];
     for (const item of items) {

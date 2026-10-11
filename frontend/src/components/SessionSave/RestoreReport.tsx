@@ -87,6 +87,7 @@ const RESULT_LABEL = {
 
 function resultText(item: RestoreReportItem): string {
   if (item.result === 'failed' && item.reason === 'tab-missing') return t('sessionSave.report.result.tabMissing');
+  if (item.result === 'failed' && item.reason === 'tab-not-opened') return t('sessionSave.report.result.tabNotOpened');
   return t(RESULT_LABEL[item.result]);
 }
 

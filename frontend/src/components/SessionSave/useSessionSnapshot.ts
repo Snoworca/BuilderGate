@@ -21,7 +21,7 @@ export interface SessionSnapshotState {
   listSnapshots: () => Promise<SnapshotList>;
   getSnapshot: (id: string) => Promise<SnapshotDetail>;
   deleteSnapshot: (id: string) => Promise<void>;
-  restoreFrom: (id: string, items: HandRestoreItem[], activeWorkspaceId: string | null) => Promise<RestoreReportItem[]>;
+  restoreFrom: (id: string, items: HandRestoreItem[], activeWorkspaceId: string | null, savedAt?: string) => Promise<RestoreReportItem[]>;
   restoreResults: (tabIds: string[]) => Promise<RestoreReportItem[]>;
   acknowledgeReport: (reportId: string) => Promise<void>;
 }
@@ -86,7 +86,7 @@ export function useSessionSnapshot(enabled: boolean): SessionSnapshotState {
     await refresh();
   }, [refresh]);
   const restoreFrom = useCallback(
-    (id: string, items: HandRestoreItem[], activeWorkspaceId: string | null) => sessionSnapshotApi.restoreFrom(id, items, activeWorkspaceId),
+    (id: string, items: HandRestoreItem[], activeWorkspaceId: string | null, savedAt?: string) => sessionSnapshotApi.restoreFrom(id, items, activeWorkspaceId, savedAt),
     [],
   );
   const restoreResults = useCallback((tabIds: string[]) => sessionSnapshotApi.restoreResults(tabIds), []);

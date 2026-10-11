@@ -28,7 +28,8 @@ export interface SessionRestoreTabProps {
   listSnapshots: () => Promise<SnapshotList>;
   getSnapshot: (id: string) => Promise<SnapshotDetail>;
   deleteSnapshot: (id: string) => Promise<void>;
-  restoreFrom: (id: string, items: HandRestoreItem[]) => Promise<RestoreReportItem[]>;
+  /** `savedAt` is the time of the save the user looked at; the server refuses a save that changed since. */
+  restoreFrom: (id: string, items: HandRestoreItem[], savedAt: string) => Promise<RestoreReportItem[]>;
   /** FR-AITUI-018 AC-7: read again while a restored agent is still being looked for. */
   restoreResults?: (tabIds: string[]) => Promise<RestoreReportItem[]>;
   autoSave?: { enabled: boolean; intervalMinutes: number };
@@ -121,9 +122,11 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
   useEffect(() => {
     if (!waitingIds || !restoreResults) return undefined;
     const tabIds = waitingIds.split('\n');
+    let live = true;
     const timer = window.setInterval(() => {
       restoreResults(tabIds)
         .then((fresh) => {
+          if (!live) return;
           const byTab = new Map(fresh.map((item) => [item.tabId, item]));
           // A result the server no longer holds (it restarted) is not waited on forever.
           setResults((current) => current.map((item) => byTab.get(item.tabId)
@@ -131,7 +134,10 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
         })
         .catch(() => undefined);
     }, RESULT_POLL_MS);
-    return () => window.clearInterval(timer);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+    };
   }, [waitingIds, restoreResults]);
 
   const nextStartId = list ? nextStartOf(list) : null;
@@ -153,11 +159,14 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
     setStep('restoring');
     setError(null);
     try {
-      setResults(await restoreFrom(detail.id, items));
+      setResults(await restoreFrom(detail.id, items, detail.savedAt));
       setStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setStep('error');
+      // The save may have changed under the user (the auto save is overwritten in place):
+      // show what it holds now, keeping the error in view.
+      getSnapshot(detail.id).then((next) => setDetail(next)).catch(() => undefined);
     }
   };
 
@@ -231,6 +240,7 @@ export function SessionRestoreTab({ listSnapshots, getSnapshot, deleteSnapshot, 
                             className="icon-button icon-button-md"
                             aria-label={t('sessionSave.restore.deleteAria')}
                             title={t('sessionSave.restore.deleteAria')}
+                            disabled={step === 'restoring'}
                             onClick={() => { setDeleteError(null); setDeleting(item); }}
                           >
                             <Icon name="trash" size={15} />

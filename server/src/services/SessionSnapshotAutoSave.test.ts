@@ -563,6 +563,42 @@ test('FR-AITUI-018 AC-6: the same agent running in its tab, or the tab in anothe
   });
 });
 
+// Review 2026-10-12 (round 3): the auto save may be overwritten while the user looks at it.
+test('FR-AITUI-018 AC-5: a restore of a save that changed since it was shown is refused', async () => {
+  await withFixture(async (f) => {
+    const service = f.make();
+    await service.initialize();
+    await service.autoSave();
+    const shown = service.getSnapshot('auto').savedAt;
+    f.clock.at += 300_000;
+    await service.autoSave();
+    await assert.rejects(
+      service.restoreFrom('auto', [{ tabId: 't4' }], { savedAt: shown }),
+      (error: unknown) => error instanceof AppError && error.statusCode === 409,
+    );
+    assert.deepEqual(f.scheduled, []);
+    assert.equal((await service.restoreFrom('auto', [{ tabId: 't4' }], { savedAt: service.getSnapshot('auto').savedAt })).length, 1);
+  });
+});
+
+// Review 2026-10-12 (round 3): a session resumed by hand into a new tab is not offered again.
+test('FR-AITUI-018 AC-6: an agent already resumed by hand into an open tab counts as running', async () => {
+  await withFixture(async (f) => {
+    const service = f.make();
+    await service.initialize();
+    const saved = await service.saveAll([{ tabId: 't1', mode: 'agent', agent: 'claude', launcher: 'claude', sessionId: CLAUDE_ID }]);
+    f.tabs.splice(0, 1); // t1 closed
+    const id = String(saved.snapshot.id);
+    assert.equal(service.getSnapshot(id).entries[0].targetReason, 'missing');
+    const [result] = await service.restoreFrom(id, [{ tabId: 't1' }]);
+    f.runtime.s9 = { foregroundAppId: 'claude', ptyPid: 30, cwd: CWD_A };
+    f.tabs.push({ workspaceId: 'w1', workspaceName: 'ProjectMaster', tab: { id: result.tabId, name: 'build', sessionId: 's9', lastCwd: CWD_A } });
+    await sleep(30);
+    assert.equal(service.handResults([result.tabId])[0].result, 'confirmed');
+    assert.equal(service.getSnapshot(id).entries[0].targetReason, 'agent-running');
+  });
+});
+
 test('FR-AITUI-018 AC-5: a running command from the auto save is typed only when asked', async () => {
   await withFixture(async (f) => {
     const service = f.make();

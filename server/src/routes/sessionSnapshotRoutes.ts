@@ -178,11 +178,14 @@ export function createSessionSnapshotRoutes(service: SessionSnapshotService): Ro
   router.post('/list/:id/restore', async (req: Request, res: Response) => {
     try {
       const id = snapshotIdOf(req);
-      const { activeWorkspaceId } = (req.body ?? {}) as { activeWorkspaceId?: unknown };
+      const { activeWorkspaceId, savedAt } = (req.body ?? {}) as { activeWorkspaceId?: unknown; savedAt?: unknown };
       const fallbackWorkspaceId = typeof activeWorkspaceId === 'string' && activeWorkspaceId.length > 0 && activeWorkspaceId.length <= 200
         ? activeWorkspaceId
         : null;
-      res.json({ results: await service.restoreFrom(id, readRestoreItems(req.body), { fallbackWorkspaceId }) });
+      res.json({ results: await service.restoreFrom(id, readRestoreItems(req.body), {
+        fallbackWorkspaceId,
+        ...(typeof savedAt === 'string' && savedAt.length <= 40 ? { savedAt } : {}),
+      }) });
     } catch (error) {
       handleError(res, error);
     }

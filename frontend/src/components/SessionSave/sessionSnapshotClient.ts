@@ -26,7 +26,7 @@ export interface SessionSnapshotClient {
   /** FR-AITUI-017 AC-5 */
   deleteSnapshot(id: string): Promise<void>;
   /** FR-AITUI-018 AC-5..AC-7 */
-  restoreFrom(id: string, items: HandRestoreItem[], activeWorkspaceId: string | null): Promise<RestoreReportItem[]>;
+  restoreFrom(id: string, items: HandRestoreItem[], activeWorkspaceId: string | null, savedAt?: string): Promise<RestoreReportItem[]>;
   /** FR-AITUI-018 AC-7: the current results of those restores, by the tabs they went into. */
   restoreResults(tabIds: string[]): Promise<RestoreReportItem[]>;
   /** FR-AITUI-018 AC-3 */
@@ -63,8 +63,8 @@ export function createSessionSnapshotClient(deps: SessionSnapshotClientDeps): Se
     deleteSnapshot: async (id) => {
       await read(await deps.authFetch(`${base}/list/${encodeURIComponent(id)}`, json('DELETE')));
     },
-    restoreFrom: async (id, items, activeWorkspaceId) => (await read<{ results: RestoreReportItem[] }>(
-      await deps.authFetch(`${base}/list/${encodeURIComponent(id)}/restore`, json('POST', { items, activeWorkspaceId })),
+    restoreFrom: async (id, items, activeWorkspaceId, savedAt) => (await read<{ results: RestoreReportItem[] }>(
+      await deps.authFetch(`${base}/list/${encodeURIComponent(id)}/restore`, json('POST', { items, activeWorkspaceId, ...(savedAt ? { savedAt } : {}) })),
     )).results,
     restoreResults: async (tabIds) => (await read<{ results?: RestoreReportItem[] }>(
       await deps.authFetch(`${base}/restore-results`, json('POST', { tabIds })),

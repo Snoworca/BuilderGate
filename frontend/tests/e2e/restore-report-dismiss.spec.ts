@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { test, createOwnedWorkspaceViaApi } from './workspaceOwnershipFixture';
 import { deleteOwnedWorkspace, type RegistryOptions } from './workspaceLeakGuard';
-import { login } from './helpers';
+import { login, manualSaveListHasRoom } from './helpers';
 
 // FR-AITUI-018 AC-1..AC-3 (superseding FR-AITUI-015 AC-7). Reported 2026-10-03: the "restored
 // after restart" banner came back on every reload, because the dismissal lived only in component
@@ -87,6 +87,8 @@ test.describe('Restore report banner', () => {
 
     try {
       await login(page);
+      const roomToken = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
+      test.skip(!roomToken || !(await manualSaveListHasRoom(request, ORIGIN, roomToken)), 'the manual save list is full: saving would delete a user save');
       savedIds.push(await saveFailingSnapshot(request, page, ownerId));
       await restartServer(request, page);
       const restartedAt = Date.now();

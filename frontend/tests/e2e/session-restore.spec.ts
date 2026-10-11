@@ -30,6 +30,7 @@ import {
   addAgentAliasForE2E,
   clearAgentAliasesForE2E,
   login,
+  manualSaveListHasRoom,
   sendVisibleTerminalCommand,
   waitForTerminal,
 } from './helpers';
@@ -107,6 +108,7 @@ test.describe('세션 이어하기 (재시작 사이)', () => {
 
     await login(page);
     let token = await readToken(page);
+    test.skip(!(await manualSaveListHasRoom(request, ORIGIN, token)), 'the manual save list is full: saving would delete a user save');
     const workspaceName = `e2e-restore-${randomUUID().slice(0, 8)}`;
     const workspace = await createOwnedWorkspaceViaApi(request, registryOptions(), ownerId, {
       headers: authHeaders(token), data: { name: workspaceName },

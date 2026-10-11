@@ -129,6 +129,8 @@ test('FR-AITUI-018 AC-5/AC-6: GET /list/:id shows where each entry goes; POST /l
     assert.deepEqual(calls.at(-1), ['restoreFrom', ['auto', [{ tabId: 't1', includeCommand: true }, { tabId: 't2', includeCommand: false }], { fallbackWorkspaceId: 'w9' }]]);
     await req('POST', '/api/session-snapshot/list/auto/restore', { items: [{ tabId: 't1', includeCommand: true }, { tabId: 't1' }] });
     assert.deepEqual(calls.at(-1), ['restoreFrom', ['auto', [{ tabId: 't1', includeCommand: true }], { fallbackWorkspaceId: null }]], 'a repeated tab is restored once');
+    await req('POST', '/api/session-snapshot/list/auto/restore', { items: [{ tabId: 't1' }], savedAt: '2026-10-12T00:00:00.000Z' });
+    assert.deepEqual(calls.at(-1), ['restoreFrom', ['auto', [{ tabId: 't1', includeCommand: false }], { fallbackWorkspaceId: null, savedAt: '2026-10-12T00:00:00.000Z' }]], 'the time the client saw goes along');
     const bad = await req('POST', '/api/session-snapshot/list/auto/restore', { items: [{ includeCommand: true }] });
     assert.equal(bad.status, 400, 'an item without a tab id is refused before the service');
   });

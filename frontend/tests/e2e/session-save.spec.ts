@@ -25,6 +25,7 @@ import {
   login,
   sendVisibleTerminalCommand,
   waitForTerminal,
+  manualSaveListHasRoom,
 } from './helpers';
 
 const ORIGIN = 'https://localhost:2222';
@@ -75,6 +76,7 @@ test.describe('세션 저장', () => {
     await login(page);
     const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
     if (!token) throw new Error('login left no auth token');
+    test.skip(!(await manualSaveListHasRoom(request, ORIGIN, token)), 'the manual save list is full: saving would delete a user save');
 
     const workspaceName = `e2e-save-${randomUUID().slice(0, 8)}`;
     const workspace = await createOwnedWorkspaceViaApi(request, registryOptions(), ownerId, {
