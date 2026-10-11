@@ -191,6 +191,8 @@ export interface SnapshotTabRecord {
 export interface SnapshotTabRuntime {
   foregroundAppId: AgentKind | null;
   foregroundStartedAt?: number;
+  /** FR-AITUI-016 AC-4: when the foreground agent came up; foregroundStartedAt moves with its activity. */
+  agentStartedAt?: number;
   ptyPid?: number | null;
   outputHint?: AgentOutputHint | null;
   cwd?: string | null;
@@ -899,7 +901,7 @@ export class SessionSnapshotService {
       // AC-4: a manual save made after this agent started knows its id better than a guess.
       const newestManual = this.manual[0];
       const manualEntry = newestManual?.entries.find((entry) => entry.tabId === record.tab.id && entry.mode === 'agent' && entry.agent === agent);
-      const startedAt = runtime?.foregroundStartedAt;
+      const startedAt = runtime?.agentStartedAt;
       if (newestManual && manualEntry && (startedAt === undefined || timeOf(newestManual) >= startedAt)) {
         return mark(inherited, freshEntry(manualEntry, { ...names, cwd: ctx.cwd ?? manualEntry.cwd }));
       }
@@ -935,7 +937,7 @@ export class SessionSnapshotService {
   private stillThatAgent(resumed: { entry: SnapshotEntry; at: number }, runtime: SnapshotTabRuntime | null): boolean {
     if (!runtime) return false;
     if (runtime.foregroundAppId === resumed.entry.agent) {
-      return runtime.foregroundStartedAt === undefined || runtime.foregroundStartedAt <= resumed.at;
+      return runtime.agentStartedAt === undefined || runtime.agentStartedAt <= resumed.at;
     }
     // Confirmed through the process tree (an unregistered wrapper): its resume line still runs.
     return Boolean(runtime.runningCommand?.includes(resumed.entry.sessionId));

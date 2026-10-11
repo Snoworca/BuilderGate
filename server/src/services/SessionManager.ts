@@ -1040,6 +1040,11 @@ interface SessionData {
   expectShellPromptAfterAiTuiFailure?: boolean;
   lastSubmittedCommand?: string;
   foregroundStartedAt?: number;
+  /**
+   * FR-AITUI-016 AC-4: when the foreground app came up. foregroundStartedAt moves with every prompt
+   * and every turn; this stays until the shell is back at its prompt.
+   */
+  agentStartedAt?: number;
   lastReportedTerminalTitle?: string;
   retainedTerminal: RetainedTerminalSessionState;
 }
@@ -2215,6 +2220,7 @@ export class SessionManager {
       delete state.detectorId;
     });
     data.foregroundStartedAt = Date.now();
+    data.agentStartedAt = data.foregroundStartedAt;
   }
 
   private beginForegroundActivity(
@@ -2226,7 +2232,8 @@ export class SessionManager {
     if (!data) return;
 
     const current = this.ensureDerivedState(data);
-    if (current.ownership !== 'foreground_app') {
+    const entering = current.ownership !== 'foreground_app';
+    if (entering) {
       this.ensureForegroundDetectorRegistry(data).reset();
     }
     if (activity === 'waiting_input' || activity === 'repaint_only') {
@@ -2241,6 +2248,7 @@ export class SessionManager {
       }
     });
     data.foregroundStartedAt = Date.now();
+    if (entering || data.agentStartedAt === undefined) data.agentStartedAt = data.foregroundStartedAt;
   }
 
   private markAiTuiLaunchFailure(id: string, reason: string): void {
@@ -2253,6 +2261,7 @@ export class SessionManager {
     delete data.lastSubmittedCommand;
     delete data.agentLaunchCommand;
     data.foregroundStartedAt = undefined;
+    data.agentStartedAt = undefined;
     data.expectShellPromptAfterAiTuiFailure = true;
     this.updateDerivedState(id, reason, (state) => {
       state.ownership = 'shell_prompt';
@@ -2298,6 +2307,7 @@ export class SessionManager {
     delete data.aiTuiTitleState;
     delete data.lastAiTuiTitleWorkingAt;
     data.foregroundStartedAt = undefined;
+    data.agentStartedAt = undefined;
     this.cancelPendingRunningTransition(data);
     this.ensureForegroundDetectorRegistry(data).reset();
     this.updateDerivedState(id, reason, (state) => {
@@ -4163,6 +4173,8 @@ export class SessionManager {
   getAgentRuntimeInfo(sessionId: string): {
     foregroundAppId: ForegroundAppId | null;
     foregroundStartedAt?: number;
+    /** FR-AITUI-016 AC-4: when that app came up; unlike foregroundStartedAt, not moved by its activity. */
+    agentStartedAt?: number;
     ptyPid: number | null;
     outputHint: AgentOutputHint | null;
     cwd: string | null;
@@ -4180,6 +4192,7 @@ export class SessionManager {
     return {
       foregroundAppId: appId,
       ...(appId && data.foregroundStartedAt !== undefined ? { foregroundStartedAt: data.foregroundStartedAt } : {}),
+      ...(appId && data.agentStartedAt !== undefined ? { agentStartedAt: data.agentStartedAt } : {}),
       ptyPid: data.pty.pid ?? null,
       outputHint: this.agentOutputHints.get(sessionId),
       cwd: data.lastCwd ?? data.initialCwd ?? null,
@@ -4285,6 +4298,7 @@ export class SessionManager {
       delete state.detectorId;
     });
     data.foregroundStartedAt = Date.now();
+    data.agentStartedAt = data.foregroundStartedAt;
     this.captureDebugEvent(sessionId, 'pty', 'recovery_foreground_marked', {
       command: executable,
     });

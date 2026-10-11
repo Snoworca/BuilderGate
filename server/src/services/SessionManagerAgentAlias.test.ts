@@ -52,6 +52,24 @@ test('FR-AITUI-011 AC-3: a typed alias is detected as its agent and the launch l
   }
 });
 
+// Review 2026-10-12 (round 8): foregroundStartedAt moves on every prompt and every turn, so the
+// session save needs the time the agent itself came up.
+test('FR-AITUI-016 AC-4: agentStartedAt stays at the agent\'s start while its activity moves on', async () => {
+  const h = createHarness();
+  try {
+    h.manager.setAgentAliasResolver((exe) => (exe === 'claudep' ? 'claude' : null));
+    await launch(h, 'claudep --model opus');
+    const started = h.runtime()?.agentStartedAt;
+    assert.equal(typeof started, 'number');
+    await delay(20);
+    h.manager.writeInput(h.id, 'hello there\r');
+    assert.ok((h.runtime()?.foregroundStartedAt ?? 0) > (started ?? 0), 'the activity time moved');
+    assert.equal(h.runtime()?.agentStartedAt, started, 'the start did not');
+  } finally {
+    h.cleanup();
+  }
+});
+
 test('FR-AITUI-011 AC-3 boundary: without the alias registered, claudep is not an agent', async () => {
   const h = createHarness();
   try {

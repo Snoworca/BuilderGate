@@ -52,9 +52,9 @@ function fixture(): Fixture {
   ];
   const clock = { at: Date.parse('2026-10-08T05:00:00.000Z') };
   const runtime: Record<string, SnapshotTabRuntime> = {
-    s1: { foregroundAppId: 'claude', foregroundStartedAt: clock.at - 60_000, ptyPid: 20, cwd: CWD_A, launchCommand: 'claudep --model opus' },
+    s1: { foregroundAppId: 'claude', foregroundStartedAt: clock.at - 60_000, agentStartedAt: clock.at - 60_000, ptyPid: 20, cwd: CWD_A, launchCommand: 'claudep --model opus' },
     // The codex tab has no live thread on disk: its id is not found.
-    s2: { foregroundAppId: 'codex', foregroundStartedAt: clock.at - 60_000, ptyPid: 21, cwd: CWD_B, launchCommand: 'codex --full-auto' },
+    s2: { foregroundAppId: 'codex', foregroundStartedAt: clock.at - 60_000, agentStartedAt: clock.at - 60_000, ptyPid: 21, cwd: CWD_B, launchCommand: 'codex --full-auto' },
     s3: { foregroundAppId: null, ptyPid: 22, cwd: CWD_C, runningCommand: 'npm run dev' },
     s4: { foregroundAppId: null, ptyPid: 23, cwd: CWD_B },
   };
@@ -203,6 +203,8 @@ test('FR-AITUI-016 AC-4: an id not found now comes from a manual save made after
     await service.initialize();
     await service.saveAll([{ tabId: 't2', mode: 'agent', agent: 'codex', launcher: 'codex', args: ['--full-auto'], sessionId: CODEX_ID }]);
     f.clock.at += 60_000;
+    // Review round 8: the user keeps typing to that agent; its activity time passes the save, its start does not.
+    f.runtime.s2.foregroundStartedAt = f.clock.at - 1000;
     await service.autoSave();
     const reviewer = entryOf(readAuto(f), 't2');
     assert.equal(reviewer?.mode, 'agent');
@@ -218,7 +220,7 @@ test('FR-AITUI-016 AC-4: a manual save older than the running agent is not inher
     await service.saveAll([{ tabId: 't2', mode: 'agent', agent: 'codex', launcher: 'codex', sessionId: CODEX_ID }]);
     // The agent in the tab was started after that save: the saved id belongs to an earlier run.
     f.clock.at += 60_000;
-    f.runtime.s2.foregroundStartedAt = f.clock.at - 1000;
+    f.runtime.s2.agentStartedAt = f.clock.at - 1000;
     await service.autoSave();
     assert.equal(entryOf(readAuto(f), 't2')?.mode, 'shell');
   });
@@ -323,7 +325,7 @@ test('FR-AITUI-016 AC-4: a resume confirmed in a tab is saved over a guess while
       await first.saveAll([{ tabId: 't1', mode: 'agent', agent: 'claude', launcher: 'claude', sessionId: CLAUDE_OTHER }]);
       const restarted = f.make();
       await restarted.initialize();
-      f.runtime.s1.foregroundStartedAt = Date.now() - 1_000;
+      f.runtime.s1.agentStartedAt = Date.now() - 1_000;
       await restarted.autoRestore();
       await sleep(40);
       assert.equal(restarted.getStatus().report.find((item) => item.tabId === 't1')?.result, 'confirmed');
@@ -331,7 +333,9 @@ test('FR-AITUI-016 AC-4: a resume confirmed in a tab is saved over a guess while
       rmSync(path.join(f.dir, 'claude', 'sessions', '40.json'));
       f.alive.clear();
       // An agent that exited and started anew there is not the one the resume was confirmed with.
-      if (restartedLater) f.runtime.s1.foregroundStartedAt = Date.now() + 60_000;
+      if (restartedLater) f.runtime.s1.agentStartedAt = Date.now() + 60_000;
+      // Review round 8: a prompt typed into the same agent moves only its activity time.
+      else f.runtime.s1.foregroundStartedAt = Date.now() + 60_000;
       f.clock.at += 300_000;
       await restarted.autoSave();
       const t1 = entryOf(readAuto(f), 't1');
