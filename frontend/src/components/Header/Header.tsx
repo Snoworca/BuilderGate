@@ -55,6 +55,12 @@ interface HeaderProps {
    */
   sessionSaveState?: SaveButtonState;
   onSessionSave?: () => void;
+  /**
+   * Opens the session save window on its restore tab. Drawn whenever there is a status to show,
+   * even when the save button is disabled for want of an AI session -- right after a reboot.
+   * @req FR-AITUI-018
+   */
+  onSessionRestore?: () => void;
 }
 
 function truncateText(value: string, maxLen: number): string {
@@ -83,6 +89,7 @@ export function Header({
   onOpenFileExplorer,
   sessionSaveState,
   onSessionSave,
+  onSessionRestore,
 }: HeaderProps) {
   const [toolsMenuPosition, setToolsMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [editorTrayPosition, setEditorTrayPosition] = useState<{ x: number; y: number } | null>(null);
@@ -142,7 +149,7 @@ export function Header({
         </div>
       )}
 
-      {(onOpenSettings || onLogout || onSessionSave || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenAgentCommandManager || onOpenMcpControlManager) && (
+      {(onOpenSettings || onLogout || onSessionSave || onSessionRestore || onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenAgentCommandManager || onOpenMcpControlManager) && (
         // Every button here is a design-system icon button (FR-UIDS-001):
         // `icon-button-md` gives the face, and `header-action-button` stays
         // because selectors outside this file find the header's buttons by it.
@@ -204,6 +211,16 @@ export function Header({
             // Between the view toggle and the tools: it acts on every AI tab,
             // not on the tab in front (FR-AITUI-009 AC-1).
             <SessionSaveButton state={sessionSaveState} onClick={onSessionSave} />
+          )}
+          {sessionSaveState && onSessionRestore && (
+            // FR-AITUI-018 AC-8: its own button, not a tab behind the save button.
+            <IconButton
+              icon="resume"
+              label={t('sessionSave.restoreButton.label')}
+              iconSize={18}
+              className="icon-button-md header-action-button header-session-restore-button"
+              onClick={onSessionRestore}
+            />
           )}
           {(onOpenCommandPresetManager || onOpenTerminalShortcutManager || onOpenAgentCommandManager || onOpenMcpControlManager) && !isMobile && (
             <IconButton

@@ -633,6 +633,7 @@
   "sessionSave.button.savedLabel": "Saved · {time}",
   "sessionSave.button.savedTitle": "Sessions saved. Click to save the current state again.",
   "sessionSave.button.title": "Save sessions · Prepare to restart",
+  "sessionSave.restoreButton.label": "Restore sessions",
   "sessionSave.list.selected": "{picked} / {total} selected",
   "sessionSave.save.error": "Could not save: {error}",
   "sessionSave.save.saving": "Saving…",

@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-07T17:30:12.439Z",
+  "generatedAt": "2026-10-12T01:20:58.043Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "56828a67e6ecf63066f4fbbf7d7ec19c0473beba08b96611fb9b5a27b56478d2",
+    "value": "769d83d18144023c180ee25075ce771beb80e1f14b84be4cdfec6cf9f7f1681d",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -20,9 +20,9 @@
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "830d7449d68c4e00d95fae49601b6af41969c26154b4d8999eb7ef4ee8bd09de",
-        "size": 98598,
-        "mtimeMs": 1791394211765.596
+        "sha256": "43a6285cb0ad07f9685f9924725ac0e143fe3dc39e8877b98d1da6c3ec951bdf",
+        "size": 101234,
+        "mtimeMs": 1791768057871.443
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
