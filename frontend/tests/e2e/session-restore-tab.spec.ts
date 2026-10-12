@@ -128,6 +128,22 @@ test.describe('세션 복구 탭', () => {
     }
   });
 
+  // FR-AITUI-018 AC-8. Reported 2026-10-12: after a reboot no agent runs, the save button is
+  // disabled, and the restore tab behind it could not be reached at all.
+  test('헤더의 세션 복구 버튼은 늘 켜져 있고 세션 저장 창을 복구 탭으로 연다', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop project only');
+    await login(page);
+    const restoreButton = page.getByRole('button', { name: '세션 복구', exact: true });
+    await expect(restoreButton).toBeVisible();
+    await expect(restoreButton).toBeEnabled();
+    await restoreButton.click();
+    const dialog = page.locator('.window-dialog').filter({ has: page.locator('.session-save-dialog') });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('tab', { name: '복구' })).toHaveAttribute('aria-selected', 'true');
+    await expect(dialog.getByText('직접 저장', { exact: true })).toBeVisible();
+    await page.screenshot({ path: '../.playwright-mcp/session-restore-header-button.png' });
+  });
+
   test('설정의 세션 자동 저장은 기본으로 켜져 있고 5분 미만 간격을 저장 전에 막는다', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop project only');
     await login(page);

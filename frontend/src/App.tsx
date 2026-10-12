@@ -171,7 +171,7 @@ function AppContent() {
   const [showMcpControlDialog, setShowMcpControlDialog] = useState(false);
   // FR-AITUI-009 / FR-AITUI-015: the session save button, the restore report and their dialogs.
   const sessionSnapshot = useSessionSnapshot(true);
-  const [sessionDialog, setSessionDialog] = useState<'save' | 'report' | null>(null);
+  const [sessionDialog, setSessionDialog] = useState<'save' | 'restore' | 'report' | null>(null);
   const [dismissedReportId, setDismissedReportId] = useState<string | null>(null);
   const wm = useWorkspaceManager();
   const sessionSaveState = useMemo(
@@ -827,6 +827,7 @@ function AppContent() {
         onOpenFileExplorer={activeTab ? () => openTabFileExplorer(activeTab.id) : undefined}
         sessionSaveState={sessionSnapshot.status ? sessionSaveState : undefined}
         onSessionSave={handleSessionSaveClick}
+        onSessionRestore={() => setSessionDialog('restore')}
       />
       {showRestoreBanner && (
         <RestoreReportBanner
@@ -1108,8 +1109,11 @@ function AppContent() {
         />
       )}
 
-      {sessionDialog === 'save' && (
+      {(sessionDialog === 'save' || sessionDialog === 'restore') && (
         <SessionSaveDialog
+          // A fresh window per entry point: the tab it opens on is read once.
+          key={sessionDialog}
+          initialTab={sessionDialog}
           loadPreview={sessionSnapshot.preview}
           onClose={() => setSessionDialog(null)}
           onSave={sessionSnapshot.saveAll}
