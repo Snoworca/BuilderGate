@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-13T21:59:43.606Z",
+  "generatedAt": "2026-10-13T22:35:40.209Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "974ed09101e0d825515a991a0e4fc16cf670c5fd682a611ebc01d424384e07ee",
+    "value": "01f155b00cb89834b639012fe36232f833c4143e6af64597424199ed1224d613",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "fae82b57d502c7bebeb2dd9230e2970567ece30a0883566756a039748bba9839",
-        "size": 12735,
-        "mtimeMs": 1791768224558.4712
+        "sha256": "db9c585946923f539a7d569824988050dbaf4d0b0eded340a228b82033604863",
+        "size": 12891,
+        "mtimeMs": 1791930118647.2068
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "23702f02f7c8cf98fb09dc16dbdaa8c7db82cf211f5eaa433b3821b0225c5556",
-        "size": 1470605,
-        "mtimeMs": 1791928776804.4756
+        "sha256": "7bc54b190b172d14c56bc3e367f0ae9b5479cac5e329ba9c34f60a002a4999b3",
+        "size": 1476981,
+        "mtimeMs": 1791930924843.074
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -56,9 +56,9 @@
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "5d56ec9152b83ec6fc41210003a7c57d4905c7fa6813b2ccb17e54aeb3cb7965",
-        "size": 32375,
-        "mtimeMs": 1790641530080.6577
+        "sha256": "18c34f43976b6bc694df8aec35f579dc2553f2b4121dd2175f5f8898c12ea43d",
+        "size": 34741,
+        "mtimeMs": 1791930932194.184
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
@@ -78,12 +78,12 @@
     "functional": {
       "ARCH": 7,
       "AITUI": 19,
-      "BGSTAB": 32,
+      "BGSTAB": 33,
       "MCP": 8,
       "MDE": 26,
       "FEX": 19,
       "FOP": 5,
-      "UIDS": 8
+      "UIDS": 9
     },
     "constraint": {
       "ARCH": 1,
@@ -119,7 +119,7 @@
       "BGSTAB": 6
     },
     "operational": {
-      "BGSTAB": 20
+      "BGSTAB": 21
     },
     "interface": {
       "BGSTAB": 2,

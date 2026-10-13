@@ -51,6 +51,7 @@
     "tests/unit/workspaceCapacityApi.test.ts",
     "tests/unit/workspaceCapacityHook.test.ts",
     "tests/unit/workspaceCapacityUi.test.ts",
+    "tests/unit/workspaceTabActivity.test.ts",
     "tests/unit/sessionCloseClassification.test.ts",
     "tests/unit/workspaceLeakGuard.test.ts",
     "tests/unit/workspaceOwnershipRegistry.test.ts",

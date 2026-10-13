@@ -87,3 +87,35 @@ test('FR-BGSTAB-032 AC-4: the Start Menu shortcut starts BuilderGate with --open
   const wxs = renderWixSource({ version: '0.10.4', stageDir: 'C:\\stage', arch: 'x64' });
   assert.match(wxs, /<Shortcut Id="StartShortcut" [^>]*Arguments="--open"/);
 });
+
+// OPS-BGSTAB-021. The graceful stop above runs only on an upgrade and ignores its result, and an
+// instance the MSI did not install (portable, source checkout) was never stopped. The installer
+// now also runs msi-stop-port-owner.ps1 on every install and upgrade, before InstallValidate.
+function decodedStopScript(wxs, propertyId) {
+  const property = new RegExp(`<SetProperty Id="${propertyId}" [^>]*Value="([^"]*)"`).exec(wxs);
+  assert.ok(property, `${propertyId} must carry the stop command`);
+  const encoded = /-EncodedCommand ([A-Za-z0-9+/=]+)/.exec(property[1]);
+  assert.ok(encoded, 'the command must carry the script as -EncodedCommand');
+  return { command: property[1], script: Buffer.from(encoded[1], 'base64').toString('utf16le') };
+}
+
+for (const [arch, binary, entry, propertyId, system] of [
+  ['x64', 'Wix4UtilCA_X64', 'WixQuietExec64', 'WixQuietExec64CmdLine', 'System64Folder'],
+  ['arm64', 'Wix4UtilCA_A64', 'WixQuietExec64', 'WixQuietExec64CmdLine', 'System64Folder'],
+  ['x86', 'Wix4UtilCA_X86', 'WixQuietExec', 'WixQuietExecCmdLine', 'SystemFolder'],
+]) {
+  test(`OPS-BGSTAB-021 AC-2 AC-5: ${arch} stops a BuilderGate on 2002/2001 before InstallValidate and fails if it cannot`, () => {
+    const wxs = renderWixSource({ version: '0.10.13', stageDir: 'C:\\stage', arch });
+    const { command, script } = decodedStopScript(wxs, propertyId);
+
+    assert.match(command, new RegExp(`^&quot;\\[${system}\\]WindowsPowerShell\\\\v1\\.0\\\\powershell\\.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand `));
+    const source = fs.readFileSync(path.join(__dirname, 'msi-stop-port-owner.ps1'), 'utf8');
+    assert.ok(script.includes(source.trim()), 'the encoded command must run the reviewed script unchanged');
+    assert.match(script, /-Ports 2002,2001 -TimeoutSeconds 20\s*$/);
+
+    assert.match(wxs, new RegExp(`<CustomAction Id="StopPortOwner" BinaryRef="${binary}" DllEntry="${entry}" Execute="immediate" Return="check" />`));
+    assert.match(wxs, /<Custom Action="StopPortOwner" After="StopRunningDaemon" Condition="NOT REMOVE=&quot;ALL&quot;" \/>/);
+    assert.match(wxs, new RegExp(`<SetProperty Id="${propertyId}" [^>]*Before="StopPortOwner" Sequence="execute"`));
+    assert.match(wxs, /<Custom Action="StopRunningDaemon" Before="InstallValidate"/);
+  });
+}

@@ -1,4 +1,5 @@
 const { rotateLogIfOversized } = require('./daemon/log');
+const alreadyRunning = require('./daemon/already-running');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -639,11 +640,50 @@ async function main() {
 
   const { cliPort, resetPassword, bootstrapAllowedIps } = parsedArgs;
 
+  // FR-BGSTAB-033: a second start says it in one line and does nothing else. --reset-password
+  // needs a new daemon and keeps its own refusal in startDaemon.
+  const checksAlreadyRunning = parsedArgs.mode === 'daemon' && !resetPassword;
+  const reportRunning = (runningPort) => {
+    alreadyRunning.reportAlreadyRunning(runningPort, {
+      open: firstRunSupport.shouldOpenBrowser({
+        isPackaged: Boolean(process.pkg),
+        mode: parsedArgs.mode,
+        firstRun: false,
+        open: parsedArgs.open,
+      }),
+    }, {
+      log: (line) => console.log(line),
+      hasDefaultBrowser: () => firstRunSupport.hasDefaultBrowser(),
+      openBrowser: (url) => firstRunSupport.openBrowser(url),
+    });
+    process.exitCode = 0;
+  };
+  if (checksAlreadyRunning) {
+    const own = await alreadyRunning.detectRunningOwnDaemon(RUNTIME_PATHS, {
+      inspectExistingDaemon: (paths) => daemonLauncher.inspectExistingDaemon(paths),
+    });
+    if (own.running) {
+      reportRunning(own.port);
+      return;
+    }
+  }
+
   ensureDependenciesAndBuild();
   // FR-BGSTAB-032: decided before preflight, which can itself write a fatal daemon state.
   const firstRun = firstRunSupport.isFirstRun(RUNTIME_PATHS);
   const preflight = await runStrictConfigPreflight({ mode: parsedArgs.mode });
   const resolvedPort = resolvePort(cliPort, preflight.config.server.port);
+  if (checksAlreadyRunning) {
+    // FR-BGSTAB-033 AC-2: a BuilderGate from another data root on the same port. Checked before
+    // chooseStartPort, which on a first run would otherwise move to the next free port.
+    const onPort = await alreadyRunning.detectRunningBuilderGateOnPort(resolvedPort.port, {
+      isPortFree: (candidate) => firstRunSupport.isPortFree(candidate),
+    });
+    if (onPort.running) {
+      reportRunning(onPort.port);
+      return;
+    }
+  }
   const { port, source } = parsedArgs.mode === 'daemon'
     ? await firstRunSupport.chooseStartPort({ ...resolvedPort, firstRun, configPath: RUNTIME_CONFIG_PATH })
     : resolvedPort;

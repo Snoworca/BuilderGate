@@ -60,11 +60,41 @@ function xmlAttr(value) {
   return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
+// OPS-BGSTAB-021: run before InstallValidate on every install and upgrade.
+const STOP_PORT_OWNER_SCRIPT = path.join(__dirname, 'daemon', 'msi-stop-port-owner.ps1');
+const STOP_PORT_OWNER_ARGS = '-Ports 2002,2001 -TimeoutSeconds 20';
+const UTIL_EXTENSION = 'WixToolset.Util.wixext';
+const UTIL_EXTENSION_VERSION = '5.0.2';
+
+// WixQuietExec reads its command line from a property, which has no length limit and runs
+// without a console window; a CustomAction's own ExeCommand is capped at 255 characters.
+function quietExecForArch(arch) {
+  if (arch === 'x86') {
+    return { binary: 'Wix4UtilCA_X86', entry: 'WixQuietExec', property: 'WixQuietExecCmdLine', system: 'SystemFolder' };
+  }
+  return {
+    binary: arch === 'arm64' ? 'Wix4UtilCA_A64' : 'Wix4UtilCA_X64',
+    entry: 'WixQuietExec64',
+    property: 'WixQuietExec64CmdLine',
+    system: 'System64Folder',
+  };
+}
+
+function renderStopPortOwnerCommand(system) {
+  const script = fs.readFileSync(STOP_PORT_OWNER_SCRIPT, 'utf8').trim();
+  const invocation = `& {${'\n'}${script}${'\n'}} ${STOP_PORT_OWNER_ARGS}`;
+  const encoded = Buffer.from(invocation, 'utf16le').toString('base64');
+  return `"[${system}]WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${encoded}`;
+}
+
 function renderWixSource({ version, stageDir, arch }) {
   const stage = stageDir.replace(/[\\/]+$/, '');
   const programFiles = arch === 'x86' ? 'ProgramFilesFolder' : 'ProgramFiles64Folder';
   const stopCommand = xmlAttr(`"[INSTALLFOLDER]${EXECUTABLE_NAME}" stop`);
   const removeAll = xmlAttr('REMOVE="ALL"');
+  const notRemoveAll = xmlAttr('NOT REMOVE="ALL"');
+  const quietExec = quietExecForArch(arch);
+  const stopPortOwnerCommand = xmlAttr(renderStopPortOwnerCommand(quietExec.system));
   return `<?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="BuilderGate" Manufacturer="Snoworca" Version="${xmlAttr(version)}" UpgradeCode="${MSI_UPGRADE_CODE}" Scope="perMachine" Language="1033" Compressed="yes">
@@ -98,8 +128,12 @@ function renderWixSource({ version, stageDir, arch }) {
 
     <!-- The old exe is still in place before InstallValidate; stop its daemon so the file can be replaced. -->
     <CustomAction Id="StopRunningDaemon" Directory="INSTALLFOLDER" ExeCommand="${stopCommand}" Execute="immediate" Return="ignore" />
+    <!-- OPS-BGSTAB-021: then stop any BuilderGate still on 2002/2001, including one this MSI did not install. -->
+    <SetProperty Id="${quietExec.property}" Value="${stopPortOwnerCommand}" Before="StopPortOwner" Sequence="execute" />
+    <CustomAction Id="StopPortOwner" BinaryRef="${quietExec.binary}" DllEntry="${quietExec.entry}" Execute="immediate" Return="check" />
     <InstallExecuteSequence>
       <Custom Action="StopRunningDaemon" Before="InstallValidate" Condition="WIX_UPGRADE_DETECTED OR ${removeAll}" />
+      <Custom Action="StopPortOwner" After="StopRunningDaemon" Condition="${notRemoveAll}" />
     </InstallExecuteSequence>
   </Package>
 </Wix>
@@ -110,6 +144,15 @@ function resolveWixCommand(env = process.env) {
   if (env.WIX_EXE) return env.WIX_EXE;
   const dotnetTool = path.join(os.homedir(), '.dotnet', 'tools', 'wix.exe');
   return fs.existsSync(dotnetTool) ? dotnetTool : 'wix';
+}
+
+function ensureUtilExtension() {
+  const wix = resolveWixCommand();
+  const listed = spawnSync(wix, ['extension', 'list', '-g'], { encoding: 'utf8' });
+  if (listed.status === 0 && listed.stdout.includes(UTIL_EXTENSION)) return;
+  const added = spawnSync(wix, ['extension', 'add', '-g', `${UTIL_EXTENSION}/${UTIL_EXTENSION_VERSION}`], { stdio: 'inherit' });
+  if (added.error) throw added.error;
+  if (added.status !== 0) throw new Error(`wix extension add ${UTIL_EXTENSION} exited with ${added.status}`);
 }
 
 function parseArgs(argv) {
@@ -148,7 +191,8 @@ function buildMsi(options) {
     fs.writeFileSync(wxsPath, renderWixSource({ version: msiProductVersion(PACKAGE_VERSION), stageDir, arch }), 'utf8');
     fs.mkdirSync(path.dirname(options.output), { recursive: true });
 
-    const result = spawnSync(resolveWixCommand(), ['build', wxsPath, '-arch', arch, '-pdbtype', 'none', '-o', options.output], {
+    ensureUtilExtension();
+    const result = spawnSync(resolveWixCommand(), ['build', wxsPath, '-arch', arch, '-ext', UTIL_EXTENSION, '-pdbtype', 'none', '-o', options.output], {
       stdio: 'inherit',
     });
     if (result.error) throw result.error;

@@ -5,6 +5,7 @@ import { useLongPress } from '../../hooks/useLongPress';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { Icon, IconButton } from '../common';
 import { TAB_COLORS } from '../../types/workspace';
+import { workspaceTabClassName } from './workspaceTabClass';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { getRecoveryIconLabel } from '../../types/recoveryOption';
 import type { ShellInfo } from '../../types';
@@ -107,12 +108,12 @@ export function WorkspaceTabBar({
             onDoubleClick={() => { setEditName(tab.name); setEditingTabId(tab.id); }}
             onContextMenu={(e) => { e.preventDefault(); ctx.open(e.clientX, e.clientY, tab.id); }}
             {...drag.getTabHandlers(index)}
-            className={[
-              'workspace-tab',
-              isActive ? 'is-active' : '',
-              drag.dragIndex === index ? 'is-dragging' : '',
-              drag.dropTargetIndex === index ? 'is-drop-target' : '',
-            ].filter(Boolean).join(' ')}
+            className={workspaceTabClassName({
+              isActive,
+              isDragging: drag.dragIndex === index,
+              isDropTarget: drag.dropTargetIndex === index,
+              status: tab.status,
+            })}
             // The tab's colour is the tab's own data; the stylesheet decides
             // where it shows (the top rule, the drop outline, the rename edge).
             style={{

@@ -41,6 +41,7 @@
 /* One tab. The top rule carries the tab's colour at full strength when the tab
  * is the one on screen and dimmed otherwise. */
 .workspace-tab {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-1);
@@ -66,6 +67,43 @@
   border-bottom-color: var(--bg-sunken);
   background-color: var(--bg-sunken);
   color: var(--fg-strong);
+}
+
+/* FR-UIDS-009: a tab whose session is working. A brighter band, a tenth of the tab wide, runs
+ * left and right along the colour bar. It moves with transform only, so the tab text is not laid
+ * out or painted again. It travels from 0% to 90% of the tab, so it never leaves the tab. */
+.workspace-tab.is-running::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  width: 10%;
+  height: 2px;
+  background: color-mix(in srgb, var(--tab-color, var(--accent)) 45%, white);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--tab-color, var(--accent)) 60%, white);
+  pointer-events: none;
+  will-change: transform;
+  animation: workspace-tab-activity 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes workspace-tab-activity {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(900%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-tab.is-running::after {
+    animation: none;
+    display: none;
+  }
+
+  .workspace-tab.is-running {
+    border-top-color: var(--tab-color, var(--accent));
+  }
 }
 
 .workspace-tab.is-dragging {

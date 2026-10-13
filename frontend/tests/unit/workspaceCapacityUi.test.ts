@@ -8,6 +8,7 @@ import { buildWorkspaceMoveTargets } from '../../src/components/Workspace/worksp
 import { TAB_COLORS } from '../../src/types/workspace.ts';
 import { getRecoveryIconLabel } from '../../src/types/recoveryOption.ts';
 import { workspaceActivity } from '../../src/components/Workspace/workspaceActivity.ts';
+import { workspaceTabClassName } from '../../src/components/Workspace/workspaceTabClass.ts';
 import { t, tn } from '../../src/i18n/i18n.ts';
 
 // Execute existing component render logic with real React elements and inert
@@ -117,6 +118,7 @@ const tabBar = component('../../src/components/Workspace/WorkspaceTabBar.tsx', '
   useLongPress: () => ({ wasLongPress: () => false, onPointerDown: noop, onPointerUp: noop, onPointerMove: noop }),
   useDragReorder: () => ({ getTabHandlers: () => ({}), dropTargetIndex: null, dragIndex: null, ghostStyle: null, tabRefs: { current: [] } }),
   TAB_COLORS, getRecoveryIconLabel, ContextMenu: 'context-menu', Icon: 'icon', IconButton: 'icon-button',
+  workspaceTabClassName,
 }, 'getSafeRecoveryIconLabel');
 const workspaceItem = component('../../src/components/Workspace/WorkspaceItem.tsx', 'WorkspaceItem', {
   useState: (initial: unknown) => [initial, noop], useRef: (initial: unknown) => ({ current: initial }), useEffect: noop,
