@@ -137,6 +137,13 @@ import {
   submitMcpMessageInput,
 } from './services/SessionInputGateway.js';
 import {
+  DEFAULT_SUBMIT_ENTER_DELAY,
+  isValidSubmitEnterBaseMs,
+  isValidSubmitEnterPerKbMs,
+  submitWithSeparateEnter,
+  type SubmitEnterDelay,
+} from './services/submitDelivery.js';
+import {
   createMcpFixedAccessKey,
   getFixedMcpAccessKeyScopes,
   mintMcpCapabilityToken,
@@ -413,6 +420,16 @@ function parseBooleanQuery(value: unknown, defaultValue: boolean): boolean {
   return defaultValue;
 }
 
+// FR-MCP-002 AC-8: read on every delivery, so a saved MCP setting applies to the next one.
+function currentSubmitEnterDelay(): SubmitEnterDelay {
+  const getConfig = mcpControlService?.getConfig as ((request: unknown) => unknown) | undefined;
+  const config = asRecord(getConfig?.({ auth: { type: 'browser-jwt' } }));
+  return {
+    baseMs: isValidSubmitEnterBaseMs(config.submitEnterDelayMs) ? config.submitEnterDelayMs : DEFAULT_SUBMIT_ENTER_DELAY.baseMs,
+    perKbMs: isValidSubmitEnterPerKbMs(config.submitEnterDelayPerKbMs) ? config.submitEnterDelayPerKbMs : DEFAULT_SUBMIT_ENTER_DELAY.perKbMs,
+  };
+}
+
 function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringRecord> {
   return async (delivery: StringRecord) => {
     const sessionKey = typeof delivery.sessionKey === 'string' ? delivery.sessionKey : '';
@@ -448,9 +465,14 @@ function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringR
         promptPreviewMaxChars: 24,
       },
     };
-    const result = asRecord(await (delivery.source === 'mcp-reply-to-leader'
-      ? gateway.submitInput({ ...gatewayRequest, source: 'mcp-reply-to-leader' })
-      : submitMcpMessageInput(gateway, gatewayRequest)));
+    // FR-MCP-002 AC-7: a submit writes the prompt, then Enter on its own.
+    const result = await submitWithSeparateEnter(
+      (request) => (delivery.source === 'mcp-reply-to-leader'
+        ? gateway.submitInput({ ...request, source: 'mcp-reply-to-leader' })
+        : submitMcpMessageInput(gateway, request)),
+      gatewayRequest,
+      { delay: currentSubmitEnterDelay() },
+    );
     return buildMcpGatewayDeliveryResponse(result);
   };
 }
@@ -478,7 +500,8 @@ function createMcpAgentInputGateway(): { submitInput: (request: unknown) => Prom
         readReplayState: () => readMcpReplayState(targetBinding),
         evaluateInputPolicy: () => ({ ok: true }),
       });
-      return asRecord(await gateway.submitInput(input));
+      // FR-MCP-002 AC-7: open_agent command and kickoff are submits; Enter goes on its own.
+      return submitWithSeparateEnter((request) => gateway.submitInput(request), input, { delay: currentSubmitEnterDelay() });
     },
   };
 }
@@ -1537,6 +1560,7 @@ async function startServer(): Promise<void> {
         sessionManager,
         broadcast: (event, data) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll(event, data),
         deliver: createMcpGatewayDelivery(),
+        submitEnterDelay: currentSubmitEnterDelay,
       }),
       listener: () => {
         const getStatus = mcpListenerController.getStatus;
@@ -1621,6 +1645,8 @@ async function startServer(): Promise<void> {
         status: initialMcpControlConfig.enabled === false ? 'stopped' : 'listening',
         lastError: null,
         lastRebindResult: null,
+        submitEnterDelayMs: initialMcpControlConfig.submitEnterDelayMs,
+        submitEnterDelayPerKbMs: initialMcpControlConfig.submitEnterDelayPerKbMs,
       },
       mutateConfig: async (request) => {
         const input = asRecord(request);

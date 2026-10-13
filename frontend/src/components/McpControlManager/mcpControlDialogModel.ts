@@ -21,6 +21,8 @@ export interface McpSecurityDraft {
   webhookKeyHeaderName: string;
   webhookRateLimitWindowSecondsText: string;
   webhookRateLimitBurstLimitText: string;
+  submitEnterDelayMsText: string;
+  submitEnterDelayPerKbMsText: string;
 }
 
 export interface McpWebhookDraftValidationInput {
@@ -184,6 +186,8 @@ export function createMcpSecurityDraft(config: McpControlConfig): McpSecurityDra
     webhookKeyHeaderName: config.webhookKeyHeaderName || 'X-BuilderGate-Webhook-Key',
     webhookRateLimitWindowSecondsText: String(config.webhookRateLimit?.windowSeconds ?? 60),
     webhookRateLimitBurstLimitText: String(config.webhookRateLimit?.burstLimit ?? 10),
+    submitEnterDelayMsText: String(config.submitEnterDelayMs ?? DEFAULT_SUBMIT_ENTER_DELAY_MS),
+    submitEnterDelayPerKbMsText: String(config.submitEnterDelayPerKbMs ?? DEFAULT_SUBMIT_ENTER_DELAY_PER_KB_MS),
   };
 }
 
@@ -247,7 +251,29 @@ export function validateMcpSecurityDraft(draft: McpSecurityDraft): string | null
     return t('mcp.validation.rateLimit');
   }
 
+  if (
+    !isIntegerTextInRange(draft.submitEnterDelayMsText, SUBMIT_ENTER_DELAY_MS_MAX)
+    || !isIntegerTextInRange(draft.submitEnterDelayPerKbMsText, SUBMIT_ENTER_DELAY_PER_KB_MS_MAX)
+  ) {
+    return t('mcp.validation.submitEnterDelay');
+  }
+
   return null;
+}
+
+// FR-MCP-002 AC-8: the same ranges the server enforces (server/src/services/submitDelivery.ts).
+const DEFAULT_SUBMIT_ENTER_DELAY_MS = 150;
+const DEFAULT_SUBMIT_ENTER_DELAY_PER_KB_MS = 50;
+const SUBMIT_ENTER_DELAY_MS_MAX = 5000;
+const SUBMIT_ENTER_DELAY_PER_KB_MS_MAX = 1000;
+
+function isIntegerTextInRange(text: string, max: number): boolean {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return false;
+  }
+  const value = Number(trimmed);
+  return value >= 0 && value <= max;
 }
 
 export function buildMcpControlConfigPatch(draft: McpSecurityDraft): McpControlConfigPatch {
@@ -265,6 +291,8 @@ export function buildMcpControlConfigPatch(draft: McpSecurityDraft): McpControlC
       windowSeconds: Number(draft.webhookRateLimitWindowSecondsText),
       burstLimit: Number(draft.webhookRateLimitBurstLimitText),
     },
+    submitEnterDelayMs: Number(draft.submitEnterDelayMsText.trim()),
+    submitEnterDelayPerKbMs: Number(draft.submitEnterDelayPerKbMsText.trim()),
   };
 }
 

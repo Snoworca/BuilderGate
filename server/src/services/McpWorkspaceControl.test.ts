@@ -10,6 +10,7 @@ function setup() {
   const events: Array<[string, object]> = [];
   const deliveries: Rec[] = [];
   const writes: Array<[string, string]> = [];
+  let writeOk = true;
   const workspace = { id: 'ws-1', name: 'Main', sortOrder: 0, activeTabId: null, viewMode: 'tab', colorCounter: 0, createdAt: '', updatedAt: '' };
   const tab = { id: 'tab-1', workspaceId: 'ws-1', sessionId: 's-1', sessionKey: 'k-1', name: 'build', sortOrder: 0, shellType: 'bash', lifecycleState: 'active' };
   const deps = {
@@ -23,35 +24,45 @@ function setup() {
     },
     sessionManager: {
       getLastCwd: () => '/work',
-      writeInput: (sessionId: string, data: string) => { writes.push([sessionId, data]); return true; },
+      writeInput: (sessionId: string, data: string) => { writes.push([sessionId, data]); return writeOk; },
       readTerminalText: () => 'text',
     },
     broadcast: (event: string, data: object) => { events.push([event, data]); },
     deliver: async (delivery: Rec) => { deliveries.push(delivery); return { ok: true, status: 'delivered' }; },
+    sleep: async () => undefined,
   } as unknown as WorkspaceServiceMcpControlDeps;
-  return { control: createWorkspaceServiceMcpControl(deps), events, deliveries, writes };
+  return { control: createWorkspaceServiceMcpControl(deps), events, deliveries, writes, failWrites: () => { writeOk = false; } };
 }
 
 const terminal = (sessionKey: string | null): McpTerminalView => ({
   id: 'tab-1', workspaceId: 'ws-1', sessionId: 's-1', sessionKey, name: 'build', shellType: 'bash', lifecycleState: 'active', cwd: null,
 });
 
-test('FR-MCP-008 AC-4: exec submits the command with Enter through the gateway', async () => {
+test('FR-MCP-008 AC-4: exec submits the command through the gateway in submit mode', async () => {
   const { control, deliveries } = setup();
   const actor = { type: 'mcp-fixed-access-key', scopes: ['mcp:message.submit'] };
   await control.execTerminal(terminal('k-1'), 'echo hi', actor);
   assert.equal(deliveries.length, 1);
-  assert.equal(deliveries[0].prompt, 'echo hi\r', 'the gateway does not add the Enter itself');
+  // FR-MCP-002 AC-7: the gateway delivery writes the Enter separately, so it is not sent with the text.
+  assert.equal(deliveries[0].prompt, 'echo hi');
   assert.equal(deliveries[0].deliveryMode, 'submit');
   assert.equal(deliveries[0].sessionKey, 'k-1');
   assert.deepEqual(deliveries[0].actor, actor);
 });
 
-test('FR-MCP-008 AC-4: a terminal without a session key is written directly, with Enter', async () => {
+test('FR-MCP-008 AC-4 / FR-MCP-002 AC-7: a terminal without a session key gets the command, then Enter as its own write', async () => {
   const { control, deliveries, writes } = setup();
   await control.execTerminal(terminal(null), 'ls', {});
-  assert.deepEqual(writes, [['s-1', 'ls\r']]);
+  assert.deepEqual(writes, [['s-1', 'ls'], ['s-1', '\r']]);
   assert.equal(deliveries.length, 0);
+});
+
+test('FR-MCP-002 AC-7: a failed direct command write reports TARGET_NOT_LIVE and writes no Enter', async () => {
+  const { control, writes, failWrites } = setup();
+  failWrites();
+  const result = await control.execTerminal(terminal(null), 'ls', {});
+  assert.deepEqual(result, { ok: false, code: 'TARGET_NOT_LIVE' });
+  assert.deepEqual(writes, [['s-1', 'ls']]);
 });
 
 test('FR-MCP-007 AC-2 / FR-MCP-008 AC-2,AC-3: changes broadcast the REST route events', async () => {
@@ -73,4 +84,20 @@ test('FR-MCP-008 AC-1: terminals carry the live cwd', () => {
   assert.deepEqual(control.listTerminals()[0], {
     id: 'tab-1', workspaceId: 'ws-1', sessionId: 's-1', sessionKey: 'k-1', name: 'build', shellType: 'bash', lifecycleState: 'active', cwd: '/work',
   });
+});
+
+test('FR-MCP-002 AC-8: a terminal without a session key waits the configured Enter delay', async () => {
+  const sleeps: number[] = [];
+  const writes: string[] = [];
+  const control = createWorkspaceServiceMcpControl({
+    workspaceService: {} as never,
+    sessionManager: { getLastCwd: () => null, writeInput: (_id: string, data: string) => { writes.push(data); return true; }, readTerminalText: () => '' } as never,
+    broadcast: () => undefined,
+    deliver: async () => ({ ok: true }),
+    sleep: async (ms) => { sleeps.push(ms); },
+    submitEnterDelay: () => ({ baseMs: 700, perKbMs: 0 }),
+  });
+  await control.execTerminal(terminal(null), 'ls', {});
+  assert.deepEqual(writes, ['ls', '\r']);
+  assert.deepEqual(sleeps, [700]);
 });

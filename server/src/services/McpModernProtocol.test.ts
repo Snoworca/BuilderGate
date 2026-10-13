@@ -78,6 +78,9 @@ test('IR-MCP-006 AC-3: server/discover advertises versions, capabilities and ide
   assert.ok((result.capabilities as Rec).tools);
   assert.equal(((result._meta as Rec)['io.modelcontextprotocol/serverInfo'] as Rec).name, 'BuilderGate MCP Server');
   assert.equal(typeof result.instructions, 'string');
+  // FR-MCP-002 AC-9: the instructions name the orchestrator use and that a submit already presses Enter.
+  assert.match(String(result.instructions), /orchestrate other sessions/);
+  assert.match(String(result.instructions), /already presses Enter, so do not send a separate message just to submit/);
   assert.equal(typeof result.ttlMs, 'number');
   assert.ok(['public', 'private'].includes(String(result.cacheScope)));
   assert.equal(response.headers['mcp-session-id'], undefined, 'no session is minted');

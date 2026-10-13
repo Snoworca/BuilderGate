@@ -36,11 +36,16 @@ export interface McpControlConfig {
   };
   fixedAccessKeyConfigured?: boolean;
   recentAuditEvents?: McpRecentAuditEvent[];
+  /** FR-MCP-002 AC-8: wait before the separate Enter of an MCP submit, in ms. */
+  submitEnterDelayMs?: number;
+  /** FR-MCP-002 AC-8: extra wait per started 1024 characters, in ms. */
+  submitEnterDelayPerKbMs?: number;
 }
 
 export type McpControlConfigPatch = Partial<Pick<
   McpControlConfig,
   'enabled' | 'bindMode' | 'host' | 'port' | 'transportSecurity' | 'trustedProxies' | 'externalWhitelist' | 'allowedOrigins' | 'webhookKeyHeaderName' | 'webhookRateLimit'
+  | 'submitEnterDelayMs' | 'submitEnterDelayPerKbMs'
 >>;
 
 export interface McpAgentProfile {

@@ -406,6 +406,8 @@ test('T-PH007-01 FR-MCP-005 security draft builds MCP control config patch with 
     allowedOrigins: ['https://localhost:2222'],
     webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
     webhookRateLimit: { windowSeconds: 60, burstLimit: 10 },
+    submitEnterDelayMs: 150,
+    submitEnterDelayPerKbMs: 50,
   });
 });
 
@@ -480,4 +482,61 @@ test('T-PH007-01 IR-MCP-004 MCP control API flat errors keep message, code, and 
     }),
     'MCP_ORIGIN_DENIED (auditId: audit-nested-1)',
   );
+});
+
+const submitEnterBaseConfig = {
+  enabled: true,
+  bindMode: 'loopback',
+  host: '127.0.0.1',
+  port: 3333,
+  transportSecurity: 'none',
+  trustedProxies: [],
+  externalWhitelist: [],
+  allowedOrigins: [],
+  status: 'ready',
+  lastError: null,
+  lastRebindResult: null,
+};
+
+test('FR-MCP-002 AC-8: the security draft carries the Enter waits, defaulting to 150 ms and 50 ms per KB', () => {
+  const defaults = createMcpSecurityDraft(submitEnterBaseConfig);
+  assert.equal(defaults.submitEnterDelayMsText, '150');
+  assert.equal(defaults.submitEnterDelayPerKbMsText, '50');
+
+  const stored = createMcpSecurityDraft({ ...submitEnterBaseConfig, submitEnterDelayMs: 400, submitEnterDelayPerKbMs: 0 });
+  assert.equal(stored.submitEnterDelayMsText, '400');
+  assert.equal(stored.submitEnterDelayPerKbMsText, '0');
+  const patch = buildMcpControlConfigPatch({ ...stored, submitEnterDelayMsText: ' 300 ', submitEnterDelayPerKbMsText: '80' });
+  assert.equal(patch.submitEnterDelayMs, 300);
+  assert.equal(patch.submitEnterDelayPerKbMs, 80);
+});
+
+test('FR-MCP-002 AC-8: the security draft rejects Enter waits outside 0-5000 ms and 0-1000 ms per KB', () => {
+  const draft = createMcpSecurityDraft(submitEnterBaseConfig);
+  assert.equal(validateMcpSecurityDraft({ ...draft, submitEnterDelayMsText: '0', submitEnterDelayPerKbMsText: '1000' }), null);
+  assert.equal(validateMcpSecurityDraft({ ...draft, submitEnterDelayMsText: '5000' }), null);
+  for (const bad of [
+    { submitEnterDelayMsText: '5001' },
+    { submitEnterDelayMsText: '-1' },
+    { submitEnterDelayMsText: '1.5' },
+    { submitEnterDelayMsText: '' },
+    { submitEnterDelayPerKbMsText: '1001' },
+    { submitEnterDelayPerKbMsText: 'abc' },
+  ]) {
+    const message = validateMcpSecurityDraft({ ...draft, ...bad });
+    assert.ok(message, JSON.stringify(bad));
+    assert.equal(message, koOrEnSubmitEnterMessage(message));
+  }
+});
+
+function koOrEnSubmitEnterMessage(message: string | null): string | null {
+  return message && /Enter/.test(message) ? message : `not the Enter wait message: ${message}`;
+}
+
+test('FR-MCP-002 AC-8: the security tab edits both Enter waits', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+  expectSource(dialogSource, /id="mcp-security-submit-enter-delay"/, 'Security tab must edit the base Enter wait');
+  expectSource(dialogSource, /id="mcp-security-submit-enter-delay-per-kb"/, 'Security tab must edit the per-KB Enter wait');
+  expectSource(dialogSource, /submitEnterDelayMsText/, 'Base Enter wait input must bind the draft');
+  expectSource(dialogSource, /submitEnterDelayPerKbMsText/, 'Per-KB Enter wait input must bind the draft');
 });
