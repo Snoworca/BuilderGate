@@ -86,7 +86,11 @@ const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
 const MCP_SERVER_INFO = { name: 'BuilderGate MCP Server', version: '0.10.11' };
 const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and workspaces. '
   + 'List workspaces and terminals first; address a workspace by workspaceId or workspaceName and a terminal by terminalId or terminalName. '
-  + 'buildergate.terminal.exec types a command with Enter; pass waitMs to read the screen afterwards.';
+  + 'buildergate.terminal.exec types a command with Enter; pass waitMs to read the screen afterwards. '
+  // FR-MCP-002 AC-9
+  + 'Use these tools to orchestrate other sessions: open terminals, start coding agents, send them prompts and read their screens. '
+  + 'A submit (buildergate.terminal.exec, or buildergate.message.send with deliveryMode submit) already presses Enter, '
+  + 'so do not send a separate message just to submit.';
 const MCP_HEADER_MISMATCH = -32020;
 const MCP_UNSUPPORTED_PROTOCOL_VERSION = -32022;
 const MODERN_NAMED_METHODS = new Set(['tools/call', 'resources/read', 'prompts/get']);
