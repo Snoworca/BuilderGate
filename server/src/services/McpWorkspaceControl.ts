@@ -6,6 +6,7 @@ import type { WorkspaceService } from './WorkspaceService.js';
 import type { McpTerminalView, McpWorkspaceControl, McpWorkspaceView } from './McpManagementTools.js';
 import type { ShellType } from '../types/index.js';
 import type { Workspace, WorkspaceTab } from '../types/workspace.types.js';
+import { submitWithSeparateEnter } from './submitDelivery.js';
 
 type Rec = Record<string, unknown>;
 
@@ -15,6 +16,8 @@ export interface WorkspaceServiceMcpControlDeps {
   broadcast: (event: string, data: object) => void;
   /** The MCP gateway delivery (createMcpGatewayDelivery in index.ts). */
   deliver: (delivery: Rec) => Promise<Rec>;
+  /** Test seam for the pause before the separate Enter write. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export function createWorkspaceServiceMcpControl(deps: WorkspaceServiceMcpControlDeps): McpWorkspaceControl {
@@ -65,16 +68,18 @@ export function createWorkspaceServiceMcpControl(deps: WorkspaceServiceMcpContro
       broadcast('tab:removed', { id: terminalId, workspaceId });
     },
     execTerminal: async (terminal, command, actor) => {
-      // The gateway's submit mode only permits an Enter in the data; it does not add one.
-      const line = `${command}\r`;
+      // FR-MCP-002 AC-7: submit mode writes the command, then Enter on its own (submitDelivery.ts).
       if (!terminal.sessionKey) {
-        return sessionManager.writeInput(terminal.sessionId, line)
-          ? { ok: true, status: 'delivered' }
-          : { ok: false, code: 'TARGET_NOT_LIVE' };
+        const result = await submitWithSeparateEnter(
+          request => ({ ok: sessionManager.writeInput(terminal.sessionId, String(request.data)) }),
+          { data: command, delivery: { mode: 'submit', submit: true } },
+          { sleep: deps.sleep },
+        );
+        return result.ok ? { ok: true, status: 'delivered' } : { ok: false, code: 'TARGET_NOT_LIVE' };
       }
       return deps.deliver({
         sessionKey: terminal.sessionKey,
-        prompt: line,
+        prompt: command,
         deliveryMode: 'submit',
         actor,
         source: 'mcp-terminal-exec',

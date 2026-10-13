@@ -136,6 +136,7 @@ import {
   createSessionInputGateway,
   submitMcpMessageInput,
 } from './services/SessionInputGateway.js';
+import { submitWithSeparateEnter } from './services/submitDelivery.js';
 import {
   createMcpFixedAccessKey,
   getFixedMcpAccessKeyScopes,
@@ -448,9 +449,13 @@ function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringR
         promptPreviewMaxChars: 24,
       },
     };
-    const result = asRecord(await (delivery.source === 'mcp-reply-to-leader'
-      ? gateway.submitInput({ ...gatewayRequest, source: 'mcp-reply-to-leader' })
-      : submitMcpMessageInput(gateway, gatewayRequest)));
+    // FR-MCP-002 AC-7: a submit writes the prompt, then Enter on its own.
+    const result = await submitWithSeparateEnter(
+      (request) => (delivery.source === 'mcp-reply-to-leader'
+        ? gateway.submitInput({ ...request, source: 'mcp-reply-to-leader' })
+        : submitMcpMessageInput(gateway, request)),
+      gatewayRequest,
+    );
     return buildMcpGatewayDeliveryResponse(result);
   };
 }
@@ -478,7 +483,8 @@ function createMcpAgentInputGateway(): { submitInput: (request: unknown) => Prom
         readReplayState: () => readMcpReplayState(targetBinding),
         evaluateInputPolicy: () => ({ ok: true }),
       });
-      return asRecord(await gateway.submitInput(input));
+      // FR-MCP-002 AC-7: open_agent command and kickoff are submits; Enter goes on its own.
+      return submitWithSeparateEnter((request) => gateway.submitInput(request), input);
     },
   };
 }
