@@ -2,8 +2,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_SUBMIT_ENTER_DELAY,
   SUBMIT_ENTER_MAX_DELAY_MS,
-  SUBMIT_ENTER_MIN_DELAY_MS,
+  isValidSubmitEnterBaseMs,
+  isValidSubmitEnterPerKbMs,
   submitEnterDelayMs,
   submitWithSeparateEnter,
 } from './submitDelivery.js';
@@ -88,10 +90,39 @@ test('FR-MCP-002 AC-3 boundary: paste delivery is written once, unchanged, with 
   assert.deepEqual(r.log.map(([kind, value]) => (kind === 'write' ? (value as Rec).data : kind)), ['draft']);
 });
 
-test('FR-MCP-002 AC-7: the wait grows with the text length and is bounded', () => {
-  assert.equal(submitEnterDelayMs('hi'), SUBMIT_ENTER_MIN_DELAY_MS + 50);
-  assert.ok(submitEnterDelayMs('x'.repeat(4000)) > submitEnterDelayMs('x'.repeat(100)));
-  assert.equal(submitEnterDelayMs('x'.repeat(1_000_000)), SUBMIT_ENTER_MAX_DELAY_MS);
+test('FR-MCP-002 AC-8: by default the wait is 150 ms plus 50 ms per started KB', () => {
+  assert.deepEqual(DEFAULT_SUBMIT_ENTER_DELAY, { baseMs: 150, perKbMs: 50 });
+  assert.equal(submitEnterDelayMs('hi'), 200);
+  assert.equal(submitEnterDelayMs('x'.repeat(1024)), 200);
+  assert.equal(submitEnterDelayMs('x'.repeat(1025)), 250);
+});
+
+test('FR-MCP-002 AC-8: the configured base and per-KB waits are used', () => {
+  assert.equal(submitEnterDelayMs('x'.repeat(3000), { baseMs: 400, perKbMs: 100 }), 700);
+  assert.equal(submitEnterDelayMs('x'.repeat(3000), { baseMs: 0, perKbMs: 0 }), 0);
+});
+
+test('FR-MCP-002 AC-8: the wait is capped at 10000 ms', () => {
+  assert.equal(SUBMIT_ENTER_MAX_DELAY_MS, 10_000);
+  assert.equal(submitEnterDelayMs('x'.repeat(1_000_000)), 10_000);
+  assert.equal(submitEnterDelayMs('x'.repeat(100_000), { baseMs: 5000, perKbMs: 1000 }), 10_000);
+});
+
+test('FR-MCP-002 AC-8: submitWithSeparateEnter waits the configured delay', async () => {
+  const r = recorder();
+  await submitWithSeparateEnter(r.submit, submitRequest('x'.repeat(2048)), { sleep: r.sleep, delay: { baseMs: 300, perKbMs: 20 } });
+  assert.deepEqual(r.log.filter(([kind]) => kind === 'sleep'), [['sleep', 340]]);
+});
+
+test('FR-MCP-002 AC-8: range checks for the two settings', () => {
+  assert.equal(isValidSubmitEnterBaseMs(0), true);
+  assert.equal(isValidSubmitEnterBaseMs(5000), true);
+  assert.equal(isValidSubmitEnterBaseMs(5001), false);
+  assert.equal(isValidSubmitEnterBaseMs(-1), false);
+  assert.equal(isValidSubmitEnterBaseMs(1.5), false);
+  assert.equal(isValidSubmitEnterBaseMs('150'), false);
+  assert.equal(isValidSubmitEnterPerKbMs(1000), true);
+  assert.equal(isValidSubmitEnterPerKbMs(1001), false);
 });
 
 test('FR-MCP-002 AC-7 with the real gateway: both writes pass its Enter policy and reach the PTY in order', async () => {

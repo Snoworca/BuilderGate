@@ -6,7 +6,7 @@ import type { WorkspaceService } from './WorkspaceService.js';
 import type { McpTerminalView, McpWorkspaceControl, McpWorkspaceView } from './McpManagementTools.js';
 import type { ShellType } from '../types/index.js';
 import type { Workspace, WorkspaceTab } from '../types/workspace.types.js';
-import { submitWithSeparateEnter } from './submitDelivery.js';
+import { submitWithSeparateEnter, type SubmitEnterDelay } from './submitDelivery.js';
 
 type Rec = Record<string, unknown>;
 
@@ -18,6 +18,8 @@ export interface WorkspaceServiceMcpControlDeps {
   deliver: (delivery: Rec) => Promise<Rec>;
   /** Test seam for the pause before the separate Enter write. */
   sleep?: (ms: number) => Promise<void>;
+  /** FR-MCP-002 AC-8: the current MCP Enter wait settings. */
+  submitEnterDelay?: () => SubmitEnterDelay;
 }
 
 export function createWorkspaceServiceMcpControl(deps: WorkspaceServiceMcpControlDeps): McpWorkspaceControl {
@@ -73,7 +75,7 @@ export function createWorkspaceServiceMcpControl(deps: WorkspaceServiceMcpContro
         const result = await submitWithSeparateEnter(
           request => ({ ok: sessionManager.writeInput(terminal.sessionId, String(request.data)) }),
           { data: command, delivery: { mode: 'submit', submit: true } },
-          { sleep: deps.sleep },
+          { sleep: deps.sleep, delay: deps.submitEnterDelay?.() },
         );
         return result.ok ? { ok: true, status: 'delivered' } : { ok: false, code: 'TARGET_NOT_LIVE' };
       }

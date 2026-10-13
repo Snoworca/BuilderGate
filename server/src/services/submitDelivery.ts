@@ -9,17 +9,30 @@
 
 type Rec = Record<string, unknown>;
 
-export const SUBMIT_ENTER_MIN_DELAY_MS = 150;
-export const SUBMIT_ENTER_DELAY_PER_KB_MS = 50;
-export const SUBMIT_ENTER_MAX_DELAY_MS = 1000;
+// FR-MCP-002 AC-8: both waits are MCP settings (McpControlService); the cap is not.
+export interface SubmitEnterDelay {
+  baseMs: number;
+  perKbMs: number;
+}
+
+export const DEFAULT_SUBMIT_ENTER_DELAY: SubmitEnterDelay = { baseMs: 150, perKbMs: 50 };
+export const SUBMIT_ENTER_BASE_MS_MAX = 5000;
+export const SUBMIT_ENTER_PER_KB_MS_MAX = 1000;
+/** Keeps a mistyped setting from holding an MCP call for minutes. */
+export const SUBMIT_ENTER_MAX_DELAY_MS = 10_000;
 
 const ENTER = '\r';
 
-export function submitEnterDelayMs(text: string): number {
-  return Math.min(
-    SUBMIT_ENTER_MAX_DELAY_MS,
-    SUBMIT_ENTER_MIN_DELAY_MS + Math.ceil(text.length / 1024) * SUBMIT_ENTER_DELAY_PER_KB_MS,
-  );
+export function isValidSubmitEnterBaseMs(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= SUBMIT_ENTER_BASE_MS_MAX;
+}
+
+export function isValidSubmitEnterPerKbMs(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0 && (value as number) <= SUBMIT_ENTER_PER_KB_MS_MAX;
+}
+
+export function submitEnterDelayMs(text: string, delay: SubmitEnterDelay = DEFAULT_SUBMIT_ENTER_DELAY): number {
+  return Math.min(SUBMIT_ENTER_MAX_DELAY_MS, delay.baseMs + Math.ceil(text.length / 1024) * delay.perKbMs);
 }
 
 export function isSubmitDelivery(request: Rec): boolean {
@@ -35,14 +48,14 @@ const defaultSleep = (ms: number): Promise<void> => new Promise(resolve => setTi
 
 /**
  * Sends a gateway request. A paste request goes through unchanged. A submit request has its
- * trailing CR/LF removed and is sent as the text, then — after a wait that grows with the text
- * length — a lone Enter. The Enter request drops auditContext so one delivery is audited once.
- * A rejected text write sends no Enter; a rejected Enter write is returned as the result.
+ * trailing CR/LF removed and is sent as the text, then — after options.delay's base wait plus its
+ * per-KB wait for each started 1024 characters, at most 10 s — a lone Enter. The Enter request
+ * drops auditContext so one delivery is audited once. A rejected text write sends no Enter; a rejected Enter write is returned as the result.
  */
 export async function submitWithSeparateEnter(
   submit: (request: Rec) => unknown,
   request: Rec,
-  options: { sleep?: (ms: number) => Promise<void> } = {},
+  options: { sleep?: (ms: number) => Promise<void>; delay?: SubmitEnterDelay } = {},
 ): Promise<Rec> {
   if (!isSubmitDelivery(request)) {
     return asRecord(await submit(request));
@@ -55,7 +68,7 @@ export async function submitWithSeparateEnter(
   if (!isAccepted(textResult)) {
     return textResult;
   }
-  await (options.sleep ?? defaultSleep)(submitEnterDelayMs(text));
+  await (options.sleep ?? defaultSleep)(submitEnterDelayMs(text, options.delay));
   const { auditContext: _auditContext, ...enterRequest } = request;
   const enterResult = asRecord(await submit({ ...enterRequest, data: ENTER }));
   return isAccepted(enterResult) ? textResult : enterResult;

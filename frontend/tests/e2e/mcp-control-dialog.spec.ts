@@ -3,6 +3,11 @@ import { login, waitForTerminal } from './helpers';
 
 const MCP_CONTROL_BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'https://localhost:2222';
 
+async function authHeaders(page: Page): Promise<Record<string, string>> {
+  const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 test.describe('MCP Control Dialog', () => {
   test.use({
     baseURL: MCP_CONTROL_BASE_URL,
@@ -187,6 +192,49 @@ test.describe('MCP Control Dialog', () => {
     await expect(dialog.getByRole('tab', { name: '에이전트 프로필' })).toHaveAttribute('aria-selected', 'true');
     await dialog.getByRole('tab', { name: '보안' }).click();
     await expect(dialog.getByLabel('새 고정 인증키')).toHaveCount(0);
+  });
+
+  test('FR-MCP-002 AC-8: saves the Enter waits and blocks out-of-range values', async ({ page }) => {
+    const dialog = await openMcpControlDialog(page);
+    const base = dialog.getByLabel('Enter 전송 전 대기');
+    const perKb = dialog.getByLabel('1KB당 추가 대기');
+    await expect(base).toHaveValue(/^\d+$/);
+    const original = { base: await base.inputValue(), perKb: await perKb.inputValue() };
+
+    let patchRequests = 0;
+    page.on('request', (request) => {
+      if (request.method() === 'PATCH' && request.url().endsWith('/api/mcp-control/config')) {
+        patchRequests += 1;
+      }
+    });
+    try {
+      await base.fill('5001');
+      await dialog.getByRole('button', { name: '저장' }).click();
+      await expect(dialog.getByRole('alert')).toContainText('Enter 전송 전 대기');
+      expect(patchRequests).toBe(0);
+
+      await base.fill('400');
+      await perKb.fill('80');
+      await dialog.getByRole('button', { name: '저장' }).click();
+      await expect.poll(() => patchRequests).toBe(1);
+      await expect(dialog.getByText('MCP 보안 설정을 저장했습니다.')).toBeVisible();
+
+      await page.locator('.window-dialog', { has: dialog }).locator('.window-dialog-close').click();
+      await expect(dialog).toBeHidden();
+      const reopened = await openMcpControlDialog(page);
+      await expect(reopened.getByLabel('Enter 전송 전 대기')).toHaveValue('400');
+      await expect(reopened.getByLabel('1KB당 추가 대기')).toHaveValue('80');
+    } finally {
+      const response = await page.request.get('/api/mcp-control/config', { headers: await authHeaders(page) });
+      const config = await response.json() as Record<string, unknown>;
+      if (config.submitEnterDelayMs !== Number(original.base) || config.submitEnterDelayPerKbMs !== Number(original.perKb)) {
+        const restore = await page.request.patch('/api/mcp-control/config', {
+          headers: await authHeaders(page),
+          data: { submitEnterDelayMs: Number(original.base), submitEnterDelayPerKbMs: Number(original.perKb) },
+        });
+        expect(restore.ok()).toBe(true);
+      }
+    }
   });
 
   test('blocks unsafe whitelist config before saving', async ({ page }) => {

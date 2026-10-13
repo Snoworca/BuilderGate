@@ -85,3 +85,19 @@ test('FR-MCP-008 AC-1: terminals carry the live cwd', () => {
     id: 'tab-1', workspaceId: 'ws-1', sessionId: 's-1', sessionKey: 'k-1', name: 'build', shellType: 'bash', lifecycleState: 'active', cwd: '/work',
   });
 });
+
+test('FR-MCP-002 AC-8: a terminal without a session key waits the configured Enter delay', async () => {
+  const sleeps: number[] = [];
+  const writes: string[] = [];
+  const control = createWorkspaceServiceMcpControl({
+    workspaceService: {} as never,
+    sessionManager: { getLastCwd: () => null, writeInput: (_id: string, data: string) => { writes.push(data); return true; }, readTerminalText: () => '' } as never,
+    broadcast: () => undefined,
+    deliver: async () => ({ ok: true }),
+    sleep: async (ms) => { sleeps.push(ms); },
+    submitEnterDelay: () => ({ baseMs: 700, perKbMs: 0 }),
+  });
+  await control.execTerminal(terminal(null), 'ls', {});
+  assert.deepEqual(writes, ['ls', '\r']);
+  assert.deepEqual(sleeps, [700]);
+});

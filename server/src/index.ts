@@ -136,7 +136,13 @@ import {
   createSessionInputGateway,
   submitMcpMessageInput,
 } from './services/SessionInputGateway.js';
-import { submitWithSeparateEnter } from './services/submitDelivery.js';
+import {
+  DEFAULT_SUBMIT_ENTER_DELAY,
+  isValidSubmitEnterBaseMs,
+  isValidSubmitEnterPerKbMs,
+  submitWithSeparateEnter,
+  type SubmitEnterDelay,
+} from './services/submitDelivery.js';
 import {
   createMcpFixedAccessKey,
   getFixedMcpAccessKeyScopes,
@@ -414,6 +420,16 @@ function parseBooleanQuery(value: unknown, defaultValue: boolean): boolean {
   return defaultValue;
 }
 
+// FR-MCP-002 AC-8: read on every delivery, so a saved MCP setting applies to the next one.
+function currentSubmitEnterDelay(): SubmitEnterDelay {
+  const getConfig = mcpControlService?.getConfig as ((request: unknown) => unknown) | undefined;
+  const config = asRecord(getConfig?.({ auth: { type: 'browser-jwt' } }));
+  return {
+    baseMs: isValidSubmitEnterBaseMs(config.submitEnterDelayMs) ? config.submitEnterDelayMs : DEFAULT_SUBMIT_ENTER_DELAY.baseMs,
+    perKbMs: isValidSubmitEnterPerKbMs(config.submitEnterDelayPerKbMs) ? config.submitEnterDelayPerKbMs : DEFAULT_SUBMIT_ENTER_DELAY.perKbMs,
+  };
+}
+
 function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringRecord> {
   return async (delivery: StringRecord) => {
     const sessionKey = typeof delivery.sessionKey === 'string' ? delivery.sessionKey : '';
@@ -455,6 +471,7 @@ function createMcpGatewayDelivery(): (delivery: StringRecord) => Promise<StringR
         ? gateway.submitInput({ ...request, source: 'mcp-reply-to-leader' })
         : submitMcpMessageInput(gateway, request)),
       gatewayRequest,
+      { delay: currentSubmitEnterDelay() },
     );
     return buildMcpGatewayDeliveryResponse(result);
   };
@@ -484,7 +501,7 @@ function createMcpAgentInputGateway(): { submitInput: (request: unknown) => Prom
         evaluateInputPolicy: () => ({ ok: true }),
       });
       // FR-MCP-002 AC-7: open_agent command and kickoff are submits; Enter goes on its own.
-      return submitWithSeparateEnter((request) => gateway.submitInput(request), input);
+      return submitWithSeparateEnter((request) => gateway.submitInput(request), input, { delay: currentSubmitEnterDelay() });
     },
   };
 }
@@ -1543,6 +1560,7 @@ async function startServer(): Promise<void> {
         sessionManager,
         broadcast: (event, data) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll(event, data),
         deliver: createMcpGatewayDelivery(),
+        submitEnterDelay: currentSubmitEnterDelay,
       }),
       listener: () => {
         const getStatus = mcpListenerController.getStatus;
@@ -1627,6 +1645,8 @@ async function startServer(): Promise<void> {
         status: initialMcpControlConfig.enabled === false ? 'stopped' : 'listening',
         lastError: null,
         lastRebindResult: null,
+        submitEnterDelayMs: initialMcpControlConfig.submitEnterDelayMs,
+        submitEnterDelayPerKbMs: initialMcpControlConfig.submitEnterDelayPerKbMs,
       },
       mutateConfig: async (request) => {
         const input = asRecord(request);

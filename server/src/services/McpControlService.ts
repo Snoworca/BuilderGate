@@ -8,6 +8,13 @@ import {
   validateMcpAgentStatus,
   validateMcpCloseConfirmation,
 } from './McpSecurityContract.js';
+import {
+  DEFAULT_SUBMIT_ENTER_DELAY,
+  SUBMIT_ENTER_BASE_MS_MAX,
+  SUBMIT_ENTER_PER_KB_MS_MAX,
+  isValidSubmitEnterBaseMs,
+  isValidSubmitEnterPerKbMs,
+} from './submitDelivery.js';
 
 type StringRecord = Record<string, unknown>;
 
@@ -75,6 +82,13 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
       status: asString(controlConfig.status) ?? 'stopped',
       lastError: controlConfig.lastError ?? null,
       lastRebindResult: controlConfig.lastRebindResult ?? null,
+      // FR-MCP-002 AC-8
+      submitEnterDelayMs: isValidSubmitEnterBaseMs(controlConfig.submitEnterDelayMs)
+        ? controlConfig.submitEnterDelayMs
+        : DEFAULT_SUBMIT_ENTER_DELAY.baseMs,
+      submitEnterDelayPerKbMs: isValidSubmitEnterPerKbMs(controlConfig.submitEnterDelayPerKbMs)
+        ? controlConfig.submitEnterDelayPerKbMs
+        : DEFAULT_SUBMIT_ENTER_DELAY.perKbMs,
     };
   };
 
@@ -86,6 +100,10 @@ export function createMcpControlService(deps: McpControlDeps = {}): StringRecord
     const input = asRecord(request);
     const previousConfig = { ...controlConfig };
     const configPatch = sanitizeConfigPatch(input);
+    const delayErrors = validateSubmitEnterDelayPatch(configPatch);
+    if (delayErrors) {
+      return { ok: false, code: 'VALIDATION_ERROR', message: 'Invalid Enter wait', fieldErrors: delayErrors };
+    }
     const rebindRequested = configPatchRequiresRebind(configPatch, previousConfig);
     Object.assign(controlConfig, configPatch);
     const validation = validateControlSecurityConfig(controlConfig, previousConfig);
@@ -662,12 +680,26 @@ function sanitizeConfigPatch(input: StringRecord): StringRecord {
     'trustedProxies',
     'externalWhitelist',
     'allowedOrigins',
+    'submitEnterDelayMs',
+    'submitEnterDelayPerKbMs',
   ]) {
     if (Object.prototype.hasOwnProperty.call(input, key)) {
       patch[key] = input[key];
     }
   }
   return patch;
+}
+
+// FR-MCP-002 AC-8
+function validateSubmitEnterDelayPatch(patch: StringRecord): StringRecord | null {
+  const errors: StringRecord = {};
+  if (Object.prototype.hasOwnProperty.call(patch, 'submitEnterDelayMs') && !isValidSubmitEnterBaseMs(patch.submitEnterDelayMs)) {
+    errors.submitEnterDelayMs = `integer from 0 to ${SUBMIT_ENTER_BASE_MS_MAX}`;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'submitEnterDelayPerKbMs') && !isValidSubmitEnterPerKbMs(patch.submitEnterDelayPerKbMs)) {
+    errors.submitEnterDelayPerKbMs = `integer from 0 to ${SUBMIT_ENTER_PER_KB_MS_MAX}`;
+  }
+  return Object.keys(errors).length > 0 ? errors : null;
 }
 
 function configPatchRequiresRebind(patch: StringRecord, previousConfig: StringRecord): boolean {

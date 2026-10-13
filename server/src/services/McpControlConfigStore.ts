@@ -6,6 +6,7 @@ import {
   validateMcpSecurityConfig,
   validateMcpWebhookKeyHeaderName,
 } from './McpSecurityContract.js';
+import { isValidSubmitEnterBaseMs, isValidSubmitEnterPerKbMs } from './submitDelivery.js';
 
 type StringRecord = Record<string, unknown>;
 type McpControlConfigStoreOptions = {
@@ -102,6 +103,9 @@ export function sanitizeMcpControlConfig(value: unknown): StringRecord {
   if (asString(record.fixedAccessKeyHash)) config.fixedAccessKeyHash = asString(record.fixedAccessKeyHash);
   if (asString(record.webhookKeyHeaderName)) config.webhookKeyHeaderName = asString(record.webhookKeyHeaderName);
   if (webhookRateLimit) config.webhookRateLimit = webhookRateLimit;
+  // FR-MCP-002 AC-8: an out-of-range wait is dropped, so the default applies.
+  if (isValidSubmitEnterBaseMs(record.submitEnterDelayMs)) config.submitEnterDelayMs = record.submitEnterDelayMs;
+  if (isValidSubmitEnterPerKbMs(record.submitEnterDelayPerKbMs)) config.submitEnterDelayPerKbMs = record.submitEnterDelayPerKbMs;
 
   return config;
 }

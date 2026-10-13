@@ -903,6 +903,40 @@ function renderSecurityPanel({
             <span className="ui-unit" aria-hidden="true">{t('mcp.security.unitTimes')}</span>
           </span>
         </Field>
+
+        <Field
+          label={t('mcp.security.submitEnterDelay')}
+          htmlFor="mcp-security-submit-enter-delay"
+          help={t('mcp.security.submitEnterDelayHelp')}
+          className="mcp-control-field"
+        >
+          <span className="ui-unit-wrap">
+            <TextInput
+              id="mcp-security-submit-enter-delay"
+              value={draft.submitEnterDelayMsText}
+              inputMode="numeric"
+              onChange={(event) => onDraftChange('submitEnterDelayMsText', event.target.value)}
+            />
+            <span className="ui-unit" aria-hidden="true">{t('mcp.security.unitMilliseconds')}</span>
+          </span>
+        </Field>
+
+        <Field
+          label={t('mcp.security.submitEnterDelayPerKb')}
+          htmlFor="mcp-security-submit-enter-delay-per-kb"
+          help={t('mcp.security.submitEnterDelayPerKbHelp')}
+          className="mcp-control-field"
+        >
+          <span className="ui-unit-wrap">
+            <TextInput
+              id="mcp-security-submit-enter-delay-per-kb"
+              value={draft.submitEnterDelayPerKbMsText}
+              inputMode="numeric"
+              onChange={(event) => onDraftChange('submitEnterDelayPerKbMsText', event.target.value)}
+            />
+            <span className="ui-unit" aria-hidden="true">{t('mcp.security.unitMilliseconds')}</span>
+          </span>
+        </Field>
       </div>
 
       <div className="mcp-control-textarea-grid">

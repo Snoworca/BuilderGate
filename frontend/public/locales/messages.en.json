@@ -1075,5 +1075,11 @@
   "settings.sessionSave.lastFailed": "{time} · failed",
   "settings.unit.minutes": " min",
   "sessionSave.restore.deleteTitle": "Delete this save?",
-  "sessionSave.restore.deleteMessage": "The save of {time} is deleted. This cannot be undone."
+  "sessionSave.restore.deleteMessage": "The save of {time} is deleted. This cannot be undone.",
+  "mcp.security.submitEnterDelay": "Wait before Enter",
+  "mcp.security.submitEnterDelayHelp": "An MCP submit writes the text first and Enter after this wait. 0 to 5000 ms.",
+  "mcp.security.submitEnterDelayPerKb": "Extra wait per 1 KB",
+  "mcp.security.submitEnterDelayPerKbHelp": "Added for each started 1 KB of text. 0 to 1000 ms. The total wait is at most 10 seconds.",
+  "mcp.security.unitMilliseconds": "ms",
+  "mcp.validation.submitEnterDelay": "Enter the wait before Enter as a whole number from 0 to 5000, and the extra wait per 1 KB as a whole number from 0 to 1000."
 }

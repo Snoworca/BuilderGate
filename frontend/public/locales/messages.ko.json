@@ -1048,5 +1048,11 @@
   "settings.sessionSave.lastFailed": "{time} · 실패",
   "settings.unit.minutes": "분",
   "sessionSave.restore.deleteTitle": "이 저장본을 지울까요?",
-  "sessionSave.restore.deleteMessage": "{time} 저장본을 지웁니다. 되돌릴 수 없습니다."
+  "sessionSave.restore.deleteMessage": "{time} 저장본을 지웁니다. 되돌릴 수 없습니다.",
+  "mcp.security.submitEnterDelay": "Enter 전송 전 대기",
+  "mcp.security.submitEnterDelayHelp": "MCP 로 전송할 때 글을 먼저 입력하고, 이 시간만큼 기다린 뒤 Enter 를 보냅니다. 0~5000ms.",
+  "mcp.security.submitEnterDelayPerKb": "1KB당 추가 대기",
+  "mcp.security.submitEnterDelayPerKbHelp": "글 1KB마다 이만큼 더 기다립니다. 0~1000ms. 전체 대기는 최대 10초입니다.",
+  "mcp.security.unitMilliseconds": "ms",
+  "mcp.validation.submitEnterDelay": "Enter 전송 전 대기는 0~5000, 1KB당 추가 대기는 0~1000 사이의 정수로 입력하세요."
 }
