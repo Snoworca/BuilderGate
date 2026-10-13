@@ -179,3 +179,19 @@ test('SDS-AC-10 a malformed decode-failure report does not roll anything back', 
   t.internals.handleMessage(t.ws, JSON.stringify({ type: 'terminal-binary:decode-failure' }));
   assert.equal(group.codecEpoch, before, 'a report with no code is not a decode failure');
 });
+
+test('PERF-BGSTAB-010 the fair-delivery artifact can be validated before any client connects', () => {
+  // The first capability used to pay the full validation (175 ms on Windows, 4.5 s on WSL over
+  // /mnt/c) while a browser waited for its terminals. Boot runs it instead, with the same
+  // runtime policy the capability handler derives, so the first client hits the cache.
+  const router = new WsRouter({} as AuthService, sessionManager(), {
+    realtime: { wsTransportMode: 'unified', terminalWireFormat: 'binary-optin' },
+  });
+  const warmed = (router as unknown as {
+    warmFairDeliveryArtifactValidation?: () => { accepted: boolean; reason: string };
+  }).warmFairDeliveryArtifactValidation?.();
+
+  assert.ok(warmed, 'the router must expose a boot-time warm-up');
+  assert.equal(typeof warmed.accepted, 'boolean');
+  assert.equal(typeof warmed.reason, 'string');
+});

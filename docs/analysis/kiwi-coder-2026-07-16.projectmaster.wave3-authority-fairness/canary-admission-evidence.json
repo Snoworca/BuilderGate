@@ -3,7 +3,7 @@
   "requirementId": "REL-BGSTAB-010",
   "phaseId": "PH-002",
   "taskId": "T-PH002-06",
-  "capturedAt": "2026-09-18T22:50:31.690Z",
+  "capturedAt": "2026-10-13T22:16:39.368Z",
   "invocation": "node tools/wave3/canary-admission-evidence.test.mjs",
   "historicalRedBaseline": {
     "path": "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json",
@@ -58,44 +58,44 @@
   ],
   "inputHashes": {
     "files": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "3d6f307b635528e51001f38f8203ba73168df36cb637c02d6ac4e7f85b19b8f8",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/green-evidence.json": "3f69ed9add07261579f6332aa9dde300202e761e23e15bd8ebec3331c970e44a",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-002/red-evidence-iteration10.json": "4ebd24ac98bcce70e75013344c47cacd423bfa38838792abdd7641e2e2832859",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/terminal-resource-consumer-manifest.json": "1d6dcff51115ed5760cf6a9f30a169060d052d46feaf465ec1d205d79f5bd155",
       "tools/wave3/canary-admission-evidence.test.mjs": "4ae0c515a9c1c28677b991f9f052654503eafea5bf533177a0dfe81f83608a59",
-      "server/src/services/TerminalResourcePolicyCanary.test.ts": "28a69bd876bfbeb07bbff030c43d53775c23b856ed2388fdc9f2a6f845ec5ac3",
-      "server/src/ws/WsRouterSendPriority.test.ts": "e00af9630a83ba603569b8d138bc10a1f909461f66cad389aea9a006a1945a4f",
+      "server/src/services/TerminalResourcePolicyCanary.test.ts": "3587ccb2452731a8cbe6d39061861ee2bf5824508c9d5875935afcf8271477df",
+      "server/src/ws/WsRouterSendPriority.test.ts": "a5488f5d0777fb793f6aacaf03c194450585cffb65a0b2809848b87859daf5c0",
       "server/src/ws/WsRouterRestoreMetadata.test.ts": "2bd6374cca86ed448ebaa9638c910985298e5439506489b683e4ebeb934d8c6b",
-      "server/src/ws/wsSendPolicyRestoreMetadata.test.ts": "ac89f32a2b3677cb3b6860e95a36b6e438792df0f09670abeccb2cb629fbd6fe",
+      "server/src/ws/wsSendPolicyRestoreMetadata.test.ts": "bf48ae4e0ec26e8d93a6a15977a5ab6397cce9854dd864b6588078af8f4f83e3",
       "frontend/tests/unit/terminalOutputScheduler.test.ts": "b6c0150f31677092bb5b51c2e8e69103932b0b152cd8094deb3d63b896bda1a5",
-      "frontend/tests/unit/terminalViewRecoveryContract.test.ts": "8bf4a6dc0f99ac4ffad750e6a8bbf54558a7fc6224441f85fa113220f70ff8ed",
-      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts": "b6976377084085fb3b6006d9067f8aaefd4956ac0e209cd511c29e164236e773",
+      "frontend/tests/unit/terminalViewRecoveryContract.test.ts": "982b5ab21a3baad5e8214d45bdf191eb70cc2dfce43cf4de7c50ff7827e06b08",
+      "frontend/tests/unit/terminalContainerRecoveryContract.test.ts": "dad73056ad495297a1fdcd20be317f590308b1454e716582c332e335ed544607",
       "frontend/tests/unit/visibleOutputRecovery.test.ts": "256783b003acc9fd21459d7542e58ca66e3dea85996b0a90eb89a03e31569e81"
     },
-    "sourceSetSha256": "5df83cfbcbec405e1e2f18319859eae0bc90fbedf727bb27f1b3fe1be762bdbb",
+    "sourceSetSha256": "12ee57c5bee0597e1cd8fe1790da058f12b22c36fbed127be8fe46642580ce6d",
     "mismatches": 0
   },
   "productionSourceHashes": {
     "files": {
-      "server/src/index.ts": "08e34b31fa63f4a8d0575bf147609302d0d0e6ab61a2feb2e22ff59c7e159746",
+      "server/src/index.ts": "e90c5c3b40101838f9eeae3b21789a40fcc5897ef4295c413be4a42d0829b11c",
       "server/src/services/TerminalResourcePolicyRuntime.ts": "ad32dd32d46d7552aa630c45ff6517fdc8963960bd5ccc4bd289c8e12bb1e103",
-      "server/src/services/TerminalResourcePolicyCanary.ts": "f8d79247bf47b03a5f9613134cea7b5c9516caccdea41b694c55e3870767a2f1",
-      "server/src/services/TerminalResourcePolicy.ts": "1b1f3ff8f0c91d21af656a8a96cb0e1aca40edc5ba7f455ac98baba3bf3ad33a",
-      "server/src/services/RuntimeConfigStore.ts": "3fa8673a5026eab7563d7221eb5661879ea3ec546332d48b434d95ba7ea93fde",
-      "server/src/services/SessionManager.ts": "589274b39bd2e5733b350ef3816f504d588bf6cdb29dcac1652c292e638a0a34",
+      "server/src/services/TerminalResourcePolicyCanary.ts": "70f80604cbd1ff3b0aa1fb192632b95c70b957902fe7261d8c9b4c2e8c095a23",
+      "server/src/services/TerminalResourcePolicy.ts": "b3fae39fa863bc2d860f383cf910a629e260796ae7f5aaf2b741aaacc08f37df",
+      "server/src/services/RuntimeConfigStore.ts": "2be798d6f917411e510d863c7be4e30dfcc70be821b4b26d18f6c96db60f07bc",
+      "server/src/services/SessionManager.ts": "090e1c7f386426e6c0e7b6f907db0dbed27a51100b0e997009250b9591bf620c",
       "server/src/utils/boundedByteDeque.ts": "1a77f4967b11d2d634a44c84c4e80e54e2e9e0588400a4b2b347213635be2aca",
       "server/src/utils/headlessOutputQueue.ts": "ed47eceab0b9e749fac589f59bfe7b9bf357da9749ea0aa2b08cc68a56e33ee8",
-      "server/src/ws/WsRouter.ts": "8be24a988562b6865da65297f06c8c7e2c4ea0beda66bd7ba2c583780933d82b",
-      "server/src/ws/wsSendPolicy.ts": "d8161ec40992dfaabc0285fa39d29299b933133931e5be05197eefa7fc258939",
-      "server/src/types/ws-protocol.ts": "4dcb9341d57f855c6cb89d59fbf4c6409842f9f78260c3bd1622385142ff6ad5",
-      "frontend/src/contexts/WebSocketContext.tsx": "31626bdd2181c14ef3ab048ab70d07c18c74f1e3232a327ed49cf15cd1268d4b",
-      "frontend/src/types/ws-protocol.ts": "01fed8c3bb7729e525941dca8ac926bcf124bea81cef36a320b122e8e8a40a30",
+      "server/src/ws/WsRouter.ts": "6c0a029f3fc0b80f7b62cecea1563d8b5557e335ca389fa51fe1f94de1d7be84",
+      "server/src/ws/wsSendPolicy.ts": "7ca5872eca216ff51cc0b2e634725c2c0e7438baf7776f67c0c14da08080539e",
+      "server/src/types/ws-protocol.ts": "38c7ed2066a1906ff69974c7e7970f40d9cb3803ec3de719f646854c500b3874",
+      "frontend/src/contexts/WebSocketContext.tsx": "8d792d04c8af6663f35ba1bdd7bdf70b17ef6c8877a28f86ad846311fb3a2d31",
+      "frontend/src/types/ws-protocol.ts": "fea15fc080c526ba26978d4ee51fa3d874a8521c84e4bf01ac53f5ff94677438",
       "frontend/src/components/Terminal/TerminalRuntimeContext.tsx": "90ec997100ad7a77023acc32cc0b3da8f985b35a547b4b89274bfa2b749c9040",
-      "frontend/src/components/Terminal/TerminalView.tsx": "38e7f79a7ae4b8ca27e731b4e6e832b9e240a402c2d4b0e9a5e62eaf47c3a3e2",
-      "frontend/src/components/Terminal/TerminalContainer.tsx": "77aec12d2be652764006ad41174b0e43e59b8a216e9f3f86df07832141efe1be",
+      "frontend/src/components/Terminal/TerminalView.tsx": "c4e515091f4e872a9a5ffad5959f72d9e796981573bbb8b9e968a2282d494642",
+      "frontend/src/components/Terminal/TerminalContainer.tsx": "2d3296e36930f1099998e54ba8d9332f5c35caad951845377af3eeeaf9e80301",
       "frontend/src/utils/terminalOutputScheduler.ts": "a1e88cf04e689f38c1a734b9795a93fafae8dbb71299c583f4398e4762fcb3e6",
       "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855"
     },
-    "sourceSetSha256": "ff87378d76e4b1cbf3b0f25fc192e50d2d3a0631ef80ca88efc8254ead9570f9"
+    "sourceSetSha256": "96249af70a8cc2e36a0a9a392cce82ab630af1cef9860abd3af1450287101860"
   },
   "focusedRuns": {
     "server": {

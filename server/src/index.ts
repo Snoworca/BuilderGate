@@ -1876,6 +1876,11 @@ async function startServer(): Promise<void> {
       binaryNegotiationTransportMode: configuredWsTransportMode,
       terminalResourcePolicyAuthority: terminalResourcePolicyRuntimeAuthority,
     });
+    // PERF-BGSTAB-010 AC-3: validate the fair-delivery artifact before clients connect.
+    const fairDeliveryWarmup = wsRouter.warmFairDeliveryArtifactValidation();
+    if (!fairDeliveryWarmup.accepted) {
+      console.warn('[WS] fair-delivery artifact not accepted at boot', { reason: fairDeliveryWarmup.reason });
+    }
     sessionManager.setWsRouter(wsRouter);
     terminalAuthorityIntegration = attachProductionTerminalAuthority({
       sessionManager,

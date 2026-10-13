@@ -2503,6 +2503,17 @@ export class WsRouter {
     active.scheduler.drain();
   }
 
+  /**
+   * PERF-BGSTAB-010 AC-3. Runs the published-artifact validation once at boot with the same
+   * runtime policy `handleTerminalDeliveryCapability` derives, so the first browser to connect
+   * hits the validator's cache instead of waiting for a full validation (175 ms on Windows,
+   * 4.5 s on WSL over /mnt/c, measured 2026-10-14).
+   */
+  warmFairDeliveryArtifactValidation(): { accepted: boolean; reason: string } {
+    const policy = resolveFairTerminalDeliveryPolicy(this.runtimeSendPolicyConfig.limits);
+    return validatePublishedFairDeliveryCandidateArtifact({ runtimePolicy: policy });
+  }
+
   // @req PERF-BGSTAB-010 AC-3 AC-5 AC-6
   private handleTerminalDeliveryCapability(ws: WebSocket, rawMessage: unknown): void {
     const parsed = parseTerminalDeliveryCapabilityMessage(rawMessage);

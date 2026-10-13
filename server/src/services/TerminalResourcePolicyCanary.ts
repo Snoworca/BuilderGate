@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import {
   createFairSchedulerEvidenceAuthorityResolver,
   getFairSchedulerBenchmarkContract,
@@ -399,7 +399,7 @@ export function createPublishedFairDeliveryCandidateArtifactValidator(
   resolver?: FairSchedulerEvidenceAuthorityResolver,
 ): (input?: { runtimePolicy?: unknown }) => { accepted: boolean; reason: string } {
   const authorityResolver = resolver ?? createFairSchedulerEvidenceAuthorityResolver();
-  return (input = {}) => {
+  const validate = (input: { runtimePolicy?: unknown } = {}): { accepted: boolean; reason: string } => {
     const expectedPolicyDigest = input.runtimePolicy === undefined ? undefined : sha256(input.runtimePolicy);
     const authority = authorityResolver.validate(
       expectedPolicyDigest === undefined ? {} : { expectedPolicyDigest },
@@ -413,6 +413,83 @@ export function createPublishedFairDeliveryCandidateArtifactValidator(
       };
     }
     return validateFairDeliveryCandidateArtifactAtCanonicalAuthority(input, authority.evidenceRoot);
+  };
+  // An injected resolver is validated every time, as before. The canonical one is cached; see
+  // createCachedFairDeliveryCandidateArtifactValidator for why and for what still re-validates.
+  if (resolver !== undefined) return validate;
+  const locator = authorityResolver.getLocator();
+  return createCachedFairDeliveryCandidateArtifactValidator(
+    validate,
+    () => fingerprintFairSchedulerAuthority(locator),
+  );
+}
+
+/**
+ * A fingerprint of the published authority: the locator's bytes and an lstat line for every
+ * entry of the generation it points at. Editing, adding, removing or relinking any of them
+ * changes it. `undefined` when the locator cannot be read, so the caller validates from disk.
+ */
+export function fingerprintFairSchedulerAuthority(locator: {
+  authorityRoot: string;
+  locatorPath: string;
+}): string | undefined {
+  try {
+    const pointerText = readFileSync(locator.locatorPath, 'utf8');
+    const generationId = (JSON.parse(pointerText) as { generation_id?: unknown }).generation_id;
+    if (typeof generationId !== 'string' || !/^[0-9a-f]{64}$/u.test(generationId)) return undefined;
+    const lines: string[] = [];
+    const describe = (path: string, label: string): void => {
+      const stat = lstatSync(path, { bigint: true });
+      lines.push(`${label}\0${stat.mode}\0${stat.size}\0${stat.mtimeNs}\0${stat.ctimeNs}\0${stat.ino}`);
+    };
+    describe(locator.locatorPath, 'current.json');
+    const generationRoot = join(locator.authorityRoot, 'generations', generationId);
+    const walk = (directory: string, label: string): void => {
+      describe(directory, label);
+      const entries = readdirSync(directory, { withFileTypes: true })
+        .map(entry => entry.name)
+        .sort();
+      for (const name of entries) {
+        const path = join(directory, name);
+        const child = `${label}/${name}`;
+        if (lstatSync(path).isDirectory()) walk(path, child);
+        else describe(path, child);
+      }
+    };
+    walk(generationRoot, generationId);
+    return createHash('sha256').update(pointerText).update('\0').update(lines.join('\n')).digest('hex');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * PERF-BGSTAB-010 AC-3. The validation walks and hashes the whole generation synchronously, and
+ * it ran once per `terminal-delivery:capability` -- every page load. Measured 2026-10-14: about
+ * 150 ms on Windows and 3.8 s on WSL over /mnt/c, during which the server sent nothing, so the
+ * visible terminal restored late and input typed in that window expired from the queue.
+ *
+ * An accepted result is reused only while the runtime policy and the authority fingerprint are
+ * unchanged. Any change to the pointer or the generation validates from disk again, so a
+ * tampered artifact is still refused. A rejection is never reused.
+ */
+export function createCachedFairDeliveryCandidateArtifactValidator(
+  validate: (input?: { runtimePolicy?: unknown }) => { accepted: boolean; reason: string },
+  fingerprint: () => string | undefined,
+): (input?: { runtimePolicy?: unknown }) => { accepted: boolean; reason: string } {
+  const accepted = new Map<string, { accepted: boolean; reason: string }>();
+  return (input = {}) => {
+    const current = fingerprint();
+    if (current === undefined) return validate(input);
+    const key = `${input.runtimePolicy === undefined ? '-' : sha256(input.runtimePolicy)}\0${current}`;
+    const cached = accepted.get(key);
+    if (cached) return { ...cached };
+    const result = validate(input);
+    if (result.accepted) {
+      accepted.clear();
+      accepted.set(key, { ...result });
+    }
+    return result;
   };
 }
 
