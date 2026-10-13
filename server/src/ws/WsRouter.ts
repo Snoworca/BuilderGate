@@ -2205,7 +2205,10 @@ export class WsRouter {
     for (const [ws, meta] of this.clients) {
       if ((meta.clientGroupId ?? meta.clientId) !== groupKey) continue;
       if (channelIds.length > 0) {
-        this.sendTo(ws, { type: 'terminal-binary:channel-retired', channelIds, reason: 'unsubscribed' });
+        // `codec-epoch-bump`, not `unsubscribed`: the numbers are reissued after the bump,
+        // so the client must clear its whole table. `unsubscribed` tells it one session
+        // left, and it retires only the listed channels for that.
+        this.sendTo(ws, { type: 'terminal-binary:channel-retired', channelIds, reason: 'codec-epoch-bump' });
       }
     }
     console.warn('[WS] binary data plane rolled back', { groupKey, trigger, codecEpoch: epoch });

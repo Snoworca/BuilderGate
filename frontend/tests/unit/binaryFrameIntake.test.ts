@@ -185,6 +185,27 @@ test('a channel with no registry record delivers nothing and is reported', () =>
   assert.equal(report.delivered, 0);
 });
 
+test('a channel the table has never heard of is reported unroutable so it can be recovered', () => {
+  // The decoder refuses an unknown channel before the intake looks it up, so
+  // without this the recovery request (`01:433`) was never sent and the
+  // session's output was dropped until a reload.
+  const h = harness({ channelState: () => undefined, lookupChannel: () => undefined });
+  const report = intakeBinaryFrames(vectorBytes('output-minimal-52'), h.collaborators);
+
+  assert.equal(h.delivered.length, 0);
+  assert.deepEqual(report.unroutable, [1]);
+});
+
+test('a retired channel is not asked about again', () => {
+  // Control for the test above: the client discarded that session itself, so
+  // there is no screen to recover and a request would only churn the table.
+  const h = harness({ channelState: () => 'retired', lookupChannel: () => undefined });
+  const report = intakeBinaryFrames(vectorBytes('output-minimal-52'), h.collaborators);
+
+  assert.equal(h.delivered.length, 0);
+  assert.deepEqual(report.unroutable, []);
+});
+
 test('a non-output opcode is reported rather than delivered', () => {
   const h = harness();
   const report = intakeBinaryFrames(vectorBytes('screen-snapshot-54'), h.collaborators);

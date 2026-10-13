@@ -96,6 +96,19 @@ test('SDS-AC-7 a rollback bumps the codec epoch, retires the channels and return
   assert.ok(t.socket.texts().some(f => f.type === 'output' && f.data === 'after-rollback'));
 });
 
+test('a rollback announces a codec-epoch-bump so the client resets its whole channel table', () => {
+  // The channel numbers are reissued after the bump, so the client must clear
+  // rather than retire. `unsubscribed` names one session leaving, and the client
+  // retires only the listed channels for it.
+  const t = negotiatedRouter();
+
+  t.internals.rollbackTerminalBinaryGroup('group-1', 'hot-reload');
+
+  const retired = t.socket.texts().find(f => f.type === 'terminal-binary:channel-retired');
+  assert.ok(retired, 'the client must be told which channels are gone');
+  assert.equal(retired.reason, 'codec-epoch-bump');
+});
+
 test('SDS-AC-7 rolling back a group that never negotiated is a no-op, not a throw', () => {
   const router = new WsRouter({} as AuthService, sessionManager(), {
     realtime: { wsTransportMode: 'unified', terminalWireFormat: 'binary-optin' },

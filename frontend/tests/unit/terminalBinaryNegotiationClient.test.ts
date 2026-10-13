@@ -169,6 +169,29 @@ test('session-deleted retires rather than clearing', () => {
   assert.equal(registry.channelState(2), 'active');
 });
 
+test('unsubscribed retires only the named channels and leaves other sessions routable', () => {
+  // The server sends `unsubscribed` for one session leaving the group (an
+  // unsubscribe or a single-session demotion). Clearing on it wiped every other
+  // session's channel, so their output frames were refused as unknown channels
+  // and the visible terminal stopped printing until a reload. Measured
+  // 2026-10-14 with 40 tabs over a 32-terminal residency cap.
+  const registry = createTerminalChannelRegistry();
+  applyTerminalBinaryControlMessage(
+    accepted([seed(1, 'session-a'), seed(2, 'session-b')]),
+    registry,
+  );
+
+  const outcome = applyTerminalBinaryControlMessage({
+    type: 'terminal-binary:channel-retired',
+    channelIds: [2],
+    reason: 'unsubscribed',
+  }, registry);
+
+  assert.equal(outcome.kind, 'channels-retired');
+  assert.equal(registry.channelState(2), 'retired');
+  assert.equal(registry.lookup(1)?.sessionId, 'session-a');
+});
+
 for (const reason of ['codec-epoch-bump', 'group-rebound'] as const) {
   test(`${reason} clears the whole table so reassignment is accepted`, () => {
     const registry = createTerminalChannelRegistry();

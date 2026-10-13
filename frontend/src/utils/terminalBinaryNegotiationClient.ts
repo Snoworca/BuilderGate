@@ -51,6 +51,11 @@ export type TerminalBinaryClientOutcome =
 const SESSION_SCOPED_RETIREMENT: ReadonlySet<string> = new Set([
   'session-exited',
   'session-deleted',
+  // One session leaving the group: an unsubscribe, or a single-session
+  // demotion. Clearing on it erased every other session's channel and their
+  // terminals went silent until a reload. A group rollback says
+  // `codec-epoch-bump` instead.
+  'unsubscribed',
 ]);
 
 /**

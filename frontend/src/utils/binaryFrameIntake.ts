@@ -66,6 +66,16 @@ export function intakeBinaryFrames(
   const unhandledOpcodes: number[] = [];
   let delivered = 0;
 
+  // The decoder refuses a channel the table has never heard of before the
+  // lookup below runs, so it must be counted here too or its recovery request
+  // (`01:433`) is never sent. A retired channel is not: the client discarded
+  // that session itself.
+  for (const rejection of result.scoped) {
+    if (rejection.code === 'unknown-channel' && rejection.channelId !== undefined) {
+      unroutable.push(rejection.channelId);
+    }
+  }
+
   // Frames are delivered even when `fatal` is set. The decoder reports both,
   // and the frames it already parsed are output the peer sent correctly —
   // discarding them would lose it to a fault further along the buffer.
