@@ -145,6 +145,13 @@ export const authApi = {
     return res.json();
   },
 
+  // FR-BGSTAB-034
+  async localLogin(): Promise<LoginResponse> {
+    const res = await fetch(`${API_BASE}/auth/local-login`, { method: 'POST' });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
   async verify(tempToken: string, otpCode: string, stage?: 'email' | 'totp'): Promise<VerifyResponse> {
     const res = await fetch(`${API_BASE}/auth/verify`, {
       method: 'POST',

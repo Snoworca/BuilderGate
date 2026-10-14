@@ -291,6 +291,8 @@ export const authSchema = z.object({
     .default(AUTH_DEFAULTS.SESSION_DURATION_MS),
   jwtSecret: z.string().default(''),
   localhostPasswordOnly: z.boolean().default(false),
+  // FR-BGSTAB-034: a browser on this computer logs in without a password.
+  localhostNoAuth: z.boolean().default(false),
 });
 
 // ============================================================================

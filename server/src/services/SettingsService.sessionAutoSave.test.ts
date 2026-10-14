@@ -113,6 +113,29 @@ test('FR-AITUI-019 AC-3: a change applies at once and is written to the config f
   }
 });
 
+// FR-BGSTAB-034 — auth.localhostNoAuth goes through the same Settings save path. It shares this
+// file's harness, which already builds a full SettingsService over a temporary config file.
+test('FR-BGSTAB-034 AC-1/AC-5: localhostNoAuth is off by default, applies at once and is written to an older file', async () => {
+  const h = await harness();
+  try {
+    assert.equal(h.service.getSettingsSnapshot().values.auth.localhostNoAuth, false);
+    assert.equal(h.store.getEditableValues().auth.localhostNoAuth, false);
+
+    h.service.savePatch({ auth: { localhostNoAuth: true } } as never);
+    assert.equal(h.store.getEditableValues().auth.localhostNoAuth, true, 'the route reads the live store, so no restart is needed');
+    const saved = JSON5.parse(await fs.readFile(h.configPath, 'utf-8')) as Config;
+    assert.equal(saved.auth?.localhostNoAuth, true);
+    assert.equal(saved.auth?.durationMs, 1800000, 'the other auth keys stay');
+
+    h.service.savePatch({ auth: { localhostNoAuth: false } } as never);
+    const again = JSON5.parse(await fs.readFile(h.configPath, 'utf-8')) as Config;
+    assert.equal(again.auth?.localhostNoAuth, false);
+    assert.equal(h.store.getEditableValues().auth.localhostNoAuth, false);
+  } finally {
+    await h.dispose();
+  }
+});
+
 function createConfigFixture(): Config {
   return {
     server: { port: 4242 },

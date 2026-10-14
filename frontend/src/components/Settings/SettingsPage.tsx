@@ -484,6 +484,14 @@ export function SettingsPage({ visible, onBack }: Props) {
               <SettingField htmlFor="settings-auth-confirm-password" label={t('settings.auth.confirmPassword')} scope={scope(snapshot, 'auth.password')} error={fieldErrors.confirmPassword}>
                 <TextInput id="settings-auth-confirm-password" type="password" aria-invalid={fieldErrors.confirmPassword ? true : undefined} value={secrets.confirmPassword} onChange={(e) => updateSecrets((current) => ({ ...current, confirmPassword: e.target.value }))} />
               </SettingField>
+              <CheckField
+                testId="auth-localhost-no-auth"
+                label={t('settings.localhostNoAuth.label')}
+                scope={scope(snapshot, 'auth.localhostNoAuth')}
+                help={t('settings.localhostNoAuth.help')}
+                checked={draft.auth.localhostNoAuth}
+                onChange={(checked) => updateDraft((next) => { next.auth.localhostNoAuth = checked; })}
+              />
             </Card>
 
             <Card title={t('settings.twoFactor.title')} icon="check-circle" description={t('settings.twoFactor.description')}>

@@ -75,6 +75,7 @@ const ms = (min: number, max: number): FieldCapability['constraints'] => ({ min,
 const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available' | 'reason' | 'options'>> = {
   'auth.password': { applyScope: 'new_logins', writeOnly: true },
   'auth.durationMs': { applyScope: 'new_logins', writeOnly: false },
+  'auth.localhostNoAuth': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.externalOnly': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.enabled': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.issuer': { applyScope: 'new_logins', writeOnly: false },
@@ -1285,6 +1286,9 @@ export class RuntimeConfigStore {
   mergeEditablePatch(patch: SettingsPatchRequest): EditableSettingsValues {
     const next = this.getEditableValues();
 
+    if (patch.auth?.localhostNoAuth !== undefined) {
+      next.auth.localhostNoAuth = patch.auth.localhostNoAuth;
+    }
     if (patch.auth?.durationMs !== undefined) {
       next.auth.durationMs = patch.auth.durationMs;
     }
@@ -1414,6 +1418,7 @@ function buildEditableValues(source: Config, platform: NodeJS.Platform): Editabl
   return {
     auth: {
       durationMs: source.auth?.durationMs ?? authDefaults.durationMs,
+      localhostNoAuth: source.auth?.localhostNoAuth ?? false,
     },
     twoFactor: {
       enabled: source.twoFactor?.enabled ?? twoFactorDefaults.enabled,

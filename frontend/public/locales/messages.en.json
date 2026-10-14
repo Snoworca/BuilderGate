@@ -1081,5 +1081,7 @@
   "mcp.security.submitEnterDelayPerKb": "Extra wait per 1 KB",
   "mcp.security.submitEnterDelayPerKbHelp": "Added for each started 1 KB of text. 0 to 1000 ms. The total wait is at most 10 seconds.",
   "mcp.security.unitMilliseconds": "ms",
-  "mcp.validation.submitEnterDelay": "Enter the wait before Enter as a whole number from 0 to 5000, and the extra wait per 1 KB as a whole number from 0 to 1000."
+  "mcp.validation.submitEnterDelay": "Enter the wait before Enter as a whole number from 0 to 5000, and the extra wait per 1 KB as a whole number from 0 to 1000.",
+  "settings.localhostNoAuth.label": "Skip the login screen on this computer",
+  "settings.localhostNoAuth.help": "When on, a browser on this computer opens BuilderGate without a password. Anyone who can use this computer, or reach this server through a reverse proxy on this computer, gets full access, including all terminals. Remote access still needs the password. Off by default."
 }

@@ -3,8 +3,8 @@
   "requirementId": "OBS-BGSTAB-005",
   "fixtureId": "observer-disabled-vs-observe-actual-consumer-corpus",
   "runtimeProjection": {
-    "disabledSha256": "ad91ab79f399c2761868675363d0ee330da233a404f5a298a3c6e1e3a8894c40",
-    "observedSha256": "ad91ab79f399c2761868675363d0ee330da233a404f5a298a3c6e1e3a8894c40",
+    "disabledSha256": "2def0ee76ede3c44ac42a563ee84058ae1776f1700d89752dc4a26e5f1a3b6ad",
+    "observedSha256": "2def0ee76ede3c44ac42a563ee84058ae1776f1700d89752dc4a26e5f1a3b6ad",
     "byteForByteEqual": true
   },
   "actualConsumers": {

@@ -65,6 +65,7 @@ class MemoryStorage implements Storage {
 const settingsSnapshotCapabilities = {
   'auth.password': defaultCapability,
   'auth.durationMs': defaultCapability,
+  'auth.localhostNoAuth': defaultCapability,
   'twoFactor.externalOnly': defaultCapability,
   'twoFactor.enabled': defaultCapability,
   'twoFactor.issuer': defaultCapability,
@@ -129,7 +130,7 @@ const settingsSnapshotCapabilities = {
 
 const settingsSnapshotWithWriteHiddenPolicy = {
   values: {
-    auth: { durationMs: 86_400_000 },
+    auth: { durationMs: 86_400_000, localhostNoAuth: false },
     twoFactor: {
       enabled: false,
       externalOnly: false,

@@ -9,6 +9,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import { tokenStorage } from '../services/tokenStorage';
 import { authApi } from '../services/api';
+import { tryLocalLogin } from '../services/localLogin';
 import type { AuthState, BootstrapStatusResponse } from '../types';
 import { t } from '../i18n/i18n.ts';
 
@@ -64,6 +65,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // FR-BGSTAB-034: with auth.localhostNoAuth on, a browser on this computer gets a token
+  // without the login screen. A refusal leaves everything as it was.
+  const localLoginState = useCallback(async (): Promise<AuthState | null> => {
+    if (!await tryLocalLogin(() => authApi.localLogin(), tokenStorage)) return null;
+    return {
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      requires2FA: false,
+      tempToken: null,
+      nextStage: null,
+      expiresAt: tokenStorage.getExpiresAt(),
+      bootstrapStatus: CONFIGURED_BOOTSTRAP_STATE,
+      bootstrapError: null,
+    };
+  }, []);
+
   // Check token on mount
   useEffect(() => {
     let active = true;
@@ -106,6 +124,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       tokenStorage.clearToken();
+      const local = await localLoginState();
+      if (!active) return;
+      if (local) {
+        setState(local);
+        return;
+      }
       const { bootstrapStatus, bootstrapError } = await fetchBootstrapStatus();
       if (!active) return;
       setState({
@@ -126,13 +150,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [fetchBootstrapStatus]);
+  }, [fetchBootstrapStatus, localLoginState]);
 
   // Listen for auth-expired events from API layer (e.g. 401 responses)
   useEffect(() => {
     const handleAuthExpired = () => {
       void (async () => {
         tokenStorage.clearToken();
+        const local = await localLoginState();
+        if (local) {
+          setState(local);
+          return;
+        }
         const { bootstrapStatus, bootstrapError } = await fetchBootstrapStatus();
         setState({
           isAuthenticated: false,
@@ -149,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener('auth-expired', handleAuthExpired);
     return () => window.removeEventListener('auth-expired', handleAuthExpired);
-  }, [fetchBootstrapStatus]);
+  }, [fetchBootstrapStatus, localLoginState]);
 
   // Login handler
   const login = useCallback(async (password: string): Promise<boolean> => {

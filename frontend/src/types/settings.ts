@@ -3,6 +3,7 @@ export type FieldApplyScope = 'immediate' | 'new_logins' | 'new_sessions';
 export type EditableSettingsKey =
   | 'auth.password'
   | 'auth.durationMs'
+  | 'auth.localhostNoAuth'
   | 'twoFactor.externalOnly'
   | 'twoFactor.enabled'
   | 'twoFactor.issuer'
@@ -141,6 +142,7 @@ export interface StabilityModesSettings {
 export interface EditableSettingsValues {
   auth: {
     durationMs: number;
+    localhostNoAuth: boolean;
   };
   twoFactor: {
     enabled: boolean;
@@ -200,6 +202,7 @@ export interface SettingsPatchRequest {
     newPassword?: string;
     confirmPassword?: string;
     durationMs?: number;
+    localhostNoAuth?: boolean;
   };
   twoFactor?: {
     enabled?: boolean;
