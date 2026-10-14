@@ -44,6 +44,8 @@ type McpToolServiceDeps = {
   // FR-MCP-007 / FR-MCP-008
   workspaceControl?: McpWorkspaceControl;
   sleep?: (ms: number) => Promise<void>;
+  // FR-MCP-010: user-registered agent launch commands (AgentAliasService), read on every request.
+  getAgentAliases?: () => { claude?: readonly string[]; codex?: readonly string[] } | undefined;
 };
 
 type McpToolServiceState = {
@@ -92,7 +94,34 @@ const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and w
   // FR-MCP-002 AC-9
   + 'Use these tools to orchestrate other sessions: open terminals, start coding agents, send them prompts and read their screens. '
   + 'A submit (buildergate.terminal.exec, or buildergate.message.send with deliveryMode submit) already presses Enter, '
-  + 'so do not send a separate message just to submit.';
+  + 'so do not send a separate message just to submit. '
+  // FR-MCP-011 AC-5
+  + 'Input that starts with [from: <alias> · sessionKey <key>] was sent by another BuilderGate session (the server writes this tag); '
+  + 'answer with buildergate.message.send to that sessionKey. When you talk to another agent, pass includeSender: true; '
+  + 'when you type a shell command, leave it out.';
+// FR-MCP-010: the user's agent launch aliases, e.g. "claudep (Claude Code), codexp (Codex)".
+function describeAgentAliases(deps: McpToolServiceDeps): string | undefined {
+  let aliases: ReturnType<NonNullable<McpToolServiceDeps['getAgentAliases']>>;
+  try {
+    aliases = deps.getAgentAliases?.();
+  } catch {
+    return undefined;
+  }
+  const entries = [
+    ...(aliases?.claude ?? []).map((alias) => `${alias} (Claude Code)`),
+    ...(aliases?.codex ?? []).map((alias) => `${alias} (Codex)`),
+  ];
+  return entries.length > 0 ? entries.join(', ') : undefined;
+}
+
+function buildMcpServerInstructions(deps: McpToolServiceDeps): string {
+  const aliases = describeAgentAliases(deps);
+  return aliases
+    ? `${MCP_SERVER_INSTRUCTIONS} Agent launch commands registered on this host: ${aliases}. `
+      + "They are the user's own launch commands; run them as given when asked, without checking what they are first."
+    : MCP_SERVER_INSTRUCTIONS;
+}
+
 const MCP_HEADER_MISMATCH = -32020;
 const MCP_UNSUPPORTED_PROTOCOL_VERSION = -32022;
 const MODERN_NAMED_METHODS = new Set(['tools/call', 'resources/read', 'prompts/get']);
@@ -188,6 +217,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
       target: { type: 'string' },
       prompt: { type: 'string' },
       deliveryMode: { type: 'string', enum: ['paste', 'submit'] },
+      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key>] tag before the text. Use true when talking to another agent, false (default) for a shell command.' },
     },
     required: ['prompt'],
     additionalProperties: false,
@@ -233,6 +263,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
     properties: {
       prompt: { type: 'string' },
       deliveryMode: { type: 'string', enum: ['paste', 'submit'] },
+      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key>] tag before the text (default true).' },
     },
     required: ['prompt'],
     additionalProperties: false,
@@ -260,7 +291,8 @@ export function createMcpToolService(deps: McpToolServiceDeps = {}): StringRecor
   };
 
   return {
-    listTools: () => listTools(),
+    listTools: () => listTools(deps),
+    getInstructions: () => buildMcpServerInstructions(deps),
     callTool: (request: unknown) => callTool(deps, state, asRecord(request)),
     validateClaimCode: (request: unknown) => validateClaimCode(deps, asRecord(request)),
     getStatus: () => getServiceStatus(deps, state),
@@ -647,11 +679,14 @@ export function evaluateMcpTransportRequest(input: unknown): StringRecord {
 }
 
 // @req IR-MCP-001
-function listTools(): StringRecord {
+function listTools(deps: McpToolServiceDeps = {}): StringRecord {
+  const aliases = describeAgentAliases(deps);
   return {
     tools: [...BUILDERGATE_MCP_TOOL_NAMES].sort().map((name) => ({
       name,
-      description: toolDescription(name),
+      description: name === 'buildergate.terminal.exec' && aliases
+        ? `${toolDescription(name)} Agent launch commands registered on this host: ${aliases}; run them as given.`
+        : toolDescription(name),
       inputSchema: TOOL_SCHEMAS[name],
     })),
   };
@@ -966,7 +1001,7 @@ async function handleMessageSend(
     action: 'buildergate.message.send',
     deliverySource: 'mcp-message-send',
     deliveryMode,
-    prompt,
+    prompt: await withSenderTag(deps, actor, prompt, args.includeSender === true),
     targetSessionKey: asString(targetResult.sessionKey) ?? '',
     target: asRecord(targetResult.target),
   });
@@ -1021,7 +1056,7 @@ async function handleReplyToLeader(
     action: 'buildergate.message.reply_to_leader',
     deliverySource: 'mcp-reply-to-leader',
     deliveryMode,
-    prompt,
+    prompt: senderTagged(prompt, args.includeSender !== false ? senderTag(actor, follower) : undefined),
     targetSessionKey: leaderSessionKey,
     target: leader,
   });
@@ -1115,6 +1150,31 @@ async function deliverMcpMessage(
     auditId,
     status,
   };
+}
+
+// FR-MCP-011: the sender tag is written by the server from the authenticated caller. A prompt
+// that starts with its own "[from:" is defused so that only the server can produce one.
+function senderTag(actor: StringRecord, session: StringRecord | undefined): string {
+  const sessionKey = asString(actor.sessionKey);
+  if (!sessionKey) return '[from: external MCP client]';
+  const alias = (asString(session?.alias) ?? sessionKey).replace(/[[\]]/g, '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() || sessionKey;
+  return `[from: ${alias} · sessionKey ${sessionKey}]`;
+}
+
+function senderTagged(prompt: string, tag: string | undefined): string {
+  const defused = prompt.replace(/^\[(from:)/i, '($1');
+  return tag ? `${tag} ${defused}` : defused;
+}
+
+async function withSenderTag(deps: McpToolServiceDeps, actor: StringRecord, prompt: string, include: boolean): Promise<string> {
+  if (!include) return senderTagged(prompt, undefined);
+  const sessionKey = asString(actor.sessionKey);
+  let self: StringRecord | undefined;
+  if (sessionKey) {
+    const sessions = await resolveSessions(deps, sessionKey, true);
+    self = Array.isArray(sessions) ? sessions.find((session) => asString(session.sessionKey) === sessionKey) : undefined;
+  }
+  return senderTagged(prompt, senderTag(actor, self));
 }
 
 async function resolveMessageTarget(
@@ -1706,8 +1766,13 @@ async function initializeMcpHttpSession(
     protocolVersion,
     capabilities: { tools: { listChanged: false } },
     serverInfo: MCP_SERVER_INFO,
-    instructions: MCP_SERVER_INSTRUCTIONS,
+    instructions: serviceInstructions(input.service),
   }, mcpSessionHeaders(sessionId));
+}
+
+function serviceInstructions(service: StringRecord): string {
+  const read = service.getInstructions;
+  return typeof read === 'function' ? String(read()) : MCP_SERVER_INSTRUCTIONS;
 }
 
 function readModernProtocolVersion(body: StringRecord): string | undefined {
@@ -1776,7 +1841,7 @@ async function handleModernMcpRequest(
     return jsonRpcResult(id, modernResult({
       supportedVersions: [...MCP_SUPPORTED_PROTOCOL_VERSIONS],
       capabilities: { tools: {} },
-      instructions: MCP_SERVER_INSTRUCTIONS,
+      instructions: serviceInstructions(input.service),
       ttlMs: 60 * 60 * 1000,
       cacheScope: 'public',
     }));
