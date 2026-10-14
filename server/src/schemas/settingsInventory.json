@@ -55,6 +55,24 @@
       "safetyBound": "The JWT signing secret. Not a tuning value; exposing or weakening it breaks session authentication outright."
     },
     {
+      "path": "auth.localhostNoAuth",
+      "classification": "user-visible",
+      "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow. FR-BGSTAB-034: the user opts in to logging in without a password from this computer.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/index.ts",
+          "symbol": "authRoutes",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
       "path": "auth.localhostPasswordOnly",
       "classification": "safety-only",
       "reason": "Exists to bound or deny rather than to tune. Not offered in Settings.",

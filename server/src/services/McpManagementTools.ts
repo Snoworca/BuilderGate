@@ -50,6 +50,7 @@ export const MCP_MANAGEMENT_TOOL_NAMES = [
   'buildergate.terminal.create',
   'buildergate.terminal.delete',
   'buildergate.terminal.exec',
+  'buildergate.terminal.read',
 ] as const;
 
 export type McpManagementToolName = typeof MCP_MANAGEMENT_TOOL_NAMES[number];
@@ -119,6 +120,16 @@ export const MCP_MANAGEMENT_TOOL_SCHEMAS: Record<McpManagementToolName, Rec> = {
     required: ['command'],
     additionalProperties: false,
   },
+  // FR-MCP-009
+  'buildergate.terminal.read': {
+    type: 'object',
+    properties: {
+      ...workspaceRef,
+      ...terminalRef,
+      lines: { type: 'integer', minimum: 1, maximum: EXEC_MAX_LINES, description: `Last lines of the terminal text to return (default ${EXEC_DEFAULT_LINES}).` },
+    },
+    additionalProperties: false,
+  },
 };
 
 export const MCP_MANAGEMENT_TOOL_DESCRIPTIONS: Record<McpManagementToolName, string> = {
@@ -130,6 +141,7 @@ export const MCP_MANAGEMENT_TOOL_DESCRIPTIONS: Record<McpManagementToolName, str
   'buildergate.terminal.create': 'Open a terminal session in a workspace given by workspaceId or workspaceName.',
   'buildergate.terminal.delete': 'Close a terminal given by terminalId, or by terminalName within a workspace. Requires confirm: true.',
   'buildergate.terminal.exec': 'Run a command in a terminal and optionally return its screen text after waitMs.',
+  'buildergate.terminal.read': 'Return the last lines of a terminal\'s text (screen and scrollback) without sending it any input.',
 };
 
 const REQUIRED_SCOPE: Record<McpManagementToolName, string> = {
@@ -141,6 +153,9 @@ const REQUIRED_SCOPE: Record<McpManagementToolName, string> = {
   'buildergate.terminal.create': 'mcp:terminals.write',
   'buildergate.terminal.delete': 'mcp:terminals.write',
   'buildergate.terminal.exec': 'mcp:terminals.exec',
+  // FR-MCP-009 AC-3: the screen is what exec with waitMs already returns, so it needs the same
+  // scope; session actors do not hold it and cannot read other sessions' screens.
+  'buildergate.terminal.read': 'mcp:terminals.exec',
 };
 
 export function isMcpManagementTool(name: string): name is McpManagementToolName {
@@ -241,6 +256,14 @@ async function dispatch(
         result.output = control.readTerminalText(target.terminal.sessionId, lines) ?? '';
       }
       return result;
+    }
+    case 'buildergate.terminal.read': {
+      const target = resolveTerminal(workspaces, terminals, args);
+      if (!target.ok) return target.error;
+      const lines = clampInt(args.lines, 1, EXEC_MAX_LINES, EXEC_DEFAULT_LINES);
+      const output = control.readTerminalText(target.terminal.sessionId, lines);
+      if (output === null) return { ok: false, code: 'TARGET_NOT_LIVE', terminalId: target.terminal.id };
+      return { ok: true, terminalId: target.terminal.id, sessionId: target.terminal.sessionId, output };
     }
   }
 }

@@ -220,6 +220,8 @@ export interface AuthConfig {
   durationMs: number;
   jwtSecret: string;
   localhostPasswordOnly?: boolean;
+  /** FR-BGSTAB-034 */
+  localhostNoAuth?: boolean;
 }
 
 // ============================================================================

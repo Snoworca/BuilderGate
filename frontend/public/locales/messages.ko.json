@@ -363,6 +363,7 @@
   "mcp.auditAction.buildergateTerminalCreate": "터미널 열기",
   "mcp.auditAction.buildergateTerminalDelete": "터미널 닫기",
   "mcp.auditAction.buildergateTerminalExec": "명령 실행",
+  "mcp.auditAction.buildergateTerminalRead": "터미널 화면 읽기",
   "mcp.auditAction.code": "작업 코드: {value}",
   "mcp.auditAction.fallback": "감사",
   "mcp.auditAction.inputGateway": "입력 게이트웨이",
@@ -1054,5 +1055,7 @@
   "mcp.security.submitEnterDelayPerKb": "1KB당 추가 대기",
   "mcp.security.submitEnterDelayPerKbHelp": "글 1KB마다 이만큼 더 기다립니다. 0~1000ms. 전체 대기는 최대 10초입니다.",
   "mcp.security.unitMilliseconds": "ms",
-  "mcp.validation.submitEnterDelay": "Enter 전송 전 대기는 0~5000, 1KB당 추가 대기는 0~1000 사이의 정수로 입력하세요."
+  "mcp.validation.submitEnterDelay": "Enter 전송 전 대기는 0~5000, 1KB당 추가 대기는 0~1000 사이의 정수로 입력하세요.",
+  "settings.localhostNoAuth.label": "이 컴퓨터에서는 로그인 화면을 건너뜀",
+  "settings.localhostNoAuth.help": "켜면 이 컴퓨터의 브라우저는 비밀번호 없이 BuilderGate 를 엽니다. 이 컴퓨터를 쓸 수 있는 사람, 또는 이 컴퓨터의 리버스 프록시를 거쳐 들어오는 사람은 모든 터미널을 포함해 전체 권한을 얻습니다. 다른 컴퓨터에서 접속하면 여전히 비밀번호가 필요합니다. 기본값은 꺼짐입니다."
 }

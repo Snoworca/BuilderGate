@@ -183,7 +183,7 @@ function noSecrets(): SecretPatchDraft {
 
 function createEditableValues(): EditableSettingsValues {
   return {
-    auth: { durationMs: 1_800_000 },
+    auth: { durationMs: 1_800_000, localhostNoAuth: false },
     twoFactor: {
       enabled: false,
       externalOnly: false,
@@ -282,6 +282,7 @@ function createEditableValues(): EditableSettingsValues {
 const ALL_KEYS: EditableSettingsKey[] = [
   'auth.password',
   'auth.durationMs',
+  'auth.localhostNoAuth',
   'twoFactor.externalOnly',
   'twoFactor.enabled',
   'twoFactor.issuer',
@@ -378,3 +379,11 @@ test('FR-AITUI-019 AC-2: the page names an interval under 5 or over 1440 minutes
 function emptySecretsForSessionSave(): SecretPatchDraft {
   return { currentPassword: '', newPassword: '', confirmPassword: '' } as SecretPatchDraft;
 }
+
+test('FR-BGSTAB-034 AC-5: switching localhost login without a password goes into the auth patch alone', () => {
+  const initial = createEditableValues();
+  const draft = structuredClone(initial);
+  assert.equal(buildSettingsPatch(initial, draft, noSecrets(), createCapabilities()).auth, undefined);
+  draft.auth.localhostNoAuth = true;
+  assert.deepEqual(buildSettingsPatch(initial, draft, noSecrets(), createCapabilities()).auth, { localhostNoAuth: true });
+});

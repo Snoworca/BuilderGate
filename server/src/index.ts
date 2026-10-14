@@ -763,6 +763,7 @@ function setupRoutes(): void {
     getAuthService: () => authService,
     getTOTPService: () => totpService,
     getTwoFactorExternalOnly: () => runtimeConfigStore?.getEditableValues().twoFactor.externalOnly ?? false,
+    getLocalhostNoAuth: () => runtimeConfigStore?.getEditableValues().auth.localhostNoAuth ?? false,
     getBootstrapSetupService: () => bootstrapSetupService,
     getRequestIp: (req) => req.socket.remoteAddress ?? req.ip ?? '',
   });

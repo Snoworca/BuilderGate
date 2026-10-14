@@ -101,6 +101,7 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     newPassword: z.string().min(1).optional(),
     confirmPassword: z.string().min(1).optional(),
     durationMs: z.number().min(AUTH_DEFAULTS.MIN_SESSION_DURATION_MS).max(AUTH_DEFAULTS.MAX_SESSION_DURATION_MS).optional(),
+    localhostNoAuth: z.boolean().optional(),
   }).strict().optional(),
   twoFactor: z.object({
     enabled: z.boolean().optional(),
@@ -392,6 +393,7 @@ function extractPatchKeys(patch: SettingsPatchRequest): EditableSettingsKey[] {
   const changed = new Set<EditableSettingsKey>();
 
   if (patch.auth?.durationMs !== undefined) changed.add('auth.durationMs');
+  if (patch.auth?.localhostNoAuth !== undefined) changed.add('auth.localhostNoAuth');
   if (patch.auth?.newPassword) changed.add('auth.password');
   if (patch.twoFactor?.externalOnly !== undefined) changed.add('twoFactor.externalOnly');
   if (patch.twoFactor?.enabled !== undefined) changed.add('twoFactor.enabled');

@@ -20,6 +20,7 @@ import type {
 } from '../types/auth.types.js';
 import { createAuthMiddleware } from '../middleware/authMiddleware.js';
 import { AppError, ErrorCode, createErrorResponse } from '../utils/errors.js';
+import { evaluateLocalLogin } from '../utils/localLoginPolicy.js';
 import {
   authAttemptThrottleKey, clearAuthFailures, createAuthAttemptThrottle, recordAuthFailure,
 } from '../middleware/authAttemptThrottle.js';
@@ -71,6 +72,8 @@ interface AuthRouteAccessors {
   getAuthService: () => AuthService;
   getTOTPService: () => TOTPService | undefined;
   getTwoFactorExternalOnly: () => boolean;
+  /** FR-BGSTAB-034: auth.localhostNoAuth. Absent means off. */
+  getLocalhostNoAuth?: () => boolean;
   getBootstrapSetupService: () => BootstrapSetupAccessor;
   getRequestIp: (req: Request) => string;
 }
@@ -201,6 +204,34 @@ export function createAuthRoutes(accessors: AuthRouteAccessors): Router {
       handleTOTPLogin(res, totpService, tempToken);
     } catch (error) {
       console.error('[Auth] Login error:', error);
+      res.status(500).json(createErrorResponse(ErrorCode.INTERNAL_ERROR));
+    }
+  });
+
+  // ========================================================================
+  // POST /api/auth/local-login (FR-BGSTAB-034)
+  // ========================================================================
+  router.post('/local-login', (req: Request, res: Response): void => {
+    try {
+      const decision = evaluateLocalLogin({
+        enabled: accessors.getLocalhostNoAuth?.() ?? false,
+        remoteAddress: accessors.getRequestIp(req),
+        headers: req.headers,
+      });
+      if (!decision.allowed) {
+        const code = decision.reason === 'disabled' ? ErrorCode.LOCAL_LOGIN_DISABLED : ErrorCode.LOCAL_LOGIN_REFUSED;
+        if (decision.reason !== 'disabled') {
+          console.warn(`[Auth] Local login refused (${decision.reason}) from ${accessors.getRequestIp(req)}`);
+        }
+        res.status(403).json(createErrorResponse(code));
+        return;
+      }
+      const authService = accessors.getAuthService();
+      const { token } = authService.issueToken();
+      console.log(`[Auth] Login successful (localhostNoAuth) from ${accessors.getRequestIp(req)}`);
+      res.json({ success: true, token, expiresIn: authService.getSessionDuration() } as LoginResponse);
+    } catch (error) {
+      console.error('[Auth] Local login error:', error);
       res.status(500).json(createErrorResponse(ErrorCode.INTERNAL_ERROR));
     }
   });

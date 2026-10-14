@@ -17,6 +17,8 @@ export enum ErrorCode {
   INVALID_PASSWORD = 'INVALID_PASSWORD',
   BOOTSTRAP_NOT_ALLOWED = 'BOOTSTRAP_NOT_ALLOWED',
   BOOTSTRAP_NOT_REQUIRED = 'BOOTSTRAP_NOT_REQUIRED',
+  LOCAL_LOGIN_DISABLED = 'LOCAL_LOGIN_DISABLED',
+  LOCAL_LOGIN_REFUSED = 'LOCAL_LOGIN_REFUSED',
 
   // 2FA Errors (Phase 3)
   TWO_FA_REQUIRED = 'TWO_FA_REQUIRED',
@@ -95,6 +97,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVALID_PASSWORD]: 'Invalid password',
   [ErrorCode.BOOTSTRAP_NOT_ALLOWED]: 'Initial password bootstrap is not allowed from this address',
   [ErrorCode.BOOTSTRAP_NOT_REQUIRED]: 'Initial password bootstrap is no longer required',
+  [ErrorCode.LOCAL_LOGIN_DISABLED]: 'Login without a password from this computer is turned off',
+  [ErrorCode.LOCAL_LOGIN_REFUSED]: 'This request does not come from this computer',
 
   [ErrorCode.TWO_FA_REQUIRED]: 'Two-factor authentication is required',
   [ErrorCode.INVALID_TEMP_TOKEN]: 'Invalid or expired temporary token',
@@ -164,6 +168,8 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.INVALID_PASSWORD]: 401,
   [ErrorCode.BOOTSTRAP_NOT_ALLOWED]: 403,
   [ErrorCode.BOOTSTRAP_NOT_REQUIRED]: 409,
+  [ErrorCode.LOCAL_LOGIN_DISABLED]: 403,
+  [ErrorCode.LOCAL_LOGIN_REFUSED]: 403,
 
   [ErrorCode.TWO_FA_REQUIRED]: 202,
   [ErrorCode.INVALID_TEMP_TOKEN]: 401,

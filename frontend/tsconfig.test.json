@@ -198,6 +198,7 @@
     "tests/unit/recoveryOptionIcon.test.ts",
     "tests/unit/runtimeConfig.test.ts",
     "tests/unit/settingsDraftHelpers.test.ts",
+    "tests/unit/localLogin.test.ts",
     "tests/unit/splitWebSocketLifecycle.test.ts",
     "tests/unit/terminalContextMenuRegisteredItems.test.ts",
     "tests/unit/terminalDebugCapture.test.ts",

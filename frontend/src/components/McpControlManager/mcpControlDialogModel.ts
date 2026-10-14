@@ -82,6 +82,7 @@ const MCP_AUDIT_ACTION_LABELS: Record<string, MessageKey> = {
   'buildergate.terminal.create': 'mcp.auditAction.buildergateTerminalCreate',
   'buildergate.terminal.delete': 'mcp.auditAction.buildergateTerminalDelete',
   'buildergate.terminal.exec': 'mcp.auditAction.buildergateTerminalExec',
+  'buildergate.terminal.read': 'mcp.auditAction.buildergateTerminalRead',
   'mcp.listener.rebind': 'mcp.auditAction.mcpListenerRebind',
   'mcp.request.denied': 'mcp.auditAction.mcpRequestDenied',
   'input-gateway': 'mcp.auditAction.inputGateway',

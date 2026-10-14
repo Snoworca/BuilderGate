@@ -297,3 +297,57 @@ test('SEC-MCP-004 AC-2: session actors get read-only management scopes', () => {
     assert.equal(scopes.includes(forbidden), false, forbidden);
   }
 });
+
+// FR-MCP-009 — reading a terminal's text without typing into it.
+test('FR-MCP-009 AC-1: terminal.read returns the last lines and writes nothing', async () => {
+  const { call, calls, sleeps } = setup();
+  const result = await call('buildergate.terminal.read', { workspaceName: 'Main', terminalName: 'build', lines: 2 });
+  assert.deepEqual(result, { ok: true, terminalId: 'tab-1', sessionId: 's-1', output: 'b.txt\n$' });
+  assert.deepEqual(calls, [{ op: 'readTerminalText', sessionId: 's-1', maxLines: 2 }], 'only a read, no exec');
+  assert.deepEqual(sleeps, []);
+  const byId = await call('buildergate.terminal.read', { terminalId: 'tab-2' });
+  assert.equal(byId.ok, true);
+  assert.equal(byId.sessionId, 's-2');
+});
+
+test('FR-MCP-009 AC-2: lines defaults to 40 and is clamped to 1..200', async () => {
+  for (const [lines, expected] of [[undefined, 40], [0, 1], [-5, 1], [9_999, 200], [7, 7]] as const) {
+    const { call, calls } = setup();
+    await call('buildergate.terminal.read', lines === undefined ? { terminalId: 'tab-1' } : { terminalId: 'tab-1', lines });
+    assert.equal(calls[0]?.maxLines, expected, String(lines));
+  }
+});
+
+test('FR-MCP-009 AC-3: reading needs mcp:terminals.exec, which session actors do not hold', async () => {
+  for (const scopes of [['mcp:terminals.read', 'mcp:workspaces.read'], getDefaultMcpSessionScopes()]) {
+    const { call, calls } = setup([...scopes]);
+    assert.equal((await call('buildergate.terminal.read', { terminalId: 'tab-1' })).code, 'INVALID_SCOPE');
+    assert.deepEqual(calls, []);
+  }
+  const { call } = setup(['mcp:terminals.exec']);
+  assert.equal((await call('buildergate.terminal.read', { terminalId: 'tab-1' })).ok, true);
+});
+
+test('FR-MCP-009 AC-4: a terminal without a live server terminal and bad addresses are reported', async () => {
+  const fake = createFakeControl();
+  fake.control.readTerminalText = () => null;
+  const service = createMcpToolService({ workspaceControl: fake.control }) as { callTool: (r: unknown) => Promise<Rec> };
+  const dead = await service.callTool({ name: 'buildergate.terminal.read', arguments: { terminalId: 'tab-1' }, actor: { scopes: ALL_SCOPES } });
+  assert.equal(dead.ok, false);
+  assert.equal(dead.code, 'TARGET_NOT_LIVE');
+
+  const { call } = setup();
+  assert.equal((await call('buildergate.terminal.read', { terminalId: 'nope' })).code, 'TARGET_NOT_FOUND');
+  assert.equal((await call('buildergate.terminal.read', { workspaceId: 'ws-1', terminalName: 'shell' })).code, 'AMBIGUOUS_TARGET');
+  assert.equal((await call('buildergate.terminal.read', { terminalName: 'build' })).code, 'VALIDATION_ERROR');
+});
+
+test('FR-MCP-009 AC-5: tools/list advertises terminal.read with a schema', () => {
+  const { service } = setup();
+  const tool = (service.listTools().tools as Rec[]).find(t => t.name === 'buildergate.terminal.read');
+  assert.ok(tool, 'listed');
+  const schema = tool!.inputSchema as Rec;
+  assert.equal(schema.type, 'object');
+  assert.deepEqual(Object.keys(schema.properties as Rec).sort(), ['lines', 'terminalId', 'terminalName', 'workspaceId', 'workspaceName']);
+  assert.equal(schema.additionalProperties, false);
+});

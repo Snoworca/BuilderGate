@@ -540,3 +540,7 @@ test('FR-MCP-002 AC-8: the security tab edits both Enter waits', () => {
   expectSource(dialogSource, /submitEnterDelayMsText/, 'Base Enter wait input must bind the draft');
   expectSource(dialogSource, /submitEnterDelayPerKbMsText/, 'Per-KB Enter wait input must bind the draft');
 });
+
+test('FR-MCP-009 AC-5: the audit log labels terminal.read', () => {
+  assert.equal(formatMcpAuditAction('buildergate.terminal.read'), '터미널 화면 읽기');
+});

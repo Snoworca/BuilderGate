@@ -11,6 +11,7 @@ export type FieldApplyScope = 'immediate' | 'new_logins' | 'new_sessions';
 export type EditableSettingsKey =
   | 'auth.password'
   | 'auth.durationMs'
+  | 'auth.localhostNoAuth'
   | 'twoFactor.externalOnly'
   | 'twoFactor.enabled'
   | 'twoFactor.issuer'
@@ -90,6 +91,7 @@ export interface FieldCapability {
 
 export interface AuthEditableSettings {
   durationMs: number;
+  localhostNoAuth: boolean;
 }
 
 export interface PasswordChangeRequest {

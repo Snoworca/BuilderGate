@@ -87,6 +87,8 @@ const MCP_SERVER_INFO = { name: 'BuilderGate MCP Server', version: '0.10.13' };
 const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and workspaces. '
   + 'List workspaces and terminals first; address a workspace by workspaceId or workspaceName and a terminal by terminalId or terminalName. '
   + 'buildergate.terminal.exec types a command with Enter; pass waitMs to read the screen afterwards. '
+  // FR-MCP-009 AC-5
+  + "buildergate.terminal.read returns a terminal's text without sending input; use it to watch another session. "
   // FR-MCP-002 AC-9
   + 'Use these tools to orchestrate other sessions: open terminals, start coding agents, send them prompts and read their screens. '
   + 'A submit (buildergate.terminal.exec, or buildergate.message.send with deliveryMode submit) already presses Enter, '
