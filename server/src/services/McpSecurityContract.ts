@@ -92,6 +92,8 @@ const DEFAULT_MCP_SCOPES = [
   // SEC-MCP-004: session agents may list workspaces and terminals but not change them.
   'mcp:workspaces.read',
   'mcp:terminals.read',
+  // FR-MCP-012: agents may notify the user's browser.
+  'mcp:notify',
 ] as const;
 const FIXED_MCP_ACCESS_KEY_SCOPES = [
   'mcp:sessions.list',
@@ -104,6 +106,7 @@ const FIXED_MCP_ACCESS_KEY_SCOPES = [
   'mcp:terminals.read',
   'mcp:terminals.write',
   'mcp:terminals.exec',
+  'mcp:notify',
 ] as const;
 
 const TOKEN_SIGNING_SECRET = crypto.randomBytes(32);

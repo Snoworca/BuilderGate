@@ -46,10 +46,14 @@ type McpToolServiceDeps = {
   sleep?: (ms: number) => Promise<void>;
   // FR-MCP-010: user-registered agent launch commands (AgentAliasService), read on every request.
   getAgentAliases?: () => { claude?: readonly string[]; codex?: readonly string[] } | undefined;
+  // FR-MCP-012: send notification:show to every browser page; returns the connection count.
+  notifyBrowsers?: (payload: StringRecord) => number;
+  nowMs?: () => number;
 };
 
 type McpToolServiceState = {
   assignments: Map<string, StringRecord>;
+  notifyCalls: Map<string, number[]>;
   auditEvents: StringRecord[];
   validationResults: StringRecord[];
   listener: StringRecord;
@@ -122,6 +126,13 @@ function buildMcpServerInstructions(deps: McpToolServiceDeps): string {
     : MCP_SERVER_INSTRUCTIONS;
 }
 
+// FR-MCP-012
+const NOTIFY_TITLE_MAX = 100;
+const NOTIFY_BODY_MAX = 500;
+const NOTIFY_LEVELS = ['info', 'success', 'warning', 'error'] as const;
+const NOTIFY_RATE_LIMIT = 6;
+const NOTIFY_RATE_WINDOW_MS = 60_000;
+
 const MCP_HEADER_MISMATCH = -32020;
 const MCP_UNSUPPORTED_PROTOCOL_VERSION = -32022;
 const MODERN_NAMED_METHODS = new Set(['tools/call', 'resources/read', 'prompts/get']);
@@ -148,6 +159,7 @@ type ListenerControllerDeps = {
 };
 
 export const BUILDERGATE_MCP_TOOL_NAMES = [
+  'buildergate.notify',
   'buildergate.session.whoami',
   'buildergate.session.claim',
   'buildergate.session.list',
@@ -268,6 +280,17 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
     required: ['prompt'],
     additionalProperties: false,
   },
+  // FR-MCP-012
+  'buildergate.notify': {
+    type: 'object',
+    properties: {
+      title: { type: 'string', minLength: 1, maxLength: NOTIFY_TITLE_MAX },
+      body: { type: 'string', maxLength: NOTIFY_BODY_MAX },
+      level: { type: 'string', enum: [...NOTIFY_LEVELS] },
+    },
+    required: ['title'],
+    additionalProperties: false,
+  },
   'buildergate.session.update_status': {
     type: 'object',
     properties: {
@@ -285,6 +308,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
 export function createMcpToolService(deps: McpToolServiceDeps = {}): StringRecord {
   const state: McpToolServiceState = {
     assignments: new Map(),
+    notifyCalls: new Map(),
     auditEvents: [],
     validationResults: [],
     listener: normalizeListenerStatus(asRecord(resolveMaybeFunction(deps.listener) ?? {})),
@@ -718,6 +742,8 @@ async function callTool(deps: McpToolServiceDeps, state: McpToolServiceState, re
       }, await handleSetAlias(deps, actor, args));
     case 'buildergate.message.send':
       return handleMessageSend(deps, state, actor, args, context);
+    case 'buildergate.notify':
+      return withAudit(deps, state, 'buildergate.notify', actor, context, {}, await handleNotify(deps, state, actor, args));
     case 'buildergate.session.update_status':
       return withAudit(deps, state, 'buildergate.session.update_status', actor, context, {}, await handleUpdateStatus(deps, actor, args));
     case 'buildergate.session.open_agent':
@@ -1150,6 +1176,59 @@ async function deliverMcpMessage(
     auditId,
     status,
   };
+}
+
+// FR-MCP-012: a notification for the user's browser pages. The sender comes from the
+// authenticated caller, never from the arguments.
+async function handleNotify(
+  deps: McpToolServiceDeps,
+  state: McpToolServiceState,
+  actor: StringRecord,
+  args: StringRecord,
+): Promise<StringRecord> {
+  const scope = requireScope(actor, 'mcp:notify');
+  if (scope) return scope;
+  const title = typeof args.title === 'string' ? args.title.trim() : '';
+  const body = typeof args.body === 'string' ? args.body.trim() : args.body === undefined ? '' : null;
+  const level = args.level === undefined ? 'info' : asString(args.level);
+  const fieldErrors: StringRecord = {};
+  if (!title || title.length > NOTIFY_TITLE_MAX) fieldErrors.title = `1-${NOTIFY_TITLE_MAX} characters`;
+  if (body === null || body.length > NOTIFY_BODY_MAX) fieldErrors.body = `up to ${NOTIFY_BODY_MAX} characters`;
+  if (!level || !(NOTIFY_LEVELS as readonly string[]).includes(level)) fieldErrors.level = NOTIFY_LEVELS.join(', ');
+  if (Object.keys(fieldErrors).length > 0) return validationError(fieldErrors);
+
+  const sessionKey = asString(actor.sessionKey);
+  const callerKey = sessionKey ?? `actor:${asString(actor.type) ?? 'unknown'}`;
+  const nowMs = deps.nowMs?.() ?? Date.now();
+  const recent = (state.notifyCalls.get(callerKey) ?? []).filter((at) => nowMs - at < NOTIFY_RATE_WINDOW_MS);
+  if (recent.length >= NOTIFY_RATE_LIMIT) {
+    state.notifyCalls.set(callerKey, recent);
+    return { ok: false, code: 'RATE_LIMITED', retryAfterMs: NOTIFY_RATE_WINDOW_MS - (nowMs - recent[0]) };
+  }
+  recent.push(nowMs);
+  state.notifyCalls.set(callerKey, recent);
+
+  let from: StringRecord | null = null;
+  if (sessionKey) {
+    const sessions = await resolveSessions(deps, sessionKey, true);
+    const self = Array.isArray(sessions) ? sessions.find((session) => asString(session.sessionKey) === sessionKey) : undefined;
+    from = {
+      alias: asString(self?.alias) ?? sessionKey,
+      sessionKey,
+      workspaceId: asString(self?.workspaceId) ?? null,
+      tabId: asString(self?.tabId) ?? null,
+    };
+  }
+  const notificationId = `notify_${crypto.randomUUID()}`;
+  const deliveredTo = deps.notifyBrowsers?.({
+    id: notificationId,
+    title,
+    body,
+    level,
+    at: now(deps),
+    from,
+  }) ?? 0;
+  return { ok: true, notificationId, deliveredTo };
 }
 
 // FR-MCP-011: the sender tag is written by the server from the authenticated caller. A prompt
@@ -2357,6 +2436,7 @@ function toolDescription(name: string): string {
     'buildergate.session.close_self': 'Close this follower session.',
     'buildergate.message.reply_to_leader': 'Send a paste or submit request from a follower to its leader session.',
     'buildergate.session.update_status': 'Update MCP-visible agent status.',
+    'buildergate.notify': 'Show a short notification in the user\'s open BuilderGate browser pages (a system notification when the page is not in view). Use it when you need the user\'s attention, not for progress chatter; at most 6 a minute.',
     ...MCP_MANAGEMENT_TOOL_DESCRIPTIONS,
   };
   return descriptions[name] ?? name;

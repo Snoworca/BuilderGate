@@ -6333,6 +6333,8 @@ const expectedDefaultMcpScopes = [
   // SEC-MCP-004: read-only workspace/terminal listing.
   'mcp:workspaces.read',
   'mcp:terminals.read',
+  // FR-MCP-012: browser notifications.
+  'mcp:notify',
 ];
 
 const requiredMcpDenialCodes = [
@@ -12381,6 +12383,7 @@ async function testMcpSecuritySecMcp002Ac10(): Promise<void> {
   assert.deepEqual([...scopes as string[]].sort(), [
     'mcp:message.paste',
     'mcp:message.submit',
+    'mcp:notify',
     'mcp:sessions.list',
     'mcp:sessions.search',
     'mcp:terminals.exec',

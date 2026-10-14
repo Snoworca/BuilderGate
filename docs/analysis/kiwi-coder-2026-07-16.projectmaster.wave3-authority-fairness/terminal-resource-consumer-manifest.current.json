@@ -42,10 +42,10 @@
       "frontend/src/utils/terminalWriteCoordinator.ts": "e9cc89993d03388524a6bb3204290b41bbd5a44d04f6f566ac2d28f4cf8a69aa",
       "frontend/src/utils/visibleOutputRecovery.ts": "4c6daab3b711619b0641b2179eeaf1f2b30e0a96e8ad8d19a2fa410cb3d9b855",
       "frontend/src/utils/webSocketBackpressure.ts": "6b1267425a009da86ed03cccfe8caa80520dcd65b82fff63ffe5e6886e132f29",
-      "server/src/index.ts": "005acbf7c00fe023a4b8e8bd75acfd4f55535378290c9fa3e55cdbca321557ca",
+      "server/src/index.ts": "a4af765ede2c995aa081018defef59cc368e81c4c068dfa6c1b7bb02eef3ed17",
       "server/src/schemas/config.schema.ts": "f34bc79bf161f9f29d886ac8851ff4d99feb308d6b470ec732d49a6132acaab5",
       "server/src/services/ConfigFileRepository.ts": "ce29c7ec75fefca91f37053376c5f51f9de7d76a48ce639c5afa2ca4ceae7d6e",
-      "server/src/services/McpToolService.ts": "4aa146e6a2fe3577efdb23cff896601fd9fdd6c608431e5501f38f61693b41b4",
+      "server/src/services/McpToolService.ts": "49a6e2a5ae93461ad9e759c8efdf1524469bd1bc6e390b5db4bf40a0f7e57097",
       "server/src/services/RuntimeConfigStore.test.ts": "e61f4457e38b29be46dfec551c344d0d8efd967c5305ac0cdc27024614429d78",
       "server/src/services/RuntimeConfigStore.ts": "1f1954a7475acf36e78e8abe6939a0d5417a843a4caf7db1d3d599114869a49e",
       "server/src/services/SessionManager.ts": "090e1c7f386426e6c0e7b6f907db0dbed27a51100b0e997009250b9591bf620c",
@@ -66,7 +66,7 @@
       "tools/wave3/terminal-resource-consumer-manifest.test.mjs": "1951ebfc4b7d5ff0917d115d8c2c04c71340d145c77a19ae10ddab04cf84ca70",
       "tools/wave3/terminal-resource-policy-differential.ts": "8b361e3593526d0e0ab8215af60d71ea3c0ca30bab4c3351ac8883c54c9736d2"
     },
-    "sourceSetSha256": "c2e05c05041d40bb8b0554c6efa1b4b820a47cbd245bcb4c5d8ff0704b182ec8",
+    "sourceSetSha256": "8600cd85f8a7c4adfc52ee8255abb454007e75fa3b81f403c7f340184a6b72e7",
     "rawGreenEvidence": {
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "d01e09ba4a65759782812595efb0374037ea68ac575ef8e79edacb60ac36d2cf",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"

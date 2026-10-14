@@ -544,3 +544,7 @@ test('FR-MCP-002 AC-8: the security tab edits both Enter waits', () => {
 test('FR-MCP-009 AC-5: the audit log labels terminal.read', () => {
   assert.equal(formatMcpAuditAction('buildergate.terminal.read'), '터미널 화면 읽기');
 });
+
+test('FR-MCP-012: the audit log labels buildergate.notify', () => {
+  assert.equal(formatMcpAuditAction('buildergate.notify'), '브라우저 알림');
+});

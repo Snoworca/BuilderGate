@@ -272,6 +272,7 @@ test('SEC-MCP-004 AC-1: fixed access key carries the management scopes', () => {
   assert.deepEqual([...getFixedMcpAccessKeyScopes()].sort(), [
     'mcp:message.paste',
     'mcp:message.submit',
+    'mcp:notify',
     'mcp:sessions.list',
     'mcp:sessions.search',
     'mcp:terminals.exec',
@@ -286,6 +287,7 @@ test('SEC-MCP-004 AC-2: session actors get read-only management scopes', () => {
   const scopes = getDefaultMcpSessionScopes();
   assert.deepEqual([...scopes].sort(), [
     'mcp:message.paste',
+    'mcp:notify',
     'mcp:self.read',
     'mcp:sessions.list',
     'mcp:sessions.search',

@@ -296,3 +296,8 @@
     height: var(--ctl-touch);
   }
 }
+
+/* FR-MCP-012 AC-6 */
+.settings-notification p { margin: 0 0 8px; }
+.settings-notification-help { color: var(--fg-muted); font-size: 13px; }
+.settings-notification-actions { display: flex; gap: 8px; flex-wrap: wrap; }

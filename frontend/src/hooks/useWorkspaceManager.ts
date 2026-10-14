@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { presentBrowserNotification, setNotificationNavigator } from '../utils/browserNotifications.ts';
 import { workspaceApi } from '../services/api';
 import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
 import type { MoveTabResult, Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceLimits } from '../types/workspace';
@@ -304,6 +305,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   // Register workspace event handlers via WS
   useEffect(() => {
     setWorkspaceHandlers({
+      // FR-MCP-012: buildergate.notify
+      'notification:show': (data) => { presentBrowserNotification(data); },
       'workspace:created': (data) => {
         const wsData = data as Workspace;
         setWorkspaces(prev => {
@@ -629,6 +632,15 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
       setError(getErrorMessage(err));
     }
   }, []);
+
+  // FR-MCP-012 AC-4: a notification opens the sender's workspace and tab.
+  useEffect(() => {
+    setNotificationNavigator((workspaceId, tabId) => {
+      setActiveWorkspaceId(workspaceId);
+      if (tabId) void setActiveTab(workspaceId, tabId);
+    });
+    return () => setNotificationNavigator(null);
+  }, [setActiveWorkspaceId, setActiveTab]);
 
   const setViewMode = useCallback(async (workspaceId: string, mode: 'tab' | 'grid') => {
     try {

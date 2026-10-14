@@ -1545,6 +1545,13 @@ async function startServer(): Promise<void> {
       recordCleanupEvidence: (event) => console.info('[MCP Agent Cleanup]', JSON.stringify(event)),
     });
     const mcpToolService = createMcpToolService({
+      // FR-MCP-012: buildergate.notify reaches every open browser page.
+      notifyBrowsers: (payload) => {
+        const router = app.get('wsRouter') as WsRouter | undefined;
+        if (!router) return 0;
+        router.broadcastAll('notification:show', payload);
+        return router.getObservabilitySnapshot().connectedClients;
+      },
       // FR-MCP-010: tell MCP clients about the user's agent launch aliases.
       getAgentAliases: () => {
         const all = agentAliasService?.getAll();

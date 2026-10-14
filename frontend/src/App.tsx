@@ -90,6 +90,7 @@ import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
 import type { CommandPreset, ShellInfo, TerminalShortcutState } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import { BrowserNotificationLayer } from './components/Notification/BrowserNotificationLayer.tsx';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
 
@@ -1030,6 +1031,8 @@ function AppContent() {
               <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
             )}
           </div>
+
+          <BrowserNotificationLayer />
 
           <SettingsPage
             visible={screen === 'settings'}

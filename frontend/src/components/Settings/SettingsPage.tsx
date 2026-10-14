@@ -39,6 +39,7 @@ import {
 import { availableLanguages, readLanguagePreference, t, writeLanguagePreference } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
 import { APP_VERSION } from '../../utils/appVersion.ts';
+import { BrowserNotificationSettings } from '../Notification/BrowserNotificationSettings.tsx';
 import './SettingsPage.css';
 
 interface SecretDraft {
@@ -492,6 +493,10 @@ export function SettingsPage({ visible, onBack }: Props) {
                 checked={draft.auth.localhostNoAuth}
                 onChange={(checked) => updateDraft((next) => { next.auth.localhostNoAuth = checked; })}
               />
+            </Card>
+
+            <Card title={t('notification.settings.title')} icon="info" description={t('notification.settings.description')}>
+              <BrowserNotificationSettings />
             </Card>
 
             <Card title={t('settings.twoFactor.title')} icon="check-circle" description={t('settings.twoFactor.description')}>
