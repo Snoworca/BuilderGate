@@ -8,6 +8,8 @@
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import type { AuthConfig } from '../types/config.types.js';
+
+const DEFAULT_REFRESH_GRACE_SECONDS = 180;
 import type { JWTPayload, TokenBlacklistEntry } from '../types/auth.types.js';
 import { CryptoService } from './CryptoService.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
@@ -23,12 +25,16 @@ export class AuthService {
   private jwtSecret: string;
   private tokenBlacklist: Map<string, number> = new Map();
   private config: AuthConfig;
+  private readonly now: () => number;
+  // REL-BGSTAB-045: jti -> the time (ms) from which a refreshed token is refused.
+  private readonly revokedFrom = new Map<string, number>();
   private cryptoService: CryptoService;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private decryptedPassword: string | null = null;
 
-  constructor(config: AuthConfig, cryptoService: CryptoService) {
+  constructor(config: AuthConfig, cryptoService: CryptoService, options: { now?: () => number } = {}) {
     this.config = config;
+    this.now = options.now ?? (() => Date.now());
     this.cryptoService = cryptoService;
 
     // Initialize JWT secret
@@ -170,8 +176,14 @@ export class AuthService {
     }
 
     // Revoke old token for the rest of its own life (REL-BGSTAB-037 AC-2); the 24 h default
-    // would let a rotated 7-day token become valid again.
-    this.revokeToken(result.payload.jti, result.payload.exp);
+    // would let a rotated 7-day token become valid again. REL-BGSTAB-045: only after a grace
+    // period, so that requests sent around the refresh are not refused and log the user out.
+    // A second refresh of the same old token keeps the first deadline.
+    const graceMs = Math.max(0, this.config.refreshGraceSeconds ?? DEFAULT_REFRESH_GRACE_SECONDS) * 1000;
+    const jti = result.payload.jti;
+    const deadline = this.revokedFrom.get(jti) ?? this.now() + graceMs;
+    this.revokeToken(jti, result.payload.exp);
+    this.revokedFrom.set(jti, deadline);
 
     // Issue new token
     return this.issueToken();
@@ -185,6 +197,7 @@ export class AuthService {
   revokeToken(jti: string, expiresAt?: number): void {
     const expiry = expiresAt || (Math.floor(Date.now() / 1000) + 86400); // Default 24h
     this.tokenBlacklist.set(jti, expiry);
+    this.revokedFrom.delete(jti);
     console.log(`[Auth] Token revoked: jti=${jti}`);
   }
 
@@ -194,7 +207,9 @@ export class AuthService {
    * @returns True if token is revoked
    */
   isTokenRevoked(jti: string): boolean {
-    return this.tokenBlacklist.has(jti);
+    if (!this.tokenBlacklist.has(jti)) return false;
+    const from = this.revokedFrom.get(jti);
+    return from === undefined || this.now() >= from;
   }
 
   /**
@@ -219,6 +234,7 @@ export class AuthService {
     for (const [jti, expiresAt] of this.tokenBlacklist.entries()) {
       if (expiresAt < now) {
         this.tokenBlacklist.delete(jti);
+        this.revokedFrom.delete(jti);
         cleaned++;
       }
     }
@@ -239,9 +255,12 @@ export class AuthService {
   /**
    * Update the runtime-editable auth settings without rotating immutable secrets.
    */
-  updateRuntimeConfig(next: Partial<Pick<AuthConfig, 'password' | 'durationMs'>>): void {
+  updateRuntimeConfig(next: Partial<Pick<AuthConfig, 'password' | 'durationMs' | 'refreshGraceSeconds'>>): void {
     if (next.durationMs !== undefined) {
       this.config.durationMs = next.durationMs;
+    }
+    if (next.refreshGraceSeconds !== undefined) {
+      this.config.refreshGraceSeconds = next.refreshGraceSeconds;
     }
 
     if (next.password !== undefined) {

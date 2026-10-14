@@ -35,7 +35,9 @@ test('REL-BGSTAB-037 AC-1: the former 30-minute default moves to seven days; oth
 });
 
 test('REL-BGSTAB-037 AC-2: refresh extends to the full duration and keeps the old token revoked until it expires', () => {
-  const auth = service();
+  // REL-BGSTAB-045 moved the start of the revocation after a grace period; 0 checks the revocation itself.
+  const auth = new AuthService(authSchema.parse({ refreshGraceSeconds: 0 }), new CryptoService('test-machine'));
+  created.push(auth);
   const first = auth.issueToken();
   const refreshed = auth.refreshToken(first.token);
   assert.ok(refreshed);

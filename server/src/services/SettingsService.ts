@@ -102,6 +102,7 @@ const patchSchema: z.ZodType<SettingsPatchRequest> = z.object({
     confirmPassword: z.string().min(1).optional(),
     durationMs: z.number().min(AUTH_DEFAULTS.MIN_SESSION_DURATION_MS).max(AUTH_DEFAULTS.MAX_SESSION_DURATION_MS).optional(),
     localhostNoAuth: z.boolean().optional(),
+    refreshGraceSeconds: z.number().int().min(0).max(3600).optional(),
   }).strict().optional(),
   twoFactor: z.object({
     enabled: z.boolean().optional(),
@@ -305,6 +306,7 @@ export class SettingsService {
       authService.updateRuntimeConfig({
         password: nextConfig.auth?.password ?? '',
         durationMs: nextConfig.auth?.durationMs ?? AUTH_DEFAULTS.SESSION_DURATION_MS,
+        refreshGraceSeconds: nextConfig.auth?.refreshGraceSeconds ?? 180,
       });
       sessionManager.updateRuntimeConfig({
         idleDelayMs: nextConfig.session.idleDelayMs,
@@ -331,6 +333,7 @@ export class SettingsService {
         authService.updateRuntimeConfig({
           password: previousConfig.auth?.password ?? '',
           durationMs: previousConfig.auth?.durationMs ?? AUTH_DEFAULTS.SESSION_DURATION_MS,
+          refreshGraceSeconds: previousConfig.auth?.refreshGraceSeconds ?? 180,
         });
       } catch (rollbackError) {
         rollbackErrors.push(getErrorMessage(rollbackError));
@@ -394,6 +397,7 @@ function extractPatchKeys(patch: SettingsPatchRequest): EditableSettingsKey[] {
 
   if (patch.auth?.durationMs !== undefined) changed.add('auth.durationMs');
   if (patch.auth?.localhostNoAuth !== undefined) changed.add('auth.localhostNoAuth');
+  if (patch.auth?.refreshGraceSeconds !== undefined) changed.add('auth.refreshGraceSeconds');
   if (patch.auth?.newPassword) changed.add('auth.password');
   if (patch.twoFactor?.externalOnly !== undefined) changed.add('twoFactor.externalOnly');
   if (patch.twoFactor?.enabled !== undefined) changed.add('twoFactor.enabled');

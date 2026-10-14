@@ -3,6 +3,7 @@
  * Phase 7: Frontend Security - Auth API added
  */
 
+import { waitForRefreshInFlight } from './refreshInFlight.ts';
 import type { FileSearchPage } from '../components/fileExplorer/fileSearchController.ts';
 import { tokenStorage } from './tokenStorage.ts';
 import { authFetchWithRetry } from './authRetry.ts';
@@ -107,6 +108,7 @@ async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   return authFetchWithRetry({
     fetch: (request, options) => fetch(request, options),
     readToken: () => tokenStorage.getToken(),
+    waitForRefresh: waitForRefreshInFlight,
     onExpired: () => {
       tokenStorage.clearToken();
       window.dispatchEvent(new Event('auth-expired'));

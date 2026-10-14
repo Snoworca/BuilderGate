@@ -105,6 +105,24 @@
       ]
     },
     {
+      "path": "auth.refreshGraceSeconds",
+      "classification": "user-visible",
+      "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow. REL-BGSTAB-045: seconds a refreshed token keeps working.",
+      "editableInSettings": true,
+      "consumers": [
+        {
+          "module": "frontend/src/components/Settings/SettingsPage.tsx",
+          "symbol": "return",
+          "match": "dotted-path"
+        },
+        {
+          "module": "server/src/services/AuthService.ts",
+          "symbol": "graceMs",
+          "match": "dotted-path"
+        }
+      ]
+    },
+    {
       "path": "bootstrap.allowedIps",
       "classification": "safety-only",
       "reason": "Exists to bound or deny rather than to tune. Not offered in Settings.",

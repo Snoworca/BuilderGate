@@ -187,6 +187,7 @@ function applyEditableValues(
 
   if (shouldApply('auth.durationMs')) setPath(rawConfig, ['auth', 'durationMs'], values.auth.durationMs);
   if (shouldApply('auth.localhostNoAuth')) setPath(rawConfig, ['auth', 'localhostNoAuth'], values.auth.localhostNoAuth);
+  if (shouldApply('auth.refreshGraceSeconds')) setPath(rawConfig, ['auth', 'refreshGraceSeconds'], values.auth.refreshGraceSeconds);
   if (shouldApply('twoFactor.enabled')) setPath(rawConfig, ['twoFactor', 'enabled'], values.twoFactor.enabled);
   if (shouldApply('twoFactor.externalOnly')) setPath(rawConfig, ['twoFactor', 'externalOnly'], values.twoFactor.externalOnly);
   if (shouldApply('twoFactor.issuer')) setPath(rawConfig, ['twoFactor', 'issuer'], values.twoFactor.issuer);
@@ -280,6 +281,7 @@ function renderPatchedConfig(
 
   if (shouldRender('auth.durationMs')) replacements.set('auth.durationMs', renderJson5Value(config.auth?.durationMs ?? 1800000));
   if (shouldRender('auth.localhostNoAuth')) replacements.set('auth.localhostNoAuth', renderJson5Value(config.auth?.localhostNoAuth ?? false));
+  if (shouldRender('auth.refreshGraceSeconds')) replacements.set('auth.refreshGraceSeconds', renderJson5Value(config.auth?.refreshGraceSeconds ?? 180));
   if (shouldRender('twoFactor.enabled')) replacements.set('twoFactor.enabled', renderJson5Value(config.twoFactor?.enabled ?? false));
   if (shouldRender('twoFactor.externalOnly')) replacements.set('twoFactor.externalOnly', renderJson5Value(config.twoFactor?.externalOnly ?? false));
   if (shouldRender('twoFactor.issuer')) replacements.set('twoFactor.issuer', renderJson5Value(config.twoFactor?.issuer ?? 'BuilderGate'));
@@ -403,6 +405,14 @@ function renderPatchedConfig(
           parentPath: 'auth',
           key: 'localhostNoAuth',
           value: renderJson5Value(config.auth?.localhostNoAuth ?? false),
+        }] as const]
+      : []),
+    // REL-BGSTAB-045: an older file has no refreshGraceSeconds line.
+    ...(replacements.has('auth.refreshGraceSeconds')
+      ? [['auth.refreshGraceSeconds', {
+          parentPath: 'auth',
+          key: 'refreshGraceSeconds',
+          value: renderJson5Value(config.auth?.refreshGraceSeconds ?? 180),
         }] as const]
       : []),
     ...(replacements.has('auth.jwtSecret')

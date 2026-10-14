@@ -2033,7 +2033,7 @@ async function testSettingsServiceTwoFactorRuntimeNotCalledOnPersistFailure(): P
         issuer: 'PersistFail',
         accountName: 'admin',
       },
-      auth: { durationMs: fixture.auth!.durationMs, localhostNoAuth: false },
+      auth: { durationMs: fixture.auth!.durationMs, localhostNoAuth: false, refreshGraceSeconds: 180 },
       security: { cors: fixture.security!.cors },
       pty: {
         termName: fixture.pty.termName,
@@ -13964,7 +13964,7 @@ async function testConfigFileRepositoryInsertsMissingUseConpty(): Promise<void> 
 
   try {
     const result = repository.persistEditableValues({
-      auth: { durationMs: fixture.auth!.durationMs, localhostNoAuth: false },
+      auth: { durationMs: fixture.auth!.durationMs, localhostNoAuth: false, refreshGraceSeconds: 180 },
       twoFactor: {
         enabled: fixture.twoFactor?.enabled ?? false,
         externalOnly: fixture.twoFactor?.externalOnly ?? false,
@@ -14009,7 +14009,7 @@ async function testConfigFileRepositoryInsertsMissingPtySection(): Promise<void>
 
   try {
     const result = repository.persistEditableValues({
-      auth: { durationMs: fixture.auth!.durationMs, localhostNoAuth: false },
+      auth: { durationMs: fixture.auth!.durationMs, localhostNoAuth: false, refreshGraceSeconds: 180 },
       twoFactor: {
         enabled: fixture.twoFactor?.enabled ?? false,
         externalOnly: fixture.twoFactor?.externalOnly ?? false,

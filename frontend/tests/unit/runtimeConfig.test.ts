@@ -66,6 +66,7 @@ const settingsSnapshotCapabilities = {
   'auth.password': defaultCapability,
   'auth.durationMs': defaultCapability,
   'auth.localhostNoAuth': defaultCapability,
+  'auth.refreshGraceSeconds': defaultCapability,
   'twoFactor.externalOnly': defaultCapability,
   'twoFactor.enabled': defaultCapability,
   'twoFactor.issuer': defaultCapability,
@@ -130,7 +131,7 @@ const settingsSnapshotCapabilities = {
 
 const settingsSnapshotWithWriteHiddenPolicy = {
   values: {
-    auth: { durationMs: 86_400_000, localhostNoAuth: false },
+    auth: { durationMs: 86_400_000, localhostNoAuth: false, refreshGraceSeconds: 180 },
     twoFactor: {
       enabled: false,
       externalOnly: false,

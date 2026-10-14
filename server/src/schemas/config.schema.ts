@@ -293,6 +293,8 @@ export const authSchema = z.object({
   localhostPasswordOnly: z.boolean().default(false),
   // FR-BGSTAB-034: a browser on this computer logs in without a password.
   localhostNoAuth: z.boolean().default(false),
+  // REL-BGSTAB-045: seconds a refreshed token keeps working before it is revoked.
+  refreshGraceSeconds: z.number().int().min(0).max(3600).default(180),
 });
 
 // ============================================================================

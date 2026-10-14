@@ -469,6 +469,9 @@ export function SettingsPage({ visible, onBack }: Props) {
               <SettingField htmlFor="settings-auth-duration" label={t('settings.auth.duration')} scope={scope(snapshot, 'auth.durationMs')} help={t('settings.auth.durationHelp')}>
                 <NumberInput id="settings-auth-duration" unit="ms" value={draft.auth.durationMs} onChange={(e) => updateDraft((next) => { next.auth.durationMs = Number(e.target.value || draft.auth.durationMs); })} />
               </SettingField>
+              <SettingField htmlFor="settings-auth-refresh-grace" label={t('settings.auth.refreshGrace')} scope={scope(snapshot, 'auth.refreshGraceSeconds')} help={t('settings.auth.refreshGraceHelp')}>
+                <NumberInput id="settings-auth-refresh-grace" data-testid="settings-auth-refresh-grace" unit="s" min={0} max={3600} step={1} value={draft.auth.refreshGraceSeconds} onChange={(e) => updateDraft((next) => { next.auth.refreshGraceSeconds = Number(e.target.value === '' ? draft.auth.refreshGraceSeconds : e.target.value); })} />
+              </SettingField>
               <SettingField
                 htmlFor="settings-auth-current-password"
                 label={t('settings.auth.currentPassword')}

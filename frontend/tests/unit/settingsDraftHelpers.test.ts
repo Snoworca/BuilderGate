@@ -183,7 +183,7 @@ function noSecrets(): SecretPatchDraft {
 
 function createEditableValues(): EditableSettingsValues {
   return {
-    auth: { durationMs: 1_800_000, localhostNoAuth: false },
+    auth: { durationMs: 1_800_000, localhostNoAuth: false, refreshGraceSeconds: 180 },
     twoFactor: {
       enabled: false,
       externalOnly: false,
@@ -283,6 +283,7 @@ const ALL_KEYS: EditableSettingsKey[] = [
   'auth.password',
   'auth.durationMs',
   'auth.localhostNoAuth',
+  'auth.refreshGraceSeconds',
   'twoFactor.externalOnly',
   'twoFactor.enabled',
   'twoFactor.issuer',
@@ -386,4 +387,11 @@ test('FR-BGSTAB-034 AC-5: switching localhost login without a password goes into
   assert.equal(buildSettingsPatch(initial, draft, noSecrets(), createCapabilities()).auth, undefined);
   draft.auth.localhostNoAuth = true;
   assert.deepEqual(buildSettingsPatch(initial, draft, noSecrets(), createCapabilities()).auth, { localhostNoAuth: true });
+});
+
+test('REL-BGSTAB-045 AC-4: a changed refresh grace goes into the auth patch alone', () => {
+  const initial = createEditableValues();
+  const draft = structuredClone(initial);
+  draft.auth.refreshGraceSeconds = 300;
+  assert.deepEqual(buildSettingsPatch(initial, draft, noSecrets(), createCapabilities()).auth, { refreshGraceSeconds: 300 });
 });

@@ -222,6 +222,8 @@ export interface AuthConfig {
   localhostPasswordOnly?: boolean;
   /** FR-BGSTAB-034 */
   localhostNoAuth?: boolean;
+  /** REL-BGSTAB-045 */
+  refreshGraceSeconds?: number;
 }
 
 // ============================================================================
