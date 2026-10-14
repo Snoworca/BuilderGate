@@ -1545,6 +1545,11 @@ async function startServer(): Promise<void> {
       recordCleanupEvidence: (event) => console.info('[MCP Agent Cleanup]', JSON.stringify(event)),
     });
     const mcpToolService = createMcpToolService({
+      // FR-MCP-010: tell MCP clients about the user's agent launch aliases.
+      getAgentAliases: () => {
+        const all = agentAliasService?.getAll();
+        return all ? { claude: all.claude.aliases, codex: all.codex.aliases } : undefined;
+      },
       now: () => new Date().toISOString(),
       audit: (event) => console.info('[MCP Tool Audit]', JSON.stringify(event)),
       log: (event) => console.info('[MCP]', JSON.stringify(event)),
