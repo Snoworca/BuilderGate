@@ -4,6 +4,7 @@ export type EditableSettingsKey =
   | 'auth.password'
   | 'auth.durationMs'
   | 'auth.localhostNoAuth'
+  | 'auth.refreshGraceSeconds'
   | 'twoFactor.externalOnly'
   | 'twoFactor.enabled'
   | 'twoFactor.issuer'
@@ -143,6 +144,7 @@ export interface EditableSettingsValues {
   auth: {
     durationMs: number;
     localhostNoAuth: boolean;
+    refreshGraceSeconds: number;
   };
   twoFactor: {
     enabled: boolean;
@@ -203,6 +205,7 @@ export interface SettingsPatchRequest {
     confirmPassword?: string;
     durationMs?: number;
     localhostNoAuth?: boolean;
+    refreshGraceSeconds?: number;
   };
   twoFactor?: {
     enabled?: boolean;

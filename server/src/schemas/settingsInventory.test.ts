@@ -356,7 +356,7 @@ test('OPS-BGSTAB-011 the schema walk refuses shapes it would silently mis-count'
 });
 
 // @req OPS-BGSTAB-011 AC-1
-test('OPS-BGSTAB-011 the configuration schema still has exactly 90 leaves', () => {
+test('OPS-BGSTAB-011 the configuration schema still has exactly 91 leaves', () => {
   // The pin the inventory is sized against. It is asserted separately from the
   // coverage test so that a change in the schema's shape is distinguishable
   // from a change in the inventory.
@@ -384,5 +384,8 @@ test('OPS-BGSTAB-011 the configuration schema still has exactly 90 leaves', () =
   //
   // 89 -> 90 on 2026-10-14 (FR-BGSTAB-034): auth.localhostNoAuth, editable in Settings and
   // classified user-visible.
-  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 90);
+  //
+  // 90 -> 91 on 2026-10-15 (REL-BGSTAB-045): auth.refreshGraceSeconds, editable in Settings and
+  // classified user-visible.
+  assert.equal(listConfigSchemaLeafPaths(configSchema).length, 91);
 });

@@ -8,6 +8,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { tokenStorage } from '../services/tokenStorage';
+import { trackRefresh } from '../services/refreshInFlight.ts';
 import { authApi } from '../services/api';
 import { tryLocalLogin } from '../services/localLogin';
 import type { AuthState, BootstrapStatusResponse } from '../types';
@@ -318,8 +319,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Token refresh handler
   const refreshToken = useCallback(async (): Promise<boolean> => {
     try {
-      const response = await authApi.refresh();
-      tokenStorage.setToken(response.token, response.expiresIn);
+      // REL-BGSTAB-045 AC-3: requests that get 401 meanwhile wait for this to store the new token.
+      const response = await trackRefresh((async () => {
+        const next = await authApi.refresh();
+        tokenStorage.setToken(next.token, next.expiresIn);
+        return next;
+      })());
       setState(s => ({
         ...s,
         expiresAt: Date.now() + response.expiresIn

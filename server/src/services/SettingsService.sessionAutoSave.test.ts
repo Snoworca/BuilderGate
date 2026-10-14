@@ -136,6 +136,21 @@ test('FR-BGSTAB-034 AC-1/AC-5: localhostNoAuth is off by default, applies at onc
   }
 });
 
+// REL-BGSTAB-045 — the refresh grace goes through the same Settings save path.
+test('REL-BGSTAB-045 AC-2: refreshGraceSeconds defaults to 180, applies at once and is written to an older file', async () => {
+  const h = await harness();
+  try {
+    assert.equal(h.store.getEditableValues().auth.refreshGraceSeconds, 180);
+    h.service.savePatch({ auth: { refreshGraceSeconds: 600 } } as never);
+    assert.equal(h.store.getEditableValues().auth.refreshGraceSeconds, 600);
+    const saved = JSON5.parse(await fs.readFile(h.configPath, 'utf-8')) as Config;
+    assert.equal(saved.auth?.refreshGraceSeconds, 600);
+    assert.throws(() => h.service.savePatch({ auth: { refreshGraceSeconds: 3601 } } as never));
+  } finally {
+    await h.dispose();
+  }
+});
+
 function createConfigFixture(): Config {
   return {
     server: { port: 4242 },

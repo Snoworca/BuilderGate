@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-14T15:57:32.864Z",
+  "generatedAt": "2026-10-14T18:21:26.413Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "6f073454887085ab5450388b6c335be4d1219ad548ecb2641a172add84f54747",
+    "value": "7607713f11db61c221555e94ae67df9d4bc996ebb3dde6b198251831aec7e978",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -26,15 +26,15 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "e3be7f9a4ad7fa8ff247b4951cf8012a1cfe7ef4114257d9ca37fed6320b69ee",
-        "size": 1480095,
-        "mtimeMs": 1791970532347.8516
+        "sha256": "18defc5e09f0f546b992f61ab618b743c7b3ad1130bf24652ef270ac6957426e",
+        "size": 1483910,
+        "mtimeMs": 1792002075817.1313
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "57d7a3d5a3ba32beca00c48a96a318c2c1793108955a2338cf02385b5c90450c",
         "size": 133261,
-        "mtimeMs": 1791993443301.2524
+        "mtimeMs": 1792001453175.1023
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
@@ -101,7 +101,7 @@
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 44,
+      "BGSTAB": 45,
       "MCP": 1
     },
     "non_functional": {

@@ -137,6 +137,7 @@ export function renderBootstrapConfigTemplate(platform: NodeJS.Platform): string
     jwtSecret: "",
     localhostPasswordOnly: false,
     localhostNoAuth: false,
+    refreshGraceSeconds: 180,
   },
 
   fileManager: {

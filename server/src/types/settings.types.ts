@@ -12,6 +12,7 @@ export type EditableSettingsKey =
   | 'auth.password'
   | 'auth.durationMs'
   | 'auth.localhostNoAuth'
+  | 'auth.refreshGraceSeconds'
   | 'twoFactor.externalOnly'
   | 'twoFactor.enabled'
   | 'twoFactor.issuer'
@@ -92,6 +93,7 @@ export interface FieldCapability {
 export interface AuthEditableSettings {
   durationMs: number;
   localhostNoAuth: boolean;
+  refreshGraceSeconds: number;
 }
 
 export interface PasswordChangeRequest {

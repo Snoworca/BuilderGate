@@ -1057,5 +1057,7 @@
   "mcp.security.unitMilliseconds": "ms",
   "mcp.validation.submitEnterDelay": "Enter 전송 전 대기는 0~5000, 1KB당 추가 대기는 0~1000 사이의 정수로 입력하세요.",
   "settings.localhostNoAuth.label": "이 컴퓨터에서는 로그인 화면을 건너뜀",
-  "settings.localhostNoAuth.help": "켜면 이 컴퓨터의 브라우저는 비밀번호 없이 BuilderGate 를 엽니다. 이 컴퓨터를 쓸 수 있는 사람, 또는 이 컴퓨터의 리버스 프록시를 거쳐 들어오는 사람은 모든 터미널을 포함해 전체 권한을 얻습니다. 다른 컴퓨터에서 접속하면 여전히 비밀번호가 필요합니다. 기본값은 꺼짐입니다."
+  "settings.localhostNoAuth.help": "켜면 이 컴퓨터의 브라우저는 비밀번호 없이 BuilderGate 를 엽니다. 이 컴퓨터를 쓸 수 있는 사람, 또는 이 컴퓨터의 리버스 프록시를 거쳐 들어오는 사람은 모든 터미널을 포함해 전체 권한을 얻습니다. 다른 컴퓨터에서 접속하면 여전히 비밀번호가 필요합니다. 기본값은 꺼짐입니다.",
+  "settings.auth.refreshGrace": "토큰 갱신 유예 시간",
+  "settings.auth.refreshGraceHelp": "페이지가 로그인 토큰을 갱신한 뒤에도 옛 토큰을 계속 받아 주는 시간(초)입니다. 그 순간 보낸 요청 때문에 로그아웃되지 않게 합니다. 0~3600, 기본 180."
 }

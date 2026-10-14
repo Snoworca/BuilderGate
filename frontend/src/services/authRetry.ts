@@ -6,11 +6,14 @@ export interface AuthRetryDeps {
   fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   readToken: () => string | null;
   onExpired: () => void;
+  /** REL-BGSTAB-045 AC-3: resolves when this page's refresh in progress, if any, has finished. */
+  waitForRefresh?: () => Promise<void>;
 }
 
 export async function authFetchWithRetry(deps: AuthRetryDeps, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const res = await deps.fetch(input, init);
   if (res.status !== 401) return res;
+  await deps.waitForRefresh?.();
   const headers = new Headers(init?.headers);
   const sent = headers.get('Authorization');
   const current = deps.readToken();

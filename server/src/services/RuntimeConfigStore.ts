@@ -76,6 +76,7 @@ const FIELD_SCOPES: Record<EditableSettingsKey, Omit<FieldCapability, 'available
   'auth.password': { applyScope: 'new_logins', writeOnly: true },
   'auth.durationMs': { applyScope: 'new_logins', writeOnly: false },
   'auth.localhostNoAuth': { applyScope: 'new_logins', writeOnly: false },
+  'auth.refreshGraceSeconds': { applyScope: 'immediate', writeOnly: false },
   'twoFactor.externalOnly': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.enabled': { applyScope: 'new_logins', writeOnly: false },
   'twoFactor.issuer': { applyScope: 'new_logins', writeOnly: false },
@@ -1289,6 +1290,9 @@ export class RuntimeConfigStore {
     if (patch.auth?.localhostNoAuth !== undefined) {
       next.auth.localhostNoAuth = patch.auth.localhostNoAuth;
     }
+    if (patch.auth?.refreshGraceSeconds !== undefined) {
+      next.auth.refreshGraceSeconds = patch.auth.refreshGraceSeconds;
+    }
     if (patch.auth?.durationMs !== undefined) {
       next.auth.durationMs = patch.auth.durationMs;
     }
@@ -1419,6 +1423,7 @@ function buildEditableValues(source: Config, platform: NodeJS.Platform): Editabl
     auth: {
       durationMs: source.auth?.durationMs ?? authDefaults.durationMs,
       localhostNoAuth: source.auth?.localhostNoAuth ?? false,
+      refreshGraceSeconds: source.auth?.refreshGraceSeconds ?? authDefaults.refreshGraceSeconds,
     },
     twoFactor: {
       enabled: source.twoFactor?.enabled ?? twoFactorDefaults.enabled,

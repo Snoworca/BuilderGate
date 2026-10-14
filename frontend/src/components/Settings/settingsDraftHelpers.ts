@@ -153,10 +153,11 @@ export function buildSettingsPatch(
 ): SettingsPatchRequest {
   const patch: SettingsPatchRequest = {};
 
-  if (initial.auth.durationMs !== draft.auth.durationMs || initial.auth.localhostNoAuth !== draft.auth.localhostNoAuth || secrets.currentPassword || secrets.newPassword || secrets.confirmPassword) {
+  if (initial.auth.durationMs !== draft.auth.durationMs || initial.auth.localhostNoAuth !== draft.auth.localhostNoAuth || initial.auth.refreshGraceSeconds !== draft.auth.refreshGraceSeconds || secrets.currentPassword || secrets.newPassword || secrets.confirmPassword) {
     patch.auth = {};
     if (initial.auth.durationMs !== draft.auth.durationMs) patch.auth.durationMs = draft.auth.durationMs;
     if (initial.auth.localhostNoAuth !== draft.auth.localhostNoAuth) patch.auth.localhostNoAuth = draft.auth.localhostNoAuth;
+    if (initial.auth.refreshGraceSeconds !== draft.auth.refreshGraceSeconds) patch.auth.refreshGraceSeconds = draft.auth.refreshGraceSeconds;
     if (secrets.currentPassword) patch.auth.currentPassword = secrets.currentPassword;
     if (secrets.newPassword) patch.auth.newPassword = secrets.newPassword;
     if (secrets.confirmPassword) patch.auth.confirmPassword = secrets.confirmPassword;
