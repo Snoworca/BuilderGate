@@ -368,6 +368,7 @@
   "mcp.auditAction.buildergateTerminalCreate": "Open terminal",
   "mcp.auditAction.buildergateTerminalDelete": "Close terminal",
   "mcp.auditAction.buildergateTerminalExec": "Run command",
+  "mcp.auditAction.buildergateTerminalRead": "Read terminal screen",
   "mcp.auditAction.code": "Action code: {value}",
   "mcp.auditAction.fallback": "Audit",
   "mcp.auditAction.inputGateway": "Input gateway",

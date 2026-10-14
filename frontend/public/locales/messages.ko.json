@@ -363,6 +363,7 @@
   "mcp.auditAction.buildergateTerminalCreate": "터미널 열기",
   "mcp.auditAction.buildergateTerminalDelete": "터미널 닫기",
   "mcp.auditAction.buildergateTerminalExec": "명령 실행",
+  "mcp.auditAction.buildergateTerminalRead": "터미널 화면 읽기",
   "mcp.auditAction.code": "작업 코드: {value}",
   "mcp.auditAction.fallback": "감사",
   "mcp.auditAction.inputGateway": "입력 게이트웨이",
