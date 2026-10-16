@@ -14,6 +14,8 @@ import { ORIGIN, newOwnedFolder, setUpOwnedFolder, tearDownOwnedFolder, type Own
 
 // Not .bin: the default config blocks .exe, .dll, .so and .bin, which the download refuses.
 const FILE_NAME = '보고서 v2.dat';
+// What the server's ASCII filename= fallback holds for FILE_NAME (non-ASCII characters as '_').
+const ASCII_FALLBACK_NAME = FILE_NAME.replace(/[^\x20-\x7e]/g, '_');
 const BYTES = Buffer.from(Array.from({ length: 300_000 }, (_, i) => (i * 31 + 7) & 0xff));
 
 const isPhone = (project: { use: { isMobile?: boolean; hasTouch?: boolean } }) =>
@@ -59,7 +61,10 @@ test.describe('file download', () => {
       await item.click();
     }
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe(FILE_NAME);
+    // The server names the file twice (RFC 6266): filename* in UTF-8 and an ASCII filename. Chromium
+    // reads filename*; Playwright's Windows WebKit build reads only the ASCII one. Either is the
+    // server's name for this file; anything else is not.
+    expect([FILE_NAME, ASCII_FALLBACK_NAME]).toContain(download.suggestedFilename());
     const saved = await download.path();
     expect(saved, 'the browser saved the file').toBeTruthy();
     const bytes = readFileSync(saved!);

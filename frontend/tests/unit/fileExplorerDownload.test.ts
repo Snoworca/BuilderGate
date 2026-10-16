@@ -51,4 +51,6 @@ test('FR-FEX-021 AC-4: the download is handed to the browser through a link to t
   assert.match(source, /document\.createElement\('a'\)/);
   assert.match(source, /\.click\(\)/);
   assert.doesNotMatch(source, /\.blob\(\)|createObjectURL/, 'the file is not held in page memory');
+  // WebKit ignores a scripted click on a link with a download attribute after an await.
+  assert.doesNotMatch(source, /\.download\s*=/, 'no download attribute on the link');
 });
