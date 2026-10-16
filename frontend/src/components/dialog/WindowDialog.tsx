@@ -9,7 +9,7 @@ import {
   writeDialogGeometry,
 } from './dialogGeometry';
 import { useDialogStack } from './dialogStack';
-import { createWindowDialogBehaviorModel, selectGeometryToPersist, windowDialogTitleText } from './windowDialogModel';
+import { createWindowDialogBehaviorModel, selectGeometryToPersist, WINDOW_DIALOG_DRAG_CANCEL, windowDialogTitleText } from './windowDialogModel';
 import { isDialogRectMoved } from './dialogDragCommit';
 import type { DialogRect, DialogSize, WindowDialogProps } from './types';
 import './WindowDialog.css';
@@ -359,6 +359,7 @@ export function WindowDialog({
         bounds={boundsElement ?? 'window'}
         disableDragging={!movable}
         dragHandleClassName="window-dialog-titlebar"
+        cancel={WINDOW_DIALOG_DRAG_CANCEL}
         size={{ width: rect.width, height: rect.height }}
         position={{ x: rect.x, y: rect.y }}
         minWidth={renderedMinSize.width}

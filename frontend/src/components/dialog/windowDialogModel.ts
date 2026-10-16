@@ -79,3 +79,16 @@ export function createWindowDialogBehaviorModel(input: {
 export function selectGeometryToPersist<R>(input: { isControlled: boolean; liveRect: R; floatingRect: R }): R {
   return input.isControlled ? input.floatingRect : input.liveRect;
 }
+
+/**
+ * FR-UIDS-010: the title bar is the drag handle, and react-draggable calls preventDefault on a
+ * touchstart inside it, so the browser never makes a click out of a tap on a title bar button.
+ * The draggable's cancel selector is checked before that call; the title text still drags.
+ */
+export const WINDOW_DIALOG_DRAG_CANCEL = [
+  '.window-dialog-titlebar button',
+  '.window-dialog-titlebar [role="button"]',
+  '.window-dialog-titlebar input',
+  '.window-dialog-titlebar select',
+  '.window-dialog-titlebar a',
+].join(', ');
