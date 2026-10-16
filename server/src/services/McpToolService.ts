@@ -91,6 +91,9 @@ const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and w
   + 'buildergate.terminal.exec types a command with Enter; pass waitMs to read the screen afterwards. '
   // FR-MCP-009 AC-5
   + "buildergate.terminal.read returns a terminal's text without sending input; use it to watch another session. "
+  // FR-MCP-012 AC-8
+  + 'buildergate.editor.open_markdown shows the user a markdown file or markdown text (saved to a file first) in the BuilderGate editor; '
+  + 'buildergate.editor.open_code and buildergate.editor.open_image open saved files. A session agent may leave the terminal out to use its own working directory. '
   // FR-MCP-002 AC-9
   + 'Use these tools to orchestrate other sessions: open terminals, start coding agents, send them prompts and read their screens. '
   + 'A submit (buildergate.terminal.exec, or buildergate.message.send with deliveryMode submit) already presses Enter, '

@@ -34,11 +34,37 @@ export interface McpWorkspaceControl {
   /** Submits `command` (with Enter) through the MCP input gateway. */
   execTerminal(terminal: McpTerminalView, command: string, actor: Rec): Promise<Rec>;
   readTerminalText(sessionId: string, maxLines: number): string | null;
+  /**
+   * FR-MCP-012 AC-5: resolves `filePath` against the session's current working directory with the
+   * file API's rules, throwing PATH_TRAVERSAL / PATH_BLOCKED, and says whether it is there.
+   */
+  inspectEditorFile(sessionId: string, filePath: string): Promise<McpEditorFileInfo>;
+  /** FR-MCP-012 AC-2: writes `content` (creating parent directories) and returns the absolute path. */
+  writeEditorFile(sessionId: string, filePath: string, content: string): Promise<string>;
+  /** FR-MCP-012 AC-7: tells every browser to open the file in the workspace's editor window. */
+  openEditor(request: McpEditorOpenRequest): void;
+}
+
+export interface McpEditorFileInfo {
+  path: string;
+  exists: boolean;
+  isFile: boolean;
+}
+
+export type McpEditorKind = 'markdown' | 'code' | 'image';
+
+export interface McpEditorOpenRequest {
+  workspaceId: string;
+  terminalId: string;
+  filePath: string;
+  kind: McpEditorKind;
 }
 
 export interface McpManagementDeps {
   workspaceControl?: McpWorkspaceControl;
   sleep?: (ms: number) => Promise<void>;
+  /** ISO time; names the file open_markdown saves text to (FR-MCP-012 AC-2). */
+  now?: () => string;
 }
 
 export const MCP_MANAGEMENT_TOOL_NAMES = [
@@ -51,6 +77,9 @@ export const MCP_MANAGEMENT_TOOL_NAMES = [
   'buildergate.terminal.delete',
   'buildergate.terminal.exec',
   'buildergate.terminal.read',
+  'buildergate.editor.open_markdown',
+  'buildergate.editor.open_code',
+  'buildergate.editor.open_image',
 ] as const;
 
 export type McpManagementToolName = typeof MCP_MANAGEMENT_TOOL_NAMES[number];
@@ -67,6 +96,17 @@ const terminalRef = {
   terminalId: { type: 'string', description: 'Terminal (tab) id. Use this, or terminalName with a workspace.' },
   terminalName: { type: 'string', description: 'Terminal name inside the given workspace.' },
 };
+// FR-MCP-012
+const editorTarget = {
+  workspaceId: workspaceRef.workspaceId,
+  workspaceName: workspaceRef.workspaceName,
+  terminalId: { type: 'string', description: 'Terminal (tab) whose working directory the file is in. A session agent may leave the terminal out to mean its own.' },
+  terminalName: terminalRef.terminalName,
+};
+const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown']);
+// The extensions the editor opens in the image viewer (frontend/src/editor/editorMode.ts).
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.avif', '.svg']);
+const MCP_DOCS_DIR = '.buildergate/mcp-docs';
 
 export const MCP_MANAGEMENT_TOOL_SCHEMAS: Record<McpManagementToolName, Rec> = {
   'buildergate.workspace.list': { type: 'object', properties: {}, additionalProperties: false },
@@ -130,6 +170,36 @@ export const MCP_MANAGEMENT_TOOL_SCHEMAS: Record<McpManagementToolName, Rec> = {
     },
     additionalProperties: false,
   },
+  // FR-MCP-012
+  'buildergate.editor.open_markdown': {
+    type: 'object',
+    properties: {
+      ...editorTarget,
+      filePath: { type: 'string', description: 'A .md or .markdown file, absolute or relative to the terminal\'s working directory. Without content it must exist.' },
+      content: { type: 'string', description: 'Markdown text to save and open. Saved to filePath, or without filePath to a new file under .buildergate/mcp-docs/.' },
+      title: { type: 'string', description: 'With content and no filePath: added to the new file name.' },
+      overwrite: { type: 'boolean', description: 'With content and filePath: replace an existing file. Default false.' },
+    },
+    additionalProperties: false,
+  },
+  'buildergate.editor.open_code': {
+    type: 'object',
+    properties: {
+      ...editorTarget,
+      filePath: { type: 'string', description: 'A saved file, absolute or relative to the terminal\'s working directory.' },
+    },
+    required: ['filePath'],
+    additionalProperties: false,
+  },
+  'buildergate.editor.open_image': {
+    type: 'object',
+    properties: {
+      ...editorTarget,
+      filePath: { type: 'string', description: 'A saved image (png, jpg, jpeg, gif, webp, bmp, ico, avif, svg), absolute or relative to the terminal\'s working directory.' },
+    },
+    required: ['filePath'],
+    additionalProperties: false,
+  },
 };
 
 export const MCP_MANAGEMENT_TOOL_DESCRIPTIONS: Record<McpManagementToolName, string> = {
@@ -142,6 +212,9 @@ export const MCP_MANAGEMENT_TOOL_DESCRIPTIONS: Record<McpManagementToolName, str
   'buildergate.terminal.delete': 'Close a terminal given by terminalId, or by terminalName within a workspace. Requires confirm: true.',
   'buildergate.terminal.exec': 'Run a command in a terminal and optionally return its screen text after waitMs.',
   'buildergate.terminal.read': 'Return the last lines of a terminal\'s text (screen and scrollback) without sending it any input.',
+  'buildergate.editor.open_markdown': 'Open a markdown file in the BuilderGate editor window, or save the given markdown text to a file and open it.',
+  'buildergate.editor.open_code': 'Open a saved source or text file in the BuilderGate editor window.',
+  'buildergate.editor.open_image': 'Open a saved image file in the BuilderGate image viewer.',
 };
 
 const REQUIRED_SCOPE: Record<McpManagementToolName, string> = {
@@ -156,6 +229,10 @@ const REQUIRED_SCOPE: Record<McpManagementToolName, string> = {
   // FR-MCP-009 AC-3: the screen is what exec with waitMs already returns, so it needs the same
   // scope; session actors do not hold it and cannot read other sessions' screens.
   'buildergate.terminal.read': 'mcp:terminals.exec',
+  // FR-MCP-012 AC-6
+  'buildergate.editor.open_markdown': 'mcp:editor.open',
+  'buildergate.editor.open_code': 'mcp:editor.open',
+  'buildergate.editor.open_image': 'mcp:editor.open',
 };
 
 export function isMcpManagementTool(name: string): name is McpManagementToolName {
@@ -265,7 +342,115 @@ async function dispatch(
       if (output === null) return { ok: false, code: 'TARGET_NOT_LIVE', terminalId: target.terminal.id };
       return { ok: true, terminalId: target.terminal.id, sessionId: target.terminal.sessionId, output };
     }
+    case 'buildergate.editor.open_markdown':
+    case 'buildergate.editor.open_code':
+    case 'buildergate.editor.open_image':
+      return openInEditor(deps, control, name, workspaces, terminals, actor, args);
   }
+}
+
+// FR-MCP-012
+async function openInEditor(
+  deps: McpManagementDeps,
+  control: McpWorkspaceControl,
+  name: 'buildergate.editor.open_markdown' | 'buildergate.editor.open_code' | 'buildergate.editor.open_image',
+  workspaces: McpWorkspaceView[],
+  terminals: McpTerminalView[],
+  actor: Rec,
+  args: Rec,
+): Promise<Rec> {
+  const kind: McpEditorKind = name === 'buildergate.editor.open_markdown' ? 'markdown'
+    : name === 'buildergate.editor.open_code' ? 'code' : 'image';
+  const target = resolveEditorTerminal(workspaces, terminals, actor, args);
+  if (!target.ok) return target.error;
+  const terminal = target.terminal;
+  const filePath = optionalString(args.filePath);
+  const content = typeof args.content === 'string' ? args.content : undefined;
+
+  if (kind !== 'markdown' && content !== undefined) {
+    return validation({ content: 'only buildergate.editor.open_markdown accepts content; save the file first' });
+  }
+  if (!filePath && content === undefined) return validation({ filePath: 'filePath or content is required' });
+  if (filePath) {
+    const extError = checkExtension(kind, filePath);
+    if (extError) return extError;
+  }
+
+  let openPath: string;
+  let created = false;
+  if (content !== undefined) {
+    const destination = filePath ?? `${MCP_DOCS_DIR}/${docFileName(deps.now?.() ?? new Date().toISOString(), optionalString(args.title))}`;
+    const info = await control.inspectEditorFile(terminal.sessionId, destination);
+    if (info.exists && !info.isFile) return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: { filePath: 'is a directory' } };
+    if (info.exists && args.overwrite !== true) {
+      return { ok: false, code: 'FILE_EXISTS', filePath: info.path, message: 'Pass overwrite: true to replace it.' };
+    }
+    openPath = await control.writeEditorFile(terminal.sessionId, info.path, content);
+    created = true;
+  } else {
+    const info = await control.inspectEditorFile(terminal.sessionId, filePath!);
+    if (!info.exists || !info.isFile) return { ok: false, code: 'FILE_NOT_FOUND', filePath: info.path };
+    openPath = info.path;
+  }
+
+  control.openEditor({ workspaceId: terminal.workspaceId, terminalId: terminal.id, filePath: openPath, kind });
+  return { ok: true, terminalId: terminal.id, workspaceId: terminal.workspaceId, filePath: openPath, kind, created };
+}
+
+function extensionOf(filePath: string): string {
+  const base = filePath.split(/[\\/]/u).pop() ?? '';
+  const dot = base.lastIndexOf('.');
+  return dot > 0 ? base.slice(dot).toLowerCase() : '';
+}
+
+function checkExtension(kind: McpEditorKind, filePath: string): Rec | null {
+  const ext = extensionOf(filePath);
+  if (kind === 'markdown' && !MARKDOWN_EXTENSIONS.has(ext)) {
+    return validation({ filePath: 'must be a .md or .markdown file; use buildergate.editor.open_code for other files' });
+  }
+  if (kind === 'code' && IMAGE_EXTENSIONS.has(ext)) {
+    return validation({ filePath: 'is an image; use buildergate.editor.open_image' });
+  }
+  if (kind === 'image' && !IMAGE_EXTENSIONS.has(ext)) {
+    return validation({ filePath: `must be an image (${[...IMAGE_EXTENSIONS].join(', ')})` });
+  }
+  return null;
+}
+
+/** yyyyMMdd-HHmmss in local time, then the title as a slug. */
+function docFileName(iso: string, title: string | undefined): string {
+  const parsed = new Date(iso);
+  const d = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  const slug = (title ?? '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/gu, '')
+    .slice(0, 48)
+    .replace(/-+$/u, '');
+  return slug ? `${stamp}-${slug}.md` : `${stamp}.md`;
+}
+
+/**
+ * FR-MCP-012 AC-6: a session actor without mcp:terminals.exec opens files only in its own terminal,
+ * which is also what an omitted address means for it.
+ */
+function resolveEditorTerminal(workspaces: McpWorkspaceView[], terminals: McpTerminalView[], actor: Rec, args: Rec): TerminalResolution {
+  const scopes = Array.isArray(actor.scopes) ? actor.scopes.map(String) : [];
+  const sessionKey = typeof actor.sessionKey === 'string' && actor.sessionKey !== '' ? actor.sessionKey : null;
+  const confined = sessionKey !== null && !scopes.includes('mcp:terminals.exec');
+  const addressed = Boolean(optionalString(args.terminalId) || optionalString(args.terminalName));
+  if (!addressed && sessionKey !== null) {
+    const own = terminals.find(t => t.sessionKey === sessionKey);
+    return own ? { ok: true, terminal: own } : { ok: false, error: { ok: false, code: 'TARGET_NOT_FOUND', fieldErrors: { terminalId: 'the calling session has no terminal' } } };
+  }
+  const resolved = resolveTerminal(workspaces, terminals, args);
+  if (resolved.ok && confined && resolved.terminal.sessionKey !== sessionKey) {
+    return { ok: false, error: { ok: false, code: 'INVALID_SCOPE', message: 'A session agent opens files only in its own terminal.' } };
+  }
+  return resolved;
 }
 
 type WorkspaceResolution = { ok: true; workspace: McpWorkspaceView } | { ok: false; error: Rec };

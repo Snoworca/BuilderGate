@@ -184,6 +184,9 @@ export interface UseWorkspaceManagerReturn {
   // Session status update
   updateTabStatus: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
   updateTabCwd: (sessionId: string, cwd: string) => void;
+
+  /** FR-MCP-012 AC-7: receives the `editor:open` broadcasts; null stops listening. */
+  setEditorOpenListener: (listener: ((data: unknown) => void) | null) => void;
 }
 
 // ============================================================================
@@ -301,9 +304,19 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     return () => { cancelled = true; };
   }, [wsStatus]);
 
+  // FR-MCP-012 AC-7: the editor owns what an open request means; this hook only hands it over,
+  // because the WebSocket context holds one handler table and this hook fills it.
+  const editorOpenListenerRef = useRef<((data: unknown) => void) | null>(null);
+  const setEditorOpenListener = useCallback((listener: ((data: unknown) => void) | null) => {
+    editorOpenListenerRef.current = listener;
+  }, []);
+
   // Register workspace event handlers via WS
   useEffect(() => {
     setWorkspaceHandlers({
+      'editor:open': (data) => {
+        editorOpenListenerRef.current?.(data);
+      },
       'workspace:created': (data) => {
         const wsData = data as Workspace;
         setWorkspaces(prev => {
@@ -712,5 +725,6 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     updateGrid,
     updateTabStatus,
     updateTabCwd,
+    setEditorOpenListener,
   };
 }

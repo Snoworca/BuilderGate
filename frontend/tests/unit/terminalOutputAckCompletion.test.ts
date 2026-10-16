@@ -67,6 +67,8 @@ function harness(deferRestore = false) {
     getTerminalWriteCoordinator: () => ({ submitCompatibility: (write: Write) => { writes.push(write); return { accepted: true }; } }),
     inFlightOutputRef: inFlight, xtermGenerationRef: { current: 7 },
     LARGE_WRITE_THRESHOLD: 10000, requestViewportSync: () => {}, scheduleSnapshotSave: () => {},
+    // FR-ARCH-009: read only for writes over the threshold, which this harness does not send.
+    isViewportAtBottom: () => true,
     containerRef: { current: null }, outputTimerRef: { current: null },
     setTimeout: () => 1, clearTimeout: () => {},
   });

@@ -10,7 +10,7 @@ import {
   type ContextMenuNavigationPage,
 } from './contextMenuNavigation';
 import { placeRootContextMenu, placeSubContextMenu } from './contextMenuGeometry';
-import { normalizeContextMenuItems } from './contextMenuModel';
+import { normalizeContextMenuItems, shouldBackdropPressClose } from './contextMenuModel';
 import { useContextMenuHistory } from './useContextMenuHistory';
 import './ContextMenu.css';
 import { t } from '../../i18n/i18n.ts';
@@ -516,6 +516,9 @@ function MobileContextMenuDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<Element | null>(restoreFocusElement ?? getPreviousActiveElement());
   const skipNextFocusRestoreRef = useRef(false);
+  // FR-FEX-020 AC-2: set by a pointerdown on the backdrop after the menu opened.
+  const backdropPressRef = useRef(false);
+  const backdropCloseOnTouchEndRef = useRef(false);
   const [pageStack, setPageStack] = useState<ContextMenuNavigationPage[]>(() => [
     createContextMenuRootPage(items),
   ]);
@@ -627,10 +630,34 @@ function MobileContextMenuDialog({
   return createPortal(
     <div
       className="context-menu-dialog-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          closeWithHistory();
+      onPointerDown={(event) => {
+        backdropPressRef.current = event.target === event.currentTarget;
+      }}
+      // Pointer events, not mousedown: a browser that cancels a tap's compatibility mouse events
+      // sends no mousedown at all, and the release of the press that opened the menu sends one
+      // onto this backdrop. A touch's pointerup goes to where its press started.
+      onPointerUp={(event) => {
+        const close = shouldBackdropPressClose({
+          onBackdrop: event.target === event.currentTarget,
+          pressStartedSinceOpen: backdropPressRef.current,
+        });
+        backdropPressRef.current = false;
+        if (!close) return;
+        // A touch closes on its touchend instead, below: closing here would remove the backdrop
+        // before the touchend, which then could not be cancelled.
+        if (event.pointerType === 'touch') {
+          backdropCloseOnTouchEndRef.current = true;
+          return;
         }
+        closeWithHistory();
+      }}
+      onTouchEnd={(event) => {
+        if (!backdropCloseOnTouchEndRef.current) return;
+        backdropCloseOnTouchEndRef.current = false;
+        // Cancelled so the tap's compatibility mousedown and click do not land on whatever is
+        // under the menu once it is gone.
+        event.preventDefault();
+        closeWithHistory();
       }}
     >
       <div

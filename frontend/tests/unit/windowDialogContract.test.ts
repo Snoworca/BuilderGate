@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   createWindowDialogBehaviorModel,
+  WINDOW_DIALOG_DRAG_CANCEL,
   windowDialogTitleText,
 } from '../../src/components/dialog/windowDialogModel.ts';
 
@@ -99,4 +100,16 @@ test('FR-MDE-006 the dirty prop is what puts the trailing marker on the title', 
     '{windowDialogTitleText(title, dirty)}',
     `FR-MDE-006 AC-1: 제목은 dirty 를 반영한 값을 그려야 하는데 ${rendered} 를 그린다`,
   );
+});
+
+// FR-UIDS-010: react-draggable calls preventDefault on touchstart inside the drag handle, which
+// swallows the click of a tapped title bar button; the cancel selector is checked before that.
+test('FR-UIDS-010 AC-1: title bar buttons are excluded from dragging so a tap clicks them', () => {
+  for (const part of ['.window-dialog-titlebar button', '.window-dialog-titlebar [role="button"]', '.window-dialog-titlebar input']) {
+    assert.ok(WINDOW_DIALOG_DRAG_CANCEL.split(',').map(s => s.trim()).includes(part), part);
+  }
+  assert.ok(!WINDOW_DIALOG_DRAG_CANCEL.split(',').map(s => s.trim()).includes('.window-dialog-titlebar'), 'AC-2: the title bar itself still drags');
+  const source = readFileSync(new URL('../../src/components/dialog/WindowDialog.tsx', import.meta.url), 'utf8');
+  const rnd = source.slice(source.indexOf('<Rnd'), source.indexOf('onDragStop'));
+  assert.match(rnd, /cancel=\{WINDOW_DIALOG_DRAG_CANCEL\}/);
 });

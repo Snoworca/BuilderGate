@@ -2,6 +2,7 @@
 // broadcasts the same WebSocket event the REST workspace routes send, so every open browser
 // follows it; commands go through the MCP input gateway.
 import type { SessionManager } from './SessionManager.js';
+import type { FileService } from './FileService.js';
 import type { WorkspaceService } from './WorkspaceService.js';
 import type { McpTerminalView, McpWorkspaceControl, McpWorkspaceView } from './McpManagementTools.js';
 import type { ShellType } from '../types/index.js';
@@ -13,6 +14,8 @@ type Rec = Record<string, unknown>;
 export interface WorkspaceServiceMcpControlDeps {
   workspaceService: Pick<WorkspaceService, 'getState' | 'createWorkspace' | 'updateWorkspace' | 'deleteWorkspace' | 'addTab' | 'deleteTab'>;
   sessionManager: Pick<SessionManager, 'getLastCwd' | 'writeInput' | 'readTerminalText'>;
+  /** FR-MCP-012: path checks and writes for the editor tools, with the file API's rules. */
+  fileService?: Pick<FileService, 'inspectPath' | 'writeFileCreatingDirectories'>;
   broadcast: (event: string, data: object) => void;
   /** The MCP gateway delivery (createMcpGatewayDelivery in index.ts). */
   deliver: (delivery: Rec) => Promise<Rec>;
@@ -89,5 +92,16 @@ export function createWorkspaceServiceMcpControl(deps: WorkspaceServiceMcpContro
       });
     },
     readTerminalText: (sessionId, maxLines) => sessionManager.readTerminalText(sessionId, maxLines),
+    // FR-MCP-012
+    inspectEditorFile: async (sessionId, filePath) => {
+      if (!deps.fileService) throw Object.assign(new Error('File service unavailable'), { code: 'MCP_EDITOR_UNAVAILABLE' });
+      return deps.fileService.inspectPath(sessionId, filePath);
+    },
+    writeEditorFile: async (sessionId, filePath, content) => {
+      if (!deps.fileService) throw Object.assign(new Error('File service unavailable'), { code: 'MCP_EDITOR_UNAVAILABLE' });
+      return deps.fileService.writeFileCreatingDirectories(sessionId, filePath, content);
+    },
+    // FR-MCP-012 AC-7: every browser opens it; the one showing another workspace switches to it.
+    openEditor: (request) => broadcast('editor:open', request),
   };
 }

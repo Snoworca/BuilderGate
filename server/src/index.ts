@@ -18,6 +18,8 @@ import { fileURLToPath } from 'node:url';
 import { createSessionRoutes } from './routes/sessionRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
+import { createDownloadRoutes, createDownloadTokenRoutes } from './routes/downloadRoutes.js';
+import { DownloadTokenStore } from './services/DownloadTokenStore.js';
 import { createFileJobRoutes } from './routes/fileJobRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
@@ -1161,6 +1163,11 @@ function setupRoutes(): void {
   // File manager routes (auth required, same base path)
   const fileRoutes = createFileRoutes(fileService);
   app.use('/api/sessions', authMiddleware, fileRoutes);
+  // FR-FEX-021: the token route checks the path behind the JWT; the download link carries only
+  // the single-use token, so the browser can save the file itself.
+  const downloadTokens = new DownloadTokenStore();
+  app.use('/api/sessions', authMiddleware, createDownloadTokenRoutes(fileService, downloadTokens));
+  app.use('/api/downloads', createDownloadRoutes(downloadTokens));
 
   // File job routes (auth required) — 복사·이동·삭제 작업. 진행은 WebSocket 세션 방송으로 간다.
   app.use('/api/file-jobs', authMiddleware, createFileJobRoutes(fileJobManager, fileJobPathPolicy));
@@ -1564,6 +1571,11 @@ async function startServer(): Promise<void> {
       workspaceControl: createWorkspaceServiceMcpControl({
         workspaceService,
         sessionManager,
+        // FR-MCP-012: read through the module binding, which is assigned during start-up.
+        fileService: {
+          inspectPath: (sessionId, filePath) => fileService.inspectPath(sessionId, filePath),
+          writeFileCreatingDirectories: (sessionId, filePath, content) => fileService.writeFileCreatingDirectories(sessionId, filePath, content),
+        },
         broadcast: (event, data) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll(event, data),
         deliver: createMcpGatewayDelivery(),
         submitEnterDelay: currentSubmitEnterDelay,

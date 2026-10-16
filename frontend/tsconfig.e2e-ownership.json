@@ -14,6 +14,7 @@
   "files": [
     "playwright.ownership-validation.config.ts",
     "playwright.file-explorer.config.ts",
+    "playwright.mobile-editor.config.ts",
     "playwright.issue34-capacity.config.ts",
     "playwright.issue34-raise.config.ts",
     "playwright.issue7-clipboard.config.ts",
@@ -25,6 +26,10 @@
     "tests/e2e/terminal-keyboard-regression.spec.ts",
     "tests/e2e/terminal-korean-ime.spec.ts",
     "tests/e2e/terminal-mobile-scroll.spec.ts",
+    "tests/e2e/ownedFolderFixture.ts",
+    "tests/e2e/mcp-editor-open.spec.ts",
+    "tests/e2e/mobile-touch-regressions.spec.ts",
+    "tests/e2e/file-download.spec.ts",
     "tests/e2e/terminal-title-auto-tab-name.spec.ts",
     "tests/e2e/terminal-clipboard.spec.ts",
     "tests/e2e/terminal-selection-eviction.spec.ts",

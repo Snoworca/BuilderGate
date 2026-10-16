@@ -8,6 +8,14 @@ import { pathKey, type FileTreeMode, type RowClickModifiers, type VisibleRow } f
 
 export type NodeRow = Extract<VisibleRow, { kind: 'node' }>;
 
+/** A touch press this long opens the row's context menu (the right click of a touch screen). */
+export const LONG_PRESS_MENU_MS = 500;
+/**
+ * FR-FEX-020: a touch press held this long opens the row, as a double tap does. Longer than the
+ * menu press, so the menu still appears on the way and a release before this keeps it.
+ */
+export const LONG_PRESS_OPEN_MS = 1500;
+
 export type DoubleClickDecision =
   | { type: 'open-editor'; path: string }
   | { type: 'toggle-expand'; path: string }

@@ -71,6 +71,12 @@ import {
 } from '../utils/editorFileMenu.ts';
 import { fileApi } from '../services/api';
 import {
+  parseEditorOpenRequest,
+  planEditorRemoteOpen,
+  type EditorOpenRequest,
+} from '../components/editor/editorRemoteOpen.ts';
+import { planImageStep } from '../components/editor/imageSiblings.ts';
+import {
   loadDocument,
   planOpenDocument,
   type LoadedDocument,
@@ -248,7 +254,7 @@ export interface UseEditorWindowsInput {
    * stays out. The name is what a tray row shows for the terminal a document
    * saves to.
    */
-  tabs: readonly { id: string; cwd: string; name: string }[];
+  tabs: readonly { id: string; cwd: string; name: string; workspaceId?: string }[];
   /**
    * The session a tab is running at the moment of the call. Resolved per call
    * rather than stored, because a restart replaces the session and keeps the
@@ -327,6 +333,18 @@ export interface UseEditorWindowsResult {
    * @req FR-FEX-003
    */
   openDocument: (filePath: string, tabId: string) => void;
+  /**
+   * An `editor:open` broadcast from the MCP editor tools: shows the terminal's workspace and opens
+   * the file there.
+   * @req FR-MCP-012
+   */
+  requestRemoteOpen: (data: unknown) => void;
+  /**
+   * Shows `toPath` in the image tab that holds `fromPath`, in the same tab position; selects the
+   * tab instead when `toPath` is already open.
+   * @req FR-MDE-027
+   */
+  navigateImage: (fromPath: string, toPath: string) => void;
 }
 
 /**
@@ -662,6 +680,76 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     }
     void openWindow(key, tabId);
   }, [openWindow, reviveByPath]);
+
+  // FR-MCP-012 AC-7: a request for another workspace waits here until that workspace is active,
+  // because a document opens into the active workspace's window.
+  const [pendingRemoteOpen, setPendingRemoteOpen] = useState<EditorOpenRequest | null>(null);
+  const requestRemoteOpen = useCallback((data: unknown) => {
+    const request = parseEditorOpenRequest(data);
+    if (request !== null) setPendingRemoteOpen(request);
+  }, []);
+  const remoteTabKey = tabs.map(tab => `${tab.id}\u0000${tab.workspaceId ?? ''}`).join('\u0001');
+  useEffect(() => {
+    if (pendingRemoteOpen === null) return;
+    const step = planEditorRemoteOpen(pendingRemoteOpen, {
+      activeWorkspaceId,
+      tabs: tabs.map(tab => ({ id: tab.id, workspaceId: tab.workspaceId ?? '' })),
+    });
+    if (step.action === 'switch') {
+      setScreen('workspace');
+      setActiveWorkspaceId(step.workspaceId);
+      return;
+    }
+    setPendingRemoteOpen(null);
+    if (step.action === 'open') {
+      setScreen('workspace');
+      openDocument(step.filePath, step.tabId);
+    }
+    // `tabs` is rebuilt every render; its ids and workspaces are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRemoteOpen, activeWorkspaceId, remoteTabKey, openDocument, setActiveWorkspaceId, setScreen]);
+
+  // FR-MDE-027: the image tab moves to a neighbour of its directory without leaving its place.
+  const navigateImage = useCallback((fromPath: string, toPath: string) => {
+    const step = planImageStep(documentsRef.current.map(document => document.filePath), fromPath, toPath);
+    if (step === 'ignore') return;
+    if (step === 'select') {
+      const existing = documentsRef.current.find(document => document.filePath === toPath)!;
+      reviveByPath(toPath, existing.workspaceId);
+      return;
+    }
+    const current = documentsRef.current.find(document => document.filePath === fromPath)!;
+    const sessionId = resolveTabSessionRef.current(current.tabId);
+    if (sessionId === undefined) {
+      setOpenError(t('editor.open.noSessionOpen'));
+      return;
+    }
+    void loadDocument({ filePath: toPath, sessionId }, documentLoadDeps).then((outcome) => {
+      if (outcome.status === 'missing') {
+        setOpenError(t('editor.image.notFound'));
+        return;
+      }
+      if (outcome.status !== 'loaded') {
+        setOpenError(outcome.error instanceof Error ? outcome.error.message : String(outcome.error));
+        return;
+      }
+      const replacement = planOpenDocument({
+        filePath: toPath,
+        tabId: current.tabId,
+        workspaceId: current.workspaceId,
+        document: outcome.document,
+      });
+      forgetPendingRestore(toPath);
+      setDocuments(list => (list.some(document => document.filePath === toPath)
+        ? list
+        : list.map(document => (document.filePath === fromPath ? replacement : document))));
+      setShells((shells) => {
+        const shell = shells[current.workspaceId];
+        if (shell === undefined || shell.activeFilePath !== fromPath) return shells;
+        return { ...shells, [current.workspaceId]: { ...shell, activeFilePath: toPath } };
+      });
+    });
+  }, [forgetPendingRestore, reviveByPath]);
 
   // The names the rows read, attached here rather than looked up inside the
   // tray model: that model turns documents into rows and has no business
@@ -1065,5 +1153,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     toggleMaximizeWindow,
     writeFile: fileApi.writeFile,
     openDocument,
+    requestRemoteOpen,
+    navigateImage,
   };
 }

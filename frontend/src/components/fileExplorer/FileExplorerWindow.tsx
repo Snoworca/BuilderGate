@@ -74,8 +74,8 @@ import {
 } from './fileJobStore.ts';
 import { selectListRows, type ListSort } from './fileListView.ts';
 import { FileListView } from './FileListView.tsx';
-import { decideRowPointer } from './fileRowInteraction.ts';
-import type { FileTreeMode } from './fileTreeState.ts';
+import { decideRowPointer, LONG_PRESS_MENU_MS, LONG_PRESS_OPEN_MS } from './fileRowInteraction.ts';
+import { joinChildPath, parentPathOf, type FileTreeMode } from './fileTreeState.ts';
 import { FileTreeView, type FileExplorerMenuRequest } from './FileTreeView.tsx';
 
 // Module level so the references are stable: WindowDialog puts minSize into
@@ -282,10 +282,33 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     if (!(target instanceof Element) || !target.isConnected) return;
     target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX, clientY }));
   }, []);
-  const longPress = useLongPress(handleLongPress);
+  // FR-FEX-020: held on to 1.5 s, the same press opens the row. It closes the menu the 0.5 s press
+  // opened and raises a dblclick, so the views decide what opening means (editor, expand, enter)
+  // exactly as for a double tap.
+  const handleLongHoldOpen = useCallback(({ clientX, clientY }: { clientX: number; clientY: number }) => {
+    // The hold is a primary, unmodified press; its selection was already applied on pointer down
+    // through the same decision, so here it only gates the open.
+    const pointer = decideRowPointer({ button: 0, ctrlKey: false, metaKey: false, shiftKey: false, isSelected: true });
+    if (pointer.type !== 'select') return;
+    const target = pressTargetRef.current;
+    if (!(target instanceof Element) || !target.isConnected) return;
+    setMenu(null);
+    target.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX, clientY }));
+  }, []);
+  const longPress = useLongPress(handleLongPress, LONG_PRESS_MENU_MS);
+  const longHoldOpen = useLongPress(handleLongHoldOpen, LONG_PRESS_OPEN_MS);
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     pressTargetRef.current = event.target;
     longPress.onTouchStart(event);
+    longHoldOpen.onTouchStart(event);
+  };
+  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    longPress.onTouchMove(event);
+    longHoldOpen.onTouchMove(event);
+  };
+  const handleTouchEnd = () => {
+    longPress.onTouchEnd();
+    longHoldOpen.onTouchEnd();
   };
 
   // The listing in the order it is drawn: the tab's sort, which both modes share
@@ -296,6 +319,16 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   const rootListing = state.childrenByPath.get(state.root);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the listing entry, not the whole state
   const rootEntries = useMemo(() => selectListRows(state, sort), [rootListing, sort]);
+
+  // FR-FEX-021: the mobile bar's 다운로드 needs the one selected item to be a regular file, read
+  // from its parent's listing.
+  const singleFileSelected = useMemo(() => {
+    if (state.selectedPaths.size !== 1) return false;
+    const [selected] = state.selectedPaths;
+    const parent = state.childrenByPath.get(parentPathOf(selected));
+    if (parent?.status !== 'loaded') return false;
+    return parent.entries.some(entry => entry.type === 'file' && joinChildPath(parentPathOf(selected), entry.name) === selected);
+  }, [state.selectedPaths, state.childrenByPath]);
 
   // Runs after every render until the anchor has been placed: rows arrive with
   // a later render than the one that mounted the panel, and an inactive tab has
@@ -410,8 +443,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         onScroll={handleScroll}
         onPointerDown={handleRowsPointerDown}
         onTouchStart={handleTouchStart}
-        onTouchMove={longPress.onTouchMove}
-        onTouchEnd={longPress.onTouchEnd}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {state.mode === 'list'
           ? (
@@ -432,7 +465,12 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
       {infoPath !== null && <FileInfoModal sessionId={tab.sessionId} path={infoPath} onClose={() => setInfoPath(null)} />}
       {isMobile && (
-        <FileExplorerMobileBar selectionCount={state.selectedPaths.size} clipboardEmpty={clipboard === null} handlers={ops.menuHandlers} />
+        <FileExplorerMobileBar
+          selectionCount={state.selectedPaths.size}
+          clipboardEmpty={clipboard === null}
+          singleFileSelected={singleFileSelected}
+          handlers={ops.menuHandlers}
+        />
       )}
       {menu !== null && (
         <ContextMenu position={{ x: menu.x, y: menu.y }} items={ops.menuItems} onClose={() => setMenu(null)} />

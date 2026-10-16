@@ -9,14 +9,16 @@ import { buildMobileActionButtons, type FileExplorerMenuHandlers, type MobileAct
 export interface FileExplorerMobileBarProps {
   selectionCount: number;
   clipboardEmpty: boolean;
+  /** FR-FEX-021: the selection is one regular file, which 다운로드 needs. */
+  singleFileSelected: boolean;
   handlers: Pick<FileExplorerMenuHandlers, MobileActionId>;
 }
 
 // @req FR-FEX-005
-export function FileExplorerMobileBar({ selectionCount, clipboardEmpty, handlers }: FileExplorerMobileBarProps) {
+export function FileExplorerMobileBar({ selectionCount, clipboardEmpty, singleFileSelected, handlers }: FileExplorerMobileBarProps) {
   return (
     <div className="fx-mobile-bar" role="toolbar" aria-label={t('common.fileJobs')}>
-      {buildMobileActionButtons({ count: selectionCount, clipboardEmpty }, handlers).map((action) => (
+      {buildMobileActionButtons({ count: selectionCount, clipboardEmpty, singleFileSelected }, handlers).map((action) => (
         <button
           key={action.id}
           type="button"

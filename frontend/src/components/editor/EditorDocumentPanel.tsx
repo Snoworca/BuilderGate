@@ -48,7 +48,9 @@ import type { AtomicCodeMirrorEditorHandle } from '../../editor';
 import { analyzeText, encodeForSave, normalizeInsertedLineBreaks } from '../../editor/lineEndings.ts';
 import { resolveEditorMode } from '../../editor/editorMode.ts';
 import { CodeFileEditor } from './CodeFileEditor.tsx';
-import { ImageFileViewer } from './ImageFileViewer.tsx';
+import { ImageFileViewer, type ImageViewerNavigation } from './ImageFileViewer.tsx';
+import { imageNavigation, imageStepHandlers } from './imageSiblings.ts';
+import { useImageSiblings } from './useImageSiblings.ts';
 import { SvgFileTab } from './SvgFileTab.tsx';
 import { createSvgSourceSession, type SvgSource, type SvgSourceSession } from './svgTabModel.ts';
 import { documentSaveBinding, type ImageDocumentState } from '../../hooks/editorDocumentLoad.ts';
@@ -303,6 +305,8 @@ export interface EditorDocumentPanelProps {
   onRegisterHandle: (filePath: string, handle: EditorDocumentHandle | null) => void;
   /** The window's file tree toggle, drawn in this document's toolbar (FR-MDE-020 AC-8). */
   paneToggle?: EditorPaneToggle;
+  /** An image tab moves to another image of its directory (FR-MDE-027). */
+  onNavigateImage?: (toPath: string) => void;
 }
 
 /**
@@ -324,6 +328,7 @@ export function EditorDocumentPanel({
   onClose,
   onRegisterHandle,
   paneToggle,
+  onNavigateImage,
 }: EditorDocumentPanelProps) {
   const editorHandleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
 
@@ -665,6 +670,16 @@ export function EditorDocumentPanel({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [answerClose, closePrompt.kind]);
 
+  // FR-MDE-027: previous/next over the images of this file's directory. An SVG whose source has
+  // unsaved changes keeps its buttons disabled (AC-4), so a move never discards an edit.
+  const siblings = useImageSiblings(filePath, tabId, resolveTabSession, component === 'image' && onNavigateImage !== undefined);
+  const navigation = useMemo((): ImageViewerNavigation | undefined => {
+    if (siblings === null || onNavigateImage === undefined) return undefined;
+    const place = imageNavigation(siblings, filePath);
+    if (place.index < 0) return undefined;
+    return { index: place.index, count: place.count, ...imageStepHandlers(place, saveState.dirty, onNavigateImage) };
+  }, [siblings, onNavigateImage, filePath, saveState.dirty]);
+
   return (
     <>
       <div
@@ -735,6 +750,7 @@ export function EditorDocumentPanel({
           {/* @req FR-MDE-019 -- an SVG switches between viewer and source. */}
           {isSvg && (
             <SvgFileTab
+              navigation={navigation}
               filePath={filePath}
               tabId={tabId}
               image={image}
@@ -747,6 +763,7 @@ export function EditorDocumentPanel({
           )}
           {component === 'image' && !isSvg && (
             <ImageFileViewer
+              navigation={navigation}
               blob={image?.status === 'ready' ? image.blob : null}
               size={image?.status === 'ready' ? image.size : 0}
               error={image?.status === 'error' ? image.error : null}

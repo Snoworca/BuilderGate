@@ -544,3 +544,9 @@ test('FR-MCP-002 AC-8: the security tab edits both Enter waits', () => {
 test('FR-MCP-009 AC-5: the audit log labels terminal.read', () => {
   assert.equal(formatMcpAuditAction('buildergate.terminal.read'), '터미널 화면 읽기');
 });
+
+test('FR-MCP-012 AC-8: the audit log labels the editor tools', () => {
+  assert.equal(formatMcpAuditAction('buildergate.editor.open_markdown'), '편집기에서 마크다운 열기');
+  assert.equal(formatMcpAuditAction('buildergate.editor.open_code'), '편집기에서 파일 열기');
+  assert.equal(formatMcpAuditAction('buildergate.editor.open_image'), '이미지 뷰어에서 열기');
+});

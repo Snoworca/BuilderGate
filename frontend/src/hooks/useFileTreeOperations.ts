@@ -30,6 +30,7 @@ import type { ConfirmPort } from '../components/fileExplorer/fileExplorerPorts.t
 import type { FileExplorerShortcutDecision } from '../components/fileExplorer/fileExplorerShortcuts.ts';
 import { pasteFromClipboard, requestDelete, type FileJobRequest } from '../components/fileExplorer/fileJobClient.ts';
 import { dispatchFileJob } from '../components/fileExplorer/fileJobStore.ts';
+import { startFileDownload } from '../components/fileExplorer/fileDownload.ts';
 import { isOpenableFile } from '../components/fileExplorer/fileRowInteraction.ts';
 import { parentPathOf } from '../components/fileExplorer/fileTreeState.ts';
 import type { FileExplorerMenuRequest, FileRowRename } from '../components/fileExplorer/FileTreeView.tsx';
@@ -199,6 +200,14 @@ export function useFileTreeOperations({
     },
     newtab: () => {
       if (menu?.path) onNewTab?.(menu.path);
+    },
+    // FR-FEX-021: the one file the menu was opened on, or the one selected (mobile bar).
+    download: () => {
+      const paths = selectedPaths();
+      const target = menu?.target === 'item' && menu.path && !menu.isDir ? menu.path : paths.length === 1 ? paths[0] : null;
+      if (!target) return;
+      startFileDownload(sessionId, target)
+        .catch((error: unknown) => showError(t('fileOps.error.download', { message: messageOf(error) })));
     },
     copy: () => {
       copySelection({ sessionId, paths: selectedPaths() });
