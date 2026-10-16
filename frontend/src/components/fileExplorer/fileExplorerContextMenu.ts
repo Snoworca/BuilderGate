@@ -14,6 +14,7 @@ import type { ContextMenuItem } from '../ContextMenu/index.ts';
 export type FileExplorerMenuActionId =
   | 'open'
   | 'newtab'
+  | 'download'
   | 'copy'
   | 'cut'
   | 'paste'
@@ -26,7 +27,7 @@ export type FileExplorerMenuActionId =
 export type FileExplorerMenuEntry = FileExplorerMenuActionId | 'sep';
 
 export const FILE_EXPLORER_MENU_ORDER: readonly FileExplorerMenuEntry[] = Object.freeze([
-  'open', 'newtab', 'sep',
+  'open', 'newtab', 'download', 'sep',
   'copy', 'cut', 'paste', 'sep',
   'rename', 'delete', 'sep',
   'newdir', 'refresh', 'sep',
@@ -37,6 +38,7 @@ export const FILE_EXPLORER_MENU_ORDER: readonly FileExplorerMenuEntry[] = Object
 const LABELS: Record<FileExplorerMenuActionId, MessageKey> = {
   open: 'fileExplorer.menu.open',
   newtab: 'fileExplorer.menu.newTab',
+  download: 'fileExplorer.menu.download',
   copy: 'common.copy',
   cut: 'fileExplorer.menu.cut',
   paste: 'common.paste',
@@ -104,6 +106,9 @@ function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInf
       return info.target === 'item' && !info.isDir && info.openable;
     case 'newtab':
       return info.target === 'item' && info.isDir && info.context === 'explorer-window';
+    // FR-FEX-021 AC-1: one file at a time.
+    case 'download':
+      return info.target === 'item' && !info.isDir && info.count === 1;
     case 'paste':
       return !info.clipboardEmpty;
     case 'rename':
@@ -162,7 +167,7 @@ export function buildFileExplorerContextMenuItems(
   });
 }
 
-export type MobileActionId = 'copy' | 'cut' | 'paste' | 'delete' | 'rename' | 'newdir';
+export type MobileActionId = 'copy' | 'cut' | 'paste' | 'delete' | 'rename' | 'newdir' | 'download';
 
 export interface MobileActionButton {
   /** One of MobileActionId; typed as string so callers can key maps by plain ids. */
@@ -172,14 +177,14 @@ export interface MobileActionButton {
   onClick: () => void;
 }
 
-const MOBILE_ACTION_ORDER: readonly MobileActionId[] = ['copy', 'cut', 'paste', 'delete', 'rename', 'newdir'];
+const MOBILE_ACTION_ORDER: readonly MobileActionId[] = ['copy', 'cut', 'paste', 'delete', 'rename', 'newdir', 'download'];
 
 /**
  * The mobile button row (FR-FEX-005 AC-8). It shares the menu's predicates: the
  * row always stands for the folder being shown, so `newdir` is always enabled.
  */
 export function buildMobileActionButtons(
-  info: { count: number; clipboardEmpty: boolean },
+  info: { count: number; clipboardEmpty: boolean; /** FR-FEX-021: the selection is one regular file. */ singleFileSelected: boolean },
   handlers: Pick<FileExplorerMenuHandlers, MobileActionId>,
 ): MobileActionButton[] {
   const menuInfo: FileExplorerMenuInfo = {
@@ -194,7 +199,8 @@ export function buildMobileActionButtons(
   return MOBILE_ACTION_ORDER.map(id => ({
     id,
     label: t(LABELS[id]),
-    disabled: !isActionEnabled(id, menuInfo),
+    // The row stands for the folder being shown, so download asks the selection itself.
+    disabled: id === 'download' ? !info.singleFileSelected : !isActionEnabled(id, menuInfo),
     onClick: handlers[id],
   }));
 }

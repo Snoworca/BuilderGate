@@ -57,6 +57,9 @@ export enum ErrorCode {
   FILE_OPERATION_FAILED = 'FILE_OPERATION_FAILED',
   FILE_ALREADY_EXISTS = 'FILE_ALREADY_EXISTS',
   PERMISSION_DENIED = 'PERMISSION_DENIED',
+  // FR-FEX-021: downloads
+  NOT_A_FILE = 'NOT_A_FILE',
+  DOWNLOAD_TOKEN_INVALID = 'DOWNLOAD_TOKEN_INVALID',
 
   // Server Errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -132,6 +135,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.FILE_OPERATION_FAILED]: 'File operation failed',
   [ErrorCode.FILE_ALREADY_EXISTS]: 'File already exists',
   [ErrorCode.PERMISSION_DENIED]: 'Permission denied',
+  [ErrorCode.NOT_A_FILE]: 'The path is not a regular file',
+  [ErrorCode.DOWNLOAD_TOKEN_INVALID]: 'The download link is invalid, used or expired',
 
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
   [ErrorCode.ENCRYPTION_ERROR]: 'Encryption failed',
@@ -203,6 +208,8 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.FILE_OPERATION_FAILED]: 500,
   [ErrorCode.FILE_ALREADY_EXISTS]: 409,
   [ErrorCode.PERMISSION_DENIED]: 403,
+  [ErrorCode.NOT_A_FILE]: 400,
+  [ErrorCode.DOWNLOAD_TOKEN_INVALID]: 404,
 
   [ErrorCode.INTERNAL_ERROR]: 500,
   [ErrorCode.ENCRYPTION_ERROR]: 500,

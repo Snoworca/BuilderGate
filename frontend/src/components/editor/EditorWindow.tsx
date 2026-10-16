@@ -135,6 +135,8 @@ export interface EditorWindowProps {
   onCloseTab: (filePath: string) => void;
   /** Closes several tabs in one update, after any question was answered (FR-MDE-021). */
   onCloseTabs?: (filePaths: readonly string[], keepActive?: string) => void;
+  /** An image tab moves to another image of its directory (FR-MDE-027). */
+  onNavigateImage?: (fromPath: string, toPath: string) => void;
   rect: DialogRect;
   onRectChange: (rect: DialogRect) => void;
   /** Drag boundary. The stage, whatever the placement. */
@@ -214,6 +216,7 @@ export function EditorWindow({
   onSelectTab,
   onCloseTab,
   onCloseTabs,
+  onNavigateImage,
   rect,
   onRectChange,
   boundsElement,
@@ -748,6 +751,7 @@ export function EditorWindow({
               onClose={() => onCloseTab(tab.filePath)}
               onRegisterHandle={registerHandle}
               paneToggle={paneToggle}
+              onNavigateImage={onNavigateImage === undefined ? undefined : (toPath) => onNavigateImage(tab.filePath, toPath)}
             />
           ))}
         </div>

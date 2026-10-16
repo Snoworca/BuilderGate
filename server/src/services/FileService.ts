@@ -451,6 +451,46 @@ export class FileService {
    *
    * @req IR-MDE-001
    */
+  /**
+   * FR-MCP-012 AC-5: resolves a path the way readFile and writeFile do (inside the session's
+   * working directory, not a blocked path or extension) and says what is there, without reading it.
+   */
+  async inspectPath(sessionId: string, filePath: string): Promise<{ path: string; exists: boolean; isFile: boolean }> {
+    this.assertSessionExists(sessionId);
+    const cwd = await this.getCwd(sessionId);
+    const resolved = await resolveAndValidate(cwd, filePath, this.config.blockedPaths);
+    if (isBlockedExtension(path.extname(resolved).toLowerCase(), this.config.blockedExtensions)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
+    }
+    const stat = await fs.stat(resolved).catch(() => null);
+    return { path: resolved, exists: stat !== null, isFile: stat?.isFile() ?? false };
+  }
+
+  /**
+   * FR-FEX-021 AC-2: a file to download, resolved and checked as readFile does, without reading
+   * it. The size is not held to maxFileSize: the download streams.
+   */
+  async resolveDownload(sessionId: string, filePath: string): Promise<{ path: string; name: string; size: number }> {
+    const info = await this.inspectPath(sessionId, filePath);
+    if (!info.exists) throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    if (!info.isFile) throw new AppError(ErrorCode.NOT_A_FILE);
+    const stat = await fs.stat(info.path);
+    return { path: info.path, name: path.basename(info.path), size: stat.size };
+  }
+
+  /** FR-MCP-012 AC-2: writeFile that first creates the missing parent directories. */
+  async writeFileCreatingDirectories(sessionId: string, filePath: string, content: string): Promise<string> {
+    const { path: resolved } = await this.inspectPath(sessionId, filePath);
+    try {
+      await fs.mkdir(path.dirname(resolved), { recursive: true });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'EACCES') throw new AppError(ErrorCode.PERMISSION_DENIED);
+      throw new AppError(ErrorCode.FILE_OPERATION_FAILED, `Create directory failed: ${(err as Error).message}`);
+    }
+    await this.writeFile(sessionId, resolved, content);
+    return resolved;
+  }
+
   async writeFile(sessionId: string, filePath: string, content: string): Promise<void> {
     // Called here rather than left to getCwd: the ordering this method promises
     // would otherwise rest on an implementation detail of that method.

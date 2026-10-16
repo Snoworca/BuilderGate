@@ -30,6 +30,7 @@ async function load(): Promise<M> {
 const LABEL_TO_ID: Record<string, string> = {
   '편집기로 열기': 'open',
   '새 탭에서 열기': 'newtab',
+  '다운로드': 'download',
   '복사': 'copy',
   '잘라내기': 'cut',
   '붙여넣기': 'paste',
@@ -95,6 +96,7 @@ function recordingHandlers(calls: string[]): MenuHandlers {
     open: () => calls.push('open'),
     newtab: () => calls.push('newtab'),
     info: () => calls.push('info'),
+    download: () => calls.push('download'),
     copy: () => calls.push('copy'),
     cut: () => calls.push('cut'),
     paste: () => calls.push('paste'),
@@ -118,7 +120,7 @@ function itemInfo(overrides: Partial<MenuInfo> = {}): MenuInfo {
   };
 }
 
-const FULL_ORDER = ['open', 'newtab', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']; // FR-FEX-018: Info last
+const FULL_ORDER = ['open', 'newtab', 'download', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']; // FR-FEX-018: Info last
 
 // ---------------------------------------------------------------------------
 // Right click and selection (FR-FEX-006 AC-1·AC-2·AC-3)
@@ -267,7 +269,7 @@ test("mode 'list' 에서 '새 탭에서 열기' 만 빠지고 나머지 id 순�
     const tree = idsOf(buildFileExplorerContextMenuItems(itemInfo({ isDir, mode: 'tree' }), recordingHandlers([])));
     const list = idsOf(buildFileExplorerContextMenuItems(itemInfo({ isDir, mode: 'list' }), recordingHandlers([])));
     assert.deepEqual(list, tree.filter(id => id !== 'newtab'), `isDir=${isDir}`);
-    assert.deepEqual(list, ['open', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']);
+    assert.deepEqual(list, ['open', 'download', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']);
   }
 });
 
@@ -284,7 +286,7 @@ test("buildFileExplorerContextMenuItems(context='editor-panel') 에 '새 탭에�
     const ids = idsOf(items);
     assert.ok(!ids.includes('newtab'), `no '새 탭에서 열기' in the editor panel (isDir=${isDir}): ${ids.join(',')}`);
     // FR-FEX-018: Info is explorer-window only; the editor panel has no host for its modal.
-    assert.deepEqual(ids, ['open', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh'], `isDir=${isDir}`);
+    assert.deepEqual(ids, ['open', 'download', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh'], `isDir=${isDir}`);
     for (const id of ['copy', 'cut', 'paste', 'rename', 'delete']) {
       assert.equal(isEnabled(items, id), true, `${id} is usable in the editor panel (isDir=${isDir})`);
       (itemById(items, id).onClick as () => void)();
@@ -305,12 +307,12 @@ test('buildMobileActionButtons: 여섯 버튼 순서와 disabled 가 메뉴와 �
   for (const clipboardEmpty of [true, false]) {
     for (const count of [0, 1, 2]) {
       const calls: string[] = [];
-      const buttons = buildMobileActionButtons({ count, clipboardEmpty }, recordingHandlers(calls));
+      const buttons = buildMobileActionButtons({ count, clipboardEmpty, singleFileSelected: false }, recordingHandlers(calls));
       assert.deepEqual(
         buttons.map(button => button.id),
-        ['copy', 'cut', 'paste', 'delete', 'rename', 'newdir'],
+        ['copy', 'cut', 'paste', 'delete', 'rename', 'newdir', 'download'],
       );
-      assert.deepEqual(buttons.map(button => button.label), ['복사', '잘라내기', '붙여넣기', '삭제', '이름 바꾸기', '새 폴더']);
+      assert.deepEqual(buttons.map(button => button.label), ['복사', '잘라내기', '붙여넣기', '삭제', '이름 바꾸기', '새 폴더', '다운로드']);
 
       const byId = new Map(buttons.map(button => [button.id, button]));
       const label = `clipboardEmpty=${clipboardEmpty} count=${count}`;

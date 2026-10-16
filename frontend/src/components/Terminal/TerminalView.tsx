@@ -16,6 +16,7 @@ import {
   type WebglAddonLike,
 } from '../../utils/terminalWebglRenderer';
 import { usePinchZoom } from '../../hooks/usePinchZoom';
+import { isViewportAtBottom } from '../../utils/terminalViewportFollow.ts';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FontSizeToast } from './FontSizeToast';
 import { InputDiscardedToast } from './InputDiscardedToast';
@@ -190,6 +191,7 @@ import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 import { t } from '../../i18n/i18n.ts';
+import { panWheelSteps, routeMobilePan } from '../../utils/mobileTouchScroll.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -1523,6 +1525,30 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       mobilePanResidualYRef.current -= rowDelta * cellHeight;
 
+      // FR-ARCH-008: a full-screen program (alternate screen) or one tracking the mouse has no
+      // scrollback to move; it gets what a desktop wheel sends, through xterm's own wheel handling.
+      if (routeMobilePan({ bufferType: term.buffer.active.type, mouseTrackingMode: term.modes.mouseTrackingMode }) === 'wheel') {
+        const target = term.element;
+        if (target) {
+          for (const deltaY of panWheelSteps(rowDelta)) {
+            target.dispatchEvent(new WheelEvent('wheel', {
+              deltaY,
+              deltaMode: WheelEvent.DOM_DELTA_LINE,
+              clientX: touch.clientX,
+              clientY: touch.clientY,
+              bubbles: true,
+              cancelable: true,
+            }));
+          }
+          recordTerminalDebugEvent(sessionId, 'mobile_touch_wheel_dispatched', {
+            gestureRows: rowDelta,
+            bufferType: term.buffer.active.type,
+            mouseTrackingMode: term.modes.mouseTrackingMode,
+          });
+        }
+        return;
+      }
+
       const viewportBefore = term.buffer.active.viewportY;
       const baseY = term.buffer.active.baseY;
       term.scrollLines(-rowDelta);
@@ -1673,7 +1699,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (settled) return;
         settled = true;
         inFlightOutputRef.current.shift();
-        if (data.length > LARGE_WRITE_THRESHOLD) {
+        // FR-ARCH-009: only a viewport already at the bottom follows a large write.
+        if (data.length > LARGE_WRITE_THRESHOLD && isViewportAtBottom(term.buffer.active)) {
           requestViewportSync(term);
         }
         scheduleSnapshotSave();

@@ -22,7 +22,7 @@ import type { AtomicCodeMirrorEditorHandle } from '../../editor';
 import { fileApi } from '../../services/api';
 import type { ImageDocumentState } from '../../hooks/editorDocumentLoad.ts';
 import { CodeFileEditor } from './CodeFileEditor.tsx';
-import { ImageFileViewer } from './ImageFileViewer.tsx';
+import { ImageFileViewer, type ImageViewerNavigation } from './ImageFileViewer.tsx';
 import { WrapIcon } from './EditorDocumentToolbar.tsx';
 import { lineEndingLabel } from './editorDocumentAccess.ts';
 import { normalizeInsertedLineBreaks } from '../../editor/lineEndings.ts';
@@ -50,6 +50,8 @@ export interface SvgFileTabProps {
   editorHandleRef?: MutableRefObject<AtomicCodeMirrorEditorHandle | null>;
   /** Defaults to fileApi.readFile. */
   readFile?: SvgReadFile;
+  /** Previous/next image of the directory (FR-MDE-027). */
+  navigation?: ImageViewerNavigation;
 }
 
 const FILL_STYLE: CSSProperties = {
@@ -96,6 +98,7 @@ export function SvgFileTab({
   onToggleWrap,
   editorHandleRef,
   readFile = fileApi.readFile,
+  navigation,
 }: SvgFileTabProps) {
   const [tabState, setTabState] = useState<SvgTabState>(initialSvgTabState);
   const [session, setSession] = useState<SvgSourceSession | null>(null);
@@ -169,6 +172,7 @@ export function SvgFileTab({
           size={previewBlob?.size ?? 0}
           error={readError}
           onEditSource={() => { void showSource(); }}
+          navigation={navigation}
         />
       </div>
       {session !== null && (

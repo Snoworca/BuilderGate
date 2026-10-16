@@ -55,6 +55,10 @@ function createFakeControl() {
       calls.push({ op: 'readTerminalText', sessionId, maxLines });
       return ['$ ls', 'a.txt', 'b.txt', '$'].slice(-maxLines).join('\n');
     },
+    // FR-MCP-012: the editor tools have their own suite (McpEditorTools.test.ts).
+    inspectEditorFile: async (_sessionId, filePath) => ({ path: filePath, exists: false, isFile: false }),
+    writeEditorFile: async (_sessionId, filePath) => filePath,
+    openEditor: () => undefined,
   };
   return { control, calls };
 }
@@ -270,6 +274,7 @@ test('FR-MCP-007/008: without a workspace control the tools report unavailable',
 
 test('SEC-MCP-004 AC-1: fixed access key carries the management scopes', () => {
   assert.deepEqual([...getFixedMcpAccessKeyScopes()].sort(), [
+    'mcp:editor.open',
     'mcp:message.paste',
     'mcp:message.submit',
     'mcp:sessions.list',
@@ -285,6 +290,7 @@ test('SEC-MCP-004 AC-1: fixed access key carries the management scopes', () => {
 test('SEC-MCP-004 AC-2: session actors get read-only management scopes', () => {
   const scopes = getDefaultMcpSessionScopes();
   assert.deepEqual([...scopes].sort(), [
+    'mcp:editor.open',
     'mcp:message.paste',
     'mcp:self.read',
     'mcp:sessions.list',

@@ -50,3 +50,27 @@
   transform-origin: center center;
   pointer-events: none;
 }
+
+/* FR-MDE-027: previous / next image of the directory. */
+.image-viewer:focus {
+  outline: none;
+}
+
+.image-viewer-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.image-viewer-nav .editor-text-button {
+  min-width: 22px;
+  font-size: var(--fs-sm, 14px);
+  line-height: 1;
+}
+
+.image-viewer-position {
+  min-width: 3.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

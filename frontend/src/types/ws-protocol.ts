@@ -1045,6 +1045,8 @@ export type ServerWsMessage =
   | { type: 'tab:disconnected'; data: unknown }
   // Grid events
   | { type: 'grid:updated'; data: unknown }
+  // FR-MCP-012 AC-7: an MCP editor tool asks the browsers to open a file
+  | { type: 'editor:open'; data: unknown }
   // Connection events
   | {
       type: 'connected';

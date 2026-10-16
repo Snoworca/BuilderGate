@@ -1,6 +1,6 @@
 import { t } from '../../i18n/i18n.ts';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import {
   applyPan,
   applyPinch,
@@ -18,6 +18,14 @@ import './ImageFileViewer.css';
 // Authorization header and are shown through a blob: URL in an <img> only --
 // SVG included, so its scripts never run in the page (SEC-MDE-001).
 
+/** FR-MDE-027: moving to the previous or next image of the directory. A null handler disables its button. */
+export type ImageViewerNavigation = {
+  index: number;
+  count: number;
+  onPrevious: (() => void) | null;
+  onNext: (() => void) | null;
+};
+
 export type ImageFileViewerProps = {
   /** Image bytes; null while loading or after a read failure. */
   blob: Blob | null;
@@ -27,6 +35,8 @@ export type ImageFileViewerProps = {
   error: unknown;
   /** Present for SVG: switches the tab to its XML source. */
   onEditSource?: () => void;
+  /** Present when the directory was listed and holds this image (FR-MDE-027). */
+  navigation?: ImageViewerNavigation;
 };
 
 const ROOT_STYLE: CSSProperties = {
@@ -51,13 +61,28 @@ const MESSAGE_STYLE: CSSProperties = {
 
 type Point = { x: number; y: number };
 
+// FR-MDE-027 AC-2: a step replaces the tab, which remounts the viewer and drops the focus the arrow
+// keys need. A step asks the next viewer to take focus; the request expires so a failed step does
+// not let an unrelated image steal focus later.
+const STEP_FOCUS_TTL_MS = 5000;
+let stepFocusRequestedAt = 0;
+function requestStepFocus(): void {
+  stepFocusRequestedAt = Date.now();
+}
+function takeStepFocus(): boolean {
+  const pending = Date.now() - stepFocusRequestedAt < STEP_FOCUS_TTL_MS;
+  stepFocusRequestedAt = 0;
+  return pending;
+}
+
 function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 // @req FR-MDE-018
 // @req SEC-MDE-001
-export function ImageFileViewer({ blob, size, error, onEditSource }: ImageFileViewerProps) {
+export function ImageFileViewer({ blob, size, error, onEditSource, navigation }: ImageFileViewerProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const slotRef = useRef<BlobUrlSlot | null>(null);
   const pointersRef = useRef(new Map<number, Point>());
@@ -133,7 +158,27 @@ export function ImageFileViewer({ blob, size, error, onEditSource }: ImageFileVi
     return () => stage.removeEventListener('wheel', onWheel);
   }, [toStagePoint]);
 
+  useEffect(() => {
+    if (navigation !== undefined && takeStepFocus()) rootRef.current?.focus({ preventScroll: true });
+    // Only on mount: a viewer that is reached by a step is a new one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation !== undefined]);
+
+  // FR-MDE-027 AC-2: the arrow keys step while the viewer has focus.
+  const onKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (navigation === undefined || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const step = event.key === 'ArrowLeft' ? navigation.onPrevious
+      : event.key === 'ArrowRight' ? navigation.onNext
+        : undefined;
+    if (step === undefined) return;
+    event.preventDefault();
+    if (step === null) return;
+    requestStepFocus();
+    step();
+  }, [navigation]);
+
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    (event.currentTarget.closest('.image-viewer') as HTMLElement | null)?.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const points = [...pointersRef.current.values()];
@@ -196,8 +241,35 @@ export function ImageFileViewer({ blob, size, error, onEditSource }: ImageFileVi
   };
 
   return (
-    <div className="image-viewer" style={ROOT_STYLE}>
+    <div ref={rootRef} className="image-viewer" style={ROOT_STYLE} tabIndex={-1} onKeyDown={onKeyDown}>
       <div className="image-viewer-toolbar">
+        {navigation !== undefined && (
+          <span className="image-viewer-nav">
+            <button
+              type="button"
+              className="editor-text-button image-viewer-previous"
+              aria-label={t('editor.image.previous')}
+              title={t('editor.image.previous')}
+              disabled={navigation.onPrevious === null}
+              onClick={() => { requestStepFocus(); navigation.onPrevious?.(); }}
+            >
+              ‹
+            </button>
+            <span className="image-viewer-position">
+              {t('editor.image.position', { index: navigation.index + 1, count: navigation.count })}
+            </span>
+            <button
+              type="button"
+              className="editor-text-button image-viewer-next"
+              aria-label={t('editor.image.next')}
+              title={t('editor.image.next')}
+              disabled={navigation.onNext === null}
+              onClick={() => { requestStepFocus(); navigation.onNext?.(); }}
+            >
+              ›
+            </button>
+          </span>
+        )}
         <button
           type="button"
           className="editor-text-button image-viewer-fit"

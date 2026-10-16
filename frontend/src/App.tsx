@@ -760,6 +760,13 @@ function AppContent() {
     windowState,
     onOpenFileExplorer: openTabFileExplorer,
   });
+  // FR-MCP-012 AC-7: the MCP editor tools' `editor:open` broadcasts reach the editor.
+  const { setEditorOpenListener } = wm;
+  const { requestRemoteOpen } = editor;
+  useEffect(() => {
+    setEditorOpenListener(requestRemoteOpen);
+    return () => setEditorOpenListener(null);
+  }, [setEditorOpenListener, requestRemoteOpen]);
   // Files open in the editor, which the explorer and the editor's tree pane draw
   // bold. A new set only when a document opens or closes.
   const openEditorFileKeys = useMemo(
@@ -992,6 +999,7 @@ function AppContent() {
                         onSelectTab={editor.selectDocument}
                         onCloseTab={editor.closeDocument}
                         onCloseTabs={editor.closeDocuments}
+                        onNavigateImage={editor.navigateImage}
                         rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}
                         onRectChange={editor.updateWindowRect}
                         boundsElement={EDITOR_WINDOW_BOUNDS_SELECTOR}

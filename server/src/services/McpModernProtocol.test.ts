@@ -83,6 +83,9 @@ test('IR-MCP-006 AC-3: server/discover advertises versions, capabilities and ide
   assert.match(String(result.instructions), /already presses Enter, so do not send a separate message just to submit/);
   // FR-MCP-009 AC-5: and how to read a screen without typing into it.
   assert.match(String(result.instructions), /buildergate\.terminal\.read returns a terminal's text without sending input/);
+  // FR-MCP-012 AC-8
+  assert.match(String(result.instructions), /buildergate\.editor\.open_markdown shows the user a markdown file or markdown text/);
+  assert.match(String(result.instructions), /open_code and buildergate\.editor\.open_image open saved files/);
   assert.equal(typeof result.ttlMs, 'number');
   assert.ok(['public', 'private'].includes(String(result.cacheScope)));
   assert.equal(response.headers['mcp-session-id'], undefined, 'no session is minted');

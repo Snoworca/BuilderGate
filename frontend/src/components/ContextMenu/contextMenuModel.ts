@@ -90,3 +90,13 @@ function reportDepthExceeded(
     });
   }
 }
+
+/**
+ * FR-FEX-020 AC-2: whether a press released on the mobile menu's backdrop closes the menu. A long
+ * press opens the menu while the finger is still down; lifting it must not close the menu that
+ * has just appeared under the finger. Only a press that started on the backdrop after the menu
+ * opened (its own pointerdown) and ends there closes it.
+ */
+export function shouldBackdropPressClose(input: { onBackdrop: boolean; pressStartedSinceOpen: boolean }): boolean {
+  return input.onBackdrop && input.pressStartedSinceOpen;
+}

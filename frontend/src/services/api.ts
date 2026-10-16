@@ -378,6 +378,17 @@ export const fileApi = {
     return res.blob();
   },
 
+  // FR-FEX-021: a single-use token for one file; the download itself is a plain link.
+  createDownloadToken: async (sessionId: string, path: string): Promise<{ token: string; url: string; name: string; size: number }> => {
+    const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/download-token`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+    if (!res.ok) throw await parseError(res);
+    return res.json();
+  },
+
   // @req IR-MDE-001
   writeFile: async (sessionId: string, path: string, content: string): Promise<{ success: boolean }> => {
     const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/write`, {
