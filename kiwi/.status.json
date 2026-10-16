@@ -1,88 +1,88 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-18T17:20:51.012Z",
+  "generatedAt": "2026-10-19T02:25:36.050Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "c112d77ba99cabbe626e98c7d8cdc9e4838ffcd457335f3464435e2b93a8d5f7",
+    "value": "af8f1e1119cb2e69d4bff00dd3beecd1b539f10112c687059ff3bd6a88f371b3",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "fc595b48dad1f44560dbf453ec8bb26daa7632d8dcdc456de5e61d4d6b3d29a7",
-        "size": 13880,
-        "mtimeMs": 1792312858661.625
+        "sha256": "79cc587225609a3cb4ec9caa9419763652afe9924dbc82c297360c80ba041e67",
+        "size": 14611,
+        "mtimeMs": 1792376734341.424
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "1523be2b98507ef82d22cfa23913b2fc7d5f2fca44c3e5e8f6317310446c8ac4",
-        "size": 37244,
-        "mtimeMs": 1792163603662.1516
+        "sha256": "145eee67710463ec5724c9c709c9ceab318d61ea5c857e880273bf8d8fac663e",
+        "size": 46075,
+        "mtimeMs": 1792376717681.1992
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "323e5eec4648aa4dd99478b189eb5d7d652b32c3bcb9a63d868978e3e928d66c",
-        "size": 101618,
-        "mtimeMs": 1791768224566.4717
+        "sha256": "9ef789a71f0e25c5f3413d4221c80ca71c86be868857b2b2dba571d90490d1e4",
+        "size": 103140,
+        "mtimeMs": 1792122654895.2075
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "8ca84d7602f1d256e5265de588fe93d362e96349b0e7f8c85ed273295a7663b6",
-        "size": 1489292,
-        "mtimeMs": 1792278802221.4592
+        "sha256": "a3e1abe82774283dbb19120c683da6ba3ffaca610c4828d0fc03714f69996046",
+        "size": 1499444,
+        "mtimeMs": 1792368696979.1199
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "8727c72259faee9dd969280db4239550688c846bbe301a65d410a0302122af94",
-        "size": 142193,
-        "mtimeMs": 1792342663827.8518
+        "sha256": "b99e80b5ba5ec395c4174a878b39ffc918a7e03e936f87711024ca4dc72119d0",
+        "size": 143977,
+        "mtimeMs": 1792376717201.5005
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "6925602d823755f5f4f7ec30c4a8f49f08ca7c93ddf75cf78ebcd0f756600c6a",
-        "size": 307681,
-        "mtimeMs": 1792344049633.446
+        "sha256": "c7ddcbdb19d266eff9803b48e59df41a4199c9bf5966acb6332b56ba8362d6ee",
+        "size": 310705,
+        "mtimeMs": 1792376717203.0044
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "698f72bdb893a645a2c11c926a2868ad530471e261948dd0e65cb1a94f1639b4",
-        "size": 136867,
-        "mtimeMs": 1792341989310.2363
+        "sha256": "e2f50e1d7129b475d5a788a762904f2bd0850e2db7c549add643d8e3f40aa3ff",
+        "size": 138741,
+        "mtimeMs": 1792376717204.5166
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "1c1b2faa67b4c5efd8ed958c9aaf40dceaa6518d235f41f2515828aa8de3cc07",
-        "size": 58540,
-        "mtimeMs": 1792342687677.3088
+        "sha256": "77705b479b002a7769b93277ad7f9831cb4b0c07bbd089750332cbd2c2edbe20",
+        "size": 59263,
+        "mtimeMs": 1792376717205.521
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "0cefa6bab031fe6b4ac7495c9af7eedec4efe73f2198d332b236dad28f26ae3d",
-        "size": 37250,
-        "mtimeMs": 1792163603717.864
+        "sha256": "d3f458eb0dbbf5f1174b05fe53f0b4ed2762876507832e343e970f6b49f4f87e",
+        "size": 37990,
+        "mtimeMs": 1792214145870.0127
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
-        "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
-        "size": 18127,
-        "mtimeMs": 1790475599389.271
+        "sha256": "45f355e7d7204a7597cc5e7884ac1b322556feb5885f193aadad1f552bc5f4d1",
+        "size": 18716,
+        "mtimeMs": 1792122654910.1572
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
-        "sha256": "e33904b5d260dab5dc763529bcf0536b6d95f6bba8f6ffea1b866a58ede215b5",
-        "size": 72262,
-        "mtimeMs": 1792263176797.2727
+        "sha256": "9ef8881170d156461c9b549efa4e58f9c64a0bc6467d3b54e325b910e0a24c7e",
+        "size": 73150,
+        "mtimeMs": 1792368696980.6252
       },
       {
         "path": "docs/spec/90.appendix.md",
-        "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
-        "size": 121,
-        "mtimeMs": 1778345537159.6023
+        "sha256": "feaa2ea621cc7f9585b3f6e2a258d70a49bae19271a81384f88af71d7f041693",
+        "size": 126,
+        "mtimeMs": 1792122654910.1572
       }
     ]
   },
   "idCounters": {
     "functional": {
-      "ARCH": 9,
+      "ARCH": 11,
       "AITUI": 19,
       "BGSTAB": 34,
       "MCP": 13,

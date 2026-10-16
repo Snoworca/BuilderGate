@@ -20,7 +20,8 @@ body {
 .app {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* FR-ARCH-011: the visible height while the on-screen keyboard is open. */
+  height: var(--app-height, 100%);
   overflow: hidden;
 }
 

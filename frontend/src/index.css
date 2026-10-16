@@ -21,8 +21,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* No min-height: 100vh here (FR-ARCH-011 AC-6). iOS Safari resolves vh to the
+ * toolbar-collapsed height, which made the body taller than the screen and hid
+ * the bottom of the app behind the toolbar; globals.css gives body 100%. */
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
 }

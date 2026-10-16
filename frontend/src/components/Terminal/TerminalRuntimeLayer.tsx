@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { TerminalContainer } from './TerminalContainer';
 import type { TerminalHandle } from './TerminalView';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
@@ -7,6 +7,7 @@ import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { useLongPress } from '../../hooks/useLongPress';
 import type { TerminalShortcutState } from '../../types';
 import { suppressTerminalSecondaryButtonEvent } from '../../utils/terminalPointerPolicy';
+import { createTouchTapTracker, shouldFocusTerminalOnPointerDown } from '../../utils/terminalTouchTapPolicy';
 
 const PARKED_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -67,8 +68,14 @@ function TerminalRuntimeEntry({
       }
     : PARKED_STYLE;
 
+  // FR-ARCH-010: a touch focuses the terminal (and so opens the iOS keyboard)
+  // only when it ends as a short tap, never when it begins.
+  const touchTapRef = useRef(createTouchTapTracker());
+  const lastPointerWasTouchRef = useRef(false);
+
   const longPress = useLongPress(
     ({ clientX, clientY }) => {
+      touchTapRef.current.longPress();
       getHostInteractions(tab.id)?.onContextMenu?.(clientX, clientY);
     },
     500,
@@ -109,6 +116,12 @@ function TerminalRuntimeEntry({
           return;
         }
 
+        lastPointerWasTouchRef.current = !shouldFocusTerminalOnPointerDown(event.pointerType);
+        if (lastPointerWasTouchRef.current) {
+          // Wait for the click: only a tap may focus.
+          return;
+        }
+
         if (isGridSurface) {
           for (const terminalRef of terminalRefsMap.current.values()) {
             terminalRef.current?.invalidateClipboardContext();
@@ -119,9 +132,28 @@ function TerminalRuntimeEntry({
         focusTerminal(event.currentTarget);
       }}
       onMouseDownCapture={(event) => {
-        suppressTerminalSecondaryButtonEvent(event);
+        if (suppressTerminalSecondaryButtonEvent(event)) {
+          return;
+        }
+        // A compatibility mousedown after a touch that was not a tap must not
+        // reach xterm, which focuses its input on mousedown.
+        if (lastPointerWasTouchRef.current && !touchTapRef.current.isTap()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
       }}
       onClickCapture={(event) => {
+        if (lastPointerWasTouchRef.current) {
+          if (!touchTapRef.current.consumeTap()) {
+            event.stopPropagation();
+            return;
+          }
+          if (isGridSurface) {
+            for (const terminalRef of terminalRefsMap.current.values()) {
+              terminalRef.current?.invalidateClipboardContext();
+            }
+          }
+        }
         getHostInteractions(tab.id)?.onPointerDown?.();
         focusTerminal(event.currentTarget);
       }}
@@ -133,8 +165,14 @@ function TerminalRuntimeEntry({
         event.preventDefault();
         getHostInteractions(tab.id)?.onContextMenu?.(event.clientX, event.clientY);
       }}
-      onTouchStart={longPress.onTouchStart}
-      onTouchMove={longPress.onTouchMove}
+      onTouchStart={(event) => {
+        touchTapRef.current.touchStart(event.touches);
+        longPress.onTouchStart(event);
+      }}
+      onTouchMove={(event) => {
+        touchTapRef.current.touchMove(event.touches);
+        longPress.onTouchMove(event);
+      }}
       onTouchEnd={longPress.onTouchEnd}
     >
       <TerminalContainer

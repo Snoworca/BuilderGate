@@ -8,7 +8,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  /* 100%, not 100vh: iOS Safari resolves vh past its toolbar (FR-ARCH-011 AC-6). */
+  min-height: 100%;
   padding: var(--sp-4);
   box-sizing: border-box;
   background: var(--bg-app);
