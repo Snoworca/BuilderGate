@@ -1,0 +1,38 @@
+{
+  "branch": "kiwi/orch/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1-r2",
+  "base_sha": "637d0f22d4aba4a84a6815ece78e8ebcdaa31fe3",
+  "head_sha": "504c90b8574446192263e122922c2a2f61363e7d",
+  "commits": [
+    {"sha": "f9a6176a", "kind": "test", "subject": "test(terminal): onData latch without provenance permit + handle member inventory (FR-MKB-003, IR-MKB-001)"},
+    {"sha": "594814af", "kind": "fix", "subject": "fix(terminal): apply mobile latch regardless of user-input provenance (FR-MKB-003)"},
+    {"sha": "504c90b8", "kind": "review-fix", "subject": "test(terminal): parser replies without provenance leave the latch untouched (FR-MKB-003)"}
+  ],
+  "red_evidence": [
+    {"test_id": "FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + c with no keydown/input first still submits 0x03", "failure": "AssertionError: c becomes 0x03 without a provenance permit; 'c' !== '\\x03' (terminalMobileLatchOnData.test.ts:228)"},
+    {"test_id": "FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + c after the provenance microtask expired still submits 0x03", "failure": "AssertionError: 'c' !== '\\x03'"},
+    {"test_id": "IR-MKB-001 AC-1 / SDS-AC-12: Terminal imperative handles route every paste-capable member through the coordinator (entry absent)", "failure": "AssertionError: TerminalHandle membership changed; extra member 'getApplicationCursorKeysMode' (shown by removing the new entry)"}
+  ],
+  "review_outcome": {
+    "result": "PASS",
+    "rounds": 1,
+    "coverage_check": "7/7 anchors match (TerminalView 2, clipboard contract 1, latch test 4)",
+    "findings": [
+      {"id": "FND-001", "severity": "MEDIUM", "disposition": "fixed in 504c90b8 (DA/SGR mouse pass-through tests for ctrl and alt; mutation-checked red)"},
+      {"id": "FND-002", "severity": "LOW", "disposition": "fixed in 504c90b8 (asserts ime_guard_delegated keyCode 229 before the permit expires)"}
+    ],
+    "residual_critical": 0,
+    "residual_high": 0
+  },
+  "superseded_tests": [
+    "FR-MKB-003 AC-3 AC-4 / SDS-AC-11: data without user provenance is submitted unchanged -- replaced by the AC-4 tests; the amended SDS-AC-11 reverses that contract (not a weakening: the new assertions check exact bytes and latch state)"
+  ],
+  "design_refuted": [],
+  "out_of_lease_paths": [],
+  "verification": {
+    "unit_all": "2232 tests, 2226 pass, 6 fail; failures = the 4 test:unit:terminal-view-behavior files + FR-MDE-005 + selectListRows 10000 (all allowed baseline); no other failures",
+    "terminal_view_behavior": "31/31 pass",
+    "mobile_keyboard": "28/28 pass",
+    "typecheck_tests": "exit 0",
+    "tsc_app": "exit 0 (run after the fix commit; the review commit touched only a test file)"
+  }
+}

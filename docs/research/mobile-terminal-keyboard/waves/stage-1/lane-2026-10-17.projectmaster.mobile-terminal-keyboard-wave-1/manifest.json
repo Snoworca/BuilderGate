@@ -1,0 +1,47 @@
+{
+  "branch": "kiwi/orch/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1",
+  "head_sha": "637d0f22d4aba4a84a6815ece78e8ebcdaa31fe3",
+  "commits": [
+    "0282e0c8 test(terminal): mobile key encoder and modifier latch tests (#134, #135)",
+    "e4956902 feat(terminal): mobile key encoder and Ctrl/Alt/Shift latch (#134, #135)",
+    "637d0f22 fix(terminal): consume once modifiers on every encoded ASCII key"
+  ],
+  "deferred_queue": "kiwi/orchestrator/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1/deferred-srs.jsonl (11 lines)",
+  "reports": [
+    ".kiwi/sessions/2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1/lanes/w1s1l1/reports/pm-20261017.md",
+    ".kiwi/sessions/2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1/lanes/w1s1l1/pm-state.json"
+  ],
+  "red_evidence": [
+    {"test_id": "mobileKeyEncoder.test.ts + mobileModifierLatch.test.ts (FR-MKB-001, FR-MKB-002, FR-MKB-003 / SDS-AC-1..9)", "failure": "27/27 failed against stub modules (encodeMobileKey returned '', latch never changed state); earlier ERR_MODULE_NOT_FOUND with no modules"},
+    {"test_id": "FR-MKB-003 AC-1 / SDS-AC-10: ctrl once + user-typed C submits 0x03", "failure": "AssertionError: the submitted data is 0x03, not C"},
+    {"test_id": "FR-MKB-003 AC-1 AC-2: alt once + x submits ESC x", "failure": "AssertionError: alt+x is ESC x"},
+    {"test_id": "IR-MKB-001 AC-1 / SDS-AC-12: handle mirrors applicationCursorKeysMode", "failure": "TypeError: handle.getApplicationCursorKeysMode is not a function"},
+    {"test_id": "IR-MKB-001 AC-2 / SDS-AC-12: TerminalContainer forwards the getter", "failure": "AssertionError: input did not match /getApplicationCursorKeysMode:.../"},
+    {"test_id": "FR-MKB-002 AC-4 / SDS-AC-8 / FR-MKB-003 AC-1: printable ASCII key the modifier leaves unchanged still consumes once (review W1-F1)", "failure": "pass 27 / fail 1: 'ctrl once is consumed by ctrl+1'"}
+  ],
+  "review_outcome": {
+    "result": "PASS (Normal: CRITICAL=0, HIGH=0); 1 review round per repo policy, no re-review round after fixes",
+    "residual_critical": 0,
+    "residual_high": 0,
+    "fixed": ["W1-F1 MEDIUM once consumed on every encoded ASCII key", "W1-F2 MEDIUM exact-string assertions in onData tests", "W1-F5 LOW test rename (replay-guard sub-case skipped: replay guard only suppresses parser-generated data, so the requested assertion contradicts the code)", "W1-F8 LOW redundant ?? false removed"],
+    "residual": ["W1-F3 LOW modified F1-F12 follow FR-MKB-001 AC-7/AC-8 but differ from xterm.js parameter forms (SRS decision)", "W1-F4 LOW several SRS ACs have no SDS-AC; IR-MKB-001 AC-3 (sendInput route) has no test in this wave", "W1-F6 LOW latch is a global singleton shared by all terminals and desktop typing (wave-2 UI decision)", "W1-F7 LOW resetForTests on production API; cancel() skips generation check"],
+    "rejected": ["W1-F9 source-text regex for container forward (type system enforces the field)"],
+    "coverage_check": "9/9 denominator files returned with anchors matching hunks_total"
+  },
+  "intentionally_empty": null,
+  "design_refuted": [
+    {"req": "FR-MKB-003 AC-2 vs AC-4 / SDS onDataLatchStep", "issue": "Android IME delivers composed ASCII via xterm CompositionHelper setTimeout(0) after compositionend, after the user-input provenance permit (microtask) expired; Ctrl once + c would go out as plain c. Traced in xterm code, not reproduced on a device. Implemented as SDS says; follow-up requirement recommended (compositionend permit until next onData)."}
+  ],
+  "out_of_lease_paths": [
+    {"path": "frontend/tests/unit/terminalClipboardAdapterContract.test.ts", "reason": "Pins every TerminalHandle member (TERMINAL_HANDLE_MEMBERS); IR-MKB-001 adds getApplicationCursorKeysMode so test 'Terminal imperative handles route every paste-capable member through the coordinator' now fails. Needed change (adds an entry, weakens nothing): getApplicationCursorKeysMode: 'reads application cursor mode; no input',", "gate": "existing-public-contract-change"}
+  ],
+  "test_sufficiency": "All SDS-AC-1..12 cited by tests; uncited/untested: IR-MKB-001 AC-3 (no sendInput in this wave) and SRS ACs without SDS-AC (FR-MKB-001 AC-2/4/5/6, FR-MKB-002 AC-1/6) are covered at REQ-ID citation level only. No speckiwi check_test_sufficiency run (lane forbids MCP use against host root).",
+  "verification": {
+    "unit_all": "exit 1: 2232 tests, 2225 pass, 7 fail. Allowed (terminal-view-behavior list): terminalViewKeyboardBehavior, terminalSavedSelectionDivergence, terminalPasteUnifiedPath, terminalMobileLatchOnData. Pre-existing at baseline: FR-MDE-005 ported tree, selectListRows 10000. NEW: terminalClipboardAdapterContract (out of lease, see out_of_lease_paths).",
+    "terminal_view_behavior": "exit 0, 28/28 pass",
+    "mobile_keyboard": "exit 0, 28/28 pass",
+    "typecheck_tests": "exit 0 (after npx patch-package in worktree node_modules; npm ci --ignore-scripts skips the react-mosaic-component patch)",
+    "tsc_app": "exit 0",
+    "i18n_membership": "9/9 pass"
+  }
+}
