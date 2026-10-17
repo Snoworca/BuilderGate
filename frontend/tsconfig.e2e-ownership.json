@@ -29,6 +29,7 @@
     "tests/e2e/ownedFolderFixture.ts",
     "tests/e2e/mcp-editor-open.spec.ts",
     "tests/e2e/mobile-touch-regressions.spec.ts",
+    "tests/e2e/mobile-terminal-keyboard.spec.ts",
     "tests/e2e/file-download.spec.ts",
     "tests/e2e/terminal-title-auto-tab-name.spec.ts",
     "tests/e2e/terminal-clipboard.spec.ts",
