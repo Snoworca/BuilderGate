@@ -128,6 +128,17 @@
   --danger-fill-hover: #b33b3b;
   --danger-tint: rgba(224, 92, 92, 0.14);
 
+  /* FR-MKB-011: a locked Ctrl/Alt/Shift on the mobile keyboard. The orange of
+   * docs/design/mobile-terminal-keyboard.html (.mod.lock), kept apart from
+   * --warn so a lock never reads as a warning. The hold fill (0.28) is denser
+   * than the locked background (0.16) so a press in progress is told apart. */
+  --lock: #ffb02e;
+  --lock-text: #ffd27a;
+  --lock-tint: rgba(255, 176, 46, 0.16);
+  --lock-edge: rgba(255, 176, 46, 0.55);
+  --lock-glow: rgba(255, 176, 46, 0.75);
+  --lock-hold: rgba(255, 176, 46, 0.28);
+
   /* Sunken wells (inputs, code) and the overlay a dialog floats on. */
   --bg-sunken: #1e1e1e;
   --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.55);
@@ -171,5 +182,6 @@
   --ok-text: #1b7a50;
   --warn-text: #8a5d00;
   --danger-text: #b3261e;
+  --lock-text: #8a4f00;
   --bg-sunken: #ffffff;
 }

@@ -1115,5 +1115,17 @@
   "mobileKeyboard.switch.toSpecial": "Open the special keyboard",
   "mobileKeyboard.switch.toSystem": "Back to the system keyboard",
   "mobileKeyboard.switch.specialLabel": "Special",
-  "mobileKeyboard.switch.systemLabel": "ABC"
+  "mobileKeyboard.switch.systemLabel": "ABC",
+  "mobileKeyboard.key.shift": "Shift (tap: next key only, hold 1.5 s: lock)",
+  "mobileKeyboard.key.function": "Function key {name}",
+  "mobileKeyboard.key.char": "Type {char}",
+  "mobileKeyboard.key.backspace": "Backspace",
+  "mobileKeyboard.key.enter": "Enter",
+  "mobileKeyboard.key.insert": "Insert",
+  "mobileKeyboard.key.delete": "Delete",
+  "mobileKeyboard.special.panel": "Special keys",
+  "mobileKeyboard.special.toNumpad": "Show the number pad",
+  "mobileKeyboard.special.toArrows": "Show the arrow keys",
+  "mobileKeyboard.special.numpadLabel": "Numpad",
+  "mobileKeyboard.special.arrowsLabel": "Arrows"
 }

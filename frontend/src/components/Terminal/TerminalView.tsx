@@ -317,6 +317,12 @@ export interface TerminalHandle {
   bindRestoreCoordinator: (options: TerminalRestoreAdapterOptions) => BoundTerminalRestoreAdapter;
   submitClear: () => void;
   focus: (reason?: string) => void;
+  /** Takes focus off the helper textarea and drops a queued focus restore (FR-MKB-008 AC-1). */
+  // @req FR-MKB-008
+  blurInput: () => void;
+  /** While on, every focus entry is ignored and a self-focus is undone; only false clears it (FR-MKB-008 AC-3 AC-4). */
+  // @req FR-MKB-008
+  setFocusSuppressed: (on: boolean) => void;
   hasSelection: () => boolean;
   getSelection: () => string;
   getMouseTrackingActive: () => boolean;
@@ -499,6 +505,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const terminalRestoreAdapterRef = useRef<BoundTerminalRestoreAdapter | null>(null);
     const replayInputGuardRef = useRef(createTerminalReplayInputGuard());
     const pendingFocusRestoreRef = useRef(false);
+    // Set while the mobile special keyboard panel is open; only
+    // setFocusSuppressed(false) clears it (FR-MKB-008 AC-3).
+    const focusSuppressedRef = useRef(false);
     const webglRendererRef = useRef<TerminalWebglRenderer | null>(null);
     const isVisibleRef = useRef(isVisible);
     const workspaceIdRef = useRef(workspaceId);
@@ -726,7 +735,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       };
     }, [getEffectiveTransportState]);
 
+    // FR-MKB-008 AC-4: every focus entry ends here, so the special keyboard
+    // panel shuts them all in one place while it is open.
+    // @req FR-MKB-008
     const focusTerminalInput = useCallback((reason: string) => {
+      if (focusSuppressedRef.current) {
+        recordTerminalDebugEvent(sessionId, 'focus_suppressed', { reason });
+        return;
+      }
       const term = xtermRef.current;
       const helperTextarea = getHelperTextarea();
 
@@ -768,6 +784,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
     const restoreQueuedFocus = useCallback((reason: string) => {
       if (!pendingFocusRestoreRef.current || !captureAllowedRef.current || !isVisibleRef.current) {
+        return;
+      }
+      if (focusSuppressedRef.current) {
+        pendingFocusRestoreRef.current = false;
+        recordTerminalDebugEvent(sessionId, 'focus_suppressed', { reason: `restore-${reason}` });
         return;
       }
 
@@ -3303,6 +3324,19 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       focus: (reason = 'handle') => {
         focusTerminalInput(reason);
       },
+      // @req FR-MKB-008
+      blurInput: () => {
+        pendingFocusRestoreRef.current = false;
+        getHelperTextarea()?.blur();
+        xtermRef.current?.blur();
+        containerRef.current?.classList.remove('terminal-focused');
+        recordTerminalDebugEvent(sessionId, 'focus_blurred_for_mobile_keyboard');
+      },
+      // @req FR-MKB-008
+      setFocusSuppressed: (on: boolean) => {
+        focusSuppressedRef.current = on;
+        if (on) pendingFocusRestoreRef.current = false;
+      },
       hasSelection: () => !!(
         xtermRef.current?.hasSelection()
         || (
@@ -3434,6 +3468,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       replaceWithSnapshot,
       releaseRestorePending,
       focusTerminalInput,
+      getHelperTextarea,
       nextCaptureSeq,
       queueFocusRestoreIfFocused,
       repairLayoutAfterIme,
@@ -4420,8 +4455,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)
       const termEl = terminalRef.current!;
-      const onFocusIn = () => {
+      const onFocusIn = (event: FocusEvent) => {
         pendingFocusRestoreRef.current = false;
+        // FR-MKB-008 AC-4: xterm (or a fallback) focusing its own textarea while
+        // the special keyboard is open would raise the system keyboard over it.
+        if (focusSuppressedRef.current) {
+          if (event.target instanceof HTMLElement) event.target.blur();
+          containerRef.current?.classList.remove('terminal-focused');
+          return;
+        }
         containerRef.current?.classList.add('terminal-focused');
       };
       const onFocusOut = (event: FocusEvent) => {

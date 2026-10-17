@@ -1088,5 +1088,17 @@
   "mobileKeyboard.switch.toSpecial": "특수 키보드 열기",
   "mobileKeyboard.switch.toSystem": "시스템 키보드로 돌아가기",
   "mobileKeyboard.switch.specialLabel": "특수",
-  "mobileKeyboard.switch.systemLabel": "ABC"
+  "mobileKeyboard.switch.systemLabel": "ABC",
+  "mobileKeyboard.key.shift": "Shift 키 (짧게 누르면 다음 한 키, 1.5초 누르면 잠금)",
+  "mobileKeyboard.key.function": "기능 키 {name}",
+  "mobileKeyboard.key.char": "{char} 입력",
+  "mobileKeyboard.key.backspace": "Backspace 키",
+  "mobileKeyboard.key.enter": "Enter 키",
+  "mobileKeyboard.key.insert": "Insert 키",
+  "mobileKeyboard.key.delete": "Delete 키",
+  "mobileKeyboard.special.panel": "특수 키",
+  "mobileKeyboard.special.toNumpad": "숫자패드로 바꾸기",
+  "mobileKeyboard.special.toArrows": "방향키로 바꾸기",
+  "mobileKeyboard.special.numpadLabel": "숫자패드",
+  "mobileKeyboard.special.arrowsLabel": "방향키"
 }

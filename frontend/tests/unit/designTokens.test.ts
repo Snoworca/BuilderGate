@@ -275,3 +275,19 @@ test('CON-ARCH-001 AC-5 the violet family stays with the editor', () => {
   const leaked = EDITOR_ONLY_COLOURS.filter(hex => source.includes(hex));
   assert.deepEqual(leaked, [], `editor syntax colours leaked into the UI layer: ${leaked.join(', ')}`);
 });
+
+// FR-MKB-011 AC-1 / SDS-AC-12: the orange lock family the mobile keyboard draws
+// a locked Ctrl/Alt/Shift with. The design's #ffd27a text is unreadable on the
+// light surface, so the paper block re-binds the text token darker.
+test('FR-MKB-011 AC-1 / SDS-AC-12 the lock family is declared on chrome and its text is re-bound for paper', () => {
+  const source = css('../../src/styles/tokens.css');
+  const root = declarations(block(source, ':root'));
+  const paper = declarations(block(source, '[data-surface="paper"]'));
+  for (const name of ['--lock', '--lock-text', '--lock-tint', '--lock-edge', '--lock-glow', '--lock-hold']) {
+    assert.ok(root.get(name), `${name} is declared on :root`);
+  }
+  assert.equal(root.get('--lock'), '#ffb02e');
+  assert.equal(root.get('--lock-text'), '#ffd27a');
+  assert.ok(paper.get('--lock-text'), 'paper re-binds the lock text');
+  assert.notEqual(paper.get('--lock-text'), root.get('--lock-text'));
+});
