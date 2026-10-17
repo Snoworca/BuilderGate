@@ -239,6 +239,11 @@ test('FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + c after the provenance microtask 
 
   // keydown grants a microtask permit; flushing lets it expire before the commit.
   view.pressKey({ key: 'Unidentified', keyCode: 229 });
+  // The IME-guard branch records ime_guard_delegated immediately before it calls
+  // markUserXtermDataProvenance(), so this event proves a permit was granted.
+  const delegated = debugStore().getEvents(SESSION_ID).filter((event) => event.kind === 'ime_guard_delegated');
+  assert.equal(delegated.length, 1, `the IME guard granted a permit: ${JSON.stringify(debugStore().getEvents(SESSION_ID))}`);
+  assert.equal(delegated[0].details.keyCode, 229);
   await view.flush();
   sharedState.dataHandler?.('c');
   await view.flush();
@@ -249,6 +254,41 @@ test('FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + c after the provenance microtask 
   assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'once is consumed');
 
   await view.unmount();
+});
+
+// Parser-style replies with no user provenance (no keydown/input first): a DA
+// reply and an SGR mouse report. In production the query-reply guard may route
+// or suppress some of them. In this harness there is no responder identity and
+// the legacy parser responder is enabled, so both take the ordinary path and
+// reach submitCapturedInput (observed: two terminal_input_queued events); the
+// test pins that, so it cannot pass vacuously with nothing submitted. Each
+// submission must be the original bytes, and the latch must stay armed.
+const PARSER_REPLIES = ['\x1b[?1;2c', '\x1b[<0;1;1M'];
+
+async function assertParserRepliesPassThrough(modifier: 'ctrl' | 'alt') {
+  const view = await renderWithCapture();
+  mobileModifierLatch.tap(modifier);
+
+  for (const reply of PARSER_REPLIES) sharedState.dataHandler?.(reply);
+  await view.flush();
+
+  const submitted = submittedInputs().map(submittedData);
+  assert.ok(submitted.length >= 1, `at least one reply is submitted: ${JSON.stringify(submitted)}`);
+  for (const data of submitted) {
+    assert.ok(PARSER_REPLIES.includes(data), `submitted ${JSON.stringify(data)} is an original reply, not re-encoded`);
+  }
+  assert.deepEqual(submitted, PARSER_REPLIES, 'both replies are submitted once each, byte for byte');
+  assert.equal(mobileModifierLatch.getSnapshot()[modifier], 'once', `${modifier} once is not consumed by a parser reply`);
+
+  await view.unmount();
+}
+
+test('FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + parser replies (DA, SGR mouse) without provenance are submitted unchanged and leave ctrl once', async () => {
+  await assertParserRepliesPassThrough('ctrl');
+});
+
+test('FR-MKB-003 AC-4 / SDS-AC-11: alt once + parser replies (DA, SGR mouse) without provenance are submitted unchanged and leave alt once', async () => {
+  await assertParserRepliesPassThrough('alt');
 });
 
 test('FR-MKB-003 AC-3 / SDS-AC-11: a programmatic paste is submitted unchanged with ctrl once', async () => {
