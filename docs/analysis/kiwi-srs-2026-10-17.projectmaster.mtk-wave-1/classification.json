@@ -1,0 +1,5 @@
+{"target":"mtk-wave-1","classification":"new-scope","proposed_scope":"NEW: mobile-terminal-keyboard","proposed_prefix":"MKB","confidence":"high",
+ "rationale":"No scope covers mobile keyboard input; architecture-fit investigator recommended scope 46. --auto: scope name/prefix decided by the orchestrator (scaffold-scope allocated 46).",
+ "affected_existing_reqs":[{"id":"REL-BGSTAB-028","relation":"depends_on"},{"id":"REL-BGSTAB-019","relation":"depends_on"}],
+ "scope_boundary_impact":null,"external_module_impact":null,
+ "authoring_note":"Phase 1 inputs reused from the orchestrator intake investigators (code-context, architecture-fit). Author ran inline in the host session through the speckiwi CLI with --root . (CLAUDE.md forbids MCP mutation tools); verifier is a separate subagent."}

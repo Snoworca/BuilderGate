@@ -1,22 +1,22 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-16T15:11:25.999Z",
+  "generatedAt": "2026-10-17T13:38:17.995Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "8356165f28c79b2bf88d2185152888f9c6d2780a39d5e550a3fdc6f8c7624318",
+    "value": "8a349dc123c0ecb32d1509fc5f4f02915354f381d7fe39806357649dece45c52",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "db9c585946923f539a7d569824988050dbaf4d0b0eded340a228b82033604863",
-        "size": 12891,
-        "mtimeMs": 1791930118647.2068
+        "sha256": "289b40ffebef543db1ca96d5e19fc8ab228ea2f5b468e01f46feba5092726286",
+        "size": 13302,
+        "mtimeMs": 1792243854926.6255
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
         "sha256": "1523be2b98507ef82d22cfa23913b2fc7d5f2fca44c3e5e8f6317310446c8ac4",
         "size": 37244,
-        "mtimeMs": 1792163453747.7085
+        "mtimeMs": 1792163603662.1516
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
@@ -34,19 +34,19 @@
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "2655bfa73ab41a190905ce298bebd66a8b6bf49ac8c71de0a8348d1b5e1534ca",
         "size": 139512,
-        "mtimeMs": 1792155498600.225
+        "mtimeMs": 1792163603676.3152
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
         "sha256": "31466fec3e6ca0478c8de39ea6cf0ee76b0504804160a309b531052307b14d3c",
         "size": 296174,
-        "mtimeMs": 1792155513496.4453
+        "mtimeMs": 1792163603692.399
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "b35bbba498c448f0693b304f22ccd4d31af6101947e8fcf0fb77c069fd70cbd4",
         "size": 111637,
-        "mtimeMs": 1792163472677.3008
+        "mtimeMs": 1792163603704.5776
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
@@ -58,13 +58,19 @@
         "path": "docs/spec/44.ui-design-system.srs.md",
         "sha256": "0cefa6bab031fe6b4ac7495c9af7eedec4efe73f2198d332b236dad28f26ae3d",
         "size": 37250,
-        "mtimeMs": 1792139291914.0408
+        "mtimeMs": 1792163603717.864
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
         "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
         "size": 18127,
         "mtimeMs": 1790475599389.271
+      },
+      {
+        "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
+        "sha256": "11ddf1f76389052db97e37f1dba886600a35b0d3596d132b01c22e7afddf83f7",
+        "size": 15007,
+        "mtimeMs": 1792244283488.7708
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -83,7 +89,8 @@
       "MDE": 27,
       "FEX": 21,
       "FOP": 5,
-      "UIDS": 10
+      "UIDS": 10,
+      "MKB": 4
     },
     "constraint": {
       "ARCH": 1,
@@ -125,7 +132,8 @@
       "BGSTAB": 2,
       "MCP": 6,
       "MDE": 3,
-      "FOP": 2
+      "FOP": 2,
+      "MKB": 1
     }
   },
   "lock": {
