@@ -1,6 +1,7 @@
-/* Mobile terminal accessory key bar — FR-MKB-005, FR-MKB-006.
- * Design source: docs/design/mobile-terminal-keyboard.html (.keybar, .kb, .mod).
- * The lock colour is the warn family: the token layer has no separate orange. */
+/* Mobile terminal key bar and special keyboard — FR-MKB-005, FR-MKB-006,
+ * FR-MKB-009, FR-MKB-011.
+ * Design source: docs/design/mobile-terminal-keyboard.html (.keybar, .kb, .mod,
+ * .spkbd, .spgrid, .k). The lock colour is the --lock family. */
 
 .mobile-key-bar {
   flex: none;
@@ -106,14 +107,14 @@
 
 /* Locked: an orange tinted box with an orange border and a glowing dot. */
 .mobile-key--mod[data-latch-state="locked"] {
-  color: var(--warn-text);
-  background: var(--warn-tint);
-  box-shadow: inset 0 0 0 1px var(--warn);
+  color: var(--lock-text);
+  background: var(--lock-tint);
+  box-shadow: inset 0 0 0 1px var(--lock-edge);
 }
 
 .mobile-key--mod[data-latch-state="locked"] > .mobile-key__dot {
-  background: var(--warn);
-  box-shadow: 0 0 6px 2px var(--warn);
+  background: var(--lock);
+  box-shadow: 0 0 6px 2px var(--lock-glow);
 }
 
 /* Hold progress: fills from the bottom over the 1500 ms lock time. */
@@ -123,11 +124,113 @@
   right: 0;
   bottom: 0;
   height: 0;
-  background: var(--warn-tint);
+  background: var(--lock-hold);
   pointer-events: none;
 }
 
 .mobile-key--holding > .mobile-key__hold {
   height: 100%;
   transition: height 1500ms linear;
+}
+
+/* ---- Special keyboard panel (FR-MKB-009, FR-MKB-010) ----
+ * Sits right under the key bar in the app's flex column, so the terminal area
+ * shrinks by the panel height instead of being covered. */
+.mobile-special-keyboard {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: 6px var(--sp-1);
+  background: var(--bg-sunken);
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mobile-special-keyboard__top {
+  flex: none;
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.mobile-special-keyboard__grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: 10px;
+}
+
+.mobile-special-keyboard__block {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(4, minmax(var(--ctl-touch), 1fr));
+  gap: var(--sp-1);
+}
+
+.mobile-special-key {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: var(--ctl-touch);
+  padding: 0 2px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--line);
+  color: var(--fg-strong);
+  font: var(--fw-semibold) var(--fs-md) var(--font-sans);
+  line-height: 1.1;
+  text-align: center;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-special-key:active {
+  background: var(--line-strong);
+}
+
+/* The top row keys share the width; LatchKeys there also carry .mobile-key. */
+.mobile-special-keyboard__top > .mobile-special-key {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+
+.mobile-special-key--fn {
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-size: var(--fs-sm);
+}
+
+.mobile-special-key--nav {
+  font-size: var(--fs-xs);
+}
+
+/* The arrow cross stands out from the keys around it. */
+.mobile-special-key--arrow {
+  background: var(--line-strong);
+  font-size: var(--fs-xl);
+}
+
+.mobile-special-key--enter {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.mobile-special-key--switch {
+  background: var(--bg-raised);
+  color: var(--accent-text);
+  font-size: var(--fs-sm);
+}
+
+.mobile-special-key--blank {
+  background: transparent;
+  pointer-events: none;
 }

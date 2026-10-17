@@ -13,8 +13,15 @@ import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useTerminalRuntimeResidency } from './hooks/useTerminalRuntimeResidency';
 import { useTerminalInputFocus } from './hooks/useTerminalInputFocus';
-import { useVisualViewportLock } from './hooks/useVisualViewportInset';
-import { MobileKeyBar, shouldShowMobileKeyBar, useResetLatchWhenNotMobile } from './components/MobileKeyboard';
+import { getLastKeyboardInset, useVisualViewportLock } from './hooks/useVisualViewportInset';
+import {
+  MobileKeyBar,
+  MobileSpecialKeyboard,
+  applySpecialKeyboardToggle,
+  shouldShowMobileKeyBar,
+  specialPanelHeight,
+  useResetLatchWhenNotMobile,
+} from './components/MobileKeyboard';
 import { sendMobileKeyTo } from './utils/mobileModifierLatch.ts';
 import type { MobileKeyName } from './utils/mobileKeyEncoder.ts';
 import { commandPresetApi, sessionApi } from './services/api';
@@ -391,7 +398,13 @@ function AppContent() {
       ?? buildMissingTerminalClipboardResult(source);
   }, []);
 
+  // Read synchronously by the focus paths below; set by toggleSpecialKeyboard
+  // and closeSpecialKeyboard.
+  const specialKeyboardOpenRef = useRef(false);
+
   const focusTerminal = useCallback((tabId: string): void => {
+    // FR-MKB-008 AC-4: the tab wrapper must not raise the system keyboard over the panel.
+    if (specialKeyboardOpenRef.current) return;
     terminalRefsMap.current.get(tabId)?.current?.focus();
   }, []);
 
@@ -585,33 +598,96 @@ function AppContent() {
   // FR-MKB-006 / FR-MKB-007: the mobile key bar shows while the active tab's
   // terminal input has focus on a phone, and the app then follows the visual
   // viewport so the bar sits right above the system keyboard.
-  const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null);
+  // No focus watch at all on a desktop (FR-MKB-011 AC-4).
+  const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null, isMobile);
+  // FR-MKB-008: the special keyboard panel replaces the system keyboard under
+  // the bar. The ref is what the tap handler and the focus paths read, so the
+  // switch can act synchronously inside the gesture; the state renders it.
+  const [specialKeyboardOpen, setSpecialKeyboardOpen] = useState(false);
+  const [specialKeyboardHeight, setSpecialKeyboardHeight] = useState(() => specialPanelHeight(0));
+  // The tab whose terminal is currently focus-suppressed for the panel.
+  const suppressedTabIdRef = useRef<string | null>(null);
   const showMobileKeyBar = shouldShowMobileKeyBar({
     isMobile,
     screen,
     hasActiveTab: activeTab !== null,
     inputFocused: activeTerminalInputFocused,
+    panelOpen: specialKeyboardOpen,
   });
   // The viewport box goes straight onto .app's style, so viewport resize/scroll
   // events do not re-render AppContent (FR-MKB-007).
   const appRootRef = useRef<HTMLDivElement>(null);
   useVisualViewportLock(showMobileKeyBar, appRootRef);
-  // Opening and closing the special keyboard is wave 3. Until then the switch
-  // does nothing, so it keeps showing its closed label.
-  const toggleSpecialKeyboard = useCallback(() => {}, []);
   const activeTabId = activeTab?.id ?? null;
+  // @req FR-MKB-008
+  const toggleSpecialKeyboard = useCallback((): void => {
+    const handle = activeTabId === null ? null : terminalRefsMap.current.get(activeTabId)?.current ?? null;
+    if (!specialKeyboardOpenRef.current) {
+      // Measured before the keyboard goes down: the panel takes its height.
+      setSpecialKeyboardHeight(specialPanelHeight(getLastKeyboardInset()));
+    } else if (suppressedTabIdRef.current !== null && suppressedTabIdRef.current !== activeTabId) {
+      terminalRefsMap.current.get(suppressedTabIdRef.current)?.current?.setFocusSuppressed(false);
+    }
+    // Synchronous: closing focuses the terminal inside this tap handler (iOS).
+    specialKeyboardOpenRef.current = applySpecialKeyboardToggle(specialKeyboardOpenRef.current, handle);
+    suppressedTabIdRef.current = specialKeyboardOpenRef.current && handle !== null ? activeTabId : null;
+    setSpecialKeyboardOpen(specialKeyboardOpenRef.current);
+  }, [activeTabId]);
+  // Closes the panel without raising the system keyboard (leaving mobile mode).
+  const closeSpecialKeyboard = useCallback((): void => {
+    if (!specialKeyboardOpenRef.current) return;
+    const tabId = suppressedTabIdRef.current;
+    if (tabId !== null) terminalRefsMap.current.get(tabId)?.current?.setFocusSuppressed(false);
+    suppressedTabIdRef.current = null;
+    specialKeyboardOpenRef.current = false;
+    setSpecialKeyboardOpen(false);
+  }, []);
+  // FR-MKB-008 AC-6: the panel never survives a switch to the desktop layout.
+  useEffect(() => {
+    if (!isMobile) closeSpecialKeyboard();
+  }, [isMobile, closeSpecialKeyboard]);
+  // The panel only lives on the workspace screen with an active tab; leaving
+  // either closes it rather than leaving a suppressed terminal behind.
+  useEffect(() => {
+    if (screen !== 'workspace' || activeTabId === null) closeSpecialKeyboard();
+  }, [screen, activeTabId, closeSpecialKeyboard]);
+  // While the panel is open the active terminal must be suppressed: after a
+  // tab switch the suppression moves to the new tab, and after a restart or
+  // session swap (a remounted TerminalView starts unsuppressed) it is applied
+  // again, so the runtime layer cannot raise the keyboard over the panel.
+  const activeSessionId = activeTab?.sessionId ?? null;
+  useEffect(() => {
+    if (!specialKeyboardOpenRef.current) return;
+    const previous = suppressedTabIdRef.current;
+    if (previous !== null && previous !== activeTabId) {
+      terminalRefsMap.current.get(previous)?.current?.setFocusSuppressed(false);
+    }
+    const next = activeTabId === null ? null : terminalRefsMap.current.get(activeTabId)?.current ?? null;
+    if (next === null) {
+      suppressedTabIdRef.current = null;
+      return;
+    }
+    next.blurInput();
+    next.setFocusSuppressed(true);
+    suppressedTabIdRef.current = activeTabId;
+  }, [activeTabId, activeSessionId]);
   // @req FR-MKB-006
-  const sendMobileKey = useCallback((key: MobileKeyName): void => {
+  // @req FR-MKB-009
+  const sendMobileKey = useCallback((key: MobileKeyName | string): void => {
     if (activeTabId === null) return;
     const handle = terminalRefsMap.current.get(activeTabId)?.current;
-    sendMobileKeyTo(handle, key);
-    // A browser that let the tap move focus onto the bar gets it handed back.
+    // encodeMobileKey takes any single character as well as a key name, which
+    // the panel's symbol and number keys rely on.
+    sendMobileKeyTo(handle, key as MobileKeyName);
+    // A browser that let the tap move focus onto the bar gets it handed back,
+    // unless the panel is open: then the terminal must stay blurred.
+    if (specialKeyboardOpenRef.current) return;
     if (!(document.activeElement instanceof HTMLTextAreaElement)) handle?.focus();
   }, [activeTabId]);
   // Ctrl/Alt and the switch hand focus back the same way (the bar calls this
   // only when focus sits on one of its buttons).
   const restoreMobileTerminalFocus = useCallback((): void => {
-    if (activeTabId === null) return;
+    if (activeTabId === null || specialKeyboardOpenRef.current) return;
     terminalRefsMap.current.get(activeTabId)?.current?.focus();
   }, [activeTabId]);
   // A latch left on in mobile mode must not reach a desktop hardware keyboard.
@@ -1084,9 +1160,14 @@ function AppContent() {
               <MobileKeyBar
                 onSendKey={sendMobileKey}
                 onToggleKeyboard={toggleSpecialKeyboard}
-                keyboardOpen={false}
+                keyboardOpen={specialKeyboardOpen}
                 onRestoreFocus={restoreMobileTerminalFocus}
               />
+            )}
+            {/* Right under the bar in the same flex column: the terminal area
+                shrinks by the panel height instead of being covered (FR-MKB-008 AC-5). */}
+            {showMobileKeyBar && specialKeyboardOpen && (
+              <MobileSpecialKeyboard height={specialKeyboardHeight} onSendKey={sendMobileKey} />
             )}
           </div>
 
