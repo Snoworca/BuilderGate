@@ -1,0 +1,39 @@
+{
+  "lane_cap": 4,
+  "depends": {
+    "2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1": []
+  },
+  "sds_digests": {
+    "2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1": "d8291838ac9fe76997845113f935454a6be9b03ec3ba5e5092cb744606e0beb5"
+  },
+  "lane_count": 1,
+  "stage_count": 1,
+  "lanes": [
+    {
+      "laneId": "lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1",
+      "stage": 1,
+      "wave": "2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1",
+      "sds": "docs/sds/2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1.sds.md",
+      "writeSet": [
+        "frontend/package.json",
+        "frontend/src/components/Terminal/TerminalContainer.tsx",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/src/utils/mobileKeyEncoder.ts",
+        "frontend/src/utils/mobileModifierLatch.ts",
+        "frontend/tests/unit/mobileKeyEncoder.test.ts",
+        "frontend/tests/unit/mobileModifierLatch.test.ts",
+        "frontend/tests/unit/terminalMobileLatchOnData.test.ts",
+        "frontend/tsconfig.test.json"
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "index": 1,
+      "laneIds": [
+        "lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1"
+      ]
+    }
+  ],
+  "conflicts": []
+}

@@ -1,0 +1,103 @@
+{
+  "resolved_findings": ["FND-001", "FND-002", "FND-003"],
+  "unresolved_findings": [],
+  "findings": [
+    {
+      "id": "FND-101",
+      "axis": "P6",
+      "severity": "MEDIUM",
+      "title": "New non-component exports in MobileKeyBar.tsx add two react-refresh lint errors",
+      "location": {"file": "frontend/src/components/MobileKeyboard/MobileKeyBar.tsx", "line_range": "71-81"},
+      "description": "shouldShowMobileKeyBar (line 71) and useResetLatchWhenNotMobile (line 77) are exported from a component .tsx file. `npx eslint src/components/MobileKeyboard` reports react-refresh/only-export-components errors at 71:17 and 77:17 (new; the error at 23:14 for MOBILE_BAR_KEYS existed before). Lint error count rises and Vite fast refresh degrades to a full reload for this module.",
+      "suggested_fix": "Move shouldShowMobileKeyBar and useResetLatchWhenNotMobile (and ideally MOBILE_BAR_KEYS) to a non-component module, e.g. components/MobileKeyboard/mobileKeyBarState.ts, and re-export from index.ts.",
+      "is_behavioral": false,
+      "tags": ["lint", "regression"]
+    },
+    {
+      "id": "FND-102",
+      "axis": "P5",
+      "severity": "LOW",
+      "title": "useVisualViewportInset is now unused production code",
+      "location": {"file": "frontend/src/hooks/useVisualViewportInset.ts", "line_range": "41-63"},
+      "description": "App.tsx no longer imports useVisualViewportInset; grep over frontend/src finds no caller. The hook (and its re-rendering behaviour that FND-002 removed) survives only for tests, together with the useState import and sameBox helper.",
+      "suggested_fix": "Delete useVisualViewportInset/sameBox and port its remaining test assertions to useVisualViewportLock, or note why it is kept.",
+      "is_behavioral": false,
+      "tags": ["dead-code"]
+    },
+    {
+      "id": "FND-103",
+      "axis": "P4",
+      "severity": "LOW",
+      "title": "App.tsx call sites themselves are still not exercised by a test",
+      "location": {"file": "frontend/src/App.tsx", "line_range": "589-618"},
+      "description": "The decisions were extracted and tested (shouldShowMobileKeyBar, useResetLatchWhenNotMobile, useVisualViewportLock), which resolves FND-001's logic gap. Deleting the useResetLatchWhenNotMobile(isMobile) call at App.tsx:618 or the useVisualViewportLock call at :598 would still leave every unit test green. Residual risk is one line per call site.",
+      "suggested_fix": "Optional: a source-text or render-level check that AppContent calls both hooks; otherwise accept.",
+      "is_behavioral": false,
+      "tags": ["test-gap"]
+    }
+  ],
+  "coverage_rows": [
+    {
+      "file": "frontend/src/App.tsx",
+      "hunks_total": 6,
+      "anchors": [
+        "import { useVisualViewportLock } from './hooks/useVisualViewportInset';",
+        "  const showMobileKeyBar = shouldShowMobileKeyBar({",
+        "  useResetLatchWhenNotMobile(isMobile);",
+        "      ref={appRootRef}",
+        "      style={showMobileKeyBar ? {",
+        "                onRestoreFocus={restoreMobileTerminalFocus}"
+      ],
+      "findings": ["FND-103"]
+    },
+    {
+      "file": "frontend/src/components/MobileKeyboard/MobileKeyBar.tsx",
+      "hunks_total": 6,
+      "anchors": [
+        "import { useCallback, useEffect, useRef } from 'react';",
+        "import { mobileModifierLatch, type LatchModifier } from '../../utils/mobileModifierLatch.ts';",
+        "export function shouldShowMobileKeyBar({ isMobile, screen, hasActiveTab, inputFocused }: MobileKeyBarVisibility): boolean {",
+        "export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen, onRestoreFocus }: MobileKeyBarProps): ReactElement {",
+        "  const runPress = useCallback((event: ReactPointerEvent<HTMLDivElement>): void => {",
+        "    if (onRestoreFocus && focused !== null && bar.contains(focused)) onRestoreFocus();"
+      ],
+      "findings": ["FND-101"]
+    },
+    {
+      "file": "frontend/src/components/MobileKeyboard/index.ts",
+      "hunks_total": 1,
+      "anchors": [
+        "export { MobileKeyBar, MOBILE_BAR_KEYS, shouldShowMobileKeyBar, useResetLatchWhenNotMobile } from './MobileKeyBar.tsx';"
+      ],
+      "findings": []
+    },
+    {
+      "file": "frontend/src/hooks/useVisualViewportInset.ts",
+      "hunks_total": 2,
+      "anchors": [
+        "import { useEffect, useLayoutEffect, useState } from 'react';",
+        "export function useVisualViewportLock(active: boolean, targetRef: RefObject<HTMLElement | null>): void {"
+      ],
+      "findings": ["FND-102"]
+    },
+    {
+      "file": "frontend/tests/unit/mobileKeyBar.test.ts",
+      "hunks_total": 2,
+      "anchors": [
+        "const { LatchKey, MobileKeyBar, MOBILE_BAR_KEYS, shouldShowMobileKeyBar, useResetLatchWhenNotMobile } = await import('../../src/components/MobileKeyboard/index.ts');",
+        "    assert.equal(restores, before, 'no hand-back while the terminal keeps focus');"
+      ],
+      "findings": []
+    },
+    {
+      "file": "frontend/tests/unit/visualViewportInset.test.ts",
+      "hunks_total": 2,
+      "anchors": [
+        "  useVisualViewportLock,",
+        "    assert.equal(renders, rendersWhenActive, 'viewport events do not re-render the owner');"
+      ],
+      "findings": []
+    }
+  ],
+  "summary": {"total": 3, "by_severity": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 1, "LOW": 2}}
+}

@@ -1,0 +1,15 @@
+{
+  "run_id": "2026-10-17.ProjectMaster.mobile-terminal-keyboard",
+  "probe_path": "docs/research/mobile-terminal-keyboard/routing/probe.json",
+  "probe_digest": "sha256:12397e7b736a1e869c9d727b3fc724fef2ccacb061b331f57fdf188427b6539a",
+  "decided_at": "2026-10-17T13:45:00.000Z",
+  "gates": [
+    {
+      "gate_id": "route-proposal",
+      "severity": "business-decision",
+      "selected": "proposed",
+      "decided_by": "recommended-fastpath",
+      "resolution": {"rule": "recommended-fastpath", "committee_size": 0, "marked_by": "classifier"}
+    }
+  ]
+}

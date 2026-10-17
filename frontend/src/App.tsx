@@ -12,6 +12,16 @@ import { useResponsive } from './hooks/useResponsive';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useTerminalRuntimeResidency } from './hooks/useTerminalRuntimeResidency';
+import { useTerminalInputFocus } from './hooks/useTerminalInputFocus';
+import { getLastKeyboardInset, useVisualViewportLock } from './hooks/useVisualViewportInset';
+import {
+  MobileKeyBar,
+  MobileSpecialKeyboard,
+  shouldShowMobileKeyBar,
+  specialPanelHeight,
+  useResetLatchWhenNotMobile,
+  useSpecialKeyboardPanel,
+} from './components/MobileKeyboard';
 import { commandPresetApi, sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
@@ -386,7 +396,13 @@ function AppContent() {
       ?? buildMissingTerminalClipboardResult(source);
   }, []);
 
+  // Read synchronously by the focus paths below; set by the special keyboard
+  // panel hook (useSpecialKeyboardPanel: its toggle and close).
+  const specialKeyboardOpenRef = useRef(false);
+
   const focusTerminal = useCallback((tabId: string): void => {
+    // FR-MKB-008 AC-4: the tab wrapper must not raise the system keyboard over the panel.
+    if (specialKeyboardOpenRef.current) return;
     terminalRefsMap.current.get(tabId)?.current?.focus();
   }, []);
 
@@ -577,6 +593,55 @@ function AppContent() {
     () => wm.activeWorkspaceTabs.find(t => t.id === wm.activeWorkspace?.activeTabId) ?? null,
     [wm.activeWorkspaceTabs, wm.activeWorkspace]
   );
+  // FR-MKB-006 / FR-MKB-007: the mobile key bar shows while the active tab's
+  // terminal input has focus on a phone, and the app then follows the visual
+  // viewport so the bar sits right above the system keyboard.
+  // No focus watch at all on a desktop (FR-MKB-011 AC-4).
+  const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null, isMobile);
+  const activeTabId = activeTab?.id ?? null;
+  const activeSessionId = activeTab?.sessionId ?? null;
+  // FR-MKB-008: the special keyboard panel replaces the system keyboard under
+  // the bar. specialKeyboardOpenRef is what the tap handler and the focus paths
+  // read, so the switch can act synchronously inside the gesture; the hook's
+  // state renders it. The hook also moves the suppression with the active tab.
+  const getTerminalHandle = useCallback(
+    (tabId: string) => terminalRefsMap.current.get(tabId)?.current ?? null,
+    [],
+  );
+  const measureSpecialKeyboardHeight = useCallback(() => specialPanelHeight(getLastKeyboardInset()), []);
+  const specialKeyboard = useSpecialKeyboardPanel({
+    activeTabId,
+    activeSessionId,
+    getHandle: getTerminalHandle,
+    measureHeight: measureSpecialKeyboardHeight,
+    openRef: specialKeyboardOpenRef,
+  });
+  const specialKeyboardOpen = specialKeyboard.open;
+  const specialKeyboardHeight = specialKeyboard.height;
+  const closeSpecialKeyboard = specialKeyboard.close;
+  const showMobileKeyBar = shouldShowMobileKeyBar({
+    isMobile,
+    screen,
+    hasActiveTab: activeTab !== null,
+    inputFocused: activeTerminalInputFocused,
+    panelOpen: specialKeyboardOpen,
+  });
+  // The viewport box goes straight onto .app's style, so viewport resize/scroll
+  // events do not re-render AppContent (FR-MKB-007).
+  const appRootRef = useRef<HTMLDivElement>(null);
+  useVisualViewportLock(showMobileKeyBar, appRootRef);
+  // FR-MKB-008 AC-6: the panel never survives a switch to the desktop layout.
+  useEffect(() => {
+    if (!isMobile) closeSpecialKeyboard();
+  }, [isMobile, closeSpecialKeyboard]);
+  // The panel only lives on the workspace screen with an active tab; leaving
+  // either closes it rather than leaving a suppressed terminal behind.
+  useEffect(() => {
+    if (screen !== 'workspace' || activeTabId === null) closeSpecialKeyboard();
+  }, [screen, activeTabId, closeSpecialKeyboard]);
+  // A latch left on in mobile mode must not reach a desktop hardware keyboard.
+  useResetLatchWhenNotMobile(isMobile);
+
   const runtimeResidency = useTerminalRuntimeResidency({
     tabs: wm.tabs,
     workspaces: wm.workspaces,
@@ -813,7 +878,10 @@ function AppContent() {
   );
 
   return (
-    <div className="app">
+    <div
+      ref={appRootRef}
+      className={showMobileKeyBar ? 'app app--viewport-locked' : 'app'}
+    >
       <Header
         onLogout={() => logout()}
         onOpenSettings={() => setScreen('settings')}
@@ -1037,6 +1105,19 @@ function AppContent() {
             ) : (
               <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
             )}
+            {showMobileKeyBar && (
+              <MobileKeyBar
+                onSendKey={specialKeyboard.sendKey}
+                onToggleKeyboard={specialKeyboard.toggle}
+                keyboardOpen={specialKeyboardOpen}
+                onRestoreFocus={specialKeyboard.restoreFocus}
+              />
+            )}
+            {/* Right under the bar in the same flex column: the terminal area
+                shrinks by the panel height instead of being covered (FR-MKB-008 AC-5). */}
+            {showMobileKeyBar && specialKeyboardOpen && (
+              <MobileSpecialKeyboard height={specialKeyboardHeight} onSendKey={specialKeyboard.sendKey} />
+            )}
           </div>
 
           <SettingsPage
@@ -1047,7 +1128,9 @@ function AppContent() {
       </div>
 
       {/* Below .main so it takes a row only while a file job runs (design 4.1). */}
-      <FileJobStatusBar onRevive={reviveFileExplorerForJob} />
+      {/* Hidden while the mobile key bar is up, so nothing sits between the bar
+          and the system keyboard (FR-MKB-007 AC-2). */}
+      {!showMobileKeyBar && <FileJobStatusBar onRevive={reviveFileExplorerForJob} />}
 
       {/* Tab mode context menu */}
       {tabContextMenu.isOpen && tabContextMenu.position && (

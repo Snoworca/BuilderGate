@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0.0",
+  "classifier_version": "route-classifier@2.0.0",
+  "run_id": "2026-10-17.ProjectMaster.mobile-terminal-keyboard",
+  "rung": "R-ORCH",
+  "proposed_rung": "R-ORCH",
+  "overridden_by": null,
+  "decisive": {
+    "predicate": "D3",
+    "rung": "R-STEP",
+    "observed": [
+      "BGSTAB",
+      "ARCH",
+      "UIDS",
+      "I18N"
+    ]
+  },
+  "removed": [
+    {
+      "rung": "R-STEP",
+      "by": "D3",
+      "observed": [
+        "BGSTAB",
+        "ARCH",
+        "UIDS",
+        "I18N"
+      ]
+    },
+    {
+      "rung": "R-STEP",
+      "by": "D4",
+      "observed": {
+        "ordered_sections": 0,
+        "linked_sub_issues": 5,
+        "task_list_groups": 1,
+        "fired": [
+          "linked_sub_issues",
+          "task_list_groups"
+        ]
+      }
+    }
+  ],
+  "alternative": null,
+  "work_mode": {
+    "value": "sdd",
+    "source": "mcp",
+    "divergence": null
+  },
+  "gates": [
+    {
+      "gate_id": "route-proposal",
+      "severity": "business-decision",
+      "options": [
+        "R-ORCH",
+        "abort"
+      ],
+      "recommended": true,
+      "withheld_because": [],
+      "resolution": {
+        "rule": "recommended-fastpath",
+        "committee_size": 0,
+        "marked_by": "classifier"
+      }
+    }
+  ],
+  "probe_path": "docs/research/mobile-terminal-keyboard/routing/probe.json",
+  "probe_digest": "sha256:12397e7b736a1e869c9d727b3fc724fef2ccacb061b331f57fdf188427b6539a",
+  "decided_at": "2026-10-17T13:45:00.000Z"
+}

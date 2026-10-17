@@ -1,0 +1,61 @@
+{
+  "branch": "kiwi/orch/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-3",
+  "base_sha": "f974bb76dc3e4538e4491aca1dc41dcef0c27425",
+  "head_sha": "7f2f566ae0a32f3b208488f1302052acc3c015dd",
+  "commits": [
+    "59ca06c3 test(mobile-keyboard): wave 3 special keyboard, numpad and polish tests (red)",
+    "a2a17934 feat(mobile-keyboard): special keyboard panel, numpad and lock polish (#137, #138, #135)",
+    "ce766212 test(mobile-keyboard): strengthen panel wiring, focus restore and latch pointer tests (red)",
+    "9eb4fbb0 fix(mobile-keyboard): panel wiring hook, no panel without a handle, latch pointer id, no long-press menu",
+    "7f2f566a test(mobile-keyboard): pin component-only exports for react-refresh (FR-MKB-011 AC-5)"
+  ],
+  "deferred_queue": "kiwi/orchestrator/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-3/deferred-srs.jsonl (26 records: 17 verification evidence, 5 trace links, 4 status->implemented; written by kiwi-coder before the review fixes and the AC-5 test, so evidence for FR-MKB-011 AC-5 (tests/unit/mobileKeyboardModel.test.ts) and the review-round tests is not in the queue)",
+  "red_evidence": [
+    {"test_id": "tests/unit/mobileKeyboardModel.test.ts (whole file)", "failure": "ERR_MODULE_NOT_FOUND: src/components/MobileKeyboard/mobileKeyboardModel.ts"},
+    {"test_id": "designTokens.test.ts > FR-MKB-011 AC-1 / SDS-AC-12", "failure": "AssertionError: --lock is declared on :root"},
+    {"test_id": "terminalClipboardAdapterContract.test.ts membership", "failure": "AssertionError: TerminalHandle membership changed"},
+    {"test_id": "mobileKeyBar.test.ts > FR-MKB-011 AC-3 / SDS-AC-10", "failure": "AssertionError: the hold fill stops once the press became a drag"},
+    {"test_id": "mobileKeyBar.test.ts > FR-MKB-011 AC-4 / SDS-AC-11", "failure": "AssertionError: no listener on desktop"},
+    {"test_id": "mobileSpecialKeyboard.test.ts > FR-MKB-008 AC-1 / SDS-AC-1, AC-3 / SDS-AC-3", "failure": "TypeError: applySpecialKeyboardToggle is not a function"},
+    {"test_id": "mobileSpecialKeyboard.test.ts > SDS-AC-6/7/8", "failure": "Element type is invalid (MobileSpecialKeyboard missing)"},
+    {"test_id": "terminalMobileFocusSuppression.test.ts > SDS-AC-1, SDS-AC-4", "failure": "TypeError: r.handle.blurInput / setFocusSuppressed is not a function"},
+    {"test_id": "mobileKeyBar.test.ts > FR-MKB-011 AC-3 / SDS-AC-10 second pointer", "failure": "AssertionError: a second finger moving does not turn the press into a drag (false !== true)"},
+    {"test_id": "mobileSpecialKeyboard.test.ts > FR-MKB-009 AC-6 / FR-MKB-006 AC-4 long press", "failure": "AssertionError: contextmenu on mobile-special-key--fn is prevented"},
+    {"test_id": "mobileKeyboardModel.test.ts > FR-MKB-011 AC-5 (mutation check)", "failure": "injected export const x = 1 in MobileKeyBar.tsx -> 'only a PascalCase function component, interface or type may be exported'"}
+  ],
+  "review_outcome": {
+    "result": "PASS",
+    "rounds": 2,
+    "residual_critical": 0,
+    "residual_high": 0,
+    "fixed": ["A-002", "A-003", "B-001", "B-002", "B-004"],
+    "residual": [
+      "A-001 MEDIUM: panel height = last inset can clip bottom rows on short (landscape) insets; conflicts with FR-MKB-008 AC-2 literal height vs FR-MKB-009 AC-6 44 px; needs SRS decision",
+      "A-004 LOW: suppression also released on screen change / no active tab, not in FR-MKB-008 AC-3 wording",
+      "A-005/B-003 LOW: key as MobileKeyName cast; widening sendMobileKeyTo is outside the write set",
+      "A-006 LOW: raw px spacing in panel CSS",
+      "A-007 LOW: paper --lock-text assertion only checks inequality",
+      "R-001 LOW: hook suppression effect now runs before App close effects; a same-commit tab change + leaving mobile/workspace can blur the new tab's terminal",
+      "R-002 LOW: assertNoRestoreLeftQueued has no positive control",
+      "R-003 LOW: tab/session-change suppression handoff not executed by a test",
+      "R-004 LOW: a second finger's pointerdown takes over a LatchKey press"
+    ],
+    "coverage_note": "round 1 anchors 21/21 rows valid; round 2 LatchKey row could not anchor two hunks whose only line repeats ('startRef.current = null;') under the no-duplicate rule"
+  },
+  "intentionally_empty": null,
+  "design_refuted": [],
+  "out_of_lease_paths": [],
+  "sds_drift": [
+    "exports beyond SDS Files: applySpecialKeyboardToggle, useTapPress, useSpecialKeyboardPanel, SpecialKeyboardPanel (type), TAP_SLOP_PX, RIGHT_BLOCK_STORAGE_KEY, DEFAULT_SPECIAL_PANEL_HEIGHT"
+  ],
+  "test_sufficiency": {"verdict": "pass", "scope": ["FR-MKB-008", "FR-MKB-009", "FR-MKB-010", "FR-MKB-011"], "initial_gaps": ["FR-MKB-011 AC-5"], "filled_by": "7f2f566a", "final_gaps": []},
+  "verification": {
+    "unit_sweep": "2251/2260 (before 7f2f566a); 9 failures all allowed: 7 files of test:unit:terminal-view-behavior, FR-MDE-005 (28 vs 25 files), selectListRows 10000 (no server/config.json5)",
+    "test:unit:terminal-view-behavior": "69/69 pass",
+    "test:unit:mobile-keyboard": "53/53 pass",
+    "typecheck:tests": "exit 0",
+    "tsc -p tsconfig.app.json --noEmit": "exit 0",
+    "i18nGuards + designTokens + tsconfigTestMembership": "19/19 pass",
+    "eslint src/components/MobileKeyboard src/hooks/useTerminalInputFocus.ts": "0 errors, 0 warnings"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "run_id": "2026-10-17.ProjectMaster.mobile-terminal-keyboard",
+  "wave": 1, "stage": 1, "laneId": "lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1", "k": 1,
+  "target": "mtk-wave-1",
+  "allocation": ["FR-MKB-001", "IR-MKB-001", "FR-MKB-002", "FR-MKB-003"],
+  "sds_paths": ["docs/sds/2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1.sds.md"],
+  "base_sha": "47ea9e2827671234e2e0458e4ecc98e4323cde80",
+  "branch": "kiwi/orch/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1",
+  "write_set": ["frontend/package.json", "frontend/src/components/Terminal/TerminalContainer.tsx", "frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/utils/mobileKeyEncoder.ts", "frontend/src/utils/mobileModifierLatch.ts", "frontend/tests/unit/mobileKeyEncoder.test.ts", "frontend/tests/unit/mobileModifierLatch.test.ts", "frontend/tests/unit/terminalMobileLatchOnData.test.ts", "frontend/tsconfig.test.json"],
+  "verification_cmd": "see docs/research/mobile-terminal-keyboard/00.run-contract.md 'verification_cmd' (4 checks, run from frontend/)",
+  "regression_baseline": "5c2e7c3b0b3a352a66d517e3129902a0858a8197",
+  "lane_plan_abs": "/mnt/c/work/git/_Snoworca/ProjectMaster/docs/research/mobile-terminal-keyboard/waves/stage-1/lanes.lock.json",
+  "queue": "kiwi/orchestrator/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1/deferred-srs.jsonl",
+  "manifest": "kiwi/orchestrator/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-1/manifest.json",
+  "forbidden": ["SRS mutation tools", "writes to docs/spec/, docs/sds/, kiwi/pipeline.jsonl, kiwi/waves.jsonl", "--root", "merge or push", "/kiwi-sds", "weakening existing tests", "git add -A / git commit -a", "touching processes on TCP 2001/2002", "E2E runs"],
+  "flags": ["--auto"]
+}

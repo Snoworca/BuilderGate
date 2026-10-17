@@ -1,0 +1,35 @@
+{
+  "run_id": "2026-10-17.projectmaster.mobile-terminal-keyboard-wave-2",
+  "sds_path": "docs/sds/2026-10-17.projectmaster.mobile-terminal-keyboard-wave-2.sds.md",
+  "sds_sha256": "dcc399ee7b7251da229d805e08efea49837111257716c01cea29309c051a2d2e",
+  "target_slug": "mtk-wave-2",
+  "req_ids": [
+    "FR-MKB-005",
+    "FR-MKB-006",
+    "FR-MKB-007"
+  ],
+  "pm_version": "0.1",
+  "run": {
+    "status": "done",
+    "attempts": 1,
+    "changed": true,
+    "coder_run_id": "2026-10-17.projectmaster.mobile-terminal-keyboard-wave-2",
+    "commit_sha": "1b4d5051",
+    "tests_commit_sha": "8f6e47ae"
+  },
+  "lifecycle_gate_state": {
+    "blocked_req_ids": [],
+    "stability_snapshot": {
+      "FR-MKB-005": "evolving",
+      "FR-MKB-006": "evolving",
+      "FR-MKB-007": "evolving"
+    },
+    "status_snapshot": {
+      "FR-MKB-005": "planned",
+      "FR-MKB-006": "planned",
+      "FR-MKB-007": "planned"
+    }
+  },
+  "final_mutations": [],
+  "pending_mutations": []
+}

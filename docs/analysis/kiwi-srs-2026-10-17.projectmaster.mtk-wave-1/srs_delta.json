@@ -1,0 +1,3 @@
+{"classification":"new-scope","mode":"live","added_ids":["FR-MKB-001","IR-MKB-001","FR-MKB-002","FR-MKB-003"],"discarded_ids":["FR-MKB-004"],
+ "discard_reason":"duplicate of FR-MKB-003 created by a retried CLI call","scope_doc_edits":[{"file":"docs/spec/46.mobile-terminal-keyboard.srs.md","section":"§1-§3 prose","op":"edit before mutations"}],
+ "validate_spec_result":{"errors":0,"warnings":0}}

@@ -1,0 +1,51 @@
+{
+  "lane_cap": 4,
+  "depends": {
+    "2026-10-17.projectmaster.mobile-terminal-keyboard-wave-3": []
+  },
+  "sds_digests": {
+    "2026-10-17.projectmaster.mobile-terminal-keyboard-wave-3": "9dc2d652013d5b364d7eb51599998c404341ca9025d7bc7f60696634f7d8419d"
+  },
+  "lane_count": 1,
+  "stage_count": 1,
+  "lanes": [
+    {
+      "laneId": "lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-3",
+      "stage": 1,
+      "wave": "2026-10-17.projectmaster.mobile-terminal-keyboard-wave-3",
+      "sds": "docs/sds/2026-10-17.projectmaster.mobile-terminal-keyboard-wave-3.sds.md",
+      "writeSet": [
+        "frontend/package.json",
+        "frontend/public/locales/messages.en.json",
+        "frontend/public/locales/messages.ko.json",
+        "frontend/src/App.tsx",
+        "frontend/src/components/MobileKeyboard/LatchKey.tsx",
+        "frontend/src/components/MobileKeyboard/MobileKeyBar.tsx",
+        "frontend/src/components/MobileKeyboard/MobileSpecialKeyboard.tsx",
+        "frontend/src/components/MobileKeyboard/index.ts",
+        "frontend/src/components/MobileKeyboard/mobileKeyboard.css",
+        "frontend/src/components/MobileKeyboard/mobileKeyboardModel.ts",
+        "frontend/src/components/Terminal/TerminalContainer.tsx",
+        "frontend/src/components/Terminal/TerminalView.tsx",
+        "frontend/src/hooks/useTerminalInputFocus.ts",
+        "frontend/src/styles/tokens.css",
+        "frontend/tests/unit/designTokens.test.ts",
+        "frontend/tests/unit/mobileKeyBar.test.ts",
+        "frontend/tests/unit/mobileKeyboardModel.test.ts",
+        "frontend/tests/unit/mobileSpecialKeyboard.test.ts",
+        "frontend/tests/unit/terminalClipboardAdapterContract.test.ts",
+        "frontend/tests/unit/terminalMobileFocusSuppression.test.ts",
+        "frontend/tsconfig.test.json"
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "index": 1,
+      "laneIds": [
+        "lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-3"
+      ]
+    }
+  ],
+  "conflicts": []
+}

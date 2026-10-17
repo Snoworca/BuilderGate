@@ -2173,9 +2173,15 @@ export const TerminalContainer = memo(
       ),
       submitClear: () => terminalRef.current?.submitClear(),
       focus: (reason) => terminalRef.current?.focus(reason),
+      // @req FR-MKB-008
+      blurInput: () => terminalRef.current?.blurInput(),
+      // @req FR-MKB-008
+      setFocusSuppressed: (on) => terminalRef.current?.setFocusSuppressed(on),
       hasSelection: () => terminalRef.current?.hasSelection() ?? false,
       getSelection: () => terminalRef.current?.getSelection() ?? '',
       getMouseTrackingActive: () => terminalRef.current?.getMouseTrackingActive() ?? false,
+      // @req IR-MKB-001
+      getApplicationCursorKeysMode: () => terminalRef.current?.getApplicationCursorKeysMode() ?? false,
       clearSelection: () => terminalRef.current?.clearSelection(),
       copySelection: (source) => terminalRef.current?.copySelection(source) ?? Promise.resolve({
         ok: false,

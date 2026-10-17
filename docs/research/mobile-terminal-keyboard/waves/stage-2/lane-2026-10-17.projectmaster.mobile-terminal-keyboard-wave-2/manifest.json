@@ -1,0 +1,50 @@
+{
+  "branch": "kiwi/orch/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-2",
+  "base_sha": "d8ce543d59936efe9ad92cef21666bc1d53e131d",
+  "head_sha": "efcfbd49d36d3544f9bf88e40e54eaecb3ca06e0",
+  "commits": [
+    { "sha": "8f6e47ae", "subject": "test(mobile-keyboard): add failing tests for the wave-2 key bar, latch reset and viewport inset" },
+    { "sha": "1b4d5051", "subject": "feat(mobile-keyboard): add the accessory key bar with lockable modifier keys" },
+    { "sha": "34dee946", "subject": "fix(mobile-keyboard): guard the key bar wiring and stop viewport re-renders" },
+    { "sha": "efcfbd49", "subject": "test(mobile-keyboard): cover the key bar scroll and button height rules" }
+  ],
+  "deferred_queue": "kiwi/orchestrator/2026-10-17.ProjectMaster.mobile-terminal-keyboard/lane-2026-10-17.projectmaster.mobile-terminal-keyboard-wave-2/deferred-srs.jsonl (17 lines: 13 add_verification_evidence, 3 update_status implemented, 1 add_completed_work; written by the coder before the review round, so evidence line refs predate commits 34dee946/efcfbd49 and the new tests at mobileKeyBar.test.ts:420/459/468/487/518 and visualViewportInset.test.ts:87 are not in it)",
+  "red_evidence": [
+    { "test_id": "FR-MKB-006 AC-7 / SDS-AC-7 reset during a held press (mobileModifierLatch.test.ts)", "failure": "TypeError: mobileModifierLatch.reset is not a function" },
+    { "test_id": "FR-MKB-006 AC-3 / SDS-AC-5 (mobileKeySend.test.ts)", "failure": "SyntaxError: The requested module '../../src/utils/mobileModifierLatch.ts' does not provide an export named 'sendMobileKeyTo'" },
+    { "test_id": "FR-MKB-007 SDS-AC-9/10/11 (visualViewportInset.test.ts)", "failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'frontend/src/hooks/useVisualViewportInset.ts'" },
+    { "test_id": "FR-MKB-005/006 SDS-AC-1,2,3,4,6,8,12 (mobileKeyBar.test.ts)", "failure": "Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'frontend/src/components/MobileKeyboard/index.ts'" },
+    { "test_id": "FR-MKB-006 AC-2 / SDS-AC-8 focus moving onto the key bar keeps it shown (coder review fix)", "failure": "AssertionError [ERR_ASSERTION]: focus on the key bar keeps the bar shown (red shown by temporarily removing the fix)" },
+    { "test_id": "FR-MKB-006 AC-2 / SDS-AC-8 shouldShowMobileKeyBar truth table (review FND-001)", "failure": "TypeError: shouldShowMobileKeyBar is not a function" },
+    { "test_id": "FR-MKB-006 AC-7 useResetLatchWhenNotMobile (review FND-001)", "failure": "TypeError: useResetLatchWhenNotMobile is not a function" },
+    { "test_id": "FR-MKB-007 AC-2/AC-4 useVisualViewportLock without re-render (review FND-001/FND-002)", "failure": "SyntaxError: ... does not provide an export named 'useVisualViewportLock'" },
+    { "test_id": "FR-MKB-006 AC-4 / SDS-AC-6 Ctrl/Alt/switch hand focus back (review FND-003)", "failure": "AssertionError: Control (tap: next key only, hold 1.5 s: lock) hands focus back  actual: 0, expected: 1" },
+    { "test_id": "FR-MKB-006 AC-5 bar scrolls sideways without scrollbar, buttons >= 36 px (test-sufficiency fill)", "failure": "mutation reds: 'standard scrollbar hidden', 'the bar scrolls horizontally', 'WebKit scrollbar hidden', '.mobile-key height 32px >= 36px', 'keys do not shrink to fit the screen' (CSS restored byte-identical)" }
+  ],
+  "review_outcome": {
+    "result": "pass",
+    "rounds": 2,
+    "round1": { "critical": 0, "high": 0, "medium": 3, "low": 5, "coverage_check": "17/17 rows, anchors valid" },
+    "round2": { "resolved": ["FND-001", "FND-002", "FND-003"], "critical": 0, "high": 0, "medium": 1, "low": 2, "coverage_check": "6/6 rows, anchors valid" },
+    "residual_critical": 0,
+    "residual_high": 0,
+    "residual_medium": ["FND-101: MobileKeyBar.tsx exports non-component helpers (shouldShowMobileKeyBar, useResetLatchWhenNotMobile), adding two eslint react-refresh/only-export-components errors; dev fast-refresh only, not fixed (repo policy: no extra round for non-functional findings)"],
+    "residual_low": ["FND-102: useVisualViewportInset hook now unused in src (test-only)", "FND-103: App.tsx call sites of the helpers are not executed by any test", "round1 LOW FND-004..008 (jsdom activeElement weak assertion, CSS colour/shape not asserted, first-frame stale viewport, hold-fill opacity/weight differ from mock, refocus accepts any textarea)"],
+    "test_sufficiency": "pass (gap FR-MKB-006 AC-5 filled by efcfbd49; final check gaps=0)"
+  },
+  "intentionally_empty": null,
+  "design_refuted": [],
+  "sds_code_notes": ["SDS-AC-5 names App.sendMobileKey; it exists and delegates to the added exported helper sendMobileKeyTo(handle, key) in mobileModifierLatch.ts, which the SDS Interfaces do not list", "Lock colour uses the --warn token family because tokens.css has no orange token", "Keyboard switch button is a no-op placeholder until wave 3"],
+  "out_of_lease_paths": [],
+  "test_sufficiency": { "verdict": "pass", "gaps": [], "scope": ["FR-MKB-005", "FR-MKB-006", "FR-MKB-007"] },
+  "verification": {
+    "head": "efcfbd49",
+    "unit_all": "2244 tests: 2237 pass, 7 fail, all allowed (FR-MDE-005; selectListRows 10000; mobileKeyBar, terminalMobileLatchOnData, terminalPasteUnifiedPath, terminalSavedSelectionDivergence, terminalViewKeyboardBehavior are test:unit:terminal-view-behavior files)",
+    "terminal_view_behavior": "48/48 pass",
+    "mobile_keyboard": "39/39 pass",
+    "typecheck_tests": "exit 0",
+    "tsc_app": "exit 0",
+    "guards": "i18nGuards + designTokens + tsconfigTestMembership 18/18 pass",
+    "test_lines_removed_vs_base": 0
+  }
+}

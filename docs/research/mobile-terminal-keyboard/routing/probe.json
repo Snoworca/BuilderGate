@@ -1,0 +1,144 @@
+{
+  "run_id": "2026-10-17.ProjectMaster.mobile-terminal-keyboard",
+  "fields": {
+    "S1": {
+      "producer": "orchestrator",
+      "call": "mcp get_work_mode",
+      "read_at": "2026-10-17T13:18Z",
+      "value": {
+        "mode": "sdd",
+        "active_task": null,
+        "source": "mcp"
+      }
+    },
+    "S3": {
+      "producer": "orchestrator",
+      "call": "mcp list_requirements({traceReference}) over S5.relevant_files",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "anchored_reqs": [
+          "FR-BGSTAB-014",
+          "FR-BGSTAB-021",
+          "FR-BGSTAB-022",
+          "FR-BGSTAB-029",
+          "OBS-BGSTAB-004",
+          "OBS-BGSTAB-005",
+          "OPS-BGSTAB-002",
+          "OPS-BGSTAB-007",
+          "PERF-BGSTAB-017",
+          "REL-BGSTAB-009",
+          "REL-BGSTAB-016",
+          "REL-BGSTAB-017",
+          "REL-BGSTAB-019",
+          "FR-MDE-001",
+          "FR-MDE-002",
+          "FR-MDE-007",
+          "FR-MDE-008"
+        ]
+      }
+    },
+    "S3c": {
+      "producer": "orchestrator",
+      "call": "mcp list_requirements({target: release-0-10-13, traceLinks})",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "anchor_coverage": 0
+      }
+    },
+    "S4": {
+      "producer": "architecture-fit investigator",
+      "call": "S3 record.scope ∪ reported scopes",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "scopes": [
+          "BGSTAB",
+          "ARCH",
+          "UIDS",
+          "I18N"
+        ],
+        "scope_req_ids": [],
+        "unresolved": []
+      }
+    },
+    "S5": {
+      "producer": "code-context investigator",
+      "call": "intake-investigate",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "files": 9,
+        "modules": 4,
+        "external_paths": [],
+        "relevant_files": [
+          {
+            "path": "frontend/src/components/Terminal/TerminalView.tsx"
+          },
+          {
+            "path": "frontend/src/components/Terminal/TerminalContainer.tsx"
+          },
+          {
+            "path": "frontend/src/App.tsx"
+          }
+        ]
+      }
+    },
+    "S6": {
+      "producer": "intent investigator",
+      "call": "intake-investigate",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "ambiguities": 0,
+        "key_entities": [
+          "encoder",
+          "modifier latch",
+          "accessory bar",
+          "special keyboard",
+          "numpad"
+        ]
+      }
+    },
+    "S7": {
+      "producer": "intake-issue",
+      "call": "count ordered sections in epic #133 body",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "doc": "gh issue view 133",
+        "ordered_sections": 0
+      }
+    },
+    "S8": {
+      "producer": "intake-issue",
+      "call": "gh issue view 133 (count '- [ ] #NNN')",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "epic": 133,
+        "linked_sub_issues": 5,
+        "task_list_groups": 1
+      }
+    },
+    "S9": {
+      "producer": "orchestrator",
+      "call": "mcp get_active_target",
+      "read_at": "2026-10-17T13:18Z",
+      "value": {
+        "activeTarget": "release-0-10-13"
+      }
+    },
+    "S10": {
+      "producer": "orchestrator",
+      "call": "same list_requirements as S3c",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "blocked_stability": []
+      }
+    },
+    "S12": {
+      "producer": "architecture-fit investigator",
+      "call": "existing_srs_context",
+      "read_at": "2026-10-17T13:40Z",
+      "value": {
+        "declared_existing_req_edit": false
+      }
+    }
+  },
+  "unreadable": []
+}

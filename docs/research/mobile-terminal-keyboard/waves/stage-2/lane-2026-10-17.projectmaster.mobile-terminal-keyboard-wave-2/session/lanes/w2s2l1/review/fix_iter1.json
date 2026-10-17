@@ -1,0 +1,55 @@
+{
+  "iteration": 1,
+  "fixed": [
+    {
+      "id": "FND-001",
+      "files": [
+        "frontend/src/components/MobileKeyboard/MobileKeyBar.tsx:62-81 (new shouldShowMobileKeyBar, useResetLatchWhenNotMobile)",
+        "frontend/src/components/MobileKeyboard/index.ts (exports)",
+        "frontend/src/App.tsx:589-598 (showMobileKeyBar via shouldShowMobileKeyBar), :618 (useResetLatchWhenNotMobile replaces inline reset effect)",
+        "frontend/tests/unit/mobileKeyBar.test.ts:459 (FR-MKB-006 AC-2 / SDS-AC-8 truth table), :468 (FR-MKB-006 AC-7 reset on leaving mobile)",
+        "frontend/tests/unit/visualViewportInset.test.ts:87 (FR-MKB-007 AC-2 AC-4: no vars while inactive, vars set while active, removed on hide)"
+      ],
+      "red_before_fix": [
+        "TypeError: shouldShowMobileKeyBar is not a function",
+        "TypeError: useResetLatchWhenNotMobile is not a function",
+        "SyntaxError: The requested module '../../src/hooks/useVisualViewportInset.ts' does not provide an export named 'useVisualViewportLock'"
+      ]
+    },
+    {
+      "id": "FND-002",
+      "files": [
+        "frontend/src/hooks/useVisualViewportInset.ts:65-115 (new applyViewportBox, useVisualViewportLock: style.setProperty/removeProperty on the element, rAF-coalesced, layout effect, no React state; existing useVisualViewportInset unchanged)",
+        "frontend/src/App.tsx:597-598, :857 (ref on .app, inline style prop removed; class still React-driven)",
+        "frontend/tests/unit/visualViewportInset.test.ts:87 (render count unchanged across a resize+scroll burst, one coalesced frame, vars applied after the frame, pending frame cancelled on hide)"
+      ],
+      "red_before_fix": [
+        "SyntaxError: The requested module '../../src/hooks/useVisualViewportInset.ts' does not provide an export named 'useVisualViewportLock'"
+      ]
+    },
+    {
+      "id": "FND-003",
+      "files": [
+        "frontend/src/components/MobileKeyboard/MobileKeyBar.tsx:53-60 (optional onRestoreFocus prop), :107-129 (press logic moved to runPress; onPointerUp calls onRestoreFocus when focus is inside the bar, for every button incl. LatchKey and the switch)",
+        "frontend/src/App.tsx:613-617, :1088 (restoreMobileTerminalFocus focuses the active terminal handle)",
+        "frontend/tests/unit/mobileKeyBar.test.ts:420 (FR-MKB-006 AC-4 / SDS-AC-6: focus on Ctrl/Alt/switch returns to the textarea; no call when the terminal kept focus)"
+      ],
+      "red_before_fix": [
+        "AssertionError [ERR_ASSERTION]: Control (tap: next key only, hold 1.5 s: lock) hands focus back  actual: 0, expected: 1"
+      ]
+    }
+  ],
+  "red_run_summary": "test:unit:terminal-view-behavior: tests 47, pass 44, fail 3; test:unit:mobile-keyboard: module load SyntaxError",
+  "verification": {
+    "test:unit:terminal-view-behavior": "47/47 pass",
+    "test:unit:mobile-keyboard": "39/39 pass",
+    "typecheck:tests": "exit 0",
+    "tsc -p tsconfig.app.json --noEmit": "exit 0",
+    "i18nGuards + designTokens + tsconfigTestMembership": "18/18 pass"
+  },
+  "notes": [
+    "'ReferenceError: InputEvent is not defined' lines in the terminal-view-behavior output come from terminalMobileLatchOnData.test.ts and were there before; they are not failures.",
+    "No public signature removed; useVisualViewportInset is kept as is. The MobileKeyBar prop is optional.",
+    "Nothing committed or staged."
+  ]
+}

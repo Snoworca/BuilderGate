@@ -1,0 +1,9 @@
+[
+  {"id": "C-001", "statement": "Modifier latch: short tap applies to the next single key only; a 1.5 s hold locks with a weak vibration; a tap while locked releases.", "source": "conversation 2026-10-17"},
+  {"id": "C-002", "statement": "Only Ctrl, Alt and Shift are lockable and are marked with a corner dot.", "source": "conversation 2026-10-17"},
+  {"id": "C-003", "statement": "The design mock docs/design/mobile-terminal-keyboard.html is the reference for every wave; deviations are asked first.", "source": "CLAUDE.local.md section 4"},
+  {"id": "C-004", "statement": "Win, AltGr, mouse and screenshot keys are excluded.", "source": "epic #133"},
+  {"id": "C-005", "statement": "E2E runs only against https://localhost:2222; processes on TCP 2001/2002 are never stopped.", "source": "CLAUDE.md Rules"},
+  {"id": "C-006", "statement": "No Korean literals in frontend/src; every UI string goes through messages.{en,ko}.json.", "source": "CLAUDE.md i18n"},
+  {"id": "C-007", "statement": "Desktop behaviour is unchanged.", "source": "epic #133"}
+]

@@ -180,6 +180,7 @@ const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
   applyScreenRepair: 'applies a server screen repair; takes a message object, not a payload string',
   awaitOutputIdle: 'output-drain probe; no input',
   bindRestoreCoordinator: 'binds the restore adapter; no input',
+  blurInput: 'drops terminal focus for the mobile special keyboard; no input', // FR-MKB-008 AC-1 / SDS-AC-1
   captureRetainedState: 'reads retained state; no input',
   clearSelection: 'clears selection; no input',
   clearVisibleOutputRecovery: 'clears recovery bookkeeping; no input',
@@ -188,6 +189,7 @@ const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
   fit: 'layout only',
   focus: 'focus only; its lone string is a debug reason, not a payload',
   getAuthorityViewGeneration: 'reads a generation; no input',
+  getApplicationCursorKeysMode: 'reads application cursor mode; no input', // IR-MKB-001 AC-1 / SDS-AC-12
   getMouseTrackingActive: 'reads mouse mode; no input',
   getScreenRepairReadiness: 'reads readiness; no input',
   getSelection: 'reads selection text; no input',
@@ -206,6 +208,7 @@ const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
   sendInput: 'raw input path, deliberately NOT a clipboard paste: it is the shared '
     + 'transport every input source ends in, including the coordinator. Routing a '
     + 'clipboard payload here directly is the bypass this test exists to prevent.',
+  setFocusSuppressed: 'gates every focus entry while the mobile special keyboard is open; takes a boolean, no input', // FR-MKB-008 AC-4 / SDS-AC-4
   setInputTransportState: 'transport bookkeeping; no input',
   setServerReady: 'readiness flag; no input',
   setWindowsPty: 'platform flag; no input',

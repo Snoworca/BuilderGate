@@ -192,6 +192,7 @@ import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 import { t } from '../../i18n/i18n.ts';
 import { panWheelSteps, routeMobilePan } from '../../utils/mobileTouchScroll.ts';
+import { applyLatchToTypedData } from '../../utils/mobileModifierLatch.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -316,9 +317,17 @@ export interface TerminalHandle {
   bindRestoreCoordinator: (options: TerminalRestoreAdapterOptions) => BoundTerminalRestoreAdapter;
   submitClear: () => void;
   focus: (reason?: string) => void;
+  /** Takes focus off the helper textarea and drops a queued focus restore (FR-MKB-008 AC-1). */
+  // @req FR-MKB-008
+  blurInput: () => void;
+  /** While on, every focus entry is ignored and a self-focus is undone; only false clears it (FR-MKB-008 AC-3 AC-4). */
+  // @req FR-MKB-008
+  setFocusSuppressed: (on: boolean) => void;
   hasSelection: () => boolean;
   getSelection: () => string;
   getMouseTrackingActive: () => boolean;
+  // @req IR-MKB-001
+  getApplicationCursorKeysMode: () => boolean;
   clearSelection: () => void;
   copySelection: (source?: TerminalClipboardSource) => Promise<TerminalClipboardActionResult>;
   pasteClipboard: (source?: TerminalClipboardSource) => Promise<TerminalClipboardActionResult>;
@@ -496,6 +505,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const terminalRestoreAdapterRef = useRef<BoundTerminalRestoreAdapter | null>(null);
     const replayInputGuardRef = useRef(createTerminalReplayInputGuard());
     const pendingFocusRestoreRef = useRef(false);
+    // Set while the mobile special keyboard panel is open; only
+    // setFocusSuppressed(false) clears it (FR-MKB-008 AC-3).
+    const focusSuppressedRef = useRef(false);
     const webglRendererRef = useRef<TerminalWebglRenderer | null>(null);
     const isVisibleRef = useRef(isVisible);
     const workspaceIdRef = useRef(workspaceId);
@@ -723,7 +735,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       };
     }, [getEffectiveTransportState]);
 
+    // FR-MKB-008 AC-4: every focus entry ends here, so the special keyboard
+    // panel shuts them all in one place while it is open.
+    // @req FR-MKB-008
     const focusTerminalInput = useCallback((reason: string) => {
+      if (focusSuppressedRef.current) {
+        recordTerminalDebugEvent(sessionId, 'focus_suppressed', { reason });
+        return;
+      }
       const term = xtermRef.current;
       const helperTextarea = getHelperTextarea();
 
@@ -765,6 +784,11 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
     const restoreQueuedFocus = useCallback((reason: string) => {
       if (!pendingFocusRestoreRef.current || !captureAllowedRef.current || !isVisibleRef.current) {
+        return;
+      }
+      if (focusSuppressedRef.current) {
+        pendingFocusRestoreRef.current = false;
+        recordTerminalDebugEvent(sessionId, 'focus_suppressed', { reason: `restore-${reason}` });
         return;
       }
 
@@ -3300,6 +3324,19 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       focus: (reason = 'handle') => {
         focusTerminalInput(reason);
       },
+      // @req FR-MKB-008
+      blurInput: () => {
+        pendingFocusRestoreRef.current = false;
+        getHelperTextarea()?.blur();
+        xtermRef.current?.blur();
+        containerRef.current?.classList.remove('terminal-focused');
+        recordTerminalDebugEvent(sessionId, 'focus_blurred_for_mobile_keyboard');
+      },
+      // @req FR-MKB-008
+      setFocusSuppressed: (on: boolean) => {
+        focusSuppressedRef.current = on;
+        if (on) pendingFocusRestoreRef.current = false;
+      },
       hasSelection: () => !!(
         xtermRef.current?.hasSelection()
         || (
@@ -3320,6 +3357,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const mode = term?.modes.mouseTrackingMode;
         return mode !== undefined && mode !== 'none';
       },
+      // @req IR-MKB-001
+      getApplicationCursorKeysMode: () => xtermRef.current?.modes.applicationCursorKeysMode ?? false,
       clearSelection: () => {
         xtermRef.current?.clearSelection();
         savedRightClickSelRef.current = '';
@@ -3429,6 +3468,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       replaceWithSnapshot,
       releaseRestorePending,
       focusTerminalInput,
+      getHelperTextarea,
       nextCaptureSeq,
       queueFocusRestoreIfFocused,
       repairLayoutAfterIme,
@@ -4372,6 +4412,17 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           // its parser replies on the ordinary path until the exact disable
           // boundary is acknowledged; post-rollback replies always have a lease.
         }
+        // @req FR-MKB-003
+        // Mobile modifier latch: any data that passed the replay and query-reply
+        // guards above, except a programmatic paste. It does not require user
+        // provenance: an Android IME commit reaches onData after the keydown/input
+        // microtask permit has expired (FR-MKB-003 AC-4). Parser replies start
+        // with ESC, so they never match the one-printable-ASCII re-encode test.
+        // From here on `data` is what goes to submitCapturedInput, so the latch
+        // re-encodes it in place.
+        if (programmaticPaste === null) {
+          data = applyLatchToTypedData(data, term.modes.applicationCursorKeysMode);
+        }
         const compositionSeq = imeTransactionRef.current?.observeXtermData();
         const debugInput = buildTerminalInputDebugPayload(data, {
           captureSeq: programmaticPaste?.captureSeq ?? nextCaptureSeq(),
@@ -4404,8 +4455,15 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       // Track terminal focus via DOM events (xterm v5 has no onFocus/onBlur API)
       const termEl = terminalRef.current!;
-      const onFocusIn = () => {
+      const onFocusIn = (event: FocusEvent) => {
         pendingFocusRestoreRef.current = false;
+        // FR-MKB-008 AC-4: xterm (or a fallback) focusing its own textarea while
+        // the special keyboard is open would raise the system keyboard over it.
+        if (focusSuppressedRef.current) {
+          if (event.target instanceof HTMLElement) event.target.blur();
+          containerRef.current?.classList.remove('terminal-focused');
+          return;
+        }
         containerRef.current?.classList.add('terminal-focused');
       };
       const onFocusOut = (event: FocusEvent) => {
