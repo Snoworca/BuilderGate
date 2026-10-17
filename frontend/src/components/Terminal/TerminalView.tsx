@@ -4378,11 +4378,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           // boundary is acknowledged; post-rollback replies always have a lease.
         }
         // @req FR-MKB-003
-        // Mobile modifier latch: only user-typed data that passed the replay and
-        // query-reply guards above, never a programmatic paste.
+        // Mobile modifier latch: any data that passed the replay and query-reply
+        // guards above, except a programmatic paste. It does not require user
+        // provenance: an Android IME commit reaches onData after the keydown/input
+        // microtask permit has expired (FR-MKB-003 AC-4). Parser replies start
+        // with ESC, so they never match the one-printable-ASCII re-encode test.
         // From here on `data` is what goes to submitCapturedInput, so the latch
         // re-encodes it in place.
-        if (hasUserInputProvenance && programmaticPaste === null) {
+        if (programmaticPaste === null) {
           data = applyLatchToTypedData(data, term.modes.applicationCursorKeysMode);
         }
         const compositionSeq = imeTransactionRef.current?.observeXtermData();
