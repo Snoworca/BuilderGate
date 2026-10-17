@@ -18,7 +18,7 @@ installCatalog('en', en);
 const React = await import('react');
 const { act } = React;
 const { createRoot } = await import('react-dom/client');
-const { LatchKey, MobileKeyBar, MOBILE_BAR_KEYS } = await import('../../src/components/MobileKeyboard/index.ts');
+const { LatchKey, MobileKeyBar, MOBILE_BAR_KEYS, shouldShowMobileKeyBar, useResetLatchWhenNotMobile } = await import('../../src/components/MobileKeyboard/index.ts');
 const { useTerminalInputFocus } = await import('../../src/hooks/useTerminalInputFocus.ts');
 const { mobileModifierLatch, LATCH_HOLD_MS } = await import('../../src/utils/mobileModifierLatch.ts');
 
@@ -412,5 +412,74 @@ test('FR-MKB-006 AC-2 / SDS-AC-8: focus on the active tab helper textarea report
     a.host.remove();
     b.host.remove();
     other.remove();
+  }
+});
+
+// --- Focus hand-back for latch keys and the switch (review FND-003) ----------
+
+test('FR-MKB-006 AC-4 / SDS-AC-6: when a browser moved focus onto Ctrl, Alt or the switch, pointerup hands it back to the terminal', async () => {
+  const textarea = document.createElement('textarea');
+  textarea.className = 'xterm-helper-textarea';
+  document.body.appendChild(textarea);
+  let restores = 0;
+  const view = await render(React.createElement(MobileKeyBar, {
+    onSendKey: () => {}, onToggleKeyboard: () => {}, keyboardOpen: false,
+    onRestoreFocus: () => { restores += 1; textarea.focus(); },
+  }));
+  try {
+    const targets = [
+      view.container.querySelector('[data-mod="ctrl"]') as HTMLButtonElement,
+      view.container.querySelector('[data-mod="alt"]') as HTMLButtonElement,
+      view.container.querySelector('[data-mobile-action="toggle-keyboard"]') as HTMLButtonElement,
+    ];
+    for (const button of targets) {
+      // Simulates a browser that ignores the pointerdown preventDefault.
+      await act(async () => { button.focus(); });
+      assert.equal(document.activeElement, button);
+      const before = restores;
+      await act(async () => { pointer(button, 'pointerdown', 5, 5); });
+      await act(async () => { pointer(button, 'pointerup', 5, 5); });
+      assert.equal(restores, before + 1, `${button.getAttribute('aria-label')} hands focus back`);
+      assert.equal(document.activeElement, textarea);
+    }
+    // Focus already on the terminal: nothing to hand back.
+    const before = restores;
+    const ctrl = targets[0];
+    await act(async () => { pointer(ctrl, 'pointerdown', 5, 5); });
+    await act(async () => { pointer(ctrl, 'pointerup', 5, 5); });
+    assert.equal(restores, before, 'no hand-back while the terminal keeps focus');
+  } finally {
+    await view.cleanup();
+    textarea.remove();
+  }
+});
+
+// --- App-level decisions (review FND-001) ------------------------------------
+
+test('FR-MKB-006 AC-2 / SDS-AC-8: the bar shows only on a phone, on the workspace screen, with an active tab whose input has focus', () => {
+  const base = { isMobile: true, screen: 'workspace', hasActiveTab: true, inputFocused: true };
+  assert.equal(shouldShowMobileKeyBar(base), true);
+  assert.equal(shouldShowMobileKeyBar({ ...base, isMobile: false }), false, 'never on desktop');
+  assert.equal(shouldShowMobileKeyBar({ ...base, screen: 'settings' }), false);
+  assert.equal(shouldShowMobileKeyBar({ ...base, hasActiveTab: false }), false);
+  assert.equal(shouldShowMobileKeyBar({ ...base, inputFocused: false }), false);
+});
+
+test('FR-MKB-006 AC-7: leaving mobile mode resets every latch; staying mobile keeps it', async () => {
+  function Probe({ isMobile }: { isMobile: boolean }): null {
+    useResetLatchWhenNotMobile(isMobile);
+    return null;
+  }
+  const view = await render(React.createElement(Probe, { isMobile: true }));
+  try {
+    await act(async () => { mobileModifierLatch.tap('ctrl'); mobileModifierLatch.tap('alt'); });
+    await act(async () => { view.root.render(React.createElement(Probe, { isMobile: true })); });
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'a re-render in mobile mode keeps the latch');
+    await act(async () => { view.root.render(React.createElement(Probe, { isMobile: false })); });
+    const snap = mobileModifierLatch.getSnapshot();
+    assert.equal(snap.ctrl, 'off');
+    assert.equal(snap.alt, 'off');
+  } finally {
+    await view.cleanup();
   }
 });

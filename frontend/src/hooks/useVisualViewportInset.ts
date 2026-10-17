@@ -2,7 +2,8 @@
 // window.visualViewport. The mobile key bar sits right above it, and the app
 // root follows the visual viewport while the bar is shown so the terminal's last
 // row is not hidden behind the keyboard.
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
+import type { RefObject } from 'react';
 
 export interface ViewportBox {
   top: number;
@@ -60,4 +61,54 @@ export function useVisualViewportInset(active: boolean): ViewportBox {
   }, [active]);
 
   return box;
+}
+
+const VIEWPORT_TOP_VAR = '--app-viewport-top';
+const VIEWPORT_HEIGHT_VAR = '--app-viewport-height';
+
+/** Writes the box onto the element as the two CSS variables the locked .app reads, or removes them. */
+// @req FR-MKB-007
+export function applyViewportBox(element: HTMLElement, box: ViewportBox | null): void {
+  if (box === null) {
+    element.style.removeProperty(VIEWPORT_TOP_VAR);
+    element.style.removeProperty(VIEWPORT_HEIGHT_VAR);
+    return;
+  }
+  element.style.setProperty(VIEWPORT_TOP_VAR, `${box.top}px`);
+  element.style.setProperty(VIEWPORT_HEIGHT_VAR, `${box.height}px`);
+}
+
+/**
+ * While active, keeps the element's --app-viewport-top/--app-viewport-height in
+ * step with the visual viewport. Writes go straight to the element's style and
+ * are coalesced to one per animation frame, so the owner never re-renders on a
+ * viewport resize or scroll (iOS fires scroll continuously during a pan).
+ */
+// @req FR-MKB-007
+export function useVisualViewportLock(active: boolean, targetRef: RefObject<HTMLElement | null>): void {
+  useLayoutEffect(() => {
+    const element = targetRef.current;
+    if (!active || element === null) return undefined;
+    applyViewportBox(element, measure());
+    const vv = window.visualViewport;
+    if (!vv) {
+      return () => { applyViewportBox(element, null); };
+    }
+    let frame: number | null = null;
+    const flush = (): void => {
+      frame = null;
+      applyViewportBox(element, measure());
+    };
+    const schedule = (): void => {
+      if (frame === null) frame = window.requestAnimationFrame(flush);
+    };
+    vv.addEventListener('resize', schedule);
+    vv.addEventListener('scroll', schedule);
+    return () => {
+      vv.removeEventListener('resize', schedule);
+      vv.removeEventListener('scroll', schedule);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      applyViewportBox(element, null);
+    };
+  }, [active, targetRef]);
 }

@@ -8,6 +8,7 @@ import {
   computeViewportBox,
   getLastKeyboardInset,
   useVisualViewportInset,
+  useVisualViewportLock,
 } from '../../src/hooks/useVisualViewportInset.ts';
 
 function fakeWindow(innerHeight: number, vv?: { height: number; offsetTop: number }): Window {
@@ -80,5 +81,81 @@ test('FR-MKB-007 AC-1 AC-5 / SDS-AC-11: an inset of 280 is remembered after a la
   } finally {
     await act(async () => { root.unmount(); });
     container.remove();
+  }
+});
+
+test('FR-MKB-007 AC-2 AC-4 / SDS-AC-11: the lock writes the viewport box onto the element without re-rendering, and removes it when inactive', async () => {
+  installJsdomEnvironment();
+  const React = await import('react');
+  const { act } = React;
+  const { createRoot } = await import('react-dom/client');
+
+  const vv = new FakeVisualViewport(900);
+  Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true });
+  Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
+
+  // Frames are flushed by hand so coalescing is observable.
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 1;
+  const originalRaf = window.requestAnimationFrame;
+  const originalCaf = window.cancelAnimationFrame;
+  window.requestAnimationFrame = (cb: FrameRequestCallback): number => { frames.set(nextFrame, cb); return nextFrame++; };
+  window.cancelAnimationFrame = (id: number): void => { frames.delete(id); };
+  const flushFrames = (): void => {
+    const pending = [...frames.values()];
+    frames.clear();
+    for (const cb of pending) cb(0);
+  };
+
+  let renders = 0;
+  function Probe({ active }: { active: boolean }) {
+    renders += 1;
+    const ref = React.useRef<HTMLDivElement>(null);
+    useVisualViewportLock(active, ref);
+    return React.createElement('div', { ref, id: 'lock-probe' });
+  }
+
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const el = (): HTMLElement => container.querySelector('#lock-probe') as HTMLElement;
+  try {
+    // Desktop, or the bar is hidden: nothing is written.
+    await act(async () => { root.render(React.createElement(Probe, { active: false })); });
+    assert.equal(el().style.getPropertyValue('--app-viewport-top'), '');
+    assert.equal(el().style.getPropertyValue('--app-viewport-height'), '');
+
+    await act(async () => { root.render(React.createElement(Probe, { active: true })); });
+    assert.equal(el().style.getPropertyValue('--app-viewport-top'), '0px');
+    assert.equal(el().style.getPropertyValue('--app-viewport-height'), '900px');
+    const rendersWhenActive = renders;
+
+    // A burst of viewport events is applied once, on the next frame, with no render.
+    vv.height = 500;
+    vv.offsetTop = 100;
+    await act(async () => {
+      vv.dispatchEvent(new Event('resize'));
+      vv.dispatchEvent(new Event('scroll'));
+      vv.dispatchEvent(new Event('scroll'));
+    });
+    assert.equal(frames.size, 1, 'events in one frame are coalesced');
+    await act(async () => { flushFrames(); });
+    assert.equal(el().style.getPropertyValue('--app-viewport-top'), '100px');
+    assert.equal(el().style.getPropertyValue('--app-viewport-height'), '500px');
+    assert.equal(getLastKeyboardInset(), 300, 'the lock records the inset too');
+    assert.equal(renders, rendersWhenActive, 'viewport events do not re-render the owner');
+
+    // A frame left pending when the bar hides is cancelled, and both variables go.
+    vv.height = 480;
+    await act(async () => { vv.dispatchEvent(new Event('resize')); });
+    await act(async () => { root.render(React.createElement(Probe, { active: false })); });
+    assert.equal(el().style.getPropertyValue('--app-viewport-top'), '');
+    assert.equal(el().style.getPropertyValue('--app-viewport-height'), '');
+    assert.equal(frames.size, 0, 'the pending frame is cancelled');
+  } finally {
+    await act(async () => { root.unmount(); });
+    container.remove();
+    window.requestAnimationFrame = originalRaf;
+    window.cancelAnimationFrame = originalCaf;
   }
 });

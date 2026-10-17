@@ -13,9 +13,9 @@ import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useTerminalRuntimeResidency } from './hooks/useTerminalRuntimeResidency';
 import { useTerminalInputFocus } from './hooks/useTerminalInputFocus';
-import { useVisualViewportInset } from './hooks/useVisualViewportInset';
-import { MobileKeyBar } from './components/MobileKeyboard';
-import { mobileModifierLatch, sendMobileKeyTo } from './utils/mobileModifierLatch.ts';
+import { useVisualViewportLock } from './hooks/useVisualViewportInset';
+import { MobileKeyBar, shouldShowMobileKeyBar, useResetLatchWhenNotMobile } from './components/MobileKeyboard';
+import { sendMobileKeyTo } from './utils/mobileModifierLatch.ts';
 import type { MobileKeyName } from './utils/mobileKeyEncoder.ts';
 import { commandPresetApi, sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
@@ -586,8 +586,16 @@ function AppContent() {
   // terminal input has focus on a phone, and the app then follows the visual
   // viewport so the bar sits right above the system keyboard.
   const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null);
-  const showMobileKeyBar = isMobile && screen === 'workspace' && activeTab !== null && activeTerminalInputFocused;
-  const viewportBox = useVisualViewportInset(showMobileKeyBar);
+  const showMobileKeyBar = shouldShowMobileKeyBar({
+    isMobile,
+    screen,
+    hasActiveTab: activeTab !== null,
+    inputFocused: activeTerminalInputFocused,
+  });
+  // The viewport box goes straight onto .app's style, so viewport resize/scroll
+  // events do not re-render AppContent (FR-MKB-007).
+  const appRootRef = useRef<HTMLDivElement>(null);
+  useVisualViewportLock(showMobileKeyBar, appRootRef);
   // Opening and closing the special keyboard is wave 3. Until then the switch
   // does nothing, so it keeps showing its closed label.
   const toggleSpecialKeyboard = useCallback(() => {}, []);
@@ -600,10 +608,14 @@ function AppContent() {
     // A browser that let the tap move focus onto the bar gets it handed back.
     if (!(document.activeElement instanceof HTMLTextAreaElement)) handle?.focus();
   }, [activeTabId]);
-  useEffect(() => {
-    // A latch left on in mobile mode must not reach a desktop hardware keyboard.
-    if (!isMobile) mobileModifierLatch.reset();
-  }, [isMobile]);
+  // Ctrl/Alt and the switch hand focus back the same way (the bar calls this
+  // only when focus sits on one of its buttons).
+  const restoreMobileTerminalFocus = useCallback((): void => {
+    if (activeTabId === null) return;
+    terminalRefsMap.current.get(activeTabId)?.current?.focus();
+  }, [activeTabId]);
+  // A latch left on in mobile mode must not reach a desktop hardware keyboard.
+  useResetLatchWhenNotMobile(isMobile);
 
   const runtimeResidency = useTerminalRuntimeResidency({
     tabs: wm.tabs,
@@ -842,11 +854,8 @@ function AppContent() {
 
   return (
     <div
+      ref={appRootRef}
       className={showMobileKeyBar ? 'app app--viewport-locked' : 'app'}
-      style={showMobileKeyBar ? {
-        '--app-viewport-top': `${viewportBox.top}px`,
-        '--app-viewport-height': `${viewportBox.height}px`,
-      } as React.CSSProperties : undefined}
     >
       <Header
         onLogout={() => logout()}
@@ -1076,6 +1085,7 @@ function AppContent() {
                 onSendKey={sendMobileKey}
                 onToggleKeyboard={toggleSpecialKeyboard}
                 keyboardOpen={false}
+                onRestoreFocus={restoreMobileTerminalFocus}
               />
             )}
           </div>

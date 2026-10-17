@@ -1,11 +1,11 @@
 // The accessory key bar shown above the system keyboard while a terminal has
 // focus on a phone. Keys act on pointerup so a horizontal drag can scroll the bar
 // without sending anything, and every press keeps the terminal textarea focused.
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactElement } from 'react';
 import { t, type MessageKey } from '../../i18n/i18n.ts';
 import type { MobileKeyName } from '../../utils/mobileKeyEncoder.ts';
-import type { LatchModifier } from '../../utils/mobileModifierLatch.ts';
+import { mobileModifierLatch, type LatchModifier } from '../../utils/mobileModifierLatch.ts';
 import { LatchKey } from './LatchKey.tsx';
 import './mobileKeyboard.css';
 
@@ -51,6 +51,33 @@ export interface MobileKeyBarProps {
   onSendKey: (key: MobileKeyName) => void;
   onToggleKeyboard: () => void;
   keyboardOpen: boolean;
+  /**
+   * Called after a press that left focus on the bar (a browser that ignores the
+   * pointerdown preventDefault), so the owner can focus the terminal again and
+   * the system keyboard stays up. Applies to every button, Ctrl/Alt included.
+   */
+  onRestoreFocus?: () => void;
+}
+
+export interface MobileKeyBarVisibility {
+  isMobile: boolean;
+  screen: string;
+  hasActiveTab: boolean;
+  inputFocused: boolean;
+}
+
+/** The bar shows only on a phone, on the workspace screen, while the active tab's input has focus. */
+// @req FR-MKB-006
+export function shouldShowMobileKeyBar({ isMobile, screen, hasActiveTab, inputFocused }: MobileKeyBarVisibility): boolean {
+  return isMobile && screen === 'workspace' && hasActiveTab && inputFocused;
+}
+
+/** A latch left on in mobile mode must not reach a desktop hardware keyboard. */
+// @req FR-MKB-006
+export function useResetLatchWhenNotMobile(isMobile: boolean): void {
+  useEffect(() => {
+    if (!isMobile) mobileModifierLatch.reset();
+  }, [isMobile]);
 }
 
 function farFrom(press: TrackedPress, x: number, y: number): boolean {
@@ -58,7 +85,7 @@ function farFrom(press: TrackedPress, x: number, y: number): boolean {
 }
 
 // @req FR-MKB-006
-export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen }: MobileKeyBarProps): ReactElement {
+export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen, onRestoreFocus }: MobileKeyBarProps): ReactElement {
   const pressRef = useRef<TrackedPress | null>(null);
 
   const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -77,7 +104,7 @@ export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen }: Mobi
     }
   }, []);
 
-  const onPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+  const runPress = useCallback((event: ReactPointerEvent<HTMLDivElement>): void => {
     const press = pressRef.current;
     pressRef.current = null;
     if (!press || press.pointerId !== event.pointerId) return;
@@ -91,6 +118,15 @@ export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen }: Mobi
     const key = element.getAttribute('data-mobile-key');
     if (key) onSendKey(key as MobileKeyName);
   }, [onSendKey, onToggleKeyboard]);
+
+  const onPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const bar = event.currentTarget;
+    runPress(event);
+    // LatchKey handles its own press before this bubbles here; any button that
+    // took focus (Ctrl, Alt, the switch, a plain key) hands it back.
+    const focused = bar.ownerDocument.activeElement;
+    if (onRestoreFocus && focused !== null && bar.contains(focused)) onRestoreFocus();
+  }, [runPress, onRestoreFocus]);
 
   const onPointerCancel = useCallback(() => {
     pressRef.current = null;
