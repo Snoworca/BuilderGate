@@ -11,6 +11,11 @@
 // submitCapturedInput" here; onInput itself is out of reach of this harness, as
 // terminalPasteUnifiedPath.test.ts also notes.
 //
+// Those counts do not identify content ('c' and 'd' look the same), so the
+// debug-capture module is wrapped: every string handed to
+// buildTerminalInputDebugPayload is recorded with its captureSeq, and a
+// submission event is matched back to the exact string by that captureSeq.
+//
 // The fake xterm is extended locally (not in the shared harness) so that
 // term.modes also exposes applicationCursorKeysMode and mouseTrackingMode.
 import test, { mock } from 'node:test';
@@ -25,6 +30,10 @@ import {
 import { mobileModifierLatch } from '../../src/utils/mobileModifierLatch.ts';
 
 const SESSION_ID = 'session-1';
+
+// Strings TerminalView handed to buildTerminalInputDebugPayload, keyed by captureSeq.
+const debugPayloadInputs = new Map<number, string>();
+const realDebugCapture = await import('../../src/utils/terminalDebugCapture.ts');
 
 interface LatchTestState extends FakeTerminalState {
   applicationCursorKeysMode: boolean;
@@ -52,6 +61,18 @@ const sharedState = freshState();
     }
   }
   const FakeAddon = createFakeAddonClass();
+  mock.module('../../src/utils/terminalDebugCapture.ts', {
+    namedExports: {
+      ...realDebugCapture,
+      buildTerminalInputDebugPayload: (
+        ...args: Parameters<typeof realDebugCapture.buildTerminalInputDebugPayload>
+      ) => {
+        const [raw, metadata] = args;
+        if (typeof metadata?.captureSeq === 'number') debugPayloadInputs.set(metadata.captureSeq, raw);
+        return realDebugCapture.buildTerminalInputDebugPayload(...args);
+      },
+    },
+  });
   mock.module('@xterm/xterm', { namedExports: { Terminal: FakeTerminal } });
   mock.module('@xterm/addon-fit', { namedExports: { FitAddon: FakeAddon } });
   mock.module('@xterm/addon-serialize', { namedExports: { SerializeAddon: FakeAddon } });
@@ -104,6 +125,15 @@ function submittedInputs(): DebugEvent[] {
   return debugStore().getEvents(SESSION_ID).filter((event) => SUBMIT_EVENT_KINDS.has(event.kind));
 }
 
+/** The exact string behind a submission event, found through its captureSeq. */
+function submittedData(event: DebugEvent): string {
+  const seq = event.details.captureSeq;
+  assert.equal(typeof seq, 'number', `the submission carries a captureSeq: ${JSON.stringify(event)}`);
+  const data = debugPayloadInputs.get(seq as number);
+  assert.ok(data !== undefined, `no recorded payload for captureSeq ${String(seq)}`);
+  return data;
+}
+
 // Views still mounted when a test fails are unmounted in afterEach; a mounted
 // TerminalView keeps timers alive and the test process would never exit.
 const mounted = new Set<() => Promise<void>>();
@@ -140,6 +170,7 @@ test.afterEach(async () => {
 test.beforeEach(() => {
   Object.assign(sharedState, freshState());
   mobileModifierLatch.resetForTests();
+  debugPayloadInputs.clear();
 });
 
 test('FR-MKB-003 AC-1 / SDS-AC-10: ctrl once + user-typed C submits 0x03 and turns ctrl off', async () => {
@@ -153,6 +184,7 @@ test('FR-MKB-003 AC-1 / SDS-AC-10: ctrl once + user-typed C submits 0x03 and tur
   const submitted = submittedInputs();
   assert.equal(submitted.length, 1, `exactly one submission, got ${JSON.stringify(submitted)}`);
   assert.equal(submitted[0].preview, '\\x03', 'the submitted data is 0x03, not C');
+  assert.equal(submittedData(submitted[0]), '\x03');
   assert.equal(submitted[0].details.byteLength, 1);
   assert.equal(submitted[0].details.controlCount, 1);
   assert.equal(submitted[0].details.source, 'xterm');
@@ -171,6 +203,7 @@ test('FR-MKB-003 AC-1: a typed Hangul syllable passes unchanged and leaves ctrl 
 
   const submitted = submittedInputs();
   assert.equal(submitted.length, 1);
+  assert.equal(submittedData(submitted[0]), '한', 'the syllable, untouched');
   assert.equal(submitted[0].details.byteLength, 3, 'the UTF-8 syllable, untouched');
   assert.equal(submitted[0].details.controlCount, 0);
   assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once');
@@ -178,7 +211,7 @@ test('FR-MKB-003 AC-1: a typed Hangul syllable passes unchanged and leaves ctrl 
   await view.unmount();
 });
 
-test('FR-MKB-003 AC-3 AC-4 / SDS-AC-11: data without user provenance (parser reply) is submitted unchanged', async () => {
+test('FR-MKB-003 AC-3 AC-4 / SDS-AC-11: data without user provenance is submitted unchanged', async () => {
   const view = await renderWithCapture();
   mobileModifierLatch.tap('ctrl');
 
@@ -189,6 +222,7 @@ test('FR-MKB-003 AC-3 AC-4 / SDS-AC-11: data without user provenance (parser rep
   const submitted = submittedInputs();
   assert.equal(submitted.length, 1);
   assert.equal(submitted[0].details.byteLength, 1);
+  assert.equal(submittedData(submitted[0]), 'c', 'c must not become 0x03 without user provenance');
   assert.equal(submitted[0].details.controlCount, 0, 'c must not become 0x03 without user provenance');
   assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'the latch is not consumed');
 
@@ -207,6 +241,7 @@ test('FR-MKB-003 AC-3 / SDS-AC-11: a programmatic paste is submitted unchanged w
   const submitted = submittedInputs();
   assert.equal(submitted.length, 1, `exactly one submission, got ${JSON.stringify(submitted)}`);
   assert.equal(submitted[0].details.byteLength, 1);
+  assert.equal(submittedData(submitted[0]), 'c', 'pasted c must not become 0x03');
   assert.equal(submitted[0].details.controlCount, 0, 'pasted c must not become 0x03');
   assert.notEqual(submitted[0].details.source, 'xterm', 'it went through the paste source');
   assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once');
@@ -223,6 +258,7 @@ test('FR-MKB-003 AC-5: with every modifier off, typed data reaches submitCapture
 
   const submitted = submittedInputs();
   assert.equal(submitted.length, 1);
+  assert.equal(submittedData(submitted[0]), 'c', 'the exact typed string reaches submitCapturedInput');
   assert.equal(submitted[0].details.byteLength, 1);
   assert.equal(submitted[0].details.controlCount, 0);
   assert.equal(submitted[0].details.source, 'xterm');
@@ -240,6 +276,7 @@ test('FR-MKB-003 AC-1 AC-2: alt once + user-typed x submits ESC x and turns alt 
 
   const submitted = submittedInputs();
   assert.equal(submitted.length, 1);
+  assert.equal(submittedData(submitted[0]), '\u001bx', 'alt+x is ESC followed by exactly x');
   assert.equal(submitted[0].details.byteLength, 2, 'alt+x is ESC x');
   assert.equal(submitted[0].details.escapeCount, 1);
   assert.equal(mobileModifierLatch.getSnapshot().alt, 'off');

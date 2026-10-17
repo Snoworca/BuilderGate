@@ -136,7 +136,8 @@ function isPrintableAsciiCharacter(data: string): boolean {
 
 /**
  * Re-encodes one printable ASCII character typed on the system keyboard when any
- * modifier is latched, and consumes the once modifiers. Anything else is returned
+ * modifier is latched, and consumes the once modifiers whether or not the
+ * encoding changed the character. Anything else is returned
  * unchanged and leaves the latch untouched.
  */
 // @req FR-MKB-003
@@ -145,8 +146,8 @@ export function applyLatchToTypedData(data: string, applicationCursor: boolean):
   const mods = mobileModifierLatch.activeModifiers();
   if (!mods.ctrl && !mods.alt && !mods.shift) return data;
   const encoded = encodeMobileKey(data, mods, applicationCursor);
-  // A character the modifiers leave as it was (ctrl+1, shift+.) is unconverted
-  // input, so the once modifiers stay armed for the next key.
-  if (encoded !== data) mobileModifierLatch.consumeOnce();
+  // The character went through the converter, so it is one encoded key and the
+  // once modifiers are spent even when the result equals the input (ctrl+1).
+  mobileModifierLatch.consumeOnce();
   return encoded;
 }

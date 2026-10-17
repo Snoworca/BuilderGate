@@ -190,14 +190,26 @@ test('FR-MKB-003 AC-3 / SDS-AC-9: non-ASCII, multi-character and modifier-free d
   assert.deepEqual(mobileModifierLatch.getSnapshot(), { ctrl: 'off', alt: 'off', shift: 'off' });
 });
 
-test('FR-MKB-003 AC-1: an ASCII character the modifier leaves unchanged does not consume once', () => {
+test('FR-MKB-002 AC-4 / SDS-AC-8 / FR-MKB-003 AC-1: a printable ASCII key the modifier leaves unchanged still consumes once', () => {
+  // The character reached the converter, so it is one encoded key: once turns off
+  // even though the encoded result equals the input.
   mobileModifierLatch.tap('ctrl');
   assert.equal(applyLatchToTypedData('1', false), '1', 'ctrl+1 is outside the xterm table');
-  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once');
-  mobileModifierLatch.resetForTests();
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'ctrl once is consumed by ctrl+1');
+
   mobileModifierLatch.tap('shift');
-  assert.equal(applyLatchToTypedData('.', false), '.', 'shift on a non-letter is unchanged');
-  assert.equal(mobileModifierLatch.getSnapshot().shift, 'once');
-  mobileModifierLatch.resetForTests();
-  assert.deepEqual(mobileModifierLatch.getSnapshot(), { ctrl: 'off', alt: 'off', shift: 'off' });
+  assert.equal(applyLatchToTypedData('1', false), '1', 'shift on a non-letter is unchanged');
+  assert.equal(mobileModifierLatch.getSnapshot().shift, 'off', 'shift once is consumed by shift+1');
+
+  withFakeTimers(() => {
+    mobileModifierLatch.startPress('ctrl');
+    mock.timers.tick(LATCH_HOLD_MS);
+  });
+  mobileModifierLatch.tap('shift');
+  assert.equal(applyLatchToTypedData('.', false), '.');
+  assert.deepEqual(
+    mobileModifierLatch.getSnapshot(),
+    { ctrl: 'locked', alt: 'off', shift: 'off' },
+    'once is consumed, locked stays',
+  );
 });

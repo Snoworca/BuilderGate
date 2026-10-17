@@ -4383,7 +4383,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         // From here on `data` is what goes to submitCapturedInput, so the latch
         // re-encodes it in place.
         if (hasUserInputProvenance && programmaticPaste === null) {
-          data = applyLatchToTypedData(data, term.modes.applicationCursorKeysMode ?? false);
+          data = applyLatchToTypedData(data, term.modes.applicationCursorKeysMode);
         }
         const compositionSeq = imeTransactionRef.current?.observeXtermData();
         const debugInput = buildTerminalInputDebugPayload(data, {
