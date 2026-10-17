@@ -112,6 +112,16 @@ export const mobileModifierLatch = {
     });
   },
 
+  /**
+   * Turns one modifier off from once or locked and leaves the others as they
+   * are. The special keyboard turns Shift off when it closes, because the key
+   * bar has no Shift to show it.
+   */
+  // @req FR-MKB-003
+  turnOff(mod: LatchModifier): void {
+    setModifier(mod, 'off');
+  },
+
   activeModifiers(): ModifierState {
     return {
       ctrl: snapshot.ctrl !== 'off',

@@ -289,6 +289,18 @@ export function applySpecialKeyboardToggle(open: boolean, handle: SpecialKeyboar
 
 // --- App's panel wiring --------------------------------------------------------
 
+/**
+ * Shift lives only on the panel's top row; the key bar has Ctrl and Alt but no
+ * Shift. A Shift left on after the panel closes would uppercase every typed
+ * letter with nothing on screen showing it, so closing turns it off. Ctrl and
+ * Alt stay as they are: the bar still shows them.
+ */
+// @req FR-MKB-003
+// @req FR-MKB-008
+function turnOffPanelOnlyModifiers(): void {
+  mobileModifierLatch.turnOff('shift');
+}
+
 /** The part of TerminalHandle the panel wiring needs: focus hand-over and key sending. */
 export interface SpecialKeyboardPanelTarget extends SpecialKeyboardFocusTarget, MobileKeyTarget {}
 
@@ -359,8 +371,10 @@ export function useSpecialKeyboardPanel({
       handleFor(suppressedTabIdRef.current)?.setFocusSuppressed(false);
     }
     // Synchronous: closing focuses the terminal inside this tap handler (iOS).
+    const wasOpen = openRef.current;
     openRef.current = applySpecialKeyboardToggle(openRef.current, handle);
     suppressedTabIdRef.current = openRef.current && handle !== null ? activeTabId : null;
+    if (wasOpen && !openRef.current) turnOffPanelOnlyModifiers();
     setOpen(openRef.current);
   }, [activeTabId, handleFor, openRef]);
 
@@ -369,6 +383,7 @@ export function useSpecialKeyboardPanel({
     handleFor(suppressedTabIdRef.current)?.setFocusSuppressed(false);
     suppressedTabIdRef.current = null;
     openRef.current = false;
+    turnOffPanelOnlyModifiers();
     setOpen(false);
   }, [handleFor, openRef]);
 
