@@ -3,7 +3,7 @@
 // Each modifier is off, once (applies to the next encoded key) or locked (stays
 // until tapped). The store follows the useSyncExternalStore contract so the
 // keyboard UI and TerminalView read the same state.
-import { encodeMobileKey, type ModifierState } from './mobileKeyEncoder.ts';
+import { encodeMobileKey, type MobileKeyName, type ModifierState } from './mobileKeyEncoder.ts';
 
 // @req FR-MKB-002
 export type LatchState = 'off' | 'once' | 'locked';
@@ -32,7 +32,7 @@ const OFF_SNAPSHOT: LatchSnapshot = Object.freeze({ ctrl: 'off', alt: 'off', shi
 let snapshot: LatchSnapshot = OFF_SNAPSHOT;
 const listeners = new Set<() => void>();
 const pendingTimers = new Set<ReturnType<typeof setTimeout>>();
-// Bumped by resetForTests so a press handle taken before a reset stays inert.
+// Bumped by reset so a press handle taken before a reset stays inert.
 let generation = 0;
 
 function commit(next: Record<LatchModifier, LatchState>): void {
@@ -77,7 +77,7 @@ export const mobileModifierLatch = {
     const pressGeneration = generation;
     const timer = setTimeout(() => {
       pendingTimers.delete(timer);
-      if (settled) return;
+      if (settled || pressGeneration !== generation) return;
       locked = true;
       setModifier(mod, 'locked');
       vibrateOnLock();
@@ -120,13 +120,45 @@ export const mobileModifierLatch = {
     };
   },
 
-  resetForTests(): void {
+  /**
+   * Turns every modifier off and makes any press already in progress inert, so
+   * its pending 1500 ms timer can never lock. App calls this when the layout
+   * leaves mobile mode, so a latch left on a phone does not leak into a desktop
+   * hardware keyboard.
+   */
+  // @req FR-MKB-006
+  reset(): void {
     generation += 1;
     for (const timer of pendingTimers) clearTimeout(timer);
     pendingTimers.clear();
     commit({ ...OFF_SNAPSHOT });
   },
+
+  resetForTests(): void {
+    mobileModifierLatch.reset();
+  },
 };
+
+/** The part of TerminalHandle a mobile bar key needs. */
+// @req FR-MKB-006
+export interface MobileKeyTarget {
+  getApplicationCursorKeysMode(): boolean;
+  sendInput(data: string): void;
+}
+
+/**
+ * Encodes one mobile bar key with the latched modifiers and the terminal's
+ * application cursor mode, sends it through the terminal's existing sendInput
+ * path, then spends the once modifiers. Without a target nothing is sent and
+ * the latch is left as it is.
+ */
+// @req FR-MKB-006
+export function sendMobileKeyTo(target: MobileKeyTarget | null | undefined, key: MobileKeyName): void {
+  if (!target) return;
+  const data = encodeMobileKey(key, mobileModifierLatch.activeModifiers(), target.getApplicationCursorKeysMode());
+  target.sendInput(data);
+  mobileModifierLatch.consumeOnce();
+}
 
 function isPrintableAsciiCharacter(data: string): boolean {
   if (data.length !== 1) return false;

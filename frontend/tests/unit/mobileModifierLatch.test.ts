@@ -213,3 +213,38 @@ test('FR-MKB-002 AC-4 / SDS-AC-8 / FR-MKB-003 AC-1: a printable ASCII key the mo
     'once is consumed, locked stays',
   );
 });
+
+// --- production reset (wave 2) --------------------------------------------------
+
+test('FR-MKB-006 AC-7 / SDS-AC-7: reset during a held press commits all off and the 1500 ms timer does not lock', () => {
+  mobileModifierLatch.tap('alt');
+  let press: { release(): void } | null = null;
+  withFakeTimers(() => {
+    press = mobileModifierLatch.startPress('ctrl');
+    mock.timers.tick(LATCH_HOLD_MS - 1);
+    mobileModifierLatch.reset();
+    assert.deepEqual(mobileModifierLatch.getSnapshot(), { ctrl: 'off', alt: 'off', shift: 'off' });
+    mock.timers.tick(LATCH_HOLD_MS);
+  });
+  assert.deepEqual(
+    mobileModifierLatch.getSnapshot(),
+    { ctrl: 'off', alt: 'off', shift: 'off' },
+    'the press started before reset never locks',
+  );
+  (press as unknown as { release(): void }).release();
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'a release of the stale press is not a tap');
+});
+
+test('FR-MKB-006 AC-7 / SDS-AC-7: reset clears a locked modifier and later presses still work', () => {
+  withFakeTimers(() => {
+    mobileModifierLatch.startPress('shift');
+    mock.timers.tick(LATCH_HOLD_MS);
+  });
+  assert.equal(mobileModifierLatch.getSnapshot().shift, 'locked');
+  mobileModifierLatch.reset();
+  assert.equal(mobileModifierLatch.getSnapshot().shift, 'off');
+  withFakeTimers(() => {
+    mobileModifierLatch.startPress('shift').release();
+  });
+  assert.equal(mobileModifierLatch.getSnapshot().shift, 'once', 'a press after reset is a normal tap');
+});

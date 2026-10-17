@@ -12,6 +12,11 @@ import { useResponsive } from './hooks/useResponsive';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useTerminalRuntimeResidency } from './hooks/useTerminalRuntimeResidency';
+import { useTerminalInputFocus } from './hooks/useTerminalInputFocus';
+import { useVisualViewportLock } from './hooks/useVisualViewportInset';
+import { MobileKeyBar, shouldShowMobileKeyBar, useResetLatchWhenNotMobile } from './components/MobileKeyboard';
+import { sendMobileKeyTo } from './utils/mobileModifierLatch.ts';
+import type { MobileKeyName } from './utils/mobileKeyEncoder.ts';
 import { commandPresetApi, sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
@@ -577,6 +582,41 @@ function AppContent() {
     () => wm.activeWorkspaceTabs.find(t => t.id === wm.activeWorkspace?.activeTabId) ?? null,
     [wm.activeWorkspaceTabs, wm.activeWorkspace]
   );
+  // FR-MKB-006 / FR-MKB-007: the mobile key bar shows while the active tab's
+  // terminal input has focus on a phone, and the app then follows the visual
+  // viewport so the bar sits right above the system keyboard.
+  const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null);
+  const showMobileKeyBar = shouldShowMobileKeyBar({
+    isMobile,
+    screen,
+    hasActiveTab: activeTab !== null,
+    inputFocused: activeTerminalInputFocused,
+  });
+  // The viewport box goes straight onto .app's style, so viewport resize/scroll
+  // events do not re-render AppContent (FR-MKB-007).
+  const appRootRef = useRef<HTMLDivElement>(null);
+  useVisualViewportLock(showMobileKeyBar, appRootRef);
+  // Opening and closing the special keyboard is wave 3. Until then the switch
+  // does nothing, so it keeps showing its closed label.
+  const toggleSpecialKeyboard = useCallback(() => {}, []);
+  const activeTabId = activeTab?.id ?? null;
+  // @req FR-MKB-006
+  const sendMobileKey = useCallback((key: MobileKeyName): void => {
+    if (activeTabId === null) return;
+    const handle = terminalRefsMap.current.get(activeTabId)?.current;
+    sendMobileKeyTo(handle, key);
+    // A browser that let the tap move focus onto the bar gets it handed back.
+    if (!(document.activeElement instanceof HTMLTextAreaElement)) handle?.focus();
+  }, [activeTabId]);
+  // Ctrl/Alt and the switch hand focus back the same way (the bar calls this
+  // only when focus sits on one of its buttons).
+  const restoreMobileTerminalFocus = useCallback((): void => {
+    if (activeTabId === null) return;
+    terminalRefsMap.current.get(activeTabId)?.current?.focus();
+  }, [activeTabId]);
+  // A latch left on in mobile mode must not reach a desktop hardware keyboard.
+  useResetLatchWhenNotMobile(isMobile);
+
   const runtimeResidency = useTerminalRuntimeResidency({
     tabs: wm.tabs,
     workspaces: wm.workspaces,
@@ -813,7 +853,10 @@ function AppContent() {
   );
 
   return (
-    <div className="app">
+    <div
+      ref={appRootRef}
+      className={showMobileKeyBar ? 'app app--viewport-locked' : 'app'}
+    >
       <Header
         onLogout={() => logout()}
         onOpenSettings={() => setScreen('settings')}
@@ -1037,6 +1080,14 @@ function AppContent() {
             ) : (
               <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
             )}
+            {showMobileKeyBar && (
+              <MobileKeyBar
+                onSendKey={sendMobileKey}
+                onToggleKeyboard={toggleSpecialKeyboard}
+                keyboardOpen={false}
+                onRestoreFocus={restoreMobileTerminalFocus}
+              />
+            )}
           </div>
 
           <SettingsPage
@@ -1047,7 +1098,9 @@ function AppContent() {
       </div>
 
       {/* Below .main so it takes a row only while a file job runs (design 4.1). */}
-      <FileJobStatusBar onRevive={reviveFileExplorerForJob} />
+      {/* Hidden while the mobile key bar is up, so nothing sits between the bar
+          and the system keyboard (FR-MKB-007 AC-2). */}
+      {!showMobileKeyBar && <FileJobStatusBar onRevive={reviveFileExplorerForJob} />}
 
       {/* Tab mode context menu */}
       {tabContextMenu.isOpen && tabContextMenu.position && (
