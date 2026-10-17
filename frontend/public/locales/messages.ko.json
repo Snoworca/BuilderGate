@@ -1071,5 +1071,22 @@
   "settings.localhostNoAuth.label": "이 컴퓨터에서는 로그인 화면을 건너뜀",
   "settings.localhostNoAuth.help": "켜면 이 컴퓨터의 브라우저는 비밀번호 없이 BuilderGate 를 엽니다. 이 컴퓨터를 쓸 수 있는 사람, 또는 이 컴퓨터의 리버스 프록시를 거쳐 들어오는 사람은 모든 터미널을 포함해 전체 권한을 얻습니다. 다른 컴퓨터에서 접속하면 여전히 비밀번호가 필요합니다. 기본값은 꺼짐입니다.",
   "settings.auth.refreshGrace": "토큰 갱신 유예 시간",
-  "settings.auth.refreshGraceHelp": "페이지가 로그인 토큰을 갱신한 뒤에도 옛 토큰을 계속 받아 주는 시간(초)입니다. 그 순간 보낸 요청 때문에 로그아웃되지 않게 합니다. 0~3600, 기본 180."
+  "settings.auth.refreshGraceHelp": "페이지가 로그인 토큰을 갱신한 뒤에도 옛 토큰을 계속 받아 주는 시간(초)입니다. 그 순간 보낸 요청 때문에 로그아웃되지 않게 합니다. 0~3600, 기본 180.",
+  "mobileKeyboard.bar": "터미널 키",
+  "mobileKeyboard.key.esc": "Esc 키",
+  "mobileKeyboard.key.tab": "Tab 키",
+  "mobileKeyboard.key.ctrl": "Ctrl 키 (짧게 누르면 다음 한 키, 1.5초 누르면 잠금)",
+  "mobileKeyboard.key.alt": "Alt 키 (짧게 누르면 다음 한 키, 1.5초 누르면 잠금)",
+  "mobileKeyboard.key.left": "왼쪽 방향키",
+  "mobileKeyboard.key.up": "위쪽 방향키",
+  "mobileKeyboard.key.down": "아래쪽 방향키",
+  "mobileKeyboard.key.right": "오른쪽 방향키",
+  "mobileKeyboard.key.home": "Home 키",
+  "mobileKeyboard.key.end": "End 키",
+  "mobileKeyboard.key.pageUp": "Page Up 키",
+  "mobileKeyboard.key.pageDown": "Page Down 키",
+  "mobileKeyboard.switch.toSpecial": "특수 키보드 열기",
+  "mobileKeyboard.switch.toSystem": "시스템 키보드로 돌아가기",
+  "mobileKeyboard.switch.specialLabel": "특수",
+  "mobileKeyboard.switch.systemLabel": "ABC"
 }

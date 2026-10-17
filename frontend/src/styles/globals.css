@@ -24,6 +24,17 @@ body {
   overflow: hidden;
 }
 
+/* FR-MKB-007: while the mobile key bar is shown the app follows the visual
+ * viewport, so the bar sits right above the system keyboard and the terminal
+ * shrinks instead of hiding its last row behind the keyboard. */
+.app.app--viewport-locked {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--app-viewport-top, 0px);
+  height: var(--app-viewport-height, 100%);
+}
+
 .main {
   position: relative;
   display: flex;

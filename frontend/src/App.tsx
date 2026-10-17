@@ -12,6 +12,11 @@ import { useResponsive } from './hooks/useResponsive';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useTerminalRuntimeResidency } from './hooks/useTerminalRuntimeResidency';
+import { useTerminalInputFocus } from './hooks/useTerminalInputFocus';
+import { useVisualViewportInset } from './hooks/useVisualViewportInset';
+import { MobileKeyBar } from './components/MobileKeyboard';
+import { mobileModifierLatch, sendMobileKeyTo } from './utils/mobileModifierLatch.ts';
+import type { MobileKeyName } from './utils/mobileKeyEncoder.ts';
 import { commandPresetApi, sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
@@ -577,6 +582,29 @@ function AppContent() {
     () => wm.activeWorkspaceTabs.find(t => t.id === wm.activeWorkspace?.activeTabId) ?? null,
     [wm.activeWorkspaceTabs, wm.activeWorkspace]
   );
+  // FR-MKB-006 / FR-MKB-007: the mobile key bar shows while the active tab's
+  // terminal input has focus on a phone, and the app then follows the visual
+  // viewport so the bar sits right above the system keyboard.
+  const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null);
+  const showMobileKeyBar = isMobile && screen === 'workspace' && activeTab !== null && activeTerminalInputFocused;
+  const viewportBox = useVisualViewportInset(showMobileKeyBar);
+  // Opening and closing the special keyboard is wave 3. Until then the switch
+  // does nothing, so it keeps showing its closed label.
+  const toggleSpecialKeyboard = useCallback(() => {}, []);
+  const activeTabId = activeTab?.id ?? null;
+  // @req FR-MKB-006
+  const sendMobileKey = useCallback((key: MobileKeyName): void => {
+    if (activeTabId === null) return;
+    const handle = terminalRefsMap.current.get(activeTabId)?.current;
+    sendMobileKeyTo(handle, key);
+    // A browser that let the tap move focus onto the bar gets it handed back.
+    if (!(document.activeElement instanceof HTMLTextAreaElement)) handle?.focus();
+  }, [activeTabId]);
+  useEffect(() => {
+    // A latch left on in mobile mode must not reach a desktop hardware keyboard.
+    if (!isMobile) mobileModifierLatch.reset();
+  }, [isMobile]);
+
   const runtimeResidency = useTerminalRuntimeResidency({
     tabs: wm.tabs,
     workspaces: wm.workspaces,
@@ -813,7 +841,13 @@ function AppContent() {
   );
 
   return (
-    <div className="app">
+    <div
+      className={showMobileKeyBar ? 'app app--viewport-locked' : 'app'}
+      style={showMobileKeyBar ? {
+        '--app-viewport-top': `${viewportBox.top}px`,
+        '--app-viewport-height': `${viewportBox.height}px`,
+      } as React.CSSProperties : undefined}
+    >
       <Header
         onLogout={() => logout()}
         onOpenSettings={() => setScreen('settings')}
@@ -1037,6 +1071,13 @@ function AppContent() {
             ) : (
               <EmptyState onAddTab={(shell) => handleAddTab(undefined, shell)} availableShells={availableShells} />
             )}
+            {showMobileKeyBar && (
+              <MobileKeyBar
+                onSendKey={sendMobileKey}
+                onToggleKeyboard={toggleSpecialKeyboard}
+                keyboardOpen={false}
+              />
+            )}
           </div>
 
           <SettingsPage
@@ -1047,7 +1088,9 @@ function AppContent() {
       </div>
 
       {/* Below .main so it takes a row only while a file job runs (design 4.1). */}
-      <FileJobStatusBar onRevive={reviveFileExplorerForJob} />
+      {/* Hidden while the mobile key bar is up, so nothing sits between the bar
+          and the system keyboard (FR-MKB-007 AC-2). */}
+      {!showMobileKeyBar && <FileJobStatusBar onRevive={reviveFileExplorerForJob} />}
 
       {/* Tab mode context menu */}
       {tabContextMenu.isOpen && tabContextMenu.position && (
