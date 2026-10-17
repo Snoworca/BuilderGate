@@ -112,7 +112,20 @@ export type TerminalWebglState = 'detached' | 'attached' | 'unavailable';
 export type TerminalWebglFallbackReason =
   | 'activation-failed'
   | 'context-loss'
-  | 'context-loss-budget-exhausted';
+  | 'context-loss-budget-exhausted'
+  | 'canvas-scale-mismatch';
+
+/** REL-BGSTAB-046: the WebGL canvas backing store and the size it should have. */
+export interface CanvasScaleMeasurement {
+  backing: readonly [number, number];
+  expected: readonly [number, number];
+}
+
+/** More than 1 px apart on either axis; rounding of fractional CSS sizes stays inside it. */
+export function isCanvasScaleMismatched(measurement: CanvasScaleMeasurement): boolean {
+  return Math.abs(measurement.backing[0] - measurement.expected[0]) > 1
+    || Math.abs(measurement.backing[1] - measurement.expected[1]) > 1;
+}
 
 export interface WebglAddonLike {
   onContextLoss: (handler: () => void) => { dispose: () => void };
@@ -138,12 +151,22 @@ export interface TerminalWebglRendererOptions {
   maxContextLossRetries?: number;
   /** PERF-BGSTAB-020: the page-wide pool that decides when a hidden context is released. */
   pool?: WebglContextPool;
+  /**
+   * REL-BGSTAB-046: reads the WebGL canvas backing store against CSS size × devicePixelRatio.
+   * Null when there is no canvas to measure.
+   */
+  measureCanvasScale?: () => CanvasScaleMeasurement | null;
 }
 
 export interface TerminalWebglRenderer {
   /** Idempotent: attaches when visible, releases when hidden. */
   sync: (isVisible: boolean) => void;
   getState: () => TerminalWebglState;
+  /**
+   * REL-BGSTAB-046: drops to the DOM renderer for good when the attached, visible
+   * canvas does not follow devicePixelRatio. Call after layout has settled.
+   */
+  verifyScale: () => void;
   dispose: () => void;
 }
 
@@ -240,6 +263,19 @@ export function createTerminalWebglRenderer(
       return state;
     },
 
+    verifyScale(): void {
+      if (disposed || state !== 'attached' || hidden || !options.measureCanvasScale) {
+        return;
+      }
+      const measurement = options.measureCanvasScale();
+      if (!measurement || !isCanvasScaleMismatched(measurement)) {
+        return;
+      }
+      release();
+      state = 'unavailable';
+      fallback('canvas-scale-mismatch');
+    },
+
     dispose(): void {
       if (disposed) {
         return;
@@ -248,4 +284,27 @@ export function createTerminalWebglRenderer(
       release();
     },
   };
+}
+
+/**
+ * REL-BGSTAB-046: the WebGL addon's main canvas is the class-less canvas inside
+ * `.xterm-screen`; the link layer beside it sizes itself from devicePixelRatio and
+ * is never the one that drifts. Null when there is no measurable canvas.
+ */
+export function measureXtermWebglCanvas(
+  root: ParentNode | null | undefined,
+  devicePixelRatio: number,
+): CanvasScaleMeasurement | null {
+  if (!root) return null;
+  const canvases = Array.from(root.querySelectorAll<HTMLCanvasElement>('.xterm-screen > canvas'));
+  for (const canvas of canvases) {
+    if (canvas.className) continue;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    return {
+      backing: [canvas.width, canvas.height],
+      expected: [rect.width * devicePixelRatio, rect.height * devicePixelRatio],
+    };
+  }
+  return null;
 }
