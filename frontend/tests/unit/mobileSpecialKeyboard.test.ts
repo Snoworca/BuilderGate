@@ -255,7 +255,7 @@ for (const [shiftState, arm] of [
   ['locked', async () => { lockShift(); }],
 ] as const) {
   for (const closeBy of ['the switch', 'close()'] as const) {
-    test(`FR-MKB-008 / FR-MKB-003 (A-001): Shift ${shiftState} goes off when the panel closes through ${closeBy}, and Ctrl stays armed`, async () => {
+    test(`FR-MKB-008 AC-6 / FR-MKB-003 (A-001): Shift ${shiftState} goes off when the panel closes through ${closeBy}, and Ctrl stays armed`, async () => {
       const handle = fakeHandle();
       const panelRef: { current: PanelApi | null } = { current: null };
       const view = await render(React.createElement(Harness, { handle, panelRef }));

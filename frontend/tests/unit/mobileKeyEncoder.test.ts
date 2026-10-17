@@ -4,6 +4,7 @@
 // must not grow its own key table again).
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { encodeMobileKey, type ModifierState } from '../../src/utils/mobileKeyEncoder.ts';
 
 const ESC = '\u001b';
@@ -162,4 +163,29 @@ test('FR-MKB-001 AC-8 / SDS-AC-4: alt prefixes one ESC on characters, Esc/Tab/En
   assert.equal(encodeMobileKey('Enter', mods({ alt: true }), false), `${ESC}\r`);
   assert.equal(encodeMobileKey('Backspace', mods({ alt: true }), false), `${ESC}\x7f`);
   assert.equal(encodeMobileKey('c', mods({ alt: true, ctrl: true }), false), `${ESC}\x03`);
+});
+
+test('CON-MKB-001 AC-1: the mobile key encoder imports no DOM, xterm or socket module and touches no browser global', () => {
+  const source = readFileSync(new URL('../../src/utils/mobileKeyEncoder.ts', import.meta.url), 'utf8');
+  const imports = [...source.matchAll(/^\s*import\s[^;]*?from\s+['"]([^'"]+)['"]/gm)].map((match) => match[1]);
+  for (const specifier of imports) {
+    assert.doesNotMatch(specifier, /^(react|react-dom|@xterm\/|xterm)/, `encoder imports ${specifier}`);
+  }
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  assert.doesNotMatch(code, /\b(document|window|navigator|WebSocket)\b/, 'encoder references a browser global');
+});
+
+test('CON-MKB-001 AC-2: mobile key encoding never runs inside the xterm keydown handler', () => {
+  const source = readFileSync(new URL('../../src/components/Terminal/TerminalView.tsx', import.meta.url), 'utf8');
+  const start = source.indexOf('attachCustomKeyEventHandler(');
+  assert.ok(start > 0, 'TerminalView installs a custom key handler');
+  let depth = 0;
+  let end = start;
+  for (let index = source.indexOf('(', start); index < source.length; index += 1) {
+    if (source[index] === '(') depth += 1;
+    if (source[index] === ')') depth -= 1;
+    if (depth === 0) { end = index; break; }
+  }
+  const handler = source.slice(start, end);
+  assert.doesNotMatch(handler, /encodeMobileKey|applyLatchToTypedData|mobileModifierLatch/, 'the keydown handler encodes mobile keys');
 });

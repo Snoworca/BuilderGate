@@ -41,6 +41,7 @@ test.describe('모바일 터미널 키보드', () => {
     expect(process.env.PLAYWRIGHT_BASE_URL ?? ORIGIN, 'this spec runs only against the verified 2222 runtime').toBe(ORIGIN);
     test.setTimeout(150000);
     const ownerId = `mobile-terminal-keyboard/${testInfo.testId}/${testInfo.retry}/${randomUUID()}`;
+    let primaryFailure: unknown = null;
 
     await login(page);
     const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
@@ -72,7 +73,7 @@ test.describe('모바일 터미널 키보드', () => {
       await expect(bar).toHaveCount(0);
       await page.locator('.terminal-view:visible .xterm-screen').first().tap();
       await expect(bar).toBeVisible();
-      expect(await helperFocused(page)).toBe(true);
+      await expect.poll(() => helperFocused(page), { timeout: 5000 }).toBe(true);
 
       // FR-MKB-006 AC-1: bar order, no Win/AltGr.
       const keys = await bar.locator('[data-mobile-key]').evaluateAll((els) => els.map((el) => el.getAttribute('data-mobile-key')));
@@ -85,7 +86,7 @@ test.describe('모바일 터미널 키보드', () => {
       await page.keyboard.press('Enter');
       await expect.poll(async () => (await terminalText(page, sessionId)).split(MARKER).length - 1, { timeout: 15000 }).toBeGreaterThanOrEqual(2);
       await bar.locator('[data-mobile-key="Up"]').tap();
-      expect(await helperFocused(page)).toBe(true);
+      await expect.poll(() => helperFocused(page), { timeout: 5000 }).toBe(true);
       await page.keyboard.press('Enter');
       await expect.poll(async () => (await terminalText(page, sessionId)).split(MARKER).length - 1, { timeout: 15000 }).toBeGreaterThanOrEqual(4);
       await page.screenshot({ path: '../.playwright-mcp/mobile-terminal-keyboard-bar.png' });
@@ -114,14 +115,14 @@ test.describe('모바일 터미널 키보드', () => {
       const panel = page.locator('.mobile-special-keyboard');
       await expect(panel).toBeVisible();
       await expect(bar).toBeVisible();
-      expect(await helperFocused(page)).toBe(false);
+      await expect.poll(() => helperFocused(page), { timeout: 5000 }).toBe(false);
       const barBox = await bar.boundingBox();
       const panelBox = await panel.boundingBox();
       expect(barBox && panelBox && panelBox.y >= barBox.y + barBox.height - 1).toBe(true);
 
       // FR-MKB-008 AC-4: tapping the terminal while the panel is open does not refocus it.
       await page.locator('.terminal-view:visible .xterm-screen').first().tap();
-      expect(await helperFocused(page)).toBe(false);
+      await expect.poll(() => helperFocused(page), { timeout: 5000 }).toBe(false);
       await expect(panel).toBeVisible();
 
       // FR-MKB-009 AC-2: F1..F12 block present.
@@ -139,20 +140,48 @@ test.describe('모바일 터미널 키보드', () => {
       // FR-MKB-008 AC-3: switching back closes the panel and refocuses the terminal.
       await toggle.tap();
       await expect(panel).toHaveCount(0);
-      expect(await helperFocused(page)).toBe(true);
+      await expect.poll(() => helperFocused(page), { timeout: 5000 }).toBe(true);
+    } catch (error) {
+      primaryFailure = error;
+      throw error;
     } finally {
       const cleanup = await cleanupOwnedWorkspaces({ ...registryOptions(), ownerId });
-      if (cleanup.failed.length) throw new Error(`owned workspace cleanup failed: ${JSON.stringify(cleanup.failed)}`);
+      if (cleanup.failed.length && !primaryFailure) throw new Error(`owned workspace cleanup failed: ${JSON.stringify(cleanup.failed)}`);
     }
   });
 
-  test('I-002: desktop renders no mobile keyboard', async ({ page }, testInfo) => {
+  test('I-002: desktop renders no mobile keyboard', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name !== 'Desktop Chrome', 'Desktop project only');
+    const ownerId = `mobile-terminal-keyboard-desktop/${testInfo.testId}/${testInfo.retry}/${randomUUID()}`;
+    let primaryFailure: unknown = null;
     await login(page);
-    await page.waitForSelector('.workspace-screen', { timeout: 15000 });
-    const screen = page.locator('.terminal-view:visible .xterm-screen').first();
-    if (await screen.count()) await screen.click();
-    await expect(page.locator('.mobile-key-bar')).toHaveCount(0);
-    await expect(page.locator('.mobile-special-keyboard')).toHaveCount(0);
+    const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
+    if (!token) throw new Error('login left no auth token');
+    const headers = { Authorization: `Bearer ${token}` };
+    const workspace = await createOwnedWorkspaceViaApi(request, registryOptions(), ownerId, {
+      headers,
+      data: { name: `e2e-mkb-desk-${randomUUID().slice(0, 8)}` },
+    });
+    try {
+      const createdTab = await request.post(`${ORIGIN}/api/workspaces/${workspace.id}/tabs`, { headers, data: { name: 'e2e-mkb-desk-tab' } });
+      expect(createdTab.status()).toBe(201);
+      await page.evaluate((id) => localStorage.setItem('active_workspace_id', id), workspace.id);
+      await page.reload();
+      await page.waitForSelector('.workspace-screen', { timeout: 20000 });
+      const ownTab = page.locator('[role="tab"]', { hasText: 'e2e-mkb-desk-tab' }).first();
+      await expect(ownTab, 'the owned workspace is active').toBeVisible({ timeout: 15000 });
+      await ownTab.click();
+      await waitForTerminal(page);
+      await page.locator('.terminal-view:visible .xterm-screen').first().click();
+      await expect.poll(() => helperFocused(page), { timeout: 5000 }).toBe(true);
+      await expect(page.locator('.mobile-key-bar')).toHaveCount(0);
+      await expect(page.locator('.mobile-special-keyboard')).toHaveCount(0);
+    } catch (error) {
+      primaryFailure = error;
+      throw error;
+    } finally {
+      const cleanup = await cleanupOwnedWorkspaces({ ...registryOptions(), ownerId });
+      if (cleanup.failed.length && !primaryFailure) throw new Error(`owned workspace cleanup failed: ${JSON.stringify(cleanup.failed)}`);
+    }
   });
 });
