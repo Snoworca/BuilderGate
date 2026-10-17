@@ -408,3 +408,102 @@ test('IR-MKB-001 AC-2 / SDS-AC-12: TerminalContainer forwards the getter the way
     /getApplicationCursorKeysMode:\s*\(\)\s*=>\s*terminalRef\.current\?\.getApplicationCursorKeysMode\(\)\s*\?\?\s*false/,
   );
 });
+
+test('IR-MKB-001 AC-3: a mobile key sent through handle.sendInput reaches submitCapturedInput as the exact bytes, with no separate socket path', async () => {
+  const React = await import('react');
+  const { act } = await import('react');
+  const { createRoot } = await import('react-dom/client');
+  const { TerminalView } = await import('../../src/components/Terminal/TerminalView.tsx');
+  const { encodeMobileKey } = await import('../../src/utils/mobileKeyEncoder.ts');
+
+  const container = document.createElement('div');
+  Object.defineProperty(container, 'offsetWidth', { value: 800, configurable: true });
+  Object.defineProperty(container, 'offsetHeight', { value: 600, configurable: true });
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const ref = React.createRef<{ sendInput: (data: string) => { ok: boolean } }>();
+
+  await act(async () => {
+    root.render(React.createElement(TerminalView, {
+      ref,
+      sessionId: SESSION_ID,
+      workspaceId: 'workspace-1',
+      terminalShortcutState: null,
+      isVisible: true,
+      outputPolicyConnectionId: 'connection-1',
+      outputPolicyReconnectGeneration: 0,
+      onInput: () => {},
+      flushPendingUserInputBeforeQueryReply: () => false,
+      onResize: () => {},
+    } as never));
+  });
+
+  let unmounted = false;
+  const unmountHandleView = async () => {
+    if (unmounted) return;
+    unmounted = true;
+    mounted.delete(unmountHandleView);
+    await act(async () => { root.unmount(); });
+    container.remove();
+  };
+  mounted.add(unmountHandleView);
+
+  debugStore().enable(SESSION_ID);
+  debugStore().clear(SESSION_ID);
+
+  const handle = ref.current;
+  assert.ok(handle, 'TerminalView exposes its handle');
+  const bytes = encodeMobileKey('Up', { ctrl: false, alt: false, shift: false }, false);
+  assert.equal(bytes, '\x1b[A', 'the encoder yields CSI A for an unmodified Up in normal cursor mode');
+
+  await act(async () => { handle.sendInput(bytes); });
+
+  const submitted = submittedInputs();
+  assert.equal(submitted.length, 1, `exactly one submission, got ${JSON.stringify(submitted)}`);
+  assert.equal(submittedData(submitted[0]), '\x1b[A', 'the exact mobile key bytes reach submitCapturedInput');
+  assert.equal(submitted[0].details.byteLength, 3);
+  assert.equal(submitted[0].details.source, 'imperative', 'it entered through the imperative sendInput path');
+
+  // The mobile key modules own no transport of their own.
+  for (const file of ['mobileKeyEncoder.ts', 'mobileModifierLatch.ts']) {
+    const source = readFileSync(new URL(`../../src/utils/${file}`, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /WebSocket/, `${file} must not reference WebSocket`);
+    assert.doesNotMatch(source, /\bsend\(/, `${file} must not call send(`);
+  }
+
+  await unmountHandleView();
+});
+
+// Android keyboards deliver plain Latin letters through an IME composition, so
+// the latch must apply to a one-character ASCII commit even while the IME
+// transaction / isComposingRef report an active composition.
+test('FR-MKB-003 AC-2: ctrl once + c committed inside an IME composition still submits 0x03 and turns ctrl off', async () => {
+  const view = await renderWithCapture();
+  mobileModifierLatch.tap('ctrl');
+
+  const helpers = document.querySelectorAll<HTMLTextAreaElement>('.xterm-helper-textarea');
+  const helper = helpers[helpers.length - 1];
+  assert.ok(helper, 'the fake xterm attached its helper textarea');
+  const win = helper.ownerDocument.defaultView as unknown as { CompositionEvent: typeof CompositionEvent };
+
+  helper.dispatchEvent(new win.CompositionEvent('compositionstart', { bubbles: true, data: '' }));
+  // The IME transaction entered 'composing' (this is what drives isComposingRef).
+  const started = debugStore().getEvents(SESSION_ID).filter((event) => (
+    event.kind === 'ime_state_changed' && event.details.reason === 'compositionstart'
+  ));
+  assert.equal(started.length, 1, `TerminalView observed compositionstart: ${JSON.stringify(debugStore().getEvents(SESSION_ID))}`);
+  assert.equal(started[0].details.imeState, 'composing');
+
+  sharedState.dataHandler?.('c');
+  helper.dispatchEvent(new win.CompositionEvent('compositionend', { bubbles: true, data: 'c' }));
+  await view.flush();
+
+  const submitted = submittedInputs();
+  assert.equal(submitted.length, 1, `exactly one submission, got ${JSON.stringify(submitted)}`);
+  assert.equal(submittedData(submitted[0]), '\x03', 'the composed c becomes 0x03');
+  assert.equal(submitted[0].details.byteLength, 1);
+  assert.equal(submitted[0].details.controlCount, 1);
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'once is consumed');
+
+  await view.unmount();
+});
