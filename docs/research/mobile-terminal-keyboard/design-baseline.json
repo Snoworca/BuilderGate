@@ -1,0 +1,22 @@
+{
+  "source_file": "docs/research/mobile-terminal-keyboard/design/00.design.md",
+  "waves": [
+    {"id": "wave-1", "issues": [134, 135], "title": "Encoder, latch store and system-keyboard latch in onData", "depends_on": [],
+     "heading_path": ["Encoder", "Modifier latch/States", "Modifier latch/Applying the latch to system-keyboard input"], "line_start": 5, "line_end": 41,
+     "design_items": ["D-001","D-002","D-003","D-004","D-005","D-006","D-007","D-008","D-009","D-010","D-011","D-012","D-013","D-014","D-015","D-016","D-017","D-018","D-019","D-020","D-021","D-022"],
+     "existing_modules": ["frontend/src/components/Terminal/TerminalView.tsx", "frontend/src/components/Terminal/TerminalContainer.tsx"],
+     "excerpt_path": "docs/research/mobile-terminal-keyboard/design-baseline/wave-1.md"},
+    {"id": "wave-2", "issues": [135, 136], "title": "Accessory key bar with latch key UI", "depends_on": ["wave-1"],
+     "heading_path": ["Modifier latch/Lockable-key marking", "Accessory key bar"], "line_start": 43, "line_end": 63,
+     "design_items": ["D-023","D-024","D-025","D-026","D-027","D-028","D-029","D-030","D-031","D-032","D-033"],
+     "existing_modules": ["frontend/src/App.tsx", "frontend/src/hooks/useResponsive.ts"],
+     "excerpt_path": "docs/research/mobile-terminal-keyboard/design-baseline/wave-2.md"},
+    {"id": "wave-3", "issues": [137, 138], "title": "Special keyboard panel and numpad", "depends_on": ["wave-2"],
+     "heading_path": ["Special keyboard", "Numpad"], "line_start": 65, "line_end": 83,
+     "design_items": ["D-034","D-035","D-036","D-037","D-038","D-039","D-040","D-041","D-042"],
+     "existing_modules": ["frontend/src/App.tsx", "frontend/src/components/MobileKeyboard/"],
+     "excerpt_path": "docs/research/mobile-terminal-keyboard/design-baseline/wave-3.md"}
+  ],
+  "integration_items": ["I-001", "I-002", "I-003"],
+  "out_of_scope": []
+}

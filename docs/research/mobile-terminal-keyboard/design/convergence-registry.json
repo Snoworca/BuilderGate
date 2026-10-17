@@ -1,0 +1,12 @@
+{
+  "run_id": "2026-10-17.ProjectMaster.mobile-terminal-keyboard",
+  "convergence_points": [
+    {"path": "frontend/public/locales/messages.en.json", "recipe": {"kind": "exclusive-lane"}, "reason": "every UI wave adds keys; stages are serial"},
+    {"path": "frontend/public/locales/messages.ko.json", "recipe": {"kind": "exclusive-lane"}, "reason": "same keys as en"},
+    {"path": "frontend/tsconfig.test.json", "recipe": {"kind": "exclusive-lane"}, "reason": "new unit test files register here"},
+    {"path": "frontend/package.json", "recipe": {"kind": "exclusive-lane"}, "reason": "test scripts list"},
+    {"path": "frontend/src/components/Terminal/TerminalView.tsx", "recipe": {"kind": "exclusive-lane"}, "reason": "terminal input path shared by waves 1 and 3"},
+    {"path": "frontend/src/App.tsx", "recipe": {"kind": "exclusive-lane"}, "reason": "mount point for bar and panel"},
+    {"path": "docs/spec/", "recipe": {"kind": "replay"}, "reason": "SRS mutations are host-only"}
+  ]
+}

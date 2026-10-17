@@ -1,0 +1,455 @@
+{
+  "run_id": "2026-10-17.ProjectMaster.mobile-terminal-keyboard",
+  "design_items": [
+    {
+      "id": "D-001",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 9,
+      "line_end": 9,
+      "statement": "The encoder MUST be a pure module that maps a key name plus a modifier state `{ctrl, alt, shift}` plus an `applicationCursor` flag to the exact byte string sent to the PTY."
+    },
+    {
+      "id": "D-002",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 10,
+      "line_end": 10,
+      "statement": "Arrow keys without modifiers MUST encode as `ESC [ A..D` when `applicationCursor` is false and as `ESC O A..D` when it is true."
+    },
+    {
+      "id": "D-003",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 11,
+      "line_end": 11,
+      "statement": "Arrows, Home and End with any modifier MUST encode as `ESC [ 1 ; m X` where `m = 1 + shift(1) + alt(2) + ctrl(4)`."
+    },
+    {
+      "id": "D-004",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 12,
+      "line_end": 12,
+      "statement": "Home and End without modifiers MUST encode as `ESC [ H` / `ESC [ F`, and as `ESC O H` / `ESC O F` when `applicationCursor` is true, matching xterm.js hardware keys."
+    },
+    {
+      "id": "D-005",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 13,
+      "line_end": 13,
+      "statement": "Insert, Delete, PageUp and PageDown MUST encode as `ESC [ n ~` with n = 2, 3, 5, 6, and as `ESC [ n ; m ~` when a modifier is active."
+    },
+    {
+      "id": "D-006",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 14,
+      "line_end": 14,
+      "statement": "F1\u2013F4 MUST encode as `ESC O P..S` and F5\u2013F12 as `ESC [ 15~ 17~ 18~ 19~ 20~ 21~ 23~ 24~`."
+    },
+    {
+      "id": "D-007",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 15,
+      "line_end": 15,
+      "statement": "Esc, Tab, Enter and Backspace MUST encode as `ESC`, `\\t`, `\\r` and `0x7f`, and Shift+Tab as `ESC [ Z`."
+    },
+    {
+      "id": "D-008",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 16,
+      "line_end": 16,
+      "statement": "A single character with Ctrl MUST encode per the xterm table: `a`..`z` \u2192 `0x01`..`0x1a`; `@`, `2` and Space \u2192 `0x00`; `[` and `3` \u2192 `0x1b`; `\\` and `4` \u2192 `0x1c`; `]` and `5` \u2192 `0x1d`; `^` and `6` \u2192 `0x1e`; `_`, `-` and `7` \u2192 `0x1f`; `?` and `8` \u2192 `0x7f`; any other character is sent unchanged."
+    },
+    {
+      "id": "D-009",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 17,
+      "line_end": 17,
+      "statement": "Alt MUST prefix the encoded result with a single `ESC`."
+    },
+    {
+      "id": "D-010",
+      "heading_path": [
+        "Encoder",
+        "Key-to-bytes mapping"
+      ],
+      "line_start": 18,
+      "line_end": 18,
+      "statement": "Shift on a single letter MUST upper-case it before Ctrl/Alt are applied."
+    },
+    {
+      "id": "D-011",
+      "heading_path": [
+        "Encoder",
+        "Injection"
+      ],
+      "line_start": 22,
+      "line_end": 22,
+      "statement": "Encoded bytes MUST reach the server through the existing `TerminalHandle.sendInput` path, which ends in `submitCapturedInput`, so operation IDs, the input queue and the checkpoint barrier apply unchanged."
+    },
+    {
+      "id": "D-012",
+      "heading_path": [
+        "Encoder",
+        "Injection"
+      ],
+      "line_start": 23,
+      "line_end": 23,
+      "statement": "`TerminalHandle` SHALL expose `getApplicationCursorKeysMode()` that reads the live `term.modes.applicationCursorKeysMode`, forwarded by `TerminalContainer` like `getMouseTrackingActive`."
+    },
+    {
+      "id": "D-013",
+      "heading_path": [
+        "Modifier latch",
+        "States"
+      ],
+      "line_start": 29,
+      "line_end": 29,
+      "statement": "Each of Ctrl, Alt and Shift MUST hold one of three states: `off`, `once` or `locked`."
+    },
+    {
+      "id": "D-014",
+      "heading_path": [
+        "Modifier latch",
+        "States"
+      ],
+      "line_start": 30,
+      "line_end": 30,
+      "statement": "A tap MUST move `off` \u2192 `once`, `once` \u2192 `off` and `locked` \u2192 `off`."
+    },
+    {
+      "id": "D-015",
+      "heading_path": [
+        "Modifier latch",
+        "States"
+      ],
+      "line_start": 31,
+      "line_end": 31,
+      "statement": "A press held for 1500 ms MUST move the key to `locked` at the 1500 ms mark, without waiting for release."
+    },
+    {
+      "id": "D-016",
+      "heading_path": [
+        "Modifier latch",
+        "States"
+      ],
+      "line_start": 32,
+      "line_end": 32,
+      "statement": "Releasing before 1500 ms MUST count as a tap; a `pointercancel` leaves every state unchanged."
+    },
+    {
+      "id": "D-017",
+      "heading_path": [
+        "Modifier latch",
+        "States"
+      ],
+      "line_start": 33,
+      "line_end": 33,
+      "statement": "After one encoded key is sent, every modifier in `once` MUST return to `off`, while `locked` modifiers stay `locked`."
+    },
+    {
+      "id": "D-018",
+      "heading_path": [
+        "Modifier latch",
+        "States"
+      ],
+      "line_start": 34,
+      "line_end": 34,
+      "statement": "Reaching `locked` MUST call `navigator.vibrate(25)` only when that function exists, so a browser without the Vibration API locks silently and raises no error."
+    },
+    {
+      "id": "D-019",
+      "heading_path": [
+        "Modifier latch",
+        "Applying the latch to system-keyboard input"
+      ],
+      "line_start": 38,
+      "line_end": 38,
+      "statement": "When any modifier is not `off`, data from `term.onData` that is exactly one printable ASCII character (0x20\u20130x7E) MUST be re-encoded through the encoder before `submitCapturedInput`, inside the existing `onData` handler, whatever the IME composition flags say, because Android keyboards deliver Latin letters through composition."
+    },
+    {
+      "id": "D-020",
+      "heading_path": [
+        "Modifier latch",
+        "Applying the latch to system-keyboard input"
+      ],
+      "line_start": 39,
+      "line_end": 39,
+      "statement": "The latch MUST NOT transform non-ASCII data (Hangul syllables and other IME commits), multi-character data, parser replies, focus reports or programmatic paste."
+    },
+    {
+      "id": "D-021",
+      "heading_path": [
+        "Modifier latch",
+        "Applying the latch to system-keyboard input"
+      ],
+      "line_start": 40,
+      "line_end": 40,
+      "statement": "The latch state SHALL live in one module-level store with subscribe/getSnapshot, read by `TerminalView` and by every keyboard component."
+    },
+    {
+      "id": "D-022",
+      "heading_path": [
+        "Modifier latch",
+        "Applying the latch to system-keyboard input"
+      ],
+      "line_start": 41,
+      "line_end": 41,
+      "statement": "The re-encoding MUST happen after the provenance counter (`markUserXtermDataProvenance`) has been consumed and after the query-reply and replay guards have passed, so the re-encoded string is submitted under the original keystroke's permit (REL-BGSTAB-019)."
+    },
+    {
+      "id": "D-023",
+      "heading_path": [
+        "Modifier latch",
+        "Lockable-key marking"
+      ],
+      "line_start": 45,
+      "line_end": 45,
+      "statement": "Only Ctrl, Alt and Shift MUST be lockable, each showing a corner dot that is grey when `off`, blue when `once` and glowing orange when `locked`."
+    },
+    {
+      "id": "D-024",
+      "heading_path": [
+        "Modifier latch",
+        "Lockable-key marking"
+      ],
+      "line_start": 46,
+      "line_end": 46,
+      "statement": "The `once` state MUST render as blue text with underline and no filled background, and `locked` as an orange tinted box with an orange border."
+    },
+    {
+      "id": "D-025",
+      "heading_path": [
+        "Modifier latch",
+        "Lockable-key marking"
+      ],
+      "line_start": 47,
+      "line_end": 47,
+      "statement": "While a lockable key is pressed, a fill MUST rise from the bottom over 1500 ms, with the browser context menu, text selection and `contextmenu` propagation to the tab wrapper suppressed."
+    },
+    {
+      "id": "D-026",
+      "heading_path": [
+        "Accessory key bar",
+        "Content and placement"
+      ],
+      "line_start": 53,
+      "line_end": 53,
+      "statement": "The bar MUST show, left to right: Esc, Tab, Ctrl, Alt, separator, \u2190, \u2191, \u2193, \u2192, separator, Home, End, PgUp, PgDn, and a keyboard-switch button."
+    },
+    {
+      "id": "D-027",
+      "heading_path": [
+        "Accessory key bar",
+        "Content and placement"
+      ],
+      "line_start": 54,
+      "line_end": 54,
+      "statement": "The bar MUST render only when `useResponsive().isMobile` is true and either a document-level `focusin` has landed on the active tab's `.xterm-helper-textarea` without a later `focusout`, or the special keyboard is open."
+    },
+    {
+      "id": "D-028",
+      "heading_path": [
+        "Accessory key bar",
+        "Content and placement"
+      ],
+      "line_start": 55,
+      "line_end": 55,
+      "statement": "The bar MUST sit directly above the system keyboard, using `window.visualViewport` (height and offsetTop) to compute the keyboard inset."
+    },
+    {
+      "id": "D-029",
+      "heading_path": [
+        "Accessory key bar",
+        "Content and placement"
+      ],
+      "line_start": 56,
+      "line_end": 56,
+      "statement": "While the bar is shown, the app root height MUST follow `visualViewport.height` (through a CSS variable on `.app`), so the whole layout including the terminal shrinks above the keyboard and the existing ResizeObserver re-fits xterm."
+    },
+    {
+      "id": "D-030",
+      "heading_path": [
+        "Accessory key bar",
+        "Content and placement"
+      ],
+      "line_start": 57,
+      "line_end": 57,
+      "statement": "The bar MUST scroll horizontally when wider than the screen, with its scrollbar hidden."
+    },
+    {
+      "id": "D-031",
+      "heading_path": [
+        "Accessory key bar",
+        "Content and placement"
+      ],
+      "line_start": 58,
+      "line_end": 58,
+      "statement": "Every key MUST be at least `--ctl-touch` (44 px) in its smaller tappable dimension in the special keyboard and 36 px high in the bar."
+    },
+    {
+      "id": "D-032",
+      "heading_path": [
+        "Accessory key bar",
+        "Focus"
+      ],
+      "line_start": 62,
+      "line_end": 62,
+      "statement": "Pressing any bar or panel key MUST NOT move focus away from the terminal while the system keyboard is shown (`preventDefault` on `pointerdown`/`mousedown`)."
+    },
+    {
+      "id": "D-033",
+      "heading_path": [
+        "Accessory key bar",
+        "Focus"
+      ],
+      "line_start": 63,
+      "line_end": 63,
+      "statement": "Win, AltGr, mouse and screenshot keys MUST NOT appear anywhere in the bar or panel."
+    },
+    {
+      "id": "D-034",
+      "heading_path": [
+        "Special keyboard",
+        "Switching"
+      ],
+      "line_start": 69,
+      "line_end": 69,
+      "statement": "Tapping the keyboard-switch button while the system keyboard is shown MUST blur the terminal textarea through a new `TerminalHandle.blurInput()` and open the special keyboard panel in the same place."
+    },
+    {
+      "id": "D-035",
+      "heading_path": [
+        "Special keyboard",
+        "Switching"
+      ],
+      "line_start": 70,
+      "line_end": 70,
+      "statement": "The panel height MUST equal the last measured system-keyboard inset, with a 280 px default when none was measured."
+    },
+    {
+      "id": "D-036",
+      "heading_path": [
+        "Special keyboard",
+        "Switching"
+      ],
+      "line_start": 71,
+      "line_end": 71,
+      "statement": "Tapping the switch button while the panel is open MUST close the panel and call `TerminalHandle.focus()` synchronously inside the tap handler, so iOS and Android raise the system keyboard again."
+    },
+    {
+      "id": "D-037",
+      "heading_path": [
+        "Special keyboard",
+        "Switching"
+      ],
+      "line_start": 72,
+      "line_end": 72,
+      "statement": "While the panel is open the terminal textarea MUST stay blurred: the tab wrapper `onPointerDown \u2192 focusTerminal` (App.tsx), `TerminalView` `handleClick`, and the pending focus-restore path (`pendingFocusRestoreRef`) are all suppressed, and the blur clears `pendingFocusRestoreRef`."
+    },
+    {
+      "id": "D-038",
+      "heading_path": [
+        "Special keyboard",
+        "Layout"
+      ],
+      "line_start": 76,
+      "line_end": 76,
+      "statement": "The panel MUST have a top row Esc, Tab, Ctrl, Alt, Shift and below it three 3\u00d74 blocks: F1\u2013F12; \u232b / | ~ * - ` : + _ = Enter; and Home \u2191 PgUp / \u2190 (empty) \u2192 / End \u2193 PgDn / Ins Del Numpad."
+    },
+    {
+      "id": "D-039",
+      "heading_path": [
+        "Special keyboard",
+        "Layout"
+      ],
+      "line_start": 77,
+      "line_end": 77,
+      "statement": "Every panel key MUST send through the encoder with the latch applied and consume `once` modifiers."
+    },
+    {
+      "id": "D-040",
+      "heading_path": [
+        "Numpad"
+      ],
+      "line_start": 81,
+      "line_end": 81,
+      "statement": "Tapping Numpad MUST replace only the right 3\u00d74 block with `7 8 9 / 4 5 6 / 1 2 3 / 0 . Arrows`, leaving the other blocks in place."
+    },
+    {
+      "id": "D-041",
+      "heading_path": [
+        "Numpad"
+      ],
+      "line_start": 82,
+      "line_end": 82,
+      "statement": "Numpad digits and `.` MUST send as plain characters through the encoder with the latch applied."
+    },
+    {
+      "id": "D-042",
+      "heading_path": [
+        "Numpad"
+      ],
+      "line_start": 83,
+      "line_end": 83,
+      "statement": "The chosen right block SHALL persist per device in `localStorage`, read and written inside try/catch so storage failure changes nothing else."
+    }
+  ],
+  "integration_items": [
+    {
+      "id": "I-001",
+      "heading_path": [
+        "Cross-cutting",
+        "Integration items"
+      ],
+      "line_start": 89,
+      "line_end": 89,
+      "statement": "Every user-visible sentence (button titles, aria labels, the switch button label) MUST go through `t()` with keys in both `messages.{en,ko}.json`; key cap names (Ctrl, Esc, F1, PgUp, arrows) stay ASCII constants outside the catalogs."
+    },
+    {
+      "id": "I-002",
+      "heading_path": [
+        "Cross-cutting",
+        "Integration items"
+      ],
+      "line_start": 90,
+      "line_end": 90,
+      "statement": "Desktop behaviour MUST NOT change: no component of this feature renders when `isMobile` is false."
+    },
+    {
+      "id": "I-003",
+      "heading_path": [
+        "Cross-cutting",
+        "Integration items"
+      ],
+      "line_start": 91,
+      "line_end": 91,
+      "statement": "Each sub-issue #134\u2013#138 MUST be closed only after its wave is merged and its requirements carry test evidence."
+    }
+  ],
+  "out_of_scope": []
+}
