@@ -1,0 +1,215 @@
+// FR-MKB-002 / FR-MKB-003: the module-level Ctrl/Alt/Shift latch store and the
+// typed-data re-encoding step that TerminalView calls from term.onData.
+import test, { mock } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  LATCH_HOLD_MS,
+  applyLatchToTypedData,
+  mobileModifierLatch,
+} from '../../src/utils/mobileModifierLatch.ts';
+
+const ESC = '\u001b';
+
+function setVibrate(value: unknown): () => void {
+  const nav = globalThis.navigator as unknown as Record<string, unknown>;
+  const had = Object.prototype.hasOwnProperty.call(nav, 'vibrate');
+  const previous = nav.vibrate;
+  Object.defineProperty(nav, 'vibrate', { value, configurable: true, writable: true });
+  return () => {
+    if (had) {
+      Object.defineProperty(nav, 'vibrate', { value: previous, configurable: true, writable: true });
+    } else {
+      delete nav.vibrate;
+    }
+  };
+}
+
+function withFakeTimers(run: () => void): void {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    run();
+  } finally {
+    mock.timers.reset();
+  }
+}
+
+test.beforeEach(() => {
+  mobileModifierLatch.resetForTests();
+});
+
+// --- tap -----------------------------------------------------------------------
+
+test('FR-MKB-002 AC-1: tap cycles off -> once -> off, and locked -> off', () => {
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off');
+  mobileModifierLatch.tap('ctrl');
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once');
+  mobileModifierLatch.tap('ctrl');
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off');
+
+  withFakeTimers(() => {
+    mobileModifierLatch.startPress('alt');
+    mock.timers.tick(LATCH_HOLD_MS);
+  });
+  assert.equal(mobileModifierLatch.getSnapshot().alt, 'locked');
+  mobileModifierLatch.tap('alt');
+  assert.equal(mobileModifierLatch.getSnapshot().alt, 'off');
+});
+
+test('FR-MKB-002 AC-6: getSnapshot is stable until a change and subscribers are notified', () => {
+  const first = mobileModifierLatch.getSnapshot();
+  assert.equal(mobileModifierLatch.getSnapshot(), first, 'same object while nothing changed');
+  let calls = 0;
+  const unsubscribe = mobileModifierLatch.subscribe(() => { calls += 1; });
+  mobileModifierLatch.tap('shift');
+  assert.equal(calls, 1);
+  const second = mobileModifierLatch.getSnapshot();
+  assert.notEqual(second, first, 'a change produces a new snapshot');
+  assert.deepEqual(second, { ctrl: 'off', alt: 'off', shift: 'once' });
+  assert.equal(Object.isFrozen(second), true, 'snapshot is immutable');
+  unsubscribe();
+  mobileModifierLatch.tap('shift');
+  assert.equal(calls, 1, 'unsubscribed listener is not called');
+});
+
+// --- press and hold ------------------------------------------------------------
+
+test('FR-MKB-002 AC-2 / SDS-AC-5: LATCH_HOLD_MS is 1500', () => {
+  assert.equal(LATCH_HOLD_MS, 1500);
+});
+
+test('FR-MKB-002 AC-2 AC-3 / SDS-AC-5: a release at 1499 ms is a tap', () => {
+  withFakeTimers(() => {
+    const press = mobileModifierLatch.startPress('ctrl');
+    mock.timers.tick(1499);
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'nothing changes before 1500 ms');
+    press.release();
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'an early release is a tap');
+    mock.timers.tick(10);
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'the cleared timer never fires');
+  });
+});
+
+test('FR-MKB-002 AC-2 / SDS-AC-5: at 1500 ms the modifier is locked before release, and release then does nothing', () => {
+  withFakeTimers(() => {
+    const press = mobileModifierLatch.startPress('ctrl');
+    mock.timers.tick(1500);
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'locked');
+    press.release();
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'locked');
+  });
+});
+
+test('FR-MKB-002 AC-3 / SDS-AC-6: cancel leaves off and once untouched and fires no timer', () => {
+  mobileModifierLatch.tap('alt');
+  withFakeTimers(() => {
+    const ctrlPress = mobileModifierLatch.startPress('ctrl');
+    const altPress = mobileModifierLatch.startPress('alt');
+    ctrlPress.cancel();
+    altPress.cancel();
+    mock.timers.tick(5000);
+  });
+  assert.deepEqual(mobileModifierLatch.getSnapshot(), { ctrl: 'off', alt: 'once', shift: 'off' });
+});
+
+test('FR-MKB-002 AC-5 / SDS-AC-7: locking without navigator.vibrate does not throw', () => {
+  const restore = setVibrate(undefined);
+  try {
+    withFakeTimers(() => {
+      mobileModifierLatch.startPress('shift');
+      assert.doesNotThrow(() => mock.timers.tick(1500));
+    });
+    assert.equal(mobileModifierLatch.getSnapshot().shift, 'locked');
+  } finally {
+    restore();
+  }
+});
+
+test('FR-MKB-002 AC-5 / SDS-AC-7: locking calls navigator.vibrate(25) when it exists', () => {
+  const calls: unknown[][] = [];
+  const restore = setVibrate((...args: unknown[]) => { calls.push(args); return true; });
+  try {
+    withFakeTimers(() => {
+      mobileModifierLatch.startPress('ctrl');
+      mock.timers.tick(1499);
+      assert.deepEqual(calls, [], 'no vibration before the lock');
+      mock.timers.tick(1);
+    });
+    assert.deepEqual(calls, [[25]]);
+  } finally {
+    restore();
+  }
+});
+
+// --- consumeOnce / activeModifiers ---------------------------------------------
+
+test('FR-MKB-002 AC-4 / SDS-AC-8: consumeOnce turns once off and keeps locked; a tap releases the lock', () => {
+  mobileModifierLatch.tap('ctrl');
+  withFakeTimers(() => {
+    mobileModifierLatch.startPress('alt');
+    mock.timers.tick(1500);
+  });
+  assert.deepEqual(mobileModifierLatch.activeModifiers(), { ctrl: true, alt: true, shift: false });
+  mobileModifierLatch.consumeOnce();
+  assert.deepEqual(mobileModifierLatch.getSnapshot(), { ctrl: 'off', alt: 'locked', shift: 'off' });
+  assert.deepEqual(mobileModifierLatch.activeModifiers(), { ctrl: false, alt: true, shift: false });
+  mobileModifierLatch.tap('alt');
+  assert.equal(mobileModifierLatch.getSnapshot().alt, 'off');
+});
+
+// --- applyLatchToTypedData -----------------------------------------------------
+
+test('FR-MKB-003 AC-1: ctrl once re-encodes c and auto-capitalised C to 0x03 and consumes once', () => {
+  mobileModifierLatch.tap('ctrl');
+  assert.equal(applyLatchToTypedData('c', false), '\x03');
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off');
+  mobileModifierLatch.tap('ctrl');
+  assert.equal(applyLatchToTypedData('C', false), '\x03');
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off');
+});
+
+test('FR-MKB-003 AC-1: a locked modifier survives typed characters', () => {
+  withFakeTimers(() => {
+    mobileModifierLatch.startPress('alt');
+    mock.timers.tick(1500);
+  });
+  assert.equal(applyLatchToTypedData('x', false), `${ESC}x`);
+  assert.equal(applyLatchToTypedData('y', false), `${ESC}y`);
+  assert.equal(mobileModifierLatch.getSnapshot().alt, 'locked');
+});
+
+test('FR-MKB-003 AC-3 / SDS-AC-9: non-ASCII, multi-character and modifier-free data is returned unchanged with state kept', () => {
+  mobileModifierLatch.tap('ctrl');
+  assert.equal(applyLatchToTypedData('한', false), '한');
+  assert.equal(applyLatchToTypedData('ab', false), 'ab');
+  assert.equal(applyLatchToTypedData('\r', false), '\r', 'a control character is not printable ASCII');
+  assert.equal(applyLatchToTypedData(`${ESC}[A`, false), `${ESC}[A`);
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'unconverted input leaves once untouched');
+
+  mobileModifierLatch.resetForTests();
+  assert.equal(applyLatchToTypedData('c', false), 'c', 'no modifier -> identity');
+  assert.deepEqual(mobileModifierLatch.getSnapshot(), { ctrl: 'off', alt: 'off', shift: 'off' });
+});
+
+test('FR-MKB-002 AC-4 / SDS-AC-8 / FR-MKB-003 AC-1: a printable ASCII key the modifier leaves unchanged still consumes once', () => {
+  // The character reached the converter, so it is one encoded key: once turns off
+  // even though the encoded result equals the input.
+  mobileModifierLatch.tap('ctrl');
+  assert.equal(applyLatchToTypedData('1', false), '1', 'ctrl+1 is outside the xterm table');
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'ctrl once is consumed by ctrl+1');
+
+  mobileModifierLatch.tap('shift');
+  assert.equal(applyLatchToTypedData('1', false), '1', 'shift on a non-letter is unchanged');
+  assert.equal(mobileModifierLatch.getSnapshot().shift, 'off', 'shift once is consumed by shift+1');
+
+  withFakeTimers(() => {
+    mobileModifierLatch.startPress('ctrl');
+    mock.timers.tick(LATCH_HOLD_MS);
+  });
+  mobileModifierLatch.tap('shift');
+  assert.equal(applyLatchToTypedData('.', false), '.');
+  assert.deepEqual(
+    mobileModifierLatch.getSnapshot(),
+    { ctrl: 'locked', alt: 'off', shift: 'off' },
+    'once is consumed, locked stays',
+  );
+});

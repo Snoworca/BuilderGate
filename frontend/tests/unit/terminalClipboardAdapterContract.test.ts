@@ -188,6 +188,7 @@ const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
   fit: 'layout only',
   focus: 'focus only; its lone string is a debug reason, not a payload',
   getAuthorityViewGeneration: 'reads a generation; no input',
+  getApplicationCursorKeysMode: 'reads application cursor mode; no input', // IR-MKB-001 AC-1 / SDS-AC-12
   getMouseTrackingActive: 'reads mouse mode; no input',
   getScreenRepairReadiness: 'reads readiness; no input',
   getSelection: 'reads selection text; no input',
