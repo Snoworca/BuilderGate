@@ -16,9 +16,9 @@ const { installCatalog } = await import('../../src/i18n/i18n.ts');
 installCatalog('en', en);
 
 const React = await import('react');
-const { act, useRef, useState } = React;
+const { act, useRef } = React;
 const { createRoot } = await import('react-dom/client');
-const { MobileKeyBar, MobileSpecialKeyboard, applySpecialKeyboardToggle, RIGHT_BLOCK_STORAGE_KEY } = await import('../../src/components/MobileKeyboard/index.ts');
+const { MobileKeyBar, MobileSpecialKeyboard, RIGHT_BLOCK_STORAGE_KEY, useSpecialKeyboardPanel } = await import('../../src/components/MobileKeyboard/index.ts');
 const { mobileModifierLatch, sendMobileKeyTo } = await import('../../src/utils/mobileModifierLatch.ts');
 type MobileKeyName = import('../../src/utils/mobileKeyEncoder.ts').MobileKeyName;
 
@@ -88,36 +88,52 @@ test.beforeEach(() => {
 
 interface FakeHandle {
   calls: string[];
+  sent: string[];
   blurInput(): void;
   setFocusSuppressed(on: boolean): void;
   focus(reason?: string): void;
+  getApplicationCursorKeysMode(): boolean;
+  sendInput(data: string): void;
 }
 
-function fakeHandle(): FakeHandle {
+function fakeHandle(appCursor = false): FakeHandle {
   const calls: string[] = [];
+  const sent: string[] = [];
   return {
     calls,
+    sent,
     blurInput: () => { calls.push('blurInput'); },
     setFocusSuppressed: (on: boolean) => { calls.push(`setFocusSuppressed(${on})`); },
     focus: () => { calls.push('focus'); },
+    getApplicationCursorKeysMode: () => appCursor,
+    sendInput: (data: string) => { sent.push(data); },
   };
 }
 
-/** The part of App this wave adds: one switch that opens and closes the panel below the bar. */
-function Harness({ handle }: { handle: FakeHandle }): React.ReactElement {
-  // The open state is read from a ref, as App does: a state updater would run
-  // the handle calls later, during render, outside the tap handler.
-  const [open, setOpen] = useState(false);
+/**
+ * The panel wiring App uses: the real useSpecialKeyboardPanel hook (toggle,
+ * close, send, focus hand-back) feeding the bar and the panel the way App
+ * renders them. Only the terminal handle is a fake.
+ */
+function Harness({ handle }: { handle: FakeHandle | null }): React.ReactElement {
   const openRef = useRef(false);
-  const toggle = (): void => {
-    openRef.current = applySpecialKeyboardToggle(openRef.current, handle);
-    setOpen(openRef.current);
-  };
+  const panel = useSpecialKeyboardPanel({
+    activeTabId: 'tab-1',
+    activeSessionId: 'session-1',
+    getHandle: () => handle,
+    measureHeight: () => 280,
+    openRef,
+  });
   return React.createElement(
     'div',
     { className: 'column' },
-    React.createElement(MobileKeyBar, { onSendKey: () => {}, onToggleKeyboard: toggle, keyboardOpen: open }),
-    open ? React.createElement(MobileSpecialKeyboard, { height: 280, onSendKey: () => {} }) : null,
+    React.createElement(MobileKeyBar, {
+      onSendKey: panel.sendKey,
+      onToggleKeyboard: panel.toggle,
+      keyboardOpen: panel.open,
+      onRestoreFocus: panel.restoreFocus,
+    }),
+    panel.open ? React.createElement(MobileSpecialKeyboard, { height: panel.height, onSendKey: panel.sendKey }) : null,
   );
 }
 
@@ -152,6 +168,66 @@ test('FR-MKB-008 AC-3 / SDS-AC-3: tapping the switch with the panel open release
     assert.deepEqual(handle.calls, ['setFocusSuppressed(false)', 'focus'], 'release then focus, synchronously');
     await act(async () => {});
     assert.equal(view.container.querySelector('.mobile-special-keyboard'), null, 'the panel closed');
+  } finally {
+    await view.cleanup();
+  }
+});
+
+test('FR-MKB-009 AC-5 / FR-MKB-008 AC-4 / SDS-AC-7: through App\'s panel hook a panel key reaches the active handle in its cursor mode, and nothing refocuses while the panel is open', async () => {
+  const handle = fakeHandle(true);
+  const view = await render(React.createElement(Harness, { handle }));
+  try {
+    await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
+    const panel = view.container.querySelector('.mobile-special-keyboard');
+    assert.ok(panel, 'precondition: the panel is open');
+    handle.calls.length = 0;
+
+    await tap(byCap(panel, '↑'));
+    await tap(byCap(panel, 'F1'));
+    await tap(byCap(panel, '7'));
+    assert.deepEqual(handle.sent, [`${ESC}OA`, `${ESC}OP`, '7'], 'application cursor mode is read from the active handle');
+
+    // A bar key tapped while a bar button holds focus: with the panel closed
+    // this hands focus back to the terminal; with it open it must not.
+    const esc = view.container.querySelector('.mobile-key-bar [data-mobile-key="Esc"]') as HTMLButtonElement;
+    await act(async () => { esc.focus(); });
+    await tap(esc);
+    assert.equal(handle.sent.at(-1), ESC);
+    assert.deepEqual(handle.calls, [], 'no focus() and no other handle call while the panel is open');
+  } finally {
+    await view.cleanup();
+  }
+});
+
+test('FR-MKB-008 AC-1 AC-4: with no terminal handle attached the switch does not open the panel, so no unsuppressed terminal sits under it', async () => {
+  const view = await render(React.createElement(Harness, { handle: null }));
+  try {
+    await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
+    assert.equal(view.container.querySelector('.mobile-special-keyboard'), null, 'the panel stays closed');
+    assert.equal(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!.getAttribute('aria-pressed'), 'false');
+
+    // Once the handle is there, the same switch opens it with suppression.
+    const handle = fakeHandle();
+    await act(async () => { view.root.render(React.createElement(Harness, { handle })); });
+    await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
+    assert.ok(view.container.querySelector('.mobile-special-keyboard'), 'the panel opens');
+    assert.deepEqual(handle.calls, ['blurInput', 'setFocusSuppressed(true)']);
+  } finally {
+    await view.cleanup();
+  }
+});
+
+test('FR-MKB-009 AC-6 / FR-MKB-006 AC-4: a long press on a panel key, the panel or a bar key does not open the context menu', async () => {
+  const handle = fakeHandle();
+  const view = await render(React.createElement(Harness, { handle }));
+  try {
+    await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
+    const panel = view.container.querySelector('.mobile-special-keyboard')!;
+    const bar = view.container.querySelector('.mobile-key-bar')!;
+    for (const target of [byCap(panel, 'F1'), byCap(panel, '7'), panel, bar.querySelector('[data-mobile-key="Esc"]')!, bar]) {
+      const event = mouse(target, 'contextmenu');
+      assert.equal(event.defaultPrevented, true, `contextmenu on ${target.className} is prevented`);
+    }
   } finally {
     await view.cleanup();
   }
@@ -323,13 +399,18 @@ test('FR-MKB-009 AC-7: every panel aria label comes from the catalog and follows
   }
 });
 
-// The tests above drive the switch through a harness, because rendering App
-// needs the whole application. What ties App to that harness is read from its
-// source: the same toggle, the same visibility input, the same height rule, the
-// panel right under the bar, and the close on leaving mobile mode.
+// The tests above render App's own panel hook (useSpecialKeyboardPanel),
+// because rendering App needs the whole application. What ties App to that
+// hook is read from its source: the hook call with the shared open ref, the
+// same visibility input, the same height rule, the panel right under the bar,
+// and the close on leaving mobile mode.
 test('FR-MKB-008 AC-1 AC-2 AC-3 AC-5 AC-6 / SDS-AC-1 SDS-AC-2 SDS-AC-3 SDS-AC-5: App wires the switch, the height, the bar visibility and the panel the way the harness does', () => {
   const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
-  assert.match(app, /applySpecialKeyboardToggle\(\s*specialKeyboardOpenRef\.current\s*,/, 'the toggle reads the open state from a ref, not a state updater');
+  const model = readFileSync(new URL('../../src/components/MobileKeyboard/mobileKeyboardModel.ts', import.meta.url), 'utf8');
+  assert.match(model, /applySpecialKeyboardToggle\(\s*openRef\.current\s*,/, 'the toggle reads the open state from a ref, not a state updater');
+  assert.match(app, /useSpecialKeyboardPanel\(\{[^}]*openRef:\s*specialKeyboardOpenRef/, 'App wires the panel through the hook rendered above, sharing its open ref with the focus paths');
+  assert.match(app, /onSendKey=\{specialKeyboard\.sendKey\}\s*onToggleKeyboard=\{specialKeyboard\.toggle\}/, 'the bar sends and toggles through the hook');
+  assert.match(app, /<MobileSpecialKeyboard height=\{specialKeyboardHeight\} onSendKey=\{specialKeyboard\.sendKey\}/, 'the panel sends through the hook');
   assert.match(app, /specialPanelHeight\(\s*getLastKeyboardInset\(\)\s*\)/, 'the panel height is the last inset or 280');
   assert.match(app, /panelOpen:\s*specialKeyboardOpen/, 'the bar stays visible while the panel is open');
   assert.match(app, /keyboardOpen=\{specialKeyboardOpen\}/, 'the switch shows ABC while the panel is open');
@@ -347,4 +428,5 @@ test('FR-MKB-009 AC-6: panel keys are at least the 44 px touch size', () => {
   const rule = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(m => m[1].trim() === '.mobile-special-key');
   assert.ok(rule, 'one rule for .mobile-special-key');
   assert.match(rule[2], /min-height:\s*var\(--ctl-touch\)/);
+  assert.match(rule[2], /-webkit-touch-callout:\s*none/, 'a long press shows no callout');
 });

@@ -609,6 +609,30 @@ test('FR-MKB-011 AC-3 / SDS-AC-10: a Ctrl press dragged 20 px before release is 
   }
 });
 
+test('FR-MKB-011 AC-3 / SDS-AC-10: another pointer moving or lifting far away does not cancel or release a Ctrl press', async () => {
+  const view = await render(React.createElement(MobileKeyBar, {
+    onSendKey: () => {}, onToggleKeyboard: () => {}, keyboardOpen: false,
+  }));
+  const second = (target: Element, type: string, x: number, y: number): void => {
+    target.dispatchEvent(new (win().PointerEvent)(type, {
+      bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 2, isPrimary: false,
+    }));
+  };
+  try {
+    const ctrl = view.container.querySelector('[data-mod="ctrl"]')!;
+    await act(async () => { pointer(ctrl, 'pointerdown', 40, 10); });
+    await act(async () => { second(ctrl, 'pointermove', 200, 10); });
+    assert.equal(ctrl.classList.contains('mobile-key--holding'), true, 'a second finger moving does not turn the press into a drag');
+    await act(async () => { second(ctrl, 'pointerup', 200, 10); });
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'the second finger lifting neither taps nor ends the press');
+    assert.equal(ctrl.classList.contains('mobile-key--holding'), true);
+    await act(async () => { pointer(ctrl, 'pointerup', 40, 10); });
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'the pressing finger lifting is the tap');
+  } finally {
+    await view.cleanup();
+  }
+});
+
 test('FR-MKB-011 AC-4 / SDS-AC-11: with enabled false the focus watch attaches no focusin listener and reports false', async () => {
   const added: string[] = [];
   const original = document.addEventListener.bind(document);

@@ -6,12 +6,14 @@
 //
 // The pending focus-restore path itself cannot be driven to completion in this
 // harness (the input gate never opens, as terminalMobileLatchOnData.test.ts
-// notes). What is observable is the pending flag's effect on focusout: while a
-// restore is queued, a blur keeps the `terminal-focused` class; once blurInput
-// has cleared the queue, the class goes with the blur. The suppression test
-// does bring the server back while suppressed, but in this harness that does
-// not prove the restore ran; the restore gate is covered by its sharing the
-// focusTerminalInput gate, which the other entries do exercise. The clipboard
+// notes). What is observable is the queue itself, through the debug store: a
+// `focus_restore_queued` event proves a restore was queued (the precondition),
+// and a pointerdown outside the terminal records `focus_restore_cancelled` only
+// while a restore is still pending (assertNoRestoreLeftQueued). The focus
+// marker alone cannot tell, because blurInput removes it either way. Bringing
+// the server back does not prove the restore would have run here; the restore
+// gate is covered by its sharing the focusTerminalInput gate, which the other
+// entries do exercise. The clipboard
 // coordinator's focus goes through the same focusTerminalInput and is not
 // driven separately.
 import test from 'node:test';
@@ -53,6 +55,8 @@ async function renderWithHandle() {
   });
   const handle = ref.current;
   assert.ok(handle, 'TerminalView exposes its handle');
+  debugStore().enable(SESSION_ID);
+  debugStore().clear(SESSION_ID);
   const textarea = container.querySelector('textarea.xterm-helper-textarea') as HTMLTextAreaElement | null;
   assert.ok(textarea, 'the fake xterm attached its helper textarea');
   const view = container.querySelector('.terminal-view') as HTMLElement;
@@ -68,6 +72,40 @@ function win(): Window & typeof globalThis {
   return document.defaultView as Window & typeof globalThis;
 }
 
+interface DebugStore {
+  enable(sessionId: string): void;
+  clear(sessionId?: string): void;
+  getEvents(sessionId?: string): { kind: string; details?: Record<string, unknown> }[];
+}
+
+const SESSION_ID = 'session-1';
+
+function debugStore(): DebugStore {
+  const store = (window as unknown as { __buildergateTerminalDebug?: DebugStore }).__buildergateTerminalDebug;
+  if (!store) throw new Error('TerminalView did not create the debug store');
+  return store;
+}
+
+function debugKinds(): string[] {
+  return debugStore().getEvents(SESSION_ID).map(event => event.kind);
+}
+
+/**
+ * The pending-restore flag cannot be read directly, and the restore itself
+ * never completes in this harness. Its one side effect reachable here is the
+ * document pointerdown listener: with a restore pending, a press outside the
+ * terminal cancels it and records `focus_restore_cancelled` (external-pointer).
+ * No such event means no restore was left queued.
+ */
+function assertNoRestoreLeftQueued(): void {
+  const before = debugStore().getEvents(SESSION_ID).length;
+  document.body.dispatchEvent(new (win().PointerEvent)('pointerdown', { bubbles: true, cancelable: true, pointerId: 9 }));
+  const cancelled = debugStore().getEvents(SESSION_ID).slice(before)
+    .filter(event => event.kind === 'focus_restore_cancelled');
+  assert.deepEqual(cancelled, [], 'no focus restore was left queued');
+}
+
+
 test('FR-MKB-008 AC-1 / SDS-AC-1: blurInput takes focus off the helper textarea and drops a queued focus restore', async () => {
   const r = await renderWithHandle();
   try {
@@ -75,9 +113,31 @@ test('FR-MKB-008 AC-1 / SDS-AC-1: blurInput takes focus off the helper textarea 
     assert.equal(document.activeElement, r.textarea, 'precondition: the terminal has focus');
     // Queues a focus restore: the terminal is focused and the server went away.
     await act(async () => { r.handle.setServerReady(false); });
+    assert.equal(debugKinds().filter(kind => kind === 'focus_restore_queued').length, 1, 'precondition: a restore really was queued');
     await act(async () => { r.handle.blurInput(); });
     assert.notEqual(document.activeElement, r.textarea, 'the helper textarea lost focus');
     assert.equal(r.view.classList.contains('terminal-focused'), false, 'no restore was left queued to keep the focus marker');
+
+    // The restore is due once the server is back; it must not refocus.
+    await act(async () => { r.handle.setServerReady(true); });
+    assert.notEqual(document.activeElement, r.textarea, 'the server coming back does not refocus');
+    assert.equal(debugKinds().includes('focus_restored_after_gate'), false, 'no restore ran');
+    assertNoRestoreLeftQueued();
+  } finally {
+    await r.unmount();
+  }
+});
+
+test('FR-MKB-008 AC-4 / SDS-AC-4: setFocusSuppressed(true) on its own drops a restore queued while the terminal had focus', async () => {
+  const r = await renderWithHandle();
+  try {
+    await act(async () => { r.handle.focus('test'); });
+    await act(async () => { r.handle.setServerReady(false); });
+    assert.equal(debugKinds().filter(kind => kind === 'focus_restore_queued').length, 1, 'precondition: a restore really was queued');
+    await act(async () => { r.handle.setFocusSuppressed(true); });
+    await act(async () => { r.handle.setServerReady(true); });
+    assert.equal(debugKinds().includes('focus_restored_after_gate'), false, 'no restore ran');
+    assertNoRestoreLeftQueued();
   } finally {
     await r.unmount();
   }
