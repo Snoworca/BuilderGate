@@ -141,6 +141,13 @@ test('FR-MKB-008 AC-2 / SDS-AC-2: the panel is 280 px until an inset was measure
   assert.equal(specialPanelHeight(-5), 280, 'a negative reading is no reading');
 });
 
+test('FR-MKB-008 AC-2: a measured inset below 260 px is raised to the 260 px floor so no panel key is cut off', () => {
+  assert.equal(specialPanelHeight(0), 280);
+  assert.equal(specialPanelHeight(150), 260);
+  assert.equal(specialPanelHeight(259), 260);
+  assert.equal(specialPanelHeight(312), 312);
+});
+
 // --- Drag threshold -----------------------------------------------------------
 
 test('FR-MKB-011 AC-3 / SDS-AC-10: a move beyond 8 px is a drag; 8 px or less is a tap', () => {
