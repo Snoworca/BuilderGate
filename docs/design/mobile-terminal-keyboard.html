@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>모바일 터미널 키보드</title>
+<style>
+  :root {
+    --bg-app: #202020; --bg-chrome: #2b2b2b; --bg-surface: #272727; --bg-raised: #2f2f2f;
+    --bg-sunken: #1e1e1e; --fg: #dcdcdc; --fg-strong: #f5f5f5; --fg-muted: #a0a0a0; --fg-faint: #767676;
+    --accent: #0078d4; --accent-text: #6cb6ff; --accent-tint: rgba(0,120,212,.18);
+    --border: #3a3a3a; --key: #3c3c3c; --key-dim: #333; --key-press: #555;
+    --ctl-touch: 44px;
+    --mono: "Cascadia Mono", Consolas, "D2Coding", monospace;
+    --sans: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-app); color: var(--fg); font-family: var(--sans); }
+  header.page { padding: 28px 24px 8px; max-width: 1280px; margin: 0 auto; }
+  header.page h1 { margin: 0 0 6px; font-size: 22px; color: var(--fg-strong); font-weight: 600; }
+  header.page p { margin: 0; color: var(--fg-muted); font-size: 14px; line-height: 1.6; }
+  .controls { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-top: 14px; font-size: 13px; color: var(--fg-muted); }
+  .controls label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+
+  .stage { display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; padding: 24px 16px 40px; max-width: 1280px; margin: 0 auto; }
+  figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  figcaption { font-size: 13px; color: var(--fg-muted); text-align: center; max-width: 340px; line-height: 1.5; }
+  figcaption b { color: var(--fg-strong); display: block; font-size: 14px; margin-bottom: 2px; }
+
+  /* phone */
+  .phone { width: 360px; height: 740px; border-radius: 36px; background: #000; padding: 10px; box-shadow: 0 0 0 2px #444, 0 20px 50px rgba(0,0,0,.5); }
+  .screen { width: 100%; height: 100%; border-radius: 28px; overflow: hidden; background: var(--bg-sunken); display: flex; flex-direction: column; }
+  .statusbar { height: 26px; flex: none; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; font-size: 11px; color: var(--fg-muted); }
+  .appbar { height: 40px; flex: none; background: var(--bg-chrome); display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .appbar .logo { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); display: grid; place-items: center; font-size: 11px; color: #fff; font-weight: 700; }
+  .appbar .title { color: var(--fg-strong); font-weight: 600; }
+  .appbar .tab { margin-left: auto; color: var(--fg-muted); font-size: 12px; }
+  .term { flex: 1; min-height: 0; overflow: hidden; padding: 8px 10px; font-family: var(--mono); font-size: 11.5px; line-height: 1.45; color: #cfcfcf; white-space: pre-wrap; word-break: break-all; display: flex; flex-direction: column; justify-content: flex-end; }
+  .term .p { color: #7ec27e; }
+  .term .sent { color: var(--accent-text); }
+  .term .cursor { display: inline-block; width: 7px; height: 13px; background: #cfcfcf; vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* accessory key bar (above system keyboard) */
+  .keybar { flex: none; height: 46px; background: var(--bg-raised); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 4px; padding: 0 4px; overflow-x: auto; scrollbar-width: none; }
+  .keybar::-webkit-scrollbar { display: none; }
+  .kb { flex: none; min-width: 42px; height: 36px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: var(--fg-strong); font: 500 14px var(--sans); cursor: pointer; position: relative; display: grid; place-items: center; }
+  .kb:active { background: var(--key-press); }
+  /* toggle-capable keys: corner LED is always visible (dim) so users can tell which keys lock */
+  .mod { position: relative; overflow: hidden; }
+  .mod .led { position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: #5a5a5a; box-shadow: inset 0 0 0 1px #6a6a6a; transition: background .15s, box-shadow .15s; }
+  .mod.on .led { background: #6cb6ff; box-shadow: none; }
+  .mod.lock .led { background: #ffb02e; box-shadow: 0 0 6px 2px rgba(255,176,46,.75); }
+  /* one-shot: deliberately light — text colour + underline only, no filled box, so it never reads as locked */
+  .mod.on:not(.lock) { color: var(--accent-text); }
+  .mod.on:not(.lock) > .t { text-decoration: underline 2px var(--accent); text-underline-offset: 5px; }
+  .mod.lock { color: #ffd27a; background: rgba(255,176,46,.16); box-shadow: inset 0 0 0 1px rgba(255,176,46,.55); }
+  /* hold progress: fills from bottom over 1.5s */
+  .mod .hold { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(255,176,46,.28); pointer-events: none; }
+  .mod.holding .hold { height: 100%; transition: height 1.5s linear; }
+  .mod.locked-pulse { animation: lockpulse .35s ease-out; }
+  @keyframes lockpulse { 0% { transform: scale(1); } 40% { transform: scale(.9); } 100% { transform: scale(1); } }
+  .mod > .t { position: relative; }
+  .legend { display: inline-flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+  .kb.arrow { font-size: 16px; min-width: 38px; }
+  .kb.toggle { margin-left: auto; color: var(--accent-text); }
+  .kb-sep { flex: none; width: 1px; height: 22px; background: var(--border); margin: 0 2px; }
+
+  /* system keyboard (mock, dims) */
+  .syskbd { flex: none; background: #121212; padding: 6px 3px 4px; display: flex; flex-direction: column; gap: 7px; }
+  .row { display: flex; gap: 5px; justify-content: center; }
+  .sk { flex: 1; height: 42px; border-radius: 6px; background: #2c2c2c; color: #eee; border: 0; font: 19px var(--sans); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .sk:active { background: #4a4a4a; }
+  .sk.w15 { flex: 1.5; } .sk.w5 { flex: 5; } .sk.small { font-size: 14px; }
+  .sk.half { flex: .5; visibility: hidden; }
+  .navhint { height: 22px; display: flex; justify-content: center; align-items: center; color: #555; font-size: 12px; }
+
+  /* special keyboard */
+  .spkbd { flex: none; background: #121212; padding: 6px 4px 6px; display: flex; flex-direction: column; gap: 5px; }
+  .sprow-top { display: flex; gap: 4px; }
+  .spgrid { display: grid; grid-template-columns: repeat(3, 1fr) 6px repeat(3, 1fr) 6px repeat(3, 1fr); grid-auto-rows: 52px; gap: 4px; }
+  .k { border: 0; border-radius: 6px; background: var(--key); color: var(--fg-strong); font: 500 14px var(--sans); cursor: pointer; display: grid; place-items: center; padding: 0 2px; line-height: 1.1; text-align: center; }
+  .k:active { background: var(--key-press); }
+  .k.fn { background: var(--key-dim); font-size: 13px; color: var(--fg); }
+  .k.nav { font-size: 12px; }
+  .k.arrow { font-size: 20px; background: #444; }
+  .k.enter { background: var(--accent); color: #fff; }
+  .k.switch { background: #2a2a2a; color: var(--accent-text); font-size: 13px; }
+  .gap { visibility: hidden; }
+  .ttop { flex: 1; height: 38px; font-size: 13px; }
+
+  /* log */
+  .log { max-width: 1280px; margin: 0 auto 40px; padding: 0 24px; }
+  .log h2 { font-size: 14px; color: var(--fg-strong); margin: 0 0 8px; font-weight: 600; }
+  .log ol { margin: 0; padding: 12px 16px 12px 40px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; font-family: var(--mono); font-size: 12.5px; min-height: 48px; max-height: 220px; overflow: auto; color: var(--fg); }
+  .log li { padding: 2px 0; }
+  .log li span { color: var(--fg-muted); }
+  .notes { max-width: 1280px; margin: 0 auto 48px; padding: 0 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .note { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; color: var(--fg-muted); }
+  .note b { color: var(--fg-strong); display: block; margin-bottom: 4px; font-size: 13.5px; }
+  @media (max-width: 420px) { .phone { width: 100%; max-width: 360px; } }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>모바일 터미널 키보드 — 디자인 시안</h1>
+  <p>BuilderGate 모바일 모드에서 시스템 키보드 위에 띄우는 <b>키 줄</b>과, 시스템 키보드 대신 쓰는 <b>특수 키보드</b>입니다. 키를 누르면 터미널로 보낼 바이트가 아래 기록에 찍힙니다.</p>
+  <div class="controls">
+    <label><input type="checkbox" id="appCursor"> 앱 커서 모드 (vim·less 실행 중 가정 — 방향키가 <code>ESC O A</code> 로 바뀜)</label>
+  </div>
+  <div class="controls legend">
+    <span><i style="background:#5a5a5a;box-shadow:inset 0 0 0 1px #6a6a6a"></i>잠글 수 있는 키 (Ctrl·Alt·Shift)</span>
+    <span><i style="background:#6cb6ff"></i>짧게 누름 — 다음 한 키에만 적용 (파란 글자·밑줄, 키를 하나 치면 꺼짐)</span>
+    <span><i style="background:#ffb02e;box-shadow:0 0 6px 2px rgba(255,176,46,.75)"></i>1.5초 누름 — 잠금 (약한 진동)</span>
+  </div>
+</header>
+
+<div class="stage">
+  <figure>
+    <div class="phone"><div class="screen" data-phone="A">
+      <div class="statusbar"><span>9:58</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="appbar"><span class="logo">B</span><span class="title">BuilderGate</span><span class="tab">AgentX ▾</span></div>
+      <div class="term"></div>
+      <div class="keybar"></div>
+      <div class="syskbd"></div>
+    </div></div>
+    <figcaption><b>① 시스템 키보드 + 키 줄</b>평소 입력 상태. 방향키를 키 줄에 바로 둡니다. 오른쪽 위에 점이 있는 키만 잠글 수 있습니다 — 짧게 누르면 파란 점(한 번), 1.5초 누르면 진동과 함께 주황 불(잠금). 키 줄은 가로로 밀립니다.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen" data-phone="B">
+      <div class="statusbar"><span>9:58</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="appbar"><span class="logo">B</span><span class="title">BuilderGate</span><span class="tab">AgentX ▾</span></div>
+      <div class="term"></div>
+      <div class="keybar"></div>
+      <div class="spkbd" data-pad="nav"></div>
+    </div></div>
+    <figcaption><b>② 특수 키보드</b>키 줄의 ⌨ 를 누르면 시스템 키보드가 내려가고 이 패널이 같은 자리에 뜹니다. F1~F12, 방향키, Home/End/PgUp/PgDn, Ins/Del. 다시 ⌨ 를 누르면 시스템 키보드로 돌아갑니다.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone"><div class="screen" data-phone="C">
+      <div class="statusbar"><span>9:58</span><span>5G ▮▮▮ 82%</span></div>
+      <div class="appbar"><span class="logo">B</span><span class="title">BuilderGate</span><span class="tab">AgentX ▾</span></div>
+      <div class="term"></div>
+      <div class="keybar"></div>
+      <div class="spkbd" data-pad="num"></div>
+    </div></div>
+    <figcaption><b>③ 특수 키보드 — 숫자패드</b>② 의 '숫자패드' 로 전환. 오른쪽 블록만 바뀌고 F키·편집키 위치는 그대로라 손이 헤매지 않습니다.</figcaption>
+  </figure>
+</div>
+
+<section class="log">
+  <h2>보낸 바이트</h2>
+  <ol id="log"></ol>
+</section>
+
+<section class="notes">
+  <div class="note"><b>위치</b><code>visualViewport</code> 높이 변화로 시스템 키보드 높이를 구해 키 줄을 바로 위에 붙입니다. 특수 키보드는 마지막으로 잰 키보드 높이를 그대로 써서 화면이 출렁이지 않게 합니다.</div>
+  <div class="note"><b>전송 경로</b>키는 xterm 의 현재 모드(앱 커서 모드 등)를 보고 시퀀스를 고른 뒤 기존 WebSocket 입력 경로로 보냅니다. 키 줄 버튼은 포커스를 빼앗지 않아(mousedown 기본 동작 차단) 시스템 키보드가 내려가지 않습니다.</div>
+  <div class="note"><b>잠금(토글) 키</b>Ctrl·Alt·Shift 만 잠글 수 있고, 오른쪽 위의 점으로 표시합니다(꺼짐 회색 · 한 번 파랑 · 잠금 주황 불). 1.5초 누르는 동안 키가 아래에서부터 차오르고, 다 차면 <code>navigator.vibrate(25)</code> 로 약하게 진동합니다. 잠긴 키는 짧게 한 번 누르면 풀립니다. 진동은 안드로이드 Chrome 에서만 됩니다 — iOS Safari 는 진동 API 가 없어 불빛만 바뀝니다.</div>
+  <div class="note"><b>뺀 키</b>RD Client 의 Win·AltGr·마우스·스크린샷 키는 터미널에서 의미가 없어 넣지 않았습니다. 키 높이는 디자인 토큰 <code>--ctl-touch</code>(44px) 이상입니다.</div>
+</section>
+
+<script>
+const ESC = "\x1b";
+const state = { ctrl: 0, alt: 0, shift: 0, padNav: true }; // 0 off, 1 once, 2 lock
+const appCursor = () => document.getElementById("appCursor").checked;
+
+const FN = { F1: ESC+"OP", F2: ESC+"OQ", F3: ESC+"OR", F4: ESC+"OS", F5: ESC+"[15~", F6: ESC+"[17~", F7: ESC+"[18~", F8: ESC+"[19~", F9: ESC+"[20~", F10: ESC+"[21~", F11: ESC+"[23~", F12: ESC+"[24~" };
+const TILDE = { Insert: 2, Delete: 3, PgUp: 5, PgDn: 6 };
+const ARROW = { Up: "A", Down: "B", Right: "C", Left: "D", Home: "H", End: "F" };
+
+function modParam() { return 1 + (state.shift ? 1 : 0) + (state.alt ? 2 : 0) + (state.ctrl ? 4 : 0); }
+
+function encode(key) {
+  const m = modParam();
+  if (key in ARROW) {
+    const c = ARROW[key];
+    if (m > 1) return ESC + "[1;" + m + c;
+    return (appCursor() && "ABCD".includes(c) ? ESC + "O" : ESC + "[") + c;
+  }
+  if (key in TILDE) return ESC + "[" + TILDE[key] + (m > 1 ? ";" + m : "") + "~";
+  if (key in FN) return FN[key];
+  if (key === "Esc") return ESC;
+  if (key === "Tab") return state.shift ? ESC + "[Z" : "\t";
+  if (key === "Enter") return "\r";
+  if (key === "Backspace") return state.alt ? ESC + "\x7f" : "\x7f";
+  if (key === "Space") key = " ";
+  let ch = state.shift ? key.toUpperCase() : key;
+  if (state.ctrl && /^[a-z]$/i.test(ch)) ch = String.fromCharCode(ch.toLowerCase().charCodeAt(0) - 96);
+  return (state.alt ? ESC : "") + ch;
+}
+
+function show(bytes) {
+  return [...bytes].map(c => {
+    const n = c.charCodeAt(0);
+    if (n === 27) return "ESC ";
+    if (n === 127) return "DEL ";
+    if (n === 13) return "\\r ";
+    if (n === 9) return "\\t ";
+    if (n < 32) return "^" + String.fromCharCode(n + 64) + " ";
+    return c;
+  }).join("").trim();
+}
+
+function label(key) {
+  const mods = [state.ctrl && "Ctrl", state.alt && "Alt", state.shift && "Shift"].filter(Boolean);
+  return [...mods, key].join("+");
+}
+
+const logEl = document.getElementById("log");
+function send(key) {
+  const bytes = encode(key);
+  const li = document.createElement("li");
+  li.innerHTML = `<b>${label(key)}</b> <span>→</span> ${show(bytes).replace(/</g, "&lt;")}`;
+  logEl.prepend(li);
+  while (logEl.children.length > 40) logEl.lastChild.remove();
+  document.querySelectorAll(".term").forEach(t => echo(t, label(key), show(bytes)));
+  for (const k of ["ctrl", "alt", "shift"]) if (state[k] === 1) state[k] = 0;
+  paintMods();
+}
+
+const seed = [
+  '<span class="p">beom@dev</span>:~/ProjectMaster$ git status',
+  "On branch main",
+  "nothing to commit, working tree clean",
+  '<span class="p">beom@dev</span>:~/ProjectMaster$ claude',
+  "• 일곱 번째 문제의 채점 결과를 확인하겠습니다.",
+  "• Ran npm test — 542 passed",
+  "• 남은 3문제 중 1건을 더 통과하면 목표에 닿습니다.",
+];
+function echo(t, lbl, bytes) {
+  const lines = t._lines || (t._lines = [...seed]);
+  lines.push(`<span class="sent">⟵ ${lbl}  [${bytes.replace(/</g, "&lt;")}]</span>`);
+  if (lines.length > 24) lines.shift();
+  render(t);
+}
+function render(t) {
+  const lines = t._lines || (t._lines = [...seed]);
+  t.innerHTML = lines.join("\n") + '\n<span class="p">›</span> <span class="cursor"></span>';
+}
+
+function paintMods() {
+  document.querySelectorAll("[data-mod]").forEach(b => {
+    const v = state[b.dataset.mod];
+    b.classList.toggle("on", v > 0);
+    b.classList.toggle("lock", v === 2);
+  });
+}
+
+function btn(cls, text, onPress, extra = {}) {
+  const b = document.createElement("button");
+  b.className = cls; b.innerHTML = text; b.type = "button";
+  Object.entries(extra).forEach(([k, v]) => b.dataset[k] = v);
+  b.addEventListener("mousedown", e => e.preventDefault()); // keep terminal focus
+  b.addEventListener("click", onPress);
+  return b;
+}
+// Toggle-capable key: tap = one-shot (or off), hold 1.5s = lock + short vibration.
+const HOLD_MS = 1500;
+function modBtn(cls, text, m) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = cls + " mod"; b.dataset.mod = m;
+  b.innerHTML = `<span class="hold"></span><span class="t">${text}</span><span class="led"></span>`;
+  b.title = "짧게: 다음 한 키 / 1.5초: 잠금";
+  let timer = null, locked = false;
+  const cancel = () => { clearTimeout(timer); timer = null; b.classList.remove("holding"); };
+  b.addEventListener("mousedown", e => e.preventDefault());
+  b.addEventListener("contextmenu", e => e.preventDefault());
+  b.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    locked = false;
+    b.setPointerCapture?.(e.pointerId);
+    void b.offsetWidth; b.classList.add("holding");
+    timer = setTimeout(() => {
+      timer = null; locked = true; b.classList.remove("holding");
+      state[m] = 2;
+      if (navigator.vibrate) navigator.vibrate(25);
+      b.classList.remove("locked-pulse"); void b.offsetWidth; b.classList.add("locked-pulse");
+      paintMods();
+    }, HOLD_MS);
+  });
+  b.addEventListener("pointerup", () => {
+    if (locked) return;            // the hold already applied the lock
+    cancel();
+    state[m] = state[m] === 0 ? 1 : 0; // tap: off→once, once→off, lock→off
+    paintMods();
+  });
+  b.addEventListener("pointercancel", cancel);
+  return b;
+}
+function modPress(m) { return () => { state[m] = state[m] === 0 ? 1 : 0; paintMods(); }; }
+
+function buildKeybar(el, mode) {
+  el.append(btn("kb", "Esc", () => send("Esc")));
+  el.append(btn("kb", "Tab", () => send("Tab")));
+  el.append(modBtn("kb", "Ctrl", "ctrl"));
+  el.append(modBtn("kb", "Alt", "alt"));
+  const sep = document.createElement("span"); sep.className = "kb-sep"; el.append(sep);
+  for (const [k, g] of [["Left", "←"], ["Up", "↑"], ["Down", "↓"], ["Right", "→"]]) el.append(btn("kb arrow", g, () => send(k)));
+  const sep2 = sep.cloneNode(); el.append(sep2);
+  el.append(btn("kb", "Home", () => send("Home")));
+  el.append(btn("kb", "End", () => send("End")));
+  el.append(btn("kb", "PgUp", () => send("PgUp")));
+  el.append(btn("kb", "PgDn", () => send("PgDn")));
+  el.append(btn("kb toggle", mode === "sys" ? "⌨ 특수" : "⌨ ABC", () => flash(el.closest(".screen"))));
+}
+
+function flash(screen) {
+  screen.animate([{ opacity: 1 }, { opacity: .6 }, { opacity: 1 }], { duration: 220 });
+}
+
+function buildSys(el) {
+  const rows = ["1234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm"];
+  rows.forEach((r, i) => {
+    const row = document.createElement("div"); row.className = "row";
+    if (i === 2) row.append(Object.assign(document.createElement("span"), { className: "sk half" }));
+    if (i === 3) row.append(modBtn("sk w15", "⇧", "shift"));
+    for (const c of r) row.append(btn("sk", c, () => send(c)));
+    if (i === 2) row.append(Object.assign(document.createElement("span"), { className: "sk half" }));
+    if (i === 3) row.append(btn("sk w15", "⌫", () => send("Backspace")));
+    el.append(row);
+  });
+  const last = document.createElement("div"); last.className = "row";
+  last.append(btn("sk w15 small", "!#1", () => {}));
+  last.append(btn("sk small", "한/영", () => {}));
+  last.append(btn("sk w5", "␣", () => send("Space")));
+  last.append(btn("sk", ".", () => send(".")));
+  last.append(btn("sk w15", "↵", () => send("Enter")));
+  el.append(last);
+  const hint = document.createElement("div"); hint.className = "navhint"; hint.textContent = "시스템 키보드 (안드로이드 예시)";
+  el.append(hint);
+}
+
+function buildSpecial(el, pad) {
+  const top = document.createElement("div"); top.className = "sprow-top";
+  top.append(btn("k ttop", "Esc", () => send("Esc")));
+  top.append(btn("k ttop", "Tab", () => send("Tab")));
+  top.append(modBtn("k ttop", "Ctrl", "ctrl"));
+  top.append(modBtn("k ttop", "Alt", "alt"));
+  top.append(modBtn("k ttop", "Shift", "shift"));
+  el.append(top);
+
+  const g = document.createElement("div"); g.className = "spgrid";
+  const cell = (b) => g.append(b);
+  const gap = () => g.append(Object.assign(document.createElement("span"), { className: "gap" }));
+  const fn = n => btn("k fn", "F" + n, () => send("F" + n));
+  const nav = [
+    ["Home", "↑", "PgUp"],
+    ["←", "", "→"],
+    ["End", "↓", "PgDn"],
+    ["Ins", "Del", "숫자패드"],
+  ];
+  const num = [["7", "8", "9"], ["4", "5", "6"], ["1", "2", "3"], ["0", ".", "방향키"]];
+  const mid = [
+    [btn("k", "⌫", () => send("Backspace")), btn("k", "/", () => send("/")), btn("k", "|", () => send("|"))],
+    [btn("k", "~", () => send("~")), btn("k", "*", () => send("*")), btn("k", "-", () => send("-"))],
+    [btn("k", "`", () => send("`")), btn("k", ":", () => send(":")), btn("k", "+", () => send("+"))],
+    [btn("k", "_", () => send("_")), btn("k", "=", () => send("=")), btn("k enter", "Enter", () => send("Enter"))],
+  ];
+  const navKey = { "↑": "Up", "↓": "Down", "←": "Left", "→": "Right", "Ins": "Insert", "Del": "Delete" };
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 3; c++) cell(fn(r * 3 + c + 1));
+    gap();
+    mid[r].forEach(cell);
+    gap();
+    const src = pad === "nav" ? nav[r] : num[r];
+    for (const t of src) {
+      if (t === "") { g.append(Object.assign(document.createElement("span"), { className: "k", style: "background:transparent" })); continue; }
+      if (t === "숫자패드" || t === "방향키") { cell(btn("k switch", t, () => flash(el.closest(".screen")))); continue; }
+      const isArrow = "↑↓←→".includes(t);
+      const key = navKey[t] || t;
+      cell(btn(isArrow ? "k arrow" : (pad === "nav" ? "k nav" : "k"), t, () => send(key)));
+    }
+  }
+  el.append(g);
+}
+
+document.querySelectorAll(".screen").forEach(s => {
+  const p = s.dataset.phone;
+  render(s.querySelector(".term"));
+  buildKeybar(s.querySelector(".keybar"), p === "A" ? "sys" : "sp");
+  if (p === "A") buildSys(s.querySelector(".syskbd"));
+  else buildSpecial(s.querySelector(".spkbd"), s.querySelector(".spkbd").dataset.pad);
+});
+paintMods();
+</script>
+</body>
+</html>
