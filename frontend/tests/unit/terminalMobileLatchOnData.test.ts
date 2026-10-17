@@ -211,20 +211,42 @@ test('FR-MKB-003 AC-1: a typed Hangul syllable passes unchanged and leaves ctrl 
   await view.unmount();
 });
 
-test('FR-MKB-003 AC-3 AC-4 / SDS-AC-11: data without user provenance is submitted unchanged', async () => {
+// The amended SDS (SDS-AC-11) supersedes the earlier "no provenance → unchanged"
+// contract: an Android IME commit reaches onData after the keydown/input
+// microtask permit has expired, so the latch must not depend on that permit.
+// Parser replies never match (they start with ESC, not one printable char).
+test('FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + c with no keydown/input first still submits 0x03', async () => {
   const view = await renderWithCapture();
   mobileModifierLatch.tap('ctrl');
 
-  // No keydown before it: xterm generated this, the user did not type it.
+  // No keydown or input event before it: no user-input provenance permit.
   sharedState.dataHandler?.('c');
   await view.flush();
 
   const submitted = submittedInputs();
-  assert.equal(submitted.length, 1);
+  assert.equal(submitted.length, 1, `exactly one submission, got ${JSON.stringify(submitted)}`);
+  assert.equal(submittedData(submitted[0]), '\x03', 'c becomes 0x03 without a provenance permit');
   assert.equal(submitted[0].details.byteLength, 1);
-  assert.equal(submittedData(submitted[0]), 'c', 'c must not become 0x03 without user provenance');
-  assert.equal(submitted[0].details.controlCount, 0, 'c must not become 0x03 without user provenance');
-  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'the latch is not consumed');
+  assert.equal(submitted[0].details.controlCount, 1);
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'once is consumed');
+
+  await view.unmount();
+});
+
+test('FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + c after the provenance microtask expired still submits 0x03', async () => {
+  const view = await renderWithCapture();
+  mobileModifierLatch.tap('ctrl');
+
+  // keydown grants a microtask permit; flushing lets it expire before the commit.
+  view.pressKey({ key: 'Unidentified', keyCode: 229 });
+  await view.flush();
+  sharedState.dataHandler?.('c');
+  await view.flush();
+
+  const submitted = submittedInputs();
+  assert.equal(submitted.length, 1, `exactly one submission, got ${JSON.stringify(submitted)}`);
+  assert.equal(submittedData(submitted[0]), '\x03', 'the late IME commit c becomes 0x03');
+  assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'once is consumed');
 
   await view.unmount();
 });
