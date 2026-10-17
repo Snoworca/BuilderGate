@@ -483,3 +483,88 @@ test('FR-MKB-006 AC-7: leaving mobile mode resets every latch; staying mobile ke
     await view.cleanup();
   }
 });
+
+// FR-MKB-006 AC-5: jsdom does no layout, so the overflow behaviour is pinned on
+// the stylesheet rules the rendered bar actually uses. A bare "selector is
+// present" check is satisfied by a rule that does nothing, so each check reads
+// the declaration value inside the exact rule and resolves the height token.
+const CSS_RULE = /([^{}]+)\{([^{}]*)\}/g;
+
+function stripCssComments(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+function cssRule(css: string, selector: string): Map<string, string> {
+  const rules = [...stripCssComments(css).matchAll(CSS_RULE)]
+    .filter(match => match[1].split(',').map(part => part.trim()).includes(selector));
+  assert.equal(rules.length, 1, `exactly one rule for ${selector}`);
+  const declarations = new Map<string, string>();
+  for (const line of rules[0][2].split(';')) {
+    const colon = line.indexOf(':');
+    if (colon > 0) declarations.set(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
+  }
+  return declarations;
+}
+
+function resolvePx(value: string | undefined, tokens: string): number {
+  assert.ok(value, 'a height is declared');
+  const token = /^var\((--[\w-]+)\)$/.exec(value);
+  const literal = token ? new RegExp(`${token[1]}:\\s*([^;]+);`).exec(tokens)?.[1]?.trim() : value;
+  const px = /^(\d+(?:\.\d+)?)px$/.exec(literal ?? '');
+  assert.ok(px, `height ${value} resolves to a px length (got ${literal})`);
+  return Number(px[1]);
+}
+
+test('FR-MKB-006 AC-5: the bar scrolls sideways without a visible scrollbar, and every button is at least 36 px tall', async () => {
+  const css = readFileSync(new URL('../../src/components/MobileKeyboard/mobileKeyboard.css', import.meta.url), 'utf8');
+  const tokens = readFileSync(new URL('../../src/styles/tokens.css', import.meta.url), 'utf8');
+
+  // Rendered structure: the classes the rules below are written against.
+  const view = await render(React.createElement(MobileKeyBar, {
+    onSendKey: () => {}, onToggleKeyboard: () => {}, keyboardOpen: false,
+  }));
+  try {
+    const bar = view.container.firstElementChild!;
+    assert.ok(bar.classList.contains('mobile-key-bar'), 'the bar root carries .mobile-key-bar');
+    const buttons = [...bar.querySelectorAll('button')];
+    assert.equal(buttons.length, MOBILE_BAR_KEYS.filter(entry => entry.kind !== 'sep').length + 1, 'every key plus the switch');
+    for (const button of buttons) {
+      assert.ok(button.classList.contains('mobile-key'), `${button.textContent} carries .mobile-key`);
+    }
+    for (const sep of bar.querySelectorAll('[data-mobile-sep]')) {
+      assert.ok(sep.classList.contains('mobile-key-bar__sep'), 'separators carry .mobile-key-bar__sep');
+    }
+  } finally {
+    await view.cleanup();
+  }
+
+  // Horizontal scroll: one flex row that overflows sideways instead of wrapping,
+  // with items that keep their width instead of shrinking to fit the screen.
+  const barRule = cssRule(css, '.mobile-key-bar');
+  assert.equal(barRule.get('display'), 'flex');
+  assert.match(barRule.get('overflow-x') ?? '', /^(auto|scroll)$/, 'the bar scrolls horizontally');
+  assert.equal(barRule.get('overflow-y'), 'hidden', 'and never vertically');
+  assert.ok(!/\bwrap\b/.test(`${barRule.get('flex-wrap') ?? ''} ${barRule.get('flex-flow') ?? ''}`), 'items do not wrap');
+  assert.equal(cssRule(css, '.mobile-key').get('flex'), 'none', 'keys do not shrink to fit the screen');
+  assert.equal(cssRule(css, '.mobile-key-bar__sep').get('flex'), 'none', 'separators do not shrink');
+
+  // Hidden scrollbar: the standard property and the WebKit pseudo-element.
+  assert.equal(barRule.get('scrollbar-width'), 'none', 'standard scrollbar hidden');
+  assert.equal(cssRule(css, '.mobile-key-bar::-webkit-scrollbar').get('display'), 'none', 'WebKit scrollbar hidden');
+
+  // Button height >= 36 px, and the bar is tall enough not to clip it.
+  const keyHeight = resolvePx(cssRule(css, '.mobile-key').get('height'), tokens);
+  assert.ok(keyHeight >= 36, `.mobile-key height ${keyHeight}px >= 36px`);
+  const barHeight = resolvePx(barRule.get('height'), tokens);
+  assert.ok(barHeight >= keyHeight, `bar height ${barHeight}px fits the ${keyHeight}px buttons`);
+  // No modifier rule on a button may bring it below 36 px.
+  for (const match of stripCssComments(css).matchAll(CSS_RULE)) {
+    const selector = match[1].trim();
+    if (!/\.mobile-key(--[\w-]+)?(\[|:|\s*$)/.test(selector)) continue;
+    for (const prop of ['height', 'max-height']) {
+      const value = new RegExp(`(?:^|;)\\s*${prop}:\\s*([^;]+)`).exec(match[2])?.[1]?.trim();
+      if (value === undefined) continue;
+      assert.ok(resolvePx(value, tokens) >= 36, `${selector} ${prop} ${value} keeps the button at least 36 px`);
+    }
+  }
+});
