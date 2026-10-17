@@ -12,6 +12,7 @@ import {
 import { WebglAddon } from '@xterm/addon-webgl';
 import {
   createTerminalWebglRenderer,
+  measureXtermWebglCanvas,
   type TerminalWebglRenderer,
   type WebglAddonLike,
 } from '../../utils/terminalWebglRenderer';
@@ -509,6 +510,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     // setFocusSuppressed(false) clears it (FR-MKB-008 AC-3).
     const focusSuppressedRef = useRef(false);
     const webglRendererRef = useRef<TerminalWebglRenderer | null>(null);
+    const scheduleWebglScaleCheckRef = useRef<(() => void) | null>(null);
     const isVisibleRef = useRef(isVisible);
     const workspaceIdRef = useRef(workspaceId);
     const terminalShortcutStateRef = useRef<TerminalShortcutState | null>(terminalShortcutState);
@@ -3548,8 +3550,39 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             // left to draw; the DOM renderer is already what remains.
           }
         },
+        measureCanvasScale: () => measureXtermWebglCanvas(term.element, window.devicePixelRatio || 1),
       });
       webglRendererRef.current.sync(isVisibleRef.current);
+      // REL-BGSTAB-046: judge the canvas scale once the addon's ResizeObserver has
+      // applied its size (two frames), after attach and after every resize or DPR change.
+      let webglScaleCheckFrame = 0;
+      const scheduleWebglScaleCheck = (): void => {
+        if (webglScaleCheckFrame) cancelAnimationFrame(webglScaleCheckFrame);
+        webglScaleCheckFrame = requestAnimationFrame(() => {
+          webglScaleCheckFrame = requestAnimationFrame(() => {
+            webglScaleCheckFrame = 0;
+            webglRendererRef.current?.verifyScale();
+          });
+        });
+      };
+      scheduleWebglScaleCheckRef.current = scheduleWebglScaleCheck;
+      window.addEventListener('resize', scheduleWebglScaleCheck);
+      // A DPR change without a size change (remote desktop reconnect, a monitor
+      // move) fires no resize; a resolution media query does.
+      let dprQuery: MediaQueryList | null = null;
+      const watchDevicePixelRatio = (): void => {
+        dprQuery?.removeEventListener('change', onDevicePixelRatioChange);
+        dprQuery = typeof window.matchMedia === 'function'
+          ? window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`)
+          : null;
+        dprQuery?.addEventListener('change', onDevicePixelRatioChange);
+      };
+      const onDevicePixelRatioChange = (): void => {
+        watchDevicePixelRatio();
+        scheduleWebglScaleCheck();
+      };
+      watchDevicePixelRatio();
+      scheduleWebglScaleCheck();
       const helperTextarea = getHelperTextarea();
       if (helperTextarea) {
         helperTextarea.setAttribute('aria-label', t('terminal.inputAria'));
@@ -4851,6 +4884,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         legacyAuthorityReadySyncPendingRef.current = false;
         inFlightOutputRef.current = [];
         clearBufferedOutput();
+        window.removeEventListener('resize', scheduleWebglScaleCheck);
+        dprQuery?.removeEventListener('change', onDevicePixelRatioChange);
+        if (webglScaleCheckFrame) cancelAnimationFrame(webglScaleCheckFrame);
+        scheduleWebglScaleCheckRef.current = null;
         webglRendererRef.current?.dispose();
         webglRendererRef.current = null;
         recordTerminalDebugEvent(sessionId, 'terminal_disposed');
@@ -4984,6 +5021,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
 
       // Issue #15: release the GPU context while hidden, retake it on reveal.
       webglRendererRef.current?.sync(isVisible);
+      if (isVisible) scheduleWebglScaleCheckRef.current?.();
 
       if (!isVisible) {
         syncInputReadiness('hidden');

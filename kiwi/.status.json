@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-17T18:50:16.615Z",
+  "generatedAt": "2026-10-17T23:06:21.501Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "f8e43216402bf6ad0661638c6cc14027a57d8c20bb559f63075820911e857922",
+    "value": "4f490a80ecadcd33c00e8458b9a7c1f15a2b1c3c02d4301de743c3eb574151ed",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "9b790d8371645c6600aa5895edca15af59a6929df1e260a8091d3dc10fe1fc6a",
-        "size": 13577,
-        "mtimeMs": 1792263016175.6946
+        "sha256": "6daa4950a78e2719ec7c5be0f3b463b83d816ed61dc9943dc7c755da2a6f4efd",
+        "size": 13752,
+        "mtimeMs": 1792278373683.3516
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "18defc5e09f0f546b992f61ab618b743c7b3ad1130bf24652ef270ac6957426e",
-        "size": 1483910,
-        "mtimeMs": 1792017640188.645
+        "sha256": "8ca84d7602f1d256e5265de588fe93d362e96349b0e7f8c85ed273295a7663b6",
+        "size": 1489292,
+        "mtimeMs": 1792278366144.1853
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -70,7 +70,7 @@
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "e33904b5d260dab5dc763529bcf0536b6d95f6bba8f6ffea1b866a58ede215b5",
         "size": 72262,
-        "mtimeMs": 1792262937893.0623
+        "mtimeMs": 1792263176797.2727
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -109,7 +109,7 @@
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 45,
+      "BGSTAB": 46,
       "MCP": 1
     },
     "non_functional": {

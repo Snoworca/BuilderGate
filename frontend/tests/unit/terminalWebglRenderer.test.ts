@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import {
   createTerminalWebglRenderer,
   createWebglContextPool,
+  measureXtermWebglCanvas,
   type WebglContextPool,
   type WebglAddonLike,
 } from '../../src/utils/terminalWebglRenderer.ts';
@@ -242,4 +244,101 @@ test('PERF-BGSTAB-020 AC-4: dispose and context loss take a kept hidden context 
   const [c, d] = [harness({ pool }), harness({ pool })];
   c.renderer.sync(true); d.renderer.sync(true);
   assert.equal(c.disposed + d.disposed, 0, 'released entries no longer count against the budget');
+});
+
+// REL-BGSTAB-046: a WebGL canvas whose backing store does not follow devicePixelRatio
+// draws glyphs at DPR scale into a 1x canvas (Chromium DPR emulation reports the
+// device-pixel box in CSS pixels). The renderer drops to the DOM renderer instead.
+
+interface ScaleHarness {
+  renderer: ReturnType<typeof createTerminalWebglRenderer>;
+  disposed: () => number;
+  fallbacks: string[];
+  setMeasure: (value: { backing: [number, number]; expected: [number, number] } | null) => void;
+}
+
+function scaleHarness(): ScaleHarness {
+  let disposed = 0;
+  const fallbacks: string[] = [];
+  let measure: { backing: [number, number]; expected: [number, number] } | null = null;
+  const renderer = createTerminalWebglRenderer({
+    createAddon: (): WebglAddonLike => ({
+      onContextLoss: () => ({ dispose: () => {} }),
+      dispose: () => { disposed += 1; },
+    }),
+    loadAddon: () => {},
+    onFallback: (reason) => { fallbacks.push(reason); },
+    pool: releaseOnHide(),
+    measureCanvasScale: () => measure,
+  });
+  return { renderer, disposed: () => disposed, fallbacks, setMeasure: (value) => { measure = value; } };
+}
+
+test('REL-BGSTAB-046 AC-1: a backing store that ignores devicePixelRatio drops to the DOM renderer', () => {
+  const h = scaleHarness();
+  h.renderer.sync(true);
+  assert.equal(h.renderer.getState(), 'attached');
+  h.setMeasure({ backing: [1023, 646], expected: [2046, 1292] });
+  h.renderer.verifyScale();
+  assert.equal(h.renderer.getState(), 'unavailable');
+  assert.equal(h.disposed(), 1);
+  assert.deepEqual(h.fallbacks, ['canvas-scale-mismatch']);
+  h.renderer.sync(false);
+  h.renderer.sync(true);
+  assert.equal(h.renderer.getState(), 'unavailable', 'a mismatched terminal does not reattach WebGL');
+});
+
+test('REL-BGSTAB-046 AC-2: a later mismatch after a resolution change is caught by the same check', () => {
+  const h = scaleHarness();
+  h.renderer.sync(true);
+  h.setMeasure({ backing: [1023, 646], expected: [1023, 646] });
+  h.renderer.verifyScale();
+  assert.equal(h.renderer.getState(), 'attached');
+  h.setMeasure({ backing: [1661, 950], expected: [3322, 1900] });
+  h.renderer.verifyScale();
+  assert.equal(h.renderer.getState(), 'unavailable');
+  assert.deepEqual(h.fallbacks, ['canvas-scale-mismatch']);
+});
+
+test('REL-BGSTAB-046 AC-3: within 1 px, no canvas, or a hidden terminal leaves the renderer alone', () => {
+  const h = scaleHarness();
+  h.renderer.verifyScale();
+  assert.equal(h.renderer.getState(), 'detached', 'nothing attached yet');
+  h.renderer.sync(true);
+  h.setMeasure({ backing: [2047, 1291], expected: [2046.4, 1291.6] });
+  h.renderer.verifyScale();
+  assert.equal(h.renderer.getState(), 'attached', 'rounding within 1 px is a match');
+  h.setMeasure(null);
+  h.renderer.verifyScale();
+  assert.equal(h.renderer.getState(), 'attached', 'no canvas to measure');
+  h.renderer.sync(false);
+  h.setMeasure({ backing: [100, 100], expected: [300, 300] });
+  h.renderer.verifyScale();
+  assert.notEqual(h.renderer.getState(), 'unavailable', 'a hidden terminal is not judged');
+  assert.deepEqual(h.fallbacks, []);
+});
+
+function fakeCanvas(className: string, width: number, height: number, cssW: number, cssH: number) {
+  return { className, width, height, getBoundingClientRect: () => ({ width: cssW, height: cssH }) };
+}
+
+test('REL-BGSTAB-046 AC-1: the measurement reads the class-less WebGL canvas, not the link layer', () => {
+  const root = { querySelectorAll: () => [fakeCanvas('xterm-link-layer', 2046, 1292, 1023, 646), fakeCanvas('', 1023, 646, 1023, 646)] };
+  assert.deepEqual(measureXtermWebglCanvas(root as unknown as ParentNode, 2), { backing: [1023, 646], expected: [2046, 1292] });
+});
+
+test('REL-BGSTAB-046 AC-3: no root, no class-less canvas, or a zero-size canvas measures nothing', () => {
+  assert.equal(measureXtermWebglCanvas(null, 2), null);
+  assert.equal(measureXtermWebglCanvas({ querySelectorAll: () => [fakeCanvas('xterm-link-layer', 2, 2, 1, 1)] } as unknown as ParentNode, 2), null);
+  assert.equal(measureXtermWebglCanvas({ querySelectorAll: () => [fakeCanvas('', 0, 0, 0, 0)] } as unknown as ParentNode, 2), null);
+});
+
+test('REL-BGSTAB-046 AC-2 AC-4 AC-5: TerminalView checks the scale two frames after attach, resize, reveal and DPR change, and repaints on fallback', () => {
+  const source = readFileSync(new URL('../../src/components/Terminal/TerminalView.tsx', import.meta.url), 'utf8');
+  assert.match(source, /measureCanvasScale: \(\) => measureXtermWebglCanvas\(term\.element, window\.devicePixelRatio \|\| 1\)/);
+  assert.match(source, /requestAnimationFrame\(\(\) => \{\s*webglScaleCheckFrame = requestAnimationFrame\(\(\) => \{[\s\S]*?verifyScale\(\)/);
+  assert.match(source, /window\.addEventListener\('resize', scheduleWebglScaleCheck\)/);
+  assert.match(source, /matchMedia\(`\(resolution: \$\{window\.devicePixelRatio \|\| 1\}dppx\)`\)/);
+  assert.match(source, /if \(isVisible\) scheduleWebglScaleCheckRef\.current\?\.\(\);/);
+  assert.match(source, /recordTerminalDebugEvent\(sessionId, 'terminal_webgl_fallback', \{ reason \}\);\s*try \{\s*term\.refresh\(0, term\.rows - 1\);/);
 });
