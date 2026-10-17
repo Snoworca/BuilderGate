@@ -65,6 +65,7 @@ export function MobileKeyBar({ onSendKey, onToggleKeyboard, keyboardOpen, onRest
       onPointerUp={onPointerUp}
       onPointerCancel={press.onPointerCancel}
       onMouseDown={press.onMouseDown}
+      onContextMenu={press.onContextMenu}
     >
       {MOBILE_BAR_KEYS.map((entry, index) => {
         if (entry.kind === 'sep') {

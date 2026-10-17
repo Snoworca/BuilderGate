@@ -22,6 +22,7 @@ export {
   shouldShowMobileKeyBar,
   specialPanelHeight,
   useResetLatchWhenNotMobile,
+  useSpecialKeyboardPanel,
   useTapPress,
   writeRightBlock,
 } from './mobileKeyboardModel.ts';
@@ -31,4 +32,7 @@ export type {
   RightBlock,
   SpecialKeyEntry,
   SpecialKeyboardFocusTarget,
+  SpecialKeyboardPanel,
+  SpecialKeyboardPanelOptions,
+  SpecialKeyboardPanelTarget,
 } from './mobileKeyboardModel.ts';

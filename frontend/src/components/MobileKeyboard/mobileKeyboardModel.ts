@@ -2,11 +2,16 @@
 // visibility rule, the drag threshold, the special keyboard's right-block
 // preference and panel height, and the switch's focus hand-over. Kept apart
 // from the .tsx components so they export components only (react-refresh).
-import { useCallback, useEffect, useRef } from 'react';
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent, MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
 import type { MessageKey } from '../../i18n/i18n.ts';
 import type { MobileKeyName } from '../../utils/mobileKeyEncoder.ts';
-import { mobileModifierLatch, type LatchModifier } from '../../utils/mobileModifierLatch.ts';
+import {
+  mobileModifierLatch,
+  sendMobileKeyTo,
+  type LatchModifier,
+  type MobileKeyTarget,
+} from '../../utils/mobileModifierLatch.ts';
 
 export type MobileBarEntry =
   | { kind: 'key'; key: MobileKeyName; label: string; ariaKey: MessageKey; arrow?: boolean }
@@ -82,6 +87,8 @@ export interface TapPressHandlers<T extends Element> {
   onPointerUp: (event: ReactPointerEvent<T>) => void;
   onPointerCancel: () => void;
   onMouseDown: (event: ReactMouseEvent<T>) => void;
+  /** A long press on a key would open the browser context menu over the keys. */
+  onContextMenu: (event: ReactMouseEvent<T>) => void;
 }
 
 /**
@@ -128,7 +135,12 @@ export function useTapPress<T extends Element>(onTap: (element: Element, event: 
     event.preventDefault();
   }, []);
 
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMouseDown };
+  // FR-MKB-009 AC-6: a long press is a held key, not a request for the menu.
+  const onContextMenu = useCallback((event: ReactMouseEvent<T>) => {
+    event.preventDefault();
+  }, []);
+
+  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMouseDown, onContextMenu };
 }
 
 // --- Special keyboard tables ---------------------------------------------------
@@ -269,4 +281,131 @@ export function applySpecialKeyboardToggle(open: boolean, handle: SpecialKeyboar
   handle?.setFocusSuppressed(false);
   handle?.focus('mobile-keyboard-switch');
   return false;
+}
+
+// --- App's panel wiring --------------------------------------------------------
+
+/** The part of TerminalHandle the panel wiring needs: focus hand-over and key sending. */
+export interface SpecialKeyboardPanelTarget extends SpecialKeyboardFocusTarget, MobileKeyTarget {}
+
+export interface SpecialKeyboardPanelOptions {
+  activeTabId: string | null;
+  /** A remounted TerminalView starts unsuppressed; a new session id re-applies it. */
+  activeSessionId: string | null;
+  getHandle: (tabId: string) => SpecialKeyboardPanelTarget | null;
+  /** The panel height to use when it opens (measured before the keyboard goes down). */
+  measureHeight: () => number;
+  /** Read synchronously by the caller's own focus paths; owned by the caller. */
+  openRef: MutableRefObject<boolean>;
+}
+
+export interface SpecialKeyboardPanel {
+  open: boolean;
+  height: number;
+  /** The bar's switch: opens or closes the panel inside the tap handler. */
+  toggle: () => void;
+  /** Closes the panel without raising the system keyboard. */
+  close: () => void;
+  /** Sends one bar or panel key to the active terminal. */
+  sendKey: (key: MobileKeyName | string) => void;
+  /** Hands focus back to the terminal after a bar button took it, unless the panel is open. */
+  restoreFocus: () => void;
+}
+
+/**
+ * App's special keyboard wiring: the switch, the close, the suppression that
+ * follows the active tab while the panel is open, and the key send that never
+ * refocuses the terminal while the panel is open. The open state is kept in
+ * openRef so the switch acts synchronously inside the gesture (iOS); the
+ * returned `open` renders it.
+ */
+// @req FR-MKB-008
+// @req FR-MKB-009
+export function useSpecialKeyboardPanel({
+  activeTabId,
+  activeSessionId,
+  getHandle,
+  measureHeight,
+  openRef,
+}: SpecialKeyboardPanelOptions): SpecialKeyboardPanel {
+  const [open, setOpen] = useState(false);
+  const [height, setHeight] = useState(() => specialPanelHeight(0));
+  // The tab whose terminal is currently focus-suppressed for the panel.
+  const suppressedTabIdRef = useRef<string | null>(null);
+  const getHandleRef = useRef(getHandle);
+  const measureHeightRef = useRef(measureHeight);
+  useEffect(() => {
+    getHandleRef.current = getHandle;
+    measureHeightRef.current = measureHeight;
+  });
+
+  const handleFor = useCallback((tabId: string | null): SpecialKeyboardPanelTarget | null => (
+    tabId === null ? null : getHandleRef.current(tabId)
+  ), []);
+
+  const toggle = useCallback((): void => {
+    const handle = handleFor(activeTabId);
+    if (!openRef.current) {
+      // FR-MKB-008 AC-4: with no terminal to suppress, an open panel would sit
+      // over a terminal that a later mount leaves free to raise the keyboard.
+      if (handle === null) return;
+      // Measured before the keyboard goes down: the panel takes its height.
+      setHeight(measureHeightRef.current());
+    } else if (suppressedTabIdRef.current !== null && suppressedTabIdRef.current !== activeTabId) {
+      handleFor(suppressedTabIdRef.current)?.setFocusSuppressed(false);
+    }
+    // Synchronous: closing focuses the terminal inside this tap handler (iOS).
+    openRef.current = applySpecialKeyboardToggle(openRef.current, handle);
+    suppressedTabIdRef.current = openRef.current && handle !== null ? activeTabId : null;
+    setOpen(openRef.current);
+  }, [activeTabId, handleFor, openRef]);
+
+  const close = useCallback((): void => {
+    if (!openRef.current) return;
+    handleFor(suppressedTabIdRef.current)?.setFocusSuppressed(false);
+    suppressedTabIdRef.current = null;
+    openRef.current = false;
+    setOpen(false);
+  }, [handleFor, openRef]);
+
+  // While the panel is open the active terminal must be suppressed: after a
+  // tab switch the suppression moves to the new tab, and after a restart or
+  // session swap (a remounted TerminalView starts unsuppressed) it is applied
+  // again, so the runtime layer cannot raise the keyboard over the panel.
+  useEffect(() => {
+    if (!openRef.current) return;
+    const previous = suppressedTabIdRef.current;
+    if (previous !== null && previous !== activeTabId) {
+      handleFor(previous)?.setFocusSuppressed(false);
+    }
+    const next = handleFor(activeTabId);
+    if (next === null) {
+      suppressedTabIdRef.current = null;
+      return;
+    }
+    next.blurInput();
+    next.setFocusSuppressed(true);
+    suppressedTabIdRef.current = activeTabId;
+  }, [activeTabId, activeSessionId, handleFor, openRef]);
+
+  const sendKey = useCallback((key: MobileKeyName | string): void => {
+    if (activeTabId === null) return;
+    const handle = handleFor(activeTabId);
+    // encodeMobileKey takes any single character as well as a key name, which
+    // the panel's symbol and number keys rely on.
+    sendMobileKeyTo(handle, key as MobileKeyName);
+    // A browser that let the tap move focus onto the bar gets it handed back,
+    // unless the panel is open: then the terminal must stay blurred.
+    if (openRef.current) return;
+    if (!(document.activeElement instanceof HTMLTextAreaElement)) handle?.focus();
+  }, [activeTabId, handleFor, openRef]);
+
+  // Ctrl/Alt and the switch hand focus back the same way (the bar calls this
+  // only when focus sits on one of its buttons).
+  const restoreFocus = useCallback((): void => {
+    if (activeTabId === null || openRef.current) return;
+    handleFor(activeTabId)?.focus();
+  }, [activeTabId, handleFor, openRef]);
+
+  return { open, height, toggle, close, sendKey, restoreFocus };
 }

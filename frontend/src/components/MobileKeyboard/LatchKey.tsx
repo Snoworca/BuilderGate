@@ -31,7 +31,9 @@ export function LatchKey({ mod, label, ariaLabel, className }: LatchKeyProps): R
   );
   const state = snapshot[mod];
   const pressRef = useRef<LatchPress | null>(null);
-  const startRef = useRef<{ x: number; y: number } | null>(null);
+  // Where and with which pointer the current press began; other pointers
+  // (a second finger) neither drag nor release it.
+  const startRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   // The latch state when the current press began, or null with no press. The
   // hold fill shows during a press and disappears the moment that press turns
   // into a lock — derived here rather than reset from an effect.
@@ -58,9 +60,15 @@ export function LatchKey({ mod, label, ariaLabel, className }: LatchKeyProps): R
     }
     pressRef.current?.cancel();
     pressRef.current = mobileModifierLatch.startPress(mod);
-    startRef.current = { x: event.clientX, y: event.clientY };
+    startRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
     setHolding(true);
   }, [mod, setHolding]);
+
+  /** True when the event belongs to another pointer than the one that started the press. */
+  const otherPointer = useCallback((event: ReactPointerEvent<HTMLButtonElement>): boolean => {
+    const start = startRef.current;
+    return start !== null && start.pointerId !== event.pointerId;
+  }, []);
 
   const draggedAway = useCallback((event: ReactPointerEvent<HTMLButtonElement>): boolean => {
     const start = startRef.current;
@@ -70,27 +78,33 @@ export function LatchKey({ mod, label, ariaLabel, className }: LatchKeyProps): R
   // A press that travels more than 8 px is a drag (scrolling the bar): it is
   // cancelled, not released, so the modifier is left as it was.
   const onPointerMove = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (pressRef.current === null || !draggedAway(event)) return;
+    if (pressRef.current === null || otherPointer(event) || !draggedAway(event)) return;
     const press = pressRef.current;
     pressRef.current = null;
+    startRef.current = null;
     setHolding(false);
     press.cancel();
-  }, [draggedAway, setHolding]);
+  }, [draggedAway, otherPointer, setHolding]);
 
   const onPointerUp = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (otherPointer(event)) return;
     const press = pressRef.current;
+    const dragged = draggedAway(event);
     pressRef.current = null;
+    startRef.current = null;
     setHolding(false);
-    if (draggedAway(event)) press?.cancel();
+    if (dragged) press?.cancel();
     else press?.release();
-  }, [draggedAway, setHolding]);
+  }, [draggedAway, otherPointer, setHolding]);
 
-  const onPointerCancel = useCallback(() => {
+  const onPointerCancel = useCallback((event?: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event && otherPointer(event)) return;
     const press = pressRef.current;
     pressRef.current = null;
+    startRef.current = null;
     setHolding(false);
     press?.cancel();
-  }, [setHolding]);
+  }, [otherPointer, setHolding]);
 
   const onContextMenu = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
     event.preventDefault();

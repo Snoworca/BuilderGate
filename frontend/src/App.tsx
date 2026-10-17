@@ -17,13 +17,11 @@ import { getLastKeyboardInset, useVisualViewportLock } from './hooks/useVisualVi
 import {
   MobileKeyBar,
   MobileSpecialKeyboard,
-  applySpecialKeyboardToggle,
   shouldShowMobileKeyBar,
   specialPanelHeight,
   useResetLatchWhenNotMobile,
+  useSpecialKeyboardPanel,
 } from './components/MobileKeyboard';
-import { sendMobileKeyTo } from './utils/mobileModifierLatch.ts';
-import type { MobileKeyName } from './utils/mobileKeyEncoder.ts';
 import { commandPresetApi, sessionApi } from './services/api';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
@@ -398,8 +396,8 @@ function AppContent() {
       ?? buildMissingTerminalClipboardResult(source);
   }, []);
 
-  // Read synchronously by the focus paths below; set by toggleSpecialKeyboard
-  // and closeSpecialKeyboard.
+  // Read synchronously by the focus paths below; set by the special keyboard
+  // panel hook (useSpecialKeyboardPanel: its toggle and close).
   const specialKeyboardOpenRef = useRef(false);
 
   const focusTerminal = useCallback((tabId: string): void => {
@@ -600,13 +598,27 @@ function AppContent() {
   // viewport so the bar sits right above the system keyboard.
   // No focus watch at all on a desktop (FR-MKB-011 AC-4).
   const activeTerminalInputFocused = useTerminalInputFocus(activeTab?.id ?? null, isMobile);
+  const activeTabId = activeTab?.id ?? null;
+  const activeSessionId = activeTab?.sessionId ?? null;
   // FR-MKB-008: the special keyboard panel replaces the system keyboard under
-  // the bar. The ref is what the tap handler and the focus paths read, so the
-  // switch can act synchronously inside the gesture; the state renders it.
-  const [specialKeyboardOpen, setSpecialKeyboardOpen] = useState(false);
-  const [specialKeyboardHeight, setSpecialKeyboardHeight] = useState(() => specialPanelHeight(0));
-  // The tab whose terminal is currently focus-suppressed for the panel.
-  const suppressedTabIdRef = useRef<string | null>(null);
+  // the bar. specialKeyboardOpenRef is what the tap handler and the focus paths
+  // read, so the switch can act synchronously inside the gesture; the hook's
+  // state renders it. The hook also moves the suppression with the active tab.
+  const getTerminalHandle = useCallback(
+    (tabId: string) => terminalRefsMap.current.get(tabId)?.current ?? null,
+    [],
+  );
+  const measureSpecialKeyboardHeight = useCallback(() => specialPanelHeight(getLastKeyboardInset()), []);
+  const specialKeyboard = useSpecialKeyboardPanel({
+    activeTabId,
+    activeSessionId,
+    getHandle: getTerminalHandle,
+    measureHeight: measureSpecialKeyboardHeight,
+    openRef: specialKeyboardOpenRef,
+  });
+  const specialKeyboardOpen = specialKeyboard.open;
+  const specialKeyboardHeight = specialKeyboard.height;
+  const closeSpecialKeyboard = specialKeyboard.close;
   const showMobileKeyBar = shouldShowMobileKeyBar({
     isMobile,
     screen,
@@ -618,30 +630,6 @@ function AppContent() {
   // events do not re-render AppContent (FR-MKB-007).
   const appRootRef = useRef<HTMLDivElement>(null);
   useVisualViewportLock(showMobileKeyBar, appRootRef);
-  const activeTabId = activeTab?.id ?? null;
-  // @req FR-MKB-008
-  const toggleSpecialKeyboard = useCallback((): void => {
-    const handle = activeTabId === null ? null : terminalRefsMap.current.get(activeTabId)?.current ?? null;
-    if (!specialKeyboardOpenRef.current) {
-      // Measured before the keyboard goes down: the panel takes its height.
-      setSpecialKeyboardHeight(specialPanelHeight(getLastKeyboardInset()));
-    } else if (suppressedTabIdRef.current !== null && suppressedTabIdRef.current !== activeTabId) {
-      terminalRefsMap.current.get(suppressedTabIdRef.current)?.current?.setFocusSuppressed(false);
-    }
-    // Synchronous: closing focuses the terminal inside this tap handler (iOS).
-    specialKeyboardOpenRef.current = applySpecialKeyboardToggle(specialKeyboardOpenRef.current, handle);
-    suppressedTabIdRef.current = specialKeyboardOpenRef.current && handle !== null ? activeTabId : null;
-    setSpecialKeyboardOpen(specialKeyboardOpenRef.current);
-  }, [activeTabId]);
-  // Closes the panel without raising the system keyboard (leaving mobile mode).
-  const closeSpecialKeyboard = useCallback((): void => {
-    if (!specialKeyboardOpenRef.current) return;
-    const tabId = suppressedTabIdRef.current;
-    if (tabId !== null) terminalRefsMap.current.get(tabId)?.current?.setFocusSuppressed(false);
-    suppressedTabIdRef.current = null;
-    specialKeyboardOpenRef.current = false;
-    setSpecialKeyboardOpen(false);
-  }, []);
   // FR-MKB-008 AC-6: the panel never survives a switch to the desktop layout.
   useEffect(() => {
     if (!isMobile) closeSpecialKeyboard();
@@ -651,45 +639,6 @@ function AppContent() {
   useEffect(() => {
     if (screen !== 'workspace' || activeTabId === null) closeSpecialKeyboard();
   }, [screen, activeTabId, closeSpecialKeyboard]);
-  // While the panel is open the active terminal must be suppressed: after a
-  // tab switch the suppression moves to the new tab, and after a restart or
-  // session swap (a remounted TerminalView starts unsuppressed) it is applied
-  // again, so the runtime layer cannot raise the keyboard over the panel.
-  const activeSessionId = activeTab?.sessionId ?? null;
-  useEffect(() => {
-    if (!specialKeyboardOpenRef.current) return;
-    const previous = suppressedTabIdRef.current;
-    if (previous !== null && previous !== activeTabId) {
-      terminalRefsMap.current.get(previous)?.current?.setFocusSuppressed(false);
-    }
-    const next = activeTabId === null ? null : terminalRefsMap.current.get(activeTabId)?.current ?? null;
-    if (next === null) {
-      suppressedTabIdRef.current = null;
-      return;
-    }
-    next.blurInput();
-    next.setFocusSuppressed(true);
-    suppressedTabIdRef.current = activeTabId;
-  }, [activeTabId, activeSessionId]);
-  // @req FR-MKB-006
-  // @req FR-MKB-009
-  const sendMobileKey = useCallback((key: MobileKeyName | string): void => {
-    if (activeTabId === null) return;
-    const handle = terminalRefsMap.current.get(activeTabId)?.current;
-    // encodeMobileKey takes any single character as well as a key name, which
-    // the panel's symbol and number keys rely on.
-    sendMobileKeyTo(handle, key as MobileKeyName);
-    // A browser that let the tap move focus onto the bar gets it handed back,
-    // unless the panel is open: then the terminal must stay blurred.
-    if (specialKeyboardOpenRef.current) return;
-    if (!(document.activeElement instanceof HTMLTextAreaElement)) handle?.focus();
-  }, [activeTabId]);
-  // Ctrl/Alt and the switch hand focus back the same way (the bar calls this
-  // only when focus sits on one of its buttons).
-  const restoreMobileTerminalFocus = useCallback((): void => {
-    if (activeTabId === null || specialKeyboardOpenRef.current) return;
-    terminalRefsMap.current.get(activeTabId)?.current?.focus();
-  }, [activeTabId]);
   // A latch left on in mobile mode must not reach a desktop hardware keyboard.
   useResetLatchWhenNotMobile(isMobile);
 
@@ -1158,16 +1107,16 @@ function AppContent() {
             )}
             {showMobileKeyBar && (
               <MobileKeyBar
-                onSendKey={sendMobileKey}
-                onToggleKeyboard={toggleSpecialKeyboard}
+                onSendKey={specialKeyboard.sendKey}
+                onToggleKeyboard={specialKeyboard.toggle}
                 keyboardOpen={specialKeyboardOpen}
-                onRestoreFocus={restoreMobileTerminalFocus}
+                onRestoreFocus={specialKeyboard.restoreFocus}
               />
             )}
             {/* Right under the bar in the same flex column: the terminal area
                 shrinks by the panel height instead of being covered (FR-MKB-008 AC-5). */}
             {showMobileKeyBar && specialKeyboardOpen && (
-              <MobileSpecialKeyboard height={specialKeyboardHeight} onSendKey={sendMobileKey} />
+              <MobileSpecialKeyboard height={specialKeyboardHeight} onSendKey={specialKeyboard.sendKey} />
             )}
           </div>
 

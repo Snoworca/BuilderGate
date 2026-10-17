@@ -110,6 +110,7 @@ export function MobileSpecialKeyboard({ height, onSendKey }: MobileSpecialKeyboa
       onPointerUp={press.onPointerUp}
       onPointerCancel={press.onPointerCancel}
       onMouseDown={press.onMouseDown}
+      onContextMenu={press.onContextMenu}
     >
       <div className="mobile-special-keyboard__top" data-special-block="top">
         {SPECIAL_TOP_ROW.map((entry, index) => renderEntry(entry, `top-${index}`))}

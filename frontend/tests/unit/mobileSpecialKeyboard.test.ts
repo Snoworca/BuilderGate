@@ -184,8 +184,8 @@ test('FR-MKB-009 AC-5 / FR-MKB-008 AC-4 / SDS-AC-7: through App\'s panel hook a 
 
     await tap(byCap(panel, '↑'));
     await tap(byCap(panel, 'F1'));
-    await tap(byCap(panel, '7'));
-    assert.deepEqual(handle.sent, [`${ESC}OA`, `${ESC}OP`, '7'], 'application cursor mode is read from the active handle');
+    await tap(byCap(panel, '/'));
+    assert.deepEqual(handle.sent, [`${ESC}OA`, `${ESC}OP`, '/'], 'application cursor mode is read from the active handle');
 
     // A bar key tapped while a bar button holds focus: with the panel closed
     // this hands focus back to the terminal; with it open it must not.
@@ -224,7 +224,7 @@ test('FR-MKB-009 AC-6 / FR-MKB-006 AC-4: a long press on a panel key, the panel 
     await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
     const panel = view.container.querySelector('.mobile-special-keyboard')!;
     const bar = view.container.querySelector('.mobile-key-bar')!;
-    for (const target of [byCap(panel, 'F1'), byCap(panel, '7'), panel, bar.querySelector('[data-mobile-key="Esc"]')!, bar]) {
+    for (const target of [byCap(panel, 'F1'), byCap(panel, '/'), panel, bar.querySelector('[data-mobile-key="Esc"]')!, bar]) {
       const event = mouse(target, 'contextmenu');
       assert.equal(event.defaultPrevented, true, `contextmenu on ${target.className} is prevented`);
     }
