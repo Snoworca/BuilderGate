@@ -2176,6 +2176,8 @@ export const TerminalContainer = memo(
       hasSelection: () => terminalRef.current?.hasSelection() ?? false,
       getSelection: () => terminalRef.current?.getSelection() ?? '',
       getMouseTrackingActive: () => terminalRef.current?.getMouseTrackingActive() ?? false,
+      // @req IR-MKB-001
+      getApplicationCursorKeysMode: () => terminalRef.current?.getApplicationCursorKeysMode() ?? false,
       clearSelection: () => terminalRef.current?.clearSelection(),
       copySelection: (source) => terminalRef.current?.copySelection(source) ?? Promise.resolve({
         ok: false,

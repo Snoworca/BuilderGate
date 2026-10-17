@@ -192,6 +192,7 @@ import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 import { t } from '../../i18n/i18n.ts';
 import { panWheelSteps, routeMobilePan } from '../../utils/mobileTouchScroll.ts';
+import { applyLatchToTypedData } from '../../utils/mobileModifierLatch.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -319,6 +320,8 @@ export interface TerminalHandle {
   hasSelection: () => boolean;
   getSelection: () => string;
   getMouseTrackingActive: () => boolean;
+  // @req IR-MKB-001
+  getApplicationCursorKeysMode: () => boolean;
   clearSelection: () => void;
   copySelection: (source?: TerminalClipboardSource) => Promise<TerminalClipboardActionResult>;
   pasteClipboard: (source?: TerminalClipboardSource) => Promise<TerminalClipboardActionResult>;
@@ -3320,6 +3323,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         const mode = term?.modes.mouseTrackingMode;
         return mode !== undefined && mode !== 'none';
       },
+      // @req IR-MKB-001
+      getApplicationCursorKeysMode: () => xtermRef.current?.modes.applicationCursorKeysMode ?? false,
       clearSelection: () => {
         xtermRef.current?.clearSelection();
         savedRightClickSelRef.current = '';
@@ -4371,6 +4376,14 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           // Initial legacy compatibility mode predates an authority lease. Keep
           // its parser replies on the ordinary path until the exact disable
           // boundary is acknowledged; post-rollback replies always have a lease.
+        }
+        // @req FR-MKB-003
+        // Mobile modifier latch: only user-typed data that passed the replay and
+        // query-reply guards above, never a programmatic paste.
+        // From here on `data` is what goes to submitCapturedInput, so the latch
+        // re-encodes it in place.
+        if (hasUserInputProvenance && programmaticPaste === null) {
+          data = applyLatchToTypedData(data, term.modes.applicationCursorKeysMode ?? false);
         }
         const compositionSeq = imeTransactionRef.current?.observeXtermData();
         const debugInput = buildTerminalInputDebugPayload(data, {
