@@ -251,11 +251,15 @@ export function writeRightBlock(storage: Storage | null, value: RightBlock): voi
 }
 
 export const DEFAULT_SPECIAL_PANEL_HEIGHT = 280;
+export const MIN_SPECIAL_PANEL_HEIGHT = 260;
 
-/** The panel takes the place of the system keyboard: its last measured height, else 280 px. */
+/**
+ * The panel takes the place of the system keyboard: its last measured height, raised to at
+ * least 260 px so a short landscape keyboard does not cut keys off; 280 px with no reading.
+ */
 // @req FR-MKB-008
 export function specialPanelHeight(lastInset: number): number {
-  return lastInset > 0 ? lastInset : DEFAULT_SPECIAL_PANEL_HEIGHT;
+  return lastInset > 0 ? Math.max(lastInset, MIN_SPECIAL_PANEL_HEIGHT) : DEFAULT_SPECIAL_PANEL_HEIGHT;
 }
 
 /** The part of TerminalHandle the keyboard switch needs. */
