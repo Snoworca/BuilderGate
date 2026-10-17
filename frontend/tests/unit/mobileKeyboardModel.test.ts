@@ -218,3 +218,40 @@ test('FR-MKB-011 AC-1 AC-2 / SDS-AC-12: tokens.css declares the orange lock fami
   assert.ok(!/--warn/.test(stripComments(css)), 'the keyboard stylesheet no longer draws with the warn family');
   assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(stripComments(css)), 'no raw colour in the keyboard stylesheet');
 });
+
+// --- Fast-refresh boundary ----------------------------------------------------
+
+const COMPONENT_FILES = ['MobileKeyBar.tsx', 'MobileSpecialKeyboard.tsx', 'LatchKey.tsx'] as const;
+const MOVED_HELPERS = ['MOBILE_BAR_KEYS', 'shouldShowMobileKeyBar', 'useResetLatchWhenNotMobile'] as const;
+
+function readKeyboardSource(file: string): string {
+  const raw = readFileSync(new URL(`../../src/components/MobileKeyboard/${file}`, import.meta.url), 'utf8');
+  return raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+test('FR-MKB-011 AC-5: the .tsx files export only PascalCase components and types; the helpers live in mobileKeyboardModel.ts', () => {
+  for (const file of COMPONENT_FILES) {
+    const source = readKeyboardSource(file);
+    const exports = [...source.matchAll(/^\s*export\b[^\n]*/gm)].map(m => m[0].trim());
+    assert.ok(
+      exports.some(line => /^export\s+function\s+[A-Z]\w*\s*\(/.test(line)),
+      `${file} exports a component`,
+    );
+    for (const line of exports) {
+      const allowed = /^export\s+function\s+[A-Z]\w*\s*[(<]/.test(line)
+        || /^export\s+(interface|type)\s+[A-Z]\w*/.test(line);
+      assert.ok(allowed, `${file}: only a PascalCase function component, interface or type may be exported, found: ${line}`);
+    }
+    for (const helper of MOVED_HELPERS) {
+      assert.ok(
+        !new RegExp(`\\b(const|let|var|function)\\s+${helper}\\b`).test(source),
+        `${file} no longer declares ${helper}`,
+      );
+    }
+  }
+  const model = readKeyboardSource('mobileKeyboardModel.ts');
+  assert.match(model, /^export\s+const\s+MOBILE_BAR_KEYS\b/m);
+  assert.match(model, /^export\s+function\s+shouldShowMobileKeyBar\s*\(/m);
+  assert.match(model, /^export\s+function\s+useResetLatchWhenNotMobile\s*\(/m);
+  assert.equal(typeof shouldShowMobileKeyBar, 'function');
+});
