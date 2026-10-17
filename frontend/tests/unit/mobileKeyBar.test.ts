@@ -374,7 +374,7 @@ test('FR-MKB-006 AC-2 / SDS-AC-8: focus on the active tab helper textarea report
 
   const seen: boolean[] = [];
   function Probe(props: { activeTabId: string | null }): null {
-    seen.push(useTerminalInputFocus(props.activeTabId));
+    seen.push(useTerminalInputFocus(props.activeTabId, true));
     return null;
   }
   const view = await render(React.createElement(Probe, { activeTabId: 'tab-a' }));
@@ -566,5 +566,79 @@ test('FR-MKB-006 AC-5: the bar scrolls sideways without a visible scrollbar, and
       if (value === undefined) continue;
       assert.ok(resolvePx(value, tokens) >= 36, `${selector} ${prop} ${value} keeps the button at least 36 px`);
     }
+  }
+});
+
+// --- Wave 3: drag cancel on latch keys, and no focus watch on desktop ---------
+
+test('FR-MKB-011 AC-3 / SDS-AC-10: a Ctrl press dragged 20 px before release is cancelled and leaves the modifier off', async () => {
+  const view = await render(React.createElement(MobileKeyBar, {
+    onSendKey: () => {}, onToggleKeyboard: () => {}, keyboardOpen: false,
+  }));
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const ctrl = view.container.querySelector('[data-mod="ctrl"]')!;
+    await act(async () => { pointer(ctrl, 'pointerdown', 40, 10); });
+    await act(async () => { pointer(ctrl, 'pointermove', 60, 10); });
+    assert.equal(ctrl.classList.contains('mobile-key--holding'), false, 'the hold fill stops once the press became a drag');
+    await act(async () => { pointer(ctrl, 'pointerup', 60, 10); });
+    await act(async () => { mock.timers.tick(LATCH_HOLD_MS * 2); });
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'a drag neither taps nor locks');
+
+    // Dragged and then held past the lock time: the drag already ended the press.
+    await act(async () => { pointer(ctrl, 'pointerdown', 40, 10); });
+    await act(async () => { pointer(ctrl, 'pointermove', 60, 10); });
+    await act(async () => { mock.timers.tick(LATCH_HOLD_MS * 2); });
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'a dragged press never locks');
+    await act(async () => { pointer(ctrl, 'pointerup', 60, 10); });
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off');
+
+    // Released 20 px away without a move event in between: still a drag.
+    await act(async () => { pointer(ctrl, 'pointerdown', 40, 10); });
+    await act(async () => { pointer(ctrl, 'pointerup', 40, 30); });
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off');
+
+    // A small wobble is still a tap.
+    await act(async () => { pointer(ctrl, 'pointerdown', 40, 10); });
+    await act(async () => { pointer(ctrl, 'pointermove', 44, 12); });
+    await act(async () => { pointer(ctrl, 'pointerup', 44, 12); });
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once');
+  } finally {
+    mock.timers.reset();
+    await view.cleanup();
+  }
+});
+
+test('FR-MKB-011 AC-4 / SDS-AC-11: with enabled false the focus watch attaches no focusin listener and reports false', async () => {
+  const added: string[] = [];
+  const original = document.addEventListener.bind(document);
+  document.addEventListener = ((type: string, ...rest: unknown[]) => {
+    added.push(type);
+    return (original as (...args: unknown[]) => void)(type, ...rest);
+  }) as typeof document.addEventListener;
+  const seen: boolean[] = [];
+  function Probe(props: { enabled: boolean }): null {
+    seen.push(useTerminalInputFocus('tab-a', props.enabled));
+    return null;
+  }
+  const host = document.createElement('div');
+  host.setAttribute('data-tab-id', 'tab-a');
+  const ta = document.createElement('textarea');
+  ta.className = 'xterm-helper-textarea';
+  host.appendChild(ta);
+  document.body.appendChild(host);
+  ta.focus();
+  let view: Awaited<ReturnType<typeof render>> | null = null;
+  try {
+    view = await render(React.createElement(Probe, { enabled: false }));
+    assert.deepEqual(added.filter(type => type === 'focusin' || type === 'focusout'), [], 'no listener on desktop');
+    assert.equal(seen.at(-1), false, 'desktop never reports terminal input focus');
+    await act(async () => { view!.root.render(React.createElement(Probe, { enabled: true })); });
+    assert.ok(added.includes('focusin'), 'mobile attaches the watch');
+    assert.equal(seen.at(-1), true);
+  } finally {
+    document.addEventListener = original;
+    await view?.cleanup();
+    host.remove();
   }
 });
