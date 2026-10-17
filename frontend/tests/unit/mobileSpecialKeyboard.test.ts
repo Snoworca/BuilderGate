@@ -2,7 +2,7 @@
 // switch that opens and closes it, rendered under jsdom. Runs through
 // test:unit:terminal-view-behavior (tsx + asset stubs) because the components
 // import their stylesheet.
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { installJsdomEnvironment } from './jsdomEnvironment.ts';
@@ -19,7 +19,7 @@ const React = await import('react');
 const { act, useRef } = React;
 const { createRoot } = await import('react-dom/client');
 const { MobileKeyBar, MobileSpecialKeyboard, RIGHT_BLOCK_STORAGE_KEY, useSpecialKeyboardPanel } = await import('../../src/components/MobileKeyboard/index.ts');
-const { mobileModifierLatch, sendMobileKeyTo } = await import('../../src/utils/mobileModifierLatch.ts');
+const { LATCH_HOLD_MS, applyLatchToTypedData, mobileModifierLatch, sendMobileKeyTo } = await import('../../src/utils/mobileModifierLatch.ts');
 type MobileKeyName = import('../../src/utils/mobileKeyEncoder.ts').MobileKeyName;
 
 const ESC = '\u001b';
@@ -37,6 +37,11 @@ async function render(element: React.ReactElement) {
       container.remove();
     },
   };
+}
+
+/** Drops block and line comments so a commented-out call does not count as wiring. */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
 function win(): Window & typeof globalThis {
@@ -115,15 +120,28 @@ function fakeHandle(appCursor = false): FakeHandle {
  * close, send, focus hand-back) feeding the bar and the panel the way App
  * renders them. Only the terminal handle is a fake.
  */
-function Harness({ handle }: { handle: FakeHandle | null }): React.ReactElement {
+type PanelApi = ReturnType<typeof useSpecialKeyboardPanel>;
+
+interface HarnessProps {
+  handle: FakeHandle | null;
+  /** One handle per tab; when given it wins over `handle`. */
+  handles?: Record<string, FakeHandle>;
+  tabId?: string;
+  sessionId?: string;
+  /** Receives the hook's return value on every render (close() has no button). */
+  panelRef?: { current: PanelApi | null };
+}
+
+function Harness({ handle, handles, tabId = 'tab-1', sessionId = 'session-1', panelRef }: HarnessProps): React.ReactElement {
   const openRef = useRef(false);
   const panel = useSpecialKeyboardPanel({
-    activeTabId: 'tab-1',
-    activeSessionId: 'session-1',
-    getHandle: () => handle,
+    activeTabId: tabId,
+    activeSessionId: sessionId,
+    getHandle: (id: string) => (handles ? handles[id] ?? null : handle),
     measureHeight: () => 280,
     openRef,
   });
+  if (panelRef) panelRef.current = panel;
   return React.createElement(
     'div',
     { className: 'column' },
@@ -212,6 +230,103 @@ test('FR-MKB-008 AC-1 AC-4: with no terminal handle attached the switch does not
     await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
     assert.ok(view.container.querySelector('.mobile-special-keyboard'), 'the panel opens');
     assert.deepEqual(handle.calls, ['blurInput', 'setFocusSuppressed(true)']);
+  } finally {
+    await view.cleanup();
+  }
+});
+
+// --- Closing the panel and the Shift latch (A-001) ------------------------------
+// The key bar has Ctrl and Alt but no Shift, so a Shift left on after the panel
+// closes would uppercase every typed letter with nothing on screen showing it.
+
+function lockShift(): void {
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const press = mobileModifierLatch.startPress('shift');
+    mock.timers.tick(LATCH_HOLD_MS);
+    press.release();
+  } finally {
+    mock.timers.reset();
+  }
+}
+
+for (const [shiftState, arm] of [
+  ['once', async (panel: Element) => { await tap(panel.querySelector('[data-mod="shift"]')!); }],
+  ['locked', async () => { lockShift(); }],
+] as const) {
+  for (const closeBy of ['the switch', 'close()'] as const) {
+    test(`FR-MKB-008 / FR-MKB-003 (A-001): Shift ${shiftState} goes off when the panel closes through ${closeBy}, and Ctrl stays armed`, async () => {
+      const handle = fakeHandle();
+      const panelRef: { current: PanelApi | null } = { current: null };
+      const view = await render(React.createElement(Harness, { handle, panelRef }));
+      try {
+        const toggle = view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!;
+        await tap(toggle);
+        const panel = view.container.querySelector('.mobile-special-keyboard');
+        assert.ok(panel, 'precondition: the panel is open');
+        await tap(view.container.querySelector('.mobile-key-bar [data-mod="ctrl"]')!);
+        await arm(panel);
+        assert.equal(mobileModifierLatch.getSnapshot().shift, shiftState, `precondition: Shift is ${shiftState}`);
+        assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'precondition: Ctrl is armed');
+
+        if (closeBy === 'the switch') await tap(toggle);
+        else await act(async () => { panelRef.current!.close(); });
+
+        assert.equal(view.container.querySelector('.mobile-special-keyboard'), null, 'the panel closed');
+        assert.equal(mobileModifierLatch.getSnapshot().shift, 'off', 'Shift is off once the panel is gone');
+        assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'Ctrl, which the bar still shows, stays armed');
+        mobileModifierLatch.tap('ctrl');
+        assert.equal(applyLatchToTypedData('a', false), 'a', 'a typed letter is not uppercased');
+      } finally {
+        await view.cleanup();
+      }
+    });
+  }
+}
+
+// --- Suppression follows the active tab while the panel is open (B-001) -------
+
+test('FR-MKB-008 AC-4 (B-001): switching tabs with the panel open moves the suppression to the new tab', async () => {
+  const handles = { 'tab-1': fakeHandle(), 'tab-2': fakeHandle() };
+  const view = await render(React.createElement(Harness, { handle: null, handles, tabId: 'tab-1' }));
+  try {
+    await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
+    assert.deepEqual(handles['tab-1'].calls, ['blurInput', 'setFocusSuppressed(true)'], 'precondition: tab-1 suppressed');
+    handles['tab-1'].calls.length = 0;
+
+    await act(async () => { view.root.render(React.createElement(Harness, { handle: null, handles, tabId: 'tab-2' })); });
+    assert.deepEqual(handles['tab-1'].calls, ['setFocusSuppressed(false)'], 'the old tab is released');
+    assert.deepEqual(handles['tab-2'].calls, ['blurInput', 'setFocusSuppressed(true)'], 'the new tab is blurred and suppressed');
+    assert.ok(view.container.querySelector('.mobile-special-keyboard'), 'the panel stays open');
+  } finally {
+    await view.cleanup();
+  }
+});
+
+test('FR-MKB-008 AC-4 (B-001): a new session id on the same tab applies the suppression again', async () => {
+  const handle = fakeHandle();
+  const view = await render(React.createElement(Harness, { handle, sessionId: 'session-1' }));
+  try {
+    await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
+    handle.calls.length = 0;
+    await act(async () => { view.root.render(React.createElement(Harness, { handle, sessionId: 'session-2' })); });
+    assert.deepEqual(handle.calls, ['blurInput', 'setFocusSuppressed(true)'], 'a remounted terminal is suppressed again');
+  } finally {
+    await view.cleanup();
+  }
+});
+
+test('FR-MKB-008 AC-6 (B-001): close() releases the suppressed tab and closes the panel without focusing the terminal', async () => {
+  const handle = fakeHandle();
+  const panelRef: { current: PanelApi | null } = { current: null };
+  const view = await render(React.createElement(Harness, { handle, panelRef }));
+  try {
+    await tap(view.container.querySelector('[data-mobile-action="toggle-keyboard"]')!);
+    handle.calls.length = 0;
+    await act(async () => { panelRef.current!.close(); });
+    assert.deepEqual(handle.calls, ['setFocusSuppressed(false)'], 'released, and no focus() call');
+    assert.equal(view.container.querySelector('.mobile-special-keyboard'), null, 'the panel closed');
+    assert.equal(panelRef.current!.open, false);
   } finally {
     await view.cleanup();
   }
@@ -405,8 +520,9 @@ test('FR-MKB-009 AC-7: every panel aria label comes from the catalog and follows
 // same visibility input, the same height rule, the panel right under the bar,
 // and the close on leaving mobile mode.
 test('FR-MKB-008 AC-1 AC-2 AC-3 AC-5 AC-6 / SDS-AC-1 SDS-AC-2 SDS-AC-3 SDS-AC-5: App wires the switch, the height, the bar visibility and the panel the way the harness does', () => {
-  const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
-  const model = readFileSync(new URL('../../src/components/MobileKeyboard/mobileKeyboardModel.ts', import.meta.url), 'utf8');
+  // Comments are stripped first: a commented-out call must not satisfy a match.
+  const app = stripComments(readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8'));
+  const model = stripComments(readFileSync(new URL('../../src/components/MobileKeyboard/mobileKeyboardModel.ts', import.meta.url), 'utf8'));
   assert.match(model, /applySpecialKeyboardToggle\(\s*openRef\.current\s*,/, 'the toggle reads the open state from a ref, not a state updater');
   assert.match(app, /useSpecialKeyboardPanel\(\{[^}]*openRef:\s*specialKeyboardOpenRef/, 'App wires the panel through the hook rendered above, sharing its open ref with the focus paths');
   assert.match(app, /onSendKey=\{specialKeyboard\.sendKey\}\s*onToggleKeyboard=\{specialKeyboard\.toggle\}/, 'the bar sends and toggles through the hook');
@@ -420,6 +536,13 @@ test('FR-MKB-008 AC-1 AC-2 AC-3 AC-5 AC-6 / SDS-AC-1 SDS-AC-2 SDS-AC-3 SDS-AC-5:
   const between = app.slice(bar, panel);
   assert.equal((between.match(/<\/div>/g) ?? []).length, 0, 'no container closes between the bar and the panel: same flex column');
   assert.match(app, /if\s*\(\s*!isMobile\s*\)\s*closeSpecialKeyboard\(\)/, 'the panel closes when mobile mode ends');
+  assert.match(app, /useResetLatchWhenNotMobile\(\s*isMobile\s*\)/, 'the latch is reset when mobile mode ends');
+  assert.match(
+    app,
+    /useEffect\(\(\)\s*=>\s*\{\s*if\s*\(\s*screen\s*!==\s*'workspace'\s*\|\|\s*activeTabId\s*===\s*null\s*\)\s*closeSpecialKeyboard\(\);?\s*\},\s*\[\s*screen\s*,\s*activeTabId\s*,\s*closeSpecialKeyboard\s*\]\)/,
+    'the panel closes when the screen leaves the workspace or no tab is active',
+  );
+  assert.match(app, /useTerminalInputFocus\(\s*activeTab\?\.id\s*\?\?\s*null\s*,\s*isMobile\s*\)/, 'the focus watch only runs on a phone');
 });
 
 test('FR-MKB-009 AC-6: panel keys are at least the 44 px touch size', () => {

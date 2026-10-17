@@ -248,3 +248,37 @@ test('FR-MKB-006 AC-7 / SDS-AC-7: reset clears a locked modifier and later press
   });
   assert.equal(mobileModifierLatch.getSnapshot().shift, 'once', 'a press after reset is a normal tap');
 });
+
+// --- turnOff (A-001) -------------------------------------------------------------
+
+test('FR-MKB-003 / FR-MKB-008 (A-001): turnOff clears one modifier from once or locked, notifies once, and leaves the others', () => {
+  withFakeTimers(() => {
+    const restore = setVibrate(() => true);
+    try {
+      mobileModifierLatch.tap('ctrl');
+      const press = mobileModifierLatch.startPress('shift');
+      mock.timers.tick(LATCH_HOLD_MS);
+      press.release();
+    } finally {
+      restore();
+    }
+  });
+  assert.deepEqual({ ...mobileModifierLatch.getSnapshot() }, { ctrl: 'once', alt: 'off', shift: 'locked' }, 'precondition');
+
+  let notified = 0;
+  const unsubscribe = mobileModifierLatch.subscribe(() => { notified += 1; });
+  try {
+    mobileModifierLatch.turnOff('shift');
+    assert.deepEqual({ ...mobileModifierLatch.getSnapshot() }, { ctrl: 'once', alt: 'off', shift: 'off' });
+    assert.equal(notified, 1, 'subscribers hear the change');
+    mobileModifierLatch.turnOff('shift');
+    assert.equal(notified, 1, 'turning off an off modifier notifies nobody');
+
+    mobileModifierLatch.tap('shift');
+    assert.equal(mobileModifierLatch.getSnapshot().shift, 'once');
+    mobileModifierLatch.turnOff('shift');
+    assert.equal(mobileModifierLatch.getSnapshot().shift, 'off', 'once goes off as well');
+  } finally {
+    unsubscribe();
+  }
+});
