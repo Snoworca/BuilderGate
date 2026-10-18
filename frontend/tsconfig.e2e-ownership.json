@@ -33,6 +33,7 @@
     "tests/e2e/file-download.spec.ts",
     "tests/e2e/file-transfer.spec.ts",
     "tests/e2e/file-extract.spec.ts",
+    "tests/e2e/html-viewer.spec.ts",
     "tests/e2e/terminal-title-auto-tab-name.spec.ts",
     "tests/e2e/terminal-clipboard.spec.ts",
     "tests/e2e/terminal-selection-eviction.spec.ts",
