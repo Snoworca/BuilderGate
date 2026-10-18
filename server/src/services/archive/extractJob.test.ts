@@ -46,8 +46,8 @@ interface Ctx {
 }
 
 interface Options {
-  maxBytes?: number;
-  maxEntries?: number;
+  maxExtractBytes?: number;
+  maxExtractEntries?: number;
   onTempAdded?: (tempPath: string, manager: FileJobManager, jobId: () => string) => void;
   /** Runs between the pre-count and the write pass (the archive can change there). */
   afterPrecount?: (archivePath: string) => Promise<void>;
@@ -95,7 +95,7 @@ async function withExtract(run: (ctx: Ctx) => Promise<void>, options: Options = 
     },
     isPathBlocked: (p) => isFileJobPathBlocked(policy, p),
     archive: {
-      limits: () => ({ maxBytes: options.maxBytes ?? 10 * 1024 ** 3, maxEntries: options.maxEntries ?? 100_000 }),
+      limits: () => ({ maxExtractBytes: options.maxExtractBytes ?? 10 * 1024 ** 3, maxExtractEntries: options.maxExtractEntries ?? 100_000 }),
       isBlockedExtension: (name) => path.extname(name).toLowerCase() === '.exe',
       tempRegistry: registry,
       afterPrecount: options.afterPrecount,
@@ -368,7 +368,7 @@ test('FR-FOP-007 AC-4: over maxExtractEntries, over maxExtractBytes or over a 10
     assert.equal(big.errorCode, 'ARCHIVE_TOO_LARGE');
 
     assert.deepEqual(await tree(cwd), ['big.zip', 'many.zip'], 'no folder, no file');
-  }, { maxEntries: 3, maxBytes: 2 * 1024 * 1024 });
+  }, { maxExtractEntries: 3, maxExtractBytes: 2 * 1024 * 1024 });
 
   await withExtract(async ({ cwd, extract }) => {
     // The central directory claims 4 GB for a few bytes.
@@ -558,7 +558,7 @@ test('FR-FOP-007 AC-4: a small archive that unpacks to under 64 MiB extracts wha
 test('FR-FOP-007 AC-4: over 64 MiB unpacked and over 1000x is refused; exactly 64 MiB is not judged by ratio', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bg-ratio-'));
   try {
-    const limits = { maxBytes: 10 * 1024 ** 3, maxEntries: 100 };
+    const limits = { maxExtractBytes: 10 * 1024 ** 3, maxExtractEntries: 100 };
     const over = path.join(dir, 'over.zip');
     await fs.writeFile(over, buildZip([{ name: 'a.bin', data: text('tiny'), declaredSize: 64 * 1024 * 1024 + 1 }]));
     await assert.rejects(precountArchive(over, limits), (err: unknown) => (err as { code?: string }).code === 'ARCHIVE_TOO_LARGE' && /ratio/.test(String((err as { publicReason?: string }).publicReason)));
@@ -615,8 +615,8 @@ test('FR-FOP-007 AC-4: every entry\'s declared size counts toward the limits, li
   try {
     const archive = path.join(dir, 'l.zip');
     await fs.writeFile(archive, buildZip([{ name: 'l/link', data: Buffer.alloc(3 * 1024 * 1024, 0x2f), unixMode: 0o120777 }]));
-    await assert.rejects(precountArchive(archive, { maxBytes: 2 * 1024 * 1024, maxEntries: 10 }), (err: unknown) => (err as { code?: string }).code === 'ARCHIVE_TOO_LARGE');
-    const counted = await precountArchive(archive, { maxBytes: 10 * 1024 * 1024, maxEntries: 10 });
+    await assert.rejects(precountArchive(archive, { maxExtractBytes: 2 * 1024 * 1024, maxExtractEntries: 10 }), (err: unknown) => (err as { code?: string }).code === 'ARCHIVE_TOO_LARGE');
+    const counted = await precountArchive(archive, { maxExtractBytes: 10 * 1024 * 1024, maxExtractEntries: 10 });
     assert.equal(counted.unpackedBytes, 3 * 1024 * 1024);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
@@ -630,7 +630,7 @@ test('FR-FOP-007 AC-4: an aborted pre-count stops with AbortError', async () => 
     await fs.writeFile(archive, buildZip([{ name: 'a.txt', data: text('a') }]));
     const controller = new AbortController();
     controller.abort();
-    await assert.rejects(precountArchive(archive, { maxBytes: 1e9, maxEntries: 10 }, undefined, controller.signal), (err: unknown) => (err as Error).name === 'AbortError');
+    await assert.rejects(precountArchive(archive, { maxExtractBytes: 1e9, maxExtractEntries: 10 }, undefined, controller.signal), (err: unknown) => (err as Error).name === 'AbortError');
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }

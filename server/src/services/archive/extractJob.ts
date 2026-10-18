@@ -47,7 +47,7 @@ const KIND_MISMATCH_CHOICES: readonly FileJobConflictChoice[] = Object.freeze(['
 
 // @req FR-FOP-007
 export interface ArchiveJobDeps {
-  limits(): { maxBytes: number; maxEntries: number };
+  limits(): { maxExtractBytes: number; maxExtractEntries: number };
   /** True for a file name whose extension the file API blocks. */
   isBlockedExtension(name: string): boolean;
   /** Where in-flight temp files are recorded so a restart can delete them (FR-FEX-023 AC-6). */
@@ -85,7 +85,7 @@ export interface ExtractSkip {
 // @req FR-FOP-007
 export async function precountArchive(
   archivePath: string,
-  limits: { maxBytes: number; maxEntries: number },
+  limits: { maxExtractBytes: number; maxExtractEntries: number },
   onEntry?: (entryCount: number) => void,
   signal?: AbortSignal,
 ): Promise<ArchivePrecount> {
@@ -101,14 +101,14 @@ export async function precountArchive(
     if (signal?.aborted) throw abortError();
     if (entry.unsupported !== null) throw archiveError(ErrorCode.ARCHIVE_UNSUPPORTED, entry.unsupported);
     entryCount += 1;
-    if (entryCount > limits.maxEntries) {
-      throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, `the archive holds more than ${limits.maxEntries} entries`);
+    if (entryCount > limits.maxExtractEntries) {
+      throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, `the archive holds more than ${limits.maxExtractEntries} entries`);
     }
     // Every entry's declared size counts, whatever its kind: the limits bound what the archive
     // carries, not only what this extraction happens to write.
     unpackedBytes += entry.size;
-    if (unpackedBytes > limits.maxBytes) {
-      throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, `the archive unpacks to more than ${limits.maxBytes} bytes`);
+    if (unpackedBytes > limits.maxExtractBytes) {
+      throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, `the archive unpacks to more than ${limits.maxExtractBytes} bytes`);
     }
     const normalized = normalizeEntryPath(entry.name);
     if (normalized.kind === 'path') {

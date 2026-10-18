@@ -171,10 +171,10 @@ export class FileService {
   }
 
   /** FR-FOP-007 AC-4: the extraction limits as they stand right now. */
-  get extractLimits(): { maxBytes: number; maxEntries: number } {
+  get extractLimits(): { maxExtractBytes: number; maxExtractEntries: number } {
     return {
-      maxBytes: this.config.maxExtractBytes ?? DEFAULT_MAX_EXTRACT_BYTES,
-      maxEntries: this.config.maxExtractEntries ?? DEFAULT_MAX_EXTRACT_ENTRIES,
+      maxExtractBytes: this.config.maxExtractBytes ?? DEFAULT_MAX_EXTRACT_BYTES,
+      maxExtractEntries: this.config.maxExtractEntries ?? DEFAULT_MAX_EXTRACT_ENTRIES,
     };
   }
 
