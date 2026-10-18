@@ -354,7 +354,7 @@ test.describe('HTML viewer', () => {
   });
 
   // FR-MDE-028 AC-9 (phone)
-  test('phone: the toggle fills the toolbar and the page renders', async ({ page }, testInfo) => {
+  test('phone: the toolbar is one compact scrolling line and the page renders', async ({ page }, testInfo) => {
     test.skip(!isPhone(testInfo.project), 'phone');
     await openExplorer(page, true);
     // FR-FEX-020: a 1.5 s hold opens the row, as a double tap does.
@@ -380,9 +380,26 @@ test.describe('HTML viewer', () => {
     const buttons = panel.locator('.html-tab-seg button');
     await expect(buttons).toHaveText(['렌더링', '소스']);
     for (const button of await buttons.all()) await expect(button).toBeVisible();
-    const seg = await panel.locator('.html-tab-seg').boundingBox();
-    const bar = await panel.locator('.html-tab-toolbar').boundingBox();
-    expect(seg && bar && seg.width >= bar.width * 0.85, `toggle ${seg?.width} of toolbar ${bar?.width}`).toBe(true);
+    // One line: the toggle, 자원 n, 다시 불러오기 and 새 탭에서 열기 share a row, each at most 28px high,
+    // and a row wider than the window scrolls instead of wrapping.
+    const layout = await panel.locator('.html-tab-toolbar').evaluate((bar) => {
+      const controls = [...bar.children].map(child => child.getBoundingClientRect());
+      const style = getComputedStyle(bar);
+      return {
+        count: controls.length,
+        tops: controls.map(rect => Math.round(rect.top + rect.height / 2)),
+        heights: controls.map(rect => Math.round(rect.height)),
+        barHeight: Math.round(bar.getBoundingClientRect().height),
+        wrap: style.flexWrap,
+        overflowX: style.overflowX,
+      };
+    });
+    expect(layout.count, JSON.stringify(layout)).toBeGreaterThanOrEqual(4);
+    expect(Math.max(...layout.tops) - Math.min(...layout.tops), `one row: ${JSON.stringify(layout)}`).toBeLessThanOrEqual(2);
+    expect(Math.max(...layout.heights), `compact controls: ${JSON.stringify(layout)}`).toBeLessThanOrEqual(28);
+    expect(layout.barHeight, `toolbar height: ${JSON.stringify(layout)}`).toBeLessThanOrEqual(40);
+    expect(layout.wrap).toBe('nowrap');
+    expect(layout.overflowX).toBe('auto');
     await expect(panel.frameLocator('iframe.html-tab-frame').locator('#phone')).toHaveText('phone ran', { timeout: 15000 });
     await page.screenshot({ path: '../.playwright-mcp/e2e-html-viewer-phone.png' });
 

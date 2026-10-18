@@ -135,10 +135,22 @@ test('FR-MDE-028 AC-8: 자원 n lists what the page requested with results and e
   assert.match(read(TAB), /aria-haspopup="dialog"/);
 });
 
-test('FR-MDE-028 AC-9: saving re-renders the page; on a phone the toggle fills the toolbar width', () => {
+test('FR-MDE-028 AC-9: saving re-renders the page; the toolbar is one scrolling line with compact phone controls', () => {
   assert.equal(nextFrameKey(1, { wasDirty: true, dirty: false }), 2, 'a save reloads the saved file');
   assert.equal(nextFrameKey(1, { wasDirty: false, dirty: true }), 1, 'typing does not reload the frame');
-  assert.match(read(CSS), /@media \(max-width: 767px\)[\s\S]*\.html-tab-seg\s*\{[^}]*flex:\s*1/);
+  const css = read(CSS);
+  const toolbar = /\.html-tab-toolbar\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(toolbar, /flex-wrap:\s*nowrap/, 'the toolbar never wraps to a second row');
+  assert.match(toolbar, /overflow-x:\s*auto/, 'the toolbar scrolls sideways when it is wider than the window');
+  assert.match(css, /\.html-tab-toolbar\s*>\s*\*\s*\{[^}]*flex:\s*none[^}]*white-space:\s*nowrap/, 'controls keep their width and one-line labels');
+  const phone = /@media \(max-width: 767px\)\s*\{([\s\S]*?)\n\}/.exec(css.slice(css.indexOf('FR-MDE-028 AC-9')))?.[1] ?? '';
+  assert.doesNotMatch(phone, /\.html-tab-seg\s*\{[^}]*flex:\s*1/, 'the toggle no longer fills a row of its own');
+  const rule = /\.html-tab-toolbar \.editor-text-button\s*\{([^}]*)\}/.exec(phone)?.[1] ?? '';
+  const height = /(?:^|[;\s])height:\s*(\d+)px/.exec(rule)?.[1];
+  assert.ok(height !== undefined && Number(height) <= 28, `phone controls are at most 28px high (got ${height})`);
+  // globals.css gives every phone button min-height: 44px, which would win over the height above
+  // (measured on 2222: 44px controls in a 53px toolbar before this override).
+  assert.match(rule, /min-height:\s*0/, 'the phone controls override the global 44px button minimum');
 });
 
 test('SEC-MDE-002 AC-1/AC-4/AC-5 (client): the token is asked with JWT, resources read with JWT, and revoked on close', async () => {

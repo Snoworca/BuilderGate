@@ -571,7 +571,18 @@
 }
 
 /* FR-MDE-028: the HTML tab — the 렌더링 / 소스 segment, the resource list and the sandboxed page. */
-.editor-window-surface .html-tab-toolbar { gap: 6px; flex-wrap: wrap; }
+/* One line at every width (AC-9): what does not fit scrolls sideways. justify-content: flex-end
+ * would push an overflowing row's start out of reach, so the first control's auto margin does the
+ * right alignment instead; it collapses to 0 as soon as the row overflows. */
+.editor-window-surface .html-tab-toolbar {
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.editor-window-surface .html-tab-toolbar > * { flex: none; white-space: nowrap; }
+.editor-window-surface .html-tab-toolbar > :first-child { margin-left: auto; }
 .editor-window-surface .html-tab-seg {
   display: inline-flex;
   border: 1px solid var(--line-strong);
@@ -621,8 +632,17 @@
   background: var(--bg-paper);
 }
 
-/* FR-MDE-028 AC-9: on a phone the two views share the toolbar width as large buttons. */
+/* FR-MDE-028 AC-9: on a phone the controls stay on the one scrolling line, compact and readable. */
 @media (max-width: 767px) {
-  .editor-window-surface .html-tab-seg { flex: 1 1 100%; }
-  .editor-window-surface .html-tab-seg .editor-text-button { flex: 1; min-height: 32px; }
+  .editor-window-surface .html-tab-toolbar { padding: 3px 8px; }
+  .editor-window-surface .html-tab-toolbar .editor-text-button {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    /* globals.css gives every phone button min-height: 44px, which would otherwise win. */
+    min-height: 0;
+    padding: 0 10px;
+    font-size: var(--fs-xs);
+  }
+  .editor-window-surface .html-tab-seg .editor-text-button { height: 24px; }
 }
