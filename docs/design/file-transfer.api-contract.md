@@ -99,3 +99,90 @@ FR-FEX-022~026, `docs/spec/43.file-operations.srs.md` 의 FR-FOP-006 이다. 시
   - 1 GiB 이하이고 1만 개 이하이며 1초 이내에 끝나면, 곧바로 `token` 을 받고 링크를 클릭한다(기존 `startFileDownload` 와 같은 방식).
   - 그렇지 않으면 확인 바를 띄우고, [받기]를 누를 때 `token` 을 받는다.
   - 진행률은 `jobs/:jobId` 를 500ms 간격으로 폴링한다. 취소는 `DELETE` 다.
+
+## 4. 압축 풀기 (FR-FOP-007, FR-FEX-027)
+
+지원 형식은 `.zip`, `.tar`, `.tar.gz`, `.tgz` 이고, 확장자로 판정한다.
+압축 풀기는 파일 작업(IR-FOP-001·002)의 한 종류이므로, 진행·결정·취소·완료는 copy·move 와 같은 WebSocket 이벤트와 REST 경로를 쓴다.
+
+### 4.1 사전 계산 — `POST /api/sessions/:id/files/extract/precount` (JWT)
+
+요청: `{ "path": "uploads/bundle.tar.gz", "mode": "smart" | "here" }`
+
+- `path` 는 기존 파일 API 규칙으로 해석한다. 세션 밖이거나 차단된 경로는 오류 응답(403 등)이다.
+- `mode` 가 없거나 다른 값이면 `400 INVALID_INPUT` 이다.
+
+응답 200 (풀 수 있을 때):
+
+```json
+{ "format": "tar.gz", "entryCount": 1234, "unpackedBytes": 5242880, "packedBytes": 1048576,
+  "singleTopFolder": "bundle", "targetName": "bundle (2)", "refusal": null }
+```
+
+- `singleTopFolder`: 모든 엔트리가 최상위 폴더 하나 아래에 있으면 그 이름이고, 아니면 `null` 이다.
+- `targetName`:
+  - `smart` 이면 지금 만들 폴더 이름이다. `singleTopFolder` 가 있으면 그 이름, 없으면 확장자를 뺀 아카이브 이름이다. 그 이름이 이미 있으면 FR-FOP-004 이름(`이름 (2)`)이 된다.
+  - `here` 이면 아카이브가 있는 폴더의 이름이다.
+- `unpackedBytes` 는 파일 엔트리가 선언한 크기의 합이다. FR-FEX-027 AC-5 의 확인 바 기준(1 GiB, 1만 개)은 `unpackedBytes` 와 `entryCount` 로 판단한다.
+
+응답 200 (풀 수 없을 때): `{ "refusal": { "code": "ARCHIVE_TOO_LARGE" | "ARCHIVE_UNSUPPORTED" | "ARCHIVE_CORRUPT", "reason": "..." } }`
+
+- 이 경우 다른 필드는 없다.
+- `reason` 은 경로를 담지 않은 영어 문장이다. 예: `the archive is encrypted`, `split (multi-disk) ZIP archives are not supported`, `the unpacked size is more than 1000 times the archive size (compression ratio)`
+
+### 4.2 작업 시작 — `POST /api/file-jobs` (JWT)
+
+```json
+{ "operation": "extract", "sourceSessionId": "…", "sources": ["/abs/uploads/bundle.tar.gz"], "mode": "smart", "destPath": "/abs/uploads" }
+```
+
+- `sources` 는 절대 경로 하나다. 둘 이상이면 `400` 이다.
+- `mode` 는 필수다(`smart` | `here`).
+- `destPath` 는 선택이고, 없으면 아카이브가 있는 폴더다.
+- 지원하지 않는 확장자는 `415 ARCHIVE_UNSUPPORTED` 이다.
+- 응답은 `202 { jobId }` 이다.
+
+동작:
+
+- **사전 계산:** 작업은 먼저 4.1 과 같은 사전 계산을 한다. 그동안 진행 이벤트의 `phase` 는 `scanning` 이고, `totalEntries` 가 늘어난다.
+- **거부 조건:** 사전 계산에서 아래 중 하나라도 걸리면 아무것도 쓰지 않고 `failed` 로 끝난다.
+  - 엔트리 수가 `fileManager.maxExtractEntries`(기본 100000)를 넘는다.
+  - 풀린 크기가 `fileManager.maxExtractBytes`(기본 10 GiB)를 넘는다.
+  - 압축 비율이 1000 을 넘는다.
+  - 암호화되었거나, 분할(multi-disk)되었거나, 지원하지 않는 압축 방식의 ZIP 이다.
+  - 아카이브가 손상되었다.
+- **smart:** 새 폴더 하나를 만들고 그 안에 푼다. 폴더 이름은 4.1 의 `targetName` 규칙과 같다. 최상위 폴더가 하나뿐이면 그 폴더가 곧 새 폴더이고, 이중으로 중첩하지 않는다. 기존 폴더는 바꾸지 않는다.
+  - 같은 아카이브 안에서 이름이 겹친 엔트리는 건너뛰고 `skipped` 에 적는다.
+- **here:** `destPath` 에 바로 푼다. 이미 있는 이름이면 copy 와 같은 결정 이벤트를 보낸다.
+  - 파일끼리 겹치면 선택지는 `overwrite` · `rename` · `skip` 이다.
+  - 파일과 폴더가 만나거나, 그 이름이 링크면 선택지는 `rename` · `skip` 이다. 링크를 따라가 쓰지 않는다.
+  - 폴더끼리 겹치면 묻지 않고 합친다.
+  - `applyToAll` 은 copy 와 같게 동작한다.
+- **쓰기:** 파일 엔트리는 같은 폴더의 숨김 임시 파일(`.bgupload-<hex>.part`)에 쓴다.
+  - 다 쓴 뒤에만 그 이름에 놓는다. 덮어쓰기가 아니면 배타적으로 놓는다(하드 링크, 지원하지 않으면 `COPYFILE_EXCL` 복사).
+  - 임시 파일은 업로드와 같이 `server/data/upload-temp.json` 에 기록하고, 서버를 시작할 때 지운다.
+  - 파일과 폴더의 수정 시각을 아카이브 값으로 되돌린다. here 로 풀 때 대상 폴더 자신의 시각은 바꾸지 않는다.
+- **선언 크기 초과:** 엔트리가 선언한 크기보다 많은 바이트를 내면, 그 엔트리의 임시 파일을 지우고 작업은 `ARCHIVE_TOO_LARGE` 로 실패한다. 이미 놓은 엔트리는 남는다.
+- **읽기 오류:** 쓰는 도중 압축 해제나 아카이브 읽기가 실패하면, 그 엔트리의 임시 파일을 지우고 `ARCHIVE_CORRUPT` 로 실패한다.
+- **취소:** 쓰던 엔트리의 임시 파일만 지운다. 이미 놓은 엔트리는 남긴다(FR-FOP-005).
+
+### 4.3 완료 이벤트 — `file-job:done` 의 추가 필드 (extract 만)
+
+```json
+{ "jobId": "…", "outcome": "completed", "processedEntries": 12, "affectedDirectories": ["/abs/uploads"],
+  "createdPaths": ["/abs/uploads/bundle (2)"],
+  "skipped": [{ "path": "../evil.txt", "reason": "entry path leaves the target folder" }],
+  "errorCode": "ARCHIVE_TOO_LARGE", "errorReason": "…" }
+```
+
+- `createdPaths`: smart 는 만든 폴더 하나이고, here 는 처음 놓은(또는 처음 들어간) 최상위 항목 하나다. 아무것도 놓지 않았으면 빈 배열이다.
+- `skipped`: 쓰지 않은 엔트리의 이름(아카이브에 적힌 그대로)과 이유다. 사용자가 결정 이벤트에서 고른 건너뛰기는 여기에 넣지 않는다. 이유 문장은 다음 중 하나다.
+  - `entry path leaves the target folder`
+  - `entry path is absolute`
+  - `entry name is not allowed`(NUL, Windows 예약 이름, `:`, 끝의 점·공백)
+  - `links are not extracted`(심볼릭 링크, 하드 링크)
+  - `device and pipe entries are not extracted`
+  - `path is blocked`(차단 경로, 차단 확장자)
+  - `another entry already has this name`
+  - `a file and a folder of this name meet`
+- `errorCode`·`errorReason`: 실패했을 때만 있다. `errorReason` 은 아카이브 거부일 때만 있으며, 4.1 의 `reason` 과 같은 문장이다.
