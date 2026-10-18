@@ -77,6 +77,28 @@ export function classifyUploadFailure(input: { status: number; code: string | nu
   return input.attempts < 2 ? 'retry' : 'failed';
 }
 
+export type DroppedUploadOutcome = 'arrived' | 'retry' | 'unsure' | 'in-the-way';
+
+/**
+ * FR-FEX-024 AC-3: a connection that dropped (status 0) may have dropped after the server had
+ * already put the file in place, so a second PUT is not idempotent: with conflict=rename it
+ * leaves a second copy, with conflict=fail it answers 409 for a file that arrived. Before the
+ * automatic retry the folder is asked again (`found`, the check's answer for this path, or null
+ * when it is not there). A rename, or a file inside a folder — the check names top-level items
+ * only — cannot be verified and is left to the user's 재시도.
+ */
+export function decideDroppedUpload(input: {
+  conflict: 'fail' | 'overwrite' | 'rename' | 'skip';
+  nested: boolean;
+  size: number;
+  found: { size: number | null; isDirectory: boolean } | null;
+}): DroppedUploadOutcome {
+  if (input.conflict === 'rename' || input.nested) return 'unsure';
+  if (input.found === null) return 'retry';
+  if (!input.found.isDirectory && input.found.size === input.size) return 'arrived';
+  return input.conflict === 'fail' ? 'in-the-way' : 'retry';
+}
+
 /** FR-FEX-024 AC-2: the list follows the arrival unless the user moved meanwhile. */
 export function decideArrivalScroll(input: { userSelected: boolean; userScrolled: boolean }): 'scroll' | 'toast-only' {
   return input.userSelected || input.userScrolled ? 'toast-only' : 'scroll';
@@ -91,6 +113,7 @@ const REASON_KEYS = {
   UPLOAD_BUSY: 'fileTransfer.reason.busy',
   NETWORK: 'fileTransfer.reason.network',
   INTERRUPTED: 'fileTransfer.reason.interrupted',
+  UNSURE: 'fileTransfer.reason.unsure',
 } satisfies Record<string, MessageKey>;
 
 /** The line a refused or failed file carries (FR-FEX-024 AC-3/AC-8). */

@@ -1172,5 +1172,6 @@
   "fileTransfer.band.cancel": "업로드 취소",
   "apiError.INVALID_UPLOAD_PATH": "올릴 경로가 올바른 상대 경로가 아닙니다.",
   "apiError.UPLOAD_BUSY": "이 세션에서 진행 중인 업로드가 너무 많습니다.",
-  "apiError.ZIP_JOB_NOT_FOUND": "ZIP 다운로드 작업을 찾을 수 없습니다."
+  "apiError.ZIP_JOB_NOT_FOUND": "ZIP 다운로드 작업을 찾을 수 없습니다.",
+  "fileTransfer.reason.unsure": "연결이 끊겼습니다 · 재시도"
 }

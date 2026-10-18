@@ -9,7 +9,7 @@
 import type { DecideAnswer, DecideDetail } from './fileExplorerPorts.ts';
 import type { FileTransferAction } from './fileTransferStore.ts';
 import { TransferError, type PutFileRequest, type PutFileResult, type UploadCheckRequest, type UploadCheckResult, type UploadConflictMode } from './fileTransferClient.ts';
-import { classifyUploadFailure, keepBothName, topLevelOf } from './fileTransferModel.ts';
+import { classifyUploadFailure, decideDroppedUpload, keepBothName, topLevelOf } from './fileTransferModel.ts';
 
 export type { PutFileRequest } from './fileTransferClient.ts';
 
@@ -129,6 +129,29 @@ export function createUploadController(deps: UploadControllerDeps): UploadContro
         const code = error instanceof TransferError ? error.code : null;
         const hidden = deps.hiddenSince();
         const verdict = classifyUploadFailure({ status, code, hiddenDuringAttempt: hidden !== null && hidden >= startedAt, attempts });
+        if (verdict === 'retry' && status === 0) {
+          // The drop may have come after the file landed: ask the folder before sending again.
+          const outcome = await verifyDropped(job, planned);
+          if (job.controller.signal.aborted) return;
+          if (outcome === 'arrived') {
+            results.set(planned.id, { name: planned.relPath, path: planned.relPath, size: planned.file.size, skipped: false });
+            job.failed.delete(planned.id);
+            deps.dispatch({ type: 'FILE_STATE', jobId, fileId: planned.id, state: 'done', resultName: planned.relPath, at: deps.now() });
+            return;
+          }
+          if (outcome !== 'retry') {
+            job.failed.add(planned.id);
+            deps.dispatch({
+              type: 'FILE_STATE',
+              jobId,
+              fileId: planned.id,
+              state: 'failed',
+              reason: outcome === 'in-the-way' ? 'FILE_ALREADY_EXISTS' : 'UNSURE',
+              at: deps.now(),
+            });
+            return;
+          }
+        }
         if (verdict === 'retry') {
           deps.dispatch({ type: 'FILE_STATE', jobId, fileId: planned.id, state: 'queued', at: deps.now() });
           continue;
@@ -144,6 +167,19 @@ export function createUploadController(deps: UploadControllerDeps): UploadContro
         });
         return;
       }
+    }
+  }
+
+  async function verifyDropped(job: LiveJob, planned: PlannedFile): Promise<ReturnType<typeof decideDroppedUpload>> {
+    const nested = planned.relPath !== topLevelOf(planned.relPath);
+    const early = decideDroppedUpload({ conflict: planned.conflict, nested, size: planned.file.size, found: null });
+    if (early === 'unsure') return early;
+    try {
+      const check = await deps.client.checkUpload(job.input.sessionId, { dir: job.input.dir, files: [{ path: planned.relPath, size: planned.file.size }] });
+      const found = check.conflicts.find((conflict) => conflict.path === planned.relPath)?.existing ?? null;
+      return decideDroppedUpload({ conflict: planned.conflict, nested, size: planned.file.size, found });
+    } catch {
+      return 'unsure';
     }
   }
 

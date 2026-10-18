@@ -1211,5 +1211,6 @@
   "fileTransfer.band.cancel": "Cancel upload",
   "apiError.INVALID_UPLOAD_PATH": "The upload path is not a valid relative path.",
   "apiError.UPLOAD_BUSY": "Too many uploads are running for this session.",
-  "apiError.ZIP_JOB_NOT_FOUND": "ZIP download job not found."
+  "apiError.ZIP_JOB_NOT_FOUND": "ZIP download job not found.",
+  "fileTransfer.reason.unsure": "Connection lost · retry"
 }
