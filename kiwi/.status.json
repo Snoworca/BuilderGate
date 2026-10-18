@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-17T23:06:21.501Z",
+  "generatedAt": "2026-10-18T08:48:12.169Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "4f490a80ecadcd33c00e8458b9a7c1f15a2b1c3c02d4301de743c3eb574151ed",
+    "value": "5447a878e713c55b7e70cb7ad7acce0bff07634110a43065ea5aec507b9ea892",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "6daa4950a78e2719ec7c5be0f3b463b83d816ed61dc9943dc7c755da2a6f4efd",
-        "size": 13752,
-        "mtimeMs": 1792278373683.3516
+        "sha256": "fc595b48dad1f44560dbf453ec8bb26daa7632d8dcdc456de5e61d4d6b3d29a7",
+        "size": 13880,
+        "mtimeMs": 1792312858661.625
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -28,7 +28,7 @@
         "path": "docs/spec/30.buildergate-stability.srs.md",
         "sha256": "8ca84d7602f1d256e5265de588fe93d362e96349b0e7f8c85ed273295a7663b6",
         "size": 1489292,
-        "mtimeMs": 1792278366144.1853
+        "mtimeMs": 1792278802221.4592
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -44,15 +44,15 @@
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "b35bbba498c448f0693b304f22ccd4d31af6101947e8fcf0fb77c069fd70cbd4",
-        "size": 111637,
-        "mtimeMs": 1792163603704.5776
+        "sha256": "4be4a825e8db5f670f828801529963474e435bbe65ee4c608c9439641594260e",
+        "size": 128546,
+        "mtimeMs": 1792313284575.047
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "efeba6a5e041155aa88fceb520f3bcfebd7a74d9caac79b7b69d7450e2a4d653",
-        "size": 50133,
-        "mtimeMs": 1790208164472.549
+        "sha256": "f538d6d050303878e74c685ab9dce9eb26ec53a8e19d5c1de9d1e8bbe1a5f71d",
+        "size": 52404,
+        "mtimeMs": 1792313291751.808
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
@@ -87,8 +87,8 @@
       "BGSTAB": 34,
       "MCP": 12,
       "MDE": 27,
-      "FEX": 21,
-      "FOP": 5,
+      "FEX": 26,
+      "FOP": 6,
       "UIDS": 10,
       "MKB": 11
     },

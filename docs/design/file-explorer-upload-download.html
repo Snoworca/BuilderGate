@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>파일 탐색기 업로드·다운로드</title>
+<style>
+  /* Values copied from frontend/src/styles/tokens.css (chrome surface). */
+  :root {
+    --bg-app: #202020; --bg-chrome: #2b2b2b; --bg-surface: #272727; --bg-raised: #2f2f2f;
+    --bg-hover: rgba(255,255,255,.055); --bg-active: rgba(0,120,212,.2);
+    --fg: #dcdcdc; --fg-strong: #f5f5f5; --fg-muted: #a0a0a0; --fg-faint: #767676;
+    --line: #3a3a3a; --line-strong: #4a4a4a;
+    --accent: #0078d4; --accent-text: #6cb6ff; --accent-fg: #fff;
+    --danger: #e05c5c; --warn: #d8a534; --ok: #4cc38a;
+    --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --row-h: 28px;
+    --fs-2xs: 11px; --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace;
+    --sans: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-app); color: var(--fg); font-family: var(--sans); font-size: var(--fs-sm); }
+  button { font: inherit; color: inherit; }
+  svg { display: block; }
+
+  header.page { max-width: 1440px; margin: 0 auto; padding: 28px 24px 4px; }
+  header.page h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; color: var(--fg-strong); }
+  header.page p { margin: 0; color: var(--fg-muted); line-height: 1.6; max-width: 900px; }
+  .demo-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+  .demo-bar span { color: var(--fg-faint); font-size: var(--fs-xs); margin-right: 4px; }
+  .chip { border: 1px solid var(--line-strong); background: var(--bg-raised); border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: var(--fs-xs); }
+  .chip:hover { border-color: var(--accent); color: var(--fg-strong); }
+  .legend { font-size: var(--fs-2xs); color: var(--fg-faint); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; box-shadow: 0 0 0 1px var(--accent-text); margin-right: 5px; vertical-align: -1px; }
+
+  .layout { max-width: 1440px; margin: 0 auto; padding: 20px 24px 48px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 28px; align-items: start; }
+  @media (max-width: 1150px) { .layout { grid-template-columns: 1fr; } }
+  .col-left { display: flex; flex-direction: column; gap: 32px; min-width: 0; }
+  .section-title { font-size: var(--fs-xs); color: var(--fg-faint); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 10px; }
+
+  /* ---------- explorer window ---------- */
+  .fx-window { position: relative; height: 580px; display: flex; flex-direction: column; background: var(--bg-surface); border: 1px solid var(--line-strong); border-radius: var(--r-lg); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+  .fx-titlebar { height: 34px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 12px; background: var(--bg-chrome); border-bottom: 1px solid var(--line); font-size: var(--fs-xs); color: var(--fg-muted); }
+  .fx-titlebar b { color: var(--fg-strong); font-weight: 600; }
+  .fx-titlebar .win-btns { margin-left: auto; display: flex; gap: 2px; }
+  .ib { width: 26px; height: 26px; border: 0; background: transparent; border-radius: var(--r-sm); display: grid; place-items: center; color: var(--fg-muted); cursor: pointer; position: relative; }
+  .ib:hover:not(:disabled) { background: var(--bg-hover); color: var(--fg-strong); }
+  .ib:disabled { opacity: .38; cursor: default; }
+  .ib svg { width: 16px; height: 16px; }
+  .ib[data-tip]:hover::after { content: attr(data-tip); position: absolute; top: 30px; left: 50%; transform: translateX(-50%); white-space: nowrap; background: #111; border: 1px solid var(--line-strong); padding: 3px 7px; border-radius: 4px; font-size: var(--fs-2xs); color: var(--fg); z-index: 20; }
+  .new { box-shadow: 0 0 0 1px var(--accent-text); }
+
+  .fx-tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: var(--bg-raised); border-bottom: 1px solid var(--line); flex: none; }
+  .fx-tab { height: 28px; padding: 0 12px; display: inline-flex; align-items: center; font-size: var(--fs-xs); color: var(--fg-muted); border: 1px solid transparent; border-bottom: 0; border-radius: var(--r-sm) var(--r-sm) 0 0; }
+  .fx-tab.on { background: var(--bg-surface); color: var(--fg-strong); border-color: var(--line); }
+
+  .fx-pathbar { flex: none; display: flex; align-items: center; gap: 2px; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  .crumbs { flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; padding: 0 8px; height: 26px; background: var(--bg-app); border: 1px solid var(--line); border-radius: var(--r-sm); font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); overflow: hidden; white-space: nowrap; }
+  .crumbs i { font-style: normal; color: var(--fg-faint); padding: 0 2px; }
+  .crumbs b { font-weight: 400; color: var(--fg); }
+  .sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+
+  /* confirm bar — same place the existing FileExplorerConfirmBar uses */
+  .confirm-bar { flex: none; display: none; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: rgba(216,165,52,.10); font-size: var(--fs-xs); }
+  .confirm-bar.show { display: flex; }
+  .confirm-bar .msg { flex: 1; min-width: 0; line-height: 1.5; }
+  .confirm-bar .msg b { color: var(--fg-strong); }
+  .confirm-bar .msg small { display: block; color: var(--fg-muted); font-size: var(--fs-2xs); }
+
+  .fx-list { position: relative; flex: 1; min-height: 0; overflow: auto; }
+  .fx-list.drag-on { box-shadow: inset 0 0 0 2px var(--accent); }
+  .fx-head, .fx-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 150px; align-items: center; height: var(--row-h); padding: 0 12px; gap: 12px; }
+  .fx-head { position: sticky; top: 0; z-index: 2; background: var(--bg-surface); border-bottom: 1px solid var(--line); color: var(--fg-faint); font-size: var(--fs-2xs); }
+  .fx-head span:nth-child(2), .fx-row span:nth-child(2) { text-align: right; }
+  .fx-row { user-select: none; border-left: 2px solid transparent; }
+  .fx-row:hover { background: var(--bg-hover); }
+  .fx-row.sel { background: var(--bg-active); border-left-color: var(--accent); }
+  .fx-row.drop-target { background: rgba(0,120,212,.28); outline: 1px dashed var(--accent-text); outline-offset: -2px; }
+  .fx-row.pending { opacity: .62; }
+  .fx-row.pending-first { border-top: 1px dashed var(--line-strong); }
+  .fx-row.arriving { animation: arrive 1.6s ease-out; }
+  @keyframes arrive { from { background: rgba(76,195,138,.30); } to { background: transparent; } }
+  .fx-row .name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .fx-row .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fx-row .name svg { width: 16px; height: 16px; flex: none; }
+  .fx-row .meta { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-muted); }
+  .fx-row .partial { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--accent-text); }
+  .ic-dir { color: #dcb67a; } .ic-file { color: var(--fg-muted); }
+
+  /* OS drop: target chip at the bottom instead of a full card */
+  .drop-chip { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); z-index: 6; display: none; align-items: center; gap: 8px; padding: 7px 14px; background: var(--accent); color: #fff; border-radius: 999px; font-size: var(--fs-xs); box-shadow: 0 8px 24px rgba(0,0,0,.45); white-space: nowrap; pointer-events: none; }
+  .drop-chip.show { display: inline-flex; }
+  .drop-chip svg { width: 14px; height: 14px; }
+  .drop-chip code { font-family: var(--mono); font-size: var(--fs-2xs); background: rgba(0,0,0,.2); padding: 1px 6px; border-radius: 4px; }
+
+  /* status bar + popover */
+  .fx-status { flex: none; height: 26px; display: flex; align-items: center; gap: 12px; padding: 0 10px; border-top: 1px solid var(--line); background: var(--bg-chrome); font-size: var(--fs-2xs); color: var(--fg-muted); }
+  .fx-status .jobs-btn { margin-left: auto; display: none; align-items: center; gap: 8px; height: 20px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; cursor: pointer; color: var(--fg); }
+  .fx-status .jobs-btn.show { display: inline-flex; }
+  .fx-status .jobs-btn:hover { background: var(--bg-hover); }
+  .fx-status .jobs-btn.warn { color: var(--warn); }
+  .mini-bar { width: 70px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .mini-bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .spin { width: 10px; height: 10px; border: 2px solid var(--line-strong); border-top-color: var(--accent-text); border-radius: 50%; animation: sp .8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  .popover { position: absolute; right: 8px; bottom: 32px; width: 350px; z-index: 30; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: 0 12px 30px rgba(0,0,0,.5); padding: 8px; display: none; }
+  .popover.show { display: block; }
+  .popover h6 { margin: 2px 4px 8px; font-size: var(--fs-2xs); color: var(--fg-faint); font-weight: 600; letter-spacing: .04em; }
+  .pop-warn { margin: 0 4px 6px; font-size: var(--fs-2xs); color: var(--warn); display: none; }
+  .pop-warn.show { display: block; }
+  .job { padding: 6px 4px 8px; border-top: 1px solid var(--line); }
+  .job:first-of-type { border-top: 0; }
+  .job-head { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); }
+  .job-head .lbl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+  .job-head svg { width: 14px; height: 14px; flex: none; }
+  .job-sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-faint); }
+  .bar { height: 4px; margin-top: 6px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .bar.indet i { width: 35%; animation: indet 1.1s ease-in-out infinite; }
+  @keyframes indet { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+  .job.done .bar i { background: var(--ok); }
+  .job.partial .bar i { background: var(--warn); }
+  .fail-list { margin: 6px 0 0; padding: 0; list-style: none; font-family: var(--mono); font-size: var(--fs-2xs); }
+  .fail-list li { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--fg-muted); }
+  .fail-list li span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fail-list li em { font-style: normal; color: var(--danger); }
+  .link-btn { border: 0; background: transparent; color: var(--accent-text); cursor: pointer; padding: 0; font-size: var(--fs-2xs); }
+  .link-btn:hover { text-decoration: underline; }
+
+  /* context menu */
+  .ctx { position: absolute; z-index: 40; min-width: 230px; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 4px; box-shadow: 0 12px 30px rgba(0,0,0,.5); display: none; font-size: var(--fs-xs); }
+  .ctx.show { display: block; }
+  .ctx button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 0 10px; height: 28px; border: 0; background: transparent; border-radius: 4px; cursor: pointer; text-align: left; }
+  .ctx button:hover:not(:disabled) { background: var(--accent); color: #fff; }
+  .ctx button:disabled { color: var(--fg-faint); cursor: default; }
+  .ctx button .ico { width: 14px; height: 14px; flex: none; }
+  .ctx button .k { margin-left: auto; color: var(--fg-faint); font-size: var(--fs-2xs); }
+  .ctx button:hover:not(:disabled) .k { color: #dfefff; }
+  .ctx button.new-item { position: relative; }
+  .ctx button.new-item::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px; background: var(--accent-text); border-radius: 1px; }
+  .ctx hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+
+  /* modal */
+  .scrim { position: absolute; inset: 0; z-index: 50; background: rgba(0,0,0,.45); display: none; place-items: center; }
+  .scrim.show { display: grid; }
+  .modal { width: 430px; max-width: calc(100% - 32px); background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: 0 20px 50px rgba(0,0,0,.55); overflow: hidden; }
+  .modal-h { padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 600; color: var(--fg-strong); font-size: var(--fs-sm); display: flex; }
+  .modal-h small { margin-left: auto; color: var(--fg-faint); font-weight: 400; }
+  .modal-b { padding: 14px 16px; line-height: 1.6; }
+  .cmp { display: grid; grid-template-columns: 54px 1fr; gap: 4px 10px; margin: 10px 0; padding: 10px; background: var(--bg-app); border: 1px solid var(--line); border-radius: var(--r-sm); font-family: var(--mono); font-size: var(--fs-2xs); }
+  .cmp dt { color: var(--fg-faint); } .cmp dd { margin: 0; }
+  .cmp .newer { color: var(--ok); }
+  .modal-b label { display: flex; align-items: center; gap: 6px; color: var(--fg-muted); font-size: var(--fs-xs); margin-top: 6px; }
+  .modal-f { display: flex; justify-content: flex-end; gap: 6px; padding: 10px 16px 14px; flex-wrap: wrap; }
+  .btn { height: 28px; padding: 0 12px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--bg-surface); cursor: pointer; font-size: var(--fs-xs); white-space: nowrap; }
+  .btn:hover { border-color: var(--fg-faint); }
+  .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  .err-list { margin: 8px 0 0; padding: 0; list-style: none; font-family: var(--mono); font-size: var(--fs-2xs); }
+  .err-list li { display: flex; justify-content: space-between; gap: 10px; padding: 5px 8px; border-top: 1px solid var(--line); }
+  .err-list li span:last-child { color: var(--danger); }
+
+  .toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 45; background: #111; border: 1px solid var(--line-strong); padding: 7px 8px 7px 14px; border-radius: var(--r-sm); font-size: var(--fs-xs); display: none; align-items: center; gap: 12px; white-space: nowrap; }
+  .toast.show { display: inline-flex; }
+  .toast button { border: 0; background: transparent; color: var(--accent-text); cursor: pointer; padding: 2px 6px; font-weight: 600; }
+
+  /* ---------- phones ---------- */
+  .phones { display: flex; gap: 28px; flex-wrap: wrap; }
+  figure { margin: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  figcaption { max-width: 300px; font-size: var(--fs-xs); color: var(--fg-muted); text-align: center; line-height: 1.55; }
+  figcaption b { display: block; color: var(--fg-strong); font-size: var(--fs-sm); margin-bottom: 2px; }
+  .phone { width: 300px; height: 620px; border-radius: 32px; background: #000; padding: 9px; box-shadow: 0 0 0 2px #444, 0 18px 40px rgba(0,0,0,.5); }
+  .screen { position: relative; height: 100%; border-radius: 24px; overflow: hidden; background: var(--bg-surface); display: flex; flex-direction: column; }
+  .p-status { height: 22px; flex: none; display: flex; justify-content: space-between; padding: 0 16px; align-items: center; font-size: 10px; color: var(--fg-muted); background: var(--bg-chrome); }
+  /* The phone shows the desktop list itself: same titlebar, tabs, path bar, columns and 28px rows.
+     Only the column widths shrink so three columns fit in the phone width. */
+  .screen .fx-titlebar { height: 30px; }
+  .screen .fx-head, .screen .fx-row { grid-template-columns: minmax(0, 1fr) 52px 72px; padding: 0 8px; gap: 8px; }
+  .p-list { flex: 1; overflow: hidden; }
+  .p-row { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 12px; border-bottom: 1px solid rgba(255,255,255,.03); font-size: var(--fs-xs); }
+  .p-row svg { width: 18px; height: 18px; flex: none; }
+  .p-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .p-row small { font-family: var(--mono); color: var(--fg-faint); font-size: var(--fs-2xs); }
+  .p-row.sel { background: var(--bg-active); }
+  .p-row.pending { opacity: .62; }
+  .cb { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--fg-faint); flex: none; display: grid; place-items: center; }
+  .cb.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cb.on svg { width: 12px; height: 12px; }
+  .p-selband { flex: none; display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 4px 0 12px; border-top: 1px solid var(--line); background: var(--bg-active); font-size: var(--fs-xs); }
+  .p-selband b { color: var(--fg-strong); font-weight: 600; margin-right: auto; }
+  .p-selband button { height: 44px; min-width: 44px; padding: 0 10px; border: 0; background: transparent; color: var(--accent-text); font-size: var(--fs-xs); display: grid; place-items: center; }
+  .p-selband button svg { width: 16px; height: 16px; color: var(--fg-muted); }
+  .p-progress { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 4px 6px 12px; border-top: 1px solid var(--line); background: var(--bg-raised); font-size: var(--fs-2xs); }
+  .p-progress .txt { flex: 1; min-width: 0; }
+  .p-progress .row1 { display: flex; justify-content: space-between; gap: 6px; color: var(--fg); }
+  .p-progress .row1 span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .p-progress .row1 span:last-child { font-family: var(--mono); color: var(--fg-faint); }
+  .p-progress .x { width: 44px; height: 44px; border: 0; background: transparent; color: var(--fg-muted); display: grid; place-items: center; flex: none; }
+  .p-progress .x svg { width: 16px; height: 16px; }
+  .p-bar { flex: none; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: var(--bg-chrome); padding-bottom: 12px; /* env(safe-area-inset-bottom) in the app */ }
+  .p-bar button { height: 56px; border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: var(--fs-xs); color: var(--fg); }
+  .p-bar button svg { width: 20px; height: 20px; }
+  .p-bar button:disabled { opacity: .38; }
+  .p-bar.new { box-shadow: inset 0 0 0 1px var(--accent-text); }
+  .sheet-scrim { position: absolute; inset: 0; z-index: 10; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; }
+  .sheet { width: 100%; background: var(--bg-raised); border-radius: 16px 16px 0 0; padding: 8px 0 12px; }
+  .sheet .grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 0 auto 8px; }
+  .sheet h5 { margin: 0 16px 4px; font-size: var(--fs-xs); color: var(--fg-strong); font-weight: 600; display: flex; }
+  .sheet h5 small { margin-left: auto; color: var(--fg-faint); font-weight: 400; }
+  .sheet .opt { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; font-size: var(--fs-sm); }
+  .sheet .opt svg { width: 18px; height: 18px; color: var(--fg-muted); flex: none; }
+  .sheet .opt .why { display: block; font-size: var(--fs-2xs); color: var(--fg-muted); }
+  .sheet .opt small { margin-left: auto; color: var(--fg-muted); font-size: var(--fs-2xs); font-family: var(--mono); }
+  .sheet .opt.off { opacity: .45; }
+  .sheet .opt.danger { color: var(--danger); } .sheet .opt.danger svg { color: var(--danger); }
+  .sheet hr { border: 0; border-top: 1px solid var(--line); margin: 3px 0; }
+  .p-modal-scrim { position: absolute; inset: 0; z-index: 10; background: rgba(0,0,0,.55); display: grid; place-items: center; padding: 14px; }
+  .p-modal { width: 100%; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: 14px; padding: 14px; }
+  .p-modal h4 { margin: 0 0 6px; font-size: var(--fs-md); color: var(--fg-strong); font-weight: 600; display: flex; }
+  .p-modal h4 small { margin-left: auto; font-size: var(--fs-2xs); color: var(--fg-faint); font-weight: 400; }
+  .p-modal p { margin: 0; font-size: var(--fs-xs); color: var(--fg-muted); line-height: 1.5; }
+  .p-modal p b { color: var(--fg-strong); font-family: var(--mono); font-weight: 400; }
+  .p-modal .cmp { margin: 10px 0 8px; }
+  .p-modal label { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: var(--fs-xs); color: var(--fg); }
+  .p-modal label .cb { width: 20px; height: 20px; }
+  .p-modal .stack { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .p-modal .stack button { height: 44px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--bg-surface); font-size: var(--fs-sm); }
+  .p-modal .stack button.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ---------- notes ---------- */
+  .notes { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .note { background: var(--bg-surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px; }
+  .note h3 { margin: 0 0 8px; font-size: var(--fs-sm); color: var(--fg-strong); font-weight: 600; display: flex; gap: 8px; align-items: center; }
+  .note h3 .n { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: var(--fs-2xs); display: grid; place-items: center; flex: none; }
+  .note p, .note li { margin: 0; color: var(--fg-muted); font-size: var(--fs-xs); line-height: 1.65; }
+  .note ul { margin: 0; padding-left: 16px; }
+  .note li + li { margin-top: 2px; }
+  .note b { color: var(--fg); font-weight: 600; }
+  .note code { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--accent-text); background: var(--bg-app); padding: 1px 4px; border-radius: 3px; }
+  .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-left: auto; font-weight: 400; }
+  .tag.ok { background: rgba(76,195,138,.15); color: var(--ok); }
+  .tag.q { background: rgba(216,165,52,.15); color: var(--warn); }
+  table.dec { width: 100%; border-collapse: collapse; font-size: var(--fs-2xs); }
+  table.dec th, table.dec td { text-align: left; vertical-align: top; padding: 6px 4px; border-top: 1px solid var(--line); color: var(--fg-muted); line-height: 1.5; }
+  table.dec th { color: var(--fg-faint); font-weight: 600; border-top: 0; }
+  table.dec td:last-child { color: var(--fg); }
+
+  @media (max-width: 640px) {
+    header.page, .layout { padding-left: 16px; padding-right: 16px; }
+    .fx-head, .fx-row { grid-template-columns: minmax(0,1fr) 70px; }
+    .fx-head span:nth-child(3), .fx-row span:nth-child(3) { display: none; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-up" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11V2.5M4.5 6 8 2.5 11.5 6"/><path d="M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/></symbol>
+  <symbol id="i-down" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5V11M4.5 7.5 8 11l3.5-3.5"/><path d="M2.5 10.5v2a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2"/></symbol>
+  <symbol id="i-dir" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 3.5a1 1 0 0 1 1-1h3.6l1.4 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M4 1.8h5l3 3v9.4H4z"/><path d="M9 1.8v3h3"/></symbol>
+  <symbol id="i-zip" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M4 1.8h5l3 3v9.4H4z"/><path d="M7 3v1M7 5.5v1M7 8v1" stroke-linecap="round"/><rect x="6" y="10" width="2" height="2.4" rx=".4"/></symbol>
+  <symbol id="i-folder-up" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M1.5 3.5a1 1 0 0 1 1-1h3.6l1.4 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/><path d="M8 11.5V7M6 9l2-2 2 2" stroke-linecap="round"/></symbol>
+  <symbol id="i-parent" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></symbol>
+  <symbol id="i-newdir" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M1.5 3.5a1 1 0 0 1 1-1h3.6l1.4 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/><path d="M8 7v4.5M5.8 9.2h4.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.3"/><path d="m10.2 10.2 3.3 3.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M10.5 2.5 13.5 5.5 6 13H3v-3z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 2 14.5 13.5h-13z"/><path d="M8 6.5v3.2M8 11.6v.1" stroke-linecap="round"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="5" y="5" width="8.5" height="8.5" rx="1.2"/><path d="M3 10.5V3.5a1 1 0 0 1 1-1h6.5"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="4.5" cy="11.5" r="2"/><circle cx="11.5" cy="11.5" r="2"/><path d="M6 10 12.5 2.5M10 10 3.5 2.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M5.5 3H4a1 1 0 0 0-1 1v9.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1.5"/><rect x="5.5" y="1.8" width="5" height="2.4" rx=".6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="6"/><path d="M8 7.2v4M8 4.8v.1" stroke-linecap="round"/></symbol>
+  <symbol id="i-rename" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M2 5.5h7.5v5H2zM12 3v10M10.5 3h3M10.5 13h3"/></symbol>
+</svg>
+
+<header class="page">
+  <h1>파일 탐색기 — 업로드·다운로드</h1>
+  <p>UX 전문가 두 명(모바일·터치, 데스크톱 작업 흐름)의 검토와 교차 합의를 반영한 2차 시안입니다. 현재 탐색기 창과 모바일 바 구조를 기준으로, 파란 테두리가 <b>새로 생기는 부분</b>입니다. 목록은 실제로 동작합니다. 파일을 OS에서 끌어다 놓거나, 우클릭하거나, 경로 막대의 업로드 버튼을 눌러 보세요(전송은 흉내만 냅니다).</p>
+  <div class="demo-bar">
+    <span>상태 미리보기</span>
+    <button class="chip" data-demo="upload">업로드 진행</button>
+    <button class="chip" data-demo="partial">일부 실패</button>
+    <button class="chip" data-demo="conflict">이름 충돌</button>
+    <button class="chip" data-demo="zip">ZIP 다운로드</button>
+    <button class="chip" data-demo="bigzip">큰 ZIP (확인 바)</button>
+    <button class="chip" data-demo="dragrow">폴더 행 위로 드래그</button>
+    <button class="chip" data-demo="close">업로드 중 창 닫기</button>
+    <button class="chip" data-demo="error">거부된 항목</button>
+    <button class="chip" data-demo="reset">초기화</button>
+  </div>
+  <div class="legend"><i></i>새로 생기는 부분</div>
+</header>
+
+<div class="layout">
+  <div class="col-left">
+    <section>
+      <h2 class="section-title">데스크톱 — 탐색기 창</h2>
+      <div class="fx-window" id="win">
+        <div class="fx-titlebar">
+          <b>파일 탐색기</b> — ProjectMaster
+          <div class="win-btns">
+            <button class="ib" data-tip="최소화" aria-label="최소화"><svg viewBox="0 0 16 16" stroke="currentColor" stroke-width="1.4"><path d="M4 8h8"/></svg></button>
+            <button class="ib" id="btnClose" data-tip="닫기" aria-label="닫기"><svg><use href="#i-x"/></svg></button>
+          </div>
+        </div>
+        <div class="fx-tabs"><span class="fx-tab on">components</span><span class="fx-tab">server</span></div>
+        <div class="fx-pathbar">
+          <button class="ib" data-tip="상위 폴더" aria-label="상위 폴더"><svg><use href="#i-parent"/></svg></button>
+          <div class="crumbs" id="crumbs"></div>
+          <button class="ib" data-tip="검색 (Ctrl+F)" aria-label="검색"><svg><use href="#i-search"/></svg></button>
+          <button class="ib" data-tip="새로 읽기" aria-label="새로 읽기"><svg><use href="#i-reload"/></svg></button>
+          <button class="ib" data-tip="새 폴더" aria-label="새 폴더"><svg><use href="#i-newdir"/></svg></button>
+          <span class="sep"></span>
+          <button class="ib new" id="btnUpload" data-tip="이 폴더에 업로드" aria-label="이 폴더에 업로드"><svg><use href="#i-up"/></svg></button>
+          <button class="ib new" id="btnDownload" data-tip="다운로드" aria-label="다운로드"><svg><use href="#i-down"/></svg></button>
+        </div>
+        <div class="confirm-bar" id="confirm" role="alert"></div>
+        <div class="fx-list" id="list">
+          <div class="fx-head"><span>이름</span><span>크기</span><span>수정한 날짜</span></div>
+          <div id="rows" role="listbox" aria-multiselectable="true"></div>
+        </div>
+        <div class="drop-chip" id="dropChip" aria-live="polite"><svg><use href="#i-up"/></svg><span id="dropText">여기에 놓으면 업로드합니다</span><code id="dropPath"></code></div>
+        <div class="fx-status">
+          <span id="statLeft">14개 항목</span>
+          <button class="jobs-btn" id="jobsBtn" aria-haspopup="dialog"><span id="jobsIcon" class="spin"></span><span id="jobsText"></span><span class="mini-bar"><i id="jobsMini"></i></span></button>
+        </div>
+        <div class="popover" id="popover" role="dialog" aria-label="파일 작업">
+          <h6>파일 작업</h6>
+          <p class="pop-warn" id="popWarn">탭을 닫거나 화면이 꺼지면 업로드가 중단됩니다.</p>
+          <div id="jobList"></div>
+        </div>
+        <div class="ctx" id="ctx" role="menu"></div>
+        <div class="scrim" id="scrim"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+        <div class="toast" id="toast" role="status"><span id="toastText"></span><button id="toastAct" hidden></button></div>
+        <input type="file" id="pickFiles" multiple hidden>
+        <input type="file" id="pickFolder" webkitdirectory multiple hidden>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">모바일 — 고정 4슬롯 바 · 더보기 · 충돌</h2>
+      <div class="phones">
+        <figure>
+          <div class="phone"><div class="screen">
+            <div class="p-status"><span>9:41</span><span>●●● 5G</span></div>
+            <div class="fx-titlebar"><b>파일 탐색기</b> — ProjectMaster</div>
+            <div class="fx-tabs"><span class="fx-tab on">components</span><span class="fx-tab">server</span></div>
+            <div class="fx-pathbar">
+              <button class="ib" aria-label="상위 폴더"><svg><use href="#i-parent"/></svg></button>
+              <div class="crumbs"><b>frontend</b><i>/</i><b>src</b><i>/</i><b>components</b></div>
+              <button class="ib" aria-label="검색"><svg><use href="#i-search"/></svg></button>
+            </div>
+            <div class="p-list fx-list" data-mirror="multi"></div>
+            <div class="p-progress new" role="button" aria-label="업로드 진행 — 작업 목록 열기">
+              <div class="txt">
+                <div class="row1"><span>components 에 업로드 중 · 1개 남음</span><span>62%</span></div>
+                <div class="bar"><i style="width:62%"></i></div>
+              </div>
+              <button class="x" aria-label="업로드 취소"><svg><use href="#i-x"/></svg></button>
+            </div>
+            <div class="p-selband new"><b>2개 선택됨</b><button>전체 선택</button><button aria-label="선택 해제"><svg><use href="#i-x"/></svg></button></div>
+            <div class="p-bar new" role="toolbar" aria-label="파일 동작">
+              <button><svg><use href="#i-up"/></svg>업로드</button>
+              <button><svg><use href="#i-zip"/></svg>다운로드</button>
+              <button disabled aria-disabled="true"><svg><use href="#i-paste"/></svg>붙여넣기</button>
+              <button aria-haspopup="menu" aria-expanded="false"><svg><use href="#i-more"/></svg>더보기</button>
+            </div>
+          </div></div>
+          <figcaption><b>① 데스크톱과 같은 목록 + 고정 4슬롯 바</b>목록은 데스크톱과 같은 탭·경로 막대·열(이름·크기·수정한 날짜)·행 높이를 씁니다. 바의 슬롯 위치는 고정이고, 조건이 안 맞으면 비활성으로만 둡니다. 선택이 있으면 선택 띠가, 전송 중이면 진행 띠가 바 위에 붙습니다.</figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><div class="screen">
+            <div class="p-status"><span>9:41</span><span>●●● 5G</span></div>
+            <div class="fx-titlebar"><b>파일 탐색기</b> — ProjectMaster</div>
+            <div class="fx-tabs"><span class="fx-tab on">components</span><span class="fx-tab">server</span></div>
+            <div class="fx-pathbar">
+              <button class="ib" aria-label="상위 폴더"><svg><use href="#i-parent"/></svg></button>
+              <div class="crumbs"><b>frontend</b><i>/</i><b>src</b><i>/</i><b>components</b></div>
+              <button class="ib" aria-label="검색"><svg><use href="#i-search"/></svg></button>
+            </div>
+            <div class="p-list fx-list" data-mirror="one"></div>
+            <div class="sheet-scrim"><div class="sheet new" role="menu" aria-label="App.tsx 동작">
+              <div class="grip"></div>
+              <h5>App.tsx <small>파일 · 12 KB</small></h5>
+              <div class="opt"><svg><use href="#i-down"/></svg>다운로드</div>
+              <div class="opt"><svg><use href="#i-up"/></svg>업로드…<small>→ components</small></div>
+              <div class="opt off"><svg><use href="#i-folder-up"/></svg><span>폴더 업로드…<span class="why">이 브라우저는 폴더 업로드를 지원하지 않습니다</span></span></div>
+              <hr>
+              <div class="opt"><svg><use href="#i-copy"/></svg>복사</div>
+              <div class="opt"><svg><use href="#i-cut"/></svg>잘라내기</div>
+              <div class="opt off"><svg><use href="#i-paste"/></svg>붙여넣기</div>
+              <hr>
+              <div class="opt"><svg><use href="#i-rename"/></svg>이름 바꾸기</div>
+              <div class="opt"><svg><use href="#i-newdir"/></svg>새 폴더</div>
+              <div class="opt"><svg><use href="#i-info"/></svg>정보</div>
+              <hr>
+              <div class="opt danger"><svg><use href="#i-trash"/></svg>삭제</div>
+            </div></div>
+          </div></div>
+          <figcaption><b>② 더보기 시트</b>제목에 대상을 밝힙니다. 항목 순서는 데스크톱 우클릭 메뉴와 같습니다. 단, 삭제는 엄지에서 먼 맨 아래에 위험 색으로 둡니다(메뉴 순서의 유일한 예외). 지원하지 않는 항목은 숨기지 않고 비활성으로 두며, 이유를 한 줄 붙입니다(예시는 iOS Safari 화면).</figcaption>
+        </figure>
+        <figure>
+          <div class="phone"><div class="screen">
+            <div class="p-status"><span>9:41</span><span>●●● 5G</span></div>
+            <div class="fx-titlebar"><b>파일 탐색기</b> — ProjectMaster</div>
+            <div class="fx-tabs"><span class="fx-tab on">components</span><span class="fx-tab">server</span></div>
+            <div class="fx-pathbar">
+              <button class="ib" aria-label="상위 폴더"><svg><use href="#i-parent"/></svg></button>
+              <div class="crumbs"><b>frontend</b><i>/</i><b>src</b><i>/</i><b>components</b></div>
+              <button class="ib" aria-label="검색"><svg><use href="#i-search"/></svg></button>
+            </div>
+            <div class="p-list fx-list" data-mirror="none"></div>
+            <div class="p-modal-scrim"><div class="p-modal new" role="dialog" aria-modal="true">
+              <h4>이미 있는 항목 <small>1/3</small></h4>
+              <p><b>screensh…t-final.png</b> 이(가) components 에 이미 있습니다.</p>
+              <dl class="cmp"><dt>기존</dt><dd>284 KB · 10-15 17:31</dd><dt>새 파일</dt><dd class="newer">1.2 MB · 지금</dd></dl>
+              <label><span class="cb"></span>남은 2개에도 같은 선택 적용</label>
+              <div class="stack">
+                <button class="pri">덮어쓰기</button>
+                <button>둘 다 유지</button>
+                <button>건너뛰기</button>
+              </div>
+            </div></div>
+          </div></div>
+          <figcaption><b>③ 폰 충돌 모달</b>버튼을 가로로 두면 360px에서 잘리므로 전체 폭 세로 버튼(44px)으로 쌓습니다. 긴 이름은 가운데를 줄입니다. 체크박스는 남은 개수로 적용 범위를 보여 주고, 남은 충돌이 없으면 숨깁니다.</figcaption>
+        </figure>
+      </div>
+    </section>
+  </div>
+
+  <aside class="notes">
+    <div class="note">
+      <h3>두 전문가가 갈렸던 곳과 결론 <span class="tag ok">합의</span></h3>
+      <table class="dec">
+        <tr><th>쟁점</th><th>결론</th></tr>
+        <tr><td>모바일 폴더 업로드</td><td>숨기지 않고 비활성 + 이유 한 줄. <code>pointer:coarse</code> 가 아니라 기능 감지로 판정합니다(Android Chrome은 지원).</td></tr>
+        <tr><td>모바일 바</td><td>선택 상태별 두 세트 → <b>한 세트로 고정</b> [업로드][다운로드][붙여넣기][더보기]. 메뉴와 같은 판정 규칙을 씁니다.</td></tr>
+        <tr><td>충돌 체크박스</td><td>"더 이상 묻지 않기"는 영구 설정처럼 읽힙니다 → "남은 n개에도 같은 선택 적용". 남은 충돌이 없으면 숨깁니다.</td></tr>
+        <tr><td>ZIP 준비</td><td>사전 계산 1회 → 기준 이하이고 1초 안에 끝나면 바로 받기, 아니면 확인 바. 확인 바의 [받기]가 새 제스처라 iOS의 제스처 만료 문제가 풀립니다.</td></tr>
+        <tr><td>전송 중인 행</td><td>목록 맨 아래에 고정(정렬이 바뀌어도 튀지 않음) → 완료 시 제자리로 옮기고 스크롤·강조. 그사이 사용자가 선택하거나 스크롤했다면 토스트만 띄웁니다.</td></tr>
+      </table>
+    </div>
+    <div class="note">
+      <h3><span class="n">1</span>업로드 진입점</h3>
+      <ul>
+        <li>경로 막대 버튼(강조 없음, 다운로드와 동등). <b>단축키는 두지 않습니다</b>. Ctrl+U는 브라우저 소스 보기이고 셸에서는 줄 삭제입니다.</li>
+        <li>우클릭 메뉴는 항목이든 빈 공간이든 <b>같은 자리</b>에 다운로드 · 업로드… · 폴더 업로드…를 둡니다. 적용되지 않으면 비활성(design 7).</li>
+        <li>폴더 행 위 메뉴는 <code>'{name}' 에 업로드…</code>, 그 밖에는 현재 폴더로 올립니다.</li>
+        <li>OS 드롭: 빈 곳·파일 행 → 현재 폴더, 폴더 행 → 그 폴더. 하단 경로 칩이 대상을 알리고 <code>aria-live</code> 로 읽어 줍니다. 모달이 열려 있으면 드롭을 막습니다.</li>
+        <li>트리 노드 드롭, 폴더 위 700ms 머물면 펼침, 탭 위 500ms 머물면 전환은 실제 구현 대상입니다(이 시안의 목록 보기에는 없음).</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3><span class="n">2</span>전송·실패·이탈</h3>
+      <ul>
+        <li>업로드 한 번 = 파일 작업 하나(FR-FEX-008 팝오버 재사용). 동시 전송은 3개(셀룰러에서는 2개).</li>
+        <li>서버는 숨김 임시 파일에 쓰고 끝나면 이름을 바꿉니다. 취소·실패 시 임시 파일을 지웁니다.</li>
+        <li>실패는 파일 단위로 처리합니다. 자동으로 1회 다시 시도하고, 그래도 실패하면 "완료 · n개 실패"와 함께 실패 목록과 [재시도]를 보여 줍니다.</li>
+        <li>전송 중에만 <code>beforeunload</code> 를 등록하고, 창을 닫으면 확인 바를 띄웁니다. 모바일은 Wake Lock을 쓰고, 화면이 꺼져 끊기면 "중단됨 · 다시 시도"로 표시합니다.</li>
+        <li>완료되면 같은 폴더를 보는 모든 탭을 새로 읽습니다. 창이 최소화되어 있으면 트레이에 배지를 답니다.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3><span class="n">3</span>다운로드</h3>
+      <ul>
+        <li>파일 하나는 기존 일회용 토큰 방식을 그대로 씁니다(FR-FEX-021).</li>
+        <li>여러 항목·폴더는 ZIP 하나로 받습니다. 이름은 항목 하나면 <code>폴더명.zip</code>, 여럿이면 <code>{현재폴더}.zip</code> 입니다.</li>
+        <li>사전 계산으로 크기를 아니까 진행 막대는 확정형입니다. <code>.git</code>·<code>node_modules</code> 는 기본으로 빼고 그 사실을 보여 줍니다. 심볼릭 링크는 따라가지 않습니다.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3><span class="n">4</span>버그·접근성</h3>
+      <ul>
+        <li>현재 <code>fx-mobile-bar</code> 의 aria-label이 작업 목록과 같은 "파일 작업"입니다. "파일 동작"으로 분리해야 합니다.</li>
+        <li>비활성은 opacity만으로 표시하지 않고 <code>disabled</code>/<code>aria-disabled</code> 를 붙입니다. 진행은 <code>role="progressbar"</code>, 시트는 포커스 트랩·뒤로가기·아래로 끌어 닫기를 갖춥니다.</li>
+        <li>모바일 목록은 데스크톱과 같은 목록(같은 열, 28px 행)을 씁니다. 하단 바 레이블 12px, 하단 safe-area, 터미널 키보드가 열리면 바를 숨깁니다.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3>정해 주셔야 할 것 <span class="tag q">결정 필요</span></h3>
+      <ul>
+        <li>업로드 최대 크기(설정값 여부, 기본값)</li>
+        <li>ZIP 확인 기준: 1GB / 1만 개가 적당한지</li>
+        <li>ZIP을 압축 없이 묶기만 할지(빠름), deflate로 압축할지</li>
+        <li>"건너뛰기"를 기존 복사 작업의 "복사하지 않기"에도 적용해 단어를 통일할지</li>
+      </ul>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const CWD = ['frontend', 'src', 'components'];
+  const FOLDER_UPLOAD_SUPPORTED = 'webkitdirectory' in document.createElement('input');
+  const ZIP_CONFIRM_BYTES = 1024 ** 3;
+  const initial = () => [
+    { n: 'AgentAlias', d: 1, t: '2026-10-12 14:20', s: 48000, c: 6 },
+    { n: 'editor', d: 1, t: '2026-10-17 09:41', s: 4200000, c: 310 },
+    { n: 'fileExplorer', d: 1, t: '2026-10-18 10:02', s: 1100000, c: 120 },
+    { n: 'Header', d: 1, t: '2026-09-30 18:11', s: 22000, c: 4 },
+    { n: 'Terminal', d: 1, t: '2026-10-16 22:07', s: 380000, c: 28 },
+    { n: 'App.tsx', s: 12480, t: '2026-10-18 09:55' },
+    { n: 'App.css', s: 3920, t: '2026-10-02 11:30' },
+    { n: 'main.tsx', s: 1104, t: '2026-08-21 08:12' },
+    { n: 'index.css', s: 2870, t: '2026-09-23 16:40' },
+    { n: 'logo.svg', s: 1580, t: '2026-07-04 13:00' },
+    { n: 'README.md', s: 5240, t: '2026-10-11 19:22' },
+    { n: 'vite-env.d.ts', s: 38, t: '2026-06-01 10:00' },
+    { n: 'tokens.css', s: 6120, t: '2026-09-23 16:40' },
+    { n: 'screenshot.png', s: 284112, t: '2026-10-15 17:31' },
+  ];
+  let entries = initial();
+  let sel = new Set();
+  let anchor = null;
+  let jobs = [];
+  let jobSeq = 0;
+  let userMovedDuringUpload = false;
+  const BLOCKED_EXT = ['.exe', '.pem', '.key'];
+
+  const fmt = (b) => b == null ? '' : b < 1024 ? `${b} B` : b < 1048576 ? `${(b/1024).toFixed(b < 10240 ? 1 : 0)} KB` : b < 1073741824 ? `${(b/1048576).toFixed(1)} MB` : `${(b/1073741824).toFixed(1)} GB`;
+  const now = () => { const d = new Date(); const p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // Rows still uploading stay pinned at the bottom so a re-sort never makes them jump.
+  const sorted = () => {
+    const done = entries.filter((e) => e.partial == null).sort((a, b) => (b.d ? 1 : 0) - (a.d ? 1 : 0) || a.n.localeCompare(b.n));
+    return [...done, ...entries.filter((e) => e.partial != null)];
+  };
+  const selectedItems = () => [...sel].map((n) => entries.find((e) => e.n === n)).filter(Boolean);
+  const uploadRunning = () => jobs.some((j) => j.kind === 'up' && j.state === 'run');
+
+  function renderCrumbs() { $('crumbs').innerHTML = CWD.map((c) => `<b>${c}</b>`).join('<i>/</i>'); }
+
+  function render() {
+    let firstPending = true;
+    $('rows').innerHTML = sorted().map((e) => {
+      const pending = e.partial != null;
+      const cls = ['fx-row', sel.has(e.n) && 'sel', pending && 'pending', pending && firstPending && 'pending-first', e.arrive && 'arriving'].filter(Boolean).join(' ');
+      if (pending) firstPending = false;
+      return `<div class="${cls}" role="option" aria-selected="${sel.has(e.n)}" data-name="${esc(e.n)}" data-dir="${e.d ? 1 : ''}">
+        <span class="name"><svg class="${e.d ? 'ic-dir' : 'ic-file'}"><use href="#${e.d ? 'i-dir' : 'i-file'}"/></svg><span>${esc(e.n)}</span></span>
+        <span class="meta">${pending ? `<span class="partial" role="progressbar" aria-valuenow="${Math.round(e.partial*100)}" aria-valuemin="0" aria-valuemax="100">${Math.round(e.partial*100)}%</span>` : e.d ? '' : fmt(e.s)}</span>
+        <span class="meta">${pending ? '업로드 중…' : e.t}</span>
+      </div>`;
+    }).join('');
+    entries.forEach((e) => { delete e.arrive; });
+    $('statLeft').textContent = sel.size ? `${entries.length}개 항목 · ${sel.size}개 선택` : `${entries.length}개 항목`;
+    const dl = $('btnDownload');
+    dl.disabled = sel.size === 0;
+    dl.setAttribute('aria-disabled', String(sel.size === 0));
+    dl.dataset.tip = sel.size ? downloadLabel() : '다운로드 — 항목을 선택하세요';
+    dl.setAttribute('aria-label', dl.dataset.tip);
+  }
+
+  function downloadLabel() {
+    const items = selectedItems();
+    if (items.length <= 1 && !(items[0] && items[0].d)) return '다운로드';
+    return items.length === 1 ? 'ZIP으로 다운로드' : `ZIP으로 다운로드 (${items.length}개)`;
+  }
+
+  // ---------- selection ----------
+  $('rows').addEventListener('click', (ev) => {
+    const row = ev.target.closest('.fx-row'); if (!row) return;
+    const name = row.dataset.name;
+    if (ev.shiftKey && anchor) {
+      const names = sorted().map((e) => e.n);
+      const [a, b] = [names.indexOf(anchor), names.indexOf(name)].sort((x, y) => x - y);
+      sel = new Set(names.slice(a, b + 1));
+    } else if (ev.ctrlKey || ev.metaKey) {
+      sel.has(name) ? sel.delete(name) : sel.add(name); anchor = name;
+    } else { sel = new Set([name]); anchor = name; }
+    if (uploadRunning()) userMovedDuringUpload = true;
+    render();
+  });
+  $('list').addEventListener('click', (ev) => { if (!ev.target.closest('.fx-row')) { sel.clear(); render(); } });
+  $('list').addEventListener('wheel', () => { if (uploadRunning()) userMovedDuringUpload = true; }, { passive: true });
+
+  // ---------- context menu: one fixed order, items disabled rather than hidden ----------
+  const ctx = $('ctx');
+  function menuItems(row) {
+    const items = selectedItems();
+    const one = items.length === 1;
+    const isDir = one && !!items[0].d;
+    const target = row && row.dataset.dir === '1' ? row.dataset.name : null;
+    const ico = (id) => `<svg class="ico"><use href="#${id}"/></svg>`;
+    return [
+      { label: '편집기로 열기', on: one && !isDir, icon: ico('i-edit') },
+      { label: '새 탭에서 열기', on: one && isDir },
+      { act: 'download', label: downloadLabel(), on: items.length > 0, icon: ico(items.length > 1 || isDir ? 'i-zip' : 'i-down'), isNew: true },
+      { act: 'upload', label: target ? `'${target}' 에 업로드…` : '업로드…', on: true, icon: ico('i-up'), isNew: true, target },
+      { act: 'upload-folder', label: '폴더 업로드…', on: FOLDER_UPLOAD_SUPPORTED, icon: ico('i-folder-up'), isNew: true, target,
+        tip: FOLDER_UPLOAD_SUPPORTED ? '' : '이 브라우저는 폴더 업로드를 지원하지 않습니다' },
+      '-',
+      { label: '복사', on: items.length > 0, k: 'Ctrl+C' },
+      { label: '잘라내기', on: items.length > 0, k: 'Ctrl+X' },
+      { label: '붙여넣기', on: false, k: 'Ctrl+V' },
+      '-',
+      { label: '이름 바꾸기', on: one, k: 'F2' },
+      { label: '삭제', on: items.length > 0, k: 'Delete' },
+      '-',
+      { label: '새 폴더', on: true, icon: ico('i-newdir') },
+      { label: '새로 읽기', on: true, icon: ico('i-reload') },
+      '-',
+      { label: '정보', on: one, icon: ico('i-info') },
+    ];
+  }
+  function openCtx(ev) {
+    ev.preventDefault();
+    const row = ev.target.closest('.fx-row');
+    if (row) { if (!sel.has(row.dataset.name)) { sel = new Set([row.dataset.name]); anchor = row.dataset.name; render(); } }
+    else { sel.clear(); render(); }
+    ctx.innerHTML = menuItems(row).map((m) => m === '-' ? '<hr>' :
+      `<button role="menuitem" class="${m.isNew ? 'new-item' : ''}" ${m.on ? '' : 'disabled aria-disabled="true"'} ${m.act ? `data-act="${m.act}"` : ''} ${m.target ? `data-target="${esc(m.target)}"` : ''} ${m.tip ? `title="${m.tip}"` : ''}>${m.icon || '<span class="ico"></span>'}${esc(m.label)}${m.k ? `<span class="k">${m.k}</span>` : ''}</button>`).join('');
+    ctx.classList.add('show');
+    const r = $('win').getBoundingClientRect();
+    ctx.style.left = Math.min(ev.clientX - r.left, r.width - 240) + 'px';
+    ctx.style.top = Math.max(4, Math.min(ev.clientY - r.top, r.height - ctx.offsetHeight - 8)) + 'px';
+  }
+  $('list').addEventListener('contextmenu', openCtx);
+  document.addEventListener('pointerdown', (ev) => {
+    if (!ctx.contains(ev.target)) ctx.classList.remove('show');
+    if (!$('popover').contains(ev.target) && !$('jobsBtn').contains(ev.target)) $('popover').classList.remove('show');
+  });
+  let uploadTarget = null;
+  ctx.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-act]'); if (!b || b.disabled) return;
+    ctx.classList.remove('show');
+    uploadTarget = b.dataset.target || null;
+    if (b.dataset.act === 'download') startDownload();
+    if (b.dataset.act === 'upload') $('pickFiles').click();
+    if (b.dataset.act === 'upload-folder') $('pickFolder').click();
+  });
+
+  // ---------- pickers ----------
+  $('btnUpload').addEventListener('click', () => { uploadTarget = null; $('pickFiles').click(); });
+  $('btnDownload').addEventListener('click', () => { if (sel.size) startDownload(); });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ctx.classList.remove('show'); $('popover').classList.remove('show'); } });
+  const fromInput = (input) => () => {
+    const merged = [];
+    for (const f of input.files) {
+      const name = f.webkitRelativePath ? f.webkitRelativePath.split('/')[0] : f.name;
+      const m = merged.find((x) => x.isFolder && x.name === name);
+      if (m) m.size += f.size; else merged.push({ name, size: f.size, isFolder: !!f.webkitRelativePath });
+    }
+    input.value = '';
+    if (merged.length) beginUpload(merged, uploadTarget);
+  };
+  $('pickFiles').addEventListener('change', fromInput($('pickFiles')));
+  $('pickFolder').addEventListener('change', fromInput($('pickFolder')));
+
+  // ---------- OS drag & drop ----------
+  const list = $('list');
+  let dragDepth = 0;
+  const hasFiles = (ev) => [...(ev.dataTransfer?.types || [])].includes('Files');
+  const modalOpen = () => $('scrim').classList.contains('show');
+  function showDrop(targetDir) {
+    list.classList.add('drag-on');
+    $('dropChip').classList.add('show');
+    $('dropText').textContent = targetDir ? `'${targetDir}' 폴더에 놓으면 업로드합니다` : '여기에 놓으면 업로드합니다';
+    $('dropPath').textContent = [...CWD, targetDir].filter(Boolean).join('/');
+    document.querySelectorAll('.fx-row.drop-target').forEach((r) => r.classList.remove('drop-target'));
+    if (targetDir) document.querySelector(`.fx-row[data-name="${CSS.escape(targetDir)}"]`)?.classList.add('drop-target');
+  }
+  function hideDrop() {
+    list.classList.remove('drag-on');
+    $('dropChip').classList.remove('show');
+    document.querySelectorAll('.fx-row.drop-target').forEach((r) => r.classList.remove('drop-target'));
+  }
+  const dropTargetOf = (ev) => { const row = ev.target.closest('.fx-row'); return row && row.dataset.dir === '1' ? row.dataset.name : null; };
+  list.addEventListener('dragenter', (ev) => { if (!hasFiles(ev)) return; ev.preventDefault(); dragDepth++; });
+  list.addEventListener('dragover', (ev) => {
+    if (!hasFiles(ev)) return; ev.preventDefault();
+    if (modalOpen()) { ev.dataTransfer.dropEffect = 'none'; return; }
+    ev.dataTransfer.dropEffect = 'copy';
+    showDrop(dropTargetOf(ev));
+  });
+  list.addEventListener('dragleave', (ev) => { if (!hasFiles(ev)) return; if (--dragDepth <= 0) { dragDepth = 0; hideDrop(); } });
+  list.addEventListener('drop', (ev) => {
+    if (!hasFiles(ev)) return; ev.preventDefault(); dragDepth = 0;
+    const target = dropTargetOf(ev);
+    hideDrop();
+    if (modalOpen()) return;
+    const files = [...ev.dataTransfer.items].filter((it) => it.kind === 'file').map((it) => {
+      const entry = it.webkitGetAsEntry?.(); const f = it.getAsFile();
+      return { name: f?.name || 'untitled', size: f?.size || 0, isFolder: !!entry?.isDirectory };
+    });
+    if (files.length) beginUpload(files, target);
+  });
+  window.addEventListener('dragover', (ev) => ev.preventDefault());
+  window.addEventListener('drop', (ev) => ev.preventDefault());
+
+  // ---------- upload flow ----------
+  function beginUpload(files, targetDir) {
+    const rejected = files.filter((f) => BLOCKED_EXT.some((x) => f.name.toLowerCase().endsWith(x)));
+    const accepted = files.filter((f) => !rejected.includes(f));
+    const conflicts = targetDir ? [] : accepted.filter((f) => entries.some((e) => e.n === f.name && e.partial == null));
+    const go = (plan) => {
+      if (plan.length) runUpload(plan, targetDir);
+      if (rejected.length) showErrors(rejected.map((f) => ({ name: f.name, why: 'PATH_BLOCKED · 차단된 확장자' })));
+    };
+    if (conflicts.length) askConflict(accepted, conflicts, go); else go(accepted.map((f) => ({ ...f, finalName: f.name })));
+  }
+
+  function askConflict(accepted, conflicts, done) {
+    const decisions = {};
+    let i = 0, applyAll = null;
+    const next = () => {
+      if (i >= conflicts.length) {
+        const plan = [];
+        for (const f of accepted) {
+          const d = decisions[f.name];
+          if (d === 'skip') continue;
+          plan.push({ ...f, finalName: d === 'keep' ? uniqueName(f.name) : f.name });
+        }
+        closeModal(); done(plan); return;
+      }
+      const f = conflicts[i];
+      if (applyAll) { decisions[f.name] = applyAll; i++; next(); return; }
+      const old = entries.find((e) => e.n === f.name);
+      const remaining = conflicts.length - i - 1;
+      // Buttons come from the server's offered decisions; 둘 다 유지 is a new server decision.
+      openModal(`
+        <div class="modal-h">이미 있는 항목 ${conflicts.length > 1 ? `<small>${i + 1}/${conflicts.length}</small>` : ''}</div>
+        <div class="modal-b">
+          <b>${esc(f.name)}</b> 이(가) ${CWD[CWD.length - 1]} 에 이미 있습니다.
+          <dl class="cmp">
+            <dt>기존</dt><dd>${old.d ? '폴더' : fmt(old.s)} · ${old.t}</dd>
+            <dt>새 파일</dt><dd class="newer">${f.isFolder ? '폴더' : fmt(f.size)} · 지금</dd>
+          </dl>
+          ${remaining > 0 ? `<label><input type="checkbox" id="applyAll"> 남은 ${remaining}개에도 같은 선택 적용</label>` : ''}
+        </div>
+        <div class="modal-f">
+          <button class="btn" data-d="skip">건너뛰기</button>
+          <button class="btn" data-d="keep">둘 다 유지</button>
+          <button class="btn pri" data-d="overwrite">덮어쓰기</button>
+        </div>`);
+      $('modal').querySelector('.pri').focus();
+      $('modal').querySelectorAll('[data-d]').forEach((b) => b.onclick = () => {
+        decisions[f.name] = b.dataset.d;
+        if ($('applyAll')?.checked) applyAll = b.dataset.d;
+        i++; next();
+      });
+    };
+    next();
+  }
+
+  function uniqueName(name) {
+    const dot = name.lastIndexOf('.');
+    const [base, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+    for (let k = 1; ; k++) { const c = `${base} (${k})${ext}`; if (!entries.some((e) => e.n === c)) return c; }
+  }
+
+  const weight = (f) => Math.max(f.size, 40000);
+  function runUpload(plan, targetDir) {
+    const id = ++jobSeq;
+    const dest = [...CWD, targetDir].filter(Boolean).join('/');
+    const job = { id, kind: 'up', plan, targetDir, dest, state: 'run', sent: 0, start: performance.now(), failed: [] };
+    job.total = plan.reduce((a, f) => a + weight(f), 0);
+    jobs.push(job);
+    userMovedDuringUpload = false;
+    if (!targetDir) plan.forEach((f) => {
+      const ex = entries.find((e) => e.n === f.finalName);
+      if (ex) { f.replaces = { ...ex }; entries = entries.filter((e) => e !== ex); }
+      entries.push({ n: f.finalName, d: f.isFolder ? 1 : 0, s: f.size, t: now(), partial: 0 });
+    });
+    render(); renderJobs();
+    const rate = Math.max(job.total / 5, 150000);
+    const tick = () => {
+      if (job.state !== 'run') return;
+      job.sent = Math.min(job.total, job.sent + rate / 10);
+      let acc = 0;
+      plan.forEach((f, k) => {
+        const p = Math.max(0, Math.min(1, (job.sent - acc) / weight(f)));
+        acc += weight(f);
+        if (p > 0 && p < 1) job.idx = k;
+        if (f.fail && p >= 0.55 && !job.failed.includes(f)) {
+          job.failed.push(f);
+          entries = entries.filter((e) => e.n !== f.finalName);
+          if (f.replaces) entries.push(f.replaces);
+        }
+        const e = entries.find((x) => x.n === f.finalName && x.partial != null);
+        if (e) e.partial = p;
+      });
+      if (!targetDir) render();
+      if (job.sent >= job.total) return finishUpload(job);
+      renderJobs();
+      setTimeout(tick, 100);
+    };
+    setTimeout(tick, 150);
+  }
+
+  function finishUpload(job) {
+    const ok = job.plan.filter((f) => !job.failed.includes(f));
+    job.state = job.failed.length ? 'partial' : 'done';
+    let last = null;
+    if (!job.targetDir) ok.forEach((f) => {
+      const e = entries.find((x) => x.n === f.finalName);
+      if (e) { delete e.partial; e.arrive = true; e.t = now(); last = e.n; }
+    });
+    render(); renderJobs();
+    const scrollTo = () => { const row = last && document.querySelector(`.fx-row[data-name="${CSS.escape(last)}"]`); row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
+    const msg = job.failed.length ? `${ok.length}개를 ${job.dest} 에 올렸습니다 · ${job.failed.length}개 실패` : `${ok.length}개를 ${job.dest} 에 올렸습니다`;
+    if (!job.targetDir && !userMovedDuringUpload) scrollTo();
+    toast(msg, job.targetDir ? null : '보기', scrollTo);
+    if (job.failed.length) $('popover').classList.add('show');
+    else setTimeout(() => { jobs = jobs.filter((j) => j !== job); renderJobs(); }, 1800);
+  }
+
+  function retryFailed(id) {
+    const job = jobs.find((j) => j.id === id); if (!job) return;
+    jobs = jobs.filter((j) => j !== job);
+    runUpload(job.failed.map((f) => ({ ...f, fail: false })), job.targetDir);
+  }
+
+  function cancelJob(id) {
+    const job = jobs.find((j) => j.id === id); if (!job) return;
+    job.state = 'cancel';
+    if (job.kind === 'up' && !job.targetDir) job.plan.forEach((f) => {
+      entries = entries.filter((e) => !(e.n === f.finalName && e.partial != null));
+      if (f.replaces && !entries.some((e) => e.n === f.replaces.n)) entries.push(f.replaces);
+    });
+    jobs = jobs.filter((j) => j !== job);
+    render(); renderJobs();
+    toast(job.kind === 'up' ? '업로드를 취소했습니다. 받던 파일은 남기지 않았습니다.' : 'ZIP 다운로드를 취소했습니다.');
+  }
+
+  // ---------- download flow: pre-count → (confirm bar) → token → stream ----------
+  function startDownload(forceBig) {
+    const items = selectedItems();
+    if (!items.length) return;
+    if (items.length === 1 && !items[0].d) { toast(`다운로드 시작: ${items[0].n}`); return; }
+    const name = items.length === 1 ? `${items[0].n}.zip` : `${CWD[CWD.length - 1]}.zip`;
+    const job = { id: ++jobSeq, kind: 'zip', phase: 'count', name, state: 'run' };
+    jobs.push(job); renderJobs();
+    setTimeout(() => {
+      if (job.state !== 'run') return;
+      job.bytes = forceBig ? 1.4 * 1024 ** 3 : items.reduce((a, e) => a + e.s, 0);
+      job.count = forceBig ? 12300 : items.reduce((a, e) => a + (e.c || 1), 0);
+      if (forceBig || job.bytes > ZIP_CONFIRM_BYTES || job.count > 10000) {
+        jobs = jobs.filter((j) => j !== job); renderJobs();
+        showConfirm(`<b>${name}</b> · ${fmt(job.bytes)} · ${job.count.toLocaleString('ko-KR')}개<small>제외: .git, node_modules · 받는 데 시간이 걸릴 수 있습니다</small>`,
+          [{ label: '취소', fn: hideConfirm }, { label: '받기', pri: true, fn: () => { hideConfirm(); transferZip(job); } }]);
+      } else transferZip(job);
+    }, 700);
+  }
+  function transferZip(job) {
+    job.phase = 'send'; job.sent = 0; job.state = 'run';
+    if (!jobs.includes(job)) jobs.push(job);
+    renderJobs();
+    const tick = () => {
+      if (job.state !== 'run') return;
+      job.sent = Math.min(job.bytes, job.sent + job.bytes / 22);
+      if (job.sent >= job.bytes) {
+        job.state = 'done'; renderJobs(); toast(`${job.name} 저장을 브라우저에 넘겼습니다`);
+        setTimeout(() => { jobs = jobs.filter((j) => j !== job); renderJobs(); }, 1500);
+        return;
+      }
+      renderJobs(); setTimeout(tick, 100);
+    };
+    setTimeout(tick, 100);
+  }
+
+  // ---------- confirm bar ----------
+  function showConfirm(html, buttons) {
+    const bar = $('confirm');
+    bar.innerHTML = `<svg style="width:16px;height:16px;color:var(--warn);flex:none"><use href="#i-warn"/></svg><div class="msg">${html}</div>` +
+      buttons.map((b, i) => `<button class="btn ${b.pri ? 'pri' : ''} ${b.danger ? 'danger' : ''}" data-i="${i}">${b.label}</button>`).join('');
+    bar.querySelectorAll('[data-i]').forEach((el) => el.onclick = () => buttons[el.dataset.i].fn());
+    bar.classList.add('show');
+    bar.querySelector('.pri')?.focus();
+  }
+  function hideConfirm() { $('confirm').classList.remove('show'); }
+  $('btnClose').addEventListener('click', () => {
+    const n = jobs.filter((j) => j.kind === 'up' && j.state === 'run').reduce((a, j) => a + j.plan.length, 0);
+    if (!n) { toast('(시안) 창이 닫힙니다'); return; }
+    showConfirm(`<b>업로드 ${n}개가 진행 중입니다.</b><small>창을 닫으면 중단되고, 받던 파일은 남기지 않습니다.</small>`,
+      [{ label: '계속 업로드', pri: true, fn: hideConfirm }, { label: '중단하고 닫기', danger: true, fn: () => { hideConfirm(); jobs.filter((j) => j.kind === 'up').forEach((j) => cancelJob(j.id)); } }]);
+  });
+
+  // ---------- jobs UI ----------
+  function renderJobs() {
+    const active = jobs.filter((j) => j.state === 'run');
+    const failedJobs = jobs.filter((j) => j.state === 'partial');
+    const btn = $('jobsBtn');
+    btn.classList.toggle('show', jobs.length > 0);
+    btn.classList.toggle('warn', !active.length && failedJobs.length > 0);
+    if (!jobs.length) $('popover').classList.remove('show');
+    $('jobsText').textContent = active.length ? `${active.length}개 작업 진행 중` : failedJobs.length ? '실패한 항목 있음' : '완료';
+    $('jobsIcon').className = active.length ? 'spin' : '';
+    const measurable = active.filter((j) => j.kind === 'up' || j.phase === 'send');
+    const frac = measurable.length ? measurable.reduce((a, j) => a + j.sent / (j.total || j.bytes), 0) / measurable.length : active.length ? 0.1 : 1;
+    $('jobsMini').style.width = `${Math.round(frac * 100)}%`;
+    $('popWarn').classList.toggle('show', uploadRunning());
+    window.onbeforeunload = uploadRunning() ? (e) => { e.preventDefault(); e.returnValue = ''; } : null;
+    const cancelBtn = (j) => j.state === 'run' ? `<button class="ib" style="width:22px;height:22px" data-cancel="${j.id}" aria-label="작업 취소"><svg style="width:12px;height:12px"><use href="#i-x"/></svg></button>` : '';
+    $('jobList').innerHTML = jobs.map((j) => {
+      if (j.kind === 'up') {
+        const f = j.plan[j.idx || 0];
+        const secs = (performance.now() - j.start) / 1000;
+        const pct = (j.sent / j.total * 100).toFixed(1);
+        const head = j.state === 'partial' ? `업로드 완료 · ${j.failed.length}개 실패 → ${j.dest}` : `업로드 ${j.plan.length}개 → ${j.dest}`;
+        return `<div class="job ${j.state}">
+          <div class="job-head"><svg><use href="#${j.state === 'run' ? 'i-up' : j.state === 'partial' ? 'i-warn' : 'i-check'}"/></svg><span class="lbl">${esc(head)}</span>${cancelBtn(j)}</div>
+          <div class="bar" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+          ${j.state === 'run' ? `<div class="job-sub"><span>${(j.idx || 0) + 1}/${j.plan.length} · ${esc(f.finalName)}</span><span>${fmt(Math.round(j.sent))} / ${fmt(j.total)} · ${fmt(Math.round(j.sent / Math.max(secs, .1)))}/s</span></div>` : ''}
+          ${j.failed.length ? `<ul class="fail-list">${j.failed.map((x) => `<li><span>${esc(x.finalName)}</span><em>연결 끊김 · 자동 재시도 1회 실패</em></li>`).join('')}</ul>
+            ${j.state !== 'run' ? `<div class="job-sub"><span></span><span><button class="link-btn" data-retry="${j.id}">재시도</button> · <button class="link-btn" data-dismiss="${j.id}">닫기</button></span></div>` : ''}` : ''}
+        </div>`;
+      }
+      const counting = j.phase === 'count';
+      const pct = counting ? 0 : (j.sent / j.bytes * 100);
+      return `<div class="job ${j.state}">
+        <div class="job-head"><svg><use href="#${j.state === 'done' ? 'i-check' : 'i-zip'}"/></svg><span class="lbl">${counting ? `압축 대상 계산 중 · ${esc(j.name)}` : esc(j.name)}</span>${cancelBtn(j)}</div>
+        <div class="bar ${counting ? 'indet' : ''}"><i style="${counting ? '' : `width:${pct.toFixed(1)}%`}"></i></div>
+        <div class="job-sub"><span>${counting ? '개수·크기 확인 중' : j.state === 'done' ? '브라우저 다운로드로 넘김' : `${j.count.toLocaleString('ko-KR')}개 · .git, node_modules 제외`}</span><span>${counting ? '' : `${fmt(Math.round(j.sent))} / ${fmt(j.bytes)}`}</span></div>
+      </div>`;
+    }).join('');
+  }
+  $('jobsBtn').addEventListener('click', () => $('popover').classList.toggle('show'));
+  $('jobList').addEventListener('click', (ev) => {
+    const c = ev.target.closest('[data-cancel]'); if (c) cancelJob(Number(c.dataset.cancel));
+    const r = ev.target.closest('[data-retry]'); if (r) retryFailed(Number(r.dataset.retry));
+    const d = ev.target.closest('[data-dismiss]'); if (d) { jobs = jobs.filter((j) => j.id !== Number(d.dataset.dismiss)); renderJobs(); }
+  });
+
+  // ---------- modal / toast ----------
+  function openModal(html) { $('modal').innerHTML = html; $('scrim').classList.add('show'); }
+  function closeModal() { $('scrim').classList.remove('show'); }
+  function showErrors(items) {
+    openModal(`
+      <div class="modal-h">처리하지 못한 항목</div>
+      <div class="modal-b">아래 항목은 서버가 받지 않았습니다. 나머지는 계속 올라갑니다.
+        <ul class="err-list">${items.map((x) => `<li><span>${esc(x.name)}</span><span>${x.why}</span></li>`).join('')}</ul>
+      </div>
+      <div class="modal-f"><button class="btn pri" id="errOk">확인</button></div>`);
+    $('errOk').onclick = closeModal; $('errOk').focus();
+  }
+  let toastTimer;
+  function toast(msg, actLabel, actFn) {
+    $('toastText').textContent = msg;
+    const a = $('toastAct');
+    a.hidden = !actLabel; a.textContent = actLabel || ''; a.onclick = () => { actFn?.(); $('toast').classList.remove('show'); };
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('show'), 3200);
+  }
+
+  // ---------- demo buttons ----------
+  document.querySelectorAll('[data-demo]').forEach((b) => b.addEventListener('click', () => {
+    hideDrop(); closeModal(); hideConfirm(); ctx.classList.remove('show');
+    const d = b.dataset.demo;
+    if (d === 'upload') { beginUpload([{ name: 'design-v3.fig', size: 3800000 }, { name: 'notes.md', size: 4200 }, { name: 'capture.mp4', size: 9200000 }], null); $('popover').classList.add('show'); }
+    if (d === 'partial') { runUpload([{ name: 'a.log', finalName: 'a.log', size: 900000 }, { name: 'b.log', finalName: 'b.log', size: 1200000, fail: true }, { name: 'c.log', finalName: 'c.log', size: 700000 }], null); $('popover').classList.add('show'); }
+    if (d === 'conflict') beginUpload([{ name: 'App.tsx', size: 13020 }, { name: 'README.md', size: 6011 }, { name: 'screenshot.png', size: 1240000 }, { name: 'new-hook.ts', size: 2100 }], null);
+    if (d === 'zip') { sel = new Set(['editor', 'fileExplorer', 'App.tsx']); render(); startDownload(false); $('popover').classList.add('show'); }
+    if (d === 'bigzip') { sel = new Set(['editor', 'Terminal']); render(); startDownload(true); $('popover').classList.add('show'); }
+    if (d === 'dragrow') showDrop('fileExplorer');
+    if (d === 'close') { if (!uploadRunning()) runUpload([{ name: 'backup.tar', finalName: 'backup.tar', size: 30000000 }, { name: 'dump.sql', finalName: 'dump.sql', size: 8000000 }], null); setTimeout(() => $('btnClose').click(), 300); }
+    if (d === 'error') beginUpload([{ name: 'setup.exe', size: 920000 }, { name: 'server.key', size: 1700 }, { name: 'ok.txt', size: 300 }], null);
+    if (d === 'reset') { jobs.forEach((j) => j.state = 'cancel'); jobs = []; entries = initial(); sel.clear(); render(); renderJobs(); }
+  }));
+  $('scrim').addEventListener('click', (ev) => { if (ev.target === $('scrim')) closeModal(); });
+
+  // ---------- phone lists: rendered from the same data and row markup as the desktop list ----------
+  const short = (t) => t.slice(5);
+  const MIRRORS = {
+    multi: { sel: ['fileExplorer', 'App.tsx'], pending: { n: 'capture.mp4', p: 0.62 } },
+    one: { sel: ['App.tsx'] },
+    none: { sel: [] },
+  };
+  document.querySelectorAll('[data-mirror]').forEach((el) => {
+    const cfg = MIRRORS[el.dataset.mirror];
+    const rows = initial().sort((a, b) => (b.d ? 1 : 0) - (a.d ? 1 : 0) || a.n.localeCompare(b.n));
+    if (cfg.pending) rows.push({ n: cfg.pending.n, partial: cfg.pending.p });
+    el.innerHTML = `<div class="fx-head"><span>이름</span><span>크기</span><span>수정한 날짜</span></div>` + rows.map((e, i) => {
+      const pending = e.partial != null;
+      const cls = ['fx-row', cfg.sel.includes(e.n) && 'sel', pending && 'pending pending-first'].filter(Boolean).join(' ');
+      return `<div class="${cls}">
+        <span class="name"><svg class="${e.d ? 'ic-dir' : 'ic-file'}"><use href="#${e.d ? 'i-dir' : 'i-file'}"/></svg><span>${esc(e.n)}</span></span>
+        <span class="meta">${pending ? `<span class="partial">${Math.round(e.partial * 100)}%</span>` : e.d ? '' : fmt(e.s)}</span>
+        <span class="meta">${pending ? '업로드 중…' : short(e.t)}</span>
+      </div>`;
+    }).join('');
+  });
+
+  renderCrumbs(); render(); renderJobs();
+})();
+</script>
+</body>
+</html>
