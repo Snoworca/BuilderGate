@@ -157,3 +157,17 @@ test('FR-FEX-027 AC-6: the end names the count and folder, selects what was made
   assert.doesNotMatch(ko['fileTransfer.toast.extracted.other'], /\}(?:을|를|이|가|은|는|와|과|으로|로)/);
   for (const code of ['ARCHIVE_TOO_LARGE', 'ARCHIVE_UNSUPPORTED', 'ARCHIVE_CORRUPT']) assert.equal(typeof ko[`apiError.${code}`], 'string', code);
 });
+
+test('FR-FEX-027 AC-6: more skipped entries than the job listed end the list with 외 n개', async () => {
+  const { buildRejectedItemsModal } = await import('../../src/components/fileExplorer/fileExplorerModalModel.ts');
+  const view = describeExtractDone({
+    destPath: '/w', createdPaths: [], processedEntries: 0,
+    skipped: [{ path: 'a', reason: 'links are not extracted' }], skippedCount: 1500,
+  });
+  assert.equal(view.moreSkipped, 1499);
+  assert.equal(describeExtractDone({ destPath: '/w', createdPaths: [], processedEntries: 0, skipped: [], skippedCount: 0 }).moreSkipped, 0);
+  assert.equal(describeExtractDone({ destPath: '/w', createdPaths: [], processedEntries: 0, skipped: [] }).moreSkipped, 0, 'an older server sends no count');
+  assert.equal(buildRejectedItemsModal(view.skipped, view.moreSkipped).moreLabel, '외 1499개');
+  assert.equal(buildRejectedItemsModal(view.skipped, 0).moreLabel, undefined);
+  assert.match(read('../../src/components/fileExplorer/FileExplorerWindowModal.tsx'), /model\.moreLabel/);
+});
