@@ -2,21 +2,24 @@
 // it after the server has checked the file; a browser shows the workspace the terminal is in and
 // opens the file there, the same way the session path menu does.
 
-export type EditorOpenKind = 'markdown' | 'code' | 'image';
+// FR-MCP-013 / FR-MDE-028 AC-1: an HTML file opens in the view the tool asked for.
+export type EditorOpenKind = 'markdown' | 'code' | 'image' | 'html';
 
 export interface EditorOpenRequest {
   workspaceId: string;
   terminalId: string;
   filePath: string;
   kind: EditorOpenKind;
+  /** Only for html: rendered unless the tool asked for the source. */
+  view?: 'rendered' | 'source';
 }
 
 export type EditorRemoteOpenStep =
   | { action: 'ignore' }
   | { action: 'switch'; workspaceId: string }
-  | { action: 'open'; filePath: string; tabId: string };
+  | { action: 'open'; filePath: string; tabId: string; view?: 'rendered' | 'source' };
 
-const KINDS: ReadonlySet<string> = new Set(['markdown', 'code', 'image']);
+const KINDS: ReadonlySet<string> = new Set(['markdown', 'code', 'image', 'html']);
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
@@ -31,6 +34,9 @@ export function parseEditorOpenRequest(data: unknown): EditorOpenRequest | null 
   const filePath = text(record.filePath);
   const kind = text(record.kind);
   if (!workspaceId || !terminalId || !filePath || !kind || !KINDS.has(kind)) return null;
+  if (kind === 'html') {
+    return { workspaceId, terminalId, filePath, kind, view: record.view === 'source' ? 'source' : 'rendered' };
+  }
   return { workspaceId, terminalId, filePath, kind: kind as EditorOpenKind };
 }
 
@@ -46,5 +52,5 @@ export function planEditorRemoteOpen(
   const tab = state.tabs.find(candidate => candidate.id === request.terminalId);
   if (tab === undefined || tab.workspaceId !== request.workspaceId) return { action: 'ignore' };
   if (state.activeWorkspaceId !== request.workspaceId) return { action: 'switch', workspaceId: request.workspaceId };
-  return { action: 'open', filePath: request.filePath, tabId: tab.id };
+  return { action: 'open', filePath: request.filePath, tabId: tab.id, ...(request.view === undefined ? {} : { view: request.view }) };
 }

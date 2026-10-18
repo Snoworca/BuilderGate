@@ -30,6 +30,10 @@
 // take the same mount-time props, handle and save controller, so save, dirty,
 // close prompts, line endings and read-only behave the same in either mode.
 // @req FR-MDE-014
+//
+// An .html/.htm document is a code document drawn inside an HTML tab: the rendered page in a
+// sandboxed frame, or this same code editor as its source (FR-MDE-028).
+// @req FR-MDE-028
 
 import { editorPhrases } from '../../i18n/editorPhrases.ts';
 import {
@@ -52,6 +56,8 @@ import { ImageFileViewer, type ImageViewerNavigation } from './ImageFileViewer.t
 import { imageNavigation, imageStepHandlers } from './imageSiblings.ts';
 import { useImageSiblings } from './useImageSiblings.ts';
 import { SvgFileTab } from './SvgFileTab.tsx';
+import { HtmlFileTab } from './HtmlFileTab.tsx';
+import { consumeHtmlViewHint, isHtmlFile } from './htmlTabModel.ts';
 import { createSvgSourceSession, type SvgSource, type SvgSourceSession } from './svgTabModel.ts';
 import { documentSaveBinding, type ImageDocumentState } from '../../hooks/editorDocumentLoad.ts';
 import { readWrapPreference, writeWrapPreference } from './codeEditorExtensions.ts';
@@ -439,6 +445,11 @@ export function EditorDocumentPanel({
   // exists the title bar, Ctrl+S, dirty and the close prompt all follow it.
   // @req FR-MDE-019
   const isSvg = component === 'image' && filePath.toLowerCase().endsWith('.svg');
+  // FR-MDE-028: an HTML file opens rendered unless whoever opened it asked for the source.
+  const isHtml = component === 'code' && isHtmlFile(filePath);
+  const htmlViewRef = useRef<ReturnType<typeof consumeHtmlViewHint> | null>(null);
+  if (isHtml && htmlViewRef.current === null) htmlViewRef.current = consumeHtmlViewHint(filePath);
+  const getLiveBody = useCallback(() => liveBodyRef.current, []);
   const svgSessionRef = useRef<SvgSourceSession | null>(null);
   const activeController = useCallback(
     (): EditorWindowSaveController => svgSessionRef.current?.controller ?? controller,
@@ -680,6 +691,19 @@ export function EditorDocumentPanel({
     return { index: place.index, count: place.count, ...imageStepHandlers(place, saveState.dirty, onNavigateImage) };
   }, [siblings, onNavigateImage, filePath, saveState.dirty]);
 
+  const codeEditor = view === 'code' ? (
+    <CodeFileEditor
+      key={shown ?? 'code'}
+      {...editorMountProps}
+      language={shown === 'markdown-raw' ? 'markdown' : mode.language}
+      wrap={wrap}
+      readOnly={access.readOnly}
+      dataFile={dataFileKindFor(filePath)}
+      columnDelimiter={columnDelimiterFor(filePath)}
+      editorHandleRef={editorHandleRef}
+    />
+  ) : null;
+
   return (
     <>
       <div
@@ -733,17 +757,20 @@ export function EditorDocumentPanel({
               editorHandleRef={editorHandleRef}
             />
           )}
-          {view === 'code' && (
-            <CodeFileEditor
-              key={shown ?? 'code'}
-              {...editorMountProps}
-              language={shown === 'markdown-raw' ? 'markdown' : mode.language}
-              wrap={wrap}
-              readOnly={access.readOnly}
-              dataFile={dataFileKindFor(filePath)}
-              columnDelimiter={columnDelimiterFor(filePath)}
-              editorHandleRef={editorHandleRef}
-            />
+          {view === 'code' && !isHtml && codeEditor}
+          {/* @req FR-MDE-028 -- the HTML tab: rendered page or this code editor as its source. */}
+          {isHtml && (
+            <HtmlFileTab
+              filePath={filePath}
+              tabId={tabId}
+              resolveTabSession={(id) => resolveTabSessionRef.current(id)}
+              initialView={htmlViewRef.current ?? 'rendered'}
+              dirty={saveState.dirty}
+              getText={getLiveBody}
+              onSave={save}
+            >
+              {codeEditor}
+            </HtmlFileTab>
           )}
           {/* @req FR-MDE-018 -- an image draws in the viewer; a non-editor
               file opens nothing rather than binary text. */}

@@ -12,6 +12,7 @@ import { t } from '../i18n/i18n.ts';
 export { parseApiErrorPayload } from './apiError.ts';
 import { createFileJobClient } from '../components/fileExplorer/fileJobClient.ts';
 import { createFileTransferClient, type XhrLike } from '../components/fileExplorer/fileTransferClient.ts';
+import { createHtmlViewClient } from '../components/editor/htmlViewClient.ts';
 import { createSessionSnapshotClient } from '../components/SessionSave/sessionSnapshotClient.ts';
 
 import type {
@@ -451,6 +452,8 @@ export const fileTransferApi = createFileTransferClient({
   apiBase: API_BASE,
   createXhr: () => new XMLHttpRequest() as unknown as XhrLike,
 });
+// HTML view tokens and the resources a page requested -- FR-MDE-028, SEC-MDE-002.
+export const htmlViewApi = createHtmlViewClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
 // FR-AITUI-007 / FR-AITUI-008: session save and resume after restart.
 export const sessionSnapshotApi = createSessionSnapshotClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
 

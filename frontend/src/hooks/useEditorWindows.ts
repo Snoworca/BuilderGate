@@ -75,6 +75,7 @@ import {
   planEditorRemoteOpen,
   type EditorOpenRequest,
 } from '../components/editor/editorRemoteOpen.ts';
+import { requestHtmlView, setHtmlViewHint, type HtmlView } from '../components/editor/htmlTabModel.ts';
 import { planImageStep } from '../components/editor/imageSiblings.ts';
 import {
   loadDocument,
@@ -664,7 +665,8 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   // POSIX directory holding a backslash is passed through untouched for the
   // same reason.
   // @req FR-FEX-003
-  const openDocument = useCallback((filePath: string, tabId: string) => {
+  // `htmlView` (FR-MCP-013): the view an HTML document opens in, or switches to when it is open.
+  const openDocument = useCallback((filePath: string, tabId: string, htmlView?: HtmlView) => {
     const windowsStyle = /^[A-Za-z]:/.test(filePath) || filePath.startsWith('\\');
     const cut = windowsStyle
       ? Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
@@ -676,8 +678,10 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     const existing = documentsRef.current.find(document => document.filePath === key);
     if (existing !== undefined) {
       reviveByPath(key, existing.workspaceId);
+      if (htmlView !== undefined) requestHtmlView(key, htmlView);
       return;
     }
+    if (htmlView !== undefined) setHtmlViewHint(key, htmlView);
     void openWindow(key, tabId);
   }, [openWindow, reviveByPath]);
 
@@ -703,7 +707,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     setPendingRemoteOpen(null);
     if (step.action === 'open') {
       setScreen('workspace');
-      openDocument(step.filePath, step.tabId);
+      openDocument(step.filePath, step.tabId, step.view);
     }
     // `tabs` is rebuilt every render; its ids and workspaces are what matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps

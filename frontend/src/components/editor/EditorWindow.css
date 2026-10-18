@@ -569,3 +569,60 @@
 .editor-window-surface [data-editor-mode='markdown'] .atomic-cm-editor .cm-content {
   padding-top: 12px;
 }
+
+/* FR-MDE-028: the HTML tab — the 렌더링 / 소스 segment, the resource list and the sandboxed page. */
+.editor-window-surface .html-tab-toolbar { gap: 6px; flex-wrap: wrap; }
+.editor-window-surface .html-tab-seg {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.editor-window-surface .html-tab-seg .editor-text-button { border: 0; border-radius: 0; }
+.editor-window-surface .html-tab-seg .editor-text-button + .editor-text-button { border-left: 1px solid var(--line-strong); }
+.editor-window-surface .html-tab-resources.has-fail { border-color: var(--warn); color: var(--warn-text); background: var(--warn-tint); }
+.editor-window-surface .html-tab-resource-panel {
+  margin: 0 8px 6px;
+  padding: 8px 10px;
+  max-height: 40%;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-raised);
+  font-size: var(--fs-xs);
+}
+.editor-window-surface .html-tab-resource-panel h6 { margin: 0 0 6px; font-size: var(--fs-xs); color: var(--fg-strong); }
+.editor-window-surface .html-tab-resource-panel ul { margin: 0; padding: 0; list-style: none; }
+.editor-window-surface .html-tab-resource-panel li { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+.editor-window-surface .html-tab-resource-panel li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.editor-window-surface .html-tab-resource-panel em { flex: none; font-style: normal; }
+.editor-window-surface .html-resource-loaded { color: var(--ok-text); }
+.editor-window-surface .html-resource-not-found,
+.editor-window-surface .html-resource-blocked { color: var(--danger-text); }
+.editor-window-surface .html-resource-external { color: var(--fg-muted); }
+.editor-window-surface .html-tab-resource-note { margin: 6px 0 0; color: var(--fg-muted); }
+.editor-window-surface .html-tab-unsaved {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--warn-tint);
+  color: var(--warn-text);
+  font-size: var(--fs-xs);
+}
+.editor-window-surface .html-tab-render:focus { outline: none; }
+.editor-window-surface .html-tab-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  /* The page draws its own background; white is what an unstyled page expects. */
+  background: var(--bg-paper);
+}
+
+/* FR-MDE-028 AC-9: on a phone the two views share the toolbar width as large buttons. */
+@media (max-width: 767px) {
+  .editor-window-surface .html-tab-seg { flex: 1 1 100%; }
+  .editor-window-surface .html-tab-seg .editor-text-button { flex: 1; min-height: 32px; }
+}
