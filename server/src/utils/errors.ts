@@ -71,6 +71,7 @@ export enum ErrorCode {
   // SEC-MDE-002: HTML view
   HTML_VIEW_TOKEN_INVALID = 'HTML_VIEW_TOKEN_INVALID',
   UNSUPPORTED_MEDIA_TYPE = 'UNSUPPORTED_MEDIA_TYPE',
+  PRECOUNT_BUSY = 'PRECOUNT_BUSY',
 
   // Server Errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -156,6 +157,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.ARCHIVE_CORRUPT]: 'The archive is damaged',
   [ErrorCode.HTML_VIEW_TOKEN_INVALID]: 'The page link is invalid or expired',
   [ErrorCode.UNSUPPORTED_MEDIA_TYPE]: 'The request body type is not accepted here',
+  [ErrorCode.PRECOUNT_BUSY]: 'Too many archive pre-counts are running for this session',
 
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
   [ErrorCode.ENCRYPTION_ERROR]: 'Encryption failed',
@@ -237,6 +239,7 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.ARCHIVE_CORRUPT]: 422,
   [ErrorCode.HTML_VIEW_TOKEN_INVALID]: 404,
   [ErrorCode.UNSUPPORTED_MEDIA_TYPE]: 415,
+  [ErrorCode.PRECOUNT_BUSY]: 429,
 
   [ErrorCode.INTERNAL_ERROR]: 500,
   [ErrorCode.ENCRYPTION_ERROR]: 500,

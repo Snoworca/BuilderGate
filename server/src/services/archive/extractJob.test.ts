@@ -24,6 +24,7 @@ interface Done {
   errorCode?: string;
   errorReason?: string;
   skipped?: Array<{ path: string; reason: string }>;
+  skippedCount?: number;
   createdPaths?: string[];
   affectedDirectories: string[];
   processedEntries: number;
@@ -48,6 +49,8 @@ interface Options {
   maxBytes?: number;
   maxEntries?: number;
   onTempAdded?: (tempPath: string, manager: FileJobManager, jobId: () => string) => void;
+  /** Runs between the pre-count and the write pass (the archive can change there). */
+  afterPrecount?: (archivePath: string) => Promise<void>;
 }
 
 async function withExtract(run: (ctx: Ctx) => Promise<void>, options: Options = {}): Promise<void> {
@@ -95,6 +98,7 @@ async function withExtract(run: (ctx: Ctx) => Promise<void>, options: Options = 
       limits: () => ({ maxBytes: options.maxBytes ?? 10 * 1024 ** 3, maxEntries: options.maxEntries ?? 100_000 }),
       isBlockedExtension: (name) => path.extname(name).toLowerCase() === '.exe',
       tempRegistry: registry,
+      afterPrecount: options.afterPrecount,
     },
   });
   const extract: Ctx['extract'] = (archive, mode, extractOptions = {}) => new Promise<Done>((resolve, reject) => {
@@ -561,6 +565,72 @@ test('FR-FOP-007 AC-4: over 64 MiB unpacked and over 1000x is refused; exactly 6
     const at = path.join(dir, 'at.zip');
     await fs.writeFile(at, buildZip([{ name: 'a.bin', data: text('tiny'), declaredSize: 64 * 1024 * 1024 }]));
     assert.equal((await precountArchive(at, limits)).unpackedBytes, 64 * 1024 * 1024);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-FOP-007 AC-2: an entry name over 4096 bytes is refused; the skipped list keeps 1000 names cut to 512 characters and counts the rest', async () => {
+  await withExtract(async ({ cwd, extract }) => {
+    const long = `${'n'.repeat(5000)}.txt`;
+    const entries: ZipFixtureEntry[] = [{ name: long, data: text('long') }];
+    for (let i = 0; i < 1100; i += 1) entries.push({ name: `../slip${i}.txt`, data: text('x') });
+    entries.push({ name: 'ok.txt', data: text('ok') });
+    await fs.writeFile(path.join(cwd, 'many.zip'), buildZip(entries));
+    const done = await extract('many.zip', 'here');
+    assert.equal(done.outcome, 'completed', JSON.stringify({ ...done, skipped: done.skipped?.length }));
+    assert.equal(done.skipped?.length, 1000);
+    assert.equal(done.skippedCount, 1101);
+    assert.equal(done.skipped?.[0].reason, 'entry name is not allowed');
+    assert.equal(done.skipped?.[0].path.length, 512);
+    assert.equal(await fs.readFile(path.join(cwd, 'ok.txt'), 'utf8'), 'ok');
+  });
+});
+
+test('FR-FOP-007 AC-4: the write pass stops when the archive holds more entries or bytes than the pre-count found', async () => {
+  let swapTo: Buffer | null = null;
+  await withExtract(async ({ cwd, extract, registry }) => {
+    await fs.writeFile(path.join(cwd, 'grow.zip'), buildZip([{ name: 'g/a.txt', data: text('a') }]));
+    swapTo = buildZip([{ name: 'g/a.txt', data: text('a') }, { name: 'g/b.txt', data: text('b') }, { name: 'g/c.txt', data: text('c') }]);
+    const more = await extract('grow.zip', 'smart');
+    assert.equal(more.outcome, 'failed');
+    assert.equal(more.errorCode, 'ARCHIVE_TOO_LARGE');
+
+    await fs.writeFile(path.join(cwd, 'fat.zip'), buildZip([{ name: 'f/a.txt', data: text('a') }]));
+    swapTo = buildZip([{ name: 'f/a.txt', data: Buffer.alloc(100_000, 0x61) }]);
+    const bigger = await extract('fat.zip', 'smart');
+    assert.equal(bigger.outcome, 'failed');
+    assert.equal(bigger.errorCode, 'ARCHIVE_TOO_LARGE');
+    await noTempFiles(cwd);
+    assert.deepEqual(registry.list(), []);
+  }, {
+    afterPrecount: async (archivePath) => {
+      if (swapTo !== null) await fs.writeFile(archivePath, swapTo);
+    },
+  });
+});
+
+test('FR-FOP-007 AC-4: every entry\'s declared size counts toward the limits, links included', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bg-linksize-'));
+  try {
+    const archive = path.join(dir, 'l.zip');
+    await fs.writeFile(archive, buildZip([{ name: 'l/link', data: Buffer.alloc(3 * 1024 * 1024, 0x2f), unixMode: 0o120777 }]));
+    await assert.rejects(precountArchive(archive, { maxBytes: 2 * 1024 * 1024, maxEntries: 10 }), (err: unknown) => (err as { code?: string }).code === 'ARCHIVE_TOO_LARGE');
+    const counted = await precountArchive(archive, { maxBytes: 10 * 1024 * 1024, maxEntries: 10 });
+    assert.equal(counted.unpackedBytes, 3 * 1024 * 1024);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-FOP-007 AC-4: an aborted pre-count stops with AbortError', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bg-abort-'));
+  try {
+    const archive = path.join(dir, 'a.zip');
+    await fs.writeFile(archive, buildZip([{ name: 'a.txt', data: text('a') }]));
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(precountArchive(archive, { maxBytes: 1e9, maxEntries: 10 }, undefined, controller.signal), (err: unknown) => (err as Error).name === 'AbortError');
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }

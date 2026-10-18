@@ -21,11 +21,28 @@ function sendError(res: Response, err: unknown): void {
   res.status(500).json(new AppError(ErrorCode.INTERNAL_ERROR).toJSON());
 }
 
-export function createArchiveRoutes(fileService: FileService): Router {
+/** Pre-counts one session may run at once; a gzip tar is read end to end. */
+export const MAX_CONCURRENT_PRECOUNTS = 2;
+
+export function createArchiveRoutes(fileService: FileService, options: { precount?: typeof precountArchive } = {}): Router {
   const router = Router();
+  const precount = options.precount ?? precountArchive;
+  const running = new Map<string, number>();
 
   // POST /api/sessions/:id/files/extract/precount  { path, mode: 'smart' | 'here' }
   router.post('/:id/files/extract/precount', async (req: Request<{ id: string }>, res: Response) => {
+    const sessionId = req.params.id;
+    const active = running.get(sessionId) ?? 0;
+    if (active >= MAX_CONCURRENT_PRECOUNTS) {
+      sendError(res, new AppError(ErrorCode.PRECOUNT_BUSY));
+      return;
+    }
+    running.set(sessionId, active + 1);
+    // A client that leaves (closed tab, cancelled confirm) stops the walk.
+    const controller = new AbortController();
+    res.on('close', () => {
+      if (!res.writableFinished) controller.abort();
+    });
     try {
       const body = (req.body ?? {}) as { path?: unknown; mode?: unknown };
       if (typeof body.path !== 'string' || body.path === '') throw new AppError(ErrorCode.INVALID_INPUT, 'path is required');
@@ -34,7 +51,7 @@ export function createArchiveRoutes(fileService: FileService): Router {
       const folder = path.dirname(archive.path);
       res.set('Cache-Control', 'no-store');
       try {
-        const counted = await precountArchive(archive.path, fileService.extractLimits);
+        const counted = await precount(archive.path, fileService.extractLimits, undefined, controller.signal);
         const wanted = counted.singleTopFolder ?? counted.stem;
         const targetName = body.mode === 'here'
           ? path.basename(folder)
@@ -49,11 +66,16 @@ export function createArchiveRoutes(fileService: FileService): Router {
           refusal: null,
         });
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (!isArchiveError(err)) throw err;
         res.json({ refusal: { code: err.code, reason: err.publicReason } });
       }
     } catch (err) {
-      sendError(res, err);
+      if (!controller.signal.aborted) sendError(res, err);
+    } finally {
+      const left = (running.get(sessionId) ?? 1) - 1;
+      if (left <= 0) running.delete(sessionId);
+      else running.set(sessionId, left);
     }
   });
 

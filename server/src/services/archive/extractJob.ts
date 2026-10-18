@@ -52,7 +52,14 @@ export interface ArchiveJobDeps {
   isBlockedExtension(name: string): boolean;
   /** Where in-flight temp files are recorded so a restart can delete them (FR-FEX-023 AC-6). */
   tempRegistry?: UploadTempRegistry;
+  /** Test seam: runs between the pre-count and the write pass. */
+  afterPrecount?: (archivePath: string) => Promise<void>;
 }
+
+/** The skipped list keeps this many entries; the rest are only counted. */
+export const EXTRACT_SKIPPED_LIMIT = 1000;
+/** A reported entry name is cut to this many characters. */
+export const EXTRACT_SKIPPED_NAME_LIMIT = 512;
 
 export interface ArchivePrecount {
   format: ArchiveFormat;
@@ -97,11 +104,11 @@ export async function precountArchive(
     if (entryCount > limits.maxEntries) {
       throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, `the archive holds more than ${limits.maxEntries} entries`);
     }
-    if (entry.kind === 'file') {
-      unpackedBytes += entry.size;
-      if (unpackedBytes > limits.maxBytes) {
-        throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, `the archive unpacks to more than ${limits.maxBytes} bytes`);
-      }
+    // Every entry's declared size counts, whatever its kind: the limits bound what the archive
+    // carries, not only what this extraction happens to write.
+    unpackedBytes += entry.size;
+    if (unpackedBytes > limits.maxBytes) {
+      throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, `the archive unpacks to more than ${limits.maxBytes} bytes`);
     }
     const normalized = normalizeEntryPath(entry.name);
     if (normalized.kind === 'path') {
@@ -141,6 +148,12 @@ class ExtractRun {
   private processedEntries = 0;
   private processedBytes = 0;
   private readonly skipped: ExtractSkip[] = [];
+  private skippedCount = 0;
+  /** What the pre-count found; the write pass may not go past it (AC-4). */
+  private countedEntries = Infinity;
+  private countedBytes = Infinity;
+  private seenEntries = 0;
+  private writtenBytes = 0;
   private readonly createdPaths: string[] = [];
   /** Archive-relative folder (folded) -> where it really is. */
   private readonly folders = new Map<string, string>();
@@ -163,6 +176,9 @@ class ExtractRun {
       }, this.deps.signal);
       this.totalEntries = counted.entryCount;
       this.totalBytes = counted.unpackedBytes;
+      this.countedEntries = counted.entryCount;
+      this.countedBytes = counted.unpackedBytes;
+      await this.archive.afterPrecount?.(archivePath);
       this.phase = 'transferring';
       this.report(null);
 
@@ -193,7 +209,13 @@ class ExtractRun {
   }
 
   private result(outcome: FileJobResult['outcome']): FileJobResult {
-    return { outcome, processedEntries: this.processedEntries, skipped: [...this.skipped], createdPaths: [...this.createdPaths] };
+    return {
+      outcome,
+      processedEntries: this.processedEntries,
+      skipped: [...this.skipped],
+      skippedCount: this.skippedCount,
+      createdPaths: [...this.createdPaths],
+    };
   }
 
   private moveTo(to: FileJobState): void {
@@ -219,14 +241,20 @@ class ExtractRun {
   }
 
   private skip(entry: ArchiveEntry, reason: string): void {
-    this.skipped.push({ path: entry.name, reason });
+    this.noteSkipped(entry, reason);
     this.done(entry);
+  }
+
+  /** Keeps the first EXTRACT_SKIPPED_LIMIT names, cut short; counts every one. */
+  private noteSkipped(entry: ArchiveEntry, reason: string): void {
+    this.skippedCount += 1;
+    if (this.skipped.length < EXTRACT_SKIPPED_LIMIT) this.skipped.push({ path: entry.name.slice(0, EXTRACT_SKIPPED_NAME_LIMIT), reason });
   }
 
   /** The entry is finished (written, skipped or refused): it counts toward the bar. */
   private done(entry: ArchiveEntry, written = 0): void {
     this.processedEntries += 1;
-    if (entry.kind === 'file') this.processedBytes += entry.size - written;
+    this.processedBytes += entry.size - written;
     this.report(null);
   }
 
@@ -270,6 +298,11 @@ class ExtractRun {
 
   private async extractEntry(entry: ArchiveEntry, open: () => Promise<Readable>, mode: 'smart' | 'here', strip: boolean): Promise<void> {
     this.throwIfAborted();
+    // AC-4: the archive changed after the pre-count (more entries than were counted and checked).
+    this.seenEntries += 1;
+    if (this.seenEntries > this.countedEntries) {
+      throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, 'the archive holds more than the pre-count found');
+    }
     const normalized = normalizeEntryPath(entry.name);
     if (normalized.kind === 'refused') return this.skip(entry, normalized.reason);
     if (entry.kind === 'symlink' || entry.kind === 'hardlink') return this.skip(entry, ARCHIVE_ENTRY_REFUSAL.link);
@@ -334,7 +367,7 @@ class ExtractRun {
         // A file or a link where a folder of the archive goes. A link is never followed.
         if (mode === 'smart') {
           this.skippedFolders.add(key);
-          this.skipped.push({ path: entry.name, reason: ARCHIVE_ENTRY_REFUSAL.kindMismatch });
+          this.noteSkipped(entry, ARCHIVE_ENTRY_REFUSAL.kindMismatch);
           return null;
         }
         const choice = await this.ask('conflict', candidate, KIND_MISMATCH_CHOICES);
@@ -392,7 +425,8 @@ class ExtractRun {
       const counter = new Transform({
         transform: (chunk: Buffer, _encoding, callback) => {
           written += chunk.length;
-          if (written > declared) {
+          this.writtenBytes += chunk.length;
+          if (written > declared || this.writtenBytes > this.countedBytes) {
             callback(overflowError());
             return;
           }
@@ -435,7 +469,7 @@ class ExtractRun {
           // Taken while the bytes arrived: in smart mode it is a duplicate, here it is a new rename.
           if (!(err instanceof AppError && err.code === ErrorCode.FILE_ALREADY_EXISTS)) throw err;
           if (mode === 'smart') {
-            this.skipped.push({ path: entry.name, reason: ARCHIVE_ENTRY_REFUSAL.duplicate });
+            this.noteSkipped(entry, ARCHIVE_ENTRY_REFUSAL.duplicate);
           } else {
             target = await placeExclusively(temp, await this.freeSiblingName(target), true);
           }

@@ -28,8 +28,11 @@ export type EntryPath =
  * writes './a'); '..', an absolute start, a drive letter, NUL, a Windows reserved name, a ':' or a
  * segment ending in a dot or space refuse the entry. The segment rules are the upload rules.
  */
+/** AC-2: an entry name longer than this (UTF-8 bytes) is refused before it is split. */
+export const ARCHIVE_ENTRY_NAME_LIMIT = 4096;
+
 export function normalizeEntryPath(name: string): EntryPath {
-  if (name.includes('\u0000')) return { kind: 'refused', reason: ARCHIVE_ENTRY_REFUSAL.invalidName };
+  if (name.includes('\u0000') || Buffer.byteLength(name, 'utf8') > ARCHIVE_ENTRY_NAME_LIMIT) return { kind: 'refused', reason: ARCHIVE_ENTRY_REFUSAL.invalidName };
   const unified = name.replace(/\\/g, '/');
   if (unified.startsWith('/') || /^[A-Za-z]:/.test(unified)) return { kind: 'refused', reason: ARCHIVE_ENTRY_REFUSAL.absolute };
   const isDirectory = unified.endsWith('/');

@@ -659,6 +659,7 @@ export class FileJobManager {
     }
     // FR-FOP-007, FR-FEX-027 AC-6: what an extraction left out, and where its result landed.
     if (result.skipped !== undefined) payload.skipped = result.skipped.map((s) => ({ ...s }));
+    if (result.skippedCount !== undefined) payload.skippedCount = result.skippedCount;
     if (result.createdPaths !== undefined) payload.createdPaths = result.createdPaths.map((p) => toDisplayPath(p, job.displayPrefixes));
     this.emit(job, 'file-job:done', payload);
     job.retentionTimer = this.deps.timers.setTimeout(() => {

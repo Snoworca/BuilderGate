@@ -147,6 +147,8 @@ export interface FileJobResult {
   atomic?: boolean;
   /** extract 만: 쓰지 않은 엔트리와 이유(FR-FOP-007 AC-2, AC-3). */
   skipped?: Array<{ path: string; reason: string }>;
+  /** extract 만: 건너뛴 엔트리의 전체 수. skipped 는 앞 1000건까지만 담는다. */
+  skippedCount?: number;
   /** extract 만: 만든 폴더(smart) 또는 처음 푼 항목(here)(FR-FEX-027 AC-6). */
   createdPaths?: string[];
 }

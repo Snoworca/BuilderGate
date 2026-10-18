@@ -23,7 +23,12 @@ const SESSION = 'session-archive';
 
 interface Res { status: number; body: any }
 
-async function withApp(run: (ctx: { cwd: string; send: (method: string, url: string, body?: unknown) => Promise<Res>; done: (jobId: string) => Promise<Record<string, unknown>> }) => Promise<void>): Promise<void> {
+type Precount = typeof import('../services/archive/extractJob.js').precountArchive;
+
+async function withApp(
+  run: (ctx: { cwd: string; send: (method: string, url: string, body?: unknown) => Promise<Res>; done: (jobId: string) => Promise<Record<string, unknown>>; endpoint: string }) => Promise<void>,
+  options: { precount?: Precount } = {},
+): Promise<void> {
   const cwd = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'bg-archive-routes-')));
   const sessionManager = {
     getSession: (id: string): unknown => (id === SESSION ? { id } : null),
@@ -60,7 +65,7 @@ async function withApp(run: (ctx: { cwd: string; send: (method: string, url: str
   });
   const app = express();
   app.use(express.json());
-  app.use('/api/sessions', createArchiveRoutes(service));
+  app.use('/api/sessions', createArchiveRoutes(service, { precount: options.precount }));
   app.use('/api/file-jobs', createFileJobRoutes(manager, policy));
   try {
     await withLocalHttpServer(app, async (fixture) => {
@@ -88,7 +93,7 @@ async function withApp(run: (ctx: { cwd: string; send: (method: string, url: str
         }
         throw new Error('the job did not finish');
       };
-      await run({ cwd, send, done });
+      await run({ cwd, send, done, endpoint: fixture.endpoint });
     });
   } finally {
     await manager.dispose();
@@ -163,4 +168,45 @@ test('FR-FOP-007 AC-1: POST /api/file-jobs takes operation extract with one arch
       assert.equal(res.status, status, JSON.stringify(body) + JSON.stringify(res.body));
     }
   });
+});
+
+test('FR-FOP-007 AC-4: a session runs at most two pre-counts at once, and a client that leaves aborts its pre-count', async () => {
+  const signals: AbortSignal[] = [];
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const held: Precount = async (_archive, _limits, _onEntry, signal) => {
+    signals.push(signal!);
+    await Promise.race([gate, new Promise<void>((resolve) => signal?.addEventListener('abort', () => resolve()))]);
+    if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    return { format: 'zip', entryCount: 1, unpackedBytes: 1, packedBytes: 1, singleTopFolder: null, stem: 'a' };
+  };
+  await withApp(async ({ cwd, send, endpoint }) => {
+    await fs.writeFile(path.join(cwd, 'a.zip'), buildZip([{ name: 'a.txt', data: text('a') }]));
+    const body = JSON.stringify({ path: 'a.zip', mode: 'smart' });
+    const open = () => {
+      const req = request({ socketPath: endpoint, agent: false, method: 'POST', path: `/api/sessions/${SESSION}/files/extract/precount`, headers: { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) } });
+      req.on('error', () => undefined);
+      req.end(body);
+      return req;
+    };
+    const first = open();
+    const second = open();
+    for (let i = 0; i < 100 && signals.length < 2; i += 1) await new Promise((r) => setTimeout(r, 20));
+    assert.equal(signals.length, 2);
+    const third = await send('POST', `/api/sessions/${SESSION}/files/extract/precount`, { path: 'a.zip', mode: 'smart' });
+    assert.equal(third.status, 429);
+    assert.equal(third.body.error.code, 'PRECOUNT_BUSY');
+
+    first.destroy();
+    for (let i = 0; i < 100 && !signals[0].aborted; i += 1) await new Promise((r) => setTimeout(r, 20));
+    assert.equal(signals[0].aborted, true, 'the pre-count of the client that left was aborted');
+    release();
+    second.destroy();
+    for (let i = 0; i < 100 && signals.length < 3; i += 1) {
+      const next = await send('POST', `/api/sessions/${SESSION}/files/extract/precount`, { path: 'a.zip', mode: 'smart' });
+      if (next.status === 200) break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    assert.equal(signals.length, 3, 'a slot came back');
+  }, { precount: held });
 });
