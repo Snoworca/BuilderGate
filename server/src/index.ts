@@ -20,6 +20,10 @@ import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
 import { createDownloadRoutes, createDownloadTokenRoutes } from './routes/downloadRoutes.js';
 import { DownloadTokenStore } from './services/DownloadTokenStore.js';
+import { createUploadRoutes } from './routes/uploadRoutes.js';
+import { createZipRoutes } from './routes/zipRoutes.js';
+import { ZipArchiveService } from './services/ZipArchiveService.js';
+import { UploadTempRegistry } from './services/upload/uploadTemp.js';
 import { createFileJobRoutes } from './routes/fileJobRoutes.js';
 import { createSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommandPresetRoutes } from './routes/commandPresetRoutes.js';
@@ -647,6 +651,10 @@ app.all('/mcp', noCacheMiddleware, (_req, res) => {
 // Body Parser & General Middleware
 // ============================================================================
 
+// FR-FEX-023 AC-6: the temp files of the uploads in flight, relative to the server's working
+// directory like the other data files; startServer deletes what a crash left behind.
+const uploadTempRegistry = new UploadTempRegistry(path.resolve('./data/upload-temp.json'));
+
 const fileManagerConfig = config.fileManager || {
   maxFileSize: 1048576,
   maxDirectoryEntries: 10000,
@@ -654,6 +662,7 @@ const fileManagerConfig = config.fileManager || {
   blockedPaths: ['.ssh', '.gnupg', '.aws'],
   cwdCacheTtlMs: 1000,
   maxImageFileSize: 20971520,
+  maxUploadFileSize: 2147483648,
 };
 
 // 파일 조작 작업의 경로 정책은 이 객체 하나다. 라우터(요청 시점 검증)와 관리자(러너가 만드는 경로
@@ -1167,7 +1176,13 @@ function setupRoutes(): void {
   // the single-use token, so the browser can save the file itself.
   const downloadTokens = new DownloadTokenStore();
   app.use('/api/sessions', authMiddleware, createDownloadTokenRoutes(fileService, downloadTokens));
-  app.use('/api/downloads', createDownloadRoutes(downloadTokens));
+  // FR-FEX-025: several items or a directory as one ZIP, from the same single-use token store.
+  const zipArchives = new ZipArchiveService(fileService);
+  app.use('/api/sessions', authMiddleware, createZipRoutes(downloadTokens, zipArchives));
+  app.use('/api/downloads', createDownloadRoutes(downloadTokens, zipArchives));
+  // FR-FEX-023: raw-byte uploads. The JSON body parser only reads application/json, so the
+  // octet-stream body reaches this route untouched and streams to disk.
+  app.use('/api/sessions', authMiddleware, createUploadRoutes(fileService, { registry: uploadTempRegistry }));
 
   // File job routes (auth required) — 복사·이동·삭제 작업. 진행은 WebSocket 세션 방송으로 간다.
   app.use('/api/file-jobs', authMiddleware, createFileJobRoutes(fileJobManager, fileJobPathPolicy));
@@ -1288,6 +1303,8 @@ async function startServer(): Promise<void> {
     }
 
     fileService = new FileService(sessionManager, fileManagerConfig);
+    const staleUploads = await uploadTempRegistry.cleanupStale();
+    if (staleUploads.length > 0) console.log(`[Upload] Removed ${staleUploads.length} temporary upload file(s) left by a previous run`);
     settingsService = new SettingsService({
       runtimeConfigStore,
       configRepository,
@@ -1881,6 +1898,10 @@ async function startServer(): Promise<void> {
     const httpsServer = https.createServer(tlsOptions, app);
     httpsServer.keepAliveTimeout = 120000;
     httpsServer.headersTimeout = 125000;
+    // FR-FEX-023: an upload body may take longer than Node's default 5-minute requestTimeout (a 2 GiB
+    // file on a slow link); that timeout would cut it off with a 408. headersTimeout still bounds the
+    // request head.
+    httpsServer.requestTimeout = 0;
 
     // Initialize WebSocket Router (Step 8)
     const runtimeValues = runtimeConfigStore.getEditableValues();

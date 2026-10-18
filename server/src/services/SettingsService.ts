@@ -715,6 +715,7 @@ function getFileManagerConfig(config: Config): FileManagerConfig {
     blockedPaths: [...(config.fileManager?.blockedPaths ?? ['.ssh', '.gnupg', '.aws'])],
     cwdCacheTtlMs: config.fileManager?.cwdCacheTtlMs ?? 1000,
     maxImageFileSize: config.fileManager?.maxImageFileSize ?? 20971520,
+    maxUploadFileSize: config.fileManager?.maxUploadFileSize ?? 2147483648,
   };
 }
 

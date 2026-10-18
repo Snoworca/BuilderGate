@@ -12,7 +12,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { AppError, ErrorCode } from '../utils/errors.js';
-import { isFileJobTempName } from './fileJobs/fileJobRunner.js';
+import { isTransientFileName } from './FileService.js';
 
 export interface FileSearchResult {
   name: string;
@@ -160,7 +160,7 @@ export class FileSearchService {
         for await (const dirent of handle) {
           if (state.cancelled) return;
           state.examined += 1;
-          if (isFileJobTempName(dirent.name)) continue;
+          if (isTransientFileName(dirent.name)) continue;
           const full = path.join(dir, dirent.name);
           // Symlinks are matched by name but never descended into (no escape, no loops).
           const isDir = dirent.isDirectory();

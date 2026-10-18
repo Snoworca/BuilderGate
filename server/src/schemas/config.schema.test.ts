@@ -401,6 +401,17 @@ test('fileManagerSchema.maxImageFileSize 기본 20971520, 1024 미만·104857600
   assert.equal(parsed.fileManager?.maxFileSize, 1048576);
 });
 
+// FR-FEX-023 AC-4: the upload size limit, default 2 GiB, 1 MiB..100 GiB.
+test('FR-FEX-023 AC-4 fileManagerSchema.maxUploadFileSize default 2147483648, range 1048576..107374182400', () => {
+  assert.equal(Reflect.get(fileManagerSchema.parse({}), 'maxUploadFileSize'), 2147483648);
+  assert.equal(Reflect.get(fileManagerSchema.parse({ maxUploadFileSize: 1048576 }), 'maxUploadFileSize'), 1048576);
+  assert.equal(Reflect.get(fileManagerSchema.parse({ maxUploadFileSize: 107374182400 }), 'maxUploadFileSize'), 107374182400);
+  assert.equal(fileManagerSchema.safeParse({ maxUploadFileSize: 1048575 }).success, false);
+  assert.equal(fileManagerSchema.safeParse({ maxUploadFileSize: 107374182401 }).success, false);
+  const parsed = configSchema.parse({ ...minimalConfig(), fileManager: { maxUploadFileSize: 4194304 } });
+  assert.equal(Reflect.get(parsed.fileManager ?? {}, 'maxUploadFileSize'), 4194304);
+});
+
 // --- SEC-BGSTAB-001: the OSC52 policy switch -------------------------------------
 //
 // 실측 2026-09-19 (병합 전): osc52 / allowWrite 는 이 스키마 어디에도 없었다. 오늘의

@@ -60,6 +60,10 @@ export enum ErrorCode {
   // FR-FEX-021: downloads
   NOT_A_FILE = 'NOT_A_FILE',
   DOWNLOAD_TOKEN_INVALID = 'DOWNLOAD_TOKEN_INVALID',
+  // FR-FEX-023, FR-FEX-025: uploads and ZIP downloads
+  INVALID_UPLOAD_PATH = 'INVALID_UPLOAD_PATH',
+  UPLOAD_BUSY = 'UPLOAD_BUSY',
+  ZIP_JOB_NOT_FOUND = 'ZIP_JOB_NOT_FOUND',
 
   // Server Errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -137,6 +141,9 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.PERMISSION_DENIED]: 'Permission denied',
   [ErrorCode.NOT_A_FILE]: 'The path is not a regular file',
   [ErrorCode.DOWNLOAD_TOKEN_INVALID]: 'The download link is invalid, used or expired',
+  [ErrorCode.INVALID_UPLOAD_PATH]: 'The upload path is not a valid relative path',
+  [ErrorCode.UPLOAD_BUSY]: 'Too many uploads are running for this session',
+  [ErrorCode.ZIP_JOB_NOT_FOUND]: 'No such ZIP download job',
 
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
   [ErrorCode.ENCRYPTION_ERROR]: 'Encryption failed',
@@ -210,6 +217,9 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.PERMISSION_DENIED]: 403,
   [ErrorCode.NOT_A_FILE]: 400,
   [ErrorCode.DOWNLOAD_TOKEN_INVALID]: 404,
+  [ErrorCode.INVALID_UPLOAD_PATH]: 400,
+  [ErrorCode.UPLOAD_BUSY]: 429,
+  [ErrorCode.ZIP_JOB_NOT_FOUND]: 404,
 
   [ErrorCode.INTERNAL_ERROR]: 500,
   [ErrorCode.ENCRYPTION_ERROR]: 500,

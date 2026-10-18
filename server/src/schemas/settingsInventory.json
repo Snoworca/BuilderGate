@@ -223,6 +223,20 @@
       "safetyBound": "Upper bound on image bytes the file API returns to the image viewer. Raising it lets one request read an arbitrarily large file into memory."
     },
     {
+      "path": "fileManager.maxUploadFileSize",
+      "classification": "safety-only",
+      "reason": "Exists to bound rather than to tune: it caps how many bytes one file upload may write to disk (FR-FEX-023 AC-4). Not offered in Settings.",
+      "editableInSettings": false,
+      "consumers": [
+        {
+          "module": "server/src/services/FileService.ts",
+          "symbol": "maxUploadFileSize",
+          "match": "dotted-path"
+        }
+      ],
+      "safetyBound": "Upper bound on the bytes one upload request writes to the session's disk. Raising it lets one request fill the disk with a single file."
+    },
+    {
       "path": "pty.defaultCols",
       "classification": "user-visible",
       "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow.",

@@ -14,6 +14,12 @@ import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent, 
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget, toHostPath } from '../utils/pathValidator.js';
 import { isFileJobTempName } from './fileJobs/fileJobRunner.js';
+import { isUploadTempName, validateUploadRelativePath } from './upload/uploadTemp.js';
+
+/** A file job's or an upload's in-progress temp file: not the user's file, never listed or counted. */
+export function isTransientFileName(name: string): boolean {
+  return isFileJobTempName(name) || isUploadTempName(name);
+}
 
 // Upper bound on fs.stat calls in flight for one directory listing. libuv runs
 // fs work on a small thread pool (4 by default), so a few dozen pending requests
@@ -90,6 +96,30 @@ const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
 /** Image size limit used when the configuration carries no maxImageFileSize. */
 export const DEFAULT_MAX_IMAGE_FILE_SIZE = 20 * 1024 * 1024;
 
+/** FR-FEX-023 AC-4: upload size limit used when the configuration carries no maxUploadFileSize. */
+export const DEFAULT_MAX_UPLOAD_FILE_SIZE = 2 * 1024 * 1024 * 1024;
+
+/** Where an upload lands, every part of it validated (FR-FEX-023 AC-2, AC-3). */
+export interface UploadTarget {
+  /** The session root's real path; response paths are relative to it. */
+  realCwd: string;
+  /** The destination folder's real path. */
+  dirPath: string;
+  /** The relative path's segments under dirPath. */
+  segments: string[];
+  /** The entry to create or replace (a link at this name is replaced, not followed). */
+  target: string;
+}
+
+/** One selected item of a ZIP download (FR-FEX-025). */
+export interface ArchiveItem {
+  /** The entry itself; a link stays a link. */
+  path: string;
+  /** The archive name the item's entries start with. */
+  entryName: string;
+  kind: 'file' | 'directory' | 'symlink' | 'other';
+}
+
 export interface ImageFileContent {
   buffer: Buffer;
   mimeType: string;
@@ -129,6 +159,104 @@ export class FileService {
    */
   get maxFileSize(): number {
     return this.config.maxFileSize;
+  }
+
+  /** FR-FEX-023 AC-4: the largest file one upload may carry, as it stands right now. */
+  get maxUploadFileSize(): number {
+    return this.config.maxUploadFileSize ?? DEFAULT_MAX_UPLOAD_FILE_SIZE;
+  }
+
+  /** The block lists as they stand right now, for walks that check every entry (FR-FEX-025 AC-5). */
+  get blockRules(): { blockedPaths: readonly string[]; blockedExtensions: readonly string[] } {
+    return { blockedPaths: this.config.blockedPaths, blockedExtensions: this.config.blockedExtensions };
+  }
+
+  /**
+   * FR-FEX-023 AC-2, AC-3: resolves an upload's destination folder and relative path with the file
+   * API rules. The relative path is checked first (INVALID_UPLOAD_PATH), the folder must exist,
+   * and the joined path is judged by its real location: inside the session root, outside the
+   * block list, with no blocked extension. Nothing is created here.
+   */
+  async resolveUploadTarget(sessionId: string, dir: string, relativePath: string): Promise<UploadTarget> {
+    this.assertSessionExists(sessionId);
+    const segments = validateUploadRelativePath(relativePath);
+    if (segments === null) throw new AppError(ErrorCode.INVALID_UPLOAD_PATH);
+    const cwd = await this.getCwd(sessionId);
+    const dirPath = await resolveAndValidate(cwd, dir === '' ? '.' : dir, this.config.blockedPaths);
+    const dirStat = await fs.stat(dirPath).catch(() => null);
+    if (dirStat === null) throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    if (!dirStat.isDirectory()) throw new AppError(ErrorCode.PATH_NOT_FOUND, 'Path is not a directory');
+    // dirPath is a real path; judging it against the real root keeps a session root reached
+    // through a link from looking like an escape.
+    const realCwd = await fs.realpath(cwd).catch(() => cwd);
+    const entry = await resolveAndValidateEntry(realCwd, path.join(dirPath, ...segments), this.config.blockedPaths);
+    if (isBlockedExtension(path.extname(segments[segments.length - 1]).toLowerCase(), this.config.blockedExtensions)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
+    }
+    return { realCwd, dirPath, segments, target: entry.entryPath };
+  }
+
+  /**
+   * FR-FEX-023 AC-2: after the missing folders are made, the folder that will hold the file is
+   * judged again by its real location, so a link raced into the chain cannot carry the write out.
+   */
+  async revalidateUploadParent(sessionId: string, realCwd: string, parent: string): Promise<void> {
+    this.assertSessionExists(sessionId);
+    await resolveAndValidate(realCwd, parent, this.config.blockedPaths);
+  }
+
+  /**
+   * FR-FEX-025 AC-3, AC-4: the selected items of a ZIP download, each checked with the file API
+   * rules, and the archive name: '{name}.zip' for one directory, otherwise the common parent
+   * folder's name. A selection inside another selection is dropped; equal entry names from
+   * different folders get the FR-FOP-004 suffix.
+   */
+  async resolveArchiveSelection(sessionId: string, paths: readonly string[]): Promise<{ items: ArchiveItem[]; name: string; realCwd: string }> {
+    this.assertSessionExists(sessionId);
+    if (paths.length === 0) throw new AppError(ErrorCode.INVALID_INPUT, 'paths is empty');
+    const cwd = await this.getCwd(sessionId);
+    const realCwd = await fs.realpath(cwd).catch(() => cwd);
+    const resolved: Array<{ path: string; kind: ArchiveItem['kind'] }> = [];
+    for (const requested of paths) {
+      const entry = await resolveAndValidateEntry(cwd, requested === '' ? '.' : requested, this.config.blockedPaths);
+      // The session root itself is archived under its real name, even when the cwd is a link.
+      const isRoot = samePath(path.resolve(cwd, requested === '' ? '.' : requested), cwd);
+      const itemPath = isRoot ? realCwd : entry.entryPath;
+      const stat = await fs.lstat(itemPath).catch(() => null);
+      if (stat === null) throw new AppError(ErrorCode.PATH_NOT_FOUND);
+      const kind: ArchiveItem['kind'] = stat.isSymbolicLink() ? 'symlink' : stat.isDirectory() ? 'directory' : stat.isFile() ? 'file' : 'other';
+      if (kind === 'file' && isBlockedExtension(path.extname(itemPath).toLowerCase(), this.config.blockedExtensions)) {
+        throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
+      }
+      resolved.push({ path: itemPath, kind });
+    }
+    // Drop duplicates and items inside another selected directory.
+    const kept = resolved.filter((item, index) => !resolved.some((other, otherIndex) => {
+      if (otherIndex === index) return false;
+      if (samePath(other.path, item.path)) return otherIndex < index;
+      return other.kind === 'directory' && isInside(other.path, item.path);
+    }));
+    const taken = new Set<string>();
+    const items = kept.map((item): ArchiveItem => {
+      const base = path.basename(item.path);
+      let entryName = base;
+      let counter = 2;
+      while (taken.has(entryName.toLowerCase())) {
+        const dot = base.lastIndexOf('.');
+        entryName = dot > 0 && item.kind !== 'directory' ? `${base.slice(0, dot)} (${counter})${base.slice(dot)}` : `${base} (${counter})`;
+        counter += 1;
+      }
+      taken.add(entryName.toLowerCase());
+      return { path: item.path, entryName, kind: item.kind };
+    });
+    let folder: string;
+    if (items.length === 1 && items[0].kind === 'directory') {
+      folder = items[0].path;
+    } else {
+      folder = items.map((item) => path.dirname(item.path)).reduce(commonAncestor);
+      if (!samePath(folder, realCwd) && !isInside(realCwd, folder)) folder = realCwd;
+    }
+    return { items, name: `${path.basename(folder) || 'download'}.zip`, realCwd };
   }
 
   /**
@@ -205,7 +333,7 @@ export class FileService {
 
     // Read directory entries. A file job's in-progress temp file (and one left
     // behind by a crash) is not the user's file: it is hidden, and not counted.
-    const dirents = (await fs.readdir(dirPath, { withFileTypes: true })).filter(dirent => !isFileJobTempName(dirent.name));
+    const dirents = (await fs.readdir(dirPath, { withFileTypes: true })).filter(dirent => !isTransientFileName(dirent.name));
     // FR-FEX-017: ".." only below a filesystem root AND below the session root. At the session
     // root the parent listing is refused (PATH_TRAVERSAL), so offering it only produced an error.
     const hasParent = path.parse(dirPath).root !== dirPath && !(await isSamePath(dirPath, cwd));
@@ -321,7 +449,7 @@ export class FileService {
     let childCount: number | undefined;
     if (stat.isDirectory()) {
       try {
-        childCount = (await fs.readdir(resolved)).filter(name => !isFileJobTempName(name)).length;
+        childCount = (await fs.readdir(resolved)).filter(name => !isTransientFileName(name)).length;
       } catch {
         childCount = undefined;
       }
@@ -802,7 +930,33 @@ function cloneFileManagerConfig(config: FileManagerConfig): FileManagerConfig {
     blockedPaths: [...config.blockedPaths],
     cwdCacheTtlMs: config.cwdCacheTtlMs,
     maxImageFileSize: config.maxImageFileSize ?? DEFAULT_MAX_IMAGE_FILE_SIZE,
+    maxUploadFileSize: config.maxUploadFileSize ?? DEFAULT_MAX_UPLOAD_FILE_SIZE,
   };
+}
+
+function foldCase(p: string): string {
+  const r = path.resolve(p);
+  return process.platform === 'win32' || process.platform === 'darwin' ? r.toLowerCase() : r;
+}
+
+function samePath(a: string, b: string): boolean {
+  return foldCase(a) === foldCase(b);
+}
+
+/** True when child lies strictly under parent. */
+function isInside(parent: string, child: string): boolean {
+  const rel = path.relative(foldCase(parent), foldCase(child));
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
+function commonAncestor(a: string, b: string): string {
+  let candidate = a;
+  while (!samePath(candidate, b) && !isInside(candidate, b)) {
+    const parent = path.dirname(candidate);
+    if (parent === candidate) return candidate;
+    candidate = parent;
+  }
+  return candidate;
 }
 
 /** FR-FEX-017: the same directory, compared through realpath so symlinks and case agree. */

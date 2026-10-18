@@ -238,6 +238,8 @@ export interface FileManagerConfig {
   cwdCacheTtlMs: number;
   /** Raw image read limit in bytes (IR-MDE-003). Absent means 20 MiB. */
   maxImageFileSize?: number;
+  /** Upload size limit in bytes (FR-FEX-023 AC-4). Absent means 2 GiB. */
+  maxUploadFileSize?: number;
 }
 
 // ============================================================================

@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import type { FileService } from '../services/FileService.js';
 import type { DownloadTokenStore } from '../services/DownloadTokenStore.js';
+import type { ZipArchiveService } from '../services/ZipArchiveService.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
 function sendError(res: Response, err: unknown): void {
@@ -45,13 +46,23 @@ export function createDownloadTokenRoutes(fileService: FileService, store: Downl
   return router;
 }
 
-export function createDownloadRoutes(store: DownloadTokenStore): Router {
+export function createDownloadRoutes(store: DownloadTokenStore, zip?: ZipArchiveService): Router {
   const router = Router();
   // GET /api/downloads/:token
   router.get('/:token', async (req: Request<{ token: string }>, res: Response) => {
     const target = store.consume(req.params.token);
-    if (target === null) {
+    if (target === null || (target.kind === 'zip' && zip === undefined)) {
       sendError(res, new AppError(ErrorCode.DOWNLOAD_TOKEN_INVALID));
+      return;
+    }
+    // FR-FEX-025 AC-3: a ZIP token's paths are checked again before the first byte.
+    if (target.kind === 'zip') {
+      try {
+        await zip!.stream(target, res);
+      } catch (err) {
+        if (!res.headersSent) sendError(res, err);
+        else res.destroy();
+      }
       return;
     }
     // The file can change between the token and the download; it must still be a regular file.

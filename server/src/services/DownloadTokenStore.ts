@@ -3,16 +3,27 @@
 // stands for one resolved file for a short time, and the download route spends it.
 import crypto from 'node:crypto';
 
-export interface DownloadTarget {
+export interface FileDownloadTarget {
+  kind?: 'file';
   sessionId: string;
   /** Absolute path the file API resolved and checked when the token was issued. */
   path: string;
   name: string;
 }
 
-interface Entry extends DownloadTarget {
-  expiresAt: number;
+/** FR-FEX-025 AC-3: a ZIP of the selected paths, checked again when the stream starts. */
+export interface ZipDownloadTarget {
+  kind: 'zip';
+  sessionId: string;
+  /** The paths as the client sent them; the download resolves them again. */
+  paths: string[];
+  name: string;
+  jobId: string;
 }
+
+export type DownloadTarget = FileDownloadTarget | ZipDownloadTarget;
+
+type Entry = DownloadTarget & { expiresAt: number };
 
 export class DownloadTokenStore {
   private readonly entries = new Map<string, Entry>();
@@ -35,7 +46,7 @@ export class DownloadTokenStore {
       this.entries.delete(oldest);
     }
     const token = crypto.randomBytes(32).toString('base64url');
-    this.entries.set(token, { ...target, expiresAt: this.now() + this.ttlMs });
+    this.entries.set(token, { ...target, expiresAt: this.now() + this.ttlMs } as Entry);
     return token;
   }
 
@@ -45,6 +56,9 @@ export class DownloadTokenStore {
     if (entry === undefined) return null;
     this.entries.delete(token);
     if (entry.expiresAt <= this.now()) return null;
+    if (entry.kind === 'zip') {
+      return { kind: 'zip', sessionId: entry.sessionId, paths: [...entry.paths], name: entry.name, jobId: entry.jobId };
+    }
     return { sessionId: entry.sessionId, path: entry.path, name: entry.name };
   }
 
