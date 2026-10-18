@@ -31,6 +31,7 @@
     "./tests/unit/fileUploadJob.test.ts",
     "./tests/unit/fileZipDownload.test.ts",
     "./tests/unit/fileExplorerMobileBar.test.ts",
+    "./tests/unit/fileExtract.test.ts",
     "./tests/unit/i18nRuntime.test.ts",
     "./tests/unit/statusHysteresis.test.ts",
     "./tests/unit/authSessionKeepAlive.test.ts",
