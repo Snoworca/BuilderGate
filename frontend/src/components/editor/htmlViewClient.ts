@@ -45,12 +45,12 @@ export function createHtmlViewClient(deps: HtmlViewClientDeps): HtmlViewClient {
         headers: getAuthHeaders(),
       });
       if (!res.ok) throw await parseError(res);
-      const body = await res.json() as { resources?: HtmlResourceEntry[] };
-      return body.resources ?? [];
+      const body = await res.json() as { entries?: HtmlResourceEntry[] };
+      return body.entries ?? [];
     },
     async revoke(token) {
       const res = await authFetch(`${apiBase}/html-view/${encodeURIComponent(token)}`, { method: 'DELETE', headers: getAuthHeaders() });
-      // Already gone (expired or revoked) is what revoking wanted.
+      // 204 when revoked; 404 when already gone (expired, revoked, or not this user's) is fine too.
       if (!res.ok && res.status !== 404) throw await parseError(res);
     },
   };

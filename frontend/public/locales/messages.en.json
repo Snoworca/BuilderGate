@@ -1251,9 +1251,11 @@
   "editor.html.resourcesNote": "Relative paths are looked up from this file's folder inside the session folder. A path starting with / points at the app server root, so the page should use a relative path instead.",
   "editor.html.resourcesEmpty": "No resources requested yet",
   "editor.html.resourceBlocked": "Blocked",
-  "editor.html.resourceMissing": "{status} · not found",
+  "editor.html.resourceMissing": "Not found",
   "editor.html.resourceExternal": "External",
   "editor.html.frameTitle": "{name} rendered",
   "editor.html.openFailed": "Could not open the HTML view: {message}",
-  "apiError.HTML_VIEW_TOKEN_INVALID": "The page link is invalid or expired."
+  "apiError.HTML_VIEW_TOKEN_INVALID": "The page link is invalid or expired.",
+  "mcp.auditAction.buildergateEditorOpenHtml": "Open HTML in editor",
+  "editor.html.resourceLoaded": "Loaded"
 }

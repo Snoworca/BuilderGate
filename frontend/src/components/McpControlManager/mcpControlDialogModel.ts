@@ -86,6 +86,7 @@ const MCP_AUDIT_ACTION_LABELS: Record<string, MessageKey> = {
   'buildergate.editor.open_markdown': 'mcp.auditAction.buildergateEditorOpenMarkdown',
   'buildergate.editor.open_code': 'mcp.auditAction.buildergateEditorOpenCode',
   'buildergate.editor.open_image': 'mcp.auditAction.buildergateEditorOpenImage',
+  'buildergate.editor.open_html': 'mcp.auditAction.buildergateEditorOpenHtml',
   'mcp.listener.rebind': 'mcp.auditAction.mcpListenerRebind',
   'mcp.request.denied': 'mcp.auditAction.mcpRequestDenied',
   'input-gateway': 'mcp.auditAction.inputGateway',

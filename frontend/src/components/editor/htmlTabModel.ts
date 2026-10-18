@@ -96,10 +96,13 @@ export function externalUrlsOf(html: string): string[] {
   return found;
 }
 
+/** One request the route served for the page (contract §5.4). */
 export interface HtmlResourceEntry {
+  /** From the session working directory. */
   path: string;
-  status: number;
   result: 'loaded' | 'not-found' | 'blocked' | string;
+  /** ISO 8601. */
+  at: string;
 }
 
 export interface ResourceRow {
@@ -124,8 +127,8 @@ export function summarizeResources(entries: readonly HtmlResourceEntry[], extern
   const rows: ResourceRow[] = [...latest.values()].map((entry) => {
     const state: ResourceRow['state'] = entry.result === 'loaded' ? 'loaded' : entry.result === 'blocked' ? 'blocked' : 'not-found';
     const detail = state === 'loaded'
-      ? String(entry.status)
-      : state === 'blocked' ? t('editor.html.resourceBlocked') : t('editor.html.resourceMissing', { status: entry.status });
+      ? t('editor.html.resourceLoaded')
+      : state === 'blocked' ? t('editor.html.resourceBlocked') : t('editor.html.resourceMissing');
     return { name: entry.path, state, detail };
   });
   for (const url of external) rows.push({ name: url, state: 'external', detail: t('editor.html.resourceExternal') });
