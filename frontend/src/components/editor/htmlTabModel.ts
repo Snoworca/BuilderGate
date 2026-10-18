@@ -48,32 +48,49 @@ export function requestHtmlView(filePath: string, view: HtmlView): void {
   for (const listener of [...viewRequests]) listener(filePath, view);
 }
 
-function attr(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-}
-
 /**
- * FR-MDE-028 AC-5/AC-6: the edited text with a <base> pointing at the file's folder, placed
- * first in <head> (or after <html>, or after the doctype, or at the start) so it precedes every
- * relative URL. Nothing else in the page is rewritten: absolute and /-rooted URLs stay as written.
+ * FR-MDE-028 AC-5/AC-6: what the frame loads. The saved file is its token URL. Unsaved text is
+ * sent to the server as a draft and served at the same path with '?draft=n' (contract §5), so
+ * the route's sandbox CSP applies and relative URLs resolve against the file's folder as they
+ * do for the saved file. Until the first draft lands the saved file stays on screen.
+ *
+ * The frame never takes the text inline: such a document would inherit the app's CSP
+ * (script-src 'self') and block the page's inline scripts and CDNs only while it is unsaved.
  */
-export function injectBase(html: string, baseUrl: string): string {
-  const tag = `<base href="${attr(baseUrl)}">`;
-  for (const pattern of [/<head(?:\s[^>]*)?>/i, /<html(?:\s[^>]*)?>/i, /<!doctype[^>]*>/i]) {
-    const match = pattern.exec(html);
-    if (match !== null) {
-      const end = match.index + match[0].length;
-      return html.slice(0, end) + tag + html.slice(end);
-    }
-  }
-  return tag + html;
+export function renderUrl(input: { dirty: boolean; url: string; draft: number | null }): string {
+  return input.dirty && input.draft !== null ? `${input.url}?draft=${input.draft}` : input.url;
 }
 
-export type RenderSource = { kind: 'src'; src: string } | { kind: 'srcdoc'; srcdoc: string };
+export const DRAFT_DEBOUNCE_MS = 400;
 
-/** FR-MDE-028 AC-5: the saved file from its token URL; unsaved text as srcdoc with the folder base. */
-export function decideRenderSource(input: { dirty: boolean; text: string; url: string; baseUrl: string }): RenderSource {
-  return input.dirty ? { kind: 'srcdoc', srcdoc: injectBase(input.text, input.baseUrl) } : { kind: 'src', src: input.url };
+export interface DraftScheduler {
+  /** The text changed: send it once typing pauses for the delay. */
+  schedule: (text: string) => void;
+  cancel: () => void;
+}
+
+/** FR-MDE-028 AC-5: one draft per pause in typing, carrying the latest text only. */
+export function createDraftScheduler(deps: {
+  delayMs: number;
+  send: (text: string) => void;
+  setTimer: (fn: () => void, ms: number) => unknown;
+  clearTimer: (handle: unknown) => void;
+}): DraftScheduler {
+  let pending: unknown = null;
+  const cancel = () => {
+    if (pending !== null) deps.clearTimer(pending);
+    pending = null;
+  };
+  return {
+    schedule(text) {
+      cancel();
+      pending = deps.setTimer(() => {
+        pending = null;
+        deps.send(text);
+      }, deps.delayMs);
+    },
+    cancel,
+  };
 }
 
 /**

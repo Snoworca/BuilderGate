@@ -6,7 +6,8 @@
 //
 // The page runs in a sandboxed frame never given the same-origin flag (AC-4): its scripts run in an
 // opaque origin and cannot read the app's token, cookies or API. Its files come from the token
-// route of SEC-MDE-002, and the token is revoked when the tab goes away.
+// route of SEC-MDE-002, and the token is revoked when the tab goes away. Unsaved text is shown
+// through a server draft at the same URL, never inline, so the page runs under the route's CSP.
 // @req FR-MDE-028
 // @req SEC-MDE-002
 
@@ -14,10 +15,12 @@ import { t } from '../../i18n/i18n.ts';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { htmlViewApi } from '../../services/api.ts';
 import {
+  DRAFT_DEBOUNCE_MS,
   HTML_SANDBOX,
-  decideRenderSource,
+  createDraftScheduler,
   externalUrlsOf,
   nextFrameKey,
+  renderUrl,
   subscribeHtmlViewRequests,
   summarizeResources,
   type HtmlResourceEntry,
@@ -34,6 +37,8 @@ export interface HtmlFileTabProps {
   dirty: boolean;
   /** The text in the editor now. */
   getText: () => string;
+  /** Calls back with the editor text on every change; returns the unsubscribe. */
+  subscribeText: (listener: (text: string) => void) => () => void;
   onSave: () => void;
   /** The source view: the panel's code editor. */
   children: ReactNode;
@@ -54,7 +59,7 @@ function baseName(path: string): string {
 }
 
 // @req FR-MDE-028
-export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, dirty, getText, onSave, children }: HtmlFileTabProps) {
+export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, dirty, getText, subscribeText, onSave, children }: HtmlFileTabProps) {
   const [view, setView] = useState<HtmlView>(initialView);
   // The rendered pane mounts the first time it is shown and stays.
   const [renderedOnce, setRenderedOnce] = useState(initialView === 'rendered');
@@ -67,6 +72,8 @@ export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, d
   const [renderedText, setRenderedText] = useState('');
   const tokenRef = useRef<HtmlViewToken | null>(null);
   const sessionId = resolveTabSession(tabId);
+  // FR-MDE-028 AC-5: the server's number for the last unsaved text it received.
+  const [draft, setDraft] = useState<number | null>(null);
 
   const issue = useCallback(async () => {
     if (sessionId === undefined) return;
@@ -140,8 +147,43 @@ export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, d
     settleTimerRef.current = setTimeout(() => { void refreshResources(); }, RESOURCE_SETTLE_MS);
   };
 
+  // FR-MDE-028 AC-5: unsaved text goes to the server as a draft and the frame loads it from the
+  // file's own URL; only while the page is on screen, once typing pauses.
+  const sendDraft = useCallback(async (text: string) => {
+    const current = tokenRef.current;
+    if (sessionId === undefined || current === null) return;
+    try {
+      const number = await htmlViewApi.draft(sessionId, current.token, text);
+      if (tokenRef.current === current) {
+        setDraft(number);
+        setRenderedText(text);
+      }
+    } catch (err) {
+      setError(t('editor.html.openFailed', { message: messageOf(err) }));
+    }
+  }, [sessionId]);
+  const scheduler = useMemo(() => createDraftScheduler({
+    delayMs: DRAFT_DEBOUNCE_MS,
+    send: (text) => { void sendDraft(text); },
+    setTimer: (fn, ms) => setTimeout(fn, ms),
+    clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  }), [sendDraft]);
+  useEffect(() => () => scheduler.cancel(), [scheduler]);
+  const showingPage = view === 'rendered';
+  useEffect(() => {
+    if (!showingPage || token === null) return undefined;
+    // On showing the page (or a fresh token) the current text goes at once if it is unsaved.
+    if (dirty) void sendDraft(getText());
+    return subscribeText((text) => scheduler.schedule(text));
+    // `dirty` is read at the moment the page shows; later edits arrive through subscribeText.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showingPage, token, scheduler, subscribeText, sendDraft]);
+  useEffect(() => {
+    if (!dirty) setDraft(null);
+  }, [dirty]);
+
   const summary = useMemo(() => summarizeResources(resources, externalUrlsOf(renderedText)), [renderedText, resources]);
-  const source = token === null ? null : decideRenderSource({ dirty, text: renderedText, url: token.url, baseUrl: token.baseUrl });
+  const frameSrc = token === null ? null : renderUrl({ dirty, url: token.url, draft });
 
   const onFrameAreaKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'F5') return;
@@ -212,13 +254,13 @@ export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, d
               <button type="button" className="editor-text-button" onClick={onSave}>{t('editor.html.save')}</button>
             </div>
           )}
-          {source !== null && (
+          {frameSrc !== null && (
             <iframe
               key={frameKey}
               className="html-tab-frame"
               title={t('editor.html.frameTitle', { name: baseName(filePath) })}
               sandbox={HTML_SANDBOX}
-              {...(source.kind === 'src' ? { src: source.src } : { srcDoc: source.srcdoc })}
+              src={frameSrc}
               onLoad={onFrameLoad}
             />
           )}

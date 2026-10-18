@@ -450,6 +450,14 @@ export function EditorDocumentPanel({
   const htmlViewRef = useRef<ReturnType<typeof consumeHtmlViewHint> | null>(null);
   if (isHtml && htmlViewRef.current === null) htmlViewRef.current = consumeHtmlViewHint(filePath);
   const getLiveBody = useCallback(() => liveBodyRef.current, []);
+  // FR-MDE-028 AC-5: the HTML tab follows the text to send drafts of it.
+  const textListenersRef = useRef(new Set<(text: string) => void>());
+  const subscribeText = useCallback((listener: (text: string) => void) => {
+    textListenersRef.current.add(listener);
+    return () => {
+      textListenersRef.current.delete(listener);
+    };
+  }, []);
   const svgSessionRef = useRef<SvgSourceSession | null>(null);
   const activeController = useCallback(
     (): EditorWindowSaveController => svgSessionRef.current?.controller ?? controller,
@@ -494,6 +502,7 @@ export function EditorDocumentPanel({
       if (!update.docChanged) return;
       liveBodyRef.current = update.state.sliceDoc();
       controllerRef.current?.handleEditorChange(encodeForSave(liveBodyRef.current, layout));
+      for (const listener of textListenersRef.current) listener(liveBodyRef.current);
     }),
   ], [view, layout]);
 
@@ -767,6 +776,7 @@ export function EditorDocumentPanel({
               initialView={htmlViewRef.current ?? 'rendered'}
               dirty={saveState.dirty}
               getText={getLiveBody}
+              subscribeText={subscribeText}
               onSave={save}
             >
               {codeEditor}
