@@ -26,7 +26,11 @@ import {
 
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const SCHEMA = `${REPO_ROOT}server/src/schemas/config.schema.ts`;
-const OPERATIONAL_CONFIG = `${REPO_ROOT}server/config.json5`;
+// The tracked baseline. server/config.json5 is gitignored per-machine state: a developer who
+// switches their own runtime to the new path would turn this guard red although the repository
+// decided nothing (2026-10-19: this checkout runs 'safe-send-enforce' locally). What the
+// repository ships is config.json5.example, so that is what a decision has to change.
+const OPERATIONAL_CONFIG = `${REPO_ROOT}server/config.json5.example`;
 
 /** Every `z.enum(...).default(...)` the schema declares, as name -> default. */
 function declaredEnumDefaults(): Map<string, string> {
@@ -91,7 +95,8 @@ test('#21 step 0 — the operational config still pins wsSendMode to the old pat
   // was the single key it called "already on the new path". It is 'direct' today, and that
   // inverts the issue's starting premise. Whichever value is true, it must be a measured
   // one: this asserts what was measured at 936e0e8c so a change is a decision, not drift.
-  const signature = 'server/config.json5 changed which path wsSendMode selects';
+  // It reads the tracked config.json5.example (see OPERATIONAL_CONFIG), not a machine's copy.
+  const signature = 'server/config.json5.example changed which path wsSendMode selects';
   const config = readFileSync(OPERATIONAL_CONFIG, 'utf8');
 
   assert.match(config, /wsSendMode:\s*"direct"/u, signature);
