@@ -37,8 +37,10 @@ import type {
 import { ARCHIVE_ENTRY_REFUSAL, normalizeEntryPath } from './archiveEntryName.js';
 import { archiveError, archiveFormatOf, archiveStem, forEachArchiveEntry, packedSize, type ArchiveEntry, type ArchiveFormat } from './archiveReader.js';
 
-/** AC-4: an archive that unpacks to more than this many times its own size is refused. */
+/** AC-4: an archive that unpacks to more than this many times its own size is refused... */
 export const MAX_EXTRACT_RATIO = 1000;
+/** ...once it unpacks to more than this; a small archive of zeros or logs is no threat to the disk. */
+export const EXTRACT_RATIO_FLOOR_BYTES = 64 * 1024 * 1024;
 
 const CONFLICT_CHOICES: readonly FileJobConflictChoice[] = Object.freeze(['overwrite', 'rename', 'skip']);
 const KIND_MISMATCH_CHOICES: readonly FileJobConflictChoice[] = Object.freeze(['rename', 'skip']);
@@ -110,7 +112,7 @@ export async function precountArchive(
     }
     onEntry?.(entryCount);
   });
-  if (packedBytes > 0 && unpackedBytes / packedBytes > MAX_EXTRACT_RATIO) {
+  if (unpackedBytes > EXTRACT_RATIO_FLOOR_BYTES && packedBytes > 0 && unpackedBytes / packedBytes > MAX_EXTRACT_RATIO) {
     throw archiveError(ErrorCode.ARCHIVE_TOO_LARGE, `the unpacked size is more than ${MAX_EXTRACT_RATIO} times the archive size (compression ratio)`);
   }
   return { format, entryCount, unpackedBytes, packedBytes, singleTopFolder: single ? top : null, stem: archiveStem(name) };

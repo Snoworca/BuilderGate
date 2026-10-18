@@ -15,6 +15,7 @@ import { captureSessionRoot, isFileJobPathBlocked, validateCreatePath, type File
 import { UploadTempRegistry, isUploadTempName } from '../upload/uploadTemp.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 import { buildTar, buildZip, type ZipFixtureEntry } from '../../testing/archiveFixtures.js';
+import { precountArchive } from './extractJob.js';
 
 const SESSION = 'session-extract';
 
@@ -536,4 +537,31 @@ test('FR-FOP-007 AC-1: a here extraction cancelled at a question keeps what was 
     assert.deepEqual(await tree(cwd), ['exists.txt', 'first.txt', 'q.zip']);
     assert.equal(await fs.readFile(path.join(cwd, 'exists.txt'), 'utf8'), 'old');
   });
+});
+
+test('FR-FOP-007 AC-4: a small archive that unpacks to under 64 MiB extracts whatever its ratio', async () => {
+  await withExtract(async ({ cwd, extract }) => {
+    const zeros = Buffer.alloc(8 * 1024 * 1024);
+    const archive = buildZip([{ name: 'zeros/z.bin', data: zeros }]);
+    assert.ok(zeros.length / archive.length > 1000, `the fixture is over 1000x (${zeros.length / archive.length})`);
+    await fs.writeFile(path.join(cwd, 'zeros.zip'), archive);
+    const done = await extract('zeros.zip', 'smart');
+    assert.equal(done.outcome, 'completed', JSON.stringify(done));
+    assert.equal((await fs.stat(path.join(cwd, 'zeros', 'z.bin'))).size, zeros.length);
+  });
+});
+
+test('FR-FOP-007 AC-4: over 64 MiB unpacked and over 1000x is refused; exactly 64 MiB is not judged by ratio', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'bg-ratio-'));
+  try {
+    const limits = { maxBytes: 10 * 1024 ** 3, maxEntries: 100 };
+    const over = path.join(dir, 'over.zip');
+    await fs.writeFile(over, buildZip([{ name: 'a.bin', data: text('tiny'), declaredSize: 64 * 1024 * 1024 + 1 }]));
+    await assert.rejects(precountArchive(over, limits), (err: unknown) => (err as { code?: string }).code === 'ARCHIVE_TOO_LARGE' && /ratio/.test(String((err as { publicReason?: string }).publicReason)));
+    const at = path.join(dir, 'at.zip');
+    await fs.writeFile(at, buildZip([{ name: 'a.bin', data: text('tiny'), declaredSize: 64 * 1024 * 1024 }]));
+    assert.equal((await precountArchive(at, limits)).unpackedBytes, 64 * 1024 * 1024);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 });
