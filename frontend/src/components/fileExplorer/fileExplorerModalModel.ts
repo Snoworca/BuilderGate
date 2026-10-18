@@ -35,6 +35,8 @@ export interface WindowModalModel {
   details?: readonly { label: string; value: string; emphasis?: boolean }[];
   /** FR-FEX-024 AC-8: the items a notice lists, each with its reason. */
   items?: readonly { name: string; reason: string }[];
+  /** Items beyond the listed ones: '외 n개'. */
+  moreLabel?: string;
 }
 
 /** A notice only acknowledges; its one button settles it. */
@@ -138,13 +140,14 @@ export function buildDecisionModal(detail: DecideDetail): WindowModalModel {
  * acknowledges, so its one button is 확인 and it remembers nothing.
  * @req FR-FEX-024
  */
-export function buildRejectedItemsModal(items: readonly { path: string; code: string }[]): WindowModalModel {
+export function buildRejectedItemsModal(items: readonly { path: string; code: string }[], more = 0): WindowModalModel {
   return {
     title: t('fileExplorer.modal.errorTitle'),
     message: t('fileTransfer.rejected.message'),
     choices: [{ id: 'confirm', label: t('fileExplorer.modal.ok') }],
     showApplyToAll: false,
     items: items.map((item) => ({ name: item.path, reason: transferReasonText(item.code) })),
+    ...(more > 0 ? { moreLabel: tn('fileExplorer.modal.moreItems', more) } : {}),
   };
 }
 

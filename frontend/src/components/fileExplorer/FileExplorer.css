@@ -965,3 +965,4 @@
   .fx-window-modal-actions .fx-confirm-button { width: 100%; min-height: 44px; }
 }
 .fx-upload-band-body .fx-job-bar { flex: none; width: 100%; }
+.fx-window-modal-more { font-size: var(--fs-xs); color: var(--fg-muted); }

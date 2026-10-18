@@ -1217,5 +1217,7 @@
   "apiError.HTML_VIEW_TOKEN_INVALID": "페이지 링크가 올바르지 않거나 만료되었습니다.",
   "mcp.auditAction.buildergateEditorOpenHtml": "편집기에서 HTML 열기",
   "editor.html.resourceLoaded": "불러옴",
-  "apiError.UNSUPPORTED_MEDIA_TYPE": "이 요청에서 받지 않는 본문 형식입니다."
+  "apiError.UNSUPPORTED_MEDIA_TYPE": "이 요청에서 받지 않는 본문 형식입니다.",
+  "apiError.PRECOUNT_BUSY": "계산 중인 작업이 많습니다. 잠시 뒤 다시 시도하세요.",
+  "fileExplorer.modal.moreItems.other": "외 {count}개"
 }

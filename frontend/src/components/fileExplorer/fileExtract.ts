@@ -114,6 +114,8 @@ export interface ExtractDoneInput {
   createdPaths: readonly string[];
   processedEntries: number;
   skipped: readonly { path: string; reason: string }[];
+  /** How many were skipped in all; `skipped` lists only the first of them (contract §4.3). */
+  skippedCount?: number;
 }
 
 export interface ExtractDoneView {
@@ -122,6 +124,8 @@ export interface ExtractDoneView {
   toast: string;
   /** For 처리하지 못한 항목. */
   skipped: { path: string; code: string }[];
+  /** Skipped entries the job did not list, for the 외 n개 line. */
+  moreSkipped: number;
 }
 
 function lastSegment(path: string): string {
@@ -136,6 +140,7 @@ export function describeExtractDone(input: ExtractDoneInput): ExtractDoneView {
     select: first === undefined ? null : lastSegment(first),
     toast: tn('fileTransfer.toast.extracted', input.processedEntries, { folder: rootLabel(input.destPath) }),
     skipped: input.skipped.map((entry) => ({ path: entry.path, code: SKIP_REASON_CODES[entry.reason] ?? entry.reason })),
+    moreSkipped: Math.max(0, (input.skippedCount ?? input.skipped.length) - input.skipped.length),
   };
 }
 

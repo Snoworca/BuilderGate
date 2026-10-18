@@ -28,7 +28,7 @@ import {
 type WindowModalEntry = { id: number } & (
   | { kind: 'delete'; paths: readonly string[]; resolve: (answer: 'confirm' | 'cancel') => void }
   | { kind: 'job'; jobId: string | null; detail: DecideDetail; resolve: (answer: DecideAnswer | null) => void }
-  | { kind: 'notice'; items: readonly { path: string; code: string }[]; resolve: () => void });
+  | { kind: 'notice'; items: readonly { path: string; code: string }[]; more: number; resolve: () => void });
 
 export interface FileExplorerWindowModalState {
   /** The question on screen; later ones wait behind it. */
@@ -40,7 +40,7 @@ export interface FileExplorerWindowModalState {
   /** The job finished: its questions no longer have anyone to answer them. */
   dropJob: (jobId: string) => void;
   /** FR-FEX-024 AC-8: lists the files the server refused; resolves on 확인. */
-  notifyRejected: (items: readonly { path: string; code: string }[]) => Promise<void>;
+  notifyRejected: (items: readonly { path: string; code: string }[], more?: number) => Promise<void>;
 }
 
 /**
@@ -99,11 +99,12 @@ export function useFileExplorerWindowModal(): FileExplorerWindowModalState {
     return answer ?? { kind: 'decide', choice: detail.choices[0], applyToAll: false };
   }, [decideJob]);
 
-  const notifyRejected = useCallback((items: readonly { path: string; code: string }[]) => new Promise<void>((resolve) => {
+  const notifyRejected = useCallback((items: readonly { path: string; code: string }[], more = 0) => new Promise<void>((resolve) => {
     const entry: WindowModalEntry = {
       id: nextIdRef.current++,
       kind: 'notice',
       items,
+      more,
       resolve: () => { remove(entry); resolve(); },
     };
     add(entry);
@@ -126,7 +127,7 @@ export function useFileExplorerWindowModal(): FileExplorerWindowModalState {
 }
 
 function modelOf(entry: WindowModalEntry): WindowModalModel {
-  if (entry.kind === 'notice') return buildRejectedItemsModal(entry.items);
+  if (entry.kind === 'notice') return buildRejectedItemsModal(entry.items, entry.more);
   return entry.kind === 'delete' ? buildDeleteConfirmModal(entry.paths) : buildDecisionModal(entry.detail);
 }
 
@@ -218,6 +219,7 @@ function WindowModalSurface({ entry }: { entry: WindowModalEntry }) {
             ))}
           </ul>
         )}
+        {model.moreLabel !== undefined && <div className="fx-window-modal-more">{model.moreLabel}</div>}
         {model.showApplyToAll && (
           <label className="fx-window-modal-check">
             <input type="checkbox" checked={applyToAll} onChange={(event) => setApplyToAll(event.target.checked)} />

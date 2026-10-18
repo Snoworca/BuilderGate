@@ -45,6 +45,7 @@ function handleFileJobMessage(msg: FileJobServerMessage): void {
         createdPaths: msg.createdPaths ?? [],
         processedEntries: msg.processedEntries,
         skipped: msg.skipped ?? [],
+        ...(msg.skippedCount === undefined ? {} : { skippedCount: msg.skippedCount }),
       });
     }
     // The route only carries the directories to refresh; the outcome is the message's.

@@ -512,7 +512,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   useEffect(() => subscribeExtractFinished((event) => {
     if (event.tabId !== tab.id || event.sessionId !== tab.sessionId) return;
     const view = describeExtractDone(event);
-    if (view.skipped.length > 0) void notifyRejected(view.skipped);
+    if (view.skipped.length > 0 || view.moreSkipped > 0) void notifyRejected(view.skipped, view.moreSkipped);
     if (event.outcome !== 'completed') return;
     const moved = decideArrivalScroll({ userSelected: userMovedRef.current, userScrolled: userMovedRef.current }) !== 'scroll';
     const names = view.select === null ? [] : [view.select];

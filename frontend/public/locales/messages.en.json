@@ -1258,5 +1258,8 @@
   "apiError.HTML_VIEW_TOKEN_INVALID": "The page link is invalid or expired.",
   "mcp.auditAction.buildergateEditorOpenHtml": "Open HTML in editor",
   "editor.html.resourceLoaded": "Loaded",
-  "apiError.UNSUPPORTED_MEDIA_TYPE": "The request body type is not accepted here."
+  "apiError.UNSUPPORTED_MEDIA_TYPE": "The request body type is not accepted here.",
+  "apiError.PRECOUNT_BUSY": "Too many counts are running; try again shortly.",
+  "fileExplorer.modal.moreItems.one": "and {count} more",
+  "fileExplorer.modal.moreItems.other": "and {count} more"
 }
