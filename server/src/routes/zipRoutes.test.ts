@@ -11,7 +11,7 @@ import { request, type IncomingHttpHeaders, type IncomingMessage } from 'node:ht
 import express from 'express';
 import { FileService } from '../services/FileService.js';
 import { DownloadTokenStore } from '../services/DownloadTokenStore.js';
-import { ZipArchiveService } from '../services/ZipArchiveService.js';
+import { ZipArchiveService, openArchiveFile } from '../services/ZipArchiveService.js';
 import { createDownloadRoutes, createDownloadTokenRoutes } from './downloadRoutes.js';
 import { createZipRoutes } from './zipRoutes.js';
 import { withLocalHttpServer } from '../testing/localHttpTestServer.js';
@@ -31,7 +31,7 @@ interface Ctx {
 
 async function withApp(
   run: (ctx: Ctx) => Promise<void>,
-  options: { openForRead?: (p: string) => Promise<fs.FileHandle> } = {},
+  options: { openForRead?: (p: string) => Promise<fs.FileHandle>; idleTimeoutMs?: number } = {},
 ): Promise<void> {
   const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-zip-')));
   const cwd = path.join(root, 'components');
@@ -51,7 +51,7 @@ async function withApp(
   });
   const clock = { now: 1_000_000 };
   const store = new DownloadTokenStore({ ttlMs: 60_000, now: () => clock.now });
-  const zip = new ZipArchiveService(service, { now: () => clock.now, openForRead: options.openForRead });
+  const zip = new ZipArchiveService(service, { now: () => clock.now, openForRead: options.openForRead, idleTimeoutMs: options.idleTimeoutMs });
   const app = express();
   app.use(express.json());
   app.use('/api/sessions', createDownloadTokenRoutes(service, store));
@@ -364,4 +364,71 @@ test('FR-FEX-025 AC-6: cancelling the job ends the stream; unknown and foreign j
     const forgotten = await ctx.send('GET', `/api/sessions/${SESSION_ID}/files/zip/jobs/${issued.jobId}`);
     assert.equal(forgotten.status, 404);
   });
+});
+
+function incompressible(length: number): Buffer {
+  const big = Buffer.alloc(length);
+  for (let i = 0; i < big.length; i += 4) big.writeUInt32LE((Math.imul(i, 2654435761) ^ (i >>> 7)) >>> 0, i);
+  return big;
+}
+
+test('FR-FEX-025 AC-6: a reader that stops reading is dropped after the idle timeout and the job fails', async () => {
+  await withApp(async (ctx) => {
+    await fs.writeFile(path.join(ctx.cwd, 'big.bin'), incompressible(16 * 1024 * 1024));
+    const issued = await issueZip(ctx, ['big.bin']);
+    const response = await ctx.openGet(issued.url);
+    assert.equal(response.statusCode, 200);
+    response.pause(); // never resumed
+    const ended = new Promise<void>((resolve) => {
+      response.on('aborted', () => resolve());
+      response.on('error', () => resolve());
+      response.on('close', () => resolve());
+    });
+    let state = '';
+    for (let i = 0; i < 150 && state !== 'failed'; i += 1) {
+      state = String(json(await ctx.send('GET', `/api/sessions/${SESSION_ID}/files/zip/jobs/${issued.jobId}`)).state);
+      if (state !== 'failed') await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(state, 'failed');
+    response.resume();
+    await ended;
+    // The file handle is closed: the file can be removed (Windows refuses while it is open).
+    await fs.rm(path.join(ctx.cwd, 'big.bin'));
+  }, { idleTimeoutMs: 200 });
+});
+
+test('FR-FEX-025 AC-5: an entry swapped for something else between the walk and the open is left out and reported', async () => {
+  const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-zip-secret-'));
+  const secret = path.join(outside, 'secret.txt');
+  await fs.writeFile(secret, 'TOP SECRET');
+  try {
+    await withApp(async (ctx) => {
+      await seed(ctx.cwd);
+      const issued = await issueZip(ctx, ['editor']);
+      const response = await ctx.send('GET', issued.url);
+      assert.equal(response.status, 200);
+      const entries = readZip(response.body);
+      assert.equal(entries.some((e) => e.name === 'editor/a.ts'), false, 'the swapped entry is not archived');
+      assert.equal(entries.some((e) => e.data.toString().includes('TOP SECRET')), false, 'nothing outside leaks in');
+      const report = entries.find((e) => e.name === '_skipped.txt');
+      assert.ok(report);
+      assert.match(report!.data.toString('utf8'), /editor\/a\.ts\t/);
+    }, {
+      openForRead: async (p) => {
+        if (path.basename(p) === 'a.ts') {
+          await fs.rm(p);
+          try {
+            await fs.symlink(secret, p, 'file');
+          } catch (err) {
+            if ((err as NodeJS.ErrnoException).code !== 'EPERM') throw err;
+            // No symlink privilege: a different file in its place must be caught the same way.
+            await fs.copyFile(secret, p);
+          }
+        }
+        return openArchiveFile(p);
+      },
+    });
+  } finally {
+    await fs.rm(outside, { recursive: true, force: true });
+  }
 });

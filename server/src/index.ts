@@ -21,6 +21,7 @@ import { createFileRoutes } from './routes/fileRoutes.js';
 import { createDownloadRoutes, createDownloadTokenRoutes } from './routes/downloadRoutes.js';
 import { DownloadTokenStore } from './services/DownloadTokenStore.js';
 import { createUploadRoutes } from './routes/uploadRoutes.js';
+import { createRequestBodyDeadline } from './middleware/requestBodyDeadline.js';
 import { createZipRoutes } from './routes/zipRoutes.js';
 import { ZipArchiveService } from './services/ZipArchiveService.js';
 import { UploadTempRegistry } from './services/upload/uploadTemp.js';
@@ -577,6 +578,10 @@ function stringArray(value: unknown): string[] {
 // ============================================================================
 // Security Middleware Stack (Phase 1)
 // ============================================================================
+
+// FR-FEX-023: the body deadline the HTTPS server's requestTimeout used to give, before anything
+// reads a body (see httpsServer.requestTimeout below). The upload PUT gets an idle timeout instead.
+app.use(createRequestBodyDeadline());
 
 // Security headers (helmet)
 // In development, relax CSP to allow Vite's inline scripts and HMR WebSocket
@@ -1899,7 +1904,9 @@ async function startServer(): Promise<void> {
     httpsServer.keepAliveTimeout = 120000;
     httpsServer.headersTimeout = 125000;
     // FR-FEX-023: an upload body may take longer than Node's default 5-minute requestTimeout (a 2 GiB
-    // file on a slow link); that timeout would cut it off with a 408. headersTimeout still bounds the
+    // file on a slow link), and that timeout has no per-route exception. It is off here and
+    // createRequestBodyDeadline (the first middleware) restores the 300 s body deadline for every
+    // other request and gives the upload PUT a 60 s idle timeout. headersTimeout still bounds the
     // request head.
     httpsServer.requestTimeout = 0;
 

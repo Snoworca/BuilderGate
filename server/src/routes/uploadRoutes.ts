@@ -5,12 +5,13 @@ import { Router, type Request, type Response } from 'express';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { Transform } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import { Transform, type Writable } from 'node:stream';
+import { once } from 'node:events';
 import type { FileService } from '../services/FileService.js';
 import { newUploadTempName, type UploadTempRegistry } from '../services/upload/uploadTemp.js';
 import { resolveNameCollision } from '../services/fileNameCollision.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
+import { armRequestIdleTimeout, DEFAULT_UPLOAD_IDLE_TIMEOUT_MS } from '../middleware/requestBodyDeadline.js';
 
 type ConflictDecision = 'fail' | 'overwrite' | 'rename' | 'skip';
 const DECISIONS: ReadonlySet<string> = new Set(['fail', 'overwrite', 'rename', 'skip']);
@@ -49,9 +50,98 @@ function toPosix(relative: string): string {
   return relative.split(path.sep).join('/');
 }
 
+type ReceiveOutcome = { kind: 'done'; size: number } | { kind: 'aborted' } | { kind: 'failed'; error: unknown };
+
+/**
+ * Copies the request body into the temp file. The request is piped, never put in a pipeline: a
+ * write error or the size limit stops the writing but leaves the request alone, so the client can
+ * still be answered. A request that closes before its last byte is the client going away. The temp
+ * file is closed before this returns, which Windows needs to rename or delete it.
+ */
+async function receiveBody(req: Request, tempPath: string, limit: number, open: (filePath: string) => Writable): Promise<ReceiveOutcome> {
+  let size = 0;
+  const counter = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      size += chunk.length;
+      if (size > limit) {
+        callback(new AppError(ErrorCode.FILE_TOO_LARGE));
+        return;
+      }
+      callback(null, chunk);
+    },
+  });
+  const file = open(tempPath);
+  const outcome = await new Promise<ReceiveOutcome>((resolve) => {
+    let settled = false;
+    const settle = (value: ReceiveOutcome): void => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    req.once('aborted', () => settle({ kind: 'aborted' }));
+    req.once('close', () => {
+      if (!req.complete) settle({ kind: 'aborted' });
+    });
+    counter.once('error', (error) => settle({ kind: 'failed', error }));
+    file.once('error', (error) => settle({ kind: 'failed', error }));
+    file.once('finish', () => settle({ kind: 'done', size }));
+    req.pipe(counter).pipe(file);
+  });
+  if (outcome.kind !== 'done') {
+    req.unpipe(counter);
+    counter.unpipe(file);
+    counter.destroy();
+    if (!file.destroyed) file.destroy();
+  }
+  if (!(file as Writable & { closed?: boolean }).closed) await once(file, 'close').catch(() => undefined);
+  return outcome;
+}
+
+/** Codes a filesystem gives when it cannot make hard links. */
+const NO_LINK = new Set(['EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS', 'EXDEV', 'EMLINK', 'EINVAL']);
+
+/**
+ * Puts the temp file's content at `finalPath` only if that name is free, as one filesystem step
+ * (a hard link, or an exclusive copy where links are not supported). With `rename`, a taken name
+ * moves on to the next FR-FOP-004 name; otherwise it is FILE_ALREADY_EXISTS. The temp file stays;
+ * the caller removes it.
+ */
+async function placeExclusively(tempPath: string, finalPath: string, rename: boolean): Promise<string> {
+  const parent = path.dirname(finalPath);
+  const wanted = path.basename(finalPath);
+  const tried = new Set<string>();
+  let useLink = true;
+  let candidate = wanted;
+  for (;;) {
+    const destination = path.join(parent, candidate);
+    try {
+      if (useLink) await fsp.link(tempPath, destination);
+      else await fsp.copyFile(tempPath, destination, fs.constants.COPYFILE_EXCL);
+      return destination;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST') {
+        if (!rename) throw new AppError(ErrorCode.FILE_ALREADY_EXISTS);
+        tried.add(candidate);
+        candidate = resolveNameCollision(wanted, (name) => tried.has(name) || fs.existsSync(path.join(parent, name)));
+        continue;
+      }
+      if (useLink && code !== undefined && NO_LINK.has(code)) {
+        useLink = false;
+        continue;
+      }
+      throw fsError(err, 'Place');
+    }
+  }
+}
+
 export interface UploadRouteOptions {
   registry: UploadTempRegistry;
   maxConcurrentPerSession?: number;
+  /** An upload with no body byte for this long is dropped (default 60 s). */
+  idleTimeoutMs?: number;
+  /** Opens the temp file for writing; tests replace it to inject write errors. */
+  createWriteStream?: (filePath: string) => Writable;
 }
 
 export function createUploadRoutes(fileService: FileService, options: UploadRouteOptions): Router {
@@ -59,6 +149,9 @@ export function createUploadRoutes(fileService: FileService, options: UploadRout
   const { registry } = options;
   const maxConcurrent = options.maxConcurrentPerSession ?? DEFAULT_MAX_CONCURRENT_UPLOADS;
   const running = new Map<string, number>();
+  const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_UPLOAD_IDLE_TIMEOUT_MS;
+  // 'wx': the random name is ours alone.
+  const openTempFile = options.createWriteStream ?? ((filePath: string) => fs.createWriteStream(filePath, { flags: 'wx' }));
 
   // POST /api/sessions/:id/files/upload/check  { dir, files: [{ path, size }] }
   router.post('/:id/files/upload/check', async (req: Request<{ id: string }>, res: Response) => {
@@ -109,6 +202,9 @@ export function createUploadRoutes(fileService: FileService, options: UploadRout
   // PUT /api/sessions/:id/files/upload?dir=&path=&conflict=fail|overwrite|rename|skip  (raw bytes)
   router.put('/:id/files/upload', async (req: Request<{ id: string }>, res: Response) => {
     const sessionId = req.params.id;
+    // Not tied to the server's request timeout (which a long upload would outlast), but a stalled
+    // upload must not hold its slot and its temp file forever.
+    armRequestIdleTimeout(req, idleTimeoutMs);
     const active = running.get(sessionId) ?? 0;
     if (active >= maxConcurrent) {
       sendError(res, new AppError(ErrorCode.UPLOAD_BUSY));
@@ -171,43 +267,31 @@ export function createUploadRoutes(fileService: FileService, options: UploadRout
 
       tempPath = path.join(parent, newUploadTempName());
       await registry.add(tempPath);
-      let received = 0;
-      const counter = new Transform({
-        transform(chunk: Buffer, _encoding, callback) {
-          received += chunk.length;
-          if (received > limit) {
-            callback(new AppError(ErrorCode.FILE_TOO_LARGE));
-            return;
-          }
-          callback(null, chunk);
-        },
-      });
-      try {
-        // 'wx': the random name is ours alone.
-        await pipeline(req, counter, fs.createWriteStream(tempPath, { flags: 'wx' }));
-      } catch (err) {
-        if (err instanceof AppError) throw err;
-        if (req.destroyed || (req as { aborted?: boolean }).aborted || !req.complete) {
-          // The client went away: there is nobody to answer.
-          await discardTemp();
-          return;
-        }
-        throw fsError(err, 'Write');
+      const outcome = await receiveBody(req, tempPath, limit, openTempFile);
+      if (outcome.kind === 'aborted') {
+        // The client went away (or went idle): there is nobody to answer.
+        await discardTemp();
+        return;
       }
+      if (outcome.kind === 'failed') {
+        // The server stopped writing; the client is still there and gets the reason.
+        throw outcome.error instanceof AppError ? outcome.error : fsError(outcome.error, 'Write');
+      }
+      const received = outcome.size;
 
-      // The name may have been taken while the bytes arrived.
-      if (conflict === 'rename') {
-        finalPath = path.join(parent, resolveNameCollision(path.basename(finalPath), (candidate) => fs.existsSync(path.join(parent, candidate))));
-      } else if (conflict === 'fail' && fs.existsSync(finalPath)) {
-        throw new AppError(ErrorCode.FILE_ALREADY_EXISTS);
-      } else if (conflict === 'overwrite') {
+      // AC-7: placed without replacing anything unless overwrite was asked for, so a name taken
+      // while the bytes arrived (another upload, a shell) is never lost.
+      if (conflict === 'overwrite') {
         const now = await fsp.lstat(finalPath).catch(() => null);
         if (now?.isDirectory()) throw new AppError(ErrorCode.FILE_ALREADY_EXISTS);
-      }
-      try {
-        await fsp.rename(tempPath, finalPath);
-      } catch (err) {
-        throw fsError(err, 'Rename');
+        try {
+          await fsp.rename(tempPath, finalPath);
+        } catch (err) {
+          throw fsError(err, 'Rename');
+        }
+      } else {
+        finalPath = await placeExclusively(tempPath, finalPath, conflict === 'rename');
+        await fsp.unlink(tempPath).catch(() => undefined);
       }
       const placed = tempPath;
       tempPath = null;
@@ -216,8 +300,10 @@ export function createUploadRoutes(fileService: FileService, options: UploadRout
     } catch (err) {
       await discardTemp();
       if (!res.headersSent && !req.complete) {
-        // The rest of the body is not wanted; close the connection once the answer is out.
+        // The rest of the body is not wanted: it is read and dropped (so the answer reaches the
+        // client instead of a reset) and the connection closes once the answer is out.
         res.set('Connection', 'close');
+        req.resume();
       }
       sendError(res, err);
     } finally {

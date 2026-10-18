@@ -23,7 +23,7 @@ const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 /**
  * The segments of a folder upload's relative path, or null when it must be refused with
  * INVALID_UPLOAD_PATH (AC-3): empty, '.', '..', an absolute or drive-qualified start, a ':'
- * (a drive or an NTFS stream), a NUL, or a Windows reserved device name. The check is the same
+ * (a drive or an NTFS stream), a NUL, a trailing dot or space, or a Windows reserved device name. The check is the same
  * on every host, so a path that would misbehave on Windows is refused on Linux too.
  */
 export function validateUploadRelativePath(relativePath: string): string[] | null {
@@ -32,8 +32,11 @@ export function validateUploadRelativePath(relativePath: string): string[] | nul
   const segments = relativePath.split(/[/\\]/);
   for (const segment of segments) {
     if (segment === '' || segment === '.' || segment === '..') return null;
-    // Win32 drops trailing dots and spaces, and the device name is the part before the first dot.
-    const device = segment.replace(/[. ]+$/, '').split('.')[0];
+    // Win32 drops trailing dots and spaces, so 'tool.exe.' would land as 'tool.exe' past the
+    // extension check. Refused on every host, like the rest of these rules.
+    if (/[. ]$/.test(segment)) return null;
+    // The device name is the part before the first dot.
+    const device = segment.split('.')[0];
     if (WINDOWS_RESERVED.test(device)) return null;
     if (isUploadTempName(segment)) return null;
   }

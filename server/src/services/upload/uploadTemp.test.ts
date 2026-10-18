@@ -19,7 +19,7 @@ test('FR-FEX-023 AC-5: upload temp names are recognised and nothing else is', ()
 
 test('FR-FEX-023 AC-3: relative path validation returns the segments or refuses', () => {
   assert.deepEqual(validateUploadRelativePath('a/b\\c.txt'), ['a', 'b', 'c.txt']);
-  for (const bad of ['', '..', 'a/..', '/a', 'C:a', 'a:b', 'a\u0000', 'CON', 'Com3.txt', 'LPT1', 'a//b', '.', 'nul.', 'aux ', newUploadTempName()]) {
+  for (const bad of ['tool.exe.', 'tool.exe ', 'a./b', 'b /c', '', '..', 'a/..', '/a', 'C:a', 'a:b', 'a\u0000', 'CON', 'Com3.txt', 'LPT1', 'a//b', '.', 'nul.', 'aux ', newUploadTempName()]) {
     assert.equal(validateUploadRelativePath(bad), null, JSON.stringify(bad));
   }
 });

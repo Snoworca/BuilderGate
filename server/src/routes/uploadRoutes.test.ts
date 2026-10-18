@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'node:fs';
 import { request, type IncomingHttpHeaders, type ClientRequest } from 'node:http';
 import express from 'express';
 import { FileService } from '../services/FileService.js';
@@ -34,7 +35,13 @@ function uploadUrl(query: Record<string, string>): string {
   return `/api/sessions/${SESSION_ID}/files/upload?${new URLSearchParams(query).toString()}`;
 }
 
-async function withApp(run: (ctx: Ctx) => Promise<void>, options: { maxConcurrent?: number } = {}): Promise<void> {
+interface AppOptions {
+  maxConcurrent?: number;
+  idleTimeoutMs?: number;
+  createWriteStream?: (filePath: string) => import('node:stream').Writable;
+}
+
+async function withApp(run: (ctx: Ctx) => Promise<void>, options: AppOptions = {}): Promise<void> {
   const cwd = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-upload-')));
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-upload-data-'));
   const registryPath = path.join(dataDir, 'upload-temp.json');
@@ -55,7 +62,7 @@ async function withApp(run: (ctx: Ctx) => Promise<void>, options: { maxConcurren
   const registry = new UploadTempRegistry(registryPath);
   const app = express();
   app.use(express.json());
-  app.use('/api/sessions', createUploadRoutes(service, { registry, maxConcurrentPerSession: options.maxConcurrent }));
+  app.use('/api/sessions', createUploadRoutes(service, { registry, maxConcurrentPerSession: options.maxConcurrent, idleTimeoutMs: options.idleTimeoutMs, createWriteStream: options.createWriteStream }));
   try {
     await withLocalHttpServer(app, async (fixture) => {
       const collect = (req: ClientRequest) => new Promise<RawResponse>((resolve, reject) => {
@@ -183,7 +190,7 @@ test('FR-FEX-023 AC-2: destinations outside the session or blocked are refused a
 
 test('FR-FEX-023 AC-3: an invalid relative path is refused with INVALID_UPLOAD_PATH; missing folders are created', async () => {
   await withApp(async ({ cwd, put }) => {
-    const invalid = ['../a.txt', 'a/../../b.txt', '/abs.txt', '\\abs.txt', 'C:/abs.txt', 'C:\\abs.txt', 'a\u0000b.txt',
+    const invalid = ['tool.exe.', 'tool.exe ', 'dir./a.txt', 'a /b.txt', '../a.txt', 'a/../../b.txt', '/abs.txt', '\\abs.txt', 'C:/abs.txt', 'C:\\abs.txt', 'a\u0000b.txt',
       'CON', 'con.txt', 'sub/PRN.md', 'AUX', 'nul.txt', 'COM1.log', 'lpt9', 'a//b.txt', './a.txt', ''];
     for (const rel of invalid) {
       const response = await put({ dir: '', path: rel }, Buffer.from('x'));
@@ -220,11 +227,11 @@ test('FR-FEX-023 AC-4: a body without a declared length that grows past the limi
     req.on('error', () => { /* the server may close the connection while the body is still being sent */ });
     for (let i = 0; i < 5; i += 1) req.write(chunk);
     req.end();
-    const result = await response.catch(() => null);
-    if (result !== null) {
-      assert.equal(result.status, 413, result.body.toString());
-      assert.equal(code(result), 'FILE_TOO_LARGE');
-    }
+    // The answer reaches the client: the server stops writing, not the connection.
+    const result = await response;
+    assert.equal(result.status, 413, result.body.toString());
+    assert.equal(code(result), 'FILE_TOO_LARGE');
+    assert.equal(result.headers.connection, 'close');
     await waitFor(async () => (await fs.readdir(cwd)).length === 0, 'the temporary file to be removed');
     assert.deepEqual(registry.list(), []);
   });
@@ -391,4 +398,57 @@ test('FR-FEX-023 AC-8: a session takes at most 6 concurrent uploads; the 7th ans
     for (const { req } of open.slice(1)) req.destroy();
     await waitFor(async () => (await tempFilesIn(cwd)).length === 0, 'aborted uploads to be cleaned');
   });
+});
+
+test('FR-FEX-023 AC-5: an upload whose bytes stop arriving is cut off after the idle timeout, its temp file removed and its slot returned', async () => {
+  await withApp(async ({ cwd, openPut, put, registry }) => {
+    const { req, response } = openPut({ dir: '', path: 'stalled.bin' }, 10_000);
+    req.on('error', () => { /* cut off by the server */ });
+    response.catch(() => { /* cut off by the server */ });
+    req.write(patterned(1_000));
+    await waitFor(async () => (await tempFilesIn(cwd)).length === 1, 'the temporary file');
+    // No more bytes: the server gives up on its own.
+    await waitFor(async () => (await fs.readdir(cwd)).length === 0, 'the stalled temp file to be deleted');
+    assert.deepEqual(registry.list(), []);
+    const next = await put({ dir: '', path: 'next.bin' }, Buffer.from('ok'));
+    assert.equal(next.status, 200, 'the only slot came back');
+    req.destroy();
+  }, { maxConcurrent: 1, idleTimeoutMs: 200 });
+});
+
+test('FR-FEX-023 AC-7: uploads of the same name with rename all land under distinct names', async () => {
+  await withApp(async ({ cwd, openPut }) => {
+    await fs.writeFile(path.join(cwd, 'a.png'), 'old');
+    const uploads = Array.from({ length: 20 }, () => openPut({ dir: '', path: 'a.png', conflict: 'rename' }, 4));
+    for (const { req } of uploads) req.write(Buffer.from('ab'));
+    await waitFor(async () => (await tempFilesIn(cwd)).length === 20, 'twenty uploads to be running');
+    // Finish them together so the placements race.
+    uploads.forEach(({ req }, i) => req.end(Buffer.from(String(i).padStart(2, '0'))));
+    const results = await Promise.all(uploads.map(({ response }) => response));
+    const names = results.map((r) => { assert.equal(r.status, 200, r.body.toString()); return String(json(r).name); });
+    assert.equal(new Set(names).size, 20, `distinct names: ${names.join(', ')}`);
+    const contents = new Set<string>();
+    for (const name of names) contents.add(await fs.readFile(path.join(cwd, name), 'utf8'));
+    assert.equal(contents.size, 20, 'no upload replaced another');
+    assert.equal(await fs.readFile(path.join(cwd, 'a.png'), 'utf8'), 'old');
+    assert.deepEqual(await tempFilesIn(cwd), []);
+  }, { maxConcurrent: 20 });
+});
+
+test('FR-FEX-023 AC-5: a server-side write error answers an error code and removes the temp file', async () => {
+  for (const [errno, status, expected] of [['ENOSPC', 500, 'FILE_OPERATION_FAILED'], ['EACCES', 403, 'PERMISSION_DENIED']] as const) {
+    await withApp(async ({ cwd, put, registry }) => {
+      const response = await put({ dir: '', path: 'doomed.bin' }, patterned(20_000));
+      assert.equal(response.status, status, `${errno}: ${response.body.toString()}`);
+      assert.equal(code(response), expected);
+      await waitFor(async () => (await fs.readdir(cwd)).length === 0, 'the temp file to be removed');
+      assert.deepEqual(registry.list(), []);
+    }, {
+      createWriteStream: (filePath) => {
+        const stream = fsSync.createWriteStream(filePath, { flags: 'wx' });
+        stream.once('open', () => stream.destroy(Object.assign(new Error(`${errno}: injected`), { code: errno })));
+        return stream;
+      },
+    });
+  }
 });

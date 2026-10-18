@@ -3,6 +3,7 @@
 // left out, symbolic links are not followed. The archive is written while it streams (yazl,
 // deflate level 1), one file open at a time, so neither the archive nor a file is held whole.
 import fs from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { Transform } from 'node:stream';
@@ -47,7 +48,7 @@ interface Job extends ZipJobView {
 
 type WalkEvent =
   | { type: 'directory'; entry: string }
-  | { type: 'file'; abs: string; entry: string; size: number; mtime: Date }
+  | { type: 'file'; abs: string; entry: string; size: number; mtime: Date; dev: bigint; ino: bigint }
   | { type: 'blocked' }
   | { type: 'unreadable'; entry: string; reason: string };
 
@@ -59,6 +60,28 @@ export interface ZipArchiveOptions {
   jobRetentionMs?: number;
   /** A job whose token was never spent is forgotten this long after it was made. */
   pendingTtlMs?: number;
+  /** A stream that sends nothing for this long (the reader stopped reading) is dropped as failed. */
+  idleTimeoutMs?: number;
+}
+
+/**
+ * Opens a file to archive without following a link at its name: O_NOFOLLOW where the platform has
+ * it (a link raced into place fails with ELOOP). Windows has no such flag; there the caller's
+ * identity check against the walk's lstat catches it.
+ */
+export async function openArchiveFile(filePath: string): Promise<fs.FileHandle> {
+  const noFollow = fsConstants.O_NOFOLLOW;
+  return fs.open(filePath, noFollow === undefined ? 'r' : fsConstants.O_RDONLY | noFollow);
+}
+
+/** The walk's lstat of an entry, kept to compare with what was actually opened. */
+async function lstatEntry(filePath: string): Promise<{ size: number; mtime: Date; dev: bigint; ino: bigint } | Error> {
+  try {
+    const stat = await fs.lstat(filePath, { bigint: true });
+    return { size: Number(stat.size), mtime: stat.mtime, dev: stat.dev, ino: stat.ino };
+  } catch (err) {
+    return err as Error;
+  }
 }
 
 function reasonOf(err: unknown): string {
@@ -71,12 +94,14 @@ export class ZipArchiveService {
   private readonly openForRead: (filePath: string) => Promise<fs.FileHandle>;
   private readonly jobRetentionMs: number;
   private readonly pendingTtlMs: number;
+  private readonly idleTimeoutMs: number;
 
   constructor(private readonly files: FileService, options: ZipArchiveOptions = {}) {
     this.now = options.now ?? Date.now;
-    this.openForRead = options.openForRead ?? ((filePath) => fs.open(filePath, 'r'));
+    this.openForRead = options.openForRead ?? openArchiveFile;
     this.jobRetentionMs = options.jobRetentionMs ?? 60_000;
     this.pendingTtlMs = options.pendingTtlMs ?? 120_000;
+    this.idleTimeoutMs = options.idleTimeoutMs ?? 60_000;
   }
 
   /** FR-FEX-025 AC-2: what the archive would hold, without reading any file. */
@@ -150,9 +175,11 @@ export class ZipArchiveService {
     const skipped: string[] = [];
     let stopped = false;
     let current: { source: NodeJS.ReadableStream & { destroy(): void }; release: () => void } | null = null;
+    let idleTimer: NodeJS.Timeout | null = null;
     const stop = (state: ZipJobState): void => {
       if (stopped) return;
       stopped = true;
+      if (idleTimer !== null) clearTimeout(idleTimer);
       this.finish(job, state);
       zip.outputStream.unpipe(res);
       current?.source.destroy();
@@ -168,6 +195,15 @@ export class ZipArchiveService {
       console.error('[ZipArchive] Archive stream failed:', (err as Error).message);
       stop('failed');
     });
+    // A reader that stops reading stalls the pipe; after the idle timeout the job fails and its
+    // file handle is closed rather than held for as long as the connection lingers.
+    const touch = (): void => {
+      if (stopped) return;
+      if (idleTimer !== null) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => stop('failed'), this.idleTimeoutMs);
+    };
+    zip.outputStream.on('data', touch);
+    touch();
     zip.outputStream.pipe(res);
 
     try {
@@ -188,6 +224,14 @@ export class ZipArchiveService {
           if (stopped) {
             await handle.close().catch(() => undefined);
             return;
+          }
+          // AC-5: what was opened must be the regular file the walk saw, not a link or a
+          // replacement raced into its name.
+          const opened = await handle.stat({ bigint: true }).catch(() => null);
+          if (opened === null || !opened.isFile() || opened.dev !== event.dev || opened.ino !== event.ino) {
+            await handle.close().catch(() => undefined);
+            skipped.push(`${event.entry}\tchanged before it was read (a link or another file took its place)`);
+            continue;
           }
           const source = handle.createReadStream();
           const counter = new Transform({
@@ -223,6 +267,7 @@ export class ZipArchiveService {
       });
       if (!stopped && res.writableFinished) {
         stopped = true;
+        if (idleTimer !== null) clearTimeout(idleTimer);
         this.finish(job, 'done');
       }
     } catch (err) {
@@ -256,9 +301,9 @@ export class ZipArchiveService {
       if (item.kind === 'directory') {
         yield* this.walkDirectory(item.path, item.entryName);
       } else if (item.kind === 'file') {
-        const stat = await fs.lstat(item.path).catch((err: unknown) => err as Error);
+        const stat = await lstatEntry(item.path);
         if (stat instanceof Error) yield { type: 'unreadable', entry: item.entryName, reason: reasonOf(stat) };
-        else yield { type: 'file', abs: item.path, entry: item.entryName, size: stat.size, mtime: stat.mtime };
+        else yield { type: 'file', abs: item.path, entry: item.entryName, ...stat };
       }
     }
   }
@@ -292,9 +337,9 @@ export class ZipArchiveService {
         yield { type: 'blocked' };
         continue;
       }
-      const stat = await fs.lstat(childAbs).catch((err: unknown) => err as Error);
+      const stat = await lstatEntry(childAbs);
       if (stat instanceof Error) yield { type: 'unreadable', entry: childEntry, reason: reasonOf(stat) };
-      else yield { type: 'file', abs: childAbs, entry: childEntry, size: stat.size, mtime: stat.mtime };
+      else yield { type: 'file', abs: childAbs, entry: childEntry, ...stat };
     }
   }
 }
