@@ -1254,5 +1254,6 @@
   "editor.html.resourceMissing": "{status} · not found",
   "editor.html.resourceExternal": "External",
   "editor.html.frameTitle": "{name} rendered",
-  "editor.html.openFailed": "Could not open the HTML view: {message}"
+  "editor.html.openFailed": "Could not open the HTML view: {message}",
+  "apiError.HTML_VIEW_TOKEN_INVALID": "The page link is invalid or expired."
 }

@@ -1213,5 +1213,6 @@
   "editor.html.resourceMissing": "{status} · 없음",
   "editor.html.resourceExternal": "외부",
   "editor.html.frameTitle": "{name} 렌더링",
-  "editor.html.openFailed": "HTML 보기를 열지 못했습니다: {message}"
+  "editor.html.openFailed": "HTML 보기를 열지 못했습니다: {message}",
+  "apiError.HTML_VIEW_TOKEN_INVALID": "페이지 링크가 올바르지 않거나 만료되었습니다."
 }
