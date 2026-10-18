@@ -36,6 +36,8 @@ export interface RowPointerInput {
   // the answer is the same either way. Kept so callers pass the full press and
   // tests can pin that a selected row is not collapsed.
   isSelected: boolean;
+  /** FR-FEX-026 AC-2: the phone's 여러 개 선택 mode, where a tap toggles like Ctrl+click. */
+  toggleMode?: boolean;
 }
 
 export type RowPointerDecision = { type: 'noop' } | { type: 'select'; mods: RowClickModifiers };
@@ -100,7 +102,7 @@ export function isContextMenuEligible(row: VisibleRow): boolean {
 // path decides selection itself. Cmd plays Ctrl's role on macOS.
 export function decideRowPointer(input: RowPointerInput): RowPointerDecision {
   if (input.button !== 0) return { type: 'noop' };
-  return { type: 'select', mods: { ctrl: input.ctrlKey || input.metaKey, shift: input.shiftKey } };
+  return { type: 'select', mods: { ctrl: input.ctrlKey || input.metaKey || input.toggleMode === true, shift: input.shiftKey } };
 }
 
 // The expander only toggles, whatever modifiers are held; the row body only

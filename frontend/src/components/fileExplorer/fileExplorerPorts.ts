@@ -21,6 +21,18 @@ export interface DecideDetail {
   kind: 'conflict' | 'error';
   path: string;
   choices: readonly FileJobChoice[];
+  /**
+   * FR-FOP-006 AC-2: how many questions of the same job are still to come. The server's
+   * copy/move questions do not say, so it is absent there; an upload knows it.
+   */
+  remaining?: number;
+  /** The folder the name clashes in, for the message; derived from `path` when absent. */
+  folder?: string;
+  /** FR-FEX-024: an upload question compares what is there with what arrives. */
+  existing?: { size: number | null; modified: string | null; isDirectory: boolean };
+  incoming?: { size: number | null; isDirectory: boolean };
+  /** 1-based position among the job's questions, shown as n/m in the title. */
+  position?: { index: number; total: number };
 }
 
 // 'cancel-job' is not a server choice: it withdraws the question by cancelling

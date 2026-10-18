@@ -6,15 +6,22 @@
 // as the `openable` input -- this module never judges file names itself.
 // @req FR-FEX-006
 // @req FR-FEX-005
+// @req FR-FEX-022
+// @req FR-FEX-025
+// @req FR-FEX-026
 
-import { t } from '../../i18n/i18n.ts';
+import { t, tn } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
 import type { ContextMenuItem } from '../ContextMenu/index.ts';
+import type { IconName } from '../common/iconGlyphs.ts';
+import { downloadButtonLabel } from './fileTransferModel.ts';
 
 export type FileExplorerMenuActionId =
   | 'open'
   | 'newtab'
   | 'download'
+  | 'upload'
+  | 'uploadFolder'
   | 'copy'
   | 'cut'
   | 'paste'
@@ -27,7 +34,8 @@ export type FileExplorerMenuActionId =
 export type FileExplorerMenuEntry = FileExplorerMenuActionId | 'sep';
 
 export const FILE_EXPLORER_MENU_ORDER: readonly FileExplorerMenuEntry[] = Object.freeze([
-  'open', 'newtab', 'download', 'sep',
+  // FR-FEX-022 AC-2: the upload entries right after 다운로드, on an item and on empty space alike.
+  'open', 'newtab', 'download', 'upload', 'uploadFolder', 'sep',
   'copy', 'cut', 'paste', 'sep',
   'rename', 'delete', 'sep',
   'newdir', 'refresh', 'sep',
@@ -39,6 +47,8 @@ const LABELS: Record<FileExplorerMenuActionId, MessageKey> = {
   open: 'fileExplorer.menu.open',
   newtab: 'fileExplorer.menu.newTab',
   download: 'fileExplorer.menu.download',
+  upload: 'fileExplorer.menu.upload',
+  uploadFolder: 'fileExplorer.menu.uploadFolder',
   copy: 'common.copy',
   cut: 'fileExplorer.menu.cut',
   paste: 'common.paste',
@@ -59,8 +69,14 @@ const SHORTCUTS: Partial<Record<FileExplorerMenuActionId, string>> = {
 
 // On empty space there is nothing selected to act on, only the folder itself.
 const EMPTY_SPACE_ACTIONS: ReadonlySet<FileExplorerMenuActionId> = new Set(['paste', 'newdir', 'refresh']);
+// FR-FEX-022 AC-2: on a surface that uploads, the transfer entries keep their place on empty space too.
+const EMPTY_SPACE_TRANSFER_ACTIONS: ReadonlySet<FileExplorerMenuActionId> = new Set(['download', 'upload', 'uploadFolder']);
 
-export type FileExplorerMenuHandlers = Record<FileExplorerMenuActionId, () => void>;
+type UploadActionId = 'upload' | 'uploadFolder';
+
+/** Upload handlers exist only where the surface can upload (the explorer window). */
+export type FileExplorerMenuHandlers = Record<Exclude<FileExplorerMenuActionId, UploadActionId>, () => void>
+  & Partial<Record<UploadActionId, () => void>>;
 
 export interface FileExplorerMenuInfo {
   /** Right click on a row, or on empty space in the view. */
@@ -74,6 +90,14 @@ export interface FileExplorerMenuInfo {
   clipboardEmpty: boolean;
   mode: 'tree' | 'list';
   context: 'explorer-window' | 'editor-panel';
+  /** FR-FEX-022: the surface can upload; without it the upload entries are not shown. */
+  uploadable?: boolean;
+  /** FR-FEX-022 AC-3: feature detection, decided by the caller. */
+  folderUploadSupported?: boolean;
+  /** FR-FEX-022 AC-2: opened on a directory row, the upload goes into it and names it. */
+  uploadTargetName?: string | null;
+  /** FR-FEX-025 AC-1: several items or a directory download as one ZIP. */
+  zipDownload?: boolean;
 }
 
 export interface ContextMenuSelectionDecision {
@@ -106,9 +130,14 @@ function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInf
       return info.target === 'item' && !info.isDir && info.openable;
     case 'newtab':
       return info.target === 'item' && info.isDir && info.context === 'explorer-window';
-    // FR-FEX-021 AC-1: one file at a time.
+    // FR-FEX-021 AC-1: one file at a time; FR-FEX-025 AC-1: anything selected where ZIP exists.
     case 'download':
+      if (info.zipDownload === true) return info.target === 'item' && info.count > 0;
       return info.target === 'item' && !info.isDir && info.count === 1;
+    case 'upload':
+      return true;
+    case 'uploadFolder':
+      return info.folderUploadSupported === true;
     case 'paste':
       return !info.clipboardEmpty;
     case 'rename':
@@ -126,7 +155,8 @@ function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInf
 }
 
 function isActionShown(id: FileExplorerMenuActionId, info: FileExplorerMenuInfo): boolean {
-  if (info.target === 'empty') return EMPTY_SPACE_ACTIONS.has(id);
+  if ((id === 'upload' || id === 'uploadFolder') && info.uploadable !== true) return false;
+  if (info.target === 'empty') return EMPTY_SPACE_ACTIONS.has(id) || (info.uploadable === true && EMPTY_SPACE_TRANSFER_ACTIONS.has(id));
   if (id === 'newtab' && info.mode === 'list') return false;
   // The editor window's side panel has no tabs to open into (FR-MDE-012 AC-8):
   // removed rather than disabled, since it could never become usable there.
@@ -157,50 +187,149 @@ export function buildFileExplorerContextMenuItems(
   return entries.map((entry): ContextMenuItem => {
     if (entry === 'sep') return { separator: true };
     const shortcut = SHORTCUTS[entry];
+    const disabled = !isActionEnabled(entry, info);
+    const reason = entry === 'uploadFolder' && disabled ? t('fileExplorer.menu.folderUploadUnsupported') : null;
     return {
-      label: t(LABELS[entry]),
-      onClick: handlers[entry],
-      disabled: !isActionEnabled(entry, info),
+      label: labelOf(entry, info),
+      onClick: handlers[entry] ?? (() => {}),
+      disabled,
       ...(shortcut !== undefined ? { shortcut } : {}),
       ...(entry === 'delete' ? { destructive: true } : {}),
+      ...(reason !== null ? { title: reason } : {}),
     };
   });
 }
 
-export type MobileActionId = 'copy' | 'cut' | 'paste' | 'delete' | 'rename' | 'newdir' | 'download';
+function labelOf(entry: FileExplorerMenuActionId, info: FileExplorerMenuInfo): string {
+  if (entry === 'upload' && info.target === 'item' && info.isDir && info.uploadTargetName) {
+    return t('fileExplorer.menu.uploadInto', { name: info.uploadTargetName });
+  }
+  if (entry === 'download' && info.zipDownload === true && info.target === 'item') {
+    return downloadButtonLabel({ count: info.count, singleFile: info.count === 1 && !info.isDir });
+  }
+  return t(LABELS[entry]);
+}
 
-export interface MobileActionButton {
-  /** One of MobileActionId; typed as string so callers can key maps by plain ids. */
-  id: string;
+// ---------------------------------------------------------------------------
+// FR-FEX-026: the phone's four fixed slots and the 더보기 sheet. Both are judged by the menu's
+// predicates through a menu info standing for the selection, so a phone never enables what the
+// right-click menu would disable.
+
+export type MobileSlotId = 'upload' | 'download' | 'paste' | 'more';
+
+export interface MobileBarSlot {
+  id: MobileSlotId;
   label: string;
+  icon: IconName;
   disabled: boolean;
   onClick: () => void;
 }
 
-const MOBILE_ACTION_ORDER: readonly MobileActionId[] = ['copy', 'cut', 'paste', 'delete', 'rename', 'newdir', 'download'];
+const MOBILE_SLOTS: readonly { id: MobileSlotId; label: MessageKey; icon: IconName }[] = [
+  { id: 'upload', label: 'fileExplorer.mobileBar.upload', icon: 'upload' },
+  { id: 'download', label: 'fileExplorer.menu.download', icon: 'archive' },
+  { id: 'paste', label: 'common.paste', icon: 'clipboard' },
+  { id: 'more', label: 'fileExplorer.mobileBar.more', icon: 'more' },
+];
 
-/**
- * The mobile button row (FR-FEX-005 AC-8). It shares the menu's predicates: the
- * row always stands for the folder being shown, so `newdir` is always enabled.
- */
-export function buildMobileActionButtons(
-  info: { count: number; clipboardEmpty: boolean; /** FR-FEX-021: the selection is one regular file. */ singleFileSelected: boolean },
-  handlers: Pick<FileExplorerMenuHandlers, MobileActionId>,
-): MobileActionButton[] {
-  const menuInfo: FileExplorerMenuInfo = {
-    target: 'item',
-    isDir: true,
+function selectionInfo(count: number, isDir: boolean, clipboardEmpty: boolean, folderUploadSupported: boolean): FileExplorerMenuInfo {
+  return {
+    target: count > 0 ? 'item' : 'empty',
+    isDir: count === 0 || isDir,
     openable: false,
-    count: info.count,
-    clipboardEmpty: info.clipboardEmpty,
+    count,
+    clipboardEmpty,
     mode: 'list',
     context: 'explorer-window',
+    uploadable: true,
+    folderUploadSupported,
+    zipDownload: true,
   };
-  return MOBILE_ACTION_ORDER.map(id => ({
-    id,
-    label: t(LABELS[id]),
-    // The row stands for the folder being shown, so download asks the selection itself.
-    disabled: id === 'download' ? !info.singleFileSelected : !isActionEnabled(id, menuInfo),
-    onClick: handlers[id],
+}
+
+/**
+ * FR-FEX-026 AC-1: 업로드 · 다운로드 · 붙여넣기 · 더보기, never moving; disabled rather than hidden.
+ * @req FR-FEX-026
+ */
+export function buildMobileBarSlots(
+  input: { count: number; clipboardEmpty: boolean },
+  handlers: Record<MobileSlotId, () => void>,
+): MobileBarSlot[] {
+  const info = selectionInfo(input.count, false, input.clipboardEmpty, false);
+  const enabled: Record<MobileSlotId, boolean> = {
+    upload: isActionEnabled('upload', info),
+    download: isActionEnabled('download', info),
+    paste: isActionEnabled('paste', info),
+    more: true,
+  };
+  return MOBILE_SLOTS.map((slot) => ({
+    id: slot.id,
+    label: t(slot.label),
+    icon: slot.icon,
+    disabled: !enabled[slot.id],
+    onClick: handlers[slot.id],
   }));
+}
+
+export type MoreSheetActionId = 'download' | 'upload' | 'uploadFolder' | 'copy' | 'cut' | 'paste' | 'rename' | 'newdir' | 'info' | 'delete';
+
+export interface MoreSheetItem {
+  id: MoreSheetActionId;
+  label: string;
+  icon: IconName;
+  disabled: boolean;
+  /** One line under a disabled entry saying why (FR-FEX-022 AC-3). */
+  reason: string | null;
+  destructive: boolean;
+  onClick: () => void;
+}
+
+// FR-FEX-026 AC-3: the menu order, with 삭제 alone at the bottom, away from the thumb.
+const MORE_SHEET_ORDER: readonly (MoreSheetActionId | 'sep')[] = [
+  'download', 'upload', 'uploadFolder', 'sep',
+  'copy', 'cut', 'paste', 'sep',
+  'rename', 'newdir', 'info', 'sep',
+  'delete',
+];
+
+const SHEET_ICONS: Record<MoreSheetActionId, IconName> = {
+  download: 'download',
+  upload: 'upload',
+  uploadFolder: 'folder-upload',
+  copy: 'copy',
+  cut: 'cut',
+  paste: 'clipboard',
+  rename: 'edit',
+  newdir: 'folder',
+  info: 'info',
+  delete: 'trash',
+};
+
+/** @req FR-FEX-026 */
+export function buildMobileMoreSheet(
+  input: { count: number; isDir: boolean; clipboardEmpty: boolean; folderUploadSupported: boolean },
+  handlers: Record<MoreSheetActionId, () => void>,
+): (MoreSheetItem | 'sep')[] {
+  const info = selectionInfo(input.count, input.isDir, input.clipboardEmpty, input.folderUploadSupported);
+  return MORE_SHEET_ORDER.map((id) => {
+    if (id === 'sep') return 'sep';
+    // The sheet always stands for the folder on screen, so a new folder always has a place.
+    const disabled = id === 'newdir' ? false : id === 'info' ? input.count !== 1 : !isActionEnabled(id, info);
+    return {
+      id,
+      label: labelOf(id, info),
+      icon: SHEET_ICONS[id],
+      disabled,
+      reason: id === 'uploadFolder' && disabled ? t('fileExplorer.menu.folderUploadUnsupported') : null,
+      destructive: id === 'delete',
+      onClick: handlers[id],
+    };
+  });
+}
+
+/** FR-FEX-026 AC-3: the sheet names its target — the item, the count, or the folder. */
+export function mobileSheetTitle(input: { count: number; name: string | null; folder: string }): string {
+  if (input.count === 1 && input.name !== null) return input.name;
+  if (input.count > 1) return tn('fileTransfer.sheet.items', input.count);
+  return input.folder;
 }

@@ -95,3 +95,21 @@ test('FR-FEX-022 AC-6/AC-7: a modal blocks the drop; a drag without files is ign
   assert.equal(decideDropAllowed({ hasFiles: false, modalOpen: false }), 'ignore');
   assert.equal(decideDropAllowed({ hasFiles: false, modalOpen: true }), 'ignore');
 });
+
+test('FR-FEX-022 AC-1/AC-4: a pick or a drop becomes sources relative to the target folder; a dropped folder keeps its subfolders', async () => {
+  const { readDroppedSources, readPickedSources } = await import('../../src/components/fileExplorer/fileDropEntries.ts');
+  const file = (name: string, relative = '') => Object.assign(new File(['x'], name), { webkitRelativePath: relative }) as File;
+  assert.deepEqual(readPickedSources([file('a.txt'), file('b.txt', 'pics/sub/b.txt')]).map((s) => s.relPath), ['a.txt', 'pics/sub/b.txt']);
+  const leaf = (name: string) => ({ isFile: true, isDirectory: false, name, file: (ok: (f: File) => void) => ok(file(name)) });
+  let served = false;
+  const folder = {
+    isFile: false, isDirectory: true, name: 'pics',
+    createReader: () => ({ readEntries: (ok: (entries: unknown[]) => void) => { const batch = served ? [] : [leaf('x.png'), { isFile: false, isDirectory: true, name: 'sub', createReader: () => ({ readEntries: (done: (e: unknown[]) => void) => done([]) }) }]; served = true; ok(batch); } }),
+  };
+  const sources = await readDroppedSources([
+    { kind: 'file', getAsFile: () => file('a.txt'), webkitGetAsEntry: () => leaf('a.txt') },
+    { kind: 'file', getAsFile: () => null, webkitGetAsEntry: () => folder as never },
+    { kind: 'string', getAsFile: () => null },
+  ] as never);
+  assert.deepEqual(sources.map((s) => s.relPath), ['a.txt', 'pics/x.png']);
+});

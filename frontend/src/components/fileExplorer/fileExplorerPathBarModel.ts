@@ -4,7 +4,8 @@
 
 // @req FR-FEX-002
 // FR-FEX-013: 'search' opens the name search (also Ctrl/Cmd+F).
-export const PATH_BAR_CONTROLS = ['up', 'path', 'search', 'mode', 'refresh', 'newdir'] as const;
+// FR-FEX-022 AC-1: upload and download close the row, side by side, neither styled as primary.
+export const PATH_BAR_CONTROLS = ['up', 'path', 'search', 'mode', 'refresh', 'newdir', 'upload', 'download'] as const;
 
 export type PathBarControl = (typeof PATH_BAR_CONTROLS)[number];
 

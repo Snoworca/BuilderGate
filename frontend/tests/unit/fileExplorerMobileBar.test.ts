@@ -46,7 +46,9 @@ test('FR-FEX-026 AC-1: 업로드 · 다운로드 · 붙여넣기 · 더보기 in
   assert.match(bar, /buildMobileBarSlots\(/);
   const ko = JSON.parse(read('../../public/locales/messages.ko.json')) as Record<string, string>;
   assert.equal(ko['fileExplorer.mobileBar.label'], '파일 동작');
-  assert.match(read(CSS), /\.fx-mobile-slot-label\s*\{[^}]*font-size:\s*12px/);
+  // 12 px through the token (--fs-xs: 12px); raw sizes are not allowed in migrated CSS (CON-UIDS-001 AC-8).
+  assert.match(read(CSS), /\.fx-mobile-slot-label\s*\{[^}]*font-size:\s*var\(--fs-xs\)/);
+  assert.match(read('../../src/styles/tokens.css'), /--fs-xs:\s*12px/);
 });
 
 test('FR-FEX-026 AC-2: the band counts the selection; in 여러 개 선택 mode a tap toggles instead of replacing', () => {
@@ -86,7 +88,8 @@ test('FR-FEX-026 AC-4: the sheet closes on the scrim, the back gesture and a dow
   assert.match(sheet, /'Escape'/);
   assert.match(sheet, /fx-sheet-scrim/);
   const bar = read(BAR);
-  assert.match(bar, /aria-haspopup="menu"/);
+  // A dialog, not a menu: the explorer draws no second menu beside ContextMenu (FR-FEX-006 AC-9).
+  assert.match(bar, /aria-haspopup=\{[^}]*'dialog'/);
   assert.match(bar, /aria-expanded=\{/);
 });
 

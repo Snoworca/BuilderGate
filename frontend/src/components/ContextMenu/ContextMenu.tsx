@@ -35,6 +35,8 @@ export interface ContextMenuActionItem {
   disabled?: boolean;
   destructive?: boolean;
   shortcut?: string;
+  /** A tooltip, e.g. why a disabled entry cannot be used. */
+  title?: string;
   children?: ContextMenuItem[];
   separator?: false;
 }
@@ -370,6 +372,7 @@ function MenuItemRow({ item, onClose, onNavigateBack }: MenuItemRowProps) {
       onMouseLeave={handleMouseLeave}
       onKeyDown={handleKeyDown}
       role="menuitem"
+      title={item.title}
       aria-disabled={item.disabled}
       aria-haspopup={hasChildren ? 'menu' : undefined}
       aria-expanded={hasChildren ? submenuOpen : undefined}
@@ -710,6 +713,7 @@ function MobileContextMenuDialog({
                 ].filter(Boolean).join(' ')}
                 onClick={() => handleAction(item)}
                 disabled={item.disabled}
+                title={item.title}
                 aria-haspopup={hasChildren ? 'menu' : undefined}
               >
                 {item.icon && <MenuItemIcon icon={item.icon} />}

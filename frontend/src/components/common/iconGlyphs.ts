@@ -50,7 +50,11 @@ export type IconName =
   | 'swap'
   | 'clipboard'
   | 'move'
-  | 'columns';
+  | 'columns'
+  | 'upload'
+  | 'folder-upload'
+  | 'archive'
+  | 'cut';
 
 export interface IconGlyph {
   /** SVG path data on the 24x24 viewBox, drawn in order. */
@@ -377,6 +381,39 @@ export const ICON_GLYPHS: Record<IconName, IconGlyph> = {
       'M15 5l3 3-3 3',
       'M20 16H6',
       'M9 13l-3 3 3 3',
+    ],
+  },
+  // An arrow out of a tray: send files from the device (FR-FEX-022).
+  upload: {
+    paths: [
+      'M12 15V4',
+      'M8 8l4-4 4 4',
+      'M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3',
+    ],
+  },
+  // A folder with an arrow rising out of it: send a whole folder.
+  'folder-upload': {
+    paths: [
+      'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+      'M12 16v-6',
+      'M9.5 12.5L12 10l2.5 2.5',
+    ],
+  },
+  // A page with a zipper down its middle: several items as one archive (FR-FEX-025).
+  archive: {
+    paths: [
+      'M6 3h8l4 4v14H6z',
+      'M11 5v1.5M11 9v1.5M11 13v1.5',
+      'M10 17h2v3h-2z',
+    ],
+  },
+  // Scissors: cut.
+  cut: {
+    paths: [
+      'M8.5 18a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0',
+      'M20.5 18a2.5 2.5 0 1 1-5 0a2.5 2.5 0 1 1 5 0',
+      'M8 16L19 4',
+      'M16 16L5 4',
     ],
   },
   // A clipboard with its clip: paste.

@@ -11,6 +11,7 @@ import { parseApiErrorPayload } from './apiError.ts';
 import { t } from '../i18n/i18n.ts';
 export { parseApiErrorPayload } from './apiError.ts';
 import { createFileJobClient } from '../components/fileExplorer/fileJobClient.ts';
+import { createFileTransferClient, type XhrLike } from '../components/fileExplorer/fileTransferClient.ts';
 import { createSessionSnapshotClient } from '../components/SessionSave/sessionSnapshotClient.ts';
 
 import type {
@@ -442,6 +443,14 @@ export const fileApi = {
 
 // File jobs (copy/move/delete with progress and decisions) -- FR-FEX-005
 export const fileJobApi = createFileJobClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
+// Uploads and ZIP downloads -- FR-FEX-022..025. XMLHttpRequest for the upload's progress.
+export const fileTransferApi = createFileTransferClient({
+  authFetch,
+  getAuthHeaders,
+  parseError,
+  apiBase: API_BASE,
+  createXhr: () => new XMLHttpRequest() as unknown as XhrLike,
+});
 // FR-AITUI-007 / FR-AITUI-008: session save and resume after restart.
 export const sessionSnapshotApi = createSessionSnapshotClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
 
