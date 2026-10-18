@@ -23,6 +23,7 @@ import { DownloadTokenStore } from './services/DownloadTokenStore.js';
 import { createUploadRoutes } from './routes/uploadRoutes.js';
 import { createRequestBodyDeadline } from './middleware/requestBodyDeadline.js';
 import { createZipRoutes } from './routes/zipRoutes.js';
+import { createArchiveRoutes } from './routes/archiveRoutes.js';
 import { ZipArchiveService } from './services/ZipArchiveService.js';
 import { UploadTempRegistry } from './services/upload/uploadTemp.js';
 import { createFileJobRoutes } from './routes/fileJobRoutes.js';
@@ -668,6 +669,8 @@ const fileManagerConfig = config.fileManager || {
   cwdCacheTtlMs: 1000,
   maxImageFileSize: 20971520,
   maxUploadFileSize: 2147483648,
+  maxExtractBytes: 10737418240,
+  maxExtractEntries: 100000,
 };
 
 // 파일 조작 작업의 경로 정책은 이 객체 하나다. 라우터(요청 시점 검증)와 관리자(러너가 만드는 경로
@@ -713,6 +716,13 @@ const fileJobManager = new FileJobManager({
   // 디렉터리 안의 자손은 위 검증을 거치지 않는다. 러너가 스캔하며 이것으로 걸러 blocked 자손을 복사·삭제·
   // 이동하지 않는다.
   isPathBlocked: (p) => isFileJobPathBlocked(fileJobPathPolicy, p),
+  // FR-FOP-007: extraction limits and blocked extensions read at the time of the job, and its temp
+  // files recorded with the uploads' so a restart deletes what a crash left (FR-FEX-023 AC-6).
+  archive: {
+    limits: () => fileService.extractLimits,
+    isBlockedExtension: (name) => fileService.blockRules.blockedExtensions.includes(path.extname(name).toLowerCase()),
+    tempRegistry: uploadTempRegistry,
+  },
 });
 // DELETE /api/sessions/:id 는 onSessionDeleted 로 거두지만, 탭·워크스페이스 삭제, 탭 재시작, PTY 종료는
 // 그 라우트를 거치지 않고 SessionManager 에서 바로 세션을 끝낸다. 그 경로의 작업이 주인 없는 세션에
@@ -1188,6 +1198,8 @@ function setupRoutes(): void {
   // FR-FEX-023: raw-byte uploads. The JSON body parser only reads application/json, so the
   // octet-stream body reaches this route untouched and streams to disk.
   app.use('/api/sessions', authMiddleware, createUploadRoutes(fileService, { registry: uploadTempRegistry }));
+  // FR-FOP-007, FR-FEX-027 AC-5: the extraction pre-count; the extraction itself is a file job.
+  app.use('/api/sessions', authMiddleware, createArchiveRoutes(fileService));
 
   // File job routes (auth required) — 복사·이동·삭제 작업. 진행은 WebSocket 세션 방송으로 간다.
   app.use('/api/file-jobs', authMiddleware, createFileJobRoutes(fileJobManager, fileJobPathPolicy));

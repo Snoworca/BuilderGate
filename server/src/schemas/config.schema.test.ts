@@ -478,3 +478,17 @@ test('PERF-BGSTAB-021 terminalAuthority.shadowComparison is off by default and c
   const unknownKey = configSchema.safeParse({ ...minimalConfig(), terminalAuthority: { shadowCompare: true } });
   assert.equal(unknownKey.success, false);
 });
+
+// FR-FOP-007 AC-4: extraction limits, default 10 GiB and 100,000 entries.
+test('FR-FOP-007 AC-4 fileManagerSchema.maxExtractBytes default 10737418240 and maxExtractEntries default 100000, with bounds', () => {
+  const defaults = fileManagerSchema.parse({});
+  assert.equal(Reflect.get(defaults, 'maxExtractBytes'), 10737418240);
+  assert.equal(Reflect.get(defaults, 'maxExtractEntries'), 100000);
+  assert.equal(fileManagerSchema.safeParse({ maxExtractBytes: 1048575 }).success, false);
+  assert.equal(fileManagerSchema.safeParse({ maxExtractBytes: 1099511627777 }).success, false);
+  assert.equal(fileManagerSchema.safeParse({ maxExtractEntries: 0 }).success, false);
+  assert.equal(fileManagerSchema.safeParse({ maxExtractEntries: 10000001 }).success, false);
+  const parsed = configSchema.parse({ ...minimalConfig(), fileManager: { maxExtractBytes: 2097152, maxExtractEntries: 7 } });
+  assert.equal(Reflect.get(parsed.fileManager ?? {}, 'maxExtractBytes'), 2097152);
+  assert.equal(Reflect.get(parsed.fileManager ?? {}, 'maxExtractEntries'), 7);
+});

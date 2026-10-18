@@ -96,6 +96,10 @@ const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
 /** Image size limit used when the configuration carries no maxImageFileSize. */
 export const DEFAULT_MAX_IMAGE_FILE_SIZE = 20 * 1024 * 1024;
 
+/** FR-FOP-007 AC-4: extraction limits used when the configuration carries none. */
+export const DEFAULT_MAX_EXTRACT_BYTES = 10 * 1024 * 1024 * 1024;
+export const DEFAULT_MAX_EXTRACT_ENTRIES = 100_000;
+
 /** FR-FEX-023 AC-4: upload size limit used when the configuration carries no maxUploadFileSize. */
 export const DEFAULT_MAX_UPLOAD_FILE_SIZE = 2 * 1024 * 1024 * 1024;
 
@@ -164,6 +168,14 @@ export class FileService {
   /** FR-FEX-023 AC-4: the largest file one upload may carry, as it stands right now. */
   get maxUploadFileSize(): number {
     return this.config.maxUploadFileSize ?? DEFAULT_MAX_UPLOAD_FILE_SIZE;
+  }
+
+  /** FR-FOP-007 AC-4: the extraction limits as they stand right now. */
+  get extractLimits(): { maxBytes: number; maxEntries: number } {
+    return {
+      maxBytes: this.config.maxExtractBytes ?? DEFAULT_MAX_EXTRACT_BYTES,
+      maxEntries: this.config.maxExtractEntries ?? DEFAULT_MAX_EXTRACT_ENTRIES,
+    };
   }
 
   /** The block lists as they stand right now, for walks that check every entry (FR-FEX-025 AC-5). */
@@ -931,6 +943,8 @@ function cloneFileManagerConfig(config: FileManagerConfig): FileManagerConfig {
     cwdCacheTtlMs: config.cwdCacheTtlMs,
     maxImageFileSize: config.maxImageFileSize ?? DEFAULT_MAX_IMAGE_FILE_SIZE,
     maxUploadFileSize: config.maxUploadFileSize ?? DEFAULT_MAX_UPLOAD_FILE_SIZE,
+    maxExtractBytes: config.maxExtractBytes ?? DEFAULT_MAX_EXTRACT_BYTES,
+    maxExtractEntries: config.maxExtractEntries ?? DEFAULT_MAX_EXTRACT_ENTRIES,
   };
 }
 

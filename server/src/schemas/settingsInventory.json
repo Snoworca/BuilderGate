@@ -237,6 +237,34 @@
       "safetyBound": "Upper bound on the bytes one upload request writes to the session's disk. Raising it lets one request fill the disk with a single file."
     },
     {
+      "path": "fileManager.maxExtractBytes",
+      "classification": "safety-only",
+      "reason": "Exists to bound rather than to tune: it caps how many bytes one archive extraction may write (FR-FOP-007 AC-4). Not offered in Settings.",
+      "editableInSettings": false,
+      "consumers": [
+        {
+          "module": "server/src/services/FileService.ts",
+          "symbol": "extractLimits",
+          "match": "dotted-path"
+        }
+      ],
+      "safetyBound": "Upper bound on the unpacked bytes one extraction writes. Raising it lets a small archive fill the disk."
+    },
+    {
+      "path": "fileManager.maxExtractEntries",
+      "classification": "safety-only",
+      "reason": "Exists to bound rather than to tune: it caps how many entries one archive extraction may create (FR-FOP-007 AC-4). Not offered in Settings.",
+      "editableInSettings": false,
+      "consumers": [
+        {
+          "module": "server/src/services/FileService.ts",
+          "symbol": "extractLimits",
+          "match": "dotted-path"
+        }
+      ],
+      "safetyBound": "Upper bound on the entries one extraction creates. Raising it lets an archive exhaust inodes and the job's memory."
+    },
+    {
       "path": "pty.defaultCols",
       "classification": "user-visible",
       "reason": "Offered as an editable Settings field by RuntimeConfigStore FIELD_SCOPES and applied through the Settings save/apply flow.",

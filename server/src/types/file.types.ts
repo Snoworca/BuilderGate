@@ -17,6 +17,9 @@ export interface FileManagerConfig {
   maxImageFileSize?: number;
   /** Upload size limit in bytes (FR-FEX-023 AC-4). Absent means 2 GiB. */
   maxUploadFileSize?: number;
+  /** Extraction limits (FR-FOP-007 AC-4). Absent means 10 GiB and 100,000 entries. */
+  maxExtractBytes?: number;
+  maxExtractEntries?: number;
 }
 
 // ============================================================================

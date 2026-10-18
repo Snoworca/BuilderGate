@@ -23,8 +23,9 @@ import { validateCreatePath, type FileJobPathPolicy } from '../services/fileJobs
 import type { FileJobConflictChoice, FileJobSpec } from '../services/fileJobs/fileJobRunner.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { isSessionRootTarget } from '../utils/pathValidator.js';
+import { archiveFormatOf } from '../services/archive/archiveReader.js';
 
-const OPERATIONS: readonly FileJobSpec['operation'][] = ['copy', 'move', 'delete'];
+const OPERATIONS: readonly FileJobSpec['operation'][] = ['copy', 'move', 'delete', 'extract'];
 
 const MANAGER_ERROR_STATUS: Record<FileJobManagerErrorCode, number> = {
   JOB_NOT_FOUND: 404,
@@ -106,7 +107,16 @@ function parseStart(body: Record<string, unknown>): StartRequest {
   // 받은 문자열 그대로다. 러너에는 검증한 경로가 따로 가고, 이것은 done 의 affectedDirectories 를
   // 클라이언트가 보낸 모양으로 만드는 데만 쓴다.
   const spec: FileJobSpec = { operation: op, sources: [...sources] };
-  if (op !== 'delete') {
+  if (op === 'extract') {
+    // FR-FOP-007 AC-1: 아카이브 하나, smart|here, 푸는 폴더는 없으면 아카이브가 있는 폴더다.
+    if (sources.length !== 1) throw new InvalidInput('extract takes exactly one archive in sources');
+    if (body.mode !== 'smart' && body.mode !== 'here') throw new InvalidInput('mode must be smart or here for extract');
+    if (archiveFormatOf(path.basename(sources[0])) === null) {
+      throw new AppError(ErrorCode.ARCHIVE_UNSUPPORTED, 'only .zip, .tar, .tar.gz and .tgz archives can be extracted');
+    }
+    spec.mode = body.mode;
+    spec.destDir = body.destPath === undefined ? path.dirname(sources[0]) : requireAbsolute(requireString(body, 'destPath'), 'destPath');
+  } else if (op !== 'delete') {
     spec.destDir = requireAbsolute(requireString(body, 'destPath'), 'destPath');
   }
   return { sourceSessionId, destSessionId, spec };
@@ -168,6 +178,7 @@ export function createFileJobRoutes(manager: FileJobManager, pathPolicy: FileJob
       // 사이 바뀌었거나, POSIX 에서 'link/..' 가 링크 대상의 부모로 풀릴 때) 검증하지 않은 곳에 닿는다.
       // 출발지는 항목 자신의 위치(entryPath)다 — 출발지가 링크면 대상이 아니라 링크를 옮기고 지워야 한다.
       const validated: FileJobSpec = { operation: spec.operation, sources: [] };
+      if (spec.mode !== undefined) validated.mode = spec.mode;
       // 검증과 루트 판정이 같은 cwd 를 보게 한 번만 읽는다 — 그 사이 cd 하면 둘이 다른 루트를 기준으로 삼는다.
       const sourceCwd = await pathPolicy.getCwd(sourceSessionId);
       const sourceRoot = Promise.resolve(sourceCwd);

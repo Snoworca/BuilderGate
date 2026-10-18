@@ -64,6 +64,10 @@ export enum ErrorCode {
   INVALID_UPLOAD_PATH = 'INVALID_UPLOAD_PATH',
   UPLOAD_BUSY = 'UPLOAD_BUSY',
   ZIP_JOB_NOT_FOUND = 'ZIP_JOB_NOT_FOUND',
+  // FR-FOP-007: archive extraction
+  ARCHIVE_TOO_LARGE = 'ARCHIVE_TOO_LARGE',
+  ARCHIVE_UNSUPPORTED = 'ARCHIVE_UNSUPPORTED',
+  ARCHIVE_CORRUPT = 'ARCHIVE_CORRUPT',
 
   // Server Errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -144,6 +148,9 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVALID_UPLOAD_PATH]: 'The upload path is not a valid relative path',
   [ErrorCode.UPLOAD_BUSY]: 'Too many uploads are running for this session',
   [ErrorCode.ZIP_JOB_NOT_FOUND]: 'No such ZIP download job',
+  [ErrorCode.ARCHIVE_TOO_LARGE]: 'The archive is larger than the extraction limits',
+  [ErrorCode.ARCHIVE_UNSUPPORTED]: 'The archive cannot be extracted',
+  [ErrorCode.ARCHIVE_CORRUPT]: 'The archive is damaged',
 
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
   [ErrorCode.ENCRYPTION_ERROR]: 'Encryption failed',
@@ -220,6 +227,9 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.INVALID_UPLOAD_PATH]: 400,
   [ErrorCode.UPLOAD_BUSY]: 429,
   [ErrorCode.ZIP_JOB_NOT_FOUND]: 404,
+  [ErrorCode.ARCHIVE_TOO_LARGE]: 413,
+  [ErrorCode.ARCHIVE_UNSUPPORTED]: 415,
+  [ErrorCode.ARCHIVE_CORRUPT]: 422,
 
   [ErrorCode.INTERNAL_ERROR]: 500,
   [ErrorCode.ENCRYPTION_ERROR]: 500,

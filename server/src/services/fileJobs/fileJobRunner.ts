@@ -20,14 +20,17 @@ import { basename, dirname, join, relative, resolve, isAbsolute, sep } from 'nod
 import { resolveNameCollision } from '../fileNameCollision.js';
 import type { FileJobFsOps, FileJobFsStat } from './fileJobFsOps.js';
 import { transition, type FileJobState } from './fileJobState.js';
+import { runExtractJob, type ArchiveJobDeps } from '../archive/extractJob.js';
 
 // @req FR-FOP-002
 export interface FileJobSpec {
-  operation: 'copy' | 'move' | 'delete';
-  /** 절대 경로. */
+  operation: 'copy' | 'move' | 'delete' | 'extract';
+  /** 절대 경로. extract 는 아카이브 하나다. */
   sources: string[];
-  /** copy·move 의 목적지 디렉터리. 절대 경로. */
+  /** copy·move 의 목적지 디렉터리, extract 가 풀 폴더(기본: 아카이브가 있는 폴더). 절대 경로. */
   destDir?: string;
+  /** extract 만(FR-FOP-007): smart 는 새 폴더 하나에, here 는 destDir 에 바로 푼다. */
+  mode?: 'smart' | 'here';
 }
 
 // @req FR-FOP-002
@@ -130,6 +133,8 @@ export interface FileJobRunnerDeps {
   onProgress: (p: FileJobProgress) => void;
   onStateChange?: (s: FileJobState) => void;
   signal?: AbortSignal;
+  /** extract 작업의 한도·차단 확장자·임시 파일 기록(FR-FOP-007). 없으면 extract 는 실패한다. */
+  archive?: ArchiveJobDeps;
 }
 
 // @req FR-FOP-001
@@ -140,6 +145,10 @@ export interface FileJobResult {
   error?: unknown;
   /** move 가 완료되었고 모든 최상위 항목이 같은 장치 안의 rename 한 번으로 끝났을 때만 true. */
   atomic?: boolean;
+  /** extract 만: 쓰지 않은 엔트리와 이유(FR-FOP-007 AC-2, AC-3). */
+  skipped?: Array<{ path: string; reason: string }>;
+  /** extract 만: 만든 폴더(smart) 또는 처음 푼 항목(here)(FR-FEX-027 AC-6). */
+  createdPaths?: string[];
 }
 
 interface ScannedEntry {
@@ -978,5 +987,6 @@ class JobRun {
 // @req FR-FOP-005
 // @req SEC-FOP-001
 export function runJob(spec: FileJobSpec, deps: FileJobRunnerDeps): Promise<FileJobResult> {
+  if (spec.operation === 'extract') return runExtractJob(spec, deps);
   return new JobRun(spec, deps).run();
 }

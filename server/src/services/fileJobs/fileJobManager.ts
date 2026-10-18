@@ -34,6 +34,7 @@ import type {
   FileJobSpec,
 } from './fileJobRunner.js';
 import { isTerminalFileJobState, type FileJobState } from './fileJobState.js';
+import type { ArchiveJobDeps } from '../archive/extractJob.js';
 
 /** awaiting-decision 에 머문 시간의 누적 상한. 넘으면 사용자 취소와 같은 길로 끝낸다. */
 export const FILE_JOB_AWAIT_BUDGET_MS = 600_000;
@@ -64,6 +65,8 @@ export interface FileJobManagerDeps {
    * 보지만 디렉터리 안의 자손은 보지 않는다. 없으면 자손을 거르지 않는다.
    */
   isPathBlocked?(p: string): boolean;
+  /** extract 작업의 한도·차단 확장자·임시 파일 기록(FR-FOP-007). */
+  archive?: ArchiveJobDeps;
 }
 
 export interface FileJobStartInput {
@@ -259,7 +262,7 @@ function toDisplayPath(p: string, prefixes: readonly DisplayPrefix[]): string {
 function affectedDirectoriesOf(spec: FileJobSpec): string[] {
   const dirs = new Set<string>();
   if (spec.operation !== 'delete' && spec.destDir !== undefined) dirs.add(spec.destDir);
-  if (spec.operation !== 'copy') for (const source of spec.sources) dirs.add(dirname(source));
+  if (spec.operation === 'move' || spec.operation === 'delete') for (const source of spec.sources) dirs.add(dirname(source));
   return [...dirs];
 }
 
@@ -364,6 +367,7 @@ export class FileJobManager {
       onProgress: (progress) => this.onProgress(job, progress),
       onStateChange: (state) => this.onStateChange(job, state),
       signal: job.controller.signal,
+      archive: this.deps.archive,
     };
 
     let running: Promise<FileJobResult>;
@@ -647,7 +651,15 @@ export class FileJobManager {
       affectedDirectories: [...job.affectedDirectories],
     };
     // 실패한 작업만 이유를 싣는다. 받는 쪽이 "실패" 만 보고는 무엇을 고쳐야 할지 모른다.
-    if (result.outcome === 'failed') payload.errorCode = doneErrorCode(result.error);
+    if (result.outcome === 'failed') {
+      payload.errorCode = doneErrorCode(result.error);
+      // FR-FOP-007 AC-5: an archive refusal carries a reason written to be shown (it names no path).
+      const reason = (result.error as { publicReason?: unknown } | null | undefined)?.publicReason;
+      if (typeof reason === 'string') payload.errorReason = reason;
+    }
+    // FR-FOP-007, FR-FEX-027 AC-6: what an extraction left out, and where its result landed.
+    if (result.skipped !== undefined) payload.skipped = result.skipped.map((s) => ({ ...s }));
+    if (result.createdPaths !== undefined) payload.createdPaths = result.createdPaths.map((p) => toDisplayPath(p, job.displayPrefixes));
     this.emit(job, 'file-job:done', payload);
     job.retentionTimer = this.deps.timers.setTimeout(() => {
       job.retentionTimer = undefined;

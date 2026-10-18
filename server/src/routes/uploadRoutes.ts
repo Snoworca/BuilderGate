@@ -9,6 +9,7 @@ import { Transform, type Writable } from 'node:stream';
 import { once } from 'node:events';
 import type { FileService } from '../services/FileService.js';
 import { newUploadTempName, type UploadTempRegistry } from '../services/upload/uploadTemp.js';
+import { placeExclusively } from '../services/upload/placeExclusively.js';
 import { resolveNameCollision } from '../services/fileNameCollision.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { armRequestIdleTimeout, DEFAULT_UPLOAD_IDLE_TIMEOUT_MS } from '../middleware/requestBodyDeadline.js';
@@ -95,44 +96,6 @@ async function receiveBody(req: Request, tempPath: string, limit: number, open: 
   }
   if (!(file as Writable & { closed?: boolean }).closed) await once(file, 'close').catch(() => undefined);
   return outcome;
-}
-
-/** Codes a filesystem gives when it cannot make hard links. */
-const NO_LINK = new Set(['EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS', 'EXDEV', 'EMLINK', 'EINVAL']);
-
-/**
- * Puts the temp file's content at `finalPath` only if that name is free, as one filesystem step
- * (a hard link, or an exclusive copy where links are not supported). With `rename`, a taken name
- * moves on to the next FR-FOP-004 name; otherwise it is FILE_ALREADY_EXISTS. The temp file stays;
- * the caller removes it.
- */
-async function placeExclusively(tempPath: string, finalPath: string, rename: boolean): Promise<string> {
-  const parent = path.dirname(finalPath);
-  const wanted = path.basename(finalPath);
-  const tried = new Set<string>();
-  let useLink = true;
-  let candidate = wanted;
-  for (;;) {
-    const destination = path.join(parent, candidate);
-    try {
-      if (useLink) await fsp.link(tempPath, destination);
-      else await fsp.copyFile(tempPath, destination, fs.constants.COPYFILE_EXCL);
-      return destination;
-    } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code === 'EEXIST') {
-        if (!rename) throw new AppError(ErrorCode.FILE_ALREADY_EXISTS);
-        tried.add(candidate);
-        candidate = resolveNameCollision(wanted, (name) => tried.has(name) || fs.existsSync(path.join(parent, name)));
-        continue;
-      }
-      if (useLink && code !== undefined && NO_LINK.has(code)) {
-        useLink = false;
-        continue;
-      }
-      throw fsError(err, 'Place');
-    }
-  }
 }
 
 export interface UploadRouteOptions {
@@ -290,7 +253,11 @@ export function createUploadRoutes(fileService: FileService, options: UploadRout
           throw fsError(err, 'Rename');
         }
       } else {
-        finalPath = await placeExclusively(tempPath, finalPath, conflict === 'rename');
+        try {
+          finalPath = await placeExclusively(tempPath, finalPath, conflict === 'rename');
+        } catch (err) {
+          throw fsError(err, 'Place');
+        }
         await fsp.unlink(tempPath).catch(() => undefined);
       }
       const placed = tempPath;

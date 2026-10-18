@@ -716,6 +716,8 @@ function getFileManagerConfig(config: Config): FileManagerConfig {
     cwdCacheTtlMs: config.fileManager?.cwdCacheTtlMs ?? 1000,
     maxImageFileSize: config.fileManager?.maxImageFileSize ?? 20971520,
     maxUploadFileSize: config.fileManager?.maxUploadFileSize ?? 2147483648,
+    maxExtractBytes: config.fileManager?.maxExtractBytes ?? 10737418240,
+    maxExtractEntries: config.fileManager?.maxExtractEntries ?? 100000,
   };
 }
 

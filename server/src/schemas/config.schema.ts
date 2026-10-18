@@ -311,6 +311,10 @@ export const fileManagerSchema = z.object({
   maxImageFileSize: z.number().min(1024).max(104857600).default(20971520),
   // FR-FEX-023 AC-4: one upload's size limit (1 MiB..100 GiB, default 2 GiB). The upload streams to disk.
   maxUploadFileSize: z.number().min(1048576).max(107374182400).default(2147483648),
+  // FR-FOP-007 AC-4: what one extraction may write (1 MiB..1 TiB, default 10 GiB) and how many entries
+  // it may hold (1..10,000,000, default 100,000). Checked before anything is written.
+  maxExtractBytes: z.number().min(1048576).max(1099511627776).default(10737418240),
+  maxExtractEntries: z.number().int().min(1).max(10000000).default(100000),
 });
 
 // ============================================================================
