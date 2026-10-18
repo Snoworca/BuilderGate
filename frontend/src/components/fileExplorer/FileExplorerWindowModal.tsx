@@ -8,6 +8,7 @@
 // What each question offers and what an answer means live in
 // fileExplorerModalModel.ts; this file only holds the queue, focus and keys.
 // @req FR-FEX-007
+// @req FR-FEX-024
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
@@ -15,6 +16,7 @@ import type { ConfirmPort, DecideAnswer, DecideDetail, DecidePort } from './file
 import {
   buildDecisionModal,
   buildDeleteConfirmModal,
+  buildRejectedItemsModal,
   decideWindowModalKey,
   nextFocusIndex,
   resolveDecisionAnswer,
@@ -25,7 +27,8 @@ import {
 
 type WindowModalEntry = { id: number } & (
   | { kind: 'delete'; paths: readonly string[]; resolve: (answer: 'confirm' | 'cancel') => void }
-  | { kind: 'job'; jobId: string | null; detail: DecideDetail; resolve: (answer: DecideAnswer | null) => void });
+  | { kind: 'job'; jobId: string | null; detail: DecideDetail; resolve: (answer: DecideAnswer | null) => void }
+  | { kind: 'notice'; items: readonly { path: string; code: string }[]; resolve: () => void });
 
 export interface FileExplorerWindowModalState {
   /** The question on screen; later ones wait behind it. */
@@ -36,6 +39,8 @@ export interface FileExplorerWindowModalState {
   decideJob: (jobId: string, detail: DecideDetail) => Promise<DecideAnswer | null>;
   /** The job finished: its questions no longer have anyone to answer them. */
   dropJob: (jobId: string) => void;
+  /** FR-FEX-024 AC-8: lists the files the server refused; resolves on 확인. */
+  notifyRejected: (items: readonly { path: string; code: string }[]) => Promise<void>;
 }
 
 /**
@@ -94,6 +99,16 @@ export function useFileExplorerWindowModal(): FileExplorerWindowModalState {
     return answer ?? { kind: 'decide', choice: detail.choices[0], applyToAll: false };
   }, [decideJob]);
 
+  const notifyRejected = useCallback((items: readonly { path: string; code: string }[]) => new Promise<void>((resolve) => {
+    const entry: WindowModalEntry = {
+      id: nextIdRef.current++,
+      kind: 'notice',
+      items,
+      resolve: () => { remove(entry); resolve(); },
+    };
+    add(entry);
+  }), [add, remove]);
+
   const dropJob = useCallback((jobId: string) => {
     for (const entry of queueRef.current) {
       if (entry.kind === 'job' && entry.jobId === jobId) entry.resolve(null);
@@ -106,14 +121,21 @@ export function useFileExplorerWindowModal(): FileExplorerWindowModalState {
     decide,
     decideJob,
     dropJob,
-  }), [confirm, decide, decideJob, dropJob, queue]);
+    notifyRejected,
+  }), [confirm, decide, decideJob, dropJob, notifyRejected, queue]);
 }
 
 function modelOf(entry: WindowModalEntry): WindowModalModel {
+  if (entry.kind === 'notice') return buildRejectedItemsModal(entry.items);
   return entry.kind === 'delete' ? buildDeleteConfirmModal(entry.paths) : buildDecisionModal(entry.detail);
 }
 
 function settle(entry: WindowModalEntry, choiceId: WindowModalChoiceId, applyToAll: boolean): void {
+  // A notice only acknowledges: its button and Escape both close it.
+  if (entry.kind === 'notice') {
+    entry.resolve();
+    return;
+  }
   if (entry.kind === 'delete') {
     entry.resolve(choiceId === 'confirm' ? 'confirm' : 'cancel');
     return;
@@ -171,8 +193,31 @@ function WindowModalSurface({ entry }: { entry: WindowModalEntry }) {
     <div className="fx-window-modal" ref={overlayRef}>
       <div className="fx-window-modal-scrim" />
       <div className="fx-window-modal-box" role="alertdialog" aria-label={model.title} ref={boxRef} onKeyDown={handleKeyDown}>
-        <div className="fx-window-modal-title">{model.title}</div>
+        <div className="fx-window-modal-title">
+          {model.title}
+          {model.counter !== undefined && <small className="fx-window-modal-counter">{model.counter}</small>}
+        </div>
         <div className="fx-window-modal-message" title={model.message}>{model.message}</div>
+        {model.details !== undefined && (
+          <dl className="fx-window-modal-compare">
+            {model.details.map((line) => (
+              <div key={line.label} className={line.emphasis ? 'fx-compare-new' : undefined}>
+                <dt>{line.label}</dt>
+                <dd>{line.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {model.items !== undefined && (
+          <ul className="fx-window-modal-items">
+            {model.items.map((item) => (
+              <li key={item.name}>
+                <span className="fx-item-name">{item.name}</span>
+                <span className="fx-item-reason">{item.reason}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         {model.showApplyToAll && (
           <label className="fx-window-modal-check">
             <input type="checkbox" checked={applyToAll} onChange={(event) => setApplyToAll(event.target.checked)} />

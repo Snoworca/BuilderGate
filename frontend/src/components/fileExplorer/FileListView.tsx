@@ -32,13 +32,15 @@ export interface FileListViewProps {
   renaming?: FileRowRename | null;
   /** Files open in the editor (openFileKeys), drawn bold. */
   openFileKeys?: ReadonlySet<string>;
+  /** FR-FEX-026 AC-2: the phone's 여러 개 선택 mode — a tap toggles a row instead of replacing. */
+  multiSelect?: boolean;
   /** FR-FEX-014: only entries whose names contain this are drawn. */
   filterText?: string;
 }
 
 // @req FR-FEX-002
 // @req FR-FEX-011
-export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null, openFileKeys, filterText = '' }: FileListViewProps) {
+export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null, openFileKeys, filterText = '', multiSelect = false }: FileListViewProps) {
   // Sorting a large directory on every render (each selection click, each
   // clipboard change) is the cost this saves. The rows depend only on the
   // root's listing entry and the sort, and a listing entry is replaced, never
@@ -66,6 +68,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
       metaKey: event.metaKey,
       shiftKey: event.shiftKey,
       isSelected: tree.state.selectedPaths.has(row.path),
+      toggleMode: multiSelect,
     });
     if (decision.type !== 'select') return;
     tree.dispatch({ type: 'CLICK_ROW', path: row.path, mods: decision.mods, orderedPaths: nodePaths });

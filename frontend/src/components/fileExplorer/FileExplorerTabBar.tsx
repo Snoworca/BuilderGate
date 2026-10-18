@@ -1,7 +1,9 @@
 // The explorer's tab strip. Each tab is one root in one session; the label is
 // the root's last segment, the full path is its tooltip.
 import { t } from '../../i18n/i18n.ts';
-import type { MouseEvent, ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
+import type { DragEvent, MouseEvent, ReactNode } from 'react';
+import { hasDraggedFiles, springDelay } from './fileTransferModel.ts';
 import { IconButton } from '../common';
 import type { FileExplorerTab } from './fileExplorerTabsState.ts';
 import { useLongPress } from '../../hooks/useLongPress.ts';
@@ -77,6 +79,23 @@ function ExplorerTabFrame({
   children: ReactNode;
 }) {
   const longPress = useLongPress((point) => onContextMenu?.(tabId, { x: point.clientX, y: point.clientY }));
+  // FR-FEX-022 AC-5: a file held over an inactive tab for a moment switches to it, so a drop
+  // can reach a folder another tab shows.
+  const springRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearSpring = () => {
+    if (springRef.current !== null) clearTimeout(springRef.current);
+    springRef.current = null;
+  };
+  useEffect(() => clearSpring, []);
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!hasDraggedFiles(event.dataTransfer.types) || springRef.current !== null) return;
+    const delay = springDelay({ kind: 'tab', active: selected });
+    if (delay === null) return;
+    springRef.current = setTimeout(() => {
+      springRef.current = null;
+      onSelect(tabId);
+    }, delay);
+  };
   const openMenu = (event: MouseEvent<HTMLDivElement>) => {
     if (onContextMenu === undefined) return;
     event.preventDefault();
@@ -94,6 +113,9 @@ function ExplorerTabFrame({
       onTouchStart={longPress.onTouchStart}
       onTouchMove={longPress.onTouchMove}
       onTouchEnd={longPress.onTouchEnd}
+      onDragOver={onDragOver}
+      onDragLeave={clearSpring}
+      onDrop={clearSpring}
     >
       {children}
     </div>

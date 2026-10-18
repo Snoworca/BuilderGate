@@ -4,7 +4,7 @@
  */
 
 import { createStatusHysteresis } from './utils/statusHysteresis';
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect, useSyncExternalStore } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { t } from './i18n/i18n.ts';
 import { useHeartbeat } from './hooks/useHeartbeat';
@@ -67,6 +67,8 @@ import {
 import { FileJobStatusBar } from './components/fileExplorer/FileJobStatusBar';
 import { openFileKeys } from './components/fileExplorer/fileTreeState';
 import { useFileJobStoreSync } from './hooks/useFileJobStoreSync';
+import { useFileTransferPageGuards } from './hooks/useFileTransferPageGuards';
+import { getFileTransferSnapshot, subscribeFileTransfers } from './components/fileExplorer/fileTransferStore';
 import type { ContextMenuItem } from './components/ContextMenu/ContextMenu';
 import { useWindowState } from './hooks/useWindowState';
 import { ContextMenu } from './components/ContextMenu';
@@ -681,6 +683,10 @@ function AppContent() {
   // explorer window cannot stop its jobs from being tracked.
   // @req FR-FEX-009
   useFileJobStoreSync(wm.tabs);
+  // FR-FEX-024 AC-5/AC-6: the leave warning and the wake lock while an upload runs.
+  useFileTransferPageGuards();
+  // FR-FEX-024 AC-7: uploads finished while an explorer window was out of sight, by workspace.
+  const unseenUploads = useSyncExternalStore(subscribeFileTransfers, () => getFileTransferSnapshot().unseen);
   // The workspace is the tab's own rather than the active one: a terminal menu
   // can be opened on a tab while another workspace's tab strip is not in view,
   // and the window belongs with the tab it was opened from.
@@ -849,11 +855,15 @@ function AppContent() {
     explorer.windows,
     workspaceId => wm.workspaces.find(ws => ws.id === workspaceId)?.name,
   );
-  const explorerTrayKey = explorerTrayEntries.map(entry => `${entry.workspaceId}\u0000${entry.label}`).join('\u0001');
+  // FR-FEX-024 AC-7: the badge rides in the row's right-hand slot, so the label stays the model's.
+  const explorerTrayKey = explorerTrayEntries
+    .map(entry => `${entry.workspaceId}\u0000${entry.label}\u0000${(unseenUploads[entry.workspaceId] ?? 0) > 0 ? 1 : 0}`)
+    .join('\u0001');
   const headerTrayItems = useMemo<ContextMenuItem[]>(
     () => editor.trayItems.concat(explorerTrayEntries.map(entry => ({
       label: entry.label,
       onClick: () => explorer.reviveFileExplorer(entry.workspaceId),
+      ...((unseenUploads[entry.workspaceId] ?? 0) > 0 ? { shortcut: t('fileTransfer.tray.uploaded'), className: 'tray-item-badged' } : {}),
     }))),
     // `explorerTrayEntries` is rebuilt every render; `explorerTrayKey` carries
     // exactly what its rows show.
@@ -1098,6 +1108,7 @@ function AppContent() {
                       actions={explorer.actions}
                       onOpenFile={editor.openDocument}
                       openFileKeys={openEditorFileKeys}
+                      terminalKeyboardOpen={showMobileKeyBar}
                     />
                   ))}
                 </TerminalRuntimeProvider>

@@ -12,6 +12,8 @@
 //
 // @req FR-MDE-012
 // @req FR-FEX-005
+// @req FR-FEX-022
+// @req FR-FEX-025
 
 import { t } from '../i18n/i18n.ts';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -32,7 +34,7 @@ import { pasteFromClipboard, requestDelete, type FileJobRequest } from '../compo
 import { dispatchFileJob } from '../components/fileExplorer/fileJobStore.ts';
 import { startFileDownload } from '../components/fileExplorer/fileDownload.ts';
 import { isOpenableFile } from '../components/fileExplorer/fileRowInteraction.ts';
-import { parentPathOf } from '../components/fileExplorer/fileTreeState.ts';
+import { joinChildPath, parentPathOf } from '../components/fileExplorer/fileTreeState.ts';
 import type { FileExplorerMenuRequest, FileRowRename } from '../components/fileExplorer/FileTreeView.tsx';
 import { fileApi, fileJobApi } from '../services/api.ts';
 import type { UseFileTreeResult } from './useFileTree.ts';
@@ -57,6 +59,16 @@ export interface UseFileTreeOperationsInput {
   onShowInfo?: (path: string) => void;
   /** Where a submitted job belongs, so its window can ask its questions. */
   origin: { workspaceId: string; tabId: string };
+  /**
+   * FR-FEX-022 / FR-FEX-025: a surface that uploads and downloads ZIPs (the explorer window).
+   * Without it the menu has no upload entries and downloads one file at a time.
+   */
+  transfer?: {
+    /** Opens the picker for `dir`; `folder` picks a whole folder. */
+    onUpload: (dir: string, folder: boolean) => void;
+    onDownloadZip: (paths: string[]) => void;
+    folderUploadSupported: boolean;
+  };
 }
 
 export interface FileTreeOperations {
@@ -96,6 +108,7 @@ export function useFileTreeOperations({
   onNewTab,
   onShowInfo,
   origin,
+  transfer,
 }: UseFileTreeOperationsInput): FileTreeOperations {
   const { state } = tree;
   // The controller's functions are stable for a session, so callbacks depend on
@@ -192,6 +205,12 @@ export function useFileTreeOperations({
   // screen. A menu opened on a directory row pastes and creates inside it;
   // everywhere else the folder being shown is the target.
   const selectedPaths = () => [...state.selectedPaths];
+  // What a selected path is, read from its parent's listing; null when that is not loaded.
+  const entryTypeOf = (path: string) => {
+    const parent = state.childrenByPath.get(parentPathOf(path));
+    if (parent?.status !== 'loaded') return null;
+    return parent.entries.find((entry) => joinChildPath(parentPathOf(path), entry.name) === path)?.type ?? null;
+  };
   const targetDirectory = menu !== null && menu.target === 'item' && menu.isDir && menu.path !== null ? menu.path : state.root;
 
   const menuHandlers: FileExplorerMenuHandlers = {
@@ -202,12 +221,28 @@ export function useFileTreeOperations({
       if (menu?.path) onNewTab?.(menu.path);
     },
     // FR-FEX-021: the one file the menu was opened on, or the one selected (mobile bar).
+    // FR-FEX-025 AC-1: several items or a directory go as one ZIP where the surface has it.
     download: () => {
       const paths = selectedPaths();
-      const target = menu?.target === 'item' && menu.path && !menu.isDir ? menu.path : paths.length === 1 ? paths[0] : null;
-      if (!target) return;
-      startFileDownload(sessionId, target)
+      const onMenuFile = menu?.target === 'item' && menu.path && !menu.isDir && paths.length <= 1 ? menu.path : null;
+      const single = onMenuFile ?? (paths.length === 1 && entryTypeOf(paths[0]) === 'file' ? paths[0] : null);
+      if (single === null) {
+        if (transfer !== undefined && paths.length > 0) transfer.onDownloadZip(paths);
+        else if (paths.length === 1) {
+          startFileDownload(sessionId, paths[0])
+            .catch((error: unknown) => showError(t('fileOps.error.download', { message: messageOf(error) })));
+        }
+        return;
+      }
+      startFileDownload(sessionId, single)
         .catch((error: unknown) => showError(t('fileOps.error.download', { message: messageOf(error) })));
+    },
+    // FR-FEX-022 AC-2: into the directory the menu was opened on, else the folder on screen.
+    upload: () => {
+      transfer?.onUpload(targetDirectory, false);
+    },
+    uploadFolder: () => {
+      transfer?.onUpload(targetDirectory, true);
     },
     copy: () => {
       copySelection({ sessionId, paths: selectedPaths() });
@@ -251,6 +286,10 @@ export function useFileTreeOperations({
     clipboardEmpty: clipboard === null,
     mode: state.mode,
     context,
+    uploadable: transfer !== undefined,
+    folderUploadSupported: transfer?.folderUploadSupported ?? false,
+    zipDownload: transfer !== undefined,
+    uploadTargetName: menu.target === 'item' && menu.isDir && menu.path !== null ? lastSegment(menu.path) : null,
   }, menuHandlers);
 
   const runShortcut = (action: FileTreeShortcutAction) => {

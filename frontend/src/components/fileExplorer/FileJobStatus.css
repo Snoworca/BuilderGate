@@ -204,3 +204,14 @@
 .fx-job-more:hover {
   background: var(--bg-hover);
 }
+
+/* FR-FEX-024 / FR-FEX-025: lines of uploads and ZIP downloads. */
+.fx-job-warn { margin: 0; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--warn-tint); color: var(--warn-text); font-size: var(--fs-xs); }
+.fx-job-sub { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-2xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.fx-job-sub > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-job-actions { justify-content: flex-end; }
+.fx-job-fail-list { margin: 0; padding: 0; list-style: none; font-size: var(--fs-2xs); }
+.fx-job-fail-list li { display: flex; justify-content: space-between; gap: 8px; }
+.fx-job-fail-list em { font-style: normal; color: var(--danger-text); }
+.fx-transfer-warn .fx-job-text, .fx-job-warn-text { color: var(--warn-text); }
+.fx-link-button { border: 0; padding: 0; background: none; color: var(--accent-text); font: inherit; cursor: pointer; }

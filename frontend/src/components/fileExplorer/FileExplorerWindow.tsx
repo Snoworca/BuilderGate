@@ -29,13 +29,21 @@
 // @req FR-FEX-011
 // @req FR-FEX-008
 // @req FR-FEX-009
+// @req FR-FEX-022
+// @req FR-FEX-024
+// @req FR-FEX-025
+// @req FR-FEX-026
+//
+// Uploads and ZIP downloads (#139) start here — the path bar, the menu, the phone bar and an
+// operating-system drop on the rows — and run in fileTransferRuntime, which outlives the panel
+// as the server's jobs outlive it in fileJobStore.
 
 import { applyTypeFilterKey, type TypeFilterKey } from './fileExplorerTypeFilter.ts';
 import { FileInfoModal } from './FileInfoModal.tsx';
 import { FileExplorerSearch } from './FileExplorerSearch.tsx';
-import { t } from '../../i18n/i18n.ts';
+import { t, tn } from '../../i18n/i18n.ts';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
+import type { ChangeEvent, DragEvent, KeyboardEvent, PointerEvent, RefObject, TouchEvent } from 'react';
 import { IconButton, IconToggleButton } from '../common';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { buildTabCloseMenuItems } from '../../utils/tabCloseMenu.ts';
@@ -57,6 +65,34 @@ import { FileExplorerConfirmBar, useFileExplorerConfirmBar } from './FileExplore
 import { FileExplorerWindowModal, useFileExplorerWindowModal, type FileExplorerWindowModalState } from './FileExplorerWindowModal.tsx';
 import { fileExplorerDialogId } from './fileExplorerDialog.ts';
 import { FileExplorerMobileBar } from './FileExplorerMobileBar.tsx';
+import { FileExplorerSelectionBand, FileExplorerUploadBand } from './FileExplorerMobileBands.tsx';
+import { FileExplorerMoreSheet } from './FileExplorerMoreSheet.tsx';
+import { FileExplorerDropChip, FileExplorerPendingRows, FileExplorerToast, type DropChipTarget, type FileExplorerToastState } from './FileExplorerTransferChrome.tsx';
+import { buildMobileMoreSheet, mobileSheetTitle } from './fileExplorerContextMenu.ts';
+import { rootLabel } from './fileExplorerPathBarModel.ts';
+import { readDroppedSources, readPickedSources } from './fileDropEntries.ts';
+import type { UploadSource } from './fileUploadController.ts';
+import { cancelFileTransfer, startUpload, startZipDownload, subscribeFileTransferEvents } from './fileTransferRuntime.ts';
+import {
+  dispatchFileTransfer,
+  getFileTransferSnapshot,
+  selectPendingUploadRows,
+  selectRunningUploadCount,
+  selectRunningUploadJobIds,
+  selectTrayBadge,
+  subscribeFileTransfers,
+} from './fileTransferStore.ts';
+import {
+  decideArrivalScroll,
+  decideDropAllowed,
+  downloadButtonLabel,
+  formatTransferBytes,
+  hasDraggedFiles,
+  isFolderUploadSupported,
+  resolveDropTarget,
+  shouldShowMobileFileBar,
+  springDelay,
+} from './fileTransferModel.ts';
 import { FileExplorerPathBar } from './FileExplorerPathBar.tsx';
 import { FileExplorerProgressRow } from './FileExplorerProgressRow.tsx';
 import { decideAnchorPersist, decideScrollRestore, pickAnchorRow, type RestoreState } from './fileExplorerScrollRestore.ts';
@@ -75,7 +111,7 @@ import {
 import { selectListRows, type ListSort } from './fileListView.ts';
 import { FileListView } from './FileListView.tsx';
 import { decideRowPointer, LONG_PRESS_MENU_MS, LONG_PRESS_OPEN_MS } from './fileRowInteraction.ts';
-import { joinChildPath, parentPathOf, type FileTreeMode } from './fileTreeState.ts';
+import { joinChildPath, parentPathOf, selectVisibleRows, type FileTreeMode } from './fileTreeState.ts';
 import { FileTreeView, type FileExplorerMenuRequest } from './FileTreeView.tsx';
 
 // Module level so the references are stable: WindowDialog puts minSize into
@@ -114,6 +150,14 @@ function messageOf(error: unknown): string {
   return error instanceof Error && error.message !== '' ? error.message : String(error);
 }
 
+function lastSegment(path: string): string {
+  const parts = path.split(/[\\/]/).filter((part) => part !== '');
+  return parts[parts.length - 1] ?? path;
+}
+
+// How long the rows an upload brought stay highlighted (FR-FEX-024 AC-2).
+const ARRIVAL_HIGHLIGHT_MS = 2000;
+
 export interface FileExplorerWindowProps {
   workspaceId: string;
   tabs: readonly FileExplorerTabView[];
@@ -130,6 +174,8 @@ export interface FileExplorerWindowProps {
   onOpenFile: (filePath: string, tabId: string) => void;
   /** Files open in the editor, drawn bold (openFileKeys). */
   openFileKeys?: ReadonlySet<string>;
+  /** FR-FEX-026 AC-6: the mobile terminal keyboard is up; the phone bar and its bands give way. */
+  terminalKeyboardOpen?: boolean;
 }
 
 interface FileExplorerTabPanelProps {
@@ -144,9 +190,12 @@ interface FileExplorerTabPanelProps {
   /** The window's one modal: every tab asks its delete and job questions here. */
   windowModal: FileExplorerWindowModalState;
   openFileKeys?: ReadonlySet<string>;
+  terminalKeyboardOpen: boolean;
+  /** The window's toast, for a finished upload this tab started. */
+  showToast: (toast: Omit<FileExplorerToastState, 'id'>) => void;
 }
 
-const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, tab, active, hidden, actions, onOpenFile, registerCommands, windowModal, openFileKeys }: FileExplorerTabPanelProps) {
+const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, tab, active, hidden, actions, onOpenFile, registerCommands, windowModal, openFileKeys, terminalKeyboardOpen, showToast }: FileExplorerTabPanelProps) {
   // The root the tree lists from. It follows navigation, so a session change
   // (a terminal restart rebuilds the tree's controller, which lists this root
   // again) keeps the directory the user is in rather than the one the tab
@@ -213,7 +262,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   const { registerFileJobHandler } = useWebSocketActions();
   const clipboard = useSyncExternalStore(subscribeFileExplorerClipboard, getFileExplorerClipboard);
   const confirmBar = useFileExplorerConfirmBar();
-  const { askName, showError } = confirmBar;
+  const { askName, askChoice, showError } = confirmBar;
   const { confirm: confirmDelete } = windowModal;
   const [menu, setMenu] = useState<FileExplorerMenuRequest | null>(null);
   // FR-FEX-018: the path whose information modal is open.
@@ -231,6 +280,64 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     if (route.kind === 'invalidate') void applyJobDone(route.directories);
   }), [applyJobDone, registerFileJobHandler, tab.sessionId]);
 
+  // ---------------------------------------------------------------------------
+  // Transfers (#139). A pick remembers the folder it was opened for; the inputs stay mounted and
+  // hidden, and a click on them is the only way a page may open the device's picker.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const pickTargetRef = useRef(state.root);
+  // FR-FEX-022 AC-3: feature detection, once.
+  const folderUploadSupported = useMemo(() => isFolderUploadSupported(() => document.createElement('input')), []);
+  // FR-FEX-024 AC-2: whether the user selected or scrolled since the upload started.
+  const userMovedRef = useRef(false);
+  const { decide: decideConflict, notifyRejected } = windowModal;
+
+  const beginUpload = (dir: string, sources: readonly UploadSource[]) => {
+    if (sources.length === 0) return;
+    userMovedRef.current = false;
+    const listing = state.childrenByPath.get(dir);
+    startUpload({
+      sessionId: tab.sessionId,
+      dir,
+      dirLabel: rootLabel(dir),
+      workspaceId,
+      tabId: tab.id,
+      sources,
+      existingNames: listing?.status === 'loaded' ? listing.entries.map((entry) => entry.name) : [],
+      ask: decideConflict,
+      onRejected: (items) => { void notifyRejected(items); },
+    }).catch((error: unknown) => showError(t('fileTransfer.error.upload', { message: messageOf(error) })));
+  };
+  const openPicker = (dir: string, folder: boolean) => {
+    pickTargetRef.current = dir;
+    (folder ? folderInputRef : fileInputRef).current?.click();
+  };
+  const handlePicked = (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const sources = input.files === null ? [] : readPickedSources(input.files);
+    // Cleared so picking the same file again still raises change.
+    input.value = '';
+    beginUpload(pickTargetRef.current, sources);
+  };
+  const setFolderInput = useCallback((element: HTMLInputElement | null) => {
+    folderInputRef.current = element;
+    // React has no prop for it; the attribute is what makes the picker choose a folder.
+    element?.setAttribute('webkitdirectory', '');
+  }, []);
+  // FR-FEX-025 AC-2: a large ZIP waits for 받기 on the confirm row.
+  const downloadZip = (paths: string[]) => {
+    startZipDownload({
+      sessionId: tab.sessionId,
+      workspaceId,
+      paths,
+      confirm: (summary) => askChoice(
+        t('fileTransfer.zip.confirm', { name: summary.name, size: formatTransferBytes(summary.totalBytes), count: tn('fileTransfer.zip.confirmCount', summary.fileCount) }),
+        t('fileTransfer.zip.excluded', { names: summary.excluded.join(', ') }),
+        [{ id: 'cancel', label: t('common.cancel') }, { id: 'get', label: t('fileTransfer.zip.get'), primary: true }],
+      ).then((choice) => choice === 'get'),
+    }).catch((error: unknown) => showError(t('fileTransfer.zip.failed', { message: messageOf(error) })));
+  };
+
   // The file operations are shared with the editor's tree pane. The job each
   // one submits is recorded in the store under this window's workspace; the
   // delete is asked in the window's modal, a folder name in the confirm row.
@@ -246,6 +353,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     onNewTab: (path) => actions.addTab(workspaceId, path),
     onShowInfo: (path) => setInfoPath(path),
     origin: { workspaceId, tabId: tab.id },
+    transfer: { onUpload: openPicker, onDownloadZip: downloadZip, folderUploadSupported },
   });
   // FR-FEX-014: the type-to-filter text. It belongs to one directory view, so it clears
   // whenever the listed root changes.
@@ -320,15 +428,195 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the listing entry, not the whole state
   const rootEntries = useMemo(() => selectListRows(state, sort), [rootListing, sort]);
 
-  // FR-FEX-021: the mobile bar's 다운로드 needs the one selected item to be a regular file, read
-  // from its parent's listing.
-  const singleFileSelected = useMemo(() => {
-    if (state.selectedPaths.size !== 1) return false;
+  // FR-FEX-021 / FR-FEX-025 AC-1: what the one selected item is, read from its parent's
+  // listing — one regular file downloads as itself, anything else as a ZIP.
+  const singleSelectedType = useMemo(() => {
+    if (state.selectedPaths.size !== 1) return null;
     const [selected] = state.selectedPaths;
     const parent = state.childrenByPath.get(parentPathOf(selected));
-    if (parent?.status !== 'loaded') return false;
-    return parent.entries.some(entry => entry.type === 'file' && joinChildPath(parentPathOf(selected), entry.name) === selected);
+    if (parent?.status !== 'loaded') return null;
+    return parent.entries.find(entry => joinChildPath(parentPathOf(selected), entry.name) === selected)?.type ?? null;
   }, [state.selectedPaths, state.childrenByPath]);
+  const singleFileSelected = singleSelectedType === 'file';
+
+  // FR-FEX-024 AC-2: the rows still arriving in the folder on screen.
+  const transferSnapshot = useSyncExternalStore(subscribeFileTransfers, getFileTransferSnapshot);
+  const pendingRows = useMemo(() => selectPendingUploadRows(transferSnapshot, tab.sessionId, state.root), [transferSnapshot, tab.sessionId, state.root]);
+
+  // A selection made during an upload means the user is busy elsewhere in the list.
+  const selectionSeenRef = useRef(state.selectedPaths);
+  useEffect(() => {
+    if (selectionSeenRef.current === state.selectedPaths) return;
+    selectionSeenRef.current = state.selectedPaths;
+    userMovedRef.current = true;
+  }, [state.selectedPaths]);
+
+  // FR-FEX-024 AC-2/AC-7: a finished upload reloads every view of its folder; the tab that
+  // started it also highlights what arrived, follows it unless the user moved, and toasts.
+  const arrivalRef = useRef<{ names: readonly string[]; scroll: boolean } | null>(null);
+  // Marked programmatic like the restore's scroll, so following an arrival saves no anchor of the user's.
+  const revealRow = useCallback((row: Element) => {
+    programmaticScrollRef.current = true;
+    row.scrollIntoView({ block: 'nearest' });
+    requestAnimationFrame(() => {
+      programmaticScrollRef.current = false;
+    });
+  }, []);
+  const scrollToNames = useCallback((names: readonly string[]) => {
+    const container = scrollRef.current;
+    const last = names[names.length - 1];
+    if (container === null || last === undefined) return;
+    const row = container.querySelector(`${ANCHOR_ROW_SELECTOR}[data-name="${CSS.escape(last)}"]`);
+    if (row !== null) revealRow(row);
+  }, [revealRow]);
+  useEffect(() => subscribeFileTransferEvents((event) => {
+    if (event.type !== 'upload-finished' || event.sessionId !== tab.sessionId) return;
+    void applyJobDone([event.dir]);
+    if (event.tabId !== tab.id) return;
+    const scroll = decideArrivalScroll({ userSelected: userMovedRef.current, userScrolled: userMovedRef.current }) === 'scroll';
+    arrivalRef.current = { names: event.arrived, scroll };
+    const folder = rootLabel(event.dir);
+    const names = event.arrived;
+    showToast({
+      message: event.failed > 0
+        ? tn('fileTransfer.toast.uploadedFailed', names.length, { folder, failed: event.failed })
+        : tn('fileTransfer.toast.uploaded', names.length, { folder }),
+      ...(names.length > 0 ? { actionLabel: t('fileTransfer.toast.view'), onAction: () => scrollToNames(names) } : {}),
+    });
+  }), [applyJobDone, scrollToNames, showToast, tab.id, tab.sessionId]);
+  // Runs after each render until the reloaded listing has drawn the rows that arrived.
+  useLayoutEffect(() => {
+    const pending = arrivalRef.current;
+    const container = scrollRef.current;
+    if (pending === null || container === null) return;
+    const rows = pending.names
+      .map((name) => container.querySelector<HTMLElement>(`${ANCHOR_ROW_SELECTOR}[data-name="${CSS.escape(name)}"]`))
+      .filter((row): row is HTMLElement => row !== null);
+    if (rows.length === 0) return;
+    arrivalRef.current = null;
+    for (const row of rows) row.classList.add('fx-arrived');
+    if (pending.scroll) revealRow(rows[rows.length - 1]);
+    setTimeout(() => { for (const row of rows) row.classList.remove('fx-arrived'); }, ARRIVAL_HIGHLIGHT_MS);
+  });
+
+  // ---------------------------------------------------------------------------
+  // FR-FEX-022 AC-4~AC-7: an operating-system drop on the rows.
+  const [dropChip, setDropChip] = useState<DropChipTarget | null>(null);
+  const dragDepthRef = useRef(0);
+  const dropRowRef = useRef<Element | null>(null);
+  const springRef = useRef<{ path: string; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const modalOpen = windowModal.current !== null || infoPath !== null;
+  const markDropRow = (row: Element | null) => {
+    if (dropRowRef.current === row) return;
+    dropRowRef.current?.classList.remove('fx-drop-target');
+    row?.classList.add('fx-drop-target');
+    dropRowRef.current = row;
+  };
+  const clearSpring = () => {
+    if (springRef.current !== null) clearTimeout(springRef.current.timer);
+    springRef.current = null;
+  };
+  const endDrag = () => {
+    dragDepthRef.current = 0;
+    clearSpring();
+    markDropRow(null);
+    setDropChip(null);
+  };
+  useEffect(() => () => {
+    if (springRef.current !== null) clearTimeout(springRef.current.timer);
+  }, []);
+  const dragRowOf = (target: EventTarget | null) => {
+    if (!(target instanceof Element)) return null;
+    const element = target.closest<HTMLElement>('[data-path]');
+    if (element === null || !(scrollRef.current?.contains(element) ?? false)) return null;
+    return {
+      element,
+      path: element.dataset.path ?? '',
+      isDir: element.classList.contains('fx-dir'),
+      expanded: element.getAttribute('aria-expanded') === 'true',
+    };
+  };
+  const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    if (!hasDraggedFiles(event.dataTransfer.types)) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+  };
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!hasDraggedFiles(event.dataTransfer.types)) return;
+    event.preventDefault();
+    if (decideDropAllowed({ hasFiles: true, modalOpen }) === 'blocked') {
+      event.dataTransfer.dropEffect = 'none';
+      markDropRow(null);
+      setDropChip(null);
+      return;
+    }
+    event.dataTransfer.dropEffect = 'copy';
+    const row = dragRowOf(event.target);
+    const target = resolveDropTarget({ row, shownFolder: state.root });
+    markDropRow(target.highlightPath === null ? null : row?.element ?? null);
+    setDropChip((current) => (current?.dir === target.dir ? current : { dir: target.dir, name: target.highlightPath === null ? null : lastSegment(target.dir) }));
+    const delay = row !== null && row.isDir && state.mode === 'tree' ? springDelay({ kind: 'tree-dir', expanded: row.expanded }) : null;
+    if (delay === null || row === null) {
+      clearSpring();
+      return;
+    }
+    if (springRef.current?.path === row.path) return;
+    clearSpring();
+    springRef.current = {
+      path: row.path,
+      timer: setTimeout(() => {
+        springRef.current = null;
+        void tree.expand(row.path);
+      }, delay),
+    };
+  };
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (!hasDraggedFiles(event.dataTransfer.types)) return;
+    dragDepthRef.current -= 1;
+    if (dragDepthRef.current <= 0) endDrag();
+  };
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!hasDraggedFiles(event.dataTransfer.types)) return;
+    event.preventDefault();
+    const target = resolveDropTarget({ row: dragRowOf(event.target), shownFolder: state.root });
+    endDrag();
+    if (decideDropAllowed({ hasFiles: true, modalOpen }) !== 'upload') return;
+    readDroppedSources(event.dataTransfer.items)
+      .then((sources) => beginUpload(target.dir, sources))
+      .catch((error: unknown) => showError(t('fileTransfer.error.upload', { message: messageOf(error) })));
+  };
+
+  // ---------------------------------------------------------------------------
+  // FR-FEX-026: the phone's bar, its bands and the 더보기 sheet.
+  const [multiSelect, setMultiSelect] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const selectionCount = state.selectedPaths.size;
+  useEffect(() => {
+    if (selectionCount === 0) setMultiSelect(false);
+  }, [selectionCount]);
+  const showMobileBar = shouldShowMobileFileBar({ isMobile, terminalKeyboardOpen });
+  const mobileHandlers = {
+    // FR-FEX-026 AC-5: straight to the device's picker, no sheet in between.
+    upload: () => openPicker(state.root, false),
+    download: ops.menuHandlers.download,
+    paste: ops.menuHandlers.paste,
+    more: () => setSheetOpen(true),
+  };
+  const [firstSelected] = state.selectedPaths;
+  const sheetEntries = sheetOpen
+    ? buildMobileMoreSheet({ count: selectionCount, isDir: singleSelectedType === 'directory', clipboardEmpty: clipboard === null, folderUploadSupported }, {
+      download: ops.menuHandlers.download,
+      upload: () => openPicker(state.root, false),
+      uploadFolder: () => openPicker(state.root, true),
+      copy: ops.menuHandlers.copy,
+      cut: ops.menuHandlers.cut,
+      paste: ops.menuHandlers.paste,
+      rename: ops.menuHandlers.rename,
+      newdir: ops.menuHandlers.newdir,
+      info: () => { if (firstSelected !== undefined) setInfoPath(firstSelected); },
+      delete: ops.menuHandlers.delete,
+    })
+    : [];
 
   // Runs after every render until the anchor has been placed: rows arrive with
   // a later render than the one that mounted the panel, and an inactive tab has
@@ -405,6 +693,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     const container = scrollRef.current;
     if (container === null) return;
     const userInitiated = !programmaticScrollRef.current;
+    if (userInitiated) userMovedRef.current = true;
     const decision = decideAnchorPersist({
       restoreState: restoreStateRef.current,
       userInitiated,
@@ -435,16 +724,36 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
           onOpenFile={(path) => handleOpenFile(path)}
         />
       )}
-      {!searchOpen && <FileExplorerPathBar tree={tree} setMode={setMode} onNewDirectory={() => void ops.createDirectoryIn(state.root)} filterText={filterText} onClearFilter={() => setFilterText('')} onOpenSearch={() => setSearchOpen(true)} />}
+      {!searchOpen && (
+        <FileExplorerPathBar
+          tree={tree}
+          setMode={setMode}
+          onNewDirectory={() => void ops.createDirectoryIn(state.root)}
+          filterText={filterText}
+          onClearFilter={() => setFilterText('')}
+          onOpenSearch={() => setSearchOpen(true)}
+          onUpload={() => openPicker(state.root, false)}
+          download={{
+            label: downloadButtonLabel({ count: selectionCount, singleFile: singleFileSelected }),
+            disabled: selectionCount === 0,
+            onClick: ops.menuHandlers.download,
+          }}
+        />
+      )}
       <div
         hidden={searchOpen}
         className="fx-scroll"
+        data-drag={dropChip === null ? undefined : 'on'}
         ref={scrollRef}
         onScroll={handleScroll}
         onPointerDown={handleRowsPointerDown}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         {state.mode === 'list'
           ? (
@@ -458,18 +767,43 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
               renaming={ops.rowRename}
               openFileKeys={openFileKeys}
               filterText={filterText}
+              multiSelect={multiSelect}
             />
           )
-          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} openFileKeys={openFileKeys} filterText={filterText} />}
+          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} openFileKeys={openFileKeys} filterText={filterText} multiSelect={multiSelect} />}
+        <FileExplorerPendingRows rows={pendingRows} />
       </div>
+      <FileExplorerDropChip target={dropChip} />
+      <input ref={fileInputRef} type="file" multiple hidden onChange={handlePicked} />
+      <input ref={setFolderInput} type="file" multiple hidden onChange={handlePicked} />
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
       {infoPath !== null && <FileInfoModal sessionId={tab.sessionId} path={infoPath} onClose={() => setInfoPath(null)} />}
-      {isMobile && (
+      {showMobileBar && <FileExplorerUploadBand workspaceId={workspaceId} />}
+      {showMobileBar && selectionCount > 0 && (
+        <FileExplorerSelectionBand
+          count={selectionCount}
+          multiSelect={multiSelect}
+          onToggleMultiSelect={() => setMultiSelect((on) => !on)}
+          onSelectAll={() => tree.dispatch({ type: 'SELECT_ALL', orderedPaths: selectVisibleRows(state).flatMap((row) => (row.kind === 'node' ? [row.path] : [])) })}
+          onClear={() => {
+            setMultiSelect(false);
+            tree.deselect([...state.selectedPaths]);
+          }}
+        />
+      )}
+      {isMobile && !terminalKeyboardOpen && (
         <FileExplorerMobileBar
-          selectionCount={state.selectedPaths.size}
+          selectionCount={selectionCount}
           clipboardEmpty={clipboard === null}
-          singleFileSelected={singleFileSelected}
-          handlers={ops.menuHandlers}
+          handlers={mobileHandlers}
+          moreOpen={sheetOpen}
+        />
+      )}
+      {sheetOpen && (
+        <FileExplorerMoreSheet
+          title={mobileSheetTitle({ count: selectionCount, name: firstSelected === undefined ? null : lastSegment(firstSelected), folder: rootLabel(state.root) })}
+          entries={sheetEntries}
+          onClose={() => setSheetOpen(false)}
         />
       )}
       {menu !== null && (
@@ -513,11 +847,49 @@ function useStageRect(active: boolean): DialogRect | null {
 }
 
 // @req FR-FEX-003
-export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, placement, actions, onOpenFile, openFileKeys }: FileExplorerWindowProps) {
+export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, placement, actions, onOpenFile, openFileKeys, terminalKeyboardOpen = false }: FileExplorerWindowProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const maximized = placement === 'stage';
   const stageRect = useStageRect(maximized && !hidden);
   const windowModal = useFileExplorerWindowModal();
+  // Window-wide questions (closing mid-upload) and the toast every tab reports through.
+  const windowConfirm = useFileExplorerConfirmBar();
+  const [toast, setToast] = useState<FileExplorerToastState | null>(null);
+  const showToast = useCallback((next: Omit<FileExplorerToastState, 'id'>) => setToast({ id: Date.now(), ...next }), []);
+  const dismissToast = useCallback(() => setToast(null), []);
+  useEffect(() => subscribeFileTransferEvents((event) => {
+    if (event.type === 'upload-cancelled' && event.workspaceId === workspaceId) showToast({ message: t('fileTransfer.toast.cancelled') });
+  }), [showToast, workspaceId]);
+  // FR-FEX-024 AC-7: an upload finished while the window was out of sight badges its tray row
+  // until the window shows again.
+  const trayBadge = useSyncExternalStore(subscribeFileTransfers, () => selectTrayBadge(getFileTransferSnapshot(), workspaceId));
+  useEffect(() => {
+    if (trayBadge > 0 && hidden === false) dispatchFileTransfer({ type: 'WORKSPACE_SEEN', workspaceId });
+  }, [hidden, trayBadge, workspaceId]);
+  // FR-FEX-024 AC-5: closing mid-upload asks first; stopping cancels this window's uploads.
+  const { askChoice: askWindowChoice } = windowConfirm;
+  const handleClose = () => {
+    const running = selectRunningUploadJobIds(getFileTransferSnapshot(), workspaceId);
+    if (running.length === 0) {
+      actions.closeFileExplorer(workspaceId);
+      return;
+    }
+    void askWindowChoice(
+      tn('fileTransfer.close.message', selectRunningUploadCount(getFileTransferSnapshot(), workspaceId)),
+      t('fileTransfer.close.detail'),
+      [{ id: 'keep', label: t('fileTransfer.close.keep'), primary: true }, { id: 'stop', label: t('fileTransfer.close.stop'), danger: true }],
+    ).then((choice) => {
+      if (choice !== 'stop') return;
+      for (const jobId of selectRunningUploadJobIds(getFileTransferSnapshot(), workspaceId)) cancelFileTransfer(jobId);
+      actions.closeFileExplorer(workspaceId);
+    });
+  };
+  // A file dropped on the window outside the rows must not make the browser open it.
+  const handleBodyDrag = (event: DragEvent<HTMLDivElement>) => {
+    if (event.defaultPrevented || !hasDraggedFiles(event.dataTransfer.types)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'none';
+  };
   const shownFrameDisplayRef = useRef<string | null>(null);
   const shownSectionDisplayRef = useRef<string | null>(null);
 
@@ -712,7 +1084,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
       mode="modeless"
       defaultRect={FILE_EXPLORER_DEFAULT_RECT}
       minSize={FILE_EXPLORER_MIN_SIZE}
-      onClose={() => actions.closeFileExplorer(workspaceId)}
+      onClose={handleClose}
       showCloseButton
       // Maximized, the window is the stage: a drag or resize would emit a rect
       // the stage would take straight back, and would store it as the floating
@@ -726,7 +1098,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
     >
       {/* Focusable so that a click on a row puts focus inside the surface, which
           is what the shortcut handler checks. */}
-      <div className="fx-window-body" ref={bodyRef} tabIndex={-1} onKeyDown={handleKeyDown}>
+      <div className="fx-window-body" ref={bodyRef} tabIndex={-1} onKeyDown={handleKeyDown} onDragOver={handleBodyDrag} onDrop={handleBodyDrag}>
         <FileExplorerTabBar
           tabs={tabs}
           activeTabId={activeTab?.id ?? null}
@@ -743,6 +1115,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
             if (activeTab !== undefined) actions.addTab(workspaceId, activeTab.tree.root);
           }}
         />
+        <FileExplorerConfirmBar prompt={windowConfirm.prompt} error={windowConfirm.error} onDismissError={windowConfirm.dismissError} />
         {tabs.map((tab) => (
           <FileExplorerTabPanel
             key={tab.id}
@@ -755,10 +1128,13 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
             registerCommands={registerPanelCommands}
             windowModal={windowModal}
             openFileKeys={openFileKeys}
+            terminalKeyboardOpen={terminalKeyboardOpen}
+            showToast={showToast}
           />
         ))}
         <FileExplorerProgressRow workspaceId={workspaceId} />
         <FileExplorerWindowModal modal={windowModal} />
+        <FileExplorerToast toast={toast} onDismiss={dismissToast} />
         {tabMenu !== null && (
           <ContextMenu
             position={{ x: tabMenu.x, y: tabMenu.y }}

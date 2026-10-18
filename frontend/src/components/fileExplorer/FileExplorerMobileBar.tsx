@@ -1,32 +1,40 @@
-// The button row a phone gets in place of the keyboard shortcuts (design 6.3).
-// Every button comes from buildMobileActionButtons, so which ones are enabled is
-// decided by the same predicates as the context menu, never re-judged here.
+// The bar a phone gets in place of the keyboard shortcuts: four fixed slots — 업로드, 다운로드,
+// 붙여넣기, 더보기 (FR-FEX-026 AC-1). Every slot comes from buildMobileBarSlots, so which ones
+// are enabled is decided by the context menu's predicates, never re-judged here, and a slot
+// that does not apply stays in place, disabled.
 // @req FR-FEX-005
+// @req FR-FEX-026
 
 import { t } from '../../i18n/i18n.ts';
-import { buildMobileActionButtons, type FileExplorerMenuHandlers, type MobileActionId } from './fileExplorerContextMenu.ts';
+import { Icon } from '../common';
+import { buildMobileBarSlots, type MobileSlotId } from './fileExplorerContextMenu.ts';
 
 export interface FileExplorerMobileBarProps {
   selectionCount: number;
   clipboardEmpty: boolean;
-  /** FR-FEX-021: the selection is one regular file, which 다운로드 needs. */
-  singleFileSelected: boolean;
-  handlers: Pick<FileExplorerMenuHandlers, MobileActionId>;
+  handlers: Record<MobileSlotId, () => void>;
+  /** Whether the 더보기 sheet is open, for aria-expanded. */
+  moreOpen: boolean;
 }
 
-// @req FR-FEX-005
-export function FileExplorerMobileBar({ selectionCount, clipboardEmpty, singleFileSelected, handlers }: FileExplorerMobileBarProps) {
+// @req FR-FEX-026
+export function FileExplorerMobileBar({ selectionCount, clipboardEmpty, handlers, moreOpen }: FileExplorerMobileBarProps) {
+  // Named for what it holds, not after the job list beside it.
   return (
-    <div className="fx-mobile-bar" role="toolbar" aria-label={t('common.fileJobs')}>
-      {buildMobileActionButtons({ count: selectionCount, clipboardEmpty, singleFileSelected }, handlers).map((action) => (
+    <div className="fx-mobile-bar" role="toolbar" aria-label={t('fileExplorer.mobileBar.label')}>
+      {buildMobileBarSlots({ count: selectionCount, clipboardEmpty }, handlers).map((slot) => (
         <button
-          key={action.id}
+          key={slot.id}
           type="button"
           className="fx-mobile-button"
-          disabled={action.disabled}
-          onClick={action.onClick}
+          disabled={slot.disabled}
+          aria-disabled={slot.disabled}
+          aria-haspopup={slot.id === 'more' ? 'dialog' : undefined}
+          aria-expanded={slot.id === 'more' ? moreOpen : undefined}
+          onClick={slot.onClick}
         >
-          {action.label}
+          <Icon name={slot.icon} size={20} />
+          <span className="fx-mobile-slot-label">{slot.label}</span>
         </button>
       ))}
     </div>

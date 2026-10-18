@@ -76,6 +76,8 @@ export interface FileTreeViewProps {
   onSortChange?: (sort: ListSort) => void;
   /** Files open in the editor (openFileKeys), drawn bold. */
   openFileKeys?: ReadonlySet<string>;
+  /** FR-FEX-026 AC-2: the phone's 여러 개 선택 mode — a tap toggles a row instead of replacing. */
+  multiSelect?: boolean;
   /** FR-FEX-014: only matching rows (and their visible ancestors) are drawn. */
   filterText?: string;
 }
@@ -83,7 +85,7 @@ export interface FileTreeViewProps {
 // @req FR-FEX-002
 // @req FR-FEX-011
 export function FileTreeView({
-  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange, openFileKeys, filterText = '',
+  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange, openFileKeys, filterText = '', multiSelect = false,
 }: FileTreeViewProps) {
   // Each directory's listing is sorted once per sort, not on every selection
   // click: a listing is replaced on reload, never mutated, so it keys the cache.
@@ -116,6 +118,7 @@ export function FileTreeView({
       metaKey: event.metaKey,
       shiftKey: event.shiftKey,
       isSelected: tree.state.selectedPaths.has(row.path),
+      toggleMode: multiSelect,
     });
     if (decision.type !== 'select') return;
     tree.dispatch({ type: 'CLICK_ROW', path: row.path, mods: decision.mods, orderedPaths: nodePaths });

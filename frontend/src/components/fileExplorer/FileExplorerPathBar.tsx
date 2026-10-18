@@ -21,11 +21,16 @@ export interface FileExplorerPathBarProps {
   onClearFilter?: () => void;
   /** FR-FEX-013: opens the name search. */
   onOpenSearch?: () => void;
+  /** FR-FEX-022 AC-1: opens the file picker for the folder on screen. Absent: shown disabled. */
+  onUpload?: () => void;
+  /** FR-FEX-022 AC-1 / FR-FEX-025 AC-1: the download of the selection, with its label. */
+  download?: { label: string; disabled: boolean; onClick: () => void };
 }
 
 // @req FR-FEX-002
 // @req SEC-FOP-001
-export function FileExplorerPathBar({ tree, setMode, onNewDirectory, filterText = '', onClearFilter, onOpenSearch }: FileExplorerPathBarProps) {
+// @req FR-FEX-022
+export function FileExplorerPathBar({ tree, setMode, onNewDirectory, filterText = '', onClearFilter, onOpenSearch, onUpload, download }: FileExplorerPathBarProps) {
   const { state } = tree;
   const nextMode: FileTreeMode = state.mode === 'tree' ? 'list' : 'tree';
 
@@ -126,6 +131,35 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory, filterText 
                   onClick={onNewDirectory}
                 />
               );
+            // FR-FEX-022 AC-1: plain bar buttons like their neighbours, no shortcut. A rule
+            // before them sets the transfer pair apart from the folder's own controls.
+            case 'upload':
+              return (
+                <span key={control} className="fx-bar-transfer">
+                  <span className="fx-bar-sep" aria-hidden="true" />
+                  <IconButton
+                    icon="upload"
+                    className="fx-bar-button"
+                    label={t('fileExplorer.path.upload')}
+                    disabled={onUpload === undefined}
+                    onClick={onUpload}
+                  />
+                </span>
+              );
+            case 'download': {
+              const disabled = download === undefined || download.disabled;
+              return (
+                <IconButton
+                  key={control}
+                  icon="download"
+                  className="fx-bar-button"
+                  label={disabled ? t('fileExplorer.path.downloadHint') : download.label}
+                  disabled={disabled}
+                  aria-disabled={disabled}
+                  onClick={download?.onClick}
+                />
+              );
+            }
           }
         })}
         {filterText !== '' && (

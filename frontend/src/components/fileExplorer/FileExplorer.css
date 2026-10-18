@@ -596,32 +596,192 @@
   color: var(--danger-text);
 }
 
-/* Mobile button row: stands in for the shortcuts on a phone. */
+/* FR-FEX-026: the phone's bar — four fixed slots with icons and 12 px labels, above the
+   bottom safe area. */
 
 .fx-mobile-bar {
   display: flex;
   flex: 0 0 auto;
   gap: 4px;
-  padding: 4px;
+  padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--line);
   background: var(--bg-raised);
 }
 
 .fx-mobile-button {
+  display: flex;
   flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   min-width: 0;
   min-height: 44px;
-  padding: 0 4px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--fg);
+  font: inherit;
+}
+
+.fx-mobile-button:disabled {
+  opacity: 0.4;
+}
+
+.fx-mobile-slot-label {
+  /* FR-FEX-026 AC-1: 12 px labels. */
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+}
+
+/* FR-FEX-026 AC-2/AC-5: the bands stacked above the bar. */
+.fx-mobile-band {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 10px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-surface);
+  font-size: var(--fs-xs);
+}
+
+.fx-mobile-band-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-strong);
+}
+
+.fx-band-button {
+  min-height: 36px;
+  padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   background: var(--bg-surface);
   color: var(--fg);
   font: inherit;
-  font-size: var(--fs-xs);
 }
 
-.fx-mobile-button:disabled {
-  opacity: 0.4;
+.fx-band-button.is-pressed {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.fx-mobile-band-cancel {
+  flex: 0 0 auto;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+}
+
+.fx-upload-band-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.fx-upload-band-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* FR-FEX-026 AC-3/AC-4: the 더보기 sheet, inside the window like the window modal. */
+.fx-sheet-scrim {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  background: color-mix(in srgb, var(--bg-app) 55%, transparent);
+}
+
+.fx-sheet {
+  width: 100%;
+  max-height: 80%;
+  overflow-y: auto;
+  padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line-strong);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.fx-sheet-grip {
+  width: 36px;
+  height: 4px;
+  margin: 2px auto 6px;
+  border-radius: var(--r-sm);
+  background: var(--line-strong);
+}
+
+.fx-sheet-title {
+  padding: 4px 16px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fw-semibold);
+  color: var(--fg-strong);
+}
+
+.fx-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+}
+
+.fx-sheet-item:disabled {
+  opacity: 0.45;
+}
+
+.fx-sheet-item.fx-danger {
+  color: var(--danger-text);
+}
+
+.fx-sheet-label {
+  display: flex;
+  flex-direction: column;
+}
+
+.fx-sheet-reason {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+
+.fx-sheet-sep {
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.fx-sheet-close {
+  width: calc(100% - 24px);
+  min-height: 44px;
+  margin: 6px 12px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-raised);
+  color: var(--fg);
+  font: inherit;
 }
 
 /* The window-scoped modal covers only this window's body: other windows and
@@ -743,3 +903,65 @@
 .fx-search-results { flex: 1 1 auto; }
 .fx-search-row { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; gap: 10px; }
 .fx-search-rel { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+
+/* FR-FEX-022 AC-1: the transfer pair at the end of the path bar, set apart by a rule. */
+.fx-bar-transfer { display: inline-flex; align-items: center; gap: 4px; }
+.fx-bar-sep { width: 1px; height: 16px; margin: 0 2px; background: var(--line); }
+
+/* FR-FEX-022 AC-4: the drop target — the list outlined, a directory row marked, a chip naming the folder. */
+.fx-tab-panel { position: relative; }
+.fx-scroll[data-drag="on"] { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.fx-row.fx-drop-target { background: var(--accent-tint); color: var(--accent-text); }
+.fx-drop-chip {
+  position: absolute; left: 50%; bottom: 12px;
+  display: none; align-items: center; gap: 6px; max-width: calc(100% - 24px);
+  padding: 4px 10px; border: 1px solid var(--accent); border-radius: var(--r-lg);
+  background: var(--bg-raised); color: var(--fg-strong); font-size: var(--fs-xs);
+  transform: translateX(-50%); pointer-events: none; box-shadow: var(--shadow-popover);
+}
+.fx-drop-chip.is-shown { display: inline-flex; }
+.fx-drop-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--fx-mono); color: var(--fg-muted); direction: rtl; }
+
+/* FR-FEX-024 AC-2: rows still arriving, dimmed and pinned under the listing; arrivals glow briefly. */
+.fx-pending-rows { border-top: 1px dashed var(--line); }
+.fx-pending-row { opacity: 0.55; padding-left: 4px; }
+.fx-pending-name { overflow: hidden; text-overflow: ellipsis; }
+.fx-pending-pct { font-variant-numeric: tabular-nums; color: var(--accent-text); }
+.fx-row.fx-arrived { background: var(--ok-tint); transition: background 0.6s; }
+@media (prefers-reduced-motion: reduce) { .fx-row.fx-arrived { transition: none; } }
+
+/* The window's toast. */
+.fx-toast {
+  position: absolute; left: 50%; bottom: 12px;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px);
+  padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  background: var(--bg-raised); color: var(--fg-strong); font-size: var(--fs-xs);
+  transform: translateX(-50%); box-shadow: var(--shadow-popover);
+}
+.fx-toast-action { border: 0; background: none; color: var(--accent-text); font: inherit; font-weight: var(--fw-semibold); cursor: pointer; }
+
+/* FR-FEX-024 AC-5 / FR-FEX-025 AC-2: a choice on the confirm row. */
+.fx-confirm-choice .fx-confirm-text { display: flex; flex-direction: column; white-space: normal; }
+.fx-confirm-detail { color: var(--fg-muted); }
+.fx-confirm-button.fx-confirm-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+
+/* FR-FOP-006 / FR-FEX-024 AC-8: what an upload question compares, and a notice's list. */
+.fx-window-modal-counter { margin-left: 6px; font-weight: var(--fw-regular); color: var(--fg-muted); }
+.fx-window-modal-compare { display: grid; gap: 2px; margin: 0; font-size: var(--fs-xs); }
+.fx-window-modal-compare > div { display: flex; gap: 8px; }
+.fx-window-modal-compare dt { min-width: 48px; color: var(--fg-muted); }
+.fx-window-modal-compare dd { margin: 0; }
+.fx-window-modal-compare .fx-compare-new dd { color: var(--accent-text); }
+.fx-window-modal-items { max-height: 160px; margin: 0; padding: 0; overflow-y: auto; list-style: none; font-size: var(--fs-xs); }
+.fx-window-modal-items li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+.fx-window-modal-items li + li { border-top: 1px solid var(--line); }
+.fx-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--fx-mono); }
+.fx-item-reason { flex: none; color: var(--danger-text); }
+
+/* FR-FOP-006 AC-4: on a phone the decisions stack, full width and at least 44 px high. */
+@media (max-width: 767px) {
+  .fx-window-modal-box { width: calc(100% - 24px); }
+  .fx-window-modal-actions { flex-direction: column; align-items: stretch; }
+  .fx-window-modal-actions .fx-confirm-button { width: 100%; min-height: 44px; }
+}
+.fx-upload-band-body .fx-job-bar { flex: none; width: 100%; }

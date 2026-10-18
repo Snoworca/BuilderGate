@@ -13,12 +13,27 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { decidePromptRowKey } from './fileExplorerShortcuts.ts';
 
-export type FileExplorerPrompt = { id: number; kind: 'name'; label: string; initial: string; resolve: (name: string | null) => void };
+export interface FileExplorerChoice {
+  id: string;
+  label: string;
+  primary?: boolean;
+  danger?: boolean;
+}
+
+/**
+ * 'name' asks a folder name; 'choice' asks one of a few buttons with a line of context — the
+ * large ZIP's 받기 (FR-FEX-025 AC-2) and closing a window mid-upload (FR-FEX-024 AC-5).
+ */
+export type FileExplorerPrompt =
+  | { id: number; kind: 'name'; label: string; initial: string; resolve: (name: string | null) => void }
+  | { id: number; kind: 'choice'; message: string; detail: string; choices: readonly FileExplorerChoice[]; resolve: (choice: string | null) => void };
 
 export interface FileExplorerConfirmBarState {
   prompt: FileExplorerPrompt | null;
   error: string | null;
   askName: (label: string, initial: string) => Promise<string | null>;
+  /** Resolves with the chosen id, or null when dismissed with Escape. */
+  askChoice: (message: string, detail: string, choices: readonly FileExplorerChoice[]) => Promise<string | null>;
   showError: (message: string) => void;
   dismissError: () => void;
 }
@@ -58,15 +73,28 @@ export function useFileExplorerConfirmBar(): FileExplorerConfirmBarState {
     add(prompt);
   }), [add, remove]);
 
+  const askChoice = useCallback((message: string, detail: string, choices: readonly FileExplorerChoice[]) => new Promise<string | null>((resolve) => {
+    const prompt: FileExplorerPrompt = {
+      id: nextIdRef.current++,
+      kind: 'choice',
+      message,
+      detail,
+      choices,
+      resolve: (choice) => { remove(prompt); resolve(choice); },
+    };
+    add(prompt);
+  }), [add, remove]);
+
   const dismissError = useCallback(() => setError(null), []);
 
   return useMemo(() => ({
     prompt: queue[0] ?? null,
     error,
     askName,
+    askChoice,
     showError: setError,
     dismissError,
-  }), [askName, dismissError, error, queue]);
+  }), [askChoice, askName, dismissError, error, queue]);
 }
 
 export interface FileExplorerConfirmBarProps {
@@ -80,7 +108,9 @@ export function FileExplorerConfirmBar({ prompt, error, onDismissError }: FileEx
   if (prompt === null && error === null) return null;
   return (
     <div className="fx-confirm-bar">
-      {prompt !== null && <PromptRow key={prompt.id} prompt={prompt} />}
+      {prompt !== null && (prompt.kind === 'name'
+        ? <PromptRow key={prompt.id} prompt={prompt} />
+        : <ChoiceRow key={prompt.id} prompt={prompt} />)}
       {error !== null && (
         <div className="fx-confirm-row fx-confirm-error" role="alert">
           <span className="fx-confirm-text">{error}</span>
@@ -91,9 +121,38 @@ export function FileExplorerConfirmBar({ prompt, error, onDismissError }: FileEx
   );
 }
 
+// A few buttons and the line that explains them; the primary one takes focus, so Enter answers
+// it and Escape dismisses the row.
+function ChoiceRow({ prompt }: { prompt: Extract<FileExplorerPrompt, { kind: 'choice' }> }) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // The window's own shortcuts must not act on the list behind the question.
+    event.stopPropagation();
+    if (event.key === 'Escape') prompt.resolve(null);
+  };
+  return (
+    <div className="fx-confirm-row fx-confirm-choice" role="alert" onKeyDown={handleKeyDown}>
+      <span className="fx-confirm-text">
+        <b>{prompt.message}</b>
+        {prompt.detail !== '' && <small className="fx-confirm-detail">{prompt.detail}</small>}
+      </span>
+      {prompt.choices.map((choice) => (
+        <button
+          key={choice.id}
+          type="button"
+          className={`fx-confirm-button${choice.primary ? ' fx-confirm-primary' : ''}${choice.danger ? ' fx-danger' : ''}`}
+          autoFocus={choice.primary === true}
+          onClick={() => prompt.resolve(choice.id)}
+        >
+          {choice.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Keyed by prompt id: a new question gets a fresh row, so its input and
 // checkbox never inherit the previous question's state.
-function PromptRow({ prompt }: { prompt: FileExplorerPrompt }) {
+function PromptRow({ prompt }: { prompt: Extract<FileExplorerPrompt, { kind: 'name' }> }) {
   const [name, setName] = useState(prompt.initial);
 
   // The row answers its own keys: the window surface would otherwise read a

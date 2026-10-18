@@ -4,6 +4,7 @@
 // outside it closes it. A press on the status bar is not "outside" — the bar
 // toggles the popover itself and would otherwise close and reopen it.
 // @req FR-FEX-008
+// @req FR-FEX-024
 
 import { t } from '../../i18n/i18n.ts';
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
@@ -12,6 +13,8 @@ import { IconButton } from '../common';
 import { fileJobApi } from '../../services/api.ts';
 import { closeFileJobPopover, isFileJobPopoverOpen, subscribeFileJobPopover } from './fileJobPopoverState.ts';
 import { AWAITING_LABEL, decidePopoverOutsideClose, getFileJobSnapshot, selectPopoverRows, subscribeFileJobs } from './fileJobStore.ts';
+import { getFileTransferSnapshot, selectTransferJobRows, subscribeFileTransfers } from './fileTransferStore.ts';
+import { FileTransferJobItems } from './FileTransferJobItems.tsx';
 import './FileJobStatus.css';
 
 export interface FileJobPopoverProps {
@@ -30,8 +33,10 @@ export function FileJobPopover({ statusBarRef }: FileJobPopoverProps) {
   const open = useSyncExternalStore(subscribeFileJobPopover, isFileJobPopoverOpen);
   const snapshot = useSyncExternalStore(subscribeFileJobs, getFileJobSnapshot);
   const rows = useMemo(() => selectPopoverRows(snapshot), [snapshot]);
+  const transfers = useSyncExternalStore(subscribeFileTransfers, getFileTransferSnapshot);
+  const transferCount = useMemo(() => selectTransferJobRows(transfers, 0).length, [transfers]);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const empty = rows.length === 0;
+  const empty = rows.length === 0 && transferCount === 0;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -51,7 +56,7 @@ export function FileJobPopover({ statusBarRef }: FileJobPopoverProps) {
     if (open && empty) closeFileJobPopover();
   }, [open, empty]);
 
-  if (!open || rows.length === 0) return null;
+  if (!open || (rows.length === 0 && transferCount === 0)) return null;
 
   return (
     <div ref={popoverRef} className="fx-job-popover" role="dialog" aria-label={t('common.fileJobs')}>
@@ -72,6 +77,7 @@ export function FileJobPopover({ statusBarRef }: FileJobPopoverProps) {
           )}
         </div>
       ))}
+      <FileTransferJobItems />
     </div>
   );
 }
