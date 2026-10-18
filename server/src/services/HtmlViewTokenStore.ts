@@ -39,17 +39,21 @@ interface Entry extends HtmlViewToken {
 
 export const HTML_VIEW_IDLE_MS = 30 * 60_000;
 export const HTML_VIEW_REQUEST_LOG_LIMIT = 500;
+/** AC-6: all tokens' drafts together; past it the least recently used tokens lose their drafts. */
+export const HTML_VIEW_DRAFT_BUDGET_BYTES = 64 * 1024 * 1024;
 
 export class HtmlViewTokenStore {
   private readonly entries = new Map<string, Entry>();
   private readonly now: () => number;
   private readonly idleMs: number;
   private readonly capacity: number;
+  private readonly draftBudgetBytes: number;
 
-  constructor(options: { now?: () => number; idleMs?: number; capacity?: number } = {}) {
+  constructor(options: { now?: () => number; idleMs?: number; capacity?: number; draftBudgetBytes?: number } = {}) {
     this.now = options.now ?? Date.now;
     this.idleMs = options.idleMs ?? HTML_VIEW_IDLE_MS;
     this.capacity = options.capacity ?? 256;
+    this.draftBudgetBytes = options.draftBudgetBytes ?? HTML_VIEW_DRAFT_BUDGET_BYTES;
   }
 
   issue(target: HtmlViewToken): string {
@@ -94,7 +98,27 @@ export class HtmlViewTokenStore {
     entry.draftCount += 1;
     entry.draft = { n: entry.draftCount, body };
     entry.lastUsedAt = this.now();
+    this.trimDrafts(token);
     return entry.draftCount;
+  }
+
+  /**
+   * Drops the drafts of the least recently used tokens until the total fits the budget. The draft
+   * just stored stays even when it alone is over: it is the one the user is looking at. A token
+   * without its draft serves the saved file for ?draft.
+   */
+  private trimDrafts(keep: string): void {
+    let total = 0;
+    for (const entry of this.entries.values()) total += entry.draft?.body.length ?? 0;
+    if (total <= this.draftBudgetBytes) return;
+    const candidates = [...this.entries.entries()]
+      .filter(([token, entry]) => token !== keep && entry.draft !== null)
+      .sort((a, b) => a[1].lastUsedAt - b[1].lastUsedAt);
+    for (const [, entry] of candidates) {
+      if (total <= this.draftBudgetBytes) break;
+      total -= entry.draft!.body.length;
+      entry.draft = null;
+    }
   }
 
   /** The token's latest draft (gone with the token), or null. */
