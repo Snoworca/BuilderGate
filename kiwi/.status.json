@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-18T16:18:08.755Z",
+  "generatedAt": "2026-10-18T16:58:08.541Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "0da8fff6a12c7e30b5dbb3343a5761f8d298fa84cae2b0ac9d070271c9d3c175",
+    "value": "e2e2affc69ff8ce098360f7aa9fc5d47ec1c8ca404c28c5930b78a59588dbc28",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -32,27 +32,27 @@
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "01972bb6255d46e37eb43d9e33237a2deb313441e545cfcbd2b1a970c016a559",
-        "size": 141742,
-        "mtimeMs": 1792340287522.8098
+        "sha256": "8727c72259faee9dd969280db4239550688c846bbe301a65d410a0302122af94",
+        "size": 142193,
+        "mtimeMs": 1792342663827.8518
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "9548d1e7d578a0fd724fc941de7934459e2637c9efa7802f82dfc4bdb9997496",
-        "size": 302655,
-        "mtimeMs": 1792340276909.2139
+        "sha256": "3ae69c81ad0e369bfb79243f1d6a46339d050d5b7a9920fc929d4d7ff60e3bbc",
+        "size": 306583,
+        "mtimeMs": 1792342623302.2268
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "47bb85335bfc631d39d35c273684d1b676910395d17d4793b999eab013eec53d",
-        "size": 135902,
-        "mtimeMs": 1792337780560.4944
+        "sha256": "698f72bdb893a645a2c11c926a2868ad530471e261948dd0e65cb1a94f1639b4",
+        "size": 136867,
+        "mtimeMs": 1792341989310.2363
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "ee47aa2f5e10cbb0ac6565a23466e95e4b0217fb63dec3ba2602a94bb458cff7",
-        "size": 56920,
-        "mtimeMs": 1792337824838.1272
+        "sha256": "1c1b2faa67b4c5efd8ed958c9aaf40dceaa6518d235f41f2515828aa8de3cc07",
+        "size": 58540,
+        "mtimeMs": 1792342687677.3088
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
