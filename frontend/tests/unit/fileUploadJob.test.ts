@@ -31,16 +31,25 @@ function storeHarness() {
 
 interface Pending { req: PutFileRequest; resolve: (v: { name: string; path: string; size: number; skipped: boolean }) => void; reject: (e: unknown) => void }
 
-function controllerHarness(options: { conflicts?: Array<{ path: string; decisions: Array<'overwrite' | 'rename' | 'skip'>; renameTo?: string }>; rejected?: Array<{ path: string; code: string }>; hiddenAt?: () => number | null } = {}) {
+function controllerHarness(options: { conflicts?: Array<{ path: string; decisions: Array<'overwrite' | 'rename' | 'skip'>; renameTo?: string }>; rejected?: Array<{ path: string; code: string }>; hiddenAt?: () => number | null;
+  /** Answers every check after the first: what the folder holds when a dropped request is verified. */
+  recheck?: Array<{ path: string; size: number; isDirectory?: boolean }> } = {}) {
   const store = storeHarness();
   const pending: Pending[] = [];
   let inFlight = 0;
   let maxInFlight = 0;
   let clock = 1000;
   const finished: Array<{ sessionId: string; dir: string }> = [];
+  let checks = 0;
+  const rechecked: string[][] = [];
   const controller = createUploadController({
     client: {
-      checkUpload: async () => ({
+      checkUpload: async (_session, request) => checks++ > 0
+        ? (rechecked.push(request.files.map((f) => f.path)), {
+          conflicts: (options.recheck ?? []).map((c) => ({ path: c.path, existing: { size: c.size, modified: null, isDirectory: c.isDirectory === true }, decisions: ['overwrite', 'rename', 'skip'] as const })),
+          rejected: [],
+        })
+        : ({
         conflicts: (options.conflicts ?? []).map((c) => ({ path: c.path, existing: { size: 1, modified: '2026-10-01T00:00:00.000Z', isDirectory: false }, decisions: c.decisions, ...(c.renameTo === undefined ? {} : { renameTo: c.renameTo }) })),
         rejected: options.rejected ?? [],
       }),
@@ -59,7 +68,7 @@ function controllerHarness(options: { conflicts?: Array<{ path: string; decision
     newId: (() => { let n = 0; return () => `u${++n}`; })(),
   });
   const flush = () => new Promise((r) => setTimeout(r, 0));
-  return { store, pending, controller, flush, finished, max: () => maxInFlight };
+  return { store, pending, controller, flush, finished, max: () => maxInFlight, rechecked };
 }
 
 const source = (relPath: string, size = 4) => ({ file: new Blob(['x'.repeat(size)]), relPath });
@@ -255,4 +264,74 @@ test('FR-FEX-024 · FR-FOP-006 AC-1: 둘 다 유지 on a folder renames its top 
   await h.flush();
   await h.flush();
   assert.deepEqual(h.pending.map((p) => `${p.req.path}:${p.req.conflict}`).sort(), ['a.txt:rename', 'assets (3)/sub/y.png:fail', 'assets (3)/x.png:fail']);
+});
+
+// Review finding 8: a dropped connection may come after the server finished the file, so a blind
+// second PUT is not idempotent for conflict=fail (409, though the file arrived) or rename (a second copy).
+async function dropOnce(h: ReturnType<typeof controllerHarness>, started: Promise<unknown>) {
+  await h.flush();
+  h.pending.shift()!.reject(new TransferError(0, 'NETWORK', 'dropped'));
+  await h.flush();
+  await h.flush();
+  return started;
+}
+
+test('FR-FEX-024 AC-3: conflict=fail — a dropped file that is in the folder at its size counts as arrived, without a second PUT', async () => {
+  const h = controllerHarness({ recheck: [{ path: 'a.txt', size: 4 }] });
+  const started = h.controller.start({ ...base, sources: [source('a.txt')], ask: noAsk, onRejected: () => {} });
+  await dropOnce(h, started);
+  await started;
+  assert.deepEqual(h.rechecked, [['a.txt']], 'the folder is asked before any retry');
+  assert.equal(h.pending.length, 0, 'no second PUT');
+  assert.deepEqual(h.finished, [{ sessionId: 's1', dir: '/w/components' }]);
+  assert.equal(selectTransferJobRows(h.store.get(), 5000)[0]?.failed.length ?? 0, 0);
+});
+
+test('FR-FEX-024 AC-3: conflict=fail — absent after the drop it is retried; present at another size it fails as in the way', async () => {
+  const absent = controllerHarness({ recheck: [] });
+  void absent.controller.start({ ...base, sources: [source('a.txt')], ask: noAsk, onRejected: () => {} });
+  await dropOnce(absent, Promise.resolve());
+  assert.deepEqual(absent.pending.map((p) => `${p.req.path}:${p.req.conflict}`), ['a.txt:fail'], 'retried once');
+
+  const other = controllerHarness({ recheck: [{ path: 'a.txt', size: 99 }] });
+  const started = other.controller.start({ ...base, sources: [source('a.txt')], ask: noAsk, onRejected: () => {} });
+  await dropOnce(other, started);
+  await started;
+  assert.equal(other.pending.length, 0);
+  assert.equal(selectTransferJobRows(other.store.get(), 5000)[0].failed[0].reason, '같은 이름의 항목이 있어 저장하지 못했습니다');
+});
+
+test('FR-FEX-024 AC-3: conflict=overwrite — verified at its size it arrived; otherwise retried', async () => {
+  const h = controllerHarness({ conflicts: [{ path: 'a.txt', decisions: ['overwrite', 'rename', 'skip'] }], recheck: [{ path: 'a.txt', size: 4 }] });
+  const started = h.controller.start({ ...base, sources: [source('a.txt')], ask: async () => ({ kind: 'decide', choice: 'overwrite', applyToAll: false }), onRejected: () => {} });
+  await h.flush();
+  await dropOnce(h, started);
+  await started;
+  assert.equal(h.pending.length, 0);
+  assert.equal(selectTransferJobRows(h.store.get(), 5000)[0]?.failed.length ?? 0, 0);
+
+  const stale = controllerHarness({ conflicts: [{ path: 'a.txt', decisions: ['overwrite', 'rename', 'skip'] }], recheck: [{ path: 'a.txt', size: 1 }] });
+  void stale.controller.start({ ...base, sources: [source('a.txt')], ask: async () => ({ kind: 'decide', choice: 'overwrite', applyToAll: false }), onRejected: () => {} });
+  await stale.flush();
+  await dropOnce(stale, Promise.resolve());
+  assert.deepEqual(stale.pending.map((p) => `${p.req.path}:${p.req.conflict}`), ['a.txt:overwrite']);
+});
+
+test('FR-FEX-024 AC-3: conflict=rename and files inside a folder are not retried blindly — they fail as 연결이 끊겼습니다 · 재시도', async () => {
+  const renamed = controllerHarness({ conflicts: [{ path: 'a.txt', decisions: ['overwrite', 'rename', 'skip'] }] });
+  const started = renamed.controller.start({ ...base, sources: [source('a.txt')], ask: async () => ({ kind: 'decide', choice: 'rename', applyToAll: false }), onRejected: () => {} });
+  await renamed.flush();
+  await dropOnce(renamed, started);
+  await started;
+  assert.equal(renamed.pending.length, 0, 'no second copy');
+  const [row] = selectTransferJobRows(renamed.store.get(), 5000);
+  assert.equal(row.failed[0].reason, '연결이 끊겼습니다 · 재시도');
+  assert.equal(row.canRetry, true);
+
+  const nested = controllerHarness({ recheck: [] });
+  const second = nested.controller.start({ ...base, sources: [source('pics/a.png')], ask: noAsk, onRejected: () => {} });
+  await dropOnce(nested, second);
+  await second;
+  assert.equal(nested.pending.length, 0, 'the check names only top-level items, so a nested file cannot be verified');
+  assert.equal(selectTransferJobRows(nested.store.get(), 5000)[0].failed[0].reason, '연결이 끊겼습니다 · 재시도');
 });
