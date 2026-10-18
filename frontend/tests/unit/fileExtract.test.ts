@@ -18,8 +18,10 @@ import {
   decideExtractConfirm,
   describeExtractDone,
   isExtractableArchive,
+  extractRefusalMessage,
   runExtract,
 } from '../../src/components/fileExplorer/fileExtract.ts';
+import { transferReasonText } from '../../src/components/fileExplorer/fileTransferModel.ts';
 import {
   fileJobStoreReducer,
   initialFileJobStoreState,
@@ -84,26 +86,42 @@ test('FR-FEX-027 AC-4: a double click on an archive does not extract it', () => 
   }
 });
 
-test('FR-FEX-027 AC-5: over 1 GiB or 10,000 entries asks first, and nothing is submitted before 풀기', async () => {
+test('FR-FEX-027 AC-5: over 1 GiB unpacked or 10,000 entries asks first naming the target folder, and nothing is submitted before 풀기', async () => {
   const GiB = 1024 ** 3;
-  assert.equal(decideExtractConfirm({ totalBytes: GiB, entryCount: 10_000 }), 'direct');
-  assert.equal(decideExtractConfirm({ totalBytes: GiB + 1, entryCount: 1 }), 'confirm');
-  assert.equal(decideExtractConfirm({ totalBytes: 1, entryCount: 10_001 }), 'confirm');
+  assert.equal(decideExtractConfirm({ unpackedBytes: GiB, entryCount: 10_000 }), 'direct');
+  assert.equal(decideExtractConfirm({ unpackedBytes: GiB + 1, entryCount: 1 }), 'confirm');
+  assert.equal(decideExtractConfirm({ unpackedBytes: 1, entryCount: 10_001 }), 'confirm');
 
   const order: string[] = [];
   const deps = (answer: boolean, entryCount: number) => ({
-    precount: async () => { order.push('precount'); return { entryCount, totalBytes: 10, rootName: 'pkg' }; },
-    confirm: async (summary: { entryCount: number; destPath: string }) => { order.push(`confirm ${summary.entryCount} ${summary.destPath}`); return answer; },
+    // Contract §4.1: the pre-count takes the mode and names the folder it would make.
+    precount: async (_session: string, path: string, mode: string) => {
+      order.push(`precount ${path} ${mode}`);
+      return { format: 'zip', entryCount, unpackedBytes: 10, packedBytes: 5, singleTopFolder: null, targetName: 'a (2)', refusal: null };
+    },
+    confirm: async (summary: { entryCount: number; targetName: string }) => { order.push(`confirm ${summary.entryCount} ${summary.targetName}`); return answer; },
     submit: async () => { order.push('submit'); return { jobId: 'j1' }; },
   });
   assert.equal(await runExtract({ sessionId: 's1', archive: '/w/a.zip', mode: 'smart' }, deps(false, 20_000)), null);
-  assert.deepEqual(order, ['precount', 'confirm 20000 /w'], 'refused: nothing written');
+  assert.deepEqual(order, ['precount /w/a.zip smart', 'confirm 20000 a (2)'], 'declined: nothing written');
   order.length = 0;
   assert.deepEqual(await runExtract({ sessionId: 's1', archive: '/w/a.zip', mode: 'here' }, deps(true, 20_000)), { jobId: 'j1' });
-  assert.deepEqual(order, ['precount', 'confirm 20000 /w', 'submit']);
+  assert.deepEqual(order, ['precount /w/a.zip here', 'confirm 20000 a (2)', 'submit']);
   order.length = 0;
   await runExtract({ sessionId: 's1', archive: '/w/a.zip', mode: 'smart' }, deps(false, 3));
-  assert.deepEqual(order, ['precount', 'submit'], 'small: no confirm');
+  assert.deepEqual(order, ['precount /w/a.zip smart', 'submit'], 'small: no confirm');
+});
+
+test('FR-FEX-027 AC-5 · FR-FOP-007: a pre-count refusal sends no job and comes back with its code and reason', async () => {
+  const order: string[] = [];
+  const result = await runExtract({ sessionId: 's1', archive: '/w/secret.zip', mode: 'smart' }, {
+    precount: async () => ({ refusal: { code: 'ARCHIVE_UNSUPPORTED', reason: 'the archive is encrypted' } }),
+    confirm: async () => { order.push('confirm'); return true; },
+    submit: async () => { order.push('submit'); return { jobId: 'j1' }; },
+  });
+  assert.deepEqual(result, { refused: { code: 'ARCHIVE_UNSUPPORTED', reason: 'the archive is encrypted' } });
+  assert.deepEqual(order, []);
+  assert.equal(extractRefusalMessage(result.refused), '압축을 풀지 못했습니다: 풀 수 없는 압축 파일입니다(암호화 또는 분할).');
 });
 
 test('FR-FEX-027 AC-5: the job shows as 압축 풀기 with entries done of total, and on the phone band with its folder', () => {
@@ -124,9 +142,17 @@ test('FR-FEX-027 AC-6: the end names the count and folder, selects what was made
   assert.deepEqual(smart.select, 'pkg (2)');
   assert.equal(smart.toast, "12개 항목을 'src' 폴더에 풀었습니다");
   assert.deepEqual(smart.skipped, []);
-  const here = describeExtractDone({ destPath: '/w/src', createdPaths: ['/w/src/a.txt', '/w/src/b.txt'], processedEntries: 2, skipped: [{ path: '../evil', reason: 'PATH_TRAVERSAL' }] });
+  const here = describeExtractDone({ destPath: '/w/src', createdPaths: ['/w/src/a.txt'], processedEntries: 2, skipped: [{ path: '../evil', reason: 'entry path leaves the target folder' }] });
   assert.equal(here.select, 'a.txt', 'the first extracted item');
-  assert.deepEqual(here.skipped, [{ path: '../evil', code: 'PATH_TRAVERSAL' }]);
+  assert.deepEqual(here.skipped, [{ path: '../evil', code: 'EXTRACT_LEAVES_TARGET' }]);
+  // Contract §4.3: the eight fixed English reasons each read in the user's language.
+  const reasons = [
+    'entry path leaves the target folder', 'entry path is absolute', 'entry name is not allowed', 'links are not extracted',
+    'device and pipe entries are not extracted', 'path is blocked', 'another entry already has this name', 'a file and a folder of this name meet',
+  ];
+  const texts = reasons.map((reason) => transferReasonText(describeExtractDone({ destPath: '/w', createdPaths: [], processedEntries: 0, skipped: [{ path: 'x', reason }] }).skipped[0].code));
+  assert.equal(new Set(texts).size, 8, 'eight distinct lines');
+  for (const text of texts) assert.doesNotMatch(text, /[a-z]{3}/, `translated: ${text}`);
   const ko = JSON.parse(read('../../public/locales/messages.ko.json')) as Record<string, string>;
   assert.doesNotMatch(ko['fileTransfer.toast.extracted.other'], /\}(?:을|를|이|가|은|는|와|과|으로|로)/);
   for (const code of ['ARCHIVE_TOO_LARGE', 'ARCHIVE_UNSUPPORTED', 'ARCHIVE_CORRUPT']) assert.equal(typeof ko[`apiError.${code}`], 'string', code);
