@@ -279,6 +279,27 @@ Access-Control-Allow-Origin: *
 - 외부 http(s) URL 은 서버가 볼 수 없으므로 여기에 없다. 프런트엔드가 페이지에서 따로 모은다.
 - 다른 세션이나 다른 사용자가 물으면 `404 HTML_VIEW_TOKEN_INVALID` 다.
 
+### 5.4a 저장하지 않은 초안 — `PUT /api/sessions/:id/files/html-view/<token>/draft` (JWT, SEC-MDE-002 AC-6)
+
+편집 중인 텍스트를 iframe `srcdoc` 으로 렌더링하면 앱 페이지의 CSP 를 물려받는다. 그러면 인라인 스크립트와 외부 자원이 막혀, 저장한 뒤와 결과가 달라진다. 그래서 초안도 이 경로로 서빙한다.
+
+요청:
+
+- 본문은 편집 중인 HTML 텍스트이고 UTF-8 이어야 한다. 아니면 `400 INVALID_INPUT` 이다.
+- `Content-Type` 은 `text/plain`, `application/octet-stream`, `text/html` 중 하나다. 그 밖(JSON 등)은 `415 UNSUPPORTED_MEDIA_TYPE` 이다.
+- 최대 10 MiB 이다. 넘으면 `413 FILE_TOO_LARGE` 이다.
+- 토큰을 발급한 사용자가 그 세션 경로로 보낼 때만 받는다. 아니면 `404 HTML_VIEW_TOKEN_INVALID` 이다.
+
+동작:
+
+- 토큰당 최신 초안 하나만 메모리에 둔다. 새 초안이 이전 것을 바꾼다.
+- 응답은 `200 { "draft": n }` 이다. `n` 은 토큰마다 1 부터 늘어난다.
+- 렌더링: iframe 의 `src` 를 `{url}?draft={n}` 로 바꾼다.
+  - 그 토큰이 발급된 HTML 파일 경로에 `draft` 쿼리가 있고 초안이 있으면, 파일 대신 최신 초안을 `text/html; charset=utf-8` 로 서빙한다. 헤더는 5.2 와 같다.
+  - `n` 이 오래되었거나 모르는 값이어도 최신 초안을 준다. 초안이 없으면 파일을 준다.
+  - 다른 경로(상대 경로 자원)에 `draft` 쿼리가 붙어도 무시하고 파일을 준다. 그래서 초안 안의 상대 URL 은 `<base>` 를 넣지 않아도 파일 폴더 기준으로 풀린다.
+- 토큰이 만료되거나 폐기되면 초안도 함께 사라진다.
+
 ### 5.5 MCP — `buildergate.editor.open_html`
 
 인자:
