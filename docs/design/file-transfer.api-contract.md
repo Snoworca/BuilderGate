@@ -186,3 +186,117 @@ FR-FEX-022~026, `docs/spec/43.file-operations.srs.md` 의 FR-FOP-006 이다. 시
   - `another entry already has this name`
   - `a file and a folder of this name meet`
 - `errorCode`·`errorReason`: 실패했을 때만 있다. `errorReason` 은 아카이브 거부일 때만 있으며, 4.1 의 `reason` 과 같은 문장이다.
+
+## 5. HTML 보기 (SEC-MDE-002, FR-MDE-028, FR-MCP-013)
+
+HTML 파일을 편집기의 iframe 에서 렌더링한다. 페이지 스크립트는 실행되지만 앱 출처에는 닿지 않는다.
+
+- 페이지와 그 상대 URL 자원은 토큰 경로로 받는다. 토큰은 JWT 뒤에서만 발급하며, 이 경로는 JWT 를 보지 않는다.
+- 이 경로의 응답은 언제나 CSP `sandbox` 를 단다. 그래서 앱이 iframe 에 sandbox 를 빠뜨리거나 사용자가 새 탭에서 열어도, 문서는 불투명 출처(opaque origin)로 실행된다.
+
+### 5.1 토큰 발급 — `POST /api/sessions/:id/files/html-view` (JWT)
+
+요청: `{ "path": "report/보고서 1.html" }`
+
+- `path` 는 기존 파일 API 규칙으로 해석한다(상대·절대 경로 모두 가능).
+
+응답 200:
+
+```json
+{ "token": "<43자 base64url>", "url": "/api/html-view/<token>/report/%EB%B3%B4%EA%B3%A0%EC%84%9C%201.html", "baseUrl": "/api/html-view/<token>/report/" }
+```
+
+- `url` 은 세션 작업 폴더 기준 상대 경로를 구간마다 URL 인코딩한 것이다.
+- `baseUrl` 은 파일이 있는 폴더의 URL 이고, 끝이 `/` 이다. 파일이 세션 루트에 있으면 `/api/html-view/<token>/` 이다.
+- 저장하지 않은 편집 내용을 렌더링할 때는 `<base href="{baseUrl}">` 를 넣는다(FR-MDE-028 AC-5).
+- 토큰의 루트는 발급 시점의 세션 작업 폴더(실제 경로)로 고정한다. 그 뒤에 터미널에서 `cd` 해도 페이지의 상대 경로는 바뀌지 않는다.
+
+오류 응답:
+
+| 상태 | 코드 | 경우 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `path` 없음, `.html`/`.htm` 이 아님 |
+| 400 | `NOT_A_FILE` | 디렉터리 |
+| 403 | `PATH_TRAVERSAL` / `PATH_BLOCKED` | 세션 밖, 차단 경로·확장자 |
+| 404 | `PATH_NOT_FOUND` | 파일 없음 |
+
+### 5.2 파일 서빙 — `GET /api/html-view/<token>/<세션 기준 경로>` (토큰만, JWT 없음)
+
+서빙 규칙:
+
+- 경로는 구간마다 URL 디코딩한다. 쿼리 문자열은 무시한다.
+- 세션 루트 아래의 일반 파일만 서빙한다.
+- `Content-Type` 은 확장자로 정한다.
+  - `html`/`htm`/`css`/`js`/`mjs`/`json`/`txt` 는 UTF-8 이다.
+  - 그 밖에 `svg` `png` `jpg` `gif` `webp` `avif` `ico` `woff` `woff2` `ttf` `otf` `wasm` `mp3` `mp4` `webm` `pdf` 등을 지원한다.
+  - 모르는 확장자는 `application/octet-stream` 이다.
+
+결과:
+
+| 상태 | 경우 |
+|---|---|
+| 200 | 파일 본문 |
+| 404 `PATH_NOT_FOUND` | 없는 파일, 디렉터리(목록은 보여 주지 않는다), 빈 경로 |
+| 403 `PATH_TRAVERSAL` / `PATH_BLOCKED` | 세션 밖(`..`, `%2e%2e`, `%2f`), 세션 밖을 가리키는 링크, 차단 경로·확장자, NUL, `:`, 끝이 점·공백인 구간 |
+| 404 `HTML_VIEW_TOKEN_INVALID` | 모르는 토큰, 만료된 토큰, 폐기된 토큰, 세션이 사라진 토큰 |
+
+이 경로의 모든 응답(오류 포함)에 붙는 헤더:
+
+```
+Content-Security-Policy: sandbox allow-scripts allow-forms allow-modals allow-popups; frame-ancestors 'self'
+X-Content-Type-Options: nosniff
+Cache-Control: no-store
+Referrer-Policy: no-referrer
+Cross-Origin-Resource-Policy: cross-origin
+Access-Control-Allow-Origin: *
+```
+
+- `allow-same-origin` 은 없다.
+- `X-Frame-Options` 는 이 경로에서만 뺀다. 프레임 허용 여부는 `frame-ancestors 'self'` 가 정한다.
+- 샌드박스 문서는 출처가 `null` 이다. 그래서 그 문서의 자원 요청과 `fetch` 는 교차 출처가 된다. CORP 와 ACAO 는 그 요청을 위한 것이다. 쿠키와 Authorization 헤더는 이 경로에서 쓰지 않는다.
+- 앱 페이지의 CSP 는 이제 `frame-src 'self'` 다(운영·개발 모두). 다른 경로의 `frame-ancestors 'none'` 과 `X-Frame-Options: DENY` 는 그대로다.
+
+### 5.3 토큰 수명과 폐기 — `DELETE /api/html-view/<token>` (JWT)
+
+- 토큰은 발급한 세션과 사용자(JWT `sub`)에 묶인다. 여러 번 쓸 수 있다.
+- 토큰은 마지막 사용 후 30분이 지나면 만료된다. 서빙 요청 하나하나가 사용이다.
+- DELETE 는 탭을 닫을 때 보낸다.
+  - 같은 사용자면 `204` 다.
+  - 다른 사용자이거나 이미 없는 토큰이면 `404 HTML_VIEW_TOKEN_INVALID` 다.
+
+### 5.4 자원 기록 — `GET /api/sessions/:id/files/html-view/<token>/resources` (JWT)
+
+응답 200:
+
+```json
+{ "entries": [ { "path": "report/assets/s.css", "result": "loaded", "at": "ISO8601" },
+               { "path": "report/assets/none.png", "result": "not-found", "at": "…" },
+               { "path": ".ssh/id_rsa", "result": "blocked", "at": "…" } ] }
+```
+
+- 토큰마다 최근 500건을 오래된 것부터 담는다.
+- `path` 는 디코딩한 세션 기준 경로이고, 구분자는 `/` 다.
+- 외부 http(s) URL 은 서버가 볼 수 없으므로 여기에 없다. 프런트엔드가 페이지에서 따로 모은다.
+- 다른 세션이나 다른 사용자가 물으면 `404 HTML_VIEW_TOKEN_INVALID` 다.
+
+### 5.5 MCP — `buildergate.editor.open_html`
+
+인자:
+
+```json
+{ "filePath": "site/index.html", "html": "<h1>…</h1>", "title": "Weekly Report", "overwrite": false, "view": "rendered",
+  "terminalId": "…", "terminalName": "…", "workspaceId": "…", "workspaceName": "…" }
+```
+
+- 파일을 열 때: `filePath` 만 주면 그 `.html`/`.htm` 파일을 연다.
+  - 파일이 없으면 `FILE_NOT_FOUND` 다.
+  - 다른 확장자이거나, `view` 가 `rendered`·`source` 가 아니면 `VALIDATION_ERROR` 다.
+- 텍스트를 열 때: `html` 을 주면 그 텍스트를 저장한 뒤 연다.
+  - 저장 위치는 `filePath`, 없으면 `.buildergate/mcp-docs/<yyyyMMdd-HHmmss>[-<title slug>].html` 이다.
+  - 같은 이름이 있으면 `FILE_EXISTS` 다. `overwrite: true` 를 주면 덮어쓴다.
+  - 결과의 `created` 는 `true` 다.
+  - 텍스트는 `html` 로만 받는다. `content` 를 주면 `VALIDATION_ERROR` 다.
+- 성공 응답: `{ ok: true, terminalId, workspaceId, filePath, kind: "html", view, created }`. `view` 를 주지 않으면 `"rendered"` 다.
+- 브로드캐스트 `editor:open` 은 `{ workspaceId, terminalId, filePath, kind: "html", view }` 다. 다른 kind 에는 `view` 가 없다.
+- 경로 해석, 터미널 지정, `mcp:editor.open` 스코프는 `open_markdown` 과 같다(FR-MCP-012 AC-5..AC-8). `tools/list` 와 서버 instructions 에 나온다.
+- 감사 로그의 라벨(`mcpControlDialogModel.ts`, i18n)은 프런트엔드가 맡는다.
