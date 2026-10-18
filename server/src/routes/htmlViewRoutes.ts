@@ -24,6 +24,26 @@ const DRAFT_TYPES: ReadonlySet<string> = new Set(['text/plain', 'application/oct
 
 const CASE_INSENSITIVE_FS = process.platform === 'win32' || process.platform === 'darwin';
 
+/**
+ * AC-7: a hidden segment ('.env', '.git', '.npmrc') is refused unless it is the segment at the same
+ * place in the page file's own folder path, reached through the same folders. A page saved under
+ * .buildergate/mcp-docs/ can load its siblings; no page can reach .git or .env beside it.
+ */
+function hasForeignHiddenSegment(requested: string, page: string): boolean {
+  const fold = (s: string): string => (CASE_INSENSITIVE_FS ? s.toLowerCase() : s);
+  const normalized = path.posix.normalize(requested.split('/').filter((s) => s !== '').join('/'));
+  if (normalized === '.' || normalized === '..' || normalized.startsWith('../')) return false; // the resolver refuses these
+  if (fold(normalized) === fold(page)) return false;
+  const segments = normalized.split('/');
+  const pageFolder = page.split('/').slice(0, -1);
+  return segments.some((segment, i) => {
+    if (!segment.startsWith('.')) return false;
+    if (i >= pageFolder.length) return true;
+    for (let j = 0; j <= i; j += 1) if (fold(segments[j]) !== fold(pageFolder[j])) return true;
+    return false;
+  });
+}
+
 /** The requested path names the token's page (case-folded where the file system folds). */
 function samePagePath(requested: string, page: string): boolean {
   const norm = (p: string): string => {
@@ -245,6 +265,12 @@ export function createHtmlViewRoutes(fileService: FileService, store: HtmlViewTo
     }
     const logged = relative.replace(/\\/g, '/');
     const outcome = (result: HtmlViewResult): void => store.record(token, logged, result);
+
+    if (hasForeignHiddenSegment(logged, target.filePath)) {
+      outcome('blocked');
+      sendError(res, new AppError(ErrorCode.PATH_BLOCKED, 'Hidden files are not served'));
+      return;
+    }
 
     // AC-6: the page path with ?draft serves the latest draft; any other path stays a file.
     const draft = req.query.draft !== undefined && samePagePath(logged, target.filePath) ? store.draft(token) : null;

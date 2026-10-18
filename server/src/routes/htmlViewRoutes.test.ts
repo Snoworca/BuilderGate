@@ -366,3 +366,41 @@ test('SEC-MDE-002 AC-6: revoking or expiring the token drops its draft', async (
     assert.equal((await send('GET', `${b.url}?draft=1`, { user: null })).status, 404);
   });
 });
+
+test('SEC-MDE-002 AC-7: hidden segments are refused unless they lie on the page file\'s own folder path', async () => {
+  await withApp(async ({ cwd, send, issue }) => {
+    await seedSite(cwd);
+    await fs.writeFile(path.join(cwd, '.env'), 'SECRET=1');
+    await fs.mkdir(path.join(cwd, '.git'));
+    await fs.writeFile(path.join(cwd, '.git', 'config'), '[core]');
+    await fs.writeFile(path.join(cwd, 'report', '.npmrc'), 'token');
+    await fs.mkdir(path.join(cwd, '.buildergate', 'mcp-docs', '.hidden'), { recursive: true });
+    await fs.mkdir(path.join(cwd, '.buildergate', 'other'), { recursive: true });
+    await fs.writeFile(path.join(cwd, '.buildergate', 'mcp-docs', 'a.html'), '<p>a</p>');
+    await fs.writeFile(path.join(cwd, '.buildergate', 'mcp-docs', 'x.css'), 'x{}');
+    await fs.writeFile(path.join(cwd, '.buildergate', 'other', 'y.css'), 'y{}');
+    await fs.writeFile(path.join(cwd, '.buildergate', 'mcp-docs', '.hidden', 'z.css'), 'z{}');
+
+    const page = await issue('report/보고서 1.html');
+    const base = `/api/html-view/${page.token}`;
+    for (const p of ['.env', '.git/config', 'report/.npmrc', 'report/../.env', '.buildergate/mcp-docs/x.css']) {
+      const res = await send('GET', `${base}/${p}`, { user: null });
+      assert.equal(res.status, 403, p);
+      assert.equal(code(res), 'PATH_BLOCKED', p);
+    }
+    assert.equal((await send('GET', `${base}/report/assets/s.css`, { user: null })).status, 200);
+
+    const doc = await issue('.buildergate/mcp-docs/a.html');
+    const docBase = `/api/html-view/${doc.token}`;
+    assert.equal((await send('GET', doc.url, { user: null })).status, 200, 'the page itself');
+    assert.equal((await send('GET', `${docBase}/.buildergate/mcp-docs/x.css`, { user: null })).status, 200, 'a sibling on the same hidden path');
+    assert.equal((await send('GET', `${docBase}/.buildergate/other/y.css`, { user: null })).status, 200, '.buildergate is on the page path');
+    for (const p of ['.buildergate/mcp-docs/.hidden/z.css', '.env', '.git/config']) {
+      const res = await send('GET', `${docBase}/${p}`, { user: null });
+      assert.equal(res.status, 403, p);
+      assert.equal(code(res), 'PATH_BLOCKED', p);
+    }
+    const log = json(await send('GET', `/api/sessions/${SESSION}/files/html-view/${page.token}/resources`)).entries as Array<{ path: string; result: string }>;
+    assert.ok(log.some((e) => e.path === '.env' && e.result === 'blocked'));
+  });
+});
