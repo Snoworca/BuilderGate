@@ -10,11 +10,12 @@ import { parseEditorOpenRequest, planEditorRemoteOpen } from '../../src/componen
 import {
   HTML_SANDBOX,
   consumeHtmlViewHint,
-  decideRenderSource,
+  DRAFT_DEBOUNCE_MS,
+  createDraftScheduler,
   externalUrlsOf,
-  injectBase,
   isHtmlFile,
   nextFrameKey,
+  renderUrl,
   setHtmlViewHint,
   summarizeResources,
 } from '../../src/components/editor/htmlTabModel.ts';
@@ -62,25 +63,46 @@ test('FR-MDE-028 AC-4: the frame is sandboxed with scripts, forms, modals and po
   assert.doesNotMatch(tab, /allow-same-origin/);
 });
 
-test('FR-MDE-028 AC-5: the saved file loads from its token URL; unsaved text renders with an injected base and a 저장 note', () => {
-  const urls = { url: '/api/html-view/t/docs/a.html', baseUrl: '/api/html-view/t/docs/' };
-  assert.deepEqual(decideRenderSource({ dirty: false, text: '<p>x</p>', ...urls }), { kind: 'src', src: urls.url });
-  const unsaved = decideRenderSource({ dirty: true, text: '<html><head><title>x</title></head></html>', ...urls });
-  assert.equal(unsaved.kind, 'srcdoc');
-  assert.equal(unsaved.kind === 'srcdoc' && unsaved.srcdoc, '<html><head><base href="/api/html-view/t/docs/"><title>x</title></head></html>');
+test('FR-MDE-028 AC-5: the saved file loads from its token URL; unsaved text renders from a server draft with a 저장 note', () => {
+  const url = '/api/html-view/t/docs/a%20b.html';
+  assert.equal(renderUrl({ dirty: false, url, draft: 7 }), url, 'saved: the file itself');
+  assert.equal(renderUrl({ dirty: true, url, draft: 3 }), `${url}?draft=3`);
+  assert.equal(renderUrl({ dirty: true, url, draft: null }), url, 'until the first draft lands, the saved file');
+  // srcdoc would inherit the app's CSP (script-src 'self') and block the page's inline scripts.
+  const tab = read(TAB);
+  assert.doesNotMatch(tab, /srcdoc|srcDoc/);
+  assert.doesNotMatch(read('../../src/components/editor/htmlTabModel.ts'), /srcdoc|srcDoc|injectBase/);
   const ko = JSON.parse(read('../../public/locales/messages.ko.json')) as Record<string, string>;
   assert.equal(ko['editor.html.unsaved'], '저장하지 않은 수정을 보여 주는 중');
-  assert.match(read(TAB), /editor\.html\.save/);
+  assert.match(tab, /editor\.html\.save/);
 });
 
-test('FR-MDE-028 AC-6: relative URLs resolve against the folder; absolute and /-rooted URLs are left as written', () => {
-  const base = '/api/html-view/t/docs/';
-  assert.equal(injectBase('<HTML lang="ko"><body>a</body></HTML>', base), '<HTML lang="ko"><base href="/api/html-view/t/docs/"><body>a</body></HTML>');
-  assert.equal(injectBase('<p>bare</p>', base), '<base href="/api/html-view/t/docs/"><p>bare</p>');
-  assert.equal(injectBase('<!doctype html><p>x</p>', base), '<!doctype html><base href="/api/html-view/t/docs/"><p>x</p>');
-  assert.equal(injectBase('<head>', 'a"b'), '<head><base href="a&quot;b">');
+test('FR-MDE-028 AC-5: drafts are sent 400 ms after the last change, only the latest text', () => {
+  const sent: string[] = [];
+  const timers: Array<{ fn: () => void; ms: number; cleared: boolean }> = [];
+  const scheduler = createDraftScheduler({
+    delayMs: DRAFT_DEBOUNCE_MS,
+    send: (text) => sent.push(text),
+    setTimer: (fn, ms) => { const timer = { fn, ms, cleared: false }; timers.push(timer); return timer; },
+    clearTimer: (timer) => { (timer as { cleared: boolean }).cleared = true; },
+  });
+  assert.equal(DRAFT_DEBOUNCE_MS, 400);
+  scheduler.schedule('a');
+  scheduler.schedule('ab');
+  scheduler.schedule('abc');
+  for (const timer of timers) if (!timer.cleared) timer.fn();
+  assert.deepEqual(sent, ['abc']);
+  scheduler.schedule('abcd');
+  scheduler.cancel();
+  for (const timer of timers.slice(3)) if (!timer.cleared) timer.fn();
+  assert.deepEqual(sent, ['abc'], 'a cancelled draft is not sent');
+});
+
+test('FR-MDE-028 AC-6: a draft is served at the file path itself, so relative URLs resolve against its folder; nothing is rewritten', () => {
+  const url = '/api/html-view/t/docs/a.html';
+  const resolved = new URL('css/a.css', new URL(renderUrl({ dirty: true, url, draft: 1 }), 'https://app.example'));
+  assert.equal(resolved.pathname, '/api/html-view/t/docs/css/a.css');
   const page = '<link href="css/a.css"><script src="https://cdn.example.com/x.js"></script><img src="/static/l.png"><a href="http://example.org/">e</a><style>@font-face{src:url("https://f.example/x.woff2")}</style>';
-  assert.equal(injectBase(`<head>${page}`, base), `<head><base href="${base}">${page}`, 'nothing else is rewritten');
   assert.deepEqual(externalUrlsOf(page), ['https://cdn.example.com/x.js', 'http://example.org/', 'https://f.example/x.woff2']);
 });
 
@@ -126,6 +148,7 @@ test('SEC-MDE-002 AC-1/AC-4/AC-5 (client): the token is asked with JWT, resource
     authFetch: async (input, init) => {
       calls.push({ url: String(input), method: init?.method ?? 'GET', body: init?.body as string | undefined });
       if (init?.method === 'DELETE') return new Response(null, { status: 204 });
+      if (init?.method === 'PUT') return new Response(JSON.stringify({ draft: 4 }), { status: 200 });
       const body = String(input).endsWith('/resources')
         ? { entries: [{ path: 'a.css', result: 'loaded', at: '2026-10-19T00:00:00.000Z' }] }
         : { token: 't1', url: '/api/html-view/t1/a.html', baseUrl: '/api/html-view/t1/' };
@@ -135,12 +158,15 @@ test('SEC-MDE-002 AC-1/AC-4/AC-5 (client): the token is asked with JWT, resource
     parseError: async (res) => new Error(`HTTP ${res.status}`),
   });
   assert.equal((await client.open('s1', '/w/a.html')).token, 't1');
+  assert.equal(await client.draft('s1', 't1', '<p>draft</p>'), 4);
   assert.deepEqual(await client.resources('s1', 't1'), [{ path: 'a.css', result: 'loaded', at: '2026-10-19T00:00:00.000Z' }]);
   await client.revoke('t1');
   assert.deepEqual(calls.map((c) => `${c.method} ${c.url}`), [
     'POST /api/sessions/s1/files/html-view',
+    'PUT /api/sessions/s1/files/html-view/t1/draft',
     'GET /api/sessions/s1/files/html-view/t1/resources',
     'DELETE /api/html-view/t1',
   ]);
   assert.deepEqual(JSON.parse(calls[0].body ?? '{}'), { path: '/w/a.html' });
+  assert.equal(calls[1].body, '<p>draft</p>', 'the draft body is the text itself');
 });
