@@ -120,7 +120,8 @@ function itemInfo(overrides: Partial<MenuInfo> = {}): MenuInfo {
   };
 }
 
-const FULL_ORDER = ['open', 'newtab', 'download', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']; // FR-FEX-018: Info last
+// FR-FEX-022 AC-2: upload entries follow 다운로드; they show only on a surface that can upload.
+const FULL_ORDER = ['open', 'newtab', 'download', 'upload', 'uploadFolder', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']; // FR-FEX-018: Info last
 
 // ---------------------------------------------------------------------------
 // Right click and selection (FR-FEX-006 AC-1·AC-2·AC-3)
@@ -254,7 +255,7 @@ test("항목 id 순서가 FILE_EXPLORER_MENU_ORDER 이고 복사·잘라내기·
 
   for (const isDir of [false, true]) {
     const items = buildFileExplorerContextMenuItems(itemInfo({ isDir }), recordingHandlers([]));
-    assert.deepEqual(idsOf(items), FULL_ORDER, `tree item menu isDir=${isDir}`);
+    assert.deepEqual(idsOf(items), FULL_ORDER.filter(id => id !== 'upload' && id !== 'uploadFolder'), `tree item menu isDir=${isDir}`);
 
     const shortcuts = { copy: 'Ctrl+C', cut: 'Ctrl+X', paste: 'Ctrl+V', delete: 'Delete', rename: 'F2' };
     for (const [id, shortcut] of Object.entries(shortcuts)) {
@@ -298,44 +299,18 @@ test("buildFileExplorerContextMenuItems(context='editor-panel') 에 '새 탭에�
 });
 
 // ---------------------------------------------------------------------------
-// Mobile button row (FR-FEX-005 AC-8)
+// Mobile bar (FR-FEX-005 AC-8, replaced by FR-FEX-026 AC-1's four fixed slots)
 // ---------------------------------------------------------------------------
 
-test('buildMobileActionButtons: 여섯 버튼 순서와 disabled 가 메뉴와 같은 술어(붙여넣기=클립보드, 이름 바꾸기=선택 1개)를 쓴다', async () => {
-  const { buildMobileActionButtons, buildFileExplorerContextMenuItems } = await load();
-
+test('buildMobileBarSlots: 네 칸이 고정이고 붙여넣기는 메뉴와 같은 술어(클립보드)를 쓴다 (FR-FEX-026 AC-1)', async () => {
+  const { buildMobileBarSlots, buildFileExplorerContextMenuItems } = await load();
   for (const clipboardEmpty of [true, false]) {
     for (const count of [0, 1, 2]) {
-      const calls: string[] = [];
-      const buttons = buildMobileActionButtons({ count, clipboardEmpty, singleFileSelected: false }, recordingHandlers(calls));
-      assert.deepEqual(
-        buttons.map(button => button.id),
-        ['copy', 'cut', 'paste', 'delete', 'rename', 'newdir', 'download'],
-      );
-      assert.deepEqual(buttons.map(button => button.label), ['복사', '잘라내기', '붙여넣기', '삭제', '이름 바꾸기', '새 폴더', '다운로드']);
-
-      const byId = new Map(buttons.map(button => [button.id, button]));
-      const label = `clipboardEmpty=${clipboardEmpty} count=${count}`;
-
-      // The same predicate as the menu, compared against the menu itself.
-      const menu = buildFileExplorerContextMenuItems(
-        itemInfo({ clipboardEmpty, count, isDir: true }),
-        recordingHandlers([]),
-      );
-      assert.equal(byId.get('paste')?.disabled === true, itemById(menu, 'paste').disabled === true, `paste ${label}`);
-      assert.equal(byId.get('rename')?.disabled === true, itemById(menu, 'rename').disabled === true, `rename ${label}`);
-      assert.equal(byId.get('paste')?.disabled === true, clipboardEmpty, `paste ${label}`);
-      assert.equal(byId.get('rename')?.disabled === true, count !== 1, `rename ${label}`);
-
-      // Nothing selected: nothing to copy, cut or delete. A new folder always has a place to go.
-      for (const id of ['copy', 'cut', 'delete']) {
-        assert.equal(byId.get(id)?.disabled === true, count === 0, `${id} ${label}`);
-      }
-      assert.equal(byId.get('newdir')?.disabled === true, false, `newdir ${label}`);
-
-      // Each button runs its own handler.
-      byId.get('newdir')?.onClick();
-      assert.deepEqual(calls, ['newdir']);
+      const slots = buildMobileBarSlots({ count, clipboardEmpty }, { upload: () => {}, download: () => {}, paste: () => {}, more: () => {} });
+      assert.deepEqual(slots.map(slot => slot.id), ['upload', 'download', 'paste', 'more']);
+      const menu = buildFileExplorerContextMenuItems(itemInfo({ clipboardEmpty, count, isDir: true }), recordingHandlers([]));
+      const paste = slots.find(slot => slot.id === 'paste');
+      assert.equal(paste?.disabled === true, itemById(menu, 'paste').disabled === true, `paste clipboardEmpty=${clipboardEmpty} count=${count}`);
     }
   }
 });

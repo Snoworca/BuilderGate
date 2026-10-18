@@ -63,30 +63,30 @@ test('TC-REQ-FR-FEX-007-AC5-02 resolveDecisionAnswer: \'cancel\' 은 {kind:\'can
   // button would send a choice the server rejects.
   const inPlace = buildDecisionModal({ kind: 'conflict', path: '/home/u/a.txt', choices: ['rename', 'skip'] });
   assert.deepEqual(choiceIds(inPlace), ['rename', 'skip']);
-  assert.deepEqual(choiceLabels(inPlace), ['이름 바꾸기', '복사하지 않기']);
+  assert.deepEqual(choiceLabels(inPlace), ['둘 다 유지', '건너뛰기']);
 
   // An error that cannot be retried keeps only skip, plus the job-level cancel.
   const noRetry = buildDecisionModal({ kind: 'error', path: '/home/u/a.txt', choices: ['skip'] });
   assert.deepEqual(choiceIds(noRetry), ['skip', 'cancel']);
 });
 
-test('TC-REQ-FR-FEX-007-AC6-01 buildDecisionModal(kind=\'conflict\') 선택지가 덮어쓰기(overwrite)·이름 바꾸기(rename)·복사하지 않기(skip) 순서다', async () => {
+test('TC-REQ-FR-FEX-007-AC6-01 buildDecisionModal(kind=\'conflict\') 선택지가 덮어쓰기(overwrite)·둘 다 유지(rename)·건너뛰기(skip) 순서다 (FR-FOP-006 AC-1 문구)', async () => {
   const { buildDecisionModal } = await load();
   const model = buildDecisionModal(CONFLICT_DETAIL);
   assert.deepEqual(choiceIds(model), ['overwrite', 'rename', 'skip']);
-  assert.deepEqual(choiceLabels(model), ['덮어쓰기', '이름 바꾸기', '복사하지 않기']);
+  assert.deepEqual(choiceLabels(model), ['덮어쓰기', '둘 다 유지', '건너뛰기']);
 
   // Same set in another wire order: the order on screen stays the AC's.
   const shuffled = buildDecisionModal({ ...CONFLICT_DETAIL, choices: ['skip', 'overwrite', 'rename'] });
   assert.deepEqual(choiceIds(shuffled), ['overwrite', 'rename', 'skip']);
 });
 
-test('TC-REQ-FR-FEX-007-AC7-01 두 결정 모달 모두 showApplyToAll=true 이고 라벨이 \'더 이상 묻지 않기\' 다', async () => {
+test('TC-REQ-FR-FEX-007-AC7-01 두 결정 모달 모두 showApplyToAll=true 이고, 남은 개수를 모르면 라벨이 \'남은 항목에도 같은 선택 적용\' 이다 (FR-FOP-006 AC-2 가 \'더 이상 묻지 않기\' 를 대체)', async () => {
   const { buildDecisionModal } = await load();
   for (const detail of [ERROR_DETAIL, CONFLICT_DETAIL]) {
     const model = buildDecisionModal(detail);
     assert.equal(model.showApplyToAll, true, `${detail.kind} modal must offer the checkbox`);
-    assert.equal(model.applyToAllLabel, '더 이상 묻지 않기', `${detail.kind} modal checkbox label`);
+    assert.equal(model.applyToAllLabel, '남은 항목에도 같은 선택 적용', `${detail.kind} modal checkbox label`);
   }
 });
 

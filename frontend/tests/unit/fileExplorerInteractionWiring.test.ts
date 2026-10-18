@@ -862,20 +862,20 @@ test('TC-REQ-FR-FEX-005-AC6-02 keydown 처리기가 창 표면 루트에 붙고 
   }
 });
 
-test('TC-REQ-FR-FEX-005-AC8-02 DR-13: 모바일 버튼 줄이 buildMobileActionButtons 를 map 하고 CSS 버튼 min-height >= 44px', () => {
+test('TC-REQ-FR-FEX-005-AC8-02 DR-13 (FR-FEX-026 AC-1): 모바일 바가 buildMobileBarSlots 를 map 하고 CSS 버튼 min-height >= 44px', () => {
   requireSources([T.mobileBar, T.window, T.css]);
   const bar = read(T.mobileBar);
-  assert.ok(importedFrom(bar, /^\.\/fileExplorerContextMenu(?:\.ts)?$/).includes('buildMobileActionButtons'),
-    `${bar.path} must import buildMobileActionButtons from ./fileExplorerContextMenu`);
-  const calls = callArgs(bar, 'buildMobileActionButtons');
-  assert.ok(calls.length > 0, `${bar.path}: buildMobileActionButtons is never called`);
+  assert.ok(importedFrom(bar, /^\.\/fileExplorerContextMenu(?:\.ts)?$/).includes('buildMobileBarSlots'),
+    `${bar.path} must import buildMobileBarSlots from ./fileExplorerContextMenu`);
+  const calls = callArgs(bar, 'buildMobileBarSlots');
+  assert.ok(calls.length > 0, `${bar.path}: buildMobileBarSlots is never called`);
   const mapped = calls.some(args => {
     const after = bar.bare.slice(args.end + 1);
     if (/^\s*\.\s*map\s*\(/.test(after)) return true;
-    const decl = /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]+)?=\s*(?:useMemo\s*\(\s*\(\s*\)\s*=>\s*)?$/.exec(bar.bare.slice(0, args.start).replace(/buildMobileActionButtons\s*\($/, ''));
+    const decl = /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]+)?=\s*(?:useMemo\s*\(\s*\(\s*\)\s*=>\s*)?$/.exec(bar.bare.slice(0, args.start).replace(/buildMobileBarSlots\s*\($/, ''));
     return decl !== null && new RegExp(`\\b${decl[1]}\\s*\\.\\s*map\\s*\\(`).test(bar.bare);
   });
-  assert.ok(mapped, `${bar.path}: the buttons must be drawn by mapping buildMobileActionButtons(...)`);
+  assert.ok(mapped, `${bar.path}: the buttons must be drawn by mapping buildMobileBarSlots(...)`);
   const buttons = [...bar.bare.matchAll(/<(?:button|IconButton)\b/g)].map(m => tagAt(bar, m.index));
   assert.equal(buttons.length, 1, `${bar.path}: expected one button element, inside the map — a hand-written button would bypass the shared predicates`);
   assert.ok(attrValue(bar, buttons[0], 'disabled') !== null, `${where(bar, buttons[0].start)}: the button must carry disabled from the builder`);

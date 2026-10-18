@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { installCatalog } from '../../src/i18n/i18n.ts';
 import {
   buildFileExplorerContextMenuItems,
-  buildMobileActionButtons,
+  buildMobileBarSlots,
   type FileExplorerMenuHandlers,
   type FileExplorerMenuInfo,
 } from '../../src/components/fileExplorer/fileExplorerContextMenu.ts';
@@ -35,14 +35,13 @@ test('FR-FEX-021 AC-1: 다운로드 is enabled for one file and disabled for a d
   assert.equal(download(buildFileExplorerContextMenuItems(info({ target: 'empty' }), handlers)), undefined, 'not on empty space');
 });
 
-test('FR-FEX-021 AC-1: the mobile bar has a 다운로드 button enabled only for exactly one selected file', () => {
-  const button = (singleFileSelected: boolean, count: number) =>
-    buildMobileActionButtons({ count, clipboardEmpty: true, singleFileSelected }, handlers).find(b => b.id === 'download');
-  assert.equal(button(true, 1)?.label, '다운로드');
-  assert.equal(button(true, 1)?.disabled, false);
-  assert.equal(button(false, 1)?.disabled, true, 'one directory');
-  assert.equal(button(false, 0)?.disabled, true);
-  assert.equal(button(false, 2)?.disabled, true);
+test('FR-FEX-021 AC-1 (FR-FEX-025 AC-1, FR-FEX-026 AC-1): the mobile bar 다운로드 slot is enabled with any selection', () => {
+  const slot = (count: number) =>
+    buildMobileBarSlots({ count, clipboardEmpty: true }, { upload: noop, download: noop, paste: noop, more: noop }).find(b => b.id === 'download');
+  assert.equal(slot(1)?.label, '다운로드');
+  assert.equal(slot(1)?.disabled, false);
+  assert.equal(slot(2)?.disabled, false, 'several items download as a ZIP');
+  assert.equal(slot(0)?.disabled, true);
 });
 
 test('FR-FEX-021 AC-4: the download is handed to the browser through a link to the token URL', () => {

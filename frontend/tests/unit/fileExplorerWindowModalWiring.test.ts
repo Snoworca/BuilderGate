@@ -923,7 +923,7 @@ test('TC-REQ-FR-FEX-007-AC6-02 결정 분기의 버튼이 buildDecisionModal(det
   assert.equal(buttons.length, 1, `${modal.path}: expected one button element, inside the choices map — a hand-written button would offer a choice the server did not`);
   assert.ok(maps.some(span => buttons[0] > span.start && buttons[0] < span.end), `${where(modal, buttons[0])}: the button is not inside the choices map`);
 
-  for (const label of ['덮어쓰기', '이름 바꾸기', '복사하지 않기', '무시', '재시도', '취소', '삭제']) {
+  for (const label of ['덮어쓰기', '이름 바꾸기', '복사하지 않기', '둘 다 유지', '건너뛰기', '무시', '재시도', '취소', '삭제', '확인']) {
     assert.ok(!modal.code.includes(label), `${modal.path}: hard-codes the label '${label}' — labels come from the model`);
   }
   assert.doesNotMatch(modal.code, /['"](?:overwrite|rename|skip|retry)['"]/, `${modal.path}: hard-codes a server choice id — the in-place conflict offers only [rename, skip], and the model is what knows`);
