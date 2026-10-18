@@ -95,18 +95,21 @@ test('FR-MDE-028 AC-7: 다시 불러오기 (and F5 on the frame area) reruns the
 });
 
 test('FR-MDE-028 AC-8: 자원 n lists what the page requested with results and external URLs, warning when any failed', () => {
-  const ok = summarizeResources([{ path: 'css/a.css', status: 200, result: 'loaded' }], ['https://cdn.example.com/x.js']);
+  // Contract §5.4: entries carry path, result and the time; external URLs come from the source.
+  const at = '2026-10-19T00:00:00.000Z';
+  const ok = summarizeResources([{ path: 'css/a.css', result: 'loaded', at }], ['https://cdn.example.com/x.js']);
   assert.equal(ok.label, '자원 2');
   assert.equal(ok.failed, 0);
   assert.deepEqual(ok.rows.map((r) => [r.name, r.state]), [['css/a.css', 'loaded'], ['https://cdn.example.com/x.js', 'external']]);
   const bad = summarizeResources([
-    { path: 'css/a.css', status: 200, result: 'loaded' },
-    { path: 'js/x.js', status: 404, result: 'not-found' },
-    { path: '../.ssh/config', status: 403, result: 'blocked' },
-    { path: 'css/a.css', status: 200, result: 'loaded' },
+    { path: 'css/a.css', result: 'loaded', at },
+    { path: 'js/x.js', result: 'not-found', at },
+    { path: '.ssh/config', result: 'blocked', at },
+    { path: 'css/a.css', result: 'loaded', at },
   ], []);
   assert.equal(bad.label, '자원 3 · 실패 2', 'repeated requests count once, by their last result');
   assert.equal(bad.failed, 2);
+  assert.deepEqual(bad.rows.map((r) => [r.name, r.detail]), [['js/x.js', '없음'], ['.ssh/config', '차단됨'], ['css/a.css', '불러옴']]);
   assert.match(read(TAB), /aria-haspopup="dialog"/);
 });
 
@@ -122,14 +125,17 @@ test('SEC-MDE-002 AC-1/AC-4/AC-5 (client): the token is asked with JWT, resource
     apiBase: '/api',
     authFetch: async (input, init) => {
       calls.push({ url: String(input), method: init?.method ?? 'GET', body: init?.body as string | undefined });
-      const body = String(input).endsWith('/resources') ? { resources: [] } : { token: 't1', url: '/api/html-view/t1/a.html', baseUrl: '/api/html-view/t1/' };
+      if (init?.method === 'DELETE') return new Response(null, { status: 204 });
+      const body = String(input).endsWith('/resources')
+        ? { entries: [{ path: 'a.css', result: 'loaded', at: '2026-10-19T00:00:00.000Z' }] }
+        : { token: 't1', url: '/api/html-view/t1/a.html', baseUrl: '/api/html-view/t1/' };
       return new Response(JSON.stringify(body), { status: 200 });
     },
     getAuthHeaders: () => ({ Authorization: 'Bearer T' }),
     parseError: async (res) => new Error(`HTTP ${res.status}`),
   });
   assert.equal((await client.open('s1', '/w/a.html')).token, 't1');
-  assert.deepEqual(await client.resources('s1', 't1'), []);
+  assert.deepEqual(await client.resources('s1', 't1'), [{ path: 'a.css', result: 'loaded', at: '2026-10-19T00:00:00.000Z' }]);
   await client.revoke('t1');
   assert.deepEqual(calls.map((c) => `${c.method} ${c.url}`), [
     'POST /api/sessions/s1/files/html-view',

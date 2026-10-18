@@ -550,3 +550,7 @@ test('FR-MCP-012 AC-8: the audit log labels the editor tools', () => {
   assert.equal(formatMcpAuditAction('buildergate.editor.open_code'), '편집기에서 파일 열기');
   assert.equal(formatMcpAuditAction('buildergate.editor.open_image'), '이미지 뷰어에서 열기');
 });
+
+test('FR-MCP-013 AC-3: the audit log labels open_html', () => {
+  assert.equal(formatMcpAuditAction('buildergate.editor.open_html'), '편집기에서 HTML 열기');
+});
