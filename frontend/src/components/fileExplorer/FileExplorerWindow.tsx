@@ -343,11 +343,12 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   };
 
   // FR-FEX-027 AC-5: a large archive waits for 풀기 on the confirm row; nothing is written before.
-  const confirmExtract = (summary: ExtractPrecount & { destPath: string }) => askChoice(
+  const confirmExtract = (summary: ExtractPrecount) => askChoice(
     t('fileTransfer.extract.confirm', {
-      size: formatTransferBytes(summary.totalBytes),
+      size: formatTransferBytes(summary.unpackedBytes),
       count: tn('fileTransfer.extract.confirmCount', summary.entryCount),
-      folder: rootLabel(summary.destPath),
+      // The folder it lands in, as the server named it ('(2)' applied for 압축 풀기).
+      folder: summary.targetName,
     }),
     t('fileTransfer.extract.detail'),
     [{ id: 'cancel', label: t('common.cancel') }, { id: 'get', label: t('fileTransfer.extract.get'), primary: true }],

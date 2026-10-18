@@ -1029,7 +1029,7 @@ export type ServerWsMessage =
   | { type: 'file-job:decision-required'; sessionId: string; jobId: string; decisionId: string; kind: 'conflict' | 'error'; path: string; detail: string | null; choices: Array<'overwrite' | 'rename' | 'skip' | 'retry'> }
   | { type: 'file-job:done'; sessionId: string; jobId: string; outcome: 'completed' | 'cancelled' | 'failed'; processedEntries: number; affectedDirectories: string[]; errorCode?: string;
       /** FR-FEX-027 AC-6: an extraction's top-level results and the entries it skipped. */
-      createdPaths?: string[]; skipped?: Array<{ path: string; reason: string }> }
+      createdPaths?: string[]; skipped?: Array<{ path: string; reason: string }>; errorReason?: string }
   // Subscribe response
   | { type: 'subscribed';     sessions: SubscribedSessionInfo[] }
   // Workspace events

@@ -38,7 +38,7 @@ import { isOpenableFile } from '../components/fileExplorer/fileRowInteraction.ts
 import { joinChildPath, parentPathOf } from '../components/fileExplorer/fileTreeState.ts';
 import type { FileExplorerMenuRequest, FileRowRename } from '../components/fileExplorer/FileTreeView.tsx';
 import { fileApi, fileJobApi, fileTransferApi } from '../services/api.ts';
-import { isExtractableArchive, runExtract, type ExtractMode, type ExtractPrecount } from '../components/fileExplorer/fileExtract.ts';
+import { extractRefusalMessage, isExtractableArchive, runExtract, type ExtractMode, type ExtractPrecount } from '../components/fileExplorer/fileExtract.ts';
 import type { UseFileTreeResult } from './useFileTree.ts';
 import { useInlineRename } from './useInlineRename.ts';
 
@@ -71,7 +71,7 @@ export interface UseFileTreeOperationsInput {
     onDownloadZip: (paths: string[]) => void;
     folderUploadSupported: boolean;
     /** FR-FEX-027 AC-5: the confirm row before a large archive; true on 풀기. */
-    confirmExtract: (summary: ExtractPrecount & { destPath: string }) => Promise<boolean>;
+    confirmExtract: (summary: ExtractPrecount) => Promise<boolean>;
     /** An extraction is about to start from this surface. */
     onExtractStart?: () => void;
   };
@@ -235,6 +235,9 @@ export function useFileTreeOperations({
       precount: fileTransferApi.extractPrecount,
       confirm: transfer.confirmExtract,
       submit: (request) => jobClient.submit(request),
+    }).then((result) => {
+      // FR-FOP-007: an archive the server will not extract says why; no job was sent.
+      if (result !== null && 'refused' in result) showError(extractRefusalMessage(result.refused));
     }).catch((error: unknown) => showError(t('fileTransfer.extract.failed', { message: messageOf(error) })));
   };
 

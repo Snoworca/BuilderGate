@@ -1187,5 +1187,12 @@
   "fileTransfer.extract.failed": "압축을 풀지 못했습니다: {message}",
   "apiError.ARCHIVE_TOO_LARGE": "압축 파일이 풀기 한도보다 큽니다.",
   "apiError.ARCHIVE_UNSUPPORTED": "풀 수 없는 압축 파일입니다(암호화 또는 분할).",
-  "apiError.ARCHIVE_CORRUPT": "압축 파일이 손상되었습니다."
+  "apiError.ARCHIVE_CORRUPT": "압축 파일이 손상되었습니다.",
+  "fileTransfer.reason.extractLeavesTarget": "대상 폴더 밖을 가리키는 경로",
+  "fileTransfer.reason.extractAbsolute": "절대 경로",
+  "fileTransfer.reason.extractNameNotAllowed": "쓸 수 없는 이름",
+  "fileTransfer.reason.extractLink": "링크는 풀지 않습니다",
+  "fileTransfer.reason.extractDevice": "장치·파이프 항목은 풀지 않습니다",
+  "fileTransfer.reason.extractDuplicate": "같은 이름의 항목이 이미 있습니다",
+  "fileTransfer.reason.extractKindClash": "같은 이름의 파일과 폴더가 겹칩니다"
 }

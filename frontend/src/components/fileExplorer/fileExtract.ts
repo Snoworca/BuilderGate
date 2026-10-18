@@ -4,7 +4,8 @@
 // progress, questions and cancel go through fileJobStore; only the decisions live here.
 // @req FR-FEX-027
 
-import { tn } from '../../i18n/i18n.ts';
+import { t, tn } from '../../i18n/i18n.ts';
+import { localizeApiError } from '../../services/apiErrorMessages.ts';
 import { parentPathOf } from './fileTreeState.ts';
 import { rootLabel } from './fileExplorerPathBarModel.ts';
 
@@ -41,34 +42,71 @@ export const EXTRACT_CONFIRM_BYTES = 1024 ** 3;
 export const EXTRACT_CONFIRM_ENTRIES = 10_000;
 
 /** FR-FEX-027 AC-5: over 1 GiB unpacked or 10,000 entries asks before anything is written. */
-export function decideExtractConfirm(input: { totalBytes: number; entryCount: number }): 'direct' | 'confirm' {
-  return input.totalBytes > EXTRACT_CONFIRM_BYTES || input.entryCount > EXTRACT_CONFIRM_ENTRIES ? 'confirm' : 'direct';
+export function decideExtractConfirm(input: { unpackedBytes: number; entryCount: number }): 'direct' | 'confirm' {
+  return input.unpackedBytes > EXTRACT_CONFIRM_BYTES || input.entryCount > EXTRACT_CONFIRM_ENTRIES ? 'confirm' : 'direct';
 }
 
-export interface ExtractPrecount {
-  entryCount: number;
-  totalBytes: number;
-  /** The top-level name 압축 풀기 would create. */
-  rootName?: string;
+export interface ExtractRefusal {
+  /** ARCHIVE_TOO_LARGE | ARCHIVE_UNSUPPORTED | ARCHIVE_CORRUPT */
+  code: string;
+  /** An English sentence without paths (contract §4.1). */
+  reason: string;
 }
+
+/** POST …/files/extract/precount (contract §4.1): what extracting would make, or why it cannot. */
+export interface ExtractPrecount {
+  format: string;
+  entryCount: number;
+  unpackedBytes: number;
+  packedBytes: number;
+  singleTopFolder: string | null;
+  /** smart: the folder it would make ('(2)' applied); here: the archive's folder. */
+  targetName: string;
+  refusal: null;
+}
+
+export type ExtractPrecountResult = ExtractPrecount | { refusal: ExtractRefusal };
 
 export interface ExtractDeps {
-  precount: (sessionId: string, archive: string) => Promise<ExtractPrecount>;
+  precount: (sessionId: string, archive: string, mode: ExtractMode) => Promise<ExtractPrecountResult>;
   /** The confirm row: size, count and target folder; true on 풀기. */
-  confirm: (summary: ExtractPrecount & { destPath: string }) => Promise<boolean>;
+  confirm: (summary: ExtractPrecount) => Promise<boolean>;
   submit: (request: ExtractJobRequest) => Promise<{ jobId: string }>;
 }
 
 /**
- * Pre-count, ask when large, then submit. Resolves null when the user declined, so nothing was
- * written (FR-FEX-027 AC-5).
+ * Pre-count, ask when large, then submit. Resolves null when the user declined and the refusal
+ * when the server would not extract it — in both cases no job was sent and nothing written
+ * (FR-FEX-027 AC-5, FR-FOP-007 AC-4/AC-5).
  */
-export async function runExtract(input: { sessionId: string; archive: string; mode: ExtractMode }, deps: ExtractDeps): Promise<{ jobId: string } | null> {
+export async function runExtract(
+  input: { sessionId: string; archive: string; mode: ExtractMode },
+  deps: ExtractDeps,
+): Promise<{ jobId: string } | { refused: ExtractRefusal } | null> {
   const request = buildExtractJobRequest(input.sessionId, input.archive, input.mode);
-  const summary = await deps.precount(input.sessionId, input.archive);
-  if (decideExtractConfirm(summary) === 'confirm' && !(await deps.confirm({ ...summary, destPath: request.destPath }))) return null;
+  const summary = await deps.precount(input.sessionId, input.archive, input.mode);
+  if (summary.refusal !== null) return { refused: summary.refusal };
+  if (decideExtractConfirm(summary) === 'confirm' && !(await deps.confirm(summary))) return null;
   return deps.submit(request);
 }
+
+/** The error line for a refused archive: its code in words, or the server's sentence in English. */
+export function extractRefusalMessage(refusal: ExtractRefusal): string {
+  return t('fileTransfer.extract.failed', { message: localizeApiError(refusal.code, refusal.reason) ?? refusal.reason });
+}
+
+// Contract §4.3: the fixed English reasons of a skipped entry, as reason codes the transfer
+// reasons table words (fileTransferModel.ts). An unknown sentence is passed on as is.
+const SKIP_REASON_CODES: Readonly<Record<string, string>> = {
+  'entry path leaves the target folder': 'EXTRACT_LEAVES_TARGET',
+  'entry path is absolute': 'EXTRACT_ABSOLUTE',
+  'entry name is not allowed': 'EXTRACT_NAME_NOT_ALLOWED',
+  'links are not extracted': 'EXTRACT_LINK',
+  'device and pipe entries are not extracted': 'EXTRACT_DEVICE',
+  'path is blocked': 'PATH_BLOCKED',
+  'another entry already has this name': 'EXTRACT_DUPLICATE',
+  'a file and a folder of this name meet': 'EXTRACT_KIND_CLASH',
+};
 
 export interface ExtractDoneInput {
   destPath: string;
@@ -97,7 +135,7 @@ export function describeExtractDone(input: ExtractDoneInput): ExtractDoneView {
   return {
     select: first === undefined ? null : lastSegment(first),
     toast: tn('fileTransfer.toast.extracted', input.processedEntries, { folder: rootLabel(input.destPath) }),
-    skipped: input.skipped.map((entry) => ({ path: entry.path, code: entry.reason })),
+    skipped: input.skipped.map((entry) => ({ path: entry.path, code: SKIP_REASON_CODES[entry.reason] ?? entry.reason })),
   };
 }
 

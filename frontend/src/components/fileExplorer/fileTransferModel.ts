@@ -114,6 +114,14 @@ const REASON_KEYS = {
   NETWORK: 'fileTransfer.reason.network',
   INTERRUPTED: 'fileTransfer.reason.interrupted',
   UNSURE: 'fileTransfer.reason.unsure',
+  // FR-FEX-027 AC-6 / FR-FOP-007 AC-2, AC-3: why an archive entry was not written.
+  EXTRACT_LEAVES_TARGET: 'fileTransfer.reason.extractLeavesTarget',
+  EXTRACT_ABSOLUTE: 'fileTransfer.reason.extractAbsolute',
+  EXTRACT_NAME_NOT_ALLOWED: 'fileTransfer.reason.extractNameNotAllowed',
+  EXTRACT_LINK: 'fileTransfer.reason.extractLink',
+  EXTRACT_DEVICE: 'fileTransfer.reason.extractDevice',
+  EXTRACT_DUPLICATE: 'fileTransfer.reason.extractDuplicate',
+  EXTRACT_KIND_CLASH: 'fileTransfer.reason.extractKindClash',
 } satisfies Record<string, MessageKey>;
 
 /** The line a refused or failed file carries (FR-FEX-024 AC-3/AC-8). */

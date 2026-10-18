@@ -1228,5 +1228,12 @@
   "fileTransfer.extract.failed": "Could not extract: {message}",
   "apiError.ARCHIVE_TOO_LARGE": "The archive is larger than the extraction limits.",
   "apiError.ARCHIVE_UNSUPPORTED": "This archive cannot be extracted (encrypted or split).",
-  "apiError.ARCHIVE_CORRUPT": "The archive is damaged."
+  "apiError.ARCHIVE_CORRUPT": "The archive is damaged.",
+  "fileTransfer.reason.extractLeavesTarget": "Its path leaves the target folder",
+  "fileTransfer.reason.extractAbsolute": "Absolute path",
+  "fileTransfer.reason.extractNameNotAllowed": "Name not allowed",
+  "fileTransfer.reason.extractLink": "Links are not extracted",
+  "fileTransfer.reason.extractDevice": "Device and pipe entries are not extracted",
+  "fileTransfer.reason.extractDuplicate": "Another entry already has this name",
+  "fileTransfer.reason.extractKindClash": "A file and a folder of this name meet"
 }

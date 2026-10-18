@@ -12,7 +12,7 @@
 // @req FR-FEX-025
 // @req FR-FEX-027
 
-import type { ExtractPrecount } from './fileExtract.ts';
+import type { ExtractMode, ExtractPrecountResult } from './fileExtract.ts';
 
 export type UploadConflictMode = 'fail' | 'overwrite' | 'rename' | 'skip';
 
@@ -132,7 +132,7 @@ export interface FileTransferClient {
   zipJob(sessionId: string, jobId: string): Promise<ZipJobStatus>;
   zipCancel(sessionId: string, jobId: string): Promise<void>;
   /** FR-FEX-027 AC-5: entries and unpacked bytes of an archive, before anything is written. */
-  extractPrecount(sessionId: string, path: string): Promise<ExtractPrecount>;
+  extractPrecount(sessionId: string, path: string, mode: ExtractMode): Promise<ExtractPrecountResult>;
 }
 
 /** @req FR-FEX-024 */
@@ -206,7 +206,7 @@ export function createFileTransferClient(deps: FileTransferClientDeps): FileTran
       return await res.json() as ZipJobStatus;
     },
 
-    extractPrecount: (sessionId, path) => postJson<ExtractPrecount>(`${base(sessionId)}/extract/precount`, { path }),
+    extractPrecount: (sessionId, path, mode) => postJson<ExtractPrecountResult>(`${base(sessionId)}/extract/precount`, { path, mode }),
 
     async zipCancel(sessionId, jobId) {
       const res = await authFetch(`${base(sessionId)}/zip/jobs/${encodeURIComponent(jobId)}`, { method: 'DELETE', headers: getAuthHeaders() });
