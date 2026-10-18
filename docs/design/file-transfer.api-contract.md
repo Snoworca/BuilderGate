@@ -111,6 +111,7 @@ FR-FEX-022~026, `docs/spec/43.file-operations.srs.md` 의 FR-FOP-006 이다. 시
 
 - `path` 는 기존 파일 API 규칙으로 해석한다. 세션 밖이거나 차단된 경로는 오류 응답(403 등)이다.
 - `mode` 가 없거나 다른 값이면 `400 INVALID_INPUT` 이다.
+- 세션당 동시에 2개까지만 받는다. 넘으면 `429 PRECOUNT_BUSY` 다. 클라이언트가 연결을 끊으면 계산을 멈춘다.
 
 응답 200 (풀 수 있을 때):
 
@@ -123,7 +124,7 @@ FR-FEX-022~026, `docs/spec/43.file-operations.srs.md` 의 FR-FOP-006 이다. 시
 - `targetName`:
   - `smart` 이면 지금 만들 폴더 이름이다. `singleTopFolder` 가 있으면 그 이름, 없으면 확장자를 뺀 아카이브 이름이다. 그 이름이 이미 있으면 FR-FOP-004 이름(`이름 (2)`)이 된다.
   - `here` 이면 아카이브가 있는 폴더의 이름이다.
-- `unpackedBytes` 는 파일 엔트리가 선언한 크기의 합이다. FR-FEX-027 AC-5 의 확인 바 기준(1 GiB, 1만 개)은 `unpackedBytes` 와 `entryCount` 로 판단한다.
+- `unpackedBytes` 는 모든 엔트리(종류와 상관없이)가 선언한 크기의 합이다. FR-FEX-027 AC-5 의 확인 바 기준(1 GiB, 1만 개)은 `unpackedBytes` 와 `entryCount` 로 판단한다.
 
 응답 200 (풀 수 없을 때): `{ "refusal": { "code": "ARCHIVE_TOO_LARGE" | "ARCHIVE_UNSUPPORTED" | "ARCHIVE_CORRUPT", "reason": "..." } }`
 
@@ -162,6 +163,8 @@ FR-FEX-022~026, `docs/spec/43.file-operations.srs.md` 의 FR-FOP-006 이다. 시
   - 다 쓴 뒤에만 그 이름에 놓는다. 덮어쓰기가 아니면 배타적으로 놓는다(하드 링크, 지원하지 않으면 `COPYFILE_EXCL` 복사).
   - 임시 파일은 업로드와 같이 `server/data/upload-temp.json` 에 기록하고, 서버를 시작할 때 지운다.
   - 파일과 폴더의 수정 시각을 아카이브 값으로 되돌린다. here 로 풀 때 대상 폴더 자신의 시각은 바꾸지 않는다.
+- **사전 계산 초과:** 쓰는 동안 엔트리 수가 사전 계산의 `entryCount` 를, 쓴 바이트가 `unpackedBytes` 를 넘으면(사전 계산 뒤에 아카이브가 바뀐 경우) 쓰던 임시 파일을 지우고 `ARCHIVE_TOO_LARGE` 로 실패한다.
+- **이름 길이:** 이름이 4096 바이트(UTF-8)를 넘는 엔트리는 `entry name is not allowed` 로 건너뛴다.
 - **선언 크기 초과:** 엔트리가 선언한 크기보다 많은 바이트를 내면, 그 엔트리의 임시 파일을 지우고 작업은 `ARCHIVE_TOO_LARGE` 로 실패한다. 이미 놓은 엔트리는 남는다.
 - **읽기 오류:** 쓰는 도중 압축 해제나 아카이브 읽기가 실패하면, 그 엔트리의 임시 파일을 지우고 `ARCHIVE_CORRUPT` 로 실패한다.
 - **취소:** 쓰던 엔트리의 임시 파일만 지운다. 이미 놓은 엔트리는 남긴다(FR-FOP-005).
@@ -176,6 +179,7 @@ FR-FEX-022~026, `docs/spec/43.file-operations.srs.md` 의 FR-FOP-006 이다. 시
 ```
 
 - `createdPaths`: smart 는 만든 폴더 하나이고, here 는 처음 놓은(또는 처음 들어간) 최상위 항목 하나다. 아무것도 놓지 않았으면 빈 배열이다.
+- `skippedCount`: 건너뛴 엔트리의 전체 수다. `skipped` 는 앞의 1000건만 담고, 이름은 512자에서 자른다. 보존 상태도 같다.
 - `skipped`: 쓰지 않은 엔트리의 이름(아카이브에 적힌 그대로)과 이유다. 사용자가 결정 이벤트에서 고른 건너뛰기는 여기에 넣지 않는다. 이유 문장은 다음 중 하나다.
   - `entry path leaves the target folder`
   - `entry path is absolute`
@@ -237,7 +241,15 @@ HTML 파일을 편집기의 iframe 에서 렌더링한다. 페이지 스크립�
 |---|---|
 | 200 | 파일 본문 |
 | 404 `PATH_NOT_FOUND` | 없는 파일, 디렉터리(목록은 보여 주지 않는다), 빈 경로 |
-| 403 `PATH_TRAVERSAL` / `PATH_BLOCKED` | 세션 밖(`..`, `%2e%2e`, `%2f`), 세션 밖을 가리키는 링크, 차단 경로·확장자, NUL, `:`, 끝이 점·공백인 구간 |
+| 403 `PATH_TRAVERSAL` / `PATH_BLOCKED` | 세션 밖(`..`, `%2e%2e`, `%2f`), 세션 밖을 가리키는 링크, 차단 경로·확장자, NUL, `:`, 끝이 점·공백인 구간, 숨김 구간(아래) |
+
+숨김 구간(SEC-MDE-002 AC-7):
+
+- `.` 으로 시작하는 구간(`.env`, `.git`, `.npmrc`, `.config` …)이 경로에 있으면 `403 PATH_BLOCKED` 다.
+- 예외는 토큰이 연 HTML 파일의 폴더 경로에서 같은 위치에 있는 숨김 구간뿐이다. 그 앞의 폴더들도 같아야 한다.
+  - 예: 파일이 `.buildergate/mcp-docs/a.html` 이면 `.buildergate/mcp-docs/x.css` 와 `.buildergate/other/y.css` 는 허용한다.
+  - 같은 파일에서 `.buildergate/mcp-docs/.hidden/z.css` 와 `.env` 는 차단한다.
+- 페이지 파일 자신은 언제나 허용한다.
 | 404 `HTML_VIEW_TOKEN_INVALID` | 모르는 토큰, 만료된 토큰, 폐기된 토큰, 세션이 사라진 토큰 |
 
 이 경로의 모든 응답(오류 포함)에 붙는 헤더:
