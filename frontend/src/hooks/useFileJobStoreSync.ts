@@ -14,6 +14,7 @@ import { useEffect, useRef } from 'react';
 import { dispatchFileJob, getFileJobSnapshot, type FileJobListedJob } from '../components/fileExplorer/fileJobStore.ts';
 import { routeFileJobMessage, type FileJobServerMessage } from '../components/fileExplorer/fileJobEvents.ts';
 import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
+import { emitExtractFinished } from '../components/fileExplorer/fileExtract.ts';
 import { fileJobApi } from '../services/api.ts';
 
 export interface FileJobSyncTab {
@@ -30,6 +31,22 @@ function handleFileJobMessage(msg: FileJobServerMessage): void {
   } else if (route.kind === 'decide') {
     dispatchFileJob({ type: 'DECISION_REQUIRED', route });
   } else if (msg.type === 'file-job:done') {
+    // FR-FEX-027 AC-6: an extraction's end goes to the tab that started it, read before DONE
+    // forgets the job; a second envelope of the same finish finds it gone and says nothing.
+    const job = getFileJobSnapshot().jobs[msg.jobId];
+    if (job?.operation === 'extract' && job.workspaceId !== null && job.originTabId !== null) {
+      emitExtractFinished({
+        jobId: msg.jobId,
+        sessionId: msg.sessionId,
+        workspaceId: job.workspaceId,
+        tabId: job.originTabId,
+        outcome: msg.outcome,
+        destPath: job.destPath ?? '',
+        createdPaths: msg.createdPaths ?? [],
+        processedEntries: msg.processedEntries,
+        skipped: msg.skipped ?? [],
+      });
+    }
     // The route only carries the directories to refresh; the outcome is the message's.
     dispatchFileJob({
       type: 'DONE',

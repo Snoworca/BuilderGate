@@ -17,13 +17,15 @@
 // handler that could reach it would be tempted to drop jobs with the window.
 // @req FR-FEX-008
 // @req FR-FEX-009
+// @req FR-FEX-027
 
 import { t } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
+import { localizeApiError } from '../../services/apiErrorMessages.ts';
 import type { FileJobRoute } from './fileJobEvents.ts';
 import type { FileJobChoice, FileJobProgress } from './fileExplorerPorts.ts';
 
-export type FileJobOperation = 'copy' | 'move' | 'delete';
+export type FileJobOperation = 'copy' | 'move' | 'delete' | 'extract';
 export type FileJobOutcome = 'completed' | 'cancelled' | 'failed';
 export type FileJobDecideRoute = Extract<FileJobRoute, { kind: 'decide' }>;
 export type FileJobProgressRoute = Extract<FileJobRoute, { kind: 'progress' }>;
@@ -34,6 +36,8 @@ export interface FileJobEntry {
   readonly sessionId: string;
   readonly destSessionId: string | null;
   readonly operation: FileJobOperation | null;
+  /** FR-FEX-027 AC-5: the folder an extraction writes into, named on its line; null when not known. */
+  readonly destPath: string | null;
   /** Workspace of the window that started the job; null while nobody here has claimed it. */
   readonly workspaceId: string | null;
   /** The explorer tab that started the job, so its failure is shown there; null when only a list named it. */
@@ -104,7 +108,7 @@ export interface FileJobListedJob {
 }
 
 export type FileJobStoreAction =
-  | { type: 'JOB_STARTED'; jobId: string; sessionId: string; origin: { workspaceId: string; tabId: string }; operation: FileJobOperation }
+  | { type: 'JOB_STARTED'; jobId: string; sessionId: string; origin: { workspaceId: string; tabId: string }; operation: FileJobOperation; destPath?: string }
   | { type: 'PROGRESS'; route: FileJobProgressRoute }
   | { type: 'DECISION_REQUIRED'; route: FileJobDecideRoute }
   | { type: 'DECISION_ANSWERED'; jobId: string; decisionId: string }
@@ -143,6 +147,7 @@ function freshEntry(jobId: string, sessionId: string, seq: number): FileJobEntry
     sessionId,
     destSessionId: null,
     operation: null,
+    destPath: null,
     workspaceId: null,
     originTabId: null,
     claimed: false,
@@ -204,6 +209,7 @@ export function fileJobStoreReducer(state: FileJobStoreState, action: FileJobSto
         ...base,
         sessionId: action.sessionId,
         operation: action.operation,
+        destPath: action.destPath ?? base.destPath,
         workspaceId: action.origin.workspaceId,
         originTabId: action.origin.tabId,
         claimed: true,
@@ -333,7 +339,12 @@ export function fileJobStoreReducer(state: FileJobStoreState, action: FileJobSto
 // Selectors
 // ---------------------------------------------------------------------------
 
-const OPERATION_LABEL: Record<FileJobOperation, MessageKey> = { copy: 'common.copy', move: 'fileExplorer.job.opMove', delete: 'common.delete' };
+const OPERATION_LABEL: Record<FileJobOperation, MessageKey> = {
+  copy: 'common.copy',
+  move: 'fileExplorer.job.opMove',
+  delete: 'common.delete',
+  extract: 'fileExplorer.menu.extract',
+};
 export const AWAITING_LABEL: MessageKey = 'fileExplorer.job.awaiting';
 
 export interface FileJobProgressRowView {
@@ -388,11 +399,54 @@ function indeterminateOf(job: FileJobEntry): boolean {
 }
 
 function labelOf(job: FileJobEntry): string {
-  return job.operation === null ? '' : t(OPERATION_LABEL[job.operation]);
+  if (job.operation === null) return '';
+  // FR-FEX-027 AC-5: an extraction names its target folder and the entries done of total.
+  if (job.operation === 'extract' && job.destPath !== null) {
+    const folder = folderName(job.destPath);
+    const p = job.progress;
+    return p !== null && p.totalEntries > 0
+      ? t('fileExplorer.job.extractProgress', { folder, done: p.processedEntries, total: p.totalEntries })
+      : t('fileExplorer.job.extractTo', { folder });
+  }
+  return t(OPERATION_LABEL[job.operation]);
 }
 
 function byRecency(jobs: Iterable<FileJobEntry>): FileJobEntry[] {
   return [...jobs].sort((a, b) => b.startedSeq - a.startedSeq);
+}
+
+function folderName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, '');
+  return lastSegment(trimmed === '' ? path : trimmed);
+}
+
+export interface ExtractBand {
+  jobId: string;
+  text: string;
+  fraction: number;
+}
+
+/**
+ * The line a failed job leaves in its window: a code the app knows (FR-FOP-007's ARCHIVE_* among
+ * them) in words, with the code; any other code as is.
+ * @req FR-FEX-009
+ */
+export function jobFailureMessage(errorCode: string | undefined): string {
+  if (errorCode === undefined) return t('fileExplorer.job.failed');
+  const words = localizeApiError(errorCode, undefined);
+  return words === undefined ? t('fileExplorer.job.failedWithCode', { code: errorCode }) : `${words} (${errorCode})`;
+}
+
+/** FR-FEX-027 AC-5: the phone's progress band for the latest extraction a window started. */
+export function selectExtractBand(state: FileJobStoreState, workspaceId: string): ExtractBand | null {
+  const [job] = selectWindowJobs(state, workspaceId).filter((candidate) => candidate.operation === 'extract');
+  if (job === undefined) return null;
+  const p = job.progress;
+  return {
+    jobId: job.jobId,
+    text: t('fileExplorer.job.extractBand', { folder: folderName(job.destPath ?? ''), done: p?.processedEntries ?? 0, total: p?.totalEntries ?? 0 }),
+    fraction: fractionOf(job),
+  };
 }
 
 /** Jobs started by the window of `workspaceId`, most recent first. @req FR-FEX-008 */

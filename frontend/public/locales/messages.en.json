@@ -1212,5 +1212,21 @@
   "apiError.INVALID_UPLOAD_PATH": "The upload path is not a valid relative path.",
   "apiError.UPLOAD_BUSY": "Too many uploads are running for this session.",
   "apiError.ZIP_JOB_NOT_FOUND": "ZIP download job not found.",
-  "fileTransfer.reason.unsure": "Connection lost · retry"
+  "fileTransfer.reason.unsure": "Connection lost · retry",
+  "fileExplorer.menu.extract": "Extract",
+  "fileExplorer.menu.extractHere": "Extract here",
+  "fileExplorer.job.extractTo": "Extract → {folder}",
+  "fileExplorer.job.extractProgress": "Extract → {folder} · {done}/{total}",
+  "fileExplorer.job.extractBand": "Extracting to {folder} · {done}/{total}",
+  "fileTransfer.toast.extracted.one": "Extracted {count} item into '{folder}'",
+  "fileTransfer.toast.extracted.other": "Extracted {count} items into '{folder}'",
+  "fileTransfer.extract.confirm": "{size} · {count} → {folder}",
+  "fileTransfer.extract.confirmCount.one": "{count} entry",
+  "fileTransfer.extract.confirmCount.other": "{count} entries",
+  "fileTransfer.extract.detail": "A large archive; this may take a while",
+  "fileTransfer.extract.get": "Extract",
+  "fileTransfer.extract.failed": "Could not extract: {message}",
+  "apiError.ARCHIVE_TOO_LARGE": "The archive is larger than the extraction limits.",
+  "apiError.ARCHIVE_UNSUPPORTED": "This archive cannot be extracted (encrypted or split).",
+  "apiError.ARCHIVE_CORRUPT": "The archive is damaged."
 }

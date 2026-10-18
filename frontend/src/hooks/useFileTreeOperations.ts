@@ -14,6 +14,7 @@
 // @req FR-FEX-005
 // @req FR-FEX-022
 // @req FR-FEX-025
+// @req FR-FEX-027
 
 import { t } from '../i18n/i18n.ts';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -36,7 +37,8 @@ import { startFileDownload } from '../components/fileExplorer/fileDownload.ts';
 import { isOpenableFile } from '../components/fileExplorer/fileRowInteraction.ts';
 import { joinChildPath, parentPathOf } from '../components/fileExplorer/fileTreeState.ts';
 import type { FileExplorerMenuRequest, FileRowRename } from '../components/fileExplorer/FileTreeView.tsx';
-import { fileApi, fileJobApi } from '../services/api.ts';
+import { fileApi, fileJobApi, fileTransferApi } from '../services/api.ts';
+import { isExtractableArchive, runExtract, type ExtractMode, type ExtractPrecount } from '../components/fileExplorer/fileExtract.ts';
 import type { UseFileTreeResult } from './useFileTree.ts';
 import { useInlineRename } from './useInlineRename.ts';
 
@@ -68,6 +70,10 @@ export interface UseFileTreeOperationsInput {
     onUpload: (dir: string, folder: boolean) => void;
     onDownloadZip: (paths: string[]) => void;
     folderUploadSupported: boolean;
+    /** FR-FEX-027 AC-5: the confirm row before a large archive; true on 풀기. */
+    confirmExtract: (summary: ExtractPrecount & { destPath: string }) => Promise<boolean>;
+    /** An extraction is about to start from this surface. */
+    onExtractStart?: () => void;
   };
 }
 
@@ -128,6 +134,7 @@ export function useFileTreeOperations({
         sessionId: request.sourceSessionId,
         origin: { workspaceId, tabId },
         operation: request.operation,
+        ...(request.operation === 'extract' ? { destPath: request.destPath } : {}),
       });
       return result;
     },
@@ -213,6 +220,24 @@ export function useFileTreeOperations({
   };
   const targetDirectory = menu !== null && menu.target === 'item' && menu.isDir && menu.path !== null ? menu.path : state.root;
 
+  // FR-FEX-027 AC-1: the one selected file, when its name is an archive's.
+  const selectedArchive = (): string | null => {
+    const paths = selectedPaths();
+    const path = menu?.target === 'item' && menu.path && !menu.isDir && paths.length <= 1 ? menu.path : paths.length === 1 ? paths[0] : null;
+    if (path === null || !isExtractableArchive(lastSegment(path))) return null;
+    return menu?.path === path || entryTypeOf(path) === 'file' ? path : null;
+  };
+  const startExtract = (mode: ExtractMode) => {
+    const archive = selectedArchive();
+    if (archive === null || transfer === undefined) return;
+    transfer.onExtractStart?.();
+    runExtract({ sessionId, archive, mode }, {
+      precount: fileTransferApi.extractPrecount,
+      confirm: transfer.confirmExtract,
+      submit: (request) => jobClient.submit(request),
+    }).catch((error: unknown) => showError(t('fileTransfer.extract.failed', { message: messageOf(error) })));
+  };
+
   const menuHandlers: FileExplorerMenuHandlers = {
     open: () => {
       if (menu?.path) onOpenFile(menu.path);
@@ -237,6 +262,9 @@ export function useFileTreeOperations({
       startFileDownload(sessionId, single)
         .catch((error: unknown) => showError(t('fileOps.error.download', { message: messageOf(error) })));
     },
+    // FR-FEX-027 AC-2/AC-3: next to the one archive selected.
+    extract: () => startExtract('smart'),
+    extractHere: () => startExtract('here'),
     // FR-FEX-022 AC-2: into the directory the menu was opened on, else the folder on screen.
     upload: () => {
       transfer?.onUpload(targetDirectory, false);
@@ -290,6 +318,7 @@ export function useFileTreeOperations({
     folderUploadSupported: transfer?.folderUploadSupported ?? false,
     zipDownload: transfer !== undefined,
     uploadTargetName: menu.target === 'item' && menu.isDir && menu.path !== null ? lastSegment(menu.path) : null,
+    archiveSelected: selectedArchive() !== null,
   }, menuHandlers);
 
   const runShortcut = (action: FileTreeShortcutAction) => {

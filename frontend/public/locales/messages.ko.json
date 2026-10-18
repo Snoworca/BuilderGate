@@ -1173,5 +1173,19 @@
   "apiError.INVALID_UPLOAD_PATH": "올릴 경로가 올바른 상대 경로가 아닙니다.",
   "apiError.UPLOAD_BUSY": "이 세션에서 진행 중인 업로드가 너무 많습니다.",
   "apiError.ZIP_JOB_NOT_FOUND": "ZIP 다운로드 작업을 찾을 수 없습니다.",
-  "fileTransfer.reason.unsure": "연결이 끊겼습니다 · 재시도"
+  "fileTransfer.reason.unsure": "연결이 끊겼습니다 · 재시도",
+  "fileExplorer.menu.extract": "압축 풀기",
+  "fileExplorer.menu.extractHere": "여기에 풀기",
+  "fileExplorer.job.extractTo": "압축 풀기 → {folder}",
+  "fileExplorer.job.extractProgress": "압축 풀기 → {folder} · {done}/{total}",
+  "fileExplorer.job.extractBand": "{folder} 에 푸는 중 · {done}/{total}",
+  "fileTransfer.toast.extracted.other": "{count}개 항목을 '{folder}' 폴더에 풀었습니다",
+  "fileTransfer.extract.confirm": "{size} · {count} → {folder}",
+  "fileTransfer.extract.confirmCount.other": "{count}개",
+  "fileTransfer.extract.detail": "큰 압축 파일입니다 · 푸는 데 시간이 걸릴 수 있습니다",
+  "fileTransfer.extract.get": "풀기",
+  "fileTransfer.extract.failed": "압축을 풀지 못했습니다: {message}",
+  "apiError.ARCHIVE_TOO_LARGE": "압축 파일이 풀기 한도보다 큽니다.",
+  "apiError.ARCHIVE_UNSUPPORTED": "풀 수 없는 압축 파일입니다(암호화 또는 분할).",
+  "apiError.ARCHIVE_CORRUPT": "압축 파일이 손상되었습니다."
 }

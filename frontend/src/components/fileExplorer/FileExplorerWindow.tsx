@@ -33,6 +33,7 @@
 // @req FR-FEX-024
 // @req FR-FEX-025
 // @req FR-FEX-026
+// @req FR-FEX-027
 //
 // Uploads and ZIP downloads (#139) start here — the path bar, the menu, the phone bar and an
 // operating-system drop on the rows — and run in fileTransferRuntime, which outlives the panel
@@ -69,6 +70,7 @@ import { FileExplorerSelectionBand, FileExplorerUploadBand } from './FileExplore
 import { FileExplorerMoreSheet } from './FileExplorerMoreSheet.tsx';
 import { FileExplorerDropChip, FileExplorerPendingRows, FileExplorerToast, type DropChipTarget, type FileExplorerToastState } from './FileExplorerTransferChrome.tsx';
 import { buildMobileMoreSheet, mobileSheetTitle } from './fileExplorerContextMenu.ts';
+import { describeExtractDone, isExtractableArchive, subscribeExtractFinished, type ExtractPrecount } from './fileExtract.ts';
 import { rootLabel } from './fileExplorerPathBarModel.ts';
 import { readDroppedSources, readPickedSources } from './fileDropEntries.ts';
 import type { UploadSource } from './fileUploadController.ts';
@@ -103,6 +105,7 @@ import { routeFileJobMessage } from './fileJobEvents.ts';
 import {
   dispatchFileJob,
   getFileJobSnapshot,
+  jobFailureMessage,
   selectPendingDecisionsForWindow,
   selectWindowFailures,
   subscribeFileJobs,
@@ -339,6 +342,17 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     }).catch((error: unknown) => showError(t('fileTransfer.zip.failed', { message: messageOf(error) })));
   };
 
+  // FR-FEX-027 AC-5: a large archive waits for 풀기 on the confirm row; nothing is written before.
+  const confirmExtract = (summary: ExtractPrecount & { destPath: string }) => askChoice(
+    t('fileTransfer.extract.confirm', {
+      size: formatTransferBytes(summary.totalBytes),
+      count: tn('fileTransfer.extract.confirmCount', summary.entryCount),
+      folder: rootLabel(summary.destPath),
+    }),
+    t('fileTransfer.extract.detail'),
+    [{ id: 'cancel', label: t('common.cancel') }, { id: 'get', label: t('fileTransfer.extract.get'), primary: true }],
+  ).then((choice) => choice === 'get');
+
   // The file operations are shared with the editor's tree pane. The job each
   // one submits is recorded in the store under this window's workspace; the
   // delete is asked in the window's modal, a folder name in the confirm row.
@@ -354,7 +368,13 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     onNewTab: (path) => actions.addTab(workspaceId, path),
     onShowInfo: (path) => setInfoPath(path),
     origin: { workspaceId, tabId: tab.id },
-    transfer: { onUpload: openPicker, onDownloadZip: downloadZip, folderUploadSupported },
+    transfer: {
+      onUpload: openPicker,
+      onDownloadZip: downloadZip,
+      folderUploadSupported,
+      confirmExtract,
+      onExtractStart: () => { userMovedRef.current = false; },
+    },
   });
   // FR-FEX-014: the type-to-filter text. It belongs to one directory view, so it clears
   // whenever the listed root changes.
@@ -454,7 +474,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
 
   // FR-FEX-024 AC-2/AC-7: a finished upload reloads every view of its folder; the tab that
   // started it also highlights what arrived, follows it unless the user moved, and toasts.
-  const arrivalRef = useRef<{ names: readonly string[]; scroll: boolean } | null>(null);
+  // `select` also selects the first of them (FR-FEX-027 AC-6).
+  const arrivalRef = useRef<{ names: readonly string[]; scroll: boolean; select?: boolean } | null>(null);
   // Marked programmatic like the restore's scroll, so following an arrival saves no anchor of the user's.
   const revealRow = useCallback((row: Element) => {
     programmaticScrollRef.current = true;
@@ -485,6 +506,21 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       ...(names.length > 0 ? { actionLabel: t('fileTransfer.toast.view'), onAction: () => scrollToNames(names) } : {}),
     });
   }), [applyJobDone, scrollToNames, showToast, tab.id, tab.sessionId]);
+  // FR-FEX-027 AC-6: an extraction this tab started selects what it made, says how many, and
+  // lists what it skipped. The listing itself reloads on the job's done like any job's.
+  useEffect(() => subscribeExtractFinished((event) => {
+    if (event.tabId !== tab.id || event.sessionId !== tab.sessionId) return;
+    const view = describeExtractDone(event);
+    if (view.skipped.length > 0) void notifyRejected(view.skipped);
+    if (event.outcome !== 'completed') return;
+    const moved = decideArrivalScroll({ userSelected: userMovedRef.current, userScrolled: userMovedRef.current }) !== 'scroll';
+    const names = view.select === null ? [] : [view.select];
+    if (names.length > 0) arrivalRef.current = { names, scroll: !moved, select: !moved };
+    showToast({
+      message: view.toast,
+      ...(names.length > 0 ? { actionLabel: t('fileTransfer.toast.view'), onAction: () => scrollToNames(names) } : {}),
+    });
+  }), [notifyRejected, scrollToNames, showToast, tab.id, tab.sessionId]);
   // Runs after each render until the reloaded listing has drawn the rows that arrived.
   useLayoutEffect(() => {
     const pending = arrivalRef.current;
@@ -497,6 +533,12 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     arrivalRef.current = null;
     for (const row of rows) row.classList.add('fx-arrived');
     if (pending.scroll) revealRow(rows[rows.length - 1]);
+    const first = rows[0];
+    if (pending.select === true && first.dataset.path !== undefined) {
+      // As a plain click on the row would.
+      const pointer = decideRowPointer({ button: 0, ctrlKey: false, metaKey: false, shiftKey: false, isSelected: false });
+      if (pointer.type === 'select') tree.dispatch({ type: 'CLICK_ROW', path: first.dataset.path, mods: pointer.mods, orderedPaths: [first.dataset.path] });
+    }
     setTimeout(() => { for (const row of rows) row.classList.remove('fx-arrived'); }, ARRIVAL_HIGHLIGHT_MS);
   });
 
@@ -604,9 +646,12 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     more: () => setSheetOpen(true),
   };
   const [firstSelected] = state.selectedPaths;
+  const archiveSelected = singleSelectedType === 'file' && firstSelected !== undefined && isExtractableArchive(lastSegment(firstSelected));
   const sheetEntries = sheetOpen
-    ? buildMobileMoreSheet({ count: selectionCount, isDir: singleSelectedType === 'directory', clipboardEmpty: clipboard === null, folderUploadSupported }, {
+    ? buildMobileMoreSheet({ count: selectionCount, isDir: singleSelectedType === 'directory', clipboardEmpty: clipboard === null, folderUploadSupported, archiveSelected }, {
       download: ops.menuHandlers.download,
+      extract: ops.menuHandlers.extract ?? (() => {}),
+      extractHere: ops.menuHandlers.extractHere ?? (() => {}),
       upload: () => openPicker(state.root, false),
       uploadFolder: () => openPicker(state.root, true),
       copy: ops.menuHandlers.copy,
@@ -1017,7 +1062,7 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
   // panel actually showed it.
   useEffect(() => {
     for (const failure of jobFailures) {
-      const shown = showJobError(failure.errorCode ? t('fileExplorer.job.failedWithCode', { code: failure.errorCode }) : t('fileExplorer.job.failed'), failure.tabId);
+      const shown = showJobError(jobFailureMessage(failure.errorCode), failure.tabId);
       if (shown) dispatchFileJob({ type: 'FAILURE_SHOWN', jobId: failure.jobId });
     }
   }, [jobFailures, showJobError]);

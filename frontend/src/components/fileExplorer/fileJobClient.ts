@@ -23,8 +23,9 @@ import {
 } from './fileExplorerClipboard.ts';
 import type { ConfirmPort, FileJobChoice } from './fileExplorerPorts.ts';
 import { isAbsolutePathSyntax } from './fileTreeState.ts';
+import type { ExtractJobRequest } from './fileExtract.ts';
 
-export type FileJobRequest = PasteJobRequest | DeleteJobRequest;
+export type FileJobRequest = PasteJobRequest | DeleteJobRequest | ExtractJobRequest;
 
 export interface FileJobDecision {
   decisionId: string;

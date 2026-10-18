@@ -2,6 +2,7 @@
 // — count, 여러 개 선택, 전체 선택, close — and, while an upload of this window runs, the progress
 // band, whose tap opens the job popover and whose 44 px button cancels the upload.
 // @req FR-FEX-026
+// @req FR-FEX-027
 
 import { t } from '../../i18n/i18n.ts';
 import { useMemo, useSyncExternalStore } from 'react';
@@ -9,6 +10,8 @@ import { IconButton } from '../common';
 import { openFileJobPopover } from './fileJobPopoverState.ts';
 import { cancelFileTransfer } from './fileTransferRuntime.ts';
 import { getFileTransferSnapshot, selectMobileUploadBand, subscribeFileTransfers } from './fileTransferStore.ts';
+import { getFileJobSnapshot, selectExtractBand, subscribeFileJobs } from './fileJobStore.ts';
+import { fileJobApi } from '../../services/api.ts';
 import { selectionBandText } from './fileTransferModel.ts';
 
 export interface FileExplorerSelectionBandProps {
@@ -42,7 +45,20 @@ export function FileExplorerSelectionBand({ count, multiSelect, onToggleMultiSel
 /** @req FR-FEX-026 */
 export function FileExplorerUploadBand({ workspaceId }: { workspaceId: string }) {
   const snapshot = useSyncExternalStore(subscribeFileTransfers, getFileTransferSnapshot);
-  const band = useMemo(() => selectMobileUploadBand(snapshot, workspaceId), [snapshot, workspaceId]);
+  const jobs = useSyncExternalStore(subscribeFileJobs, getFileJobSnapshot);
+  // An upload of this window first; else its extraction (FR-FEX-027 AC-5), which the server cancels.
+  const band = useMemo(() => {
+    const upload = selectMobileUploadBand(snapshot, workspaceId);
+    if (upload !== null) return { ...upload, cancel: () => cancelFileTransfer(upload.jobId) };
+    const extract = selectExtractBand(jobs, workspaceId);
+    if (extract === null) return null;
+    return {
+      ...extract,
+      cancel: () => {
+        fileJobApi.cancel(extract.jobId).catch((error: unknown) => console.warn('[file-job] cancel failed', extract.jobId, error));
+      },
+    };
+  }, [jobs, snapshot, workspaceId]);
   if (band === null) return null;
   const percent = Math.round(band.fraction * 100);
   return (
@@ -56,7 +72,7 @@ export function FileExplorerUploadBand({ workspaceId }: { workspaceId: string })
           <i className="fx-job-bar-fill" style={{ width: `${percent}%` }} />
         </span>
       </button>
-      <IconButton icon="close" className="fx-mobile-band-cancel" label={t('fileTransfer.band.cancel')} onClick={() => cancelFileTransfer(band.jobId)} />
+      <IconButton icon="close" className="fx-mobile-band-cancel" label={t('fileTransfer.band.cancel')} onClick={band.cancel} />
     </div>
   );
 }
