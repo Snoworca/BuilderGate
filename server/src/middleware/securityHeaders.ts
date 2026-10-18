@@ -43,7 +43,10 @@ export function createSecurityHeadersMiddleware(
     fontSrc: ["'self'"],
     objectSrc: ["'none'"],
     mediaSrc: ["'none'"],
-    frameSrc: ["'none'"],
+    // SEC-MDE-002 AC-3: the HTML viewer frames /api/html-view/... (same origin, itself sandboxed
+    // to an opaque origin by its own CSP). Nothing else on the origin may be framed: the view route
+    // replaces frame-ancestors for its own responses only.
+    frameSrc: ["'self'"],
     frameAncestors: ["'none'"],               // Clickjacking prevention
     formAction: ["'self'"],
     baseUri: ["'self'"],

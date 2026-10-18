@@ -86,6 +86,8 @@ test('IR-MCP-006 AC-3: server/discover advertises versions, capabilities and ide
   // FR-MCP-012 AC-8
   assert.match(String(result.instructions), /buildergate\.editor\.open_markdown shows the user a markdown file or markdown text/);
   assert.match(String(result.instructions), /open_code and buildergate\.editor\.open_image open saved files/);
+  // FR-MCP-013 AC-3
+  assert.match(String(result.instructions), /buildergate\.editor\.open_html shows the user an HTML file or HTML text/);
   assert.equal(typeof result.ttlMs, 'number');
   assert.ok(['public', 'private'].includes(String(result.cacheScope)));
   assert.equal(response.headers['mcp-session-id'], undefined, 'no session is minted');

@@ -618,6 +618,34 @@ export class FileService {
     return { path: info.path, name: path.basename(info.path), size: stat.size };
   }
 
+  /**
+   * SEC-MDE-002 AC-2: a file the HTML view route may serve: under `root` (the session folder fixed
+   * when the token was issued), not a blocked path or extension, no link leaving the root, a regular
+   * file. A name Win32 would read as another file (a trailing dot or space, a ':' stream) is refused
+   * on every host. Missing files and folders are PATH_NOT_FOUND; there is no listing.
+   */
+  async resolveHtmlViewFile(sessionId: string, root: string, relativePath: string): Promise<{ path: string; size: number }> {
+    this.assertSessionExists(sessionId);
+    if (relativePath.includes('\u0000') || relativePath.includes(':')) throw new AppError(ErrorCode.PATH_TRAVERSAL);
+    const segments = relativePath.split(/[\\/]/).filter((s) => s !== '');
+    if (segments.some((s) => s !== '.' && s !== '..' && /[. ]$/.test(s))) throw new AppError(ErrorCode.PATH_BLOCKED);
+    if (segments.length === 0) throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    const resolved = await resolveAndValidate(root, segments.join('/'), this.config.blockedPaths);
+    if (isBlockedExtension(path.extname(resolved).toLowerCase(), this.config.blockedExtensions)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
+    }
+    const stat = await fs.stat(resolved).catch(() => null);
+    if (stat === null || !stat.isFile()) throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    return { path: resolved, size: stat.size };
+  }
+
+  /** SEC-MDE-002 AC-1: the session folder's real path, fixed in an HTML view token. */
+  async realCwd(sessionId: string): Promise<string> {
+    this.assertSessionExists(sessionId);
+    const cwd = await this.getCwd(sessionId);
+    return fs.realpath(cwd).catch(() => cwd);
+  }
+
   /** FR-MCP-012 AC-2: writeFile that first creates the missing parent directories. */
   async writeFileCreatingDirectories(sessionId: string, filePath: string, content: string): Promise<string> {
     const { path: resolved } = await this.inspectPath(sessionId, filePath);

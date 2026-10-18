@@ -51,13 +51,18 @@ export interface McpEditorFileInfo {
   isFile: boolean;
 }
 
-export type McpEditorKind = 'markdown' | 'code' | 'image';
+export type McpEditorKind = 'markdown' | 'code' | 'image' | 'html';
+
+/** FR-MCP-013: how an HTML file opens. */
+export type McpHtmlView = 'rendered' | 'source';
 
 export interface McpEditorOpenRequest {
   workspaceId: string;
   terminalId: string;
   filePath: string;
   kind: McpEditorKind;
+  /** FR-MCP-013 AC-1: only for kind html. */
+  view?: McpHtmlView;
 }
 
 export interface McpManagementDeps {
@@ -80,6 +85,7 @@ export const MCP_MANAGEMENT_TOOL_NAMES = [
   'buildergate.editor.open_markdown',
   'buildergate.editor.open_code',
   'buildergate.editor.open_image',
+  'buildergate.editor.open_html',
 ] as const;
 
 export type McpManagementToolName = typeof MCP_MANAGEMENT_TOOL_NAMES[number];
@@ -106,6 +112,8 @@ const editorTarget = {
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown']);
 // The extensions the editor opens in the image viewer (frontend/src/editor/editorMode.ts).
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.avif', '.svg']);
+const HTML_EXTENSIONS = new Set(['.html', '.htm']);
+const HTML_VIEWS: readonly McpHtmlView[] = ['rendered', 'source'];
 const MCP_DOCS_DIR = '.buildergate/mcp-docs';
 
 export const MCP_MANAGEMENT_TOOL_SCHEMAS: Record<McpManagementToolName, Rec> = {
@@ -200,6 +208,19 @@ export const MCP_MANAGEMENT_TOOL_SCHEMAS: Record<McpManagementToolName, Rec> = {
     required: ['filePath'],
     additionalProperties: false,
   },
+  // FR-MCP-013
+  'buildergate.editor.open_html': {
+    type: 'object',
+    properties: {
+      ...editorTarget,
+      filePath: { type: 'string', description: 'A .html or .htm file, absolute or relative to the terminal\'s working directory. Without html it must exist.' },
+      html: { type: 'string', description: 'HTML text to save and open. Saved to filePath, or without filePath to a new file under .buildergate/mcp-docs/. Relative URLs in it resolve against that file\'s folder.' },
+      title: { type: 'string', description: 'With html and no filePath: added to the new file name.' },
+      overwrite: { type: 'boolean', description: 'With html and filePath: replace an existing file. Default false.' },
+      view: { type: 'string', enum: ['rendered', 'source'], description: 'Show the rendered page (default) or the HTML source.' },
+    },
+    additionalProperties: false,
+  },
 };
 
 export const MCP_MANAGEMENT_TOOL_DESCRIPTIONS: Record<McpManagementToolName, string> = {
@@ -215,6 +236,7 @@ export const MCP_MANAGEMENT_TOOL_DESCRIPTIONS: Record<McpManagementToolName, str
   'buildergate.editor.open_markdown': 'Open a markdown file in the BuilderGate editor window, or save the given markdown text to a file and open it.',
   'buildergate.editor.open_code': 'Open a saved source or text file in the BuilderGate editor window.',
   'buildergate.editor.open_image': 'Open a saved image file in the BuilderGate image viewer.',
+  'buildergate.editor.open_html': 'Open an HTML file in the BuilderGate editor window as a rendered page (sandboxed) or as source, or save the given HTML text to a file and open it.',
 };
 
 const REQUIRED_SCOPE: Record<McpManagementToolName, string> = {
@@ -233,6 +255,8 @@ const REQUIRED_SCOPE: Record<McpManagementToolName, string> = {
   'buildergate.editor.open_markdown': 'mcp:editor.open',
   'buildergate.editor.open_code': 'mcp:editor.open',
   'buildergate.editor.open_image': 'mcp:editor.open',
+  // FR-MCP-013 AC-3
+  'buildergate.editor.open_html': 'mcp:editor.open',
 };
 
 export function isMcpManagementTool(name: string): name is McpManagementToolName {
@@ -345,6 +369,7 @@ async function dispatch(
     case 'buildergate.editor.open_markdown':
     case 'buildergate.editor.open_code':
     case 'buildergate.editor.open_image':
+    case 'buildergate.editor.open_html':
       return openInEditor(deps, control, name, workspaces, terminals, actor, args);
   }
 }
@@ -353,24 +378,35 @@ async function dispatch(
 async function openInEditor(
   deps: McpManagementDeps,
   control: McpWorkspaceControl,
-  name: 'buildergate.editor.open_markdown' | 'buildergate.editor.open_code' | 'buildergate.editor.open_image',
+  name: 'buildergate.editor.open_markdown' | 'buildergate.editor.open_code' | 'buildergate.editor.open_image' | 'buildergate.editor.open_html',
   workspaces: McpWorkspaceView[],
   terminals: McpTerminalView[],
   actor: Rec,
   args: Rec,
 ): Promise<Rec> {
   const kind: McpEditorKind = name === 'buildergate.editor.open_markdown' ? 'markdown'
-    : name === 'buildergate.editor.open_code' ? 'code' : 'image';
+    : name === 'buildergate.editor.open_code' ? 'code'
+      : name === 'buildergate.editor.open_html' ? 'html' : 'image';
   const target = resolveEditorTerminal(workspaces, terminals, actor, args);
   if (!target.ok) return target.error;
   const terminal = target.terminal;
   const filePath = optionalString(args.filePath);
-  const content = typeof args.content === 'string' ? args.content : undefined;
+  // FR-MCP-013 AC-2: open_html takes its text as html; open_markdown as content.
+  const textField = kind === 'html' ? 'html' : 'content';
+  const content = typeof args[textField] === 'string' ? args[textField] as string : undefined;
 
-  if (kind !== 'markdown' && content !== undefined) {
+  if (kind === 'html' && args.content !== undefined) {
+    return validation({ content: 'buildergate.editor.open_html takes the HTML text as html' });
+  }
+  if (kind !== 'markdown' && kind !== 'html' && content !== undefined) {
     return validation({ content: 'only buildergate.editor.open_markdown accepts content; save the file first' });
   }
-  if (!filePath && content === undefined) return validation({ filePath: 'filePath or content is required' });
+  if (!filePath && content === undefined) return validation({ filePath: `filePath or ${textField} is required` });
+  let view: McpHtmlView | undefined;
+  if (kind === 'html') {
+    if (args.view !== undefined && !HTML_VIEWS.includes(args.view as McpHtmlView)) return validation({ view: 'must be rendered or source' });
+    view = (args.view as McpHtmlView | undefined) ?? 'rendered';
+  }
   if (filePath) {
     const extError = checkExtension(kind, filePath);
     if (extError) return extError;
@@ -379,7 +415,8 @@ async function openInEditor(
   let openPath: string;
   let created = false;
   if (content !== undefined) {
-    const destination = filePath ?? `${MCP_DOCS_DIR}/${docFileName(deps.now?.() ?? new Date().toISOString(), optionalString(args.title))}`;
+    const extension = kind === 'html' ? '.html' : '.md';
+    const destination = filePath ?? `${MCP_DOCS_DIR}/${docFileName(deps.now?.() ?? new Date().toISOString(), optionalString(args.title), extension)}`;
     const info = await control.inspectEditorFile(terminal.sessionId, destination);
     if (info.exists && !info.isFile) return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: { filePath: 'is a directory' } };
     if (info.exists && args.overwrite !== true) {
@@ -393,6 +430,10 @@ async function openInEditor(
     openPath = info.path;
   }
 
+  if (view !== undefined) {
+    control.openEditor({ workspaceId: terminal.workspaceId, terminalId: terminal.id, filePath: openPath, kind, view });
+    return { ok: true, terminalId: terminal.id, workspaceId: terminal.workspaceId, filePath: openPath, kind, view, created };
+  }
   control.openEditor({ workspaceId: terminal.workspaceId, terminalId: terminal.id, filePath: openPath, kind });
   return { ok: true, terminalId: terminal.id, workspaceId: terminal.workspaceId, filePath: openPath, kind, created };
 }
@@ -411,6 +452,9 @@ function checkExtension(kind: McpEditorKind, filePath: string): Rec | null {
   if (kind === 'code' && IMAGE_EXTENSIONS.has(ext)) {
     return validation({ filePath: 'is an image; use buildergate.editor.open_image' });
   }
+  if (kind === 'html' && !HTML_EXTENSIONS.has(ext)) {
+    return validation({ filePath: 'must be a .html or .htm file' });
+  }
   if (kind === 'image' && !IMAGE_EXTENSIONS.has(ext)) {
     return validation({ filePath: `must be an image (${[...IMAGE_EXTENSIONS].join(', ')})` });
   }
@@ -418,7 +462,7 @@ function checkExtension(kind: McpEditorKind, filePath: string): Rec | null {
 }
 
 /** yyyyMMdd-HHmmss in local time, then the title as a slug. */
-function docFileName(iso: string, title: string | undefined): string {
+function docFileName(iso: string, title: string | undefined, extension = '.md'): string {
   const parsed = new Date(iso);
   const d = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -430,7 +474,7 @@ function docFileName(iso: string, title: string | undefined): string {
     .replace(/^-+|-+$/gu, '')
     .slice(0, 48)
     .replace(/-+$/u, '');
-  return slug ? `${stamp}-${slug}.md` : `${stamp}.md`;
+  return slug ? `${stamp}-${slug}${extension}` : `${stamp}${extension}`;
 }
 
 /**

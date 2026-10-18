@@ -24,6 +24,8 @@ import { createUploadRoutes } from './routes/uploadRoutes.js';
 import { createRequestBodyDeadline } from './middleware/requestBodyDeadline.js';
 import { createZipRoutes } from './routes/zipRoutes.js';
 import { createArchiveRoutes } from './routes/archiveRoutes.js';
+import { createHtmlViewRoutes } from './routes/htmlViewRoutes.js';
+import { HtmlViewTokenStore } from './services/HtmlViewTokenStore.js';
 import { ZipArchiveService } from './services/ZipArchiveService.js';
 import { UploadTempRegistry } from './services/upload/uploadTemp.js';
 import { createFileJobRoutes } from './routes/fileJobRoutes.js';
@@ -600,7 +602,8 @@ app.use(createSecurityHeadersMiddleware({
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'none'"],
-      frameSrc: ["'none'"],
+      // SEC-MDE-002 AC-3: the HTML viewer's iframe (see securityHeaders.ts).
+      frameSrc: ["'self'"],
       frameAncestors: ["'none'"],
       formAction: ["'self'"],
       baseUri: ["'self'"],
@@ -1200,6 +1203,11 @@ function setupRoutes(): void {
   app.use('/api/sessions', authMiddleware, createUploadRoutes(fileService, { registry: uploadTempRegistry }));
   // FR-FOP-007, FR-FEX-027 AC-5: the extraction pre-count; the extraction itself is a file job.
   app.use('/api/sessions', authMiddleware, createArchiveRoutes(fileService));
+  // SEC-MDE-002: the HTML viewer. Tokens are issued behind the JWT; the view route serves the
+  // session folder by token alone and replaces the security headers with its sandbox policy.
+  const htmlViewRoutes = createHtmlViewRoutes(fileService, new HtmlViewTokenStore(), { auth: authMiddleware });
+  app.use('/api/sessions', authMiddleware, htmlViewRoutes.sessionRouter);
+  app.use('/api/html-view', htmlViewRoutes.viewRouter);
 
   // File job routes (auth required) — 복사·이동·삭제 작업. 진행은 WebSocket 세션 방송으로 간다.
   app.use('/api/file-jobs', authMiddleware, createFileJobRoutes(fileJobManager, fileJobPathPolicy));

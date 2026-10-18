@@ -68,6 +68,8 @@ export enum ErrorCode {
   ARCHIVE_TOO_LARGE = 'ARCHIVE_TOO_LARGE',
   ARCHIVE_UNSUPPORTED = 'ARCHIVE_UNSUPPORTED',
   ARCHIVE_CORRUPT = 'ARCHIVE_CORRUPT',
+  // SEC-MDE-002: HTML view
+  HTML_VIEW_TOKEN_INVALID = 'HTML_VIEW_TOKEN_INVALID',
 
   // Server Errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -151,6 +153,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.ARCHIVE_TOO_LARGE]: 'The archive is larger than the extraction limits',
   [ErrorCode.ARCHIVE_UNSUPPORTED]: 'The archive cannot be extracted',
   [ErrorCode.ARCHIVE_CORRUPT]: 'The archive is damaged',
+  [ErrorCode.HTML_VIEW_TOKEN_INVALID]: 'The page link is invalid or expired',
 
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
   [ErrorCode.ENCRYPTION_ERROR]: 'Encryption failed',
@@ -230,6 +233,7 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.ARCHIVE_TOO_LARGE]: 413,
   [ErrorCode.ARCHIVE_UNSUPPORTED]: 415,
   [ErrorCode.ARCHIVE_CORRUPT]: 422,
+  [ErrorCode.HTML_VIEW_TOKEN_INVALID]: 404,
 
   [ErrorCode.INTERNAL_ERROR]: 500,
   [ErrorCode.ENCRYPTION_ERROR]: 500,

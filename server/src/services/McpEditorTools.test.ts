@@ -37,8 +37,11 @@ function createFakeControl() {
     ['/w/img/logo.png', 'PNG'],
     ['/w/img/icon.SVG', '<svg/>'],
     ['/d/guide.md', '# guide'],
+    ['/w/site/index.html', '<p>hi</p>'],
+    ['/w/page.HTM', '<p>old</p>'],
+    ['/d/report.html', '<p>d</p>'],
   ]);
-  const dirs = new Set(['/w', '/w/src', '/w/img', '/w/docs.md', '/d']);
+  const dirs = new Set(['/w', '/w/src', '/w/img', '/w/docs.md', '/w/site', '/w/folder.html', '/d']);
   const opened: McpEditorOpenRequest[] = [];
   const writes: Rec[] = [];
   const resolve = (sessionId: string, filePath: string): string => {
@@ -90,6 +93,7 @@ function setup(scopes: string[] = getFixedMcpAccessKeyScopes(), actorExtra: Rec 
 const MD = 'buildergate.editor.open_markdown';
 const CODE = 'buildergate.editor.open_code';
 const IMAGE = 'buildergate.editor.open_image';
+const HTML = 'buildergate.editor.open_html';
 
 test('FR-MCP-012 AC-1: open_markdown opens an existing markdown file', async () => {
   const { call, opened, writes } = setup();
@@ -216,4 +220,77 @@ test('FR-MCP-012 AC-8: tools/list advertises the editor tools with schemas', () 
     assert.equal((tool.inputSchema as Rec).additionalProperties, false, name);
     assert.ok(String(tool.description).length > 10, name);
   }
+});
+
+test('FR-MCP-013 AC-1: open_html opens an existing .html or .htm file, rendered by default or as source', async () => {
+  const { call, opened, writes } = setup();
+  const result = await call(HTML, { terminalId: 'tab-1', filePath: 'site/index.html' });
+  assert.deepEqual(result, {
+    ok: true, terminalId: 'tab-1', workspaceId: 'ws-1', filePath: '/w/site/index.html', kind: 'html', view: 'rendered', created: false,
+  });
+  const source = await call(HTML, { terminalId: 'tab-1', filePath: '/w/page.HTM', view: 'source' });
+  assert.equal(source.ok, true, JSON.stringify(source));
+  assert.equal(source.view, 'source');
+  assert.deepEqual(opened, [
+    { workspaceId: 'ws-1', terminalId: 'tab-1', filePath: '/w/site/index.html', kind: 'html', view: 'rendered' },
+    { workspaceId: 'ws-1', terminalId: 'tab-1', filePath: '/w/page.HTM', kind: 'html', view: 'source' },
+  ]);
+  assert.deepEqual(writes, []);
+});
+
+test('FR-MCP-013 AC-1: open_html refuses a missing file, another extension, a folder and an unknown view', async () => {
+  const { call, opened } = setup();
+  assert.equal((await call(HTML, { terminalId: 'tab-1', filePath: 'site/missing.html' })).code, 'FILE_NOT_FOUND');
+  assert.equal((await call(HTML, { terminalId: 'tab-1', filePath: 'folder.html' })).code, 'FILE_NOT_FOUND', 'a directory is not a file');
+  assert.equal((await call(HTML, { terminalId: 'tab-1', filePath: 'README.md' })).code, 'VALIDATION_ERROR');
+  assert.equal((await call(HTML, { terminalId: 'tab-1', filePath: 'site/index.html', view: 'raw' })).code, 'VALIDATION_ERROR');
+  assert.equal((await call(HTML, { terminalId: 'tab-1' })).code, 'VALIDATION_ERROR', 'filePath or html is required');
+  assert.equal((await call(HTML, { terminalId: 'tab-1', filePath: 'x.html', content: 'x' })).code, 'VALIDATION_ERROR', 'the text goes in html, not content');
+  assert.deepEqual(opened, []);
+});
+
+test('FR-MCP-013 AC-2: html text is saved under .buildergate/mcp-docs or to filePath and opened as created', async () => {
+  const { call, opened, writes, files } = setup();
+  const result = await call(HTML, { terminalId: 'tab-1', html: '<h1>Report</h1>', title: 'Weekly Report' });
+  const expected = `/w/.buildergate/mcp-docs/${stamp(NOW)}-weekly-report.html`;
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.filePath, expected);
+  assert.equal(result.created, true);
+  assert.equal(result.kind, 'html');
+  assert.deepEqual(writes, [{ sessionId: 's-1', path: expected, content: '<h1>Report</h1>' }]);
+  assert.deepEqual(opened, [{ workspaceId: 'ws-1', terminalId: 'tab-1', filePath: expected, kind: 'html', view: 'rendered' }]);
+  assert.equal((await setup().call(HTML, { terminalId: 'tab-1', html: 'x' })).filePath, `/w/.buildergate/mcp-docs/${stamp(NOW)}.html`);
+
+  const clash = await call(HTML, { terminalId: 'tab-1', filePath: 'page.HTM', html: 'gone' });
+  assert.equal(clash.code, 'FILE_EXISTS');
+  assert.equal(files.get('/w/page.HTM'), '<p>old</p>');
+  const over = await call(HTML, { terminalId: 'tab-1', filePath: 'page.HTM', html: '<p>new</p>', overwrite: true, view: 'source' });
+  assert.equal(over.ok, true);
+  assert.equal(over.view, 'source');
+  assert.equal(files.get('/w/page.HTM'), '<p>new</p>');
+  assert.equal((await call(HTML, { terminalId: 'tab-1', filePath: 'a.txt', html: 'x' })).code, 'VALIDATION_ERROR');
+});
+
+test('FR-MCP-013 AC-3: open_html follows the editor tools for paths, terminals, scope and tools/list', async () => {
+  const fixed = setup();
+  assert.equal((await fixed.call(HTML, { terminalId: 'tab-1', filePath: '../etc/x.html' })).code, 'PATH_TRAVERSAL');
+  assert.equal((await fixed.call(HTML, { terminalId: 'tab-1', filePath: '.ssh/x.html' })).code, 'PATH_BLOCKED');
+  assert.equal((await fixed.call(HTML, { terminalId: 'tab-1', filePath: '../etc/x.html', html: 'x' })).code, 'PATH_TRAVERSAL');
+  assert.deepEqual(fixed.writes, []);
+
+  const own = setup(getDefaultMcpSessionScopes(), { type: 'mcp-session', sessionKey: 'k-2' });
+  const mine = await own.call(HTML, { filePath: 'report.html' });
+  assert.equal(mine.ok, true, JSON.stringify(mine));
+  assert.equal(mine.terminalId, 'tab-2');
+  assert.equal((await own.call(HTML, { terminalId: 'tab-1', filePath: 'site/index.html' })).code, 'INVALID_SCOPE');
+  assert.equal((await setup(['mcp:terminals.read']).call(HTML, { terminalId: 'tab-1', filePath: 'site/index.html' })).code, 'INVALID_SCOPE');
+
+  const tools = fixed.service.listTools().tools as Rec[];
+  const tool = tools.find((t) => t.name === HTML);
+  assert.ok(tool, 'tools/list names open_html');
+  const schema = tool!.inputSchema as Rec;
+  assert.deepEqual(Object.keys(schema.properties as Rec).sort(), ['filePath', 'html', 'overwrite', 'terminalId', 'terminalName', 'title', 'view', 'workspaceId', 'workspaceName']);
+  assert.deepEqual(((schema.properties as Rec).view as Rec).enum, ['rendered', 'source']);
+  assert.equal(schema.additionalProperties, false);
+  assert.ok(String(tool!.description).length > 10);
 });

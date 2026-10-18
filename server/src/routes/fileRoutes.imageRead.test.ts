@@ -235,7 +235,8 @@ test('securityHeaders 기본 CSP img-src 에 blob: 이 있고 나머지 지시�
       'font-src': ["'self'"],
       'object-src': ["'none'"],
       'media-src': ["'none'"],
-      'frame-src': ["'none'"],
+      // SEC-MDE-002 AC-3: the HTML viewer frames the same-origin, self-sandboxing view route.
+      'frame-src': ["'self'"],
       'frame-ancestors': ["'none'"],
       'form-action': ["'self'"],
       'base-uri': ["'self'"],
