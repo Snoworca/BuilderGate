@@ -18,6 +18,21 @@ export const HTML_VIEW_CSP = `${HTML_VIEW_SANDBOX}; frame-ancestors 'self'`;
 
 const HTML_EXTENSIONS = new Set(['.html', '.htm']);
 
+/** AC-6: the largest draft one PUT may carry. */
+export const HTML_VIEW_DRAFT_LIMIT = 10 * 1024 * 1024;
+const DRAFT_TYPES: ReadonlySet<string> = new Set(['text/plain', 'application/octet-stream', 'text/html']);
+
+const CASE_INSENSITIVE_FS = process.platform === 'win32' || process.platform === 'darwin';
+
+/** The requested path names the token's page (case-folded where the file system folds). */
+function samePagePath(requested: string, page: string): boolean {
+  const norm = (p: string): string => {
+    const joined = path.posix.normalize(p.split('/').filter((s) => s !== '').join('/'));
+    return CASE_INSENSITIVE_FS ? joined.toLowerCase() : joined;
+  };
+  return norm(requested) === norm(page);
+}
+
 // FR-MDE-028 AC-6: what a page commonly loads, typed so the browser uses it (nosniff is on).
 const CONTENT_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -116,7 +131,7 @@ export function createHtmlViewRoutes(fileService: FileService, store: HtmlViewTo
       const root = await fileService.realCwd(req.params.id);
       const relative = toPosix(path.relative(root, file.path));
       if (relative === '' || relative.startsWith('../') || path.isAbsolute(relative)) throw new AppError(ErrorCode.PATH_TRAVERSAL);
-      const token = store.issue({ sessionId: req.params.id, userId: userOf(req), root });
+      const token = store.issue({ sessionId: req.params.id, userId: userOf(req), root, filePath: relative });
       const folder = path.posix.dirname(relative);
       res.set('Cache-Control', 'no-store');
       res.json({
@@ -137,6 +152,67 @@ export function createHtmlViewRoutes(fileService: FileService, store: HtmlViewTo
     }
     res.set('Cache-Control', 'no-store');
     res.json({ entries: store.requests(req.params.token) });
+  });
+
+  // PUT /api/sessions/:id/files/html-view/:token/draft  (text/plain or application/octet-stream, UTF-8)
+  // AC-6: the editor's unsaved text, served in place of the file so it renders under this route's
+  // sandbox CSP rather than inheriting the application's (an iframe srcdoc would).
+  sessionRouter.put('/:id/files/html-view/:token/draft', async (req: Request<{ id: string; token: string }>, res: Response) => {
+    const refuse = (err: AppError): void => {
+      if (!req.complete) {
+        // The rest of the body is not wanted: drop it and close once the answer is out.
+        res.set('Connection', 'close');
+        req.resume();
+      }
+      sendError(res, err);
+    };
+    if (store.peek(req.params.token, req.params.id, userOf(req)) === null) {
+      refuse(new AppError(ErrorCode.HTML_VIEW_TOKEN_INVALID));
+      return;
+    }
+    const type = (req.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+    if (!DRAFT_TYPES.has(type)) {
+      refuse(new AppError(ErrorCode.UNSUPPORTED_MEDIA_TYPE, 'send the draft as text/plain or application/octet-stream'));
+      return;
+    }
+    const declared = Number(req.headers['content-length'] ?? NaN);
+    if (Number.isFinite(declared) && declared > HTML_VIEW_DRAFT_LIMIT) {
+      refuse(new AppError(ErrorCode.FILE_TOO_LARGE));
+      return;
+    }
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let tooLarge = false;
+    try {
+      for await (const chunk of req as AsyncIterable<Buffer>) {
+        size += chunk.length;
+        if (size > HTML_VIEW_DRAFT_LIMIT) {
+          tooLarge = true;
+          break;
+        }
+        chunks.push(chunk);
+      }
+    } catch {
+      return; // the client went away
+    }
+    if (tooLarge) {
+      refuse(new AppError(ErrorCode.FILE_TOO_LARGE));
+      return;
+    }
+    const body = Buffer.concat(chunks);
+    try {
+      new TextDecoder('utf-8', { fatal: true }).decode(body);
+    } catch {
+      sendError(res, new AppError(ErrorCode.INVALID_INPUT, 'the draft is not UTF-8 text'));
+      return;
+    }
+    const n = store.setDraft(req.params.token, req.params.id, userOf(req), body);
+    if (n === null) {
+      sendError(res, new AppError(ErrorCode.HTML_VIEW_TOKEN_INVALID));
+      return;
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json({ draft: n });
   });
 
   const viewRouter = Router();
@@ -169,6 +245,16 @@ export function createHtmlViewRoutes(fileService: FileService, store: HtmlViewTo
     }
     const logged = relative.replace(/\\/g, '/');
     const outcome = (result: HtmlViewResult): void => store.record(token, logged, result);
+
+    // AC-6: the page path with ?draft serves the latest draft; any other path stays a file.
+    const draft = req.query.draft !== undefined && samePagePath(logged, target.filePath) ? store.draft(token) : null;
+    if (draft !== null) {
+      outcome('loaded');
+      res.status(200);
+      res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': String(draft.body.length) });
+      res.end(req.method === 'HEAD' ? undefined : draft.body);
+      return;
+    }
     let file: { path: string; size: number };
     try {
       file = await fileService.resolveHtmlViewFile(target.sessionId, target.root, relative);

@@ -70,6 +70,7 @@ export enum ErrorCode {
   ARCHIVE_CORRUPT = 'ARCHIVE_CORRUPT',
   // SEC-MDE-002: HTML view
   HTML_VIEW_TOKEN_INVALID = 'HTML_VIEW_TOKEN_INVALID',
+  UNSUPPORTED_MEDIA_TYPE = 'UNSUPPORTED_MEDIA_TYPE',
 
   // Server Errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
@@ -154,6 +155,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.ARCHIVE_UNSUPPORTED]: 'The archive cannot be extracted',
   [ErrorCode.ARCHIVE_CORRUPT]: 'The archive is damaged',
   [ErrorCode.HTML_VIEW_TOKEN_INVALID]: 'The page link is invalid or expired',
+  [ErrorCode.UNSUPPORTED_MEDIA_TYPE]: 'The request body type is not accepted here',
 
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
   [ErrorCode.ENCRYPTION_ERROR]: 'Encryption failed',
@@ -234,6 +236,7 @@ export const ErrorStatusCodes: Record<ErrorCode, number> = {
   [ErrorCode.ARCHIVE_UNSUPPORTED]: 415,
   [ErrorCode.ARCHIVE_CORRUPT]: 422,
   [ErrorCode.HTML_VIEW_TOKEN_INVALID]: 404,
+  [ErrorCode.UNSUPPORTED_MEDIA_TYPE]: 415,
 
   [ErrorCode.INTERNAL_ERROR]: 500,
   [ErrorCode.ENCRYPTION_ERROR]: 500,

@@ -26,7 +26,7 @@ interface Ctx {
   outside: string;
   clock: { now: number };
   /** user: the JWT subject, or null for no Authorization at all. */
-  send: (method: string, url: string, options?: { body?: unknown; user?: string | null }) => Promise<Res>;
+  send: (method: string, url: string, options?: { body?: unknown; raw?: { data: Buffer; type: string }; user?: string | null }) => Promise<Res>;
   issue: (filePath: string, user?: string) => Promise<{ token: string; url: string; baseUrl: string }>;
 }
 
@@ -66,10 +66,10 @@ async function withApp(run: (ctx: Ctx) => Promise<void>): Promise<void> {
   try {
     await withLocalHttpServer(app, async (fixture) => {
       const send: Ctx['send'] = (method, url, options = {}) => new Promise<Res>((resolve, reject) => {
-        const payload = options.body === undefined ? undefined : JSON.stringify(options.body);
+        const payload: string | Buffer | undefined = options.raw ? options.raw.data : options.body === undefined ? undefined : JSON.stringify(options.body);
         const headers: Record<string, string> = {};
         if (payload !== undefined) {
-          headers['content-type'] = 'application/json';
+          headers['content-type'] = options.raw ? options.raw.type : 'application/json';
           headers['content-length'] = String(Buffer.byteLength(payload));
         }
         const user = options.user === undefined ? 'alice' : options.user;
@@ -79,7 +79,8 @@ async function withApp(run: (ctx: Ctx) => Promise<void>): Promise<void> {
           res.on('data', (c: Buffer) => chunks.push(c));
           res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }));
         });
-        req.on('error', reject);
+        // The server may answer an oversized body before reading it all and close the connection.
+        req.on('error', (err) => (String((err as NodeJS.ErrnoException).code).match(/EPIPE|ECONNRESET/) ? undefined : reject(err)));
         req.end(payload);
       });
       const issue: Ctx['issue'] = async (filePath, user = 'alice') => {
@@ -295,5 +296,73 @@ test('SEC-MDE-002 AC-5: requests are recorded per token with their result, the l
     assert.equal((await send('GET', `/api/sessions/${OTHER}/files/html-view/${token}/resources`)).status, 404, 'another session');
     assert.equal((await send('GET', `/api/sessions/${SESSION}/files/html-view/${token}/resources`, { user: 'mallory' })).status, 404, 'another user');
     assert.equal((await send('GET', `/api/sessions/${SESSION}/files/html-view/${token}/resources`, { user: null })).status, 401);
+  });
+});
+
+test('SEC-MDE-002 AC-6: an unsaved draft is stored per token and served for the page path with ?draft, with the same headers', async () => {
+  await withApp(async ({ cwd, send, issue }) => {
+    await seedSite(cwd);
+    const { url, baseUrl, token } = await issue('report/보고서 1.html');
+    const draftUrl = `/api/sessions/${SESSION}/files/html-view/${token}/draft`;
+    const first = await send('PUT', draftUrl, { raw: { data: Buffer.from('<h1>초안 1</h1><script>1</script>', 'utf8'), type: 'text/plain; charset=utf-8' } });
+    assert.equal(first.status, 200, first.body.toString());
+    const n1 = json(first).draft as number;
+    assert.equal(typeof n1, 'number');
+    const second = await send('PUT', draftUrl, { raw: { data: Buffer.from('<h1>초안 2</h1>', 'utf8'), type: 'application/octet-stream' } });
+    const n2 = json(second).draft as number;
+    assert.ok(n2 > n1, 'the number grows');
+
+    const served = await send('GET', `${url}?draft=${n2}`, { user: null });
+    assert.equal(served.status, 200);
+    assert.equal(served.body.toString('utf8'), '<h1>초안 2</h1>');
+    assert.equal(served.headers['content-type'], 'text/html; charset=utf-8');
+    assert.match(String(served.headers['content-security-policy']), new RegExp(`^${SANDBOX}; frame-ancestors 'self'$`));
+    assert.equal(served.headers['cache-control'], 'no-store');
+    assert.equal(served.headers['x-frame-options'], undefined);
+    // Only the latest draft is kept; an older or unknown number gets the latest.
+    assert.equal((await send('GET', `${url}?draft=${n1}`, { user: null })).body.toString('utf8'), '<h1>초안 2</h1>');
+    assert.equal((await send('GET', `${url}?draft=999`, { user: null })).body.toString('utf8'), '<h1>초안 2</h1>');
+    // Without ?draft the saved file; relative resources stay files, ?draft or not.
+    assert.match((await send('GET', url, { user: null })).body.toString(), /assets\/s\.css/);
+    assert.equal((await send('GET', `${baseUrl}assets/s.css?draft=${n2}`, { user: null })).body.toString(), 'body{}');
+  });
+});
+
+test('SEC-MDE-002 AC-6: a draft over 10 MiB is refused with 413; only the token owner in its session may store one', async () => {
+  await withApp(async ({ cwd, send, issue }) => {
+    await seedSite(cwd);
+    const { token, url } = await issue('report/보고서 1.html');
+    const draftUrl = `/api/sessions/${SESSION}/files/html-view/${token}/draft`;
+    const big = await send('PUT', draftUrl, { raw: { data: Buffer.alloc(10 * 1024 * 1024 + 1, 0x61), type: 'text/plain' } });
+    assert.equal(big.status, 413);
+    assert.equal(code(big), 'FILE_TOO_LARGE');
+    const exact = await send('PUT', draftUrl, { raw: { data: Buffer.alloc(10 * 1024 * 1024, 0x61), type: 'text/plain' } });
+    assert.equal(exact.status, 200, 'the limit itself is allowed');
+
+    const raw = { data: Buffer.from('<p>x</p>'), type: 'text/plain' };
+    assert.equal((await send('PUT', draftUrl, { raw, user: 'mallory' })).status, 404, 'another user');
+    assert.equal((await send('PUT', `/api/sessions/${OTHER}/files/html-view/${token}/draft`, { raw })).status, 404, 'another session');
+    assert.equal((await send('PUT', draftUrl, { raw, user: null })).status, 401);
+    assert.equal((await send('PUT', draftUrl, { raw: { data: Buffer.from([0xff, 0xfe, 0x00]), type: 'text/plain' } })).status, 400, 'not UTF-8');
+    assert.equal((await send('PUT', draftUrl, { body: { html: 'x' } })).status, 415, 'JSON is not a draft body');
+    void url;
+  });
+});
+
+test('SEC-MDE-002 AC-6: revoking or expiring the token drops its draft', async () => {
+  await withApp(async ({ cwd, clock, send, issue }) => {
+    await seedSite(cwd);
+    const a = await issue('report/보고서 1.html');
+    await send('PUT', `/api/sessions/${SESSION}/files/html-view/${a.token}/draft`, { raw: { data: Buffer.from('<p>a</p>'), type: 'text/plain' } });
+    assert.equal((await send('DELETE', `/api/html-view/${a.token}`)).status, 204);
+    const gone = await send('GET', `${a.url}?draft=1`, { user: null });
+    assert.equal(gone.status, 404);
+    assert.equal(code(gone), 'HTML_VIEW_TOKEN_INVALID');
+    assert.equal((await send('PUT', `/api/sessions/${SESSION}/files/html-view/${a.token}/draft`, { raw: { data: Buffer.from('x'), type: 'text/plain' } })).status, 404);
+
+    const b = await issue('report/보고서 1.html');
+    await send('PUT', `/api/sessions/${SESSION}/files/html-view/${b.token}/draft`, { raw: { data: Buffer.from('<p>b</p>'), type: 'text/plain' } });
+    clock.now += 30 * 60_000 + 1;
+    assert.equal((await send('GET', `${b.url}?draft=1`, { user: null })).status, 404);
   });
 });

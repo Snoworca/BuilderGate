@@ -20,11 +20,21 @@ export interface HtmlViewToken {
   userId: string;
   /** The session folder's real path when the token was issued; every request resolves under it. */
   root: string;
+  /** The HTML file the token was issued for, relative to root, '/' separated (AC-6: the draft's path). */
+  filePath: string;
+}
+
+/** AC-6: the latest unsaved text of the token's page. */
+export interface HtmlViewDraft {
+  n: number;
+  body: Buffer;
 }
 
 interface Entry extends HtmlViewToken {
   lastUsedAt: number;
   requests: HtmlViewRequestRecord[];
+  draft: HtmlViewDraft | null;
+  draftCount: number;
 }
 
 export const HTML_VIEW_IDLE_MS = 30 * 60_000;
@@ -58,7 +68,7 @@ export class HtmlViewTokenStore {
       this.entries.delete(oldest);
     }
     const token = crypto.randomBytes(32).toString('base64url');
-    this.entries.set(token, { ...target, lastUsedAt: this.now(), requests: [] });
+    this.entries.set(token, { ...target, lastUsedAt: this.now(), requests: [], draft: null, draftCount: 0 });
     return token;
   }
 
@@ -67,14 +77,29 @@ export class HtmlViewTokenStore {
     const entry = this.live(token);
     if (entry === null) return null;
     entry.lastUsedAt = this.now();
-    return { sessionId: entry.sessionId, userId: entry.userId, root: entry.root };
+    return { sessionId: entry.sessionId, userId: entry.userId, root: entry.root, filePath: entry.filePath };
   }
 
   /** The token's target without counting as a use, only for its own session and user. */
   peek(token: string, sessionId: string | null, userId: string): HtmlViewToken | null {
     const entry = this.live(token);
     if (entry === null || entry.userId !== userId || (sessionId !== null && entry.sessionId !== sessionId)) return null;
-    return { sessionId: entry.sessionId, userId: entry.userId, root: entry.root };
+    return { sessionId: entry.sessionId, userId: entry.userId, root: entry.root, filePath: entry.filePath };
+  }
+
+  /** AC-6: replaces the token's draft and answers its number; null when the token is not this user's in this session. */
+  setDraft(token: string, sessionId: string, userId: string, body: Buffer): number | null {
+    if (this.peek(token, sessionId, userId) === null) return null;
+    const entry = this.entries.get(token)!;
+    entry.draftCount += 1;
+    entry.draft = { n: entry.draftCount, body };
+    entry.lastUsedAt = this.now();
+    return entry.draftCount;
+  }
+
+  /** The token's latest draft (gone with the token), or null. */
+  draft(token: string): HtmlViewDraft | null {
+    return this.live(token)?.draft ?? null;
   }
 
   /** Revokes the token when it belongs to userId. */
