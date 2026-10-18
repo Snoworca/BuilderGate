@@ -332,7 +332,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       paths,
       confirm: (summary) => askChoice(
         t('fileTransfer.zip.confirm', { name: summary.name, size: formatTransferBytes(summary.totalBytes), count: tn('fileTransfer.zip.confirmCount', summary.fileCount) }),
-        t('fileTransfer.zip.excluded', { names: summary.excluded.join(', ') }),
+        // FR-FEX-025: what the server left out, as it reports it; nothing left out, no line.
+        summary.excluded.length === 0 ? '' : t('fileTransfer.zip.excluded', { names: summary.excluded.join(', ') }),
         [{ id: 'cancel', label: t('common.cancel') }, { id: 'get', label: t('fileTransfer.zip.get'), primary: true }],
       ).then((choice) => choice === 'get'),
     }).catch((error: unknown) => showError(t('fileTransfer.zip.failed', { message: messageOf(error) })));

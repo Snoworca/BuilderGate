@@ -1161,7 +1161,7 @@
   "fileTransfer.job.cancel": "Cancel transfer",
   "fileTransfer.reason.interrupted": "Interrupted · try again",
   "fileTransfer.reason.network": "Connection lost · automatic retry failed",
-  "fileTransfer.reason.exists": "An item with this name appeared meanwhile",
+  "fileTransfer.reason.exists": "An item with this name is in the way",
   "fileTransfer.reason.busy": "The server is busy · automatic retry failed",
   "fileTransfer.reason.server": "The server could not save it ({code})",
   "fileTransfer.reason.PATH_BLOCKED": "Blocked path or extension",

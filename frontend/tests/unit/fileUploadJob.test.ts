@@ -31,7 +31,7 @@ function storeHarness() {
 
 interface Pending { req: PutFileRequest; resolve: (v: { name: string; path: string; size: number; skipped: boolean }) => void; reject: (e: unknown) => void }
 
-function controllerHarness(options: { conflicts?: Array<{ path: string; decisions: Array<'overwrite' | 'rename' | 'skip'> }>; rejected?: Array<{ path: string; code: string }>; hiddenAt?: () => number | null } = {}) {
+function controllerHarness(options: { conflicts?: Array<{ path: string; decisions: Array<'overwrite' | 'rename' | 'skip'>; renameTo?: string }>; rejected?: Array<{ path: string; code: string }>; hiddenAt?: () => number | null } = {}) {
   const store = storeHarness();
   const pending: Pending[] = [];
   let inFlight = 0;
@@ -41,7 +41,7 @@ function controllerHarness(options: { conflicts?: Array<{ path: string; decision
   const controller = createUploadController({
     client: {
       checkUpload: async () => ({
-        conflicts: (options.conflicts ?? []).map((c) => ({ path: c.path, existing: { size: 1, modified: '2026-10-01T00:00:00.000Z', isDirectory: false }, decisions: c.decisions })),
+        conflicts: (options.conflicts ?? []).map((c) => ({ path: c.path, existing: { size: 1, modified: '2026-10-01T00:00:00.000Z', isDirectory: false }, decisions: c.decisions, ...(c.renameTo === undefined ? {} : { renameTo: c.renameTo }) })),
         rejected: options.rejected ?? [],
       }),
       putFile: (req) => new Promise((resolve, reject) => {
@@ -238,4 +238,21 @@ test('FR-FEX-024 AC-5 (phone band): the progress band names the folder and the r
   const band = selectMobileUploadBand(h.store.get(), 'ws1');
   assert.equal(band?.text, 'components 에 업로드 중 · 1개 남음');
   assert.equal(selectMobileUploadBand(h.store.get(), 'ws2'), null);
+});
+
+test('FR-FEX-024 · FR-FOP-006 AC-1: 둘 다 유지 on a folder renames its top level to the server\'s renameTo and sends the files with conflict=fail; a file keeps conflict=rename', async () => {
+  const h = controllerHarness({ conflicts: [
+    { path: 'assets', decisions: ['overwrite', 'rename', 'skip'], renameTo: 'assets (3)' },
+    { path: 'a.txt', decisions: ['overwrite', 'rename', 'skip'], renameTo: 'a (2).txt' },
+  ] });
+  void h.controller.start({
+    ...base,
+    existingNames: ['assets'],
+    sources: [source('assets/x.png'), source('assets/sub/y.png'), source('a.txt')],
+    ask: async () => ({ kind: 'decide', choice: 'rename', applyToAll: true }),
+    onRejected: () => {},
+  });
+  await h.flush();
+  await h.flush();
+  assert.deepEqual(h.pending.map((p) => `${p.req.path}:${p.req.conflict}`).sort(), ['a.txt:rename', 'assets (3)/sub/y.png:fail', 'assets (3)/x.png:fail']);
 });

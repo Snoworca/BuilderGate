@@ -1130,7 +1130,7 @@
   "fileTransfer.job.cancel": "전송 취소",
   "fileTransfer.reason.interrupted": "중단됨 · 다시 시도",
   "fileTransfer.reason.network": "연결 끊김 · 자동 재시도 1회 실패",
-  "fileTransfer.reason.exists": "그사이 같은 이름이 생겼습니다",
+  "fileTransfer.reason.exists": "같은 이름의 항목이 있어 저장하지 못했습니다",
   "fileTransfer.reason.busy": "서버가 바쁩니다 · 자동 재시도 1회 실패",
   "fileTransfer.reason.server": "서버가 저장하지 못했습니다 ({code})",
   "fileTransfer.reason.PATH_BLOCKED": "차단된 경로나 확장자",

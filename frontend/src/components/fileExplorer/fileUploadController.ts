@@ -209,7 +209,12 @@ export function createUploadController(deps: UploadControllerDeps): UploadContro
     return decisions;
   }
 
-  function plan(input: UploadStartInput, rejected: ReadonlySet<string>, decisions: Map<string, 'overwrite' | 'rename' | 'skip'>): { files: PlannedFile[]; hides: Set<string> } {
+  function plan(
+    input: UploadStartInput,
+    rejected: ReadonlySet<string>,
+    decisions: Map<string, 'overwrite' | 'rename' | 'skip'>,
+    proposed: ReadonlyMap<string, string>,
+  ): { files: PlannedFile[]; hides: Set<string> } {
     const taken = new Set(input.existingNames);
     const renamedFolders = new Map<string, string>();
     const hides = new Set<string>();
@@ -227,8 +232,9 @@ export function createUploadController(deps: UploadControllerDeps): UploadContro
         hides.add(top);
       } else if (decision === 'rename') {
         if (inFolder) {
-          // A kept-both folder gets its new name here; its files then land in a fresh folder.
-          const renamed = renamedFolders.get(top) ?? keepBothName(top, taken);
+          // A kept-both folder takes the server's free name (renameTo); its files then land in a
+          // fresh folder with conflict=fail. The listing is only the fallback for an older server.
+          const renamed = renamedFolders.get(top) ?? proposed.get(top) ?? keepBothName(top, taken);
           renamedFolders.set(top, renamed);
           taken.add(renamed);
           relPath = `${renamed}${source.relPath.slice(top.length)}`;
@@ -251,7 +257,8 @@ export function createUploadController(deps: UploadControllerDeps): UploadContro
       const rejected = new Set(check.rejected.map((item) => item.path));
       const decisions = await decideConflicts(input, check.conflicts.filter((conflict) => !rejected.has(conflict.path)));
       if (decisions === null) return null;
-      const { files, hides } = plan(input, rejected, decisions);
+      const proposed = new Map(check.conflicts.flatMap((conflict) => (conflict.renameTo === undefined ? [] : [[conflict.path, conflict.renameTo] as const])));
+      const { files, hides } = plan(input, rejected, decisions, proposed);
       if (files.length === 0) return null;
       const jobId = deps.newId();
       const job: LiveJob = { input, files: new Map(files.map((file) => [file.id, file])), controller: new AbortController(), failed: new Set() };

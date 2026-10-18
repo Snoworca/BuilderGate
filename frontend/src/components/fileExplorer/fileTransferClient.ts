@@ -22,6 +22,8 @@ export interface UploadCheckConflict {
   path: string;
   existing: { size: number | null; modified: string | null; isDirectory: boolean };
   decisions: readonly ('overwrite' | 'rename' | 'skip')[];
+  /** The free name the server proposes for 둘 다 유지 (e.g. 'assets (2)'). */
+  renameTo?: string;
 }
 
 export interface UploadCheckResult {
