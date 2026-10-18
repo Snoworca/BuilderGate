@@ -1257,5 +1257,6 @@
   "editor.html.openFailed": "Could not open the HTML view: {message}",
   "apiError.HTML_VIEW_TOKEN_INVALID": "The page link is invalid or expired.",
   "mcp.auditAction.buildergateEditorOpenHtml": "Open HTML in editor",
-  "editor.html.resourceLoaded": "Loaded"
+  "editor.html.resourceLoaded": "Loaded",
+  "apiError.UNSUPPORTED_MEDIA_TYPE": "The request body type is not accepted here."
 }

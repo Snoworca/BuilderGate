@@ -1216,5 +1216,6 @@
   "editor.html.openFailed": "HTML 보기를 열지 못했습니다: {message}",
   "apiError.HTML_VIEW_TOKEN_INVALID": "페이지 링크가 올바르지 않거나 만료되었습니다.",
   "mcp.auditAction.buildergateEditorOpenHtml": "편집기에서 HTML 열기",
-  "editor.html.resourceLoaded": "불러옴"
+  "editor.html.resourceLoaded": "불러옴",
+  "apiError.UNSUPPORTED_MEDIA_TYPE": "이 요청에서 받지 않는 본문 형식입니다."
 }
