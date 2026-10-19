@@ -66,6 +66,8 @@ const sidebar = component('../../src/components/Workspace/WorkspaceSidebar.tsx',
   useState: (initial: unknown) => [initial, noop], useCallback: (callback: unknown) => callback,
   useDragReorder: () => ({ getTabHandlers: () => ({}), dropTargetIndex: null, dragIndex: null, ghostStyle: null, tabRefs: { current: [] } }),
   WorkspaceItem: 'workspace-item', ContextMenu: 'context-menu', Icon: 'icon',
+  // FR-UIDS-012: the module-level build label the sidebar footer shows.
+  BUILD_LABEL: 'v0.0.0',
 });
 // The shared Button stands in as a plain 'button' element, which is what it
 // renders, so the cancellation control is still counted below.

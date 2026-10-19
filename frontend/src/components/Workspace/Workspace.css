@@ -63,6 +63,20 @@
   overflow-y: auto;
 }
 
+/* FR-UIDS-012: the running build, at the foot of the sidebar. */
+.workspace-sidebar-version {
+  flex-shrink: 0;
+  padding: var(--sp-1) var(--sp-3);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+
 /* The copy of a row that follows the pointer while it is dragged. Position and
  * size come from the drag hook inline. */
 .workspace-item-ghost {

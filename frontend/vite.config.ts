@@ -5,6 +5,7 @@
 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { shouldInlineAsset } from './vite.assetInlining';
@@ -16,11 +17,22 @@ const frontendPort = parseInt(process.env.DEV_FRONTEND_PORT || '2003', 10);
 // that one), baked into the bundle so the settings page shows what is actually running.
 const releaseVersion = (JSON.parse(readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')) as { version: string }).version;
 
+// FR-UIDS-012: the commit the bundle was built from, shown under the workspace list next to the
+// version, so a server still serving an old dist is visible. Empty where git is unavailable.
+const buildCommit = (() => {
+  try {
+    return execSync('git rev-parse --short=8 HEAD', { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return '';
+  }
+})();
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   define: {
     __BUILDERGATE_VERSION__: JSON.stringify(releaseVersion),
+    __BUILDERGATE_COMMIT__: JSON.stringify(buildCommit),
   },
   build: {
     // Fonts must stay as files: the server's CSP is font-src 'self'. See vite.assetInlining.ts.

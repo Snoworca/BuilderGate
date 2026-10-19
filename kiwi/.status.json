@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-19T05:35:21.369Z",
+  "generatedAt": "2026-10-19T11:52:13.113Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "d8458705eaf8832d5b05c5d7fa64864257b2494a4a47db409e2fd6d79ff872b3",
+    "value": "75d8640dc412573338cbeee1ae428baad40d382e9c554723423d72bfe77bb40e",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -56,9 +56,9 @@
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "0cefa6bab031fe6b4ac7495c9af7eedec4efe73f2198d332b236dad28f26ae3d",
-        "size": 37250,
-        "mtimeMs": 1792163603717.864
+        "sha256": "47d5238919077cde190147c0ea6a4f95c4f95739521a805a5a86201d95ec43fd",
+        "size": 41050,
+        "mtimeMs": 1792410733484.8535
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
@@ -68,9 +68,9 @@
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
-        "sha256": "954dc5f53e572fa0e325279cf79f22246b8362408b72acad94db90073bff2457",
-        "size": 77187,
-        "mtimeMs": 1792388120271.978
+        "sha256": "2e69344af1b9df51bb486ac6729bb305e59d67acd48170e39ccaea0098dd24a7",
+        "size": 77986,
+        "mtimeMs": 1792410687215.7556
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -89,7 +89,7 @@
       "MDE": 28,
       "FEX": 27,
       "FOP": 7,
-      "UIDS": 10,
+      "UIDS": 12,
       "MKB": 13
     },
     "constraint": {

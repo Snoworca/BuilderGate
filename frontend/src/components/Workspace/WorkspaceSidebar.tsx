@@ -8,6 +8,9 @@ import type { Workspace, WorkspaceTabRuntime } from '../../types/workspace';
 import type { ShellInfo } from '../../types';
 import './Workspace.css';
 import { t } from '../../i18n/i18n.ts';
+import { APP_COMMIT, APP_VERSION, formatBuildLabel } from '../../utils/appVersion.ts';
+
+const BUILD_LABEL = formatBuildLabel(APP_VERSION, APP_COMMIT);
 
 interface Props {
   workspaces: Workspace[];
@@ -109,6 +112,15 @@ export function WorkspaceSidebar({
             />
           </div>
         ))}
+      </div>
+
+      {/* FR-UIDS-012: which build this is, so an old dist left on a server shows. */}
+      <div
+        className="workspace-sidebar-version"
+        title={t('workspace.sidebar.version', { label: BUILD_LABEL })}
+        aria-label={t('workspace.sidebar.version', { label: BUILD_LABEL })}
+      >
+        {BUILD_LABEL}
       </div>
 
       {drag.dragIndex !== null && drag.ghostStyle && (

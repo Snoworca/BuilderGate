@@ -904,6 +904,7 @@
   "workspace.move.tabCount": "{count}/{max} tabs",
   "workspace.move.title": "Move to Workspace",
   "workspace.sidebar.add": "Add Workspace",
+  "workspace.sidebar.version": "BuilderGate {label}",
   "workspace.tabBar.closeTab": "Close tab",
   "workspace.tabBar.recoveryCommand": "Recovery command: {command}",
   "workspace.tabBar.recoveryOptions": "Recovery options",
