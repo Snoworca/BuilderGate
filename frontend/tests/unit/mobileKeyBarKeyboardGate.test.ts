@@ -141,3 +141,18 @@ test('FR-MKB-013 AC-2: App gates the bar on the keyboard and the grace hook', ()
   assert.match(source, /decideMobileKeyBar\(\{/u);
   assert.match(source, /const showMobileKeyBar = useMobileKeyBarVisible\(/u);
 });
+
+test('FR-MKB-013 AC-1: a browser that shrinks the layout with the keyboard (innerHeight drops too) still counts as keyboard up', () => {
+  // Samsung Internet and resizes-content pages: innerHeight follows the visual
+  // viewport, so innerHeight - vv.height is 0 with the keyboard up. The height
+  // seen without the keyboard is the baseline.
+  const win = (innerWidth: number, innerHeight: number, vvHeight: number) => (
+    { innerWidth, innerHeight, visualViewport: { height: vvHeight, offsetTop: 0 } } as unknown as Window
+  );
+  assert.equal(isSystemKeyboardUp(win(411, 860, 860)), false, 'no keyboard');
+  assert.equal(isSystemKeyboardUp(win(411, 520, 520)), true, 'layout shrank with the keyboard');
+  assert.equal(isSystemKeyboardUp(win(411, 860, 860)), false, 'keyboard closed');
+  // Rotation: a new width starts a new baseline.
+  assert.equal(isSystemKeyboardUp(win(860, 411, 411)), false, 'landscape without keyboard');
+  assert.equal(isSystemKeyboardUp(win(860, 200, 200)), true, 'landscape with keyboard');
+});

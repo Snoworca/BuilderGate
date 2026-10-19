@@ -66,11 +66,36 @@ export function useVisualViewportInset(active: boolean): ViewportBox {
 /** A keyboard inset at least this tall is the system keyboard, not a collapsing toolbar. */
 export const KEYBOARD_UP_MIN_INSET = 120;
 
-/** Pure: the system keyboard is up. Without visualViewport there is no way to tell; count it as up. */
+// The tallest viewport seen at the current width. Some browsers (Samsung
+// Internet, resizes-content pages) shrink the layout viewport with the keyboard,
+// so innerHeight drops too and innerHeight - vv.height reads 0 with the keyboard
+// up; the height seen without the keyboard is the reference instead. A new width
+// (rotation) starts a new baseline.
+let keyboardBaseline = { width: Number.NaN, height: 0 };
+
+/** Keyboard height against the tallest viewport seen at this width (FR-MKB-013 AC-1). */
+// @req FR-MKB-013
+export function measureKeyboardInset(win: Window): number {
+  const vv = win.visualViewport;
+  if (!vv) return 0;
+  const full = Math.max(win.innerHeight, vv.height + vv.offsetTop);
+  if (!Object.is(win.innerWidth, keyboardBaseline.width)) {
+    keyboardBaseline = { width: win.innerWidth, height: full };
+  } else if (full > keyboardBaseline.height) {
+    keyboardBaseline.height = full;
+  }
+  return Math.max(0, keyboardBaseline.height - vv.height, computeViewportBox(win).inset);
+}
+
+/** The system keyboard is up. Without visualViewport there is no way to tell; count it as up. */
 // @req FR-MKB-013
 export function isSystemKeyboardUp(win: Window): boolean {
   if (!win.visualViewport) return true;
-  return computeViewportBox(win).inset >= KEYBOARD_UP_MIN_INSET;
+  const inset = measureKeyboardInset(win);
+  if (inset < KEYBOARD_UP_MIN_INSET) return false;
+  // The special keyboard panel takes the keyboard's height (FR-MKB-007 AC-5).
+  lastKeyboardInset = inset;
+  return true;
 }
 
 /**
