@@ -8,6 +8,7 @@
   "pkg": {
     "scripts": [
       "tools/start-runtime.js",
+      "tools/daemon/build-freshness.js",
       "tools/daemon/cli.js",
       "tools/daemon/config-preflight.js",
       "tools/daemon/launcher.js",

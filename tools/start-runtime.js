@@ -1,5 +1,6 @@
 const { rotateLogIfOversized } = require('./daemon/log');
 const alreadyRunning = require('./daemon/already-running');
+const buildFreshness = require('./daemon/build-freshness');
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -22,6 +23,7 @@ const FRONTEND_DIST_DIR = path.join(FRONTEND_DIR, 'dist');
 const FRONTEND_INDEX_HTML = path.join(FRONTEND_DIST_DIR, 'index.html');
 const SERVER_DIST_DIR = RUNTIME_PATHS.serverDistDir;
 const SERVER_ENTRY = RUNTIME_PATHS.serverEntry;
+const BUILD_STAMP_PATH = path.join(SERVER_DIST_DIR, buildFreshness.BUILD_STAMP_FILE_NAME);
 const SERVER_STRICT_CONFIG_LOADER = RUNTIME_PATHS.configLoaderEntry;
 const SERVER_DAEMON_TOTP_PREFLIGHT = RUNTIME_PATHS.daemonTotpPreflightEntry;
 const SERVER_PUBLIC_DIR = RUNTIME_PATHS.serverPublicDir;
@@ -453,7 +455,17 @@ function runCommand(command, args, options = {}) {
 }
 
 function ensureDependenciesAndBuild() {
-  if (hasDeploymentArtifacts()) {
+  // OPS-BGSTAB-022: an existing dist is reused only when it was built from the
+  // commit the checkout is at now.
+  const hasArtifacts = hasDeploymentArtifacts();
+  const sourceCommit = RUNTIME_PATHS.isPackaged ? null : buildFreshness.readSourceCommit(ROOT);
+  const decision = buildFreshness.decideDeploymentBuild({
+    hasArtifacts,
+    packaged: Boolean(RUNTIME_PATHS.isPackaged),
+    sourceCommit,
+    stampCommit: buildFreshness.readBuildStamp(BUILD_STAMP_PATH),
+  });
+  if (decision.action === 'skip') {
     stageFrontendAssets();
     console.log('[start] Deployment dist already exists. Skipping install/build.');
     return;
@@ -463,7 +475,10 @@ function ensureDependenciesAndBuild() {
     throw new Error(`Packaged runtime is incomplete. Missing embedded server artifacts or web assets for ${ROOT}`);
   }
 
-  console.log('[start] Deployment dist missing. Installing dependencies...');
+  if (decision.action === 'rebuild') {
+    console.log(`[start] ${decision.reason}. Rebuilding...`);
+  }
+  console.log('[start] Deployment dist missing or stale. Installing dependencies...');
   runCommand(getNpmCommand(), ['install'], { cwd: FRONTEND_DIR, label: 'frontend npm install' });
   runCommand(getNpmCommand(), ['install'], { cwd: SERVER_DIR, label: 'server npm install' });
 
@@ -479,6 +494,10 @@ function ensureDependenciesAndBuild() {
 
   if (!fs.existsSync(SERVER_ENTRY)) {
     throw new Error(`Server build artifact missing after build: ${SERVER_ENTRY}`);
+  }
+
+  if (sourceCommit) {
+    buildFreshness.writeBuildStamp(BUILD_STAMP_PATH, sourceCommit);
   }
 
   stageFrontendAssets();

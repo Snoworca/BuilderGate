@@ -40,7 +40,8 @@ import { SessionSnapshotService } from './services/SessionSnapshotService.js';
 import { listProcesses } from './services/agentSession/processList.js';
 import { agentRootsForCwd } from './services/agentSession/agentRoots.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
-import { createInternalShutdownRoutes } from './routes/internalShutdownRoutes.js';
+import { createInternalShutdownRoutes, isLoopbackSocketAddress } from './routes/internalShutdownRoutes.js';
+import { renderMissingWebRootPage } from './utils/missingWebRootPage.js';
 import { WorkspaceService } from './services/WorkspaceService.js';
 import { config, getConfigPath, getServerRoot } from './utils/config.js';
 import { getDefaultTerminalWireFormat } from './ws/terminalWireFormatDefault.js';
@@ -1900,9 +1901,16 @@ async function startServer(): Promise<void> {
         }
 
         res.sendFile(PRODUCTION_INDEX_HTML, (error) => {
-          if (error) {
-            next(error);
+          if (!error) return;
+          // OPS-BGSTAB-023: say the web files are missing instead of a bare "Not Found".
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT' && !res.headersSent) {
+            console.warn(`[Static] Production index not found at ${PRODUCTION_INDEX_HTML}`);
+            res.status(503).type('html').send(
+              renderMissingWebRootPage(PRODUCTION_INDEX_HTML, isLoopbackSocketAddress(req.socket.remoteAddress)),
+            );
+            return;
           }
+          next(error);
         });
       });
 
