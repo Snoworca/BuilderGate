@@ -33,6 +33,30 @@ async function helperFocused(page: Page): Promise<boolean> {
   return page.evaluate(() => document.activeElement?.classList.contains('xterm-helper-textarea') ?? false);
 }
 
+// FR-MKB-013: the bar shows only while the system keyboard is up. An emulated
+// phone has no on-screen keyboard, so this stands in for the OS: focusing the
+// terminal input raises a 300 px keyboard (the visual viewport shrinks and fires
+// resize), blurring it lowers it, and __e2eKeyboard(false) is the back button
+// that lowers it while the focus stays.
+async function emulateSystemKeyboard(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let up = false;
+    const KEYBOARD = 300;
+    Object.defineProperty(vv, 'height', { configurable: true, get: () => window.innerHeight - (up ? KEYBOARD : 0) });
+    const set = (next: boolean): void => {
+      if (up === next) return;
+      up = next;
+      vv.dispatchEvent(new Event('resize'));
+    };
+    (window as unknown as { __e2eKeyboard: (next: boolean) => void }).__e2eKeyboard = set;
+    const isHelper = (target: EventTarget | null): boolean => target instanceof Element && target.classList.contains('xterm-helper-textarea');
+    document.addEventListener('focusin', (event) => { if (isHelper(event.target)) set(true); });
+    document.addEventListener('focusout', (event) => { if (isHelper(event.target) && !isHelper(event.relatedTarget)) set(false); });
+  });
+}
+
 test.describe('모바일 터미널 키보드', () => {
   test.use({ baseURL: ORIGIN, ignoreHTTPSErrors: true });
 
@@ -43,6 +67,7 @@ test.describe('모바일 터미널 키보드', () => {
     const ownerId = `mobile-terminal-keyboard/${testInfo.testId}/${testInfo.retry}/${randomUUID()}`;
     let primaryFailure: unknown = null;
 
+    await emulateSystemKeyboard(page);
     await login(page);
     const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
     if (!token) throw new Error('login left no auth token');
@@ -74,6 +99,14 @@ test.describe('모바일 터미널 키보드', () => {
       await page.locator('.terminal-view:visible .xterm-screen').first().tap();
       await expect(bar).toBeVisible();
       await expect.poll(() => helperFocused(page), { timeout: 5000 }).toBe(true);
+
+      // FR-MKB-013 AC-2/AC-3: the back button lowers the keyboard and keeps the focus;
+      // the bar waits out the grace period, then hides. A tap brings both back.
+      await page.evaluate(() => (window as unknown as { __e2eKeyboard: (up: boolean) => void }).__e2eKeyboard(false));
+      await expect(bar).toHaveCount(0, { timeout: 3000 });
+      expect(await helperFocused(page), 'the terminal keeps the focus').toBe(true);
+      await page.evaluate(() => (window as unknown as { __e2eKeyboard: (up: boolean) => void }).__e2eKeyboard(true));
+      await expect(bar).toBeVisible();
 
       // FR-MKB-006 AC-1: bar order, no Win/AltGr.
       const keys = await bar.locator('[data-mobile-key]').evaluateAll((els) => els.map((el) => el.getAttribute('data-mobile-key')));

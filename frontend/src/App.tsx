@@ -13,12 +13,13 @@ import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useTerminalRuntimeResidency } from './hooks/useTerminalRuntimeResidency';
 import { useTerminalInputFocus } from './hooks/useTerminalInputFocus';
-import { getLastKeyboardInset, useVisualViewportLock } from './hooks/useVisualViewportInset';
+import { getLastKeyboardInset, useSystemKeyboardUp, useVisualViewportLock } from './hooks/useVisualViewportInset';
 import {
   MobileKeyBar,
   MobileSpecialKeyboard,
-  shouldShowMobileKeyBar,
+  decideMobileKeyBar,
   specialPanelHeight,
+  useMobileKeyBarVisible,
   useResetLatchWhenNotMobile,
   useSpecialKeyboardPanel,
 } from './components/MobileKeyboard';
@@ -621,13 +622,17 @@ function AppContent() {
   const specialKeyboardOpen = specialKeyboard.open;
   const specialKeyboardHeight = specialKeyboard.height;
   const closeSpecialKeyboard = specialKeyboard.close;
-  const showMobileKeyBar = shouldShowMobileKeyBar({
+  // FR-MKB-013: only while the system keyboard is actually up (or the panel is
+  // open). Android's back button closes the keyboard but keeps the focus.
+  const systemKeyboardUp = useSystemKeyboardUp(isMobile);
+  const showMobileKeyBar = useMobileKeyBarVisible(decideMobileKeyBar({
     isMobile,
     screen,
     hasActiveTab: activeTab !== null,
     inputFocused: activeTerminalInputFocused,
+    keyboardUp: systemKeyboardUp,
     panelOpen: specialKeyboardOpen,
-  });
+  }));
   // The viewport box goes straight onto .app's style, so viewport resize/scroll
   // events do not re-render AppContent (FR-MKB-007).
   const appRootRef = useRef<HTMLDivElement>(null);

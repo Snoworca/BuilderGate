@@ -2,7 +2,7 @@
 // window.visualViewport. The mobile key bar sits right above it, and the app
 // root follows the visual viewport while the bar is shown so the terminal's last
 // row is not hidden behind the keyboard.
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
 
 export interface ViewportBox {
@@ -61,6 +61,42 @@ export function useVisualViewportInset(active: boolean): ViewportBox {
   }, [active]);
 
   return box;
+}
+
+/** A keyboard inset at least this tall is the system keyboard, not a collapsing toolbar. */
+export const KEYBOARD_UP_MIN_INSET = 120;
+
+/** Pure: the system keyboard is up. Without visualViewport there is no way to tell; count it as up. */
+// @req FR-MKB-013
+export function isSystemKeyboardUp(win: Window): boolean {
+  if (!win.visualViewport) return true;
+  return computeViewportBox(win).inset >= KEYBOARD_UP_MIN_INSET;
+}
+
+/**
+ * Whether the system keyboard is up, re-rendering only when that answer flips.
+ * Disabled (desktop), it subscribes to nothing and answers false.
+ */
+// @req FR-MKB-013
+export function useSystemKeyboardUp(enabled: boolean): boolean {
+  const store = useMemo(() => ({
+    subscribe(onChange: () => void): () => void {
+      const vv = window.visualViewport;
+      if (!enabled || !vv) return () => {};
+      vv.addEventListener('resize', onChange);
+      vv.addEventListener('scroll', onChange);
+      window.addEventListener('resize', onChange);
+      return () => {
+        vv.removeEventListener('resize', onChange);
+        vv.removeEventListener('scroll', onChange);
+        window.removeEventListener('resize', onChange);
+      };
+    },
+    getSnapshot(): boolean {
+      return enabled ? isSystemKeyboardUp(window) : false;
+    },
+  }), [enabled]);
+  return useSyncExternalStore(store.subscribe, store.getSnapshot, () => false);
 }
 
 const VIEWPORT_TOP_VAR = '--app-viewport-top';

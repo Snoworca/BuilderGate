@@ -2,7 +2,7 @@
 // visibility rule, the drag threshold, the special keyboard's right-block
 // preference and panel height, and the switch's focus hand-over. Kept apart
 // from the .tsx components so they export components only (react-refresh).
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, MutableRefObject, PointerEvent as ReactPointerEvent } from 'react';
 import type { MessageKey } from '../../i18n/i18n.ts';
 import type { MobileKeyName } from '../../utils/mobileKeyEncoder.ts';
@@ -51,6 +51,53 @@ export interface MobileKeyBarVisibility {
 // @req FR-MKB-008
 export function shouldShowMobileKeyBar({ isMobile, screen, hasActiveTab, inputFocused, panelOpen = false }: MobileKeyBarVisibility): boolean {
   return isMobile && screen === 'workspace' && hasActiveTab && (inputFocused || panelOpen);
+}
+
+export type MobileKeyBarDecision = 'show' | 'hide' | 'pending';
+
+export interface MobileKeyBarKeyboardVisibility extends MobileKeyBarVisibility {
+  /** The system keyboard is up (FR-MKB-013 AC-1). */
+  keyboardUp: boolean;
+}
+
+/**
+ * show: focused with the keyboard up, or the panel open. pending: focused but
+ * the keyboard is down -- it may be on its way up (a tap, the panel handing back
+ * to the system keyboard) or just went down (Android's back button).
+ */
+// @req FR-MKB-013
+export function decideMobileKeyBar(v: MobileKeyBarKeyboardVisibility): MobileKeyBarDecision {
+  if (!v.isMobile || v.screen !== 'workspace' || !v.hasActiveTab) return 'hide';
+  if (v.panelOpen) return 'show';
+  if (!v.inputFocused) return 'hide';
+  return v.keyboardUp ? 'show' : 'pending';
+}
+
+/** How long a shown bar waits for the keyboard to come back before it hides. */
+export const MOBILE_KEY_BAR_HIDE_GRACE_MS = 400;
+
+/** A pending bar keeps its current state, and a shown one hides once the grace period runs out. */
+// @req FR-MKB-013
+export function useMobileKeyBarVisible(decision: MobileKeyBarDecision): boolean {
+  const shownRef = useRef(false);
+  const [expired, setExpired] = useState(false);
+  const visible = decision === 'show' ? true : decision === 'hide' ? false : shownRef.current && !expired;
+
+  useLayoutEffect(() => {
+    shownRef.current = visible;
+  });
+
+  useEffect(() => {
+    if (decision !== 'pending') {
+      setExpired(false);
+      return undefined;
+    }
+    if (!shownRef.current) return undefined;
+    const timer = setTimeout(() => setExpired(true), MOBILE_KEY_BAR_HIDE_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [decision]);
+
+  return visible;
 }
 
 /** A latch left on in mobile mode must not reach a desktop hardware keyboard. */
