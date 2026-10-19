@@ -9,6 +9,7 @@ import {
   getLastKeyboardInset,
   useVisualViewportInset,
   useVisualViewportLock,
+  KEYBOARD_SETTLE_MS,
 } from '../../src/hooks/useVisualViewportInset.ts';
 
 function fakeWindow(innerHeight: number, vv?: { height: number; offsetTop: number }): Window {
@@ -157,5 +158,142 @@ test('FR-MKB-007 AC-2 AC-4 / SDS-AC-11: the lock writes the viewport box onto th
     container.remove();
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCaf;
+  }
+});
+
+// FR-MKB-012 (#143): after the system keyboard goes down the app must fill the
+// screen again. The browser scrolls the document to show the focused input while
+// the keyboard is up; the fixed lock hides that, but once the lock is gone the
+// app sits shifted up by that scroll and the keyboard's place stays blank.
+async function renderLockProbe() {
+  installJsdomEnvironment();
+  const React = await import('react');
+  const { act } = React;
+  const { createRoot } = await import('react-dom/client');
+
+  const vv = new FakeVisualViewport(900);
+  Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true });
+  Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
+
+  const scroll = { x: 0, y: 0 };
+  const scrollCalls: Array<[number, number]> = [];
+  Object.defineProperty(window, 'scrollX', { get: () => scroll.x, configurable: true });
+  Object.defineProperty(window, 'scrollY', { get: () => scroll.y, configurable: true });
+  const originalScrollTo = window.scrollTo;
+  window.scrollTo = ((x: number, y: number) => {
+    scrollCalls.push([x, y]);
+    scroll.x = x;
+    scroll.y = y;
+  }) as typeof window.scrollTo;
+
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 1;
+  const originalRaf = window.requestAnimationFrame;
+  const originalCaf = window.cancelAnimationFrame;
+  window.requestAnimationFrame = (cb: FrameRequestCallback): number => { frames.set(nextFrame, cb); return nextFrame++; };
+  window.cancelAnimationFrame = (id: number): void => { frames.delete(id); };
+  const flushFrames = (): void => {
+    const pending = [...frames.values()];
+    frames.clear();
+    for (const cb of pending) cb(0);
+  };
+
+  function Probe({ active }: { active: boolean }) {
+    const ref = React.useRef<HTMLDivElement>(null);
+    useVisualViewportLock(active, ref);
+    return React.createElement('div', { ref, id: 'lock-probe' });
+  }
+
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const render = (active: boolean) => act(async () => { root.render(React.createElement(Probe, { active })); });
+  const el = (): HTMLElement => container.querySelector('#lock-probe') as HTMLElement;
+  const cleanup = async (): Promise<void> => {
+    await act(async () => { root.unmount(); });
+    container.remove();
+    window.requestAnimationFrame = originalRaf;
+    window.cancelAnimationFrame = originalCaf;
+    window.scrollTo = originalScrollTo;
+  };
+  return { act, vv, scroll, scrollCalls, flushFrames, render, el, cleanup };
+}
+
+const settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, KEYBOARD_SETTLE_MS + 80));
+
+test('FR-MKB-012 AC-1 AC-4: the document scroll is left alone while the keyboard is up and reset once the inset is 0', async () => {
+  const p = await renderLockProbe();
+  try {
+    await p.render(true);
+    // The keyboard opens and the browser scrolls the document to the input.
+    p.vv.height = 500;
+    p.scroll.y = 240;
+    await p.act(async () => { p.vv.dispatchEvent(new Event('resize')); });
+    await p.act(async () => { p.flushFrames(); });
+    assert.deepEqual(p.scrollCalls, [], 'no reset while the inset is above 0');
+
+    // The keyboard goes down while the terminal keeps focus.
+    p.vv.height = 900;
+    await p.act(async () => { p.vv.dispatchEvent(new Event('resize')); });
+    await p.act(async () => { p.flushFrames(); });
+    assert.deepEqual(p.scrollCalls.at(-1), [0, 0]);
+    assert.equal(p.scroll.y, 0);
+  } finally {
+    await p.cleanup();
+  }
+});
+
+test('FR-MKB-012 AC-2: releasing the lock resets the document scroll now and again after the keyboard settles', async () => {
+  const p = await renderLockProbe();
+  try {
+    await p.render(true);
+    p.vv.height = 500;
+    p.scroll.y = 180;
+    await p.act(async () => { p.vv.dispatchEvent(new Event('resize')); });
+    await p.act(async () => { p.flushFrames(); });
+
+    // Focus leaves the terminal: the bar hides and the lock goes.
+    await p.render(false);
+    assert.deepEqual(p.scrollCalls.at(-1), [0, 0], 'reset on release');
+    assert.equal(p.el().style.getPropertyValue('--app-viewport-height'), '');
+
+    // The closing keyboard scrolls the document once more after the release.
+    p.vv.height = 900;
+    p.scroll.y = 120;
+    const before = p.scrollCalls.length;
+    await p.act(async () => { await settle(); });
+    assert.equal(p.scrollCalls.length, before + 1, 'checked again after the keyboard settles');
+    assert.equal(p.scroll.y, 0);
+  } finally {
+    await p.cleanup();
+  }
+});
+
+test('FR-MKB-012 AC-3: the lock re-measures once after the last event, so a mid-animation last value is not kept', async () => {
+  const p = await renderLockProbe();
+  try {
+    await p.render(true);
+    p.vv.height = 500;
+    await p.act(async () => { p.vv.dispatchEvent(new Event('resize')); });
+    await p.act(async () => { p.flushFrames(); });
+    assert.equal(p.el().style.getPropertyValue('--app-viewport-height'), '500px');
+
+    // The last event carried a value from the middle of the closing animation;
+    // the viewport then reaches full height with no further event.
+    p.vv.height = 700;
+    await p.act(async () => { p.vv.dispatchEvent(new Event('resize')); });
+    await p.act(async () => { p.flushFrames(); });
+    p.vv.height = 900;
+    await p.act(async () => { await settle(); });
+    await p.act(async () => { p.flushFrames(); });
+    assert.equal(p.el().style.getPropertyValue('--app-viewport-height'), '900px');
+
+    // window resize is listened to as well.
+    p.vv.height = 640;
+    await p.act(async () => { window.dispatchEvent(new window.Event('resize')); });
+    await p.act(async () => { p.flushFrames(); });
+    assert.equal(p.el().style.getPropertyValue('--app-viewport-height'), '640px');
+  } finally {
+    await p.cleanup();
   }
 });

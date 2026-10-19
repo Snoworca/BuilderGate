@@ -78,6 +78,19 @@ export function applyViewportBox(element: HTMLElement, box: ViewportBox | null):
   element.style.setProperty(VIEWPORT_HEIGHT_VAR, `${box.height}px`);
 }
 
+/** How long the system keyboard's open/close animation is given to finish. */
+export const KEYBOARD_SETTLE_MS = 300;
+
+/**
+ * The browser scrolls the document to show the focused input while the keyboard
+ * is up, even with overflow hidden on the root. Once the keyboard is down that
+ * scroll only shifts the app up and leaves the keyboard's place blank (#143).
+ */
+// @req FR-MKB-012
+function resetDocumentScroll(): void {
+  if (window.scrollX !== 0 || window.scrollY !== 0) window.scrollTo(0, 0);
+}
+
 /**
  * While active, keeps the element's --app-viewport-top/--app-viewport-height in
  * step with the visual viewport. Writes go straight to the element's style and
@@ -85,30 +98,59 @@ export function applyViewportBox(element: HTMLElement, box: ViewportBox | null):
  * viewport resize or scroll (iOS fires scroll continuously during a pan).
  */
 // @req FR-MKB-007
+// @req FR-MKB-012
 export function useVisualViewportLock(active: boolean, targetRef: RefObject<HTMLElement | null>): void {
   useLayoutEffect(() => {
     const element = targetRef.current;
     if (!active || element === null) return undefined;
-    applyViewportBox(element, measure());
+    const apply = (): void => {
+      const box = measure();
+      applyViewportBox(element, box);
+      if (box.inset === 0) resetDocumentScroll();
+    };
+    apply();
     const vv = window.visualViewport;
     if (!vv) {
-      return () => { applyViewportBox(element, null); };
+      return () => {
+        applyViewportBox(element, null);
+        resetDocumentScroll();
+      };
     }
     let frame: number | null = null;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
     const flush = (): void => {
       frame = null;
-      applyViewportBox(element, measure());
+      apply();
     };
     const schedule = (): void => {
+      if (frame === null) frame = window.requestAnimationFrame(flush);
+      // The last event can carry a value from the middle of the keyboard
+      // animation; measure once more after it has had time to finish.
+      if (settleTimer !== null) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        remeasure();
+      }, KEYBOARD_SETTLE_MS);
+    };
+    const remeasure = (): void => {
       if (frame === null) frame = window.requestAnimationFrame(flush);
     };
     vv.addEventListener('resize', schedule);
     vv.addEventListener('scroll', schedule);
+    window.addEventListener('resize', schedule);
     return () => {
       vv.removeEventListener('resize', schedule);
       vv.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
       if (frame !== null) window.cancelAnimationFrame(frame);
+      if (settleTimer !== null) clearTimeout(settleTimer);
       applyViewportBox(element, null);
+      resetDocumentScroll();
+      // The keyboard is usually still closing when focus leaves; the browser
+      // can scroll the document once more before it is done.
+      setTimeout(() => {
+        if (computeViewportBox(window).inset === 0) resetDocumentScroll();
+      }, KEYBOARD_SETTLE_MS);
     };
   }, [active, targetRef]);
 }
