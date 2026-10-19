@@ -2205,6 +2205,8 @@ export const TerminalContainer = memo(
       getMouseTrackingActive: () => terminalRef.current?.getMouseTrackingActive() ?? false,
       // @req IR-MKB-001
       getApplicationCursorKeysMode: () => terminalRef.current?.getApplicationCursorKeysMode() ?? false,
+      // @req FR-ARCH-013
+      getPathsAt: (clientX, clientY) => terminalRef.current?.getPathsAt(clientX, clientY) ?? { near: null, screen: [] },
       clearSelection: () => terminalRef.current?.clearSelection(),
       copySelection: (source) => terminalRef.current?.copySelection(source) ?? Promise.resolve({
         ok: false,

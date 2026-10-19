@@ -23,7 +23,11 @@ import {
   useResetLatchWhenNotMobile,
   useSpecialKeyboardPanel,
 } from './components/MobileKeyboard';
-import { commandPresetApi, sessionApi } from './services/api';
+import { commandPresetApi, fileApi, sessionApi } from './services/api';
+import { MessageBox } from './components/dialog/MessageBox';
+import { decideTerminalPathOpen, subscribeTerminalPathOpen } from './utils/terminalPathOpen';
+import type { TerminalPathsAtPoint } from './utils/terminalPathLinks';
+import type { TerminalPathTarget } from './utils/terminalPathDetection';
 import { AuthGuard } from './components/Auth';
 import { Header } from './components/Header';
 import { TerminalHostSlot, TerminalRuntimeLayer, TerminalRuntimeProvider } from './components/Terminal';
@@ -361,6 +365,15 @@ function AppContent() {
 
   const hasTerminalSelection = useCallback((tabId: string): boolean => {
     return terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false;
+  }, []);
+  // FR-ARCH-013: the file paths near a menu press and on screen, read when the menu is built.
+  const getTerminalPathsAt = useCallback((tabId: string, x: number, y: number): TerminalPathsAtPoint => (
+    terminalRefsMap.current.get(tabId)?.current?.getPathsAt(x, y) ?? { near: null, screen: [] }
+  ), []);
+  // Set once the editor exists (below); the menus call it only when an item is chosen.
+  const openTerminalPathRef = useRef<(tabId: string, target: TerminalPathTarget) => void>(() => undefined);
+  const openTerminalPathFromMenu = useCallback((tabId: string, target: TerminalPathTarget) => {
+    openTerminalPathRef.current(tabId, target);
   }, []);
   const isTerminalMouseTracking = useCallback((tabId: string): boolean => {
     return terminalRefsMap.current.get(tabId)?.current?.getMouseTrackingActive() ?? false;
@@ -725,6 +738,7 @@ function AppContent() {
     if (!targetTab) return [];
     const tabRef = terminalRefsMap.current.get(tabContextMenu.targetId);
     const hasSelection = tabRef?.current?.hasSelection() ?? false;
+    const paths = getTerminalPathsAt(targetTab.id, tabContextMenu.position.x, tabContextMenu.position.y);
     return buildTerminalContextMenuItems({
       tab: targetTab,
       tabs: wm.activeWorkspaceTabs,
@@ -750,6 +764,7 @@ function AppContent() {
         },
       },
       onOpenFileExplorer: () => openTabFileExplorer(targetTab.id),
+      openPath: { ...paths, onOpen: (target) => openTerminalPathFromMenu(targetTab.id, target) },
       registeredPresetMenu: {
         presets: registeredPresetSnapshot,
         onSelectPreset: (preset) => handleRegisteredPresetPaste(tabContextMenu.targetId!, preset),
@@ -757,6 +772,9 @@ function AppContent() {
     });
   }, [
     tabContextMenu.targetId,
+    tabContextMenu.position,
+    getTerminalPathsAt,
+    openTerminalPathFromMenu,
     wm.activeWorkspaceTabs,
     availableShells,
     handleAddTab,
@@ -836,6 +854,28 @@ function AppContent() {
     windowState,
     onOpenFileExplorer: openTabFileExplorer,
   });
+  // FR-ARCH-012 AC-8 / FR-ARCH-013 AC-5: a path from the terminal opens only when
+  // the server says it is a file the editor can open; otherwise the reason is shown.
+  const [terminalPathNotice, setTerminalPathNotice] = useState<{ path: string; reason: string } | null>(null);
+  const { openDocument } = editor;
+  const activeWorkspaceTabs = wm.activeWorkspaceTabs;
+  const openTerminalPath = useCallback((tabId: string, target: TerminalPathTarget) => {
+    const tab = activeWorkspaceTabs.find(candidate => candidate.id === tabId);
+    if (!tab) return;
+    void decideTerminalPathOpen(target, path => fileApi.statPath(tab.sessionId, path)).then((decision) => {
+      if (decision.kind === 'open') openDocument(decision.path, tabId);
+      else setTerminalPathNotice({ path: decision.path, reason: decision.reason });
+    });
+  }, [activeWorkspaceTabs, openDocument]);
+  useEffect(() => {
+    openTerminalPathRef.current = openTerminalPath;
+  }, [openTerminalPath]);
+  // FR-ARCH-012 AC-6: Ctrl/Cmd+click in a terminal reports its session and the path.
+  useEffect(() => subscribeTerminalPathOpen((sessionId, target) => {
+    const tab = activeWorkspaceTabs.find(candidate => candidate.sessionId === sessionId);
+    if (tab) openTerminalPath(tab.id, target);
+  }), [activeWorkspaceTabs, openTerminalPath]);
+
   // FR-MCP-012 AC-7: the MCP editor tools' `editor:open` broadcasts reach the editor.
   const { setEditorOpenListener } = wm;
   const { requestRemoteOpen } = editor;
@@ -997,6 +1037,8 @@ function AppContent() {
                       onRequestMoveTab={handleRequestWorkspaceMove}
                       onPathContextMenu={editor.openPathMenu}
                       onOpenFileExplorer={openTabFileExplorer}
+                      getTerminalPathsAt={getTerminalPathsAt}
+                      onOpenTerminalPath={openTerminalPathFromMenu}
                     />
                   ) : null}
 
@@ -1155,6 +1197,17 @@ function AppContent() {
           items={tabContextMenuItems}
           onClose={closeTabContextMenu}
           restoreFocusElement={tabContextMenuRestoreFocusElementRef.current}
+        />
+      )}
+
+      {terminalPathNotice && (
+        <MessageBox
+          dialogId="terminal-path-open-notice"
+          title={t('terminalPath.openFailedTitle')}
+          message={`${terminalPathNotice.path}\n${terminalPathNotice.reason}`}
+          okLabel={t('common.confirm')}
+          onOk={() => setTerminalPathNotice(null)}
+          onCancel={() => setTerminalPathNotice(null)}
         />
       )}
 

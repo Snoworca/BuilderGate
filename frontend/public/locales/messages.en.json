@@ -1262,5 +1262,11 @@
   "apiError.UNSUPPORTED_MEDIA_TYPE": "The request body type is not accepted here.",
   "apiError.PRECOUNT_BUSY": "Too many counts are running; try again shortly.",
   "fileExplorer.modal.moreItems.one": "and {count} more",
-  "fileExplorer.modal.moreItems.other": "and {count} more"
+  "fileExplorer.modal.moreItems.other": "and {count} more",
+  "contextMenu.openPath": "Open {name}",
+  "contextMenu.screenFiles": "Files on screen",
+  "terminalPath.openFailedTitle": "Cannot open the file",
+  "terminalPath.isDirectory": "This path is a folder.",
+  "terminalPath.unsupported": "This type of file cannot be opened.",
+  "terminalPath.currentFolder": "Current folder"
 }
