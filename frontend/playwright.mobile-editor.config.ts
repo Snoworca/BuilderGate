@@ -18,7 +18,7 @@ export default defineConfig({
   ...base,
   use: { ...base.use, baseURL: origin },
   webServer: undefined,
-  testMatch: ['mcp-editor-open.spec.ts', 'mobile-touch-regressions.spec.ts', 'file-download.spec.ts', 'file-transfer.spec.ts', 'file-extract.spec.ts', 'html-viewer.spec.ts'],
+  testMatch: ['mcp-editor-open.spec.ts', 'mobile-touch-regressions.spec.ts', 'file-download.spec.ts', 'file-transfer.spec.ts', 'file-extract.spec.ts', 'html-viewer.spec.ts', 'grid-redraw-nudge.spec.ts'],
   projects: channel
     ? [
       { name: 'Desktop Chrome', use: { ...devices['Desktop Chrome'], channel } },

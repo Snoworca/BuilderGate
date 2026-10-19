@@ -972,6 +972,12 @@ interface SessionData {
    * behind them or it would be undone when the earlier one finally applies.
    */
   pendingRetainedResizes: number;
+  /**
+   * The size the last queued retained resize will apply. While one is queued,
+   * cols/rows still hold the old size, so "unchanged" is judged against this
+   * (REL-BGSTAB-047 AC-4) or a resize back to the old size would be dropped.
+   */
+  lastQueuedRetainedResize?: { cols: number; rows: number } | null;
   cols: number;
   rows: number;
   screenSeq: number;
@@ -4011,7 +4017,9 @@ export class SessionManager {
       },
     });
 
-    if (data.cols === cols && data.rows === rows) {
+    const queued = data.pendingRetainedResizes > 0 ? data.lastQueuedRetainedResize ?? null : null;
+    const effective = queued ?? { cols: data.cols, rows: data.rows };
+    if (effective.cols === cols && effective.rows === rows) {
       this.wsRouter?.recordReplayEvent({
         kind: 'resize_skipped',
         sessionId: id,
@@ -4052,6 +4060,7 @@ export class SessionManager {
     }
     data.pendingHeadlessWrites += 1;
     data.pendingRetainedResizes += 1;
+    data.lastQueuedRetainedResize = { cols, rows };
     data.headlessWriteChain = data.headlessWriteChain
       .then(() => {
         if (this.isActiveSession(id, data)) this.applyRetainedTerminalResize(id, data, cols, rows, reservation.streamEpoch);

@@ -20,6 +20,7 @@ import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { isViewportAtBottom } from '../../utils/terminalViewportFollow.ts';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FontSizeToast } from './FontSizeToast';
+import { scheduleFullRepaint } from './terminalFullRepaint';
 import { InputDiscardedToast } from './InputDiscardedToast';
 import {
   clearTerminalSnapshotRemovalRequest,
@@ -1361,6 +1362,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           }
 
           submitTerminalFit(term, () => {
+            scheduleFullRepaint(term);
             recordTerminalDebugEvent(sessionId, 'fit_completed', {
               cols: term.cols,
               rows: term.rows,
@@ -4344,6 +4346,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             return;
           }
           submitTerminalFit(term, () => {
+            scheduleFullRepaint(term);
             recordTerminalDebugEvent(sessionId, 'fit_completed', {
               cols: term.cols,
               rows: term.rows,
@@ -4757,6 +4760,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
           submitTerminalFit(term, () => {
+            scheduleFullRepaint(term);
             recordTerminalDebugEvent(sessionId, 'fit_completed', {
               cols: term.cols,
               rows: term.rows,
@@ -4961,6 +4965,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       });
       const accepted = submitTerminalFit(term, () => {
         geometryConvergenceFitPendingRef.current = false;
+        scheduleFullRepaint(term);
         recordTerminalDebugEvent(sessionId, 'fit_completed', {
           cols: term.cols,
           rows: term.rows,
@@ -5040,6 +5045,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         }
 
         submitTerminalFit(term, () => {
+          scheduleFullRepaint(term);
           recordTerminalDebugEvent(sessionId, 'fit_completed', {
             cols: term.cols,
             rows: term.rows,

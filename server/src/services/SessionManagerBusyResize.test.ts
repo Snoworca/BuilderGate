@@ -127,3 +127,34 @@ test('an idle session still resizes immediately', () => {
   assert.equal(data.cols, 120);
   assert.equal(data.rows, 40);
 });
+
+test('REL-BGSTAB-047 AC-4: a resize back to the applied size is not skipped while another one is queued', async () => {
+  // #145: the grid redraw nudge sends rows-1 then rows. With a write in flight the
+  // first one is queued and cols/rows still hold the old size, so the second was
+  // judged "unchanged" and skipped -- and the queued one then left the PTY a row short.
+  let release: () => void = () => {};
+  const chain = new Promise<void>((resolve) => { release = resolve; });
+  const ptySizes: string[] = [];
+  const manager = managerWithSession({
+    pendingHeadlessWrites: 1,
+    headlessApplyInFlight: 1,
+    headlessWriteChain: chain,
+    pty: { resize(cols: number, rows: number) { ptySizes.push(`${cols}x${rows}`); } },
+  } as unknown as Partial<ResizeSessionData>);
+  shadowMode(manager);
+
+  assert.equal(manager.resize(SESSION_ID, 80, 23), true);
+  assert.equal(manager.resize(SESSION_ID, 80, 24), true);
+  const data = manager.sessions.get(SESSION_ID)!;
+  assert.equal(data.pendingRetainedResizes, 2, 'the restore was skipped as unchanged');
+
+  // A repeat of the last queued size is still a no-op.
+  assert.equal(manager.resize(SESSION_ID, 80, 24), true);
+  assert.equal(data.pendingRetainedResizes, 2);
+
+  data.headlessApplyInFlight = 0;
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(ptySizes, ['80x23', '80x24']);
+  assert.equal(data.rows, 24);
+});

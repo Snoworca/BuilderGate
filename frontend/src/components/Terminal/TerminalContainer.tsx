@@ -4,6 +4,7 @@ import type { SendResult } from '../../contexts/WebSocketContext';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
 import { TerminalView } from './TerminalView';
 import type { GridRepairReason, TerminalHandle, TerminalPasteInputResult } from './TerminalView';
+import { planRedrawNudge, REDRAW_NUDGE_GAP_MS } from './terminalRedrawNudge';
 import type { TerminalShortcutState } from '../../types';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import {
@@ -2122,6 +2123,27 @@ export const TerminalContainer = memo(
     }, [requestScreenRepair]);
     flushPendingGridScreenRepairRef.current = flushPendingGridScreenRepair;
 
+    // REL-BGSTAB-047: a real size change makes the program inside redraw at its
+    // real size; the server would skip a resize to the size it already has.
+    const sendRedrawNudge = useCallback((reason: GridRepairReason) => new Promise<void>((resolve) => {
+      const geometry = lastResizeRef.current;
+      const [shrunk, restored] = geometry ? planRedrawNudge(reason, geometry) : [];
+      if (!shrunk || !restored) {
+        resolve();
+        return;
+      }
+      recordTerminalDebugEvent(sessionId, 'redraw_nudge_sent', { reason, cols: restored.cols, rows: restored.rows });
+      sendResizeIfNeeded(shrunk.cols, shrunk.rows, `redraw-nudge-${reason}`);
+      // The program must see the shrink before the restore: two signals that
+      // arrive together read as no size change at all.
+      window.setTimeout(() => {
+        // A real resize in between already moved the PTY; restore to that instead.
+        const latest = lastResizeRef.current ?? restored;
+        sendResizeIfNeeded(latest.cols, latest.rows, `redraw-nudge-${reason}`);
+        resolve();
+      }, REDRAW_NUDGE_GAP_MS);
+    }), [sendResizeIfNeeded, sessionId]);
+
     const runGridLayoutRepair = useCallback((reason: GridRepairReason) => {
       if (!isVisibleRef.current || !isGridSurfaceRef.current) {
         return;
@@ -2143,6 +2165,7 @@ export const TerminalContainer = memo(
           });
           return;
         }
+        await sendRedrawNudge(reason);
         requestScreenRepair(reason);
       })();
 
@@ -2152,7 +2175,7 @@ export const TerminalContainer = memo(
           gridRepairInFlightRef.current = null;
         }
       });
-    }, [invalidateHostLayouts, requestScreenRepair, sessionId]);
+    }, [invalidateHostLayouts, requestScreenRepair, sendRedrawNudge, sessionId]);
 
     useImperativeHandle(ref, () => ({
       submitOutput: (data, metadata) => terminalRef.current?.submitOutput(data, metadata),

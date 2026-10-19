@@ -56,6 +56,8 @@
     "./tests/unit/mobileSpecialKeyboard.test.ts",
     "./tests/unit/terminalMobileFocusSuppression.test.ts",
     "./tests/unit/visualViewportInset.test.ts",
+    "./tests/unit/terminalRedrawNudge.test.ts",
+    "./tests/unit/terminalFullRepaint.test.ts",
     "./tests/unit/terminalPasteSanitizer.test.ts",
     "./tests/unit/retainedStatePersistenceBoundary.test.ts",
     "./tests/unit/terminalOsc52Policy.test.ts",
