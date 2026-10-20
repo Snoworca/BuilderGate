@@ -5052,14 +5052,18 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       // the fit was applied, so a sizeless first frame or a refused fit cannot leave it blank.
       let fitApplied = false;
       revealSettleCancelRef.current = startRevealSettle({
+        // The first check runs in the very next frame, as the single reveal fit always did:
+        // a grid tile's repair nudge (REL-BGSTAB-047) follows it and must not be overtaken.
         schedule: (fn, ms) => {
-          let frame = 0;
-          const timer = setTimeout(() => { frame = requestAnimationFrame(fn); }, ms);
+          let frame = ms === 0 ? requestAnimationFrame(fn) : 0;
+          const timer = ms === 0 ? null : setTimeout(() => { frame = requestAnimationFrame(fn); }, ms);
           return () => {
-            clearTimeout(timer);
+            if (timer !== null) clearTimeout(timer);
             if (frame !== 0) cancelAnimationFrame(frame);
           };
         },
+        // A grid tile (the one given onManualRepair) is sized by its grid repair.
+        lateFit: onManualRepair === undefined,
         isRenderable: () => {
           const container = containerRef.current;
           const renderable = Boolean(container && container.offsetWidth > 0 && container.offsetHeight > 0);
@@ -5072,7 +5076,6 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           }
           return renderable;
         },
-        isFitApplied: () => fitApplied,
         fit: () => {
           submitTerminalFit(term, () => {
             fitApplied = true;
@@ -5091,7 +5094,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           recordTerminalDebugEvent(sessionId, 'reveal_settle_repaint', { fitApplied });
         },
       });
-    }, [emitResize, isVisible, sessionId, submitTerminalFit, syncInputReadiness]);
+    }, [emitResize, isVisible, onManualRepair, sessionId, submitTerminalFit, syncInputReadiness]);
 
     useEffect(() => () => {
       revealSettleCancelRef.current?.();

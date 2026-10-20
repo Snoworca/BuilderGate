@@ -1,10 +1,12 @@
 import {
   useCallback,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
 } from 'react';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
+import { REVEAL_SETTLE_DELAYS_MS } from './terminalRevealSettle';
 
 interface TerminalHostSlotProps {
   tabId: string;
@@ -74,6 +76,17 @@ export function TerminalHostSlot({
     measure();
     scheduleMeasure();
   }, [layoutVersion, measure, scheduleMeasure]);
+
+  // REL-BGSTAB-049: a slot that becomes visible is measured again over the next second. A size
+  // observer sees no move of the box (the app shifting as the keyboard closes) and one missed
+  // frame would leave the terminal parked off screen -- a blank stage until the next switch.
+  useEffect(() => {
+    if (!isVisible) return undefined;
+    const timers = REVEAL_SETTLE_DELAYS_MS.map((ms) => setTimeout(scheduleMeasure, ms));
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+    };
+  }, [isVisible, scheduleMeasure]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
