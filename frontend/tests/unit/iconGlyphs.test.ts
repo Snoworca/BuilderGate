@@ -74,3 +74,18 @@ test('FR-UIDS-008 AC-3: the grid toolbar draws move and columns, not menu and si
   assert.notDeepEqual(ICON_GLYPHS.move.paths, ICON_GLYPHS.menu.paths);
   assert.notDeepEqual(ICON_GLYPHS.columns.paths, ICON_GLYPHS.sidebar.paths);
 });
+
+test('FR-UIDS-001: settings is a gear -- a toothed rim around a hub, not loose spokes', () => {
+  // 2026-10-20 user report: the old drawing (a hub with eight separate spokes) read as a sun,
+  // and nobody could tell it meant settings. A gear is one closed outline with teeth.
+  const paths = ICON_GLYPHS.settings.paths;
+  assert.equal(paths.length, 2, 'a rim and a hub');
+  const rim = paths.find((d) => /z$/i.test(d.trim()));
+  assert.ok(rim !== undefined, 'the rim is one closed outline');
+  // Teeth: the outline turns many times, alternating between an outer and an inner radius.
+  const points = [...rim.matchAll(/(-?\d+(?:\.\d+)?)[ ,](-?\d+(?:\.\d+)?)/g)].map((m) => Math.hypot(Number(m[1]) - 12, Number(m[2]) - 12));
+  const outer = points.filter((r) => r > 8.5).length;
+  const inner = points.filter((r) => r < 8).length;
+  assert.ok(outer >= 12 && inner >= 12, `teeth: ${outer} outer and ${inner} inner corners`);
+  assert.ok(points.every((r) => r <= 10.5), 'the gear stays inside the 24x24 grid with room for the stroke');
+});
