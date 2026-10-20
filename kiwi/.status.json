@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-20T17:52:30.464Z",
+  "generatedAt": "2026-10-20T18:27:29.163Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "0f42080348aad4e11c16f3860d2b07b430dc6bb22c30e125a7b1f02b8b619b26",
+    "value": "a1b459ab886623041c29015761ca855b782754a81b31055af9ced6f1c3fbd190",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "2107cef178fc518dbac85091323352d8f3214ab05618fc1c4dd006a34f17fc4a",
-        "size": 1500842,
-        "mtimeMs": 1792518749067.7166
+        "sha256": "fb66e596f663cbe0468a759bfd9f325ad76b892a796ade53faf6bc3588f07d86",
+        "size": 1505149,
+        "mtimeMs": 1792520839048.7275
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -38,9 +38,9 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "6925602d823755f5f4f7ec30c4a8f49f08ca7c93ddf75cf78ebcd0f756600c6a",
-        "size": 307681,
-        "mtimeMs": 1792344049633.446
+        "sha256": "6147791a395ee086d0cf4527f430da93fcceee3fcd7ea1a599bec2c4e631da99",
+        "size": 309081,
+        "mtimeMs": 1792520497418.1025
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
@@ -56,9 +56,9 @@
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "f6b9fb9d4b2dc78ee6092ec11ffa54d980aaa9a1969b9d98093a5d8dd92d5770",
-        "size": 41994,
-        "mtimeMs": 1792485629192.9758
+        "sha256": "a63be05859310d0841f28f9dd8386554eb5b8b478af3302bc8adcd12bc331a58",
+        "size": 45428,
+        "mtimeMs": 1792520508321.3948
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
@@ -86,10 +86,10 @@
       "AITUI": 19,
       "BGSTAB": 35,
       "MCP": 13,
-      "MDE": 28,
+      "MDE": 29,
       "FEX": 30,
       "FOP": 8,
-      "UIDS": 12,
+      "UIDS": 14,
       "MKB": 13
     },
     "constraint": {
@@ -109,7 +109,7 @@
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 48,
+      "BGSTAB": 49,
       "MCP": 1
     },
     "non_functional": {
@@ -121,7 +121,7 @@
       "MCP": 1
     },
     "performance": {
-      "BGSTAB": 23
+      "BGSTAB": 24
     },
     "migration": {
       "BGSTAB": 6

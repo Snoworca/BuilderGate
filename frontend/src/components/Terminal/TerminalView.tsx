@@ -21,6 +21,7 @@ import { isViewportAtBottom } from '../../utils/terminalViewportFollow.ts';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FontSizeToast } from './FontSizeToast';
 import { scheduleFullRepaint } from './terminalFullRepaint';
+import { startRevealSettle } from './terminalRevealSettle';
 import { InputDiscardedToast } from './InputDiscardedToast';
 import {
   clearTerminalSnapshotRemovalRequest,
@@ -519,6 +520,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
     const isVisibleRef = useRef(isVisible);
     const workspaceIdRef = useRef(workspaceId);
     const terminalShortcutStateRef = useRef<TerminalShortcutState | null>(terminalShortcutState);
+    const revealSettleCancelRef = useRef<(() => void) | null>(null);
     const previousVisibilityRef = useRef(isVisible);
     const committedVisibilityRef = useRef(isVisible);
     const bufferedOutputRef = useRef<TerminalRestoreHeldOutputEntry[]>([]);
@@ -5039,35 +5041,62 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       webglRendererRef.current?.sync(isVisible);
       if (isVisible) scheduleWebglScaleCheckRef.current?.();
 
+      revealSettleCancelRef.current?.();
+      revealSettleCancelRef.current = null;
       if (!isVisible) {
         syncInputReadiness('hidden');
         return;
       }
 
-      requestAnimationFrame(() => {
-        const container = containerRef.current;
-        if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
-          recordTerminalDebugEvent(sessionId, 'fit_skipped_non_renderable', {
-            width: container?.offsetWidth ?? 0,
-            height: container?.offsetHeight ?? 0,
-            reason: 'visible',
+      // REL-BGSTAB-049: re-checked a few times rather than once, and repainted whether or not
+      // the fit was applied, so a sizeless first frame or a refused fit cannot leave it blank.
+      let fitApplied = false;
+      revealSettleCancelRef.current = startRevealSettle({
+        schedule: (fn, ms) => {
+          let frame = 0;
+          const timer = setTimeout(() => { frame = requestAnimationFrame(fn); }, ms);
+          return () => {
+            clearTimeout(timer);
+            if (frame !== 0) cancelAnimationFrame(frame);
+          };
+        },
+        isRenderable: () => {
+          const container = containerRef.current;
+          const renderable = Boolean(container && container.offsetWidth > 0 && container.offsetHeight > 0);
+          if (!renderable) {
+            recordTerminalDebugEvent(sessionId, 'fit_skipped_non_renderable', {
+              width: container?.offsetWidth ?? 0,
+              height: container?.offsetHeight ?? 0,
+              reason: 'visible',
+            });
+          }
+          return renderable;
+        },
+        isFitApplied: () => fitApplied,
+        fit: () => {
+          submitTerminalFit(term, () => {
+            fitApplied = true;
+            recordTerminalDebugEvent(sessionId, 'fit_completed', {
+              cols: term.cols,
+              rows: term.rows,
+              reason: 'visible',
+            });
+            geometryReadyRef.current = true;
+            emitResize(term.cols, term.rows, 'visible');
+            syncInputReadiness('visible-fit');
           });
-          return;
-        }
-
-        submitTerminalFit(term, () => {
+        },
+        repaint: () => {
           scheduleFullRepaint(term);
-          recordTerminalDebugEvent(sessionId, 'fit_completed', {
-            cols: term.cols,
-            rows: term.rows,
-            reason: 'visible',
-          });
-          geometryReadyRef.current = true;
-          emitResize(term.cols, term.rows, 'visible');
-          syncInputReadiness('visible-fit');
-        });
+          recordTerminalDebugEvent(sessionId, 'reveal_settle_repaint', { fitApplied });
+        },
       });
     }, [emitResize, isVisible, sessionId, submitTerminalFit, syncInputReadiness]);
+
+    useEffect(() => () => {
+      revealSettleCancelRef.current?.();
+      revealSettleCancelRef.current = null;
+    }, []);
 
     useEffect(() => {
       const persistSnapshot = () => {

@@ -34,6 +34,7 @@
     "./tests/unit/fileExplorerMobilePlacement.test.ts",
     "./tests/unit/fileExplorerNewFile.test.ts",
     "./tests/unit/fileExplorerDragDrop.test.ts",
+    "./tests/unit/terminalRevealSettle.test.ts",
     "./tests/unit/fileExtract.test.ts",
     "./tests/unit/htmlViewer.test.ts",
     "./tests/unit/i18nRuntime.test.ts",
