@@ -32,12 +32,12 @@ test('FR-UIDS-011 AC-1: phone header hides the title, tightens padding and drops
   assert.match(rule(phone, '.header-right'), /gap:\s*0;/u);
 });
 
-test('FR-UIDS-011 AC-2: buttons are 44 px on phones, 40 px at 374 px and 36 px at 340 px', () => {
-  assert.match(rule(mediaBlock(767), '.header .icon-button-md'), /width:\s*var\(--ctl-touch\)/u);
-  const at374 = rule(mediaBlock(374), '.header .icon-button-md');
-  assert.match(at374, /width:\s*40px/u);
-  assert.match(at374, /height:\s*40px/u);
+test('FR-UIDS-011 AC-2: buttons are 36 px on phones and 32 px at 340 px', () => {
+  // 2026-10-20: 44 px boxes spread the icons too far apart on a phone (user report).
+  const phone = rule(mediaBlock(767), '.header .icon-button-md');
+  assert.match(phone, /width:\s*var\(--ctl-lg\)/u);
+  assert.match(phone, /height:\s*var\(--ctl-lg\)/u);
   const at340 = rule(mediaBlock(340), '.header .icon-button-md');
-  assert.match(at340, /width:\s*36px/u);
-  assert.match(at340, /height:\s*36px/u);
+  assert.match(at340, /width:\s*32px/u);
+  assert.match(at340, /height:\s*32px/u);
 });

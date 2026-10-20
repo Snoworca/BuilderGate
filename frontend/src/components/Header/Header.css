@@ -115,23 +115,17 @@
     gap: 0;
   }
 
+  /* 36px rather than 44px: 44px boxes spread the icons too far apart (2026-10-20). */
   .header .icon-button-md {
-    width: var(--ctl-touch);
-    height: var(--ctl-touch);
+    width: var(--ctl-lg);
+    height: var(--ctl-lg);
   }
 }
 
-/* Narrow phones: six 44px buttons and the left side no longer fit. */
-@media (max-width: 374px) {
-  .header .icon-button-md {
-    width: 40px;
-    height: 40px;
-  }
-}
-
+/* The narrowest phones: six 36px buttons and the left side no longer fit. */
 @media (max-width: 340px) {
   .header .icon-button-md {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
   }
 }
