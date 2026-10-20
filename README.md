@@ -306,6 +306,8 @@ The Windows MSI is built from that folder with `node tools/build-msi.js --profil
 
 ### macOS notes
 
+On an Apple Silicon Mac the command-line runtime can be installed with Homebrew: `brew install snoworca/tap/buildergate`. Settings and data stay in `$(brew --prefix)/var/buildergate`; `brew services start buildergate` starts it at login. The formula follows each release.
+
 A ZIP downloaded from the internet may carry the Gatekeeper quarantine flag. For a release you trust: `xattr -dr com.apple.quarantine .` in the extracted folder. An unsigned local build can be ad-hoc signed with `codesign --force --deep --sign - ./BuilderGate.app`.
 
 ---
@@ -609,5 +611,7 @@ Windows MSI 는 그 폴더로 `node tools/build-msi.js --profile win-amd64`(또�
 - UI 문구는 `frontend/public/locales/messages.{en,ko}.json` 에 있습니다. `messages.<lang>.json` 을 추가하고 `languages.json` 에 한 줄을 넣으면 언어가 늘어납니다.
 
 ### macOS 참고
+
+Apple Silicon Mac 에서는 Homebrew 로 명령줄 실행 파일을 설치할 수 있습니다: `brew install snoworca/tap/buildergate`. 설정과 데이터는 `$(brew --prefix)/var/buildergate` 에 남고, `brew services start buildergate` 로 로그인 때 시작합니다. formula 는 릴리즈마다 따라갑니다.
 
 인터넷에서 받은 ZIP 에는 Gatekeeper quarantine 이 붙을 수 있습니다. 신뢰하는 배포본이면 압축을 푼 폴더에서 `xattr -dr com.apple.quarantine .` 로 지웁니다. 서명되지 않은 로컬 빌드는 `codesign --force --deep --sign - ./BuilderGate.app` 으로 ad-hoc 서명합니다.
