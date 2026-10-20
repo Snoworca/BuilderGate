@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useDoubleTap } from '../../hooks/useDoubleTap';
+import { DOUBLE_TAP_WINDOW_MS } from '../../hooks/doubleTap';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
@@ -70,18 +72,25 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
   // that did. The previous bare catch left no trace anywhere, so the badge simply
   // never appeared - which is also what the user sees before clicking - and they
   // pasted the clipboard's previous contents believing it had worked.
+  // FR-UIDS-013: after a touch tap the copied badge waits out the double-tap window. The badge
+  // is shorter than the path and the span is right-aligned, so showing it at once moved the
+  // path from under the finger and the second tap of a double tap missed it.
+  const lastTouchEndRef = useRef(0);
   const handleCopy = useCallback(async () => {
     if (!tab.cwd) return;
+    const feedbackDelay = Date.now() - lastTouchEndRef.current < 1000 ? DOUBLE_TAP_WINDOW_MS : 0;
+    let attempt: { ok: boolean };
     try {
       await copyTextToClipboard(tab.cwd);
-      setCopyAttempt({ ok: true });
+      attempt = { ok: true };
     } catch (error) {
-      setCopyAttempt({ ok: false });
+      attempt = { ok: false };
       recordTerminalDebugEvent(tab.sessionId, 'metadata_cwd_copy_failed', {
         reason: error instanceof Error ? error.message : 'unknown',
       });
     }
-    setTimeout(() => setCopyAttempt(null), 1500);
+    setTimeout(() => setCopyAttempt(attempt), feedbackDelay);
+    setTimeout(() => setCopyAttempt(null), feedbackDelay + 1500);
   }, [tab.cwd, tab.sessionId]);
 
   const copyOutcome = resolveCopyOutcome(copyAttempt);
@@ -95,6 +104,10 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
     event.stopPropagation();
     onPathContextMenu(event.clientX, event.clientY);
   }, [onPathContextMenu]);
+
+  // FR-UIDS-013: a double tap opens the same menu; isolated so the grid tile's own menu
+  // does not answer the same touches.
+  const pathDoubleTap = useDoubleTap(({ clientX, clientY }) => onPathContextMenu?.(clientX, clientY), { isolate: true });
 
   const displayPath = useMemo(() => {
     if (!tab.cwd) return '';
@@ -180,6 +193,11 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
           className="metadata-cwd-path"
           onClick={handleCopy}
           onContextMenu={handlePathContextMenu}
+          onTouchStart={pathDoubleTap.onTouchStart}
+          onTouchEnd={(event) => {
+            lastTouchEndRef.current = Date.now();
+            pathDoubleTap.onTouchEnd(event);
+          }}
           title={copyOutcome === 'copied' ? t('metadata.copied') : copyOutcome === 'failed' ? t('metadata.copyFailed') : (tab.cwd || '')}
           style={{
             color: copyOutcome === 'copied' ? '#22c55e' : copyOutcome === 'failed' ? '#ef4444' : '#e0e0e0',

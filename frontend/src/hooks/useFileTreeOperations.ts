@@ -255,7 +255,15 @@ export function useFileTreeOperations({
 
   const menuHandlers: FileExplorerMenuHandlers = {
     open: () => {
-      if (menu?.path) onOpenFile(menu.path);
+      if (!menu?.path) return;
+      // FR-UIDS-013 AC-4: a folder enters (list) or toggles open (tree), as its double click does.
+      if (menu.isDir) {
+        if (state.mode === 'list') void tree.setRoot(menu.path);
+        else if (state.expandedPaths.has(menu.path)) tree.collapse(menu.path);
+        else void tree.expand(menu.path);
+        return;
+      }
+      onOpenFile(menu.path);
     },
     newtab: () => {
       if (menu?.path) onNewTab?.(menu.path);

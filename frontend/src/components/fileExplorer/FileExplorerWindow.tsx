@@ -451,7 +451,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     target.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX, clientY }));
   }, []);
   const longPress = useLongPress(handleLongPress, LONG_PRESS_MENU_MS);
-  const longHoldOpen = useLongPress(handleLongHoldOpen, LONG_PRESS_OPEN_MS);
+  // Held only: a double tap belongs to the menu (FR-UIDS-013), not to opening.
+  const longHoldOpen = useLongPress(handleLongHoldOpen, LONG_PRESS_OPEN_MS, { doubleTap: false });
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     pressTargetRef.current = event.target;
     longPress.onTouchStart(event);
@@ -461,9 +462,10 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     longPress.onTouchMove(event);
     longHoldOpen.onTouchMove(event);
   };
-  const handleTouchEnd = () => {
-    longPress.onTouchEnd();
-    longHoldOpen.onTouchEnd();
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    // FR-UIDS-013: a double tap opens the row's menu through the same long-press callback.
+    longPress.onTouchEnd(event);
+    longHoldOpen.onTouchEnd(event);
   };
 
   // The listing in the order it is drawn: the tab's sort, which both modes share

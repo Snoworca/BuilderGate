@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useDoubleTap } from '../../hooks/useDoubleTap';
 import type { Workspace } from '../../types/workspace';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { ContextMenu } from '../ContextMenu/ContextMenu';
@@ -52,6 +53,9 @@ export function WorkspaceItem({
     { label: t('common.addTerminal'), onClick: () => onAddTab(workspace.id, ctx.position), disabled: tabCount >= maxTabs },
   ];
 
+  // FR-UIDS-013: a double tap opens the menu instead of starting a rename.
+  const itemDoubleTap = useDoubleTap(({ clientX, clientY }) => ctx.open(clientX, clientY, workspace.id));
+
   return (
     <>
       <div
@@ -60,6 +64,8 @@ export function WorkspaceItem({
         className={`workspace-item ${isActive ? 'active' : ''} ${isDragTarget ? 'drag-target' : ''}`}
         onClick={onClick}
         onContextMenu={(e) => { e.preventDefault(); ctx.open(e.clientX, e.clientY, workspace.id); }}
+        onTouchStart={itemDoubleTap.onTouchStart}
+        onTouchEnd={itemDoubleTap.onTouchEnd}
         onDoubleClick={() => { setEditName(workspace.name); setEditing(true); }}
         {...dragHandlers}
       >

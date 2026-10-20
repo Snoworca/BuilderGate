@@ -1292,5 +1292,6 @@
   "fileExplorer.drag.deny.file": "Drop onto a folder",
   "fileExplorer.drag.count.one": "{count} item",
   "fileExplorer.drag.count.other": "{count} items",
-  "fileExplorer.drag.failed": "Could not move or copy: {message}"
+  "fileExplorer.drag.failed": "Could not move or copy: {message}",
+  "fileExplorer.menu.openFolder": "Open"
 }

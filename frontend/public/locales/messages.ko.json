@@ -1249,5 +1249,6 @@
   "fileExplorer.drag.deny.sameFolder": "이미 이 폴더에 있습니다",
   "fileExplorer.drag.deny.file": "폴더 위에 놓으세요",
   "fileExplorer.drag.count.other": "{count}개 항목",
-  "fileExplorer.drag.failed": "옮기거나 복사하지 못했습니다: {message}"
+  "fileExplorer.drag.failed": "옮기거나 복사하지 못했습니다: {message}",
+  "fileExplorer.menu.openFolder": "열기"
 }

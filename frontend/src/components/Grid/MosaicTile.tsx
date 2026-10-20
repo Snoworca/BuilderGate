@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { DisconnectedOverlay } from '../Workspace/DisconnectedOverlay';
 import { MetadataRow } from '../MetadataBar/MetadataRow';
 import { useLongPress } from '../../hooks/useLongPress';
+import { dismissSoftKeyboard } from '../../hooks/doubleTap';
 import { TAB_COLORS } from '../../types/workspace';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 
@@ -53,7 +54,8 @@ export function MosaicTile({
   // Long-press opens context menu on touch devices
   const longPress = useLongPress(
     useCallback(
-      ({ clientX, clientY }) => {
+      ({ clientX, clientY, gesture }) => {
+        if (gesture === 'double-tap') dismissSoftKeyboard();
         onContextMenu(clientX, clientY, tabId);
       },
       [tabId, onContextMenu],

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useDoubleTap } from '../../hooks/useDoubleTap';
 import { useDragReorder } from '../../hooks/useDragReorder';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { useLongPress } from '../../hooks/useLongPress';
@@ -77,6 +78,12 @@ export function WorkspaceTabBar({
   const isAddDisabled = tabs.length >= maxTabs;
   const addTooltip = isAddDisabled ? tn('workspace.tabBar.tabLimit', maxTabs) : '';
 
+  // FR-UIDS-013: a double tap on a tab opens its menu (the long press is the browser's own,
+  // Android only). The second tap raises no dblclick, so it does not start a rename.
+  const tabDoubleTap = useDoubleTap(({ clientX, clientY }, target) => {
+    const tabId = target instanceof Element ? target.closest<HTMLElement>('[data-tab-id]')?.dataset.tabId : undefined;
+    if (tabId !== undefined) ctx.open(clientX, clientY, tabId);
+  });
   const longPress = useLongPress(
     useCallback((e: { clientX: number; clientY: number }) => {
       if (!availableShells || availableShells.length <= 1) return;
@@ -107,6 +114,9 @@ export function WorkspaceTabBar({
             onClick={() => onSelectTab(tab.id)}
             onDoubleClick={() => { setEditName(tab.name); setEditingTabId(tab.id); }}
             onContextMenu={(e) => { e.preventDefault(); ctx.open(e.clientX, e.clientY, tab.id); }}
+            data-tab-id={tab.id}
+            onTouchStart={tabDoubleTap.onTouchStart}
+            onTouchEnd={tabDoubleTap.onTouchEnd}
             {...drag.getTabHandlers(index)}
             className={workspaceTabClassName({
               isActive,

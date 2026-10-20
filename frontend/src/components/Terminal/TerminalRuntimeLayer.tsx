@@ -5,6 +5,7 @@ import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
 import { ensureTerminalRef, pruneTerminalRefsMap } from './terminalRuntimeRefs';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import { useLongPress } from '../../hooks/useLongPress';
+import { dismissSoftKeyboard } from '../../hooks/doubleTap';
 import type { TerminalShortcutState } from '../../types';
 import { suppressTerminalSecondaryButtonEvent } from '../../utils/terminalPointerPolicy';
 import { createTouchTapTracker, shouldFocusTerminalOnPointerDown } from '../../utils/terminalTouchTapPolicy';
@@ -74,8 +75,10 @@ function TerminalRuntimeEntry({
   const lastPointerWasTouchRef = useRef(false);
 
   const longPress = useLongPress(
-    ({ clientX, clientY }) => {
+    ({ clientX, clientY, gesture }) => {
       touchTapRef.current.longPress();
+      // FR-UIDS-013 AC-5: the double tap's first tap opened the keyboard; the menu replaces it.
+      if (gesture === 'double-tap') dismissSoftKeyboard();
       getHostInteractions(tab.id)?.onContextMenu?.(clientX, clientY);
     },
     500,

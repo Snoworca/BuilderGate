@@ -28,6 +28,8 @@ async function load(): Promise<M> {
 // The labels are the contract the user reads (design 7), so the test keeps its
 // own copy and maps them back to ids; a label the table does not know fails.
 const LABEL_TO_ID: Record<string, string> = {
+  // FR-UIDS-013 AC-4: a folder's open entry; listed first so the reverse map keeps '편집기로 열기'.
+  '열기': 'open',
   '편집기로 열기': 'open',
   '새 탭에서 열기': 'newtab',
   '다운로드': 'download',
@@ -193,9 +195,12 @@ test("'편집기로 열기' 는 열 수 있는 파일만, '새 탭에서 열기'
   assert.equal(isEnabled(binaryFile, 'open'), false);
   assert.equal(isEnabled(binaryFile, 'newtab'), false);
 
-  // A directory is never "opened in the editor", whatever `openable` says.
+  // A directory is never "opened in the editor": its entry is 열기 (enter/expand), enabled
+  // because a phone's double tap now opens this menu instead (FR-UIDS-013 AC-4).
   const dir = build({ isDir: true, openable: true });
-  assert.equal(isEnabled(dir, 'open'), false);
+  const dirOpen = probe(dir).find(item => !isSeparator(item) && item.label === '열기');
+  assert.ok(dirOpen !== undefined && dirOpen.disabled !== true, 'a folder offers 열기');
+  assert.equal(probe(dir).some(item => !isSeparator(item) && item.label === '편집기로 열기'), false);
   assert.equal(isEnabled(dir, 'newtab'), true);
 
   // Choosing an enabled item runs its own handler, once.

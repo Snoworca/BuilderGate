@@ -16,7 +16,8 @@ test('FR-FEX-020 AC-1/AC-2: the menu press stays at 0.5 s and the open press is 
 
 test('FR-FEX-020 AC-1: the window holds a second press of LONG_PRESS_OPEN_MS that raises a dblclick', () => {
   assert.match(windowSource, /useLongPress\(\s*handleLongPress\s*,\s*LONG_PRESS_MENU_MS\s*\)/);
-  assert.match(windowSource, /useLongPress\(\s*handleLongHoldOpen\s*,\s*LONG_PRESS_OPEN_MS\s*\)/);
+  // FR-UIDS-013: held only -- a double tap belongs to the menu, so this press opts out of it.
+  assert.match(windowSource, /useLongPress\(\s*handleLongHoldOpen\s*,\s*LONG_PRESS_OPEN_MS\s*,\s*\{\s*doubleTap:\s*false\s*\}\s*\)/);
   const handler = windowSource.slice(windowSource.indexOf('const handleLongHoldOpen'), windowSource.indexOf('const longPress ='));
   assert.match(handler, /new MouseEvent\('dblclick'/, 'the hold goes through the double-click path the views already handle');
   assert.match(handler, /setMenu\(null\)/, 'AC-2: the menu the 0.5 s press opened closes');

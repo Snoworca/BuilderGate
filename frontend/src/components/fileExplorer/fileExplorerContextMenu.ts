@@ -140,8 +140,10 @@ export function decideContextMenuSelection(
 
 function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInfo): boolean {
   switch (id) {
+    // FR-UIDS-013 AC-4: a folder opens from its menu too (enter in the list, expand in the
+    // tree), since on a phone a double tap now opens this menu instead.
     case 'open':
-      return info.target === 'item' && !info.isDir && info.openable;
+      return info.target === 'item' && (info.isDir || info.openable);
     case 'newtab':
       return info.target === 'item' && info.isDir && info.context === 'explorer-window';
     // FR-FEX-021 AC-1: one file at a time; FR-FEX-025 AC-1: anything selected where ZIP exists.
@@ -220,6 +222,7 @@ export function buildFileExplorerContextMenuItems(
 }
 
 function labelOf(entry: FileExplorerMenuActionId, info: FileExplorerMenuInfo): string {
+  if (entry === 'open' && info.target === 'item' && info.isDir) return t('fileExplorer.menu.openFolder');
   if (entry === 'upload' && info.target === 'item' && info.isDir && info.uploadTargetName) {
     return t('fileExplorer.menu.uploadInto', { name: info.uploadTargetName });
   }

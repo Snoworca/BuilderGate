@@ -118,6 +118,7 @@ const tabBar = component('../../src/components/Workspace/WorkspaceTabBar.tsx', '
   useEffect: noop, useCallback: (callback: unknown) => callback,
   useContextMenu: () => ({ isOpen: false, targetId: null, open: noop, close: noop }),
   useLongPress: () => ({ wasLongPress: () => false, onPointerDown: noop, onPointerUp: noop, onPointerMove: noop }),
+  useDoubleTap: () => ({ onTouchStart: noop, onTouchMove: noop, onTouchEnd: noop }),
   useDragReorder: () => ({ getTabHandlers: () => ({}), dropTargetIndex: null, dragIndex: null, ghostStyle: null, tabRefs: { current: [] } }),
   TAB_COLORS, getRecoveryIconLabel, ContextMenu: 'context-menu', Icon: 'icon', IconButton: 'icon-button',
   workspaceTabClassName,
@@ -126,6 +127,7 @@ const workspaceItem = component('../../src/components/Workspace/WorkspaceItem.ts
   useState: (initial: unknown) => [initial, noop], useRef: (initial: unknown) => ({ current: initial }), useEffect: noop,
   useContextMenu: () => ({ isOpen: true, targetId: 'target', position: { x: 10, y: 20 }, open: noop, close: noop }),
   ContextMenu: 'context-menu', workspaceActivity,
+  useDoubleTap: () => ({ onTouchStart: noop, onTouchMove: noop, onTouchEnd: noop }),
 });
 const capacityTabs = (count: number) => Array.from({ length: count }, (_, index) => ({
   id: `tab-${index}`, sessionId: `session-${index}`, workspaceId: 'target', name: `Terminal ${index}`,
