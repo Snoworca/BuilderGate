@@ -267,7 +267,7 @@ export function validateMcpSecurityDraft(draft: McpSecurityDraft): string | null
 }
 
 // FR-MCP-002 AC-8: the same ranges the server enforces (server/src/services/submitDelivery.ts).
-const DEFAULT_SUBMIT_ENTER_DELAY_MS = 150;
+const DEFAULT_SUBMIT_ENTER_DELAY_MS = 1000;
 const DEFAULT_SUBMIT_ENTER_DELAY_PER_KB_MS = 50;
 const SUBMIT_ENTER_DELAY_MS_MAX = 5000;
 const SUBMIT_ENTER_DELAY_PER_KB_MS_MAX = 1000;

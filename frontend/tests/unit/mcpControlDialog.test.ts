@@ -406,7 +406,7 @@ test('T-PH007-01 FR-MCP-005 security draft builds MCP control config patch with 
     allowedOrigins: ['https://localhost:2222'],
     webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
     webhookRateLimit: { windowSeconds: 60, burstLimit: 10 },
-    submitEnterDelayMs: 150,
+    submitEnterDelayMs: 1000,
     submitEnterDelayPerKbMs: 50,
   });
 });
@@ -498,9 +498,9 @@ const submitEnterBaseConfig = {
   lastRebindResult: null,
 };
 
-test('FR-MCP-002 AC-8: the security draft carries the Enter waits, defaulting to 150 ms and 50 ms per KB', () => {
+test('FR-MCP-002 AC-8: the security draft carries the Enter waits, defaulting to 1000 ms and 50 ms per KB', () => {
   const defaults = createMcpSecurityDraft(submitEnterBaseConfig);
-  assert.equal(defaults.submitEnterDelayMsText, '150');
+  assert.equal(defaults.submitEnterDelayMsText, '1000');
   assert.equal(defaults.submitEnterDelayPerKbMsText, '50');
 
   const stored = createMcpSecurityDraft({ ...submitEnterBaseConfig, submitEnterDelayMs: 400, submitEnterDelayPerKbMs: 0 });

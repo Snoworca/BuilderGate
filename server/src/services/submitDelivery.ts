@@ -15,7 +15,8 @@ export interface SubmitEnterDelay {
   perKbMs: number;
 }
 
-export const DEFAULT_SUBMIT_ENTER_DELAY: SubmitEnterDelay = { baseMs: 150, perKbMs: 50 };
+// 1000 ms base (2026-10-21 user request): 150 ms was short enough for a busy TUI to take the Enter as part of the paste.
+export const DEFAULT_SUBMIT_ENTER_DELAY: SubmitEnterDelay = { baseMs: 1000, perKbMs: 50 };
 export const SUBMIT_ENTER_BASE_MS_MAX = 5000;
 export const SUBMIT_ENTER_PER_KB_MS_MAX = 1000;
 /** Keeps a mistyped setting from holding an MCP call for minutes. */

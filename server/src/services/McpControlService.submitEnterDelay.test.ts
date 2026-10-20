@@ -20,9 +20,9 @@ function service(config: Rec = {}) {
   };
 }
 
-test('FR-MCP-002 AC-8: getConfig reports the defaults 150 ms and 50 ms per KB', () => {
+test('FR-MCP-002 AC-8: getConfig reports the defaults 1000 ms and 50 ms per KB', () => {
   const config = service().getConfig();
-  assert.equal(config.submitEnterDelayMs, 150);
+  assert.equal(config.submitEnterDelayMs, 1000);
   assert.equal(config.submitEnterDelayPerKbMs, 50);
 });
 
@@ -56,7 +56,7 @@ test('FR-MCP-002 AC-8: out-of-range or non-integer values are rejected with VALI
     assert.ok(result.fieldErrors && typeof result.fieldErrors === 'object');
   }
   assert.equal(s.mutations.length, 0);
-  assert.equal(s.getConfig().submitEnterDelayMs, 150);
+  assert.equal(s.getConfig().submitEnterDelayMs, 1000);
   assert.equal(s.getConfig().submitEnterDelayPerKbMs, 50);
 });
 

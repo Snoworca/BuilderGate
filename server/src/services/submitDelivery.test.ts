@@ -90,11 +90,11 @@ test('FR-MCP-002 AC-3 boundary: paste delivery is written once, unchanged, with 
   assert.deepEqual(r.log.map(([kind, value]) => (kind === 'write' ? (value as Rec).data : kind)), ['draft']);
 });
 
-test('FR-MCP-002 AC-8: by default the wait is 150 ms plus 50 ms per started KB', () => {
-  assert.deepEqual(DEFAULT_SUBMIT_ENTER_DELAY, { baseMs: 150, perKbMs: 50 });
-  assert.equal(submitEnterDelayMs('hi'), 200);
-  assert.equal(submitEnterDelayMs('x'.repeat(1024)), 200);
-  assert.equal(submitEnterDelayMs('x'.repeat(1025)), 250);
+test('FR-MCP-002 AC-8: by default the wait is 1000 ms plus 50 ms per started KB', () => {
+  assert.deepEqual(DEFAULT_SUBMIT_ENTER_DELAY, { baseMs: 1000, perKbMs: 50 });
+  assert.equal(submitEnterDelayMs('hi'), 1050);
+  assert.equal(submitEnterDelayMs('x'.repeat(1024)), 1050);
+  assert.equal(submitEnterDelayMs('x'.repeat(1025)), 1100);
 });
 
 test('FR-MCP-002 AC-8: the configured base and per-KB waits are used', () => {
