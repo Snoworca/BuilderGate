@@ -155,3 +155,63 @@ test.describe('revealed terminal is painted', () => {
     for (const value of results) expect(value, 'bright pixels after a reveal whose WebGL context was lost').toBeGreaterThan(400);
   });
 });
+
+// The sequence on the user's phone: typing in a terminal (system keyboard up, the app locked to
+// the visible area), then tapping another tab -- the tap blurs the terminal and the keyboard goes
+// down while the tab switches -- and later tapping back. The keyboard is emulated as in
+// mobile-terminal-keyboard.spec.ts: focusing the terminal's input lowers visualViewport.height.
+test.describe('revealed terminal is painted with the system keyboard', () => {
+  let record: OwnedFolder;
+
+  test.beforeEach(async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile !== true, 'phone layout');
+    expect(process.env.PLAYWRIGHT_BASE_URL ?? ORIGIN, 'this spec runs only against the verified 2222 runtime').toBe(ORIGIN);
+    test.setTimeout(180000);
+    await page.addInitScript(() => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      let up = false;
+      Object.defineProperty(vv, 'height', { configurable: true, get: () => window.innerHeight - (up ? 300 : 0) });
+      const set = (next: boolean): void => {
+        if (up === next) return;
+        up = next;
+        vv.dispatchEvent(new Event('resize'));
+        window.dispatchEvent(new Event('resize'));
+      };
+      const isHelper = (target: EventTarget | null): boolean => target instanceof Element && target.classList.contains('xterm-helper-textarea');
+      document.addEventListener('focusin', (event) => { if (isHelper(event.target)) set(true); });
+      document.addEventListener('focusout', (event) => { if (isHelper(event.target) && !isHelper(event.relatedTarget)) set(false); });
+    });
+    record = newOwnedFolder(`mobile-tab-reveal-paint-kb/${testInfo.testId}/${testInfo.retry}/${randomUUID()}`);
+    await setUpOwnedFolder(page, request, record, 'e2e-paintkb', { 'x.txt': 'x\n' });
+  });
+
+  test.afterEach(async ({ request }) => {
+    if (!record) return;
+    await tearDownOwnedFolder(request, record);
+  });
+
+  test('a tab switched away from with the keyboard up is painted on return', async ({ page }) => {
+    const stageBox = async () => page.locator('.terminal-workspace-stage').first().boundingBox();
+    const results: number[] = [];
+    for (let round = 0; round < 6; round += 1) {
+      // Type in the work tab: the keyboard goes up.
+      const box = await stageBox();
+      await page.touchscreen.tap(box!.x + 40, box!.y + 40);
+      await page.keyboard.type('echo ' + 'W'.repeat(40));
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(300);
+      // Tap the other tab with the keyboard up, then come back.
+      await tab(page, 'e2e-paintkb-base').tap();
+      await expect(tab(page, 'e2e-paintkb-base')).toHaveAttribute('aria-selected', 'true');
+      await page.waitForTimeout(round % 2 === 0 ? 150 : 1200);
+      await tab(page, 'e2e-paintkb-work').tap();
+      await expect(tab(page, 'e2e-paintkb-work')).toHaveAttribute('aria-selected', 'true');
+      await page.waitForTimeout(1500);
+      results.push(await brightPixels(page));
+    }
+    console.log(`keyboard reveals=${results.join(',')}`);
+    await page.screenshot({ path: '../.playwright-mcp/e2e-tab-reveal-keyboard.png' });
+    for (const value of results) expect(value, 'bright pixels after returning to a tab left with the keyboard up').toBeGreaterThan(400);
+  });
+});
