@@ -3,6 +3,7 @@ import { workspaceApi } from '../services/api';
 import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
 import type { MoveTabResult, Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceLimits } from '../types/workspace';
 import { markTerminalSnapshotForRemoval } from '../utils/terminalSnapshot';
+import { createLatestValueSaver, type LatestValueSaver } from '../utils/latestValueSaver';
 import {
   clearMosaicLayoutForWorkspace,
   pruneMosaicLayoutForDeletedTab,
@@ -632,27 +633,36 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
     }
   }, [tabs]);
 
-  const setActiveTab = useCallback(async (workspaceId: string, tabId: string | null) => {
-    try {
-      await workspaceApi.update(workspaceId, { activeTabId: tabId });
-      setWorkspaces(prev => prev.map(w =>
-        w.id === workspaceId ? { ...w, activeTabId: tabId } : w
-      ));
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
+  // PERF-BGSTAB-024: a selection shows at once and is saved behind it, one request at a time
+  // with only the latest value following (latestValueSaver), per workspace and per field.
+  const selectionSaversRef = useRef(new Map<string, LatestValueSaver<Partial<Pick<Workspace, 'activeTabId' | 'viewMode'>>>>());
+  const selectionSaver = useCallback((key: string, workspaceId: string) => {
+    let saver = selectionSaversRef.current.get(key);
+    if (saver === undefined) {
+      saver = createLatestValueSaver(
+        async (update) => { await workspaceApi.update(workspaceId, update); },
+        (err) => setError(getErrorMessage(err)),
+      );
+      selectionSaversRef.current.set(key, saver);
     }
+    return saver;
   }, []);
+  const activeTabSaver = useCallback((workspaceId: string) => selectionSaver(`${workspaceId}:activeTab`, workspaceId), [selectionSaver]);
+  const viewModeSaver = useCallback((workspaceId: string) => selectionSaver(`${workspaceId}:viewMode`, workspaceId), [selectionSaver]);
+
+  const setActiveTab = useCallback(async (workspaceId: string, tabId: string | null) => {
+    setWorkspaces(prev => prev.map(w =>
+      w.id === workspaceId ? { ...w, activeTabId: tabId } : w
+    ));
+    await activeTabSaver(workspaceId).save({ activeTabId: tabId });
+  }, [activeTabSaver]);
 
   const setViewMode = useCallback(async (workspaceId: string, mode: 'tab' | 'grid') => {
-    try {
-      await workspaceApi.update(workspaceId, { viewMode: mode });
-      setWorkspaces(prev => prev.map(w =>
-        w.id === workspaceId ? { ...w, viewMode: mode } : w
-      ));
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
-    }
-  }, []);
+    setWorkspaces(prev => prev.map(w =>
+      w.id === workspaceId ? { ...w, viewMode: mode } : w
+    ));
+    await viewModeSaver(workspaceId).save({ viewMode: mode });
+  }, [viewModeSaver]);
 
   // ============================================================================
   // Grid

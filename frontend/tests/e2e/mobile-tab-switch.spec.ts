@@ -45,4 +45,34 @@ test.describe('terminal tab switching', () => {
     }, sessionId), { timeout: 5000 }).toBeGreaterThanOrEqual(3);
     await page.screenshot({ path: `../.playwright-mcp/e2e-tab-reveal-${phone ? 'phone' : 'desktop'}.png` });
   });
+
+  // PERF-BGSTAB-024 AC-1/AC-2
+  test('a tab switch shows before the server saves it, and quick taps end on the last tab', async ({ page }, testInfo) => {
+    const phone = testInfo.project.use.isMobile === true;
+    const saved: string[] = [];
+    // Every save of the workspace waits 3 s, as on a slow mobile link.
+    await page.route(`**/api/workspaces/${record.workspaceId}`, async (route) => {
+      if (route.request().method() !== 'PATCH') return route.continue();
+      const body = route.request().postDataJSON() as { activeTabId?: string };
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      if (body.activeTabId) saved.push(body.activeTabId);
+      await route.continue();
+    });
+    const started = Date.now();
+    await press(page, 'e2e-tabsw-base', phone);
+    await expect(tab(page, 'e2e-tabsw-base')).toHaveAttribute('aria-selected', 'true', { timeout: 1000 });
+    const shownAfter = Date.now() - started;
+    console.log(`tab shown after ${shownAfter} ms while the save takes 3000 ms`);
+    expect(shownAfter).toBeLessThan(1500);
+    // Quick taps: the screen ends on the last one, and so does the server.
+    await press(page, 'e2e-tabsw-work', phone);
+    await press(page, 'e2e-tabsw-base', phone);
+    await press(page, 'e2e-tabsw-work', phone);
+    await expect(tab(page, 'e2e-tabsw-work')).toHaveAttribute('aria-selected', 'true', { timeout: 1000 });
+    await expect.poll(() => saved.length, { timeout: 15000 }).toBeGreaterThanOrEqual(2);
+    await page.waitForTimeout(3500);
+    expect(saved[saved.length - 1], `saves in order: ${saved.join(', ')}`).toBe(record.workTabId);
+    expect(saved.length, 'superseded selections are not sent').toBeLessThanOrEqual(3);
+    await page.unroute(`**/api/workspaces/${record.workspaceId}`);
+  });
 });
