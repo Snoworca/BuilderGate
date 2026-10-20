@@ -3,6 +3,15 @@ import type { WorkspaceTabRuntime } from '../types/workspace';
 import type { ContextMenuItem } from '../components/ContextMenu/ContextMenu';
 import type { CommandPreset, CommandPresetKind, ShellInfo } from '../types';
 import { activeLanguage, t, type MessageKey } from '../i18n/i18n.ts';
+import { describeTerminalPath, fileNameOf, shortenFolder, type TerminalPathTarget } from './terminalPathDetection.ts';
+
+// FR-ARCH-013 AC-7: the folder line under a file in the terminal menu.
+const FOLDER_LABEL_MAX = 40;
+
+function folderLabelOf(path: string, cwd: string): string {
+  const { folder } = describeTerminalPath(path, cwd);
+  return folder === null ? t('terminalPath.currentFolder') : shortenFolder(folder, FOLDER_LABEL_MAX);
+}
 
 const REGISTERED_PRESET_CATEGORY_LABELS: ReadonlyArray<{ kind: CommandPresetKind; labelKey: MessageKey }> = [
   { kind: 'command', labelKey: 'contextMenu.preset.command' },
@@ -39,6 +48,18 @@ export interface BuildTerminalMenuOptions {
    * @req FR-FEX-010
    */
   onOpenFileExplorer?: () => void;
+  /**
+   * File paths from the terminal output: the one near the press and those on
+   * screen. Optional for the same reason as onOpenFileExplorer.
+   * @req FR-ARCH-013
+   */
+  openPath?: TerminalMenuPathOptions;
+}
+
+export interface TerminalMenuPathOptions {
+  near: TerminalPathTarget | null;
+  screen: TerminalPathTarget[];
+  onOpen: (target: TerminalPathTarget) => void;
 }
 
 export function buildTerminalContextMenuItems(
@@ -57,6 +78,7 @@ export function buildTerminalContextMenuItems(
     registeredPresetMenu,
     moveWorkspace,
     onOpenFileExplorer,
+    openPath,
   } = options;
 
   const newSessionItem: ContextMenuItem =
@@ -123,6 +145,24 @@ export function buildTerminalContextMenuItems(
           } satisfies ContextMenuItem,
         ]
       : []),
+    // FR-ARCH-013 AC-3·AC-4: the files on screen, disabled when there are none.
+    ...(openPath
+      ? [
+          {
+            label: t('contextMenu.screenFiles'),
+            icon: 'document',
+            disabled: openPath.screen.length === 0,
+            // AC-4: with no children and no action the menu would drop the entry
+            // instead of showing it disabled.
+            onClick: openPath.screen.length === 0 ? () => undefined : undefined,
+            children: openPath.screen.map((target) => ({
+              label: describeTerminalPath(target.path, tab?.cwd ?? '').name,
+              description: folderLabelOf(target.path, tab?.cwd ?? ''),
+              onClick: () => openPath.onOpen(target),
+            } satisfies ContextMenuItem)),
+          } satisfies ContextMenuItem,
+        ]
+      : []),
     { separator: true },
     {
       label: t('common.copy'),
@@ -146,6 +186,20 @@ export function buildTerminalContextMenuItems(
     : null;
   if (registeredPresetItem) {
     items.push({ separator: true }, registeredPresetItem);
+  }
+
+  // FR-ARCH-013 AC-1·AC-2: the path near the press comes first, apart from the rest.
+  const near = openPath?.near;
+  if (openPath && near) {
+    items.unshift(
+      {
+        label: t('contextMenu.openPath', { name: fileNameOf(near.path) }),
+        description: folderLabelOf(near.path, tab?.cwd ?? ''),
+        icon: 'document',
+        onClick: () => openPath.onOpen(near),
+      },
+      { separator: true },
+    );
   }
 
   return items;

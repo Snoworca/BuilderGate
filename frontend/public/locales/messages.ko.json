@@ -1220,5 +1220,11 @@
   "editor.html.resourceLoaded": "불러옴",
   "apiError.UNSUPPORTED_MEDIA_TYPE": "이 요청에서 받지 않는 본문 형식입니다.",
   "apiError.PRECOUNT_BUSY": "계산 중인 작업이 많습니다. 잠시 뒤 다시 시도하세요.",
-  "fileExplorer.modal.moreItems.other": "외 {count}개"
+  "fileExplorer.modal.moreItems.other": "외 {count}개",
+  "contextMenu.openPath": "{name} 열기",
+  "contextMenu.screenFiles": "화면의 파일",
+  "terminalPath.openFailedTitle": "파일을 열 수 없습니다",
+  "terminalPath.isDirectory": "이 경로는 폴더입니다.",
+  "terminalPath.unsupported": "열 수 없는 형식의 파일입니다.",
+  "terminalPath.currentFolder": "현재 폴더"
 }

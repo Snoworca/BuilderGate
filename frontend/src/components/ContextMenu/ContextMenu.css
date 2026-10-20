@@ -85,6 +85,28 @@
   white-space: nowrap;
 }
 
+/* FR-ARCH-013 AC-7: a file name over its folder. The name wraps rather than
+ * being cut, since its end is what tells similar files apart. */
+.context-menu-label--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+  text-align: left;
+}
+
+.context-menu-label-main {
+  overflow-wrap: anywhere;
+}
+
+.context-menu-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+
 .context-menu-shortcut {
   font-size: var(--fs-xs);
   color: var(--fg-muted);

@@ -195,6 +195,7 @@ import './TerminalView.css';
 import { t } from '../../i18n/i18n.ts';
 import { panWheelSteps, routeMobilePan } from '../../utils/mobileTouchScroll.ts';
 import { applyLatchToTypedData } from '../../utils/mobileModifierLatch.ts';
+import { readTerminalPathsAt, registerTerminalPathLinks, type TerminalPathsAtPoint } from '../../utils/terminalPathLinks.ts';
 
 const FONT_MIN = 8;
 const FONT_MAX = 32;
@@ -330,6 +331,9 @@ export interface TerminalHandle {
   getMouseTrackingActive: () => boolean;
   // @req IR-MKB-001
   getApplicationCursorKeysMode: () => boolean;
+  /** The file path near a client point and the paths on screen, for the terminal menu (FR-ARCH-013). */
+  // @req FR-ARCH-013
+  getPathsAt: (clientX: number, clientY: number) => TerminalPathsAtPoint;
   clearSelection: () => void;
   copySelection: (source?: TerminalClipboardSource) => Promise<TerminalClipboardActionResult>;
   pasteClipboard: (source?: TerminalClipboardSource) => Promise<TerminalClipboardActionResult>;
@@ -3363,6 +3367,10 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       },
       // @req IR-MKB-001
       getApplicationCursorKeysMode: () => xtermRef.current?.modes.applicationCursorKeysMode ?? false,
+      // @req FR-ARCH-013
+      getPathsAt: (clientX, clientY) => (
+        xtermRef.current ? readTerminalPathsAt(xtermRef.current, clientX, clientY) : { near: null, screen: [] }
+      ),
       clearSelection: () => {
         xtermRef.current?.clearSelection();
         savedRightClickSelRef.current = '';
@@ -3534,6 +3542,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       term.loadAddon(fitAddon);
       term.loadAddon(serializeAddon);
       term.open(terminalRef.current);
+      // FR-ARCH-012: Ctrl/Cmd+click opens a file path in the output. term.dispose()
+      // drops the provider with the terminal.
+      registerTerminalPathLinks(term, sessionId);
 
       // Issue #15. WebGL is attached only while this terminal is visible, so
       // hidden tabs do not hold contexts the browser would otherwise reclaim

@@ -37,6 +37,11 @@ export interface ContextMenuActionItem {
   shortcut?: string;
   /** A tooltip, e.g. why a disabled entry cannot be used. */
   title?: string;
+  /**
+   * A second, smaller line under the label, e.g. a file's folder. With it the
+   * label wraps instead of being cut, so a long file name stays readable (FR-ARCH-013 AC-7).
+   */
+  description?: string;
   children?: ContextMenuItem[];
   separator?: false;
 }
@@ -379,7 +384,7 @@ function MenuItemRow({ item, onClose, onNavigateBack }: MenuItemRowProps) {
       tabIndex={item.disabled ? -1 : 0}
     >
       {item.icon && <MenuItemIcon icon={item.icon} />}
-      <span className="context-menu-label">{item.label}</span>
+      <MenuItemLabel label={item.label} description={item.description} />
       {item.shortcut && <span className="context-menu-shortcut">{item.shortcut}</span>}
       {hasChildren && <SubmenuArrow />}
 
@@ -423,6 +428,17 @@ function MenuItemList({ items, onClose, onNavigateBack }: MenuItemListProps) {
 // ---------------------------------------------------------------------------
 // Main ContextMenu (portal to document.body)
 // ---------------------------------------------------------------------------
+
+// FR-ARCH-013 AC-7: a description puts the label over a smaller second line.
+function MenuItemLabel({ label, description }: { label: string; description?: string }) {
+  if (!description) return <span className="context-menu-label">{label}</span>;
+  return (
+    <span className="context-menu-label context-menu-label--stacked">
+      <span className="context-menu-label-main">{label}</span>
+      <span className="context-menu-description">{description}</span>
+    </span>
+  );
+}
 
 export function ContextMenu({ position, onClose, items, restoreFocusElement }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -717,7 +733,7 @@ function MobileContextMenuDialog({
                 aria-haspopup={hasChildren ? 'menu' : undefined}
               >
                 {item.icon && <MenuItemIcon icon={item.icon} />}
-                <span className="context-menu-label">{item.label}</span>
+                <MenuItemLabel label={item.label} description={item.description} />
                 {item.shortcut && <span className="context-menu-shortcut">{item.shortcut}</span>}
                 {hasChildren && <SubmenuArrow />}
               </button>

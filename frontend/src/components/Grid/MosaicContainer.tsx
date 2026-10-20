@@ -41,6 +41,8 @@ import type {
   TerminalClipboardSource,
 } from '../../utils/terminalClipboardCoordinator';
 import { t } from '../../i18n/i18n.ts';
+import type { TerminalPathsAtPoint } from '../../utils/terminalPathLinks';
+import type { TerminalPathTarget } from '../../utils/terminalPathDetection';
 
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
@@ -63,6 +65,10 @@ interface MosaicContainerProps {
   ) => React.ReactNode;
   availableShells?: ShellInfo[];
   hasTerminalSelection?: (tabId: string) => boolean;
+  /** FR-ARCH-013: the file paths near a menu press and on screen. */
+  getTerminalPathsAt?: (tabId: string, x: number, y: number) => TerminalPathsAtPoint;
+  /** FR-ARCH-013 AC-5: opens a path chosen from the terminal menu. */
+  onOpenTerminalPath?: (tabId: string, target: TerminalPathTarget) => void;
   isTerminalMouseTracking?: (tabId: string) => boolean;
   copyTerminalSelection?: (
     tabId: string,
@@ -114,6 +120,8 @@ export function MosaicContainer({
   renderTerminal,
   availableShells,
   hasTerminalSelection,
+  getTerminalPathsAt,
+  onOpenTerminalPath,
   isTerminalMouseTracking,
   copyTerminalSelection,
   pasteTerminalClipboard,
@@ -730,6 +738,12 @@ export function MosaicContainer({
         },
         // For the right-clicked tile, which in grid mode is often not the active one.
         onOpenFileExplorer: onOpenFileExplorer ? () => onOpenFileExplorer(tabId) : undefined,
+        openPath: getTerminalPathsAt && onOpenTerminalPath
+          ? {
+            ...getTerminalPathsAt(tabId, contextMenu.position.x, contextMenu.position.y),
+            onOpen: (target: TerminalPathTarget) => onOpenTerminalPath(tabId, target),
+          }
+          : undefined,
         registeredPresetMenu: {
           presets: registeredPresetSnapshot,
           onSelectPreset: (preset) => handleRegisteredPresetPaste(tabId, preset),
@@ -748,6 +762,9 @@ export function MosaicContainer({
       isTerminalMouseTracking,
       onRequestMoveTab,
       onOpenFileExplorer,
+      getTerminalPathsAt,
+      onOpenTerminalPath,
+      contextMenu.position,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,
     ],
