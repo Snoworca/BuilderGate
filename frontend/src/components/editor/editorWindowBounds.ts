@@ -15,3 +15,13 @@
 // @req FR-MDE-001
 
 export const EDITOR_WINDOW_BOUNDS_SELECTOR = '.terminal-workspace-stage';
+
+// FR-UIDS-014: on a phone the editor and file explorer windows cover the whole app (header and
+// tab bar included), not just the stage. `.app` follows the visible viewport, so with the
+// on-screen keyboard open the windows end where the keyboard begins.
+export const MOBILE_WINDOW_BOUNDS_SELECTOR = '.app';
+
+/** The element a full-area window measures: the app on a phone, the stage elsewhere. */
+export function windowFillSelector(isMobile: boolean): string {
+  return isMobile ? MOBILE_WINDOW_BOUNDS_SELECTOR : EDITOR_WINDOW_BOUNDS_SELECTOR;
+}

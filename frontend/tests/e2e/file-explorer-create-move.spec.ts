@@ -45,7 +45,8 @@ test.describe('file explorer: stage on a phone, new file, drag and drop', () => 
   test('the window fills the stage on a phone and floats on a desktop', async ({ page }, testInfo) => {
     const phone = isPhone(testInfo.project);
     await openExplorer(page, phone, 'a.txt');
-    const stage = await page.locator('.terminal-workspace-stage').first().boundingBox();
+    // FR-UIDS-014: on a phone the box is the whole app (header and tab bar included).
+    const stage = await page.locator(phone ? '.app' : '.terminal-workspace-stage').first().boundingBox();
     const win = await explorer(page).boundingBox();
     expect(stage, 'stage measured').not.toBeNull();
     expect(win, 'window measured').not.toBeNull();
@@ -57,6 +58,27 @@ test.describe('file explorer: stage on a phone, new file, drag and drop', () => 
     const maximize = explorer(page).locator('button[aria-label="최대화"]');
     await expect(maximize).toHaveCount(phone ? 0 : 1);
     await page.screenshot({ path: `../.playwright-mcp/e2e-fx-stage-${phone ? 'phone' : 'desktop'}.png` });
+  });
+
+  // FR-UIDS-014 AC-1: the editor opened on a phone covers the whole app too.
+  test('the editor covers the whole app on a phone', async ({ page }, testInfo) => {
+    test.skip(!isPhone(testInfo.project), 'phone layout');
+    await openExplorer(page, true, 'a.txt');
+    const target = row(page, 'a.txt');
+    const box = await target.boundingBox();
+    await page.touchscreen.tap(box!.x + 30, box!.y + box!.height / 2);
+    await page.waitForTimeout(120);
+    await page.touchscreen.tap(box!.x + 30, box!.y + box!.height / 2);
+    await page.locator('.context-menu-dialog').getByText('편집기로 열기').tap();
+    const editor = page.locator('.window-dialog').filter({ has: page.locator('.editor-window-host') }).first();
+    await expect(editor).toBeVisible({ timeout: 15000 });
+    const app = await page.locator('.app').first().boundingBox();
+    await expect.poll(async () => {
+      const win = await editor.boundingBox();
+      return win !== null && Math.abs(win.x - app!.x) <= 2 && Math.abs(win.y - app!.y) <= 2
+        && Math.abs(win.width - app!.width) <= 2 && Math.abs(win.height - app!.height) <= 2;
+    }, { timeout: 5000 }).toBe(true);
+    await page.screenshot({ path: '../.playwright-mcp/e2e-editor-fullscreen-phone.png' });
   });
 
   // FR-FEX-029 AC-1~AC-6, FR-FOP-008 AC-1/AC-2

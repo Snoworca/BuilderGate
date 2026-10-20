@@ -38,6 +38,7 @@
     "./tests/unit/latestValueSaver.test.ts",
     "./tests/unit/doubleTapMenu.test.ts",
     "./tests/unit/codeEditorSelectionVisible.test.ts",
+    "./tests/unit/mobileFullScreenWindows.test.ts",
     "./tests/unit/fileExtract.test.ts",
     "./tests/unit/htmlViewer.test.ts",
     "./tests/unit/i18nRuntime.test.ts",

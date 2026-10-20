@@ -38,6 +38,8 @@ import { EDITOR_WINDOW_MIN_SIZE } from './EditorWindow.tsx';
 import { readEditorProbe, setEditorReadOnly } from './EditorDocumentPanel.tsx';
 import type { EditorWindowPlacement } from './editorWindowPlacement.ts';
 import { clampToStage, toStageRect } from './editorWindowRect.ts';
+import { windowFillSelector } from './editorWindowBounds.ts';
+import { useResponsive } from '../../hooks/useResponsive';
 import {
   isEditorWindowVisible,
   type EditorWindowScreen,
@@ -186,11 +188,13 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
 }: EditorWindowLayerProps<TWindow>) {
   const { hosts, rootRef, layoutVersion } = useTerminalRuntimeContext();
   const [overlayRect, setOverlayRect] = useState<DOMRect | null>(null);
+  const { isMobile } = useResponsive();
 
   // The runtime overlay fills the stage, so measuring it answers the only
   // placement question left: how big the box the window is confined to is.
+  // FR-UIDS-014: on a phone the box is the whole app, header and tab bar included.
   const measureOverlay = useCallback(() => {
-    const element = rootRef.current;
+    const element = isMobile ? document.querySelector<HTMLElement>(windowFillSelector(true)) : rootRef.current;
     if (element === null) return;
     const next = element.getBoundingClientRect();
     setOverlayRect((current) => {
@@ -203,7 +207,7 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
       }
       return next;
     });
-  }, [rootRef]);
+  }, [isMobile, rootRef]);
 
   useLayoutEffect(() => {
     measureOverlay();
@@ -211,8 +215,15 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
 
   useEffect(() => {
     window.addEventListener('resize', measureOverlay);
-    return () => window.removeEventListener('resize', measureOverlay);
-  }, [measureOverlay]);
+    // .app follows the visible viewport (keyboard), which a window resize does not always signal.
+    const target = isMobile ? document.querySelector<HTMLElement>(windowFillSelector(true)) : null;
+    const observer = target === null || typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measureOverlay);
+    if (target !== null) observer?.observe(target);
+    return () => {
+      window.removeEventListener('resize', measureOverlay);
+      observer?.disconnect();
+    };
+  }, [isMobile, measureOverlay]);
 
   // A read-only view of runtime state the DOM does not carry.
   //

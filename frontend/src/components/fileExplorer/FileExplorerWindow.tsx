@@ -50,7 +50,7 @@ import { ContextMenu } from '../ContextMenu/ContextMenu';
 import { buildTabCloseMenuItems } from '../../utils/tabCloseMenu.ts';
 import { WindowDialog } from '../dialog/WindowDialog';
 import type { DialogRect, DialogSize } from '../dialog/types';
-import { EDITOR_WINDOW_BOUNDS_SELECTOR } from '../editor/editorWindowBounds.ts';
+import { EDITOR_WINDOW_BOUNDS_SELECTOR, windowFillSelector } from '../editor/editorWindowBounds.ts';
 import type { EditorWindowPlacement } from '../editor/editorWindowPlacement.ts';
 import { toStageRect } from '../editor/editorWindowRect.ts';
 import { useWebSocketActions } from '../../contexts/WebSocketContext';
@@ -1058,11 +1058,11 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
  * stage resizes, since the sidebar and the window size both move it.
  * @req FR-FEX-004
  */
-function useStageRect(active: boolean): DialogRect | null {
+function useStageRect(active: boolean, selector: string = EDITOR_WINDOW_BOUNDS_SELECTOR): DialogRect | null {
   const [rect, setRect] = useState<DialogRect | null>(null);
   useLayoutEffect(() => {
     if (!active) return undefined;
-    const stage = document.querySelector<HTMLElement>(EDITOR_WINDOW_BOUNDS_SELECTOR);
+    const stage = document.querySelector<HTMLElement>(selector);
     if (stage === null) return undefined;
     const measure = () => {
       const next = toStageRect(stage.getBoundingClientRect());
@@ -1078,7 +1078,7 @@ function useStageRect(active: boolean): DialogRect | null {
       window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
-  }, [active]);
+  }, [active, selector]);
   // Derived rather than cleared from the effect: an inactive window has no
   // stage rect, and the last measurement is replaced before paint when it is
   // active again.
@@ -1092,7 +1092,8 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
   const { isMobile } = useResponsive();
   const layout = resolveFileExplorerWindowLayout({ isMobile, placement });
   const maximized = layout.fillsStage;
-  const stageRect = useStageRect(maximized && !hidden);
+  // FR-UIDS-014: on a phone the window covers the whole app, header and tab bar included.
+  const stageRect = useStageRect(maximized && !hidden, windowFillSelector(isMobile));
   const windowModal = useFileExplorerWindowModal();
   // Window-wide questions (closing mid-upload) and the toast every tab reports through.
   const windowConfirm = useFileExplorerConfirmBar();
