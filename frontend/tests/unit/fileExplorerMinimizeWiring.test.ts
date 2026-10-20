@@ -580,7 +580,10 @@ test('TC-REQ-FR-FEX-004-AC6-02 FileExplorerWindow 제목 표시줄에 최대화 
   assertImports(win, 'EDITOR_WINDOW_BOUNDS_SELECTOR', 'editor/editorWindowBounds');
   has(win.bare, /\btoStageRect\s*\(/, `${win.path}: the stage rect must be converted with toStageRect`);
   has(win.bare, /\bEDITOR_WINDOW_BOUNDS_SELECTOR\b/, `${win.path}: the stage must be measured at EDITOR_WINDOW_BOUNDS_SELECTOR`);
-  has(win.code, /\bplacement\s*[!=]==\s*['"]stage['"]/, `${win.path}: the controlled rect must depend on placement === 'stage'`);
+  // FR-FEX-028 moved the decision into fileExplorerPlacement.ts (a phone fills the stage too); the
+  // window must still feed the record's placement into it, and the module must still read 'stage'.
+  has(win.code, /resolveFileExplorerWindowLayout\(\{[^}]*\bplacement\b/, `${win.path}: the controlled rect must depend on the record's placement through resolveFileExplorerWindowLayout`);
+  has(readFileSync(new URL('../../src/components/fileExplorer/fileExplorerPlacement.ts', import.meta.url), 'utf8'), /\bplacement\s*===\s*['"]stage['"]/, 'fileExplorerPlacement.ts: the layout must fill the stage when placement === \'stage\'');
   const dialog = openingTags(win, 'WindowDialog');
   assert.equal(dialog.length, 1, `${win.path}: expected one <WindowDialog>, found ${dialog.length}`);
   assert.ok(attrSpan(win, dialog[0], 'rect'), `${where(win, dialog[0].start)}: <WindowDialog> must take the stage rect as rect=`);

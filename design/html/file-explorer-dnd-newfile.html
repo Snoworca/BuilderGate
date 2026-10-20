@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>탐색기 끌어 옮기기·새 파일</title>
+<style>
+  /* Values copied from frontend/src/styles/tokens.css (chrome surface). */
+  :root {
+    --bg-app: #202020; --bg-chrome: #2b2b2b; --bg-surface: #272727; --bg-raised: #2f2f2f;
+    --bg-hover: rgba(255,255,255,.055); --bg-active: rgba(0,120,212,.2); --bg-sunken: #1e1e1e;
+    --fg: #dcdcdc; --fg-strong: #f5f5f5; --fg-muted: #a0a0a0; --fg-faint: #767676;
+    --line: #3a3a3a; --line-strong: #4a4a4a;
+    --accent: #0078d4; --accent-hover: #106ebe; --accent-text: #6cb6ff; --accent-fg: #fff; --accent-tint: rgba(0,120,212,.18);
+    --ok-text: #4cc38a; --ok-tint: rgba(76,195,138,.14);
+    --danger-text: #ec8f8f; --danger-tint: rgba(224,92,92,.14);
+    --warn-text: #e2b451;
+    --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-pill: 999px; --row-h: 28px;
+    --fs-2xs: 11px; --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px;
+    --shadow-dialog: 0 24px 64px rgba(0,0,0,.55); --shadow-popover: 0 10px 28px rgba(0,0,0,.5);
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace;
+    --sans: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-app); color: var(--fg); font-family: var(--sans); font-size: var(--fs-sm); }
+  button, input { font: inherit; color: inherit; }
+  svg { display: block; }
+  code, .mono { font-family: var(--mono); font-size: var(--fs-xs); }
+
+  header.page { max-width: 1440px; margin: 0 auto; padding: 28px 24px 4px; }
+  header.page h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; color: var(--fg-strong); }
+  header.page p { margin: 0; color: var(--fg-muted); line-height: 1.6; max-width: 920px; }
+  .demo-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+  .demo-bar span { color: var(--fg-faint); font-size: var(--fs-xs); margin-right: 4px; }
+  .chip { border: 1px solid var(--line-strong); background: var(--bg-raised); border-radius: var(--r-pill); padding: 5px 12px; cursor: pointer; font-size: var(--fs-xs); }
+  .chip:hover { border-color: var(--accent); color: var(--fg-strong); }
+
+  .layout { max-width: 1440px; margin: 0 auto; padding: 20px 24px 48px; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 28px; align-items: start; }
+  @media (max-width: 1150px) { .layout { grid-template-columns: 1fr; } }
+  .col-left { display: flex; flex-direction: column; gap: 36px; min-width: 0; }
+  .section-title { font-size: var(--fs-xs); color: var(--fg-faint); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 10px; }
+  .section-note { color: var(--fg-muted); font-size: var(--fs-xs); margin: -4px 0 12px; line-height: 1.6; }
+
+  /* ---------- explorer window ---------- */
+  .fx-window { position: relative; height: 560px; display: flex; flex-direction: column; background: var(--bg-surface); border: 1px solid var(--line-strong); border-radius: var(--r-lg); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.45); user-select: none; }
+  .fx-titlebar { height: 34px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 12px; background: var(--bg-chrome); border-bottom: 1px solid var(--line); font-size: var(--fs-xs); color: var(--fg-muted); }
+  .fx-titlebar b { color: var(--fg-strong); font-weight: 600; }
+  .ib { width: 26px; height: 26px; border: 0; background: transparent; border-radius: var(--r-sm); display: grid; place-items: center; color: var(--fg-muted); cursor: pointer; }
+  .ib:hover { background: var(--bg-hover); color: var(--fg-strong); }
+  .ib svg { width: 16px; height: 16px; }
+
+  .fx-tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: var(--bg-raised); border-bottom: 1px solid var(--line); flex: none; }
+  .fx-tab { height: 28px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--fg-muted); border: 1px solid transparent; border-bottom: 0; border-radius: var(--r-sm) var(--r-sm) 0 0; cursor: pointer; }
+  .fx-tab.on { background: var(--bg-surface); color: var(--fg-strong); border-color: var(--line); }
+  .fx-tab.drop-hover { background: var(--accent-tint); color: var(--accent-text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+  .fx-pathbar { flex: none; display: flex; align-items: center; gap: 2px; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  .crumbs { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0; padding: 0 4px; height: 26px; background: var(--bg-app); border: 1px solid var(--line); border-radius: var(--r-sm); font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); overflow: hidden; white-space: nowrap; }
+  .crumbs i { font-style: normal; color: var(--fg-faint); padding: 0 1px; }
+  .crumb { padding: 2px 5px; border-radius: 4px; cursor: pointer; }
+  .crumb:hover { background: var(--bg-hover); color: var(--fg); }
+  .crumb.cur { color: var(--fg); }
+  .crumb.drop-hover { background: var(--accent-tint); color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--accent); }
+
+  .fx-cols { flex: none; display: grid; grid-template-columns: minmax(0,1fr) 90px 130px; padding: 0 12px; height: 26px; align-items: center; font-size: var(--fs-2xs); color: var(--fg-faint); border-bottom: 1px solid var(--line); }
+  .fx-cols span:not(:first-child), .fx-row .sz, .fx-row .dt { text-align: right; }
+  .fx-list { flex: 1; min-height: 0; overflow: auto; padding: 2px 0; position: relative; }
+  .fx-row { display: grid; grid-template-columns: minmax(0,1fr) 90px 130px; align-items: center; height: var(--row-h); padding: 0 12px; cursor: default; border-left: 2px solid transparent; }
+  .fx-row:hover { background: var(--bg-hover); }
+  .fx-row.sel { background: var(--bg-active); border-left-color: var(--accent); }
+  .fx-row .nm { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .fx-row .nm span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fx-row .nm svg { width: 16px; height: 16px; flex: none; }
+  .fx-row .sz, .fx-row .dt { font-size: var(--fs-2xs); color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+  .ico-dir { color: #dcb67a; } .ico-file { color: var(--fg-muted); }
+  /* Being dragged: the source rows dim so the user sees what travels. */
+  .fx-row.dragging { opacity: .45; }
+  /* A folder that will receive the drop. */
+  .fx-row.drop-hover { background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent); border-left-color: var(--accent); }
+  .fx-row.drop-hover .nm span { color: var(--accent-text); }
+  /* A folder that cannot receive this drop (itself / inside itself). */
+  .fx-row.drop-deny { background: var(--danger-tint); box-shadow: inset 0 0 0 1px rgba(224,92,92,.5); cursor: no-drop; }
+  .fx-row.spring { animation: spring .8s linear forwards; }
+  @keyframes spring { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+  .fx-row.spring { background-image: linear-gradient(90deg, rgba(0,120,212,.28), rgba(0,120,212,.28)); background-repeat: no-repeat; }
+  /* The whole list receives the drop = the folder being shown. Only shown when the pointer is on empty space. */
+  .fx-list.drop-here { box-shadow: inset 0 0 0 2px var(--accent); background: rgba(0,120,212,.06); }
+
+  .fx-status { flex: none; height: 26px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-top: 1px solid var(--line); font-size: var(--fs-2xs); color: var(--fg-faint); background: var(--bg-raised); }
+  .fx-status .job { margin-left: auto; display: none; align-items: center; gap: 6px; color: var(--accent-text); }
+  .fx-status .job.on { display: inline-flex; }
+  .bar { width: 80px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .9s ease; }
+
+  /* ---------- drag badge (custom drag image) ---------- */
+  .drag-badge { position: fixed; top: -200px; left: -200px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 8px; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-popover); font-size: var(--fs-xs); color: var(--fg-strong); white-space: nowrap; pointer-events: none; }
+  .drag-badge .stack { position: relative; width: 20px; height: 20px; }
+  .drag-badge .stack svg { position: absolute; width: 16px; height: 16px; }
+  .drag-badge .stack svg:nth-child(2) { left: 4px; top: 4px; }
+  .op { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: var(--r-pill); font-size: var(--fs-2xs); font-weight: 600; }
+  .op.move { background: var(--accent-tint); color: var(--accent-text); }
+  .op.copy { background: var(--ok-tint); color: var(--ok-text); }
+  .op.deny { background: var(--danger-tint); color: var(--danger-text); }
+  .op svg { width: 12px; height: 12px; }
+
+  /* Hint strip shown while dragging, at the bottom of the list. */
+  .drag-hint { position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); display: none; align-items: center; gap: 10px; padding: 6px 12px; background: #161616; border: 1px solid var(--line-strong); border-radius: var(--r-pill); font-size: var(--fs-2xs); color: var(--fg-muted); box-shadow: var(--shadow-popover); white-space: nowrap; z-index: 5; }
+  .drag-hint.on { display: inline-flex; }
+  kbd { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--bg-raised); color: var(--fg); }
+
+  /* ---------- toast ---------- */
+  .toast { position: absolute; right: 12px; bottom: 36px; display: none; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-popover); font-size: var(--fs-xs); z-index: 6; }
+  .toast.on { display: flex; }
+  .toast .ok { color: var(--ok-text); }
+
+  /* ---------- context menu ---------- */
+  .ctx { position: absolute; width: 230px; padding: 4px; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-popover); font-size: var(--fs-xs); z-index: 10; display: none; }
+  .ctx.on { display: block; }
+  .ctx.static { position: relative; display: block; }
+  .ctx .it { display: flex; align-items: center; gap: 10px; height: 28px; padding: 0 10px; border-radius: 4px; color: var(--fg); cursor: pointer; }
+  .ctx .it svg { width: 15px; height: 15px; color: var(--fg-muted); }
+  .ctx .it:hover { background: var(--accent); color: var(--accent-fg); }
+  .ctx .it:hover svg { color: var(--accent-fg); }
+  .ctx .it.dis { color: var(--fg-faint); cursor: default; }
+  .ctx .it.dis:hover { background: transparent; color: var(--fg-faint); }
+  .ctx .it .k { margin-left: auto; color: var(--fg-faint); font-size: var(--fs-2xs); }
+  .ctx .it.new-item { box-shadow: inset 0 0 0 1px var(--accent-text); }
+  .ctx .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+
+  /* ---------- new file dialog ---------- */
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 20; }
+  .scrim.on { display: flex; }
+  .dlg { width: 420px; max-width: calc(100% - 32px); background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-dialog); overflow: hidden; }
+  .dlg.static { position: relative; }
+  .dlg-head { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line); background: var(--bg-chrome); }
+  .dlg-head b { font-weight: 600; color: var(--fg-strong); font-size: var(--fs-sm); }
+  .dlg-head .ib { margin-left: auto; }
+  .dlg-body { padding: 16px 16px 4px; display: flex; flex-direction: column; gap: 12px; }
+  .field-label { font-size: var(--fs-xs); color: var(--fg-muted); margin-bottom: 6px; display: block; }
+  .loc { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; background: var(--bg-app); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--fg-muted); overflow: hidden; }
+  .loc svg { width: 15px; height: 15px; flex: none; color: #dcb67a; }
+  .loc span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+  .inp { width: 100%; height: 32px; padding: 0 10px; background: var(--bg-sunken); border: 1px solid var(--line-strong); border-radius: var(--r-sm); outline: none; font-family: var(--mono); font-size: var(--fs-sm); color: var(--fg-strong); }
+  .inp:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .inp.err { border-color: #c94a4a; box-shadow: 0 0 0 1px #c94a4a; }
+  .msg { min-height: 18px; margin-top: 6px; font-size: var(--fs-xs); display: flex; align-items: center; gap: 6px; }
+  .msg svg { width: 14px; height: 14px; flex: none; }
+  .msg.err { color: var(--danger-text); }
+  .msg.hint { color: var(--fg-faint); }
+  .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px 16px; }
+  .btn { height: 32px; padding: 0 16px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--bg-surface); cursor: pointer; font-size: var(--fs-sm); }
+  .btn:hover { background: #333; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .btn.primary:hover { background: var(--accent-hover); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.busy { position: relative; color: transparent; }
+  .btn.busy::after { content: ""; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- state gallery ---------- */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .frame { background: var(--bg-surface); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+  .frame-cap { padding: 8px 12px; font-size: var(--fs-xs); color: var(--fg-muted); border-bottom: 1px solid var(--line); background: var(--bg-raised); display: flex; gap: 8px; align-items: center; }
+  .frame-cap b { color: var(--fg-strong); font-weight: 600; }
+  .frame-body { padding: 10px 0; position: relative; min-height: 150px; }
+  .frame-body .fx-row { grid-template-columns: minmax(0,1fr) 70px; }
+  .float-badge { position: absolute; display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px 6px 8px; background: var(--bg-raised); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-popover); font-size: var(--fs-xs); color: var(--fg-strong); white-space: nowrap; }
+  .float-badge svg { width: 16px; height: 16px; }
+  .cursor { position: absolute; width: 14px; height: 20px; }
+  .dlg-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+  .dlg-gallery .cap { font-size: var(--fs-xs); color: var(--fg-muted); margin-bottom: 8px; }
+
+  /* ---------- mobile ---------- */
+  .phones { display: flex; gap: 24px; flex-wrap: wrap; }
+  .phone { width: 300px; height: 560px; border: 1px solid var(--line-strong); border-radius: 28px; padding: 10px; background: #111; flex: none; }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 20px; overflow: hidden; background: var(--bg-surface); display: flex; flex-direction: column; }
+  .m-head { height: 40px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid var(--line); font-size: var(--fs-xs); color: var(--fg-muted); gap: 8px; background: var(--bg-chrome); }
+  .m-list { flex: 1; overflow: hidden; }
+  .m-list .fx-row { grid-template-columns: minmax(0,1fr) 60px; height: 40px; }
+  .m-bar { height: 56px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: var(--bg-raised); }
+  .m-bar div { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; color: var(--fg-muted); }
+  .m-bar svg { width: 18px; height: 18px; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--bg-raised); border-top: 1px solid var(--line-strong); border-radius: 14px 14px 0 0; padding: 8px 0 14px; box-shadow: 0 -10px 30px rgba(0,0,0,.5); }
+  .sheet .grab { width: 36px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 0 auto 8px; }
+  .sheet .it { height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 18px; font-size: var(--fs-sm); }
+  .sheet .it svg { width: 18px; height: 18px; color: var(--fg-muted); }
+  .sheet .it.new-item { box-shadow: inset 0 0 0 1px var(--accent-text); }
+  .m-dlg { position: absolute; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-start; justify-content: center; padding-top: 70px; }
+  .m-dlg .dlg { width: calc(100% - 24px); }
+  .m-dlg .inp, .m-dlg .btn { height: 44px; }
+
+  /* ---------- spec panel ---------- */
+  aside.spec { position: sticky; top: 16px; background: var(--bg-surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px 18px 8px; max-height: calc(100vh - 32px); overflow: auto; }
+  aside.spec h3 { margin: 0 0 8px; font-size: var(--fs-md); color: var(--fg-strong); }
+  aside.spec h4 { margin: 18px 0 6px; font-size: var(--fs-xs); color: var(--accent-text); letter-spacing: .04em; }
+  aside.spec ol, aside.spec ul { margin: 0; padding-left: 18px; line-height: 1.65; color: var(--fg); font-size: var(--fs-xs); }
+  aside.spec li { margin-bottom: 4px; }
+  aside.spec .q { color: var(--warn-text); }
+  table.keys { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); margin-top: 4px; }
+  table.keys td { padding: 5px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.keys td:first-child { white-space: nowrap; color: var(--fg-muted); width: 1%; padding-right: 12px; }
+</style>
+</head>
+<body>
+
+<!-- Icon sprite -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-dir" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M6 3h8l4 4v14H6zM14 3v4h4"/></symbol>
+  <symbol id="i-file-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" d="M6 3h8l4 4v14H6zM14 3v4h4M12 11v6M9 14h6"/></symbol>
+  <symbol id="i-dir-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2h8.4A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5zM12 10v6M9 13h6"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-deny" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v5M12 16.5v.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M8 8h12v12H8zM4 16V4h12"/></symbol>
+  <symbol id="i-cut" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6a2.5 2.5 0 1 0 0 .1M6 18a2.5 2.5 0 1 0 0 .1M8 7.5 20 18M8 16.5 20 6"/></symbol>
+  <symbol id="i-paste" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M8 4h8v3H8zM6 5H4v16h16V5h-2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><path fill="currentColor" d="M5 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 16V4M6 10l6-6 6 6M4 20h16"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 4v12M6 10l6 6 6-6M4 20h16"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 14 20"><path d="M1 1v15l4-4 3 7 2-1-3-7h5z" fill="#fff" stroke="#000" stroke-width="1"/></symbol>
+</svg>
+
+<header class="page">
+  <h1>파일 탐색기 — 끌어서 복사·이동, 새 파일</h1>
+  <p>
+    탐색기 안에서 항목을 끌어 다른 폴더에 놓으면 <b>이동</b>하고, <kbd>Ctrl</kbd>(macOS는 <kbd>⌥ Option</kbd>)을 누른 채 놓으면 <b>복사</b>합니다.
+    여러 항목을 선택한 상태에서 그중 하나를 끌면 선택 전체가 함께 갑니다. 끌어 놓기는 데스크톱 전용이며 모바일(터치)에서는 켜지지 않습니다.
+    오른쪽 버튼 메뉴의 <b>새 파일</b>은 창을 띄워 이름을 받고, 같은 이름이 이미 있으면 만들지 않습니다.
+  </p>
+  <div class="demo-bar">
+    <span>데모</span>
+    <button class="chip" onclick="selectDemo(['src','README.md','package.json'])">항목 3개 선택</button>
+    <button class="chip" onclick="openNewFile()">새 파일 창 열기</button>
+    <button class="chip" onclick="openNewFile('README.md')">같은 이름 입력 상태</button>
+    <button class="chip" onclick="resetDemo()">초기화</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="col-left">
+
+    <!-- ================= LIVE DEMO ================= -->
+    <section>
+      <h2 class="section-title">데스크톱 — 탐색기 창 (직접 끌어 보세요)</h2>
+      <p class="section-note">
+        항목을 클릭·<kbd>Ctrl</kbd>+클릭·<kbd>Shift</kbd>+클릭으로 고른 뒤 폴더 행, 경로 막대의 폴더 이름, 또는 다른 탭에 놓습니다.
+        끄는 동안 <kbd>Ctrl</kbd>을 누르면 배지가 <span class="op copy">복사</span>로 바뀝니다. 목록의 빈 곳에서 오른쪽 클릭하면 <b>새 파일</b>이 있습니다.
+      </p>
+      <div class="fx-window" id="win">
+        <div class="fx-titlebar">
+          <svg width="14" height="14"><use href="#i-dir"/></svg>
+          <span>파일 탐색기 — <b>workspace-1</b></span>
+          <div style="margin-left:auto;display:flex;gap:2px"><button class="ib"><svg><use href="#i-x"/></svg></button></div>
+        </div>
+        <div class="fx-tabs" id="tabs">
+          <div class="fx-tab on" data-tab="0">project</div>
+          <div class="fx-tab" data-tab="1" data-path="/home/beom/backup">backup</div>
+        </div>
+        <div class="fx-pathbar">
+          <button class="ib" title="위로"><svg><use href="#i-up"/></svg></button>
+          <div class="crumbs" id="crumbs"></div>
+          <button class="ib" title="새로 고침"><svg><use href="#i-refresh"/></svg></button>
+          <button class="ib" title="새 폴더"><svg><use href="#i-dir-plus"/></svg></button>
+        </div>
+        <div class="fx-cols"><span>이름</span><span>크기</span><span>수정한 날짜</span></div>
+        <div class="fx-list" id="list" tabindex="0"></div>
+        <div class="drag-hint" id="hint"><span id="hint-op"></span><span><kbd>Ctrl</kbd> 복사로 바꾸기</span><span><kbd>Esc</kbd> 취소</span></div>
+        <div class="toast" id="toast"><svg width="16" height="16" class="ok"><use href="#i-check"/></svg><span id="toast-text"></span></div>
+        <div class="fx-status">
+          <span id="status-count"></span>
+          <span class="job" id="job"><span id="job-text"></span><span class="bar"><i id="job-bar"></i></span></span>
+        </div>
+
+        <div class="ctx" id="ctx"></div>
+
+        <div class="scrim" id="scrim">
+          <div class="dlg" role="dialog" aria-labelledby="nf-title">
+            <div class="dlg-head">
+              <svg width="16" height="16" style="color:var(--fg-muted)"><use href="#i-file-plus"/></svg>
+              <b id="nf-title">새 파일</b>
+              <button class="ib" onclick="closeNewFile()" title="닫기"><svg><use href="#i-x"/></svg></button>
+            </div>
+            <div class="dlg-body">
+              <div>
+                <span class="field-label">위치</span>
+                <div class="loc"><svg><use href="#i-dir"/></svg><span class="mono" id="nf-loc"></span></div>
+              </div>
+              <div>
+                <label class="field-label" for="nf-input">파일 이름</label>
+                <input class="inp" id="nf-input" autocomplete="off" spellcheck="false" placeholder="예: notes.md">
+                <div class="msg hint" id="nf-msg">확장자까지 입력하세요. 빈 파일이 만들어집니다.</div>
+              </div>
+            </div>
+            <div class="dlg-foot">
+              <button class="btn" onclick="closeNewFile()">취소</button>
+              <button class="btn primary" id="nf-ok" disabled onclick="createFile()">만들기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= DRAG STATES ================= -->
+    <section>
+      <h2 class="section-title">끌기 상태</h2>
+      <div class="gallery">
+
+        <div class="frame">
+          <div class="frame-cap"><b>① 이동 (기본)</b> 3개를 끌어 <span class="mono">docs</span> 위</div>
+          <div class="frame-body">
+            <div class="fx-row sel dragging"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>src</span></div><div class="sz">—</div></div>
+            <div class="fx-row drop-hover"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>docs</span></div><div class="sz">—</div></div>
+            <div class="fx-row sel dragging"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>README.md</span></div><div class="sz">4.2 KB</div></div>
+            <div class="fx-row sel dragging"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>package.json</span></div><div class="sz">1.1 KB</div></div>
+            <div class="float-badge" style="left:120px;top:40px"><span class="ico-file"><svg><use href="#i-file"/></svg></span>3개 항목 <span class="op move"><svg><use href="#i-move"/></svg>이동 → docs</span></div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-cap"><b>② 복사</b> <kbd>Ctrl</kbd> / <kbd>⌥</kbd> 누른 채</div>
+          <div class="frame-body">
+            <div class="fx-row sel"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>src</span></div><div class="sz">—</div></div>
+            <div class="fx-row drop-hover"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>docs</span></div><div class="sz">—</div></div>
+            <div class="fx-row sel"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>README.md</span></div><div class="sz">4.2 KB</div></div>
+            <div class="fx-row sel"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>package.json</span></div><div class="sz">1.1 KB</div></div>
+            <div class="float-badge" style="left:120px;top:40px"><span class="ico-file"><svg><use href="#i-file"/></svg></span>3개 항목 <span class="op copy"><svg><use href="#i-plus"/></svg>복사 → docs</span></div>
+          </div>
+          <div style="padding:0 12px 10px;font-size:var(--fs-2xs);color:var(--fg-faint)">복사일 때는 원본 행이 흐려지지 않습니다.</div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-cap"><b>③ 놓을 수 없음</b> 폴더를 자기 안으로</div>
+          <div class="frame-body">
+            <div class="fx-row sel dragging drop-deny"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>src</span></div><div class="sz">—</div></div>
+            <div class="fx-row"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>docs</span></div><div class="sz">—</div></div>
+            <div class="fx-row"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>README.md</span></div><div class="sz">4.2 KB</div></div>
+            <div class="float-badge" style="left:110px;top:8px"><span class="ico-dir"><svg><use href="#i-dir"/></svg></span>src <span class="op deny"><svg><use href="#i-deny"/></svg>자기 안으로 옮길 수 없음</span></div>
+          </div>
+          <div style="padding:0 12px 10px;font-size:var(--fs-2xs);color:var(--fg-faint)">파일 행·자기 자신·자기 하위 폴더·지금 있는 폴더 위에서는 놓기가 막힙니다(커서 🚫).</div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-cap"><b>④ 빈 곳 = 보고 있는 폴더</b> 다른 탭에서 넘어온 경우</div>
+          <div class="frame-body fx-list drop-here" style="overflow:hidden">
+            <div class="fx-row"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>2026-10</span></div><div class="sz">—</div></div>
+            <div class="fx-row"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>old.tar.gz</span></div><div class="sz">22 MB</div></div>
+            <div class="float-badge" style="left:90px;top:86px"><span class="ico-file"><svg><use href="#i-file"/></svg></span>2개 항목 <span class="op move"><svg><use href="#i-move"/></svg>이동 → backup</span></div>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-cap"><b>⑤ 폴더 위에 머무르기</b> 0.8초 뒤 열림</div>
+          <div class="frame-body">
+            <div class="fx-row"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>assets</span></div><div class="sz">—</div></div>
+            <div class="fx-row drop-hover" style="background-image:linear-gradient(90deg,rgba(0,120,212,.28) 60%,transparent 60%)"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>docs</span></div><div class="sz">—</div></div>
+            <div class="fx-row"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>index.ts</span></div><div class="sz">880 B</div></div>
+            <div class="float-badge" style="left:120px;top:44px"><span class="ico-file"><svg><use href="#i-file"/></svg></span>logo.svg <span class="op move"><svg><use href="#i-move"/></svg>이동 → docs</span></div>
+          </div>
+          <div style="padding:0 12px 10px;font-size:var(--fs-2xs);color:var(--fg-faint)">행 배경이 차오르면 그 폴더로 들어갑니다. 경로 막대의 상위 폴더와 다른 탭도 같은 방식으로 열립니다.</div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-cap"><b>⑥ 놓은 뒤</b> 기존 작업 표시줄·충돌 창 재사용</div>
+          <div class="frame-body" style="padding:12px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:var(--fs-xs);color:var(--accent-text)">3개 이동 중 <span class="bar"><i style="width:60%"></i></span> 2/3</div>
+            <div style="margin-top:12px;padding:10px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--bg-raised);font-size:var(--fs-xs)">
+              <div style="font-weight:600;color:var(--fg-strong);margin-bottom:4px">이미 있는 항목</div>
+              <div style="color:var(--fg-muted);margin-bottom:8px"><span class="mono">docs</span> 에 같은 이름이 있습니다: <span class="mono">README.md</span></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" style="height:26px;padding:0 10px;font-size:12px">건너뛰기</button><button class="btn" style="height:26px;padding:0 10px;font-size:12px">둘 다 유지</button><button class="btn primary" style="height:26px;padding:0 10px;font-size:12px">덮어쓰기</button></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= NEW FILE ================= -->
+    <section>
+      <h2 class="section-title">새 파일 — 메뉴와 창</h2>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <div class="section-note">빈 곳에서 연 메뉴 — <b>새 파일</b>이 <b>새 폴더</b> 바로 위</div>
+          <div class="ctx static">
+            <div class="it dis"><svg><use href="#i-download"/></svg>다운로드</div>
+            <div class="it"><svg><use href="#i-upload"/></svg>업로드</div>
+            <div class="sep"></div>
+            <div class="it dis"><svg><use href="#i-copy"/></svg>복사<span class="k">Ctrl+C</span></div>
+            <div class="it dis"><svg><use href="#i-cut"/></svg>잘라내기<span class="k">Ctrl+X</span></div>
+            <div class="it"><svg><use href="#i-paste"/></svg>붙여넣기<span class="k">Ctrl+V</span></div>
+            <div class="sep"></div>
+            <div class="it new-item"><svg><use href="#i-file-plus"/></svg>새 파일</div>
+            <div class="it"><svg><use href="#i-dir-plus"/></svg>새 폴더</div>
+            <div class="it"><svg><use href="#i-refresh"/></svg>새로 고침</div>
+          </div>
+          <div style="font-size:var(--fs-2xs);color:var(--fg-faint);margin-top:8px;max-width:230px;line-height:1.6">폴더 행에서 열면 그 폴더 안에, 파일 행이나 빈 곳에서 열면 보고 있는 폴더에 만듭니다(새 폴더와 같은 규칙).</div>
+        </div>
+
+        <div class="dlg-gallery" style="flex:1;min-width:300px">
+          <div>
+            <div class="cap">기본 — 이름이 비어 있으면 [만들기] 비활성</div>
+            <div class="dlg static">
+              <div class="dlg-head"><svg width="16" height="16" style="color:var(--fg-muted)"><use href="#i-file-plus"/></svg><b>새 파일</b><button class="ib"><svg><use href="#i-x"/></svg></button></div>
+              <div class="dlg-body">
+                <div><span class="field-label">위치</span><div class="loc"><svg><use href="#i-dir"/></svg><span class="mono">/home/beom/project/docs</span></div></div>
+                <div><span class="field-label">파일 이름</span><input class="inp" placeholder="예: notes.md" style="border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)"><div class="msg hint">확장자까지 입력하세요. 빈 파일이 만들어집니다.</div></div>
+              </div>
+              <div class="dlg-foot"><button class="btn">취소</button><button class="btn primary" disabled>만들기</button></div>
+            </div>
+          </div>
+          <div>
+            <div class="cap">같은 이름이 있음 — 만들지 않음</div>
+            <div class="dlg static">
+              <div class="dlg-head"><svg width="16" height="16" style="color:var(--fg-muted)"><use href="#i-file-plus"/></svg><b>새 파일</b><button class="ib"><svg><use href="#i-x"/></svg></button></div>
+              <div class="dlg-body">
+                <div><span class="field-label">위치</span><div class="loc"><svg><use href="#i-dir"/></svg><span class="mono">/home/beom/project</span></div></div>
+                <div><span class="field-label">파일 이름</span><input class="inp err" value="README.md"><div class="msg err"><svg><use href="#i-alert"/></svg>이 폴더에 이미 'README.md' 이(가) 있습니다.</div></div>
+              </div>
+              <div class="dlg-foot"><button class="btn">취소</button><button class="btn primary" disabled>만들기</button></div>
+            </div>
+          </div>
+          <div>
+            <div class="cap">같은 이름의 폴더가 있음 — 역시 만들지 않음</div>
+            <div class="dlg static">
+              <div class="dlg-head"><svg width="16" height="16" style="color:var(--fg-muted)"><use href="#i-file-plus"/></svg><b>새 파일</b><button class="ib"><svg><use href="#i-x"/></svg></button></div>
+              <div class="dlg-body">
+                <div><span class="field-label">위치</span><div class="loc"><svg><use href="#i-dir"/></svg><span class="mono">/home/beom/project</span></div></div>
+                <div><span class="field-label">파일 이름</span><input class="inp err" value="docs"><div class="msg err"><svg><use href="#i-alert"/></svg>이 폴더에 이미 'docs' 폴더가 있습니다.</div></div>
+              </div>
+              <div class="dlg-foot"><button class="btn">취소</button><button class="btn primary" disabled>만들기</button></div>
+            </div>
+          </div>
+          <div>
+            <div class="cap">쓸 수 없는 이름</div>
+            <div class="dlg static">
+              <div class="dlg-head"><svg width="16" height="16" style="color:var(--fg-muted)"><use href="#i-file-plus"/></svg><b>새 파일</b><button class="ib"><svg><use href="#i-x"/></svg></button></div>
+              <div class="dlg-body">
+                <div><span class="field-label">위치</span><div class="loc"><svg><use href="#i-dir"/></svg><span class="mono">/home/beom/project</span></div></div>
+                <div><span class="field-label">파일 이름</span><input class="inp err" value="src/a.ts"><div class="msg err"><svg><use href="#i-alert"/></svg>이름에 / 나 \ 를 쓸 수 없습니다.</div></div>
+              </div>
+              <div class="dlg-foot"><button class="btn">취소</button><button class="btn primary" disabled>만들기</button></div>
+            </div>
+          </div>
+          <div>
+            <div class="cap">만드는 중 → 서버가 거부한 경우(그 사이 생긴 파일)</div>
+            <div class="dlg static">
+              <div class="dlg-head"><svg width="16" height="16" style="color:var(--fg-muted)"><use href="#i-file-plus"/></svg><b>새 파일</b><button class="ib"><svg><use href="#i-x"/></svg></button></div>
+              <div class="dlg-body">
+                <div><span class="field-label">위치</span><div class="loc"><svg><use href="#i-dir"/></svg><span class="mono">/home/beom/project</span></div></div>
+                <div><span class="field-label">파일 이름</span><input class="inp err" value="todo.md"><div class="msg err"><svg><use href="#i-alert"/></svg>그 사이에 'todo.md' 이(가) 생겼습니다. 다른 이름을 입력하세요.</div></div>
+              </div>
+              <div class="dlg-foot"><button class="btn">취소</button><button class="btn primary" disabled>만들기</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MOBILE ================= -->
+    <section>
+      <h2 class="section-title">모바일 — 끌어 놓기 없음, 새 파일은 더보기 시트에</h2>
+      <p class="section-note">터치 기기(<code>pointer: coarse</code>)에서는 행이 끌리지 않습니다. 길게 누르기는 지금처럼 선택입니다. 옮기기·복사는 기존 잘라내기·복사·붙여넣기로 합니다.</p>
+      <div class="phones">
+        <div class="phone"><div class="screen">
+          <div class="m-head"><svg width="14" height="14"><use href="#i-dir"/></svg><span class="mono">~/project</span></div>
+          <div class="m-list">
+            <div class="fx-row"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>docs</span></div><div class="sz">—</div></div>
+            <div class="fx-row"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>src</span></div><div class="sz">—</div></div>
+            <div class="fx-row"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>README.md</span></div><div class="sz">4.2 KB</div></div>
+            <div class="fx-row"><div class="nm"><svg class="ico-file"><use href="#i-file"/></svg><span>package.json</span></div><div class="sz">1.1 KB</div></div>
+          </div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="it"><svg><use href="#i-copy"/></svg>복사</div>
+            <div class="it"><svg><use href="#i-cut"/></svg>잘라내기</div>
+            <div class="it new-item"><svg><use href="#i-file-plus"/></svg>새 파일</div>
+            <div class="it"><svg><use href="#i-dir-plus"/></svg>새 폴더</div>
+            <div class="it"><svg><use href="#i-refresh"/></svg>새로 고침</div>
+          </div>
+        </div></div>
+
+        <div class="phone"><div class="screen">
+          <div class="m-head"><svg width="14" height="14"><use href="#i-dir"/></svg><span class="mono">~/project</span></div>
+          <div class="m-list">
+            <div class="fx-row"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>docs</span></div><div class="sz">—</div></div>
+            <div class="fx-row"><div class="nm"><svg class="ico-dir"><use href="#i-dir"/></svg><span>src</span></div><div class="sz">—</div></div>
+          </div>
+          <div class="m-bar">
+            <div><svg><use href="#i-upload"/></svg>업로드</div><div><svg><use href="#i-download"/></svg>다운로드</div><div><svg><use href="#i-paste"/></svg>붙여넣기</div><div><svg><use href="#i-more"/></svg>더보기</div>
+          </div>
+          <div class="m-dlg">
+            <div class="dlg">
+              <div class="dlg-head"><svg width="16" height="16" style="color:var(--fg-muted)"><use href="#i-file-plus"/></svg><b>새 파일</b><button class="ib" style="width:36px;height:36px"><svg><use href="#i-x"/></svg></button></div>
+              <div class="dlg-body">
+                <div><span class="field-label">위치</span><div class="loc"><svg><use href="#i-dir"/></svg><span class="mono">~/project</span></div></div>
+                <div><span class="field-label">파일 이름</span><input class="inp" value="notes.md" style="border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)"><div class="msg hint">확장자까지 입력하세요.</div></div>
+              </div>
+              <div class="dlg-foot"><button class="btn" style="flex:1">취소</button><button class="btn primary" style="flex:1">만들기</button></div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= SPEC PANEL ================= -->
+  <aside class="spec">
+    <h3>동작 규칙</h3>
+
+    <h4>A. 끌어서 이동·복사 (데스크톱)</h4>
+    <ol>
+      <li>목록 보기·트리 보기의 행을 끌 수 있습니다. 선택된 행을 끌면 <b>선택 전체</b>, 선택되지 않은 행을 끌면 <b>그 행만</b> 선택한 뒤 끕니다.</li>
+      <li>기본은 <b>이동</b>입니다. 끄는 동안 <kbd>Ctrl</kbd>(macOS <kbd>⌥</kbd>)을 누르고 있으면 <b>복사</b>입니다. 놓는 순간의 키 상태로 정하며, 배지가 실시간으로 바뀝니다.</li>
+      <li>놓을 수 있는 곳
+        <ul>
+          <li>폴더 행(목록·트리)</li>
+          <li>경로 막대의 폴더 이름(상위 폴더)</li>
+          <li>목록의 빈 곳 = 지금 보고 있는 폴더</li>
+          <li>다른 탭 — 0.8초 머무르면 그 탭으로 바뀌고, 그 탭의 폴더에 놓을 수 있습니다</li>
+        </ul>
+      </li>
+      <li>놓을 수 없는 곳: 파일 행, 끌고 있는 항목 자신, 끌고 있는 폴더의 하위, 항목이 이미 있는 폴더. 커서가 🚫 로 바뀌고 배지에 이유가 나옵니다.</li>
+      <li>폴더 행 위에 0.8초 머무르면 그 폴더로 들어갑니다(트리는 펼침). 목록 위·아래 끝 32px 에 있으면 자동으로 스크롤합니다.</li>
+      <li><kbd>Esc</kbd> 또는 창 밖에 놓으면 아무 일도 없습니다.</li>
+      <li>놓으면 기존 <b>붙여넣기와 같은 작업</b>으로 서버에 보냅니다(복사 = copy, 이동 = cut). 진행은 작업 표시줄, 이름 충돌은 기존 충돌 창(건너뛰기·둘 다 유지·덮어쓰기)을 그대로 씁니다. 클립보드는 바꾸지 않습니다.</li>
+      <li>끝나면 원본·대상 폴더를 새로 고치고, 옮긴 항목을 대상 폴더에서 선택해 둡니다.</li>
+      <li>OS 에서 파일을 끌어 오는 기존 <b>업로드</b>는 그대로입니다. 탐색기 안의 끌기와 OS 끌기는 데이터 형식으로 구별합니다.</li>
+      <li>같은 브라우저의 다른 워크스페이스 탐색기 창으로 끌어도 같은 규칙입니다(세션이 다르면 세션 간 붙여넣기와 같은 경로).</li>
+    </ol>
+
+    <h4>B. 모바일</h4>
+    <ul>
+      <li><code>pointer: coarse</code> 이면 행에 <code>draggable</code> 을 주지 않습니다. 터치 길게 누르기·스크롤 동작은 바뀌지 않습니다.</li>
+      <li>새 파일은 더보기 시트에 있습니다(새 폴더 바로 위).</li>
+    </ul>
+
+    <h4>C. 새 파일</h4>
+    <ol>
+      <li>오른쪽 버튼 메뉴(빈 곳·항목 모두)와 모바일 더보기 시트에 <b>새 파일</b>을 둡니다. 위치 규칙은 새 폴더와 같습니다.</li>
+      <li>모달 창이 뜨고 이름 칸에 바로 포커스가 갑니다. 기본 이름은 비어 있습니다.</li>
+      <li>입력할 때마다 확인합니다
+        <ul>
+          <li>비었거나 공백뿐 → [만들기] 비활성(오류 문구 없음)</li>
+          <li><code>/</code> <code>\</code> 포함, <code>.</code> <code>..</code> → 오류</li>
+          <li>그 폴더 목록에 같은 이름(파일이든 폴더든) → 오류, [만들기] 비활성</li>
+        </ul>
+      </li>
+      <li><kbd>Enter</kbd> = 만들기, <kbd>Esc</kbd> = 취소. 만드는 동안 버튼은 진행 표시로 바뀝니다.</li>
+      <li>서버는 <b>이미 있으면 만들지 않습니다</b>(덮어쓰기 없음, 배타적 생성). 그 사이 생긴 경우 창을 닫지 않고 오류를 보여 줍니다.</li>
+      <li>성공하면 창을 닫고, 목록을 새로 고친 뒤 새 파일을 선택하고 화면에 보이게 합니다. 내용은 0바이트입니다.</li>
+    </ol>
+
+    <h4>키·포인터</h4>
+    <table class="keys">
+      <tr><td>끌기</td><td>이동</td></tr>
+      <tr><td><kbd>Ctrl</kbd>/<kbd>⌥</kbd> + 끌기</td><td>복사</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>끌기 취소 / 새 파일 창 닫기</td></tr>
+      <tr><td><kbd>Enter</kbd></td><td>새 파일 만들기</td></tr>
+    </table>
+
+    <h4>확인이 필요한 점</h4>
+    <ul class="q">
+      <li>Windows 탐색기처럼 <kbd>Shift</kbd>+끌기를 "강제 이동"으로 둘지 (지금은 기본이 이동이라 불필요).</li>
+      <li>대소문자만 다른 이름(<code>readme.md</code> vs <code>README.md</code>): 화면 확인은 정확히 같은 이름만 막고, 최종 판정은 서버 파일 시스템에 맡깁니다(Windows 는 거부, Linux 는 허용).</li>
+      <li>새 파일을 만든 뒤 편집기에서 바로 열지 여부 — 이번 디자인에는 넣지 않았습니다.</li>
+    </ul>
+  </aside>
+</div>
+
+<!-- custom drag image, kept off-screen -->
+<div class="drag-badge" id="badge"><span class="stack" id="badge-ico"></span><span id="badge-label"></span><span class="op move" id="badge-op"></span></div>
+
+<script>
+const ROOT = '/home/beom/project';
+const INITIAL = {
+  '/home/beom/project': [
+    { name: 'docs', dir: true, date: '2026-10-19 14:02' },
+    { name: 'src', dir: true, date: '2026-10-20 09:41' },
+    { name: 'tests', dir: true, date: '2026-10-18 17:20' },
+    { name: '.gitignore', size: '220 B', date: '2026-09-02 10:11' },
+    { name: 'README.md', size: '4.2 KB', date: '2026-10-20 08:55' },
+    { name: 'package.json', size: '1.1 KB', date: '2026-10-17 12:30' },
+    { name: 'tsconfig.json', size: '640 B', date: '2026-09-28 16:04' },
+  ],
+  '/home/beom/project/docs': [ { name: 'design', dir: true, date: '2026-10-19 14:02' }, { name: 'guide.md', size: '9.8 KB', date: '2026-10-11 11:00' } ],
+  '/home/beom/project/docs/design': [],
+  '/home/beom/project/src': [ { name: 'components', dir: true, date: '2026-10-20 09:41' }, { name: 'index.ts', size: '880 B', date: '2026-10-20 09:41' } ],
+  '/home/beom/project/src/components': [],
+  '/home/beom/project/tests': [ { name: 'app.test.ts', size: '2.0 KB', date: '2026-10-18 17:20' } ],
+  '/home/beom/backup': [ { name: '2026-10', dir: true, date: '2026-10-01 00:00' }, { name: 'old.tar.gz', size: '22 MB', date: '2026-08-30 22:10' } ],
+  '/home/beom/backup/2026-10': [],
+};
+let fs, cwd, tabPaths, activeTab, sel, anchor, drag;
+const isMac = /Mac/.test(navigator.platform);
+const isTouch = matchMedia('(pointer: coarse)').matches;
+
+function resetDemo() {
+  fs = JSON.parse(JSON.stringify(INITIAL));
+  tabPaths = [ROOT, '/home/beom/backup'];
+  activeTab = 0; cwd = ROOT; sel = new Set(); anchor = null; drag = null;
+  closeNewFile(); hideCtx(); render();
+}
+const join = (d, n) => d === '/' ? '/' + n : d + '/' + n;
+const parentOf = (p) => p.slice(0, p.lastIndexOf('/')) || '/';
+const baseOf = (p) => p.slice(p.lastIndexOf('/') + 1);
+const sortEntries = (a) => a.sort((x, y) => (y.dir - x.dir) || x.name.localeCompare(y.name));
+
+function render() {
+  document.querySelectorAll('.fx-tab').forEach((t, i) => {
+    t.classList.toggle('on', i === activeTab);
+    t.textContent = baseOf(tabPaths[i]) || '/';
+  });
+  const crumbs = document.getElementById('crumbs');
+  crumbs.innerHTML = '';
+  const parts = cwd.split('/').filter(Boolean);
+  let acc = '';
+  parts.forEach((p, i) => {
+    acc += '/' + p;
+    if (i) crumbs.insertAdjacentHTML('beforeend', '<i>/</i>');
+    const c = document.createElement('span');
+    c.className = 'crumb' + (i === parts.length - 1 ? ' cur' : '');
+    c.textContent = p; c.dataset.path = acc;
+    c.onclick = () => go(c.dataset.path);
+    bindDrop(c, () => c.dataset.path);
+    crumbs.appendChild(c);
+  });
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  sortEntries(fs[cwd] || []).forEach((e) => {
+    const path = join(cwd, e.name);
+    const r = document.createElement('div');
+    r.className = 'fx-row' + (sel.has(path) ? ' sel' : '');
+    r.dataset.path = path; r.dataset.dir = e.dir ? '1' : '';
+    r.draggable = !isTouch;
+    r.innerHTML = `<div class="nm"><svg class="${e.dir ? 'ico-dir' : 'ico-file'}"><use href="#${e.dir ? 'i-dir' : 'i-file'}"/></svg><span></span></div><div class="sz">${e.dir ? '—' : e.size}</div><div class="dt">${e.date}</div>`;
+    r.querySelector('span').textContent = e.name;
+    r.onclick = (ev) => clickRow(ev, path);
+    r.ondblclick = () => { if (e.dir) go(path); };
+    r.oncontextmenu = (ev) => { ev.preventDefault(); if (!sel.has(path)) { sel = new Set([path]); render(); } showCtx(ev, e.dir ? path : cwd, 'item'); };
+    r.addEventListener('dragstart', (ev) => dragStart(ev, path));
+    r.addEventListener('dragend', dragEnd);
+    if (e.dir) bindDrop(r, () => path);
+    list.appendChild(r);
+  });
+  document.getElementById('status-count').textContent = `${(fs[cwd] || []).length}개 항목` + (sel.size ? ` · ${sel.size}개 선택` : '');
+}
+
+function go(p) { cwd = p; tabPaths[activeTab] = p; sel = new Set(); render(); }
+function clickRow(ev, path) {
+  const rows = [...document.querySelectorAll('#list .fx-row')].map((r) => r.dataset.path);
+  if (ev.shiftKey && anchor) {
+    const a = rows.indexOf(anchor), b = rows.indexOf(path);
+    sel = new Set(rows.slice(Math.min(a, b), Math.max(a, b) + 1));
+  } else if (ev.ctrlKey || ev.metaKey) {
+    sel.has(path) ? sel.delete(path) : sel.add(path); anchor = path;
+  } else { sel = new Set([path]); anchor = path; }
+  render();
+}
+function selectDemo(names) { go(ROOT); sel = new Set(names.map((n) => join(ROOT, n))); render(); }
+
+/* ---------- drag & drop ---------- */
+const copyKey = (ev) => isMac ? ev.altKey : ev.ctrlKey;
+function dragStart(ev, path) {
+  if (!sel.has(path)) { sel = new Set([path]); render(); }
+  const items = [...sel];
+  drag = { items, from: cwd, copy: false, target: null };
+  ev.dataTransfer.setData('application/x-buildergate-entries', JSON.stringify(items));
+  ev.dataTransfer.effectAllowed = 'copyMove';
+  const badge = document.getElementById('badge');
+  const one = items.length === 1;
+  const isDir = one && (fs[parentOf(items[0])] || []).find((e) => e.name === baseOf(items[0]))?.dir;
+  document.getElementById('badge-ico').innerHTML = one
+    ? `<svg class="${isDir ? 'ico-dir' : 'ico-file'}"><use href="#${isDir ? 'i-dir' : 'i-file'}"/></svg>`
+    : '<svg class="ico-file"><use href="#i-file"/></svg><svg class="ico-file"><use href="#i-file"/></svg>';
+  document.getElementById('badge-label').textContent = one ? baseOf(items[0]) : `${items.length}개 항목`;
+  setBadgeOp(null, false);
+  ev.dataTransfer.setDragImage(badge, -12, -12);
+  requestAnimationFrame(() => {
+    document.querySelectorAll('#list .fx-row').forEach((r) => { if (sel.has(r.dataset.path)) r.classList.add('dragging'); });
+    document.getElementById('hint').classList.add('on');
+    updateHint(false);
+  });
+}
+function dragEnd() {
+  drag = null; clearSpring();
+  document.querySelectorAll('.dragging,.drop-hover,.drop-deny').forEach((e) => e.classList.remove('dragging', 'drop-hover', 'drop-deny'));
+  document.getElementById('list').classList.remove('drop-here');
+  document.getElementById('hint').classList.remove('on');
+}
+function denyReason(dest) {
+  if (!drag) return '외부 항목';
+  for (const p of drag.items) {
+    if (dest === p) return '자기 자신에 놓을 수 없음';
+    if (dest.startsWith(p + '/')) return '자기 안으로 옮길 수 없음';
+  }
+  if (drag.items.every((p) => parentOf(p) === dest)) return '이미 이 폴더에 있음';
+  return null;
+}
+function setBadgeOp(dest, copy, deny) {
+  const op = document.getElementById('badge-op');
+  if (deny) { op.className = 'op deny'; op.innerHTML = `<svg><use href="#i-deny"/></svg>${deny}`; return; }
+  op.className = 'op ' + (copy ? 'copy' : 'move');
+  op.innerHTML = `<svg><use href="#${copy ? 'i-plus' : 'i-move'}"/></svg>${copy ? '복사' : '이동'}${dest ? ' → ' + (baseOf(dest) || '/') : ''}`;
+}
+function updateHint(copy, dest, deny) {
+  const h = document.getElementById('hint-op');
+  h.innerHTML = deny ? `<span class="op deny">${deny}</span>` : `<span class="op ${copy ? 'copy' : 'move'}">${copy ? '복사' : '이동'}${dest ? ' → ' + baseOf(dest) : ''}</span>`;
+}
+let springTimer = null, springEl = null;
+function clearSpring() { clearTimeout(springTimer); springEl?.classList.remove('spring'); springTimer = null; springEl = null; }
+function bindDrop(el, destOf) {
+  el.addEventListener('dragover', (ev) => {
+    if (!drag) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const dest = destOf(), deny = denyReason(dest), copy = copyKey(ev);
+    document.getElementById('list').classList.remove('drop-here');
+    el.classList.toggle('drop-hover', !deny); el.classList.toggle('drop-deny', !!deny);
+    ev.dataTransfer.dropEffect = deny ? 'none' : copy ? 'copy' : 'move';
+    setBadgeOp(dest, copy, deny); updateHint(copy, dest, deny);
+    if (!deny && el.classList.contains('fx-row') && springEl !== el) {
+      clearSpring(); springEl = el; el.classList.add('spring');
+      springTimer = setTimeout(() => { clearSpring(); go(dest); }, 800);
+    }
+  });
+  el.addEventListener('dragleave', () => { el.classList.remove('drop-hover', 'drop-deny'); if (springEl === el) clearSpring(); });
+  el.addEventListener('drop', (ev) => {
+    if (!drag) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const dest = destOf();
+    if (!denyReason(dest)) runJob(dest, copyKey(ev));
+    dragEnd();
+  });
+}
+const list = document.getElementById('list');
+list.addEventListener('dragover', (ev) => {
+  if (!drag) return;
+  ev.preventDefault();
+  const deny = denyReason(cwd), copy = copyKey(ev);
+  list.classList.toggle('drop-here', !deny);
+  ev.dataTransfer.dropEffect = deny ? 'none' : copy ? 'copy' : 'move';
+  setBadgeOp(cwd, copy, deny); updateHint(copy, cwd, deny);
+  const r = list.getBoundingClientRect();
+  if (ev.clientY < r.top + 32) list.scrollTop -= 8; else if (ev.clientY > r.bottom - 32) list.scrollTop += 8;
+});
+list.addEventListener('dragleave', (ev) => { if (!list.contains(ev.relatedTarget)) list.classList.remove('drop-here'); });
+list.addEventListener('drop', (ev) => { if (!drag) return; ev.preventDefault(); if (!denyReason(cwd)) runJob(cwd, copyKey(ev)); dragEnd(); });
+list.addEventListener('contextmenu', (ev) => { if (ev.target === list) { ev.preventDefault(); sel = new Set(); render(); showCtx(ev, cwd, 'empty'); } });
+
+document.querySelectorAll('.fx-tab').forEach((t, i) => {
+  t.onclick = () => { activeTab = i; cwd = tabPaths[i]; sel = new Set(); render(); };
+  let timer = null;
+  t.addEventListener('dragover', (ev) => {
+    if (!drag) return; ev.preventDefault();
+    t.classList.add('drop-hover'); ev.dataTransfer.dropEffect = 'none';
+    if (!timer && i !== activeTab) timer = setTimeout(() => { t.classList.remove('drop-hover'); activeTab = i; cwd = tabPaths[i]; render(); timer = null; }, 800);
+  });
+  t.addEventListener('dragleave', () => { t.classList.remove('drop-hover'); clearTimeout(timer); timer = null; });
+});
+
+function runJob(dest, copy) {
+  const items = drag.items;
+  const names = [];
+  items.forEach((p) => {
+    const src = fs[parentOf(p)] || [];
+    const idx = src.findIndex((e) => e.name === baseOf(p));
+    if (idx < 0) return;
+    const entry = src[idx];
+    let name = entry.name;
+    const target = fs[dest] || (fs[dest] = []);
+    if (target.some((e) => e.name === name)) name = name.replace(/(\.[^.]*)?$/, ' (2)$1');
+    target.push({ ...entry, name });
+    if (entry.dir) fs[join(dest, name)] = JSON.parse(JSON.stringify(fs[p] || []));
+    if (!copy) { src.splice(idx, 1); }
+    names.push(join(dest, name));
+  });
+  const job = document.getElementById('job'), bar = document.getElementById('job-bar');
+  document.getElementById('job-text').textContent = `${items.length}개 ${copy ? '복사' : '이동'} 중`;
+  job.classList.add('on'); bar.style.width = '0'; requestAnimationFrame(() => bar.style.width = '100%');
+  setTimeout(() => {
+    job.classList.remove('on');
+    sel = cwd === dest ? new Set(names) : new Set();
+    render();
+    toast(`${items.length}개 항목을 ${baseOf(dest) || '/'}(으)로 ${copy ? '복사' : '이동'}했습니다`);
+  }, 950);
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-text').textContent = msg;
+  t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2600);
+}
+
+/* ---------- context menu ---------- */
+let menuDir = null;
+function showCtx(ev, dir, target) {
+  menuDir = dir;
+  const ctx = document.getElementById('ctx');
+  const win = document.getElementById('win').getBoundingClientRect();
+  const item = target === 'item';
+  ctx.innerHTML = `
+    <div class="it ${item ? '' : 'dis'}"><svg><use href="#i-download"/></svg>다운로드</div>
+    <div class="it"><svg><use href="#i-upload"/></svg>업로드</div>
+    <div class="sep"></div>
+    <div class="it ${item ? '' : 'dis'}"><svg><use href="#i-copy"/></svg>복사<span class="k">Ctrl+C</span></div>
+    <div class="it ${item ? '' : 'dis'}"><svg><use href="#i-cut"/></svg>잘라내기<span class="k">Ctrl+X</span></div>
+    <div class="it dis"><svg><use href="#i-paste"/></svg>붙여넣기<span class="k">Ctrl+V</span></div>
+    <div class="sep"></div>
+    <div class="it new-item" data-act="newfile"><svg><use href="#i-file-plus"/></svg>새 파일</div>
+    <div class="it"><svg><use href="#i-dir-plus"/></svg>새 폴더</div>
+    <div class="it"><svg><use href="#i-refresh"/></svg>새로 고침</div>`;
+  ctx.style.left = Math.min(ev.clientX - win.left, win.width - 240) + 'px';
+  ctx.style.top = Math.min(ev.clientY - win.top, win.height - 300) + 'px';
+  ctx.classList.add('on');
+  ctx.querySelector('[data-act=newfile]').onclick = () => { hideCtx(); openNewFile(); };
+}
+function hideCtx() { document.getElementById('ctx').classList.remove('on'); }
+document.addEventListener('click', (ev) => { if (!document.getElementById('ctx').contains(ev.target)) hideCtx(); });
+
+/* ---------- new file dialog ---------- */
+const nfInput = document.getElementById('nf-input');
+function openNewFile(prefill) {
+  hideCtx();
+  const dir = menuDir || cwd; menuDir = dir;
+  document.getElementById('nf-loc').textContent = dir;
+  document.getElementById('scrim').classList.add('on');
+  nfInput.value = prefill || '';
+  validate();
+  setTimeout(() => { nfInput.focus(); nfInput.select(); }, 0);
+}
+function closeNewFile() { document.getElementById('scrim').classList.remove('on'); menuDir = null; document.getElementById('nf-ok').classList.remove('busy'); }
+function validate() {
+  const name = nfInput.value, trimmed = name.trim();
+  const msg = document.getElementById('nf-msg'), ok = document.getElementById('nf-ok');
+  let err = null;
+  if (/[\\/]/.test(name)) err = '이름에 / 나 \\ 를 쓸 수 없습니다.';
+  else if (trimmed === '.' || trimmed === '..') err = '이 이름은 쓸 수 없습니다.';
+  else {
+    const hit = (fs[menuDir || cwd] || []).find((e) => e.name === trimmed);
+    if (hit) err = hit.dir ? `이 폴더에 이미 '${trimmed}' 폴더가 있습니다.` : `이 폴더에 이미 '${trimmed}' 이(가) 있습니다.`;
+  }
+  nfInput.classList.toggle('err', !!err);
+  msg.className = 'msg ' + (err ? 'err' : 'hint');
+  msg.innerHTML = err ? `<svg><use href="#i-alert"/></svg>${err.replace(/</g, '&lt;')}` : '확장자까지 입력하세요. 빈 파일이 만들어집니다.';
+  ok.disabled = !!err || trimmed === '';
+  return !ok.disabled;
+}
+nfInput.addEventListener('input', validate);
+nfInput.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' && validate()) createFile();
+  if (ev.key === 'Escape') closeNewFile();
+});
+function createFile() {
+  if (!validate()) return;
+  const ok = document.getElementById('nf-ok');
+  const dir = menuDir || cwd, name = nfInput.value.trim();
+  ok.classList.add('busy'); ok.disabled = true;
+  setTimeout(() => {
+    (fs[dir] || (fs[dir] = [])).push({ name, size: '0 B', date: '2026-10-20 10:00' });
+    closeNewFile();
+    if (dir !== cwd) go(dir);
+    sel = new Set([join(dir, name)]); render();
+    document.querySelector(`#list .fx-row[data-path="${CSS.escape(join(dir, name))}"]`)?.scrollIntoView({ block: 'nearest' });
+    toast(`'${name}' 을(를) 만들었습니다`);
+  }, 450);
+}
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { hideCtx(); } });
+
+resetDemo();
+</script>
+</body>
+</html>

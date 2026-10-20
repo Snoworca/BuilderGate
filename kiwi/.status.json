@@ -1,82 +1,82 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-20T04:59:55.890Z",
+  "generatedAt": "2026-10-20T07:42:27.958Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "d7a0e020afc5fdaf91688616f3de14307023d5b24f52d4c7aa80e8e449e98cb0",
+    "value": "d64193807ebb8e80f9ed6bfd7b1f3d21d472ca39cb46119f5c2218f1e3fa194f",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "8d454e1f3824732e73d9ae487708e5904a638e4d8edd3c1d64b76f932cba130f",
-        "size": 14772,
-        "mtimeMs": 1792472364912.1216
+        "sha256": "8396b5f85b9a19b7f421e92dd90fc230f53a7876d2d1882953339db1bbb2b365",
+        "size": 14587,
+        "mtimeMs": 1792482126937.0984
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "8549cf2866d330088f02d02a5efb275d076af9ce6aa85af603f63dcaf0f4d0b7",
-        "size": 56342,
-        "mtimeMs": 1792472364913.1204
+        "sha256": "358ab26a175243d7754e727aa08d1b86ce2cf48338283db596e256ce82d3544b",
+        "size": 55474,
+        "mtimeMs": 1792482126946.6277
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "9ef789a71f0e25c5f3413d4221c80ca71c86be868857b2b2dba571d90490d1e4",
-        "size": 103140,
-        "mtimeMs": 1792122654895.2075
+        "sha256": "323e5eec4648aa4dd99478b189eb5d7d652b32c3bcb9a63d868978e3e928d66c",
+        "size": 101618,
+        "mtimeMs": 1791768224566.4717
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "a4af7d707bb8f3cbc62c5af412319e4e72b91a22e5d7f64766e12f677c375c42",
-        "size": 1508303,
-        "mtimeMs": 1792472364718.3918
+        "sha256": "481614139293f5d5f3b293dd1cd82fd6c7825b4e7ca1861038502e1f4a2e6c69",
+        "size": 1497932,
+        "mtimeMs": 1792454327308.6165
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "b99e80b5ba5ec395c4174a878b39ffc918a7e03e936f87711024ca4dc72119d0",
-        "size": 143977,
-        "mtimeMs": 1792382001967.1125
+        "sha256": "8727c72259faee9dd969280db4239550688c846bbe301a65d410a0302122af94",
+        "size": 142193,
+        "mtimeMs": 1792342663827.8518
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "c7ddcbdb19d266eff9803b48e59df41a4199c9bf5966acb6332b56ba8362d6ee",
-        "size": 310705,
-        "mtimeMs": 1792382001969.1226
+        "sha256": "6925602d823755f5f4f7ec30c4a8f49f08ca7c93ddf75cf78ebcd0f756600c6a",
+        "size": 307681,
+        "mtimeMs": 1792344049633.446
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "e2f50e1d7129b475d5a788a762904f2bd0850e2db7c549add643d8e3f40aa3ff",
-        "size": 138741,
-        "mtimeMs": 1792382001970.1204
+        "sha256": "b57bfc88e3246dff790d266923b192ae03a326b9dd8fbd1397af82f70d5d81c1",
+        "size": 143576,
+        "mtimeMs": 1792482130789.0117
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "77705b479b002a7769b93277ad7f9831cb4b0c07bbd089750332cbd2c2edbe20",
-        "size": 59263,
-        "mtimeMs": 1792382001971.1194
+        "sha256": "741be37781da549b9805881aaab790cc950ae04702be0c6a0b583a4ceebf35af",
+        "size": 60041,
+        "mtimeMs": 1792482130796.3062
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "83725be4970f777fbbf57c49349658aa57f7abf45b3f36404e6f8a63087a4ac6",
-        "size": 41899,
-        "mtimeMs": 1792472364719.3904
+        "sha256": "47d5238919077cde190147c0ea6a4f95c4f95739521a805a5a86201d95ec43fd",
+        "size": 41050,
+        "mtimeMs": 1792410733484.8535
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
-        "sha256": "45f355e7d7204a7597cc5e7884ac1b322556feb5885f193aadad1f552bc5f4d1",
-        "size": 18716,
-        "mtimeMs": 1792122654910.1572
+        "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
+        "size": 18127,
+        "mtimeMs": 1790475599389.271
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
-        "sha256": "c2192e2cb39872ac837acd5a47fa84b2b078254cdfc4e93496fa503616956bf7",
-        "size": 78988,
-        "mtimeMs": 1792472364720.3904
+        "sha256": "2e69344af1b9df51bb486ac6729bb305e59d67acd48170e39ccaea0098dd24a7",
+        "size": 77986,
+        "mtimeMs": 1792410687215.7556
       },
       {
         "path": "docs/spec/90.appendix.md",
-        "sha256": "feaa2ea621cc7f9585b3f6e2a258d70a49bae19271a81384f88af71d7f041693",
-        "size": 126,
-        "mtimeMs": 1792122654910.1572
+        "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
+        "size": 121,
+        "mtimeMs": 1778345537159.6023
       }
     ]
   },
@@ -87,8 +87,8 @@
       "BGSTAB": 34,
       "MCP": 13,
       "MDE": 28,
-      "FEX": 27,
-      "FOP": 7,
+      "FEX": 30,
+      "FOP": 8,
       "UIDS": 12,
       "MKB": 13
     },

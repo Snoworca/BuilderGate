@@ -108,6 +108,7 @@
     "tests/e2e/pty-size-follows-view.spec.ts",
     "tests/e2e/grid-redraw-nudge.spec.ts",
     "tests/e2e/mobile-header-fit.spec.ts",
+    "tests/e2e/file-explorer-create-move.spec.ts",
     "tests/e2e/hidden-runtime-reveal-output.spec.ts",
     "tests/e2e/hidden-reveal-restore-failed.spec.ts",
     "tests/e2e/restore-report-dismiss.spec.ts",

@@ -72,6 +72,7 @@ import { FileExplorerDropChip, FileExplorerPendingRows, FileExplorerToast, type 
 import { buildMobileMoreSheet, mobileSheetTitle } from './fileExplorerContextMenu.ts';
 import { describeExtractDone, isExtractableArchive, subscribeExtractFinished, type ExtractPrecount } from './fileExtract.ts';
 import { rootLabel } from './fileExplorerPathBarModel.ts';
+import { resolveFileExplorerWindowLayout } from './fileExplorerPlacement.ts';
 import { readDroppedSources, readPickedSources } from './fileDropEntries.ts';
 import type { UploadSource } from './fileUploadController.ts';
 import { cancelFileTransfer, startUpload, startZipDownload, subscribeFileTransferEvents } from './fileTransferRuntime.ts';
@@ -896,7 +897,10 @@ function useStageRect(active: boolean): DialogRect | null {
 // @req FR-FEX-003
 export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, placement, actions, onOpenFile, openFileKeys, terminalKeyboardOpen = false }: FileExplorerWindowProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
-  const maximized = placement === 'stage';
+  // FR-FEX-028: on a phone the window fills the stage whatever the record holds.
+  const { isMobile } = useResponsive();
+  const layout = resolveFileExplorerWindowLayout({ isMobile, placement });
+  const maximized = layout.fillsStage;
   const stageRect = useStageRect(maximized && !hidden);
   const windowModal = useFileExplorerWindowModal();
   // Window-wide questions (closing mid-upload) and the toast every tab reports through.
@@ -1114,12 +1118,14 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
 
   const titlebarActions = (
     <div className="fx-window-actions">
-      <IconToggleButton
-        pressed={maximized}
-        icons={{ on: 'restore', off: 'maximize' }}
-        label={t('fileExplorer.window.maximize')}
-        onToggle={() => actions.toggleMaximizeFileExplorer(workspaceId)}
-      />
+      {layout.showMaximizeToggle && (
+        <IconToggleButton
+          pressed={maximized}
+          icons={{ on: 'restore', off: 'maximize' }}
+          label={t('fileExplorer.window.maximize')}
+          onToggle={() => actions.toggleMaximizeFileExplorer(workspaceId)}
+        />
+      )}
       <IconButton icon="minimize" label={t('fileExplorer.window.minimize')} onClick={() => actions.minimizeFileExplorer(workspaceId)} />
     </div>
   );
@@ -1137,8 +1143,8 @@ export function FileExplorerWindow({ workspaceId, tabs, activeTabId, hidden, pla
       // the stage would take straight back, and would store it as the floating
       // geometry. Without a measurable stage it stays where it floated.
       rect={maximized ? stageRect ?? undefined : undefined}
-      movable={!maximized}
-      resizable={!maximized}
+      movable={layout.movable}
+      resizable={layout.movable}
       persistGeometry
       surfaceClassName="fx-window"
       titlebarActions={titlebarActions}
