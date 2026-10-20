@@ -80,12 +80,14 @@ export interface FileTreeViewProps {
   multiSelect?: boolean;
   /** FR-FEX-014: only matching rows (and their visible ancestors) are drawn. */
   filterText?: string;
+  /** FR-FEX-030: rows can be dragged onto a folder (off on a touch screen). */
+  rowsDraggable?: boolean;
 }
 
 // @req FR-FEX-002
 // @req FR-FEX-011
 export function FileTreeView({
-  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange, openFileKeys, filterText = '', multiSelect = false,
+  tree, clipboard = null, onOpenFile, onOpenMenu, renaming = null, sort = null, onSortChange, openFileKeys, filterText = '', multiSelect = false, rowsDraggable = false,
 }: FileTreeViewProps) {
   // Each directory's listing is sorted once per sort, not on every selection
   // click: a listing is replaced on reload, never mutated, so it keys the cache.
@@ -223,6 +225,7 @@ export function FileTreeView({
             role="treeitem"
             aria-selected={tree.state.selectedPaths.has(row.path)}
             aria-expanded={isDir ? expanded : undefined}
+            draggable={rowsDraggable}
             data-path={row.path}
             data-name={row.name}
             data-depth={row.depth}

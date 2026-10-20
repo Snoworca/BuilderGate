@@ -96,7 +96,20 @@ import {
   resolveDropTarget,
   shouldShowMobileFileBar,
   springDelay,
+  SPRING_TREE_MS,
 } from './fileTransferModel.ts';
+import {
+  INTERNAL_DRAG_TYPE,
+  buildDropJobRequest,
+  decideDragOperation,
+  decideDragSources,
+  decideInternalDrop,
+  getCurrentInternalDrag,
+  isInternalDrag,
+  resolveInternalDropDir,
+  setCurrentInternalDrag,
+  type InternalDrag,
+} from './fileExplorerDragModel.ts';
 import { FileExplorerPathBar } from './FileExplorerPathBar.tsx';
 import { FileExplorerProgressRow } from './FileExplorerProgressRow.tsx';
 import { decideAnchorPersist, decideScrollRestore, pickAnchorRow, type RestoreState } from './fileExplorerScrollRestore.ts';
@@ -593,11 +606,21 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     };
   };
   const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    if (internalDragOf(event) !== null) {
+      event.preventDefault();
+      dragDepthRef.current += 1;
+      return;
+    }
     if (!hasDraggedFiles(event.dataTransfer.types)) return;
     event.preventDefault();
     dragDepthRef.current += 1;
   };
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    const internal = internalDragOf(event);
+    if (internal !== null) {
+      handleInternalDragOver(event, internal);
+      return;
+    }
     if (!hasDraggedFiles(event.dataTransfer.types)) return;
     event.preventDefault();
     if (decideDropAllowed({ hasFiles: true, modalOpen }) === 'blocked') {
@@ -627,11 +650,18 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     };
   };
   const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-    if (!hasDraggedFiles(event.dataTransfer.types)) return;
+    if (!hasDraggedFiles(event.dataTransfer.types) && internalDragOf(event) === null) return;
     dragDepthRef.current -= 1;
     if (dragDepthRef.current <= 0) endDrag();
   };
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    const internal = internalDragOf(event);
+    if (internal !== null) {
+      event.preventDefault();
+      const row = dragRowOf(event.target);
+      dropInternal(internal, resolveInternalDropDir({ row, shownFolder: state.root }), event);
+      return;
+    }
     if (!hasDraggedFiles(event.dataTransfer.types)) return;
     event.preventDefault();
     const target = resolveDropTarget({ row: dragRowOf(event.target), shownFolder: state.root });
@@ -640,6 +670,146 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     readDroppedSources(event.dataTransfer.items)
       .then((sources) => beginUpload(target.dir, sources))
       .catch((error: unknown) => showError(t('fileTransfer.error.upload', { message: messageOf(error) })));
+  };
+
+  // ---------------------------------------------------------------------------
+  // FR-FEX-030: explorer rows dragged onto a folder move, or copy with Ctrl (Option on macOS).
+  // Touch screens get no drag: a long press there selects, as it always has.
+  const rowsDraggable = !isMobile && !(typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches);
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+  const denyRowRef = useRef<Element | null>(null);
+  const markDenyRow = (row: Element | null) => {
+    if (denyRowRef.current === row) return;
+    denyRowRef.current?.classList.remove('fx-drop-deny');
+    row?.classList.add('fx-drop-deny');
+    denyRowRef.current = row;
+  };
+  const internalDragOf = (event: DragEvent<HTMLElement>): InternalDrag | null =>
+    (isInternalDrag(event.dataTransfer.types) ? getCurrentInternalDrag() : null);
+  const denyReason = (reason: 'self' | 'inside' | 'same-folder' | 'file') => t(
+    reason === 'self' ? 'fileExplorer.drag.deny.self'
+      : reason === 'inside' ? 'fileExplorer.drag.deny.inside'
+        : reason === 'same-folder' ? 'fileExplorer.drag.deny.sameFolder'
+          : 'fileExplorer.drag.deny.file',
+  );
+  // Shared by the rows and the path bar: what a drop on `dir` would do, shown on the chip.
+  const previewInternalDrop = (event: DragEvent<HTMLElement>, internal: InternalDrag, dir: string | null, rowName: string | null): boolean => {
+    event.preventDefault();
+    if (modalOpen) {
+      event.dataTransfer.dropEffect = 'none';
+      setDropChip(null);
+      return false;
+    }
+    const decision = dir === null ? { allowed: false as const, reason: 'file' as const } : decideInternalDrop(internal, { sessionId: tab.sessionId, dir });
+    const op = decideDragOperation(event, isMac);
+    event.dataTransfer.dropEffect = decision.allowed ? op : 'none';
+    const drag = decision.allowed
+      ? { op, copyHint: t(isMac ? 'fileExplorer.drag.copyHintOption' : 'fileExplorer.drag.copyHintCtrl') }
+      : { op: 'deny' as const, reason: denyReason(decision.reason) };
+    const next = { dir: dir ?? state.root, name: rowName, drag };
+    setDropChip((current) => (current !== null && current.dir === next.dir && current.name === next.name
+      && JSON.stringify(current.drag) === JSON.stringify(next.drag) ? current : next));
+    return decision.allowed;
+  };
+  const handleInternalDragOver = (event: DragEvent<HTMLDivElement>, internal: InternalDrag) => {
+    const row = dragRowOf(event.target);
+    const dir = resolveInternalDropDir({ row, shownFolder: state.root });
+    const allowed = previewInternalDrop(event, internal, dir, row !== null && row.isDir ? lastSegment(row.path) : null);
+    markDropRow(allowed && row !== null && row.isDir ? row.element : null);
+    markDenyRow(!allowed && row !== null ? row.element : null);
+    // AC-4: held over a folder it opens -- expanded in the tree, entered in the list.
+    const delay = allowed && row !== null && row.isDir
+      ? (state.mode === 'tree' ? springDelay({ kind: 'tree-dir', expanded: row.expanded }) : SPRING_TREE_MS)
+      : null;
+    if (delay === null || row === null) {
+      clearSpring();
+      return;
+    }
+    if (springRef.current?.path === row.path) return;
+    clearSpring();
+    springRef.current = {
+      path: row.path,
+      timer: setTimeout(() => {
+        springRef.current = null;
+        void (state.mode === 'tree' ? tree.expand(row.path) : tree.setRoot(row.path));
+      }, delay),
+    };
+  };
+  const dropInternal = (internal: InternalDrag, dir: string | null, event: DragEvent<HTMLElement>) => {
+    endDrag();
+    markDenyRow(null);
+    setCurrentInternalDrag(null);
+    if (modalOpen || dir === null) return;
+    const request = buildDropJobRequest(internal, { sessionId: tab.sessionId, dir }, decideDragOperation(event, isMac));
+    if (request !== null) ops.submitDrop(request);
+  };
+  const handleRowDragStart = (event: DragEvent<HTMLDivElement>) => {
+    const row = dragRowOf(event.target);
+    if (!rowsDraggable || row === null || row.path === '') {
+      event.preventDefault();
+      return;
+    }
+    const sources = decideDragSources(state.selectedPaths, row.path);
+    if (sources.reselect) {
+      // As a plain click on the row would.
+      const pointer = decideRowPointer({ button: 0, ctrlKey: false, metaKey: false, shiftKey: false, isSelected: false });
+      if (pointer.type === 'select') tree.dispatch({ type: 'CLICK_ROW', path: row.path, mods: pointer.mods, orderedPaths: [row.path] });
+    }
+    const drag: InternalDrag = { sessionId: tab.sessionId, paths: sources.paths };
+    setCurrentInternalDrag(drag);
+    event.dataTransfer.setData(INTERNAL_DRAG_TYPE, JSON.stringify(drag));
+    event.dataTransfer.effectAllowed = 'copyMove';
+    // The picture under the pointer: the name, or how many go.
+    const badge = document.createElement('div');
+    badge.className = 'fx-drag-badge';
+    badge.textContent = sources.paths.length === 1 ? lastSegment(sources.paths[0]) : tn('fileExplorer.drag.count', sources.paths.length);
+    document.body.appendChild(badge);
+    event.dataTransfer.setDragImage(badge, -12, -12);
+    requestAnimationFrame(() => badge.remove());
+    // The rows that travel are dimmed until the drag ends.
+    for (const element of scrollRef.current?.querySelectorAll<HTMLElement>('[data-path]') ?? []) {
+      if (sources.paths.includes(element.dataset.path ?? '')) element.classList.add('fx-dragging');
+    }
+  };
+  const handleRowDragEnd = () => {
+    setCurrentInternalDrag(null);
+    for (const element of scrollRef.current?.querySelectorAll('.fx-dragging') ?? []) element.classList.remove('fx-dragging');
+    endDrag();
+    markDenyRow(null);
+  };
+  // AC-3: the path bar's folder names take a drop too.
+  const crumbDirOf = (target: EventTarget | null): string | null => {
+    if (!(target instanceof Element)) return null;
+    return target.closest<HTMLElement>('[data-drop-dir]')?.dataset.dropDir ?? null;
+  };
+  const crumbRef = useRef<Element | null>(null);
+  const markCrumb = (crumb: Element | null) => {
+    if (crumbRef.current === crumb) return;
+    crumbRef.current?.classList.remove('fx-drop-target');
+    crumb?.classList.add('fx-drop-target');
+    crumbRef.current = crumb;
+  };
+  const handleCrumbDragOver = (event: DragEvent<HTMLDivElement>) => {
+    const internal = internalDragOf(event);
+    const dir = crumbDirOf(event.target);
+    if (internal === null || dir === null) {
+      markCrumb(null);
+      return;
+    }
+    const allowed = previewInternalDrop(event, internal, dir, lastSegment(dir));
+    markCrumb(allowed && event.target instanceof Element ? event.target.closest('[data-drop-dir]') : null);
+  };
+  const handleCrumbDragLeave = () => {
+    markCrumb(null);
+    setDropChip(null);
+  };
+  const handleCrumbDrop = (event: DragEvent<HTMLDivElement>) => {
+    const internal = internalDragOf(event);
+    const dir = crumbDirOf(event.target);
+    markCrumb(null);
+    if (internal === null || dir === null) return;
+    event.preventDefault();
+    dropInternal(internal, dir, event);
   };
 
   // ---------------------------------------------------------------------------
@@ -785,6 +955,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         />
       )}
       {!searchOpen && (
+        // FR-FEX-030 AC-3: a wrapper without a box, so an explorer drag over a folder name is heard.
+        <div className="fx-pathbar-drop" onDragOver={handleCrumbDragOver} onDragLeave={handleCrumbDragLeave} onDrop={handleCrumbDrop}>
         <FileExplorerPathBar
           tree={tree}
           setMode={setMode}
@@ -799,6 +971,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
             onClick: ops.menuHandlers.download,
           }}
         />
+        </div>
       )}
       <div
         hidden={searchOpen}
@@ -814,6 +987,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onDragStart={handleRowDragStart}
+        onDragEnd={handleRowDragEnd}
       >
         {state.mode === 'list'
           ? (
@@ -828,9 +1003,10 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
               openFileKeys={openFileKeys}
               filterText={filterText}
               multiSelect={multiSelect}
+              rowsDraggable={rowsDraggable}
             />
           )
-          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} openFileKeys={openFileKeys} filterText={filterText} multiSelect={multiSelect} />}
+          : <FileTreeView tree={tree} clipboard={clipboard} onOpenFile={handleOpenFile} onOpenMenu={setMenu} renaming={ops.rowRename} sort={tab.sort} onSortChange={handleSortChange} openFileKeys={openFileKeys} filterText={filterText} multiSelect={multiSelect} rowsDraggable={rowsDraggable} />}
         <FileExplorerPendingRows rows={pendingRows} />
       </div>
       <FileExplorerDropChip target={dropChip} />

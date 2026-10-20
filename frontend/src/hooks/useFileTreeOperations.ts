@@ -16,6 +16,7 @@
 // @req FR-FEX-025
 // @req FR-FEX-027
 // @req FR-FEX-029
+// @req FR-FEX-030
 
 import { t } from '../i18n/i18n.ts';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -33,6 +34,7 @@ import {
 import type { ConfirmPort } from '../components/fileExplorer/fileExplorerPorts.ts';
 import type { FileExplorerShortcutDecision } from '../components/fileExplorer/fileExplorerShortcuts.ts';
 import { pasteFromClipboard, requestDelete, type FileJobRequest } from '../components/fileExplorer/fileJobClient.ts';
+import type { PasteJobRequest } from '../components/fileExplorer/fileExplorerClipboard.ts';
 import { dispatchFileJob } from '../components/fileExplorer/fileJobStore.ts';
 import { startFileDownload } from '../components/fileExplorer/fileDownload.ts';
 import { isOpenableFile } from '../components/fileExplorer/fileRowInteraction.ts';
@@ -91,6 +93,8 @@ export interface FileTreeOperations {
   rowRename: FileRowRename | null;
   /** Asks a folder name and creates it inside `directory`. */
   createDirectoryIn: (directory: string) => Promise<void>;
+  /** FR-FEX-030: submits the move or copy a drop built, as paste submits its job. */
+  submitDrop: (request: PasteJobRequest) => void;
 }
 
 function lastSegment(path: string): string {
@@ -359,5 +363,9 @@ export function useFileTreeOperations({
     }
   };
 
-  return { menuHandlers, menuItems, runShortcut, rowRename, createDirectoryIn };
+  const submitDrop = (request: PasteJobRequest) => {
+    jobClient.submit(request).catch((error: unknown) => showError(t('fileExplorer.drag.failed', { message: messageOf(error) })));
+  };
+
+  return { menuHandlers, menuItems, runShortcut, rowRename, createDirectoryIn, submitDrop };
 }

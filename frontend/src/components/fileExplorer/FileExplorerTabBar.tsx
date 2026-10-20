@@ -4,6 +4,7 @@ import { t } from '../../i18n/i18n.ts';
 import { useEffect, useRef } from 'react';
 import type { DragEvent, MouseEvent, ReactNode } from 'react';
 import { hasDraggedFiles, springDelay } from './fileTransferModel.ts';
+import { isInternalDrag } from './fileExplorerDragModel.ts';
 import { IconButton } from '../common';
 import type { FileExplorerTab } from './fileExplorerTabsState.ts';
 import { useLongPress } from '../../hooks/useLongPress.ts';
@@ -88,7 +89,9 @@ function ExplorerTabFrame({
   };
   useEffect(() => clearSpring, []);
   const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (!hasDraggedFiles(event.dataTransfer.types) || springRef.current !== null) return;
+    // FR-FEX-030 AC-4: an explorer drag switches tabs the same way.
+    const types = event.dataTransfer.types;
+    if (!(hasDraggedFiles(types) || isInternalDrag(types)) || springRef.current !== null) return;
     const delay = springDelay({ kind: 'tab', active: selected });
     if (delay === null) return;
     springRef.current = setTimeout(() => {

@@ -1281,5 +1281,16 @@
   "fileExplorer.newFile.error.existsFile": "A file named '{name}' is already in this folder.",
   "fileExplorer.newFile.error.existsFolder": "A folder named '{name}' is already in this folder.",
   "fileExplorer.newFile.error.existsNow": "'{name}' now exists in this folder. Enter another name.",
-  "fileExplorer.newFile.error.failed": "Could not create the file: {message}"
+  "fileExplorer.newFile.error.failed": "Could not create the file: {message}",
+  "fileExplorer.drag.moveTo": "Move to {name}",
+  "fileExplorer.drag.copyTo": "Copy to {name}",
+  "fileExplorer.drag.copyHintCtrl": "Hold Ctrl to copy",
+  "fileExplorer.drag.copyHintOption": "Hold Option to copy",
+  "fileExplorer.drag.deny.self": "Cannot drop an item onto itself",
+  "fileExplorer.drag.deny.inside": "Cannot move a folder into itself",
+  "fileExplorer.drag.deny.sameFolder": "Already in this folder",
+  "fileExplorer.drag.deny.file": "Drop onto a folder",
+  "fileExplorer.drag.count.one": "{count} item",
+  "fileExplorer.drag.count.other": "{count} items",
+  "fileExplorer.drag.failed": "Could not move or copy: {message}"
 }

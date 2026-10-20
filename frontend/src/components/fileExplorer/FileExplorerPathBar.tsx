@@ -75,6 +75,8 @@ export function FileExplorerPathBar({ tree, setMode, onNewDirectory, filterText 
                         <button
                           type="button"
                           className={`fx-crumb${item.action === 'refresh' ? ' fx-crumb-current' : ''}`}
+                          // FR-FEX-030 AC-3: a folder an explorer drag can be dropped on.
+                          data-drop-dir={item.path}
                           title={item.action === 'refresh' ? t('fileExplorer.path.reload') : item.path}
                           onClick={() => void (item.action === 'refresh' ? tree.refresh(state.root) : tree.setRoot(item.path))}
                         >

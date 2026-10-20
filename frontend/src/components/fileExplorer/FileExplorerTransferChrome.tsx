@@ -3,6 +3,7 @@
 // (FR-FEX-024 AC-2) and the toast that reports a finished or cancelled upload.
 // @req FR-FEX-022
 // @req FR-FEX-024
+// @req FR-FEX-030
 
 import { t } from '../../i18n/i18n.ts';
 import { useEffect } from 'react';
@@ -13,13 +14,36 @@ export interface DropChipTarget {
   /** The directory row's name, or null when the folder on screen is the target. */
   name: string | null;
   dir: string;
+  /** FR-FEX-030: an explorer drag says what the drop does, or why it cannot land. */
+  drag?: { op: 'move' | 'copy'; copyHint: string } | { op: 'deny'; reason: string };
+}
+
+function lastName(dir: string): string {
+  const parts = dir.split(/[\\/]/).filter((part) => part !== '');
+  return parts[parts.length - 1] ?? dir;
 }
 
 /** FR-FEX-022 AC-4: read out as it changes, so a screen reader hears the target too. */
 export function FileExplorerDropChip({ target }: { target: DropChipTarget | null }) {
   return (
     <div className={`fx-drop-chip${target === null ? '' : ' is-shown'}`} aria-live="polite">
-      {target !== null && (
+      {target !== null && target.drag !== undefined && (
+        target.drag.op === 'deny'
+          ? (
+            <>
+              <Icon name="alert" size={14} />
+              <span className="fx-drop-deny-text">{target.drag.reason}</span>
+            </>
+          )
+          : (
+            <>
+              <Icon name={target.drag.op === 'copy' ? 'copy' : 'move'} size={14} />
+              <span>{t(target.drag.op === 'copy' ? 'fileExplorer.drag.copyTo' : 'fileExplorer.drag.moveTo', { name: target.name ?? lastName(target.dir) })}</span>
+              {target.drag.op === 'move' && <small className="fx-drop-hint">{target.drag.copyHint}</small>}
+            </>
+          )
+      )}
+      {target !== null && target.drag === undefined && (
         <>
           <Icon name="upload" size={14} />
           <span>{target.name === null ? t('fileTransfer.drop.here') : t('fileTransfer.drop.into', { name: target.name })}</span>

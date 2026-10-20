@@ -36,11 +36,13 @@ export interface FileListViewProps {
   multiSelect?: boolean;
   /** FR-FEX-014: only entries whose names contain this are drawn. */
   filterText?: string;
+  /** FR-FEX-030: rows can be dragged onto a folder (off on a touch screen). */
+  rowsDraggable?: boolean;
 }
 
 // @req FR-FEX-002
 // @req FR-FEX-011
-export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null, openFileKeys, filterText = '', multiSelect = false }: FileListViewProps) {
+export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpenFile, onOpenMenu, renaming = null, openFileKeys, filterText = '', multiSelect = false, rowsDraggable = false }: FileListViewProps) {
   // Sorting a large directory on every render (each selection click, each
   // clipboard change) is the cost this saves. The rows depend only on the
   // root's listing entry and the sort, and a listing entry is replaced, never
@@ -154,6 +156,7 @@ export function FileListView({ tree, sort, onSortChange, clipboard = null, onOpe
               className={`fx-row fx-list-row ${entry.type === 'directory' ? 'fx-dir' : 'fx-file'} ${rowRenderClass(row, clipboard)}${openRowClass(row, openFileKeys)}`}
               role="row"
               aria-selected={tree.state.selectedPaths.has(row.path)}
+              draggable={rowsDraggable}
               data-path={row.path}
               data-name={row.name}
               data-depth={0}

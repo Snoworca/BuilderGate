@@ -124,4 +124,67 @@ test.describe('file explorer: stage on a phone, new file, drag and drop', () => 
     await expect(page.locator('.editor-window-host')).toHaveCount(0);
     await page.screenshot({ path: `../.playwright-mcp/e2e-fx-newfile-${phone ? 'phone' : 'desktop'}.png` });
   });
+
+  // FR-FEX-030 AC-1~AC-3, AC-6
+  test('rows dragged onto a folder move, copy with Ctrl, and refuse a drop onto themselves', async ({ page }, testInfo) => {
+    const phone = isPhone(testInfo.project);
+    await openExplorer(page, phone, 'a.txt');
+    if (phone) {
+      // AC-6: no drag on a touch screen.
+      await expect(row(page, 'a.txt')).toHaveAttribute('draggable', 'false');
+      return;
+    }
+    await expect(row(page, 'a.txt')).toHaveAttribute('draggable', 'true');
+    const folder = record.folder!;
+    const chip = explorer(page).locator('.fx-drop-chip');
+    const centre = async (name: string) => {
+      const box = await row(page, name).boundingBox();
+      return { x: box!.x + box!.width / 3, y: box!.y + box!.height / 2 };
+    };
+    const drag = async (from: string, to: string, copy: boolean, inspect?: () => Promise<void>) => {
+      const a = await centre(from);
+      const b = await centre(to);
+      await page.mouse.move(a.x, a.y);
+      await page.mouse.down();
+      await page.mouse.move(a.x + 8, a.y + 8, { steps: 4 });
+      if (copy) await page.keyboard.down('Control');
+      await page.mouse.move(b.x, b.y, { steps: 8 });
+      await page.mouse.move(b.x + 2, b.y, { steps: 2 });
+      if (inspect) await inspect();
+      await page.mouse.up();
+      if (copy) await page.keyboard.up('Control');
+    };
+
+    // AC-2: Ctrl copies a.txt into other/, the original stays.
+    await row(page, 'a.txt').click();
+    await drag('a.txt', 'other', true, async () => {
+      await expect(chip).toContainText('복사 → other');
+    });
+    await expect.poll(() => existsSync(joinPath(folder, 'other', 'a.txt')), { timeout: 15000 }).toBe(true);
+    expect(existsSync(joinPath(folder, 'a.txt')), 'the copy left the original').toBe(true);
+
+    // AC-1, AC-2: a two-row selection moves together into target/.
+    await row(page, 'a.txt').click();
+    await row(page, 'b.txt').click({ modifiers: ['Control'] });
+    await drag('b.txt', 'target', false, async () => {
+      await expect(chip).toContainText('이동 → target');
+      await expect(row(page, 'target')).toHaveClass(/fx-drop-target/);
+    });
+    await expect.poll(() => existsSync(joinPath(folder, 'target', 'a.txt')) && existsSync(joinPath(folder, 'target', 'b.txt')), { timeout: 15000 }).toBe(true);
+    await expect.poll(() => existsSync(joinPath(folder, 'a.txt')) || existsSync(joinPath(folder, 'b.txt'))).toBe(false);
+    expect(readFileSync(joinPath(folder, 'target', 'b.txt'), 'utf8')).toBe('b\n');
+    await expect(row(page, 'a.txt')).toHaveCount(0);
+
+    // AC-3: a folder onto itself is refused, and nothing moves.
+    await row(page, 'other').click();
+    await drag('other', 'other', false, async () => {
+      await expect(chip).toContainText('자기 자신에는 놓을 수 없습니다');
+      await expect(row(page, 'other')).toHaveClass(/fx-drop-deny/);
+      await page.screenshot({ path: '../.playwright-mcp/e2e-fx-drag-deny.png' });
+    });
+    await page.waitForTimeout(1000);
+    expect(existsSync(joinPath(folder, 'other', 'inner', 'deep.txt'))).toBe(true);
+    expect(existsSync(joinPath(folder, 'other', 'other'))).toBe(false);
+    await expect(chip).not.toHaveClass(/is-shown/);
+  });
 });
