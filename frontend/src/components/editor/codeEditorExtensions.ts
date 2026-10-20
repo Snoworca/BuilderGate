@@ -131,8 +131,19 @@ const codeFontTheme = Prec.highest(EditorView.theme({
     color: 'var(--atomic-editor-fg-faint)',
     borderRight: '1px solid var(--atomic-editor-border)',
   },
-  '.cm-activeLine, .cm-activeLineGutter': {
+  // FR-MDE-029: drawSelection() paints the selection on a layer behind the lines, so an opaque
+  // active line hid a selection within it -- all of a one-line selection. The line is
+  // translucent; the gutter stays opaque because scrolled text passes under it.
+  '.cm-activeLine': {
+    backgroundColor: 'color-mix(in srgb, var(--atomic-editor-bg-panel) 55%, transparent)',
+  },
+  '.cm-activeLineGutter': {
     backgroundColor: 'var(--atomic-editor-bg-panel)',
+  },
+  // FR-MDE-029: the reader's 18% selection tint is too faint on code's light panel; code mode
+  // uses the accent at 30%, on the same selector depth the vendored theme uses to win.
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground': {
+    backgroundColor: 'color-mix(in srgb, var(--atomic-editor-accent) 30%, transparent)',
   },
 }));
 

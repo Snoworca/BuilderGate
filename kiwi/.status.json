@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-20T19:04:28.921Z",
+  "generatedAt": "2026-10-20T19:16:04.905Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "44befc144f11e2aa274f9ae73ecef79881a9187a2234ac2c01aea6b8a0af3c88",
+    "value": "5c390fe71fdd3253cb4762afb64110a932489f4b3cbc72f1ea5a96000d1f871c",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -38,9 +38,9 @@
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "6147791a395ee086d0cf4527f430da93fcceee3fcd7ea1a599bec2c4e631da99",
-        "size": 309081,
-        "mtimeMs": 1792520497418.1025
+        "sha256": "7a2193dd452866436d7ce79bef592d99f91c2135324218e7156a83076e98b409",
+        "size": 309869,
+        "mtimeMs": 1792523753859.6306
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
