@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { createLatestValueSaver } from '../../src/utils/latestValueSaver.ts';
+import { applyPendingSelections, createLatestValueSaver } from '../../src/utils/latestValueSaver.ts';
 
 // PERF-BGSTAB-024 (#156): a tab or view-mode selection shows at once and is saved behind it. Saves
 // go one at a time and only the latest value is sent after the one in flight, so the server ends
@@ -59,4 +59,20 @@ test('PERF-BGSTAB-024 AC-1/AC-4: the workspace manager shows the selection befor
     assert.doesNotMatch(body.slice(0, shown), /await /, `${name} does not wait before showing the selection`);
     assert.match(body, /Saver\(workspaceId\)\.save\(/, `${name} saves through the latest-value saver`);
   }
+});
+
+test('PERF-BGSTAB-024 AC-2: an unsaved selection wins over server data that still has the old value', () => {
+  const server = [{ id: 'w1', activeTabId: 'old', viewMode: 'tab' }, { id: 'w2', activeTabId: 'x', viewMode: 'grid' }];
+  const pending = new Map([['w1', { activeTabId: 'new' }]]);
+  assert.deepEqual(applyPendingSelections(server, pending), [
+    { id: 'w1', activeTabId: 'new', viewMode: 'tab' },
+    { id: 'w2', activeTabId: 'x', viewMode: 'grid' },
+  ]);
+  assert.equal(applyPendingSelections(server, new Map()), server);
+});
+
+test('PERF-BGSTAB-024 AC-2: the refetch and the workspace:updated broadcast go through the overlay', () => {
+  const source = readFileSync(new URL('../../src/hooks/useWorkspaceManager.ts', import.meta.url), 'utf8');
+  assert.equal((source.match(/setWorkspaces\(applyPendingSelections(?:<Workspace>)?\(state\.workspaces, pendingSelectionsRef\.current\)\)/g) ?? []).length, 2);
+  assert.match(source, /'workspace:updated'[\s\S]{0,400}pendingSelectionsRef\.current\.get\(id\)/);
 });

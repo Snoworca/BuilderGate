@@ -3,7 +3,7 @@ import { workspaceApi } from '../services/api';
 import { useWebSocketActions, useWebSocketState } from '../contexts/WebSocketContext';
 import type { MoveTabResult, Workspace, WorkspaceTab, WorkspaceTabRuntime, GridLayout, WorkspaceLimits } from '../types/workspace';
 import { markTerminalSnapshotForRemoval } from '../utils/terminalSnapshot';
-import { createLatestValueSaver, type LatestValueSaver } from '../utils/latestValueSaver';
+import { applyPendingSelections, createLatestValueSaver, type LatestValueSaver } from '../utils/latestValueSaver';
 import {
   clearMosaicLayoutForWorkspace,
   pruneMosaicLayoutForDeletedTab,
@@ -204,6 +204,8 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   const [error, setError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const activeWorkspaceIdRef = useRef(activeWorkspaceId);
+  // PERF-BGSTAB-024: selections on screen whose save has not finished, by workspace.
+  const pendingSelectionsRef = useRef(new Map<string, Partial<Pick<Workspace, 'activeTabId' | 'viewMode'>>>());
   const tabsRef = useRef(tabs);
 
   const setActiveWorkspaceIdAndPersist = useCallback((id: string | null) => {
@@ -232,7 +234,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         if (!mounted) return;
 
         setLimits(state.limits);
-        setWorkspaces(state.workspaces);
+        setWorkspaces(applyPendingSelections<Workspace>(state.workspaces, pendingSelectionsRef.current));
         setGridLayouts(state.gridLayouts);
 
         // Convert tabs to runtime with default status, restoring last CWD if available
@@ -294,7 +296,7 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
         const state = await workspaceApi.getAll();
         if (cancelled) return;
         setLimits(state.limits);
-        setWorkspaces(state.workspaces);
+        setWorkspaces(applyPendingSelections<Workspace>(state.workspaces, pendingSelectionsRef.current));
         setGridLayouts(state.gridLayouts);
         setTabs(prev => mergeFetchedTabsIntoRuntime(state.tabs, prev));
       } catch {
@@ -328,7 +330,9 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
 
       'workspace:updated': (data) => {
         const { id, changes } = data as { id: string; changes: Partial<Workspace> };
-        setWorkspaces(prev => prev.map(w => w.id === id ? { ...w, ...changes } : w));
+        // PERF-BGSTAB-024: a selection still being saved here is not undone by an older broadcast.
+        const unsaved = pendingSelectionsRef.current.get(id);
+        setWorkspaces(prev => prev.map(w => w.id === id ? { ...w, ...changes, ...unsaved } : w));
       },
 
       'workspace:deleted': (data) => {
@@ -650,19 +654,34 @@ export function useWorkspaceManager(): UseWorkspaceManagerReturn {
   const activeTabSaver = useCallback((workspaceId: string) => selectionSaver(`${workspaceId}:activeTab`, workspaceId), [selectionSaver]);
   const viewModeSaver = useCallback((workspaceId: string) => selectionSaver(`${workspaceId}:viewMode`, workspaceId), [selectionSaver]);
 
+  // The selection stays laid over server data until the save carrying it has finished, and is
+  // dropped only if no newer selection replaced it meanwhile.
+  const holdSelection = useCallback(async <K extends 'activeTabId' | 'viewMode'>(
+    workspaceId: string, field: K, value: Workspace[K], save: () => Promise<void>,
+  ) => {
+    const pending = pendingSelectionsRef.current;
+    pending.set(workspaceId, { ...pending.get(workspaceId), [field]: value });
+    await save();
+    const current = pending.get(workspaceId);
+    if (current === undefined || current[field] !== value) return;
+    const { [field]: _done, ...rest } = current;
+    if (Object.keys(rest).length === 0) pending.delete(workspaceId);
+    else pending.set(workspaceId, rest);
+  }, []);
+
   const setActiveTab = useCallback(async (workspaceId: string, tabId: string | null) => {
     setWorkspaces(prev => prev.map(w =>
       w.id === workspaceId ? { ...w, activeTabId: tabId } : w
     ));
-    await activeTabSaver(workspaceId).save({ activeTabId: tabId });
-  }, [activeTabSaver]);
+    await holdSelection(workspaceId, 'activeTabId', tabId, () => activeTabSaver(workspaceId).save({ activeTabId: tabId }));
+  }, [activeTabSaver, holdSelection]);
 
   const setViewMode = useCallback(async (workspaceId: string, mode: 'tab' | 'grid') => {
     setWorkspaces(prev => prev.map(w =>
       w.id === workspaceId ? { ...w, viewMode: mode } : w
     ));
-    await viewModeSaver(workspaceId).save({ viewMode: mode });
-  }, [viewModeSaver]);
+    await holdSelection(workspaceId, 'viewMode', mode, () => viewModeSaver(workspaceId).save({ viewMode: mode }));
+  }, [holdSelection, viewModeSaver]);
 
   // ============================================================================
   // Grid

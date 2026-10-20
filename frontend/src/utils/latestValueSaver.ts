@@ -45,3 +45,18 @@ export function createLatestValueSaver<T>(
     },
   };
 }
+
+/**
+ * A selection shown on screen but not yet saved wins over server data that arrives meanwhile
+ * (a refetch on reconnect, a workspace:updated broadcast), which still carries the old value.
+ */
+export function applyPendingSelections<T extends { id: string }>(
+  items: readonly T[],
+  pending: ReadonlyMap<string, Partial<T>>,
+): T[] {
+  if (pending.size === 0) return items as T[];
+  return items.map((item) => {
+    const overlay = pending.get(item.id);
+    return overlay === undefined ? item : { ...item, ...overlay };
+  });
+}

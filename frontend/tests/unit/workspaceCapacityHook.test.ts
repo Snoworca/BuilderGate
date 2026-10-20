@@ -43,6 +43,9 @@ function harness() {
   const dependencies: Record<string, unknown> = {
     loadActiveWorkspaceId: () => null,
     setActiveWorkspaceIdAndPersist: (id: unknown) => { state.activeWorkspaceId = id; },
+    // PERF-BGSTAB-024: no selection is waiting to be saved, so the overlay passes data through.
+    applyPendingSelections: (items: unknown) => items,
+    pendingSelectionsRef: { current: new Map() },
   };
   for (const binding of states) {
     const initial = ts.transpileModule(`const initial = ${binding.initial};`, {
