@@ -64,6 +64,7 @@ import './FileExplorer.css';
 import { getFileExplorerClipboard, subscribeFileExplorerClipboard } from './fileExplorerClipboard.ts';
 import { FileExplorerConfirmBar, useFileExplorerConfirmBar } from './FileExplorerConfirmBar.tsx';
 import { FileExplorerWindowModal, useFileExplorerWindowModal, type FileExplorerWindowModalState } from './FileExplorerWindowModal.tsx';
+import { NewFileDialog, useNewFileDialog, type NewFileRequest } from './NewFileDialog.tsx';
 import { fileExplorerDialogId } from './fileExplorerDialog.ts';
 import { FileExplorerMobileBar } from './FileExplorerMobileBar.tsx';
 import { FileExplorerSelectionBand, FileExplorerUploadBand } from './FileExplorerMobileBands.tsx';
@@ -358,6 +359,15 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   // The file operations are shared with the editor's tree pane. The job each
   // one submits is recorded in the store under this window's workspace; the
   // delete is asked in the window's modal, a folder name in the confirm row.
+  // FR-FEX-029 AC-6: the file this window made is selected and scrolled to once the
+  // reloaded listing draws it, through the same arrival path an upload uses.
+  const newFileDialog = useNewFileDialog();
+  const { ask: askNewFileName } = newFileDialog;
+  const askNewFile = useCallback(async (request: NewFileRequest) => {
+    const name = await askNewFileName(request);
+    if (name !== null) arrivalRef.current = { names: [name], scroll: true, select: true };
+    return name;
+  }, [askNewFileName]);
   const ops = useFileTreeOperations({
     sessionId: tab.sessionId,
     tree,
@@ -369,6 +379,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     onOpenFile: handleOpenFile,
     onNewTab: (path) => actions.addTab(workspaceId, path),
     onShowInfo: (path) => setInfoPath(path),
+    askNewFile,
     origin: { workspaceId, tabId: tab.id },
     transfer: {
       onUpload: openPicker,
@@ -660,6 +671,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       cut: ops.menuHandlers.cut,
       paste: ops.menuHandlers.paste,
       rename: ops.menuHandlers.rename,
+      newfile: ops.menuHandlers.newfile ?? (() => {}),
       newdir: ops.menuHandlers.newdir,
       info: () => { if (firstSelected !== undefined) setInfoPath(firstSelected); },
       delete: ops.menuHandlers.delete,
@@ -825,6 +837,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       <input ref={fileInputRef} type="file" multiple hidden onChange={handlePicked} />
       <input ref={setFolderInput} type="file" multiple hidden onChange={handlePicked} />
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />
+      <NewFileDialog dialog={newFileDialog} />
       {infoPath !== null && <FileInfoModal sessionId={tab.sessionId} path={infoPath} onClose={() => setInfoPath(null)} />}
       {showMobileBar && <FileExplorerUploadBand workspaceId={workspaceId} />}
       {showMobileBar && selectionCount > 0 && (

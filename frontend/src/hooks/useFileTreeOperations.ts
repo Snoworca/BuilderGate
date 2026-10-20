@@ -15,6 +15,7 @@
 // @req FR-FEX-022
 // @req FR-FEX-025
 // @req FR-FEX-027
+// @req FR-FEX-029
 
 import { t } from '../i18n/i18n.ts';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -39,6 +40,7 @@ import { joinChildPath, parentPathOf } from '../components/fileExplorer/fileTree
 import type { FileExplorerMenuRequest, FileRowRename } from '../components/fileExplorer/FileTreeView.tsx';
 import { fileApi, fileJobApi, fileTransferApi } from '../services/api.ts';
 import { extractRefusalMessage, isExtractableArchive, runExtract, type ExtractMode, type ExtractPrecount } from '../components/fileExplorer/fileExtract.ts';
+import type { NewFileRequest } from '../components/fileExplorer/NewFileDialog.tsx';
 import type { UseFileTreeResult } from './useFileTree.ts';
 import { useInlineRename } from './useInlineRename.ts';
 
@@ -59,6 +61,11 @@ export interface UseFileTreeOperationsInput {
   onNewTab?: (path: string) => void;
   /** FR-FEX-018: open the information modal for a path. */
   onShowInfo?: (path: string) => void;
+  /**
+   * FR-FEX-029: opens the 새 파일 window; resolves with the created name or null. Only a
+   * surface that hosts the window passes it, and only there does the menu show 새 파일.
+   */
+  askNewFile?: (request: NewFileRequest) => Promise<string | null>;
   /** Where a submitted job belongs, so its window can ask its questions. */
   origin: { workspaceId: string; tabId: string };
   /**
@@ -113,6 +120,7 @@ export function useFileTreeOperations({
   onOpenFile,
   onNewTab,
   onShowInfo,
+  askNewFile,
   origin,
   transfer,
 }: UseFileTreeOperationsInput): FileTreeOperations {
@@ -298,6 +306,22 @@ export function useFileTreeOperations({
       requestDelete({ client: jobClient, confirm, selection: { sessionId, paths: selectedPaths() }, onAccepted: deselect })
         .catch((error: unknown) => showError(t('fileOps.error.delete', { message: messageOf(error) })));
     },
+    // FR-FEX-029: the window makes the file itself, so a refusal keeps it open with the reason.
+    newfile: () => {
+      if (askNewFile === undefined) return;
+      const directory = targetDirectory;
+      const listing = state.childrenByPath.get(directory);
+      const entries = listing?.status === 'loaded'
+        ? listing.entries.map((entry) => ({ name: entry.name, type: entry.type === 'directory' ? 'directory' as const : 'file' as const }))
+        : [];
+      void askNewFile({
+        directory,
+        entries,
+        create: async (name) => { await fileApi.createFile(sessionId, directory, name); },
+      }).then(async (name) => {
+        if (name !== null) await applyJobDone([directory]);
+      });
+    },
     newdir: () => {
       void createDirectoryIn(targetDirectory);
     },
@@ -322,6 +346,7 @@ export function useFileTreeOperations({
     zipDownload: transfer !== undefined,
     uploadTargetName: menu.target === 'item' && menu.isDir && menu.path !== null ? lastSegment(menu.path) : null,
     archiveSelected: selectedArchive() !== null,
+    newFile: askNewFile !== undefined,
   }, menuHandlers);
 
   const runShortcut = (action: FileTreeShortcutAction) => {

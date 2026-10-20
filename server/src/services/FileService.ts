@@ -862,6 +862,38 @@ export class FileService {
   }
 
   /**
+   * FR-FOP-008: create an empty file only when nothing has that name. The open
+   * is exclusive ('wx'), so a file that appears between the client's check and
+   * this call is refused instead of overwritten.
+   */
+  async createFile(sessionId: string, basePath: string, name: string): Promise<void> {
+    this.assertSessionExists(sessionId);
+
+    if (name.trim() === '' || name.includes('/') || name.includes('\\') || name === '.' || name === '..') {
+      throw new AppError(ErrorCode.PATH_TRAVERSAL, 'Invalid file name');
+    }
+
+    const cwd = await this.getCwd(sessionId);
+    const resolved = await resolveAndValidate(cwd, basePath, this.config.blockedPaths);
+    const filePath = path.join(resolved, name);
+    // As in createDirectory: only basePath went through the validator.
+    if (isPathBlocked(filePath, this.config.blockedPaths)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED);
+    }
+
+    let handle: Awaited<ReturnType<typeof fs.open>>;
+    try {
+      handle = await fs.open(filePath, 'wx');
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'EEXIST' || code === 'EISDIR') throw new AppError(ErrorCode.FILE_ALREADY_EXISTS);
+      if (code === 'EACCES' || code === 'EPERM') throw new AppError(ErrorCode.PERMISSION_DENIED);
+      throw new AppError(ErrorCode.FILE_OPERATION_FAILED, `Create failed: ${(err as Error).message}`);
+    }
+    await handle.close();
+  }
+
+  /**
    * Get free disk space for a path (best effort).
    */
   async getDiskFreeSpace(targetPath: string): Promise<number> {

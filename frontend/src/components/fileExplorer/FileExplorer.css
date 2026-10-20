@@ -966,3 +966,21 @@
 }
 .fx-upload-band-body .fx-job-bar { flex: none; width: 100%; }
 .fx-window-modal-more { font-size: var(--fs-xs); color: var(--fg-muted); }
+
+/* FR-FEX-029: the 새 파일 window. */
+.fx-new-file-box { width: 400px; gap: 10px; padding: 14px 16px; }
+.fx-new-file-field { display: flex; flex-direction: column; gap: 4px; }
+.fx-new-file-label { font-size: var(--fs-xs); color: var(--fg-muted); }
+.fx-new-file-location { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg-app); color: var(--fg-muted); font-family: var(--fx-mono); font-size: var(--fs-xs); }
+.fx-new-file-input { height: var(--ctl-md); padding: 0 8px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg-sunken); color: var(--fg-strong); font-family: var(--fx-mono); font-size: var(--fs-sm); outline: none; }
+.fx-new-file-input:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
+.fx-new-file-input.is-error { border-color: var(--danger-fill); box-shadow: 0 0 0 1px var(--danger-fill); }
+.fx-new-file-message { min-height: 18px; font-size: var(--fs-xs); color: var(--fg-faint); overflow-wrap: anywhere; }
+.fx-new-file-message.is-error { color: var(--danger-text); }
+.fx-confirm-button.fx-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.fx-confirm-button.fx-primary:hover:not(:disabled) { background: var(--accent-hover); color: var(--accent-fg); }
+@media (max-width: 767px) {
+  .fx-new-file-box { width: calc(100% - 24px); }
+  .fx-new-file-input { height: var(--ctl-touch); }
+  .fx-new-file-box .fx-confirm-button { min-height: 44px; flex: 1; }
+}

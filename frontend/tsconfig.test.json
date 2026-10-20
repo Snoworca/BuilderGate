@@ -32,6 +32,7 @@
     "./tests/unit/fileZipDownload.test.ts",
     "./tests/unit/fileExplorerMobileBar.test.ts",
     "./tests/unit/fileExplorerMobilePlacement.test.ts",
+    "./tests/unit/fileExplorerNewFile.test.ts",
     "./tests/unit/fileExtract.test.ts",
     "./tests/unit/htmlViewer.test.ts",
     "./tests/unit/i18nRuntime.test.ts",

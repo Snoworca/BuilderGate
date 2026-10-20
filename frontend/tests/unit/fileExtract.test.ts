@@ -61,7 +61,7 @@ test('FR-FEX-027 AC-1: 압축 풀기 · 여기에 풀기 follow the transfer ent
   assert.deepEqual(labels(onEmpty).slice(0, 5), ['다운로드', '업로드…', '폴더 업로드…', '압축 풀기', '여기에 풀기']);
 
   const sheet = buildMobileMoreSheet({ count: 1, isDir: false, clipboardEmpty: true, folderUploadSupported: true, archiveSelected: true }, {
-    download: noop, upload: noop, uploadFolder: noop, extract: noop, extractHere: noop, copy: noop, cut: noop, paste: noop, rename: noop, newdir: noop, info: noop, delete: noop,
+    download: noop, upload: noop, uploadFolder: noop, extract: noop, extractHere: noop, copy: noop, cut: noop, paste: noop, rename: noop, newfile: noop, newdir: noop, info: noop, delete: noop,
   });
   assert.deepEqual(sheet.slice(0, 5).map((e) => (e === 'sep' ? '|' : e.id)), ['download', 'upload', 'uploadFolder', 'extract', 'extractHere']);
   assert.equal(sheet.filter((e) => e !== 'sep').find((e) => e.id === 'extract')?.disabled, false);

@@ -10,6 +10,7 @@
 // @req FR-FEX-025
 // @req FR-FEX-026
 // @req FR-FEX-027
+// @req FR-FEX-029
 
 import { t, tn } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
@@ -30,6 +31,7 @@ export type FileExplorerMenuActionId =
   | 'paste'
   | 'rename'
   | 'delete'
+  | 'newfile'
   | 'newdir'
   | 'refresh'
   | 'info';
@@ -42,7 +44,8 @@ export const FILE_EXPLORER_MENU_ORDER: readonly FileExplorerMenuEntry[] = Object
   'open', 'newtab', 'download', 'upload', 'uploadFolder', 'extract', 'extractHere', 'sep',
   'copy', 'cut', 'paste', 'sep',
   'rename', 'delete', 'sep',
-  'newdir', 'refresh', 'sep',
+  // FR-FEX-029 AC-1: 새 파일 directly above 새 폴더.
+  'newfile', 'newdir', 'refresh', 'sep',
   // FR-FEX-018: always the last item of an entry's menu.
   'info',
 ] as const);
@@ -60,6 +63,7 @@ const LABELS: Record<FileExplorerMenuActionId, MessageKey> = {
   paste: 'common.paste',
   rename: 'common.rename',
   delete: 'common.delete',
+  newfile: 'fileExplorer.menu.newFile',
   newdir: 'fileExplorer.menu.newFolder',
   refresh: 'fileExplorer.menu.reload',
   info: 'fileExplorer.menu.info',
@@ -74,11 +78,11 @@ const SHORTCUTS: Partial<Record<FileExplorerMenuActionId, string>> = {
 };
 
 // On empty space there is nothing selected to act on, only the folder itself.
-const EMPTY_SPACE_ACTIONS: ReadonlySet<FileExplorerMenuActionId> = new Set(['paste', 'newdir', 'refresh']);
+const EMPTY_SPACE_ACTIONS: ReadonlySet<FileExplorerMenuActionId> = new Set(['paste', 'newfile', 'newdir', 'refresh']);
 // FR-FEX-022 AC-2: on a surface that uploads, the transfer entries keep their place on empty space too.
 const EMPTY_SPACE_TRANSFER_ACTIONS: ReadonlySet<FileExplorerMenuActionId> = new Set(['download', 'upload', 'uploadFolder', 'extract', 'extractHere']);
 
-type UploadActionId = 'upload' | 'uploadFolder' | 'extract' | 'extractHere';
+type UploadActionId = 'upload' | 'uploadFolder' | 'extract' | 'extractHere' | 'newfile';
 
 /** Upload handlers exist only where the surface can upload (the explorer window). */
 export type FileExplorerMenuHandlers = Record<Exclude<FileExplorerMenuActionId, UploadActionId>, () => void>
@@ -106,6 +110,8 @@ export interface FileExplorerMenuInfo {
   zipDownload?: boolean;
   /** FR-FEX-027 AC-1: the one selected item is a .zip, .tar, .tar.gz or .tgz file. */
   archiveSelected?: boolean;
+  /** FR-FEX-029: the surface hosts the 새 파일 window; without it the entry is not shown. */
+  newFile?: boolean;
 }
 
 export interface ContextMenuSelectionDecision {
@@ -157,6 +163,7 @@ function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInf
     case 'cut':
     case 'delete':
       return info.count > 0;
+    case 'newfile':
     case 'newdir':
     case 'refresh':
       return info.target === 'empty' || info.isDir;
@@ -167,6 +174,7 @@ function isActionEnabled(id: FileExplorerMenuActionId, info: FileExplorerMenuInf
 
 function isActionShown(id: FileExplorerMenuActionId, info: FileExplorerMenuInfo): boolean {
   if ((id === 'upload' || id === 'uploadFolder' || id === 'extract' || id === 'extractHere') && info.uploadable !== true) return false;
+  if (id === 'newfile' && info.newFile !== true) return false;
   if (info.target === 'empty') return EMPTY_SPACE_ACTIONS.has(id) || (info.uploadable === true && EMPTY_SPACE_TRANSFER_ACTIONS.has(id));
   if (id === 'newtab' && info.mode === 'list') return false;
   // The editor window's side panel has no tabs to open into (FR-MDE-012 AC-8):
@@ -283,7 +291,7 @@ export function buildMobileBarSlots(
   }));
 }
 
-export type MoreSheetActionId = 'download' | 'upload' | 'uploadFolder' | 'extract' | 'extractHere' | 'copy' | 'cut' | 'paste' | 'rename' | 'newdir' | 'info' | 'delete';
+export type MoreSheetActionId = 'download' | 'upload' | 'uploadFolder' | 'extract' | 'extractHere' | 'copy' | 'cut' | 'paste' | 'rename' | 'newfile' | 'newdir' | 'info' | 'delete';
 
 export interface MoreSheetItem {
   id: MoreSheetActionId;
@@ -300,7 +308,7 @@ export interface MoreSheetItem {
 const MORE_SHEET_ORDER: readonly (MoreSheetActionId | 'sep')[] = [
   'download', 'upload', 'uploadFolder', 'extract', 'extractHere', 'sep',
   'copy', 'cut', 'paste', 'sep',
-  'rename', 'newdir', 'info', 'sep',
+  'rename', 'newfile', 'newdir', 'info', 'sep',
   'delete',
 ];
 
@@ -314,6 +322,7 @@ const SHEET_ICONS: Record<MoreSheetActionId, IconName> = {
   cut: 'cut',
   paste: 'clipboard',
   rename: 'edit',
+  newfile: 'document',
   newdir: 'folder',
   info: 'info',
   delete: 'trash',
@@ -327,8 +336,8 @@ export function buildMobileMoreSheet(
   const info = selectionInfo(input.count, input.isDir, input.clipboardEmpty, input.folderUploadSupported, input.archiveSelected === true);
   return MORE_SHEET_ORDER.map((id) => {
     if (id === 'sep') return 'sep';
-    // The sheet always stands for the folder on screen, so a new folder always has a place.
-    const disabled = id === 'newdir' ? false : id === 'info' ? input.count !== 1 : !isActionEnabled(id, info);
+    // The sheet always stands for the folder on screen, so a new folder or file always has a place.
+    const disabled = id === 'newdir' || id === 'newfile' ? false : id === 'info' ? input.count !== 1 : !isActionEnabled(id, info);
     return {
       id,
       label: labelOf(id, info),

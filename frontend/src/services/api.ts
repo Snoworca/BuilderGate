@@ -431,6 +431,21 @@ export const fileApi = {
     return res.json();
   },
 
+  // FR-FOP-008: an empty file, refused (409, error.code FILE_ALREADY_EXISTS) when the name is taken.
+  createFile: async (sessionId: string, dirPath: string, name: string): Promise<{ success: boolean }> => {
+    const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ path: dirPath, name }),
+    });
+    if (!res.ok) {
+      const error = await parseError(res);
+      if (res.status === 409) Object.assign(error, { code: 'FILE_ALREADY_EXISTS' });
+      throw error;
+    }
+    return res.json();
+  },
+
   createDirectory: async (sessionId: string, dirPath: string, name: string): Promise<{ success: boolean }> => {
     const res = await authFetch(`${API_BASE}/sessions/${sessionId}/files/mkdir`, {
       method: 'POST',

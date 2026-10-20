@@ -121,7 +121,7 @@ function itemInfo(overrides: Partial<MenuInfo> = {}): MenuInfo {
 }
 
 // FR-FEX-022 AC-2: upload entries follow 다운로드; they show only on a surface that can upload.
-const FULL_ORDER = ['open', 'newtab', 'download', 'upload', 'uploadFolder', 'extract', 'extractHere', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newdir', 'refresh', 'sep', 'info']; // FR-FEX-018: Info last
+const FULL_ORDER = ['open', 'newtab', 'download', 'upload', 'uploadFolder', 'extract', 'extractHere', 'sep', 'copy', 'cut', 'paste', 'sep', 'rename', 'delete', 'sep', 'newfile', 'newdir', 'refresh', 'sep', 'info']; // FR-FEX-018: Info last; FR-FEX-029: 새 파일 above 새 폴더
 
 // ---------------------------------------------------------------------------
 // Right click and selection (FR-FEX-006 AC-1·AC-2·AC-3)
@@ -255,7 +255,7 @@ test("항목 id 순서가 FILE_EXPLORER_MENU_ORDER 이고 복사·잘라내기·
 
   for (const isDir of [false, true]) {
     const items = buildFileExplorerContextMenuItems(itemInfo({ isDir }), recordingHandlers([]));
-    assert.deepEqual(idsOf(items), FULL_ORDER.filter(id => !['upload', 'uploadFolder', 'extract', 'extractHere'].includes(id)), `tree item menu isDir=${isDir}`);
+    assert.deepEqual(idsOf(items), FULL_ORDER.filter(id => !['upload', 'uploadFolder', 'extract', 'extractHere', 'newfile'].includes(id)), `tree item menu isDir=${isDir}`);
 
     const shortcuts = { copy: 'Ctrl+C', cut: 'Ctrl+X', paste: 'Ctrl+V', delete: 'Delete', rename: 'F2' };
     for (const [id, shortcut] of Object.entries(shortcuts)) {

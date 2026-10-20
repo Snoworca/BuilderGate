@@ -1268,5 +1268,18 @@
   "terminalPath.openFailedTitle": "Cannot open the file",
   "terminalPath.isDirectory": "This path is a folder.",
   "terminalPath.unsupported": "This type of file cannot be opened.",
-  "terminalPath.currentFolder": "Current folder"
+  "terminalPath.currentFolder": "Current folder",
+  "fileExplorer.menu.newFile": "New file",
+  "fileExplorer.newFile.title": "New file",
+  "fileExplorer.newFile.location": "Location",
+  "fileExplorer.newFile.name": "File name",
+  "fileExplorer.newFile.placeholder": "e.g. notes.md",
+  "fileExplorer.newFile.hint": "Include the extension. An empty file is created.",
+  "fileExplorer.newFile.create": "Create",
+  "fileExplorer.newFile.error.separator": "A name cannot contain / or \\.",
+  "fileExplorer.newFile.error.reserved": "This name cannot be used.",
+  "fileExplorer.newFile.error.existsFile": "A file named '{name}' is already in this folder.",
+  "fileExplorer.newFile.error.existsFolder": "A folder named '{name}' is already in this folder.",
+  "fileExplorer.newFile.error.existsNow": "'{name}' now exists in this folder. Enter another name.",
+  "fileExplorer.newFile.error.failed": "Could not create the file: {message}"
 }

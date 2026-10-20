@@ -1226,5 +1226,18 @@
   "terminalPath.openFailedTitle": "파일을 열 수 없습니다",
   "terminalPath.isDirectory": "이 경로는 폴더입니다.",
   "terminalPath.unsupported": "열 수 없는 형식의 파일입니다.",
-  "terminalPath.currentFolder": "현재 폴더"
+  "terminalPath.currentFolder": "현재 폴더",
+  "fileExplorer.menu.newFile": "새 파일",
+  "fileExplorer.newFile.title": "새 파일",
+  "fileExplorer.newFile.location": "위치",
+  "fileExplorer.newFile.name": "파일 이름",
+  "fileExplorer.newFile.placeholder": "예: notes.md",
+  "fileExplorer.newFile.hint": "확장자까지 입력하세요. 빈 파일이 만들어집니다.",
+  "fileExplorer.newFile.create": "만들기",
+  "fileExplorer.newFile.error.separator": "이름에 / 나 \\ 를 쓸 수 없습니다.",
+  "fileExplorer.newFile.error.reserved": "이 이름은 쓸 수 없습니다.",
+  "fileExplorer.newFile.error.existsFile": "이 폴더에 이미 '{name}' 파일이 있습니다.",
+  "fileExplorer.newFile.error.existsFolder": "이 폴더에 이미 '{name}' 폴더가 있습니다.",
+  "fileExplorer.newFile.error.existsNow": "그 사이에 같은 이름의 항목이 생겼습니다: {name}. 다른 이름을 입력하세요.",
+  "fileExplorer.newFile.error.failed": "파일을 만들지 못했습니다: {message}"
 }

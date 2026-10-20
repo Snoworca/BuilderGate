@@ -62,9 +62,9 @@ test('FR-FEX-026 AC-2: the band counts the selection; in 여러 개 선택 mode 
 
 test('FR-FEX-026 AC-3: the sheet holds the menu actions in menu order with 삭제 alone at the bottom, disabled not hidden', () => {
   const sheet = buildMobileMoreSheet({ count: 0, isDir: false, clipboardEmpty: true, folderUploadSupported: false }, {
-    download: noop, upload: noop, uploadFolder: noop, extract: noop, extractHere: noop, copy: noop, cut: noop, paste: noop, rename: noop, newdir: noop, info: noop, delete: noop,
+    download: noop, upload: noop, uploadFolder: noop, extract: noop, extractHere: noop, copy: noop, cut: noop, paste: noop, rename: noop, newfile: noop, newdir: noop, info: noop, delete: noop,
   });
-  assert.deepEqual(sheet.map((e) => (e === 'sep' ? '|' : e.id)), ['download', 'upload', 'uploadFolder', 'extract', 'extractHere', '|', 'copy', 'cut', 'paste', '|', 'rename', 'newdir', 'info', '|', 'delete']);
+  assert.deepEqual(sheet.map((e) => (e === 'sep' ? '|' : e.id)), ['download', 'upload', 'uploadFolder', 'extract', 'extractHere', '|', 'copy', 'cut', 'paste', '|', 'rename', 'newfile', 'newdir', 'info', '|', 'delete']);
   const items = sheet.filter((e): e is Exclude<typeof e, 'sep'> => e !== 'sep');
   const by = new Map(items.map((e) => [e.id, e]));
   assert.equal(by.get('delete')?.destructive, true);

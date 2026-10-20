@@ -194,6 +194,21 @@ export function createFileRoutes(fileService: FileService): Router {
     }
   });
 
+  // POST /api/sessions/:id/files/create
+  // @req FR-FOP-008
+  router.post('/:id/files/create', async (req: Request<{ id: string }, {}, MkdirRequest>, res: Response) => {
+    try {
+      const { path: dirPath, name } = req.body;
+      if (typeof dirPath !== 'string' || !dirPath || typeof name !== 'string' || name.trim() === '') {
+        return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'path and name are required' } });
+      }
+      await fileService.createFile(req.params.id, dirPath, name);
+      res.json({ success: true });
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
   // POST /api/sessions/:id/files/write
   // @req IR-MDE-001
   router.post('/:id/files/write', async (req: Request<{ id: string }, {}, WriteRequest>, res: Response) => {
