@@ -23,7 +23,9 @@ export interface LatchPress {
 }
 
 // @req FR-MKB-002
-export const LATCH_HOLD_MS = 1500;
+// 1000 ms (2026-10-21): 1500 ms was too long to hold on a phone. The hold fill in
+// mobileKeyboard.css rises over the same time.
+export const LATCH_HOLD_MS = 1000;
 
 const LOCK_VIBRATION_MS = 25;
 const MODIFIERS: readonly LatchModifier[] = ['ctrl', 'alt', 'shift'];
@@ -132,7 +134,7 @@ export const mobileModifierLatch = {
 
   /**
    * Turns every modifier off and makes any press already in progress inert, so
-   * its pending 1500 ms timer can never lock. App calls this when the layout
+   * its pending hold timer can never lock. App calls this when the layout
    * leaves mobile mode, so a latch left on a phone does not leak into a desktop
    * hardware keyboard.
    */
@@ -192,4 +194,19 @@ export function applyLatchToTypedData(data: string, applicationCursor: boolean):
   // once modifiers are spent even when the result equals the input (ctrl+1).
   mobileModifierLatch.consumeOnce();
   return encoded;
+}
+
+/**
+ * FR-MKB-003 AC-6: with Ctrl latched (and Alt not), a typed v or V is the paste shortcut, as Ctrl+V
+ * is on a desktop -- not the ^V control character. Returns true when the caller should paste the
+ * clipboard instead of sending the character; the once modifiers are then spent. Anything else
+ * returns false and leaves the latch as it was.
+ */
+// @req FR-MKB-003
+export function takeLatchedPaste(data: string): boolean {
+  if (data !== 'v' && data !== 'V') return false;
+  const mods = mobileModifierLatch.activeModifiers();
+  if (!mods.ctrl || mods.alt) return false;
+  mobileModifierLatch.consumeOnce();
+  return true;
 }

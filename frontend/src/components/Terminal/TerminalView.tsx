@@ -195,7 +195,7 @@ import '@xterm/xterm/css/xterm.css';
 import './TerminalView.css';
 import { t } from '../../i18n/i18n.ts';
 import { panWheelSteps, routeMobilePan } from '../../utils/mobileTouchScroll.ts';
-import { applyLatchToTypedData } from '../../utils/mobileModifierLatch.ts';
+import { applyLatchToTypedData, takeLatchedPaste } from '../../utils/mobileModifierLatch.ts';
 import { readTerminalPathsAt, registerTerminalPathLinks, type TerminalPathsAtPoint } from '../../utils/terminalPathLinks.ts';
 
 const FONT_MIN = 8;
@@ -3191,6 +3191,8 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         : null;
     }, [isClipboardTargetCurrent, refreshSelectionAnchor]);
 
+    // Read from term.onData, which is registered once at mount (FR-MKB-003 AC-6).
+    const clipboardCoordinatorRef = useRef<ReturnType<typeof createTerminalClipboardCoordinator> | null>(null);
     const clipboardCoordinator = useMemo(() => createTerminalClipboardCoordinator({
       captureTarget: captureClipboardTarget,
       isTargetCurrent: isClipboardTargetCurrent,
@@ -3265,6 +3267,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
       sessionId,
       submitProgrammaticPaste,
     ]);
+    clipboardCoordinatorRef.current = clipboardCoordinator;
 
     useEffect(() => {
       clipboardCoordinator.activate();
@@ -4470,6 +4473,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
         // From here on `data` is what goes to submitCapturedInput, so the latch
         // re-encodes it in place.
         if (programmaticPaste === null) {
+          // FR-MKB-003 AC-6: Ctrl latched + v pastes the clipboard, as Ctrl+V does on a desktop,
+          // through the same coordinator the menus use, instead of sending ^V.
+          if (takeLatchedPaste(data)) {
+            void clipboardCoordinatorRef.current?.pasteClipboard('keyboard');
+            return;
+          }
           data = applyLatchToTypedData(data, term.modes.applicationCursorKeysMode);
         }
         const compositionSeq = imeTransactionRef.current?.observeXtermData();

@@ -1,6 +1,6 @@
 // A lockable Ctrl/Alt/Shift button for the mobile terminal keyboard.
 //
-// Tap = the next key only (once), hold 1500 ms = locked, tap again = off. The
+// Tap = the next key only (once), hold LATCH_HOLD_MS (1000 ms) = locked, tap again = off. The
 // state lives in the module-level latch store so the bar, the future special
 // keyboard and TerminalView all draw and use the same value.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -53,7 +53,7 @@ export function LatchKey({ mod, label, ariaLabel, className }: LatchKeyProps): R
     // Keeps focus on the terminal textarea so the system keyboard stays up.
     event.preventDefault();
     // Capture so a release outside the button still ends this press instead of
-    // leaving a timer that locks 1500 ms later.
+    // leaving a timer that locks LATCH_HOLD_MS later.
     const button = event.currentTarget;
     if (typeof button.setPointerCapture === 'function') {
       try { button.setPointerCapture(event.pointerId); } catch { /* pointer already gone */ }

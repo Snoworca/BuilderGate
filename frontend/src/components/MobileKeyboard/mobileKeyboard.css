@@ -130,7 +130,7 @@
 
 .mobile-key--holding > .mobile-key__hold {
   height: 100%;
-  transition: height 1500ms linear;
+  transition: height 1000ms linear;
 }
 
 /* ---- Special keyboard panel (FR-MKB-009, FR-MKB-010) ----

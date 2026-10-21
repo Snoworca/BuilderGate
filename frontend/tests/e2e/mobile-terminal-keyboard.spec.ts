@@ -217,4 +217,77 @@ test.describe('모바일 터미널 키보드', () => {
       if (cleanup.failed.length && !primaryFailure) throw new Error(`owned workspace cleanup failed: ${JSON.stringify(cleanup.failed)}`);
     }
   });
+
+  // FR-MKB-003 AC-6 and FR-MKB-002 AC-2 (2026-10-21): Ctrl latched + v pastes the clipboard, and a
+  // hold of about a second locks Ctrl.
+  test('FR-MKB-003 AC-6 FR-MKB-002 AC-2: Ctrl latched + v pastes the clipboard; a 1 s hold locks Ctrl', async ({ page, request, context }, testInfo) => {
+    test.skip(!isPhoneProject(testInfo.project), 'Phone projects only');
+    expect(process.env.PLAYWRIGHT_BASE_URL ?? ORIGIN, 'this spec runs only against the verified 2222 runtime').toBe(ORIGIN);
+    test.setTimeout(150000);
+    const ownerId = `mobile-terminal-keyboard-paste/${testInfo.testId}/${testInfo.retry}/${randomUUID()}`;
+    let primaryFailure: unknown = null;
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: ORIGIN });
+    await emulateSystemKeyboard(page);
+    await login(page);
+    const token = await page.evaluate(() => localStorage.getItem('cws_auth_token'));
+    if (!token) throw new Error('login left no auth token');
+    const headers = { Authorization: `Bearer ${token}` };
+    const workspace = await createOwnedWorkspaceViaApi(request, registryOptions(), ownerId, {
+      headers,
+      data: { name: `e2e-mkbp-${randomUUID().slice(0, 8)}` },
+    });
+    try {
+      const createdTab = await request.post(`${ORIGIN}/api/workspaces/${workspace.id}/tabs`, { headers, data: { name: 'e2e-mkbp-tab' } });
+      expect(createdTab.status()).toBe(201);
+      const sessionId = ((await createdTab.json()) as { sessionId: string }).sessionId;
+      await page.evaluate((id) => localStorage.setItem('active_workspace_id', id), workspace.id);
+      await page.reload();
+      await page.waitForSelector('.workspace-screen', { timeout: 20000 });
+      const ownTab = page.locator('.workspace-tabbar [role="tab"]', { hasText: 'e2e-mkbp-tab' }).first();
+      await expect(ownTab).toBeVisible({ timeout: 15000 });
+      await ownTab.click();
+      await expect(ownTab).toHaveAttribute('aria-selected', 'true', { timeout: 15000 });
+      await expect(page.locator('.workspace-tabbar [role="tab"]')).toHaveCount(1);
+      await waitForTerminal(page);
+
+      const bar = page.locator('.mobile-key-bar');
+      await page.locator('.terminal-view:visible .xterm-screen').first().tap();
+      await expect(bar).toBeVisible();
+      const ctrl = bar.locator('[data-mod="ctrl"]').first();
+
+      // Ctrl once + v: the clipboard text reaches the terminal, and Ctrl is spent.
+      const pasted = `${MARKER}clip`;
+      await page.evaluate((text) => navigator.clipboard.writeText(text), pasted);
+      await ctrl.tap();
+      await expect(ctrl).toHaveAttribute('data-latch-state', 'once');
+      await page.keyboard.type('v');
+      await expect.poll(() => terminalText(page, sessionId), { timeout: 10000 }).toContain(pasted);
+      await expect(ctrl).toHaveAttribute('data-latch-state', 'off');
+
+      // A hold of 1.1 s locks Ctrl (1000 ms); a 0.6 s hold is still a tap.
+      const box = await ctrl.boundingBox();
+      const x = box!.x + box!.width / 2;
+      const y = box!.y + box!.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.waitForTimeout(600);
+      await page.mouse.up();
+      await expect(ctrl).toHaveAttribute('data-latch-state', 'once');
+      await ctrl.tap();
+      await expect(ctrl).toHaveAttribute('data-latch-state', 'off');
+      await page.mouse.down();
+      await page.waitForTimeout(1100);
+      await expect(ctrl).toHaveAttribute('data-latch-state', 'locked');
+      await page.mouse.up();
+      await expect(ctrl).toHaveAttribute('data-latch-state', 'locked');
+      await page.screenshot({ path: '../.playwright-mcp/e2e-mkb-ctrl-paste.png' });
+    } catch (error) {
+      primaryFailure = error;
+      throw error;
+    } finally {
+      const cleanup = await cleanupOwnedWorkspaces({ ...registryOptions(), ownerId });
+      if (cleanup.failed.length && !primaryFailure) throw new Error(`owned workspace cleanup failed: ${JSON.stringify(cleanup.failed)}`);
+    }
+  });
 });
+
