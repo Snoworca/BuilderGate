@@ -1,6 +1,6 @@
 // A lockable Ctrl/Alt/Shift button for the mobile terminal keyboard.
 //
-// Tap = the next key only (once), hold LATCH_HOLD_MS (1000 ms) = locked, tap again = off. The
+// Tap = the next key only (once), hold LATCH_HOLD_MS (750 ms) = locked, tap again = off. The
 // state lives in the module-level latch store so the bar, the future special
 // keyboard and TerminalView all draw and use the same value.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';

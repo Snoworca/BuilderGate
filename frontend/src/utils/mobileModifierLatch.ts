@@ -23,9 +23,9 @@ export interface LatchPress {
 }
 
 // @req FR-MKB-002
-// 1000 ms (2026-10-21): 1500 ms was too long to hold on a phone. The hold fill in
+// 750 ms (2026-10-21): 1500 ms, then 1000 ms, were too long to hold on a phone. The hold fill in
 // mobileKeyboard.css rises over the same time.
-export const LATCH_HOLD_MS = 1000;
+export const LATCH_HOLD_MS = 750;
 
 const LOCK_VIBRATION_MS = 25;
 const MODIFIERS: readonly LatchModifier[] = ['ctrl', 'alt', 'shift'];

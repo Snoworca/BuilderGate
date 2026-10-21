@@ -352,7 +352,7 @@ test('FR-MKB-005 AC-1 AC-2 AC-4 AC-5: the stylesheet draws each latch state and 
   }
   assert.match(css, /user-select:\s*none/);
   assert.match(css, /-webkit-touch-callout:\s*none/);
-  assert.match(css, /transition:[^;]*1000ms/, 'the hold fill rises over 1000 ms (LATCH_HOLD_MS)');
+  assert.match(css, /transition:[^;]*750ms/, 'the hold fill rises over 750 ms (LATCH_HOLD_MS)');
 });
 
 // --- useTerminalInputFocus ----------------------------------------------------

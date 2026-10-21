@@ -74,16 +74,16 @@ test('FR-MKB-002 AC-6: getSnapshot is stable until a change and subscribers are 
 
 // --- press and hold ------------------------------------------------------------
 
-// 2026-10-21: 1500 ms was too long to hold on a phone; the lock now comes at 1000 ms.
-test('FR-MKB-002 AC-2 / SDS-AC-5: LATCH_HOLD_MS is 1000', () => {
-  assert.equal(LATCH_HOLD_MS, 1000);
+// 2026-10-21: 1500 ms, then 1000 ms, were too long to hold on a phone; the lock now comes at 750 ms.
+test('FR-MKB-002 AC-2 / SDS-AC-5: LATCH_HOLD_MS is 750', () => {
+  assert.equal(LATCH_HOLD_MS, 750);
 });
 
-test('FR-MKB-002 AC-2 AC-3 / SDS-AC-5: a release at 999 ms is a tap', () => {
+test('FR-MKB-002 AC-2 AC-3 / SDS-AC-5: a release at 749 ms is a tap', () => {
   withFakeTimers(() => {
     const press = mobileModifierLatch.startPress('ctrl');
-    mock.timers.tick(999);
-    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'nothing changes before 1000 ms');
+    mock.timers.tick(749);
+    assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'off', 'nothing changes before 750 ms');
     press.release();
     assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'once', 'an early release is a tap');
     mock.timers.tick(10);
@@ -91,10 +91,10 @@ test('FR-MKB-002 AC-2 AC-3 / SDS-AC-5: a release at 999 ms is a tap', () => {
   });
 });
 
-test('FR-MKB-002 AC-2 / SDS-AC-5: at 1000 ms the modifier is locked before release, and release then does nothing', () => {
+test('FR-MKB-002 AC-2 / SDS-AC-5: at 750 ms the modifier is locked before release, and release then does nothing', () => {
   withFakeTimers(() => {
     const press = mobileModifierLatch.startPress('ctrl');
-    mock.timers.tick(1000);
+    mock.timers.tick(750);
     assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'locked');
     press.release();
     assert.equal(mobileModifierLatch.getSnapshot().ctrl, 'locked');

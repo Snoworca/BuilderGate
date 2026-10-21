@@ -219,8 +219,8 @@ test.describe('모바일 터미널 키보드', () => {
   });
 
   // FR-MKB-003 AC-6 and FR-MKB-002 AC-2 (2026-10-21): Ctrl latched + v pastes the clipboard, and a
-  // hold of about a second locks Ctrl.
-  test('FR-MKB-003 AC-6 FR-MKB-002 AC-2: Ctrl latched + v pastes the clipboard; a 1 s hold locks Ctrl', async ({ page, request, context }, testInfo) => {
+  // hold of 750 ms locks Ctrl.
+  test('FR-MKB-003 AC-6 FR-MKB-002 AC-2: Ctrl latched + v pastes the clipboard; a 0.75 s hold locks Ctrl', async ({ page, request, context }, testInfo) => {
     test.skip(!isPhoneProject(testInfo.project), 'Phone projects only');
     expect(process.env.PLAYWRIGHT_BASE_URL ?? ORIGIN, 'this spec runs only against the verified 2222 runtime').toBe(ORIGIN);
     test.setTimeout(150000);
@@ -264,19 +264,19 @@ test.describe('모바일 터미널 키보드', () => {
       await expect.poll(() => terminalText(page, sessionId), { timeout: 10000 }).toContain(pasted);
       await expect(ctrl).toHaveAttribute('data-latch-state', 'off');
 
-      // A hold of 1.1 s locks Ctrl (1000 ms); a 0.6 s hold is still a tap.
+      // A hold of 1 s locks Ctrl (750 ms); a 0.4 s hold is still a tap.
       const box = await ctrl.boundingBox();
       const x = box!.x + box!.width / 2;
       const y = box!.y + box!.height / 2;
       await page.mouse.move(x, y);
       await page.mouse.down();
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(400);
       await page.mouse.up();
       await expect(ctrl).toHaveAttribute('data-latch-state', 'once');
       await ctrl.tap();
       await expect(ctrl).toHaveAttribute('data-latch-state', 'off');
       await page.mouse.down();
-      await page.waitForTimeout(1100);
+      await page.waitForTimeout(1000);
       await expect(ctrl).toHaveAttribute('data-latch-state', 'locked');
       await page.mouse.up();
       await expect(ctrl).toHaveAttribute('data-latch-state', 'locked');
