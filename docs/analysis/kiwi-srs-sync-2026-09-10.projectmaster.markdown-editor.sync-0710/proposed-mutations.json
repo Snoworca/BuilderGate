@@ -1,0 +1,157 @@
+{
+  "run_id": "2026-09-10.projectmaster.markdown-editor.sync-0710",
+  "target": "markdown-editor",
+  "summary": {
+    "cu_total": 7,
+    "classifications": { "conflict": 1, "update": 3, "new_feature": 1, "new_scope": 0, "out_of_srs_scope": 2 }
+  },
+  "validate_spec": { "errors": 1, "warnings": 5, "byCode": { "SRS-E002": 1, "SRS-W018": 5 }, "blocking": true },
+  "mutations": [
+    {
+      "ordinal": 1,
+      "cu_id": "CU-002",
+      "classification": "new-feature",
+      "tool": "add_requirement",
+      "args": {
+        "type": "functional",
+        "scope": "MDE",
+        "target": "markdown-editor",
+        "title": "Editor window body renders on a light ground",
+        "suggested_id": "FR-MDE-010",
+        "stability": "evolving",
+        "status": "implemented",
+        "priority": "medium",
+        "risk": "low"
+      },
+      "rationale": "No requirement in the markdown-editor target states what colours the document area renders in. The window shipped on the vendor editor's dark defaults; the requested behaviour is a white ground with black text.",
+      "blocking_question": null
+    },
+    {
+      "ordinal": 2,
+      "cu_id": "CU-005",
+      "classification": "conflict",
+      "tool": "append_section_note",
+      "args": {
+        "id": "FR-MDE-006",
+        "section": "Change Notes",
+        "mode": "append"
+      },
+      "conflict": {
+        "req_id": "FR-MDE-006",
+        "conflicting_text": "Requirement statement: 'shall mark unsaved changes with a leading `*` on its title'; AC-1: 'then the title carries a leading `*`'.",
+        "code_behaviour": "windowDialogModel.ts:31 now returns `${title}*`, so the marker trails the title.",
+        "resolution_chosen": "update the requirement text and AC-1 to a trailing marker (option 1 of the conflict gate)"
+      },
+      "rationale": "The head of a tray row is where a long path is elided, so a marker placed there abuts the `...` and reads as part of it. The tail is also the end both surfaces align on.",
+      "blocking_question": "FR-MDE-006 pins the marker as leading in both its statement and AC-1. Confirm the requirement text is what changes, rather than the code."
+    },
+    {
+      "ordinal": 3,
+      "cu_id": "CU-001",
+      "classification": "update",
+      "tool": "append_section_note",
+      "args": {
+        "id": "FR-MDE-001",
+        "section": "Implementation Notes",
+        "mode": "append"
+      },
+      "rationale": "The five controls, their order and their labels are unchanged; what changed is that each draws a glyph rather than a letter, and 최대화 became a two-state control carrying `aria-pressed`. No acceptance criterion of FR-MDE-001 is contradicted.",
+      "blocking_question": null
+    },
+    {
+      "ordinal": 4,
+      "cu_id": "CU-003",
+      "classification": "update",
+      "tool": "append_section_note",
+      "args": {
+        "id": "FR-MDE-008",
+        "section": "Acceptance Criteria",
+        "mode": "append",
+        "note_intent": "AC-9: the tray icon carries a badge with the number of minimized windows of the current workspace, and carries none when that number is zero."
+      },
+      "rationale": "A minimized window leaves no other trace on screen, so the tray previously said only that something was folded away.",
+      "blocking_question": null
+    },
+    {
+      "ordinal": 5,
+      "cu_id": "CU-004",
+      "classification": "update",
+      "tool": "append_section_note",
+      "args": {
+        "id": "FR-MDE-008",
+        "section": "Acceptance Criteria",
+        "mode": "append",
+        "note_intent": "AC-10: a tray row carries the window's absolute path rather than its file name; when the path exceeds the row bound its head is elided so that the file name and its nearest directories survive."
+      },
+      "rationale": "Nearly every window in this product is open on a file called CLAUDE.md, so a list of file names is a list of identical rows.",
+      "blocking_question": null
+    },
+    {
+      "ordinal": 6,
+      "cu_id": "CU-001",
+      "classification": "update",
+      "tool": "add_trace_link",
+      "args": {
+        "id": "FR-MDE-001",
+        "type": "Code",
+        "reference": "frontend/src/components/common/iconGlyphs.ts",
+        "relation": "implements"
+      },
+      "rationale": "The shared glyph vocabulary the title bar controls draw through.",
+      "blocking_question": null
+    },
+    {
+      "ordinal": 7,
+      "cu_id": "CU-003",
+      "classification": "update",
+      "tool": "add_trace_link",
+      "args": {
+        "id": "FR-MDE-008",
+        "type": "Code",
+        "reference": "frontend/src/components/editor/editorTrayModel.ts",
+        "relation": "implements"
+      },
+      "rationale": "Holds both the badge count and the row label rule.",
+      "blocking_question": null
+    },
+    {
+      "ordinal": 8,
+      "cu_id": "CU-003",
+      "classification": "update",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "FR-MDE-008",
+        "type": "test",
+        "reference": "frontend/tests/unit/editorTrayPresentation.test.ts",
+        "covers": "AC-9, AC-10"
+      },
+      "rationale": "Six cases: the badge's workspace scoping and its zero cases, and the row label's distinguishability, whole-path case, head elision and marker position.",
+      "blocking_question": null
+    },
+    {
+      "ordinal": 9,
+      "cu_id": "CU-005",
+      "classification": "conflict",
+      "tool": "add_verification_evidence",
+      "args": {
+        "id": "FR-MDE-006",
+        "type": "test",
+        "reference": "frontend/tests/unit/windowDialogContract.test.ts",
+        "covers": "AC-1"
+      },
+      "rationale": "Asserts the trailing marker on the title text function, and that the component draws that value.",
+      "blocking_question": null
+    }
+  ],
+  "blocking_questions": [
+    {
+      "cu_id": "CU-005",
+      "question": "FR-MDE-006 states the marker is leading, in both the requirement text and AC-1. The code now places it trailing. Update the requirement, or revert the code?",
+      "options": ["update-requirement-text", "rollback-code", "deprecate-requirement"]
+    }
+  ],
+  "out_of_srs_scope": [
+    { "cu_id": "CU-006", "reason": "Type-check input registration for two new test files. Build configuration, not product behaviour." },
+    { "cu_id": "CU-007", "reason": "CLAUDE.md operating rule about a deployed process. Agent instruction, not a product requirement." }
+  ]
+}

@@ -1,0 +1,12 @@
+frontend/tests/e2e/mobile-terminal-keyboard.spec.ts 1
+frontend/tests/unit/designTokens.test.ts 1
+frontend/tests/unit/mobileKeyBar.test.ts 1
+frontend/tests/unit/mobileKeyEncoder.test.ts 1
+frontend/tests/unit/mobileKeySend.test.ts 1
+frontend/tests/unit/mobileKeyboardModel.test.ts 1
+frontend/tests/unit/mobileModifierLatch.test.ts 1
+frontend/tests/unit/mobileSpecialKeyboard.test.ts 1
+frontend/tests/unit/terminalClipboardAdapterContract.test.ts 3
+frontend/tests/unit/terminalMobileFocusSuppression.test.ts 1
+frontend/tests/unit/terminalMobileLatchOnData.test.ts 1
+frontend/tests/unit/visualViewportInset.test.ts 1

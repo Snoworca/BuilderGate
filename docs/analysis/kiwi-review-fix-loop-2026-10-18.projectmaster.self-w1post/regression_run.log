@@ -1,0 +1,79 @@
+[i18n] missing key: terminal.inputAria
+(node:59540) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:59540) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+✔ FR-MKB-003 AC-1 / SDS-AC-10: ctrl once + user-typed C submits 0x03 and turns ctrl off (332.9273ms)
+✔ FR-MKB-003 AC-1: a typed Hangul syllable passes unchanged and leaves ctrl once (20.2839ms)
+✔ FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + c with no keydown/input first still submits 0x03 (15.8765ms)
+✔ FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + c after the provenance microtask expired still submits 0x03 (31.2454ms)
+✔ FR-MKB-003 AC-4 / SDS-AC-11: ctrl once + parser replies (DA, SGR mouse) without provenance are submitted unchanged and leave ctrl once (17.6509ms)
+✔ FR-MKB-003 AC-4 / SDS-AC-11: alt once + parser replies (DA, SGR mouse) without provenance are submitted unchanged and leave alt once (14.9031ms)
+✔ FR-MKB-003 AC-3 / SDS-AC-11: a programmatic paste is submitted unchanged with ctrl once (15.9114ms)
+✔ FR-MKB-003 AC-5: with every modifier off, typed data reaches submitCapturedInput unchanged (14.5629ms)
+✔ FR-MKB-003 AC-1 AC-2: alt once + user-typed x submits ESC x and turns alt off (15.4331ms)
+✔ IR-MKB-001 AC-1 / SDS-AC-12: the TerminalView handle mirrors term.modes.applicationCursorKeysMode (7.1747ms)
+✔ IR-MKB-001 AC-2 / SDS-AC-12: TerminalContainer forwards the getter the way it forwards getMouseTrackingActive (1.3476ms)
+✔ IR-MKB-001 AC-3: a mobile key sent through handle.sendInput reaches submitCapturedInput as the exact bytes, with no separate socket path (6.4989ms)
+ReferenceError: InputEvent is not defined
+    at buildTerminalEventTapeDetails (C:\Work\git\_Snoworca\ProjectMaster\frontend\src\utils\terminalDebugCapture.ts:817:24)
+    at recordHelperTape (C:\Work\git\_Snoworca\ProjectMaster\frontend\src\components\Terminal\TerminalView.tsx:3557:11)
+    at HTMLTextAreaElement.onCompositionStart (C:\Work\git\_Snoworca\ProjectMaster\frontend\src\components\Terminal\TerminalView.tsx:4532:9)
+    at HTMLTextAreaElement.callTheUserObjectsOperation (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\generated\idl\EventListener.js:26:30)
+    at innerInvokeEventListeners (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\jsdom\living\events\EventTarget-impl.js:378:16)
+    at invokeEventListeners (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\jsdom\living\events\EventTarget-impl.js:320:3)
+    at HTMLTextAreaElementImpl._dispatch (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\jsdom\living\events\EventTarget-impl.js:269:9)
+    at HTMLTextAreaElementImpl.dispatchEvent (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\jsdom\living\events\EventTarget-impl.js:137:17)
+    at HTMLTextAreaElement.dispatchEvent (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\generated\idl\EventTarget.js:240:20)
+    at TestContext.<anonymous> (C:\Work\git\_Snoworca\ProjectMaster\frontend\tests\unit\terminalMobileLatchOnData.test.ts:489:10)
+ReferenceError: InputEvent is not defined
+    at buildTerminalEventTapeDetails (C:\Work\git\_Snoworca\ProjectMaster\frontend\src\utils\terminalDebugCapture.ts:817:24)
+    at recordHelperTape (C:\Work\git\_Snoworca\ProjectMaster\frontend\src\components\Terminal\TerminalView.tsx:3557:11)
+    at HTMLTextAreaElement.onCompositionEnd (C:\Work\git\_Snoworca\ProjectMaster\frontend\src\components\Terminal\TerminalView.tsx:4542:9)
+    at HTMLTextAreaElement.callTheUserObjectsOperation (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\generated\idl\EventListener.js:26:30)
+    at innerInvokeEventListeners (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\jsdom\living\events\EventTarget-impl.js:378:16)
+    at invokeEventListeners (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\jsdom\living\events\EventTarget-impl.js:320:3)
+    at HTMLTextAreaElementImpl._dispatch (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\jsdom\living\events\EventTarget-impl.js:269:9)
+    at HTMLTextAreaElementImpl.dispatchEvent (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\jsdom\living\events\EventTarget-impl.js:137:17)
+    at HTMLTextAreaElement.dispatchEvent (C:\Work\git\_Snoworca\ProjectMaster\frontend\node_modules\jsdom\lib\generated\idl\EventTarget.js:240:20)
+    at TestContext.<anonymous> (C:\Work\git\_Snoworca\ProjectMaster\frontend\tests\unit\terminalMobileLatchOnData.test.ts:498:10)
+✔ FR-MKB-003 AC-2: ctrl once + c committed inside an IME composition still submits 0x03 and turns ctrl off (31.9477ms)
+[i18n] missing key: terminal.inputAria
+(node:133204) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:133204) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+✔ AC-8: a keyboard paste carrying a close marker is sanitized before it is bracketed (361.0984ms)
+✔ AC-8: the capture listener owns the paste so xterm cannot paste it a second time (27.7697ms)
+✔ AC-8: keyboard paste obeys the multiline guard it used to bypass entirely (16.0614ms)
+✔ AC-8: with bracketed paste on, a multiline paste is admitted (9.009ms)
+✔ #18: ordinary typing does not enter the paste path (21.4179ms)
+✔ AC-1: the OSC52 handler is registered at all, so the policy is a decision (8.1186ms)
+✔ AC-1: a read request writes nothing and is consumed rather than passed on (23.1143ms)
+✔ AC-5: an allowed OSC52 write reaches the clipboard through the coordinator (16.911ms)
+✔ AC-4: a malformed OSC52 payload leaves the clipboard untouched (15.4125ms)
+✔ AC-3: an oversized OSC52 payload is refused without writing a truncated prefix (15.1908ms)
+✔ AC-8/criterion 8: an oversize paste is refused locally instead of reaching the terminal (15.3191ms)
+✔ AC-8/criterion 8: a paste exactly at the cap still goes through (15.278ms)
+✔ AC-8/criterion 8: the cap counts bytes, so multi-byte text is refused earlier (15.7566ms)
+✔ #18 criterion 1: a real Escape keypress is delegated to xterm untouched (5.8419ms)
+✔ #18 criterion 1: the sanitizer would destroy Escape, which is why typing must not share it (0.223ms)
+[i18n] missing key: terminal.inputAria
+(node:13332) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:13332) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+✔ a saved right-click selection outlives the visible selection, and typing does not end it (355.1371ms)
+[i18n] missing key: terminal.inputAria
+(node:140972) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:140972) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+✔ AC-2: Ctrl+C without a selection delegates to xterm so the PTY receives SIGINT (350.8734ms)
+✔ AC-2: Ctrl+C with a selection is owned by the clipboard coordinator, not xterm (13.889ms)
+✔ AC-3: a successful copy clears the selection it copied (9.7896ms)
+✔ AC-3: a copy whose selection changed mid-write leaves the new selection alone (24.5481ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2476.7779

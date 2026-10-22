@@ -1,0 +1,2 @@
+2026-07-15T03:15:48+09:00 channel=4 mode=standalone reason="explicit mode token absent; default selected"
+subject_mode=question-only srs_mutation=none topology="triage + researcher_a + researcher_b + researcher_c + synthesizer"

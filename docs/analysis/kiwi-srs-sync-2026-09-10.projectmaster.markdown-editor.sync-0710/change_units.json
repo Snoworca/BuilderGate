@@ -1,0 +1,101 @@
+{
+  "run_id": "2026-09-10.projectmaster.markdown-editor.sync-0710",
+  "target": "markdown-editor",
+  "base_ref": "HEAD",
+  "head_ref": "working-tree",
+  "external_module_touch": false,
+  "change_units": [
+    {
+      "id": "CU-001",
+      "summary": "Title bar controls become drawn icons, and maximize becomes a two-state control, both through a new shared icon component family.",
+      "files": [
+        { "path": "frontend/src/components/common/iconGlyphs.ts", "change_type": "added" },
+        { "path": "frontend/src/components/common/Icon.tsx", "change_type": "added" },
+        { "path": "frontend/src/components/common/IconButton.tsx", "change_type": "added" },
+        { "path": "frontend/src/components/common/IconToggleButton.tsx", "change_type": "added" },
+        { "path": "frontend/src/components/common/IconButton.css", "change_type": "added" },
+        { "path": "frontend/src/components/common/index.ts", "change_type": "added" },
+        { "path": "frontend/src/components/editor/EditorWindow.tsx", "line_range": "576-600", "change_type": "modified" },
+        { "path": "frontend/src/App.tsx", "line_range": "799", "change_type": "modified" }
+      ],
+      "symbol_hints": ["ICON_GLYPHS", "resolveToggleIcon", "Icon", "IconButton", "IconToggleButton", "EditorWindow.titlebarActions", "EditorWindowProps.maximized"],
+      "loc_added": 190,
+      "loc_removed": 44
+    },
+    {
+      "id": "CU-002",
+      "summary": "The editor window body renders on a white ground with black text, by opting into the vendor editor's light palette.",
+      "files": [
+        { "path": "frontend/src/components/editor/EditorWindow.css", "change_type": "added" },
+        { "path": "frontend/src/components/editor/EditorWindow.tsx", "line_range": "38-40, 640-646", "change_type": "modified" }
+      ],
+      "symbol_hints": [".editor-window-surface", "data-theme=light", "--atomic-editor-fg"],
+      "loc_added": 27,
+      "loc_removed": 1
+    },
+    {
+      "id": "CU-003",
+      "summary": "The header tray icon carries a badge counting the minimized windows of the current workspace.",
+      "files": [
+        { "path": "frontend/src/components/editor/editorTrayModel.ts", "line_range": "97-112", "change_type": "modified" },
+        { "path": "frontend/src/hooks/useEditorWindows.ts", "line_range": "44-46, 128-131, 676", "change_type": "modified" },
+        { "path": "frontend/src/components/Header/Header.tsx", "line_range": "30-42, 120-160", "change_type": "modified" },
+        { "path": "frontend/src/components/Header/Header.css", "line_range": "appended", "change_type": "modified" },
+        { "path": "frontend/src/App.tsx", "line_range": "636", "change_type": "modified" }
+      ],
+      "symbol_hints": ["countMinimizedEditorTrayWindows", "UseEditorWindowsResult.minimizedCount", "HeaderProps.editorTrayMinimizedCount", ".header-editor-tray-badge"],
+      "loc_added": 52,
+      "loc_removed": 12
+    },
+    {
+      "id": "CU-004",
+      "summary": "A tray row shows the file's absolute path, head-elided when long, in a smaller monospaced type, instead of the bare file name.",
+      "files": [
+        { "path": "frontend/src/components/editor/editorTrayModel.ts", "line_range": "11, 86-95, 114-145", "change_type": "modified" },
+        { "path": "frontend/src/components/ContextMenu/ContextMenu.tsx", "line_range": "18-25, 338", "change_type": "modified" },
+        { "path": "frontend/src/components/ContextMenu/ContextMenu.css", "line_range": "appended", "change_type": "modified" },
+        { "path": "frontend/src/hooks/useEditorWindows.ts", "line_range": "429-437", "change_type": "modified" }
+      ],
+      "symbol_hints": ["listEditorTrayEntries", "TRAY_LABEL_MAX_LENGTH", "truncatePathLeft", "ContextMenuActionItem.className", ".editor-tray-item"],
+      "loc_added": 40,
+      "loc_removed": 6
+    },
+    {
+      "id": "CU-005",
+      "summary": "The unsaved-changes marker moves from the head of the title to its tail, on both the window title bar and the tray rows.",
+      "files": [
+        { "path": "frontend/src/components/dialog/windowDialogModel.ts", "line_range": "20-38", "change_type": "modified" },
+        { "path": "frontend/tests/unit/windowDialogContract.test.ts", "line_range": "59-63", "change_type": "modified" },
+        { "path": "frontend/tests/unit/editorTrayModel.test.ts", "line_range": "75", "change_type": "modified" },
+        { "path": "frontend/tests/e2e/markdown-editor-lifecycle.spec.ts", "line_range": "218", "change_type": "modified" },
+        { "path": "frontend/tests/e2e/markdown-editor-persistence.spec.ts", "line_range": "226", "change_type": "modified" },
+        { "path": "frontend/tests/e2e/markdown-editor-save.spec.ts", "line_range": "272, 848-866", "change_type": "modified" }
+      ],
+      "symbol_hints": ["windowDialogTitleText"],
+      "loc_added": 14,
+      "loc_removed": 8
+    },
+    {
+      "id": "CU-006",
+      "summary": "The two new unit test files are registered in the test type-check input list.",
+      "files": [
+        { "path": "frontend/tsconfig.test.json", "line_range": "46-47", "change_type": "modified" },
+        { "path": "frontend/tests/unit/iconGlyphs.test.ts", "change_type": "added" },
+        { "path": "frontend/tests/unit/editorTrayPresentation.test.ts", "change_type": "added" }
+      ],
+      "symbol_hints": [],
+      "loc_added": 118,
+      "loc_removed": 0
+    },
+    {
+      "id": "CU-007",
+      "summary": "CLAUDE.md records that the process holding TCP 2002 is a live deployment and must never be terminated.",
+      "files": [
+        { "path": "CLAUDE.md", "line_range": "69-70", "change_type": "modified" }
+      ],
+      "symbol_hints": [],
+      "loc_added": 2,
+      "loc_removed": 1
+    }
+  ]
+}

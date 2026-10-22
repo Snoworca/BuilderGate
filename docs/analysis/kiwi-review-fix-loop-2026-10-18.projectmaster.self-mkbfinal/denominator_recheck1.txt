@@ -1,0 +1,4 @@
+frontend/src/components/MobileKeyboard/mobileKeyboardModel.ts 4
+frontend/src/utils/mobileModifierLatch.ts 1
+frontend/tests/unit/mobileModifierLatch.test.ts 1
+frontend/tests/unit/mobileSpecialKeyboard.test.ts 9

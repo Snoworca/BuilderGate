@@ -1,0 +1,4 @@
+REJECTED: "Orca는 refresh 뒤 무제한 scrollback을 모두 복구한다." Local daemon은 실효 약 5,000행, remote resync는 scrollbackRows=0이라는 source evidence와 충돌한다.
+REJECTED: "현재 refresh 잘림은 단순 renderer 성능 버그다." Server/local snapshot과 E2E가 viewport-only를 명시하므로 계약 수준의 절단 메커니즘이 존재한다.
+REJECTED: "전체 적출은 한 PR big-bang으로 해야 한다." Snapshot/delta boundary, WAN, multi-client, rollback evidence가 없고 risk research가 shadow-canary-promotion을 지지한다.
+REJECTED: "2MiB snapshot cap을 넘으면 empty 성공으로 처리해도 된다." 현재 blank/stale 복구 원인이 되며 explicit rejection/resync가 필요하다.

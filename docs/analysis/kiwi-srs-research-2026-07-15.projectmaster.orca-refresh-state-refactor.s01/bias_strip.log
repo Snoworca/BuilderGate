@@ -1,0 +1,2 @@
+2026-07-15: 사용자 표현 "기존 구현을 전부 적출"을 원하는 결론으로 고정하지 않고 full cutover, shadow promotion, confirmed-bug-only fix를 동등한 대안으로 분리했다.
+2026-07-15: "Orca IDE와 같이"를 무제한 scrollback 또는 Electron 재구현으로 해석하지 않고 실제 Orca source retention과 lifecycle을 독립 조사했다.

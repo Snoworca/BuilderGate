@@ -1,0 +1,2 @@
+F1 MEDIUM already_intended: FR-MKB-008 AC-2 mandates max(inset,260) and names the landscape case explicitly; AC-5 is satisfied (terminal shrinks, no overlap). A viewport cap needs an SRS change (route via /kiwi-srs).
+F2 LOW out_of_scope (--auto LOW reject): 260 > 248 px needed today; rationale already in AC-2; no functional defect.

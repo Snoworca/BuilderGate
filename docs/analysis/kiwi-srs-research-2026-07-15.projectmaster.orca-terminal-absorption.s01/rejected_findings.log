@@ -1,0 +1,6 @@
+Rejected: "Orca의 64Ki slice, 4Ki bypass, 512Ki tail은 모두 byte 단위다." Reason: source uses a mixture of socket bytes and JavaScript UTF-16 string code units.
+Rejected: "BuilderGate의 split transport는 설정만 켜면 동작한다." Reason: production wiring still upgrades one /ws route and constructs one browser WebSocket.
+Rejected: "Orca의 PTY pause를 모든 BuilderGate WebSocket slow-client에 적용한다." Reason: a single WAN client must not stall shared PTY/model progress or other clients.
+Rejected: "사용자 buffer 설정을 없애려면 queue cap도 제거해야 한다." Reason: presentation simplification and internal safety bounds are separate concerns.
+Rejected: "binary output은 이번 개선의 필수 P0다." Reason: current encode/decode CPU share is unmeasured; correctness and fairness can be fixed independently.
+Rejected: "WebGL을 켜면 terminal corruption이 자동 해결된다." Reason: WebGL has its own context-loss and glyph-atlas failure modes and requires DOM fallback.
