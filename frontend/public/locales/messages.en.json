@@ -875,6 +875,7 @@
   "tabMenu.closeOthers": "Close other tabs",
   "tabMenu.closeThis": "Close this tab",
   "terminal.inputAria": "Terminal input",
+  "terminal.fileDrop.overlay": "Drop files here to upload",
   "terminal.inputDiscarded": "Input was not delivered",
   "terminal.inputDiscarded.count.one": "{count} item",
   "terminal.inputDiscarded.count.other": "{count} items",

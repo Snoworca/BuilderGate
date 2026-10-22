@@ -860,6 +860,7 @@
   "tabMenu.closeOthers": "다른 탭 닫기",
   "tabMenu.closeThis": "이 탭 닫기",
   "terminal.inputAria": "터미널 입력",
+  "terminal.fileDrop.overlay": "이곳으로 파일 업로드",
   "terminal.inputDiscarded": "입력이 전달되지 않았습니다",
   "terminal.inputDiscarded.count.other": "{count}건",
   "workspace.activity.idle": "대기",

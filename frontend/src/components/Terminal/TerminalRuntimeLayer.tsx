@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { TerminalContainer } from './TerminalContainer';
 import type { TerminalHandle } from './TerminalView';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
@@ -9,6 +9,17 @@ import { dismissSoftKeyboard } from '../../hooks/doubleTap';
 import type { TerminalShortcutState } from '../../types';
 import { suppressTerminalSecondaryButtonEvent } from '../../utils/terminalPointerPolicy';
 import { createTouchTapTracker, shouldFocusTerminalOnPointerDown } from '../../utils/terminalTouchTapPolicy';
+import { t } from '../../i18n/i18n.ts';
+import { readDroppedSources } from '../fileExplorer/fileDropEntries.ts';
+import { startUpload } from '../fileExplorer/fileTransferRuntime.ts';
+import {
+  answerTerminalDropConflict,
+  createTerminalDropDepth,
+  decideTerminalFileDrag,
+  readDesktopDropSurface,
+  terminalDropDirLabel,
+} from './terminalFileDrop';
+import './terminalFileDrop.css';
 
 const PARKED_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -83,6 +94,57 @@ function TerminalRuntimeEntry({
     },
     500,
   );
+
+  // FR-FEX-031: operating-system files dragged over the session upload into its folder.
+  const dropDepthRef = useRef(createTerminalDropDepth());
+  const [fileDropActive, setFileDropActive] = useState(false);
+  const isFileUploadDrag = (event: React.DragEvent<HTMLDivElement>) =>
+    decideTerminalFileDrag({ types: event.dataTransfer.types, desktop: readDesktopDropSurface() }) === 'upload';
+
+  // AC-2: a drag that ends anywhere else (dropped outside, left the window) clears the overlay.
+  useEffect(() => {
+    if (!fileDropActive) return;
+    const clear = () => {
+      dropDepthRef.current.reset();
+      setFileDropActive(false);
+    };
+    const onWindowDragLeave = (event: DragEvent) => {
+      if (event.relatedTarget === null) clear();
+    };
+    window.addEventListener('drop', clear);
+    window.addEventListener('dragend', clear);
+    window.addEventListener('dragleave', onWindowDragLeave);
+    return () => {
+      window.removeEventListener('drop', clear);
+      window.removeEventListener('dragend', clear);
+      window.removeEventListener('dragleave', onWindowDragLeave);
+    };
+  }, [fileDropActive]);
+
+  const handleFileDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isFileUploadDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dropDepthRef.current.reset();
+    setFileDropActive(false);
+    // The DataTransfer is emptied once this event returns; its entries are taken now.
+    readDroppedSources(event.dataTransfer.items)
+      .then((sources) => {
+        if (sources.length === 0) return null;
+        return startUpload({
+          sessionId: tab.sessionId,
+          dir: '',
+          dirLabel: terminalDropDirLabel(tab.cwd),
+          workspaceId: tab.workspaceId,
+          tabId: tab.id,
+          sources,
+          existingNames: [],
+          ask: (detail) => Promise.resolve(answerTerminalDropConflict(detail)),
+          onRejected: (items) => console.warn('[terminal-file-drop] refused', items),
+        });
+      })
+      .catch((error: unknown) => console.warn('[terminal-file-drop] upload failed', error));
+  };
 
   const focusTerminal = (fallbackRoot?: EventTarget | null) => {
     const handle = terminalRefsMap.current.get(tab.id)?.current;
@@ -177,6 +239,21 @@ function TerminalRuntimeEntry({
         longPress.onTouchMove(event);
       }}
       onTouchEnd={longPress.onTouchEnd}
+      onDragEnter={(event) => {
+        if (!isFileUploadDrag(event)) return;
+        event.preventDefault();
+        setFileDropActive(dropDepthRef.current.enter());
+      }}
+      onDragOver={(event) => {
+        if (!isFileUploadDrag(event)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+      }}
+      onDragLeave={(event) => {
+        if (!isFileUploadDrag(event)) return;
+        setFileDropActive(dropDepthRef.current.leave());
+      }}
+      onDrop={handleFileDrop}
     >
       <TerminalContainer
         ref={ensureTerminalRef(terminalRefsMap.current, tab.id)}
@@ -191,6 +268,11 @@ function TerminalRuntimeEntry({
         onCwdChange={onCwdChange}
         onAuthError={onAuthError}
       />
+      {fileDropActive && (
+        <div className="terminal-file-drop-overlay" data-terminal-file-drop="true">
+          <span className="terminal-file-drop-overlay-label">{t('terminal.fileDrop.overlay')}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,23 @@
+/* FR-FEX-031 AC-1: files dragged over a session. The overlay takes no events, so the
+   drag keeps reaching the session underneath. */
+.terminal-file-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 214, 0, 0.15);
+  outline: 2px dashed rgba(255, 214, 0, 0.7);
+  outline-offset: -4px;
+  pointer-events: none;
+}
+
+.terminal-file-drop-overlay-label {
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffd600;
+  font-size: 15px;
+  font-weight: 600;
+}

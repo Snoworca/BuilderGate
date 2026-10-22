@@ -66,6 +66,7 @@
     "./tests/unit/visualViewportInset.test.ts",
     "./tests/unit/terminalRedrawNudge.test.ts",
     "./tests/unit/terminalResizeSendLedger.test.ts",
+    "./tests/unit/terminalFileDrop.test.ts",
     "./tests/unit/terminalFullRepaint.test.ts",
     "./tests/unit/mobileKeyBarKeyboardGate.test.ts",
     "./tests/unit/headerPhoneFit.test.ts",
