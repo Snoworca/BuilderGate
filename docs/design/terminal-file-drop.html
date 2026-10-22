@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>세션 파일 드롭 업로드</title>
+<style>
+  /* Values copied from frontend/src/styles/tokens.css (chrome surface). FR-FEX-031. */
+  :root {
+    --bg-app: #202020; --bg-chrome: #2b2b2b; --bg-surface: #272727; --bg-raised: #2f2f2f;
+    --bg-term: #1e1e1e;
+    --fg: #dcdcdc; --fg-strong: #f5f5f5; --fg-muted: #a0a0a0; --fg-faint: #767676;
+    --line: #3a3a3a; --line-strong: #4a4a4a;
+    --accent: #0078d4; --accent-text: #6cb6ff;
+    --ok: #4cc38a; --warn: #d8a534;
+    --drop-fill: rgba(255, 214, 0, 0.15); --drop-line: rgba(255, 214, 0, 0.7); --drop-text: #ffd600;
+    --r-sm: 6px; --r-md: 8px; --r-lg: 10px;
+    --fs-2xs: 11px; --fs-xs: 12px; --fs-sm: 13px;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace;
+    --sans: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-app); color: var(--fg); font-family: var(--sans); font-size: var(--fs-sm); }
+  button { font: inherit; color: inherit; }
+
+  header.page { max-width: 1440px; margin: 0 auto; padding: 28px 24px 4px; }
+  header.page h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; color: var(--fg-strong); }
+  header.page p { margin: 0; color: var(--fg-muted); line-height: 1.6; max-width: 900px; }
+  .demo-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+  .demo-bar span { color: var(--fg-faint); font-size: var(--fs-xs); margin-right: 4px; }
+  .chip { border: 1px solid var(--line-strong); background: var(--bg-raised); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: var(--fs-xs); min-height: 32px; }
+  .chip:hover { border-color: var(--accent); color: var(--fg-strong); }
+  .chip[aria-pressed="true"] { border-color: var(--accent-text); color: var(--fg-strong); background: rgba(0,120,212,.2); }
+  .hint { font-size: var(--fs-xs); color: var(--fg-faint); margin-top: 8px; }
+
+  .layout { max-width: 1440px; margin: 0 auto; padding: 20px 24px 48px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; }
+  @media (max-width: 1150px) { .layout { grid-template-columns: 1fr; } }
+  .section-title { font-size: var(--fs-xs); color: var(--fg-faint); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 10px; }
+
+  /* ---------- app frame ---------- */
+  .app { height: 600px; display: flex; flex-direction: column; background: var(--bg-surface); border: 1px solid var(--line-strong); border-radius: var(--r-lg); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+  .app.phone { width: 390px; height: 700px; margin: 0 auto; }
+  .topbar { height: 40px; flex: none; display: flex; align-items: center; padding: 0 14px; background: var(--bg-chrome); border-bottom: 1px solid var(--line); gap: 10px; }
+  .topbar b { color: var(--fg-strong); font-weight: 600; }
+  .topbar .cwd { margin-left: auto; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-muted); }
+  .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 2px; background: var(--line); }
+  .app.phone .grid { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .app.phone .session:not(:first-child) { display: none; }
+
+  .session { position: relative; background: var(--bg-term); display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .session .tab { height: 26px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: var(--fs-2xs); color: var(--fg-muted); border-bottom: 1px solid var(--line); background: var(--bg-surface); }
+  .session .tab b { color: var(--fg); font-weight: 500; }
+  .session .tab .path { margin-left: auto; font-family: var(--mono); color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .term { flex: 1; padding: 8px 10px; font-family: var(--mono); font-size: 12px; line-height: 1.55; color: #cfcfcf; white-space: pre; overflow: hidden; }
+  .term .p { color: #8fbf7f; }
+  .term .new { color: var(--drop-text); }
+
+  /* FR-FEX-031 AC-1: the overlay */
+  .drop-overlay { position: absolute; inset: 0; z-index: 5; display: none; align-items: center; justify-content: center; background: var(--drop-fill); outline: 2px dashed var(--drop-line); outline-offset: -4px; pointer-events: none; }
+  .drop-overlay span { padding: 8px 16px; border-radius: 6px; background: rgba(0,0,0,.6); color: var(--drop-text); font-size: 15px; font-weight: 600; }
+  .session.dropping .drop-overlay { display: flex; }
+
+  /* bottom file-job bar (FR-FEX-024) */
+  .jobbar { height: 30px; flex: none; display: none; align-items: center; gap: 10px; padding: 0 14px; background: var(--bg-chrome); border-top: 1px solid var(--line); font-size: var(--fs-xs); }
+  .jobbar.on { display: flex; }
+  .jobbar .bar { width: 160px; height: 6px; border-radius: 3px; background: var(--line-strong); overflow: hidden; }
+  .jobbar .bar i { display: block; height: 100%; background: var(--accent); }
+  .jobbar.done .bar i { background: var(--ok); }
+  .jobbar .muted { color: var(--fg-muted); }
+
+  /* ---------- spec panel ---------- */
+  .panel { background: var(--bg-surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; }
+  .panel h2 { margin: 0 0 12px; font-size: 15px; color: var(--fg-strong); }
+  .panel ol { margin: 0; padding-left: 20px; line-height: 1.6; color: var(--fg); }
+  .panel li { margin-bottom: 8px; }
+  .panel li b { color: var(--fg-strong); font-weight: 600; }
+  .panel dl { margin: 16px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: var(--fs-xs); }
+  .panel dt { color: var(--fg-faint); }
+  .panel dd { margin: 0; color: var(--fg); }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: var(--drop-fill); outline: 1px dashed var(--drop-line); vertical-align: -2px; margin-right: 6px; }
+  code { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--accent-text); }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>세션 위에 파일을 끌어 놓아 업로드 <code>FR-FEX-031</code></h1>
+  <p>데스크톱의 파일·폴더를 터미널 세션 위로 끌어오면 그 세션에만 노란 오버레이가 뜨고, 놓으면 그 세션의 현재 폴더로 업로드됩니다. 파일 탐색기를 열지 않아도 됩니다. 데스크톱 전용입니다.</p>
+  <div class="demo-bar" role="group" aria-label="상태 전환">
+    <span>상태</span>
+    <button type="button" class="chip" data-state="idle" aria-pressed="false">평상시</button>
+    <button type="button" class="chip" data-state="drag" aria-pressed="true">세션 위로 끌어오는 중</button>
+    <button type="button" class="chip" data-state="upload" aria-pressed="false">놓음 · 업로드 중</button>
+    <button type="button" class="chip" data-state="done" aria-pressed="false">완료 · 같은 이름은 둘 다 보관</button>
+    <button type="button" class="chip" data-state="phone" aria-pressed="false">모바일 폭 · 반응 없음</button>
+  </div>
+  <p class="hint">실제 파일을 이 페이지의 세션 위로 끌어와도 오버레이가 뜹니다(업로드는 하지 않습니다).</p>
+</header>
+
+<main class="layout">
+  <section>
+    <h3 class="section-title">그리드 모드 · 4개 세션</h3>
+    <div class="app" id="app">
+      <div class="topbar"><b>BuilderGate</b><span class="muted">Workspace-10</span><span class="cwd" id="topCwd">C:\Work\git\_hancomins</span></div>
+      <div class="grid">
+        <div class="session" data-cwd="C:\Work\git\_hancomins\report6">
+          <div class="tab"><b>report6</b><span class="path">C:\Work\git\_hancomins\report6</span></div>
+<div class="term" id="term0"><span class="p">PS C:\Work\git\_hancomins\report6&gt;</span> ls
+
+    Directory: C:\Work\git\_hancomins\report6
+
+Mode    LastWriteTime        Length Name
+----    -------------        ------ ----
+d----   2026-10-22  13:02          engine
+-a---   2026-10-21  18:40    4,812 build.gradle
+-a---   2026-10-22  09:15    1,204 sample.json
+<span id="newRows"></span>
+<span class="p">PS C:\Work\git\_hancomins\report6&gt;</span> </div>
+          <div class="drop-overlay" aria-hidden="true"><span>이곳으로 파일 업로드</span></div>
+        </div>
+        <div class="session" data-cwd="C:\Work\git\server-java">
+          <div class="tab"><b>server-java</b><span class="path">C:\Work\git\server-java</span></div>
+<div class="term"><span class="p">PS C:\Work\git\server-java&gt;</span> claude
+ ✻ Cooked for 26s · done
+<span class="p">&gt;</span> </div>
+          <div class="drop-overlay" aria-hidden="true"><span>이곳으로 파일 업로드</span></div>
+        </div>
+        <div class="session" data-cwd="D:\Temp\og-hotpatch">
+          <div class="tab"><b>og-hotpatch</b><span class="path">D:\Temp\og-hotpatch</span></div>
+<div class="term"><span class="p">PS D:\Temp\og-hotpatch&gt;</span> git status
+On branch hotfix
+nothing to commit, working tree clean
+<span class="p">PS D:\Temp\og-hotpatch&gt;</span> </div>
+          <div class="drop-overlay" aria-hidden="true"><span>이곳으로 파일 업로드</span></div>
+        </div>
+        <div class="session" data-cwd="C:\Users\beom">
+          <div class="tab"><b>Terminal-4</b><span class="path">C:\Users\beom</span></div>
+<div class="term"><span class="p">PS C:\Users\beom&gt;</span> </div>
+          <div class="drop-overlay" aria-hidden="true"><span>이곳으로 파일 업로드</span></div>
+        </div>
+      </div>
+      <div class="jobbar" id="jobbar">
+        <span id="jobLabel">업로드 2개 → report6</span>
+        <span class="bar"><i id="jobFill" style="width: 45%"></i></span>
+        <span class="muted" id="jobPct">45%</span>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <h2>동작</h2>
+    <ol>
+      <li><b>끌어오기</b> — 운영체제 파일이 세션 위에 오면 <b>그 세션 영역 전체</b>에 노란 오버레이(불투명도 15%)와 “이곳으로 파일 업로드”가 뜹니다. 다른 세션은 그대로입니다.</li>
+      <li><b>취소</b> — 세션 밖으로 나가거나 Esc 를 누르면 사라지고 아무것도 올라가지 않습니다.</li>
+      <li><b>놓기</b> — 파일과 폴더(하위 폴더 포함)가 그 세션의 <b>현재 폴더</b>로 업로드되고, 진행은 하단 파일 작업 막대에 표시됩니다.</li>
+      <li><b>같은 이름</b> — 덮어쓰지 않고 <code>이름 (2).확장자</code> 로 둘 다 보관합니다.</li>
+      <li><b>데스크톱 전용</b> — 터치 포인터이거나 폭 768px 미만이면 반응하지 않습니다. 파일 탐색기에서 끌어 온 항목은 업로드로 취급하지 않습니다.</li>
+    </ol>
+    <dl>
+      <dt>오버레이</dt><dd><span class="swatch"></span><code>rgba(255, 214, 0, 0.15)</code> + 점선 테두리</dd>
+      <dt>문구</dt><dd>ko “이곳으로 파일 업로드” · en “Drop files here to upload”</dd>
+      <dt>업로드 대상</dt><dd>세션의 현재 폴더(cwd)</dd>
+      <dt>구현</dt><dd><code>Terminal/terminalFileDrop.ts</code>, <code>TerminalRuntimeLayer.tsx</code></dd>
+    </dl>
+  </aside>
+</main>
+
+<script>
+  const app = document.getElementById('app');
+  const sessions = [...document.querySelectorAll('.session')];
+  const jobbar = document.getElementById('jobbar');
+  const newRows = document.getElementById('newRows');
+  const chips = [...document.querySelectorAll('.chip')];
+
+  function show(state) {
+    chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.state === state)));
+    app.classList.toggle('phone', state === 'phone');
+    sessions.forEach((s, i) => s.classList.toggle('dropping', state === 'drag' && i === 0));
+    jobbar.classList.toggle('on', state === 'upload' || state === 'done');
+    jobbar.classList.toggle('done', state === 'done');
+    document.getElementById('jobLabel').textContent = state === 'done' ? '업로드 완료 → report6' : '업로드 2개 → report6';
+    document.getElementById('jobFill').style.width = state === 'done' ? '100%' : '45%';
+    document.getElementById('jobPct').textContent = state === 'done' ? '2/2' : '45%';
+    newRows.innerHTML = state === 'done'
+      ? '<span class="new">-a---   2026-10-22  13:20      2,048 sample (2).json</span>\n<span class="new">-a---   2026-10-22  13:20     18,331 spec.pdf</span>\n'
+      : '';
+  }
+  chips.forEach((c) => c.addEventListener('click', () => show(c.dataset.state)));
+  show('drag');
+
+  // A real file dragged from the desktop shows the same overlay on the session under it.
+  const desktop = () => window.innerWidth >= 768 && !matchMedia('(pointer: coarse)').matches;
+  sessions.forEach((s) => {
+    let depth = 0;
+    const isFiles = (e) => desktop() && !app.classList.contains('phone') && [...e.dataTransfer.types].includes('Files');
+    s.addEventListener('dragenter', (e) => { if (!isFiles(e)) return; e.preventDefault(); depth += 1; s.classList.add('dropping'); });
+    s.addEventListener('dragover', (e) => { if (!isFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    s.addEventListener('dragleave', (e) => { if (!isFiles(e)) return; depth = Math.max(0, depth - 1); if (depth === 0) s.classList.remove('dropping'); });
+    s.addEventListener('drop', (e) => { if (!isFiles(e)) return; e.preventDefault(); depth = 0; s.classList.remove('dropping'); show('upload'); setTimeout(() => show('done'), 1200); });
+  });
+</script>
+</body>
+</html>
