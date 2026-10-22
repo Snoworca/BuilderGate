@@ -22,6 +22,7 @@ import {
   matchesRestoreNeededSnapshotAuthorityProof,
 } from './visibleOutputRecovery.ts';
 import type {
+  EditorWaitInfo,
   ScreenRepairReconnectRequiredMessage,
   ScreenRepairRestoreNeededMessage,
   ScreenSnapshotMessage,
@@ -43,6 +44,8 @@ export interface GraceBufferedSessionState {
   status?: string;
   cwd?: string;
   error?: string;
+  /** FR-ARCH-014: the latest editor-wait state; undefined when none arrived. */
+  editorWait?: EditorWaitInfo | null;
 }
 
 /**
@@ -62,6 +65,7 @@ export interface TerminalGraceBufferFlushHandlers {
   onStatus?: (status: string) => void;
   onError?: (message: string) => void;
   onCwd?: (cwd: string) => void;
+  onEditorWait?: (editor: EditorWaitInfo | null) => void;
 }
 
 export function createGraceBufferedSessionState(): GraceBufferedSessionState {
@@ -290,6 +294,9 @@ export function applyGraceBufferedMessage(
     case 'session:exited':
       current.error = `Shell exited with code ${msg.exitCode}`;
       break;
+    case 'session:editor-wait':
+      current.editorWait = msg.editor;
+      break;
   }
 
   return current;
@@ -337,6 +344,9 @@ export function flushGraceBufferedSession(
   }
   if (buffered.cwd) {
     handlers.onCwd?.(buffered.cwd);
+  }
+  if (buffered.editorWait !== undefined) {
+    handlers.onEditorWait?.(buffered.editorWait);
   }
   if (!recoveryTerminal && recoverySnapshotReady) {
     for (const output of buffered.output) {

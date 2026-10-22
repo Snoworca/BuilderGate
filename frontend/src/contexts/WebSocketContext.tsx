@@ -14,6 +14,7 @@ import { setWsClientId } from '../services/api';
 import { isFileJobMessage, type FileJobServerMessage } from '../components/fileExplorer/fileJobEvents.ts';
 import type {
   ClientWsMessage,
+  EditorWaitInfo,
   ScreenRepairMessage,
   ScreenRepairReconnectRequiredMessage,
   ScreenRepairRejectedMessage,
@@ -152,6 +153,8 @@ export interface SessionHandlers {
   onStatus?: (status: string) => void;
   onError?: (message: string) => void;
   onCwd?: (cwd: string) => void;
+  /** FR-ARCH-014: the GUI editor this session waits on, or null when it no longer does. */
+  onEditorWait?: (editor: EditorWaitInfo | null) => void;
 }
 
 export type WorkspaceEventHandler = (data: unknown) => void;
@@ -1062,6 +1065,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           break;
         case 'session:exited':
           handlers.onError?.(`Shell exited with code ${msg.exitCode}`);
+          break;
+        case 'session:editor-wait':
+          handlers.onEditorWait?.(msg.editor);
           break;
       }
       return;

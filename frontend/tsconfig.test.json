@@ -23,6 +23,8 @@
   "include": ["src"],
   "files": [
     "./tests/unit/apiErrorMessages.test.ts",
+    "./tests/unit/terminalRedrawTabView.test.ts",
+    "./tests/unit/editorWaitBanner.test.ts",
     "./tests/unit/i18nTestSetup.ts",
     "./tests/unit/i18nGuards.test.ts",
     "./tests/unit/fileTransferConflictModal.test.ts",

@@ -38,6 +38,7 @@ import { AppError } from './utils/errors.js';
 import { createSessionSnapshotRoutes } from './routes/sessionSnapshotRoutes.js';
 import { SessionSnapshotService } from './services/SessionSnapshotService.js';
 import { listProcesses } from './services/agentSession/processList.js';
+import { EditorWaitMonitor } from './services/editorWait/editorWait.js';
 import { agentRootsForCwd } from './services/agentSession/agentRoots.js';
 import { createWorkspaceRoutes } from './routes/workspaceRoutes.js';
 import { createInternalShutdownRoutes, isLoopbackSocketAddress } from './routes/internalShutdownRoutes.js';
@@ -1958,6 +1959,14 @@ async function startServer(): Promise<void> {
       console.warn('[WS] fair-delivery artifact not accepted at boot', { reason: fairDeliveryWarmup.reason });
     }
     sessionManager.setWsRouter(wsRouter);
+    // FR-ARCH-014: tell the browser when a session waits on a GUI editor on this desktop.
+    const editorWaitMonitor = new EditorWaitMonitor({
+      listSessions: () => sessionManager.listEditorWaitSessions(),
+      listProcesses,
+      onChange: (sessionId, editor) => sessionManager.broadcastWs(sessionId, 'session:editor-wait', { editor }),
+    });
+    sessionManager.attachEditorWaitMonitor(editorWaitMonitor);
+    editorWaitMonitor.start();
     terminalAuthorityIntegration = attachProductionTerminalAuthority({
       sessionManager,
       wsRouter,

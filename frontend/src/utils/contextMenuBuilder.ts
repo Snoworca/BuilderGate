@@ -54,6 +54,12 @@ export interface BuildTerminalMenuOptions {
    * @req FR-ARCH-013
    */
   openPath?: TerminalMenuPathOptions;
+  /**
+   * Shrinks the PTY by a row and restores it so the program redraws at its real
+   * size. Optional for the same reason as onOpenFileExplorer.
+   * @req REL-BGSTAB-050
+   */
+  onRedrawScreen?: () => void;
 }
 
 export interface TerminalMenuPathOptions {
@@ -83,6 +89,7 @@ export function buildTerminalContextMenuItems(
     moveWorkspace,
     onOpenFileExplorer,
     openPath,
+    onRedrawScreen,
   } = options;
 
   const newSessionItem: ContextMenuItem =
@@ -185,6 +192,16 @@ export function buildTerminalContextMenuItems(
         void onPaste();
       },
     },
+    // REL-BGSTAB-050 AC-2: the manual repair, which phones cannot reach by middle click.
+    ...(onRedrawScreen
+      ? [
+          {
+            label: t('contextMenu.redrawScreen'),
+            icon: 'refresh',
+            onClick: onRedrawScreen,
+          } satisfies ContextMenuItem,
+        ]
+      : []),
   ];
 
   const registeredPresetItem = registeredPresetMenu

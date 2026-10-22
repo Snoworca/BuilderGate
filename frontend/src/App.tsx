@@ -367,6 +367,10 @@ function AppContent() {
   const hasTerminalSelection = useCallback((tabId: string): boolean => {
     return terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false;
   }, []);
+  // REL-BGSTAB-050 AC-2: the terminal menu's "redraw screen" on any surface.
+  const redrawTerminal = useCallback((tabId: string) => {
+    terminalRefsMap.current.get(tabId)?.current?.requestGridRepair?.('manual');
+  }, []);
   // FR-ARCH-013: the file paths near a menu press and on screen, read when the menu is built.
   const getTerminalPathsAt = useCallback((tabId: string, x: number, y: number): TerminalPathsAtPoint => (
     terminalRefsMap.current.get(tabId)?.current?.getPathsAt(x, y) ?? { near: null, screen: [] }
@@ -782,6 +786,7 @@ function AppContent() {
         screenPending: tabMenuScreen.pending,
         onOpen: (target) => openTerminalPathFromMenu(targetTab.id, target),
       },
+      onRedrawScreen: () => redrawTerminal(targetTab.id),
       registeredPresetMenu: {
         presets: registeredPresetSnapshot,
         onSelectPreset: (preset) => handleRegisteredPresetPaste(tabContextMenu.targetId!, preset),
@@ -791,6 +796,7 @@ function AppContent() {
     tabContextMenu.targetId,
     tabMenuScreen,
     openTerminalPathFromMenu,
+    redrawTerminal,
     wm.activeWorkspaceTabs,
     availableShells,
     handleAddTab,
@@ -1044,6 +1050,7 @@ function AppContent() {
                       renderTerminal={renderTerminal}
                       availableShells={availableShells}
                       hasTerminalSelection={hasTerminalSelection}
+                      onRedrawTerminal={redrawTerminal}
                       isTerminalMouseTracking={isTerminalMouseTracking}
                       copyTerminalSelection={copyTerminalSelection}
                       pasteTerminalClipboard={pasteTerminalClipboard}
