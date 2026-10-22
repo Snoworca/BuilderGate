@@ -9,6 +9,7 @@ import { useAuth } from './contexts/AuthContext';
 import { t } from './i18n/i18n.ts';
 import { useHeartbeat } from './hooks/useHeartbeat';
 import { useResponsive } from './hooks/useResponsive';
+import { useVerifiedScreenPaths } from './hooks/useVerifiedScreenPaths';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useContextMenu } from './hooks/useContextMenu';
 import { useTerminalRuntimeResidency } from './hooks/useTerminalRuntimeResidency';
@@ -732,13 +733,23 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [explorerWindows, explorer.reviveFileExplorer, explorer.openFileExplorer, wm.workspaces]);
 
+  // FR-ARCH-013 AC-8: read once per menu, so its screen paths are checked once.
+  const tabMenuPaths = useMemo(() => (
+    tabContextMenu.targetId
+      ? getTerminalPathsAt(tabContextMenu.targetId, tabContextMenu.position.x, tabContextMenu.position.y)
+      : null
+  ), [tabContextMenu.targetId, tabContextMenu.position, getTerminalPathsAt]);
+  const tabMenuSessionId = tabContextMenu.targetId
+    ? wm.activeWorkspaceTabs.find(t => t.id === tabContextMenu.targetId)?.sessionId ?? null
+    : null;
+  const tabMenuScreen = useVerifiedScreenPaths(tabMenuSessionId, tabMenuPaths?.screen ?? null);
+
   const tabContextMenuItems = useMemo(() => {
     if (!tabContextMenu.targetId) return [];
     const targetTab = wm.activeWorkspaceTabs.find(t => t.id === tabContextMenu.targetId);
     if (!targetTab) return [];
     const tabRef = terminalRefsMap.current.get(tabContextMenu.targetId);
     const hasSelection = tabRef?.current?.hasSelection() ?? false;
-    const paths = getTerminalPathsAt(targetTab.id, tabContextMenu.position.x, tabContextMenu.position.y);
     return buildTerminalContextMenuItems({
       tab: targetTab,
       tabs: wm.activeWorkspaceTabs,
@@ -764,7 +775,12 @@ function AppContent() {
         },
       },
       onOpenFileExplorer: () => openTabFileExplorer(targetTab.id),
-      openPath: { ...paths, onOpen: (target) => openTerminalPathFromMenu(targetTab.id, target) },
+      openPath: {
+        near: tabMenuPaths?.near ?? null,
+        screen: tabMenuScreen.screen,
+        screenPending: tabMenuScreen.pending,
+        onOpen: (target) => openTerminalPathFromMenu(targetTab.id, target),
+      },
       registeredPresetMenu: {
         presets: registeredPresetSnapshot,
         onSelectPreset: (preset) => handleRegisteredPresetPaste(tabContextMenu.targetId!, preset),
@@ -773,7 +789,8 @@ function AppContent() {
   }, [
     tabContextMenu.targetId,
     tabContextMenu.position,
-    getTerminalPathsAt,
+    tabMenuPaths,
+    tabMenuScreen,
     openTerminalPathFromMenu,
     wm.activeWorkspaceTabs,
     availableShells,

@@ -59,6 +59,8 @@ export interface BuildTerminalMenuOptions {
 export interface TerminalMenuPathOptions {
   near: TerminalPathTarget | null;
   screen: TerminalPathTarget[];
+  /** FR-ARCH-013 AC-8: the screen paths are still being checked with the server. */
+  screenPending?: boolean;
   onOpen: (target: TerminalPathTarget) => void;
 }
 
@@ -151,7 +153,9 @@ export function buildTerminalContextMenuItems(
           {
             label: t('contextMenu.screenFiles'),
             icon: 'document',
-            disabled: openPath.screen.length === 0,
+            disabled: openPath.screenPending === true || openPath.screen.length === 0,
+            // AC-8: shown disabled while the server checks which paths can be opened.
+            ...(openPath.screenPending === true ? { description: t('contextMenu.screenFiles.checking') } : {}),
             // AC-4: with no children and no action the menu would drop the entry
             // instead of showing it disabled.
             onClick: openPath.screen.length === 0 ? () => undefined : undefined,

@@ -1224,6 +1224,7 @@
   "fileExplorer.modal.moreItems.other": "외 {count}개",
   "contextMenu.openPath": "{name} 열기",
   "contextMenu.screenFiles": "화면의 파일",
+  "contextMenu.screenFiles.checking": "확인 중…",
   "terminalPath.openFailedTitle": "파일을 열 수 없습니다",
   "terminalPath.isDirectory": "이 경로는 폴더입니다.",
   "terminalPath.unsupported": "열 수 없는 형식의 파일입니다.",

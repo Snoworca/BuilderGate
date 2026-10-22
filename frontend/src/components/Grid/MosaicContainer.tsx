@@ -43,6 +43,7 @@ import type {
 import { t } from '../../i18n/i18n.ts';
 import type { TerminalPathsAtPoint } from '../../utils/terminalPathLinks';
 import type { TerminalPathTarget } from '../../utils/terminalPathDetection';
+import { useVerifiedScreenPaths } from '../../hooks/useVerifiedScreenPaths';
 
 interface MosaicContainerProps {
   tabs: WorkspaceTabRuntime[];
@@ -711,6 +712,15 @@ export function MosaicContainer({
     setRegisteredPresetSnapshot([]);
   }, [contextMenu]);
 
+  // FR-ARCH-013 AC-8: read once per menu, so its screen paths are checked once.
+  const menuPaths = useMemo(() => (
+    contextMenu.targetId && contextMenu.position && getTerminalPathsAt
+      ? getTerminalPathsAt(contextMenu.targetId, contextMenu.position.x, contextMenu.position.y)
+      : null
+  ), [contextMenu.targetId, contextMenu.position, getTerminalPathsAt]);
+  const menuSessionId = contextMenu.targetId ? tabMap.get(contextMenu.targetId)?.sessionId ?? null : null;
+  const menuScreen = useVerifiedScreenPaths(menuSessionId, menuPaths?.screen ?? null);
+
   // Build context menu items for the target tab
   const buildMenuItems = useCallback(
     (tabId: string) => {
@@ -740,7 +750,9 @@ export function MosaicContainer({
         onOpenFileExplorer: onOpenFileExplorer ? () => onOpenFileExplorer(tabId) : undefined,
         openPath: getTerminalPathsAt && onOpenTerminalPath
           ? {
-            ...getTerminalPathsAt(tabId, contextMenu.position.x, contextMenu.position.y),
+            near: menuPaths?.near ?? null,
+            screen: menuScreen.screen,
+            screenPending: menuScreen.pending,
             onOpen: (target: TerminalPathTarget) => onOpenTerminalPath(tabId, target),
           }
           : undefined,
@@ -764,7 +776,8 @@ export function MosaicContainer({
       onOpenFileExplorer,
       getTerminalPathsAt,
       onOpenTerminalPath,
-      contextMenu.position,
+      menuPaths,
+      menuScreen,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,
     ],

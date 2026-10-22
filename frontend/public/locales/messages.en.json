@@ -1266,6 +1266,7 @@
   "fileExplorer.modal.moreItems.other": "and {count} more",
   "contextMenu.openPath": "Open {name}",
   "contextMenu.screenFiles": "Files on screen",
+  "contextMenu.screenFiles.checking": "Checking…",
   "terminalPath.openFailedTitle": "Cannot open the file",
   "terminalPath.isDirectory": "This path is a folder.",
   "terminalPath.unsupported": "This type of file cannot be opened.",
