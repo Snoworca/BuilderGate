@@ -5,6 +5,7 @@ import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
 import { TerminalView } from './TerminalView';
 import type { GridRepairReason, TerminalHandle, TerminalPasteInputResult } from './TerminalView';
 import { planRedrawNudge, REDRAW_NUDGE_GAP_MS } from './terminalRedrawNudge';
+import { createResizeSendLedger } from './terminalResizeSendLedger';
 import type { TerminalShortcutState } from '../../types';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
 import {
@@ -278,7 +279,7 @@ export const TerminalContainer = memo(
     const pendingGridScreenRepairRef = useRef<GridRepairReason | null>(null);
     const flushPendingGridScreenRepairRef = useRef<() => void>(() => {});
     const lastResizeRef = useRef<{ cols: number; rows: number } | null>(null);
-    const lastSentResizeRef = useRef<{ cols: number; rows: number } | null>(null);
+    const resizeSendLedgerRef = useRef(createResizeSendLedger());
     const screenRepairInFlightRef = useRef<{
       sessionId: string;
       cols: number;
@@ -1181,7 +1182,7 @@ export const TerminalContainer = memo(
         reconnectTtlTimerRef.current = null;
       }
       lastResizeRef.current = null;
-      lastSentResizeRef.current = null;
+      resizeSendLedgerRef.current.reset();
       lastStatusRef.current = null;
       inputSequencerRef.current?.reset(1);
       inputSequencerEpochRef.current = createInputSequencerEpoch();
@@ -1238,8 +1239,8 @@ export const TerminalContainer = memo(
     }, [isVisible, publishTerminalDeliveryVisibility, sessionId]);
 
     const sendResizeIfNeeded = useCallback((cols: number, rows: number, reason: string) => {
-      const lastSent = lastSentResizeRef.current;
-      if (lastSent && lastSent.cols === cols && lastSent.rows === rows) {
+      const ledger = resizeSendLedgerRef.current;
+      if (!ledger.needsSend({ cols, rows })) {
         recordTerminalDebugEvent(sessionId, 'grid_repair_resize_suppressed', {
           reason,
           cols,
@@ -1254,8 +1255,9 @@ export const TerminalContainer = memo(
         rows,
       });
       const resizeResult = send({ type: 'resize', sessionId, cols, rows });
+      // REL-BGSTAB-038 AC-6: an undelivered size stays unsent; the socket opening resends it.
+      ledger.recordSend({ cols, rows }, resizeResult.ok);
       if (resizeResult.ok) {
-        lastSentResizeRef.current = { cols, rows };
         return;
       }
 
@@ -1265,6 +1267,30 @@ export const TerminalContainer = memo(
         reconnectState: wsStatusRef.current,
       });
     }, [send, sessionId]);
+
+    // REL-BGSTAB-038 AC-6/AC-7: a server that restarted rebuilds the PTY at its
+    // default size, and a resize dropped while the socket was closed never
+    // arrives. The browser terminal keeps its size, so nothing else resends it.
+    const previousWsStatusForResizeRef = useRef(wsStatus);
+    useEffect(() => {
+      const previous = previousWsStatusForResizeRef.current;
+      previousWsStatusForResizeRef.current = wsStatus;
+      if (wsStatus !== 'connected' || previous === 'connected') return;
+      const geometry = resizeSendLedgerRef.current.forgetAndResend(lastResizeRef.current);
+      if (geometry) sendResizeIfNeeded(geometry.cols, geometry.rows, 'ws-connected-resend');
+    }, [sendResizeIfNeeded, wsStatus]);
+
+    // REL-BGSTAB-038 AC-8: the PTY is shared. While this terminal was hidden another
+    // view or client may have resized it, and showing it again changes no browser
+    // size, so the size this screen draws at is asserted once more.
+    const previousVisibleForResizeRef = useRef(isVisible);
+    useEffect(() => {
+      const wasVisible = previousVisibleForResizeRef.current;
+      previousVisibleForResizeRef.current = isVisible;
+      if (!isVisible || wasVisible) return;
+      const geometry = resizeSendLedgerRef.current.forgetAndResend(lastResizeRef.current);
+      if (geometry) sendResizeIfNeeded(geometry.cols, geometry.rows, 'reveal-resend');
+    }, [isVisible, sendResizeIfNeeded]);
 
     const shouldSuppressScreenRepairRequest = useCallback((
       reason: GridRepairReason,
