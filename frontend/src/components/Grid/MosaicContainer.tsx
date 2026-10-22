@@ -90,6 +90,8 @@ interface MosaicContainerProps {
   onPathContextMenu?: (x: number, y: number, tabId: string) => void;
   /** Opens the file explorer for a tile's tab. @req FR-FEX-010 */
   onOpenFileExplorer?: (tabId: string) => void;
+  /** The terminal menu's "redraw screen". @req REL-BGSTAB-050 */
+  onRedrawTerminal?: (tabId: string) => void;
 }
 
 function buildMissingTerminalClipboardResult(): TerminalClipboardActionResult {
@@ -122,6 +124,7 @@ export function MosaicContainer({
   hasTerminalSelection,
   getTerminalPathsAt,
   onOpenTerminalPath,
+  onRedrawTerminal,
   isTerminalMouseTracking,
   copyTerminalSelection,
   pasteTerminalClipboard,
@@ -744,6 +747,7 @@ export function MosaicContainer({
             onOpen: (target: TerminalPathTarget) => onOpenTerminalPath(tabId, target),
           }
           : undefined,
+        onRedrawScreen: onRedrawTerminal ? () => onRedrawTerminal(tabId) : undefined,
         registeredPresetMenu: {
           presets: registeredPresetSnapshot,
           onSelectPreset: (preset) => handleRegisteredPresetPaste(tabId, preset),
@@ -764,6 +768,7 @@ export function MosaicContainer({
       onOpenFileExplorer,
       getTerminalPathsAt,
       onOpenTerminalPath,
+      onRedrawTerminal,
       contextMenu.position,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,

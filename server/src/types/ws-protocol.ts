@@ -957,6 +957,8 @@ export type ServerWsMessage =
   | { type: 'cwd';            sessionId: string; cwd: string }
   | { type: 'session:error';  sessionId: string; message: string }
   | { type: 'session:exited'; sessionId: string; exitCode: number }
+  // FR-ARCH-014: a GUI editor on the server's desktop that the session waits on, or null.
+  | { type: 'session:editor-wait'; sessionId: string; editor: EditorWaitInfo | null }
   // File-job events — fileJobManager 가 broadcastWs 로 보내고 라우터가 sessionId 봉투를 씌운다
   | { type: 'file-job:progress'; sessionId: string; jobId: string; phase: 'scanning' | 'transferring'; processedBytes: number; totalBytes: number; processedEntries: number; totalEntries: number; currentPath: string | null }
   | { type: 'file-job:decision-required'; sessionId: string; jobId: string; decisionId: string; kind: 'conflict' | 'error'; path: string; detail: string | null; choices: Array<'overwrite' | 'rename' | 'skip' | 'retry'> }
@@ -981,6 +983,12 @@ export type ServerWsMessage =
   // Connection events
   | { type: 'connected'; clientId: string }
   | { type: 'pong' };
+
+export interface EditorWaitInfo {
+  pid: number;
+  name: string;
+  startedAtMs: number | null;
+}
 
 export interface SubscribedSessionInfo {
   sessionId: string;
