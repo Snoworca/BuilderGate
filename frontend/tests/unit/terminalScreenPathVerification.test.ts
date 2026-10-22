@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { buildTerminalContextMenuItems, type BuildTerminalMenuOptions } from '../../src/utils/contextMenuBuilder.ts';
 import { verifyScreenPaths } from '../../src/utils/terminalPathVerification.ts';
+import { findPathsInRows } from '../../src/utils/terminalPathDetection.ts';
 import type { PathStat } from '../../src/types/index.ts';
 
 // FR-ARCH-013 AC-8: "화면의 파일" listed every path-like text on screen, and a
@@ -66,5 +67,42 @@ test('FR-ARCH-013 AC-8: both terminal menus list the verified paths', () => {
     const source = readFileSync(new URL(file, import.meta.url), 'utf8');
     assert.match(source, /useVerifiedScreenPaths\(/, `${file} does not verify the screen paths`);
     assert.match(source, /screenPending/, `${file} does not pass the checking state`);
+  }
+});
+
+// FR-ARCH-012 AC-9: a WSL shell prints BuilderGate's own shell-integration line,
+// PROMPT_COMMAND='printf "%s" "$PWD" > "/mnt/c/.../buildergate-cwd-<id>.txt"', and
+// that internal file was offered as "<name> 열기"; from a WSL home it answered
+// PATH_TRAVERSAL (user report 2026-10-22, reproduced on 2222).
+
+const row = (text: string) => ({ text, colOf: [...text].map((_, i) => i), isWrapped: false });
+
+test('FR-ARCH-012 AC-9: the shell-integration cwd file is not a path', () => {
+  const line = `PROMPT_COMMAND='printf "%s" "$PWD" > "/mnt/c/Users/beom/AppData/Local/Temp/buildergate-cwd-fe22e16d-8d0e-48c6-9854-3585948322c7.txt"' see docs/a.md`;
+  const paths = findPathsInRows([row(line)], 400).map(found => found.path);
+  assert.deepEqual(paths, ['docs/a.md']);
+  const windows = findPathsInRows([row('C:\\Users\\beom\\AppData\\Local\\Temp\\buildergate-cwd-1.txt')], 200);
+  assert.deepEqual(windows, []);
+});
+
+test('FR-ARCH-013 AC-9: the open item near the press is disabled as checking until confirmed', () => {
+  const near = target('docs/a.md');
+  const pending = buildTerminalContextMenuItems(base({ near, nearPending: true, screen: [], onOpen: () => undefined }));
+  const first = pending[0];
+  assert.ok(first && !first.separator);
+  assert.equal(first.label, 'a.md 열기');
+  assert.equal(first.disabled, true);
+  assert.equal(first.description, '확인 중…');
+
+  const confirmed = buildTerminalContextMenuItems(base({ near, nearPending: false, screen: [], onOpen: () => undefined }));
+  const ready = confirmed[0];
+  assert.ok(ready && !ready.separator);
+  assert.notEqual(ready.disabled, true);
+});
+
+test('FR-ARCH-013 AC-9: both menus take the verified near path', () => {
+  for (const file of ['../../src/App.tsx', '../../src/components/Grid/MosaicContainer.tsx']) {
+    const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.match(source, /nearPending/, `${file} does not pass the near checking state`);
   }
 });

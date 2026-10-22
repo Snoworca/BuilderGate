@@ -742,7 +742,7 @@ function AppContent() {
   const tabMenuSessionId = tabContextMenu.targetId
     ? wm.activeWorkspaceTabs.find(t => t.id === tabContextMenu.targetId)?.sessionId ?? null
     : null;
-  const tabMenuScreen = useVerifiedScreenPaths(tabMenuSessionId, tabMenuPaths?.screen ?? null);
+  const tabMenuScreen = useVerifiedScreenPaths(tabMenuSessionId, tabMenuPaths);
 
   const tabContextMenuItems = useMemo(() => {
     if (!tabContextMenu.targetId) return [];
@@ -776,7 +776,8 @@ function AppContent() {
       },
       onOpenFileExplorer: () => openTabFileExplorer(targetTab.id),
       openPath: {
-        near: tabMenuPaths?.near ?? null,
+        near: tabMenuScreen.near,
+        nearPending: tabMenuScreen.nearPending,
         screen: tabMenuScreen.screen,
         screenPending: tabMenuScreen.pending,
         onOpen: (target) => openTerminalPathFromMenu(targetTab.id, target),
@@ -788,8 +789,6 @@ function AppContent() {
     });
   }, [
     tabContextMenu.targetId,
-    tabContextMenu.position,
-    tabMenuPaths,
     tabMenuScreen,
     openTerminalPathFromMenu,
     wm.activeWorkspaceTabs,

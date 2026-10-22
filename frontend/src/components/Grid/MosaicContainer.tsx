@@ -719,7 +719,7 @@ export function MosaicContainer({
       : null
   ), [contextMenu.targetId, contextMenu.position, getTerminalPathsAt]);
   const menuSessionId = contextMenu.targetId ? tabMap.get(contextMenu.targetId)?.sessionId ?? null : null;
-  const menuScreen = useVerifiedScreenPaths(menuSessionId, menuPaths?.screen ?? null);
+  const menuScreen = useVerifiedScreenPaths(menuSessionId, menuPaths);
 
   // Build context menu items for the target tab
   const buildMenuItems = useCallback(
@@ -750,7 +750,8 @@ export function MosaicContainer({
         onOpenFileExplorer: onOpenFileExplorer ? () => onOpenFileExplorer(tabId) : undefined,
         openPath: getTerminalPathsAt && onOpenTerminalPath
           ? {
-            near: menuPaths?.near ?? null,
+            near: menuScreen.near,
+            nearPending: menuScreen.nearPending,
             screen: menuScreen.screen,
             screenPending: menuScreen.pending,
             onOpen: (target: TerminalPathTarget) => onOpenTerminalPath(tabId, target),
@@ -776,7 +777,6 @@ export function MosaicContainer({
       onOpenFileExplorer,
       getTerminalPathsAt,
       onOpenTerminalPath,
-      menuPaths,
       menuScreen,
       registeredPresetSnapshot,
       handleRegisteredPresetPaste,

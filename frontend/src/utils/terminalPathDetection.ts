@@ -144,6 +144,15 @@ function detect(text: string): Array<{ path: string; start: number; end: number 
   return found;
 }
 
+// FR-ARCH-012 AC-9: the file the server makes for a shell to report its folder
+// (SessionManager: <tmp>/buildergate-cwd-<session>.txt). A WSL shell prints the
+// PROMPT_COMMAND that writes it; it is BuilderGate's, never the user's file.
+const INTERNAL_CWD_FILE = /(?:^|[\\/])buildergate-cwd-[^\\/]+\.txt$/i;
+
+function isInternalPath(path: string): boolean {
+  return INTERNAL_CWD_FILE.test(path);
+}
+
 /** FR-ARCH-012 AC-1~AC-5: the openable file paths in the rows, in reading order. */
 export function findPathsInRows(rows: readonly TerminalRowText[], cols: number): TerminalPathRange[] {
   const found: TerminalPathRange[] = [];
@@ -185,7 +194,9 @@ export function findPathsInRows(rows: readonly TerminalRowText[], cols: number):
       if (range) found.push(range);
     }
   }
-  return found.sort((a, b) => a.startRow - b.startRow || a.startCol - b.startCol);
+  return found
+    .filter(range => !isInternalPath(range.path))
+    .sort((a, b) => a.startRow - b.startRow || a.startCol - b.startCol);
 }
 
 /** The cells a path takes on one row, or null when it does not touch that row. */

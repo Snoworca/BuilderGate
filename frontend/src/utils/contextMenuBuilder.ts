@@ -61,6 +61,8 @@ export interface TerminalMenuPathOptions {
   screen: TerminalPathTarget[];
   /** FR-ARCH-013 AC-8: the screen paths are still being checked with the server. */
   screenPending?: boolean;
+  /** FR-ARCH-013 AC-9: the path near the press is still being checked with the server. */
+  nearPending?: boolean;
   onOpen: (target: TerminalPathTarget) => void;
 }
 
@@ -198,8 +200,12 @@ export function buildTerminalContextMenuItems(
     items.unshift(
       {
         label: t('contextMenu.openPath', { name: fileNameOf(near.path) }),
-        description: folderLabelOf(near.path, tab?.cwd ?? ''),
+        description: openPath.nearPending === true
+          ? t('contextMenu.screenFiles.checking')
+          : folderLabelOf(near.path, tab?.cwd ?? ''),
         icon: 'document',
+        // AC-9: disabled until the server confirms it opens.
+        ...(openPath.nearPending === true ? { disabled: true } : {}),
         onClick: () => openPath.onOpen(near),
       },
       { separator: true },
