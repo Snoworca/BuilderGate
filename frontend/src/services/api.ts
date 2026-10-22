@@ -9,6 +9,7 @@ import { tokenStorage } from './tokenStorage.ts';
 import { authFetchWithRetry } from './authRetry.ts';
 import { parseApiErrorPayload } from './apiError.ts';
 import { t } from '../i18n/i18n.ts';
+import type { EditorWaitInfo } from '../types/ws-protocol.ts';
 export { parseApiErrorPayload } from './apiError.ts';
 import { createFileJobClient } from '../components/fileExplorer/fileJobClient.ts';
 import { createFileTransferClient, type XhrLike } from '../components/fileExplorer/fileTransferClient.ts';
@@ -277,6 +278,29 @@ export const sessionApi = {
         ...getAuthHeaders()
       },
       body: JSON.stringify({ direction }),
+    });
+    if (!res.ok) throw await parseError(res);
+  },
+
+  // FR-ARCH-014 AC-2: the GUI editor the session already waits on when a terminal attaches.
+  getEditorWait: async (sessionId: string): Promise<EditorWaitInfo | null> => {
+    const res = await authFetch(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}/editor-wait`, {
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) throw await parseError(res);
+    const body = await res.json() as { editor?: EditorWaitInfo | null };
+    return body.editor ?? null;
+  },
+
+  // FR-ARCH-014 AC-4: ends the GUI editor the session waits on, named by the pid the notice showed.
+  closeEditorWait: async (sessionId: string, pid: number): Promise<void> => {
+    const res = await authFetch(`${API_BASE}/sessions/${encodeURIComponent(sessionId)}/editor-wait/close`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ pid }),
     });
     if (!res.ok) throw await parseError(res);
   },

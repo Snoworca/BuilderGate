@@ -1,4 +1,7 @@
-import { memo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle, useEffectEvent } from 'react';
+import { memo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle, useEffectEvent, useState } from 'react';
+import { EditorWaitBanner } from './EditorWaitBanner';
+import { sessionApi } from '../../services/api';
+import type { EditorWaitInfo } from '../../types/ws-protocol';
 import { useWebSocketActions, useWebSocketState } from '../../contexts/WebSocketContext';
 import type { SendResult } from '../../contexts/WebSocketContext';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
@@ -274,7 +277,27 @@ export const TerminalContainer = memo(
     const visibleRepairTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const resizeRepairTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const gridRepairInFlightRef = useRef<Promise<void> | null>(null);
-    const gridVisibleRef = useRef(false);
+    // The surface the terminal was last visible on, or null while hidden.
+    const gridVisibleRef = useRef<'tab' | 'grid' | null>(null);
+    // FR-ARCH-014: the GUI editor on the server's desktop this session waits on.
+    const [editorWait, setEditorWait] = useState<EditorWaitInfo | null>(null);
+    const editorWaitLiveSeenRef = useRef(false);
+    const handleEditorWait = useCallback((editor: EditorWaitInfo | null) => {
+      editorWaitLiveSeenRef.current = true;
+      setEditorWait(editor);
+    }, []);
+    // AC-2: a wait that began before this terminal attached. A live message that
+    // arrived first is newer than this read and wins.
+    useEffect(() => {
+      editorWaitLiveSeenRef.current = false;
+      let cancelled = false;
+      sessionApi.getEditorWait(sessionId).then((editor) => {
+        if (!cancelled && !editorWaitLiveSeenRef.current) setEditorWait(editor);
+      }).catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, [sessionId]);
     const pendingGridScreenRepairRef = useRef<GridRepairReason | null>(null);
     const flushPendingGridScreenRepairRef = useRef<() => void>(() => {});
     const lastResizeRef = useRef<{ cols: number; rows: number } | null>(null);
@@ -1166,7 +1189,7 @@ export const TerminalContainer = memo(
         visibleRepairTimerRef.current = null;
       }
       gridRepairInFlightRef.current = null;
-      gridVisibleRef.current = false;
+      gridVisibleRef.current = null;
       pendingGridScreenRepairRef.current = null;
       screenRepairInFlightRef.current = null;
       lastCompletedScreenRepairRef.current = null;
@@ -2144,8 +2167,10 @@ export const TerminalContainer = memo(
       }, REDRAW_NUDGE_GAP_MS);
     }), [sendResizeIfNeeded, sessionId]);
 
+    // REL-BGSTAB-050: tab-view terminals run it too; a program drawn for another
+    // size stayed that way through reloads when only grid panes were nudged.
     const runGridLayoutRepair = useCallback((reason: GridRepairReason) => {
-      if (!isVisibleRef.current || !isGridSurfaceRef.current) {
+      if (!isVisibleRef.current) {
         return;
       }
 
@@ -3590,6 +3615,7 @@ export const TerminalContainer = memo(
         onStatus: handleStatus,
         onError: handleError,
         onCwd: handleCwd,
+        onEditorWait: handleEditorWait,
       });
       return unsubscribe;
     }, [
@@ -3633,11 +3659,13 @@ export const TerminalContainer = memo(
     }, [requestScreenRepair, sendResizeIfNeeded]);
 
     useEffect(() => {
-      const nextVisible = isVisible && isGridSurface;
-      const wasVisible = gridVisibleRef.current;
-      gridVisibleRef.current = nextVisible;
+      // REL-BGSTAB-050 AC-1: a tab-view terminal becoming visible is nudged too,
+      // and so is a switch between the tab view and the grid (REL-BGSTAB-047).
+      const nextSurface = isVisible ? (isGridSurface ? 'grid' : 'tab') : null;
+      const wasSurface = gridVisibleRef.current;
+      gridVisibleRef.current = nextSurface;
 
-      if (!nextVisible || wasVisible) {
+      if (!nextSurface || nextSurface === wasSurface) {
         return;
       }
 
@@ -3886,11 +3914,12 @@ export const TerminalContainer = memo(
 
     return (
       <div
-        style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }}
+        style={{ display: isVisible ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0, position: 'relative' }}
         onPointerDownCapture={handlePointerDownCapture}
         onMouseDownCapture={handleMouseDownCapture}
         onAuxClickCapture={handleMouseDownCapture}
       >
+        <EditorWaitBanner sessionId={sessionId} editor={editorWait} />
         <TerminalView
           ref={terminalRef}
           sessionId={sessionId}

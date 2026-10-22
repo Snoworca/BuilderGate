@@ -127,6 +127,14 @@ import {
 } from '../ws/terminalStreamEpoch.js';
 import { HermesForegroundDetector } from './HermesForegroundDetector.js';
 import { AgentOutputHintTracker } from './agentSession/agentOutputHints.js';
+import { listProcesses } from './agentSession/processList.js';
+import {
+  closeEditorWait,
+  type CloseEditorWaitResult,
+  type EditorWait,
+  type EditorWaitMonitor,
+  type EditorWaitSession,
+} from './editorWait/editorWait.js';
 import type { AgentOutputHint } from './agentSession/agentSessionResolver.js';
 
 interface EchoTracker {
@@ -4213,6 +4221,35 @@ export class SessionManager {
   getPtyPid(sessionId: string): number | null {
     const data = this.sessions.get(sessionId);
     return data ? data.pty.pid : null;
+  }
+
+  // FR-ARCH-014: GUI editors on this desktop that a session is waiting on.
+  private editorWaitMonitor: EditorWaitMonitor | null = null;
+
+  attachEditorWaitMonitor(monitor: EditorWaitMonitor): void {
+    this.editorWaitMonitor = monitor;
+  }
+
+  listEditorWaitSessions(): EditorWaitSession[] {
+    return [...this.sessions.entries()].map(([sessionId, data]) => ({ sessionId, shellPid: data.pty.pid ?? null }));
+  }
+
+  getEditorWait(sessionId: string): EditorWait | null {
+    return this.editorWaitMonitor?.get(sessionId) ?? null;
+  }
+
+  /** FR-ARCH-014 AC-4. Null when the session does not exist. */
+  async closeEditorWait(sessionId: string, pid: number): Promise<CloseEditorWaitResult | null> {
+    if (!this.sessions.has(sessionId)) return null;
+    const result = await closeEditorWait({
+      current: this.getEditorWait(sessionId),
+      requestedPid: pid,
+      shellPid: this.getPtyPid(sessionId),
+      listProcesses,
+      kill: (target) => process.kill(target),
+    });
+    if (result.ok) this.editorWaitMonitor?.markClosed(sessionId, pid);
+    return result;
   }
 
   getInitialCwd(sessionId: string): string | null {

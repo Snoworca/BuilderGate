@@ -135,6 +135,36 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
     res.status(204).send();
   });
 
+  // GET /api/sessions/:id/editor-wait - the GUI editor the session waits on, for a terminal that attaches late (FR-ARCH-014 AC-2)
+  router.get('/:id/editor-wait', (req: Request<{ id: string }>, res: Response) => {
+    if (!sessionManager.hasSession(req.params.id)) {
+      return res.status(404).json({ error: { code: ErrorCode.SESSION_NOT_FOUND, message: 'Session not found' } });
+    }
+    res.json({ editor: sessionManager.getEditorWait(req.params.id) });
+  });
+
+  // POST /api/sessions/:id/editor-wait/close - end the GUI editor the session waits on (FR-ARCH-014 AC-4)
+  router.post('/:id/editor-wait/close', async (req: Request<{ id: string }, {}, { pid?: unknown }>, res: Response) => {
+    const pid = req.body?.pid;
+    if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) {
+      return res.status(400).json({ error: { code: ErrorCode.INVALID_INPUT, message: 'pid must be a positive integer' } });
+    }
+    try {
+      const result = await sessionManager.closeEditorWait(req.params.id, pid);
+      if (!result) {
+        return res.status(404).json({ error: { code: ErrorCode.SESSION_NOT_FOUND, message: 'Session not found' } });
+      }
+      if (!result.ok) {
+        return res.status(409).json({ error: { code: result.code, message: 'That editor is not the one this session is waiting on' } });
+      }
+      res.status(204).send();
+    } catch (error) {
+      // Express 4 does not catch a rejected handler; a failed process query or kill lands here.
+      console.error('[Sessions] closing the waited-on editor failed:', error);
+      res.status(500).json({ error: { code: ErrorCode.INTERNAL_ERROR, message: 'Could not close the editor' } });
+    }
+  });
+
   // NOTE: POST /:id/input, POST /:id/resize, GET /:id/stream
   // have been removed — now handled via WebSocket (Step 8)
 
