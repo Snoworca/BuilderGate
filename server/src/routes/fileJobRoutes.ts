@@ -22,7 +22,7 @@ import {
 import { validateCreatePath, type FileJobPathPolicy } from '../services/fileJobs/fileJobPaths.js';
 import type { FileJobConflictChoice, FileJobSpec } from '../services/fileJobs/fileJobRunner.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
-import { isSessionRootTarget } from '../utils/pathValidator.js';
+import { isSessionRootTarget, toHostPath } from '../utils/pathValidator.js';
 import { archiveFormatOf } from '../services/archive/archiveReader.js';
 
 const OPERATIONS: readonly FileJobSpec['operation'][] = ['copy', 'move', 'delete', 'extract'];
@@ -82,6 +82,33 @@ function requireAbsolute(p: string, field: string): string {
   return p;
 }
 
+/** A Linux path ('/home/me', one leading slash) that a win32 server can only place once it knows the session. */
+function isLinuxRootedPath(p: string): boolean {
+  return /^\/(?![\\/])/.test(p);
+}
+
+/**
+ * IR-FOP-001 AC-10: a WSL terminal reports '/home/me/x', and the explorer sends that back. On a win32
+ * server the session's cwd is the distro's UNC share (\\wsl.localhost\Ubuntu\home\me), so the Linux path
+ * is rooted at that share — exactly how the file API already resolves it against the cwd. '/mnt/<d>/…'
+ * names a drive. Under a drive cwd a rooted path has no anchor and is left as sent, for AC-8 to refuse.
+ */
+// @req IR-FOP-001
+export function toSessionHostPath(p: string, sessionCwd: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform !== 'win32' || !isLinuxRootedPath(p)) return p;
+  const mounted = toHostPath(p, platform);
+  if (mounted !== p) return mounted;
+  const root = path.win32.parse(sessionCwd).root;
+  if (!isUncShareRootedPath(root)) return p;
+  return path.win32.join(root, p);
+}
+
+/** Parse-time check. A Linux path on win32 is checked again once the session has placed it. */
+function requireAbsoluteOrSessionRooted(p: string, field: string): string {
+  if (process.platform === 'win32' && isLinuxRootedPath(p)) return p;
+  return requireAbsolute(p, field);
+}
+
 interface StartRequest {
   sourceSessionId: string;
   destSessionId?: string;
@@ -99,7 +126,7 @@ function parseStart(body: Record<string, unknown>): StartRequest {
   if (!Array.isArray(sources) || sources.length === 0 || !sources.every(isNonEmptyString)) {
     throw new InvalidInput('sources must be a non-empty array of non-empty strings');
   }
-  for (const source of sources) requireAbsolute(source, 'sources');
+  for (const source of sources) requireAbsoluteOrSessionRooted(source, 'sources');
   let destSessionId: string | undefined;
   if (body.destSessionId !== undefined) destSessionId = requireString(body, 'destSessionId');
 
@@ -115,9 +142,9 @@ function parseStart(body: Record<string, unknown>): StartRequest {
       throw new AppError(ErrorCode.ARCHIVE_UNSUPPORTED, 'only .zip, .tar, .tar.gz and .tgz archives can be extracted');
     }
     spec.mode = body.mode;
-    spec.destDir = body.destPath === undefined ? path.dirname(sources[0]) : requireAbsolute(requireString(body, 'destPath'), 'destPath');
+    spec.destDir = body.destPath === undefined ? path.dirname(sources[0]) : requireAbsoluteOrSessionRooted(requireString(body, 'destPath'), 'destPath');
   } else if (op !== 'delete') {
-    spec.destDir = requireAbsolute(requireString(body, 'destPath'), 'destPath');
+    spec.destDir = requireAbsoluteOrSessionRooted(requireString(body, 'destPath'), 'destPath');
   }
   return { sourceSessionId, destSessionId, spec };
 }
@@ -182,7 +209,9 @@ export function createFileJobRoutes(manager: FileJobManager, pathPolicy: FileJob
       // 검증과 루트 판정이 같은 cwd 를 보게 한 번만 읽는다 — 그 사이 cd 하면 둘이 다른 루트를 기준으로 삼는다.
       const sourceCwd = await pathPolicy.getCwd(sourceSessionId);
       const sourceRoot = Promise.resolve(sourceCwd);
-      for (const source of spec.sources) {
+      for (const sentSource of spec.sources) {
+        // AC-10: placed against the session that named it; spec.sources keeps the shape the client sent.
+        const source = requireAbsolute(toSessionHostPath(sentSource, sourceCwd), 'sources');
         const entry = await validateCreatePath(pathPolicy, sourceSessionId, source, { entry: true, root: sourceRoot });
         // 세션 루트는 세션 밖의 부모에 있는 항목이라 경로 검증이 거부하지 않는다. 판정은 FileService 와 같은
         // 공용 isSessionRootTarget 이다 — 한쪽만 고쳐지면 REST 와 파일 작업 중 하나로 프로젝트를 지울 수 있다.
@@ -200,7 +229,9 @@ export function createFileJobRoutes(manager: FileJobManager, pathPolicy: FileJob
       }
       if (spec.destDir !== undefined) {
         // 목적지는 그 안에 만들 디렉터리이므로 실제 경로다.
-        validated.destDir = await validateCreatePath(pathPolicy, destSessionId ?? sourceSessionId, spec.destDir);
+        const destCwd = destSessionId === undefined ? sourceCwd : await pathPolicy.getCwd(destSessionId);
+        const destDir = requireAbsolute(toSessionHostPath(spec.destDir, destCwd), 'destPath');
+        validated.destDir = await validateCreatePath(pathPolicy, destSessionId ?? sourceSessionId, destDir);
       } else if (destSessionId !== undefined) {
         // delete 에는 검증할 목적지 경로가 없다. 그래도 관리자는 작업을 그 세션에 묶어 목록·방송·
         // 세션 종료 취소에 쓰므로, 없는 세션에 묶인 작업이 생기지 않게 존재만은 확인한다.

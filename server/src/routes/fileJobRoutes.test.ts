@@ -614,6 +614,37 @@ test('isAcceptedAbsolutePath 는 win32 에서 드라이브 문자와 구분자�
   }
 });
 
+// @req IR-FOP-001
+// IR-FOP-001 AC-10: a WSL session lists '/home/me/x' (its cwd is \\wsl.localhost\Ubuntu\home\me) and
+// sent that path to delete, move or copy; a win32 server refused it as "sources must be absolute
+// paths". Measured 2026-10-22 on 2222: POST /api/file-jobs {sources:["/home/beom/bg-drop-probe/probe2.txt"]} → 400.
+test('IR-FOP-001 AC-10: win32 에서 WSL 세션의 리눅스 경로는 세션 cwd 의 UNC 공유 루트 아래로 풀린다', async () => {
+  const { toSessionHostPath, isAcceptedAbsolutePath } = (await import('./fileJobRoutes.js')) as unknown as {
+    toSessionHostPath?: (p: string, sessionCwd: string, platform: NodeJS.Platform) => string;
+    isAcceptedAbsolutePath: (p: string, platform: NodeJS.Platform) => boolean;
+  };
+  assert.equal(typeof toSessionHostPath, 'function', 'toSessionHostPath 가 export 되지 않았다');
+  const toHost = toSessionHostPath!;
+  const wslCwd = '\\\\wsl.localhost\\Ubuntu\\home\\beom\\bg-drop-probe';
+
+  const home = toHost('/home/beom/bg-drop-probe/probe2.txt', wslCwd, 'win32');
+  assert.equal(home, '\\\\wsl.localhost\\Ubuntu\\home\\beom\\bg-drop-probe\\probe2.txt');
+  assert.equal(isAcceptedAbsolutePath(home, 'win32'), true);
+  assert.equal(toHost('/mnt/c/work/a.txt', wslCwd, 'win32'), 'C:\\work\\a.txt');
+
+  // A drive cwd gives a rooted path no anchor: it stays as sent, and AC-8 refuses it.
+  const driveCwd = 'C:\\Users\\beom';
+  assert.equal(toHost('/home/beom/a.txt', driveCwd, 'win32'), '/home/beom/a.txt');
+  assert.equal(isAcceptedAbsolutePath(toHost('/home/beom/a.txt', driveCwd, 'win32'), 'win32'), false);
+  assert.equal(toHost('/mnt/d/x', driveCwd, 'win32'), 'D:\\x');
+  // '\foo' and '//server' are not Linux paths and are left for AC-8.
+  assert.equal(toHost('\\a.txt', wslCwd, 'win32'), '\\a.txt');
+  assert.equal(toHost('//srv/share/a', wslCwd, 'win32'), '//srv/share/a');
+  // Already a host path, and every POSIX server, unchanged.
+  assert.equal(toHost('C:\\a.txt', wslCwd, 'win32'), 'C:\\a.txt');
+  assert.equal(toHost('/home/me/a.txt', '/home/me', 'linux'), '/home/me/a.txt');
+});
+
 // @req SEC-FOP-001
 // @req IR-FOP-002
 test('러너는 검증된 경로(출발지는 entry, 목적지는 실제 경로)를 받고, done 의 affectedDirectories 는 받은 문자열 모양이다', async () => {
