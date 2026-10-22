@@ -15,6 +15,8 @@
  * listing it already has, a stat, or a set it is building as it copies.
  */
 
+import fsp from 'node:fs/promises';
+
 /** The original holds the first place, so the first copy is the second. */
 const FIRST_COPY = 2;
 
@@ -82,17 +84,15 @@ function carriedCount(digits: string): number | null {
   return value;
 }
 
-export function resolveNameCollision(
-  name: string,
-  isTaken: (candidate: string) => boolean,
-): string {
+/** The names to try, in order: the name itself, then its numbered copies. */
+function* candidatesOf(name: string): Generator<string, never> {
   // Before the predicate, so a free path is refused too. Refusing only the
   // taken ones would leave the shape of the answer depending on the answer.
   if (SEPARATOR.test(name)) {
     throw new TypeError(`resolveNameCollision names a single path segment, not a path: ${name}`);
   }
 
-  if (!isTaken(name)) return name;
+  yield name;
 
   const { stem, ext } = split(name);
 
@@ -110,11 +110,44 @@ export function resolveNameCollision(
       );
     }
 
-    const candidate = `${base} (${counter})${ext}`;
-    if (!isTaken(candidate)) return candidate;
+    yield `${base} (${counter})${ext}`;
 
     counter += 1;
   }
 
   throw new Error(`no free name for "${name}" within ${MAX_ATTEMPTS} attempts`);
+}
+
+export function resolveNameCollision(
+  name: string,
+  isTaken: (candidate: string) => boolean,
+): string {
+  for (const candidate of candidatesOf(name)) {
+    if (!isTaken(candidate)) return candidate;
+  }
+  throw new Error('unreachable');
+}
+
+/**
+ * The same answer with an asynchronous check, for a folder the server reaches
+ * over a slow filesystem (a WSL share): PERF-BGSTAB-025 AC-4.
+ * @req PERF-BGSTAB-025
+ */
+export async function resolveNameCollisionAsync(
+  name: string,
+  isTaken: (candidate: string) => Promise<boolean>,
+): Promise<string> {
+  for (const candidate of candidatesOf(name)) {
+    if (!(await isTaken(candidate))) return candidate;
+  }
+  throw new Error('unreachable');
+}
+
+/**
+ * Whether a path names something, as existsSync answered (links followed, a broken
+ * link is free), without blocking: PERF-BGSTAB-025 AC-4.
+ * @req PERF-BGSTAB-025
+ */
+export function pathExists(target: string): Promise<boolean> {
+  return fsp.stat(target).then(() => true, () => false);
 }

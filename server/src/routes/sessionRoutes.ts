@@ -19,18 +19,18 @@ export function createSessionRoutes(options: SessionRoutesOptions = {}): Router 
   });
 
   // GET /api/sessions/shells - Get available shells
-  router.get('/shells', (_req: Request, res: Response) => {
-    const shells = sessionManager.getAvailableShells();
+  router.get('/shells', async (_req: Request, res: Response) => {
+    const shells = await sessionManager.getAvailableShells();
     res.json(shells);
   });
 
   // POST /api/sessions - Create new session
-  router.post('/', (req: Request<{}, {}, CreateSessionRequest>, res: Response) => {
+  router.post('/', async (req: Request<{}, {}, CreateSessionRequest>, res: Response) => {
     const { name, shell, cwd } = req.body;
 
     // Validate shell parameter if provided
     if (shell !== undefined) {
-      const validShells = new Set<ShellType>(['auto', ...sessionManager.getAvailableShells().map((entry) => entry.id)]);
+      const validShells = new Set<ShellType>(['auto', ...(await sessionManager.getAvailableShells()).map((entry) => entry.id)]);
       if (!validShells.has(shell)) {
         return res.status(400).json({ error: { code: ErrorCode.INVALID_INPUT, message: `Invalid shell type: ${shell}` } });
       }

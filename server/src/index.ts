@@ -1403,6 +1403,9 @@ async function startServer(): Promise<void> {
     workspaceService.setAgentResumePendingChecker((tabId) => sessionSnapshotService.hasPendingForTab(tabId));
     // FR-AITUI-014 AC-1: a saved tab reopens in the folder it was saved in.
     workspaceService.setRestoreCwdResolver((tabId) => sessionSnapshotService.restoreCwdFor(tabId));
+    // PERF-BGSTAB-025 AC-3: the shell probe runs asynchronously; recovered tabs and the
+    // first requests use its answers.
+    await sessionManager.whenShellsDetected();
     const orphanTabs = await workspaceService.checkOrphanTabs();
     if (orphanTabs.length > 0) {
       console.log(`[Workspace] ${orphanTabs.length} orphan tab(s) recovered with saved CWD`);
@@ -1847,10 +1850,9 @@ async function startServer(): Promise<void> {
 
     // Periodic CWD snapshot every 30s for crash recovery
     cwdSnapshotTimer = setInterval(() => {
-      workspaceService.snapshotAllCwds();
-      workspaceService.forceFlush().catch(err =>
-        console.warn('[CWD Snapshot] Flush error:', err.message)
-      );
+      workspaceService.snapshotAllCwds()
+        .then(() => workspaceService.forceFlush())
+        .catch(err => console.warn('[CWD Snapshot] Flush error:', err.message));
     }, 30_000);
 
     // ========================================================================

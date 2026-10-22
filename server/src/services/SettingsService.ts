@@ -189,7 +189,7 @@ export class SettingsService {
     const snapshot = this.deps.runtimeConfigStore.getSnapshot();
     const shellField = snapshot.capabilities['pty.shell'];
     if (shellField) {
-      const detectedShells = this.deps.sessionManager.getAvailableShells().map((shell) => shell.id);
+      const detectedShells = this.deps.sessionManager.getDetectedShells().map((shell) => shell.id);
       shellField.options = dedupe(['auto', ...detectedShells.filter((shell) => shell !== 'auto')]);
       if (!shellField.options.includes(snapshot.values.pty.shell)) {
         snapshot.values.pty.shell = 'auto';

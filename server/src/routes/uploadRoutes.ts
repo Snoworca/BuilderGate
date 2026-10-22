@@ -10,7 +10,7 @@ import { once } from 'node:events';
 import type { FileService } from '../services/FileService.js';
 import { newUploadTempName, type UploadTempRegistry } from '../services/upload/uploadTemp.js';
 import { placeExclusively } from '../services/upload/placeExclusively.js';
-import { resolveNameCollision } from '../services/fileNameCollision.js';
+import { pathExists, resolveNameCollisionAsync } from '../services/fileNameCollision.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 import { armRequestIdleTimeout, DEFAULT_UPLOAD_IDLE_TIMEOUT_MS } from '../middleware/requestBodyDeadline.js';
 
@@ -152,7 +152,7 @@ export function createUploadRoutes(fileService: FileService, options: UploadRout
           existing: { size: existing.size, modified: existing.mtime.toISOString(), isDirectory: existing.isDirectory() },
           // FR-FOP-004 AC-7: a file never replaces a folder, nor a folder a file.
           decisions: sameKind ? ['overwrite', 'rename', 'skip'] : ['rename', 'skip'],
-          renameTo: resolveNameCollision(top, (candidate) => fs.existsSync(path.join(target.dirPath, candidate))),
+          renameTo: await resolveNameCollisionAsync(top, (candidate) => pathExists(path.join(target.dirPath, candidate))),
         });
       }
       res.set('Cache-Control', 'no-store');

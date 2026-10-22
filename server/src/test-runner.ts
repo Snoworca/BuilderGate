@@ -13089,7 +13089,7 @@ async function testPerformGracefulShutdownTerminatesSessionsAfterWorkspaceFlush(
   let flushCount = 0;
   (workspaceService as any).snapshotAllCwds = () => {
     events.push('snapshot');
-    originalSnapshotAllCwds();
+    return originalSnapshotAllCwds();
   };
   (workspaceService as any).forceFlush = async () => {
     flushCount += 1;
@@ -13172,7 +13172,7 @@ async function testPerformGracefulShutdownSessionCleanupTimeoutDegradesAndFinalF
     },
   } as unknown as SessionManager;
   const workspaceService = {
-    snapshotAllCwds() {
+    async snapshotAllCwds() {
       events.push('snapshot');
     },
     async forceFlush() {

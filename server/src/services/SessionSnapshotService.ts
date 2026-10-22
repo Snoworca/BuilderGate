@@ -10,8 +10,7 @@
 // resume command typed in without asking. Any save can also be restored by hand.
 
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   AGENT_KINDS,
@@ -241,7 +240,7 @@ export interface SessionSnapshotDeps {
   /** FR-AITUI-013 AC-2: the commands each agent may be launched with (Tools › Agent commands). */
   listLaunchers?: () => LauncherMap;
   isPidAlive?: (pid: number) => boolean;
-  isFileLocked?: (filePath: string) => boolean;
+  isFileLocked?: (filePath: string) => boolean | Promise<boolean>;
   /** FR-AITUI-019 AC-1: how many manual saves are kept. */
   retention?: () => number;
   /** FR-AITUI-014 AC-4: how long a resumed agent has to appear in its tab. */
@@ -420,6 +419,16 @@ function timeOf(snapshot: SessionSnapshot): number {
 
 const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 
+/** The non-blocking existsSync: any failure to reach the path counts as absent. */
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** FR-AITUI-016 AC-7 / FR-AITUI-017 AC-2: a temporary file, then a rename; 0600. */
 async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
@@ -489,13 +498,14 @@ export class SessionSnapshotService {
   // Loading
   // --------------------------------------------------------------------------
 
-  private readJson(filePath: string): unknown {
+  // PERF-BGSTAB-025: every file access here is non-blocking.
+  private async readJson(filePath: string): Promise<unknown> {
     try {
-      return JSON.parse(readFileSync(filePath, 'utf8'));
+      return JSON.parse(await readFile(filePath, 'utf8'));
     } catch (error) {
       console.warn('[SessionSnapshot] Unreadable save set aside:', filePath, error instanceof Error ? error.message : error);
       try {
-        renameSync(filePath, `${filePath}.corrupt-${Date.now()}`);
+        await rename(filePath, `${filePath}.corrupt-${Date.now()}`);
       } catch { /* leave it */ }
       return null;
     }
@@ -510,26 +520,26 @@ export class SessionSnapshotService {
     this.restoreSource = null;
     this.restoreSourceDone = false;
 
-    if (existsSync(this.manualDir)) {
-      for (const name of readdirSync(this.manualDir)) {
+    if (await pathExists(this.manualDir)) {
+      for (const name of await readdir(this.manualDir)) {
         if (!name.endsWith('.json')) continue;
-        const raw = this.readJson(path.join(this.manualDir, name));
+        const raw = await this.readJson(path.join(this.manualDir, name));
         const snapshot = raw === null ? null : sanitizeSnapshot(raw, 'manual', name.slice(0, -5));
         if (snapshot) this.manual.push(snapshot);
       }
     }
     // FR-AITUI-017 AC-6: the one snapshot file from before the list joins it.
-    if (existsSync(this.legacyPath)) {
-      const raw = this.readJson(this.legacyPath);
+    if (await pathExists(this.legacyPath)) {
+      const raw = await this.readJson(this.legacyPath);
       const migrated = raw === null ? null : sanitizeSnapshot(raw, 'manual', '');
       if (migrated) {
         migrated.id = newManualId(migrated.savedAt);
         // The old code kept the file after its one restore, every entry marked done.
         if (migrated.entries.length > 0 && migrated.entries.every((entry) => entry.restore !== 'pending')) migrated.autoRestore = false;
         try {
-          mkdirSync(this.manualDir, { recursive: true });
+          await mkdir(this.manualDir, { recursive: true });
           await writeJsonAtomic(path.join(this.manualDir, `${migrated.id}.json`), migrated);
-          renameSync(this.legacyPath, `${this.legacyPath}.migrated`);
+          await rename(this.legacyPath, `${this.legacyPath}.migrated`);
           this.manual.push(migrated);
         } catch (error) {
           console.warn('[SessionSnapshot] Could not move the old snapshot into the list:', error instanceof Error ? error.message : error);
@@ -538,12 +548,12 @@ export class SessionSnapshotService {
     }
     this.manual.sort((a, b) => timeOf(b) - timeOf(a));
 
-    if (existsSync(this.autoPath)) {
-      const raw = this.readJson(this.autoPath);
+    if (await pathExists(this.autoPath)) {
+      const raw = await this.readJson(this.autoPath);
       this.auto = raw === null ? null : sanitizeSnapshot(raw, 'auto', AUTO_ID);
     }
-    if (existsSync(this.restoreStatePath)) {
-      const raw = this.readJson(this.restoreStatePath) as { noticeShownReportId?: unknown } | null;
+    if (await pathExists(this.restoreStatePath)) {
+      const raw = (await this.readJson(this.restoreStatePath)) as { noticeShownReportId?: unknown } | null;
       this.noticeShownReportId = typeof raw?.noticeShownReportId === 'string' ? raw.noticeShownReportId : null;
     }
 
@@ -807,7 +817,7 @@ export class SessionSnapshotService {
       let candidates: AgentSessionCandidate[] = [];
       if (agent && this.deps.rootsFor) {
         const roots = await this.deps.rootsFor(ctx.cwd);
-        const listed = listAgentSessionCandidates(agent, ctx.cwd, {
+        const listed = await listAgentSessionCandidates(agent, ctx.cwd, {
           roots,
           ...(this.deps.isPidAlive ? { isPidAlive: this.deps.isPidAlive } : {}),
         });
@@ -1419,6 +1429,6 @@ export class SessionSnapshotService {
     this.waiting.clear();
     const newest = this.manual[0];
     if (newest) await this.deleteSnapshot(String(newest.id));
-    rmSync(this.legacyPath, { force: true });
+    await rm(this.legacyPath, { force: true });
   }
 }

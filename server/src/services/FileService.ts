@@ -7,14 +7,17 @@
  */
 
 import fs from 'fs/promises';
-import { readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent, PathStat } from '../types/file.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
-import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget, toHostPath } from '../utils/pathValidator.js';
+import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget } from '../utils/pathValidator.js';
 import { isFileJobTempName } from './fileJobs/fileJobRunner.js';
 import { isUploadTempName, validateUploadRelativePath } from './upload/uploadTemp.js';
+import { createWslPathConverter } from '../utils/wslPathConverter.js';
+
+const execFileAsync = promisify(execFile);
 
 /** A file job's or an upload's in-progress temp file: not the user's file, never listed or counted. */
 export function isTransientFileName(name: string): boolean {
@@ -141,6 +144,9 @@ interface SessionManagerLike {
 export class FileService {
   private cwdCache = new Map<string, { cwd: string; timestamp: number }>();
   private config: FileManagerConfig;
+
+  /** PERF-BGSTAB-025 AC-1: WSL shells report Linux paths; converted without blocking, once each. */
+  private readonly toWindowsPath = createWslPathConverter();
 
   constructor(
     private sessionManager: SessionManagerLike,
@@ -290,13 +296,13 @@ export class FileService {
     const cwdFile = this.sessionManager.getCwdFilePath(sessionId);
     if (cwdFile) {
       try {
-        const fileCwd = readFileSync(cwdFile, 'utf-8').trim();
+        const fileCwd = (await fs.readFile(cwdFile, 'utf-8')).trim();
         // Remove UTF-8 BOM if present
         const cleaned = fileCwd.replace(/^\uFEFF/, '');
         if (cleaned) {
           // WSL bash writes Linux paths (e.g., /home/user/...) — convert to Windows path
-          const resolved = this.resolveWslPath(cleaned);
-          if (resolved && existsSync(resolved)) {
+          const resolved = await this.toWindowsPath(cleaned);
+          if (resolved && await fs.stat(resolved).then(() => true, () => false)) {
             cwd = resolved;
           }
         }
@@ -307,7 +313,7 @@ export class FileService {
     if (!cwd) {
       const pid = this.sessionManager.getPtyPid(sessionId);
       if (pid) {
-        cwd = this.getProcessCwd(pid);
+        cwd = await this.getProcessCwd(pid);
       }
     }
 
@@ -894,30 +900,6 @@ export class FileService {
   }
 
   /**
-   * Get free disk space for a path (best effort).
-   */
-  async getDiskFreeSpace(targetPath: string): Promise<number> {
-    try {
-      if (process.platform === 'win32') {
-        const drive = path.parse(targetPath).root || 'C:\\';
-        const output = execSync(
-          `powershell -Command "(Get-PSDrive ${drive[0]}).Free"`,
-          { encoding: 'utf-8', timeout: 5000, windowsHide: true }
-        ).trim();
-        return parseInt(output, 10) || 0;
-      } else {
-        const output = execSync(
-          `df -B1 "${targetPath}" | tail -1 | awk '{print $4}'`,
-          { encoding: 'utf-8', timeout: 5000 }
-        ).trim();
-        return parseInt(output, 10) || 0;
-      }
-    } catch {
-      return 0;
-    }
-  }
-
-  /**
    * Check if a buffer contains binary data.
    */
   private isBinaryFile(buffer: Buffer): boolean {
@@ -932,7 +914,7 @@ export class FileService {
   /**
    * Get CWD of a process by PID using OS-specific methods.
    */
-  private getProcessCwd(pid: number): string | null {
+  private async getProcessCwd(pid: number): Promise<string | null> {
     try {
       if (process.platform === 'win32') {
         // Windows has no reliable API to get another process's CWD.
@@ -940,50 +922,18 @@ export class FileService {
         // Fall back to initialCwd (set at session creation time).
         return null;
       } else if (process.platform === 'linux') {
-        const link = execSync(`readlink /proc/${pid}/cwd`, {
-          encoding: 'utf-8',
-          timeout: 3000,
-        }).trim();
-        return link || null;
+        return (await fs.readlink(`/proc/${pid}/cwd`)) || null;
       } else {
-        // macOS
-        const output = execSync(`lsof -p ${pid} -Fn | grep '^fcwd' -A1 | tail -1 | cut -c2-`, {
+        // macOS: the cwd descriptor's name line ('n<path>') of `lsof -a -p <pid> -d cwd -Fn`.
+        const { stdout } = await execFileAsync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], {
           encoding: 'utf-8',
           timeout: 3000,
-        }).trim();
-        return output || null;
+        });
+        const name = stdout.split('\n').find((line) => line.startsWith('n'));
+        return name ? name.slice(1) || null : null;
       }
     } catch {
       return null;
-    }
-  }
-
-  /**
-   * Convert a potentially WSL Linux path to a Windows path.
-   * e.g., /mnt/c/Users/... → C:\Users\...
-   * Non-/mnt paths (e.g., /home/user) → \\wsl$\<distro>\ path via wslpath
-   * On non-Windows or already-Windows paths, returns as-is.
-   */
-  private resolveWslPath(p: string): string {
-    if (process.platform !== 'win32') return p;
-
-    // Already a Windows path
-    if (/^[A-Za-z]:[\\/]/.test(p)) return p;
-
-    // WSL /mnt/<drive>/... → <DRIVE>:\...
-    const mounted = toHostPath(p);
-    if (mounted !== p) return mounted;
-
-    // Other Linux paths (e.g., /home/user/...) — use wslpath to convert
-    try {
-      const winPath = execSync(`wsl.exe wslpath -w "${p}"`, {
-        encoding: 'utf-8',
-        timeout: 3000,
-        windowsHide: true,
-      }).trim();
-      return winPath || p;
-    } catch {
-      return p;
     }
   }
 

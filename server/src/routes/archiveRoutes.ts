@@ -3,13 +3,12 @@
 // extraction would put it, so the client can ask before a large extraction. A refusal the job
 // would raise (too large, unsupported, damaged) comes back in the body with its reason; a path the
 // file API refuses is an error. Behind the JWT.
-import fs from 'node:fs';
 import path from 'node:path';
 import { Router, type Request, type Response } from 'express';
 import type { FileService } from '../services/FileService.js';
 import { precountArchive } from '../services/archive/extractJob.js';
 import { isArchiveError } from '../services/archive/archiveReader.js';
-import { resolveNameCollision } from '../services/fileNameCollision.js';
+import { pathExists, resolveNameCollisionAsync } from '../services/fileNameCollision.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
 
 function sendError(res: Response, err: unknown): void {
@@ -55,7 +54,7 @@ export function createArchiveRoutes(fileService: FileService, options: { precoun
         const wanted = counted.singleTopFolder ?? counted.stem;
         const targetName = body.mode === 'here'
           ? path.basename(folder)
-          : resolveNameCollision(wanted, (candidate) => fs.existsSync(path.join(folder, candidate)));
+          : await resolveNameCollisionAsync(wanted, (candidate) => pathExists(path.join(folder, candidate)));
         res.json({
           format: counted.format,
           entryCount: counted.entryCount,

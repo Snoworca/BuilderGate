@@ -6,7 +6,6 @@
 // formats, so every reader fails soft: an unreadable record is "not found",
 // never an error the save has to handle.
 
-import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs';
 import { open as openAsync, readdir as readdirAsync, readFile as readFileAsync } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -59,11 +58,12 @@ export interface ResolveEnv {
   roots: AgentRoots;
   processes?: ProcessInfo[];
   isPidAlive?: (pid: number) => boolean;
-  isFileLocked?: (filePath: string) => boolean;
+  isFileLocked?: (filePath: string) => boolean | Promise<boolean>;
   claimedSessionIds?: ReadonlySet<string>;
   /**
    * NFR-AITUI-001 / FR-AITUI-016 AC-7: the agents' records read once, without
-   * blocking, for every tab of one save. Absent, each read happens on the spot.
+   * blocking, for every tab of one save. Absent, each read happens on the spot
+   * (still without blocking, PERF-BGSTAB-025).
    */
   cache?: AgentStateCache;
 }
@@ -179,65 +179,6 @@ function defaultIsPidAlive(pid: number): boolean {
   }
 }
 
-/** Codex holds each open thread's lock file exclusively; on Windows a read of a held one fails. */
-function defaultIsFileLocked(filePath: string): boolean {
-  if (process.platform !== 'win32') return true;
-  let fd: number | null = null;
-  try {
-    fd = openSync(filePath, 'r');
-    readSync(fd, Buffer.alloc(1), 0, 1, 0);
-    return false;
-  } catch {
-    return true;
-  } finally {
-    if (fd !== null) {
-      try { closeSync(fd); } catch { /* ignore */ }
-    }
-  }
-}
-
-function safeReaddir(dir: string): string[] {
-  try {
-    return readdirSync(dir);
-  } catch {
-    return [];
-  }
-}
-
-function readHead(filePath: string, bytes: number): string {
-  let fd: number | null = null;
-  try {
-    fd = openSync(filePath, 'r');
-    const buffer = Buffer.alloc(bytes);
-    const read = readSync(fd, buffer, 0, bytes, 0);
-    return buffer.subarray(0, read).toString('utf8');
-  } catch {
-    return '';
-  } finally {
-    if (fd !== null) {
-      try { closeSync(fd); } catch { /* ignore */ }
-    }
-  }
-}
-
-function readTail(filePath: string, bytes: number): string {
-  let fd: number | null = null;
-  try {
-    const size = statSync(filePath).size;
-    const start = Math.max(0, size - bytes);
-    fd = openSync(filePath, 'r');
-    const buffer = Buffer.alloc(size - start);
-    const read = readSync(fd, buffer, 0, buffer.length, start);
-    return buffer.subarray(0, read).toString('utf8');
-  } catch {
-    return '';
-  } finally {
-    if (fd !== null) {
-      try { closeSync(fd); } catch { /* ignore */ }
-    }
-  }
-}
-
 function pickNearest<T>(items: T[], at: (item: T) => number, anchor: number | undefined): T {
   if (anchor === undefined) {
     return items.reduce((best, item) => (at(item) > at(best) ? item : best));
@@ -262,27 +203,14 @@ function claudeEntryOf(text: string): ClaudeEntry | null {
   return null;
 }
 
-function claudeEntries(env: ResolveEnv): ClaudeEntry[] {
-  return env.cache ? env.cache.claude : readClaudeEntries(env.roots);
+async function claudeEntries(env: ResolveEnv): Promise<ClaudeEntry[]> {
+  return env.cache ? env.cache.claude : readClaudeEntriesAsync(env.roots);
 }
 
-function readClaudeEntries(roots: AgentRoots): ClaudeEntry[] {
-  const dir = path.join(roots.claudeHome, 'sessions');
-  const out: ClaudeEntry[] = [];
-  for (const file of safeReaddir(dir)) {
-    if (!/^\d+\.json$/.test(file)) continue;
-    try {
-      const entry = claudeEntryOf(readFileSync(path.join(dir, file), 'utf8'));
-      if (entry) out.push(entry);
-    } catch { /* removed meanwhile */ }
-  }
-  return out;
-}
-
-function resolveClaude(ctx: TabAgentContext, env: ResolveEnv, treePids: ReadonlySet<number> | null): ResolvedAgentSession | null {
+async function resolveClaude(ctx: TabAgentContext, env: ResolveEnv, treePids: ReadonlySet<number> | null): Promise<ResolvedAgentSession | null> {
   const isAlive = env.isPidAlive ?? defaultIsPidAlive;
   const claimed = env.claimedSessionIds ?? new Set<string>();
-  const entries = claudeEntries(env).filter((entry) => isValidAgentSessionId('claude', entry.sessionId));
+  const entries = (await claudeEntries(env)).filter((entry) => isValidAgentSessionId('claude', entry.sessionId));
   if (treePids) {
     const inTree = entries.find((entry) => treePids.has(entry.pid));
     if (inTree) return { agent: 'claude', sessionId: inTree.sessionId, method: 'claude-pid-file', confidence: 'exact' };
@@ -311,30 +239,6 @@ interface CodexThread {
   source?: string;
 }
 
-function indexCodexRollouts(codexHome: string, wanted: ReadonlySet<string>): Map<string, string> {
-  const found = new Map<string, string>();
-  const root = path.join(codexHome, 'sessions');
-  const years = safeReaddir(root).filter((name) => /^\d{4}$/.test(name)).sort().reverse();
-  for (const year of years) {
-    for (const month of safeReaddir(path.join(root, year)).sort().reverse()) {
-      for (const day of safeReaddir(path.join(root, year, month)).sort().reverse()) {
-        for (const file of safeReaddir(path.join(root, year, month, day))) {
-          const match = /-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i.exec(file);
-          if (match && wanted.has(match[1]) && !found.has(match[1])) {
-            found.set(match[1], path.join(root, year, month, day, file));
-          }
-        }
-        if (found.size === wanted.size) return found;
-      }
-    }
-  }
-  return found;
-}
-
-function readCodexThread(id: string, rolloutPath: string): CodexThread | null {
-  return codexThreadOf(id, readHead(rolloutPath, 64 * 1024));
-}
-
 function codexThreadOf(id: string, head: string): CodexThread | null {
   const firstLine = head.split('\n', 1)[0] ?? '';
   try {
@@ -358,28 +262,16 @@ function codexThreadOf(id: string, head: string): CodexThread | null {
 }
 
 /** The open Codex threads, from the save's shared cache or read on the spot. */
-function liveCodexThreads(env: ResolveEnv): CodexThread[] {
-  if (env.cache) {
-    return env.cache.codexLive
-      .map((id) => env.cache?.codexThreads.get(id) ?? null)
-      .filter((thread): thread is CodexThread => thread !== null);
-  }
-  const isLocked = env.isFileLocked ?? defaultIsFileLocked;
-  const lockDir = path.join(env.roots.codexHome, 'thread-writer-locks');
-  const liveIds = safeReaddir(lockDir)
-    .map((file) => /^([0-9a-f-]{36})\.lock$/i.exec(file)?.[1])
-    .filter((id): id is string => typeof id === 'string' && UUID.test(id))
-    .filter((id) => isLocked(path.join(lockDir, `${id}.lock`)));
-  if (liveIds.length === 0) return [];
-  const rollouts = indexCodexRollouts(env.roots.codexHome, new Set(liveIds));
-  return liveIds
-    .map((id) => (rollouts.has(id) ? readCodexThread(id, rollouts.get(id) as string) : null))
+async function liveCodexThreads(env: ResolveEnv): Promise<CodexThread[]> {
+  const state = env.cache ?? await readCodexStateAsync(env.roots, env.isFileLocked ?? defaultIsFileLockedAsync);
+  return state.codexLive
+    .map((id) => state.codexThreads.get(id) ?? null)
     .filter((thread): thread is CodexThread => thread !== null);
 }
 
-function resolveCodex(ctx: TabAgentContext, env: ResolveEnv): ResolvedAgentSession | null {
+async function resolveCodex(ctx: TabAgentContext, env: ResolveEnv): Promise<ResolvedAgentSession | null> {
   const claimed = env.claimedSessionIds ?? new Set<string>();
-  const threads = liveCodexThreads(env).filter((thread) => !claimed.has(thread.id));
+  const threads = (await liveCodexThreads(env)).filter((thread) => !claimed.has(thread.id));
   const sameDir = threads.filter((thread) => sameCwd(thread.cwd, ctx.cwd));
   // A BuilderGate tab is a terminal: when a terminal-launched thread is there, an editor
   // integration's thread in the same folder (source 'vscode') is not this tab's.
@@ -405,17 +297,17 @@ function parseOpencodeLogStart(file: string): number | null {
 
 const OPENCODE_PROMPT = /service=session\.prompt\b[^\n]*?\b(?:session\.id|sessionID)=(ses_[0-9A-Za-z]{26})/g;
 
-function resolveOpenCode(ctx: TabAgentContext, env: ResolveEnv, agentProcess: ProcessInfo | null): ResolvedAgentSession | null {
+async function resolveOpenCode(ctx: TabAgentContext, env: ResolveEnv, agentProcess: ProcessInfo | null): Promise<ResolvedAgentSession | null> {
   const anchor = agentProcess?.createdAtMs ?? ctx.agentStartedAtMs;
   if (anchor === undefined) return null;
   const exact = agentProcess?.createdAtMs !== undefined;
   const dir = path.join(env.roots.opencodeData, 'log');
-  const logs = safeReaddir(dir)
+  const logs = (await safeReaddirAsync(dir))
     .map((file) => ({ file, start: parseOpencodeLogStart(file) }))
     .filter((log): log is { file: string; start: number } => log.start !== null && Math.abs(log.start - anchor) <= 60_000);
   if (logs.length === 0) return null;
   const log = pickNearest(logs, (item) => item.start, anchor);
-  const text = readTail(path.join(dir, log.file), 2 * 1024 * 1024);
+  const text = await readTailAsync(path.join(dir, log.file), 2 * 1024 * 1024);
   let last: string | null = null;
   for (const match of text.matchAll(OPENCODE_PROMPT)) last = match[1];
   if (!last || (env.claimedSessionIds?.has(last) ?? false)) return null;
@@ -483,19 +375,19 @@ export interface AgentSessionCandidate {
 
 const MAX_CANDIDATES = 5;
 
-export function listAgentSessionCandidates(agent: AgentKind, cwd: string | null, env: ResolveEnv): AgentSessionCandidate[] {
+export async function listAgentSessionCandidates(agent: AgentKind, cwd: string | null, env: ResolveEnv): Promise<AgentSessionCandidate[]> {
   if (!cwd) return [];
   try {
     if (agent === 'claude') {
       const isAlive = env.isPidAlive ?? defaultIsPidAlive;
-      return claudeEntries(env)
+      return (await claudeEntries(env))
         .filter((entry) => isValidAgentSessionId('claude', entry.sessionId) && sameCwd(entry.cwd, cwd) && isAlive(entry.pid))
         .sort((a, b) => b.startedAt - a.startedAt)
         .slice(0, MAX_CANDIDATES)
         .map((entry) => ({ sessionId: entry.sessionId, startedAtMs: entry.startedAt }));
     }
     if (agent === 'codex') {
-      return liveCodexThreads(env)
+      return (await liveCodexThreads(env))
         .filter((thread) => sameCwd(thread.cwd, cwd))
         .sort((a, b) => b.createdAt - a.createdAt)
         .slice(0, MAX_CANDIDATES)
@@ -523,13 +415,13 @@ export async function resolveAgentSession(ctx: TabAgentContext, env: ResolveEnv)
   try {
     switch (agent) {
       case 'claude':
-        result = resolveClaude(ctx, env, treePids);
+        result = await resolveClaude(ctx, env, treePids);
         break;
       case 'codex':
-        result = resolveCodex(ctx, env);
+        result = await resolveCodex(ctx, env);
         break;
       case 'opencode':
-        result = resolveOpenCode(ctx, env, agentProcess);
+        result = await resolveOpenCode(ctx, env, agentProcess);
         break;
       case 'hermes':
         result = await resolveHermes(ctx, env);
@@ -549,7 +441,8 @@ export async function resolveAgentSession(ctx: TabAgentContext, env: ResolveEnv)
 // ---------------------------------------------------------------------------
 // NFR-AITUI-001: the same records, read once per save with non-blocking I/O.
 // Each await hands the event loop back, so terminal output keeps flowing while
-// a save with many tabs reads hundreds of record files.
+// a save with many tabs reads hundreds of record files. PERF-BGSTAB-025: the
+// readers above use these too, so no record is ever read synchronously.
 // ---------------------------------------------------------------------------
 
 async function safeReaddirAsync(dir: string): Promise<string[]> {
@@ -574,6 +467,23 @@ async function readHeadAsync(filePath: string, bytes: number): Promise<string> {
   }
 }
 
+async function readTailAsync(filePath: string, bytes: number): Promise<string> {
+  let handle: Awaited<ReturnType<typeof openAsync>> | null = null;
+  try {
+    handle = await openAsync(filePath, 'r');
+    const size = (await handle.stat()).size;
+    const start = Math.max(0, size - bytes);
+    const buffer = Buffer.alloc(size - start);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, start);
+    return buffer.subarray(0, bytesRead).toString('utf8');
+  } catch {
+    return '';
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}
+
+/** Codex holds each open thread's lock file exclusively; on Windows a read of a held one fails. */
 async function defaultIsFileLockedAsync(filePath: string): Promise<boolean> {
   if (process.platform !== 'win32') return true;
   let handle: Awaited<ReturnType<typeof openAsync>> | null = null;
@@ -608,10 +518,7 @@ async function indexCodexRolloutsAsync(codexHome: string, wanted: ReadonlySet<st
   return found;
 }
 
-export async function loadAgentStateCache(
-  roots: AgentRoots,
-  options: { isFileLocked?: (filePath: string) => boolean | Promise<boolean> } = {},
-): Promise<AgentStateCache> {
+async function readClaudeEntriesAsync(roots: AgentRoots): Promise<ClaudeEntry[]> {
   const claudeDir = path.join(roots.claudeHome, 'sessions');
   const claude: ClaudeEntry[] = [];
   for (const file of await safeReaddirAsync(claudeDir)) {
@@ -621,8 +528,13 @@ export async function loadAgentStateCache(
       if (entry) claude.push(entry);
     } catch { /* removed meanwhile */ }
   }
+  return claude;
+}
 
-  const isLocked = options.isFileLocked ?? defaultIsFileLockedAsync;
+async function readCodexStateAsync(
+  roots: AgentRoots,
+  isLocked: (filePath: string) => boolean | Promise<boolean>,
+): Promise<Pick<AgentStateCache, 'codexLive' | 'codexThreads'>> {
   const lockDir = path.join(roots.codexHome, 'thread-writer-locks');
   const codexLive: string[] = [];
   for (const file of await safeReaddirAsync(lockDir)) {
@@ -637,5 +549,14 @@ export async function loadAgentStateCache(
       codexThreads.set(id, rollout ? codexThreadOf(id, await readHeadAsync(rollout, 64 * 1024)) : null);
     }
   }
-  return { claude, codexLive, codexThreads };
+  return { codexLive, codexThreads };
+}
+
+export async function loadAgentStateCache(
+  roots: AgentRoots,
+  options: { isFileLocked?: (filePath: string) => boolean | Promise<boolean> } = {},
+): Promise<AgentStateCache> {
+  const claude = await readClaudeEntriesAsync(roots);
+  const codex = await readCodexStateAsync(roots, options.isFileLocked ?? defaultIsFileLockedAsync);
+  return { claude, ...codex };
 }

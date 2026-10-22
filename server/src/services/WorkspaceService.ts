@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs/promises';
-import { readFileSync } from 'fs';
+import { readFile } from 'fs/promises';
 import path from 'path';
 import type {
   Workspace,
@@ -1740,17 +1740,18 @@ export class WorkspaceService {
    * Reads CWD temp files directly as a final authoritative source,
    * falling back to SessionManager in-memory value.
    */
-  snapshotAllCwds(): void {
-    for (const tab of this.state.tabs) {
+  async snapshotAllCwds(): Promise<void> {
+    // PERF-BGSTAB-025 AC-4: read without blocking, every tab at once.
+    await Promise.all(this.state.tabs.map(async (tab) => {
       // Try reading CWD temp file directly (most up-to-date, survives watchFile stop)
       const cwdFilePath = this.sessionManager.getCwdFilePath(tab.sessionId);
       if (cwdFilePath) {
         try {
-          const raw = readFileSync(cwdFilePath, 'utf8');
+          const raw = await readFile(cwdFilePath, 'utf8');
           const cleaned = raw.replace(/^\uFEFF/, '').trim();
           if (cleaned && cleaned.length <= 4096 && !/[\x00-\x1f]/.test(cleaned)) {
             tab.lastCwd = cleaned;
-            continue;
+            return;
           }
         } catch { /* file may not exist — fall through */ }
       }
@@ -1759,6 +1760,6 @@ export class WorkspaceService {
       if (cwd) {
         tab.lastCwd = cwd;
       }
-    }
+    }));
   }
 }

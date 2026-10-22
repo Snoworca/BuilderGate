@@ -3,8 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { unlinkSync, watchFile, unwatchFile, readFileSync, existsSync, statSync } from 'fs';
-import { execFile, execFileSync, execSync } from 'child_process';
+import { watchFile, unwatchFile, existsSync } from 'fs';
+import { readFile, stat, unlink } from 'fs/promises';
+import { execFile, execFileSync } from 'child_process';
+import { promisify } from 'util';
 import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
 import { installNodePtySpawnHelperGuard } from '../utils/nodePtySpawnHelper.js';
@@ -619,6 +621,14 @@ function createTerminalAuthorityDebugRestoredEvidence(): Record<string, true> {
     timers: true,
     faultState: true,
   };
+}
+
+
+const execFileAsync = promisify(execFile);
+
+/** PERF-BGSTAB-025 AC-3: whether a helper command exits 0, without a shell and without blocking. */
+function succeeds(file: string, args: string[], options: { timeout?: number }): Promise<boolean> {
+  return execFileAsync(file, args, { ...options, windowsHide: true }).then(() => true, () => false);
 }
 
 export interface TerminalAuthoritySessionRuntime {
@@ -1380,6 +1390,9 @@ export class SessionManager {
   private terminalAuthorityRuntimeFactory: TerminalAuthorityRuntimeFactory | null = null;
   private readonly terminalAuthorityDebugIsolations = new Map<string, TerminalAuthorityDebugIsolationState>();
   private cachedAvailableShells: ShellInfo[] | null = null;
+  /** PERF-BGSTAB-025 AC-3: where/which and `wsl.exe which` answers, probed without blocking. */
+  private readonly commandProbes = new Map<string, boolean>();
+  private shellsDetected: Promise<void> = Promise.resolve();
   private cwdChangeCallback: ((sessionId: string, cwd: string) => void) | null = null;
   private terminalTitleChangeCallback: ((sessionId: string, title: string) => void) | null = null;
   private sessionFinalizedCallback: ((event: SessionFinalizedEvent) => void) | null = null;
@@ -1469,8 +1482,8 @@ export class SessionManager {
     this.retainedTerminalInitialOrdinal = deps.retainedTerminalInitialOrdinal;
     this.retainedTerminalShadowEnabled = deps.retainedTerminalShadowEnabled ?? false;
     this.retainedTerminalShadowComparisonEnabled = deps.retainedTerminalShadowComparisonEnabled ?? true;
-    // 서버 시작 시 한 번만 셸 감지 후 캐싱
-    this.cachedAvailableShells = this.detectAvailableShells();
+    // 서버 시작 시 한 번만 셸 감지 후 캐싱 — PERF-BGSTAB-025 AC-3: 비동기로, 결과는 기억한다
+    this.shellsDetected = this.refreshAvailableShells();
   }
 
   createSession(name?: string, shell?: ShellType, cwd?: string, options: CreateSessionOptions = {}): SessionDTO {
@@ -4491,8 +4504,35 @@ export class SessionManager {
     console.log('[SessionManager] All CWD watchers stopped');
   }
 
-  getAvailableShells(): ShellInfo[] {
+  async getAvailableShells(): Promise<ShellInfo[]> {
+    await this.shellsDetected;
     return this.cachedAvailableShells ?? [];
+  }
+
+  /**
+   * The shells found so far, for synchronous readers (the settings snapshot). The
+   * server awaits whenShellsDetected() before it listens, so requests see the full list.
+   */
+  getDetectedShells(): ShellInfo[] {
+    return this.cachedAvailableShells ?? [];
+  }
+
+  /** Resolves once the shells are probed, so sessions made at start-up use the answers. */
+  whenShellsDetected(): Promise<void> {
+    return this.shellsDetected;
+  }
+
+  private async refreshAvailableShells(): Promise<void> {
+    if (!this.injectedIsCommandAvailable) {
+      const commands = this.platform === 'win32' ? ['wsl.exe'] : ['bash', 'zsh'];
+      await Promise.all(commands.map(async (cmd) => {
+        this.commandProbes.set(cmd, await succeeds(this.platform === 'win32' ? 'where' : 'which', [cmd], {}));
+      }));
+    }
+    if (this.platform === 'win32' && this.isCommandAvailable('wsl.exe')) {
+      this.commandProbes.set('wsl:zsh', await succeeds('wsl.exe', ['which', 'zsh'], { timeout: 3000 }));
+    }
+    this.cachedAvailableShells = this.detectAvailableShells();
   }
 
   private detectAvailableShells(): ShellInfo[] {
@@ -4531,25 +4571,14 @@ export class SessionManager {
     if (this.injectedIsCommandAvailable) {
       return this.injectedIsCommandAvailable(cmd);
     }
-    try {
-      if (this.platform === 'win32') {
-        execSync(`where ${cmd}`, { stdio: 'ignore', windowsHide: true });
-      } else {
-        execSync(`which ${cmd}`, { stdio: 'ignore' });
-      }
-      return true;
-    } catch {
-      return false;
-    }
+    // Answered from the start-up probe. Before it lands, what `where`/`which` says on
+    // virtually every host: the wsl.exe launcher ships with Windows, bash with POSIX
+    // systems; zsh is not assumed.
+    return this.commandProbes.get(cmd) ?? (cmd === 'wsl.exe' || cmd === 'bash');
   }
 
   private isWslShellAvailable(shell: string): boolean {
-    try {
-      execSync(`wsl.exe which ${shell}`, { stdio: 'ignore', timeout: 3000, windowsHide: true });
-      return true;
-    } catch {
-      return false;
-    }
+    return this.commandProbes.get(`wsl:${shell}`) ?? false;
   }
 
   /**
@@ -5524,13 +5553,13 @@ export class SessionManager {
     // Note: lstat symlink check omitted — localhost-only tool, LOW risk per security analysis.
     // The shell hook writes to cwdFile as the same OS user, so symlink attacks require
     // same-user access to the temp directory which already grants full filesystem access.
-    watchFile(cwdFile, { interval: 1000 }, () => {
+    watchFile(cwdFile, { interval: 1000 }, async () => {
       try {
-        const raw = readFileSync(cwdFile, 'utf8');
+        const raw = await readFile(cwdFile, 'utf8');
         const cwd = sanitizeCwd(raw);
         const currentData = this.sessions.get(id);
         const derivedState = currentData ? this.ensureDerivedState(currentData) : null;
-        const fileMtime = statSync(cwdFile).mtimeMs;
+        const fileMtime = (await stat(cwdFile)).mtimeMs;
         const ignoreStaleForegroundPrompt = Boolean(
           currentData &&
           derivedState?.ownership === 'foreground_app' &&
@@ -7440,7 +7469,7 @@ export class SessionManager {
 
     if (data.cwdFilePath) {
       unwatchFile(data.cwdFilePath);
-      try { unlinkSync(data.cwdFilePath); } catch { /* ignore */ }
+      void unlink(data.cwdFilePath).catch(() => { /* ignore */ });
     }
 
     this.wsRouter?.clearSessionState(sessionId);

@@ -246,7 +246,7 @@ export async function performGracefulShutdown(
   }
 
   if (options.workspaceService) {
-    options.workspaceService.snapshotAllCwds();
+    await options.workspaceService.snapshotAllCwds();
     workspaceSnapshotted = true;
     await options.workspaceService.forceFlush();
     workspaceFlushed = true;

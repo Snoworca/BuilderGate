@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import { resolveNameCollision } from '../fileNameCollision.js';
+import { pathExists, resolveNameCollisionAsync } from '../fileNameCollision.js';
 import { AppError, ErrorCode } from '../../utils/errors.js';
 
 /** Codes a filesystem gives when it cannot make hard links. */
@@ -32,7 +32,7 @@ export async function placeExclusively(tempPath: string, finalPath: string, rena
       if (code === 'EEXIST') {
         if (!rename) throw new AppError(ErrorCode.FILE_ALREADY_EXISTS);
         tried.add(candidate);
-        candidate = resolveNameCollision(wanted, (name) => tried.has(name) || fs.existsSync(path.join(parent, name)));
+        candidate = await resolveNameCollisionAsync(wanted, async (name) => tried.has(name) || pathExists(path.join(parent, name)));
         continue;
       }
       if (useLink && code !== undefined && NO_LINK.has(code)) {
