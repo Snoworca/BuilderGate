@@ -63,6 +63,8 @@ The folder contains the launcher, `config.json5` (runtime configuration), `web/`
 
 **Windows installer (MSI).** `BuilderGate-win-amd64-<version>.msi` and `BuilderGate-win-arm64-<version>.msi` install to `C:\Program Files\BuilderGate` (administrator approval required) and add *BuilderGate* and *Stop BuilderGate* to the Start Menu. An installed BuilderGate keeps `config.json5`, `data/`, `certs/` and `runtime/` in `%LOCALAPPDATA%\BuilderGate`, so installing a newer MSI over an older one keeps your settings, workspaces and saved sessions. Uninstalling leaves that folder in place; delete it yourself to remove your data. The zip (portable) build never writes to AppData: it keeps everything in its own folder as described above.
 
+**macOS: Homebrew.** On an Apple Silicon Mac the command-line runtime installs with `brew install snoworca/tap/buildergate`. It installs the same runtime as the macOS ZIP, without `BuilderGate.app`. Settings, data and certificates stay in `$(brew --prefix)/var/buildergate`, so `brew upgrade` keeps them. `brew services start buildergate` starts it at login. The formula follows each release.
+
 ### Run
 
 The default mode is the **native daemon**: the launcher starts the BuilderGate app process and a sentinel watchdog in the background and returns the console.
@@ -370,6 +372,8 @@ GitHub Release 의 각 파일에는 최상위 폴더 하나가 들어 있습니�
 폴더에는 런처, `config.json5`(실행 설정), `web/`(프런트엔드), `shell-integration/`, `runtime/`(데몬 상태·로그·TOTP secret, 첫 실행 때 생성), 이 README 복사본이 들어 있습니다.
 
 **Windows 설치 프로그램(MSI).** `BuilderGate-win-amd64-<version>.msi`, `BuilderGate-win-arm64-<version>.msi` 는 `C:\Program Files\BuilderGate` 에 설치되고(관리자 승인 필요) 시작 메뉴에 *BuilderGate*·*Stop BuilderGate* 를 추가합니다. 설치형은 `config.json5`, `data/`, `certs/`, `runtime/` 을 `%LOCALAPPDATA%\BuilderGate` 에 두므로, 새 버전 MSI 를 설치해도 설정·Workspace·저장한 세션이 그대로 남습니다. 제거해도 이 폴더는 지우지 않으니 데이터까지 지우려면 직접 삭제하세요. zip(포터블) 판은 AppData 에 쓰지 않고 위처럼 자기 폴더에 모두 둡니다.
+
+**macOS: Homebrew.** Apple Silicon Mac 에서는 `brew install snoworca/tap/buildergate` 로 명령줄 실행 파일을 설치합니다. macOS ZIP 과 같은 런타임이며 `BuilderGate.app` 은 들어 있지 않습니다. 설정·데이터·인증서는 `$(brew --prefix)/var/buildergate` 에 있어서 `brew upgrade` 해도 남습니다. `brew services start buildergate` 로 로그인할 때 시작합니다. formula 는 릴리즈마다 따라갑니다.
 
 ### 실행
 
