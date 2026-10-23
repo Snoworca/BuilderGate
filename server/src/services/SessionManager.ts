@@ -4275,6 +4275,15 @@ export class SessionManager {
     return data?.lastCwd ?? data?.initialCwd ?? null;
   }
 
+  /**
+   * The command that launched the session's shell. On Windows the "wsl" and "bash"
+   * settings both launch wsl.exe with shellType "bash", so git uses this to tell a
+   * WSL session from a Windows one. @req FR-GIT-001
+   */
+  getSessionLaunchCommand(sessionId: string): string | null {
+    return this.sessions.get(sessionId)?.processMetadata.shellCommand ?? null;
+  }
+
   getCwdFilePath(sessionId: string): string | null {
     const data = this.sessions.get(sessionId);
     return data?.cwdFilePath ?? null;
