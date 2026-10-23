@@ -21,6 +21,15 @@ test('FR-GIT-009: interval by the fastest visible subscriber, with slow-reposito
   assert.equal(pollInterval([chip(false)], { lastDurationMs: 100, sameCount: 10 }), 10_000);
 });
 
+// @req PERF-GIT-001
+test('PERF-GIT-001: a WSL session that is working polls every 5 s (one wsl.exe call costs over 250 ms)', () => {
+  const fresh = { lastDurationMs: 100, sameCount: 0 };
+  assert.equal(pollInterval([{ visible: true, running: true, mode: 'chip', wsl: true }], fresh), 5_000);
+  assert.equal(pollInterval([{ visible: true, running: false, mode: 'window', wsl: true }], fresh), 5_000);
+  assert.equal(pollInterval([{ visible: true, running: false, mode: 'chip', wsl: true }], fresh), 10_000);
+  assert.equal(pollInterval([{ visible: true, running: true, mode: 'chip' }], fresh), 3_000, 'native sessions keep 3 s');
+});
+
 function harness() {
   let now = 0;
   const timers: Array<{ id: number; at: number; fn: () => void }> = [];

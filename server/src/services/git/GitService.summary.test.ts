@@ -211,3 +211,27 @@ test('PERF-GIT-001: after two status timeouts in a row the repository stops scan
   assert.equal(s.untrackedScan, 'off');
   assert.ok(seen.filter((a) => a[0] === 'status').at(-1)?.includes('-uno'));
 });
+
+// @req PERF-GIT-001
+test('PERF-GIT-001: a first summary looks up the base in one git call, alongside status', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const origin = initRepo(path.join(root, 'o'));
+  origin.commit('init', { 'a.txt': 'a' });
+  repoAt(root).git('clone', '-q', origin.dir, path.join(root, 'c'));
+  const c = repoAt(path.join(root, 'c'));
+  c.git('checkout', '-q', '-b', 'feat');
+  const base = createGitRunner();
+  const calls: Array<{ cmd: string; start: number; end: number }> = [];
+  let clock = 0;
+  const runGit = (async (...a: Parameters<RunGit>) => {
+    const entry = { cmd: a[1].find((x) => !x.startsWith('-') && !x.includes('=')) ?? '', start: clock++, end: -1 };
+    calls.push(entry);
+    try { return await base(...a); } finally { entry.end = clock++; }
+  }) as RunGit;
+  const s = await serviceFor(c.dir, runGit).summary('s');
+  assert.ok(s.repo && 'ref' in s.compare && s.compare.ref === 'origin/main', JSON.stringify(s));
+  const lookups = calls.filter((x) => x.cmd === 'symbolic-ref' || x.cmd === 'for-each-ref');
+  assert.equal(lookups.length, 1, calls.map((x) => x.cmd).join(','));
+  const status = calls.find((x) => x.cmd === 'status')!;
+  assert.ok(lookups[0].start < status.end, 'the base lookup starts before status ends');
+});

@@ -221,6 +221,12 @@ export class GitService {
     const checkedAt = this.now();
     if (!info) return { repo: false, checkedAt };
     const scanOff = (this.timeouts.get(info.root) ?? 0) >= 2;
+    // PERF-GIT-001: every git process costs tens of milliseconds to start on Windows, so the
+    // base lookup and the git directory listing run alongside status rather than after it.
+    const baseLookup = this.baseRef(target, info);
+    baseLookup.catch(() => {});
+    const operationLookup = this.operation(target, info);
+    operationLookup.catch(() => {});
     let out: string;
     try {
       out = await this.runGit(target, ['status', '--porcelain=v2', '--branch', '-z', scanOff ? '-uno' : '-unormal', '--no-renames'], { repoKey: info.root, quick: true, join: true });
@@ -230,14 +236,14 @@ export class GitService {
       throw err;
     }
     const status = parseStatusV2(out);
-    const operation = await this.operation(target, info);
+    const operation = await operationLookup;
     let branch = status.branch.head;
     let detached = status.branch.detached;
     if (operation?.kind === 'rebase' && operation.branch) { branch = operation.branch; detached = false; }
     const base = !status.branch.upstream && branch && status.branch.oid
-      ? await this.baseAhead(target, info, branch, status.branch.oid)
+      ? await this.baseAhead(target, info, branch, status.branch.oid, await baseLookup)
       : null;
-    const baseFull = await this.baseRef(target, info);
+    const baseFull = await baseLookup;
     const compare = !baseFull ? { blocked: 'noBase' as const }
       : branch && (shortRef(baseFull) === branch || baseFull === `refs/heads/${branch}`) ? { blocked: 'sameAsBase' as const }
       : { ref: shortRef(baseFull) };
@@ -289,15 +295,15 @@ export class GitService {
   }
 
   private async findBaseRef(target: GitTarget, info: RepoInfo): Promise<string | null> {
-    const run = (args: string[]) => this.runGit(target, args, { repoKey: info.root, quick: true, join: true });
-    const originHead = await run(['symbolic-ref', '-q', 'refs/remotes/origin/HEAD']).then((s) => s.trim(), () => '');
+    // One git call: origin/HEAD's target (%(symref)) if it is set, else the first candidate that exists.
+    const out = await this.runGit(target, ['for-each-ref', '--format=%(refname) %(symref)', 'refs/remotes/origin/HEAD', ...BASE_CANDIDATES], { repoKey: info.root, quick: true, join: true }).catch(() => '');
+    const refs = new Map(out.split(/\r?\n/).filter(Boolean).map((line) => { const [name, sym = ''] = line.split(' '); return [name, sym] as const; }));
+    const originHead = refs.get('refs/remotes/origin/HEAD');
     if (originHead) return originHead;
-    const existing = (await run(['for-each-ref', '--format=%(refname)', ...BASE_CANDIDATES]).catch(() => '')).split(/\r?\n/).filter(Boolean);
-    return BASE_CANDIDATES.find((c) => existing.includes(c)) ?? null;
+    return BASE_CANDIDATES.find((c) => refs.has(c)) ?? null;
   }
 
-  private async baseAhead(target: GitTarget, info: RepoInfo, branch: string, head: string): Promise<{ ref: string; ahead: number } | null> {
-    const ref = await this.baseRef(target, info);
+  private async baseAhead(target: GitTarget, info: RepoInfo, branch: string, head: string, ref: string | null): Promise<{ ref: string; ahead: number } | null> {
     if (!ref || shortRef(ref) === branch || ref === `refs/heads/${branch}`) return null;
     const key = `${info.root}\0${head}\0${ref}`;
     let ahead = this.baseAheadCache.get(key);
@@ -422,8 +428,11 @@ export class GitService {
     const info = await this.repoOrThrow(target);
     const limit = Math.max(1, Math.min(MAX_LOG_LIMIT, Math.floor(opts.limit ?? 200)));
     if (opts.after !== undefined && !SHA.test(opts.after)) throw new GitError('INVALID_INPUT', 'after');
-    const shallow = (await this.git(target, info, ['rev-parse', '--is-shallow-repository'], true).catch(() => 'false')).trim() === 'true';
-    const hasHead = await this.git(target, info, ['rev-parse', '-q', '--verify', 'HEAD'], true).then(() => true, () => false);
+    const [shallowOut, hasHead] = await Promise.all([
+      this.git(target, info, ['rev-parse', '--is-shallow-repository'], true).catch(() => 'false'),
+      this.git(target, info, ['rev-parse', '-q', '--verify', 'HEAD'], true).then(() => true, () => false),
+    ]);
+    const shallow = shallowOut.trim() === 'true';
     if (!hasHead) return { commits: [], hasMore: false, shallow, noCommits: true, sessions: [] };
     const revs = await this.revsFor(target, info, opts.scope);
     let skip = 0;
@@ -590,8 +599,9 @@ export class GitService {
 
     const { range, oldTree, newTree } = await this.sides(target, info, req);
     const oldRel = req.origPath ?? req.path;
-    const [oldIn, newIn] = await Promise.all([this.sideInput(target, info, oldTree, oldRel), this.sideInput(target, info, newTree, req.path)]);
-    const inputs = { old: oldIn, new: newIn };
+    // The side inputs and the diff itself do not depend on each other: ask for them together.
+    const inputsLookup = Promise.all([this.sideInput(target, info, oldTree, oldRel), this.sideInput(target, info, newTree, req.path)]);
+    inputsLookup.catch(() => {});
     const pathspec = req.origPath ? ['--', req.origPath, req.path] : ['--', req.path];
     const base = ['diff', '-U3', '--no-color', '--no-ext-diff', '--no-textconv', '-M'];
     const runDiff = (extra: string[]) => this.runGit(target, [...base, ...extra, ...range, ...pathspec], {
@@ -600,7 +610,8 @@ export class GitService {
       if (err instanceof GitError && /maxBuffer/i.test(err.detail)) return null;
       throw err;
     });
-    const raw = await runDiff(req.ignoreWs ? ['-w'] : []);
+    const [raw, [oldIn, newIn]] = await Promise.all([runDiff(req.ignoreWs ? ['-w'] : []), inputsLookup]);
+    const inputs = { old: oldIn, new: newIn };
     if (raw === null) return { inputs, hunks: [], special: { kind: 'large', add: 0, del: 0 }, truncated: true, language };
     let text: string;
     try { text = UTF8.decode(raw); } catch { return { inputs, hunks: [], special: { kind: 'encoding' }, truncated: false, language }; }
@@ -638,7 +649,10 @@ export class GitService {
     if (!req.force && (raw.length > MAX_DIFF_BYTES || changed('+') + changed('-') > MAX_DIFF_LINES)) {
       return { inputs, hunks: [], special: { kind: 'large', add: changed('+'), del: changed('-') }, truncated: true, language };
     }
-    if (!req.ignoreWs && !req.force) {
+    // Only a change whose removed and added lines match once a trailing CR is dropped can be a
+    // line-ending change; anything else skips the second git call (PERF-GIT-001).
+    const strippedSide = (k: '+' | '-') => file.hunks.flatMap((h) => h.lines).filter((l) => l.k === k).map((l) => l.t.replace(/\r$/, '')).sort().join('\n');
+    if (!req.ignoreWs && !req.force && strippedSide('+') === strippedSide('-')) {
       const crlf = await runDiff(['--ignore-cr-at-eol']);
       if (crlf !== null && crlf.length === 0) {
         const plus = file.hunks.flatMap((h) => h.lines).filter((l) => l.k === '+');

@@ -22,10 +22,10 @@ export function useGitSummary(sessionId: string, options: UseGitSummaryOptions):
   const store = options.store ?? gitSummaryStore();
   const [state, setState] = useState<GitSummaryState>(() => store.get(sessionId));
   const subRef = useRef<GitSummarySubscription | null>(null);
-  const { visible, running, mode, status, cwd } = options;
+  const { visible, running, mode, wsl, status, cwd } = options;
 
   useEffect(() => {
-    const sub = store.subscribe(sessionId, { visible, running, mode }, () => setState(store.get(sessionId)));
+    const sub = store.subscribe(sessionId, { visible, running, mode, wsl }, () => setState(store.get(sessionId)));
     subRef.current = sub;
     setState(store.get(sessionId));
     return () => { sub.unsubscribe(); subRef.current = null; };
@@ -34,8 +34,8 @@ export function useGitSummary(sessionId: string, options: UseGitSummaryOptions):
   }, [store, sessionId]);
 
   useEffect(() => {
-    subRef.current?.update({ visible, running, mode });
-  }, [visible, running, mode]);
+    subRef.current?.update({ visible, running, mode, wsl });
+  }, [visible, running, mode, wsl]);
 
   useEffect(() => {
     store.notify(sessionId, { status, cwd });

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { GitService } from './GitService.js';
-import { createGitRunner, type GitError } from './gitRunner.js';
+import { createGitRunner, type GitError, type RunGit } from './gitRunner.js';
 import { initRepo, tempRoot, repoAt, type TestRepo } from './testRepo.js';
 
 const svcAt = (cwd: string) => new GitService({
@@ -146,4 +146,23 @@ test('FR-GIT-007: force=1 shows a line-ending-only change as lines', async (t) =
   const forced = await svc.diff('s', { src: 'unstaged', path: 'e.txt', force: true });
   assert.equal(forced.special, undefined);
   assert.ok(forced.hunks[0].lines.some((l) => l.k === '+'));
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001: an ordinary change asks git for its diff once; the line-ending check runs only when it could apply', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('init', { 'a.txt': 'a\nb\n', 'e.txt': 'x\ny\n' });
+  r.write('a.txt', 'a\nB\n');
+  r.write('e.txt', 'x\r\ny\r\n');
+  const base = createGitRunner();
+  const diffs: string[][] = [];
+  const runGit = (async (...a: Parameters<RunGit>) => { if (a[1].includes('diff')) diffs.push([...a[1]]); return base(...a); }) as RunGit;
+  const svc = new GitService({ sessions: { getLastCwd: () => r.dir, getSessionLaunchCommand: () => 'powershell.exe' }, runGit });
+  const d = await svc.diff('s', { src: 'unstaged', path: 'a.txt' });
+  assert.equal(d.special, undefined);
+  assert.equal(diffs.length, 1, diffs.map((x) => x.join(' ')).join(' | '));
+  diffs.length = 0;
+  assert.equal((await svc.diff('s', { src: 'unstaged', path: 'e.txt' })).special?.kind, 'eol');
+  assert.equal(diffs.length, 2);
 });
