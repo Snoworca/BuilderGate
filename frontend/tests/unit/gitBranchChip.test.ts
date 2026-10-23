@@ -196,3 +196,33 @@ test('FR-GIT-001 AC-6: the checking chip turns into the branch chip when the ans
   assert.match(chip?.textContent ?? '', /feat\/git-graph/);
   await r.cleanup();
 });
+
+// @req REL-BGSTAB-052
+test('REL-BGSTAB-052 AC-7: the elapsed-time ticker runs only while the time is shown', async () => {
+  const realSetInterval = globalThis.setInterval;
+  const realClearInterval = globalThis.clearInterval;
+  const live = new Set<unknown>();
+  globalThis.setInterval = ((fn: () => void, ms?: number, ...rest: unknown[]) => {
+    const id = realSetInterval(fn, ms, ...rest);
+    if (ms === 1000) live.add(id);
+    return id;
+  }) as typeof setInterval;
+  globalThis.clearInterval = ((id?: Parameters<typeof clearInterval>[0]) => { live.delete(id); realClearInterval(id); }) as typeof clearInterval;
+  try {
+    width = 150;
+    const narrow = await render(React.createElement(MetadataRow, { tab, gitStore: storeAnswering(repoSummary), onOpenGitWindow: () => {} }));
+    await act(async () => { await new Promise((res) => setTimeout(res, 20)); });
+    assert.equal(narrow.container.textContent?.match(/\d\d:\d\d/), null, 'the time is hidden at this width');
+    assert.equal(live.size, 0, 'no 1 s ticker left running for a hidden time');
+    await narrow.cleanup();
+    width = 760;
+    const wide = await render(React.createElement(MetadataRow, { tab, gitStore: storeAnswering(repoSummary), onOpenGitWindow: () => {} }));
+    await act(async () => { await new Promise((res) => setTimeout(res, 20)); });
+    assert.equal(live.size, 1, 'a shown time ticks');
+    await wide.cleanup();
+    assert.equal(live.size, 0, 'unmount stops it');
+  } finally {
+    globalThis.setInterval = realSetInterval;
+    globalThis.clearInterval = realClearInterval;
+  }
+});

@@ -519,3 +519,24 @@ test('selectVisibleRows 는 순서 함수를 받으면 모든 펼친 단계를 �
   const reverseByName = (entries: readonly { name: string }[]) => entries.slice().sort((p, q) => q.name.localeCompare(p.name));
   assert.deepEqual(names(m.selectVisibleRows(state, reverseByName as never)), ['sub', 'y.md', 'x.md', 'b.md', 'a.md'], 'each level, children included, in the given order');
 });
+
+// REL-BGSTAB-052 AC-9: the listing cache is bounded; the root, its ancestors and expanded
+// directories are never evicted, and an evicted directory is fetched again when shown.
+test('REL-BGSTAB-052 AC-9 the directory listing cache keeps what is on screen and drops the oldest rest', async () => {
+  const { createInitialFileTreeState, fileTreeReducer, FILE_TREE_CACHE_LIMIT, shouldFetchChildren } = await load() as M & { FILE_TREE_CACHE_LIMIT: number };
+  assert.equal(typeof FILE_TREE_CACHE_LIMIT, 'number');
+  let state = createInitialFileTreeState({ root: 'C:\\r', mode: 'tree' });
+  const listing = (cwd: string): DirectoryListing => ({ path: cwd, cwd, entries: [file('a.txt', 1)] } as unknown as DirectoryListing);
+  state = fileTreeReducer(state, { type: 'CHILDREN_LOADED', path: 'C:\\r', listing: listing('C:\\r') });
+  state = fileTreeReducer(state, { type: 'TOGGLE_EXPAND', path: 'C:\\r\\kept' });
+  state = fileTreeReducer(state, { type: 'CHILDREN_LOADED', path: 'C:\\r\\kept', listing: listing('C:\\r\\kept') });
+  for (let i = 0; i < FILE_TREE_CACHE_LIMIT + 50; i += 1) {
+    state = fileTreeReducer(state, { type: 'CHILDREN_LOADED', path: `C:\\other\\d${i}`, listing: listing(`C:\\other\\d${i}`) });
+  }
+  assert.ok(state.childrenByPath.size <= FILE_TREE_CACHE_LIMIT, `cache size ${state.childrenByPath.size}`);
+  assert.ok(state.childrenByPath.has('C:\\r'), 'the root stays');
+  assert.ok(state.childrenByPath.has('C:\\r\\kept'), 'an expanded directory stays');
+  assert.ok(!state.childrenByPath.has('C:\\other\\d0'), 'the oldest unrelated listing is dropped');
+  assert.ok(state.childrenByPath.has(`C:\\other\\d${FILE_TREE_CACHE_LIMIT + 49}`), 'the newest stays');
+  assert.equal(shouldFetchChildren(state.childrenByPath, 'C:\\other\\d0', { isRefresh: false }), true, 'a dropped directory is fetched again');
+});

@@ -270,7 +270,7 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
     <div className="git-window-tools">
       <label className="git-check"><input type="checkbox" data-opt="auto" checked={auto} onChange={(e) => { setAuto(e.target.checked); if (e.target.checked && live) setShown(live); }} />{t('git.window.autoRefresh')}</label>
       <button type="button" className="git-icon-btn" data-refresh="" aria-label={t('git.window.refresh')} title={t('git.window.refresh')} onClick={refresh}>↻</button>
-      <span className="git-muted" data-checked="">{t('git.window.checked', { time: formatRelativeTime(checkedAt, Date.now(), activeLanguage(), t('git.time.justNow')) })}</span>
+      <span className="git-muted" data-checked="">{t('git.window.checked', { time: formatRelativeTime((frozen || !auto ? undefined : git.checkedAt) ?? checkedAt, Date.now(), activeLanguage(), t('git.time.justNow')) })}</span>
       <span className="git-spacer" />
       <span role="status" className="git-window-status">
         {pending && <button type="button" className="git-badge" data-list-badge="" onClick={() => live && setShown(live)}>{t('git.window.listBadge')}</button>}

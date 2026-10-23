@@ -2,7 +2,7 @@
 // save dialog and the restore report.
 import { useCallback, useEffect, useState } from 'react';
 import { sessionSnapshotApi } from '../../services/api.ts';
-import type { AgentTabCandidate, SnapshotStatus } from './sessionSnapshotModel.ts';
+import { keepIfSame, type AgentTabCandidate, type SnapshotStatus } from './sessionSnapshotModel.ts';
 import type { RestoreReportItem, SaveItem, SnapshotPreview } from './sessionSaveAllModel.ts';
 import type { HandRestoreItem, SnapshotDetail, SnapshotList } from './sessionRestoreModel.ts';
 
@@ -36,8 +36,8 @@ export function useSessionSnapshot(enabled: boolean): SessionSnapshotState {
         sessionSnapshotApi.getStatus(),
         sessionSnapshotApi.getCandidates(),
       ]);
-      setStatus(nextStatus);
-      setCandidates(nextCandidates);
+      setStatus((prev) => keepIfSame(prev, nextStatus));
+      setCandidates((prev) => keepIfSame(prev, nextCandidates));
     } catch (error) {
       console.warn('[SessionSnapshot] refresh failed', error);
     }
@@ -56,7 +56,7 @@ export function useSessionSnapshot(enabled: boolean): SessionSnapshotState {
   useEffect(() => {
     if (!enabled || !waiting) return undefined;
     const timer = window.setInterval(() => {
-      sessionSnapshotApi.getStatus().then(setStatus).catch(() => undefined);
+      sessionSnapshotApi.getStatus().then((next) => setStatus((prev) => keepIfSame(prev, next))).catch(() => undefined);
     }, REPORT_POLL_MS);
     return () => window.clearInterval(timer);
   }, [enabled, waiting]);

@@ -1,3 +1,4 @@
+import { rememberRecent } from './boundedRecent.ts';
 import type {
   ClientWsMessage,
   RetainedTerminalMutationLease,
@@ -728,6 +729,8 @@ export function createTerminalCheckpointRuntime(
   let applyAcked = false;
   let drainAcked = false;
   let lastDrainAckedSourceSeq: bigint | null = null;
+  // REL-BGSTAB-052 AC-9: only recent ids can come back; the set grew for the runtime's life.
+  const SENT_CHECKPOINT_ID_LIMIT = 256;
   const sentCheckpointDeliveryIds = new Set<string>();
   let disposed = false;
   let inputSettlementSequence = 0;
@@ -821,7 +824,7 @@ export function createTerminalCheckpointRuntime(
         && result.controlSocketId === receipt.controlSocketId
         && result.enqueueOrdinal > receipt.enqueueOrdinal
       ) {
-        sentCheckpointDeliveryIds.add(preparation.checkpointDeliveryId);
+        rememberRecent(sentCheckpointDeliveryIds, preparation.checkpointDeliveryId, SENT_CHECKPOINT_ID_LIMIT);
       } else if (!result.ok) {
         options.onPreparedCheckpointReadySendBlocked?.({
           checkpointDeliveryId: preparation.checkpointDeliveryId,
@@ -842,7 +845,7 @@ export function createTerminalCheckpointRuntime(
       return;
     }
     if (!options.sendPreparedCheckpointReady && options.send(message).ok) {
-      sentCheckpointDeliveryIds.add(preparation.checkpointDeliveryId);
+      rememberRecent(sentCheckpointDeliveryIds, preparation.checkpointDeliveryId, SENT_CHECKPOINT_ID_LIMIT);
     }
   };
 

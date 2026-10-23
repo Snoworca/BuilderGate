@@ -35,11 +35,13 @@ export interface GitChipTooltipProps {
   anchor: HTMLElement | null;
   summary: RepoSummary;
   cwd: string;
+  /** When the store last heard an answer; the summary object may be an older, unchanged one. */
+  checkedAt?: number;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
 }
 
-export function GitChipTooltip({ id, anchor, summary, cwd, onMouseEnter, onMouseLeave }: GitChipTooltipProps) {
+export function GitChipTooltip({ id, anchor, summary, cwd, checkedAt, onMouseEnter, onMouseLeave }: GitChipTooltipProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   usePlacement(anchor, ref);
   const repo = summary.root.split(/[\\/]/).filter(Boolean).pop() ?? summary.root;
@@ -53,7 +55,7 @@ export function GitChipTooltip({ id, anchor, summary, cwd, onMouseEnter, onMouse
   const upstream = summary.upstream
     ? `${summary.upstream}${summary.ahead ? ` ↑${summary.ahead}` : ''}${summary.behind ? ` ↓${summary.behind}` : ''}`
     : summary.base ? t('git.tip.noUpstreamBase', { base: summary.base.ref, count: summary.base.ahead }) : t('git.tip.none');
-  const checked = formatRelativeTime(summary.checkedAt, Date.now(), activeLanguage(), t('git.time.justNow'));
+  const checked = formatRelativeTime(checkedAt ?? summary.checkedAt, Date.now(), activeLanguage(), t('git.time.justNow'));
   return createPortal(
     <div ref={ref} id={id} role="tooltip" className="git-tip" style={POP} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <dl>

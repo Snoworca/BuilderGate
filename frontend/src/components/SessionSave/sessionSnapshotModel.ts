@@ -167,3 +167,12 @@ export function saveButtonState(input: { candidateCount: number; tabCount?: numb
   const saveable = input.tabCount ?? input.candidateCount;
   return { kind: 'save', badge: input.candidateCount, disabled: saveable === 0 };
 }
+
+/**
+ * REL-BGSTAB-052 AC-6: the 15 s status poll answers the same thing almost every time. Keeping
+ * the previous object when nothing changed lets React skip the render, instead of re-rendering
+ * the whole app (header, grid, bottom bars, editor and Git windows) four times a minute.
+ */
+export function keepIfSame<T>(prev: T | null, next: T): T {
+  return prev !== null && JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+}

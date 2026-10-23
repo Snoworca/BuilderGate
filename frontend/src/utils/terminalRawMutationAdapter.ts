@@ -1,6 +1,7 @@
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { isTerminalCheckpointModes } from '../types/ws-protocol.ts';
+import { assignOscLinkIds, releaseTerminalOscLinks } from './terminalOscLinks.ts';
 import type {
   TerminalWriteCoordinatorAdapter,
   TerminalWriteKind,
@@ -73,21 +74,33 @@ export function createTerminalRawMutationAdapter(
 ): TerminalRawMutationAdapter {
   const { terminal, fitAddon } = options;
   let pendingCheckpointModePrefix: Uint8Array = new Uint8Array();
+  // REL-BGSTAB-052 AC-1: a reset the shell sends (RIS) goes straight to xterm's reset; release
+  // the links first and let xterm handle the sequence as usual (false = not consumed).
+  terminal.parser?.registerEscHandler({ final: 'c' }, () => {
+    releaseTerminalOscLinks(terminal);
+    return false;
+  });
   return Object.freeze({
     write: (
       command: Readonly<{ kind: TerminalWriteKind; data: string | Uint8Array }>,
       onWritten: () => void,
     ) => {
+      // REL-BGSTAB-052 AC-2: an id per URI so a link redrawn in place keeps one record.
+      const data = assignOscLinkIds(command.data);
       if (command.kind !== 'checkpoint') {
-        terminal.write(command.data, onWritten);
+        terminal.write(data, onWritten);
         return;
       }
       const prefix = pendingCheckpointModePrefix;
       pendingCheckpointModePrefix = new Uint8Array();
-      terminal.write(prependBytes(prefix, command.data), onWritten);
+      terminal.write(prependBytes(prefix, data), onWritten);
     },
     probeWritePipeline: (onWritten: () => void) => terminal.write('', onWritten),
-    resetParser: () => terminal.reset(),
+    // REL-BGSTAB-052 AC-1: reset() keeps link markers, and through them the old buffer.
+    resetParser: () => {
+      releaseTerminalOscLinks(terminal);
+      terminal.reset();
+    },
     resize: (cols: number, rows: number) => terminal.resize(cols, rows),
     applyModes: (modes: Readonly<Record<string, boolean>>) => {
       pendingCheckpointModePrefix = encodeTerminalModeRehydrate(modes);

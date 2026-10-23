@@ -278,9 +278,26 @@ function applyRowClick(
   return { ...state, selectedPaths: new Set([path]), anchorPath: path };
 }
 
+/**
+ * REL-BGSTAB-052 AC-9: listings kept per explorer. Every directory ever opened used to stay
+ * for the life of the tab, and each load copies the whole map. Past the limit the oldest
+ * listings go, except the root, its ancestors and expanded directories; a dropped directory
+ * is simply listed again when it is shown.
+ */
+export const FILE_TREE_CACHE_LIMIT = 200;
+
 function withChild(state: FileTreeState, path: string, child: ChildState): Map<string, ChildState> {
   const childrenByPath = new Map(state.childrenByPath);
+  childrenByPath.delete(path);
   childrenByPath.set(path, child);
+  if (childrenByPath.size > FILE_TREE_CACHE_LIMIT) {
+    const keep = (key: string) => isSamePath(key, state.root) || isSameOrUnderPath(state.root, key)
+      || state.expandedPaths.has(key) || isSamePath(key, path);
+    for (const key of childrenByPath.keys()) {
+      if (childrenByPath.size <= FILE_TREE_CACHE_LIMIT) break;
+      if (!keep(key)) childrenByPath.delete(key);
+    }
+  }
   return childrenByPath;
 }
 

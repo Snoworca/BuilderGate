@@ -6,6 +6,7 @@
  *
  * @req FR-GIT-009
  * @req FR-GIT-011
+ * @req REL-BGSTAB-052
  */
 
 import { pollInterval, type GitDemand } from './gitPollPolicy.ts';
@@ -18,6 +19,8 @@ export interface GitSummaryState {
   /** The shown summary is older than the last request (that request failed). */
   stale: boolean;
   loading: boolean;
+  /** When the last answer arrived, kept even when the summary object is reused (AC-5). */
+  checkedAt?: number;
 }
 
 export interface GitSummaryStoreDeps {
@@ -25,6 +28,16 @@ export interface GitSummaryStoreDeps {
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (id: unknown) => void;
+  /** The document's visibility (tests); the real document when there is one. */
+  visibility?: { hidden: () => boolean; onChange: (fn: () => void) => void };
+}
+
+function documentVisibility(): GitSummaryStoreDeps['visibility'] {
+  if (typeof document === 'undefined') return undefined;
+  return {
+    hidden: () => document.visibilityState === 'hidden',
+    onChange: (fn) => document.addEventListener('visibilitychange', fn),
+  };
 }
 
 export interface GitSummarySubscription {
@@ -62,6 +75,10 @@ export function createGitSummaryStore(deps: GitSummaryStoreDeps): GitSummaryStor
   const clearTimer = deps.clearTimer ?? ((id: unknown) => clearTimeout(id as ReturnType<typeof setTimeout>));
   const entries = new Map<string, Entry>();
   let nextSub = 1;
+  // REL-BGSTAB-052 AC-4: a browser tab in the background polls nothing; each poll would run
+  // git on the server (~360 an hour per chip). Back in view, every session asks once at once.
+  const visibility = deps.visibility ?? documentVisibility();
+  const hidden = () => visibility?.hidden() ?? false;
 
   const entryFor = (id: string): Entry => {
     let e = entries.get(id);
@@ -72,7 +89,7 @@ export function createGitSummaryStore(deps: GitSummaryStoreDeps): GitSummaryStor
     return e;
   };
   const emit = (e: Entry) => { for (const s of [...e.subs.values()]) s.listener(); };
-  const interval = (e: Entry) => pollInterval([...e.subs.values()].map((s) => s.demand), e);
+  const interval = (e: Entry) => (hidden() ? null : pollInterval([...e.subs.values()].map((s) => s.demand), e));
   const stopTimer = (e: Entry) => { if (e.timer !== null) { clearTimer(e.timer); e.timer = null; } };
 
   const schedule = (id: string, e: Entry) => {
@@ -95,19 +112,29 @@ export function createGitSummaryStore(deps: GitSummaryStoreDeps): GitSummaryStor
     const controller = new AbortController();
     e.controller = controller;
     const started = now();
-    e.state = { ...e.state, loading: true };
-    emit(e);
+    // REL-BGSTAB-052 AC-5: once something is shown, a poll in progress changes nothing on
+    // screen, so it is not announced; only a first load is.
+    if (e.state.summary === null) {
+      e.state = { ...e.state, loading: true };
+      emit(e);
+    }
+    const before = e.state;
     try {
       const summary = await deps.fetchSummary(id, controller.signal);
       if (controller.signal.aborted) return;
       const json = comparable(summary);
-      e.sameCount = json === e.lastJson ? e.sameCount + 1 : 0;
+      const same = json === e.lastJson;
+      e.sameCount = same ? e.sameCount + 1 : 0;
       e.lastJson = json;
-      e.state = { summary, error: null, stale: false, loading: false };
+      // An unchanged answer keeps the object a window renders from, so nothing re-renders.
+      const reuse = same && before.summary !== null && before.error === null && !before.loading;
+      e.state = reuse
+        ? Object.assign(before, { checkedAt: now() }) // same object: listeners need not hear it
+        : { summary, error: null, stale: false, loading: false, checkedAt: now() };
     } catch (err) {
       if (controller.signal.aborted) return;
       const code = err instanceof GitApiError ? err.code : 'GIT_FAILED';
-      e.state = { summary: e.state.summary, error: code, stale: e.state.summary !== null, loading: false };
+      e.state = { summary: e.state.summary, error: code, stale: e.state.summary !== null, loading: false, checkedAt: e.state.checkedAt };
     } finally {
       if (e.controller === controller) {
         e.controller = null;
@@ -115,9 +142,23 @@ export function createGitSummaryStore(deps: GitSummaryStoreDeps): GitSummaryStor
         e.lastDurationMs = e.lastFetchAt - started;
       }
     }
-    emit(e);
+    if (e.state !== before) emit(e);
     if (entries.get(id) === e) schedule(id, e);
   };
+
+  // Back in view, the sessions ask one after another (0-1 s apart) rather than all at once:
+  // each ask runs git, and for a WSL session wsl.exe, on the server.
+  visibility?.onChange(() => {
+    let order = 0;
+    for (const [id, e] of entries) {
+      stopTimer(e);
+      if (hidden() || interval(e) === null) { schedule(id, e); continue; }
+      const delay = Math.min(1_000, order * 250);
+      order += 1;
+      if (delay === 0) void fetchNow(id, e);
+      else e.timer = setTimer(() => { e.timer = null; void fetchNow(id, e); }, delay);
+    }
+  });
 
   return {
     subscribe(id, demand, listener) {

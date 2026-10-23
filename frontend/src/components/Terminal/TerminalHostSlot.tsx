@@ -103,12 +103,16 @@ export function TerminalHostSlot({
     resizeObserver.observe(host);
     resizeObserver.observe(root);
     window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
+    // REL-BGSTAB-052 AC-8: a scroll anywhere in the page (a file list, the editor) fires this
+    // capture listener per event; measuring there forced a layout per event per slot. One
+    // measure on the next frame keeps the terminal in place.
+    const onScroll = () => scheduleMeasure();
+    window.addEventListener('scroll', onScroll, { capture: true, passive: true });
 
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', measure);
-      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('scroll', onScroll, { capture: true });
     };
   }, [measure, rootRef, scheduleMeasure]);
 

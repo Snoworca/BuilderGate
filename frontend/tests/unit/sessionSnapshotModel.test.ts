@@ -84,3 +84,15 @@ test('FR-AITUI-015 AC-5: the save button is usable whenever there is a terminal,
   assert.deepEqual(saveButtonState({ candidateCount: 0, tabCount: 3, status: null, now }), { kind: 'save', badge: 0, disabled: false });
   assert.deepEqual(saveButtonState({ candidateCount: 0, tabCount: 0, status: null, now }), { kind: 'save', badge: 0, disabled: true });
 });
+
+// @req REL-BGSTAB-052
+test('REL-BGSTAB-052 AC-6: an unchanged poll keeps the previous object so React does not re-render', async () => {
+  const { keepIfSame } = await import('../../src/components/SessionSave/sessionSnapshotModel.ts');
+  const prev = { report: [{ id: 'a', result: 'ok' }], savedAt: '1' };
+  assert.equal(keepIfSame(prev, { report: [{ id: 'a', result: 'ok' }], savedAt: '1' }), prev);
+  const changed = { report: [{ id: 'a', result: 'waiting' }], savedAt: '1' };
+  assert.equal(keepIfSame(prev, changed), changed);
+  assert.equal(keepIfSame(null, changed), changed);
+  const list: unknown[] = [];
+  assert.equal(keepIfSame(list, []), list);
+});

@@ -123,15 +123,9 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
   const nameMax = isRepo ? nameMaxWidth(stage, rowWidth) : 150;
 
 
-  const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
   const [copyAttempt, setCopyAttempt] = useState<{ ok: boolean } | null>(null);
 
   const rename = useInlineRename({ onRename: onRename ?? (() => {}) });
-
-  useEffect(() => {
-    const timer = setInterval(() => setElapsed(formatElapsed(tab.createdAt)), 1000);
-    return () => clearInterval(timer);
-  }, [tab.createdAt]);
 
   // Issue #83: a copy that did not happen must not be indistinguishable from one
   // that did. The previous bare catch left no trace anywhere, so the badge simply
@@ -338,7 +332,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
         />
       )}
       {tipOpen && repoSummary && (
-        <GitChipTooltip id={tipId} anchor={chipRef.current} summary={repoSummary} cwd={tab.cwd ?? ''} onMouseEnter={showTip} onMouseLeave={hideTipSoon} />
+        <GitChipTooltip id={tipId} anchor={chipRef.current} summary={repoSummary} cwd={tab.cwd ?? ''} checkedAt={git.checkedAt} onMouseEnter={showTip} onMouseLeave={hideTipSoon} />
       )}
       {errorOpen && !repoSummary && git.error && (
         <GitErrorPopover
@@ -402,16 +396,27 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
       )}
 
       {/* Elapsed time */}
-      {view.showTime && <span style={{
-        color: '#e0e0e0',
-        marginLeft: displayPath && view.showCwd ? '0' : 'auto',
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        flexShrink: 0,
-      }}>
-        {elapsed}
-      </span>}
+      {view.showTime && <ElapsedTime createdAt={tab.createdAt} marginLeft={displayPath && view.showCwd ? '0' : 'auto'} />}
       {!view.showTime && !view.showCwd && <span style={{ marginLeft: 'auto' }} />}
     </div>
+  );
+}
+
+/**
+ * REL-BGSTAB-052 AC-7: the session's elapsed time, ticking every second. Its own component so
+ * the tick re-renders only this span, not the row, its chip and label; and only while the time
+ * is shown at this width.
+ */
+function ElapsedTime({ createdAt, marginLeft }: { createdAt: string; marginLeft: string }) {
+  const [elapsed, setElapsed] = useState(() => formatElapsed(createdAt));
+  useEffect(() => {
+    setElapsed(formatElapsed(createdAt));
+    const timer = setInterval(() => setElapsed(formatElapsed(createdAt)), 1000);
+    return () => clearInterval(timer);
+  }, [createdAt]);
+  return (
+    <span style={{ color: '#e0e0e0', marginLeft, fontFamily: 'monospace', fontSize: '12px', flexShrink: 0 }}>
+      {elapsed}
+    </span>
   );
 }

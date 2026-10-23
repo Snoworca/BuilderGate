@@ -30,7 +30,7 @@ test('PERF-GIT-001: a WSL session that is working polls every 5 s (one wsl.exe c
   assert.equal(pollInterval([{ visible: true, running: true, mode: 'chip' }], fresh), 3_000, 'native sessions keep 3 s');
 });
 
-function harness() {
+function harness(visibility?: { hidden: () => boolean; onChange: (fn: () => void) => void }) {
   let now = 0;
   const timers: Array<{ id: number; at: number; fn: () => void }> = [];
   let nextId = 1;
@@ -40,6 +40,7 @@ function harness() {
     now: () => now,
     setTimer: (fn, ms) => { const id = nextId++; timers.push({ id, at: now + ms, fn }); return id; },
     clearTimer: (id) => { const i = timers.findIndex((t) => t.id === id); if (i >= 0) timers.splice(i, 1); },
+    ...(visibility ? { visibility } : {}),
   });
   const flush = () => new Promise((r) => setImmediate(r));
   const advance = async (ms: number) => {
@@ -123,4 +124,76 @@ test('FR-GIT-009: an error after an answer keeps the data and marks it stale; li
   const v = h.store.get('s1');
   assert.deepEqual([v.summary, v.stale, v.error], [S(3), true, 'GIT_TIMEOUT']);
   assert.ok(heard >= 2);
+});
+
+// @req REL-BGSTAB-052
+test('REL-BGSTAB-052 AC-4: a hidden document stops polling and aborts; becoming visible asks once at once', async () => {
+  let hidden = false;
+  let changed: () => void = () => {};
+  const h = harness({ hidden: () => hidden, onChange: (fn) => { changed = fn; } });
+  h.store.subscribe('s1', { visible: true, running: true, mode: 'chip' }, () => {});
+  await h.flush();
+  await h.answer(0, S(1));
+  assert.equal(h.timers.length, 1);
+  await h.advance(3_000);
+  assert.equal(h.calls.length, 2, 'polling while visible');
+  hidden = true; changed();
+  assert.equal(h.calls[1].signal.aborted, true, 'the request in flight is aborted');
+  assert.equal(h.timers.length, 0, 'no timer while hidden');
+  await h.advance(60_000);
+  assert.equal(h.calls.length, 2, 'no request while hidden');
+  hidden = false; changed();
+  await h.flush();
+  assert.equal(h.calls.length, 3, 'one request when visible again');
+});
+
+// @req REL-BGSTAB-052
+test('REL-BGSTAB-052 AC-5: an unchanged answer keeps the same object and tells nobody; a change does', async () => {
+  const h = harness();
+  let heard = 0;
+  h.store.subscribe('s1', { visible: true, running: true, mode: 'chip' }, () => { heard += 1; });
+  await h.flush();
+  await h.answer(0, { ...S(1), checkedAt: 1 });
+  const first = h.store.get('s1').summary;
+  const heardAfterFirst = heard;
+  await h.advance(3_000);
+  await h.answer(1, { ...S(1), checkedAt: 2 });
+  assert.equal(h.store.get('s1').summary, first, 'the same object when only checkedAt moved');
+  assert.equal(heard, heardAfterFirst, 'no loading or result notification for an unchanged poll');
+  assert.equal(h.store.get('s1').checkedAt, h.nowRef(), 'the check time still moves');
+  await h.advance(3_000);
+  await h.answer(2, S(2));
+  assert.notEqual(h.store.get('s1').summary, first);
+  assert.ok(heard > heardAfterFirst);
+});
+
+// @req REL-BGSTAB-052
+test('REL-BGSTAB-052 AC-5: a failed poll keeps the last check time', async () => {
+  const h = harness();
+  h.store.subscribe('s1', { visible: true, running: true, mode: 'chip' }, () => {});
+  await h.flush();
+  await h.answer(0, S(1));
+  const checked = h.store.get('s1').checkedAt;
+  assert.equal(typeof checked, 'number');
+  await h.advance(3_000);
+  h.calls[1].reject(new GitApiError('GIT_TIMEOUT', 504));
+  await h.flush();
+  assert.equal(h.store.get('s1').error, 'GIT_TIMEOUT');
+  assert.equal(h.store.get('s1').checkedAt, checked, 'the last successful check, not none');
+});
+
+// @req REL-BGSTAB-052
+test('REL-BGSTAB-052 AC-4: coming back to the tab spreads the refreshes of many sessions', async () => {
+  let hidden = false;
+  let changed: () => void = () => {};
+  const h = harness({ hidden: () => hidden, onChange: (fn) => { changed = fn; } });
+  for (const id of ['s1', 's2', 's3', 's4']) h.store.subscribe(id, { visible: true, running: false, mode: 'chip' }, () => {});
+  await h.flush();
+  for (let i = 0; i < 4; i += 1) await h.answer(i, S(i));
+  hidden = true; changed();
+  hidden = false; changed();
+  await h.flush();
+  assert.equal(h.calls.length, 5, 'one session asks at once');
+  await h.advance(1_000);
+  assert.equal(h.calls.length, 8, 'the others follow within a second');
 });

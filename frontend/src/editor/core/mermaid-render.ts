@@ -32,11 +32,18 @@ export function isMermaidModuleLoaded(): boolean {
 }
 
 export function getCachedSize(code: string): RenderedSize | undefined {
-  return sizeCache.get(code);
+  const size = sizeCache.get(code);
+  if (size) { sizeCache.delete(code); sizeCache.set(code, size); } // most recently used last
+  return size;
 }
 
+// REL-BGSTAB-052 AC-9: keyed by the diagram source, so every edited version added an entry.
+export const MERMAID_SIZE_CACHE_LIMIT = 128;
+
 export function setCachedSize(code: string, size: RenderedSize): void {
+  sizeCache.delete(code);
   sizeCache.set(code, size);
+  while (sizeCache.size > MERMAID_SIZE_CACHE_LIMIT) sizeCache.delete(sizeCache.keys().next().value as string);
 }
 
 /**
