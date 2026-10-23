@@ -14,6 +14,7 @@ export { parseApiErrorPayload } from './apiError.ts';
 import { createFileJobClient } from '../components/fileExplorer/fileJobClient.ts';
 import { createFileTransferClient, type XhrLike } from '../components/fileExplorer/fileTransferClient.ts';
 import { createHtmlViewClient } from '../components/editor/htmlViewClient.ts';
+import { createGitClient } from '../components/Git/gitApi.ts';
 import { createSessionSnapshotClient } from '../components/SessionSave/sessionSnapshotClient.ts';
 
 import type {
@@ -493,6 +494,9 @@ export const fileTransferApi = createFileTransferClient({
 });
 // HTML view tokens and the resources a page requested -- FR-MDE-028, SEC-MDE-002.
 export const htmlViewApi = createHtmlViewClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
+
+/** FR-GIT-001..008: read-only git views of a session's repository. */
+export const gitApi = createGitClient({ authFetch, getAuthHeaders, apiBase: API_BASE });
 // FR-AITUI-007 / FR-AITUI-008: session save and resume after restart.
 export const sessionSnapshotApi = createSessionSnapshotClient({ authFetch, getAuthHeaders, parseError, apiBase: API_BASE });
 
