@@ -1321,5 +1321,11 @@
   "git.err.hint.windows": "Windows 세션: 서버 PC 의 명령 프롬프트에서 실행하십시오.",
   "git.err.hint.wsl": "WSL 세션: 그 세션(WSL) 안에서 실행하십시오.",
   "git.err.copyCommand": "명령 복사",
-  "git.err.retry": "다시 확인"
+  "git.err.retry": "다시 확인",
+  "git.window.title": "Git · {repo}",
+  "git.window.subtitle": "{session} · {branch}",
+  "git.window.minimize": "최소화",
+  "git.window.splitter": "커밋 목록과 상세의 폭 조절",
+  "git.window.tray": "최소화된 Git 창",
+  "git.window.trayItem": "Git · {session}"
 }

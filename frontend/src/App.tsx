@@ -65,6 +65,9 @@ import { createTabSessionLookup } from './components/editor/editorWindowRecord';
 import { useEditorWindows } from './hooks/useEditorWindows';
 import { useFileExplorerWindows } from './hooks/useFileExplorerWindows';
 import { FileExplorerWindow } from './components/fileExplorer/FileExplorerWindow';
+import { GitWindow } from './components/Git/GitWindow';
+import { GitWindowTray } from './components/Git/GitWindowTray';
+import { useGitWindows } from './components/Git/useGitWindows';
 import {
   decideReviveFileExplorerAction,
   hasHeaderTrayWindows,
@@ -864,6 +867,18 @@ function AppContent() {
     [wm.activeWorkspaceTabs],
   );
 
+  // FR-GIT-004: the sessions' Git windows; the chips, the path menu and the tray open them.
+  const gitSessionIds = useMemo(() => wm.tabs.map((tab) => tab.sessionId), [wm.tabs]);
+  const gitWorkspaceOf = useCallback(
+    (sessionId: string) => wm.tabs.find((tab) => tab.sessionId === sessionId)?.workspaceId ?? null,
+    [wm.tabs],
+  );
+  const gitWindows = useGitWindows({ sessionIds: gitSessionIds, workspaceOf: gitWorkspaceOf });
+  const openGitWindowForTab = useCallback((tabId: string) => {
+    const tab = wm.tabs.find((candidate) => candidate.id === tabId);
+    if (tab) gitWindows.open(tab.sessionId);
+  }, [wm.tabs, gitWindows]);
+
   const editor = useEditorWindows({
     setScreen,
     activeWorkspaceId: wm.activeWorkspaceId,
@@ -875,6 +890,7 @@ function AppContent() {
     activeWorkspaceTabIds,
     windowState,
     onOpenFileExplorer: openTabFileExplorer,
+    onOpenGitWindow: openGitWindowForTab,
   });
   // FR-ARCH-012 AC-8 / FR-ARCH-013 AC-5: a path from the terminal opens only when
   // the server says it is a file the editor can open; otherwise the reason is shown.
@@ -1059,6 +1075,7 @@ function AppContent() {
                       onLayoutChange={handleLayoutChange}
                       onRequestMoveTab={handleRequestWorkspaceMove}
                       onPathContextMenu={editor.openPathMenu}
+                      onOpenGitWindow={gitWindows.open}
                       onOpenFileExplorer={openTabFileExplorer}
                       getTerminalPathsAt={getTerminalPathsAt}
                       onOpenTerminalPath={openTerminalPathFromMenu}
@@ -1112,6 +1129,7 @@ function AppContent() {
                               tab={tab}
                               onRename={(name) => handleRenameTab(tab.id, name)}
                               onPathContextMenu={(x, y) => editor.openPathMenu(x, y, tab.id)}
+                              onOpenGitWindow={gitWindows.open}
                             />
                           )}
                         </div>
@@ -1181,6 +1199,25 @@ function AppContent() {
                       terminalKeyboardOpen={showMobileKeyBar}
                     />
                   ))}
+                  {/* FR-GIT-004: the active workspace's Git windows and their tray. */}
+                  {gitWindows.state.windows
+                    .filter((w) => w.workspaceId === wm.activeWorkspaceId && !w.minimized)
+                    .map((w) => (
+                      <GitWindow
+                        key={w.sessionId}
+                        sessionId={w.sessionId}
+                        sessionName={wm.tabs.find((tab) => tab.sessionId === w.sessionId)?.name ?? w.sessionId}
+                        cascade={w.cascade}
+                        onMinimize={() => gitWindows.minimize(w.sessionId)}
+                        onClose={() => gitWindows.close(w.sessionId)}
+                        onFocus={() => gitWindows.focus(w.sessionId)}
+                      />
+                    ))}
+                  <GitWindowTray
+                    windows={gitWindows.state.windows.filter((w) => w.workspaceId === wm.activeWorkspaceId && w.minimized)}
+                    nameOf={(sessionId) => wm.tabs.find((tab) => tab.sessionId === sessionId)?.name ?? sessionId}
+                    onRestore={(sessionId) => gitWindows.open(sessionId)}
+                  />
                 </TerminalRuntimeProvider>
               </>
             ) : (

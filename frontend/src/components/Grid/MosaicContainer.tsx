@@ -89,6 +89,8 @@ interface MosaicContainerProps {
   onRequestMoveTab?: (tabId: string) => void;
   /** Forwarded to each tile's metadata row. @req FR-MDE-007 */
   onPathContextMenu?: (x: number, y: number, tabId: string) => void;
+  /** Opens a session's Git window from its branch chip. @req FR-GIT-003 */
+  onOpenGitWindow?: (sessionId: string, target?: 'auto' | 'worktree' | 'compare') => void;
   /** Opens the file explorer for a tile's tab. @req FR-FEX-010 */
   onOpenFileExplorer?: (tabId: string) => void;
   /** The terminal menu's "redraw screen". @req REL-BGSTAB-050 */
@@ -134,6 +136,7 @@ export function MosaicContainer({
   onLayoutChange,
   onRequestMoveTab,
   onPathContextMenu,
+  onOpenGitWindow,
   onOpenFileExplorer,
 }: MosaicContainerProps) {
   const currentTabIds = tabs.map(t => t.id);
@@ -868,6 +871,7 @@ export function MosaicContainer({
             tab={tab}
             onContextMenu={openContextMenu}
             onPathContextMenu={onPathContextMenu}
+            onOpenGitWindow={onOpenGitWindow}
             onRestart={() => onRestartTab(tabId)}
             onFocus={() => handleTileFocus(tabId)}
             onRegisterRef={(el) => registerTileRef(tabId, el)}
@@ -893,6 +897,7 @@ export function MosaicContainer({
       equalPreset,
       openContextMenu,
       onPathContextMenu,
+      onOpenGitWindow,
       handleLayoutModeChange,
       handleColumnsLayout,
       handleTileDragEnd,

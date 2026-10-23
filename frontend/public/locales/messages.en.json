@@ -1365,5 +1365,11 @@
   "git.err.hint.windows": "Windows session: run it in a command prompt on the server PC.",
   "git.err.hint.wsl": "WSL session: run it inside that session (WSL).",
   "git.err.copyCommand": "Copy command",
-  "git.err.retry": "Check again"
+  "git.err.retry": "Check again",
+  "git.window.title": "Git · {repo}",
+  "git.window.subtitle": "{session} · {branch}",
+  "git.window.minimize": "Minimize",
+  "git.window.splitter": "Resize the commit list and the details",
+  "git.window.tray": "Minimized Git windows",
+  "git.window.trayItem": "Git · {session}"
 }

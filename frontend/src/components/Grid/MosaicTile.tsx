@@ -12,6 +12,8 @@ interface MosaicTileProps {
   onContextMenu: (x: number, y: number, tabId: string) => void;
   /** Right click on this tile's cwd path. @req FR-MDE-007 */
   onPathContextMenu?: (x: number, y: number, tabId: string) => void;
+  /** Opens the session's Git window from the branch chip. @req FR-GIT-003 */
+  onOpenGitWindow?: (sessionId: string, target?: 'auto' | 'worktree' | 'compare') => void;
   onRestart: () => void;
   /** Called when the user presses down on this tile (focus tracking) */
   onFocus?: () => void;
@@ -26,6 +28,7 @@ export function MosaicTile({
   tab,
   onContextMenu,
   onPathContextMenu,
+  onOpenGitWindow,
   onRestart,
   onFocus,
   onRegisterRef,
@@ -122,6 +125,7 @@ export function MosaicTile({
         tab={tab}
         onRename={onRenameTab ? (name) => onRenameTab(tabId, name) : undefined}
         onPathContextMenu={onPathContextMenu ? (x, y) => onPathContextMenu(x, y, tabId) : undefined}
+        onOpenGitWindow={onOpenGitWindow}
       />
 
       {/* Disconnected overlay */}
