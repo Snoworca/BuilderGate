@@ -7,7 +7,7 @@
  * @req FR-GIT-008
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import type { GitClient, GitLogCommit, GitRef, LogScope, RepoSummary } from './gitApi.ts';
+import type { GitClient, GitCompare, GitLogCommit, GitRef, LogScope, RepoSummary } from './gitApi.ts';
 import { layoutGraph, MAX_LANES, type GraphRow } from './gitGraphLayout.ts';
 import { graphColumns } from './GitWindow.tsx';
 import { activeLanguage, t } from '../../i18n/i18n.ts';
@@ -33,6 +33,9 @@ export interface GitGraphListProps {
   reloadKey: number;
   nameOf: (sessionId: string) => string;
   vanished?: { sha: string; subject: string } | null;
+  /** The commits on screen, after each load. */
+  onLoaded?: (commits: GitLogCommit[]) => void;
+  onCompare?: (compare: GitCompare | null) => void;
 }
 
 interface Row { key: string; commit: GitLogCommit | null; graph: GraphRow | null; kind: 'commit' | 'worktree' | 'vanished' }
@@ -70,7 +73,7 @@ function RefBadges({ refs }: { refs: GitRef[] }) {
   );
 }
 
-export function GitGraphList({ sessionId, client, summary, scope, onScope, selected, onSelect, width, reloadKey, nameOf, vanished }: GitGraphListProps) {
+export function GitGraphList({ sessionId, client, summary, scope, onScope, selected, onSelect, width, reloadKey, nameOf, vanished, onLoaded, onCompare }: GitGraphListProps) {
   const [commits, setCommits] = useState<GitLogCommit[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [shallow, setShallow] = useState(false);
@@ -88,10 +91,13 @@ export function GitGraphList({ sessionId, client, summary, scope, onScope, selec
       setSessions(page.sessions);
     }, () => {}).finally(() => { loading.current = false; });
     if (scope === 'cmp') {
-      client.compare(sessionId, false, controller.signal).then((c) => setRange(new Set(c.commits)), () => setRange(new Set()));
-    } else setRange(null);
+      client.compare(sessionId, false, controller.signal).then((c) => { setRange(new Set(c.commits)); onCompare?.(c); }, () => { setRange(new Set()); onCompare?.(null); });
+    } else { setRange(null); onCompare?.(null); }
     return () => controller.abort();
+    // onCompare is a notification; a new function identity is not a reason to refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, sessionId, scope, reloadKey]);
+  useEffect(() => { onLoaded?.(commits); }, [commits, onLoaded]);
 
   const loadMore = useCallback(() => {
     const last = commits[commits.length - 1];

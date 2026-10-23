@@ -1383,5 +1383,16 @@
   "git.graph.loadMore": "Load the next {count}",
   "git.graph.shallow": "Shallow clone · no earlier history",
   "git.graph.merge": "Merge commit",
-  "git.graph.moreRefs": "{count} more: {names}"
+  "git.graph.moreRefs": "{count} more: {names}",
+  "git.banner.ended": "The session ended · showing the last state; refresh is off.",
+  "git.banner.moved": "The session moved to another folder · {path}",
+  "git.banner.follow": "Follow",
+  "git.banner.stay": "Keep this window",
+  "git.banner.vanished": "Commit {sha} is no longer on this branch (amend, reset or rebase); its content stays visible.",
+  "git.banner.latestHead": "Show latest HEAD",
+  "git.banner.compare": "Compare: {base} · fork point {sha} · {commits} · {fetched} · the base is detected, not fetched",
+  "git.banner.commits.one": "{count} commit",
+  "git.banner.commits.other": "{count} commits",
+  "git.banner.fetched": "last fetch {time}",
+  "git.banner.neverFetched": "never fetched"
 }

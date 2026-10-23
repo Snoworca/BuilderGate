@@ -8,6 +8,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { GitClient, LogScope } from './gitApi.ts';
 import { GitGraphList } from './GitGraphList.tsx';
+import { GitWindowBanner, pickGitBanner } from './GitWindowBanner.tsx';
+import type { GitCompare, GitLogCommit } from './gitApi.ts';
 import type { GitOpenTarget } from './gitWindowModel.ts';
 import { gitApi } from '../../services/api.ts';
 import { WindowDialog } from '../dialog/WindowDialog';
@@ -50,13 +52,30 @@ export interface GitWindowProps {
   /** The last open request (target and nonce) from the chip, the menu or the tray. */
   request?: { target: GitOpenTarget; nonce: number };
   nameOf?: (sessionId: string) => string;
+  /** The session's cwd as the tab reports it, for the "moved" banner. */
+  cwd?: string | null;
+  /** The session is gone: keep the last state, stop refreshing. */
+  ended?: boolean;
   /** The right side (detail, files, diff). */
   side?: (state: { selected: string; scope: LogScope }) => ReactNode;
 }
 
-export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, side }: GitWindowProps) {
-  const git = useGitSummary(sessionId, { visible: true, running: false, mode: 'window', store });
-  const summary = git.summary?.repo ? git.summary : null;
+export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, cwd = null, ended = false, side }: GitWindowProps) {
+  // "Keep this window" after a move freezes the window on what it showed.
+  const [frozen, setFrozen] = useState(false);
+  const git = useGitSummary(sessionId, { visible: !ended && !frozen, running: false, mode: 'window', store, cwd });
+  const live = git.summary;
+  const [root0, setRoot0] = useState<string | null>(null);
+  const [shown, setShown] = useState(live);
+  useEffect(() => {
+    if (!live || frozen) return;
+    if (root0 === null && live.repo) setRoot0(live.root);
+    if (root0 === null || (live.repo && live.root === root0)) setShown(live);
+  }, [live, frozen, root0]);
+  const summary = shown?.repo ? shown : null;
+  const moved = !frozen && root0 !== null && live !== null && (!live.repo || live.root !== root0)
+    ? { path: cwd ?? '', repo: live.repo }
+    : null;
   const repo = summary ? summary.root.split(/[\\/]/).filter(Boolean).pop() ?? summary.root : '';
   const branch = summary ? (summary.detached ? (summary.head ?? '').slice(0, 7) : summary.branch ?? '') : '';
   const [split, setSplit] = useState(DEFAULT_SPLIT);
@@ -79,6 +98,23 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
   // A new HEAD or a changed working tree reloads the list; the selection stays by sha.
   const headKey = summary ? `${summary.head}:${summary.counts.paths}` : '';
   useEffect(() => { setReloadKey((k) => k + 1); }, [headKey]);
+  // FR-GIT-009: the selected commit vanishing (amend, reset, rebase) keeps it on screen.
+  const subjects = useRef(new Map<string, string>());
+  const [loadedKeys, setLoadedKeys] = useState<Set<string> | null>(null);
+  const onLoaded = useCallback((commits: GitLogCommit[]) => {
+    for (const c of commits) subjects.current.set(c.sha, c.subject);
+    setLoadedKeys(new Set(commits.map((c) => c.sha)));
+  }, []);
+  const vanished = loadedKeys && selected && selected !== 'WORKTREE' && selected !== 'CMP' && !loadedKeys.has(selected) && subjects.current.has(selected)
+    ? { sha: selected, subject: subjects.current.get(selected) ?? '' }
+    : null;
+  const [compare, setCompare] = useState<GitCompare | null>(null);
+  const banner = pickGitBanner({
+    ended,
+    moved,
+    vanished,
+    compare: scope === 'cmp' && compare ? { base: compare.base.ref, mergeBase: compare.mergeBase, commits: compare.commits.length, fetchedAt: compare.fetchedAt } : null,
+  });
   const [graphWidth, setGraphWidth] = useState(600);
 
   const onSplitKey = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -126,6 +162,12 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
         </>
       )}
     >
+      <GitWindowBanner
+        banner={banner}
+        onFollow={() => { setRoot0(live?.repo ? live.root : null); setShown(live); setSelected(''); applied.current = -1; }}
+        onStay={() => setFrozen(true)}
+        onLatestHead={() => setSelected(summary?.head ?? '')}
+      />
       <div className="git-window-body" onPointerDown={onFocus} style={{ gridTemplateColumns: `minmax(380px, ${Math.round(split * 100)}%) 6px minmax(360px, 1fr)` }}>
         <div className="git-pane-graph" data-pane="graph" ref={graphRef}>
           <GitGraphList
@@ -139,6 +181,9 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
             width={graphWidth}
             reloadKey={reloadKey}
             nameOf={nameOf}
+            vanished={vanished}
+            onLoaded={onLoaded}
+            onCompare={setCompare}
           />
         </div>
         <div

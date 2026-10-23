@@ -101,3 +101,7 @@
 .git-ref[data-kind="tag"] { background: var(--warn-tint); color: var(--warn-text); }
 .git-ref[data-more] { background: var(--bg-raised); color: var(--fg-muted); flex-shrink: 0; }
 .git-more { display: block; width: 100%; padding: 10px 12px; border: 0; background: transparent; color: var(--fg-muted); text-align: left; font-size: var(--fs-xs); cursor: pointer; }
+.git-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 12px; border-bottom: 1px solid var(--line); font-size: var(--fs-xs); }
+.git-banner[data-tone="info"] { background: var(--git-banner-info-bg); color: var(--git-banner-info-fg); }
+.git-banner[data-tone="warn"] { background: var(--git-banner-warn-bg); color: var(--warn-text); }
+.git-banner .git-btn { height: 24px; font-size: var(--fs-xs); }
