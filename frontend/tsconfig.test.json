@@ -28,6 +28,7 @@
     "./tests/unit/gitChipMenu.test.ts",
     "./tests/unit/gitPathMenu.test.ts",
     "./tests/unit/gitGraphLayout.test.ts",
+    "./tests/unit/gitWindowModel.test.ts",
     "./tests/unit/apiErrorMessages.test.ts",
     "./tests/unit/terminalRedrawTabView.test.ts",
     "./tests/unit/editorWaitBanner.test.ts",
