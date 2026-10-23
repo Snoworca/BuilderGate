@@ -13,8 +13,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createGitRunner, gitTargetForSession, GitError, type GitTarget, type RunGit, type SessionGitSource } from './gitRunner.js';
 import {
-  LOG_FORMAT, parseLog, parseNameStatusZ, parseNumstatZ, parseRefs, parseStatusV2,
-  type FileArea, type FileKind, type LogCommit, type ParsedStatus, type Ref,
+  LOG_FORMAT, parseLfsPointer, parseLog, parseNameStatusZ, parseNumstatZ, parseRefs, parseStatusV2, parseUnifiedDiff,
+  type DiffHunk, type FileArea, type FileKind, type LogCommit, type ParsedStatus, type Ref,
 } from './gitParsers.js';
 import { createWslPathConverter } from '../../utils/wslPathConverter.js';
 
@@ -69,6 +69,38 @@ export interface GitCompare {
   files: ChangedFile[]; add: number; del: number; fetchedAt: number | null; truncated: boolean;
 }
 
+export type DiffSource = 'commit' | 'staged' | 'unstaged' | 'untracked' | 'cmp';
+export interface DiffRequest {
+  src: DiffSource;
+  path: string;
+  origPath?: string;
+  sha?: string;
+  wt?: boolean;
+  ignoreWs?: boolean;
+  full?: boolean;
+  force?: boolean;
+}
+export type DiffSpecial =
+  | { kind: 'binary'; from: number | null; to: number | null }
+  | { kind: 'large'; add: number; del: number }
+  | { kind: 'mode'; from: string; to: string }
+  | { kind: 'eol'; from: 'LF' | 'CRLF'; to: 'LF' | 'CRLF'; count: number }
+  | { kind: 'wsOnly' }
+  | { kind: 'symlink'; from: string | null; to: string | null }
+  | { kind: 'lfs'; from: number | null; to: number | null }
+  | { kind: 'submodule'; from: string | null; to: string | null }
+  | { kind: 'encoding' }
+  | { kind: 'emptyNew' };
+export interface GitDiff {
+  inputs: { old: SideInput; new: SideInput };
+  hunks: DiffHunk[];
+  gapAfter?: number;
+  special?: DiffSpecial;
+  truncated: boolean;
+  language?: string;
+  full?: { old: string; new: string };
+}
+
 export interface GitServiceDeps {
   sessions: SessionGitSource;
   runGit?: RunGit;
@@ -82,6 +114,24 @@ export interface GitServiceDeps {
 }
 
 const SUMMARY_REUSE_MS = 1000;
+export const MAX_DIFF_BYTES = 512 * 1024;
+export const MAX_DIFF_LINES = 5000;
+const FORCED_DIFF_BYTES = 8 * 1024 * 1024;
+const EMPTY_TREE_SHA1 = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+const EMPTY_TREE_SHA256 = '6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321';
+const LANGUAGES: Record<string, string> = {
+  ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript',
+  json: 'json', json5: 'json', md: 'markdown', css: 'css', scss: 'css', html: 'html', py: 'python', go: 'go',
+  rs: 'rust', java: 'java', kt: 'kotlin', c: 'c', h: 'c', cpp: 'cpp', cs: 'csharp', sh: 'shell', ps1: 'powershell',
+  yml: 'yaml', yaml: 'yaml', toml: 'toml', sql: 'sql', xml: 'xml', vue: 'vue', svelte: 'svelte',
+};
+const UTF8 = new TextDecoder('utf-8', { fatal: true });
+
+/** A repository-relative path that cannot escape the repository or read as an option. */
+export function isSafeRepoPath(p: string): boolean {
+  if (!p || p.includes('\0') || p.startsWith('-') || p.startsWith('/') || p.includes('\\') || /^[A-Za-z]:/.test(p)) return false;
+  return !p.split('/').some((seg) => seg === '..');
+}
 export const MAX_FILES = 2000;
 export const MAX_LOG_LIMIT = 500;
 const SHA = /^[0-9a-f]{7,64}$/;
@@ -455,5 +505,165 @@ export class GitService {
       } catch { /* a session without a readable repository is skipped */ }
     }
     return result;
+  }
+
+  private async emptyTree(target: GitTarget, info: RepoInfo): Promise<string> {
+    const fmt = (await this.git(target, info, ['rev-parse', '--show-object-format'], true).catch(() => 'sha1')).trim();
+    return fmt === 'sha256' ? EMPTY_TREE_SHA256 : EMPTY_TREE_SHA1;
+  }
+
+  /** The two tree-ish sides of a source; null for the index or the working tree. */
+  private async sides(target: GitTarget, info: RepoInfo, req: DiffRequest): Promise<{ range: string[]; oldTree: string | 'index' | null; newTree: string | 'index' | 'worktree' }> {
+    switch (req.src) {
+      case 'commit': {
+        const sha = req.sha!;
+        const parent = await this.git(target, info, ['rev-parse', '-q', '--verify', `${sha}^1`], true).then((s) => s.trim(), () => '');
+        const oldTree = parent || await this.emptyTree(target, info);
+        return { range: [oldTree, sha], oldTree: parent || null, newTree: sha };
+      }
+      case 'staged': {
+        const head = await this.git(target, info, ['rev-parse', '-q', '--verify', 'HEAD'], true).then((s) => s.trim(), () => '');
+        return { range: ['--cached', head || await this.emptyTree(target, info)], oldTree: head || null, newTree: 'index' };
+      }
+      case 'unstaged':
+        return { range: [], oldTree: 'index', newTree: 'worktree' };
+      case 'cmp': {
+        const base = await this.baseRef(target, info);
+        if (!base) throw new GitError('BASE_NOT_FOUND');
+        const mb = (await this.git(target, info, ['merge-base', base, 'HEAD']).catch(() => '')).trim();
+        if (!mb) throw new GitError('SHALLOW_HISTORY');
+        return req.wt ? { range: [mb], oldTree: mb, newTree: 'worktree' } : { range: [mb, 'HEAD'], oldTree: mb, newTree: 'HEAD' };
+      }
+      default:
+        return { range: [], oldTree: null, newTree: 'worktree' };
+    }
+  }
+
+  private async sideInput(target: GitTarget, info: RepoInfo, tree: string | null, rel: string): Promise<SideInput> {
+    if (tree === null) return { id: null };
+    if (tree === 'worktree') return this.worktreeInput(target, info, rel);
+    const ids = await this.blobIds(target, info, tree === 'index' ? 'index' : tree, [rel]);
+    return { id: ids.get(rel) ?? null };
+  }
+
+  private async sideText(target: GitTarget, info: RepoInfo, input: SideInput, tree: string | null, rel: string): Promise<Buffer | null> {
+    if (tree === 'worktree') {
+      try {
+        const file = await this.worktreePath(target, info, rel);
+        const st = await fs.lstat(file);
+        if (st.isSymbolicLink()) return Buffer.from(await fs.readlink(file));
+        return st.size > MAX_DIFF_BYTES ? null : await fs.readFile(file);
+      } catch { return null; }
+    }
+    if (!input.id) return tree === null ? Buffer.alloc(0) : null;
+    const size = Number((await this.git(target, info, ['cat-file', '-s', input.id], true).catch(() => '0')).trim());
+    if (size > MAX_DIFF_BYTES) return null;
+    return this.runGit(target, ['cat-file', 'blob', input.id], { repoKey: info.root, raw: true }).catch(() => null);
+  }
+
+  async diff(sessionId: string, req: DiffRequest): Promise<GitDiff> {
+    if (!isSafeRepoPath(req.path) || (req.origPath !== undefined && !isSafeRepoPath(req.origPath))) throw new GitError('PATH_OUTSIDE_REPO');
+    if (req.src === 'commit' && !(req.sha && SHA.test(req.sha))) throw new GitError('INVALID_INPUT', 'sha');
+    const target = this.target(sessionId);
+    const info = await this.repoOrThrow(target);
+    const ext = req.path.includes('.') ? req.path.slice(req.path.lastIndexOf('.') + 1).toLowerCase() : '';
+    const language = LANGUAGES[ext];
+    if (req.src === 'untracked') return this.untrackedDiff(target, info, req, language);
+
+    const { range, oldTree, newTree } = await this.sides(target, info, req);
+    const oldRel = req.origPath ?? req.path;
+    const [oldIn, newIn] = await Promise.all([this.sideInput(target, info, oldTree, oldRel), this.sideInput(target, info, newTree, req.path)]);
+    const inputs = { old: oldIn, new: newIn };
+    const pathspec = req.origPath ? ['--', req.origPath, req.path] : ['--', req.path];
+    const base = ['diff', '-U3', '--no-color', '--no-ext-diff', '--no-textconv', '-M'];
+    const runDiff = (extra: string[]) => this.runGit(target, [...base, ...extra, ...range, ...pathspec], {
+      repoKey: info.root, raw: true, maxBuffer: (req.force ? FORCED_DIFF_BYTES : MAX_DIFF_BYTES) + 1,
+    }).catch((err) => {
+      if (err instanceof GitError && /maxBuffer/i.test(err.detail)) return null;
+      throw err;
+    });
+    const raw = await runDiff(req.ignoreWs ? ['-w'] : []);
+    if (raw === null) return { inputs, hunks: [], special: { kind: 'large', add: 0, del: 0 }, truncated: true, language };
+    let text: string;
+    try { text = UTF8.decode(raw); } catch { return { inputs, hunks: [], special: { kind: 'encoding' }, truncated: false, language }; }
+    const file = parseUnifiedDiff(text)[0];
+    if (!file) {
+      if (req.ignoreWs && (await runDiff([]))?.length) return { inputs, hunks: [], special: { kind: 'wsOnly' }, truncated: false, language };
+      return { inputs, hunks: [], truncated: false, language };
+    }
+    const changed = (k: '+' | '-') => file.hunks.reduce((n, h) => n + h.lines.filter((l) => l.k === k).length, 0);
+    if (file.binary) {
+      const size = async (inp: SideInput, tree: string | null, rel: string) => {
+        if (tree === 'worktree') return inp.size ?? null;
+        if (!inp.id) return tree === null ? 0 : null;
+        return Number((await this.git(target, info, ['cat-file', '-s', inp.id], true).catch(() => '')).trim()) || null;
+      };
+      return { inputs, hunks: [], special: { kind: 'binary', from: await size(oldIn, oldTree, oldRel), to: await size(newIn, newTree, req.path) }, truncated: false, language };
+    }
+    if (file.mode === '160000') {
+      const sub = (k: '+' | '-') => file.hunks.flatMap((h) => h.lines).find((l) => l.k === k)?.t.replace(/^Subproject commit /, '').slice(0, 12) ?? null;
+      return { inputs, hunks: [], special: { kind: 'submodule', from: sub('-'), to: sub('+') }, truncated: false, language };
+    }
+    if (file.mode === '120000' || file.oldMode === '120000' || file.newMode === '120000') {
+      const t = (k: '+' | '-') => file.hunks.flatMap((h) => h.lines).find((l) => l.k === k)?.t ?? null;
+      return { inputs, hunks: [], special: { kind: 'symlink', from: t('-'), to: t('+') }, truncated: false, language };
+    }
+    if (!file.hunks.length) {
+      if (file.oldMode && file.newMode && file.oldMode !== file.newMode) return { inputs, hunks: [], special: { kind: 'mode', from: file.oldMode, to: file.newMode }, truncated: false, language };
+      if (file.isNew) return { inputs, hunks: [], special: { kind: 'emptyNew' }, truncated: false, language };
+      return { inputs, hunks: [], truncated: false, language };
+    }
+    const sideOf = (k: '+' | '-') => file.hunks.flatMap((h) => h.lines).filter((l) => l.k !== (k === '+' ? '-' : '+')).map((l) => l.t).join('\n') + '\n';
+    const lfsOld = parseLfsPointer(sideOf('-'));
+    const lfsNew = parseLfsPointer(sideOf('+'));
+    if (lfsOld || lfsNew) return { inputs, hunks: [], special: { kind: 'lfs', from: lfsOld?.size ?? null, to: lfsNew?.size ?? null }, truncated: false, language };
+    if (!req.force && (raw.length > MAX_DIFF_BYTES || changed('+') + changed('-') > MAX_DIFF_LINES)) {
+      return { inputs, hunks: [], special: { kind: 'large', add: changed('+'), del: changed('-') }, truncated: true, language };
+    }
+    if (!req.ignoreWs) {
+      const crlf = await runDiff(['--ignore-cr-at-eol']);
+      if (crlf !== null && crlf.length === 0) {
+        const plus = file.hunks.flatMap((h) => h.lines).filter((l) => l.k === '+');
+        const toCrlf = plus.some((l) => l.t.endsWith('\r'));
+        return { inputs, hunks: [], special: { kind: 'eol', from: toCrlf ? 'LF' : 'CRLF', to: toCrlf ? 'CRLF' : 'LF', count: plus.length }, truncated: false, language };
+      }
+    }
+    const newText = await this.sideText(target, info, newIn, newTree, req.path);
+    let gapAfter: number | undefined;
+    if (newText) {
+      const s = newText.toString('utf8');
+      const total = s ? s.split('\n').length - (s.endsWith('\n') ? 1 : 0) : 0;
+      const last = file.hunks[file.hunks.length - 1];
+      gapAfter = Math.max(0, total - (last.newStart + last.newLines - 1));
+    }
+    const result: GitDiff = { inputs, hunks: file.hunks, truncated: false, language, ...(gapAfter !== undefined ? { gapAfter } : {}) };
+    if (req.full) {
+      const oldText = await this.sideText(target, info, oldIn, oldTree, oldRel);
+      if (!oldText || !newText) throw new GitError('DIFF_TOO_LARGE');
+      result.full = { old: oldText.toString('utf8'), new: newText.toString('utf8') };
+    }
+    return result;
+  }
+
+  private async untrackedDiff(target: GitTarget, info: RepoInfo, req: DiffRequest, language?: string): Promise<GitDiff> {
+    const inputs = { old: { id: null } as SideInput, new: await this.worktreeInput(target, info, req.path) };
+    const file = await this.worktreePath(target, info, req.path);
+    let st;
+    try { st = await fs.lstat(file); } catch { return { inputs, hunks: [], truncated: false, language }; }
+    if (st.isSymbolicLink()) return { inputs, hunks: [], special: { kind: 'symlink', from: null, to: await fs.readlink(file).catch(() => null) }, truncated: false, language };
+    if (st.size === 0) return { inputs, hunks: [], special: { kind: 'emptyNew' }, truncated: false, language };
+    if (st.size > (req.force ? FORCED_DIFF_BYTES : MAX_DIFF_BYTES)) return { inputs, hunks: [], special: { kind: 'large', add: 0, del: 0 }, truncated: true, language };
+    const buf = await fs.readFile(file);
+    if (buf.subarray(0, 8000).includes(0)) return { inputs, hunks: [], special: { kind: 'binary', from: null, to: st.size }, truncated: false, language };
+    let text: string;
+    try { text = UTF8.decode(buf); } catch { return { inputs, hunks: [], special: { kind: 'encoding' }, truncated: false, language }; }
+    const body = text.endsWith('\n') ? text.slice(0, -1) : text;
+    const rows = body.split('\n');
+    if (!req.force && rows.length > MAX_DIFF_LINES) return { inputs, hunks: [], special: { kind: 'large', add: rows.length, del: 0 }, truncated: true, language };
+    const hunk: DiffHunk = {
+      oldStart: 0, oldLines: 0, newStart: 1, newLines: rows.length, header: `@@ -0,0 +1,${rows.length} @@`,
+      lines: rows.map((t, i) => ({ k: '+' as const, o: null, n: i + 1, t })),
+    };
+    return { inputs, hunks: [hunk], truncated: false, language, gapAfter: 0, ...(req.full ? { full: { old: '', new: text } } : {}) };
   }
 }

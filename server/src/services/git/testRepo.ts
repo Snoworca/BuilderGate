@@ -42,5 +42,8 @@ export function repoAt(dir: string): TestRepo {
 export function initRepo(dir: string): TestRepo {
   const r = repoAt(dir);
   r.git('init', '-q');
+  // The service runs git without the helper's -c options; pin what the tests rely on.
+  r.git('config', 'core.autocrlf', 'false');
+  r.git('config', 'core.safecrlf', 'false');
   return r;
 }
