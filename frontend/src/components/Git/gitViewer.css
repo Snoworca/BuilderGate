@@ -29,3 +29,31 @@
 .git-chip[data-tone="warn"] { background: var(--warn-tint); border-color: var(--git-chip-warn-line); color: var(--warn-text); }
 .git-chip[data-tone="stale"], .git-chip[data-tone="stale"] .git-chip-dirty { color: var(--fg-muted); }
 @media (pointer: coarse) { .git-chip { min-width: 44px; } }
+
+.git-tip, .git-error-pop {
+  background: var(--bg-surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-popover);
+  color: var(--fg);
+  font-size: var(--fs-xs);
+  padding: 10px 12px;
+  max-width: 340px;
+}
+.git-tip dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; }
+.git-tip dt { color: var(--fg-muted); }
+.git-tip dd { margin: 0; font-family: var(--font-mono); text-align: right; word-break: break-all; }
+.git-tip-note, .git-tip-foot { margin: 8px 0 0; color: var(--fg-muted); line-height: 1.5; }
+.git-tip-foot { border-top: 1px solid var(--line); padding-top: 6px; }
+.git-error-pop { width: 360px; }
+.git-error-title { font-weight: var(--fw-semibold); margin-bottom: 6px; }
+.git-error-pop p { margin: 0 0 8px; color: var(--fg-muted); line-height: 1.55; }
+.git-error-pop pre { margin: 0 0 6px; padding: 8px; background: var(--bg-sunken); border-radius: var(--r-sm); white-space: pre-wrap; word-break: break-all; font-family: var(--font-mono); font-size: 11.5px; }
+.git-error-code { margin-top: 8px; font-family: var(--font-mono); color: var(--fg-muted); font-size: 11px; }
+.git-btn {
+  height: var(--ctl-sm); padding: 0 12px; margin-right: 6px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--bg-raised); color: var(--fg); cursor: pointer;
+}
+.git-btn:hover { background: var(--git-chip-hover); }
+.git-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

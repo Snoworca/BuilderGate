@@ -5,7 +5,7 @@
  * @req FR-GIT-001
  * @req FR-GIT-002
  */
-import { forwardRef } from 'react';
+import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import type { ChipView } from './gitChipModel.ts';
 import type { RepoSummary } from './gitApi.ts';
 import { t, tn } from '../../i18n/i18n.ts';
@@ -18,6 +18,8 @@ export interface GitBranchChipProps {
   error: string | null;
   label: string;
   onOpen?: () => void;
+  /** Menu, tooltip and popover wiring from MetadataRow. */
+  buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
 }
 
 function BranchIcon({ commit }: { commit: boolean }) {
@@ -42,10 +44,10 @@ export function operationText(op: NonNullable<ChipView['operation']>): string {
   }
 }
 
-export const GitBranchChip = forwardRef<HTMLButtonElement, GitBranchChipProps>(function GitBranchChip({ view, error, label, onOpen }, ref) {
+export const GitBranchChip = forwardRef<HTMLButtonElement, GitBranchChipProps>(function GitBranchChip({ view, error, label, onOpen, buttonProps }, ref) {
   if (!view) {
     return (
-      <button ref={ref} type="button" className="git-chip" data-git-chip="" data-state="error" data-tone="warn" aria-label={label} onClick={onOpen}>
+      <button ref={ref} type="button" className="git-chip" data-git-chip="" data-state="error" data-tone="warn" aria-label={label} onClick={onOpen} {...buttonProps}>
         <BranchIcon commit={false} />
         <span>?</span>
       </button>
@@ -61,6 +63,7 @@ export const GitBranchChip = forwardRef<HTMLButtonElement, GitBranchChipProps>(f
       data-tone={view.tone}
       aria-label={label}
       onClick={onOpen}
+      {...buttonProps}
     >
       <BranchIcon commit={view.icon === 'commit'} />
       {view.operation && <span className="git-chip-op">{operationText(view.operation)}</span>}

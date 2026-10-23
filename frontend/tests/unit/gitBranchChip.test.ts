@@ -35,13 +35,23 @@ function storeAnswering(summary: unknown) {
   return createGitSummaryStore({ fetchSummary: async () => summary as never });
 }
 
+const mounted = new Set<() => Promise<void>>();
+// A failed assertion skips a test's own cleanup; an unmounted row keeps its timers and the run never ends.
+test.afterEach(async () => { for (const c of [...mounted]) await c(); });
+
 async function render(element: React.ReactElement) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
   await act(async () => { root.render(element); });
   await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
-  return { container, cleanup: async () => { await act(async () => { root.unmount(); }); container.remove(); } };
+  const cleanup = async () => {
+    if (!mounted.delete(cleanup)) return;
+    await act(async () => { root.unmount(); });
+    container.remove();
+  };
+  mounted.add(cleanup);
+  return { container, cleanup };
 }
 
 // @req FR-GIT-001
@@ -97,4 +107,61 @@ test('FR-GIT-001: detached HEAD and a failed check', async () => {
   assert.equal(errChip?.getAttribute('data-state'), 'error');
   assert.match(errChip?.textContent ?? '', /\?/);
   await err.cleanup();
+});
+
+function key(target: Element, k: string, shiftKey = false) {
+  target.dispatchEvent(new (document.defaultView as Window & typeof globalThis).KeyboardEvent('keydown', { key: k, shiftKey, bubbles: true, cancelable: true }));
+}
+const menuItems = () => [...document.querySelectorAll('.context-menu-item')].map((e) => e.textContent ?? '');
+
+// @req FR-GIT-003
+test('FR-GIT-003: right click and Shift+F10 open the chip menu; its items open the Git window', async () => {
+  width = 760;
+  const opened: string[] = [];
+  const r = await render(React.createElement(MetadataRow, { tab, gitStore: storeAnswering(repoSummary), onOpenGitWindow: (id: string, target?: string) => opened.push(`${id}:${target ?? 'auto'}`) }));
+  const chip = r.container.querySelector('[data-git-chip]') as HTMLElement;
+  await act(async () => { chip.dispatchEvent(new (document.defaultView as Window & typeof globalThis).MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 })); });
+  assert.ok(menuItems().some((l) => l.includes('Open Git window')), menuItems().join(' | '));
+  const wt = [...document.querySelectorAll('.context-menu-item')].find((e) => (e.textContent ?? '').includes('Show uncommitted changes (3)')) as HTMLElement;
+  await act(async () => { wt.click(); });
+  assert.deepEqual(opened, ['s1:worktree']);
+  assert.equal(document.querySelectorAll('.context-menu-item').length, 0, 'menu closed');
+  await act(async () => { key(chip, 'F10', true); });
+  assert.ok(menuItems().length > 0, 'Shift+F10 opens the menu');
+  await act(async () => { key(document.body, 'Escape'); });
+  await r.cleanup();
+});
+
+// @req FR-GIT-003
+test('FR-GIT-003: the tooltip shows on hover and closes on Escape', async () => {
+  width = 760;
+  const r = await render(React.createElement(MetadataRow, { tab, gitStore: storeAnswering(repoSummary), onOpenGitWindow: () => {} }));
+  const chip = r.container.querySelector('[data-git-chip]') as HTMLElement;
+  await act(async () => { chip.dispatchEvent(new (document.defaultView as Window & typeof globalThis).MouseEvent('mouseover', { bubbles: true })); });
+  const tip = document.querySelector('[role="tooltip"]');
+  assert.ok(tip, 'tooltip shown');
+  assert.match(tip?.textContent ?? '', /origin\/feat\/git-graph/);
+  assert.equal(chip.getAttribute('aria-describedby'), tip?.id);
+  await act(async () => { key(document.body, 'Escape'); });
+  assert.equal(document.querySelector('[role="tooltip"]'), null);
+  await r.cleanup();
+});
+
+// @req FR-GIT-003
+test('FR-GIT-003: an error chip opens a dialog with the cause and the command for the session environment', async () => {
+  width = 760;
+  const { GitApiError } = await import('../../src/components/Git/gitApi.ts');
+  const failing = createGitSummaryStore({ fetchSummary: async () => { throw new GitApiError('GIT_UNSAFE_REPO', 409); } });
+  const r = await render(React.createElement(MetadataRow, { tab, gitStore: failing, onOpenGitWindow: () => {} }));
+  const chip = r.container.querySelector('[data-git-chip]') as HTMLElement;
+  assert.equal(chip.getAttribute('aria-haspopup'), 'dialog');
+  await act(async () => { chip.click(); });
+  const dialog = document.querySelector('[role="dialog"][data-git-error]');
+  assert.ok(dialog);
+  assert.equal(chip.getAttribute('aria-expanded'), 'true');
+  assert.match(dialog?.textContent ?? '', /safe\.directory C:\/work\/repo/);
+  await act(async () => { key(dialog as Element, 'Escape'); });
+  assert.equal(document.querySelector('[role="dialog"][data-git-error]'), null);
+  assert.equal(chip.getAttribute('aria-expanded'), 'false');
+  await r.cleanup();
 });

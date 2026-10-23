@@ -10,6 +10,10 @@ import { copyTextToClipboard, resolveCopyOutcome } from '../../utils/clipboardCo
 import { recordTerminalDebugEvent } from '../../utils/terminalDebugCapture';
 import { t } from '../../i18n/i18n.ts';
 import { GitBranchChip, gitChipLabel } from '../Git/GitBranchChip.tsx';
+import { GitChipTooltip, GitErrorPopover } from '../Git/GitChipPopups.tsx';
+import { buildGitChipMenu } from '../Git/gitChipMenu.ts';
+import { gitSummaryStore } from '../Git/gitStores.ts';
+import { ContextMenu } from '../ContextMenu/ContextMenu.tsx';
 import { availableChipWidth, chipView, nameMaxWidth, stageFor } from '../Git/gitChipModel.ts';
 import { useGitSummary } from '../Git/useGitSummary.ts';
 import type { GitSummaryStore } from '../Git/gitSummaryStore.ts';
@@ -20,7 +24,7 @@ interface Props {
   /** Right click on the cwd path. Both render sites pass it. @req FR-MDE-007 */
   onPathContextMenu?: (x: number, y: number) => void;
   /** Opens the session's Git window; passing it turns the branch chip on. @req FR-GIT-003 */
-  onOpenGitWindow?: (sessionId: string) => void;
+  onOpenGitWindow?: (sessionId: string, target?: 'auto' | 'worktree' | 'compare') => void;
   /** Tests pass their own store; passing it also turns the chip on. */
   gitStore?: GitSummaryStore;
 }
@@ -105,6 +109,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
   } : null, stage, isRepo);
   const nameMax = isRepo ? nameMaxWidth(stage, rowWidth) : 150;
 
+
   const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
   const [copyAttempt, setCopyAttempt] = useState<{ ok: boolean } | null>(null);
 
@@ -139,6 +144,79 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
     setTimeout(() => setCopyAttempt(attempt), feedbackDelay);
     setTimeout(() => setCopyAttempt(null), feedbackDelay + 1500);
   }, [tab.cwd, tab.sessionId]);
+
+  // FR-GIT-003: the chip's menu, tooltip and error popover.
+  const chipRef = useRef<HTMLButtonElement | null>(null);
+  const [chipMenu, setChipMenu] = useState<{ x: number; y: number } | null>(null);
+  const [tipOpen, setTipOpen] = useState(false);
+  const [errorOpen, setErrorOpen] = useState(false);
+  const tipHide = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressTipOnFocus = useRef(false);
+  const longPress = useRef<{ timer: ReturnType<typeof setTimeout> | null; at: number }>({ timer: null, at: 0 });
+  const tipId = `git-tip-${tab.id}`;
+  const openGit = useCallback((target?: 'auto' | 'worktree' | 'compare') => onOpenGitWindow?.(tab.sessionId, target), [onOpenGitWindow, tab.sessionId]);
+  const showTip = useCallback(() => {
+    if (tipHide.current) { clearTimeout(tipHide.current); tipHide.current = null; }
+    setTipOpen(true);
+  }, []);
+  const hideTipSoon = useCallback(() => {
+    if (tipHide.current) clearTimeout(tipHide.current);
+    tipHide.current = setTimeout(() => setTipOpen(false), 100);
+  }, []);
+  useEffect(() => () => { if (tipHide.current) clearTimeout(tipHide.current); if (longPress.current.timer) clearTimeout(longPress.current.timer); }, []);
+  useEffect(() => {
+    if (!tipOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTipOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [tipOpen]);
+  const openChipMenu = useCallback((x: number, y: number) => { setTipOpen(false); setChipMenu({ x, y }); }, []);
+  const chipMenuItems = useMemo(() => (chipMenu && repoSummary ? buildGitChipMenu({
+    summary: repoSummary,
+    cwdHidden: !view.showCwd,
+    onOpen: () => openGit('auto'),
+    onOpenWorktree: () => openGit('worktree'),
+    onCompare: () => openGit('compare'),
+    onCopy: (text) => { void copyTextToClipboard(text).catch(() => {}); },
+    onCopyPath: () => { void handleCopy(); },
+    onPathMenu: () => onPathContextMenu?.(chipMenu.x, chipMenu.y),
+  }) : []), [chipMenu, repoSummary, view.showCwd, openGit, handleCopy, onPathContextMenu]);
+  const closeChipMenu = useCallback(() => {
+    setChipMenu(null);
+    suppressTipOnFocus.current = true;
+    chipRef.current?.focus();
+  }, []);
+  const chipButtonProps = repoSummary ? {
+    'aria-describedby': tipOpen ? tipId : undefined,
+    onMouseEnter: showTip,
+    onMouseLeave: hideTipSoon,
+    onFocus: () => { if (suppressTipOnFocus.current) { suppressTipOnFocus.current = false; return; } showTip(); },
+    onBlur: () => setTipOpen(false),
+    onContextMenu: (e: ReactMouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (Date.now() - longPress.current.at < 800) return;
+      openChipMenu(e.clientX, e.clientY);
+    },
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+        e.preventDefault();
+        const r = e.currentTarget.getBoundingClientRect();
+        openChipMenu(r.left, r.top);
+      }
+    },
+    onTouchStart: () => {
+      longPress.current.timer = setTimeout(() => {
+        longPress.current.at = Date.now();
+        const r = chipRef.current?.getBoundingClientRect();
+        openChipMenu(r?.left ?? 0, r?.top ?? 0);
+      }, 500);
+    },
+    onTouchEnd: () => { if (longPress.current.timer) clearTimeout(longPress.current.timer); },
+  } : {
+    'aria-haspopup': 'dialog' as const,
+    'aria-expanded': errorOpen,
+  };
 
   const copyOutcome = resolveCopyOutcome(copyAttempt);
 
@@ -237,11 +315,29 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
 
       {(isRepo || (gitEnabled && showErrorChip)) && (
         <GitBranchChip
+          ref={chipRef}
           view={isRepo ? view : null}
           error={git.error}
           label={gitChipLabel(repoSummary, git.error, git.stale)}
-          onOpen={onOpenGitWindow ? () => onOpenGitWindow(tab.sessionId) : undefined}
+          onOpen={repoSummary ? () => { setTipOpen(false); openGit('auto'); } : () => setErrorOpen((v) => !v)}
+          buttonProps={chipButtonProps}
         />
+      )}
+      {tipOpen && repoSummary && (
+        <GitChipTooltip id={tipId} anchor={chipRef.current} summary={repoSummary} cwd={tab.cwd ?? ''} onMouseEnter={showTip} onMouseLeave={hideTipSoon} />
+      )}
+      {errorOpen && !repoSummary && git.error && (
+        <GitErrorPopover
+          anchor={chipRef.current}
+          code={git.error}
+          cwd={tab.cwd ?? ''}
+          onClose={(focusChip) => { setErrorOpen(false); if (focusChip) chipRef.current?.focus(); }}
+          onRetry={() => (gitStore ?? gitSummaryStore()).refresh(tab.sessionId)}
+          onCopy={(text) => { void copyTextToClipboard(text).catch(() => {}); }}
+        />
+      )}
+      {chipMenu && chipMenuItems.length > 0 && (
+        <ContextMenu position={chipMenu} items={chipMenuItems} onClose={closeChipMenu} restoreFocusElement={chipRef.current} />
       )}
 
       {/* CWD path — click to copy */}
