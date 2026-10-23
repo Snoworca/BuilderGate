@@ -67,6 +67,7 @@ export function buildGitCommand(target: GitTarget, args: readonly string[]): Git
   };
 }
 
+const WSL_DRIVE = /^\/mnt\/([a-zA-Z])(\/.*)?$/;
 const WSL_SHARE = /^\\\\wsl(?:\.localhost|\$)\\([^\\]+)(\\.*)?$/i;
 
 export function resolveGitTarget(input: { platform: NodeJS.Platform; launchCommand: string | null; cwd: string }): GitTarget {
@@ -78,7 +79,13 @@ export function resolveGitTarget(input: { platform: NodeJS.Platform; launchComma
       return { kind: 'wsl', cwd: rest || '/', distro: share[1] };
     }
     const launcher = launchCommand ? path.win32.basename(launchCommand).toLowerCase() : '';
-    if (launcher === 'wsl.exe' && cwd.startsWith('/')) return { kind: 'wsl', cwd };
+    if (launcher === 'wsl.exe' && cwd.startsWith('/')) {
+      // A Windows drive seen from WSL: Windows git reads it natively, Linux git goes through the
+      // drive mount and re-reads every file (35 s for one status of a large repository).
+      const drive = WSL_DRIVE.exec(cwd);
+      if (drive) return { kind: 'native', cwd: `${drive[1].toUpperCase()}:\\${(drive[2] ?? '').replace(/^\//, '').replace(/\//g, '\\')}` };
+      return { kind: 'wsl', cwd };
+    }
   }
   return { kind: 'native', cwd };
 }

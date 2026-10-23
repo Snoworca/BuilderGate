@@ -63,10 +63,20 @@ test('FR-GIT-001: the target follows the command that launched the session, not 
     resolveGitTarget({ platform: 'win32', launchCommand: 'cmd.exe', cwd: '\\\\wsl$\\Debian' }),
     { kind: 'wsl', cwd: '/', distro: 'Debian' },
   );
-  // A WSL session that reports a mounted drive path still runs inside WSL.
+  // A WSL session in a Windows drive (/mnt/<letter>) runs Windows git on the same folder:
+  // Linux git over the drive mount took 35 s for one status of this repository (2026-10-23).
   assert.deepEqual(
     resolveGitTarget({ platform: 'win32', launchCommand: 'wsl.exe', cwd: '/mnt/c/work/repo' }),
-    { kind: 'wsl', cwd: '/mnt/c/work/repo' },
+    { kind: 'native', cwd: 'C:\\work\\repo' },
+  );
+  assert.deepEqual(
+    resolveGitTarget({ platform: 'win32', launchCommand: 'wsl.exe', cwd: '/mnt/d' }),
+    { kind: 'native', cwd: 'D:\\' },
+  );
+  // /mnt/wsl and other names are not drives.
+  assert.deepEqual(
+    resolveGitTarget({ platform: 'win32', launchCommand: 'wsl.exe', cwd: '/mnt/wsl/x' }),
+    { kind: 'wsl', cwd: '/mnt/wsl/x' },
   );
   // Off Windows there is no WSL.
   assert.deepEqual(
