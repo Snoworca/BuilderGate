@@ -19,7 +19,10 @@
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 
-export type GitErrorCode = 'GIT_UNAVAILABLE' | 'GIT_UNSAFE_REPO' | 'NOT_A_REPO' | 'GIT_TIMEOUT' | 'GIT_FAILED';
+export type GitErrorCode =
+  | 'GIT_UNAVAILABLE' | 'GIT_UNSAFE_REPO' | 'NOT_A_REPO' | 'GIT_TIMEOUT' | 'GIT_FAILED'
+  | 'SESSION_NOT_FOUND' | 'NO_COMMITS' | 'SHALLOW_HISTORY' | 'COMMIT_NOT_FOUND'
+  | 'PATH_OUTSIDE_REPO' | 'BASE_NOT_FOUND' | 'DIFF_TOO_LARGE' | 'INVALID_INPUT';
 
 export class GitError extends Error {
   constructor(readonly code: GitErrorCode, readonly detail = '') {
