@@ -22,6 +22,7 @@ const GUARDED = [
   './agentSession/agentSessionResolver.ts',
   './git/gitRunner.ts',
   './git/GitService.ts',
+  '../routes/gitRoutes.ts',
 ];
 
 // Named exceptions, each with its reason:

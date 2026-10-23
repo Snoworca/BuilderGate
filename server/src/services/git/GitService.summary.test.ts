@@ -38,6 +38,7 @@ test('FR-GIT-001: an empty repository has a branch, no head and counts its new f
   assert.deepEqual(s.counts, { staged: 0, unstaged: 0, untracked: 1, conflicted: 0, paths: 1 });
   assert.equal(path.resolve(s.root).toLowerCase(), path.resolve(r.dir).toLowerCase());
   assert.equal(s.subdir, '');
+  assert.deepEqual(s.compare, { blocked: 'noBase' });
 });
 
 // @req FR-GIT-001
@@ -54,6 +55,7 @@ test('FR-GIT-001: staged, unstaged and untracked changes; one path is counted on
   assert.deepEqual(s.counts, { staged: 1, unstaged: 2, untracked: 1, conflicted: 0, paths: 3 });
   assert.equal(s.untrackedScan, 'normal');
   assert.match(s.head ?? '', /^[0-9a-f]{40}$/);
+  assert.deepEqual(s.compare, { blocked: 'sameAsBase' });
 });
 
 // @req FR-GIT-001, FR-GIT-008
@@ -80,6 +82,7 @@ test('FR-GIT-001: upstream ahead/behind; without an upstream, ahead of the detec
   if (!f.repo) return;
   assert.equal(f.upstream, null);
   assert.deepEqual(f.base, { ref: 'origin/main', ahead: 3 });
+  assert.deepEqual(f.compare, { ref: 'origin/main' });
 });
 
 // @req FR-GIT-001

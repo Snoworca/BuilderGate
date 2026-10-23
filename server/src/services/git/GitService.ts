@@ -36,6 +36,8 @@ export type GitSummary =
     ahead: number;
     behind: number;
     base: { ref: string; ahead: number } | null;
+    /** Whether "compare with base" can run, and why not. */
+    compare: { ref: string } | { blocked: 'noBase' | 'sameAsBase' };
     operation: GitOperation | null;
     counts: ParsedStatus['counts'];
     untrackedScan: 'normal' | 'off';
@@ -152,6 +154,7 @@ export class GitService {
   private readonly summaryInFlight = new Map<string, Promise<GitSummary>>();
   private readonly timeouts = new Map<string, number>();
   private readonly baseAheadCache = new Map<string, number>();
+  private readonly baseRefCache = new Map<string, { ref: string | null; at: number }>();
   private readonly hostPath: (target: GitTarget, p: string) => Promise<string>;
 
   constructor(private readonly deps: GitServiceDeps) {
@@ -234,6 +237,10 @@ export class GitService {
     const base = !status.branch.upstream && branch && status.branch.oid
       ? await this.baseAhead(target, info, branch, status.branch.oid)
       : null;
+    const baseFull = await this.baseRef(target, info);
+    const compare = !baseFull ? { blocked: 'noBase' as const }
+      : branch && (shortRef(baseFull) === branch || baseFull === `refs/heads/${branch}`) ? { blocked: 'sameAsBase' as const }
+      : { ref: shortRef(baseFull) };
     return {
       repo: true,
       root: info.root,
@@ -245,6 +252,7 @@ export class GitService {
       ahead: status.branch.ahead,
       behind: status.branch.behind,
       base,
+      compare,
       operation,
       counts: status.counts,
       untrackedScan: scanOff ? 'off' : 'normal',
@@ -273,6 +281,14 @@ export class GitService {
 
   /** The base branch ref (full name) by the fixed order, or null. */
   async baseRef(target: GitTarget, info: RepoInfo): Promise<string | null> {
+    const hit = this.baseRefCache.get(info.root);
+    if (hit && this.now() - hit.at < 30_000) return hit.ref;
+    const ref = await this.findBaseRef(target, info);
+    this.baseRefCache.set(info.root, { ref, at: this.now() });
+    return ref;
+  }
+
+  private async findBaseRef(target: GitTarget, info: RepoInfo): Promise<string | null> {
     const run = (args: string[]) => this.runGit(target, args, { repoKey: info.root, quick: true, join: true });
     const originHead = await run(['symbolic-ref', '-q', 'refs/remotes/origin/HEAD']).then((s) => s.trim(), () => '');
     if (originHead) return originHead;
@@ -459,6 +475,8 @@ export class GitService {
     const info = await this.repoOrThrow(target);
     const baseFull = await this.baseRef(target, info);
     if (!baseFull) throw new GitError('BASE_NOT_FOUND');
+    const current = (await this.git(target, info, ['symbolic-ref', '-q', '--short', 'HEAD'], true).catch(() => '')).trim();
+    if (current && (shortRef(baseFull) === current || baseFull === `refs/heads/${current}`)) throw new GitError('BASE_NOT_FOUND', 'sameAsBase');
     const baseSha = (await this.git(target, info, ['rev-parse', baseFull], true)).trim();
     const mergeBase = (await this.git(target, info, ['merge-base', baseFull, 'HEAD']).catch(() => '')).trim();
     if (!mergeBase) throw new GitError('SHALLOW_HISTORY');
