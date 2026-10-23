@@ -1415,5 +1415,12 @@
   "git.diff.expandDown": "아래로 20줄",
   "git.diff.expandAll": "전부",
   "git.diff.openEditor": "편집기로 열기",
-  "git.diff.openEditorDisabled": "삭제·바이너리·특수 파일은 편집기로 열 수 없습니다"
+  "git.diff.openEditorDisabled": "삭제·바이너리·특수 파일은 편집기로 열 수 없습니다",
+  "git.diff.changedBadge": "이 파일이 바뀌었습니다 · 적용",
+  "git.window.autoRefresh": "자동 새로고침",
+  "git.window.listBadge": "목록에 새 변경이 있습니다 · 적용",
+  "git.window.checked": "확인 시각: {time}",
+  "git.window.committed": "변경 사항이 커밋되었습니다. 새 HEAD를 보여 줍니다.",
+  "git.window.discarded": "커밋하지 않은 변경 사항이 남아 있지 않습니다. HEAD를 보여 줍니다.",
+  "git.window.refresh": "새로고침 (R)"
 }

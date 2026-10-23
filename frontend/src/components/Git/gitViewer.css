@@ -190,3 +190,14 @@
 .git-split-pane + .git-split-pane { border-left: 1px solid var(--line-strong); }
 .git-split .git-hunk { position: static; }
 .git-dl.empty { background: var(--diff-empty); }
+
+/* FR-GIT-009: refresh controls, the list and diff badges, and the HEAD toast. */
+.git-window-tools { display: flex; align-items: center; gap: 10px; padding: 4px 10px; border-bottom: 1px solid var(--line); font-size: 12px; min-height: 28px; }
+.git-window-status, .git-diff-status { display: flex; align-items: center; gap: 8px; }
+.git-diff-status { padding: 4px 10px; }
+.git-diff-status:empty { padding: 0; }
+
+.git-badge { border: 1px solid var(--accent); border-radius: 999px; background: transparent; color: var(--accent); padding: 1px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.git-badge:hover { background: var(--git-chip-hover); }
+.git-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.git-toast { font-weight: 600; }

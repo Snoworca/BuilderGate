@@ -1460,5 +1460,12 @@
   "git.diff.expandDown": "Down 20 lines",
   "git.diff.expandAll": "All",
   "git.diff.openEditor": "Open in editor",
-  "git.diff.openEditorDisabled": "Deleted, binary and special files cannot be opened in the editor"
+  "git.diff.openEditorDisabled": "Deleted, binary and special files cannot be opened in the editor",
+  "git.diff.changedBadge": "This file changed · Apply",
+  "git.window.autoRefresh": "Auto refresh",
+  "git.window.listBadge": "New changes in the list · Apply",
+  "git.window.checked": "Checked {time}",
+  "git.window.committed": "The changes were committed. Showing the new HEAD.",
+  "git.window.discarded": "No uncommitted changes are left. Showing HEAD.",
+  "git.window.refresh": "Refresh (R)"
 }

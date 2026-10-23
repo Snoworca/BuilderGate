@@ -66,3 +66,61 @@ test('FR-GIT-004: a modeless window titled by repository and session; Escape doe
   assert.equal(split.getAttribute('aria-valuenow'), '46');
   await r.cleanup();
 });
+
+function repoSummary(head: string, paths: number) {
+  return { ...summary, head, counts: { staged: 0, unstaged: paths, untracked: 0, conflicted: 0, paths } };
+}
+function fakeClient() {
+  const calls: string[] = [];
+  return {
+    calls,
+    log: async () => { calls.push('log'); return { commits: [{ sha: 'h1', parents: [], author: 'a', email: '', time: 1, subject: 's', refs: [] }], hasMore: false, shallow: false, noCommits: false, sessions: [] }; },
+    status: async () => { calls.push('status'); return { summary: {}, files: [], truncated: false }; },
+    commit: async (_s: string, sha: string) => { calls.push(`commit:${sha}`); return { sha, parents: [], author: 'a', email: '', time: 1, committer: 'a', refs: [], message: 'm', files: [], truncated: false }; },
+    compare: async () => { calls.push('compare'); return { base: { ref: 'b', sha: 'b' }, mergeBase: 'm', commits: [], files: [], add: 0, del: 0, fetchedAt: null, truncated: false }; },
+    diff: async () => ({ inputs: { old: { id: null }, new: { id: null } }, hunks: [], truncated: false }),
+    summary: async () => repoSummary('h1', 0),
+  };
+}
+
+// @req FR-GIT-009
+test('FR-GIT-009: with auto refresh off, a new state waits behind a list badge; committed changes select the new HEAD', async () => {
+  let current = repoSummary('h1', 2);
+  const store = createGitSummaryStore({ fetchSummary: async () => current as never });
+  const c = fakeClient();
+  const r = await render(React.createElement(GitWindow, { sessionId: 's1', sessionName: 'x', store, client: c as never, cascade: 0, onMinimize: () => {}, onClose: () => {}, onFocus: () => {} }));
+  const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+  assert.match(dialog.textContent ?? '', /Checked just now/);
+  assert.equal(document.querySelector('.git-row[aria-selected="true"]')?.getAttribute('data-key'), 'WORKTREE');
+  const auto = dialog.querySelector('input[data-opt="auto"]') as HTMLInputElement;
+  assert.equal(auto.checked, true);
+  await act(async () => { auto.click(); });
+  const logs = c.calls.filter((x) => x === 'log').length;
+  current = repoSummary('h2', 2);
+  await act(async () => { store.refresh('s1'); await new Promise((res) => setTimeout(res, 20)); });
+  assert.equal(c.calls.filter((x) => x === 'log').length, logs, 'not reloaded while auto refresh is off');
+  const badge = dialog.querySelector('[data-list-badge]') as HTMLButtonElement;
+  assert.match(badge.textContent ?? '', /New changes in the list · Apply/);
+  await act(async () => { badge.click(); await new Promise((res) => setTimeout(res, 20)); });
+  assert.ok(c.calls.filter((x) => x === 'log').length > logs);
+  await act(async () => { auto.click(); });
+  current = repoSummary('h3', 0);
+  await act(async () => { store.refresh('s1'); await new Promise((res) => setTimeout(res, 30)); });
+  assert.match(dialog.textContent ?? '', /The changes were committed/);
+  assert.equal(document.querySelector('.git-row[data-key="WORKTREE"][aria-selected="true"]'), null, 'WORKTREE row is no longer selected');
+  assert.ok(c.calls.includes('commit:h3'), 'the new HEAD is selected and shown');
+  await r.cleanup();
+});
+
+// @req FR-GIT-009
+test('FR-GIT-009: R refreshes from anywhere in the window; keys typed in a field are ignored', async () => {
+  let fetched = 0;
+  const store = createGitSummaryStore({ fetchSummary: async () => { fetched += 1; return repoSummary('h1', 0) as never; } });
+  const c = fakeClient();
+  const r = await render(React.createElement(GitWindow, { sessionId: 's2', sessionName: 'x', store, client: c as never, cascade: 0, onMinimize: () => {}, onClose: () => {}, onFocus: () => {} }));
+  const body = document.querySelector('.git-window-body') as HTMLElement;
+  const before = fetched;
+  await act(async () => { body.dispatchEvent(new (document.defaultView as Window & typeof globalThis).KeyboardEvent('keydown', { key: 'R', bubbles: true })); await new Promise((res) => setTimeout(res, 20)); });
+  assert.ok(fetched > before);
+  await r.cleanup();
+});

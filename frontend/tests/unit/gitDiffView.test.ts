@@ -182,3 +182,32 @@ test('FR-GIT-007: open in editor for working-tree text files, with the repositor
   const commit = await render(React.createElement(GitDiffView, props(c, file({ area: null }), { selected: 'abc1234', root: 'C:/r', onOpenEditor: () => {} })));
   assert.equal(commit.container.querySelector('[data-open-editor]'), null, 'only for the working tree');
 });
+
+// @req FR-GIT-009
+test('FR-GIT-009: the shown diff is not replaced; a badge says when its inputs changed, and applying asks again', async () => {
+  const c = client(() => ({ inputs: { old: { id: 'i1' }, new: { id: null, size: 10, mtimeMs: 1 } }, hunks: HUNKS, truncated: false }));
+  const f1 = file({ inputs: { old: { id: 'i1' }, new: { id: null, size: 10, mtimeMs: 1 } } });
+  const r = await render(React.createElement(GitDiffView, props(c, f1)));
+  assert.equal(r.container.querySelector('[data-diff-badge]'), null);
+  const calls = c.calls.length;
+  const f2 = file({ inputs: { old: { id: 'i1' }, new: { id: null, size: 12, mtimeMs: 2 } } });
+  await act(async () => { r.root.render(React.createElement(GitDiffView, props(c, f2))); });
+  await settle();
+  assert.equal(c.calls.length, calls, 'not fetched again by itself');
+  const badge = r.container.querySelector('[data-diff-badge]') as HTMLButtonElement;
+  assert.match(badge.textContent ?? '', /This file changed · Apply/);
+  assert.ok(badge.closest('[role="status"]'), 'announced once through a status region');
+  await act(async () => { badge.click(); });
+  await settle();
+  assert.equal(c.calls.length, calls + 1);
+});
+
+// @req FR-GIT-009
+test('FR-GIT-009: a staged view whose inputs did not change shows no badge', async () => {
+  const c = client(() => ({ inputs: { old: { id: 'h' }, new: { id: 'x' } }, hunks: HUNKS, truncated: false }));
+  const staged = file({ area: 'staged', key: 'staged:src/a.ts', inputs: { old: { id: 'h' }, new: { id: 'x' } } });
+  const r = await render(React.createElement(GitDiffView, props(c, staged)));
+  await act(async () => { r.root.render(React.createElement(GitDiffView, props(c, { ...staged }))); });
+  await settle();
+  assert.equal(r.container.querySelector('[data-diff-badge]'), null);
+});

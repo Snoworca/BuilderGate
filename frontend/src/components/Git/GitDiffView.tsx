@@ -72,7 +72,8 @@ export interface GitDiffViewProps {
   file: GitFileEntry | null;
   selected: string;
   wt: boolean;
-  reloadKey: number;
+  /** Kept for callers; the diff does not reload by itself (FR-GIT-009). */
+  reloadKey?: number;
   /** Width of the diff pane (for the folded options). */
   width: number;
   position: { index: number; total: number };
@@ -88,7 +89,7 @@ export function editorPathFor(root: string, rel: string): string {
   return `${root.replace(/\/$/, '')}/${rel}`;
 }
 
-export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, width, position, onMoveFile, onOpenEditor, root }: GitDiffViewProps) {
+export function GitDiffView({ sessionId, client, file, selected, wt, width, position, onMoveFile, onOpenEditor, root }: GitDiffViewProps) {
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [loading, setLoading] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -102,11 +103,18 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
   const [view, setView] = useState<'unified' | 'split'>('unified');
   const [reveal, setReveal] = useState<Record<string, GapReveal>>({});
   const [fullNew, setFullNew] = useState<string[] | null>(null);
+  // FR-GIT-009: a shown diff is never replaced by itself. The file list carries the
+  // inputs (blob ids, or size and time for the working tree) of each file; when they
+  // differ from those the shown diff was made from, a badge offers to ask again.
+  const inputsKey = file?.inputs ? JSON.stringify(file.inputs) : '';
+  const [shownInputs, setShownInputs] = useState(inputsKey);
+  const [again, setAgain] = useState(0);
 
   const request = useMemo(() => (file ? { ...diffRequestFor(selected, wt, file), ...(ignoreWs ? { ignoreWs: true } : {}), ...(force ? { force: true } : {}) } : null), [file, selected, wt, ignoreWs, force]);
   const requestKey = request ? JSON.stringify(request) : '';
   useEffect(() => { setForce(false); setHunk(0); setScrollTop(0); setReveal({}); setFullNew(null); }, [file?.key, selected]);
   useEffect(() => {
+    setShownInputs(inputsKey);
     if (!request) { setDiff(null); return; }
     const controller = new AbortController();
     setLoading(true);
@@ -118,7 +126,8 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
     return () => { controller.abort(); clearTimeout(timer); clearTimeout(slowTimer); };
     // requestKey stands for the request's content.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, sessionId, requestKey, reloadKey]);
+  }, [client, sessionId, requestKey, again]);
+  const changed = inputsKey !== '' && shownInputs !== '' && inputsKey !== shownInputs;
 
   const baseRows = useMemo<DiffRow[]>(() => (diff && !diff.special ? buildDiffRows(diff.hunks, { gapAfter: diff.gapAfter }) : []), [diff]);
   const rows = useMemo<DiffRow[]>(() => (diff && fullNew ? expandGaps(baseRows, diff.hunks, reveal, fullNew) : baseRows), [baseRows, diff, reveal, fullNew]);
@@ -247,6 +256,9 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
             {t('git.diff.openEditor')}
           </button>
         )}
+      </div>
+      <div role="status" className="git-diff-status">
+        {changed && <button type="button" className="git-badge" data-diff-badge="" onClick={() => { setFullNew(null); setReveal({}); setAgain((n) => n + 1); }}>{t('git.diff.changedBadge')}</button>}
       </div>
       <div
         ref={bodyRef}

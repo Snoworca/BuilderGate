@@ -4,6 +4,7 @@
  * Escape does nothing (as in WindowDialog); minimize sends it to the tray.
  *
  * @req FR-GIT-004
+ * @req FR-GIT-009
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { GitClient, LogScope } from './gitApi.ts';
@@ -18,13 +19,16 @@ import { WindowDialog } from '../dialog/WindowDialog';
 import { IconButton } from '../common';
 import type { GitSummaryStore } from './gitSummaryStore.ts';
 import { useGitSummary } from './useGitSummary.ts';
+import { gitSummaryStore } from './gitStores.ts';
 import { CASCADE_PX } from './gitWindowModel.ts';
-import { t } from '../../i18n/i18n.ts';
+import { activeLanguage, t } from '../../i18n/i18n.ts';
+import { formatRelativeTime } from '../../utils/relativeTime.ts';
 import './gitViewer.css';
 
 export const GIT_WINDOW_MIN_SIZE = { width: 760, height: 420 } as const;
 const DEFAULT_SPLIT = 0.46;
 const SPLIT_STEP = 16;
+const CHECKED_TICK_MS = 10_000;
 
 /** Columns of the commit list a graph pane of this width can show. */
 export function graphColumns(width: number): { author: boolean; sha: boolean } {
@@ -71,12 +75,26 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
   const live = git.summary;
   const [root0, setRoot0] = useState<string | null>(null);
   const [shown, setShown] = useState(live);
+  // FR-GIT-009: with auto refresh off, a new state waits behind a badge on the list.
+  const [auto, setAuto] = useState(true);
+  const [checkedAt, setCheckedAt] = useState(() => Date.now());
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), CHECKED_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
   useEffect(() => {
     if (!live || frozen) return;
+    setCheckedAt(Date.now());
     if (root0 === null && live.repo) setRoot0(live.root);
-    if (root0 === null || (live.repo && live.root === root0)) setShown(live);
-  }, [live, frozen, root0]);
+    if (root0 === null) { setShown(live); return; }
+    if (live.repo && live.root === root0 && (auto || !shown)) setShown(live);
+    // shown is read only to tell the first answer apart.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, frozen, root0, auto]);
   const summary = shown?.repo ? shown : null;
+  const pending = !auto && live?.repo && summary && live.root === summary.root && (live.head !== summary.head || JSON.stringify(live.counts) !== JSON.stringify(summary.counts));
+  const refresh = useCallback(() => { (store ?? gitSummaryStore()).refresh(sessionId); }, [store, sessionId]);
   const moved = !frozen && root0 !== null && live !== null && (!live.repo || live.root !== root0)
     ? { path: cwd ?? '', repo: live.repo }
     : null;
@@ -102,6 +120,23 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
   // A new HEAD or a changed working tree reloads the list; the selection stays by sha.
   const headKey = summary ? `${summary.head}:${summary.counts.paths}` : '';
   useEffect(() => { setReloadKey((k) => k + 1); }, [headKey]);
+  // The uncommitted row vanishing (a commit, a stash, a reset) moves to HEAD with a note.
+  const [toast, setToast] = useState<'committed' | 'discarded' | null>(null);
+  const prevSummary = useRef(summary);
+  useEffect(() => {
+    const prev = prevSummary.current;
+    prevSummary.current = summary;
+    if (!prev || !summary || selected !== 'WORKTREE' || summary.counts.paths > 0 || prev.counts.paths === 0) return;
+    setSelected(summary.head ?? '');
+    setToast(prev.head !== summary.head ? 'committed' : 'discarded');
+    // Runs when the shown summary changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary]);
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(id);
+  }, [toast]);
   // FR-GIT-009: the selected commit vanishing (amend, reset, rebase) keeps it on screen.
   const subjects = useRef(new Map<string, string>());
   const [loadedKeys, setLoadedKeys] = useState<Set<string> | null>(null);
@@ -140,6 +175,14 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', up);
   }, []);
+  // R refreshes from anywhere in the window except a text field.
+  const onWindowKey = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || (e.key !== 'r' && e.key !== 'R')) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    e.preventDefault();
+    refresh();
+  }, [refresh]);
   const graphRef = useRef<HTMLDivElement | null>(null);
   const sideRef = useRef<HTMLDivElement | null>(null);
   const [sideWidth, setSideWidth] = useState(800);
@@ -181,7 +224,17 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
         onStay={() => setFrozen(true)}
         onLatestHead={() => setSelected(summary?.head ?? '')}
       />
-      <div className="git-window-body" onPointerDown={onFocus} style={{ gridTemplateColumns: `minmax(380px, ${Math.round(split * 100)}%) 6px minmax(360px, 1fr)` }}>
+      <div className="git-window-tools">
+        <label className="git-check"><input type="checkbox" data-opt="auto" checked={auto} onChange={(e) => { setAuto(e.target.checked); if (e.target.checked && live) setShown(live); }} />{t('git.window.autoRefresh')}</label>
+        <button type="button" className="git-icon-btn" data-refresh="" aria-label={t('git.window.refresh')} title={t('git.window.refresh')} onClick={refresh}>↻</button>
+        <span className="git-muted" data-checked="">{t('git.window.checked', { time: formatRelativeTime(checkedAt, Date.now(), activeLanguage(), t('git.time.justNow')) })}</span>
+        <span className="git-spacer" />
+        <span role="status" className="git-window-status">
+          {pending && <button type="button" className="git-badge" data-list-badge="" onClick={() => live && setShown(live)}>{t('git.window.listBadge')}</button>}
+          {toast && <span className="git-toast" data-toast={toast}>{t(toast === 'committed' ? 'git.window.committed' : 'git.window.discarded')}</span>}
+        </span>
+      </div>
+      <div className="git-window-body" onPointerDown={onFocus} onKeyDown={onWindowKey} style={{ gridTemplateColumns: `minmax(380px, ${Math.round(split * 100)}%) 6px minmax(360px, 1fr)` }}>
         <div className="git-pane-graph" data-pane="graph" ref={graphRef}>
           <GitGraphList
             sessionId={sessionId}
