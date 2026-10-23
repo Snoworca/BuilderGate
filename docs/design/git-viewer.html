@@ -1756,11 +1756,11 @@ const TOKENS = [
   ['--git-sel-muted', '#c8c8c8', '#3d3d3d', '선택 행의 보조 글자'], ['--git-lineno', '#9a9a9a', '#6e6e6e', 'diff 줄 번호'],
   ['--git-chip-hover / -active', '#363636 / #3c3c3c', '#e8e8e8 / #dedede', '칩 hover·눌림'], ['--git-chip-warn-line', '#6b5420', '#d4a72c', '분리·진행 중 칩 테두리'],
   ['--git-banner-info-bg / -fg', '#1d2b38 / #9cc7f0', '#ddf4ff / #0a3069', '정보 배너'], ['--git-banner-warn-bg', '#2f2817', '#fff8c5', '경고 배너, 브랜치에 없음 행'],
-  ['--git-ref-local-bg / -fg', '#1d3a57 / #9cc7f0', '#ddf4ff / #0969da', '로컬 브랜치 배지'], ['--git-ref-remote-line', '#6a6a6a', '#8c959f', '원격 브랜치 배지 테두리'], ['--git-ref-session-bg / -fg', '#2d2440 / #d7b8ff', '#fbefff / #8250df', '세션 HEAD 배지'],
+  ['--git-ref-local-bg / -fg', '#1d3a57 / #9cc7f0', '#ddf4ff / #0969da', '로컬 브랜치 배지'], ['--git-ref-remote-line', '#6a6a6a', '#8c959f', '원격 브랜치 배지 테두리'], ['--git-ref-session-bg / -fg', '#2d2440 / #d7b8ff', '#fbefff / #7d3fc2', '세션 HEAD 배지'],
   ['--diff-head-bg', '#262626', '#f6f8fa', 'diff 머리'], ['--diff-gap-bg', '#232323', '#f6f8fa', '숨긴 줄 행'],
   ['--diff-add-bg / -word', '#1c3326 / #2d6a40', '#e6ffec / #abf2bc', '추가 줄·단어'], ['--diff-del-bg / -word', '#3a2123 / #7a2e33', '#ffebe9 / #ffc1bc', '삭제 줄·단어'],
   ['--diff-hunk-bg / -fg', '#1f2d3a / #9cc7f0', '#ddf4ff / #0a3069', '덩어리 머리'], ['--diff-empty', '#262626', '#f6f8fa', '좌우 보기 빈 칸'],
-  ['--lane-1 … --lane-6', '#6cb6ff #c586c0 #4cc38a #f28b54 #bdbdbd #56d4dd', '#0969da #8250df #1a7f37 #bc4c00 #57606a #1b7c83', '그래프 레인(경고 노랑 제외, 색상 계열이 겹치지 않게: 파랑·보라·초록·주황·회색·청록)']
+  ['--lane-1 … --lane-6', '#6cb6ff #c586c0 #4cc38a #f28b54 #bdbdbd #56d4dd', '#0969da #7d3fc2 #1a7f37 #bc4c00 #57606a #1b7c83', '그래프 레인(경고 노랑 제외, 색상 계열이 겹치지 않게: 파랑·보라·초록·주황·회색·청록)']
 ];
 $('#tokTable').innerHTML = TOKENS.map(([t, c, p, u]) => `<tr><td class="mono">${t}</td><td class="mono">${c}</td><td class="mono">${p}</td><td>${u}</td></tr>`).join('');
 

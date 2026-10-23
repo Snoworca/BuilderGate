@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { useDoubleTap } from '../../hooks/useDoubleTap';
 import { DOUBLE_TAP_WINDOW_MS } from '../../hooks/doubleTap';
 import type { MouseEvent as ReactMouseEvent } from 'react';
@@ -9,12 +9,20 @@ import { useInlineRename } from '../../hooks/useInlineRename';
 import { copyTextToClipboard, resolveCopyOutcome } from '../../utils/clipboardCopy';
 import { recordTerminalDebugEvent } from '../../utils/terminalDebugCapture';
 import { t } from '../../i18n/i18n.ts';
+import { GitBranchChip, gitChipLabel } from '../Git/GitBranchChip.tsx';
+import { availableChipWidth, chipView, nameMaxWidth, stageFor } from '../Git/gitChipModel.ts';
+import { useGitSummary } from '../Git/useGitSummary.ts';
+import type { GitSummaryStore } from '../Git/gitSummaryStore.ts';
 
 interface Props {
   tab: WorkspaceTabRuntime;
   onRename?: (name: string) => void;
   /** Right click on the cwd path. Both render sites pass it. @req FR-MDE-007 */
   onPathContextMenu?: (x: number, y: number) => void;
+  /** Opens the session's Git window; passing it turns the branch chip on. @req FR-GIT-003 */
+  onOpenGitWindow?: (sessionId: string) => void;
+  /** Tests pass their own store; passing it also turns the chip on. */
+  gitStore?: GitSummaryStore;
 }
 
 function formatElapsed(createdAt: string): string {
@@ -57,7 +65,46 @@ function getSafeRecoveryIconLabel(recoveryIcon: WorkspaceTabRuntime['recoveryIco
   return null;
 }
 
-export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
+/** Git errors that mean "no chip": git missing on the server, or not a repository. */
+const SILENT_GIT_ERRORS = new Set(['GIT_UNAVAILABLE', 'NOT_A_REPO', 'SESSION_NOT_FOUND']);
+
+export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow, gitStore }: Props) {
+  // FR-GIT-001/002: the branch chip. The row measures itself: its width picks the chip's
+  // stage, and a width of 0 (display:none) means nobody sees it, so it stops polling.
+  const gitEnabled = onOpenGitWindow !== undefined || gitStore !== undefined;
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const nameRef = useRef<HTMLSpanElement | null>(null);
+  const [rowWidth, setRowWidth] = useState(0);
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row || !gitEnabled) return;
+    const measure = () => setRowWidth(row.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [gitEnabled]);
+  const git = useGitSummary(tab.sessionId, {
+    visible: gitEnabled && rowWidth > 0,
+    running: tab.status === 'running',
+    mode: 'chip',
+    status: tab.status,
+    cwd: tab.cwd,
+    store: gitStore,
+  });
+  const repoSummary = git.summary?.repo ? git.summary : null;
+  const showErrorChip = !repoSummary && git.error !== null && !SILENT_GIT_ERRORS.has(git.error);
+  const stageRef = useRef<number | undefined>(undefined);
+  const stage = stageFor(availableChipWidth(rowWidth, nameRef.current?.scrollWidth ?? 0), stageRef.current);
+  stageRef.current = stage;
+  const isRepo = gitEnabled && repoSummary !== null;
+  const view = chipView(repoSummary ? {
+    branch: repoSummary.branch, detached: repoSummary.detached, head: repoSummary.head, upstream: repoSummary.upstream,
+    ahead: repoSummary.ahead, behind: repoSummary.behind, base: repoSummary.base, operation: repoSummary.operation,
+    paths: repoSummary.counts.paths, untrackedScan: repoSummary.untrackedScan, stale: git.stale,
+  } : null, stage, isRepo);
+  const nameMax = isRepo ? nameMaxWidth(stage, rowWidth) : 150;
+
   const [elapsed, setElapsed] = useState(() => formatElapsed(tab.createdAt));
   const [copyAttempt, setCopyAttempt] = useState<{ ok: boolean } | null>(null);
 
@@ -118,7 +165,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
   const recoveryIconLabel = getSafeRecoveryIconLabel(tab.recoveryIcon);
 
   return (
-    <div style={{
+    <div ref={rowRef} data-git-row={gitEnabled ? "" : undefined} style={{
       display: 'flex',
       alignItems: 'center',
       height: '28px',
@@ -171,6 +218,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
         />
       ) : (
         <span
+          ref={nameRef}
           onDoubleClick={onRename ? () => rename.startEdit(tab.name) : undefined}
           style={{
             color: '#fff',
@@ -178,7 +226,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            maxWidth: '150px',
+            maxWidth: `${nameMax}px`,
             flexShrink: 0,
             cursor: onRename ? 'text' : 'default',
           }}
@@ -187,8 +235,17 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
         </span>
       )}
 
+      {(isRepo || (gitEnabled && showErrorChip)) && (
+        <GitBranchChip
+          view={isRepo ? view : null}
+          error={git.error}
+          label={gitChipLabel(repoSummary, git.error, git.stale)}
+          onOpen={onOpenGitWindow ? () => onOpenGitWindow(tab.sessionId) : undefined}
+        />
+      )}
+
       {/* CWD path — click to copy */}
-      {displayPath && (
+      {displayPath && view.showCwd && (
         <span
           className="metadata-cwd-path"
           onClick={handleCopy}
@@ -222,7 +279,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
       )}
 
       {/* Separator */}
-      {displayPath && (
+      {displayPath && view.showCwd && view.showTime && (
         <span style={{
           color: '#555',
           margin: '0 3px',
@@ -235,15 +292,16 @@ export function MetadataRow({ tab, onRename, onPathContextMenu }: Props) {
       )}
 
       {/* Elapsed time */}
-      <span style={{
+      {view.showTime && <span style={{
         color: '#e0e0e0',
-        marginLeft: displayPath ? '0' : 'auto',
+        marginLeft: displayPath && view.showCwd ? '0' : 'auto',
         fontFamily: 'monospace',
         fontSize: '12px',
         flexShrink: 0,
       }}>
         {elapsed}
-      </span>
+      </span>}
+      {!view.showTime && !view.showCwd && <span style={{ marginLeft: 'auto' }} />}
     </div>
   );
 }

@@ -40,6 +40,10 @@ function serverCodes(): string[] {
   const jobRoutes = read('routes/fileJobRoutes.ts');
   const jobTable = jobRoutes.slice(jobRoutes.indexOf('MANAGER_ERROR_STATUS'), jobRoutes.indexOf('};', jobRoutes.indexOf('MANAGER_ERROR_STATUS')));
   for (const m of jobTable.matchAll(/^\s+([A-Z][A-Z0-9_]+):/gm)) codes.add(m[1]);
+  // FR-GIT-*: the git routes answer the codes of their status table.
+  const gitRoutes = read('routes/gitRoutes.ts');
+  const gitTable = gitRoutes.slice(gitRoutes.indexOf('GIT_ERROR_STATUS'), gitRoutes.indexOf('};', gitRoutes.indexOf('GIT_ERROR_STATUS')));
+  for (const m of gitTable.matchAll(/^\s+([A-Z][A-Z0-9_]+):/gm)) codes.add(m[1]);
   for (const rel of BROWSER_FACING) {
     for (const m of read(rel).matchAll(/code:\s*'([A-Z][A-Z0-9_]+)'/g)) codes.add(m[1]);
   }

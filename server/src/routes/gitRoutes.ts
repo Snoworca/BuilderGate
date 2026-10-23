@@ -16,7 +16,7 @@ import type { GitService, DiffSource, LogScope } from '../services/git/GitServic
 import { isSafeRepoPath } from '../services/git/GitService.js';
 import { GitError, type GitErrorCode } from '../services/git/gitRunner.js';
 
-const STATUS: Record<GitErrorCode, number> = {
+export const GIT_ERROR_STATUS: Record<GitErrorCode, number> = {
   INVALID_INPUT: 400,
   PATH_OUTSIDE_REPO: 400,
   SESSION_NOT_FOUND: 404,
@@ -42,7 +42,7 @@ const flag = (v: unknown) => one(v) === '1' || one(v) === 'true';
 function send(res: Response, err: unknown): void {
   const e = err instanceof GitError ? err : new GitError('GIT_FAILED', err instanceof Error ? err.message : String(err));
   if (e.code === 'GIT_FAILED') console.warn('[git] failed:', e.detail);
-  res.status(STATUS[e.code] ?? 500).json({ error: { code: e.code, message: e.code, ...(e.code === 'GIT_FAILED' && e.detail ? { detail: e.detail } : {}) } });
+  res.status(GIT_ERROR_STATUS[e.code] ?? 500).json({ error: { code: e.code, message: e.code, ...(e.code === 'GIT_FAILED' && e.detail ? { detail: e.detail } : {}) } });
 }
 
 function route(handler: (req: Request) => Promise<unknown>) {

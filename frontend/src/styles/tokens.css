@@ -151,6 +151,35 @@
   --agent-codex: #d4d4d4;
   --agent-hermes: #b48ead;
   --agent-opencode: #5fb3b3;
+  /* Git viewer (FR-GIT-001..010, NFR-GIT-001). Paper values below. */
+  --git-sel-muted: #c8c8c8;
+  --git-lineno: #9a9a9a;
+  --git-chip-hover: #363636;
+  --git-chip-active: #3c3c3c;
+  --git-chip-warn-line: #6b5420;
+  --git-banner-info-bg: #1d2b38;
+  --git-banner-info-fg: #9cc7f0;
+  --git-banner-warn-bg: #2f2817;
+  --git-ref-local-bg: #1d3a57;
+  --git-ref-local-fg: #9cc7f0;
+  --git-ref-remote-line: #6a6a6a;
+  --git-ref-session-bg: #2d2440;
+  --git-ref-session-fg: #d7b8ff;
+  --diff-head-bg: #262626;
+  --diff-gap-bg: #232323;
+  --diff-add-bg: #1c3326;
+  --diff-add-word: #2d6a40;
+  --diff-del-bg: #3a2123;
+  --diff-del-word: #7a2e33;
+  --diff-hunk-bg: #1f2d3a;
+  --diff-hunk-fg: #9cc7f0;
+  --diff-empty: #262626;
+  --lane-1: #6cb6ff;
+  --lane-2: #c586c0;
+  --lane-3: #4cc38a;
+  --lane-4: #f28b54;
+  --lane-5: #bdbdbd;
+  --lane-6: #56d4dd;
 }
 
 /* For people who would rather see more rows than hit them accurately. */
@@ -184,4 +213,32 @@
   --danger-text: #b3261e;
   --lock-text: #8a4f00;
   --bg-sunken: #ffffff;
+  --git-sel-muted: #3d3d3d;
+  --git-lineno: #6e6e6e;
+  --git-chip-hover: #e8e8e8;
+  --git-chip-active: #dedede;
+  --git-chip-warn-line: #d4a72c;
+  --git-banner-info-bg: #ddf4ff;
+  --git-banner-info-fg: #0a3069;
+  --git-banner-warn-bg: #fff8c5;
+  --git-ref-local-bg: #ddf4ff;
+  --git-ref-local-fg: #0969da;
+  --git-ref-remote-line: #8c959f;
+  --git-ref-session-bg: #fbefff;
+  --git-ref-session-fg: #7d3fc2;
+  --diff-head-bg: #f6f8fa;
+  --diff-gap-bg: #f6f8fa;
+  --diff-add-bg: #e6ffec;
+  --diff-add-word: #abf2bc;
+  --diff-del-bg: #ffebe9;
+  --diff-del-word: #ffc1bc;
+  --diff-hunk-bg: #ddf4ff;
+  --diff-hunk-fg: #0a3069;
+  --diff-empty: #f6f8fa;
+  --lane-1: #0969da;
+  --lane-2: #7d3fc2;
+  --lane-3: #1a7f37;
+  --lane-4: #bc4c00;
+  --lane-5: #57606a;
+  --lane-6: #1b7c83;
 }

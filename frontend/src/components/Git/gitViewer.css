@@ -1,0 +1,31 @@
+/* Git viewer (FR-GIT-001..010). Colours come from tokens.css (--git-*, --diff-*). */
+.git-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  min-width: 28px;
+  margin-left: 8px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.git-chip:hover { border-color: var(--line-strong); background: var(--git-chip-hover); }
+.git-chip:active { background: var(--git-chip-active); }
+.git-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.git-chip svg { flex-shrink: 0; }
+.git-chip-dirty, .git-chip-op { color: var(--warn-text); }
+.git-chip-op { font-family: var(--font-sans); font-weight: var(--fw-semibold); }
+.git-chip-ab { color: var(--fg-muted); }
+.git-chip[data-tone="warn"] { background: var(--warn-tint); border-color: var(--git-chip-warn-line); color: var(--warn-text); }
+.git-chip[data-tone="stale"], .git-chip[data-tone="stale"] .git-chip-dirty { color: var(--fg-muted); }
+@media (pointer: coarse) { .git-chip { min-width: 44px; } }
