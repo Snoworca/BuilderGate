@@ -109,6 +109,7 @@
     "tests/e2e/grid-redraw-nudge.spec.ts",
     "tests/e2e/mobile-header-fit.spec.ts",
     "tests/e2e/file-explorer-create-move.spec.ts",
+    "tests/e2e/git-viewer.spec.ts",
     "tests/e2e/mobile-tab-switch.spec.ts",
     "tests/e2e/mobile-double-tap.spec.ts",
     "tests/e2e/editor-single-line-selection.spec.ts",
