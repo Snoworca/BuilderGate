@@ -1471,5 +1471,6 @@
   "git.diff.prevHunk": "Previous hunk",
   "git.diff.nextHunk": "Next hunk",
   "git.diff.navigation": "Move between hunks and files",
-  "git.window.back": "Back"
+  "git.window.back": "Back",
+  "git.chip.checking": "Checking Git status"
 }

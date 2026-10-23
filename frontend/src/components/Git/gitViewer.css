@@ -220,3 +220,9 @@
 .git-diff-nav { display: flex; gap: 6px; padding: 4px 6px; border-top: 1px solid var(--line); min-height: 52px; }
 .git-diff-nav button { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .git-diff-nav button:disabled { opacity: 0.5; }
+
+/* FR-GIT-001 AC-6: the chip while the first summary is on its way. */
+.git-chip[data-state="checking"] { cursor: default; color: var(--fg-muted); }
+.git-chip-checking { animation: git-checking 1.2s ease-in-out infinite; }
+@keyframes git-checking { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .git-chip-checking { animation: none; } }

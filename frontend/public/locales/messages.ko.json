@@ -1426,5 +1426,6 @@
   "git.diff.prevHunk": "이전 덩어리",
   "git.diff.nextHunk": "다음 덩어리",
   "git.diff.navigation": "덩어리와 파일 사이 이동",
-  "git.window.back": "뒤로"
+  "git.window.back": "뒤로",
+  "git.chip.checking": "Git 상태 확인 중"
 }

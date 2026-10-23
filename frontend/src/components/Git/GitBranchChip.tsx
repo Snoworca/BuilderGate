@@ -44,6 +44,16 @@ export function operationText(op: NonNullable<ChipView['operation']>): string {
   }
 }
 
+/** FR-GIT-001 AC-6: shown while the first summary is still on its way. Not a control. */
+export function GitCheckingChip() {
+  return (
+    <span className="git-chip" data-git-chip="" data-state="checking" role="status" aria-label={t('git.chip.checking')}>
+      <BranchIcon commit={false} />
+      <span className="git-chip-checking" aria-hidden="true">…</span>
+    </span>
+  );
+}
+
 export const GitBranchChip = forwardRef<HTMLButtonElement, GitBranchChipProps>(function GitBranchChip({ view, error, label, onOpen, buttonProps }, ref) {
   if (!view) {
     return (

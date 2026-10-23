@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { rmSync } from 'node:fs';
 import { GitService } from './GitService.js';
 import { createGitRunner, GitError, type RunGit } from './gitRunner.js';
 import { initRepo, repoAt, tempRoot } from './testRepo.js';
@@ -234,4 +235,39 @@ test('PERF-GIT-001: a first summary looks up the base in one git call, alongside
   assert.equal(lookups.length, 1, calls.map((x) => x.cmd).join(','));
   const status = calls.find((x) => x.cmd === 'status')!;
   assert.ok(lookups[0].start < status.end, 'the base lookup starts before status ends');
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-5: a slow status refreshes the index once per minute; a held index lock is skipped', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('init', { 'a.txt': 'a' });
+  const base = createGitRunner();
+  let clock = 1_000_000;
+  let slow = true;
+  const cmds: string[] = [];
+  const runGit = (async (...a: Parameters<RunGit>) => {
+    const cmd = a[1].find((x) => !x.startsWith('-') && !x.includes('=')) ?? '';
+    cmds.push(cmd);
+    const out = await base(...a);
+    if (cmd === 'status' && slow) clock += 1_500;
+    return out;
+  }) as RunGit;
+  const svc = new GitService({ sessions: { getLastCwd: () => r.dir, getSessionLaunchCommand: () => 'powershell.exe' }, runGit, now: () => clock });
+  const settle = () => new Promise((res) => setTimeout(res, 300));
+  await svc.summary('s'); await settle();
+  assert.equal(cmds.filter((c) => c === 'update-index').length, 1, cmds.join(','));
+  clock += 5_000;
+  await svc.summary('s'); await settle();
+  assert.equal(cmds.filter((c) => c === 'update-index').length, 1, 'at most once a minute');
+  clock += 61_000;
+  r.write('.git/index.lock', '');
+  const s = await svc.summary('s'); await settle();
+  assert.ok(s.repo, 'a held lock does not fail the summary');
+  assert.equal(cmds.filter((c) => c === 'update-index').length, 1, 'skipped while another git holds the index lock');
+  slow = false;
+  clock += 61_000;
+  rmSync(path.join(r.dir, '.git', 'index.lock'));
+  await svc.summary('s'); await settle();
+  assert.equal(cmds.filter((c) => c === 'update-index').length, 1, 'a fast status needs no refresh');
 });

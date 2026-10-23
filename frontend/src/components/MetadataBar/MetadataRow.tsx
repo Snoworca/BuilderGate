@@ -9,7 +9,9 @@ import { useInlineRename } from '../../hooks/useInlineRename';
 import { copyTextToClipboard, resolveCopyOutcome } from '../../utils/clipboardCopy';
 import { recordTerminalDebugEvent } from '../../utils/terminalDebugCapture';
 import { t } from '../../i18n/i18n.ts';
-import { GitBranchChip, gitChipLabel } from '../Git/GitBranchChip.tsx';
+import { GitBranchChip, GitCheckingChip, gitChipLabel } from '../Git/GitBranchChip.tsx';
+
+const GIT_CHECKING_DELAY_MS = 300;
 import { GitChipTooltip, GitErrorPopover } from '../Git/GitChipPopups.tsx';
 import { buildGitChipMenu } from '../Git/gitChipMenu.ts';
 import { gitSummaryStore } from '../Git/gitStores.ts';
@@ -99,6 +101,16 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
   });
   const repoSummary = git.summary?.repo ? git.summary : null;
   const showErrorChip = !repoSummary && git.error !== null && !SILENT_GIT_ERRORS.has(git.error);
+  // FR-GIT-001 AC-6: until the first answer says whether this is a repository, a slow summary
+  // (a large or freshly touched repository) leaves a "checking" chip. The delay keeps the
+  // usual fast answer, and every non-repository folder, from flashing it.
+  const gitUnknown = gitEnabled && git.summary === null && git.error === null;
+  const [checkingShown, setCheckingShown] = useState(false);
+  useEffect(() => {
+    if (!gitUnknown) { setCheckingShown(false); return; }
+    const timer = setTimeout(() => setCheckingShown(true), GIT_CHECKING_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [gitUnknown]);
   const stageRef = useRef<number | undefined>(undefined);
   const stage = stageFor(availableChipWidth(rowWidth, nameRef.current?.scrollWidth ?? 0), stageRef.current);
   stageRef.current = stage;
@@ -314,6 +326,7 @@ export function MetadataRow({ tab, onRename, onPathContextMenu, onOpenGitWindow,
         </span>
       )}
 
+      {gitUnknown && checkingShown && <GitCheckingChip />}
       {(isRepo || (gitEnabled && showErrorChip)) && (
         <GitBranchChip
           ref={chipRef}

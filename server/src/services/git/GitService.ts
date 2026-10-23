@@ -138,6 +138,9 @@ export const MAX_FILES = 2000;
 export const MAX_LOG_LIMIT = 500;
 const SHA = /^[0-9a-f]{7,64}$/;
 const COMMIT_FORMAT = '%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%cn%x1f%D%x1f%B';
+const INDEX_REFRESH_AFTER_MS = 1_000;
+const INDEX_REFRESH_INTERVAL_MS = 60_000;
+
 const BASE_CANDIDATES = ['refs/remotes/origin/main', 'refs/remotes/origin/master', 'refs/heads/main', 'refs/heads/master'];
 
 const shortRef = (ref: string) => ref.replace(/^refs\/(?:remotes|heads)\//, '');
@@ -150,6 +153,7 @@ export class GitService {
   private readonly readGitFile: NonNullable<GitServiceDeps['readGitFile']>;
   /** Repository identity per target. "Not a repository" is kept 10 s: the user may run git init. */
   private readonly repoCache = new Map<string, { info: RepoInfo | null; at: number }>();
+  private readonly indexRefreshedAt = new Map<string, number>();
   private readonly summaryCache = new Map<string, { at: number; value: GitSummary }>();
   private readonly summaryInFlight = new Map<string, Promise<GitSummary>>();
   private readonly timeouts = new Map<string, number>();
@@ -228,8 +232,10 @@ export class GitService {
     const operationLookup = this.operation(target, info);
     operationLookup.catch(() => {});
     let out: string;
+    const statusStarted = this.now();
     try {
       out = await this.runGit(target, ['status', '--porcelain=v2', '--branch', '-z', scanOff ? '-uno' : '-unormal', '--no-renames'], { repoKey: info.root, quick: true, join: true });
+      if (this.now() - statusStarted > INDEX_REFRESH_AFTER_MS) this.refreshIndexSoon(target, info);
       if (!scanOff) this.timeouts.delete(info.root);
     } catch (err) {
       if (err instanceof GitError && err.code === 'GIT_TIMEOUT') this.timeouts.set(info.root, (this.timeouts.get(info.root) ?? 0) + 1);
@@ -264,6 +270,29 @@ export class GitService {
       untrackedScan: scanOff ? 'off' : 'normal',
       checkedAt,
     };
+  }
+
+  /**
+   * PERF-GIT-001 AC-5: status runs with --no-optional-locks so it never takes the index lock
+   * from the user's or an agent's git, which also means it never writes back what it learned.
+   * When another git (WSL's, say) last wrote the index, every file's stat data looks stale
+   * and each status re-reads every file: 3 s per summary in a 6,000-file repository. One
+   * explicit refresh fixes that until the next foreign write. It is skipped while another git
+   * holds index.lock, runs at most once a minute per repository, and never fails a summary.
+   */
+  private refreshIndexSoon(target: GitTarget, info: RepoInfo): void {
+    const last = this.indexRefreshedAt.get(info.root);
+    if (last !== undefined && this.now() - last < INDEX_REFRESH_INTERVAL_MS) return;
+    this.indexRefreshedAt.set(info.root, this.now());
+    void (async () => {
+      try {
+        const lock = path.join(await this.hostPath(target, info.gitDir), 'index.lock');
+        if (await fs.access(lock).then(() => true, () => false)) return;
+        await this.runGit(target, ['update-index', '-q', '--refresh'], { repoKey: info.root });
+      } catch {
+        // Unmerged or locked index: the next slow status tries again after the interval.
+      }
+    })();
   }
 
   private async operation(target: GitTarget, info: RepoInfo): Promise<GitOperation | null> {

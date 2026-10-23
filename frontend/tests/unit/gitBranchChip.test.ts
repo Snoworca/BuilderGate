@@ -165,3 +165,34 @@ test('FR-GIT-003: an error chip opens a dialog with the cause and the command fo
   assert.equal(chip.getAttribute('aria-expanded'), 'false');
   await r.cleanup();
 });
+
+// @req FR-GIT-001
+test('FR-GIT-001 AC-6: a slow first answer shows a checking chip, which goes away for a non-repository', async () => {
+  width = 760;
+  let answer: (v: unknown) => void = () => {};
+  const pending = createGitSummaryStore({ fetchSummary: () => new Promise((res) => { answer = res as (v: unknown) => void; }) as never });
+  const r = await render(React.createElement(MetadataRow, { tab, gitStore: pending, onOpenGitWindow: () => {} }));
+  assert.equal(r.container.querySelector('[data-git-chip]'), null, 'nothing before the delay: a fast answer never flashes');
+  await act(async () => { await new Promise((res) => setTimeout(res, 400)); });
+  const checking = r.container.querySelector('[data-git-chip][data-state="checking"]');
+  assert.ok(checking, 'checking chip after the delay');
+  assert.match(checking?.getAttribute('aria-label') ?? '', /Checking Git/);
+  await act(async () => { answer({ repo: false, checkedAt: 1 }); await new Promise((res) => setTimeout(res, 0)); });
+  assert.equal(r.container.querySelector('[data-git-chip]'), null, 'gone once the folder is not a repository');
+  await r.cleanup();
+});
+
+// @req FR-GIT-001
+test('FR-GIT-001 AC-6: the checking chip turns into the branch chip when the answer is a repository', async () => {
+  width = 760;
+  let answer: (v: unknown) => void = () => {};
+  const pending = createGitSummaryStore({ fetchSummary: () => new Promise((res) => { answer = res as (v: unknown) => void; }) as never });
+  const r = await render(React.createElement(MetadataRow, { tab, gitStore: pending, onOpenGitWindow: () => {} }));
+  await act(async () => { await new Promise((res) => setTimeout(res, 400)); });
+  assert.ok(r.container.querySelector('[data-git-chip][data-state="checking"]'));
+  await act(async () => { answer(repoSummary); await new Promise((res) => setTimeout(res, 0)); });
+  const chip = r.container.querySelector('[data-git-chip]');
+  assert.notEqual(chip?.getAttribute('data-state'), 'checking');
+  assert.match(chip?.textContent ?? '', /feat\/git-graph/);
+  await r.cleanup();
+});
