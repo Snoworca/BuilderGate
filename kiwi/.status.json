@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-22T08:46:36.381Z",
+  "generatedAt": "2026-10-23T02:45:34.474Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "539ff06825a952cbfa5bc2f72d40d145422b3a6a6fec1fa14b2dbf1d20ce5835",
+    "value": "7cbe16aea3791e1454ae3561cf7b76e9b276048d7164ffdf5195c81628f5a073",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "cb3be61685045d7ae7ddb582f1c6deed7cfefa3486890447f71c16f438bf5548",
-        "size": 14732,
-        "mtimeMs": 1792658707904.4841
+        "sha256": "3fc4bafcaf99585e499a834c62a435b9a4e21604b5534de9c5239951f9acdcdc",
+        "size": 15037,
+        "mtimeMs": 1792723254974.6492
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
@@ -73,6 +73,12 @@
         "mtimeMs": 1792574027660.4849
       },
       {
+        "path": "docs/spec/47.git-viewer.srs.md",
+        "sha256": "f099c57b3eef9834cc2bde2bf57fe2a09ec847080318c69604b95d090d8c05cb",
+        "size": 24598,
+        "mtimeMs": 1792723521863.1067
+      },
+      {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
@@ -90,7 +96,8 @@
       "FEX": 31,
       "FOP": 8,
       "UIDS": 14,
-      "MKB": 14
+      "MKB": 14,
+      "GIT": 11
     },
     "constraint": {
       "ARCH": 1,
@@ -105,7 +112,8 @@
       "BGSTAB": 1,
       "MCP": 4,
       "MDE": 2,
-      "FOP": 1
+      "FOP": 1,
+      "GIT": 1
     },
     "reliability": {
       "AITUI": 1,
@@ -114,14 +122,16 @@
     },
     "non_functional": {
       "AITUI": 1,
-      "UIDS": 1
+      "UIDS": 1,
+      "GIT": 2
     },
     "observability": {
       "BGSTAB": 11,
       "MCP": 1
     },
     "performance": {
-      "BGSTAB": 25
+      "BGSTAB": 25,
+      "GIT": 1
     },
     "migration": {
       "BGSTAB": 6

@@ -1,0 +1,1774 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Git 보기 시안</title>
+<style>
+/* Values copied from frontend/src/styles/tokens.css; tokens marked NEW are listed in ⑧ with paper values. */
+:root{
+  --bg-app:#202020;--bg-chrome:#2b2b2b;--bg-surface:#272727;--bg-raised:#2f2f2f;--bg-sunken:#1e1e1e;
+  --bg-hover:rgba(255,255,255,.055);--bg-active:rgba(0,120,212,.2);
+  --fg:#dcdcdc;--fg-strong:#f5f5f5;--fg-muted:#a0a0a0;--fg-faint:#767676;
+  --line:#3a3a3a;--line-strong:#4a4a4a;
+  --accent:#0078d4;--accent-fg:#fff;--accent-text:#6cb6ff;--accent-tint:rgba(0,120,212,.18);--sel-bar:var(--accent);
+  --ok:#4cc38a;--ok-text:#4cc38a;--warn:#d8a534;--warn-text:#e2b451;--warn-tint:rgba(216,165,52,.14);
+  --danger:#e05c5c;--danger-text:#ec8f8f;
+  --r-sm:6px;--r-md:8px;--r-lg:10px;--r-pill:999px;--row-h:28px;
+  --fs-2xs:11px;--fs-xs:12px;--fs-sm:13px;--fs-md:14px;--fs-lg:16px;
+  --font-sans:'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,'Helvetica Neue','Malgun Gothic',sans-serif;
+  --font-mono:'Cascadia Code','Fira Code',Consolas,'Courier New',monospace;
+  --ctl-sm:28px;--ctl-touch:44px;
+  --shadow-dialog:0 24px 64px rgba(0,0,0,.55);--shadow-popover:0 10px 28px rgba(0,0,0,.5);
+  /* NEW (git) */
+  --git-sel-muted:#c8c8c8;--git-lineno:#9a9a9a;
+  --git-chip-hover:#363636;--git-chip-active:#3c3c3c;--git-chip-warn-line:#6b5420;
+  --git-banner-info-bg:#1d2b38;--git-banner-info-fg:#9cc7f0;--git-banner-warn-bg:#2f2817;
+  --git-ref-local-bg:#1d3a57;--git-ref-local-fg:#9cc7f0;--git-ref-remote-line:#6a6a6a;--git-ref-session-bg:#2d2440;--git-ref-session-fg:#d7b8ff;
+  --diff-head-bg:#262626;--diff-gap-bg:#232323;
+  --diff-add-bg:#1c3326;--diff-add-word:#2d6a40;--diff-del-bg:#3a2123;--diff-del-word:#7a2e33;
+  --diff-hunk-bg:#1f2d3a;--diff-hunk-fg:#9cc7f0;--diff-empty:#262626;
+  --lane-1:#6cb6ff;--lane-2:#c586c0;--lane-3:#4cc38a;--lane-4:#f28b54;--lane-5:#bdbdbd;--lane-6:#56d4dd;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#171717;color:var(--fg);font-family:var(--font-sans);font-size:var(--fs-sm)}
+button,input,summary{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.mono{font-family:var(--font-mono)}
+.muted{color:var(--fg-muted)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* shell */
+.shell-head{position:sticky;top:0;z-index:50;background:#141414;border-bottom:1px solid var(--line)}
+.shell-title{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:14px 20px 4px}
+.shell-title h1{margin:0;font-size:18px}
+.nav{display:flex;gap:2px;padding:6px 16px 0;overflow-x:auto}
+.nav button{border:0;background:transparent;color:var(--fg-muted);height:36px;padding:0 14px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.nav button[aria-selected="true"]{color:var(--fg-strong);border-bottom-color:var(--accent)}
+.screen{display:none;padding:24px 20px 56px;max-width:1500px;margin:0 auto}
+.screen.on{display:block}
+.lead{margin:0 0 16px;color:var(--fg-muted);max-width:1000px;line-height:1.65}
+.lead b{color:var(--fg)}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--r-sm);overflow:hidden}
+.seg button{height:var(--ctl-sm);padding:0 12px;border:0;background:var(--bg-raised);cursor:pointer;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--line-strong)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.seg button:disabled{color:var(--fg-faint);cursor:not-allowed}
+.btn{height:var(--ctl-sm);padding:0 12px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg-raised);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--git-chip-hover)}
+.btn:disabled{color:var(--fg-faint);cursor:not-allowed}
+.btn.sim{border-style:dashed}
+.icon-btn{width:var(--ctl-sm);height:var(--ctl-sm);border:0;border-radius:var(--r-sm);background:transparent;color:var(--fg-muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.icon-btn:hover{background:var(--bg-hover);color:var(--fg)}
+.icon-btn:disabled{opacity:.4;cursor:not-allowed}
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 10px;border-radius:var(--r-pill);font-size:var(--fs-xs);border:0;white-space:nowrap}
+.pill.warn{background:var(--warn-tint);color:var(--warn-text)}
+.pill.info{background:var(--accent-tint);color:var(--accent-text)}
+button.pill{cursor:pointer}
+.card{background:#1d1d1d;border:1px solid var(--line);border-radius:var(--r-lg);padding:18px}
+.card h3{margin:0 0 10px;font-size:15px}
+.sub-h{margin:28px 0 12px;font-size:16px}
+table.spec{border-collapse:collapse;width:100%;font-size:12.5px;line-height:1.55}
+table.spec th,table.spec td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+table.spec th{color:var(--fg-muted);font-weight:500;background:#1a1a1a;white-space:nowrap}
+table.spec .mono{font-size:12px}
+.tag-id{font-family:var(--font-mono);font-size:11.5px;color:var(--accent-text);white-space:nowrap}
+kbd{font-family:var(--font-mono);font-size:11px;background:var(--bg-raised);border:1px solid var(--line-strong);border-radius:4px;padding:0 4px;color:var(--fg)}
+.chg{display:inline-block;font-size:10.5px;padding:0 5px;border-radius:4px;background:var(--accent-tint);color:var(--accent-text);margin-left:6px;vertical-align:1px}
+
+/* workspace / tiles */
+.app{border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;background:var(--bg-app)}
+.app-tabs{height:36px;display:flex;background:var(--bg-chrome);border-bottom:1px solid var(--line)}
+.app-tabs div{display:flex;align-items:center;padding:0 16px;border-right:1px solid var(--line);color:var(--fg-muted)}
+.app-tabs .cur{background:var(--bg-app);color:var(--fg);box-shadow:inset 0 2px 0 var(--accent)}
+.grid{display:grid;gap:4px;padding:4px;height:560px}
+.tile{display:flex;flex-direction:column;min-width:0;min-height:0;border:1px solid var(--line);background:#141414}
+.tile.focus{border-color:var(--accent)}
+.term{flex:1;min-height:0;overflow:hidden;padding:8px 10px;font-family:var(--font-mono);font-size:12px;line-height:19px;color:#cfcfcf;white-space:pre}
+
+/* MetadataRow */
+.meta{height:28px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding-right:10px;background:#2a2a2a;border-top:1px solid var(--line);min-width:0;overflow:hidden}
+.meta .bar{width:4px;align-self:stretch;flex-shrink:0}
+.meta .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:150px}
+.meta .cwd{margin-left:auto;color:var(--fg-muted);font-family:var(--font-mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:24px;flex:0 1 auto;cursor:copy;direction:rtl;text-align:left}
+.meta .cwd bdi{direction:ltr}
+.meta .sep{color:#5a5a5a;flex-shrink:0}
+.meta .time{color:var(--fg-muted);font-family:var(--font-mono);font-size:12px;flex-shrink:0}
+.meta .spacer{margin-left:auto}
+.chip{position:relative;display:inline-flex;align-items:center;gap:6px;height:22px;min-width:28px;padding:0 8px;border:1px solid transparent;border-radius:var(--r-sm);background:var(--bg-raised);font-family:var(--font-mono);font-size:12px;white-space:nowrap;cursor:pointer;flex-shrink:0;color:var(--fg);-webkit-touch-callout:none;user-select:none}
+.chip:hover{border-color:var(--line-strong);background:var(--git-chip-hover)}
+.chip:active{background:var(--git-chip-active)}
+.chip .dirty{color:var(--warn-text)}
+.chip .ab{color:var(--fg-muted)}
+.chip .op{color:var(--warn-text);font-family:var(--font-sans);font-weight:600}
+.chip.detached,.chip.oper{background:var(--warn-tint);border-color:var(--git-chip-warn-line);color:var(--warn-text)}
+.chip.stale,.chip.stale .dirty{color:var(--fg-muted)}
+.chip.err{color:var(--warn-text)}
+.chip[aria-busy="true"]{cursor:progress}
+.chip svg{flex-shrink:0}
+.chip .skel{width:44px;height:8px;border-radius:4px;background:linear-gradient(90deg,#3a3a3a,#4a4a4a,#3a3a3a);background-size:200% 100%;animation:sh 1.2s infinite linear}
+@keyframes sh{to{background-position:-200% 0}}
+@media (pointer:coarse){.chip{min-width:44px}}
+
+/* popovers */
+.pop{position:fixed;z-index:100;background:var(--bg-surface);border:1px solid var(--line-strong);border-radius:var(--r-md);box-shadow:var(--shadow-popover);font-size:var(--fs-xs);display:none}
+.tip{padding:10px 12px;width:330px}
+.tip dl{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin:0}
+.tip dt{color:var(--fg-muted)}
+.tip dd{margin:0;font-family:var(--font-mono);text-align:right;word-break:break-all}
+.tip .foot{border-top:1px solid var(--line);margin-top:8px;padding-top:6px;color:var(--fg-muted);line-height:1.5}
+.menu{padding:4px 0;min-width:270px}
+.menu .mi{display:flex;width:100%;height:30px;align-items:center;justify-content:space-between;gap:16px;padding:0 14px;border:0;background:transparent;text-align:left;cursor:pointer;font-size:var(--fs-sm)}
+.menu .mi:hover,.menu .mi:focus{background:var(--bg-active);outline:none}
+.menu .mi[aria-disabled="true"]{color:var(--fg-faint);cursor:not-allowed}
+.menu .mi[aria-disabled="true"]:focus{background:var(--bg-hover)}
+.menu .why{color:var(--fg-muted);font-size:11px}
+.menu .grp{padding:6px 14px 2px;color:var(--fg-muted);font-size:11px}
+.menu hr{border:0;height:1px;background:var(--line);margin:4px 0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;padding:10px 14px;background:var(--bg-surface);border:1px solid var(--line-strong);border-radius:var(--r-md);box-shadow:var(--shadow-popover);display:none;max-width:560px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* git window */
+.stage{position:relative;min-height:820px}
+.gw{display:flex;flex-direction:column;width:100%;height:800px;min-width:760px;min-height:420px;max-width:100%;resize:both;background:var(--bg-chrome);border:1px solid var(--line-strong);border-radius:var(--r-lg);box-shadow:var(--shadow-dialog);overflow:hidden}
+.gw.max{width:100%!important;height:860px!important;resize:none}
+.gw-title{height:36px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:0 4px 0 14px;background:var(--bg-surface);border-bottom:1px solid var(--line);cursor:move;min-width:0}
+.gw-title .t{font-weight:600;white-space:nowrap}
+.gw-title .s{color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.gw-title .win{margin-left:auto;display:flex;gap:2px}
+.gw-bar{min-height:42px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.banner{display:none;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line);font-size:var(--fs-xs);flex-wrap:wrap}
+.banner.info{background:var(--git-banner-info-bg);color:var(--git-banner-info-fg)}
+.banner.warn{background:var(--git-banner-warn-bg);color:var(--warn-text)}
+.banner .btn{height:24px;font-size:12px}
+.gw-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(380px,46%) 6px minmax(360px,1fr)}
+.vsplit{background:var(--line);cursor:col-resize}
+.vsplit:hover,.vsplit:focus-visible{background:var(--accent);outline:none}
+.hsplit{height:6px;flex-shrink:0;background:var(--line);cursor:row-resize}
+.hsplit:hover,.hsplit:focus-visible{background:var(--accent);outline:none}
+.graph{display:flex;flex-direction:column;min-width:380px;min-height:0}
+.graph-head{height:26px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px 0 4px;color:var(--fg-muted);font-size:var(--fs-xs);border-bottom:1px solid var(--line)}
+.graph-list{flex:1;min-height:0;overflow:auto;outline:none}
+.graph-list:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.graph.n1 .c-who,.graph.n2 .c-sha{display:none}
+.crow{display:flex;align-items:center;gap:8px;height:var(--row-h);padding:0 12px 0 4px;cursor:pointer;border-left:2px solid transparent}
+.crow:hover{background:var(--bg-hover)}
+.crow.sel{background:var(--bg-active);border-left-color:var(--sel-bar)}
+.crow.sel .c-who,.crow.sel .c-when,.crow.sel .c-sha{color:var(--git-sel-muted)}
+.crow.inr{box-shadow:inset 3px 0 0 var(--git-ref-local-bg)}
+.crow.out .s,.crow.out .c-who,.crow.out .c-when,.crow.out .c-sha{color:var(--fg-muted)}
+.crow .subj{flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden}
+.crow .refs{display:flex;gap:4px;max-width:40%;overflow:hidden;flex-shrink:0}
+.crow .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:60px}
+.c-sha{width:64px;flex-shrink:0;color:var(--fg-muted);font-family:var(--font-mono);font-size:11.5px}
+.c-who{width:76px;flex-shrink:0;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-when{width:72px;flex-shrink:0;color:var(--fg-muted);text-align:right;white-space:nowrap}
+.crow.wt .s{color:var(--warn-text);font-style:italic}
+.crow.vanished{background:var(--git-banner-warn-bg)}
+.crow.vanished .s{color:var(--warn-text)}
+.ref{height:18px;padding:0 6px;border-radius:4px;font-family:var(--font-mono);font-size:11px;line-height:18px;white-space:nowrap;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ref.head{background:var(--accent);color:#fff;flex-shrink:0}
+.ref.local{background:var(--git-ref-local-bg);color:var(--git-ref-local-fg)}
+.ref.remote{border:1px solid var(--git-ref-remote-line);color:#cfcfcf;line-height:16px}
+.ref.tag{background:var(--warn-tint);color:var(--warn-text)}
+.ref.session{background:var(--git-ref-session-bg);color:var(--git-ref-session-fg)}
+.ref.more{background:var(--bg-raised);color:var(--fg-muted)}
+.more{padding:10px 12px;color:var(--fg-muted);font-size:var(--fs-xs)}
+.side{display:flex;flex-direction:column;min-width:0;min-height:0}
+.detail{flex-shrink:0;padding:10px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.detail .subject{font-weight:700;font-size:var(--fs-md)}
+.detail .body{color:var(--fg-muted);white-space:pre-wrap;line-height:1.5;max-height:58px;overflow:auto}
+.detail .kv{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-xs);color:var(--fg-muted);align-items:center}
+.detail .kv b{color:var(--fg);font-weight:500;font-family:var(--font-mono)}
+.linkish{border:0;background:none;padding:0;color:var(--accent-text);cursor:pointer;font-family:var(--font-mono);font-size:12px}
+.linkish:hover{text-decoration:underline}
+.files{flex-shrink:0;height:150px;min-height:84px;overflow:auto;padding:4px 0;outline:none}
+.files:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.files .grp{padding:6px 14px 2px;color:var(--fg-muted);font-size:var(--fs-xs);display:flex;gap:8px}
+.files .grp .base{font-family:var(--font-mono);font-size:11px}
+.frow{display:flex;align-items:center;gap:8px;height:26px;padding:0 14px;font-family:var(--font-mono);font-size:12px;cursor:pointer;border-left:2px solid transparent}
+.frow:hover{background:var(--bg-hover)}
+.frow.sel{background:var(--bg-active);border-left-color:var(--sel-bar)}
+.frow .k{width:14px;font-weight:600;flex-shrink:0;text-align:center}
+.frow .dir{color:var(--fg-muted);direction:rtl;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:0 1 auto}
+.frow .dir bdi{direction:ltr}
+.frow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:100px}
+.frow .dir{flex-shrink:100}
+.frow .gap{flex:1}
+.frow .sim{color:var(--fg-muted);font-size:11px;flex-shrink:0}
+.frow .st{flex-shrink:0;display:flex;gap:6px}
+.k-A{color:var(--ok-text)}.k-M{color:var(--warn-text)}.k-D{color:var(--danger-text)}.k-R,.k-C{color:var(--diff-hunk-fg)}.k-T{color:var(--lane-2)}.k-X{color:var(--danger-text)}.k-U{color:var(--ok-text)}
+.add{color:var(--ok-text)}.del{color:var(--danger-text)}
+.dhead{min-height:36px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 12px;background:var(--diff-head-bg);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.dhead .pathbox{display:flex;align-items:center;gap:4px;min-width:0;max-width:46%;font-family:var(--font-mono);font-size:12px}
+.dhead .pp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left;min-width:30px}
+.dhead .pp bdi{direction:ltr}
+.viewmenu{position:relative}
+.viewmenu summary{list-style:none;height:var(--ctl-sm);padding:0 10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--bg-raised);cursor:pointer;display:flex;align-items:center}
+.viewmenu summary::-webkit-details-marker{display:none}
+.viewmenu .vm{position:absolute;right:0;top:32px;z-index:5;background:var(--bg-surface);border:1px solid var(--line-strong);border-radius:var(--r-md);box-shadow:var(--shadow-popover);padding:10px;display:flex;flex-direction:column;gap:8px;min-width:200px}
+.diff{flex:1;min-height:0;overflow:auto;background:var(--bg-sunken);font-family:var(--font-mono);font-size:12px;line-height:20px;outline:none;position:relative}
+.diff:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.hunk{padding:2px 12px;background:var(--diff-hunk-bg);color:var(--diff-hunk-fg);position:sticky;top:0;z-index:1;white-space:nowrap}
+.gaprow{display:flex;gap:8px;align-items:center;padding:2px 12px;background:var(--diff-gap-bg);color:var(--fg-muted);font-family:var(--font-sans);font-size:12px}
+.gaprow button{height:22px;padding:0 8px;border:1px solid var(--line-strong);border-radius:4px;background:var(--bg-raised);cursor:pointer;font-size:11.5px}
+.dl{display:flex;min-width:max-content}
+.dl .no{flex-shrink:0;text-align:right;color:var(--git-lineno);padding-right:8px;user-select:none}
+.dl .sg{width:16px;flex-shrink:0;user-select:none;text-align:center}
+.dl .tx{white-space:pre;padding-right:16px}
+.dl.a{background:var(--diff-add-bg)}.dl.a .sg{color:var(--ok-text)}
+.dl.d{background:var(--diff-del-bg)}.dl.d .sg{color:var(--danger-text)}
+.dl.a mark{background:var(--diff-add-word);color:inherit;border-radius:2px}
+.dl.d mark{background:var(--diff-del-word);color:inherit;border-radius:2px}
+.dl.e{background:var(--diff-empty)}
+.wrap .dl{min-width:0;align-items:flex-start}
+.wrap .dl .tx{display:block;white-space:pre-wrap;word-break:break-all;min-width:0;flex:1}
+.splitv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.splitv>.pane{overflow-x:auto;overflow-y:hidden}
+.splitv>.pane+.pane{border-left:1px solid var(--line-strong)}
+.splitv .hunk{position:static}
+.notice{margin:16px;padding:14px 16px;border:1px dashed var(--line-strong);border-radius:var(--r-md);color:var(--fg-muted);font-family:var(--font-sans);display:flex;flex-direction:column;gap:8px;align-items:flex-start;line-height:1.5}
+.notice b{color:var(--fg)}
+.skel-row{height:12px;border-radius:6px;background:linear-gradient(90deg,#303030,#3c3c3c,#303030);background-size:200% 100%;animation:sh 1.2s infinite linear}
+.gw-foot{height:26px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 12px;border-top:1px solid var(--line);color:var(--fg-muted);font-size:var(--fs-xs);white-space:nowrap;overflow:hidden}
+.tray{position:absolute;left:0;bottom:0;display:none;gap:8px}
+.tray button{height:32px;padding:0 14px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--bg-surface);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+
+/* narrow lab */
+.lab-row{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.lab-row .lbl{width:200px;flex-shrink:0;line-height:1.5}
+.frame{resize:horizontal;overflow:hidden;min-width:120px;max-width:100%;border:1px dashed #5a5a5a}
+.stages{display:flex;flex-direction:column;gap:10px}
+
+/* mobile */
+.phones{display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start}
+.phone{width:390px;height:800px;border:10px solid #000;border-radius:36px;background:var(--bg-app);overflow:hidden;display:flex;flex-direction:column;flex-shrink:0}
+.m-top{height:52px;flex-shrink:0;display:flex;align-items:center;gap:4px;padding:0 4px;background:var(--bg-chrome);border-bottom:1px solid var(--line)}
+.m-top .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.m-top .icon-btn{width:44px;height:44px}
+.m-body{flex:1;min-height:0;overflow:auto}
+.m-row{display:flex;align-items:center;gap:6px;width:100%;height:56px;padding:0 12px 0 0;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;cursor:pointer}
+.m-row .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.m-row .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-row .sub{font-size:11.5px;color:var(--fg-muted);display:flex;gap:6px;align-items:center;overflow:hidden;white-space:nowrap}
+.m-file{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:4px 14px;border:0;border-bottom:1px solid var(--line);background:transparent;font-family:var(--font-mono);font-size:12px;text-align:left;cursor:pointer}
+.m-foot{display:flex;gap:6px;padding:6px;border-top:1px solid var(--line);background:var(--bg-chrome);flex-shrink:0}
+.m-foot .btn{flex:1;height:44px;padding:0 6px}
+
+/* states */
+.states{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
+.state-box{min-height:120px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg-chrome);display:flex;align-items:center;justify-content:center;padding:12px;overflow:hidden}
+.anno{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;flex-shrink:0}
+
+@media (max-width:900px){
+  .gw{min-width:0;resize:none;height:auto}
+  .gw-body{grid-template-columns:1fr}
+  .vsplit{display:none}
+  .graph{min-width:0}
+  .graph-list{max-height:360px}
+}
+</style>
+</head>
+<body>
+
+<header class="shell-head">
+  <div class="shell-title">
+    <h1>BuilderGate · Git 보기 시안</h1>
+    <span class="muted">v1 읽기 전용 · 세션 하단바 칩 → Git 창(그래프·상세·diff) · 3차 개정(기획·UI/UX 2차 리뷰 반영)</span>
+  </div>
+  <nav class="nav" role="tablist" aria-label="화면">
+    <button role="tab" data-s="s1" aria-selected="true">① 하단바 칩</button>
+    <button role="tab" data-s="s2" aria-selected="false">② Git 창</button>
+    <button role="tab" data-s="s3" aria-selected="false">③ 좁은 폭</button>
+    <button role="tab" data-s="s4" aria-selected="false">④ 모바일</button>
+    <button role="tab" data-s="s5" aria-selected="false">⑤ 상태·특수 파일</button>
+    <button role="tab" data-s="s6" aria-selected="false">⑥ 동작 규칙</button>
+    <button role="tab" data-s="s7" aria-selected="false">⑦ API·보안·오류</button>
+    <button role="tab" data-s="s8" aria-selected="false">⑧ 수락 기준·i18n·토큰</button>
+  </nav>
+</header>
+
+<!-- ① ─────────────────────────────────────────── -->
+<section class="screen on" id="s1">
+  <p class="lead">세션마다 하단바(MetadataRow)의 이름 오른쪽에 브랜치 칩이 붙습니다. <b>클릭</b>하면 그 세션의 Git 창(변경이 있으면 작업 사본 행, 없으면 HEAD 커밋 선택). <b>우클릭</b>·<kbd>Shift</kbd>+<kbd>F10</kbd>·터치 길게 누르기는 메뉴, <b>마우스를 올리거나 포커스</b>하면 툴팁(<kbd>Esc</kbd> 로 닫힘). git 저장소가 아닌 세션(logs)은 지금과 똑같습니다. 배치를 바꾸면 칩이 ③ 의 단계표대로 줄어듭니다.</p>
+  <div class="toolbar">
+    <span class="muted">배치</span>
+    <div class="seg" id="layoutSeg">
+      <button aria-pressed="true" data-l="2x2">2×2</button>
+      <button aria-pressed="false" data-l="3col">3열</button>
+      <button aria-pressed="false" data-l="6">6분할</button>
+    </div>
+    <span class="muted" style="margin-left:12px">시뮬레이션(claude-api 세션)</span>
+    <button class="btn sim" data-sim="edit">에이전트가 파일을 고침</button>
+    <button class="btn sim" data-sim="commit">에이전트가 커밋함</button>
+    <button class="btn sim" data-sim="amend">에이전트가 amend 함</button>
+  </div>
+  <div class="app">
+    <div class="app-tabs"><div>BuilderGate</div><div class="cur">에이전트 작업</div><div>문서</div></div>
+    <div class="grid" id="grid"></div>
+  </div>
+</section>
+
+<!-- ② ─────────────────────────────────────────── -->
+<section class="screen" id="s2">
+  <p class="lead">Git 창은 편집기 창과 같은 모달리스 창입니다(오른쪽 아래 모서리로 크기 조절, 최소 760×420). 목록에 포커스를 두고 <kbd>↑</kbd><kbd>↓</kbd> <kbd>Home</kbd><kbd>End</kbd> <kbd>PgUp</kbd><kbd>PgDn</kbd>, 창 안 어디서나 <kbd>[</kbd><kbd>]</kbd> 파일, <kbd>n</kbd><kbd>p</kbd> 덩어리, <kbd>s</kbd> 보기 전환, <kbd>w</kbd> 공백 무시, <kbd>R</kbd> 새로고침. <kbd>Esc</kbd> 는 편집기처럼 아무 일도 하지 않습니다. 창을 좁히면 작성자 → 커밋 열이 숨고, diff 머리 컨트롤이 "보기 ▾" 로 접힙니다.</p>
+  <div class="toolbar">
+    <span class="muted">시뮬레이션</span>
+    <button class="btn sim" data-sim="edit">파일 수정</button>
+    <button class="btn sim" data-sim="commit">커밋</button>
+    <button class="btn sim" data-sim="amend">amend</button>
+    <button class="btn sim" data-sim="cd">세션이 다른 저장소로 cd</button>
+    <button class="btn sim" data-sim="end">세션 종료</button>
+    <button class="btn sim" data-sim="reset">초기화</button>
+    <button class="btn sim" data-sim="narrow">창 폭 780px</button>
+  </div>
+  <div class="stage" id="stage">
+    <div class="gw" id="gw" role="dialog" aria-modal="false" aria-labelledby="gwTitle">
+      <div class="gw-title">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="#a0a0a0" stroke-width="1.6"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="13" r="1.8"/><circle cx="12" cy="5" r="1.8"/><path d="M4 5v6M12 7c0 3-8 2-8 4"/></svg>
+        <span class="t" id="gwTitle"></span>
+        <span class="s" id="gwSub"></span>
+        <div class="win">
+          <button class="icon-btn" id="btnMin"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+          <button class="icon-btn" id="btnMax"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none"><rect x="3" y="3" width="10" height="10" stroke="currentColor" stroke-width="1.5"/></svg></button>
+          <button class="icon-btn" id="btnClose"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5"/></svg></button>
+        </div>
+      </div>
+      <div class="gw-bar">
+        <div class="seg" id="scopeSeg" role="group">
+          <button aria-pressed="true" data-scope="head"></button>
+          <button aria-pressed="false" data-scope="all"></button>
+          <button aria-pressed="false" data-scope="cmp" id="cmpBtn"></button>
+        </div>
+        <button class="pill warn" id="listBadge" style="display:none"></button>
+        <span style="margin-left:auto" class="muted" id="checkedAt"></span>
+        <label class="muted" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="autoRef" checked> <span id="autoLbl"></span></label>
+        <button class="icon-btn" id="refreshBtn"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 3v3h-3"/></svg></button>
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="gw-body" id="gwBody">
+        <div class="graph" id="graph">
+          <div class="graph-head"><span id="graphColHead" style="width:38px"></span><span style="flex:1" id="hSubj"></span><span class="c-sha" id="hSha"></span><span class="c-who" id="hWho"></span><span class="c-when" id="hWhen"></span></div>
+          <div class="graph-list" id="graphList" role="listbox" tabindex="0"></div>
+        </div>
+        <div class="vsplit" id="vsplit" role="separator" tabindex="0" aria-orientation="vertical" aria-valuemin="30" aria-valuemax="70" aria-valuenow="46"></div>
+        <div class="side" id="side">
+          <div class="detail" id="detail"></div>
+          <div class="files" id="files" role="listbox" tabindex="0"></div>
+          <div class="hsplit" id="hsplit" role="separator" tabindex="0" aria-orientation="horizontal" aria-valuenow="150"></div>
+          <div class="dhead" id="dhead"></div>
+          <div class="diff" id="diff" tabindex="0"></div>
+        </div>
+      </div>
+      <div class="gw-foot">
+        <span><kbd>↑</kbd><kbd>↓</kbd> 커밋</span><span><kbd>[</kbd><kbd>]</kbd> 파일</span><span><kbd>n</kbd><kbd>p</kbd> 덩어리</span><span><kbd>s</kbd> 보기</span><span><kbd>w</kbd> 공백</span><span><kbd>R</kbd> 새로고침</span>
+        <span style="margin-left:auto" id="roLbl"></span>
+      </div>
+    </div>
+    <div class="tray" id="tray"><button id="trayBtn"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="#a0a0a0" stroke-width="1.6"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="13" r="1.8"/><circle cx="12" cy="5" r="1.8"/><path d="M4 5v6M12 7c0 3-8 2-8 4"/></svg><span id="trayLbl"></span></button></div>
+  </div>
+  <div id="live" class="sr" role="status" aria-live="polite"></div>
+</section>
+
+<!-- ③ ─────────────────────────────────────────── -->
+<section class="screen" id="s3">
+  <p class="lead">단계는 <b>하단바 폭 − 세션 이름의 실제 폭</b>(= 남는 폭)으로 정합니다. 화면 폭이 아니라 그 하단바를 ResizeObserver 로 잽니다. 경계에서 깜빡이지 않게 ±8px 히스테리시스. 브랜치명은 단계별 최대 글자 수에 맞춰 <b>JS 가 가운데를 줄이고</b>, CSS 말줄임은 칩에 쓰지 않습니다. cwd 만 CSS 로 앞쪽이 줄어듭니다. 아래 표가 <b>유일한 정본</b>입니다. 맨 위 막대의 오른쪽 아래 모서리를 끌어 보십시오.</p>
+  <div class="lab-row" style="margin-bottom:20px"><div class="lbl"><b>직접 끌어 보기</b><br><span class="muted" id="labW">—</span></div>
+    <div class="frame" id="labFrame" style="width:760px"></div></div>
+  <table class="spec" style="max-width:1300px">
+    <thead><tr><th>단계</th><th>남는 폭</th><th>이번 단계에서 바뀌는 것</th><th>브랜치명 최대 글자</th><th>예시 (이름 오른쪽)</th></tr></thead>
+    <tbody id="stageTable"></tbody>
+  </table>
+  <p class="muted" style="font-size:12px;line-height:1.6;max-width:1000px">남는 폭 계산값(모노 12px ≈ 7.2px/자): 단계 0 = 칩 고정부 34 + ●n 22 + ↑↓ 36 + 브랜치 28자 202 + cwd 최소 88 + 시간 60 + 여백 18 = 460. 같은 방식으로 단계 1 = 390, 2 = 300, 3 = 260, 4 = 200, 5 = 150. 남는 폭이 74 보다 작으면 세션 이름을 최소 40px 까지 줄여 <span class="mono">⎇ ●n</span> 을 지킵니다.</p>
+  <h3 class="sub-h">각 단계의 실제 모습</h3>
+  <div class="stages" id="stages"></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:28px">
+    <div class="card"><h3>브랜치명 가운데 줄이기</h3>
+      <table class="spec"><tbody id="truncTable"></tbody></table>
+      <p class="muted" style="margin:10px 0 0;font-size:12px;line-height:1.6">최대 글자 n 이하면 그대로. 첫 <span class="mono">/</span> 가 8자 안이고 n ≥ 10 이면 <span class="mono">접두사/…끝</span>, 아니면 <span class="mono">…끝</span>. 전체 이름은 툴팁·aria-label 에 항상 있습니다.</p></div>
+    <div class="card"><h3>cwd 와 공간 나누기</h3>
+      <ul style="margin:0;padding-left:18px;line-height:1.8;color:var(--fg-muted)">
+        <li>칩은 이름 바로 오른쪽, <b>단계 안에서는 줄어들지 않음</b>(flex-shrink 0). 남는 공간은 cwd 가 먼저 양보</li>
+        <li>cwd 는 30자 고정 대신 남은 폭에 맞춰 앞쪽을 CSS 로 줄임(<span class="mono">…/ProjectMaster</span>). 클릭 복사·우클릭/더블탭 경로 메뉴(FR-MDE-007·FR-UIDS-013)는 그대로</li>
+        <li>단계 2부터 cwd 가 빠지면 경로 메뉴 전체가 <b>칩 메뉴의 "경로" 묶음</b>으로 옮겨 감</li>
+        <li><b>저장소가 아닌 세션은 칩이 없으므로 cwd 를 끝까지 남김</b>(지금과 같음)</li>
+      </ul></div>
+    <div class="card"><h3>누르는 영역·제스처</h3>
+      <ul style="margin:0;padding-left:18px;line-height:1.8;color:var(--fg-muted)">
+        <li>칩 높이 22px, 행(28px) 밖으로 영역을 넓히지 않음 → 위 터미널을 가리지 않음</li>
+        <li>최소 폭 데스크톱 28px, 터치(pointer: coarse) 44px. 이웃과 간격 8px</li>
+        <li>터치: 탭 = 창, 500ms 길게 누르기 = 메뉴. iOS 콜아웃·텍스트 선택 끔, 길게 누르기 뒤 따라오는 contextmenu 이벤트 무시(메뉴 두 번 열림 방지)</li>
+        <li>cwd 의 더블탭과는 대상이 달라 겹치지 않음</li>
+      </ul></div>
+  </div>
+</section>
+
+<!-- ④ ─────────────────────────────────────────── -->
+<section class="screen" id="s4">
+  <p class="lead">창 폭 900px 미만이면 Git 창이 전체 화면이 되고 <b>목록 → 커밋 → diff</b> 세 단계로 쌓입니다. 단계마다 <span class="mono">history.pushState</span> 하므로 기기 뒤로 가기가 한 단계씩 돌아가고, 목록에서 뒤로 가면 창이 닫힙니다(앱을 떠나지 않음). diff 는 한 줄 보기 고정, 줄바꿈이 기본이며 이어지는 줄은 코드 시작 열에 맞춥니다.</p>
+  <div class="phones">
+    <div class="phone" id="phone"></div>
+    <div class="card" style="max-width:440px">
+      <h3>모바일 규칙</h3>
+      <ul style="margin:0;padding-left:18px;line-height:1.8;color:var(--fg-muted)">
+        <li>칩: 하단바가 대개 단계 3~4 → <span class="mono">⎇ feat/…graph ●3</span></li>
+        <li>칩 탭 → 창. 길게 누르기 → 메뉴(아래에서 올라오는 시트)</li>
+        <li>소프트 키보드·모바일 키바가 떠 있으면 <b>키보드를 내린 뒤</b> 창을 엶</li>
+        <li>행 56px, 파일 행 52px, 버튼 44px 이상</li>
+        <li>diff 아래: 이전/다음 덩어리, 이전/다음 파일</li>
+        <li>줄 번호 두 칸(이전·새로, 각 4자리)</li>
+        <li>좌우 보기 없음. 줄바꿈 토글(↩)만</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ⑤ ─────────────────────────────────────────── -->
+<section class="screen" id="s5">
+  <p class="lead">칩과 Git 창이 각 상태에서 어떻게 보이는지, 특수한 파일을 diff 자리에 어떻게 보여 주는지입니다. 서버 오류 코드는 <span class="mono">apiError.&lt;CODE&gt;</span> 로 번역합니다(⑦). 오류 칩(5번)은 눌러 볼 수 있습니다.</p>
+  <h3 class="sub-h" style="margin-top:0">칩·창 상태</h3>
+  <div class="states" id="states"></div>
+  <h3 class="sub-h">특수 파일 (diff 자리)</h3>
+  <div class="states" id="specials"></div>
+</section>
+
+<!-- ⑥ ─────────────────────────────────────────── -->
+<section class="screen" id="s6">
+  <p class="lead">구현자가 묻지 않아도 되도록 동작을 표로 고정했습니다. <span class="chg">3차</span> 표시는 이번 개정에서 바뀐 곳입니다.</p>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card"><h3>창</h3><table class="spec"><tbody>
+      <tr><th>묶이는 대상</th><td>창 1개 = 세션 1개. 열 때의 세션과 <b>저장소 루트</b>에 묶음. 제목 <span class="mono">Git · {repo}</span>, 부제 <span class="mono">{session} · {branch}</span></td></tr>
+      <tr><th>같은 세션 칩을 다시 누름</th><td>기존 창을 앞으로, 최소화돼 있으면 복원(토스트 "이미 열린 창을 앞으로 가져왔습니다"는 이때만). 선택은 칩 클릭 규칙대로 다시 정함</td></tr>
+      <tr><th>같은 저장소의 다른 세션</th><td>별도 창. 위치는 편집기의 계단식 오프셋(+24px, +24px)으로 겹치지 않게 <span class="chg">3차</span></td></tr>
+      <tr><th>창 개수</th><td>워크스페이스당 4개까지 열림. 5번째를 열면 가장 오래 쓰지 않은 창을 <b>트레이로 최소화</b>(닫지 않음)하고 토스트 <span class="chg">3차</span></td></tr>
+      <tr><th>세션이 다른 곳으로 cd</th><td>창 내용 유지. 배너 "세션이 다른 저장소로 이동했습니다 · {path}" + [따라가기] [이 창 유지]. 저장소 밖으로 가면 [따라가기] 없음</td></tr>
+      <tr><th>세션 종료</th><td>창은 남김. 배너 "세션이 끝났습니다 · 마지막 상태", 자동 갱신·새로고침 비활성</td></tr>
+      <tr><th>크기·위치</th><td>편집기 모듈 재사용(editorWindowInitialRect·Placement·GeometryCache·TrayModel). 처음엔 작업 영역 오른쪽 절반·높이 90%. <b>최소 760×420</b>(= 그래프 380 + 분할선 6 + 오른쪽 360 + 여백) <span class="chg">3차</span>. 위치·크기·좌우 비율·파일 목록 높이를 저장소 루트 단위로 기억</td></tr>
+      <tr><th>좁은 창</th><td>그래프 칸 &lt; 520px 이면 작성자 열, &lt; 450px 이면 커밋 열 숨김. 오른쪽 칸 &lt; 600px 이면 diff 머리의 공백·줄바꿈·보기 전환을 "보기 ▾" 하나로 접어 머리가 2줄을 넘지 않음 <span class="chg">3차</span></td></tr>
+      <tr><th>최소화·최대화·닫기</th><td>편집기와 같은 제목줄 버튼 컴포넌트·i18n 키. 최소화는 트레이. <kbd>Esc</kbd> 무동작(WindowDialog 와 같음)</td></tr>
+      <tr><th>브라우저 새로고침 뒤</th><td>열려 있던 창을 복원(세션·범위·선택 sha·파일 경로). <b>세션이 이미 끝났으면 복원하지 않음</b> <span class="chg">3차</span></td></tr>
+      <tr><th>전역 단축키</th><td>v1 에 없음(Ctrl+Shift+G/D 는 브라우저·터미널 입력과 충돌)</td></tr>
+    </tbody></table></div>
+
+    <div class="card"><h3>칩 클릭·메뉴·툴팁</h3><table class="spec"><tbody>
+      <tr><th>클릭</th><td>변경이 있으면 <span class="mono">WORKTREE</span>, 없으면 HEAD 커밋을 sha 로 선택하고 첫 파일을 엶</td></tr>
+      <tr><th>메뉴</th><td>Git 창 열기 · 커밋 안 된 변경 보기 (n) · 비교: {base} · ─ · 브랜치 이름 복사(분리 상태면 커밋 해시 복사) · [cwd 가 숨은 단계면] 경로 묶음: 경로 복사 + 기존 경로 메뉴 항목 전부</td></tr>
+      <tr><th>비활성 항목</th><td>회색 + 이유. <b>화살표 포커스는 받음</b>(APG), 실행만 안 됨 <span class="chg">3차</span></td></tr>
+      <tr><th>경로 메뉴(FR-MDE-007)</th><td>저장소일 때만 맨 위에 "Git 창 열기" 추가</td></tr>
+      <tr><th>툴팁 (WCAG 1.4.13)</th><td>hover·focus 로 표시, <kbd>Esc</kbd> 로 닫힘, 칩 → 툴팁으로 마우스를 옮겨도 100ms 유예로 유지. 메뉴를 닫고 칩으로 포커스가 돌아올 때는 띄우지 않음 <span class="chg">3차</span></td></tr>
+      <tr><th>오류 칩</th><td>클릭·Enter 로 원인 팝오버(role=dialog, aria-labelledby). 칩은 aria-haspopup="dialog" + aria-expanded <span class="chg">3차</span></td></tr>
+    </tbody></table></div>
+
+    <div class="card"><h3>갱신 (에이전트가 바꾼 것을 언제 보는가) <span class="chg">3차</span></h3><table class="spec">
+      <thead><tr><th>트리거</th><th>무엇을</th><th>목표 지연</th></tr></thead><tbody>
+      <tr><td><b>세션이 작업 중</b>(최근 2초 안에 출력이 있음 = running). Claude Code·Codex 는 작업 중 스피너·경과 시간을 매초 다시 그려 출력이 멈추지 않으므로 "조용함" 을 기다리지 않음</td><td>칩이 보이거나 창이 열려 있으면 summary 를 <b>3초마다</b>(세션별). 창이 열려 있으면 바뀐 경우에만 status·log</td><td>에이전트 턴 중 파일을 쓰고 <b>최악 3초 + git 시간</b></td></tr>
+      <tr><td>출력이 1.5초 멈춤 / running→idle / 프롬프트 복귀</td><td>summary 즉시</td><td>턴이 끝나고 1초 안</td></tr>
+      <tr><td>.git 감시: HEAD, index, packed-refs, refs/ (<span class="mono">rev-parse --git-dir --git-common-dir</span> 기준, worktree 포함)</td><td>summary(+ 창이면 log)</td><td>500ms 묶음, 1초 안</td></tr>
+      <tr><td>cwd 변경, 탭·타일이 보이게 됨</td><td>summary</td><td>즉시</td></tr>
+      <tr><td>idle 중 보장 폴링(사용자가 다른 도구로 고친 경우)</td><td>보이는 칩 10초마다, 보이는 창 3초마다(.git 감시가 안 되는 WSL 9P 포함)</td><td>최악 10초</td></tr>
+      <tr><td>숨은 탭·최소화된 창</td><td>아무것도 안 함, 다시 보일 때 1회</td><td>—</td></tr>
+      </tbody></table>
+      <p class="muted" style="margin:10px 0 0;font-size:12px;line-height:1.6"><b>부하 조절</b>: summary 한 번이 1초를 넘은 저장소는 폴링 간격을 (걸린 시간 × 5)로 늘림(최대 30초). 작업 중 폴링에서 같은 HEAD·index 스탬프로 summary 결과가 10번 연속 같으면(dev 서버·<span class="mono">tail -f</span> 처럼 출력만 계속되는 세션) 간격을 10초로 늘리고, 결과가 바뀌면 3초로 되돌림 <span class="chg">3차</span>. 서버 전체 git 동시 4개, 같은 요청은 하나로 합침. 작업 트리 재귀 감시는 쓰지 않음(큰 저장소·WSL 비용).</p></div>
+
+    <div class="card"><h3>자동 갱신과 "새 변경" 배지</h3><table class="spec">
+      <thead><tr><th></th><th>자동 갱신 켬(기본)</th><th>자동 갱신 끔</th></tr></thead><tbody>
+      <tr><th>칩</th><td colspan="2">항상 바로 반영</td></tr>
+      <tr><th>커밋·파일 목록</th><td>바로 반영. 선택은 sha·경로로 유지, 스크롤 유지</td><td>목록 위 배지 "목록에 새 변경 · 반영"</td></tr>
+      <tr><th>보고 있는 diff</th><td colspan="2">자동으로 바꾸지 않음. <b>그 diff 의 입력이 바뀐 경우에만</b> diff 머리에 배지 "이 파일이 바뀌었습니다 · 반영". 입력 = diff·status 응답의 <span class="mono">inputs</span>(양쪽 blob id, 작업 트리는 lstat 크기+mtime, ⑦). 예: 스테이징됨(HEAD↔index) 보기는 작업 트리만 바뀌면 배지 없음 <span class="chg">3차</span></td></tr>
+      <tr><th>알림·시각</th><td colspan="2">배지가 처음 나타날 때 role=status 로 1회. "확인 {상대 시각}" 은 10초마다 갱신, 툴바·상세·툴팁이 같은 형식 <span class="chg">3차</span></td></tr>
+    </tbody></table></div>
+
+    <div class="card"><h3>시각 표시 <span class="chg">3차</span></h3><table class="spec"><tbody>
+      <tr><th>상대 시각</th><td><span class="mono">Intl.RelativeTimeFormat(활성 UI 언어, {numeric:'auto'})</span>. 10초 미만은 <span class="mono">git.time.justNow</span>("방금"). 단위는 초 → 분 → 시간 → 일. 7일 이상은 <span class="mono">Intl.DateTimeFormat</span> 날짜</td></tr>
+      <tr><th>금지</th><td>코드에서 "전"·"ago" 를 붙이지 않음</td></tr>
+      <tr><th>절대 시각</th><td>커밋 행 title·aria-label, 상세의 날짜에 <span class="mono">YYYY-MM-DD HH:mm</span>(활성 언어 형식)</td></tr>
+    </tbody></table></div>
+
+    <div class="card"><h3>선택 유지</h3><table class="spec"><tbody>
+      <tr><th>키</th><td>커밋은 sha(작업 사본은 <span class="mono">WORKTREE</span>), 파일은 (영역, 경로). 행 번호를 쓰지 않음</td></tr>
+      <tr><th>새 커밋이 위에 생김</th><td>같은 sha 를 계속 선택, 보이는 행이 움직이지 않도록 스크롤 보정</td></tr>
+      <tr><th>WORKTREE 가 사라짐</th><td>새 HEAD 선택 + 토스트 "변경이 커밋되었습니다"</td></tr>
+      <tr><th>선택한 sha 가 사라짐</th><td>목록 맨 위에 그 커밋의 <b>"브랜치에 없음" 행</b>을 남겨 선택 유지(activedescendant 가 실제 행을 가리킴) + 배너 [최신 HEAD 보기]. 내용은 sha 로 직접 조회(gc 전까지). 조회 실패 시 COMMIT_NOT_FOUND <span class="chg">3차</span></td></tr>
+      <tr><th>불러오기</th><td>선택이 바뀐 뒤 150ms 묶어 요청, 이전 요청 취소(AbortController). 400ms 넘으면 자리표시</td></tr>
+    </tbody></table></div>
+
+    <div class="card"><h3>범위·비교</h3><table class="spec"><tbody>
+      <tr><th>현재 브랜치</th><td>HEAD 에서 닿는 커밋 + 맨 위 작업 사본 행(변경이 있을 때만)</td></tr>
+      <tr><th>전체 브랜치</th><td><span class="mono">--branches --remotes --tags</span>(stash 제외). 같은 저장소의 다른 세션 HEAD 에 세션 배지</td></tr>
+      <tr><th>ref 배지</th><td>제목 칸의 40% 까지. HEAD 배지는 항상, 넘치면 <span class="mono">+n</span> 배지(hover·aria-label 에 목록) <span class="chg">3차</span></td></tr>
+      <tr><th>기준 브랜치 판정</th><td><span class="mono">refs/remotes/origin/HEAD</span>(대상) → <span class="mono">origin/main</span> → <span class="mono">origin/master</span> → <span class="mono">refs/heads/main</span> → <span class="mono">refs/heads/master</span>. fetch 하지 않음</td></tr>
+      <tr><th>비교 범위</th><td><span class="mono">merge-base(base, HEAD)..HEAD</span>. 토글 "커밋 안 된 변경 포함"(기본 끔): 켜면 작업 트리 변경과 <b>추적 안 된 파일(A 로)</b>까지 <span class="chg">3차</span>. 범위 안 행은 왼쪽 3px 막대, 범위 밖 행은 흐린 글자(색만으로 구분하지 않음)</td></tr>
+      <tr><th>비교 비활성</th><td>기준 없음 / 현재 브랜치 = 기준(분기 없음) / merge-base 없음(얕은 복제) → 회색 + 이유 툴팁</td></tr>
+      <tr><th>upstream 없는 브랜치</th><td>칩에 <span class="mono">≈↑3</span>(≈ = 기준 대비). 툴팁 "upstream 없음 · 기준 origin/main 대비 앞섬 3" <span class="chg">3차</span></td></tr>
+      <tr><th>하위 폴더 cwd</th><td>범위는 저장소 전체, 경로는 루트 기준, 부제에 "하위 폴더 docs/"</td></tr>
+      <tr><th>페이지</th><td>200개씩 커서(<span class="mono">after=&lt;sha&gt;</span> + 첫 요청 때 ref 스냅샷). 레인은 누적 목록 전체로 다시 계산. 얕은 복제는 끝에 경계 행</td></tr>
+    </tbody></table></div>
+
+    <div class="card"><h3>키보드·포커스·분할선</h3><table class="spec"><tbody>
+      <tr><th>Tab 순서</th><td>범위 버튼 → 배지 → 자동 갱신 → 새로고침 → 커밋 목록 → 좌우 분할선 → 파일 목록 → 위아래 분할선 → diff 머리 컨트롤 → diff 본문</td></tr>
+      <tr><th>목록</th><td>listbox + aria-activedescendant. ↑↓ Home End PgUp PgDn(10행), j/k</td></tr>
+      <tr><th>창 안</th><td><kbd>[</kbd><kbd>]</kbd> <kbd>n</kbd><kbd>p</kbd> <kbd>s</kbd> <kbd>w</kbd> <kbd>R</kbd>. 입력란 포커스·수정키 조합이면 무시</td></tr>
+      <tr><th>분할선</th><td>드래그, 포커스 후 화살표 16px, 더블클릭 기본값(46% / 150px). 그래프 최소 380, 오른쪽 최소 360, 파일 목록 최소 3행·최대 오른쪽 높이 50%</td></tr>
+    </tbody></table></div>
+
+    <div class="card"><h3>diff 표시</h3><table class="spec"><tbody>
+      <tr><th>계산</th><td>서버가 git 으로 계산해 덩어리 배열로 보냄. 클라이언트는 짝지은 −/+ 줄의 단어 강조만(토큰 LCS, 줄당 500자 초과 생략)</td></tr>
+      <tr><th>기준</th><td>커밋 = 첫 번째 부모 ↔ 커밋(병합 <span class="mono">--diff-merges=first-parent</span>, 루트는 빈 트리). 스테이징됨 = HEAD ↔ index. 스테이징 안 됨 = index ↔ 작업 트리. 추적 안 됨 = 없음 ↔ 작업 트리. 비교 = merge-base ↔ HEAD(토글 시 작업 트리)</td></tr>
+      <tr><th>한 줄 / 좌우</th><td>기본 한 줄. 좌우는 오른쪽 칸 560px 이상이고 kind 가 M·R·C·T 일 때만(A·D·? 는 한쪽이 비어 비활성 + 이유) <span class="chg">3차</span>. 두 칸 가로 스크롤 동기화, 양쪽 +/− 기호 칸</td></tr>
+      <tr><th>공백 무시</th><td>서버 <span class="mono">-w</span>. 공백만 바뀐 파일은 "공백만 바뀌었습니다". 머리에 "공백 무시 중"</td></tr>
+      <tr><th>줄바꿈</th><td>기본 끔(모바일은 켬). 이어지는 줄은 코드 시작 열에 맞춤</td></tr>
+      <tr><th>구문 강조</th><td><b>v1.1 로 미룸</b>(속도 우선 방침). v1 은 단어 강조만 <span class="chg">3차</span></td></tr>
+      <tr><th>숨긴 문맥</th><td>첫 덩어리 위: [펼치기] 하나. 덩어리 사이: [위로 20줄] [아래로 20줄] [전부]. 마지막 덩어리 뒤: newSize 로 계산한 "숨긴 n줄" + [펼치기]. 펼치면 <span class="mono">full=1</span>(512KB 이하) <span class="chg">3차</span></td></tr>
+      <tr><th>큰 diff</th><td>512KB 또는 변경 5,000줄 초과 → 접힘 "그래도 펼치기". 펼친 diff 2,000줄 초과 시 가상 스크롤(줄 높이 20px). lock·dist·min 은 기본 접힘</td></tr>
+      <tr><th>이름 바꾸기</th><td>머리: <span class="mono">gitLabel.ts → branchLabel.ts (R92%)</span>, 각 디렉터리는 앞쪽만 줄임, 전체 경로는 title <span class="chg">3차</span></td></tr>
+      <tr><th>줄 번호</th><td>두 칸(이전·새로). 칸 폭 = 최대 자릿수 ch + 8px</td></tr>
+      <tr><th>편집기로 열기</th><td>작업 사본의 텍스트 파일만(삭제·바이너리·특수 파일은 비활성 + 이유). 파일만 엶</td></tr>
+    </tbody></table></div>
+  </div>
+</section>
+
+<!-- ⑦ ─────────────────────────────────────────── -->
+<section class="screen" id="s7">
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card"><h3>REST API — 모두 GET, 인증 필수, 세션 cwd 를 서버가 해석(클라이언트는 경로·git 인자를 보내지 않음)</h3>
+      <table class="spec"><thead><tr><th>경로 <span class="mono">/api/sessions/:id/git/…</span></th><th>서버가 하는 일</th><th>응답</th><th>상한</th></tr></thead><tbody>
+        <tr><td class="mono">summary</td><td><b>①</b> <span class="mono">rev-parse --show-toplevel --git-dir --git-common-dir --show-prefix</span>(cwd 단위 캐시) <b>②</b> <span class="mono">status --porcelain=v2 --branch -z -unormal --no-renames</span> <b>③</b> fs.promises 로 &lt;git-dir&gt; 의 MERGE_HEAD · rebase-merge/(msgnum, end, head-name) · rebase-apply/(next, last, head-name) · CHERRY_PICK_HEAD · REVERT_HEAD · BISECT_LOG 존재 확인 <b>④</b> upstream 이 없을 때만 기준 ref 판정(refs 스탬프 단위 캐시)과 <span class="mono">rev-list --count base..HEAD</span>((HEAD sha, base sha) 캐시) <span class="chg">3차</span></td><td class="mono">repo, root, subdir, branch|null, detached, head, upstream|null, ahead, behind, base{ref,ahead}|null, operation{kind,step,total,branch}|null, counts{staged,unstaged,untracked,conflicted,paths}, untrackedScan, checkedAt</td><td>캐시 적중 시 git 1회 + stat 몇 번. p95 ≤ 300ms(Windows), ≤ 600ms(WSL)</td></tr>
+        <tr><td class="mono">status</td><td>위 ② 에 <span class="mono">-M</span>, numstat 은 <span class="mono">diff --numstat -z</span> 2회(--cached / 작업 트리)</td><td class="mono">summary + files[{path, origPath?, kind, area, add, del, binary, <b>inputs</b>}] <span class="chg">3차</span></td><td>파일 2,000개</td></tr>
+        <tr><td class="mono">log?scope=head|all|cmp&amp;after=&amp;limit=200</td><td class="mono">log --topo-order -z --format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%D …</td><td class="mono">commits[{sha,parents,author,email,time,subject,refs[{kind,name}]}], hasMore, shallow, sessions[{sessionId,name,head}]</td><td>limit ≤ 500</td></tr>
+        <tr><td class="mono">commit/:sha</td><td class="mono">show --no-patch --format=… + diff-tree -r -z --numstat -M --diff-merges=first-parent (루트는 빈 트리)</td><td class="mono">sha, parents, author, email, time, committer, message, refs, files[{path,origPath?,kind,similarity?,add,del,binary}]</td><td>파일 2,000개</td></tr>
+        <tr><td class="mono">diff?src=commit&amp;sha= | staged | unstaged | untracked | cmp[&amp;wt=1] &amp;path=[&amp;origPath=]&amp;ignoreWs=&amp;full=</td><td>추적 파일: <span class="mono">diff -U3 --no-color --no-ext-diff --no-textconv -M [-w] -- &lt;origPath&gt; &lt;path&gt;</span>(이름 바꾸기는 <b>두 경로를 함께</b>) <span class="chg">3차</span>. <b>추적 안 됨</b>: git diff 대상이 아니므로 서버가 lstat 후 파일을 직접 읽어 전부 추가인 덩어리를 만듦 <span class="chg">3차</span>. 줄 끝 판정: <span class="mono">--ignore-cr-at-eol</span> 결과가 비면 special eol. 인코딩: UTF-8 로 엄격히 디코드되지 않으면 special encoding(내용 미전송, v1). 원문 full 은 cat-file blob / 작업 트리 직접 읽기</td><td class="mono"><b>inputs{old:{id|null}, new:{id|null, size?, mtimeMs?}}</b>, hunks[{oldStart,oldLines,newStart,newLines,header,lines[{k,o,n,t}]}], gapAfter, special?{kind:'binary'|'large'|'mode'|'eol'|'wsOnly'|'symlink'|'lfs'|'submodule'|'encoding'|'emptyNew', …}, binary, truncated, oldSize, newSize, language, full?{old,new}</td><td>파일 512KB · 변경 5,000줄</td></tr>
+        <tr><td class="mono">compare?wt=0|1</td><td class="mono">merge-base, diff --numstat -z -M base...HEAD (+ wt=1 이면 작업 트리·추적 안 됨)</td><td class="mono">base{ref,sha}, mergeBase, commits[sha], files[…], add, del, fetchedAt|null</td><td>파일 2,000개</td></tr>
+      </tbody></table>
+      <p class="muted" style="margin:10px 0 0;font-size:12px"><b>inputs</b> <span class="chg">3차</span>: diff 의 양쪽을 식별하는 값. 커밋·index 쪽은 blob id(<span class="mono">ls-tree</span>/<span class="mono">ls-files -s</span> 결과), 작업 트리 쪽은 id=null + lstat 의 size·mtimeMs. 클라이언트는 <span class="mono">git.changed</span> 뒤 status 만 다시 받아, 보고 있는 파일의 inputs 가 diff 응답 때와 다르면 "이 파일이 바뀌었습니다" 배지를 띄움(diff 를 다시 받지 않음).<br>kind: <span class="mono">A</span> 추가 · <span class="mono">M</span> 수정 · <span class="mono">D</span> 삭제 · <span class="mono">R</span> 이름 바꿈(+similarity) · <span class="mono">C</span> 복사 · <span class="mono">T</span> 유형 바뀜 · <span class="mono">X</span> 충돌(git 의 U, 화면 <span class="mono">!</span>) · <span class="mono">?</span> 추적 안 됨.</p></div>
+
+    <div class="card"><h3>WebSocket 구독 <span class="chg">3차</span></h3><table class="spec"><thead><tr><th>방향</th><th>메시지</th><th>언제</th></tr></thead><tbody>
+      <tr><td>클 → 서</td><td class="mono">{type:'git.watch', sessionId, mode:'chip'|'window'}</td><td>칩이 보이게 됨(탭·타일 보임, 레이아웃 변경) / Git 창이 열리거나 트레이에서 복원됨</td></tr>
+      <tr><td>클 → 서</td><td class="mono">{type:'git.unwatch', sessionId, mode}</td><td>칩이 숨음 / 창이 닫히거나 최소화됨</td></tr>
+      <tr><td>클 → 서</td><td>(재연결)</td><td>WS 가 다시 연결되면 클라이언트가 지금 유효한 watch 를 전부 다시 보냄. 서버는 연결이 끊기면 그 연결의 watch 를 모두 지움</td></tr>
+      <tr><td>서 → 클</td><td class="mono">{type:'git.summary', sessionId, summary}</td><td>watch(chip|window) 중인 연결에만, 세션당 500ms 묶음</td></tr>
+      <tr><td>서 → 클</td><td class="mono">{type:'git.changed', sessionId, what:['status'|'log'|'refs'], head, stamp}</td><td>watch(window) 중인 연결에만. 클라이언트가 필요한 REST 를 다시 부름</td></tr>
+      <tr><td>서버 상태</td><td colspan="2">세션별 watch 개수로 폴링·감시를 켜고 끔. 0 이 되면 .git 감시 해제·폴링 중지</td></tr>
+    </tbody></table></div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px">
+      <div class="card"><h3>실행</h3><table class="spec"><tbody>
+        <tr><th>방식</th><td>execFile 비동기(셸 없음), windowsHide, 타임아웃 summary·status 5초 · log·commit·diff 10초, maxBuffer 상한. <span class="mono">asyncFileProcessing.test.ts</span> GUARDED 에 GitService 추가</td></tr>
+        <tr><th>공통 옵션</th><td class="mono">-c core.quotepath=off -c color.ui=never -c core.fsmonitor=false -c diff.external= --no-pager; env GIT_OPTIONAL_LOCKS=0, LC_ALL=C, GIT_TERMINAL_PROMPT=0</td></tr>
+        <tr><th>실행 환경 판정 <span class="chg">3차</span></th><td>git 은 <b>세션을 띄운 셸의 환경</b>에서 실행(세션 안에서 다시 띄운 셸은 따라가지 않음 — cwd 추적도 바깥 셸 기준).<br>• WSL 세션: 세션 생성 때의 배포판(<span class="mono">-d</span> 옵션, 없으면 기본 배포판을 <span class="mono">wsl.exe -l -q</span> 첫 줄로 1회 확인 후 캐시) → <span class="mono">wsl.exe -d &lt;배포판&gt; -e git -C &lt;linux cwd&gt;</span><br>• Windows 세션의 cwd 가 <span class="mono">\\wsl.localhost\&lt;배포판&gt;\…</span> 또는 <span class="mono">\\wsl$\…</span>: 같은 배포판의 WSL git 으로 실행(Windows git 으로 9P 를 보면 느리고 autocrlf·filemode 가 달라 모든 파일이 수정된 것처럼 보임)<br>• 그 밖: 서버 프로세스의 git</td></tr>
+        <tr><th>WSL 비용 예산 <span class="chg">3차</span></th><td><span class="mono">wsl.exe</span> 기동이 호출마다 붙으므로 summary 는 git 1회로 끝나게 캐시(위 ①④). 1단계에서 호출 1회 비용을 실측해 기록(목표 ≤ 250ms), 넘으면 WSL 세션의 작업 중 폴링을 5초로</td></tr>
+        <tr><th>동시성</th><td>서버 4개, 저장소당 2개, 같은 요청 합침. 저장소 캐시 키 (root, HEAD sha, index mtime)</td></tr>
+        <tr><th>큰 저장소</th><td>타임아웃 2번 연속 → 그 저장소는 <span class="mono">-uno</span>, 칩 <span class="mono">●n+</span>. 재시도 2→4→8…최대 60초</td></tr>
+      </tbody></table></div>
+      <div class="card"><h3>보안</h3><table class="spec"><tbody>
+        <tr><th>입력</th><td>sha <span class="mono">^[0-9a-f]{7,64}$</span>. path·origPath 는 저장소 루트 안(pathValidator), <span class="mono">-</span> 로 시작하면 거부, <span class="mono">--</span> 뒤. after·limit 정수. scope·src 는 열거값</td></tr>
+        <tr><th>부르지 않는 것</th><td>fsmonitor, 외부 diff, textconv(위 옵션). 원문은 cat-file 이라 smudge filter 를 타지 않음</td></tr>
+        <tr><th>잔여 위험 <span class="chg">3차</span></th><td><b>clean/process filter(.gitattributes 의 LFS·git-crypt 등)는 실행될 수 있음</b> — <span class="mono">status</span> 와 index↔작업 트리 <span class="mono">diff</span> 가 작업 트리 파일을 정규화하려고 부름. 이는 세션 사용자가 같은 저장소에서 셸로 <span class="mono">git status</span> 를 칠 때와 같은 권한·효과이고, BuilderGate 가 새 명령을 실행하게 만들 수는 없음(인자는 서버 고정). 느린 filter 는 타임아웃이 막음. 수용함</td></tr>
+        <tr><th>심볼릭 링크</th><td>작업 트리는 lstat, 링크면 대상 문자열만</td></tr>
+        <tr><th>범위</th><td>세션 cwd 가 속한 저장소만</td></tr>
+      </tbody></table></div>
+    </div>
+
+    <div class="card"><h3>오류 코드</h3><table class="spec"><thead><tr><th>코드</th><th>언제</th><th>칩</th><th>Git 창</th></tr></thead><tbody id="errTable"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ⑧ ─────────────────────────────────────────── -->
+<section class="screen" id="s8">
+  <p class="lead">SRS 는 새 scope <span class="mono">47.git-viewer.srs.md</span>(prefix GIT)로 등록합니다(<span class="mono">speckiwi scaffold-scope git-viewer:GIT --apply --root .</span>). 아래 AC 를 그대로 옮깁니다. 측정 환경(벤치마크 fixture): Windows 서버, 로컬 SSD, 커밋 50,000 · 파일 10,000 저장소, 같은 fixture 의 WSL 사본, 세션 6개.</p>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card"><h3>요구사항과 수락 기준</h3><table class="spec"><thead><tr><th>ID</th><th>요구</th><th>수락 기준 (검증 방법)</th></tr></thead><tbody id="acTable"></tbody></table></div>
+    <div class="card"><h3>검증 지표 — 로컬 벤치마크로 잼(텔레메트리 없음) <span class="chg">3차</span></h3><table class="spec"><tbody>
+      <tr><th>속도</th><td>fixture 에서 칩 클릭 → 첫 diff 표시 p95 ≤ 1초(Playwright 계측 20회)</td></tr>
+      <tr><th>summary</th><td>p95 ≤ 300ms(Windows), ≤ 600ms(WSL) — 서버 벤치마크 스크립트 100회</td></tr>
+      <tr><th>부담</th><td>세션 6개가 모두 작업 중(3초 폴링)일 때 git 으로 인한 서버 CPU 평균 &lt; 한 코어의 5%, 이벤트 루프 지연 p99 &lt; 50ms</td></tr>
+      <tr><th>정성</th><td>출시 후 이슈·피드백에서 "무엇이 바뀌었는지 모르겠다" 류 요청이 닫히는지</td></tr>
+    </tbody></table></div>
+    <div class="card"><h3>i18n 키 (en / ko) — 화면의 모든 문구가 이 표에서 나옴 <span class="chg">3차</span></h3>
+      <p class="muted" style="margin:0 0 8px;font-size:12px">이 시안의 Git 창·칩·메뉴·배너·배지·토스트는 아래 표를 렌더하는 <span class="mono">T(key, params)</span> 로 그려집니다. 자리표시자 바로 뒤에 조사를 두지 않고, Workspace 를 음차하지 않습니다. 상대 시각은 키가 아니라 Intl 로 만듭니다(⑥).</p>
+      <table class="spec"><thead><tr><th>키</th><th>en</th><th>ko</th></tr></thead><tbody id="i18nTable"></tbody></table></div>
+    <div class="card"><h3>새 토큰 (tokens.css 에 추가, chrome / paper)</h3><table class="spec"><thead><tr><th>토큰</th><th>chrome</th><th>paper</th><th>용도</th></tr></thead><tbody id="tokTable"></tbody></table>
+      <p class="muted" style="margin:10px 0 0;font-size:12px">v1 의 Git 창은 chrome 표면. 레인 팔레트에서 경고 노랑을 뺐고, 파랑·분홍 계열이 겹치지 않게 5·6번을 회색·청록으로 정했습니다. 대비: 선택 행 보조 글자 #c8c8c8 / 선택 배경 ≈ 7:1, 줄 번호 #9a9a9a / 삭제 배경 ≈ 5.2:1. 1단계 구현 때 토큰 조합 대비를 자동 검사합니다(NFR-GIT-003).</p></div>
+    <div class="card"><h3>v1 범위 밖</h3><ul style="margin:0;padding-left:18px;line-height:1.8;color:var(--fg-muted)">
+      <li>쓰기 전부: stage, commit, discard, checkout, branch 생성, fetch</li><li>구문 강조(v1.1), 이미지 전후 비교, 비 UTF-8 내용 표시</li><li>blame, stash 보기, rebase·cherry-pick 조작</li><li>서브모듈 안으로 들어가기, 중첩 저장소, 세션 안에서 다시 띄운 셸 따라가기</li><li>작성자·경로 필터, 커밋 메시지 검색, 전역 단축키, 편집기의 줄 이동</li></ul></div>
+  </div>
+</section>
+
+<div class="pop tip" id="tip" role="tooltip"></div>
+<div class="pop menu" id="menu" role="menu"></div>
+<div class="pop" id="errPop" role="dialog" aria-labelledby="errTitle" style="padding:12px 14px;width:380px"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ═════════ i18n — every UI string of the chip and window comes from here ═════════ */
+const LANG = 'ko';
+const I18N = [
+  ['git.chip.open', 'Open Git window', 'Git 창 열기'], ['git.chip.branch', 'Branch {branch}', '브랜치 {branch}'], ['git.chip.detached', 'Detached HEAD at {sha}', 'HEAD 분리됨, 커밋 {sha}'],
+  ['git.chip.changes.one', '{count} change', '—'], ['git.chip.changes.other', '{count} changes', '변경 {count}'], ['git.chip.noChanges', 'No changes', '변경 없음'],
+  ['git.chip.ahead', 'Ahead {count}', '앞섬 {count}'], ['git.chip.behind', 'Behind {count}', '뒤처짐 {count}'], ['git.chip.baseAhead', 'Ahead of base {base}: {count}', '기준 {base} 대비 앞섬 {count}'],
+  ['git.chip.menuHint', 'Menu: Shift+F10', '메뉴: Shift+F10'], ['git.chip.loading', 'Checking Git status', 'Git 정보 확인 중'], ['git.chip.error', 'Could not read Git status: {reason}. Press for details', 'Git 정보를 읽지 못함: {reason}. 눌러서 자세히'],
+  ['git.chip.inProgress', '{op} in progress', '진행 중: {op}'], ['git.chip.stale', 'Last checked {time} · retrying', '마지막 확인 {time} · 다시 시도 중'], ['git.chip.untrackedOff', 'New files not scanned (large repository)', '새 파일 검사 끔(저장소가 큼)'],
+  ['git.tip.repo', 'Repository', '저장소'], ['git.tip.branch', 'Branch', '브랜치'], ['git.tip.head', 'HEAD', 'HEAD'], ['git.tip.upstream', 'Upstream', 'upstream'], ['git.tip.changes', 'Changed files', '변경 파일'], ['git.tip.path', 'Path', '경로'],
+  ['git.tip.none', 'None', '없음'], ['git.tip.noUpstreamBase', 'None · ahead of base {base}: {count}', '없음 · 기준 {base} 대비 앞섬 {count}'], ['git.tip.staged', 'Staged {count}', '스테이징 {count}'], ['git.tip.modified', 'Modified {count}', '수정 {count}'], ['git.tip.untracked', 'New {count}', '새 파일 {count}'], ['git.tip.paths', 'paths {count}', '경로 {count}'],
+  ['git.tip.detachedNote', 'Not on a branch. Commits made here stay on no branch.', '브랜치에 있지 않습니다. 여기서 만든 커밋은 어느 브랜치에도 남지 않습니다.'], ['git.tip.foot', 'Click: Git window · Right-click/Shift+F10: menu · Checked {time}', '클릭: Git 창 · 우클릭/Shift+F10: 메뉴 · 확인 {time}'],
+  ['git.op.merge', 'Merging', '병합 중'], ['git.op.rebase', 'Rebase {step}/{total}', '리베이스 {step}/{total}'], ['git.op.cherryPick', 'Cherry-pick', '체리픽 중'], ['git.op.revert', 'Revert', '되돌리기 중'], ['git.op.bisect', 'Bisect', '이분 탐색 중'],
+  ['git.menu.uncommitted', 'Show uncommitted changes ({count})', '커밋 안 된 변경 보기 ({count})'], ['git.menu.uncommittedNone', 'Show uncommitted changes', '커밋 안 된 변경 보기'], ['git.menu.compare', 'Compare: {base}', '비교: {base}'], ['git.menu.compareNone', 'Compare', '비교'],
+  ['git.menu.copyBranch', 'Copy branch name', '브랜치 이름 복사'], ['git.menu.copySha', 'Copy commit hash', '커밋 해시 복사'], ['git.menu.pathGroup', 'Path (hidden in the bar)', '경로 (하단바에서 숨겨짐)'], ['git.menu.copyPath', 'Copy path', '경로 복사'], ['git.menu.openFile', 'Open {file}', '열기: {file}'],
+  ['git.why.noChanges', 'No changes', '변경 없음'], ['git.why.noBase', 'Base branch not found', '기준 브랜치를 찾지 못함'], ['git.why.detached', 'Not on a branch', '브랜치에 있지 않음'], ['git.why.sameAsBase', 'Current branch is the base', '현재 브랜치가 기준 브랜치임'], ['git.why.shallow', 'No fork point (shallow clone)', '갈라진 지점이 없음(얕은 복제)'],
+  ['git.err.title.GIT_UNSAFE_REPO', 'The repository owner differs from the server user', '저장소 소유자가 서버 사용자와 다릅니다'], ['git.err.body.GIT_UNSAFE_REPO', 'git does not read this folder for safety. Run this command in the session environment:', '안전을 위해 git 이 이 폴더를 읽지 않습니다. 세션 환경에서 아래 명령을 실행하면 해결됩니다.'],
+  ['git.err.title.GIT_TIMEOUT', 'git did not answer within 5 seconds', 'git 이 5초 안에 답하지 않았습니다'], ['git.err.body.GIT_TIMEOUT', 'The repository is large or the disk is busy. Retrying at 2, 4, 8 seconds.', '저장소가 크거나 디스크가 바쁩니다. 2, 4, 8초 간격으로 다시 시도합니다.'],
+  ['git.err.copyCommand', 'Copy command', '명령 복사'], ['git.err.retry', 'Check again', '다시 확인'], ['git.err.details', 'Details', '자세히'],
+  ['git.window.title', 'Git · {repo}', 'Git · {repo}'], ['git.window.subtitle', '{session} · {branch}', '{session} · {branch}'], ['git.window.subdir', 'subfolder {path}', '하위 폴더 {path}'], ['git.window.tray', 'Git · {repo} · {session}', 'Git · {repo} · {session}'],
+  ['git.window.minimize', 'Minimize', '최소화'], ['git.window.maximize', 'Maximize', '최대화'], ['git.window.close', 'Close', '닫기'], ['git.window.readOnly', 'Read-only', '읽기 전용'],
+  ['git.scope.label', 'Scope', '보기 범위'], ['git.scope.head', 'Current branch', '현재 브랜치'], ['git.scope.all', 'All branches', '전체 브랜치'], ['git.scope.compare', 'Compare: {base}', '비교: {base}'], ['git.scope.compareNone', 'Compare', '비교'],
+  ['git.refresh.auto', 'Auto refresh', '자동 갱신'], ['git.refresh.button', 'Refresh (R)', '새로고침 (R)'], ['git.refresh.checked', 'Checked {time}', '확인 {time}'],
+  ['git.refresh.listBadge', 'New changes in the list · Apply', '목록에 새 변경 · 반영'], ['git.refresh.diffBadge', 'This file changed · Apply', '이 파일이 바뀌었습니다 · 반영'], ['git.refresh.listAnnounce', 'The list has new changes', '목록에 새 변경이 있습니다'], ['git.refresh.diffAnnounce', 'The file you are viewing changed', '보고 있는 파일이 바뀌었습니다'],
+  ['git.banner.moved', 'The session moved to another repository · {path}', '세션이 다른 저장소로 이동했습니다 · {path}'], ['git.banner.follow', 'Follow', '따라가기'], ['git.banner.stay', 'Keep this window', '이 창 유지'],
+  ['git.banner.ended', 'The session ended · showing the last state. Refresh is off.', '세션이 끝났습니다 · 마지막 상태를 보여 줍니다. 갱신이 꺼졌습니다.'],
+  ['git.banner.vanished', 'No longer on this branch (amend, reset or rebase): {sha} · the content stays visible', '이 브랜치에 더 이상 없는 커밋(amend·reset·rebase): {sha} · 내용은 그대로 보여 줍니다'], ['git.banner.latestHead', 'Show latest HEAD', '최신 HEAD 보기'],
+  ['git.banner.compare', 'Compare: {base} · fork point {sha} · commits {count} · last fetch {time} · base detected from origin/HEAD, not fetched', '비교: {base} · 갈라진 지점 {sha} · 커밋 {count} · 마지막 fetch {time} · 기준은 origin/HEAD 에서 찾았고 fetch 하지 않음'],
+  ['git.compare.title', '{branch} — compare: {base}', '{branch} — 비교: {base}'], ['git.compare.includeWorktree', 'Include uncommitted changes', '커밋 안 된 변경 포함'], ['git.compare.forkPoint', 'Fork point', '갈라진 지점'],
+  ['git.graph.list', 'Commits', '커밋 목록'], ['git.graph.colSubject', 'Description', '설명'], ['git.graph.colSha', 'Commit', '커밋'], ['git.graph.colAuthor', 'Author', '작성자'], ['git.graph.colTime', 'Time', '시각'],
+  ['git.graph.uncommitted', 'Uncommitted changes ({count})', '커밋 안 된 변경 ({count})'], ['git.graph.vanishedRow', 'Not on branch · {subject}', '브랜치에 없음 · {subject}'], ['git.graph.loadMore', 'The next {count} load at the end of the list · showing {shown}', '목록 끝에서 다음 {count}개를 불러옵니다 · 표시 {shown}개'], ['git.graph.end', 'End of history · showing {shown}', '기록 끝 · 표시 {shown}개'],
+  ['git.graph.shallow', 'Shallow clone · no earlier history', '얕은 복제 · 이전 기록이 없습니다'], ['git.graph.merge', 'Merge commit', '병합 커밋'], ['git.graph.moreRefs', '{count} more: {names}', '{count}개 더: {names}'], ['git.graph.lanesMore', '+{count} lanes', '레인 +{count}'],
+  ['git.detail.commit', 'Commit', '커밋'], ['git.detail.copy', 'Copy', '복사'], ['git.detail.author', 'Author', '작성자'], ['git.detail.parents', 'Parents', '부모'], ['git.detail.root', 'none (first commit · compared with an empty tree)', '없음(첫 커밋 · 빈 트리와 비교)'],
+  ['git.detail.firstParent', 'Merge commit · changes against first parent {sha}', '병합 커밋 · 첫 번째 부모 기준 변경: {sha}'], ['git.detail.worktree', 'Uncommitted changes {count}', '커밋 안 된 변경 {count}'], ['git.detail.worktreeCounts', 'staged {staged} · modified {modified} · new {untracked}', '스테이징 {staged} · 수정 {modified} · 새 파일 {untracked}'],
+  ['git.files.list', 'Changed files', '변경 파일'], ['git.files.staged', 'Staged', '스테이징됨'], ['git.files.unstaged', 'Not staged', '스테이징 안 됨'], ['git.files.untracked', 'Untracked', '추적 안 됨'], ['git.files.conflicted', 'Conflicts', '충돌'], ['git.files.none', 'No changed files', '변경된 파일이 없습니다'],
+  ['git.files.base.staged', 'HEAD ↔ index', 'HEAD ↔ index'], ['git.files.base.unstaged', 'index ↔ working tree', 'index ↔ 작업 트리'], ['git.files.base.untracked', 'new files', '새 파일'], ['git.files.binary', 'binary', '바이너리'], ['git.files.mode', 'mode', '권한'],
+  ['git.kind.A', 'Added', '추가'], ['git.kind.M', 'Modified', '수정'], ['git.kind.D', 'Deleted', '삭제'], ['git.kind.R', 'Renamed', '이름 바꿈'], ['git.kind.C', 'Copied', '복사'], ['git.kind.T', 'Type changed', '유형 바뀜'], ['git.kind.X', 'Conflict', '충돌'], ['git.kind.untracked', 'Untracked', '추적 안 됨'],
+  ['git.diff.body', 'Changes', '변경 내용'], ['git.diff.unified', 'Unified', '한 줄'], ['git.diff.split', 'Split', '좌우'], ['git.diff.view', 'View', '보기'], ['git.diff.splitTooNarrow', 'Too narrow for split view', '좌우 보기를 하기에 칸이 좁습니다'], ['git.diff.splitOneSided', 'One side is empty', '한쪽이 비어 있습니다'],
+  ['git.diff.ignoreWs', 'Ignore whitespace', '공백 무시'], ['git.diff.ignoringWs', 'ignoring whitespace', '공백 무시 중'], ['git.diff.wrap', 'Wrap lines', '줄바꿈'], ['git.diff.prevHunk', 'Previous hunk (p)', '이전 덩어리 (p)'], ['git.diff.nextHunk', 'Next hunk (n)', '다음 덩어리 (n)'], ['git.diff.prevFile', 'Previous file ([)', '이전 파일 ([)'], ['git.diff.nextFile', 'Next file (])', '다음 파일 (])'],
+  ['git.diff.position', 'File {file}/{files}', '파일 {file}/{files}'], ['git.diff.hunkPosition', 'hunk {hunk}/{hunks}', '덩어리 {hunk}/{hunks}'],
+  ['git.diff.hidden', '{count} hidden lines', '숨긴 줄 {count}'], ['git.diff.expand', 'Expand', '펼치기'], ['git.diff.expandUp', 'Up 20 lines', '위로 20줄'], ['git.diff.expandDown', 'Down 20 lines', '아래로 20줄'], ['git.diff.expandAll', 'All', '전부'], ['git.diff.moreDeleted', '{count} more deleted lines', '삭제된 줄 {count}개 더'],
+  ['git.diff.openEditor', 'Open in editor', '편집기로 열기'], ['git.diff.openEditorDisabled', 'Deleted, binary and special files cannot be opened in the editor', '삭제·바이너리·특수 파일은 편집기로 열 수 없습니다'], ['git.diff.loading', 'Loading changes', '변경 내용을 불러오는 중'],
+  ['git.special.binary', 'Binary file · {from} → {to} · contents are not compared', '바이너리 파일 · {from} → {to} · 내용은 비교하지 않습니다'], ['git.special.large', 'Large change folded · +{add} −{del}', '변경이 커서 접어 두었습니다 · +{add} −{del}'], ['git.special.largeNote', 'Over 512 KB or 5,000 lines. Lock, dist and min files are folded by default.', '512KB 또는 5,000줄 초과. lock·dist·min 파일은 기본으로 접습니다.'], ['git.special.expandAnyway', 'Expand anyway', '그래도 펼치기'],
+  ['git.special.mode', 'Permissions changed only · {from} → {to}', '권한만 바뀌었습니다 · {from} → {to}'], ['git.special.eol', 'Line endings changed only · {from} → {to} · {count} lines', '줄 끝만 바뀌었습니다 · {from} → {to} · {count}줄'], ['git.special.showAnyway', 'Show anyway', '그래도 보기'], ['git.special.wsOnly', 'Whitespace changes only', '공백만 바뀌었습니다'],
+  ['git.special.symlink', 'Symbolic link · target {from} → {to} · not followed', '심볼릭 링크 · 대상 {from} → {to} · 따라가지 않습니다'], ['git.special.lfs', 'Git LFS file · {from} → {to} · contents are in LFS', 'Git LFS 파일 · {from} → {to} · 내용은 LFS 에 있습니다'], ['git.special.submodule', 'Submodule pointer · {from} → {to}', '서브모듈 포인터 · {from} → {to}'],
+  ['git.special.encoding', 'Not UTF-8 · contents are not shown in this version', 'UTF-8 이 아닙니다 · 이 버전에서는 내용을 보여 주지 않습니다'], ['git.special.deleted', 'Deleted', '삭제됨'], ['git.special.emptyNew', 'Empty file added', '빈 파일이 추가되었습니다'],
+  ['git.toast.committed', 'The changes were committed · selected the new HEAD', '변경이 커밋되었습니다 · 새 HEAD 를 선택했습니다'], ['git.toast.broughtFront', 'Brought the open window to the front', '이미 열린 창을 앞으로 가져왔습니다'], ['git.toast.windowLimit', 'Minimized the least recently used Git window', '가장 오래 쓰지 않은 Git 창을 최소화했습니다'],
+  ['git.toast.noGit', 'git was not found on the server, so branches are not shown', '서버에서 git 을 찾지 못해 브랜치를 표시하지 않습니다'], ['git.toast.copied', 'Copied', '복사했습니다'], ['git.toast.closed', 'Closed. Press the chip to open it again', '창을 닫았습니다. 칩을 누르면 다시 열립니다'],
+  ['git.time.justNow', 'just now', '방금'],
+  ['apiError.NOT_A_REPO', 'Not a git repository', 'git 저장소가 아닙니다'], ['apiError.GIT_UNAVAILABLE', 'git is not available on the server', '서버에서 git 을 쓸 수 없습니다'], ['apiError.GIT_UNSAFE_REPO', 'Repository owner differs from the server user', '저장소 소유자가 서버 사용자와 다릅니다'], ['apiError.GIT_TIMEOUT', 'git did not answer in time', 'git 이 제시간에 답하지 않았습니다'],
+  ['apiError.NO_COMMITS', 'No commits yet', '아직 커밋이 없습니다'], ['apiError.SHALLOW_HISTORY', 'History is shallow', '얕은 복제라 기록이 없습니다'], ['apiError.COMMIT_NOT_FOUND', 'Commit not found', '커밋을 찾을 수 없습니다'], ['apiError.PATH_OUTSIDE_REPO', 'Path is outside the repository', '저장소 밖 경로입니다'],
+  ['apiError.BASE_NOT_FOUND', 'Base branch not found', '기준 브랜치를 찾지 못했습니다'], ['apiError.DIFF_TOO_LARGE', 'Too large to expand', '너무 커서 펼칠 수 없습니다'], ['apiError.SESSION_NOT_FOUND', 'The session ended', '세션이 끝났습니다'], ['apiError.GIT_FAILED', 'git failed: {detail}', 'git 실패: {detail}']
+];
+const DICT = Object.fromEntries(I18N.map(([k, en, ko]) => [k, LANG === 'ko' ? ko : en]));
+function T(key, p = {}) {
+  let s = DICT[key];
+  if (s == null) { console.error('missing i18n key', key); return key; }
+  return s.replace(/\{(\w+)\}/g, (_, n) => (p[n] ?? `{${n}}`));
+}
+const NOW = Date.parse('2026-10-23T10:05:00');
+const RTF = new Intl.RelativeTimeFormat(LANG, { numeric: 'auto' });
+const DTF = new Intl.DateTimeFormat(LANG, { month: 'numeric', day: 'numeric' });
+const DTFY = new Intl.DateTimeFormat(LANG, { year: 'numeric', month: 'numeric', day: 'numeric' });
+const DTFull = new Intl.DateTimeFormat(LANG, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+function rel(ts) {
+  const s = Math.round((ts - NOW) / 1000);
+  const a = Math.abs(s);
+  if (a < 10) return T('git.time.justNow');
+  if (a < 60) return RTF.format(s, 'second');
+  if (a < 3600) return RTF.format(Math.round(s / 60), 'minute');
+  if (a < 86400) return RTF.format(Math.round(s / 3600), 'hour');
+  if (a < 7 * 86400) return RTF.format(Math.round(s / 86400), 'day');
+  return new Date(ts).getFullYear() === new Date(NOW).getFullYear() ? DTF.format(ts) : DTFY.format(ts);
+}
+const abs = (ts) => DTFull.format(ts);
+const relSec = (sec) => rel(NOW - sec * 1000);
+
+const ICON_BRANCH = (c = '#a0a0a0') => `<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="${c}" stroke-width="1.6"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="13" r="1.8"/><circle cx="12" cy="5" r="1.8"/><path d="M4 5v6M12 7c0 3-8 2-8 4"/></svg>`;
+const ICON_COMMIT = (c) => `<svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="${c}" stroke-width="1.6"><circle cx="8" cy="8" r="3"/><path d="M8 1v4M8 11v4"/></svg>`;
+const ICON_CLOCK = `<svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>`;
+const LANES = ['#6cb6ff', '#c586c0', '#4cc38a', '#f28b54', '#bdbdbd', '#56d4dd'];
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._t); t._t = setTimeout(() => { t.style.display = 'none'; }, 2800);
+}
+
+/* nav */
+$$('.nav button').forEach((b) => b.addEventListener('click', () => {
+  $$('.nav button').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+  $$('.screen').forEach((s) => s.classList.toggle('on', s.id === b.dataset.s));
+  hidePops();
+  if (b.dataset.s === 's2') requestAnimationFrame(layoutChecks);
+}));
+const go = (id) => $(`.nav button[data-s="${id}"]`).click();
+
+/* ═════════ repository model ═════════ */
+const C = (sha, parents, subject, author, date, refs = [], extra = {}) => ({ sha, parents, subject, author, ts: Date.parse(date.replace(' ', 'T')), refs, ...extra });
+function freshPM() {
+  return [
+    C('a1b2c3d', ['9f8e7d6'], 'feat(git): 그래프 레인 배정', 'claude', '2026-10-23 10:02', [['head', 'HEAD → feat/git-graph']], { body: 'activeLanes 배열로 레인을 배정한다.\n같은 부모를 기다리는 레인은 하나로 합친다.' }),
+    C('9f8e7d6', ['7d6e5f4'], 'test(git): 레인 골든 케이스 6개', 'claude', '2026-10-23 09:56'),
+    C('c0de001', ['5c4b3a2'], 'fix(term): 보일 때 크기 재전송', 'codex', '2026-10-23 09:45', [['local', 'codex/fix-terminal-resize'], ['session', '◉ codex-fix'], ['remote', 'origin/codex/fix-terminal-resize']]),
+    C('5c4b3a2', ['3e2d1c0'], 'fix(term): 크기 재전송 조건 정리', 'beom', '2026-10-23 09:01', [['local', 'main'], ['remote', 'origin/main'], ['remote', 'origin/HEAD']]),
+    C('7d6e5f4', ['b372c4f'], 'feat(git): summary API 와 브랜치 칩', 'claude', '2026-10-23 08:05', [['remote', 'origin/feat/git-graph']]),
+    C('3e2d1c0', ['b372c4f', '8a7b6c5'], 'Merge pull request #162 from uhds11/editor-wait', 'uhds11', '2026-10-23 05:20', [], { merge: true }),
+    C('8a7b6c5', ['79ac8a3'], 'feat(editor): GUI 편집기 대기 알림', 'uhds11', '2026-10-23 04:02', [['remote', 'origin/editor-wait']]),
+    C('b372c4f', ['79ac8a3'], 'release: 0.10.20', 'beom', '2026-10-22 21:10', [['tag', 'v0.10.20']]),
+    C('79ac8a3', ['4d8a507'], 'Merge origin/main (PR #162)', 'beom', '2026-10-22 20:58'),
+    C('4d8a507', ['3a25df8'], 'docs(worklog): 서버 파일 처리 비동기화', 'beom', '2026-10-22 19:30'),
+    C('3a25df8', ['ba953f4'], 'perf(server): 파일 처리 비동기화', 'beom', '2026-10-22 19:12'),
+    C('ba953f4', ['e11c0de'], 'docs(worklog): 내부 cwd 파일 열기 제안 수정', 'beom', '2026-10-21 17:03'),
+    C('e11c0de', ['f00d123'], 'fix(menu): 화면의 파일 확인', 'beom', '2026-10-19 16:40'),
+    C('f00d123', [], 'feat(upload): 세션에 끌어 놓기', 'beom', '2026-10-12 11:00')
+  ];
+}
+const REPOS = {
+  pm: { name: 'ProjectMaster', branch: 'feat/git-graph', head: 'a1b2c3d', base: { ref: 'origin/main', sha: '5c4b3a2' }, commits: freshPM(), more: true },
+  web: { name: 'web', branch: 'main', head: 'w4', base: null, baseWhy: 'git.why.sameAsBase', commits: [
+    C('w4', ['w3'], 'feat: 히어로 반응형', 'codex', '2026-10-23 09:25', [['head', 'HEAD → main'], ['remote', 'origin/main']]),
+    C('w3', ['w2'], 'fix: 모바일 메뉴 겹침', 'codex', '2026-10-23 08:10'),
+    C('w2', ['w1'], 'chore: 의존성 갱신', 'beom', '2026-10-22 18:00'),
+    C('w1', [], 'init', 'beom', '2026-10-16 10:00')], more: false }
+};
+
+const F = {
+  layout: { path: 'frontend/src/components/Git/gitGraphLayout.ts' },
+  meta: { path: 'frontend/src/components/MetadataBar/MetadataRow.tsx' },
+  chip: { path: 'frontend/src/components/Git/GitBranchChip.tsx' },
+  win: { path: 'frontend/src/components/Git/GitWindow.tsx' },
+  test: { path: 'frontend/tests/unit/gitGraphLayout.test.ts' },
+  ko: { path: 'frontend/public/locales/messages.ko.json' },
+  routes: { path: 'server/src/routes/gitRoutes.ts' },
+  png: { path: 'docs/design/git-viewer/preview.png', special: 'binary' },
+  lock: { path: 'package-lock.json', special: 'large' },
+  renamed: { path: 'frontend/src/utils/branchLabel.ts', from: 'frontend/src/utils/gitLabel.ts', sim: 92 },
+  removed: { path: 'frontend/src/components/StatusBar/StatusBar.tsx' },
+  term: { path: 'frontend/src/components/Terminal/TerminalContainer.tsx' },
+  notice: { path: 'frontend/src/components/editor/EditorWaitNotice.tsx' },
+  pkg: { path: 'package.json' },
+  note: { path: 'docs/release-note/v0.10.20.md' },
+  sh: { path: 'tools/release.sh', special: 'mode' },
+  readme: { path: 'README.md', special: 'eol' }
+};
+const WT0 = () => ({ staged: [['M', F.layout, 4, 2]], unstaged: [['M', F.layout, 2, 1], ['M', F.meta, 18, 3]], untracked: [['?', F.chip, 64, 0]] });
+let WT = WT0();
+const wtPaths = () => new Set([...WT.staged, ...WT.unstaged, ...WT.untracked].map((e) => e[1].path));
+const CHANGES = {
+  a1b2c3d: [['M', F.layout, 41, 6], ['A', F.test, 88, 0]],
+  '9f8e7d6': [['M', F.test, 12, 3]],
+  c0de001: [['M', F.term, 9, 7]],
+  '5c4b3a2': [['M', F.term, 9, 7]],
+  '7d6e5f4': [['A', F.routes, 120, 0], ['M', F.ko, 14, 0], ['R', F.renamed, 2, 2], ['D', F.removed, 0, 31], ['A', F.png, 0, 0]],
+  '3e2d1c0': [['A', F.notice, 76, 0]],
+  '8a7b6c5': [['A', F.notice, 76, 0]],
+  b372c4f: [['M', F.pkg, 1, 1], ['M', F.lock, 1204, 388], ['T', F.sh, 0, 0], ['M', F.readme, 12, 12], ['A', F.note, 103, 0]]
+};
+const filesOf = (sha) => CHANGES[sha] || [['M', { path: 'server/src/services/FileService.ts' }, 12, 9]];
+
+/* ═════════ sessions + chip ═════════ */
+const SESSIONS = [
+  { id: 'a', name: 'claude-api', color: '#d97757', cwd: 'C:\\work\\git\\_Snoworca\\ProjectMaster', repo: 'pm', time: '12:34', focus: true,
+    git: { repo: 'ProjectMaster', branch: 'feat/git-graph', upstream: 'origin/feat/git-graph', ahead: 2, behind: 1, checked: 3 },
+    term: '● Claude Code\n> 그래프 레인 배정 함수를 만들고 테스트를 붙여줘\n  Edit frontend/src/components/Git/gitGraphLayout.ts\n  Write frontend/tests/unit/gitGraphLayout.test.ts\n  Bash npm run test:unit -- gitGraphLayout\n  ✓ 6 passed\n  커밋 두 개를 만들었고, 칩 수정은 아직 커밋하지 않았습니다.' },
+  { id: 'b', name: 'codex-front', color: '#d4d4d4', cwd: '/home/beom/work/web', repo: 'web', time: '03:10',
+    git: { repo: 'web', branch: 'main', upstream: 'origin/main', ahead: 0, behind: 0, dirty: 0, checked: 5 },
+    term: 'codex\n> 랜딩 페이지 반응형 점검\n  변경 사항 없음. 모든 검사 통과.\n$ _' },
+  { id: 'c', name: 'hotfix', color: '#b48ead', cwd: 'C:\\work\\git\\_Snoworca\\ProjectMaster-hotfix', repo: null, time: '00:41',
+    git: { repo: 'ProjectMaster', detached: true, sha: '7c41e0a', dirty: 0, checked: 2 },
+    term: "$ git checkout v0.10.19\nNote: switching to 'v0.10.19'.\nYou are in 'detached HEAD' state.\n$ _" },
+  { id: 'd', name: 'logs', color: '#5fb3b3', cwd: '/var/log', repo: null, time: '27:05', git: null,
+    term: '$ tail -f syslog\nOct 23 09:12:01 cron[812]: job started\nOct 23 09:12:02 cron[812]: job done' },
+  { id: 'e', name: 'codex-fix', color: '#d4d4d4', cwd: 'C:\\work\\git\\_Snoworca\\ProjectMaster-wt2', repo: null, time: '05:52',
+    git: { repo: 'ProjectMaster', branch: 'codex/fix-terminal-resize-on-reveal', upstream: null, ahead: 0, behind: 0, base: { ref: 'origin/main', ahead: 3 }, dirty: 12, staged: 0, unstaged: 9, untracked: 3, checked: 4 },
+    term: 'codex\n> 숨겨진 터미널이 다시 보일 때 크기 재전송\n  apply_patch TerminalContainer.tsx\n  …' },
+  { id: 'f', name: 'docs', color: '#d97757', cwd: 'C:\\work\\git\\_Snoworca\\ProjectMaster\\docs', repo: null, time: '01:02',
+    git: { state: 'loading' }, term: '$ cd docs\n$ _' }
+];
+function pmGit() {
+  const g = SESSIONS[0].git;
+  g.staged = WT.staged.length; g.unstaged = WT.unstaged.length; g.untracked = WT.untracked.length; g.dirty = wtPaths().size;
+  return g;
+}
+const gitOf = (s) => (s.id === 'a' ? pmGit() : s.git);
+
+/* canonical stage table (available width = row width − bar − actual name width) */
+const STAGES = [
+  { min: 460, chars: 28, key: '전부 표시', ex: '⎇ feat/git-graph ●3 ↑2↓1 · …/ProjectMaster │ 12:34' },
+  { min: 390, chars: 20, key: '↓ 숨김, 브랜치 20자', ex: '⎇ feat/git-graph ●3 ↑2 · …/Master │ 12:34' },
+  { min: 300, chars: 20, key: 'cwd 숨김 → 툴팁·칩 메뉴 "경로" 묶음', ex: '⎇ feat/git-graph ●3 ↑2 │ 12:34' },
+  { min: 260, chars: 14, key: '브랜치 14자(가운데 줄임)', ex: '⎇ feat/git-graph ●3 ↑2 │ 12:34' },
+  { min: 200, chars: 14, key: '경과 시간 숨김', ex: '⎇ feat/git-graph ●3 ↑2' },
+  { min: 150, chars: 10, key: '↑ 숨김, 브랜치 10자', ex: '⎇ feat/…aph ●3' },
+  { min: 0, chars: 0, key: '브랜치명 숨김 → ⎇ ●n, 이름은 최소 40px 까지', ex: '⎇ ●3' }
+];
+function midTrunc(name, n) {
+  if (!n) return '';
+  if (name.length <= n) return name;
+  const slash = name.indexOf('/');
+  if (slash >= 0 && slash < 8 && n >= 10) {
+    const keep = Math.max(3, n - slash - 2);
+    return name.slice(0, slash + 1) + '…' + name.slice(-keep);
+  }
+  return '…' + name.slice(-(n - 1));
+}
+function stageFor(avail, prev) {
+  let s = STAGES.findIndex((x) => avail >= x.min);
+  if (s < 0) s = STAGES.length - 1;
+  if (prev != null && s !== prev) {
+    const edge = STAGES[Math.min(s, prev)].min;
+    if (Math.abs(avail - edge) < 8) return prev;
+  }
+  return s;
+}
+function opText(g) {
+  if (!g.operation) return '';
+  return g.operation === 'rebase' ? T('git.op.rebase', { step: g.opStep, total: g.opTotal }) : T('git.op.' + g.operation);
+}
+function chipLabel(g) {
+  if (g.state === 'loading') return T('git.chip.loading');
+  if (g.state === 'error') return T('git.chip.error', { reason: T('apiError.' + g.code) });
+  const parts = [];
+  if (g.operation) parts.push(T('git.chip.inProgress', { op: opText(g) }));
+  parts.push(g.detached ? T('git.chip.detached', { sha: g.sha }) : T('git.chip.branch', { branch: g.branch }));
+  parts.push(g.dirty ? T('git.chip.changes.other', { count: g.dirty }) : T('git.chip.noChanges'));
+  if (g.upstream && g.ahead) parts.push(T('git.chip.ahead', { count: g.ahead }));
+  if (g.upstream && g.behind) parts.push(T('git.chip.behind', { count: g.behind }));
+  if (!g.upstream && g.base && g.base.ahead) parts.push(T('git.chip.baseAhead', { base: g.base.ref, count: g.base.ahead }));
+  if (g.stale) parts.push(T('git.chip.stale', { time: relSec(120) }));
+  return T('git.chip.open') + '. ' + parts.join(', ') + '. ' + T('git.chip.menuHint');
+}
+function chipHTML(g, stage, sid = '') {
+  if (!g) return '';
+  if (g.state === 'loading') return `<button class="chip" aria-busy="true" aria-disabled="true" aria-label="${esc(chipLabel(g))}">${ICON_BRANCH()}<span class="skel"></span></button>`;
+  if (g.state === 'error') return `<button class="chip err" data-chip="${sid}" data-err="${esc(g.code)}" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(chipLabel(g))}">${ICON_BRANCH('#e2b451')}<span>?</span></button>`;
+  const dirtyTxt = g.dirty ? (g.dirty > 99 ? '●99+' : '●' + g.dirty) + (g.uscanOff ? '+' : '') : '';
+  let ab = '';
+  if (g.upstream) {
+    if (stage <= 4 && g.ahead) ab += '↑' + g.ahead;
+    if (stage === 0 && g.behind) ab += '↓' + g.behind;
+  } else if (g.base && g.base.ahead && stage <= 4) ab = '≈↑' + g.base.ahead;
+  const chars = STAGES[stage].chars;
+  const name = g.detached ? (chars ? g.sha : '') : midTrunc(g.branch, chars);
+  const op = g.operation && stage <= 4 ? `<span class="op">${esc(opText(g))}</span>` : '';
+  const cls = 'chip' + (g.detached ? ' detached' : '') + (g.operation ? ' oper' : '') + (g.stale ? ' stale' : '');
+  const icon = g.detached ? ICON_COMMIT('#e2b451') : ICON_BRANCH();
+  return `<button class="${cls}" data-chip="${sid}" aria-label="${esc(chipLabel(g))}">${icon}${op}${name ? `<span class="br">${esc(name)}</span>` : ''}${dirtyTxt ? `<span class="dirty">${dirtyTxt}</span>` : ''}${ab ? `<span class="ab">${ab}</span>` : ''}${g.stale ? ICON_CLOCK : ''}</button>`;
+}
+function metaHTML(s, stage, nameMax) {
+  const g = gitOf(s);
+  const showCwd = !g || stage <= 1;
+  const showTime = !g || stage <= 3;
+  return `<div class="bar" style="background:${s.color}"></div>`
+    + `<span class="name" style="max-width:${nameMax}px" title="${esc(s.name)}">${esc(s.name)}</span>`
+    + chipHTML(g, stage, s.id)
+    + (showCwd ? `<span class="cwd" title="${esc(s.cwd)}"><bdi>${esc(s.cwd)}</bdi></span>` : '<span class="spacer"></span>')
+    + (showTime ? `<span class="sep">│</span><span class="time">${s.time}</span>` : '');
+}
+const metaRows = new Set();
+const nameWidthCache = {};
+function nameWidth(name) {
+  if (nameWidthCache[name] != null) return nameWidthCache[name];
+  const c = document.createElement('canvas').getContext('2d');
+  c.font = `600 13px ${getComputedStyle(document.body).fontFamily}`;
+  return (nameWidthCache[name] = Math.ceil(c.measureText(name).width));
+}
+function mountMeta(el, s) {
+  let stage = null, nameMax = null;
+  const render = (force) => {
+    const rowW = el.clientWidth;
+    const nw = Math.min(150, nameWidth(s.name));
+    const avail = rowW - 4 - nw - 16;
+    const next = stageFor(avail, stage);
+    const nm = next === 6 ? Math.max(40, Math.min(150, rowW - 4 - 16 - 74)) : 150;
+    if (!force && next === stage && nm === nameMax) return;
+    stage = next; nameMax = nm;
+    el.dataset.stage = String(stage);
+    el.dataset.avail = String(Math.round(avail));
+    el.innerHTML = metaHTML(s, stage, nameMax);
+    wireRow(el, s, stage);
+  };
+  el._rerender = () => render(true);
+  metaRows.add(el);
+  new ResizeObserver(() => render(false)).observe(el);
+  render(true);
+}
+function rerenderChips() { metaRows.forEach((m) => (m.isConnected ? m._rerender() : metaRows.delete(m))); }
+
+const LAYOUTS = { '2x2': [2, 4], '3col': [3, 6], '6': [6, 6] };
+function buildGrid(kind) {
+  const [cols, n] = LAYOUTS[kind];
+  const grid = $('#grid');
+  grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+  grid.style.gridTemplateRows = `repeat(${Math.ceil(n / cols)}, minmax(0, 1fr))`;
+  grid.innerHTML = '';
+  SESSIONS.slice(0, n).forEach((s) => {
+    const t = document.createElement('div');
+    t.className = 'tile' + (s.focus ? ' focus' : '');
+    t.innerHTML = `<div class="term">${esc(s.term)}</div><div class="meta"></div>`;
+    grid.appendChild(t);
+    mountMeta(t.querySelector('.meta'), s);
+  });
+}
+$$('#layoutSeg button').forEach((b) => b.addEventListener('click', () => {
+  $$('#layoutSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  buildGrid(b.dataset.l);
+}));
+
+/* tooltip / menu / error popover */
+const tip = $('#tip'), menu = $('#menu'), errPop = $('#errPop');
+let tipHideTimer = null, suppressTipOnce = false;
+function hidePops() { [tip, menu, errPop].forEach((p) => { p.style.display = 'none'; }); }
+document.addEventListener('mousedown', (e) => {
+  if (!menu.contains(e.target)) menu.style.display = 'none';
+  if (!errPop.contains(e.target) && !e.target.closest('[data-err]')) closeErr(false);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && tip.style.display === 'block') { tip.style.display = 'none'; } });
+tip.addEventListener('mouseenter', () => clearTimeout(tipHideTimer));
+tip.addEventListener('mouseleave', () => { tipHideTimer = setTimeout(() => { tip.style.display = 'none'; }, 100); });
+function place(el, anchor) {
+  const r = anchor.getBoundingClientRect();
+  el.style.display = 'block';
+  const w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left)) + 'px';
+  el.style.top = (r.top - h - 4 < 8 ? r.bottom + 4 : r.top - h - 4) + 'px';
+}
+function tipHTML(s) {
+  const g = gitOf(s);
+  const foot = `<div class="foot">${esc(T('git.tip.foot', { time: relSec(g.checked) }))}</div>`;
+  if (g.detached) return `<dl><dt>${T('git.tip.repo')}</dt><dd>${g.repo}</dd><dt>${T('git.tip.head')}</dt><dd>${g.sha}</dd><dt>${T('git.tip.path')}</dt><dd>${esc(s.cwd)}</dd></dl><div class="foot">${esc(T('git.tip.detachedNote'))}</div>${foot}`;
+  const parts = [];
+  if (g.staged) parts.push(`<span class="k-M">${T('git.tip.staged', { count: g.staged })}</span>`);
+  if (g.unstaged) parts.push(`<span class="k-M">${T('git.tip.modified', { count: g.unstaged })}</span>`);
+  if (g.untracked) parts.push(`<span class="k-A">${T('git.tip.untracked', { count: g.untracked })}</span>`);
+  const up = g.upstream ? `${esc(g.upstream)}${g.ahead ? ' ↑' + g.ahead : ''}${g.behind ? ' ↓' + g.behind : ''}` : (g.base ? esc(T('git.tip.noUpstreamBase', { base: g.base.ref, count: g.base.ahead })) : T('git.tip.none'));
+  return `<dl><dt>${T('git.tip.repo')}</dt><dd>${g.repo}</dd><dt>${T('git.tip.branch')}</dt><dd>${esc(g.branch)}</dd><dt>${T('git.tip.upstream')}</dt><dd>${up}</dd>`
+    + `<dt>${T('git.tip.changes')}</dt><dd style="font-family:var(--font-sans)">${parts.length ? parts.join(' · ') + ' (' + T('git.tip.paths', { count: g.dirty }) + ')' : T('git.tip.none')}</dd>`
+    + `<dt>${T('git.tip.path')}</dt><dd>${esc(s.cwd)}</dd></dl>${foot}`;
+}
+function openMenu(x, y, s, stage, chip) {
+  const g = gitOf(s);
+  const repo = s.repo ? REPOS[s.repo] : null;
+  const cwdHidden = stage >= 2;
+  const item = (a, label, why, disabled) => `<button class="mi" role="menuitem" data-a="${a}" ${disabled ? 'aria-disabled="true"' : ''}><span>${esc(label)}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}</button>`;
+  const baseRef = repo && repo.base ? repo.base.ref : null;
+  const baseWhy = g.detached ? T('git.why.detached') : repo && repo.baseWhy ? T(repo.baseWhy) : T('git.why.noBase');
+  menu.innerHTML = item('graph', T('git.chip.open'))
+    + item('wt', g.dirty ? T('git.menu.uncommitted', { count: g.dirty }) : T('git.menu.uncommittedNone'), g.dirty ? '' : T('git.why.noChanges'), !g.dirty)
+    + item('cmp', baseRef ? T('git.menu.compare', { base: baseRef }) : T('git.menu.compareNone'), baseRef ? '' : baseWhy, !baseRef)
+    + '<hr>' + item('copyb', g.detached ? T('git.menu.copySha') : T('git.menu.copyBranch'))
+    + (cwdHidden ? `<hr><div class="grp">${esc(T('git.menu.pathGroup'))}</div>${item('copyp', T('git.menu.copyPath'))}${item('ed1', T('git.menu.openFile', { file: 'CLAUDE.md' }))}${item('ed2', T('git.menu.openFile', { file: 'CLAUDE.local.md' }))}${item('ed3', T('git.menu.openFile', { file: 'AGENTS.md' }))}` : '');
+  menu.style.display = 'block';
+  menu.style.left = Math.max(8, Math.min(innerWidth - menu.offsetWidth - 8, x)) + 'px';
+  menu.style.top = Math.max(8, y - menu.offsetHeight) + 'px';
+  const items = () => $$('.mi', menu);
+  items()[0].focus();
+  const close = () => { menu.style.display = 'none'; suppressTipOnce = true; chip.focus(); };
+  menu.onclick = (e) => {
+    const b = e.target.closest('.mi'); if (!b || b.getAttribute('aria-disabled')) return;
+    close();
+    const a = b.dataset.a;
+    if (a === 'graph') openGitFor(s);
+    else if (a === 'wt') openGitFor(s, 'head', 'WORKTREE');
+    else if (a === 'cmp') openGitFor(s, 'cmp');
+    else toast(T('git.toast.copied'));
+  };
+  menu.onkeydown = (e) => {
+    const its = items(); const i = its.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { its[(i + 1) % its.length].focus(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { its[(i - 1 + its.length) % its.length].focus(); e.preventDefault(); }
+    else if (e.key === 'Home') { its[0].focus(); e.preventDefault(); }
+    else if (e.key === 'End') { its[its.length - 1].focus(); e.preventDefault(); }
+    else if (e.key === 'Enter' || e.key === ' ') { document.activeElement.click(); e.preventDefault(); }
+    else if (e.key === 'Escape' || e.key === 'Tab') { close(); e.preventDefault(); }
+  };
+}
+let errChip = null;
+function closeErr(focus) {
+  if (errPop.style.display !== 'block') return;
+  errPop.style.display = 'none';
+  if (errChip) { errChip.setAttribute('aria-expanded', 'false'); if (focus) errChip.focus(); }
+}
+function openErr(chip, code, env = 'win') {
+  errChip = chip; chip.setAttribute('aria-expanded', 'true');
+  const cmd = code === 'GIT_UNSAFE_REPO' ? (env === 'wsl' ? 'git config --global --add safe.directory /home/beom/work/web' : 'git config --global --add safe.directory C:/work/git/_Snoworca/ProjectMaster') : '';
+  errPop.innerHTML = `<div id="errTitle" style="font-weight:600;margin-bottom:6px">${esc(T('git.err.title.' + code))}</div><div class="muted" style="line-height:1.55">${esc(T('git.err.body.' + code))}</div>`
+    + (cmd ? `<pre class="mono" style="margin:8px 0;padding:8px;background:var(--bg-sunken);border-radius:6px;white-space:pre-wrap;word-break:break-all;font-size:11.5px">${esc(cmd)}</pre><div class="muted" style="font-size:11px;margin-bottom:8px">${env === 'wsl' ? 'WSL 세션: 그 세션(WSL) 안에서 실행' : 'Windows 세션: 서버 PC 의 명령 프롬프트에서 실행'}</div><button class="btn" id="errCopy">${esc(T('git.err.copyCommand'))}</button> ` : '')
+    + `<button class="btn" id="errRetry">${esc(T('git.err.retry'))}</button><div class="mono muted" style="margin-top:8px;font-size:11px">${code}</div>`;
+  place(errPop, chip);
+  ($('#errCopy') || $('#errRetry')).focus();
+  errPop.onclick = (e) => { if (e.target.id === 'errCopy' || e.target.id === 'errRetry') { toast(e.target.id === 'errCopy' ? T('git.toast.copied') : T('git.err.retry')); closeErr(true); } };
+  errPop.onkeydown = (e) => { if (e.key === 'Escape') { closeErr(true); e.stopPropagation(); } };
+}
+function wireRow(row, s, stage) {
+  const chip = row.querySelector('[data-chip]');
+  const cwd = row.querySelector('.cwd');
+  if (cwd) cwd.addEventListener('click', (e) => { e.stopPropagation(); toast(T('git.toast.copied')); });
+  if (!chip) return;
+  if (chip.dataset.err) { chip.addEventListener('click', (e) => { e.stopPropagation(); openErr(chip, chip.dataset.err); }); return; }
+  const showTip = () => { clearTimeout(tipHideTimer); tip.innerHTML = tipHTML(s); place(tip, chip); };
+  chip.addEventListener('mouseenter', showTip);
+  chip.addEventListener('mouseleave', () => { tipHideTimer = setTimeout(() => { tip.style.display = 'none'; }, 100); });
+  chip.addEventListener('focus', () => { if (suppressTipOnce) { suppressTipOnce = false; return; } showTip(); });
+  chip.addEventListener('blur', () => { tip.style.display = 'none'; });
+  chip.addEventListener('click', (e) => { e.stopPropagation(); tip.style.display = 'none'; openGitFor(s); });
+  let longPressed = 0;
+  chip.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); if (Date.now() - longPressed < 800) return; tip.style.display = 'none'; openMenu(e.clientX, e.clientY, s, stage, chip); });
+  chip.addEventListener('keydown', (e) => { if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') { e.preventDefault(); tip.style.display = 'none'; const r = chip.getBoundingClientRect(); openMenu(r.left, r.top, s, stage, chip); } });
+  let lp; chip.addEventListener('touchstart', () => { lp = setTimeout(() => { longPressed = Date.now(); const r = chip.getBoundingClientRect(); openMenu(r.left, r.top, s, stage, chip); }, 500); }, { passive: true });
+  chip.addEventListener('touchend', () => clearTimeout(lp));
+}
+
+/* ═════════ graph layout (ships as gitGraphLayout.ts) ═════════ */
+function layoutGraph(commits) {
+  const known = new Set(commits.map((c) => c.sha));
+  const lanes = [], colors = [];
+  let next = 0, maxLanes = 1;
+  const free = () => { const i = lanes.indexOf(null); return i < 0 ? lanes.length : i; };
+  const rows = commits.map((c) => {
+    const before = lanes.slice(), beforeCol = colors.slice();
+    let idx = lanes.indexOf(c.sha);
+    const isTip = idx < 0;
+    if (isTip) { idx = free(); colors[idx] = LANES[next++ % LANES.length]; }
+    const converging = [];
+    before.forEach((v, k) => { if (v === c.sha && k !== idx) { converging.push(k); lanes[k] = null; } });
+    lanes[idx] = c.parents[0] && known.has(c.parents[0]) ? c.parents[0] : null;
+    const extra = [];
+    c.parents.slice(1).forEach((p) => {
+      if (!known.has(p)) return;
+      let j = lanes.indexOf(p);
+      if (j < 0) { j = free(); lanes[j] = p; colors[j] = LANES[next++ % LANES.length]; }
+      extra.push(j);
+    });
+    const after = lanes.slice(), afterCol = colors.slice();
+    while (lanes.length && lanes[lanes.length - 1] === null) lanes.pop();
+    maxLanes = Math.max(maxLanes, before.length, after.length, idx + 1);
+    return { c, idx, isTip, before, beforeCol, after, afterCol, converging, extra, color: colors[idx] };
+  });
+  return { rows, lanes: Math.min(8, maxLanes), overflow: Math.max(0, maxLanes - 8) };
+}
+const LX = (k) => 10 + Math.min(k, 7) * 14;
+function rowSVG(r, laneCount, H = 28) {
+  const w = 10 + laneCount * 14, M = H / 2;
+  let p = '';
+  const line = (d, col, dash) => `<path d="${d}" stroke="${col}" stroke-width="2" fill="none"${dash ? ' stroke-dasharray="3 3"' : ''}/>`;
+  r.before.forEach((v, k) => { if (v == null || k === r.idx || r.converging.includes(k) || k > 7) return; p += line(`M${LX(k)} 0 V${H}`, r.beforeCol[k]); });
+  r.converging.forEach((k) => { p += line(`M${LX(k)} 0 C${LX(k)} ${M * 0.6} ${LX(r.idx)} ${M * 0.4} ${LX(r.idx)} ${M}`, r.beforeCol[k]); });
+  if (!r.isTip) p += line(`M${LX(r.idx)} 0 V${M}`, r.color);
+  if (r.after[r.idx] != null) p += line(`M${LX(r.idx)} ${M} V${H}`, r.color, r.c.wt);
+  r.extra.forEach((j) => { p += line(`M${LX(r.idx)} ${M} C${LX(r.idx)} ${M * 1.6} ${LX(j)} ${M * 1.3} ${LX(j)} ${H}`, r.afterCol[j]); });
+  const c = r.color, cx = LX(r.idx);
+  const dot = r.c.wt ? `<circle cx="${cx}" cy="${M}" r="4.5" fill="#2b2b2b" stroke="${c}" stroke-width="2" stroke-dasharray="2 2"/>`
+    : r.c.merge ? `<circle cx="${cx}" cy="${M}" r="4" fill="#2b2b2b" stroke="${c}" stroke-width="2"/>`
+    : `<circle cx="${cx}" cy="${M}" r="4.5" fill="${c}"/>`;
+  const head = r.c.refs.some((x) => x[0] === 'head') ? `<circle cx="${cx}" cy="${M}" r="8" fill="none" stroke="${c}" stroke-width="1.3"/>` : '';
+  return `<svg width="${w}" height="${H}" viewBox="0 0 ${w} ${H}" aria-hidden="true" style="flex-shrink:0;display:block">${p}${head}${dot}</svg>`;
+}
+function refsHTML(refs) {
+  if (!refs.length) return '';
+  const head = refs.filter((r) => r[0] === 'head');
+  const rest = refs.filter((r) => r[0] !== 'head');
+  const shown = [...head, ...rest].slice(0, head.length ? 2 : 2);
+  const hidden = [...head, ...rest].slice(shown.length);
+  return `<span class="refs">${shown.map(([k, l]) => `<span class="ref ${k}" title="${esc(l)}">${esc(l)}</span>`).join('')}${hidden.length ? `<span class="ref more" title="${esc(hidden.map((h) => h[1]).join(', '))}" aria-label="${esc(T('git.graph.moreRefs', { count: hidden.length, names: hidden.map((h) => h[1]).join(', ') }))}">+${hidden.length}</span>` : ''}</span>`;
+}
+
+/* word highlight only (syntax highlighting is v1.1) */
+function hl(l) {
+  if (!l.m) return esc(l.t);
+  const [s, e] = l.m;
+  return esc(l.t.slice(0, s)) + `<mark>${esc(l.t.slice(s, e))}</mark>` + esc(l.t.slice(e));
+}
+
+/* ═════════ diff data ═════════ */
+const L = (k, o, n, t, m) => ({ k, o, n, t, m });
+const DIFFS = {
+  [F.layout.path]: [{ gapBefore: 11, h: '@@ -12,9 +12,10 @@ export function layoutGraph', lines: [
+    L(' ', 12, 12, 'export function layoutGraph(commits: Commit[]): Row[] {'),
+    L(' ', 13, 13, '  const lanes: (string | null)[] = [];'),
+    L('-', 14, '', '  const rows = [];', [12, 17]),
+    L('+', '', 14, '  const rows: Row[] = [];', [12, 24]),
+    L(' ', 15, 15, '  for (const c of commits) {'),
+    L(' ', 16, 16, '    let lane = lanes.indexOf(c.sha);'),
+    L('-', 17, '', '    if (lane < 0) lane = lanes.length;', [25, 37]),
+    L('+', '', 17, '    if (lane < 0) lane = firstFree(lanes);', [25, 41]),
+    L('+', '', 18, '    mergeDuplicates(lanes, c.sha, lane);'),
+    L(' ', 18, 19, '    lanes[lane] = c.parents[0] ?? null;'),
+    L(' ', 19, 20, '    rows.push({ sha: c.sha, lane });'),
+    L(' ', 20, 21, '  }')] },
+    { gapBefore: 19, h: '@@ -40,6 +41,12 @@ function firstFree', lines: [
+    L(' ', 40, 41, '}'),
+    L(' ', 41, 42, ''),
+    L('+', '', 43, 'function mergeDuplicates(lanes: Lane[], sha: string, keep: number) {'),
+    L('+', '', 44, '  lanes.forEach((v, k) => {'),
+    L('+', '', 45, '    if (v === sha && k !== keep) lanes[k] = null; // 같은 부모를 기다리는 레인 합침'),
+    L('+', '', 46, '  });'),
+    L('+', '', 47, '}'),
+    L('+', '', 48, ''),
+    L(' ', 42, 49, 'export type Row = { sha: string; lane: number };')], gapAfter: 31 }
+  ],
+  [F.meta.path]: [{ gapBefore: 2, h: '@@ -3,6 +3,7 @@ import', lines: [
+    L(' ', 3, 3, "import { truncatePath } from '../../utils/path';"),
+    L('+', '', 4, "import { GitBranchChip } from '../Git/GitBranchChip';"),
+    L(' ', 4, 5, ''),
+    L(' ', 5, 6, 'export function MetadataRow({ session, onPathMenu }: Props) {')] },
+    { gapBefore: 32, h: '@@ -38,7 +39,9 @@ export function MetadataRow', lines: [
+    L(' ', 38, 39, '      <span className="meta-name">{session.name}</span>'),
+    L('+', '', 40, '      <GitBranchChip sessionId={session.id} stage={stage} />'),
+    L('-', 39, '', '      <span className="meta-cwd">{truncatePath(cwd, 30)}</span>', [52, 54]),
+    L('+', '', 41, '      <span className="meta-cwd">{truncatePath(cwd, cwdWidth)}</span>', [52, 60]),
+    L(' ', 40, 42, '      <span className="meta-sep">│</span>')], gapAfter: 22 }
+  ],
+  [F.ko.path]: [{ gapBefore: 811, h: '@@ -812,4 +812,18 @@', lines: [
+    L(' ', 812, 812, '  "fileJob.upload.done": "업로드 완료",'),
+    L('+', '', 813, '  "git.chip.open": "Git 창 열기",'),
+    L('+', '', 814, '  "git.window.title": "Git · {repo}",'),
+    L('+', '', 815, '  "git.graph.uncommitted": "커밋 안 된 변경 ({count})",'),
+    L('+', '', 816, '  "git.special.binary": "바이너리 파일 · {from} → {to} · 내용은 비교하지 않습니다",'),
+    L(' ', 813, 817, '  "fileJob.upload.failed": "업로드 실패"')], gapAfter: 140 }
+  ],
+  [F.renamed.path]: [{ gapBefore: 0, h: '@@ -1,4 +1,4 @@', lines: [
+    L('-', 1, '', 'export function gitLabel(name: string) {', [16, 24]),
+    L('+', '', 1, 'export function branchLabel(name: string) {', [16, 27]),
+    L(' ', 2, 2, "  return name.replace(/^refs\\/heads\\//, '');"),
+    L(' ', 3, 3, '}')] }]
+};
+function genericDiff(entry) {
+  const [k, f, , d] = entry;
+  if (k === 'A' || k === '?') {
+    const name = f.path.split('/').pop().replace(/\.\w+$/, '').replace(/[^A-Za-z0-9]/g, '');
+    const body = [`// ${f.path.split('/').pop()}`, "import { t } from '../../i18n';", '', `export function ${name}() {`, '  // …', '}'];
+    return [{ gapBefore: 0, h: `@@ -0,0 +1,${body.length} @@`, lines: body.map((t, i) => L('+', '', i + 1, t)) }];
+  }
+  if (k === 'D') {
+    const body = ['// StatusBar — 쓰이지 않던 코드', "import { useState } from 'react';", '', 'export function StatusBar() {', '  return null;', '}'];
+    return [{ gapBefore: 0, h: `@@ -1,${d} +0,0 @@`, lines: body.map((t, i) => L('-', i + 1, '', t)), more: d - body.length }];
+  }
+  return [{ gapBefore: 100, h: '@@ -101,7 +101,7 @@', lines: [
+    L(' ', 101, 101, '  if (!visible) return;'),
+    L('-', 102, '', '  sendResize(cols, rows);', [2, 24]),
+    L('+', '', 102, "  ledger.needsSend(cols, rows) && sendResize(cols, rows, 'reveal');", [2, 66]),
+    L(' ', 103, 103, '}')], gapAfter: 40 }];
+}
+
+/* ═════════ git window state ═════════ */
+const st = {
+  sessionId: 'a', repoId: 'pm', scope: 'head', selKey: 'WORKTREE', fileKey: null, view: 'unified', ws: false, wrap: false, wt: false,
+  auto: true, listPending: false, changed: new Set(), vanished: null, vanishedCommit: null, banner: null, ended: false, checked: 0,
+  rows: [], laneCount: 1, hunk: 0, loadTimer: null, loading: false, expanded: {}
+};
+const repo = () => REPOS[st.repoId];
+function reach(fromShas) {
+  const by = Object.fromEntries(repo().commits.map((c) => [c.sha, c]));
+  const seen = new Set(), stack = [...fromShas];
+  while (stack.length) { const s = stack.pop(); if (seen.has(s) || !by[s]) continue; seen.add(s); stack.push(...by[s].parents); }
+  return seen;
+}
+const hasWT = () => st.repoId === 'pm' && wtPaths().size > 0;
+function visibleCommits() {
+  const r = repo();
+  let list;
+  if (st.scope === 'all') list = r.commits.slice();
+  else if (st.scope === 'cmp') { const a = reach([r.head]), b = reach([r.base.sha]); list = r.commits.filter((c) => a.has(c.sha) || b.has(c.sha)); }
+  else { const a = reach([r.head]); list = r.commits.filter((c) => a.has(c.sha)); }
+  if (hasWT()) list.unshift({ sha: 'WORKTREE', parents: [r.head], subject: '', author: '', ts: NOW, refs: [], wt: true });
+  return list;
+}
+function inRange(c) {
+  if (st.scope !== 'cmp') return true;
+  if (c.wt) return st.wt;
+  const r = repo(); return reach([r.head]).has(c.sha) && !reach([r.base.sha]).has(c.sha);
+}
+function rowLabel(c) {
+  if (c.wt) return T('git.graph.uncommitted', { count: wtPaths().size });
+  const bits = [c.subject, c.sha.slice(0, 7), c.author, abs(c.ts)];
+  if (c.merge) bits.push(T('git.graph.merge'));
+  c.refs.forEach(([, n]) => bits.push(n));
+  return bits.join(', ');
+}
+function renderGraph() {
+  const { rows, lanes } = layoutGraph(visibleCommits());
+  st.rows = rows; st.laneCount = lanes;
+  const exists = rows.some((r) => r.c.sha === st.selKey);
+  if (!exists && st.selKey !== 'CMP' && st.vanished !== st.selKey) st.selKey = rows[0]?.c.sha;
+  $('#graphColHead').style.width = (10 + lanes * 14) + 'px';
+  const list = $('#graphList');
+  const keep = list.querySelector('.crow.sel');
+  const keepTop = keep ? keep.getBoundingClientRect().top : null;
+  const r = repo();
+  let html = '';
+  if (st.vanished && st.vanishedCommit && st.selKey === st.vanished) {
+    const c = st.vanishedCommit;
+    html += `<div class="crow vanished sel" role="option" id="cr-vanished" aria-selected="true" aria-label="${esc(T('git.graph.vanishedRow', { subject: c.subject }) + ', ' + c.sha.slice(0, 7))}"><svg width="${10 + lanes * 14}" height="28" aria-hidden="true"><circle cx="10" cy="14" r="4" fill="none" stroke="#e2b451" stroke-width="2" stroke-dasharray="2 2"/></svg><span class="subj"><span class="s">${esc(T('git.graph.vanishedRow', { subject: c.subject }))}</span></span><span class="c-sha">${c.sha.slice(0, 7)}</span><span class="c-who">${esc(c.author)}</span><span class="c-when" title="${esc(abs(c.ts))}">${esc(rel(c.ts))}</span></div>`;
+  }
+  html += rows.map((rw, i) => {
+    const c = rw.c;
+    const subj = c.wt ? T('git.graph.uncommitted', { count: wtPaths().size }) : c.subject;
+    const cls = 'crow' + (c.wt ? ' wt' : '') + (st.scope === 'cmp' ? (inRange(c) ? ' inr' : ' out') : '') + (c.sha === st.selKey ? ' sel' : '');
+    return `<div class="${cls}" role="option" id="cr-${c.sha}" aria-selected="${c.sha === st.selKey}" aria-label="${esc(rowLabel(c))}" data-i="${i}" title="${c.wt ? '' : esc(abs(c.ts))}">${rowSVG(rw, lanes)}`
+      + `<span class="subj">${refsHTML(c.refs)}<span class="s">${esc(subj)}</span></span>`
+      + `<span class="c-sha">${c.wt ? '' : c.sha.slice(0, 7)}</span><span class="c-who">${esc(c.author)}</span><span class="c-when">${esc(rel(c.ts))}</span></div>`;
+  }).join('');
+  html += `<div class="more">${esc(r.more ? T('git.graph.loadMore', { count: 200, shown: rows.length }) : T('git.graph.end', { shown: rows.length }))}</div>`;
+  list.innerHTML = html;
+  const sel = list.querySelector('.crow.sel');
+  if (sel) {
+    list.setAttribute('aria-activedescendant', sel.id);
+    if (keepTop != null) list.scrollTop += sel.getBoundingClientRect().top - keepTop;
+  } else list.removeAttribute('aria-activedescendant');
+  list.querySelectorAll('.crow[data-i]').forEach((el) => el.addEventListener('click', () => { selectRow(+el.dataset.i); list.focus(); }));
+  const cmpBtn = $('#cmpBtn');
+  if (r.base) { cmpBtn.disabled = false; cmpBtn.textContent = T('git.scope.compare', { base: r.base.ref }); cmpBtn.title = ''; }
+  else { cmpBtn.disabled = true; cmpBtn.textContent = T('git.scope.compareNone'); cmpBtn.title = T(r.baseWhy || 'git.why.noBase'); }
+  $$('#scopeSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.scope === st.scope)));
+}
+function currentEntries() {
+  if (st.selKey === 'CMP') return cmpFiles();
+  if (st.vanished && st.selKey === st.vanished) return filesOf(st.vanished).map((e) => ({ e, area: null }));
+  const row = st.rows.find((r) => r.c.sha === st.selKey);
+  if (!row) return [];
+  if (row.c.wt) return [...WT.staged.map((e) => ({ e, area: 'staged' })), ...WT.unstaged.map((e) => ({ e, area: 'unstaged' })), ...WT.untracked.map((e) => ({ e, area: 'untracked' }))];
+  return filesOf(row.c.sha).map((e) => ({ e, area: null }));
+}
+function cmpFiles() {
+  const r = repo(); const a = reach([r.head]), b = reach([r.base.sha]);
+  const map = new Map();
+  r.commits.filter((c) => a.has(c.sha) && !b.has(c.sha)).forEach((c) => filesOf(c.sha).forEach((e) => {
+    const p = map.get(e[1].path); map.set(e[1].path, p ? [p[0] === 'A' ? 'A' : e[0], e[1], p[2] + e[2], p[3] + e[3]] : e.slice());
+  }));
+  if (st.wt) [...WT.staged, ...WT.unstaged, ...WT.untracked].forEach((e) => { if (!map.has(e[1].path)) map.set(e[1].path, [e[0] === '?' ? 'A' : e[0], e[1], e[2], e[3]]); });
+  return [...map.values()].map((e) => ({ e, area: null }));
+}
+const fileKeyOf = (x) => (x.area || '') + ':' + x.e[1].path;
+function renderDetail() {
+  const d = $('#detail');
+  const r = repo();
+  if (st.selKey === 'CMP') {
+    const fs = cmpFiles(); const add = fs.reduce((s, x) => s + x.e[2], 0), del = fs.reduce((s, x) => s + x.e[3], 0);
+    d.innerHTML = `<div class="subject">${esc(T('git.compare.title', { branch: r.branch, base: r.base.ref }))}</div><div class="kv"><span>${T('git.compare.forkPoint')} <b>b372c4f</b></span><span>${T('git.detail.commit')} <b>3</b></span><span>${T('git.files.list')} <b>${fs.length}</b></span><span class="add">+${add}</span><span class="del">−${del}</span>`
+      + `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="wtToggle" ${st.wt ? 'checked' : ''}> ${esc(T('git.compare.includeWorktree'))}</label></div>`;
+    $('#wtToggle').addEventListener('change', (e) => { st.wt = e.target.checked; refreshAll(); });
+    return;
+  }
+  let c;
+  if (st.vanished && st.selKey === st.vanished) c = st.vanishedCommit;
+  else c = st.rows.find((x) => x.c.sha === st.selKey)?.c;
+  if (!c) { d.innerHTML = ''; return; }
+  if (c.wt) {
+    const g = pmGit();
+    d.innerHTML = `<div class="subject">${esc(T('git.detail.worktree', { count: g.dirty }))}</div><div class="kv"><span>${T('git.tip.branch')} <b>${esc(r.branch)}</b></span><span>${esc(T('git.detail.worktreeCounts', { staged: g.staged, modified: g.unstaged, untracked: g.untracked }))}</span><span>${esc(T('git.refresh.checked', { time: relSec(st.checked) }))}</span></div>`;
+    return;
+  }
+  const parents = c.parents.map((p) => `<button class="linkish" data-goto="${p}">${p.slice(0, 7)}</button>`).join(', ');
+  d.innerHTML = `<div class="subject">${esc(c.subject)}</div>`
+    + (c.body ? `<div class="body">${esc(c.body)}</div>` : '')
+    + `<div class="kv"><span>${T('git.detail.commit')} <b>${c.sha}</b> <button class="linkish" data-copy>${T('git.detail.copy')}</button></span><span>${T('git.detail.author')} <b>${esc(c.author)}</b></span><span title="${esc(rel(c.ts))}">${esc(abs(c.ts))}</span><span>${T('git.detail.parents')} ${parents || esc(T('git.detail.root'))}</span></div>`
+    + (c.merge ? `<div class="kv"><span class="pill info">${esc(T('git.detail.firstParent', { sha: c.parents[0].slice(0, 7) }))}</span></div>` : '');
+  d.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => { st.selKey = b.dataset.goto; st.vanished = null; st.fileKey = null; refreshAll(); }));
+  d.querySelector('[data-copy]')?.addEventListener('click', () => toast(T('git.toast.copied')));
+}
+const kindKey = (k) => (k === '?' ? 'U' : k);
+const kindLabel = (k) => T(k === '?' ? 'git.kind.untracked' : 'git.kind.' + k);
+function renderFiles() {
+  const items = currentEntries();
+  if (!items.some((x) => fileKeyOf(x) === st.fileKey)) st.fileKey = items[0] ? fileKeyOf(items[0]) : null;
+  const AREA = { staged: 'git.files.staged', unstaged: 'git.files.unstaged', untracked: 'git.files.untracked' };
+  let lastArea, html = '';
+  items.forEach((x, i) => {
+    const [k, f, a, del] = x.e;
+    if (x.area && x.area !== lastArea) { const n = items.filter((y) => y.area === x.area).length; html += `<div class="grp" role="presentation"><span>${T(AREA[x.area])} ${n}</span><span class="base">${T('git.files.base.' + x.area)}</span></div>`; lastArea = x.area; }
+    const parts = f.path.split('/'); const base = parts.pop();
+    const dir = parts.length ? parts.join('/') + '/' : '';
+    const nm = f.from ? `${f.from.split('/').pop()} → ${base}` : base;
+    const stat = f.special === 'binary' ? `<span class="muted">${T('git.files.binary')}</span>` : f.special === 'mode' ? `<span class="muted">${T('git.files.mode')}</span>` : `<span class="add">+${a}</span><span class="del" style="min-width:34px;text-align:right">${del ? '−' + del : ''}</span>`;
+    const label = `${kindLabel(k)}, ${f.from ? f.from + ' → ' + f.path : f.path}`;
+    const key = fileKeyOf(x);
+    html += `<div class="frow${key === st.fileKey ? ' sel' : ''}" role="option" id="fr-${i}" aria-selected="${key === st.fileKey}" aria-label="${esc(label)}" data-k="${esc(key)}" title="${esc(f.from ? f.from + ' → ' + f.path : f.path)}"><span class="k k-${kindKey(k)}" aria-hidden="true">${k === 'X' ? '!' : k}</span><span class="dir"><bdi>${esc(dir)}</bdi></span><span class="nm">${esc(nm)}</span>${f.sim ? `<span class="sim">R${f.sim}%</span>` : ''}<span class="gap"></span><span class="st">${stat}</span></div>`;
+  });
+  const box = $('#files');
+  box.innerHTML = html || `<div class="grp">${esc(T('git.files.none'))}</div>`;
+  const sel = box.querySelector('.frow.sel');
+  if (sel) { box.setAttribute('aria-activedescendant', sel.id); sel.scrollIntoView({ block: 'nearest' }); }
+  box.querySelectorAll('.frow').forEach((el) => el.addEventListener('click', () => { pickFile(el.dataset.k); box.focus(); }));
+}
+function pickFile(key) { st.fileKey = key; st.hunk = 0; st.changed.delete(key); renderFiles(); scheduleDiff(); }
+const selectedEntry = () => currentEntries().find((x) => fileKeyOf(x) === st.fileKey);
+
+let sideW = 800, graphW = 600;
+function layoutChecks() {
+  sideW = $('#side').clientWidth; graphW = $('#graph').clientWidth;
+  const g = $('#graph');
+  g.classList.toggle('n1', graphW < 520);
+  g.classList.toggle('n2', graphW < 450);
+  if ($('#dhead').dataset.compact !== String(sideW < 600)) renderDiff();
+}
+function splitBlockReason(k) {
+  if (sideW < 560) return T('git.diff.splitTooNarrow');
+  if (k === 'A' || k === 'D' || k === '?') return T('git.diff.splitOneSided');
+  return '';
+}
+function scheduleDiff() {
+  clearTimeout(st.loadTimer);
+  st.loading = true;
+  st.loadTimer = setTimeout(() => { st.loading = false; renderDiff(); }, 150);
+}
+function pathParts(p) { const i = p.lastIndexOf('/'); return i < 0 ? ['', p] : [p.slice(0, i + 1), p.slice(i + 1)]; }
+function renderDiff() {
+  const head = $('#dhead'), box = $('#diff');
+  const x = selectedEntry();
+  const compact = sideW < 600;
+  head.dataset.compact = String(compact);
+  if (!x) { head.innerHTML = ''; box.innerHTML = `<div class="notice">${esc(T('git.files.none'))}</div>`; return; }
+  const [k, f, a, del] = x.e;
+  const hunks = f.special ? [] : (DIFFS[f.path] || genericDiff(x.e));
+  const items = currentEntries(); const idx = items.findIndex((y) => fileKeyOf(y) === st.fileKey);
+  const row = st.rows.find((r) => r.c.sha === st.selKey);
+  const isWT = row && row.c.wt;
+  const canEdit = isWT && k !== 'D' && !f.special;
+  const block = splitBlockReason(k);
+  if (block && st.view === 'split') st.view = 'unified';
+  const [nd, nn] = pathParts(f.path);
+  const pathHTML = f.from
+    ? (() => { const [od, on] = pathParts(f.from); return `<span class="pp" title="${esc(f.from)}"><bdi>${esc(on)}</bdi></span><span>→</span><span class="pp" title="${esc(f.path)}"><bdi>${esc(nn)}</bdi></span><span class="muted">(R${f.sim}%)</span>`; })()
+    : `<span class="pp" title="${esc(f.path)}"><bdi><span class="muted">${esc(nd)}</span>${esc(nn)}</bdi></span>`;
+  const viewCtl = `<label class="muted" style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="wsBox" ${st.ws ? 'checked' : ''}>${esc(T('git.diff.ignoreWs'))}</label>`
+    + `<label class="muted" style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="wrapBox" ${st.wrap ? 'checked' : ''}>${esc(T('git.diff.wrap'))}</label>`
+    + `<div class="seg"><button data-v="unified" aria-pressed="${st.view === 'unified'}">${esc(T('git.diff.unified'))}</button><button data-v="split" aria-pressed="${st.view === 'split'}" ${block ? `disabled title="${esc(block)}" aria-describedby="splitWhy"` : ''}>${esc(T('git.diff.split'))}</button></div>${block ? `<span id="splitWhy" class="sr">${esc(block)}</span>` : ''}`;
+  head.innerHTML = `<span class="k k-${kindKey(k)}" style="font-weight:600" aria-label="${esc(kindLabel(k))}">${k === 'X' ? '!' : k}</span><span class="pathbox" title="${esc(f.from ? f.from + ' → ' + f.path : f.path)}">${pathHTML}</span>`
+    + (f.special ? '' : `<span class="add">+${a}</span><span class="del">−${del}</span>`)
+    + `<span class="muted" style="font-size:12px">${esc(T('git.diff.position', { file: idx + 1, files: items.length }))}${hunks.length ? ' · <span id="hunkInfo">' + esc(T('git.diff.hunkPosition', { hunk: 1, hunks: hunks.length })) + '</span>' : ''}${st.ws ? ' · ' + esc(T('git.diff.ignoringWs')) : ''}</span>`
+    + (st.changed.has(st.fileKey) ? `<button class="pill warn" id="diffBadge">${esc(T('git.refresh.diffBadge'))}</button>` : '')
+    + `<span style="margin-left:auto"></span>`
+    + `<button class="icon-btn" data-nav="-1" aria-label="${esc(T('git.diff.prevFile'))}" title="${esc(T('git.diff.prevFile'))}">‹</button><button class="icon-btn" data-nav="1" aria-label="${esc(T('git.diff.nextFile'))}" title="${esc(T('git.diff.nextFile'))}">›</button>`
+    + (compact ? `<details class="viewmenu"><summary role="button" aria-expanded="false">${esc(T('git.diff.view'))} ▾</summary><div class="vm">${viewCtl}</div></details>` : viewCtl)
+    + (isWT ? `<button class="btn" ${canEdit ? '' : `disabled title="${esc(T('git.diff.openEditorDisabled'))}"`}>${esc(T('git.diff.openEditor'))}</button>` : '');
+  head.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => moveFile(+b.dataset.nav)));
+  head.querySelector('details')?.addEventListener('toggle', (e) => e.target.querySelector('summary').setAttribute('aria-expanded', String(e.target.open)));
+  head.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { if (!b.disabled) { st.view = b.dataset.v; renderDiff(); } }));
+  $('#wsBox').addEventListener('change', (e) => { st.ws = e.target.checked; scheduleDiff(); });
+  $('#wrapBox').addEventListener('change', (e) => { st.wrap = e.target.checked; renderDiff(); });
+  $('#diffBadge')?.addEventListener('click', () => { st.changed.delete(st.fileKey); scheduleDiff(); });
+
+  box.setAttribute('aria-label', T('git.diff.body'));
+  if (st.loading) { box.className = 'diff'; box.innerHTML = `<div style="padding:14px;display:flex;flex-direction:column;gap:10px" aria-label="${esc(T('git.diff.loading'))}"><div class="skel-row" style="width:70%"></div><div class="skel-row" style="width:55%"></div><div class="skel-row" style="width:62%"></div></div>`; return; }
+  if (f.special) { box.className = 'diff'; box.innerHTML = specialNotice(f.special, a, del); box.querySelector('[data-force]')?.addEventListener('click', () => toast('patch 텍스트로 펼칩니다(2,000줄 넘으면 가상 스크롤)')); return; }
+  if (st.ws && f.path === F.layout.path && x.area === 'unstaged') { box.className = 'diff'; box.innerHTML = `<div class="notice"><b>${esc(T('git.special.wsOnly'))}</b></div>`; return; }
+  const maxNo = Math.max(...hunks.flatMap((h) => h.lines.map((l) => +(l.o || 0) || +(l.n || 0))), 1);
+  const noW = `calc(${String(maxNo).length}ch + 8px)`;
+  const ek = st.fileKey;
+  const exp = st.expanded[ek] || {};
+  const gapRow = (hi, n, edge) => {
+    if (!(n > 0) || exp[hi]) return '';
+    const btns = edge ? `<button data-exp="${hi}">${esc(T('git.diff.expand'))}</button>` : `<button data-exp="${hi}">${esc(T('git.diff.expandUp'))}</button><button data-exp="${hi}">${esc(T('git.diff.expandDown'))}</button><button data-exp="${hi}">${esc(T('git.diff.expandAll'))}</button>`;
+    return `<div class="gaprow"><span>${esc(T('git.diff.hidden', { count: n }))}</span>${btns}</div>`;
+  };
+  const filler = (h, hi) => {
+    if (!exp[hi] || !h.gapBefore) return [];
+    const n = Math.min(h.gapBefore, 20);
+    const o0 = h.lines[0].o ? +h.lines[0].o - n : 1, n0 = h.lines[0].n ? +h.lines[0].n - n : 1;
+    return Array.from({ length: n }, (_, i) => L(' ', o0 + i, n0 + i, i % 5 === 0 ? '' : '  // (펼친 문맥 줄)'));
+  };
+  const last = hunks[hunks.length - 1];
+  const tail = last && last.gapAfter ? gapRow('tail', last.gapAfter, true) : '';
+  if (st.view === 'unified') {
+    box.className = 'diff' + (st.wrap ? ' wrap' : '');
+    box.innerHTML = hunks.map((h, hi) => gapRow(hi, h.gapBefore, hi === 0) + `<div class="hunk" data-h="${hi}">${esc(h.h)}</div>` + [...filler(h, hi), ...h.lines].map((l) => {
+      const cls = l.k === '+' ? ' a' : l.k === '-' ? ' d' : '';
+      return `<div class="dl${cls}"><span class="no" style="width:${noW}">${l.o}</span><span class="no" style="width:${noW}">${l.n}</span><span class="sg">${l.k === ' ' ? '' : l.k === '-' ? '−' : '+'}</span><span class="tx">${hl(l)}</span></div>`;
+    }).join('') + (h.more ? `<div class="gaprow"><span>${esc(T('git.diff.moreDeleted', { count: h.more }))}</span></div>` : '')).join('') + tail;
+  } else {
+    box.className = 'diff';
+    const left = [], right = [];
+    hunks.forEach((h, hi) => {
+      const hd = `<div class="hunk" data-h="${hi}">${esc(h.h)}</div>`;
+      left.push(hd); right.push(hd);
+      let dels = [], adds = [];
+      const cell = (l, side) => !l ? `<div class="dl e"><span class="no" style="width:${noW}"></span><span class="sg"></span><span class="tx"> </span></div>`
+        : `<div class="dl${l.k === '+' ? ' a' : l.k === '-' ? ' d' : ''}"><span class="no" style="width:${noW}">${side === 'l' ? l.o : l.n}</span><span class="sg">${l.k === ' ' ? '' : l.k === '-' ? '−' : '+'}</span><span class="tx">${hl(l)}</span></div>`;
+      const flush = () => { for (let j = 0; j < Math.max(dels.length, adds.length); j++) { left.push(cell(dels[j], 'l')); right.push(cell(adds[j], 'r')); } dels = []; adds = []; };
+      [...filler(h, hi), ...h.lines].forEach((l) => { if (l.k === '-') dels.push(l); else if (l.k === '+') adds.push(l); else { flush(); left.push(cell(l, 'l')); right.push(cell(l, 'r')); } });
+      flush();
+    });
+    box.innerHTML = `<div class="splitv"><div class="pane">${left.join('')}</div><div class="pane">${right.join('')}</div></div>` + tail;
+    const [pl, pr] = $$('.pane', box);
+    let lock = false;
+    const sync = (from, to) => from.addEventListener('scroll', () => { if (lock) return; lock = true; to.scrollLeft = from.scrollLeft; requestAnimationFrame(() => { lock = false; }); });
+    sync(pl, pr); sync(pr, pl);
+  }
+  box.querySelectorAll('[data-exp]').forEach((b) => b.addEventListener('click', () => { st.expanded[ek] = { ...(st.expanded[ek] || {}), [b.dataset.exp]: true }; renderDiff(); }));
+  box.onscroll = () => {
+    const hs = $$('.hunk', box); if (!hs.length) return;
+    const top = box.getBoundingClientRect().top + 2;
+    let cur = 0; hs.forEach((h) => { if (h.getBoundingClientRect().top <= top) cur = +h.dataset.h; });
+    st.hunk = cur; const n = $('#hunkInfo'); if (n) n.textContent = T('git.diff.hunkPosition', { hunk: cur + 1, hunks: hunks.length });
+  };
+}
+function specialNotice(kind, a, del) {
+  const M = {
+    binary: `<b>${esc(T('git.special.binary', { from: '0 B', to: '184 KB' }))}</b>`,
+    large: `<b>${esc(T('git.special.large', { add: a, del }))}</b><span>${esc(T('git.special.largeNote'))}</span><button class="btn" data-force>${esc(T('git.special.expandAnyway'))}</button>`,
+    mode: `<b>${esc(T('git.special.mode', { from: '100644', to: '100755' }))}</b>`,
+    eol: `<b>${esc(T('git.special.eol', { from: 'LF', to: 'CRLF', count: 12 }))}</b><button class="btn" data-force>${esc(T('git.special.showAnyway'))}</button>`,
+    symlink: `<b>${esc(T('git.special.symlink', { from: '../shared/config.json', to: '../shared/config.v2.json' }))}</b>`,
+    lfs: `<b>${esc(T('git.special.lfs', { from: '12.4 MB', to: '12.9 MB' }))}</b><span class="mono">oid sha256:4d7a…</span>`,
+    submodule: `<b>${esc(T('git.special.submodule', { from: '3f2a1c0', to: '9e8d7b6' }))}</b>`,
+    encoding: `<b>${esc(T('git.special.encoding'))}</b>`,
+    deleted: `<b>${esc(T('git.special.deleted'))}</b>`,
+    emptyNew: `<b>${esc(T('git.special.emptyNew'))}</b>`,
+    wsOnly: `<b>${esc(T('git.special.wsOnly'))}</b>`
+  };
+  return `<div class="notice">${M[kind]}</div>`;
+}
+function renderBanner() {
+  const b = $('#banner');
+  let html = '', cls = '';
+  const r = repo();
+  if (st.ended) { cls = 'warn'; html = esc(T('git.banner.ended')); }
+  else if (st.banner === 'cd') { cls = 'info'; html = `${esc(T('git.banner.moved', { path: '/home/beom/work/web' }))} <button class="btn" id="bnFollow">${esc(T('git.banner.follow'))}</button><button class="btn" id="bnStay">${esc(T('git.banner.stay'))}</button>`; }
+  else if (st.vanished && st.selKey === st.vanished) { cls = 'warn'; html = `${esc(T('git.banner.vanished', { sha: st.vanished.slice(0, 7) }))} <button class="btn" id="bnHead">${esc(T('git.banner.latestHead'))}</button>`; }
+  else if (st.scope === 'cmp') { cls = 'info'; html = esc(T('git.banner.compare', { base: r.base.ref, sha: 'b372c4f', count: 3, time: rel(NOW - 3 * 3600 * 1000) })); }
+  b.className = 'banner ' + cls; b.style.display = html ? 'flex' : 'none'; b.innerHTML = html;
+  $('#bnFollow')?.addEventListener('click', () => { st.banner = null; openGitFor(SESSIONS[1], 'head', null, true); });
+  $('#bnStay')?.addEventListener('click', () => { st.banner = null; renderBanner(); });
+  $('#bnHead')?.addEventListener('click', () => { st.vanished = null; st.vanishedCommit = null; st.selKey = repo().head; st.fileKey = null; refreshAll(); });
+  $('#refreshBtn').disabled = st.ended; $('#autoRef').disabled = st.ended;
+}
+function renderChrome() {
+  const s = SESSIONS.find((x) => x.id === st.sessionId);
+  const r = repo();
+  $('#gwTitle').textContent = T('git.window.title', { repo: r.name });
+  $('#gwSub').textContent = T('git.window.subtitle', { session: s.name, branch: r.branch });
+  $('#trayLbl').textContent = T('git.window.tray', { repo: r.name, session: s.name });
+  $('#checkedAt').textContent = T('git.refresh.checked', { time: relSec(st.checked) });
+  $('#listBadge').textContent = T('git.refresh.listBadge');
+  $('#listBadge').style.display = st.listPending ? 'inline-flex' : 'none';
+  $('#autoLbl').textContent = T('git.refresh.auto');
+  $('#roLbl').textContent = T('git.window.readOnly');
+  $('#refreshBtn').setAttribute('aria-label', T('git.refresh.button')); $('#refreshBtn').title = T('git.refresh.button');
+  [['#btnMin', 'git.window.minimize'], ['#btnMax', 'git.window.maximize'], ['#btnClose', 'git.window.close']].forEach(([id, k]) => { $(id).setAttribute('aria-label', T(k)); $(id).title = T(k); });
+  $('#scopeSeg').setAttribute('aria-label', T('git.scope.label'));
+  $('#scopeSeg [data-scope="head"]').textContent = T('git.scope.head');
+  $('#scopeSeg [data-scope="all"]').textContent = T('git.scope.all');
+  $('#graphList').setAttribute('aria-label', T('git.graph.list'));
+  $('#files').setAttribute('aria-label', T('git.files.list'));
+  $('#hSubj').textContent = T('git.graph.colSubject'); $('#hSha').textContent = T('git.graph.colSha'); $('#hWho').textContent = T('git.graph.colAuthor'); $('#hWhen').textContent = T('git.graph.colTime');
+}
+function refreshAll() { renderChrome(); renderBanner(); renderGraph(); renderDetail(); renderFiles(); renderDiff(); }
+function selectRow(i) {
+  i = Math.max(0, Math.min(st.rows.length - 1, i));
+  const key = st.rows[i]?.c.sha; if (!key) return;
+  st.selKey = key; st.vanished = null; st.vanishedCommit = null; st.fileKey = null; st.hunk = 0;
+  renderBanner(); renderGraph(); renderDetail(); renderFiles(); scheduleDiff();
+  $('#graphList').querySelector('.crow.sel')?.scrollIntoView({ block: 'nearest' });
+}
+function moveFile(d) {
+  const items = currentEntries(); if (!items.length) return;
+  const i = items.findIndex((x) => fileKeyOf(x) === st.fileKey);
+  pickFile(fileKeyOf(items[(i + d + items.length) % items.length]));
+}
+function moveHunk(d) {
+  const box = $('#diff'); const hs = $$('.hunk', box).filter((h, i, arr) => arr.findIndex((y) => y.dataset.h === h.dataset.h) === i); if (!hs.length) return;
+  const n = Math.max(0, Math.min(hs.length - 1, (st.hunk || 0) + d));
+  box.scrollTop += hs.find((h) => +h.dataset.h === n).getBoundingClientRect().top - box.getBoundingClientRect().top;
+  st.hunk = n; const el = $('#hunkInfo'); if (el) el.textContent = T('git.diff.hunkPosition', { hunk: n + 1, hunks: hs.length });
+}
+function openGitFor(s, scope = 'head', forceKey, quiet) {
+  if (!s.repo) { toast('이 시안에는 claude-api·codex-front 세션의 저장소 데이터만 있습니다'); return; }
+  const wasOpen = st.sessionId === s.id && $('#gw').style.display !== 'none';
+  st.sessionId = s.id; st.repoId = s.repo; st.ended = false; st.banner = null; st.vanished = null; st.vanishedCommit = null;
+  st.scope = scope;
+  st.selKey = scope === 'cmp' ? 'CMP' : (forceKey || (hasWT() ? 'WORKTREE' : repo().head));
+  st.fileKey = null; st.hunk = 0; st.changed.clear(); st.listPending = false;
+  go('s2'); restoreWin(); refreshAll();
+  $('#graphList').focus();
+  if (wasOpen && !quiet) toast(T('git.toast.broughtFront'));
+}
+$$('#scopeSeg button').forEach((b) => b.addEventListener('click', () => {
+  if (b.disabled) return;
+  st.scope = b.dataset.scope;
+  if (st.scope === 'cmp') st.selKey = 'CMP';
+  else if (st.selKey === 'CMP') st.selKey = hasWT() ? 'WORKTREE' : repo().head;
+  refreshAll();
+}));
+
+/* list keyboard */
+$('#graphList').addEventListener('keydown', (e) => {
+  const i = st.rows.findIndex((r) => r.c.sha === st.selKey);
+  const map = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1, PageDown: 10, PageUp: -10 };
+  if (e.key in map) { selectRow((i < 0 ? (map[e.key] > 0 ? -1 : 0) : i) + map[e.key]); e.preventDefault(); }
+  else if (e.key === 'Home') { selectRow(0); e.preventDefault(); }
+  else if (e.key === 'End') { selectRow(st.rows.length - 1); e.preventDefault(); }
+});
+$('#files').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'j') { moveFile(1); e.preventDefault(); }
+  else if (e.key === 'ArrowUp' || e.key === 'k') { moveFile(-1); e.preventDefault(); }
+  else if (e.key === 'Home') { const it = currentEntries(); if (it[0]) pickFile(fileKeyOf(it[0])); e.preventDefault(); }
+  else if (e.key === 'End') { const it = currentEntries(); if (it.length) pickFile(fileKeyOf(it.at(-1))); e.preventDefault(); }
+});
+$('#gw').addEventListener('keydown', (e) => {
+  if (e.target.closest('input,select,textarea,summary') || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  const x = selectedEntry();
+  if (k === ']') moveFile(1);
+  else if (k === '[') moveFile(-1);
+  else if (k === 'n') moveHunk(1);
+  else if (k === 'p') moveHunk(-1);
+  else if (k === 's') { if (st.view === 'split' || !splitBlockReason(x ? x.e[0] : 'M')) { st.view = st.view === 'unified' ? 'split' : 'unified'; renderDiff(); } }
+  else if (k === 'w') { st.ws = !st.ws; scheduleDiff(); }
+  else if (k === 'R' && !st.ended) doRefresh();
+  else return;
+  e.preventDefault();
+});
+
+/* splitters */
+function wireSplit(el, axis) {
+  const body = $('#gwBody'), files = $('#files');
+  el.setAttribute('aria-label', axis === 'v' ? '그래프와 상세 나누기' : '파일 목록과 diff 나누기');
+  const setV = (pct) => { pct = Math.max(30, Math.min(70, pct)); body.style.gridTemplateColumns = `minmax(380px,${pct}%) 6px minmax(360px,1fr)`; el.setAttribute('aria-valuenow', String(Math.round(pct))); layoutChecks(); };
+  const setH = (px) => { const max = $('#side').clientHeight * 0.5; px = Math.max(84, Math.min(max, px)); files.style.height = px + 'px'; el.setAttribute('aria-valuenow', String(Math.round(px))); };
+  el.addEventListener('pointerdown', (e) => {
+    el.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      if (axis === 'v') { const r = body.getBoundingClientRect(); setV(((ev.clientX - r.left) / r.width) * 100); }
+      else { const r = files.getBoundingClientRect(); setH(ev.clientY - r.top); }
+    };
+    const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+    el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+  });
+  el.addEventListener('dblclick', () => (axis === 'v' ? setV(46) : setH(150)));
+  el.addEventListener('keydown', (e) => {
+    if (axis === 'v' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { const r = body.getBoundingClientRect(); setV(+el.getAttribute('aria-valuenow') + ((e.key === 'ArrowRight' ? 1 : -1) * 16 / r.width) * 100); e.preventDefault(); }
+    if (axis === 'h' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { setH(files.clientHeight + (e.key === 'ArrowDown' ? 16 : -16)); e.preventDefault(); }
+  });
+}
+wireSplit($('#vsplit'), 'v'); wireSplit($('#hsplit'), 'h');
+new ResizeObserver(layoutChecks).observe($('#gw'));
+
+/* window chrome */
+function restoreWin() { $('#gw').style.display = 'flex'; $('#tray').style.display = 'none'; }
+$('#btnMin').addEventListener('click', () => { $('#gw').style.display = 'none'; $('#tray').style.display = 'flex'; $('#trayBtn').focus(); });
+$('#trayBtn').addEventListener('click', () => { restoreWin(); $('#graphList').focus(); });
+$('#btnMax').addEventListener('click', () => { $('#gw').classList.toggle('max'); layoutChecks(); });
+$('#btnClose').addEventListener('click', () => { $('#gw').style.display = 'none'; $('#tray').style.display = 'none'; toast(T('git.toast.closed')); });
+
+/* refresh + simulation */
+function announce(msg) { const l = $('#live'); l.textContent = ''; setTimeout(() => { l.textContent = msg; }, 30); }
+function doRefresh() { st.listPending = false; st.changed.clear(); st.checked = 0; refreshAll(); }
+$('#refreshBtn').addEventListener('click', doRefresh);
+$('#listBadge').addEventListener('click', doRefresh);
+$('#autoRef').addEventListener('change', (e) => { st.auto = e.target.checked; });
+function afterRepoChange(changedKeys = []) {
+  rerenderChips();
+  if (st.repoId !== 'pm' || st.ended) return;
+  st.checked = 0;
+  if (st.auto) {
+    const prevSel = st.selKey;
+    const hadBadge = st.changed.has(st.fileKey);
+    changedKeys.forEach((k) => st.changed.add(k));
+    renderChrome(); renderGraph();
+    if (prevSel === 'WORKTREE' && !hasWT()) { st.selKey = repo().head; st.fileKey = null; st.changed.clear(); toast(T('git.toast.committed')); announce(T('git.toast.committed')); renderGraph(); renderDetail(); renderFiles(); renderDiff(); return; }
+    renderDetail(); renderFiles();
+    if (st.selKey === 'WORKTREE' && st.changed.has(st.fileKey)) { if (!hadBadge) announce(T('git.refresh.diffAnnounce')); renderDiff(); }
+  } else {
+    if (!st.listPending) announce(T('git.refresh.listAnnounce'));
+    st.listPending = true; renderChrome();
+  }
+}
+function simulate(kind) {
+  const r = REPOS.pm;
+  if (kind === 'edit') {
+    const lay = WT.unstaged.find((e) => e[1] === F.layout); if (lay) lay[2] += 1;
+    if (!WT.unstaged.some((e) => e[1] === F.win)) WT.unstaged.push(['M', F.win, 7, 0]);
+    else WT.unstaged.find((e) => e[1] === F.win)[2] += 3;
+    toast('작업 중 3초 폴링이 변경을 잡습니다. 바뀐 입력: 스테이징 안 됨의 gitGraphLayout.ts, GitWindow.tsx (스테이징됨 보기에는 배지 없음)');
+    setTimeout(() => afterRepoChange(['unstaged:' + F.layout.path, 'unstaged:' + F.win.path]), 400);
+  } else if (kind === 'commit') {
+    const sha = 'c' + Math.random().toString(16).slice(2, 8);
+    const old = r.commits.find((c) => c.sha === r.head);
+    const headRef = old.refs.find((x) => x[0] === 'head');
+    old.refs = old.refs.filter((x) => x[0] !== 'head');
+    r.commits.unshift(C(sha, [r.head], 'feat(git): 칩 단계 표와 커밋 안 된 변경', 'claude', '2026-10-23 10:04', headRef ? [headRef] : []));
+    const merged = new Map();
+    [...WT.staged, ...WT.unstaged, ...WT.untracked].forEach((e) => {
+      const p = merged.get(e[1].path);
+      merged.set(e[1].path, p ? [p[0], e[1], p[2] + e[2], p[3] + e[3]] : [e[0] === '?' ? 'A' : e[0], e[1], e[2], e[3]]);
+    });
+    CHANGES[sha] = [...merged.values()];
+    r.head = sha; WT = { staged: [], unstaged: [], untracked: [] };
+    SESSIONS[0].git.ahead += 1;
+    setTimeout(() => afterRepoChange(), 300);
+  } else if (kind === 'amend') {
+    const old = r.commits.find((c) => c.sha === r.head);
+    const sha = 'a' + Math.random().toString(16).slice(2, 8);
+    const copy = { ...old, sha, ts: NOW - 30000 };
+    r.commits[r.commits.indexOf(old)] = copy; CHANGES[sha] = CHANGES[old.sha] || filesOf(old.sha);
+    r.head = sha;
+    if (st.selKey === old.sha) { st.vanished = old.sha; st.vanishedCommit = old; }
+    else toast('HEAD 커밋을 선택한 뒤 amend 하면 "브랜치에 없음" 행과 배너를 볼 수 있습니다');
+    setTimeout(() => { afterRepoChange(); renderBanner(); renderDetail(); renderFiles(); renderDiff(); }, 300);
+  } else if (kind === 'cd') { if (st.repoId === 'pm') { st.banner = 'cd'; renderBanner(); } }
+  else if (kind === 'end') { st.ended = true; renderBanner(); }
+  else if (kind === 'narrow') { const g = $('#gw'); g.classList.remove('max'); g.style.width = '780px'; layoutChecks(); }
+  else if (kind === 'reset') {
+    REPOS.pm.commits = freshPM(); REPOS.pm.head = 'a1b2c3d'; WT = WT0(); SESSIONS[0].git.ahead = 2;
+    Object.keys(CHANGES).filter((k) => /^[ac][0-9a-f]{6}$/.test(k)).forEach((k) => delete CHANGES[k]);
+    $('#gw').style.width = ''; st.wt = false; st.view = 'unified'; st.ws = false;
+    openGitFor(SESSIONS[0], 'head', null, true);
+  }
+}
+$$('[data-sim]').forEach((b) => b.addEventListener('click', () => simulate(b.dataset.sim)));
+setInterval(() => { st.checked += 10; if ($('#s2').classList.contains('on')) { renderChrome(); } }, 10000);
+
+/* ═════════ ③ narrow lab ═════════ */
+(function lab() {
+  const frame = $('#labFrame');
+  frame.innerHTML = '<div class="meta" style="border-top:0"></div>';
+  const m = frame.firstChild;
+  mountMeta(m, SESSIONS[0]);
+  new ResizeObserver(() => { $('#labW').textContent = `하단바 ${Math.round(frame.clientWidth)}px · 남는 폭 ${m.dataset.avail}px · 단계 ${m.dataset.stage}`; }).observe(frame);
+  $('#stageTable').innerHTML = STAGES.map((s, i) => `<tr><td class="mono">${i}</td><td class="mono">${i === 0 ? '≥ 460' : i === STAGES.length - 1 ? '< 150' : `${s.min}–${STAGES[i - 1].min - 1}`}</td><td>${s.key}</td><td class="mono">${s.chars || '—'}</td><td class="mono">${esc(s.ex)}</td></tr>`).join('');
+  const nameW = Math.min(150, nameWidth(SESSIONS[0].name));
+  const avails = [520, 420, 330, 280, 220, 170, 110];
+  $('#stages').innerHTML = avails.map((a, i) => `<div class="lab-row"><div class="lbl"><span class="mono" style="font-weight:600">단계 ${i} · 남는 폭 ${a}px</span><br><span class="muted" style="font-size:12px">${STAGES[i].key}</span></div><div style="width:${a + nameW + 20}px;border:1px solid var(--line)"><div class="meta" style="border-top:0"></div></div></div>`).join('')
+    + `<div class="lab-row"><div class="lbl"><span class="mono" style="font-weight:600">저장소 아님 · 하단바 250px</span><br><span class="muted" style="font-size:12px">칩이 없으니 cwd 를 남김</span></div><div style="width:250px;border:1px solid var(--line)"><div class="meta" style="border-top:0"></div></div></div>`
+    + `<div class="lab-row"><div class="lbl"><span class="mono" style="font-weight:600">긴 브랜치 · 단계 1</span><br><span class="muted" style="font-size:12px">codex/fix-terminal-resize-on-reveal</span></div><div style="width:${420 + 90}px;border:1px solid var(--line)"><div class="meta" style="border-top:0"></div></div></div>`;
+  const metas = $$('#stages .meta');
+  metas.slice(0, avails.length).forEach((mm) => mountMeta(mm, SESSIONS[0]));
+  mountMeta(metas[avails.length], SESSIONS[3]);
+  mountMeta(metas[avails.length + 1], SESSIONS[4]);
+  const names = [['feat/git-graph-lanes', 14], ['codex/fix-terminal-resize-on-reveal', 20], ['codex/fix-terminal-resize-on-reveal', 14], ['hotfix-issue-163-cwd', 14], ['release/0.10.x', 14], ['users/beom/very-long-experiment', 10]];
+  $('#truncTable').innerHTML = names.map(([n, c]) => `<tr><td class="mono muted">${n}</td><td class="mono">${c}자</td><td class="mono">→ ${esc(midTrunc(n, c))}</td></tr>`).join('');
+})();
+
+/* ═════════ ④ mobile ═════════ */
+const mob = { step: 0, sel: 0, file: 0, wrap: true };
+function renderPhone() {
+  const ph = $('#phone');
+  const r = REPOS.pm;
+  const by = Object.fromEntries(r.commits.map((c) => [c.sha, c]));
+  const seen = new Set(), sk = [r.head]; while (sk.length) { const x = sk.pop(); if (seen.has(x) || !by[x]) continue; seen.add(x); sk.push(...by[x].parents); }
+  const list = r.commits.filter((c) => seen.has(c.sha));
+  if (wtPaths().size) list.unshift({ sha: 'WORKTREE', parents: [r.head], subject: '', author: '', ts: NOW, refs: [], wt: true });
+  const { rows, lanes } = layoutGraph(list);
+  const back = `<button class="icon-btn" data-back aria-label="뒤로">←</button>`;
+  const filesFor = (c) => (c.wt ? [...WT.staged, ...WT.unstaged, ...WT.untracked] : filesOf(c.sha));
+  if (mob.step === 0) {
+    ph.innerHTML = `<div class="m-top"><button class="icon-btn" aria-label="${esc(T('git.window.close'))}">✕</button><span class="ttl">${esc(T('git.window.title', { repo: r.name }))}</span><button class="icon-btn" aria-label="${esc(T('git.refresh.button'))}">↻</button></div>`
+      + `<div style="padding:6px 8px;border-bottom:1px solid var(--line)"><div class="seg" style="width:100%"><button aria-pressed="true" style="flex:1;height:44px;padding:0 6px">${esc(T('git.scope.head'))}</button><button aria-pressed="false" style="flex:1;height:44px;padding:0 6px">${esc(T('git.scope.all'))}</button><button aria-pressed="false" style="flex:1;height:44px;padding:0 6px">${esc(T('git.scope.compare', { base: 'origin/main' }))}</button></div></div>`
+      + `<div class="m-body">` + rows.map((rw, i) => `<button class="m-row" data-i="${i}" aria-label="${esc(rowLabel(rw.c))}">${rowSVG(rw, lanes, 56)}<span class="txt"><span class="s" style="${rw.c.wt ? 'color:var(--warn-text);font-style:italic' : ''}">${esc(rw.c.wt ? T('git.graph.uncommitted', { count: wtPaths().size }) : rw.c.subject)}</span><span class="sub">${refsHTML(rw.c.refs)}${rw.c.wt ? esc(T('git.refresh.checked', { time: T('git.time.justNow') })) : esc(rw.c.author) + ' · ' + esc(rel(rw.c.ts))}</span></span><span class="muted" aria-hidden="true">›</span></button>`).join('') + '</div>'
+      + `<div class="meta" style="height:32px"><div class="bar" style="background:#d97757"></div><span class="name">claude-api</span>${chipHTML(pmGit(), 3)}<span class="spacer"></span><span class="sep">│</span><span class="time">12:34</span></div>`;
+  } else if (mob.step === 1) {
+    const c = rows[mob.sel].c; const fs = filesFor(c);
+    ph.innerHTML = `<div class="m-top">${back}<span class="ttl">${esc(c.wt ? T('git.detail.worktree', { count: wtPaths().size }) : c.subject)}</span></div>`
+      + `<div class="m-body"><div class="detail">${c.wt ? `<div class="kv"><span>${esc(T('git.detail.worktreeCounts', { staged: WT.staged.length, modified: WT.unstaged.length, untracked: WT.untracked.length }))}</span></div>` : `<div class="kv"><span><b>${c.sha.slice(0, 7)}</b></span><span>${esc(c.author)}</span><span>${esc(abs(c.ts))}</span></div>${c.body ? `<div class="body">${esc(c.body)}</div>` : ''}`}</div>`
+      + fs.map(([k, f, a, d], i) => `<button class="m-file" data-f="${i}"><span class="k k-${kindKey(k)}" style="font-weight:600;width:14px">${k}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4">${esc(f.path.split('/').pop())}<br><span class="muted" style="font-size:11px">${esc(f.path.split('/').slice(0, -1).join('/'))}</span></span>${f.special === 'binary' ? `<span class="muted">${T('git.files.binary')}</span>` : `<span class="add">+${a}</span><span class="del">${d ? '−' + d : ''}</span>`}</button>`).join('') + '</div>';
+  } else {
+    const c = rows[mob.sel].c; const fs = filesFor(c); const e = fs[mob.file]; const f = e[1];
+    const hunks = f.special ? [] : (DIFFS[f.path] || genericDiff(e));
+    ph.innerHTML = `<div class="m-top">${back}<span class="ttl mono" style="font-size:12px">${esc(f.path.split('/').pop())}</span><button class="icon-btn" data-wrap aria-label="${esc(T('git.diff.wrap'))}" aria-pressed="${mob.wrap}">↩</button></div>`
+      + `<div class="m-body diff${mob.wrap ? ' wrap' : ''}" id="mdiff">` + (f.special ? specialNotice(f.special, e[2], e[3]) : hunks.map((h, hi) => `<div class="hunk" data-h="${hi}">${esc(h.h)}</div>` + h.lines.map((l) => `<div class="dl${l.k === '+' ? ' a' : l.k === '-' ? ' d' : ''}"><span class="no" style="width:4.2ch;padding-right:4px">${l.o}</span><span class="no" style="width:4.2ch;padding-right:4px">${l.n}</span><span class="sg">${l.k === ' ' ? '' : l.k === '-' ? '−' : '+'}</span><span class="tx">${hl(l)}</span></div>`).join('')).join('')) + '</div>'
+      + `<div class="m-foot"><button class="btn" data-mh="-1" aria-label="${esc(T('git.diff.prevHunk'))}">↑ 덩어리</button><button class="btn" data-mh="1" aria-label="${esc(T('git.diff.nextHunk'))}">↓ 덩어리</button><button class="btn" data-mf="-1" aria-label="${esc(T('git.diff.prevFile'))}">‹ 파일</button><button class="btn" data-mf="1" aria-label="${esc(T('git.diff.nextFile'))}">파일 › ${mob.file + 1}/${fs.length}</button></div>`;
+  }
+  ph.querySelector('[data-back]')?.addEventListener('click', () => { mob.step--; renderPhone(); });
+  ph.querySelector('[data-wrap]')?.addEventListener('click', () => { mob.wrap = !mob.wrap; renderPhone(); });
+  ph.querySelectorAll('.m-row').forEach((b) => b.addEventListener('click', () => { mob.sel = +b.dataset.i; mob.step = 1; renderPhone(); }));
+  ph.querySelectorAll('.m-file').forEach((b) => b.addEventListener('click', () => { mob.file = +b.dataset.f; mob.step = 2; renderPhone(); }));
+  ph.querySelectorAll('[data-mf]').forEach((b) => b.addEventListener('click', () => { const n = filesFor(rows[mob.sel].c).length; mob.file = (mob.file + +b.dataset.mf + n) % n; renderPhone(); }));
+  ph.querySelectorAll('[data-mh]').forEach((b) => b.addEventListener('click', () => {
+    const box = $('#mdiff'); const hs = $$('.hunk', box); if (!hs.length) return;
+    const top = box.getBoundingClientRect().top + 2; let cur = 0; hs.forEach((h, i) => { if (h.getBoundingClientRect().top <= top) cur = i; });
+    const n = Math.max(0, Math.min(hs.length - 1, cur + +b.dataset.mh)); box.scrollTop += hs[n].getBoundingClientRect().top - box.getBoundingClientRect().top;
+  }));
+}
+
+/* ═════════ ⑤ states ═════════ */
+const ROW = (g) => `<div style="width:100%"><div class="meta" style="border:1px solid var(--line)"><div class="bar" style="background:#d97757"></div><span class="name">session</span>${g ? chipHTML(g, 1, 'x') : ''}${g ? '<span class="spacer"></span>' : '<span class="cwd"><bdi>~/work/project</bdi></span>'}<span class="sep">│</span><span class="time">04:12</span></div></div>`;
+const WIN = (html) => `<div class="notice" style="margin:0;width:100%">${html}</div>`;
+const STATES = [
+  ['불러오는 중', ROW({ state: 'loading' }), '칩 자리에 회색 막대(aria-busy, 누를 수 없음). 400ms 안에 오면 막대 없이 바로 표시. reduced-motion 이면 정지.'],
+  ['불러오는 중 (Git 창)', `<div style="width:100%;display:flex;flex-direction:column;gap:10px"><div class="skel-row" style="width:80%"></div><div class="skel-row" style="width:62%"></div><div class="skel-row" style="width:71%"></div></div>`, '행 모양 자리표시. 400ms 넘을 때만.'],
+  ['git 저장소가 아님 · NOT_A_REPO', ROW(null), '칩 없음 → 지금과 똑같은 하단바. 경로 메뉴에 Git 항목을 추가하지 않음.'],
+  ['서버에 git 없음 · GIT_UNAVAILABLE', `<div class="toast" style="display:block;position:static;transform:none">${esc(T('git.toast.noGit'))} <button class="btn" style="height:24px">${esc(T('git.err.details'))}</button></div>`, '칩 숨김. 서버 기동 후 워크스페이스당 한 번 토스트(화면 아래). "자세히" 는 설치 안내.'],
+  ['소유자 불일치 · GIT_UNSAFE_REPO', ROW({ state: 'error', code: 'GIT_UNSAFE_REPO' }), '칩 ⎇ ? (경고색). 클릭·Enter 로 원인과 <b>세션 환경에 맞는</b> 명령(Windows / WSL)이 든 팝오버. 눌러 보세요.'],
+  ['시간 초과 · GIT_TIMEOUT', ROW({ repo: 'x', branch: 'feat/git-graph', dirty: 3, upstream: 'o', ahead: 2, stale: true }), '마지막 값을 유지, 회색 + 시계 아이콘(색만으로 구분하지 않음). 툴팁 "마지막 확인 2분 전 · 다시 시도 중". 2번 연속이면 새 파일 검사 끔.'],
+  ['새 파일 검사 끔(큰 저장소)', ROW({ repo: 'x', branch: 'main', dirty: 3, uscanOff: true, upstream: 'o' }), '●3+ : 추적 중인 파일 변경 3 + 새 파일은 세지 않음. 툴팁에 이유.'],
+  ['커밋이 하나도 없음 · NO_COMMITS', ROW({ repo: 'x', branch: 'main', dirty: 4 }), '칩 ⎇ main ●4. 그래프는 작업 사본 행만, 그 아래 "아직 커밋이 없습니다".'],
+  ['변경 없음', ROW({ repo: 'x', branch: 'main', dirty: 0, upstream: 'o' }), '●n 없음. 작업 사본 행 없음. 칩 클릭 → HEAD 커밋.'],
+  ['병합 중(충돌)', ROW({ repo: 'x', branch: 'feat/x', dirty: 2, operation: 'merge', upstream: 'o' }), '칩에 "병합 중". 작업 사본 행 맨 위에 "충돌 2" 묶음(!). 충돌 파일 diff = 충돌 표식이 든 작업 트리 원문.'],
+  ['리베이스 중', ROW({ repo: 'x', branch: 'feat/x', dirty: 0, operation: 'rebase', opStep: 3, opTotal: 7 }), '리베이스 중 git 은 HEAD 를 분리하지만 칩은 원래 브랜치(head-name) + "리베이스 3/7". 같은 방식: 체리픽·되돌리기·이분 탐색.'],
+  ['upstream 없음', ROW({ repo: 'x', branch: 'codex/new-branch', dirty: 1, base: { ref: 'origin/main', ahead: 3 } }), '≈↑3 = 기준 브랜치 대비(≈ 기호로 구분, 기울임 아님). 툴팁 "upstream 없음 · 기준 origin/main 대비 앞섬 3".'],
+  ['얕은 복제 · SHALLOW_HISTORY', WIN(`<span class="mono">… f00d123 feat(upload)</span><b>${esc(T('git.graph.shallow'))}</b>`), '그래프 끝에 경계 행. merge-base 가 없으면 비교 버튼 비활성 + "갈라진 지점이 없음(얕은 복제)".'],
+  ['사라진 커밋 · COMMIT_NOT_FOUND', WIN(`<b>${esc(T('apiError.COMMIT_NOT_FOUND'))}</b><button class="btn">${esc(T('git.banner.latestHead'))}</button>`), 'gc 전에는 sha 로 계속 보임(②의 amend 시뮬레이션). 정리된 뒤에만 이 화면.'],
+  ['세션 없음 · SESSION_NOT_FOUND', WIN(`<b>${esc(T('git.banner.ended'))}</b>`), '창은 남고 갱신만 멈춤. 브라우저 새로고침 뒤에는 복원하지 않음.']
+];
+const SPECIALS = [
+  ['바이너리', 'binary', '크기 a → b. 이미지 비교는 v2.'],
+  ['큰 diff', 'large', '512KB·5,000줄 초과, lock·dist·min 은 기본 접힘. 펼치면 patch 텍스트, 2,000줄 넘으면 가상 스크롤.'],
+  ['권한만 바뀜', 'mode', 'kind M, +0 −0. 파일 목록 통계 자리에 "권한".'],
+  ['줄 끝만 바뀜', 'eol', '판정: --ignore-cr-at-eol 결과가 비면. "그래도 보기" 로 원래 diff.'],
+  ['심볼릭 링크', 'symlink', '링크를 따라가지 않고 대상 문자열만.'],
+  ['LFS 포인터', 'lfs', '포인터 파일의 oid·size 로 표시.'],
+  ['서브모듈', 'submodule', 'gitlink 포인터만. 안으로 들어가지 않음(v1).'],
+  ['UTF-8 아님', 'encoding', '엄격한 UTF-8 디코드 실패 시. 인코딩 감지·표시는 범위 밖(v1).'],
+  ['삭제된 파일', 'deleted', '− 줄만(새 쪽 없음). "편집기로 열기" 비활성, 좌우 보기 비활성.'],
+  ['새 빈 파일', 'emptyNew', '내용 없음.']
+];
+function renderStates() {
+  $('#states').innerHTML = STATES.map(([t, mock, note], i) => `<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="anno">${i + 1}</span><b>${t}</b></div><div class="state-box">${mock}</div><p class="muted" style="margin:8px 0 0;font-size:12px;line-height:1.6">${note}</p></div>`).join('');
+  $('#specials').innerHTML = SPECIALS.map(([t, kind, txt], i) => `<div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="anno">${String.fromCharCode(65 + i)}</span><b>${t}</b></div><div class="state-box" style="background:var(--bg-sunken)">${specialNotice(kind, 1204, 388).replace('class="notice"', 'class="notice" style="margin:0;width:100%"')}</div><p class="muted" style="margin:8px 0 0;font-size:12px;line-height:1.6">${txt}</p></div>`).join('');
+  $$('#states [data-err]').forEach((chip) => chip.addEventListener('click', () => openErr(chip, chip.dataset.err)));
+}
+
+/* ═════════ ⑦ ⑧ tables ═════════ */
+const ERRORS = [
+  ['NOT_A_REPO', 'cwd 가 저장소 밖', '없음', '진입 불가'],
+  ['GIT_UNAVAILABLE', '서버 PATH 에 git 없음 / WSL 배포판에 git 없음', '없음 + 토스트 1회', 'apiError 문구'],
+  ['GIT_UNSAFE_REPO', 'safe.directory 소유자 불일치', '⎇ ? + 팝오버', '원인 + 세션 환경(Windows/WSL)에 맞는 명령 복사'],
+  ['GIT_TIMEOUT', '5초/10초 초과', '마지막 값 회색 + 시계', '배너 + 다시 시도, 백오프'],
+  ['NO_COMMITS', 'unborn 브랜치에서 log', '정상(⎇ main ●n)', '"아직 커밋이 없습니다"'],
+  ['SHALLOW_HISTORY', '부모가 얕은 경계 밖', '정상', '경계 행, 비교 비활성'],
+  ['COMMIT_NOT_FOUND', 'sha 가 저장소에 없음', '—', '"커밋을 찾을 수 없습니다" + 최신 HEAD 보기'],
+  ['PATH_OUTSIDE_REPO', 'path 검증 실패', '—', '"저장소 밖 경로입니다"(버그 신호, 서버 로그)'],
+  ['BASE_NOT_FOUND', '기준 브랜치 판정 실패', '≈↑ 표시 없음', '비교 버튼 비활성 + 이유'],
+  ['DIFF_TOO_LARGE', 'full=1 인데 512KB 초과', '—', '"너무 커서 펼칠 수 없습니다"'],
+  ['SESSION_NOT_FOUND', '세션이 끝남', '—', '창 유지, 배너'],
+  ['GIT_FAILED', '그 밖의 git 실패', '⎇ ?', '"git 실패: {stderr 첫 줄}"']
+];
+$('#errTable').innerHTML = ERRORS.map(([c, w, chip, win]) => `<tr><td class="mono">${c}</td><td>${w}</td><td>${chip}</td><td>${win}</td></tr>`).join('');
+
+const AC = [
+  ['FR-GIT-001', '세션 하단바의 브랜치 칩', ['저장소 세션은 git.watch 후 1초 안에 칩 표시, 저장소가 아니면 하단바 DOM 이 지금과 같음(스냅샷 테스트)', '분리 HEAD 는 7자 sha + 경고색, 진행 중 작업은 "병합 중"·"리베이스 i/n" 등(번역됨)', '●n 의 n = 서로 다른 경로 수', 'upstream 없으면 ≈↑ 로 기준 브랜치 대비 표시', '칩 aria-label 에 브랜치 전체 이름·변경 수·앞섬/뒤처짐이 단계와 무관하게 들어감']],
+  ['FR-GIT-002', '좁은 폭 단계', ['남는 폭 460/390/300/260/200/150 경계에서 ③ 표대로(단위 테스트: (하단바 폭, 이름 폭) → 단계, ±8px 히스테리시스)', '칩은 단계 안에서 줄지 않고(flex-shrink 0) 브랜치명은 midTrunc 결과 그대로(CSS 말줄임 없음) — 단계 0~5 에서 브랜치 텍스트가 잘리지 않음을 E2E 로 확인', '단계 2 이상에서 칩 메뉴에 경로 묶음', '저장소가 아닌 세션은 어떤 폭에서도 cwd 를 숨기지 않음', 'midTrunc 가 ③ 예시 6개와 같은 결과']],
+  ['FR-GIT-003', '칩 상호작용', ['클릭: 변경 있으면 WORKTREE, 없으면 HEAD 를 sha 로 선택', '우클릭·Shift+F10·ContextMenu 키·터치 500ms 로 메뉴, 한 번만 열림(터치 뒤 contextmenu 무시)', '메뉴를 닫으면 칩으로 포커스 복귀, 이때 툴팁을 띄우지 않음. 비활성 항목도 화살표 포커스', '툴팁: Esc 로 닫힘, 칩→툴팁 이동 시 유지(WCAG 1.4.13)', '오류 칩: 클릭·Enter 로 role=dialog 팝오버, aria-expanded 동기화']],
+  ['FR-GIT-004', 'Git 창', ['세션당 창 1개, 같은 칩 재클릭 시 기존 창을 앞으로/복원(그때만 토스트)', '5번째 창을 열면 가장 오래 안 쓴 창을 트레이로 최소화(닫지 않음)', '최소 760×420. 그래프 칸 520/450 미만에서 작성자/커밋 열 숨김, 오른쪽 칸 600 미만에서 "보기 ▾"로 접어 diff 머리 2줄 이하', '같은 저장소 두 번째 창은 +24px 계단식, 위치·크기·비율을 저장소 루트 단위로 기억', '브라우저 새로고침 뒤 복원, 끝난 세션의 창은 복원하지 않음', 'Esc 무동작, 전역 단축키 없음, cwd 이동 배너, 세션 종료 배너']],
+  ['FR-GIT-005', '커밋 그래프', ['현재/전체/비교 범위가 ⑥ 정의의 커밋 집합과 같음(git fixture: 선형, 병합, 문어 병합, 분리 HEAD, 얕은 복제)', '레인 배정 골든 테스트, 8레인 초과 시 +n, 색은 tip 기준으로 유지', 'ref 배지는 제목 칸 40% 까지, HEAD 항상, 넘치면 +n(aria-label 에 목록)', '200개 커서 페이지, 경계에서 레인 연속', 'listbox 키보드(↑↓ Home End PgUp PgDn), 행 aria-label 에 병합·HEAD·ref·절대 시각']],
+  ['FR-GIT-006', '커밋 상세·파일 목록', ['병합은 첫 번째 부모, 루트는 빈 트리 기준', 'kind A/M/D/R/C/T/X/? 표시, R 은 유사도 %', '작업 사본은 스테이징됨/안 됨/추적 안 됨 묶음 + 기준 표기', '디렉터리 앞쪽을 줄이고 파일명은 끝까지 보임']],
+  ['FR-GIT-007', 'diff', ['한 줄/좌우. 좌우는 오른쪽 칸 560px 이상이고 kind M·R·C·T 일 때만, 아니면 비활성 + 이유. 두 칸 가로 스크롤 동기화', '이름 바꾸기는 서버가 두 경로를 함께 넘겨 R 로 보임(fixture: git mv 후 수정)', '추적 안 된 파일은 서버가 직접 읽어 전부 추가로 보임', '공백 무시는 서버 -w 결과와 같음', '단어 강조(구문 강조는 v1.1)', '숨긴 문맥: 위쪽 끝 [펼치기], 사이 20줄/전부, 마지막 뒤 [펼치기]', '⑤ 특수 파일 10종이 각각 정의된 안내로 표시(eol 은 --ignore-cr-at-eol 판정)', '512KB/5,000줄 초과 접힘, 펼친 diff 2,000줄 초과 시 가상 스크롤']],
+  ['FR-GIT-008', '기준 브랜치 비교', ['판정 순서 ⑥ 대로(fixture 5종)', '범위 = merge-base..HEAD, 토글 시 작업 트리 + 추적 안 된 파일(A) 포함', '기준 없음/같음/merge-base 없음 → 비활성 + 이유', '라벨에 감지한 ref 이름, fetch 하지 않음']],
+  ['FR-GIT-009', '갱신·선택 유지', ['<b>E2E: 200ms 마다 스피너를 출력하는 프로세스가 2초 뒤 파일을 쓰면 칩이 5초 안에 ●+1</b>(작업 중 3초 폴링)', '셸에서 echo > file 후 프롬프트 복귀 → 1초 안에 반영', '.git 이벤트 1초 안, idle 보장 폴링 10초', 'summary 가 1초 넘는 저장소는 폴링 간격 = 걸린 시간 × 5(최대 30초), 결과가 10번 연속 같으면 10초', '선택은 sha·(영역, 경로)로 유지, 새 커밋 후에도 같은 행', '보고 있는 diff 는 status 의 inputs 가 diff 응답의 inputs 와 다를 때만 배지(스테이징됨 보기 중 작업 트리만 바뀌면 배지 없음), role=status 1회', '사라진 sha 는 "브랜치에 없음" 행 + 배너 + 내용 유지']],
+  ['FR-GIT-010', '모바일', ['폭 900px 미만에서 전체 화면 3단계, pushState 로 뒤로 가기, 0단계에서 뒤로 가면 창 닫힘', '모든 누를 수 있는 요소 44px 이상', '키보드가 떠 있으면 내린 뒤 열기', '줄 번호 두 칸, 줄바꿈 시 이어지는 줄이 코드 열에 맞음, 덩어리·파일 이동 버튼']],
+  ['FR-GIT-011', 'WS 구독', ['칩 보임/숨김, 창 열림/닫힘·최소화에 맞춰 git.watch / git.unwatch 를 보냄(단위 테스트)', '재연결 시 유효한 watch 를 모두 다시 보냄', 'watch 가 0 인 세션은 서버 폴링·감시가 멈춤(서버 테스트)']],
+  ['NFR-GIT-001', '성능', ['로컬 벤치마크: 칩 클릭 → 첫 diff p95 ≤ 1초, summary p95 ≤ 300ms(Windows) / ≤ 600ms(WSL)', 'wsl.exe 호출 1회 비용을 1단계에서 실측·기록(목표 ≤ 250ms)', '세션 6개 작업 중일 때 git CPU < 한 코어의 5%, 이벤트 루프 지연 p99 < 50ms', 'asyncFileProcessing 가드에 GitService 포함, 동기 호출 0']],
+  ['NFR-GIT-002', '보안', ['클라이언트 입력으로 git 인자를 만들 수 없음(sha·path·origPath·열거값 검증, - 로 시작하는 path 거부)', 'fsmonitor·외부 diff·textconv 를 설정한 fixture 에서 그 명령의 마커 파일이 생기지 않음', 'clean filter 를 설정한 fixture 에서 status 가 filter 를 부르는 것을 측정해 "잔여 위험" 으로 기록(문서와 실제가 같은지 확인)', '심볼릭 링크를 따라가지 않음']],
+  ['NFR-GIT-003', '접근성', ['모든 글자 대비 4.5:1 이상(토큰 조합 자동 검사)', '키보드만으로 칩→창→커밋→파일→diff 끝까지', '색만으로 구분하는 신호 없음(+/− 기호, kind 글자, ≈, 시계 아이콘)']],
+  ['NFR-GIT-004', 'i18n', ['⑧ 표의 키가 en/ko 에 모두 있고, Git 칩·창 컴포넌트의 모든 사용자 문구가 t()/tn() 을 거침(i18nGuards: 한글 리터럴 0)', '자리표시자 바로 뒤 조사 없음', '상대 시각은 Intl.RelativeTimeFormat(활성 언어), "전"·"ago" 를 코드에서 붙이지 않음']]
+];
+$('#acTable').innerHTML = AC.map(([id, t, acs]) => `<tr><td class="tag-id">${id}</td><td style="white-space:nowrap">${t}</td><td><ol style="margin:0;padding-left:18px">${acs.map((a) => `<li>${a}</li>`).join('')}</ol></td></tr>`).join('');
+$('#i18nTable').innerHTML = I18N.map(([k, en, ko]) => `<tr><td class="mono">${k}</td><td>${esc(en)}</td><td>${esc(ko)}</td></tr>`).join('');
+const TOKENS = [
+  ['--git-sel-muted', '#c8c8c8', '#3d3d3d', '선택 행의 보조 글자'], ['--git-lineno', '#9a9a9a', '#6e6e6e', 'diff 줄 번호'],
+  ['--git-chip-hover / -active', '#363636 / #3c3c3c', '#e8e8e8 / #dedede', '칩 hover·눌림'], ['--git-chip-warn-line', '#6b5420', '#d4a72c', '분리·진행 중 칩 테두리'],
+  ['--git-banner-info-bg / -fg', '#1d2b38 / #9cc7f0', '#ddf4ff / #0a3069', '정보 배너'], ['--git-banner-warn-bg', '#2f2817', '#fff8c5', '경고 배너, 브랜치에 없음 행'],
+  ['--git-ref-local-bg / -fg', '#1d3a57 / #9cc7f0', '#ddf4ff / #0969da', '로컬 브랜치 배지'], ['--git-ref-remote-line', '#6a6a6a', '#8c959f', '원격 브랜치 배지 테두리'], ['--git-ref-session-bg / -fg', '#2d2440 / #d7b8ff', '#fbefff / #8250df', '세션 HEAD 배지'],
+  ['--diff-head-bg', '#262626', '#f6f8fa', 'diff 머리'], ['--diff-gap-bg', '#232323', '#f6f8fa', '숨긴 줄 행'],
+  ['--diff-add-bg / -word', '#1c3326 / #2d6a40', '#e6ffec / #abf2bc', '추가 줄·단어'], ['--diff-del-bg / -word', '#3a2123 / #7a2e33', '#ffebe9 / #ffc1bc', '삭제 줄·단어'],
+  ['--diff-hunk-bg / -fg', '#1f2d3a / #9cc7f0', '#ddf4ff / #0a3069', '덩어리 머리'], ['--diff-empty', '#262626', '#f6f8fa', '좌우 보기 빈 칸'],
+  ['--lane-1 … --lane-6', '#6cb6ff #c586c0 #4cc38a #f28b54 #bdbdbd #56d4dd', '#0969da #8250df #1a7f37 #bc4c00 #57606a #1b7c83', '그래프 레인(경고 노랑 제외, 색상 계열이 겹치지 않게: 파랑·보라·초록·주황·회색·청록)']
+];
+$('#tokTable').innerHTML = TOKENS.map(([t, c, p, u]) => `<tr><td class="mono">${t}</td><td class="mono">${c}</td><td class="mono">${p}</td><td>${u}</td></tr>`).join('');
+
+/* boot */
+buildGrid('2x2');
+refreshAll();
+renderPhone();
+renderStates();
+</script>
+</body>
+</html>
