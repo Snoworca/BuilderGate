@@ -1327,5 +1327,17 @@
   "git.window.minimize": "최소화",
   "git.window.splitter": "커밋 목록과 상세의 폭 조절",
   "git.window.tray": "최소화된 Git 창",
-  "git.window.trayItem": "Git · {session}"
+  "git.window.trayItem": "Git · {session}",
+  "git.scope.label": "보기 범위",
+  "git.scope.head": "현재 브랜치",
+  "git.scope.all": "전체 브랜치",
+  "git.scope.compare": "비교: {base}",
+  "git.scope.compareNone": "비교",
+  "git.graph.list": "커밋 목록",
+  "git.graph.uncommitted": "커밋 안 된 변경 ({count})",
+  "git.graph.vanishedRow": "브랜치에 없음 · {subject}",
+  "git.graph.loadMore": "다음 {count}개 불러오기",
+  "git.graph.shallow": "얕은 복제 · 이전 기록이 없습니다",
+  "git.graph.merge": "병합 커밋",
+  "git.graph.moreRefs": "{count}개 더: {names}"
 }

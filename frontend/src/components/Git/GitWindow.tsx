@@ -5,7 +5,11 @@
  *
  * @req FR-GIT-004
  */
-import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import type { GitClient, LogScope } from './gitApi.ts';
+import { GitGraphList } from './GitGraphList.tsx';
+import type { GitOpenTarget } from './gitWindowModel.ts';
+import { gitApi } from '../../services/api.ts';
 import { WindowDialog } from '../dialog/WindowDialog';
 import { IconButton } from '../common';
 import type { GitSummaryStore } from './gitSummaryStore.ts';
@@ -42,17 +46,39 @@ export interface GitWindowProps {
   onClose: () => void;
   onFocus: () => void;
   store?: GitSummaryStore;
-  /** The graph pane (T12b) and the right side (T13/T14). */
-  graph?: (width: number) => ReactNode;
-  side?: ReactNode;
+  client?: GitClient;
+  /** The last open request (target and nonce) from the chip, the menu or the tray. */
+  request?: { target: GitOpenTarget; nonce: number };
+  nameOf?: (sessionId: string) => string;
+  /** The right side (detail, files, diff). */
+  side?: (state: { selected: string; scope: LogScope }) => ReactNode;
 }
 
-export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, graph, side }: GitWindowProps) {
+export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, side }: GitWindowProps) {
   const git = useGitSummary(sessionId, { visible: true, running: false, mode: 'window', store });
   const summary = git.summary?.repo ? git.summary : null;
   const repo = summary ? summary.root.split(/[\\/]/).filter(Boolean).pop() ?? summary.root : '';
   const branch = summary ? (summary.detached ? (summary.head ?? '').slice(0, 7) : summary.branch ?? '') : '';
   const [split, setSplit] = useState(DEFAULT_SPLIT);
+  const [scope, setScope] = useState<LogScope>('head');
+  const [selected, setSelected] = useState<string>('');
+  const [reloadKey, setReloadKey] = useState(0);
+  const applied = useRef<number>(-1);
+  // FR-GIT-003: what the chip or menu asked for: the uncommitted row when there are
+  // changes (or when asked), else HEAD; "compare" switches the scope.
+  useEffect(() => {
+    if (!summary) return;
+    const nonce = request?.nonce ?? 0;
+    if (applied.current === nonce) return;
+    applied.current = nonce;
+    const target = request?.target ?? 'auto';
+    if (target === 'compare' && 'ref' in summary.compare) { setScope('cmp'); setSelected('CMP'); return; }
+    setScope('head');
+    setSelected(target === 'worktree' || summary.counts.paths > 0 ? 'WORKTREE' : summary.head ?? '');
+  }, [request, summary]);
+  // A new HEAD or a changed working tree reloads the list; the selection stays by sha.
+  const headKey = summary ? `${summary.head}:${summary.counts.paths}` : '';
+  useEffect(() => { setReloadKey((k) => k + 1); }, [headKey]);
   const [graphWidth, setGraphWidth] = useState(600);
 
   const onSplitKey = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -101,7 +127,20 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
       )}
     >
       <div className="git-window-body" onPointerDown={onFocus} style={{ gridTemplateColumns: `minmax(380px, ${Math.round(split * 100)}%) 6px minmax(360px, 1fr)` }}>
-        <div className="git-pane-graph" data-pane="graph" ref={graphRef}>{graph?.(graphWidth)}</div>
+        <div className="git-pane-graph" data-pane="graph" ref={graphRef}>
+          <GitGraphList
+            sessionId={sessionId}
+            client={client}
+            summary={summary}
+            scope={scope}
+            onScope={(next) => { setScope(next); if (next === 'cmp') setSelected('CMP'); else if (selected === 'CMP') setSelected(summary?.head ?? ''); }}
+            selected={selected}
+            onSelect={setSelected}
+            width={graphWidth}
+            reloadKey={reloadKey}
+            nameOf={nameOf}
+          />
+        </div>
         <div
           className="git-vsplit"
           role="separator"
@@ -115,7 +154,7 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
           onPointerDown={onSplitDrag}
           onDoubleClick={() => setSplit(DEFAULT_SPLIT)}
         />
-        <div className="git-pane-side" data-pane="side">{side}</div>
+        <div className="git-pane-side" data-pane="side">{side?.({ selected, scope })}</div>
       </div>
     </WindowDialog>
   );

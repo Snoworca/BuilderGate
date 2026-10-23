@@ -1208,6 +1208,8 @@ function AppContent() {
                         sessionId={w.sessionId}
                         sessionName={wm.tabs.find((tab) => tab.sessionId === w.sessionId)?.name ?? w.sessionId}
                         cascade={w.cascade}
+                        request={w.request}
+                        nameOf={(sessionId) => wm.tabs.find((tab) => tab.sessionId === sessionId)?.name ?? sessionId}
                         onMinimize={() => gitWindows.minimize(w.sessionId)}
                         onClose={() => gitWindows.close(w.sessionId)}
                         onFocus={() => gitWindows.focus(w.sessionId)}

@@ -1371,5 +1371,17 @@
   "git.window.minimize": "Minimize",
   "git.window.splitter": "Resize the commit list and the details",
   "git.window.tray": "Minimized Git windows",
-  "git.window.trayItem": "Git · {session}"
+  "git.window.trayItem": "Git · {session}",
+  "git.scope.label": "Scope",
+  "git.scope.head": "Current branch",
+  "git.scope.all": "All branches",
+  "git.scope.compare": "Compare: {base}",
+  "git.scope.compareNone": "Compare",
+  "git.graph.list": "Commits",
+  "git.graph.uncommitted": "Uncommitted changes ({count})",
+  "git.graph.vanishedRow": "Not on branch · {subject}",
+  "git.graph.loadMore": "Load the next {count}",
+  "git.graph.shallow": "Shallow clone · no earlier history",
+  "git.graph.merge": "Merge commit",
+  "git.graph.moreRefs": "{count} more: {names}"
 }
