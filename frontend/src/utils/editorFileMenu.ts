@@ -62,6 +62,11 @@ export interface EditorFileMenuOptions {
    * @req FR-FEX-010
    */
   onOpenFileExplorer?: (tabId: string) => void;
+  /**
+   * Opens the tab's Git window. Passed only when the tab's cwd is in a git
+   * repository; it then leads the menu. @req FR-GIT-003
+   */
+  onOpenGitWindow?: (tabId: string) => void;
 }
 
 /**
@@ -167,15 +172,20 @@ export function buildEditorFileMenuItems(options: EditorFileMenuOptions): Contex
     })),
   }));
 
-  const { onOpenFileExplorer } = options;
+  const { onOpenFileExplorer, onOpenGitWindow } = options;
+  // FR-GIT-003: in a repository, the Git window leads the menu.
+  const gitItems: ContextMenuItem[] = onOpenGitWindow
+    ? [{ label: t('git.chip.open'), onClick: () => onOpenGitWindow(options.tabId) }]
+    : [];
   if (!onOpenFileExplorer) {
-    return fileItems;
+    return [...gitItems, ...fileItems];
   }
 
   // The explorer goes first because EDITOR_INSTRUCTION_FILES can grow, and an
   // entry placed under it would drift down each time; the top stays put. It
   // opens for the right-clicked tab, which in grid mode is often not the active one.
   return [
+    ...gitItems,
     { label: t('editor.menu.fileExplorer'), onClick: () => onOpenFileExplorer(options.tabId) },
     { separator: true },
     ...fileItems,

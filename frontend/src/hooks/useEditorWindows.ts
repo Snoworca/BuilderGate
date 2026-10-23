@@ -28,6 +28,7 @@ import {
 } from '../components/editor/editorWindowRecord.ts';
 import { selectRestorableDocuments } from './editorRestoreAdmission.ts';
 import type { UseWindowStateResult } from './useWindowState.ts';
+import { gitSummaryStore } from '../components/Git/gitStores.ts';
 import {
   createEditorWindowPlacementState,
   enterFloating,
@@ -285,6 +286,8 @@ export interface UseEditorWindowsInput {
    * @req FR-FEX-010
    */
   onOpenFileExplorer?: (tabId: string) => void;
+  /** Opens a tab's Git window; offered in the path menu only for a repository. @req FR-GIT-003 */
+  onOpenGitWindow?: (tabId: string) => void;
 }
 
 export interface UseEditorWindowsResult {
@@ -364,6 +367,7 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     activeWorkspaceTabIds,
     windowState,
     onOpenFileExplorer,
+    onOpenGitWindow,
   } = input;
   const { restoreWindows, saveWindows } = windowState;
 
@@ -644,14 +648,19 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     const targetTab = selectEditorPathMenuTab(tabs, pathMenu.tabId);
     if (targetTab === null) return [];
 
+    // FR-GIT-003: "Open Git window" leads the menu when the tab's cwd is in a repository,
+    // as the chip's shared summary last reported it.
+    const sessionId = (targetTab as { sessionId?: string }).sessionId;
+    const inRepo = sessionId !== undefined && gitSummaryStore().get(sessionId).summary?.repo === true;
     return buildEditorFileMenuItems({
       cwd: targetTab.cwd,
       tabId: targetTab.id,
       openWindows: documents,
       onSelect: handleSelect,
       onOpenFileExplorer,
+      onOpenGitWindow: inRepo ? onOpenGitWindow : undefined,
     });
-  }, [documents, handleSelect, onOpenFileExplorer, pathMenu, tabs]);
+  }, [documents, handleSelect, onOpenFileExplorer, onOpenGitWindow, pathMenu, tabs]);
 
   // Read through documentsRef rather than closed over, so the function keeps
   // its identity while documents come and go: the explorer's memoized panels
