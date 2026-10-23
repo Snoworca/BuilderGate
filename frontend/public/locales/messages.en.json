@@ -1467,5 +1467,9 @@
   "git.window.checked": "Checked {time}",
   "git.window.committed": "The changes were committed. Showing the new HEAD.",
   "git.window.discarded": "No uncommitted changes are left. Showing HEAD.",
-  "git.window.refresh": "Refresh (R)"
+  "git.window.refresh": "Refresh (R)",
+  "git.diff.prevHunk": "Previous hunk",
+  "git.diff.nextHunk": "Next hunk",
+  "git.diff.navigation": "Move between hunks and files",
+  "git.window.back": "Back"
 }

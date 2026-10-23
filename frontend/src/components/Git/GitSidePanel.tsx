@@ -41,6 +41,10 @@ export interface GitSidePanelProps {
   reloadKey: number;
   onSelectCommit: (sha: string) => void;
   diff: (file: GitFileEntry | null, ctx: GitDiffContext) => ReactNode;
+  /** FR-GIT-010: on a phone the panel shows either the file list or the diff. */
+  layout?: 'files' | 'diff';
+  /** A file was picked by click or Enter (the phone layout moves to the diff). */
+  onOpenFile?: () => void;
 }
 
 type Loaded =
@@ -54,7 +58,7 @@ const AREA_BASE = { staged: 'git.files.base.staged', unstaged: 'git.files.base.u
 const KIND_LABEL = { A: 'git.kind.A', M: 'git.kind.M', D: 'git.kind.D', R: 'git.kind.R', C: 'git.kind.C', T: 'git.kind.T', X: 'git.kind.X', '?': 'git.kind.untracked' } as const satisfies Record<FileKind, MessageKey>;
 const keyOf = (area: FileArea | null, path: string) => `${area ?? ''}:${path}`;
 
-export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, onSelectCommit, diff }: GitSidePanelProps) {
+export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, onSelectCommit, diff, layout, onOpenFile }: GitSidePanelProps) {
   const [loaded, setLoaded] = useState<Loaded>(null);
   const [wt, setWt] = useState(false);
   const [fileKey, setFileKey] = useState<string | null>(null);
@@ -96,6 +100,7 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
     const map: Record<string, () => void> = {
       ArrowDown: () => move(1), j: () => move(1), ArrowUp: () => move(-1), k: () => move(-1),
       Home: () => files[0] && setFileKey(files[0].key), End: () => files.length && setFileKey(files[files.length - 1].key),
+      ...(onOpenFile ? { Enter: () => onOpenFile() } : {}),
     };
     if (map[e.key]) { e.preventDefault(); map[e.key](); }
   };
@@ -183,7 +188,7 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
         aria-label={`${t(KIND_LABEL[f.kind])}, ${f.origPath ? `${f.origPath} → ${f.path}` : f.path}`}
         className="git-file"
         title={f.origPath ? `${f.origPath} → ${f.path}` : f.path}
-        onClick={() => setFileKey(f.key)}
+        onClick={() => { setFileKey(f.key); onOpenFile?.(); }}
       >
         <span className="git-file-kind" data-kind={f.kind} aria-hidden="true">{f.kind === 'X' ? '!' : f.kind}</span>
         <span className="git-file-dir"><bdi>{dir}</bdi></span>
@@ -199,7 +204,7 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
 
   const activeIndex = files.findIndex((f) => f.key === current?.key);
   return (
-    <div className="git-side" ref={panelRef}>
+    <div className={`git-side${layout ? ` layout-${layout}` : ''}`} ref={panelRef}>
       <div className="git-detail">{detail}</div>
       <div
         className="git-files"
@@ -207,7 +212,7 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
         tabIndex={0}
         aria-label={t('git.files.list')}
         aria-activedescendant={activeIndex >= 0 ? `git-file-${sessionId}-${activeIndex}` : undefined}
-        style={{ height: filesHeight }}
+        style={layout ? undefined : { height: filesHeight }}
         onKeyDown={onFilesKey}
       >
         {rows.length ? rows : <div className="git-files-group">{t('git.files.none')}</div>}

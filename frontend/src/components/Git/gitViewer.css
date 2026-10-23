@@ -197,7 +197,26 @@
 .git-diff-status { padding: 4px 10px; }
 .git-diff-status:empty { padding: 0; }
 
-.git-badge { border: 1px solid var(--accent); border-radius: 999px; background: transparent; color: var(--accent); padding: 1px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.git-badge { border: 1px solid var(--accent); border-radius: 999px; background: transparent; color: var(--accent-text); padding: 1px 10px; font: inherit; font-size: 12px; cursor: pointer; }
 .git-badge:hover { background: var(--git-chip-hover); }
 .git-badge:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .git-toast { font-weight: 600; }
+
+/* FR-GIT-010: phone layout: a full-screen stack of list, commit and diff. */
+.git-mobile { position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; background: var(--bg-surface); color: var(--fg); }
+.git-mobile-head { display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 0 6px; border-bottom: 1px solid var(--line); }
+.git-mobile-title { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.git-mobile-title > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-mobile-btn { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: inherit; font-size: 22px; cursor: pointer; }
+.git-mobile-step { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.git-mobile-step[hidden] { display: none; }
+.git-mobile .git-window-tools { min-height: 52px; flex-wrap: wrap; }
+.git-mobile button, .git-mobile .git-check, .git-mobile .git-row, .git-mobile .git-file { min-height: 44px; }
+.git-mobile .git-check input { width: 22px; height: 22px; }
+.git-side.layout-files .git-hsplit, .git-side.layout-files .git-diff-slot { display: none; }
+.git-side.layout-files .git-files { flex: 1; height: auto; }
+.git-side.layout-diff .git-detail, .git-side.layout-diff .git-files, .git-side.layout-diff .git-hsplit { display: none; }
+.git-side.layout-diff .git-diff-slot { flex: 1; }
+.git-diff-nav { display: flex; gap: 6px; padding: 4px 6px; border-top: 1px solid var(--line); min-height: 52px; }
+.git-diff-nav button { flex: 1; min-height: 44px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+.git-diff-nav button:disabled { opacity: 0.5; }

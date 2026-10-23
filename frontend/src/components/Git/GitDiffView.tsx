@@ -81,6 +81,8 @@ export interface GitDiffViewProps {
   onOpenEditor?: (path: string) => void;
   /** Repository root as git reports it (C:/a/b on Windows, /home/... in WSL). */
   root?: string;
+  /** FR-GIT-010: phone layout: wrap on by default and a bar of hunk and file buttons. */
+  mobile?: boolean;
 }
 
 /** Repository root + relative path, in the separator style of the root (as the tab path menu uses). */
@@ -89,12 +91,12 @@ export function editorPathFor(root: string, rel: string): string {
   return `${root.replace(/\/$/, '')}/${rel}`;
 }
 
-export function GitDiffView({ sessionId, client, file, selected, wt, width, position, onMoveFile, onOpenEditor, root }: GitDiffViewProps) {
+export function GitDiffView({ sessionId, client, file, selected, wt, width, position, onMoveFile, onOpenEditor, root, mobile = false }: GitDiffViewProps) {
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [loading, setLoading] = useState(false);
   const [slow, setSlow] = useState(false);
   const [ignoreWs, setIgnoreWs] = useState(false);
-  const [wrap, setWrap] = useState(false);
+  const [wrap, setWrap] = useState(mobile);
   const [force, setForce] = useState(false);
   const [hunk, setHunk] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
@@ -277,6 +279,14 @@ export function GitDiffView({ sessionId, client, file, selected, wt, width, posi
           ? <div style={{ height: rows.length * ROW_H, position: 'relative' }}><div style={{ position: 'absolute', top: range.start * ROW_H, left: 0, right: 0 }}>{rows.slice(range.start, range.end).map((r, i) => renderRow(r, range.start + i))}</div></div>
           : rows.map(renderRow))}
       </div>
+      {mobile && (
+        <div className="git-diff-nav" role="group" aria-label={t('git.diff.navigation')}>
+          <button type="button" data-nav="prevFile" onClick={() => onMoveFile(-1)}>{t('git.diff.prevFile')}</button>
+          <button type="button" data-nav="prevHunk" disabled={!hunkCount} onClick={() => goHunk(-1)}>{t('git.diff.prevHunk')}</button>
+          <button type="button" data-nav="nextHunk" disabled={!hunkCount} onClick={() => goHunk(1)}>{t('git.diff.nextHunk')}</button>
+          <button type="button" data-nav="nextFile" onClick={() => onMoveFile(1)}>{t('git.diff.nextFile')}</button>
+        </div>
+      )}
     </div>
   );
 }

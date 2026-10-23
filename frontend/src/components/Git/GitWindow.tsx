@@ -5,6 +5,7 @@
  *
  * @req FR-GIT-004
  * @req FR-GIT-009
+ * @req FR-GIT-010
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { GitClient, LogScope } from './gitApi.ts';
@@ -29,6 +30,19 @@ export const GIT_WINDOW_MIN_SIZE = { width: 760, height: 420 } as const;
 const DEFAULT_SPLIT = 0.46;
 const SPLIT_STEP = 16;
 const CHECKED_TICK_MS = 10_000;
+export const GIT_MOBILE_BELOW = 900;
+
+/** True while the viewport is narrower than the phone breakpoint. */
+function useNarrowViewport(): boolean {
+  const read = () => (typeof window === 'undefined' ? false : window.innerWidth < GIT_MOBILE_BELOW);
+  const [narrow, setNarrow] = useState(read);
+  useEffect(() => {
+    const onResize = () => setNarrow(read());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return narrow;
+}
 
 /** Columns of the commit list a graph pane of this width can show. */
 export function graphColumns(width: number): { author: boolean; sha: boolean } {
@@ -66,9 +80,13 @@ export interface GitWindowProps {
   renderDiff?: (file: GitFileEntry | null, ctx: GitDiffContext) => ReactNode;
   /** Opens a working-tree file in the editor (FR-GIT-007). */
   onOpenEditor?: (path: string) => void;
+  /** Phone layout (FR-GIT-010); by default the viewport width decides. */
+  mobile?: boolean;
 }
 
-export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, cwd = null, ended = false, renderDiff, onOpenEditor }: GitWindowProps) {
+export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, cwd = null, ended = false, renderDiff, onOpenEditor, mobile: mobileProp }: GitWindowProps) {
+  const narrow = useNarrowViewport();
+  const mobile = mobileProp ?? narrow;
   // "Keep this window" after a move freezes the window on what it showed.
   const [frozen, setFrozen] = useState(false);
   const git = useGitSummary(sessionId, { visible: !ended && !frozen, running: false, mode: 'window', store, cwd });
@@ -175,6 +193,43 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', up);
   }, []);
+  // FR-GIT-010: on a phone the window is a stack of list (0), commit (1) and diff (2).
+  // Each step has a history entry, so the browser's back steps out and finally closes.
+  const [step, setStep] = useState(0);
+  const stepRef = useRef(0);
+  const closing = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useLayoutEffect(() => {
+    if (!mobile) return;
+    // A soft keyboard (the terminal's input) goes down before the window opens.
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== document.body && active.matches('input, textarea, select, [contenteditable]')) active.blur();
+    window.history.pushState({ gitWindow: sessionId, step: 0 }, '');
+    stepRef.current = 0;
+    setStep(0);
+    const onPop = () => {
+      if (closing.current) return;
+      if (stepRef.current > 0) { stepRef.current -= 1; setStep(stepRef.current); return; }
+      closing.current = true;
+      onCloseRef.current();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [mobile, sessionId]);
+  const goStep = useCallback((next: number) => {
+    while (stepRef.current < next) {
+      stepRef.current += 1;
+      window.history.pushState({ gitWindow: sessionId, step: stepRef.current }, '');
+    }
+    setStep(stepRef.current);
+  }, [sessionId]);
+  const closeMobile = useCallback(() => {
+    closing.current = true;
+    const entries = stepRef.current + 1;
+    onCloseRef.current();
+    window.history.go(-entries);
+  }, []);
   // R refreshes from anywhere in the window except a text field.
   const onWindowKey = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey || (e.key !== 'r' && e.key !== 'R')) return;
@@ -192,19 +247,104 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
     const observer = new ResizeObserver(() => setSideWidth(el.clientWidth || 800));
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [mobile]);
   useLayoutEffect(() => {
     const el = graphRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => setGraphWidth(el.clientWidth || 600));
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [mobile]);
+
+  const title = t('git.window.title', { repo: repo || sessionName });
+  const subtitle = t('git.window.subtitle', { session: sessionName, branch });
+  const bannerEl = (
+    <GitWindowBanner
+      banner={banner}
+      onFollow={() => { setRoot0(live?.repo ? live.root : null); setShown(live); setSelected(''); applied.current = -1; }}
+      onStay={() => setFrozen(true)}
+      onLatestHead={() => setSelected(summary?.head ?? '')}
+    />
+  );
+  const toolsEl = (
+    <div className="git-window-tools">
+      <label className="git-check"><input type="checkbox" data-opt="auto" checked={auto} onChange={(e) => { setAuto(e.target.checked); if (e.target.checked && live) setShown(live); }} />{t('git.window.autoRefresh')}</label>
+      <button type="button" className="git-icon-btn" data-refresh="" aria-label={t('git.window.refresh')} title={t('git.window.refresh')} onClick={refresh}>↻</button>
+      <span className="git-muted" data-checked="">{t('git.window.checked', { time: formatRelativeTime(checkedAt, Date.now(), activeLanguage(), t('git.time.justNow')) })}</span>
+      <span className="git-spacer" />
+      <span role="status" className="git-window-status">
+        {pending && <button type="button" className="git-badge" data-list-badge="" onClick={() => live && setShown(live)}>{t('git.window.listBadge')}</button>}
+        {toast && <span className="git-toast" data-toast={toast}>{t(toast === 'committed' ? 'git.window.committed' : 'git.window.discarded')}</span>}
+      </span>
+    </div>
+  );
+  const graphEl = (
+    <GitGraphList
+      sessionId={sessionId}
+      client={client}
+      summary={summary}
+      scope={scope}
+      onScope={(next) => { setScope(next); if (next === 'cmp') setSelected('CMP'); else if (selected === 'CMP') setSelected(summary?.head ?? ''); }}
+      selected={selected}
+      onSelect={setSelected}
+      onOpen={mobile ? () => goStep(1) : undefined}
+      width={graphWidth}
+      reloadKey={reloadKey}
+      nameOf={nameOf}
+      vanished={vanished}
+      onLoaded={onLoaded}
+      onCompare={setCompare}
+    />
+  );
+  const sideEl = (
+    <GitSidePanel
+      sessionId={sessionId}
+      client={client}
+      summary={summary}
+      selected={selected}
+      reloadKey={reloadKey}
+      onSelectCommit={setSelected}
+      layout={mobile ? (step === 2 ? 'diff' : 'files') : undefined}
+      onOpenFile={mobile ? () => goStep(2) : undefined}
+      diff={(file, ctx) => (renderDiff ? renderDiff(file, ctx) : (
+        <GitDiffView
+          sessionId={sessionId}
+          client={client}
+          file={file}
+          selected={ctx.selected}
+          wt={ctx.wt}
+          reloadKey={reloadKey}
+          width={sideWidth}
+          position={ctx.position}
+          onMoveFile={ctx.moveFile}
+          onOpenEditor={onOpenEditor}
+          root={summary?.root}
+          mobile={mobile}
+        />
+      ))}
+    />
+  );
+
+  if (mobile) {
+    return (
+      <div className="git-mobile" role="dialog" aria-modal="true" aria-label={title} data-step={step} onKeyDown={onWindowKey}>
+        <div className="git-mobile-head">
+          <button type="button" className="git-mobile-btn" data-back="" aria-label={t('git.window.back')} onClick={() => window.history.back()}>‹</button>
+          <span className="git-mobile-title"><b>{title}</b><span className="git-window-sub">{subtitle}</span></span>
+          <button type="button" className="git-mobile-btn" data-close="" aria-label={t('common.close')} onClick={closeMobile}>×</button>
+        </div>
+        {bannerEl}
+        {toolsEl}
+        <div className="git-mobile-step" data-pane="graph" ref={graphRef} hidden={step !== 0}>{graphEl}</div>
+        <div className="git-mobile-step" data-pane="side" ref={sideRef} hidden={step === 0}>{sideEl}</div>
+      </div>
+    );
+  }
 
   return (
     <WindowDialog
       dialogId={`git-window-${sessionId}`}
-      title={t('git.window.title', { repo: repo || sessionName })}
+      title={title}
       mode="modeless"
       defaultRect={defaultGitWindowRect(cascade)}
       minSize={GIT_WINDOW_MIN_SIZE}
@@ -213,45 +353,15 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
       surfaceClassName="git-window"
       titlebarActions={(
         <>
-          <span className="git-window-sub">{t('git.window.subtitle', { session: sessionName, branch })}</span>
+          <span className="git-window-sub">{subtitle}</span>
           <IconButton icon="minimize" label={t('git.window.minimize')} onClick={onMinimize} />
         </>
       )}
     >
-      <GitWindowBanner
-        banner={banner}
-        onFollow={() => { setRoot0(live?.repo ? live.root : null); setShown(live); setSelected(''); applied.current = -1; }}
-        onStay={() => setFrozen(true)}
-        onLatestHead={() => setSelected(summary?.head ?? '')}
-      />
-      <div className="git-window-tools">
-        <label className="git-check"><input type="checkbox" data-opt="auto" checked={auto} onChange={(e) => { setAuto(e.target.checked); if (e.target.checked && live) setShown(live); }} />{t('git.window.autoRefresh')}</label>
-        <button type="button" className="git-icon-btn" data-refresh="" aria-label={t('git.window.refresh')} title={t('git.window.refresh')} onClick={refresh}>↻</button>
-        <span className="git-muted" data-checked="">{t('git.window.checked', { time: formatRelativeTime(checkedAt, Date.now(), activeLanguage(), t('git.time.justNow')) })}</span>
-        <span className="git-spacer" />
-        <span role="status" className="git-window-status">
-          {pending && <button type="button" className="git-badge" data-list-badge="" onClick={() => live && setShown(live)}>{t('git.window.listBadge')}</button>}
-          {toast && <span className="git-toast" data-toast={toast}>{t(toast === 'committed' ? 'git.window.committed' : 'git.window.discarded')}</span>}
-        </span>
-      </div>
+      {bannerEl}
+      {toolsEl}
       <div className="git-window-body" onPointerDown={onFocus} onKeyDown={onWindowKey} style={{ gridTemplateColumns: `minmax(380px, ${Math.round(split * 100)}%) 6px minmax(360px, 1fr)` }}>
-        <div className="git-pane-graph" data-pane="graph" ref={graphRef}>
-          <GitGraphList
-            sessionId={sessionId}
-            client={client}
-            summary={summary}
-            scope={scope}
-            onScope={(next) => { setScope(next); if (next === 'cmp') setSelected('CMP'); else if (selected === 'CMP') setSelected(summary?.head ?? ''); }}
-            selected={selected}
-            onSelect={setSelected}
-            width={graphWidth}
-            reloadKey={reloadKey}
-            nameOf={nameOf}
-            vanished={vanished}
-            onLoaded={onLoaded}
-            onCompare={setCompare}
-          />
-        </div>
+        <div className="git-pane-graph" data-pane="graph" ref={graphRef}>{graphEl}</div>
         <div
           className="git-vsplit"
           role="separator"
@@ -265,31 +375,7 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
           onPointerDown={onSplitDrag}
           onDoubleClick={() => setSplit(DEFAULT_SPLIT)}
         />
-        <div className="git-pane-side" data-pane="side" ref={sideRef}>
-          <GitSidePanel
-            sessionId={sessionId}
-            client={client}
-            summary={summary}
-            selected={selected}
-            reloadKey={reloadKey}
-            onSelectCommit={setSelected}
-            diff={(file, ctx) => (renderDiff ? renderDiff(file, ctx) : (
-              <GitDiffView
-                sessionId={sessionId}
-                client={client}
-                file={file}
-                selected={ctx.selected}
-                wt={ctx.wt}
-                reloadKey={reloadKey}
-                width={sideWidth}
-                position={ctx.position}
-                onMoveFile={ctx.moveFile}
-                onOpenEditor={onOpenEditor}
-                root={summary?.root}
-              />
-            ))}
-          />
-        </div>
+        <div className="git-pane-side" data-pane="side" ref={sideRef}>{sideEl}</div>
       </div>
     </WindowDialog>
   );

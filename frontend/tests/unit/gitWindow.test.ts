@@ -124,3 +124,48 @@ test('FR-GIT-009: R refreshes from anywhere in the window; keys typed in a field
   assert.ok(fetched > before);
   await r.cleanup();
 });
+
+// @req FR-GIT-010
+test('FR-GIT-010: under 900 px the window is a full-screen stack of list, commit and diff; back steps out, then closes', async () => {
+  const win = document.defaultView as Window & typeof globalThis;
+  const typing = document.createElement('textarea');
+  document.body.appendChild(typing);
+  typing.focus();
+  assert.equal(document.activeElement, typing);
+  const closed: string[] = [];
+  const store = createGitSummaryStore({ fetchSummary: async () => repoSummary('h1', 0) as never });
+  const c = fakeClient();
+  c.commit = async (_s: string, sha: string) => {
+    c.calls.push(`commit:${sha}`);
+    return { sha, parents: [], author: 'a', email: '', time: 1, committer: 'a', refs: [], message: 'm', files: [{ path: 'src/a.ts', kind: 'M', add: 1, del: 1, binary: false, inputs: { old: { id: 'x' }, new: { id: 'y' } } }], truncated: false } as never;
+  };
+  c.diff = async () => ({ inputs: { old: { id: 'x' }, new: { id: 'y' } }, hunks: [
+    { oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, header: '@@ -1 +1 @@', lines: [{ k: '-', o: 1, n: null, t: 'a' }, { k: '+', o: null, n: 1, t: 'b' }] },
+  ], truncated: false }) as never;
+  const depth = win.history.length;
+  const r = await render(React.createElement(GitWindow, { sessionId: 'm1', sessionName: 'x', store, client: c as never, cascade: 0, mobile: true, onMinimize: () => {}, onClose: () => closed.push('close'), onFocus: () => {} }));
+  assert.notEqual(document.activeElement, typing, 'the soft keyboard is dismissed first');
+  const shell = () => document.querySelector('.git-mobile') as HTMLElement;
+  assert.ok(shell(), 'full-screen layout');
+  assert.equal(shell().getAttribute('data-step'), '0');
+  assert.equal(win.history.length, depth + 1, 'step 0 has its own history entry');
+  const row = document.querySelector('.git-row[data-key="h1"]') as HTMLElement;
+  await act(async () => { row.click(); await new Promise((res) => setTimeout(res, 30)); });
+  assert.equal(shell().getAttribute('data-step'), '1');
+  const fileRow = document.querySelector('.git-file') as HTMLElement;
+  assert.ok(fileRow, 'the commit step lists the files');
+  await act(async () => { fileRow.click(); await new Promise((res) => setTimeout(res, 250)); });
+  assert.equal(shell().getAttribute('data-step'), '2');
+  assert.equal(win.history.length, depth + 3);
+  assert.ok(document.querySelector('[data-nav="prevHunk"]') && document.querySelector('[data-nav="nextHunk"]'), 'hunk buttons');
+  assert.equal((document.querySelector('input[data-opt="wrap"]') as HTMLInputElement).checked, true, 'wrap on by default');
+  const back = () => act(async () => { win.history.back(); await new Promise((res) => setTimeout(res, 30)); });
+  await back();
+  assert.equal(shell().getAttribute('data-step'), '1');
+  await back();
+  assert.equal(shell().getAttribute('data-step'), '0');
+  await back();
+  assert.deepEqual(closed, ['close']);
+  typing.remove();
+  await r.cleanup();
+});

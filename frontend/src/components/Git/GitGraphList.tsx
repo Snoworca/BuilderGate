@@ -28,6 +28,8 @@ export interface GitGraphListProps {
   onScope: (scope: LogScope) => void;
   selected: string;
   onSelect: (key: string) => void;
+  /** A row was opened by click or Enter (the phone layout moves to the commit). */
+  onOpen?: (key: string) => void;
   width: number;
   /** Bumped by the window to reload the first page. */
   reloadKey: number;
@@ -73,7 +75,7 @@ function RefBadges({ refs }: { refs: GitRef[] }) {
   );
 }
 
-export function GitGraphList({ sessionId, client, summary, scope, onScope, selected, onSelect, width, reloadKey, nameOf, vanished, onLoaded, onCompare }: GitGraphListProps) {
+export function GitGraphList({ sessionId, client, summary, scope, onScope, selected, onSelect, onOpen, width, reloadKey, nameOf, vanished, onLoaded, onCompare }: GitGraphListProps) {
   const [commits, setCommits] = useState<GitLogCommit[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [shallow, setShallow] = useState(false);
@@ -138,6 +140,7 @@ export function GitGraphList({ sessionId, client, summary, scope, onScope, selec
     if (e.key in moves) next = i + moves[e.key];
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = rows.length - 1;
+    else if (e.key === 'Enter' && onOpen && selected) { e.preventDefault(); onOpen(selected); return; }
     if (next === null) return;
     e.preventDefault();
     const row = rows[Math.max(0, Math.min(rows.length - 1, next))];
@@ -191,7 +194,7 @@ export function GitGraphList({ sessionId, client, summary, scope, onScope, selec
               data-kind={r.kind}
               data-range={range_}
               className="git-row"
-              onClick={() => onSelect(r.key)}
+              onClick={() => { onSelect(r.key); onOpen?.(r.key); }}
             >
               {r.graph ? <RowGraph g={r.graph} lanes={laneCount} dashed={r.kind === 'worktree'} /> : <span style={{ width: 10 + laneCount * LANE_W, flexShrink: 0 }} />}
               <span className="git-row-subject">{c && <RefBadges refs={c.refs} />}<span className="git-row-text">{subject}</span></span>
