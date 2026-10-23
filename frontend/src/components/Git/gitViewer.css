@@ -142,3 +142,40 @@
 .git-hsplit { height: 6px; flex-shrink: 0; background: var(--line); cursor: row-resize; }
 .git-hsplit:hover, .git-hsplit:focus-visible { background: var(--accent); outline: none; }
 .git-diff-slot { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Diff (FR-GIT-007) */
+.git-diff { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.git-diff-head { min-height: 36px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 12px; background: var(--diff-head-bg); border-bottom: 1px solid var(--line); flex-wrap: wrap; font-size: var(--fs-xs); }
+.git-diff-path { display: flex; align-items: center; gap: 4px; min-width: 0; max-width: 46%; font-family: var(--font-mono); }
+.git-diff-pp { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; min-width: 30px; }
+.git-diff-pp bdi { direction: ltr; }
+.git-spacer { flex: 1; }
+.git-icon-btn { width: var(--ctl-sm); height: var(--ctl-sm); border: 0; border-radius: var(--r-sm); background: transparent; color: var(--fg-muted); cursor: pointer; font-size: 16px; }
+.git-icon-btn:hover { background: var(--bg-hover); color: var(--fg); }
+.git-icon-btn:focus-visible { outline: 2px solid var(--accent); }
+.git-view-menu { position: relative; }
+.git-view-menu summary { list-style: none; height: var(--ctl-sm); padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg-raised); cursor: pointer; display: flex; align-items: center; }
+.git-view-menu summary::-webkit-details-marker { display: none; }
+.git-view-menu-body { position: absolute; right: 0; top: 32px; z-index: 5; display: flex; flex-direction: column; gap: 8px; min-width: 200px; padding: 10px; background: var(--bg-surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-popover); }
+.git-diff-body { flex: 1; min-height: 0; overflow: auto; background: var(--bg-sunken); font-family: var(--font-mono); font-size: 12px; line-height: 20px; outline: none; }
+.git-diff-body:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.git-hunk { position: sticky; top: 0; z-index: 1; padding: 2px 12px; background: var(--diff-hunk-bg); color: var(--diff-hunk-fg); white-space: nowrap; }
+.git-gap { display: flex; gap: 8px; align-items: center; padding: 2px 12px; background: var(--diff-gap-bg); color: var(--fg-muted); font-family: var(--font-sans); }
+.git-dl { display: flex; min-width: max-content; color: var(--fg); }
+.git-dl-no { flex-shrink: 0; text-align: right; padding-right: 8px; color: var(--git-lineno); user-select: none; }
+.git-dl-sign { width: 16px; flex-shrink: 0; text-align: center; user-select: none; }
+.git-dl-text { white-space: pre; padding-right: 16px; }
+.git-dl.add { background: var(--diff-add-bg); }
+.git-dl.add .git-dl-sign { color: var(--ok-text); }
+.git-dl.del { background: var(--diff-del-bg); }
+.git-dl.del .git-dl-sign { color: var(--danger-text); }
+.git-dl.add mark { background: var(--diff-add-word); color: inherit; border-radius: 2px; }
+.git-dl.del mark { background: var(--diff-del-word); color: inherit; border-radius: 2px; }
+.git-diff-body.wrap .git-dl { min-width: 0; align-items: flex-start; }
+.git-diff-body.wrap .git-dl-text { display: block; white-space: pre-wrap; word-break: break-all; flex: 1; min-width: 0; }
+.git-notice { margin: 16px; padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: var(--r-md); color: var(--fg-muted); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; line-height: 1.5; }
+.git-notice b { color: var(--fg); }
+.git-diff-loading { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.git-skel { height: 12px; border-radius: 6px; width: 65%; background: linear-gradient(90deg, var(--bg-raised), var(--line-strong), var(--bg-raised)); background-size: 200% 100%; animation: git-sh 1.2s infinite linear; }
+@keyframes git-sh { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .git-skel { animation: none; } }

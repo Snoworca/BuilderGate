@@ -29,6 +29,8 @@ export interface GitDiffContext {
   selected: string;
   /** For the comparison: include the working tree. */
   wt: boolean;
+  position: { index: number; total: number };
+  moveFile: (delta: number) => void;
 }
 
 export interface GitSidePanelProps {
@@ -221,7 +223,7 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
         onPointerDown={onSplitDrag}
         onDoubleClick={() => setFilesHeight(150)}
       />
-      <div className="git-diff-slot">{diff(current, { selected, wt })}</div>
+      <div className="git-diff-slot">{diff(current, { selected, wt, position: { index: Math.max(0, activeIndex), total: files.length }, moveFile: move })}</div>
     </div>
   );
 }

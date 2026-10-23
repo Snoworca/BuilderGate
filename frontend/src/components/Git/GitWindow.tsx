@@ -10,6 +10,7 @@ import type { GitClient, LogScope } from './gitApi.ts';
 import { GitGraphList } from './GitGraphList.tsx';
 import { GitWindowBanner, pickGitBanner } from './GitWindowBanner.tsx';
 import { GitSidePanel, type GitDiffContext, type GitFileEntry } from './GitSidePanel.tsx';
+import { GitDiffView } from './GitDiffView.tsx';
 import type { GitCompare, GitLogCommit } from './gitApi.ts';
 import type { GitOpenTarget } from './gitWindowModel.ts';
 import { gitApi } from '../../services/api.ts';
@@ -57,11 +58,13 @@ export interface GitWindowProps {
   cwd?: string | null;
   /** The session is gone: keep the last state, stop refreshing. */
   ended?: boolean;
-  /** The diff of the selected file (FR-GIT-007). */
-  renderDiff?: (file: GitFileEntry | null, ctx: GitDiffContext & { sessionId: string; reloadKey: number; summary: import('./gitApi.ts').RepoSummary | null }) => ReactNode;
+  /** Replaces the diff of the selected file (tests). */
+  renderDiff?: (file: GitFileEntry | null, ctx: GitDiffContext) => ReactNode;
+  /** Opens a working-tree file in the editor (FR-GIT-007). */
+  onOpenEditor?: (path: string) => void;
 }
 
-export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, cwd = null, ended = false, renderDiff }: GitWindowProps) {
+export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, cwd = null, ended = false, renderDiff, onOpenEditor }: GitWindowProps) {
   // "Keep this window" after a move freezes the window on what it showed.
   const [frozen, setFrozen] = useState(false);
   const git = useGitSummary(sessionId, { visible: !ended && !frozen, running: false, mode: 'window', store, cwd });
@@ -138,6 +141,15 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
     handle.addEventListener('pointerup', up);
   }, []);
   const graphRef = useRef<HTMLDivElement | null>(null);
+  const sideRef = useRef<HTMLDivElement | null>(null);
+  const [sideWidth, setSideWidth] = useState(800);
+  useLayoutEffect(() => {
+    const el = sideRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setSideWidth(el.clientWidth || 800));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   useLayoutEffect(() => {
     const el = graphRef.current;
     if (!el) return;
@@ -200,7 +212,7 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
           onPointerDown={onSplitDrag}
           onDoubleClick={() => setSplit(DEFAULT_SPLIT)}
         />
-        <div className="git-pane-side" data-pane="side">
+        <div className="git-pane-side" data-pane="side" ref={sideRef}>
           <GitSidePanel
             sessionId={sessionId}
             client={client}
@@ -208,7 +220,20 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
             selected={selected}
             reloadKey={reloadKey}
             onSelectCommit={setSelected}
-            diff={(file, ctx) => renderDiff?.(file, { ...ctx, sessionId, reloadKey, summary }) ?? null}
+            diff={(file, ctx) => (renderDiff ? renderDiff(file, ctx) : (
+              <GitDiffView
+                sessionId={sessionId}
+                client={client}
+                file={file}
+                selected={ctx.selected}
+                wt={ctx.wt}
+                reloadKey={reloadKey}
+                width={sideWidth}
+                position={ctx.position}
+                onMoveFile={ctx.moveFile}
+                onOpenEditor={onOpenEditor}
+              />
+            ))}
           />
         </div>
       </div>

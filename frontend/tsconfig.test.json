@@ -34,6 +34,7 @@
     "./tests/unit/gitGraphList.test.ts",
     "./tests/unit/gitWindowBanner.test.ts",
     "./tests/unit/gitSidePanel.test.ts",
+    "./tests/unit/gitDiffView.test.ts",
     "./tests/unit/apiErrorMessages.test.ts",
     "./tests/unit/terminalRedrawTabView.test.ts",
     "./tests/unit/editorWaitBanner.test.ts",
