@@ -661,6 +661,8 @@ interface FairTerminalLane {
   deficitBytes: number;
   firstServiceLatencies: number[];
   completeLatencies: number[];
+  /** REL-BGSTAB-051 AC-3: the latency arrays keep a recent window; the maximum is kept here. */
+  completeMaxMs: number;
   lastServiceAt?: number;
   maximumNoServiceIntervalMs: number;
   peakApplicationQueuedBytes: number;
@@ -675,6 +677,21 @@ function fairLaneKey(connectionEpoch: string, sessionId: string): string {
   return `${connectionEpoch}/${sessionId}`;
 }
 
+/**
+ * REL-BGSTAB-051 AC-3: latency samples kept per lane (and for control messages). A connection can
+ * stay open for days; an unbounded array grew without limit and `Math.max(...values)` threw a
+ * RangeError past ~150,000 samples, which also broke the release path that snapshots the lane.
+ * Percentiles are over this recent window; the maximum is tracked over the whole lane.
+ */
+export const FAIR_LATENCY_WINDOW = 4096;
+
+function pushLatency(values: number[], value: number): void {
+  values.push(value);
+  if (values.length > FAIR_LATENCY_WINDOW * 2) values.splice(0, values.length - FAIR_LATENCY_WINDOW);
+}
+
+const MAX_PROTOCOL_ERRORS = 1024;
+
 function percentile(values: readonly number[], ratio: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((left, right) => left - right);
@@ -682,12 +699,14 @@ function percentile(values: readonly number[], ratio: number): number {
   return sorted[index];
 }
 
-function percentileMatrix(values: readonly number[]): { p50: number; p95: number; p99: number; max: number } {
+function percentileMatrix(values: readonly number[], max?: number): { p50: number; p95: number; p99: number; max: number } {
+  let windowMax = 0;
+  for (const value of values) if (value > windowMax) windowMax = value;
   return {
     p50: percentile(values, 0.5),
     p95: percentile(values, 0.95),
     p99: percentile(values, 0.99),
-    max: values.length === 0 ? 0 : Math.max(...values),
+    max: values.length === 0 ? 0 : Math.max(windowMax, max ?? 0),
   };
 }
 
@@ -718,7 +737,8 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
   const protocolErrors: FairAckDiagnostic[] = [];
   const releases: Record<string, number> = {};
   let roundRobinCursor = 0;
-  let controlLatencies: number[] = [];
+  const controlLatencies: number[] = [];
+  let controlMaxMs = 0;
   let totalSentBytes = 0;
   const startedAt = options.now();
 
@@ -743,6 +763,7 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
       deficitBytes: 0,
       firstServiceLatencies: [],
       completeLatencies: [],
+      completeMaxMs: 0,
       maximumNoServiceIntervalMs: 0,
       peakApplicationQueuedBytes: 0,
       peakSocketQueuedBytes: 0,
@@ -763,6 +784,7 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
       ...(typeof input.streamEpoch === 'string' ? { streamEpoch: input.streamEpoch } : {}),
       ...(typeof input.sourceSeq === 'string' ? { sourceSeq: input.sourceSeq } : {}),
     });
+    if (protocolErrors.length > MAX_PROTOCOL_ERRORS) protocolErrors.splice(0, protocolErrors.length - MAX_PROTOCOL_ERRORS);
     return { accepted: false, creditedBytes: 0, errorCode: code };
   };
 
@@ -826,8 +848,12 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
     const now = options.now();
     const latency = Math.max(0, now - delivery.queuedAt);
     if (lane.firstServiceLatencies.length === 0) lane.firstServiceLatencies.push(latency);
-    lane.completeLatencies.push(latency);
-    if (delivery.kind === 'control') controlLatencies.push(latency);
+    pushLatency(lane.completeLatencies, latency);
+    if (latency > lane.completeMaxMs) lane.completeMaxMs = latency;
+    if (delivery.kind === 'control') {
+      pushLatency(controlLatencies, latency);
+      if (latency > controlMaxMs) controlMaxMs = latency;
+    }
     if (lane.lastServiceAt !== undefined) {
       lane.maximumNoServiceIntervalMs = Math.max(lane.maximumNoServiceIntervalMs, now - lane.lastServiceAt);
     }
@@ -1024,7 +1050,7 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
       }]));
       const metricLanes = Object.fromEntries(activeLanes.map(lane => [lane.key, {
         enqueueToFirstServiceMs: percentileMatrix(lane.firstServiceLatencies),
-        enqueueToCompleteMs: percentileMatrix(lane.completeLatencies),
+        enqueueToCompleteMs: percentileMatrix(lane.completeLatencies, lane.completeMaxMs),
         maxNoServiceIntervalMs: lane.maximumNoServiceIntervalMs,
         peakApplicationQueuedBytes: lane.peakApplicationQueuedBytes,
         peakSocketQueuedBytes: lane.peakSocketQueuedBytes,
@@ -1036,7 +1062,7 @@ export function createFairTerminalDeliveryScheduler(options: FairTerminalDeliver
         lanes: laneSnapshots,
         metrics: {
           lanes: metricLanes,
-          controlLatency: percentileMatrix(controlLatencies),
+          controlLatency: percentileMatrix(controlLatencies, controlMaxMs),
           aggregateThroughputBytesPerSecond: totalSentBytes * 1000 / Math.max(1, options.now() - startedAt),
         },
         policy: options.policy,

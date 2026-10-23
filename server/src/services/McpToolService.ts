@@ -285,6 +285,24 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
   ...MCP_MANAGEMENT_TOOL_SCHEMAS,
 };
 
+/**
+ * REL-BGSTAB-051 AC-4: audit events, assignments and validation results kept in memory. The
+ * status reads only the last 25 and every audit event is also logged, so older entries had no
+ * reader; kept forever they grew with every MCP call for the life of the daemon.
+ */
+export const MCP_HISTORY_LIMIT = 256;
+
+export function pushBounded<T>(list: T[], item: T, limit: number): void {
+  list.push(item);
+  if (list.length > limit) list.splice(0, list.length - limit);
+}
+
+export function rememberBounded<K, V>(map: Map<K, V>, key: K, value: V, limit: number): void {
+  map.delete(key);
+  map.set(key, value);
+  while (map.size > limit) map.delete(map.keys().next().value as K);
+}
+
 // @req IR-MCP-001
 // @req OBS-MCP-001
 export function createMcpToolService(deps: McpToolServiceDeps = {}): StringRecord {
@@ -1129,7 +1147,7 @@ async function deliverMcpMessage(
     ],
     failureCode: deliveryAccepted ? undefined : asString(deliveryResult.code) ?? 'DELIVERY_FAILED',
   };
-  state.assignments.set(String(storedAssignment.assignmentId), storedAssignment);
+  rememberBounded(state.assignments, String(storedAssignment.assignmentId), storedAssignment, MCP_HISTORY_LIMIT);
   emitToolAudit(deps, state, {
     auditId,
     action: input.action,
@@ -1538,7 +1556,7 @@ function recordValidationResult(state: McpToolServiceState, request: StringRecor
     covered: status === 'covered',
     recordedAt: new Date().toISOString(),
   });
-  state.validationResults.push(result);
+  pushBounded(state.validationResults, result, MCP_HISTORY_LIMIT);
   return result;
 }
 
@@ -2141,7 +2159,7 @@ function emitToolAudit(deps: McpToolServiceDeps, state: McpToolServiceState, eve
     promptHash: event.promptHash,
     timestamp: new Date().toISOString(),
   });
-  state.auditEvents.push(auditEvent);
+  pushBounded(state.auditEvents, auditEvent, MCP_HISTORY_LIMIT);
   deps.audit?.(auditEvent);
   return auditId;
 }

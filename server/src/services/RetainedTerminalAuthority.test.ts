@@ -3306,6 +3306,20 @@ test('PERF-BGSTAB-022 the retained ordinal is read without serializing the scrol
   }
 });
 
+test('REL-BGSTAB-051 AC-2 the memory section counts OSC 8 link entries held by headless terminals', async () => {
+  const signature = 'REL-BGSTAB-051 AC-2 link entries missing from the observability snapshot';
+  const harness = createHarness({ sessionId: 'osc-link-count-session' });
+  try {
+    harness.pty.emitData('\x1b[H\x1b]8;;https://example.com\x07link\x1b]8;;\x07\r\n'.repeat(50));
+    assert.equal(await harness.manager.waitForTerminalResourcePolicyHeadlessDrain(harness.sessionId), true, signature);
+    const sessions = (harness.manager.getObservabilitySnapshot() as unknown as { memory?: { sessions: Record<string, number> } }).memory?.sessions;
+    assert.equal(typeof sessions?.oscLinkEntries, 'number', signature);
+    assert.equal(sessions?.oscLinkEntries, 0, `${signature}: the headless terminal kept link entries`);
+  } finally {
+    harness.close();
+  }
+});
+
 test('OBS-BGSTAB-011 the observability snapshot breaks memory down by process and by session', async () => {
   const signature = 'OBS-BGSTAB-011 memory breakdown missing from the observability snapshot';
   const harness = createHarness({ sessionId: 'memory-breakdown-session' });

@@ -29,6 +29,7 @@ import { AppError, ErrorCode } from '../utils/errors.js';
 import {
   createHeadlessTerminalState,
   compareRetainedHeadlessCheckpointRoundTrip,
+  countHeadlessOscLinks,
   disposeHeadlessTerminal,
   markRetainedHeadlessSourceSequence,
   readRetainedHeadlessBufferMetrics,
@@ -268,6 +269,8 @@ interface SessionManagerMemoryObservability {
     degradedReplayMB: number;
     retainedRecords: number;
     retainedFacts: number;
+    /** REL-BGSTAB-051 AC-2: OSC 8 link entries held by headless terminals (expected 0). */
+    oscLinkEntries: number;
   };
   largestSessions: Array<{ sessionId: string; cols: number; bufferLines: number; estimatedMB: number }>;
 }
@@ -7730,7 +7733,7 @@ export class SessionManager {
   private sampleMemoryObservability(): SessionManagerMemoryObservability {
     const mb = (bytes: number): number => Math.round(bytes / 1e3) / 1e3;
     const usage = process.memoryUsage();
-    const totals = { terminalBuffer: 0, keptOutput: 0, snapshotCache: 0, degradedReplay: 0, records: 0, facts: 0 };
+    const totals = { terminalBuffer: 0, keptOutput: 0, snapshotCache: 0, degradedReplay: 0, records: 0, facts: 0, oscLinks: 0 };
     const perSession: Array<{ sessionId: string; cols: number; bufferLines: number; bytes: number }> = [];
     for (const [sessionId, data] of this.sessions) {
       const terminal = data.headless?.terminal;
@@ -7746,6 +7749,7 @@ export class SessionManager {
       totals.degradedReplay += degradedBytes;
       totals.records += data.retainedTerminal.records.length;
       totals.facts += data.retainedTerminal.facts.length;
+      if (data.headless) totals.oscLinks += countHeadlessOscLinks(data.headless);
       perSession.push({ sessionId: sessionId.slice(0, 8), cols, bufferLines, bytes: bufferBytes + keptBytes + cacheBytes + degradedBytes });
     }
     perSession.sort((left, right) => right.bytes - left.bytes);
@@ -7764,6 +7768,7 @@ export class SessionManager {
         degradedReplayMB: mb(totals.degradedReplay),
         retainedRecords: totals.records,
         retainedFacts: totals.facts,
+        oscLinkEntries: totals.oscLinks,
       },
       largestSessions: perSession.slice(0, 5).map((entry) => ({
         sessionId: entry.sessionId,

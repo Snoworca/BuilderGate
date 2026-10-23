@@ -282,6 +282,13 @@ export function createHeadlessTerminalState(options: {
     windowsPty: options.windowsPty,
   });
   installUnicodeWidthTable(terminal);
+  // REL-BGSTAB-051 AC-1: xterm keeps a marker, its listeners and a link entry (~3 KB) for every
+  // OSC 8 hyperlink without an id, freed only when the line leaves scrollback. A TUI that
+  // redraws in place, clears or resets never frees them; the 2002 daemon reached the V8 heap
+  // limit this way (2026-10-23). The serialize addon never writes links back, so restored
+  // screens never had them: a handler that consumes OSC 8 here changes no text, cursor or
+  // live output byte. Browsers still receive the original sequence.
+  terminal.parser.registerOscHandler(8, () => true);
   const serializeAddon = new SerializeAddon();
   terminal.loadAddon(serializeAddon);
   const state: HeadlessTerminalState = {
@@ -324,6 +331,12 @@ export function writeHeadlessTerminal(state: HeadlessTerminalState, data: string
  * FR-MCP-008: the last `maxLines` logical lines of the active buffer as plain text. Wrapped rows
  * are joined back into one line, attributes are dropped and trailing blank lines trimmed.
  */
+/** OSC 8 link entries xterm holds for this terminal (REL-BGSTAB-051 AC-2; expected 0). */
+export function countHeadlessOscLinks(state: HeadlessTerminalState): number {
+  const core = (state.terminal as unknown as { _core?: { _oscLinkService?: { _dataByLinkId?: Map<number, unknown> } } })._core;
+  return core?._oscLinkService?._dataByLinkId?.size ?? 0;
+}
+
 export function readHeadlessTerminalText(state: HeadlessTerminalState, maxLines: number): string {
   if (maxLines <= 0) return '';
   const buffer = state.terminal.buffer.active;

@@ -634,3 +634,15 @@ test('forgetting an unknown group is not an error and touches nothing', () => {
 
   assert.equal(internals.terminalBinaryGroups.size, 1);
 });
+
+// REL-BGSTAB-051 AC-5: a unified connection's binary group goes with the connection. Only split
+// groups were forgotten on close, so every unified client that offered binary left one behind.
+test('REL-BGSTAB-051 AC-5 closing a unified connection removes its binary channel group', () => {
+  const { ws, internals } = setup('binary-optin');
+  internals.handleTerminalBinaryCapability(ws, VALID_OFFER);
+  assert.equal(internals.terminalBinaryGroups.size, 1, 'the offer did not create a binary group');
+  const close = (internals as unknown as { handleSocketClose?: (socket: WebSocket) => void }).handleSocketClose;
+  assert.equal(typeof close, 'function', 'WsRouter.handleSocketClose is missing');
+  close!.call(internals, ws);
+  assert.equal(internals.terminalBinaryGroups.size, 0, 'the binary group outlived its connection');
+});

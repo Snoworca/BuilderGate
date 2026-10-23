@@ -1863,15 +1863,7 @@ export class WsRouter {
         }
       });
 
-      ws.on('close', () => {
-        this.handleDisconnect(ws);
-        const group = this.splitSocketGroups.get(ws);
-        if (group?.control === ws) {
-          group.output?.close(1001, 'control-closed');
-          this.forgetSplitClientGroup(group.clientGroupId);
-        }
-        this.splitSocketGroups.delete(ws);
-      });
+      ws.on('close', () => this.handleSocketClose(ws));
 
       ws.on('error', (err) => {
         console.error(`[WS] Client error (${clientId}):`, err.message);
@@ -2017,6 +2009,21 @@ export class WsRouter {
    * socket to the control socket (`FR-BGSTAB-007` AC-3/AC-4), and a per-socket
    * codec would make that fallback undecodable.
    */
+  private handleSocketClose(ws: WebSocket): void {
+    // REL-BGSTAB-051 AC-5: read the key before handleDisconnect forgets the client.
+    const binaryKey = this.terminalBinaryGroupKey(ws);
+    this.handleDisconnect(ws);
+    const group = this.splitSocketGroups.get(ws);
+    if (group?.control === ws) {
+      group.output?.close(1001, 'control-closed');
+      this.forgetSplitClientGroup(group.clientGroupId);
+    } else if (!group && binaryKey !== undefined) {
+      // A unified connection is its own group; its key is a fresh id that is never reused.
+      this.terminalBinaryGroups.delete(binaryKey);
+    }
+    this.splitSocketGroups.delete(ws);
+  }
+
   /**
    * Drops everything keyed by a connection group when that group is torn down.
    * The two stores are removed together on purpose: a surviving binary session
