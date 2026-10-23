@@ -1450,5 +1450,15 @@
   "git.special.lfs": "Git LFS file · {from} → {to} · contents are in LFS",
   "git.special.submodule": "Submodule pointer · {from} → {to}",
   "git.special.encoding": "Not UTF-8 · contents are not shown in this version",
-  "git.special.emptyNew": "Empty file added"
+  "git.special.emptyNew": "Empty file added",
+  "git.diff.unified": "Unified",
+  "git.diff.split": "Split",
+  "git.diff.splitTooNarrow": "Too narrow for the split view",
+  "git.diff.splitOneSided": "One side is empty",
+  "git.diff.expand": "Expand",
+  "git.diff.expandUp": "Up 20 lines",
+  "git.diff.expandDown": "Down 20 lines",
+  "git.diff.expandAll": "All",
+  "git.diff.openEditor": "Open in editor",
+  "git.diff.openEditorDisabled": "Deleted, binary and special files cannot be opened in the editor"
 }

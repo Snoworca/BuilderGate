@@ -1405,5 +1405,15 @@
   "git.special.lfs": "Git LFS 파일 · {from} → {to} · 내용은 LFS 에 있습니다",
   "git.special.submodule": "서브모듈 포인터 · {from} → {to}",
   "git.special.encoding": "UTF-8 이 아닙니다 · 이 버전에서는 내용을 보여 주지 않습니다",
-  "git.special.emptyNew": "빈 파일이 추가되었습니다"
+  "git.special.emptyNew": "빈 파일이 추가되었습니다",
+  "git.diff.unified": "한 줄",
+  "git.diff.split": "좌우",
+  "git.diff.splitTooNarrow": "좌우 보기를 하기에 칸이 좁습니다",
+  "git.diff.splitOneSided": "한쪽이 비어 있습니다",
+  "git.diff.expand": "펼치기",
+  "git.diff.expandUp": "위로 20줄",
+  "git.diff.expandDown": "아래로 20줄",
+  "git.diff.expandAll": "전부",
+  "git.diff.openEditor": "편집기로 열기",
+  "git.diff.openEditorDisabled": "삭제·바이너리·특수 파일은 편집기로 열 수 없습니다"
 }

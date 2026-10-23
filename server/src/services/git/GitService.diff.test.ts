@@ -136,3 +136,14 @@ test('SEC-GIT-001: paths outside the repository or shaped like options are refus
     await assert.rejects(svc.diff('s', { src: 'unstaged', path: p }), (e: GitError) => e.code === 'PATH_OUTSIDE_REPO', p);
   }
 });
+
+// @req FR-GIT-007
+test('FR-GIT-007: force=1 shows a line-ending-only change as lines', async (t) => {
+  const { r, svc } = setup(t);
+  r.commit('init', { 'e.txt': 'x\ny\n' });
+  r.write('e.txt', 'x\r\ny\r\n');
+  assert.equal((await svc.diff('s', { src: 'unstaged', path: 'e.txt' })).special?.kind, 'eol');
+  const forced = await svc.diff('s', { src: 'unstaged', path: 'e.txt', force: true });
+  assert.equal(forced.special, undefined);
+  assert.ok(forced.hunks[0].lines.some((l) => l.k === '+'));
+});

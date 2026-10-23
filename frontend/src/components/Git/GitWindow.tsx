@@ -232,6 +232,7 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
                 position={ctx.position}
                 onMoveFile={ctx.moveFile}
                 onOpenEditor={onOpenEditor}
+                root={summary?.root}
               />
             ))}
           />

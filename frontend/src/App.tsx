@@ -1211,6 +1211,10 @@ function AppContent() {
                         request={w.request}
                         cwd={wm.tabs.find((tab) => tab.sessionId === w.sessionId)?.cwd ?? null}
                         ended={!wm.tabs.some((tab) => tab.sessionId === w.sessionId)}
+                        onOpenEditor={(path) => {
+                          const tab = wm.tabs.find((candidate) => candidate.sessionId === w.sessionId);
+                          if (tab) editor.openDocument(path, tab.id);
+                        }}
                         nameOf={(sessionId) => wm.tabs.find((tab) => tab.sessionId === sessionId)?.name ?? sessionId}
                         onMinimize={() => gitWindows.minimize(w.sessionId)}
                         onClose={() => gitWindows.close(w.sessionId)}

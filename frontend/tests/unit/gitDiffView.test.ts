@@ -127,3 +127,58 @@ test('FR-GIT-007: more than 2,000 rows draw only a window of them', async () => 
   const drawn = r.container.querySelectorAll('.git-dl').length;
   assert.ok(drawn > 0 && drawn < 200, `drawn ${drawn}`);
 });
+
+// @req FR-GIT-007
+test('FR-GIT-007: split view pairs the sides; it is off for one-sided files and narrow panes, with the reason', async () => {
+  const c = client(() => ({ inputs: { old: { id: 'a' }, new: { id: null } }, hunks: HUNKS, truncated: false }));
+  const r = await render(React.createElement(GitDiffView, props(c, file())));
+  await act(async () => { (r.container.querySelector('[data-view="split"]') as HTMLButtonElement).click(); });
+  const panes = r.container.querySelectorAll('.git-split-pane');
+  assert.equal(panes.length, 2);
+  assert.equal(panes[0].querySelectorAll('.git-dl').length, panes[1].querySelectorAll('.git-dl').length);
+  await r.cleanup();
+  const added = await render(React.createElement(GitDiffView, props(c, file({ kind: 'A', area: 'untracked' }))));
+  const split = added.container.querySelector('[data-view="split"]') as HTMLButtonElement;
+  assert.equal(split.disabled, true);
+  assert.equal(split.title, 'One side is empty');
+  await added.cleanup();
+  const narrow = await render(React.createElement(GitDiffView, props(c, file(), { width: 540 })));
+  const narrowSplit = narrow.container.querySelector('[data-view="split"]') as HTMLButtonElement;
+  assert.equal(narrowSplit.disabled, true);
+  assert.equal(narrowSplit.title, 'Too narrow for the split view');
+});
+
+// @req FR-GIT-007
+test('FR-GIT-007: a hidden-context gap expands from the full text', async () => {
+  const hunks = [{ oldStart: 5, oldLines: 1, newStart: 5, newLines: 1, header: '@@ -5 +5 @@', lines: [L('-', 5, null, 'e'), L('+', null, 5, 'E')] }];
+  const c = client((q) => (q.full
+    ? { inputs: { old: { id: 'a' }, new: { id: null } }, hunks, truncated: false, gapAfter: 0, full: { old: 'a\nb\nc\nd\ne\n', new: 'a\nb\nc\nd\nE\n' } }
+    : { inputs: { old: { id: 'a' }, new: { id: null } }, hunks, truncated: false, gapAfter: 0 }));
+  const r = await render(React.createElement(GitDiffView, props(c, file())));
+  const expand = r.container.querySelector('[data-gap="top"] button') as HTMLButtonElement;
+  assert.equal(r.container.querySelectorAll('[data-gap="top"] button').length, 1, 'the top gap has one action');
+  await act(async () => { expand.click(); });
+  await settle();
+  assert.equal(c.calls.at(-1)?.full, true);
+  assert.equal(r.container.querySelector('[data-gap="top"]'), null);
+  assert.deepEqual([...r.container.querySelectorAll('.git-dl')].slice(0, 4).map((e) => e.querySelector('.git-dl-text')?.textContent), ['a', 'b', 'c', 'd']);
+});
+
+// @req FR-GIT-007
+test('FR-GIT-007: open in editor for working-tree text files, with the repository root in the tab path style', async () => {
+  const opened: string[] = [];
+  const c = client(() => ({ inputs: { old: { id: 'a' }, new: { id: null } }, hunks: HUNKS, truncated: false }));
+  const r = await render(React.createElement(GitDiffView, props(c, file(), { root: 'C:/work/repo', onOpenEditor: (p: string) => opened.push(p) })));
+  await act(async () => { (r.container.querySelector('[data-open-editor]') as HTMLButtonElement).click(); });
+  assert.deepEqual(opened, ['C:\\work\\repo\\src\\a.ts']);
+  await r.cleanup();
+  const wsl = await render(React.createElement(GitDiffView, props(c, file(), { root: '/home/beom/web', onOpenEditor: (p: string) => opened.push(p) })));
+  await act(async () => { (wsl.container.querySelector('[data-open-editor]') as HTMLButtonElement).click(); });
+  assert.equal(opened.at(-1), '/home/beom/web/src/a.ts');
+  await wsl.cleanup();
+  const del = await render(React.createElement(GitDiffView, props(c, file({ kind: 'D' }), { root: 'C:/r', onOpenEditor: () => {} })));
+  assert.equal((del.container.querySelector('[data-open-editor]') as HTMLButtonElement).disabled, true);
+  await del.cleanup();
+  const commit = await render(React.createElement(GitDiffView, props(c, file({ area: null }), { selected: 'abc1234', root: 'C:/r', onOpenEditor: () => {} })));
+  assert.equal(commit.container.querySelector('[data-open-editor]'), null, 'only for the working tree');
+});

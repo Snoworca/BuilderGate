@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { DiffRequest, DiffSpecial, GitClient, GitDiff } from './gitApi.ts';
 import type { GitFileEntry } from './GitSidePanel.tsx';
-import { buildDiffRows, virtualRange, type DiffRow } from './gitDiffModel.ts';
+import { buildDiffRows, expandGaps, pairSplitRows, virtualRange, type DiffRow, type GapReveal } from './gitDiffModel.ts';
 import { t, type MessageKey } from '../../i18n/i18n.ts';
 import './gitViewer.css';
 
@@ -78,9 +78,17 @@ export interface GitDiffViewProps {
   position: { index: number; total: number };
   onMoveFile: (delta: number) => void;
   onOpenEditor?: (path: string) => void;
+  /** Repository root as git reports it (C:/a/b on Windows, /home/... in WSL). */
+  root?: string;
 }
 
-export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, width, position, onMoveFile }: GitDiffViewProps) {
+/** Repository root + relative path, in the separator style of the root (as the tab path menu uses). */
+export function editorPathFor(root: string, rel: string): string {
+  if (/^[A-Za-z]:\//.test(root)) return `${root.replace(/\//g, '\\').replace(/\\$/, '')}\\${rel.replace(/\//g, '\\')}`;
+  return `${root.replace(/\/$/, '')}/${rel}`;
+}
+
+export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, width, position, onMoveFile, onOpenEditor, root }: GitDiffViewProps) {
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [loading, setLoading] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -91,10 +99,13 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(600);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [view, setView] = useState<'unified' | 'split'>('unified');
+  const [reveal, setReveal] = useState<Record<string, GapReveal>>({});
+  const [fullNew, setFullNew] = useState<string[] | null>(null);
 
   const request = useMemo(() => (file ? { ...diffRequestFor(selected, wt, file), ...(ignoreWs ? { ignoreWs: true } : {}), ...(force ? { force: true } : {}) } : null), [file, selected, wt, ignoreWs, force]);
   const requestKey = request ? JSON.stringify(request) : '';
-  useEffect(() => { setForce(false); setHunk(0); setScrollTop(0); }, [file?.key, selected]);
+  useEffect(() => { setForce(false); setHunk(0); setScrollTop(0); setReveal({}); setFullNew(null); }, [file?.key, selected]);
   useEffect(() => {
     if (!request) { setDiff(null); return; }
     const controller = new AbortController();
@@ -109,7 +120,23 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, sessionId, requestKey, reloadKey]);
 
-  const rows = useMemo<DiffRow[]>(() => (diff && !diff.special ? buildDiffRows(diff.hunks, { gapAfter: diff.gapAfter }) : []), [diff]);
+  const baseRows = useMemo<DiffRow[]>(() => (diff && !diff.special ? buildDiffRows(diff.hunks, { gapAfter: diff.gapAfter }) : []), [diff]);
+  const rows = useMemo<DiffRow[]>(() => (diff && fullNew ? expandGaps(baseRows, diff.hunks, reveal, fullNew) : baseRows), [baseRows, diff, reveal, fullNew]);
+  const revealGap = useCallback((key: string, action: GapReveal) => {
+    const apply = () => setReveal((r) => {
+      const prev = r[key];
+      const cur = typeof prev === 'object' ? prev : prev === 'all' ? { head: 1e9, tail: 0 } : prev === 'down20' ? { head: 20, tail: 0 } : prev === 'up20' ? { head: 0, tail: 20 } : { head: 0, tail: 0 };
+      const next = action === 'all' ? 'all' : action === 'down20' ? { head: cur.head + 20, tail: cur.tail } : action === 'up20' ? { head: cur.head, tail: cur.tail + 20 } : action;
+      return { ...r, [key]: next };
+    });
+    if (fullNew || !request) { apply(); return; }
+    client.diff(sessionId, { ...request, full: true }).then((d) => {
+      if (!d.full) return;
+      const text = d.full.new.endsWith('\n') ? d.full.new.slice(0, -1) : d.full.new;
+      setFullNew(text.split('\n'));
+      apply();
+    }, () => {});
+  }, [client, fullNew, request, sessionId]);
   const hunkCount = diff?.hunks.length ?? 0;
   const maxDigits = useMemo(() => String(Math.max(1, ...rows.map((r) => (r.type === 'line' ? Math.max(r.o ?? 0, r.n ?? 0) : 0)))).length, [rows]);
 
@@ -138,8 +165,15 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
   if (!file) return <div className="git-diff"><div className="git-notice">{t('git.files.none')}</div></div>;
 
   const compact = width < 600;
+  const splitBlocked = width < 560 ? t('git.diff.splitTooNarrow') : (file.kind === 'A' || file.kind === 'D' || file.kind === '?') ? t('git.diff.splitOneSided') : '';
+  const mode = splitBlocked ? 'unified' : view;
+  const editable = selected === 'WORKTREE' && file.kind !== 'D' && !file.binary && !diff?.special;
   const options = (
     <>
+      <span className="git-seg" role="group" aria-label={t('git.diff.view')}>
+        <button type="button" data-view="unified" aria-pressed={mode === 'unified'} onClick={() => setView('unified')}>{t('git.diff.unified')}</button>
+        <button type="button" data-view="split" aria-pressed={mode === 'split'} disabled={!!splitBlocked} title={splitBlocked || undefined} onClick={() => setView('split')}>{t('git.diff.split')}</button>
+      </span>
       <label className="git-check"><input type="checkbox" data-opt="ws" checked={ignoreWs} onChange={(e) => setIgnoreWs(e.target.checked)} />{t('git.diff.ignoreWs')}</label>
       <label className="git-check"><input type="checkbox" data-opt="wrap" checked={wrap} onChange={(e) => setWrap(e.target.checked)} />{t('git.diff.wrap')}</label>
     </>
@@ -153,7 +187,21 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
 
   const renderRow = (r: DiffRow, i: number) => {
     if (r.type === 'hunk') return <div key={`h${i}`} className="git-hunk" data-hunk-index={r.index}>{r.header}</div>;
-    if (r.type === 'gap') return <div key={`g${i}`} className="git-gap" data-gap={r.at}>{t('git.diff.hidden', { count: r.count })}</div>;
+    if (r.type === 'gap') {
+      const key = r.at === 'between' ? `between:${r.hunk}` : r.at;
+      return (
+        <div key={`g${i}`} className="git-gap" data-gap={r.at}>
+          <span>{t('git.diff.hidden', { count: r.count })}</span>
+          {r.at === 'between'
+            ? <>
+                <button type="button" onClick={() => revealGap(key, 'up20')}>{t('git.diff.expandUp')}</button>
+                <button type="button" onClick={() => revealGap(key, 'down20')}>{t('git.diff.expandDown')}</button>
+                <button type="button" onClick={() => revealGap(key, 'all')}>{t('git.diff.expandAll')}</button>
+              </>
+            : <button type="button" onClick={() => revealGap(key, 'all')}>{t('git.diff.expand')}</button>}
+        </div>
+      );
+    }
     const cls = r.k === '+' ? ' add' : r.k === '-' ? ' del' : '';
     return (
       <div key={`l${i}`} className={`git-dl${cls}`} style={virtual ? { height: ROW_H } : undefined}>
@@ -187,6 +235,18 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
         {compact
           ? <details className="git-view-menu"><summary role="button">{t('git.diff.view')} ▾</summary><div className="git-view-menu-body">{options}</div></details>
           : options}
+        {selected === 'WORKTREE' && onOpenEditor && (
+          <button
+            type="button"
+            className="git-btn"
+            data-open-editor=""
+            disabled={!editable || !root}
+            title={editable ? undefined : t('git.diff.openEditorDisabled')}
+            onClick={() => root && onOpenEditor(editorPathFor(root, file.path))}
+          >
+            {t('git.diff.openEditor')}
+          </button>
+        )}
       </div>
       <div
         ref={bodyRef}
@@ -200,10 +260,42 @@ export function GitDiffView({ sessionId, client, file, selected, wt, reloadKey, 
         {loading && slow && <div className="git-diff-loading" aria-label={t('git.diff.loading')}><div className="git-skel" /><div className="git-skel" /><div className="git-skel" /></div>}
         {!loading && diff?.special && <SpecialNotice special={diff.special} onForce={diff.special.kind === 'large' || diff.special.kind === 'eol' ? () => setForce(true) : undefined} />}
         {!loading && diff && !diff.special && rows.length === 0 && <div className="git-notice">{t('git.diff.noChanges')}</div>}
-        {!(loading && slow) && !diff?.special && (virtual
+        {!(loading && slow) && !diff?.special && mode === 'split' && <SplitPanes rows={rows} renderRow={renderRow} noWidth={noWidth} />}
+        {!(loading && slow) && !diff?.special && mode === 'unified' && (virtual
           ? <div style={{ height: rows.length * ROW_H, position: 'relative' }}><div style={{ position: 'absolute', top: range.start * ROW_H, left: 0, right: 0 }}>{rows.slice(range.start, range.end).map((r, i) => renderRow(r, range.start + i))}</div></div>
           : rows.map(renderRow))}
       </div>
+    </div>
+  );
+}
+
+function SplitPanes({ rows, renderRow, noWidth }: { rows: DiffRow[]; renderRow: (r: DiffRow, i: number) => ReactNode; noWidth: string }) {
+  const left = useRef<HTMLDivElement | null>(null);
+  const right = useRef<HTMLDivElement | null>(null);
+  const syncing = useRef(false);
+  const sync = (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
+    if (!from || !to || syncing.current) return;
+    syncing.current = true;
+    to.scrollLeft = from.scrollLeft;
+    requestAnimationFrame(() => { syncing.current = false; });
+  };
+  const pairs = pairSplitRows(rows);
+  const cell = (line: Extract<DiffRow, { type: 'line' }> | null, side: 'l' | 'r', i: number) => {
+    if (!line) return <div key={`e${i}`} className="git-dl empty"><span className="git-dl-no" style={{ width: noWidth }} /><span className="git-dl-sign" /><span className="git-dl-text"> </span></div>;
+    const cls = line.k === '+' ? ' add' : line.k === '-' ? ' del' : '';
+    return (
+      <div key={`${side}${i}`} className={`git-dl${cls}`}>
+        <span className="git-dl-no" style={{ width: noWidth }}>{side === 'l' ? line.o ?? '' : line.n ?? ''}</span>
+        <span className="git-dl-sign" aria-hidden="true">{line.k === ' ' ? '' : line.k === '-' ? '−' : '+'}</span>
+        <span className="git-dl-text"><Marked text={line.t} marks={line.marks} /></span>
+      </div>
+    );
+  };
+  const side = (s: 'l' | 'r') => pairs.map((p, i) => (p.type === 'pair' ? cell(s === 'l' ? p.left : p.right, s, i) : <div key={`x${i}`}>{renderRow(p, i)}</div>));
+  return (
+    <div className="git-split">
+      <div className="git-split-pane" ref={left} onScroll={() => sync(left.current, right.current)}>{side('l')}</div>
+      <div className="git-split-pane" ref={right} onScroll={() => sync(right.current, left.current)}>{side('r')}</div>
     </div>
   );
 }

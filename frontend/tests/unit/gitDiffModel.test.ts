@@ -47,3 +47,23 @@ test('FR-GIT-007: the virtual window covers the viewport plus overscan', () => {
   assert.deepEqual(virtualRange({ scrollTop: 1000, viewport: 400, rowHeight: 20, total: 3000, overscan: 20 }), { start: 30, end: 90 });
   assert.deepEqual(virtualRange({ scrollTop: 0, viewport: 400, rowHeight: 20, total: 10, overscan: 20 }), { start: 0, end: 10 });
 });
+
+// @req FR-GIT-007
+test('FR-GIT-007: revealing hidden context fills a gap from the new text, from either side', async () => {
+  const { expandGaps } = await import('../../src/components/Git/gitDiffModel.ts');
+  const hunks = [
+    { oldStart: 6, oldLines: 1, newStart: 5, newLines: 1, header: '@@ -6 +5 @@', lines: [L('-', 6, null, 'x'), L('+', null, 5, 'X')] },
+    { oldStart: 31, oldLines: 1, newStart: 30, newLines: 1, header: '@@ -31 +30 @@', lines: [L(' ', 31, 30, 'k')] },
+  ];
+  const text = Array.from({ length: 40 }, (_, i) => `n${i + 1}`);
+  const rows = buildDiffRows(hunks, { gapAfter: 10 });
+  const all = expandGaps(rows, hunks, { top: 'all' }, text);
+  const top = all.slice(0, 4).map((r) => (r.type === 'line' ? [r.o, r.n, r.t] : r.type));
+  assert.deepEqual(top, [[2, 1, 'n1'], [3, 2, 'n2'], [4, 3, 'n3'], [5, 4, 'n4']]);
+  const partial = expandGaps(rows, hunks, { 'between:1': 'down20' }, text);
+  const gapRows = partial.filter((r) => r.type === 'gap');
+  const between = gapRows.find((r) => r.type === 'gap' && r.at === 'between');
+  assert.equal(between && between.type === 'gap' ? between.count : -1, 4, '24 hidden, 20 shown under the first hunk');
+  const bottom = expandGaps(rows, hunks, { bottom: 'all' }, text).slice(-10);
+  assert.equal(bottom[0].type === 'line' ? bottom[0].n : -1, 31);
+});

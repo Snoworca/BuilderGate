@@ -179,3 +179,14 @@
 .git-skel { height: 12px; border-radius: 6px; width: 65%; background: linear-gradient(90deg, var(--bg-raised), var(--line-strong), var(--bg-raised)); background-size: 200% 100%; animation: git-sh 1.2s infinite linear; }
 @keyframes git-sh { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .git-skel { animation: none; } }
+.git-seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--r-sm); overflow: hidden; }
+.git-seg button { height: 24px; padding: 0 10px; border: 0; background: var(--bg-raised); color: var(--fg); cursor: pointer; font-size: var(--fs-xs); }
+.git-seg button + button { border-left: 1px solid var(--line-strong); }
+.git-seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.git-seg button:disabled { color: var(--fg-faint); cursor: not-allowed; }
+.git-gap button { height: 22px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--bg-raised); color: var(--fg); cursor: pointer; font-size: 11.5px; }
+.git-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.git-split-pane { overflow-x: auto; overflow-y: hidden; }
+.git-split-pane + .git-split-pane { border-left: 1px solid var(--line-strong); }
+.git-split .git-hunk { position: static; }
+.git-dl.empty { background: var(--diff-empty); }

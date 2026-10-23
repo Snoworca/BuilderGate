@@ -92,3 +92,31 @@ export function virtualRange(input: { scrollTop: number; viewport: number; rowHe
   const visible = Math.ceil(input.viewport / input.rowHeight);
   return { start: Math.max(0, first - input.overscan), end: Math.min(input.total, first + visible + input.overscan) };
 }
+
+export type GapReveal = 'all' | 'up20' | 'down20' | { head: number; tail: number };
+const gapKey = (r: Extract<DiffRow, { type: 'gap' }>) => (r.at === 'between' ? `between:${r.hunk}` : r.at);
+
+/**
+ * Hidden context filled in from the new side's full text. "down20" shows the 20 lines
+ * right after the previous hunk, "up20" the 20 right before the next one.
+ */
+export function expandGaps(rows: readonly DiffRow[], hunks: readonly DiffHunk[], reveal: Record<string, GapReveal>, newLines: readonly string[]): DiffRow[] {
+  const out: DiffRow[] = [];
+  for (const r of rows) {
+    if (r.type !== 'gap' || !reveal[gapKey(r)]) { out.push(r); continue; }
+    const prev = r.at === 'top' ? null : hunks[r.hunk - 1];
+    const from = prev ? prev.newStart + prev.newLines : 1;
+    const to = from + r.count - 1;
+    const offset = prev ? prev.oldStart + prev.oldLines - from : hunks[0].oldStart - hunks[0].newStart;
+    const want = reveal[gapKey(r)];
+    const step = want === 'all' ? { head: r.count, tail: 0 } : want === 'down20' ? { head: 20, tail: 0 } : want === 'up20' ? { head: 0, tail: 20 } : want;
+    const head = Math.min(r.count, step.head);
+    const tail = Math.min(r.count - head, step.tail);
+    const line = (n: number): DiffRow => ({ type: 'line', hunk: r.hunk, k: ' ', o: n + offset, n, t: newLines[n - 1] ?? '' });
+    for (let n = from; n < from + head; n += 1) out.push(line(n));
+    const left = r.count - head - tail;
+    if (left > 0) out.push({ ...r, count: left });
+    for (let n = to - tail + 1; n <= to; n += 1) out.push(line(n));
+  }
+  return out;
+}

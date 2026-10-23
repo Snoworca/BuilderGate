@@ -638,7 +638,7 @@ export class GitService {
     if (!req.force && (raw.length > MAX_DIFF_BYTES || changed('+') + changed('-') > MAX_DIFF_LINES)) {
       return { inputs, hunks: [], special: { kind: 'large', add: changed('+'), del: changed('-') }, truncated: true, language };
     }
-    if (!req.ignoreWs) {
+    if (!req.ignoreWs && !req.force) {
       const crlf = await runDiff(['--ignore-cr-at-eol']);
       if (crlf !== null && crlf.length === 0) {
         const plus = file.hunks.flatMap((h) => h.lines).filter((l) => l.k === '+');
