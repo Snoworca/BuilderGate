@@ -9,6 +9,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import type { GitClient, LogScope } from './gitApi.ts';
 import { GitGraphList } from './GitGraphList.tsx';
 import { GitWindowBanner, pickGitBanner } from './GitWindowBanner.tsx';
+import { GitSidePanel, type GitDiffContext, type GitFileEntry } from './GitSidePanel.tsx';
 import type { GitCompare, GitLogCommit } from './gitApi.ts';
 import type { GitOpenTarget } from './gitWindowModel.ts';
 import { gitApi } from '../../services/api.ts';
@@ -56,11 +57,11 @@ export interface GitWindowProps {
   cwd?: string | null;
   /** The session is gone: keep the last state, stop refreshing. */
   ended?: boolean;
-  /** The right side (detail, files, diff). */
-  side?: (state: { selected: string; scope: LogScope }) => ReactNode;
+  /** The diff of the selected file (FR-GIT-007). */
+  renderDiff?: (file: GitFileEntry | null, ctx: GitDiffContext & { sessionId: string; reloadKey: number; summary: import('./gitApi.ts').RepoSummary | null }) => ReactNode;
 }
 
-export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, cwd = null, ended = false, side }: GitWindowProps) {
+export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose, onFocus, store, client = gitApi, request, nameOf = (id) => id, cwd = null, ended = false, renderDiff }: GitWindowProps) {
   // "Keep this window" after a move freezes the window on what it showed.
   const [frozen, setFrozen] = useState(false);
   const git = useGitSummary(sessionId, { visible: !ended && !frozen, running: false, mode: 'window', store, cwd });
@@ -199,7 +200,17 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
           onPointerDown={onSplitDrag}
           onDoubleClick={() => setSplit(DEFAULT_SPLIT)}
         />
-        <div className="git-pane-side" data-pane="side">{side?.({ selected, scope })}</div>
+        <div className="git-pane-side" data-pane="side">
+          <GitSidePanel
+            sessionId={sessionId}
+            client={client}
+            summary={summary}
+            selected={selected}
+            reloadKey={reloadKey}
+            onSelectCommit={setSelected}
+            diff={(file, ctx) => renderDiff?.(file, { ...ctx, sessionId, reloadKey, summary }) ?? null}
+          />
+        </div>
       </div>
     </WindowDialog>
   );
