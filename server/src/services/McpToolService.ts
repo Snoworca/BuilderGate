@@ -101,9 +101,10 @@ const MCP_SERVER_INSTRUCTIONS = 'BuilderGate exposes its terminal sessions and w
   + 'A submit (buildergate.terminal.exec, or buildergate.message.send with deliveryMode submit) already presses Enter, '
   + 'so do not send a separate message just to submit. '
   // FR-MCP-011 AC-5
-  + 'Input that starts with [from: <alias> · sessionKey <key>] was sent by another BuilderGate session (the server writes this tag); '
+  + 'Input that starts with [from: <alias> · sessionKey <key> · sessionId <id>] was sent by another BuilderGate session (the server writes this tag); '
   + 'answer with buildergate.message.send to that sessionKey. When you talk to another agent, pass includeSender: true; '
-  + 'when you type a shell command, leave it out.';
+  + 'when you type a shell command, leave it out. If your MCP connection is not tied to a session (a fixed access key), '
+  + 'pass your own session as fromSessionKey or fromSessionId so the receiver knows where to answer; without it no tag is written.';
 // FR-MCP-010: the user's agent launch aliases, e.g. "claudep (Claude Code), codexp (Codex)".
 function describeAgentAliases(deps: McpToolServiceDeps): string | undefined {
   let aliases: ReturnType<NonNullable<McpToolServiceDeps['getAgentAliases']>>;
@@ -222,7 +223,9 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
       target: { type: 'string' },
       prompt: { type: 'string' },
       deliveryMode: { type: 'string', enum: ['paste', 'submit'] },
-      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key>] tag before the text. Use true when talking to another agent, false (default) for a shell command.' },
+      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key> · sessionId <id>] tag before the text. Use true when talking to another agent, false (default) for a shell command.' },
+      fromSessionKey: { type: 'string', description: 'Your own session, when this MCP connection is not tied to one (a fixed access key). The server checks that it is a live session and writes its real ids in the tag; it turns the tag on unless includeSender is false.' },
+      fromSessionId: { type: 'string', description: 'Like fromSessionKey, by session id.' },
     },
     required: ['prompt'],
     additionalProperties: false,
@@ -268,7 +271,7 @@ const TOOL_SCHEMAS: Record<string, StringRecord> = {
     properties: {
       prompt: { type: 'string' },
       deliveryMode: { type: 'string', enum: ['paste', 'submit'] },
-      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key>] tag before the text (default true).' },
+      includeSender: { type: 'boolean', description: 'Put a server-written [from: <alias> · sessionKey <key> · sessionId <id>] tag before the text (default true).' },
     },
     required: ['prompt'],
     additionalProperties: false,
@@ -1018,13 +1021,15 @@ async function handleMessageSend(
   if (targetResult.ok === false) {
     return targetResult;
   }
+  const sender = await withSenderTag(deps, actor, prompt, args);
+  if ('error' in sender) return sender.error;
   return deliverMcpMessage(deps, state, {
     actor,
     context,
     action: 'buildergate.message.send',
     deliverySource: 'mcp-message-send',
     deliveryMode,
-    prompt: await withSenderTag(deps, actor, prompt, args.includeSender === true),
+    prompt: sender.prompt,
     targetSessionKey: asString(targetResult.sessionKey) ?? '',
     target: asRecord(targetResult.target),
   });
@@ -1079,7 +1084,7 @@ async function handleReplyToLeader(
     action: 'buildergate.message.reply_to_leader',
     deliverySource: 'mcp-reply-to-leader',
     deliveryMode,
-    prompt: senderTagged(prompt, args.includeSender !== false ? senderTag(actor, follower) : undefined),
+    prompt: senderTagged(prompt, args.includeSender !== false ? senderTag(follower ?? { sessionKey: asString(actor.sessionKey) }) : undefined),
     targetSessionKey: leaderSessionKey,
     target: leader,
   });
@@ -1175,13 +1180,15 @@ async function deliverMcpMessage(
   };
 }
 
-// FR-MCP-011: the sender tag is written by the server from the authenticated caller. A prompt
-// that starts with its own "[from:" is defused so that only the server can produce one.
-function senderTag(actor: StringRecord, session: StringRecord | undefined): string {
-  const sessionKey = asString(actor.sessionKey);
-  if (!sessionKey) return '[from: external MCP client]';
-  const alias = (asString(session?.alias) ?? sessionKey).replace(/[[\]]/g, '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() || sessionKey;
-  return `[from: ${alias} · sessionKey ${sessionKey}]`;
+// FR-MCP-011: the sender tag is written by the server, from the authenticated caller or from a
+// session the caller names and the server finds live. A prompt that starts with its own "[from:"
+// is defused so that only the server can produce one. A tag that names no session (an external
+// client that gave none) is left out: it would tell the receiver nothing it can answer.
+function senderTag(session: StringRecord): string {
+  const sessionKey = asString(session.sessionKey) ?? '';
+  const alias = (asString(session.alias) ?? sessionKey).replace(/[[\]]/g, '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() || sessionKey;
+  const sessionId = getCurrentSessionId(session);
+  return `[from: ${alias} · sessionKey ${sessionKey}${sessionId ? ` · sessionId ${sessionId}` : ''}]`;
 }
 
 function senderTagged(prompt: string, tag: string | undefined): string {
@@ -1189,15 +1196,37 @@ function senderTagged(prompt: string, tag: string | undefined): string {
   return tag ? `${tag} ${defused}` : defused;
 }
 
-async function withSenderTag(deps: McpToolServiceDeps, actor: StringRecord, prompt: string, include: boolean): Promise<string> {
-  if (!include) return senderTagged(prompt, undefined);
-  const sessionKey = asString(actor.sessionKey);
-  let self: StringRecord | undefined;
-  if (sessionKey) {
-    const sessions = await resolveSessions(deps, sessionKey, true);
-    self = Array.isArray(sessions) ? sessions.find((session) => asString(session.sessionKey) === sessionKey) : undefined;
+async function findLiveSession(deps: McpToolServiceDeps, match: (session: StringRecord) => boolean): Promise<StringRecord | undefined> {
+  const sessions = await resolveSessions(deps, undefined, true);
+  return Array.isArray(sessions) ? sessions.find(match) : undefined;
+}
+
+/** message.send: the sender is the caller's own session, else the one it names (checked live). */
+async function withSenderTag(
+  deps: McpToolServiceDeps,
+  actor: StringRecord,
+  prompt: string,
+  args: StringRecord,
+): Promise<{ prompt: string } | { error: StringRecord }> {
+  const fromKey = asString(args.fromSessionKey);
+  const fromId = asString(args.fromSessionId);
+  const named = fromKey !== undefined || fromId !== undefined;
+  const include = args.includeSender === true || (args.includeSender !== false && named);
+  if (!include) return { prompt: senderTagged(prompt, undefined) };
+  const actorKey = asString(actor.sessionKey);
+  let sender: StringRecord | undefined;
+  if (actorKey) {
+    sender = (await findLiveSession(deps, (session) => asString(session.sessionKey) === actorKey)) ?? { sessionKey: actorKey };
+  } else if (named) {
+    sender = await findLiveSession(deps, (session) => (fromKey !== undefined
+      ? asString(session.sessionKey) === fromKey
+      : sessionMatchesSessionId(session, fromId!)));
+    if (!sender) {
+      const field = fromKey !== undefined ? 'fromSessionKey' : 'fromSessionId';
+      return { error: { ...validationError({ [field]: 'not found' }), message: `${field} is not a live session` } };
+    }
   }
-  return senderTagged(prompt, senderTag(actor, self));
+  return { prompt: senderTagged(prompt, sender ? senderTag(sender) : undefined) };
 }
 
 async function resolveMessageTarget(
