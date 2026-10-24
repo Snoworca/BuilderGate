@@ -26,6 +26,7 @@ import path from 'node:path';
 import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 import { GitService } from '../services/git/GitService.js';
 import { createGitRunner, type RunGit } from '../services/git/gitRunner.js';
+import { createRepoWatcher } from '../services/git/gitRepoWatcher.js';
 
 const arg = (name: string, fallback: number) => {
   const i = process.argv.indexOf(name);
@@ -88,6 +89,7 @@ function service(cwd: string, launch: string, runGit?: RunGit, now?: () => numbe
     runGit: runGit ?? createGitRunner(),
     listSessionIds: () => ['s1', 's2', 's3', 's4', 's5', 's6'],
     now,
+    watchRepo: createRepoWatcher(), // as on the server; the cold clock below outruns its 30 s
   });
 }
 

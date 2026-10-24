@@ -196,3 +196,38 @@ test('FR-GIT-001: the default runner runs the real git (git 2.30 or newer is req
     (e: { code?: string }) => e.code === 'GIT_FAILED',
   );
 });
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-9: WSL targets go through the resident helper; without it, one wsl.exe per command', async () => {
+  const helperCalls: Array<{ distro: string | undefined; args: readonly string[] }> = [];
+  const fileCalls: string[][] = [];
+  let available = true;
+  const wslHelper = {
+    available: () => available,
+    run: async (distro: string | undefined, args: readonly string[]) => { helperCalls.push({ distro, args }); return { stdout: 'via helper' }; },
+    close: () => {},
+  };
+  const run = createGitRunner({ wslHelper, run: async (file, args) => { fileCalls.push([file, ...args]); return { stdout: 'via wsl.exe' }; } });
+  assert.equal(await run({ kind: 'wsl', cwd: '/home/u/r', distro: 'Ubuntu' }, ['status'], { repoKey: 'r' }), 'via helper');
+  assert.equal(helperCalls[0].distro, 'Ubuntu');
+  assert.deepEqual(helperCalls[0].args.slice(0, 2), ['-C', '/home/u/r']);
+  assert.equal(helperCalls[0].args.at(-1), 'status');
+  assert.ok(helperCalls[0].args.includes('--no-optional-locks'), 'the fixed safety options still apply');
+  assert.equal(await run({ kind: 'native', cwd: 'C:\\r' }, ['status'], { repoKey: 'n' }), 'via wsl.exe', 'native targets never use the helper');
+  available = false;
+  assert.equal(await run({ kind: 'wsl', cwd: '/home/u/r' }, ['status'], { repoKey: 'r' }), 'via wsl.exe');
+  assert.equal(fileCalls.at(-1)?.[0], 'wsl.exe');
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-5: the reported run time excludes the wait for a free slot', async () => {
+  const run: RunGitFile = () => new Promise((res) => setTimeout(() => res({ stdout: '' }), 300));
+  const runGit = createGitRunner({ run, maxGlobal: 1, wslHelper: null });
+  const target = { kind: 'native' as const, cwd: 'C:\\r' };
+  const first = { ms: -1 };
+  const second = { ms: -1 };
+  const t0 = Date.now();
+  await Promise.all([runGit(target, ['status'], { repoKey: 'r', timing: first }), runGit(target, ['status'], { repoKey: 'r', timing: second })]);
+  assert.ok(Date.now() - t0 >= 550, 'the second waited for the first');
+  assert.ok(second.ms >= 250 && second.ms < 450, `run time only: ${second.ms}`);
+});

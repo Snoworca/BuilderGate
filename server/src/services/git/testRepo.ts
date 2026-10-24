@@ -16,7 +16,9 @@ export interface TestRepo {
 
 export function tempRoot(): { root: string; cleanup: () => void } {
   const root = mkdtempSync(path.join(os.tmpdir(), 'bg-git-test-'));
-  return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  // Retries: a background index refresh (PERF-GIT-001 AC-5) or Windows' own file locks can
+  // still hold the folder for a moment when a test ends (EPERM/EBUSY).
+  return { root, cleanup: () => rmSync(root, { recursive: true, force: true, maxRetries: 50, retryDelay: 200 }) };
 }
 
 export function repoAt(dir: string): TestRepo {

@@ -16,6 +16,9 @@ export interface StatusFile {
   similarity?: number;
   kind: FileKind;
   area: FileArea;
+  /** Blob ids from porcelain v2 (hH, hI): HEAD and index sides; absent for untracked/conflicts. */
+  headId?: string | null;
+  indexId?: string | null;
 }
 
 export interface StatusBranch {
@@ -72,12 +75,16 @@ export function parseStatusV2(out: string): ParsedStatus {
         const score = /^[RC](\d+)$/.exec(head[8]);
         if (score) similarity = Number(score[1]);
       }
+      // hH / hI: all zeros when that side has no file.
+      const blob = (id: string) => (/^0+$/.test(id) ? null : id);
+      const headId = blob(head[6]);
+      const indexId = blob(head[7]);
       if (KINDS.has(x)) {
-        const f: StatusFile = { path: rest, kind: x as FileKind, area: 'staged' };
+        const f: StatusFile = { path: rest, kind: x as FileKind, area: 'staged', headId, indexId };
         if (origPath !== undefined && (x === 'R' || x === 'C')) { f.origPath = origPath; if (similarity !== undefined) f.similarity = similarity; }
         files.push(f);
       }
-      if (KINDS.has(y)) files.push({ path: rest, kind: y as FileKind, area: 'unstaged' });
+      if (KINDS.has(y)) files.push({ path: rest, kind: y as FileKind, area: 'unstaged', headId, indexId });
     } else if (type === 'u') {
       files.push({ path: fields(r, 10).rest, kind: 'X', area: 'conflict' });
     } else if (type === '?') {

@@ -20,6 +20,7 @@ import { createAuthRoutes } from './routes/authRoutes.js';
 import { createFileRoutes } from './routes/fileRoutes.js';
 import { createGitRoutes } from './routes/gitRoutes.js';
 import { GitService } from './services/git/GitService.js';
+import { createRepoWatcher } from './services/git/gitRepoWatcher.js';
 import { createDownloadRoutes, createDownloadTokenRoutes } from './routes/downloadRoutes.js';
 import { DownloadTokenStore } from './services/DownloadTokenStore.js';
 import { createUploadRoutes } from './routes/uploadRoutes.js';
@@ -1195,7 +1196,11 @@ function setupRoutes(): void {
   const fileRoutes = createFileRoutes(fileService);
   app.use('/api/sessions', authMiddleware, fileRoutes);
   // FR-GIT-001..008: read-only git views of a session's repository (polled by visible chips and windows).
-  const gitService = new GitService({ sessions: sessionManager, listSessionIds: () => sessionManager.getAllSessions().map((s) => s.id) });
+  const gitService = new GitService({
+    sessions: sessionManager,
+    listSessionIds: () => sessionManager.getAllSessions().map((s) => s.id),
+    watchRepo: createRepoWatcher(),
+  });
   app.use('/api/sessions', authMiddleware, createGitRoutes(gitService));
   // FR-FEX-021: the token route checks the path behind the JWT; the download link carries only
   // the single-use token, so the browser can save the file itself.

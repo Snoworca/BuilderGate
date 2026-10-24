@@ -6,6 +6,7 @@ import { rmSync } from 'node:fs';
 import { GitService } from './GitService.js';
 import { createGitRunner, GitError, type RunGit } from './gitRunner.js';
 import { initRepo, repoAt, tempRoot } from './testRepo.js';
+import { createRepoWatcher } from './gitRepoWatcher.js';
 
 function serviceFor(cwd: string, runGit?: RunGit) {
   const sessions = { getLastCwd: (id: string) => (id === 's' ? cwd : null), getSessionLaunchCommand: () => 'powershell.exe' };
@@ -231,10 +232,11 @@ test('PERF-GIT-001: a first summary looks up the base in one git call, alongside
   }) as RunGit;
   const s = await serviceFor(c.dir, runGit).summary('s');
   assert.ok(s.repo && 'ref' in s.compare && s.compare.ref === 'origin/main', JSON.stringify(s));
+  // Since AC-6 the base comes from the ref files: no lookup process at all (it used to be one
+  // for-each-ref alongside status).
   const lookups = calls.filter((x) => x.cmd === 'symbolic-ref' || x.cmd === 'for-each-ref');
-  assert.equal(lookups.length, 1, calls.map((x) => x.cmd).join(','));
-  const status = calls.find((x) => x.cmd === 'status')!;
-  assert.ok(lookups[0].start < status.end, 'the base lookup starts before status ends');
+  assert.equal(lookups.length, 0, calls.map((x) => x.cmd).join(','));
+  assert.ok(calls.some((x) => x.cmd === 'status'));
 });
 
 // @req PERF-GIT-001
@@ -250,6 +252,8 @@ test('PERF-GIT-001 AC-5: a slow status refreshes the index once per minute; a he
     const cmd = a[1].find((x) => !x.startsWith('-') && !x.includes('=')) ?? '';
     cmds.push(cmd);
     const out = await base(...a);
+    // The run time the service sees is the test's, not this machine's (under load a real status passes 150 ms).
+    if (cmd === 'status' && a[2].timing) a[2].timing.ms = slow ? 1_500 : 10;
     if (cmd === 'status' && slow) clock += 1_500;
     return out;
   }) as RunGit;
@@ -270,4 +274,247 @@ test('PERF-GIT-001 AC-5: a slow status refreshes the index once per minute; a he
   rmSync(path.join(r.dir, '.git', 'index.lock'));
   await svc.summary('s'); await settle();
   assert.equal(cmds.filter((c) => c === 'update-index').length, 1, 'a fast status needs no refresh');
+});
+
+function countingService(dir: string, start = 2_000_000) {
+  const base = createGitRunner();
+  let clock = start;
+  const cmds: string[] = [];
+  const runGit = (async (...a: Parameters<RunGit>) => {
+    const cmd = a[1].find((x) => !x.startsWith('-') && !x.includes('=')) ?? '';
+    // The background index refresh (AC-5) is not part of the request; it fires whenever status
+    // really takes over 150 ms, which a loaded machine decides.
+    if (cmd !== 'update-index') cmds.push(cmd);
+    return base(...a);
+  }) as RunGit;
+  const svc = new GitService({ sessions: { getLastCwd: () => dir, getSessionLaunchCommand: () => 'powershell.exe' }, runGit, now: () => clock });
+  return { svc, cmds, tick: (ms: number) => { clock += ms; } };
+}
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-6: the base ref comes from the ref files; a known repository costs one git process per summary', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const origin = initRepo(path.join(root, 'o'));
+  origin.commit('init', { 'a.txt': 'a' });
+  repoAt(root).git('clone', '-q', origin.dir, path.join(root, 'c'));
+  const c = repoAt(path.join(root, 'c'));
+  c.git('checkout', '-q', '-b', 'feat');
+  const { svc, cmds, tick } = countingService(c.dir);
+  const first = await svc.summary('s');
+  assert.ok(first.repo && 'ref' in first.compare && first.compare.ref === 'origin/main', JSON.stringify(first));
+  assert.ok(!cmds.includes('for-each-ref') && !cmds.includes('symbolic-ref'), `no ref lookup process: ${cmds.join(',')}`);
+  cmds.length = 0;
+  tick(2_000);
+  await svc.summary('s');
+  assert.deepEqual(cmds, ['status'], 'a known repository: status only');
+  // packed refs are read too
+  c.git('pack-refs', '--all');
+  const { svc: svc2, cmds: cmds2 } = countingService(c.dir);
+  const packed = await svc2.summary('s');
+  assert.ok(packed.repo && 'ref' in packed.compare && packed.compare.ref === 'origin/main');
+  assert.ok(!cmds2.includes('for-each-ref'), cmds2.join(','));
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-7: chip, window and first diff of a working-tree file use at most four git processes after the summary', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('one', { 'a.txt': 'a\nb\n', 'b.txt': 'x\n' });
+  r.write('a.txt', 'a\nB\n');
+  r.write('b.txt', 'y\n'); r.git('add', 'b.txt');
+  const { svc, cmds } = countingService(r.dir);
+  await svc.summary('s');
+  cmds.length = 0;
+  const [log, status] = await Promise.all([svc.log('s', { scope: 'head' }), svc.status('s')]);
+  assert.equal(log.commits.length, 1);
+  const unstaged = status.files.find((f) => f.area === 'unstaged')!;
+  const staged = status.files.find((f) => f.area === 'staged')!;
+  assert.equal(unstaged.inputs.old.id, r.git('rev-parse', ':a.txt').trim(), 'index blob id from the status record');
+  assert.equal(staged.inputs.old.id, r.git('rev-parse', 'HEAD:b.txt').trim(), 'HEAD blob id from the status record');
+  assert.equal(staged.inputs.new.id, r.git('rev-parse', ':b.txt').trim());
+  assert.deepEqual([unstaged.add, unstaged.del, staged.add, staged.del], [1, 1, 1, 1]);
+  const diff = await svc.diff('s', { src: 'unstaged', path: 'a.txt' });
+  assert.equal(diff.inputs.old.id, unstaged.inputs.old.id);
+  assert.ok(diff.hunks.length === 1);
+  assert.ok(cmds.length <= 4, `processes: ${cmds.join(',')}`);
+  for (const avoided of ['ls-files', 'ls-tree', 'rev-parse', 'status']) {
+    assert.ok(!cmds.includes(avoided), `${avoided} ran: ${cmds.join(',')}`);
+  }
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-5: a status over 150 ms already refreshes the index; one under it does not', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('init', { 'a.txt': 'a' });
+  const base = createGitRunner();
+  for (const [took, expected] of [[200, 1], [100, 0]] as const) {
+    let clock = 5_000_000;
+    const cmds: string[] = [];
+    const runGit = (async (...a: Parameters<RunGit>) => {
+      const cmd = a[1].find((x) => !x.startsWith('-') && !x.includes('=')) ?? '';
+      cmds.push(cmd);
+      const out = await base(...a);
+      if (cmd === 'status') { clock += took; if (a[2].timing) a[2].timing.ms = took; }
+      return out;
+    }) as RunGit;
+    const svc = new GitService({ sessions: { getLastCwd: () => r.dir, getSessionLaunchCommand: () => 'powershell.exe' }, runGit, now: () => clock });
+    await svc.summary('s');
+    await new Promise((res) => setTimeout(res, 300));
+    assert.equal(cmds.filter((c) => c === 'update-index').length, expected, `status took ${took} ms: ${cmds.join(',')}`);
+  }
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-10: with a quiet file watch the summary starts no git; a change, a failed watch or 30 s run git again', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('init', { 'a.txt': 'a' });
+  const base = createGitRunner();
+  let clock = 3_000_000;
+  const cmds: string[] = [];
+  const runGit = (async (...a: Parameters<RunGit>) => {
+    const cmd = a[1].find((x) => !x.startsWith('-') && !x.includes('=')) ?? '';
+    // The background index refresh (AC-5) is not part of the request; it fires whenever status
+    // really takes over 150 ms, which a loaded machine decides.
+    if (cmd !== 'update-index') cmds.push(cmd);
+    return base(...a);
+  }) as RunGit;
+  let changed = false;
+  let failed = false;
+  let watches = 0;
+  const watchRepo = () => {
+    watches += 1;
+    return { takeChanged: () => { const c = changed || failed; changed = false; return c; }, peekChanged: () => changed || failed, failed: () => failed, close: () => {} };
+  };
+  const svc = new GitService({ sessions: { getLastCwd: () => r.dir, getSessionLaunchCommand: () => 'powershell.exe' }, runGit, now: () => clock, watchRepo });
+  const first = await svc.summary('s');
+  assert.equal(watches, 1);
+  cmds.length = 0;
+  clock += 2_000;
+  const quiet = await svc.summary('s');
+  assert.deepEqual(cmds, [], 'no git while the watch saw nothing');
+  assert.equal(quiet.repo && quiet.head, first.repo && first.head);
+  assert.equal(quiet.checkedAt, clock, 'the reused summary is stamped as checked now');
+  changed = true; clock += 2_000;
+  await svc.summary('s');
+  assert.deepEqual(cmds, ['status'], `a change runs status: ${cmds.join(',')}`);
+  cmds.length = 0; clock += 31_000;
+  await svc.summary('s');
+  assert.deepEqual(cmds, ['status'], 'after 30 s git checks again');
+  cmds.length = 0; failed = true; clock += 2_000;
+  await svc.summary('s');
+  assert.deepEqual(cmds, ['status'], 'a failed watch never hides a change');
+  assert.equal(watches, 2, 'a failed watch is replaced');
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-10: the file watch sees a real edit in the working tree and in .git', async (t) => {
+  if (process.platform !== 'win32') { t.skip('Windows file watch'); return; }
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('init', { 'a.txt': 'a' });
+  const w = createRepoWatcher()({ kind: 'native', cwd: r.dir }, { root: r.dir, gitDir: path.join(r.dir, '.git'), commonDir: path.join(r.dir, '.git') });
+  assert.ok(w, 'a native Windows repository is watched');
+  t.after(() => w.close());
+  const settle = () => new Promise((res) => setTimeout(res, 400));
+  await settle(); w.takeChanged();
+  await settle();
+  assert.equal(w.takeChanged(), false, 'nothing changed');
+  r.write('b.txt', 'b'); await settle();
+  assert.equal(w.takeChanged(), true, 'a new file');
+  assert.equal(w.takeChanged(), false, 'taken once');
+  r.git('branch', 'other'); await settle();
+  assert.equal(w.takeChanged(), true, 'a new ref under .git');
+  assert.equal(createRepoWatcher()({ kind: 'wsl', cwd: '/home/u/r' }, { root: '/home/u/r', gitDir: '/home/u/r/.git', commonDir: '/home/u/r/.git'  }), null, 'WSL repositories are not watched');
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-10: a change whose status failed is not answered from the watch; one watch per repository, closed when idle', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('init', { 'a.txt': 'a', 'sub/b.txt': 'b' });
+  const base = createGitRunner();
+  let clock = 4_000_000;
+  let failStatus = false;
+  const cmds: string[] = [];
+  const runGit = (async (...a: Parameters<RunGit>) => {
+    const cmd = a[1].find((x) => !x.startsWith('-') && !x.includes('=')) ?? '';
+    cmds.push(cmd);
+    if (cmd === 'status' && failStatus) throw new GitError('GIT_TIMEOUT');
+    return base(...a);
+  }) as RunGit;
+  let changed = false;
+  let opened = 0;
+  let closed = 0;
+  const watchRepo = () => {
+    opened += 1;
+    return { takeChanged: () => { const c = changed; changed = false; return c; }, peekChanged: () => changed, failed: () => false, close: () => { closed += 1; } };
+  };
+  const cwd: Record<string, string> = { s: r.dir, t: path.join(r.dir, 'sub') };
+  const svc = new GitService({ sessions: { getLastCwd: (id: string) => cwd[id] ?? null, getSessionLaunchCommand: () => 'powershell.exe' }, runGit, now: () => clock, watchRepo });
+  await svc.summary('s');
+  await svc.summary('t');
+  assert.equal(opened, 1, 'two folders of one repository share a watch');
+  changed = true; failStatus = true; clock += 2_000;
+  await assert.rejects(svc.summary('s'));
+  failStatus = false; cmds.length = 0; clock += 2_000;
+  await svc.summary('s');
+  assert.deepEqual(cmds, ['status'], `the failed check is retried, not covered by the watch: ${cmds.join(',')}`);
+  clock += 11 * 60_000;
+  await svc.summary('s');
+  assert.equal(closed, 1, `a watch unused for 10 minutes is closed (opened ${opened})`);
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-10: a change seen while a status ran is not covered by that older status', async (t) => {
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('init', { 'a.txt': 'a', 'sub/b.txt': 'b' });
+  const base = createGitRunner();
+  let clock = 5_000_000;
+  let hold: Promise<void> | null = null;
+  const cmds: string[] = [];
+  const runGit = (async (...a: Parameters<RunGit>) => {
+    const cmd = a[1].find((x) => !x.startsWith('-') && !x.includes('=')) ?? '';
+    if (cmd !== 'update-index') cmds.push(`${a[0].cwd.endsWith('sub') ? 't' : 's'}:${cmd}`);
+    const out = await base(...a);
+    if (cmd === 'status' && hold && !a[0].cwd.endsWith('sub')) await hold;
+    return out;
+  }) as RunGit;
+  let changed = false;
+  const watchRepo = () => ({ takeChanged: () => { const c = changed; changed = false; return c; }, peekChanged: () => changed, failed: () => false, close: () => {} });
+  const cwd: Record<string, string> = { s: r.dir, t: path.join(r.dir, 'sub') };
+  const svc = new GitService({ sessions: { getLastCwd: (id: string) => cwd[id] ?? null, getSessionLaunchCommand: () => 'powershell.exe' }, runGit, now: () => clock, watchRepo });
+  await svc.summary('s'); await svc.summary('t');
+  // s starts a status (its output read before the edit), the edit lands, t takes the mark.
+  let release!: () => void;
+  hold = new Promise((res) => { release = res; });
+  changed = true; clock += 2_000;
+  const sRun = svc.summary('s');
+  await new Promise((res) => setTimeout(res, 50));
+  changed = true; // the edit, while s's status runs
+  await svc.summary('t');
+  release(); await sRun; hold = null;
+  cmds.length = 0; clock += 2_000;
+  await svc.summary('s');
+  assert.deepEqual(cmds, ['s:status'], 's asks git again: its last status may predate the edit');
+});
+
+// @req PERF-GIT-001
+test('PERF-GIT-001 AC-10: a watch whose repository folder is deleted shuts itself down (Windows otherwise fires events without end)', async (t) => {
+  if (process.platform !== 'win32') { t.skip('Windows file watch'); return; }
+  const { root, cleanup } = tempRoot(); t.after(cleanup);
+  const r = initRepo(path.join(root, 'r'));
+  r.commit('init', { 'a/b.txt': 'b' });
+  const w = createRepoWatcher()({ kind: 'native', cwd: r.dir }, { root: r.dir, gitDir: path.join(r.dir, '.git'), commonDir: path.join(r.dir, '.git') });
+  assert.ok(w);
+  t.after(() => w.close());
+  await new Promise((res) => setTimeout(res, 300));
+  rmSync(r.dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+  const cpu0 = process.cpuUsage();
+  await new Promise((res) => setTimeout(res, 2_000));
+  const cpu = process.cpuUsage(cpu0);
+  assert.equal(w.failed(), true, 'the watch knows its folder is gone');
+  assert.ok((cpu.user + cpu.system) / 1000 < 500, `no event storm: ${Math.round((cpu.user + cpu.system) / 1000)} ms CPU in 2 s`);
 });

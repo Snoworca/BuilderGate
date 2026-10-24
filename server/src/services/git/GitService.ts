@@ -11,10 +11,11 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import type { RepoWatch, WatchRepo } from './gitRepoWatcher.js';
 import { createGitRunner, gitTargetForSession, GitError, type GitTarget, type RunGit, type SessionGitSource } from './gitRunner.js';
 import {
   LOG_FORMAT, parseLfsPointer, parseLog, parseNameStatusZ, parseNumstatZ, parseRefs, parseStatusV2, parseUnifiedDiff,
-  type DiffHunk, type FileArea, type FileKind, type LogCommit, type ParsedStatus, type Ref,
+  type DiffHunk, type FileArea, type FileKind, type LogCommit, type ParsedStatus, type Ref, type StatusFile,
 } from './gitParsers.js';
 import { createWslPathConverter } from '../../utils/wslPathConverter.js';
 
@@ -113,9 +114,20 @@ export interface GitServiceDeps {
   readGitFile?: (target: GitTarget, gitDir: string, rel: string) => Promise<string | null>;
   /** All live session ids; lets "all branches" mark other sessions' HEADs. */
   listSessionIds?: () => string[];
+  /** PERF-GIT-001 AC-10: a file watch that lets a quiet repository skip git (none by default). */
+  watchRepo?: WatchRepo;
 }
 
+/** `generation` goes up each time a change is taken; a status started before that cannot be reused. */
+interface WatchEntry { watch: RepoWatch; usedAt: number; generation: number; results: Map<string, { summary: GitSummary; gitAt: number }> }
+
 const SUMMARY_REUSE_MS = 1000;
+/** PERF-GIT-001 AC-10: a quiet file watch stands in for git at most this long. */
+const WATCH_TRUST_MS = 30_000;
+const MAX_WATCHED_REPOS = 32;
+/** A repository no summary asked about for this long has its watch closed (it holds the folder open). */
+const WATCH_IDLE_MS = 10 * 60_000;
+const MAX_KEPT_STATUS = 64;
 export const MAX_DIFF_BYTES = 512 * 1024;
 export const MAX_DIFF_LINES = 5000;
 const FORCED_DIFF_BYTES = 8 * 1024 * 1024;
@@ -129,6 +141,17 @@ const LANGUAGES: Record<string, string> = {
 };
 const UTF8 = new TextDecoder('utf-8', { fatal: true });
 
+/** A file's text, or null when it does not exist. Any other error (busy, denied) is thrown. */
+async function readIfExists(file: string): Promise<string | null> {
+  try {
+    return await fs.readFile(file, 'utf8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR' || code === 'EISDIR') return null;
+    throw err;
+  }
+}
+
 /** A repository-relative path that cannot escape the repository or read as an option. */
 export function isSafeRepoPath(p: string): boolean {
   if (!p || p.includes('\0') || p.startsWith('-') || p.startsWith('/') || p.includes('\\') || /^[A-Za-z]:/.test(p)) return false;
@@ -138,7 +161,7 @@ export const MAX_FILES = 2000;
 export const MAX_LOG_LIMIT = 500;
 const SHA = /^[0-9a-f]{7,64}$/;
 const COMMIT_FORMAT = '%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%cn%x1f%D%x1f%B';
-const INDEX_REFRESH_AFTER_MS = 1_000;
+const INDEX_REFRESH_AFTER_MS = 150;
 const INDEX_REFRESH_INTERVAL_MS = 60_000;
 
 const BASE_CANDIDATES = ['refs/remotes/origin/main', 'refs/remotes/origin/master', 'refs/heads/main', 'refs/heads/master'];
@@ -154,7 +177,11 @@ export class GitService {
   /** Repository identity per target. "Not a repository" is kept 10 s: the user may run git init. */
   private readonly repoCache = new Map<string, { info: RepoInfo | null; at: number }>();
   private readonly indexRefreshedAt = new Map<string, number>();
+  /** The last summary's status per target, for status() and diff inputs (PERF-GIT-001 AC-7). */
+  private readonly statusCache = new Map<string, { checkedAt: number; parsed: ReturnType<typeof parseStatusV2> }>();
   private readonly summaryCache = new Map<string, { at: number; value: GitSummary }>();
+  /** By repository root: one watch, and per target the last summary git produced while it watched. */
+  private readonly watches = new Map<string, WatchEntry>();
   private readonly summaryInFlight = new Map<string, Promise<GitSummary>>();
   private readonly timeouts = new Map<string, number>();
   private readonly baseAheadCache = new Map<string, number>();
@@ -224,6 +251,21 @@ export class GitService {
     const info = await this.repo(target);
     const checkedAt = this.now();
     if (!info) return { repo: false, checkedAt };
+    const targetKey = JSON.stringify(target);
+    const watched = this.watchFor(target, info);
+    if (watched) {
+      // takeChanged() runs before status, so an event during this status marks the next summary.
+      // A change makes every folder of the repository ask git again, since the mark is shared.
+      if (watched.watch.takeChanged()) { watched.results.clear(); watched.generation += 1; }
+      const kept = watched.results.get(targetKey);
+      const status = this.statusCache.get(targetKey);
+      if (kept && status && checkedAt - kept.gitAt < WATCH_TRUST_MS) {
+        status.checkedAt = checkedAt;
+        return { ...kept.summary, checkedAt };
+      }
+      watched.results.delete(targetKey); // a status that fails below leaves nothing to reuse
+    }
+    const generation = watched?.generation ?? 0;
     const scanOff = (this.timeouts.get(info.root) ?? 0) >= 2;
     // PERF-GIT-001: every git process costs tens of milliseconds to start on Windows, so the
     // base lookup and the git directory listing run alongside status rather than after it.
@@ -233,15 +275,25 @@ export class GitService {
     operationLookup.catch(() => {});
     let out: string;
     const statusStarted = this.now();
+    const timing = { ms: -1 };
     try {
-      out = await this.runGit(target, ['status', '--porcelain=v2', '--branch', '-z', scanOff ? '-uno' : '-unormal', '--no-renames'], { repoKey: info.root, quick: true, join: true });
-      if (this.now() - statusStarted > INDEX_REFRESH_AFTER_MS) this.refreshIndexSoon(target, info);
+      out = await this.runGit(target, ['status', '--porcelain=v2', '--branch', '-z', scanOff ? '-uno' : '-unormal', '-M'], { repoKey: info.root, quick: true, join: true, timing });
+      // The run itself, not the wait for a free slot: under load the wait alone passes 150 ms.
+      const took = timing.ms >= 0 ? timing.ms : this.now() - statusStarted;
+      if (took > INDEX_REFRESH_AFTER_MS) this.refreshIndexSoon(target, info);
       if (!scanOff) this.timeouts.delete(info.root);
     } catch (err) {
       if (err instanceof GitError && err.code === 'GIT_TIMEOUT') this.timeouts.set(info.root, (this.timeouts.get(info.root) ?? 0) + 1);
       throw err;
     }
     const status = parseStatusV2(out);
+    // PERF-GIT-001 AC-7: the file list and the first diff reuse this status (with its blob ids).
+    this.statusCache.delete(targetKey);
+    this.statusCache.set(targetKey, { checkedAt, parsed: status });
+    for (const k of this.statusCache.keys()) {
+      if (this.statusCache.size <= MAX_KEPT_STATUS) break;
+      this.statusCache.delete(k);
+    }
     const operation = await operationLookup;
     let branch = status.branch.head;
     let detached = status.branch.detached;
@@ -253,7 +305,7 @@ export class GitService {
     const compare = !baseFull ? { blocked: 'noBase' as const }
       : branch && (shortRef(baseFull) === branch || baseFull === `refs/heads/${branch}`) ? { blocked: 'sameAsBase' as const }
       : { ref: shortRef(baseFull) };
-    return {
+    const summary: GitSummary = {
       repo: true,
       root: info.root,
       subdir: info.subdir,
@@ -270,10 +322,54 @@ export class GitService {
       untrackedScan: scanOff ? 'off' : 'normal',
       checkedAt,
     };
+    // Only when no change was taken (by any session or folder) since this status started.
+    if (watched && watched.generation === generation) watched.results.set(targetKey, { summary, gitAt: checkedAt });
+    return summary;
+  }
+
+  /** Closes idle watches even when no summary is asked any more (a watch holds the folder open). */
+  private watchSweep: ReturnType<typeof setInterval> | null = null;
+  private scheduleWatchSweep(): void {
+    if (this.watchSweep) return;
+    this.watchSweep = setInterval(() => {
+      const now = this.now();
+      for (const [k, old] of this.watches) {
+        if (now - old.usedAt > WATCH_IDLE_MS) { old.watch.close(); this.watches.delete(k); }
+      }
+      if (!this.watches.size && this.watchSweep) { clearInterval(this.watchSweep); this.watchSweep = null; }
+    }, 60_000);
+    this.watchSweep.unref?.();
+  }
+
+  /** The repository's file watch, started (or restarted after a failure) before git runs. */
+  private watchFor(target: GitTarget, info: RepoInfo): WatchEntry | null {
+    if (!this.deps.watchRepo) return null;
+    const now = this.now();
+    for (const [k, old] of this.watches) {
+      if (now - old.usedAt > WATCH_IDLE_MS) { old.watch.close(); this.watches.delete(k); }
+    }
+    const key = `${target.kind}\0${target.kind === 'wsl' ? target.distro ?? '' : ''}\0${info.root}`;
+    let entry = this.watches.get(key);
+    if (entry && entry.watch.failed()) { entry.watch.close(); this.watches.delete(key); entry = undefined; }
+    if (entry) {
+      this.watches.delete(key); this.watches.set(key, entry); // most recently used last
+      entry.usedAt = now;
+      return entry;
+    }
+    const watch = this.deps.watchRepo(target, { root: info.root, gitDir: info.gitDir, commonDir: this.commonDirOf(target, info) });
+    if (!watch) return null;
+    entry = { watch, usedAt: now, generation: 0, results: new Map() };
+    this.scheduleWatchSweep();
+    this.watches.set(key, entry);
+    for (const [k, old] of this.watches) {
+      if (this.watches.size <= MAX_WATCHED_REPOS) break;
+      old.watch.close(); this.watches.delete(k);
+    }
+    return entry;
   }
 
   /**
-   * PERF-GIT-001 AC-5: status runs with --no-optional-locks so it never takes the index lock
+   * PERF-GIT-001 AC-5 (threshold 150 ms, measured: a racy index made status ~4x slower): status runs with --no-optional-locks so it never takes the index lock
    * from the user's or an agent's git, which also means it never writes back what it learned.
    * When another git (WSL's, say) last wrote the index, every file's stat data looks stale
    * and each status re-reads every file: 3 s per summary in a 6,000-file repository. One
@@ -323,7 +419,80 @@ export class GitService {
     return ref;
   }
 
+  /** Absolute git common dir (rev-parse reports it relative to the cwd when it can). */
+  private commonDirOf(target: GitTarget, info: RepoInfo): string {
+    if (info.commonDir.startsWith('/') || /^[A-Za-z]:/.test(info.commonDir)) return info.commonDir;
+    return target.kind === 'native' ? path.resolve(target.cwd, info.commonDir) : path.posix.resolve(target.cwd, info.commonDir);
+  }
+
+  /**
+   * PERF-GIT-001 AC-6: refs read from the files git keeps them in, so no process is started:
+   * loose refs, packed-refs, symbolic refs (HEAD, origin/HEAD). null when the repository uses
+   * reftable or a file cannot be read; the caller then asks git.
+   */
+  private async refReader(target: GitTarget, info: RepoInfo): Promise<((ref: string) => Promise<string | null>) | null> {
+    try {
+      const common = await this.hostPath(target, this.commonDirOf(target, info));
+      const gitDir = await this.hostPath(target, info.gitDir);
+      if (await fs.access(path.join(common, 'reftable')).then(() => true, () => false)) return null;
+      const readPacked = async () => {
+        const packed = new Map<string, string>();
+        for (const line of ((await readIfExists(path.join(common, 'packed-refs'))) ?? '').split(/\r?\n/)) {
+          const m = /^([0-9a-f]{40,64}) (refs\/\S+)$/.exec(line);
+          if (m) packed.set(m[2], m[1]);
+        }
+        return packed;
+      };
+      let packed = await readPacked();
+      const resolve = async (ref: string, depth = 0): Promise<string | null> => {
+        if (depth > 5) return null;
+        // HEAD and other per-worktree refs live in the git dir; shared refs in the common dir.
+        const dirs = ref.startsWith('refs/') ? [common] : [gitDir, common];
+        for (const dir of dirs) {
+          const text = (await readIfExists(path.join(dir, ...ref.split('/'))))?.trim() ?? null;
+          if (text === null) continue;
+          if (text.startsWith('ref: ')) return resolve(text.slice(5).trim(), depth + 1);
+          if (/^[0-9a-f]{40,64}$/.test(text)) return text;
+          throw new Error(`unreadable ref ${ref}`); // half-written: ask git
+        }
+        // pack-refs may have moved the ref after packed-refs was read: read it once more.
+        if (!packed.has(ref)) packed = await readPacked();
+        return packed.get(ref) ?? null;
+      };
+      return resolve;
+    } catch {
+      return null;
+    }
+  }
+
+  /** The target of a symbolic ref file (e.g. refs/remotes/origin/HEAD), or null. */
+  private async symbolicRef(target: GitTarget, info: RepoInfo, ref: string): Promise<string | null> {
+    const common = await this.hostPath(target, this.commonDirOf(target, info));
+    const text = (await readIfExists(path.join(common, ...ref.split('/'))))?.trim() ?? '';
+    return text.startsWith('ref: ') ? text.slice(5).trim() : null;
+  }
+
+  /** HEAD's commit id, or null for an unborn branch; from the files when possible. */
+  private async headOid(target: GitTarget, info: RepoInfo): Promise<string | null> {
+    const read = await this.refReader(target, info);
+    if (read) {
+      try { return await read('HEAD'); } catch { /* a ref file could not be read: ask git */ }
+    }
+    return this.git(target, info, ['rev-parse', '-q', '--verify', 'HEAD'], true).then((s) => s.trim() || null, () => null);
+  }
+
   private async findBaseRef(target: GitTarget, info: RepoInfo): Promise<string | null> {
+    const read = await this.refReader(target, info);
+    if (read) {
+      try {
+        const originHead = await this.symbolicRef(target, info, 'refs/remotes/origin/HEAD');
+        if (originHead && await read(originHead)) return originHead;
+        for (const candidate of BASE_CANDIDATES) if (await read(candidate)) return candidate;
+        return null;
+      } catch {
+        // a ref file could not be read: ask git below
+      }
+    }
     // One git call: origin/HEAD's target (%(symref)) if it is set, else the first candidate that exists.
     const out = await this.runGit(target, ['for-each-ref', '--format=%(refname) %(symref)', 'refs/remotes/origin/HEAD', ...BASE_CANDIDATES], { repoKey: info.root, quick: true, join: true }).catch(() => '');
     const refs = new Map(out.split(/\r?\n/).filter(Boolean).map((line) => { const [name, sym = ''] = line.split(' '); return [name, sym] as const; }));
@@ -331,6 +500,7 @@ export class GitService {
     if (originHead) return originHead;
     return BASE_CANDIDATES.find((c) => refs.has(c)) ?? null;
   }
+
 
   private async baseAhead(target: GitTarget, info: RepoInfo, branch: string, head: string, ref: string | null): Promise<{ ref: string; ahead: number } | null> {
     if (!ref || shortRef(ref) === branch || ref === `refs/heads/${branch}`) return null;
@@ -399,39 +569,46 @@ export class GitService {
     }
   }
 
+  /** The status the current summary was built from (same checkedAt), if still kept. */
+  private latestStatus(target: GitTarget, summary: GitSummary): ReturnType<typeof parseStatusV2> | null {
+    const kept = this.statusCache.get(JSON.stringify(target));
+    return kept && summary.repo && kept.checkedAt === summary.checkedAt ? kept.parsed : null;
+  }
+
   async status(sessionId: string): Promise<GitStatus> {
     const target = this.target(sessionId);
     const summary = await this.summary(sessionId);
     if (!summary.repo) throw new GitError('NOT_A_REPO');
     const info = await this.repoOrThrow(target);
     const scan = summary.untrackedScan === 'off' ? '-uno' : '-unormal';
-    const [statusOut, stagedNum, unstagedNum] = await Promise.all([
-      this.git(target, info, ['status', '--porcelain=v2', '-z', scan, '-M'], true),
-      this.git(target, info, ['diff', '--cached', '--numstat', '-z', '-M']).catch(() => ''),
-      this.git(target, info, ['diff', '--numstat', '-z']).catch(() => ''),
-    ]);
-    const parsed = parseStatusV2(statusOut);
+    const parsed = this.latestStatus(target, summary)
+      ?? parseStatusV2(await this.git(target, info, ['status', '--porcelain=v2', '-z', scan, '-M'], true));
     const truncated = parsed.files.length > MAX_FILES;
     const files = parsed.files.slice(0, MAX_FILES);
+    // PERF-GIT-001 AC-7: numstat only for the paths status reported, so git does not stat the
+    // whole working tree again; no process at all for an empty side.
+    const numstat = async (area: 'staged' | 'unstaged') => {
+      const paths = [...new Set(files.filter((f) => f.area === area).flatMap((f) => (f.origPath ? [f.path, f.origPath] : [f.path])))];
+      if (!paths.length) return '';
+      const spec = paths.join('').length < 16_000 ? ['--', ...paths] : [];
+      const args = area === 'staged' ? ['diff', '--cached', '--numstat', '-z', '-M'] : ['diff', '--numstat', '-z'];
+      return this.git(target, info, ['--literal-pathspecs', ...args, ...spec]).catch(() => '');
+    };
+    const [stagedNum, unstagedNum] = await Promise.all([numstat('staged'), numstat('unstaged')]);
     const numFor = (list: ReturnType<typeof parseNumstatZ>) => new Map(list.map((n) => [n.path, n]));
     const staged = numFor(parseNumstatZ(stagedNum));
     const unstaged = numFor(parseNumstatZ(unstagedNum));
-    const paths = [...new Set(files.flatMap((f) => (f.origPath ? [f.path, f.origPath] : [f.path])))];
-    const [indexIds, headIds] = await Promise.all([
-      this.blobIds(target, info, 'index', paths),
-      summary.head ? this.blobIds(target, info, 'HEAD', paths) : Promise.resolve(new Map<string, string>()),
-    ]);
     const entries = await Promise.all(files.map(async (f): Promise<StatusEntry> => {
       const base = { path: f.path, ...(f.origPath ? { origPath: f.origPath } : {}), ...(f.similarity !== undefined ? { similarity: f.similarity } : {}), kind: f.kind, area: f.area };
       if (f.area === 'staged') {
         const n = staged.get(f.path);
         return { ...base, add: n?.add ?? 0, del: n?.del ?? 0, binary: n?.binary ?? false,
-          inputs: { old: { id: headIds.get(f.origPath ?? f.path) ?? null }, new: { id: indexIds.get(f.path) ?? null } } };
+          inputs: { old: { id: f.headId ?? null }, new: { id: f.indexId ?? null } } };
       }
       if (f.area === 'unstaged') {
         const n = unstaged.get(f.path);
         return { ...base, add: n?.add ?? 0, del: n?.del ?? 0, binary: n?.binary ?? false,
-          inputs: { old: { id: indexIds.get(f.path) ?? null }, new: await this.worktreeInput(target, info, f.path) } };
+          inputs: { old: { id: f.indexId ?? null }, new: await this.worktreeInput(target, info, f.path) } };
       }
       if (f.area === 'untracked') {
         const u = await this.untrackedStat(target, info, f.path);
@@ -457,11 +634,12 @@ export class GitService {
     const info = await this.repoOrThrow(target);
     const limit = Math.max(1, Math.min(MAX_LOG_LIMIT, Math.floor(opts.limit ?? 200)));
     if (opts.after !== undefined && !SHA.test(opts.after)) throw new GitError('INVALID_INPUT', 'after');
-    const [shallowOut, hasHead] = await Promise.all([
-      this.git(target, info, ['rev-parse', '--is-shallow-repository'], true).catch(() => 'false'),
-      this.git(target, info, ['rev-parse', '-q', '--verify', 'HEAD'], true).then(() => true, () => false),
+    // PERF-GIT-001 AC-7: from the files (.git/shallow, HEAD), not two rev-parse processes.
+    const common = await this.hostPath(target, this.commonDirOf(target, info));
+    const [shallow, hasHead] = await Promise.all([
+      fs.access(path.join(common, 'shallow')).then(() => true, () => false),
+      this.headOid(target, info).then((oid) => oid !== null),
     ]);
-    const shallow = shallowOut.trim() === 'true';
     if (!hasHead) return { commits: [], hasMore: false, shallow, noCommits: true, sessions: [] };
     const revs = await this.revsFor(target, info, opts.scope);
     let skip = 0;
@@ -578,7 +756,7 @@ export class GitService {
         return { range: [oldTree, sha], oldTree: parent || null, newTree: sha };
       }
       case 'staged': {
-        const head = await this.git(target, info, ['rev-parse', '-q', '--verify', 'HEAD'], true).then((s) => s.trim(), () => '');
+        const head = (await this.headOid(target, info)) ?? '';
         return { range: ['--cached', head || await this.emptyTree(target, info)], oldTree: head || null, newTree: 'index' };
       }
       case 'unstaged':
@@ -595,9 +773,23 @@ export class GitService {
     }
   }
 
-  private async sideInput(target: GitTarget, info: RepoInfo, tree: string | null, rel: string): Promise<SideInput> {
+  /** The status record of a working-tree file from a summary at most 5 s old. */
+  private recentStatusRecord(target: GitTarget, req: DiffRequest): StatusFile | undefined {
+    if (req.src !== 'staged' && req.src !== 'unstaged') return undefined;
+    const key = JSON.stringify(target);
+    const kept = this.statusCache.get(key);
+    if (!kept || this.now() - kept.checkedAt > 5_000) return undefined;
+    // A change the watch saw since (a stage, say) makes the record's blob ids old.
+    for (const entry of this.watches.values()) if (entry.results.has(key) && entry.watch.peekChanged()) return undefined;
+    return kept.parsed.files.find((f) => f.area === req.src && f.path === req.path);
+  }
+
+  private async sideInput(target: GitTarget, info: RepoInfo, tree: string | null, rel: string, record?: StatusFile): Promise<SideInput> {
     if (tree === null) return { id: null };
     if (tree === 'worktree') return this.worktreeInput(target, info, rel);
+    // PERF-GIT-001 AC-7: the status record already names the index and HEAD blobs.
+    if (record && tree === 'index' && record.indexId !== undefined) return { id: record.indexId };
+    if (record && tree !== 'index' && record.headId !== undefined && record.area === 'staged') return { id: record.headId };
     const ids = await this.blobIds(target, info, tree === 'index' ? 'index' : tree, [rel]);
     return { id: ids.get(rel) ?? null };
   }
@@ -629,7 +821,8 @@ export class GitService {
     const { range, oldTree, newTree } = await this.sides(target, info, req);
     const oldRel = req.origPath ?? req.path;
     // The side inputs and the diff itself do not depend on each other: ask for them together.
-    const inputsLookup = Promise.all([this.sideInput(target, info, oldTree, oldRel), this.sideInput(target, info, newTree, req.path)]);
+    const record = this.recentStatusRecord(target, req);
+    const inputsLookup = Promise.all([this.sideInput(target, info, oldTree, oldRel, record), this.sideInput(target, info, newTree, req.path, record)]);
     inputsLookup.catch(() => {});
     const pathspec = req.origPath ? ['--', req.origPath, req.path] : ['--', req.path];
     const base = ['diff', '-U3', '--no-color', '--no-ext-diff', '--no-textconv', '-M'];

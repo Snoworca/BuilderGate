@@ -16,8 +16,9 @@
  * @req SEC-GIT-001
  */
 
-import { execFile } from 'node:child_process';
 import path from 'node:path';
+import { createWorkerRunGitFile, type WorkerRunGitFile } from './gitWorkerRunner.js';
+import { createWslGitHelper, type WslGitHelper } from './gitWslHelper.js';
 
 export type GitErrorCode =
   | 'GIT_UNAVAILABLE' | 'GIT_UNSAFE_REPO' | 'NOT_A_REPO' | 'GIT_TIMEOUT' | 'GIT_FAILED'
@@ -123,12 +124,14 @@ export interface RunGitFileOptions {
 }
 export type RunGitFile = (file: string, args: readonly string[], options: RunGitFileOptions) => Promise<{ stdout: string | Buffer }>;
 
-const defaultRun: RunGitFile = (file, args, options) => new Promise((resolve, reject) => {
-  execFile(file, [...args], options, (error, stdout, stderr) => {
-    if (error) { reject(Object.assign(error, { stderr })); return; }
-    resolve({ stdout });
-  });
-});
+// PERF-GIT-001 AC-8: one worker for the whole server starts every git process, so process
+// creation never blocks the event loop. It falls back to this thread if a worker cannot start.
+let sharedWorkerRun: WorkerRunGitFile | null = null;
+export const defaultRunGitFile: RunGitFile = (file, args, options) => {
+  sharedWorkerRun ??= createWorkerRunGitFile();
+  return sharedWorkerRun(file, args, options);
+};
+const defaultRun = defaultRunGitFile;
 
 export interface RunGitOptions {
   /** Repository identity for the per-repository cap (the repository root, or the cwd before it is known). */
@@ -139,12 +142,23 @@ export interface RunGitOptions {
   join?: boolean;
   raw?: boolean;
   maxBuffer?: number;
+  /** Filled with the run time after a slot was free (not the wait); left alone for a joined request. */
+  timing?: { ms: number };
 }
 
 export interface GitRunnerOptions {
   run?: RunGitFile;
   maxGlobal?: number;
   maxPerRepo?: number;
+  /** The resident WSL helper (PERF-GIT-001 AC-9); null to always start one wsl.exe per command. */
+  wslHelper?: WslGitHelper | null;
+}
+
+let sharedWslHelper: WslGitHelper | null = null;
+function defaultWslHelper(): WslGitHelper | null {
+  if (process.platform !== 'win32') return null;
+  sharedWslHelper ??= createWslGitHelper();
+  return sharedWslHelper;
 }
 
 export type RunGit = {
@@ -154,6 +168,7 @@ export type RunGit = {
 
 export function createGitRunner(options: GitRunnerOptions = {}): RunGit {
   const run = options.run ?? defaultRun;
+  const wslHelper = options.wslHelper === undefined ? defaultWslHelper() : options.wslHelper;
   const maxGlobal = options.maxGlobal ?? 4;
   const maxPerRepo = options.maxPerRepo ?? 2;
   let active = 0;
@@ -181,7 +196,21 @@ export function createGitRunner(options: GitRunnerOptions = {}): RunGit {
 
   const execute = async (target: GitTarget, args: readonly string[], opts: RunGitOptions): Promise<string | Buffer> => {
     await acquire(opts.repoKey);
+    const started = Date.now();
     try {
+      if (target.kind === 'wsl' && wslHelper?.available(target.distro)) {
+        try {
+          const { stdout } = await wslHelper.run(target.distro, ['-C', target.cwd, ...COMMON_GIT_OPTIONS, ...args], {
+            timeout: opts.quick ? 5000 : 10000,
+            maxBuffer: opts.maxBuffer ?? 32 * 1024 * 1024,
+            encoding: opts.raw ? 'buffer' : 'utf8',
+          });
+          return stdout;
+        } catch (err) {
+          // A helper that could not start: this and later commands use one wsl.exe each.
+          if (wslHelper.available(target.distro)) throw err;
+        }
+      }
       const cmd = buildGitCommand(target, args);
       const { stdout } = await run(cmd.file, cmd.args, {
         cwd: cmd.cwd,
@@ -195,6 +224,7 @@ export function createGitRunner(options: GitRunnerOptions = {}): RunGit {
     } catch (err) {
       throw classifyGitError(err);
     } finally {
+      if (opts.timing) opts.timing.ms = Date.now() - started;
       release(opts.repoKey);
     }
   };

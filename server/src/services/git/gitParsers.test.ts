@@ -49,11 +49,12 @@ test('FR-GIT-001: porcelain v2 entries become per-area files, and paths count ea
     '! ignored.log',
   ));
   assert.deepEqual(s.files, [
-    { path: 'src/a.ts', kind: 'M', area: 'staged' },
-    { path: 'src/a.ts', kind: 'M', area: 'unstaged' },
-    { path: 'src/gone.ts', kind: 'D', area: 'unstaged' },
-    { path: 'new file.ts', kind: 'A', area: 'staged' },
-    { path: 'src/b.ts', origPath: 'src/old b.ts', kind: 'R', similarity: 92, area: 'staged' },
+    // headId / indexId: the hH and hI fields (PERF-GIT-001 AC-7); all zeros means no file on that side.
+    { path: 'src/a.ts', kind: 'M', area: 'staged', headId: 'aaaaaaaa', indexId: 'bbbbbbbb' },
+    { path: 'src/a.ts', kind: 'M', area: 'unstaged', headId: 'aaaaaaaa', indexId: 'bbbbbbbb' },
+    { path: 'src/gone.ts', kind: 'D', area: 'unstaged', headId: 'aaaaaaaa', indexId: 'aaaaaaaa' },
+    { path: 'new file.ts', kind: 'A', area: 'staged', headId: null, indexId: 'cccccccc' },
+    { path: 'src/b.ts', origPath: 'src/old b.ts', kind: 'R', similarity: 92, area: 'staged', headId: 'dddddddd', indexId: 'dddddddd' },
     { path: 'conflict.ts', kind: 'X', area: 'conflict' },
     { path: 'untracked/x.txt', kind: '?', area: 'untracked' },
   ]);
