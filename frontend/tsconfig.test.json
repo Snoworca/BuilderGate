@@ -28,6 +28,7 @@
     "./tests/unit/terminalOscLinks.test.ts",
     "./tests/unit/terminalHostSlotScroll.test.ts",
     "./tests/unit/boundedCaches.test.ts",
+    "./tests/unit/terminalDeliveryVisibilityLedger.test.ts",
     "./tests/unit/gitChipMenu.test.ts",
     "./tests/unit/gitPathMenu.test.ts",
     "./tests/unit/gitGraphLayout.test.ts",

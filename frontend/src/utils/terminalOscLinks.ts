@@ -16,7 +16,19 @@
  *    the shell sends (RIS, ESC c, as `reset` or `tput reset` do).
  */
 
-const OSC8 = '\x1b]8;';
+// The OSC 8 introducers xterm accepts: ESC ] and C1 OSC (U+009D; C2 9D in UTF-8 bytes).
+const OSC8_TEXT = ['\x1b]8;', '\u009d8;'];
+const OSC8_BYTES = ['\x1b]8;', '\xc2\x9d8;'];
+
+/** The next OSC 8 start at or after `from`: where its params begin, or -1. */
+function nextOsc8(text: string, from: number, bytes: boolean): number {
+  let best = -1;
+  for (const intro of bytes ? OSC8_BYTES : OSC8_TEXT) {
+    const at = text.indexOf(intro, from);
+    if (at >= 0 && (best < 0 || at + intro.length < best)) best = at + intro.length;
+  }
+  return best;
+}
 const encoder = new TextEncoder();
 /** One char per byte. Not TextDecoder('latin1'): that is windows-1252 and remaps 0x80-0x9F. */
 function bytesToChars(bytes: Uint8Array): string {
@@ -90,12 +102,11 @@ function paramsWithId(raw: string, id: string): string | null {
 
 /** `ESC ] 8 ; params ; URI ST` -> the same with an id in params when it has none. */
 function assignInText(text: string, uriOf: (uri: string) => string, bytes: boolean): string {
-  let at = text.indexOf(OSC8);
-  if (at < 0) return text;
+  let paramsStart = nextOsc8(text, 0, bytes);
+  if (paramsStart < 0) return text;
   let out = '';
   let copied = 0;
-  while (at >= 0) {
-    const paramsStart = at + OSC8.length;
+  while (paramsStart >= 0) {
     const end = oscEnd(text, paramsStart, bytes);
     // The params end at the first ';' inside this sequence; the URI may itself contain ';'.
     const paramsEnd = end < 0 ? -1 : text.indexOf(';', paramsStart);
@@ -108,7 +119,7 @@ function assignInText(text: string, uriOf: (uri: string) => string, bytes: boole
         copied = paramsEnd;
       }
     }
-    at = text.indexOf(OSC8, paramsStart);
+    paramsStart = nextOsc8(text, paramsStart, bytes);
   }
   return copied === 0 ? text : out + text.slice(copied);
 }
@@ -118,6 +129,9 @@ const utf8PerChar = (uri: string) => bytesToChars(encoder.encode(uri));
 function hasOsc8(bytes: Uint8Array): boolean {
   for (let i = bytes.indexOf(0x1b); i >= 0 && i + 3 < bytes.length; i = bytes.indexOf(0x1b, i + 1)) {
     if (bytes[i + 1] === 0x5d && bytes[i + 2] === 0x38 && bytes[i + 3] === 0x3b) return true;
+  }
+  for (let i = bytes.indexOf(0xc2); i >= 0 && i + 3 < bytes.length; i = bytes.indexOf(0xc2, i + 1)) {
+    if (bytes[i + 1] === 0x9d && bytes[i + 2] === 0x38 && bytes[i + 3] === 0x3b) return true;
   }
   return false;
 }

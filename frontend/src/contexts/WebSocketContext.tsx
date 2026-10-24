@@ -86,6 +86,7 @@ import {
 import { fromJsonOutputMessage } from '../utils/terminalOutputDelivery';
 import type { TerminalOutputDelivery } from '../utils/terminalOutputDelivery';
 import { sendOpenBrowserWebSocketMessage } from '../utils/webSocketBackpressure';
+import { createDeliveryVisibilityLedger, type DeliveryVisibilityLedger } from '../utils/terminalDeliveryVisibilityLedger';
 import { respondToTerminalAuthorityViewAttributeCapability } from '../utils/terminalViewAttributes';
 import {
   applyGraceBufferedMessage,
@@ -355,11 +356,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     accepted: boolean;
     connectionEpoch: string | null;
   }>({ accepted: false, connectionEpoch: null });
-  const terminalDeliveryVisibilityRef = useRef<Map<string, {
-    generation: bigint;
-    isVisible: boolean;
-    deliveryInterestRefCount: number;
-  }>>(new Map());
+  const terminalDeliveryVisibilityRef = useRef<DeliveryVisibilityLedger>(createDeliveryVisibilityLedger());
   const sendTerminalAuthorityControlRef = useRef<(
     input: TerminalAuthorityControlSendInput,
   ) => ImmediateTerminalControlSendResult>(() => ({
@@ -431,7 +428,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     if (!terminalDeliveryCapabilityRef.current.accepted) return;
     const socket = wsRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    for (const [sessionId, visibility] of terminalDeliveryVisibilityRef.current) {
+    for (const [sessionId, visibility] of terminalDeliveryVisibilityRef.current.entries()) {
       sendOpenBrowserWebSocketMessage({
         message: {
           type: 'terminal-delivery:visibility',
@@ -453,22 +450,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     isVisible: boolean;
     deliveryInterestRefCount?: number;
   }): void => {
-    const current = terminalDeliveryVisibilityRef.current.get(input.sessionId);
-    const deliveryInterestRefCount = input.deliveryInterestRefCount ?? 1;
-    if (
-      current
-      && current.isVisible === input.isVisible
-      && current.deliveryInterestRefCount === deliveryInterestRefCount
-    ) {
-      return;
-    }
-    const generation = (current?.generation ?? 0n) + 1n;
-    terminalDeliveryVisibilityRef.current.set(input.sessionId, {
-      generation,
-      isVisible: input.isVisible,
-      deliveryInterestRefCount,
-    });
-    flushTerminalDeliveryVisibility();
+    const changed = terminalDeliveryVisibilityRef.current.publish(
+      input.sessionId,
+      input.isVisible,
+      input.deliveryInterestRefCount ?? 1,
+    );
+    if (changed) flushTerminalDeliveryVisibility();
   }, [flushTerminalDeliveryVisibility]);
 
   // ------ Message handler ------
@@ -1459,6 +1446,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
           graceBufferedSessionsRef.current.delete(sessionId);
           activeSubscriptionsRef.current.delete(sessionId);
+          // REL-BGSTAB-052 AC-10: an unsubscribed session's visibility is no longer re-sent.
+          terminalDeliveryVisibilityRef.current.forget(sessionId);
           // Retired, not removed: frames already in flight belong to a session
           // the client has discarded, so they are a silent drop with a
           // diagnostic rather than an unknown-channel rejection (`08:196`).

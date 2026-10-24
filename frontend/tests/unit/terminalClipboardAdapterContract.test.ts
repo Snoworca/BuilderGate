@@ -191,6 +191,7 @@ const TERMINAL_HANDLE_MEMBERS: Readonly<Record<string, string>> = {
   getAuthorityViewGeneration: 'reads a generation; no input',
   getApplicationCursorKeysMode: 'reads application cursor mode; no input', // IR-MKB-001 AC-1 / SDS-AC-12
   getMouseTrackingActive: 'reads mouse mode; no input',
+  getPathsAt: 'reads file paths shown at a screen point; takes two numbers, no input', // FR-ARCH-012/013 (5f6f17d4)
   getScreenRepairReadiness: 'reads readiness; no input',
   getSelection: 'reads selection text; no input',
   hasSelection: 'reads selection presence; no input',

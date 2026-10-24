@@ -108,11 +108,13 @@ test('REL-BGSTAB-052 AC-2: other terminators, a missing params separator and an 
 });
 
 test('REL-BGSTAB-052 AC-2: a C1 control that cuts the sequence short leaves it untouched; ESC ends it like xterm', () => {
-  for (const raw of ['\x1b]8;a\x85b;http://u\x07Z', '\x1b]8;a\x9bb;http://u\x07Z', '\x1b]8;\x9d8;;http://u\x07Z']) {
+  for (const raw of ['\x1b]8;a\x85b;http://u\x07Z', '\x1b]8;a\x9bb;http://u\x07Z']) {
     assert.equal(assignOscLinkIds(raw), raw, JSON.stringify(raw));
     const bytes = new Uint8Array([...raw].flatMap((ch) => [...new TextEncoder().encode(ch)]));
     assert.equal(assignOscLinkIds(bytes), bytes, `bytes ${JSON.stringify(raw)}`);
   }
+  // U+009D aborts the first OSC and starts a new one: only that second, real link gets an id.
+  assert.match(assignOscLinkIds('\x1b]8;\x9d8;;http://u\x07Z') as string, /^\x1b\]8;\x9d8;id=bg[0-9a-z]+;http:\/\/u\x07Z$/);
   // A continuation byte in the 0x80-0x9f range inside a UTF-8 URI is not a C1 control.
   const quote = new TextEncoder().encode('\x1b]8;;https://q/\u201c\x07q');
   assert.notEqual(assignOscLinkIds(quote), quote, 'a URI with \u201c (E2 80 9C) still gets an id');
@@ -145,4 +147,14 @@ test('REL-BGSTAB-052 AC-2: an explicit id made of spaces is an id to xterm and i
   }
   // ...while trailing spaces of the whole params are trimmed away, leaving an empty id to fill.
   assert.match(assignOscLinkIds('\x1b]8;id=  ;http://u\x07') as string, /^\x1b\]8;id=bg[0-9a-z]+;http:\/\/u\x07$/);
+});
+
+test('REL-BGSTAB-052 AC-2: an OSC started with the C1 introducer (U+009D) gets its id too', async () => {
+  assert.match(assignOscLinkIds('\u009d8;;https://c1\x07c') as string, /^\u009d8;id=bg[0-9a-z]+;https:\/\/c1\x07c$/);
+  const bytes = new Uint8Array([0xc2, 0x9d, ...new TextEncoder().encode('8;;https://c1\x07c')]);
+  assert.match(String.fromCharCode(...(assignOscLinkIds(bytes) as Uint8Array)), /^\xc2\x9d8;id=bg[0-9a-z]+;https:\/\/c1\x07c$/);
+  // ...and redrawn in place it keeps one record, like the ESC ] form.
+  const { write, links } = setup();
+  for (let i = 0; i < 200; i += 1) await write('\x1b[H\u009d8;;https://c1\x07c\u009d8;;\x07');
+  assert.ok(links().size <= 1, `link entries: ${links().size}`);
 });

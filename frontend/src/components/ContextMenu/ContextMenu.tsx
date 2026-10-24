@@ -127,7 +127,13 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
   });
 }
 
-let lastFocusedElement: Element | null = null;
+// REL-BGSTAB-052: held weakly, and only while still in the document, so the element of a
+// closed window (an editor, a dialog) does not keep that whole detached tree alive.
+let lastFocusedRef: WeakRef<Element> | null = null;
+function lastFocusedElement(): Element | null {
+  const element = lastFocusedRef?.deref() ?? null;
+  return element?.isConnected ? element : null;
+}
 
 if (typeof document !== 'undefined') {
   document.addEventListener('focusin', (event) => {
@@ -137,7 +143,7 @@ if (typeof document !== 'undefined') {
     if (event.target.closest('.context-menu') || event.target.closest('.context-menu-dialog')) {
       return;
     }
-    lastFocusedElement = event.target;
+    lastFocusedRef = new WeakRef(event.target);
   }, true);
 }
 
@@ -150,12 +156,12 @@ function getPreviousActiveElement(): Element | null {
     activeElement instanceof Element
     && (activeElement.closest('.context-menu') || activeElement.closest('.context-menu-dialog'))
   ) {
-    return lastFocusedElement;
+    return lastFocusedElement();
   }
   if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) {
     return activeElement;
   }
-  return lastFocusedElement;
+  return lastFocusedElement();
 }
 
 // ---------------------------------------------------------------------------
