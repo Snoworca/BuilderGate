@@ -68,7 +68,7 @@
     },
     "sourceSetSha256": "e43814326fa608972c83e8abed3f6232916c71db6e8e6a69e9e0d40d2fd14323",
     "rawGreenEvidence": {
-      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "a76fe6ff45521074571c7a903f9b235c629211841fdff6c5b09b659c8b7c2694",
+      "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/differential-green-output.json": "e6e8ec9d51b8d3fa0d6524d4d7865a499948944ed68ed03a2ea54d53992a84ee",
       "docs/analysis/kiwi-coder-2026-07-16.projectmaster.wave3-authority-fairness/ph-001/focused-green-output.txt": "c10f00e503ac73eaf5296b02ecd224f81968697192991bfe5dd62bd2ebd5a23f"
     },
     "consumerAstFingerprint": {
