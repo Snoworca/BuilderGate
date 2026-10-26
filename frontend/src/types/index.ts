@@ -122,6 +122,8 @@ export interface PathStat {
   permissions: string;
   childCount?: number;
   linkTarget?: string;
+  /** Set when the path lies in another worktree of the session folder's repository. @req SEC-FOP-002 */
+  worktree?: WorktreeLocation;
 }
 
 export interface DirectoryListing {
@@ -138,6 +140,14 @@ export interface FileContent {
   encoding: 'utf-8' | 'unknown';
   extension: string;
   mimeType: string;
+  /** Set when the file lies in another worktree of the session folder's repository; read-only. @req SEC-FOP-002 */
+  worktree?: WorktreeLocation;
+}
+
+/** The worktree a path outside the session folder was read from (SEC-FOP-002 AC-5). */
+export interface WorktreeLocation {
+  root: string;
+  name: string;
 }
 
 export interface AuthState {

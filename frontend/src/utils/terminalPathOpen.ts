@@ -1,10 +1,12 @@
 // What happens to a path picked from terminal output (FR-ARCH-012 AC-8): the
 // server resolves it against the session folder with the file API rules, and
 // only a file the editor can open is opened. A missing path, a folder, a path
-// outside the session folder or an unsupported file is refused with a reason,
+// outside the session folder (and outside every other worktree of its git
+// repository, SEC-FOP-002) or an unsupported file is refused with a reason,
 // so the editor never offers to create a file the output merely mentioned.
 // @req FR-ARCH-012
 // @req FR-ARCH-013
+// @req SEC-FOP-002
 
 import { isOpenableFile } from '../components/fileExplorer/fileRowInteraction.ts';
 import { t } from '../i18n/i18n.ts';

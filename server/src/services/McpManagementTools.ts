@@ -37,8 +37,10 @@ export interface McpWorkspaceControl {
   /**
    * FR-MCP-012 AC-5: resolves `filePath` against the session's current working directory with the
    * file API's rules, throwing PATH_TRAVERSAL / PATH_BLOCKED, and says whether it is there.
+   * SEC-FOP-002 AC-10: `open` (an existing file) follows the read rules and so reaches the other
+   * worktrees of the session folder's repository; `write` (content to save) stays in the session folder.
    */
-  inspectEditorFile(sessionId: string, filePath: string): Promise<McpEditorFileInfo>;
+  inspectEditorFile(sessionId: string, filePath: string, purpose: 'open' | 'write'): Promise<McpEditorFileInfo>;
   /** FR-MCP-012 AC-2: writes `content` (creating parent directories) and returns the absolute path. */
   writeEditorFile(sessionId: string, filePath: string, content: string): Promise<string>;
   /** FR-MCP-012 AC-7: tells every browser to open the file in the workspace's editor window. */
@@ -417,7 +419,7 @@ async function openInEditor(
   if (content !== undefined) {
     const extension = kind === 'html' ? '.html' : '.md';
     const destination = filePath ?? `${MCP_DOCS_DIR}/${docFileName(deps.now?.() ?? new Date().toISOString(), optionalString(args.title), extension)}`;
-    const info = await control.inspectEditorFile(terminal.sessionId, destination);
+    const info = await control.inspectEditorFile(terminal.sessionId, destination, 'write');
     if (info.exists && !info.isFile) return { ok: false, code: 'VALIDATION_ERROR', fieldErrors: { filePath: 'is a directory' } };
     if (info.exists && args.overwrite !== true) {
       return { ok: false, code: 'FILE_EXISTS', filePath: info.path, message: 'Pass overwrite: true to replace it.' };
@@ -425,7 +427,7 @@ async function openInEditor(
     openPath = await control.writeEditorFile(terminal.sessionId, info.path, content);
     created = true;
   } else {
-    const info = await control.inspectEditorFile(terminal.sessionId, filePath!);
+    const info = await control.inspectEditorFile(terminal.sessionId, filePath!, 'open');
     if (!info.exists || !info.isFile) return { ok: false, code: 'FILE_NOT_FOUND', filePath: info.path };
     openPath = info.path;
   }

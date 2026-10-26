@@ -1,88 +1,88 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-26T00:16:23.527Z",
+  "generatedAt": "2026-10-26T07:17:01.227Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "6f0e15ecee735ad9ee52b0772d8ff5447adb18e7b7bc29affeca4ff7898c2774",
+    "value": "38127f736ff2f44e17593198a90cc60e7f6b854ddaba177b8fd6226dc24ce207",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "3fc4bafcaf99585e499a834c62a435b9a4e21604b5534de9c5239951f9acdcdc",
-        "size": 15037,
-        "mtimeMs": 1792723254974.6492
+        "sha256": "fce3541663ee9b5d0dd38c3b77f58328b4decf3a584269dc76a84cb69ae34caa",
+        "size": 15207,
+        "mtimeMs": 1792987489458.517
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "384cafd8e9a2d59921370e5119b87136480fd8a126ba6ebe0b5d1309863470db",
-        "size": 65050,
-        "mtimeMs": 1792658759715.5134
+        "sha256": "25b7f1960395472aba8a6c20b162be24bd882eafd9efabf8ff90b1dd95789205",
+        "size": 65503,
+        "mtimeMs": 1792987581717.3792
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "6191757cff913a323928ddbbeed5410e32808c5c5e84184fad4ec3829446b5fb",
         "size": 103690,
-        "mtimeMs": 1792973774547.6245
+        "mtimeMs": 1792977416080.812
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
         "sha256": "f2c218a5db7244fedbcb537c652281d699a3a6e21db992fc5025dba692243f28",
         "size": 1527186,
-        "mtimeMs": 1792812063673.7532
+        "mtimeMs": 1792977416730.6245
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "a102ab539238f88db8f362b663b2b825f757b9eb887d08d65e78e621d5bc7da4",
         "size": 143846,
-        "mtimeMs": 1792844520524.9448
+        "mtimeMs": 1792977416757.16
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "7a2193dd452866436d7ce79bef592d99f91c2135324218e7156a83076e98b409",
-        "size": 309869,
-        "mtimeMs": 1792523753859.6306
+        "sha256": "76a17b36e3e8ada0af6a00088a09e90ffeddadc9fbd8f91948bab099554fd8ed",
+        "size": 312947,
+        "mtimeMs": 1792631694661.423
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "8d6a89b595e6881acc04dcfdd7d1f73483a6e5fcdecb4f68b841d933919ba121",
         "size": 150699,
-        "mtimeMs": 1792645351331.6492
+        "mtimeMs": 1792977416769.3828
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "48a7a29f6e3be14d7d2057e465b2205c3d05eca086c780435355356fe30793c9",
-        "size": 62623,
-        "mtimeMs": 1792646623589.0376
+        "sha256": "aa7fefbb014c956660d18837a8989d3dbab887ef939604f5be853f952168273d",
+        "size": 70252,
+        "mtimeMs": 1792999021098.3918
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "2eef998fb93ea5d0951e48d877fdb5e157a30af7bcc0389343b569fd3458ea38",
-        "size": 47478,
-        "mtimeMs": 1792524258865.0269
+        "sha256": "74464b592c388e51237c5df0489796f77bb1cae22310ced9c2be7e5e2a7b79d6",
+        "size": 48444,
+        "mtimeMs": 1792631694663.423
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
-        "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
-        "size": 18127,
-        "mtimeMs": 1790475599389.271
+        "sha256": "45f355e7d7204a7597cc5e7884ac1b322556feb5885f193aadad1f552bc5f4d1",
+        "size": 18716,
+        "mtimeMs": 1792122654910.1572
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
-        "sha256": "a42124313d439ad96e7e206bf1eabeab09122ae8496d527d41f55a255f24c8aa",
-        "size": 81538,
-        "mtimeMs": 1792574027660.4849
+        "sha256": "70e1bc6f9ed88f9e7c0c7eb33a1dbbaf8862184fd51f074d0a0eb0e0f9605dd5",
+        "size": 82600,
+        "mtimeMs": 1792631694664.928
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
         "sha256": "9dbdd3e03650f341a42632e8f827902d82ef2030764a059e9f7952f794239064",
         "size": 35679,
-        "mtimeMs": 1792881269271.1858
+        "mtimeMs": 1792977416780.384
       },
       {
         "path": "docs/spec/90.appendix.md",
-        "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
-        "size": 121,
-        "mtimeMs": 1778345537159.6023
+        "sha256": "feaa2ea621cc7f9585b3f6e2a258d70a49bae19271a81384f88af71d7f041693",
+        "size": 126,
+        "mtimeMs": 1792122654910.1572
       }
     ]
   },
@@ -112,7 +112,7 @@
       "BGSTAB": 1,
       "MCP": 4,
       "MDE": 2,
-      "FOP": 1,
+      "FOP": 2,
       "GIT": 1
     },
     "reliability": {

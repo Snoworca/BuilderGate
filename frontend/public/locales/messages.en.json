@@ -197,6 +197,7 @@
   "contextMenu.preset.prompt": "Prompt",
   "contextMenu.root": "Menu",
   "editor.access.notUtf8": "Opened read-only because the file is not UTF-8. Saving would corrupt the original bytes, so it cannot be saved.",
+  "editor.access.otherWorktree": "Opened read-only because the file is in another worktree ({name}) of this repository. Changes are saved only inside the session folder.",
   "editor.close.bulkMessage.one": "There is {count} unsaved document. Do you want to save it?",
   "editor.close.bulkMessage.other": "There are {count} unsaved documents. Do you want to save them?",
   "editor.close.cannotSaveMessage": "It cannot be saved. Close anyway?",

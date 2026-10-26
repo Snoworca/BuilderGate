@@ -14,6 +14,7 @@ import { HtmlViewTokenStore } from '../services/HtmlViewTokenStore.js';
 import { createHtmlViewRoutes } from './htmlViewRoutes.js';
 import { createSecurityHeadersMiddleware } from '../middleware/securityHeaders.js';
 import { withLocalHttpServer } from '../testing/localHttpTestServer.js';
+import { initRepo } from '../services/git/testRepo.js';
 
 const SESSION = 'session-html';
 const OTHER = 'session-other';
@@ -402,5 +403,30 @@ test('SEC-MDE-002 AC-7: hidden segments are refused unless they lie on the page 
     }
     const log = json(await send('GET', `/api/sessions/${SESSION}/files/html-view/${page.token}/resources`)).entries as Array<{ path: string; result: string }>;
     assert.ok(log.some((e) => e.path === '.env' && e.result === 'blocked'));
+  });
+});
+
+test('SEC-FOP-002 AC-7: an HTML file in a sibling worktree gets a token scoped to that worktree', async () => {
+  await withApp(async ({ cwd, outside, send, issue }) => {
+    const repo = initRepo(cwd);
+    repo.commit('init', { 'README.md': '# site' });
+    repo.git('worktree', 'add', '-q', '-b', 'wt1', '../site-1');
+    // Untracked, so only the session folder has it.
+    await fs.writeFile(path.join(cwd, 'only-main.css'), 'main{}');
+    const sibling = path.join(path.dirname(cwd), 'site-1');
+    await fs.mkdir(path.join(sibling, 'docs'), { recursive: true });
+    await fs.writeFile(path.join(sibling, 'docs', 'design.html'), '<p>design</p>');
+    await fs.writeFile(path.join(sibling, 'docs', 'style.css'), 'wt{}');
+
+    const view = await issue(path.join(sibling, 'docs', 'design.html'));
+    assert.equal(view.url, `/api/html-view/${view.token}/docs/design.html`);
+    assert.equal((await send('GET', view.url, { user: null })).body.toString(), '<p>design</p>');
+    assert.equal((await send('GET', `${view.baseUrl}style.css`, { user: null })).status, 200);
+    // The session folder's files are not under this token's root.
+    assert.equal((await send('GET', `/api/html-view/${view.token}/only-main.css`, { user: null })).status, 404);
+    // A folder outside every worktree is still refused.
+    await fs.writeFile(path.join(outside, 'x.html'), '<p>x</p>');
+    const refused = await send('POST', `/api/sessions/${SESSION}/files/html-view`, { body: { path: path.join(outside, 'x.html') } });
+    assert.equal(code(refused), 'PATH_TRAVERSAL');
   });
 });

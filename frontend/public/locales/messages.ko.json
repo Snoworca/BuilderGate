@@ -197,6 +197,7 @@
   "contextMenu.preset.prompt": "프롬프트",
   "contextMenu.root": "메뉴",
   "editor.access.notUtf8": "UTF-8 이 아니라서 읽기 전용으로 열었습니다. 저장하면 원래 바이트가 손상되므로 저장할 수 없습니다.",
+  "editor.access.otherWorktree": "같은 저장소의 다른 worktree({name})에 있는 파일이라 읽기 전용으로 열었습니다. 저장은 세션 폴더 안에서만 할 수 있습니다.",
   "editor.close.bulkMessage.other": "저장하지 않은 문서가 {count}개 있습니다. 저장하시겠습니까?",
   "editor.close.cannotSaveMessage": "저장할 수 없습니다. 그래도 닫으시겠습니까?",
   "editor.close.cannotSaveTitle": "저장할 수 없음",

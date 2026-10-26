@@ -15,7 +15,7 @@ export interface WorkspaceServiceMcpControlDeps {
   workspaceService: Pick<WorkspaceService, 'getState' | 'createWorkspace' | 'updateWorkspace' | 'deleteWorkspace' | 'addTab' | 'deleteTab'>;
   sessionManager: Pick<SessionManager, 'getLastCwd' | 'writeInput' | 'readTerminalText'>;
   /** FR-MCP-012: path checks and writes for the editor tools, with the file API's rules. */
-  fileService?: Pick<FileService, 'inspectPath' | 'writeFileCreatingDirectories'>;
+  fileService?: Pick<FileService, 'inspectPath' | 'inspectReadablePath' | 'writeFileCreatingDirectories'>;
   broadcast: (event: string, data: object) => void;
   /** The MCP gateway delivery (createMcpGatewayDelivery in index.ts). */
   deliver: (delivery: Rec) => Promise<Rec>;
@@ -93,9 +93,12 @@ export function createWorkspaceServiceMcpControl(deps: WorkspaceServiceMcpContro
     },
     readTerminalText: (sessionId, maxLines) => sessionManager.readTerminalText(sessionId, maxLines),
     // FR-MCP-012
-    inspectEditorFile: async (sessionId, filePath) => {
+    // SEC-FOP-002 AC-10: opening reads with the read rules (other worktrees); saving stays in the session folder.
+    inspectEditorFile: async (sessionId, filePath, purpose) => {
       if (!deps.fileService) throw Object.assign(new Error('File service unavailable'), { code: 'MCP_EDITOR_UNAVAILABLE' });
-      return deps.fileService.inspectPath(sessionId, filePath);
+      return purpose === 'open'
+        ? deps.fileService.inspectReadablePath(sessionId, filePath)
+        : deps.fileService.inspectPath(sessionId, filePath);
     },
     writeEditorFile: async (sessionId, filePath, content) => {
       if (!deps.fileService) throw Object.assign(new Error('File service unavailable'), { code: 'MCP_EDITOR_UNAVAILABLE' });
