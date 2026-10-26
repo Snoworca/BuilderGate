@@ -10,6 +10,7 @@ import test from 'node:test';
 import { resolveFairTerminalDeliveryPolicy } from '../services/TerminalResourcePolicy.js';
 import { RuntimeConfigStore } from '../services/RuntimeConfigStore.js';
 import { config } from '../utils/config.js';
+import { loadPublishedDecisionArtifact, resolveDefaultTerminalWireFormat } from '../ws/terminalWireFormatDefault.js';
 
 const serverRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const repositoryRoot = resolve(serverRoot, '..');
@@ -128,4 +129,14 @@ test('OPS-BGSTAB-010 altering one pinned byte breaks the digest equality', async
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
+});
+
+// MIG-BGSTAB-004 AC-1: the published generation keeps the binary default. v0.10.21 republished
+// the authority without `--codec binary` (the publish tool then defaulted to json), the decision
+// lost `workload.codec`, and every server since fell back to the json data plane with no error.
+test('MIG-BGSTAB-004 AC-1: the published authority resolves the data plane to binary', () => {
+  const artifact = loadPublishedDecisionArtifact(authorityRoot);
+  assert.ok(artifact, 'the published decision artifact loads');
+  assert.equal(resolveDefaultTerminalWireFormat({ artifact }), 'binary',
+    'republish with the codec of the current generation (node tools/wave3/fair-scheduler-authority-publish.mjs keeps it by default)');
 });

@@ -31,6 +31,8 @@
  * Usage (from the repository root, after `npm --prefix server run build`):
  *   node tools/wave3/fair-scheduler-authority-publish.mjs [--dry-run] [--codec json|binary]
  *
+ * Without --codec the current generation's codec is kept.
+ *
  * CODEC (PERF-BGSTAB-011 AC-4, added 2026-09-22)
  * ----------------------------------------------
  * The scheduler sizes a delivery by its wire `byteLength`, so `smallOutputBypassBytes`
@@ -51,9 +53,28 @@ const authorityRoot = join(repositoryRoot, 'docs/analysis/terminal-fairness-auth
 const pointerPath = join(authorityRoot, 'current.json');
 const compiled = join(repositoryRoot, 'server/dist/benchmarks/terminalFairnessCharacterization.js');
 
+const before = existsSync(pointerPath) ? JSON.parse(readFileSync(pointerPath, 'utf8')) : null;
+
+/**
+ * The codec the current generation was measured with. Without `--codec` the new generation keeps
+ * it: v0.10.21 republished a binary authority with the old json default, and every server since
+ * fell back to the json data plane without a word (MIG-BGSTAB-004 AC-1).
+ */
+function currentCodec() {
+  if (!before?.generation_id) return 'json'; // first publication
+  const decisionPath = join(authorityRoot, 'generations', before.generation_id, 'fair-scheduler-decision.json');
+  try {
+    return JSON.parse(readFileSync(decisionPath, 'utf8')).workload?.codec === 'binary' ? 'binary' : 'json';
+  } catch (error) {
+    // Guessing here is how the binary default was lost once: ask instead.
+    console.error(`cannot read the current generation's codec (${decisionPath}): ${error.message}\n  pass --codec json|binary`);
+    process.exit(2);
+  }
+}
+
 // Sealed workload. Identical to the profileArgs in fair-scheduler-decision.test.mjs.
 const codecIndex = process.argv.indexOf('--codec');
-const codec = codecIndex === -1 ? 'json' : process.argv[codecIndex + 1];
+const codec = codecIndex === -1 ? currentCodec() : process.argv[codecIndex + 1];
 if (codec !== 'json' && codec !== 'binary') {
   console.error(`--codec must be json or binary, received ${String(codec)}`);
   process.exit(2);
@@ -76,7 +97,6 @@ if (!existsSync(compiled)) {
   process.exit(2);
 }
 
-const before = existsSync(pointerPath) ? JSON.parse(readFileSync(pointerPath, 'utf8')) : null;
 console.log(`current generation: ${before?.generation_id ?? '(none)'}`);
 console.log(`codec under measurement: ${codec}`);
 
