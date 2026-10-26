@@ -64,7 +64,9 @@ test('REL-BGSTAB-050 AC-2: both terminal menus wire the redraw to the manual rep
   const app = readFileSync(new URL('../../src/App.tsx', import.meta.url), 'utf8');
   const mosaic = readFileSync(new URL('../../src/components/Grid/MosaicContainer.tsx', import.meta.url), 'utf8');
   const redraw = bodyOf(app, 'const redrawTerminal = useCallback(');
-  assert.ok(redraw.includes(".requestGridRepair?.('manual')"), 'redrawTerminal runs the manual repair');
+  // REL-BGSTAB-053: the repair runs through a scheduler (every grid pane, one after another).
+  assert.ok(app.includes("run: (tabId) => terminalRefsMap.current.get(tabId)?.current?.requestGridRepair?.('manual')"), 'the redraw runs the manual repair');
+  assert.ok(redraw.includes('redrawSchedulerRef.current?.redraw('), 'redrawTerminal goes through the scheduler');
   assert.match(app, /onRedrawScreen: \(\) => redrawTerminal\(targetTab\.id\)/u, 'the tab-view menu offers it');
   assert.match(app, /onRedrawTerminal=\{redrawTerminal\}/u, 'the grid receives it');
   assert.match(mosaic, /onRedrawScreen: onRedrawTerminal \? \(\) => onRedrawTerminal\(tabId\) : undefined/u, 'the grid menu offers it');

@@ -4,7 +4,9 @@ export type TerminalShortcutProfile = 'xterm-default' | 'ai-tui-compat' | 'custo
 export type TerminalShortcutAction =
   | { type: 'send'; data: string; label?: string }
   | { type: 'pass-through' }
-  | { type: 'block' };
+  | { type: 'block' }
+  /** REL-BGSTAB-053: the browser redraws the screen; nothing is sent to the terminal. */
+  | { type: 'redraw' };
 
 export interface TerminalShortcutKeyDescriptor {
   key: string;

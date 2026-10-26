@@ -1472,5 +1472,14 @@
   "git.diff.nextHunk": "Next hunk",
   "git.diff.navigation": "Move between hunks and files",
   "git.window.back": "Back",
-  "git.chip.checking": "Checking Git status"
+  "git.chip.checking": "Checking Git status",
+  "shortcut.action.redraw": "Redraw the screen",
+  "settings.redraw.title": "Screen redraw",
+  "settings.redraw.description": "Saved in this browser only and applied at once. Set it separately in other browsers and devices.",
+  "settings.redraw.onWorkspaceSwitch": "Redraw automatically after switching workspaces",
+  "settings.redraw.onWorkspaceSwitchHelp": "A moment after you switch workspaces, every visible terminal is redrawn. This fixes a screen that stays out of shape.",
+  "settings.redraw.onTabSwitch": "Redraw automatically after switching tabs",
+  "settings.redraw.onTabSwitchHelp": "In the tab view, a moment after you switch tabs, the terminal now shown is redrawn.",
+  "settings.redraw.delay": "Wait before redrawing",
+  "settings.redraw.delayHelp": "Between 0.5 and 5 seconds. The default is 1.5 seconds. Press the shortcut (Ctrl+Alt+R by default) to redraw at any time."
 }

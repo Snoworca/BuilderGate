@@ -434,6 +434,8 @@ interface Props {
   flushPendingUserInputBeforeQueryReply: (reason: string) => boolean;
   onResize: (cols: number, rows: number) => void;
   onManualRepair?: () => void;
+  /** REL-BGSTAB-053: the redraw shortcut (Ctrl+Alt+R by default, or a user binding). */
+  onRedrawShortcut?: () => void;
   onRestorePendingSettled?: () => void;
   onCompatibilityAuthorityReady?: () => void;
   onVisibleOutputOverflow?: (info: {
@@ -444,7 +446,10 @@ interface Props {
 }
 
 export const TerminalView = forwardRef<TerminalHandle, Props>(
-  ({ sessionId, workspaceId, terminalShortcutState, isVisible, clipboardContextKey, outputPolicyConnectionId, outputPolicyReconnectGeneration, outputPolicySelectionCoordinator, onInput, flushPendingUserInputBeforeQueryReply, onResize, onManualRepair, onRestorePendingSettled, onCompatibilityAuthorityReady, onVisibleOutputOverflow }, ref) => {
+  ({ sessionId, workspaceId, terminalShortcutState, isVisible, clipboardContextKey, outputPolicyConnectionId, outputPolicyReconnectGeneration, outputPolicySelectionCoordinator, onInput, flushPendingUserInputBeforeQueryReply, onResize, onManualRepair, onRestorePendingSettled, onCompatibilityAuthorityReady, onVisibleOutputOverflow, onRedrawShortcut }, ref) => {
+    // The key handler is attached once; it reads the latest callback here.
+    const onRedrawShortcutRef = useRef(onRedrawShortcut);
+    onRedrawShortcutRef.current = onRedrawShortcut;
     const terminalRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -4288,6 +4293,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             bindingSource: shortcutResolution.source,
             actionType: shortcutResolution.action.type,
           });
+
+          if (shortcutResolution.action.type === 'redraw') {
+            ev.preventDefault();
+            onRedrawShortcutRef.current?.();
+            return false;
+          }
 
           if (shortcutResolution.action.type === 'send') {
             ev.preventDefault();
