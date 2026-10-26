@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -140,7 +140,16 @@ function writeCodexThread(roots: AgentRoots, id: string, cwd: string, createdMs:
   if (locked) {
     mkdirSync(path.join(roots.codexHome, 'thread-writer-locks'), { recursive: true });
     writeFileSync(path.join(roots.codexHome, 'thread-writer-locks', `${id}.lock`), '');
+    // The lock is taken when the thread opens, as on a real machine.
+    utimesSync(path.join(roots.codexHome, 'thread-writer-locks', `${id}.lock`), createdMs / 1000, createdMs / 1000);
   }
+}
+
+/** A lock taken later than the thread was created (a thread reopened with /resume). */
+function relockCodexThread(roots: AgentRoots, id: string, atMs: number) {
+  mkdirSync(path.join(roots.codexHome, 'thread-writer-locks'), { recursive: true });
+  writeFileSync(path.join(roots.codexHome, 'thread-writer-locks', `${id}.lock`), '');
+  utimesSync(path.join(roots.codexHome, 'thread-writer-locks', `${id}.lock`), atMs / 1000, atMs / 1000);
 }
 
 test('AC-3 Codex: the one live thread whose rollout cwd matches is exact', async () => {
@@ -271,6 +280,141 @@ test('FR-AITUI-006 AC-3 Codex: a terminal (cli) thread wins over an editor threa
     writeCodexThread(roots, '01a0e618-5e46-7880-8896-159d8350b34d', CWD, 2_000_000, true, { source: 'cli' });
     const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', agentStartedAtMs: 1_000_100 }, { roots, isFileLocked: () => true });
     assert.deepEqual(result, { agent: 'codex', sessionId: '01a0e618-5e46-7880-8896-159d8350b34d', method: 'codex-writer-lock', confidence: 'exact' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// FR-AITUI-006 AC-8 (Codex 0.164, measured 2026-10-26): a thread reopened with `codex resume <id>`
+// takes its writer lock only when it next writes, so an idle resumed tab had no lock and no id.
+// The tab's own command line names the thread.
+const RESUMED = '01a12370-d2e6-70b1-a08c-7eafd0a0961f';
+function codexTree(args: string, createdAtMs: number): ProcessInfo[] {
+  return [
+    { pid: 20, ppid: 1, name: 'cmd.exe' },
+    { pid: 30, ppid: 20, name: 'node.exe', commandLine: `"node" "C:\\npm\\node_modules\\@openai\\codex\\bin\\codex.js" ${args}`, createdAtMs },
+    { pid: 40, ppid: 30, name: 'codex.exe', commandLine: `C:\\npm\\vendor\\codex.exe ${args}`, createdAtMs },
+  ];
+}
+
+test('FR-AITUI-006 AC-8 Codex: an idle thread opened with resume <id> resolves from the command line', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, RESUMED, CWD, 500_000, false, { source: 'cli', originator: 'codex-tui' });
+    // Another tab's live thread in the same folder, started before this tab's Codex.
+    writeCodexThread(roots, '01a15a74-6671-73d1-b965-f02f72ffbedb', CWD, 900_000, true, { source: 'vscode', originator: 'codex-tui' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: codexTree(`--dangerously-bypass-approvals-and-sandbox resume ${RESUMED}`, 1_000_000),
+    });
+    assert.deepEqual(result, { agent: 'codex', sessionId: RESUMED, method: 'codex-command-line', confidence: 'estimated' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-006 AC-8 Codex: the resumed thread is exact once it holds its lock', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, RESUMED, OTHER, 500_000, true, { source: 'vscode', originator: 'codex-tui' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: codexTree(`resume ${RESUMED}`, 1_000_000),
+    });
+    assert.deepEqual(result, { agent: 'codex', sessionId: RESUMED, method: 'codex-command-line', confidence: 'exact' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-006 AC-8 Codex: a thread started in the tab after launch (/new) wins over the command line', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    const fresh = '01a17570-18e6-7590-99d8-2895b3df8791';
+    writeCodexThread(roots, RESUMED, CWD, 500_000, false, { source: 'cli', originator: 'codex-tui' });
+    writeCodexThread(roots, fresh, CWD, 1_200_000, true, { source: 'vscode', originator: 'codex-tui' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: codexTree(`resume ${RESUMED}`, 1_000_000),
+    });
+    assert.equal(result?.sessionId, fresh);
+    assert.equal(result?.method, 'codex-writer-lock');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-006 AC-3 Codex: a terminal thread recorded as source vscode (Codex 0.157+) still wins over an editor thread', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, '01a0dcfa-2f10-7fe2-adb6-020d5c1dc5e7', CWD, 1_000_000, true, { source: 'vscode', originator: 'codex_vscode' });
+    writeCodexThread(roots, '01a0e618-5e46-7880-8896-159d8350b34d', CWD, 2_000_000, true, { source: 'vscode', originator: 'codex-tui' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', agentStartedAtMs: 1_000_100 }, { roots, isFileLocked: () => true });
+    assert.deepEqual(result, { agent: 'codex', sessionId: '01a0e618-5e46-7880-8896-159d8350b34d', method: 'codex-writer-lock', confidence: 'exact' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-006 AC-8 Codex: a new thread from another tab started later does not replace this tab\'s resumed id', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, RESUMED, CWD, 500_000, false, { source: 'cli', originator: 'codex-tui' });
+    writeCodexThread(roots, '01a17570-18e6-7590-99d8-2895b3df8791', CWD, 1_300_000, true, { source: 'vscode', originator: 'codex-tui' });
+    const other: ProcessInfo[] = [
+      { pid: 70, ppid: 1, name: 'pwsh.exe' },
+      { pid: 80, ppid: 70, name: 'codex.exe', commandLine: 'C:\\npm\\vendor\\codex.exe', createdAtMs: 1_250_000 },
+    ];
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: [...codexTree(`resume ${RESUMED}`, 1_000_000), ...other],
+    });
+    assert.deepEqual(result, { agent: 'codex', sessionId: RESUMED, method: 'codex-command-line', confidence: 'estimated' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-006 AC-8 Codex: a resumed id another tab already holds is not given twice', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, RESUMED, CWD, 500_000, true, { source: 'cli', originator: 'codex-tui' });
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: codexTree(`resume ${RESUMED}`, 1_000_000), claimedSessionIds: new Set([RESUMED]),
+    });
+    assert.equal(result, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-006 AC-8 Codex: /resume to an older thread inside the tab follows the newly taken lock', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    const older = '01a0e618-5e46-7880-8896-159d8350b34d';
+    writeCodexThread(roots, RESUMED, CWD, 500_000, false, { source: 'cli', originator: 'codex-tui' });
+    writeCodexThread(roots, older, CWD, 400_000, false, { source: 'vscode', originator: 'codex-tui' });
+    relockCodexThread(roots, older, 1_200_000);
+    const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: codexTree(`resume ${RESUMED}`, 1_000_000),
+    });
+    assert.equal(result?.sessionId, older);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('FR-AITUI-006 AC-8 Codex: flags with values after resume and quoted ids still give the id; other programs are not read', async () => {
+  const { roots, dir } = makeRoots();
+  try {
+    writeCodexThread(roots, RESUMED, CWD, 500_000, false, { source: 'cli', originator: 'codex-tui' });
+    const flags = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, {
+      roots, isFileLocked: () => true, processes: codexTree(`resume -m gpt-5 "${RESUMED}"`, 1_000_000),
+    });
+    assert.equal(flags?.sessionId, RESUMED);
+    const notCodex: ProcessInfo[] = [
+      { pid: 20, ppid: 1, name: 'cmd.exe' },
+      { pid: 40, ppid: 20, name: 'codex.exe', commandLine: 'C:\\npm\\vendor\\codex.exe', createdAtMs: 1_000_000 },
+      { pid: 50, ppid: 40, name: 'tool.exe', commandLine: `C:\\codex-tools\\tool.exe resume ${RESUMED}`, createdAtMs: 1_100_000 },
+    ];
+    const other = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'codex', ptyPid: 20 }, { roots, isFileLocked: () => true, processes: notCodex });
+    assert.equal(other, null, 'a tool under Codex that takes the word resume is not Codex');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

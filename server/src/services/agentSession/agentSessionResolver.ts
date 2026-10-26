@@ -6,7 +6,7 @@
 // formats, so every reader fails soft: an unreadable record is "not found",
 // never an error the save has to handle.
 
-import { open as openAsync, readdir as readdirAsync, readFile as readFileAsync } from 'node:fs/promises';
+import { open as openAsync, readdir as readdirAsync, readFile as readFileAsync, stat as statAsync } from 'node:fs/promises';
 import path from 'node:path';
 
 export type AgentKind = 'claude' | 'codex' | 'hermes' | 'opencode';
@@ -237,6 +237,13 @@ interface CodexThread {
   createdAt: number;
   /** 'cli' for a terminal launch; 'vscode' and others come from editor integrations. */
   source?: string;
+  /**
+   * Launched from a terminal. Codex 0.157+ records its terminal UI's threads as source 'vscode'
+   * too (measured 2026-10-26: every 0.157-0.164 TUI thread), so originator 'codex-tui' decides.
+   */
+  terminal: boolean;
+  /** When its writer lock was taken (the lock file's time): later than createdAt after /resume. */
+  lockedAtMs?: number;
 }
 
 function codexThreadOf(id: string, head: string): CodexThread | null {
@@ -244,7 +251,7 @@ function codexThreadOf(id: string, head: string): CodexThread | null {
   try {
     const record = JSON.parse(firstLine) as {
       timestamp?: string;
-      payload?: { cwd?: string; timestamp?: string; parent_thread_id?: unknown; source?: unknown };
+      payload?: { cwd?: string; timestamp?: string; parent_thread_id?: unknown; source?: unknown; originator?: unknown };
     };
     const cwd = record.payload?.cwd;
     if (typeof cwd !== 'string') return null;
@@ -255,7 +262,8 @@ function codexThreadOf(id: string, head: string): CodexThread | null {
       || (typeof source === 'object' && source !== null && 'subagent' in source);
     if (isSubagent) return null;
     const createdAt = Date.parse(record.payload?.timestamp ?? record.timestamp ?? '') || 0;
-    return { id, cwd, createdAt, ...(typeof source === 'string' ? { source } : {}) };
+    const terminal = source === 'cli' || record.payload?.originator === 'codex-tui';
+    return { id, cwd, createdAt, terminal, ...(typeof source === 'string' ? { source } : {}) };
   } catch {
     return null;
   }
@@ -269,13 +277,57 @@ async function liveCodexThreads(env: ResolveEnv): Promise<CodexThread[]> {
     .filter((thread): thread is CodexThread => thread !== null);
 }
 
-async function resolveCodex(ctx: TabAgentContext, env: ResolveEnv): Promise<ResolvedAgentSession | null> {
+/** A Codex CLI process: the native binary or its npm wrapper (not the desktop app's app-server). */
+function isCodexProcess(proc: ProcessInfo): boolean {
+  const cmd = (proc.commandLine ?? '').toLowerCase().replace(/\\/g, '/');
+  if (/\bapp-server\b/.test(cmd)) return false;
+  return exeName(proc.name) === 'codex' || /@openai\/codex|\/codex(\.js|\.exe)?"?(\s|$)/.test(cmd);
+}
+
+/** The thread a Codex in this tab was started to reopen (`codex [flags] resume [flags] <id>`), if any. */
+function codexResumeId(processes: readonly ProcessInfo[]): string | null {
+  for (const proc of processes) {
+    if (!isCodexProcess(proc)) continue;
+    const tokens = ((proc.commandLine ?? '').match(/"[^"]*"|\S+/g) ?? []).map((t) => t.replace(/^"|"$/g, ''));
+    const at = tokens.indexOf('resume');
+    if (at < 0) continue;
+    // The first id after `resume`; flags and their values (-m gpt-5) are skipped.
+    const id = tokens.slice(at + 1).find((t) => UUID.test(t));
+    if (id) return id.toLowerCase();
+  }
+  return null;
+}
+
+async function resolveCodex(
+  ctx: TabAgentContext,
+  env: ResolveEnv,
+  tree: readonly ProcessInfo[] | null,
+  agentProcess: ProcessInfo | null,
+): Promise<ResolvedAgentSession | null> {
   const claimed = env.claimedSessionIds ?? new Set<string>();
   const threads = (await liveCodexThreads(env)).filter((thread) => !claimed.has(thread.id));
   const sameDir = threads.filter((thread) => sameCwd(thread.cwd, ctx.cwd));
+  // FR-AITUI-006 AC-8: Codex 0.164 takes a reopened thread's writer lock only when it next
+  // writes, so an idle `codex resume <id>` tab has no lock. Its command line names the thread.
+  const resumed = tree ? codexResumeId(agentProcess ? [agentProcess, ...tree] : tree) : null;
+  if (resumed && !claimed.has(resumed)) {
+    if (threads.some((thread) => thread.id === resumed)) {
+      return { agent: 'codex', sessionId: resumed, method: 'codex-command-line', confidence: 'exact' };
+    }
+    const fromCommandLine: ResolvedAgentSession = { agent: 'codex', sessionId: resumed, method: 'codex-command-line', confidence: 'estimated' };
+    // A thread in this folder whose lock was taken after this Codex started is the tab's own
+    // next thread (/new, /resume) unless another Codex started after this one could own it.
+    const startedAt = agentProcess?.createdAtMs ?? ctx.agentStartedAtMs;
+    if (startedAt === undefined) return fromCommandLine;
+    const later = sameDir.filter((thread) => thread.terminal && thread.id !== resumed && (thread.lockedAtMs ?? thread.createdAt) > startedAt);
+    if (later.length === 0) return fromCommandLine;
+    const inTree = new Set(tree?.map((proc) => proc.pid));
+    const laterCodex = (env.processes ?? []).some((proc) => !inTree.has(proc.pid) && isCodexProcess(proc) && (proc.createdAtMs ?? 0) > startedAt);
+    if (laterCodex) return fromCommandLine;
+  }
   // A BuilderGate tab is a terminal: when a terminal-launched thread is there, an editor
-  // integration's thread in the same folder (source 'vscode') is not this tab's.
-  const fromTerminal = sameDir.filter((thread) => thread.source === 'cli');
+  // integration's thread in the same folder is not this tab's.
+  const fromTerminal = sameDir.filter((thread) => thread.terminal);
   const inCwd = fromTerminal.length > 0 ? fromTerminal : sameDir;
   if (inCwd.length === 0) return null;
   if (inCwd.length === 1) return { agent: 'codex', sessionId: inCwd[0].id, method: 'codex-writer-lock', confidence: 'exact' };
@@ -418,7 +470,7 @@ export async function resolveAgentSession(ctx: TabAgentContext, env: ResolveEnv)
         result = await resolveClaude(ctx, env, treePids);
         break;
       case 'codex':
-        result = await resolveCodex(ctx, env);
+        result = await resolveCodex(ctx, env, tree, agentProcess);
         break;
       case 'opencode':
         result = await resolveOpenCode(ctx, env, agentProcess);
@@ -546,7 +598,12 @@ async function readCodexStateAsync(
     const rollouts = await indexCodexRolloutsAsync(roots.codexHome, new Set(codexLive));
     for (const id of codexLive) {
       const rollout = rollouts.get(id);
-      codexThreads.set(id, rollout ? codexThreadOf(id, await readHeadAsync(rollout, 64 * 1024)) : null);
+      const thread = rollout ? codexThreadOf(id, await readHeadAsync(rollout, 64 * 1024)) : null;
+      if (thread) {
+        const lockedAtMs = await statAsync(path.join(lockDir, `${id}.lock`)).then((st) => st.mtimeMs, () => undefined);
+        if (lockedAtMs !== undefined) thread.lockedAtMs = lockedAtMs;
+      }
+      codexThreads.set(id, thread);
     }
   }
   return { codexLive, codexThreads };
