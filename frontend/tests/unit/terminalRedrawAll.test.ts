@@ -103,9 +103,9 @@ function memoryStorage(initial: Record<string, string> = {}) {
 }
 
 // @req REL-BGSTAB-053
-test('REL-BGSTAB-053 AC-5: auto redraw is on with 0.1 s by default, 0 to 5 s, and kept in this browser', () => {
-  assert.equal(AUTO_REDRAW_DELAY_DEFAULT_MS, 100);
-  assert.deepEqual(readAutoRedrawSettings(memoryStorage()), { onWorkspaceSwitch: true, onTabSwitch: true, delayMs: 100 });
+test('REL-BGSTAB-053 AC-5: auto redraw is on and immediate (0 s) by default, 0 to 5 s, and kept in this browser', () => {
+  assert.equal(AUTO_REDRAW_DELAY_DEFAULT_MS, 0);
+  assert.deepEqual(readAutoRedrawSettings(memoryStorage()), { onWorkspaceSwitch: true, onTabSwitch: true, delayMs: 0 });
   const storage = memoryStorage();
   writeAutoRedrawSettings(storage, { onWorkspaceSwitch: false, onTabSwitch: true, delayMs: 2500 });
   assert.deepEqual(readAutoRedrawSettings(storage), { onWorkspaceSwitch: false, onTabSwitch: true, delayMs: 2500 });
@@ -115,9 +115,9 @@ test('REL-BGSTAB-053 AC-5: auto redraw is on with 0.1 s by default, 0 to 5 s, an
   assert.equal(readAutoRedrawSettings(storage).delayMs, 5000, 'kept within 0-5 s');
   writeAutoRedrawSettings(storage, { onWorkspaceSwitch: true, onTabSwitch: false, delayMs: -300 });
   assert.equal(readAutoRedrawSettings(storage).delayMs, 0);
-  assert.equal(readAutoRedrawSettings(memoryStorage({ 'buildergate.autoRedraw.delayMs': 'nope' })).delayMs, 100);
+  assert.equal(readAutoRedrawSettings(memoryStorage({ 'buildergate.autoRedraw.delayMs': 'nope' })).delayMs, 0);
   const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
-  assert.deepEqual(readAutoRedrawSettings(broken), { onWorkspaceSwitch: true, onTabSwitch: true, delayMs: 100 }, 'storage that throws gives the defaults');
+  assert.deepEqual(readAutoRedrawSettings(broken), { onWorkspaceSwitch: true, onTabSwitch: true, delayMs: 0 }, 'storage that throws gives the defaults');
   writeAutoRedrawSettings(broken, { onWorkspaceSwitch: false, onTabSwitch: false, delayMs: 500 });
 });
 
