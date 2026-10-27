@@ -134,6 +134,13 @@ const REPLAY_ACK_TIMEOUT_MS = 5_000;
 const RESTORE_AUTHORITY_RETRY_BACKOFFS_MS = [16, 16, 32, 64, 128, 256, 512] as const;
 const RESTORE_AUTHORITY_MAX_RETRIES = RESTORE_AUTHORITY_RETRY_BACKOFFS_MS.length;
 
+/** REL-BGSTAB-054: a close reason fit for one log line — no control characters, at most 123 bytes. */
+function formatCloseReason(reason: Buffer | undefined): string {
+  const text = (reason?.toString('utf8') ?? '').replace(/[\u0000-\u001f\u007f"]/g, '');
+  const bytes = Buffer.from(text, 'utf8');
+  return bytes.length <= 123 ? text : bytes.subarray(0, 123).toString('utf8').replace(/\uFFFD+$/, '');
+}
+
 function restoreAuthorityRetryDelayMs(attempt: number): number {
   const index = Math.max(0, Math.min(attempt - 1, RESTORE_AUTHORITY_RETRY_BACKOFFS_MS.length - 1));
   return RESTORE_AUTHORITY_RETRY_BACKOFFS_MS[index]!;
@@ -1863,7 +1870,7 @@ export class WsRouter {
         }
       });
 
-      ws.on('close', () => this.handleSocketClose(ws));
+      ws.on('close', (code: number, reason: Buffer) => this.handleSocketClose(ws, code, reason));
 
       ws.on('error', (err) => {
         console.error(`[WS] Client error (${clientId}):`, err.message);
@@ -2009,10 +2016,10 @@ export class WsRouter {
    * socket to the control socket (`FR-BGSTAB-007` AC-3/AC-4), and a per-socket
    * codec would make that fallback undecodable.
    */
-  private handleSocketClose(ws: WebSocket): void {
+  private handleSocketClose(ws: WebSocket, code?: number, reason?: Buffer): void {
     // REL-BGSTAB-051 AC-5: read the key before handleDisconnect forgets the client.
     const binaryKey = this.terminalBinaryGroupKey(ws);
-    this.handleDisconnect(ws);
+    this.handleDisconnect(ws, { code, reason });
     const group = this.splitSocketGroups.get(ws);
     if (group?.control === ws) {
       group.output?.close(1001, 'control-closed');
@@ -4068,7 +4075,7 @@ export class WsRouter {
     );
   }
 
-  private handleDisconnect(ws: WebSocket): void {
+  private handleDisconnect(ws: WebSocket, close?: { code?: number; reason?: Buffer }): void {
     const meta = this.clients.get(ws);
     const control = meta?.channelRole === 'output' ? this.splitSocketGroups.get(ws)?.control : ws;
     const fairDelivery = control ? this.fairDeliverySchedulers.get(control) : undefined;
@@ -4081,7 +4088,9 @@ export class WsRouter {
       this.fairDeliveryEpochGenerations.delete(control);
     }
     if (meta) {
-      console.log(`[WS] Client disconnected: ${meta.clientId}`);
+      // REL-BGSTAB-054: say who closed the socket and why.
+      const closeDetail = close ? ` code=${close.code ?? '-'} reason="${formatCloseReason(close.reason)}"` : '';
+      console.log(`[WS] Client disconnected: ${meta.clientId}${closeDetail}`);
       for (const [sessionId, viewGeneration] of [...(meta.retainedTerminalViews ?? [])]) {
         this.sessionManager.unregisterRetainedTerminalClientView(
           sessionId,
