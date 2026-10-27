@@ -18,6 +18,11 @@ export interface AgentRoots {
   codexHome: string;
   opencodeData: string;
   hermesHome: string;
+  /**
+   * FR-AITUI-020: \\wsl.localhost\<distro> when the homes are a WSL user's, read from Windows.
+   * Windows cannot see Linux processes or locks, so they are read from the distro's /proc.
+   */
+  wslRoot?: string;
 }
 
 export interface ProcessInfo {
@@ -207,15 +212,35 @@ async function claudeEntries(env: ResolveEnv): Promise<ClaudeEntry[]> {
   return env.cache ? env.cache.claude : readClaudeEntriesAsync(env.roots);
 }
 
+/** Whether a recorded pid runs: in the WSL distro's /proc for WSL roots (FR-AITUI-020). */
+function pidAliveProbe(env: ResolveEnv): (pid: number) => Promise<boolean> {
+  if (env.isPidAlive) {
+    const isPidAlive = env.isPidAlive;
+    return async (pid) => isPidAlive(pid);
+  }
+  const wslRoot = env.roots.wslRoot;
+  if (wslRoot) {
+    return (pid) => (Number.isInteger(pid) && pid > 0
+      ? statAsync(path.join(wslRoot, 'proc', String(pid))).then(() => true, () => false)
+      : Promise.resolve(false));
+  }
+  return async (pid) => defaultIsPidAlive(pid);
+}
+
+async function liveClaudeEntries(entries: ClaudeEntry[], env: ResolveEnv): Promise<ClaudeEntry[]> {
+  const isAlive = pidAliveProbe(env);
+  const alive = await Promise.all(entries.map((entry) => isAlive(entry.pid)));
+  return entries.filter((_, index) => alive[index]);
+}
+
 async function resolveClaude(ctx: TabAgentContext, env: ResolveEnv, treePids: ReadonlySet<number> | null): Promise<ResolvedAgentSession | null> {
-  const isAlive = env.isPidAlive ?? defaultIsPidAlive;
   const claimed = env.claimedSessionIds ?? new Set<string>();
   const entries = (await claudeEntries(env)).filter((entry) => isValidAgentSessionId('claude', entry.sessionId));
   if (treePids) {
     const inTree = entries.find((entry) => treePids.has(entry.pid));
     if (inTree) return { agent: 'claude', sessionId: inTree.sessionId, method: 'claude-pid-file', confidence: 'exact' };
   }
-  const live = entries.filter((entry) => !claimed.has(entry.sessionId) && isAlive(entry.pid));
+  const live = await liveClaudeEntries(entries.filter((entry) => !claimed.has(entry.sessionId)), env);
   const inCwd = live.filter((entry) => sameCwd(entry.cwd, ctx.cwd));
   if (inCwd.length === 0) return null;
   if (inCwd.length === 1) return { agent: 'claude', sessionId: inCwd[0].sessionId, method: 'claude-pid-file', confidence: 'exact' };
@@ -271,7 +296,7 @@ function codexThreadOf(id: string, head: string): CodexThread | null {
 
 /** The open Codex threads, from the save's shared cache or read on the spot. */
 async function liveCodexThreads(env: ResolveEnv): Promise<CodexThread[]> {
-  const state = env.cache ?? await readCodexStateAsync(env.roots, env.isFileLocked ?? defaultIsFileLockedAsync);
+  const state = env.cache ?? await readCodexStateAsync(env.roots, env.isFileLocked ?? await lockProbeFor(env.roots));
   return state.codexLive
     .map((id) => state.codexThreads.get(id) ?? null)
     .filter((thread): thread is CodexThread => thread !== null);
@@ -431,9 +456,9 @@ export async function listAgentSessionCandidates(agent: AgentKind, cwd: string |
   if (!cwd) return [];
   try {
     if (agent === 'claude') {
-      const isAlive = env.isPidAlive ?? defaultIsPidAlive;
-      return (await claudeEntries(env))
-        .filter((entry) => isValidAgentSessionId('claude', entry.sessionId) && sameCwd(entry.cwd, cwd) && isAlive(entry.pid))
+      const matching = (await claudeEntries(env))
+        .filter((entry) => isValidAgentSessionId('claude', entry.sessionId) && sameCwd(entry.cwd, cwd));
+      return (await liveClaudeEntries(matching, env))
         .sort((a, b) => b.startedAt - a.startedAt)
         .slice(0, MAX_CANDIDATES)
         .map((entry) => ({ sessionId: entry.sessionId, startedAtMs: entry.startedAt }));
@@ -535,6 +560,23 @@ async function readTailAsync(filePath: string, bytes: number): Promise<string> {
   }
 }
 
+/**
+ * FR-AITUI-020: a WSL thread's lock is a Linux lock, invisible to a Windows read of the file.
+ * The distro's /proc/locks lists every held lock by inode, which Windows sees unchanged.
+ */
+async function lockProbeFor(roots: AgentRoots): Promise<(filePath: string) => Promise<boolean>> {
+  if (!roots.wslRoot) return defaultIsFileLockedAsync;
+  const held = new Set<string>();
+  try {
+    const text = await readFileAsync(path.join(roots.wslRoot, 'proc', 'locks'), 'utf8');
+    for (const line of text.split('\n')) {
+      const inode = /\s\w+:\w+:(\d+)\s/.exec(line)?.[1];
+      if (inode) held.add(inode);
+    }
+  } catch { /* unreadable: nothing is known to be held */ }
+  return (filePath) => statAsync(filePath, { bigint: true }).then((st) => held.has(String(st.ino)), () => false);
+}
+
 /** Codex holds each open thread's lock file exclusively; on Windows a read of a held one fails. */
 async function defaultIsFileLockedAsync(filePath: string): Promise<boolean> {
   if (process.platform !== 'win32') return true;
@@ -614,6 +656,6 @@ export async function loadAgentStateCache(
   options: { isFileLocked?: (filePath: string) => boolean | Promise<boolean> } = {},
 ): Promise<AgentStateCache> {
   const claude = await readClaudeEntriesAsync(roots);
-  const codex = await readCodexStateAsync(roots, options.isFileLocked ?? defaultIsFileLockedAsync);
+  const codex = await readCodexStateAsync(roots, options.isFileLocked ?? await lockProbeFor(roots));
   return { claude, ...codex };
 }

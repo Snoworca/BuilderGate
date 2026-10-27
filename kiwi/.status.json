@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-27T06:58:22.762Z",
+  "generatedAt": "2026-10-27T07:05:25.110Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "da6afebe0733c4733527ae2f30e98b653bd9fc8a4f0ebafdb9d2ce119fcf642e",
+    "value": "3dca40a8e62053e819872fd052f0a49dbb9bfc97d26d0e985d74b5424e39d77b",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -20,9 +20,9 @@
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
-        "sha256": "6191757cff913a323928ddbbeed5410e32808c5c5e84184fad4ec3829446b5fb",
-        "size": 103690,
-        "mtimeMs": 1792973774547.6245
+        "sha256": "2b7db26a2885a08fed0ab9e158534e70bbceac99010dc7f22351832939593e32",
+        "size": 107131,
+        "mtimeMs": 1793084718637.2737
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
@@ -89,7 +89,7 @@
   "idCounters": {
     "functional": {
       "ARCH": 14,
-      "AITUI": 19,
+      "AITUI": 20,
       "BGSTAB": 35,
       "MCP": 14,
       "MDE": 29,
