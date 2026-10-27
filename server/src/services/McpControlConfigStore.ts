@@ -4,7 +4,6 @@ import { publishStoreAtomically } from '../utils/atomicStoreWrite.js';
 import {
   isMcpFixedAccessKeyHash,
   validateMcpSecurityConfig,
-  validateMcpWebhookKeyHeaderName,
 } from './McpSecurityContract.js';
 import { isValidSubmitEnterBaseMs, isValidSubmitEnterPerKbMs } from './submitDelivery.js';
 
@@ -19,7 +18,6 @@ type MergeStoredMcpControlConfigOptions = {
 };
 
 const DEFAULT_MCP_CONTROL_CONFIG_DATA_PATH = './data/mcp-control-config.json';
-const DEFAULT_WEBHOOK_HEADER = 'X-BuilderGate-Webhook-Key';
 const DEFAULT_WEBHOOK_RATE_LIMIT = { windowSeconds: 60, burstLimit: 10 };
 
 export function createMcpControlConfigFileStore(options: McpControlConfigStoreOptions = {}): StringRecord {
@@ -101,7 +99,7 @@ export function sanitizeMcpControlConfig(value: unknown): StringRecord {
   if (Array.isArray(record.externalWhitelist)) config.externalWhitelist = asStringArray(record.externalWhitelist);
   if (Array.isArray(record.allowedOrigins)) config.allowedOrigins = asStringArray(record.allowedOrigins);
   if (asString(record.fixedAccessKeyHash)) config.fixedAccessKeyHash = asString(record.fixedAccessKeyHash);
-  if (asString(record.webhookKeyHeaderName)) config.webhookKeyHeaderName = asString(record.webhookKeyHeaderName);
+  // FR-MCP-014 AC-2: a webhookKeyHeaderName left by an older version is dropped here.
   if (webhookRateLimit) config.webhookRateLimit = webhookRateLimit;
   // FR-MCP-002 AC-8: an out-of-range wait is dropped, so the default applies.
   if (isValidSubmitEnterBaseMs(record.submitEnterDelayMs)) config.submitEnterDelayMs = record.submitEnterDelayMs;
@@ -135,7 +133,6 @@ export function mergeStoredMcpControlConfig(
     ...merged,
     host,
     bindHost: asString(merged.bindHost) ?? host,
-    webhookKeyHeaderName: asString(merged.webhookKeyHeaderName) ?? DEFAULT_WEBHOOK_HEADER,
     webhookRateLimit: normalizeRateLimit(merged.webhookRateLimit) ?? DEFAULT_WEBHOOK_RATE_LIMIT,
   };
 }
@@ -157,12 +154,6 @@ export function validatePersistedMcpControlConfig(value: unknown): StringRecord 
   const fixedAccessKeyHash = asString(record.fixedAccessKeyHash);
   if (fixedAccessKeyHash && !isMcpFixedAccessKeyHash(fixedAccessKeyHash)) {
     return { ok: false, code: 'MCP_FIXED_ACCESS_KEY_HASH_INVALID' };
-  }
-  const webhookHeaderValidation = asRecord(validateMcpWebhookKeyHeaderName(
-    asString(record.webhookKeyHeaderName) ?? DEFAULT_WEBHOOK_HEADER,
-  ));
-  if (webhookHeaderValidation.ok === false) {
-    return webhookHeaderValidation;
   }
   if (record.webhookRateLimit !== undefined && !normalizeRateLimit(record.webhookRateLimit)) {
     return { ok: false, code: 'WEBHOOK_RATE_LIMIT_INVALID' };

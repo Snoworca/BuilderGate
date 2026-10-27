@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-27T01:01:49.932Z",
+  "generatedAt": "2026-10-27T04:30:15.865Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "17b18ea9d96faf6266cbdfa00ae6409eb2885f54798718148cee94c5e06f9b98",
+    "value": "1d34b46b2706633305e71db7274084077621ba3c5e80b269498585cfb8982e74",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -26,15 +26,15 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "d9b7f6aefefe9c3b5bfbeb6ea6775a30ba8ea718154c19b977c995bce65faa92",
-        "size": 1541832,
-        "mtimeMs": 1793062901825.0344
+        "sha256": "fc44896fd03043c6595b1e7ef4041e3d5b577e5f5a9b4c086563cd5732b1c9dd",
+        "size": 1546296,
+        "mtimeMs": 1793075378421.7146
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
-        "sha256": "a102ab539238f88db8f362b663b2b825f757b9eb887d08d65e78e621d5bc7da4",
-        "size": 143846,
-        "mtimeMs": 1792844520524.9448
+        "sha256": "229115589c1cdc445ed9d0f1f812fc019f0ebf6855cc4d482c1ec24ae3eb6ac5",
+        "size": 148689,
+        "mtimeMs": 1793075409915.2676
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
@@ -91,7 +91,7 @@
       "ARCH": 14,
       "AITUI": 19,
       "BGSTAB": 35,
-      "MCP": 13,
+      "MCP": 14,
       "MDE": 29,
       "FEX": 31,
       "FOP": 8,
@@ -117,7 +117,7 @@
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 55,
+      "BGSTAB": 56,
       "MCP": 1
     },
     "non_functional": {

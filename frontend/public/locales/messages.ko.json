@@ -95,7 +95,6 @@
   "apiError.TWO_FA_REQUIRED": "2단계 인증이 필요합니다.",
   "apiError.UNSUPPORTED_SETTING": "지원하지 않는 설정입니다.",
   "apiError.VALIDATION_ERROR": "입력값 검증에 실패했습니다.",
-  "apiError.WEBHOOK_HEADER_FORBIDDEN": "허용되지 않은 웹훅 헤더입니다.",
   "apiError.WEBHOOK_KEY_INVALID": "웹훅 키가 올바르지 않습니다.",
   "apiError.WEBHOOK_METADATA_PERSIST_FAILED": "웹훅 정보를 저장하지 못했습니다.",
   "apiError.WEBHOOK_RATE_LIMITED": "웹훅 요청이 너무 많습니다.",
@@ -455,7 +454,6 @@
   "mcp.security.trustedProxies": "신뢰 프록시",
   "mcp.security.unitSeconds": "초",
   "mcp.security.unitTimes": "회",
-  "mcp.security.webhookHeader": "웹훅 헤더",
   "mcp.session.alias": "별칭",
   "mcp.session.aliasSaved": "세션 별칭을 저장했습니다.",
   "mcp.session.claimCode": "일회성 연결 코드",
@@ -528,8 +526,6 @@
   "mcp.validation.agentConfigMode": "에이전트 프로필 설정 방식 값이 올바르지 않습니다.",
   "mcp.validation.agentKickoffTooLong": "에이전트 프로필 시작 프롬프트가 너무 깁니다.",
   "mcp.validation.agentName": "에이전트 프로필 이름은 1-80자이며 제어 문자를 포함할 수 없습니다.",
-  "mcp.validation.headerForbidden": "Authorization/Cookie 계열 헤더는 웹훅 키 헤더로 사용할 수 없습니다.",
-  "mcp.validation.headerFormat": "웹훅 헤더 이름은 HTTP 헤더 이름 형식이어야 합니다.",
   "mcp.validation.loopbackHost": "로컬 전용 모드는 127.0.0.0/8 또는 ::1 호스트만 사용할 수 있습니다.",
   "mcp.validation.originFormat": "허용 오리진은 http 또는 https URL 오리진 형식이어야 합니다.",
   "mcp.validation.port": "포트는 1-65535 범위의 정수여야 합니다.",
@@ -1436,5 +1432,7 @@
   "settings.redraw.onTabSwitch": "탭을 옮긴 뒤 자동으로 다시 그리기",
   "settings.redraw.onTabSwitchHelp": "탭 보기에서 탭을 옮기고 잠시 뒤, 새로 보이는 터미널을 다시 그립니다.",
   "settings.redraw.delay": "다시 그리기 전 대기 시간",
-  "settings.redraw.delayHelp": "0.5~5초 사이로 적습니다. 기본값은 1.5초입니다. 단축키(기본 Ctrl+Alt+R)를 누르면 언제든 바로 다시 그립니다."
+  "settings.redraw.delayHelp": "0.5~5초 사이로 적습니다. 기본값은 1.5초입니다. 단축키(기본 Ctrl+Alt+R)를 누르면 언제든 바로 다시 그립니다.",
+  "mcp.endpoint.label": "MCP 연결 주소",
+  "mcp.endpoint.copied": "MCP 연결 주소를 복사했습니다."
 }

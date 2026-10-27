@@ -134,9 +134,12 @@ const REPLAY_ACK_TIMEOUT_MS = 5_000;
 const RESTORE_AUTHORITY_RETRY_BACKOFFS_MS = [16, 16, 32, 64, 128, 256, 512] as const;
 const RESTORE_AUTHORITY_MAX_RETRIES = RESTORE_AUTHORITY_RETRY_BACKOFFS_MS.length;
 
-/** REL-BGSTAB-054: a close reason fit for one log line — no control characters, at most 123 bytes. */
-function formatCloseReason(reason: Buffer | undefined): string {
-  const text = (reason?.toString('utf8') ?? '').replace(/[\u0000-\u001f\u007f"]/g, '');
+/**
+ * REL-BGSTAB-054/056: a reason fit for one log line — no control characters or quotes,
+ * at most 123 bytes (the WebSocket close reason limit).
+ */
+function formatLogReason(raw: string): string {
+  const text = raw.replace(/[\u0000-\u001f\u007f"]/g, '');
   const bytes = Buffer.from(text, 'utf8');
   return bytes.length <= 123 ? text : bytes.subarray(0, 123).toString('utf8').replace(/\uFFFD+$/, '');
 }
@@ -1913,9 +1916,12 @@ export class WsRouter {
       case 'subscribe':
         this.handleSubscribe(ws, (msg as Extract<ClientWsMessage, { type: 'subscribe' }>).sessionIds);
         break;
-      case 'unsubscribe':
-        this.handleUnsubscribe(ws, (msg as Extract<ClientWsMessage, { type: 'unsubscribe' }>).sessionIds);
+      case 'unsubscribe': {
+        const unsubscribe = msg as Extract<ClientWsMessage, { type: 'unsubscribe' }>;
+        this.logRecoveryResubscribe(ws, unsubscribe);
+        this.handleUnsubscribe(ws, unsubscribe.sessionIds);
         break;
+      }
       case 'screen-snapshot:ready':
         this.handleScreenSnapshotReady(
           ws,
@@ -3277,6 +3283,29 @@ export class WsRouter {
     this.sendTo(ws, { type: 'subscribed', sessions: results });
   }
 
+  /** REL-BGSTAB-056 AC-1: count in production which recovery paths resubscribe a session. */
+  private logRecoveryResubscribe(
+    ws: WebSocket,
+    message: Extract<ClientWsMessage, { type: 'unsubscribe' }>,
+  ): void {
+    const recovery: unknown = message.recovery;
+    const meta = this.clients.get(ws);
+    if (!meta || !isRecord(recovery) || typeof recovery.reason !== 'string') return;
+    const attempt = Number.isSafeInteger(recovery.attempt) && (recovery.attempt as number) >= 0
+      ? recovery.attempt
+      : '-';
+    const clientId = meta.clientId;
+    // Only sessions this socket subscribed: a session id is client input, so an unknown one
+    // could forge log lines or multiply them.
+    const sessionIds: unknown[] = Array.isArray(message.sessionIds) ? message.sessionIds : [];
+    for (const sessionId of sessionIds) {
+      if (typeof sessionId !== 'string' || !meta.subscribedSessions.has(sessionId)) continue;
+      console.log(
+        `[WS] Session resubscribe: ${clientId} session=${sessionId} reason="${formatLogReason(recovery.reason)}" attempt=${attempt}`,
+      );
+    }
+  }
+
   private handleUnsubscribe(ws: WebSocket, sessionIds: string[]): void {
     const meta = this.clients.get(ws);
     if (!meta) return;
@@ -4094,7 +4123,9 @@ export class WsRouter {
     }
     if (meta) {
       // REL-BGSTAB-054: say who closed the socket and why.
-      const closeDetail = close ? ` code=${close.code ?? '-'} reason="${formatCloseReason(close.reason)}"` : '';
+      const closeDetail = close
+        ? ` code=${close.code ?? '-'} reason="${formatLogReason(close.reason?.toString('utf8') ?? '')}"`
+        : '';
       console.log(`[WS] Client disconnected: ${meta.clientId}${closeDetail}`);
       for (const [sessionId, viewGeneration] of [...(meta.retainedTerminalViews ?? [])]) {
         this.sessionManager.unregisterRetainedTerminalClientView(

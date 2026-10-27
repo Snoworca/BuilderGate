@@ -428,7 +428,7 @@ export const TerminalContainer = memo(
           attempt: decision.attempt,
         });
         prepareSessionResubscribe();
-        if (resubscribeSession(sessionId)) return true;
+        if (resubscribeSession(sessionId, { reason, attempt: decision.attempt })) return true;
       }
       recordTerminalDebugEvent(sessionId, 'visible_output_resync_reconnect_requested', {
         reason,

@@ -749,7 +749,8 @@ export function parseTerminalDeliveryAckRejectedMessage(value: unknown):
 
 export type ClientWsMessage =
   | { type: 'subscribe';   sessionIds: string[] }
-  | { type: 'unsubscribe'; sessionIds: string[] }
+  // REL-BGSTAB-056: a browser resubscribing one session for screen recovery says why.
+  | { type: 'unsubscribe'; sessionIds: string[]; recovery?: { reason: string; attempt: number } }
   | { type: 'screen-snapshot:ready'; sessionId: string; replayToken: string; snapshotSeq?: number }
   | ScreenRepairRequestMessage
   | ScreenRepairReadyMessage

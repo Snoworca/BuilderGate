@@ -88,7 +88,11 @@ import type { TerminalOutputDelivery } from '../utils/terminalOutputDelivery';
 import { sendOpenBrowserWebSocketMessage } from '../utils/webSocketBackpressure';
 import { createDeliveryVisibilityLedger, type DeliveryVisibilityLedger } from '../utils/terminalDeliveryVisibilityLedger';
 import { respondToTerminalAuthorityViewAttributeCapability } from '../utils/terminalViewAttributes';
-import { createSessionResubscribeFence, resubscribeSessionOnSocket } from '../utils/sessionResubscribe';
+import {
+  createSessionResubscribeFence,
+  resubscribeSessionOnSocket,
+  type SessionRecoveryReason,
+} from '../utils/sessionResubscribe';
 import {
   applyGraceBufferedMessage,
   createGraceBufferedSessionState,
@@ -192,7 +196,7 @@ export interface WebSocketContextValue {
   registerFileJobHandler: (handler: FileJobMessageHandler) => () => void;
   requestReconnect: (reason: string) => boolean;
   /** REL-BGSTAB-055: unsubscribe and subscribe one session on the open socket. */
-  resubscribeSession: (sessionId: string) => boolean;
+  resubscribeSession: (sessionId: string, recovery: SessionRecoveryReason) => boolean;
   publishTerminalDeliveryVisibility: (input: {
     sessionId: string;
     isVisible: boolean;
@@ -229,7 +233,7 @@ export interface WebSocketActionsValue {
   registerFileJobHandler: (handler: FileJobMessageHandler) => () => void;
   requestReconnect: (reason: string) => boolean;
   /** REL-BGSTAB-055: unsubscribe and subscribe one session on the open socket. */
-  resubscribeSession: (sessionId: string) => boolean;
+  resubscribeSession: (sessionId: string, recovery: SessionRecoveryReason) => boolean;
   publishTerminalDeliveryVisibility: (input: {
     sessionId: string;
     isVisible: boolean;
@@ -1484,10 +1488,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, [flushGraceBuffer]);
 
   // @req REL-BGSTAB-055
-  const resubscribeSession = useCallback((sessionId: string): boolean => {
+  const resubscribeSession = useCallback((sessionId: string, recovery: SessionRecoveryReason): boolean => {
     const ws = wsRef.current;
-    return resubscribeSessionOnSocket(sessionId, {
+    return resubscribeSessionOnSocket({ sessionId, ...recovery }, {
       isOpen: () => ws !== null && ws.readyState === WebSocket.OPEN,
+      sharesOneSocket: () => outputWsRef.current === null,
       sendJson: (message) => {
         ws?.send(JSON.stringify(message));
         return true;

@@ -31,6 +31,7 @@ import {
   validateMcpWebhookDraft,
   validateMcpSecurityDraft,
   type McpSecurityDraft,
+  formatMcpEndpointUrl,
 } from './mcpControlDialogModel';
 import { t, tn } from '../../i18n/i18n.ts';
 import type { MessageKey } from '../../i18n/i18n.ts';
@@ -345,6 +346,19 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
     onClose();
   }, [invalidateFixedAccessKeyResponse, onClose]);
 
+  // FR-MCP-014 AC-4: the address MCP clients connect to, from the saved config.
+  const endpointUrl = formatMcpEndpointUrl(config);
+  const handleCopyEndpoint = useCallback(async () => {
+    if (!endpointUrl) return;
+    setError(null);
+    try {
+      await copyTextToClipboard(endpointUrl);
+      setStatusMessage(t('mcp.endpoint.copied'));
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    }
+  }, [endpointUrl]);
+
   const handleCopyFixedAccessKey = useCallback(async () => {
     if (!fixedAccessKey) return;
     setError(null);
@@ -625,6 +639,21 @@ export function McpControlDialog({ open, onClose }: McpControlDialogProps) {
       surfaceClassName="mcp-control-dialog-surface"
     >
       <div className="mcp-control-dialog" data-testid="mcp-control-dialog">
+        {endpointUrl && (
+          <div className="mcp-control-endpoint" data-testid="mcp-control-endpoint">
+            <span className="mcp-control-endpoint-label">{t('mcp.endpoint.label')}</span>
+            <code className="mcp-control-endpoint-url">{endpointUrl}</code>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon="copy"
+              className="mcp-control-secondary-button"
+              onClick={handleCopyEndpoint}
+            >
+              {t('common.copy')}
+            </Button>
+          </div>
+        )}
         <div className="mcp-control-tabs" role="tablist" aria-label={t('mcp.dialog.tabsLabel')}>
           {visibleTabs.map(tab => (
             <button
@@ -868,16 +897,6 @@ function renderSecurityPanel({
             <option value="direct_tls">{t(MCP_TRANSPORT_SECURITY_LABELS.direct_tls)}</option>
             <option value="trusted_tls_proxy">{t(MCP_TRANSPORT_SECURITY_LABELS.trusted_tls_proxy)}</option>
           </Select>
-        </Field>
-
-        <Field label={t('mcp.security.webhookHeader')} htmlFor="mcp-security-webhook-header" className="mcp-control-field">
-          <TextInput
-            id="mcp-security-webhook-header"
-            mono
-            value={draft.webhookKeyHeaderName}
-            onChange={(event) => onDraftChange('webhookKeyHeaderName', event.target.value)}
-            spellCheck={false}
-          />
         </Field>
 
         <Field label={t('mcp.security.rateWindow')} htmlFor="mcp-security-rate-window" className="mcp-control-field">

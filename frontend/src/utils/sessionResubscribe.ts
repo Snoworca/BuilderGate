@@ -77,9 +77,24 @@ export function createSessionResubscribeFence(): SessionResubscribeFence {
   };
 }
 
+/** REL-BGSTAB-056 AC-1: why a session is resubscribed, logged by the server. */
+export interface SessionRecoveryReason {
+  reason: string;
+  attempt: number;
+}
+
 export interface ResubscribeSocketDeps {
   isOpen: () => boolean;
-  sendJson: (message: { type: 'subscribe' | 'unsubscribe'; sessionIds: string[] }) => boolean;
+  /**
+   * False in split transport, where output rides its own socket: the `unsubscribed` reply
+   * cannot be ordered against that output, so the caller reconnects instead (REL-BGSTAB-056 AC-2).
+   */
+  sharesOneSocket: () => boolean;
+  sendJson: (message: {
+    type: 'subscribe' | 'unsubscribe';
+    sessionIds: string[];
+    recovery?: SessionRecoveryReason;
+  }) => boolean;
   /** Re-registers the checkpoint view and binary channel the unsubscribe released. */
   refreshCapabilities: () => void;
   retireChannels: (sessionId: string) => void;
@@ -89,14 +104,19 @@ export interface ResubscribeSocketDeps {
 
 /**
  * Sends unsubscribe, the capability refresh and subscribe for one session. Returns false
- * when the socket is not open or a send fails, so the caller falls back to a reconnect.
+ * when the socket is not open, output has its own socket, or a send fails, so the caller
+ * falls back to a reconnect.
  */
-export function resubscribeSessionOnSocket(sessionId: string, deps: ResubscribeSocketDeps): boolean {
-  if (!deps.isOpen()) return false;
+export function resubscribeSessionOnSocket(
+  request: { sessionId: string } & SessionRecoveryReason,
+  deps: ResubscribeSocketDeps,
+): boolean {
+  if (!deps.isOpen() || !deps.sharesOneSocket()) return false;
+  const { sessionId, reason, attempt } = request;
   deps.dropGraceBuffer(sessionId);
   deps.retireChannels(sessionId);
   deps.fence.begin(sessionId);
-  if (!deps.sendJson({ type: 'unsubscribe', sessionIds: [sessionId] })) {
+  if (!deps.sendJson({ type: 'unsubscribe', sessionIds: [sessionId], recovery: { reason, attempt } })) {
     deps.fence.cancel(sessionId);
     return false;
   }

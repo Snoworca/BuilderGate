@@ -8,7 +8,6 @@ import {
   normalizeMcpPromptPreview,
   rotateWebhookCredential,
   serializeWebhookCredentialResponse,
-  validateMcpWebhookKeyHeaderName,
 } from './McpSecurityContract.js';
 
 type StringRecord = Record<string, unknown>;
@@ -19,7 +18,6 @@ type WebhookInvocationDeps = {
   webhookRecords?: StringRecord[];
   persistWebhookRecords?: (records: StringRecord[]) => unknown | Promise<unknown>;
   defaultProfile?: StringRecord | null;
-  webhookKeyHeaderName?: unknown;
   webhookRateLimit?: unknown;
   denialCode?: unknown;
   revoked?: boolean;
@@ -37,12 +35,10 @@ type WebhookInvocationDeps = {
   checkRateLimit?: (request: unknown) => unknown;
 };
 
-const DEFAULT_WEBHOOK_HEADER = 'X-BuilderGate-Webhook-Key';
 const DEFAULT_WEBHOOK_RECORD_DATA_PATH = './data/mcp-webhook-records.json';
 const MAX_QUERY_PROMPT_CHARS = 2048;
 
 export function createWebhookInvocationService(deps: WebhookInvocationDeps = {}): StringRecord {
-  let webhookKeyHeaderName = asString(deps.webhookKeyHeaderName) ?? DEFAULT_WEBHOOK_HEADER;
   const records = normalizeWebhookRecords(deps);
   let persistChain: Promise<unknown> = Promise.resolve();
   let lifecycleChain: Promise<unknown> = Promise.resolve();
@@ -188,35 +184,27 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
   });
 
   const getWebhookConfig = (): StringRecord => ({
-    webhookKeyHeaderName,
     rateLimit: status.rateLimit,
   });
 
+  // FR-MCP-014 AC-2: the key header is fixed (Authorization: Bearer), so only the rate
+  // limit is configurable; a header name left in an old request is ignored.
   const setWebhookConfig = (request: unknown): StringRecord => {
     const input = asRecord(request);
-    const hasHeaderName = Object.prototype.hasOwnProperty.call(input, 'webhookKeyHeaderName');
     const hasRateLimit = Object.prototype.hasOwnProperty.call(input, 'rateLimit');
-    const headerName = hasHeaderName ? asString(input.webhookKeyHeaderName) ?? '' : webhookKeyHeaderName;
-    const validation = validateMcpWebhookKeyHeaderName(headerName);
-    if (validation.ok === false) {
-      return { ok: false, code: validation.code };
-    }
     const nextRateLimit = hasRateLimit ? normalizeWebhookRateLimit(input.rateLimit) : status.rateLimit;
     if (!nextRateLimit) {
       return { ok: false, code: 'WEBHOOK_RATE_LIMIT_INVALID' };
     }
-    webhookKeyHeaderName = headerName;
     status.rateLimit = nextRateLimit;
     return {
       ok: true,
-      webhookKeyHeaderName,
       rateLimit: status.rateLimit,
     };
   };
 
   const getWebhookStatus = (): StringRecord => ({
     rateLimit: status.rateLimit,
-    webhookKeyHeaderName,
   });
 
   const invokeWebhook = async (request: unknown): Promise<StringRecord> => {
@@ -224,7 +212,8 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
     const query = asRecord(input.query);
     const headers = normalizeHeaders(asRecord(input.headers));
     const queryKey = asString(query.key);
-    const headerKey = headers[webhookKeyHeaderName.toLowerCase()];
+    // FR-MCP-014 AC-1: the key travels as `Authorization: Bearer <key>`.
+    const headerKey = bearerToken(headers.authorization);
     const prompt = asString(query.prompt) ?? asString(input.prompt) ?? '';
     const auditId = `audit_${crypto.randomUUID()}`;
     const credentialKind = headerKey ? 'header' : 'query';
@@ -242,13 +231,6 @@ export function createWebhookInvocationService(deps: WebhookInvocationDeps = {})
     }
 
     const providedKey = headerKey ?? queryKey ?? '';
-    const expectedHeader = webhookKeyHeaderName.toLowerCase();
-    const hasOnlyWrongHeader = Object.keys(headers).some(key => key.includes('webhook-key'))
-      && !headers[expectedHeader]
-      && !queryKey;
-    if (hasOnlyWrongHeader) {
-      return deny(deps, input, 'WEBHOOK_KEY_INVALID', auditId);
-    }
 
     await waitForLifecycleIdle();
     const record = findWebhookRecord(records, providedKey);
@@ -589,4 +571,9 @@ function normalizeWebhookRateLimit(value: unknown): { windowSeconds: number; bur
     return null;
   }
   return { windowSeconds, burstLimit };
+}
+
+function bearerToken(value: string | undefined): string | undefined {
+  const match = /^Bearer\s+(\S+)\s*$/i.exec(value ?? '');
+  return match?.[1];
 }

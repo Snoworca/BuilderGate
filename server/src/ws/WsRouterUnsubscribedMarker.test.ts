@@ -84,3 +84,48 @@ test('REL-BGSTAB-055 AC-3: on a resubscribe the unsubscribed reply comes before 
   assert.notEqual(marker, -1, `no unsubscribed reply in ${types.join(',')}`);
   assert.ok(marker < types.indexOf('subscribed'), types.join(','));
 });
+
+function captureLog(run: () => void): string[] {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (...args: unknown[]) => { lines.push(args.map(String).join(' ')); };
+  try {
+    run();
+  } finally {
+    console.log = original;
+  }
+  return lines.filter(line => line.startsWith('[WS] Session resubscribe'));
+}
+
+// @req REL-BGSTAB-056
+test('REL-BGSTAB-056 AC-1: a recovery unsubscribe logs its reason and attempt; a plain one logs nothing', () => {
+  const { send } = setup();
+  send({ type: 'subscribe', sessionIds: ['s1'] });
+
+  const recovery = captureLog(() => send({
+    type: 'unsubscribe',
+    sessionIds: ['s1'],
+    recovery: { reason: `screen-repair\n"x"${'y'.repeat(200)}`, attempt: 2 },
+  }));
+  assert.equal(recovery.length, 1, recovery.join('\n'));
+  const match = /^\[WS\] Session resubscribe: client-1 session=s1 reason="(.*)" attempt=2$/.exec(recovery[0]);
+  assert.ok(match, recovery[0]);
+  assert.ok(match[1].startsWith('screen-repairx'), match[1]);
+  assert.ok(Buffer.byteLength(match[1]) <= 123);
+
+  send({ type: 'subscribe', sessionIds: ['s1'] });
+  assert.deepEqual(captureLog(() => send({ type: 'unsubscribe', sessionIds: ['s1'] })), []);
+});
+
+// @req REL-BGSTAB-056
+test('REL-BGSTAB-056 AC-1: only sessions this socket subscribed are logged, and the attempt must be a whole number', () => {
+  const { send } = setup();
+  send({ type: 'subscribe', sessionIds: ['s1'] });
+
+  const lines = captureLog(() => send({
+    type: 'unsubscribe',
+    sessionIds: ['s1', 'x\n[WS] Client connected: forged', 'never-subscribed'],
+    recovery: { reason: 'r', attempt: -1.5 },
+  }));
+  assert.deepEqual(lines, ['[WS] Session resubscribe: client-1 session=s1 reason="r" attempt=-']);
+});

@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   buildMcpAgentProfileInput,
+  formatMcpEndpointUrl,
   buildMcpControlConfigPatch,
   createMcpSecurityDraft,
   formatMcpAuditAction,
@@ -77,7 +78,8 @@ test('T-PH007-01 FR-MCP-005 MCP settings dialog exposes Korean tabs and security
   expectSource(dialogSource, /externalWhitelist/, 'Security tab must edit external whitelist');
   expectSource(dialogSource, /trustedProxies/, 'Security tab must edit trusted proxies');
   expectSource(dialogSource, /allowedOrigins/, 'Security tab must edit allowed origins');
-  expectSource(dialogSource, /webhookKeyHeaderName/, 'Security tab must edit webhook header name');
+  // FR-MCP-014 AC-3: the webhook key header is fixed (Authorization: Bearer), so there is no field.
+  assert.doesNotMatch(dialogSource, /webhookKeyHeaderName|mcp-security-webhook-header/, 'Security tab must not edit a webhook header name');
   expectSource(dialogSource, /webhookRateLimit|webhookRateLimitWindowSecondsText/, 'Security tab must edit webhook rate limit settings');
   expectSource(dialogSource, /role=["']alert["']/, 'Security tab must display validation errors through an alert path');
   expectSource(dialogSource, /mcpControlApi\.getConfig/, 'Dialog must load config through the MCP control API');
@@ -89,7 +91,7 @@ test('MCP settings dialog uses Korean labels for every visible configuration pan
 
   const koreanLabels = [
     'MCP 엔드포인트 사용', '바인드 모드', '호스트 주소', '포트', '전송 보안',
-    '웹훅 헤더', '웹훅 요청 제한 시간', '웹훅 순간 요청 한도', '외부 IP/CIDR 허용 목록',
+    '웹훅 요청 제한 시간', '웹훅 순간 요청 한도', '외부 IP/CIDR 허용 목록',
     '신뢰 프록시', '허용 오리진', '프로필 이름', '실행 명령', '설정 방식',
     '사용', '기본 프로필', '실행 인수', '별칭', '시작 프롬프트', '대상 세션',
     '프로필 ID', '전달 방식', '만료 시각', '권한 범위', '전체 키', '전체 URL',
@@ -314,7 +316,6 @@ test('T-PH007-01 FR-MCP-005 security draft validation blocks unsafe whitelist st
     status: 'ready',
     lastError: null,
     lastRebindResult: null,
-    webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
     webhookRateLimit: { windowSeconds: 60, burstLimit: 10 },
   });
 
@@ -391,7 +392,6 @@ test('T-PH007-01 FR-MCP-005 security draft builds MCP control config patch with 
     status: 'ready',
     lastError: null,
     lastRebindResult: null,
-    webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
     webhookRateLimit: { windowSeconds: 60, burstLimit: 10 },
   });
 
@@ -404,7 +404,6 @@ test('T-PH007-01 FR-MCP-005 security draft builds MCP control config patch with 
     trustedProxies: [],
     externalWhitelist: ['203.0.113.7/32'],
     allowedOrigins: ['https://localhost:2222'],
-    webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
     webhookRateLimit: { windowSeconds: 60, burstLimit: 10 },
     submitEnterDelayMs: 1000,
     submitEnterDelayPerKbMs: 50,
@@ -424,7 +423,6 @@ test('T-PH007-01 IR-MCP-004 security draft validates and saves webhook rate limi
     status: 'ready',
     lastError: null,
     lastRebindResult: null,
-    webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
     webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
   });
 
@@ -553,4 +551,29 @@ test('FR-MCP-012 AC-8: the audit log labels the editor tools', () => {
 
 test('FR-MCP-013 AC-3: the audit log labels open_html', () => {
   assert.equal(formatMcpAuditAction('buildergate.editor.open_html'), '편집기에서 HTML 열기');
+});
+
+// @req FR-MCP-014
+test('FR-MCP-014 AC-4: the MCP address is built from the saved host, port and transport', () => {
+  const base = { host: '127.0.0.1', port: 3333, transportSecurity: 'none' };
+  assert.equal(formatMcpEndpointUrl(base), 'http://127.0.0.1:3333/mcp');
+  assert.equal(formatMcpEndpointUrl({ ...base, host: '0.0.0.0' }), 'http://127.0.0.1:3333/mcp');
+  assert.equal(formatMcpEndpointUrl({ ...base, host: '::' }), 'http://127.0.0.1:3333/mcp');
+  assert.equal(formatMcpEndpointUrl({ ...base, host: '192.168.0.5', port: 4444 }), 'http://192.168.0.5:4444/mcp');
+  assert.equal(formatMcpEndpointUrl({ ...base, transportSecurity: 'direct_tls' }), 'https://127.0.0.1:3333/mcp');
+  assert.equal(formatMcpEndpointUrl({ ...base, host: '::1' }), 'http://[::1]:3333/mcp');
+  assert.equal(formatMcpEndpointUrl({ ...base, host: 'fe80::1%eth0' }), 'http://[fe80::1%25eth0]:3333/mcp');
+  assert.equal(formatMcpEndpointUrl(null), null);
+});
+
+// @req FR-MCP-014
+test('FR-MCP-014 AC-4: the dialog shows the MCP address above the tabs with a copy button', () => {
+  const dialogSource = readSource('src/components/McpControlManager/McpControlDialog.tsx');
+  const endpoint = dialogSource.indexOf('data-testid="mcp-control-endpoint"');
+  const tabs = dialogSource.indexOf('className="mcp-control-tabs"');
+  assert.notEqual(endpoint, -1, 'the dialog has no MCP address bar');
+  assert.ok(endpoint < tabs, 'the MCP address bar must sit above the tabs');
+  assert.match(dialogSource.slice(endpoint, endpoint + 1200), /formatMcpEndpointUrl\(config\)|endpointUrl/);
+  assert.match(dialogSource.slice(endpoint, endpoint + 1200), /t\('common\.copy'\)/);
+  assert.ok(koCatalog['mcp.endpoint.label'], 'the address label goes through the i18n catalog');
 });
