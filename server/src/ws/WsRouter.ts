@@ -3318,6 +3318,11 @@ export class WsRouter {
         });
       }
     }
+    // REL-BGSTAB-055 AC-3: frames after this one belong to a new subscription. One per
+    // session, so each travels on that session's ordered lane behind its queued frames.
+    for (const sessionId of sessionIds) {
+      this.sendTo(ws, { type: 'unsubscribed', sessionId });
+    }
   }
 
   private handleScreenSnapshotReady(ws: WebSocket, sessionId: string, replayToken: string): void {

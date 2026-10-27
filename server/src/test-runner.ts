@@ -16405,7 +16405,9 @@ function testWsRouterIgnoresStaleReplayTokens(): void {
   (router as any).handleUnsubscribe(ws, ['session-1']);
 
   (router as any).handleSubscribe(ws, ['session-1']);
-  const secondToken = String(sent[2].replayToken);
+  // REL-BGSTAB-055: the unsubscribe now answers with an `unsubscribed` frame, so the
+  // second snapshot is found by type rather than by position.
+  const secondToken = String(sent.filter((message) => message.type === 'screen-snapshot').at(-1)?.replayToken);
   router.routeSessionOutput('session-1', 'second-pending');
 
   (router as any).handleScreenSnapshotReady(ws, 'session-1', firstToken);

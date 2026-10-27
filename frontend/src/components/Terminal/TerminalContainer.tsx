@@ -69,6 +69,7 @@ import {
   type TerminalCompatibilityPostAckConvergenceState,
   type TerminalCompatibilityProgressTimeout,
 } from '../../utils/visibleOutputRecovery';
+import { chooseVisibleRecoveryTransport } from '../../utils/sessionResubscribe';
 import {
   TerminalInputSequencer,
   type SequencedTerminalInput,
@@ -338,6 +339,7 @@ export const TerminalContainer = memo(
       send,
       subscribeSession,
       requestReconnect,
+      resubscribeSession,
       publishTerminalDeliveryVisibility,
     } = useWebSocketActions();
     const { status: wsStatus, clientId: wsClientId } = useWebSocketState();
@@ -414,12 +416,26 @@ export const TerminalContainer = memo(
         reason,
         attempt: decision.attempt,
       });
+      // REL-BGSTAB-055: resubscribe only this session on the shared socket; only the last
+      // budgeted attempt closes the socket every session uses.
+      const transport = chooseVisibleRecoveryTransport({
+        attempt: decision.attempt,
+        maxAttempts: VISIBLE_OUTPUT_RECOVERY_MAX_RECONNECT_ATTEMPTS,
+      });
+      if (transport === 'resubscribe') {
+        recordTerminalDebugEvent(sessionId, 'visible_output_resync_resubscribe_requested', {
+          reason,
+          attempt: decision.attempt,
+        });
+        prepareSessionResubscribe();
+        if (resubscribeSession(sessionId)) return true;
+      }
       recordTerminalDebugEvent(sessionId, 'visible_output_resync_reconnect_requested', {
         reason,
         attempt: decision.attempt,
       });
       return requestReconnect(reason);
-    }, [requestReconnect, sessionId]);
+    }, [requestReconnect, resubscribeSession, sessionId]);
 
     if (!inputSequencerRef.current) {
       inputSequencerRef.current = new TerminalInputSequencer((input, reason) => {
@@ -1499,6 +1515,34 @@ export const TerminalContainer = memo(
       compatibilityPostAckTimeoutRef.current?.clear();
       compatibilityPostAckTimeoutRef.current = null;
     }, []);
+
+    // REL-BGSTAB-055 AC-2: what a closed connection does to this session's recovery, also
+    // run before this session alone is resubscribed.
+    const dropVisibleOutputRecoveryForTransportReset = useEffectEvent(() => {
+      const activeResync = activeVisibleOutputResyncRef.current;
+      if (activeResync) {
+        activeResync.restoreAdapter.handle({
+          type: 'connection-closed',
+        });
+        visibleOutputMutationFenceRef.current?.invalidateSpeculative();
+        recordVisibleOutputResyncState(activeResync, 'connection-closed');
+        activeVisibleOutputResyncRef.current = null;
+      }
+      const compatibilityPostAckRecovery = compatibilityPostAckConvergenceRef.current;
+      if (compatibilityPostAckRecovery) {
+        recordCompatibilityPostAckState(compatibilityPostAckRecovery, 'connection-closed');
+        compatibilityPostAckConvergenceRef.current = null;
+        clearCompatibilityPostAckTimeout();
+      }
+      visibleOutputRecoveryAttemptBudgetRef.current.clearPendingReconnectConvergence();
+    });
+
+    // REL-BGSTAB-055 AC-2: input waits for the new subscription's snapshot and ready.
+    const prepareSessionResubscribe = useEffectEvent(() => {
+      dropVisibleOutputRecoveryForTransportReset();
+      sessionReadyRef.current = false;
+      syncInputTransportState('visible-output-resubscribe');
+    });
 
     const failCompatibilityPostAckConvergence = useCallback((reason: string) => {
       const state = compatibilityPostAckConvergenceRef.current;
@@ -3314,22 +3358,7 @@ export const TerminalContainer = memo(
         return;
       }
 
-      const activeResync = activeVisibleOutputResyncRef.current;
-      if (activeResync) {
-        activeResync.restoreAdapter.handle({
-          type: 'connection-closed',
-        });
-        visibleOutputMutationFenceRef.current?.invalidateSpeculative();
-        recordVisibleOutputResyncState(activeResync, 'connection-closed');
-        activeVisibleOutputResyncRef.current = null;
-      }
-      const compatibilityPostAckRecovery = compatibilityPostAckConvergenceRef.current;
-      if (compatibilityPostAckRecovery) {
-        recordCompatibilityPostAckState(compatibilityPostAckRecovery, 'connection-closed');
-        compatibilityPostAckConvergenceRef.current = null;
-        clearCompatibilityPostAckTimeout();
-      }
-      visibleOutputRecoveryAttemptBudgetRef.current.clearPendingReconnectConvergence();
+      dropVisibleOutputRecoveryForTransportReset();
 
       if (wsStatus === 'reconnecting') {
         if (reconnectStartedAtRef.current === null) {
@@ -3350,12 +3379,9 @@ export const TerminalContainer = memo(
       flushTransportPipeline('ws-disconnected');
       rejectTransportOutbox('transport-closed', 'ws-disconnected');
     }, [
-      clearCompatibilityPostAckTimeout,
       clearTransportClosedReason,
       flushTransportPipeline,
       markTransportClosed,
-      recordCompatibilityPostAckState,
-      recordVisibleOutputResyncState,
       rejectTransportOutbox,
       syncInputTransportState,
       wsStatus,

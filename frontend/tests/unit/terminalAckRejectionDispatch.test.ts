@@ -5,6 +5,7 @@ import ts from 'typescript';
 import { classifyWsFrame } from '../../src/utils/wsFrameDispatch.ts';
 import { isTerminalBinaryControlMessage } from '../../src/utils/terminalBinaryNegotiationClient.ts';
 import { parseTerminalDeliveryAckRejectedMessage } from '../../src/types/ws-protocol.ts';
+import { createSessionResubscribeFence } from '../../src/utils/sessionResubscribe.ts';
 
 // Execute the actual React callback body, without copying its dispatch algorithm
 // or mounting unrelated application effects. This is unit evidence, not browser E2E.
@@ -41,6 +42,8 @@ function harness() {
     console: { warn: (...args: unknown[]) => warnings.push(args) },
     sessionHandlersRef: { current: noDispatch },
     workspaceHandlersRef: { current: noDispatch },
+    // REL-BGSTAB-055: no session is mid-resubscribe, so the fence admits everything.
+    resubscribeFenceRef: { current: createSessionResubscribeFence() },
   };
   const callback = new Function(...Object.keys(dependencies), `${compiled}\nreturn callback;`)(...Object.values(dependencies)) as (event: { data: string }) => void;
   return { records, warnings, dispatch: (message: unknown) => callback({ data: JSON.stringify(message) }) };

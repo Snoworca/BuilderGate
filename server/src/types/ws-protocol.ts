@@ -965,6 +965,9 @@ export type ServerWsMessage =
   | { type: 'file-job:done'; sessionId: string; jobId: string; outcome: 'completed' | 'cancelled' | 'failed'; processedEntries: number; affectedDirectories: string[]; errorCode?: string }
   // Subscribe response
   | { type: 'subscribed';     sessions: SubscribedSessionInfo[] }
+  // REL-BGSTAB-055: sent per session once its unsubscribe is processed; later frames belong to a
+  // new subscription. The top-level sessionId keeps it on that session's ordered send lane.
+  | { type: 'unsubscribed';   sessionId: string }
   // Workspace events
   | { type: 'workspace:created';   data: unknown }
   | { type: 'workspace:updated';   data: unknown }

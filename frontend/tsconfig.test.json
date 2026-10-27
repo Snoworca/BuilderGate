@@ -42,6 +42,7 @@
     "./tests/unit/apiErrorMessages.test.ts",
     "./tests/unit/terminalRedrawTabView.test.ts",
     "./tests/unit/terminalRedrawAll.test.ts",
+    "./tests/unit/sessionResubscribeRecovery.test.ts",
     "./tests/unit/editorWaitBanner.test.ts",
     "./tests/unit/i18nTestSetup.ts",
     "./tests/unit/i18nGuards.test.ts",
