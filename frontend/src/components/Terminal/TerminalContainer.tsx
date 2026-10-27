@@ -1104,6 +1104,9 @@ export const TerminalContainer = memo(
       transmitSequencedInput,
     ]);
 
+    // REL-BGSTAB-057: a closed session's remembered replies go with it.
+    useEffect(() => () => forgetAutomaticReplies(sessionId), [sessionId]);
+
     const deliverSequencedInput = useCallback((
       input: SequencedTerminalInput,
       reason: string,

@@ -57,10 +57,29 @@ test('FR-AITUI-020 AC-1: a Claude record is live when proc/<pid> exists in the d
   try {
     writeClaude(roots, 4242, CLAUDE_ID);
     writeClaude(roots, 4343, 'aaaaaaaa-bafa-467c-908e-f6435d599f35');
-    mkdirSync(path.join(dir, 'proc', '4242'));
+    liveProcess(dir, 4242, 'claude\0--dangerously-skip-permissions\0');
     const result = await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'claude' }, { roots });
     assert.equal(result?.sessionId, CLAUDE_ID);
     assert.equal(result?.confidence, 'exact', 'the dead 4343 record is not a rival');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function liveProcess(dir: string, pid: number, cmdline: string) {
+  mkdirSync(path.join(dir, 'proc', String(pid)), { recursive: true });
+  writeFileSync(path.join(dir, 'proc', String(pid), 'cmdline'), cmdline);
+}
+
+// @req FR-AITUI-020
+test('FR-AITUI-020 AC-1: a pid reused by another program after a WSL restart is not the session', async () => {
+  const { roots, dir } = makeDistro();
+  try {
+    writeClaude(roots, 4242, CLAUDE_ID);
+    liveProcess(dir, 4242, '/bin/bash\0');
+    assert.equal(await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'claude' }, { roots }), null);
+    liveProcess(dir, 4242, 'node\0/usr/lib/node_modules/@anthropic-ai/claude-code/cli.js\0');
+    assert.equal((await resolveAgentSession({ tabId: 't', cwd: CWD, agent: 'claude' }, { roots }))?.sessionId, CLAUDE_ID, 'an npm install runs under node');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

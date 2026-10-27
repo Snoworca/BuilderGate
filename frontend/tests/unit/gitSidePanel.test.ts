@@ -140,3 +140,24 @@ test('FR-GIT-012: the commit detail has a splitter that resizes it by drag and k
   assert.equal(detail.style.height, '', 'double click returns to the automatic height');
   assert.equal(detail.classList.contains('is-sized'), false);
 });
+
+// @req FR-GIT-012
+test('FR-GIT-012: a sized detail is re-clamped when the files grow, and a cancelled drag stops following', async () => {
+  const c = client();
+  const { container } = await render(React.createElement(GitSidePanel, base(c, 'c1')));
+  const detail = container.querySelector('.git-detail') as HTMLElement;
+  const detailHandle = container.querySelector(`[role="separator"][aria-label="${en['git.detail.splitter']}"]`) as HTMLElement;
+  const filesHandle = container.querySelector(`[role="separator"][aria-label="${en['git.files.splitter']}"]`) as HTMLElement;
+  await act(async () => { detailHandle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 0 })); });
+  await act(async () => { detailHandle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 10_000 })); });
+  await act(async () => { detailHandle.dispatchEvent(new MouseEvent('pointercancel', { bubbles: true })); });
+  assert.equal(detail.style.height, '318px');
+  await act(async () => { detailHandle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 0 })); });
+  assert.equal(detail.style.height, '318px', 'a cancelled drag no longer follows the pointer');
+
+  // Files 150 -> 214 px: the detail must give way so the diff keeps 120 px (600 - 214 - 132 = 254).
+  for (let i = 0; i < 4; i += 1) {
+    await act(async () => { filesHandle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+  }
+  assert.equal(detail.style.height, '254px');
+});

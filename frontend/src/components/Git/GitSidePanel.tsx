@@ -211,9 +211,9 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
   return (
     <div className={`git-side${layout ? ` layout-${layout}` : ''}`} ref={panelRef}>
       <div
-        className={`git-detail${detailHeight === null ? '' : ' is-sized'}`}
+        className={`git-detail${layout || detailHeight === null ? '' : ' is-sized'}`}
         ref={detailRef}
-        style={layout || detailHeight === null ? undefined : { height: detailHeight }}
+        style={layout || detailHeight === null ? undefined : { height: Math.max(DETAIL_MIN, Math.min(detailHeight, detailMax())) }}
       >
         {detail}
       </div>
@@ -277,7 +277,11 @@ function startRowResizeDrag(e: React.PointerEvent<HTMLDivElement>, startHeight: 
   const handle = e.currentTarget;
   handle.setPointerCapture?.(e.pointerId);
   const move = (ev: PointerEvent) => onHeight(startHeight + ev.clientY - startY);
-  const up = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); };
+  const ends = ['pointerup', 'pointercancel', 'lostpointercapture'] as const;
+  const up = () => {
+    handle.removeEventListener('pointermove', move);
+    for (const type of ends) handle.removeEventListener(type, up);
+  };
   handle.addEventListener('pointermove', move);
-  handle.addEventListener('pointerup', up);
+  for (const type of ends) handle.addEventListener(type, up);
 }

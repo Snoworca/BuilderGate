@@ -220,8 +220,10 @@ function pidAliveProbe(env: ResolveEnv): (pid: number) => Promise<boolean> {
   }
   const wslRoot = env.roots.wslRoot;
   if (wslRoot) {
+    // A WSL restart leaves the pid files behind and hands their pids out again, so the
+    // process must also be a Claude (the native binary, or the npm package under node).
     return (pid) => (Number.isInteger(pid) && pid > 0
-      ? statAsync(path.join(wslRoot, 'proc', String(pid))).then(() => true, () => false)
+      ? readFileAsync(path.join(wslRoot, 'proc', String(pid), 'cmdline'), 'utf8').then((cmd) => /claude/i.test(cmd), () => false)
       : Promise.resolve(false));
   }
   return async (pid) => defaultIsPidAlive(pid);
@@ -240,8 +242,7 @@ async function resolveClaude(ctx: TabAgentContext, env: ResolveEnv, treePids: Re
     const inTree = entries.find((entry) => treePids.has(entry.pid));
     if (inTree) return { agent: 'claude', sessionId: inTree.sessionId, method: 'claude-pid-file', confidence: 'exact' };
   }
-  const live = await liveClaudeEntries(entries.filter((entry) => !claimed.has(entry.sessionId)), env);
-  const inCwd = live.filter((entry) => sameCwd(entry.cwd, ctx.cwd));
+  const inCwd = await liveClaudeEntries(entries.filter((entry) => !claimed.has(entry.sessionId) && sameCwd(entry.cwd, ctx.cwd)), env);
   if (inCwd.length === 0) return null;
   if (inCwd.length === 1) return { agent: 'claude', sessionId: inCwd[0].sessionId, method: 'claude-pid-file', confidence: 'exact' };
   const anchor = ctx.agentStartedAtMs;
@@ -574,6 +575,7 @@ async function lockProbeFor(roots: AgentRoots): Promise<(filePath: string) => Pr
       if (inode) held.add(inode);
     }
   } catch { /* unreadable: nothing is known to be held */ }
+  if (held.size === 0) return async () => false;
   return (filePath) => statAsync(filePath, { bigint: true }).then((st) => held.has(String(st.ino)), () => false);
 }
 
