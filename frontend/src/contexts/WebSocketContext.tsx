@@ -68,6 +68,7 @@ import {
 import { getCachedTerminalOutputResourceLimits } from '../utils/terminalOutputHotPath';
 import { classifyWsFrame } from '../utils/wsFrameDispatch';
 import { publishInputDiscard } from '../utils/inputDiscardFeedback';
+import { isAutomaticReplyRejection } from '../utils/automaticInputReplies';
 import { shouldSurfaceInputRejection } from '../utils/inputRejectionSurface';
 import { resolveLogicalClientId } from '../utils/logicalClientIdentity';
 import { deriveMaxBodyBytes } from '../utils/binaryFrameCodec';
@@ -997,8 +998,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         // Which refusals owe a warning is decided by shouldSurfaceInputRejection: the rule is
         // whether the write reached the PTY, and it used to be spelled here as a single
         // exclusion whose comment was wrong about expired-operation.
+        // REL-BGSTAB-057: a refused automatic terminal reply was not typed, so it is not
+        // reported as lost typing.
         if (shouldSurfaceInputRejection(msg.reason)) {
-          publishInputDiscard(sessionId);
+          if (isAutomaticReplyRejection(sessionId, msg)) {
+            recordTerminalDebugEvent(sessionId, 'automatic_reply_rejection_quiet', { reason: msg.reason });
+          } else {
+            publishInputDiscard(sessionId);
+          }
         }
       }
       const handlers = sessionHandlersRef.current.get(sessionId);

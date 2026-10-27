@@ -9,6 +9,7 @@ import {
   shouldShowInputDiscardFeedback,
   subscribeToInputDiscards,
 } from '../../utils/inputDiscardFeedback';
+import { noteAutomaticReplyCapture } from '../../utils/automaticInputReplies';
 import { WebglAddon } from '@xterm/addon-webgl';
 import {
   createTerminalWebglRenderer,
@@ -4439,6 +4440,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           });
           return;
         }
+        // REL-BGSTAB-057: a reply sent on the ordinary path is remembered, so its refusal
+        // is not reported as lost typing.
+        let automaticReply = false;
         if (
           !hasUserInputProvenance
           && isTerminalQueryReply(data, { provenance: 'parser-generated' })
@@ -4474,6 +4478,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           // Initial legacy compatibility mode predates an authority lease. Keep
           // its parser replies on the ordinary path until the exact disable
           // boundary is acknowledged; post-rollback replies always have a lease.
+          automaticReply = true;
         }
         // @req FR-MKB-003
         // Mobile modifier latch: any data that passed the replay and query-reply
@@ -4497,6 +4502,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           captureSeq: programmaticPaste?.captureSeq ?? nextCaptureSeq(),
           compositionSeq,
         }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
+        if (automaticReply && typeof debugInput.details.captureSeq === 'number') {
+          noteAutomaticReplyCapture(sessionId, debugInput.details.captureSeq);
+        }
         const source = programmaticPaste?.source ?? 'xterm';
         const result = submitCapturedInput(data, debugInput, source);
         if (programmaticPaste) {

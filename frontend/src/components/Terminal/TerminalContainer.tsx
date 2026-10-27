@@ -70,6 +70,7 @@ import {
   type TerminalCompatibilityProgressTimeout,
 } from '../../utils/visibleOutputRecovery';
 import { chooseVisibleRecoveryTransport } from '../../utils/sessionResubscribe';
+import { bindAutomaticReplyInput, forgetAutomaticReplies } from '../../utils/automaticInputReplies';
 import {
   TerminalInputSequencer,
   type SequencedTerminalInput,
@@ -1107,6 +1108,12 @@ export const TerminalContainer = memo(
       input: SequencedTerminalInput,
       reason: string,
     ) => {
+      // REL-BGSTAB-057: an automatic reply keeps its input seq, so a refusal of it stays quiet.
+      bindAutomaticReplyInput(sessionId, {
+        captureSeq: input.metadata?.captureSeq,
+        inputSeqStart: input.inputSeqStart,
+        inputSeqEnd: input.inputSeqEnd,
+      });
       const visibleRecoveryBarrier = resolveVisibleOutputRecoveryBarrierReason(visibleOutputRecoveryStateRef.current);
       if (
         sessionReadyRef.current
@@ -1227,6 +1234,9 @@ export const TerminalContainer = memo(
       resizeSendLedgerRef.current.reset();
       lastStatusRef.current = null;
       inputSequencerRef.current?.reset(1);
+      // Input seqs start again at 1: replies remembered under the old numbers must not
+      // silence a refusal of new typing.
+      forgetAutomaticReplies(sessionId);
       inputSequencerEpochRef.current = createInputSequencerEpoch();
       supersededVisibleOutputResyncKeysRef.current.clear();
       visibleOutputResyncEpochRef.current += 1;

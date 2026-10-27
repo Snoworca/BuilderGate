@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-27T06:11:15.909Z",
+  "generatedAt": "2026-10-27T06:58:22.762Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "2f9eeeef73d8de2c213545a855ddf99379be27972473cde8a386c1fff486f6b2",
+    "value": "da6afebe0733c4733527ae2f30e98b653bd9fc8a4f0ebafdb9d2ce119fcf642e",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -26,9 +26,9 @@
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
-        "sha256": "caf3f6339acbe6435804de8441e45349b6d04de19bfb2eb826d09574416e4d88",
-        "size": 1547029,
-        "mtimeMs": 1793081469271.9365
+        "sha256": "e791aea21b144663e01c8a8c3ab5a3bfa5ca9f448208fbd7d6ca76c0dffcd818",
+        "size": 1550106,
+        "mtimeMs": 1793084264336.7727
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
@@ -74,9 +74,9 @@
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
-        "sha256": "9dbdd3e03650f341a42632e8f827902d82ef2030764a059e9f7952f794239064",
-        "size": 35679,
-        "mtimeMs": 1792881269271.1858
+        "sha256": "d74015fa6f0f3f2d737a59df9d7c016ba0b1a91b81c5e949615d9de7650b0b74",
+        "size": 38342,
+        "mtimeMs": 1793084296739.6426
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -97,7 +97,7 @@
       "FOP": 8,
       "UIDS": 14,
       "MKB": 14,
-      "GIT": 11
+      "GIT": 12
     },
     "constraint": {
       "ARCH": 1,
@@ -117,7 +117,7 @@
     },
     "reliability": {
       "AITUI": 1,
-      "BGSTAB": 56,
+      "BGSTAB": 57,
       "MCP": 1
     },
     "non_functional": {
