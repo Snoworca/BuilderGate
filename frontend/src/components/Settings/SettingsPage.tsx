@@ -784,11 +784,14 @@ export function SettingsPage({ visible, onBack }: Props) {
                 <NumberInput
                   id="settings-redraw-delay"
                   unit={t('settings.unit.seconds')}
-                  min="0.5"
+                  min="0"
                   max="5"
-                  step="0.5"
+                  step="0.1"
                   value={autoRedraw.delayMs / 1000}
-                  onChange={(e) => updateAutoRedraw({ delayMs: (parseFloat(e.target.value) || 1.5) * 1000 })}
+                  onChange={(e) => {
+                    const seconds = parseFloat(e.target.value);
+                    if (Number.isFinite(seconds)) updateAutoRedraw({ delayMs: seconds * 1000 });
+                  }}
                 />
               </SettingField>
             </Card>

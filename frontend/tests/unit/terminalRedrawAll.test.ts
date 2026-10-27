@@ -1,5 +1,6 @@
 import './i18nTestSetup.ts';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   createTerminalRedrawScheduler,
@@ -102,18 +103,31 @@ function memoryStorage(initial: Record<string, string> = {}) {
 }
 
 // @req REL-BGSTAB-053
-test('REL-BGSTAB-053 AC-5: auto redraw is on with 1.5 s by default and kept in this browser', () => {
-  assert.equal(AUTO_REDRAW_DELAY_DEFAULT_MS, 1500);
-  assert.deepEqual(readAutoRedrawSettings(memoryStorage()), { onWorkspaceSwitch: true, onTabSwitch: true, delayMs: 1500 });
+test('REL-BGSTAB-053 AC-5: auto redraw is on with 0.1 s by default, 0 to 5 s, and kept in this browser', () => {
+  assert.equal(AUTO_REDRAW_DELAY_DEFAULT_MS, 100);
+  assert.deepEqual(readAutoRedrawSettings(memoryStorage()), { onWorkspaceSwitch: true, onTabSwitch: true, delayMs: 100 });
   const storage = memoryStorage();
   writeAutoRedrawSettings(storage, { onWorkspaceSwitch: false, onTabSwitch: true, delayMs: 2500 });
   assert.deepEqual(readAutoRedrawSettings(storage), { onWorkspaceSwitch: false, onTabSwitch: true, delayMs: 2500 });
+  writeAutoRedrawSettings(storage, { onWorkspaceSwitch: true, onTabSwitch: false, delayMs: 0 });
+  assert.equal(readAutoRedrawSettings(storage).delayMs, 0, '0 means right away');
   writeAutoRedrawSettings(storage, { onWorkspaceSwitch: true, onTabSwitch: false, delayMs: 99_000 });
-  assert.equal(readAutoRedrawSettings(storage).delayMs, 5000, 'kept within 0.5-5 s');
-  assert.equal(readAutoRedrawSettings(memoryStorage({ 'buildergate.autoRedraw.delayMs': 'nope' })).delayMs, 1500);
+  assert.equal(readAutoRedrawSettings(storage).delayMs, 5000, 'kept within 0-5 s');
+  writeAutoRedrawSettings(storage, { onWorkspaceSwitch: true, onTabSwitch: false, delayMs: -300 });
+  assert.equal(readAutoRedrawSettings(storage).delayMs, 0);
+  assert.equal(readAutoRedrawSettings(memoryStorage({ 'buildergate.autoRedraw.delayMs': 'nope' })).delayMs, 100);
   const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
-  assert.deepEqual(readAutoRedrawSettings(broken), { onWorkspaceSwitch: true, onTabSwitch: true, delayMs: 1500 }, 'storage that throws gives the defaults');
+  assert.deepEqual(readAutoRedrawSettings(broken), { onWorkspaceSwitch: true, onTabSwitch: true, delayMs: 100 }, 'storage that throws gives the defaults');
   writeAutoRedrawSettings(broken, { onWorkspaceSwitch: false, onTabSwitch: false, delayMs: 500 });
+});
+
+// @req REL-BGSTAB-053
+test('REL-BGSTAB-053 AC-5: the settings field accepts 0 and steps by 0.1 s', () => {
+  const page = readFileSync(new URL('../../src/components/Settings/SettingsPage.tsx', import.meta.url), 'utf8');
+  const field = page.slice(page.indexOf('id="settings-redraw-delay"'), page.indexOf('id="settings-redraw-delay"') + 600);
+  assert.match(field, /min="0"/);
+  assert.match(field, /step="0\.1"/);
+  assert.doesNotMatch(field, /\|\|\s*1\.5/, 'a typed 0 must not fall back to another value');
 });
 
 const ctrlAltR = { key: 'r', code: 'KeyR', ctrlKey: true, shiftKey: false, altKey: true, metaKey: false, location: 0, repeat: false };

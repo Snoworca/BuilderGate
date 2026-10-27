@@ -14,8 +14,9 @@ export interface AutoRedrawStorage {
   setItem(key: string, value: string): void;
 }
 
-export const AUTO_REDRAW_DELAY_DEFAULT_MS = 1500;
-export const AUTO_REDRAW_DELAY_MIN_MS = 500;
+// 2026-10-27 user request: 1.5 s felt slow; 0 redraws right after the switch.
+export const AUTO_REDRAW_DELAY_DEFAULT_MS = 100;
+export const AUTO_REDRAW_DELAY_MIN_MS = 0;
 export const AUTO_REDRAW_DELAY_MAX_MS = 5000;
 
 const KEYS = {
