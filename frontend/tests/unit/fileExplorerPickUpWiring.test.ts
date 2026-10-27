@@ -39,8 +39,17 @@ test('FR-FEX-032 AC-7: a mouse that moves first starts the FR-FEX-030 drag; a pi
 });
 
 // @req FR-FEX-032
+test('FR-FEX-032 AC-4: the list holds a non-passive touchmove from the start, so a touch pick can stop the scroll', () => {
+  // Chromium decides at touchstart whether a touch sequence can be cancelled: a listener added
+  // when the pick begins comes too late.
+  assert.match(windowSource, /addEventListener\('touchmove', holdScroll, \{ passive: false \}\)/);
+  assert.match(body(windowSource, 'holdScroll'), /pickRef\.current !== null/);
+});
+
+// @req FR-FEX-032
 test('FR-FEX-032 AC-1: the carried rows leave the list through a style, not classes React would overwrite', () => {
   assert.match(windowSource, /hiddenRowsCss\(pickedPaths/);
+  assert.match(windowSource, /data-fx-tab=\{tab\.id\}/, 'the style is scoped to the picking panel');
   assert.match(windowSource, /<style>\{/);
 });
 

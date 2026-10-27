@@ -57,6 +57,7 @@ import { useWebSocketActions } from '../../contexts/WebSocketContext';
 import { useFileTree } from '../../hooks/useFileTree.ts';
 import type { FileExplorerTabView, FileExplorerWindowActions } from '../../hooks/useFileExplorerWindows.ts';
 import { useFileTreeOperations, type FileTreeShortcutAction } from '../../hooks/useFileTreeOperations.ts';
+import { useDoubleTap } from '../../hooks/useDoubleTap.ts';
 import { useLongPress } from '../../hooks/useLongPress.ts';
 import { useResponsive } from '../../hooks/useResponsive.ts';
 import { fileJobApi } from '../../services/api.ts';
@@ -128,7 +129,8 @@ import {
 } from './fileJobStore.ts';
 import { selectListRows, type ListSort } from './fileListView.ts';
 import { FileListView } from './FileListView.tsx';
-import { decideRowPointer, LONG_PRESS_MENU_MS, LONG_PRESS_OPEN_MS } from './fileRowInteraction.ts';
+import { decideRowPointer } from './fileRowInteraction.ts';
+import { PICK_EVENT, PICK_HOLD_MS, hiddenRowsCss, startPick, type PickDropDetail, type PickKeys, type PickLeaveDetail, type PickOverDetail, type PickSession } from './fileExplorerPickUp.ts';
 import { joinChildPath, parentPathOf, selectVisibleRows, type FileTreeMode } from './fileTreeState.ts';
 import { FileTreeView, type FileExplorerMenuRequest } from './FileTreeView.tsx';
 
@@ -425,10 +427,10 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   });
   useEffect(() => registerCommands(tab.id, commandsRef), [registerCommands, tab.id]);
 
-  // A long press is the touch spelling of a right click. It goes through the
-  // same pointer decision as a secondary button, which never changes the
-  // selection itself, and then raises the contextmenu the views already handle,
-  // so there is one menu path rather than two.
+  // A touch picked up and released in place (FR-FEX-032 AC-5) is the touch spelling of a right
+  // click. It goes through the same pointer decision as a secondary button, which never changes
+  // the selection itself, and then raises the contextmenu the views already handle, so there is
+  // one menu path rather than two.
   const pressTargetRef = useRef<EventTarget | null>(null);
   const handleLongPress = useCallback(({ clientX, clientY }: { clientX: number; clientY: number }) => {
     const pointer = decideRowPointer({ button: 2, ctrlKey: false, metaKey: false, shiftKey: false, isSelected: false });
@@ -437,36 +439,6 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     if (!(target instanceof Element) || !target.isConnected) return;
     target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX, clientY }));
   }, []);
-  // FR-FEX-020: held on to 1.5 s, the same press opens the row. It closes the menu the 0.5 s press
-  // opened and raises a dblclick, so the views decide what opening means (editor, expand, enter)
-  // exactly as for a double tap.
-  const handleLongHoldOpen = useCallback(({ clientX, clientY }: { clientX: number; clientY: number }) => {
-    // The hold is a primary, unmodified press; its selection was already applied on pointer down
-    // through the same decision, so here it only gates the open.
-    const pointer = decideRowPointer({ button: 0, ctrlKey: false, metaKey: false, shiftKey: false, isSelected: true });
-    if (pointer.type !== 'select') return;
-    const target = pressTargetRef.current;
-    if (!(target instanceof Element) || !target.isConnected) return;
-    setMenu(null);
-    target.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX, clientY }));
-  }, []);
-  const longPress = useLongPress(handleLongPress, LONG_PRESS_MENU_MS);
-  // Held only: a double tap belongs to the menu (FR-UIDS-013), not to opening.
-  const longHoldOpen = useLongPress(handleLongHoldOpen, LONG_PRESS_OPEN_MS, { doubleTap: false });
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    pressTargetRef.current = event.target;
-    longPress.onTouchStart(event);
-    longHoldOpen.onTouchStart(event);
-  };
-  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
-    longPress.onTouchMove(event);
-    longHoldOpen.onTouchMove(event);
-  };
-  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    // FR-UIDS-013: a double tap opens the row's menu through the same long-press callback.
-    longPress.onTouchEnd(event);
-    longHoldOpen.onTouchEnd(event);
-  };
 
   // The listing in the order it is drawn: the tab's sort, which both modes share
   // (the tree's header sorts its first level the same way).
@@ -620,7 +592,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     const internal = internalDragOf(event);
     if (internal !== null) {
-      handleInternalDragOver(event, internal);
+      event.preventDefault();
+      event.dataTransfer.dropEffect = handleInternalDragOver(event.target, event, internal);
       return;
     }
     if (!hasDraggedFiles(event.dataTransfer.types)) return;
@@ -695,28 +668,27 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
           : 'fileExplorer.drag.deny.file',
   );
   // Shared by the rows and the path bar: what a drop on `dir` would do, shown on the chip.
-  const previewInternalDrop = (event: DragEvent<HTMLElement>, internal: InternalDrag, dir: string | null, rowName: string | null): boolean => {
-    event.preventDefault();
+  // A browser drag passes its DragEvent as the keys, a pick (FR-FEX-032) the keys it read.
+  const previewInternalDrop = (keys: PickKeys, internal: InternalDrag, dir: string | null, rowName: string | null): 'copy' | 'move' | 'none' => {
     if (modalOpen) {
-      event.dataTransfer.dropEffect = 'none';
       setDropChip(null);
-      return false;
+      return 'none';
     }
     const decision = dir === null ? { allowed: false as const, reason: 'file' as const } : decideInternalDrop(internal, { sessionId: tab.sessionId, dir });
-    const op = decideDragOperation(event, isMac);
-    event.dataTransfer.dropEffect = decision.allowed ? op : 'none';
+    const op = decideDragOperation(keys, isMac);
     const drag = decision.allowed
       ? { op, copyHint: t(isMac ? 'fileExplorer.drag.copyHintOption' : 'fileExplorer.drag.copyHintCtrl') }
       : { op: 'deny' as const, reason: denyReason(decision.reason) };
     const next = { dir: dir ?? state.root, name: rowName, drag };
     setDropChip((current) => (current !== null && current.dir === next.dir && current.name === next.name
       && JSON.stringify(current.drag) === JSON.stringify(next.drag) ? current : next));
-    return decision.allowed;
+    return decision.allowed ? op : 'none';
   };
-  const handleInternalDragOver = (event: DragEvent<HTMLDivElement>, internal: InternalDrag) => {
-    const row = dragRowOf(event.target);
+  const handleInternalDragOver = (target: EventTarget | null, keys: PickKeys, internal: InternalDrag): 'copy' | 'move' | 'none' => {
+    const row = dragRowOf(target);
     const dir = resolveInternalDropDir({ row, shownFolder: state.root });
-    const allowed = previewInternalDrop(event, internal, dir, row !== null && row.isDir ? lastSegment(row.path) : null);
+    const effect = previewInternalDrop(keys, internal, dir, row !== null && row.isDir ? lastSegment(row.path) : null);
+    const allowed = effect !== 'none';
     markDropRow(allowed && row !== null && row.isDir ? row.element : null);
     markDenyRow(!allowed && row !== null ? row.element : null);
     // AC-4: held over a folder it opens -- expanded in the tree, entered in the list.
@@ -725,9 +697,9 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       : null;
     if (delay === null || row === null) {
       clearSpring();
-      return;
+      return effect;
     }
-    if (springRef.current?.path === row.path) return;
+    if (springRef.current?.path === row.path) return effect;
     clearSpring();
     springRef.current = {
       path: row.path,
@@ -736,27 +708,35 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         void (state.mode === 'tree' ? tree.expand(row.path) : tree.setRoot(row.path));
       }, delay),
     };
+    return effect;
   };
-  const dropInternal = (internal: InternalDrag, dir: string | null, event: DragEvent<HTMLElement>) => {
+  const dropInternal = (internal: InternalDrag, dir: string | null, keys: PickKeys) => {
     endDrag();
     markDenyRow(null);
     setCurrentInternalDrag(null);
     if (modalOpen || dir === null) return;
-    const request = buildDropJobRequest(internal, { sessionId: tab.sessionId, dir }, decideDragOperation(event, isMac));
+    const request = buildDropJobRequest(internal, { sessionId: tab.sessionId, dir }, decideDragOperation(keys, isMac));
     if (request !== null) ops.submitDrop(request);
   };
-  const handleRowDragStart = (event: DragEvent<HTMLDivElement>) => {
-    const row = dragRowOf(event.target);
-    if (!rowsDraggable || row === null || row.path === '') {
-      event.preventDefault();
-      return;
-    }
-    const sources = decideDragSources(state.selectedPaths, row.path);
+  /** FR-FEX-030 AC-1: what a press on `path` carries; an unselected row is selected alone first. */
+  const carryFrom = (path: string): string[] => {
+    const sources = decideDragSources(state.selectedPaths, path);
     if (sources.reselect) {
       // As a plain click on the row would.
       const pointer = decideRowPointer({ button: 0, ctrlKey: false, metaKey: false, shiftKey: false, isSelected: false });
-      if (pointer.type === 'select') tree.dispatch({ type: 'CLICK_ROW', path: row.path, mods: pointer.mods, orderedPaths: [row.path] });
+      if (pointer.type === 'select') tree.dispatch({ type: 'CLICK_ROW', path, mods: pointer.mods, orderedPaths: [path] });
     }
+    return sources.paths;
+  };
+  const handleRowDragStart = (event: DragEvent<HTMLDivElement>) => {
+    // FR-FEX-032 AC-7: a mouse that moved before the hold drags at once; a picked row does not.
+    pickPress.onPointerUp();
+    const row = dragRowOf(event.target);
+    if (pickRef.current !== null || !rowsDraggable || row === null || row.path === '') {
+      event.preventDefault();
+      return;
+    }
+    const sources = { paths: carryFrom(row.path) };
     const drag: InternalDrag = { sessionId: tab.sessionId, paths: sources.paths };
     setCurrentInternalDrag(drag);
     event.dataTransfer.setData(INTERNAL_DRAG_TYPE, JSON.stringify(drag));
@@ -798,8 +778,10 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       markCrumb(null);
       return;
     }
-    const allowed = previewInternalDrop(event, internal, dir, lastSegment(dir));
-    markCrumb(allowed && event.target instanceof Element ? event.target.closest('[data-drop-dir]') : null);
+    event.preventDefault();
+    const effect = previewInternalDrop(event, internal, dir, lastSegment(dir));
+    event.dataTransfer.dropEffect = effect;
+    markCrumb(effect !== 'none' && event.target instanceof Element ? event.target.closest('[data-drop-dir]') : null);
   };
   const handleCrumbDragLeave = () => {
     markCrumb(null);
@@ -937,12 +919,171 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     anchorTimerRef.current = setTimeout(commitPendingAnchor, ANCHOR_COMMIT_DELAY_MS);
   }, [commitPendingAnchor]);
 
+  // ---------------------------------------------------------------------------
+  // FR-FEX-032: holding a row picks it up. The carried rows leave the list, a card follows the
+  // pointer, and the release drops through the FR-FEX-030 path above, heard as PICK_EVENT on the
+  // rows, the path bar and the tabs. On touch the hold is also the way to the menu (a release in
+  // place), and a double tap opens the row.
+  const pickRef = useRef<PickSession | null>(null);
+  const pressKindRef = useRef<'touch' | 'mouse'>('mouse');
+  const pickedThisTouchRef = useRef(false);
+  const [pickedPaths, setPickedPaths] = useState<readonly string[] | null>(null);
+  useEffect(() => () => pickRef.current?.stop(), []);
+  // AC-4: Chromium decides at touchstart whether a touch can stop the scroll, so the list holds a
+  // non-passive touchmove from the start; it only acts while a pick is on.
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (scroll === null) return undefined;
+    const holdScroll = (event: Event) => {
+      if (pickRef.current !== null) event.preventDefault();
+    };
+    scroll.addEventListener('touchmove', holdScroll, { passive: false });
+    return () => scroll.removeEventListener('touchmove', holdScroll);
+  }, []);
+  const handlePickHold = ({ clientX, clientY }: { clientX: number; clientY: number }) => {
+    // A held primary press; the hold itself selects nothing unless the row was not selected.
+    const pointer = decideRowPointer({ button: 0, ctrlKey: false, metaKey: false, shiftKey: false, isSelected: true });
+    if (pointer.type !== 'select' || pickRef.current !== null || modalOpen) return;
+    const target = pressTargetRef.current;
+    if (!(target instanceof Element) || !target.isConnected || target.closest('input, textarea') !== null) return;
+    const row = dragRowOf(target);
+    if (row === null || row.path === '') return;
+    const paths = carryFrom(row.path);
+    pickedThisTouchRef.current = pressKindRef.current === 'touch';
+    setCurrentInternalDrag({ sessionId: tab.sessionId, paths });
+    setMenu(null);
+    setPickedPaths(paths);
+    pickRef.current = startPick({
+      doc: document,
+      win: window,
+      start: { x: clientX, y: clientY },
+      touchTarget: pressKindRef.current === 'touch' ? target : undefined,
+      label: paths.length === 1 ? lastSegment(paths[0]) : tn('fileExplorer.drag.count', paths.length),
+      onEnd: () => {
+        pickRef.current = null;
+        setPickedPaths(null);
+        setCurrentInternalDrag(null);
+      },
+      onRelease: (kind, point) => {
+        if (kind === 'menu') handleLongPress({ clientX: point.x, clientY: point.y });
+      },
+    });
+  };
+  const pickPress = useLongPress(handlePickHold, PICK_HOLD_MS, { doubleTap: false });
+  // AC-6: on touch a double tap opens the row, as a mouse double click does.
+  const handleDoubleTapOpen = (point: { clientX: number; clientY: number }, target: EventTarget | null) => {
+    const pointer = decideRowPointer({ button: 0, ctrlKey: false, metaKey: false, shiftKey: false, isSelected: true });
+    if (pointer.type !== 'select') return;
+    if (!(target instanceof Element) || !target.isConnected) return;
+    setMenu(null);
+    target.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: point.clientX, clientY: point.clientY }));
+  };
+  const openTap = useDoubleTap(handleDoubleTapOpen);
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    pressTargetRef.current = event.target;
+    pressKindRef.current = 'touch';
+    pickedThisTouchRef.current = false;
+    pickPress.onTouchStart(event);
+    openTap.onTouchStart(event);
+  };
+  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    pickPress.onTouchMove(event);
+  };
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    pickPress.onTouchEnd(event);
+    // A pick is not the first tap of a double tap.
+    if (pickedThisTouchRef.current) return;
+    openTap.onTouchEnd(event);
+  };
+
+  // AC-2, AC-3: a pick asks the rows and the path bar what an FR-FEX-030 drag would.
+  const pathBarDropRef = useRef<HTMLDivElement | null>(null);
+  const pickTargetsRef = useRef<{
+    rows: (type: string, target: EventTarget | null, detail: PickOverDetail | PickLeaveDetail | PickDropDetail) => void;
+    crumbs: (type: string, target: EventTarget | null, detail: PickOverDetail | PickLeaveDetail | PickDropDetail) => void;
+  } | null>(null);
+  pickTargetsRef.current = {
+    rows: (type, target, detail) => {
+      const internal = getCurrentInternalDrag();
+      if (type === PICK_EVENT.leave) {
+        const next = (detail as PickLeaveDetail).next;
+        if (next === null || !(scrollRef.current?.contains(next) ?? false)) {
+          endDrag();
+          markDenyRow(null);
+        }
+        return;
+      }
+      if (internal === null) return;
+      if (type === PICK_EVENT.over) {
+        handleInternalDragOver(target, (detail as PickOverDetail).keys, internal);
+        return;
+      }
+      const drop = detail as PickDropDetail;
+      drop.handled = true;
+      dropInternal(internal, resolveInternalDropDir({ row: dragRowOf(target), shownFolder: state.root }), drop.keys);
+    },
+    crumbs: (type, target, detail) => {
+      const internal = getCurrentInternalDrag();
+      const dir = crumbDirOf(target);
+      if (type === PICK_EVENT.leave) {
+        const next = (detail as PickLeaveDetail).next;
+        if (next === null || crumbDirOf(next) === null) {
+          markCrumb(null);
+          setDropChip(null);
+        }
+        return;
+      }
+      if (internal === null || dir === null) {
+        markCrumb(null);
+        return;
+      }
+      if (type === PICK_EVENT.over) {
+        const effect = previewInternalDrop((detail as PickOverDetail).keys, internal, dir, lastSegment(dir));
+        markCrumb(effect !== 'none' && target instanceof Element ? target.closest('[data-drop-dir]') : null);
+        return;
+      }
+      const drop = detail as PickDropDetail;
+      drop.handled = true;
+      markCrumb(null);
+      dropInternal(internal, dir, drop.keys);
+    },
+  };
+  useEffect(() => {
+    const pairs = [[scrollRef.current, 'rows'], [pathBarDropRef.current, 'crumbs']] as const;
+    const types = [PICK_EVENT.over, PICK_EVENT.leave, PICK_EVENT.drop];
+    const off: (() => void)[] = [];
+    for (const [element, key] of pairs) {
+      if (element === null) continue;
+      for (const type of types) {
+        const listener = (event: Event) => {
+          event.stopPropagation();
+          pickTargetsRef.current?.[key](type, event.target, (event as CustomEvent).detail);
+        };
+        element.addEventListener(type, listener);
+        off.push(() => element.removeEventListener(type, listener));
+      }
+    }
+    return () => { for (const fn of off) fn(); };
+  }, [searchOpen]);
+
   // A text selection left in the window (a path dragged over in the confirm
   // row) would otherwise keep Ctrl+C meaning text after the user went back to
   // the rows. The rename input keeps its own caret.
   const handleRowsPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.target instanceof Element && event.target.closest('input, textarea') !== null) return;
     window.getSelection()?.removeAllRanges();
+    // A touch is timed through the touch events, so one press never runs two timers.
+    if (event.pointerType !== 'touch') {
+      pressTargetRef.current = event.target;
+      pressKindRef.current = 'mouse';
+      pickPress.onPointerDown(event);
+    }
+  };
+  const handleRowsPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'touch') pickPress.onPointerMove(event);
+  };
+  const handleRowsPointerUp = () => {
+    pickPress.onPointerUp();
   };
 
   return (
@@ -958,7 +1099,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       )}
       {!searchOpen && (
         // FR-FEX-030 AC-3: a wrapper without a box, so an explorer drag over a folder name is heard.
-        <div className="fx-pathbar-drop" onDragOver={handleCrumbDragOver} onDragLeave={handleCrumbDragLeave} onDrop={handleCrumbDrop}>
+        <div className="fx-pathbar-drop" ref={pathBarDropRef} onDragOver={handleCrumbDragOver} onDragLeave={handleCrumbDragLeave} onDrop={handleCrumbDrop}>
         <FileExplorerPathBar
           tree={tree}
           setMode={setMode}
@@ -978,10 +1119,14 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       <div
         hidden={searchOpen}
         className="fx-scroll"
+        data-fx-tab={tab.id}
         data-drag={dropChip === null ? undefined : 'on'}
         ref={scrollRef}
         onScroll={handleScroll}
         onPointerDown={handleRowsPointerDown}
+        onPointerMove={handleRowsPointerMove}
+        onPointerUp={handleRowsPointerUp}
+        onPointerCancel={handleRowsPointerUp}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -1012,6 +1157,7 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         <FileExplorerPendingRows rows={pendingRows} />
       </div>
       <FileExplorerDropChip target={dropChip} />
+      {pickedPaths !== null && <style>{hiddenRowsCss(pickedPaths, (value) => CSS.escape(value), `.fx-scroll[data-fx-tab="${CSS.escape(tab.id)}"]`)}</style>}
       <input ref={fileInputRef} type="file" multiple hidden onChange={handlePicked} />
       <input ref={setFolderInput} type="file" multiple hidden onChange={handlePicked} />
       <FileExplorerConfirmBar prompt={confirmBar.prompt} error={confirmBar.error} onDismissError={confirmBar.dismissError} />

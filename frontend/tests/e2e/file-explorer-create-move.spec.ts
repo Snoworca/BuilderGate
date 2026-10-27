@@ -21,6 +21,24 @@ async function openExplorer(page: Page, phone: boolean, firstName: string): Prom
   await expect(row(page, firstName)).toBeVisible({ timeout: 15000 });
 }
 
+// FR-FEX-032 on a phone: one synthetic finger, dispatched on the element it went down on, as
+// a phone does (mobile-touch-regressions.spec.ts does the same).
+async function finger(page: Page, type: 'touchstart' | 'touchmove' | 'touchend', x: number, y: number): Promise<void> {
+  await page.evaluate(({ type, x, y }) => {
+    const w = window as unknown as { __bgFinger?: Element };
+    if (type === 'touchstart') w.__bgFinger = document.elementFromPoint(x, y) ?? undefined;
+    const target = w.__bgFinger;
+    if (!target) throw new Error('no element under the finger');
+    const touch = { identifier: 1, target, clientX: x, clientY: y, pageX: x, pageY: y, screenX: x, screenY: y, radiusX: 1, radiusY: 1, rotationAngle: 0, force: 0.5 };
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    const touches = type === 'touchend' ? [] : [touch];
+    Object.defineProperty(event, 'touches', { value: touches });
+    Object.defineProperty(event, 'targetTouches', { value: touches });
+    Object.defineProperty(event, 'changedTouches', { value: [touch] });
+    target.dispatchEvent(event);
+  }, { type, x, y });
+}
+
 test.describe('file explorer: stage on a phone, new file, drag and drop', () => {
   let record: OwnedFolder;
 
@@ -66,10 +84,10 @@ test.describe('file explorer: stage on a phone, new file, drag and drop', () => 
     await openExplorer(page, true, 'a.txt');
     const target = row(page, 'a.txt');
     const box = await target.boundingBox();
+    // FR-FEX-032 AC-6: a double tap opens the file.
     await page.touchscreen.tap(box!.x + 30, box!.y + box!.height / 2);
     await page.waitForTimeout(120);
     await page.touchscreen.tap(box!.x + 30, box!.y + box!.height / 2);
-    await page.locator('.context-menu-dialog').getByText('편집기로 열기').tap();
     const editor = page.locator('.window-dialog').filter({ has: page.locator('.editor-window-host') }).first();
     await expect(editor).toBeVisible({ timeout: 15000 });
     const app = await page.locator('.app').first().boundingBox();
@@ -208,5 +226,101 @@ test.describe('file explorer: stage on a phone, new file, drag and drop', () => 
     expect(existsSync(joinPath(folder, 'other', 'inner', 'deep.txt'))).toBe(true);
     expect(existsSync(joinPath(folder, 'other', 'other'))).toBe(false);
     await expect(chip).not.toHaveClass(/is-shown/);
+  });
+
+  // FR-FEX-032 AC-1~AC-5
+  test('a held row is picked up, leaves the list, follows the pointer and drops on a folder', async ({ page }, testInfo) => {
+    const phone = isPhone(testInfo.project);
+    await openExplorer(page, phone, 'a.txt');
+    const folder = record.folder!;
+    const chip = explorer(page).locator('.fx-drop-chip');
+    const ghost = page.locator('.fx-pick-ghost');
+    const centre = async (name: string) => {
+      const box = await row(page, name).boundingBox();
+      return { x: box!.x + box!.width / 3, y: box!.y + box!.height / 2 };
+    };
+    const down = async (p: { x: number; y: number }) => {
+      if (phone) await finger(page, 'touchstart', p.x, p.y);
+      else { await page.mouse.move(p.x, p.y); await page.mouse.down(); }
+    };
+    const moveTo = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+      for (let i = 1; i <= 8; i += 1) {
+        const x = from.x + ((to.x - from.x) * i) / 8;
+        const y = from.y + ((to.y - from.y) * i) / 8;
+        if (phone) await finger(page, 'touchmove', x, y); else await page.mouse.move(x, y);
+      }
+    };
+    const up = async (p: { x: number; y: number }) => {
+      if (phone) await finger(page, 'touchend', p.x, p.y); else await page.mouse.up();
+    };
+
+    // AC-1: held still for 0.45 s, a.txt leaves the list and a card with its name appears.
+    const a = await centre('a.txt');
+    await down(a);
+    await page.waitForTimeout(700);
+    await expect(row(page, 'a.txt')).toBeHidden();
+    await expect(ghost).toBeVisible();
+    await expect(ghost).toHaveText('a.txt');
+    // AC-2: over a folder the chip says what a drop does and the folder lights up.
+    const t = await centre('target');
+    await moveTo(a, t);
+    await expect(chip).toContainText('이동 → target');
+    await expect(row(page, 'target')).toHaveClass(/fx-drop-target/);
+    const card = await ghost.boundingBox();
+    expect(card, 'the card is drawn').not.toBeNull();
+    expect(Math.hypot(card!.x - t.x, card!.y - t.y), 'the card follows the pointer').toBeLessThan(80);
+    await page.screenshot({ path: `../.playwright-mcp/e2e-fx-pick-${phone ? 'phone' : 'desktop'}.png` });
+    // AC-3: the release moves it.
+    await up(t);
+    await expect(ghost).toHaveCount(0);
+    await expect.poll(() => existsSync(joinPath(folder, 'target', 'a.txt')), { timeout: 15000 }).toBe(true);
+    await expect.poll(() => existsSync(joinPath(folder, 'a.txt'))).toBe(false);
+
+    // AC-3: Escape (desktop) or a release outside the explorer (phone) puts b.txt back.
+    const b = await centre('b.txt');
+    await down(b);
+    await page.waitForTimeout(700);
+    await expect(row(page, 'b.txt')).toBeHidden();
+    const o = await centre('other');
+    await moveTo(b, o);
+    await expect(chip).toContainText('이동 → other');
+    if (phone) {
+      const title = await explorer(page).locator('.window-dialog-title').first().boundingBox();
+      const away = { x: title!.x + 10, y: title!.y + title!.height / 2 };
+      await moveTo(o, away);
+      await up(away);
+    } else {
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+    }
+    await expect(ghost).toHaveCount(0);
+    await expect(row(page, 'b.txt')).toBeVisible();
+    await page.waitForTimeout(800);
+    expect(existsSync(joinPath(folder, 'b.txt')), 'b.txt stayed').toBe(true);
+    expect(existsSync(joinPath(folder, 'other', 'b.txt'))).toBe(false);
+
+    if (!phone) {
+      // AC-3: with Ctrl held at the release it is a copy.
+      const b2 = await centre('b.txt');
+      await down(b2);
+      await page.waitForTimeout(700);
+      const o2 = await centre('other');
+      await moveTo(b2, o2);
+      await page.keyboard.down('Control');
+      await page.mouse.move(o2.x + 2, o2.y);
+      await expect(chip).toContainText('복사 → other');
+      await page.mouse.up();
+      await page.keyboard.up('Control');
+      await expect.poll(() => existsSync(joinPath(folder, 'other', 'b.txt')), { timeout: 15000 }).toBe(true);
+      expect(existsSync(joinPath(folder, 'b.txt')), 'the copy left the original').toBe(true);
+      // AC-5: a mouse released in place puts the row back and opens no menu.
+      const b3 = await centre('b.txt');
+      await down(b3);
+      await page.waitForTimeout(700);
+      await expect(row(page, 'b.txt')).toBeHidden();
+      await page.mouse.up();
+      await expect(row(page, 'b.txt')).toBeVisible();
+      await expect(page.locator('.context-menu')).toHaveCount(0);
+    }
   });
 });

@@ -4,7 +4,8 @@ import { t } from '../../i18n/i18n.ts';
 import { useEffect, useRef } from 'react';
 import type { DragEvent, MouseEvent, ReactNode } from 'react';
 import { hasDraggedFiles, springDelay } from './fileTransferModel.ts';
-import { isInternalDrag } from './fileExplorerDragModel.ts';
+import { getCurrentInternalDrag, isInternalDrag } from './fileExplorerDragModel.ts';
+import { PICK_EVENT, type PickLeaveDetail } from './fileExplorerPickUp.ts';
 import { IconButton } from '../common';
 import type { FileExplorerTab } from './fileExplorerTabsState.ts';
 import { useLongPress } from '../../hooks/useLongPress.ts';
@@ -88,10 +89,8 @@ function ExplorerTabFrame({
     springRef.current = null;
   };
   useEffect(() => clearSpring, []);
-  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    // FR-FEX-030 AC-4: an explorer drag switches tabs the same way.
-    const types = event.dataTransfer.types;
-    if (!(hasDraggedFiles(types) || isInternalDrag(types)) || springRef.current !== null) return;
+  const armSpring = () => {
+    if (springRef.current !== null) return;
     const delay = springDelay({ kind: 'tab', active: selected });
     if (delay === null) return;
     springRef.current = setTimeout(() => {
@@ -99,6 +98,32 @@ function ExplorerTabFrame({
       onSelect(tabId);
     }, delay);
   };
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    // FR-FEX-030 AC-4: an explorer drag switches tabs the same way.
+    const types = event.dataTransfer.types;
+    if (hasDraggedFiles(types) || isInternalDrag(types)) armSpring();
+  };
+  // FR-FEX-032 AC-2: so does a picked entry held over the tab.
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const armSpringRef = useRef(armSpring);
+  armSpringRef.current = armSpring;
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (frame === null) return undefined;
+    const over = () => { if (getCurrentInternalDrag() !== null) armSpringRef.current(); };
+    const leave = (event: Event) => {
+      const next = (event as CustomEvent<PickLeaveDetail>).detail.next;
+      if (next === null || !frame.contains(next)) clearSpring();
+    };
+    frame.addEventListener(PICK_EVENT.over, over);
+    frame.addEventListener(PICK_EVENT.leave, leave);
+    frame.addEventListener(PICK_EVENT.drop, clearSpring);
+    return () => {
+      frame.removeEventListener(PICK_EVENT.over, over);
+      frame.removeEventListener(PICK_EVENT.leave, leave);
+      frame.removeEventListener(PICK_EVENT.drop, clearSpring);
+    };
+  }, []);
   const openMenu = (event: MouseEvent<HTMLDivElement>) => {
     if (onContextMenu === undefined) return;
     event.preventDefault();
@@ -107,6 +132,7 @@ function ExplorerTabFrame({
   };
   return (
     <div
+      ref={frameRef}
       className="fx-tab"
       role="tab"
       aria-selected={selected}

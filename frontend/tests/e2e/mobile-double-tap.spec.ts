@@ -1,6 +1,7 @@
 // FR-UIDS-013 (#157), on 2222, phone only: two quick taps open the context menu where a long
-// press does -- the status bar path, the terminal, a workspace tab and a file explorer row --
-// and the second tap neither opens the file nor starts a rename.
+// press does -- the status bar path, the terminal and a workspace tab -- and the second tap
+// starts no rename. A file explorer row is the exception (FR-FEX-032 AC-6): its double tap opens
+// the row, as a mouse double click does.
 //
 // Runs only against the verified runtime on https://localhost:2222 with BUILDERGATE_PASSWORD.
 import { randomUUID } from 'node:crypto';
@@ -63,15 +64,13 @@ test.describe('double tap opens the context menu', () => {
     await expect(page.locator('.workspace-tabbar input')).toHaveCount(0);
     await closeMenu(page);
 
-    // File explorer row: the menu, and the file is not opened in the editor.
+    // File explorer row (FR-FEX-032 AC-6): the file opens in the editor, and no menu.
     await page.locator('button[aria-label="파일 탐색기"]').first().tap();
     const row = page.locator('.window-dialog [data-path$="note.md"]').first();
     await expect(row).toBeVisible({ timeout: 15000 });
     await doubleTap(page, row);
-    await expect(menu(page)).toBeVisible({ timeout: 3000 });
-    await expect(menu(page)).toContainText('편집기로 열기');
-    await page.waitForTimeout(500);
-    await expect(page.locator('.editor-window-host')).toHaveCount(0);
+    await expect(page.locator('.editor-tab-label', { hasText: 'note.md' })).toBeVisible({ timeout: 15000 });
+    await expect(menu(page)).toHaveCount(0);
     await page.screenshot({ path: '../.playwright-mcp/e2e-double-tap-explorer.png' });
   });
 });

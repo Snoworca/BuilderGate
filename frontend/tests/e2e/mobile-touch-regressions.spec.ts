@@ -1,7 +1,7 @@
 // Mobile touch regressions, end to end on the phone layout:
 //   #127 the title bar close button of the file explorer and the editor window closes them;
-//   #128 (FR-FEX-020) holding an explorer row for 1.5 s opens it, a 0.8 s hold only opens the menu,
-//        and a press that moves opens nothing;
+//   FR-FEX-032 (was #128, FR-FEX-020) an explorer row held and released in place opens its menu,
+//        a press that moves opens nothing, and a double tap opens the row;
 //   #129 (FR-ARCH-009) a terminal scrolled up with one finger stays there while a program keeps
 //        redrawing the screen in writes larger than 10 KB, as Claude Code does.
 //
@@ -109,11 +109,11 @@ test.describe('mobile touch regressions', () => {
     await tearDownOwnedFolder(request, record);
   });
 
-  // #127, FR-FEX-020 AC-1..AC-3
-  test('a 1.5 s hold opens a row, a 0.8 s hold keeps the menu, a moved press opens nothing, and the close buttons close', async ({ page }) => {
+  // #127, FR-FEX-032 AC-5, AC-6
+  test('a hold released in place keeps the menu, a moved press opens nothing, a double tap opens, and the close buttons close', async ({ page }) => {
     await openExplorer(page);
 
-    // FR-FEX-020 AC-2: 0.8 s opens the menu only; releasing keeps it.
+    // FR-FEX-032 AC-5: held 0.8 s and released in place, the picked row opens its menu.
     await touchPress(page, '.window-dialog [data-path$="notes.md"]', { holdMs: 800 });
     await expect(page.locator('.context-menu-dialog')).toBeVisible();
     // A browser follows the release of a long press with compatibility mousedown and click events
@@ -145,13 +145,17 @@ test.describe('mobile touch regressions', () => {
     await page.waitForTimeout(500);
     expect(await page.evaluate(() => window.__bgFallThrough), 'the closing tap clicked nothing under the menu').toEqual([]);
 
-    // AC-3: a press that moves 30 px is a scroll and opens nothing, even held past 1.5 s.
+    // A press that moves 30 px before the hold is a scroll: nothing is picked and nothing opens.
     await touchPress(page, '.window-dialog [data-path$="app.ts"]', { holdMs: 1800, moveAtMs: 200, moveBy: 30 });
     await page.waitForTimeout(1200);
     await expect(editorTab(page, 'app.ts')).toHaveCount(0);
+    await expect(page.locator('.context-menu-dialog')).toHaveCount(0);
+    await expect(page.locator('.fx-pick-ghost')).toHaveCount(0);
 
-    // AC-1: 1.7 s opens the file in the editor, and the menu the 0.5 s mark raised is gone.
-    await touchPress(page, '.window-dialog [data-path$="notes.md"]', { holdMs: 1700 });
+    // FR-FEX-032 AC-6: a double tap opens the file in the editor.
+    await touchPress(page, '.window-dialog [data-path$="notes.md"]', { holdMs: 40 });
+    await page.waitForTimeout(80);
+    await touchPress(page, '.window-dialog [data-path$="notes.md"]', { holdMs: 40 });
     await expect(editorTab(page, 'notes.md')).toBeVisible({ timeout: 15000 });
     await expect(page.locator('.context-menu-dialog')).toHaveCount(0);
     await page.screenshot({ path: '../.playwright-mcp/e2e-mobile-long-press-open.png' });
