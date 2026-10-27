@@ -111,6 +111,9 @@
 .git-detail { flex-shrink: 0; padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 .git-detail-subject { font-weight: var(--fw-bold); font-size: var(--fs-md); }
 .git-detail-body { color: var(--fg-muted); white-space: pre-wrap; line-height: 1.5; max-height: 58px; overflow: auto; }
+/* FR-GIT-012: once resized, the body fills what the detail has left and scrolls past it. */
+.git-detail.is-sized { overflow: hidden; }
+.git-detail.is-sized .git-detail-body { max-height: none; flex: 1; min-height: 0; }
 .git-detail-kv { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: var(--fs-xs); color: var(--fg-muted); }
 .git-detail-kv b { color: var(--fg); font-weight: 500; font-family: var(--font-mono); }
 .git-link { border: 0; background: none; padding: 0 2px; color: var(--accent-text); cursor: pointer; font-family: var(--font-mono); font-size: 12px; }

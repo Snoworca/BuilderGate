@@ -108,3 +108,35 @@ test('FR-GIT-006: files are a listbox; arrows move the selection, which survives
   assert.equal(seen.at(-1), 'staged:lib/new.ts');
   assert.equal(list.getAttribute('aria-activedescendant'), r.container.querySelector('.git-file[aria-selected="true"]')?.id);
 });
+
+// @req FR-GIT-012
+test('FR-GIT-012: the commit detail has a splitter that resizes it by drag and keyboard, within bounds', async () => {
+  const c = client();
+  const { container } = await render(React.createElement(GitSidePanel, base(c, 'c1')));
+  const detail = container.querySelector('.git-detail') as HTMLElement;
+  const handle = container.querySelector(`[role="separator"][aria-label="${en['git.detail.splitter']}"]`) as HTMLElement;
+  assert.ok(handle, 'the commit detail has no splitter');
+  assert.equal(handle.getAttribute('aria-orientation'), 'horizontal');
+  assert.equal(detail.style.height, '', 'auto height until the user resizes it');
+
+  // jsdom lays nothing out: the start height is the 60 px floor and the panel falls back to
+  // 600 px, so the ceiling is 600 - files 150 - diff 120 - two 6 px splitters = 318.
+  await act(async () => { handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
+  assert.equal(detail.style.height, '76px');
+  assert.ok(detail.classList.contains('is-sized'), 'a sized detail lets its body fill the height');
+  for (let i = 0; i < 5; i += 1) {
+    await act(async () => { handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })); });
+  }
+  assert.equal(detail.style.height, '60px', 'not below the floor');
+
+  await act(async () => { handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 100 })); });
+  await act(async () => { handle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 200 })); });
+  assert.equal(detail.style.height, '160px');
+  await act(async () => { handle.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 10_000 })); });
+  assert.equal(detail.style.height, '318px', 'leaves room for the files and the diff');
+  await act(async () => { handle.dispatchEvent(new MouseEvent('pointerup', { bubbles: true })); });
+
+  await act(async () => { handle.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+  assert.equal(detail.style.height, '', 'double click returns to the automatic height');
+  assert.equal(detail.classList.contains('is-sized'), false);
+});

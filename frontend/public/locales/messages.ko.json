@@ -1434,5 +1434,6 @@
   "settings.redraw.delay": "다시 그리기 전 대기 시간",
   "settings.redraw.delayHelp": "0~5초 사이로 적습니다. 0 이면 옮긴 즉시 다시 그립니다. 기본값은 0초(즉시)입니다. 단축키(기본 Ctrl+Alt+R)를 누르면 언제든 바로 다시 그립니다.",
   "mcp.endpoint.label": "MCP 연결 주소",
-  "mcp.endpoint.copied": "MCP 연결 주소를 복사했습니다."
+  "mcp.endpoint.copied": "MCP 연결 주소를 복사했습니다.",
+  "git.detail.splitter": "커밋 정보 크기 조절"
 }

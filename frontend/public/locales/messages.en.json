@@ -1479,5 +1479,6 @@
   "settings.redraw.delay": "Wait before redrawing",
   "settings.redraw.delayHelp": "Between 0 and 5 seconds; 0 redraws right after the switch. The default is 0 (right away). Press the shortcut (Ctrl+Alt+R by default) to redraw at any time.",
   "mcp.endpoint.label": "MCP address",
-  "mcp.endpoint.copied": "MCP address copied."
+  "mcp.endpoint.copied": "MCP address copied.",
+  "git.detail.splitter": "Resize commit details"
 }
