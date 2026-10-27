@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-27T07:15:52.406Z",
+  "generatedAt": "2026-10-27T17:07:55.712Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "6d534a829e7fef3fc6118b99c45d52b3684bdf2e68ba71e5e5a4f7e62b6d7808",
+    "value": "78daf13bd0db1dc0513d3e60754ace7e9d543f04817c447ae0e467b5b1373f70",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -44,9 +44,9 @@
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "8d6a89b595e6881acc04dcfdd7d1f73483a6e5fcdecb4f68b841d933919ba121",
-        "size": 150699,
-        "mtimeMs": 1792645351331.6492
+        "sha256": "181e927537b35cb4d2f6f23fcf99d0b1dc8f8fede18270c7c50a28e5cb0de8ba",
+        "size": 154484,
+        "mtimeMs": 1793120566034.2366
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
@@ -93,7 +93,7 @@
       "BGSTAB": 35,
       "MCP": 14,
       "MDE": 29,
-      "FEX": 31,
+      "FEX": 32,
       "FOP": 8,
       "UIDS": 14,
       "MKB": 14,

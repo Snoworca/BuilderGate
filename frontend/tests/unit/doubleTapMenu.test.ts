@@ -60,7 +60,6 @@ test('FR-UIDS-013 AC-3: every menu site on a touch screen answers a double tap',
     ['components/editor/EditorTabBar.tsx', /onTouchEnd=\{longPress\.onTouchEnd\}/],
     ['components/editor/EditorDocumentPanel.tsx', /onTouchEnd=\{editLongPress\.onTouchEnd\}/],
     ['components/editor/EditorWindow.tsx', /addEventListener\('touchend', endWindowMenuLongPress\)/],
-    ['components/fileExplorer/FileExplorerWindow.tsx', /longPress\.onTouchEnd\(event\)/],
   ] as const) {
     assert.match(read(path), wiring, path);
   }
@@ -73,8 +72,9 @@ test('FR-UIDS-013 AC-3: every menu site on a touch screen answers a double tap',
   assert.match(read('components/MetadataBar/MetadataRow.tsx'), /isolate: true/, 'the path does not also open the tile menu');
 });
 
-test('FR-UIDS-013 AC-4/AC-5: the explorer hold-to-open ignores double taps; a terminal double tap drops the keyboard', () => {
-  assert.match(read('components/fileExplorer/FileExplorerWindow.tsx'), /useLongPress\(handleLongHoldOpen, LONG_PRESS_OPEN_MS, \{ doubleTap: false \}\)/);
+// FR-FEX-032 AC-6 supersedes AC-4 for explorer rows: their double tap opens the row and their
+// hold picks it up (fileExplorerPickUpWiring.test.ts); the explorer tabs keep the menu.
+test('FR-UIDS-013 AC-5: a terminal double tap drops the keyboard', () => {
   for (const path of ['components/Terminal/TerminalRuntimeLayer.tsx', 'components/Grid/MosaicTile.tsx']) {
     assert.match(read(path), /if \(gesture === 'double-tap'\) dismissSoftKeyboard\(\);/, path);
   }

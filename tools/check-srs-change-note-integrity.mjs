@@ -29,7 +29,7 @@ function changeNoteCounts(markdown) {
   let requirement = null;
   let inChangeNotes = false;
   for (const line of markdown.split('\n')) {
-    const heading = /^### ([A-Z][A-Z0-9-]*-\d+)\b/u.exec(line);
+    const heading = /^### (?:~~)?([A-Z][A-Z0-9-]*-\d+)\b/u.exec(line);
     if (heading) { requirement = heading[1]; inChangeNotes = false; continue; }
     if (/^#### /u.test(line)) { inChangeNotes = /^#### Change Notes\s*$/u.test(line); continue; }
     if (!requirement || !inChangeNotes) continue;
