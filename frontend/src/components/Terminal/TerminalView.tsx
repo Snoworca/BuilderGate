@@ -24,6 +24,7 @@ import { FontSizeToast } from './FontSizeToast';
 import { scheduleFullRepaint } from './terminalFullRepaint';
 import { startRevealSettle } from './terminalRevealSettle';
 import { InputDiscardedToast } from './InputDiscardedToast';
+import type { RedrawNudgePolicy } from './terminalRedrawNudge';
 import {
   clearTerminalSnapshotRemovalRequest,
   getTerminalSnapshotKey,
@@ -344,7 +345,8 @@ export interface TerminalHandle {
   invalidateClipboardContext: () => void;
   fit: () => void;
   repairLayout: (reason?: string) => Promise<boolean>;
-  requestGridRepair?: (reason?: GridRepairReason) => void;
+  /** REL-BGSTAB-058: `if-resized-elsewhere` resizes the PTY only after a resize from elsewhere. */
+  requestGridRepair?: (reason?: GridRepairReason, nudge?: RedrawNudgePolicy) => void;
   getScreenRepairReadiness: () => ScreenRepairReadiness;
   applyScreenRepair: (repair: ScreenRepairMessage) => Promise<ScreenRepairApplyResult>;
   clearVisibleOutputRecovery: () => void;

@@ -6,7 +6,11 @@
  * terminal every 100 ms spreads it out. A new request replaces whatever is left of the last one,
  * and a delayed request (after a workspace or tab switch) reads its targets when it comes due,
  * so it redraws what is on screen then.
+ *
+ * REL-BGSTAB-058: a delayed request after a tab switch may ask to resize only when another
+ * screen or device resized the PTY meanwhile; every other request always resizes.
  */
+import type { RedrawNudgePolicy } from '../components/Terminal/terminalRedrawNudge';
 
 export interface RedrawTimers {
   setTimeout(fn: () => void, ms: number): unknown;
@@ -17,7 +21,7 @@ export interface TerminalRedrawScheduler {
   /** Redraws these terminals now, the first at once and each next one `gapMs` later. */
   redraw(tabIds: readonly string[]): void;
   /** Redraws the terminals `targets()` names once `delayMs` has passed. */
-  redrawAfter(delayMs: number, targets: () => readonly string[]): void;
+  redrawAfter(delayMs: number, targets: () => readonly string[], nudge?: RedrawNudgePolicy): void;
   cancel(): void;
 }
 
@@ -29,7 +33,7 @@ const browserTimers: RedrawTimers = {
 };
 
 export function createTerminalRedrawScheduler(options: {
-  run: (tabId: string) => void;
+  run: (tabId: string, nudge: RedrawNudgePolicy) => void;
   timers?: RedrawTimers;
   gapMs?: number;
 }): TerminalRedrawScheduler {
@@ -41,21 +45,21 @@ export function createTerminalRedrawScheduler(options: {
     if (timer !== null) timers.clearTimeout(timer);
     timer = null;
   };
-  const runFrom = (tabIds: readonly string[], index: number) => {
+  const runFrom = (tabIds: readonly string[], index: number, nudge: RedrawNudgePolicy) => {
     timer = null;
     if (index >= tabIds.length) return;
-    options.run(tabIds[index]);
-    if (index + 1 < tabIds.length) timer = timers.setTimeout(() => runFrom(tabIds, index + 1), gapMs);
+    options.run(tabIds[index], nudge);
+    if (index + 1 < tabIds.length) timer = timers.setTimeout(() => runFrom(tabIds, index + 1, nudge), gapMs);
   };
 
   return {
     redraw(tabIds) {
       cancel();
-      runFrom([...tabIds], 0);
+      runFrom([...tabIds], 0, 'always');
     },
-    redrawAfter(delayMs, targets) {
+    redrawAfter(delayMs, targets, nudge = 'always') {
       cancel();
-      timer = timers.setTimeout(() => runFrom([...targets()], 0), delayMs);
+      timer = timers.setTimeout(() => runFrom([...targets()], 0, nudge), delayMs);
     },
     cancel,
   };

@@ -3697,17 +3697,25 @@ export class WsRouter {
       return;
     }
 
+    // REL-BGSTAB-011 AC-6: the browser attaches its own lease to every input, so a lease
+    // superseded by another view's typing came back here as `target-identity-stale` on every
+    // keystroke until a new view was registered (measured 2026-10-28, phone then desktop).
+    // A lease of the view registered now is the same screen, so it re-adopts too.
+    const supersededClientLease = !gatewayResult.accepted
+      && gatewayResult.reason === 'target-identity-stale'
+      && input.retainedIdentity?.viewGeneration === registeredViewGeneration;
     if (!gatewayResult.accepted
-      && !input.retainedIdentity
       && registeredViewGeneration !== undefined
-      && meta?.retainedTerminalMutationLeases?.has(input.sessionId) === true) {
+      && meta
+      && (supersededClientLease
+        || (!input.retainedIdentity && meta.retainedTerminalMutationLeases?.has(input.sessionId) === true))) {
       // @req REL-BGSTAB-011 AC-6
       // The identity came from this connection's cache, not from the client, and the write was
       // refused. The usual cause is that another view adopted the lease and this one's generation
       // is superseded. Re-adopt once and retry, so losing the lease costs a round trip rather than
       // making this window read-only for the rest of the session. Bounded to one retry: if the
       // second attempt fails the original rejection stands.
-      meta.retainedTerminalMutationLeases.delete(input.sessionId);
+      meta.retainedTerminalMutationLeases?.delete(input.sessionId);
       const readopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, input.sessionId, registeredViewGeneration);
       if (readopted.ok) {
         this.sendAdoptedMutationLeaseCapability(ws, meta, input.sessionId, registeredViewGeneration, readopted.lease);
@@ -3828,9 +3836,20 @@ export class WsRouter {
       return;
     }
     const identity = this.toRetainedTerminalMutationIdentity(meta, wireIdentity);
-    if (!this.sessionManager.resize(message.sessionId, message.cols, message.rows, identity) && wireIdentity) {
-      this.sendTerminalCheckpointRejection(ws, message, 'ack', 'invalid-message');
+    if (this.sessionManager.resize(message.sessionId, message.cols, message.rows, identity) || !wireIdentity) return;
+    // REL-BGSTAB-011 AC-6: resizing is the user using this screen, as typing is. A lease of
+    // the view registered now that another view's typing superseded takes the lease back, so
+    // the screen the user came back to gets its size (measured 2026-10-28, phone then desktop).
+    const registeredViewGeneration = meta?.retainedTerminalViews?.get(message.sessionId);
+    if (meta && registeredViewGeneration !== undefined && wireIdentity.viewGeneration === registeredViewGeneration) {
+      const readopted = this.adoptRetainedTerminalMutationLeaseForWrite(meta, message.sessionId, registeredViewGeneration);
+      if (readopted.ok) {
+        this.sendAdoptedMutationLeaseCapability(ws, meta, message.sessionId, registeredViewGeneration, readopted.lease);
+        const readoptedIdentity = this.toRetainedTerminalMutationIdentity(meta, readopted.lease);
+        if (this.sessionManager.resize(message.sessionId, message.cols, message.rows, readoptedIdentity)) return;
+      }
     }
+    this.sendTerminalCheckpointRejection(ws, message, 'ack', 'invalid-message');
   }
 
   private handleRepairReplay(
