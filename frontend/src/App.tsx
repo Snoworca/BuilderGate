@@ -1203,6 +1203,7 @@ function AppContent() {
                     onCancelCreate={editor.cancelCreate}
                     openError={editor.openError}
                     onDismissOpenError={editor.dismissOpenError}
+                    notice={editor.notice}
                     renderWindow={(editorWindow, context) => (
                       <EditorWindow
                         workspaceId={editorWindow.workspaceId}
@@ -1212,6 +1213,8 @@ function AppContent() {
                         onCloseTab={editor.closeDocument}
                         onCloseTabs={editor.closeDocuments}
                         onNavigateImage={editor.navigateImage}
+                        onReloadDocument={editor.reloadDocument}
+                        onNotice={editor.showNotice}
                         rect={context.rect ?? EDITOR_WINDOW_WAITING_RECT}
                         onRectChange={editor.updateWindowRect}
                         boundsElement={EDITOR_WINDOW_BOUNDS_SELECTOR}

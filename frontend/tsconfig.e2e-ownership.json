@@ -21,6 +21,7 @@
     "tests/e2e/busy-agent-workspace-bounce.spec.ts",
     "tests/e2e/grid-equal-mode.spec.ts",
     "tests/e2e/mobile-landscape.spec.ts",
+    "tests/e2e/editor-auto-refresh.spec.ts",
 
     "tests/e2e/grid-layout-workspace-switch.spec.ts",
     "tests/e2e/terminal-authority.spec.ts",

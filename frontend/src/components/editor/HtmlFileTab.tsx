@@ -13,6 +13,7 @@
 
 import { t } from '../../i18n/i18n.ts';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { rememberEditorView } from './editorViewMemory.ts';
 import { htmlViewApi } from '../../services/api.ts';
 import {
   DRAFT_DEBOUNCE_MS,
@@ -61,6 +62,8 @@ function baseName(path: string): string {
 // @req FR-MDE-028
 export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, dirty, getText, subscribeText, onSave, children }: HtmlFileTabProps) {
   const [view, setView] = useState<HtmlView>(initialView);
+  // FR-MDE-030 AC-3: a read-again remount comes back to the same view.
+  useEffect(() => rememberEditorView(filePath, 'html', view), [filePath, view]);
   // The rendered pane mounts the first time it is shown and stays.
   const [renderedOnce, setRenderedOnce] = useState(initialView === 'rendered');
   const [token, setToken] = useState<HtmlViewToken | null>(null);

@@ -357,7 +357,7 @@ test.describe('HTML viewer', () => {
   test('phone: the toolbar is one compact scrolling line and the page renders', async ({ page }, testInfo) => {
     test.skip(!isPhone(testInfo.project), 'phone');
     await openExplorer(page, true);
-    // FR-FEX-020: a 1.5 s hold opens the row, as a double tap does.
+    // FR-FEX-032 AC-6: a double tap opens the row (the hold now picks it up).
     await explorerRow(page, 'phone.html').evaluate(async (element) => {
       element.scrollIntoView({ block: 'center' });
       const rect = element.getBoundingClientRect();
@@ -371,9 +371,12 @@ test.describe('HTML viewer', () => {
         Object.defineProperty(event, 'changedTouches', { value: [touch], configurable: true });
         element.dispatchEvent(event);
       };
-      dispatch('touchstart', [touch]);
-      await new Promise(resolve => setTimeout(resolve, 1700));
-      dispatch('touchend', []);
+      for (let tap = 0; tap < 2; tap += 1) {
+        dispatch('touchstart', [touch]);
+        await new Promise(resolve => setTimeout(resolve, 40));
+        dispatch('touchend', []);
+        await new Promise(resolve => setTimeout(resolve, 80));
+      }
     });
     const panel = page.locator(`.editor-document-panel[data-document-id$="phone.html"]`);
     await expect(panel.locator('.html-file-tab')).toHaveAttribute('data-html-view', 'rendered', { timeout: 15000 });

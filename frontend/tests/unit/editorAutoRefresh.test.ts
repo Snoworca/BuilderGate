@@ -103,10 +103,11 @@ test('FR-MDE-030 AC-2/AC-3: the first answer is the baseline; a later change rel
 
 // @req FR-MDE-030
 test('FR-MDE-030 AC-4/AC-6: unsaved edits ask once per change, and a deletion asks once', async () => {
-  const h = harness([A, B, B, 'missing', 'missing']);
+  const h = harness([A, B, B, 'missing', 'missing', 'missing']);
   h.setDirty(true);
   h.watcher.watch({ filePath: '/w/a.md', sessionId: 's', isDirty: h.isDirty });
   await h.flush();
+  await h.tick();
   await h.tick();
   await h.tick();
   await h.tick();
@@ -116,10 +117,13 @@ test('FR-MDE-030 AC-4/AC-6: unsaved edits ask once per change, and a deletion as
 });
 
 // @req FR-MDE-030
-test('FR-MDE-030 AC-5: a clean deleted file closes and the watch stops', async () => {
-  const h = harness([A, 'missing']);
+test('FR-MDE-030 AC-5: a clean deleted file closes once it is still gone a moment later, and the watch stops', async () => {
+  const h = harness([A, 'missing', 'missing']);
   h.watcher.watch({ filePath: '/w/a.md', sessionId: 's', isDirty: h.isDirty });
   await h.flush();
+  await h.tick();
+  assert.deepEqual(h.actions, [], 'one missing answer is not yet a deletion');
+  assert.ok(h.timers[0].ms < 2000, 'it is checked again soon');
   await h.tick();
   assert.deepEqual(h.actions, ['close:/w/a.md']);
   assert.equal(h.timers.length, 0, 'nothing more is asked about a closed tab');
@@ -156,4 +160,69 @@ test('FR-MDE-030 AC-1/AC-2: watching nothing (off, hidden, no tab) asks nothing;
   assert.equal(g.timers.length, 1, 'an error waits for the next poll');
   assert.deepEqual(g.actions, []);
   g.watcher.stop();
+});
+
+// @req FR-MDE-030
+test('FR-MDE-030 AC-3/AC-5: a file missing for a moment (write a temp file, then rename) is a change, not a deletion', async () => {
+  const h = harness([A, 'missing', B]);
+  h.watcher.watch({ filePath: '/w/a.md', sessionId: 's', isDirty: h.isDirty });
+  await h.flush();
+  await h.tick();
+  await h.tick();
+  assert.deepEqual(h.actions, ['reload:/w/a.md']);
+  h.watcher.stop();
+});
+
+// @req FR-MDE-030
+test('FR-MDE-030 AC-2: an answer sent before a save that finished meanwhile is dropped, not taken as a change', async () => {
+  let release: (v: StatResult) => void = () => {};
+  const answers: (StatResult | Promise<StatResult>)[] = [A, new Promise<StatResult>((r) => { release = r; }), B];
+  const actions: string[] = [];
+  const timers: (() => void)[] = [];
+  const watcher = createEditorFileWatcher({
+    stat: async () => answers.shift() as StatResult,
+    setTimer: (fn) => { timers.push(fn); return timers.length; },
+    clearTimer: () => {},
+    now: () => 0,
+    onAction: (a, p) => actions.push(`${a}:${p}`),
+  });
+  const flush = () => new Promise((r) => setImmediate(r));
+  watcher.watch({ filePath: '/w/a.md', sessionId: 's', isDirty: () => false });
+  await flush();
+  timers.shift()!(); // the poll whose answer is held back
+  await flush();
+  watcher.noteSave('/w/a.md', 's', Promise.resolve()); // saves, stat-ed as B
+  await flush();
+  await flush();
+  release(A); // the old answer arrives after the save settled
+  await flush();
+  assert.deepEqual(actions, [], 'the stale answer is not a change');
+  watcher.stop();
+});
+
+// @req FR-MDE-030
+test('FR-MDE-030 AC-2: a failed save keeps the old baseline, so an outside change made meanwhile is still seen', async () => {
+  const h = harness([A, B]);
+  h.watcher.watch({ filePath: '/w/a.md', sessionId: 's', isDirty: h.isDirty });
+  await h.flush();
+  h.watcher.noteSave('/w/a.md', 's', Promise.reject(new Error('disk full')));
+  await h.flush();
+  await h.flush();
+  assert.equal(h.stats.length, 1, 'a failed write is not stat-ed as the baseline');
+  await h.tick();
+  assert.deepEqual(h.actions, ['reload:/w/a.md']);
+  h.watcher.stop();
+});
+
+// @req FR-MDE-030
+test('FR-MDE-030 AC-3: a reload that failed is tried again on the next check', async () => {
+  const h = harness([A, B, B]);
+  h.watcher.watch({ filePath: '/w/a.md', sessionId: 's', isDirty: h.isDirty });
+  await h.flush();
+  await h.tick();
+  assert.deepEqual(h.actions, ['reload:/w/a.md']);
+  h.watcher.retry('/w/a.md');
+  await h.tick();
+  assert.deepEqual(h.actions, ['reload:/w/a.md', 'reload:/w/a.md']);
+  h.watcher.stop();
 });

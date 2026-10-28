@@ -18,6 +18,7 @@
 // @req FR-MDE-010
 // @req FR-MDE-011
 // @req FR-MDE-012
+// @req FR-MDE-030
 
 import { t, tn } from '../../i18n/i18n.ts';
 import {
@@ -27,6 +28,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type MouseEvent,
   type PointerEvent,
@@ -66,6 +68,9 @@ import {
 import { EditorTabBar } from './EditorTabBar.tsx';
 import { planEditorTabClose, planEditorWindowCloseControl } from './editorWindowCloseControl.ts';
 import { createEditorWindowSaveShortcutHandler } from './editorWindowSaveShortcut.ts';
+import { autoRefreshStore, createEditorFileWatcher, type ExternalAction, type StatResult } from './editorAutoRefresh.ts';
+import { fileApi } from '../../services/api.ts';
+import { isMissingFileError } from '../../utils/editorFileMenu.ts';
 
 /**
  * The smallest an editor window asks to be drawn at.
@@ -121,6 +126,8 @@ export interface EditorWindowTab {
   encoding: DocumentEncoding;
   /** An image tab's bytes or read failure; absent or null for text. @req FR-MDE-018 */
   image?: ImageDocumentState | null;
+  /** Bumped when the file is read again (FR-MDE-030); a new value remounts the panel. */
+  revision?: number;
   /** The document differs from the file, as the panel last reported it. */
   dirty: boolean;
 }
@@ -187,6 +194,20 @@ export interface EditorWindowProps {
   onOpenFile: (filePath: string, tabId: string) => void;
   /** Files open in the editor, which the file tree pane draws bold. */
   openFileKeys?: ReadonlySet<string>;
+  /** FR-MDE-030: read this document's file again and show it, if `canApply` still agrees. */
+  onReloadDocument: (filePath: string, canApply: () => boolean) => Promise<'applied' | 'skipped' | 'failed' | 'gone'>;
+  /** FR-MDE-030 AC-5: a short notice that outlives the window (the last tab may be closing). */
+  onNotice: (message: string) => void;
+}
+
+async function statForWatch(sessionId: string, filePath: string): Promise<StatResult> {
+  try {
+    const stat = await fileApi.statPath(sessionId, filePath);
+    return { modified: stat.modified, size: stat.size };
+  } catch (error) {
+    if (isMissingFileError(error)) return 'missing';
+    throw error;
+  }
 }
 
 /** A drag of the pane's splitter, from pointerdown to its end. */
@@ -231,6 +252,8 @@ export function EditorWindow({
   resolveTabCwd,
   onOpenFile,
   openFileKeys,
+  onReloadDocument,
+  onNotice,
 }: EditorWindowProps) {
   const actionsRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLElement | null>(null);
@@ -250,7 +273,119 @@ export function EditorWindow({
     handlesRef.current.set(filePath, handle);
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // FR-MDE-030: follow the active tab's file on disk while the toggle is on and the window is on
+  // screen. A clean tab reloads or closes; a tab with unsaved edits asks with a bar.
+  const autoRefresh = useSyncExternalStore(autoRefreshStore.subscribe, autoRefreshStore.get);
+  const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || document.visibilityState !== 'hidden');
+  useEffect(() => {
+    const onVisibility = () => setPageVisible(document.visibilityState !== 'hidden');
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+  // One bar per file: a bar on a tab behind another stays until that tab is decided.
+  const [externalPrompts, setExternalPrompts] = useState<ReadonlyMap<string, 'changed' | 'deleted'>>(() => new Map());
+  const setPrompt = useCallback((filePath: string, kind: 'changed' | 'deleted') => {
+    setExternalPrompts((current) => (current.get(filePath) === kind ? current : new Map(current).set(filePath, kind)));
+  }, []);
+  const dropPrompt = useCallback((filePath: string) => {
+    setExternalPrompts((current) => {
+      if (!current.has(filePath)) return current;
+      const next = new Map(current);
+      next.delete(filePath);
+      return next;
+    });
+  }, []);
+  const documentsRef = useRef<HTMLDivElement | null>(null);
+  // AC-3: a reloaded markdown or code tab comes back at the scroll position it had.
+  const pendingScrollRef = useRef<{ filePath: string; top: number } | null>(null);
+  const onExternalActionRef = useRef<(action: Exclude<ExternalAction, 'none'>, filePath: string) => void>(() => {});
+  onExternalActionRef.current = (action, filePath) => {
+    if (action === 'reload') {
+      reloadKeepingScroll(filePath, () => !(handlesRef.current.get(filePath)?.isDirty() ?? false));
+      return;
+    }
+    if (action === 'close') {
+      onCloseTab(filePath);
+      onNotice(t('editor.autoRefresh.closed', { name: fileNameOf(filePath) }));
+      return;
+    }
+    setPrompt(filePath, action === 'ask-reload' ? 'changed' : 'deleted');
+  };
+  // AC-3, AC-4: the read is checked again when it lands; edits typed meanwhile turn it into the
+  // question, and a failed read is tried again on the next check.
+  const reloadKeepingScroll = (filePath: string, canApply: () => boolean) => {
+    const scroller = documentsRef.current?.querySelector<HTMLElement>(`[data-document-id="${CSS.escape(filePath)}"] .cm-scroller`);
+    const top = scroller?.scrollTop ?? null;
+    void onReloadDocument(filePath, canApply).then((outcome) => {
+      if (outcome === 'applied') {
+        pendingScrollRef.current = top === null ? null : { filePath, top };
+        dropPrompt(filePath);
+        return;
+      }
+      if (outcome === 'skipped') {
+        if (handlesRef.current.get(filePath)?.isDirty()) setPrompt(filePath, 'changed');
+        return;
+      }
+      if (outcome === 'failed') watcherRef.current?.retry(filePath);
+    });
+  };
+  const watcherRef = useRef<ReturnType<typeof createEditorFileWatcher> | null>(null);
+  if (watcherRef.current === null) {
+    watcherRef.current = createEditorFileWatcher({
+      stat: statForWatch,
+      setTimer: (fn, ms) => window.setTimeout(fn, ms),
+      clearTimer: (handle) => window.clearTimeout(handle as number),
+      now: () => performance.now(),
+      onAction: (action, filePath) => onExternalActionRef.current(action, filePath),
+    });
+  }
+  useEffect(() => () => watcherRef.current?.stop(), []);
+  // Saves go through the watcher, so this editor's own write is not taken as a change (AC-2).
+  const watchedWriteFile = useCallback((sessionId: string, path: string, content: string) => {
+    const write = writeFile(sessionId, path, content);
+    watcherRef.current?.noteSave(path, sessionId, write);
+    // A saved file is decided: its bar, changed or deleted, goes.
+    write.then(() => dropPrompt(path), () => {});
+    return write;
+  }, [dropPrompt, writeFile]);
+
   const activeTab = tabs.find(tab => tab.filePath === activeFilePath) ?? null;
+
+  // FR-MDE-030 AC-1, AC-2: only the active tab of a window on screen, and only while on.
+  const watchSessionId = activeTab === null ? undefined : resolveTabSession(activeTab.tabId);
+  const watchedPath = activeTab?.filePath ?? null;
+  useEffect(() => {
+    const watcher = watcherRef.current;
+    if (watcher === null) return;
+    const on = autoRefresh && !hidden && pageVisible && activeTab !== null && watchSessionId !== undefined && watchedPath !== null;
+    watcher.watch(on ? {
+      filePath: watchedPath,
+      sessionId: watchSessionId,
+      isDirty: () => handlesRef.current.get(watchedPath)?.isDirty() ?? false,
+    } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activeTab is read for presence; its path is a dependency
+  }, [autoRefresh, hidden, pageVisible, watchedPath, watchSessionId, activeTab?.revision]);
+  // AC-3: put a reloaded document back at its scroll position once its editor has mounted.
+  useEffect(() => {
+    const pending = pendingScrollRef.current;
+    if (pending === null || pending.filePath !== watchedPath) return undefined;
+    let frames = 0;
+    let handle = 0;
+    const restore = () => {
+      const scroller = documentsRef.current?.querySelector<HTMLElement>(`[data-document-id="${CSS.escape(pending.filePath)}"] .cm-scroller`);
+      if (scroller) {
+        scroller.scrollTop = pending.top;
+        pendingScrollRef.current = null;
+        return;
+      }
+      frames += 1;
+      if (frames < 30) handle = requestAnimationFrame(restore);
+      else pendingScrollRef.current = null;
+    };
+    handle = requestAnimationFrame(restore);
+    return () => cancelAnimationFrame(handle);
+  }, [watchedPath, activeTab?.revision]);
   const activeTabClosed = activeTab !== null && resolveTabSession(activeTab.tabId) === undefined;
 
   // The left file-tree pane follows the active tab's session (FR-MDE-012 AC-5).
@@ -635,6 +770,7 @@ export function EditorWindow({
   // beside the white document, and in dark they keep the chrome tokens.
   const [theme] = useEditorTheme();
   const paneSurface = theme === 'light' ? 'paper' : undefined;
+  const activePrompt = activeFilePath === null ? undefined : externalPrompts.get(activeFilePath);
 
   const titlebarActions = (
     <div ref={actionsRef} style={ACTIONS_STYLE} className="editor-window-actions">
@@ -643,6 +779,16 @@ export function EditorWindow({
           {t('editor.window.cannotSave')}
         </Chip>
       )}
+      <button
+        type="button"
+        className="editor-auto-refresh"
+        aria-pressed={autoRefresh}
+        title={t('editor.autoRefresh.toggleHint')}
+        onClick={() => autoRefreshStore.set(!autoRefresh)}
+      >
+        <span className="editor-auto-refresh-dot" aria-hidden="true" />
+        {t('editor.autoRefresh.toggle')}
+      </button>
       <IconButton
         icon="save"
         label={t('common.save')}
@@ -718,7 +864,7 @@ export function EditorWindow({
             onDoubleClick={resetPaneDrag}
           />
         )}
-        <div className="editor-window-documents">
+        <div className="editor-window-documents" ref={documentsRef}>
           <div
             className="editor-tab-bar-host"
             data-surface={paneSurface}
@@ -736,9 +882,27 @@ export function EditorWindow({
               onContextMenu={(filePath, point) => setTabMenu({ ...point, filePath })}
             />
           </div>
+          {activePrompt !== undefined && activeFilePath !== null && (
+            <div className={`editor-external-bar is-${activePrompt}`} data-surface={paneSurface} role="alert">
+              <span className="editor-external-message">
+                {activePrompt === 'changed' ? t('editor.autoRefresh.changed') : t('editor.autoRefresh.deleted')}
+              </span>
+              {activePrompt === 'changed' ? (
+                <>
+                  <button type="button" className="is-primary" onClick={() => { dropPrompt(activeFilePath); reloadKeepingScroll(activeFilePath, () => true); }}>{t('editor.autoRefresh.reload')}</button>
+                  <button type="button" onClick={() => dropPrompt(activeFilePath)}>{t('editor.autoRefresh.keep')}</button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="is-primary" onClick={() => handlesRef.current.get(activeFilePath)?.save()}>{t('editor.autoRefresh.resave')}</button>
+                  <button type="button" onClick={() => { dropPrompt(activeFilePath); onCloseTab(activeFilePath); }}>{t('editor.autoRefresh.discard')}</button>
+                </>
+              )}
+            </div>
+          )}
           {tabs.map(tab => (
             <EditorDocumentPanel
-              key={tab.filePath}
+              key={`${tab.filePath}#${tab.revision ?? 0}`}
               filePath={tab.filePath}
               tabId={tab.tabId}
               bodyAtOpen={tab.bodyAtOpen}
@@ -746,12 +910,13 @@ export function EditorWindow({
               image={tab.image ?? null}
               hidden={tab.filePath !== activeFilePath}
               resolveTabSession={resolveTabSession}
-              writeFile={writeFile}
+              writeFile={watchedWriteFile}
               onDirtyChange={(dirty) => onDirtyChange(tab.filePath, dirty)}
               onClose={() => onCloseTab(tab.filePath)}
               onRegisterHandle={registerHandle}
               paneToggle={paneToggle}
               onNavigateImage={onNavigateImage === undefined ? undefined : (toPath) => onNavigateImage(tab.filePath, toPath)}
+              reloaded={(tab.revision ?? 0) > 0}
             />
           ))}
         </div>

@@ -448,6 +448,32 @@ test('FR-FEX-018 AC-2 stat reports a file and a directory inside the session roo
   }
 });
 
+// FR-MDE-030 AC-5: the editor closes a clean tab when its file is missing, so only a file that is
+// really not there answers PATH_NOT_FOUND; a file held by another program (EBUSY, EPERM) does not.
+test('FR-MDE-030 AC-5 stat answers PATH_NOT_FOUND only for a missing path, not for a busy file', async (t) => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'));
+  try {
+    await fs.writeFile(path.join(tempDir, 'held.md'), 'x');
+    await fs.writeFile(path.join(tempDir, 'plain.txt'), 'x');
+    await assert.rejects(
+      () => listingService(tempDir).statPath('session-1', 'plain.txt/inside'),
+      (error: unknown) => error instanceof AppError && error.code === ErrorCode.PATH_NOT_FOUND,
+      'ENOTDIR is missing too',
+    );
+    const real = fs.stat;
+    t.mock.method(fs, 'stat', async (target: Parameters<typeof fs.stat>[0], ...rest: unknown[]) => {
+      if (String(target).endsWith('held.md')) throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' });
+      return (real as (...args: unknown[]) => Promise<unknown>)(target, ...rest);
+    });
+    await assert.rejects(
+      () => listingService(tempDir).statPath('session-1', 'held.md'),
+      (error: unknown) => !(error instanceof AppError && error.code === ErrorCode.PATH_NOT_FOUND),
+    );
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('FR-FEX-018 AC-2 stat refuses a path outside the session root', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-file-service-'));
   try {

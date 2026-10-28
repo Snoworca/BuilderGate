@@ -450,8 +450,12 @@ export class FileService {
     let stat;
     try {
       stat = await fs.stat(resolved);
-    } catch {
-      throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    } catch (error) {
+      // FR-MDE-030 AC-5: the editor closes a clean tab on PATH_NOT_FOUND, so a file another
+      // program holds (EBUSY, EPERM) must not read as missing.
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') throw new AppError(ErrorCode.PATH_NOT_FOUND);
+      throw new AppError(ErrorCode.INTERNAL_ERROR, `stat failed: ${code ?? 'unknown'}`);
     }
     // The link itself, when the requested path named one (resolveAndValidate returns the target).
     const requested = path.resolve(cwd, targetPath);

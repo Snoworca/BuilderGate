@@ -646,3 +646,38 @@
   }
   .editor-window-surface .html-tab-seg .editor-text-button { height: 24px; }
 }
+
+/* FR-MDE-030: the auto refresh toggle in the title bar. */
+.editor-auto-refresh {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px 0 7px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: transparent;
+  color: var(--fg-muted); font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer;
+}
+.editor-auto-refresh:hover { color: var(--fg-strong); }
+.editor-auto-refresh[aria-pressed="true"] { border-color: var(--accent); color: var(--fg-strong); background: var(--accent-tint); }
+.editor-auto-refresh-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-faint); }
+.editor-auto-refresh[aria-pressed="true"] .editor-auto-refresh-dot { background: var(--ok); }
+
+/* FR-MDE-030 AC-4, AC-6: the file changed or vanished under unsaved edits. */
+.editor-external-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 10px;
+  border-bottom: 1px solid var(--line); font-size: var(--fs-xs);
+}
+/* The bar stands on the paper surface in the light theme (data-surface), whose tokens are
+ * re-bound for text on white. */
+.editor-external-bar.is-changed { background: var(--warn-tint); color: var(--warn-text); }
+.editor-external-bar.is-deleted { background: var(--danger-tint); color: var(--danger-text); }
+.editor-external-message { flex: 1 1 240px; min-width: 0; }
+.editor-external-bar button {
+  height: 26px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--bg-surface); color: var(--fg); font: inherit; cursor: pointer;
+}
+.editor-external-bar button.is-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+
+/* FR-MDE-030 AC-5: a short notice that outlives a closing window. */
+.editor-notice {
+  position: fixed; left: 50%; bottom: 48px; transform: translateX(-50%); z-index: 5100;
+  max-width: calc(100vw - 32px); padding: 8px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--bg-raised); color: var(--fg-strong); font-size: var(--fs-xs); box-shadow: var(--shadow-popover);
+  pointer-events: none;
+}

@@ -58,6 +58,7 @@ import { useImageSiblings } from './useImageSiblings.ts';
 import { SvgFileTab } from './SvgFileTab.tsx';
 import { HtmlFileTab } from './HtmlFileTab.tsx';
 import { consumeHtmlViewHint, isHtmlFile } from './htmlTabModel.ts';
+import { recallEditorView, rememberEditorView } from './editorViewMemory.ts';
 import { createSvgSourceSession, type SvgSource, type SvgSourceSession } from './svgTabModel.ts';
 import { documentSaveBinding, type ImageDocumentState } from '../../hooks/editorDocumentLoad.ts';
 import { readWrapPreference, writeWrapPreference } from './codeEditorExtensions.ts';
@@ -313,6 +314,8 @@ export interface EditorDocumentPanelProps {
   paneToggle?: EditorPaneToggle;
   /** An image tab moves to another image of its directory (FR-MDE-027). */
   onNavigateImage?: (toPath: string) => void;
+  /** FR-MDE-030: this mount is a read-again of an open tab, so the remembered view comes back. */
+  reloaded?: boolean;
 }
 
 /**
@@ -335,6 +338,7 @@ export function EditorDocumentPanel({
   onRegisterHandle,
   paneToggle,
   onNavigateImage,
+  reloaded = false,
 }: EditorDocumentPanelProps) {
   const editorHandleRef = useRef<AtomicCodeMirrorEditorHandle | null>(null);
 
@@ -386,7 +390,8 @@ export function EditorDocumentPanel({
   // listener keeps in liveBodyRef; the one save controller carries dirty and
   // the save across the switch.
   // @req FR-MDE-023
-  const [raw, setRaw] = useState(false);
+  const [raw, setRaw] = useState(() => reloaded && recallEditorView(filePath, 'raw') === true);
+  useEffect(() => rememberEditorView(filePath, 'raw', raw), [filePath, raw]);
   const view = effectiveDocumentComponent(component, raw);
   const shown = component === 'markdown' && raw ? 'markdown-raw' : component;
   const liveBodyRef = useRef(layout.body);
@@ -448,7 +453,10 @@ export function EditorDocumentPanel({
   // FR-MDE-028: an HTML file opens rendered unless whoever opened it asked for the source.
   const isHtml = component === 'code' && isHtmlFile(filePath);
   const htmlViewRef = useRef<ReturnType<typeof consumeHtmlViewHint> | null>(null);
-  if (isHtml && htmlViewRef.current === null) htmlViewRef.current = consumeHtmlViewHint(filePath);
+  if (isHtml && htmlViewRef.current === null) {
+    const recalled = reloaded ? recallEditorView(filePath, 'html') : undefined;
+    htmlViewRef.current = recalled === 'source' || recalled === 'rendered' ? recalled : consumeHtmlViewHint(filePath);
+  }
   const getLiveBody = useCallback(() => liveBodyRef.current, []);
   // FR-MDE-028 AC-5: the HTML tab follows the text to send drafts of it.
   const textListenersRef = useRef(new Set<(text: string) => void>());

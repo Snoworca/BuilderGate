@@ -162,6 +162,8 @@ export interface EditorWindowLayerProps<TWindow extends EditorWindowLayerWindow>
   /** A read failure other than a missing file, or null when none. */
   openError: string | null;
   onDismissOpenError: () => void;
+  /** FR-MDE-030 AC-5: a short notice, such as a tab closed because its file was deleted. */
+  notice?: string | null;
 }
 
 function fileNameOf(filePath: string): string {
@@ -185,6 +187,7 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
   onCancelCreate,
   openError,
   onDismissOpenError,
+  notice = null,
 }: EditorWindowLayerProps<TWindow>) {
   const { hosts, rootRef, layoutVersion } = useTerminalRuntimeContext();
   const [overlayRect, setOverlayRect] = useState<DOMRect | null>(null);
@@ -310,6 +313,8 @@ export function EditorWindowLayer<TWindow extends EditorWindowLayerWindow>({
           onCancel={onCancelCreate}
         />
       )}
+
+      {notice !== null && <div className="editor-notice" role="status">{notice}</div>}
 
       {openError !== null && (
         <MessageBox

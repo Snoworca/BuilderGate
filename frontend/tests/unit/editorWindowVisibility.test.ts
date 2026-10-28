@@ -297,6 +297,7 @@ test('FR-MDE-002 the layer hands hiding to the window instead of dropping it', (
   );
 
   // Each open document is keyed by the file it holds, which is what lets a tab
-  // keep its editor instance while its neighbours come and go.
-  assert.match(WINDOW_SOURCE, /key=\{\w+\.filePath\}/);
+  // keep its editor instance while its neighbours come and go. FR-MDE-030 adds the revision,
+  // which changes only when the file is read again.
+  assert.match(WINDOW_SOURCE, /key=\{`\$\{\w+\.filePath\}#\$\{\w+\.revision \?\? 0\}`\}/);
 });

@@ -349,12 +349,26 @@ export interface UseEditorWindowsResult {
    * @req FR-MDE-027
    */
   navigateImage: (fromPath: string, toPath: string) => void;
+  /**
+   * FR-MDE-030: reads a document's file again and shows it. `canApply` is asked when the read
+   * lands, so edits typed meanwhile are not dropped by an automatic reload.
+   */
+  reloadDocument: (filePath: string, canApply: () => boolean) => Promise<ReloadOutcome>;
+  /** FR-MDE-030 AC-5: a short notice shown over the stage for a few seconds. */
+  notice: string | null;
+  showNotice: (message: string) => void;
 }
 
 /**
  * @req FR-MDE-007
  * @req FR-MDE-008
  */
+/** FR-MDE-030: what a reload did. 'skipped' means unsaved edits (or a newer read) won. */
+export type ReloadOutcome = 'applied' | 'skipped' | 'failed' | 'gone';
+
+/** FR-MDE-030 AC-5: how long a notice stays on screen. */
+const NOTICE_MS = 3200;
+
 export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindowsResult {
   const {
     setScreen,
@@ -829,6 +843,47 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
   }, []);
 
   /**
+   * FR-MDE-030: the same path read again. The record keeps its tab and workspace and gets a new
+   * revision, which remounts its panel on the new content. A file gone by now is left to the
+   * next check, which closes or asks.
+   * @req FR-MDE-030
+   */
+  const reloadSeqRef = useRef(new Map<string, number>());
+  const reloadDocument = useCallback((filePath: string, canApply: () => boolean): Promise<ReloadOutcome> => {
+    const current = documentsRef.current.find(document => document.filePath === filePath);
+    if (current === undefined) return Promise.resolve('gone');
+    const sessionId = resolveTabSessionRef.current(current.tabId);
+    if (sessionId === undefined) return Promise.resolve('failed');
+    const seq = (reloadSeqRef.current.get(filePath) ?? 0) + 1;
+    reloadSeqRef.current.set(filePath, seq);
+    return loadDocument({ filePath, sessionId }, documentLoadDeps).then((outcome) => {
+      // Only the latest read of a path lands; a slower, older one would show older content.
+      if (reloadSeqRef.current.get(filePath) !== seq) return 'skipped';
+      if (outcome.status !== 'loaded') return 'failed';
+      if (outcome.document.kind === 'image' && outcome.document.image.status === 'error') return 'failed';
+      if (!documentsRef.current.some(document => document.filePath === filePath)) return 'gone';
+      if (!canApply()) return 'skipped';
+      const fresh = planOpenDocument({ filePath, tabId: current.tabId, workspaceId: current.workspaceId, document: outcome.document });
+      updateDocument(filePath, existing => ({ ...fresh, revision: (existing.revision ?? 0) + 1, tabId: existing.tabId, workspaceId: existing.workspaceId }));
+      return 'applied';
+    }, () => 'failed' as const);
+  }, [updateDocument]);
+
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNotice = useCallback((message: string) => {
+    if (noticeTimerRef.current !== null) clearTimeout(noticeTimerRef.current);
+    setNotice(message);
+    noticeTimerRef.current = setTimeout(() => {
+      noticeTimerRef.current = null;
+      setNotice(null);
+    }, NOTICE_MS);
+  }, []);
+  useEffect(() => () => {
+    if (noticeTimerRef.current !== null) clearTimeout(noticeTimerRef.current);
+  }, []);
+
+  /**
    * A rect the user produced. `WindowDialog` emits this from its drag and
    * resize handlers only -- a controlled rect never round-trips through it --
    * so an arrival here means the window was moved by hand, and that is what
@@ -1168,5 +1223,8 @@ export function useEditorWindows(input: UseEditorWindowsInput): UseEditorWindows
     openDocument,
     requestRemoteOpen,
     navigateImage,
+    reloadDocument,
+    notice,
+    showNotice,
   };
 }

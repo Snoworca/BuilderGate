@@ -65,6 +65,8 @@ export type OpenDocumentRecord = EditorTrayWindow & {
   encoding: DocumentEncoding;
   /** The image bytes or read failure; null for a text document. @req FR-MDE-018 */
   image: ImageDocumentState | null;
+  /** How many times the file was read again since it opened (FR-MDE-030). */
+  revision?: number;
 };
 
 /**
