@@ -633,7 +633,7 @@
 }
 
 /* FR-MDE-028 AC-9: on a phone the controls stay on the one scrolling line, compact and readable. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
   .editor-window-surface .html-tab-toolbar { padding: 3px 8px; }
   .editor-window-surface .html-tab-toolbar .editor-text-button {
     display: inline-flex;

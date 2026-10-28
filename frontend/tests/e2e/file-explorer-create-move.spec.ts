@@ -323,4 +323,48 @@ test.describe('file explorer: stage on a phone, new file, drag and drop', () => 
       await expect(page.locator('.context-menu')).toHaveCount(0);
     }
   });
+
+  // FR-FEX-033 AC-1, AC-2
+  test('a file row takes a drop for its folder, and the drop says it is running until the job ends', async ({ page }, testInfo) => {
+    const phone = isPhone(testInfo.project);
+    await openExplorer(page, phone, 'a.txt');
+    const folder = record.folder!;
+    const chip = explorer(page).locator('.fx-drop-chip');
+    const centre = async (name: string) => {
+      const box = await row(page, name).boundingBox();
+      return { x: box!.x + box!.width / 3, y: box!.y + box!.height / 2 };
+    };
+    // Opening other/ opens its single-child chain to inner/ (FR-FEX-015), showing deep.txt.
+    const expander = row(page, 'other').locator('.fx-expander');
+    if (phone) await expander.tap(); else await expander.click();
+    await expect(row(page, 'deep.txt')).toBeVisible();
+    // Watch for the pending pill: a fast job may show it only briefly.
+    await page.evaluate(() => {
+      const w = window as unknown as { __bgPendingSeen?: string };
+      w.__bgPendingSeen = '';
+      new MutationObserver(() => {
+        const pill = document.querySelector('.fx-drop-pending');
+        if (pill && !w.__bgPendingSeen) w.__bgPendingSeen = pill.textContent ?? '';
+      }).observe(document.body, { childList: true, subtree: true });
+    });
+    const d = await centre('deep.txt');
+    if (phone) await finger(page, 'touchstart', d.x, d.y); else { await page.mouse.move(d.x, d.y); await page.mouse.down(); }
+    await page.waitForTimeout(700);
+    await expect(row(page, 'deep.txt')).toBeHidden();
+    const a = await centre('a.txt');
+    for (let i = 1; i <= 8; i += 1) {
+      const x = d.x + ((a.x - d.x) * i) / 8;
+      const y = d.y + ((a.y - d.y) * i) / 8;
+      if (phone) await finger(page, 'touchmove', x, y); else await page.mouse.move(x, y);
+    }
+    // AC-1: over a root-level file the drop goes to the root folder.
+    const rootName = folder.split(/[\\/]/).filter(Boolean).pop()!;
+    await expect(chip).toContainText(`이동 → ${rootName}`);
+    if (phone) await finger(page, 'touchend', a.x, a.y); else await page.mouse.up();
+    await expect.poll(() => existsSync(joinPath(folder, 'deep.txt')), { timeout: 15000 }).toBe(true);
+    expect(existsSync(joinPath(folder, 'other', 'inner', 'deep.txt'))).toBe(false);
+    // AC-2: the pill named the move as soon as it was dropped, and is gone once the job ended.
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __bgPendingSeen?: string }).__bgPendingSeen)).toContain('1개 항목 이동 중');
+    await expect(explorer(page).locator('.fx-drop-pending')).toHaveCount(0, { timeout: 15000 });
+  });
 });

@@ -94,7 +94,8 @@ export interface FileTreeOperations {
   /** Asks a folder name and creates it inside `directory`. */
   createDirectoryIn: (directory: string) => Promise<void>;
   /** FR-FEX-030: submits the move or copy a drop built, as paste submits its job. */
-  submitDrop: (request: PasteJobRequest) => void;
+  /** FR-FEX-033: the job's id once the server took it, or null when it was refused. */
+  submitDrop: (request: PasteJobRequest) => Promise<string | null>;
 }
 
 function lastSegment(path: string): string {
@@ -371,9 +372,14 @@ export function useFileTreeOperations({
     }
   };
 
-  const submitDrop = (request: PasteJobRequest) => {
-    jobClient.submit(request).catch((error: unknown) => showError(t('fileExplorer.drag.failed', { message: messageOf(error) })));
-  };
+  const submitDrop = (request: PasteJobRequest): Promise<string | null> =>
+    jobClient.submit(request).then(
+      (result) => result.jobId,
+      (error: unknown) => {
+        showError(t('fileExplorer.drag.failed', { message: messageOf(error) }));
+        return null;
+      },
+    );
 
   return { menuHandlers, menuItems, runShortcut, rowRename, createDirectoryIn, submitDrop };
 }

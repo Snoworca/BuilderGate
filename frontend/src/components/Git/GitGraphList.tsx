@@ -6,9 +6,9 @@
  * @req FR-GIT-005
  * @req FR-GIT-008
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import type { GitClient, GitCompare, GitLogCommit, GitRef, LogScope, RepoSummary } from './gitApi.ts';
-import { layoutGraph, MAX_LANES, type GraphRow } from './gitGraphLayout.ts';
+import { graphRowHeight, layoutGraph, MAX_LANES, type GraphRow } from './gitGraphLayout.ts';
 import { graphColumns } from './GitWindow.tsx';
 import { activeLanguage, t } from '../../i18n/i18n.ts';
 import { formatRelativeTime } from '../../utils/relativeTime.ts';
@@ -132,6 +132,20 @@ export function GitGraphList({ sessionId, client, summary, scope, onScope, selec
 
   const cols = graphColumns(width);
   const listRef = useRef<HTMLDivElement | null>(null);
+  // FR-GIT-005 AC-6: the graph is drawn at the row's real height (44 px on a phone), so its
+  // lines meet between rows; a fixed 28 px left gaps wherever the row was taller.
+  const [rowH, setRowH] = useState(ROW_H);
+  // Measured once rows exist; the observer follows later size changes.
+  const hasRows = rows.length > 0;
+  useLayoutEffect(() => {
+    const row = listRef.current?.querySelector<HTMLElement>('.git-row');
+    if (!row) return undefined;
+    const measure = () => setRowH(graphRowHeight(row.getBoundingClientRect().height));
+    measure();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    observer?.observe(row);
+    return () => observer?.disconnect();
+  }, [hasRows]);
   const activeId = (key: string) => `git-row-${sessionId}-${key}`;
   const onKeyDown = (e: React.KeyboardEvent) => {
     const i = Math.max(0, rows.findIndex((r) => r.key === selected));
@@ -196,7 +210,7 @@ export function GitGraphList({ sessionId, client, summary, scope, onScope, selec
               className="git-row"
               onClick={() => { onSelect(r.key); onOpen?.(r.key); }}
             >
-              {r.graph ? <RowGraph g={r.graph} lanes={laneCount} dashed={r.kind === 'worktree'} /> : <span style={{ width: 10 + laneCount * LANE_W, flexShrink: 0 }} />}
+              {r.graph ? <RowGraph g={r.graph} lanes={laneCount} dashed={r.kind === 'worktree'} h={rowH} /> : <span style={{ width: 10 + laneCount * LANE_W, flexShrink: 0 }} />}
               <span className="git-row-subject">{c && <RefBadges refs={c.refs} />}<span className="git-row-text">{subject}</span></span>
               {cols.sha && <span className="git-row-sha">{c ? c.sha.slice(0, 7) : ''}</span>}
               {cols.author && <span className="git-row-who">{c?.author ?? ''}</span>}

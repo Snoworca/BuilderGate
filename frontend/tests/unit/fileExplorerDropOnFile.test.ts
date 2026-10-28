@@ -45,9 +45,10 @@ test('FR-FEX-033 AC-2: the dropped rows are dimmed by a scoped rule', () => {
 // @req FR-FEX-033
 test('FR-FEX-033 AC-2/AC-3: the window keeps a pending drop from the drop until the job is gone', () => {
   const drop = windowSource.slice(windowSource.indexOf('const dropInternal ='), windowSource.indexOf('/** FR-FEX-030 AC-1: what a press'));
-  assert.match(drop, /setDropPending\(\{ paths: internal\.paths, operation, jobId: null \}\)/);
+  assert.match(drop, /setDropPending\(\{ seq, paths: internal\.paths, operation, jobId: null \}\)/);
   assert.match(drop, /ops\.submitDrop\(request\)/);
-  assert.match(drop, /setDropPending\(null\)/, 'a refused or failed submit clears it');
+  // A late answer for an earlier drop must not touch a later one.
+  assert.match(drop, /current\?\.seq === seq/);
   assert.match(windowSource, /isDropPending\(dropPending, fileJobs\.jobs\)/);
   assert.match(windowSource, /<FileExplorerDropPending /);
   assert.match(opsSource, /const submitDrop = \(request: PasteJobRequest\): Promise<string \| null> =>/);

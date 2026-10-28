@@ -24,6 +24,7 @@ import { gitSummaryStore } from './gitStores.ts';
 import { CASCADE_PX } from './gitWindowModel.ts';
 import { activeLanguage, t } from '../../i18n/i18n.ts';
 import { formatRelativeTime } from '../../utils/relativeTime.ts';
+import { MOBILE_LAYOUT_QUERY } from '../../utils/layoutMode.ts';
 import './gitViewer.css';
 
 export const GIT_WINDOW_MIN_SIZE = { width: 760, height: 420 } as const;
@@ -32,9 +33,11 @@ const SPLIT_STEP = 16;
 const CHECKED_TICK_MS = 10_000;
 export const GIT_MOBILE_BELOW = 900;
 
-/** True while the viewport is narrower than the phone breakpoint. */
+/** True while the viewport is narrower than the phone breakpoint, or the app shows its mobile layout (FR-UIDS-015). */
 function useNarrowViewport(): boolean {
-  const read = () => (typeof window === 'undefined' ? false : window.innerWidth < GIT_MOBILE_BELOW);
+  const read = () => (typeof window === 'undefined'
+    ? false
+    : window.innerWidth < GIT_MOBILE_BELOW || window.matchMedia(MOBILE_LAYOUT_QUERY).matches);
   const [narrow, setNarrow] = useState(read);
   useEffect(() => {
     const onResize = () => setNarrow(read());

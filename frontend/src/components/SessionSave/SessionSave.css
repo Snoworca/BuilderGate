@@ -95,14 +95,14 @@
 
 .session-restore-banner { position: relative; z-index: 3; }
 
-@media (max-width: 768px) {
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
   .session-save-body { padding: var(--sp-3) var(--sp-4) var(--sp-4); }
   .session-save-pill { height: var(--ctl-touch); }
   .session-save-dialog .ui-row { min-height: var(--ctl-touch); }
 }
 
 .session-restore-banner { flex-shrink: 0; }
-@media (max-width: 768px) {
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
   .session-restore-banner { flex-wrap: wrap; }
   .session-restore-banner .ui-banner-actions { width: 100%; justify-content: flex-end; }
 }

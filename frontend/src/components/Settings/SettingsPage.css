@@ -271,7 +271,7 @@
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
   .settings-toolbar,
   .settings-scroll {
     padding-left: var(--sp-4);

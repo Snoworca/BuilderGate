@@ -39,21 +39,36 @@ export function decideDragOperation(keys: { ctrlKey: boolean; altKey: boolean; m
   return (isMac ? keys.altKey : keys.ctrlKey) ? 'copy' : 'move';
 }
 
-/** AC-3: a folder row is the target, empty space the shown folder, a file row nothing. */
-export function resolveInternalDropDir(input: { row: { path: string; isDir: boolean } | null; shownFolder: string }): string | null {
-  if (input.row === null) return input.shownFolder;
-  return input.row.isDir ? input.row.path : null;
-}
-
 function trimSeparators(path: string): string {
   return path.replace(/[\\/]+$/, '');
 }
 
-function parentOf(path: string): string {
+/** The folder holding `path`, without a trailing separator ('' for '/x', 'C:' for 'C:\\x'). */
+function folderOf(path: string): string {
   const trimmed = trimSeparators(path);
   const at = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
-  return at <= 0 ? trimmed.slice(0, at + 1) : trimmed.slice(0, at);
+  return at < 0 ? trimmed : trimmed.slice(0, at);
 }
+
+/**
+ * AC-3: a folder row is the target and empty space the shown folder. FR-FEX-033 AC-1: a file
+ * row is the folder holding it -- the shown folder in the list, its parent in the tree -- so an
+ * entry can be dropped where only files are left to release on.
+ */
+export function resolveInternalDropDir(input: { row: { path: string; isDir: boolean } | null; shownFolder: string }): string {
+  if (input.row === null) return input.shownFolder;
+  if (input.row.isDir) return input.row.path;
+  const folder = folderOf(input.row.path);
+  // The shown folder spells a root ('/', 'C:\\') the way the server listed it.
+  return folder === trimSeparators(input.shownFolder) ? input.shownFolder : folder;
+}
+
+/** FR-FEX-033 AC-2, AC-3: a drop is pending while its request is out and while its job runs. */
+export function isDropPending(pending: { jobId: string | null } | null, jobs: Readonly<Record<string, unknown>>): boolean {
+  if (pending === null) return false;
+  return pending.jobId === null || pending.jobId in jobs;
+}
+
 
 function isInside(dir: string, ancestor: string): boolean {
   const base = trimSeparators(ancestor);
@@ -68,7 +83,7 @@ export function decideInternalDrop(drag: InternalDrag, dest: DropDestination): I
     if (trimSeparators(path) === dir) return { allowed: false, reason: 'self' };
     if (isInside(dir, path)) return { allowed: false, reason: 'inside' };
   }
-  if (drag.paths.every((path) => trimSeparators(parentOf(path)) === dir)) return { allowed: false, reason: 'same-folder' };
+  if (drag.paths.every((path) => trimSeparators(folderOf(path)) === dir)) return { allowed: false, reason: 'same-folder' };
   return { allowed: true };
 }
 

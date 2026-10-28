@@ -920,6 +920,14 @@
   transform: translateX(-50%); pointer-events: none; box-shadow: var(--shadow-popover);
 }
 .fx-drop-chip.is-shown { display: inline-flex; }
+/* FR-FEX-033 AC-2: a drop whose job is still running, where the chip was. */
+.fx-drop-pending {
+  position: absolute; left: 50%; bottom: 12px;
+  display: inline-flex; align-items: center; gap: 6px; max-width: calc(100% - 24px);
+  padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--bg-raised); color: var(--fg-strong); font-size: var(--fs-xs);
+  transform: translateX(-50%); pointer-events: none; box-shadow: var(--shadow-popover);
+}
 .fx-drop-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--fx-mono); color: var(--fg-muted); direction: rtl; }
 
 /* FR-FEX-024 AC-2: rows still arriving, dimmed and pinned under the listing; arrivals glow briefly. */
@@ -959,7 +967,7 @@
 .fx-item-reason { flex: none; color: var(--danger-text); }
 
 /* FR-FOP-006 AC-4: on a phone the decisions stack, full width and at least 44 px high. */
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
   .fx-window-modal-box { width: calc(100% - 24px); }
   .fx-window-modal-actions { flex-direction: column; align-items: stretch; }
   .fx-window-modal-actions .fx-confirm-button { width: 100%; min-height: 44px; }
@@ -979,7 +987,7 @@
 .fx-new-file-message.is-error { color: var(--danger-text); }
 .fx-confirm-button.fx-primary { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
 .fx-confirm-button.fx-primary:hover:not(:disabled) { background: var(--accent-hover); color: var(--accent-fg); }
-@media (max-width: 767px) {
+@media (max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px) {
   .fx-new-file-box { width: calc(100% - 24px); }
   .fx-new-file-input { height: var(--ctl-touch); }
   .fx-new-file-box .fx-confirm-button { min-height: 44px; flex: 1; }

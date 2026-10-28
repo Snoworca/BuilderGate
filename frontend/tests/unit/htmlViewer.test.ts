@@ -143,7 +143,7 @@ test('FR-MDE-028 AC-9: saving re-renders the page; the toolbar is one scrolling 
   assert.match(toolbar, /flex-wrap:\s*nowrap/, 'the toolbar never wraps to a second row');
   assert.match(toolbar, /overflow-x:\s*auto/, 'the toolbar scrolls sideways when it is wider than the window');
   assert.match(css, /\.html-tab-toolbar\s*>\s*\*\s*\{[^}]*flex:\s*none[^}]*white-space:\s*nowrap/, 'controls keep their width and one-line labels');
-  const phone = /@media \(max-width: 767px\)\s*\{([\s\S]*?)\n\}/.exec(css.slice(css.indexOf('FR-MDE-028 AC-9')))?.[1] ?? '';
+  const phone = /@media \(max-width: 767px\)[^{]*\{([\s\S]*?)\n\}/.exec(css.slice(css.indexOf('FR-MDE-028 AC-9')))?.[1] ?? '';
   assert.doesNotMatch(phone, /\.html-tab-seg\s*\{[^}]*flex:\s*1/, 'the toggle no longer fills a row of its own');
   const rule = /\.html-tab-toolbar \.editor-text-button\s*\{([^}]*)\}/.exec(phone)?.[1] ?? '';
   const height = /(?:^|[;\s])height:\s*(\d+)px/.exec(rule)?.[1];

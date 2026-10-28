@@ -70,7 +70,7 @@ import { fileExplorerDialogId } from './fileExplorerDialog.ts';
 import { FileExplorerMobileBar } from './FileExplorerMobileBar.tsx';
 import { FileExplorerSelectionBand, FileExplorerUploadBand } from './FileExplorerMobileBands.tsx';
 import { FileExplorerMoreSheet } from './FileExplorerMoreSheet.tsx';
-import { FileExplorerDropChip, FileExplorerPendingRows, FileExplorerToast, type DropChipTarget, type FileExplorerToastState } from './FileExplorerTransferChrome.tsx';
+import { FileExplorerDropChip, FileExplorerDropPending, FileExplorerPendingRows, FileExplorerToast, type DropChipTarget, type FileExplorerToastState } from './FileExplorerTransferChrome.tsx';
 import { buildMobileMoreSheet, mobileSheetTitle } from './fileExplorerContextMenu.ts';
 import { describeExtractDone, isExtractableArchive, subscribeExtractFinished, type ExtractPrecount } from './fileExtract.ts';
 import { rootLabel } from './fileExplorerPathBarModel.ts';
@@ -106,6 +106,7 @@ import {
   decideDragSources,
   decideInternalDrop,
   getCurrentInternalDrag,
+  isDropPending,
   isInternalDrag,
   resolveInternalDropDir,
   setCurrentInternalDrag,
@@ -130,7 +131,7 @@ import {
 import { selectListRows, type ListSort } from './fileListView.ts';
 import { FileListView } from './FileListView.tsx';
 import { decideRowPointer } from './fileRowInteraction.ts';
-import { PICK_EVENT, PICK_HOLD_MS, hiddenRowsCss, startPick, type PickDropDetail, type PickKeys, type PickLeaveDetail, type PickOverDetail, type PickSession } from './fileExplorerPickUp.ts';
+import { PICK_EVENT, PICK_HOLD_MS, hiddenRowsCss, rowsCss, startPick, type PickDropDetail, type PickKeys, type PickLeaveDetail, type PickOverDetail, type PickSession } from './fileExplorerPickUp.ts';
 import { joinChildPath, parentPathOf, selectVisibleRows, type FileTreeMode } from './fileTreeState.ts';
 import { FileTreeView, type FileExplorerMenuRequest } from './FileTreeView.tsx';
 
@@ -647,6 +648,15 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
       .catch((error: unknown) => showError(t('fileTransfer.error.upload', { message: messageOf(error) })));
   };
 
+  // FR-FEX-033 AC-2, AC-3: the drop in flight, cleared once its job left the store.
+  const [dropPending, setDropPending] = useState<{ seq: number; paths: readonly string[]; operation: 'move' | 'copy'; jobId: string | null } | null>(null);
+  const dropSeqRef = useRef(0);
+  const fileJobs = useSyncExternalStore(subscribeFileJobs, getFileJobSnapshot);
+  const dropStillPending = isDropPending(dropPending, fileJobs.jobs);
+  useEffect(() => {
+    if (dropPending !== null && !dropStillPending) setDropPending(null);
+  }, [dropPending, dropStillPending]);
+
   // ---------------------------------------------------------------------------
   // FR-FEX-030: explorer rows dragged onto a folder move, or copy with Ctrl (Option on macOS).
   // Touch screens get no drag: a long press there selects, as it always has.
@@ -661,25 +671,24 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
   };
   const internalDragOf = (event: DragEvent<HTMLElement>): InternalDrag | null =>
     (isInternalDrag(event.dataTransfer.types) ? getCurrentInternalDrag() : null);
-  const denyReason = (reason: 'self' | 'inside' | 'same-folder' | 'file') => t(
+  const denyReason = (reason: 'self' | 'inside' | 'same-folder') => t(
     reason === 'self' ? 'fileExplorer.drag.deny.self'
       : reason === 'inside' ? 'fileExplorer.drag.deny.inside'
-        : reason === 'same-folder' ? 'fileExplorer.drag.deny.sameFolder'
-          : 'fileExplorer.drag.deny.file',
+        : 'fileExplorer.drag.deny.sameFolder',
   );
   // Shared by the rows and the path bar: what a drop on `dir` would do, shown on the chip.
   // A browser drag passes its DragEvent as the keys, a pick (FR-FEX-032) the keys it read.
-  const previewInternalDrop = (keys: PickKeys, internal: InternalDrag, dir: string | null, rowName: string | null): 'copy' | 'move' | 'none' => {
+  const previewInternalDrop = (keys: PickKeys, internal: InternalDrag, dir: string, rowName: string | null): 'copy' | 'move' | 'none' => {
     if (modalOpen) {
       setDropChip(null);
       return 'none';
     }
-    const decision = dir === null ? { allowed: false as const, reason: 'file' as const } : decideInternalDrop(internal, { sessionId: tab.sessionId, dir });
+    const decision = decideInternalDrop(internal, { sessionId: tab.sessionId, dir });
     const op = decideDragOperation(keys, isMac);
     const drag = decision.allowed
       ? { op, copyHint: t(isMac ? 'fileExplorer.drag.copyHintOption' : 'fileExplorer.drag.copyHintCtrl') }
       : { op: 'deny' as const, reason: denyReason(decision.reason) };
-    const next = { dir: dir ?? state.root, name: rowName, drag };
+    const next = { dir, name: rowName, drag };
     setDropChip((current) => (current !== null && current.dir === next.dir && current.name === next.name
       && JSON.stringify(current.drag) === JSON.stringify(next.drag) ? current : next));
     return decision.allowed ? op : 'none';
@@ -710,13 +719,25 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
     };
     return effect;
   };
-  const dropInternal = (internal: InternalDrag, dir: string | null, keys: PickKeys) => {
+  const dropInternal = (internal: InternalDrag, dir: string, keys: PickKeys) => {
     endDrag();
     markDenyRow(null);
     setCurrentInternalDrag(null);
-    if (modalOpen || dir === null) return;
-    const request = buildDropJobRequest(internal, { sessionId: tab.sessionId, dir }, decideDragOperation(keys, isMac));
-    if (request !== null) ops.submitDrop(request);
+    if (modalOpen) return;
+    const operation = decideDragOperation(keys, isMac);
+    const request = buildDropJobRequest(internal, { sessionId: tab.sessionId, dir }, operation);
+    if (request === null) return;
+    // FR-FEX-033 AC-2: the rows stay dimmed and the window says so until the job is over. A
+    // later drop replaces this one, so an answer only touches the drop it belongs to.
+    dropSeqRef.current += 1;
+    const seq = dropSeqRef.current;
+    setDropPending({ seq, paths: internal.paths, operation, jobId: null });
+    void ops.submitDrop(request).then((jobId) => {
+      setDropPending((current) => {
+        if (current?.seq === seq) return jobId === null ? null : { ...current, jobId };
+        return current;
+      });
+    });
   };
   /** FR-FEX-030 AC-1: what a press on `path` carries; an unselected row is selected alone first. */
   const carryFrom = (path: string): string[] => {
@@ -1157,6 +1178,8 @@ const FileExplorerTabPanel = memo(function FileExplorerTabPanel({ workspaceId, t
         <FileExplorerPendingRows rows={pendingRows} />
       </div>
       <FileExplorerDropChip target={dropChip} />
+      {dropChip === null && <FileExplorerDropPending pending={dropPending === null ? null : { operation: dropPending.operation, count: dropPending.paths.length }} />}
+      {dropPending !== null && <style>{rowsCss(dropPending.paths, (value) => CSS.escape(value), `.fx-scroll[data-fx-tab="${CSS.escape(tab.id)}"]`, 'opacity: 0.45;')}</style>}
       {pickedPaths !== null && <style>{hiddenRowsCss(pickedPaths, (value) => CSS.escape(value), `.fx-scroll[data-fx-tab="${CSS.escape(tab.id)}"]`)}</style>}
       <input ref={fileInputRef} type="file" multiple hidden onChange={handlePicked} />
       <input ref={setFolderInput} type="file" multiple hidden onChange={handlePicked} />

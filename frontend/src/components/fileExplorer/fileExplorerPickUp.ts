@@ -60,16 +60,21 @@ export function autoScrollDelta(y: number, rect: { top: number; bottom: number }
 }
 
 /**
- * AC-1: a rule that hides the carried rows and everything shown inside a carried folder, within
- * `scope` (the picking panel's list) so another explorer showing the same path keeps its rows.
+ * A rule giving `declarations` to the rows of `paths` and everything shown inside them, within
+ * `scope` (one panel's list) so another explorer showing the same path is left alone.
  */
-export function hiddenRowsCss(paths: readonly string[], escape: (value: string) => string, scope: string): string {
+export function rowsCss(paths: readonly string[], escape: (value: string) => string, scope: string, declarations: string): string {
   const selectors = paths.flatMap((path) => [
     `${scope} [data-path="${escape(path)}"]`,
     `${scope} [data-path^="${escape(`${path}/`)}"]`,
     `${scope} [data-path^="${escape(`${path}\\`)}"]`,
   ]);
-  return selectors.length === 0 ? '' : `${selectors.join(', ')} { display: none; }`;
+  return selectors.length === 0 ? '' : `${selectors.join(', ')} { ${declarations} }`;
+}
+
+/** AC-1: the carried rows, and everything inside a carried folder, leave the list. */
+export function hiddenRowsCss(paths: readonly string[], escape: (value: string) => string, scope: string): string {
+  return rowsCss(paths, escape, scope, 'display: none;');
 }
 
 export interface PickSession {

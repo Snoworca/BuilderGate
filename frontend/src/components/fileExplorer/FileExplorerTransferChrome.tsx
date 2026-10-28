@@ -5,7 +5,7 @@
 // @req FR-FEX-024
 // @req FR-FEX-030
 
-import { t } from '../../i18n/i18n.ts';
+import { t, tn } from '../../i18n/i18n.ts';
 import { useEffect } from 'react';
 import { Icon } from '../common';
 import type { PendingUploadRow } from './fileTransferStore.ts';
@@ -50,6 +50,20 @@ export function FileExplorerDropChip({ target }: { target: DropChipTarget | null
           <code className="fx-drop-path">{target.dir}</code>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * FR-FEX-033 AC-2: shown from the drop until its job is over, so a slow move is not silent.
+ * @req FR-FEX-033
+ */
+export function FileExplorerDropPending({ pending }: { pending: { operation: 'move' | 'copy'; count: number } | null }) {
+  if (pending === null) return null;
+  return (
+    <div className="fx-drop-pending" role="status">
+      <span className="fx-job-spinner" aria-hidden="true" />
+      <span>{tn(pending.operation === 'copy' ? 'fileExplorer.drag.pending.copy' : 'fileExplorer.drag.pending.move', pending.count)}</span>
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const MOBILE_BREAKPOINT = 768;
+import { MOBILE_LAYOUT_QUERY } from '../utils/layoutMode.ts';
 
 interface UseResponsiveReturn {
   isMobile: boolean;
@@ -11,12 +10,12 @@ interface UseResponsiveReturn {
 
 export function useResponsive(): UseResponsiveReturn {
   const [isMobile, setIsMobile] = useState<boolean>(
-    () => window.innerWidth < MOBILE_BREAKPOINT
+    () => window.matchMedia(MOBILE_LAYOUT_QUERY).matches
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const mql = window.matchMedia(MOBILE_LAYOUT_QUERY);
 
     const handleChange = (e: MediaQueryListEvent) => {
       setIsMobile(e.matches);

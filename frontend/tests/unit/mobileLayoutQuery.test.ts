@@ -16,8 +16,10 @@ function cssFiles(rel = ''): string[] {
 }
 
 // @req FR-UIDS-015
-test('FR-UIDS-015 AC-1/AC-2: narrow screens, or a touch screen at most 500 px high', () => {
-  assert.equal(MOBILE_LAYOUT_QUERY, '(max-width: 767px), (pointer: coarse) and (max-height: 500px)');
+test('FR-UIDS-015 AC-1/AC-2: narrow screens, or a touch screen at most 500 px high and 950 px wide', () => {
+  // The width cap keeps a landscape tablet (1024 px and up) desktop when an on-screen keyboard
+  // shrinks its layout viewport below 500 px high (Firefox Android, Samsung Internet).
+  assert.equal(MOBILE_LAYOUT_QUERY, '(max-width: 767px), (pointer: coarse) and (max-height: 500px) and (max-width: 950px)');
 });
 
 // @req FR-UIDS-015

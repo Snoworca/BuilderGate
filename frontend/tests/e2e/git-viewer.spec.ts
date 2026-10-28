@@ -106,7 +106,15 @@ test.describe('git viewer: chip, window, diff', () => {
     await chip(page).tap();
     const shell = page.locator('.git-mobile');
     await expect(shell).toHaveAttribute('data-step', '0', { timeout: 15000 });
-    await shell.locator('.git-row', { hasText: 'second commit' }).tap();
+    // FR-GIT-005 AC-6: each row's graph is as tall as the row (44 px here), so lanes meet.
+    const commitRow = shell.locator('.git-row', { hasText: 'second commit' });
+    await expect(commitRow).toBeVisible({ timeout: 15000 });
+    await expect.poll(() => commitRow.evaluate((row) => {
+      const graph = row.querySelector('.git-row-graph');
+      return graph === null ? -1 : Math.abs(graph.getBoundingClientRect().height - row.getBoundingClientRect().height);
+    })).toBeLessThanOrEqual(1);
+    expect(await commitRow.evaluate((row) => row.getBoundingClientRect().height)).toBeGreaterThanOrEqual(43);
+    await commitRow.tap();
     await expect(shell).toHaveAttribute('data-step', '1');
     await shell.locator('.git-file', { hasText: 'a.txt' }).tap();
     await expect(shell).toHaveAttribute('data-step', '2');

@@ -87,3 +87,14 @@ export function layoutGraph(commits: readonly GraphCommit[], from: GraphState = 
     overflow: Math.max(0, maxLanes - MAX_LANES),
   };
 }
+
+/** The desktop row height, used until a row has been measured. */
+export const GRAPH_ROW_FALLBACK_PX = 28;
+
+/**
+ * FR-GIT-005 AC-6: the height a row's graph is drawn at -- the row's measured height, so the
+ * lines meet between rows whatever the layout makes a row (44 px on a phone).
+ */
+export function graphRowHeight(measured: number | null | undefined): number {
+  return measured !== null && measured !== undefined && measured > 0 ? Math.round(measured) : GRAPH_ROW_FALLBACK_PX;
+}

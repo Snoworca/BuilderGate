@@ -63,7 +63,8 @@ test('FR-FOP-006 AC-4: a long name is shortened in the middle; on a phone the bu
   const model = buildDecisionModal({ kind: 'conflict', path: `/w/${long}`, choices: ['overwrite', 'rename', 'skip'] });
   assert.ok(model.message.includes('…'), 'the name in the message is shortened');
   const css = read('../../src/components/fileExplorer/FileExplorer.css');
-  const phone = /@media\s*\(max-width:\s*767px\)\s*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+  // FR-UIDS-015: the phone rule is the shared layout query (tests/unit/mobileLayoutQuery.test.ts).
+  const phone = /@media\s*\(max-width:\s*767px\)[^{]*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
   assert.match(phone, /\.fx-window-modal-actions\s*\{[^}]*flex-direction:\s*column/, 'stacked');
   assert.match(phone, /\.fx-window-modal-actions\s+\.fx-confirm-button\s*\{[^}]*min-height:\s*44px[^}]*width:\s*100%|\.fx-window-modal-actions\s+\.fx-confirm-button\s*\{[^}]*width:\s*100%[^}]*min-height:\s*44px/, 'full width, 44 px');
 });
