@@ -134,6 +134,16 @@ const REPLAY_ACK_TIMEOUT_MS = 5_000;
 const RESTORE_AUTHORITY_RETRY_BACKOFFS_MS = [16, 16, 32, 64, 128, 256, 512] as const;
 const RESTORE_AUTHORITY_MAX_RETRIES = RESTORE_AUTHORITY_RETRY_BACKOFFS_MS.length;
 
+/**
+ * REL-BGSTAB-054/056: a reason fit for one log line — no control characters or quotes,
+ * at most 123 bytes (the WebSocket close reason limit).
+ */
+function formatLogReason(raw: string): string {
+  const text = raw.replace(/[\u0000-\u001f\u007f"]/g, '');
+  const bytes = Buffer.from(text, 'utf8');
+  return bytes.length <= 123 ? text : bytes.subarray(0, 123).toString('utf8').replace(/\uFFFD+$/, '');
+}
+
 function restoreAuthorityRetryDelayMs(attempt: number): number {
   const index = Math.max(0, Math.min(attempt - 1, RESTORE_AUTHORITY_RETRY_BACKOFFS_MS.length - 1));
   return RESTORE_AUTHORITY_RETRY_BACKOFFS_MS[index]!;
@@ -1863,7 +1873,7 @@ export class WsRouter {
         }
       });
 
-      ws.on('close', () => this.handleSocketClose(ws));
+      ws.on('close', (code: number, reason: Buffer) => this.handleSocketClose(ws, code, reason));
 
       ws.on('error', (err) => {
         console.error(`[WS] Client error (${clientId}):`, err.message);
@@ -1906,9 +1916,12 @@ export class WsRouter {
       case 'subscribe':
         this.handleSubscribe(ws, (msg as Extract<ClientWsMessage, { type: 'subscribe' }>).sessionIds);
         break;
-      case 'unsubscribe':
-        this.handleUnsubscribe(ws, (msg as Extract<ClientWsMessage, { type: 'unsubscribe' }>).sessionIds);
+      case 'unsubscribe': {
+        const unsubscribe = msg as Extract<ClientWsMessage, { type: 'unsubscribe' }>;
+        this.logRecoveryResubscribe(ws, unsubscribe);
+        this.handleUnsubscribe(ws, unsubscribe.sessionIds);
         break;
+      }
       case 'screen-snapshot:ready':
         this.handleScreenSnapshotReady(
           ws,
@@ -2009,10 +2022,10 @@ export class WsRouter {
    * socket to the control socket (`FR-BGSTAB-007` AC-3/AC-4), and a per-socket
    * codec would make that fallback undecodable.
    */
-  private handleSocketClose(ws: WebSocket): void {
+  private handleSocketClose(ws: WebSocket, code?: number, reason?: Buffer): void {
     // REL-BGSTAB-051 AC-5: read the key before handleDisconnect forgets the client.
     const binaryKey = this.terminalBinaryGroupKey(ws);
-    this.handleDisconnect(ws);
+    this.handleDisconnect(ws, { code, reason });
     const group = this.splitSocketGroups.get(ws);
     if (group?.control === ws) {
       group.output?.close(1001, 'control-closed');
@@ -3270,6 +3283,29 @@ export class WsRouter {
     this.sendTo(ws, { type: 'subscribed', sessions: results });
   }
 
+  /** REL-BGSTAB-056 AC-1: count in production which recovery paths resubscribe a session. */
+  private logRecoveryResubscribe(
+    ws: WebSocket,
+    message: Extract<ClientWsMessage, { type: 'unsubscribe' }>,
+  ): void {
+    const recovery: unknown = message.recovery;
+    const meta = this.clients.get(ws);
+    if (!meta || !isRecord(recovery) || typeof recovery.reason !== 'string') return;
+    const attempt = Number.isSafeInteger(recovery.attempt) && (recovery.attempt as number) >= 0
+      ? recovery.attempt
+      : '-';
+    const clientId = meta.clientId;
+    // Only sessions this socket subscribed: a session id is client input, so an unknown one
+    // could forge log lines or multiply them.
+    const sessionIds: unknown[] = Array.isArray(message.sessionIds) ? message.sessionIds : [];
+    for (const sessionId of sessionIds) {
+      if (typeof sessionId !== 'string' || !meta.subscribedSessions.has(sessionId)) continue;
+      console.log(
+        `[WS] Session resubscribe: ${clientId} session=${sessionId} reason="${formatLogReason(recovery.reason)}" attempt=${attempt}`,
+      );
+    }
+  }
+
   private handleUnsubscribe(ws: WebSocket, sessionIds: string[]): void {
     const meta = this.clients.get(ws);
     if (!meta) return;
@@ -3310,6 +3346,11 @@ export class WsRouter {
           viewGeneration,
         });
       }
+    }
+    // REL-BGSTAB-055 AC-3: frames after this one belong to a new subscription. One per
+    // session, so each travels on that session's ordered lane behind its queued frames.
+    for (const sessionId of sessionIds) {
+      this.sendTo(ws, { type: 'unsubscribed', sessionId });
     }
   }
 
@@ -4068,7 +4109,7 @@ export class WsRouter {
     );
   }
 
-  private handleDisconnect(ws: WebSocket): void {
+  private handleDisconnect(ws: WebSocket, close?: { code?: number; reason?: Buffer }): void {
     const meta = this.clients.get(ws);
     const control = meta?.channelRole === 'output' ? this.splitSocketGroups.get(ws)?.control : ws;
     const fairDelivery = control ? this.fairDeliverySchedulers.get(control) : undefined;
@@ -4081,7 +4122,11 @@ export class WsRouter {
       this.fairDeliveryEpochGenerations.delete(control);
     }
     if (meta) {
-      console.log(`[WS] Client disconnected: ${meta.clientId}`);
+      // REL-BGSTAB-054: say who closed the socket and why.
+      const closeDetail = close
+        ? ` code=${close.code ?? '-'} reason="${formatLogReason(close.reason?.toString('utf8') ?? '')}"`
+        : '';
+      console.log(`[WS] Client disconnected: ${meta.clientId}${closeDetail}`);
       for (const [sessionId, viewGeneration] of [...(meta.retainedTerminalViews ?? [])]) {
         this.sessionManager.unregisterRetainedTerminalClientView(
           sessionId,

@@ -163,7 +163,6 @@ import {
   getFixedMcpAccessKeyScopes,
   mintMcpCapabilityToken,
   validateMcpSecurityConfig,
-  validateMcpWebhookKeyHeaderName,
   verifyMcpFixedAccessKey,
 } from './services/McpSecurityContract.js';
 
@@ -869,7 +868,6 @@ function setupRoutes(): void {
         : [];
       res.json({
         ...control,
-        webhookKeyHeaderName: webhook.webhookKeyHeaderName,
         webhookRateLimit: webhook.rateLimit,
         recentAuditEvents,
       });
@@ -885,7 +883,6 @@ function setupRoutes(): void {
         controlService: mcpControlService,
         webhookService: webhookInvocationService,
         configStore: mcpControlConfigStore,
-        validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
       }));
       sendMcpControlRouteResult(res, result);
     } catch (error) {
@@ -1663,7 +1660,6 @@ async function startServer(): Promise<void> {
     webhookInvocationService = createWebhookInvocationService({
       now: () => new Date().toISOString(),
       webhookRecords: existingWebhookRecords,
-      webhookKeyHeaderName: initialMcpControlConfig.webhookKeyHeaderName,
       webhookRateLimit: initialMcpControlConfig.webhookRateLimit,
       persistWebhookRecords: async (records) => {
         const saveRecords = webhookRecordStore.saveRecords as ((payload: unknown) => Promise<unknown>) | undefined;

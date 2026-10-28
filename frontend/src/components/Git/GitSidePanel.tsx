@@ -63,6 +63,9 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
   const [wt, setWt] = useState(false);
   const [fileKey, setFileKey] = useState<string | null>(null);
   const [filesHeight, setFilesHeight] = useState(150);
+  // FR-GIT-012: null is the automatic height; a number once the user resizes the detail.
+  const [detailHeight, setDetailHeight] = useState<number | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -104,22 +107,24 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
     };
     if (map[e.key]) { e.preventDefault(); map[e.key](); }
   };
+  const panelHeight = () => panelRef.current?.clientHeight || 600;
+  const filesMax = () => Math.max(84, panelHeight() * 0.5);
   const onSplitKey = (e: React.KeyboardEvent) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-    e.preventDefault();
-    const max = Math.max(84, (panelRef.current?.clientHeight || 600) * 0.5);
-    setFilesHeight((h) => Math.max(84, Math.min(max, h + (e.key === 'ArrowDown' ? 16 : -16))));
+    const step = rowResizeKeyStep(e);
+    if (step) setFilesHeight((h) => clamp(h + step, 84, filesMax()));
   };
   const onSplitDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    const startY = e.clientY;
-    const startH = filesHeight;
-    const handle = e.currentTarget;
-    handle.setPointerCapture?.(e.pointerId);
-    const max = Math.max(84, (panelRef.current?.clientHeight || 600) * 0.5);
-    const moveH = (ev: PointerEvent) => setFilesHeight(Math.max(84, Math.min(max, startH + ev.clientY - startY)));
-    const up = () => { handle.removeEventListener('pointermove', moveH); handle.removeEventListener('pointerup', up); };
-    handle.addEventListener('pointermove', moveH);
-    handle.addEventListener('pointerup', up);
+    startRowResizeDrag(e, filesHeight, (h) => setFilesHeight(clamp(h, 84, filesMax())));
+  };
+  // FR-GIT-012: the detail grows down to where the files keep their height and the diff 120 px.
+  const detailMax = () => Math.max(DETAIL_MIN, panelHeight() - filesHeight - 120 - 2 * SPLITTER_PX);
+  const detailStart = () => detailHeight ?? Math.max(DETAIL_MIN, detailRef.current?.offsetHeight ?? 0);
+  const onDetailSplitKey = (e: React.KeyboardEvent) => {
+    const step = rowResizeKeyStep(e);
+    if (step) setDetailHeight(clamp(detailStart() + step, DETAIL_MIN, detailMax()));
+  };
+  const onDetailSplitDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    startRowResizeDrag(e, detailStart(), (h) => setDetailHeight(clamp(h, DETAIL_MIN, detailMax())));
   };
 
   const lang = activeLanguage();
@@ -205,7 +210,26 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
   const activeIndex = files.findIndex((f) => f.key === current?.key);
   return (
     <div className={`git-side${layout ? ` layout-${layout}` : ''}`} ref={panelRef}>
-      <div className="git-detail">{detail}</div>
+      <div
+        className={`git-detail${layout || detailHeight === null ? '' : ' is-sized'}`}
+        ref={detailRef}
+        style={layout || detailHeight === null ? undefined : { height: Math.max(DETAIL_MIN, Math.min(detailHeight, detailMax())) }}
+      >
+        {detail}
+      </div>
+      {!layout && (
+        <div
+          className="git-hsplit"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={t('git.detail.splitter')}
+          aria-valuenow={detailHeight ?? undefined}
+          tabIndex={0}
+          onKeyDown={onDetailSplitKey}
+          onPointerDown={onDetailSplitDrag}
+          onDoubleClick={() => setDetailHeight(null)}
+        />
+      )}
       <div
         className="git-files"
         role="listbox"
@@ -231,4 +255,33 @@ export function GitSidePanel({ sessionId, client, summary, selected, reloadKey, 
       <div className="git-diff-slot">{diff(current, { selected, wt, position: { index: Math.max(0, activeIndex), total: files.length }, moveFile: move })}</div>
     </div>
   );
+}
+
+const DETAIL_MIN = 60;
+const SPLITTER_PX = 6;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+/** Arrow keys move a row splitter by 16 px; anything else is not a resize. */
+function rowResizeKeyStep(e: React.KeyboardEvent): number {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return 0;
+  e.preventDefault();
+  return e.key === 'ArrowDown' ? 16 : -16;
+}
+
+/** Follows the pointer from `startHeight` until it is released. */
+function startRowResizeDrag(e: React.PointerEvent<HTMLDivElement>, startHeight: number, onHeight: (height: number) => void): void {
+  const startY = e.clientY;
+  const handle = e.currentTarget;
+  handle.setPointerCapture?.(e.pointerId);
+  const move = (ev: PointerEvent) => onHeight(startHeight + ev.clientY - startY);
+  const ends = ['pointerup', 'pointercancel', 'lostpointercapture'] as const;
+  const up = () => {
+    handle.removeEventListener('pointermove', move);
+    for (const type of ends) handle.removeEventListener(type, up);
+  };
+  handle.addEventListener('pointermove', move);
+  for (const type of ends) handle.addEventListener(type, up);
 }

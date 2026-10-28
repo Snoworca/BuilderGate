@@ -68,6 +68,7 @@ import {
 import { getCachedTerminalOutputResourceLimits } from '../utils/terminalOutputHotPath';
 import { classifyWsFrame } from '../utils/wsFrameDispatch';
 import { publishInputDiscard } from '../utils/inputDiscardFeedback';
+import { isAutomaticReplyRejection } from '../utils/automaticInputReplies';
 import { shouldSurfaceInputRejection } from '../utils/inputRejectionSurface';
 import { resolveLogicalClientId } from '../utils/logicalClientIdentity';
 import { deriveMaxBodyBytes } from '../utils/binaryFrameCodec';
@@ -88,6 +89,11 @@ import type { TerminalOutputDelivery } from '../utils/terminalOutputDelivery';
 import { sendOpenBrowserWebSocketMessage } from '../utils/webSocketBackpressure';
 import { createDeliveryVisibilityLedger, type DeliveryVisibilityLedger } from '../utils/terminalDeliveryVisibilityLedger';
 import { respondToTerminalAuthorityViewAttributeCapability } from '../utils/terminalViewAttributes';
+import {
+  createSessionResubscribeFence,
+  resubscribeSessionOnSocket,
+  type SessionRecoveryReason,
+} from '../utils/sessionResubscribe';
 import {
   applyGraceBufferedMessage,
   createGraceBufferedSessionState,
@@ -190,6 +196,8 @@ export interface WebSocketContextValue {
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
   registerFileJobHandler: (handler: FileJobMessageHandler) => () => void;
   requestReconnect: (reason: string) => boolean;
+  /** REL-BGSTAB-055: unsubscribe and subscribe one session on the open socket. */
+  resubscribeSession: (sessionId: string, recovery: SessionRecoveryReason) => boolean;
   publishTerminalDeliveryVisibility: (input: {
     sessionId: string;
     isVisible: boolean;
@@ -225,6 +233,8 @@ export interface WebSocketActionsValue {
   setWorkspaceHandlers: (handlers: Record<string, WorkspaceEventHandler>) => void;
   registerFileJobHandler: (handler: FileJobMessageHandler) => () => void;
   requestReconnect: (reason: string) => boolean;
+  /** REL-BGSTAB-055: unsubscribe and subscribe one session on the open socket. */
+  resubscribeSession: (sessionId: string, recovery: SessionRecoveryReason) => boolean;
   publishTerminalDeliveryVisibility: (input: {
     sessionId: string;
     isVisible: boolean;
@@ -323,6 +333,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   // view-scoped owner would lose it on an unmount even though the connection,
   // and therefore the channels, survived (`08:199`).
   const channelRegistryRef = useRef(createTerminalChannelRegistry());
+  // REL-BGSTAB-055: sessions resubscribed on this socket whose `subscribed` reply is pending.
+  const resubscribeFenceRef = useRef(createSessionResubscribeFence());
   const handleMessageRef = useRef<(event: MessageEvent) => void>(() => undefined);
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -513,6 +525,17 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       return;
     }
     const rawMessage: unknown = frame.message;
+
+    // REL-BGSTAB-055 AC-3: frames of a resubscribed session's old subscription are dropped
+    // until the server's `unsubscribed` reply, which this consumes.
+    if (resubscribeFenceRef.current.consumeMarker(rawMessage)) return;
+    const fenceDecision = resubscribeFenceRef.current.admit(rawMessage);
+    if (!fenceDecision.deliver) {
+      recordTerminalDebugEvent(fenceDecision.sessionId, 'session_resubscribe_frame_dropped', {
+        type: fenceDecision.type,
+      });
+      return;
+    }
 
     // `01 §2.2` layer 2. Placed first because a control message that fell
     // through to the generic path would be logged as an unknown type and the
@@ -975,8 +998,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         // Which refusals owe a warning is decided by shouldSurfaceInputRejection: the rule is
         // whether the write reached the PTY, and it used to be spelled here as a single
         // exclusion whose comment was wrong about expired-operation.
+        // REL-BGSTAB-057: a refused automatic terminal reply was not typed, so it is not
+        // reported as lost typing.
         if (shouldSurfaceInputRejection(msg.reason)) {
-          publishInputDiscard(sessionId);
+          if (isAutomaticReplyRejection(sessionId, msg)) {
+            recordTerminalDebugEvent(sessionId, 'automatic_reply_rejection_quiet', { reason: msg.reason });
+          } else {
+            publishInputDiscard(sessionId);
+          }
         }
       }
       const handlers = sessionHandlersRef.current.get(sessionId);
@@ -1114,6 +1143,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       // the socket that delivered them. Replaying them after a reconnect can
       // let an old reconnect-required frame close the replacement socket.
       graceBufferedSessionsRef.current.clear();
+      resubscribeFenceRef.current.clear();
       reconnectAttemptRef.current = 0;
       setStatus('connected');
       console.log('[WS] Connected');
@@ -1455,6 +1485,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           const currentWs = wsRef.current;
           if (currentWs && currentWs.readyState === WebSocket.OPEN) {
             currentWs.send(JSON.stringify({ type: 'unsubscribe', sessionIds: [sessionId] }));
+            resubscribeFenceRef.current.noteUnsubscribeSent(sessionId);
           }
         }, SUBSCRIPTION_GRACE_MS);
         pendingUnsubscribeTimersRef.current.set(sessionId, timer);
@@ -1462,6 +1493,23 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       // If currentHandlers !== myHandlers, a newer instance already took over — skip cleanup
     };
   }, [flushGraceBuffer]);
+
+  // @req REL-BGSTAB-055
+  const resubscribeSession = useCallback((sessionId: string, recovery: SessionRecoveryReason): boolean => {
+    const ws = wsRef.current;
+    return resubscribeSessionOnSocket({ sessionId, ...recovery }, {
+      isOpen: () => ws !== null && ws.readyState === WebSocket.OPEN,
+      sharesOneSocket: () => outputWsRef.current === null,
+      sendJson: (message) => {
+        ws?.send(JSON.stringify(message));
+        return true;
+      },
+      refreshCapabilities: requestCurrentTerminalCheckpointCapability,
+      retireChannels: (id) => channelRegistryRef.current.retireSession(id),
+      dropGraceBuffer: (id) => graceBufferedSessionsRef.current.delete(id),
+      fence: resubscribeFenceRef.current,
+    });
+  }, [requestCurrentTerminalCheckpointCapability]);
 
   const setWorkspaceHandlers = useCallback((handlers: Record<string, WorkspaceEventHandler>) => {
     workspaceHandlersRef.current = handlers;
@@ -1573,6 +1621,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     setWorkspaceHandlers,
     registerFileJobHandler,
     requestReconnect,
+    resubscribeSession,
     publishTerminalDeliveryVisibility,
     registerTerminalCheckpointDispatcher,
     refreshTerminalCheckpointRegistration: requestCurrentTerminalCheckpointCapability,
@@ -1589,6 +1638,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     registerTerminalResponderHandoffView,
     requestCurrentTerminalCheckpointCapability,
     requestReconnect,
+    resubscribeSession,
     send,
     sendTerminalAuthorityControl,
     subscribeSession,

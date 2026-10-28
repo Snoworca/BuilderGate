@@ -18,7 +18,6 @@ export interface McpSecurityDraft {
   trustedProxiesText: string;
   externalWhitelistText: string;
   allowedOriginsText: string;
-  webhookKeyHeaderName: string;
   webhookRateLimitWindowSecondsText: string;
   webhookRateLimitBurstLimitText: string;
   submitEnterDelayMsText: string;
@@ -42,7 +41,6 @@ export interface McpAgentDraftValidationInput {
   mcpClientConfigMode: McpClientConfigMode;
 }
 
-const HEADER_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9-]*$/;
 const MAX_AGENT_DISPLAY_NAME_LENGTH = 80;
 const MAX_KICKOFF_PROMPT_LENGTH = 12000;
 const ALLOWED_AGENT_CONFIG_MODES = new Set<McpClientConfigMode>(['env', 'generated-file', 'manual']);
@@ -178,6 +176,21 @@ export function normalizeMcpWebhookMode(value: string): string {
   return matchedMode ?? normalized;
 }
 
+/**
+ * FR-MCP-014 AC-4: the address an MCP client connects to, from the saved listener config.
+ * A wildcard bind is reached on loopback; only direct TLS serves https.
+ */
+export function formatMcpEndpointUrl(
+  config: Pick<McpControlConfig, 'host' | 'port' | 'transportSecurity'> | null | undefined,
+): string | null {
+  if (!config) return null;
+  const host = config.host === '0.0.0.0' || config.host === '::' || !config.host ? '127.0.0.1' : config.host;
+  // An IPv6 zone id (fe80::1%eth0) is written %25 inside a URL.
+  const authority = host.includes(':') ? `[${host.replace('%', '%25')}]` : host;
+  const scheme = config.transportSecurity === 'direct_tls' ? 'https' : 'http';
+  return `${scheme}://${authority}:${config.port}/mcp`;
+}
+
 export function createMcpSecurityDraft(config: McpControlConfig): McpSecurityDraft {
   return {
     enabled: Boolean(config.enabled),
@@ -188,7 +201,6 @@ export function createMcpSecurityDraft(config: McpControlConfig): McpSecurityDra
     trustedProxiesText: formatMcpControlListInput(config.trustedProxies),
     externalWhitelistText: formatMcpControlListInput(config.externalWhitelist),
     allowedOriginsText: formatMcpControlListInput(config.allowedOrigins),
-    webhookKeyHeaderName: config.webhookKeyHeaderName || 'X-BuilderGate-Webhook-Key',
     webhookRateLimitWindowSecondsText: String(config.webhookRateLimit?.windowSeconds ?? 60),
     webhookRateLimitBurstLimitText: String(config.webhookRateLimit?.burstLimit ?? 10),
     submitEnterDelayMsText: String(config.submitEnterDelayMs ?? DEFAULT_SUBMIT_ENTER_DELAY_MS),
@@ -241,15 +253,6 @@ export function validateMcpSecurityDraft(draft: McpSecurityDraft): string | null
     return t('mcp.validation.originFormat');
   }
 
-  const headerName = draft.webhookKeyHeaderName.trim();
-  if (!HEADER_NAME_PATTERN.test(headerName)) {
-    return t('mcp.validation.headerFormat');
-  }
-
-  if (['authorization', 'cookie', 'set-cookie'].includes(headerName.toLowerCase())) {
-    return t('mcp.validation.headerForbidden');
-  }
-
   const rateWindowSeconds = Number(draft.webhookRateLimitWindowSecondsText);
   const burstLimit = Number(draft.webhookRateLimitBurstLimitText);
   if (!Number.isInteger(rateWindowSeconds) || rateWindowSeconds < 1 || !Number.isInteger(burstLimit) || burstLimit < 1) {
@@ -291,7 +294,6 @@ export function buildMcpControlConfigPatch(draft: McpSecurityDraft): McpControlC
     trustedProxies: parseMcpControlListInput(draft.trustedProxiesText),
     externalWhitelist: parseMcpControlListInput(draft.externalWhitelistText),
     allowedOrigins: parseMcpControlListInput(draft.allowedOriginsText),
-    webhookKeyHeaderName: draft.webhookKeyHeaderName.trim(),
     webhookRateLimit: {
       windowSeconds: Number(draft.webhookRateLimitWindowSecondsText),
       burstLimit: Number(draft.webhookRateLimitBurstLimitText),

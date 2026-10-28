@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TerminalContainer } from './TerminalContainer';
 import type { TerminalHandle } from './TerminalView';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
@@ -38,6 +38,8 @@ interface TerminalRuntimeLayerProps {
   onStatusChange: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
   onCwdChange: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
+  /** REL-BGSTAB-053: the redraw shortcut pressed in this tab's terminal. */
+  onRedrawRequest?: (tabId: string) => void;
   terminalShortcutState: TerminalShortcutState | null;
 }
 
@@ -48,6 +50,7 @@ interface TerminalRuntimeEntryProps {
   onStatusChange: (sessionId: string, status: WorkspaceTabRuntime['status']) => void;
   onCwdChange: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
+  onRedrawRequest?: (tabId: string) => void;
   terminalShortcutState: TerminalShortcutState | null;
 }
 
@@ -58,9 +61,12 @@ function TerminalRuntimeEntry({
   onStatusChange,
   onCwdChange,
   onAuthError,
+  onRedrawRequest,
   terminalShortcutState,
 }: TerminalRuntimeEntryProps) {
   const { getHostInteractions, outputPolicySelectionCoordinator } = useTerminalRuntimeContext();
+  const tabId = tab.id;
+  const onRedrawShortcut = useCallback(() => onRedrawRequest?.(tabId), [onRedrawRequest, tabId]);
   const isVisible = Boolean(host?.isVisible && host.rect.width > 0 && host.rect.height > 0);
   const isGridSurface = Boolean(host?.className?.includes('grid-cell'));
   const style: React.CSSProperties = isVisible && host
@@ -267,6 +273,7 @@ function TerminalRuntimeEntry({
         onStatusChange={onStatusChange}
         onCwdChange={onCwdChange}
         onAuthError={onAuthError}
+        onRedrawShortcut={onRedrawShortcut}
       />
       {fileDropActive && (
         <div className="terminal-file-drop-overlay" data-terminal-file-drop="true">
@@ -283,6 +290,7 @@ export function TerminalRuntimeLayer({
   onStatusChange,
   onCwdChange,
   onAuthError,
+  onRedrawRequest,
   terminalShortcutState,
 }: TerminalRuntimeLayerProps) {
   const { rootRef, hosts } = useTerminalRuntimeContext();
@@ -313,6 +321,7 @@ export function TerminalRuntimeLayer({
             onStatusChange={onStatusChange}
             onCwdChange={onCwdChange}
             onAuthError={onAuthError}
+            onRedrawRequest={onRedrawRequest}
             terminalShortcutState={terminalShortcutState}
           />
         );

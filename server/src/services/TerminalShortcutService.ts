@@ -327,6 +327,9 @@ export class TerminalShortcutService {
     if (typed.type === 'block') {
       return { type: 'block' };
     }
+    if (typed.type === 'redraw') {
+      return { type: 'redraw' };
+    }
     throw new AppError(ErrorCode.INVALID_INPUT, 'Unsupported terminal shortcut action');
   }
 

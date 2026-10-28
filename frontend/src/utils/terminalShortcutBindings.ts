@@ -110,7 +110,10 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
     return { kind: 'skipped', reason: 'reserved' };
   }
   if (!state) {
-    return { kind: 'skipped', reason: 'not-loaded' };
+    // The redraw is a way out of a broken screen, so it works before the settings load.
+    return matchesRedrawShortcut(event)
+      ? actionResolution(REDRAW_SHORTCUT_BINDING.id, REDRAW_SHORTCUT_BINDING.action, 'profile')
+      : { kind: 'skipped', reason: 'not-loaded' };
   }
 
   const activeProfile = getActiveTerminalShortcutProfile(state, workspaceId, sessionId);
@@ -127,7 +130,8 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
     return actionResolution(userBinding.id, userBinding.action, 'user');
   }
 
-  const builtInBinding = getBuiltInProfileBindings(activeProfile).find(binding => matchesBinding(event, binding));
+  const builtInBinding = getBuiltInProfileBindings(activeProfile).find(binding => matchesBinding(event, binding))
+    ?? (matchesRedrawShortcut(event) ? REDRAW_SHORTCUT_BINDING : undefined);
   if (builtInBinding) {
     if (event.repeat && !builtInBinding.allowRepeat) {
       return { kind: 'skipped', reason: 'repeat-disabled' };
@@ -136,6 +140,40 @@ export function resolveTerminalShortcut(input: ResolveTerminalShortcutInput): Te
   }
 
   return { kind: 'pass-through', reason: 'no-match' };
+}
+
+/**
+ * REL-BGSTAB-053 AC-6: Ctrl+Alt+R redraws the screen in every profile. It is built in, so a user
+ * binding on the same key wins, and the redraw action can also be bound to another key.
+ */
+export const REDRAW_SHORTCUT_BINDING: TerminalShortcutBinding = {
+  id: 'builtin:redraw:ctrl-alt-r',
+  scope: 'global',
+  enabled: true,
+  allowRepeat: false,
+  matchByKeyFallback: false,
+  sortOrder: 0,
+  createdAt: 'builtin',
+  updatedAt: 'builtin',
+  key: 'r',
+  code: 'KeyR',
+  ctrlKey: true,
+  shiftKey: false,
+  altKey: true,
+  metaKey: false,
+  location: 0,
+  action: { type: 'redraw' },
+  description: 'Ctrl+Alt+R -> redraw the screen',
+};
+
+/**
+ * Ctrl+Alt+R that types the letter r (or ㄱ in Hangul mode). Windows reports AltGr as Ctrl+Alt, so AltGr+R on a layout
+ * where it types a character (US-International: ®) keeps typing it.
+ */
+function matchesRedrawShortcut(event: TerminalShortcutKeyDescriptor): boolean {
+  // U+3131 (Hangul giyeok) is the same key with the Korean IME in Hangul mode; built from its
+  // code point because src keeps no Hangul literals (FR-I18N-003).
+  return matchesBinding(event, REDRAW_SHORTCUT_BINDING) && ['r', String.fromCharCode(0x3131)].includes(event.key.toLowerCase());
 }
 
 export function getBuiltInProfileBindings(profile: TerminalShortcutProfile): TerminalShortcutBinding[] {

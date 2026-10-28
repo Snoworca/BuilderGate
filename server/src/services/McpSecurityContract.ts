@@ -114,14 +114,6 @@ const ALLOWED_AGENT_STATUS = new Set(['unknown', 'starting', 'ready', 'busy', 'w
 const ALLOWED_BINDING_LIFECYCLE = new Set(['live', 'closing', 'closed', 'retired', 'failed', 'closing-failed']);
 const ALLOWED_BIND_MODES = new Set(['loopback', 'whitelist']);
 const ALLOWED_TRANSPORT_SECURITY = new Set(['none', 'direct_tls', 'trusted_tls_proxy']);
-const FORBIDDEN_WEBHOOK_HEADERS = new Set([
-  'authorization',
-  'cookie',
-  'set-cookie',
-  'forwarded',
-  'host',
-  'content-length',
-]);
 
 // @req SEC-MCP-001
 export function createDefaultMcpSecurityConfig(): McpSecurityConfig {
@@ -438,27 +430,6 @@ export function createMcpOperationalStatus(input: {
 
   return {
     recentAuditEvents,
-  };
-}
-
-// @req IR-MCP-005
-export function validateMcpWebhookKeyHeaderName(headerName: string): StringRecord {
-  const normalized = headerName.trim().toLowerCase();
-  if (
-    FORBIDDEN_WEBHOOK_HEADERS.has(normalized)
-    || normalized.startsWith('x-forwarded-')
-    || normalized.length === 0
-    || !isValidHttpToken(headerName)
-  ) {
-    return {
-      ok: false,
-      code: 'WEBHOOK_HEADER_FORBIDDEN',
-    };
-  }
-
-  return {
-    ok: true,
-    value: headerName,
   };
 }
 
@@ -800,10 +771,6 @@ function timingSafeEqual(left: string, right: string): boolean {
     return false;
   }
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
-}
-
-function isValidHttpToken(value: string): boolean {
-  return /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(value);
 }
 
 function createWebhookSecret(): string {

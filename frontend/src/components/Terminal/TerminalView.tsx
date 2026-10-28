@@ -9,6 +9,7 @@ import {
   shouldShowInputDiscardFeedback,
   subscribeToInputDiscards,
 } from '../../utils/inputDiscardFeedback';
+import { noteAutomaticReplyCapture } from '../../utils/automaticInputReplies';
 import { WebglAddon } from '@xterm/addon-webgl';
 import {
   createTerminalWebglRenderer,
@@ -434,6 +435,8 @@ interface Props {
   flushPendingUserInputBeforeQueryReply: (reason: string) => boolean;
   onResize: (cols: number, rows: number) => void;
   onManualRepair?: () => void;
+  /** REL-BGSTAB-053: the redraw shortcut (Ctrl+Alt+R by default, or a user binding). */
+  onRedrawShortcut?: () => void;
   onRestorePendingSettled?: () => void;
   onCompatibilityAuthorityReady?: () => void;
   onVisibleOutputOverflow?: (info: {
@@ -444,7 +447,10 @@ interface Props {
 }
 
 export const TerminalView = forwardRef<TerminalHandle, Props>(
-  ({ sessionId, workspaceId, terminalShortcutState, isVisible, clipboardContextKey, outputPolicyConnectionId, outputPolicyReconnectGeneration, outputPolicySelectionCoordinator, onInput, flushPendingUserInputBeforeQueryReply, onResize, onManualRepair, onRestorePendingSettled, onCompatibilityAuthorityReady, onVisibleOutputOverflow }, ref) => {
+  ({ sessionId, workspaceId, terminalShortcutState, isVisible, clipboardContextKey, outputPolicyConnectionId, outputPolicyReconnectGeneration, outputPolicySelectionCoordinator, onInput, flushPendingUserInputBeforeQueryReply, onResize, onManualRepair, onRestorePendingSettled, onCompatibilityAuthorityReady, onVisibleOutputOverflow, onRedrawShortcut }, ref) => {
+    // The key handler is attached once; it reads the latest callback here.
+    const onRedrawShortcutRef = useRef(onRedrawShortcut);
+    onRedrawShortcutRef.current = onRedrawShortcut;
     const terminalRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -4289,6 +4295,12 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
             actionType: shortcutResolution.action.type,
           });
 
+          if (shortcutResolution.action.type === 'redraw') {
+            ev.preventDefault();
+            onRedrawShortcutRef.current?.();
+            return false;
+          }
+
           if (shortcutResolution.action.type === 'send') {
             ev.preventDefault();
             const debugInput = buildTerminalInputDebugPayload(shortcutResolution.action.data, {
@@ -4428,6 +4440,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           });
           return;
         }
+        // REL-BGSTAB-057: a reply sent on the ordinary path is remembered, so its refusal
+        // is not reported as lost typing.
+        let automaticReply = false;
         if (
           !hasUserInputProvenance
           && isTerminalQueryReply(data, { provenance: 'parser-generated' })
@@ -4463,6 +4478,7 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           // Initial legacy compatibility mode predates an authority lease. Keep
           // its parser replies on the ordinary path until the exact disable
           // boundary is acknowledged; post-rollback replies always have a lease.
+          automaticReply = true;
         }
         // @req FR-MKB-003
         // Mobile modifier latch: any data that passed the replay and query-reply
@@ -4486,6 +4502,9 @@ export const TerminalView = forwardRef<TerminalHandle, Props>(
           captureSeq: programmaticPaste?.captureSeq ?? nextCaptureSeq(),
           compositionSeq,
         }, { captureEnabled: isTerminalDebugCaptureEnabled(sessionId) });
+        if (automaticReply && typeof debugInput.details.captureSeq === 'number') {
+          noteAutomaticReplyCapture(sessionId, debugInput.details.captureSeq);
+        }
         const source = programmaticPaste?.source ?? 'xterm';
         const result = submitCapturedInput(data, debugInput, source);
         if (programmaticPaste) {

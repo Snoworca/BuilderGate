@@ -17,6 +17,12 @@ import { Icon } from '../common/Icon';
 import type { IconName } from '../common/iconGlyphs';
 import { Button, Checkbox, Chip, Field, NumberInput, Select, Spinner, TextInput } from '../ui';
 import type { ChipTone } from '../ui';
+import {
+  readBrowserAutoRedrawSettings,
+  writeBrowserAutoRedrawSettings,
+  clampAutoRedrawDelay,
+  type AutoRedrawSettings,
+} from '../../utils/autoRedrawSettings';
 import { AUTO_FOCUS_RATIO_KEY, AUTO_FOCUS_RATIO_DEFAULT, FOCUS_RATIO_KEY, FOCUS_RATIO_DEFAULT } from '../../utils/mosaic';
 import { validatePasswordPolicy } from '../../utils/passwordPolicy';
 import { reloadRuntimeConfig } from '../../utils/inputReliabilityMode';
@@ -114,6 +120,15 @@ export function SettingsPage({ visible, onBack }: Props) {
     const clamped = Math.round(Math.max(0.1, Math.min(0.9, value)) * 100) / 100;
     setFocusRatio(clamped);
     localStorage.setItem(FOCUS_RATIO_KEY, clamped.toString());
+  };
+
+  // REL-BGSTAB-053 AC-5: automatic redraw after a switch, kept in this browser.
+  const [autoRedraw, setAutoRedraw] = useState<AutoRedrawSettings>(readBrowserAutoRedrawSettings);
+  const updateAutoRedraw = (patch: Partial<AutoRedrawSettings>) => {
+    const next = { ...autoRedraw, ...patch };
+    next.delayMs = clampAutoRedrawDelay(next.delayMs);
+    setAutoRedraw(next);
+    writeBrowserAutoRedrawSettings(next);
   };
 
   const [saving, setSaving] = useState(false);
@@ -747,6 +762,39 @@ export function SettingsPage({ visible, onBack }: Props) {
                 />
               </SettingField>
             </Card>
+
+            <Card title={t('settings.redraw.title')} icon="refresh" description={t('settings.redraw.description')}>
+              <CheckField
+                label={t('settings.redraw.onWorkspaceSwitch')}
+                local
+                help={t('settings.redraw.onWorkspaceSwitchHelp')}
+                checked={autoRedraw.onWorkspaceSwitch}
+                onChange={(checked) => updateAutoRedraw({ onWorkspaceSwitch: checked })}
+                testId="settings-redraw-workspace"
+              />
+              <CheckField
+                label={t('settings.redraw.onTabSwitch')}
+                local
+                help={t('settings.redraw.onTabSwitchHelp')}
+                checked={autoRedraw.onTabSwitch}
+                onChange={(checked) => updateAutoRedraw({ onTabSwitch: checked })}
+                testId="settings-redraw-tab"
+              />
+              <SettingField htmlFor="settings-redraw-delay" label={t('settings.redraw.delay')} local help={t('settings.redraw.delayHelp')}>
+                <NumberInput
+                  id="settings-redraw-delay"
+                  unit={t('settings.unit.seconds')}
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  value={autoRedraw.delayMs / 1000}
+                  onChange={(e) => {
+                    const seconds = parseFloat(e.target.value);
+                    if (Number.isFinite(seconds)) updateAutoRedraw({ delayMs: seconds * 1000 });
+                  }}
+                />
+              </SettingField>
+            </Card>
           </div>
 
           <section className="settings-info-card">
@@ -851,6 +899,7 @@ function SettingField({
 function CheckField({
   label,
   scope,
+  local,
   help,
   error,
   checked,
@@ -858,7 +907,9 @@ function CheckField({
   testId,
 }: {
   label: string;
-  scope: FieldApplyScope;
+  scope?: FieldApplyScope;
+  /** Kept in this browser only (localStorage), not on the server. */
+  local?: boolean;
   help?: ReactNode;
   error?: string;
   checked: boolean;
@@ -871,8 +922,8 @@ function CheckField({
       label={(
         <>
           <Checkbox data-testid={testId} checked={checked} onChange={(e) => onChange(e.target.checked)}>{label}</Checkbox>
-          {' '}
-          <ScopeChip scope={scope} />
+          {scope && <>{' '}<ScopeChip scope={scope} /></>}
+          {local && <>{' '}<Chip className="settings-local-badge">{t('settings.field.localOnly')}</Chip></>}
         </>
       )}
       help={help}

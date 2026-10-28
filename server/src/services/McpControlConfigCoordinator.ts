@@ -5,7 +5,6 @@ type McpControlConfigCoordinatorInput = {
   controlService: StringRecord | null;
   webhookService: StringRecord | null;
   configStore?: StringRecord | null;
-  validateWebhookHeaderName: (headerName: string) => unknown;
 };
 
 export async function applyMcpControlConfigPatch(input: McpControlConfigCoordinatorInput): Promise<StringRecord> {
@@ -18,7 +17,7 @@ export async function applyMcpControlConfigPatch(input: McpControlConfigCoordina
   if (isMcpControlRouteFailure(previousWebhook)) {
     return previousWebhook;
   }
-  const webhookPatchValidation = validateWebhookPatch(body, input.validateWebhookHeaderName);
+  const webhookPatchValidation = validateWebhookPatch(body);
   if (webhookPatchValidation.ok === false) {
     return webhookPatchValidation;
   }
@@ -56,7 +55,6 @@ export async function applyMcpControlConfigPatch(input: McpControlConfigCoordina
   }
   const response = {
     ...control,
-    webhookKeyHeaderName: webhook.webhookKeyHeaderName,
     webhookRateLimit: webhook.rateLimit,
   };
 
@@ -67,7 +65,6 @@ export async function applyMcpControlConfigPatch(input: McpControlConfigCoordina
         ...control,
         host: control.host,
         bindHost: control.host,
-        webhookKeyHeaderName: webhook.webhookKeyHeaderName,
         webhookRateLimit: webhook.rateLimit,
       }));
       if (persisted.ok === false) {
@@ -112,7 +109,6 @@ async function restoreMcpControlConfig(
 
   try {
     const webhookRestore = asRecord(await callService(input.webhookService, 'setWebhookConfig', {
-      webhookKeyHeaderName: previousWebhook.webhookKeyHeaderName,
       rateLimit: previousWebhook.rateLimit,
     }));
     if (webhookRestore.ok === false) {
@@ -145,22 +141,10 @@ function toRollbackException(target: string, error: unknown): StringRecord {
   };
 }
 
-function validateWebhookPatch(
-  body: StringRecord,
-  validateWebhookHeaderName: (headerName: string) => unknown,
-): StringRecord {
-  const hasWebhookHeaderName = Object.prototype.hasOwnProperty.call(body, 'webhookKeyHeaderName');
+// FR-MCP-014 AC-2: the webhook key header is fixed, so only the rate limit is patched.
+function validateWebhookPatch(body: StringRecord): StringRecord {
   const hasWebhookRateLimit = Object.prototype.hasOwnProperty.call(body, 'webhookRateLimit');
   const webhookPatch: StringRecord = {};
-
-  if (hasWebhookHeaderName) {
-    const headerName = typeof body.webhookKeyHeaderName === 'string' ? body.webhookKeyHeaderName.trim() : '';
-    const headerValidation = asRecord(validateWebhookHeaderName(headerName));
-    if (headerValidation.ok === false) {
-      return headerValidation;
-    }
-    webhookPatch.webhookKeyHeaderName = headerName;
-  }
 
   if (hasWebhookRateLimit) {
     const rateLimit = asRecord(body.webhookRateLimit);

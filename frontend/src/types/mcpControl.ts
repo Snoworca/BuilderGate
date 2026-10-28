@@ -29,7 +29,6 @@ export interface McpControlConfig {
   status: string;
   lastError: unknown;
   lastRebindResult: unknown;
-  webhookKeyHeaderName?: string;
   webhookRateLimit?: {
     windowSeconds: number;
     burstLimit: number;
@@ -44,7 +43,7 @@ export interface McpControlConfig {
 
 export type McpControlConfigPatch = Partial<Pick<
   McpControlConfig,
-  'enabled' | 'bindMode' | 'host' | 'port' | 'transportSecurity' | 'trustedProxies' | 'externalWhitelist' | 'allowedOrigins' | 'webhookKeyHeaderName' | 'webhookRateLimit'
+  'enabled' | 'bindMode' | 'host' | 'port' | 'transportSecurity' | 'trustedProxies' | 'externalWhitelist' | 'allowedOrigins' | 'webhookRateLimit'
   | 'submitEnterDelayMs' | 'submitEnterDelayPerKbMs'
 >>;
 

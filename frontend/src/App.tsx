@@ -111,6 +111,8 @@ import { resolveCwd } from './utils/shell';
 import type { WorkspaceTabRuntime } from './types/workspace';
 import type { CommandPreset, ShellInfo, TerminalShortcutState } from './types';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import { createTerminalRedrawScheduler, isTabSwitch, redrawTargetTabIds, type TerminalRedrawScheduler } from './utils/terminalRedrawScheduler';
+import { readBrowserAutoRedrawSettings } from './utils/autoRedrawSettings';
 import './styles/globals.css';
 import './components/Workspace/breathing.css';
 
@@ -140,6 +142,7 @@ function TerminalWorkspaceStage({
   onCwdChange,
   onAuthError,
   onFitAll,
+  onRedrawRequest,
   terminalShortcutState,
 }: {
   children: (onLayoutChange: () => void) => React.ReactNode;
@@ -149,6 +152,7 @@ function TerminalWorkspaceStage({
   onCwdChange: (sessionId: string, cwd: string) => void;
   onAuthError: () => void;
   onFitAll: () => void;
+  onRedrawRequest: (tabId: string) => void;
   terminalShortcutState: TerminalShortcutState | null;
 }) {
   const { invalidateHostLayouts } = useTerminalRuntimeContext();
@@ -174,6 +178,7 @@ function TerminalWorkspaceStage({
         onStatusChange={onStatusChange}
         onCwdChange={onCwdChange}
         onAuthError={onAuthError}
+        onRedrawRequest={onRedrawRequest}
         terminalShortcutState={terminalShortcutState}
       />
     </div>
@@ -370,10 +375,26 @@ function AppContent() {
   const hasTerminalSelection = useCallback((tabId: string): boolean => {
     return terminalRefsMap.current.get(tabId)?.current?.hasSelection() ?? false;
   }, []);
-  // REL-BGSTAB-050 AC-2: the terminal menu's "redraw screen" on any surface.
-  const redrawTerminal = useCallback((tabId: string) => {
-    terminalRefsMap.current.get(tabId)?.current?.requestGridRepair?.('manual');
+  // REL-BGSTAB-050 AC-2, REL-BGSTAB-053: the terminal menu's "redraw screen" and its shortcut.
+  // In the grid it redraws every pane of the workspace, one after another; in the tab view the one.
+  const redrawSchedulerRef = useRef<TerminalRedrawScheduler | null>(null);
+  redrawSchedulerRef.current ??= createTerminalRedrawScheduler({
+    run: (tabId) => terminalRefsMap.current.get(tabId)?.current?.requestGridRepair?.('manual'),
+  });
+  const isMobileRef = useRef(isMobile);
+  isMobileRef.current = isMobile;
+  const redrawTargetsFor = useCallback((tabId: string | null): string[] => {
+    const workspace = wmRef.current.activeWorkspace;
+    return redrawTargetTabIds({
+      viewMode: !isMobileRef.current && workspace?.viewMode === 'grid' ? 'grid' : 'tab',
+      tabs: wmRef.current.activeWorkspaceTabs,
+      tabId: tabId ?? workspace?.activeTabId ?? null,
+    });
   }, []);
+  const redrawTerminal = useCallback((tabId: string) => {
+    redrawSchedulerRef.current?.redraw(redrawTargetsFor(tabId));
+  }, [redrawTargetsFor]);
+  useEffect(() => () => redrawSchedulerRef.current?.cancel(), []);
   // FR-ARCH-013: the file paths near a menu press and on screen, read when the menu is built.
   const getTerminalPathsAt = useCallback((tabId: string, x: number, y: number): TerminalPathsAtPoint => (
     terminalRefsMap.current.get(tabId)?.current?.getPathsAt(x, y) ?? { near: null, screen: [] }
@@ -850,6 +871,30 @@ function AppContent() {
   // screen that the tray says is not there.
   const renderedViewMode = isMobile ? 'tab' : viewMode;
 
+  // REL-BGSTAB-053 AC-3/AC-4: a moment after a workspace switch, or a tab switch in the tab view,
+  // redraw what is on screen once more. The redraw when a terminal shows can run before the
+  // layout has settled. Switching again before the delay cancels the earlier one.
+  const autoRedrawWorkspaceId = wm.activeWorkspaceId;
+  const autoRedrawTabId = wm.activeWorkspace?.activeTabId ?? null;
+  const autoRedrawTabIds = wm.activeWorkspaceTabs.map((tab) => tab.id).join('\n');
+  const previousAutoRedrawRef = useRef({ workspaceId: autoRedrawWorkspaceId, tabId: autoRedrawTabId, tabIds: autoRedrawTabIds });
+  useEffect(() => {
+    const previous = previousAutoRedrawRef.current;
+    previousAutoRedrawRef.current = { workspaceId: autoRedrawWorkspaceId, tabId: autoRedrawTabId, tabIds: autoRedrawTabIds };
+    if (!previous.workspaceId || !autoRedrawWorkspaceId) return;
+    const settings = readBrowserAutoRedrawSettings();
+    const workspaceSwitched = previous.workspaceId !== autoRedrawWorkspaceId;
+    const tabSwitched = !workspaceSwitched && renderedViewMode === 'tab' && isTabSwitch({
+      previousTabId: previous.tabId,
+      tabId: autoRedrawTabId,
+      previousTabIds: previous.tabIds.split('\n'),
+      tabIds: autoRedrawTabIds.split('\n'),
+    });
+    if ((workspaceSwitched && settings.onWorkspaceSwitch) || (tabSwitched && settings.onTabSwitch)) {
+      redrawSchedulerRef.current?.redrawAfter(settings.delayMs, () => redrawTargetsFor(null));
+    }
+  }, [autoRedrawWorkspaceId, autoRedrawTabId, autoRedrawTabIds, renderedViewMode, redrawTargetsFor]);
+
   // FR-MDE-007 and FR-MDE-008 in one place: the open windows, the path menu
   // that creates them and the tray that lists them. Every rule it applies
   // lives in editorFileMenu and editorTrayModel, which the unit suite judges.
@@ -1045,6 +1090,7 @@ function AppContent() {
                     onCwdChange={handleCwdChange}
                     onAuthError={handleAuthError}
                     onFitAll={handleFitAllTerminals}
+                    onRedrawRequest={redrawTerminal}
                     terminalShortcutState={terminalShortcuts.state}
                   >
                     {(handleLayoutChange: () => void) => wm.activeWorkspaceTabs.length > 0 ? (

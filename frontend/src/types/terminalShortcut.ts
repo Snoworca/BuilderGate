@@ -4,7 +4,9 @@ export type TerminalShortcutProfile = 'xterm-default' | 'ai-tui-compat' | 'custo
 export type TerminalShortcutAction =
   | { type: 'send'; data: string; label?: string }
   | { type: 'pass-through' }
-  | { type: 'block' };
+  | { type: 'block' }
+  /** REL-BGSTAB-053: redraws the screen (every pane in a grid); sends nothing to the terminal. */
+  | { type: 'redraw' };
 
 export interface TerminalShortcutKeyDescriptor {
   key: string;

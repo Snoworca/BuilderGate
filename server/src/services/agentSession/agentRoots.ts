@@ -26,7 +26,10 @@ export function defaultAgentRoots(env: Env = process.env, home: string = os.home
 /** Roots under a WSL home reached from Windows, e.g. \\wsl.localhost\Ubuntu\home\dev. */
 export function wslAgentRoots(uncHome: string, env: Env = process.env): AgentRoots {
   const join = (...parts: string[]) => path.win32.join(uncHome, ...parts);
+  // FR-AITUI-020: \\wsl.localhost\<distro>, whose /proc shows the distro's processes and locks.
+  const wslRoot = /^(\\\\[^\\]+\\[^\\]+)/.exec(uncHome)?.[1];
   return {
+    ...(wslRoot ? { wslRoot } : {}),
     claudeHome: env.BUILDERGATE_AGENT_CLAUDE_HOME ?? join('.claude'),
     codexHome: env.BUILDERGATE_AGENT_CODEX_HOME ?? join('.codex'),
     opencodeData: env.BUILDERGATE_AGENT_OPENCODE_DATA ?? join('.local', 'share', 'opencode'),

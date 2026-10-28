@@ -13,6 +13,28 @@
   color: var(--fg);
 }
 
+/* FR-MCP-014 AC-4: the MCP address above the tabs. */
+.mcp-control-endpoint {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.mcp-control-endpoint-label {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.mcp-control-endpoint-url {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono, monospace);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: all;
+}
+
 .mcp-control-tabs {
   display: flex;
   flex-shrink: 0;

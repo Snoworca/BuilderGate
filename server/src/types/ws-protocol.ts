@@ -696,7 +696,8 @@ export function parseTerminalDeliveryVisibilityMessage(value: unknown):
 
 export type ClientWsMessage =
   | { type: 'subscribe';   sessionIds: string[] }
-  | { type: 'unsubscribe'; sessionIds: string[] }
+  // REL-BGSTAB-056: a browser resubscribing one session for screen recovery says why.
+  | { type: 'unsubscribe'; sessionIds: string[]; recovery?: { reason: string; attempt: number } }
   | { type: 'screen-snapshot:ready'; sessionId: string; replayToken: string; snapshotSeq?: number }
   | ScreenRepairRequestMessage
   | ScreenRepairReadyMessage
@@ -965,6 +966,9 @@ export type ServerWsMessage =
   | { type: 'file-job:done'; sessionId: string; jobId: string; outcome: 'completed' | 'cancelled' | 'failed'; processedEntries: number; affectedDirectories: string[]; errorCode?: string }
   // Subscribe response
   | { type: 'subscribed';     sessions: SubscribedSessionInfo[] }
+  // REL-BGSTAB-055: sent per session once its unsubscribe is processed; later frames belong to a
+  // new subscription. The top-level sessionId keeps it on that session's ordered send lane.
+  | { type: 'unsubscribed';   sessionId: string }
   // Workspace events
   | { type: 'workspace:created';   data: unknown }
   | { type: 'workspace:updated';   data: unknown }

@@ -104,7 +104,7 @@ import { loadConfigFromPathStrict } from './utils/configStrictLoader.js';
 import { resolveInputReliabilityMode } from './utils/inputReliabilityMode.js';
 import { validatePasswordPolicy } from './utils/passwordPolicy.js';
 import { buildRecoveryRestoreInput, getRecoveryExecutableToken } from './utils/recoveryCommand.js';
-import { mintMcpCapabilityToken, validateMcpWebhookKeyHeaderName, verifyMcpFixedAccessKey } from './services/McpSecurityContract.js';
+import { mintMcpCapabilityToken, verifyMcpFixedAccessKey } from './services/McpSecurityContract.js';
 import { sanitizeWebhookPublicRecord } from './services/WebhookInvocationService.js';
 import express from 'express';
 import type { Request } from 'express';
@@ -290,7 +290,6 @@ async function main(): Promise<void> {
     { name: 'MCP security contract IR-MCP-005 AC-1: whitelist empty and nonmatch codes take precedence', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-1'] },
     { name: 'MCP security contract IR-MCP-005 AC-2: promptPreview is redacted, normalized, and bounded', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-2'] },
     { name: 'MCP security contract IR-MCP-005 AC-3: recent audit status is bounded and redacted', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-3'] },
-    { name: 'MCP security contract IR-MCP-005 AC-4: forbidden webhook header names are rejected', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-4'] },
     { name: 'MCP security contract IR-MCP-005 AC-5: webhook full secret exposure is create-or-rotate only', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-5'] },
     { name: 'MCP security contract IR-MCP-005 AC-6: agentStatus wire enum rejects arbitrary values', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-6'] },
     { name: 'MCP security contract IR-MCP-005 AC-7: bindingLifecycle wire enum rejects legacy active value', run: mcpSecurityContractRedTests['Security_contract_red_tests_IR-MCP-005_AC-7'] },
@@ -6373,7 +6372,6 @@ const mcpSecurityContractRedTests: Record<string, () => Promise<void>> = {
   'Security_contract_red_tests_IR-MCP-005_AC-1': testMcpSecurityIrMcp005Ac1,
   'Security_contract_red_tests_IR-MCP-005_AC-2': testMcpSecurityIrMcp005Ac2,
   'Security_contract_red_tests_IR-MCP-005_AC-3': testMcpSecurityIrMcp005Ac3,
-  'Security_contract_red_tests_IR-MCP-005_AC-4': testMcpSecurityIrMcp005Ac4,
   'Security_contract_red_tests_IR-MCP-005_AC-5': testMcpSecurityIrMcp005Ac5,
   'Security_contract_red_tests_IR-MCP-005_AC-6': testMcpSecurityIrMcp005Ac6,
   'Security_contract_red_tests_IR-MCP-005_AC-7': testMcpSecurityIrMcp005Ac7,
@@ -9764,7 +9762,7 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
   'Webhook_control_red_tests_IR-MCP-003_AC-8': async () => {
     const { service, calls } = await createWebhookInvocationHarness();
     const result = asRecord(await callObjectMethod(service, 'invokeWebhook', createWebhookInvokeRequest({
-      headers: { 'x-buildergate-webhook-key': 'webhook-full-key' },
+      headers: { authorization: 'Bearer webhook-full-key' },
       query: { prompt: 'from header' },
     })), 'header-only webhook result');
     assert.equal(result.ok, true);
@@ -9773,7 +9771,7 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
   'Webhook_control_red_tests_IR-MCP-003_AC-9': async () => {
     const { service } = await createWebhookInvocationHarness();
     const result = asRecord(await callObjectMethod(service, 'invokeWebhook', createWebhookInvokeRequest({
-      headers: { 'x-buildergate-webhook-key': 'webhook-full-key-other' },
+      headers: { authorization: 'Bearer webhook-full-key-other' },
       query: { key: 'webhook-full-key', prompt: 'conflict' },
     })), 'query header conflict');
     assert.equal(result.ok, false);
@@ -9823,44 +9821,37 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
   'Webhook_control_red_tests_IR-MCP-004_AC-2': async () => {
     const { service } = await createWebhookInvocationHarness();
     const defaults = asRecord(await callObjectMethod(service, 'getWebhookConfig', {}), 'webhook config defaults');
-    const valid = asRecord(await callObjectMethod(service, 'setWebhookConfig', { webhookKeyHeaderName: 'X-Custom-Webhook-Key' }), 'valid webhook config');
+    // FR-MCP-014 AC-2 (supersedes the header-name half of this AC): only the rate limit
+    // is configurable; a header name in the request is ignored.
     const validRateLimit = asRecord(await callObjectMethod(service, 'setWebhookConfig', {
       webhookKeyHeaderName: 'X-Custom-Webhook-Key',
       rateLimit: { windowSeconds: 30, burstLimit: 4 },
     }), 'valid webhook rate limit config');
     const invalidRateLimit = asRecord(await callObjectMethod(service, 'setWebhookConfig', {
-      webhookKeyHeaderName: 'X-Custom-Webhook-Key',
       rateLimit: { windowSeconds: 0, burstLimit: 4 },
     }), 'invalid webhook rate limit config');
-    const invalid = asRecord(await callObjectMethod(service, 'setWebhookConfig', { webhookKeyHeaderName: 'Authorization' }), 'invalid webhook config');
-    const blank = asRecord(await callObjectMethod(service, 'setWebhookConfig', { webhookKeyHeaderName: '' }), 'blank webhook config');
-    const whitespace = asRecord(await callObjectMethod(service, 'setWebhookConfig', { webhookKeyHeaderName: '   ' }), 'whitespace webhook config');
-    assert.equal(defaults.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+    assert.equal('webhookKeyHeaderName' in defaults, false);
     assert.deepEqual(defaults.rateLimit, { windowSeconds: 60, burstLimit: 10 });
-    assert.equal(valid.webhookKeyHeaderName, 'X-Custom-Webhook-Key');
+    assert.equal(validRateLimit.ok, true);
+    assert.equal('webhookKeyHeaderName' in validRateLimit, false);
     assert.deepEqual(validRateLimit.rateLimit, { windowSeconds: 30, burstLimit: 4 });
     assert.equal(invalidRateLimit.ok, false);
     assert.equal(invalidRateLimit.code, 'WEBHOOK_RATE_LIMIT_INVALID');
-    assert.equal(invalid.ok, false);
-    assert.equal(invalid.code, 'WEBHOOK_HEADER_FORBIDDEN');
-    assert.equal(blank.ok, false);
-    assert.equal(blank.code, 'WEBHOOK_HEADER_FORBIDDEN');
-    assert.equal(whitespace.ok, false);
-    assert.equal(whitespace.code, 'WEBHOOK_HEADER_FORBIDDEN');
 
-    const customHarness = await createWebhookInvocationHarness({ webhookKeyHeaderName: 'X-Custom-Webhook-Key' });
-    const defaultHeader = asRecord(await callObjectMethod(customHarness.service, 'invokeWebhook', createWebhookInvokeRequest({
+    // FR-MCP-014 AC-1: the key header is fixed to Authorization: Bearer.
+    const bearerHarness = await createWebhookInvocationHarness();
+    const oldHeader = asRecord(await callObjectMethod(bearerHarness.service, 'invokeWebhook', createWebhookInvokeRequest({
       headers: { 'x-buildergate-webhook-key': 'webhook-full-key' },
-      query: { prompt: 'default header should fail' },
-    })), 'default header after custom config result');
-    const customHeader = asRecord(await callObjectMethod(customHarness.service, 'invokeWebhook', createWebhookInvokeRequest({
-      headers: { 'x-custom-webhook-key': 'webhook-full-key' },
-      query: { prompt: 'custom header should pass' },
-    })), 'custom header after config result');
-    assert.equal(defaultHeader.ok, false);
-    assert.equal(defaultHeader.code, 'WEBHOOK_KEY_INVALID');
-    assert.equal(customHeader.ok, true);
-    assert.equal(asRecord(customHarness.calls.auditEvents.at(-1), 'custom header audit').credentialKind, 'header');
+      query: { prompt: 'old header should fail' },
+    })), 'old header result');
+    const bearerHeader = asRecord(await callObjectMethod(bearerHarness.service, 'invokeWebhook', createWebhookInvokeRequest({
+      headers: { authorization: 'Bearer webhook-full-key' },
+      query: { prompt: 'bearer header should pass' },
+    })), 'bearer header result');
+    assert.equal(oldHeader.ok, false);
+    assert.equal(oldHeader.code, 'WEBHOOK_KEY_INVALID');
+    assert.equal(bearerHeader.ok, true);
+    assert.equal(asRecord(bearerHarness.calls.auditEvents.at(-1), 'bearer header audit').credentialKind, 'header');
 
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'buildergate-mcp-control-config-'));
     try {
@@ -9875,7 +9866,6 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         trustedProxies: ['10.0.0.1/32'],
         externalWhitelist: ['203.0.113.7/32'],
         allowedOrigins: ['https://localhost:2222'],
-        webhookKeyHeaderName: 'X-Custom-Webhook-Key',
         webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
       }), 'mcp control config save result');
       const loaded = asRecord(await callObjectMethod(store, 'loadConfig', {}), 'mcp control config load result');
@@ -9887,7 +9877,7 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       assert.deepEqual(loaded.trustedProxies, ['10.0.0.1/32']);
       assert.deepEqual(loaded.externalWhitelist, ['203.0.113.7/32']);
       assert.deepEqual(loaded.allowedOrigins, ['https://localhost:2222']);
-      assert.equal(loaded.webhookKeyHeaderName, 'X-Custom-Webhook-Key');
+      assert.equal('webhookKeyHeaderName' in loaded, false);
       assert.deepEqual(loaded.webhookRateLimit, { windowSeconds: 30, burstLimit: 4 });
 
       const invalidPersistedWarnings: Record<string, unknown>[] = [];
@@ -9910,7 +9900,6 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         transportSecurity: 'none',
         externalWhitelist: ['not-a-cidr'],
         allowedOrigins: ['https://localhost:2222/'],
-        webhookKeyHeaderName: 'Authorization',
         webhookRateLimit: { windowSeconds: 0, burstLimit: 0 },
       }, {
         dataPath: path.join(tmpDir, 'mcp-control-config.json'),
@@ -9921,7 +9910,7 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       assert.equal(fallback.bindHost, '127.0.0.1');
       assert.equal(fallback.port, 3333);
       assert.deepEqual(fallback.externalWhitelist, []);
-      assert.equal(fallback.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+      assert.equal('webhookKeyHeaderName' in fallback, false);
       assert.deepEqual(fallback.webhookRateLimit, { windowSeconds: 60, burstLimit: 10 });
       assert.equal(invalidPersistedWarnings.length, 1);
       assert.equal(typeof invalidPersistedWarnings[0]?.code, 'string');
@@ -10009,14 +9998,12 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       lastRebindResult: null,
     };
     const webhookState: Record<string, unknown> = {
-      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
       rateLimit: { windowSeconds: 60, burstLimit: 10 },
     };
     const coordinatorResult = asRecord(await applyMcpControlConfigPatch({
       body: {
         host: '127.0.0.1',
         port: 4444,
-        webhookKeyHeaderName: 'X-Custom-Webhook-Key',
         webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
       },
       controlService: {
@@ -10030,7 +10017,6 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         getWebhookConfig: () => ({ ...webhookState }),
         setWebhookConfig: (request: unknown) => {
           const input = asRecord(request, 'coordinator webhook request');
-          if (input.webhookKeyHeaderName !== undefined) webhookState.webhookKeyHeaderName = input.webhookKeyHeaderName;
           if (input.rateLimit !== undefined) webhookState.rateLimit = input.rateLimit;
           return { ok: true, ...webhookState };
         },
@@ -10040,12 +10026,10 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
           throw new Error('persist failed');
         },
       },
-      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
     }), 'mcp control config coordinator persist failure');
     assert.equal(coordinatorResult.ok, false);
     assert.equal(coordinatorResult.code, 'MCP_CONTROL_CONFIG_PERSIST_FAILED');
     assert.equal(controlState.port, 3333);
-    assert.equal(webhookState.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
     assert.deepEqual(webhookState.rateLimit, { windowSeconds: 60, burstLimit: 10 });
 
     let initialSnapshotSetConfigCalls = 0;
@@ -10067,7 +10051,6 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         }),
         setWebhookConfig: () => ({ ok: true }),
       },
-      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
     }), 'mcp control coordinator initial webhook snapshot failure');
     assert.equal(initialSnapshotFailure.ok, false);
     assert.equal(initialSnapshotFailure.code, 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED');
@@ -10085,13 +10068,12 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       allowedOrigins: [],
     };
     const finalSnapshotWebhookState: Record<string, unknown> = {
-      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
       rateLimit: { windowSeconds: 60, burstLimit: 10 },
     };
     let finalSnapshotWebhookReads = 0;
     let finalSnapshotPersisted = false;
     const finalSnapshotFailure = asRecord(await applyMcpControlConfigPatch({
-      body: { host: '127.0.0.1', port: 4444, webhookKeyHeaderName: 'X-Custom-Webhook-Key' },
+      body: { host: '127.0.0.1', port: 4444, webhookRateLimit: { windowSeconds: 30, burstLimit: 4 } },
       controlService: {
         getConfig: () => ({ ...finalSnapshotControlState }),
         setConfig: (request: unknown) => {
@@ -10114,7 +10096,6 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         },
         setWebhookConfig: (request: unknown) => {
           const input = asRecord(request, 'final snapshot webhook request');
-          if (input.webhookKeyHeaderName !== undefined) finalSnapshotWebhookState.webhookKeyHeaderName = input.webhookKeyHeaderName;
           if (input.rateLimit !== undefined) finalSnapshotWebhookState.rateLimit = input.rateLimit;
           return { ok: true, ...finalSnapshotWebhookState };
         },
@@ -10125,13 +10106,12 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
           return { ok: true };
         },
       },
-      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
     }), 'mcp control coordinator final webhook snapshot failure');
     assert.equal(finalSnapshotFailure.ok, false);
     assert.equal(finalSnapshotFailure.code, 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED');
     assert.equal(finalSnapshotFailure.auditId, 'audit-final-webhook-snapshot');
     assert.equal(finalSnapshotControlState.port, 3333);
-    assert.equal(finalSnapshotWebhookState.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+    assert.deepEqual(finalSnapshotWebhookState.rateLimit, { windowSeconds: 60, burstLimit: 10 });
     assert.equal(finalSnapshotPersisted, false);
 
     const controlRestoreFailureState: Record<string, unknown> = {
@@ -10145,14 +10125,12 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       allowedOrigins: [],
     };
     const webhookAfterControlRestoreFailureState: Record<string, unknown> = {
-      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
       rateLimit: { windowSeconds: 60, burstLimit: 10 },
     };
     const controlRestoreFailureResult = asRecord(await applyMcpControlConfigPatch({
       body: {
         host: '127.0.0.1',
         port: 4444,
-        webhookKeyHeaderName: 'X-Custom-Webhook-Key',
         webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
       },
       controlService: {
@@ -10170,7 +10148,6 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         getWebhookConfig: () => ({ ...webhookAfterControlRestoreFailureState }),
         setWebhookConfig: (request: unknown) => {
           const input = asRecord(request, 'webhook restore after control failure request');
-          if (input.webhookKeyHeaderName !== undefined) webhookAfterControlRestoreFailureState.webhookKeyHeaderName = input.webhookKeyHeaderName;
           if (input.rateLimit !== undefined) webhookAfterControlRestoreFailureState.rateLimit = input.rateLimit;
           return { ok: true, ...webhookAfterControlRestoreFailureState };
         },
@@ -10180,13 +10157,11 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
           throw new Error('persist failed');
         },
       },
-      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
     }), 'mcp control coordinator control rollback failure');
     const controlRollbackErrors = asRecordArray(controlRestoreFailureResult.rollbackErrors, 'control rollback errors');
     assert.equal(controlRestoreFailureResult.ok, false);
     assert.equal(controlRestoreFailureResult.code, 'MCP_CONTROL_CONFIG_PERSIST_FAILED');
     assert.equal(controlRollbackErrors.some(error => error.target === 'control' && error.code === 'CONTROL_RESTORE_FAILED'), true);
-    assert.equal(webhookAfterControlRestoreFailureState.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
     assert.deepEqual(webhookAfterControlRestoreFailureState.rateLimit, { windowSeconds: 60, burstLimit: 10 });
     const routeFailure = buildMcpControlRouteFailure(controlRestoreFailureResult, () => 'req_route_failure');
     const routeFailureBody = asRecord(routeFailure.body, 'mcp route failure body');
@@ -10211,14 +10186,12 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       allowedOrigins: [],
     };
     const webhookRestoreFailureState: Record<string, unknown> = {
-      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
       rateLimit: { windowSeconds: 60, burstLimit: 10 },
     };
     const webhookRestoreFailureResult = asRecord(await applyMcpControlConfigPatch({
       body: {
         host: '127.0.0.1',
         port: 4444,
-        webhookKeyHeaderName: 'X-Custom-Webhook-Key',
         webhookRateLimit: { windowSeconds: 30, burstLimit: 4 },
       },
       controlService: {
@@ -10232,10 +10205,9 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         getWebhookConfig: () => ({ ...webhookRestoreFailureState }),
         setWebhookConfig: (request: unknown) => {
           const input = asRecord(request, 'webhook restore failure request');
-          if (input.webhookKeyHeaderName === 'X-BuilderGate-Webhook-Key') {
+          if (asRecord(input.rateLimit, 'webhook restore rate limit').windowSeconds === 60) {
             throw new Error('webhook rollback failed');
           }
-          if (input.webhookKeyHeaderName !== undefined) webhookRestoreFailureState.webhookKeyHeaderName = input.webhookKeyHeaderName;
           if (input.rateLimit !== undefined) webhookRestoreFailureState.rateLimit = input.rateLimit;
           return { ok: true, ...webhookRestoreFailureState };
         },
@@ -10245,7 +10217,6 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
           throw new Error('persist failed');
         },
       },
-      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
     }), 'mcp control coordinator webhook rollback failure');
     const webhookRollbackErrors = asRecordArray(webhookRestoreFailureResult.rollbackErrors, 'webhook rollback errors');
     assert.equal(webhookRestoreFailureResult.ok, false);
@@ -10303,14 +10274,13 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
       allowedOrigins: [],
     };
     const webhookThrowState: Record<string, unknown> = {
-      webhookKeyHeaderName: 'X-BuilderGate-Webhook-Key',
       rateLimit: { windowSeconds: 60, burstLimit: 10 },
     };
     const webhookThrowResult = asRecord(await applyMcpControlConfigPatch({
       body: {
         host: '127.0.0.1',
         port: 4444,
-        webhookKeyHeaderName: 'X-Throws-Webhook-Key',
+        webhookRateLimit: { windowSeconds: 7, burstLimit: 7 },
       },
       controlService: {
         getConfig: () => ({ ...webhookThrowControlState }),
@@ -10323,21 +10293,19 @@ const webhookAndControlRestRedTests: Record<string, () => Promise<void>> = {
         getWebhookConfig: () => ({ ...webhookThrowState }),
         setWebhookConfig: (request: unknown) => {
           const input = asRecord(request, 'webhook throw config request');
-          if (input.webhookKeyHeaderName === 'X-Throws-Webhook-Key') {
+          if (asRecord(input.rateLimit, 'webhook throw rate limit').windowSeconds === 7) {
             throw new Error('webhook config exploded');
           }
-          if (input.webhookKeyHeaderName !== undefined) webhookThrowState.webhookKeyHeaderName = input.webhookKeyHeaderName;
           if (input.rateLimit !== undefined) webhookThrowState.rateLimit = input.rateLimit;
           return { ok: true, ...webhookThrowState };
         },
       },
-      validateWebhookHeaderName: validateMcpWebhookKeyHeaderName,
     }), 'mcp control coordinator webhook config throw');
     assert.equal(webhookThrowResult.ok, false);
     assert.equal(webhookThrowResult.code, 'MCP_CONTROL_WEBHOOK_CONFIG_FAILED');
     assert.equal(webhookThrowResult.message, 'webhook config exploded');
     assert.equal(webhookThrowControlState.port, 3333);
-    assert.equal(webhookThrowState.webhookKeyHeaderName, 'X-BuilderGate-Webhook-Key');
+    assert.deepEqual(webhookThrowState.rateLimit, { windowSeconds: 60, burstLimit: 10 });
     const webhookThrowRouteFailure = buildMcpControlRouteFailure(webhookThrowResult, () => 'req_webhook_throw');
     const webhookThrowRouteBody = asRecord(webhookThrowRouteFailure.body, 'webhook throw route failure body');
     assert.equal(webhookThrowRouteBody.message, 'webhook config exploded');
@@ -10517,7 +10485,6 @@ async function createWebhookInvocationHarness(options: Record<string, unknown> =
       return { ok: true };
     },
     defaultProfile: options.noDefaultProfile === true ? null : { id: 'codex-env', enabled: true },
-    webhookKeyHeaderName: options.webhookKeyHeaderName ?? 'X-BuilderGate-Webhook-Key',
     denialCode: options.denialCode,
     rateLimited: options.rateLimited === true,
     rateLimitPartition: options.rateLimitPartition === true,
@@ -12778,32 +12745,6 @@ async function testMcpSecurityIrMcp005Ac3(): Promise<void> {
   assert.equal(recentAuditEvents.length, 1);
   assertNoSecretMaterial(recentAuditEvents, ['raw-token', 'raw-key', 'raw prompt']);
   assert.equal(typeof asRecord(recentAuditEvents[0], 'recent audit event').auditId, 'string');
-}
-
-async function testMcpSecurityIrMcp005Ac4(): Promise<void> {
-  const forbidden = [
-    'Authorization',
-    'Cookie',
-    'Set-Cookie',
-    'Forwarded',
-    'X-Forwarded-For',
-    'X-Forwarded-Anything',
-    'Host',
-    'Content-Length',
-    'X-Test: injected',
-    'X-Test\r\nInjected',
-    'X Test',
-    '',
-  ];
-
-  for (const headerName of forbidden) {
-    const result = asRecord(await callMcpSecurityContract('validateMcpWebhookKeyHeaderName', headerName), `webhook header validation ${headerName}`);
-    assert.equal(result.ok, false);
-    assert.equal(result.code, 'WEBHOOK_HEADER_FORBIDDEN');
-  }
-
-  const accepted = asRecord(await callMcpSecurityContract('validateMcpWebhookKeyHeaderName', 'X-BuilderGate-Webhook-Key'), 'accepted webhook header validation');
-  assert.equal(accepted.ok, true);
 }
 
 async function testMcpSecurityIrMcp005Ac5(): Promise<void> {
@@ -16405,7 +16346,9 @@ function testWsRouterIgnoresStaleReplayTokens(): void {
   (router as any).handleUnsubscribe(ws, ['session-1']);
 
   (router as any).handleSubscribe(ws, ['session-1']);
-  const secondToken = String(sent[2].replayToken);
+  // REL-BGSTAB-055: the unsubscribe now answers with an `unsubscribed` frame, so the
+  // second snapshot is found by type rather than by position.
+  const secondToken = String(sent.filter((message) => message.type === 'screen-snapshot').at(-1)?.replayToken);
   router.routeSessionOutput('session-1', 'second-pending');
 
   (router as any).handleScreenSnapshotReady(ws, 'session-1', firstToken);

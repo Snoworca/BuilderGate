@@ -47,6 +47,7 @@ export function bindingScopeLabel(binding: Pick<TerminalShortcutBinding, 'scope'
 export function actionLabel(action: TerminalShortcutAction): string {
   if (action.type === 'pass-through') return t('shortcut.action.passThrough');
   if (action.type === 'block') return t('shortcut.action.block');
+  if (action.type === 'redraw') return t('shortcut.action.redraw');
   if (isCodexNewlineAction(action)) return t('shortcut.action.sendCodexNewline');
   // CUSTOM is the stored tag of a user string, not a name to show.
   if (action.label === 'CUSTOM') return tn('shortcut.action.sendCustomChars', Array.from(action.data).length);

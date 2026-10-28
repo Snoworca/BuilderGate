@@ -629,7 +629,7 @@ export class SessionSnapshotService {
     });
     const cacheFor = async (roots: AgentRoots): Promise<AgentStateCache | undefined> => {
       if (!shared) return undefined;
-      const key = `${roots.claudeHome}\u0000${roots.codexHome}`;
+      const key = `${roots.claudeHome}\u0000${roots.codexHome}\u0000${roots.wslRoot ?? ''}`;
       let cache = shared.get(key);
       if (!cache) {
         cache = await loadAgentStateCache(roots, this.deps.isFileLocked ? { isFileLocked: this.deps.isFileLocked } : {});

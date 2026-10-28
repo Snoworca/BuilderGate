@@ -649,7 +649,12 @@ test('TerminalContainer keeps compatibility input fenced through matching post-A
     'FR-BGSTAB-022 AC-4/5: non-monotonic post-ACK output reached xterm instead of failing before write',
   );
 
-  const readyStart = source.indexOf('const compatibilityPostAckRecovery = compatibilityPostAckConvergenceRef.current');
+  // REL-BGSTAB-055: anchored on the ready handler; the shared transport-reset helper
+  // declares the same local earlier in the file.
+  const readyStart = source.indexOf(
+    'const compatibilityPostAckRecovery = compatibilityPostAckConvergenceRef.current',
+    source.indexOf('const handleSessionReady = useEffectEvent'),
+  );
   assert.notEqual(readyStart, -1, signature);
   const readyChunk = source.slice(readyStart, readyStart + 2600);
   assert.match(readyChunk, /type: 'server-ready-latched'/u, signature);
@@ -912,7 +917,7 @@ test('TerminalContainer production recovery requests a token-fenced fresh snapsh
   assert.match(webSocketContextSource, /requestReconnect: \(reason: string\) => boolean/);
   assert.match(webSocketContextSource, /const requestReconnect = useCallback/);
   const requestReconnectIndex = source.indexOf('const requestBoundedVisibleRecoveryReconnect');
-  const requestReconnectChunk = source.slice(requestReconnectIndex, requestReconnectIndex + 1200);
+  const requestReconnectChunk = source.slice(requestReconnectIndex, requestReconnectIndex + 2400);
   assert.match(requestReconnectChunk, /recordTerminalDebugEvent\(sessionId, 'visible_output_resync_reconnect_requested'/);
   assert.ok(
     requestReconnectChunk.indexOf("'visible_output_resync_reconnect_requested'")
