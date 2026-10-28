@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-27T17:44:33.370Z",
+  "generatedAt": "2026-10-28T01:09:30.091Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "f288f17160672069f5589cfcd3dc7f425e0502ab08503339b8ffbbb5e349cc1b",
+    "value": "ceb8510f5c38f32769d44289902f0c1fa573f5065d48e6a6d7b5521fb9336a92",
     "files": [
       {
         "path": "docs/spec/00.index.md",
@@ -44,9 +44,9 @@
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
-        "sha256": "451d15d6b1ef5931ca632e5e3ff6fe418b5b2df0f8b0cdf3c4f378f7b88cf5a8",
-        "size": 157358,
-        "mtimeMs": 1793123064854.7542
+        "sha256": "81bbbe07675873dbad03fa37fa0ce1cbf1a387edc27a4adadbcd3ddb41870d30",
+        "size": 159463,
+        "mtimeMs": 1793149642428.184
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
@@ -56,9 +56,9 @@
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
-        "sha256": "306e00e608fb1eaec0ca383409da543e868b8ff731f7c467ca7d61985250f6c0",
-        "size": 47751,
-        "mtimeMs": 1793123056205.2153
+        "sha256": "beb0953ac6a8c3c0b377b60d51b1db2b36f3311a519eec08d268eb8f262ee26d",
+        "size": 49627,
+        "mtimeMs": 1793149602449.423
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
@@ -74,9 +74,9 @@
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
-        "sha256": "d24090b0f318a8f655ab85cc4ce2d3aaa91c749878b4144195ee162c26756a1e",
-        "size": 38573,
-        "mtimeMs": 1793085333678.4983
+        "sha256": "c5af5912a9cec7914bb1eafac5fb8e5fd0d66d72abd6e7841d7c84c61dd69dae",
+        "size": 38694,
+        "mtimeMs": 1793149569427.0005
       },
       {
         "path": "docs/spec/90.appendix.md",
@@ -93,9 +93,9 @@
       "BGSTAB": 35,
       "MCP": 14,
       "MDE": 29,
-      "FEX": 32,
+      "FEX": 33,
       "FOP": 8,
-      "UIDS": 14,
+      "UIDS": 15,
       "MKB": 14,
       "GIT": 12
     },

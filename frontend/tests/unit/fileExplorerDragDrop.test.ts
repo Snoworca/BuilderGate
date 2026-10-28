@@ -30,10 +30,11 @@ test('FR-FEX-030 AC-2: Ctrl copies elsewhere, Option copies on macOS, otherwise 
   assert.equal(decideDragOperation({ ctrlKey: true, altKey: false, metaKey: false }, true), 'move');
 });
 
-test('FR-FEX-030 AC-3: folder rows and empty space accept, file rows refuse', () => {
+// FR-FEX-033 AC-1 supersedes the file-row refusal: a file row takes the drop for its folder
+// (fileExplorerDropOnFile.test.ts).
+test('FR-FEX-030 AC-3: folder rows and empty space accept', () => {
   assert.equal(resolveInternalDropDir({ row: { path: '/p/dir', isDir: true }, shownFolder: '/p' }), '/p/dir');
   assert.equal(resolveInternalDropDir({ row: null, shownFolder: '/p' }), '/p');
-  assert.equal(resolveInternalDropDir({ row: { path: '/p/a.txt', isDir: false }, shownFolder: '/p' }), null);
 });
 
 test('FR-FEX-030 AC-3: itself, inside itself and its own folder are refused', () => {
