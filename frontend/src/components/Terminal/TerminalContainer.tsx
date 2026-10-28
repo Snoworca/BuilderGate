@@ -7,7 +7,18 @@ import type { SendResult } from '../../contexts/WebSocketContext';
 import { useTerminalRuntimeContext } from './TerminalRuntimeContext';
 import { TerminalView } from './TerminalView';
 import type { GridRepairReason, TerminalHandle, TerminalPasteInputResult } from './TerminalView';
-import { planRedrawNudge, REDRAW_NUDGE_GAP_MS } from './terminalRedrawNudge';
+import {
+  isResizeFromElsewhere,
+  planRedrawNudge,
+  REDRAW_NUDGE_GAP_MS,
+  rememberSentSize,
+  shouldRepairOnSurfaceChange,
+  shouldRepairOnWindowReturn,
+  shouldSendRedrawNudge,
+  type RedrawNudgePolicy,
+  type TerminalGeometry,
+  type TerminalSurface,
+} from './terminalRedrawNudge';
 import { createResizeSendLedger } from './terminalResizeSendLedger';
 import type { TerminalShortcutState } from '../../types';
 import type { WorkspaceTabRuntime } from '../../types/workspace';
@@ -284,7 +295,13 @@ export const TerminalContainer = memo(
     const resizeRepairTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const gridRepairInFlightRef = useRef<Promise<void> | null>(null);
     // The surface the terminal was last visible on, or null while hidden.
-    const gridVisibleRef = useRef<'tab' | 'grid' | null>(null);
+    const gridVisibleRef = useRef<TerminalSurface>(null);
+    // REL-BGSTAB-058: whether this session has been shown in the tab view yet.
+    const shownInTabRef = useRef(false);
+    // REL-BGSTAB-058 AC-3: the sizes this terminal sent lately, and whether another
+    // screen or device resized the PTY since this terminal last nudged it.
+    const sentSizesRef = useRef<readonly TerminalGeometry[]>([]);
+    const resizedElsewhereRef = useRef(false);
     // FR-ARCH-014: the GUI editor on the server's desktop this session waits on.
     const [editorWait, setEditorWait] = useState<EditorWaitInfo | null>(null);
     const editorWaitLiveSeenRef = useRef(false);
@@ -1220,6 +1237,9 @@ export const TerminalContainer = memo(
       }
       gridRepairInFlightRef.current = null;
       gridVisibleRef.current = null;
+      shownInTabRef.current = false;
+      sentSizesRef.current = [];
+      resizedElsewhereRef.current = false;
       pendingGridScreenRepairRef.current = null;
       screenRepairInFlightRef.current = null;
       lastCompletedScreenRepairRef.current = null;
@@ -1309,6 +1329,7 @@ export const TerminalContainer = memo(
         cols,
         rows,
       });
+      sentSizesRef.current = rememberSentSize(sentSizesRef.current, { cols, rows });
       const resizeResult = send({ type: 'resize', sessionId, cols, rows });
       // REL-BGSTAB-038 AC-6: an undelivered size stays unsent; the socket opening resends it.
       ledger.recordSend({ cols, rows }, resizeResult.ok);
@@ -2242,6 +2263,7 @@ export const TerminalContainer = memo(
         return;
       }
       recordTerminalDebugEvent(sessionId, 'redraw_nudge_sent', { reason, cols: restored.cols, rows: restored.rows });
+      resizedElsewhereRef.current = false;
       sendResizeIfNeeded(shrunk.cols, shrunk.rows, `redraw-nudge-${reason}`);
       // The program must see the shrink before the restore: two signals that
       // arrive together read as no size change at all.
@@ -2255,7 +2277,7 @@ export const TerminalContainer = memo(
 
     // REL-BGSTAB-050: tab-view terminals run it too; a program drawn for another
     // size stayed that way through reloads when only grid panes were nudged.
-    const runGridLayoutRepair = useCallback((reason: GridRepairReason) => {
+    const runGridLayoutRepair = useCallback((reason: GridRepairReason, nudge: RedrawNudgePolicy = 'always') => {
       if (!isVisibleRef.current) {
         return;
       }
@@ -2276,7 +2298,13 @@ export const TerminalContainer = memo(
           });
           return;
         }
-        await sendRedrawNudge(reason);
+        // REL-BGSTAB-058 AC-4: a conditional redraw leaves the PTY size alone unless it
+        // was resized elsewhere, so the program does not redraw twice and move the screen.
+        if (shouldSendRedrawNudge(nudge, resizedElsewhereRef.current)) {
+          await sendRedrawNudge(reason);
+        } else {
+          recordTerminalDebugEvent(sessionId, 'redraw_nudge_skipped', { reason, nudge });
+        }
         requestScreenRepair(reason);
       })();
 
@@ -2340,7 +2368,7 @@ export const TerminalContainer = memo(
       invalidateClipboardContext: () => terminalRef.current?.invalidateClipboardContext(),
       fit: () => terminalRef.current?.fit(),
       repairLayout: (reason) => terminalRef.current?.repairLayout(reason) ?? Promise.resolve(false),
-      requestGridRepair: (reason = 'manual') => runGridLayoutRepair(reason),
+      requestGridRepair: (reason = 'manual', nudge = 'always') => runGridLayoutRepair(reason, nudge),
       sendInput: (data) => terminalRef.current?.sendInput(data) ?? buildUnavailableInputResult('imperative'),
       restoreSnapshot: () => terminalRef.current?.restoreSnapshot() ?? Promise.resolve(false),
       replaceWithSnapshot: (data, shouldApply, options) => (
@@ -2370,6 +2398,14 @@ export const TerminalContainer = memo(
 
     const handleCwd = useEffectEvent((cwd: string) => {
       onCwdChange?.(sessionId, cwd);
+    });
+
+    // REL-BGSTAB-058 AC-3: the server reports every real PTY size change; one this
+    // terminal did not send came from another screen or device.
+    const handleResized = useEffectEvent((cols: number, rows: number) => {
+      if (!isResizeFromElsewhere({ cols, rows }, sentSizesRef.current)) return;
+      resizedElsewhereRef.current = true;
+      recordTerminalDebugEvent(sessionId, 'resize_from_elsewhere_recorded', { cols, rows });
     });
 
     const handleError = useEffectEvent((message: string) => {
@@ -3683,6 +3719,7 @@ export const TerminalContainer = memo(
         onStatus: handleStatus,
         onError: handleError,
         onCwd: handleCwd,
+        onResized: handleResized,
         onEditorWait: handleEditorWait,
       });
       return unsubscribe;
@@ -3727,13 +3764,18 @@ export const TerminalContainer = memo(
     }, [requestScreenRepair, sendResizeIfNeeded]);
 
     useEffect(() => {
-      // REL-BGSTAB-050 AC-1: a tab-view terminal becoming visible is nudged too,
-      // and so is a switch between the tab view and the grid (REL-BGSTAB-047).
+      // REL-BGSTAB-058: a tab-view terminal is nudged on its first showing, and
+      // so is a switch between the tab view and the grid (REL-BGSTAB-047); one
+      // coming back from behind another tab only after a resize elsewhere.
       const nextSurface = isVisible ? (isGridSurface ? 'grid' : 'tab') : null;
       const wasSurface = gridVisibleRef.current;
       gridVisibleRef.current = nextSurface;
+      const shownInTabBefore = shownInTabRef.current;
+      if (nextSurface === 'tab') {
+        shownInTabRef.current = true;
+      }
 
-      if (!nextSurface || nextSurface === wasSurface) {
+      if (!shouldRepairOnSurfaceChange(nextSurface, wasSurface, shownInTabBefore, resizedElsewhereRef.current)) {
         return;
       }
 
@@ -3745,6 +3787,37 @@ export const TerminalContainer = memo(
         runGridLayoutRepair('workspace');
       }, 250);
     }, [isGridSurface, isVisible, runGridLayoutRepair]);
+
+    // REL-BGSTAB-058 AC-8: a terminal that stayed visible while another screen resized the
+    // PTY never becomes visible again, so the user coming back to this page is its return:
+    // the window taking focus, the page showing again, or -- after a phone resized it, which
+    // takes no focus from this window -- a mouse move, press or key here. Only the screen in
+    // use asserts its size; the others leave the PTY alone.
+    const handleWindowReturn = useEffectEvent(() => {
+      if (!shouldRepairOnWindowReturn(isVisibleRef.current, document.visibilityState === 'visible', resizedElsewhereRef.current)) {
+        return;
+      }
+      // Cleared at once, so the mouse moves that follow do nothing more.
+      resizedElsewhereRef.current = false;
+      const geometry = resizeSendLedgerRef.current.forgetAndResend(lastResizeRef.current);
+      if (geometry) sendResizeIfNeeded(geometry.cols, geometry.rows, 'window-return-resend');
+      runGridLayoutRepair('workspace', 'always');
+    });
+
+    useEffect(() => {
+      window.addEventListener('focus', handleWindowReturn);
+      document.addEventListener('visibilitychange', handleWindowReturn);
+      document.addEventListener('pointermove', handleWindowReturn, { capture: true, passive: true });
+      document.addEventListener('pointerdown', handleWindowReturn, { capture: true, passive: true });
+      document.addEventListener('keydown', handleWindowReturn, { capture: true });
+      return () => {
+        window.removeEventListener('focus', handleWindowReturn);
+        document.removeEventListener('visibilitychange', handleWindowReturn);
+        document.removeEventListener('pointermove', handleWindowReturn, { capture: true });
+        document.removeEventListener('pointerdown', handleWindowReturn, { capture: true });
+        document.removeEventListener('keydown', handleWindowReturn, { capture: true });
+      };
+    }, []);
 
     const handleMouseDownCapture = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
       if (event.button !== 1 || !isGridSurfaceRef.current) {

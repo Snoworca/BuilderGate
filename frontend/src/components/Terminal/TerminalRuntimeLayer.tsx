@@ -12,6 +12,8 @@ import { createTouchTapTracker, shouldFocusTerminalOnPointerDown } from '../../u
 import { t } from '../../i18n/i18n.ts';
 import { readDroppedSources } from '../fileExplorer/fileDropEntries.ts';
 import { startUpload } from '../fileExplorer/fileTransferRuntime.ts';
+import { openPathOnLatchedTap } from '../../utils/latchedTapPathOpen.ts';
+import { requestTerminalPathOpen } from '../../utils/terminalPathOpen.ts';
 import {
   answerTerminalDropConflict,
   createTerminalDropDepth,
@@ -216,6 +218,14 @@ function TerminalRuntimeEntry({
       onClickCapture={(event) => {
         if (lastPointerWasTouchRef.current) {
           if (!touchTapRef.current.consumeTap()) {
+            event.stopPropagation();
+            return;
+          }
+          // FR-ARCH-013 AC-10: with the key bar's Ctrl latched, a tap on a path opens it.
+          if (openPathOnLatchedTap(event.clientX, event.clientY, {
+            pathsAt: (x, y) => terminalRefsMap.current.get(tab.id)?.current?.getPathsAt(x, y),
+            open: (target) => requestTerminalPathOpen(tab.sessionId, target),
+          })) {
             event.stopPropagation();
             return;
           }

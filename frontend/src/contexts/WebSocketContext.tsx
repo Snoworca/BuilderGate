@@ -162,6 +162,8 @@ export interface SessionHandlers {
   onCwd?: (cwd: string) => void;
   /** FR-ARCH-014: the GUI editor this session waits on, or null when it no longer does. */
   onEditorWait?: (editor: EditorWaitInfo | null) => void;
+  /** REL-BGSTAB-058 AC-2: the PTY size really changed, by this view or another. */
+  onResized?: (cols: number, rows: number) => void;
 }
 
 export type WorkspaceEventHandler = (data: unknown) => void;
@@ -1084,6 +1086,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           break;
         case 'session:editor-wait':
           handlers.onEditorWait?.(msg.editor);
+          break;
+        case 'session:resized':
+          handlers.onResized?.(msg.cols, msg.rows);
           break;
       }
       return;

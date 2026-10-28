@@ -4063,6 +4063,9 @@ export class SessionManager {
     } else {
       this.applyLegacyTerminalResize(id, data, cols, rows);
     }
+    // REL-BGSTAB-058 AC-2: a browser terminal hidden behind another tab does not see
+    // another screen or device resize the shared PTY; every view of the session is told.
+    this.broadcastWs(id, 'session:resized', { cols, rows });
     return true;
   }
 

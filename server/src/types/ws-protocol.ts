@@ -960,6 +960,8 @@ export type ServerWsMessage =
   | { type: 'session:exited'; sessionId: string; exitCode: number }
   // FR-ARCH-014: a GUI editor on the server's desktop that the session waits on, or null.
   | { type: 'session:editor-wait'; sessionId: string; editor: EditorWaitInfo | null }
+  // REL-BGSTAB-058 AC-2: the PTY size really changed; every view of the session hears it.
+  | { type: 'session:resized'; sessionId: string; cols: number; rows: number }
   // File-job events — fileJobManager 가 broadcastWs 로 보내고 라우터가 sessionId 봉투를 씌운다
   | { type: 'file-job:progress'; sessionId: string; jobId: string; phase: 'scanning' | 'transferring'; processedBytes: number; totalBytes: number; processedEntries: number; totalEntries: number; currentPath: string | null }
   | { type: 'file-job:decision-required'; sessionId: string; jobId: string; decisionId: string; kind: 'conflict' | 'error'; path: string; detail: string | null; choices: Array<'overwrite' | 'rename' | 'skip' | 'retry'> }

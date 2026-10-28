@@ -15,7 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const specDirectory = join(repositoryRoot, 'docs', 'spec');
@@ -24,13 +24,18 @@ const ref = process.argv[2] ?? 'HEAD';
 // A requirement's Change Notes are the table rows under its `#### Change Notes` heading, counted
 // per requirement heading. Counting rows rather than comparing text keeps this insensitive to
 // rewording, which is allowed, while still catching a row that vanished, which is not.
-function changeNoteCounts(markdown) {
+export function changeNoteCounts(markdown) {
   const counts = new Map();
   let requirement = null;
   let inChangeNotes = false;
   for (const line of markdown.split('\n')) {
-    const heading = /^### (?:~~)?([A-Z][A-Z0-9-]*-\d+)\b/u.exec(line);
-    if (heading) { requirement = heading[1]; inChangeNotes = false; continue; }
+    // `speckiwi supersede` strikes a discarded requirement's heading through (`### ~~ID …~~`),
+    // and its rows must stay its own. Any other `###` heading ends the requirement above it.
+    if (/^### /u.test(line)) {
+      requirement = /^### (?:~~)?([A-Z][A-Z0-9-]*-\d+)\b/u.exec(line)?.[1] ?? null;
+      inChangeNotes = false;
+      continue;
+    }
     if (/^#### /u.test(line)) { inChangeNotes = /^#### Change Notes\s*$/u.test(line); continue; }
     if (!requirement || !inChangeNotes) continue;
     if (!line.startsWith('|')) continue;
@@ -52,36 +57,40 @@ function committed(relativePath) {
   }
 }
 
-const losses = [];
-let checked = 0;
-for (const name of readdirSync(specDirectory).filter(entry => entry.endsWith('.md')).sort()) {
-  const relativePath = `docs/spec/${name}`;
-  const before = committed(relativePath);
-  if (before === null) continue;
-  const after = readFileSync(join(specDirectory, name), 'utf8');
-  const beforeCounts = changeNoteCounts(before);
-  const afterCounts = changeNoteCounts(after);
-  checked += beforeCounts.size;
-  for (const [requirement, count] of beforeCounts) {
-    const now = afterCounts.get(requirement) ?? 0;
-    if (now < count) losses.push({ relativePath, requirement, before: count, after: now });
+function main() {
+  const losses = [];
+  let checked = 0;
+  for (const name of readdirSync(specDirectory).filter(entry => entry.endsWith('.md')).sort()) {
+    const relativePath = `docs/spec/${name}`;
+    const before = committed(relativePath);
+    if (before === null) continue;
+    const after = readFileSync(join(specDirectory, name), 'utf8');
+    const beforeCounts = changeNoteCounts(before);
+    const afterCounts = changeNoteCounts(after);
+    checked += beforeCounts.size;
+    for (const [requirement, count] of beforeCounts) {
+      const now = afterCounts.get(requirement) ?? 0;
+      if (now < count) losses.push({ relativePath, requirement, before: count, after: now });
+    }
   }
-}
 
-if (checked === 0) {
-  console.error(`No requirement with Change Notes was found under docs/spec at ${ref}; nothing was checked.`);
-  process.exit(1);
-}
-
-if (losses.length > 0) {
-  console.error(`${losses.length} requirement(s) lost Change Note rows against ${ref}:`);
-  for (const loss of losses) {
-    console.error(`  ${loss.requirement} in ${loss.relativePath}: ${loss.before} -> ${loss.after}`);
+  if (checked === 0) {
+    console.error(`No requirement with Change Notes was found under docs/spec at ${ref}; nothing was checked.`);
+    process.exit(1);
   }
-  console.error('\nThis is issue #65: edit-requirement-table-rows rewrites the block from a stale read and');
-  console.error('drops notes added since, with no error. Restore the rows, then add Change Notes only');
-  console.error('AFTER every table-row write for that requirement has finished.');
-  process.exit(1);
+
+  if (losses.length > 0) {
+    console.error(`${losses.length} requirement(s) lost Change Note rows against ${ref}:`);
+    for (const loss of losses) {
+      console.error(`  ${loss.requirement} in ${loss.relativePath}: ${loss.before} -> ${loss.after}`);
+    }
+    console.error('\nThis is issue #65: edit-requirement-table-rows rewrites the block from a stale read and');
+    console.error('drops notes added since, with no error. Restore the rows, then add Change Notes only');
+    console.error('AFTER every table-row write for that requirement has finished.');
+    process.exit(1);
+  }
+
+  console.log(`No Change Note rows were lost: ${checked} requirement(s) with notes checked against ${ref}.`);
 }
 
-console.log(`No Change Note rows were lost: ${checked} requirement(s) with notes checked against ${ref}.`);
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main();

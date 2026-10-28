@@ -101,3 +101,23 @@ test('FR-MCP-002 AC-8: a terminal without a session key waits the configured Ent
   assert.deepEqual(writes, ['ls', '\r']);
   assert.deepEqual(sleeps, [700]);
 });
+
+test('SEC-FOP-002 AC-10: the editor open check uses the read rules, the save check the session folder rules', async () => {
+  const calls: string[] = [];
+  const info = { path: '/p', exists: true, isFile: true };
+  const deps = {
+    workspaceService: { getState: () => ({ workspaces: [], tabs: [], gridLayouts: [] }) },
+    sessionManager: { getLastCwd: () => null },
+    fileService: {
+      inspectPath: async (sessionId: string, filePath: string) => { calls.push(`inspectPath ${sessionId} ${filePath}`); return info; },
+      inspectReadablePath: async (sessionId: string, filePath: string) => { calls.push(`inspectReadablePath ${sessionId} ${filePath}`); return info; },
+      writeFileCreatingDirectories: async () => '/p',
+    },
+    broadcast: () => undefined,
+    deliver: async () => ({ ok: true }),
+  } as unknown as WorkspaceServiceMcpControlDeps;
+  const control = createWorkspaceServiceMcpControl(deps);
+  assert.deepEqual(await control.inspectEditorFile('s-1', 'a.md', 'open'), info);
+  assert.deepEqual(await control.inspectEditorFile('s-1', 'b.md', 'write'), info);
+  assert.deepEqual(calls, ['inspectReadablePath s-1 a.md', 'inspectPath s-1 b.md']);
+});

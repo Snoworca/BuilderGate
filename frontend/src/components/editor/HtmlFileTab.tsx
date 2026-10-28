@@ -17,13 +17,28 @@ import { rememberEditorView } from './editorViewMemory.ts';
 import { htmlViewApi } from '../../services/api.ts';
 import {
   DRAFT_DEBOUNCE_MS,
+  HTML_FRAME_VIEW_RESET,
   HTML_SANDBOX,
+  HTML_SCROLL_MESSAGE,
+  HTML_TAP_MESSAGE,
+  canFitHtmlFrame,
   createDraftScheduler,
+  dragHtmlFrame,
+  framePointOf,
+  htmlFrameLayout,
+  htmlFrameTransform,
   externalUrlsOf,
   nextFrameKey,
+  panHtmlFrame,
+  pinchHtmlFrame,
   renderUrl,
   subscribeHtmlViewRequests,
   summarizeResources,
+  toggleHtmlFrameZoom,
+  withViewerHelper,
+  type HtmlFramePoint,
+  type HtmlFrameScale,
+  type HtmlFrameView,
   type HtmlResourceEntry,
   type HtmlView,
 } from './htmlTabModel.ts';
@@ -49,6 +64,34 @@ const FILL_STYLE: CSSProperties = { display: 'flex', flexDirection: 'column', fl
 const HIDDEN_STYLE: CSSProperties = { ...FILL_STYLE, display: 'none' };
 // After the page loads, its own requests (scripts, images) keep arriving for a moment.
 const RESOURCE_SETTLE_MS = 600;
+// FR-MDE-028 AC-11: two taps this close in time and place are a double tap; a finger that moves
+// further than TAP_SLOP_PX is a drag.
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_PX = 30;
+const TAP_SLOP_PX = 8;
+// Where the primary pointer is a finger: the same test the CSS shows the surface by.
+const TOUCH_SCREEN_QUERY = '(hover: none) and (pointer: coarse)';
+
+function useTouchScreen(): boolean {
+  const [touch, setTouch] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(TOUCH_SCREEN_QUERY).matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia(TOUCH_SCREEN_QUERY);
+    const update = () => setTouch(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return touch;
+}
+
+function distance(a: HtmlFramePoint, b: HtmlFramePoint): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function midpoint(a: HtmlFramePoint, b: HtmlFramePoint): HtmlFramePoint {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
 
 function messageOf(error: unknown): string {
   return error instanceof Error && error.message !== '' ? error.message : String(error);
@@ -77,6 +120,158 @@ export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, d
   const sessionId = resolveTabSession(tabId);
   // FR-MDE-028 AC-5: the server's number for the last unsaved text it received.
   const [draft, setDraft] = useState<number | null>(null);
+  // FR-MDE-028 AC-10: the frame area's size, and fit (PC width, scaled down) or the real width.
+  const [frameScale, setFrameScale] = useState<HtmlFrameScale>('fit');
+  const [frameArea, setFrameArea] = useState({ width: 0, height: 0 });
+  const frameAreaRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const element = frameAreaRef.current;
+    if (element === null || typeof ResizeObserver === 'undefined') return undefined;
+    const measure = () => setFrameArea({ width: element.clientWidth, height: element.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [renderedOnce]);
+  const frameLayout = htmlFrameLayout(frameArea, frameScale);
+  // FR-MDE-028 AC-11: the fitted page's own zoom and pan, kept inside the view as it resizes.
+  const [frameView, setFrameView] = useState<HtmlFrameView>(HTML_FRAME_VIEW_RESET);
+  const shownView = frameLayout === null ? HTML_FRAME_VIEW_RESET : panHtmlFrame(frameView, frameArea, frameLayout.scale, 0, 0);
+  const frameStyle: CSSProperties | undefined = frameLayout === null ? undefined : {
+    width: frameLayout.width,
+    height: frameLayout.height,
+    transform: htmlFrameTransform(shownView, frameLayout.scale),
+    transformOrigin: '0 0',
+  };
+  const fitted = frameLayout !== null;
+  // FR-MDE-028 AC-11: on a touch screen the fitted page is under the gesture surface, and the frame
+  // loads the text with the helper that lets the surface scroll and click the page.
+  const touchScreen = useTouchScreen();
+  const withHelper = fitted && touchScreen;
+  const withHelperRef = useRef(withHelper);
+  withHelperRef.current = withHelper;
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  useEffect(() => setFrameView(HTML_FRAME_VIEW_RESET), [frameScale]);
+  // The gesture handlers are bound once per surface and read the latest view and fit from here.
+  const gestureRef = useRef<HTMLDivElement | null>(null);
+  const viewRef = useRef(shownView);
+  viewRef.current = shownView;
+  const fitRef = useRef<{ area: { width: number; height: number }; scale: number } | null>(null);
+  fitRef.current = frameLayout === null ? null : { area: frameArea, scale: frameLayout.scale };
+  useEffect(() => {
+    const surface = gestureRef.current;
+    if (!withHelper || surface === null) return undefined;
+    type Gesture =
+      | { kind: 'pan'; start: HtmlFramePoint; at: HtmlFramePoint }
+      | { kind: 'pinch'; start: HtmlFrameView; distance: number; mid: HtmlFramePoint };
+    let gesture: Gesture | null = null;
+    let moved = false;
+    let lastTap: { time: number; at: HtmlFramePoint } | null = null;
+    let tapTimer: ReturnType<typeof setTimeout> | null = null;
+    // The page is another origin: it hears the surface only through the helper's messages.
+    const tell = (message: Record<string, unknown>) => frameRef.current?.contentWindow?.postMessage(message, '*');
+    const local = (touch: Touch): HtmlFramePoint => {
+      const box = surface.getBoundingClientRect();
+      return { x: touch.clientX - box.left, y: touch.clientY - box.top };
+    };
+    const apply = (next: HtmlFrameView) => {
+      viewRef.current = next;
+      setFrameView(next);
+    };
+    const begin = (touches: TouchList) => {
+      const start = viewRef.current;
+      if (touches.length >= 2) {
+        const a = local(touches[0]);
+        const b = local(touches[1]);
+        gesture = { kind: 'pinch', start, distance: distance(a, b), mid: midpoint(a, b) };
+      } else if (touches.length === 1) {
+        const at = local(touches[0]);
+        gesture = { kind: 'pan', start: at, at };
+      } else {
+        gesture = null;
+      }
+    };
+    // Every handler cancels the default, so the browser never zooms the app or synthesizes a click.
+    const onStart = (event: TouchEvent) => {
+      event.preventDefault();
+      moved = event.touches.length > 1;
+      begin(event.touches);
+    };
+    const onMove = (event: TouchEvent) => {
+      event.preventDefault();
+      const fit = fitRef.current;
+      if (gesture === null || fit === null) return;
+      if (gesture.kind === 'pinch' && event.touches.length >= 2) {
+        const a = local(event.touches[0]);
+        const b = local(event.touches[1]);
+        apply(pinchHtmlFrame(gesture.start, fit.area, fit.scale, {
+          from: { distance: gesture.distance, mid: gesture.mid },
+          to: { distance: distance(a, b), mid: midpoint(a, b) },
+        }));
+      } else if (gesture.kind === 'pan' && event.touches.length === 1) {
+        const at = local(event.touches[0]);
+        if (distance(at, gesture.start) > TAP_SLOP_PX) moved = true;
+        if (!moved) return;
+        // The zoomed page moves first; what its edges hold back scrolls the page itself.
+        const step = dragHtmlFrame(viewRef.current, fit.area, fit.scale, at.x - gesture.at.x, at.y - gesture.at.y);
+        gesture = { ...gesture, at };
+        apply(step.view);
+        if (step.scrollX !== 0 || step.scrollY !== 0) {
+          const point = framePointOf(step.view, fit.scale, at);
+          tell({ type: HTML_SCROLL_MESSAGE, x: point.x, y: point.y, dx: step.scrollX, dy: step.scrollY });
+        }
+      }
+    };
+    const onEnd = (event: TouchEvent) => {
+      event.preventDefault();
+      if (event.touches.length > 0) {
+        // A finger stays down: it carries on as a drag from where the page is now.
+        begin(event.touches);
+        return;
+      }
+      const fit = fitRef.current;
+      if (!moved && gesture?.kind === 'pan' && fit !== null) {
+        const now = Date.now();
+        const at = gesture.start;
+        if (lastTap !== null && now - lastTap.time < DOUBLE_TAP_MS && distance(at, lastTap.at) < DOUBLE_TAP_PX) {
+          if (tapTimer !== null) clearTimeout(tapTimer);
+          tapTimer = null;
+          apply(toggleHtmlFrameZoom(viewRef.current, fit.area, fit.scale, at));
+          lastTap = null;
+        } else {
+          lastTap = { time: now, at };
+          // A single tap clicks the page once no second tap can follow.
+          if (tapTimer !== null) clearTimeout(tapTimer);
+          tapTimer = setTimeout(() => {
+            tapTimer = null;
+            const current = fitRef.current;
+            if (current === null) return;
+            const point = framePointOf(viewRef.current, current.scale, at);
+            tell({ type: HTML_TAP_MESSAGE, x: point.x, y: point.y });
+          }, DOUBLE_TAP_MS);
+        }
+      }
+      gesture = null;
+    };
+    // Safari's own pinch event; cancelling it is what keeps the app from zooming on iOS.
+    const onGesture = (event: Event) => event.preventDefault();
+    const options = { passive: false } as const;
+    surface.addEventListener('touchstart', onStart, options);
+    surface.addEventListener('touchmove', onMove, options);
+    surface.addEventListener('touchend', onEnd, options);
+    surface.addEventListener('touchcancel', onEnd, options);
+    surface.addEventListener('gesturestart', onGesture, options);
+    surface.addEventListener('gesturechange', onGesture, options);
+    return () => {
+      if (tapTimer !== null) clearTimeout(tapTimer);
+      surface.removeEventListener('touchstart', onStart);
+      surface.removeEventListener('touchmove', onMove);
+      surface.removeEventListener('touchend', onEnd);
+      surface.removeEventListener('touchcancel', onEnd);
+      surface.removeEventListener('gesturestart', onGesture);
+      surface.removeEventListener('gesturechange', onGesture);
+    };
+  }, [withHelper, renderedOnce]);
 
   const issue = useCallback(async () => {
     if (sessionId === undefined) return;
@@ -156,7 +351,7 @@ export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, d
     const current = tokenRef.current;
     if (sessionId === undefined || current === null) return;
     try {
-      const number = await htmlViewApi.draft(sessionId, current.token, text);
+      const number = await htmlViewApi.draft(sessionId, current.token, withHelperRef.current ? withViewerHelper(text) : text);
       if (tokenRef.current === current) {
         setDraft(number);
         setRenderedText(text);
@@ -176,17 +371,17 @@ export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, d
   useEffect(() => {
     if (!showingPage || token === null) return undefined;
     // On showing the page (or a fresh token) the current text goes at once if it is unsaved.
-    if (dirty) void sendDraft(getText());
+    if (dirty || withHelper) void sendDraft(getText());
     return subscribeText((text) => scheduler.schedule(text));
     // `dirty` is read at the moment the page shows; later edits arrive through subscribeText.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showingPage, token, scheduler, subscribeText, sendDraft]);
+  }, [showingPage, token, scheduler, subscribeText, sendDraft, withHelper]);
   useEffect(() => {
-    if (!dirty) setDraft(null);
-  }, [dirty]);
+    if (!dirty && !withHelper) setDraft(null);
+  }, [dirty, withHelper]);
 
   const summary = useMemo(() => summarizeResources(resources, externalUrlsOf(renderedText)), [renderedText, resources]);
-  const frameSrc = token === null ? null : renderUrl({ dirty, url: token.url, draft });
+  const frameSrc = token === null ? null : renderUrl({ dirty: dirty || withHelper, url: token.url, draft });
 
   const onFrameAreaKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'F5') return;
@@ -206,6 +401,17 @@ export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, d
             {t('editor.html.source')}
           </button>
         </div>
+        {view === 'rendered' && canFitHtmlFrame(frameArea.width) && (
+          <button
+            type="button"
+            className="editor-text-button"
+            title={t('editor.html.fitWidthHint')}
+            aria-pressed={frameScale === 'fit'}
+            onClick={() => setFrameScale((mode) => (mode === 'fit' ? 'actual' : 'fit'))}
+          >
+            {t('editor.html.fitWidth')}
+          </button>
+        )}
         <button
           type="button"
           className={`editor-text-button html-tab-resources${summary.failed > 0 ? ' has-fail' : ''}`}
@@ -257,16 +463,22 @@ export function HtmlFileTab({ filePath, tabId, resolveTabSession, initialView, d
               <button type="button" className="editor-text-button" onClick={onSave}>{t('editor.html.save')}</button>
             </div>
           )}
-          {frameSrc !== null && (
-            <iframe
-              key={frameKey}
-              className="html-tab-frame"
-              title={t('editor.html.frameTitle', { name: baseName(filePath) })}
-              sandbox={HTML_SANDBOX}
-              src={frameSrc}
-              onLoad={onFrameLoad}
-            />
-          )}
+          <div ref={frameAreaRef} className="html-tab-frame-area">
+            {frameSrc !== null && (
+              <iframe
+                key={frameKey}
+                ref={frameRef}
+                className="html-tab-frame"
+                style={frameStyle}
+                title={t('editor.html.frameTitle', { name: baseName(filePath) })}
+                sandbox={HTML_SANDBOX}
+                src={frameSrc}
+                onLoad={onFrameLoad}
+              />
+            )}
+            {/* FR-MDE-028 AC-11: shown by CSS only where the primary pointer is a finger. */}
+            {withHelper && <div ref={gestureRef} className="html-tab-gesture" aria-hidden="true" />}
+          </div>
         </div>
       )}
       <div style={view === 'source' ? FILL_STYLE : HIDDEN_STYLE} className="html-tab-source">

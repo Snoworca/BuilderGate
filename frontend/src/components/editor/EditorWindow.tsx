@@ -124,6 +124,8 @@ export interface EditorWindowTab {
   bodyAtOpen: string;
   /** What the read reported. `unknown` opens the document read-only. @req FR-MDE-016 */
   encoding: DocumentEncoding;
+  /** The other worktree the file was read from; the document opens read-only. @req SEC-FOP-002 */
+  worktree?: string;
   /** An image tab's bytes or read failure; absent or null for text. @req FR-MDE-018 */
   image?: ImageDocumentState | null;
   /** Bumped when the file is read again (FR-MDE-030); a new value remounts the panel. */
@@ -907,6 +909,7 @@ export function EditorWindow({
               tabId={tab.tabId}
               bodyAtOpen={tab.bodyAtOpen}
               encoding={tab.encoding}
+              worktree={tab.worktree}
               image={tab.image ?? null}
               hidden={tab.filePath !== activeFilePath}
               resolveTabSession={resolveTabSession}

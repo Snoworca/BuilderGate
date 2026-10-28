@@ -280,6 +280,12 @@ export interface EditorDocumentPanelProps {
    */
   encoding: DocumentEncoding;
   /**
+   * The other worktree the file was read from, read once at mount; it makes
+   * the document read-only. Absent for a file in the session folder.
+   * @req SEC-FOP-002
+   */
+  worktree?: string;
+  /**
    * An image tab's bytes or read failure, read at mount; null for text.
    * @req FR-MDE-018
    */
@@ -329,6 +335,7 @@ export function EditorDocumentPanel({
   tabId,
   bodyAtOpen,
   encoding,
+  worktree,
   image = null,
   hidden,
   resolveTabSession,
@@ -371,7 +378,7 @@ export function EditorDocumentPanel({
   // @req FR-MDE-016
   const accessRef = useRef<ReturnType<typeof decideDocumentAccess> | null>(null);
   if (accessRef.current === null) {
-    accessRef.current = decideDocumentAccess(encoding);
+    accessRef.current = decideDocumentAccess(encoding, worktree);
   }
   const access = accessRef.current;
 
@@ -430,7 +437,7 @@ export function EditorDocumentPanel({
       // An image tab is view-only: it never turns dirty and its save writes
       // nothing, through the same controller the title bar and Ctrl+S call.
       // @req FR-MDE-018
-      binding: documentSaveBinding({ tabId, filePath, kind: component === 'image' ? 'image' : 'text', encoding }),
+      binding: documentSaveBinding({ tabId, filePath, kind: component === 'image' ? 'image' : 'text', encoding, worktree }),
       bodyAtOpen: encodeForSave(layout.body, layout),
       deps: {
         resolveTabSession: (id) => resolveTabSessionRef.current(id),

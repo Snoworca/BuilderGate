@@ -1628,6 +1628,7 @@ async function startServer(): Promise<void> {
         // FR-MCP-012: read through the module binding, which is assigned during start-up.
         fileService: {
           inspectPath: (sessionId, filePath) => fileService.inspectPath(sessionId, filePath),
+          inspectReadablePath: (sessionId, filePath) => fileService.inspectReadablePath(sessionId, filePath),
           writeFileCreatingDirectories: (sessionId, filePath, content) => fileService.writeFileCreatingDirectories(sessionId, filePath, content),
         },
         broadcast: (event, data) => (app.get('wsRouter') as WsRouter | undefined)?.broadcastAll(event, data),

@@ -7,12 +7,14 @@
  */
 
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent, PathStat } from '../types/file.types.js';
+import type { FileManagerConfig, DirectoryEntry, DirectoryListing, FileContent, PathStat, WorktreeLocation } from '../types/file.types.js';
 import { AppError, ErrorCode } from '../utils/errors.js';
-import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget } from '../utils/pathValidator.js';
+import { resolveAndValidate, resolveAndValidateEntry, isBlockedExtension, isPathBlocked, isSessionRootTarget, toHostPath } from '../utils/pathValidator.js';
+import { listWorktreeRoots } from './worktreeRoots.js';
 import { isFileJobTempName } from './fileJobs/fileJobRunner.js';
 import { isUploadTempName, validateUploadRelativePath } from './upload/uploadTemp.js';
 import { createWslPathConverter } from '../utils/wslPathConverter.js';
@@ -141,8 +143,31 @@ interface SessionManagerLike {
   getCwdFilePath(sessionId: string): string | null;
 }
 
+/** A path a read may use: where it really leads and the boundary it was judged against. */
+interface ReadablePath {
+  /** Real path, every link followed. */
+  resolved: string;
+  /** The requested path after ~ expansion, before resolution. */
+  requested: string;
+  /** Set when the boundary was another worktree rather than the session folder. */
+  worktree?: WorktreeLocation;
+}
+
+/** SEC-FOP-002 AC-8: '~/x' and '~\x' name a path under the server user's home folder. */
+function expandHome(p: string): string {
+  const match = /^~(?:[\\/](.*))?$/s.exec(p);
+  return match === null ? p : path.join(os.homedir(), match[1] ?? '');
+}
+
+function isWithin(root: string, p: string): boolean {
+  const rel = path.relative(root, p);
+  return rel === '' || (!rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel));
+}
+
 export class FileService {
   private cwdCache = new Map<string, { cwd: string; timestamp: number }>();
+  /** SEC-FOP-002 AC-9: worktrees of the session folder's repository, kept as long as the cwd. */
+  private worktreeCache = new Map<string, { cwd: string; roots: string[]; timestamp: number }>();
   private config: FileManagerConfig;
 
   /** PERF-BGSTAB-025 AC-1: WSL shells report Linux paths; converted without blocking, once each. */
@@ -327,6 +352,39 @@ export class FileService {
     return cwd;
   }
 
+  /** SEC-FOP-002 AC-1, AC-9: the repository's worktrees for this cwd, cached like the cwd. */
+  private async worktreeRoots(sessionId: string, cwd: string): Promise<string[]> {
+    const cached = this.worktreeCache.get(sessionId);
+    if (cached && cached.cwd === cwd && Date.now() - cached.timestamp < this.config.cwdCacheTtlMs) {
+      return cached.roots;
+    }
+    const roots = await listWorktreeRoots(cwd, (p) => this.toWindowsPath(p));
+    this.worktreeCache.set(sessionId, { cwd, roots, timestamp: Date.now() });
+    return roots;
+  }
+
+  /**
+   * SEC-FOP-002 AC-2, AC-4: resolve a path for reading. Inside the session folder it is judged
+   * exactly as before. A path the session folder refuses as outside is tried once more against
+   * the worktree of the same repository that contains it, with the same link and block checks.
+   * Only the read paths call this; writes and every other operation keep resolveAndValidate(cwd).
+   */
+  private async resolveReadable(sessionId: string, cwd: string, targetPath: string): Promise<ReadablePath> {
+    const requested = expandHome(targetPath);
+    try {
+      return { resolved: await resolveAndValidate(cwd, requested, this.config.blockedPaths), requested };
+    } catch (err) {
+      if (!(err instanceof AppError) || err.code !== ErrorCode.PATH_TRAVERSAL) throw err;
+      const absolute = path.resolve(cwd, toHostPath(requested));
+      for (const root of await this.worktreeRoots(sessionId, cwd)) {
+        if (!isWithin(root, absolute)) continue;
+        const resolved = await resolveAndValidate(root, absolute, this.config.blockedPaths);
+        return { resolved, requested, worktree: { root, name: path.basename(root) } };
+      }
+      throw err;
+    }
+  }
+
   /**
    * List directory contents with security validation.
    */
@@ -446,7 +504,8 @@ export class FileService {
   async statPath(sessionId: string, targetPath: string): Promise<PathStat> {
     this.assertSessionExists(sessionId);
     const cwd = await this.getCwd(sessionId);
-    const resolved = await resolveAndValidate(cwd, targetPath, this.config.blockedPaths);
+    const readable = await this.resolveReadable(sessionId, cwd, targetPath);
+    const resolved = readable.resolved;
     let stat;
     try {
       stat = await fs.stat(resolved);
@@ -458,7 +517,7 @@ export class FileService {
       throw new AppError(ErrorCode.INTERNAL_ERROR, `stat failed: ${code ?? 'unknown'}`);
     }
     // The link itself, when the requested path named one (resolveAndValidate returns the target).
-    const requested = path.resolve(cwd, targetPath);
+    const requested = path.resolve(cwd, readable.requested);
     let linkTarget: string | undefined;
     try {
       if ((await fs.lstat(requested)).isSymbolicLink()) linkTarget = await fs.readlink(requested);
@@ -497,6 +556,7 @@ export class FileService {
       permissions: rwx(permBits >> 6) + rwx(permBits >> 3) + rwx(permBits),
       ...(childCount !== undefined ? { childCount } : {}),
       ...(linkTarget !== undefined ? { linkTarget } : {}),
+      ...(readable.worktree ? { worktree: readable.worktree } : {}),
     };
   }
 
@@ -504,7 +564,7 @@ export class FileService {
     this.assertSessionExists(sessionId);
 
     const cwd = await this.getCwd(sessionId);
-    const resolved = await resolveAndValidate(cwd, filePath, this.config.blockedPaths);
+    const { resolved, worktree } = await this.resolveReadable(sessionId, cwd, filePath);
     const ext = path.extname(resolved).toLowerCase();
 
     if (isBlockedExtension(ext, this.config.blockedExtensions)) {
@@ -546,6 +606,7 @@ export class FileService {
       encoding,
       extension: ext,
       mimeType,
+      ...(worktree ? { worktree } : {}),
     };
   }
 
@@ -560,7 +621,7 @@ export class FileService {
     this.assertSessionExists(sessionId);
 
     const cwd = await this.getCwd(sessionId);
-    const resolved = await resolveAndValidate(cwd, filePath, this.config.blockedPaths);
+    const { resolved } = await this.resolveReadable(sessionId, cwd, filePath);
     const ext = path.extname(resolved).toLowerCase();
 
     if (isBlockedExtension(ext, this.config.blockedExtensions)) {
@@ -617,6 +678,22 @@ export class FileService {
   }
 
   /**
+   * SEC-FOP-002 AC-10: inspectPath for opening an existing file, judged as readFile judges it, so
+   * a file in another worktree of the session folder's repository is reachable. Saving keeps
+   * inspectPath.
+   */
+  async inspectReadablePath(sessionId: string, filePath: string): Promise<{ path: string; exists: boolean; isFile: boolean }> {
+    this.assertSessionExists(sessionId);
+    const cwd = await this.getCwd(sessionId);
+    const { resolved } = await this.resolveReadable(sessionId, cwd, filePath);
+    if (isBlockedExtension(path.extname(resolved).toLowerCase(), this.config.blockedExtensions)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
+    }
+    const stat = await fs.stat(resolved).catch(() => null);
+    return { path: resolved, exists: stat !== null, isFile: stat?.isFile() ?? false };
+  }
+
+  /**
    * FR-FEX-021 AC-2: a file to download, resolved and checked as readFile does, without reading
    * it. The size is not held to maxFileSize: the download streams.
    */
@@ -647,6 +724,25 @@ export class FileService {
     const stat = await fs.stat(resolved).catch(() => null);
     if (stat === null || !stat.isFile()) throw new AppError(ErrorCode.PATH_NOT_FOUND);
     return { path: resolved, size: stat.size };
+  }
+
+  /**
+   * SEC-MDE-002 AC-1, SEC-FOP-002 AC-7: the HTML file an HTML view opens and the root its token is
+   * scoped to: the session folder's real path, or the worktree the file lies in when it is
+   * another worktree of the same repository. Resolved and checked as readFile does.
+   */
+  async resolveHtmlViewSource(sessionId: string, filePath: string): Promise<{ path: string; name: string; size: number; root: string }> {
+    this.assertSessionExists(sessionId);
+    const cwd = await this.getCwd(sessionId);
+    const { resolved, worktree } = await this.resolveReadable(sessionId, cwd, filePath);
+    if (isBlockedExtension(path.extname(resolved).toLowerCase(), this.config.blockedExtensions)) {
+      throw new AppError(ErrorCode.PATH_BLOCKED, 'File type is blocked');
+    }
+    const stat = await fs.stat(resolved).catch(() => null);
+    if (stat === null) throw new AppError(ErrorCode.PATH_NOT_FOUND);
+    if (!stat.isFile()) throw new AppError(ErrorCode.NOT_A_FILE);
+    const root = worktree ? worktree.root : await fs.realpath(cwd).catch(() => cwd);
+    return { path: resolved, name: path.basename(resolved), size: stat.size, root };
   }
 
   /** SEC-MDE-002 AC-1: the session folder's real path, fixed in an HTML view token. */
