@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>편집기 자동 새로고침</title>
+<style>
+  /* Values copied from frontend/src/styles/tokens.css (chrome surface). Research: docs/research/2026-10-28.editor-auto-refresh.md */
+  :root {
+    --bg-app: #202020; --bg-chrome: #2b2b2b; --bg-surface: #272727; --bg-raised: #2f2f2f; --bg-hover: #333;
+    --bg-term: #1e1e1e;
+    --fg: #dcdcdc; --fg-strong: #f5f5f5; --fg-muted: #a0a0a0; --fg-faint: #767676;
+    --line: #3a3a3a; --line-strong: #4a4a4a;
+    --accent: #0078d4; --accent-text: #6cb6ff; --accent-tint: rgba(0,120,212,.18);
+    --ok: #4cc38a; --warn: #d8a534; --warn-tint: rgba(216,165,52,.14); --danger: #e5534b; --danger-tint: rgba(229,83,75,.14);
+    --r-sm: 6px; --r-md: 8px; --r-lg: 10px;
+    --fs-2xs: 11px; --fs-xs: 12px; --fs-sm: 13px;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace;
+    --sans: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg-app); color: var(--fg); font-family: var(--sans); font-size: var(--fs-sm); }
+  button { font: inherit; color: inherit; }
+
+  header.page { max-width: 1440px; margin: 0 auto; padding: 28px 24px 4px; }
+  header.page h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; color: var(--fg-strong); }
+  header.page p { margin: 0; color: var(--fg-muted); line-height: 1.6; max-width: 960px; }
+  .demo-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+  .demo-bar span { color: var(--fg-faint); font-size: var(--fs-xs); margin-right: 4px; }
+  .chip { border: 1px solid var(--line-strong); background: var(--bg-raised); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: var(--fs-xs); min-height: 32px; }
+  .chip:hover { border-color: var(--accent); color: var(--fg-strong); }
+  .chip.reset { border-style: dashed; }
+  .hint { font-size: var(--fs-xs); color: var(--fg-faint); margin-top: 8px; }
+
+  .layout { max-width: 1440px; margin: 0 auto; padding: 20px 24px 48px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 28px; align-items: start; }
+  @media (max-width: 1150px) { .layout { grid-template-columns: 1fr; } }
+  .section-title { font-size: var(--fs-xs); color: var(--fg-faint); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 10px; }
+
+  /* ---------- editor window ---------- */
+  .stage { position: relative; height: 560px; background: var(--bg-term); border: 1px solid var(--line-strong); border-radius: var(--r-lg); overflow: hidden; }
+  .win { position: absolute; inset: 24px 40px; display: flex; flex-direction: column; background: var(--bg-surface); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: 0 18px 50px rgba(0,0,0,.45); overflow: hidden; transition: opacity .2s, transform .2s; }
+  .win.closed { opacity: 0; transform: scale(.97); pointer-events: none; }
+  .titlebar { height: 36px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px; background: var(--bg-chrome); border-bottom: 1px solid var(--line); }
+  .titlebar .title { font-weight: 600; color: var(--fg-strong); margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .icon-btn { width: 28px; height: 28px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--fg-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+  .icon-btn:hover { background: var(--bg-hover); color: var(--fg-strong); }
+
+  /* the new toggle */
+  .auto-toggle { height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px 0 7px; border: 1px solid var(--line-strong); border-radius: 999px; background: transparent; color: var(--fg-muted); cursor: pointer; font-size: var(--fs-xs); }
+  .auto-toggle .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-faint); }
+  .auto-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--fg-strong); background: var(--accent-tint); }
+  .auto-toggle[aria-pressed="true"] .dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(76,195,138,.18); }
+  .auto-toggle.pulse .dot { animation: pulse .9s ease-out; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76,195,138,.7); } 100% { box-shadow: 0 0 0 10px rgba(76,195,138,0); } }
+
+  .tabs { height: 32px; flex: none; display: flex; align-items: stretch; gap: 2px; padding: 4px 6px 0; background: var(--bg-raised); border-bottom: 1px solid var(--line); }
+  .tab { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px 0 10px; font-size: var(--fs-xs); color: var(--fg-muted); border: 1px solid transparent; border-bottom: 0; border-radius: var(--r-sm) var(--r-sm) 0 0; cursor: pointer; transition: max-width .25s, opacity .25s, padding .25s; max-width: 200px; overflow: hidden; white-space: nowrap; }
+  .tab[aria-selected="true"] { background: var(--bg-surface); color: var(--fg-strong); border-color: var(--line); }
+  .tab .dirty { width: 7px; height: 7px; border-radius: 50%; background: var(--fg); display: none; }
+  .tab.is-dirty .dirty { display: inline-block; }
+  .tab .x { color: var(--fg-faint); font-size: 12px; }
+  .tab.closing { max-width: 0; opacity: 0; padding: 0; border: 0; }
+
+  .banner { flex: none; display: none; align-items: center; gap: 10px; padding: 7px 12px; font-size: var(--fs-xs); border-bottom: 1px solid var(--line); }
+  .banner.on { display: flex; }
+  .banner.warn { background: var(--warn-tint); color: #f0cf87; }
+  .banner.danger { background: var(--danger-tint); color: #f3a39d; }
+  .banner .msg { margin-right: auto; }
+  .banner button { height: 26px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg-surface); cursor: pointer; }
+  .banner button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+  .body { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  .doc { position: absolute; inset: 0; padding: 14px 18px; overflow: auto; display: none; }
+  .doc.on { display: block; }
+  .code { font-family: var(--mono); font-size: 12.5px; line-height: 1.7; white-space: pre; color: #d4d4d4; }
+  .code .ln { display: inline-block; width: 26px; color: var(--fg-faint); text-align: right; margin-right: 14px; }
+  .code .h { color: #6cb6ff; font-weight: 600; }
+  .code .new { background: rgba(76,195,138,.16); }
+  .html-frame { position: absolute; inset: 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; color: #222; padding: 18px 22px; font-family: system-ui, sans-serif; overflow: auto; }
+  .html-frame h3 { margin: 0 0 8px; }
+  .html-frame .kpi { display: inline-block; margin: 6px 8px 0 0; padding: 10px 14px; border-radius: 8px; background: #eef4ff; font-weight: 600; }
+  .img-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: repeating-conic-gradient(#2a2a2a 0 25%, #232323 0 50%) 0 0/16px 16px; }
+  .img-wrap svg { width: 220px; height: 220px; }
+  .flash { animation: flash 1s ease-out; }
+  @keyframes flash { 0% { box-shadow: inset 0 0 0 2px var(--ok); } 100% { box-shadow: inset 0 0 0 2px transparent; } }
+
+  .toast { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(10px); opacity: 0; padding: 8px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-lg); background: var(--bg-raised); color: var(--fg-strong); font-size: var(--fs-xs); box-shadow: 0 10px 30px rgba(0,0,0,.4); transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
+  .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .stage-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--fg-faint); font-size: var(--fs-xs); }
+
+  /* ---------- spec panel ---------- */
+  .panel { background: var(--bg-surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; }
+  .panel + .panel { margin-top: 16px; }
+  .panel h2 { margin: 0 0 12px; font-size: 15px; color: var(--fg-strong); }
+  .panel ol, .panel ul { margin: 0; padding-left: 20px; line-height: 1.6; color: var(--fg); }
+  .panel li { margin-bottom: 8px; }
+  .panel li b { color: var(--fg-strong); font-weight: 600; }
+  .panel table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+  .panel th, .panel td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .panel th { color: var(--fg-faint); font-weight: 500; }
+  .log { margin-top: 10px; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-muted); max-height: 140px; overflow: auto; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>편집기 자동 새로고침</h1>
+  <p>디스크의 파일이 바뀌면 편집기 창의 HTML 뷰어, 마크다운·코드 편집기, 이미지 뷰어가 스스로 다시 읽습니다. 창 위쪽의 <b>자동 새로고침</b> 토글로 끄고 켭니다. 화면에 보이는 탭만 2초마다 수정 시각과 크기를 확인합니다. 아래 버튼으로 상황을 재현해 보세요.</p>
+  <div class="demo-bar">
+    <span>외부에서</span>
+    <button class="chip" data-act="change">현재 탭 파일 변경</button>
+    <button class="chip" data-act="edit">현재 탭 편집 (저장 안 함)</button>
+    <button class="chip" data-act="delete">현재 탭 파일 삭제</button>
+    <button class="chip" data-act="delete-all">모든 파일 삭제</button>
+    <button class="chip reset" data-act="reset">처음으로</button>
+  </div>
+  <div class="hint">토글을 끈 상태에서 "파일 변경"을 누르면 아무 일도 일어나지 않습니다. HTML 탭의 수동 "다시 불러오기"(F5)는 토글과 관계없이 남습니다.</div>
+</header>
+
+<main class="layout">
+  <section>
+    <h3 class="section-title">편집기 창 (데스크톱)</h3>
+    <div class="stage" id="stage">
+      <div class="stage-empty">편집기 창이 닫혔습니다</div>
+      <div class="win" id="win">
+        <div class="titlebar">
+          <span class="title" id="title">README.md</span>
+          <button class="auto-toggle" id="auto" aria-pressed="true" title="디스크의 파일이 바뀌면 다시 읽습니다"><span class="dot"></span>자동 새로고침</button>
+          <button class="icon-btn" title="저장">💾</button>
+          <button class="icon-btn" title="최대화">▢</button>
+          <button class="icon-btn" title="최소화">–</button>
+          <button class="icon-btn" title="닫기">✕</button>
+        </div>
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <div class="banner warn" id="banner-changed">
+          <span class="msg">⚠ 디스크의 파일이 바뀌었습니다. 저장하지 않은 편집이 있어 다시 읽지 않았습니다.</span>
+          <button class="primary" data-act="reload">다시 불러오기</button>
+          <button data-act="keep">내 편집 유지</button>
+        </div>
+        <div class="banner danger" id="banner-deleted">
+          <span class="msg">⚠ 이 파일이 디스크에서 삭제되었습니다. 저장하지 않은 편집이 있어 탭을 닫지 않았습니다.</span>
+          <button class="primary" data-act="resave">다시 저장</button>
+          <button data-act="discard">편집 버리고 닫기</button>
+        </div>
+        <div class="body" id="body">
+          <div class="doc code" id="doc-md"></div>
+          <div class="doc" id="doc-html"><div class="html-frame" id="html-frame"></div></div>
+          <div class="doc" id="doc-img"><div class="img-wrap" id="img-wrap"></div></div>
+        </div>
+      </div>
+      <div class="toast" id="toast"></div>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <aside>
+    <div class="panel">
+      <h2>동작</h2>
+      <table>
+        <tr><th>상황</th><th>저장 안 한 편집 없음</th><th>저장 안 한 편집 있음</th></tr>
+        <tr><td>파일 변경</td><td>바로 다시 읽음. 커서·스크롤 유지, 바뀐 줄을 잠깐 강조</td><td>덮어쓰지 않고 노란 띠: [다시 불러오기] [내 편집 유지]</td></tr>
+        <tr><td>파일 삭제</td><td>탭을 닫고 알림을 띄움. 마지막 탭이면 창도 닫음</td><td>편집을 잃지 않도록 닫지 않고 빨간 띠: [다시 저장] [편집 버리고 닫기]</td></tr>
+        <tr><td>HTML 뷰어</td><td colspan="2">페이지를 다시 엶(스크롤은 맨 위로)</td></tr>
+        <tr><td>이미지·SVG</td><td colspan="2">새 이미지로 바꿔 끼움. 확대 상태 유지</td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>규칙</h2>
+      <ol>
+        <li><b>확인 방법</b>: 화면에 보이는 탭만 2초마다 <code>/files/stat</code> 의 수정 시각과 크기를 비교합니다. 숨긴 탭, 최소화한 창, 백그라운드 브라우저 탭은 묻지 않습니다. 응답이 느리면(WSL) 간격을 늘립니다.</li>
+        <li><b>토글</b>: 기본 켜짐. 브라우저에 저장하고 모든 편집기 창에 함께 적용합니다.</li>
+        <li><b>내 저장</b>: 내가 저장해서 바뀐 수정 시각은 외부 변경으로 보지 않습니다.</li>
+        <li><b>저장 시점</b>: 외부에서 바뀐 파일에 저장하면 지금처럼 덮어씁니다(1차 범위).</li>
+        <li><b>삭제</b>: 이름 변경·이동도 원래 경로에서는 삭제로 봅니다.</li>
+      </ol>
+    </div>
+  </aside>
+</main>
+
+<script>
+  const FILES = {
+    md: { name: 'README.md', kind: 'md' },
+    html: { name: 'report.html', kind: 'html' },
+    img: { name: 'logo.svg', kind: 'img' },
+  };
+  let state;
+  function reset() {
+    state = {
+      auto: true, active: 'md', open: ['md', 'html', 'img'],
+      dirty: {}, version: { md: 1, html: 1, img: 1 }, pending: null, deletedDirty: null,
+    };
+    document.getElementById('win').classList.remove('closed');
+    document.getElementById('log').textContent = '';
+    hideBanners();
+    render();
+  }
+  const $ = (id) => document.getElementById(id);
+  function log(text) { const l = $('log'); l.textContent = `${new Date().toLocaleTimeString()}  ${text}\n` + l.textContent; }
+  function toast(text) { const t = $('toast'); t.textContent = text; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2400); }
+  function hideBanners() { $('banner-changed').classList.remove('on'); $('banner-deleted').classList.remove('on'); }
+
+  function mdText(v, dirty, highlight) {
+    const lines = ['<span class="h"># BuilderGate</span>', '', '웹 터미널과 에이전트 오케스트레이션.', ''];
+    for (let i = 1; i <= v; i += 1) lines.push(`- 변경 ${i}: 에이전트가 이 줄을 썼습니다`);
+    if (dirty) lines.push('- (내가 입력 중인 줄)');
+    return lines.map((l, i) => `<span class="ln">${i + 1}</span>${highlight && i === lines.length - 1 - (dirty ? 1 : 0) && v > 1 ? `<span class="new">${l}</span>` : l}`).join('\n');
+  }
+  function render(flashKey) {
+    $('auto').setAttribute('aria-pressed', String(state.auto));
+    const tabs = $('tabs'); tabs.innerHTML = '';
+    for (const key of state.open) {
+      const f = FILES[key];
+      const tab = document.createElement('div');
+      tab.className = `tab${state.dirty[key] ? ' is-dirty' : ''}`; tab.dataset.key = key;
+      tab.setAttribute('role', 'tab'); tab.setAttribute('aria-selected', String(state.active === key));
+      tab.innerHTML = `<span>${f.name}</span><span class="dirty"></span><span class="x">✕</span>`;
+      tab.onclick = () => { state.active = key; hideBanners(); render(); };
+      tabs.appendChild(tab);
+    }
+    $('title').textContent = state.active ? FILES[state.active].name : '편집기';
+    for (const k of ['md', 'html', 'img']) $(`doc-${k}`).classList.toggle('on', state.active === k);
+    $('doc-md').innerHTML = mdText(state.version.md, state.dirty.md, flashKey === 'md');
+    $('html-frame').innerHTML = `<h3>주간 보고서</h3><div>마지막 생성: v${state.version.html}</div><span class="kpi">완료 ${12 + state.version.html * 3}</span><span class="kpi">진행 ${8 - state.version.html}</span>`;
+    const hue = (state.version.img * 67) % 360;
+    $('img-wrap').innerHTML = `<svg viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="80" rx="18" fill="hsl(${hue},65%,45%)"/><text x="50" y="62" font-size="30" text-anchor="middle" fill="#fff" font-family="Segoe UI">v${state.version.img}</text></svg>`;
+    if (flashKey) { const el = $('body'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  }
+
+  function closeTab(key, why) {
+    const el = document.querySelector(`.tab[data-key="${key}"]`);
+    if (el) el.classList.add('closing');
+    setTimeout(() => {
+      state.open = state.open.filter((k) => k !== key);
+      delete state.dirty[key];
+      if (state.active === key) state.active = state.open[0] ?? null;
+      hideBanners();
+      if (state.open.length === 0) {
+        $('win').classList.add('closed');
+        toast(`${FILES[key].name} 이(가) 삭제되어 편집기 창을 닫았습니다`);
+        log(`${why} → 마지막 탭이라 창을 닫음`);
+        return;
+      }
+      render();
+      toast(`${FILES[key].name} 이(가) 디스크에서 삭제되어 탭을 닫았습니다`);
+      log(`${why} → 탭 닫음`);
+    }, 260);
+  }
+
+  function externalChange() {
+    const key = state.active; if (!key) return;
+    if (!state.auto) { log(`${FILES[key].name} 변경됨 → 자동 새로고침 꺼짐: 아무것도 하지 않음`); return; }
+    const a = $('auto'); a.classList.remove('pulse'); void a.offsetWidth; a.classList.add('pulse');
+    if (state.dirty[key]) {
+      state.pending = key; $('banner-changed').classList.add('on');
+      log(`${FILES[key].name} 변경됨 → 저장 안 한 편집이 있어 띠로 물음`);
+      return;
+    }
+    state.version[key] += 1; render(key);
+    log(`${FILES[key].name} 변경됨 → ${key === 'html' ? '페이지를 다시 엶' : key === 'img' ? '새 이미지로 바꿔 끼움' : '다시 읽음(커서 유지)'}`);
+  }
+  function externalDelete(key) {
+    if (!state.open.includes(key)) return;
+    if (!state.auto) { log(`${FILES[key].name} 삭제됨 → 자동 새로고침 꺼짐: 아무것도 하지 않음`); return; }
+    if (state.dirty[key]) {
+      state.active = key; render();
+      state.deletedDirty = key; $('banner-deleted').classList.add('on');
+      log(`${FILES[key].name} 삭제됨 → 저장 안 한 편집이 있어 닫지 않고 띠로 물음`);
+      return;
+    }
+    closeTab(key, `${FILES[key].name} 삭제됨`);
+  }
+
+  document.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act; if (!act) return;
+    if (act === 'reset') reset();
+    if (act === 'change') externalChange();
+    if (act === 'edit' && state.active) { state.dirty[state.active] = true; render(); log(`${FILES[state.active].name} 편집함(저장 안 함)`); }
+    if (act === 'delete' && state.active) externalDelete(state.active);
+    if (act === 'delete-all') {
+      const keys = [...state.open]; let delay = 0;
+      for (const k of keys) { setTimeout(() => externalDelete(k), delay); delay += 400; }
+    }
+    if (act === 'reload' && state.pending) { const k = state.pending; state.dirty[k] = false; state.version[k] += 1; state.pending = null; hideBanners(); render(k); log(`${FILES[k].name}: 편집을 버리고 디스크에서 다시 읽음`); }
+    if (act === 'keep') { state.pending = null; hideBanners(); log('내 편집 유지 → 다음 저장 때 덮어씀'); }
+    if (act === 'resave' && state.deletedDirty) { const k = state.deletedDirty; state.dirty[k] = false; state.deletedDirty = null; hideBanners(); render(); toast(`${FILES[k].name} 을(를) 다시 저장했습니다`); log(`${FILES[k].name}: 같은 경로에 다시 저장`); }
+    if (act === 'discard' && state.deletedDirty) { const k = state.deletedDirty; state.deletedDirty = null; state.dirty[k] = false; closeTab(k, `${FILES[k].name}: 편집 버림`); }
+  });
+  $('auto').addEventListener('click', () => { state.auto = !state.auto; render(); log(`자동 새로고침 ${state.auto ? '켜짐' : '꺼짐'}`); });
+  reset();
+</script>
+</body>
+</html>
