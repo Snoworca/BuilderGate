@@ -154,6 +154,7 @@
     "tests/unit/editorWindowSaveShortcut.test.ts",
     "tests/unit/editorLineEndings.test.ts",
     "tests/unit/editorDocumentAccess.test.ts",
+    "tests/unit/editorWorktreeReadOnly.test.ts",
     "tests/unit/editorMode.test.ts",
     "tests/unit/codeEditorExtensions.test.ts",
     "tests/unit/editorDocumentPanelMode.test.ts",

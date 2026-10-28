@@ -146,9 +146,10 @@ export function createHtmlViewRoutes(fileService: FileService, store: HtmlViewTo
     try {
       const filePath = typeof (req.body as { path?: unknown } | undefined)?.path === 'string' ? (req.body as { path: string }).path : '';
       if (!filePath) throw new AppError(ErrorCode.INVALID_INPUT, 'path is required');
-      const file = await fileService.resolveDownload(req.params.id, filePath);
+      // SEC-FOP-002 AC-7: a file in another worktree of the repository is scoped to that worktree.
+      const file = await fileService.resolveHtmlViewSource(req.params.id, filePath);
       if (!HTML_EXTENSIONS.has(path.extname(file.name).toLowerCase())) throw new AppError(ErrorCode.INVALID_INPUT, 'not an .html or .htm file');
-      const root = await fileService.realCwd(req.params.id);
+      const root = file.root;
       const relative = toPosix(path.relative(root, file.path));
       if (relative === '' || relative.startsWith('../') || path.isAbsolute(relative)) throw new AppError(ErrorCode.PATH_TRAVERSAL);
       const token = store.issue({ sessionId: req.params.id, userId: userOf(req), root, filePath: relative });

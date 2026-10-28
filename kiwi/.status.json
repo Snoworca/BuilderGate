@@ -1,88 +1,88 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-27T07:15:52.406Z",
+  "generatedAt": "2026-10-28T00:37:40.317Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "6d534a829e7fef3fc6118b99c45d52b3684bdf2e68ba71e5e5a4f7e62b6d7808",
+    "value": "18e95ad75ac0d9d1568c0f8fa3bbd2f58c5134f42b36b0524b0094996d7a6369",
     "files": [
       {
         "path": "docs/spec/00.index.md",
-        "sha256": "3fc4bafcaf99585e499a834c62a435b9a4e21604b5534de9c5239951f9acdcdc",
-        "size": 15037,
-        "mtimeMs": 1792723254974.6492
+        "sha256": "fce3541663ee9b5d0dd38c3b77f58328b4decf3a584269dc76a84cb69ae34caa",
+        "size": 15207,
+        "mtimeMs": 1793147694726.3076
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "384cafd8e9a2d59921370e5119b87136480fd8a126ba6ebe0b5d1309863470db",
-        "size": 65050,
-        "mtimeMs": 1792658759715.5134
+        "sha256": "25b7f1960395472aba8a6c20b162be24bd882eafd9efabf8ff90b1dd95789205",
+        "size": 65503,
+        "mtimeMs": 1793147694727.313
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "8116f4b5e21da79daf7e23aa9d9f301986bbb3a8c0516b2e48678a08ee1ca018",
         "size": 107460,
-        "mtimeMs": 1793085339830.9153
+        "mtimeMs": 1793147698226.6821
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
         "sha256": "a22f18ee60518866543e0046945cadac9c8e9e5b3828c16459d94056dd0aecd0",
         "size": 1550236,
-        "mtimeMs": 1793085346443.8318
+        "mtimeMs": 1793147698233.1953
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "229115589c1cdc445ed9d0f1f812fc019f0ebf6855cc4d482c1ec24ae3eb6ac5",
         "size": 148689,
-        "mtimeMs": 1793075409915.2676
+        "mtimeMs": 1793147698235.2053
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
         "sha256": "7a2193dd452866436d7ce79bef592d99f91c2135324218e7156a83076e98b409",
         "size": 309869,
-        "mtimeMs": 1792523753859.6306
+        "mtimeMs": 1793147694742.891
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "8d6a89b595e6881acc04dcfdd7d1f73483a6e5fcdecb4f68b841d933919ba121",
         "size": 150699,
-        "mtimeMs": 1792645351331.6492
+        "mtimeMs": 1793147694744.8914
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
-        "sha256": "48a7a29f6e3be14d7d2057e465b2205c3d05eca086c780435355356fe30793c9",
-        "size": 62623,
-        "mtimeMs": 1792646623589.0376
+        "sha256": "14e45850398d07f124b0f58a85c77fc54802d71497979cb4609f48cda0c338d6",
+        "size": 72202,
+        "mtimeMs": 1793147694745.8909
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
         "sha256": "2eef998fb93ea5d0951e48d877fdb5e157a30af7bcc0389343b569fd3458ea38",
         "size": 47478,
-        "mtimeMs": 1792524258865.0269
+        "mtimeMs": 1793147694746.891
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
         "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
         "size": 18127,
-        "mtimeMs": 1790475599389.271
+        "mtimeMs": 1793147694747.8938
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "a42124313d439ad96e7e206bf1eabeab09122ae8496d527d41f55a255f24c8aa",
         "size": 81538,
-        "mtimeMs": 1792574027660.4849
+        "mtimeMs": 1793147694748.896
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
         "sha256": "d24090b0f318a8f655ab85cc4ce2d3aaa91c749878b4144195ee162c26756a1e",
         "size": 38573,
-        "mtimeMs": 1793085333678.4983
+        "mtimeMs": 1793147698236.2295
       },
       {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
-        "mtimeMs": 1778345537159.6023
+        "mtimeMs": 1793147694750.8955
       }
     ]
   },
@@ -112,7 +112,7 @@
       "BGSTAB": 1,
       "MCP": 4,
       "MDE": 2,
-      "FOP": 1,
+      "FOP": 2,
       "GIT": 1
     },
     "reliability": {

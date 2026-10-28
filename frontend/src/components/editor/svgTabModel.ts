@@ -29,12 +29,13 @@ import type { BlobUrlSlot } from './imageViewerModel.ts';
 export type SvgView = 'preview' | 'source';
 
 /** The read endpoint's answer exactly as received: BOM and CRLF kept. */
-export type SvgSource = { raw: string; encoding: DocumentEncoding };
+/** `worktree` names the other worktree the file was read from; it makes the source read-only (SEC-FOP-002). */
+export type SvgSource = { raw: string; encoding: DocumentEncoding; worktree?: string };
 
 export type SvgTabState = { view: SvgView; source: SvgSource | null };
 
 /** The shape of fileApi.readFile. */
-export type SvgReadFile = (sessionId: string, path: string) => Promise<{ content: string; encoding?: string }>;
+export type SvgReadFile = (sessionId: string, path: string) => Promise<{ content: string; encoding?: string; worktree?: { name: string } }>;
 
 export interface SvgSourceSession {
   layout: TextLayout;
@@ -65,7 +66,14 @@ export async function toSource(
     return { view: 'source', source: state.source };
   }
   const file = await deps.readFile(target.sessionId, target.filePath);
-  return { view: 'source', source: { raw: file.content, encoding: documentEncodingOf(file) } };
+  return {
+    view: 'source',
+    source: {
+      raw: file.content,
+      encoding: documentEncodingOf(file),
+      ...(file.worktree ? { worktree: file.worktree.name } : {}),
+    },
+  };
 }
 
 /**
@@ -98,9 +106,9 @@ export function createSvgSourceSession(input: {
 }): SvgSourceSession {
   const { tabId, filePath, source, deps, onStateChange } = input;
   const layout = analyzeText(source.raw);
-  const access = decideDocumentAccess(source.encoding);
+  const access = decideDocumentAccess(source.encoding, source.worktree);
   const controller = createEditorWindowSaveController({
-    binding: documentSaveBinding({ tabId, filePath, kind: 'text', encoding: source.encoding }),
+    binding: documentSaveBinding({ tabId, filePath, kind: 'text', encoding: source.encoding, worktree: source.worktree }),
     bodyAtOpen: encodeForSave(layout.body, layout),
     deps,
     onStateChange,

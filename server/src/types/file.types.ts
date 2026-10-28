@@ -57,6 +57,16 @@ export interface PathStat {
   childCount?: number;
   /** Where a symlink points, for a symlink. */
   linkTarget?: string;
+  /** Set when the path lies in another worktree of the session folder's repository (SEC-FOP-002 AC-5). */
+  worktree?: WorktreeLocation;
+}
+
+/** SEC-FOP-002 AC-5: the worktree a path outside the session folder was read from. */
+export interface WorktreeLocation {
+  /** The worktree's real root path. */
+  root: string;
+  /** The root folder's name, e.g. 'd-1'. */
+  name: string;
 }
 
 export interface DirectoryListing {
@@ -73,6 +83,8 @@ export interface FileContent {
   encoding: 'utf-8' | 'unknown';
   extension: string;
   mimeType: string;
+  /** Set when the file lies in another worktree; such a file is read-only (SEC-FOP-002 AC-5). */
+  worktree?: WorktreeLocation;
 }
 
 // ============================================================================

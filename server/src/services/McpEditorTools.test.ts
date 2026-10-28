@@ -40,14 +40,20 @@ function createFakeControl() {
     ['/w/site/index.html', '<p>hi</p>'],
     ['/w/page.HTM', '<p>old</p>'],
     ['/d/report.html', '<p>d</p>'],
+    // SEC-FOP-002 AC-10: /w-1 is another worktree of /w's repository.
+    ['/w-1/docs/design.html', '<h1>design</h1>'],
+    ['/w-1/notes.md', '# notes'],
   ]);
-  const dirs = new Set(['/w', '/w/src', '/w/img', '/w/docs.md', '/w/site', '/w/folder.html', '/d']);
+  const dirs = new Set(['/w', '/w/src', '/w/img', '/w/docs.md', '/w/site', '/w/folder.html', '/d', '/w-1', '/w-1/docs']);
   const opened: McpEditorOpenRequest[] = [];
   const writes: Rec[] = [];
-  const resolve = (sessionId: string, filePath: string): string => {
+  const inspections: Array<'open' | 'write'> = [];
+  const worktreesOf: Record<string, string[]> = { 's-1': ['/w-1'] };
+  const resolve = (sessionId: string, filePath: string, purpose: 'open' | 'write' = 'write'): string => {
     const base = cwdOf[sessionId];
     const resolved = path.posix.resolve(base, filePath);
-    if (resolved !== base && !resolved.startsWith(`${base}/`)) throw codeError('PATH_TRAVERSAL');
+    const inWorktree = purpose === 'open' && (worktreesOf[sessionId] ?? []).some(root => resolved.startsWith(`${root}/`));
+    if (resolved !== base && !resolved.startsWith(`${base}/`) && !inWorktree) throw codeError('PATH_TRAVERSAL');
     if (resolved.split('/').includes('.ssh') || resolved.endsWith('.exe')) throw codeError('PATH_BLOCKED');
     return resolved;
   };
@@ -61,8 +67,9 @@ function createFakeControl() {
     deleteTerminal: async () => { throw new Error('unused'); },
     execTerminal: async () => { throw new Error('unused'); },
     readTerminalText: () => null,
-    inspectEditorFile: async (sessionId, filePath) => {
-      const resolved = resolve(sessionId, filePath);
+    inspectEditorFile: async (sessionId, filePath, purpose) => {
+      inspections.push(purpose);
+      const resolved = resolve(sessionId, filePath, purpose);
       return { path: resolved, exists: files.has(resolved) || dirs.has(resolved), isFile: files.has(resolved) };
     },
     writeEditorFile: async (sessionId, filePath, content) => {
@@ -73,7 +80,7 @@ function createFakeControl() {
     },
     openEditor: (request) => { opened.push(request); },
   };
-  return { control, opened, writes, files };
+  return { control, opened, writes, files, inspections };
 }
 
 function setup(scopes: string[] = getFixedMcpAccessKeyScopes(), actorExtra: Rec = {}) {
@@ -293,4 +300,27 @@ test('FR-MCP-013 AC-3: open_html follows the editor tools for paths, terminals, 
   assert.deepEqual(((schema.properties as Rec).view as Rec).enum, ['rendered', 'source']);
   assert.equal(schema.additionalProperties, false);
   assert.ok(String(tool!.description).length > 10);
+});
+
+test('SEC-FOP-002 AC-10: opening an existing file by filePath reaches another worktree of the repository', async () => {
+  const { call, opened, writes, inspections } = setup();
+  const html = await call(HTML, { terminalId: 'tab-1', filePath: '/w-1/docs/design.html' });
+  assert.equal(html.ok, true, JSON.stringify(html));
+  assert.equal(html.filePath, '/w-1/docs/design.html');
+  assert.equal((await call(MD, { terminalId: 'tab-1', filePath: '../w-1/notes.md' })).ok, true);
+  assert.deepEqual(opened.map(o => o.filePath), ['/w-1/docs/design.html', '/w-1/notes.md']);
+  assert.deepEqual(inspections, ['open', 'open']);
+  // Outside every worktree it stays refused.
+  assert.equal((await call(MD, { terminalId: 'tab-1', filePath: '/d/guide.md' })).code, 'PATH_TRAVERSAL');
+  assert.deepEqual(writes, []);
+});
+
+test('SEC-FOP-002 AC-10: saving content to another worktree is refused; it keeps the session folder boundary', async () => {
+  const { call, opened, writes, inspections, files } = setup();
+  assert.equal((await call(HTML, { terminalId: 'tab-1', filePath: '/w-1/docs/new.html', html: '<p>x</p>' })).code, 'PATH_TRAVERSAL');
+  assert.equal((await call(MD, { terminalId: 'tab-1', filePath: '/w-1/notes.md', content: 'over', overwrite: true })).code, 'PATH_TRAVERSAL');
+  assert.deepEqual(inspections, ['write', 'write']);
+  assert.deepEqual(writes, []);
+  assert.deepEqual(opened, []);
+  assert.equal(files.get('/w-1/notes.md'), '# notes');
 });

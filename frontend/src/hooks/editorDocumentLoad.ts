@@ -29,7 +29,7 @@ export type ImageDocumentState =
 
 /** @req FR-MDE-018 */
 export type LoadedDocument =
-  | { kind: 'text'; bodyAtOpen: string; encoding: DocumentEncoding }
+  | { kind: 'text'; bodyAtOpen: string; encoding: DocumentEncoding; worktree?: string }
   | { kind: 'image'; image: ImageDocumentState };
 
 /**
@@ -45,7 +45,7 @@ export type DocumentLoadOutcome =
 
 /** The shapes of `fileApi.readFile` and `fileApi.readImage`. */
 export interface DocumentLoadDeps {
-  readFile: (sessionId: string, path: string) => Promise<{ content: string; encoding?: string }>;
+  readFile: (sessionId: string, path: string) => Promise<{ content: string; encoding?: string; worktree?: { name: string } }>;
   readImage: (sessionId: string, path: string) => Promise<Blob>;
 }
 
@@ -65,6 +65,8 @@ export type OpenDocumentRecord = EditorTrayWindow & {
   encoding: DocumentEncoding;
   /** The image bytes or read failure; null for a text document. @req FR-MDE-018 */
   image: ImageDocumentState | null;
+  /** The other worktree the file was read from; such a document is read-only. @req SEC-FOP-002 */
+  worktree?: string;
 };
 
 /**
@@ -99,7 +101,12 @@ export async function loadDocument(
     const file = await deps.readFile(sessionId, filePath);
     return {
       status: 'loaded',
-      document: { kind: 'text', bodyAtOpen: file.content, encoding: documentEncodingOf(file) },
+      document: {
+        kind: 'text',
+        bodyAtOpen: file.content,
+        encoding: documentEncodingOf(file),
+        ...(file.worktree ? { worktree: file.worktree.name } : {}),
+      },
     };
   } catch (error) {
     return isMissingFileError(error) ? { status: 'missing' } : { status: 'error', error };
@@ -129,21 +136,23 @@ export function planOpenDocument(input: {
     bodyAtOpen: document.bodyAtOpen,
     encoding: document.encoding,
     image: null,
+    ...(document.worktree !== undefined ? { worktree: document.worktree } : {}),
   };
 }
 
 /**
  * An image tab is view-only: its binding is read-only, so it never turns dirty
- * and its save writes nothing.
+ * and its save writes nothing. So is a document read from another worktree.
  * @req FR-MDE-016
  * @req FR-MDE-018
+ * @req SEC-FOP-002
  */
 export function documentSaveBinding(
-  record: Pick<OpenDocumentRecord, 'tabId' | 'filePath' | 'kind' | 'encoding'>,
+  record: Pick<OpenDocumentRecord, 'tabId' | 'filePath' | 'kind' | 'encoding' | 'worktree'>,
 ): EditorWindowSaveBinding {
   return {
     tabId: record.tabId,
     filePath: record.filePath,
-    readOnly: record.kind === 'image' || record.encoding === 'unknown',
+    readOnly: record.kind === 'image' || record.encoding === 'unknown' || record.worktree !== undefined,
   };
 }

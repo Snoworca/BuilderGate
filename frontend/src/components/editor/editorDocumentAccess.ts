@@ -23,14 +23,20 @@ export interface DocumentAccess {
 
 
 /**
- * A UTF-8 file behaves exactly as before; anything else is read-only.
+ * A UTF-8 file behaves exactly as before; anything else is read-only. A file
+ * the server read from another worktree of the session folder's repository is
+ * read-only too: writes stay inside the session folder (SEC-FOP-002 AC-6).
  * @req FR-MDE-016
+ * @req SEC-FOP-002
  */
-export function decideDocumentAccess(encoding: DocumentEncoding): DocumentAccess {
-  if (encoding === 'utf-8') {
-    return { readOnly: false, notice: null };
+export function decideDocumentAccess(encoding: DocumentEncoding, worktree?: string): DocumentAccess {
+  if (encoding !== 'utf-8') {
+    return { readOnly: true, notice: t('editor.access.notUtf8') };
   }
-  return { readOnly: true, notice: t('editor.access.notUtf8') };
+  if (worktree !== undefined) {
+    return { readOnly: true, notice: t('editor.access.otherWorktree', { name: worktree }) };
+  }
+  return { readOnly: false, notice: null };
 }
 
 const LINE_ENDING_LABELS: Record<LineEnding, 'CRLF' | 'LF' | 'CR'> = {
