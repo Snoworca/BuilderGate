@@ -40,7 +40,7 @@ test('FR-GIT-013 AC-1: without storage (private mode) it still works for the pag
 // @req FR-GIT-013
 test('FR-GIT-013 AC-1/AC-2/AC-3: the tools row toggles it, the list wraps and stretches each graph', () => {
   const win = read('GitWindow.tsx');
-  assert.match(win, /data-opt="wrap"/);
+  assert.match(win, /data-opt="wrap-subjects"/);
   assert.match(win, /t\('git\.window\.wrapSubjects'\)/);
   assert.match(win, /wrapSubjects=\{wrapSubjects\}/);
   const list = read('GitGraphList.tsx');

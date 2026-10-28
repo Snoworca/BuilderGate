@@ -93,6 +93,11 @@
 .git-row-sha { width: 64px; flex-shrink: 0; color: var(--fg-muted); font-family: var(--font-mono); font-size: 11.5px; }
 .git-row-who { width: 76px; flex-shrink: 0; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .git-row-when { width: 72px; flex-shrink: 0; color: var(--fg-muted); text-align: right; white-space: nowrap; }
+/* FR-GIT-013: wrapped subjects grow the row; the graph box stretches with it. */
+.git-graph-list[data-wrap] .git-row { height: auto; min-height: var(--row-h); }
+.git-graph-list[data-wrap] .git-row-text { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.git-row-graph-box { position: relative; flex-shrink: 0; align-self: stretch; }
+.git-row-graph-box > .git-row-graph { position: absolute; top: 0; left: 0; }
 .git-refs { display: flex; gap: 4px; max-width: 40%; overflow: hidden; flex-shrink: 0; }
 .git-ref { height: 18px; padding: 0 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 11px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .git-ref[data-kind="head"] { background: var(--accent); color: var(--accent-fg); flex-shrink: 0; }

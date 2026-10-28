@@ -1462,6 +1462,7 @@
   "git.diff.openEditorDisabled": "Deleted, binary and special files cannot be opened in the editor",
   "git.diff.changedBadge": "This file changed · Apply",
   "git.window.autoRefresh": "Auto refresh",
+  "git.window.wrapSubjects": "Wrap subjects",
   "git.window.listBadge": "New changes in the list · Apply",
   "git.window.checked": "Checked {time}",
   "git.window.committed": "The changes were committed. Showing the new HEAD.",

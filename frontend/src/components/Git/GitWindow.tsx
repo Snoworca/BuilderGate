@@ -7,7 +7,7 @@
  * @req FR-GIT-009
  * @req FR-GIT-010
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, useSyncExternalStore } from 'react';
 import type { GitClient, LogScope } from './gitApi.ts';
 import { GitGraphList } from './GitGraphList.tsx';
 import { GitWindowBanner, pickGitBanner } from './GitWindowBanner.tsx';
@@ -25,6 +25,7 @@ import { CASCADE_PX } from './gitWindowModel.ts';
 import { activeLanguage, t } from '../../i18n/i18n.ts';
 import { formatRelativeTime } from '../../utils/relativeTime.ts';
 import { MOBILE_LAYOUT_QUERY } from '../../utils/layoutMode.ts';
+import { subjectWrapStore } from './gitSubjectWrap.ts';
 import './gitViewer.css';
 
 export const GIT_WINDOW_MIN_SIZE = { width: 760, height: 420 } as const;
@@ -98,6 +99,8 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
   const [shown, setShown] = useState(live);
   // FR-GIT-009: with auto refresh off, a new state waits behind a badge on the list.
   const [auto, setAuto] = useState(true);
+  // FR-GIT-013: shared by every Git window and kept in this browser.
+  const wrapSubjects = useSyncExternalStore(subjectWrapStore.subscribe, subjectWrapStore.get);
   const [checkedAt, setCheckedAt] = useState(() => Date.now());
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -272,6 +275,7 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
   const toolsEl = (
     <div className="git-window-tools">
       <label className="git-check"><input type="checkbox" data-opt="auto" checked={auto} onChange={(e) => { setAuto(e.target.checked); if (e.target.checked && live) setShown(live); }} />{t('git.window.autoRefresh')}</label>
+      <label className="git-check"><input type="checkbox" data-opt="wrap-subjects" checked={wrapSubjects} onChange={(e) => subjectWrapStore.set(e.target.checked)} />{t('git.window.wrapSubjects')}</label>
       <button type="button" className="git-icon-btn" data-refresh="" aria-label={t('git.window.refresh')} title={t('git.window.refresh')} onClick={refresh}>↻</button>
       <span className="git-muted" data-checked="">{t('git.window.checked', { time: formatRelativeTime((frozen || !auto ? undefined : git.checkedAt) ?? checkedAt, Date.now(), activeLanguage(), t('git.time.justNow')) })}</span>
       <span className="git-spacer" />
@@ -297,6 +301,7 @@ export function GitWindow({ sessionId, sessionName, cascade, onMinimize, onClose
       vanished={vanished}
       onLoaded={onLoaded}
       onCompare={setCompare}
+      wrapSubjects={wrapSubjects}
     />
   );
   const sideEl = (

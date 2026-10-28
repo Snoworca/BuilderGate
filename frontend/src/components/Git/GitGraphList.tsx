@@ -38,11 +38,38 @@ export interface GitGraphListProps {
   /** The commits on screen, after each load. */
   onLoaded?: (commits: GitLogCommit[]) => void;
   onCompare?: (compare: GitCompare | null) => void;
+  /** FR-GIT-013: subjects wrap onto further lines instead of ending in an ellipsis. */
+  wrapSubjects?: boolean;
 }
 
 interface Row { key: string; commit: GitLogCommit | null; graph: GraphRow | null; kind: 'commit' | 'worktree' | 'vanished' }
 
-function RowGraph({ g, lanes, dashed, h = ROW_H }: { g: GraphRow; lanes: number; dashed: boolean; h?: number }) {
+/**
+ * FR-GIT-013 AC-3: a wrapped row is taller than the others, so its graph fills a box the row
+ * stretches and is drawn at that box's height. The box has no height of its own (the svg sits
+ * absolutely inside), so the row can shrink again when the option is turned off.
+ */
+function StretchedRowGraph(props: { g: GraphRow; lanes: number; dashed: boolean; h: number }) {
+  const boxRef = useRef<HTMLSpanElement | null>(null);
+  const [boxH, setBoxH] = useState(props.h);
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    if (!box) return undefined;
+    const measure = () => setBoxH(Math.max(props.h, graphRowHeight(box.getBoundingClientRect().height)));
+    measure();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    observer?.observe(box);
+    return () => observer?.disconnect();
+  }, [props.h]);
+  return (
+    <span ref={boxRef} className="git-row-graph-box" style={{ width: 10 + props.lanes * LANE_W }}>
+      <RowGraph g={props.g} lanes={props.lanes} dashed={props.dashed} h={boxH} />
+    </span>
+  );
+}
+
+function RowGraph({ g, lanes, dashed, h = ROW_H, stretch = false }: { g: GraphRow; lanes: number; dashed: boolean; h?: number; stretch?: boolean }) {
+  if (stretch) return <StretchedRowGraph g={g} lanes={lanes} dashed={dashed} h={h} />;
   const w = 10 + lanes * LANE_W;
   const m = h / 2;
   const x = laneX(g.lane);
@@ -75,7 +102,7 @@ function RefBadges({ refs }: { refs: GitRef[] }) {
   );
 }
 
-export function GitGraphList({ sessionId, client, summary, scope, onScope, selected, onSelect, onOpen, width, reloadKey, nameOf, vanished, onLoaded, onCompare }: GitGraphListProps) {
+export function GitGraphList({ sessionId, client, summary, scope, onScope, selected, onSelect, onOpen, width, reloadKey, nameOf, vanished, onLoaded, onCompare, wrapSubjects = false }: GitGraphListProps) {
   const [commits, setCommits] = useState<GitLogCommit[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [shallow, setShallow] = useState(false);
@@ -181,6 +208,7 @@ export function GitGraphList({ sessionId, client, summary, scope, onScope, selec
       <div
         ref={listRef}
         className="git-graph-list"
+        data-wrap={wrapSubjects ? '' : undefined}
         role="listbox"
         tabIndex={0}
         aria-label={t('git.graph.list')}
@@ -210,7 +238,7 @@ export function GitGraphList({ sessionId, client, summary, scope, onScope, selec
               className="git-row"
               onClick={() => { onSelect(r.key); onOpen?.(r.key); }}
             >
-              {r.graph ? <RowGraph g={r.graph} lanes={laneCount} dashed={r.kind === 'worktree'} h={rowH} /> : <span style={{ width: 10 + laneCount * LANE_W, flexShrink: 0 }} />}
+              {r.graph ? <RowGraph g={r.graph} lanes={laneCount} dashed={r.kind === 'worktree'} h={rowH} stretch={wrapSubjects} /> : <span style={{ width: 10 + laneCount * LANE_W, flexShrink: 0 }} />}
               <span className="git-row-subject">{c && <RefBadges refs={c.refs} />}<span className="git-row-text">{subject}</span></span>
               {cols.sha && <span className="git-row-sha">{c ? c.sha.slice(0, 7) : ''}</span>}
               {cols.author && <span className="git-row-who">{c?.author ?? ''}</span>}

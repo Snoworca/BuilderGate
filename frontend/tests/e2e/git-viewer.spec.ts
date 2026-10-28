@@ -130,4 +130,41 @@ test.describe('git viewer: chip, window, diff', () => {
     await page.goBack();
     await expect(shell).toHaveCount(0);
   });
+  // FR-GIT-013 AC-1~AC-4
+  test('a long subject wraps when the option is on, the graph follows the row, and the choice is kept', async ({ page }, testInfo) => {
+    const phone = isPhone(testInfo.project);
+    const subject = 'feat(very-long-scope): a commit subject long enough to run past the column on any screen size we support';
+    git(repo, 'commit', '-q', '--allow-empty', '-m', subject);
+    await waitForChip(page, /●1/);
+    if (phone) await chip(page).tap(); else await chip(page).click();
+    const row = gitWindow(page).locator('.git-row', { hasText: 'feat(very-long-scope)' });
+    await expect(row).toBeVisible({ timeout: 15000 });
+    const toggle = gitWindow(page).locator('input[data-opt="wrap-subjects"]');
+    // AC-1: off by default -- one line, cut with an ellipsis.
+    await expect(toggle).not.toBeChecked();
+    const before = await row.evaluate((el) => {
+      const text = el.querySelector('.git-row-text') as HTMLElement;
+      return { h: el.getBoundingClientRect().height, cut: text.scrollWidth > text.clientWidth };
+    });
+    expect(before.cut, 'the subject is cut while the option is off').toBe(true);
+    // AC-4: tall enough to tap on a phone.
+    if (phone) expect((await toggle.locator('xpath=..').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    if (phone) await toggle.tap(); else await toggle.click();
+    await expect(toggle).toBeChecked();
+    // AC-2, AC-3: the row grows, the whole subject shows, and the graph fills the row.
+    await expect.poll(() => row.evaluate((el) => el.getBoundingClientRect().height)).toBeGreaterThan(before.h + 10);
+    const after = await row.evaluate((el) => {
+      const text = el.querySelector('.git-row-text') as HTMLElement;
+      const graph = el.querySelector('.git-row-graph') as SVGElement;
+      return { cut: text.scrollWidth > text.clientWidth, gap: Math.abs(graph.getBoundingClientRect().height - el.getBoundingClientRect().height) };
+    });
+    expect(after.cut).toBe(false);
+    expect(after.gap, 'the graph is as tall as the wrapped row').toBeLessThanOrEqual(1);
+    await shot(page, `wrap-${phone ? 'phone' : 'desktop'}`);
+    // AC-1: kept in this browser.
+    expect(await page.evaluate(() => localStorage.getItem('buildergate.git.wrapSubjects'))).toBe('1');
+    // Off again: back to one line, and the row shrinks.
+    if (phone) await toggle.tap(); else await toggle.click();
+    await expect.poll(() => row.evaluate((el) => el.getBoundingClientRect().height)).toBeLessThanOrEqual(before.h + 1);
+  });
 });
