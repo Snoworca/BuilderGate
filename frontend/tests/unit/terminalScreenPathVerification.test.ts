@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { buildTerminalContextMenuItems, type BuildTerminalMenuOptions } from '../../src/utils/contextMenuBuilder.ts';
-import { verifyScreenPaths } from '../../src/utils/terminalPathVerification.ts';
+import { checkMenuPaths, MENU_PATH_CHECK_TIMEOUT_MS, verifyScreenPaths } from '../../src/utils/terminalPathVerification.ts';
 import { findPathsInRows } from '../../src/utils/terminalPathDetection.ts';
 import type { PathStat } from '../../src/types/index.ts';
 
@@ -105,4 +105,35 @@ test('FR-ARCH-013 AC-9: both menus take the verified near path', () => {
     const source = readFileSync(new URL(file, import.meta.url), 'utf8');
     assert.match(source, /nearPending/, `${file} does not pass the near checking state`);
   }
+});
+
+// FR-ARCH-013 AC-12: the check had no time limit. A stat that never answers (a phone whose
+// network dropped, a busy server) left the menu on '확인 중…' for good. After the limit the
+// menu shows the unchecked paths; a pick still runs the open check (AC-5).
+const neverAnswers = (): Promise<PathStat> => new Promise<PathStat>(() => undefined);
+
+test('FR-ARCH-013 AC-12: the menu check is limited to five seconds', () => {
+  assert.equal(MENU_PATH_CHECK_TIMEOUT_MS, 5000);
+});
+
+test('FR-ARCH-013 AC-12: a check that does not answer in time ends with the unchecked paths', async () => {
+  const paths = { near: target('docs/a.md'), screen: [target('docs/a.md'), target('missing.md')] };
+  const started = Date.now();
+  const result = await checkMenuPaths(paths, neverAnswers, 30);
+  assert.ok(Date.now() - started < 1000, 'the deadline ends the wait');
+  assert.deepEqual(result.near, paths.near);
+  assert.deepEqual(result.screen.map(t => t.path), ['docs/a.md', 'missing.md']);
+});
+
+test('FR-ARCH-013 AC-8/AC-9/AC-12: a check that answers in time keeps only the openable paths', async () => {
+  const paths = { near: target('missing.md'), screen: [target('docs/a.md'), target('docs'), target('src/b.ts')] };
+  const result = await checkMenuPaths(paths, stat, 1000);
+  assert.equal(result.near, null);
+  assert.deepEqual(result.screen.map(t => t.path), ['docs/a.md', 'src/b.ts']);
+});
+
+test('FR-ARCH-013 AC-12: the menu hook checks through the time-limited checkMenuPaths', () => {
+  const hook = readFileSync(new URL('../../src/hooks/useVerifiedScreenPaths.ts', import.meta.url), 'utf8');
+  assert.match(hook, /checkMenuPaths\(/);
+  assert.doesNotMatch(hook, /verifyScreenPaths\(/, 'a direct verifyScreenPaths call has no deadline');
 });

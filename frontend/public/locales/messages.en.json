@@ -1241,6 +1241,8 @@
   "editor.html.unsaved": "Showing unsaved changes",
   "editor.html.save": "Save (Ctrl+S)",
   "editor.html.reload": "Reload",
+  "editor.html.fitWidth": "Fit 1280",
+  "editor.html.fitWidthHint": "Lay the page out 1280 px wide, as on a PC, and shrink it to the window. Off: the page as it lays out at this width.",
   "editor.html.reloadHint": "Reload (F5)",
   "editor.html.openTab": "Open in new tab",
   "editor.html.openTabHint": "Open in a new tab (still isolated)",
