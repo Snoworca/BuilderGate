@@ -1,88 +1,88 @@
 {
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-10-28T06:39:29.042Z",
+  "generatedAt": "2026-10-28T06:52:46.595Z",
   "source": "speckiwi",
   "specFingerprint": {
     "algorithm": "sha256",
-    "value": "574fda1ade94436fa957f2ff8e9e9ca8001ff9e1ac366a7877870dec50b7bb0a",
+    "value": "04742bdbfdc2a7b44ee9b5a036b0a16957257ad8af2601d0d429d43acc6b42b6",
     "files": [
       {
         "path": "docs/spec/00.index.md",
         "sha256": "b29e936261eeb72a6ae48d1a038cc925c761ec4a442e584636b482b8f5dc5173",
         "size": 15481,
-        "mtimeMs": 1793168414045.031
+        "mtimeMs": 1793170223493.8079
       },
       {
         "path": "docs/spec/10.product-architecture.srs.md",
-        "sha256": "7cddf3da630fdc25702b84b989558fe8205353a8f349e84afac4988cc5b973b1",
-        "size": 75980,
-        "mtimeMs": 1793169568652.4807
+        "sha256": "819502d22c8894f8e62be6854faf9d6202b841261b1ec4dd06056129561c8caa",
+        "size": 76940,
+        "mtimeMs": 1793170365909.3
       },
       {
         "path": "docs/spec/20.ai-tui-recovery.srs.md",
         "sha256": "8116f4b5e21da79daf7e23aa9d9f301986bbb3a8c0516b2e48678a08ee1ca018",
         "size": 107460,
-        "mtimeMs": 1793168335267.1426
+        "mtimeMs": 1793170223497.5344
       },
       {
         "path": "docs/spec/30.buildergate-stability.srs.md",
         "sha256": "a22f18ee60518866543e0046945cadac9c8e9e5b3828c16459d94056dd0aecd0",
         "size": 1550236,
-        "mtimeMs": 1793168335272.7168
+        "mtimeMs": 1793170223503.63
       },
       {
         "path": "docs/spec/40.mcp-session-orchestration.srs.md",
         "sha256": "229115589c1cdc445ed9d0f1f812fc019f0ebf6855cc4d482c1ec24ae3eb6ac5",
         "size": 148689,
-        "mtimeMs": 1793168335273.721
+        "mtimeMs": 1793170223505.1345
       },
       {
         "path": "docs/spec/41.markdown-editor.srs.md",
-        "sha256": "4a1fd7d8b18198031df6d5c15b67fa05416306f4ddb4f3d060f6108bade9f91c",
-        "size": 315996,
-        "mtimeMs": 1793168335274.7207
+        "sha256": "96776bf37e4ded89431511b7ea2ce80ca9496b45ade69a3b81592d8a34f141bd",
+        "size": 316543,
+        "mtimeMs": 1793170365074.67
       },
       {
         "path": "docs/spec/42.file-explorer.srs.md",
         "sha256": "8d6a89b595e6881acc04dcfdd7d1f73483a6e5fcdecb4f68b841d933919ba121",
         "size": 150699,
-        "mtimeMs": 1793168335275.7202
+        "mtimeMs": 1793170223510.147
       },
       {
         "path": "docs/spec/43.file-operations.srs.md",
         "sha256": "14e45850398d07f124b0f58a85c77fc54802d71497979cb4609f48cda0c338d6",
         "size": 72202,
-        "mtimeMs": 1793168335276.7205
+        "mtimeMs": 1793170223511.147
       },
       {
         "path": "docs/spec/44.ui-design-system.srs.md",
         "sha256": "2eef998fb93ea5d0951e48d877fdb5e157a30af7bcc0389343b569fd3458ea38",
         "size": 47478,
-        "mtimeMs": 1793168335276.7205
+        "mtimeMs": 1793170223513.145
       },
       {
         "path": "docs/spec/45.i18n.srs.md",
         "sha256": "03098df4eacc1eec225eff5789f9e23da9e9608d61946abd225bd4ebe8f35c56",
         "size": 18127,
-        "mtimeMs": 1793168335276.7205
+        "mtimeMs": 1793170223514.1455
       },
       {
         "path": "docs/spec/46.mobile-terminal-keyboard.srs.md",
         "sha256": "a42124313d439ad96e7e206bf1eabeab09122ae8496d527d41f55a255f24c8aa",
         "size": 81538,
-        "mtimeMs": 1793168335278.2246
+        "mtimeMs": 1793170223515.1455
       },
       {
         "path": "docs/spec/47.git-viewer.srs.md",
         "sha256": "d24090b0f318a8f655ab85cc4ce2d3aaa91c749878b4144195ee162c26756a1e",
         "size": 38573,
-        "mtimeMs": 1793168335278.2246
+        "mtimeMs": 1793170223516.1453
       },
       {
         "path": "docs/spec/90.appendix.md",
         "sha256": "f212b5924f51cffb3d4ecc714282a4e0c4a5c4ab25d3f154864ef1b333125c5c",
         "size": 121,
-        "mtimeMs": 1793168335278.2246
+        "mtimeMs": 1793170223517.1443
       }
     ]
   },
