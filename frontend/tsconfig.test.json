@@ -172,6 +172,7 @@
     "tests/unit/fileExplorerPickUpWiring.test.ts",
     "tests/unit/fileExplorerDropOnFile.test.ts",
     "tests/unit/gitGraphRowHeight.test.ts",
+    "tests/unit/gitSubjectWrap.test.ts",
     "tests/unit/mobileLayoutQuery.test.ts",
     "tests/unit/terminalLargeWriteSync.test.ts",
     "tests/unit/contextMenuBackdropPress.test.ts",
